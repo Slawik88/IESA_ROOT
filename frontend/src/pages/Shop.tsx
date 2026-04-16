@@ -174,6 +174,7 @@ export default function Shop({ chatId }: Props) {
         <div className="text-right">
           <p className="text-2xl font-extrabold tabular-nums stat-value">{fmt(data.balance)}</p>
           <p className="text-[10px]" style={{ color: "var(--text-hint)" }}>🪙 мора</p>
+          <p className="text-[10px] mt-1" style={{ color: "#7dd3fc" }}>💎 {fmt(data.crystals)} кристаллов</p>
         </div>
       </div>
 
@@ -185,7 +186,7 @@ export default function Shop({ chatId }: Props) {
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm">VIP-статус</p>
             <p className="text-xs mt-0.5" style={{ color: "var(--text-hint)" }}>
-              Повышенный дроп, бонусы к Морě и эксклюзивные функции
+              7 дней VIP за кристаллы. Без списания Моры и без семейного кошелька.
             </p>
           </div>
           <button
@@ -195,7 +196,11 @@ export default function Shop({ chatId }: Props) {
               setBuying("vip");
               try {
                 const res = await buyShopItem(chatId, "vip", "vip");
-                if (res.ok) { showOk(`👑 VIP активирован! Баланс: ${fmt(res.balance ?? 0)} 🪙`); reload(); refreshUserData(); }
+                if (res.ok) {
+                  showOk(`👑 VIP активирован на ${data.vip_duration_days ?? 7} дн. Остаток: ${fmt(res.crystals_balance ?? data.crystals)} 💎`);
+                  reload();
+                  refreshUserData();
+                }
                 else { showErr(res.error ?? "Ошибка покупки VIP"); }
               } catch (e: unknown) { showErr(e instanceof Error ? e.message : "Ошибка"); }
               finally { setBuying(null); }
@@ -205,7 +210,7 @@ export default function Shop({ chatId }: Props) {
           >
             {buying === "vip"
               ? <Loader2 size={12} className="animate-spin" />
-              : <><Star size={12} /> 2 000 🪙</>}
+              : <><Star size={12} /> {data.vip_price_crystals ?? 25} 💎</>}
           </button>
         </div>
       )}

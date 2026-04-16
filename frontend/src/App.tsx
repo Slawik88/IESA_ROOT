@@ -110,7 +110,7 @@ export default function App() {
 function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
   const { isDev, userDataError, userDataLoading, refreshUserData } = useAppContext();
   const [tab, setTab] = useState<Tab>("profile");
-  useTelemetry(tab);
+  useTelemetry(tab, userId);
 
   // HIGH-013: trigger newbie quest initialisation on first load
   useEffect(() => {

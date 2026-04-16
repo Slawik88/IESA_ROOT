@@ -14,7 +14,9 @@ GACHA_SINGLES_MULTI  = 650   # «одиночный» баннер ×10 [РЕБ�
 GACHA_PITY_MAX       = 50    # гарантия 5★ каждые N круток
 
 # ─── Магазин: VIP ─────────────────────────────────────────────────────────────
-PRICE_VIP = 2000  # [РЕБАЛАНС: 300→2000 — истинно премиальный статус]
+PRICE_VIP = 2000  # legacy mora price for old bot texts; purchase path is crystal-only
+PRICE_VIP_CRYSTALS = 25
+VIP_DURATION_DAYS = 7
 
 # ─── Пропуск чистки ──────────────────────────────────────────────────────────
 CLEANUP_PASS_PRICE = 2000          # Откуп от 1 чистки (требует одобрения владельца)
@@ -130,7 +132,8 @@ BANK_PLANS = {
 ROULETTE_MIN_BET      = 10
 ROULETTE_MAX_BET      = 500
 ROULETTE_TAX          = 0.05   # 5% комиссия с выигрыша в казну
-ROULETTE_ITEM_CHANCE  = 0.18   # 18% шанс бонусного предмета при выигрыше
+ROULETTE_WIN_RATE     = 0.45   # фиксированный шанс победы на простых ставках
+ROULETTE_ITEM_CHANCE  = 0.60   # при победе часто даём слабый бонусный предмет
 # When the pity system is active (3+ losses) max bet is capped to this value.
 # Prevents "bet small to build pity, then bet big" exploit.
 ROULETTE_PITY_BET_CAP = 100
@@ -138,20 +141,15 @@ ROULETTE_PITY_BET_CAP = 100
 # Призовой пул рулетки: (item_key, item_name, item_type, weight)
 # item_type: "food" | "coupon" | "buff" | "cosmetic"
 ROULETTE_PRIZE_POOL = [
-    ("лапша",        "🍜 Лапша путника",               "food",    30),
-    ("гриб",         "🍄 Гриб Слепого Ка",             "food",    20),
-    ("краб",         "🦀 Золотой краб",                "food",    10),
-    ("деликатес",    "🦞 Морской деликатес",            "food",     5),
-    ("exp_boost_sm", "🗺️ Ускорение экспедиции S",      "coupon",  25),
-    ("quest_reroll", "🔄 Купон реролла задания",        "coupon",  18),
-    ("exp_boost_md", "🗺️✨ Ускорение экспедиции M",    "coupon",   8),
-    ("pet_rename",   "✏️ Купон переименования питомца", "coupon",   5),
-    ("str_potion",   "⚔️ Зелье Силы",                  "buff",    20),
-    ("def_potion",   "🛡️ Зелье Защиты",               "buff",    20),
-    ("hp_potion",    "❤️ Зелье Здоровья",             "buff",    20),
-    ("cmn_xp_shard", "✨ Осколок Опыта",               "consume", 15),
-    ("cmn_herb",     "🌿 Трава Сесилии",               "consume", 12),
-    ("rare_mora_bag","💰 Мешок Моры",                  "consume",  6),
+    ("лапша",        "🍜 Лапша путника",          "food",    28),
+    ("гриб",         "🍄 Гриб Слепого Ка",        "food",    22),
+    ("краб",         "🦀 Золотой краб",           "food",    14),
+    ("exp_boost_sm", "🗺️ Ускорение экспедиции S", "coupon",  12),
+    ("str_potion",   "⚔️ Зелье Силы",             "buff",    18),
+    ("def_potion",   "🛡️ Зелье Защиты",          "buff",    18),
+    ("hp_potion",    "❤️ Зелье Здоровья",        "buff",    18),
+    ("cmn_xp_shard", "✨ Осколок Опыта",          "consume", 14),
+    ("cmn_herb",     "🌿 Трава Сесилии",          "consume", 12),
 ]
 
 # ─── Кастомный титул ─────────────────────────────────────────────────────────

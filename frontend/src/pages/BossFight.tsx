@@ -64,9 +64,13 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   const [session, setSession]   = useState<BossSession | null>(null);
   const [progress, setProgress] = useState<BossProgress | null>(null);
   const [nextLevel, setNextLevel] = useState(1);
+  const [dailyLimit, setDailyLimit] = useState(2);
+  const [dailyUsed, setDailyUsed] = useState(0);
+  const [resetText, setResetText] = useState<string>("");
   const [loading, setLoading]   = useState(true);
   const [starting, setStarting] = useState(false);
   const [toast, setToast]       = useState<string | null>(null);
+  const [fightTimeLeft, setFightTimeLeft] = useState<number | null>(null);
 
   // Local fight state
   const [bossHp, setBossHp]       = useState(0);
@@ -126,11 +130,17 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       setSession(r.session);
       setProgress(r.progress);
       setNextLevel(r.next_level);
+      setDailyLimit(r.daily_limit);
+      setDailyUsed(r.daily_used);
+      setResetText(r.reset_in_text);
       if (r.session && !r.session.is_completed) {
         setBossHp(r.session.boss_current_hp);
         setBossMaxHp(r.session.boss_max_hp);
         setPlayerHp(100);
         setStamina(STAMINA_MAX);
+        setFightTimeLeft(r.session.fight_time_left_seconds ?? null);
+      } else {
+        setFightTimeLeft(null);
       }
     } catch { /* ignore */ }
     finally { setLoading(false); }
@@ -148,6 +158,17 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
   useEffect(() => { loadPotions(); }, [loadPotions]);
+
+  useEffect(() => {
+    if (!fightActive || paused || fightTimeLeft == null) return;
+    const id = setInterval(() => {
+      setFightTimeLeft((prev) => {
+        if (prev == null) return prev;
+        return Math.max(0, prev - 1);
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [fightActive, paused, fightTimeLeft]);
 
   // ── Stamina regen ───────────────────────────────────────────
   useEffect(() => {
@@ -256,6 +277,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       setBlocking(false);
       setWeakSpots([]);
       setPaused(false);
+      setFightTimeLeft(r.session.fight_time_left_seconds ?? r.session.fight_timeout_seconds ?? 120);
       loadPotions();
     } catch (e: unknown) {
       showToast("⚠️ " + (e instanceof Error ? e.message : "Ошибка"));
@@ -289,12 +311,20 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   // ── Attack backend ──────────────────────────────────────────
   const doAttackBackend = useCallback(async (isCrit?: boolean) => {
     if (!chatId || attacking) return;
+    if (fightTimeLeft != null && fightTimeLeft <= 0) {
+      showToast("⏳ Время боя вышло");
+      loadStatus();
+      return;
+    }
     setAttacking(true);
     try {
       const r = await attackBoss(chatId);
       if (!r.ok) return;
       const dmg = isCrit ? Math.floor(r.damage_dealt * 1.5) : r.damage_dealt;
       setBossHp(r.boss_hp);
+      if (typeof r.fight_time_left_seconds === "number") {
+        setFightTimeLeft(r.fight_time_left_seconds);
+      }
       addFloat(
         `${r.crit || isCrit ? "⚡ КРИТ! " : ""}−${fmt(dmg)}`,
         50 + (Math.random() - 0.5) * 30,
@@ -303,12 +333,16 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       );
       if (r.boss_defeated) {
         setSession(s => s ? { ...s, is_completed: 1 } : s);
+        setFightTimeLeft(0);
         showToast(`🏆 Босс повержен! +${r.rewards?.mora ?? 0}🪙 +${r.rewards?.xp ?? 0}⚡`);
         await loadStatus();
       }
-    } catch { /* ignore */ }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка атаки");
+      loadStatus();
+    }
     finally { setAttacking(false); }
-  }, [chatId, attacking, addFloat, showToast, loadStatus]);
+  }, [chatId, attacking, addFloat, showToast, loadStatus, fightTimeLeft]);
 
   // ── Skill: Fast Attack ──────────────────────────────────────
   const doFast = async () => {
@@ -353,6 +387,8 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
 
   const completed = session?.is_completed === 1 || playerHp <= 0;
   const canStart  = !session || completed;
+  const dailyRemaining = Math.max(0, dailyLimit - dailyUsed);
+  const fightTimeText = fightTimeLeft == null ? null : fmtSecs(fightTimeLeft);
 
   const SLOT_EMOJI: Record<string, string> = { weapon: "⚔️", armor: "🛡️", helmet: "🪖", boots: "👢", artifact: "💎" };
 
@@ -365,7 +401,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>⚔️ Босс</h1>
             {mode === "solo" && progress && (
               <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
-                Макс. уровень: {progress.max_level}
+                Макс. уровень: {progress.max_level} • Попыток осталось: {dailyRemaining}/{dailyLimit}
               </p>
             )}
           </div>
@@ -408,6 +444,19 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       {/* Solo boss mode */}
       {mode === "solo" && <>
 
+      <div className="mx-4 mt-3 glass-card p-3 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>Дневной лимит</p>
+          <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+            {dailyUsed}/{dailyLimit} боёв
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>Сброс</p>
+          <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{resetText || "--"}</p>
+        </div>
+      </div>
+
       {/* Toast */}
       {toast && (
         <div className="mx-4 mt-2 px-4 py-2.5 glass-card animate-fadeIn text-center text-sm font-medium"
@@ -423,7 +472,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             <div className="text-8xl drop-shadow-lg animate-orb">{bossArt(nextLevel)}</div>
             <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{bossName(nextLevel)}</p>
             <p className="text-sm" style={{ color: "var(--text-hint)" }}>
-              HP: {fmt(3_000 + (nextLevel - 1) * 2_000)}
+              HP: {fmt(7_500 + (nextLevel - 1) * 4_500)}
             </p>
             {session?.is_completed === 1 && (
               <p className="badge badge-success text-sm px-4 py-1">✅ Побеждён сегодня!</p>
@@ -524,6 +573,10 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
                 </div>
                 <div className="progress-bar">
                   <div className="progress-bar-fill" style={{ width: `${Math.max(0, (bossHp / bossMaxHp) * 100)}%` }} />
+                </div>
+                <div className="flex items-center justify-between text-[11px]" style={{ color: "var(--text-hint)" }}>
+                  <span>Попыток осталось: {dailyRemaining}/{dailyLimit}</span>
+                  <span>⏳ {fightTimeText ?? "--"}</span>
                 </div>
                 {/* Telegraph bar */}
                 {telegraphing && (

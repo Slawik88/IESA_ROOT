@@ -34,16 +34,15 @@ const WHEEL_DOT: Record<string, string> = {
 };
 
 // Bet type groups
-type BetKey = "red" | "black" | "even" | "odd" | "low" | "high" | "zero" | `number_${number}`;
+type BetKey = "red" | "black" | "even" | "odd" | "low" | "high";
 
 const SIMPLE_BETS: { key: BetKey; label: string; payout: string }[] = [
-  { key: "red",   label: "🔴 Красное",   payout: "×2" },
-  { key: "black", label: "⚫ Чёрное",   payout: "×2" },
-  { key: "even",  label: "Чётное",       payout: "×2" },
-  { key: "odd",   label: "Нечётное",     payout: "×2" },
-  { key: "low",   label: "1–18",         payout: "×2" },
-  { key: "high",  label: "19–36",        payout: "×2" },
-  { key: "zero",  label: "🟢 Зеро",     payout: "×36" },
+  { key: "red",   label: "🔴 Красное", payout: "до ×1.8" },
+  { key: "black", label: "⚫ Чёрное",  payout: "до ×1.8" },
+  { key: "even",  label: "Чётное",     payout: "до ×1.8" },
+  { key: "odd",   label: "Нечётное",   payout: "до ×1.8" },
+  { key: "low",   label: "1–18",       payout: "до ×1.8" },
+  { key: "high",  label: "19–36",      payout: "до ×1.8" },
 ];
 
 // ── Sub-tab type ───────────────────────────────────────────────
@@ -151,7 +150,7 @@ function CoinSection({ chatId }: { chatId: number }) {
     <div className="animate-fadeIn">
       <Card>
         <p className="text-sm mb-3" style={{ color: "var(--text-hint)" }}>
-          50% шанс выигрыша × 2. Максимальная ставка {COIN_MAX.toLocaleString("ru")} 🪙
+          47% шанс выигрыша. Максимальная ставка {COIN_MAX.toLocaleString("ru")} 🪙
         </p>
         <NumInput
           label="Ставка 🪙"
@@ -281,8 +280,6 @@ function RouletteSection({ chatId }: { chatId: number }) {
   const [amount, setAmount]   = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState<RouletteResult | null>(null);
-  // Number picker mode
-  const [numMode, setNumMode] = useState(false);
 
   const handleSpin = useCallback(async () => {
     const amt = parseInt(amount, 10);
@@ -313,11 +310,11 @@ function RouletteSection({ chatId }: { chatId: number }) {
           {SIMPLE_BETS.map(b => (
             <button
               key={b.key}
-              onClick={() => { setBetType(b.key); setNumMode(false); }}
+              onClick={() => { setBetType(b.key); }}
               className="rounded-xl py-2 px-1 text-xs font-semibold transition-all"
               style={{
-                backgroundColor: (!numMode && betType === b.key) ? "var(--accent)" : "var(--bg-primary)",
-                color: (!numMode && betType === b.key) ? "#fff" : "var(--text-primary)",
+                backgroundColor: betType === b.key ? "var(--accent)" : "var(--bg-primary)",
+                color: betType === b.key ? "#fff" : "var(--text-primary)",
                 border: "1px solid var(--border)",
               }}
             >
@@ -327,31 +324,9 @@ function RouletteSection({ chatId }: { chatId: number }) {
           ))}
         </div>
 
-        {/* Number picker */}
-        <p className="text-xs mb-1 font-semibold" style={{ color: "var(--text-hint)" }}>Число (×36):</p>
-        <div className="flex flex-wrap gap-1 mb-3 max-h-24 overflow-y-auto rounded-xl p-2" style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)" }}>
-          {Array.from({ length: 37 }, (_, i) => {
-            const col = wheelColor(i);
-            const isSelected = numMode && betType === `number_${i}`;
-            return (
-              <button
-                key={i}
-                onClick={() => { setBetType(`number_${i}`); setNumMode(true); }}
-                className="rounded-lg text-[11px] font-bold transition-all"
-                style={{
-                  width: 28, height: 24,
-                  backgroundColor: isSelected ? "var(--accent)" : WHEEL_DOT[col],
-                  color: "#fff",
-                  opacity: isSelected ? 1 : 0.75,
-                  border: isSelected ? "2px solid #fff" : "none",
-                  flexShrink: 0,
-                }}
-              >
-                {i}
-              </button>
-            );
-          })}
-        </div>
+        <p className="text-[11px] mb-3" style={{ color: "var(--text-hint)" }}>
+          Прямые ставки на число и зеро отключены: рулетка больше не даёт взрывных выплат и не ломает экономику.
+        </p>
 
         <NumInput
           label="Ставка 🪙"
@@ -512,7 +487,7 @@ function LotterySection({ chatId }: { chatId: number }) {
           <AlertCircle size={16} style={{ color: "var(--text-hint)", flexShrink: 0, marginTop: 2 }} />
           <p className="text-xs leading-relaxed" style={{ color: "var(--text-hint)" }}>
             Розыгрыш проходит раз в неделю. Выигрыш зачисляется автоматически.
-            Чем больше билетов — тем выше шанс. Выигрыш: 60–120 🪙 за билет.
+            Чем больше билетов — тем выше шанс. Выигрыш: 120–300 🪙 за билет.
           </p>
         </div>
       </Card>

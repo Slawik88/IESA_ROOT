@@ -859,12 +859,37 @@ export interface BossSession {
   boss_current_hp: number;
   user_damage: number;
   user_hits: number;
+  run_index?: number;
+  started_at?: string | null;
+  fight_timeout_seconds?: number;
+  fight_time_left_seconds?: number | null;
+  fight_time_left_text?: string | null;
+  fight_expired?: boolean;
   is_completed: 0 | 1;
   is_repeat: 0 | 1;
 }
 export interface BossProgress { max_level: number; last_completed: string | null; }
-export interface BossStatusResult { session: BossSession | null; progress: BossProgress | null; next_level: number; }
-export interface BossAttackResult { ok: boolean; damage_dealt: number; crit: boolean; boss_hp: number; boss_defeated: boolean; rewards?: { mora: number; xp: number }; new_balance?: number; }
+export interface BossStatusResult {
+  session: BossSession | null;
+  progress: BossProgress | null;
+  next_level: number;
+  daily_limit: number;
+  daily_used: number;
+  daily_remaining: number;
+  reset_at: string;
+  reset_in_seconds: number;
+  reset_in_text: string;
+}
+export interface BossAttackResult {
+  ok: boolean;
+  damage_dealt: number;
+  crit: boolean;
+  boss_hp: number;
+  boss_defeated: boolean;
+  rewards?: { mora: number; xp: number };
+  new_balance?: number;
+  fight_time_left_seconds?: number;
+}
 
 export function fetchBossStatus(chatId: number): Promise<BossStatusResult> {
   return request<BossStatusResult>(`/api/solo_boss/status?chat_id=${chatId}`);
@@ -903,6 +928,15 @@ export interface CoupleBossSession {
   boss_current_hp: number;
   user_a_damage: number;
   user_b_damage: number;
+  user_a_hits?: number;
+  user_b_hits?: number;
+  run_index?: number;
+  started_at?: string | null;
+  fight_timeout_seconds?: number;
+  fight_time_left_seconds?: number | null;
+  fight_time_left_text?: string | null;
+  fight_expired?: boolean;
+  boss_hp_percent?: number;
   is_completed: 0 | 1;
   is_repeat: 0 | 1;
 }
@@ -914,6 +948,19 @@ export interface CoupleBossStatusResult {
   session?: CoupleBossSession | null;
   max_level_completed?: number;
   available_levels?: number[];
+  daily_limit?: number;
+  daily_used?: number;
+  daily_remaining?: number;
+  reset_at?: string;
+  reset_in_seconds?: number;
+  reset_in_text?: string;
+  my_damage?: number;
+  my_hits?: number;
+  partner_damage?: number;
+  partner_hits?: number;
+  total_damage?: number;
+  fight_time_left_seconds?: number | null;
+  fight_time_left_text?: string | null;
 }
 
 export interface CoupleBossAttackResult {
@@ -924,6 +971,7 @@ export interface CoupleBossAttackResult {
   boss_defeated: boolean;
   aggro?: boolean;
   aggro_damage?: number;
+  fight_time_left_seconds?: number;
   rewards?: { mora: number; xp: number };
 }
 
@@ -931,7 +979,7 @@ export function fetchCoupleBossStatus(chatId: number): Promise<CoupleBossStatusR
   return request<CoupleBossStatusResult>(`/api/couple_boss/status?chat_id=${chatId}`);
 }
 
-export function startCoupleBoss(chatId: number, bossLevel: number): Promise<{ ok: boolean; session_id: number; boss_level: number; boss_max_hp: number; is_repeat: number }> {
+export function startCoupleBoss(chatId: number, bossLevel: number): Promise<{ ok: boolean; session_id: number; boss_level: number; boss_max_hp: number; is_repeat: number; session: CoupleBossSession; daily_limit: number; daily_used: number; daily_remaining: number; reset_at: string; reset_in_seconds: number; reset_in_text: string }> {
   return request(`/api/couple_boss/start`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -977,6 +1025,7 @@ export interface AnalyticsResponse {
   total_sessions: number;
   avg_session_sec: number;
   daily_sessions: { date: string; count: number }[];
+  user_breakdown: { user_id: number; name: string; seconds: number; tabs: { key: string; label: string; seconds: number }[] }[];
 }
 
 /** Отправить батч событий телеметрии */

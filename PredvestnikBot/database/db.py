@@ -238,7 +238,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e)  # колонка уже существует
+                _log.debug("%s", _e, exc_info=True)
 
         # Добавляем новые колонки в cleanup_counts (для обновлений существующей БД)
         for col_def in [
@@ -1032,6 +1032,12 @@ async def init_db():
                 UNIQUE(user_a_id, user_b_id, chat_id, session_date)
             )
         """)
+        await db.execute("ALTER TABLE couple_boss_sessions ADD COLUMN IF NOT EXISTS run_index INTEGER NOT NULL DEFAULT 1")
+        await db.execute("ALTER TABLE couple_boss_sessions ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
+        await db.execute("ALTER TABLE couple_boss_sessions DROP CONSTRAINT IF EXISTS couple_boss_sessions_user_a_id_user_b_id_chat_id_session_date_key")
+        await db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_couple_boss_daily_run ON couple_boss_sessions(user_a_id, user_b_id, chat_id, session_date, run_index)"
+        )
         
         # ─── Прогресс парных боссов (максимальный пройденный уровень) ─
         await db.execute("""
@@ -1076,6 +1082,12 @@ async def init_db():
                 UNIQUE(user_id, chat_id, session_date)
             )
         """)
+        await db.execute("ALTER TABLE solo_boss_sessions ADD COLUMN IF NOT EXISTS run_index INTEGER NOT NULL DEFAULT 1")
+        await db.execute("ALTER TABLE solo_boss_sessions ADD COLUMN IF NOT EXISTS started_at TIMESTAMPTZ NOT NULL DEFAULT NOW()")
+        await db.execute("ALTER TABLE solo_boss_sessions DROP CONSTRAINT IF EXISTS solo_boss_sessions_user_id_chat_id_session_date_key")
+        await db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_solo_boss_daily_run ON solo_boss_sessions(user_id, chat_id, session_date, run_index)"
+        )
 
         await db.execute("""
             CREATE TABLE IF NOT EXISTS solo_boss_progress (
@@ -2014,6 +2026,23 @@ async def init_db():
             )
             await _db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_tele_type_key ON telemetry_counters(event_type, event_key)"
+            )
+            await _db.execute("""
+                CREATE TABLE IF NOT EXISTS telemetry_user_counters (
+                    user_id     BIGINT       NOT NULL,
+                    event_type  VARCHAR(60)  NOT NULL,
+                    event_key   VARCHAR(120) NOT NULL,
+                    count       BIGINT       NOT NULL DEFAULT 0,
+                    seconds     BIGINT       NOT NULL DEFAULT 0,
+                    date_bucket DATE         NOT NULL DEFAULT CURRENT_DATE,
+                    PRIMARY KEY (user_id, event_type, event_key, date_bucket)
+                )
+            """)
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tele_user_date ON telemetry_user_counters(date_bucket, user_id)"
+            )
+            await _db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tele_user_type ON telemetry_user_counters(event_type, event_key)"
             )
             await _db.commit()
     except Exception as _e:
@@ -4260,9 +4289,9 @@ async def get_vip(user_id: int, chat_id: int) -> int:
     return 1
 
 
-async def set_vip(user_id: int, chat_id: int, value: int):
-    """Set VIP status for user in chat. Enabling VIP sets a 30-day expiry."""
-    expires_at = (datetime.now(timezone.utc) + timedelta(days=30)) if value else None
+async def set_vip(user_id: int, chat_id: int, value: int, *, days: int = 30):
+    """Set VIP status for user in chat. Enabling VIP sets an expiry for the given number of days."""
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=days)) if value else None
     async with postgres_connect() as db:
         await db.execute(
             """INSERT INTO user_mora (user_id, chat_id, vip, vip_expires_at) VALUES (?, ?, ?, ?)
@@ -8629,8 +8658,8 @@ async def enhance_item(user_id: int, chat_id: int, item_id: int, *, use_stone: b
     async with postgres_connect() as db:
         async with db.execute(
             "SELECT slot, enhancement_level, atk, def_val, hp, crit_rate, item_name FROM gacha_inventory "
-            "WHERE id=? AND user_id=? AND chat_id=? AND slot IN ('weapon', 'helmet', 'armor', 'boots', 'artifact')",
-            (item_id, user_id, chat_id),
+            "WHERE id=? AND user_id=? AND slot IN ('weapon', 'helmet', 'armor', 'boots', 'artifact')",
+            (item_id, user_id),
         ) as c:
             item = await c.fetchone()
         
@@ -8920,25 +8949,31 @@ async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: in
     if user_a_id > user_b_id:
         user_a_id, user_b_id = user_b_id, user_a_id
         
-    # Boss HP scales with level: base 5000 + 3000 per level
-    boss_max_hp = 5_000 + (boss_level - 1) * 3_000
+    # Pair fights should feel like raids, not quick taps.
+    boss_max_hp = 16_000 + (boss_level - 1) * 9_000
     
     # Check if this is a repeat (already cleared this level today)
     progress = await get_couple_boss_progress(user_a_id, user_b_id, chat_id)
     is_repeat = progress and progress.get("max_level", 0) >= boss_level
     
     async with postgres_connect() as db:
+        run_row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM couple_boss_sessions WHERE user_a_id=? AND user_b_id=? AND chat_id=? AND session_date=?",
+            (user_a_id, user_b_id, chat_id, today),
+        )
+        run_index = int(run_row["c"] or 0) + 1
         cursor = await db.execute(
             """INSERT INTO couple_boss_sessions 
                (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_current_hp, 
-                is_repeat, session_date)
-               VALUES (?,?,?,?,?,?,?,?) RETURNING id""",
-            (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 
-             1 if is_repeat else 0, today),
+                is_repeat, session_date, run_index)
+               VALUES (?,?,?,?,?,?,?,?,?) RETURNING id, started_at""",
+            (user_a_id, user_b_id, chat_id, boss_level, boss_max_hp, boss_max_hp,
+             1 if is_repeat else 0, today, run_index),
         )
         row = await cursor.fetchone()
         await db.commit()
         session_id = row[0] if row else None
+        started_at = row[1] if row else None
     
     return {
         "id": session_id,
@@ -8954,6 +8989,8 @@ async def create_couple_boss_session(user_a_id: int, user_b_id: int, chat_id: in
         "user_b_hits": 0,
         "user_a_aggro": 0,
         "user_b_aggro": 0,
+        "run_index": run_index,
+        "started_at": started_at,
         "is_repeat": is_repeat,
         "is_completed": 0,
     }
@@ -9018,7 +9055,7 @@ async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, use
 
             boss_retaliation = None
             if new_a_aggro >= random.randint(3, 8):
-                boss_damage = random.randint(50, 150) + locked_row["boss_level"] * 10
+                boss_damage = random.randint(120, 240) + locked_row["boss_level"] * 20
                 boss_retaliation = {"target": user_a_id, "damage": boss_damage}
                 new_a_aggro = 0
 
@@ -9031,7 +9068,7 @@ async def apply_couple_boss_damage(user_id: int, session: dict, damage: int, use
 
             boss_retaliation = None
             if new_b_aggro >= random.randint(3, 8):
-                boss_damage = random.randint(50, 150) + locked_row["boss_level"] * 10
+                boss_damage = random.randint(120, 240) + locked_row["boss_level"] * 20
                 boss_retaliation = {"target": user_b_id, "damage": boss_damage}
                 new_b_aggro = 0
 
@@ -9183,7 +9220,8 @@ async def get_solo_boss_session(user_id: int, chat_id: int) -> dict | None:
     async with postgres_connect() as db:
         async with db.execute(
             """SELECT * FROM solo_boss_sessions
-               WHERE user_id=? AND chat_id=? AND session_date=? AND is_completed=0""",
+               WHERE user_id=? AND chat_id=? AND session_date=? AND is_completed=0
+               ORDER BY id DESC LIMIT 1""",
             (user_id, chat_id, today),
         ) as c:
             row = await c.fetchone()
@@ -9205,23 +9243,24 @@ async def create_solo_boss_session(user_id: int, chat_id: int, boss_level: int =
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     progress = await get_solo_boss_progress(user_id, chat_id)
     is_repeat = progress and progress.get("max_level", 0) >= boss_level
-    # REBALANCE: 3000 HP base (+2000 per level) — player deals ~50-300 damage per hit
-    boss_max_hp = 3_000 + (boss_level - 1) * 2_000
+    boss_max_hp = 7_500 + (boss_level - 1) * 4_500
 
     async with postgres_connect() as db:
-        # Use ON CONFLICT DO NOTHING to handle duplicate requests (user clicks start twice)
+        run_row = await db.fetchone(
+            "SELECT COUNT(*) AS c FROM solo_boss_sessions WHERE user_id=? AND chat_id=? AND session_date=?",
+            (user_id, chat_id, today),
+        )
+        run_index = int(run_row["c"] or 0) + 1
         await db.execute(
             """INSERT INTO solo_boss_sessions
-               (user_id, chat_id, boss_level, boss_max_hp, boss_current_hp, is_repeat, session_date)
-               VALUES (?,?,?,?,?,?,?)
-               ON CONFLICT(user_id, chat_id, session_date) DO NOTHING""",
-            (user_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 1 if is_repeat else 0, today),
+               (user_id, chat_id, boss_level, boss_max_hp, boss_current_hp, is_repeat, session_date, run_index)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (user_id, chat_id, boss_level, boss_max_hp, boss_max_hp, 1 if is_repeat else 0, today, run_index),
         )
         await db.commit()
-        # Return the session (existing or newly created)
         async with db.execute(
-            "SELECT * FROM solo_boss_sessions WHERE user_id=? AND chat_id=? AND session_date=?",
-            (user_id, chat_id, today),
+            "SELECT * FROM solo_boss_sessions WHERE user_id=? AND chat_id=? AND session_date=? AND run_index=?",
+            (user_id, chat_id, today, run_index),
         ) as c:
             row = await c.fetchone()
 
@@ -9237,6 +9276,7 @@ async def create_solo_boss_session(user_id: int, chat_id: int, boss_level: int =
         "boss_current_hp": boss_max_hp,
         "user_damage": 0,
         "user_hits": 0,
+        "run_index": run_index,
         "is_completed": 0,
         "is_repeat": is_repeat,
     }
@@ -9644,7 +9684,7 @@ async def hard_delete_user(user_id: int) -> None:
 #  БЛОК 3: Телеметрия Mini App
 # ═══════════════════════════════════════════════════════════════════════════════
 
-async def upsert_telemetry_batch(events: list[dict]) -> None:
+async def upsert_telemetry_batch(events: list[dict], user_id: int | None = None) -> None:
     """
     Атомарно инкрементирует счётчики телеметрии для пачки событий.
     Каждый event: { event_type: str, event_key: str, count: int, seconds: int }
@@ -9672,6 +9712,18 @@ async def upsert_telemetry_batch(events: list[dict]) -> None:
                     """,
                     (etype, ekey, cnt, secs),
                 )
+                if user_id is not None:
+                    await db.execute(
+                        """
+                        INSERT INTO telemetry_user_counters (user_id, event_type, event_key, count, seconds, date_bucket)
+                        VALUES (?, ?, ?, ?, ?, CURRENT_DATE)
+                        ON CONFLICT (user_id, event_type, event_key, date_bucket)
+                        DO UPDATE SET
+                            count   = telemetry_user_counters.count   + EXCLUDED.count,
+                            seconds = telemetry_user_counters.seconds + EXCLUDED.seconds
+                        """,
+                        (user_id, etype, ekey, cnt, secs),
+                    )
             await db.commit()
     except Exception as _e:
         _log.warning("upsert_telemetry_batch: %s", _e)

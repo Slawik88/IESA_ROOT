@@ -1,8 +1,8 @@
-"""api/roulette.py — European roulette with item prize pool.
+"""api/roulette.py — simplified roulette with capped payouts.
 
-Classic bets (red/black/even/odd/low/high/zero/number_N) win Mora.
-On winning spins, there's a configurable chance of a bonus item from
-ROULETTE_PRIZE_POOL (pet food, buff potions, coupons, consumables).
+Only simple bets are allowed: red/black/even/odd/low/high.
+The system uses a fixed win rate with a small capped payout to avoid
+economy-breaking spikes from direct-number bets.
 
 Called by both Telegram bot handlers and the mini app views.
 All public functions are async; the mini app wraps them with async_to_sync.
@@ -37,37 +37,32 @@ def _pick_winning_number(bet_type: str) -> int:
         return random.randint(1, 18)
     if bet_type == "high":
         return random.randint(19, 36)
-    if bet_type == "zero":
-        return 0
-    if bet_type.startswith("number_"):
-        return int(bet_type[7:])
     return random.randint(0, 36)
+
+
+def _pick_losing_number(bet_type: str) -> int:
+    """Return a random number on the wheel that loses for the given simple bet."""
+    losers = [n for n in range(37) if _bet_gross(bet_type, n, 10) == 0]
+    return random.choice(losers)
 
 
 def _bet_gross(bet_type: str, number: int, bet_amount: int) -> int:
     """Return profit on a win (excluding original bet). 0 = loss."""
     col = color_of(number)
+    capped_profit = max(1, int(round(bet_amount * 0.9)))
 
     if bet_type == "red":
-        return bet_amount if col == "red" else 0
+        return capped_profit if col == "red" else 0
     if bet_type == "black":
-        return bet_amount if col == "black" else 0
+        return capped_profit if col == "black" else 0
     if bet_type == "even":
-        return bet_amount if (number > 0 and number % 2 == 0) else 0
+        return capped_profit if (number > 0 and number % 2 == 0) else 0
     if bet_type == "odd":
-        return bet_amount if (number > 0 and number % 2 == 1) else 0
+        return capped_profit if (number > 0 and number % 2 == 1) else 0
     if bet_type == "low":
-        return bet_amount if (1 <= number <= 18) else 0
+        return capped_profit if (1 <= number <= 18) else 0
     if bet_type == "high":
-        return bet_amount if (19 <= number <= 36) else 0
-    if bet_type == "zero":
-        return bet_amount * 35 if number == 0 else 0
-    if bet_type.startswith("number_"):
-        try:
-            target = int(bet_type[7:])
-            return bet_amount * 35 if number == target else 0
-        except ValueError as _e:
-            _log.debug("%s", _e)
+        return capped_profit if (19 <= number <= 36) else 0
     raise ValueError(f"Неизвестный тип ставки: {bet_type!r}")
 
 
@@ -123,7 +118,7 @@ async def roulette_spin(
     """
     Full roulette cycle: validate → deduct bet → spin → pay → optional item prize.
 
-    bet_type:   "red" | "black" | "even" | "odd" | "low" | "high" | "zero" | "number_N"
+    bet_type:   "red" | "black" | "even" | "odd" | "low" | "high"
     bet_amount: ROULETTE_MIN_BET .. ROULETTE_MAX_BET
 
     Returns {ok, number, color, win, gross_profit, win_tax, net_prize, new_balance, item_prize}
@@ -132,7 +127,7 @@ async def roulette_spin(
     from database.postgres import connect as postgres_connect
     from shared_prices import (
         ROULETTE_MIN_BET, ROULETTE_MAX_BET,
-        ROULETTE_TAX, ROULETTE_ITEM_CHANCE,
+        ROULETTE_TAX, ROULETTE_ITEM_CHANCE, ROULETTE_WIN_RATE,
         ROULETTE_PRIZE_POOL, ROULETTE_PITY_BET_CAP,
     )
 
@@ -141,14 +136,9 @@ async def roulette_spin(
     if bet_amount > ROULETTE_MAX_BET:
         raise ValueError(f"Максимальная ставка: {ROULETTE_MAX_BET} 🪙")
 
-    _valid_simple = {"red", "black", "even", "odd", "low", "high", "zero"}
+    _valid_simple = {"red", "black", "even", "odd", "low", "high"}
     if bet_type not in _valid_simple:
-        if not (
-            bet_type.startswith("number_")
-            and bet_type[7:].isdigit()
-            and 0 <= int(bet_type[7:]) <= 36
-        ):
-            raise ValueError(f"Неизвестный тип ставки: {bet_type!r}")
+        raise ValueError("Доступны только простые ставки: красное, чёрное, чётное, нечётное, 1–18, 19–36")
 
     # ── Atomically read pity counter + deduct bet in ONE transaction ──────────
     async with postgres_connect() as db:
@@ -178,16 +168,13 @@ async def roulette_spin(
             raise ValueError("Недостаточно Моры")
 
     # ── Spin (with pity boost after losing streak) ────────────────────────────
-    # After 3+ consecutive losses, increasingly likely to force a winning number.
-    # Pity: 55% at 3 losses, 70% at 4, 85% at 5, capped at 90% at 6+.
     if losses >= 3:
         pity_boost = min(0.90, 0.40 + (losses - 2) * 0.15)
-        if random.random() < pity_boost:
-            number = _pick_winning_number(bet_type)
-        else:
-            number = random.randint(0, 36)
+        win = random.random() < max(ROULETTE_WIN_RATE, pity_boost)
     else:
-        number     = random.randint(0, 36)
+        win = random.random() < ROULETTE_WIN_RATE
+
+    number = _pick_winning_number(bet_type) if win else _pick_losing_number(bet_type)
 
     color      = color_of(number)
     gross      = _bet_gross(bet_type, number, bet_amount)

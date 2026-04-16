@@ -461,8 +461,8 @@ LOTTERY_TICKET_PRICE = 40
 LOTTERY_WIN_CHANCE = 0.05
 
 # Диапазон выигрыша в лотерее (Мора)
-LOTTERY_WIN_MIN = 60
-LOTTERY_WIN_MAX = 120
+LOTTERY_WIN_MIN = 120
+LOTTERY_WIN_MAX = 300
 
 # Размер батча при рассылке (по сколько упоминаний за сообщение)
 BROADCAST_BATCH = 200

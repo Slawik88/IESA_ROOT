@@ -30,7 +30,7 @@ from config import (
     SECRET_MSG_PRICE,
     SHOP_ITEMS,
 )
-from shared_prices import PRICE_VIP
+from shared_prices import PRICE_VIP_CRYSTALS, VIP_DURATION_DAYS
 from database.db import (
     buy_shop_item,
     get_mora,
@@ -133,7 +133,7 @@ def _shop_text(section: str, bal: int) -> str:
             "рџ›Ќ <b>Р•РґРёРЅС‹Р№ РјР°РіР°Р·РёРЅ РџСЂРµРґРІРµСЃС‚РЅРёРєР°</b>\n\n"
             f"рџ’° РўРІРѕР№ Р±Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
             "рџЄ™ <b>Р­РєРѕРЅРѕРјРёРєР°</b>\n"
-            f"  вЂў VIP вЂ” <b>{PRICE_VIP} рџЄ™</b> В· <code>Р±РѕС‚ РєСѓРїРёС‚СЊ РІРёРї</code>\n"
+            f"  вЂў VIP вЂ” <b>{PRICE_VIP_CRYSTALS} 💎 / {VIP_DURATION_DAYS} дн.</b> В· <code>Р±РѕС‚ РєСѓРїРёС‚СЊ РІРёРї</code>\n"
             f"  вЂў РћС‚РєСѓРї РѕС‚ С‡РёСЃС‚РєРё вЂ” <b>{CLEANUP_PASS_PRICE} рџЄ™</b> В· РљР”: 12 РґРЅ. В· <code>Р±РѕС‚ РѕС‚РєСѓРї</code>\n"
             f"  вЂў Р‘СѓСЃС‚ XP Г—2 вЂ” {boost_prices} В· <code>Р±РѕС‚ РєСѓРїРёС‚СЊ Р±СѓСЃС‚</code>\n"
             "  вЂў Р Р°РјРєРё РїСЂРѕС„РёР»СЏ вЂ” <code>Р±РѕС‚ СЂР°РјРєРё</code> / <code>Р±РѕС‚ РєСѓРїРёС‚СЊ СЂР°РјРєСѓ</code>\n"
@@ -164,7 +164,7 @@ def _shop_text(section: str, bal: int) -> str:
         "economy": (
             "рџЄ™ <b>РњР°РіР°Р·РёРЅ</b> вЂє <b>Р­РєРѕРЅРѕРјРёРєР°</b>\n\n"
             f"рџ’° Р‘Р°Р»Р°РЅСЃ: <b>{bal} рџЄ™</b>\n\n"
-            f"рџ’Ћ VIP вЂ” <b>{PRICE_VIP} рџЄ™</b>\n  <code>Р±РѕС‚ РєСѓРїРёС‚СЊ РІРёРї</code>\n\n"
+            f"рџ’Ћ VIP вЂ” <b>{PRICE_VIP_CRYSTALS} 💎 / {VIP_DURATION_DAYS} дн.</b>\n  <code>Р±РѕС‚ РєСѓРїРёС‚СЊ РІРёРї</code>\n\n"
             f"рџЋ« РћС‚РєСѓРї РѕС‚ С‡РёСЃС‚РєРё вЂ” <b>{CLEANUP_PASS_PRICE} рџЄ™</b> В· РљР”: 12 РґРЅ.\n  <code>Р±РѕС‚ РѕС‚РєСѓРї</code>\n\n"
             f"вљЎ Р‘СѓСЃС‚ XP Г—2\n  {boost_prices}\n  <code>Р±РѕС‚ РєСѓРїРёС‚СЊ Р±СѓСЃС‚</code>\n\n"
             "рџ–ј Р Р°РјРєРё РїСЂРѕС„РёР»СЏ\n"
