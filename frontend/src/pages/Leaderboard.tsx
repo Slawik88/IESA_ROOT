@@ -250,7 +250,6 @@ function UserProfileSheet({
   onClose: () => void;
 }) {
   const medal = MEDAL[entry.rank];
-  const initials = entry.name.slice(0, 2).toUpperCase();
   const [profile, setProfile] = useState<PublicProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState("");

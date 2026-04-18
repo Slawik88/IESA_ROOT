@@ -6256,6 +6256,7 @@ def miniapp_auction_cancel(request):
 def miniapp_achievements(request):
     """GET /api/achievements?chat_id=X — все достижения с флагом unlocked.
        GET /api/achievements?chat_id=X&mode=leaderboard — топ по достижениям в чате.
+       GET /api/achievements?mode=global_leaderboard — глобальный топ.
     """
     headers = _cors_headers()
     if request.method == "OPTIONS":
@@ -6265,11 +6266,20 @@ def miniapp_achievements(request):
     uid, err = _require_auth(request, headers)
     if err:
         return err
+    mode = request.GET.get("mode", "")
+    # global_leaderboard doesn't require chat_id
+    if mode == "global_leaderboard":
+        try:
+            from asgiref.sync import async_to_sync as _a2s
+            from services.achievements import get_global_leaderboard
+            data = _a2s(get_global_leaderboard)(limit=100)
+            return JsonResponse({"ok": True, "leaderboard": data}, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        except Exception as exc:
+            logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
     chat_id_str = request.GET.get("chat_id", "")
     if not chat_id_str.lstrip("-").isdigit():
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
     chat_id = int(chat_id_str)
-    mode = request.GET.get("mode", "")
     try:
         from asgiref.sync import async_to_sync as _a2s
         if mode == "leaderboard":

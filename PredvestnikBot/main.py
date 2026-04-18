@@ -100,9 +100,10 @@ async def main():
     dp.callback_query.outer_middleware(CallbackIsolationMiddleware())
 
     # ── Global error handler: catch unhandled exceptions and log them ──
+    from aiogram.types import ErrorEvent
     @dp.errors()
-    async def _global_error_handler(event, exception):
-        logging.exception("Unhandled error in handler: %s", exception)
+    async def _global_error_handler(error_event: ErrorEvent):
+        logging.exception("Unhandled error in handler: %s", error_event.exception)
         return True
 
     # Роутеры — от специфичных к общим (extras должен быть последним!)

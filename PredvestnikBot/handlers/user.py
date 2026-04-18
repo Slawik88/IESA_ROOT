@@ -2098,7 +2098,7 @@ async def cmd_whois(message: Message, cmd_args: str):
 
     # Activity breakdown (today / week / all-time)
     if is_group_w:
-        from database.db import get_user_activity, get_mora, get_solo_boss_progress
+        from database.db import get_user_activity, get_solo_boss_progress
         act = await get_user_activity(uid, message.chat.id)
         lines.append("")
         lines.append(f"📈 <b>Активность</b>")
