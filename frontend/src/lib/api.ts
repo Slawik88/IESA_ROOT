@@ -1207,7 +1207,15 @@ export function upgradeTalent(talentId: string): Promise<{ ok: boolean; talent_p
 
 // ── Shards ────────────────────────────────────────────────────
 
-export interface ShardCatalogEntry { name: string; emoji: string; craft_into: string | null; craft_frame: string | null; craft_amount: number; owned: number; }
+export interface ShardCatalogEntry { 
+  name: string; 
+  emoji: string; 
+  craft_into: string | null; 
+  craft_frame: string | null; 
+  craft_amount: number; 
+  owned: number; 
+  readable_target?: string;  // ✨ Enhanced display name for craft target
+}
 export interface ShardsResponse { stash: Record<string, number>; catalog: Record<string, ShardCatalogEntry>; }
 
 export function fetchShards(chatId: number): Promise<ShardsResponse> {
