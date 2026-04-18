@@ -767,7 +767,7 @@ async def api_inventory(request: Request, chat_id: int):
 
         user_id = int(user_info["id"])
         from database.postgres import connect as postgres_connect
-        from shared_prices import get_item_display_info
+        from shared_prices import get_item_display_info, FRAMES_CATALOG
 
         # Fetch inventory items
         async with postgres_connect() as db:
@@ -781,6 +781,31 @@ async def api_inventory(request: Request, chat_id: int):
             ) as cur:
                 gacha_rows = await cur.fetchall()
             
+            # Owned frames (from shop purchases)
+            async with db.execute(
+                "SELECT item_key FROM shop_items "
+                "WHERE user_id=? AND item_type='frame' AND (chat_id=? OR chat_id=0) "
+                "GROUP BY item_key",
+                (user_id, chat_id),
+            ) as cur:
+                owned_frame_rows = await cur.fetchall()
+
+            # Active frame
+            async with db.execute(
+                "SELECT top_frame FROM user_mora WHERE user_id=? AND chat_id=?",
+                (user_id, chat_id),
+            ) as cur:
+                mora_row = await cur.fetchone()
+            
+            # Owned themes
+            async with db.execute(
+                "SELECT item_key FROM shop_items "
+                "WHERE user_id=? AND item_type='theme' AND (chat_id=? OR chat_id=0) "
+                "GROUP BY item_key",
+                (user_id, chat_id),
+            ) as cur:
+                owned_theme_rows = await cur.fetchall()
+
             # User stats for RPG calculation
             async with db.execute(
                 "SELECT hp, atk, def_val, crit_rate FROM users WHERE user_id=?",
@@ -788,7 +813,9 @@ async def api_inventory(request: Request, chat_id: int):
             ) as cur:
                 user_stats = await cur.fetchone()
 
-        # Process items with metadata
+        active_frame = mora_row["top_frame"] if mora_row else "default"
+
+        # Process gacha items with metadata
         items = []
         for row in gacha_rows:
             item_key = row["item_name"]
@@ -797,14 +824,14 @@ async def api_inventory(request: Request, chat_id: int):
             items.append({
                 "id": row["id"],
                 "key": item_key,
-                "name": item_key,  # Could be localized
+                "name": item_key,
                 "rarity": row["rarity"],
                 "equipped": bool(row["equipped"]),
                 "atk": row.get("atk", 0),
                 "def_val": row.get("def_val", 0),
                 "hp": row.get("hp", 0),
                 "crit_rate": row.get("crit_rate", 0),
-                "slot": None,  # Could be derived from item metadata
+                "slot": None,
                 "enhancement_level": row.get("enhancement_level", 0),
                 "stack_count": row.get("stack_count", 1),
                 "is_cosmetic": bool(row.get("is_cosmetic", False)),
@@ -813,10 +840,63 @@ async def api_inventory(request: Request, chat_id: int):
                 "can_auction": bool(row.get("can_auction", False)),
                 "days_until_auctionable": row.get("days_until_auctionable"),
                 "hours_until_auctionable": row.get("hours_until_auctionable"),
-                # New enhanced metadata
                 "category": display_info["category"],
                 "emoji": display_info["emoji"],
                 "readable_category": display_info["readable_category"],
+            })
+
+        # Add owned frames as virtual inventory items
+        owned_frame_keys = {r["item_key"] for r in owned_frame_rows}
+        _frame_id_counter = 900000  # Virtual IDs for frames
+        for frame_key in owned_frame_keys:
+            if frame_key == "default":
+                continue
+            frame_info = FRAMES_CATALOG.get(frame_key, {})
+            _frame_id_counter += 1
+            items.append({
+                "id": _frame_id_counter,
+                "key": f"frame_{frame_key}",
+                "name": frame_info.get("name", frame_key) if isinstance(frame_info, dict) else frame_key,
+                "rarity": "rare",
+                "equipped": frame_key == active_frame,
+                "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0,
+                "slot": "frame",
+                "enhancement_level": 0,
+                "stack_count": 1,
+                "is_cosmetic": True,
+                "desc": f"Рамка профиля — свечение вокруг аватарки",
+                "sell_price": 0,
+                "can_auction": False,
+                "days_until_auctionable": None,
+                "hours_until_auctionable": None,
+                "category": "cosmetic",
+                "emoji": frame_info.get("emoji", "🖼️") if isinstance(frame_info, dict) else "🖼️",
+                "readable_category": "Рамка профиля",
+            })
+
+        # Add owned themes as virtual inventory items
+        _theme_id_counter = 800000
+        for row in owned_theme_rows:
+            _theme_id_counter += 1
+            items.append({
+                "id": _theme_id_counter,
+                "key": f"theme_{row['item_key']}",
+                "name": row["item_key"],
+                "rarity": "legendary",
+                "equipped": False,
+                "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0,
+                "slot": "flair",
+                "enhancement_level": 0,
+                "stack_count": 1,
+                "is_cosmetic": True,
+                "desc": "Премиум тема оформления профиля",
+                "sell_price": 0,
+                "can_auction": False,
+                "days_until_auctionable": None,
+                "hours_until_auctionable": None,
+                "category": "cosmetic",
+                "emoji": "🎨",
+                "readable_category": "Тема профиля",
             })
 
         # Calculate total RPG stats
@@ -830,7 +910,7 @@ async def api_inventory(request: Request, chat_id: int):
         return JSONResponse({
             "items": items,
             "rpg": rpg,
-            "pity": 0,  # Could be fetched from gacha system
+            "pity": 0,
         })
 
     except Exception as exc:

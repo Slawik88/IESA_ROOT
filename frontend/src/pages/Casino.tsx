@@ -79,10 +79,7 @@ function useToast() {
 // ── Section card ──────────────────────────────────────────────
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="rounded-2xl p-4 mb-4"
-      style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border)" }}
-    >
+    <div className="glass-card p-4 mb-4 animate-fadeIn">
       {children}
     </div>
   );
@@ -110,12 +107,7 @@ function NumInput({
         value={value}
         placeholder={placeholder}
         onChange={e => onChange(e.target.value)}
-        className="w-full rounded-xl px-3 py-2 text-sm outline-none"
-        style={{
-          backgroundColor: "var(--bg-primary)",
-          border: "1px solid var(--border)",
-          color: "var(--text-primary)",
-        }}
+        className="input-field w-full px-3 py-2 text-sm"
       />
     </div>
   );
@@ -165,12 +157,8 @@ function CoinSection({ chatId }: { chatId: number }) {
         <button
           onClick={handleFlip}
           disabled={loading}
-          className="w-full mt-3 rounded-xl py-3 text-sm font-bold transition-opacity"
-          style={{
-            backgroundColor: loading ? "var(--border)" : "var(--accent)",
-            color: "#fff",
-            opacity: loading ? 0.6 : 1,
-          }}
+          className="w-full mt-3 btn-primary btn-press py-3 text-sm font-bold"
+          style={{ opacity: loading ? 0.6 : 1 }}
         >
           {loading ? "Подбрасываем…" : "🪙 Подбросить монету"}
         </button>

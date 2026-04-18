@@ -128,16 +128,20 @@ _BOOST_MAP: dict[str, tuple] = {b[0]: b for b in XP_BOOST_OPTIONS}
 def _mora_text(balance: int, total: int, streak: int, display_name: str, vip: int = 0, boost: bool = False, frame: str | None = None) -> str:
     streak_line = f"\n🔥 Стрик: <b>{streak} дн.</b>" if streak > 0 else ""
     vip_line = "\n💎 <b>VIP статус активен</b>" if vip else ""
-    boost_line = "\n⚡ <b>Буст XP x2 активен</b>" if boost else ""
+    boost_line = "\n⚡ <b>Буст XP ×2 активен</b>" if boost else ""
     frame_label = _FRAME_MAP.get(frame, ("", "", frame or "—"))[2] if frame else "—"
     frame_emoji_str = _frame_emoji(frame)
+
+    sep = "─" * 18
     return (
-        f"💰 <b>Баланс</b>{vip_line}: {display_name}\n\n"
-        f"Мора: <b>{balance} 🪙</b>\n"
-        f"Всего заработано: {total} 🪙"
-        f"{streak_line}\n"
+        f"💰 <b>Баланс</b>{vip_line}: {display_name}\n"
+        f"{sep}\n"
+        f"🪙 Мора: <b>{balance}</b>\n"
+        f"📈 Заработано: <b>{total}</b>\n"
         f"🖼 Рамка: {frame_emoji_str} {frame_label}"
-        f"{boost_line}"
+        f"{streak_line}"
+        f"{boost_line}\n"
+        f"{sep}"
     )
 
 
@@ -183,11 +187,14 @@ async def cmd_balance(message: Message, cmd_args: str):
         frame   = mora["top_frame"] if mora else None
         frame_label = _FRAME_MAP.get(frame, ("", "", frame or "—"))[2] if frame else "—"
         frame_emoji_str = _frame_emoji(frame)
+        sep = "─" * 18
         await message.answer(
-            f"💰 <b>Баланс</b>{vip_badge}: {user_mention(uid, display)}{uname}\n\n"
-            f"Мора: <b>{balance} 🪙</b>\n"
-            f"Всего заработано: {total} 🪙\n"
-            f"🖼 Рамка: {frame_emoji_str} {frame_label}",
+            f"💰 <b>Баланс</b>{vip_badge}: {user_mention(uid, display)}{uname}\n"
+            f"{sep}\n"
+            f"🪙 Мора: <b>{balance}</b>\n"
+            f"📈 Заработано: <b>{total}</b>\n"
+            f"🖼 Рамка: {frame_emoji_str} {frame_label}\n"
+            f"{sep}",
             parse_mode="HTML",
         )
         return

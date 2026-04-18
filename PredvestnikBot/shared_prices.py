@@ -325,29 +325,52 @@ CHECKIN_REWARDS = {
 CHECKIN_CHECKPOINTS = {5, 10, 15, 20}
 
 # ─── Шарды (осколки для крафта) ──────────────────────────────────────────────
-# Формат: shard_key → {name, emoji, desc, craft_into, craft_amount}
-# craft_into: что получается при крафте (item_key из gacha_inventory)
-# craft_amount: сколько шардов нужно для крафта
+# Формат: shard_key → {name, emoji, desc, craft_into, craft_amount, craft_frame}
+# craft_into: item_key из ITEM_METADATA (гача-инвентарь)
+# craft_frame: ключ рамки из FRAMES_CATALOG
+# craft_amount: сколько шардов нужно
 SHARD_CATALOG = {
-    # Осколки снаряжения
-    "shard_sword":    {"name": "Осколок клинка",   "emoji": "🗡️",  "desc": "Фрагмент острого клинка. Собери 10 — скрафти Редкое Копьё.",
+    # ── Осколки снаряжения (крафтят реальную экипировку) ────────
+    "shard_sword":    {"name": "Осколок клинка",   "emoji": "🗡️",
+                       "desc": "Фрагмент клинка. 10 шт. → 🚪 Лазурное копьё (Оружие, +35 ATK)",
                        "craft_into": "rare_lance",    "craft_amount": 10},
-    "shard_gem":      {"name": "Осколок самоцвета", "emoji": "🔷",  "desc": "Кристаллический обломок. Собери 10 — скрафти Редкий Самоцвет.",
+    "shard_gem":      {"name": "Осколок самоцвета", "emoji": "🔷",
+                       "desc": "Обломок кристалла. 10 шт. → 🔷 Сапфир полуночи (Артефакт, +20 DEF, +6% CRIT)",
                        "craft_into": "rare_gem",      "craft_amount": 10},
-    "shard_cloth":    {"name": "Осколок ткани",     "emoji": "🧵",  "desc": "Артефактная ткань. Собери 10 — скрафти Редкий Плащ.",
+    "shard_cloth":    {"name": "Осколок ткани",     "emoji": "🧵",
+                       "desc": "Зачарованная ткань. 10 шт. → 🧥 Алый плащ (Броня, +25 DEF, +80 HP)",
                        "craft_into": "rare_cape",     "craft_amount": 10},
-    # Осколки зелий
-    "shard_essence":  {"name": "Капля эссенции",    "emoji": "🟡",  "desc": "Магическая эссенция. Собери 5 — скрафти Зелье Силы.",
+    # ── Осколки зелий (крафтят зелья для босса) ────────────────
+    "shard_essence":  {"name": "Капля эссенции",    "emoji": "🟡",
+                       "desc": "Магическая эссенция. 5 шт. → 🥤 Зелье Силы (+15 ATK на 1 час, для босса!)",
                        "craft_into": "str_potion",    "craft_amount": 5},
-    "shard_crystal":  {"name": "Кристалл духа",     "emoji": "🔮",  "desc": "Духовный кристалл. Собери 5 — скрафти Зелье Защиты.",
+    "shard_crystal":  {"name": "Кристалл духа",     "emoji": "🔮",
+                       "desc": "Духовный кристалл. 5 шт. → ⚗️ Зелье Защиты (+20 DEF на 1 час, для босса!)",
                        "craft_into": "def_potion",    "craft_amount": 5},
-    # Осколки косметики
-    "shard_starlight":{"name": "Фрагмент звезды",   "emoji": "🌟",  "desc": "Звёздный осколок. Собери 15 — скрафти Рамку Звёздный.",
-                       "craft_into": None,            "craft_amount": 15,  # рамки через отдельный механизм
+    # ── Осколки купонов (крафтят полезные расходники) ──────────
+    "shard_scroll":   {"name": "Обрывок свитка",    "emoji": "📜",
+                       "desc": "Магический пергамент. 8 шт. → 🎯 Перебросить квест (сменить дейлик)",
+                       "craft_into": "quest_reroll",  "craft_amount": 8},
+    "shard_compass":  {"name": "Стрелка компаса",   "emoji": "🧭",
+                       "desc": "Зачарованная стрелка. 6 шт. → 🗺️ Ускорение экспедиции S (−30 мин)",
+                       "craft_into": "exp_boost_sm",  "craft_amount": 6},
+    # ── Осколки рамок (крафтят рамки профиля) ─────────────────
+    "shard_starlight":{"name": "Фрагмент звезды",   "emoji": "🌟",
+                       "desc": "Звёздный осколок. 15 шт. → 🖼️ Рамка «Звёздный» (золотое свечение вокруг аватарки)",
+                       "craft_into": None,            "craft_amount": 15,
                        "craft_frame": "star"},
-    "shard_sakura":   {"name": "Лепесток сакуры",   "emoji": "🌸",  "desc": "Магический лепесток. Собери 20 — скрафти Рамку Сакура.",
+    "shard_sakura":   {"name": "Лепесток сакуры",   "emoji": "🌸",
+                       "desc": "Магический лепесток. 20 шт. → 🖼️ Рамка «Сакура» (розовое свечение вокруг аватарки)",
                        "craft_into": None,            "craft_amount": 20,
                        "craft_frame": "sakura"},
+    "shard_flame":    {"name": "Искра пламени",     "emoji": "🔥",
+                       "desc": "Огненная искра. 12 шт. → 🖼️ Рамка «Огненный» (огненное свечение вокруг аватарки)",
+                       "craft_into": None,            "craft_amount": 12,
+                       "craft_frame": "fire"},
+    "shard_ocean":    {"name": "Капля океана",      "emoji": "🌊",
+                       "desc": "Океанская капля. 18 шт. → 🖼️ Рамка «Океан» (бирюзовое свечение вокруг аватарки)",
+                       "craft_into": None,            "craft_amount": 18,
+                       "craft_frame": "ocean"},
 }
 
 # Таблица выдачи шардов по уровням (каждые 10 уровней)
@@ -356,13 +379,13 @@ SHARD_LEVEL_REWARDS = {
     10:  [("shard_essence", 3)],
     20:  [("shard_essence", 3), ("shard_sword", 2)],
     30:  [("shard_cloth", 2), ("shard_crystal", 3)],
-    40:  [("shard_gem", 3), ("shard_sword", 2)],
-    50:  [("shard_essence", 5), ("shard_crystal", 5)],
-    60:  [("shard_starlight", 5), ("shard_cloth", 3)],
-    70:  [("shard_sword", 5), ("shard_gem", 4)],
-    80:  [("shard_sakura", 5), ("shard_starlight", 5)],
-    90:  [("shard_crystal", 6), ("shard_cloth", 6)],
-    100: [("shard_sakura", 10), ("shard_starlight", 10)],
+    40:  [("shard_gem", 3), ("shard_scroll", 2)],
+    50:  [("shard_essence", 5), ("shard_crystal", 5), ("shard_compass", 3)],
+    60:  [("shard_starlight", 5), ("shard_flame", 3)],
+    70:  [("shard_sword", 5), ("shard_gem", 4), ("shard_scroll", 3)],
+    80:  [("shard_sakura", 5), ("shard_ocean", 3), ("shard_compass", 4)],
+    90:  [("shard_crystal", 6), ("shard_cloth", 6), ("shard_flame", 5)],
+    100: [("shard_sakura", 10), ("shard_starlight", 10), ("shard_ocean", 8)],
 }
 
 # Шарды за выполнение ежедневного квеста (раз в день)
@@ -370,15 +393,15 @@ SHARD_QUEST_REWARD = ("shard_essence", 1)
 
 # Шарды за достижения (achievement badge → [(shard_key, amount)])
 SHARD_ACHIEVEMENT_REWARDS = {
-    "msg_100":   [("shard_essence", 2)],
-    "msg_500":   [("shard_sword", 2)],
-    "msg_1000":  [("shard_gem", 2)],
+    "msg_100":   [("shard_essence", 2), ("shard_scroll", 1)],
+    "msg_500":   [("shard_sword", 2), ("shard_compass", 1)],
+    "msg_1000":  [("shard_gem", 2), ("shard_flame", 2)],
     "lvl_5":     [("shard_essence", 3)],
-    "lvl_10":    [("shard_crystal", 3)],
-    "lvl_20":    [("shard_cloth", 3)],
-    "lvl_30":    [("shard_starlight", 5)],
-    "streak_7":  [("shard_crystal", 2)],
-    "streak_30": [("shard_starlight", 3)],
+    "lvl_10":    [("shard_crystal", 3), ("shard_scroll", 2)],
+    "lvl_20":    [("shard_cloth", 3), ("shard_compass", 2)],
+    "lvl_30":    [("shard_starlight", 5), ("shard_ocean", 3)],
+    "streak_7":  [("shard_crystal", 2), ("shard_scroll", 1)],
+    "streak_30": [("shard_starlight", 3), ("shard_flame", 3)],
 }
 
 # ─── Дерево Талантов ──────────────────────────────────────────────────────────

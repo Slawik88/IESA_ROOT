@@ -97,12 +97,15 @@ async def cmd_transfer(message: Message, cmd_args: str):
     tax = res["tax"]
     sender = user_mention(uid, message.from_user.full_name)
     receiver = user_mention(target_id, target_name)
-    tax_note = f"\n🏦 Налог казны: <b>-{tax} 🪙</b>" if tax else ""
+    sep = "─" * 18
+    tax_note = f"\n🏦 Налог казны: <b>−{tax} 🪙</b>" if tax else ""
     await message.answer(
-        f"💸 <b>Перевод выполнен!</b>\n\n"
-        f"{sender} → {receiver}\n"
-        f"Сумма: <b>{amount} 🪙</b>{tax_note}\n\n"
-        f"Твой баланс: <b>{res['from_balance']} 🪙</b>",
+        f"💸 <b>Перевод выполнен!</b>\n"
+        f"{sep}\n"
+        f"{sender} ➜ {receiver}\n"
+        f"💵 Сумма: <b>{amount} 🪙</b>{tax_note}\n"
+        f"{sep}\n"
+        f"🪙 Твой баланс: <b>{res['from_balance']}</b>",
         parse_mode="HTML",
     )
 
@@ -181,10 +184,14 @@ async def cmd_give_loan(message: Message, cmd_args: str):
         if lender_uname
         else f"<code>бот вернуть долг</code> (ID займа: #{loan_id})"
     )
+    sep = "─" * 18
     await message.answer(
-        f"📋 <b>Заём №{loan_id} выдан!</b>\n\n"
-        f"💰 {lender} дал в долг <b>{amount} 🪙</b> → {borrower}\n\n"
-        f"Твой баланс: <b>{from_bal} 🪙</b>\n"
+        f"📋 <b>Заём №{loan_id} выдан!</b>\n"
+        f"{sep}\n"
+        f"💰 {lender} ➜ {borrower}\n"
+        f"💵 Сумма: <b>{amount} 🪙</b>\n"
+        f"{sep}\n"
+        f"🪙 Твой баланс: <b>{from_bal}</b>\n"
         f"<i>Вернуть: {repay_hint}</i>",
         parse_mode="HTML",
     )
@@ -193,8 +200,10 @@ async def cmd_give_loan(message: Message, cmd_args: str):
         lender_name = html.escape(message.from_user.full_name)
         await message.bot.send_message(
             target_id,
-            f"📋 <b>Вам дали в долг!</b>\n\n"
-            f"💰 <b>{lender_name}</b> одолжил вам <b>{amount} 🪙</b> в чате {html.escape(message.chat.title or '')}\n"
+            f"📋 <b>Вам дали в долг!</b>\n"
+            f"{sep}\n"
+            f"💰 <b>{lender_name}</b> одолжил вам <b>{amount} 🪙</b>\n"
+            f"📍 Чат: {html.escape(message.chat.title or '')}\n"
             f"<i>Верните командой: {repay_hint}</i>",
             parse_mode="HTML",
         )

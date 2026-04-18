@@ -157,7 +157,7 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
   return (
     <div className="flex-1 flex flex-col gap-3 px-4 pt-3 pb-4">
       {/* Partner info */}
-      <div className="glass-card p-3 flex items-center justify-between">
+      <div className="glass-hero p-3 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold" style={{ color: "var(--text-hint)" }}>Партнёр</p>
           <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{status?.partner_name ?? "?"}</p>
