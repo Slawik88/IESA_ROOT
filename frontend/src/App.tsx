@@ -109,7 +109,7 @@ export default function App() {
 }
 
 function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
-  const { isDev, userDataError, userDataLoading, refreshUserData } = useAppContext();
+  const { isDev, userData, userDataError, userDataLoading, refreshUserData } = useAppContext();
   const [tab, setTab] = useState<Tab>("profile");
   useTelemetry(tab, userId);
 
@@ -151,7 +151,7 @@ function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
           {tab === "inventory"    && <Inventory    userId={userId} chatId={chatId} />}
           {tab === "bank"         && <Bank         userId={userId} chatId={chatId} />}
           {tab === "shop"         && <Shop         userId={userId} chatId={chatId} />}
-          {tab === "exchange"     && <Exchange     userId={userId} chatId={chatId} isDev={isDev} />}
+          {tab === "exchange"     && <Exchange     userId={userId} chatId={chatId} isDev={isDev} userRank={userData?.rank} />}
           {tab === "casino"       && <Casino        userId={userId} chatId={chatId} />}
           {tab === "auction"      && <Auction       userId={userId} chatId={chatId} />}
           {tab === "talents"      && <Talents       userId={userId} chatId={chatId} />}

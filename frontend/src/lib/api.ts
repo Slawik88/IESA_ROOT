@@ -427,12 +427,12 @@ export function sellBond(
 
 // ── Treasury / Казна ──────────────────────────────────────────
 
-/** Казна чата (только dev/owner) */
+/** Казна чата (developer/owner/co_owner) */
 export function fetchTreasury(chatId: number): Promise<TreasuryResponse> {
   return request<TreasuryResponse>(`/api/treasury?chat_id=${chatId}`);
 }
 
-/** Выплата из казны (только dev) */
+/** Выплата из казны (developer/owner/co_owner) */
 export function treasuryPayout(
   chatId: number,
   targetId: number,
@@ -895,15 +895,28 @@ export interface BossAttackResult {
   boss_defeated: boolean;
   rewards?: { mora: number; xp: number };
   new_balance?: number;
+  next_level?: number;
+  player_xp?: number;
+  player_level?: number;
+  player_level_up?: boolean;
   fight_time_left_seconds?: number;
+}
+
+export interface BossStartResult {
+  ok: boolean;
+  session: BossSession;
+  error?: string;
+  used_coupon?: boolean;
+  boss_coupons?: number;
+  next_coupon_regen_at?: string | null;
 }
 
 export function fetchBossStatus(chatId: number): Promise<BossStatusResult> {
   return request<BossStatusResult>(`/api/solo_boss/status?chat_id=${chatId}`);
 }
 
-export function startBoss(chatId: number): Promise<{ ok: boolean; session: BossSession; error?: string }> {
-  return request<{ ok: boolean; session: BossSession; error?: string }>("/api/solo_boss/start", {
+export function startBoss(chatId: number): Promise<BossStartResult> {
+  return request<BossStartResult>("/api/solo_boss/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId }),

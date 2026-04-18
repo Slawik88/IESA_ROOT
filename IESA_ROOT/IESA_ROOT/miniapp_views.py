@@ -1791,7 +1791,7 @@ def miniapp_dev_wallet_user(request):
 
 @csrf_exempt
 def miniapp_treasury(request):
-    """GET /api/treasury?chat_id=X — казна чата (только developer и owner)."""
+    """GET /api/treasury?chat_id=X — казна чата (developer/owner/co_owner)."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -1807,7 +1807,7 @@ def miniapp_treasury(request):
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
     chat_id = int(chat_id_str)
 
-    # Allow developer by Telegram ID, or owner rank in this chat
+    # Allow developer by Telegram ID, or elevated chat rank in this chat
     if uid != _DEVELOPER_ID:
         try:
             conn, db_type = _get_bot_db_connection()
@@ -1822,7 +1822,7 @@ def miniapp_treasury(request):
             rank = row[0] if row else "user"
         except Exception:
             rank = "user"
-        if rank not in ("owner", "developer"):
+        if rank not in ("co_owner", "owner", "developer"):
             return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
 
     try:
@@ -1836,7 +1836,7 @@ def miniapp_treasury(request):
 
 @csrf_exempt
 def miniapp_treasury_payout(request):
-    """POST /api/treasury/payout — pay mora from treasury to a user (developer/owner only)."""
+    """POST /api/treasury/payout — pay mora from treasury to a user (developer/owner/co_owner)."""
     headers = _cors_headers()
     if request.method == "OPTIONS":
         return HttpResponse("", status=204, headers=headers)
@@ -1859,7 +1859,7 @@ def miniapp_treasury_payout(request):
     if not chat_id or not target_id or amount <= 0:
         return JsonResponse({"error": "chat_id, target_id и amount обязательны"}, status=400, headers=headers)
 
-    # Allow developer by Telegram ID, or owner rank in this chat
+    # Allow developer by Telegram ID, or elevated chat rank in this chat
     if uid != _DEVELOPER_ID:
         try:
             conn, db_type = _get_bot_db_connection()
@@ -1874,7 +1874,7 @@ def miniapp_treasury_payout(request):
             rank = row[0] if row else "user"
         except Exception:
             rank = "user"
-        if rank not in ("owner", "developer"):
+        if rank not in ("co_owner", "owner", "developer"):
             return JsonResponse({"error": "forbidden"}, status=403, headers=headers)
 
     try:
@@ -4087,7 +4087,13 @@ def miniapp_solo_boss_start(request):
     if not chat_id:
         return JsonResponse({"error": "chat_id required"}, status=400, headers=headers)
 
-    from database.db import get_solo_boss_session, get_solo_boss_progress, create_solo_boss_session
+    from database.db import (
+        get_solo_boss_session,
+        get_solo_boss_progress,
+        create_solo_boss_session,
+        get_boss_coupons,
+        use_boss_coupon,
+    )
     from asgiref.sync import async_to_sync
 
     # Check for any existing session today (active OR completed)
@@ -4123,16 +4129,23 @@ def miniapp_solo_boss_start(request):
                              "session": existing},
                             status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
 
+    used_coupon = False
+    coupons, next_coupon_regen_at = async_to_sync(get_boss_coupons)(uid)
     if completed_count >= BOSS_DAILY_LIMIT:
-        reset_payload = _boss_reset_payload()
-        return JsonResponse({
-            "error": f"Лимит боёв с боссом исчерпан. Сброс через {reset_payload['reset_in_text']}.",
-            **reset_payload,
-            "daily_limit": BOSS_DAILY_LIMIT,
-            "daily_used": used_count,
-            "daily_remaining": 0,
-        },
-                            status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        used_coupon = async_to_sync(use_boss_coupon)(uid)
+        if not used_coupon:
+            reset_payload = _boss_reset_payload()
+            return JsonResponse({
+                "error": f"Лимит боёв с боссом исчерпан. Сброс через {reset_payload['reset_in_text']}. Купон можно купить за 7 💎.",
+                **reset_payload,
+                "daily_limit": BOSS_DAILY_LIMIT,
+                "daily_used": used_count,
+                "daily_remaining": 0,
+                "boss_coupons": coupons,
+                "next_coupon_regen_at": next_coupon_regen_at,
+            },
+                                status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+        coupons = max(0, coupons - 1)
 
     progress = async_to_sync(get_solo_boss_progress)(uid, chat_id)
     boss_level = (progress["max_level"] + 1) if progress else 1
@@ -4144,6 +4157,9 @@ def miniapp_solo_boss_start(request):
         "daily_limit": BOSS_DAILY_LIMIT,
         "daily_used": used_count + 1,
         "daily_remaining": max(0, BOSS_DAILY_LIMIT - (used_count + 1)),
+        "used_coupon": used_coupon,
+        "boss_coupons": coupons,
+        "next_coupon_regen_at": next_coupon_regen_at,
         **_boss_reset_payload(),
     },
                         json_dumps_params={"ensure_ascii": False}, headers=headers)
@@ -4230,14 +4246,18 @@ def miniapp_solo_boss_attack(request):
     }
 
     if result["boss_defeated"]:
+        response["next_level"] = int(session["boss_level"]) + 1
         # Give rewards
         mora_reward = 150 + (session["boss_level"] - 1) * 50
         xp_reward = 100 + (session["boss_level"] - 1) * 25
         try:
             from database.db import add_mora, add_xp_in_chat, get_mora
             async_to_sync(add_mora)(uid, chat_id, mora_reward)
-            async_to_sync(add_xp_in_chat)(uid, chat_id, xp_reward)
+            new_xp, new_level, leveled_up = async_to_sync(add_xp_in_chat)(uid, chat_id, xp_reward)
             response["rewards"] = {"mora": mora_reward, "xp": xp_reward}
+            response["player_xp"] = new_xp
+            response["player_level"] = new_level
+            response["player_level_up"] = leveled_up
             # Return new balance for frontend sync
             try:
                 new_bal = async_to_sync(get_mora)(uid, chat_id)
