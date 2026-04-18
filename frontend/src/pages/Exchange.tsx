@@ -3,25 +3,27 @@
    GET  /api/bonds?chat_id=X
    POST /api/bonds/buy  { chat_id, bond_key, amount, wallet }
    POST /api/bonds/sell { chat_id, bond_key, amount }
-   GET  /api/treasury?chat_id=X  (только admin/dev)
+   GET  /api/treasury?chat_id=X  (developer / owner / co_owner)
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
-  TrendingUp, TrendingDown, Minus, RefreshCw, Landmark,
+  TrendingUp, TrendingDown, Minus, RefreshCw, Landmark, ArrowRightLeft, Coins,
   Wallet, AlertCircle, Loader2, X, ChevronUp, ChevronDown,
 } from "lucide-react";
-import { fetchBonds, buyBond, sellBond, fetchTreasury } from "../lib/api";
-import type { BondsResponse, BondPrice, TreasuryResponse } from "../types";
+import { fetchBonds, buyBond, sellBond, fetchTreasury, fetchMembers, treasuryPayout } from "../lib/api";
+import type { BondsResponse, BondPrice, TreasuryResponse, ChatMember } from "../types";
 
 interface Props {
   userId: number;
   chatId: number;
   isDev?: boolean;
+  userRank?: string;
 }
 
 type ExTab = "market" | "portfolio" | "treasury";
 const BOND_MAX = 50;
 const fmt = (n: number) => n.toLocaleString("ru-RU");
+const TREASURY_MANAGER_RANKS = new Set(["co_owner", "owner", "developer"]);
 
 // ── Sparkline SVG ─────────────────────────────────────────────
 function Sparkline({ data, color, width = 80, height = 32, timestamps, interactive }: {
@@ -475,13 +477,14 @@ function PortfolioTab({ bonds, onOpenTrade }: { bonds: BondPrice[]; onOpenTrade:
 }
 
 // ── Main ──────────────────────────────────────────────────────
-export default function Exchange({ chatId, isDev }: Props) {
+export default function Exchange({ chatId, isDev, userRank }: Props) {
   const [data, setData]         = useState<BondsResponse | null>(null);
   const [treasury, setTreasury] = useState<TreasuryResponse | null>(null);
   const [error, setError]       = useState("");
   const [tab, setTab]           = useState<ExTab>("market");
   const [selected, setSelected] = useState<BondPrice | null>(null);
   const loadRef = useRef(0);
+  const canManageTreasury = isDev || TREASURY_MANAGER_RANKS.has(userRank ?? "user");
 
   const load = useCallback(() => {
     if (!chatId) return;
@@ -539,7 +542,7 @@ export default function Exchange({ chatId, isDev }: Props) {
   const tabs: { key: ExTab; label: string }[] = [
     { key: "market",    label: "📈 Рынок" },
     { key: "portfolio", label: "💼 Портфель" },
-    ...(isDev ? [{ key: "treasury" as ExTab, label: "🏛 Казна" }] : []),
+    ...(canManageTreasury ? [{ key: "treasury" as ExTab, label: "🏛 Казна" }] : []),
   ];
 
   return (
@@ -615,7 +618,7 @@ export default function Exchange({ chatId, isDev }: Props) {
 
       {/* Treasury */}
       {tab === "treasury" && (
-        <TreasuryPanel treasury={treasury} onLoad={loadTreasury} />
+        <TreasuryPanel treasury={treasury} onLoad={loadTreasury} chatId={chatId} canManageTreasury={canManageTreasury} />
       )}
 
       {/* Trade bottom sheet */}
@@ -634,7 +637,55 @@ export default function Exchange({ chatId, isDev }: Props) {
 }
 
 // ── Treasury panel ────────────────────────────────────────────
-function TreasuryPanel({ treasury, onLoad }: { treasury: TreasuryResponse | null; onLoad: () => void }) {
+function TreasuryPanel({
+  treasury,
+  onLoad,
+  chatId,
+  canManageTreasury,
+}: {
+  treasury: TreasuryResponse | null;
+  onLoad: () => void;
+  chatId: number;
+  canManageTreasury: boolean;
+}) {
+  const [members, setMembers] = useState<ChatMember[]>([]);
+  const [targetId, setTargetId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!canManageTreasury || !chatId) return;
+    fetchMembers(chatId)
+      .then((res) => setMembers(res.members ?? []))
+      .catch(() => setMembers([]));
+  }, [chatId, canManageTreasury]);
+
+  const doPayout = useCallback(async () => {
+    const parsedTarget = parseInt(targetId, 10);
+    const parsedAmount = parseInt(amount, 10);
+    if (busy || !parsedTarget || !parsedAmount) return;
+
+    setBusy(true);
+    try {
+      const res = await treasuryPayout(chatId, parsedTarget, parsedAmount, reason.trim() || "Выплата");
+      if (res.ok) {
+        setNotice(`✅ Выплачено. Новый баланс казны: ${fmt(res.new_balance ?? 0)} 🪙`);
+        setTargetId("");
+        setAmount("");
+        setReason("");
+        onLoad();
+      } else {
+        setNotice(`⚠️ ${res.error ?? "Ошибка выплаты"}`);
+      }
+    } catch (error) {
+      setNotice(`⚠️ ${error instanceof Error ? error.message : "Ошибка выплаты"}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [amount, busy, chatId, onLoad, reason, targetId]);
+
   if (!treasury) {
     return (
       <div className="space-y-3 animate-pulse">
@@ -650,7 +701,7 @@ function TreasuryPanel({ treasury, onLoad }: { treasury: TreasuryResponse | null
         <Landmark size={32} strokeWidth={1.2} className="mx-auto mb-2" style={{ color: "var(--text-hint)" }} />
         <p className="text-sm font-medium">Доступ ограничен</p>
         <p className="text-xs mt-1 mb-3" style={{ color: "var(--text-hint)" }}>
-          Только администраторы чата могут просматривать казну
+          Казна доступна только совладельцу, владельцу или разработчику
         </p>
         <button onClick={onLoad} className="text-xs underline" style={{ color: "var(--accent)" }}>
           Попробовать снова
@@ -660,6 +711,13 @@ function TreasuryPanel({ treasury, onLoad }: { treasury: TreasuryResponse | null
   }
   return (
     <div className="space-y-3">
+      {notice && (
+        <div className="rounded-2xl px-4 py-3 text-sm font-semibold animate-fadeIn"
+          style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--border-accent)" }}>
+          {notice}
+        </div>
+      )}
+
       <div className="rounded-2xl p-5 text-center" style={{ backgroundColor: "var(--bg-secondary)" }}>
         <Landmark size={28} className="mx-auto mb-2" style={{ color: "var(--accent)" }} />
         <p className="text-3xl font-bold tabular-nums">{fmt(treasury.balance)} 🪙</p>
@@ -670,6 +728,70 @@ function TreasuryPanel({ treasury, onLoad }: { treasury: TreasuryResponse | null
           </p>
         )}
       </div>
+
+      {canManageTreasury && (
+        <div className="rounded-2xl p-4 space-y-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+          <div className="flex items-center gap-2">
+            <ArrowRightLeft size={16} style={{ color: "#ef4444" }} />
+            <p className="text-sm font-semibold">Выплата из казны</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium" style={{ color: "var(--text-hint)" }}>Получатель</label>
+            <select
+              value={targetId}
+              onChange={(event) => setTargetId(event.target.value)}
+              className="w-full rounded-xl px-3 py-2 text-sm outline-none appearance-none"
+              style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+            >
+              <option value="">Выберите...</option>
+              {members.map((member) => (
+                <option key={member.user_id} value={member.user_id}>
+                  {member.name} (#{member.user_id})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "var(--text-hint)" }}>
+                <Coins size={12} /> Сумма
+              </label>
+              <input
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                type="number"
+                inputMode="numeric"
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                placeholder="0"
+                style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium" style={{ color: "var(--text-hint)" }}>Причина</label>
+              <input
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                placeholder="Причина выплаты"
+                style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={() => { void doPayout(); }}
+            disabled={busy || !targetId || !amount}
+            className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
+            style={{ backgroundColor: "#ef4444", color: "#fff" }}
+          >
+            {busy ? <Loader2 size={15} className="animate-spin" /> : "💸 Выплатить"}
+          </button>
+        </div>
+      )}
+
       {(treasury.recent ?? []).length > 0 && (
         <div className="rounded-2xl p-4" style={{ backgroundColor: "var(--bg-secondary)" }}>
           <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--text-hint)" }}>

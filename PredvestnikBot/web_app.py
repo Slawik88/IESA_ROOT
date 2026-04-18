@@ -588,7 +588,7 @@ async def solo_boss_start(request: Request):
 
         from database.db import (
             get_solo_boss_session, get_solo_boss_progress,
-            create_solo_boss_session, use_boss_coupon,
+            create_solo_boss_session, get_boss_coupons, use_boss_coupon,
         )
         from database.postgres import connect as postgres_connect
         from datetime import datetime, timezone
@@ -608,17 +608,31 @@ async def solo_boss_start(request: Request):
             ) as cur:
                 cnt_row = await cur.fetchone()
         daily_used = int(cnt_row["c"] or 0) if cnt_row else 0
+        used_coupon = False
+        coupons, next_coupon_regen_at = await get_boss_coupons(user_id)
         if daily_used >= _BOSS_DAILY_LIMIT:
             # Try coupon
-            used = await use_boss_coupon(user_id)
-            if not used:
-                return JSONResponse({"ok": False, "error": "Дневной лимит исчерпан. Купи купон (7💎) или подожди завтра."})
+            used_coupon = await use_boss_coupon(user_id)
+            if not used_coupon:
+                return JSONResponse({
+                    "ok": False,
+                    "error": "Дневной лимит исчерпан. Купи купон (7💎) или подожди завтра.",
+                    "boss_coupons": coupons,
+                    "next_coupon_regen_at": next_coupon_regen_at,
+                })
+            coupons = max(0, coupons - 1)
 
         progress = await get_solo_boss_progress(user_id, chat_id)
         if not boss_level:
             boss_level = (progress["max_level"] + 1) if progress else 1
         session = await create_solo_boss_session(user_id, chat_id, boss_level)
-        return JSONResponse({"ok": True, "session": session})
+        return JSONResponse({
+            "ok": True,
+            "session": session,
+            "used_coupon": used_coupon,
+            "boss_coupons": coupons,
+            "next_coupon_regen_at": next_coupon_regen_at,
+        })
     except Exception as exc:
         _log.exception("solo_boss_start error: %s", exc)
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)

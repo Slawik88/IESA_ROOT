@@ -6,12 +6,13 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   fetchBossStatus, startBoss, attackBoss, forfeitBoss, buyBossCoupon, fetchInventory, consumePotion,
   trackEvent,
-  type BossSession, type BossProgress,
+  type BossAttackResult, type BossSession, type BossProgress,
 } from "../lib/api";
 import type { InventoryItem } from "../types";
 import { Loader2, Shield, Zap, Sword, Swords, Pause, Play, Flag, FlaskConical, Ticket, X } from "lucide-react";
 import CoupleBoss from "./CoupleBoss";
 import { useToast } from "../components/ToastContext";
+import { useAppContext } from "../AppContext";
 
 // ─── Constants ────────────────────────────────────────────────
 const STAMINA_MAX         = 100;
@@ -23,6 +24,7 @@ const SKILL_HEAVY_CD      = 8000;       // ms
 const BLOCK_DURATION      = 3000;       // ms
 const WEAKSPOT_DURATION   = 1600;       // ms
 const TELEGRAPH_WARN_MS   = 2200;       // boss warning before attack
+const BOSS_FIGHT_TIMEOUT_SECONDS = 120;
 
 const BOSS_NAMES: Record<number, string> = {
   1: "Страж Теней",   2: "Пожиратель Звёзд", 3: "Повелитель Бездны",
@@ -42,6 +44,25 @@ function bossArt(level: number) {
 // ─── Types ────────────────────────────────────────────────────
 interface WeakSpot { id: number; x: number; y: number; }
 interface FloatText { id: number; text: string; x: number; y: number; color: string; }
+interface VictoryState {
+  bossLevel: number;
+  nextLevel: number;
+  rewards: { mora: number; xp: number };
+  newBalance?: number;
+  playerLevel?: number;
+  playerLevelUp?: boolean;
+}
+interface DefeatState {
+  bossLevel: number;
+  bossName: string;
+  bossHpLeft: number;
+  damageDone: number;
+  bestCombo: number;
+  canRetry: boolean;
+  retryWillUseCoupon: boolean;
+  bossCoupons: number;
+}
+type TelegraphVariant = "normal" | "brutal";
 
 interface Props {
   userId: number | null;
@@ -54,6 +75,21 @@ function fmt(n: number) {
   if (n >= 1_000)     return (n / 1_000).toFixed(0) + "K";
   return String(n);
 }
+
+function bossProjectedHp(level: number) {
+  return 7_500 + (level - 1) * 4_500;
+}
+
+const VICTORY_SHARDS = [
+  { left: "8%", top: "16%", delay: "0s", color: "#fbbf24", glyph: "✦" },
+  { left: "21%", top: "72%", delay: "0.15s", color: "#f97316", glyph: "✧" },
+  { left: "36%", top: "12%", delay: "0.35s", color: "#fde68a", glyph: "✦" },
+  { left: "64%", top: "20%", delay: "0.2s", color: "#a78bfa", glyph: "✦" },
+  { left: "79%", top: "68%", delay: "0.45s", color: "#fb7185", glyph: "✧" },
+  { left: "91%", top: "24%", delay: "0.3s", color: "#60a5fa", glyph: "✦" },
+  { left: "14%", top: "48%", delay: "0.55s", color: "#22c55e", glyph: "✧" },
+  { left: "87%", top: "52%", delay: "0.65s", color: "#facc15", glyph: "✦" },
+] as const;
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -71,24 +107,29 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   const [, setResetText] = useState<string>("");
   const [loading, setLoading]   = useState(true);
   const [starting, setStarting] = useState(false);
-  // fightTimeLeft removed — boss fight has no time limit
   const [bossCoupons, setBossCoupons]     = useState(5);
   const [buyingCoupon, setBuyingCoupon]   = useState(false);
   const [showCouponModal, setShowCouponModal] = useState(false);
   const { toast } = useToast();
+  const { refreshUserData } = useAppContext();
 
   // Local fight state
   const [bossHp, setBossHp]       = useState(0);
   const [bossMaxHp, setBossMaxHp] = useState(1);
   const [playerHp, setPlayerHp]   = useState(100);
+  const [fightTimeLeft, setFightTimeLeft] = useState<number | null>(null);
   const [stamina, setStamina]      = useState(STAMINA_MAX);
   const [blocking, setBlocking]    = useState(false);
   const [heavyCd, setHeavyCd]      = useState(0);    // ms remaining
   const [attacking, setAttacking]  = useState(false);
+  const [slowMo, setSlowMo] = useState(false);
+  const [victory, setVictory] = useState<VictoryState | null>(null);
+  const [defeat, setDefeat] = useState<DefeatState | null>(null);
 
   // Boss telegraph
   const [telegraphing, setTelegraphing] = useState(false);
   const [telegraphPct, setTelegraphPct] = useState(100);
+  const [telegraphVariant, setTelegraphVariant] = useState<TelegraphVariant>("normal");
 
   // Weak spots
   const [weakSpots, setWeakSpots] = useState<WeakSpot[]>([]);
@@ -97,6 +138,9 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   // Float damage texts
   const [floats, setFloats] = useState<FloatText[]>([]);
   const nextFid = useRef(0);
+  const comboResetTimer = useRef<number | null>(null);
+  const [comboCount, setComboCount] = useState(0);
+  const [bestCombo, setBestCombo] = useState(0);
 
   // Pause + potions + equipment
   const [paused, setPaused]     = useState(false);
@@ -122,6 +166,32 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
     setTimeout(() => setFloats(f => f.filter(t => t.id !== id)), 900);
   }, []);
 
+  const resetCombo = useCallback(() => {
+    if (comboResetTimer.current != null) {
+      window.clearTimeout(comboResetTimer.current);
+      comboResetTimer.current = null;
+    }
+    setComboCount(0);
+  }, []);
+
+  const bumpCombo = useCallback((boosted = false) => {
+    setComboCount((current) => {
+      const next = current + 1;
+      setBestCombo((peak) => Math.max(peak, next));
+      if (comboResetTimer.current != null) {
+        window.clearTimeout(comboResetTimer.current);
+      }
+      comboResetTimer.current = window.setTimeout(() => {
+        setComboCount(0);
+        comboResetTimer.current = null;
+      }, boosted ? 3200 : 2600);
+      if (next >= 3) {
+        addFloat(`x${next} COMBO`, 50, 18, next >= 6 ? "#f97316" : "#38bdf8");
+      }
+      return next;
+    });
+  }, [addFloat]);
+
   // ── Load boss status ────────────────────────────────────────
   const loadStatus = useCallback(async () => {
     if (!chatId) return;
@@ -134,17 +204,31 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       setDailyUsed(r.daily_used);
       setResetText(r.reset_in_text);
       setBossCoupons(r.boss_coupons ?? 5);
+      if (r.session) {
+        setBossHp(r.session.boss_current_hp);
+        setBossMaxHp(r.session.boss_max_hp);
+        setFightTimeLeft(r.session.fight_time_left_seconds ?? r.session.fight_timeout_seconds ?? BOSS_FIGHT_TIMEOUT_SECONDS);
+      } else {
+        setFightTimeLeft(null);
+      }
       if (r.session && !r.session.is_completed) {
         setBossHp(r.session.boss_current_hp);
         setBossMaxHp(r.session.boss_max_hp);
         setPlayerHp(100);
         setStamina(STAMINA_MAX);
+      } else {
+        setTelegraphing(false);
+        setTelegraphVariant("normal");
       }
     } catch (e: unknown) {
       toast("⚠️ Не удалось загрузить данные босса");
     }
     finally { setLoading(false); }
-  }, [chatId]);
+  }, [chatId, toast]);
+
+  const syncSessionAfterTerminalState = useCallback(async () => {
+    await Promise.all([loadStatus(), refreshUserData()]);
+  }, [loadStatus, refreshUserData]);
 
   const loadPotions = useCallback(async () => {
     if (!chatId) return;
@@ -158,6 +242,22 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
 
   useEffect(() => { loadStatus(); }, [loadStatus]);
   useEffect(() => { loadPotions(); }, [loadPotions]);
+
+  useEffect(() => {
+    return () => {
+      if (comboResetTimer.current != null) {
+        window.clearTimeout(comboResetTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!fightActive || paused || fightTimeLeft == null) return;
+    const id = setInterval(() => {
+      setFightTimeLeft((left) => left == null ? null : Math.max(0, left - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [fightActive, paused, fightTimeLeft]);
 
   // ── Stamina regen ───────────────────────────────────────────
   useEffect(() => {
@@ -187,30 +287,57 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
     const scheduleNext = () => {
       const delay = 6000 + Math.random() * 8000;
       telegraphTimeout = setTimeout(() => {
+        const currentBossLevel = session?.boss_level ?? nextLevel;
+        const deadlyChance = currentBossLevel >= 3 ? 0.45 : 0.2;
+        const variant: TelegraphVariant = Math.random() < deadlyChance ? "brutal" : "normal";
+        const warnMs = variant === "brutal" ? 1450 : TELEGRAPH_WARN_MS;
+        const blockedMin = variant === "brutal" ? 8 : 5;
+        const blockedSpan = variant === "brutal" ? 6 : 8;
+        const hitMin = variant === "brutal" ? 28 : 18;
+        const hitSpan = variant === "brutal" ? 14 : 20;
         // Start telegraph warning
+        setTelegraphVariant(variant);
         setTelegraphing(true);
         setTelegraphPct(100);
 
         const start = Date.now();
         warningInterval = setInterval(() => {
           const elapsed = Date.now() - start;
-          const pct = Math.max(0, 100 - (elapsed / TELEGRAPH_WARN_MS) * 100);
+          const pct = Math.max(0, 100 - (elapsed / warnMs) * 100);
           setTelegraphPct(pct);
-          if (elapsed >= TELEGRAPH_WARN_MS) {
+          if (elapsed >= warnMs) {
             clearInterval(warningInterval);
             setTelegraphing(false);
             // Boss attacks
             const dmg = blockingRef.current
-              ? Math.floor(5 + Math.random() * 8)   // blocked: tiny damage
-              : Math.floor(18 + Math.random() * 20); // unblocked: big hit
-            setPlayerHp(hp => {
-              const next = Math.max(0, hp - dmg);
-              addFloat(`-${dmg}`, 50, 40, "#f87171");
-              if (next === 0 && chatId) {
-                forfeitBoss(chatId).catch(() => {});
-              }
-              return next;
-            });
+              ? Math.floor(blockedMin + Math.random() * blockedSpan)
+              : Math.floor(hitMin + Math.random() * hitSpan);
+            const nextHp = Math.max(0, playerHpRef.current - dmg);
+            setPlayerHp(nextHp);
+            addFloat(
+              `${blockingRef.current ? "🛡️ " : ""}-${dmg}`,
+              50,
+              40,
+              blockingRef.current ? "#60a5fa" : "#f87171",
+            );
+            if (!blockingRef.current) {
+              resetCombo();
+            }
+            if (nextHp === 0 && chatId) {
+              setDefeat({
+                bossLevel: currentBossLevel,
+                bossName: bossName(currentBossLevel),
+                bossHpLeft: bossHp,
+                damageDone: Math.max(0, bossMaxHp - bossHp),
+                bestCombo,
+                canRetry: Math.max(0, dailyLimit - dailyUsed) > 0 || bossCoupons > 0,
+                retryWillUseCoupon: Math.max(0, dailyLimit - dailyUsed) <= 0 && bossCoupons > 0,
+                bossCoupons,
+              });
+              void forfeitBoss(chatId)
+                .catch(() => {})
+                .finally(() => { void syncSessionAfterTerminalState(); });
+            }
             scheduleNext();
           }
         }, 50);
@@ -223,7 +350,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       clearInterval(warningInterval);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fightActive, paused]);
+  }, [bestCombo, bossCoupons, bossHp, bossMaxHp, dailyLimit, dailyUsed, fightActive, nextLevel, paused, resetCombo, session?.boss_level, syncSessionAfterTerminalState]);
 
   // ── Weak spots (random interval 5-10s) ─────────────────────
   useEffect(() => {
@@ -258,16 +385,30 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       const r = await startBoss(chatId);
       if (!r.ok) { toast("⚠️ " + (r.error ?? "Ошибка")); return; }
       trackEvent("boss_fight_start");
+      setVictory(null);
+      setDefeat(null);
+      setSlowMo(false);
       setSession(r.session);
       setBossHp(r.session.boss_max_hp);
       setBossMaxHp(r.session.boss_max_hp);
       setPlayerHp(100);
+      setFightTimeLeft(r.session.fight_time_left_seconds ?? r.session.fight_timeout_seconds ?? BOSS_FIGHT_TIMEOUT_SECONDS);
       setStamina(STAMINA_MAX);
       setHeavyCd(0);
       setBlocking(false);
       setWeakSpots([]);
+      setTelegraphing(false);
+      setTelegraphVariant("normal");
+      resetCombo();
+      setBestCombo(0);
       setPaused(false);
-      loadPotions();
+      if (typeof r.boss_coupons === "number") {
+        setBossCoupons(r.boss_coupons);
+      }
+      if (r.used_coupon) {
+        toast("🎫 Купон автоматически потрачен на дополнительную попытку", "success");
+      }
+      await loadPotions();
     } catch (e: unknown) {
       toast("⚠️ " + (e instanceof Error ? e.message : "Ошибка"));
     } finally { setStarting(false); }
@@ -297,32 +438,64 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
     } finally { setUsingPotion(null); }
   }, [chatId, addFloat, toast, loadPotions]);
 
+  const showVictorySequence = useCallback(async (result: BossAttackResult, bossLevel: number) => {
+    const resolvedNextLevel = result.next_level ?? (bossLevel + 1);
+    setBossHp(0);
+    setFightTimeLeft(0);
+    setProgress((current) => current
+      ? { ...current, max_level: Math.max(current.max_level, bossLevel) }
+      : { max_level: bossLevel, last_completed: new Date().toISOString() });
+    setNextLevel((current) => Math.max(current, resolvedNextLevel));
+    setSession((current) => current ? { ...current, boss_current_hp: 0, is_completed: 1 } : current);
+    setSlowMo(true);
+    resetCombo();
+
+    window.setTimeout(() => {
+      setVictory({
+        bossLevel,
+        nextLevel: resolvedNextLevel,
+        rewards: result.rewards ?? { mora: 0, xp: 0 },
+        newBalance: result.new_balance,
+        playerLevel: result.player_level,
+        playerLevelUp: result.player_level_up,
+      });
+      setSlowMo(false);
+    }, 1200);
+
+    await syncSessionAfterTerminalState();
+  }, [resetCombo, syncSessionAfterTerminalState]);
+
   // ── Attack backend ──────────────────────────────────────────
-  const doAttackBackend = useCallback(async (isCrit?: boolean) => {
-    if (!chatId || attacking) return;
+  const doAttackBackend = useCallback(async (isCrit?: boolean): Promise<BossAttackResult | null> => {
+    if (!chatId || attacking) return null;
     setAttacking(true);
     try {
+      const currentBossLevel = session?.boss_level ?? nextLevel;
       const r = await attackBoss(chatId);
-      if (!r.ok) return;
+      if (!r.ok) return null;
       const dmg = isCrit ? Math.floor(r.damage_dealt * 1.5) : r.damage_dealt;
       setBossHp(r.boss_hp);
+      if (r.fight_time_left_seconds != null) {
+        setFightTimeLeft(r.fight_time_left_seconds);
+      }
       addFloat(
         `${r.crit || isCrit ? "⚡ КРИТ! " : ""}−${fmt(dmg)}`,
         50 + (Math.random() - 0.5) * 30,
         30,
         r.crit || isCrit ? "#facc15" : "var(--accent)",
       );
+      bumpCombo(Boolean(r.crit || isCrit));
       if (r.boss_defeated) {
-        setSession(s => s ? { ...s, is_completed: 1 } : s);
-        toast(`🏆 Босс повержен! +${r.rewards?.mora ?? 0}🪙 +${r.rewards?.xp ?? 0}⚡`);
-        await loadStatus();
+        await showVictorySequence(r, currentBossLevel);
       }
+      return r;
     } catch (e: unknown) {
       toast(e instanceof Error ? e.message : "Ошибка атаки");
-      loadStatus();
+      await loadStatus();
+      return null;
     }
     finally { setAttacking(false); }
-  }, [chatId, attacking, addFloat, toast, loadStatus]);
+  }, [chatId, attacking, addFloat, bumpCombo, loadStatus, nextLevel, session?.boss_level, showVictorySequence, toast]);
 
   // ── Skill: Fast Attack ──────────────────────────────────────
   const doFast = async () => {
@@ -336,7 +509,8 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
     if (!fightActive || stamina < SKILL_HEAVY_COST || heavyCd > 0 || attacking) return;
     setStamina(s => s - SKILL_HEAVY_COST);
     setHeavyCd(SKILL_HEAVY_CD);
-    await doAttackBackend(true);
+    const firstHit = await doAttackBackend(true);
+    if (firstHit?.boss_defeated) return;
     await doAttackBackend(true);  // Two hits
   };
 
@@ -368,12 +542,191 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   const completed = session?.is_completed === 1 || playerHp <= 0;
   const canStart  = !session || completed;
   const dailyRemaining = Math.max(0, dailyLimit - dailyUsed);
+  const timerTotal = session?.fight_timeout_seconds ?? BOSS_FIGHT_TIMEOUT_SECONDS;
+  const timerLeft = Math.max(0, fightTimeLeft ?? session?.fight_time_left_seconds ?? timerTotal);
+  const timerPct = Math.max(0, Math.min(100, (timerLeft / timerTotal) * 100));
+  const timerLabel = `${Math.floor(timerLeft / 60)}:${String(timerLeft % 60).padStart(2, "0")}`;
+  const bossHpPct = Math.max(0, Math.round((bossHp / bossMaxHp) * 100));
+  const rewardPreviewMora = 150 + (nextLevel - 1) * 50;
+  const rewardPreviewXp = 100 + (nextLevel - 1) * 25;
+  const startRequiresCoupon = dailyRemaining <= 0 && bossCoupons > 0;
+  const startLocked = dailyRemaining <= 0 && bossCoupons <= 0;
+  const actionHint = telegraphing
+    ? telegraphVariant === "brutal"
+      ? "Смертельный телеграф. Блок обязателен, окно очень короткое."
+      : "Босс замахнулся. Сейчас блок ценнее любого удара."
+    : weakSpots.length > 0
+    ? "Открылось слабое место. Жми по метке, чтобы вырвать критическое окно."
+    : playerHp <= 35 && potions.length > 0
+    ? "HP просел. Выпей зелье до следующего телеграфа."
+    : timerLeft <= 20
+    ? "До конца боя мало времени. Дави быстрыми ударами и не теряй темп."
+    : heavyCd <= 0 && stamina >= SKILL_HEAVY_COST
+    ? "Тяжёлый удар готов. Вклини его после серии или по слабому месту."
+    : stamina < SKILL_FAST_COST
+    ? "Выносливость просела. Секунда паузы сейчас выгоднее пустой кнопки."
+    : "Держи ритм: быстрые удары набивают урон, блок ломает ответ босса.";
+  const actionTone = telegraphing
+    ? telegraphVariant === "brutal" ? "#fb7185" : "#f87171"
+    : weakSpots.length > 0
+    ? "#facc15"
+    : playerHp <= 35 && potions.length > 0
+    ? "#22c55e"
+    : timerLeft <= 20
+    ? "#fb7185"
+    : heavyCd <= 0 && stamina >= SKILL_HEAVY_COST
+    ? "#f97316"
+    : "var(--text-primary)";
 
 
   const SLOT_EMOJI: Record<string, string> = { weapon: "⚔️", armor: "🛡️", helmet: "🪖", boots: "👢", artifact: "💎" };
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--bg-primary)" }}>
+      {slowMo && (
+        <div className="fixed inset-0 pointer-events-none boss-slowmo-screen" style={{ zIndex: 60 }}>
+          <div className="boss-slowmo-flash" />
+          <div className="boss-slowmo-ring" />
+          <div className="boss-slowmo-ring boss-slowmo-ring-delay" />
+          <div className="boss-slowmo-text">FATAL BLOW</div>
+        </div>
+      )}
+
+      {victory && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 boss-victory-backdrop" style={{ zIndex: 61 }}>
+          {VICTORY_SHARDS.map((shard) => (
+            <span
+              key={`${shard.left}-${shard.top}`}
+              className="boss-victory-shard"
+              style={{ left: shard.left, top: shard.top, color: shard.color, animationDelay: shard.delay }}
+            >
+              {shard.glyph}
+            </span>
+          ))}
+
+          <div className="boss-victory-card glass-card border-legendary w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="badge badge-gold">Уровень {victory.bossLevel} очищен</span>
+              <span className="text-xs font-semibold" style={{ color: "var(--text-hint)" }}>
+                Следующий: {victory.nextLevel}
+              </span>
+            </div>
+
+            <div className="text-center space-y-2">
+              <div className="text-6xl boss-victory-core">🏆</div>
+              <h2 className="text-2xl font-black">Безупречная победа</h2>
+              <p className="text-sm" style={{ color: "var(--text-hint)" }}>
+                Последний удар пробил оборону босса. Награды уже зачислены, новый противник открыт.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-2xl p-3 text-center" style={{ backgroundColor: "var(--bg-primary)", border: "1px solid rgba(245,158,11,0.18)" }}>
+                <p className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Мора</p>
+                <p className="text-xl font-black" style={{ color: "#f59e0b" }}>+{fmt(victory.rewards.mora)}</p>
+              </div>
+              <div className="rounded-2xl p-3 text-center" style={{ backgroundColor: "var(--bg-primary)", border: "1px solid rgba(99,102,241,0.2)" }}>
+                <p className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>XP</p>
+                <p className="text-xl font-black" style={{ color: "var(--accent)" }}>+{fmt(victory.rewards.xp)}</p>
+              </div>
+            </div>
+
+            {victory.playerLevel != null && (
+              <div className="rounded-2xl p-3" style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-accent)" }}>
+                <p className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Уровень героя</p>
+                <p className="text-base font-bold" style={{ color: victory.playerLevelUp ? "#22c55e" : "var(--text-primary)" }}>
+                  {victory.playerLevelUp ? `⬆️ Новый уровень: ${victory.playerLevel}` : `Текущий уровень: ${victory.playerLevel}`}
+                </p>
+              </div>
+            )}
+
+            <div className="rounded-2xl p-3" style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-accent)" }}>
+              <p className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Следующий вызов</p>
+              <p className="text-base font-bold">{bossName(victory.nextLevel)}</p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-hint)" }}>
+                HP: {fmt(7_500 + (victory.nextLevel - 1) * 4_500)}
+              </p>
+              {victory.newBalance != null && (
+                <p className="text-xs mt-1" style={{ color: "var(--text-hint)" }}>
+                  Баланс: {fmt(victory.newBalance)} 🪙
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={() => setVictory(null)}
+              className="w-full py-3 rounded-2xl font-bold btn-primary"
+            >
+              К следующему боссу
+            </button>
+          </div>
+        </div>
+      )}
+
+      {defeat && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 boss-defeat-backdrop" style={{ zIndex: 61 }}>
+          <div className="boss-defeat-card glass-card w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="badge badge-danger">Попытка сорвана</span>
+              <span className="text-xs font-semibold" style={{ color: "var(--text-hint)" }}>
+                Купоны: {defeat.bossCoupons}
+              </span>
+            </div>
+
+            <div className="text-center space-y-2">
+              <div className="text-6xl boss-defeat-core">💀</div>
+              <h2 className="text-2xl font-black">{defeat.bossName} устоял</h2>
+              <p className="text-sm" style={{ color: "var(--text-hint)" }}>
+                Босс пережил натиск. Перезайди в бой с новым ритмом или дождись регена попыток.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl p-3 text-center" style={{ backgroundColor: "var(--bg-primary)", border: "1px solid rgba(239,68,68,0.18)" }}>
+                <p className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Урон</p>
+                <p className="text-base font-black">{fmt(defeat.damageDone)}</p>
+              </div>
+              <div className="rounded-2xl p-3 text-center" style={{ backgroundColor: "var(--bg-primary)", border: "1px solid rgba(244,114,182,0.2)" }}>
+                <p className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Осталось HP</p>
+                <p className="text-base font-black">{fmt(defeat.bossHpLeft)}</p>
+              </div>
+              <div className="rounded-2xl p-3 text-center" style={{ backgroundColor: "var(--bg-primary)", border: "1px solid rgba(56,189,248,0.2)" }}>
+                <p className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Лучший комбо</p>
+                <p className="text-base font-black">x{defeat.bestCombo}</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl p-3" style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border-accent)" }}>
+              <p className="text-[11px] uppercase tracking-wide" style={{ color: "var(--text-hint)" }}>Реванш</p>
+              <p className="text-sm font-bold" style={{ color: defeat.retryWillUseCoupon ? "#f59e0b" : "var(--text-primary)" }}>
+                {defeat.retryWillUseCoupon
+                  ? "Следующий старт автоматически спишет 1 купон"
+                  : defeat.canRetry
+                  ? "Обычная попытка ещё доступна"
+                  : "Нужен новый купон или сброс дневного лимита"}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setDefeat(null)}
+                className="w-full py-3 rounded-2xl font-bold"
+                style={{ backgroundColor: "var(--bg-primary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+              >
+                Закрыть
+              </button>
+              <button
+                onClick={() => { setDefeat(null); void doStart(); }}
+                disabled={starting || (!defeat.canRetry && defeat.bossCoupons <= 0)}
+                className="w-full py-3 rounded-2xl font-bold btn-danger disabled:opacity-50"
+              >
+                {defeat.retryWillUseCoupon ? "Реванш за купон" : "Реванш"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header + Mode Tabs */}
       <div className="px-4 pt-safe pb-2 glass-heavy" style={{ borderBottom: "1px solid var(--border-accent)" }}>
         <div className="flex items-center justify-between">
@@ -535,8 +888,17 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             <div className="text-8xl drop-shadow-lg animate-orb">{bossArt(nextLevel)}</div>
             <p className="text-xl font-bold" style={{ color: "var(--text-primary)" }}>{bossName(nextLevel)}</p>
             <p className="text-sm" style={{ color: "var(--text-hint)" }}>
-              HP: {fmt(7_500 + (nextLevel - 1) * 4_500)}
+              HP: {fmt(bossProjectedHp(nextLevel))}
             </p>
+            <p className="text-xs font-semibold" style={{ color: "var(--text-hint)" }}>
+              Награда за победу: +{fmt(rewardPreviewMora)} 🪙 · +{fmt(rewardPreviewXp)} XP
+            </p>
+            {startRequiresCoupon && (
+              <p className="badge badge-gold text-sm px-4 py-1">🎫 Следующий бой будет за купон</p>
+            )}
+            {startLocked && (
+              <p className="badge badge-danger text-sm px-4 py-1">⛔ Нет попыток и нет купонов</p>
+            )}
             {session?.is_completed === 1 && (
               <p className="badge badge-success text-sm px-4 py-1">✅ Побеждён сегодня!</p>
             )}
@@ -547,21 +909,21 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
           {session?.is_completed !== 1 && (
             <button
               onClick={doStart}
-              disabled={starting}
+              disabled={starting || startLocked}
               className="px-8 py-3.5 rounded-2xl text-base font-bold flex items-center gap-2 disabled:opacity-50 btn-primary"
             >
               {starting ? <Loader2 size={18} className="animate-spin" /> : <Swords size={18} />}
-              {starting ? "Вызов..." : "Начать битву"}
+              {starting ? "Вызов..." : startRequiresCoupon ? "Начать за купон" : "Начать битву"}
             </button>
           )}
           {session?.is_completed === 1 && (
             <button
               onClick={doStart}
-              disabled={starting}
+              disabled={starting || startLocked}
               className="px-8 py-3.5 rounded-2xl text-base font-bold flex items-center gap-2 disabled:opacity-50 btn-primary"
             >
               {starting ? <Loader2 size={18} className="animate-spin" /> : <Swords size={18} />}
-              {starting ? "Вызов..." : "Следующий уровень →"}
+              {starting ? "Вызов..." : startRequiresCoupon ? "Следующий уровень за купон →" : "Следующий уровень →"}
             </button>
           )}
         </div>
@@ -569,7 +931,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
 
       {/* ── Active fight ── */}
       {!canStart && fightActive && (
-        <div className="flex-1 flex flex-col gap-2.5 px-4 pt-3 pb-4 relative">
+        <div className={`flex-1 flex flex-col gap-3 px-4 pt-3 pb-4 relative boss-battle-stage ${slowMo ? "boss-battle-slowmo" : ""}`}>
 
           {/* Pause overlay */}
           {paused && (
@@ -599,7 +961,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
           )}
 
           {/* Boss info */}
-          <div className={`glass-card p-4 ${telegraphing ? "animate-danger" : ""}`}>
+          <div className={`glass-card p-4 ${telegraphing ? "animate-danger" : ""} ${telegraphing && telegraphVariant === "brutal" ? "boss-telegraph-brutal" : ""}`}>
             <div className="flex items-center gap-3">
               <div className="text-5xl relative shrink-0">
                 {bossArt(session!.boss_level)}
@@ -639,20 +1001,55 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
                 </div>
                 <div className="flex items-center justify-between text-[11px]" style={{ color: "var(--text-hint)" }}>
                   <span>Попыток осталось: {dailyRemaining}/{dailyLimit}</span>
+                  <span style={{ color: timerLeft <= 20 ? "#f87171" : "var(--text-hint)" }}>⏳ {timerLabel}</span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${timerPct}%`,
+                      background: timerLeft <= 20
+                        ? "linear-gradient(90deg, #fb7185, #ef4444)"
+                        : "linear-gradient(90deg, var(--accent), #22d3ee)",
+                    }}
+                  />
                 </div>
                 {/* Telegraph bar */}
                 {telegraphing && (
                   <div className="space-y-0.5">
-                    <p className="text-[11px] font-bold text-red-400 animate-pulse">⚠️ АТАКА БОССА — БЛОК!</p>
+                    <p className={`text-[11px] font-bold animate-pulse ${telegraphVariant === "brutal" ? "text-pink-300" : "text-red-400"}`}>
+                      {telegraphVariant === "brutal" ? "☠️ СМЕРТЕЛЬНЫЙ УДАР — БЛОК НЕМЕДЛЕННО!" : "⚠️ АТАКА БОССА — БЛОК!"}
+                    </p>
                     <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#ef444430" }}>
                       <div
                         className="h-full rounded-full transition-none"
-                        style={{ width: `${telegraphPct}%`, backgroundColor: "#ef4444" }}
+                        style={{ width: `${telegraphPct}%`, background: telegraphVariant === "brutal" ? "linear-gradient(90deg, #fb7185, #ef4444)" : "#ef4444" }}
                       />
                     </div>
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          <div className="glass-card-sm p-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: "var(--text-hint)" }}>
+                Тактическая сводка
+              </p>
+              <div className="flex items-center gap-2">
+                {comboCount > 1 && <span className="badge badge-gold boss-combo-badge">COMBO x{comboCount}</span>}
+                <span className="badge badge-accent">Босс HP {bossHpPct}%</span>
+              </div>
+            </div>
+            <p className="text-sm font-semibold leading-snug" style={{ color: actionTone }}>
+              {actionHint}
+            </p>
+            <div className="flex flex-wrap gap-2 text-[11px]" style={{ color: "var(--text-hint)" }}>
+              <span>🎯 Слабые места: {weakSpots.length}</span>
+              <span>🪙 Награда: {fmt(150 + (session!.boss_level - 1) * 50)}</span>
+              <span>⚡ XP: {fmt(100 + (session!.boss_level - 1) * 25)}</span>
+              <span>🔥 Лучший комбо: x{bestCombo}</span>
             </div>
           </div>
 
@@ -811,10 +1208,10 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
           </div>
 
           {/* Hits info */}
-          <div className="flex gap-2 text-[11px] justify-end" style={{ color: "var(--text-hint)" }}>
+          <div className="flex flex-wrap gap-2 text-[11px] justify-between" style={{ color: "var(--text-hint)" }}>
             <span>Нанесено: {fmt(session!.boss_max_hp - bossHp)}</span>
-            <span>·</span>
-            <span>Урон/удар: ~50-150</span>
+            <span>Осталось: {bossHpPct}% HP</span>
+            <span>{telegraphing ? (telegraphVariant === "brutal" ? "☠️ Смертельный телеграф" : "⚠️ Телеграф") : weakSpots.length > 0 ? "🎯 Уязвимость" : comboCount >= 3 ? `🔥 Combo x${comboCount}` : "🗡️ Давление"}</span>
             {attacking && <Zap size={11} className="animate-spin" style={{ color: "var(--accent)" }} />}
           </div>
         </div>

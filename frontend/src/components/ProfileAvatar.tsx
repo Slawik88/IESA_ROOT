@@ -2,7 +2,7 @@
    ProfileAvatar — аватарка с CSS-рамкой профиля.
    Использует /api/proxy/avatar для обхода CORS и кэширования.
    ────────────────────────────────────────────────────────────── */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { User } from "lucide-react";
 
 const FRAME_KEYS = [
@@ -29,11 +29,12 @@ interface Props {
   alt?: string;
 }
 
-/** Проксируем через наш бэкенд чтобы избежать CORS / протухших URL */
+/** Проксируем только внешние URL; внутренние /api/... должны идти напрямую. */
 function proxyUrl(raw?: string | null): string | null {
   if (!raw) return null;
   // Уже наш прокси — не оборачиваем дважды
   if (raw.startsWith("/api/proxy/avatar")) return raw;
+  if (raw.startsWith("/")) return raw;
   return `/api/proxy/avatar?url=${encodeURIComponent(raw)}`;
 }
 
@@ -43,6 +44,10 @@ export default function ProfileAvatar({ src, frame, size = 56, className = "", a
   const frameClass = frame ? `avatar-frame-wrap frame-${frame}` : "avatar-frame-wrap";
 
   const style = { width: size, height: size, minWidth: size, minHeight: size };
+
+  useEffect(() => {
+    setErrored(false);
+  }, [url]);
 
   return (
     <span className={`${frameClass} ${className}`} style={style}>
