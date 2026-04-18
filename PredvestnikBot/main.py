@@ -184,17 +184,18 @@ async def main():
         active = _webhook_url or _registered_webhook
         logging.info("🔗 WEBHOOK режим: %s — FastAPI на порту %d", active, port)
 
-        # Регистрируем webhook в Telegram (если URL задан и отличается)
-        if _webhook_url and _webhook_url != _registered_webhook:
+        # Регистрируем/обновляем webhook в Telegram (всегда, чтобы обновить allowed_updates)
+        if _webhook_url:
             secret = os.getenv("WEBHOOK_SECRET", "")
+            _desired_allowed = ["message", "callback_query", "chat_member", "my_chat_member", "pre_checkout_query", "shipping_query"]
             try:
                 await bot.set_webhook(
                     url=_webhook_url + "/webhook",
                     secret_token=secret or None,
-                    drop_pending_updates=True,
-                    allowed_updates=["message", "callback_query", "chat_member", "my_chat_member"],
+                    drop_pending_updates=(_webhook_url != _registered_webhook),
+                    allowed_updates=_desired_allowed,
                 )
-                logging.info("Webhook зарегистрирован: %s/webhook", _webhook_url)
+                logging.info("Webhook обновлён: %s/webhook allowed=%s", _webhook_url, _desired_allowed)
             except Exception as _sw_exc:
                 logging.error("Не удалось установить webhook: %s", _sw_exc)
 
@@ -228,7 +229,7 @@ async def main():
         await dp.start_polling(
             bot,
             drop_pending_updates=True,
-            allowed_updates=["message", "callback_query", "chat_member", "my_chat_member"],
+            allowed_updates=["message", "callback_query", "chat_member", "my_chat_member", "pre_checkout_query", "shipping_query"],
         )
     except TelegramConflictError:
         logging.critical(
