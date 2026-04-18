@@ -450,6 +450,40 @@ class AutoModMiddleware(BaseMiddleware):
                 except Exception as _e:
                     _log.debug("%s", _e)
 
+            # First message in this chat → newbie welcome call (if enabled)
+            if msg_count == 1:
+                try:
+                    from config import DEFAULT_WELCOME_CALL as _DWC
+                    from database.db import get_chat_members as _gcm
+                    _fc_settings = await get_chat_settings(event.chat.id)
+                    _call_on = (_fc_settings["welcome_call"] if _fc_settings else 0) or _DWC
+                    if _call_on:
+                        _members = await _gcm(event.chat.id)
+                        _members = [m for m in _members if m["user_id"] != user.id]
+                        if _members:
+                            _WELCOME_EMOJIS = ["👋", "🎉", "🥳", "✨", "🌟", "💫", "🎊", "🤝", "🙌", "👏"]
+                            _newbie_name = event.from_user.full_name or "Новичок"
+                            try:
+                                await event.answer(
+                                    f"🆕 {user_mention(user.id, _newbie_name)} написал первое сообщение!\n"
+                                    f"Давайте поприветствуем нового участника 🎉",
+                                    parse_mode="HTML",
+                                )
+                            except Exception as _e:
+                                _log.debug("newbie_call header: %s", _e)
+                            for _i in range(0, len(_members), 12):
+                                _batch = _members[_i: _i + 12]
+                                _parts = []
+                                for _m in _batch:
+                                    _emoji = _WELCOME_EMOJIS[abs(hash(_m["user_id"])) % len(_WELCOME_EMOJIS)]
+                                    _parts.append(f"{_emoji} {user_mention(_m['user_id'], _m['full_name'])}")
+                                try:
+                                    await event.answer(" ".join(_parts), parse_mode="HTML")
+                                except Exception as _e:
+                                    _log.debug("newbie_call batch: %s", _e)
+                except Exception as _e:
+                    _log.debug("newbie_call: %s", _e)
+
             # Mora + quests
             await _process_economy(user.id, event.chat.id, event)
 

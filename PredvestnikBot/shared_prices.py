@@ -83,6 +83,9 @@ FRAMES_CATALOG = [
     ("mythic",           "⚜️",  "Мифическая",             99999),
     # First top-up exclusive (auto-granted on first crystal purchase)
     ("first_topup",      "🌟",  "Первое пополнение",      99999),
+    # VIP & Battle Pass exclusives (price=0 — grant via code, not shop)
+    ("premium",          "✨",  "Премиум",                0),
+    ("bp_gold",          "🏅",  "Золотая БП",             0),
 ]
 
 # ─── Магазин: Косметика ───────────────────────────────────────────────────────

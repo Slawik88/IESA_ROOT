@@ -2170,11 +2170,12 @@ def miniapp_inventory(request):
                 active_frame_row = cur.fetchone()
                 active_frame = active_frame_row[0] if active_frame_row else ""
                 _fmap = {f[0]: f for f in _TOP_FRAMES}
+                frame_pseudo_items = []
                 for fidx, fkey in enumerate(owned_frame_keys):
                     if fkey in ("default", "", None):
                         continue
                     f = _fmap.get(fkey, (fkey, "🖼", fkey, 0, ""))
-                    items.append({
+                    frame_pseudo_items.append({
                         "id": -(1000 + fidx + 1),
                         "key": fkey,
                         "name": f"{f[1]} Рамка «{f[2]}»",
@@ -2191,6 +2192,26 @@ def miniapp_inventory(request):
                         "days_until_auctionable": None,
                         "hours_until_auctionable": None,
                     })
+                # Add default frame entry so users can reset their frame
+                if frame_pseudo_items:
+                    frame_pseudo_items.insert(0, {
+                        "id": -1000,
+                        "key": "default",
+                        "name": "🔰 Рамка «Стандарт»",
+                        "rarity": "common",
+                        "equipped": (active_frame in ("default", "")),
+                        "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0,
+                        "slot": "frame",
+                        "enhancement_level": 0,
+                        "stack_count": 1,
+                        "is_cosmetic": True,
+                        "desc": "Базовая рамка (бесплатно)",
+                        "sell_price": 0,
+                        "can_auction": False,
+                        "days_until_auctionable": None,
+                        "hours_until_auctionable": None,
+                    })
+                items.extend(frame_pseudo_items)
             except Exception:
                 pass
 
@@ -9046,6 +9067,7 @@ def miniapp_shards(request):
             catalog_out[key] = {
                 "name": info["name"],
                 "emoji": info["emoji"],
+                "desc": info.get("desc", ""),
                 "craft_into": info.get("craft_into"),
                 "craft_frame": info.get("craft_frame"),
                 "craft_amount": info["craft_amount"],
