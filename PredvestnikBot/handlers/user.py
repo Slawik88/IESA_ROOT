@@ -96,7 +96,7 @@ def _help_pages() -> dict[str, dict]:
     )
     from shared_prices import (
         GACHA_PITY_MAX, BANK_PLANS, CUSTOM_TITLE_PRICE,
-        ROULETTE_MIN_BET, ROULETTE_MAX_BET, PRICE_VIP_CRYSTALS, VIP_DURATION_DAYS,
+        ROULETTE_MIN_BET, ROULETTE_MAX_BET,
     )
     _bp = BANK_PLANS
 
@@ -160,7 +160,9 @@ def _help_pages() -> dict[str, dict]:
                 f"  <code>бот баланс</code> — мора, VIP, рамка, буст XP\n"
                 f"  <code>бот магазин</code> — полный каталог покупок\n\n"
                 f"👑 <b>Премиум:</b>\n"
-                f"  <code>бот купить вип</code> — VIP через Mini App ({PRICE_VIP_CRYSTALS} 💎 / {VIP_DURATION_DAYS} дн.)\n"
+                f"  <code>бот купить вип</code> — VIP через Mini App\n"
+                f"  • Базовый: 25 💎 / 7 дн.\n"
+                f"  • Полный Premium: 250 💎 / 30 дн.\n"
                 f"  <code>бот купить буст</code> — ×2 XP на 24 часа\n"
                 f"  <code>бот рамки</code> — рамки для топа (от 250 🪙)\n"
                 f"  <code>бот тема</code> — темы оформления профиля (от 2000 🪙)\n"
@@ -476,8 +478,8 @@ def _help_pages() -> dict[str, dict]:
                 "🧑‍💼 <b>Торговец</b> (раз в 3 дня):\n"
                 "  Приходит в чат с уникальным ограниченным товаром\n\n"
                 "🏆 <b>Еженедельный топ</b> (каждый Пн 00:00 Цюрих):\n"
-                "  🥇 1 место: 150 🪙  ·  🥈 2 место: 100 🪙  ·  🥉 3 место: 75 🪙\n"
-                "  Места 4–10: от 60 до 20 🪙\n"
+                "  🥇 1 место: 500 🪙  ·  🥈 2 место: 450 🪙  ·  🥉 3 место: 400 🪙\n"
+                "  Места 4–10: от 350 до 50 🪙\n"
                 "  <code>бот топ неделя</code> — текущий рейтинг"
             ),
             "buttons": [[("🔙 Назад", "main")]],
@@ -2106,9 +2108,9 @@ async def cmd_whois(message: Message, cmd_args: str):
 
         # Mora + crystals
         _mora_row_d = await get_mora(uid, message.chat.id)
+        _c_bal = await get_crystals(uid)
         if _mora_row_d:
-            _m_bal = _mora_row_d.get("mora", 0) or 0
-            _c_bal = _mora_row_d.get("crystals", 0) or 0
+            _m_bal = _mora_row_d.get("balance", 0) or 0
             lines.append(f"🪙 Мора: <b>{_m_bal:,}</b>   💎 Кристаллы: <b>{_c_bal:,}</b>")
 
         # Solo boss level

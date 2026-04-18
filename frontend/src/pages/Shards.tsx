@@ -4,16 +4,19 @@
    POST /api/shards/craft  {chat_id, shard_key}
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { Gem, Loader2, RefreshCw } from "lucide-react";
+import { Gem, Loader2, RefreshCw, X } from "lucide-react";
 import { fetchShards, craftShard, type ShardsResponse } from "../lib/api";
 
 interface Props { userId: number; chatId: number; }
 
+interface ModalState { key: string; info: import("../lib/api").ShardCatalogEntry; }
+
 export default function Shards({ chatId }: Props) {
-  const [data, setData]   = useState<ShardsResponse | null>(null);
-  const [error, setError] = useState("");
-  const [busy, setBusy]   = useState<string | null>(null);
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [data, setData]       = useState<ShardsResponse | null>(null);
+  const [error, setError]     = useState("");
+  const [busy, setBusy]       = useState<string | null>(null);
+  const [toast, setToast]     = useState<{ msg: string; ok: boolean } | null>(null);
+  const [modal, setModal]     = useState<ModalState | null>(null);
 
   const showToast = useCallback((msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -156,7 +159,8 @@ export default function Shards({ chatId }: Props) {
             (info.craft_frame ? `🖼 Рамка «${info.craft_frame}»` : `предмет: ${info.craft_into ?? "?"}`);
           
           return (
-            <div key={key} className="glass-card p-4 rounded-xl">
+            <div key={key} className="glass-card p-4 rounded-xl cursor-pointer active:scale-[0.98] transition-transform"
+                 onClick={() => setModal({ key, info })}>
               <div className="flex items-center gap-3">
                 <span className="text-3xl flex-none">{info.emoji}</span>
                 <div className="flex-1 min-w-0">
@@ -175,7 +179,7 @@ export default function Shards({ chatId }: Props) {
                     </span>
                   </div>
                 </div>
-                <div className="flex-none flex gap-1.5">
+                <div className="flex-none flex gap-1.5" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => doCraft(key)}
                     disabled={!canCraft || !!busy}
@@ -204,6 +208,91 @@ export default function Shards({ chatId }: Props) {
           );
         })}
       </div>
+
+      {/* ── Shard Detail Modal ── */}
+      {modal && (() => {
+        const { key, info } = modal;
+        const owned    = info.owned;
+        const canCraft = owned >= info.craft_amount;
+        const pct      = Math.min(100, (owned / info.craft_amount) * 100);
+        const maxCrafts = Math.floor(owned / info.craft_amount);
+        const craftTarget = info.readable_target ||
+          (info.craft_frame ? `🖼 Рамка «${info.craft_frame}»` : `предмет: ${info.craft_into ?? "?"}`);
+        return (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setModal(null)} />
+            <div className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-8 animate-slideUp"
+                 style={{ backgroundColor: "var(--bg-primary)", maxHeight: "80vh", overflowY: "auto" }}>
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-start justify-between px-4 pt-2 pb-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-4xl">{info.emoji}</span>
+                  <div>
+                    <h2 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>{info.name}</h2>
+                    <p className="text-xs" style={{ color: "var(--text-hint)" }}>
+                      {info.craft_frame ? "🖼 Осколок рамки" : info.craft_into?.includes("potion") ? "🧪 Осколок зелья" : "⚔️ Осколок снаряжения"}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setModal(null)} style={{ color: "var(--text-hint)" }}><X size={20} /></button>
+              </div>
+
+              {/* Description */}
+              {info.desc && (
+                <div className="mx-4 mb-3 px-3 py-2.5 rounded-xl text-sm" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-secondary)" }}>
+                  {info.desc}
+                </div>
+              )}
+
+              {/* Craft target info */}
+              <div className="mx-4 mb-3 px-3 py-2.5 rounded-xl text-sm flex items-center justify-between"
+                   style={{ backgroundColor: "var(--accent-soft)" }}>
+                <span style={{ color: "var(--text-hint)" }}>Результат крафта:</span>
+                <span className="font-semibold" style={{ color: "var(--accent)" }}>{craftTarget}</span>
+              </div>
+
+              {/* Progress */}
+              <div className="px-4 mb-4">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-semibold" style={{ color: "var(--text-hint)" }}>Прогресс</span>
+                  <span className="text-xs font-bold tabular-nums" style={{ color: canCraft ? "#22c55e" : "var(--text-primary)" }}>
+                    {owned} / {info.craft_amount}
+                    {maxCrafts > 1 && <span className="ml-1.5 text-xs font-normal" style={{ color: "var(--text-hint)" }}>({maxCrafts}× доступно)</span>}
+                  </span>
+                </div>
+                <div className="h-3 rounded-full overflow-hidden" style={{ backgroundColor: "var(--bg-secondary)" }}>
+                  <div className="h-full rounded-full transition-all duration-500"
+                       style={{ width: `${pct}%`, backgroundColor: canCraft ? "#22c55e" : "var(--accent)" }} />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="px-4 space-y-2">
+                <button
+                  onClick={() => { doCraft(key); setModal(null); }}
+                  disabled={!canCraft || !!busy}
+                  className="w-full py-3 rounded-xl text-sm font-bold disabled:opacity-40 transition-all"
+                  style={{ backgroundColor: canCraft ? "var(--accent)" : "var(--bg-secondary)", color: canCraft ? "#fff" : "var(--text-hint)" }}>
+                  {busy === key ? <Loader2 size={14} className="animate-spin inline" /> : `⚒️ Создать ×1`}
+                </button>
+                {maxCrafts >= 3 && (
+                  <button
+                    onClick={() => { doCraftBulk(key); setModal(null); }}
+                    disabled={!canCraft || !!busy}
+                    className="w-full py-3 rounded-xl text-sm font-bold disabled:opacity-40 transition-all"
+                    style={{ backgroundColor: canCraft ? "#22c55e" : "var(--bg-secondary)", color: canCraft ? "#fff" : "var(--text-hint)" }}>
+                    {busy === `bulk_${key}` ? <Loader2 size={14} className="animate-spin inline" /> : `⚒️ Создать всё (×${maxCrafts})`}
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

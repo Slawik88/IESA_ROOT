@@ -1223,6 +1223,7 @@ export function upgradeTalent(talentId: string): Promise<{ ok: boolean; talent_p
 export interface ShardCatalogEntry { 
   name: string; 
   emoji: string; 
+  desc?: string;
   craft_into: string | null; 
   craft_frame: string | null; 
   craft_amount: number; 

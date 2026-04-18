@@ -29,6 +29,7 @@ async def resolve_target(message: Message, cmd_args: str) -> tuple:
             user = await get_user_by_username(arg)
             if user:
                 return user["user_id"], user["full_name"], remaining
+            return None, f"❌ Пользователь {arg} не найден.\nℹ️ Попроси его написать что-нибудь в чат, чтобы бот его запомнил. Или ответь на его сообщение.", ""
         elif arg.isdigit():
             recent_user = get_recent_user(int(arg))
             if recent_user:

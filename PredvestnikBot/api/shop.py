@@ -424,10 +424,10 @@ async def buy_item(
                     await _db_fr.execute(
                         "INSERT INTO shop_items (user_id, item_type, item_value, chat_id, purchased_at, active)"
                         " VALUES (?,?,?,?,NOW(),1) ON CONFLICT DO NOTHING",
-                        (uid, "frame", "premium_anim", 0),
+                        (uid, "frame", "premium", 0),
                     )
             except Exception as _e:
-                _log.debug("vip premium_anim frame: %s", _e)
+                _log.debug("vip premium frame: %s", _e)
         # Tier 2 получает ту же тему и рамку (но без анимации)
         else:
             try:

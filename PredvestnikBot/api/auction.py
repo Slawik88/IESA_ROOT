@@ -65,11 +65,12 @@ async def _notify_all_chats_new_lot(
     bot_token = os.environ.get("PREDVESTNIK_BOT_TOKEN") or os.environ.get("BOT_TOKEN", "")
     if not bot_token:
         return
+    from database.db import is_isolated_chat
     async with postgres_connect() as db:
         rows = await db.fetch(
             "SELECT DISTINCT chat_id FROM chat_settings WHERE chat_id < 0 LIMIT 30"
         )
-    chats = [r["chat_id"] for r in rows]
+    chats = [r["chat_id"] for r in rows if not is_isolated_chat(r["chat_id"])]
     async with postgres_connect() as _ndb:
         _nrow = await _ndb.fetchone(
             "SELECT COALESCE(NULLIF(full_name,''), 'Предвестник') AS name FROM users WHERE user_id=?",
@@ -848,9 +849,12 @@ async def finalize_expired_auctions(bot=None) -> list[dict]:
 
     # Уведомления
     if bot and finalized:
+        from database.db import is_isolated_chat
         for a in finalized:
             try:
                 cid = a["chat_id"]
+                if is_isolated_chat(cid):
+                    continue
                 if a["result"] == "sold":
                     winner_id  = a.get("winner_id")
                     item_name  = a.get("item_name", "?")
