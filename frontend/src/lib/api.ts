@@ -1052,6 +1052,11 @@ export function submitTelemetry(events: TelemetryEvent[]): Promise<{ ok: boolean
   });
 }
 
+/** Мгновенно трекаем одно click-событие (fire-and-forget) */
+export function trackEvent(key: string): void {
+  submitTelemetry([{ event_type: "click", event_key: key, count: 1, seconds: 0 }]).catch(() => {});
+}
+
 /** [DEV] Получить аналитику за период (day / week / month) */
 export function fetchAnalytics(period: string = "week"): Promise<AnalyticsResponse> {
   return request<AnalyticsResponse>(`/api/dev/analytics?period=${period}`);

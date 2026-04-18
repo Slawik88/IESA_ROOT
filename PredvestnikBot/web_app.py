@@ -495,59 +495,6 @@ async def proxy_avatar(url: str = ""):
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  Avatar Proxy  —  GET /api/proxy/avatar?url=...
-#  Кэшируем аватарки Telegram в памяти на 24 часа, отдаём с правильными
-#  заголовками, чтобы фронтенд не получал CORS-ошибки.
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-import time as _time
-import urllib.request as _ur
-import hashlib as _hl
-from fastapi.responses import Response as _FaResponse
-
-_avatar_cache: dict[str, tuple[bytes, str, float]] = {}  # url → (data, content_type, expires_ts)
-_AVATAR_TTL = 86_400  # 24 h
-
-@app.get("/api/proxy/avatar")
-async def proxy_avatar(url: str = ""):
-    if not url:
-        return _FaResponse(status_code=400)
-    # Разрешаем только Telegram CDN / t.me / file.bot.* чтобы не стать открытым прокси
-    import urllib.parse as _up
-    parsed = _up.urlparse(url)
-    allowed_hosts = ("t.me", "telegram.org", "cdn4.telegram-cdn.org", "cdn1.telegram-cdn.org",
-                     "cdn2.telegram-cdn.org", "cdn3.telegram-cdn.org",
-                     "api.telegram.org", "cdn5.telegram-cdn.org")
-    if parsed.scheme not in ("http", "https") or not any(parsed.netloc.endswith(h) for h in allowed_hosts):
-        return _FaResponse(status_code=403)
-
-    cache_key = _hl.md5(url.encode()).hexdigest()
-    now = _time.time()
-    if cache_key in _avatar_cache:
-        data, ctype, expires = _avatar_cache[cache_key]
-        if now < expires:
-            return _FaResponse(content=data, media_type=ctype,
-                               headers={"Cache-Control": "public, max-age=86400"})
-
-    try:
-        req = _ur.Request(url, headers={"User-Agent": "TelegramBot"})
-        with _ur.urlopen(req, timeout=8) as resp:
-            ctype = resp.headers.get_content_type() or "image/jpeg"
-            data = resp.read(2 * 1024 * 1024)  # max 2 MB
-        _avatar_cache[cache_key] = (data, ctype, now + _AVATAR_TTL)
-        # Ограничиваем размер кэша в памяти
-        if len(_avatar_cache) > 5000:
-            oldest = sorted(_avatar_cache, key=lambda k: _avatar_cache[k][2])[:500]
-            for k in oldest:
-                del _avatar_cache[k]
-        return _FaResponse(content=data, media_type=ctype,
-                           headers={"Cache-Control": "public, max-age=86400"})
-    except Exception as exc:
-        _log.debug("proxy_avatar fetch error: %s", exc)
-        return _FaResponse(status_code=502)
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Leaderboard  —  /api/leaderboard
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

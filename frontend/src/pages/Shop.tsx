@@ -4,7 +4,7 @@
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
 import { ShoppingBag, CheckCircle2, Palette, Loader2, Lock, Gem, Sparkles, Crown, Star } from "lucide-react";
-import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme, buyCrystalItem, saveAvatar, fetchCrystalCatalog, petFeed, type CrystalCatalogItem, type CrystalCatalogResponse } from "../lib/api";
+import { fetchShopCatalog, buyShopItem, fetchThemes, activateTheme, buyCrystalItem, saveAvatar, fetchCrystalCatalog, petFeed, trackEvent, type CrystalCatalogItem, type CrystalCatalogResponse } from "../lib/api";
 import type {
   ShopCatalog,
   ShopFrame,
@@ -72,6 +72,7 @@ export default function Shop({ chatId }: Props) {
     try {
       const res = await buyShopItem(chatId, itemType, key);
       if (res.ok) {
+        trackEvent(`shop_buy_${itemType}`);
         showOk(`${label} куплено! ${res.balance !== undefined ? `Баланс: ${fmt(res.balance)} 🪙` : ""}`);
         reload();
         refreshUserData(); // синхронизируем глобальный контекст
