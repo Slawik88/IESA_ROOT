@@ -633,7 +633,7 @@ async def solo_boss_attack(request: Request):
         if not user_id or not chat_id:
             return JSONResponse({"ok": False, "error": "user_id and chat_id required"}, status_code=400)
 
-        from database.db import get_solo_boss_session, apply_solo_boss_damage
+        from database.db import get_solo_boss_session, apply_solo_boss_damage, get_player_combat_stats
         import random as _rnd
 
         session = await get_solo_boss_session(user_id, chat_id)
@@ -642,8 +642,14 @@ async def solo_boss_attack(request: Request):
         if session.get("is_completed"):
             return JSONResponse({"ok": False, "error": "Бой уже завершён."})
 
-        base_damage = _rnd.randint(120, 220)
-        result = await apply_solo_boss_damage(user_id, session, base_damage)
+        # Fetch player combat stats (equipment + active buffs)
+        combat = await get_player_combat_stats(user_id, chat_id)
+        base_atk = combat["atk"]
+        crit_rate = combat["crit_rate"]
+
+        # Base damage: 120–220 + player ATK bonus (1 ATK = ~1 damage)
+        base_damage = _rnd.randint(120, 220) + base_atk
+        result = await apply_solo_boss_damage(user_id, session, base_damage, crit_rate=crit_rate)
 
         rewards = None
         if result["boss_defeated"]:
