@@ -4,7 +4,7 @@
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
 import { Landmark, ArrowRightLeft, TrendingUp, Clock, CheckCircle2, CircleDollarSign } from "lucide-react";
-import { fetchBankInfo, openDeposit, withdrawDeposit, transferMora } from "../lib/api";
+import { fetchBankInfo, openDeposit, withdrawDeposit, transferMora, trackEvent } from "../lib/api";
 import type { BankInfoResponse, BankDeposit, BankPlan, ChatMember } from "../types";
 import UserPicker from "../components/UserPicker";
 import Loans from "./Loans";
@@ -200,6 +200,7 @@ function DepositList({ deposits, earlyPenaltyPct, chatId, loading, setLoading, s
     try {
       const res = await withdrawDeposit(chatId, deposit.id);
       if (res.ok) {
+        trackEvent("bank_withdraw");
         const earlyNote = res.early ? " (досрочно)" : "";
         showOk(`+${fmt(res.payout)} 🪙${earlyNote}  Новый баланс: ${fmt(res.new_balance)} 🪙`);
         reload();
@@ -313,6 +314,7 @@ function NewDeposit({ plans, balance, familyBalance, chatId, loading, setLoading
     try {
       const res = await openDeposit(chatId, selectedPlan.key, amt, wallet);
       if (res.ok) {
+        trackEvent("bank_deposit");
         showOk(`Вклад открыт: ${fmt(amt)} 🪙 на ${res.days} дн. Доход: +${fmt(res.reward)} 🪙`);
         setAmount("");
         reload();
@@ -460,6 +462,7 @@ function Transfer({ balance, chatId, loading, setLoading, showOk, showErr, reloa
     try {
       const res = await transferMora(chatId, tid, amt, coverVat);
       if (res.ok) {
+        trackEvent("bank_transfer");
         showOk(`Переведено ${fmt(res.amount ?? amt)} 🪙  Баланс: ${fmt(res.sender_balance ?? 0)} 🪙`);
         setSelectedMember(null);
         setAmount("");

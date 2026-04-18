@@ -32,24 +32,14 @@ export default function Leaderboard({ chatId }: Props) {
   const load = useCallback((type: LBType) => {
     setLoading(true);
     setError("");
-    fetchLeaderboard(chatId, type)
+    // chat_id=0 → backend returns global leaderboard (all chats)
+    fetchLeaderboard(0, type)
       .then(setData)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [chatId]);
+  }, []);
 
   useEffect(() => { load(tab); }, [tab, load]);
-
-  if (chatId === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 p-6 text-center"
-        style={{ color: "var(--text-hint)" }}>
-        <AlertCircle size={36} strokeWidth={1.2} />
-        <p className="font-medium">Войдите через Telegram</p>
-        <p className="text-sm">Для просмотра лидерборда необходим Telegram аккаунт.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="animate-fadeIn flex flex-col min-h-screen pb-24">
@@ -60,7 +50,7 @@ export default function Leaderboard({ chatId }: Props) {
           <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
             <Trophy size={18} style={{ color: "var(--accent)" }} />
           </div>
-          Таблица лидеров
+          Глобальная таблица лидеров
         </h1>
       </div>
 

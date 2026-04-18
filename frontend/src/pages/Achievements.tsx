@@ -36,7 +36,11 @@ export default function Achievements({ userId, chatId }: Props) {
 
   const loadLeaderboard = useCallback(() => {
     setLeaderboardError("");
-    fetchGlobalLeaderboard(chatId)
+    // If no chat context, fall back to global leaderboard
+    const fetchFn = chatId
+      ? () => fetchGlobalLeaderboard(chatId)
+      : () => fetchGlobalTop50();
+    fetchFn()
       .then((d) => setLeaderboard(d.leaderboard))
       .catch((e: Error) => setLeaderboardError(e.message));
   }, [chatId]);

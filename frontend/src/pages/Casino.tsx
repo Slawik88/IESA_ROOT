@@ -12,6 +12,7 @@ import {
   casinoRoulette,
   fetchLotteryStatus,
   buyLotteryTicket,
+  trackEvent,
   fetchUserData,
 } from "../lib/api";
 import type { CoinFlipResult, RouletteResult, LotteryStatusResult } from "../types";
@@ -137,6 +138,7 @@ function CoinSection({ chatId }: { chatId: number }) {
     setResult(null);
     try {
       const r = await casinoCoinFlip(chatId, amt);
+      trackEvent("casino_coinflip");
       setResult(r);
       if (r.quest_done) showToast("🎯 Квест выполнен!");
     } catch (e) {
@@ -289,6 +291,7 @@ function RouletteSection({ chatId }: { chatId: number }) {
     setResult(null);
     try {
       const r = await casinoRoulette(chatId, betType, amt);
+      trackEvent("casino_roulette");
       setResult(r);
     } catch (e) {
       showToast(extractErr(e));
@@ -423,6 +426,7 @@ function LotterySection({ chatId }: { chatId: number }) {
     setLoading(true);
     try {
       const r = await buyLotteryTicket(chatId);
+      trackEvent("casino_lottery");
       setLastBalance(r.new_balance);
       setStatus(prev => prev ? { ...prev, tickets: r.tickets } : null);
       showToast(`🎟 Куплен билет #${r.tickets}!`);

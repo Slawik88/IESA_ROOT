@@ -5,7 +5,7 @@
    ────────────────────────────────────────────────────────────── */
 import { useState, useCallback, useEffect } from "react";
 import { Sparkles, Star, AlertCircle, ChevronLeft, Info, X } from "lucide-react";
-import { rollGacha, rollFreeGacha, getFreeGachaRolls } from "../lib/api";
+import { rollGacha, rollFreeGacha, getFreeGachaRolls, trackEvent } from "../lib/api";
 import type { GachaItem, GachaRollResult } from "../types";
 
 const SINGLE_PRICE = 80;
@@ -66,6 +66,7 @@ export default function Gacha({ chatId }: Props) {
     setLastCount(count);
     try {
       const res = await rollGacha(chatId, count);
+      trackEvent(`gacha_roll_${count}`);
       setResult(res);
       if (res.items.some(i => i.rarity === "legendary")) setLegendaryOverlay(true);
       setPhase("result");
@@ -88,6 +89,7 @@ export default function Gacha({ chatId }: Props) {
     setLastCount(1);
     try {
       const res = await rollFreeGacha(chatId);
+      trackEvent("gacha_roll_free");
       setResult(res);
       setFreeRolls((res as any).remaining_free_rolls ?? 0);
       if (res.items.some(i => i.rarity === "legendary")) setLegendaryOverlay(true);

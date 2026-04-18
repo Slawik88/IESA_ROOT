@@ -32,12 +32,18 @@ async def get_leaderboard(
         from database.postgres import connect as postgres_connect
         async with postgres_connect() as db:
             async with db.execute(
+                """SELECT p.user_id, u.full_name, MAX(p.max_level) AS max_level
+                   FROM solo_boss_progress p
+                   LEFT JOIN users u ON u.user_id = p.user_id
+                   WHERE p.max_level > 0
+                   GROUP BY p.user_id, u.full_name
+                   ORDER BY max_level DESC LIMIT ?""" if not chat_id else
                 """SELECT p.user_id, u.full_name, COALESCE(p.max_level, 0) AS max_level
                    FROM solo_boss_progress p
                    LEFT JOIN users u ON u.user_id = p.user_id
                    WHERE p.chat_id = ? AND p.max_level > 0
                    ORDER BY p.max_level DESC LIMIT ?""",
-                (chat_id, limit),
+                (limit,) if not chat_id else (chat_id, limit),
             ) as c:
                 rows = await c.fetchall()
         entries = [

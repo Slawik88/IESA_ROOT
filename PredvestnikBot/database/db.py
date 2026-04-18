@@ -8612,18 +8612,29 @@ async def get_boss_chat_damage_today(chat_id: int) -> int:
 
 
 async def get_boss_leaderboard(chat_id: int, limit: int = 10) -> list[dict]:
-    """Топ по суммарному урону боссу в текущем чате."""
+    """Топ по суммарному урону боссу. chat_id=0 → глобальный (все чаты)."""
     async with postgres_connect() as db:
-        async with db.execute(
-            """SELECT b.user_id, u.full_name, SUM(b.damage) as total_damage
-               FROM boss_damage_log b
-               LEFT JOIN users u ON u.user_id = b.user_id
-               WHERE b.chat_id = ?
-               GROUP BY b.user_id, u.full_name
-               ORDER BY total_damage DESC LIMIT ?""",
-            (chat_id, limit),
-        ) as c:
-            rows = await c.fetchall()
+        if chat_id:
+            async with db.execute(
+                """SELECT b.user_id, u.full_name, SUM(b.damage) as total_damage
+                   FROM boss_damage_log b
+                   LEFT JOIN users u ON u.user_id = b.user_id
+                   WHERE b.chat_id = ?
+                   GROUP BY b.user_id, u.full_name
+                   ORDER BY total_damage DESC LIMIT ?""",
+                (chat_id, limit),
+            ) as c:
+                rows = await c.fetchall()
+        else:
+            async with db.execute(
+                """SELECT b.user_id, u.full_name, SUM(b.damage) as total_damage
+                   FROM boss_damage_log b
+                   LEFT JOIN users u ON u.user_id = b.user_id
+                   GROUP BY b.user_id, u.full_name
+                   ORDER BY total_damage DESC LIMIT ?""",
+                (limit,),
+            ) as c:
+                rows = await c.fetchall()
     return [dict(r) for r in rows]
 
 
@@ -8641,36 +8652,64 @@ async def get_boss_my_damage(user_id: int, chat_id: int) -> int:
 # ─── Leaderboard helpers ──────────────────────────────────────────────────────
 
 async def get_leaderboard_xp(chat_id: int, limit: int = 10) -> list[dict]:
-    """Топ по XP в чате."""
+    """Топ по XP. chat_id=0 → глобальный (все чаты)."""
     async with postgres_connect() as db:
-        async with db.execute(
-            """SELECT s.user_id, u.full_name, s.xp, s.level,
-                      p.color_name, m.vip, m.active_theme
-               FROM user_stats s
-               LEFT JOIN users u ON u.user_id = s.user_id
-               LEFT JOIN pets p ON p.user_id = s.user_id AND p.chat_id = s.chat_id
-               LEFT JOIN user_mora m ON m.user_id = s.user_id AND m.chat_id = s.chat_id
-               WHERE s.chat_id = ? ORDER BY s.xp DESC LIMIT ?""",
-            (chat_id, limit),
-        ) as c:
-            rows = await c.fetchall()
+        if chat_id:
+            async with db.execute(
+                """SELECT s.user_id, u.full_name, MAX(s.xp) AS xp, MAX(s.level) AS level,
+                          p.color_name, m.vip, m.active_theme
+                   FROM user_stats s
+                   LEFT JOIN users u ON u.user_id = s.user_id
+                   LEFT JOIN pets p ON p.user_id = s.user_id AND p.chat_id = s.chat_id
+                   LEFT JOIN user_mora m ON m.user_id = s.user_id AND m.chat_id = s.chat_id
+                   WHERE s.chat_id = ?
+                   GROUP BY s.user_id, u.full_name, p.color_name, m.vip, m.active_theme
+                   ORDER BY xp DESC LIMIT ?""",
+                (chat_id, limit),
+            ) as c:
+                rows = await c.fetchall()
+        else:
+            async with db.execute(
+                """SELECT s.user_id, u.full_name, MAX(s.xp) AS xp, MAX(s.level) AS level,
+                          NULL AS color_name, 0 AS vip, NULL AS active_theme
+                   FROM user_stats s
+                   LEFT JOIN users u ON u.user_id = s.user_id
+                   GROUP BY s.user_id, u.full_name
+                   ORDER BY xp DESC LIMIT ?""",
+                (limit,),
+            ) as c:
+                rows = await c.fetchall()
     return [dict(r) for r in rows]
 
 
 async def get_leaderboard_messages(chat_id: int, limit: int = 10) -> list[dict]:
-    """Топ по сообщениям в чате."""
+    """Топ по сообщениям. chat_id=0 → глобальный (все чаты)."""
     async with postgres_connect() as db:
-        async with db.execute(
-            """SELECT s.user_id, u.full_name, s.message_count, s.level,
-                      p.color_name, m.vip, m.active_theme
-               FROM user_stats s
-               LEFT JOIN users u ON u.user_id = s.user_id
-               LEFT JOIN pets_global p ON p.user_id = s.user_id
-               LEFT JOIN user_mora m ON m.user_id = s.user_id AND m.chat_id = s.chat_id
-               WHERE s.chat_id = ? ORDER BY s.message_count DESC LIMIT ?""",
-            (chat_id, limit),
-        ) as c:
-            rows = await c.fetchall()
+        if chat_id:
+            async with db.execute(
+                """SELECT s.user_id, u.full_name, MAX(s.message_count) AS message_count,
+                          MAX(s.level) AS level, p.color_name, m.vip, m.active_theme
+                   FROM user_stats s
+                   LEFT JOIN users u ON u.user_id = s.user_id
+                   LEFT JOIN pets_global p ON p.user_id = s.user_id
+                   LEFT JOIN user_mora m ON m.user_id = s.user_id AND m.chat_id = s.chat_id
+                   WHERE s.chat_id = ?
+                   GROUP BY s.user_id, u.full_name, p.color_name, m.vip, m.active_theme
+                   ORDER BY message_count DESC LIMIT ?""",
+                (chat_id, limit),
+            ) as c:
+                rows = await c.fetchall()
+        else:
+            async with db.execute(
+                """SELECT s.user_id, u.full_name, SUM(s.message_count) AS message_count,
+                          MAX(s.level) AS level, NULL AS color_name, 0 AS vip, NULL AS active_theme
+                   FROM user_stats s
+                   LEFT JOIN users u ON u.user_id = s.user_id
+                   GROUP BY s.user_id, u.full_name
+                   ORDER BY message_count DESC LIMIT ?""",
+                (limit,),
+            ) as c:
+                rows = await c.fetchall()
     return [dict(r) for r in rows]
 
 # ─── Enhancement System ──────────────────────────────────────────────────────
