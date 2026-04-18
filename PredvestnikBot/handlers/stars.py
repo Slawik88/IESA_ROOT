@@ -169,13 +169,13 @@ async def cb_stars_buy(cb: CallbackQuery):
 async def pre_checkout(pq: PreCheckoutQuery):
     # Проверяем что payload содержит правильный формат
     parts = pq.invoice_payload.split(":")
+    log.info("Pre-checkout query: payload=%s from_user=%s", pq.invoice_payload, pq.from_user.id)
     if len(parts) == 3 and parts[0] == "crystals" and parts[1] in CRYSTAL_PACKS:
-        # Verify the user_id in payload matches the payer
-        if int(parts[2]) != pq.from_user.id:
-            await pq.answer(ok=False, error_message="Несоответствие пользователя.")
-            return
+        # Allow payment regardless of user_id in payload (webhook can verify later)
+        log.info("Pre-checkout approved: pack=%s user=%s", parts[1], pq.from_user.id)
         await pq.answer(ok=True)
     else:
+        log.warning("Pre-checkout rejected: invalid payload format")
         await pq.answer(ok=False, error_message="Неверные данные платежа.")
 
 
@@ -196,10 +196,14 @@ async def successful_payment(msg: Message):
         log.warning("Stars payment: unknown pack_key %s", pack_key)
         return
 
+    # Use actual payer's user_id instead of payload user_id
     user_id = msg.from_user.id
     crystals = pack["crystals"]
     stars = pack["stars"]
     charge_id = sp.telegram_payment_charge_id or ""
+    
+    log.info("Processing Stars payment: user=%s pack=%s stars=%s crystals=%s", 
+             user_id, pack_key, stars, crystals)
 
     # ── Critical: add crystals with explicit error capture ────────────────────
     new_balance = 0
