@@ -536,10 +536,10 @@ BOT_TIMEZONE = "Europe/Zurich"
 # Источник получения: "default" — у всех, "gacha" — из гачи, "shop" — за мору
 # Грейд: "common" | "rare" | "epic" | "legendary"
 COSMETIC_TIER_LABELS = {
-    "common":    "⚪ Common",
-    "rare":      "🔵 Rare",
-    "epic":      "🟣 Epic",
-    "legendary": "🟡 Legendary",
+    "common":    "⚪ Обычная",
+    "rare":      "🔵 Редкая",
+    "epic":      "🟣 Эпическая",
+    "legendary": "🟡 Легендарная",
 }
 PROFILE_THEMES: dict[str, dict] = {
     "default": {

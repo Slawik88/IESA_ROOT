@@ -653,10 +653,11 @@ button:active:not(:disabled) { transform: scale(0.97); }
 .avatar-frame-wrap::before {
   content: "";
   position: absolute;
-  inset: -3px;
+  inset: -4px;
   border-radius: 50%;
   z-index: 0;
   pointer-events: none;
+  transition: box-shadow 0.3s ease;
 }
 /* warrior — синяя сталь */
 .frame-warrior::before {

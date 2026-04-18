@@ -539,7 +539,7 @@ function ItemTile({ item, onClick }: { item: InventoryItem; onClick: () => void 
       
       <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2 text-sm"
         style={{ backgroundColor: color + "22" }}>
-        {item.emoji || SLOT_ICON[item.slot ?? ""] ?? "📦"}
+        {item.emoji || (SLOT_ICON[item.slot ?? ""] ?? "📦")}
       </div>
       <p className="text-xs font-semibold leading-tight truncate" style={{ color: "var(--text-primary)" }}>
         {item.name}
