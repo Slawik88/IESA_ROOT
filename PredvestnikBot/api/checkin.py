@@ -61,11 +61,12 @@ async def do_checkin(uid: int, chat_id: int) -> dict:
     except Exception as _e:
         _log.debug("checkin_mora_bonus: %s", _e)
 
-    # VIP bonus: +15% to BASE checkin reward only (not stacked with talent bonus)
+    # VIP bonus: +20% to BASE checkin reward only (not stacked with talent bonus)
+    # Tier 1 (Full VIP) — +20%; Tier 2 (Basic VIP) — +20% as well
     try:
         from database.db import get_vip
         if await get_vip(uid, chat_id):
-            vip_addition = int(base_mora * 0.15)
+            vip_addition = int(base_mora * 0.20)
             mora += vip_addition
             result["mora"] = mora
             result["vip_bonus"] = True

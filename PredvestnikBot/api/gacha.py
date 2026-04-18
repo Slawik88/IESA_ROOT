@@ -64,6 +64,7 @@ _RARE_ITEMS = [
     ("frame_moon",      "🌙 Рамка «Ночной»",                "Рамка профиля: лунное сияние"),
     ("frame_fire",      "🔥 Рамка «Огненный»",              "Рамка профиля: огненное обрамление"),
     ("frame_star",      "⭐ Рамка «Звёздный»",              "Рамка профиля: звёздный блеск"),
+    ("boss_coupon",     "🎫 Купон боса",                    "Добавляет 1 купон для боя с боссом (макс. 5)"),
 ]
 
 _LEGENDARY_ITEMS = [
@@ -309,6 +310,13 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                 crit_rate=meta.get("crit_rate", 0.0),
                 slot=meta.get("slot"),
             )
+            # boss_coupon — мгновенно зачисляется
+            if key == "boss_coupon":
+                try:
+                    from database.db import add_boss_coupons
+                    await add_boss_coupons(uid, 1)
+                except Exception as _e:
+                    _log.debug("boss_coupon grant: %s", _e)
         # Consume-slot items stay in inventory; user activates from inventory tab.
         pity = 0 if rarity == "legendary" else pity + 1
         results.append({
@@ -432,9 +440,7 @@ async def gacha_roll_free(uid: int, chat_id: int) -> dict:
                                    def_val=meta.get("def_val", 0),
                                    hp=meta.get("hp", 0),
                                    crit_rate=meta.get("crit_rate", 0.0),
-                                   slot=meta.get("slot"),
-                                   description=desc,
-                                   stack_count=meta.get("stack_count", 1))
+                                   slot=meta.get("slot"))
     results = [{"key": key, "name": name, "rarity": rarity, "desc": desc, "id": item_id}]
 
     # Update pity counter

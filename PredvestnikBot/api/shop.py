@@ -202,13 +202,54 @@ async def buy_item(
         cosm = cosm_map.get(item_key)
         if not cosm:
             raise ValueError("Неизвестная косметика")
+        # shadow_mode — crystal-priced cosmetic (price=0 в COSMETICS_CATALOG — платим кристаллами)
+        if item_key == "shadow_mode":
+            from shared_prices import CRYSTAL_COSMETICS
+            crys_map = {c[0]: c for c in CRYSTAL_COSMETICS}
+            crys = crys_map.get(item_key)
+            crystal_price = crys[3] if crys else 180
+            already_owned = await has_shop_item(uid, 0, "cosmetic", item_key)
+            if already_owned:
+                return {"ok": True, "already_owned": True, "equipped": False}
+            if not await spend_crystals(uid, crystal_price):
+                bal = await get_crystals(uid)
+                raise ValueError(f"Недостаточно кристаллов ({bal}/{crystal_price} 💎)")
+            await buy_shop_item(uid, 0, "cosmetic", item_key)
+            new_crystals = await get_crystals(uid)
+            mora = await get_mora(uid, chat_id)
+            return {
+                "ok": True, "already_owned": False, "equipped": False,
+                "item_type": "cosmetic", "item_key": item_key,
+                "price_crystals": crystal_price, "crystals": new_crystals,
+                "balance": mora["balance"] if mora else 0,
+            }
         price = cosm[3]
-    elif item_type == "vip":
-        price = PRICE_VIP_CRYSTALS
-        # Check if user already has VIP
-        current_vip = await get_vip(uid, chat_id)
-        if current_vip:
-            raise ValueError("У тебя уже есть VIP статус! 👑")
+        if price == 0:
+            raise ValueError("Этот предмет нельзя купить за мору")
+    elif item_type in ("vip", "vip_tier1", "vip_tier2"):
+        from shared_prices import (
+            PRICE_VIP_TIER1_CRYSTALS, VIP_TIER1_DURATION_DAYS, VIP_TIER1_ONETIME_GACHA, VIP_TIER1_ONETIME_MORA,
+            PRICE_VIP_TIER2_CRYSTALS, VIP_TIER2_DURATION_DAYS, VIP_TIER2_ONETIME_GACHA, VIP_TIER2_ONETIME_MORA,
+        )
+        # Нормализуем тип — убираем старый "vip" как псевдоним tier2
+        if item_type in ("vip", "vip_tier2"):
+            item_type = "vip_tier2"
+            price = PRICE_VIP_TIER2_CRYSTALS
+            _vip_tier = 2
+            _vip_days = VIP_TIER2_DURATION_DAYS
+            _vip_gacha = VIP_TIER2_ONETIME_GACHA
+            _vip_mora  = VIP_TIER2_ONETIME_MORA
+        else:  # vip_tier1
+            price = PRICE_VIP_TIER1_CRYSTALS
+            _vip_tier = 1
+            _vip_days = VIP_TIER1_DURATION_DAYS
+            _vip_gacha = VIP_TIER1_ONETIME_GACHA
+            _vip_mora  = VIP_TIER1_ONETIME_MORA
+        # Нельзя понизить тир — но можно продлить или повысить
+        current_vip_tier = await get_vip(uid, chat_id)
+        if current_vip_tier >= _vip_tier:
+            tier_name = "Tier 1 (Full)" if _vip_tier == 1 else "Tier 2 (Basic)"
+            raise ValueError(f"У тебя уже есть {tier_name} VIP или выше! 👑")
     elif item_type == "potion":
         from shared_prices import POTIONS_CATALOG
         pot = POTIONS_CATALOG.get(item_key)
@@ -293,12 +334,12 @@ async def buy_item(
     # Deduct payment
     new_family_bal: int | None = None
     _bonus_potion = False
-    if item_type == "vip":
+    if item_type in ("vip_tier1", "vip_tier2"):
         if wallet_type == "family":
             raise ValueError("VIP покупается только за кристаллы")
         if not await spend_crystals(uid, price):
             bal = await get_crystals(uid)
-            raise ValueError(f"Недостаточно кристаллов ({bal}/{price})")
+            raise ValueError(f"Недостаточно кристаллов ({bal}/{price} 💎)")
         new_crystals = await get_crystals(uid)
         mora = await get_mora(uid, chat_id)
         new_bal = mora["balance"] if mora else 0
@@ -340,9 +381,9 @@ async def buy_item(
             new_bal = row2["balance"] if row2 else 0
 
     # Record purchase and apply effects
-    # 5% НДС from shop purchases → treasury
+    # 5% НДС from shop purchases → treasury (не берём с VIP — crystal purchase)
     from database.db import add_to_treasury
-    if item_type != "vip":
+    if item_type not in ("vip_tier1", "vip_tier2"):
         shop_tax = max(1, int(price * 0.05))
         await add_to_treasury(chat_id, shop_tax, "shop", uid)
 
@@ -356,8 +397,44 @@ async def buy_item(
                 _log.debug("global shop row duplicate (expected): %s", _e)
         if item_type == "frame" and equip:
             await set_top_frame(uid, chat_id, item_key)
-    elif item_type == "vip":
-        await set_vip(uid, chat_id, 1, days=VIP_DURATION_DAYS)
+    elif item_type in ("vip_tier1", "vip_tier2"):
+        await set_vip(uid, chat_id, 1, days=_vip_days, tier=_vip_tier)
+        # ── Единовременные бонусы ──────────────────────────────────────
+        # Бесплатные крутки гачи
+        from database.postgres import connect as _pg_vip
+        async with _pg_vip() as _db_vip:
+            await _db_vip.execute(
+                "UPDATE users SET free_gacha_rolls = COALESCE(free_gacha_rolls,0) + ? WHERE user_id=?",
+                (_vip_gacha, uid),
+            )
+            await _db_vip.commit()
+        # Мора
+        from database.db import add_mora as _add_mora_vip
+        await _add_mora_vip(uid, chat_id, _vip_mora)
+        # Для Tier 1: выдаём Premium Theme и анимированную рамку
+        if _vip_tier == 1:
+            try:
+                from database.db import add_user_theme as _aut
+                await _aut(uid, chat_id, "premium_inclusive", source="vip_tier1")
+            except Exception as _e:
+                _log.debug("vip premium_inclusive theme: %s", _e)
+            try:
+                from database.postgres import connect as _pg_fr
+                async with _pg_fr() as _db_fr:
+                    await _db_fr.execute(
+                        "INSERT INTO shop_items (user_id, item_type, item_value, chat_id, purchased_at, active)"
+                        " VALUES (?,?,?,?,NOW(),1) ON CONFLICT DO NOTHING",
+                        (uid, "frame", "premium_anim", 0),
+                    )
+            except Exception as _e:
+                _log.debug("vip premium_anim frame: %s", _e)
+        # Tier 2 получает ту же тему и рамку (но без анимации)
+        else:
+            try:
+                from database.db import add_user_theme as _aut2
+                await _aut2(uid, chat_id, "premium_inclusive", source="vip_tier2")
+            except Exception as _e:
+                _log.debug("vip tier2 premium_inclusive theme: %s", _e)
     elif item_type == "pet_color":
         from database.postgres import connect as _pg2
         color_key = item_key.replace("pet_color_", "")

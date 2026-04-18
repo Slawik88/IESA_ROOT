@@ -15,8 +15,27 @@ GACHA_PITY_MAX       = 50    # гарантия 5★ каждые N круток
 
 # ─── Магазин: VIP ─────────────────────────────────────────────────────────────
 PRICE_VIP = 2000  # legacy mora price for old bot texts; purchase path is crystal-only
-PRICE_VIP_CRYSTALS = 25
-VIP_DURATION_DAYS = 7
+
+# VIP Tier 1 — Полный Premium (30 дней)
+# Даёт: Premium-значок, Premium Battle Pass, +10% XP, BP-XP за чек-ин,
+#        +20% наград за чек-ин, уникальную тему «Инклюзивный Premium», анимированную рамку
+# Единоразово: 50 бесплатных круток гачи + 2000 Моры
+PRICE_VIP_TIER1_CRYSTALS  = 250
+VIP_TIER1_DURATION_DAYS   = 30
+VIP_TIER1_ONETIME_GACHA   = 50
+VIP_TIER1_ONETIME_MORA    = 2000
+
+# VIP Tier 2 — Базовый Premium (7 дней)
+# Даёт: Premium-значок, +20% наград за чек-ин, тему «Инклюзивный Premium», анимированную рамку
+# Единоразово: 10 бесплатных круток гачи + 500 Моры
+PRICE_VIP_TIER2_CRYSTALS  = 25
+VIP_TIER2_DURATION_DAYS   = 7
+VIP_TIER2_ONETIME_GACHA   = 10
+VIP_TIER2_ONETIME_MORA    = 500
+
+# Legacy aliases — используются в старом коде (ссылаются на Tier 2)
+PRICE_VIP_CRYSTALS = PRICE_VIP_TIER2_CRYSTALS
+VIP_DURATION_DAYS  = VIP_TIER2_DURATION_DAYS
 
 # ─── Пропуск чистки ──────────────────────────────────────────────────────────
 CLEANUP_PASS_PRICE = 2000          # Откуп от 1 чистки (требует одобрения владельца)
@@ -56,6 +75,14 @@ COSMETICS_CATALOG = [
     ("mora_shield",       "💰",  "Щит Моры",                350,  "Не терять мору при первой потере в казино за день"),
     ("lucky_sign",        "🍀",  "Знак удачи",              1500, "Порог пити −5 на 7 дней"),
     ("name_glow",         "✨",  "Свечение имени",           900,  "Ореол вокруг имени в Mini App"),
+    # ─── Crystal-priced cosmetics (price=0 здесь, реальная цена в CRYSTAL_COSMETICS) ───
+    ("shadow_mode",       "🕶️",  "Режим тени",              0,    "Скрыть баланс Моры от других в таблице лидеров (180 💎)"),
+]
+
+# ─── Косметика за кристаллы (отдельный прайс-лист) ────────────────────────────
+# Формат: (key, emoji, label, crystal_price, description)
+CRYSTAL_COSMETICS = [
+    ("shadow_mode", "🕶️", "Режим тени", 180, "Скрыть баланс Моры от других в таблице лидеров"),
 ]
 
 # ─── Магазин: Цвета питомца ───────────────────────────────────────────────────

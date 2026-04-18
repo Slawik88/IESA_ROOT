@@ -7,17 +7,18 @@ import { Landmark, ArrowRightLeft, TrendingUp, Clock, CheckCircle2, CircleDollar
 import { fetchBankInfo, openDeposit, withdrawDeposit, transferMora } from "../lib/api";
 import type { BankInfoResponse, BankDeposit, BankPlan, ChatMember } from "../types";
 import UserPicker from "../components/UserPicker";
+import Loans from "./Loans";
 
 interface Props {
   userId: number;
   chatId: number;
 }
 
-type SubTab = "deposits" | "new" | "transfer";
+type SubTab = "deposits" | "new" | "transfer" | "loans";
 
 const fmt = (n: number) => n.toLocaleString("ru-RU");
 
-export default function Bank({ chatId }: Props) {
+export default function Bank({ userId, chatId }: Props) {
   const [data, setData]           = useState<BankInfoResponse | null>(null);
   const [error, setError]         = useState("");
   const [tab, setTab]             = useState<SubTab>("deposits");
@@ -91,8 +92,8 @@ export default function Bank({ chatId }: Props) {
 
       {/* ── Под-вкладки ────────────────────────────────────────── */}
       <div className="flex gap-1 rounded-xl p-1" style={{ backgroundColor: "var(--bg-secondary)" }}>
-        {(["deposits", "new", "transfer"] as SubTab[]).map((t) => {
-          const labels: Record<SubTab, string> = { deposits: "Вклады", new: "Вложить", transfer: "Перевод" };
+        {(["deposits", "new", "transfer", "loans"] as SubTab[]).map((t) => {
+          const labels: Record<SubTab, string> = { deposits: "Вклады", new: "Вложить", transfer: "Перевод", loans: "Займы" };
           const active = tab === t;
           return (
             <button
@@ -137,6 +138,11 @@ export default function Bank({ chatId }: Props) {
           showErr={showErr}
           reload={() => { reload(); setTab("deposits"); }}
         />
+      )}
+
+      {/* ── Займы ──────────────────────────────────────────────── */}
+      {tab === "loans" && (
+        <Loans userId={userId} chatId={chatId} />
       )}
 
       {/* ── Перевод ────────────────────────────────────────────── */}

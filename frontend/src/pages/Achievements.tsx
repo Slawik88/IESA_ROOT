@@ -3,8 +3,8 @@
    Категории · Прогресс · Ранги · Глобальный топ-100 · Синхронизация
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { Trophy, Lock, ChevronDown, ChevronUp, MessagesSquare, RefreshCw, Crown } from "lucide-react";
-import { fetchAchievements, fetchGlobalLeaderboard } from "../lib/api";
+import { Trophy, Lock, ChevronDown, ChevronUp, MessagesSquare, RefreshCw, Crown, Globe } from "lucide-react";
+import { fetchAchievements, fetchGlobalLeaderboard, fetchGlobalTop50 } from "../lib/api";
 import type { AchievementsResponse, AchievementCategory, AchievementRank, AchLeaderboardEntry } from "../types";
 
 interface Props {
@@ -13,10 +13,12 @@ interface Props {
 }
 
 export default function Achievements({ userId, chatId }: Props) {
-  const [tab, setTab] = useState<"my" | "top">("my");
+  const [tab, setTab] = useState<"my" | "top" | "global-top">("my");
   const [data, setData] = useState<AchievementsResponse | null>(null);
   const [leaderboard, setLeaderboard] = useState<AchLeaderboardEntry[] | null>(null);
+  const [globalTop, setGlobalTop] = useState<AchLeaderboardEntry[] | null>(null);
   const [leaderboardError, setLeaderboardError] = useState("");
+  const [globalTopError, setGlobalTopError] = useState("");
   const [error, setError] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -41,6 +43,14 @@ export default function Achievements({ userId, chatId }: Props) {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (tab === "top" && !leaderboard && !leaderboardError) loadLeaderboard(); }, [tab, leaderboard, leaderboardError, loadLeaderboard]);
+  useEffect(() => {
+    if (tab === "global-top" && !globalTop && !globalTopError) {
+      setGlobalTopError("");
+      fetchGlobalTop50()
+        .then(d => setGlobalTop(d.leaderboard))
+        .catch((e: Error) => setGlobalTopError(e.message));
+    }
+  }, [tab, globalTop, globalTopError]);
 
   const doSync = () => {
     setSyncing(true);
@@ -131,7 +141,7 @@ export default function Achievements({ userId, chatId }: Props) {
 
     {/* ── Табы ─────── */}
     <div className="flex gap-2 mb-4 glass-card tab-scroll p-1 rounded-xl">
-      {(["my", "top"] as const).map((t) => (
+      {(["my", "top", "global-top"] as const).map((t) => (
         <button
           key={t}
           onClick={() => setTab(t)}
@@ -142,7 +152,7 @@ export default function Achievements({ userId, chatId }: Props) {
             boxShadow: tab === t ? "0 0 12px var(--accent-glow)" : "none",
           }}
         >
-          {t === "my" ? "📋 Мои" : "🏆 Топ-100"}
+          {t === "my" ? "📋 Мои" : t === "top" ? "🏆 Топ-100" : "🌐 Глобальный"}
         </button>
       ))}
     </div>
@@ -158,6 +168,26 @@ export default function Achievements({ userId, chatId }: Props) {
           </div>
         ) : (
           <LeaderboardTab entries={leaderboard} userId={userId} onRefresh={loadLeaderboard} />
+        )
+      ) : tab === "global-top" ? (
+        globalTopError ? (
+          <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
+            <p className="font-medium text-sm">Ошибка загрузки</p>
+            <p className="text-xs mt-1 break-all">{globalTopError}</p>
+            <button
+              onClick={() => { setGlobalTopError(""); fetchGlobalTop50().then(d => setGlobalTop(d.leaderboard)).catch((e: Error) => setGlobalTopError(e.message)); }}
+              className="mt-3 text-sm underline" style={{ color: "var(--accent)" }}>
+              Попробовать снова
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Globe size={14} style={{ color: "var(--accent)" }} />
+              <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Топ-50 игроков мира</p>
+            </div>
+            <LeaderboardTab entries={globalTop} userId={userId} onRefresh={() => { setGlobalTop(null); setGlobalTopError(""); }} />
+          </div>
         )
       ) : (
         <>

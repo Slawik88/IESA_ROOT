@@ -3,7 +3,7 @@
    Навигация: Профиль | Гача | Инвентарь | Банк | Магазин | Задания | Топ | Сезон | Ачивки | Биржа | [Адм.]
    ────────────────────────────────────────────────────────────── */
 import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
-import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem, Swords, Ticket, Gavel, Banknote, Zap, Settings } from "lucide-react";
+import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem, Swords, Ticket, Gavel, Zap, Settings } from "lucide-react";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -56,14 +56,14 @@ import Admin from "./pages/Admin";
 import Promo from "./pages/Promo";
 import BossFight from "./pages/BossFight";
 import Auction from "./pages/Auction";
-import Loans from "./pages/Loans";
 import NotInTelegram from "./pages/NotInTelegram";
 import Talents from "./pages/Talents";
 import Shards from "./pages/Shards";
 import AppSettings from "./pages/Settings";
 import { triggerNewbieQuest } from "./lib/api";
+import { ToastProvider } from "./components/ToastContext";
 
-type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements" | "exchange" | "casino" | "stars" | "promo" | "boss" | "auction" | "loans" | "talents" | "shards" | "settings" | "admin";
+type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements" | "exchange" | "casino" | "stars" | "promo" | "boss" | "auction" | "talents" | "shards" | "settings" | "admin";
 
 const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "profile",      label: "Профиль",  Icon: User },
@@ -73,8 +73,7 @@ const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
   { key: "shop",         label: "Магазин",  Icon: ShoppingBag },
   { key: "exchange",     label: "Биржа",    Icon: TrendingUp },
   { key: "casino",       label: "Казино",   Icon: Dices },
-  { key: "auction",      label: "Аукцион",  Icon: Gavel },
-  { key: "loans",        label: "Займы",    Icon: Banknote },  { key: "talents",      label: "Таланты",  Icon: Zap },
+  { key: "auction",      label: "Аукцион",  Icon: Gavel },  { key: "talents",      label: "Таланты",  Icon: Zap },
   { key: "shards",       label: "Осколки",  Icon: Gem },
   { key: "settings",     label: "Настройки",Icon: Settings },  { key: "stars",        label: "Stars",    Icon: Gem },
   { key: "promo",        label: "Промо",    Icon: Ticket },
@@ -102,7 +101,9 @@ export default function App() {
 
   return (
     <AppProvider chatId={chatId}>
-      <AppContent userId={userId} chatId={chatId} />
+      <ToastProvider>
+        <AppContent userId={userId} chatId={chatId} />
+      </ToastProvider>
     </AppProvider>
   );
 }
@@ -153,7 +154,6 @@ function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
           {tab === "exchange"     && <Exchange     userId={userId} chatId={chatId} isDev={isDev} />}
           {tab === "casino"       && <Casino        userId={userId} chatId={chatId} />}
           {tab === "auction"      && <Auction       userId={userId} chatId={chatId} />}
-          {tab === "loans"        && <Loans         userId={userId} chatId={chatId} />}
           {tab === "talents"      && <Talents       userId={userId} chatId={chatId} />}
           {tab === "shards"       && <Shards        userId={userId} chatId={chatId} />}
           {tab === "settings"     && <AppSettings   userId={userId} chatId={chatId} isDev={isDev} />}
