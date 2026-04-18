@@ -425,6 +425,377 @@ async def api_telemetry(request: Request):
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Frontend Error Log — /api/frontend_error_log  (no auth, ErrorBoundary sink)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.post("/api/frontend_error_log")
+async def api_frontend_error_log(request: Request):
+    try:
+        data = await request.json()
+        error_msg = str(data.get("error", ""))[:500]
+        stack = str(data.get("stack", ""))[:2000]
+        _log.error("FRONTEND ERROR: %s | STACK: %s", error_msg, stack)
+        return JSONResponse({"ok": True})
+    except Exception as exc:
+        _log.warning("api_frontend_error_log: %s", exc)
+        return JSONResponse({"ok": False}, status_code=500)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Avatar Proxy  —  GET /api/proxy/avatar?url=...
+#  Кэшируем аватарки Telegram в памяти на 24 часа, отдаём с правильными
+#  заголовками, чтобы фронтенд не получал CORS-ошибки.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+import time as _time
+import urllib.request as _ur
+import hashlib as _hl
+from fastapi.responses import Response as _FaResponse
+
+_avatar_cache: dict[str, tuple[bytes, str, float]] = {}  # url → (data, content_type, expires_ts)
+_AVATAR_TTL = 86_400  # 24 h
+
+@app.get("/api/proxy/avatar")
+async def proxy_avatar(url: str = ""):
+    if not url:
+        return _FaResponse(status_code=400)
+    # Разрешаем только Telegram CDN / t.me / file.bot.* чтобы не стать открытым прокси
+    import urllib.parse as _up
+    parsed = _up.urlparse(url)
+    allowed_hosts = ("t.me", "telegram.org", "cdn4.telegram-cdn.org", "cdn1.telegram-cdn.org",
+                     "cdn2.telegram-cdn.org", "cdn3.telegram-cdn.org",
+                     "api.telegram.org", "cdn5.telegram-cdn.org")
+    if parsed.scheme not in ("http", "https") or not any(parsed.netloc.endswith(h) for h in allowed_hosts):
+        return _FaResponse(status_code=403)
+
+    cache_key = _hl.md5(url.encode()).hexdigest()
+    now = _time.time()
+    if cache_key in _avatar_cache:
+        data, ctype, expires = _avatar_cache[cache_key]
+        if now < expires:
+            return _FaResponse(content=data, media_type=ctype,
+                               headers={"Cache-Control": "public, max-age=86400"})
+
+    try:
+        req = _ur.Request(url, headers={"User-Agent": "TelegramBot"})
+        with _ur.urlopen(req, timeout=8) as resp:
+            ctype = resp.headers.get_content_type() or "image/jpeg"
+            data = resp.read(2 * 1024 * 1024)  # max 2 MB
+        _avatar_cache[cache_key] = (data, ctype, now + _AVATAR_TTL)
+        # Ограничиваем размер кэша в памяти
+        if len(_avatar_cache) > 5000:
+            oldest = sorted(_avatar_cache, key=lambda k: _avatar_cache[k][2])[:500]
+            for k in oldest:
+                del _avatar_cache[k]
+        return _FaResponse(content=data, media_type=ctype,
+                           headers={"Cache-Control": "public, max-age=86400"})
+    except Exception as exc:
+        _log.debug("proxy_avatar fetch error: %s", exc)
+        return _FaResponse(status_code=502)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Avatar Proxy  —  GET /api/proxy/avatar?url=...
+#  Кэшируем аватарки Telegram в памяти на 24 часа, отдаём с правильными
+#  заголовками, чтобы фронтенд не получал CORS-ошибки.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+import time as _time
+import urllib.request as _ur
+import hashlib as _hl
+from fastapi.responses import Response as _FaResponse
+
+_avatar_cache: dict[str, tuple[bytes, str, float]] = {}  # url → (data, content_type, expires_ts)
+_AVATAR_TTL = 86_400  # 24 h
+
+@app.get("/api/proxy/avatar")
+async def proxy_avatar(url: str = ""):
+    if not url:
+        return _FaResponse(status_code=400)
+    # Разрешаем только Telegram CDN / t.me / file.bot.* чтобы не стать открытым прокси
+    import urllib.parse as _up
+    parsed = _up.urlparse(url)
+    allowed_hosts = ("t.me", "telegram.org", "cdn4.telegram-cdn.org", "cdn1.telegram-cdn.org",
+                     "cdn2.telegram-cdn.org", "cdn3.telegram-cdn.org",
+                     "api.telegram.org", "cdn5.telegram-cdn.org")
+    if parsed.scheme not in ("http", "https") or not any(parsed.netloc.endswith(h) for h in allowed_hosts):
+        return _FaResponse(status_code=403)
+
+    cache_key = _hl.md5(url.encode()).hexdigest()
+    now = _time.time()
+    if cache_key in _avatar_cache:
+        data, ctype, expires = _avatar_cache[cache_key]
+        if now < expires:
+            return _FaResponse(content=data, media_type=ctype,
+                               headers={"Cache-Control": "public, max-age=86400"})
+
+    try:
+        req = _ur.Request(url, headers={"User-Agent": "TelegramBot"})
+        with _ur.urlopen(req, timeout=8) as resp:
+            ctype = resp.headers.get_content_type() or "image/jpeg"
+            data = resp.read(2 * 1024 * 1024)  # max 2 MB
+        _avatar_cache[cache_key] = (data, ctype, now + _AVATAR_TTL)
+        # Ограничиваем размер кэша в памяти
+        if len(_avatar_cache) > 5000:
+            oldest = sorted(_avatar_cache, key=lambda k: _avatar_cache[k][2])[:500]
+            for k in oldest:
+                del _avatar_cache[k]
+        return _FaResponse(content=data, media_type=ctype,
+                           headers={"Cache-Control": "public, max-age=86400"})
+    except Exception as exc:
+        _log.debug("proxy_avatar fetch error: %s", exc)
+        return _FaResponse(status_code=502)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Leaderboard  —  /api/leaderboard
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.get("/api/leaderboard")
+async def leaderboard_route(request: Request, chat_id: int = 0, type: str = "xp"):
+    """Leaderboard по типу: xp | messages | boss | mora"""
+    try:
+        from api.user import get_leaderboard
+        uid_raw = request.headers.get("X-User-Id", "0")
+        try:
+            uid = int(uid_raw)
+        except ValueError:
+            uid = 0
+        result = await get_leaderboard(chat_id=chat_id, lb_type=type, uid=uid)
+        return JSONResponse(result)
+    except Exception as exc:
+        _log.exception("leaderboard_route error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Solo Boss  —  /api/solo_boss/*
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+_BOSS_DAILY_LIMIT = 3
+
+
+@app.get("/api/solo_boss/status")
+async def solo_boss_status(user_id: int = 0, chat_id: int = 0):
+    if not user_id or not chat_id:
+        return JSONResponse({"error": "user_id and chat_id required"}, status_code=400)
+    try:
+        from database.db import (
+            get_solo_boss_session, get_solo_boss_progress,
+            get_boss_coupons,
+        )
+        from database.postgres import connect as postgres_connect
+        from datetime import datetime, timezone
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        session = await get_solo_boss_session(user_id, chat_id)
+        progress = await get_solo_boss_progress(user_id, chat_id)
+        coupons, next_regen = await get_boss_coupons(user_id)
+
+        async with postgres_connect() as db:
+            async with db.execute(
+                "SELECT COUNT(*) AS c FROM solo_boss_sessions WHERE user_id=? AND chat_id=? AND session_date=?",
+                (user_id, chat_id, today),
+            ) as cur:
+                cnt_row = await cur.fetchone()
+        daily_used = int(cnt_row["c"] or 0) if cnt_row else 0
+
+        # Reset time (next UTC midnight)
+        from datetime import timedelta
+        now_utc = datetime.now(timezone.utc)
+        tomorrow = (now_utc + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        reset_in_sec = int((tomorrow - now_utc).total_seconds())
+        hrs, rem = divmod(reset_in_sec, 3600)
+        mins = rem // 60
+        reset_text = f"{hrs}ч {mins}м"
+
+        next_level = (progress["max_level"] + 1) if progress else 1
+        return JSONResponse({
+            "session": session,
+            "progress": progress,
+            "next_level": next_level,
+            "daily_limit": _BOSS_DAILY_LIMIT,
+            "daily_used": daily_used,
+            "daily_remaining": max(0, _BOSS_DAILY_LIMIT - daily_used),
+            "reset_at": tomorrow.isoformat(),
+            "reset_in_seconds": reset_in_sec,
+            "reset_in_text": reset_text,
+            "boss_coupons": coupons,
+            "next_coupon_regen_at": next_regen,
+        })
+    except Exception as exc:
+        _log.exception("solo_boss_status error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/solo_boss/start")
+async def solo_boss_start(request: Request):
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        chat_id = int(data.get("chat_id", 0))
+        boss_level = int(data.get("boss_level", 0))
+        if not user_id or not chat_id:
+            return JSONResponse({"ok": False, "error": "user_id and chat_id required"}, status_code=400)
+
+        from database.db import (
+            get_solo_boss_session, get_solo_boss_progress,
+            create_solo_boss_session, use_boss_coupon,
+        )
+        from database.postgres import connect as postgres_connect
+        from datetime import datetime, timezone
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # Check if already has active session
+        existing = await get_solo_boss_session(user_id, chat_id)
+        if existing and not existing.get("is_completed"):
+            return JSONResponse({"ok": True, "session": existing})
+
+        # Check daily limit
+        async with postgres_connect() as db:
+            async with db.execute(
+                "SELECT COUNT(*) AS c FROM solo_boss_sessions WHERE user_id=? AND chat_id=? AND session_date=?",
+                (user_id, chat_id, today),
+            ) as cur:
+                cnt_row = await cur.fetchone()
+        daily_used = int(cnt_row["c"] or 0) if cnt_row else 0
+        if daily_used >= _BOSS_DAILY_LIMIT:
+            # Try coupon
+            used = await use_boss_coupon(user_id)
+            if not used:
+                return JSONResponse({"ok": False, "error": "Дневной лимит исчерпан. Купи купон (7💎) или подожди завтра."})
+
+        progress = await get_solo_boss_progress(user_id, chat_id)
+        if not boss_level:
+            boss_level = (progress["max_level"] + 1) if progress else 1
+        session = await create_solo_boss_session(user_id, chat_id, boss_level)
+        return JSONResponse({"ok": True, "session": session})
+    except Exception as exc:
+        _log.exception("solo_boss_start error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@app.post("/api/solo_boss/attack")
+async def solo_boss_attack(request: Request):
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        chat_id = int(data.get("chat_id", 0))
+        if not user_id or not chat_id:
+            return JSONResponse({"ok": False, "error": "user_id and chat_id required"}, status_code=400)
+
+        from database.db import get_solo_boss_session, apply_solo_boss_damage
+        import random as _rnd
+
+        session = await get_solo_boss_session(user_id, chat_id)
+        if not session:
+            return JSONResponse({"ok": False, "error": "Нет активного боя. Начни сначала."})
+        if session.get("is_completed"):
+            return JSONResponse({"ok": False, "error": "Бой уже завершён."})
+
+        base_damage = _rnd.randint(120, 220)
+        result = await apply_solo_boss_damage(user_id, session, base_damage)
+
+        rewards = None
+        if result["boss_defeated"]:
+            boss_level = session["boss_level"]
+            mora_reward = 300 + boss_level * 200
+            xp_reward   = 50  + boss_level * 30
+            is_repeat = bool(session.get("is_repeat"))
+            if not is_repeat:
+                from database.db import add_mora, add_user_xp
+                await add_mora(user_id, chat_id, mora_reward, source="solo_boss_win")
+                try:
+                    await add_user_xp(user_id, chat_id, xp_reward)
+                except Exception:
+                    pass
+            rewards = {"mora": mora_reward if not is_repeat else 0, "xp": xp_reward if not is_repeat else 0}
+
+        return JSONResponse({"ok": True, **result, "rewards": rewards})
+    except Exception as exc:
+        _log.exception("solo_boss_attack error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+@app.post("/api/solo_boss/forfeit")
+async def solo_boss_forfeit(request: Request):
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        chat_id = int(data.get("chat_id", 0))
+        if not user_id or not chat_id:
+            return JSONResponse({"ok": False, "error": "user_id and chat_id required"}, status_code=400)
+
+        from database.postgres import connect as postgres_connect
+        from database.db import get_solo_boss_session
+
+        session = await get_solo_boss_session(user_id, chat_id)
+        if not session:
+            return JSONResponse({"ok": True, "forfeited": False})
+
+        async with postgres_connect() as db:
+            await db.execute(
+                "UPDATE solo_boss_sessions SET is_completed=1 WHERE id=?",
+                (session["id"],),
+            )
+            await db.commit()
+        return JSONResponse({"ok": True, "forfeited": True})
+    except Exception as exc:
+        _log.exception("solo_boss_forfeit error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Boss Coupon Purchase  —  POST /api/boss/buy_coupon
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+_BOSS_COUPON_PRICE_CRYSTALS = 7
+
+
+@app.post("/api/boss/buy_coupon")
+async def boss_buy_coupon(request: Request):
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id", 0))
+        chat_id = int(data.get("chat_id", 0))
+        if not user_id:
+            return JSONResponse({"ok": False, "error": "user_id required"}, status_code=400)
+
+        from database.db import (
+            get_boss_coupons, add_boss_coupons,
+            BOSS_COUPONS_MAX,
+        )
+        from database.postgres import connect as postgres_connect
+
+        coupons, _ = await get_boss_coupons(user_id)
+        if coupons >= BOSS_COUPONS_MAX:
+            return JSONResponse({"ok": False, "error": "Купоны уже заполнены (макс. 5)."})
+
+        # Deduct crystals
+        async with postgres_connect() as db:
+            async with db.execute(
+                "SELECT COALESCE(crystals, 0) AS c FROM users WHERE user_id=?",
+                (user_id,),
+            ) as cur:
+                row = await cur.fetchone()
+            if not row or int(row["c"]) < _BOSS_COUPON_PRICE_CRYSTALS:
+                return JSONResponse({"ok": False, "error": f"Недостаточно 💎 (нужно {_BOSS_COUPON_PRICE_CRYSTALS})"})
+            await db.execute(
+                "UPDATE users SET crystals = crystals - ? WHERE user_id=? AND crystals >= ?",
+                (_BOSS_COUPON_PRICE_CRYSTALS, user_id, _BOSS_COUPON_PRICE_CRYSTALS),
+            )
+            await db.commit()
+
+        new_count = await add_boss_coupons(user_id, 1)
+        return JSONResponse({"ok": True, "coupons": new_count})
+    except Exception as exc:
+        _log.exception("boss_buy_coupon error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Dev Analytics — /api/dev/analytics  (dev only)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

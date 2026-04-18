@@ -874,6 +874,25 @@ async def init_db():
             except Exception as _e:
                 _log.debug("%s", _e, exc_info=True)
 
+        # ─── VIP Tier (1=Full/30d, 2=Basic/7d) ────────────────────────────
+        for col_def in [
+            "vip_tier INTEGER DEFAULT 2",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
+            except Exception as _e:
+                _log.debug("%s", _e, exc_info=True)
+
+        # ─── Купоны для Solo Boss (макс. 5, регенерация 1 за 3 часа) ──────
+        for col_def in [
+            "boss_coupons INTEGER DEFAULT 5",
+            "boss_coupon_regen_at TIMESTAMPTZ DEFAULT NULL",
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_def}")
+            except Exception as _e:
+                _log.debug("%s", _e, exc_info=True)
+
         # ─── Рулетка: счётчик поражений подряд (пити-система) ────────────
         for col_def in [
             "roulette_losses INTEGER DEFAULT 0",
@@ -1098,6 +1117,10 @@ async def init_db():
                 PRIMARY KEY (user_id, chat_id)
             )
         """)
+
+        # Boss coupons — global per-user (not per-chat)
+        await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS boss_coupons INTEGER DEFAULT 5")
+        await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS boss_coupon_regen_at TIMESTAMPTZ DEFAULT NULL")
         
         await db.execute("""
             CREATE TABLE IF NOT EXISTS bond_price_history (
@@ -4274,10 +4297,11 @@ async def deduct_mora(user_id: int, chat_id: int, amount: int) -> tuple[bool, in
 
 
 async def get_vip(user_id: int, chat_id: int) -> int:
-    """Returns 1 if user has active (non-expired) VIP in this chat, else 0."""
+    """Returns 0 if no VIP; 1 if Tier 1 (Full/30d); 2 if Tier 2 (Basic/7d).
+    bool(get_vip(...)) — True если любой VIP активен (backward-compat)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT vip, vip_expires_at FROM user_mora WHERE user_id=? AND chat_id=?",
+            "SELECT vip, vip_expires_at, vip_tier FROM user_mora WHERE user_id=? AND chat_id=?",
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
@@ -4285,19 +4309,26 @@ async def get_vip(user_id: int, chat_id: int) -> int:
         return 0
     exp = row["vip_expires_at"]
     if exp is not None and exp < datetime.now(timezone.utc):
-        return 0  # expired  but not yet cleaned up
-    return 1
+        return 0  # expired but not yet cleaned up
+    tier = row["vip_tier"] if row["vip_tier"] else 2
+    return tier
 
 
-async def set_vip(user_id: int, chat_id: int, value: int, *, days: int = 30):
-    """Set VIP status for user in chat. Enabling VIP sets an expiry for the given number of days."""
+async def set_vip(user_id: int, chat_id: int, value: int, *, days: int = 30, tier: int = 2):
+    """Set VIP status for user in chat.
+    tier: 1 = Full (30d, default), 2 = Basic (7d).
+    Enabling VIP sets an expiry for the given number of days.
+    """
     expires_at = (datetime.now(timezone.utc) + timedelta(days=days)) if value else None
+    tier_val = tier if value else 2
     async with postgres_connect() as db:
         await db.execute(
-            """INSERT INTO user_mora (user_id, chat_id, vip, vip_expires_at) VALUES (?, ?, ?, ?)
+            """INSERT INTO user_mora (user_id, chat_id, vip, vip_expires_at, vip_tier) VALUES (?, ?, ?, ?, ?)
                ON CONFLICT(user_id, chat_id) DO UPDATE
-               SET vip = excluded.vip, vip_expires_at = excluded.vip_expires_at""",
-            (user_id, chat_id, value, expires_at),
+               SET vip = excluded.vip,
+                   vip_expires_at = excluded.vip_expires_at,
+                   vip_tier = excluded.vip_tier""",
+            (user_id, chat_id, value, expires_at, tier_val),
         )
         await db.commit()
 
@@ -7923,20 +7954,18 @@ async def craft_from_shards(user_id: int, chat_id: int, shard_key: str) -> dict:
         craft_frame = meta.get("craft_frame")
         if craft_item:
             item_meta = ITEM_METADATA.get(craft_item, {})
-            item_name = craft_item
-            for k, v in ITEM_METADATA.items():
-                if k == craft_item:
-                    item_name = v.get("desc", craft_item).split(":")[0]
             rarity = "rare" if craft_item.startswith("rare_") else ("legendary" if craft_item.startswith("lego_") else "common")
-            from utils.helpers import bot_today
-            now_dt = datetime.now(timezone.utc)
             await db.execute(
                 """INSERT INTO gacha_inventory
-                   (user_id, chat_id, item_key, item_name, rarity, slot, acquired_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                   (user_id, chat_id, item_key, item_name, rarity, obtained_at,
+                    atk, def_val, hp, crit_rate, slot, stack_count)
+                   VALUES (?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, 1)""",
                 (user_id, chat_id, craft_item,
                  item_meta.get("desc", craft_item).split(":")[0],
-                 rarity, item_meta.get("slot", ""), now_dt),
+                 rarity,
+                 item_meta.get("atk", 0), item_meta.get("def_val", 0),
+                 item_meta.get("hp", 0), item_meta.get("crit_rate", 0.0),
+                 item_meta.get("slot")),
             )
         elif craft_frame:
             # Разблокируем рамку через user_mora
@@ -9321,6 +9350,100 @@ async def apply_solo_boss_damage(user_id: int, session: dict, damage: int) -> di
         "crit": crit,
     }
 
+
+
+# ─── Boss Coupons (Solo Boss) ─────────────────────────────────────────────────
+
+BOSS_COUPONS_MAX    = 5
+BOSS_COUPON_REGEN_H = 3   # 1 купон восстанавливается каждые 3 часа
+
+
+async def get_boss_coupons(user_id: int) -> tuple[int, str | None]:
+    """Возвращает (текущие_купоны, следующий_regen_iso).
+    Автоматически доначисляет купоны по прошедшему времени."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            "SELECT COALESCE(boss_coupons, 5) AS c, boss_coupon_regen_at FROM users WHERE user_id=?",
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+
+    if not row:
+        return BOSS_COUPONS_MAX, None
+
+    coupons: int = int(row["c"])
+    regen_at = row["boss_coupon_regen_at"]
+
+    # Рассчитываем, сколько купонов накопилось с момента последней регенерации
+    if coupons < BOSS_COUPONS_MAX and regen_at is not None:
+        now = datetime.now(timezone.utc)
+        if isinstance(regen_at, str):
+            regen_at = datetime.fromisoformat(regen_at)
+        if regen_at.tzinfo is None:
+            regen_at = regen_at.replace(tzinfo=timezone.utc)
+        elapsed_hours = (now - regen_at).total_seconds() / 3600
+        earned = int(elapsed_hours // BOSS_COUPON_REGEN_H)
+        if earned > 0:
+            coupons = min(BOSS_COUPONS_MAX, coupons + earned)
+            # Обновляем время последней регенерации (на кратное regen_at)
+            new_regen_at = regen_at + timedelta(hours=earned * BOSS_COUPON_REGEN_H)
+            async with postgres_connect() as db:
+                await db.execute(
+                    "UPDATE users SET boss_coupons=?, boss_coupon_regen_at=? WHERE user_id=?",
+                    (coupons, new_regen_at, user_id),
+                )
+                await db.commit()
+            regen_at = new_regen_at
+
+    # Если ещё не полные купоны, вычисляем следующий regen
+    next_regen_iso: str | None = None
+    if coupons < BOSS_COUPONS_MAX and regen_at is not None:
+        if isinstance(regen_at, str):
+            regen_at = datetime.fromisoformat(regen_at)
+        now = datetime.now(timezone.utc)
+        elapsed = (now - regen_at.replace(tzinfo=timezone.utc) if regen_at.tzinfo is None else now - regen_at).total_seconds()
+        remaining = BOSS_COUPON_REGEN_H * 3600 - (elapsed % (BOSS_COUPON_REGEN_H * 3600))
+        next_regen_iso = (now + timedelta(seconds=remaining)).isoformat()
+
+    return coupons, next_regen_iso
+
+
+async def use_boss_coupon(user_id: int) -> bool:
+    """Списать 1 купон. Возвращает True если успешно, False если нет купонов."""
+    now = datetime.now(timezone.utc)
+    async with postgres_connect() as db:
+        cursor = await db.execute(
+            """UPDATE users
+               SET boss_coupons = boss_coupons - 1,
+                   boss_coupon_regen_at = CASE
+                       WHEN boss_coupon_regen_at IS NULL OR boss_coupons >= ? THEN ?
+                       ELSE boss_coupon_regen_at
+                   END
+               WHERE user_id=? AND COALESCE(boss_coupons, 5) >= 1""",
+            (BOSS_COUPONS_MAX, now, user_id),
+        )
+        if cursor.rowcount == 0:
+            return False
+        await db.commit()
+    return True
+
+
+async def add_boss_coupons(user_id: int, amount: int = 1) -> int:
+    """Добавить купоны (например, из гачи). Возвращает итоговое количество."""
+    async with postgres_connect() as db:
+        await db.execute(
+            """UPDATE users
+               SET boss_coupons = LEAST(COALESCE(boss_coupons, 0) + ?, ?)
+               WHERE user_id=?""",
+            (amount, BOSS_COUPONS_MAX, user_id),
+        )
+        await db.commit()
+        async with db.execute(
+            "SELECT COALESCE(boss_coupons, 5) FROM users WHERE user_id=?",
+            (user_id,),
+        ) as cur:
+            row = await cur.fetchone()
+    return int(row[0]) if row else BOSS_COUPONS_MAX
 
 
 # ─── Error log helpers ───────────────────────────────────────────────────────

@@ -106,11 +106,16 @@ export function fetchAchievements(
   );
 }
 
-/** Глобальный топ-100 по достижениям */
+/** Глобальный топ-100 по достижениям (в рамках чата) */
 export function fetchGlobalLeaderboard(chatId: number): Promise<AchLeaderboardResponse> {
   return request<AchLeaderboardResponse>(
     `/api/achievements?mode=leaderboard&chat_id=${chatId}`,
   );
+}
+
+/** Глобальный топ-50 по достижениям (все чаты) */
+export function fetchGlobalTop50(): Promise<AchLeaderboardResponse> {
+  return request<AchLeaderboardResponse>(`/api/achievements?mode=global_leaderboard`);
 }
 
 /** Бейджи пользователя */
@@ -879,6 +884,8 @@ export interface BossStatusResult {
   reset_at: string;
   reset_in_seconds: number;
   reset_in_text: string;
+  boss_coupons: number;
+  next_coupon_regen_at: string | null;
 }
 export interface BossAttackResult {
   ok: boolean;
@@ -913,6 +920,14 @@ export function attackBoss(chatId: number): Promise<BossAttackResult> {
 
 export function forfeitBoss(chatId: number): Promise<{ ok: boolean; forfeited: boolean }> {
   return request<{ ok: boolean; forfeited: boolean }>("/api/solo_boss/forfeit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId }),
+  });
+}
+
+export function buyBossCoupon(chatId: number): Promise<{ ok: boolean; coupons: number; error?: string }> {
+  return request<{ ok: boolean; coupons: number; error?: string }>("/api/boss/buy_coupon", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId }),

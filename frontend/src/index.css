@@ -4,25 +4,30 @@
    ────────────────────────────────────────────────────────────── */
 @import "tailwindcss";
 
-/* ── Привязка к Telegram-теме (светлая / тёмная автоматически) ── */
+/* ── ЖЁСТКИЙ сброс: полностью игнорируем нативную тему Telegram.
+   Дизайн зависит ТОЛЬКО от data-theme на <html> (выбор в боте).
+   Значения по умолчанию — тёмная тема Premium (Abyss-стиль). ── */
 :root {
-  --bg-primary: var(--tg-theme-bg-color, #0a0a12);
-  --bg-secondary: var(--tg-theme-secondary-bg-color, #12121e);
-  --bg-elevated: color-mix(in srgb, var(--bg-secondary) 85%, var(--accent) 15%);
-  --text-primary: var(--tg-theme-text-color, #eeeef4);
-  --text-secondary: color-mix(in srgb, var(--text-primary) 70%, transparent);
-  --text-hint: var(--tg-theme-hint-color, #6b6b80);
-  --accent: var(--tg-theme-button-color, #6366f1);
-  --accent-text: var(--tg-theme-button-text-color, #ffffff);
-  --accent-soft: color-mix(in srgb, var(--accent) 15%, transparent);
-  --accent-glow: color-mix(in srgb, var(--accent) 40%, transparent);
-  --link: var(--tg-theme-link-color, #818cf8);
-  --border: var(--tg-theme-section-separator-color, rgba(255,255,255,0.06));
-  --border-accent: color-mix(in srgb, var(--accent) 25%, rgba(255,255,255,0.05));
-  --header-bg: var(--tg-theme-header-bg-color, #0d0d18);
-  --shadow-color: rgba(0, 0, 0, 0.5);
-  --card-radius: 20px;
+  --bg-primary:    #0a0a12;
+  --bg-secondary:  #12121e;
+  --bg-elevated:   color-mix(in srgb, #12121e 85%, #6366f1 15%);
+  --text-primary:  #eeeef4;
+  --text-secondary: rgba(238,238,244,0.70);
+  --text-hint:     #6b6b80;
+  --accent:        #6366f1;
+  --accent-text:   #ffffff;
+  --accent-soft:   rgba(99,102,241,0.15);
+  --accent-glow:   rgba(99,102,241,0.40);
+  --link:          #818cf8;
+  --border:        rgba(255,255,255,0.06);
+  --border-accent: rgba(99,102,241,0.25);
+  --header-bg:     #0d0d18;
+  --shadow-color:  rgba(0,0,0,0.5);
+  --card-radius:   20px;
   --card-radius-sm: 14px;
+  --mesh-c1: 99, 102, 241;
+  --mesh-c2: 139, 92, 246;
+  --mesh-c3: 236, 72, 153;
 }
 
 /* ── Темы профиля: data-theme на <html> переопределяет CSS переменные ── */
@@ -624,4 +629,140 @@ button:active:not(:disabled) { transform: scale(0.97); }
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PROFILE FRAMES — CSS-рамки аватарок
+   Используйте <ProfileAvatar frame="warrior" ... /> компонент.
+   ═══════════════════════════════════════════════════════════════ */
+.avatar-frame-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.avatar-frame-wrap img,
+.avatar-frame-wrap .avatar-placeholder {
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
+  position: relative;
+  z-index: 1;
+}
+/* Base frame ring */
+.avatar-frame-wrap::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+}
+/* warrior — синяя сталь */
+.frame-warrior::before {
+  background: conic-gradient(#3b82f6, #1d4ed8, #60a5fa, #3b82f6);
+  box-shadow: 0 0 12px 2px rgba(59,130,246,0.6);
+}
+/* moon — серебряный лунный */
+.frame-moon::before {
+  background: conic-gradient(#94a3b8, #cbd5e1, #64748b, #cbd5e1, #94a3b8);
+  box-shadow: 0 0 12px 2px rgba(148,163,184,0.5);
+}
+/* fire — огненный */
+.frame-fire::before {
+  background: conic-gradient(#f97316, #dc2626, #fbbf24, #f97316);
+  box-shadow: 0 0 16px 4px rgba(249,115,22,0.5);
+}
+/* star — золотые звёзды */
+.frame-star::before {
+  background: conic-gradient(#f59e0b, #fcd34d, #d97706, #fcd34d, #f59e0b);
+  box-shadow: 0 0 14px 3px rgba(245,158,11,0.55);
+}
+/* diamond — алмазный радуга */
+.frame-diamond::before {
+  background: conic-gradient(#a855f7, #38bdf8, #22c55e, #f59e0b, #ef4444, #a855f7);
+  box-shadow: 0 0 16px 4px rgba(168,85,247,0.5);
+}
+/* champion — чемпионский золото */
+.frame-champion::before {
+  background: conic-gradient(#f59e0b, #fff7ed, #d97706, #fde68a, #f59e0b);
+  box-shadow: 0 0 20px 6px rgba(245,158,11,0.6);
+}
+/* sakura — розовый */
+.frame-sakura::before {
+  background: conic-gradient(#f472b6, #fda4af, #ec4899, #fda4af, #f472b6);
+  box-shadow: 0 0 14px 3px rgba(244,114,182,0.5);
+}
+/* abyss — тёмно-фиолетовый */
+.frame-abyss::before {
+  background: conic-gradient(#6366f1, #7c3aed, #4f46e5, #8b5cf6, #6366f1);
+  box-shadow: 0 0 16px 4px rgba(99,102,241,0.55);
+}
+/* ── PREMIUM рамка — анимированный радуга + свечение ── */
+@keyframes premiumFrameSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.frame-premium::before {
+  background: conic-gradient(
+    #ff4444 0%, #ff8c00 12%, #ffd700 25%, #00e676 38%,
+    #00b0ff 50%, #aa00ff 62%, #ff4488 75%, #ff4444 100%
+  );
+  animation: premiumFrameSpin 3s linear infinite;
+  box-shadow:
+    0 0 20px 6px rgba(168,85,247,0.5),
+    0 0 40px 10px rgba(99,102,241,0.3);
+}
+.frame-premium::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 60%, rgba(255,255,255,0.15) 100%);
+  z-index: 2;
+  pointer-events: none;
+  animation: premiumFrameSpin 3s linear infinite reverse;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   GLOBAL TOAST SYSTEM
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-24px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(-16px) scale(0.95); }
+}
+.toast-enter  { animation: toastIn  0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.toast-exit   { animation: toastOut 0.2s ease-in both; }
+
+/* ═══════════════════════════════════════════════════════════════
+   BATTLE PASS — стили нового дизайна
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes bpLevelPop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  65%  { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.bp-level-pop { animation: bpLevelPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+@keyframes bpXpFill {
+  from { width: 0%; }
+}
+.bp-xp-bar { animation: bpXpFill 1.2s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+.bp-track-line {
+  position: relative;
+}
+.bp-track-line::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0; bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom, var(--accent), var(--border));
+  z-index: 0;
 }
