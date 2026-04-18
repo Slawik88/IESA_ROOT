@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Trophy, AlertCircle, X, Swords, Shield, Heart, PawPrint } from "lucide-react";
 import { fetchLeaderboard, fetchPublicProfile } from "../lib/api";
 import type { LeaderboardResponse, LeaderboardEntry, PublicProfileResponse } from "../types";
+import ProfileAvatar from "../components/ProfileAvatar";
 
 type LBType = "xp" | "messages" | "boss" | "mora";
 
@@ -45,7 +46,7 @@ export default function Leaderboard({ chatId }: Props) {
     <div className="animate-fadeIn flex flex-col min-h-screen pb-24">
 
       {/* ── Заголовок ── */}
-      <div className="px-4 pt-4 pb-2">
+      <div className="glass-hero px-4 pt-4 pb-2 mb-2">
         <h1 className="text-xl font-bold flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
             <Trophy size={18} style={{ color: "var(--accent)" }} />
@@ -312,17 +313,12 @@ function UserProfileSheet({
           <>
             {/* Аватар + имя */}
             <div className="flex flex-col items-center gap-2 pt-2 pb-3">
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover"
-                  style={{ border: "2px solid var(--accent)" }} />
-              ) : (
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold"
-                  style={{ backgroundColor: "var(--accent)22", color: "var(--accent)" }}
-                >
-                  {initials}
-                </div>
-              )}
+              <ProfileAvatar
+                src={profile?.avatar_url}
+                frame={profile?.active_frame && profile.active_frame !== "default" ? profile.active_frame : null}
+                size={64}
+                alt={profile?.name ?? entry.name}
+              />
               <div className="text-center">
                 <p className="text-base font-bold flex items-center justify-center gap-1.5">
                   {profile?.crystal_cosmetics_owned?.includes("neon_prefix") && (

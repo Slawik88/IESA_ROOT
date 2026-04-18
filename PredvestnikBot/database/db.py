@@ -5093,6 +5093,20 @@ async def get_top_by_messages_in_chat(
     return merged[:limit]
 
 
+async def get_top_all_users_in_chat(chat_id: int, limit: int = 500):
+    """Return ALL users in the chat, including those with 0 messages."""
+    async with postgres_connect() as db:
+        async with db.execute(
+            """SELECT us.*, u.full_name, u.username
+               FROM user_stats us
+               JOIN users u ON u.user_id = us.user_id
+               WHERE us.chat_id = ? AND us.is_banned = 0
+               ORDER BY us.message_count DESC LIMIT ?""",
+            (chat_id, limit),
+        ) as c:
+            return await c.fetchall()
+
+
 async def _get_top_in_chat(chat_id: int, order_col: str, limit: int = 10):
     """Generic top-N query helper for user_stats, sorted by *order_col* DESC."""
     async with postgres_connect() as db:
@@ -9995,7 +10009,9 @@ async def get_telemetry_analytics(period: str = "week") -> dict:
         "casino": "🎲 Казино", "stars": "💎 Stars", "promo": "🎟 Промо",
         "boss": "⚔️ Босс", "quests": "📋 Задания",
         "leaderboard": "🏆 Топ", "season": "🌟 Сезон", "achievements": "🏅 Ачивки",
-        "admin": "🛠 Адм.",
+        "admin": "🛠 Адм.", "auction": "🏛 Аукцион", "talents": "⚡ Таланты",
+        "shards": "💎 Осколки", "settings": "⚙️ Настройки",
+        "loans": "💰 Займы", "couple_boss": "👫 Парный босс",
     }
 
     try:
@@ -10008,7 +10024,7 @@ async def get_telemetry_analytics(period: str = "week") -> dict:
                 WHERE event_type = 'tab_time' AND date_bucket >= ?
                 GROUP BY event_key
                 ORDER BY total_sec DESC
-                LIMIT 10
+                LIMIT 25
                 """,
                 (date_from,),
             ) as cur:

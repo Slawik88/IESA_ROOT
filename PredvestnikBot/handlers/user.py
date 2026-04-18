@@ -8,7 +8,7 @@ from database.db import (
     get_active_theme, get_active_expedition, get_crystals, get_daily_top,
     get_all_equipped_items, get_equipped_flair, get_equipped_legendary, get_marriage, get_mora,
     get_mora_batch, get_pet, get_prev_weekly_top, get_received_gifts,
-    get_shard_stash, get_top_by_messages_in_chat,
+    get_shard_stash, get_top_by_messages_in_chat, get_top_all_users_in_chat,
     get_user, get_user_badges, get_user_stats,
     get_user_themes, get_weekly_top, get_yesterday_top,
     get_xp_boost_active, add_user_theme, set_active_theme,
@@ -2181,6 +2181,10 @@ async def cmd_top(message: Message, cmd_args: str):
         prev_top = await get_prev_weekly_top(message.chat.id, 500)
         title = "📆 <b>Рейтинг активных за неделю:</b>"
         count_field = "wc"
+    elif arg in ("все", "all", "в"):
+        top = await get_top_all_users_in_chat(message.chat.id, 500)
+        title = "📊 <b>Полный список участников (включая 0 сообщений):</b>"
+        count_field = "message_count"
     else:
         top = await get_top_by_messages_in_chat(message.chat.id, 500)
         title = "🏆 <b>Рейтинг активных за всё время:</b>"

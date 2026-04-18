@@ -16,6 +16,7 @@ import {
   fetchGiftsCatalog, sendGift, divorcePartner, setBio,
   type GiftsCatalogResponse,
 } from "../lib/api";
+import ProfileAvatar from "../components/ProfileAvatar";
 import type {
   UserData, BondInfo, CheckinStatus,
   FamilyLogEntry, ExpeditionsResponse, WalletHistoryEntry, InventoryItem,
@@ -368,19 +369,12 @@ export default function Profile({ chatId }: Props) {
 
       {/* ── Шапка — Hero Card ──────────────────────────────────── */}
       <header className="glass-hero rounded-2xl p-5 flex items-center gap-4">
-        <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0 overflow-hidden"
-          style={{
-            background: `linear-gradient(135deg, var(--accent-soft), color-mix(in srgb, var(--accent) 8%, var(--bg-primary)))`,
-            border: "2px solid var(--border-accent)",
-            color: "var(--accent)",
-          }}
-        >
-          {data.avatar_url
-            ? <img src={data.avatar_url} alt={data.name} className="w-full h-full object-cover" />
-            : data.name.charAt(0).toUpperCase()
-          }
-        </div>
+        <ProfileAvatar 
+          src={data.avatar_url} 
+          frame={data.active_frame && data.active_frame !== "default" ? data.active_frame : null}
+          size={64}
+          alt={data.name}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
             {data.crystal_cosmetics_owned?.includes("neon_prefix") && (

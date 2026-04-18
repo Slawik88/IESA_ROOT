@@ -8,9 +8,14 @@ import { User } from "lucide-react";
 const FRAME_KEYS = [
   "warrior", "moon", "fire", "star", "diamond",
   "champion", "sakura", "abyss", "premium",
+  "bronze", "silver", "copper", "stone", "wood", "king",
+  "ocean", "forest", "crystal", "thunder", "fatui",
+  "angel", "celestia", "phoenix", "dragon", "void", "galaxy",
+  "divine", "rainbow", "cosmic", "mythic",
+  "dark_matter_frame", "herald_frame", "first_topup",
 ] as const;
 
-export type FrameKey = (typeof FRAME_KEYS)[number] | null | undefined;
+export type FrameKey = (typeof FRAME_KEYS)[number] | string | null | undefined;
 
 interface Props {
   /** Оригинальный URL аватарки из Telegram / профиля */
