@@ -71,7 +71,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   const [, setResetText] = useState<string>("");
   const [loading, setLoading]   = useState(true);
   const [starting, setStarting] = useState(false);
-  const [fightTimeLeft, setFightTimeLeft] = useState<number | null>(null);
+  // fightTimeLeft removed — boss fight has no time limit
   const [bossCoupons, setBossCoupons]     = useState(5);
   const [buyingCoupon, setBuyingCoupon]   = useState(false);
   const [showCouponModal, setShowCouponModal] = useState(false);
@@ -139,9 +139,6 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
         setBossMaxHp(r.session.boss_max_hp);
         setPlayerHp(100);
         setStamina(STAMINA_MAX);
-        setFightTimeLeft(null); // таймер отключён
-      } else {
-        setFightTimeLeft(null);
       }
     } catch (e: unknown) {
       toast("⚠️ Не удалось загрузить данные босса");
@@ -270,7 +267,6 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       setBlocking(false);
       setWeakSpots([]);
       setPaused(false);
-      setFightTimeLeft(null); // таймер отключён
       loadPotions();
     } catch (e: unknown) {
       toast("⚠️ " + (e instanceof Error ? e.message : "Ошибка"));
@@ -304,29 +300,20 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   // ── Attack backend ──────────────────────────────────────────
   const doAttackBackend = useCallback(async (isCrit?: boolean) => {
     if (!chatId || attacking) return;
-    if (fightTimeLeft != null && fightTimeLeft <= 0) {
-      toast("⏳ Время боя вышло");
-      loadStatus();
-      return;
-    }
     setAttacking(true);
     try {
       const r = await attackBoss(chatId);
       if (!r.ok) return;
       const dmg = isCrit ? Math.floor(r.damage_dealt * 1.5) : r.damage_dealt;
       setBossHp(r.boss_hp);
-      if (typeof r.fight_time_left_seconds === "number") {
-        setFightTimeLeft(r.fight_time_left_seconds);
-      }
       addFloat(
-        `${r.crit || isCrit ? "⚡ КР�Т! " : ""}−${fmt(dmg)}`,
+        `${r.crit || isCrit ? "⚡ КРИТ! " : ""}−${fmt(dmg)}`,
         50 + (Math.random() - 0.5) * 30,
         30,
         r.crit || isCrit ? "#facc15" : "var(--accent)",
       );
       if (r.boss_defeated) {
         setSession(s => s ? { ...s, is_completed: 1 } : s);
-        setFightTimeLeft(0);
         toast(`🏆 Босс повержен! +${r.rewards?.mora ?? 0}🪙 +${r.rewards?.xp ?? 0}⚡`);
         await loadStatus();
       }
@@ -335,7 +322,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       loadStatus();
     }
     finally { setAttacking(false); }
-  }, [chatId, attacking, addFloat, toast, loadStatus, fightTimeLeft]);
+  }, [chatId, attacking, addFloat, toast, loadStatus]);
 
   // ── Skill: Fast Attack ──────────────────────────────────────
   const doFast = async () => {
@@ -437,7 +424,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
       {/* Solo boss mode */}
       {mode === "solo" && <>
 
-      {/* ── ������ ��� � ���� ������ ── */}
+      {/* ── Купоны босса ── */}
       <div className="mx-4 mt-3">
         <div
           className="glass-card p-3 flex items-center gap-3 cursor-pointer active:scale-[0.98] transition-transform"
@@ -448,7 +435,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             <Ticket size={18} style={{ color: bossCoupons > 0 ? "#f59e0b" : "#f87171" }} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>������ ���</p>
+            <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>Купоны дня</p>
             <div className="flex items-center gap-0.5 mt-0.5">
               {Array.from({ length: 5 }).map((_, i) => (
                 <span key={i} className="text-sm transition-all" style={{ opacity: i < bossCoupons ? 1 : 0.2 }}>🎫</span>
@@ -459,15 +446,15 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             </div>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>������� �����</p>
+            <p className="text-[11px] font-semibold" style={{ color: "var(--text-hint)" }}>Попытки сегодня</p>
             <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
-              {dailyUsed}/{dailyLimit} ���
+              {dailyUsed}/{dailyLimit} раз
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── �������� ������� ── */}
+      {/* ── Модальное купонов ── */}
       {showCouponModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -478,11 +465,11 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
             className="glass-card w-full max-w-sm p-5 space-y-4"
             onClick={e => e.stopPropagation()}
           >
-            {/* ��������� */}
+            {/* Заголовок */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Ticket size={18} style={{ color: "#f59e0b" }} />
-                <p className="font-bold text-base" style={{ color: "var(--text-primary)" }}>������ ���</p>
+                <p className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Купоны дня</p>
               </div>
               <button onClick={() => setShowCouponModal(false)}
                 className="w-7 h-7 rounded-lg flex items-center justify-center"
@@ -491,7 +478,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
               </button>
             </div>
 
-            {/* ������ ������� */}
+            {/* Иконки купонов */}
             <div className="flex justify-center gap-2 py-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div key={i}
@@ -505,15 +492,15 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
               ))}
             </div>
 
-            {/* �������� */}
+            {/* Описание */}
             <div className="rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
               <p className="text-xs" style={{ color: "var(--text-hint)" }}>
-                ������ ��������� ����� �� ������� ����� ��� � ������.
-                �������� 5 �������. ���� ����� ������������ ������ 3 ����.
+                Купоны позволяют сыграть дополнительные бои сверх дневного лимита.
+                Максимум 5 купонов. Один купон восполняется каждые 3 часа.
               </p>
             </div>
 
-            {/* ������ ������� */}
+            {/* Иконки купонов */}
             <button
               className="w-full py-3 rounded-xl font-bold text-sm btn-primary disabled:opacity-40 flex items-center justify-center gap-2"
               disabled={buyingCoupon || bossCoupons >= 5}
@@ -524,9 +511,9 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
                   const r = await buyBossCoupon(chatId);
                   if (r.ok) {
                     setBossCoupons(r.coupons);
-                    toast("🎫 ����� ������!", "success");
+                    toast("🎫 Купон куплен!", "success");
                   } else {
-                    toast("⚠️ " + (r.error ?? "������"), "warning");
+                    toast("⚠️ " + (r.error ?? "Ошибка"), "warning");
                   }
                 } finally { setBuyingCoupon(false); }
               }}
@@ -534,8 +521,8 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
               {buyingCoupon
                 ? <Loader2 size={16} className="animate-spin" />
                 : bossCoupons >= 5
-                ? "������ ���������"
-                : <>������ ����� � 7 💎</>}
+                ? "Максимум куплено"
+                : <>Купить за 7 💎</>}
             </button>
           </div>
         </div>

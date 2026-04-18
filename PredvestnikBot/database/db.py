@@ -9350,12 +9350,93 @@ async def create_solo_boss_session(user_id: int, chat_id: int, boss_level: int =
     }
 
 
-async def apply_solo_boss_damage(user_id: int, session: dict, damage: int) -> dict:
-    """Apply damage to a solo boss session. Returns result dict."""
+async def get_player_combat_stats(user_id: int, chat_id: int) -> dict:
+    """Return player's total combat stats: atk, def, hp, crit_rate.
+
+    Sums equipment stats (with enhancement bonus) + active buff modifiers.
+    Enhancement bonus: +5% per level to item's base stat.
+    """
+    total_atk: float = 0.0
+    total_def: float = 0.0
+    total_hp: float = 0.0
+    total_crit: float = 0.05  # base 5% crit
+
+    async with postgres_connect() as db:
+        # ── Equipped items ────────────────────────────────────────────────────
+        async with db.execute(
+            "SELECT weapon_id, helmet_id, armor_id, boots_id, artifact_id "
+            "FROM user_rpg_stats WHERE user_id=? AND chat_id=?",
+            (user_id, chat_id),
+        ) as c:
+            rpg_row = await c.fetchone()
+
+        if rpg_row:
+            item_ids = [
+                iid for iid in [
+                    rpg_row["weapon_id"], rpg_row["helmet_id"],
+                    rpg_row["armor_id"], rpg_row["boots_id"], rpg_row["artifact_id"],
+                ] if iid
+            ]
+            if item_ids:
+                placeholders = ",".join("?" for _ in item_ids)
+                async with db.execute(
+                    f"SELECT COALESCE(atk,0) AS atk, COALESCE(def_val,0) AS def_val, "
+                    f"COALESCE(hp,0) AS hp, COALESCE(crit_rate,0.0) AS crit_rate, "
+                    f"COALESCE(enhancement_level,0) AS enh "
+                    f"FROM gacha_inventory WHERE id IN ({placeholders})",
+                    item_ids,
+                ) as c:
+                    for row in await c.fetchall():
+                        enh_bonus = 1.0 + row["enh"] * 0.05  # +5% per enhancement level
+                        total_atk  += row["atk"]  * enh_bonus
+                        total_def  += row["def_val"] * enh_bonus
+                        total_hp   += row["hp"]   * enh_bonus
+                        total_crit += row["crit_rate"]
+
+        # ── Active buffs (potions etc.) ───────────────────────────────────────
+        async with db.execute(
+            "SELECT buff_type, source FROM active_buffs "
+            "WHERE user_id=? AND chat_id=? AND expires_at > NOW()",
+            (user_id, chat_id),
+        ) as c:
+            buff_rows = await c.fetchall()
+
+        for buff in buff_rows:
+            # source format: "potion:key:amt=N"
+            amt = 0
+            if buff["source"] and "amt=" in buff["source"]:
+                try:
+                    amt = int(buff["source"].split("amt=")[1])
+                except (ValueError, IndexError):
+                    pass
+            btype = buff["buff_type"]
+            if btype == "atk":
+                total_atk += amt
+            elif btype == "def":
+                total_def += amt
+            elif btype == "hp":
+                total_hp += amt
+            elif btype == "crit":
+                total_crit += amt / 100.0
+
+    return {
+        "atk":       max(0, int(total_atk)),
+        "def":       max(0, int(total_def)),
+        "hp":        max(0, int(total_hp)),
+        "crit_rate": max(0.05, min(0.75, total_crit)),  # clamp 5%–75%
+    }
+
+
+async def apply_solo_boss_damage(user_id: int, session: dict, damage: int, crit_rate: float = 0.08) -> dict:
+    """Apply damage to a solo boss session. Returns result dict.
+    
+    damage: base damage (already incorporates player ATK).
+    crit_rate: player's crit rate (default 8% if not provided).
+    """
     import random as _rnd
     session_id = session["id"]
     current_hp = session["boss_current_hp"]
-    crit = _rnd.random() < 0.08
+    crit = _rnd.random() < crit_rate
     actual_damage = int(damage * 1.5) if crit else damage
     new_hp = max(0, current_hp - actual_damage)
     is_defeated = new_hp == 0

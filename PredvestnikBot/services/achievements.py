@@ -127,11 +127,6 @@ ACHIEVEMENTS: list[dict] = [
     {"key": "bonds_100",   "title": "Инвестиционный Гуру",  "emoji": "📊",  "description": "100 сделок с облигациями",         "mora": 2500, "xp": 1500, "type": "bond_trades",    "threshold": 100},
     {"key": "bonds_250",   "title": "Магнат Биржи",         "emoji": "🏦",  "description": "250 сделок с облигациями",         "mora": 6000, "xp": 3000, "type": "bond_trades",    "threshold": 250},
     {"key": "bonds_500",   "title": "Волшебник Биржи",      "emoji": "🧙",  "description": "500 сделок с облигациями",         "mora": 12000,"xp": 7000, "type": "bond_trades",    "threshold": 500},
-    # ── Переводы ─────────────────────────────────────────────────────────────
-    {"key": "transfer_1",  "title": "Щедрый",               "emoji": "💸",  "description": "Перевести мору другому игроку",   "mora": 20,   "xp": 20,   "type": "transfers",      "threshold": 1},
-    {"key": "transfer_25", "title": "Филантроп",             "emoji": "🤝",  "description": "Совершить 25 переводов моры",     "mora": 300,  "xp": 250,  "type": "transfers",      "threshold": 25},
-    {"key": "transfer_100","title": "Щедрый Архонт",         "emoji": "✨",  "description": "Совершить 100 переводов моры",    "mora": 1000, "xp": 700,  "type": "transfers",      "threshold": 100},
-    {"key": "transfer_500","title": "Поток Моры",            "emoji": "🌊",  "description": "Совершить 500 переводов моры",    "mora": 6000, "xp": 4000, "type": "transfers",      "threshold": 500},
     # ── Сундуки ──────────────────────────────────────────────────────────────
     {"key": "chest_5",     "title": "Охотник за Сундуками",  "emoji": "🧳",  "description": "Открыть 5 сундуков",              "mora": 50,   "xp": 50,   "type": "chests",         "threshold": 5},
     {"key": "chest_25",    "title": "Кладоискатель",         "emoji": "🏴‍☠️","description": "Открыть 25 сундуков",             "mora": 200,  "xp": 200,  "type": "chests",         "threshold": 25},
@@ -171,12 +166,11 @@ TYPE_META: dict[str, dict] = {
     "rep_given":      {"label": "Репутация",           "emoji": "💚",  "order": 10},
     "married":        {"label": "Брак",                "emoji": "💍",  "order": 11},
     "has_pet":        {"label": "Питомец",             "emoji": "🐾",  "order": 12},
-    "transfers":      {"label": "Переводы",            "emoji": "💸",  "order": 13},
-    "deposits":       {"label": "Вклады",              "emoji": "🏧",  "order": 14},
-    "bond_trades":    {"label": "Облигации",           "emoji": "📈",  "order": 15},
-    "auction_sell":   {"label": "Продажи (аукцион)",   "emoji": "🏪",  "order": 16},
-    "auction_win":    {"label": "Покупки (аукцион)",   "emoji": "🔨",  "order": 17},
-    "spy_missions":   {"label": "Шпионаж",             "emoji": "🕵️",  "order": 18},
+    "deposits":       {"label": "Вклады",              "emoji": "🏧",  "order": 13},
+    "bond_trades":    {"label": "Облигации",           "emoji": "📈",  "order": 14},
+    "auction_sell":   {"label": "Продажи (аукцион)",   "emoji": "🏪",  "order": 15},
+    "auction_win":    {"label": "Покупки (аукцион)",   "emoji": "🔨",  "order": 16},
+    "spy_missions":   {"label": "Шпионаж",             "emoji": "🕵️",  "order": 17},
 }
 
 

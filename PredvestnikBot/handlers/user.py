@@ -1499,9 +1499,10 @@ async def cmd_me(message: Message, cmd_args: str):
 
     # Badges
     badge_keys = await get_user_badges(uid, chat_id) if is_group else []
-    badges_str = " ".join(
-        ACH_BY_KEY[bk]["emoji"] for bk in badge_keys if bk in ACH_BY_KEY
-    )
+    _shown_badges = badge_keys[:5]
+    _badge_emojis = " ".join(ACH_BY_KEY[bk]["emoji"] for bk in _shown_badges if bk in ACH_BY_KEY)
+    _extra = len(badge_keys) - 5
+    badges_str = (_badge_emojis + (f" +{_extra}" if _extra > 0 else "")) if badge_keys else ""
 
     # Equipped legendary
     equipped = await get_all_equipped_items(uid, chat_id) if is_group else []
@@ -2097,11 +2098,35 @@ async def cmd_whois(message: Message, cmd_args: str):
 
     # Activity breakdown (today / week / all-time)
     if is_group_w:
-        from database.db import get_user_activity
+        from database.db import get_user_activity, get_mora, get_solo_boss_progress
         act = await get_user_activity(uid, message.chat.id)
         lines.append("")
         lines.append(f"📈 <b>Активность</b>")
         lines.append(f"   Сегодня: <b>{act['today']}</b>  |  Неделя: <b>{act['week']}</b>  |  Всего: <b>{act['total']}</b>")
+
+        # Mora + crystals
+        _mora_row_d = await get_mora(uid, message.chat.id)
+        if _mora_row_d:
+            _m_bal = _mora_row_d.get("mora", 0) or 0
+            _c_bal = _mora_row_d.get("crystals", 0) or 0
+            lines.append(f"🪙 Мора: <b>{_m_bal:,}</b>   💎 Кристаллы: <b>{_c_bal:,}</b>")
+
+        # Solo boss level
+        _bp = await get_solo_boss_progress(uid, message.chat.id)
+        if _bp and _bp.get("max_level", 0) > 0:
+            lines.append(f"⚔️ Соло-босс: уровень <b>{_bp['max_level']}</b>")
+
+        # Achievements count
+        try:
+            from services.achievements import get_user_achievements
+            _ach = await get_user_achievements(uid, message.chat.id)
+            _total_un = _ach.get("total_unlocked", 0)
+            _total_def = _ach.get("total_defined", 0)
+            if _total_def > 0:
+                lines.append(f"🏅 Достижения: <b>{_total_un}/{_total_def}</b>")
+        except Exception:
+            pass
+
     if bio:
         lines.append(f"\n📝 Bio: <i>{html.escape(bio)}</i>")
 
@@ -2135,6 +2160,14 @@ async def cmd_whois(message: Message, cmd_args: str):
 
 @router.message(BotCommand("топ", "top", "активность"))
 async def cmd_top(message: Message, cmd_args: str):
+    # Restrict to moderator rank and above
+    if message.chat.type in ("group", "supergroup"):
+        _top_stats = await get_user_stats(message.from_user.id, message.chat.id)
+        _top_rank = _top_stats["rank"] if _top_stats else "user"
+        if rank_level(_top_rank) < rank_level("moderator"):
+            await message.answer("🚫 Команда доступна от ранга <b>Модератор</b>.", parse_mode="HTML")
+            return
+
     arg = (cmd_args or "").strip().lower()
 
     prev_top: list = []
