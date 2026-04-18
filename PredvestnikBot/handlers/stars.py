@@ -243,7 +243,7 @@ async def successful_payment(msg: Message):
             await buy_shop_item(user_id, 0, "frame", "first_topup")
             first_topup_msg = "\n🌟 <b>Бонус первого пополнения!</b> Получена эксклюзивная рамка «Первое пополнение»!"
     except Exception as _e:
-        _log.debug("%s", _e)
+        log.debug("First topup frame grant failed: %s", _e)
 
     await msg.answer(
         f"✅ <b>Оплата прошла успешно!</b>\n\n"
