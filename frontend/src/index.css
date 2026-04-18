@@ -663,6 +663,37 @@ button:active:not(:disabled) { transform: scale(0.97); }
   background: conic-gradient(#3b82f6, #1d4ed8, #60a5fa, #3b82f6);
   box-shadow: 0 0 12px 2px rgba(59,130,246,0.6);
 }
+/* ──── ПРОСТЫЕ РАМКИ (дешёвые) ──── */
+/* bronze — простая бронзовая */
+.frame-bronze::before {
+  background: conic-gradient(#cd7f32, #b8860b, #cd7f32);
+  box-shadow: 0 0 8px 1px rgba(205,127,50,0.4);
+}
+/* silver — простая серебряная */
+.frame-silver::before {
+  background: conic-gradient(#c0c0c0, #e5e7eb, #9ca3af, #c0c0c0);
+  box-shadow: 0 0 8px 1px rgba(192,192,192,0.4);
+}
+/* copper — медная */
+.frame-copper::before {
+  background: conic-gradient(#b87333, #d2691e, #b87333);
+  box-shadow: 0 0 8px 1px rgba(184,115,51,0.4);
+}
+/* stone — каменная серая */
+.frame-stone::before {
+  background: conic-gradient(#6b7280, #4b5563, #6b7280);
+  box-shadow: 0 0 6px 1px rgba(107,114,128,0.3);
+}
+/* wood — деревянная коричневая */
+.frame-wood::before {
+  background: conic-gradient(#8b4513, #a0522d, #8b4513);
+  box-shadow: 0 0 6px 1px rgba(139,69,19,0.3);
+}
+/* king — королевская */
+.frame-king::before {
+  background: conic-gradient(#ffd700, #ffb300, #ffd700);
+  box-shadow: 0 0 12px 2px rgba(255,215,0,0.5);
+}
 /* moon — серебряный лунный */
 .frame-moon::before {
   background: conic-gradient(#94a3b8, #cbd5e1, #64748b, #cbd5e1, #94a3b8);
@@ -683,11 +714,7 @@ button:active:not(:disabled) { transform: scale(0.97); }
   background: conic-gradient(#a855f7, #38bdf8, #22c55e, #f59e0b, #ef4444, #a855f7);
   box-shadow: 0 0 16px 4px rgba(168,85,247,0.5);
 }
-/* champion — чемпионский золото */
-.frame-champion::before {
-  background: conic-gradient(#f59e0b, #fff7ed, #d97706, #fde68a, #f59e0b);
-  box-shadow: 0 0 20px 6px rgba(245,158,11,0.6);
-}
+/* ──── ПРЕМИАЛЬНЫЕ РАМКИ ──── */
 /* sakura — розовый */
 .frame-sakura::before {
   background: conic-gradient(#f472b6, #fda4af, #ec4899, #fda4af, #f472b6);
@@ -697,6 +724,110 @@ button:active:not(:disabled) { transform: scale(0.97); }
 .frame-abyss::before {
   background: conic-gradient(#6366f1, #7c3aed, #4f46e5, #8b5cf6, #6366f1);
   box-shadow: 0 0 16px 4px rgba(99,102,241,0.55);
+}
+/* fatui — электрический жёлто-фиолетовый */
+.frame-fatui::before {
+  background: conic-gradient(#eab308, #a855f7, #fbbf24, #8b5cf6, #eab308);
+  box-shadow: 0 0 18px 5px rgba(234,179,8,0.6);
+}
+/* ocean — океанский сине-бирюзовый */
+.frame-ocean::before {
+  background: conic-gradient(#0ea5e9, #06b6d4, #0284c7, #06b6d4, #0ea5e9);
+  box-shadow: 0 0 14px 3px rgba(14,165,233,0.5);
+}
+/* forest — лесной зелёный */
+.frame-forest::before {
+  background: conic-gradient(#22c55e, #16a34a, #15803d, #16a34a, #22c55e);
+  box-shadow: 0 0 14px 3px rgba(34,197,94,0.5);
+}
+/* crystal — кристальный прозрачно-белый */
+.frame-crystal::before {
+  background: conic-gradient(#f8fafc, #e2e8f0, #cbd5e1, #e2e8f0, #f8fafc);
+  box-shadow: 0 0 16px 4px rgba(248,250,252,0.6);
+}
+/* thunder — грозовой тёмно-жёлтый */
+.frame-thunder::before {
+  background: conic-gradient(#facc15, #374151, #fbbf24, #374151, #facc15);
+  box-shadow: 0 0 16px 4px rgba(250,204,21,0.6);
+}
+/* ──── ЭЛИТНЫЕ РАМКИ ──── */
+/* angel — крылья ветра белый */
+.frame-angel::before {
+  background: conic-gradient(#f9fafb, #e5e7eb, #d1d5db, #e5e7eb, #f9fafb);
+  box-shadow: 0 0 18px 5px rgba(249,250,251,0.7);
+}
+/* champion — чемпионский золото */
+.frame-champion::before {
+  background: conic-gradient(#f59e0b, #fff7ed, #d97706, #fde68a, #f59e0b);
+  box-shadow: 0 0 20px 6px rgba(245,158,11,0.6);
+}
+/* celestia — небесный голубо-белый */
+.frame-celestia::before {
+  background: conic-gradient(#bfdbfe, #dbeafe, #93c5fd, #dbeafe, #bfdbfe);
+  box-shadow: 0 0 20px 6px rgba(191,219,254,0.6);
+}
+/* phoenix — огненно-красный с оранжевым */
+.frame-phoenix::before {
+  background: conic-gradient(#dc2626, #f97316, #ea580c, #dc2626);
+  box-shadow: 0 0 22px 7px rgba(220,38,38,0.7);
+}
+/* dragon — дракон зелёно-золотой */
+.frame-dragon::before {
+  background: conic-gradient(#059669, #fbbf24, #047857, #f59e0b, #059669);
+  box-shadow: 0 0 22px 7px rgba(5,150,105,0.7);
+}
+/* void — пустота тёмно-фиолетовый */
+.frame-void::before {
+  background: conic-gradient(#1f2937, #6366f1, #111827, #4f46e5, #1f2937);
+  box-shadow: 0 0 24px 8px rgba(31,41,55,0.8);
+}
+/* galaxy — галактика многоцветная */
+.frame-galaxy::before {
+  background: conic-gradient(#1e293b, #a855f7, #0f172a, #f472b6, #1e293b);
+  box-shadow: 0 0 24px 8px rgba(168,85,247,0.8);
+}
+/* ──── ЭКСКЛЮЗИВНЫЕ РАМКИ ──── */
+/* divine — божественная ярко-белая */
+.frame-divine::before {
+  background: conic-gradient(#ffffff, #fbbf24, #ffffff, #fbbf24, #ffffff);
+  box-shadow: 0 0 28px 10px rgba(255,255,255,0.9);
+}
+/* rainbow — радужная анимированная */
+@keyframes rainbowSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.frame-rainbow::before {
+  background: conic-gradient(#ff0000, #ff8000, #ffff00, #80ff00, #00ff00, #00ff80, #00ffff, #0080ff, #0000ff, #8000ff, #ff00ff, #ff0080, #ff0000);
+  box-shadow: 0 0 30px 12px rgba(255,0,255,0.8);
+  animation: rainbowSpin 4s linear infinite;
+}
+/* cosmic — космическая с анимацией */
+.frame-cosmic::before {
+  background: conic-gradient(#0f0f23, #9333ea, #0f0f23, #f59e0b, #0f0f23);
+  box-shadow: 0 0 30px 12px rgba(147,51,234,0.9);
+  animation: rainbowSpin 6s linear infinite;
+}
+/* mythic — мифическая переливающаяся */
+.frame-mythic::before {
+  background: conic-gradient(#4338ca, #f59e0b, #dc2626, #059669, #4338ca);
+  box-shadow: 0 0 32px 15px rgba(67,56,202,0.9);
+  animation: rainbowSpin 5s linear infinite;
+}
+/* dark_matter_frame — тёмная материя */
+.frame-dark_matter_frame::before {
+  background: conic-gradient(#000000, #374151, #000000, #6b7280, #000000);
+  box-shadow: 0 0 35px 18px rgba(0,0,0,0.95);
+}
+/* herald_frame — вестник */
+.frame-herald_frame::before {
+  background: conic-gradient(#fbbf24, #dc2626, #fbbf24, #dc2626, #fbbf24);
+  box-shadow: 0 0 30px 12px rgba(251,191,36,0.8);
+}
+/* first_topup — первое пополнение */
+.frame-first_topup::before {
+  background: conic-gradient(#fbbf24, #f59e0b, #eab308, #f59e0b, #fbbf24);
+  box-shadow: 0 0 25px 8px rgba(251,191,36,0.7);
 }
 /* ── PREMIUM рамка — анимированный радуга + свечение ── */
 @keyframes premiumFrameSpin {

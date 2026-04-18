@@ -43,6 +43,45 @@ export default function Shards({ chatId }: Props) {
     } finally { setBusy(null); }
   }, [busy, chatId, load, showToast]);
 
+  const doCraftBulk = useCallback(async (shardKey: string) => {
+    if (busy) return;
+    if (!data) return;
+    
+    const shardInfo = data.catalog[shardKey];
+    if (!shardInfo) return;
+    
+    const maxCrafts = Math.floor(shardInfo.owned / shardInfo.craft_amount);
+    if (maxCrafts < 1) return;
+    
+    setBusy(`bulk_${shardKey}`);
+    let successCount = 0;
+    
+    try {
+      // Craft items one by one to avoid race conditions
+      for (let i = 0; i < maxCrafts; i++) {
+        try {
+          const res = await craftShard(chatId, shardKey);
+          if (res.ok) {
+            successCount++;
+          } else {
+            break; // Stop if we can't craft anymore
+          }
+        } catch (e) {
+          break; // Stop on error
+        }
+      }
+      
+      if (successCount > 0) {
+        showToast(`✅ Создано предметов: ${successCount}`);
+        load();
+      } else {
+        showToast("Не удалось создать предметы", false);
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка массового крафта", false);
+    } finally { setBusy(null); }
+  }, [busy, data, chatId, load, showToast]);
+
   if (error) {
     return (
       <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
@@ -111,9 +150,11 @@ export default function Shards({ chatId }: Props) {
           const owned    = info.owned;
           const canCraft = owned >= info.craft_amount;
           const pct      = Math.min(100, (owned / info.craft_amount) * 100);
-          const craftTarget = info.craft_frame
-            ? `🖼 Рамка «${info.craft_frame}»`
-            : `предмет: ${info.craft_into ?? "?"}`;
+          
+          // ✨ Use enhanced readable target if available
+          const craftTarget = info.readable_target || 
+            (info.craft_frame ? `🖼 Рамка «${info.craft_frame}»` : `предмет: ${info.craft_into ?? "?"}`);
+          
           return (
             <div key={key} className="glass-card p-4 rounded-xl">
               <div className="flex items-center gap-3">
@@ -134,14 +175,30 @@ export default function Shards({ chatId }: Props) {
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => doCraft(key)}
-                  disabled={!canCraft || !!busy}
-                  className="flex-none px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-40 transition-all"
-                  style={{ backgroundColor: canCraft ? "var(--accent)" : "var(--bg-secondary)", color: canCraft ? "#fff" : "var(--text-hint)" }}
-                >
-                  {busy === key ? <Loader2 size={12} className="animate-spin" /> : "Создать"}
-                </button>
+                <div className="flex-none flex gap-1.5">
+                  <button
+                    onClick={() => doCraft(key)}
+                    disabled={!canCraft || !!busy}
+                    className="px-3 py-2 rounded-lg text-xs font-semibold disabled:opacity-40 transition-all"
+                    style={{ backgroundColor: canCraft ? "var(--accent)" : "var(--bg-secondary)", color: canCraft ? "#fff" : "var(--text-hint)" }}
+                  >
+                    {busy === key ? <Loader2 size={12} className="animate-spin" /> : "×1"}
+                  </button>
+                  {owned >= info.craft_amount * 3 && (
+                    <button
+                      onClick={() => doCraftBulk(key)}
+                      disabled={!canCraft || !!busy}
+                      className="px-2 py-2 rounded-lg text-xs font-semibold disabled:opacity-40 transition-all"
+                      style={{ 
+                        backgroundColor: canCraft ? "#22c55e" : "var(--bg-secondary)", 
+                        color: canCraft ? "#fff" : "var(--text-hint)" 
+                      }}
+                      title={`Создать максимально (${Math.floor(owned / info.craft_amount)}шт)`}
+                    >
+                      {busy === `bulk_${key}` ? <Loader2 size={12} className="animate-spin" /> : "MAX"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );

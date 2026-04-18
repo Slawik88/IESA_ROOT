@@ -749,6 +749,302 @@ async def boss_buy_coupon(request: Request):
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Inventory API — /api/inventory
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.get("/api/inventory")
+async def api_inventory(request: Request, chat_id: int):
+    """Get user's inventory with enhanced metadata (categories, emojis)."""
+    try:
+        init_data_header = request.headers.get("X-Telegram-Init-Data", "")
+        if not init_data_header:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+        from utils.tg_auth import validate_init_data
+        user_info = validate_init_data(init_data_header)
+        if not user_info:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+        user_id = int(user_info["id"])
+        from database.postgres import connect as postgres_connect
+        from shared_prices import get_item_display_info
+
+        # Fetch inventory items
+        async with postgres_connect() as db:
+            # Gacha items (equipment/cosmetics)
+            async with db.execute(
+                "SELECT id, item_name, rarity, equipped, atk, def_val, hp, crit_rate, "
+                "enhancement_level, stack_count, is_cosmetic, sell_price, "
+                "can_auction, days_until_auctionable, hours_until_auctionable "
+                "FROM gacha_inventory WHERE user_id=? AND chat_id=? ORDER BY id",
+                (user_id, chat_id),
+            ) as cur:
+                gacha_rows = await cur.fetchall()
+            
+            # User stats for RPG calculation
+            async with db.execute(
+                "SELECT hp, atk, def_val, crit_rate FROM users WHERE user_id=?",
+                (user_id,),
+            ) as cur:
+                user_stats = await cur.fetchone()
+
+        # Process items with metadata
+        items = []
+        for row in gacha_rows:
+            item_key = row["item_name"]
+            display_info = get_item_display_info(item_key)
+            
+            items.append({
+                "id": row["id"],
+                "key": item_key,
+                "name": item_key,  # Could be localized
+                "rarity": row["rarity"],
+                "equipped": bool(row["equipped"]),
+                "atk": row.get("atk", 0),
+                "def_val": row.get("def_val", 0),
+                "hp": row.get("hp", 0),
+                "crit_rate": row.get("crit_rate", 0),
+                "slot": None,  # Could be derived from item metadata
+                "enhancement_level": row.get("enhancement_level", 0),
+                "stack_count": row.get("stack_count", 1),
+                "is_cosmetic": bool(row.get("is_cosmetic", False)),
+                "desc": display_info["desc"],
+                "sell_price": row.get("sell_price", 0),
+                "can_auction": bool(row.get("can_auction", False)),
+                "days_until_auctionable": row.get("days_until_auctionable"),
+                "hours_until_auctionable": row.get("hours_until_auctionable"),
+                # New enhanced metadata
+                "category": display_info["category"],
+                "emoji": display_info["emoji"],
+                "readable_category": display_info["readable_category"],
+            })
+
+        # Calculate total RPG stats
+        rpg = {
+            "hp": user_stats.get("hp", 100) if user_stats else 100,
+            "atk": user_stats.get("atk", 10) if user_stats else 10,
+            "def": user_stats.get("def_val", 5) if user_stats else 5,
+            "crit": user_stats.get("crit_rate", 5) if user_stats else 5,
+        }
+
+        return JSONResponse({
+            "items": items,
+            "rpg": rpg,
+            "pity": 0,  # Could be fetched from gacha system
+        })
+
+    except Exception as exc:
+        _log.exception("api_inventory error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/equip")
+async def api_equip(request: Request):
+    """Equip/unequip an inventory item."""
+    try:
+        init_data_header = request.headers.get("X-Telegram-Init-Data", "")
+        if not init_data_header:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+        from utils.tg_auth import validate_init_data
+        user_info = validate_init_data(init_data_header)
+        if not user_info:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+        data = await request.json()
+        user_id = int(user_info["id"])
+        item_id = int(data.get("item_id", 0))
+        slot = data.get("slot", "")
+        chat_id = int(data.get("chat_id", 0))
+
+        if not item_id or not chat_id:
+            return JSONResponse({"ok": False, "error": "item_id and chat_id required"}, status_code=400)
+
+        from database.postgres import connect as postgres_connect
+
+        async with postgres_connect() as db:
+            # Toggle equipped status
+            async with db.execute(
+                "UPDATE gacha_inventory SET equipped = NOT equipped "
+                "WHERE id=? AND user_id=? AND chat_id=? RETURNING equipped, item_name",
+                (item_id, user_id, chat_id),
+            ) as cur:
+                updated_row = await cur.fetchone()
+            await db.commit()
+
+            if not updated_row:
+                return JSONResponse({"ok": False, "error": "Item not found"}, status_code=404)
+
+        return JSONResponse({
+            "ok": True,
+            "equipped": updated_row["item_name"],
+            "slot": slot,
+        })
+
+    except Exception as exc:
+        _log.exception("api_equip error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Shards API — /api/shards & /api/shards/craft
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.get("/api/shards")
+async def api_shards(request: Request, chat_id: int):
+    """Get user's shard inventory and catalog with enhanced metadata."""
+    try:
+        init_data_header = request.headers.get("X-Telegram-Init-Data", "")
+        if not init_data_header:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+        from utils.tg_auth import validate_init_data
+        user_info = validate_init_data(init_data_header)
+        if not user_info:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+        user_id = int(user_info["id"])
+        from database.postgres import connect as postgres_connect
+        from shared_prices import SHARD_CATALOG, get_item_display_info
+
+        # Fetch user's shards
+        async with postgres_connect() as db:
+            async with db.execute(
+                "SELECT shard_key, amount FROM user_shards "
+                "WHERE user_id=? AND chat_id=? AND amount > 0",
+                (user_id, chat_id),
+            ) as cur:
+                shard_rows = await cur.fetchall()
+
+        # Build stash (user's owned shards)
+        stash = {row["shard_key"]: row["amount"] for row in shard_rows}
+
+        # Build enhanced catalog with readable names
+        catalog = {}
+        for shard_key, shard_info in SHARD_CATALOG.items():
+            owned = stash.get(shard_key, 0)
+            
+            # Get enhanced info for craft targets
+            craft_into = shard_info.get("craft_into")
+            craft_frame = shard_info.get("craft_frame") 
+            
+            readable_target = None
+            if craft_into:
+                item_info = get_item_display_info(craft_into)
+                readable_target = f"{item_info['emoji']} {item_info['readable_category']}"
+            elif craft_frame:
+                readable_target = f"🖼️ Рамка «{craft_frame}»"
+
+            catalog[shard_key] = {
+                "name": shard_info.get("name", shard_key),
+                "emoji": shard_info.get("emoji", "🔷"),
+                "craft_into": craft_into,
+                "craft_frame": craft_frame,
+                "craft_amount": shard_info.get("craft_amount", 10),
+                "owned": owned,
+                # Enhanced target display
+                "readable_target": readable_target,
+            }
+
+        return JSONResponse({
+            "stash": stash,
+            "catalog": catalog,
+        })
+
+    except Exception as exc:
+        _log.exception("api_shards error: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/shards/craft")
+async def api_shards_craft(request: Request):
+    """Craft an item from shards."""
+    try:
+        init_data_header = request.headers.get("X-Telegram-Init-Data", "")
+        if not init_data_header:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+        from utils.tg_auth import validate_init_data
+        user_info = validate_init_data(init_data_header)
+        if not user_info:
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+        data = await request.json()
+        user_id = int(user_info["id"])
+        chat_id = int(data.get("chat_id", 0))
+        shard_key = data.get("shard_key", "")
+
+        if not chat_id or not shard_key:
+            return JSONResponse({"ok": False, "error": "chat_id and shard_key required"}, status_code=400)
+
+        from shared_prices import SHARD_CATALOG
+        from database.postgres import connect as postgres_connect
+
+        if shard_key not in SHARD_CATALOG:
+            return JSONResponse({"ok": False, "error": "Unknown shard type"}, status_code=400)
+
+        shard_info = SHARD_CATALOG[shard_key]
+        required_amount = shard_info.get("craft_amount", 10)
+
+        async with postgres_connect() as db:
+            # Check shard availability
+            async with db.execute(
+                "SELECT amount FROM user_shards WHERE user_id=? AND chat_id=? AND shard_key=?",
+                (user_id, chat_id, shard_key),
+            ) as cur:
+                shard_row = await cur.fetchone()
+            
+            owned = shard_row["amount"] if shard_row else 0
+            if owned < required_amount:
+                return JSONResponse({
+                    "ok": False, 
+                    "error": f"Недостаточно осколков ({owned}/{required_amount})"
+                })
+
+            # Deduct shards
+            await db.execute(
+                "UPDATE user_shards SET amount = amount - ? "
+                "WHERE user_id=? AND chat_id=? AND shard_key=?",
+                (required_amount, user_id, chat_id, shard_key),
+            )
+
+            # Grant crafted item
+            craft_into = shard_info.get("craft_into")
+            craft_frame = shard_info.get("craft_frame")
+            
+            if craft_into:
+                # Add to gacha inventory
+                await db.execute(
+                    "INSERT INTO gacha_inventory (user_id, chat_id, item_name, rarity, equipped, "
+                    "atk, def_val, hp, crit_rate, enhancement_level, stack_count, is_cosmetic, sell_price) "
+                    "VALUES (?, ?, ?, 'rare', 0, 0, 0, 0, 0, 0, 1, 0, 100)",
+                    (user_id, chat_id, craft_into),
+                )
+                result_msg = f"Создан предмет: {craft_into}"
+            elif craft_frame:
+                # Add frame to user
+                await db.execute(
+                    "INSERT OR REPLACE INTO user_frames (user_id, frame_key, acquired_at) "
+                    "VALUES (?, ?, CURRENT_TIMESTAMP)",
+                    (user_id, craft_frame),
+                )
+                result_msg = f"Получена рамка: {craft_frame}"
+            else:
+                result_msg = "Что-то создано!"
+
+            await db.commit()
+
+        return JSONResponse({
+            "ok": True,
+            "message": result_msg,
+        })
+
+    except Exception as exc:
+        _log.exception("api_shards_craft error: %s", exc)
+        return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Dev Analytics — /api/dev/analytics  (dev only)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

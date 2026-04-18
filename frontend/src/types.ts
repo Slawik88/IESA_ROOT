@@ -250,6 +250,10 @@ export interface InventoryItem {
   can_auction: boolean;
   days_until_auctionable: number | null;
   hours_until_auctionable: number | null;
+  // ✨ Enhanced metadata for better UX
+  category: string;  // 'equipment', 'consumable', 'cosmetic', 'junk' etc
+  emoji: string;     // unique emoji for each item type
+  readable_category: string;  // human-readable category like "Оружие-Меч", "Зелье Силы"
 }
 
 export interface InventoryRpg {

@@ -76,6 +76,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
   const [toast, setToast]       = useState<string | null>(null);
   const [rarityF, setRarityF]   = useState<"all" | "junk" | "common" | "rare" | "legendary">("all");
   const [slotF, setSlotF]       = useState<"all" | "equipped" | "weapon" | "helmet" | "armor" | "boots" | "artifact" | "consumable" | "flair" | "coupon" | "frame">("all");
+  const [categoryF, setCategoryF] = useState<"all" | "equipment" | "consumable" | "cosmetic" | "junk" | "coupon">("all");
   const [statsOpen, setStatsOpen] = useState(false);
 
   const showToast = useCallback((msg: string) => {
@@ -244,6 +245,7 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
   const filtered = items
     .filter(it => {
       if (rarityF !== "all" && it.rarity !== rarityF) return false;
+      if (categoryF !== "all" && it.category !== categoryF) return false;
       if (slotF === "equipped") return it.equipped;
       if (slotF === "consumable") return isConsumable(it);
       if (slotF === "coupon") return it.slot === "coupon";
@@ -327,6 +329,23 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
             }}
           >
             {{ all: "Все", legendary: "✨ Легенд.", rare: "💙 Редкие", common: "⬜ Обычные", junk: "🗑 Хлам" }[f]}
+          </button>
+        ))}
+      </div>
+
+      {/* ── ✨ Фильтры по категориям ── */}
+      <div className="flex gap-2 px-4 pb-1.5 overflow-x-auto hide-scrollbar">
+        {(["all", "equipment", "consumable", "cosmetic", "coupon", "junk"] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setCategoryF(f)}
+            className="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-all"
+            style={{
+              backgroundColor: categoryF === f ? "var(--accent)" : "var(--bg-secondary)",
+              color: categoryF === f ? "#fff" : "var(--text-hint)",
+            }}
+          >
+            {{ all: "🗂 Все", equipment: "⚔️ Экип.", consumable: "🧪 Зелья", cosmetic: "🎨 Косметика", coupon: "🎫 Купоны", junk: "🗑 Хлам" }[f]}
           </button>
         ))}
       </div>
@@ -509,9 +528,18 @@ function ItemTile({ item, onClick }: { item: InventoryItem; onClick: () => void 
         <span className="absolute top-1.5 left-1.5 text-[9px] px-1 py-0.5 rounded font-bold"
           style={{ backgroundColor: "var(--border)", color: "var(--text-hint)" }}>×{item.stack_count}</span>
       )}
+      
+      {/* ✨ Category badge */}
+      {item.readable_category && (
+        <div className="text-[8px] px-1.5 py-0.5 rounded-full mb-1.5 font-bold truncate"
+             style={{ backgroundColor: color + "15", color: color }}>
+          {item.readable_category}
+        </div>
+      )}
+      
       <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-2 text-sm"
         style={{ backgroundColor: color + "22" }}>
-        {SLOT_ICON[item.slot ?? ""] ?? "📦"}
+        {item.emoji || SLOT_ICON[item.slot ?? ""] ?? "📦"}
       </div>
       <p className="text-xs font-semibold leading-tight truncate" style={{ color: "var(--text-primary)" }}>
         {item.name}

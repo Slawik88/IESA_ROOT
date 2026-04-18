@@ -45,21 +45,42 @@ CLEANUP_PASS_COOLDOWN_DAYS = 12    # Минимум дней между поку
 # Формат: (key, emoji, label, price) [РЕБАЛАНС: все цены снижены ~в 2 раза]
 FRAMES_CATALOG = [
     ("default",          "🔰",  "Стандарт",              0),
+    # 📦 Простые рамки (100-300 моры) — доступно новичкам
+    ("bronze",           "🥉",  "Бронзовый",             150),
+    ("silver",           "🥈",  "Серебряный",            200),
+    ("copper",           "🔶",  "Медный",                100),
+    ("stone",            "🗿",  "Каменный",              120),
+    ("wood",             "🌰",  "Деревянный",            80),
+    # 🎨 Классические рамки (250-600 моры) — основной ассортимент
     ("warrior",          "⚔️",  "Воин",                   250),   # было 500
     ("king",             "👑",  "Король",                 500),   # было 1000
     ("moon",             "🌙",  "Ночной",                 400),   # было 800
     ("fire",             "🔥",  "Огненный",               350),   # было 700
     ("diamond",          "💎",  "Алмазный",               600),   # было 1200
     ("star",             "⭐",  "Звёздный",               300),   # было 600
+    # 💫 Премиальные рамки (800-1800 моры) — для активных игроков
     ("sakura",           "🌸",  "Сакура",                 1200),
     ("abyss",            "🌀",  "Бездна",                 1500),
     ("fatui",            "⚡",  "Предвестник",            1800),
+    ("ocean",            "🌊",  "Океанский",              900),
+    ("forest",           "🌲",  "Лесной",                 1000),
+    ("crystal",          "🔮",  "Кристальный",            1400),
+    ("thunder",          "⛈️",  "Грозовой",               1600),
+    # ⚡ Элитные рамки (2000-4000 моры) — для богатых игроков
     ("angel",            "🕊️",  "Крылья ветра",           2200),
     ("champion",         "🏆",  "Чемпион",                2800),
     ("celestia",         "🏰",  "Целестия",               3500),
-    # Crystal-exclusive frames (price = 99999, not obtainable via mora shop)
+    ("phoenix",          "🔥🪶", "Феникс",                2500),
+    ("dragon",           "🐲",  "Драконий",               3200),
+    ("void",             "🌌",  "Пустота",                4000),
+    ("galaxy",           "🌌✨", "Галактика",             3800),
+    # 💎 Эксклюзивные рамки (только гача/кристаллы)
     ("dark_matter_frame","🌑",  "Рамка «Тёмная материя»", 99999),
     ("herald_frame",     "📯",  "Рамка «Вестник»",        99999),
+    ("divine",           "🔱",  "Божественная",           99999),
+    ("rainbow",          "🌈",  "Радужная",               99999),
+    ("cosmic",           "🌠",  "Космическая",            99999),
+    ("mythic",           "⚜️",  "Мифическая",             99999),
     # First top-up exclusive (auto-granted on first crystal purchase)
     ("first_topup",      "🌟",  "Первое пополнение",      99999),
 ]
@@ -107,11 +128,11 @@ FOOD_ITEMS = {
 # ─── Зелья (Расходники) ───────────────────────────────────────────────────────
 # Формат: key → {name, emoji, price, buff_type, buff_amount, duration_minutes, description}
 POTIONS_CATALOG = {
-    "str_potion":     {"name": "Зелье Силы",          "emoji": "⚔️", "price": 120,  "buff_type": "atk", "buff_amount": 15, "duration": 60,  "desc": "+15 ATK на 1 час"},        # было 200
-    "def_potion":     {"name": "Зелье Защиты",        "emoji": "🛡️", "price": 90,   "buff_type": "def", "buff_amount": 20, "duration": 60,  "desc": "+20 DEF на 1 час"},        # было 150
+    "str_potion":     {"name": "Зелье Силы",          "emoji": "🥤", "price": 120,  "buff_type": "atk", "buff_amount": 15, "duration": 60,  "desc": "+15 ATK на 1 час"},        # было 200
+    "def_potion":     {"name": "Зелье Защиты",        "emoji": "⚗️", "price": 90,   "buff_type": "def", "buff_amount": 20, "duration": 60,  "desc": "+20 DEF на 1 час"},        # было 150
     "hp_potion":      {"name": "Зелье Здоровья",      "emoji": "❤️", "price": 100,  "buff_type": "hp",  "buff_amount": 50, "duration": 90,  "desc": "+50 HP на 1.5 часа"},      # было 180
-    "str_superior":   {"name": "Зелье Силы Superior", "emoji": "⚔️✨", "price": 0,    "buff_type": "atk", "buff_amount": 30, "duration": 120, "desc": "+30 ATK на 2 часа (только из гачи)"},
-    "def_superior":   {"name": "Зелье Защиты Superior","emoji": "🛡️✨", "price": 0,   "buff_type": "def", "buff_amount": 40, "duration": 120, "desc": "+40 DEF на 2 часа (только из гачи)"},
+    "str_superior":   {"name": "Зелье Силы Superior", "emoji": "🧪", "price": 0,    "buff_type": "atk", "buff_amount": 30, "duration": 120, "desc": "+30 ATK на 2 часа (только из гачи)"},
+    "def_superior":   {"name": "Зелье Защиты Superior","emoji": "🧫", "price": 0,   "buff_type": "def", "buff_amount": 40, "duration": 120, "desc": "+40 DEF на 2 часа (только из гачи)"},
 }
 
 # ─── Узы (облигации / биржа) ─────────────────────────────────────────────────
@@ -183,71 +204,72 @@ ROULETTE_PRIZE_POOL = [
 CUSTOM_TITLE_PRICE = 4_000  # мора за установку/смену кастомного титула [РЕБАЛАНС: 10,000→4,000]
 
 # ─── Метаданные предметов гачи ────────────────────────────────────────────────
-# Формат: item_key → {slot, atk, def_val, hp, crit_rate, desc, sell}
+# Формат: item_key → {slot, atk, def_val, hp, crit_rate, desc, sell, category, emoji}
+# category: readable category for UI display
 # slot: "weapon" | "helmet" | "armor" | "boots" | "artifact" | "potion" | "consume" | "coupon" | "flair" | None
 # sell: цена утилизации (0 = легендарку нельзя продать)
 ITEM_METADATA = {
-    # Мусор (📦 Разное)
-    "junk_stone":     {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Камень из кармана хиличурла",             "sell": 5},
-    "junk_stick":     {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Кривая палка путника",                    "sell": 3},
-    "junk_dust":      {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Пыль от забытых заклинаний",              "sell": 2},
-    "junk_bone":      {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Кость, выброшенная хиличурлом",           "sell": 4},
-    "junk_mushroom":  {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Не ешь. Серьёзно.",                       "sell": 3},
-    # Обычные (⚔️ Снаряжение) [РЕБАЛАНС: статы увеличены для лучшего прогресса]
-    "cmn_sword":      {"slot": "weapon",   "atk": 15, "def_val": 0,  "hp": 0,   "crit_rate": 0.02, "desc": "Тупой, но вполне годится",                "sell": 20},  # было: 10 ATK, 0 CRIT
-    "cmn_bow":        {"slot": "weapon",   "atk": 12, "def_val": 0,  "hp": 0,   "crit_rate": 0.02, "desc": "Стреляет куда-то туда",                   "sell": 18},  # было: 8 ATK, 1% CRIT
-    "cmn_book":       {"slot": "artifact", "atk": 8,  "def_val": 0,  "hp": 0,   "crit_rate": 0.03, "desc": "Потрёпанный, с заклинанием на удачу",     "sell": 22},  # было: 5 ATK, 2% CRIT
-    "cmn_ring":       {"slot": "armor",    "atk": 0,  "def_val": 15, "hp": 30,  "crit_rate": 0.0,  "desc": "Дешёвый, но надёжный",                    "sell": 20},  # было: 10 DEF, 20 HP
-    "cmn_shield":     {"slot": "armor",    "atk": 0,  "def_val": 20, "hp": 0,   "crit_rate": 0.0,  "desc": "Ржавый, но блокирует удары",              "sell": 25},  # было: 15 DEF
-    "cmn_helm":       {"slot": "helmet",   "atk": 0,  "def_val": 12, "hp": 50,  "crit_rate": 0.01, "desc": "Потрёпанный шлем новичка",                 "sell": 22},
-    "cmn_boots":      {"slot": "boots",    "atk": 10, "def_val": 0,  "hp": 20,  "crit_rate": 0.02, "desc": "Стоптанные сапоги странника",              "sell": 18},
+    # Мусор (🗄️ Хлам)
+    "junk_stone":     {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Камень из кармана хиличурла",             "sell": 5, "category": "Хлам", "emoji": "🪨"},
+    "junk_stick":     {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Кривая палка путника",                    "sell": 3, "category": "Хлам", "emoji": "🌿"},
+    "junk_dust":      {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Пыль от забытых заклинаний",              "sell": 2, "category": "Хлам", "emoji": "💫"},
+    "junk_bone":      {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Кость, выброшенная хиличурлом",           "sell": 4, "category": "Хлам", "emoji": "🦴"},
+    "junk_mushroom":  {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Не ешь. Серьёзно.",                       "sell": 3, "category": "Хлам", "emoji": "🍄"},
+    # Обычные (⚔️ Снаряжение — начальное) [РЕБАЛАНС: статы увеличены для лучшего прогресса]
+    "cmn_sword":      {"slot": "weapon",   "atk": 15, "def_val": 0,  "hp": 0,   "crit_rate": 0.02, "desc": "Тупой, но вполне годится",                "sell": 20, "category": "Оружие-Меч", "emoji": "⚔️"},  # было: 10 ATK, 0 CRIT
+    "cmn_bow":        {"slot": "weapon",   "atk": 12, "def_val": 0,  "hp": 0,   "crit_rate": 0.02, "desc": "Стреляет куда-то туда",                   "sell": 18, "category": "Оружие-Лук", "emoji": "🏹"},  # было: 8 ATK, 1% CRIT
+    "cmn_book":       {"slot": "artifact", "atk": 8,  "def_val": 0,  "hp": 0,   "crit_rate": 0.03, "desc": "Потрёпанный, с заклинанием на удачу",     "sell": 22, "category": "Артефакт-Книга", "emoji": "📜"},  # было: 5 ATK, 2% CRIT
+    "cmn_ring":       {"slot": "armor",    "atk": 0,  "def_val": 15, "hp": 30,  "crit_rate": 0.0,  "desc": "Дешёвый, но надёжный браслет",              "sell": 20, "category": "Броня-Кольцо", "emoji": "💍"},  # было: 10 DEF, 20 HP
+    "cmn_shield":     {"slot": "armor",    "atk": 0,  "def_val": 20, "hp": 0,   "crit_rate": 0.0,  "desc": "Ржавый, но блокирует удары",              "sell": 25, "category": "Броня-Щит", "emoji": "🛡️"},  # было: 15 DEF
+    "cmn_helm":       {"slot": "helmet",   "atk": 0,  "def_val": 12, "hp": 50,  "crit_rate": 0.01, "desc": "Потрёпанный шлем новичка",                 "sell": 22, "category": "Шлем", "emoji": "🪖"},
+    "cmn_boots":      {"slot": "boots",    "atk": 10, "def_val": 0,  "hp": 20,  "crit_rate": 0.02, "desc": "Стоптанные сапоги странника",              "sell": 18, "category": "Обувь", "emoji": "👢"},
     # Редкие (🎨 Кастомизация) [РЕБАЛАНС: статы увеличены для значимого прыжка в силе]
-    "rare_crown":     {"slot": "helmet",   "atk": 25, "def_val": 15, "hp": 0,   "crit_rate": 0.04, "desc": "Позолоченная корона — власть и сила",     "sell": 100},
-    "rare_catalyst":  {"slot": "weapon",   "atk": 30, "def_val": 0,  "hp": 0,   "crit_rate": 0.04, "desc": "Магический катализатор с рунами",         "sell": 90},  # было: 20 ATK, 3% CRIT
-    "rare_cape":      {"slot": "armor",    "atk": 0,  "def_val": 25, "hp": 80,  "crit_rate": 0.0,  "desc": "Алый плащ с защитными чарами",            "sell": 95},  # было: 20 DEF, 50 HP
-    "rare_gem":       {"slot": "artifact", "atk": 0,  "def_val": 20, "hp": 0,   "crit_rate": 0.06, "desc": "Сапфир полуночи — усиливает крит",        "sell": 80},  # было: 15 DEF, 5% CRIT
-    "rare_helm":      {"slot": "helmet",   "atk": 0,  "def_val": 30, "hp": 90,  "crit_rate": 0.04, "desc": "Железный шлем рыцаря",                   "sell": 88},
-    "rare_boots":     {"slot": "boots",    "atk": 22, "def_val": 8,  "hp": 60,  "crit_rate": 0.05, "desc": "Сапоги вихря — скорость и натиск",       "sell": 85},
+    "rare_crown":     {"slot": "helmet",   "atk": 25, "def_val": 15, "hp": 0,   "crit_rate": 0.04, "desc": "Позолоченная корона — власть и сила",     "sell": 100, "category": "Шлем-Корона", "emoji": "👑"},
+    "rare_catalyst":  {"slot": "weapon",   "atk": 30, "def_val": 0,  "hp": 0,   "crit_rate": 0.04, "desc": "Магический катализатор с рунами",         "sell": 90, "category": "Оружие-Магия", "emoji": "💮"},  # было: 20 ATK, 3% CRIT
+    "rare_cape":      {"slot": "armor",    "atk": 0,  "def_val": 25, "hp": 80,  "crit_rate": 0.0,  "desc": "Алый плащ с защитными чарами",            "sell": 95, "category": "Броня-Плащ", "emoji": "🧥"},  # было: 20 DEF, 50 HP
+    "rare_gem":       {"slot": "artifact", "atk": 0,  "def_val": 20, "hp": 0,   "crit_rate": 0.06, "desc": "Сапфир полуночи — усиливает крит",        "sell": 80, "category": "Артефакт-Камень", "emoji": "🔷"},  # было: 15 DEF, 5% CRIT
+    "rare_helm":      {"slot": "helmet",   "atk": 0,  "def_val": 30, "hp": 90,  "crit_rate": 0.04, "desc": "Железный шлем рыцаря",                   "sell": 88, "category": "Шлем", "emoji": "🪖"},
+    "rare_boots":     {"slot": "boots",    "atk": 22, "def_val": 8,  "hp": 60,  "crit_rate": 0.05, "desc": "Сапоги вихря — скорость и натиск",       "sell": 85, "category": "Обувь-Быстрая", "emoji": "🩶"},
     # Легендарные (⚔️ Снаряжение — лучшее) [РЕБАЛАНС: конечная мощь для эндгейма]
-    "lego_gnosis":    {"slot": "weapon",   "atk": 60, "def_val": 0,  "hp": 0,   "crit_rate": 0.08, "desc": "Гнозис Балладеера — мощь Архонта",        "sell": 0},  # было: 50 ATK, 5% CRIT
-    "lego_scepter":   {"slot": "weapon",   "atk": 70, "def_val": 15, "hp": 0,   "crit_rate": 0.06, "desc": "Скипетр Дендро Архонта",                  "sell": 0},  # было: 60 ATK, 10 DEF
-    "lego_pantalone": {"slot": "armor",    "atk": 0,  "def_val": 60, "hp": 300, "crit_rate": 0.0,  "desc": "Маска Панталоне — абсолютная защита",     "sell": 0},  # было: 50 DEF, 200 HP
-    "lego_abyss":     {"slot": "artifact", "atk": 45, "def_val": 0,  "hp": 0,   "crit_rate": 0.12, "desc": "Корона Бездны — усиливает крит",          "sell": 0},  # было: 30 ATK, 10% CRIT
-    "lego_fatui":     {"slot": "weapon",   "atk": 55, "def_val": 0,  "hp": 150, "crit_rate": 0.10, "desc": "Перст Предвестника — несёт смерть врагам","sell": 0},  # было: 45 ATK, 100 HP, 8% CRIT
-    "lego_helm":      {"slot": "helmet",   "atk": 0,  "def_val": 55, "hp": 250, "crit_rate": 0.06, "desc": "Корона Небесных Врат",                    "sell": 0},
-    "lego_boots":     {"slot": "boots",    "atk": 45, "def_val": 20, "hp": 120, "crit_rate": 0.10, "desc": "Сапоги Странника Вечности",               "sell": 0},
-    # Зелья (🧪 Расходники)
-    "str_potion":     {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Силы: +15 ATK на 1 час",           "sell": 50},
-    "def_potion":     {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Защиты: +20 DEF на 1 час",        "sell": 40},
-    "hp_potion":      {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Здоровья: +50 HP на 1.5 часа",     "sell": 45},
-    "str_superior":   {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Силы Superior: +30 ATK на 2 часа",  "sell": 100},
-    "def_superior":   {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Защиты Superior: +40 DEF на 2 часа","sell": 80},
-    # Мгновенный опыт / мора (📦 Расходники — XP/🪙)
-    "cmn_xp_shard":   {"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Осколок опыта: мгновенно +25 XP",         "sell": 15},
-    "rare_xp_crystal":{"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Кристалл опыта: мгновенно +150 XP",       "sell": 60},
-    "rare_mora_bag":  {"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Мешок Моры: мгновенно +120 🪙",            "sell": 55},
-    # Косметика Mini App (🎨 Flair)
-    "lego_flair_star": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "⭐ Золотой ореол рядом с именем",          "sell": 0},
-    "lego_flair_void": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🌌 Тёмно-мистический эффект имени",        "sell": 0},
-    "lego_flair_flame":{"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🔥 Огненный ореол рядом с именем",         "sell": 0},
-    "lego_flair_arch": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🌸 Нежный розовый ореол имени",            "sell": 0},
-    # Новые предметы гачи
-    "junk_feather":    {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Перо химеры-штормпиха",                   "sell": 4},
-    "junk_rope":       {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Оборванная верёвка странника",             "sell": 3},
-    "cmn_herb":        {"slot": "consume",  "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Трава Сесилии: мгновенно +15 🪙",          "sell": 8},
-    "cmn_quill":       {"slot": "artifact", "atk": 8,  "def_val": 0,  "hp": 15,  "crit_rate": 0.02, "desc": "Перо ученика с магическими чарами",        "sell": 20},
-    "cmn_talisman":    {"slot": "artifact", "atk": 0,  "def_val": 5,  "hp": 0,   "crit_rate": 0.015,"desc": "Амулет с рунами удачи",                    "sell": 18},
-    "rare_amulet":     {"slot": "artifact", "atk": 0,  "def_val": 20, "hp": 0,   "crit_rate": 0.08, "desc": "Кармин змеи — усиливает криты",            "sell": 85},
-    "rare_mora_chest": {"slot": "consume",  "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Красный конверт: мгновенно +250 🪙",       "sell": 90},
-    "rare_lance":      {"slot": "weapon",   "atk": 35, "def_val": 0,  "hp": 0,   "crit_rate": 0.05, "desc": "Лазурное копьё воина ветров",              "sell": 85},
-    "lego_raiden":     {"slot": "weapon",   "atk": 80, "def_val": 0,  "hp": 0,   "crit_rate": 0.12, "desc": "Клинок Ей — мощь Инадзумы",               "sell": 0},
-    "lego_jade":       {"slot": "artifact", "atk": 20, "def_val": 40, "hp": 0,   "crit_rate": 0.15, "desc": "Нефритовое зерцало Архонта",               "sell": 0},
-    # Блок 5: купоны ускорения и переименования
-    "exp_boost_sm":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −30 мин",             "sell": 15,  "boost_minutes": 30},
-    "exp_boost_md":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −2 часа",             "sell": 60,  "boost_minutes": 120},
-    "exp_boost_lg":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −50% времени",        "sell": 200, "boost_pct": 0.5},
-    "quest_reroll":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Сбросить и получить новый квест",          "sell": 25},
-    "pet_rename":      {"slot": "flair",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Переименовать питомца бесплатно 1 раз",    "sell": 0},
+    "lego_gnosis":    {"slot": "weapon",   "atk": 60, "def_val": 0,  "hp": 0,   "crit_rate": 0.08, "desc": "Гнозис Балладеера — мощь Архонта",        "sell": 0, "category": "Оружие-Архонт", "emoji": "🌌"},  # было: 50 ATK, 5% CRIT
+    "lego_scepter":   {"slot": "weapon",   "atk": 70, "def_val": 15, "hp": 0,   "crit_rate": 0.06, "desc": "Скипетр Дендро Архонта",                  "sell": 0, "category": "Оружие-Скипетр", "emoji": "🪄"},  # было: 60 ATK, 10 DEF
+    "lego_pantalone": {"slot": "armor",    "atk": 0,  "def_val": 60, "hp": 300, "crit_rate": 0.0,  "desc": "Маска Панталоне — абсолютная защита",     "sell": 0, "category": "Броня-Маска", "emoji": "🎭"},  # было: 50 DEF, 200 HP
+    "lego_abyss":     {"slot": "artifact", "atk": 45, "def_val": 0,  "hp": 0,   "crit_rate": 0.12, "desc": "Корона Бездны — усиливает крит",          "sell": 0, "category": "Артефакт-Корона", "emoji": "🕸️"},  # было: 30 ATK, 10% CRIT
+    "lego_fatui":     {"slot": "weapon",   "atk": 55, "def_val": 0,  "hp": 150, "crit_rate": 0.10, "desc": "Перст Предвестника — несёт смерть врагам","sell": 0, "category": "Оружие-Перст", "emoji": "☝️"},  # было: 45 ATK, 100 HP, 8% CRIT
+    "lego_helm":      {"slot": "helmet",   "atk": 0,  "def_val": 55, "hp": 250, "crit_rate": 0.06, "desc": "Корона Небесных Врат",                    "sell": 0, "category": "Шлем-Легенда", "emoji": "🎯"},
+    "lego_boots":     {"slot": "boots",    "atk": 45, "def_val": 20, "hp": 120, "crit_rate": 0.10, "desc": "Сапоги Странника Вечности",               "sell": 0, "category": "Обувь-Легенда", "emoji": "👠"},
+    # Зелья (🥤 Зелья для боя)
+    "str_potion":     {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Силы: +15 ATK на 1 час",           "sell": 50, "category": "Зелье Силы", "emoji": "🥤"},
+    "def_potion":     {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Защиты: +20 DEF на 1 час",        "sell": 40, "category": "Зелье Защиты", "emoji": "⚗️"},
+    "hp_potion":      {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Здоровья: +50 HP на 1.5 часа",     "sell": 45, "category": "Зелье Здоровья", "emoji": "❤️"},
+    "str_superior":   {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Силы Superior: +30 ATK на 2 часа",  "sell": 100, "category": "Зелье Премиум", "emoji": "🧪"},
+    "def_superior":   {"slot": "potion",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Зелье Защиты Superior: +40 DEF на 2 часа","sell": 80, "category": "Зелье Премиум", "emoji": "🧫"},
+    # Мгновенный опыт / мора (🎁 Расходники)
+    "cmn_xp_shard":   {"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Осколок опыта: мгновенно +25 XP",         "sell": 15, "category": "Опыт-Осколок", "emoji": "✨"},
+    "rare_xp_crystal":{"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Кристалл опыта: мгновенно +150 XP",       "sell": 60, "category": "Опыт-Кристалл", "emoji": "💫"},
+    "rare_mora_bag":  {"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Мешок Моры: мгновенно +120 🪙",            "sell": 55, "category": "Мора-Мешок", "emoji": "🎒"},
+    # Косметика Mini App (🎨 Косметика)
+    "lego_flair_star": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "⭐ Золотой ореол рядом с именем",          "sell": 0, "category": "Косметика-Ореол", "emoji": "⭐"},
+    "lego_flair_void": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🌌 Тёмно-мистический эффект имени",        "sell": 0, "category": "Косметика-Мистика", "emoji": "🌌"},
+    "lego_flair_flame":{"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🔥 Огненный ореол рядом с именем",         "sell": 0, "category": "Косметика-Огонь", "emoji": "🔥"},
+    "lego_flair_arch": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🌸 Нежный розовый ореол имени",            "sell": 0, "category": "Косметика-Природа", "emoji": "🌸"},
+    # Новые предметы гачи (🎲 Предметы гачи)
+    "junk_feather":    {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Перо химеры-штормпиха",                   "sell": 4, "category": "Хлам-Перо", "emoji": "🪶"},
+    "junk_rope":       {"slot": None,       "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Оборванная верёвка странника",             "sell": 3, "category": "Хлам-Верёвка", "emoji": "🪢"},
+    "cmn_herb":        {"slot": "consume",  "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Трава Сесилии: мгновенно +15 🪙",          "sell": 8, "category": "Расходник-Трава", "emoji": "🌿"},
+    "cmn_quill":       {"slot": "artifact", "atk": 8,  "def_val": 0,  "hp": 15,  "crit_rate": 0.02, "desc": "Перо ученика с магическими чарами",        "sell": 20, "category": "Артефакт-Перо", "emoji": "🪶"},
+    "cmn_talisman":    {"slot": "artifact", "atk": 0,  "def_val": 5,  "hp": 0,   "crit_rate": 0.015,"desc": "Амулет с рунами удачи",                    "sell": 18, "category": "Артефакт-Амулет", "emoji": "🧿"},
+    "rare_amulet":     {"slot": "artifact", "atk": 0,  "def_val": 20, "hp": 0,   "crit_rate": 0.08, "desc": "Кармин змеи — усиливает криты",            "sell": 85, "category": "Артефакт-Редкий", "emoji": "🔴"},
+    "rare_mora_chest": {"slot": "consume",  "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Красный конверт: мгновенно +250 🪙",       "sell": 90, "category": "Мора-Конверт", "emoji": "🧧"},
+    "rare_lance":      {"slot": "weapon",   "atk": 35, "def_val": 0,  "hp": 0,   "crit_rate": 0.05, "desc": "Лазурное копьё воина ветров",              "sell": 85, "category": "Оружие-Копьё", "emoji": "🚪"},
+    "lego_raiden":     {"slot": "weapon",   "atk": 80, "def_val": 0,  "hp": 0,   "crit_rate": 0.12, "desc": "Клинок Ей — мощь Инадзумы",               "sell": 0, "category": "Оружие-Личное", "emoji": "⚡"},
+    "lego_jade":       {"slot": "artifact", "atk": 20, "def_val": 40, "hp": 0,   "crit_rate": 0.15, "desc": "Нефритовое зерцало Архонта",               "sell": 0, "category": "Артефакт-Нефрит", "emoji": "🪚"},
+    # Купоны и сразу используемые (🎟️ Купоны)
+    "exp_boost_sm":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −30 мин",             "sell": 15,  "boost_minutes": 30, "category": "Купон-Ускорение", "emoji": "🗺️"},
+    "exp_boost_md":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −2 часа",             "sell": 60,  "boost_minutes": 120, "category": "Купон-Ускорение", "emoji": "⏰"},
+    "exp_boost_lg":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −50% времени",        "sell": 200, "boost_pct": 0.5, "category": "Купон-Турбо", "emoji": "🚀"},
+    "quest_reroll":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Сбросить и получить новый квест",          "sell": 25, "category": "Купон-Квест", "emoji": "🎯"},
+    "pet_rename":      {"slot": "flair",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Переименовать питомца бесплатно 1 раз",    "sell": 0, "category": "Косметика-Питомец", "emoji": "📝"},
 }
 
 
@@ -267,6 +289,30 @@ def get_item_category(slot: str | None) -> str:
     return "junk"
 
 
+def get_item_display_info(item_key: str) -> dict:
+    """Get display information for an item including category, emoji, and description.
+    
+    Returns: {category, emoji, desc, readable_category}
+    """
+    if item_key not in ITEM_METADATA:
+        return {
+            "category": "junk",
+            "emoji": "❓",
+            "desc": "Неизвестный предмет",
+            "readable_category": "Неизвестно"
+        }
+    
+    item = ITEM_METADATA[item_key]
+    category = get_item_category(item["slot"])
+    
+    return {
+        "category": category,
+        "emoji": item.get("emoji", "❓"),
+        "desc": item.get("desc", ""),
+        "readable_category": item.get("category", category.capitalize())
+    }
+
+
 # ─── Ежедневный чекин ────────────────────────────────────────────────────────
 # День (1-20) → награда в мора [РЕБАЛАНС: увеличены в 3-4 раза для сбалансированной экономики]
 CHECKIN_REWARDS = {
@@ -284,14 +330,14 @@ CHECKIN_CHECKPOINTS = {5, 10, 15, 20}
 # craft_amount: сколько шардов нужно для крафта
 SHARD_CATALOG = {
     # Осколки снаряжения
-    "shard_sword":    {"name": "Осколок клинка",   "emoji": "⚔️",  "desc": "Фрагмент острого клинка. Собери 10 — скрафти Редкое Копьё.",
+    "shard_sword":    {"name": "Осколок клинка",   "emoji": "🗡️",  "desc": "Фрагмент острого клинка. Собери 10 — скрафти Редкое Копьё.",
                        "craft_into": "rare_lance",    "craft_amount": 10},
-    "shard_gem":      {"name": "Осколок самоцвета", "emoji": "💎",  "desc": "Кристаллический обломок. Собери 10 — скрафти Редкий Самоцвет.",
+    "shard_gem":      {"name": "Осколок самоцвета", "emoji": "🔷",  "desc": "Кристаллический обломок. Собери 10 — скрафти Редкий Самоцвет.",
                        "craft_into": "rare_gem",      "craft_amount": 10},
     "shard_cloth":    {"name": "Осколок ткани",     "emoji": "🧵",  "desc": "Артефактная ткань. Собери 10 — скрафти Редкий Плащ.",
                        "craft_into": "rare_cape",     "craft_amount": 10},
     # Осколки зелий
-    "shard_essence":  {"name": "Капля эссенции",    "emoji": "🧪",  "desc": "Магическая эссенция. Собери 5 — скрафти Зелье Силы.",
+    "shard_essence":  {"name": "Капля эссенции",    "emoji": "🟡",  "desc": "Магическая эссенция. Собери 5 — скрафти Зелье Силы.",
                        "craft_into": "str_potion",    "craft_amount": 5},
     "shard_crystal":  {"name": "Кристалл духа",     "emoji": "🔮",  "desc": "Духовный кристалл. Собери 5 — скрафти Зелье Защиты.",
                        "craft_into": "def_potion",    "craft_amount": 5},
