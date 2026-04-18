@@ -67,7 +67,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   const [nextLevel, setNextLevel] = useState(1);
   const [dailyLimit, setDailyLimit] = useState(2);
   const [dailyUsed, setDailyUsed] = useState(0);
-  const [resetText, setResetText] = useState<string>("");
+  const [, setResetText] = useState<string>("");
   const [loading, setLoading]   = useState(true);
   const [starting, setStarting] = useState(false);
   const [fightTimeLeft, setFightTimeLeft] = useState<number | null>(null);
@@ -377,7 +377,7 @@ export default function BossFight({ userId: _userId, chatId }: Props) {
   const completed = session?.is_completed === 1 || playerHp <= 0;
   const canStart  = !session || completed;
   const dailyRemaining = Math.max(0, dailyLimit - dailyUsed);
-  const fightTimeText = null; // С‚Р°Р№РјРµСЂ Р±РѕСЏ РѕС‚РєР»СЋС‡С‘РЅ
+
 
   const SLOT_EMOJI: Record<string, string> = { weapon: "вљ”пёЏ", armor: "рџ›ЎпёЏ", helmet: "рџЄ–", boots: "рџ‘ў", artifact: "рџ’Ћ" };
 
