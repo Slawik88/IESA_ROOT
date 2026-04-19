@@ -492,7 +492,9 @@ async def cmd_emit_xp(message: Message, cmd_args: str):
     if uid is None:
         await message.answer(name)
         return
+    chat_id = message.chat.id
     reason = parts[2].strip() if len(parts) > 2 else "без причины"
+    user_stats = await get_user_stats(uid, chat_id)
     old_xp = (user_stats["xp"] or 0) if user_stats else 0
     new_xp = old_xp + amount
     await set_user_stat_in_chat(uid, chat_id, "xp", new_xp)

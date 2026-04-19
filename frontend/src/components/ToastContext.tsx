@@ -7,7 +7,7 @@
      toast("⚠️ Внимание", "warning");
    Оберни AppContent в <ToastProvider>.
    ────────────────────────────────────────────────────────────── */
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
 
 export type ToastType = "success" | "error" | "warning" | "info";
 
@@ -34,18 +34,26 @@ const TYPE_STYLES: Record<ToastType, { border: string; icon: string }> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<ToastItem[]>([]);
+  const timerIds = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      timerIds.current.forEach(clearTimeout);
+    };
+  }, []);
 
   const toast = useCallback((message: string, type: ToastType = "info") => {
     const id = ++_nextId;
     setItems(prev => [...prev.slice(-4), { id, message, type, exiting: false }]);
 
     // Start exit animation just before removal
-    setTimeout(() => {
+    const t1 = setTimeout(() => {
       setItems(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
     }, 2800);
-    setTimeout(() => {
+    const t2 = setTimeout(() => {
       setItems(prev => prev.filter(t => t.id !== id));
     }, 3100);
+    timerIds.current.push(t1, t2);
   }, []);
 
   return (

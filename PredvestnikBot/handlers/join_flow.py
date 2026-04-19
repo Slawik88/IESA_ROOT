@@ -226,7 +226,11 @@ async def cb_cancel(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data.startswith("jf:pick:"))
 async def cb_pick_tag(callback: CallbackQuery) -> None:
-    tag_def_id = int(callback.data.split(":")[2])
+    try:
+        tag_def_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
 
     # Find this tag among all definitions
     # We need chat_id — get it from the message context or by looking up all defs.
@@ -281,7 +285,11 @@ async def cb_pick_tag(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data.startswith("jf:back:"))
 async def cb_back_to_tags(callback: CallbackQuery) -> None:
-    chat_id = int(callback.data.split(":")[2])
+    try:
+        chat_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
     tags = await get_tag_definitions(chat_id)
     try:
         await callback.message.edit_text(
@@ -298,7 +306,11 @@ async def cb_back_to_tags(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data.startswith("jf:confirm:"))
 async def cb_confirm_tag(callback: CallbackQuery, bot: Bot) -> None:
-    tag_def_id = int(callback.data.split(":")[2])
+    try:
+        tag_def_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
 
     from database.db import postgres_connect
     async with postgres_connect() as db:
@@ -398,7 +410,11 @@ async def cb_confirm_tag(callback: CallbackQuery, bot: Bot) -> None:
 
 @router.callback_query(F.data.startswith("jfadm:accept:"))
 async def cb_admin_accept(callback: CallbackQuery, bot: Bot) -> None:
-    req_id = int(callback.data.split(":")[2])
+    try:
+        req_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
     req = await get_join_request(req_id)
     if not req:
         await callback.answer("Заявка не найдена.", show_alert=True)
@@ -457,7 +473,11 @@ async def cb_admin_accept(callback: CallbackQuery, bot: Bot) -> None:
 
 @router.callback_query(F.data.startswith("jfadm:reject:"))
 async def cb_admin_reject(callback: CallbackQuery, bot: Bot) -> None:
-    req_id = int(callback.data.split(":")[2])
+    try:
+        req_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
     req = await get_join_request(req_id)
     if not req:
         await callback.answer("Заявка не найдена.", show_alert=True)
@@ -495,7 +515,11 @@ async def cb_admin_reject(callback: CallbackQuery, bot: Bot) -> None:
 
 @router.callback_query(F.data.startswith("jfadm:postpone:"))
 async def cb_admin_postpone(callback: CallbackQuery, bot: Bot) -> None:
-    req_id = int(callback.data.split(":")[2])
+    try:
+        req_id = int(callback.data.split(":")[2])
+    except (IndexError, ValueError):
+        await callback.answer()
+        return
     req = await get_join_request(req_id)
     if not req:
         await callback.answer("Заявка не найдена.", show_alert=True)
