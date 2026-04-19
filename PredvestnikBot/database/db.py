@@ -7815,6 +7815,8 @@ async def buy_season_premium(user_id: int, season_id: int) -> bool:
                 (user_id,)
             )
             await db.commit()
+        # Also add bp_gold to shop_items so it appears in inventory and can be toggled
+        await add_shop_item(user_id, 'frame', 'bp_gold')
     except Exception as _e:
         _log.warning("%s", _e, exc_info=True)
     return True
@@ -8894,6 +8896,34 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
 
         # ── Consume (instant-effect) items ───────────────────────────────────
         if item_slot2 == 'consume':
+            # ── VIP lottery ticket: add 3 entries to weekly lottery ────────────
+            if item_key2 == 'vip_lottery_ticket':
+                from datetime import datetime, timezone
+                _iso = datetime.now(timezone.utc).date().isocalendar()
+                week_key = f"{_iso.year}-W{_iso.week:02d}"
+                # Read actual stack count so stacked tickets multiply entries
+                async with db.execute(
+                    "SELECT COALESCE(stack_count, 1) FROM gacha_inventory WHERE id=?", (item_id,)
+                ) as _sc:
+                    sc_row = await _sc.fetchone()
+                stack = sc_row[0] if sc_row else 1
+                total_entries = 3 * stack
+                await db.execute(
+                    "INSERT INTO casino_lottery (chat_id, user_id, week_key, tickets) "
+                    "VALUES (?, ?, ?, ?) "
+                    "ON CONFLICT(chat_id, user_id, week_key) DO UPDATE SET tickets = casino_lottery.tickets + ?",
+                    (chat_id, user_id, week_key, total_entries, total_entries),
+                )
+                await db.execute("DELETE FROM gacha_inventory WHERE id=?", (item_id,))
+                await db.commit()
+                pl = "ы" if stack > 1 else ""
+                pl2 = "ы" if stack > 1 else ""
+                return True, (
+                    f"🎟️ VIP-билет{pl} активирован{pl2}! "
+                    f"+{total_entries} участий в лотерее на неделю {week_key}. "
+                    f"Розыгрыш каждое воскресенье!"
+                )
+
             _CONSUME_EFFECTS = {
                 'cmn_xp_shard':    ('xp',   25,  '+25 XP'),
                 'cmn_herb':        ('mora', 15,  '+15 🪙'),
