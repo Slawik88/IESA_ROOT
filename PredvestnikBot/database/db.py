@@ -7730,8 +7730,11 @@ async def claim_season_reward(user_id: int, season_id: int, level: int, is_premi
         elif reward_type == "item":
             # Handle specific items
             if reward_data == "gacha_ticket":
-                # Give free gacha ticket (not implemented yet, just give mora equivalent)
-                await add_mora(user_id, 0, 120)
+                # Give 1 free gacha roll (correctly updates free_gacha_rolls counter)
+                await db.execute(
+                    "UPDATE users SET free_gacha_rolls = COALESCE(free_gacha_rolls, 0) + 1 WHERE user_id = ?",
+                    (user_id,),
+                )
             elif reward_data == "enhancement_stone":
                 await add_enhancement_stones(user_id, 1)
         # title rewards are cosmetic only

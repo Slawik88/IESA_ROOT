@@ -63,6 +63,77 @@ function isEquippable(item: InventoryItem): boolean {
   return !item.is_cosmetic && !!item.slot && EQUIPPABLE_SLOTS.includes(item.slot);
 }
 
+// ── UX helpers: answer the 4 questions ─────────────────────────────────────
+
+/** ① ЧТО ДЕЛАЕТ — description with smart fallback */
+function getEffectDesc(item: InventoryItem): string {
+  if (item.desc) return item.desc;
+  if (item.rarity === "junk") return "Бесполезный хлам путешественника. Никакого применения нет — только продать за мору кнопкой ниже.";
+  if (item.slot === "potion") return "Временный бафф характеристик. Исчезает по истечении времени.";
+  if (item.slot === "consume") return "Мгновенный расходник — эффект применяется сразу при использовании.";
+  if (item.slot === "coupon") return "Одноразовый купон для специального действия.";
+  if (item.slot === "frame") return "Декоративная рамка вокруг аватара в профиле.";
+  if (item.slot === "flair" && item.id < 0) return "Изменяет оформление всего профиля (заголовок, разделители).";
+  if (item.slot === "flair" && item.id > 0) return "Визуальный эффект рядом с именем в профиле Mini App.";
+  if (item.slot && EQUIPPABLE_SLOTS.includes(item.slot)) return "Экипируй, чтобы улучшить характеристики персонажа в PvP и рейдах.";
+  return "Предмет из инвентаря.";
+}
+
+/** ③ КАК ПРИМЕНИТЬ — context-aware primary action label */
+function getMainActionLabel(item: InventoryItem): string {
+  if (item.key === "pet_rename") return "✏️ Переименовать питомца";
+  if (item.key === "quest_reroll") return "🎯 Сменить задание дня";
+  if (item.key === "exp_boost_sm") return "🗺️ Ускорить экспедицию (+30 мин)";
+  if (item.key === "exp_boost_md") return "🗺️ Ускорить экспедицию (+2 часа)";
+  if (item.key === "exp_boost_lg") return "🗺️ Ускорить экспедицию (−50% времени)";
+  if (item.slot === "potion") {
+    if (item.key.includes("hp")) return "🧪 Выпить зелье здоровья";
+    if (item.key.includes("str")) return "🧪 Выпить зелье силы";
+    if (item.key.includes("def")) return "🧪 Выпить зелье защиты";
+    return "🧪 Выпить зелье";
+  }
+  if (item.slot === "consume") {
+    if (item.key.includes("xp")) return "⚡ Применить → получить XP";
+    if (item.key.includes("mora")) return "💰 Применить → получить Мору";
+    return "⚡ Применить расходник";
+  }
+  if (isEquippable(item)) {
+    if (item.equipped) return `Снять (слот: ${SLOT_LABEL[item.slot!] ?? item.slot})`;
+    return `⚔️ Экипировать → ${SLOT_LABEL[item.slot!] ?? item.slot}`;
+  }
+  if (item.is_cosmetic && item.slot === "flair" && item.id < 0) {
+    return item.equipped ? "✅ Тема активна" : "🎨 Применить тему профиля";
+  }
+  if (item.is_cosmetic && item.slot === "frame" && item.id < 0) {
+    return item.equipped ? "✅ Рамка активна" : "🖼 Надеть рамку профиля";
+  }
+  if (item.is_cosmetic && item.slot === "flair" && item.id > 0) {
+    return item.equipped ? "✨ Снять косметику" : "✨ Надеть косметику";
+  }
+  return "⚡ Использовать";
+}
+
+/** ④ ГДЕ ВЗЯТЬ — source tags */
+function getItemSources(item: InventoryItem): string[] {
+  const k = item.key;
+  if (k.startsWith("junk_")) return ["🎰 Гача"];
+  if (k === "str_potion" || k === "def_potion" || k === "hp_potion")
+    return ["🛒 Магазин Моры", "🎰 Гача", "🎲 Рулетка"];
+  if (k === "str_superior" || k === "def_superior") return ["🎰 Гача • легенд. пул"];
+  if (k.startsWith("cmn_")) return ["🎰 Гача • обычный пул"];
+  if (k.startsWith("rare_")) return ["🎰 Гача • редкий пул"];
+  if (k.startsWith("lego_")) return ["🎰 Гача • легенд. пул"];
+  if (k.startsWith("shard_")) return ["📈 Повышение уровней (×10)", "📋 Задания дня", "🏆 Достижения"];
+  if (k === "exp_boost_sm" || k === "exp_boost_md") return ["🎰 Гача", "🎲 Рулетка", "🔨 Крафт (осколки)"];
+  if (k === "exp_boost_lg") return ["🎰 Гача • легенд. пул"];
+  if (k === "quest_reroll") return ["🎰 Гача", "🔨 Крафт (осколки)"];
+  if (k === "pet_rename") return ["🎰 Гача • редкий пул"];
+  if (k === "boss_coupon") return ["🎰 Гача", "💎 7 кристаллов"];
+  if (item.slot === "frame") return ["🛒 Магазин Моры", "🎰 Гача"];
+  if (item.slot === "flair" && item.id < 0) return ["🎰 Гача • легенд. пул"];
+  return ["🎰 Гача"];
+}
+
 interface Props {
   userId: number;
   chatId: number;
@@ -552,137 +623,198 @@ interface BSProps {
 
 function BottomSheet({ item, busy, onClose, onEquip, onSell, onEnhance, onConsume, onActivateTheme, onActivateFrame, onRename }: BSProps) {
   const color = RARITY_COLOR[item.rarity] ?? "#9ca3af";
-  const stats: { label: string; value: string | number }[] = [];
-  if (item.atk)              stats.push({ label: "ATK",    value: `+${item.atk}` });
-  if (item.def_val)          stats.push({ label: "DEF",    value: `+${item.def_val}` });
-  if (item.hp)               stats.push({ label: "HP",     value: `+${item.hp}` });
-  if (item.crit_rate)        stats.push({ label: "CRIT",   value: `+${item.crit_rate}%` });
-  if (item.enhancement_level > 0) stats.push({ label: "Улучш.", value: `+${item.enhancement_level}` });
 
-  const canEquip        = isEquippable(item);
-  const canConsume      = isConsumable(item);
-  const canSell         = item.sell_price > 0;
-  // Profile themes are pseudo-items with negative IDs (from user_themes table)
+  // Coloured stats list
+  const stats: { label: string; value: string; color: string }[] = [];
+  if (item.atk)              stats.push({ label: "⚔️ ATK",  value: `+${item.atk}`,    color: "#ef4444" });
+  if (item.def_val)          stats.push({ label: "🛡 DEF",  value: `+${item.def_val}`, color: "#3b82f6" });
+  if (item.hp)               stats.push({ label: "❤️ HP",   value: `+${item.hp}`,      color: "#22c55e" });
+  if (item.crit_rate)        stats.push({ label: "🎯 CRIT", value: `+${(item.crit_rate * 100).toFixed(1)}%`, color: "#f59e0b" });
+  if (item.enhancement_level > 0) stats.push({ label: "✨ Улучш.", value: `+${item.enhancement_level}`, color });
+
+  const canEquip         = isEquippable(item);
+  const canConsume       = isConsumable(item);
+  const canSell          = item.sell_price > 0 && !item.equipped;
   const canActivateTheme = item.is_cosmetic && item.slot === "flair" && item.id < 0;
-  // Gacha frames are pseudo-items with slot=="frame" and id<0
   const canActivateFrame = item.is_cosmetic && item.slot === "frame" && item.id < 0;
-  // Crystal flair cosmetics (lego_flair_*) use regular equip/unequip
-  const canEquipFlair   = item.is_cosmetic && item.slot === "flair" && item.id > 0 && item.key !== "pet_rename";
-  const canRename       = item.key === "pet_rename";
+  const canEquipFlair    = item.is_cosmetic && item.slot === "flair" && item.id > 0 && item.key !== "pet_rename";
+  const canRename        = item.key === "pet_rename";
+  const isJunk           = item.rarity === "junk";
+
+  const hasPrimaryAction = canEquip || canConsume || canActivateTheme || canActivateFrame || canEquipFlair || canRename;
+  const primaryDisabled  = !!busy || ((canActivateTheme || canActivateFrame) && item.equipped);
+
+  const handlePrimary = () => {
+    if (canEquip)         return onEquip(item);
+    if (canActivateTheme) return !item.equipped && onActivateTheme(item);
+    if (canActivateFrame) return !item.equipped && onActivateFrame(item);
+    if (canEquipFlair)    return onEquip(item);
+    if (canRename)        return onRename(item);
+    if (canConsume)       return onConsume(item);
+  };
+
+  const effectDesc  = getEffectDesc(item);
+  const sources     = getItemSources(item);
+  const actionLabel = getMainActionLabel(item);
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div
-        className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-8 animate-slideUp"
-        style={{ backgroundColor: "var(--bg-primary)", maxHeight: "85vh", overflowY: "auto" }}
+        className="fixed bottom-0 inset-x-0 z-50 rounded-t-2xl pb-10 animate-slideUp"
+        style={{ backgroundColor: "var(--bg-primary)", maxHeight: "90vh", overflowY: "auto" }}
       >
+        {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
         </div>
 
-        <div className="flex items-start justify-between px-4 pb-3 pt-1">
-          <div className="flex-1 min-w-0 pr-3">
-            <h2 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>{item.name}</h2>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className="text-xs font-semibold capitalize" style={{ color }}>
-                {item.rarity === "legendary" && "✨ "}{RARITY_LABEL[item.rarity] ?? item.rarity}
+        {/* ① ЧТО ЭТО — header with emoji, name, badges */}
+        <div className="flex items-start gap-3 px-4 pt-2 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 text-2xl"
+            style={{ backgroundColor: color + "22", border: `2px solid ${color}55` }}
+          >
+            {item.emoji || (SLOT_ICON[item.slot ?? ""] ?? "📦")}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <h2 className="font-bold text-base leading-tight" style={{ color: "var(--text-primary)" }}>
+                {item.name}
+                {item.enhancement_level > 0 && (
+                  <span className="ml-1.5 text-sm font-bold" style={{ color: "#f59e0b" }}>
+                    +{item.enhancement_level}
+                  </span>
+                )}
+              </h2>
+              <button onClick={onClose} className="flex-shrink-0 mt-0.5" style={{ color: "var(--text-hint)" }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: color + "22", color }}>
+                {item.rarity === "legendary" ? "✨ " : ""}{RARITY_LABEL[item.rarity] ?? item.rarity}
               </span>
               {item.slot && (
-                <span className="text-xs" style={{ color: "var(--text-hint)" }}>
-                  {SLOT_LABEL[item.slot] ?? item.slot}
+                <span className="text-xs px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-hint)" }}>
+                  {SLOT_ICON[item.slot] ?? ""} {SLOT_LABEL[item.slot] ?? item.slot}
                 </span>
               )}
               {item.equipped && (
-                <span className="text-xs font-bold px-1.5 py-0.5 rounded"
-                  style={{ backgroundColor: color + "22", color }}>Экипировано ★</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: color + "33", color }}>
+                  ★ Надет
+                </span>
+              )}
+              {item.stack_count > 1 && (
+                <span className="text-xs px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-hint)" }}>
+                  ×{item.stack_count}
+                </span>
               )}
             </div>
           </div>
-          <button onClick={onClose} style={{ color: "var(--text-hint)" }}><X size={20} /></button>
         </div>
 
-        {item.desc && (
-          <p className="px-4 text-sm mb-3" style={{ color: "var(--text-hint)" }}>{item.desc}</p>
-        )}
-
-        {stats.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-4 mb-4">
-            {stats.map(s => (
-              <div key={s.label} className="px-2.5 py-1 rounded-lg text-xs font-semibold"
-                style={{ backgroundColor: color + "22", color }}>
-                {s.label}: {s.value}
-              </div>
-            ))}
+        <div className="px-4 pt-4 space-y-4">
+          {/* ② ЧТО ДЕЛАЕТ — effect / description block (always shown) */}
+          <div className="rounded-xl p-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--text-hint)" }}>
+              📖 Эффект
+            </p>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-primary)" }}>{effectDesc}</p>
           </div>
-        )}
 
-        <div className="px-4 pb-6 space-y-2">
-          {canEquip && (
-            <ActionBtn loading={busy === "equip"} onClick={() => onEquip(item)}
-              label={item.equipped ? "Снять" : `Экипировать (${SLOT_LABEL[item.slot!] ?? item.slot})`}
-              color={item.equipped ? "#6b7280" : color} />
+          {/* Stats row */}
+          {stats.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text-hint)" }}>
+                ⚡ Характеристики
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {stats.map(s => (
+                  <div key={s.label}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-sm font-bold"
+                    style={{ backgroundColor: s.color + "18", color: s.color, border: `1px solid ${s.color}33` }}>
+                    {s.label} {s.value}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
-          {canEquip && (
-            <ActionBtn loading={busy === "enhance"} onClick={() => onEnhance(item)}
-              label={`Улучшить${item.enhancement_level > 0 ? ` (ур. ${item.enhancement_level})` : ""} 🔨`}
-              color="#f59e0b" />
-          )}
-          {canActivateTheme && (
-            <ActionBtn loading={busy === "theme"} onClick={() => !item.equipped && onActivateTheme(item)}
-              label={item.equipped ? "✅ Активная тема" : "🎨 Применить тему"}
-              color={item.equipped ? "#6b7280" : "#a855f7"}
-              disabled={item.equipped} />
-          )}
-          {canActivateFrame && (
-            <ActionBtn loading={busy === "frame"} onClick={() => !item.equipped && onActivateFrame(item)}
-              label={item.equipped ? "✅ Активная рамка" : "🖼 Активировать рамку"}
-              color={item.equipped ? "#6b7280" : "#3b82f6"}
-              disabled={item.equipped} />
-          )}
-          {canEquipFlair && (
-            <ActionBtn loading={busy === "equip"} onClick={() => onEquip(item)}
-              label={item.equipped ? "✨ Снять косметику" : "✨ Надеть косметику"}
-              color={item.equipped ? "#6b7280" : "#a855f7"} />
-          )}
-          {canRename && (
-            <ActionBtn loading={busy === "rename"} onClick={() => onRename(item)}
-              label="✏️ Переименовать питомца" color="#8b5cf6" />
-          )}
-          {canConsume && (
-            <ActionBtn loading={busy === "consume"} onClick={() => onConsume(item)}
-              label="Использовать ⚡" color="#22c55e" />
-          )}
-          {canSell && !item.equipped && (
-            <ActionBtn loading={busy === "sell"} onClick={() => onSell(item)}
-              label={`Продать за ${item.sell_price} 🪙`} color="#e74c3c" outline />
-          )}
-          {!canEquip && !canEquipFlair && !canConsume && !canSell && !canActivateTheme && !canRename && (
-            <p className="text-center text-xs py-2" style={{ color: "var(--text-hint)" }}>Нет доступных действий</p>
-          )}
+
+          {/* ③ КАК ПРИМЕНИТЬ — action buttons */}
+          <div className="space-y-2">
+            {hasPrimaryAction && (
+              <button
+                onClick={handlePrimary}
+                disabled={primaryDisabled}
+                className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+                style={{
+                  backgroundColor: (canActivateTheme || canActivateFrame) && item.equipped ? "#6b7280" : color,
+                  color: "#fff",
+                }}
+              >
+                {busy && ["equip", "consume", "theme", "frame", "rename"].includes(busy)
+                  ? <Loader2 size={16} className="animate-spin" />
+                  : actionLabel}
+              </button>
+            )}
+            {/* Enhance — secondary, only for equippable gear */}
+            {canEquip && (
+              <button
+                onClick={() => onEnhance(item)}
+                disabled={!!busy}
+                className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+                style={{ backgroundColor: "#f59e0b18", color: "#f59e0b", border: "1px solid #f59e0b44" }}
+              >
+                {busy === "enhance"
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : `🔨 Улучшить${item.enhancement_level > 0 ? ` (ур. ${item.enhancement_level} → ${item.enhancement_level + 1})` : ""}`}
+              </button>
+            )}
+            {/* Sell — red solid for junk, outline for normal items */}
+            {canSell && (
+              <button
+                onClick={() => onSell(item)}
+                disabled={busy === "sell"}
+                className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+                style={isJunk
+                  ? { backgroundColor: "#e74c3c", color: "#fff" }
+                  : { border: "1.5px solid #e74c3c55", color: "#e74c3c", backgroundColor: "#e74c3c0d" }}
+              >
+                {busy === "sell"
+                  ? <Loader2 size={14} className="animate-spin" />
+                  : `🗑 Продать за ${item.sell_price} 🪙`}
+              </button>
+            )}
+            {!hasPrimaryAction && !canSell && (
+              <p className="text-center text-xs py-2" style={{ color: "var(--text-hint)" }}>
+                Нет доступных действий
+              </p>
+            )}
+          </div>
+
+          {/* ④ ГДЕ ВЗЯТЬ — source tags */}
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: "14px", paddingBottom: "4px" }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-2.5" style={{ color: "var(--text-hint)" }}>
+              📍 Как получить
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {sources.map((src, i) => (
+                <span key={i}
+                  className="text-xs px-2.5 py-1 rounded-lg font-medium"
+                  style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+                  {src}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </>
-  );
-}
-
-/* ── Action Button ── */
-function ActionBtn({
-  label, color, loading, onClick, outline = false, disabled = false,
-}: {
-  label: string; color: string; loading: boolean; onClick: () => void; outline?: boolean; disabled?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading || disabled}
-      className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-95"
-      style={outline
-        ? { border: `1.5px solid ${color}`, color, backgroundColor: "transparent" }
-        : { backgroundColor: color, color: "#fff" }}
-    >
-      {loading ? <Loader2 size={16} className="animate-spin" /> : label}
-    </button>
   );
 }
 

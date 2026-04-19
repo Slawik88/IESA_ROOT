@@ -6586,15 +6586,12 @@ def miniapp_crystals_spend(request):
             _a2s(add_transfer_passes)(uid, 1)
             
         elif item_key == "shard_chest":
-            # Add 3 rare-grade frame shards to gacha inventory
-            from database.db import add_gacha_item
-            frame_shards = [
-                ("shard_warrior", "🗡️ Осколок Воина", "rare"),
-                ("shard_king", "👑 Осколок Короля", "rare"),
-                ("shard_moon", "🌙 Лунный осколок", "rare"),
-            ]
-            for key, name, rarity in frame_shards:
-                _a2s(add_gacha_item)(uid, chat_id or 0, key, name, rarity)
+            # Give 3 random frame-crafting shards (from SHARD_CATALOG frame group)
+            import random as _rand
+            from database.db import add_shards as _add_shards
+            _FRAME_SHARDS = ["shard_starlight", "shard_sakura", "shard_flame", "shard_ocean"]
+            for _sk in _rand.choices(_FRAME_SHARDS, k=3):
+                _a2s(_add_shards)(uid, _sk, 1)
                 
         elif item_key == "guarantee_scroll":
             from database.db import add_guarantee_scrolls
