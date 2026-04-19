@@ -272,6 +272,8 @@ ITEM_METADATA = {
     "exp_boost_lg":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Ускорение экспедиции −50% времени",        "sell": 200, "boost_pct": 0.5, "category": "Купон-Турбо", "emoji": "🚀"},
     "quest_reroll":    {"slot": "coupon",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Сбросить и получить новый квест",          "sell": 25, "category": "Купон-Квест", "emoji": "🎯"},
     "pet_rename":      {"slot": "flair",    "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Переименовать питомца бесплатно 1 раз",    "sell": 0, "category": "Косметика-Питомец", "emoji": "📝"},
+    # VIP-билет лотереи (🎟️ Особые)
+    "vip_lottery_ticket": {"slot": "consume", "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0.0, "desc": "VIP-билет недельной лотереи: +3 участия за один билет. Розыгрыш каждое воскресенье!", "sell": 0, "category": "VIP-Билет", "emoji": "🎟️"},
 }
 
 

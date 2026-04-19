@@ -93,6 +93,7 @@ function getMainActionLabel(item: InventoryItem): string {
     return "🧪 Выпить зелье";
   }
   if (item.slot === "consume") {
+    if (item.key === "vip_lottery_ticket") return "🎟️ Активировать VIP-билет (+3 участия в лотерее)";
     if (item.key.includes("xp")) return "⚡ Применить → получить XP";
     if (item.key.includes("mora")) return "💰 Применить → получить Мору";
     return "⚡ Применить расходник";
@@ -129,6 +130,7 @@ function getItemSources(item: InventoryItem): string[] {
   if (k === "quest_reroll") return ["🎰 Гача", "🔨 Крафт (осколки)"];
   if (k === "pet_rename") return ["🎰 Гача • редкий пул"];
   if (k === "boss_coupon") return ["🎰 Гача", "💎 7 кристаллов"];
+  if (k === "vip_lottery_ticket") return ["💎 Магазин кристаллов (100 💎)"];
   if (item.slot === "frame") return ["🛒 Магазин Моры", "🎰 Гача"];
   if (item.slot === "flair" && item.id < 0) return ["🎰 Гача • легенд. пул"];
   return ["🎰 Гача"];
