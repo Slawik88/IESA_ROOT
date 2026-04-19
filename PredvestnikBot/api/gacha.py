@@ -214,6 +214,21 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
         _luck_bonus = await _gte(uid, "drop_luck_pct")
     except Exception as _e:
         _log.debug("%s", _e)
+
+    # Кристальный бафф double_pity: удваивает прирост счётчика пити за каждый ролл
+    pity_increment = 1
+    try:
+        from database.postgres import connect as _pg_conn
+        async with _pg_conn() as _dp_db:
+            _dp_row = await _dp_db.fetchone(
+                "SELECT 1 FROM active_buffs WHERE user_id=? AND buff_type='double_pity' AND expires_at > NOW() LIMIT 1",
+                (uid,),
+            )
+        if _dp_row:
+            pity_increment = 2
+    except Exception as _e:
+        _log.debug("double_pity buff check: %s", _e)
+
     results = []
     guaranteed_rare_used = False
     for i in range(count):
@@ -254,7 +269,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                         "slot": None, "sell": 0,
                         "duplicate": True, "comp_mora": comp,
                     })
-                    pity = 0 if rarity == "legendary" else pity + 1
+                    pity = 0 if rarity == "legendary" else pity + pity_increment
                     continue
         elif key.startswith("theme_"):
             # Themes go to user_themes table, strip prefix to get theme key
@@ -279,7 +294,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                         "slot": None, "sell": 0,
                         "duplicate": True, "comp_mora": comp,
                     })
-                    pity = 0 if rarity == "legendary" else pity + 1
+                    pity = 0 if rarity == "legendary" else pity + pity_increment
                     continue
         else:
             # For lego_flair_* items: check for duplicates and pay compensation.
@@ -318,7 +333,7 @@ async def gacha_roll(uid: int, chat_id: int, count: int,
                 except Exception as _e:
                     _log.debug("boss_coupon grant: %s", _e)
         # Consume-slot items stay in inventory; user activates from inventory tab.
-        pity = 0 if rarity == "legendary" else pity + 1
+        pity = 0 if rarity == "legendary" else pity + pity_increment
         results.append({
             "key": key, "name": name, "rarity": rarity, "desc": desc,
             "atk": meta.get("atk", 0), "def_val": meta.get("def_val", 0),
