@@ -552,6 +552,11 @@ export interface DevUserEntry {
   message_count?: number;
   reputation?: number;
   crystals?: number;
+  day_count?: number;
+  week_count?: number;
+  total_count?: number;
+  yesterday_count?: number;
+  last_week_count?: number;
 }
 export interface DevUsersResponse {
   users: DevUserEntry[];

@@ -270,6 +270,11 @@ function UsersSection({ chatId }: { chatId: number }) {
   const [rank, setRank]           = useState("");
   const [crystals, setCrystals]   = useState("");
   const [reputation, setReputation] = useState("");
+  const [messageCount, setMessageCount] = useState("");
+  const [dayCount, setDayCount] = useState("");
+  const [weekCount, setWeekCount] = useState("");
+  const [yesterdayCount, setYesterdayCount] = useState("");
+  const [lastWeekCount, setLastWeekCount] = useState("");
   const [saving, setSaving]       = useState(false);
   const [toast, setToast]         = useState<string | null>(null);
 
@@ -292,13 +297,33 @@ function UsersSection({ chatId }: { chatId: number }) {
     setRank(u.rank ?? "user");
     setCrystals(String(u.crystals ?? 0));
     setReputation(String(u.reputation ?? 0));
+    setMessageCount(String(u.message_count ?? 0));
+    setDayCount(String(u.day_count ?? 0));
+    setWeekCount(String(u.week_count ?? 0));
+    setYesterdayCount(String(u.yesterday_count ?? 0));
+    setLastWeekCount(String(u.last_week_count ?? 0));
   };
 
   const save = async () => {
     if (!selected) return;
     setSaving(true);
     try {
-      const r = await devMemberUpdate(chatId, selected.user_id, parseFloat(balance), parseInt(xp), rank, parseInt(reputation));
+      const r = await devMemberUpdate(
+        chatId,
+        selected.user_id,
+        parseFloat(balance),
+        parseInt(xp),
+        rank,
+        parseInt(reputation),
+        {
+          message_count: parseInt(messageCount) || 0,
+          total_count: parseInt(messageCount) || 0,
+          day_count: parseInt(dayCount) || 0,
+          week_count: parseInt(weekCount) || 0,
+          yesterday_count: parseInt(yesterdayCount) || 0,
+          last_week_count: parseInt(lastWeekCount) || 0,
+        },
+      );
       if (!r.ok) {
         showOk("❌ " + (r.error ?? "Ошибка"));
         return;
@@ -313,6 +338,20 @@ function UsersSection({ chatId }: { chatId: number }) {
           return;
         }
       }
+      setSelected({
+        ...selected,
+        balance: parseFloat(balance) || 0,
+        xp: parseInt(xp) || 0,
+        rank,
+        crystals: parseInt(crystals) || 0,
+        reputation: parseInt(reputation) || 0,
+        message_count: parseInt(messageCount) || 0,
+        total_count: parseInt(messageCount) || 0,
+        day_count: parseInt(dayCount) || 0,
+        week_count: parseInt(weekCount) || 0,
+        yesterday_count: parseInt(yesterdayCount) || 0,
+        last_week_count: parseInt(lastWeekCount) || 0,
+      });
       showOk("✅ Сохранено");
       search();
     } catch (e: unknown) {
@@ -415,6 +454,11 @@ function UsersSection({ chatId }: { chatId: number }) {
             <InputField icon={<Zap size={10} />} label="XP" value={xp} onChange={setXp} type="number" />
             <InputField icon={<Gem size={10} />} label="Кристаллы" value={crystals} onChange={setCrystals} type="number" />
             <InputField icon={<ArrowRightLeft size={10} />} label="Репутация" value={reputation} onChange={setReputation} type="number" />
+            <InputField icon={<Users size={10} />} label="Сообщения всего" value={messageCount} onChange={setMessageCount} type="number" />
+            <InputField icon={<Users size={10} />} label="За день" value={dayCount} onChange={setDayCount} type="number" />
+            <InputField icon={<Users size={10} />} label="За неделю" value={weekCount} onChange={setWeekCount} type="number" />
+            <InputField icon={<Users size={10} />} label="Прошлый день" value={yesterdayCount} onChange={setYesterdayCount} type="number" />
+            <InputField icon={<Users size={10} />} label="Прошлая неделя" value={lastWeekCount} onChange={setLastWeekCount} type="number" />
             <div>
               <label className="text-[11px] font-medium flex items-center gap-1" style={{ color: "var(--text-hint)" }}>
                 <Star size={10} />Ранг
@@ -436,6 +480,8 @@ function UsersSection({ chatId }: { chatId: number }) {
             <div className="col-span-2 rounded-lg px-2.5 py-1.5 text-xs"
               style={{ backgroundColor: "var(--bg-primary)", border: "1px solid var(--border)", color: "var(--text-hint)" }}>
               💬 Сообщений: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{selected?.message_count ?? 0}</span>
+              {" · "}📆 Неделя: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{selected?.week_count ?? 0}</span>
+              {" · "}🗓 День: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{selected?.day_count ?? 0}</span>
               {" · "}⭐ Репутация: <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{selected?.reputation ?? 0}</span>
             </div>
           </div>

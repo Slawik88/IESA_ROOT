@@ -405,7 +405,7 @@ async def cmd_welcome_call(message: Message, cmd_args: str):
 @router.message(BotCommand("чистка", "cleanup", "прочистка"), RankFilter("co_owner"))
 async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     """
-    бот чистка [N]          — заблокировать чат + отчёт активности за неделю
+    бот чистка [N] [-шн]    — заблокировать чат + отчёт активности за неделю
     бот чистка открыть      — разблокировать чат после чистки
     бот чистка порог [N]    — установить порог по умолчанию
     """
@@ -415,6 +415,15 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
 
     parts   = cmd_args.split() if cmd_args else []
     chat_id = message.chat.id
+    disable_newbie_shield = False
+    if parts:
+        filtered_parts = []
+        for part in parts:
+            if part.lower() == "-шн":
+                disable_newbie_shield = True
+                continue
+            filtered_parts.append(part)
+        parts = filtered_parts
 
     # Разблокировать чат
     if parts and parts[0].lower() in ("открыть", "open", "unlock", "разблок", "разблокировать"):
@@ -491,7 +500,7 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     rest_info = await get_rest_info_map(chat_id)
 
     # Bulk-проверка щитов новичков
-    shield_map = await get_shield_map(chat_id)
+    shield_map = {} if disable_newbie_shield else await get_shield_map(chat_id)
 
     # Bulk-проверка пропусков чистки
     from database.db import has_cleanup_pass
@@ -525,10 +534,15 @@ async def cmd_cleanup(message: Message, bot: Bot, cmd_args: str):
     total = len(all_sorted)
     lines = [
         f"📋 <b>Чистка чата</b>",
-        f"{lock_line}  ·  Порог: <b>{min_msgs}</b> сообщ./нед.",
-        f"👥 Всего: <b>{total}</b>  |  ✅ {len(passed)}  ❌ {len(failed)}  😴 {len(resting)}  🛡 {len(shielded)}  🎫 {len(pass_protected)}  🛡 {len(staff_list)}",
+        f"{lock_line}  ·  Порог: <b>{min_msgs}</b> сообщ./нед."
+        f"{'  ·  -шн: щит новичка игнорируется' if disable_newbie_shield else ''}",
+        f"👥 Всего: <b>{total}</b>  |  ✅ {len(passed)}  ❌ {len(failed)}  😴 {len(resting)}  🛡 {len(shielded)}  🎫 {len(pass_protected)}  👮 {len(staff_list)}",
         "",
     ]
+
+    if disable_newbie_shield:
+        lines.append("⚠️ <i>Флаг -шн включён: участники со щитом новичка оцениваются как обычные участники.</i>")
+        lines.append("")
 
     # Стафф (с подсветкой ✅/❌ по порогу)
     if staff_list:
