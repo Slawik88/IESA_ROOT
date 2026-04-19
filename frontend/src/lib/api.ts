@@ -481,11 +481,27 @@ export function devMemberUpdate(
   xp: number,
   rank: string,
   reputation?: number,
+  activity?: {
+    message_count?: number;
+    day_count?: number;
+    week_count?: number;
+    total_count?: number;
+    yesterday_count?: number;
+    last_week_count?: number;
+  },
 ): Promise<DevUpdateResult> {
   return request<DevUpdateResult>("/api/dev/member_update", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, target_id: targetId, balance, xp, rank, reputation }),
+    body: JSON.stringify({
+      chat_id: chatId,
+      target_id: targetId,
+      balance,
+      xp,
+      rank,
+      reputation,
+      ...(activity ?? {}),
+    }),
   });
 }
 

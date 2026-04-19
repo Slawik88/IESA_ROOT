@@ -353,10 +353,16 @@ async def search_users(chat_id: int, q: str = "") -> dict:
     base_select = (
         "SELECT s.user_id, u.full_name, s.xp, s.level, s.rank, s.message_count, "
         "s.reputation, COALESCE(u.balance, 0) AS balance, "
-        "COALESCE(cr.balance, 0) AS crystals "
+        "COALESCE(cr.balance, 0) AS crystals, "
+        "COALESCE(cc.day_count, 0) AS day_count, "
+        "COALESCE(cc.week_count, 0) AS week_count, "
+        "COALESCE(cc.count, 0) AS total_count, "
+        "COALESCE(cc.yesterday_count, 0) AS yesterday_count, "
+        "COALESCE(cc.last_week_count, 0) AS last_week_count "
         "FROM user_stats s "
         "LEFT JOIN users u ON u.user_id=s.user_id "
         "LEFT JOIN user_crystals cr ON cr.user_id=s.user_id "
+        "LEFT JOIN cleanup_counts cc ON cc.user_id=s.user_id AND cc.chat_id=s.chat_id "
         "WHERE s.chat_id=?"
     )
 
@@ -388,6 +394,11 @@ async def search_users(chat_id: int, q: str = "") -> dict:
                 "reputation":    r[6] or 0,
                 "balance":       r[7] or 0,
                 "crystals":      r[8] or 0,
+                "day_count":     r[9] or 0,
+                "week_count":    r[10] or 0,
+                "total_count":   r[11] or 0,
+                "yesterday_count": r[12] or 0,
+                "last_week_count": r[13] or 0,
             }
             for r in rows
         ]

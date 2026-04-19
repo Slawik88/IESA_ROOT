@@ -209,8 +209,6 @@ async def cmd_developer(message: Message, cmd_args: str):
 # ─── Developer: редактор данных пользователей ──────────────────────────────
 
 _STAT_MAP = {
-    "сообщения":   ("message_count", int),
-    "msgs":        ("message_count", int),
     "xp":          ("xp", int),
     "опыт":        ("xp", int),
     "уровень":     ("level", int),
@@ -230,10 +228,33 @@ _STAT_MAP = {
 # Поля, которые обрабатываются отдельно (не через set_user_stat_in_chat)
 _SPECIAL_FIELDS = {"мора", "mora"}
 
+_MESSAGE_WINDOW_FIELDS = {
+    "сообщения":        ("all_time", "💬 Сообщения за всё время"),
+    "msgs":             ("all_time", "💬 Сообщения за всё время"),
+    "всего":            ("all_time", "💬 Сообщения за всё время"),
+    "total":            ("all_time", "💬 Сообщения за всё время"),
+    "день":             ("day_count", "🗓 За день"),
+    "day":              ("day_count", "🗓 За день"),
+    "сегодня":          ("day_count", "🗓 За день"),
+    "today":            ("day_count", "🗓 За день"),
+    "неделя":           ("week_count", "📆 За неделю"),
+    "week":             ("week_count", "📆 За неделю"),
+    "вчера":            ("yesterday_count", "↩️ За прошлый день"),
+    "yesterday":        ("yesterday_count", "↩️ За прошлый день"),
+    "прошлая_неделя":   ("last_week_count", "⏮ За прошлую неделю"),
+    "прошлаянеделя":    ("last_week_count", "⏮ За прошлую неделю"),
+    "lastweek":         ("last_week_count", "⏮ За прошлую неделю"),
+    "prevweek":         ("last_week_count", "⏮ За прошлую неделю"),
+}
+
 _SETUSER_LABELS = {
     "xp":        "💠 XP",
     "уровень":   "🌟 Уровень",
-    "сообщения": "💬 Сообщения",
+    "сообщения": "💬 Всё время",
+    "день":      "🗓 День",
+    "неделя":    "📆 Неделя",
+    "вчера":     "↩️ Вчера",
+    "прошлая_неделя": "⏮ Прошлая неделя",
     "репутация": "⭐ Репутация",
     "варны":     "⚠️ Варны",
     "бан":       "🔴 Бан",
@@ -248,7 +269,15 @@ _SETUSER_HINTS = {
     "уровень":   ("<code>бот сетюзер @user уровень 10</code>\n"
                   "<i>Уровень напрямую (без пересчёта XP).</i>"),
     "сообщения": ("<code>бот сетюзер @user сообщения 300</code>\n"
-                  "<i>Счётчик сообщений в текущем чате.</i>"),
+                  "<i>Сообщения за всё время в текущем чате. Обновляет и профиль, и статистику чистки.</i>"),
+    "день":      ("<code>бот сетюзер @user день 25</code>\n"
+                  "<i>Сообщения за текущий день для отчётов чистки.</i>"),
+    "неделя":    ("<code>бот сетюзер @user неделя 70</code>\n"
+                  "<i>Сообщения за текущую неделю для отчётов чистки.</i>"),
+    "вчера":     ("<code>бот сетюзер @user вчера 12</code>\n"
+                  "<i>Сообщения за прошлый день.</i>"),
+    "прошлая_неделя": ("<code>бот сетюзер @user прошлая_неделя 43</code>\n"
+                        "<i>Сообщения за прошлую неделю.</i>"),
     "репутация": ("<code>бот сетюзер @user репутация 50</code>\n"
                   "<i>Устанавливает значение репутации.</i>"),
     "варны":     ("<code>бот сетюзер @user варны 0</code>\n"
@@ -311,6 +340,49 @@ async def cmd_set_user(message: Message, cmd_args: str):
 
     fk = field_key.lower()
 
+    if fk in _MESSAGE_WINDOW_FIELDS:
+        from api.admin import member_update
+
+        try:
+            value = int(raw_value)
+        except (ValueError, TypeError):
+            await message.answer(
+                f"❌ Неверное значение «{raw_value}» для поля «{field_key}»."
+            )
+            return
+        if value < 0:
+            await message.answer("❌ Счётчик сообщений не может быть отрицательным.")
+            return
+
+        user_row = await get_user(uid)
+        stats = await get_user_stats(uid, message.chat.id)
+        balance = int((user_row["balance"] if user_row else 0) or 0)
+        xp = int((stats["xp"] if stats else 0) or 0)
+        rank = (stats["rank"] if stats else "user") or "user"
+
+        metric_key, metric_label = _MESSAGE_WINDOW_FIELDS[fk]
+        kwargs = {}
+        if metric_key == "all_time":
+            kwargs["msg_count"] = value
+            kwargs["total_count"] = value
+        else:
+            kwargs[metric_key] = value
+
+        await member_update(
+            message.from_user.id,
+            uid,
+            message.chat.id,
+            balance,
+            xp,
+            rank,
+            **kwargs,
+        )
+        await message.answer(
+            f"✅ <b>{name}</b>: {metric_label} → <code>{value}</code>",
+            parse_mode="HTML",
+        )
+        return
+
     # ─── Специальный обработчик для Моры ───────────────────────────────────
     if fk in _SPECIAL_FIELDS:
         from database.db import add_mora, get_mora, set_mora_balance
@@ -354,7 +426,7 @@ async def cmd_set_user(message: Message, cmd_args: str):
     # ─── Обычные поля через set_user_stat_in_chat ───────────────────────────
     field_info = _STAT_MAP.get(fk)
     if not field_info:
-        fields = " · ".join(sorted(list(_STAT_MAP.keys()) + list(_SPECIAL_FIELDS)))
+        fields = " · ".join(sorted(set(list(_SETUSER_LABELS.keys()) + list(_STAT_MAP.keys()) + list(_SPECIAL_FIELDS))))
         await message.answer(
             f"❌ Неизвестное поле «{field_key}».\n"
             f"Доступные: <code>{fields}</code>",
