@@ -1,4 +1,4 @@
-import asyncpg
+﻿import asyncpg
 import logging
 import math
 from datetime import datetime, timedelta, date, timezone
@@ -238,7 +238,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # Добавляем новые колонки в cleanup_counts (для обновлений существующей БД)
         for col_def in [
@@ -252,7 +252,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE cleanup_counts ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # Добавляем новую колонку в chat_settings
         for col_def in [
@@ -292,7 +292,7 @@ async def init_db():
                     f"ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS {col_def}"
                 )
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # Миграция: добавить message_count в user_stats (для обновлений БД)
         for col_def in [
@@ -305,7 +305,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # Миграция: новые колонки user_mora (VIP, буст XP, рамка топа)
         for col_def in [
@@ -317,7 +317,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # Таблица отдыхающих (защита от чистки)
         await db.execute("""
@@ -784,7 +784,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Миграция: новые колонки в pets (косметика) ───────────────────
         for col_def in [
@@ -794,7 +794,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE pets ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Темы профиля (какие куплены/получены и какая активна) ────────
         await db.execute("""
@@ -815,7 +815,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Бейджи (значки) профиля ─────────────────────────────────────
         await db.execute("""
@@ -872,7 +872,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── VIP Tier (1=Full/30d, 2=Basic/7d) ────────────────────────────
         for col_def in [
@@ -881,7 +881,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Купоны для Solo Boss (макс. 5, регенерация 1 за 3 часа) ──────
         for col_def in [
@@ -891,7 +891,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Рулетка: счётчик поражений подряд (пити-система) ────────────
         for col_def in [
@@ -900,7 +900,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Трекинг: юзер видел приветствие сегодня ──────────────────────
         for col_def in [
@@ -909,7 +909,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Ограничения пользователей (муты/ограниченные) ────────────────
         for col_def in [
@@ -919,7 +919,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # Миграция: сделать баланс Моры видимым по умолчанию для всех
         await db.execute("UPDATE user_mora SET mora_public = 1 WHERE mora_public = 0")
@@ -1172,14 +1172,14 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE gacha_inventory ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Миграция: usталость питомца + время прогулки ──────────────────
         for col_def in ["fatigue INTEGER DEFAULT 0", "last_walked TIMESTAMPTZ DEFAULT NULL", "walk_end_at TIMESTAMPTZ DEFAULT NULL"]:
             try:
                 await db.execute(f"ALTER TABLE pets ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Миграция: исправить тип obtained_at если он был создан как TEXT ──
         try:
@@ -1192,7 +1192,7 @@ async def init_db():
                 END
             """)
         except Exception as _e:
-            _log.debug("%s", _e, exc_info=True)
+            _log.warning("%s", _e, exc_info=True)
 
         # ─── Миграция: исправить тип started_at в pet_expeditions если TEXT ──
         try:
@@ -1205,7 +1205,7 @@ async def init_db():
                 END
             """)
         except Exception as _e:
-            _log.debug("%s", _e, exc_info=True)
+            _log.warning("%s", _e, exc_info=True)
 
         # ─── Донаты в казну ───────────────────────────────────────────────
         await db.execute("""
@@ -1298,7 +1298,7 @@ async def init_db():
             try:
                 await db.execute(f"ALTER TABLE user_mora ADD COLUMN IF NOT EXISTS {col_def}")
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # ─── Премиум-валюта Кристаллы (покупается за Telegram Stars) ────────
         await db.execute("""
@@ -1552,7 +1552,7 @@ async def init_db():
                     f"ALTER TABLE {_tbl} ALTER COLUMN {_col} TYPE BIGINT"
                 )
         except Exception as _e:
-            _log.debug("%s", _e, exc_info=True)
+            _log.warning("%s", _e, exc_info=True)
 
     # АF2: migrate af2_config to per-chat storage (add chat_id column + update PK)
     try:
@@ -1560,20 +1560,20 @@ async def init_db():
             await db.execute("ALTER TABLE af2_config ADD COLUMN IF NOT EXISTS chat_id BIGINT DEFAULT 0")
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
     try:
         async with postgres_connect() as db:
             await db.execute("UPDATE af2_config SET chat_id = 0 WHERE chat_id IS NULL")
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
     try:
         async with postgres_connect() as db:
             await db.execute("ALTER TABLE af2_config DROP CONSTRAINT IF EXISTS af2_config_pkey")
             await db.execute("ALTER TABLE af2_config ADD PRIMARY KEY (chat_id, key)")
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Load isolation caches into memory
     await load_admin_groups()
@@ -1631,7 +1631,7 @@ async def init_db():
                 await db.commit()
         except Exception as e:
             # Игнорируем ошибки миграций (колонка уже правильного типа, таблица не существует и т.д.)
-            _log.debug("%s", _e, exc_info=True)
+            _log.warning("%s", _e, exc_info=True)
     
     # Add status column to mora_loans if not present (pending/accepted/rejected flow)
     try:
@@ -1641,7 +1641,7 @@ async def init_db():
             )
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # ─── Блок 2: Глобальный инвентарь ─────────────────────────────────────────
     # Добавляем колонку acquired_at в gacha_inventory для 3-дневного правила аукциона
@@ -1658,7 +1658,7 @@ async def init_db():
             )
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # ─── Миграция: 5 слотов снаряжения (helmet_id, boots_id) ──────────────────
     for _col_def in [
@@ -1670,7 +1670,7 @@ async def init_db():
                 await db.execute(f"ALTER TABLE user_rpg_stats ADD COLUMN IF NOT EXISTS {_col_def}")
                 await db.commit()
         except Exception as _e:
-            _log.debug("%s", _e, exc_info=True)
+            _log.warning("%s", _e, exc_info=True)
 
     # Мигрируем rare_crown: slot artifact → helmet в gacha_inventory
     try:
@@ -1689,7 +1689,7 @@ async def init_db():
             """)
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # ─── Блок 1: Глобальная архитектура (мора, брак, питомец) ─────────────────
     # Добавляем колонки глобального баланса в таблицу users
@@ -1714,7 +1714,7 @@ async def init_db():
             """)
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Глобальный питомец (1 на пользователя, не привязан к чату)
     try:
@@ -1734,7 +1734,7 @@ async def init_db():
             """)
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Миграция: браки → marriages_global (idempotent, ON CONFLICT DO NOTHING)
     try:
@@ -1748,7 +1748,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Миграция: питомцы → pets_global (idempotent, ON CONFLICT DO NOTHING)
     try:
@@ -1765,7 +1765,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Миграция: баланс моры user_mora → users.balance
     # Idempotent: только для юзеров у которых users.balance = 0 но есть мора в user_mora
@@ -1788,7 +1788,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # ─── Очередь событий от Mini App к боту ───────────────────────────────────
     try:
@@ -1805,7 +1805,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # ─── 🅱️ Block 4: Season Pass seed data ──────────────────────────────────
     await seed_first_season()
@@ -1850,7 +1850,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Таланты игрока (глобальные, не привязаны к чату)
     try:
@@ -1864,7 +1864,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Незакрытый уровень, с которого выдавались очки талантов (идемпотентный контроль)
     try:
@@ -1875,7 +1875,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Retroactive talent-point migration: 1 point per level rule
     # Idempotent: WHERE filters to users whose last_awarded_level < their current max level.
@@ -1905,7 +1905,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Квест новичка: трекер 100 сообщений за 7 дней
     try:
@@ -1924,7 +1924,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # ─── Каталог тегов чата (определения: имя, описание, цвет, эмодзи) ────────
     try:
@@ -1944,7 +1944,7 @@ async def init_db():
             """)
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # ─── Заявки на вступление ──────────────────────────────────────────────────
     try:
@@ -1972,7 +1972,7 @@ async def init_db():
             )
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     await enforce_rank_invariants()
 
@@ -1996,7 +1996,7 @@ async def init_db():
             )
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # ─── БЛОК 2: Колонки архива в таблице users ────────────────────────────────
     for _col_def in [
@@ -2015,7 +2015,7 @@ async def init_db():
                 )
                 await _db.commit()
         except Exception as _e:
-            _log.debug("%s", _e, exc_info=True)
+            _log.warning("%s", _e, exc_info=True)
 
     # Индекс для быстрого поиска архивированных пользователей
     try:
@@ -2028,7 +2028,7 @@ async def init_db():
             )
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # ─── БЛОК 3: Телеметрия Mini App ──────────────────────────────────────────
     try:
@@ -2069,7 +2069,7 @@ async def init_db():
             )
             await _db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
 
 async def init_promocodes_table():
@@ -3549,7 +3549,7 @@ async def mark_quest_rewarded(user_id: int, chat_id: int, quest_date: str):
         from shared_prices import SHARD_QUEST_REWARD
         await add_shards(user_id, SHARD_QUEST_REWARD[0], SHARD_QUEST_REWARD[1])
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     # Block 4: Add season XP for quest completion
     try:
@@ -3759,7 +3759,7 @@ async def create_marriage(user_a: int, user_b: int, chat_id: int):
         await _ach(user_a, chat_id, "married", 1)
         await _ach(user_b, chat_id, "married", 1)
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
 
 async def delete_marriage(user_id: int, chat_id: int):
@@ -4200,26 +4200,23 @@ async def add_mora(user_id: int, chat_id: int, amount: float | int, *, update_ea
     earned_expr = "COALESCE(total_earned, 0) + CASE WHEN ? > 0 THEN ? ELSE 0 END" if _do_update_earned else "COALESCE(total_earned, 0)"
     async with postgres_connect() as db:
         if _do_update_earned:
-            await db.execute(
+            row = await db.fetchone(
                 f"""UPDATE users SET
                        balance      = GREATEST(0, COALESCE(balance, 0) + ?),
                        total_earned = {earned_expr}
-                   WHERE user_id = ?""",
+                   WHERE user_id = ?
+                   RETURNING GREATEST(0, balance) AS bal, COALESCE(total_earned, 0) AS te""",
                 (amount, amount, amount, user_id),
             )
         else:
-            await db.execute(
-                """UPDATE users SET balance = GREATEST(0, COALESCE(balance, 0) + ?) WHERE user_id = ?""",
+            row = await db.fetchone(
+                """UPDATE users SET balance = GREATEST(0, COALESCE(balance, 0) + ?) WHERE user_id = ?
+                   RETURNING GREATEST(0, balance) AS bal, COALESCE(total_earned, 0) AS te""",
                 (amount, user_id),
             )
         await db.commit()
-        async with db.execute(
-            "SELECT COALESCE(balance, 0) AS bal, COALESCE(total_earned, 0) AS te FROM users WHERE user_id=?",
-            (user_id,),
-        ) as c:
-            row = await c.fetchone()
-            new_bal = int(row["bal"]) if row else 0
-            new_te  = int(row["te"])  if row else 0
+        new_bal = int(row["bal"]) if row else 0
+        new_te  = int(row["te"])  if row else 0
     _log.debug("add_mora uid=%s → balance=%d", user_id, new_bal)
     return new_bal
 
@@ -5024,7 +5021,7 @@ async def add_reputation_in_chat(from_uid: int, to_uid: int, chat_id: int, amoun
         from api.achievements import check_and_award as _ach
         await _ach(from_uid, chat_id, "rep_given", rgc)
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
     return rep_new
 
@@ -5852,7 +5849,7 @@ async def adopt_pet(user_id: int, partner_id: int, chat_id: int, pet_type: str) 
         if partner_id != user_id:
             await _ach(partner_id, chat_id, "has_pet", 1)
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
 
 async def rename_pet(user_id: int, chat_id: int, name: str) -> bool:
@@ -6592,7 +6589,7 @@ async def increment_tracker(user_id: int, chat_id: int, field: str, amount: int 
             from api.achievements import check_and_award as _ach
             await _ach(user_id, chat_id, "expeditions", new_val)
         except Exception as _e:
-            _log.debug("%s", _e, exc_info=True)
+            _log.warning("%s", _e, exc_info=True)
 
 
 # ─── Шпионаж ──────────────────────────────────────────────────────────────────
@@ -7159,7 +7156,7 @@ async def start_pet_walk_full(user_id: int, chat_id: int) -> dict:
                         "mins_left": mins_left,
                     }
             except Exception as _e:
-                _log.debug("%s", _e, exc_info=True)
+                _log.warning("%s", _e, exc_info=True)
 
         # 2b. Проверяем активную экспедицию (любой чат)
         async with db.execute(
@@ -7816,7 +7813,7 @@ async def buy_season_premium(user_id: int, season_id: int) -> bool:
             )
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
     return True
 
 
@@ -9593,7 +9590,7 @@ async def log_app_error(source: str, context: str, error_msg: str, traceback_tex
             )
             await db.commit()
     except Exception as _e:
-        _log.debug("%s", _e, exc_info=True)
+        _log.warning("%s", _e, exc_info=True)
 
 
 async def get_af2_config(chat_id: int = 0) -> dict:

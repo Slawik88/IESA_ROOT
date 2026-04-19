@@ -91,7 +91,7 @@ export default function Gacha({ chatId }: Props) {
       const res = await rollFreeGacha(chatId);
       trackEvent("gacha_roll_free");
       setResult(res);
-      setFreeRolls((res as any).remaining_free_rolls ?? 0);
+      setFreeRolls(res.remaining_free_rolls ?? 0);
       if (res.items.some(i => i.rarity === "legendary")) setLegendaryOverlay(true);
       setPhase("result");
       showToast("🎁 Бесплатный призыв использован!");

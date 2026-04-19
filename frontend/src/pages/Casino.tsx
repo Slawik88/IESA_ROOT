@@ -116,7 +116,7 @@ function NumInput({
 // ════════════════════════════════════════════
 //  COIN FLIP SECTION
 // ════════════════════════════════════════════
-function CoinSection({ chatId }: { chatId: number }) {
+function CoinSection({ chatId, balance }: { chatId: number; balance: number | null }) {
   const { msg: toast, show: showToast } = useToast();
   const [amount, setAmount]   = useState("");
   const [loading, setLoading] = useState(false);
@@ -126,6 +126,7 @@ function CoinSection({ chatId }: { chatId: number }) {
     const amt = parseInt(amount, 10);
     if (!amt || amt <= 0) { showToast("Введи сумму ставки"); return; }
     if (amt > COIN_MAX)   { showToast(`Максимум ${COIN_MAX.toLocaleString("ru")} 🪙`); return; }
+    if (balance !== null && amt > balance) { showToast(`Недостаточно Моры. У тебя ${balance.toLocaleString("ru")} 🪙`); return; }
     setLoading(true);
     setResult(null);
     try {
@@ -264,7 +265,7 @@ function RouletteWheel({ number, spinning }: { number: number | null; spinning: 
   );
 }
 
-function RouletteSection({ chatId }: { chatId: number }) {
+function RouletteSection({ chatId, balance }: { chatId: number; balance: number | null }) {
   const { msg: toast, show: showToast } = useToast();
   const [betType, setBetType] = useState<BetKey>("red");
   const [amount, setAmount]   = useState("");
@@ -275,6 +276,7 @@ function RouletteSection({ chatId }: { chatId: number }) {
     const amt = parseInt(amount, 10);
     if (!amt || amt < ROULETTE_MIN) { showToast(`Минимальная ставка ${ROULETTE_MIN} 🪙`); return; }
     if (amt > ROULETTE_MAX)         { showToast(`Максимальная ставка ${ROULETTE_MAX} 🪙`); return; }
+    if (balance !== null && amt > balance) { showToast(`Недостаточно Моры. У тебя ${balance.toLocaleString("ru")} 🪙`); return; }
     setLoading(true);
     setResult(null);
     try {
@@ -561,8 +563,8 @@ export default function Casino({ userId: _userId, chatId }: Props) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-4">
-        {sub === "coin"     && <CoinSection     chatId={chatId} />}
-        {sub === "roulette" && <RouletteSection chatId={chatId} />}
+        {sub === "coin"     && <CoinSection     chatId={chatId} balance={balance} />}
+        {sub === "roulette" && <RouletteSection chatId={chatId} balance={balance} />}
         {sub === "lottery"  && <LotterySection  chatId={chatId} />}
       </div>
     </div>

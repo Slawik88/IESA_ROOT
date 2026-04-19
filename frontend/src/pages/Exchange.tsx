@@ -36,6 +36,7 @@ function Sparkline({ data, color, width = 80, height = 32, timestamps, interacti
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   if (data.length < 2) return <div style={{ width, height }} />;
   const min = Math.min(...data);
@@ -58,9 +59,19 @@ function Sparkline({ data, color, width = 80, height = 32, timestamps, interacti
 
   const handleMove = useCallback((clientX: number) => {
     if (!interactive) return;
-    setHoverIdx(getIdxFromX(clientX));
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      setHoverIdx(getIdxFromX(clientX));
+    });
   }, [interactive, getIdxFromX]);
-  const handleLeave = useCallback(() => setHoverIdx(null), []);
+  const handleLeave = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setHoverIdx(null);
+  }, []);
 
   const hVal = hoverIdx !== null ? data[hoverIdx] : null;
   const hTs = hoverIdx !== null && timestamps?.[hoverIdx] ? timestamps[hoverIdx] : null;

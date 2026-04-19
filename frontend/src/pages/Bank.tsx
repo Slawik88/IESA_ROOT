@@ -52,9 +52,16 @@ export default function Bank({ userId, chatId }: Props) {
 
   if (error) {
     return (
-      <div className="p-4 text-center" style={{ color: "#e74c3c" }}>
-        <p className="font-medium">Ошибка загрузки банка</p>
-        <p className="text-sm mt-1 break-all">{error}</p>
+      <div className="p-6 text-center flex flex-col items-center gap-3">
+        <p className="font-medium" style={{ color: "#e74c3c" }}>Ошибка загрузки банка</p>
+        <p className="text-sm break-all" style={{ color: "var(--text-hint)" }}>{error}</p>
+        <button
+          onClick={() => { setError(""); reload(); }}
+          className="px-4 py-2 rounded-xl text-sm font-semibold"
+          style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+        >
+          🔄 Повторить
+        </button>
       </div>
     );
   }
