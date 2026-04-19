@@ -2164,13 +2164,16 @@ async def cmd_whois(message: Message, cmd_args: str):
 
 @router.message(BotCommand("топ", "top", "активность"))
 async def cmd_top(message: Message, cmd_args: str):
-    # Restrict to moderator rank and above
+    # Restrict to moderator rank and above (developer always bypasses)
     if message.chat.type in ("group", "supergroup"):
-        _top_stats = await get_user_stats(message.from_user.id, message.chat.id)
-        _top_rank = _top_stats["rank"] if _top_stats else "user"
-        if rank_level(_top_rank) < rank_level("moderator"):
-            await message.answer("🚫 Команда доступна от ранга <b>Модератор</b>.", parse_mode="HTML")
-            return
+        from config import DEVELOPER_ID
+        _uid = message.from_user.id
+        if not (DEVELOPER_ID and _uid == DEVELOPER_ID):
+            _top_stats = await get_user_stats(_uid, message.chat.id)
+            _top_rank = _top_stats["rank"] if _top_stats else "user"
+            if rank_level(_top_rank) < rank_level("moderator"):
+                await message.answer("🚫 Команда доступна от ранга <b>Модератор</b>.", parse_mode="HTML")
+                return
 
     arg = (cmd_args or "").strip().lower()
 
