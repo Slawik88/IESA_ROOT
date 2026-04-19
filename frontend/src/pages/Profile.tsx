@@ -364,23 +364,28 @@ export default function Profile({ chatId }: Props) {
   const rankColor = RANK_COLOR[data.rank] ?? RANK_COLOR.user;
   const rankLabel = RANK_LABEL[data.rank] ?? data.rank;
 
+  const ownedCosmetics = data.crystal_cosmetics_owned ?? [];
+  const hasAnimatedBg     = ownedCosmetics.includes("animated_profile_bg");
+  const hasNameGlow       = ownedCosmetics.includes("name_glow");
+
   return (
     <div className="animate-fadeIn p-4 space-y-3 pb-2">
 
       {/* ── Шапка — Hero Card ──────────────────────────────────── */}
-      <header className="glass-hero rounded-2xl p-5 flex items-center gap-4">
+      <header className={`glass-hero rounded-2xl p-5 flex items-center gap-4${hasAnimatedBg ? " animated-profile-bg" : ""}`}>
         <ProfileAvatar 
           src={data.avatar_url} 
           frame={data.active_frame && data.active_frame !== "default" ? data.active_frame : null}
           size={64}
           alt={data.name}
+          cosmetics={ownedCosmetics}
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {data.crystal_cosmetics_owned?.includes("neon_prefix") && (
+            {ownedCosmetics.includes("neon_prefix") && (
               <span className="neon-prefix text-sm shrink-0">◈</span>
             )}
-            <h1 className={`text-lg font-bold truncate max-w-[160px] ${data.has_rainbow_title ? "rainbow-text" : ""}`}>{data.name}</h1>
+            <h1 className={`text-lg font-bold truncate max-w-[160px]${data.has_rainbow_title ? " rainbow-text" : ""}${hasNameGlow ? " name-glow" : ""}`}>{data.name}</h1>
             {data.vip && <VipBadge />}
             {data.is_dev && (
               <span className="badge badge-danger">DEV</span>
@@ -511,7 +516,10 @@ export default function Profile({ chatId }: Props) {
             <div className="flex items-center gap-2">
               <span className="text-2xl">{data.pet.emoji}</span>
               <div>
-                <p className="text-sm font-medium">{data.pet.name}</p>
+                <p className="text-sm font-medium">
+                  {data.pet.name}
+                  {data.pet.skin === "crystal" && <span className="ml-1 text-xs">✨</span>}
+                </p>
                 <p className="text-[11px]" style={{ color: "var(--text-hint)" }}>
                   {data.pet.type}{data.pet.color_name ? ` · ${data.pet.color_name}` : ""}
                 </p>
