@@ -251,8 +251,8 @@ ITEM_METADATA = {
     "rare_xp_crystal":{"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Кристалл опыта: мгновенно +150 XP",       "sell": 60, "category": "Опыт-Кристалл", "emoji": "💫"},
     "rare_mora_bag":  {"slot": "consume",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "Мешок Моры: мгновенно +120 🪙",            "sell": 55, "category": "Мора-Мешок", "emoji": "🎒"},
     # Косметика Mini App (🎨 Косметика)
-    "lego_flair_star": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "⭐ Золотой ореол рядом с именем",          "sell": 0, "category": "Косметика-Ореол", "emoji": "⭐"},
-    "lego_flair_void": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🌌 Тёмно-мистический эффект имени",        "sell": 0, "category": "Косметика-Мистика", "emoji": "🌌"},
+    "lego_flair_star": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.03, "desc": "⭐ Золотой ореол рядом с именем (+3% крит)",  "sell": 0, "category": "Косметика-Ореол", "emoji": "⭐"},
+    "lego_flair_void": {"slot": "flair",   "atk": 8,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🌌 Тёмно-мистический эффект имени (+8 АТК)", "sell": 0, "category": "Косметика-Мистика", "emoji": "🌌"},
     "lego_flair_flame":{"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🔥 Огненный ореол рядом с именем",         "sell": 0, "category": "Косметика-Огонь", "emoji": "🔥"},
     "lego_flair_arch": {"slot": "flair",   "atk": 0,  "def_val": 0,  "hp": 0,   "crit_rate": 0.0,  "desc": "🌸 Нежный розовый ореол имени",            "sell": 0, "category": "Косметика-Природа", "emoji": "🌸"},
     # Новые предметы гачи (🎲 Предметы гачи)

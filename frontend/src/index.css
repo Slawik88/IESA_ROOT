@@ -213,6 +213,70 @@ html, body, #root {
   font-weight: 700;
 }
 
+/* ── name_glow — crystal text glow on username ─── */
+.name-glow {
+  text-shadow:
+    0 0 8px var(--accent),
+    0 0 16px color-mix(in srgb, var(--accent) 50%, transparent),
+    0 0 32px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* ── golden_border — spinning gold ring around avatar ─── */
+@keyframes goldenSpin {
+  to { transform: rotate(360deg); }
+}
+.cosmetic-golden-border::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(
+    #ffd700 0%, #ffb300 20%, #ffe566 40%, #ff9900 60%, #ffd700 80%, #ffe566 100%
+  );
+  animation: goldenSpin 2.5s linear infinite;
+  z-index: -1;
+  box-shadow:
+    0 0 10px 2px rgba(255,215,0,0.7),
+    0 0 20px 4px rgba(255,180,0,0.4);
+}
+
+/* ── crystal_aura — pulsing blue/violet glow around avatar ─── */
+@keyframes auraPulse {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%       { opacity: 1;   transform: scale(1.08); }
+}
+.cosmetic-crystal-aura::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: conic-gradient(
+    #a78bfa 0%, #60a5fa 25%, #818cf8 50%, #c084fc 75%, #a78bfa 100%
+  );
+  animation: auraPulse 2s ease-in-out infinite;
+  z-index: -1;
+  box-shadow:
+    0 0 14px 4px rgba(139,92,246,0.6),
+    0 0 28px 6px rgba(96,165,250,0.3);
+}
+
+/* ── animated_profile_bg — animated gradient hero card background ─── */
+@keyframes profileBgShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.animated-profile-bg {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--accent) 18%, var(--bg-secondary)) 0%,
+    color-mix(in srgb, #a78bfa 18%, var(--bg-secondary)) 33%,
+    color-mix(in srgb, var(--accent) 12%, var(--bg-secondary)) 66%,
+    color-mix(in srgb, #60a5fa 15%, var(--bg-secondary)) 100%
+  ) !important;
+  background-size: 300% 300% !important;
+  animation: profileBgShift 5s ease infinite;
+}
+
 /* ── Animated mesh gradient background — DEEPER & RICHER ─── */
 @keyframes meshMove {
   0%   { background-position: 0% 50%; }

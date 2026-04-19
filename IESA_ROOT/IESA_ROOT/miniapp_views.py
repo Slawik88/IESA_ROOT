@@ -425,8 +425,17 @@ def miniapp_user_data(request):
                     for er in cur.fetchall():
                         rpg["atk"] += er[0]; rpg["def"] += er[1]
                         rpg["hp"] += er[2]; rpg["crit"] += er[3]
-
-        # Family wallet (if married) — show total of both spouses
+            # Flair passive bonuses (lego_flair_star / lego_flair_void)
+            cur.execute(
+                f"SELECT item_key FROM gacha_inventory WHERE user_id={ph} AND slot='flair' AND equipped=1 LIMIT 1",
+                (uid,)
+            )
+            flair_row = cur.fetchone()
+            if flair_row:
+                if flair_row[0] == "lego_flair_star":
+                    rpg["crit"] = round(rpg["crit"] + 0.03, 4)
+                elif flair_row[0] == "lego_flair_void":
+                    rpg["atk"] += 8
         family_balance = 0
         my_family_balance = 0
         partner_family_balance = 0
@@ -2109,8 +2118,17 @@ def miniapp_inventory(request):
                         rpg["hp"] += er[2]; rpg["crit"] += er[3]
             else:
                 rpg = {"hp": 100, "atk": 50, "def": 20, "crit": 0.05}
-
-            # Pity counter
+            # Flair passive bonuses (lego_flair_star / lego_flair_void)
+            cur.execute(
+                f"SELECT item_key FROM gacha_inventory WHERE user_id={ph} AND slot='flair' AND equipped=1 LIMIT 1",
+                (uid,)
+            )
+            flair_row = cur.fetchone()
+            if flair_row:
+                if flair_row[0] == "lego_flair_star":
+                    rpg["crit"] = round(rpg["crit"] + 0.03, 4)
+                elif flair_row[0] == "lego_flair_void":
+                    rpg["atk"] += 8
             cur.execute(
                 f"SELECT COUNT(*) FROM gacha_inventory "
                 f"WHERE user_id={ph} AND chat_id={ph} "
@@ -6603,8 +6621,8 @@ def miniapp_crystals_spend(request):
             
         elif item_key == "telegram_avatar":
             from database.db import unlock_avatar
-            # TODO: Download avatar from Telegram and save path
-            _a2s(unlock_avatar)(uid, None)
+            tg_avatar_url = get_telegram_avatar_url(uid)
+            _a2s(unlock_avatar)(uid, tg_avatar_url)
             
         elif item_key == "enhancement_stones_5":
             from database.db import add_enhancement_stones

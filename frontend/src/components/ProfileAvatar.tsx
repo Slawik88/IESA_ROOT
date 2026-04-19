@@ -27,6 +27,8 @@ interface Props {
   className?: string;
   /** alt-текст */
   alt?: string;
+  /** Список crystal-косметик для аватара (golden_border, crystal_aura) */
+  cosmetics?: string[];
 }
 
 /** Проксируем только внешние URL; внутренние /api/... должны идти напрямую. */
@@ -38,10 +40,17 @@ function proxyUrl(raw?: string | null): string | null {
   return `/api/proxy/avatar?url=${encodeURIComponent(raw)}`;
 }
 
-export default function ProfileAvatar({ src, frame, size = 56, className = "", alt = "Avatar" }: Props) {
+export default function ProfileAvatar({ src, frame, size = 56, className = "", alt = "Avatar", cosmetics = [] }: Props) {
   const [errored, setErrored] = useState(false);
   const url = proxyUrl(src);
   const frameClass = frame ? `avatar-frame-wrap frame-${frame}` : "avatar-frame-wrap";
+  const hasGolden = cosmetics.includes("golden_border");
+  const hasAura = cosmetics.includes("crystal_aura");
+  const cosmeticClass = hasGolden
+    ? "cosmetic-golden-border"
+    : hasAura
+    ? "cosmetic-crystal-aura"
+    : "";
 
   const style = { width: size, height: size, minWidth: size, minHeight: size };
 
@@ -50,7 +59,7 @@ export default function ProfileAvatar({ src, frame, size = 56, className = "", a
   }, [url]);
 
   return (
-    <span className={`${frameClass} ${className}`} style={style}>
+    <span className={`${frameClass} ${cosmeticClass} ${className}`} style={style}>
       {url && !errored ? (
         <img
           src={url}

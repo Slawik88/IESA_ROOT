@@ -19,6 +19,7 @@ export interface PetInfo {
   walk_mins_left: number;
   walk_end_at: string | null;
   color_name: string | null;
+  skin?: string | null;
 }
 
 export interface RpgStats {
