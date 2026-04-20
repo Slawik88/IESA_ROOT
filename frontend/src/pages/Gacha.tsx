@@ -49,6 +49,7 @@ export default function Gacha({ chatId }: Props) {
   const [showOdds, setShowOdds] = useState(false);
   const [lastCount, setLastCount] = useState<1 | 10 | 50>(10);
   const [freeRolls, setFreeRolls] = useState(0);
+  const [confirmBulk, setConfirmBulk] = useState(false);
 
   useEffect(() => {
     getFreeGachaRolls()
@@ -160,8 +161,30 @@ export default function Gacha({ chatId }: Props) {
               price={BULK_PRICE}
               accent="#f59e0b"
               discount="-13%"
-              onClick={() => handleRoll(50)}
+              onClick={() => setConfirmBulk(true)}
             />
+            {confirmBulk && (
+              <div className="flex items-center gap-3 rounded-xl px-4 py-3"
+                style={{ backgroundColor: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.35)" }}>
+                <span className="text-sm flex-1" style={{ color: "#fbbf24" }}>
+                  ⚠️ Потратить {BULK_PRICE.toLocaleString("ru")} 🪙?
+                </span>
+                <button
+                  onClick={() => setConfirmBulk(false)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-hint)" }}
+                >
+                  Нет
+                </button>
+                <button
+                  onClick={() => { setConfirmBulk(false); handleRoll(50); }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{ background: "linear-gradient(135deg,#d97706,#f59e0b)", color: "#fff" }}
+                >
+                  Да
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="px-4">

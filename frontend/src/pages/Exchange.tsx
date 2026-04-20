@@ -11,6 +11,7 @@ import {
   Wallet, AlertCircle, Loader2, X, ChevronUp, ChevronDown,
 } from "lucide-react";
 import { fetchBonds, buyBond, sellBond, fetchTreasury, fetchMembers, treasuryPayout } from "../lib/api";
+import { useToast } from "../components/ToastContext";
 import type { BondsResponse, BondPrice, TreasuryResponse, ChatMember } from "../types";
 
 interface Props {
@@ -127,14 +128,7 @@ function Sparkline({ data, color, width = 80, height = 32, timestamps, interacti
   );
 }
 
-// ── Toast hook ────────────────────────────────────────────────
-function useToast() {
-  const [ok, setOk]   = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const showOk  = useCallback((m: string) => { setOk(m);  setTimeout(() => setOk(null),  3500); }, []);
-  const showErr = useCallback((m: string) => { setErr(m); setTimeout(() => setErr(null), 4000); }, []);
-  return { ok, err, showOk, showErr };
-}
+// ── Trade Bottom Sheet ────────────────────────────────────────
 
 function extractErr(e: unknown): string {
   if (!(e instanceof Error)) return "Ошибка";
@@ -145,8 +139,6 @@ function extractErr(e: unknown): string {
   }
   return e.message;
 }
-
-// ── Trade Bottom Sheet ────────────────────────────────────────
 interface TradeSheetProps {
   bond: BondPrice;
   balance: number;
@@ -158,7 +150,9 @@ interface TradeSheetProps {
 function TradeSheet({ bond, balance, onClose, onDone, chatId, taxCapPct }: TradeSheetProps) {
   const [amount, setAmount] = useState("1");
   const [busy, setBusy]     = useState<"buy" | "sell" | null>(null);
-  const { ok, err, showOk, showErr } = useToast();
+  const { toast } = useToast();
+  const showOk = useCallback((m: string) => toast(m, "success"), [toast]);
+  const showErr = useCallback((m: string) => toast(m, "error"), [toast]);
 
   const histPrices = (bond.history ?? []).map(h => h.price);
   const histTimestamps = (bond.history ?? []).map(h => {
@@ -341,15 +335,6 @@ function TradeSheet({ bond, balance, onClose, onDone, chatId, taxCapPct }: Trade
             {busy === "sell" ? <Loader2 size={16} className="animate-spin" /> : <><TrendingDown size={16} /> Продать</>}
           </button>
         </div>
-
-        {ok && (
-          <div className="rounded-xl px-4 py-3 text-sm font-medium"
-            style={{ backgroundColor: "#14532d", color: "#86efac" }}>{ok}</div>
-        )}
-        {err && (
-          <div className="rounded-xl px-4 py-3 text-sm font-medium"
-            style={{ backgroundColor: "#450a0a", color: "#fca5a5" }}>{err}</div>
-        )}
       </div>
     </>
   );

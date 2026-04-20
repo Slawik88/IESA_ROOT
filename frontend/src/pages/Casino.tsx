@@ -16,6 +16,7 @@ import {
   fetchUserData,
 } from "../lib/api";
 import type { CoinFlipResult, RouletteResult, LotteryStatusResult } from "../types";
+import { useToast } from "../components/ToastContext";
 
 // ── Constants ─────────────────────────────────────────────────
 const ROULETTE_MIN = 10;
@@ -66,16 +67,6 @@ function extractErr(e: unknown): string {
   return m;
 }
 
-// ── Toast ─────────────────────────────────────────────────────
-function useToast() {
-  const [msg, setMsg] = useState<string | null>(null);
-  const show = useCallback((text: string) => {
-    setMsg(text);
-    setTimeout(() => setMsg(null), 3500);
-  }, []);
-  return { msg, show };
-}
-
 // ── Section card ──────────────────────────────────────────────
 function Card({ children }: { children: React.ReactNode }) {
   return (
@@ -117,7 +108,8 @@ function NumInput({
 //  COIN FLIP SECTION
 // ════════════════════════════════════════════
 function CoinSection({ chatId, balance }: { chatId: number; balance: number | null }) {
-  const { msg: toast, show: showToast } = useToast();
+  const { toast } = useToast();
+  const showToast = useCallback((t: string) => toast(t, "info"), [toast]);
   const [amount, setAmount]   = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult]   = useState<CoinFlipResult | null>(null);
@@ -195,14 +187,6 @@ function CoinSection({ chatId, balance }: { chatId: number; balance: number | nu
         </Card>
       )}
 
-      {toast && (
-        <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
-        >
-          {toast}
-        </div>
-      )}
     </div>
   );
 }
@@ -266,7 +250,8 @@ function RouletteWheel({ number, spinning }: { number: number | null; spinning: 
 }
 
 function RouletteSection({ chatId, balance }: { chatId: number; balance: number | null }) {
-  const { msg: toast, show: showToast } = useToast();
+  const { toast } = useToast();
+  const showToast = useCallback((t: string) => toast(t, "info"), [toast]);
   const [betType, setBetType] = useState<BetKey>("red");
   const [amount, setAmount]   = useState("");
   const [loading, setLoading] = useState(false);
@@ -383,14 +368,6 @@ function RouletteSection({ chatId, balance }: { chatId: number; balance: number 
         </Card>
       )}
 
-      {toast && (
-        <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
-        >
-          {toast}
-        </div>
-      )}
     </div>
   );
 }
@@ -399,7 +376,8 @@ function RouletteSection({ chatId, balance }: { chatId: number; balance: number 
 //  LOTTERY SECTION
 // ════════════════════════════════════════════
 function LotterySection({ chatId }: { chatId: number }) {
-  const { msg: toast, show: showToast } = useToast();
+  const { toast } = useToast();
+  const showToast = useCallback((t: string) => toast(t, "info"), [toast]);
   const [status, setStatus]   = useState<LotteryStatusResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -486,14 +464,6 @@ function LotterySection({ chatId }: { chatId: number }) {
         </div>
       </Card>
 
-      {toast && (
-        <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
-        >
-          {toast}
-        </div>
-      )}
     </div>
   );
 }
