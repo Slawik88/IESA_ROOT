@@ -279,9 +279,11 @@ function FrameList({ frames, buying, onBuy }: {
   buying: string | null;
   onBuy: (type: "frame", key: string, label: string) => void;
 }) {
+  // Hide crystal-only frames (price=0, except "default") — they're sold in the Crystal shop
+  const moraFrames = frames.filter(f => f.price > 0 || f.key === "default" || f.owned);
   return (
     <div className="grid grid-cols-2 gap-2">
-      {frames.map((f) => (
+      {moraFrames.map((f) => (
         <ShopCard
           key={f.key}
           emoji={f.emoji}

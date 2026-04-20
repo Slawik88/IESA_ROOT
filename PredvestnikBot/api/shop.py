@@ -193,10 +193,19 @@ async def buy_item(
         if not frame:
             raise ValueError("Неизвестная рамка")
         price = frame[3]
-        if price == 0:
-            # Default/free frame — just equip it directly without charging
+        if price == 0 and item_key == "default":
+            # Default frame — just equip it directly without charging
             await set_top_frame(uid, chat_id, item_key)
             return {"ok": True, "already_owned": True, "equipped": True}
+        if price == 0 and item_key != "default":
+            # Crystal-only frames (divine, rainbow, etc.) — can't buy with Mora
+            # Check if already owned → equip; otherwise reject
+            already_owned = await has_shop_item(uid, 0, "frame", item_key)
+            if already_owned:
+                if equip:
+                    await set_top_frame(uid, chat_id, item_key)
+                return {"ok": True, "already_owned": True, "equipped": equip}
+            raise ValueError("Эта рамка доступна только за 💎 кристаллы")
     elif item_type == "cosmetic":
         cosm_map = {c[0]: c for c in COSMETICS_CATALOG}
         cosm = cosm_map.get(item_key)
