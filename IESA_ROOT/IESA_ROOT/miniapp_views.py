@@ -6316,6 +6316,147 @@ def miniapp_auction_cancel(request):
         logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
 
 
+# ─── P2P Трейды / Прямой обмен ────────────────────────────────────────────────
+
+@csrf_exempt
+def miniapp_trade_list(request):
+    """GET /api/trade/list?chat_id=X — входящие и исходящие активные трейды."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "GET":
+        return JsonResponse({"error": "GET required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.trade import list_trades
+        result = _a2s(list_trades)(uid)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_trade_create(request):
+    """POST /api/trade/create — предложить трейд."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body         = json.loads(request.body)
+        to_user_id   = int(str(body.get("to_user_id", "0")))
+        item_id      = int(str(body.get("item_id", "0")))
+        price_mora   = max(0, int(str(body.get("price_mora", 0))))
+        price_cryst  = max(0, int(str(body.get("price_crystals", 0))))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not to_user_id or not item_id:
+        return JsonResponse({"error": "to_user_id и item_id обязательны"}, status=400, headers=headers)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.trade import offer_trade
+        result = _a2s(offer_trade)(uid, to_user_id, item_id, price_mora, price_cryst)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_trade_accept(request):
+    """POST /api/trade/accept — принять трейд-предложение."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body     = json.loads(request.body)
+        trade_id = int(str(body.get("trade_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not trade_id:
+        return JsonResponse({"error": "trade_id обязателен"}, status=400, headers=headers)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.trade import accept_trade
+        result = _a2s(accept_trade)(uid, trade_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_trade_decline(request):
+    """POST /api/trade/decline — отклонить трейд-предложение (получатель)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body     = json.loads(request.body)
+        trade_id = int(str(body.get("trade_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not trade_id:
+        return JsonResponse({"error": "trade_id обязателен"}, status=400, headers=headers)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.trade import decline_trade
+        result = _a2s(decline_trade)(uid, trade_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
+@csrf_exempt
+def miniapp_trade_cancel(request):
+    """POST /api/trade/cancel — отменить трейд-предложение (инициатор)."""
+    headers = _cors_headers()
+    if request.method == "OPTIONS":
+        return HttpResponse("", status=204, headers=headers)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405, headers=headers)
+    uid, err = _require_auth(request, headers)
+    if err:
+        return err
+    try:
+        body     = json.loads(request.body)
+        trade_id = int(str(body.get("trade_id", "0")))
+    except Exception:
+        return JsonResponse({"error": "invalid JSON"}, status=400, headers=headers)
+    if not trade_id:
+        return JsonResponse({"error": "trade_id обязателен"}, status=400, headers=headers)
+    try:
+        from asgiref.sync import async_to_sync as _a2s
+        from api.trade import cancel_trade
+        result = _a2s(cancel_trade)(uid, trade_id)
+        return JsonResponse(result, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except ValueError as ve:
+        return JsonResponse({"error": str(ve)}, status=400, json_dumps_params={"ensure_ascii": False}, headers=headers)
+    except Exception:
+        logger.exception("miniapp view error"); return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500, headers=headers)
+
+
 # ─── Достижения ───────────────────────────────────────────────────────────────
 
 @csrf_exempt
@@ -6454,7 +6595,7 @@ def miniapp_crystals_catalog(request):
             ("guarantee_scroll",      "📜", "Свиток гаранта",            200, "Гарантирует rare+ на ×10 ролле",          "gameplay", False),
             ("shard_chest",           "📦", "Сундук осколков",            80, "3 редких осколка рамки",                   "gameplay", False),
             ("double_pity",           "⚡", "Двойное везение",           400, "×2 накопление пити (7 дней)",              "gameplay", False),
-            ("vip_week",              "👑", "VIP на 7 дней",             250, "VIP-статус (неделя)",                      "gameplay", False),
+            ("vip_week",              "👑", "VIP на 30 дней",            250, "VIP-статус на месяц (≡ Tier 1)",           "gameplay", False),
             ("boss_cd_reset",         "⏳", "Сброс КД босса",            120, "Мгновенный сброс кулдауна босса",         "gameplay", False),
             ("xp_boost_24h",          "📈", "XP Буст ×1.5 (24ч)",       180, "Полуторный XP на сутки",                  "gameplay", False),
             ("mora_boost_24h",        "💰", "Мора Буст ×1.5 (24ч)",     180, "Полуторная Мора на сутки",                "gameplay", False),
@@ -6522,7 +6663,7 @@ def miniapp_crystals_spend(request):
         ("guarantee_scroll",      "📜", "Свиток гаранта",               200, "Гарантирует rare+ на следующем ×10 ролле",     "gameplay", False),
         ("shard_chest",           "📦", "Сундук осколков",               80, "3 редких предмета-осколка рамки",               "gameplay", False),
         ("double_pity",           "⚡", "Двойное везение",              400, "×2 к скорости накопления пити (7 дней)",        "gameplay", False),
-        ("vip_week",              "👑", "VIP на 7 дней",                250, "VIP-статус без ограничений (неделя)",           "gameplay", False),
+        ("vip_week",              "👑", "VIP на 30 дней",               250, "VIP-статус на месяц (≡ Tier 1) из кристаллов", "gameplay", False),
         ("boss_cd_reset",         "⏳", "Сброс КД босса",               120, "Мгновенный сброс кулдауна босса",              "gameplay", False),
         ("xp_boost_24h",          "📈", "XP Буст ×1.5 (24ч)",          180, "Полуторный опыт за все действия на сутки",     "gameplay", False),
         ("mora_boost_24h",        "💰", "Мора Буст ×1.5 (24ч)",        180, "Полуторный доход Моры на сутки",               "gameplay", False),
@@ -6698,7 +6839,7 @@ def miniapp_crystals_spend(request):
                     headers=headers,
                 )
             from database.db import add_vip_days
-            _a2s(add_vip_days)(uid, chat_id, 7)
+            _a2s(add_vip_days)(uid, chat_id, 30)
 
         elif item_key == "boss_cd_reset":
             from database.db import add_boss_cooldown_reset
@@ -6737,17 +6878,20 @@ def miniapp_crystals_spend(request):
             # Crystals already spent — will be refunded if rejected
 
         elif item_key == "pet_xp_feed":
-            from database.db import add_xp_boost
-            _a2s(add_xp_boost)(uid, chat_id or 0, 1.5, 24)
+            # Буст XP питомца (boost_type='pet_xp'), НЕ пользователя
+            from database.db import add_pet_xp_boost
+            _a2s(add_pet_xp_boost)(uid, 24)
 
         elif item_key == "pet_mora_feed":
-            from database.db import add_mora_boost
-            _a2s(add_mora_boost)(uid, chat_id or 0, 1.5, 24)
+            # Буст Моры питомца из экспедиций (boost_type='pet_mora'), НЕ пользователя
+            from database.db import add_pet_mora_boost
+            _a2s(add_pet_mora_boost)(uid, 24)
 
         elif item_key == "pet_rare_treat":
-            from database.db import add_xp_boost, add_mora_boost
-            _a2s(add_xp_boost)(uid, chat_id or 0, 1.5, 24)
-            _a2s(add_mora_boost)(uid, chat_id or 0, 1.5, 24)
+            # Сброс усталости питомца до 0 + XP-буст питомцу на 24ч
+            from database.db import reset_pet_fatigue, add_pet_xp_boost
+            _a2s(reset_pet_fatigue)(uid)
+            _a2s(add_pet_xp_boost)(uid, 24)
 
         new_balance = _a2s(get_crystals)(uid)
         

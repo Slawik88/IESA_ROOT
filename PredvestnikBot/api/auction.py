@@ -98,12 +98,21 @@ async def _notify_all_chats_new_lot(
 
 
 async def _get_item(db, item_id: int, user_id: int, chat_id: int) -> dict | None:
-    """Получить предмет из инвентаря, принадлежащий пользователю."""
+    """Получить предмет из инвентаря, принадлежащий пользователю.
+    FOR UPDATE: блокирует строку для исключения гонок (race condition).
+    Возвращает None если предмет заблокирован трейдом (equipped=3).
+    """
     row = await db.fetchone(
-        "SELECT * FROM gacha_inventory WHERE id=? AND user_id=?",
+        "SELECT * FROM gacha_inventory WHERE id=$1 AND user_id=$2 FOR UPDATE",
         (item_id, user_id)
     )
-    return dict(row) if row else None
+    if not row:
+        return None
+    item = dict(row)
+    # Предмет заблокирован активным P2P-трейдом — аукцион недоступен
+    if item.get("equipped") == 3:
+        return None
+    return item
 
 
 # ─── Вспомогательные: косметика ───────────────────────────────────────────────
@@ -278,6 +287,13 @@ async def create_auction(
         # 1. Проверяем что предмет существует и принадлежит продавцу
         item = await _get_item(db, item_id, seller_id, chat_id)
         if not item:
+            # Различаем: заблокирован трейдом vs. действительно не найден
+            locked_check = await db.fetchone(
+                "SELECT equipped FROM gacha_inventory WHERE id=$1 AND user_id=$2",
+                (item_id, seller_id)
+            )
+            if locked_check and locked_check["equipped"] == 3:
+                raise ValueError("Предмет заблокирован активным трейд-предложением — сначала отмени трейд")
             raise ValueError("Предмет не найден в инвентаре")
 
         # 1b. 3-дневное правило владения: предмет должен быть в инвентаре ≥ 3 дня
@@ -330,11 +346,11 @@ async def create_auction(
         if active_count and int(active_count["cnt"] or 0) >= MAX_ACTIVE_PER_USER:
             raise ValueError(f"Максимум {MAX_ACTIVE_PER_USER} активных лота одновременно")
 
-        # 4. Если предмет экипирован — снимаем
-        if item.get("equipped"):
+        # 4. Если предмет экипирован — снимаем (только slot-equipped, не auction-lock)
+        if item.get("equipped") == 1:
             await db.execute(
-                "UPDATE gacha_inventory SET equipped=0 WHERE id=?",
-                (item_id,)
+                "UPDATE gacha_inventory SET equipped=0 WHERE id=? AND user_id=?",
+                (item_id, seller_id)
             )
 
         # 5. Помечаем предмет как "на аукционе" (equipped=2 — условное значение «заблокирован»)
