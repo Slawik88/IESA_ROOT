@@ -96,12 +96,12 @@ async def get_leaderboard(
             async with db.execute(
                 """SELECT u.user_id, u.full_name, COALESCE(u.balance,0) AS balance,
                           COALESCE(um.vip,0) AS vip,
-                          CASE WHEN si.user_id IS NOT NULL THEN 1 ELSE 0 END AS has_shadow_mode
+                          CASE WHEN si.user_id IS NOT NULL THEN 1 ELSE 0 END AS has_stealth_mode
                    FROM users u
                    LEFT JOIN user_mora um ON um.user_id=u.user_id AND um.chat_id=?
                    LEFT JOIN shop_items si ON si.user_id=u.user_id
                                           AND si.item_type='cosmetic'
-                                          AND si.item_value='shadow_mode'
+                                          AND si.item_value='stealth_mode'
                    WHERE u.balance IS NOT NULL ORDER BY u.balance DESC LIMIT ?""",
                 (chat_id, limit),
             ) as c:
@@ -112,7 +112,7 @@ async def get_leaderboard(
                 "user_id":    r["user_id"],
                 "name":       r["full_name"] or f"user_{r['user_id']}",
                 # Скрываем баланс только если у игрока куплен «Режим тени»
-                "score":      None if r["has_shadow_mode"] else (r["balance"] or 0),
+                "score":      None if r["has_stealth_mode"] else (r["balance"] or 0),
                 "color_name": "",
                 "vip":        bool(r["vip"]),
             }
