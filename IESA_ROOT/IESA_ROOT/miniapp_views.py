@@ -2178,7 +2178,7 @@ def miniapp_inventory(request):
 
             # Append owned gacha-frames as pseudo-items (slot=frame, is_cosmetic=True)
             try:
-                from handlers.economy import TOP_FRAMES as _TOP_FRAMES
+                from shared_prices import FRAMES_CATALOG as _ALL_FRAMES
                 cur.execute(f"SELECT item_value FROM shop_items WHERE user_id={ph} AND item_type='frame'", (uid,))
                 owned_frame_keys = [r[0] for r in cur.fetchall()]
                 cur.execute(
@@ -2187,16 +2187,23 @@ def miniapp_inventory(request):
                 )
                 active_frame_row = cur.fetchone()
                 active_frame = active_frame_row[0] if active_frame_row else ""
-                _fmap = {f[0]: f for f in _TOP_FRAMES}
+                _fmap = {f[0]: f for f in _ALL_FRAMES}
                 frame_pseudo_items = []
                 for fidx, fkey in enumerate(owned_frame_keys):
                     if fkey in ("default", "", None):
                         continue
-                    f = _fmap.get(fkey, (fkey, "🖼", fkey, 0, ""))
+                    f = _fmap.get(fkey)
+                    if f:
+                        # FRAMES_CATALOG is (key, emoji, name, price) — 4 fields
+                        f_emoji = f[1]
+                        f_name = f[2]
+                    else:
+                        f_emoji = "🖼"
+                        f_name = fkey
                     frame_pseudo_items.append({
                         "id": -(1000 + fidx + 1),
                         "key": fkey,
-                        "name": f"{f[1]} Рамка «{f[2]}»",
+                        "name": f"{f_emoji} Рамка «{f_name}»",
                         "rarity": "rare",
                         "equipped": (active_frame == fkey),
                         "atk": 0, "def_val": 0, "hp": 0, "crit_rate": 0,
@@ -2204,7 +2211,7 @@ def miniapp_inventory(request):
                         "enhancement_level": 0,
                         "stack_count": 1,
                         "is_cosmetic": True,
-                        "desc": f[4] if len(f) > 4 else "",
+                        "desc": "",
                         "sell_price": 0,
                         "can_auction": False,
                         "days_until_auctionable": None,
@@ -6431,11 +6438,17 @@ def miniapp_crystals_catalog(request):
             ("crystal_aura",          "🔮", "Кристальная аура",          200, "Анимированный ореол профиля",              "aesthetic", True),
             ("dark_matter_frame",     "🌑", "Рамка «Тёмная материя»",    350, "Эксклюзивная рамка только за кристаллы",  "aesthetic", True),
             ("herald_frame",          "📯", "Рамка «Вестник»",           500, "Легендарная рамка Предвестника",           "aesthetic", True),
+            ("divine",                "🔱", "Рамка «Божественная»",      600, "Рамка божественного сияния",              "aesthetic", True),
+            ("rainbow",               "🌈", "Рамка «Радужная»",          450, "Переливающаяся радужная рамка",           "aesthetic", True),
+            ("cosmic",                "🌠", "Рамка «Космическая»",       550, "Рамка космических далей",                 "aesthetic", True),
+            ("mythic",                "⚜️", "Рамка «Мифическая»",        700, "Мифическая рамка древних",                "aesthetic", True),
             ("rainbow_title",         "🌈", "Радужный титул",            150, "Переливающиеся цвета в имени",            "aesthetic", True),
             ("neon_prefix",           "💫", "Неоновый префикс",          250, "Светящийся префикс перед ником",          "aesthetic", True),
             ("animated_profile_bg",   "🎆", "Анимированный фон профиля", 400, "Движущийся космический фон в профиле",    "aesthetic", True),
             ("golden_border",         "✨", "Золотая обводка аватара",    300, "Сверкающая золотая рамка вокруг аватара", "aesthetic", True),
             ("telegram_avatar",       "🖼️", "Telegram Аватар",           150, "Показывает фото из Telegram в профиле",   "aesthetic", True),
+            ("name_glow",             "✨", "Свечение имени",             200, "Ореол вокруг имени в Mini App",           "aesthetic", True),
+            ("pet_emoji_status",      "😎", "Эмодзи-статус питомца",     150, "Эмодзи рядом с именем питомца",           "pets",      True),
             ("enhancement_stones_5",  "⚒️", "5 камней улучшения",        150, "5 гарантированных заточек",               "gameplay", False),
             ("enhancement_stones_1",  "🔩", "1 камень улучшения",         50, "1 камень заточки",                        "gameplay", False),
             ("guarantee_scroll",      "📜", "Свиток гаранта",            200, "Гарантирует rare+ на ×10 ролле",          "gameplay", False),
@@ -6491,11 +6504,17 @@ def miniapp_crystals_spend(request):
         ("crystal_aura",          "🔮", "Кристальная аура",             200, "Анимированный ореол профиля",                  "aesthetic", True),
         ("dark_matter_frame",     "🌑", "Рамка «Тёмная материя»",       350, "Эксклюзивная рамка только за кристаллы",       "aesthetic", True),
         ("herald_frame",          "📯", "Рамка «Вестник»",              500, "Легендарная рамка Предвестника",                "aesthetic", True),
+        ("divine",                "🔱", "Рамка «Божественная»",         600, "Рамка божественного сияния",                   "aesthetic", True),
+        ("rainbow",               "🌈", "Рамка «Радужная»",             450, "Переливающаяся радужная рамка",                "aesthetic", True),
+        ("cosmic",                "🌠", "Рамка «Космическая»",          550, "Рамка космических далей",                      "aesthetic", True),
+        ("mythic",                "⚜️", "Рамка «Мифическая»",           700, "Мифическая рамка древних",                     "aesthetic", True),
         ("rainbow_title",         "🌈", "Радужный титул",               150, "Переливающиеся цвета в имени",                 "aesthetic", True),
         ("neon_prefix",           "💫", "Неоновый префикс",             250, "Светящийся префикс перед ником",               "aesthetic", True),
         ("animated_profile_bg",   "🎆", "Анимированный фон профиля",    400, "Движущийся космический фон в профиле",         "aesthetic", True),
         ("golden_border",         "✨", "Золотая обводка аватара",       300, "Сверкающая золотая рамка вокруг аватара",      "aesthetic", True),
         ("telegram_avatar",       "🖼️", "Telegram Аватар",              150, "Показывает фото из Telegram в профиле",        "aesthetic", True),
+        ("name_glow",             "✨", "Свечение имени",                200, "Ореол вокруг имени в Mini App",                "aesthetic", True),
+        ("pet_emoji_status",      "😎", "Эмодзи-статус питомца",        150, "Эмодзи рядом с именем питомца",                "pets",      True),
 
         # ── Геймплей ──
         ("enhancement_stones_5",  "⚒️", "5 камней улучшения",           150, "5 гарантированных заточек без затрат Моры",    "gameplay", False),
@@ -6578,6 +6597,8 @@ def miniapp_crystals_spend(request):
     _COSMETIC_CRYSTAL_ITEMS = {
         "crystal_aura", "dark_matter_frame", "herald_frame", "rainbow_title",
         "crystal_pet_skin", "stealth_mode",
+        "divine", "rainbow", "cosmic", "mythic",
+        "name_glow", "pet_emoji_status",
     }
     if item_key in _COSMETIC_CRYSTAL_ITEMS and chat_id:
         from database.db import is_isolated_chat
@@ -6634,7 +6655,8 @@ def miniapp_crystals_spend(request):
 
         # ── Crystal-exclusive cosmetics / frames ──────────────────────────────
         elif item_key in ("crystal_aura", "rainbow_title", "stealth_mode", "crystal_pet_skin",
-                          "neon_prefix", "animated_profile_bg", "golden_border"):
+                          "neon_prefix", "animated_profile_bg", "golden_border",
+                          "name_glow", "pet_emoji_status"):
             from database.db import add_shop_item, has_active_cosmetic
             if _a2s(has_active_cosmetic)(uid, item_key):
                 from database.db import add_crystals
@@ -6646,7 +6668,8 @@ def miniapp_crystals_spend(request):
                 )
             _a2s(add_shop_item)(uid, "cosmetic", item_key)
 
-        elif item_key in ("dark_matter_frame", "herald_frame"):
+        elif item_key in ("dark_matter_frame", "herald_frame",
+                          "divine", "rainbow", "cosmic", "mythic"):
             from database.db import add_shop_item, get_user_owned_frames
             owned = _a2s(get_user_owned_frames)(uid, 0)
             if item_key in owned:
