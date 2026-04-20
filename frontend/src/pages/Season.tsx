@@ -160,7 +160,44 @@ export default function Season() {
 
   }, [data, busy, toast]);
 
+  const handleClaimAll = useCallback(async () => {
+    if (!data || busy) return;
+    const { season, progress, rewards } = data;
+    const claimedFree    = progress.claimed_free    ?? [];
+    const claimedPremium = progress.claimed_premium ?? [];
+    const userLevel      = progress.level ?? 0;
+    const hasPremium     = progress.has_premium;
 
+    const newFree = [...claimedFree];
+    const newPrem = [...claimedPremium];
+    let count = 0;
+    setBusy("all");
+    for (const r of rewards) {
+      if (userLevel < r.level) continue;
+      const hasFree = r.free_reward || r.free_mora || r.free_xp;
+      const hasPrem = r.premium_reward || r.premium_mora || r.premium_xp;
+      if (hasFree && !claimedFree.includes(r.level)) {
+        try {
+          const res = await claimSeasonReward(season.id, r.level, false);
+          if (res.ok) { newFree.push(r.level); count++; }
+        } catch { /* пропускаем */ }
+      }
+      if (hasPremium && hasPrem && !claimedPremium.includes(r.level)) {
+        try {
+          const res = await claimSeasonReward(season.id, r.level, true);
+          if (res.ok) { newPrem.push(r.level); count++; }
+        } catch { /* пропускаем */ }
+      }
+    }
+    setBusy(null);
+    if (count > 0) {
+      trackEvent("season_claim_all");
+      toast(`🎁 Получено ${count} наград!`, "success");
+      setData(prev => prev ? { ...prev, progress: { ...prev.progress, claimed_free: newFree, claimed_premium: newPrem } } : prev);
+    } else {
+      toast("Нечего забирать", "info");
+    }
+  }, [data, busy, toast]);
 
   /* ── Состояния ── */
 
@@ -449,6 +486,25 @@ export default function Season() {
 
 
       {/* ── Трек наград ─────────────────────────────────────── */}
+
+      {/* Кнопка "Забрать всё" */}
+      {rewards.some(r =>
+        userLevel >= r.level && (
+          (r.free_reward || r.free_mora || r.free_xp) && !(progress.claimed_free ?? []).includes(r.level) ||
+          hasPremium && (r.premium_reward || r.premium_mora || r.premium_xp) && !(progress.claimed_premium ?? []).includes(r.level)
+        )
+      ) && (
+        <div className="px-3 pb-1">
+          <button
+            onClick={handleClaimAll}
+            disabled={busy === "all"}
+            className="w-full py-2.5 rounded-xl text-sm font-bold btn-primary disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {busy === "all" ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+            Забрать всё
+          </button>
+        </div>
+      )}
 
       <div className="px-3 space-y-2">
 

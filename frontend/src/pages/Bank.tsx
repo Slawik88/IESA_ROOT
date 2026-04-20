@@ -426,6 +426,8 @@ function NewDeposit({ plans, balance, familyBalance, chatId, loading, setLoading
           </div>
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder={`Или введите сумму (макс ${fmt(maxBalance)})`}
@@ -517,6 +519,8 @@ function Transfer({ balance, chatId, loading, setLoading, showOk, showErr, reloa
           />
           <input
             type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder={`Сумма (${TRANSFER_MIN}–${fmt(TRANSFER_MAX)}) · баланс: ${fmt(balance)}`}

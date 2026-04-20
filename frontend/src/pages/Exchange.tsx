@@ -13,6 +13,7 @@ import {
 import { fetchBonds, buyBond, sellBond, fetchTreasury, fetchMembers, treasuryPayout } from "../lib/api";
 import { useToast } from "../components/ToastContext";
 import type { BondsResponse, BondPrice, TreasuryResponse, ChatMember } from "../types";
+import { extractApiError as extractErr } from "../lib/utils";
 
 interface Props {
   userId: number;
@@ -130,15 +131,6 @@ function Sparkline({ data, color, width = 80, height = 32, timestamps, interacti
 
 // ── Trade Bottom Sheet ────────────────────────────────────────
 
-function extractErr(e: unknown): string {
-  if (!(e instanceof Error)) return "Ошибка";
-  const match = e.message.match(/API \d+: (.*)/s);
-  if (match) {
-    try { return (JSON.parse(match[1]) as { error?: string }).error ?? match[1]; }
-    catch { return match[1]; }
-  }
-  return e.message;
-}
 interface TradeSheetProps {
   bond: BondPrice;
   balance: number;
@@ -269,7 +261,7 @@ function TradeSheet({ bond, balance, onClose, onDone, chatId, taxCapPct }: Trade
               <ChevronDown size={16} />
             </button>
             <input
-              type="number" value={amount}
+              type="number" inputMode="numeric" pattern="[0-9]*" value={amount}
               onChange={e => setAmount(e.target.value)}
               min={1} max={BOND_MAX}
               className="flex-1 text-center rounded-xl px-3 py-2 text-base font-bold outline-none"

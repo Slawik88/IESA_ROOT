@@ -2,7 +2,7 @@
    Auction.tsx — Аукцион предметов
    Вкладки: Лоты | Мои лоты | Новый лот
    ────────────────────────────────────────────────────────────── */
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Gavel, Plus, Package, RefreshCw } from "lucide-react";
 import { useToast } from "../components/ToastContext";
 import {
@@ -56,6 +56,15 @@ export default function Auction({ userId, chatId }: Props) {
   }, [chatId, showErr]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Auto-refresh lots every 30 s while on the "lots" sub-tab
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (tab === "lots") {
+      pollRef.current = setInterval(reload, 30_000);
+    }
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [tab, reload]);
 
   return (
     <div className="animate-fadeIn p-4 space-y-3 pb-2" style={{ minHeight: "100vh" }}>
@@ -208,6 +217,8 @@ function LotsList({
               <div className="flex gap-2 pt-1">
                 <input
                   type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   min={minBid}
                   placeholder={`от ${fmt(minBid)}`}
                   value={bidInputs[lot.id] ?? ""}
@@ -500,6 +511,8 @@ function NewLotForm({
         </label>
         <input
           type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           min={1}
           placeholder="Например: 100"
           value={startPrice}
@@ -519,6 +532,8 @@ function NewLotForm({
         </label>
         <input
           type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           min={1}
           placeholder="Оставьте пустым для аукциона"
           value={buyoutPrice}
