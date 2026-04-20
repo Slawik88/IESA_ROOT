@@ -55,17 +55,7 @@ interface Props {
   chatId: number;
 }
 
-// ── Helper: extract error message from API error ──────────────
-function extractErr(e: unknown): string {
-  if (!(e instanceof Error)) return "Ошибка";
-  const m = e.message;
-  const match = m.match(/API \d+: (.*)/s);
-  if (match) {
-    try { return (JSON.parse(match[1]) as { error?: string }).error ?? match[1]; }
-    catch { return match[1]; }
-  }
-  return m;
-}
+import { extractApiError as extractErr } from "../lib/utils";
 
 // ── Section card ──────────────────────────────────────────────
 function Card({ children }: { children: React.ReactNode }) {

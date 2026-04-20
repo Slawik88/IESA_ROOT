@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Gem, Star, Loader2, Zap } from "lucide-react";
 import { createStarsInvoice, fetchUserData } from "../lib/api";
 import { useToast } from "../components/ToastContext";
+import { extractApiError as extractErr } from "../lib/utils";
 
 interface Props {
   userId: number;
@@ -46,16 +47,6 @@ const PACK_THEME: Record<string, {
   ultimate: { gradient: "linear-gradient(135deg,#200010,#400020)", border: "#ef444466", glow: "#ef444422", btnGradient: "linear-gradient(135deg,#dc2626,#ef4444)", crystalColor: "#f87171" },
 };
 
-
-function extractErr(e: unknown): string {
-  if (!(e instanceof Error)) return "Ошибка";
-  const match = e.message.match(/API \d+: (.*)/s);
-  if (match) {
-    try { return (JSON.parse(match[1]) as { error?: string }).error ?? match[1]; }
-    catch { return match[1]; }
-  }
-  return e.message;
-}
 
 // ── Main ───────────────────────────────────────────────────────
 export default function Stars({ chatId }: Props) {

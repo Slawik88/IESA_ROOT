@@ -9,7 +9,7 @@ import {
   ArrowUpCircle, ArrowDownCircle, Compass, Loader2, ScrollText, History,
 } from "lucide-react";
 import {
-  fetchUserData, fetchCheckinStatus, doCheckin, petWalk,
+  fetchCheckinStatus, doCheckin, petWalk,
   familyDeposit, familyWithdraw, fetchFamilyLog,
   fetchExpeditions, startExpedition, collectExpedition,
   fetchWalletHistory, boostExpedition, fetchInventory,
@@ -53,9 +53,9 @@ const RANK_LABEL: Record<string, string> = {
 };
 
 export default function Profile({ chatId }: Props) {
-  const { userData: ctxUserData, refreshUserData } = useAppContext();
+  const { userData: ctxUserData, refreshUserData, userDataError } = useAppContext();
   const [data, setData]             = useState<UserData | null>(ctxUserData);
-  const [error, setError]           = useState("");
+  const error                       = userDataError ?? "";
   const [checkin, setCheckin]       = useState<CheckinStatus | null>(null);
   const [checkinLoading, setCiLoad] = useState(false);
   const [petLoading, setPetLoading] = useState(false);
@@ -97,11 +97,13 @@ export default function Profile({ chatId }: Props) {
   const { toast: globalToast } = useToast();
   const showToast = useCallback((msg: string) => globalToast(msg, "info"), [globalToast]);
 
+  // Sync from AppContext whenever it updates (no duplicate network request)
+  useEffect(() => {
+    if (ctxUserData) setData(ctxUserData);
+  }, [ctxUserData]);
+
   useEffect(() => {
     let cancelled = false;
-    fetchUserData(chatId)
-      .then(d => { if (!cancelled) setData(d); })
-      .catch((e: Error) => { if (!cancelled) setError(e.message); });
     if (chatId) {
       fetchCheckinStatus(chatId)
         .then(c => { if (!cancelled) setCheckin(c); })
@@ -199,7 +201,7 @@ export default function Profile({ chatId }: Props) {
         showToast(msg);
         loadExpeditions();
         // Refresh profile
-        fetchUserData(chatId).then(setData).catch(() => {});
+        refreshUserData();
       } else {
         showToast(r.error ?? "Ошибка");
       }
@@ -422,7 +424,7 @@ export default function Profile({ chatId }: Props) {
           <div className="flex flex-col gap-2">
             <textarea
               className="w-full rounded-lg p-2 text-sm resize-none"
-              style={{ background: "var(--surface)", color: "var(--text)", border: "1px solid var(--border)", minHeight: 72 }}
+              style={{ background: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--border)", minHeight: 72 }}
               maxLength={200}
               value={bioText}
               onChange={e => setBioText(e.target.value)}
@@ -450,7 +452,7 @@ export default function Profile({ chatId }: Props) {
               >{bioBusy ? "Сохранение…" : "Сохранить"}</button>
               <button
                 className="btn text-sm py-1.5"
-                style={{ background: "var(--surface)", color: "var(--text-hint)" }}
+                style={{ background: "var(--bg-secondary)", color: "var(--text-hint)" }}
                 onClick={() => setBioEditOpen(false)}
               >Отмена</button>
             </div>

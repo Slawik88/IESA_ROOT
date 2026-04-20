@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Sparkles, Star, AlertCircle, ChevronLeft, Info, X } from "lucide-react";
 import { rollGacha, rollFreeGacha, getFreeGachaRolls, trackEvent } from "../lib/api";
 import { useToast } from "../components/ToastContext";
+import { useAppContext } from "../AppContext";
 import type { GachaItem, GachaRollResult } from "../types";
 
 const SINGLE_PRICE = 80;
@@ -45,6 +46,7 @@ export default function Gacha({ chatId }: Props) {
   const [phase, setPhase]       = useState<Phase>("idle");
   const [result, setResult]     = useState<GachaRollResult | null>(null);
   const { toast } = useToast();
+  const { userData } = useAppContext();
   const [legendaryOverlay, setLegendaryOverlay] = useState(false);
   const [showOdds, setShowOdds] = useState(false);
   const [lastCount, setLastCount] = useState<1 | 10 | 50>(10);
@@ -139,6 +141,11 @@ export default function Gacha({ chatId }: Props) {
             <p className="text-xs z-10" style={{ color: "#94a3b8" }}>
               Шанс легендарки: 2% · Гарантия: 90 кручений
             </p>
+            {userData?.balance != null && (
+              <p className="text-xs z-10 font-semibold mt-0.5" style={{ color: "#cbd5e1" }}>
+                🪙 {userData.balance.toLocaleString("ru")}
+              </p>
+            )}
           </div>
 
           {/* Кнопки */}
