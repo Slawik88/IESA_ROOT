@@ -6,6 +6,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { Sparkles, Star, AlertCircle, ChevronLeft, Info, X } from "lucide-react";
 import { rollGacha, rollFreeGacha, getFreeGachaRolls, trackEvent } from "../lib/api";
+import { useToast } from "../components/ToastContext";
 import type { GachaItem, GachaRollResult } from "../types";
 
 const SINGLE_PRICE = 80;
@@ -43,7 +44,7 @@ interface Props {
 export default function Gacha({ chatId }: Props) {
   const [phase, setPhase]       = useState<Phase>("idle");
   const [result, setResult]     = useState<GachaRollResult | null>(null);
-  const [toast, setToast]       = useState<string | null>(null);
+  const { toast } = useToast();
   const [legendaryOverlay, setLegendaryOverlay] = useState(false);
   const [showOdds, setShowOdds] = useState(false);
   const [lastCount, setLastCount] = useState<1 | 10 | 50>(10);
@@ -55,10 +56,7 @@ export default function Gacha({ chatId }: Props) {
       .catch(() => {});
   }, []);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+  const showToast = useCallback((msg: string) => toast(msg, "info"), [toast]);
 
   const handleRoll = useCallback(async (count: 1 | 10 | 50) => {
     if (!chatId) { showToast("Нет chat_id"); return; }
@@ -434,15 +432,6 @@ export default function Gacha({ chatId }: Props) {
         </>
       )}
 
-      {/* ── Тост ── */}
-      {toast && (
-        <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
-        >
-          {toast}
-        </div>
-      )}
     </div>
   );
 }

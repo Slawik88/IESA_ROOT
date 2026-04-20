@@ -16,6 +16,7 @@ import type {
   ThemesResponse,
 } from "../types";
 import { useAppContext } from "../AppContext";
+import { useToast } from "../components/ToastContext";
 
 interface Props {
   userId: number;
@@ -32,8 +33,7 @@ export default function Shop({ chatId }: Props) {
   const [error, setError]         = useState("");
   const [tab, setTab]             = useState<ShopTab>("frames");
   const [buying, setBuying]       = useState<string | null>(null);
-  const [toast, setToast]         = useState<string | null>(null);
-  const [toastError, setToastErr] = useState<string | null>(null);
+  const { toast: globalToast } = useToast();
 
   // Themes tab state
   const [themesData, setThemesData]     = useState<ThemesResponse | null>(null);
@@ -42,8 +42,8 @@ export default function Shop({ chatId }: Props) {
   // Donate tab state
   const [crystalCatalog, setCrystalCatalog] = useState<CrystalCatalogResponse | null>(null);
 
-  const showOk  = useCallback((msg: string) => { setToast(msg);    setTimeout(() => setToast(null), 3500); }, []);
-  const showErr = useCallback((msg: string) => { setToastErr(msg); setTimeout(() => setToastErr(null), 4000); }, []);
+  const showOk  = useCallback((msg: string) => globalToast(msg, "success"), [globalToast]);
+  const showErr = useCallback((msg: string) => globalToast(msg, "error"), [globalToast]);
 
   const reload = useCallback(() => {
     if (!chatId) return;
@@ -255,19 +255,7 @@ export default function Shop({ chatId }: Props) {
       {tab === "themes"    && <ThemeList    themes={themesData} activating={activatingTheme} onActivate={doActivateTheme} />}
       {tab === "donate"    && <DonateTab    chatId={chatId} catalog={crystalCatalog} onRefresh={() => fetchCrystalCatalog(chatId).then(setCrystalCatalog).catch(() => {})} showOk={showOk} showErr={showErr} />}
 
-      {/* ── Тосты ─────────────────────────────────────────────── */}
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}>
-          {toast}
-        </div>
-      )}
-      {toastError && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "#450a0a", color: "#fca5a5", border: "1px solid #ef4444" }}>
-          {toastError}
-        </div>
-      )}
+
     </div>
   );
 }
