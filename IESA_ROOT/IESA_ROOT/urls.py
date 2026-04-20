@@ -81,6 +81,8 @@ from .miniapp_views import (
     miniapp_gifts_send,
     miniapp_auction_list, miniapp_auction_create,
     miniapp_auction_bid, miniapp_auction_buyout, miniapp_auction_cancel,
+    miniapp_trade_list, miniapp_trade_create,
+    miniapp_trade_accept, miniapp_trade_decline, miniapp_trade_cancel,
     miniapp_achievements,
     miniapp_achievements_badges,
     miniapp_crystals_spend,
@@ -268,6 +270,12 @@ urlpatterns = [
     path('api/auction/bid', miniapp_auction_bid, name='miniapp_auction_bid'),
     path('api/auction/buyout', miniapp_auction_buyout, name='miniapp_auction_buyout'),
     path('api/auction/cancel', miniapp_auction_cancel, name='miniapp_auction_cancel'),
+    # ─── P2P Trades / Прямой обмен ────────────────────────────────────────────
+    path('api/trade/list',    miniapp_trade_list,    name='miniapp_trade_list'),
+    path('api/trade/create',  miniapp_trade_create,  name='miniapp_trade_create'),
+    path('api/trade/accept',  miniapp_trade_accept,  name='miniapp_trade_accept'),
+    path('api/trade/decline', miniapp_trade_decline, name='miniapp_trade_decline'),
+    path('api/trade/cancel',  miniapp_trade_cancel,  name='miniapp_trade_cancel'),
     # ─── Achievements / Достижения ────────────────────────────────────────────
     path('api/achievements', miniapp_achievements, name='miniapp_achievements'),    path('api/achievements/badges', miniapp_achievements_badges, name='miniapp_achievements_badges'),    # ─── Crystals / Кристаллы ─────────────────────────────────────────────────
     path('api/crystals/catalog', miniapp_crystals_catalog, name='miniapp_crystals_catalog'),

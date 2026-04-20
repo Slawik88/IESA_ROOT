@@ -1289,6 +1289,27 @@ async def init_db():
         await db.execute("CREATE INDEX IF NOT EXISTS idx_auctions_seller ON auctions(seller_id, chat_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_auction_bids_aid ON auction_bids(auction_id)")
 
+        # ─── P2P Трейды (прямой обмен предметами между игроками) ──────────
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS trade_offers (
+                id             SERIAL PRIMARY KEY,
+                from_user_id   BIGINT NOT NULL,
+                to_user_id     BIGINT NOT NULL,
+                item_id        INTEGER NOT NULL,
+                price_mora     INTEGER NOT NULL DEFAULT 0,
+                price_crystals INTEGER NOT NULL DEFAULT 0,
+                status         TEXT NOT NULL DEFAULT 'pending',
+                created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                expires_at     TIMESTAMPTZ NOT NULL,
+                accepted_at    TIMESTAMPTZ DEFAULT NULL,
+                CONSTRAINT trade_status_check
+                    CHECK (status IN ('pending','accepted','declined','cancelled'))
+            )
+        """)
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_trade_offers_to   ON trade_offers(to_user_id, status)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_trade_offers_from ON trade_offers(from_user_id, status)")
+        await db.execute("CREATE INDEX IF NOT EXISTS idx_trade_offers_item ON trade_offers(item_id, status)")
+
         # ─── Счётчики для системы достижений ──────────────────────────────
         for col_def in [
             "total_gacha_rolls INTEGER DEFAULT 0",
@@ -6021,10 +6042,12 @@ async def get_gacha_inventory(user_id: int, chat_id: int) -> list:
 
 
 async def sell_gacha_junk(user_id: int, chat_id: int) -> tuple[int, int]:
-    """Продать весь мусор (rarity='junk'). Возвращает (count, total_mora)."""
+    """Продать весь мусор (rarity='junk'). Возвращает (count, total_mora).
+    Безопасность: пропускаем предметы с equipped != 0 (надетые, на аукционе, в трейде)."""
     async with postgres_connect() as db:
         async with db.execute(
-            "SELECT COALESCE(stack_count, 1) FROM gacha_inventory WHERE user_id=? AND rarity='junk'",
+            "SELECT COALESCE(stack_count, 1) FROM gacha_inventory "
+            "WHERE user_id=? AND rarity='junk' AND equipped=0",
             (user_id,),
         ) as c:
             rows = await c.fetchall()
@@ -6032,7 +6055,7 @@ async def sell_gacha_junk(user_id: int, chat_id: int) -> tuple[int, int]:
         if count == 0:
             return 0, 0
         await db.execute(
-            "DELETE FROM gacha_inventory WHERE user_id=? AND rarity='junk'",
+            "DELETE FROM gacha_inventory WHERE user_id=? AND rarity='junk' AND equipped=0",
             (user_id,),
         )
         await db.commit()
@@ -7095,6 +7118,52 @@ async def reduce_pet_fatigue(user_id: int, chat_id: int, amount: int):
         await db.execute(
             "UPDATE pets_global SET fatigue = GREATEST(0, COALESCE(fatigue,0) - ?) WHERE user_id=?",
             (amount, user_id),
+        )
+        await db.commit()
+
+
+async def reset_pet_fatigue(user_id: int) -> None:
+    """Полностью сбрасывает усталость питомца до 0 (для pet_rare_treat)."""
+    async with postgres_connect() as db:
+        await db.execute(
+            "UPDATE pets_global SET fatigue = 0 WHERE user_id = ?",
+            (user_id,),
+        )
+        await db.commit()
+
+
+async def add_pet_xp_boost(user_id: int, hours: int) -> None:
+    """Временный буст XP питомца на N часов (+50%, boost_type='pet_xp').
+
+    Хранится в user_boosts с chat_id=0 (глобально для питомца).
+    Повторная покупка продлевает срок действия, не стакует.
+    """
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO user_boosts (user_id, chat_id, boost_type, multiplier, expires_at)
+               VALUES (?, 0, 'pet_xp', 1.5, NOW() + ?::INTERVAL)
+               ON CONFLICT(user_id, chat_id, boost_type) DO UPDATE
+               SET multiplier = EXCLUDED.multiplier,
+                   expires_at = GREATEST(COALESCE(user_boosts.expires_at, NOW()), NOW()) + ?::INTERVAL""",
+            (user_id, f"{hours} hours", f"{hours} hours"),
+        )
+        await db.commit()
+
+
+async def add_pet_mora_boost(user_id: int, hours: int) -> None:
+    """Временный буст Моры питомца (экспедиции) на N часов (+50%, boost_type='pet_mora').
+
+    Хранится в user_boosts с chat_id=0 (глобально для питомца).
+    Повторная покупка продлевает срок действия, не стакует.
+    """
+    async with postgres_connect() as db:
+        await db.execute(
+            """INSERT INTO user_boosts (user_id, chat_id, boost_type, multiplier, expires_at)
+               VALUES (?, 0, 'pet_mora', 1.5, NOW() + ?::INTERVAL)
+               ON CONFLICT(user_id, chat_id, boost_type) DO UPDATE
+               SET multiplier = EXCLUDED.multiplier,
+                   expires_at = GREATEST(COALESCE(user_boosts.expires_at, NOW()), NOW()) + ?::INTERVAL""",
+            (user_id, f"{hours} hours", f"{hours} hours"),
         )
         await db.commit()
 
@@ -8914,7 +8983,7 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
                     "ON CONFLICT(chat_id, user_id, week_key) DO UPDATE SET tickets = casino_lottery.tickets + ?",
                     (chat_id, user_id, week_key, total_entries, total_entries),
                 )
-                await db.execute("DELETE FROM gacha_inventory WHERE id=?", (item_id,))
+                await db.execute("DELETE FROM gacha_inventory WHERE id=? AND user_id=?", (item_id, user_id))
                 await db.commit()
                 pl = "ы" if stack > 1 else ""
                 pl2 = "ы" if stack > 1 else ""
@@ -8935,7 +9004,7 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
             if not effect:
                 return False, 'Неизвестный тип расходника'
             eff_type, eff_val, eff_desc = effect
-            await db.execute('DELETE FROM gacha_inventory WHERE id=?', (item_id,))
+            await db.execute('DELETE FROM gacha_inventory WHERE id=? AND user_id=?', (item_id, user_id))
             await db.commit()
             if eff_type == 'xp':
                 await add_xp_in_chat(user_id, chat_id, eff_val)
@@ -8978,7 +9047,7 @@ async def consume_potion(user_id: int, chat_id: int, item_id: int) -> tuple[bool
         )
         
         # Remove consumed potion from inventory
-        await db.execute("DELETE FROM gacha_inventory WHERE id=?", (item_id,))
+        await db.execute("DELETE FROM gacha_inventory WHERE id=? AND user_id=?", (item_id, user_id))
         
         await db.commit()
         
@@ -8994,7 +9063,8 @@ async def batch_sell_items(
     sell_qtys: dict[int, int] | None = None,
 ) -> tuple[int, int]:
     """Batch sell multiple items. Returns (units_sold, total_mora).
-    sell_qtys: optional {item_id: qty} to sell partial stacks."""
+    sell_qtys: optional {item_id: qty} to sell partial stacks.
+    Безопасность: не продаём предметы с equipped != 0 (надетые, на аукционе, в трейде)."""
     if not item_ids:
         return 0, 0
 
@@ -9003,9 +9073,10 @@ async def batch_sell_items(
         sold_count = 0
 
         placeholders = ",".join(["?"] * len(item_ids))
+        # equipped=0 filter: исключаем надетые, auction-locked (2) и trade-locked (3) предметы
         async with db.execute(
             f"SELECT id, item_key, COALESCE(stack_count, 1) FROM gacha_inventory "
-            f"WHERE id IN ({placeholders}) AND user_id=?",
+            f"WHERE id IN ({placeholders}) AND user_id=? AND equipped=0 FOR UPDATE",
             (*item_ids, user_id)
         ) as c:
             items = await c.fetchall()
@@ -9031,11 +9102,17 @@ async def batch_sell_items(
             sold_count += qty
 
             if qty >= stack_count:
-                await db.execute("DELETE FROM gacha_inventory WHERE id=?", (item_id,))
-            else:
+                # user_id в WHERE — дополнительная защита от гонки
                 await db.execute(
-                    "UPDATE gacha_inventory SET stack_count = stack_count - ? WHERE id=?",
-                    (qty, item_id),
+                    "DELETE FROM gacha_inventory WHERE id=? AND user_id=? AND equipped=0",
+                    (item_id, user_id),
+                )
+            else:
+                # GREATEST(0,...) защищает от ухода в минус при параллельных запросах
+                await db.execute(
+                    "UPDATE gacha_inventory SET stack_count = GREATEST(0, stack_count - ?) "
+                    "WHERE id=? AND user_id=? AND equipped=0 AND stack_count >= ?",
+                    (qty, item_id, user_id, qty),
                 )
 
         if sold_count > 0:
@@ -10140,3 +10217,299 @@ async def get_telemetry_analytics(period: str = "week") -> dict:
             "total_sessions": 0, "avg_session_sec": 0.0, "daily_sessions": [],
         }
 
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# P2P TRADE OFFERS — прямой обмен предметами между игроками
+# equipped=3 означает «заблокирован трейдом»
+# ──────────────────────────────────────────────────────────────────────────────
+TRADE_OFFER_TTL_HOURS = 48   # предложение истекает через 48 часов
+
+
+async def create_trade_offer(
+    from_user_id: int,
+    to_user_id: int,
+    item_id: int,
+    price_mora: int = 0,
+    price_crystals: int = 0,
+) -> dict:
+    """
+    Создать предложение обмена: from_user предлагает item to_user.
+    Цена — Мора или кристаллы (можно 0 — безвозмездный дар).
+    Блокирует предмет (equipped=3) на весь срок действия предложения.
+    Возвращает {trade_id, item_name, expires_at}.
+    Raises ValueError при ошибке.
+    """
+    from datetime import datetime, timezone, timedelta
+    if price_mora < 0 or price_crystals < 0:
+        raise ValueError("Цена не может быть отрицательной")
+    if price_mora > 0 and price_crystals > 0:
+        raise ValueError("Нельзя указывать и Мору и кристаллы одновременно — выбери одно")
+
+    async with postgres_connect() as db:
+        # 1. Получить предмет с блокировкой строки
+        row = await db.fetchone(
+            "SELECT * FROM gacha_inventory WHERE id= AND user_id= FOR UPDATE",
+            (item_id, from_user_id)
+        )
+        if not row:
+            raise ValueError("Предмет не найден в инвентаре")
+        item = dict(row)
+        if item["equipped"] == 2:
+            raise ValueError("Предмет уже выставлен на аукцион")
+        if item["equipped"] == 3:
+            raise ValueError("Предмет уже заблокирован другим трейд-предложением")
+        if item["equipped"] == 1:
+            raise ValueError("Снача сними предмет с экипировки (команда «снять»)")
+
+        # 2. Проверить что to_user существует
+        target = await db.fetchone("SELECT user_id FROM users WHERE user_id=", (to_user_id,))
+        if not target:
+            raise ValueError("Игрок-получатель не найден")
+        if to_user_id == from_user_id:
+            raise ValueError("Нельзя отправить трейд самому себе")
+
+        # 3. Лимит: не более 3 активных исходящих предложений
+        cnt_row = await db.fetchone(
+            "SELECT COUNT(*) AS cnt FROM trade_offers WHERE from_user_id= AND status='pending'",
+            (from_user_id,)
+        )
+        if cnt_row and int(cnt_row["cnt"] or 0) >= 3:
+            raise ValueError("Максимум 3 активных трейд-предложения одновременно")
+
+        # 4. Заморозить предмет
+        await db.execute(
+            "UPDATE gacha_inventory SET equipped=3 WHERE id= AND user_id=",
+            (item_id, from_user_id)
+        )
+
+        # 5. Создать запись
+        now = datetime.now(timezone.utc)
+        expires_at = now + timedelta(hours=TRADE_OFFER_TTL_HOURS)
+        trade_row = await db.fetchone(
+            "INSERT INTO trade_offers "
+            "(from_user_id, to_user_id, item_id, price_mora, price_crystals, status, created_at, expires_at) "
+            "VALUES (,,,,,'pending',,) RETURNING id",
+            (from_user_id, to_user_id, item_id, price_mora, price_crystals, now, expires_at)
+        )
+        trade_id = trade_row["id"]
+
+    return {
+        "ok":        True,
+        "trade_id":  trade_id,
+        "item_name": item["item_name"],
+        "expires_at": expires_at.isoformat(),
+    }
+
+
+async def accept_trade_offer(to_user_id: int, trade_id: int) -> dict:
+    """
+    Принять трейд-предложение: перевести предмет, списать оплату.
+    Вся операция в единой транзакции (атомарно).
+    """
+    from datetime import datetime, timezone
+    async with postgres_connect() as db:
+        # 1. Получить и заблокировать запись трейда
+        trade = await db.fetchone(
+            "SELECT * FROM trade_offers WHERE id= FOR UPDATE",
+            (trade_id,)
+        )
+        if not trade:
+            raise ValueError("Трейд-предложение не найдено")
+        if trade["to_user_id"] != to_user_id:
+            raise ValueError("Это предложение не адресовано вам")
+        if trade["status"] != "pending":
+            raise ValueError(f"Предложение уже завершено со статусом: {trade['status']}")
+        now = datetime.now(timezone.utc)
+        expires = trade["expires_at"]
+        if hasattr(expires, "tzinfo") and expires.tzinfo is None:
+            from datetime import timezone as _tz
+            expires = expires.replace(tzinfo=_tz.utc)
+        if now > expires:
+            # Автоматически отменяем просроченный трейд
+            await db.execute(
+                "UPDATE gacha_inventory SET equipped=0 WHERE id= AND user_id=",
+                (trade["item_id"], trade["from_user_id"])
+            )
+            await db.execute(
+                "UPDATE trade_offers SET status='cancelled' WHERE id=",
+                (trade_id,)
+            )
+            raise ValueError("Предложение истекло — предмет возвращён владельцу")
+
+        item_id      = trade["item_id"]
+        from_user    = trade["from_user_id"]
+        price_mora   = int(trade["price_mora"] or 0)
+        price_cryst  = int(trade["price_crystals"] or 0)
+
+        # 2. Проверить что предмет всё ещё у продавца и заморожен
+        inv_row = await db.fetchone(
+            "SELECT * FROM gacha_inventory WHERE id= AND user_id= AND equipped=3 FOR UPDATE",
+            (item_id, from_user)
+        )
+        if not inv_row:
+            raise ValueError("Предмет недоступен (возможно, предложение было отменено)")
+
+        # 3. Списать оплату с покупателя
+        if price_mora > 0:
+            mora_row = await db.fetchone(
+                "SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id=",
+                (to_user_id,)
+            )
+            balance = int(mora_row["balance"] or 0) if mora_row else 0
+            if balance < price_mora:
+                raise ValueError(f"Недостаточно Моры: нужно {price_mora} 🪙, у тебя {balance} 🪙")
+            res = await db.execute(
+                "UPDATE users SET balance=balance- WHERE user_id= AND COALESCE(balance,0)>=",
+                (price_mora, to_user_id)
+            )
+            if res.rowcount == 0:
+                raise ValueError("Недостаточно Моры (баланс изменился)")
+            # Начислить продавцу
+            await db.execute(
+                "UPDATE users SET balance=COALESCE(balance,0)+ WHERE user_id=",
+                (price_mora, from_user)
+            )
+
+        elif price_cryst > 0:
+            cryst_row = await db.fetchone(
+                "SELECT balance FROM user_crystals WHERE user_id=",
+                (to_user_id,)
+            )
+            cryst_bal = int(cryst_row["balance"] or 0) if cryst_row else 0
+            if cryst_bal < price_cryst:
+                raise ValueError(f"Недостаточно кристаллов: нужно {price_cryst} 💎, у тебя {cryst_bal} 💎")
+            res = await db.execute(
+                "UPDATE user_crystals SET balance=balance- WHERE user_id= AND balance>=",
+                (price_cryst, to_user_id)
+            )
+            if res.rowcount == 0:
+                raise ValueError("Недостаточно кристаллов (баланс изменился)")
+            # Начислить продавцу
+            await db.execute(
+                "INSERT INTO user_crystals (user_id, balance) VALUES (, ) "
+                "ON CONFLICT(user_id) DO UPDATE SET balance = user_crystals.balance + ",
+                (from_user, price_cryst)
+            )
+
+        # 4. Передать предмет
+        await db.execute(
+            "UPDATE gacha_inventory SET user_id=, equipped=0 WHERE id= AND user_id=",
+            (to_user_id, item_id, from_user)
+        )
+
+        # 5. Завершить трейд
+        await db.execute(
+            "UPDATE trade_offers SET status='accepted', accepted_at= WHERE id=",
+            (now, trade_id)
+        )
+
+    return {
+        "ok":        True,
+        "item_name": dict(inv_row)["item_name"],
+        "price_mora": price_mora,
+        "price_crystals": price_cryst,
+    }
+
+
+async def cancel_trade_offer(from_user_id: int, trade_id: int) -> dict:
+    """Отменить трейд (инициатором). Разблокирует предмет."""
+    async with postgres_connect() as db:
+        trade = await db.fetchone(
+            "SELECT * FROM trade_offers WHERE id= AND from_user_id= FOR UPDATE",
+            (trade_id, from_user_id)
+        )
+        if not trade:
+            raise ValueError("Трейд не найден или не принадлежит вам")
+        if trade["status"] != "pending":
+            raise ValueError(f"Трейд уже завершён: {trade['status']}")
+
+        await db.execute(
+            "UPDATE gacha_inventory SET equipped=0 WHERE id= AND user_id=",
+            (trade["item_id"], from_user_id)
+        )
+        await db.execute(
+            "UPDATE trade_offers SET status='cancelled' WHERE id=",
+            (trade_id,)
+        )
+    return {"ok": True}
+
+
+async def decline_trade_offer(to_user_id: int, trade_id: int) -> dict:
+    """Отклонить трейд (получателем). Разблокирует предмет."""
+    async with postgres_connect() as db:
+        trade = await db.fetchone(
+            "SELECT * FROM trade_offers WHERE id= AND to_user_id= FOR UPDATE",
+            (trade_id, to_user_id)
+        )
+        if not trade:
+            raise ValueError("Трейд не найден или не адресован вам")
+        if trade["status"] != "pending":
+            raise ValueError(f"Трейд уже завершён: {trade['status']}")
+
+        await db.execute(
+            "UPDATE gacha_inventory SET equipped=0 WHERE id= AND user_id=",
+            (trade["item_id"], trade["from_user_id"])
+        )
+        await db.execute(
+            "UPDATE trade_offers SET status='declined' WHERE id=",
+            (trade_id,)
+        )
+    return {"ok": True}
+
+
+async def get_user_trade_offers(user_id: int) -> dict:
+    """
+    Вернуть активные трейды пользователя (входящие и исходящие).
+    Также автоматически отменяет просроченные.
+    """
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+
+    async with postgres_connect() as db:
+        # Отменить просроченные, разблокировав предметы (атомарно)
+        expired = await db.fetch(
+            "SELECT t.id, t.item_id, t.from_user_id FROM trade_offers t "
+            "WHERE t.status='pending' AND t.expires_at <=  "
+            "AND (t.from_user_id= OR t.to_user_id=)",
+            (now, user_id)
+        )
+        for exp in expired:
+            await db.execute(
+                "UPDATE gacha_inventory SET equipped=0 WHERE id= AND user_id=",
+                (exp["item_id"], exp["from_user_id"])
+            )
+            await db.execute(
+                "UPDATE trade_offers SET status='cancelled' WHERE id=", (exp["id"],)
+            )
+
+        # Исходящие
+        outgoing = await db.fetch(
+            "SELECT t.*, gi.item_name, gi.rarity, gi.item_key "
+            "FROM trade_offers t "
+            "JOIN gacha_inventory gi ON gi.id = t.item_id "
+            "WHERE t.from_user_id= AND t.status='pending' "
+            "ORDER BY t.created_at DESC",
+            (user_id,)
+        )
+        # Входящие
+        incoming = await db.fetch(
+            "SELECT t.*, gi.item_name, gi.rarity, gi.item_key "
+            "FROM trade_offers t "
+            "JOIN gacha_inventory gi ON gi.id = t.item_id "
+            "WHERE t.to_user_id= AND t.status='pending' "
+            "ORDER BY t.created_at DESC",
+            (user_id,)
+        )
+
+    def _fmt(rows):
+        result = []
+        for r in rows:
+            d = dict(r)
+            for k in ("created_at", "expires_at", "accepted_at"):
+                if d.get(k) and hasattr(d[k], "isoformat"):
+                    d[k] = d[k].isoformat()
+            result.append(d)
+        return result
+
+    return {"outgoing": _fmt(outgoing), "incoming": _fmt(incoming)}
