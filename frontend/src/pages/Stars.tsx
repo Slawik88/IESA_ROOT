@@ -3,8 +3,9 @@
    POST /api/stars/invoice { pack_key, chat_id }
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
-import { Gem, Star, Loader2, CheckCircle2, AlertCircle, Zap } from "lucide-react";
+import { Gem, Star, Loader2, Zap } from "lucide-react";
 import { createStarsInvoice, fetchUserData } from "../lib/api";
+import { useToast } from "../components/ToastContext";
 
 interface Props {
   userId: number;
@@ -45,14 +46,6 @@ const PACK_THEME: Record<string, {
   ultimate: { gradient: "linear-gradient(135deg,#200010,#400020)", border: "#ef444466", glow: "#ef444422", btnGradient: "linear-gradient(135deg,#dc2626,#ef4444)", crystalColor: "#f87171" },
 };
 
-// ── Toast ──────────────────────────────────────────────────────
-function useToast() {
-  const [ok, setOk]   = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const showOk  = useCallback((msg: string) => { setOk(msg);  setTimeout(() => setOk(null),  3500); }, []);
-  const showErr = useCallback((msg: string) => { setErr(msg); setTimeout(() => setErr(null), 4000); }, []);
-  return { ok, err, showOk, showErr };
-}
 
 function extractErr(e: unknown): string {
   if (!(e instanceof Error)) return "Ошибка";
@@ -68,7 +61,9 @@ function extractErr(e: unknown): string {
 export default function Stars({ chatId }: Props) {
   const [crystals, setCrystals] = useState<number | null>(null);
   const [buying, setBuying]     = useState<string | null>(null);
-  const { ok, err, showOk, showErr } = useToast();
+  const { toast } = useToast();
+  const showOk = useCallback((msg: string) => toast(msg, "success"), [toast]);
+  const showErr = useCallback((msg: string) => toast(msg, "error"), [toast]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -111,19 +106,6 @@ export default function Stars({ chatId }: Props) {
   return (
     <div className="flex flex-col pb-8" style={{ minHeight: "100vh", background: "var(--bg-primary)" }}>
 
-      {/* ── Toasts ──────────────────────────────── */}
-      {ok && (
-        <div className="fixed top-4 left-4 right-4 z-50 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-xl"
-             style={{ background: "linear-gradient(135deg,#15803d,#16a34a)", color: "#fff", boxShadow: "0 4px 24px #16a34a44" }}>
-          <CheckCircle2 size={16} /> {ok}
-        </div>
-      )}
-      {err && (
-        <div className="fixed top-4 left-4 right-4 z-50 flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-xl"
-             style={{ background: "linear-gradient(135deg,#991b1b,#dc2626)", color: "#fff", boxShadow: "0 4px 24px #dc262644" }}>
-          <AlertCircle size={16} /> {err}
-        </div>
-      )}
 
       {/* ── Hero Header ─────────────────────────── */}
       <div

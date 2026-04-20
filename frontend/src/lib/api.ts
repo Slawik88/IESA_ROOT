@@ -59,9 +59,17 @@ export interface PromoCreateResult { ok: boolean; promo?: PromoRecord; error?: s
 // Все запросы автоматически получают этот заголовок.
 let _initData = "";
 
+// AbortController для отмены запросов при смене вкладки.
+let _requestSignal: AbortSignal | undefined = undefined;
+
 /** Вызывается из useTelegram сразу после tg.ready(). */
 export function setInitData(initData: string): void {
   _initData = initData;
+}
+
+/** Устанавливает AbortSignal для всех последующих запросов. */
+export function setRequestSignal(signal: AbortSignal | undefined): void {
+  _requestSignal = signal;
 }
 
 /** Возвращает текущий initData (для отладки). */
@@ -79,7 +87,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     headers["X-Telegram-Init-Data"] = _initData;
   }
 
-  const res = await fetch(path, { ...options, headers });
+  const signal = options.signal ?? _requestSignal;
+  let res: Response;
+  try {
+    res = await fetch(path, { ...options, headers, signal });
+  } catch (err: unknown) {
+    // Запрос отменён сменой вкладки — возвращаем бесконечно-pending promise (компонент уже размонтирован)
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return new Promise<T>(() => {});
+    }
+    throw err;
+  }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");

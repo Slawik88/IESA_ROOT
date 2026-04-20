@@ -2,7 +2,7 @@
    App.tsx — корневой компонент Mini App
    Навигация: Профиль | Гача | Инвентарь | Банк | Магазин | Задания | Топ | Сезон | Ачивки | Биржа | [Адм.]
    ────────────────────────────────────────────────────────────── */
-import { useState, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
+import { useState, useEffect, useRef, useCallback, Component, type ReactNode, type ErrorInfo } from "react";
 import { User, Sparkles, Backpack, ScrollText, Trophy, Medal, Star, Landmark, ShoppingBag, TrendingUp, ShieldAlert, Dices, Gem, Swords, Ticket, Gavel, Zap, Settings } from "lucide-react";
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -60,7 +60,7 @@ import NotInTelegram from "./pages/NotInTelegram";
 import Talents from "./pages/Talents";
 import Shards from "./pages/Shards";
 import AppSettings from "./pages/Settings";
-import { triggerNewbieQuest } from "./lib/api";
+import { triggerNewbieQuest, setRequestSignal } from "./lib/api";
 import { ToastProvider } from "./components/ToastContext";
 
 type Tab = "profile" | "gacha" | "inventory" | "bank" | "shop" | "quests" | "leaderboard" | "season" | "achievements" | "exchange" | "casino" | "stars" | "promo" | "boss" | "auction" | "talents" | "shards" | "settings" | "admin";
@@ -85,7 +85,7 @@ const BASE_TABS: { key: Tab; label: string; Icon: typeof User }[] = [
 ];
 
 export default function App() {
-  const { ready, isInsideTelegram, userId, chatId } = useTelegram();
+  const { ready, isInsideTelegram, userId, chatId, initialTab } = useTelegram();
 
   if (!ready) {
     return (
@@ -102,16 +102,28 @@ export default function App() {
   return (
     <AppProvider chatId={chatId}>
       <ToastProvider>
-        <AppContent userId={userId} chatId={chatId} />
+        <AppContent userId={userId} chatId={chatId} initialTab={initialTab} />
       </ToastProvider>
     </AppProvider>
   );
 }
 
-function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
+const VALID_TABS = new Set<Tab>(["profile","gacha","inventory","bank","shop","quests","leaderboard","season","achievements","exchange","casino","stars","promo","boss","auction","talents","shards","settings","admin"]);
+
+function AppContent({ userId, chatId, initialTab }: { userId: number; chatId: number; initialTab: string | null }) {
   const { isDev, userData, userDataError, userDataLoading, refreshUserData } = useAppContext();
-  const [tab, setTab] = useState<Tab>("profile");
+  const [tab, setTab] = useState<Tab>(() =>
+    (initialTab && VALID_TABS.has(initialTab as Tab)) ? (initialTab as Tab) : "profile"
+  );
+  const abortRef = useRef<AbortController | null>(null);
   useTelemetry(tab, userId);
+
+  const changeTab = useCallback((newTab: Tab) => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    setRequestSignal(abortRef.current.signal);
+    setTab(newTab);
+  }, []);
 
   // Telegram BackButton — show when not on profile, go back to profile
   useEffect(() => {
@@ -119,7 +131,7 @@ function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
     if (!tg?.BackButton) return;
     if (tab !== "profile") {
       tg.BackButton.show();
-      const handler = () => setTab("profile");
+      const handler = () => changeTab("profile");
       tg.BackButton.onClick(handler);
       return () => { tg.BackButton.offClick(handler); tg.BackButton.hide(); };
     } else {
@@ -196,7 +208,7 @@ function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
           return (
             <button
               key={key}
-              onClick={() => setTab(key)}
+              onClick={() => changeTab(key)}
               className="flex-none flex flex-col items-center gap-0.5 py-2 px-3 min-w-[52px] transition-all relative"
               style={{ color: active ? "var(--accent)" : "var(--text-hint)" }}
             >

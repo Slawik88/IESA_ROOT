@@ -23,6 +23,8 @@ interface UseTelegramResult {
   colorScheme: "light" | "dark";
   /** BUG-054: human-readable error when chatId could not be determined */
   error: string | null;
+  /** Начальная вкладка из deep-link параметра start_param (секция после _) */
+  initialTab: string | null;
 }
 
 /**
@@ -60,6 +62,7 @@ export function useTelegram(): UseTelegramResult {
     initData: "",
     colorScheme: "dark",
     error: null,
+    initialTab: null,
   });
 
   useEffect(() => {
@@ -118,6 +121,11 @@ export function useTelegram(): UseTelegramResult {
       } catch { /* ignore */ }
     }
 
+    // Извлечь секцию из start_param для deep-linking (часть после первого '_')
+    const rawStartParam = (unsafe?.start_param as string) ?? "";
+    const underscoreIdx = rawStartParam.indexOf("_");
+    const initialTab = underscoreIdx !== -1 ? rawStartParam.slice(underscoreIdx + 1) : null;
+
     setState({
       ready: true,
       isInsideTelegram: true,
@@ -127,6 +135,7 @@ export function useTelegram(): UseTelegramResult {
       initData,
       colorScheme: tg.colorScheme ?? "dark",
       error: chatId === 0 ? "Не удалось определить чат. Откройте приложение из группы." : null,
+      initialTab,
     });
   }, []);
 
