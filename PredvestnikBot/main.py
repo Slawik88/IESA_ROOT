@@ -20,13 +20,7 @@ log = logging.getLogger("main")
 
 # Время запуска бота (для игнорирования старых сообщений)
 BOT_START_TIME = datetime.now(timezone.utc)
-from handlers import (admin, auto_mod, bank, boss, casino, checkin, dev_panel, diligence, dm_roles, economy, espionage,
-                     expeditions, extras, food, fun, gacha, gifts, helper,
-                     moderator, notes, owner, pets, quests, reputation,
-                     shop, stars, tax_event, user, wallet, weather)
-from handlers import auction as auction_handler
-from handlers import join_flow
-from handlers import chat_tracker
+from handlers.router import main_router, payment_router
 
 # basicConfig already called by setup_logging() above — no-op duplication guard removed
 
@@ -106,41 +100,9 @@ async def main():
         logging.exception("Unhandled error in handler: %s", error_event.exception)
         return True
 
-    # Роутеры — от специфичных к общим (extras должен быть последним!)
-    dp.include_router(owner.router)
-    dp.include_router(admin.router)
-    dp.include_router(moderator.router)
-    dp.include_router(helper.router)
-    dp.include_router(notes.router)
-    dp.include_router(auto_mod.router)
-    dp.include_router(reputation.router)   # репутация/XP/bio — до catch-all
-    dp.include_router(fun.router)          # весёлые команды
-    dp.include_router(quests.router)       # ежедневные задания
-    dp.include_router(pets.router)         # система питомцев
-    dp.include_router(wallet.router)       # переводы и займы Моры
-    dp.include_router(economy.router)      # экономика (Мора, балансы)
-    dp.include_router(casino.router)       # казино (монетка, кубик, лотерея)
-    dp.include_router(expeditions.router)  # экспедиции питомцев
-    dp.include_router(gacha.router)        # молитвы (гача)
-    dp.include_router(bank.router)         # банк вкладов
-    dp.include_router(espionage.router)    # шпионаж + облигации
-    dp.include_router(diligence.router)    # ивент «Дилижанс»
-    dp.include_router(food.router)         # магазин еды для питомцев
-    dp.include_router(checkin.router)      # ежедневный чекин
-    dp.include_router(boss.router)         # битва с боссом
-    dp.include_router(auction_handler.router)  # аукцион
-    dp.include_router(dev_panel.router)    # панель разработчика
-    dp.include_router(shop.router)         # магазин
-    dp.include_router(stars.router)        # Telegram Stars (кристаллы)
-    dp.include_router(stars.payment_router)  # Payment callbacks (no MainChatOnly filter)
-    dp.include_router(join_flow.router)    # вступление по тегам (deep link перед dm_roles)
-    dp.include_router(chat_tracker.router)  # реактивный трекинг чатов (chat_member)
-    dp.include_router(gifts.router)        # подарки партнёру
-    dp.include_router(tax_event.router)    # налоговая инспекция
-    dp.include_router(weather.router)      # погода
-    dp.include_router(user.router)
-    dp.include_router(dm_roles.router)  # DM-онбординг ролей
-    dp.include_router(extras.router)   # ← catch-all последним
+    # Роутеры — собраны в handlers/router.py (extras последним, payment отдельно)
+    dp.include_router(main_router)
+    dp.include_router(payment_router)  # Payment callbacks (no MainChatOnly filter)
 
     from config import BOT_STARTED_MSG, BOT_STOPPED_MSG
     print("✅ Бот запущен! Пиши 'бот помощь' в чат.")
