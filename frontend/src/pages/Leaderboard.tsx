@@ -23,36 +23,53 @@ interface Props {
   chatId: number;
 }
 
+type Scope = "global" | "chat";
+
 export default function Leaderboard({ chatId }: Props) {
   const [tab, setTab]     = useState<LBType>("xp");
+  const [scope, setScope] = useState<Scope>("global");
   const [data, setData]   = useState<LeaderboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profileEntry, setProfileEntry] = useState<{ entry: LeaderboardEntry; tab: LBType } | null>(null);
 
-  const load = useCallback((type: LBType) => {
+  const load = useCallback((type: LBType, s: Scope = scope) => {
     setLoading(true);
     setError("");
-    // chat_id=0 → backend returns global leaderboard (all chats)
-    fetchLeaderboard(0, type)
+    fetchLeaderboard(s === "chat" ? chatId : 0, type)
       .then(setData)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [chatId, scope]);
 
-  useEffect(() => { load(tab); }, [tab, load]);
+  useEffect(() => { load(tab, scope); }, [tab, scope, load]);
 
   return (
     <div className="animate-fadeIn flex flex-col min-h-screen pb-24">
 
-      {/* ── Заголовок ── */}
+      {/* ── Заголовок + scope toggle ── */}
       <div className="glass-hero px-4 pt-4 pb-2 mb-2">
-        <h1 className="text-xl font-bold flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
-            <Trophy size={18} style={{ color: "var(--accent)" }} />
-          </div>
-          Глобальная таблица лидеров
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
+              <Trophy size={18} style={{ color: "var(--accent)" }} />
+            </div>
+            {scope === "chat" ? "Топ чата" : "Глобальный топ"}
+          </h1>
+          {chatId !== 0 && (
+            <button
+              onClick={() => setScope(s => s === "global" ? "chat" : "global")}
+              className="px-3 py-1 rounded-lg text-xs font-semibold transition-all"
+              style={{
+                backgroundColor: scope === "chat" ? "var(--accent)" : "var(--bg-secondary)",
+                color: scope === "chat" ? "#fff" : "var(--text-secondary)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              {scope === "chat" ? "🌐 Глобал" : "💬 Чат"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* ── Табы ── */}

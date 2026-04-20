@@ -17,6 +17,7 @@ import {
   type GiftsCatalogResponse,
 } from "../lib/api";
 import ProfileAvatar from "../components/ProfileAvatar";
+import { useToast } from "../components/ToastContext";
 import type {
   UserData, BondInfo, CheckinStatus,
   FamilyLogEntry, ExpeditionsResponse, WalletHistoryEntry, InventoryItem,
@@ -57,7 +58,6 @@ export default function Profile({ chatId }: Props) {
   const [error, setError]           = useState("");
   const [checkin, setCheckin]       = useState<CheckinStatus | null>(null);
   const [checkinLoading, setCiLoad] = useState(false);
-  const [toast, setToast]           = useState<string | null>(null);
   const [petLoading, setPetLoading] = useState(false);
 
   // Family wallet
@@ -94,10 +94,8 @@ export default function Profile({ chatId }: Props) {
   const [giftBusy, setGiftBusy]         = useState(false);
   const [giftOpen, setGiftOpen]         = useState(false);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+  const { toast: globalToast } = useToast();
+  const showToast = useCallback((msg: string) => globalToast(msg, "info"), [globalToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -969,16 +967,6 @@ export default function Profile({ chatId }: Props) {
             </div>
           )}
         </Card>
-      )}
-
-      {/* ── Тост ──────────────────────────────────────────────── */}
-      {toast && (
-        <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
-        >
-          {toast}
-        </div>
       )}
 
     </div>

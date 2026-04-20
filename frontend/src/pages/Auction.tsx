@@ -4,6 +4,7 @@
    ────────────────────────────────────────────────────────────── */
 import { useEffect, useState, useCallback } from "react";
 import { Gavel, Plus, Package, RefreshCw } from "lucide-react";
+import { useToast } from "../components/ToastContext";
 import {
   fetchAuctions,
   placeBid,
@@ -40,11 +41,10 @@ export default function Auction({ userId, chatId }: Props) {
   const [data, setData]       = useState<AuctionListResponse | null>(null);
   const [tab, setTab]         = useState<SubTab>("lots");
   const [loading, setLoading] = useState(false);
-  const [toast, setToast]     = useState<string | null>(null);
-  const [toastErr, setToastErr] = useState<string | null>(null);
+  const { toast: globalToast } = useToast();
 
-  const showOk  = useCallback((msg: string) => { setToast(msg);    setTimeout(() => setToast(null), 3000); }, []);
-  const showErr = useCallback((msg: string) => { setToastErr(msg); setTimeout(() => setToastErr(null), 4000); }, []);
+  const showOk  = useCallback((msg: string) => globalToast(msg, "success"), [globalToast]);
+  const showErr = useCallback((msg: string) => globalToast(msg, "error"), [globalToast]);
 
   const reload = useCallback(() => {
     if (!chatId) return;
@@ -131,19 +131,6 @@ export default function Auction({ userId, chatId }: Props) {
         />
       )}
 
-      {/* ── Тосты ─────────────────────────────────────────────── */}
-      {toast && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg"
-          style={{ backgroundColor: "#22c55e", color: "#fff" }}>
-          {toast}
-        </div>
-      )}
-      {toastErr && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-sm font-medium shadow-lg"
-          style={{ backgroundColor: "#ef4444", color: "#fff" }}>
-          {toastErr}
-        </div>
-      )}
     </div>
   );
 }

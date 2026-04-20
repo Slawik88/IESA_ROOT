@@ -7,6 +7,7 @@ import {
   type CoupleBossStatusResult, type CoupleBossAttackResult,
 } from "../lib/api";
 import { Loader2, Swords, Heart, Zap } from "lucide-react";
+import { useToast } from "../components/ToastContext";
 
 interface Props {
   userId: number | null;
@@ -34,17 +35,14 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
   const [loading, setLoading]     = useState(true);
   const [starting, setStarting]   = useState(false);
   const [attacking, setAttacking] = useState(false);
-  const [toast, setToast]         = useState<string | null>(null);
   const [bossHp, setBossHp]       = useState(0);
   const [bossMaxHp, setBossMaxHp] = useState(1);
   const [fightTimeLeft, setFightTimeLeft] = useState<number | null>(null);
   const [lastHit, setLastHit]     = useState<{ dmg: number; crit: boolean } | null>(null);
   const hitTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+  const { toast: globalToast } = useToast();
+  const showToast = useCallback((msg: string) => globalToast(msg, "info"), [globalToast]);
 
   const loadStatus = useCallback(async () => {
     if (!chatId) return;
@@ -182,14 +180,6 @@ export default function CoupleBoss({ userId: _userId, chatId }: Props) {
           <p className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{fightTimeText ?? "--:--"}</p>
         </div>
       </div>
-
-      {/* Toast */}
-      {toast && (
-        <div className="px-4 py-2.5 glass-card animate-fadeIn text-center text-sm font-medium"
-          style={{ color: "var(--text-primary)" }}>
-          {toast}
-        </div>
-      )}
 
       {/* No active session */}
       {!active && (

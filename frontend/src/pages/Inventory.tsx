@@ -10,6 +10,7 @@ import {
   Shield, Swords, Heart, Crosshair, X, RefreshCw,
   AlertTriangle,
 } from "lucide-react";
+import { useToast } from "../components/ToastContext";
 import {
   fetchInventory, equipItem, toggleEquip,
   sellJunk, batchSell, enhanceItem, consumePotion, activateTheme, renamePet, buyShopItem,
@@ -146,14 +147,11 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
   const [error, setError]       = useState("");
   const [selected, setSelected] = useState<InventoryItem | null>(null);
   const [busy, setBusy]         = useState<string | null>(null);
-  const [toast, setToast]       = useState<string | null>(null);
+  const { toast } = useToast();
   const [activeFilter, setActiveFilter] = useState("all");
   const [statsOpen, setStatsOpen] = useState(false);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+  const showToast = useCallback((msg: string) => toast(msg, "info"), [toast]);
 
   const load = useCallback(() => {
     if (!chatId) return;
@@ -555,15 +553,6 @@ export default function Inventory({ userId: _userId, chatId }: Props) {
         </>
       )}
 
-      {/* ── Тост ── */}
-      {toast && (
-        <div
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}
-        >
-          {toast}
-        </div>
-      )}
     </div>
   );
 }

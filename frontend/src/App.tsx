@@ -113,6 +113,20 @@ function AppContent({ userId, chatId }: { userId: number; chatId: number }) {
   const [tab, setTab] = useState<Tab>("profile");
   useTelemetry(tab, userId);
 
+  // Telegram BackButton — show when not on profile, go back to profile
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (!tg?.BackButton) return;
+    if (tab !== "profile") {
+      tg.BackButton.show();
+      const handler = () => setTab("profile");
+      tg.BackButton.onClick(handler);
+      return () => { tg.BackButton.offClick(handler); tg.BackButton.hide(); };
+    } else {
+      tg.BackButton.hide();
+    }
+  }, [tab]);
+
   // HIGH-013: trigger newbie quest initialisation on first load
   useEffect(() => {
     if (userId && chatId) triggerNewbieQuest(chatId).catch(() => {});

@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import { fetchTalents, upgradeTalent, type TalentsResponse } from "../lib/api";
+import { useToast } from "../components/ToastContext";
 
 interface Props { userId: number; chatId: number; }
 
@@ -21,12 +22,9 @@ export default function Talents({ chatId }: Props) {
   const [data, setData]   = useState<TalentsResponse | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy]   = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast } = useToast();
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+  const showToast = useCallback((msg: string) => toast(msg, "info"), [toast]);
 
   const load = useCallback(() => {
     fetchTalents().then(setData).catch((e: Error) => setError(e.message));
@@ -80,12 +78,6 @@ export default function Talents({ chatId }: Props) {
 
   return (
     <div className="animate-fadeIn p-4 space-y-4 pb-24">
-      {toast && (
-        <div className="fixed top-4 left-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium text-white shadow-xl"
-             style={{ backgroundColor: "var(--accent)" }}>
-          {toast}
-        </div>
-      )}
 
       {/* Header */}
       <div className="glass-hero p-4 flex items-center justify-between">

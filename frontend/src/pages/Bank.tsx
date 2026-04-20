@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Landmark, ArrowRightLeft, TrendingUp, Clock, CheckCircle2, CircleDollarSign } from "lucide-react";
 import { fetchBankInfo, openDeposit, withdrawDeposit, transferMora, trackEvent } from "../lib/api";
 import type { BankInfoResponse, BankDeposit, BankPlan, ChatMember } from "../types";
+import { useToast } from "../components/ToastContext";
 import UserPicker from "../components/UserPicker";
 import Loans from "./Loans";
 
@@ -23,11 +24,9 @@ export default function Bank({ userId, chatId }: Props) {
   const [error, setError]         = useState("");
   const [tab, setTab]             = useState<SubTab>("deposits");
   const [loading, setLoading]     = useState(false);
-  const [toast, setToast]         = useState<string | null>(null);
-  const [toastError, setToastErr] = useState<string | null>(null);
-
-  const showOk  = useCallback((msg: string) => { setToast(msg);    setTimeout(() => setToast(null), 3500); }, []);
-  const showErr = useCallback((msg: string) => { setToastErr(msg); setTimeout(() => setToastErr(null), 4000); }, []);
+  const { toast } = useToast();
+  const showOk  = useCallback((msg: string) => toast(msg, "success"), [toast]);
+  const showErr = useCallback((msg: string) => toast(msg, "error"), [toast]);
 
   const reload = useCallback(() => {
     if (!chatId) return;
@@ -165,19 +164,7 @@ export default function Bank({ userId, chatId }: Props) {
         />
       )}
 
-      {/* ── Тосты ─────────────────────────────────────────────── */}
-      {toast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", border: "1px solid var(--accent)" }}>
-          {toast}
-        </div>
-      )}
-      {toastError && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[90vw] px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg pointer-events-none"
-          style={{ backgroundColor: "#450a0a", color: "#fca5a5", border: "1px solid #ef4444" }}>
-          {toastError}
-        </div>
-      )}
+
     </div>
   );
 }
@@ -196,13 +183,10 @@ interface DepositListProps {
 }
 
 function DepositList({ deposits, earlyPenaltyPct, chatId, loading, setLoading, showOk, showErr, reload }: DepositListProps) {
-  const handleWithdraw = async (deposit: BankDeposit) => {
-    if (loading) return;
-    const earlyMsg = !deposit.mature
-      ? `\nДосрочно: штраф ${earlyPenaltyPct}% от процентов. Продолжить?`
-      : "";
-    if (earlyMsg && !window.confirm(`Закрыть вклад?${earlyMsg}`)) return;
+  const [confirmId, setConfirmId] = useState<number | null>(null);
 
+  const doWithdraw = async (deposit: BankDeposit) => {
+    setConfirmId(null);
     setLoading(true);
     try {
       const res = await withdrawDeposit(chatId, deposit.id);
@@ -219,6 +203,15 @@ function DepositList({ deposits, earlyPenaltyPct, chatId, loading, setLoading, s
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleWithdraw = (deposit: BankDeposit) => {
+    if (loading) return;
+    if (!deposit.mature) {
+      setConfirmId(deposit.id);
+      return;
+    }
+    doWithdraw(deposit);
   };
 
   if (deposits.length === 0) {
@@ -282,6 +275,31 @@ function DepositList({ deposits, earlyPenaltyPct, chatId, loading, setLoading, s
               {d.mature ? "Забрать" : "Досрочно"}
             </button>
           </div>
+          {/* Inline confirmation for early withdrawal */}
+          {confirmId === d.id && (
+            <div className="mt-2 p-2.5 rounded-lg flex items-center justify-between gap-2" style={{ backgroundColor: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+              <p className="text-xs" style={{ color: "#fca5a5" }}>
+                ⚠️ Штраф {earlyPenaltyPct}% от процентов. Закрыть?
+              </p>
+              <div className="flex gap-1.5 shrink-0">
+                <button
+                  onClick={() => setConfirmId(null)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium"
+                  style={{ backgroundColor: "var(--border)", color: "var(--text-primary)" }}
+                >
+                  Нет
+                </button>
+                <button
+                  onClick={() => doWithdraw(d)}
+                  disabled={loading}
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold disabled:opacity-40"
+                  style={{ backgroundColor: "#ef4444", color: "#fff" }}
+                >
+                  Да, закрыть
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>

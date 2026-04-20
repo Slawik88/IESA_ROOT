@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Gem, Loader2, RefreshCw, X } from "lucide-react";
 import { fetchShards, craftShard, type ShardsResponse } from "../lib/api";
+import { useToast } from "../components/ToastContext";
 
 interface Props { userId: number; chatId: number; }
 
@@ -15,13 +16,12 @@ export default function Shards({ chatId }: Props) {
   const [data, setData]       = useState<ShardsResponse | null>(null);
   const [error, setError]     = useState("");
   const [busy, setBusy]       = useState<string | null>(null);
-  const [toast, setToast]     = useState<{ msg: string; ok: boolean } | null>(null);
+  const { toast: globalToast } = useToast();
   const [modal, setModal]     = useState<ModalState | null>(null);
 
   const showToast = useCallback((msg: string, ok = true) => {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+    globalToast(msg, ok ? "success" : "error");
+  }, [globalToast]);
 
   const load = useCallback(() => {
     if (!chatId) return;
@@ -105,12 +105,6 @@ export default function Shards({ chatId }: Props) {
 
   return (
     <div className="animate-fadeIn p-4 space-y-4 pb-24">
-      {toast && (
-        <div className="fixed top-4 left-4 right-4 z-50 px-4 py-3 rounded-xl text-sm font-medium text-white shadow-xl"
-             style={{ backgroundColor: toast.ok ? "var(--accent)" : "#e74c3c" }}>
-          {toast.msg}
-        </div>
-      )}
 
       {/* Header */}
       <div className="glass-hero p-4 flex items-center justify-between">
