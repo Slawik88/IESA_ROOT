@@ -3,6 +3,7 @@
 from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.db.models import Count
 
 from ..models import BlogSubscription
@@ -29,7 +30,9 @@ def toggle_subscription(request, author_pk):
         is_subscribed = False
     else:
         is_subscribed = True
-    
+
+    cache.delete(f'follower_count_{author_pk}')
+
     # Если HTMX - возвращаем фрагмент кнопки
     if request.htmx:
         # OPTIMIZATION: Use aggregate instead of separate count() query
@@ -49,6 +52,10 @@ def toggle_subscription(request, author_pk):
 def follower_count(request, author_pk):
     """HTMX polling endpoint — returns subscriber count as plain text."""
     from users.models import User
-    author = get_object_or_404(User, pk=author_pk)
-    count = BlogSubscription.objects.filter(author=author).count()
+    get_object_or_404(User, pk=author_pk)
+    cache_key = f'follower_count_{author_pk}'
+    count = cache.get(cache_key)
+    if count is None:
+        count = BlogSubscription.objects.filter(author_id=author_pk).count()
+        cache.set(cache_key, count, 60)
     return HttpResponse(str(count))

@@ -43,7 +43,7 @@ def comment_create(request, pk):
     if request.htmx:
         return render(request, 'blog/htmx/comments_section.html', {
             'post': post,
-            'comments': post.comments.filter(parent__isnull=True),
+            'comments': post.comments.filter(parent__isnull=True).select_related('author').prefetch_related('replies__author', 'likes'),
             'comment_form': CommentForm(),
             'just_posted_id': comment.pk,
             'comment_likes_map': get_comment_likes_map(post, request.user),
@@ -58,7 +58,7 @@ def comment_list(request, pk):
     
     return render(request, 'blog/htmx/comments_section.html', {
         'post': post,
-        'comments': post.comments.filter(parent__isnull=True),
+        'comments': post.comments.filter(parent__isnull=True).select_related('author').prefetch_related('replies__author', 'likes'),
         'comment_likes_map': get_comment_likes_map(post, request.user),
     })
 
@@ -79,7 +79,7 @@ def delete_comment(request, pk, comment_pk):
         post = get_object_or_404(Post, pk=pk)
         return render(request, 'blog/htmx/comments_section.html', {
             'post': post,
-            'comments': post.comments.filter(parent__isnull=True),
+            'comments': post.comments.filter(parent__isnull=True).select_related('author').prefetch_related('replies__author', 'likes'),
             'comment_form': CommentForm(),
             'comment_likes_map': get_comment_likes_map(post, request.user),
         })

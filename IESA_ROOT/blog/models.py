@@ -57,8 +57,9 @@ class Post(models.Model):
         ).exclude(pk=self.pk).order_by('-created_at')[:limit]
         
         # If not enough, fill with random published posts from other authors
-        if same_author.count() < limit:
-            remaining = limit - same_author.count()
+        same_author_count = same_author.count()
+        if same_author_count < limit:
+            remaining = limit - same_author_count
             other_posts = Post.objects.filter(
                 status='published'
             ).exclude(
@@ -190,19 +191,24 @@ class Event(models.Model):
             return timezone.now() < self.registration_deadline
         return self.status == 'upcoming'
     
+    def _get_confirmed_count(self):
+        """Return confirmed registrations count, cached on the instance for request lifetime."""
+        if not hasattr(self, '_confirmed_reg_count'):
+            self._confirmed_reg_count = self.registrations.filter(status='confirmed').count()
+        return self._confirmed_reg_count
+
     @property
     def is_full(self):
         """Check if event is at capacity"""
         if self.max_participants:
-            return self.registrations.filter(status='confirmed').count() >= self.max_participants
+            return self._get_confirmed_count() >= self.max_participants
         return False
-    
+
     @property
     def available_spots(self):
         """Get number of available spots"""
         if self.max_participants:
-            confirmed = self.registrations.filter(status='confirmed').count()
-            return max(0, self.max_participants - confirmed)
+            return max(0, self.max_participants - self._get_confirmed_count())
         return None
 
     @property
