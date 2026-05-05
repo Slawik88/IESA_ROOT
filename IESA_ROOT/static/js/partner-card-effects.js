@@ -137,41 +137,27 @@
      * Add parallax effect to partner section background
      */
     function initParallaxEffect() {
-        const partnersSection = document.getElementById('partners-section');
-        if (!partnersSection) return;
-        
-        window.addEventListener('scroll', () => {
-            const scrolled = window.pageYOffset;
-            const rect = partnersSection.getBoundingClientRect();
-            
-            if (rect.top < window.innerHeight && rect.bottom > 0) {
-                const offset = (scrolled - partnersSection.offsetTop) * 0.3;
-                partnersSection.style.backgroundPosition = `center ${offset}px`;
-            }
-        });
+        // Parallax через JS убран — реализован CSS background-attachment в responsive.css.
     }
 
-    // Auto-initialize on DOM ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-            initPartnerCards();
-            initStaggerAnimation();
-            animatePartnerBadges();
-        });
-    } else {
+    function runAll() {
         initPartnerCards();
         initStaggerAnimation();
         animatePartnerBadges();
     }
 
+    // Первичная инициализация
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', runAll);
+    } else {
+        runAll();
+    }
+
+    // Переинициализация после HTMX swap (новые партнёры в DOM)
+    document.addEventListener('htmx:afterSettle', runAll);
+
     // Public API
-    window.PartnerCardEffects = {
-        init: initPartnerCards,
-        reinit: function() {
-            initPartnerCards();
-            initStaggerAnimation();
-        }
-    };
+    window.PartnerCardEffects = { init: initPartnerCards, reinit: runAll };
 
 })();
 

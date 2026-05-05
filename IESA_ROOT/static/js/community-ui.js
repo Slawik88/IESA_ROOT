@@ -8,10 +8,14 @@
   /* ─── 1. Live Countdown Timers ─────────────────────────────────────────── */
   function initCountdowns() {
     document.querySelectorAll('[data-countdown]').forEach(function (el) {
-      var targetMs = Number(el.dataset.countdown) * 1000; // Django|date:"U" → seconds
+      var targetMs = Number(el.dataset.countdown) * 1000;
       var wrap = el.closest('.tl-countdown');
+      var timerId = null;
 
       function tick() {
+        // Прекращаем, если элемент уже вне DOM (HTMX swap)
+        if (!document.contains(el)) { clearTimeout(timerId); return; }
+
         var diff = targetMs - Date.now();
         if (diff <= 0) {
           if (wrap) wrap.innerHTML = '<i class="fas fa-play me-1"></i><span>In progress</span>';
@@ -22,12 +26,10 @@
         var h = Math.floor((diff % 86400000) / 3600000);
         var m = Math.floor((diff % 3600000) / 60000);
         var s = Math.floor((diff % 60000) / 1000);
-        if (d > 0) {
-          el.textContent = d + 'd ' + h + 'h ' + pad(m) + 'm';
-        } else {
-          el.textContent = pad(h) + ':' + pad(m) + ':' + pad(s);
-        }
-        setTimeout(tick, 1000);
+        el.textContent = d > 0
+          ? (d + 'd ' + h + 'h ' + pad(m) + 'm')
+          : (pad(h) + ':' + pad(m) + ':' + pad(s));
+        timerId = setTimeout(tick, 1000);
       }
       tick();
     });
