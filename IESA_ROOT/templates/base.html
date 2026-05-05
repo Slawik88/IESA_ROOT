@@ -430,6 +430,14 @@
                 new bootstrap.Toast(toast, {autohide: true, delay: 5000}).show();
             });
         });
+
+        document.body.addEventListener('htmx:responseError', function(evt) {
+            var status = evt.detail.xhr ? evt.detail.xhr.status : 0;
+            console.error('HTMX error:', status, evt.detail.pathInfo || '');
+            if (status === 403) {
+                window.location.reload();
+            }
+        });
     </script>
 
     <!-- Lightbox JS РґР»СЏ РіР°Р»РµСЂРµРё -->

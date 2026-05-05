@@ -1,4 +1,5 @@
 """Telegram Bot API HTTP client — async and sync variants."""
+import asyncio
 import logging
 from typing import Any
 
@@ -7,6 +8,37 @@ import httpx
 from .config import api_url, token
 
 logger = logging.getLogger(__name__)
+
+_RETRY_STATUSES = {429, 500, 502, 503, 504}
+
+
+async def _post_with_retry(method: str, payload: dict, retries: int = 3) -> dict | None:
+    """POST к Telegram API с exponential backoff на transient-ошибки."""
+    for attempt in range(retries):
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.post(api_url(method), json=payload)
+            if resp.status_code == 429:
+                retry_after = int(resp.headers.get("Retry-After", 5))
+                logger.warning("Telegram rate-limited; retry after %ds (attempt %d)", retry_after, attempt + 1)
+                if attempt < retries - 1:
+                    await asyncio.sleep(retry_after)
+                    continue
+                return None
+            if resp.status_code in _RETRY_STATUSES:
+                if attempt < retries - 1:
+                    await asyncio.sleep(2 ** attempt)
+                    continue
+                logger.error("Telegram %s: server error %s after %d retries", method, resp.status_code, retries)
+                return None
+            return resp.json()
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            if attempt < retries - 1:
+                await asyncio.sleep(2 ** attempt)
+                continue
+            logger.error("Telegram %s network error after %d retries: %s", method, retries, exc)
+            return None
+    return None
 
 
 # ── Async send ─────────────────────────────────────────────────────────────
@@ -36,17 +68,12 @@ async def send_message_async(
     if disable_notification:
         payload["disable_notification"] = True
 
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(api_url("sendMessage"), json=payload)
-        data = resp.json()
-        if resp.is_success and data.get("ok"):
-            return True
+    data = await _post_with_retry("sendMessage", payload)
+    if data and data.get("ok"):
+        return True
+    if data:
         logger.error("Telegram sendMessage error: %s", data)
-        return False
-    except Exception as exc:
-        logger.error("Telegram async send failed: %s", exc)
-        return False
+    return False
 
 
 # ── Edit message in-place ──────────────────────────────────────────────────
@@ -71,14 +98,11 @@ async def edit_message_text(
     }
     if reply_markup:
         payload["reply_markup"] = reply_markup
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(api_url("editMessageText"), json=payload)
-        data = resp.json()
-        return bool(resp.is_success and data.get("ok"))
-    except Exception as exc:
-        logger.error("Telegram editMessageText failed: %s", exc)
-        return False
+    data = await _post_with_retry("editMessageText", payload)
+    if data:
+        return bool(data.get("ok"))
+    logger.error("Telegram editMessageText failed after retries")
+    return False
 
 
 async def edit_message_reply_markup(
@@ -95,14 +119,11 @@ async def edit_message_reply_markup(
         "message_id": message_id,
         "reply_markup": reply_markup or {},
     }
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(api_url("editMessageReplyMarkup"), json=payload)
-        data = resp.json()
-        return bool(resp.is_success and data.get("ok"))
-    except Exception as exc:
-        logger.error("Telegram editMessageReplyMarkup failed: %s", exc)
-        return False
+    data = await _post_with_retry("editMessageReplyMarkup", payload)
+    if data:
+        return bool(data.get("ok"))
+    logger.error("Telegram editMessageReplyMarkup failed after retries")
+    return False
 
 
 # ── Answer callback query ──────────────────────────────────────────────────

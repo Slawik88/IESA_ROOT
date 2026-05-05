@@ -926,6 +926,13 @@ async def telegram_webhook_view(request, secret):
     import logging as _logging
     _wlog = _logging.getLogger("users.telegram.webhook")
 
+    # Проверяем, что секрет в URL совпадает с ожидаемым
+    from users.telegram.config import webhook_secret as _get_expected_secret
+    expected = _get_expected_secret()
+    if not expected or secret != expected:
+        _wlog.warning("Webhook rejected: invalid secret (ip=%s)", request.META.get("REMOTE_ADDR"))
+        return JsonResponse({"ok": False}, status=403)
+
     try:
         payload = _json.loads(request.body.decode("utf-8") or "{}")
     except Exception as exc:
