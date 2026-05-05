@@ -5,7 +5,9 @@
       "Bash(Get-ChildItem -Path \"G:\\\\IESA_ROOT\" -Directory)",
       "Bash(Select-Object Name)",
       "PowerShell(Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\\" -Recurse | ForEach-Object { $_.FullName })",
-      "PowerShell(Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\blog\\\\\" -File 2>$null | ForEach-Object { $_.Name }; Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\users\\\\\" -File 2>$null | ForEach-Object { $_.Name }; Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\core\\\\\" -File 2>$null | ForEach-Object { $_.Name })"
+      "PowerShell(Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\blog\\\\\" -File 2>$null | ForEach-Object { $_.Name }; Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\users\\\\\" -File 2>$null | ForEach-Object { $_.Name }; Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\core\\\\\" -File 2>$null | ForEach-Object { $_.Name })",
+      "Bash(grep -rn \"SECRET_KEY\\\\s*=\\\\s*['\\\\\"][^$]\" g:/IESA_ROOT/IESA_ROOT --include=\"*.py\")",
+      "Bash(git check-ignore *)"
     ]
   }
 }
