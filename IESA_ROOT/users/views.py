@@ -140,15 +140,17 @@ def _get_public_profile_context(user_obj, request_user=None):
         else []
     )
     
-    # Check if current user is subscribed to this profile
+    # Один aggregate() вместо двух отдельных exists()/count() запросов
     is_subscribed = False
     if request_user and request_user.is_authenticated and request_user != user_obj:
-        is_subscribed = BlogSubscription.objects.filter(
-            author=user_obj,
-            user=request_user
-        ).exists()
-    
-    subscriber_count = BlogSubscription.objects.filter(author=user_obj).count()
+        agg = BlogSubscription.objects.filter(author=user_obj).aggregate(
+            total=Count('id'),
+            user_sub=Count('id', filter=Q(user=request_user)),
+        )
+        subscriber_count = agg['total']
+        is_subscribed = agg['user_sub'] > 0
+    else:
+        subscriber_count = BlogSubscription.objects.filter(author=user_obj).count()
 
     return {
         'user_obj': user_obj,

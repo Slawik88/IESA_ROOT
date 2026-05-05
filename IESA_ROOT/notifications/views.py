@@ -31,8 +31,8 @@ def notification_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    unread_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
-    
+    unread_count = notifications.filter(is_read=False).count()
+
     context = {
         'notifications': page_obj,
         'unread_count': unread_count,

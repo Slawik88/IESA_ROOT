@@ -1,8 +1,10 @@
 from django.views.generic import TemplateView
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from products.models import Product
 from core.models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit, AdminAppeal
+from core.forms import AdminAppealForm
 from blog.models import Event
 from django.shortcuts import get_object_or_404, render, redirect
 from django.core.paginator import Paginator
@@ -15,45 +17,33 @@ def submit_appeal(request):
     if request.method != 'POST':
         return redirect('core:home')
 
-    name    = request.POST.get('appeal_name', '').strip()
-    email   = request.POST.get('appeal_email', '').strip()
-    reason  = request.POST.get('appeal_reason', 'other')
-    message = request.POST.get('appeal_message', '').strip()
-    req_url = request.POST.get('appeal_requested_url', '').strip()
-
-    errors = []
-    if not name:
-        errors.append(_('Please enter your name.'))
-    if not email or '@' not in email:
-        errors.append(_('Please enter a valid e-mail address.'))
-    if not message or len(message) < 20:
-        errors.append(_('Message must be at least 20 characters.'))
-
+    form = AdminAppealForm(request.POST)
     is_htmx = request.headers.get('HX-Request') == 'true'
 
-    if errors:
+    if not form.is_valid():
+        errors = [msg for field_errors in form.errors.values() for msg in field_errors]
         if is_htmx:
             return render(request, 'partials/admin_appeal_form.html', {
                 'appeal_errors': errors,
-                'appeal_name': name,
-                'appeal_email': email,
-                'appeal_reason': reason,
-                'appeal_message': message,
-                'appeal_requested_url': req_url,
+                'appeal_name': form.data.get('appeal_name', ''),
+                'appeal_email': form.data.get('appeal_email', ''),
+                'appeal_reason': form.data.get('appeal_reason', 'other'),
+                'appeal_message': form.data.get('appeal_message', ''),
+                'appeal_requested_url': form.data.get('appeal_requested_url', ''),
             })
         from django.contrib import messages as dj_messages
         for e in errors:
             dj_messages.error(request, e)
         return redirect(request.META.get('HTTP_REFERER', 'core:home'))
 
-    AppealUser = request.user if request.user.is_authenticated else None
+    d = form.cleaned_data
     AdminAppeal.objects.create(
-        user=AppealUser,
-        name=name,
-        email=email,
-        reason=reason,
-        message=message,
-        requested_url=req_url,
+        user=request.user if request.user.is_authenticated else None,
+        name=d['appeal_name'],
+        email=d['appeal_email'],
+        reason=d.get('appeal_reason', 'other'),
+        message=d['appeal_message'],
+        requested_url=d.get('appeal_requested_url', ''),
         status='new',
     )
 
@@ -98,37 +88,55 @@ class IndexView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # 1. Основные продукты IESA (ВЫШЕ событий на главной)
-        context['core_products'] = CoreProduct.objects.filter(is_active=True).order_by('order', '-created_at')[:4]
-        
-        # 2. Продукты (предположим, 3 последних)
-        context['products'] = Product.objects.all().order_by('-id')[:3]
-        
-        # 3. Президент (отдельная модель)
-        try:
-            context['president'] = President.objects.first()
-        except President.DoesNotExist:
-            context['president'] = None
-        
-        # 4. Члены ассоциации (limit 50 — board/team section on homepage)
-        context['members'] = AssociationMember.objects.all().order_by('id')[:50]
-        
-        # 5. Партнеры с пагинацией
-        partners_qs = Partner.objects.all().order_by('name')
-        paginator = Paginator(partners_qs, 12)
+
+        # Секции с редко меняющимися данными — кэш 1 час
+        context['core_products'] = cache.get_or_set(
+            'idx:core_products',
+            lambda: list(CoreProduct.objects.filter(is_active=True).order_by('order', '-created_at')[:4]),
+            3600,
+        )
+        context['products'] = cache.get_or_set(
+            'idx:products',
+            lambda: list(Product.objects.all().order_by('-id')[:3]),
+            3600,
+        )
+        context['members'] = cache.get_or_set(
+            'idx:members',
+            lambda: list(AssociationMember.objects.all().order_by('id')[:50]),
+            3600,
+        )
+        context['member_benefits'] = cache.get_or_set(
+            'idx:member_benefits',
+            lambda: list(MemberBenefit.objects.filter(is_active=True).order_by('order', '-created_at')[:6]),
+            3600,
+        )
+
+        # Президент — отдельная обработка, т.к. может быть None
+        president = cache.get('idx:president', 'MISS')
+        if president == 'MISS':
+            president = President.objects.first()
+            cache.set('idx:president', president, 3600)
+        context['president'] = president
+
+        # Партнёры — кэшируем весь список, пагинируем в памяти
+        all_partners = cache.get_or_set(
+            'idx:partners',
+            lambda: list(Partner.objects.all().order_by('name')),
+            3600,
+        )
+        paginator = Paginator(all_partners, 12)
         page = self.request.GET.get('partners_page') or 1
         partners_page = paginator.get_page(page)
         context['partners'] = partners_page.object_list
         context['partners_page_obj'] = partners_page
-        
-        # 6. Ближайшие события (максимум 6 для главной)
-        upcoming_events = Event.objects.filter(
-            date__gte=timezone.now()
-        ).select_related('created_by').order_by('date')[:6]
-        context['upcoming_events'] = upcoming_events
-        
-        # 7. Преимущества членства (Top 6 для главной)
-        context['member_benefits'] = MemberBenefit.objects.filter(is_active=True).order_by('order', '-created_at')[:6]
-        
+
+        # События — кэш 5 минут (более динамичные данные)
+        context['upcoming_events'] = cache.get_or_set(
+            'idx:upcoming_events',
+            lambda: list(Event.objects.filter(
+                date__gte=timezone.now()
+            ).select_related('created_by').order_by('date')[:6]),
+            300,
+        )
+
         return context

@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.http import HttpResponseNotFound
 from django.utils import timezone
 from django.utils import translation
@@ -32,10 +33,11 @@ class LastOnlineMiddleware:
 
         # Логика обновления только для авторизованных пользователей
         if request.user.is_authenticated:
-            # Обновление поля last_online
-            # Используем update_fields для повышения производительности
-            request.user.last_online = timezone.now()
-            request.user.save(update_fields=['last_online'])
+            cache_key = f'last_online_{request.user.pk}'
+            if not cache.get(cache_key):
+                request.user.last_online = timezone.now()
+                request.user.save(update_fields=['last_online'])
+                cache.set(cache_key, True, 300)
 
         return response
 
