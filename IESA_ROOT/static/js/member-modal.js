@@ -53,7 +53,7 @@
         }
 
         if (elements.description) {
-            elements.description.innerHTML = data.memberDescription || '';
+            elements.description.textContent = data.memberDescription || '';
         }
 
         // Handle photo

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\IESA_ROOT\\\\miniapp_views.py\")",
+      "Bash(Get-ChildItem -Path \"G:\\\\IESA_ROOT\" -Directory)",
+      "Bash(Select-Object Name)"
+    ]
+  }
+}

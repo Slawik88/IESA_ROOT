@@ -21,23 +21,21 @@ function initEventCardAnimations() {
         // Stagger entrance animations
         card.style.animation = `cardEnter 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.1}s both`;
         
-        // 3D hover effect with perspective
+        // 3D hover effect with perspective — mousemove listener вынесен наружу (нет утечки)
+        const onMouseMove = function (e) {
+            const rect = card.getBoundingClientRect();
+            const rotateY = ((e.clientX - rect.left - rect.width / 2) / rect.width) * 8;
+            const rotateX = -((e.clientY - rect.top - rect.height / 2) / rect.height) * 8;
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px)`;
+        };
+
         card.addEventListener('mouseenter', function () {
             this.style.perspective = '1000px';
-            
-            this.addEventListener('mousemove', (e) => {
-                const rect = this.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                const rotateY = ((x - rect.width / 2) / rect.width) * 8;
-                const rotateX = -((y - rect.height / 2) / rect.height) * 8;
-                
-                this.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px)`;
-            });
+            this.addEventListener('mousemove', onMouseMove);
         });
-        
+
         card.addEventListener('mouseleave', function () {
+            this.removeEventListener('mousemove', onMouseMove);
             this.style.transform = '';
         });
         
