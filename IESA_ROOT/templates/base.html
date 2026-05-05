@@ -96,6 +96,8 @@
     <link rel="stylesheet" href="{% static 'css/homepage.css' %}">
     <link rel="stylesheet" href="{% static 'css/touch-gestures.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
+    <!-- Dark-theme overrides: must be last to win the cascade -->
+    <link rel="stylesheet" href="{% static 'css/dark-theme-fixes.css' %}">
 
     <!-- Per-page CSS: override 'extra_css' block in child templates -->
     {% block extra_css %}{% endblock %}

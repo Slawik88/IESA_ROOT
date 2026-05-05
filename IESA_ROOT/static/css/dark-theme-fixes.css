@@ -1,0 +1,310 @@
+/* ============================================================
+   DARK THEME FIXES — глобальные исправления светлых элементов
+   Загружается последним, переопределяет homepage.css и компоненты.
+   ============================================================ */
+
+/* ── Hero секции ────────────────────────────────────────────── */
+.hero-section,
+.hero-showcase {
+  background:
+    radial-gradient(circle at 15% 25%, rgba(220, 38, 38, 0.07), transparent 42%),
+    radial-gradient(circle at 85% 75%, rgba(96, 165, 250, 0.06), transparent 46%),
+    linear-gradient(135deg, #0e0e18 0%, #13101a 50%, #0e0e18 100%) !important;
+  border-color: rgba(220, 38, 38, 0.15) !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35) !important;
+}
+
+.hero-showcase .hero-description,
+.hero-section p { color: var(--text-secondary) !important; }
+
+.hero-badge,
+.hero-showcase .hero-badge {
+  background: rgba(220, 38, 38, 0.1) !important;
+  border-color: rgba(220, 38, 38, 0.2) !important;
+  color: #f87171 !important;
+}
+
+/* ── Все карточки — тёмный фон ───────────────────────────── */
+.benefit-card,
+.product-card,
+.event-card,
+.member-card,
+.partner-card-compact,
+.offer-card,
+.card {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-dark) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Сохраняем hover-lift для всех карточек */
+.benefit-card:hover,
+.product-card:hover,
+.event-card:hover,
+.member-card:hover,
+.partner-card-compact:hover,
+.offer-card:hover {
+  background: var(--bg-surface-hover) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ── Текст на тёмных карточках ───────────────────────────── */
+.member-card .member-name,
+.member-card .member-showcase-card .member-name,
+.offer-title,
+.president-card .president-name,
+.event-card .card-title,
+.product-card .card-title,
+.benefit-card .benefit-title,
+.partner-card-compact .partner-name {
+  color: var(--text-primary) !important;
+}
+
+.member-card .member-bio,
+.offer-text,
+.offer-meta,
+.president-card .president-bio,
+.event-card .text-muted,
+.event-location,
+.event-location .text-muted,
+.product-card .text-muted,
+.partner-card-compact .text-muted,
+.mission-showcase li {
+  color: var(--text-muted) !important;
+}
+
+.offer-meta { color: var(--text-secondary) !important; }
+
+/* ── About / President / Mission секции ──────────────────── */
+#about-section {
+  background:
+    radial-gradient(circle at 85% 15%, rgba(220, 38, 38, 0.06), transparent 40%),
+    linear-gradient(135deg, var(--bg-surface) 0%, #0e0e18 100%) !important;
+  border-color: rgba(220, 38, 38, 0.1) !important;
+}
+
+.president-card {
+  background: linear-gradient(135deg, var(--bg-surface) 0%, #1a1a2e 100%) !important;
+  border-color: rgba(248, 113, 113, 0.12) !important;
+}
+
+.mission-showcase {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-dark) !important;
+}
+
+.mission-showcase .mission-panel {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-color: var(--border-dark) !important;
+}
+
+.mission-showcase li { color: var(--text-secondary) !important; }
+
+/* ── About showcase member cards ──────────────────────────── */
+.about-showcase,
+.about-showcase .member-showcase-card {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-dark) !important;
+}
+
+/* ── Card footers ────────────────────────────────────────── */
+.event-card .card-footer,
+.events-showcase .showcase-card .card-footer {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-color: var(--border-dark) !important;
+}
+
+/* ── CTA карточки ────────────────────────────────────────── */
+.offers-cta-card {
+  background:
+    radial-gradient(circle at 10% 50%, rgba(220, 38, 38, 0.07), transparent 40%),
+    linear-gradient(135deg, var(--bg-surface) 0%, #15121e 100%) !important;
+  border-color: rgba(220, 38, 38, 0.15) !important;
+}
+
+/* ── Badges внутри event карточек ────────────────────────── */
+.event-card .badge {
+  background: rgba(220, 38, 38, 0.12) !important;
+  color: #f87171 !important;
+  border-color: rgba(220, 38, 38, 0.2) !important;
+}
+
+/* ── Offer badge / icon box ──────────────────────────────── */
+.offer-badge {
+  background: rgba(220, 38, 38, 0.1) !important;
+  color: #f87171 !important;
+  border-color: rgba(220, 38, 38, 0.15) !important;
+}
+
+.offer-icon {
+  background: rgba(248, 113, 113, 0.1) !important;
+  border: 1px solid rgba(248, 113, 113, 0.15);
+}
+
+/* ── Partner logo фон ────────────────────────────────────── */
+.partner-logo-compact {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: var(--border-dark) !important;
+}
+
+/* ── Кнопка outline внутри partner card ──────────────────── */
+.partner-card-compact .btn-outline-primary {
+  background: transparent !important;
+  color: #f87171 !important;
+}
+
+/* ── Светлые partner badges → тёмные ──────────────────────── */
+.badge-partner-sponsor,
+.badge-partner-media,
+.badge-partner-tech,
+.badge-partner-venue,
+.badge-partner-default {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-dark) !important;
+}
+
+/* ── Разделитель кнопок внутри partner card ──────────────── */
+.partner-card-compact .d-flex.gap-2 {
+  border-color: var(--border-dark) !important;
+}
+
+/* ── Showcase card (events) ──────────────────────────────── */
+.events-showcase .showcase-card {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-dark) !important;
+}
+
+/* ── Модальные окна — тёмный стиль ──────────────────────── */
+.modal-content {
+  background: #111118 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: var(--text-primary);
+}
+
+.modal-header {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.modal-footer {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.modal-title {
+  color: var(--text-primary) !important;
+}
+
+.modal-body p {
+  color: var(--text-secondary) !important;
+}
+
+.btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* ── Таблицы на мобилке ──────────────────────────────────── */
+.table-mobile-cards tbody tr {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-dark) !important;
+}
+
+/* ── Dropdown меню ───────────────────────────────────────── */
+.dropdown-menu {
+  background: #111118 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dropdown-item {
+  color: var(--text-primary) !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-primary) !important;
+}
+
+.dropdown-divider {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── Bootstrap alert исправления ────────────────────────── */
+.alert-info {
+  background: rgba(2, 132, 199, 0.1) !important;
+  border-color: rgba(2, 132, 199, 0.2) !important;
+  color: #38bdf8 !important;
+}
+
+.alert-success {
+  background: rgba(22, 163, 74, 0.1) !important;
+  border-color: rgba(22, 163, 74, 0.2) !important;
+  color: #4ade80 !important;
+}
+
+.alert-warning {
+  background: rgba(217, 119, 6, 0.1) !important;
+  border-color: rgba(217, 119, 6, 0.2) !important;
+  color: #fbbf24 !important;
+}
+
+.alert-danger {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.2) !important;
+  color: #f87171 !important;
+}
+
+/* ── Popover / Tooltip ───────────────────────────────────── */
+.popover {
+  background: #111118 !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.popover-header {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: var(--text-primary) !important;
+}
+
+.popover-body {
+  color: var(--text-secondary) !important;
+}
+
+/* ── bg-white / bg-light Bootstrap override ──────────────── */
+.bg-white { background-color: var(--bg-surface) !important; }
+.bg-light  { background-color: rgba(255, 255, 255, 0.04) !important; }
+
+/* ── text-dark / text-black Bootstrap override ───────────── */
+.text-dark  { color: var(--text-primary) !important; }
+.text-black { color: var(--text-primary) !important; }
+.text-body  { color: var(--text-primary) !important; }
+
+/* ── form-control / input в тёмной теме ──────────────────── */
+.form-control,
+.form-select {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--text-primary) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(220, 38, 38, 0.5) !important;
+  color: var(--text-primary) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+
+.form-control::placeholder { color: var(--text-light) !important; }
+
+/* ── Inline <code> элементы ─────────────────────────────── */
+code {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f87171 !important;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* ── hero-section h1/p цвета ─────────────────────────────── */
+.hero-section h1 { color: var(--text-primary) !important; }
+.hero-section p  { color: var(--text-secondary) !important; }
