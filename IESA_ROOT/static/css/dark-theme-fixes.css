@@ -161,13 +161,29 @@
   color: #f87171 !important;
 }
 
-/* ── Светлые partner badges → тёмные ──────────────────────── */
-.badge-partner-sponsor,
-.badge-partner-media,
-.badge-partner-tech,
-.badge-partner-venue,
+/* ── Partner badge colors — distinct in dark theme (U3-12) ── */
+.badge-partner-sponsor {
+  background: rgba(245,158,11,.14) !important;
+  color: #fbbf24 !important;
+  border-color: rgba(245,158,11,.28) !important;
+}
+.badge-partner-media {
+  background: rgba(139,92,246,.14) !important;
+  color: #c4b5fd !important;
+  border-color: rgba(139,92,246,.28) !important;
+}
+.badge-partner-tech {
+  background: rgba(59,130,246,.14) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59,130,246,.28) !important;
+}
+.badge-partner-venue {
+  background: rgba(34,197,94,.14) !important;
+  color: #4ade80 !important;
+  border-color: rgba(34,197,94,.28) !important;
+}
 .badge-partner-default {
-  background: rgba(255, 255, 255, 0.07) !important;
+  background: rgba(255,255,255,.07) !important;
   color: var(--text-secondary) !important;
   border-color: var(--border-dark) !important;
 }
@@ -183,33 +199,7 @@
   border-color: var(--border-dark) !important;
 }
 
-/* ── Модальные окна — тёмный стиль ──────────────────────── */
-.modal-content {
-  background: #111118 !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: var(--text-primary);
-}
-
-.modal-header {
-  background: transparent !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-.modal-footer {
-  border-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-.modal-title {
-  color: var(--text-primary) !important;
-}
-
-.modal-body p {
-  color: var(--text-secondary) !important;
-}
-
-.btn-close {
-  filter: invert(1) grayscale(100%) brightness(200%);
-}
+/* .modal-* — canonical definition in layout.css (U4-01) */
 
 /* ── Таблицы ─────────────────────────────────────────────── */
 .table {
@@ -225,25 +215,8 @@
 /* ── Gradient border CSS trick ───────────────────────────── */
 .gradient-border { background: var(--bg-surface) !important; }
 
-/* ── Dropdown меню ───────────────────────────────────────── */
-.dropdown-menu {
-  background: #111118 !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-.dropdown-item {
-  color: var(--text-primary) !important;
-}
-
-.dropdown-item:hover,
-.dropdown-item:focus {
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: var(--text-primary) !important;
-}
-
-.dropdown-divider {
-  border-color: rgba(255, 255, 255, 0.08) !important;
-}
+/* .dropdown-item — canonical definition in layout.css (U3-26) */
+.dropdown-divider { border-color: rgba(255,255,255,.08) !important; }
 
 /* ── Bootstrap alert исправления ────────────────────────── */
 .alert-info {
@@ -381,33 +354,7 @@ code {
 .comment-thread .card,
 .comment-thread .card-modern { background: rgba(255, 255, 255, 0.04) !important; }
 
-/* ── Dropdown — hardcode цвет текста ──────────────────────── */
-.dropdown-menu {
-  background: #0d0d1a !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6) !important;
-}
-
-.dropdown-item {
-  color: rgba(255, 255, 255, 0.85) !important;
-  background: transparent !important;
-}
-
-.dropdown-item:hover,
-.dropdown-item:focus {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: #ffffff !important;
-}
-
-.dropdown-item:active {
-  background: rgba(220, 38, 38, 0.15) !important;
-  color: #ffffff !important;
-}
-
-.dropdown-item.active {
-  background: rgba(220, 38, 38, 0.18) !important;
-  color: #ffffff !important;
-}
+/* .dropdown-item active/active states moved to layout.css (U3-26) */
 
 /* ── List-group items hardcode ────────────────────────────── */
 .list-group-item {

@@ -1184,10 +1184,10 @@ header {
    ============================================================ */
 
 @media (min-width: 992px) {
-  /* Hover effects only on desktop */
+  /* Hover effects only on desktop — all use --card-hover-lift token (U4-17) */
   .card:hover {
-    transform: translateY(-2px);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transform: translateY(var(--card-hover-lift));
+    transition: transform var(--transition-smooth), box-shadow var(--transition-smooth);
   }
 
   .btn:hover {
@@ -1196,7 +1196,7 @@ header {
 
   .profile-detail-card:hover,
   .profile-stat-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(var(--card-hover-lift));
   }
 
   /* Show on desktop */

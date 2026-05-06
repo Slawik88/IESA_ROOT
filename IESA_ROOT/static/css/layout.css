@@ -159,7 +159,7 @@ header, .iesa-header {
 .dropdown-item {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-lg);
-  color: rgba(255,255,255,.65);
+  color: var(--text-primary);
   font-weight: var(--font-medium);
   transition: all var(--transition-fast);
   position: relative;
@@ -179,8 +179,9 @@ header, .iesa-header {
   transition: transform var(--transition-smooth);
 }
 
-.dropdown-item:hover {
-  background: rgba(220,38,38,.1);
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background: rgba(255,255,255,.08);
   color: #fff;
   transform: translateX(4px);
 }
@@ -189,8 +190,13 @@ header, .iesa-header {
   transform: scaleY(1);
 }
 
-.dropdown-item:focus {
-  background: rgba(220,38,38,.08);
+.dropdown-item:active {
+  background: rgba(220,38,38,.15);
+  color: #fff;
+}
+
+.dropdown-item.active {
+  background: rgba(220,38,38,.18);
   color: #fff;
 }
 
@@ -468,38 +474,8 @@ main {
 }
 
 /* ====================================================
-   9. MODALS (улучшения Bootstrap модалок)
+   9. MODALS — single canonical dark definition (U4-01)
    ==================================================== */
-
-.modal-content {
-  border: none;
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-2xl);
-}
-
-.modal-header {
-  border-bottom: 1px solid var(--border-color);
-  padding: var(--space-5) var(--space-6);
-}
-
-.modal-title {
-  font-weight: var(--font-bold);
-  font-size: var(--text-lg);
-}
-
-.modal-body {
-  padding: var(--space-6);
-}
-
-.modal-footer {
-  border-top: 1px solid var(--border-color);
-  padding: var(--space-4) var(--space-6);
-}
-
-/* Modal backdrop */
-.modal-backdrop.show {
-  opacity: 0.5;
-}
 
 /* ====================================================
    10. PAGINATION
@@ -552,15 +528,7 @@ main {
   font-size: 0.9rem;
 }
 
-/* Header Avatar - Keep compact */
-.navbar-btn .avatar {
-  width: 26px !important;
-  height: 26px !important;
-}
-
-.navbar-btn .avatar-fallback {
-  font-size: 0.7rem !important;
-}
+/* Header Avatar — uses --avatar-sm (28px) from variables.css (U4-27) */
 
 /* Navbar Search Dropdown */
 .navbar-search-dropdown {
@@ -668,29 +636,44 @@ main {
 .lang-pick-item:hover { background: rgba(255,255,255,.07); color: #fff; }
 .lang-pick-item.lp-active { background: rgba(220,38,38,.15); color: #f87171; font-weight: 700; }
 
-/* ── Global Dark Modals ─────────────────────────────────── */
+/* ── Global Dark Modals — canonical (U4-01) ─────────────── */
 .modal-content {
-  background: #111118;
-  border: 1.5px solid rgba(255,255,255,.1);
-  border-radius: 18px;
-  color: #e2e8f0;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-dark);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-2xl);
+  color: var(--text-primary);
 }
 .modal-header {
   background: transparent;
-  border-bottom: 1px solid rgba(255,255,255,.07);
+  border-bottom: 1px solid var(--border-dark);
+  padding: var(--space-5) var(--space-6);
 }
-.modal-footer { border-top: 1px solid rgba(255,255,255,.07); }
-/* Light modal variant — override dark defaults */
+.modal-title {
+  font-weight: var(--font-bold);
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+.modal-body {
+  padding: var(--space-6);
+  color: var(--text-secondary);
+}
+.modal-footer {
+  border-top: 1px solid var(--border-dark);
+  padding: var(--space-4) var(--space-6);
+}
+.modal-backdrop.show { opacity: 0.5; }
+.modal .btn-close { filter: invert(1) brightness(2); }
+
+/* Light modal variant */
 .modal-light .modal-content {
   background: #fff;
-  border: 1px solid rgba(0,0,0,.1);
+  border-color: rgba(0,0,0,.1);
   color: var(--gray-900);
 }
-.modal-light .modal-header { border-bottom: 1px solid rgba(0,0,0,.1); }
-.modal-light .modal-footer { border-top: 1px solid rgba(0,0,0,.1); }
-.modal .btn-close { filter: invert(1) brightness(2); }
+.modal-light .modal-header { border-bottom-color: rgba(0,0,0,.1); }
+.modal-light .modal-footer { border-top-color: rgba(0,0,0,.1); }
 .modal-light .btn-close { filter: none; }
-.modal-body { color: var(--text-secondary); }
 
 /* Fix: search button positioning on mobile */
 @media (max-width: 991px) {

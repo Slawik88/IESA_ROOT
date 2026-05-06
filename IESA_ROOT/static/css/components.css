@@ -770,9 +770,9 @@ textarea.form-control {
   font-size: var(--text-5xl);
 }
 
-/* Avatar Fallback (инициалы) */
+/* Avatar Fallback — hash-based hue set by JS via data-avatar-seed (U4-26) */
 .avatar-fallback {
-  background: var(--gradient-primary);
+  background: hsl(var(--avatar-hue, 0) 60% 38%);
   color: var(--white);
   font-weight: var(--font-bold);
 }
@@ -1256,16 +1256,16 @@ textarea:focus-visible {
    ==================================================== */
 
 .partner-card-compact {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  transition: all 0.3s ease;
-  background: white;
+  border: 1px solid var(--border-dark);
+  border-radius: var(--radius-card);
+  transition: all var(--transition-smooth);
+  background: var(--bg-surface);
 }
 
 .partner-card-compact:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
-  transform: translateY(-2px);
+  border-color: rgba(220,38,38,.25);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(var(--card-hover-lift));
 }
 
 /* Partner Logo - Compact */
