@@ -3,7 +3,9 @@
  * Features: Code splitting, lazy loading, debouncing, caching
  */
 
-// Capture static base URL from this script's own src (must be at top level)
+// B4-22: document.currentScript работает только при синхронной загрузке.
+// При defer/async будет null → используется fallback '/static/'.
+// Объявлено вне IIFE намеренно: используется в функциях ниже по цепочке.
 const _ownScript = document.currentScript;
 const STATIC_BASE = _ownScript
     ? _ownScript.src.substring(0, _ownScript.src.lastIndexOf('js/performance-optimization.js'))
@@ -95,18 +97,22 @@ function initLazyLoading() {
  */
 const DOMCache = {
     elements: {},
-    
+
     get: function(selector) {
         if (!this.elements[selector]) {
             this.elements[selector] = document.querySelectorAll(selector);
         }
         return this.elements[selector];
     },
-    
+
     clear: function() {
         this.elements = {};
     }
 };
+
+// B4-03: при HTMX swap DOM меняется — кэш устаревших NodeList ссылок
+// должен сбрасываться чтобы следующий get() получил актуальные элементы.
+document.addEventListener('htmx:afterSwap', function() { DOMCache.clear(); });
 
 /**
  * Debounce window resize events
@@ -213,8 +219,14 @@ function monitorPerformance() {
             const observer = new PerformanceObserver((list) => {
                 // Performance entries observed
             });
-            
+
             observer.observe({ entryTypes: ['measure', 'navigation'] });
+
+            // B4-14: disconnect при HTMX swap чтобы не накапливать observers
+            document.addEventListener('htmx:beforeSwap', function _disconnectPerf() {
+                observer.disconnect();
+                document.removeEventListener('htmx:beforeSwap', _disconnectPerf);
+            }, { once: true });
         } catch (e) {
             // PerformanceObserver not supported
         }

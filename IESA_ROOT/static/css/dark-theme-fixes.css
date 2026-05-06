@@ -325,6 +325,23 @@ code {
 .hero-section h1 { color: var(--text-primary) !important; }
 .hero-section p  { color: var(--text-secondary) !important; }
 
+/* ── Search results (B4-12 / B4-19) — вынесено из HTMX-партиала ── */
+.search-item.list-group-item-action {
+  background: rgba(255,255,255,.03) !important;
+  border-color: rgba(255,255,255,.07) !important;
+  color: rgba(255,255,255,.85);
+  transition: background .15s, border-color .15s;
+}
+.search-item.list-group-item-action:hover {
+  background: rgba(220,38,38,.05) !important;
+  border-color: rgba(220,38,38,.3) !important;
+}
+.search-item .text-muted { color: rgba(255,255,255,.4) !important; }
+.search-section + .search-section { margin-top: 8px; }
+/* заменяет inline style="color:#fff;" (B4-19) */
+.search-result-text { color: rgba(255,255,255,.9) !important; }
+.verified-check { color: #4ade80; font-size: .7rem; }
+
 /* ══════════════════════════════════════════════════════════
    КРИТИЧЕСКИЕ ИСПРАВЛЕНИЯ v2 — жёсткие значения без var()
    чтобы побороть scoped override base.css:407 (--bg-surface:#fff)

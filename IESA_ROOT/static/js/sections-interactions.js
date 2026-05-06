@@ -83,10 +83,28 @@ function initLazyImageLoading() {
     document.head.appendChild(style);
 })();
 
+function _initCard(card, fn) {
+    // B4-09: guard против повторной инициализации при HTMX swap
+    if (card.dataset.siInit) return;
+    card.dataset.siInit = '1';
+    fn(card);
+}
+
 function run() {
-    initProductCardEffects();
-    initEventCardEffects();
-    initMemberCardEffects();
+    // Запускаем только для новых (не инициализированных) карточек
+    document.querySelectorAll('.product-card').forEach(c => _initCard(c, function(card) {
+        card.addEventListener('mouseenter', function () { this.style.boxShadow = '0 20px 50px rgba(248,113,113,0.25)'; });
+        card.addEventListener('mouseleave', function () { this.style.boxShadow = ''; });
+        card.addEventListener('click', function () { this.classList.add('clicked'); setTimeout(() => this.classList.remove('clicked'), 300); });
+    }));
+    document.querySelectorAll('.event-card').forEach(c => _initCard(c, function(card) {
+        card.addEventListener('mouseenter', function () { const d = this.querySelector('.event-date'); if (d) d.style.transform = 'scale(1.05)'; });
+        card.addEventListener('mouseleave', function () { const d = this.querySelector('.event-date'); if (d) d.style.transform = ''; });
+    }));
+    document.querySelectorAll('.member-card, .president-card').forEach(c => _initCard(c, function(card) {
+        card.addEventListener('mouseenter', function () { const a = this.querySelector('.member-avatar'); if (a) a.style.filter = 'brightness(1.1) contrast(1.1)'; });
+        card.addEventListener('mouseleave', function () { const a = this.querySelector('.member-avatar'); if (a) a.style.filter = ''; });
+    }));
     initLazyImageLoading();
 }
 

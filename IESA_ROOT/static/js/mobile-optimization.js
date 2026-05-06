@@ -104,12 +104,17 @@
     const bottomNav = document.getElementById('mobileBottomNav');
     if (!bottomNav) return;
 
-    // Добавляем тень при скролле вверху страницы
+    // B4-07: единый RAF-throttled scroll listener вместо двух отдельных
+    var _scrollTicking = false;
     window.addEventListener('scroll', function () {
-      if (window.scrollY > 10) {
-        bottomNav.style.boxShadow = '0 -6px 24px rgba(0,0,0,0.12)';
-      } else {
-        bottomNav.style.boxShadow = '0 -4px 20px rgba(0,0,0,0.08)';
+      if (!_scrollTicking) {
+        _scrollTicking = true;
+        requestAnimationFrame(function () {
+          bottomNav.style.boxShadow = window.scrollY > 10
+            ? '0 -6px 24px rgba(0,0,0,0.12)'
+            : '0 -4px 20px rgba(0,0,0,0.08)';
+          _scrollTicking = false;
+        });
       }
     }, { passive: true });
 

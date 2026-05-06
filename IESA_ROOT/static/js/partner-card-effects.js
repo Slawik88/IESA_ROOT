@@ -11,15 +11,15 @@
      */
     function initPartnerCards() {
         const partnerCards = document.querySelectorAll('.partner-card-compact');
-        
+
         partnerCards.forEach(card => {
-            // Add tilt effect on mouse move
+            // B4-01: пропускаем уже инициализированные — без guard listeners
+            // дублируются экспоненциально при каждом HTMX swap
+            if (card.dataset.pcInit) return;
+            card.dataset.pcInit = '1';
+
             addTiltEffect(card);
-            
-            // Add ripple effect on click
             addRippleEffect(card);
-            
-            // Lazy load partner logos
             lazyLoadLogos(card);
         });
     }

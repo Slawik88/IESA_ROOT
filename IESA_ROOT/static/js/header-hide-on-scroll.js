@@ -35,16 +35,17 @@
   }
 
   function onScroll() {
+    // B4-15: debounce + RAF — DOM операции только в следующем frame
     if (timer) clearTimeout(timer);
     timer = setTimeout(function() {
-      // Mobile: NEVER hide header
-      if (isMobile()) { if (hidden) show(); return; }
-
-      var y = window.pageYOffset || document.documentElement.scrollTop;
-      if (y < HIDE_THRESHOLD) { show(); }
-      else if (y > lastY) { hide(); }
-      else if (y < lastY) { show(); }
-      lastY = y;
+      requestAnimationFrame(function() {
+        if (isMobile()) { if (hidden) show(); return; }
+        var y = window.pageYOffset || document.documentElement.scrollTop;
+        if (y < HIDE_THRESHOLD) { show(); }
+        else if (y > lastY)     { hide(); }
+        else if (y < lastY)     { show(); }
+        lastY = y;
+      });
     }, SCROLL_DELAY);
   }
 
