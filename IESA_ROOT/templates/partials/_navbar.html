@@ -136,8 +136,17 @@
                                      hx-get="{% url 'notifications:notification_list' %}"
                                      hx-trigger="click from:#notificationsToggle"
                                      hx-swap="innerHTML">
-                                    <div class="text-center py-3 text-muted">
-                                        <i class="fas fa-bell" style="font-size:1.5rem;opacity:.3;"></i>
+                                    <!-- Skeleton placeholder (U4-24) -->
+                                    <div class="px-1 py-2" aria-label="{% trans 'Loading notifications...' %}">
+                                        {% for _ in "123" %}
+                                        <div class="d-flex align-items-center gap-2 px-2 py-2">
+                                            <div class="skeleton rounded-circle flex-shrink-0" style="width:32px;height:32px;"></div>
+                                            <div class="flex-grow-1">
+                                                <div class="skeleton skeleton-text rounded mb-1" style="width:70%;height:.75rem;"></div>
+                                                <div class="skeleton skeleton-text rounded" style="width:40%;height:.65rem;"></div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
                                     </div>
                                 </div>
                             </div>
