@@ -324,3 +324,144 @@ code {
 /* ── hero-section h1/p цвета ─────────────────────────────── */
 .hero-section h1 { color: var(--text-primary) !important; }
 .hero-section p  { color: var(--text-secondary) !important; }
+
+/* ══════════════════════════════════════════════════════════
+   КРИТИЧЕСКИЕ ИСПРАВЛЕНИЯ v2 — жёсткие значения без var()
+   чтобы побороть scoped override base.css:407 (--bg-surface:#fff)
+   ══════════════════════════════════════════════════════════ */
+
+/* ── card-modern — используем hardcode, не var(--bg-surface) ── */
+.card-modern,
+.card.card-modern,
+.comment-card,
+.reply-card {
+  background: #111118 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+
+.card-modern .card-body,
+.card.card-modern .card-body {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.87) !important;
+}
+
+.card-modern .card-text,
+.card-modern p,
+.comment-card p,
+.reply-card p {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.card-modern strong,
+.comment-card strong { color: rgba(255, 255, 255, 0.92) !important; }
+
+.card-modern .text-muted,
+.comment-card .text-muted,
+.reply-card .text-muted { color: rgba(255, 255, 255, 0.42) !important; }
+
+/* Вложенные ответы (comment thread) */
+.comment-thread .card,
+.comment-thread .card-modern { background: rgba(255, 255, 255, 0.04) !important; }
+
+/* ── Dropdown — hardcode цвет текста ──────────────────────── */
+.dropdown-menu {
+  background: #0d0d1a !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6) !important;
+}
+
+.dropdown-item {
+  color: rgba(255, 255, 255, 0.85) !important;
+  background: transparent !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+}
+
+.dropdown-item:active {
+  background: rgba(220, 38, 38, 0.15) !important;
+  color: #ffffff !important;
+}
+
+.dropdown-item.active {
+  background: rgba(220, 38, 38, 0.18) !important;
+  color: #ffffff !important;
+}
+
+/* ── List-group items hardcode ────────────────────────────── */
+.list-group-item {
+  background: #111118 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.list-group-item-action:hover,
+.list-group-item-action:focus {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #fff !important;
+}
+
+/* search dropdown inside navbar */
+.navbar-search-dropdown {
+  background: #0d0d1a !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.navbar-search-dropdown .form-label { color: rgba(255, 255, 255, 0.55) !important; }
+
+/* ── Gallery: убираем focus outline ──────────────────────── */
+.gallery-grid .col:focus,
+.gallery-grid a:focus,
+.gallery-thumb:focus,
+.gallery-grid__item:focus { outline: none !important; }
+
+/* ── Pagination тёмная ────────────────────────────────────── */
+.page-link {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.page-link:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+.page-item.active .page-link {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #fff !important;
+}
+
+.page-item.disabled .page-link {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* ── Post card custom (без Bootstrap .card) ──────────────── */
+.iesa-post-card {
+  background: #111118;
+  border: 1.5px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+}
+
+.iesa-post-card:hover {
+  border-color: rgba(220, 38, 38, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ── bg-secondary override ────────────────────────────────── */
+.bg-secondary { background-color: rgba(255, 255, 255, 0.12) !important; }
+
+/* ── Bootstrap badges в тёмной теме ──────────────────────── */
+.badge.bg-primary-subtle { background: rgba(220, 38, 38, 0.15) !important; color: #f87171 !important; }
+.badge.bg-warning-subtle { background: rgba(217, 119, 6, 0.15) !important; color: #fbbf24 !important; }
+.badge.bg-success-subtle { background: rgba(22, 163, 74, 0.15) !important; color: #4ade80 !important; }
+.badge.bg-danger-subtle  { background: rgba(239, 68, 68, 0.15) !important; color: #f87171 !important; }
