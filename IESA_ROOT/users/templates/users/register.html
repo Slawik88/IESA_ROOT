@@ -71,8 +71,34 @@
     display:flex; align-items:center; gap:.4rem;
 }
 .reg-step.active { background:rgba(220,38,38,.18); color:#ef4444; }
+.reg-step.done   { color:rgba(34,197,94,.7); }
 .reg-step-num { width:16px;height:16px; border-radius:50%; background:rgba(255,255,255,.1); display:flex;align-items:center;justify-content:center; font-size:.6rem; }
 .reg-step.active .reg-step-num { background:rgba(220,38,38,.3); }
+.reg-step.done .reg-step-num   { background:rgba(34,197,94,.25); }
+
+/* ── Step panels ─────────────────────────────────── */
+.reg-step-panel { display:none; }
+.reg-step-panel.active { display:block; }
+.reg-step-nav { display:flex; gap:.75rem; margin-top:1.5rem; }
+.reg-btn-back {
+    background:rgba(255,255,255,.05); border:1.5px solid rgba(255,255,255,.1);
+    color:rgba(255,255,255,.6); border-radius:10px; padding:.7rem 1.25rem;
+    font-size:.88rem; font-weight:600; cursor:pointer; transition:all .18s;
+}
+.reg-btn-back:hover { background:rgba(255,255,255,.1); color:#fff; }
+.reg-btn-next {
+    flex:1; background:rgba(220,38,38,.15); border:1.5px solid rgba(220,38,38,.35);
+    color:#f87171; border-radius:10px; padding:.7rem 1.25rem;
+    font-size:.88rem; font-weight:700; cursor:pointer; transition:all .18s;
+}
+.reg-btn-next:hover { background:rgba(220,38,38,.28); color:#fca5a5; }
+
+/* ── Step 3 review ───────────────────────────────── */
+.reg-review { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:14px; padding:1.5rem; margin-bottom:1.5rem; }
+.reg-review-row { display:flex; align-items:center; gap:.75rem; padding:.55rem 0; border-bottom:1px solid rgba(255,255,255,.05); }
+.reg-review-row:last-child { border-bottom:none; }
+.reg-review-label { font-size:.68rem; font-family:'Courier New',monospace; text-transform:uppercase; letter-spacing:.1em; color:rgba(255,255,255,.38); width:90px; flex-shrink:0; }
+.reg-review-val { font-size:.88rem; color:rgba(255,255,255,.8); word-break:break-all; }
 
 /* ── Form grid ──────────────────────────────────── */
 .reg-body { padding:0 3rem 3rem; }
@@ -159,6 +185,18 @@
                 <div class="reg-eyebrow">{% trans "REGISTER" %}</div>
                 <h1 class="reg-title">{% trans "Join the Community" %}</h1>
                 <p class="reg-desc">{% trans "Create your account and become part of IESA." %}</p>
+                <!-- Steps indicator -->
+                <div class="reg-steps" id="reg-steps-bar">
+                    <div class="reg-step active" data-step-ind="1">
+                        <span class="reg-step-num">1</span>{% trans "Account" %}
+                    </div>
+                    <div class="reg-step" data-step-ind="2">
+                        <span class="reg-step-num">2</span>{% trans "Password" %}
+                    </div>
+                    <div class="reg-step" data-step-ind="3">
+                        <span class="reg-step-num">3</span>{% trans "Confirm" %}
+                    </div>
+                </div>
             </div>
 
             <div class="reg-body">
@@ -169,50 +207,112 @@
                 </div>
                 {% endif %}
 
-                <form method="post" enctype="multipart/form-data" novalidate>
+                <form method="post" id="reg-form" novalidate>
                     {% csrf_token %}
-                    <div class="reg-grid">
-                        {% for field in form %}
-                        <div class="rf {% if field.field.widget.input_type == 'password' or field.html_name == 'email' %}{% else %}{% endif %}">
-                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                            <div class="rf-wrap">
-                                {% if field.html_name == 'username' %}
-                                    <i class="fas fa-at rf-ic"></i>
-                                {% elif field.html_name == 'email' %}
-                                    <i class="fas fa-envelope rf-ic"></i>
-                                {% elif field.field.widget.input_type == 'password' %}
-                                    <i class="fas fa-lock rf-ic"></i>
-                                {% else %}
-                                    <i class="fas fa-pen rf-ic"></i>
-                                {% endif %}
 
-                                {% if field.field.widget.input_type == 'password' %}
-                                    <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="has-pw{% if field.errors %} inv{% endif %}" autocomplete="new-password" placeholder="••••••••">
-                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
-                                {% elif field.html_name == 'email' %}
-                                    <input type="email" name="{{ field.html_name }}" id="{{ field.id_for_label }}" {% if field.value %}value="{{ field.value }}"{% endif %} class="{% if field.errors %}inv{% endif %}" placeholder="{{ field.label }}">
-                                {% else %}
-                                    <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" {% if field.value %}value="{{ field.value }}"{% endif %} class="{% if field.errors %}inv{% endif %}" autocomplete="{{ field.html_name }}" placeholder="{{ field.label }}">
-                                {% endif %}
+                    {# ── Step 1: Account ───────────────────────── #}
+                    <div class="reg-step-panel active" data-step="1">
+                        <div class="reg-grid">
+                            <div class="rf reg-full">
+                                <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+                                <div class="rf-wrap">
+                                    <i class="fas fa-at rf-ic"></i>
+                                    <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}"
+                                           value="{{ form.username.value|default:'' }}"
+                                           class="{% if form.username.errors %}inv{% endif %}"
+                                           autocomplete="username" placeholder="{% trans "e.g. johndoe" %}" autofocus>
+                                </div>
+                                {% if form.username.help_text %}<div class="rf-hint">{{ form.username.help_text }}</div>{% endif %}
+                                {% for err in form.username.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
                             </div>
-                            {% if field.help_text %}
-                            <div class="rf-hint">{{ field.help_text }}</div>
-                            {% endif %}
-                            {% for error in field.errors %}
-                            <div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ error }}</div>
-                            {% endfor %}
+                            <div class="rf reg-full">
+                                <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                                <div class="rf-wrap">
+                                    <i class="fas fa-envelope rf-ic"></i>
+                                    <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}"
+                                           value="{{ form.email.value|default:'' }}"
+                                           class="{% if form.email.errors %}inv{% endif %}"
+                                           autocomplete="email" placeholder="your@email.com">
+                                </div>
+                                {% for err in form.email.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
+                            </div>
                         </div>
-                        {% endfor %}
+                        <div class="reg-step-nav">
+                            <button type="button" class="reg-btn-next" data-next="2">
+                                {% trans "Continue" %} <i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                        </div>
                     </div>
 
-                    <div class="reg-actions">
-                        <button type="submit" class="reg-submit">
-                            <i class="fas fa-user-plus"></i>{% trans "Create Account" %}
-                        </button>
-                        <p class="reg-login">
-                            {% trans "Already have an account?" %}
-                            <a href="{% url 'users:login' %}">{% trans "Sign In" %}</a>
-                        </p>
+                    {# ── Step 2: Password ──────────────────────── #}
+                    <div class="reg-step-panel" data-step="2">
+                        <div class="reg-grid">
+                            <div class="rf reg-full">
+                                <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+                                <div class="rf-wrap">
+                                    <i class="fas fa-lock rf-ic"></i>
+                                    <input type="password" name="{{ form.password1.html_name }}" id="{{ form.password1.id_for_label }}"
+                                           class="has-pw{% if form.password1.errors %} inv{% endif %}"
+                                           autocomplete="new-password" placeholder="••••••••">
+                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
+                                </div>
+                                {% if form.password1.help_text %}<div class="rf-hint">{{ form.password1.help_text }}</div>{% endif %}
+                                {% for err in form.password1.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
+                            </div>
+                            <div class="rf reg-full">
+                                <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+                                <div class="rf-wrap">
+                                    <i class="fas fa-lock rf-ic"></i>
+                                    <input type="password" name="{{ form.password2.html_name }}" id="{{ form.password2.id_for_label }}"
+                                           class="has-pw{% if form.password2.errors %} inv{% endif %}"
+                                           autocomplete="new-password" placeholder="••••••••">
+                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
+                                </div>
+                                {% for err in form.password2.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
+                            </div>
+                        </div>
+                        <div class="reg-step-nav">
+                            <button type="button" class="reg-btn-back" data-back="1">
+                                <i class="fas fa-arrow-left me-1"></i>{% trans "Back" %}
+                            </button>
+                            <button type="button" class="reg-btn-next" data-next="3">
+                                {% trans "Review" %} <i class="fas fa-arrow-right ms-1"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {# ── Step 3: Review & Submit ───────────────── #}
+                    <div class="reg-step-panel" data-step="3">
+                        <div class="reg-review">
+                            <div class="reg-review-row">
+                                <span class="reg-review-label">{% trans "Username" %}</span>
+                                <span class="reg-review-val" id="rv-username">—</span>
+                            </div>
+                            <div class="reg-review-row">
+                                <span class="reg-review-label">{% trans "Email" %}</span>
+                                <span class="reg-review-val" id="rv-email">—</span>
+                            </div>
+                            <div class="reg-review-row">
+                                <span class="reg-review-label">{% trans "Password" %}</span>
+                                <span class="reg-review-val" style="color:rgba(34,197,94,.8);">
+                                    <i class="fas fa-check-circle me-1"></i>{% trans "Set" %}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="reg-actions">
+                            <div class="reg-step-nav mb-3">
+                                <button type="button" class="reg-btn-back" data-back="2">
+                                    <i class="fas fa-arrow-left me-1"></i>{% trans "Edit" %}
+                                </button>
+                            </div>
+                            <button type="submit" class="reg-submit">
+                                <i class="fas fa-user-plus"></i>{% trans "Create Account" %}
+                            </button>
+                            <p class="reg-login">
+                                {% trans "Already have an account?" %}
+                                <a href="{% url 'users:login' %}">{% trans "Sign In" %}</a>
+                            </p>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -235,5 +335,86 @@ function togglePw(btn){
     if(i.type==='password'){i.type='text';ic.className='fas fa-eye-slash';}
     else{i.type='password';ic.className='fas fa-eye';}
 }
+
+/* ── Multi-step registration (U2-04) ─── */
+(function(){
+    var panels = document.querySelectorAll('.reg-step-panel');
+    var indicators = document.querySelectorAll('[data-step-ind]');
+    var currentStep = 1;
+
+    /* If there are server-side field errors, jump to the right step */
+    function hasErrors(step) {
+        var fields = { 1: ['id_username','id_email'], 2: ['id_password1','id_password2'] }[step] || [];
+        return fields.some(function(id){ return document.querySelector('#'+id+'.inv'); });
+    }
+    if (hasErrors(2)) currentStep = 2;
+    else if (hasErrors(1)) currentStep = 1;
+
+    function showStep(n) {
+        panels.forEach(function(p){ p.classList.toggle('active', +p.dataset.step === n); });
+        indicators.forEach(function(ind){
+            var s = +ind.dataset.stepInd;
+            ind.classList.remove('active','done');
+            if (s === n) ind.classList.add('active');
+            else if (s < n) ind.classList.add('done');
+        });
+        currentStep = n;
+    }
+
+    function validateStep(n) {
+        if (n === 1) {
+            var u = document.getElementById('id_username');
+            var e = document.getElementById('id_email');
+            var ok = true;
+            if (!u.value.trim()) { u.classList.add('inv'); u.focus(); ok = false; }
+            if (!e.value.trim() || !e.value.includes('@')) { e.classList.add('inv'); if(ok) e.focus(); ok = false; }
+            return ok;
+        }
+        if (n === 2) {
+            var p1 = document.getElementById('id_password1');
+            var p2 = document.getElementById('id_password2');
+            var ok = true;
+            if (!p1.value) { p1.classList.add('inv'); p1.focus(); ok = false; }
+            if (!p2.value || p2.value !== p1.value) { p2.classList.add('inv'); if(ok) p2.focus(); ok = false; }
+            return ok;
+        }
+        return true;
+    }
+
+    function updateReview() {
+        var u = document.getElementById('id_username');
+        var e = document.getElementById('id_email');
+        var rvU = document.getElementById('rv-username');
+        var rvE = document.getElementById('rv-email');
+        if (rvU && u) rvU.textContent = u.value || '—';
+        if (rvE && e) rvE.textContent = e.value || '—';
+    }
+
+    document.addEventListener('click', function(evt){
+        var next = evt.target.closest('[data-next]');
+        if (next) {
+            var target = +next.dataset.next;
+            if (!validateStep(currentStep)) return;
+            if (target === 3) updateReview();
+            showStep(target);
+            return;
+        }
+        var back = evt.target.closest('[data-back]');
+        if (back) {
+            showStep(+back.dataset.back);
+        }
+        /* Clear inv on input change */
+        if (evt.target.matches('input')) {
+            evt.target.classList.remove('inv');
+        }
+    });
+
+    /* Remove inv on typing */
+    document.querySelectorAll('input').forEach(function(inp){
+        inp.addEventListener('input', function(){ inp.classList.remove('inv'); });
+    });
+
+    showStep(currentStep);
+})();
 </script>
 {% endblock %}
