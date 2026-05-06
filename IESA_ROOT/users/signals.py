@@ -18,11 +18,16 @@ def ensure_qr_on_card_activation(sender, instance, created, **kwargs):
     Физическая карта (has_physical_card) - это просто отметка в админке.
     """
     try:
-        if instance.permanent_id:
-            cards_dir = os.path.join(settings.MEDIA_ROOT, 'cards')
-            filepath = os.path.join(cards_dir, f"{str(instance.permanent_id)}.png")
-            if not os.path.exists(filepath):
-                generate_qr_code_for_user(instance)
+        if not instance.permanent_id:
+            return
+        # MEDIA_ROOT is None in production (S3/DigitalOcean Spaces) — skip local check
+        if not settings.MEDIA_ROOT:
+            generate_qr_code_for_user(instance)
+            return
+        cards_dir = os.path.join(settings.MEDIA_ROOT, 'cards')
+        filepath = os.path.join(cards_dir, f"{str(instance.permanent_id)}.png")
+        if not os.path.exists(filepath):
+            generate_qr_code_for_user(instance)
     except Exception as exc:
         # Не прерываем сохранение пользователя, но логируем для диагностики (B1-06)
         logger.error(

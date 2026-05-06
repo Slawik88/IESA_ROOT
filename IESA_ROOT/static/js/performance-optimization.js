@@ -3,13 +3,15 @@
  * Features: Code splitting, lazy loading, debouncing, caching
  */
 
-// B4-22: document.currentScript работает только при синхронной загрузке.
-// При defer/async будет null → используется fallback '/static/'.
-// Объявлено вне IIFE намеренно: используется в функциях ниже по цепочке.
+// B4-22: STATIC_BASE — base URL for static files (used in preloader).
+// Use /js/ as separator to work with ManifestStaticFilesStorage hashed filenames.
 const _ownScript = document.currentScript;
-const STATIC_BASE = _ownScript
-    ? _ownScript.src.substring(0, _ownScript.src.lastIndexOf('js/performance-optimization.js'))
-    : '/static/';
+const STATIC_BASE = (function() {
+    if (!_ownScript) return '/static/';
+    var src = _ownScript.src;
+    var idx = src.lastIndexOf('/js/');
+    return idx >= 0 ? src.substring(0, idx + 1) : '/static/';
+})();
 
 // Debounce utility
 function debounce(func, wait) {
@@ -167,14 +169,11 @@ const APICache = {
 function preloadCriticalResources() {
     const staticBase = STATIC_BASE;
 
-    const criticalCSS = [
-        'css/homepage.css',
-    ];
-    
-    const criticalJS = [
-        'js/partner-card-effects.js',
-        'js/sections-interactions.js'
-    ];
+    // homepage.css already loaded via <link> in base.html — no preload needed
+    // page-specific JS (partner-card-effects, sections-interactions) not preloaded
+    // because ManifestStaticFilesStorage filenames include content hashes
+    const criticalCSS = [];
+    const criticalJS = [];
     
     // Preload critical CSS
     criticalCSS.forEach(href => {
