@@ -319,8 +319,18 @@
             popoverTriggerList.map(function(popoverTriggerEl) {
                 return new bootstrap.Popover(popoverTriggerEl);
             });
+
+            // Hash-based avatar hue — each user gets a distinct colour (U4-26)
+            document.querySelectorAll('.avatar-fallback[data-avatar-seed]').forEach(function(el) {
+                var seed = el.dataset.avatarSeed || '';
+                var h = 0;
+                for (var i = 0; i < seed.length; i++) {
+                    h = (h * 31 + seed.charCodeAt(i)) & 0xFFFF;
+                }
+                el.style.setProperty('--avatar-hue', (h * 137) % 360);
+            });
         });
-        
+
         // Toggle password visibility
         function togglePasswordVisibility(button) {
             const wrapper = button.closest('.password-field-wrapper');

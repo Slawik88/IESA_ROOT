@@ -157,7 +157,8 @@
                                         <img src="{{ user.avatar.url }}" alt="Avatar">
                                     </span>
                                 {% else %}
-                                    <span class="avatar avatar-sm avatar-fallback me-2 d-inline-flex">
+                                    <span class="avatar avatar-sm avatar-fallback me-2 d-inline-flex"
+                                          data-avatar-seed="{{ user.username }}">
                                         {{ user.username|slice:":1"|upper }}
                                     </span>
                                 {% endif %}

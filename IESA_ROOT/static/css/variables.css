@@ -267,6 +267,9 @@
   --transition-slow: 300ms ease;
   --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-bounce: 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Card hover lift — single source of truth (U4-17) */
+  --card-hover-lift: -3px;
   
   /* ====================================================
      8. Z-INDEX
