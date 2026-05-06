@@ -27,12 +27,12 @@
 }
 
 .profile-edit-card {
-  background: var(--card-bg, #fff);
-  border: 2px solid rgba(220, 38, 38, 0.3);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dark);
   border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(220, 38, 38, 0.1);
+  box-shadow: var(--shadow-card-lg);
   padding: 30px;
-  transition: all 0.3s ease;
+  transition: all var(--transition-smooth);
 }
 
 .profile-edit-card:hover {
@@ -46,7 +46,7 @@
   align-items: center;
   margin-bottom: 25px;
   padding-bottom: 20px;
-  border-bottom: 2px solid #fecaca;
+  border-bottom: 1px solid var(--border-dark);
 }
 
 .edit-header-icon {
@@ -65,19 +65,19 @@
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   letter-spacing: -0.3px;
 }
 
 .edit-subtitle {
   margin: 4px 0 0;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
 .edit-form .form-label {
   font-weight: 600;
-  color: #2d3748;
+  color: var(--text-primary);
   margin-bottom: 8px;
   display: flex;
   align-items: center;
@@ -95,12 +95,13 @@
 .edit-form input[type="url"],
 .edit-form textarea,
 .edit-form select {
-  border: 2px solid #fecaca !important;
-  border-radius: 8px !important;
+  border: 1.5px solid var(--border-color) !important;
+  border-radius: 10px !important;
   padding: 10px 12px !important;
-  font-size: 14px !important;
-  transition: all 0.3s ease !important;
-  background: #fef2f2 !important;
+  font-size: 0.9rem !important;
+  transition: all var(--transition-fast) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-primary) !important;
 }
 
 .edit-form input[type="text"]:focus,
@@ -110,24 +111,24 @@
 .edit-form input[type="url"]:focus,
 .edit-form textarea:focus,
 .edit-form select:focus {
-  border-color: #dc2626 !important;
-  background: var(--input-bg, #fff) !important;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+  border-color: rgba(220, 38, 38, 0.5) !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
   outline: none !important;
 }
 
 .card-section {
-  border: 2px solid #fecaca;
+  border: 1px solid var(--border-dark);
   border-radius: 12px;
   padding: 20px;
-  background: linear-gradient(135deg, rgba(254, 242, 242, 0.3), rgba(254, 226, 226, 0.3));
+  background: var(--gray-50);
   margin-bottom: 20px;
-  transition: all 0.3s ease;
+  transition: all var(--transition-smooth);
 }
 
 .card-section:hover {
-  background: linear-gradient(135deg, rgba(254, 242, 242, 0.5), rgba(254, 226, 226, 0.5));
-  border-color: #dc2626;
+  background: var(--gray-100);
+  border-color: var(--border-dark-hover);
 }
 
 .section-heading {

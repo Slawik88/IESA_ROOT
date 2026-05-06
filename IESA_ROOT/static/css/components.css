@@ -1348,279 +1348,13 @@ textarea:focus-visible {
 }
 
 /* ============================================================
-   modern-design.css — merged into components.css
-   (modal refinements, additional .btn/.card/.badge variants)
+   Unique card/component definitions from former modern-design.css.
+   Duplicates of .card, .btn, .form-control, .badge, .alert,
+   .table, .modal-content, .pagination have been removed.
+   Canonical definitions remain in sections 1-14 above.
    ============================================================ */
-/* ================================================================
-   MODERN DESIGN SYSTEM - IESA
-   Contemporary, beautiful styling for all pages
-   ================================================================ */
 
-:root {
-    /* КРАСНЫЕ ТОНА - БРЕНД IESA */
-    --primary-gradient: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-    --secondary-gradient: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    --danger-gradient: linear-gradient(135deg, #dc2626 0%, #7f1d1d 100%);
-    --info-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    
-    --primary-color: #dc2626;
-    --primary-dark: #991b1b;
-    --primary-light: #fecaca;
-    
-    --shadow-sm: 0 2px 8px rgba(220, 38, 38, 0.08);
-    --shadow-md: 0 8px 24px rgba(220, 38, 38, 0.12);
-    --shadow-lg: 0 16px 40px rgba(220, 38, 38, 0.16);
-    --shadow-xl: 0 24px 64px rgba(220, 38, 38, 0.20);
-    
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ================================================================
-   GLOBAL STYLES - ЕДИНЫЙ СТИЛЬ
-   ================================================================ */
-
-html, body {
-    scroll-behavior: smooth;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
-
-body {
-    min-height: 100vh;
-}
-
-/* ================================================================
-   CARDS & CONTAINERS
-   ================================================================ */
-
-.card {
-    border: none;
-    border-radius: 16px;
-    box-shadow: var(--shadow-md);
-    transition: var(--transition);
-    overflow: hidden;
-    background: white;
-}
-
-.card:hover {
-    box-shadow: var(--shadow-lg);
-    transform: translateY(-4px);
-}
-
-.card-header {
-    background: var(--primary-gradient);
-    color: white;
-    border: none;
-    padding: 1.5rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-}
-
-.btn {
-    border: none;
-    border-radius: 10px;
-    padding: 0.625rem 1.25rem;
-    font-weight: 500;
-    letter-spacing: 0.3px;
-    transition: var(--transition);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.btn:hover {
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-    transform: translateY(-2px);
-}
-
-.btn-primary {
-    background: var(--primary-gradient);
-    color: white;
-}
-
-.btn-primary:hover {
-    background: var(--primary-gradient);
-    color: white;
-    opacity: 0.9;
-}
-
-.btn-success {
-    background: var(--success-gradient);
-    color: white;
-}
-
-.btn-success:hover {
-    background: var(--success-gradient);
-    color: white;
-    opacity: 0.9;
-}
-
-.btn-danger {
-    background: var(--danger-gradient);
-    color: white;
-}
-
-.btn-danger:hover {
-    background: var(--danger-gradient);
-    color: white;
-    opacity: 0.9;
-}
-
-.btn-outline-primary {
-    border: 2px solid var(--primary-color);
-    color: var(--primary-color);
-    background: transparent;
-}
-
-.btn-outline-primary:hover {
-    background: var(--primary-color);
-    color: white;
-}
-
-/* ================================================================
-   FORMS
-   ================================================================ */
-
-.form-control, .form-select {
-    border: 2px solid var(--border-color);
-    border-radius: 10px;
-    padding: 0.75rem 1rem;
-    transition: var(--transition);
-}
-
-.form-control:focus, .form-select:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
-}
-
-.form-label {
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.75rem;
-    letter-spacing: 0.3px;
-}
-
-.form-text {
-    color: var(--text-muted);
-    font-size: 0.875rem;
-}
-
-/* ================================================================
-   BADGES
-   ================================================================ */
-
-.badge {
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.badge-primary {
-    background: var(--primary-gradient);
-    color: white;
-}
-
-.badge-success {
-    background: var(--success-gradient);
-    color: white;
-}
-
-.badge-danger {
-    background: var(--danger-gradient);
-    color: white;
-}
-
-.badge-warning {
-    background: var(--warning-gradient);
-    color: white;
-}
-
-.badge-info {
-    background: var(--info-gradient);
-    color: white;
-}
-
-/* ================================================================
-   ALERTS
-   ================================================================ */
-
-.alert {
-    border: none;
-    border-radius: 12px;
-    padding: 1.25rem;
-    border-left: 4px solid;
-    box-shadow: var(--shadow-sm);
-    animation: slideInDown 0.3s ease-out;
-}
-
-.alert-success {
-    background: linear-gradient(135deg, rgba(17, 153, 142, 0.1), rgba(56, 239, 125, 0.1));
-    border-left-color: #11998e;
-    color: #0d5e52;
-}
-
-.alert-danger {
-    background: linear-gradient(135deg, rgba(235, 51, 73, 0.1), rgba(245, 92, 67, 0.1));
-    border-left-color: #eb3349;
-    color: #7a1f2a;
-}
-
-.alert-warning {
-    background: linear-gradient(135deg, rgba(250, 112, 154, 0.1), rgba(254, 225, 64, 0.1));
-    border-left-color: #fa709a;
-    color: #7d4247;
-}
-
-.alert-info {
-    background: linear-gradient(135deg, rgba(79, 172, 254, 0.1), rgba(0, 242, 254, 0.1));
-    border-left-color: #4facfe;
-    color: #0a5a7f;
-}
-
-/* ================================================================
-   HERO SECTIONS
-   ================================================================ */
-
-.hero {
-    background: var(--primary-gradient);
-    color: white;
-    padding: 4rem 2rem;
-    border-radius: 16px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--shadow-lg);
-}
-
-.hero::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 400px;
-    height: 400px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    animation: float 6s ease-in-out infinite;
-}
-
-.hero h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    letter-spacing: -0.5px;
-    position: relative;
-    z-index: 1;
-}
-
-.hero p {
-    font-size: 1.125rem;
-    margin-bottom: 2rem;
-    position: relative;
-    z-index: 1;
-    opacity: 0.95;
-}
+/* .hero class removed — not used in templates, was conflicting with .hero-section */
 
 /* ================================================================
    PRODUCT CARDS
@@ -1630,28 +1364,31 @@ body {
     border: none;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: var(--shadow-md);
-    transition: var(--transition);
+    box-shadow: var(--shadow-card-lg);
+    transition: all var(--transition-smooth);
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: white;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-dark);
 }
 
 .product-card:hover {
-    box-shadow: var(--shadow-xl);
-    transform: translateY(-8px);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-3px);
+    border-color: var(--border-dark-hover);
 }
 
 .product-card-image {
     height: 200px;
-    background: var(--primary-gradient);
+    background: var(--gradient-card);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 3rem;
     overflow: hidden;
     position: relative;
+    color: var(--text-muted);
 }
 
 .product-card-image img {
@@ -1670,13 +1407,13 @@ body {
 .product-card-title {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #2d3748;
+    color: var(--text-primary);
     margin-bottom: 0.5rem;
     letter-spacing: -0.3px;
 }
 
 .product-card-description {
-    color: #718096;
+    color: var(--text-secondary);
     font-size: 0.95rem;
     margin-bottom: 1rem;
     line-height: 1.5;
@@ -1688,7 +1425,7 @@ body {
 
 .product-card-price {
     display: inline-block;
-    background: var(--success-gradient);
+    background: var(--gradient-success);
     color: white;
     padding: 0.5rem 1rem;
     border-radius: 20px;
@@ -1701,31 +1438,33 @@ body {
    ================================================================ */
 
 .benefit-card {
-    border: none;
+    border: 1px solid var(--border-dark);
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: var(--shadow-md);
-    transition: var(--transition);
+    box-shadow: var(--shadow-card-lg);
+    transition: all var(--transition-smooth);
     height: 100%;
     display: flex;
     flex-direction: column;
-    background: white;
-    border-top: 4px solid var(--primary-color);
+    background: var(--bg-surface);
+    border-top: 4px solid var(--primary);
 }
 
 .benefit-card:hover {
-    box-shadow: var(--shadow-xl);
-    transform: translateY(-8px);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-3px);
+    border-color: var(--primary);
+    border-top-color: var(--primary);
 }
 
 .benefit-card-icon {
-    height: 100px;
-    background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(153, 27, 27, 0.1));
+    height: clamp(60px, 15vw, 100px);
+    background: var(--primary-100);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 2.5rem;
-    color: var(--primary-color);
+    color: var(--primary);
 }
 
 .benefit-card-content {
@@ -1736,14 +1475,14 @@ body {
 .benefit-card-title {
     font-size: 1.125rem;
     font-weight: 700;
-    color: #2d3748;
+    color: var(--text-primary);
     margin-bottom: 0.5rem;
 }
 
 .benefit-card-category {
     display: inline-block;
-    background: var(--primary-light);
-    color: var(--primary-dark);
+    background: var(--primary-100);
+    color: var(--primary);
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
     font-size: 0.75rem;
@@ -1754,69 +1493,32 @@ body {
 }
 
 .benefit-card-description {
-    color: #718096;
+    color: var(--text-secondary);
     font-size: 0.95rem;
     margin-bottom: 1rem;
     line-height: 1.6;
 }
 
 .benefit-card-discount {
-    background: linear-gradient(135deg, #f093fb15, #f5576c15);
+    background: var(--success-100);
     padding: 0.75rem;
     border-radius: 8px;
-    color: #f5576c;
+    color: var(--success);
     font-weight: 600;
     margin-bottom: 1rem;
-    border-left: 3px solid #f5576c;
+    border-left: 3px solid var(--success);
 }
 
-/* ================================================================
-   ANIMATIONS
-   ================================================================ */
-
+/* @keyframes slideInDown — used by .alert animation */
 @keyframes slideInDown {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
 }
 
-/* @keyframes slideInUp, fadeIn — канонически в responsive.css (B4-05) */
-
+/* @keyframes float — used by .cab-hero decorative orbs */
 @keyframes float {
-    0%, 100% {
-        transform: translateY(0px);
-    }
-    50% {
-        transform: translateY(30px);
-    }
-}
-
-/* @keyframes pulse — канонически в responsive.css (B4-05) */
-
-@keyframes shimmer {
-    0% {
-        background-position: -1000px 0;
-    }
-    100% {
-        background-position: 1000px 0;
-    }
-}
-
-.fade-in {
-    animation: fadeIn 0.5s ease-out;
-}
-
-.slide-in-up {
-    animation: slideInUp 0.5s ease-out;
-}
-
-.pulse {
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    0%, 100% { transform: translateY(0px); }
+    50%       { transform: translateY(30px); }
 }
 
 /* ================================================================
@@ -1836,7 +1538,7 @@ body {
 }
 
 .auth-header {
-    background: var(--primary-gradient);
+    background: var(--gradient-primary);
     color: white;
     padding: 2rem 1.5rem;
     text-align: center;
@@ -1860,180 +1562,6 @@ body {
 }
 
 
-/* ================================================================
-   TABLES
-   ================================================================ */
-
-.table {
-    border-collapse: collapse;
-    background: white;
-    box-shadow: var(--shadow-md);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.table thead {
-    background: var(--primary-gradient);
-    color: white;
-}
-
-.table thead th {
-    padding: 1.25rem;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    border: none;
-}
-
-.table tbody td {
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.table tbody tr:hover {
-    background-color: #f7fafc;
-}
-
-.table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-/* ================================================================
-   MODALS & DROPDOWNS
-   ================================================================ */
-
-.modal-content {
-    border: none;
-    border-radius: 16px;
-    box-shadow: var(--shadow-xl);
-}
-
-.modal-header {
-    background: var(--primary-gradient);
-    color: white;
-    border: none;
-    padding: 1.5rem;
-}
-
-.modal-header .btn-close {
-    filter: brightness(0) invert(1);
-}
-
-.modal-body {
-    padding: 2rem;
-}
-
-/* ================================================================
-   PAGINATION
-   ================================================================ */
-
-.pagination {
-    gap: 0.5rem;
-}
-
-.page-link {
-    border: 2px solid #fecaca;
-    border-radius: 8px;
-    color: var(--primary-color);
-    padding: 0.5rem 0.875rem;
-    transition: var(--transition);
-    font-weight: 500;
-}
-
-.page-link:hover {
-    background: #f7fafc;
-    border-color: var(--primary-color);
-    transform: translateY(-2px);
-}
-
-.page-link.active {
-    background: var(--primary-gradient);
-    border-color: var(--primary-color);
-    color: white;
-}
-
-/* ================================================================
-   RESPONSIVE
-   ================================================================ */
-
-@media (max-width: 768px) {
-    .hero h1 {
-        font-size: 2rem;
-    }
-
-    .product-card-title {
-        font-size: 1.125rem;
-    }
-
-    .profile-name {
-        font-size: 1.5rem;
-    }
-
-    .auth-container {
-        margin: 1.5rem 1rem;
-    }
-}
-
-@media (max-width: 576px) {
-    .hero {
-        padding: 2rem 1rem;
-    }
-
-    .hero h1 {
-        font-size: 1.75rem;
-    }
-
-    .card {
-        border-radius: 12px;
-    }
-
-    .btn {
-        padding: 0.625rem 1rem;
-        font-size: 0.95rem;
-    }
-}
-
-/* ================================================================
-   UTILITY CLASSES
-   ================================================================ */
-
-.text-gradient {
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.gradient-border {
-    border: 2px solid transparent;
-    background: white;
-    background-clip: padding-box;
-    position: relative;
-}
-
-.gradient-border::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    background: var(--primary-gradient);
-    border-radius: 16px;
-    z-index: -1;
-}
-
-.shadow-gradient {
-    box-shadow: var(--shadow-lg);
-}
-
-.rounded-xl {
-    border-radius: 16px;
-}
-
-.rounded-2xl {
-    border-radius: 20px;
-}
-
-.transition-all {
-    transition: var(--transition);
-}
+/* .table, .modal-content, .modal-header, .pagination, .page-link:
+   Canonical definitions are in sections 8, 9, 10 above.
+   Duplicate light-theme versions removed (Sprint UI-1). */

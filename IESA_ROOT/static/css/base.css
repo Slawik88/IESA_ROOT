@@ -348,72 +348,18 @@ figcaption {
 }
 
 /* ====================================================
-   13. LIGHT-BG CONTAINER OVERRIDES
-   Restores dark text/border variables inside containers
-   that have white/light backgrounds (homepage cards,
-   profile cards, auth forms, modals, etc.)
+   13. LIGHT-BG CONTAINER OVERRIDES (minimal)
+   Only explicit opt-in light containers use this.
+   Dark-theme is the global default — no scoped
+   variable overrides needed for the general case.
    ==================================================== */
 
-/* ── UI components ── */
-.card,
-.dropdown-menu,
-.popover,
-.offcanvas,
-/* ── generic named cards (various templates) ── */
-.event-card,
-.benefit-card,
-.product-card,
-.offer-card,
-.offer-card-v2,
-.member-card,
-.partner-card-compact,
-.profile-edit-card,
-.auth-card,
-.auth-card-right,
-.auth-body,
-.auth-light-side,
-/* ── homepage section backgrounds ── */
-#hp-offers,
-#hp-mission,
-#hp-products,
-#hp-events,
-#hp-partners,
-#hp-benefits,
-/* ── homepage individual cards / elements ── */
-.bcard,
-.prod-card,
-.ev-card,
-.pc-v2,
-.mission-panel,
-.marquee-logo,
-.p-pg-btn,
-/* ── other white containers ── */
-.hero-section,
-#about-section,
-.profile-user-stats,
-.table-mobile-cards tbody tr,
-.list-group-item,
-.info-pill,
-.stat-chip,
-.link-chip,
-.modal-light .modal-content,
-.table {
+/* Only the explicit light-modal variant gets light vars */
+.modal-light .modal-content {
   --text-primary: #111827;
   --text-secondary: #4b5563;
   --text-muted: #6b7280;
-  --text-light: #9ca3af;
   --border-color: #e5e7eb;
-  --border-color-hover: #d1d5db;
   --bg-surface: #ffffff;
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
   color: #1f2937;
 }
