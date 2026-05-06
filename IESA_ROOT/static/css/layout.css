@@ -58,6 +58,7 @@
   border-bottom: 1px solid rgba(220,38,38,.25);
 }
 .dev-banner strong { color: rgba(248,113,113,.9); }
+.dev-banner-icon { font-size: .75rem; }
 .dev-banner-close {
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
   background: none; border: none; color: rgba(255,255,255,.3);
@@ -269,6 +270,18 @@ main {
   flex: 1;
   position: relative;
   z-index: 1;
+}
+
+/* Clears the fixed header (≈ 70px) — class used on #main-content (U1-03) */
+.main-header-pad {
+  padding-top: 70px;
+}
+
+@media (max-width: 767.98px) {
+  /* On mobile the bottom-nav handles scroll context; header is thinner */
+  .main-header-pad {
+    padding-top: 54px;
+  }
 }
 
 /* Default padding for pages that use container-limited wrap */
@@ -551,7 +564,7 @@ main {
 
 /* Navbar Search Dropdown */
 .navbar-search-dropdown {
-  min-width: 360px;
+  min-width: min(360px, calc(100vw - 1rem));
   background: #111118 !important;
   border: 1.5px solid rgba(255,255,255,.1) !important;
   border-radius: 16px !important;
@@ -778,10 +791,7 @@ body {
     left: auto !important;
   }
 
-  /* Сжимаем padding главного блока под bottom nav */
-  main#main-content {
-    padding-top: 0.5rem !important;
-  }
+  /* .main-header-pad handles responsive padding-top via its own mobile rule */
 }
 
 /* ====================================================

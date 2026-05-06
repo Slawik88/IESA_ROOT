@@ -109,7 +109,7 @@
     {% include "partials/_navbar.html" %}
 
     <!-- Main Content -->
-    <main class="" id="main-content" role="main" style="padding-top:70px;">
+    <main class="main-header-pad" id="main-content" role="main">
         {% if messages %}
             <div class="container-limited">
                 {% for message in messages %}
@@ -121,7 +121,7 @@
             </div>
         {% endif %}
 
-    {% block container_wrap_start %}<div class="container-limited" style="padding-top:2.5rem;padding-bottom:4rem;">{% endblock %}
+    {% block container_wrap_start %}<div class="container-limited container-limited-main-pad">{% endblock %}
     {% block content %}
     <!-- Content goes here -->
     {% endblock %}
@@ -355,8 +355,8 @@
         {% with active_profile=request.resolver_match.url_name %}
         <a href="{% url 'users:profile' %}" class="mbn-item {% if active_profile == 'profile' or active_profile == 'member_cabinet' or active_profile == 'profile_edit' %}active{% endif %}" aria-label="{% trans "Profile" %}">
             {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
-                <span style="width:22px;height:22px;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;">
-                    <img src="{{ user.avatar.url }}" alt="" style="width:22px;height:22px;object-fit:cover;">
+                <span class="mbn-avatar">
+                    <img src="{{ user.avatar.url }}" alt="{{ user.username }}">
                 </span>
             {% else %}
                 <i class="fas fa-user"></i>
