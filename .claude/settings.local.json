@@ -7,7 +7,17 @@
       "PowerShell(Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\\" -Recurse | ForEach-Object { $_.FullName })",
       "PowerShell(Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\blog\\\\\" -File 2>$null | ForEach-Object { $_.Name }; Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\users\\\\\" -File 2>$null | ForEach-Object { $_.Name }; Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\templates\\\\core\\\\\" -File 2>$null | ForEach-Object { $_.Name })",
       "Bash(grep -rn \"SECRET_KEY\\\\s*=\\\\s*['\\\\\"][^$]\" g:/IESA_ROOT/IESA_ROOT --include=\"*.py\")",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(grep -rn \":[a-zA-Z0-9_-]\\\\{20,\\\\}\" g:/IESA_ROOT/IESA_ROOT/IESA_ROOT/settings.py)",
+      "PowerShell(cd g:\\\\IESA_ROOT; $content = Get-Content \".env\" -ErrorAction SilentlyContinue; $hasRealValues = $content | Where-Object { $_ -match \"=.{8,}\" -and $_ -notmatch \"^#\" -and $_ -notmatch \"your-|placeholder|example|localhost|False|True|postgres://user\" }; if \\($hasRealValues\\) { Write-Host \"⚠️  НАЙДЕНЫ НЕПУСТЫЕ ЗНАЧЕНИЯ В .env:\"; $hasRealValues | ForEach-Object { $key = \\($_ -split \"=\"\\)[0]; Write-Host \"  - $key = [СКРЫТО]\" } } else { Write-Host \"✅ .env содержит только заглушки\" })",
+      "PowerShell(cd g:\\\\IESA_ROOT; git rm --cached .env 2>&1; echo \"Exit: $LASTEXITCODE\")",
+      "PowerShell(cd g:\\\\IESA_ROOT; git show a6011098 -- \".env\" 2>&1 | Select-Object -First 3; echo \"---KEYS EXPOSED---\"; git show a6011098 -- \".env\" 2>&1 | Where-Object { $_ -match \"^[+-][A-Z_]+=.+\" -and $_ -notmatch \"your-|placeholder|FALSE|TRUE\" } | ForEach-Object { $key = \\($_ -split \"=\"\\)[0].TrimStart\\(\"+\",\"-\"\\); \"  ⚠️  $key был в коммите\" })",
+      "Bash(sed -n '1260,1275p' g:/IESA_ROOT/IESA_ROOT/static/css/components.css)",
+      "Bash(sed -n '1405,1415p' g:/IESA_ROOT/IESA_ROOT/static/css/components.css)",
+      "Bash(sed -n '1640,1650p' g:/IESA_ROOT/IESA_ROOT/static/css/components.css)",
+      "Bash(sed -n '1714,1722p' g:/IESA_ROOT/IESA_ROOT/static/css/components.css)",
+      "Bash(sed -n '1895,1905p' g:/IESA_ROOT/IESA_ROOT/static/css/components.css)",
+      "Bash(sort -t: -k3 -rn)"
     ]
   }
 }

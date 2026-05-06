@@ -1,83 +1,108 @@
-﻿{% load static i18n %}
+{% load static i18n %}
 
 {% for post in posts %}
-<article class="card card-modern mb-3 htmx-fade-in">
-    <div class="row g-0">
-        {% if post.image %}
-        <div class="col-md-4">
-            <img src="{{ post.image.url }}" class="img-fluid rounded-start h-100 object-fit-cover" alt="{{ post.title }}" loading="lazy">
+<article class="iesa-post-card mb-3 htmx-fade-in" style="position:relative;">
+    <a href="{{ post.get_absolute_url }}"
+       class="stretched-link"
+       aria-label="{{ post.title }}"
+       style="position:absolute;inset:0;z-index:0;"></a>
+
+    <div style="display:flex;align-items:stretch;min-height:130px;">
+
+        {# ── Preview image ── #}
+        {% if post.preview_image %}
+        <div style="flex-shrink:0;width:160px;min-height:130px;overflow:hidden;">
+            <img src="{{ post.preview_image.url }}"
+                 alt="{{ post.title }}"
+                 loading="lazy"
+                 style="width:100%;height:100%;object-fit:cover;display:block;transition:transform .4s ease;">
+        </div>
+        {% else %}
+        <div style="flex-shrink:0;width:90px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1a2e,#0e0e18);border-right:1px solid rgba(255,255,255,.05);">
+            <i class="fas fa-newspaper" style="font-size:1.6rem;color:rgba(255,255,255,.08);"></i>
         </div>
         {% endif %}
-        <div class="{% if post.image %}col-md-8{% else %}col-12{% endif %}">
-            <div class="card-body">
-                <div class="d-flex gap-2 mb-2">
-                    {% if post.category %}
-                    <span class="badge bg-primary-subtle text-primary">{{ post.category.name }}</span>
+
+        {# ── Body ── #}
+        <div style="flex:1;padding:.9rem 1.1rem;display:flex;flex-direction:column;justify-content:space-between;min-width:0;">
+
+            {# Badges row #}
+            <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.45rem;position:relative;z-index:1;">
+                {% if post.status == 'published' %}
+                <span style="display:inline-flex;align-items:center;gap:.25rem;padding:.15rem .55rem;border-radius:100px;font-size:.7rem;font-weight:700;background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.2);">
+                    <i class="fas fa-circle" style="font-size:.35rem;"></i>{% trans "Published" %}
+                </span>
+                {% elif post.status == 'pending' %}
+                <span style="display:inline-flex;align-items:center;gap:.25rem;padding:.15rem .55rem;border-radius:100px;font-size:.7rem;font-weight:700;background:rgba(234,179,8,.12);color:#facc15;border:1px solid rgba(234,179,8,.2);">
+                    <i class="fas fa-clock" style="font-size:.65rem;"></i>{% trans "Pending" %}
+                </span>
+                {% endif %}
+            </div>
+
+            {# Title #}
+            <h5 style="font-size:.97rem;font-weight:700;color:rgba(255,255,255,.9);margin:0 0 .4rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;transition:color .2s;">
+                {{ post.title }}
+            </h5>
+
+            {# Excerpt #}
+            <p style="font-size:.82rem;color:rgba(255,255,255,.42);margin:0 0 .55rem;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
+                {{ post.text|truncatewords:20|striptags }}
+            </p>
+
+            {# Footer: author + stats #}
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.35rem;position:relative;z-index:1;">
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                    {% if post.author.avatar and post.author.avatar.name != 'avatars/default.png' %}
+                        <img src="{{ post.author.avatar.url }}"
+                             alt="{{ post.author.username }}"
+                             loading="lazy"
+                             style="width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.12);">
+                    {% else %}
+                        <span style="width:22px;height:22px;border-radius:50%;background:rgba(220,38,38,.2);display:inline-flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:#f87171;flex-shrink:0;">{{ post.author.username|slice:":1"|upper }}</span>
                     {% endif %}
-                    {% if post.is_pinned %}
-                    <span class="badge bg-warning-subtle text-warning"><i class="fas fa-thumbtack me-1"></i>{% trans "Pinned" %}</span>
-                    {% endif %}
+                    <span style="font-size:.78rem;color:rgba(255,255,255,.5);font-weight:500;">{{ post.author.username }}</span>
+                    <span style="color:rgba(255,255,255,.15);font-size:.7rem;">·</span>
+                    <span style="font-size:.75rem;color:rgba(255,255,255,.35);">{{ post.created_at|date:"d M Y" }}</span>
                 </div>
-                
-                <h5 class="card-title fw-bold">
-                    <a href="{{ post.get_absolute_url }}" class="text-decoration-none stretched-link" style="color:var(--text-primary);">
-                        {{ post.title }}
-                    </a>
-                </h5>
-                
-                <p class="card-text text-muted">{{ post.text|truncatewords:25|striptags }}</p>
-                
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center gap-2">
-                        {% if post.author.avatar %}
-                        <img loading="lazy" src="{{ post.author.avatar.url }}" class="rounded-circle" width="24" height="24" alt="{{ post.author.username }}">
-                        {% else %}
-                        <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 24px; height: 24px;">
-                            <i class="fas fa-user text-white" style="font-size: 10px;"></i>
-                        </div>
-                        {% endif %}
-                        <small class="text-muted">{{ post.author.username }}</small>
-                        <small class="text-muted">•</small>
-                        <small class="text-muted">{{ post.created_at|date:"d M Y" }}</small>
-                    </div>
-                    
-                    <div class="d-flex gap-3 text-muted small position-relative" style="z-index: 2;">
-                        <span><i class="far fa-heart me-1"></i>{{ post.likes_count }}</span>
-                        <span><i class="far fa-comment me-1"></i>{{ post.comments_count }}</span>
-                        <span><i class="far fa-eye me-1"></i>{{ post.views_count_cached }}</span>
-                    </div>
+                <div style="display:flex;gap:.7rem;font-size:.75rem;color:rgba(255,255,255,.35);">
+                    <span title="{% trans "Likes" %}"><i class="far fa-heart me-1"></i>{{ post.likes_count }}</span>
+                    <span title="{% trans "Comments" %}"><i class="far fa-comment me-1"></i>{{ post.comments_count }}</span>
+                    <span title="{% trans "Views" %}"><i class="far fa-eye me-1"></i>{{ post.views_count_cached }}</span>
                 </div>
             </div>
+
         </div>
     </div>
 </article>
 {% empty %}
-<div class="empty-state">
-    <div class="empty-emoji">📝</div>
-    <h5>{% trans "No posts found" %}</h5>
-    <p class="text-muted mb-0">{% trans "Try adjusting your search or filters" %}</p>
+<div style="text-align:center;padding:3.5rem 1rem;background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.06);border-radius:16px;" data-reveal>
+    <div style="font-size:2.5rem;margin-bottom:1rem;animation:pf-float 3s ease-in-out infinite;">📝</div>
+    <h5 style="color:rgba(255,255,255,.7);font-weight:700;margin-bottom:.4rem;">{% trans "No posts found" %}</h5>
+    <p style="color:rgba(255,255,255,.3);font-size:.9rem;margin:0;">{% trans "Try adjusting your search or filters" %}</p>
 </div>
+<style>@keyframes pf-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}</style>
 {% endfor %}
 
-{% comment %}
-HTMX Infinite Scroll - Лучшая практика:
-1. hx-trigger="revealed" - загрузка когда элемент виден
-2. Кэширование через Cache-Control и ETag headers
-3. Плавная анимация через CSS (.htmx-fade-in)
-{% endcomment %}
 {% if has_next %}
-<div id="infinite-scroll-trigger" 
+<div id="infinite-scroll-trigger"
      class="text-center py-4"
      hx-get="{% url 'blog:post_list' %}?page={{ next_page }}{% if search %}&q={{ search }}{% endif %}{% if category %}&category={{ category }}{% endif %}"
      hx-trigger="revealed"
      hx-swap="outerHTML"
      hx-indicator="#loading-spinner">
-    <div id="loading-spinner" class="htmx-indicator">
-        <div class="spinner-border spinner-border-sm text-primary" role="status">
+    <div id="loading-spinner" class="htmx-indicator" style="display:flex;align-items:center;justify-content:center;gap:.6rem;color:rgba(255,255,255,.4);font-size:.85rem;">
+        <div class="spinner-border spinner-border-sm" style="color:rgba(220,38,38,.7);" role="status">
             <span class="visually-hidden">{% trans "Loading..." %}</span>
         </div>
-        <span class="ms-2 text-muted">{% trans "Loading more posts..." %}</span>
+        {% trans "Loading more posts..." %}
     </div>
 </div>
 {% endif %}
 
+<style>
+.iesa-post-card:hover img { transform: scale(1.06); }
+@media(max-width:575.98px){
+    .iesa-post-card > div { flex-direction:column; min-height:auto; }
+    .iesa-post-card > div > div:first-child { width:100% !important; height:160px; }
+}
+</style>
