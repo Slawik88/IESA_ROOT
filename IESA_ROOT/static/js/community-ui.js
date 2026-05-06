@@ -18,8 +18,18 @@
 
         var diff = targetMs - Date.now();
         if (diff <= 0) {
-          if (wrap) wrap.innerHTML = '<i class="fas fa-play me-1"></i><span>In progress</span>';
-          else el.textContent = '—';
+          if (wrap) {
+            // B4-17: DOM manipulation вместо innerHTML для безопасности
+            wrap.textContent = '';
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-play me-1';
+            var sp = document.createElement('span');
+            sp.textContent = 'In progress';
+            wrap.appendChild(icon);
+            wrap.appendChild(sp);
+          } else {
+            el.textContent = '—';
+          }
           return;
         }
         var d = Math.floor(diff / 86400000);

@@ -67,10 +67,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(30px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* @keyframes fadeInUp — канонически в responsive.css (B4-04) */
 
 .fade-in-up-animated {
   animation: fadeInUp 0.6s ease-out forwards;
@@ -851,10 +848,7 @@ textarea.form-control {
   border-radius: var(--radius-md);
 }
 
-@keyframes skeleton-loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
+/* @keyframes skeleton-loading — канонически в responsive.css (B4-05) */
 
 .skeleton-text {
   height: 1rem;
@@ -1791,25 +1785,7 @@ body {
     }
 }
 
-@keyframes slideInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
+/* @keyframes slideInUp, fadeIn — канонически в responsive.css (B4-05) */
 
 @keyframes float {
     0%, 100% {
@@ -1820,14 +1796,7 @@ body {
     }
 }
 
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
-    }
-}
+/* @keyframes pulse — канонически в responsive.css (B4-05) */
 
 @keyframes shimmer {
     0% {

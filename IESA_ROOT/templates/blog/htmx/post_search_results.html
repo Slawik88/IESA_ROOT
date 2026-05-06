@@ -1,19 +1,5 @@
 {% load i18n %}
-<style>
-/* Dark theme overrides for search results */
-.search-item.list-group-item-action {
-  background: rgba(255,255,255,.03) !important;
-  border-color: rgba(255,255,255,.07) !important;
-  color: rgba(255,255,255,.85);
-  transition: background .15s, border-color .15s;
-}
-.search-item.list-group-item-action:hover {
-  background: rgba(220,38,38,.05) !important;
-  border-color: rgba(220,38,38,.3) !important;
-}
-.search-item .text-muted { color: rgba(255,255,255,.4) !important; }
-.search-section + .search-section { margin-top: 8px; }
-</style>
+{# Стили поиска вынесены в dark-theme-fixes.css (B4-12) #}
 {% if query %}
 <div class="search-results">
   <!-- Users Section -->
@@ -38,7 +24,7 @@
             </div>
           {% endif %}
           <div class="flex-grow-1">
-            <div class="fw-bold" style="color:#fff;">{{ user.get_full_name|default:user.username }}</div>
+            <div class="fw-bold search-result-text">{{ user.get_full_name|default:user.username }}</div>
             <small class="text-muted">
               <i class="fas fa-at"></i> {{ user.username }}
               {% if user.is_verified %}<i class="fas fa-check-circle ms-1" style="color:#4ade80;font-size:.7rem;" title="{% trans 'Verified' %}"></i>{% endif %}
@@ -66,7 +52,7 @@
            class="list-group-item list-group-item-action search-item hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           <div class="d-flex w-100 justify-content-between align-items-start">
             <div class="flex-grow-1">
-              <h6 class="mb-1 fw-bold" style="color:#fff;">
+              <h6 class="mb-1 fw-bold search-result-text">
                 <i class="fas fa-file-alt text-success me-2"></i>{{ post.title }}
               </h6>
               <p class="mb-2 text-muted small lh-normal">
@@ -114,7 +100,7 @@
            class="list-group-item list-group-item-action search-item hx-item animation-delay-{{ forloop.counter0|default:0 }}">
           <div class="d-flex w-100 justify-content-between align-items-start">
             <div class="flex-grow-1">
-              <h6 class="mb-1 fw-bold" style="color:#fff;">
+              <h6 class="mb-1 fw-bold search-result-text">
                 <i class="fas fa-calendar-check text-warning me-2"></i>{{ event.title }}
               </h6>
               <p class="mb-2 text-muted small">{{ event.description|striptags|truncatewords:20 }}</p>
@@ -165,7 +151,7 @@
             </div>
             {% endif %}
             <div class="flex-grow-1">
-              <h6 class="mb-1 fw-bold" style="color:#fff;">
+              <h6 class="mb-1 fw-bold search-result-text">
                 <i class="fas fa-handshake text-info me-2"></i>{{ partner.name }}
               </h6>
               <p class="mb-0 text-muted small">{{ partner.description|striptags|truncatewords:15 }}</p>

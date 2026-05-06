@@ -137,53 +137,53 @@
 
 ### 🔴 КРИТИЧЕСКИЕ
 
-- [ ] **B4-01** `static/js/partner-card-effects.js:15–24` — **`addTiltEffect`/`addRippleEffect` без проверки повторной инициализации**: при каждом `htmx:afterSettle` (вызов `runAll()`) на уже инициализированные карточки добавляются новые listeners → экспоненциальный рост. **Исправление**: проверять `if (card.dataset.tiltInit) return; card.dataset.tiltInit = '1';` перед добавлением.
+- [x] **B4-01** `static/js/partner-card-effects.js:15–24` — **`addTiltEffect`/`addRippleEffect` без проверки повторной инициализации**: при каждом `htmx:afterSettle` (вызов `runAll()`) на уже инициализированные карточки добавляются новые listeners → экспоненциальный рост. **Исправление**: проверять `if (card.dataset.tiltInit) return; card.dataset.tiltInit = '1';` перед добавлением.
 
-- [ ] **B4-02** `static/js/page-effects.js:232–243` — **Tilt/mousemove listeners без cleanup при HTMX swap**: после каждого swap старые listeners остаются на удалённых DOM-элементах (detached DOM leak). **Исправление**: добавить `document.addEventListener('htmx:beforeSwap', cleanupListeners)` с сохранением ссылок через WeakMap.
+- [x] **B4-02** `static/js/page-effects.js:232–243` — **Tilt/mousemove listeners без cleanup при HTMX swap**: после каждого swap старые listeners остаются на удалённых DOM-элементах (detached DOM leak). **Исправление**: добавить `document.addEventListener('htmx:beforeSwap', cleanupListeners)` с сохранением ссылок через WeakMap.
 
-- [ ] **B4-03** `static/js/performance-optimization.js:96–109` — **`DOMCache` кэширует ссылки на элементы без инвалидации при HTMX swap**: после swap кэш содержит detached DOM-узлы. **Исправление**: добавить `document.addEventListener('htmx:afterSwap', () => DOMCache.elements = {})`.
+- [x] **B4-03** `static/js/performance-optimization.js:96–109` — **`DOMCache` кэширует ссылки на элементы без инвалидации при HTMX swap**: после swap кэш содержит detached DOM-узлы. **Исправление**: добавить `document.addEventListener('htmx:afterSwap', () => DOMCache.elements = {})`.
 
-- [ ] **B4-04** CSS — **`@keyframes fadeInUp` определена в 4 разных файлах** (`components.css:70`, `pages.css:970`, `homepage.css:1041`, `responsive.css:1313`) **с разными значениями** (20px, 24px, 30px): браузер использует последнюю по порядку загрузки, поведение непредсказуемо. **Исправление**: оставить одно определение в `animations.css`, удалить из остальных.
+- [x] **B4-04** CSS — **`@keyframes fadeInUp` определена в 4 разных файлах** (`components.css:70`, `pages.css:970`, `homepage.css:1041`, `responsive.css:1313`) **с разными значениями** (20px, 24px, 30px): браузер использует последнюю по порядку загрузки, поведение непредсказуемо. **Исправление**: оставить одно определение в `animations.css`, удалить из остальных.
 
-- [ ] **B4-05** CSS — **Аналогично `@keyframes` — дублирование `fadeIn` (3 файла)**, `slideInUp` (2), `pulse` (3 с разными значениями), `spin` (2), `skeleton-loading` (3). **Исправление**: консолидировать все в `animations.css`.
+- [x] **B4-05** CSS — **Аналогично `@keyframes` — дублирование `fadeIn` (3 файла)**, `slideInUp` (2), `pulse` (3 с разными значениями), `spin` (2), `skeleton-loading` (3). **Исправление**: консолидировать все в `animations.css`.
 
-- [ ] **B4-06** `templates/core/htmx/partner_modal.html:62–238` — **238 строк `<style>` внутри HTMX-партиала**: CSS перезагружается при каждом открытии модала, не кэшируется браузером. **Исправление**: вынести в `static/css/partner-modal.css`, подключить в `base.html`.
+- [x] **B4-06** `templates/core/htmx/partner_modal.html:62–238` — **238 строк `<style>` внутри HTMX-партиала**: CSS перезагружается при каждом открытии модала, не кэшируется браузером. **Исправление**: вынести в `static/css/partner-modal.css`, подключить в `base.html`.
 
 ### 🟠 ВЫСОКИЙ ПРИОРИТЕТ
 
-- [ ] **B4-07** `static/js/mobile-optimization.js:96, 108` — **Два отдельных `window.scroll` listeners**: `closeDropdown` + `bottomNav shadow`. Плюс нет debounce на shadow-обновление (вызов `style.boxShadow` 60+ раз/сек). **Исправление**: объединить в один RAF-throttled listener.
+- [x] **B4-07** `static/js/mobile-optimization.js:96, 108` — **Два отдельных `window.scroll` listeners**: `closeDropdown` + `bottomNav shadow`. Плюс нет debounce на shadow-обновление (вызов `style.boxShadow` 60+ раз/сек). **Исправление**: объединить в один RAF-throttled listener.
 
-- [ ] **B4-08** `static/js/community-ui.js:32` — **Countdown-таймеры без надёжного cleanup**: `document.contains(el)` не перехватывает HTMX swap корректно при batch-замене. **Исправление**: использовать `htmx:beforeSwap` event с хранением timerId в WeakMap по элементу.
+- [x] **B4-08** `static/js/community-ui.js:32` — **Countdown-таймеры без надёжного cleanup**: `document.contains(el)` не перехватывает HTMX swap корректно при batch-замене. **Исправление**: использовать `htmx:beforeSwap` event с хранением timerId в WeakMap по элементу.
 
-- [ ] **B4-09** `static/js/sections-interactions.js`, `static/js/partner-card-effects.js` — **`DOMContentLoaded` + `htmx:afterSettle` без проверки повторной инициализации**: каждый HTMX swap вызывает `run()` заново на всех элементах страницы, а не только на новых. **Исправление**: добавить `data-initialized` атрибут как guard.
+- [x] **B4-09** `static/js/sections-interactions.js`, `static/js/partner-card-effects.js` — **`DOMContentLoaded` + `htmx:afterSettle` без проверки повторной инициализации**: каждый HTMX swap вызывает `run()` заново на всех элементах страницы, а не только на новых. **Исправление**: добавить `data-initialized` атрибут как guard.
 
-- [ ] **B4-10** `static/js/premium-sections-interactions.js:32–39` — **Mousemove listener вычисляет `getBoundingClientRect()` и меняет `style.transform` без RAF**: 60+ DOM reflow/repaint в секунду при hover. **Исправление**: обернуть в `requestAnimationFrame` с `ticking` флагом.
+- [x] **B4-10** `static/js/premium-sections-interactions.js:32–39` — **Mousemove listener вычисляет `getBoundingClientRect()` и меняет `style.transform` без RAF**: 60+ DOM reflow/repaint в секунду при hover. **Исправление**: обернуть в `requestAnimationFrame` с `ticking` флагом.
 
-- [ ] **B4-11** `templates/partials/admin_appeal_form.html:8–77` — **12+ дублирующихся inline `style` атрибутов** с идентичными RGBA-значениями (~2 KB лишнего HTML). **Исправление**: создать CSS классы `.appeal-form-field`, `.appeal-form-label`, `.appeal-form-btn` в `components.css`.
+- [x] **B4-11** `templates/partials/admin_appeal_form.html:8–77` — **12+ дублирующихся inline `style` атрибутов** с идентичными RGBA-значениями (~2 KB лишнего HTML). **Исправление**: создать CSS классы `.appeal-form-field`, `.appeal-form-label`, `.appeal-form-btn` в `components.css`.
 
-- [ ] **B4-12** `templates/blog/htmx/post_search_results.html:2–16` — **`<style>` блок в HTMX-партиале**: загружается при каждом нажатии клавиши в поиске. **Исправление**: вынести в `static/css/search.css`.
+- [x] **B4-12** `templates/blog/htmx/post_search_results.html:2–16` — **`<style>` блок в HTMX-партиале**: загружается при каждом нажатии клавиши в поиске. **Исправление**: вынести в `static/css/search.css`.
 
-- [ ] **B4-13** `templates/base.html:436–442` — **`htmx:responseError` обрабатывает только 403**: статусы 500, 503, сетевые ошибки — без feedback для пользователя. **Исправление**: добавить toast-уведомление для 500 (`"Ошибка сервера, попробуйте позже"`) и retry-кнопку для 503.
+- [x] **B4-13** `templates/base.html:436–442` — **`htmx:responseError` обрабатывает только 403**: статусы 500, 503, сетевые ошибки — без feedback для пользователя. **Исправление**: добавить toast-уведомление для 500 (`"Ошибка сервера, попробуйте позже"`) и retry-кнопку для 503.
 
-- [ ] **B4-14** `static/js/page-effects.js:211–221` — **`PerformanceObserver` никогда не disconnect'сится**: накапливается при каждом HTMX swap. **Исправление**: добавить `document.addEventListener('htmx:beforeSwap', () => observer.disconnect())`.
+- [x] **B4-14** `static/js/page-effects.js:211–221` — **`PerformanceObserver` никогда не disconnect'сится**: накапливается при каждом HTMX swap. **Исправление**: добавить `document.addEventListener('htmx:beforeSwap', () => observer.disconnect())`.
 
 ### 🟡 СРЕДНИЙ ПРИОРИТЕТ
 
-- [ ] **B4-15** `static/js/header-hide-on-scroll.js:37–48` — **`setTimeout` для scroll вместо `requestAnimationFrame`**: может вызвать visual jank при быстром скролле. **Исправление**: заменить на RAF + `ticking` флаг.
+- [x] **B4-15** `static/js/header-hide-on-scroll.js:37–48` — **`setTimeout` для scroll вместо `requestAnimationFrame`**: может вызвать visual jank при быстром скролле. **Исправление**: заменить на RAF + `ticking` флаг.
 
-- [ ] **B4-16** `templates/base.html:257–264` — **Notifications dropdown: `hx-swap="innerHTML"` теряет scroll-позицию** при каждом открытии. **Исправление**: использовать `hx-swap="innerHTML show:no-scroll"` или сохранять позицию через JS перед swap.
+- [x] **B4-16** `templates/base.html:257–264` — **Notifications dropdown: `hx-swap="innerHTML"` теряет scroll-позицию** при каждом открытии. **Исправление**: использовать `hx-swap="innerHTML show:no-scroll"` или сохранять позицию через JS перед swap.
 
-- [ ] **B4-17** `static/js/community-ui.js:21` — **`innerHTML` с хардкодом HTML-строки**: не критичный XSS (нет user-input), но плохая практика для будущих изменений. **Исправление**: использовать `document.createElement` + `textContent`.
+- [x] **B4-17** `static/js/community-ui.js:21` — **`innerHTML` с хардкодом HTML-строки**: не критичный XSS (нет user-input), но плохая практика для будущих изменений. **Исправление**: использовать `document.createElement` + `textContent`.
 
-- [ ] **B4-18** `static/css/pages.css` — **Фиксированные `px`-отступы без media queries в ряде компонентов** (например, `.profile-edit-card { padding: 30px }`). На экранах <360px занимает 40%+ ширины. **Исправление**: добавить `@media (max-width: 575px) { padding: 12px }` в `responsive.css`.
+- [x] **B4-18** `static/css/pages.css` — **Фиксированные `px`-отступы без media queries в ряде компонентов** (например, `.profile-edit-card { padding: 30px }`). На экранах <360px занимает 40%+ ширины. **Исправление**: добавить `@media (max-width: 575px) { padding: 12px }` в `responsive.css`.
 
-- [ ] **B4-19** `templates/blog/htmx/post_search_results.html:41, 44, 69, 117, 168` — **Повторяющиеся `style="color:#fff;"` вместо CSS-классов**. **Исправление**: заменить на `.search-result-title` класс в CSS.
+- [x] **B4-19** `templates/blog/htmx/post_search_results.html:41, 44, 69, 117, 168` — **Повторяющиеся `style="color:#fff;"` вместо CSS-классов**. **Исправление**: заменить на `.search-result-title` класс в CSS.
 
-- [ ] **B4-20** `templates/base.html:229–237` — **Отсутствует `hx-indicator` атрибут на search input**: спиннер существует в DOM, но не привязан через `hx-indicator="#search-spinner"`. **Исправление**: добавить атрибут на `<input>`.
+- [x] **B4-20** `templates/base.html:229–237` — **Отсутствует `hx-indicator` атрибут на search input**: спиннер существует в DOM, но не привязан через `hx-indicator="#search-spinner"`. **Исправление**: добавить атрибут на `<input>`.
 
-- [ ] **B4-21** `static/css/components.css` — **15+ вариантов кнопок с одинаковыми `:hover/:active/:focus` блоками**: CSSOM bloat, 60+ правил вместо 15. **Исправление**: перевести на CSS-переменные уровня компонента `--btn-bg`, `--btn-hover-bg`.
+- [x] **B4-21** `static/css/components.css` — **15+ вариантов кнопок с одинаковыми `:hover/:active/:focus` блоками**: CSSOM bloat, 60+ правил вместо 15. **Исправление**: перевести на CSS-переменные уровня компонента `--btn-bg`, `--btn-hover-bg`.
 
-- [ ] **B4-22** `static/js/performance-optimization.js:8–10` — **`STATIC_BASE` и `_ownScript` на уровне модуля без IIFE**: загрязнение глобального namespace. **Исправление**: обернуть в `(function() { ... })()`.
+- [x] **B4-22** `static/js/performance-optimization.js:8–10` — **`STATIC_BASE` и `_ownScript` на уровне модуля без IIFE**: загрязнение глобального namespace. **Исправление**: обернуть в `(function() { ... })()`.
 
 ---
 

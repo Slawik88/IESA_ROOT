@@ -257,7 +257,7 @@
                                     <div id="notifications-content"
                                          hx-get="{% url 'notifications:notification_list' %}"
                                          hx-trigger="load, click from:#notificationsToggle"
-                                         hx-swap="innerHTML">
+                                         hx-swap="innerHTML show:no-scroll">
                                         <div class="text-center py-3 text-muted">
                                             <i class="fas fa-spinner fa-spin"></i> {% trans "Loading..." %}
                                         </div>

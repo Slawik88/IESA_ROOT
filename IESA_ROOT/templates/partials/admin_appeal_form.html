@@ -1,13 +1,49 @@
 {% load i18n %}
-{# Reusable admin appeal form. Include with:
-     {% include "partials/admin_appeal_form.html" with appeal_requested_url=request.path %}
+{# Reusable admin appeal form (B4-11: inline styles → CSS classes)
+   Include with: {% include "partials/admin_appeal_form.html" with appeal_requested_url=request.path %}
    Submits via HTMX POST → swaps itself with success message on success.
 #}
+<style>
+/* Стили формы обращения — вынесены из inline (B4-11) */
+.af-wrap { display: flex; flex-direction: column; gap: 12px; }
+.af-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 575px) { .af-grid { grid-template-columns: 1fr; } }
+.af-label {
+  display: block; font-size: .7rem; font-family: 'Courier New', monospace;
+  color: rgba(255,255,255,.4); text-transform: uppercase;
+  letter-spacing: .08em; margin-bottom: 5px;
+}
+.af-input, .af-select, .af-textarea {
+  width: 100%; background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 7px;
+  color: #e2e8f0; padding: 9px 12px; font-size: .85rem;
+  outline: none; box-sizing: border-box;
+  transition: border-color .2s;
+}
+.af-input:focus, .af-select:focus, .af-textarea:focus {
+  border-color: rgba(220,38,38,.45);
+  box-shadow: 0 0 0 2px rgba(220,38,38,.1);
+}
+.af-textarea { resize: vertical; }
+.af-btn {
+  align-self: flex-start; background: #dc2626; color: #fff;
+  border: none; border-radius: 8px; padding: 10px 22px;
+  font-size: .85rem; font-family: 'Courier New', monospace;
+  cursor: pointer; transition: background .2s;
+}
+.af-btn:hover { background: #ef4444; }
+.af-errors {
+  background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.3);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+}
+.af-err-line { font-size: .8rem; color: #f87171; font-family: 'Courier New', monospace; }
+</style>
+
 <div id="appeal-form-wrap">
   {% if appeal_errors %}
-    <div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+    <div class="af-errors">
       {% for err in appeal_errors %}
-        <div style="font-size:.8rem;color:#f87171;font-family:'Courier New',monospace;">⚠ {{ err }}</div>
+        <div class="af-err-line">⚠ {{ err }}</div>
       {% endfor %}
     </div>
   {% endif %}
@@ -17,42 +53,35 @@
     hx-target="#appeal-form-wrap"
     hx-swap="outerHTML"
     method="post"
-    style="display:flex;flex-direction:column;gap:12px;"
+    class="af-wrap"
   >
     {% csrf_token %}
     <input type="hidden" name="appeal_requested_url" value="{{ appeal_requested_url|default:request.path }}">
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div class="af-grid">
       <div>
-        <label style="display:block;font-size:.7rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">{% trans "Your name" %} *</label>
+        <label class="af-label">{% trans "Your name" %} *</label>
         <input
-          name="appeal_name"
-          type="text"
+          name="appeal_name" type="text"
           value="{{ appeal_name|default:request.user.get_full_name }}"
           placeholder="{% trans 'Full name' %}"
-          required
-          style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#e2e8f0;padding:9px 12px;font-size:.85rem;outline:none;box-sizing:border-box;"
+          required class="af-input"
         >
       </div>
       <div>
-        <label style="display:block;font-size:.7rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">{% trans "E-mail" %} *</label>
+        <label class="af-label">{% trans "E-mail" %} *</label>
         <input
-          name="appeal_email"
-          type="email"
+          name="appeal_email" type="email"
           value="{{ appeal_email|default:request.user.email }}"
           placeholder="your@email.com"
-          required
-          style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#e2e8f0;padding:9px 12px;font-size:.85rem;outline:none;box-sizing:border-box;"
+          required class="af-input"
         >
       </div>
     </div>
 
     <div>
-      <label style="display:block;font-size:.7rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">{% trans "Reason" %}</label>
-      <select
-        name="appeal_reason"
-        style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#e2e8f0;padding:9px 12px;font-size:.85rem;outline:none;box-sizing:border-box;"
-      >
+      <label class="af-label">{% trans "Reason" %}</label>
+      <select name="appeal_reason" class="af-select">
         <option value="partner_access"  {% if appeal_reason == 'partner_access'  or not appeal_reason %}selected{% endif %}>{% trans "Partner portal access request" %}</option>
         <option value="account_issue"   {% if appeal_reason == 'account_issue'   %}selected{% endif %}>{% trans "Account / membership issue" %}</option>
         <option value="verification"    {% if appeal_reason == 'verification'    %}selected{% endif %}>{% trans "Verification request" %}</option>
@@ -61,23 +90,14 @@
     </div>
 
     <div>
-      <label style="display:block;font-size:.7rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;">{% trans "Message" %} *</label>
+      <label class="af-label">{% trans "Message" %} *</label>
       <textarea
-        name="appeal_message"
-        rows="4"
-        minlength="20"
+        name="appeal_message" rows="4" minlength="20"
         placeholder="{% trans 'Describe your situation in detail...' %}"
-        required
-        style="width:100%;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#e2e8f0;padding:9px 12px;font-size:.85rem;outline:none;resize:vertical;box-sizing:border-box;"
+        required class="af-textarea"
       >{{ appeal_message }}</textarea>
     </div>
 
-    <button
-      type="submit"
-      style="align-self:flex-start;background:#dc2626;color:#fff;border:none;border-radius:8px;padding:10px 22px;font-size:.85rem;font-family:'Courier New',monospace;cursor:pointer;transition:background .2s;"
-      onmouseover="this.style.background='#ef4444'" onmouseout="this.style.background='#dc2626'"
-    >
-      ✉ {% trans "Send Appeal" %}
-    </button>
+    <button type="submit" class="af-btn">✉ {% trans "Send Appeal" %}</button>
   </form>
 </div>
