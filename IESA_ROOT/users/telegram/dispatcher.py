@@ -111,7 +111,13 @@ async def process_incoming_update(update: dict[str, Any]) -> bool:
         if handler:
             await answer_callback_query(cb_id)
         else:
-            await answer_callback_query(cb_id, "Неизвестное действие")
+            # B3-11: информативный fallback вместо generic "неизвестное действие"
+            logger.warning("Unknown callback_data=%r from chat=%s", cb_data, chat_id)
+            await answer_callback_query(
+                cb_id,
+                "⚠️ Кнопка устарела. Используй /start для обновления меню.",
+                show_alert=True,
+            )
             return True
 
         # Now do the DB lookup and run the handler

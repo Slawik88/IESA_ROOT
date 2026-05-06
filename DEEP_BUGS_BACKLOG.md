@@ -99,37 +99,37 @@
 
 ### 🔴 КРИТИЧЕСКИЕ
 
-- [ ] **B3-01** `users/apps.py:26` — **`asyncio.run()` при потенциально уже работающем event loop (ASGI)**: при деплое на Daphne/Uvicorn вызов `asyncio.run()` внутри `ready()` падает с `RuntimeError`. **Исправление**: заменить на `try: loop = asyncio.get_running_loop(); loop.create_task(...) except RuntimeError: asyncio.run(...)`.
+- [x] **B3-01** `users/apps.py:26` — **`asyncio.run()` при потенциально уже работающем event loop (ASGI)**: при деплое на Daphne/Uvicorn вызов `asyncio.run()` внутри `ready()` падает с `RuntimeError`. **Исправление**: заменить на `try: loop = asyncio.get_running_loop(); loop.create_task(...) except RuntimeError: asyncio.run(...)`.
 
-- [ ] **B3-02** `users/views_verification.py:959–966` — **Webhook всегда возвращает 200 OK, даже при ошибке обработки**: Telegram считает update доставленным и не переотправит его. **Исправление**: при `except Exception` возвращать `JsonResponse({"ok": False}, status=500)`.
+- [x] **B3-02** `users/views_verification.py:959–966` — **Webhook всегда возвращает 200 OK, даже при ошибке обработки**: Telegram считает update доставленным и не переотправит его. **Исправление**: при `except Exception` возвращать `JsonResponse({"ok": False}, status=500)`.
 
-- [ ] **B3-03** `users/views_verification.py:922–924` — **Webhook без rate limiting**: `@csrf_exempt` без `@ratelimit` — возможен DoS фейковыми update'ами. **Исправление**: добавить `@ratelimit(key='ip', rate='200/m', block=True)`.
+- [x] **B3-03** `users/views_verification.py:922–924` — **Webhook без rate limiting**: `@csrf_exempt` без `@ratelimit` — возможен DoS фейковыми update'ами. **Исправление**: добавить `@ratelimit(key='ip', rate='200/m', block=True)`.
 
 ### 🟠 ВЫСОКИЙ ПРИОРИТЕТ
 
-- [ ] **B3-04** `users/telegram/client.py:22–25` — **`asyncio.sleep(retry_after)` без максимума**: Telegram может вернуть `Retry-After: 3600`, бот зависнет на час. **Исправление**: `retry_after = min(int(resp.headers.get("Retry-After", 5)), 30)`.
+- [x] **B3-04** `users/telegram/client.py:22–25` — **`asyncio.sleep(retry_after)` без максимума**: Telegram может вернуть `Retry-After: 3600`, бот зависнет на час. **Исправление**: `retry_after = min(int(resp.headers.get("Retry-After", 5)), 30)`.
 
-- [ ] **B3-05** `users/telegram/client.py:176–208` — **Синхронный `send_message` без retry**: async версия использует `_post_with_retry`, sync — нет. Синхронные уведомления из Django signals теряются при временном сбое. **Исправление**: реализовать retry-цикл в sync версии аналогично async.
+- [x] **B3-05** `users/telegram/client.py:176–208` — **Синхронный `send_message` без retry**: async версия использует `_post_with_retry`, sync — нет. Синхронные уведомления из Django signals теряются при временном сбое. **Исправление**: реализовать retry-цикл в sync версии аналогично async.
 
-- [ ] **B3-06** `users/telegram/notify.py` — **Синхронный код (ORM запросы) вызывается из async контекста**: если `notify_visit_confirmed()` будет вызван из async handler, ORM-запросы заблокируют event loop. **Исправление**: создать `notify_visit_confirmed_async()` с `sync_to_async` обёрткой.
+- [x] **B3-06** `users/telegram/notify.py` — **Синхронный код (ORM запросы) вызывается из async контекста**: если `notify_visit_confirmed()` будет вызван из async handler, ORM-запросы заблокируют event loop. **Исправление**: создать `notify_visit_confirmed_async()` с `sync_to_async` обёрткой.
 
-- [ ] **B3-07** `users/telegram/client.py:34, 162, 201, 226, 241` — **`resp.json()` без обработки `JSONDecodeError`**: невалидный JSON от Telegram API (редкое, но возможное) ломает retry-логику. **Исправление**: обернуть в `try/except (json.JSONDecodeError, ValueError)` с retry.
+- [x] **B3-07** `users/telegram/client.py:34, 162, 201, 226, 241` — **`resp.json()` без обработки `JSONDecodeError`**: невалидный JSON от Telegram API (редкое, но возможное) ломает retry-логику. **Исправление**: обернуть в `try/except (json.JSONDecodeError, ValueError)` с retry.
 
-- [ ] **B3-08** `users/telegram/handlers.py:287–288` — **`except Exception: pass` ловит `asyncio.CancelledError`**: при graceful shutdown бот зависает вместо корректного завершения. **Исправление**: `except asyncio.CancelledError: raise` + `except (DatabaseError, OperationalError) as exc: logger.warning(...)`.
+- [x] **B3-08** `users/telegram/handlers.py:287–288` — **`except Exception: pass` ловит `asyncio.CancelledError`**: при graceful shutdown бот зависает вместо корректного завершения. **Исправление**: `except asyncio.CancelledError: raise` + `except (DatabaseError, OperationalError) as exc: logger.warning(...)`.
 
 ### 🟡 СРЕДНИЙ ПРИОРИТЕТ
 
-- [ ] **B3-09** `users/telegram/client.py:15–41` — **Новый `httpx.AsyncClient` на каждый запрос**: при высокой нагрузке это N открытых TCP-соединений. **Исправление**: создать глобальный `_client_pool = httpx.AsyncClient(limits=httpx.Limits(max_connections=10))` на уровне модуля с lifecycle-управлением.
+- [x] **B3-09** `users/telegram/client.py:15–41` — **Новый `httpx.AsyncClient` на каждый запрос**: при высокой нагрузке это N открытых TCP-соединений. **Исправление**: создать глобальный `_client_pool = httpx.AsyncClient(limits=httpx.Limits(max_connections=10))` на уровне модуля с lifecycle-управлением.
 
-- [ ] **B3-10** `users/telegram/client.py:46–76` vs `176–208` — **Дублирование кода**: async и sync версии `send_message` почти идентичны, но с разной retry-логикой. **Исправление**: sync версия должна быть тонкой обёрткой через `async_to_sync(send_message_async)(...)`.
+- [x] **B3-10** `users/telegram/client.py:46–76` vs `176–208` — **Дублирование кода**: async и sync версии `send_message` почти идентичны, но с разной retry-логикой. **Исправление**: sync версия должна быть тонкой обёрткой через `async_to_sync(send_message_async)(...)`.
 
-- [ ] **B3-11** `users/telegram/dispatcher.py:43–52` — **Нет fallback-handler для неизвестных callback'ов**: пользователь получает generic "неизвестное действие" вместо контекстной подсказки. **Исправление**: добавить `_handle_unknown_callback` с инструкцией `/help`.
+- [x] **B3-11** `users/telegram/dispatcher.py:43–52` — **Нет fallback-handler для неизвестных callback'ов**: пользователь получает generic "неизвестное действие" вместо контекстной подсказки. **Исправление**: добавить `_handle_unknown_callback` с инструкцией `/help`.
 
-- [ ] **B3-12** `users/telegram/handlers.py:45–46, 104, 143` — **`sync_to_async(lambda: ...)` без timeout**: медленная БД → бот зависает на неопределённое время. **Исправление**: обернуть в `asyncio.wait_for(..., timeout=3.0)` + fallback.
+- [x] **B3-12** `users/telegram/handlers.py:45–46, 104, 143` — **`sync_to_async(lambda: ...)` без timeout**: медленная БД → бот зависает на неопределённое время. **Исправление**: обернуть в `asyncio.wait_for(..., timeout=3.0)` + fallback.
 
-- [ ] **B3-13** `users/views_verification.py:937–940` — **Пустой payload не валидируется**: `_json.loads(request.body or '{}')` пропустит пустой `{}` в `process_incoming_update({})` без ошибки. **Исправление**: добавить `if "update_id" not in payload: return JsonResponse({"ok": False}, status=400)`.
+- [x] **B3-13** `users/views_verification.py:937–940` — **Пустой payload не валидируется**: `_json.loads(request.body or '{}')` пропустит пустой `{}` в `process_incoming_update({})` без ошибки. **Исправление**: добавить `if "update_id" not in payload: return JsonResponse({"ok": False}, status=400)`.
 
-- [ ] **B3-14** `users/views_verification.py:959–966` — **`asyncio.CancelledError` не пробрасывается из webhook**: при graceful shutdown `CancelledError` ловится как `Exception` и логируется, но не пробрасывается. **Исправление**: добавить `except asyncio.CancelledError: raise` первым.
+- [x] **B3-14** `users/views_verification.py:959–966` — **`asyncio.CancelledError` не пробрасывается из webhook**: при graceful shutdown `CancelledError` ловится как `Exception` и логируется, но не пробрасывается. **Исправление**: добавить `except asyncio.CancelledError: raise` первым.
 
 ---
 
@@ -197,9 +197,9 @@
 | B1-04 | users/views_verification.py | 🔴 КРИТ | Consistency | [x] |
 | B2-01 | blog/views/comments.py | 🔴 КРИТ | Bug (NoReverseMatch) | [ ] |
 | B2-02 | blog/models.py | 🔴 КРИТ | Data Integrity | [ ] |
-| B3-01 | users/apps.py | 🔴 КРИТ | RuntimeError | [ ] |
-| B3-02 | users/views_verification.py | 🔴 КРИТ | Idempotency | [ ] |
-| B3-03 | users/views_verification.py | 🔴 КРИТ | DoS | [ ] |
+| B3-01 | users/apps.py | 🔴 КРИТ | RuntimeError | [x] |
+| B3-02 | users/views_verification.py | 🔴 КРИТ | Idempotency | [x] |
+| B3-03 | users/views_verification.py | 🔴 КРИТ | DoS | [x] |
 | B4-01 | static/js/partner-card-effects.js | 🔴 КРИТ | Memory Leak | [ ] |
 | B4-04 | static/css (multiple) | 🔴 КРИТ | CSS Conflict | [ ] |
 | B1-05 | users/cleverreach_client.py | 🟠 ВЫСОК | Blocking HTTP | [x] |
@@ -208,8 +208,8 @@
 | B2-05 | blog/signals.py | 🟠 ВЫСОК | Silent Error | [x] |
 | B2-06 | blog/views/events.py | 🟠 ВЫСОК | Race Condition | [x] |
 | B2-07 | notifications/ | 🟠 ВЫСОК | Spam | [x] |
-| B3-04 | users/telegram/client.py | 🟠 ВЫСОК | DoS/Hang | [ ] |
-| B3-05 | users/telegram/client.py | 🟠 ВЫСОК | Reliability | [ ] |
+| B3-04 | users/telegram/client.py | 🟠 ВЫСОК | DoS/Hang | [x] |
+| B3-05 | users/telegram/client.py | 🟠 ВЫСОК | Reliability | [x] |
 | B4-02 | static/js/page-effects.js | 🟠 ВЫСОК | Memory Leak | [ ] |
 | B4-03 | static/js/performance-optimization.js | 🟠 ВЫСОК | Stale Cache | [ ] |
 | B4-06 | templates/core/htmx/partner_modal.html | 🟠 ВЫСОК | Performance | [ ] |
