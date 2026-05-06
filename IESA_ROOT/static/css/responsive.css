@@ -44,17 +44,16 @@ img {
   height: auto;
 }
 
-/* Минимальные размеры tap-targets */
-a, button, [role="button"], label[for],
-input[type="checkbox"], input[type="radio"] {
-  min-height: 44px;
-  min-width: 44px;
+/* Минимальные tap-targets — только на touch-устройствах (U1-01) */
+@media (hover: none) and (pointer: coarse) {
+  a, button, [role="button"], label[for],
+  input[type="checkbox"], input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
-/* Отключаем zoom при фокусе на iOS */
-input, textarea, select {
-  font-size: 16px !important;
-}
+/* iOS zoom fix: font-size >= 16px on touch only — applied in mobile section below (U1-02) */
 
 /* Таблицы не вываливаются */
 table {
@@ -77,6 +76,23 @@ p, h1, h2, h3, h4, h5, h6,
 /* Контейнер нижней навигации — скрыт на десктопе */
 .mobile-bottom-nav {
   display: none;
+}
+
+/* Avatar in mobile bottom-nav (U1-04: replaces inline styles) */
+.mbn-avatar {
+  width: clamp(20px, 5.5vw, 26px);
+  height: clamp(20px, 5.5vw, 26px);
+  border-radius: 50%;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.mbn-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 @media (max-width: 767.98px) {
@@ -687,12 +703,12 @@ p, h1, h2, h3, h4, h5, h6,
 
   .table-mobile-cards tbody tr {
     display: block;
-    border: 1px solid rgba(0,0,0,0.08);
+    border: 1px solid var(--border-dark);
     border-radius: 12px;
     margin-bottom: 0.75rem;
     padding: 0.75rem;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    background: var(--bg-surface);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   }
 
   .table-mobile-cards tbody td {
