@@ -1,0 +1,40 @@
+/* Admin Appeal Form styles — extracted from admin_appeal_form.html (Sprint UI-2, U3-23) */
+
+.af-wrap { display: flex; flex-direction: column; gap: 12px; }
+.af-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 575px) { .af-grid { grid-template-columns: 1fr; } }
+
+.af-label {
+  display: block; font-size: .7rem; font-family: 'Courier New', monospace;
+  color: rgba(255,255,255,.4); text-transform: uppercase;
+  letter-spacing: .08em; margin-bottom: 5px;
+}
+
+.af-input, .af-select, .af-textarea {
+  width: 100%; background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1); border-radius: 7px;
+  color: #e2e8f0; padding: 9px 12px; font-size: .85rem;
+  outline: none; box-sizing: border-box;
+  transition: border-color .2s;
+}
+
+.af-input:focus, .af-select:focus, .af-textarea:focus {
+  border-color: rgba(220,38,38,.45);
+  box-shadow: 0 0 0 2px rgba(220,38,38,.1);
+}
+
+.af-textarea { resize: vertical; }
+
+.af-btn {
+  align-self: flex-start; background: #dc2626; color: #fff;
+  border: none; border-radius: 8px; padding: 10px 22px;
+  font-size: .85rem; font-family: 'Courier New', monospace;
+  cursor: pointer; transition: background .2s;
+}
+.af-btn:hover { background: #ef4444; }
+
+.af-errors {
+  background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.3);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+}
+.af-err-line { font-size: .8rem; color: #f87171; font-family: 'Courier New', monospace; }

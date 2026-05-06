@@ -1,0 +1,52 @@
+{% load i18n %}
+{# Global site footer — extracted from base.html (Sprint UI-2) #}
+<footer class="footer-enhanced mt-auto" role="contentinfo">
+    <div class="container-limited py-5">
+        <div class="row g-5">
+            <div class="col-12 col-lg-4">
+                <h6 class="footer-title mb-3">{% trans "ABOUT" %}</h6>
+                <p class="footer-text mb-3 footer-about-text">{% trans "IESA connects sports leaders and partners, creating a space for growth, projects and events worldwide." %}</p>
+                <p class="footer-text small mb-0 footer-copyright">
+                    <small>&copy; {{ "now"|date:"Y" }} {% trans "IESA Association. All rights reserved." %}</small>
+                </p>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <h6 class="footer-title mb-3">{% trans "LINKS" %}</h6>
+                <ul class="list-unstyled footer-links">
+                    <li class="mb-2"><a href="{% url 'core:home' %}"><i class="fas fa-home me-2 footer-link-icon"></i>{% trans "Home" %}</a></li>
+                    <li class="mb-2"><a href="{% url 'blog:post_list' %}"><i class="fas fa-users me-2 footer-link-icon"></i>{% trans "Community" %}</a></li>
+                    <li class="mb-2"><a href="{% url 'gallery:gallery' %}"><i class="fas fa-images me-2 footer-link-icon"></i>{% trans "Gallery" %}</a></li>
+                    <li class="mb-2"><a href="{% url 'blog:event_list' %}"><i class="fas fa-calendar me-2 footer-link-icon"></i>{% trans "Events" %}</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-md-3 col-lg-3">
+                <h6 class="footer-title mb-3">{% trans "CONTACTS" %}</h6>
+                <ul class="list-unstyled footer-links">
+                    <li class="mb-2">
+                        <i class="fas fa-envelope me-2 footer-contact-icon"></i>
+                        <a href="mailto:iesa@iesasport.ch" aria-label="{% trans 'Email IESA' %}">iesa@iesasport.ch</a>
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-phone me-2 footer-contact-icon"></i>
+                        <a href="tel:+41795718887" aria-label="{% trans 'Call IESA' %}">+41 79 571 8887</a>
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-location-dot me-2 footer-contact-icon"></i>
+                        <span class="footer-text">{% trans "Switzerland" %}</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="col-12 col-md-6 col-lg-3">
+                <h6 class="footer-title mb-3">{% trans "SOCIAL" %}</h6>
+                <div class="d-flex flex-row flex-wrap gap-3">
+                    {% for sn in social_networks %}
+                    <a class="footer-social" href="{{ sn.url }}" target="_blank" rel="noopener noreferrer"
+                       title="{{ sn.get_name_display }}" aria-label="{{ sn.get_name_display }}">
+                        <i class="{{ sn.get_icon }}"></i>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
