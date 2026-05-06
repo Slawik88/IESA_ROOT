@@ -52,17 +52,48 @@ EDIT_WINDOW = 1200          # 20 minutes
 
 
 # ---------------------------------------------------------------------------
+# Утилиты
+# ---------------------------------------------------------------------------
+
+import uuid as _uuid_mod
+
+
+def _try_parse_uuid(s: str):
+    """Надёжно парсит UUID из строки с дефисами или без. Возвращает UUID или None (B1-14)."""
+    s = s.strip()
+    try:
+        return _uuid_mod.UUID(s)
+    except ValueError:
+        pass
+    clean = s.replace('-', '')
+    if len(clean) == 32:
+        try:
+            return _uuid_mod.UUID(f"{clean[:8]}-{clean[8:12]}-{clean[12:16]}-{clean[16:20]}-{clean[20:]}")
+        except ValueError:
+            pass
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------
 
 def is_partner(user):
     """Check if user has partner access — via is_partner flag OR existing partner_profile.
-    
+
     is_partner boolean is the authoritative flag (synced via signals_partner.py).
     Falls back to partner_profile FK check for legacy/inconsistent data.
+
+    Result кэшируется на экземпляре пользователя, чтобы избежать повторных DB-запросов
+    при каждом вызове @partner_required декоратора в одном request/response цикле (B1-08).
     """
+    # Быстрый путь: уже проверяли в этом request
+    if hasattr(user, '_is_partner_cached'):
+        return user._is_partner_cached
+
     try:
         if bool(user.is_partner):
+            user._is_partner_cached = True
             return True
         # Fallback: check FK directly (handles inconsistent data where flag wasn't synced)
         has_profile = Partner.objects.filter(user=user).exists()
@@ -71,6 +102,7 @@ def is_partner(user):
             User.objects.filter(pk=user.pk).update(is_partner=True)
             user.is_partner = True
             logger.info("is_partner auto-healed for user: %s", user.username)
+        user._is_partner_cached = has_profile
         return has_profile
     except Exception as exc:
         logger.error("is_partner check error: %s", exc)
@@ -242,17 +274,9 @@ def partner_dashboard(request):
                 Q(username__icontains=query)
             )
             if len(query.replace('-', '')) >= 32:
-                try:
-                    import uuid
-                    search_filter |= Q(permanent_id=uuid.UUID(query))
-                except ValueError:
-                    try:
-                        c = query.replace('-', '')
-                        if len(c) == 32:
-                            fmt = f"{c[0:8]}-{c[8:12]}-{c[12:16]}-{c[16:20]}-{c[20:32]}"
-                            search_filter |= Q(permanent_id=uuid.UUID(fmt))
-                    except (ValueError, IndexError):
-                        pass
+                _parsed_uuid = _try_parse_uuid(query)
+                if _parsed_uuid:
+                    search_filter |= Q(permanent_id=_parsed_uuid)
             search_results = User.objects.filter(search_filter).distinct()[:20]
 
     paginator = Paginator(visits, 15)
@@ -345,38 +369,44 @@ def log_visit(request, member_id):
                     )
                     return redirect('users:partner_dashboard')
 
-                # Save visit
-                visit = form.save(commit=False)
-                visit.member = member
-                visit.partner = partner
-                visit.pin_verified = True
-                visit.status = 'ACTIVE'
-                visit.save()
+                # Save visit + reset counter atomically (B1-03, B1-04)
+                from django.db import transaction as _tx
+                with _tx.atomic():
+                    visit = form.save(commit=False)
+                    visit.member = member
+                    visit.partner = partner
+                    visit.pin_verified = True
+                    visit.status = 'ACTIVE'
+                    visit.save()
 
-                # Reset brute-force counter
-                if member.failed_pin_attempts:
-                    member.failed_pin_attempts = 0
-                    member.pin_lockout_until = None
-                    member.save(update_fields=['failed_pin_attempts', 'pin_lockout_until'])
+                    # Reset brute-force counter atomically inside same tx
+                    if member.failed_pin_attempts:
+                        User.objects.filter(pk=member.pk).update(
+                            failed_pin_attempts=0,
+                            pin_lockout_until=None,
+                        )
+                        member.failed_pin_attempts = 0
+                        member.pin_lockout_until = None
 
-                try:
-                    tg_sent = notify_visit_confirmed(visit)
-                    if not tg_sent:
-                        if not getattr(member, 'telegram_chat_id', None):
-                            messages.info(
-                                request,
-                                _('ℹ️ Telegram notification not sent — member has no Telegram linked.')
-                            )
-                        else:
-                            messages.warning(
-                                request,
-                                _('⚠️ Visit logged but Telegram notification could not be delivered.')
-                            )
-                except Exception as exc:
-                    logger.error("notify_visit_confirmed failed: %s", exc)
-                    messages.warning(
+                # Уведомление — в фоновом потоке, не блокируем response (B1-05)
+                if getattr(member, 'telegram_chat_id', None):
+                    import threading as _thr
+                    _visit_id = visit.pk
+
+                    def _notify_bg():
+                        try:
+                            from users.models import Visit as _Visit
+                            from users.telegram.notify import notify_visit_confirmed as _notify
+                            _v = _Visit.objects.select_related('member', 'partner').get(pk=_visit_id)
+                            _notify(_v)
+                        except Exception as _exc:
+                            logger.error("bg notify_visit_confirmed failed: %s", _exc)
+
+                    _thr.Thread(target=_notify_bg, daemon=True).start()
+                else:
+                    messages.info(
                         request,
-                        _('⚠️ Visit logged but Telegram notification failed unexpectedly.')
+                        _('ℹ️ Telegram notification not sent — member has no Telegram linked.')
                     )
 
                 member_name = member.get_full_name() or member.username
@@ -393,16 +423,24 @@ def log_visit(request, member_id):
                 return redirect('users:partner_dashboard')
 
             else:
-                # Wrong PIN
-                member.failed_pin_attempts = (member.failed_pin_attempts or 0) + 1
+                # Wrong PIN — атомарный инкремент через F() (B1-02)
+                from django.db.models import F as _F
+                from django.db import transaction as _tx
+                with _tx.atomic():
+                    User.objects.filter(pk=member.pk).update(
+                        failed_pin_attempts=_F('failed_pin_attempts') + 1
+                    )
+                    member.refresh_from_db(fields=['failed_pin_attempts'])
+
                 if member.failed_pin_attempts >= PIN_MAX_ATTEMPTS:
-                    member.pin_lockout_until = now + timezone.timedelta(minutes=PIN_LOCKOUT_MINUTES)
+                    User.objects.filter(pk=member.pk).update(
+                        pin_lockout_until=now + timezone.timedelta(minutes=PIN_LOCKOUT_MINUTES),
+                        failed_pin_attempts=0,
+                    )
                     member.failed_pin_attempts = 0
-                    member.save(update_fields=['failed_pin_attempts', 'pin_lockout_until'])
                     form.add_error('pin', _('🔒 Too many wrong PINs. PIN locked for %(minutes)d minutes.') % {'minutes': PIN_LOCKOUT_MINUTES})
                 else:
                     attempts_left = PIN_MAX_ATTEMPTS - member.failed_pin_attempts
-                    member.save(update_fields=['failed_pin_attempts'])
                     form.add_error('pin', _('❌ Invalid PIN. %(left)d attempt(s) remaining before lockout.') % {'left': attempts_left})
     else:
         form = VisitForm()
@@ -618,7 +656,7 @@ def partner_analytics(request):
         all_visits
         .values('service_type')
         .annotate(count=Count('id'), total=Sum('cost'))
-        .order_by('-count')
+        .order_by('-count')[:20]  # Лимит топ-20 категорий (B1-15)
     )
 
     top_members = (
@@ -718,12 +756,31 @@ def test_telegram_view(request):
                     icon = "✅" if ok else "❌"
                     result_html = f'<div class="alert {css}">{icon} {_html.escape(message)}</div>'
                     if ok:
-                        import asyncio
-                        try:
-                            asyncio.run(init_bot_commands())
+                        # asyncio.run() падает если event loop уже существует (ASGI).
+                        # Создаём изолированный loop в отдельном потоке (B1-09).
+                        import threading as _thr
+                        _cmd_result = {}
+
+                        def _run_init():
+                            import asyncio
+                            loop = asyncio.new_event_loop()
+                            try:
+                                loop.run_until_complete(init_bot_commands())
+                                _cmd_result['ok'] = True
+                            except Exception as _e:
+                                _cmd_result['err'] = str(_e)
+                            finally:
+                                loop.close()
+
+                        t = _thr.Thread(target=_run_init, daemon=True)
+                        t.start()
+                        t.join(timeout=10)
+                        if _cmd_result.get('ok'):
                             result_html += '<div class="alert ok">✅ Команды бота зарегистрированы в Telegram</div>'
-                        except Exception as exc_cmd:
-                            result_html += f'<div class="alert err">⚠️ Команды не установлены: {_html.escape(str(exc_cmd))}</div>'
+                        elif 'err' in _cmd_result:
+                            result_html += f'<div class="alert err">⚠️ Команды не установлены: {_html.escape(_cmd_result["err"])}</div>'
+                        else:
+                            result_html += '<div class="alert err">⚠️ Timeout регистрации команд (>10s)</div>'
             else:
                 result_html = '<div class="alert err">❌ Неизвестное действие.</div>'
         except Exception as exc:

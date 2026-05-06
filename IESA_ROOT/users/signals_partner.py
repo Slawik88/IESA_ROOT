@@ -43,33 +43,23 @@ def create_partner_profile_on_group_add(sender, instance, action, reverse, model
             if not hasattr(user, 'partner_profile'):
                 # Create Partner profile with default values
                 company_name = f"{user.get_full_name() or user.username}'s Business"
-                
+
                 Partner.objects.create(
                     user=user,
                     company_name=company_name,
                     business_type='other'
                 )
-                
-                logger.info(f"✅ Auto-created Partner profile for user: {user.username}")
-                print(f"✅ Created Partner profile: {company_name}")
+
+                # Sync the authoritative flag
+                User.objects.filter(pk=user.pk).update(is_partner=True)
+                user.is_partner = True
+
+                logger.info("✅ Auto-created Partner profile for user: %s", user.username)
             else:
-                logger.info(f"⚠️ Partner profile already exists for user: {user.username}")
-                
+                logger.info("⚠️ Partner profile already exists for user: %s", user.username)
+
                 # Ensure is_partner flag is set (single source of truth)
                 if not user.is_partner:
                     User.objects.filter(pk=user.pk).update(is_partner=True)
                     user.is_partner = True
-                    logger.info(f"✅ Set is_partner=True for user: {user.username}")
-            
-            # Delete Partner profile if exists
-            if hasattr(user, 'partner_profile'):
-                partner_name = user.partner_profile.company_name
-                user.partner_profile.delete()
-                
-                logger.warning(f"⚠️ Deleted Partner profile for user: {user.username} ({partner_name})")
-                print(f"⚠️ Deleted Partner profile: {partner_name}")
-            
-            # Clear is_partner flag
-            User.objects.filter(pk=user.pk).update(is_partner=False)
-            user.is_partner = False
-            logger.info(f"✅ Set is_partner=False for user: {user.username}")
+                    logger.info("✅ Set is_partner=True for user: %s", user.username)

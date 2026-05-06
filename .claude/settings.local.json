@@ -17,7 +17,12 @@
       "Bash(sed -n '1640,1650p' g:/IESA_ROOT/IESA_ROOT/static/css/components.css)",
       "Bash(sed -n '1714,1722p' g:/IESA_ROOT/IESA_ROOT/static/css/components.css)",
       "Bash(sed -n '1895,1905p' g:/IESA_ROOT/IESA_ROOT/static/css/components.css)",
-      "Bash(sort -t: -k3 -rn)"
+      "Bash(sort -t: -k3 -rn)",
+      "Bash(Get-ChildItem -Path \"g:\\\\IESA_ROOT\" -Directory)",
+      "Bash(Select-Object -First 20)",
+      "Bash(ls -la \"g:\\\\IESA_ROOT\\\\\" | head -30)",
+      "Read(//g//**)",
+      "PowerShell(cd g:\\\\IESA_ROOT; git add -A 2>&1 | Where-Object { $_ -notmatch \"^warning:\" }; git status --short 2>&1)"
     ]
   }
 }
