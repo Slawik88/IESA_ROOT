@@ -57,5 +57,8 @@ def follower_count(request, author_pk):
     count = cache.get(cache_key)
     if count is None:
         count = BlogSubscription.objects.filter(author_id=author_pk).count()
-        cache.set(cache_key, count, 60)
-    return HttpResponse(str(count))
+        cache.set(cache_key, count, 300)  # 5 минут
+    # Указываем браузеру кэшировать ответ (B2-13)
+    response = HttpResponse(str(count))
+    response['Cache-Control'] = 'public, max-age=300'
+    return response

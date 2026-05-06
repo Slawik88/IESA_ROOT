@@ -1,4 +1,7 @@
+import logging
+
 from django.contrib import admin
+from django.db.models import Count, Q
 from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import gettext
@@ -7,6 +10,8 @@ from .models import Post, Comment, Like, Event, PostView, CommentLike, BlogSubsc
 from django.db import models as django_models
 from modeltranslation.admin import TabbedTranslationAdmin
 from . import translation  # noqa: F401
+
+logger = logging.getLogger(__name__)
 try:
     from django_ckeditor_5.widgets import CKEditor5Widget
     CKEditorWidget = CKEditor5Widget
@@ -38,8 +43,12 @@ class AuthorFilter(admin.SimpleListFilter):
     parameter_name = 'author'
 
     def lookups(self, request, model_admin):
-        authors = Post.objects.values_list('author__username', flat=True).distinct()
-        return [(author, author) for author in authors]
+        # B2-15: защита на случай недоступной таблицы (migrations pending)
+        try:
+            authors = Post.objects.values_list('author__username', flat=True).distinct()
+            return [(author, author) for author in authors if author]
+        except Exception:
+            return []
 
     def queryset(self, request, queryset):
         if self.value():
@@ -50,21 +59,28 @@ class AuthorFilter(admin.SimpleListFilter):
 # Custom admin actions
 def publish_posts(modeladmin, request, queryset):
     """Publish selected posts"""
+    ids = list(queryset.values_list('id', flat=True))
     count = queryset.update(status='published')
+    # B2-17: аудит-логирование действий администратора
+    logger.info("Admin '%s' published %d post(s): %s", request.user.username, count, ids)
     modeladmin.message_user(request, gettext('%(count)d post(s) published successfully.') % {'count': count})
 publish_posts.short_description = _('✅ Publish selected posts')
 
 
 def reject_posts(modeladmin, request, queryset):
     """Reject selected posts"""
+    ids = list(queryset.values_list('id', flat=True))
     count = queryset.update(status='rejected')
+    logger.info("Admin '%s' rejected %d post(s): %s", request.user.username, count, ids)
     modeladmin.message_user(request, gettext('%(count)d post(s) rejected.') % {'count': count})
 reject_posts.short_description = _('❌ Reject selected posts')
 
 
 def set_as_draft(modeladmin, request, queryset):
     """Move posts to draft"""
+    ids = list(queryset.values_list('id', flat=True))
     count = queryset.update(status='draft')
+    logger.info("Admin '%s' set %d post(s) to draft: %s", request.user.username, count, ids)
     modeladmin.message_user(request, gettext('%(count)d post(s) moved to draft.') % {'count': count})
 set_as_draft.short_description = _('📝 Move to draft')
 
@@ -99,6 +115,16 @@ class PostAdmin(TabbedTranslationAdmin):
         }),
     )
 
+    def get_queryset(self, request):
+        # B2-03: аннотируем лайки и комментарии один раз → устраняем N+1
+        return (
+            super().get_queryset(request)
+            .annotate(
+                _likes_count=Count('likes', distinct=True),
+                _comments_count=Count('comments', distinct=True),
+            )
+        )
+
     def author_with_link(self, obj):
         """Display author name with link to user profile"""
         url = reverse('admin:users_user_change', args=[obj.author.id])
@@ -113,8 +139,8 @@ class PostAdmin(TabbedTranslationAdmin):
 
     def engagement_details(self, obj):
         """Detailed engagement statistics"""
-        likes = obj.likes.count()
-        comments = obj.comments.count()
+        likes = getattr(obj, '_likes_count', obj.likes.count())
+        comments = getattr(obj, '_comments_count', obj.comments.count())
         views = obj.views_count
         score = likes * 2 + comments * 3 + views
         return format_html(
@@ -146,8 +172,8 @@ class PostAdmin(TabbedTranslationAdmin):
 
     def engagement_score(self, obj):
         """Display engagement metrics"""
-        likes = obj.likes.count()
-        comments = obj.comments.count()
+        likes = getattr(obj, '_likes_count', obj.likes.count())
+        comments = getattr(obj, '_comments_count', obj.comments.count())
         views = obj.views_count
         score = likes * 2 + comments * 3 + views
         return format_html(
@@ -246,6 +272,19 @@ class EventAdmin(TabbedTranslationAdmin):
         }),
     )
 
+    def get_queryset(self, request):
+        # B2-04: аннотируем confirmed registrations → устраняем N+1
+        return (
+            super().get_queryset(request)
+            .annotate(
+                _participants_confirmed=Count(
+                    'registrations',
+                    filter=Q(registrations__status='confirmed'),
+                    distinct=True,
+                )
+            )
+        )
+
     def image_tag(self, obj):
         if obj.image:
             return format_html('<img src="{}" style="width:100px;height:60px;object-fit:cover;border-radius:6px;"/>', obj.image.url)
@@ -253,7 +292,7 @@ class EventAdmin(TabbedTranslationAdmin):
     image_tag.short_description = 'Image'
     
     def participants_count(self, obj):
-        confirmed = obj.registrations.filter(status='confirmed').count()
+        confirmed = getattr(obj, '_participants_confirmed', obj.registrations.filter(status='confirmed').count())
         if obj.max_participants:
             return format_html(
                 '<span style="font-weight:bold;">{}/{}</span>',

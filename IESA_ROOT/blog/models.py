@@ -28,13 +28,16 @@ class Post(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Creation date'))
     preview_image = models.ImageField(upload_to='media/blog/previews/', blank=True, null=True, verbose_name=_('Preview image'))
     
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', verbose_name=_('Status'))
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending', db_index=True, verbose_name=_('Status'))
     views_count = models.PositiveIntegerField(default=0, verbose_name=_('Views'))
-    
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = _('Post')
         verbose_name_plural = _('Posts')
+        indexes = [
+            models.Index(fields=['status', '-created_at'], name='post_status_created_idx'),
+        ]
         
     def __str__(self):
         return self.title
@@ -56,18 +59,18 @@ class Post(models.Model):
             status='published'
         ).exclude(pk=self.pk).order_by('-created_at')[:limit]
         
-        # If not enough, fill with random published posts from other authors
-        same_author_count = same_author.count()
-        if same_author_count < limit:
-            remaining = limit - same_author_count
+        # Материализуем один раз — убираем двойной .count() (B2-16)
+        same_author_list = list(same_author)
+        if len(same_author_list) < limit:
+            remaining = limit - len(same_author_list)
             other_posts = Post.objects.filter(
                 status='published'
             ).exclude(
                 Q(pk=self.pk) | Q(author=self.author)
             ).order_by('-views_count', '-created_at')[:remaining]
-            return list(same_author) + list(other_posts)
-        
-        return list(same_author)
+            return same_author_list + list(other_posts)
+
+        return same_author_list
 
 class Comment(models.Model):
     """
@@ -134,9 +137,22 @@ class PostView(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('View date'))
 
     class Meta:
-        unique_together = (('post', 'user'), ('post', 'ip_address'))
         verbose_name = _('Post View')
         verbose_name_plural = _('Post Views')
+        constraints = [
+            # (post, user) уникален только для авторизованных (B2-02)
+            models.UniqueConstraint(
+                fields=['post', 'user'],
+                condition=models.Q(user__isnull=False),
+                name='unique_post_authenticated_view',
+            ),
+            # (post, ip) уникален только для анонимов
+            models.UniqueConstraint(
+                fields=['post', 'ip_address'],
+                condition=models.Q(user__isnull=True),
+                name='unique_post_anonymous_view',
+            ),
+        ]
 
     def __str__(self):
         return f'View of {self.post.title} by {self.user or self.ip_address}'
@@ -158,7 +174,7 @@ class Event(models.Model):
     end_date = models.DateTimeField(null=True, blank=True, verbose_name=_('End Date & Time'))
     location = models.CharField(max_length=255, verbose_name=_('Location'))
     image = models.ImageField(upload_to='media/events/', blank=True, null=True, verbose_name=_('Event Image'))
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='upcoming', verbose_name=_('Status'))
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='upcoming', db_index=True, verbose_name=_('Status'))
     max_participants = models.PositiveIntegerField(null=True, blank=True, verbose_name=_('Max Participants'))
     min_age = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name=_('Minimum Age'))
     max_age = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name=_('Maximum Age'))

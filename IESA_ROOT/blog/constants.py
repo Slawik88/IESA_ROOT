@@ -6,7 +6,7 @@ EVENTS_PER_PAGE = 12
 SEARCH_RESULTS_LIMIT = 12
 
 # Search
-MIN_SEARCH_LENGTH = 2
+MIN_SEARCH_LENGTH = 3  # Увеличено с 2 до 3 — 1-2 символа дают слишком широкие запросы (B2-18)
 SEARCH_USERS_LIMIT = 8
 SEARCH_POSTS_LIMIT = 6
 SEARCH_EVENTS_LIMIT = 6

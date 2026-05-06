@@ -26,11 +26,14 @@ def comment_create(request, pk):
     
     if not text:
         return redirect('blog:post_detail', pk=pk)
-    
+
     # Создаём комментарий
     parent = None
     if parent_id:
         parent = get_object_or_404(Comment, pk=parent_id, post=post)
+        # Запрещаем ответ на ответ (максимум 1 уровень вложенности) (B2-10)
+        if parent.parent_id is not None:
+            return HttpResponse(status=400, content=_('Replies to replies are not supported.'))
     
     comment = Comment.objects.create(
         post=post,
@@ -49,7 +52,7 @@ def comment_create(request, pk):
             'comment_likes_map': get_comment_likes_map(post, request.user),
         })
     
-    return redirect('blog:blog:post_detail', pk=pk)
+    return redirect('blog:post_detail', pk=pk)
 
 
 def comment_list(request, pk):

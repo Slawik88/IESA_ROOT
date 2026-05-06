@@ -29,6 +29,17 @@ class PostListView(ListView):
     template_name = 'blog/post_list.html'
     context_object_name = 'posts'
     paginate_by = POSTS_PER_PAGE
+    _MAX_PAGE = 100  # Защита от DDoS через infinite scroll (B2-09)
+
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            page = int(request.GET.get('page', 1))
+            if page > self._MAX_PAGE:
+                from django.http import Http404
+                raise Http404('Page number exceeds maximum allowed.')
+        except (ValueError, TypeError):
+            pass
+        return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         # OPTIMIZATION: Annotate counts instead of N+1 queries in templates

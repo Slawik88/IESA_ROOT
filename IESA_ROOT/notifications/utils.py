@@ -80,19 +80,35 @@ def notify_comment_reply(comment):
 
 
 def notify_new_like(like):
-    """Notify user of a new like on their post"""
-    if like.user != like.post.author:
-        return create_notification(
-            recipient=like.post.author,
-            sender=like.user,
-            notification_type='new_like',
-            title=_('New Like ❤️'),
-            message=_('%(username)s liked your post "%(title)s"') % {
-                'username': like.user.username,
-                'title': like.post.title,
-            },
-            link=reverse('blog:post_detail', args=[like.post.pk])
-        )
+    """Notify user of a new like on their post (with deduplication — B2-07)."""
+    if like.user == like.post.author:
+        return None
+
+    from django.utils import timezone
+    from datetime import timedelta
+
+    # Не спамим: не создаём повторное уведомление о лайке в течение 1 часа
+    recent_exists = Notification.objects.filter(
+        recipient=like.post.author,
+        sender=like.user,
+        notification_type='new_like',
+        created_at__gte=timezone.now() - timedelta(hours=1),
+    ).exists()
+
+    if recent_exists:
+        return None
+
+    return create_notification(
+        recipient=like.post.author,
+        sender=like.user,
+        notification_type='new_like',
+        title=_('New Like ❤️'),
+        message=_('%(username)s liked your post "%(title)s"') % {
+            'username': like.user.username,
+            'title': like.post.title,
+        },
+        link=reverse('blog:post_detail', args=[like.post.pk])
+    )
 
 
 def notify_event_reminder(event, user):
