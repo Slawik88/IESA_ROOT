@@ -102,13 +102,19 @@
                     {% csrf_token %}
 
                     <div class="mb-4">
-                        <label class="pc-form-label">{{ form.title.label }}</label>
+                        <label class="pc-form-label d-flex justify-content-between align-items-baseline">
+                            <span>{{ form.title.label }}</span>
+                            <span id="title-char-counter" style="font-size:.68rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 / 200</span>
+                        </label>
                         {{ form.title }}
                         {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors }}</div>{% endif %}
                     </div>
 
                     <div class="mb-4">
-                        <label class="pc-form-label">{{ form.text.label }}</label>
+                        <label class="pc-form-label d-flex justify-content-between align-items-baseline">
+                            <span>{{ form.text.label }}</span>
+                            <span id="content-word-counter" style="font-size:.68rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 {% trans "words" %}</span>
+                        </label>
                         {{ form.text }}
                         {% if form.text.errors %}<div class="text-danger small mt-1">{{ form.text.errors }}</div>{% endif %}
                         <small style="color:rgba(255,255,255,.3);">{% trans "Rich formatting: headings, lists, links, quotes, text and background colors." %}</small>
@@ -119,6 +125,9 @@
                         {{ form.preview_image }}
                         {% if form.preview_image.errors %}<div class="text-danger small mt-1">{{ form.preview_image.errors }}</div>{% endif %}
                     </div>
+
+                    <!-- Draft status indicator (U2-08) -->
+                    <div id="draft-status" style="font-size:.72rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.28);margin-bottom:.75rem;min-height:1.2em;transition:opacity .3s;"></div>
 
                     <div class="pc-actions">
                         <button type="button" id="preview-btn" class="pc-btn-preview">{% trans "Preview" %}</button>
@@ -184,6 +193,9 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // If textarea has initial value, populate Quill
     if (ta.value) quill.root.innerHTML = ta.value;
+
+    // Auto-save / word-count hook (U2-08, U2-17)
+    if (typeof window._iesa_quill_hook === 'function') window._iesa_quill_hook(quill);
 
     // On form submit, copy HTML back to textarea
     var form = ta.closest('form');
@@ -307,4 +319,105 @@ document.addEventListener('DOMContentLoaded', function(){
         </div>
     </div>
 </div>
+
+<script>
+/* ── Auto-save + Char/Word counters (U2-08, U2-17) ── */
+(function(){
+    var DRAFT_KEY   = 'iesa-post-draft-v1';
+    var titleInput  = document.querySelector('input[name="title"]');
+    var statusEl    = document.getElementById('draft-status');
+    var charCounter = document.getElementById('title-char-counter');
+    var wordCounter = document.getElementById('content-word-counter');
+    var saveTimer   = null;
+    var statusTimer = null;
+
+    function setStatus(msg, fade) {
+        if (!statusEl) return;
+        clearTimeout(statusTimer);
+        statusEl.style.opacity = '1';
+        statusEl.textContent = msg;
+        if (fade) { statusTimer = setTimeout(function(){ statusEl.style.opacity = '0'; }, 3000); }
+    }
+
+    function saveDraft() {
+        if (!titleInput) return;
+        var quillEl = document.getElementById('quill-editor');
+        try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                title:   titleInput.value,
+                content: quillEl ? quillEl.innerHTML : '',
+                ts:      Date.now()
+            }));
+            setStatus('✓ {% trans "Draft saved" %}', true);
+        } catch(e) {}
+    }
+
+    function scheduleSave() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveDraft, 5000);
+    }
+
+    function clearDraft() {
+        try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
+    }
+
+    function restoreDraft() {
+        try {
+            var raw = localStorage.getItem(DRAFT_KEY);
+            if (!raw) return;
+            var d = JSON.parse(raw);
+            if (!d || Date.now() - d.ts > 86400000) return;
+            if (titleInput && !titleInput.value && d.title) {
+                titleInput.value = d.title;
+                updateTitleCounter();
+                setStatus('↩ {% trans "Draft restored" %}', true);
+            }
+            if (d.content) window._iesa_draft_content = d.content;
+        } catch(e) {}
+    }
+
+    function updateTitleCounter() {
+        if (!charCounter || !titleInput) return;
+        var n = titleInput.value.length;
+        charCounter.textContent = n + ' / 200';
+        charCounter.style.color = n > 180 ? '#f87171' : n > 150 ? '#fbbf24' : 'rgba(255,255,255,.3)';
+    }
+
+    function updateWordCount(html) {
+        if (!wordCounter) return;
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html || '';
+        var text = tmp.textContent.trim();
+        var words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+        wordCounter.textContent = words + ' {% trans "words" %}';
+        wordCounter.style.color = words > 1500 ? '#fbbf24' : words > 0 ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.28)';
+    }
+
+    if (titleInput) {
+        titleInput.addEventListener('input', function(){
+            updateTitleCounter();
+            scheduleSave();
+        });
+    }
+
+    var form = document.getElementById('post-create-form');
+    if (form) form.addEventListener('submit', clearDraft);
+
+    /* Expose hook for Quill init (in the existing DOMContentLoaded above) */
+    window._iesa_quill_hook = function(quill) {
+        if (window._iesa_draft_content) {
+            quill.root.innerHTML = window._iesa_draft_content;
+            updateWordCount(quill.root.innerHTML);
+        }
+        quill.on('text-change', function(){
+            updateWordCount(quill.root.innerHTML);
+            scheduleSave();
+        });
+    };
+
+    restoreDraft();
+    updateTitleCounter();
+    setInterval(saveDraft, 30000);
+})();
+</script>
 {% endblock %}

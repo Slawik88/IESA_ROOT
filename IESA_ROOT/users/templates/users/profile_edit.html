@@ -286,6 +286,7 @@
                             </div>
                         {% endif %}
 
+                        <div id="profile-draft-status" style="font-size:.72rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.3);margin-bottom:.5rem;min-height:1.2em;transition:opacity .3s;"></div>
                         <div class="edit-actions">
                             <button type="submit" class="btn btn-primary btn-modern">{% trans "Save changes" %}</button>
                             <a href="{% url 'users:profile' %}" class="btn btn-outline-secondary btn-modern">{% trans "Cancel" %}</a>
@@ -296,4 +297,75 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* ── Profile edit auto-save (U2-08) ── */
+(function(){
+    var KEY = 'iesa-profile-draft-v1';
+    var FIELDS = ['first_name','last_name','email','date_of_birth','phone_number',
+                  'github_url','discord_url','telegram_url','website_url','other_links'];
+    var form    = document.querySelector('.edit-form');
+    var statusEl= document.getElementById('profile-draft-status');
+    var saveTimer = null;
+    var statusTimer = null;
+
+    function setStatus(msg, fade) {
+        if (!statusEl) return;
+        clearTimeout(statusTimer);
+        statusEl.style.opacity = '1';
+        statusEl.textContent = msg;
+        if (fade) { statusTimer = setTimeout(function(){ statusEl.style.opacity = '0'; }, 3000); }
+    }
+
+    function saveDraft() {
+        if (!form) return;
+        var data = {};
+        FIELDS.forEach(function(name){
+            var el = form.querySelector('[name="'+name+'"]');
+            if (el && el.type !== 'file' && el.type !== 'password') data[name] = el.value;
+        });
+        try {
+            localStorage.setItem(KEY, JSON.stringify({ data: data, ts: Date.now() }));
+            setStatus('✓ {% trans "Draft saved" %}', true);
+        } catch(e) {}
+    }
+
+    function restoreDraft() {
+        try {
+            var raw = localStorage.getItem(KEY);
+            if (!raw) return;
+            var d = JSON.parse(raw);
+            if (!d || Date.now() - d.ts > 86400000) return;
+            var restored = false;
+            FIELDS.forEach(function(name){
+                var el = form && form.querySelector('[name="'+name+'"]');
+                if (el && !el.value && d.data && d.data[name]) {
+                    el.value = d.data[name];
+                    restored = true;
+                }
+            });
+            if (restored) setStatus('↩ {% trans "Draft restored" %}', true);
+        } catch(e) {}
+    }
+
+    function scheduleSave() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveDraft, 5000);
+    }
+
+    if (form) {
+        FIELDS.forEach(function(name){
+            var el = form.querySelector('[name="'+name+'"]');
+            if (el) el.addEventListener('input', scheduleSave);
+        });
+        form.addEventListener('submit', function(){
+            try { localStorage.removeItem(KEY); } catch(e) {}
+        });
+        restoreDraft();
+    }
+    setInterval(saveDraft, 30000);
+})();
+</script>
 {% endblock %}
