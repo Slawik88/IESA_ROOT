@@ -53,45 +53,45 @@
 
 ### 🔴 КРИТИЧЕСКИЕ
 
-- [ ] **B2-01** `blog/views/comments.py:52` — **Опечатка в `redirect`: `'blog:blog:post_detail'`**: двойной namespace вызывает `NoReverseMatch` при non-HTMX запросах. **Исправление**: заменить на `'blog:post_detail'`.
+- [x] **B2-01** `blog/views/comments.py:52` — **Опечатка в `redirect`: `'blog:blog:post_detail'`**: двойной namespace вызывает `NoReverseMatch` при non-HTMX запросах. **Исправление**: заменить на `'blog:post_detail'`.
 
-- [ ] **B2-02** `blog/models.py:136–139` — **Некорректная `unique_together` на `PostView`**: `unique_together = (('post', 'user'), ('post', 'ip_address'))` создаёт ДВА отдельных уникальных ограничения, а не логическое «либо-либо». Анонимный пользователь с тем же IP что и другой зарегистрированный пользователь сломает запись view. **Исправление**: заменить на `UniqueConstraint` с `condition=Q(user__isnull=False)` и `condition=Q(ip_address__isnull=False)` раздельно.
+- [x] **B2-02** `blog/models.py:136–139` — **Некорректная `unique_together` на `PostView`**: `unique_together = (('post', 'user'), ('post', 'ip_address'))` создаёт ДВА отдельных уникальных ограничения, а не логическое «либо-либо». Анонимный пользователь с тем же IP что и другой зарегистрированный пользователь сломает запись view. **Исправление**: заменить на `UniqueConstraint` с `condition=Q(user__isnull=False)` и `condition=Q(ip_address__isnull=False)` раздельно.
 
 ### 🟠 ВЫСОКИЙ ПРИОРИТЕТ
 
-- [ ] **B2-03** `blog/admin.py:114–156` — **N+1 в `PostAdmin.engagement_details()`**: `obj.likes.count()` + `obj.comments.count()` для каждого поста в списке (25 постов = 50 extra queries). **Исправление**: переопределить `get_queryset()` с `annotate(likes_count=Count('likes'), comments_count=Count('comments'))`.
+- [x] **B2-03** `blog/admin.py:114–156` — **N+1 в `PostAdmin.engagement_details()`**: `obj.likes.count()` + `obj.comments.count()` для каждого поста в списке (25 постов = 50 extra queries). **Исправление**: переопределить `get_queryset()` с `annotate(likes_count=Count('likes'), comments_count=Count('comments'))`.
 
-- [ ] **B2-04** `blog/admin.py:256` — **N+1 в `EventAdmin.participants_count()`**: `obj.registrations.filter(status='confirmed').count()` для каждого события. **Исправление**: аннотировать в `get_queryset()`.
+- [x] **B2-04** `blog/admin.py:256` — **N+1 в `EventAdmin.participants_count()`**: `obj.registrations.filter(status='confirmed').count()` для каждого события. **Исправление**: аннотировать в `get_queryset()`.
 
-- [ ] **B2-05** `blog/signals.py:6–40` — **Отсутствие `try/except` в сигналах Like/Comment**: исключение в `author.update_statistics()` разбивает транзакцию сохранения лайка/комментария. **Исправление**: обернуть в `try/except Exception as e: logger.error(...)`.
+- [x] **B2-05** `blog/signals.py:6–40` — **Отсутствие `try/except` в сигналах Like/Comment**: исключение в `author.update_statistics()` разбивает транзакцию сохранения лайка/комментария. **Исправление**: обернуть в `try/except Exception as e: logger.error(...)`.
 
-- [ ] **B2-06** `blog/views/events.py:139` — **Race condition в регистрации на событие**: два параллельных `get_or_create` без `select_for_update` → IntegrityError вместо graceful handling. **Исправление**: обернуть в `transaction.atomic()` + `try/except IntegrityError`.
+- [x] **B2-06** `blog/views/events.py:139` — **Race condition в регистрации на событие**: два параллельных `get_or_create` без `select_for_update` → IntegrityError вместо graceful handling. **Исправление**: обернуть в `transaction.atomic()` + `try/except IntegrityError`.
 
-- [ ] **B2-07** `notifications/` — **Отсутствие дедупликации уведомлений**: 10 лайков от одного пользователя → 10 идентичных уведомлений. **Исправление**: в `notify_new_like()` проверять существование `Notification` за последний час с теми же `recipient`, `sender`, `notification_type`.
+- [x] **B2-07** `notifications/` — **Отсутствие дедупликации уведомлений**: 10 лайков от одного пользователя → 10 идентичных уведомлений. **Исправление**: в `notify_new_like()` проверять существование `Notification` за последний час с теми же `recipient`, `sender`, `notification_type`.
 
-- [ ] **B2-08** `notifications/` — **Нет механизма очистки старых уведомлений**: таблица растёт бесконечно. **Исправление**: создать `management/commands/cleanup_notifications.py` + crontab `0 2 * * *`.
+- [x] **B2-08** `notifications/` — **Нет механизма очистки старых уведомлений**: таблица растёт бесконечно. **Исправление**: создать `management/commands/cleanup_notifications.py` + crontab `0 2 * * *`.
 
-- [ ] **B2-09** `blog/views/posts.py:19` (infinite scroll) — **Отсутствие защиты от DDoS через infinite scroll**: страницы 1000+ возможны. **Исправление**: ограничить `page = min(page, 100)` или перейти на cursor-based pagination.
+- [x] **B2-09** `blog/views/posts.py:19` (infinite scroll) — **Отсутствие защиты от DDoS через infinite scroll**: страницы 1000+ возможны. **Исправление**: ограничить `page = min(page, 100)` или перейти на cursor-based pagination.
 
 ### 🟡 СРЕДНИЙ ПРИОРИТЕТ
 
-- [ ] **B2-10** `blog/views/comments.py:66–89` — **Отсутствие валидации глубины вложенности**: `reply` на `reply` разрешён, хотя шаблон этого не поддерживает. **Исправление**: в `comment_create` проверить `if parent.parent is not None: return HttpResponse(status=400)`.
+- [x] **B2-10** `blog/views/comments.py:66–89` — **Отсутствие валидации глубины вложенности**: `reply` на `reply` разрешён, хотя шаблон этого не поддерживает. **Исправление**: в `comment_create` проверить `if parent.parent is not None: return HttpResponse(status=400)`.
 
-- [ ] **B2-11** `blog/models.py:31`, `blog/models.py:161` — **Поле `status` без `db_index`**: часто используется в `filter(status='published')`. **Исправление**: добавить `db_index=True` на `Post.status` и `Event.status`, добавить составной `Index(fields=['status', '-created_at'])`.
+- [x] **B2-11** `blog/models.py:31`, `blog/models.py:161` — **Поле `status` без `db_index`**: часто используется в `filter(status='published')`. **Исправление**: добавить `db_index=True` на `Post.status` и `Event.status`, добавить составной `Index(fields=['status', '-created_at'])`.
 
-- [ ] **B2-12** `blog/views/search.py:23–38` — **`post_search()` не нормализует запрос**: `global_search()` использует `normalize_search_query()`, а `post_search()` — нет. Несогласованные результаты. **Исправление**: добавить `normalized = normalize_search_query(query)` в `post_search`.
+- [x] **B2-12** `blog/views/search.py:23–38` — **`post_search()` не нормализует запрос**: `global_search()` использует `normalize_search_query()`, а `post_search()` — нет. Несогласованные результаты. **Исправление**: добавить `normalized = normalize_search_query(query)` в `post_search`.
 
-- [ ] **B2-13** `blog/views/subscriptions.py:52–61` — **HTMX polling `follower_count` каждые N секунд без кэш-заголовков**: клиент игнорирует `cache.set(..., 60)` если нет `Cache-Control` в ответе. **Исправление**: добавить `response['Cache-Control'] = 'public, max-age=300'` и увеличить polling interval в шаблоне до `every 5m`.
+- [x] **B2-13** `blog/views/subscriptions.py:52–61` — **HTMX polling `follower_count` каждые N секунд без кэш-заголовков**: клиент игнорирует `cache.set(..., 60)` если нет `Cache-Control` в ответе. **Исправление**: добавить `response['Cache-Control'] = 'public, max-age=300'` и увеличить polling interval в шаблоне до `every 5m`.
 
-- [ ] **B2-14** `notifications/views.py:20–40` — **Неправильная пагинация**: `notifications = Notification.objects.filter(...).order_by(...)` материализует весь QuerySet до применения `Paginator`. **Исправление**: передать QuerySet напрямую в `Paginator(queryset, 20)` без промежуточного присваивания.
+- [x] **B2-14** `notifications/views.py:20–40` — **Неправильная пагинация**: `notifications = Notification.objects.filter(...).order_by(...)` материализует весь QuerySet до применения `Paginator`. **Исправление**: передать QuerySet напрямую в `Paginator(queryset, 20)` без промежуточного присваивания.
 
-- [ ] **B2-15** `blog/admin.py:40–46` — **`AuthorFilter.lookups()` без `try/except`**: если таблица Post недоступна при миграции, админка ломается. **Исправление**: обернуть в `try/except Exception: return []`.
+- [x] **B2-15** `blog/admin.py:40–46` — **`AuthorFilter.lookups()` без `try/except`**: если таблица Post недоступна при миграции, админка ломается. **Исправление**: обернуть в `try/except Exception: return []`.
 
-- [ ] **B2-16** `blog/models.py:45–69` — **`get_recommended_posts()`: двойной `N+1` pattern**: `same_author.count()` + перечисление queryset вызывает 2 SQL запроса. Уже частично исправлен ранее (`same_author_count`), но `list(same_author) + list(other_posts)` можно объединить в один запрос через `UNION`. **Исправление**: использовать `.union()` или единый annotated queryset.
+- [x] **B2-16** `blog/models.py:45–69` — **`get_recommended_posts()`: двойной `N+1` pattern**: `same_author.count()` + перечисление queryset вызывает 2 SQL запроса. Уже частично исправлен ранее (`same_author_count`), но `list(same_author) + list(other_posts)` можно объединить в один запрос через `UNION`. **Исправление**: использовать `.union()` или единый annotated queryset.
 
-- [ ] **B2-17** `blog/admin.py:51–69` — **Отсутствие аудит-логирования в admin actions**: `publish_posts`, `reject_posts` не логируют, кто и когда выполнил действие. **Исправление**: добавить `logger.info(f"Admin {request.user.username} published posts: {list(queryset.values_list('id', flat=True))}")`.
+- [x] **B2-17** `blog/admin.py:51–69` — **Отсутствие аудит-логирования в admin actions**: `publish_posts`, `reject_posts` не логируют, кто и когда выполнил действие. **Исправление**: добавить `logger.info(f"Admin {request.user.username} published posts: {list(queryset.values_list('id', flat=True))}")`.
 
-- [ ] **B2-18** `blog/views/search.py:66–109` — **Глобальный поиск без DB-таймаута**: при большой БД и коротком запросе (напр. "а") может тормозить секунды. **Исправление**: добавить `SET LOCAL statement_timeout = '3s'` через `connection.cursor()` или ограничить минимальную длину запроса до 3 символов.
+- [x] **B2-18** `blog/views/search.py:66–109` — **Глобальный поиск без DB-таймаута**: при большой БД и коротком запросе (напр. "а") может тормозить секунды. **Исправление**: добавить `SET LOCAL statement_timeout = '3s'` через `connection.cursor()` или ограничить минимальную длину запроса до 3 символов.
 
 ---
 
@@ -204,10 +204,10 @@
 | B4-04 | static/css (multiple) | 🔴 КРИТ | CSS Conflict | [ ] |
 | B1-05 | users/cleverreach_client.py | 🟠 ВЫСОК | Blocking HTTP | [x] |
 | B1-06 | users/signals.py | 🟠 ВЫСОК | Silent Error | [x] |
-| B2-03 | blog/admin.py | 🟠 ВЫСОК | N+1 | [ ] |
-| B2-05 | blog/signals.py | 🟠 ВЫСОК | Silent Error | [ ] |
-| B2-06 | blog/views/events.py | 🟠 ВЫСОК | Race Condition | [ ] |
-| B2-07 | notifications/ | 🟠 ВЫСОК | Spam | [ ] |
+| B2-03 | blog/admin.py | 🟠 ВЫСОК | N+1 | [x] |
+| B2-05 | blog/signals.py | 🟠 ВЫСОК | Silent Error | [x] |
+| B2-06 | blog/views/events.py | 🟠 ВЫСОК | Race Condition | [x] |
+| B2-07 | notifications/ | 🟠 ВЫСОК | Spam | [x] |
 | B3-04 | users/telegram/client.py | 🟠 ВЫСОК | DoS/Hang | [ ] |
 | B3-05 | users/telegram/client.py | 🟠 ВЫСОК | Reliability | [ ] |
 | B4-02 | static/js/page-effects.js | 🟠 ВЫСОК | Memory Leak | [ ] |
