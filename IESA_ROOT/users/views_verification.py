@@ -979,11 +979,19 @@ def telegram_login_callback_view(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@ratelimit(key='ip', rate='300/m', block=True)  # B3-03: защита от спама неизвестных IP
 async def telegram_webhook_view(request, secret):
     import json as _json
     import logging as _logging
     _wlog = _logging.getLogger("users.telegram.webhook")
+
+    # B3-03: manual rate limit — @ratelimit decorator не поддерживает async views
+    _ip = request.META.get('REMOTE_ADDR', 'unknown')
+    _rl_key = f'webhook_rl_{_ip}'
+    from django.core.cache import cache
+    _count = cache.get(_rl_key, 0)
+    if _count >= 300:
+        return JsonResponse({"ok": False}, status=429)
+    cache.set(_rl_key, _count + 1, timeout=60)
 
     # Проверяем, что секрет в URL совпадает с ожидаемым
     from users.telegram.config import webhook_secret as _get_expected_secret
