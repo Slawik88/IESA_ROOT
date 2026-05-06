@@ -5,6 +5,7 @@ reply_markup follows the Telegram InlineKeyboardMarkup schema.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -280,12 +281,19 @@ async def handle_new_channel_member(chat_id: str, new_member: dict, channel_titl
     has_account = False
     if user_id:
         try:
-            has_account = await sync_to_async(
-                lambda: __import__('users.models', fromlist=['User']).User.objects
-                        .filter(telegram_chat_id=user_id).exists()
-            )()
-        except Exception:
-            pass  # DB hiccup — default to register link
+            # B3-12: timeout защищает от зависания при медленной БД
+            has_account = await asyncio.wait_for(
+                sync_to_async(
+                    lambda: __import__('users.models', fromlist=['User']).User.objects
+                            .filter(telegram_chat_id=user_id).exists()
+                )(),
+                timeout=5.0,
+            )
+        except asyncio.TimeoutError:
+            logger.warning("handle_new_channel_member: DB timeout for user_id=%s", user_id)
+            # B3-08: логируем вместо pass
+        except Exception as exc:
+            logger.warning("handle_new_channel_member: DB error for user_id=%s: %s", user_id, exc)
 
     if has_account:
         text = (

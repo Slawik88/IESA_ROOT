@@ -1,6 +1,7 @@
 """
 Membership Verification System Views
 """
+import asyncio
 import logging
 import os
 
@@ -978,6 +979,7 @@ def telegram_login_callback_view(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@ratelimit(key='ip', rate='300/m', block=True)  # B3-03: защита от спама неизвестных IP
 async def telegram_webhook_view(request, secret):
     import json as _json
     import logging as _logging
@@ -991,10 +993,18 @@ async def telegram_webhook_view(request, secret):
         return JsonResponse({"ok": False}, status=403)
 
     try:
-        payload = _json.loads(request.body.decode("utf-8") or "{}")
+        body = request.body.decode("utf-8")
+        if not body:
+            return JsonResponse({"ok": False, "error": "empty body"}, status=400)
+        payload = _json.loads(body)
     except Exception as exc:
         _wlog.error("Webhook JSON parse error: %s", exc)
         return JsonResponse({"ok": False, "error": "invalid json"}, status=400)
+
+    # B3-13: базовая валидация структуры update
+    if not isinstance(payload, dict) or "update_id" not in payload:
+        _wlog.warning("Webhook: invalid payload structure (keys=%s)", list(payload.keys()) if isinstance(payload, dict) else type(payload).__name__)
+        return JsonResponse({"ok": False, "error": "invalid update"}, status=400)
 
     # Log every incoming update type so we can see what Telegram is sending
     update_type = (
@@ -1015,8 +1025,14 @@ async def telegram_webhook_view(request, secret):
     if is_active():
         try:
             await process_incoming_update(payload)
+        except asyncio.CancelledError:
+            # B3-14: CancelledError — graceful shutdown, пробрасываем
+            _wlog.warning("Webhook processing cancelled (update_id=%s)", payload.get("update_id"))
+            raise
         except Exception as exc:
             _wlog.exception("process_incoming_update raised: %s", exc)
+            # B3-02: возвращаем 500 чтобы Telegram переотправил update
+            return JsonResponse({"ok": False, "error": "processing failed"}, status=500)
     else:
         _wlog.warning("Bot is_active()=False — update ignored (token set: %s)",
                       bool(payload))

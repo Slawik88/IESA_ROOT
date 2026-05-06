@@ -1,12 +1,13 @@
 """Visit and membership notification functions.
 
-All functions are sync (called from Django views/signals).
+Sync variants — вызываются из Django views/signals в фоновом потоке (thread-safe).
+Async варианты — для вызова из async-контекстов (B3-06).
 """
 import logging
 
 from django.utils.translation import gettext as _
 
-from .client import send_message
+from .client import send_message, send_message_async
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,40 @@ def notify_visit_cancelled(visit, audit) -> bool:
 def send_test_notification(custom_text: str = "") -> bool:
     """Stub — always False (used only in admin test pages)."""
     return bool(custom_text)
+
+
+# ── Async variants (B3-06) ─────────────────────────────────────────────────
+# Используются при вызове из async-контекста (aiogram handlers, async views и т.п.).
+# Все ORM-поля читаются внутри sync_to_async блока перед отправкой.
+
+async def notify_visit_confirmed_async(visit) -> bool:
+    """Async variant of notify_visit_confirmed."""
+    from asgiref.sync import sync_to_async
+
+    async def _get_data():
+        chat_id = getattr(visit.member, "telegram_chat_id", None)
+        if not chat_id:
+            return None
+        member  = visit.member
+        partner = visit.partner
+        ts      = visit.timestamp.strftime("%d.%m.%Y %H:%M")
+        cost    = f"{visit.cost} CHF" if visit.cost else "—"
+        service = visit.get_service_type_display()
+        name    = member.get_full_name() or member.username
+        desc    = visit.service_description or ""
+        return chat_id, name, partner.company_name, service, cost, ts, desc
+
+    data = await sync_to_async(_get_data)()
+    if data is None:
+        return False
+    chat_id, name, company, service, cost, ts, desc = data
+    text = (
+        _("✅ <b>Visit confirmed</b>") + "\n\n"
+        f"👤 {name}\n🏢 {company}\n🏃 {service}  💰 {cost}\n🕐 {ts}"
+    )
+    if desc:
+        text += f"\n📝 {desc}"
+    return await send_message_async(text, chat_id=chat_id)
 
 
 def notify_membership_activated(user) -> bool:

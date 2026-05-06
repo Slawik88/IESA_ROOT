@@ -21,9 +21,17 @@ class UsersConfig(AppConfig):
         def _setup_bot():
             import asyncio, os, logging
             log = logging.getLogger('users.telegram')
+            # asyncio.run() безопасен здесь: мы в новом daemon-потоке,
+            # у которого нет своего event loop — конфликт с ASGI loop невозможен (B3-01).
             try:
                 from .telegram import init_bot_commands
-                asyncio.run(init_bot_commands())
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(init_bot_commands())
+                finally:
+                    loop.close()
+                    asyncio.set_event_loop(None)
             except Exception as e:
                 log.warning('init_bot_commands failed: %s', e)
 
