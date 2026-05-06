@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.db.models import Q
 import uuid
@@ -7,6 +8,13 @@ import secrets
 import pyotp
 import base64
 from django.utils.translation import gettext_lazy as _
+
+
+def _validate_avatar_size(file):
+    """Лимит размера аватара 5 MB (B1-13)."""
+    limit = 5 * 1024 * 1024
+    if file.size > limit:
+        raise ValidationError(_('Avatar file size must not exceed 5 MB.'))
 
 
 class UserQuerySet(models.QuerySet):
@@ -62,9 +70,10 @@ class User(AbstractUser):
     Custom user model with additional fields.
     """
     avatar = models.ImageField(
-        upload_to='avatars/', 
-        default='avatars/default.png', 
-        blank=True, 
+        upload_to='avatars/',
+        default='avatars/default.png',
+        blank=True,
+        validators=[_validate_avatar_size],
         verbose_name=_('Avatar')
     )
     date_of_birth = models.DateField(
@@ -441,6 +450,13 @@ class Visit(models.Model):
             models.Index(fields=['member', '-timestamp'], name='visit_member_time_idx'),
             models.Index(fields=['pin_verified'], name='visit_verified_idx'),
         ]
+        constraints = [
+            # Гарантируем целостность статуса на уровне БД (B1-12)
+            models.CheckConstraint(
+                check=Q(status__in=['ACTIVE', 'EDITED', 'CANCELLED']),
+                name='valid_visit_status',
+            ),
+        ]
     
     def __str__(self):
         status = "✓" if self.pin_verified else "✗"
@@ -489,6 +505,10 @@ class VisitAudit(models.Model):
         verbose_name_plural = _('Visit Audits')
         db_table = 'users_visitaudit'
         ordering = ['-changed_at']
+        indexes = [
+            # Ускоряет выборку истории по конкретному визиту (B1-16)
+            models.Index(fields=['visit', '-changed_at'], name='audit_visit_time_idx'),
+        ]
 
     def __str__(self):
         return f"{self.action} visit #{self.visit_id} by {self.changed_by} at {self.changed_at.strftime('%Y-%m-%d %H:%M')}"

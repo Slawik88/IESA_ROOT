@@ -1,10 +1,13 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.conf import settings
+import logging
 import os
 
 from .models import User
 from .qr_utils import generate_qr_code_for_user
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=User)
@@ -15,13 +18,15 @@ def ensure_qr_on_card_activation(sender, instance, created, **kwargs):
     Физическая карта (has_physical_card) - это просто отметка в админке.
     """
     try:
-        # Для всех пользователей с permanent_id создаем QR код если его нет
         if instance.permanent_id:
             cards_dir = os.path.join(settings.MEDIA_ROOT, 'cards')
             filepath = os.path.join(cards_dir, f"{str(instance.permanent_id)}.png")
-            # Если файл не существует — генерируем
             if not os.path.exists(filepath):
                 generate_qr_code_for_user(instance)
-    except Exception:
-        # Нельзя выкидывать ошибки в сигналах — логирование опционально
-        pass
+    except Exception as exc:
+        # Не прерываем сохранение пользователя, но логируем для диагностики (B1-06)
+        logger.error(
+            "ensure_qr_on_card_activation failed for user %s (permanent_id=%s): %s",
+            instance.pk, instance.permanent_id, exc,
+            exc_info=True,
+        )

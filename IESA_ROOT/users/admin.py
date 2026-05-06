@@ -238,21 +238,26 @@ class UserAdmin(BaseUserAdmin):
     def regenerate_qr_view(self, request, user_id):
         """Перегенерировать QR код с тем же permanent_id."""
         user = User.objects.get(pk=user_id)
-        
+
         if not user.permanent_id:
             messages.error(request, f'❌ У пользователя {user.username} нет permanent_id')
         else:
-            # Удаляем старый QR из S3 (БЕЗ префикса media/)
+            # Удаляем старый QR из S3 (B1-07: логируем ошибки вместо pass)
             try:
                 old_key = f'cards/{user.permanent_id}.png'
                 if default_storage.exists(old_key):
                     default_storage.delete(old_key)
             except Exception as e:
-                pass
-            
+                logger.warning("regenerate_qr: failed to delete old QR for user %s: %s", user.pk, e)
+                messages.warning(request, f'⚠️ Не удалось удалить старый QR из хранилища: {e}')
+
+            # Инвалидируем Django-кэш QR-изображения
+            from django.core.cache import cache as _cache
+            _cache.delete(f'qr_image_{user.permanent_id}')
+
             # Генерируем новый QR с тем же ID
             generate_qr_code_for_user(user, request)
-            
+
             # Устанавливаем ACL как public-read
             try:
                 s3 = boto3.client(
@@ -269,8 +274,9 @@ class UserAdmin(BaseUserAdmin):
                     ACL='public-read'
                 )
             except Exception as e:
-                pass
-            
+                logger.error("regenerate_qr: S3 ACL error for user %s: %s", user.pk, e)
+                messages.warning(request, f'⚠️ QR сгенерирован, но не удалось установить ACL: {e}')
+
             messages.success(request, f'✅ QR код перегенерирован для {user.username} (permanent_id: {user.permanent_id})')
         
         return redirect(reverse('admin:users_user_change', args=[user_id]))
@@ -283,22 +289,28 @@ class UserAdmin(BaseUserAdmin):
         
         # Удаляем старый QR из S3 (БЕЗ префикса media/)
         if old_id:
+            # Удаляем старый файл (B1-07: логируем ошибки)
             try:
                 old_key = f'cards/{old_id}.png'
                 if default_storage.exists(old_key):
                     default_storage.delete(old_key)
             except Exception as e:
-                pass
-        
+                logger.warning("new_permanent_id: failed to delete old QR (id=%s): %s", old_id, e)
+                messages.warning(request, f'⚠️ Не удалось удалить старый QR из хранилища: {e}')
+
+            # Инвалидируем кэш старого QR (B1-11)
+            from django.core.cache import cache as _cache
+            _cache.delete(f'qr_image_{old_id}')
+
         # Создаём новый permanent_id
         user.permanent_id = uuid.uuid4()
         user.card_active = True
         user.card_issued_at = timezone.now()
         user.save()
-        
+
         # Генерируем новый QR код
         generate_qr_code_for_user(user, request)
-        
+
         # Устанавливаем ACL как public-read
         try:
             s3 = boto3.client(
@@ -315,7 +327,8 @@ class UserAdmin(BaseUserAdmin):
                 ACL='public-read'
             )
         except Exception as e:
-            pass
+            logger.error("new_permanent_id: S3 ACL error for user %s: %s", user.pk, e)
+            messages.warning(request, f'⚠️ QR создан, но не удалось установить ACL: {e}')
         
         messages.warning(
             request, 

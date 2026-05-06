@@ -7,3 +7,5 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         from . import translation  # noqa: F401
+        from .signals import connect_signals
+        connect_signals()
