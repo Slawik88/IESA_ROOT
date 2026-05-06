@@ -12,15 +12,22 @@ from .client import send_message, send_message_async
 logger = logging.getLogger(__name__)
 
 
-def notify_visit_confirmed(visit) -> bool:
-    """Notify member that their visit has been confirmed."""
+def _visit_context(visit):
+    """Return (chat_id, member, partner, ts, cost) or None if no telegram_chat_id."""
     chat_id = getattr(visit.member, "telegram_chat_id", None)
     if not chat_id:
+        return None
+    ts   = visit.timestamp.strftime("%d.%m.%Y %H:%M")
+    cost = f"{visit.cost} CHF" if visit.cost else "—"
+    return chat_id, visit.member, visit.partner, ts, cost
+
+
+def notify_visit_confirmed(visit) -> bool:
+    """Notify member that their visit has been confirmed."""
+    ctx = _visit_context(visit)
+    if ctx is None:
         return False
-    member  = visit.member
-    partner = visit.partner
-    ts      = visit.timestamp.strftime("%d.%m.%Y %H:%M")
-    cost    = f"{visit.cost} CHF" if visit.cost else "—"
+    chat_id, member, partner, ts, cost = ctx
     service = visit.get_service_type_display()
     name    = member.get_full_name() or member.username
     text = (
@@ -37,12 +44,10 @@ def notify_visit_confirmed(visit) -> bool:
 
 def notify_visit_edited(visit, audit) -> bool:
     """Notify member that their visit has been edited."""
-    chat_id = getattr(visit.member, "telegram_chat_id", None)
-    if not chat_id:
+    ctx = _visit_context(visit)
+    if ctx is None:
         return False
-    member   = visit.member
-    partner  = visit.partner
-    ts       = visit.timestamp.strftime("%d.%m.%Y %H:%M")
+    chat_id, member, partner, ts, _ = ctx
     old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
     new_cost = f"{visit.cost} CHF" if visit.cost else "—"
     text = (
@@ -58,12 +63,10 @@ def notify_visit_edited(visit, audit) -> bool:
 
 def notify_visit_cancelled(visit, audit) -> bool:
     """Notify member that their visit has been cancelled."""
-    chat_id = getattr(visit.member, "telegram_chat_id", None)
-    if not chat_id:
+    ctx = _visit_context(visit)
+    if ctx is None:
         return False
-    member   = visit.member
-    partner  = visit.partner
-    ts       = visit.timestamp.strftime("%d.%m.%Y %H:%M")
+    chat_id, member, partner, ts, _ = ctx
     old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
     text = (
         _("❌ <b>Visit cancelled</b>") + "\n\n"

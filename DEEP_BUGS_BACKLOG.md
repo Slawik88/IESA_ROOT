@@ -195,13 +195,13 @@
 | B1-02 | users/views_verification.py | 🔴 КРИТ | Race Condition | [x] |
 | B1-03 | users/views_verification.py | 🔴 КРИТ | Race Condition | [x] |
 | B1-04 | users/views_verification.py | 🔴 КРИТ | Consistency | [x] |
-| B2-01 | blog/views/comments.py | 🔴 КРИТ | Bug (NoReverseMatch) | [ ] |
-| B2-02 | blog/models.py | 🔴 КРИТ | Data Integrity | [ ] |
+| B2-01 | blog/views/comments.py | 🔴 КРИТ | Bug (NoReverseMatch) | [x] |
+| B2-02 | blog/models.py | 🔴 КРИТ | Data Integrity | [x] |
 | B3-01 | users/apps.py | 🔴 КРИТ | RuntimeError | [x] |
 | B3-02 | users/views_verification.py | 🔴 КРИТ | Idempotency | [x] |
 | B3-03 | users/views_verification.py | 🔴 КРИТ | DoS | [x] |
-| B4-01 | static/js/partner-card-effects.js | 🔴 КРИТ | Memory Leak | [ ] |
-| B4-04 | static/css (multiple) | 🔴 КРИТ | CSS Conflict | [ ] |
+| B4-01 | static/js/partner-card-effects.js | 🔴 КРИТ | Memory Leak | [x] |
+| B4-04 | static/css (multiple) | 🔴 КРИТ | CSS Conflict | [x] |
 | B1-05 | users/cleverreach_client.py | 🟠 ВЫСОК | Blocking HTTP | [x] |
 | B1-06 | users/signals.py | 🟠 ВЫСОК | Silent Error | [x] |
 | B2-03 | blog/admin.py | 🟠 ВЫСОК | N+1 | [x] |
@@ -210,9 +210,9 @@
 | B2-07 | notifications/ | 🟠 ВЫСОК | Spam | [x] |
 | B3-04 | users/telegram/client.py | 🟠 ВЫСОК | DoS/Hang | [x] |
 | B3-05 | users/telegram/client.py | 🟠 ВЫСОК | Reliability | [x] |
-| B4-02 | static/js/page-effects.js | 🟠 ВЫСОК | Memory Leak | [ ] |
-| B4-03 | static/js/performance-optimization.js | 🟠 ВЫСОК | Stale Cache | [ ] |
-| B4-06 | templates/core/htmx/partner_modal.html | 🟠 ВЫСОК | Performance | [ ] |
+| B4-02 | static/js/page-effects.js | 🟠 ВЫСОК | Memory Leak | [x] |
+| B4-03 | static/js/performance-optimization.js | 🟠 ВЫСОК | Stale Cache | [x] |
+| B4-06 | templates/core/htmx/partner_modal.html | 🟠 ВЫСОК | Performance | [x] |
 
 > **Итого:** 9 критических, 13 высоких, 20 средних = **42 задачи**
 
@@ -246,3 +246,23 @@
 
 ### Спринт 5 — Качество кода
 17. Всё оставшееся из средних приоритетов
+
+---
+
+## ИТОГИ СПРИНТОВ
+
+### ✅ Спринт 1–4 (выполнено в рамках DEEP BUGS BACKLOG)
+- **42/42** задачи выполнены: все блоки B1–B4 закрыты
+- Критические баги устранены: инвертированная логика сигнала, race conditions, asyncio в ASGI
+- Memory leaks устранены через `data-initialized` guards и HTMX cleanup
+- CSS анимации консолидированы: один канонический `@keyframes fadeInUp` в `responsive.css`
+- Dark theme: `dark-theme-fixes.css` с hardcoded `#111118` обходит баг `--bg-surface: #ffffff` в `base.css`
+- Безопасность: `.env` убран из git-трекинга, secrets не в репозитории
+
+### ✅ Спринт 5 — Качество кода (2026-05-06)
+- **S5-01**: Сгенерированы и применены миграции `blog/0013` и `users/0019` — `UniqueConstraint` с условиями, `CheckConstraint('valid_visit_status')`, `db_index` на status-полях, составные индексы
+- **S5-02**: `.env.example` проверен — Redis-зависимостей не было, файл чистый
+- **S5-03**: Все модели проекта имеют `__str__` — проверено, добавлений не потребовалось
+- **S5-04**: `users/telegram/notify.py` рефакторён — выделен `_visit_context()` хелпер, устранён 3× дубль кода в `notify_visit_confirmed/edited/cancelled`
+- **S5-05**: `homepage.css:1041` — дубль `@keyframes fadeInUp` удалён, заменён комментарием-указателем на `responsive.css`
+- **S5-06**: Этот файл обновлён — сводная таблица приоритетов переведена в статус `[x]` для всех выполненных задач
