@@ -137,39 +137,69 @@
     <!-- HTMX - Dynamic content without custom JS -->
     <script src="{% static 'js/htmx.min.js' %}"></script>
     
-    <!-- HTMX Configuration -->
+    <!-- HTMX Configuration (Sprint UI-4: error handling, session modal) -->
     <script>
-        // HTMX РіР»РѕР±Р°Р»СЊРЅР°СЏ РєРѕРЅС„РёРіСѓСЂР°С†РёСЏ
-        document.body.addEventListener('htmx:configRequest', function(evt) {
-            // CSRF token РґР»СЏ POST Р·Р°РїСЂРѕСЃРѕРІ
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-                              document.querySelector('meta[name="csrf-token"]')?.content ||
-                              document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1];
-            if (csrfToken) {
-                evt.detail.headers['X-CSRFToken'] = csrfToken;
-            }
+    (function () {
+        'use strict';
+
+        /* CSRF injection */
+        document.body.addEventListener('htmx:configRequest', function (evt) {
+            var csrf = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                    || document.querySelector('meta[name="csrf-token"]')?.content
+                    || (document.cookie.split('; ').find(function(r){ return r.startsWith('csrftoken='); }) || '').split('=')[1];
+            if (csrf) evt.detail.headers['X-CSRFToken'] = csrf;
         });
-        
-        // Р’РєР»СЋС‡Р°РµРј View Transitions API РґР»СЏ РїР»Р°РІРЅС‹С… РїРµСЂРµС…РѕРґРѕРІ
-        if (typeof htmx !== 'undefined') {
-            htmx.config.globalViewTransitions = true;
+
+        /* View Transitions API */
+        if (typeof htmx !== 'undefined') htmx.config.globalViewTransitions = true;
+
+        /* Dynamic toast helper (U2-01) */
+        function showToast(message, type) {
+            var container = document.getElementById('toast-container');
+            if (!container) return;
+            var bg   = { danger:'text-bg-danger', warning:'text-bg-warning', info:'text-bg-info' }[type] || 'text-bg-danger';
+            var icon = { danger:'fa-exclamation-circle', warning:'fa-exclamation-triangle', info:'fa-info-circle' }[type] || 'fa-exclamation-circle';
+            var el = document.createElement('div');
+            el.className = 'toast align-items-center ' + bg + ' border-0';
+            el.setAttribute('role', 'alert');
+            el.setAttribute('aria-live', 'assertive');
+            el.setAttribute('aria-atomic', 'true');
+            el.setAttribute('data-bs-delay', '6000');
+            el.innerHTML = '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>'
+                + '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>';
+            container.appendChild(el);
+            new bootstrap.Toast(el, { autohide: true, delay: 6000 }).show();
+            el.addEventListener('hidden.bs.toast', function () { el.remove(); });
         }
-        
-        // РџРѕРєР°Р·С‹РІР°РµРј toast СѓРІРµРґРѕРјР»РµРЅРёСЏ РїРѕСЃР»Рµ HTMX Р·Р°РїСЂРѕСЃРѕРІ
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј Bootstrap toasts РїРѕСЃР»Рµ swap
-            document.querySelectorAll('.toast:not(.show)').forEach(function(toast) {
-                new bootstrap.Toast(toast, {autohide: true, delay: 5000}).show();
+        window._iesa_showToast = showToast;
+
+        /* Init Bootstrap toasts after HTMX swap */
+        document.body.addEventListener('htmx:afterSwap', function () {
+            document.querySelectorAll('.toast:not(.show)').forEach(function (t) {
+                if (!bootstrap.Toast.getInstance(t)) {
+                    new bootstrap.Toast(t, { autohide: true, delay: 5000 }).show();
+                }
             });
         });
 
-        document.body.addEventListener('htmx:responseError', function(evt) {
+        /* HTMX error handling — U2-01 (5xx/network toast) + U2-07 (403 soft modal) */
+        document.body.addEventListener('htmx:responseError', function (evt) {
             var status = evt.detail.xhr ? evt.detail.xhr.status : 0;
-            console.error('HTMX error:', status, evt.detail.pathInfo || '');
             if (status === 403) {
-                window.location.reload();
+                var modal = document.getElementById('sessionExpiredModal');
+                if (modal) {
+                    new bootstrap.Modal(modal).show();
+                } else {
+                    showToast('Session expired. Please log in again.', 'warning');
+                }
+                return;
             }
+            if (status === 0) { showToast('Connection lost. Please check your network.', 'warning'); return; }
+            if (status === 503) { showToast('Service temporarily unavailable. Try again in a moment.', 'warning'); return; }
+            if (status >= 500) { showToast('Server error. Please try again later.', 'danger'); }
         });
+
+    })();
     </script>
 
     <!-- Lightbox JS РґР»СЏ РіР°Р»РµСЂРµРё -->
@@ -221,7 +251,7 @@
         <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmLabel" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
-                    <div class="modal-header bg-warning bg-opacity-10">
+                    <div class="modal-header">
                         <h5 class="modal-title" id="logoutConfirmLabel">
                             <i class="fas fa-sign-out-alt me-2"></i>{% trans "Confirm Logout" %}
                         </h5>
@@ -234,8 +264,32 @@
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Cancel" %}</button>
                         <form method="post" action="{% url 'users:logout' %}" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="btn btn-danger">{% trans "Logout" %}</button>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-sign-out-alt me-1"></i>{% trans "Logout" %}
+                            </button>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Session Expired Modal (U2-07: replaces hard reload on 403) -->
+        <div class="modal fade" id="sessionExpiredModal" tabindex="-1" aria-labelledby="sessionExpiredLabel" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="sessionExpiredLabel">
+                            <i class="fas fa-lock me-2 text-warning"></i>{% trans "Session Expired" %}
+                        </h5>
+                    </div>
+                    <div class="modal-body text-center py-4">
+                        <p class="mb-3">{% trans "Your session has expired. Please log in again to continue." %}</p>
+                        <p class="small text-muted mb-0">{% trans "Any unsaved changes on this page have been preserved." %}</p>
+                    </div>
+                    <div class="modal-footer justify-content-center">
+                        <a href="{% url 'users:login' %}?next={{ request.path }}" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-1"></i>{% trans "Log In Again" %}
+                        </a>
                     </div>
                 </div>
             </div>
@@ -315,13 +369,14 @@
     <!-- Toast Notifications Container -->
     {% include 'partials/toast_container.html' %}
     
-    <!-- Notifications Badge Polling via HTMX (replaces WebSocket) -->
+    <!-- Notifications Badge Polling (U2-11: every 5m, U4-22: fixed target) -->
     {% if user.is_authenticated %}
-    <div hx-get="{% url 'notifications:unread_count' %}" 
-         hx-trigger="load, every 60s"
+    <div hx-get="{% url 'notifications:unread_count' %}"
+         hx-trigger="every 5m"
          hx-swap="innerHTML"
-         hx-target="#unreadMessagesCount"
-            class="d-none">
+         hx-target="#navbar-notif-badge"
+         class="d-none"
+         aria-hidden="true">
     </div>
     {% endif %}
 

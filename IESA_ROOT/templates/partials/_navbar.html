@@ -3,12 +3,26 @@
 {% get_available_languages as LANGUAGES %}
 {# Global site header / navbar — extracted from base.html (Sprint UI-2) #}
 
-<!-- DEVELOPMENT BANNER -->
+<!-- DEVELOPMENT BANNER (U2-03: localStorage dismissal) -->
 <div class="dev-banner" id="dev-banner">
     <i class="bi bi-tools me-1 dev-banner-icon"></i>
     <strong>{% trans "Dev mode" %}</strong> — {% trans "Site is under active development." %}
-    <button class="dev-banner-close" onclick="var b=document.getElementById('dev-banner');b&&b.remove();" aria-label="{% trans 'Close' %}">&#x2715;</button>
+    <button class="dev-banner-close" id="dev-banner-close" aria-label="{% trans 'Close' %}">&#x2715;</button>
 </div>
+<script>
+(function () {
+    var banner = document.getElementById('dev-banner');
+    if (!banner) return;
+    if (localStorage.getItem('dev-banner-dismissed') === '1') {
+        banner.style.display = 'none';
+        return;
+    }
+    document.getElementById('dev-banner-close').addEventListener('click', function () {
+        banner.remove();
+        try { localStorage.setItem('dev-banner-dismissed', '1'); } catch(e) {}
+    });
+})();
+</script>
 
 <!-- Header Section -->
 <header class="iesa-header fixed-top">
@@ -110,12 +124,11 @@
                                     title="{% trans "Notifications" %}"
                                     aria-label="{% trans "Notifications" %}">
                                 <i class="fas fa-bell"></i>
+                                <span id="navbar-notif-badge" class="position-absolute top-0 start-100 translate-middle" aria-live="polite">
                                 {% if unread_notifications_count > 0 %}
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger navbar-notification-badge"
-                                      aria-live="polite">
-                                    {{ unread_notifications_count }}
-                                </span>
+                                <span class="badge rounded-pill bg-danger navbar-notification-badge">{{ unread_notifications_count }}</span>
                                 {% endif %}
+                                </span>
                             </button>
                             <div class="dropdown-menu dropdown-menu-end p-3 notifications-dropdown">
                                 <h6 class="dropdown-header">{% trans "Notifications" %}</h6>
