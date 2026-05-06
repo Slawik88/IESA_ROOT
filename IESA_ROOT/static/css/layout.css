@@ -783,3 +783,59 @@ body {
     padding-top: 0.5rem !important;
   }
 }
+
+/* ====================================================
+   13. PROFILE NAV DROPDOWN (extracted from base.html inline style)
+   ==================================================== */
+
+.prof-nav-drop { position: relative; }
+.prof-nav-drop .dropdown-toggle::after { display: none; }
+
+.prof-nav-drop-menu {
+  background: #0d0d1a;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 18px;
+  padding: .5rem;
+  min-width: 250px;
+  box-shadow: 0 28px 70px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.05);
+  margin-top: .4rem !important;
+  animation: pnd-in .18s cubic-bezier(.22,1,.36,1);
+}
+
+@keyframes pnd-in {
+  from { opacity: 0; transform: translateY(-8px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.pnd-item {
+  display: flex !important;
+  align-items: center;
+  gap: .9rem;
+  padding: .6rem .85rem !important;
+  border-radius: 12px;
+  transition: background .15s;
+  color: rgba(255,255,255,.8) !important;
+  cursor: pointer;
+}
+
+.pnd-item:hover,
+.pnd-item:focus { background: rgba(255,255,255,.07) !important; color: #fff !important; }
+
+.pnd-icon {
+  width: 2.1rem; height: 2.1rem;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .88rem; flex-shrink: 0;
+}
+
+.pnd-profile .pnd-icon { background: rgba(220,38,38,.14); color: #f87171; }
+.pnd-cabinet .pnd-icon { background: rgba(59,130,246,.13); color: #60a5fa; }
+.pnd-edit    .pnd-icon { background: rgba(245,158,11,.11); color: #fbbf24; }
+.pnd-partner .pnd-icon { background: rgba(34,197,94,.11);  color: #4ade80; }
+
+.pnd-label { font-weight: 700; font-size: .87rem; line-height: 1.2; }
+.pnd-sub   { font-size: .73rem; color: rgba(255,255,255,.35); line-height: 1.3; }
+.pnd-divider { border-color: rgba(255,255,255,.07) !important; margin: .3rem .6rem !important; }
+.btn-nav-profile { display: flex; align-items: center; gap: .4rem; font-weight: 600; }
+.pnd-caret { font-size: .57rem; opacity: .5; transition: transform .2s; }
+.prof-nav-drop.show .pnd-caret { transform: rotate(180deg); }
