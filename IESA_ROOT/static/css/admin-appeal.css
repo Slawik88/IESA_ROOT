@@ -5,7 +5,7 @@
 @media (max-width: 575px) { .af-grid { grid-template-columns: 1fr; } }
 
 .af-label {
-  display: block; font-size: .7rem; font-family: 'Courier New', monospace;
+  display: block; font-size: .7rem; font-family: var(--font-mono);
   color: rgba(255,255,255,.4); text-transform: uppercase;
   letter-spacing: .08em; margin-bottom: 5px;
 }
@@ -28,7 +28,7 @@
 .af-btn {
   align-self: flex-start; background: #dc2626; color: #fff;
   border: none; border-radius: 8px; padding: 10px 22px;
-  font-size: .85rem; font-family: 'Courier New', monospace;
+  font-size: .85rem; font-family: var(--font-mono);
   cursor: pointer; transition: background .2s;
 }
 .af-btn:hover { background: #ef4444; }
@@ -37,4 +37,4 @@
   background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.3);
   border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
 }
-.af-err-line { font-size: .8rem; color: #f87171; font-family: 'Courier New', monospace; }
+.af-err-line { font-size: .8rem; color: #f87171; font-family: var(--font-mono); }

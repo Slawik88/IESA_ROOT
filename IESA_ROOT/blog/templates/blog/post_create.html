@@ -104,7 +104,7 @@
                     <div class="mb-4">
                         <label class="pc-form-label d-flex justify-content-between align-items-baseline">
                             <span>{{ form.title.label }}</span>
-                            <span id="title-char-counter" style="font-size:.68rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 / 200</span>
+                            <span id="title-char-counter" style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 / 200</span>
                         </label>
                         {{ form.title }}
                         {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors }}</div>{% endif %}
@@ -113,7 +113,7 @@
                     <div class="mb-4">
                         <label class="pc-form-label d-flex justify-content-between align-items-baseline">
                             <span>{{ form.text.label }}</span>
-                            <span id="content-word-counter" style="font-size:.68rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 {% trans "words" %}</span>
+                            <span id="content-word-counter" style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 {% trans "words" %}</span>
                         </label>
                         {{ form.text }}
                         {% if form.text.errors %}<div class="text-danger small mt-1">{{ form.text.errors }}</div>{% endif %}
@@ -127,7 +127,7 @@
                     </div>
 
                     <!-- Draft status indicator (U2-08) -->
-                    <div id="draft-status" style="font-size:.72rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.28);margin-bottom:.75rem;min-height:1.2em;transition:opacity .3s;"></div>
+                    <div id="draft-status" style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.28);margin-bottom:.75rem;min-height:1.2em;transition:opacity .3s;"></div>
 
                     <div class="pc-actions">
                         <button type="button" id="preview-btn" class="pc-btn-preview">{% trans "Preview" %}</button>

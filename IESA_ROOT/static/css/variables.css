@@ -194,10 +194,11 @@
   --radius-full: 9999px;
   
   /* Специфичные радиусы */
-  --radius-card: 1.25rem;  /* 20px - для карточек */
-  --radius-btn: 0.875rem;  /* 14px - для кнопок */
-  --radius-input: 0.75rem; /* 12px - для инпутов */
-  --radius-badge: 0.5rem;  /* 8px - для badges */
+  --radius-card: 1.25rem;      /* 20px - для карточек */
+  --radius-card-alt: 1.125rem; /* 18px - glassmorphism карточки */
+  --radius-btn: 0.875rem;      /* 14px - для кнопок */
+  --radius-input: 0.75rem;     /* 12px - для инпутов */
+  --radius-badge: 0.5rem;      /* 8px - для badges */
   
   /* ====================================================
      5. ТЕНИ

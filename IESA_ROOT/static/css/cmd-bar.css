@@ -41,7 +41,7 @@
     font-weight: 700;
     letter-spacing: .12em;
     text-transform: uppercase;
-    color: rgba(255,255,255,.35);
+    color: rgba(255,255,255,.38);
     text-decoration: none;
     border-right: 1px solid rgba(255,255,255,.07);
     transition: color .2s, background .2s;
