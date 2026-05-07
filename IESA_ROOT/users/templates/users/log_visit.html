@@ -8,7 +8,7 @@
 .pp-wrap { background:#07070e; min-height:100vh; padding-bottom:80px; color:#e2e8f0; }
 .pp-nav { background:#0d0d18; border-bottom:1px solid rgba(220,38,38,.18); padding:0 20px; display:flex; align-items:center; overflow-x:auto; scrollbar-width:none; }
 .pp-nav::-webkit-scrollbar { display:none; }
-.pp-nav a { display:flex; align-items:center; gap:7px; padding:14px 20px; color:rgba(255,255,255,.55); text-decoration:none; font-size:.82rem; font-family:'Courier New',monospace; white-space:nowrap; border-bottom:2px solid transparent; transition:color .2s,border-color .2s; }
+.pp-nav a { display:flex; align-items:center; gap:7px; padding:14px 20px; color:rgba(255,255,255,.55); text-decoration:none; font-size:.82rem; font-family:var(--font-mono); white-space:nowrap; border-bottom:2px solid transparent; transition:color .2s,border-color .2s; }
 .pp-nav a:hover,.pp-nav a.active { color:#ef4444; border-bottom-color:#ef4444; }
 .pp-nav-brand { font-size:.85rem; font-weight:700; color:#fff !important; margin-right:10px; letter-spacing:.05em; border-bottom:none !important; }
 @media (max-width: 600px) {
@@ -40,11 +40,11 @@
 }
 .pp-member-info { flex:1; min-width:0; }
 .pp-member-fullname { font-size:1rem; font-weight:600; color:#fff; }
-.pp-member-un { font-size:.78rem; color:rgba(255,255,255,.4); font-family:'Courier New',monospace; }
+.pp-member-un { font-size:.78rem; color:rgba(255,255,255,.4); font-family:var(--font-mono); }
 .status-active { color:#4ade80; }
 .status-inactive { color:#f87171; }
 .pp-field { margin-bottom:20px; }
-.pp-field label { display:block; font-size:.72rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.45); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+.pp-field label { display:block; font-size:.72rem; font-family:var(--font-mono); color:rgba(255,255,255,.45); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
 .pp-field input, .pp-field select, .pp-field textarea {
   width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
   border-radius:8px; color:#e2e8f0; padding:10px 14px; font-size:.9rem; outline:none;
@@ -54,23 +54,23 @@
 .pp-field input::placeholder, .pp-field textarea::placeholder { color:rgba(255,255,255,.2); }
 .pp-field select option { background:#1a1a2e; color:#e2e8f0; }
 .pp-field .errorlist { list-style:none; padding:6px 0 0; margin:0; }
-.pp-field .errorlist li { font-size:.78rem; color:#f87171; font-family:'Courier New',monospace; }
+.pp-field .errorlist li { font-size:.78rem; color:#f87171; font-family:var(--font-mono); }
 .pp-pin-field input {
   font-size:2rem !important;
   letter-spacing:.8rem;
   text-align:center;
   padding:14px !important;
   border-color:rgba(220,38,38,.35) !important;
-  font-family:'Courier New',monospace;
+  font-family:var(--font-mono);
 }
 .pp-pin-field input:focus { border-color:#ef4444 !important; }
-.pp-pin-hint { font-size:.72rem; color:rgba(255,255,255,.3); font-family:'Courier New',monospace; margin-top:6px; }
+.pp-pin-hint { font-size:.72rem; color:rgba(255,255,255,.3); font-family:var(--font-mono); margin-top:6px; }
 .pp-divider { border:none; border-top:1px solid rgba(255,255,255,.06); margin:20px 0; }
-.pp-btn { background:#dc2626; color:#fff; border:none; border-radius:8px; padding:12px 26px; font-size:.88rem; font-family:'Courier New',monospace; cursor:pointer; transition:background .2s; text-decoration:none; display:inline-flex; align-items:center; gap:8px; }
+.pp-btn { background:#dc2626; color:#fff; border:none; border-radius:8px; padding:12px 26px; font-size:.88rem; font-family:var(--font-mono); cursor:pointer; transition:background .2s; text-decoration:none; display:inline-flex; align-items:center; gap:8px; }
 .pp-btn:hover { background:#ef4444; color:#fff; }
 .pp-btn-ghost { background:transparent; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.45); }
 .pp-btn-ghost:hover { background:rgba(255,255,255,.04); color:rgba(255,255,255,.7); }
-.pp-warn { background:rgba(250,204,21,.08); border:1px solid rgba(250,204,21,.25); border-radius:8px; padding:10px 14px; font-size:.8rem; color:#fbbf24; font-family:'Courier New',monospace; margin-bottom:16px; }
+.pp-warn { background:rgba(250,204,21,.08); border:1px solid rgba(250,204,21,.25); border-radius:8px; padding:10px 14px; font-size:.8rem; color:#fbbf24; font-family:var(--font-mono); margin-bottom:16px; }
 </style>
 {% endblock %}
 
@@ -84,7 +84,7 @@
   </nav>
 
   <div style="background:linear-gradient(135deg,#0d0d18 0%,#12060d 100%);padding:24px 24px 20px;border-bottom:1px solid rgba(255,255,255,.05);">
-    <div style="font-size:.72rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">LOG VISIT</div>
+    <div style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">LOG VISIT</div>
     <div style="font-size:1.25rem;font-weight:700;color:#fff;">{% trans "Record Member Visit" %}</div>
   </div>
 
@@ -118,21 +118,21 @@
           </div>
           <div style="margin-top:5px;">
             {% if member.membership_status == 'active' %}
-              <span class="status-active" style="font-size:.75rem;font-family:'Courier New',monospace;">● {% trans "ACTIVE MEMBER" %}</span>
+              <span class="status-active" style="font-size:.75rem;font-family:var(--font-mono);">● {% trans "ACTIVE MEMBER" %}</span>
             {% else %}
-              <span class="status-inactive" style="font-size:.75rem;font-family:'Courier New',monospace;">● {{ member.get_membership_status_display|upper }}</span>
+              <span class="status-inactive" style="font-size:.75rem;font-family:var(--font-mono);">● {{ member.get_membership_status_display|upper }}</span>
             {% endif %}
           </div>
           <div style="margin-top:5px;">
             {% if member.telegram_chat_id %}
-              <span style="font-size:.72rem;font-family:'Courier New',monospace;color:#4ade80;">✔ {% trans "Telegram linked" %}</span>
+              <span style="font-size:.72rem;font-family:var(--font-mono);color:#4ade80;">✔ {% trans "Telegram linked" %}</span>
             {% else %}
-              <span style="font-size:.72rem;font-family:'Courier New',monospace;color:#fbbf24;">⚠ {% trans "No Telegram — notification will not be sent" %}</span>
+              <span style="font-size:.72rem;font-family:var(--font-mono);color:#fbbf24;">⚠ {% trans "No Telegram — notification will not be sent" %}</span>
             {% endif %}
           </div>
         </div>
         {% if partner %}
-        <div style="font-size:.72rem;color:rgba(255,255,255,.25);font-family:'Courier New',monospace;text-align:right;">
+        <div style="font-size:.72rem;color:rgba(255,255,255,.25);font-family:var(--font-mono);text-align:right;">
           {{ partner.company_name }}<br>{{ partner.get_business_type_display }}
         </div>
         {% endif %}

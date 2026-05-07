@@ -71,7 +71,7 @@
 .tl-card {
     background: #111118;
     border: 1.5px solid rgba(255,255,255,.07);
-    border-radius: 18px;
+    border-radius: var(--radius-card-alt);
     overflow: hidden;
     position: relative;
     transition:
@@ -216,7 +216,7 @@
     display: flex;
     justify-content: space-between;
     font-size: .72rem;
-    color: rgba(255,255,255,.32);
+    color: rgba(255,255,255,.38);
     margin-bottom: .28rem;
 }
 .tl-cap-track {
