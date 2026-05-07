@@ -75,7 +75,7 @@
     margin-bottom: 2rem;
 }
 @media(max-width:575.98px) { .pd-comments-wrap { padding: 1.25rem; } }
-.pd-section-label { font-size: .75rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #dc2626; margin-bottom: 1.25rem; display: block; }
+/* .section-eyebrow -> .section-eyebrow in pages.css */
 .pd-comment-form textarea {
     background: #1a1a24;
     border: 1.5px solid rgba(255,255,255,.1);
@@ -164,7 +164,7 @@
 
             <!-- Comments -->
             <section id="comments" class="pd-comments-wrap">
-                <span class="pd-section-label">{% trans "COMMENTS" %} ({{ post.comments.count }})</span>
+                <span class="section-eyebrow">{% trans "COMMENTS" %} ({{ post.comments.count }})</span>
 
                 {% if user.is_authenticated %}
                     <form class="pd-comment-form mb-4"
@@ -195,7 +195,7 @@
             <!-- Recommended Posts -->
             {% if recommended_posts %}
             <section class="mb-5">
-                <span class="pd-section-label">{% trans "RECOMMENDED POSTS" %}</span>
+                <span class="section-eyebrow">{% trans "RECOMMENDED POSTS" %}</span>
                 <div class="row g-3">
                     {% for post_rec in recommended_posts %}
                     <div class="col-md-6">

@@ -4,122 +4,19 @@
 {% block title %}{% trans "Events" %} | IESA{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/cmd-bar.css' %}">
 <style>
-/* ── Hero ──────────────────────────────────────── */
-.ev-page-hero {
-    background: #0a0a0f;
-    padding: 5.5rem 0 4.5rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-.ev-page-hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
-    pointer-events: none;
-}
-/* ── Command Bar (shared design) ───────────────── */
-.cmd-bar {
-    background: #090910;
-    border: 1px solid rgba(255,255,255,.07);
-    border-top: 2px solid rgba(220,38,38,.55);
-    border-radius: 0 0 10px 10px;
-    margin: -1.5rem auto 2.5rem;
-    max-width: 980px;
-    position: relative;
-    z-index: 10;
-    overflow: hidden;
-    transition: box-shadow .3s;
-}
-.cmd-bar:focus-within { box-shadow: 0 8px 40px rgba(0,0,0,.35); }
-.cmd-bar__inner { display: flex; align-items: stretch; min-height: 54px; }
-.cmd-tabs { display: flex; align-items: stretch; flex-shrink: 0; }
-.cmd-tab {
-    display: flex; align-items: center; gap: .45rem;
-    padding: 0 1.25rem;
-    font-family: 'Courier New', monospace;
-    font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
-    color: rgba(255,255,255,.35); text-decoration: none;
-    border-right: 1px solid rgba(255,255,255,.07);
-    transition: color .2s, background .2s; position: relative;
-}
-.cmd-tab::after {
-    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
-    background: var(--primary); transform: scaleX(0); transition: transform .25s; transform-origin: left;
-}
-.cmd-tab:hover { color: rgba(255,255,255,.7); background: rgba(255,255,255,.03); }
-.cmd-tab--active { color: #fff !important; }
-.cmd-tab--active::after { transform: scaleX(1); }
-.cmd-tab__dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,.2); flex-shrink: 0; }
-.cmd-tab--active .cmd-tab__dot { background: var(--primary); box-shadow: 0 0 6px var(--primary); }
-.cmd-sep { width: 1px; background: rgba(255,255,255,.07); flex-shrink: 0; align-self: stretch; }
-.cmd-search {
-    display: flex; flex-direction: column; justify-content: center;
-    padding: .4rem 1.1rem; flex: 1 1 0; min-width: 0;
-}
-.cmd-lbl {
-    display: block; font-family: 'Courier New', monospace;
-    font-size: .58rem; letter-spacing: .15em; color: rgba(220,38,38,.7);
-    margin-bottom: .15rem; line-height: 1;
-}
-.cmd-input {
-    background: transparent !important; border: none !important;
-    border-bottom: 1px solid rgba(255,255,255,.12) !important; border-radius: 0 !important;
-    color: #fff !important; font-size: .88rem !important;
-    padding: .2rem 0 .3rem !important; box-shadow: none !important; outline: none !important;
-    width: 100%; transition: border-color .2s;
-}
-.cmd-input::placeholder { color: rgba(255,255,255,.25) !important; font-style: italic; }
-.cmd-input:focus { border-bottom-color: var(--primary) !important; }
-.cmd-filters { display: flex; align-items: stretch; flex-shrink: 0; }
-.cmd-filter-group {
-    display: flex; flex-direction: column; justify-content: center;
-    padding: .4rem 1rem; border-right: 1px solid rgba(255,255,255,.07); min-width: 110px;
-}
-.cmd-select {
-    background: transparent !important; border: none !important;
-    color: rgba(255,255,255,.75) !important; font-size: .82rem !important;
-    padding: .15rem 0 !important; cursor: pointer; outline: none !important; box-shadow: none !important;
-    -webkit-appearance: none; appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,.3)'/%3E%3C/svg%3E") !important;
-    background-repeat: no-repeat !important; background-position: right 2px center !important; padding-right: 18px !important;
-}
-.cmd-select option { background: #111118; color: #fff; }
-.cmd-select:focus { color: #fff !important; }
-.cmd-cta {
-    display: flex; align-items: center; gap: .5rem; padding: 0 1.3rem;
-    font-family: 'Courier New', monospace; font-size: .72rem; font-weight: 700;
-    letter-spacing: .1em; text-transform: uppercase;
-    color: rgba(220,38,38,.85); text-decoration: none;
-    border-left: 1px solid rgba(255,255,255,.07); flex-shrink: 0;
-    transition: background .2s, color .2s; white-space: nowrap;
-}
-.cmd-cta:hover { background: rgba(220,38,38,.1); color: #fff; }
+/* Event-list specific styles only (cmd-bar → cmd-bar.css, hero → .page-hero) */
 #ev-loading { display: none; }
 .htmx-request #ev-loading { display: flex; }
-@media (max-width: 767px) {
-    .cmd-bar { border-radius: 0 0 8px 8px; margin-left: -.5rem; margin-right: -.5rem; }
-    .cmd-bar__inner { flex-wrap: wrap; }
-    .cmd-tabs { width: 100%; border-bottom: 1px solid rgba(255,255,255,.07); }
-    .cmd-tab { flex: 1; justify-content: center; padding: .65rem .5rem; border-right: none; }
-    .cmd-tab:first-child { border-right: 1px solid rgba(255,255,255,.07); }
-    .cmd-sep { display: none; }
-    .cmd-search { padding: .5rem .9rem; border-bottom: 1px solid rgba(255,255,255,.07); }
-    .cmd-filters { width: 100%; border-bottom: 1px solid rgba(255,255,255,.07); flex-wrap: wrap; }
-    .cmd-filter-group { flex: 1; min-width: 0; padding: .5rem .9rem; border-right: 1px solid rgba(255,255,255,.07); }
-    .cmd-filter-group:last-child { border-right: none; }
-    .cmd-cta { width: 100%; justify-content: center; padding: .6rem; border-left: none; border-top: 1px solid rgba(255,255,255,.07); }
-}
-/* ── Auth Notice ───────────────────────────────── */
+/* ── Auth Notice ── */
 .ev-auth-notice {
     background: linear-gradient(135deg, rgba(220,38,38,.1), rgba(220,38,38,.04));
     border: 1.5px solid rgba(220,38,38,.2);
     border-radius: 14px;
     padding: 1rem 1.5rem;
     margin-bottom: 1.5rem;
-    color: #e5e7eb;
+    color: var(--text-primary);
     backdrop-filter: blur(8px);
 }
 </style>
@@ -130,7 +27,7 @@
 
 {% block content %}
 <!-- Page Hero -->
-<section class="ev-page-hero">
+<section class="page-hero">
     <div class="container">
         <div class="hp-label mx-auto mb-3" style="width:fit-content;">{% trans "EVENTS CALENDAR" %}</div>
         <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);" data-typed="40">{% trans "Upcoming Events & Gatherings" %}</h1>

@@ -6,20 +6,8 @@
 {% block extra_css %}
 <style>
 /* ── Hero ──────────────────────────────────────── */
-.gal-hero {
-    background: #0a0a0f;
-    padding: 5.5rem 0 4.5rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-.gal-hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
-    pointer-events: none;
-}
+/* hero → .page-hero in pages.css (Д2-02) */
+
 /* ── Photo Counter Chip ────────────────────────── */
 .gal-counter-chip {
     display: inline-flex;
@@ -198,7 +186,7 @@
 
 {% block content %}
 <!-- Page Hero -->
-<section class="gal-hero">
+<section class="page-hero">
     <div class="container">
         <div class="hp-label mx-auto mb-3" style="width:fit-content;">{% trans "PHOTO GALLERY" %}</div>
         <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);" data-typed="40">{% trans "Moments From Our Community" %}</h1>

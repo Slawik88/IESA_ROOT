@@ -3,6 +3,33 @@
 
 {% block title %}{% trans "User search" %} — IESA{% endblock %}
 
+{% block extra_css %}
+<style>
+/* User search page styles (moved from content block, Д2-06) */
+@keyframes fadeInUpSmall {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.search-item {
+  animation: fadeInUpSmall .32s ease both;
+  will-change: transform, opacity;
+}
+/* list-group-item dark overrides for this page */
+.search-results-list .list-group-item {
+  background: rgba(255,255,255,.04);
+  border-color: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.87);
+}
+.search-results-list .list-group-item:hover {
+  background: rgba(255,255,255,.08);
+  color: #fff;
+}
+.search-results-list .list-group-item .text-muted,
+.search-results-list .list-group-item small.text-muted { color: rgba(255,255,255,.45) !important; }
+.search-results-list .list-group-item code { color: #f87171; background: rgba(220,38,38,.12); padding: 1px 5px; border-radius: 4px; }
+</style>
+{% endblock %}
+
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
 
@@ -28,37 +55,9 @@
   <h5 class="mb-3 text-muted">{% trans "Results for" %} "{{ query }}"</h5>
   {% endif %}
 
-  <style>
-    @keyframes fadeInUpSmall {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .search-item {
-      animation: fadeInUpSmall .32s ease both;
-      will-change: transform, opacity;
-    }
-    mark {
-      background-color: rgba(220,38,38,.22);
-      color: #fca5a5;
-      font-weight: 500;
-      padding: 1px 3px;
-      border-radius: 2px;
-    }
-    .list-group-item {
-      background: rgba(255,255,255,.04);
-      border-color: rgba(255,255,255,.08);
-      color: rgba(255,255,255,.87);
-    }
-    .list-group-item:hover {
-      background: rgba(255,255,255,.08);
-      color: #fff;
-    }
-    .list-group-item .text-muted,
-    .list-group-item small.text-muted { color: rgba(255,255,255,.45) !important; }
-    .list-group-item code { color: #f87171; background: rgba(220,38,38,.12); padding: 1px 5px; border-radius: 4px; }
-  </style>
 
-  <div class="list-group">
+
+  <div class="list-group search-results-list">
     {% for item in results %}
       {% with u=item.user %}
       <a href="{% url 'users:profile_public_username' username=u.username %}" class="list-group-item list-group-item-action d-flex align-items-center search-item animation-delay-{{ forloop.counter0|default:0 }}">
