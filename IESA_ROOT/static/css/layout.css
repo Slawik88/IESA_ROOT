@@ -42,117 +42,77 @@
 }
 
 /* ====================================================
-   2. HEADER / NAVBAR — минималистичный редизайн
+   2. HEADER / NAVBAR
    ==================================================== */
 
-/* ── Dev banner ── */
+/* Dev banner */
 .dev-banner {
   background: rgba(8,8,14,.97);
-  color: rgba(255,255,255,.45);
+  color: rgba(255,255,255,.4);
   padding: 5px 48px 5px 20px;
-  text-align: center;
-  font-size: .72rem;
-  letter-spacing: .02em;
-  position: relative;
+  text-align: center; font-size: .72rem;
   border-bottom: 1px solid rgba(255,255,255,.05);
+  position: relative;
 }
-.dev-banner-icon { color: rgba(220,38,38,.6); margin-right: 4px; }
+.dev-banner-icon { color: rgba(220,38,38,.55); margin-right: 4px; }
 .dev-banner-close {
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; color: rgba(255,255,255,.35);
-  font-size: 1rem; cursor: pointer; padding: 0 4px; line-height: 1;
+  background: none; border: none; color: rgba(255,255,255,.3);
+  font-size: 1rem; cursor: pointer; line-height: 1; padding: 2px 6px;
 }
-.dev-banner-close:hover { color: rgba(255,255,255,.7); }
+.dev-banner-close:hover { color: rgba(255,255,255,.65); }
 
-/* ── Основная шапка ── */
-header, .iesa-header {
+/* Header */
+.iesa-header {
   background: rgba(8,8,14,.97);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255,255,255,.06);
-  position: sticky;
-  top: 0;
+  position: sticky; top: 0;
   z-index: var(--z-fixed);
-  /* transform и isolation убраны — они создавали stacking context
-     и мешали Popper.js правильно позиционировать dropdown меню */
 }
 
-/* Строка навигации — одна линия flex */
-.iesa-nav {
-  display: flex;
-  align-items: center;
-  height: 60px;
-  gap: 1.5rem;
-}
+/* Override Bootstrap navbar */
+.iesa-navbar { height: 60px; padding: 0; flex-wrap: nowrap; }
+.iesa-navbar .container-limited { display: flex; align-items: center; height: 100%; }
 
-/* Логотип */
-.iesa-nav__brand {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  text-decoration: none;
-}
-.iesa-nav__brand .navbar-logo {
-  height: 32px; width: auto; display: block;
-  transition: opacity .2s;
-}
-.iesa-nav__brand:hover .navbar-logo { opacity: .82; }
+/* Logo */
+.iesa-brand { flex-shrink: 0; }
+.iesa-brand .navbar-logo { height: 32px; width: auto; display: block; transition: opacity .2s; }
+.iesa-brand:hover .navbar-logo { opacity: .82; }
 
-/* Центральные ссылки */
-.iesa-nav__links {
-  display: flex; align-items: center;
-  gap: .1rem; list-style: none;
-  margin: 0 auto; padding: 0;
-}
-.iesa-nav__links > li > a {
-  display: block; padding: .4rem .78rem;
+/* Nav links */
+.iesa-navbar .navbar-nav { flex-direction: row; gap: .1rem; }
+.iesa-navbar .navbar-nav .nav-link {
+  padding: .42rem .78rem;
   font-size: .875rem; font-weight: 500;
   color: rgba(255,255,255,.62);
-  border-radius: 8px; text-decoration: none;
-  transition: color .15s, background .15s;
-  white-space: nowrap;
-}
-.iesa-nav__links > li > a:hover { color: #fff; background: rgba(255,255,255,.07); }
-.iesa-nav__links > li > a.active { color: #f87171; background: rgba(220,38,38,.1); }
-.iesa-nav__links .dropdown-toggle::after { display: none; }
-
-/* Community кнопка — выглядит как nav-ссылка */
-.nav-community-btn {
-  background: none;
-  border: none;
-  padding: .4rem .78rem;
-  font-size: .875rem;
-  font-weight: 500;
-  color: rgba(255,255,255,.62);
   border-radius: 8px;
-  cursor: pointer;
   transition: color .15s, background .15s;
   white-space: nowrap;
 }
-.nav-community-btn:hover { color: #fff; background: rgba(255,255,255,.07); }
-.dropdown.show > .nav-community-btn { color: #fff; background: rgba(255,255,255,.07); }
+.iesa-navbar .navbar-nav .nav-link:hover,
+.iesa-navbar .navbar-nav .nav-link:focus { color: #fff; background: rgba(255,255,255,.07); }
+.iesa-navbar .navbar-nav .dropdown-toggle::after { display: none; }
 
-/* Правая панель */
-.iesa-nav__actions {
-  display: flex; align-items: center;
-  gap: .45rem; flex-shrink: 0;
-}
+/* Right actions */
+.iesa-nav-actions { gap: .45rem; flex-shrink: 0; margin-left: auto; }
 
-/* Иконочные кнопки */
+/* Icon buttons */
 .btn-nav-icon {
-  width: 36px; height: 36px;
-  border-radius: 9px; background: transparent;
-  border: none; color: rgba(255,255,255,.55);
+  width: 36px; height: 36px; border-radius: 9px;
+  background: transparent; border: none;
+  color: rgba(255,255,255,.55);
   display: flex; align-items: center; justify-content: center;
   font-size: .9rem; cursor: pointer;
   transition: background .15s, color .15s;
   position: relative;
 }
-.btn-nav-icon:hover { background: rgba(255,255,255,.08); color: #fff; }
-.btn-nav-icon.position-relative { display: inline-flex !important; }
-.btn-nav-icon--badge { overflow: visible; }
+.btn-nav-icon:hover,
+.dropdown.show > .btn-nav-icon { background: rgba(255,255,255,.08); color: #fff; }
+.btn-nav-icon--bell { overflow: visible; }
 
-/* Точка уведомлений */
+/* Notification dot */
 .notif-dot {
   position: absolute; top: 1px; right: 1px;
   min-width: 16px; height: 16px;
@@ -160,42 +120,13 @@ header, .iesa-header {
   font-size: .6rem; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
   border: 2px solid rgba(8,8,14,.97);
-  padding: 0 2px; line-height: 1;
-}
-/* старый badge в notify (совместимость) */
-.navbar-notification-badge {
-  font-size: .58rem;
-  min-width: 14px; height: 14px;
-  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 2px; line-height: 1; pointer-events: none;
 }
 
-/* Шапка блока уведомлений */
-.notif-header {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  padding: .5rem .75rem .4rem;
-  border-bottom: 1px solid rgba(255,255,255,.07);
-  margin-bottom: .3rem;
-}
-.notif-title {
-  font-size: .72rem; font-weight: 700;
-  letter-spacing: .1em; text-transform: uppercase;
-  color: rgba(255,255,255,.38);
-}
-.notif-badge-count {
-  font-size: .65rem; font-weight: 800;
-  background: rgba(220,38,38,.2); color: #f87171;
-  border-radius: 10px; padding: 1px 6px;
-}
-.notif-skeleton {
-  display: flex; align-items: center;
-  gap: .6rem; padding: .55rem .75rem;
-}
-
-/* Кнопка профиля */
+/* Profile button */
 .nav-profile-btn {
   display: flex; align-items: center; gap: .55rem;
-  padding: .28rem .6rem .28rem .28rem;
+  padding: .28rem .65rem .28rem .28rem;
   background: rgba(255,255,255,.06);
   border: 1px solid rgba(255,255,255,.1);
   border-radius: 100px; cursor: pointer;
@@ -204,11 +135,15 @@ header, .iesa-header {
   transition: background .15s, border-color .15s;
   white-space: nowrap;
 }
-.nav-profile-btn:hover { background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.18); color: #fff; }
+.nav-profile-btn:hover,
+.dropdown.show > .nav-profile-btn {
+  background: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.2); color: #fff;
+}
 .nav-profile-btn::after { display: none; }
-.prof-nav-drop.show .nav-profile-btn { background: rgba(255,255,255,.11); border-color: rgba(255,255,255,.2); }
+.nav-profile-btn:focus-visible { outline: 2px solid rgba(220,38,38,.5); }
 
-/* Аватар в кнопке */
+/* Avatar */
 .nav-avatar {
   width: 28px; height: 28px; border-radius: 50%;
   flex-shrink: 0; overflow: hidden;
@@ -221,29 +156,28 @@ header, .iesa-header {
 }
 .nav-username { max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 .nav-caret { font-size: .5rem; opacity: .45; transition: transform .2s; }
-.prof-nav-drop.show .nav-caret { transform: rotate(180deg); }
+.dropdown.show > .nav-profile-btn .nav-caret { transform: rotate(180deg); }
 
-/* Dropdown меню профиля */
-.prof-nav-drop { position: relative; }
-.prof-nav-drop .dropdown-toggle::after { display: none; }
+/* Profile dropdown menu */
 .prof-nav-drop-menu {
-  background: #0d0d1a;
-  border: 1px solid rgba(255,255,255,.1);
-  border-radius: 18px; padding: .45rem;
-  min-width: 240px;
-  box-shadow: 0 28px 70px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.05);
-  margin-top: .45rem !important;
+  background: #0d0d1a !important;
+  border: 1px solid rgba(255,255,255,.1) !important;
+  border-radius: 18px !important;
+  padding: .45rem !important;
+  min-width: 240px !important;
+  box-shadow: 0 24px 60px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.05) !important;
+  margin-top: .4rem !important;
   animation: pnd-in .18s cubic-bezier(.22,1,.36,1);
 }
 @keyframes pnd-in {
-  from { opacity: 0; transform: translateY(-8px) scale(.97); }
+  from { opacity: 0; transform: translateY(-6px) scale(.98); }
   to   { opacity: 1; transform: none; }
 }
 
-/* Заголовок дропдауна с инфо о пользователе */
+/* User header in dropdown */
 .pnd-user-header {
-  display: flex; align-items: center;
-  gap: .75rem; padding: .7rem 1rem .6rem;
+  display: flex; align-items: center; gap: .75rem;
+  padding: .7rem 1rem .6rem; list-style: none;
 }
 .pnd-user-avatar {
   width: 38px; height: 38px; border-radius: 50%;
@@ -257,10 +191,9 @@ header, .iesa-header {
 .pnd-user-info { min-width: 0; }
 .pnd-user-name {
   font-size: .875rem; font-weight: 700; color: #f1f5f9;
-  line-height: 1.2; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; max-width: 150px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 148px;
 }
-.pnd-user-role { margin-top: .2rem; }
+.pnd-user-role { margin-top: .18rem; }
 .pnd-role-badge {
   display: inline-block; font-size: .65rem; font-weight: 700;
   letter-spacing: .06em; padding: 1px 7px;
@@ -271,37 +204,37 @@ header, .iesa-header {
 .pnd-role--member  { background: rgba(220,38,38,.12);   color: #f87171; border-color: rgba(220,38,38,.3); }
 .pnd-role--user    { background: rgba(255,255,255,.06); color: rgba(255,255,255,.4); border-color: rgba(255,255,255,.1); }
 
-/* Пункты меню */
+/* Dropdown items */
 .pnd-item {
   display: flex !important; align-items: center;
-  gap: .8rem; padding: .52rem .82rem !important;
+  gap: .8rem; padding: .52rem .85rem !important;
   border-radius: 10px; transition: background .12s;
   color: rgba(255,255,255,.78) !important;
-  cursor: pointer; text-decoration: none;
-  background: none; border: none; width: 100%; text-align: left;
+  cursor: pointer; width: 100%; text-align: left;
+  background: none !important; border: none; text-decoration: none;
 }
 .pnd-item:hover, .pnd-item:focus { background: rgba(255,255,255,.07) !important; color: #fff !important; }
 .pnd-icon {
   width: 30px; height: 30px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
-  font-size: .78rem; flex-shrink: 0;
+  font-size: .8rem; flex-shrink: 0;
 }
-.pnd-profile .pnd-icon { background: rgba(220,38,38,.14); color: #f87171; }
-.pnd-cabinet .pnd-icon { background: rgba(99,102,241,.13); color: #a5b4fc; }
-.pnd-edit    .pnd-icon { background: rgba(245,158,11,.11); color: #fbbf24; }
-.pnd-partner .pnd-icon { background: rgba(34,197,94,.11);  color: #4ade80; }
+.pnd-profile .pnd-icon { background: rgba(220,38,38,.14);  color: #f87171; }
+.pnd-cabinet .pnd-icon { background: rgba(99,102,241,.13);  color: #a5b4fc; }
+.pnd-edit    .pnd-icon { background: rgba(245,158,11,.11);  color: #fbbf24; }
+.pnd-partner .pnd-icon { background: rgba(34,197,94,.11);   color: #4ade80; }
 .pnd-icon--danger { background: rgba(239,68,68,.12); color: #f87171; }
 .pnd-label { font-weight: 600; font-size: .84rem; line-height: 1.2; }
 .pnd-sub   { font-size: .7rem; color: rgba(255,255,255,.32); line-height: 1.3; }
 .pnd-divider { border-color: rgba(255,255,255,.07) !important; margin: .28rem .55rem !important; }
 
-/* Кнопки для гостей */
+/* Guest buttons */
 .btn-nav-ghost {
   display: inline-flex; align-items: center;
   padding: .35rem .85rem; border-radius: 8px;
   border: 1px solid rgba(255,255,255,.18);
   color: rgba(255,255,255,.7); font-size: .875rem; font-weight: 600;
-  text-decoration: none; transition: all .15s;
+  text-decoration: none; transition: all .15s; white-space: nowrap;
 }
 .btn-nav-ghost:hover { background: rgba(255,255,255,.07); color: #fff; border-color: rgba(255,255,255,.3); }
 .btn-nav-primary {
@@ -309,40 +242,41 @@ header, .iesa-header {
   padding: .35rem .85rem; border-radius: 8px;
   background: var(--primary); color: #fff;
   font-size: .875rem; font-weight: 700;
-  text-decoration: none; transition: opacity .15s, transform .15s;
+  text-decoration: none; transition: opacity .15s, transform .15s; white-space: nowrap;
 }
 .btn-nav-primary:hover { opacity: .88; color: #fff; transform: translateY(-1px); }
 
-/* Гамбургер */
-.iesa-nav__toggler {
+/* Mobile toggler */
+.iesa-toggler {
   display: none; flex-direction: column; gap: 4px;
   padding: 6px; background: none; border: none;
-  cursor: pointer; margin-left: .5rem; flex-shrink: 0;
+  cursor: pointer; flex-shrink: 0; order: 3;
 }
-.iesa-nav__toggler span {
+.iesa-toggler span {
   display: block; width: 22px; height: 2px;
   background: rgba(255,255,255,.7); border-radius: 2px;
   transition: transform .25s, opacity .2s;
 }
 
-/* Мобильное меню */
-.mobile-nav-links {
-  list-style: none; margin: 0;
-  padding: .4rem 0 .8rem;
-  border-top: 1px solid rgba(255,255,255,.07);
+/* Notif & search dropdowns */
+.notif-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .5rem .75rem .4rem;
+  border-bottom: 1px solid rgba(255,255,255,.07); margin-bottom: .3rem;
 }
-.mobile-nav-links li a {
-  display: block; padding: .6rem 1.1rem;
-  color: rgba(255,255,255,.7); font-size: .9rem; font-weight: 500;
-  text-decoration: none; transition: color .15s, background .15s;
-  border-radius: 8px; margin: 0 .4rem;
+.notif-title { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.35); }
+.notif-count { font-size: .65rem; font-weight: 800; background: rgba(220,38,38,.2); color: #f87171; border-radius: 10px; padding: 1px 6px; }
+.notif-skeleton { display: flex; align-items: center; gap: .6rem; padding: .55rem .75rem; }
+.notifications-dropdown {
+  min-width: 320px !important; max-height: 420px !important; overflow-y: auto;
+  background: #111118 !important;
+  border: 1.5px solid rgba(255,255,255,.1) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 24px 64px rgba(0,0,0,.55) !important;
+  padding: 0 !important;
 }
-.mobile-nav-links li a:hover { color: #fff; background: rgba(255,255,255,.07); }
-.mobile-nav-divider { height: 1px; background: rgba(255,255,255,.07); margin: .35rem .7rem; }
-
-/* Navbar search dropdown */
 .navbar-search-dropdown {
-  min-width: min(360px, calc(100vw - 1.5rem)) !important;
+  min-width: 350px !important;
   background: #111118 !important;
   border: 1.5px solid rgba(255,255,255,.1) !important;
   border-radius: 16px !important;
@@ -357,34 +291,35 @@ header, .iesa-header {
 .navbar-search-dropdown .form-control::placeholder { color: rgba(255,255,255,.3) !important; }
 .navbar-search-dropdown .form-control:focus {
   background: rgba(255,255,255,.1) !important;
-  border-color: rgba(220,38,38,.5) !important;
-  box-shadow: none !important;
+  border-color: rgba(220,38,38,.5) !important; box-shadow: none !important;
 }
 .navbar-search-results { max-height: 380px; overflow-y: auto; }
 
-/* Notifications dropdown */
-.notifications-dropdown {
-  min-width: 320px; max-height: 420px; overflow-y: auto;
-  background: #111118 !important;
-  border: 1.5px solid rgba(255,255,255,.1) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 24px 64px rgba(0,0,0,.55) !important;
-  padding: 0 !important;
-}
-
-/* =============================================================
-   Responsive
-   ============================================================= */
+/* Responsive */
 @media (max-width: 991.98px) {
-  .iesa-nav__links { display: none; }
-  .iesa-nav__toggler { display: flex; }
-  .iesa-nav__actions .btn-nav-ghost,
-  .iesa-nav__actions .btn-nav-primary { display: none; }
+  .iesa-navbar .navbar-nav { flex-direction: column; gap: 0; }
+  .iesa-navbar .navbar-collapse {
+    background: #0a0a0f;
+    border-top: 1px solid rgba(255,255,255,.07);
+    padding: .5rem 0;
+  }
+  .iesa-navbar .navbar-nav .nav-link { padding: .6rem 1.1rem; border-radius: 8px; margin: 0 .5rem; }
+  .iesa-toggler { display: flex; }
+  .iesa-nav-actions {
+    padding: .5rem 1rem .75rem;
+    border-top: 1px solid rgba(255,255,255,.06);
+    width: 100%; flex-wrap: wrap; margin-left: 0;
+  }
+  .nav-username { display: none !important; }
+  .btn-nav-ghost, .btn-nav-primary { font-size: .8rem; padding: .3rem .7rem; }
 }
 @media (max-width: 575.98px) {
-  .iesa-nav { height: 54px; gap: .75rem; }
-  .nav-username { display: none !important; }
+  .iesa-navbar { height: 54px; }
 }
+
+/* Opacity helpers */
+.op-40 { opacity: .4; }
+.op-50 { opacity: .5; }
 
 /* ====================================================
    2b. BOOTSTRAP DROPDOWN — тёмная тема (canonical)
