@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Generate Invite" %} — Admin{% endblock %}
+
+{% block content %}
+<div class="container-limited" style="max-width:560px;padding-top:2.5rem;padding-bottom:4rem;">
+
+    <div style="margin-bottom:2rem;">
+        <a href="{% url 'users:invite_list' %}" style="color:rgba(255,255,255,.4);font-size:.85rem;text-decoration:none;">
+            <i class="fas fa-arrow-left me-1"></i>{% trans "Back to invite list" %}
+        </a>
+    </div>
+
+    <div style="background:#111118;border:1.5px solid rgba(255,255,255,.08);border-radius:var(--radius-card);padding:2rem 2rem 2.5rem;">
+        <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(220,38,38,.7);margin-bottom:.5rem;">
+            {% trans "ADMIN PANEL" %}
+        </div>
+        <h1 style="font-size:1.5rem;font-weight:800;color:#f1f5f9;margin-bottom:1.75rem;">
+            {% trans "Generate Invite Link" %}
+        </h1>
+
+        <form method="post">
+            {% csrf_token %}
+            <div style="display:flex;flex-direction:column;gap:1.25rem;">
+
+                <div>
+                    <label style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                        {{ form.partner_type.label }}
+                    </label>
+                    {{ form.partner_type }}
+                    {% if form.partner_type.help_text %}
+                    <div style="font-size:.75rem;color:rgba(255,255,255,.3);margin-top:.3rem;">{{ form.partner_type.help_text }}</div>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                        {{ form.company_name.label }}
+                    </label>
+                    {{ form.company_name }}
+                </div>
+
+                <div>
+                    <label style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                        {{ form.note.label }}
+                    </label>
+                    {{ form.note }}
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-6">
+                        <label style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                            {{ form.expires_days.label }}
+                        </label>
+                        {{ form.expires_days }}
+                    </div>
+                    <div class="col-6">
+                        <label style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                            {{ form.max_uses.label }}
+                        </label>
+                        {{ form.max_uses }}
+                        {% if form.max_uses.help_text %}
+                        <div style="font-size:.73rem;color:rgba(255,255,255,.3);margin-top:.25rem;">{{ form.max_uses.help_text }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+
+            <button type="submit"
+                    style="width:100%;margin-top:2rem;padding:.72rem;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:.95rem;font-weight:700;cursor:pointer;transition:opacity .2s;">
+                <i class="fas fa-paper-plane me-2"></i>{% trans "Generate Invite Link" %}
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

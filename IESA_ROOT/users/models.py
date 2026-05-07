@@ -330,7 +330,18 @@ class Partner(models.Model):
     """
     Partner model for businesses/services that log member visits.
     OneToOne with User - partner users are in 'Partners' group.
+
+    partner_type определяет роль внутри B2B-системы:
+      - 'partner'           — внешний партнёр (магазин, спортзал и т.д.)
+      - 'association_staff' — сотрудник ассоциации (юрист, бухгалтер и т.д.)
+                              НЕ получает is_staff=True, но имеет доступ к своему кабинету.
     """
+
+    PARTNER_TYPE_CHOICES = [
+        ('partner',           _('External Partner')),
+        ('association_staff', _('Association Staff')),
+    ]
+
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
@@ -352,6 +363,17 @@ class Partner(models.Model):
         ],
         default='other',
         verbose_name=_('Business Type')
+    )
+    partner_type = models.CharField(
+        max_length=50,
+        choices=PARTNER_TYPE_CHOICES,
+        default='partner',
+        verbose_name=_('Partner Type'),
+        help_text=_(
+            'External Partner — внешний бизнес; '
+            'Association Staff — сотрудник ассоциации (юрист, бухгалтер). '
+            'Сотрудники НЕ получают is_staff=True.'
+        )
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -512,3 +534,113 @@ class VisitAudit(models.Model):
 
     def __str__(self):
         return f"{self.action} visit #{self.visit_id} by {self.changed_by} at {self.changed_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+# ---------------------------------------------------------------------------
+# Система инвайт-ссылок (Задача 2)
+# ---------------------------------------------------------------------------
+
+class InviteToken(models.Model):
+    """
+    Защищённая одноразовая ссылка для регистрации партнёра или сотрудника ассоциации.
+
+    Логика:
+      - Создаётся администратором (is_staff=True) вручную через кабинет.
+      - По ссылке открывается форма регистрации с предзаполненным типом партнёра.
+      - После регистрации: User.is_partner=True, создаётся запись Partner с нужным partner_type.
+      - Обычный пользователь НЕ может самостоятельно стать партнёром или сотрудником.
+    """
+
+    token = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name=_('Token')
+    )
+    partner_type = models.CharField(
+        max_length=50,
+        choices=Partner.PARTNER_TYPE_CHOICES,
+        default='partner',
+        verbose_name=_('Partner Type'),
+        help_text=_('Роль, которую получит зарегистрировавшийся по этой ссылке.')
+    )
+    company_name = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name=_('Pre-filled Company Name'),
+        help_text=_('Необязательно. Предзаполнит поле "Компания" в форме регистрации.')
+    )
+    note = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name=_('Internal Note'),
+        help_text=_('Внутренняя заметка (например: "Инвайт для FitnessPro Geneva").')
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='created_invites',
+        verbose_name=_('Created By')
+    )
+    used_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='used_invite',
+        verbose_name=_('Used By')
+    )
+    used_at = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name=_('Used At')
+    )
+    expires_at = models.DateTimeField(
+        verbose_name=_('Expires At')
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name=_('Is Active')
+    )
+    max_uses = models.PositiveSmallIntegerField(
+        default=1,
+        verbose_name=_('Max Uses'),
+        help_text=_('Сколько раз можно использовать ссылку. Обычно 1.')
+    )
+    use_count = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name=_('Use Count')
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Created At')
+    )
+
+    class Meta:
+        verbose_name = _('Invite Token')
+        verbose_name_plural = _('Invite Tokens')
+        db_table = 'users_invitetoken'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['token'], name='invite_token_idx'),
+            models.Index(fields=['is_active', 'expires_at'], name='invite_active_exp_idx'),
+        ]
+
+    def __str__(self):
+        return f"Invite [{self.get_partner_type_display()}] by {self.created_by} — {'active' if self.is_valid() else 'used/expired'}"
+
+    def is_valid(self) -> bool:
+        """Ссылка действительна: активна, не просрочена и не исчерпана."""
+        return (
+            self.is_active
+            and self.use_count < self.max_uses
+            and timezone.now() < self.expires_at
+        )
+
+    def mark_used(self, user: User):
+        """Отмечает инвайт как использованный данным пользователем."""
+        self.used_by = user
+        self.used_at = timezone.now()
+        self.use_count += 1
+        if self.use_count >= self.max_uses:
+            self.is_active = False
+        self.save(update_fields=['used_by', 'used_at', 'use_count', 'is_active'])

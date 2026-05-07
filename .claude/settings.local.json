@@ -38,7 +38,14 @@
       "Bash(python)",
       "Bash(Get-ChildItem -Path \"g:\\\\IESA_ROOT\" -Recurse -Filter \"*.html\")",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(git commit -m 'docs: add FRONTEND_BUGS_AND_STYLE_FIXES.md — 56 issues across 13 blocks *)"
+      "Bash(git commit -m 'docs: add FRONTEND_BUGS_AND_STYLE_FIXES.md — 56 issues across 13 blocks *)",
+      "Bash(python replace_layout_nav.py)",
+      "Bash(python \"static/replace_layout_nav.py\")",
+      "Bash(del \"static\\\\replace_layout_nav.py\")",
+      "Bash(python \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\static\\\\replace_layout_nav.py\")",
+      "Bash(del \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\static\\\\replace_layout_nav.py\")",
+      "Bash(python manage.py migrate users 0020)",
+      "Bash(python manage.py check)"
     ]
   }
 }

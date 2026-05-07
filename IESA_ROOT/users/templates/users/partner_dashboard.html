@@ -5,336 +5,448 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/partner-dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 {% endblock %}
 
+{# Отключаем стандартные контейнеры base.html — layout полностью наш #}
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
 {% block content %}
-<div class="pp-wrap">
+<div class="dash-root">
 
-  {% if messages %}
-    <div style="padding:12px 24px 0;">
-      {% for msg in messages %}
-        <div style="background:{% if msg.level >= 40 %}rgba(220,38,38,.12){% elif msg.level >= 30 %}rgba(250,204,21,.10){% elif msg.level >= 25 %}rgba(74,222,128,.10){% else %}rgba(59,130,246,.10){% endif %};border:1px solid {% if msg.level >= 40 %}rgba(220,38,38,.35){% elif msg.level >= 30 %}rgba(250,204,21,.35){% elif msg.level >= 25 %}rgba(74,222,128,.35){% else %}rgba(59,130,246,.35){% endif %};border-radius:8px;padding:10px 14px;font-size:.82rem;color:{% if msg.level >= 40 %}#f87171{% elif msg.level >= 30 %}#fbbf24{% elif msg.level >= 25 %}#4ade80{% else %}#93c5fd{% endif %};margin-bottom:6px;">{{ msg }}</div>
-      {% endfor %}
+  {# ══════════════════════════════════════════════
+     SIDEBAR
+  ══════════════════════════════════════════════ #}
+  <aside class="dash-sidebar">
+
+    <div class="dash-sidebar__brand">
+      <div class="dash-sidebar__brand-name">
+        {% if partner.partner_type == 'association_staff' %}{% trans "ASSOCIATION STAFF" %}
+        {% else %}{% trans "PARTNER PORTAL" %}{% endif %}
+      </div>
+      <div class="dash-sidebar__company">{{ partner.company_name }}</div>
     </div>
-  {% endif %}
 
-  {# ══ TOP NAV ══ #}
-  <nav class="pp-nav">
-    <a href="{% url 'users:partner_dashboard' %}" class="pp-nav-brand">⬡ IESA PARTNER</a>
-    <a href="{% url 'users:partner_dashboard' %}" class="active">
-      <i class="fas fa-tachometer-alt"></i> {% trans "Dashboard" %}
-    </a>
-    <a href="{% url 'users:partner_analytics' %}">
-      <i class="fas fa-chart-bar"></i> {% trans "Analytics" %}
-    </a>
-    <a href="{% url 'users:partner_profile_edit' %}">
-      <i class="fas fa-cog"></i> {% trans "Settings" %}
-    </a>
-  </nav>
+    <nav class="dash-sidebar__nav" aria-label="{% trans 'Partner navigation' %}">
 
-  {# ══ HERO ══ #}
-  <div class="pp-hero">
-    <div style="position:relative;z-index:1;max-width:900px;">
-      <div class="pp-hero-badge">PARTNER PORTAL</div>
-      <div class="pp-hero-title">{{ partner.company_name }}</div>
-      <div class="pp-hero-sub">
-        {{ partner.get_business_type_display }}&nbsp;&nbsp;·&nbsp;&nbsp;
-        {% trans "Partner since" %} {{ partner.created_at|date:"M Y" }}
+      <div class="dash-nav-section">
+        <div class="dash-nav-section-label">{% trans "Overview" %}</div>
+        <a href="{% url 'users:partner_dashboard' %}" class="dash-nav-item active">
+          <span class="dash-nav-icon"><i class="fas fa-tachometer-alt"></i></span>
+          {% trans "Dashboard" %}
+        </a>
+        <a href="{% url 'users:partner_analytics' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-chart-bar"></i></span>
+          {% trans "Analytics" %}
+        </a>
+      </div>
+
+      <div class="dash-nav-section">
+        <div class="dash-nav-section-label">{% trans "Members" %}</div>
+        <a href="#search-section" class="dash-nav-item" id="sidebar-log-btn">
+          <span class="dash-nav-icon"><i class="fas fa-user-plus"></i></span>
+          {% trans "Log New Visit" %}
+        </a>
+        <a href="#history-section" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-list-ul"></i></span>
+          {% trans "Visit History" %}
+          {% if total_visits %}<span class="dash-nav-badge">{{ total_visits }}</span>{% endif %}
+        </a>
+      </div>
+
+      <div class="dash-nav-section">
+        <div class="dash-nav-section-label">{% trans "Settings" %}</div>
+        <a href="{% url 'users:partner_profile_edit' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-cog"></i></span>
+          {% trans "Company Profile" %}
+        </a>
+        <a href="{% url 'users:profile_edit' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-user-circle"></i></span>
+          {% trans "My Account" %}
+        </a>
+      </div>
+
+    </nav>
+
+    <div class="dash-sidebar__cta">
+      <a href="#search-section" class="dash-cta-btn" id="sidebar-cta-btn">
+        <i class="fas fa-plus"></i> {% trans "Log Visit" %}
+      </a>
+    </div>
+
+  </aside>
+
+  {# ══════════════════════════════════════════════
+     MAIN CONTENT
+  ══════════════════════════════════════════════ #}
+  <main class="dash-main">
+
+    {# Внутренняя шапка #}
+    <div class="dash-topbar">
+      <div>
+        <div class="dash-topbar__title">{{ partner.company_name }}</div>
+        <div class="dash-topbar__sub">
+          {{ partner.get_business_type_display }} &nbsp;·&nbsp;
+          {% trans "Partner since" %} {{ partner.created_at|date:"M Y" }}
+          {% if partner.partner_type == 'association_staff' %}
+          &nbsp;·&nbsp; <span style="color:#a5b4fc;font-size:.75rem;">{% trans "Association Staff" %}</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="dash-topbar__actions">
+        <a href="{% url 'users:partner_analytics' %}"
+           style="display:inline-flex;align-items:center;gap:.45rem;padding:.38rem .85rem;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.65);font-size:.82rem;font-weight:600;text-decoration:none;transition:all .15s;">
+          <i class="fas fa-chart-line" style="font-size:.75rem;"></i> {% trans "Analytics" %}
+        </a>
+        <a href="#search-section"
+           style="display:inline-flex;align-items:center;gap:.45rem;padding:.38rem .85rem;background:var(--primary);border-radius:8px;color:#fff;font-size:.82rem;font-weight:700;text-decoration:none;transition:opacity .15s;"
+           id="topbar-log-btn">
+          <i class="fas fa-plus" style="font-size:.75rem;"></i> {% trans "Log Visit" %}
+        </a>
       </div>
     </div>
-  </div>
 
-  {# ══ TODAY STATS STRIP ══ #}
-  <div class="today-strip">
-    <div class="today-stat highlight">
-      <div class="today-dot"></div>
-      <div class="today-label">{% trans "Today" %}</div>
-      <div class="today-val red">{{ today_count }}</div>
-      <div class="today-sub">{% trans "visits today" %}</div>
-    </div>
-    <div class="today-stat">
-      <div class="today-label">{% trans "Today CHF" %}</div>
-      <div class="today-val grn">{{ today_revenue|floatformat:0 }}</div>
-      <div class="today-sub">{% trans "revenue today" %}</div>
-    </div>
-    <div class="today-stat">
-      <div class="today-label">{% trans "All Time" %}</div>
-      <div class="today-val">{{ total_visits }}</div>
-      <div class="today-sub">{% trans "total visits" %}</div>
-    </div>
-    <div class="today-stat">
-      <div class="today-label">{% trans "Members" %}</div>
-      <div class="today-val">{{ unique_members }}</div>
-      <div class="today-sub">{% trans "unique clients" %}</div>
-    </div>
-  </div>
+    <div class="dash-content">
 
-  {# ══ QUICK ACTION BAR ══ #}
-  <div class="quick-bar">
-    <a href="#search-section" class="btn-log-visit" id="open-search-btn">
-      <i class="fas fa-user-plus"></i> {% trans "Log New Visit" %}
-    </a>
-    <a href="{% url 'users:partner_analytics' %}" class="btn-secondary">
-      <i class="fas fa-chart-line"></i> {% trans "Analytics" %}
-    </a>
-    <a href="{% url 'users:partner_profile_edit' %}" class="btn-secondary">
-      <i class="fas fa-building"></i> {% trans "Company Profile" %}
-    </a>
-  </div>
-
-  {# ══ MEMBER SEARCH ══ #}
-  <div class="ppc" id="search-section">
-    <div class="ppc-head">
-      <div class="ppc-icon red"><i class="fas fa-search"></i></div>
-      <div class="ppc-title">{% trans "Find Member" %}</div>
-      <div class="ppc-extra">{% trans "search by name, username or card ID" %}</div>
-    </div>
-    <form method="get" action="" class="pp-search-form" id="member-search-form" style="padding-bottom:14px;">
-      {{ search_form.query }}
-      <button type="submit" class="pp-btn"><i class="fas fa-search"></i> {% trans "Search" %}</button>
-    </form>
-
-    {% if search_results is not None %}
-      {% if search_results %}
-        <div style="padding: 0 18px 4px; font-size:.72rem; color:var(--muted); font-family:'Courier New',monospace;">
-          {{ search_results|length }} {% trans "result(s) found" %} — {% trans "click 'Log Visit' to register a visit" %}
+      {# ── Messages ── #}
+      {% if messages %}
+        {% for msg in messages %}
+        <div class="dash-msg dash-msg--{% if msg.level >= 40 %}error{% elif msg.level >= 30 %}warning{% elif msg.level >= 25 %}success{% else %}info{% endif %}">
+          <i class="fas fa-{% if msg.level >= 40 %}exclamation-circle{% elif msg.level >= 30 %}exclamation-triangle{% elif msg.level >= 25 %}check-circle{% else %}info-circle{% endif %}"></i>
+          {{ msg }}
         </div>
-        <div class="pp-member-grid">
-          {% for u in search_results %}
-            <div class="pp-member-card">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
-                <div class="pp-member-name">{{ u.get_full_name|default:u.username }}</div>
-                {% if u.membership_status == 'active' %}
-                  <span class="pp-member-status-active">ACTIVE</span>
-                {% else %}
-                  <span class="pp-member-status-inactive">INACTIVE</span>
-                {% endif %}
-              </div>
-              {% if u.pseudonym %}
-                <div class="pp-member-meta">@{{ u.pseudonym }}</div>
-              {% endif %}
-              <div class="pp-member-meta" style="opacity:.6;">{{ u.username }}</div>
-              <div class="pp-member-actions">
-                <a href="{% url 'users:log_visit' u.pk %}" class="pm-action-primary">
-                  <i class="fas fa-plus"></i> {% trans "Log Visit" %}
-                </a>
-                <a href="{% url 'users:partner_member_visits' u.pk %}" class="pm-action-detail">
-                  <i class="fas fa-history"></i>
-                </a>
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <div class="pp-empty" style="padding:24px 20px;">
-          <span class="pp-empty-icon">🔍</span>
-          {% trans "No members found for" %} «{{ search_form.query.value }}»
-        </div>
+        {% endfor %}
       {% endif %}
-    {% endif %}
-  </div>
 
-  {# ══ TWO-COLUMN ROW: Today's Activity + Recent Clients ══ #}
-  <div class="two-col-grid">
-    <div class="col-left">
-
-  {# == TODAY'S ACTIVITY == #}
-  <div class="ppc" style="margin:0;">
-    <div class="ppc-head">
-      <div class="ppc-icon grn"><i class="fas fa-bolt"></i></div>
-      <div class="ppc-title">{% trans "Today's Visits" %}</div>
-      <div class="ppc-extra">{{ now|date:"d M Y" }}</div>
-    </div>
-    <div class="ppc-body">
-      {% if today_visit_list %}
-        {% for visit in today_visit_list %}
-        <div class="tvf-item">
-          <div class="tvf-dot
-            {% if visit.status == 'CANCELLED' %}off
-            {% elif visit.pin_verified %}ok
-            {% else %}warn{% endif %}">
-            {% if visit.status == 'CANCELLED' %}<i class="fas fa-ban"></i>
-            {% elif visit.pin_verified %}<i class="fas fa-check"></i>
-            {% else %}<i class="fas fa-exclamation"></i>{% endif %}
+      {# ── Stat карточки ── #}
+      <div class="dash-stat-grid">
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon ds-red"><i class="fas fa-calendar-day"></i></div>
+          <div>
+            <div class="dash-stat-val">{{ today_count }}</div>
+            <div class="dash-stat-lbl">{% trans "Today's visits" %}</div>
           </div>
-          <div class="tvf-main">
-            <div class="tvf-name">{{ visit.member.get_full_name|default:visit.member.username }}</div>
-            <div class="tvf-service">{{ visit.get_service_type_display }}
-              &nbsp;<span class="pp-badge pp-badge-{{ visit.status|lower }}">{{ visit.status }}</span>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon ds-green"><i class="fas fa-coins"></i></div>
+          <div>
+            <div class="dash-stat-val">{{ today_revenue|floatformat:0 }}</div>
+            <div class="dash-stat-lbl">{% trans "Today CHF" %}</div>
+          </div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon ds-blue"><i class="fas fa-users"></i></div>
+          <div>
+            <div class="dash-stat-val">{{ unique_members }}</div>
+            <div class="dash-stat-lbl">{% trans "Unique clients" %}</div>
+          </div>
+        </div>
+        <div class="dash-stat-card">
+          <div class="dash-stat-icon ds-amber"><i class="fas fa-list-check"></i></div>
+          <div>
+            <div class="dash-stat-val">{{ total_visits }}</div>
+            <div class="dash-stat-lbl">{% trans "Total visits" %}</div>
+          </div>
+        </div>
+      </div>
+
+      {# ── Поиск участника ── #}
+      <div class="dash-card" id="search-section">
+        <div class="dash-card__header">
+          <span class="dash-card__title">
+            <i class="fas fa-search" style="color:var(--primary);"></i>
+            {% trans "Find Member & Log Visit" %}
+          </span>
+        </div>
+        <div class="dash-card__body">
+          <form method="get" action="" id="member-search-form">
+            <div style="display:flex;gap:.75rem;">
+              <input type="text" name="query"
+                     value="{{ search_form.query.value|default:'' }}"
+                     class="dash-search-input"
+                     placeholder="{% trans 'Name, username, or card UUID...' %}"
+                     autocomplete="off">
+              <button type="submit"
+                      style="padding:.6rem 1.1rem;background:var(--primary);color:#fff;border:none;border-radius:10px;font-weight:700;font-size:.875rem;cursor:pointer;flex-shrink:0;white-space:nowrap;">
+                <i class="fas fa-search me-1"></i>{% trans "Search" %}
+              </button>
             </div>
-            {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
-            <div class="tvf-actions">
-              <a href="{% url 'users:edit_visit' visit.pk %}" class="tvf-act">{% trans "edit" %}</a>
-              <a href="{% url 'users:cancel_visit' visit.pk %}" class="tvf-act danger">{% trans "cancel" %}</a>
+          </form>
+
+          {% if search_results is not None %}
+            {% if search_results %}
+            <div style="margin-top:1rem;">
+              <div style="font-size:.72rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);margin-bottom:.65rem;">
+                {{ search_results|length }} {% trans "result(s)" %}
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem;">
+                {% for u in search_results %}
+                <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:1rem;">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.4rem;">
+                    <div style="font-weight:600;font-size:.88rem;color:#f1f5f9;">{{ u.get_full_name|default:u.username }}</div>
+                    {% if u.membership_status == 'active' %}
+                    <span style="background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.22);border-radius:100px;padding:1px 7px;font-size:.65rem;font-weight:700;white-space:nowrap;">ACTIVE</span>
+                    {% else %}
+                    <span style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.38);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:1px 7px;font-size:.65rem;font-weight:700;white-space:nowrap;">INACTIVE</span>
+                    {% endif %}
+                  </div>
+                  <div style="font-size:.78rem;color:rgba(255,255,255,.38);margin-bottom:.75rem;">@{{ u.username }}</div>
+                  <div style="display:flex;gap:.5rem;">
+                    <a href="{% url 'users:log_visit' u.pk %}"
+                       style="flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.45rem;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.25);border-radius:8px;color:#f87171;font-size:.8rem;font-weight:700;text-decoration:none;transition:background .15s;">
+                      <i class="fas fa-plus"></i> {% trans "Log Visit" %}
+                    </a>
+                    <a href="{% url 'users:partner_member_visits' u.pk %}"
+                       style="display:flex;align-items:center;justify-content:center;padding:.45rem .6rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:rgba(255,255,255,.55);font-size:.8rem;text-decoration:none;transition:background .15s;"
+                       title="{% trans 'Visit history' %}">
+                      <i class="fas fa-history"></i>
+                    </a>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            {% else %}
+            <div class="dash-empty" style="padding-top:1.5rem;">
+              <i class="fas fa-user-slash"></i>
+              <p>{% trans "No members found for" %} «{{ search_form.query.value }}»</p>
+            </div>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
+      {# ── Две колонки: сегодня + последние клиенты ── #}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;">
+
+        {# Сегодняшние визиты #}
+        <div class="dash-card" style="margin:0;">
+          <div class="dash-card__header">
+            <span class="dash-card__title">
+              <i class="fas fa-bolt" style="color:var(--primary);"></i>
+              {% trans "Today's Visits" %}
+            </span>
+            <span style="font-size:.75rem;color:rgba(255,255,255,.32);">{{ now|date:"d M Y" }}</span>
+          </div>
+          <div class="dash-card__body" style="padding:0;">
+            {% if today_visit_list %}
+              {% for visit in today_visit_list %}
+              <div style="display:flex;align-items:center;gap:.85rem;padding:.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.05);">
+                <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;flex-shrink:0;
+                  {% if visit.status == 'CANCELLED' %}background:rgba(255,255,255,.07);color:rgba(255,255,255,.3);
+                  {% elif visit.pin_verified %}background:rgba(34,197,94,.15);color:#4ade80;
+                  {% else %}background:rgba(245,158,11,.12);color:#fbbf24;{% endif %}">
+                  {% if visit.status == 'CANCELLED' %}<i class="fas fa-ban"></i>
+                  {% elif visit.pin_verified %}<i class="fas fa-check"></i>
+                  {% else %}<i class="fas fa-exclamation"></i>{% endif %}
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:.85rem;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    {{ visit.member.get_full_name|default:visit.member.username }}
+                  </div>
+                  <div style="font-size:.75rem;color:rgba(255,255,255,.38);">
+                    {{ visit.get_service_type_display }}
+                    <span style="background:rgba(255,255,255,.06);border-radius:100px;padding:1px 6px;font-size:.65rem;margin-left:.3rem;">{{ visit.status }}</span>
+                  </div>
+                  {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
+                  <div style="margin-top:.2rem;">
+                    <a href="{% url 'users:edit_visit' visit.pk %}" style="font-size:.72rem;color:rgba(255,255,255,.4);text-decoration:none;margin-right:.5rem;">{% trans "edit" %}</a>
+                    <a href="{% url 'users:cancel_visit' visit.pk %}" style="font-size:.72rem;color:#f87171;text-decoration:none;">{% trans "cancel" %}</a>
+                  </div>
+                  {% endif %}
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                  <div style="font-size:.75rem;color:rgba(255,255,255,.4);font-family:var(--font-mono);">{{ visit.timestamp|date:"H:i" }}</div>
+                  {% if visit.cost %}<div style="font-size:.8rem;font-weight:700;color:#f1f5f9;">{{ visit.cost }} CHF</div>{% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+            <div class="dash-empty">
+              <i class="fas fa-calendar-day"></i>
+              <p>{% trans "No visits today yet." %}</p>
             </div>
             {% endif %}
           </div>
-          <div class="tvf-right">
-            <div class="tvf-time">{{ visit.timestamp|date:"H:i" }}</div>
-            {% if visit.cost %}<div class="tvf-cost">{{ visit.cost }} CHF</div>{% endif %}
+        </div>
+
+        {# Последние клиенты #}
+        <div class="dash-card" style="margin:0;">
+          <div class="dash-card__header">
+            <span class="dash-card__title">
+              <i class="fas fa-users" style="color:var(--primary);"></i>
+              {% trans "Recent Clients" %}
+            </span>
+          </div>
+          <div class="dash-card__body" style="padding:0;">
+            {% if recent_members %}
+              {% for m in recent_members %}
+              <a href="{% url 'users:partner_member_visits' m.member__id %}"
+                 style="display:flex;align-items:center;gap:.75rem;padding:.7rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.05);text-decoration:none;transition:background .15s;"
+                 onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background=''">
+                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#991b1b);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.78rem;flex-shrink:0;">
+                  {{ m.member__first_name|slice:":1"|default:m.member__username|slice:":1"|upper }}
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:.85rem;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    {% if m.member__first_name or m.member__last_name %}{{ m.member__first_name }} {{ m.member__last_name }}
+                    {% else %}{{ m.member__username }}{% endif %}
+                  </div>
+                  <div style="font-size:.73rem;color:rgba(255,255,255,.35);">
+                    {{ m.visit_count }} {% trans "visit(s)" %} · {% trans "last" %}: {{ m.last_visit|date:"d.m.Y" }}
+                  </div>
+                </div>
+                {% if m.member__membership_status == 'active' %}
+                <span style="font-size:.65rem;color:#4ade80;font-weight:700;">●</span>
+                {% else %}
+                <span style="font-size:.65rem;color:rgba(255,255,255,.22);font-weight:700;">●</span>
+                {% endif %}
+              </a>
+              {% endfor %}
+            {% else %}
+            <div class="dash-empty">
+              <i class="fas fa-users"></i>
+              <p>{% trans "No clients yet." %}</p>
+            </div>
+            {% endif %}
           </div>
         </div>
-        {% endfor %}
-      {% else %}
-        <div class="pp-empty" style="padding:30px 16px;">
-          <span class="pp-empty-icon" style="font-size:1.8rem;">📅</span>
-          {% trans "No visits today yet." %}
-        </div>
-      {% endif %}
-    </div>
-  </div>
 
-    </div>
-    <div class="col-right">
-
-  {# == RECENT CLIENTS == #}
-  <div class="ppc" style="margin:0;">
-    <div class="ppc-head">
-      <div class="ppc-icon blue"><i class="fas fa-users"></i></div>
-      <div class="ppc-title">{% trans "Recent Clients" %}</div>
-      <div class="ppc-extra">{% trans "last visitors" %}</div>
-    </div>
-    <div class="ppc-body">
-      {% if recent_members %}
-        <div class="rc-grid">
-          {% for m in recent_members %}
-          <a href="{% url 'users:partner_member_visits' m.member__id %}" class="rc-card">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <div class="rc-avatar">
-                {{ m.member__first_name|slice:":1"|default:m.member__username|slice:":1"|upper }}
-              </div>
-              <div>
-                {% if m.member__first_name or m.member__last_name %}
-                  <div class="rc-name">{{ m.member__first_name }} {{ m.member__last_name }}</div>
-                {% else %}
-                  <div class="rc-name">{{ m.member__username }}</div>
-                {% endif %}
-                {% if m.member__pseudonym %}<div class="rc-meta">@{{ m.member__pseudonym }}</div>{% endif %}
-              </div>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px;">
-              <span class="rc-meta">{{ m.visit_count }} {% trans "visit(s)" %}</span>
-              {% if m.member__membership_status == 'active' %}
-                <span class="rc-status-active"><i class="fas fa-circle" style="font-size:.45rem;"></i> {% trans "active" %}</span>
-              {% else %}
-                <span class="rc-status-inactive"><i class="fas fa-circle" style="font-size:.45rem;"></i> {% trans "inactive" %}</span>
-              {% endif %}
-            </div>
-            <div class="rc-meta" style="opacity:.55;">{% trans "last" %}: {{ m.last_visit|date:"d.m.Y" }}</div>
-          </a>
-          {% endfor %}
-        </div>
-      {% else %}
-        <div class="pp-empty" style="padding:30px 16px;">
-          <span class="pp-empty-icon" style="font-size:1.8rem;">👥</span>
-          {% trans "No clients yet." %}
-        </div>
-      {% endif %}
-    </div>
-  </div>
-
-    </div>
-  </div>
-
-  {# ══ FULL VISIT HISTORY ══ #}
-  <div class="ppc">
-    <div class="ppc-head">
-      <div class="ppc-icon amber"><i class="fas fa-list-ul"></i></div>
-      <div class="ppc-title">{% trans "All Visit History" %}</div>
-      <div class="ppc-extra">
-        <a href="{% url 'users:partner_analytics' %}">{% trans "analytics →" %}</a>
       </div>
-    </div>
-    <div class="ppc-body">
-      {% if visits.object_list %}
-        <div class="pp-table-wrap">
-          <table class="pp-table">
-            <thead>
-              <tr>
-                <th>{% trans "DATE" %}</th>
-                <th>{% trans "MEMBER" %}</th>
-                <th>{% trans "SERVICE" %}</th>
-                <th>CHF</th>
-                <th>{% trans "PIN" %}</th>
-                <th>{% trans "STATUS" %}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for visit in visits %}
+
+      {# ── Полная история визитов ── #}
+      <div class="dash-card" id="history-section">
+        <div class="dash-card__header">
+          <span class="dash-card__title">
+            <i class="fas fa-list-ul" style="color:var(--primary);"></i>
+            {% trans "All Visit History" %}
+          </span>
+          <a href="{% url 'users:partner_analytics' %}"
+             style="font-size:.78rem;color:rgba(255,255,255,.4);text-decoration:none;transition:color .15s;"
+             onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.4)'">
+            {% trans "Analytics" %} →
+          </a>
+        </div>
+        <div class="dash-card__body" style="padding:0;">
+          {% if visits.object_list %}
+          <div style="overflow-x:auto;">
+            <table class="dash-table">
+              <thead>
                 <tr>
-                  <td style="white-space:nowrap;color:rgba(255,255,255,.4);font-size:.73rem;font-family:'Courier New',monospace;">
+                  <th>{% trans "DATE" %}</th>
+                  <th>{% trans "MEMBER" %}</th>
+                  <th>{% trans "SERVICE" %}</th>
+                  <th>CHF</th>
+                  <th>{% trans "PIN" %}</th>
+                  <th>{% trans "STATUS" %}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for visit in visits %}
+                <tr>
+                  <td style="white-space:nowrap;font-family:var(--font-mono);font-size:.75rem;color:rgba(255,255,255,.4);">
                     {{ visit.timestamp|date:"d M Y" }}<br>{{ visit.timestamp|date:"H:i" }}
                   </td>
                   <td>
-                    <a href="{% url 'users:partner_member_visits' visit.member.pk %}" style="color:#e2e8f0;font-weight:500;text-decoration:none;">
+                    <a href="{% url 'users:partner_member_visits' visit.member.pk %}"
+                       class="member-name" style="text-decoration:none;">
                       {{ visit.member.get_full_name|default:visit.member.username }}
                     </a>
-                    {% if visit.member.pseudonym %}<br><span style="font-size:.7rem;color:rgba(255,255,255,.28);">@{{ visit.member.pseudonym }}</span>{% endif %}
-                  </td>
-                  <td style="color:rgba(255,255,255,.65);">{{ visit.get_service_type_display }}
-                    {% if visit.service_description %}<br><span style="font-size:.7rem;color:rgba(255,255,255,.3);font-style:italic;">{{ visit.service_description|truncatechars:30 }}</span>{% endif %}
-                  </td>
-                  <td>{% if visit.cost %}<span style="color:#e2e8f0;">{{ visit.cost }}</span>{% else %}<span style="color:rgba(255,255,255,.18);">—</span>{% endif %}</td>
-                  <td>
-                    {% if visit.pin_verified %}
-                      <span class="pp-badge pp-badge-verified">✓ PIN</span>
-                    {% else %}
-                      <span class="pp-badge pp-badge-unverified">—</span>
+                    {% if visit.member.pseudonym %}
+                    <br><span style="font-size:.7rem;color:rgba(255,255,255,.28);">@{{ visit.member.pseudonym }}</span>
                     {% endif %}
                   </td>
-                  <td><span class="pp-badge pp-badge-{{ visit.status|lower }}">{{ visit.status }}</span></td>
+                  <td>
+                    {{ visit.get_service_type_display }}
+                    {% if visit.service_description %}
+                    <br><span style="font-size:.7rem;color:rgba(255,255,255,.32);font-style:italic;">{{ visit.service_description|truncatechars:30 }}</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if visit.cost %}<span style="font-weight:600;">{{ visit.cost }}</span>
+                    {% else %}<span style="color:rgba(255,255,255,.2);">—</span>{% endif %}
+                  </td>
+                  <td>
+                    {% if visit.pin_verified %}
+                    <span style="background:rgba(34,197,94,.1);color:#4ade80;border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;">✓ PIN</span>
+                    {% else %}
+                    <span style="color:rgba(255,255,255,.22);font-size:.75rem;">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span style="border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;
+                      {% if visit.status == 'ACTIVE' %}background:rgba(34,197,94,.1);color:#4ade80;
+                      {% elif visit.status == 'EDITED' %}background:rgba(59,130,246,.1);color:#93c5fd;
+                      {% else %}background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);{% endif %}">
+                      {{ visit.status }}
+                    </span>
+                  </td>
                   <td style="white-space:nowrap;">
                     {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
-                      <a href="{% url 'users:edit_visit' visit.pk %}" class="pp-act-link">{% trans "edit" %}</a>
-                      <a href="{% url 'users:cancel_visit' visit.pk %}" class="pp-act-link danger">{% trans "cancel" %}</a>
+                    <a href="{% url 'users:edit_visit' visit.pk %}" style="font-size:.75rem;color:rgba(255,255,255,.45);text-decoration:none;margin-right:.4rem;">{% trans "edit" %}</a>
+                    <a href="{% url 'users:cancel_visit' visit.pk %}" style="font-size:.75rem;color:#f87171;text-decoration:none;">{% trans "cancel" %}</a>
                     {% endif %}
                   </td>
                 </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
 
-        {% if visits.has_other_pages %}
-          <div class="pp-pagination">
+          {# Пагинация #}
+          {% if visits.has_other_pages %}
+          <div style="display:flex;align-items:center;justify-content:center;gap:.4rem;padding:1rem;border-top:1px solid rgba(255,255,255,.06);">
             {% if visits.has_previous %}
-              <a href="?page={{ visits.previous_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">‹ {% trans "prev" %}</a>
+            <a href="?page={{ visits.previous_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}"
+               style="padding:.35rem .75rem;border-radius:7px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:.82rem;text-decoration:none;">‹</a>
             {% endif %}
             {% for num in visits.paginator.page_range %}
               {% if visits.number == num %}
-                <span class="current">{{ num }}</span>
+              <span style="padding:.35rem .75rem;border-radius:7px;background:var(--primary);color:#fff;font-size:.82rem;font-weight:700;">{{ num }}</span>
               {% elif num > visits.number|add:"-3" and num < visits.number|add:"3" %}
-                <a href="?page={{ num }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">{{ num }}</a>
+              <a href="?page={{ num }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}"
+                 style="padding:.35rem .75rem;border-radius:7px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:.82rem;text-decoration:none;">{{ num }}</a>
               {% endif %}
             {% endfor %}
             {% if visits.has_next %}
-              <a href="?page={{ visits.next_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}">{% trans "next" %} ›</a>
+            <a href="?page={{ visits.next_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}"
+               style="padding:.35rem .75rem;border-radius:7px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:.82rem;text-decoration:none;">›</a>
             {% endif %}
           </div>
-        {% endif %}
+          {% endif %}
 
-      {% else %}
-        <div class="pp-empty">
-          <span class="pp-empty-icon">📋</span>
-          {% trans "No visits logged yet. Use member search above." %}
+          {% else %}
+          <div class="dash-empty" style="padding:2rem;">
+            <i class="fas fa-clipboard-list"></i>
+            <p>{% trans "No visits logged yet. Use the search above to find a member." %}</p>
+          </div>
+          {% endif %}
         </div>
-      {% endif %}
-    </div>
-  </div>
+      </div>
 
-</div>
+    </div>{# /dash-content #}
+  </main>
+
+</div>{# /dash-root #}
 {% endblock %}
 
 {% block extra_js %}
 <script>
-// Auto-scroll to search when "Log New Visit" is clicked
-document.getElementById('open-search-btn')?.addEventListener('click', function(e) {
-  const searchInput = document.querySelector('#member-search-form input[type=text], #member-search-form input[name=query]');
-  if (searchInput) {
-    e.preventDefault();
-    document.getElementById('search-section').scrollIntoView({behavior:'smooth', block:'start'});
-    setTimeout(() => searchInput.focus(), 400);
-  }
+// Scroll to search section при клике на "Log Visit" кнопки
+document.querySelectorAll('#sidebar-log-btn, #sidebar-cta-btn, #topbar-log-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        var section = document.getElementById('search-section');
+        if (section) {
+            e.preventDefault();
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(function() {
+                var input = section.querySelector('input[name="query"]');
+                if (input) input.focus();
+            }, 400);
+        }
+    });
 });
 </script>
+{% endblock %}

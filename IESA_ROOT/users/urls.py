@@ -57,4 +57,10 @@ urlpatterns = [
     path('activity-levels/', views.activity_levels_info, name='activity_levels_info'),
     # Admin impersonation
     path('impersonate/<int:pk>/', views.impersonate_user, name='impersonate_user'),
+    # Умный редирект в личный кабинет (Задача 3)
+    path('dashboard/', views.dashboard_redirect, name='dashboard'),
+    # Инвайт-система (Задача 2)
+    path('invite/', views_verification.invite_list, name='invite_list'),
+    path('invite/generate/', views_verification.invite_generate, name='invite_generate'),
+    path('invite/<uuid:token>/', views_verification.invite_register, name='invite_register'),
 ]

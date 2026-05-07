@@ -1,250 +1,314 @@
 {% load static i18n %}
 {% get_current_language as LANGUAGE_CODE %}
 {% get_available_languages as LANGUAGES %}
-{# Global site header / navbar — extracted from base.html (Sprint UI-2) #}
+{# Шапка сайта — минималистичный редизайн (Task 1) #}
 
-<!-- DEVELOPMENT BANNER (U2-03: localStorage dismissal) -->
+<!-- DEV BANNER -->
 <div class="dev-banner" id="dev-banner">
-    <i class="bi bi-tools me-1 dev-banner-icon"></i>
+    <i class="bi bi-tools dev-banner-icon"></i>
     <strong>{% trans "Dev mode" %}</strong> — {% trans "Site is under active development." %}
     <button class="dev-banner-close" id="dev-banner-close" aria-label="{% trans 'Close' %}">&#x2715;</button>
 </div>
 <script>
 (function () {
-    var banner = document.getElementById('dev-banner');
-    if (!banner) return;
-    if (localStorage.getItem('dev-banner-dismissed') === '1') {
-        banner.style.display = 'none';
-        return;
-    }
+    var b = document.getElementById('dev-banner');
+    if (!b) return;
+    if (localStorage.getItem('dev-banner-dismissed') === '1') { b.style.display = 'none'; return; }
     document.getElementById('dev-banner-close').addEventListener('click', function () {
-        banner.remove();
+        b.remove();
         try { localStorage.setItem('dev-banner-dismissed', '1'); } catch(e) {}
     });
 })();
 </script>
 
-<!-- Header Section -->
 <header class="iesa-header fixed-top">
     <div class="container-limited">
-        <nav class="navbar navbar-expand-lg navbar-dark py-2" aria-label="{% trans "Main navigation" %}">
-            <a class="navbar-brand fw-bold fs-4" href="{% url 'core:home' %}" aria-label="{% trans "IESA Home" %}">
-                <img src="{% static 'img/logo.png' %}" alt="{% trans "IESA Logo" %}" class="navbar-logo">
+        <nav class="iesa-nav" aria-label="{% trans "Main navigation" %}">
+
+            <!-- ── Логотип ── -->
+            <a class="iesa-nav__brand" href="{% url 'core:home' %}" aria-label="{% trans "IESA Home" %}">
+                <img src="{% static 'img/logo.png' %}" alt="IESA" class="navbar-logo">
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-                    aria-controls="navbarNav" aria-expanded="false" aria-label="{% trans "Toggle navigation" %}">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav mx-auto">
-                    <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:home' %}">{% trans "Home" %}</a></li>
-                    <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:home' %}#about-section">{% trans "About" %}</a></li>
-                    <li class="nav-item"><a class="nav-link fw-500" href="{% url 'core:benefits' %}">
-                        <i class="fas fa-gift me-1"></i>{% trans "Benefits" %}
-                    </a></li>
-                    <li class="nav-item"><a class="nav-link fw-500" href="{% url 'gallery:gallery' %}">{% trans "Gallery" %}</a></li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle fw-500" href="javascript:void(0)" id="communityDropdown"
-                           role="button" data-bs-toggle="dropdown" aria-expanded="false">{% trans "Community" %}</a>
-                        <ul class="dropdown-menu" aria-labelledby="communityDropdown">
-                            <li><a class="dropdown-item" href="{% url 'blog:post_list' %}">{% trans "Posts" %}</a></li>
-                            <li><a class="dropdown-item" href="{% url 'blog:event_list' %}">{% trans "Events" %}</a></li>
-                            <li><a class="dropdown-item" href="{% url 'products:product_list' %}">{% trans "Products" %}</a></li>
-                            <li><a class="dropdown-item" href="{% url 'core:home' %}#partners-section">{% trans "Partners" %}</a></li>
-                            <li><a class="dropdown-item" href="{% url 'users:users_search' %}">{% trans "Members" %}</a></li>
-                            {% if user.is_authenticated %}
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'blog:post_create' %}">{% trans "Create post" %}</a></li>
-                            {% endif %}
-                        </ul>
-                    </li>
-                </ul>
-                <div class="d-flex align-items-center gap-2">
-                    <!-- Language Picker -->
-                    <div class="lang-picker-wrap" id="langPickerWrap">
-                        <form action="{% url 'set_language' %}" method="post" id="langSwitchForm" style="display:none">
-                            {% csrf_token %}
-                            <input name="next" type="hidden" value="{{ request.get_full_path }}">
-                            <select name="language" id="langSelectHidden">
-                                {% for lang in LANGUAGES %}
-                                <option value="{{ lang.0 }}" {% if lang.0 == LANGUAGE_CODE %}selected{% endif %}>{{ lang.1 }}</option>
-                                {% endfor %}
-                            </select>
-                        </form>
-                        <button type="button" class="btn-lang-pick" id="langPickBtn"
-                                aria-haspopup="listbox" aria-expanded="false">
-                            <i class="fas fa-globe fa-xs" style="opacity:.6;"></i>
-                            <span id="langPickCurrent">{% for lang in LANGUAGES %}{% if lang.0 == LANGUAGE_CODE %}{{ lang.0|upper }}{% endif %}{% endfor %}</span>
-                            <svg class="lang-pick-arrow" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </button>
-                        <div class="lang-pick-dropdown" id="langPickDrop" role="listbox">
+
+            <!-- ── Основные ссылки ── -->
+            <ul class="iesa-nav__links">
+                <li><a href="{% url 'core:home' %}">{% trans "Home" %}</a></li>
+                <li><a href="{% url 'core:home' %}#about-section">{% trans "About" %}</a></li>
+                <li><a href="{% url 'core:benefits' %}">{% trans "Benefits" %}</a></li>
+                <li><a href="{% url 'gallery:gallery' %}">{% trans "Gallery" %}</a></li>
+                <li class="dropdown">
+                    <a href="javascript:void(0)" class="dropdown-toggle"
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        {% trans "Community" %} <i class="fas fa-chevron-down ms-1" style="font-size:.55rem;opacity:.5;"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{% url 'blog:post_list' %}">
+                            <i class="fas fa-newspaper me-2 text-muted" style="width:14px;"></i>{% trans "Posts" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'blog:event_list' %}">
+                            <i class="fas fa-calendar-alt me-2 text-muted" style="width:14px;"></i>{% trans "Events" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'products:product_list' %}">
+                            <i class="fas fa-box me-2 text-muted" style="width:14px;"></i>{% trans "Products" %}
+                        </a></li>
+                        <li><a class="dropdown-item" href="{% url 'users:users_search' %}">
+                            <i class="fas fa-users me-2 text-muted" style="width:14px;"></i>{% trans "Members" %}
+                        </a></li>
+                        {% if user.is_authenticated %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'blog:post_create' %}">
+                            <i class="fas fa-plus me-2" style="width:14px;color:var(--primary);"></i>{% trans "Create post" %}
+                        </a></li>
+                        {% endif %}
+                    </ul>
+                </li>
+            </ul>
+
+            <!-- ── Правая панель ── -->
+            <div class="iesa-nav__actions">
+
+                <!-- Языковой переключатель -->
+                <div class="lang-picker-wrap" id="langPickerWrap">
+                    <form action="{% url 'set_language' %}" method="post" id="langSwitchForm" style="display:none">
+                        {% csrf_token %}
+                        <input name="next" type="hidden" value="{{ request.get_full_path }}">
+                        <select name="language" id="langSelectHidden">
                             {% for lang in LANGUAGES %}
-                            <button type="button" class="lang-pick-item {% if lang.0 == LANGUAGE_CODE %}lp-active{% endif %}"
-                                    data-lang="{{ lang.0 }}" role="option">{{ lang.1 }}</button>
+                            <option value="{{ lang.0 }}" {% if lang.0 == LANGUAGE_CODE %}selected{% endif %}>{{ lang.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                    <button type="button" class="btn-lang-pick" id="langPickBtn"
+                            aria-haspopup="listbox" aria-expanded="false">
+                        <i class="fas fa-globe fa-xs" style="opacity:.5;"></i>
+                        <span id="langPickCurrent">{% for lang in LANGUAGES %}{% if lang.0 == LANGUAGE_CODE %}{{ lang.0|upper }}{% endif %}{% endfor %}</span>
+                        <svg class="lang-pick-arrow" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                    <div class="lang-pick-dropdown" id="langPickDrop" role="listbox">
+                        {% for lang in LANGUAGES %}
+                        <button type="button" class="lang-pick-item {% if lang.0 == LANGUAGE_CODE %}lp-active{% endif %}"
+                                data-lang="{{ lang.0 }}" role="option">{{ lang.1 }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Поиск -->
+                <div class="dropdown">
+                    <button class="btn-nav-icon" data-bs-toggle="dropdown" aria-expanded="false"
+                            title="{% trans "Search" %}" aria-label="{% trans "Search" %}">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end navbar-search-dropdown"
+                         onclick="event.stopPropagation();">
+                        <input type="search" name="q" id="global-community-search"
+                               class="form-control mb-2"
+                               placeholder="{% trans "Posts, users, events..." %}"
+                               hx-get="{% url 'blog:global_search' %}"
+                               hx-trigger="keyup changed delay:600ms"
+                               hx-target="#community-search-results"
+                               hx-indicator="#search-spinner"
+                               hx-swap="innerHTML"
+                               autocomplete="off">
+                        <div id="search-spinner" class="htmx-indicator text-center py-2">
+                            <i class="fas fa-spinner fa-spin" style="color:var(--primary);"></i>
+                        </div>
+                        <div id="community-search-results" class="mt-1 navbar-search-results"></div>
+                    </div>
+                </div>
+
+                {% if user.is_authenticated %}
+
+                <!-- Уведомления -->
+                <div class="dropdown">
+                    <button class="btn-nav-icon btn-nav-icon--badge" data-bs-toggle="dropdown"
+                            id="notificationsToggle" aria-expanded="false" aria-label="{% trans "Notifications" %}">
+                        <i class="fas fa-bell"></i>
+                        <span id="navbar-notif-badge" aria-live="polite">
+                            {% if unread_notifications_count > 0 %}
+                            <span class="notif-dot">{{ unread_notifications_count }}</span>
+                            {% endif %}
+                        </span>
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end notifications-dropdown">
+                        <div class="notif-header">
+                            <span class="notif-title">{% trans "Notifications" %}</span>
+                            {% if unread_notifications_count > 0 %}
+                            <span class="notif-badge-count">{{ unread_notifications_count }}</span>
+                            {% endif %}
+                        </div>
+                        <div id="notifications-content"
+                             hx-get="{% url 'notifications:notification_list' %}"
+                             hx-trigger="click from:#notificationsToggle"
+                             hx-swap="innerHTML">
+                            {% for _ in "123" %}
+                            <div class="notif-skeleton">
+                                <div class="skeleton rounded-circle" style="width:30px;height:30px;flex-shrink:0;"></div>
+                                <div class="flex-grow-1">
+                                    <div class="skeleton skeleton-text rounded mb-1" style="width:72%;height:.7rem;"></div>
+                                    <div class="skeleton skeleton-text rounded" style="width:42%;height:.6rem;"></div>
+                                </div>
+                            </div>
                             {% endfor %}
                         </div>
                     </div>
+                </div>
 
-                    <!-- Community search (global, HTMX live results) -->
-                    <div class="me-1 dropdown community-search-wrap">
-                        <button class="btn btn-nav-icon" id="communitySearchToggle" data-bs-toggle="dropdown"
-                                aria-expanded="false" title="{% trans "Search community" %}"
-                                aria-label="{% trans "Open search menu" %}">
-                            <i class="fas fa-search"></i>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end p-3 navbar-search-dropdown"
-                             onclick="event.stopPropagation();">
-                            <label class="form-label small mb-1">
-                                <i class="fas fa-search me-2"></i>{% trans "Search" %}
-                            </label>
-                            <input type="search" name="q" id="global-community-search"
-                                   class="form-control mb-2"
-                                   placeholder="{% trans "Posts, users, events..." %}"
-                                   hx-get="{% url 'blog:global_search' %}"
-                                   hx-trigger="keyup changed delay:600ms"
-                                   hx-target="#community-search-results"
-                                   hx-indicator="#search-spinner"
-                                   hx-swap="innerHTML"
-                                   autocomplete="off">
-                            <div id="search-spinner" class="htmx-indicator text-center">
-                                <i class="fas fa-spinner fa-spin" style="font-size:1.25rem;color:var(--primary);"></i>
-                            </div>
-                            <div id="community-search-results" class="mt-2 navbar-search-results"
-                                 data-placeholder="{% trans 'Start typing to search...' %}"></div>
-                        </div>
-                    </div>
+                <!-- Профиль -->
+                <div class="dropdown prof-nav-drop">
+                    <button type="button" class="nav-profile-btn dropdown-toggle"
+                            id="profNavDropBtn"
+                            data-bs-toggle="dropdown"
+                            data-bs-auto-close="outside"
+                            aria-expanded="false"
+                            aria-label="{% trans 'Profile menu' %}">
+                        {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
+                            <span class="nav-avatar nav-avatar--img">
+                                <img src="{{ user.avatar.url }}" alt="">
+                            </span>
+                        {% else %}
+                            <span class="nav-avatar nav-avatar--fallback" data-avatar-seed="{{ user.username }}">
+                                {{ user.username|slice:":1"|upper }}
+                            </span>
+                        {% endif %}
+                        <span class="nav-username d-none d-md-inline">{{ user.username }}</span>
+                        <i class="fas fa-chevron-down nav-caret"></i>
+                    </button>
 
-                    {% if user.is_authenticated %}
-                        <!-- Notifications dropdown -->
-                        <div class="dropdown">
-                            <button class="btn btn-nav-icon position-relative d-flex align-items-center"
-                                    id="notificationsToggle"
-                                    data-bs-toggle="dropdown"
-                                    aria-expanded="false"
-                                    title="{% trans "Notifications" %}"
-                                    aria-label="{% trans "Notifications" %}">
-                                <i class="fas fa-bell"></i>
-                                <span id="navbar-notif-badge" class="position-absolute top-0 start-100 translate-middle" aria-live="polite">
-                                {% if unread_notifications_count > 0 %}
-                                <span class="badge rounded-pill bg-danger navbar-notification-badge">{{ unread_notifications_count }}</span>
-                                {% endif %}
+                    <ul class="dropdown-menu dropdown-menu-end prof-nav-drop-menu" aria-labelledby="profNavDropBtn">
+
+                        {# ── Шапка дропдауна — инфо о пользователе ── #}
+                        <li class="pnd-user-header">
+                            {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
+                                <img src="{{ user.avatar.url }}" class="pnd-user-avatar" alt="">
+                            {% else %}
+                                <span class="pnd-user-avatar pnd-user-avatar--fallback" data-avatar-seed="{{ user.username }}">
+                                    {{ user.username|slice:":1"|upper }}
                                 </span>
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end p-3 notifications-dropdown">
-                                <h6 class="dropdown-header">{% trans "Notifications" %}</h6>
-                                <div id="notifications-content"
-                                     hx-get="{% url 'notifications:notification_list' %}"
-                                     hx-trigger="click from:#notificationsToggle"
-                                     hx-swap="innerHTML">
-                                    <!-- Skeleton placeholder (U4-24) -->
-                                    <div class="px-1 py-2" aria-label="{% trans 'Loading notifications...' %}">
-                                        {% for _ in "123" %}
-                                        <div class="d-flex align-items-center gap-2 px-2 py-2">
-                                            <div class="skeleton rounded-circle flex-shrink-0" style="width:32px;height:32px;"></div>
-                                            <div class="flex-grow-1">
-                                                <div class="skeleton skeleton-text rounded mb-1" style="width:70%;height:.75rem;"></div>
-                                                <div class="skeleton skeleton-text rounded" style="width:40%;height:.65rem;"></div>
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
+                            {% endif %}
+                            <div class="pnd-user-info">
+                                <div class="pnd-user-name">{{ user.get_full_name|default:user.username }}</div>
+                                <div class="pnd-user-role">
+                                    {% if user.is_staff %}<span class="pnd-role-badge pnd-role--staff">Admin</span>
+                                    {% elif user.is_partner or user.partner_profile %}<span class="pnd-role-badge pnd-role--partner">{% trans "Partner" %}</span>
+                                    {% elif user.membership_status == 'active' %}<span class="pnd-role-badge pnd-role--member">{% trans "Member" %}</span>
+                                    {% else %}<span class="pnd-role-badge pnd-role--user">{% trans "User" %}</span>{% endif %}
                                 </div>
                             </div>
-                        </div>
+                        </li>
+                        <li><hr class="pnd-divider"></li>
 
-                        <!-- Profile dropdown -->
-                        <div class="dropdown prof-nav-drop">
-                            <button type="button"
-                                    class="btn btn-nav-profile navbar-btn dropdown-toggle"
-                                    id="profNavDropBtn"
-                                    data-bs-toggle="dropdown"
-                                    data-bs-auto-close="outside"
-                                    aria-expanded="false"
-                                    aria-label="{% trans 'Profile menu' %}">
-                                {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
-                                    <span class="avatar avatar-sm me-2 d-inline-flex">
-                                        <img src="{{ user.avatar.url }}" alt="Avatar">
-                                    </span>
-                                {% else %}
-                                    <span class="avatar avatar-sm avatar-fallback me-2 d-inline-flex"
-                                          data-avatar-seed="{{ user.username }}">
-                                        {{ user.username|slice:":1"|upper }}
-                                    </span>
-                                {% endif %}
-                                <span>{{ user.username }}</span>
-                                <i class="fas fa-chevron-down pnd-caret"></i>
+                        {# ── Умный редирект в личный кабинет ── #}
+                        <li>
+                            <a class="dropdown-item pnd-item pnd-profile"
+                               href="{% url 'users:dashboard' %}">
+                                <span class="pnd-icon"><i class="fas fa-th-large"></i></span>
+                                <div>
+                                    <div class="pnd-label">{% trans "My Cabinet" %}</div>
+                                    <div class="pnd-sub">{% trans "Dashboard &amp; stats" %}</div>
+                                </div>
+                            </a>
+                        </li>
+
+                        {# PIN-кабинет — только участникам #}
+                        {% if user.membership_status == 'active' %}
+                        <li>
+                            <a class="dropdown-item pnd-item pnd-cabinet"
+                               href="{% url 'users:member_cabinet' %}">
+                                <span class="pnd-icon"><i class="fas fa-fingerprint"></i></span>
+                                <div>
+                                    <div class="pnd-label">{% trans "PIN Cabinet" %}</div>
+                                    <div class="pnd-sub">{% trans "PIN &amp; QR access" %}</div>
+                                </div>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {# Партнёрский портал #}
+                        {% if user.is_partner or user.partner_profile %}
+                        <li>
+                            <a class="dropdown-item pnd-item pnd-partner"
+                               href="{% url 'users:partner_dashboard' %}">
+                                <span class="pnd-icon"><i class="fas fa-store"></i></span>
+                                <div>
+                                    <div class="pnd-label">{% trans "Partner Portal" %}</div>
+                                    <div class="pnd-sub">{% trans "Visits &amp; analytics" %}</div>
+                                </div>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <li><hr class="pnd-divider"></li>
+
+                        <li>
+                            <a class="dropdown-item pnd-item pnd-edit"
+                               href="{% url 'users:profile_edit' %}">
+                                <span class="pnd-icon"><i class="fas fa-sliders-h"></i></span>
+                                <div>
+                                    <div class="pnd-label">{% trans "Edit Profile" %}</div>
+                                    <div class="pnd-sub">{% trans "Settings &amp; links" %}</div>
+                                </div>
+                            </a>
+                        </li>
+
+                        <li><hr class="pnd-divider"></li>
+
+                        <li>
+                            <button type="button" class="dropdown-item pnd-item pnd-logout"
+                                    data-bs-toggle="modal" data-bs-target="#logoutConfirmModal">
+                                <span class="pnd-icon pnd-icon--danger"><i class="fas fa-sign-out-alt"></i></span>
+                                <div>
+                                    <div class="pnd-label">{% trans "Logout" %}</div>
+                                    <div class="pnd-sub">{% trans "Sign out" %}</div>
+                                </div>
                             </button>
-                            <ul class="dropdown-menu dropdown-menu-end prof-nav-drop-menu"
-                                aria-labelledby="profNavDropBtn">
-                                <li>
-                                    <a class="dropdown-item pnd-item pnd-profile"
-                                       href="{% url 'users:profile' %}">
-                                        <span class="pnd-icon"><i class="fas fa-th-large"></i></span>
-                                        <div>
-                                            <div class="pnd-label">{% trans "My Cabinet" %}</div>
-                                            <div class="pnd-sub">{% trans "Dashboard &amp; posts" %}</div>
-                                        </div>
-                                    </a>
-                                </li>
-                                {% if user.membership_status == 'active' %}
-                                <li>
-                                    <a class="dropdown-item pnd-item pnd-cabinet"
-                                       href="{% url 'users:member_cabinet' %}">
-                                        <span class="pnd-icon"><i class="fas fa-shield-alt"></i></span>
-                                        <div>
-                                            <div class="pnd-label">{% trans "PIN Cabinet" %}</div>
-                                            <div class="pnd-sub">{% trans "PIN code &amp; access" %}</div>
-                                        </div>
-                                    </a>
-                                </li>
-                                {% endif %}
-                                <li><hr class="dropdown-divider pnd-divider"></li>
-                                <li>
-                                    <a class="dropdown-item pnd-item pnd-edit"
-                                       href="{% url 'users:profile_edit' %}">
-                                        <span class="pnd-icon"><i class="fas fa-edit"></i></span>
-                                        <div>
-                                            <div class="pnd-label">{% trans "Edit Profile" %}</div>
-                                            <div class="pnd-sub">{% trans "Update settings" %}</div>
-                                        </div>
-                                    </a>
-                                </li>
-                                {% if user.is_partner or user.partner_profile %}
-                                <li><hr class="dropdown-divider pnd-divider"></li>
-                                <li>
-                                    <a class="dropdown-item pnd-item pnd-partner"
-                                       href="{% url 'users:partner_dashboard' %}">
-                                        <span class="pnd-icon"><i class="fas fa-store"></i></span>
-                                        <div>
-                                            <div class="pnd-label">{% trans "Partner Portal" %}</div>
-                                            <div class="pnd-sub">{% trans "Log member visits" %}</div>
-                                        </div>
-                                    </a>
-                                </li>
-                                {% endif %}
-                                <li><hr class="dropdown-divider pnd-divider"></li>
-                                <li>
-                                    <button type="button"
-                                            class="dropdown-item pnd-item"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#logoutConfirmModal">
-                                        <span class="pnd-icon" style="background:rgba(239,68,68,.12);color:#f87171;">
-                                            <i class="fas fa-sign-out-alt"></i>
-                                        </span>
-                                        <div>
-                                            <div class="pnd-label">{% trans "Logout" %}</div>
-                                            <div class="pnd-sub">{% trans "Sign out of account" %}</div>
-                                        </div>
-                                    </button>
-                                </li>
-                            </ul>
-                        </div>
-                    {% else %}
-                        <a href="{% url 'users:login' %}" class="btn btn-nav-outline navbar-btn">{% trans "Sign In" %}</a>
-                        <a href="{% url 'users:register' %}" class="btn btn-primary btn-modern navbar-btn">{% trans "Register" %}</a>
-                    {% endif %}
+                        </li>
+                    </ul>
                 </div>
-            </div>
-        </nav>
-    </div>
+
+                {% else %}
+                <!-- Гость -->
+                <a href="{% url 'users:login' %}" class="btn-nav-ghost">{% trans "Sign In" %}</a>
+                <a href="{% url 'users:register' %}" class="btn-nav-primary">{% trans "Register" %}</a>
+                {% endif %}
+
+            </div>{# /iesa-nav__actions #}
+
+            <!-- Мобильный тоггл -->
+            <button class="iesa-nav__toggler" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#navbarMobile"
+                    aria-controls="navbarMobile" aria-expanded="false"
+                    aria-label="{% trans "Toggle navigation" %}">
+                <span></span><span></span><span></span>
+            </button>
+
+        </nav>{# /iesa-nav #}
+
+        <!-- Мобильное меню -->
+        <div class="collapse" id="navbarMobile">
+            <ul class="mobile-nav-links">
+                <li><a href="{% url 'core:home' %}">{% trans "Home" %}</a></li>
+                <li><a href="{% url 'core:benefits' %}">{% trans "Benefits" %}</a></li>
+                <li><a href="{% url 'gallery:gallery' %}">{% trans "Gallery" %}</a></li>
+                <li><a href="{% url 'blog:post_list' %}">{% trans "Posts" %}</a></li>
+                <li><a href="{% url 'blog:event_list' %}">{% trans "Events" %}</a></li>
+                <li><a href="{% url 'users:users_search' %}">{% trans "Members" %}</a></li>
+                {% if user.is_authenticated %}
+                <li class="mobile-nav-divider"></li>
+                <li><a href="{% url 'users:dashboard' %}">{% trans "My Cabinet" %}</a></li>
+                {% if user.membership_status == 'active' %}
+                <li><a href="{% url 'users:member_cabinet' %}">{% trans "PIN Cabinet" %}</a></li>
+                {% endif %}
+                {% if user.is_partner or user.partner_profile %}
+                <li><a href="{% url 'users:partner_dashboard' %}">{% trans "Partner Portal" %}</a></li>
+                {% endif %}
+                <li><a href="{% url 'users:profile_edit' %}">{% trans "Edit Profile" %}</a></li>
+                {% else %}
+                <li class="mobile-nav-divider"></li>
+                <li><a href="{% url 'users:login' %}">{% trans "Sign In" %}</a></li>
+                <li><a href="{% url 'users:register' %}">{% trans "Register" %}</a></li>
+                {% endif %}
+            </ul>
+        </div>
+
+    </div>{# /container-limited #}
 </header>
