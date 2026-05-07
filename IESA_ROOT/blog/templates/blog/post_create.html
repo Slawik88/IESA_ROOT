@@ -194,6 +194,8 @@ document.addEventListener('DOMContentLoaded', function(){
     // If textarea has initial value, populate Quill
     if (ta.value) quill.root.innerHTML = ta.value;
 
+    window._iesa_quill_instance = quill;
+
     // Auto-save / word-count hook (U2-08, U2-17)
     if (typeof window._iesa_quill_hook === 'function') window._iesa_quill_hook(quill);
 
@@ -262,44 +264,6 @@ document.addEventListener('DOMContentLoaded', function(){
             });
         }
 
-        // Preview modal
-        var previewBtn = document.getElementById('preview-btn');
-        if (previewBtn) previewBtn.addEventListener('click', function(){
-            syncPreview();
-            
-            // Fill modal with preview content
-            var previewBody = document.getElementById('post-preview-body');
-            if (previewBody) {
-                var previewTitle = document.getElementById('preview-title');
-                var previewBodyContent = document.getElementById('preview-body');
-                var previewImg = document.getElementById('preview-image-output');
-                
-                var modalContent = '';
-                
-                // Add image if present
-                if (previewImg && previewImg.style.display !== 'none' && previewImg.src) {
-                    modalContent += '<div class="mb-3"><img src="' + previewImg.src + '" class="img-fluid rounded" alt="{% trans "Preview" %}"/></div>';
-                }
-                
-                // Add title
-                if (previewTitle) {
-                    modalContent += '<h2 class="mb-3">' + previewTitle.textContent + '</h2>';
-                }
-                
-                // Add content
-                if (previewBodyContent) {
-                    modalContent += '<div class="post-content">' + previewBodyContent.innerHTML + '</div>';
-                }
-                
-                previewBody.innerHTML = modalContent;
-            }
-            
-            var modal = document.getElementById('postPreviewModal');
-            if (modal && typeof bootstrap !== 'undefined') {
-                var bsModal = new bootstrap.Modal(modal);
-                bsModal.show();
-            }
-        });
     }
 });
 </script>
@@ -419,5 +383,48 @@ document.addEventListener('DOMContentLoaded', function(){
     updateTitleCounter();
     setInterval(saveDraft, 30000);
 })();
+</script>
+
+<script>
+/* ── Standalone preview modal (works with Quill, CKEditor, or plain textarea) ── */
+document.addEventListener('DOMContentLoaded', function () {
+    var previewBtn = document.getElementById('preview-btn');
+    var previewModal = document.getElementById('postPreviewModal');
+    if (!previewBtn || !previewModal) return;
+
+    previewBtn.addEventListener('click', function () {
+        var titleInput = document.querySelector('input[name="title"]');
+        var titleText = titleInput ? titleInput.value.trim() : '';
+
+        // Get HTML content: Quill → CKEditor → plain textarea
+        var contentHtml = '';
+        if (window._iesa_quill_instance) {
+            contentHtml = window._iesa_quill_instance.root.innerHTML;
+        } else if (window.CKEDITOR) {
+            var key = Object.keys(CKEDITOR.instances)[0];
+            if (key) contentHtml = CKEDITOR.instances[key].getData();
+        } else {
+            var ta = document.querySelector('textarea[name="text"]');
+            if (ta) contentHtml = ta.value;
+        }
+
+        var previewImgEl = document.getElementById('preview-image-output');
+        var modalBody = document.getElementById('post-preview-body');
+        if (!modalBody) return;
+
+        var html = '';
+        if (previewImgEl && previewImgEl.style.display !== 'none' && previewImgEl.src) {
+            html += '<img src="' + previewImgEl.src + '" class="img-fluid rounded mb-3 w-100" style="max-height:320px;object-fit:cover;" alt="">';
+        }
+        html += '<h2 class="mb-3" style="color:#f1f5f9;">' + (titleText || '{% trans "Post Title" %}') + '</h2>';
+        html += '<div class="post-content" style="color:rgba(255,255,255,.75);line-height:1.75;">' + (contentHtml || '<em style="color:rgba(255,255,255,.35);">{% trans "No content yet" %}</em>') + '</div>';
+
+        modalBody.innerHTML = html;
+
+        if (typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getOrCreateInstance(previewModal).show();
+        }
+    });
+});
 </script>
 {% endblock %}
