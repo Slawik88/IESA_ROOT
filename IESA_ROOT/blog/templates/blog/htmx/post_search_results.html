@@ -26,9 +26,6 @@
 </style>
 
 {% if query %}
-    <!-- DEBUG INFO (remove in production) -->
-    <!-- Query: '{{ query }}' | Users: {{ results.users|length }} | Posts: {{ results.posts|length }} | Events: {{ results.events|length }} | Partners: {{ results.partners|length }} -->
-    
     <div class="search-results">
         <!-- Users Results -->
         {% if results.users %}
@@ -51,7 +48,7 @@
                                     {{ user.username|slice:":1"|upper }}
                                 </div>
                             {% endif %}                            {% endwith %}                            <div class="flex-grow-1">
-                                <strong>👤 {{ user.get_full_name|default:user.username }}</strong>
+                                <strong><i class="fas fa-user me-1 text-muted"></i>{{ user.get_full_name|default:user.username }}</strong>
                                 <span class="text-muted ms-2">@{{ user.username }}</span>
                                 <br>
                                 {% if user.email %}
@@ -77,7 +74,7 @@
                 <a href="{% url 'blog:post_detail' pk=post.pk %}" class="list-group-item list-group-item-action hx-item animation-delay-{{ forloop.counter0|default:0 }}">
                     <div class="d-flex w-100 justify-content-between align-items-start">
                         <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-bold">📝 {{ post.title }}</h6>
+                            <h6 class="mb-1 fw-bold"><i class="fas fa-newspaper me-1 text-muted"></i>{{ post.title }}</h6>
                             <p class="mb-1 text-muted small search-result-text">
                                 {{ post.text|striptags|truncatewords:20 }}
                             </p>
@@ -117,7 +114,7 @@
                 <a href="{% url 'blog:event_detail' pk=event.pk %}" class="list-group-item list-group-item-action hx-item animation-delay-{{ forloop.counter0|default:0 }}">
                     <div class="d-flex w-100 justify-content-between align-items-start">
                         <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-bold">📅 {{ event.title }}</h6>
+                            <h6 class="mb-1 fw-bold"><i class="fas fa-calendar-alt me-1 text-muted"></i>{{ event.title }}</h6>
                             <p class="mb-1 text-muted small">{{ event.description|truncatewords:20|striptags }}</p>
                             <small class="text-muted">
                                 <i class="fas fa-calendar me-1"></i>{{ event.date|date:"d M Y, H:i" }}
@@ -161,7 +158,7 @@
                         </div>
                         {% endif %}
                         <div class="flex-grow-1">
-                            <h6 class="mb-1 fw-bold">🤝 {{ partner.name }}</h6>
+                            <h6 class="mb-1 fw-bold"><i class="fas fa-handshake me-1 text-muted"></i>{{ partner.name }}</h6>
                             <p class="mb-0 text-muted small">{{ partner.description|truncatewords:15|striptags }}</p>
                         </div>
                     </div>

@@ -1,43 +1,5 @@
-<!-- Comments Section (HTMX partial) -->
+<!-- Comments Section (HTMX partial) — styles in pages.css (.cm-*) -->
 {% load blog_filters i18n %}
-<style>
-.cm-card {
-    background: #111118;
-    border: 1.5px solid rgba(255,255,255,.07);
-    border-radius: 14px;
-    margin-bottom: .75rem;
-    overflow: hidden;
-}
-.cm-card:hover { border-color: rgba(255,255,255,.12); }
-.cm-body { padding: .85rem 1rem; }
-.cm-header { display:flex; align-items:center; gap:.55rem; margin-bottom:.5rem; }
-.cm-text { color: rgba(255,255,255,.78); font-size: .9rem; line-height: 1.6; margin:0 0 .55rem; }
-.cm-footer { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
-/* Reply thread */
-.cm-thread { margin: .55rem 0 0 1.25rem; border-left: 2px solid rgba(255,255,255,.06); padding-left: .8rem; }
-.cm-reply-card { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.06); border-radius: 10px; padding: .65rem .85rem; margin-bottom: .45rem; }
-/* Buttons */
-.cm-btn {
-    display:inline-flex; align-items:center; gap:.3rem;
-    background: transparent;
-    border: 1px solid rgba(255,255,255,.12);
-    border-radius: 7px; padding: .22rem .65rem;
-    color: rgba(255,255,255,.5); font-size: .78rem; font-weight: 600;
-    cursor: pointer; transition: border-color .2s, color .2s;
-    text-decoration: none; line-height: 1.4;
-}
-.cm-btn:hover { border-color: rgba(255,255,255,.28); color: rgba(255,255,255,.85); }
-.cm-btn--liked { color: var(--primary, #dc2626); border-color: rgba(220,38,38,.3); }
-.cm-btn--delete { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.22); color: #f87171; }
-.cm-btn--delete:hover { background: rgba(239,68,68,.18); color: #fca5a5; }
-/* Reply form */
-.cm-reply-form { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: .75rem; margin-top: .5rem; }
-.cm-reply-textarea { width:100%; background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.1); border-radius: 8px; color: rgba(255,255,255,.87); padding: .5rem .7rem; font-size: .85rem; resize: vertical; min-height: 70px; outline: none; transition: border-color .2s; }
-.cm-reply-textarea:focus { border-color: rgba(220,38,38,.45); box-shadow: 0 0 0 2px rgba(220,38,38,.1); }
-.cm-reply-textarea::placeholder { color: rgba(255,255,255,.25); }
-.cm-submit { background: rgba(220,38,38,.15); border: 1.5px solid rgba(220,38,38,.3); border-radius: 8px; padding: .35rem 1rem; color: #f87171; font-size: .82rem; font-weight: 700; cursor: pointer; transition: background .15s; }
-.cm-submit:hover { background: rgba(220,38,38,.28); color: #fca5a5; }
-</style>
 
 <div id="comments-container">
     {% for comment in comments %}
@@ -47,13 +9,12 @@
             {# ── Header ── #}
             <div class="cm-header">
                 {% if comment.author.avatar and comment.author.avatar.name != 'avatars/default.png' %}
-                    <img loading="lazy" src="{{ comment.author.avatar.url }}" alt="{{ comment.author.username }}"
-                         style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.12);flex-shrink:0;">
+                    <img loading="lazy" src="{{ comment.author.avatar.url }}" alt="{{ comment.author.username }}" class="cm-avatar">
                 {% else %}
-                    <span style="width:30px;height:30px;border-radius:50%;background:rgba(220,38,38,.18);display:inline-flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:#f87171;flex-shrink:0;">{{ comment.author.username|slice:":1"|upper }}</span>
+                    <span class="cm-avatar-fallback" data-avatar-seed="{{ comment.author.username }}">{{ comment.author.username|slice:":1"|upper }}</span>
                 {% endif %}
-                <strong style="color:rgba(255,255,255,.88);font-size:.87rem;">{{ comment.author.username }}</strong>
-                <small style="color:rgba(255,255,255,.3);font-size:.74rem;margin-left:auto;">{{ comment.created_at|date:"d M Y H:i" }}</small>
+                <strong class="cm-author-name">{{ comment.author.username }}</strong>
+                <small class="cm-time">{{ comment.created_at|date:"d M Y H:i" }}</small>
             </div>
 
             {# ── Text ── #}
@@ -66,15 +27,14 @@
                 <div class="cm-reply-card">
                     <div class="cm-header">
                         {% if reply.author.avatar and reply.author.avatar.name != 'avatars/default.png' %}
-                            <img loading="lazy" src="{{ reply.author.avatar.url }}" alt="{{ reply.author.username }}"
-                                 style="width:24px;height:24px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.1);flex-shrink:0;">
+                            <img loading="lazy" src="{{ reply.author.avatar.url }}" alt="{{ reply.author.username }}" class="cm-reply-avatar">
                         {% else %}
-                            <span style="width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.08);display:inline-flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:700;color:rgba(255,255,255,.5);flex-shrink:0;">{{ reply.author.username|slice:":1"|upper }}</span>
+                            <span class="cm-reply-avatar-fallback" data-avatar-seed="{{ reply.author.username }}">{{ reply.author.username|slice:":1"|upper }}</span>
                         {% endif %}
-                        <strong style="color:rgba(255,255,255,.8);font-size:.82rem;">{{ reply.author.username }}</strong>
-                        <small style="color:rgba(255,255,255,.28);font-size:.7rem;margin-left:auto;">{{ reply.created_at|date:"d M Y H:i" }}</small>
+                        <strong class="cm-reply-author-name">{{ reply.author.username }}</strong>
+                        <small class="cm-reply-time">{{ reply.created_at|date:"d M Y H:i" }}</small>
                     </div>
-                    <p style="color:rgba(255,255,255,.7);font-size:.84rem;margin:0;line-height:1.55;">{{ reply.text }}</p>
+                    <p class="cm-reply-text">{{ reply.text }}</p>
                 </div>
                 {% endfor %}
             </div>
@@ -128,7 +88,7 @@
                     {% csrf_token %}
                     <textarea name="text" class="cm-reply-textarea" rows="3" placeholder="{% trans "Write a reply..." %}" required></textarea>
                     <input type="hidden" name="parent_id" value="{{ comment.pk }}">
-                    <div style="margin-top:.5rem;">
+                    <div class="mt-2">
                         <button type="submit" class="cm-submit">
                             <i class="fas fa-paper-plane me-1"></i>{% trans "Send reply" %}
                         </button>
@@ -147,7 +107,8 @@ document.querySelectorAll('textarea[name=text]').forEach(t => t.value = '');
 document.querySelectorAll('[data-just-posted="true"]').forEach(card => {
     const commentId = card.getAttribute('data-comment-id');
     const notice = document.createElement('div');
-    notice.style.cssText = 'background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:.4rem .75rem;font-size:.78rem;color:#4ade80;margin-top:.4rem;display:flex;align-items:center;gap:.5rem;';
+    notice.className = 'cm-reply-form mt-2 d-flex align-items-center gap-2';
+    notice.style.cssText = 'background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.2);color:#4ade80;padding:.4rem .75rem;font-size:.78rem;';
     const commentPostedText = "{% trans "Comment posted." %}";
     const undoText = "{% trans "Undo in" %}";
     const secondsSuffix = "{% trans "s" %}";

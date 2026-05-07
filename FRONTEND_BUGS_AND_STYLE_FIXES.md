@@ -76,7 +76,7 @@ ContentGrid
 ## 🔴 БЛОК 1 — КРИТИЧЕСКИЕ БАГИ ВЕРСТКИ
 
 ### Б1-01 Полный inline-стиль в `post_list_items.html` — **разрушает поддерживаемость**
-- [ ] **Файл:** [blog/templates/blog/partials/post_list_items.html](IESA_ROOT/blog/templates/blog/partials/post_list_items.html)
+- [x] **Файл:** [blog/templates/blog/partials/post_list_items.html](IESA_ROOT/blog/templates/blog/partials/post_list_items.html)
 - **Проблема:** Весь HTML-шаблон карточки поста написан с `style=""` атрибутами (~80 строк). Нет ни одного CSS-класса для структурных элементов. Тёмная тема, hover-эффекты, typography — всё хардкод.
 - **Примеры** (строки 10-75):
   - `style="display:flex;align-items:stretch;min-height:130px;"` 
@@ -86,7 +86,7 @@ ContentGrid
 - **Исправление:** Создать CSS-классы `.post-card`, `.post-card__image`, `.post-card__body`, `.post-card__title`, `.post-card__meta`, `.post-card__author`, `.post-card__stats` в `static/css/pages.css` или отдельном `blog-cards.css`. Заменить все inline styles на классы.
 
 ### Б1-02 Белые секции на тёмном сайте в `index.html`
-- [ ] **Файл:** [core/templates/core/index.html](IESA_ROOT/core/templates/core/index.html) строки 114, 118, 139, 178
+- [x] **Файл:** [core/templates/core/index.html](IESA_ROOT/core/templates/core/index.html) строки 114, 118, 139, 178
 - **Проблема:** 
   - `#hp-offers { background: #fff }` — секция "Offers" белая
   - `.offer-card-v2 { background: #fff }` — карточки белые  
@@ -97,12 +97,12 @@ ContentGrid
 - **Исправление:** Заменить `background: #fff` → `background: var(--bg-surface)` во всех указанных местах. Текстовые цвета (`var(--text-primary)`, `var(--text-secondary)`) уже работают корректно через токены.
 
 ### Б1-03 `.offer-num` — нечитаемый при тёмном фоне
-- [ ] **Файл:** [core/templates/core/index.html](IESA_ROOT/core/templates/core/index.html) строка 124
+- [x] **Файл:** [core/templates/core/index.html](IESA_ROOT/core/templates/core/index.html) строка 124
 - **Проблема:** `.offer-num { color: rgba(0,0,0,.04) }` — почти прозрачный чёрный на тёмном фоне. На белом фоне это декоративный subtlety, на тёмном — исчезает полностью.
 - **Исправление:** `color: rgba(255,255,255,.04)` при тёмном фоне.
 
 ### Б1-04 DEBUG-комментарий в продакшн-коде
-- [ ] **Файл:** [blog/templates/blog/htmx/post_search_results.html](IESA_ROOT/blog/templates/blog/htmx/post_search_results.html) строка 29-31
+- [x] **Файл:** [blog/templates/blog/htmx/post_search_results.html](IESA_ROOT/blog/templates/blog/htmx/post_search_results.html) строка 29-31
 - **Проблема:**
   ```html
   <!-- DEBUG INFO (remove in production) -->
@@ -122,7 +122,7 @@ ContentGrid
 - **Исправление:** Проверить `views.py` — поля должны содержать только `<mark>...</mark>` теги подсветки. Добавить явную sanitization в Python-коде через `bleach.clean()` или `mark_safe(html.escape(value).replace(...))`.
 
 ### Б1-06 Emoji вместо иконок в поиске — нарушает консистентность
-- [ ] **Файл:** [blog/templates/blog/htmx/post_search_results.html](IESA_ROOT/blog/templates/blog/htmx/post_search_results.html) строка 54, 80
+- [x] **Файл:** [blog/templates/blog/htmx/post_search_results.html](IESA_ROOT/blog/templates/blog/htmx/post_search_results.html) строка 54, 80
 - **Проблема:** `👤 {{ user.get_full_name }}`, `📝 {{ post.title }}`, `📅 {{ event.title }}` — emoji вместо Font Awesome иконок. Несогласованно с остальным сайтом.
 - **Исправление:**
   ```html
@@ -131,12 +131,12 @@ ContentGrid
   ```
 
 ### Б1-07 `<style>` в HTMX-партиале перезагружается при каждом запросе
-- [ ] **Файл:** [blog/templates/blog/htmx/comments_section.html](IESA_ROOT/blog/templates/blog/htmx/comments_section.html) строки 3-40
+- [x] **Файл:** [blog/templates/blog/htmx/comments_section.html](IESA_ROOT/blog/templates/blog/htmx/comments_section.html) строки 3-40
 - **Проблема:** `<style>` блок с `.cm-card`, `.cm-body`, `.cm-btn` и т.д. находится в HTMX-партиале (загружается при каждом открытии/обновлении комментариев). CSS-правила дублируются в DOM на каждый swap.
 - **Исправление:** Вынести в `static/css/blog-comments.css` (или добавить в `pages.css`), подключить в `extra_css` блоке `post_detail.html`.
 
 ### Б1-08 Inline avatar-стили в comments_section
-- [ ] **Файл:** [blog/templates/blog/htmx/comments_section.html](IESA_ROOT/blog/templates/blog/htmx/comments_section.html) строки 51-53, 70-76
+- [x] **Файл:** [blog/templates/blog/htmx/comments_section.html](IESA_ROOT/blog/templates/blog/htmx/comments_section.html) строки 51-53, 70-76
 - **Проблема:** У каждого аватара комментария хардкод:
   ```html
   style="width:30px;height:30px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.12);flex-shrink:0;"
