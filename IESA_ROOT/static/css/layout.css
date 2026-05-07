@@ -70,6 +70,13 @@
   border-bottom: 1px solid rgba(255,255,255,.06);
   position: sticky; top: 0;
   z-index: var(--z-fixed);
+  /* Transition только через CSS-класс — НЕ через inline JS transform
+     (inline transform создаёт containing block и ломает Bootstrap dropdowns) */
+  transition: transform .3s cubic-bezier(.4,0,.2,1);
+}
+/* Только когда шапка скрыта (при скролле вниз) */
+.iesa-header.hhs-hidden {
+  transform: translateY(-110%);
 }
 
 /* Override Bootstrap navbar */
