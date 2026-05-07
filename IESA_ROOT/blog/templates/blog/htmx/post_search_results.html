@@ -1,29 +1,5 @@
 ﻿{% load i18n %}
-<style>
-/* Dark theme for blog search results */
-.search-results .list-group-item-action {
-  background: rgba(255,255,255,.03) !important;
-  border-color: rgba(255,255,255,.07) !important;
-  color: rgba(255,255,255,.85) !important;
-  border-radius: 10px !important;
-  margin-bottom: 6px;
-  transition: background .15s, border-color .15s;
-}
-.search-results .list-group-item-action:hover {
-  background: rgba(220,38,38,.05) !important;
-  border-color: rgba(220,38,38,.3) !important;
-}
-.search-results .list-group-item-action h6,
-.search-results .list-group-item-action strong {
-  color: #fff !important;
-}
-.search-results .text-muted { color: rgba(255,255,255,.4) !important; }
-.search-results .search-avatar-fallback { background: var(--primary) !important; }
-.search-results .search-partner-fallback {
-  background: rgba(255,255,255,.08) !important;
-  color: rgba(255,255,255,.7) !important;
-}
-</style>
+{# .search-results styles are in pages.css (Д2-06) #}
 
 {% if query %}
     <div class="search-results">

@@ -12,22 +12,8 @@
    IESA PERSONAL CABINET — 2026
    Dark glassmorphism, matches member_cabinet / homepage
 ═══════════════════════════════════════════════════════════ */
-:root {
-  --bg0: #0a0a0f;
-  --bg1: #10101a;
-  --card: rgba(18,18,30,0.90);
-  --bdr:  rgba(255,255,255,0.08);
-  --bdr-h:rgba(220,38,38,0.40);
-  --text: rgba(255,255,255,0.88);
-  --muted:rgba(255,255,255,0.40);
-  --red:  #dc2626;
-  --red-g:rgba(220,38,38,0.28);
-  --green:#22c55e;
-  --tg:   #29a8eb;
-  --amber:#f59e0b;
-  --r:    20px;
-}
-html, body { background: var(--bg0) !important; }
+/* page-scoped tokens — no :root override (D2-03) */
+.cab-page { background: var(--bg0); } /* scoped, not global (D2-03) */
 
 /* ── canvas bg ── */
 #cab-canvas {

@@ -48,53 +48,18 @@
     padding: 1.5rem 1.75rem;
     margin-top: 1.25rem;
 }
-.evd-section-label { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #dc2626; margin-bottom: 1rem; display: block; }
+/* .section-eyebrow -> .section-eyebrow in pages.css */
 .evd-desc-text { color: rgba(255,255,255,.7); line-height: 1.75; }
 .evd-actions { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1.5rem; }
-.evd-btn-back {
-    background: rgba(255,255,255,.07);
-    border: 1.5px solid rgba(255,255,255,.12);
-    color: rgba(255,255,255,.65);
-    border-radius: 10px;
-    padding: .6rem 1.25rem;
-    font-size: .9rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: background .15s, border-color .15s;
-}
-.evd-btn-back:hover { background: rgba(255,255,255,.12); color: #fff; }
-.evd-btn-register {
-    background: rgba(220,38,38,.15);
-    border: 1.5px solid rgba(220,38,38,.35);
-    color: #f87171;
-    border-radius: 10px;
-    padding: .6rem 1.5rem;
-    font-size: .9rem;
-    font-weight: 700;
-    text-decoration: none;
-    transition: background .15s;
-    cursor: pointer;
-}
-.evd-btn-register:hover { background: rgba(220,38,38,.28); color: #fca5a5; }
-.evd-btn-registered {
-    background: rgba(34,197,94,.1);
-    border: 1.5px solid rgba(34,197,94,.25);
-    color: #4ade80;
-    border-radius: 10px;
-    padding: .6rem 1.5rem;
-    font-size: .9rem;
-    font-weight: 700;
-    cursor: default;
-}
+
+
+
+
+
 /* Modal dark */
-#registerModal .modal-content {
-    background: #111118;
-    border: 1.5px solid rgba(255,255,255,.1);
-    border-radius: 18px;
-    color: #e2e8f0;
-}
-#registerModal .modal-header { border-bottom: 1px solid rgba(255,255,255,.07); }
-#registerModal .btn-close { filter: invert(1) brightness(2); }
+
+
+
 </style>
 {% endblock %}
 
@@ -140,29 +105,29 @@
             {% endif %}
 
             <div class="evd-desc-card">
-                <span class="evd-section-label">{% trans "DESCRIPTION" %}</span>
+                <span class="section-eyebrow">{% trans "DESCRIPTION" %}</span>
                 <div class="evd-desc-text">{{ event.description|striptags|linebreaksbr }}</div>
             </div>
 
             <div class="evd-actions">
-                <a href="{% url 'blog:event_list' %}" class="evd-btn-back">
+                <a href="{% url 'blog:event_list' %}" class="btn btn-secondary">
                     <i class="fas fa-arrow-left me-2"></i>{% trans "Back to events" %}
                 </a>
                 {% if user.is_authenticated %}
                     {% if is_registered %}
-                        <span class="evd-btn-registered">
+                        <span class="btn btn-success" disabled>
                             <i class="fas fa-check-circle me-2"></i>{% trans "Already registered" %}
                         </span>
                     {% else %}
                         <form method="post" action="{% url 'blog:event_register' event.pk %}" class="d-inline">
                             {% csrf_token %}
-                            <button type="submit" class="evd-btn-register">
+                            <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-check-circle me-2"></i>{% trans "Register" %}
                             </button>
                         </form>
                     {% endif %}
                 {% else %}
-                    <button class="evd-btn-register" data-bs-toggle="modal" data-bs-target="#registerModal">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registerModal">
                         <i class="fas fa-check-circle me-2"></i>{% trans "Register" %}
                     </button>
                 {% endif %}
@@ -185,12 +150,12 @@
                 <p class="mb-4" style="color:rgba(255,255,255,.6);">{% trans "Thank you for your interest! Please contact us via:" %}</p>
                 <div class="row g-3">
                     <div class="col-12 text-center">
-                        <a href="tel:+41795718887" class="evd-btn-back d-block text-center py-3" style="border-color:rgba(220,38,38,.3);color:#f87171;">
+                        <a href="tel:+41795718887" class="btn btn-secondary d-block text-center py-3" style="border-color:rgba(220,38,38,.3);color:#f87171;">
                             <i class="fas fa-mobile-alt me-2"></i>{% trans "Call/SMS:" %} +41 79 571 8887
                         </a>
                     </div>
                     <div class="col-12 text-center">
-                        <a href="https://t.me/+41795718887" target="_blank" rel="noopener noreferrer" class="evd-btn-back d-block text-center py-3" style="border-color:rgba(56,189,248,.3);color:#7dd3fc;">
+                        <a href="https://t.me/+41795718887" target="_blank" rel="noopener noreferrer" class="btn btn-secondary d-block text-center py-3" style="border-color:rgba(56,189,248,.3);color:#7dd3fc;">
                             <i class="fab fa-telegram me-2"></i>{% trans "Message on Telegram" %}
                         </a>
                     </div>

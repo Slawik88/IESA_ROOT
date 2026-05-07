@@ -25,7 +25,20 @@
       "PowerShell(cd g:\\\\IESA_ROOT; git add -A 2>&1 | Where-Object { $_ -notmatch \"^warning:\" }; git status --short 2>&1)",
       "PowerShell(New-Item -ItemType Directory -Force \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\notifications\\\\management\\\\commands\")",
       "PowerShell(New-Item -ItemType File -Force \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\notifications\\\\management\\\\__init__.py\")",
-      "PowerShell(New-Item -ItemType File -Force \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\notifications\\\\management\\\\commands\\\\__init__.py\")"
+      "PowerShell(New-Item -ItemType File -Force \"g:\\\\IESA_ROOT\\\\IESA_ROOT\\\\notifications\\\\management\\\\commands\\\\__init__.py\")",
+      "PowerShell(cd g:\\\\IESA_ROOT\\\\IESA_ROOT; $env:DJANGO_SETTINGS_MODULE = \"IESA_ROOT.settings\"; python manage.py makemigrations --check 2>&1 | Select-Object -First 20)",
+      "PowerShell(cd g:\\\\IESA_ROOT\\\\IESA_ROOT; $env:DJANGO_SETTINGS_MODULE = \"IESA_ROOT.settings\"; python manage.py makemigrations 2>&1)",
+      "PowerShell(cd g:\\\\IESA_ROOT\\\\IESA_ROOT; $env:DJANGO_SETTINGS_MODULE = \"IESA_ROOT.settings\"; python manage.py migrate --run-syncdb 2>&1 | Select-Object -First 30)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(python IESA_ROOT/manage.py collectstatic --noinput)",
+      "Bash(python -c ' *)",
+      "Bash(python IESA_ROOT/manage.py check)",
+      "Bash(python)",
+      "Bash(Get-ChildItem -Path \"g:\\\\IESA_ROOT\" -Recurse -Filter \"*.html\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(git commit -m 'docs: add FRONTEND_BUGS_AND_STYLE_FIXES.md — 56 issues across 13 blocks *)"
     ]
   }
 }

@@ -6,20 +6,8 @@
 {% block extra_css %}
 <style>
 /* ── Hero ──────────────────────────────────────── */
-.prod-hero {
-    background: #0a0a0f;
-    padding: 5.5rem 0 4.5rem;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-.prod-hero::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(220,38,38,.18) 0%, transparent 70%);
-    pointer-events: none;
-}
+/* hero moved to .page-hero in pages.css */
+
 /* ── Empty State ───────────────────────────────── */
 .prod-empty {
     background: linear-gradient(145deg, #111118, #0a0a0f);
@@ -112,7 +100,7 @@
 {% endblock %}
 
 {% block content %}
-<section class="prod-hero">
+<section class="page-hero">
     <div class="container">
         <div class="hp-label mx-auto mb-3" style="width:fit-content;">{% trans "CATALOG" %}</div>
         <h1 class="hp-h2" style="font-size:clamp(2rem,5vw,3.2rem);" data-typed="40">{% trans "Product Catalog" %}</h1>
