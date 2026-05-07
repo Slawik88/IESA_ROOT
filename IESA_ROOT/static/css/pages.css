@@ -286,17 +286,17 @@ mark {
   margin-left: 8px;
 }
 
-/* Avatar preview */
-.avatar {
+/* Avatar preview — scoped to profile-edit form only (prevents overriding global .avatar-sm system) */
+.edit-form .avatar {
   width: 100px;
   height: 100px;
-  border-radius: 12px;
-  border: 3px solid #fecaca;
+  border-radius: 50%;
+  border: 3px solid rgba(220,38,38,.4);
   object-fit: cover;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.15);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
 }
 
-.avatar-lg {
+.edit-form .avatar-lg {
   width: 120px;
   height: 120px;
 }
