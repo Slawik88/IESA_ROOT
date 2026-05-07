@@ -2,6 +2,8 @@
 Forms for Membership Verification System
 """
 from django import forms
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from .models import Visit, Partner
 
@@ -177,6 +179,131 @@ class CancelVisitForm(forms.Form):
             'placeholder': _('Explain why this visit is being cancelled...'),
             'style': 'border: 2px solid #f5576c; border-radius: 10px;'
         }),
-        label=_('📝 Reason for Cancellation *'),
+        label=_('Reason for Cancellation *'),
         help_text=_('Required — will be stored in the audit log and sent to member by email.')
     )
+
+
+# ---------------------------------------------------------------------------
+# Формы инвайт-системы (Задача 2)
+# ---------------------------------------------------------------------------
+
+class InviteGenerateForm(forms.Form):
+    """Форма создания инвайт-ссылки администратором (только is_staff)."""
+
+    partner_type = forms.ChoiceField(
+        choices=Partner.PARTNER_TYPE_CHOICES,
+        label=_('Partner Type'),
+        help_text=_('Какую роль получит зарегистрировавшийся?'),
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    company_name = forms.CharField(
+        max_length=255, required=False,
+        label=_('Company Name (optional)'),
+        help_text=_('Предзаполнит поле в форме регистрации.'),
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('e.g. FitnessPro Geneva')}),
+    )
+    note = forms.CharField(
+        max_length=255, required=False,
+        label=_('Internal Note'),
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': _('e.g. Invite for lawyer M. Schmid')}),
+    )
+    expires_days = forms.IntegerField(
+        min_value=1, max_value=90, initial=7,
+        label=_('Expires in (days)'),
+        widget=forms.NumberInput(attrs={'class': 'form-control'}),
+    )
+    max_uses = forms.IntegerField(
+        min_value=1, max_value=10, initial=1,
+        label=_('Max Uses'),
+        help_text=_('Сколько раз можно воспользоваться ссылкой.'),
+        widget=forms.NumberInput(attrs={'class': 'form-control'}),
+    )
+
+
+class InviteRegisterForm(forms.Form):
+    """
+    Форма регистрации по инвайт-ссылке.
+    Получает invite для предзаполнения company_name и определения business_type.
+    """
+
+    username = forms.CharField(
+        max_length=150,
+        label=_('Username'),
+        widget=forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'username'}),
+    )
+    email = forms.EmailField(
+        label=_('Email'),
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'autocomplete': 'email'}),
+    )
+    first_name = forms.CharField(
+        max_length=150, required=False,
+        label=_('First Name'),
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+    )
+    last_name = forms.CharField(
+        max_length=150, required=False,
+        label=_('Last Name'),
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+    )
+    company_name = forms.CharField(
+        max_length=255,
+        label=_('Company / Organisation Name'),
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+    )
+    business_type = forms.ChoiceField(
+        choices=[
+            ('shop', _('Shop/Retail')),
+            ('service', _('Service Provider')),
+            ('gym', _('Gym/Fitness')),
+            ('restaurant', _('Restaurant/Cafe')),
+            ('other', _('Other')),
+        ],
+        label=_('Business Type'),
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    password1 = forms.CharField(
+        label=_('Password'),
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
+    )
+    password2 = forms.CharField(
+        label=_('Confirm Password'),
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'autocomplete': 'new-password'}),
+    )
+
+    def __init__(self, *args, invite=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.invite = invite
+        if invite and invite.company_name:
+            self.fields['company_name'].initial = invite.company_name
+        # Для сотрудников ассоциации скрываем business_type (всегда 'other')
+        if invite and invite.partner_type == 'association_staff':
+            self.fields['business_type'].required = False
+            self.fields['business_type'].widget = forms.HiddenInput()
+
+    def clean_username(self):
+        from .models import User
+        username = self.cleaned_data['username']
+        if User.objects.filter(username=username).exists():
+            raise ValidationError(_('This username is already taken.'))
+        return username
+
+    def clean_email(self):
+        from .models import User
+        email = self.cleaned_data['email']
+        if User.objects.filter(email=email).exists():
+            raise ValidationError(_('This email is already registered.'))
+        return email
+
+    def clean(self):
+        cleaned = super().clean()
+        p1 = cleaned.get('password1')
+        p2 = cleaned.get('password2')
+        if p1 and p2 and p1 != p2:
+            raise ValidationError({'password2': _('Passwords do not match.')})
+        if p1:
+            try:
+                validate_password(p1)
+            except ValidationError as e:
+                raise ValidationError({'password1': e})
+        return cleaned

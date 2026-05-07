@@ -373,3 +373,28 @@ def impersonate_user(request, pk):
     # Note: this will replace the current session; consider storing original user id if you need to return
     login(request, target)
     return redirect('users:profile_public_username', username=target.username)
+
+
+# ---------------------------------------------------------------------------
+# Умный редирект в личный кабинет (Задача 3)
+# ---------------------------------------------------------------------------
+
+@login_required
+def dashboard_redirect(request):
+    """
+    Направляет пользователя в нужный кабинет в зависимости от его роли.
+      - Технический администратор (is_staff) → Django Admin
+      - Партнёр или сотрудник ассоциации → Partner Portal
+      - Активный участник (membership_status='active') → Member Cabinet (PIN)
+      - Обычный пользователь → My Cabinet (profile)
+    """
+    user = request.user
+    if user.is_staff:
+        return redirect('/admin/')
+    # is_partner flag или связанный Partner объект
+    is_p = user.is_partner or hasattr(user, 'partner_profile')
+    if is_p:
+        return redirect('users:partner_dashboard')
+    if user.membership_status == 'active':
+        return redirect('users:member_cabinet')
+    return redirect('users:profile')

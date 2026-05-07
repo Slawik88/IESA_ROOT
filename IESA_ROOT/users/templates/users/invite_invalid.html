@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Invalid Invite" %} — IESA{% endblock %}
+
+{% block content %}
+<div style="min-height:60vh;display:flex;align-items:center;justify-content:center;padding:3rem 1.5rem;">
+    <div style="max-width:460px;text-align:center;">
+        <div style="font-size:3rem;color:rgba(255,255,255,.15);margin-bottom:1.5rem;">
+            <i class="fas fa-link-slash"></i>
+        </div>
+        <h1 style="font-size:1.5rem;font-weight:800;color:#f1f5f9;margin-bottom:.75rem;">
+            {% if reason == 'expired' %}{% trans "Invite link has expired" %}
+            {% elif reason == 'used' %}{% trans "Invite link has already been used" %}
+            {% elif reason == 'already_logged_in' %}{% trans "You are already logged in" %}
+            {% else %}{% trans "Invalid invite link" %}{% endif %}
+        </h1>
+        <p style="color:rgba(255,255,255,.45);font-size:.9rem;margin-bottom:2rem;">
+            {% if reason == 'already_logged_in' %}
+                {% trans "Please log out first before using an invite link." %}
+            {% else %}
+                {% trans "Please contact an administrator to receive a new invite." %}
+            {% endif %}
+        </p>
+        <a href="{% url 'core:home' %}"
+           style="display:inline-flex;align-items:center;gap:.5rem;padding:.6rem 1.4rem;background:var(--primary);color:#fff;border-radius:10px;font-weight:700;text-decoration:none;font-size:.9rem;">
+            <i class="fas fa-home"></i> {% trans "Back to home" %}
+        </a>
+    </div>
+</div>
+{% endblock %}

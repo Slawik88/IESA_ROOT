@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Invite Links" %} — Admin{% endblock %}
+
+{% block content %}
+<div class="container-limited" style="padding-top:2.5rem;padding-bottom:4rem;">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;flex-wrap:wrap;gap:1rem;">
+        <div>
+            <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(220,38,38,.7);margin-bottom:.35rem;">
+                {% trans "ADMIN PANEL" %}
+            </div>
+            <h1 style="font-size:1.6rem;font-weight:800;color:#f1f5f9;margin:0;">{% trans "Invite Links" %}</h1>
+        </div>
+        <a href="{% url 'users:invite_generate' %}"
+           style="display:inline-flex;align-items:center;gap:.5rem;padding:.55rem 1.2rem;background:var(--primary);color:#fff;border-radius:10px;font-weight:700;text-decoration:none;font-size:.875rem;">
+            <i class="fas fa-plus"></i> {% trans "Generate Invite" %}
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for msg in messages %}
+    <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:.75rem 1rem;color:#4ade80;font-size:.875rem;margin-bottom:1rem;word-break:break-all;">
+        {{ msg }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if invites %}
+    <div style="background:#111118;border:1.5px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="border-bottom:1px solid rgba(255,255,255,.07);">
+                    {% for h in "Type,Company,Note,Created by,Used by,Uses,Expires,Active,Link"|split:"," %}
+                    <th style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{{ h }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invites %}
+                <tr style="border-bottom:1px solid rgba(255,255,255,.05);{% if not inv.is_active or inv.use_count >= inv.max_uses %}opacity:.5;{% endif %}">
+                    <td style="padding:.7rem 1rem;">
+                        {% if inv.partner_type == 'association_staff' %}
+                        <span style="background:rgba(99,102,241,.12);color:#a5b4fc;border:1px solid rgba(99,102,241,.25);border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;">Staff</span>
+                        {% else %}
+                        <span style="background:rgba(34,197,94,.1);color:#4ade80;border:1px solid rgba(34,197,94,.22);border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;">Partner</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:.7rem 1rem;font-size:.85rem;color:rgba(255,255,255,.75);">{{ inv.company_name|default:"—" }}</td>
+                    <td style="padding:.7rem 1rem;font-size:.82rem;color:rgba(255,255,255,.45);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ inv.note|default:"—" }}</td>
+                    <td style="padding:.7rem 1rem;font-size:.82rem;color:rgba(255,255,255,.6);">{{ inv.created_by.username|default:"—" }}</td>
+                    <td style="padding:.7rem 1rem;font-size:.82rem;color:rgba(255,255,255,.6);">{{ inv.used_by.username|default:"—" }}</td>
+                    <td style="padding:.7rem 1rem;font-size:.85rem;color:rgba(255,255,255,.75);">{{ inv.use_count }}/{{ inv.max_uses }}</td>
+                    <td style="padding:.7rem 1rem;font-size:.8rem;color:rgba(255,255,255,.45);white-space:nowrap;">{{ inv.expires_at|date:"d M Y" }}</td>
+                    <td style="padding:.7rem 1rem;">
+                        {% if inv.is_valid %}
+                        <span style="color:#4ade80;font-size:.75rem;">✓ Active</span>
+                        {% else %}
+                        <span style="color:rgba(255,255,255,.3);font-size:.75rem;">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td style="padding:.7rem 1rem;">
+                        <a href="/users/invite/{{ inv.token }}/"
+                           style="font-size:.78rem;color:rgba(220,38,38,.7);font-family:var(--font-mono);word-break:break-all;"
+                           title="Copy this link">/invite/{{ inv.token|truncatechars:12 }}</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:3rem;color:rgba(255,255,255,.3);">
+        <i class="fas fa-envelope-open" style="font-size:2.5rem;margin-bottom:1rem;display:block;"></i>
+        <p style="font-size:.9rem;">{% trans "No invite links yet." %}</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

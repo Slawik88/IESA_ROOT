@@ -41,7 +41,7 @@ from .forms_verification import (
     PartnerProfileForm,
     VisitForm,
 )
-from .models import Partner, User, Visit, VisitAudit
+from .models import InviteToken, Partner, User, Visit, VisitAudit
 
 logger = logging.getLogger(__name__)
 
@@ -1054,3 +1054,109 @@ async def telegram_webhook_view(request, secret):
 def server_time(request):
     """Return current UTC timestamp as JSON for client-side sync."""
     return JsonResponse({'timestamp': timezone.now().isoformat()})
+
+
+# ---------------------------------------------------------------------------
+# Система инвайт-ссылок (Задача 2)
+# ---------------------------------------------------------------------------
+
+from datetime import timedelta
+from django.contrib.auth import login as auth_login
+
+
+@user_passes_test(lambda u: u.is_staff)
+def invite_list(request):
+    """Список всех инвайтов — только для администраторов (is_staff)."""
+    invites = InviteToken.objects.select_related('created_by', 'used_by').order_by('-created_at')
+    return render(request, 'users/invite_list.html', {'invites': invites})
+
+
+@user_passes_test(lambda u: u.is_staff)
+@require_http_methods(["GET", "POST"])
+def invite_generate(request):
+    """Создание нового инвайта — только для администраторов."""
+    if request.method == 'POST':
+        from .forms_verification import InviteGenerateForm
+        form = InviteGenerateForm(request.POST)
+        if form.is_valid():
+            days = form.cleaned_data.get('expires_days', 7)
+            invite = InviteToken.objects.create(
+                partner_type=form.cleaned_data['partner_type'],
+                company_name=form.cleaned_data.get('company_name', ''),
+                note=form.cleaned_data.get('note', ''),
+                max_uses=form.cleaned_data.get('max_uses', 1),
+                expires_at=timezone.now() + timedelta(days=days),
+                created_by=request.user,
+            )
+            invite_url = request.build_absolute_uri(
+                f"/users/invite/{invite.token}/"
+            )
+            messages.success(
+                request,
+                f"Инвайт создан! Ссылка: {invite_url}"
+            )
+            return redirect('users:invite_list')
+    else:
+        from .forms_verification import InviteGenerateForm
+        form = InviteGenerateForm()
+    return render(request, 'users/invite_generate.html', {'form': form})
+
+
+@require_http_methods(["GET", "POST"])
+def invite_register(request, token):
+    """
+    Страница регистрации по инвайт-ссылке.
+    При успешной регистрации:
+      - создаётся User с is_partner=True
+      - создаётся Partner с нужным partner_type
+      - инвайт отмечается как использованный
+    """
+    invite = get_object_or_404(InviteToken, token=token)
+
+    if not invite.is_valid():
+        return render(request, 'users/invite_invalid.html', {
+            'reason': 'expired' if timezone.now() >= invite.expires_at else 'used',
+        }, status=410)
+
+    if request.user.is_authenticated:
+        return render(request, 'users/invite_invalid.html', {
+            'reason': 'already_logged_in',
+        })
+
+    if request.method == 'POST':
+        from .forms_verification import InviteRegisterForm
+        form = InviteRegisterForm(request.POST, invite=invite)
+        if form.is_valid():
+            # Создаём пользователя
+            user = User.objects.create_user(
+                username=form.cleaned_data['username'],
+                email=form.cleaned_data['email'],
+                password=form.cleaned_data['password1'],
+                first_name=form.cleaned_data.get('first_name', ''),
+                last_name=form.cleaned_data.get('last_name', ''),
+                is_partner=True,
+            )
+            # Создаём запись Partner
+            Partner.objects.create(
+                user=user,
+                company_name=form.cleaned_data.get('company_name', ''),
+                business_type=form.cleaned_data.get('business_type', 'other'),
+                partner_type=invite.partner_type,
+            )
+            # Отмечаем инвайт как использованный
+            invite.mark_used(user)
+            # Авторизуем пользователя
+            auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+            messages.success(
+                request,
+                _("Добро пожаловать! Ваш аккаунт партнёра создан.")
+            )
+            return redirect('users:partner_dashboard')
+    else:
+        from .forms_verification import InviteRegisterForm
+        form = InviteRegisterForm(invite=invite)
+
+    return render(request, 'users/invite_register.html', {
+        'form': form,
+        'invite': invite,
+    })

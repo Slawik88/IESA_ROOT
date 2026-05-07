@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Partner, Visit, VisitAudit
+from .models import User, Partner, Visit, VisitAudit, InviteToken
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from django.utils.html import format_html
 from django.urls import path, reverse
@@ -460,3 +460,33 @@ class VisitAuditAdmin(admin.ModelAdmin):
     def has_change_permission(self, request, obj=None):
         return False
 
+
+# ---------------------------------------------------------------------------
+# InviteToken admin
+# ---------------------------------------------------------------------------
+
+@admin.register(InviteToken)
+class InviteTokenAdmin(admin.ModelAdmin):
+    """Администрирование инвайт-ссылок."""
+    list_display = [
+        'short_token', 'partner_type', 'company_name', 'note',
+        'created_by', 'used_by', 'use_count', 'max_uses',
+        'is_active', 'expires_at', 'created_at', 'invite_link',
+    ]
+    list_filter = ['partner_type', 'is_active']
+    search_fields = ['company_name', 'note', 'created_by__username', 'used_by__username']
+    readonly_fields = ['token', 'used_by', 'used_at', 'use_count', 'created_at', 'invite_link']
+
+    def short_token(self, obj):
+        return str(obj.token)[:8] + '…'
+    short_token.short_description = 'Token'
+
+    def invite_link(self, obj):
+        url = f'/users/invite/{obj.token}/'
+        return format_html('<a href="{}" target="_blank">{}</a>', url, url)
+    invite_link.short_description = 'Invite URL'
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
