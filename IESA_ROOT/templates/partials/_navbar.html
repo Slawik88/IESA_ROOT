@@ -37,10 +37,12 @@
                 <li><a href="{% url 'core:benefits' %}">{% trans "Benefits" %}</a></li>
                 <li><a href="{% url 'gallery:gallery' %}">{% trans "Gallery" %}</a></li>
                 <li class="dropdown">
-                    <a href="javascript:void(0)" class="dropdown-toggle" role="button"
-                       data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                    <button type="button" class="dropdown-toggle nav-community-btn"
+                            data-bs-toggle="dropdown"
+                            data-bs-display="static"
+                            aria-expanded="false">
                         {% trans "Community" %} <i class="fas fa-chevron-down ms-1" style="font-size:.55rem;opacity:.5;"></i>
-                    </a>
+                    </button>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="{% url 'blog:post_list' %}">
                             <i class="fas fa-newspaper me-2 text-muted" style="width:14px;"></i>{% trans "Posts" %}
@@ -94,7 +96,9 @@
 
                 <!-- Поиск -->
                 <div class="dropdown">
-                    <button class="btn-nav-icon" data-bs-toggle="dropdown" aria-expanded="false"
+                    <button class="btn-nav-icon" data-bs-toggle="dropdown"
+                            data-bs-display="static"
+                            aria-expanded="false"
                             title="{% trans "Search" %}" aria-label="{% trans "Search" %}">
                         <i class="fas fa-search"></i>
                     </button>
@@ -121,6 +125,7 @@
                 <!-- Уведомления -->
                 <div class="dropdown">
                     <button class="btn-nav-icon btn-nav-icon--badge" data-bs-toggle="dropdown"
+                            data-bs-display="static"
                             id="notificationsToggle" aria-expanded="false" aria-label="{% trans "Notifications" %}">
                         <i class="fas fa-bell"></i>
                         <span id="navbar-notif-badge" aria-live="polite">
@@ -158,6 +163,7 @@
                     <button type="button" class="nav-profile-btn dropdown-toggle"
                             id="profNavDropBtn"
                             data-bs-toggle="dropdown"
+                            data-bs-display="static"
                             data-bs-auto-close="outside"
                             aria-expanded="false"
                             aria-label="{% trans 'Profile menu' %}">
@@ -312,3 +318,22 @@
 
     </div>{# /container-limited #}
 </header>
+
+{# Явная инициализация Bootstrap dropdowns (резервный вариант) #}
+<script>
+(function () {
+    function initDropdowns() {
+        if (typeof bootstrap === 'undefined' || !bootstrap.Dropdown) return;
+        document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(function (el) {
+            if (!bootstrap.Dropdown.getInstance(el)) {
+                new bootstrap.Dropdown(el);
+            }
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDropdowns);
+    } else {
+        initDropdowns();
+    }
+})();
+</script>
