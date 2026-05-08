@@ -5,14 +5,15 @@ from django.urls import reverse_lazy
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
 from django.contrib import messages
-from django.http import HttpResponseForbidden, Http404, HttpResponse
+from django.http import HttpResponseForbidden, Http404, HttpResponse, JsonResponse
+from django.views.decorators.http import require_POST
 from django.db.models import Q, Count
 from django.utils.translation import gettext as _
 from django_ratelimit.decorators import ratelimit
 from django.core.cache import cache
 from io import BytesIO
-from .models import User
-from .forms import CustomUserCreationForm, UserProfileEditForm
+from .models import AccountChangeRequest, User
+from .forms import AccountChangeRequestForm, CustomUserCreationForm, UserProfileEditForm
 from blog.models import Post, BlogSubscription
 from .search_utils import highlight_text, normalize_search_query
 from .ratelimit_utils import login_ratelimit, register_ratelimit
@@ -103,6 +104,11 @@ class ProfileView(DetailView):
                 _next = (_step + 1) * _interval
                 context['current_pin'] = current_pin
                 context['seconds_remaining'] = _next - _now
+
+        # ── Заявка на смену типа аккаунта ────────────────────────────────
+        context['pending_upgrade_request'] = AccountChangeRequest.objects.filter(
+            user=user, status='pending'
+        ).order_by('-created_at').first()
 
         return context
 
@@ -373,6 +379,45 @@ def impersonate_user(request, pk):
     # Note: this will replace the current session; consider storing original user id if you need to return
     login(request, target)
     return redirect('users:profile_public_username', username=target.username)
+
+
+# ---------------------------------------------------------------------------
+# Заявка на смену типа аккаунта (Часть 1, Задача 3)
+# ---------------------------------------------------------------------------
+
+@login_required
+@require_POST
+def account_change_request_submit(request):
+    """
+    HTMX/POST: принимает заявку на смену типа аккаунта.
+    Правило: если у пользователя уже есть pending-заявка — возвращаем ошибку.
+    Смена типа аккаунта НЕ происходит автоматически.
+    """
+    from django.utils.translation import gettext as _
+
+    user = request.user
+
+    # Проверяем: нет ли уже активной заявки
+    if AccountChangeRequest.objects.filter(user=user, status='pending').exists():
+        return JsonResponse({
+            'ok': False,
+            'error': _('You already have a pending request. Please wait for it to be reviewed.'),
+        }, status=400)
+
+    form = AccountChangeRequestForm(request.POST)
+    if form.is_valid():
+        AccountChangeRequest.objects.create(
+            user=user,
+            desired_type=form.cleaned_data['desired_type'],
+            reason=form.cleaned_data['reason'],
+        )
+        return JsonResponse({
+            'ok': True,
+            'message': _('Your request has been submitted! We will contact you soon.'),
+        })
+    else:
+        errors = {field: e.as_text() for field, e in form.errors.items()}
+        return JsonResponse({'ok': False, 'errors': errors}, status=400)
 
 
 # ---------------------------------------------------------------------------

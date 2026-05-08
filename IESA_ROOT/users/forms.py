@@ -252,3 +252,38 @@ class VisitForm(forms.ModelForm):
             raise forms.ValidationError(_('PIN must be exactly 6 digits'))
         return pin
 
+
+# ---------------------------------------------------------------------------
+# Форма заявки на смену типа аккаунта
+# ---------------------------------------------------------------------------
+
+class AccountChangeRequestForm(forms.Form):
+    """Форма подачи заявки на повышение/смену типа аккаунта."""
+
+    from .models import AccountChangeRequest as _ACR
+
+    desired_type = forms.ChoiceField(
+        choices=_ACR.DESIRED_TYPE_CHOICES,
+        label=_('Desired Account Type'),
+        widget=forms.Select(attrs={'class': 'acr-select'}),
+    )
+    reason = forms.CharField(
+        label=_('Why do you want to change your account type?'),
+        help_text=_('Describe your activity, role and goals. Minimum 50 characters.'),
+        min_length=50,
+        max_length=2000,
+        widget=forms.Textarea(attrs={
+            'class': 'acr-textarea',
+            'rows': 5,
+            'placeholder': _('E.g.: I run a sports gym in Geneva and would like to offer discounts to IESA members...'),
+        }),
+    )
+
+    def clean_reason(self):
+        reason = self.cleaned_data.get('reason', '').strip()
+        if len(reason) < 50:
+            raise forms.ValidationError(
+                _('Please describe your activity in at least 50 characters.')
+            )
+        return reason
+

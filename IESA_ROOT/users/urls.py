@@ -59,6 +59,8 @@ urlpatterns = [
     path('impersonate/<int:pk>/', views.impersonate_user, name='impersonate_user'),
     # Умный редирект в личный кабинет (Задача 3)
     path('dashboard/', views.dashboard_redirect, name='dashboard'),
+    # Заявка на смену типа аккаунта (Часть 1, Задача 3)
+    path('account-upgrade/', views.account_change_request_submit, name='account_upgrade'),
     # Инвайт-система (Задача 2)
     path('invite/', views_verification.invite_list, name='invite_list'),
     path('invite/generate/', views_verification.invite_generate, name='invite_generate'),

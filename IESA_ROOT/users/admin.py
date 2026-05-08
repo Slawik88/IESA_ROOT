@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, Partner, Visit, VisitAudit, InviteToken
+from .models import AccountChangeRequest, User, Partner, Visit, VisitAudit, InviteToken
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from django.utils.html import format_html
 from django.urls import path, reverse
@@ -490,3 +490,80 @@ class InviteTokenAdmin(admin.ModelAdmin):
         if not obj.pk:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+
+# ---------------------------------------------------------------------------
+# AccountChangeRequest admin — Задача 2
+# ---------------------------------------------------------------------------
+
+@admin.register(AccountChangeRequest)
+class AccountChangeRequestAdmin(admin.ModelAdmin):
+    """
+    Админка заявок на смену типа аккаунта.
+    Показывает контакты пользователя прямо в списке для быстрой связи.
+    """
+    list_display = [
+        'user_link', 'desired_type', 'status',
+        'user_email', 'user_phone', 'user_telegram',
+        'reason_short', 'created_at',
+    ]
+    list_filter  = ['status', 'desired_type', 'created_at']
+    search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'reason']
+    readonly_fields = ['user', 'desired_type', 'reason', 'created_at', 'user_contact_card']
+    ordering = ['-created_at']
+
+    fieldsets = [
+        ('Заявка', {'fields': ['user', 'desired_type', 'reason', 'created_at']}),
+        ('Контакт пользователя', {'fields': ['user_contact_card']}),
+        ('Решение администратора', {'fields': ['status', 'admin_note']}),
+    ]
+
+    # ── Вычисляемые колонки ──────────────────────────────────────
+
+    def user_link(self, obj):
+        url = f'/admin/users/user/{obj.user.pk}/change/'
+        name = obj.user.get_full_name() or obj.user.username
+        return format_html('<a href="{}">{}</a>', url, name)
+    user_link.short_description = 'Пользователь'
+    user_link.admin_order_field = 'user__username'
+
+    def user_email(self, obj):
+        return format_html('<a href="mailto:{}">{}</a>', obj.user.email, obj.user.email)
+    user_email.short_description = 'Email'
+
+    def user_phone(self, obj):
+        p = obj.user.phone_number or '—'
+        return p
+    user_phone.short_description = 'Телефон'
+
+    def user_telegram(self, obj):
+        if obj.user.telegram_linked_at:
+            return format_html(
+                '<span style="color:#29a8eb;font-weight:700;">✓ привязан</span>'
+            )
+        tg = getattr(obj.user, 'telegram_url', '') or ''
+        if tg:
+            return format_html('<a href="{}" target="_blank">открыть</a>', tg)
+        return '—'
+    user_telegram.short_description = 'Telegram'
+
+    def reason_short(self, obj):
+        return obj.reason[:80] + '…' if len(obj.reason) > 80 else obj.reason
+    reason_short.short_description = 'Причина'
+
+    def user_contact_card(self, obj):
+        u = obj.user
+        lines = [
+            f'<strong>Username:</strong> {u.username}',
+            f'<strong>Email:</strong> <a href="mailto:{u.email}">{u.email}</a>',
+            f'<strong>Телефон:</strong> {u.phone_number or "не указан"}',
+            f'<strong>Telegram chat_id:</strong> {u.telegram_chat_id or "нет"}',
+            f'<strong>Telegram linked:</strong> {u.telegram_linked_at or "нет"}',
+            f'<strong>Членство:</strong> {u.membership_status}',
+            f'<strong>Партнёр:</strong> {"да" if u.is_partner else "нет"}',
+        ]
+        return format_html('<br>'.join(lines))
+    user_contact_card.short_description = 'Контактная карточка'
+
+    def has_add_permission(self, request):
+        return False  # заявки создаются только пользователями, не из Admin
