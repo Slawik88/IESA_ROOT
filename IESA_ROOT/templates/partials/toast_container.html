@@ -1,7 +1,8 @@
 {% load i18n %}
-{# Toast container — dynamically injected toasts go here (Sprint UI-4).
-   base.html HTMX script handles init via htmx:afterSwap.
-   Server-side Django messages are rendered below with class="show". #}
+{% comment %}
+Toast container: динамические тосты + серверные Django messages.
+HTMX afterSwap инициализирует Bootstrap Toast автоматически.
+{% endcomment %}
 
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toast-container" style="z-index:var(--z-toast,1080);">
     {% for message in messages %}

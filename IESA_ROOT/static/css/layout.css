@@ -393,16 +393,9 @@ main {
   z-index: 1;
 }
 
-/* Clears the fixed header (≈ 70px) — class used on #main-content (U1-03) */
+/* Шапка — position:sticky, паддинг НЕ нужен (контент идёт сразу после sticky-шапки) */
 .main-header-pad {
-  padding-top: 70px;
-}
-
-@media (max-width: 767.98px) {
-  /* On mobile the bottom-nav handles scroll context; header is thinner */
-  .main-header-pad {
-    padding-top: 54px;
-  }
+  padding-top: 0;
 }
 
 /* Default padding for pages that use container-limited wrap */
