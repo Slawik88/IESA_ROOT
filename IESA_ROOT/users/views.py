@@ -434,10 +434,11 @@ def dashboard_redirect(request):
       - Обычный пользователь → My Cabinet (profile)
     """
     user = request.user
-    if user.is_staff:
-        return redirect('/admin/')
-    # is_partner flag или связанный Partner объект
-    is_p = user.is_partner or hasattr(user, 'partner_profile')
+    # is_staff НЕ редиректит в /admin/ — личный кабинет важнее
+    try:
+        is_p = user.is_partner or user.partner_profile is not None
+    except Exception:
+        is_p = user.is_partner
     if is_p:
         return redirect('users:partner_dashboard')
     if user.membership_status == 'active':
