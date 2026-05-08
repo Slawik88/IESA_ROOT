@@ -123,13 +123,13 @@
 .offer-card-v2:hover::before { opacity:1; }
 .offer-num { position:absolute; top:1.5rem; right:1.75rem; font-size:5rem; font-weight:900; line-height:1; color:rgba(255,255,255,.04); letter-spacing:-.05em; pointer-events:none; user-select:none; transition:color .3s; }
 .offer-card-v2:hover .offer-num { color:rgba(220,38,38,.08); }
-.offer-icon-v2 { width:56px; height:56px; border-radius:14px; background:var(--primary-100); display:flex; align-items:center; justify-content:center; margin-bottom:1.25rem; font-size:1.5rem; color:var(--primary); transition:background .3s, transform .3s; }
+.offer-icon-v2 { width:56px; height:56px; border-radius:14px; background:rgba(220,38,38,.12); display:flex; align-items:center; justify-content:center; margin-bottom:1.25rem; font-size:1.5rem; color:var(--primary); transition:background .3s, transform .3s; }
 .offer-card-v2:hover .offer-icon-v2 { background:var(--primary); color:#fff; transform:scale(1.08) rotate(-4deg); }
-.offer-badge-v2 { display:inline-flex; align-items:center; gap:.3rem; background:rgba(255,255,255,.07); border-radius:50px; padding:.25rem .75rem; font-size:.72rem; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.75rem; }
+.offer-badge-v2 { display:inline-flex; align-items:center; gap:.3rem; background:rgba(255,255,255,.07); border-radius:50px; padding:.25rem .75rem; font-size:.72rem; font-weight:700; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.1em; margin-bottom:.75rem; }
 .offer-title-v2 { font-size:1.2rem; font-weight:800; color:var(--text-primary); margin-bottom:.6rem; letter-spacing:-.02em; }
 .offer-text-v2 { font-size:.9rem; color:var(--text-muted); line-height:1.65; margin-bottom:1.25rem; }
 .offer-meta-v2 { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:.35rem; }
-.offer-meta-v2 li { display:flex; align-items:center; gap:.5rem; font-size:.82rem; color:var(--text-secondary); }
+.offer-meta-v2 li { display:flex; align-items:center; gap:.5rem; font-size:.82rem; color:rgba(255,255,255,.55); }
 .offer-meta-v2 i { color:var(--primary); width:14px; }
 .offers-footer { display:flex; gap:1rem; flex-wrap:wrap; justify-content:center; margin-top:3rem; row-gap:1rem; }
 
@@ -143,7 +143,7 @@
 .iesa-do-item:hover { border-color:var(--primary); box-shadow:0 12px 40px rgba(220,38,38,.08); transform:translateY(-3px); }
 .iesa-do-icon {
     flex-shrink:0; width:48px; height:48px; border-radius:12px;
-    background:var(--primary-100); display:flex; align-items:center; justify-content:center;
+    background:rgba(220,38,38,.12); display:flex; align-items:center; justify-content:center;
     font-size:1.25rem; color:var(--primary); transition:background .3s, transform .3s;
 }
 .iesa-do-item:hover .iesa-do-icon { background:var(--primary); color:#fff; transform:scale(1.08); }
@@ -182,19 +182,19 @@
 .mission-lhs .hp-h2 { text-align:left; max-width:480px; }
 .mission-lhs .hp-sub { text-align:left; margin:.75rem 0 0; }
 .mission-list { list-style:none; padding:0; margin:2rem 0 2.5rem; display:flex; flex-direction:column; gap:.9rem; }
-.mission-list li { display:flex; align-items:flex-start; gap:.9rem; font-size:.95rem; color:var(--text-secondary); line-height:1.55; }
-.mission-list .mi { width:30px; height:30px; border-radius:8px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; color:var(--primary); font-size:.8rem; flex-shrink:0; margin-top:.1rem; }
+.mission-list li { display:flex; align-items:flex-start; gap:.9rem; font-size:.95rem; color:rgba(255,255,255,.55); line-height:1.55; }
+.mission-list .mi { width:30px; height:30px; border-radius:8px; background:rgba(220,38,38,.12); display:flex; align-items:center; justify-content:center; color:var(--primary); font-size:.8rem; flex-shrink:0; margin-top:.1rem; }
 .mission-panel { border-radius:20px; padding:2rem; background:var(--bg-surface); border:1.5px solid var(--border-dark); transition:border-color .3s, transform .3s, box-shadow .3s; }
 .mission-panel:hover { border-color:var(--primary); transform:translateY(-3px); box-shadow:0 12px 40px rgba(220,38,38,.08); }
 .mission-panel+.mission-panel { margin-top:1.25rem; }
-.mp-icon { width:44px; height:44px; border-radius:10px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; color:var(--primary); font-size:1.1rem; margin-bottom:.9rem; }
+.mp-icon { width:44px; height:44px; border-radius:10px; background:rgba(220,38,38,.12); display:flex; align-items:center; justify-content:center; color:var(--primary); font-size:1.1rem; margin-bottom:.9rem; }
 .mp-title { font-size:1rem; font-weight:800; color:var(--text-primary); margin-bottom:.4rem; }
 .mp-text { font-size:.88rem; color:var(--text-muted); line-height:1.6; }
 
 /* ════════════════════════════════════════════════════════════════
    5. PRODUCTS
 ════════════════════════════════════════════════════════════════ */
-#hp-products { background:var(--gray-50); }
+#hp-products { background: #0a0a0f; }
 .products-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.5rem; margin-top:3rem; }
 .prod-card { border-radius:20px; overflow:hidden; background:var(--bg-surface); border:1.5px solid var(--border-dark); transition:transform .3s, box-shadow .3s, border-color .3s; }
 .prod-card:hover { transform:translateY(-5px); box-shadow:0 24px 60px rgba(0,0,0,.1); border-color:var(--primary); }
@@ -207,12 +207,12 @@
 .prod-title { font-size:1.1rem; font-weight:800; color:var(--text-primary); margin-bottom:.5rem; letter-spacing:-.02em; }
 .prod-desc { font-size:.88rem; color:var(--text-muted); line-height:1.6; margin-bottom:1rem; }
 .prod-tags { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:1.2rem; }
-.prod-tag { display:inline-flex; align-items:center; gap:.3rem; padding:.25rem .7rem; border-radius:50px; background:var(--gray-100); font-size:.72rem; font-weight:600; color:var(--text-secondary); }
+.prod-tag { display:inline-flex; align-items:center; gap:.3rem; padding:.25rem .7rem; border-radius:50px; background:rgba(255,255,255,.06); font-size:.72rem; font-weight:600; color:rgba(255,255,255,.55); }
 .prod-tag i { color:var(--primary); }
 .prod-feat-list { list-style:none; padding:0; margin:0 0 1rem; display:flex; flex-direction:column; gap:.3rem; }
-.prod-feat-list li { display:flex; align-items:center; gap:.5rem; font-size:.82rem; color:var(--text-secondary); }
-.prod-feat-list i { color:var(--success); font-size:.75rem; }
-.prod-price { font-size:.82rem; font-weight:600; color:var(--text-primary); background:var(--primary-light); border-radius:6px; padding:.35rem .7rem; display:inline-flex; align-items:center; gap:.35rem; }
+.prod-feat-list li { display:flex; align-items:center; gap:.5rem; font-size:.82rem; color:rgba(255,255,255,.55); }
+.prod-feat-list i { color:#4ade80; font-size:.75rem; }
+.prod-price { font-size:.82rem; font-weight:600; color:var(--text-primary); background:rgba(220,38,38,.12); border-radius:6px; padding:.35rem .7rem; display:inline-flex; align-items:center; gap:.35rem; }
 .prod-link { display:inline-flex; align-items:center; gap:.5rem; font-size:.88rem; font-weight:700; color:var(--primary); text-decoration:none; border-bottom:1.5px solid transparent; transition:border-color .2s; }
 .prod-link:hover { border-color:var(--primary); }
 
@@ -230,7 +230,7 @@
 .ev-date-badge { position:absolute; top:1rem; left:1rem; background:var(--primary); border-radius:8px; padding:.3rem .75rem; font-size:.72rem; font-weight:800; color:#fff; letter-spacing:.06em; text-transform:uppercase; }
 .ev-body { padding:1.4rem; flex:1; display:flex; flex-direction:column; }
 .ev-meta { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:.75rem; }
-.ev-pill { display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .6rem; border-radius:50px; background:var(--gray-100); font-size:.72rem; font-weight:600; color:var(--text-secondary); }
+.ev-pill { display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .6rem; border-radius:50px; background:rgba(255,255,255,.06); font-size:.72rem; font-weight:600; color:rgba(255,255,255,.55); }
 .ev-title { font-size:1rem; font-weight:800; color:var(--text-primary); margin-bottom:.5rem; letter-spacing:-.018em; line-height:1.3; }
 .ev-desc { font-size:.83rem; color:var(--text-muted); line-height:1.6; flex:1; }
 .ev-foot { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.4rem; border-top:1px solid var(--border-dark); font-size:.82rem; font-weight:700; color:var(--primary); }
@@ -271,7 +271,7 @@
 /* ════════════════════════════════════════════════════════════════
    8. PARTNERS
 ════════════════════════════════════════════════════════════════ */
-#hp-partners { background:var(--gray-50); }
+#hp-partners { background: #0a0a0f; }
 .marquee-wrap { overflow:hidden; margin:2.5rem 0; position:relative; }
 .marquee-wrap::before, .marquee-wrap::after { content:''; position:absolute; top:0; height:100%; width:80px; z-index:1; pointer-events:none; }
 .marquee-wrap::before { left:0; background:linear-gradient(to right,var(--gray-50),transparent); }
@@ -279,7 +279,7 @@
 .marquee-track { display:flex; gap:2.5rem; align-items:center; animation:marquee 28s linear infinite; width:max-content; }
 .marquee-track:hover { animation-play-state:paused; }
 @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-.marquee-logo { flex-shrink:0; height:44px; min-width:100px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid var(--border-dark); border-radius:10px; padding:0 1.25rem; filter:grayscale(1) opacity(.6); transition:filter .3s, transform .3s; font-size:.82rem; font-weight:700; color:var(--text-secondary); letter-spacing:.04em; }
+.marquee-logo { flex-shrink:0; height:44px; min-width:100px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid var(--border-dark); border-radius:10px; padding:0 1.25rem; filter:grayscale(1) opacity(.6); transition:filter .3s, transform .3s; font-size:.82rem; font-weight:700; color:rgba(255,255,255,.55); letter-spacing:.04em; }
 .marquee-logo:hover { filter:none; transform:scale(1.05); }
 .marquee-logo img { height:28px; max-width:120px; object-fit:contain; }
 .partners-grid-v2 { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem; margin-top:3rem; }
@@ -293,7 +293,7 @@
 .pc-badge { display:inline-flex; align-items:center; gap:.25rem; padding:.15rem .55rem; border-radius:50px; font-size:.65rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
 .pc-sponsor{background:#fef3c7;color:#92400e} .pc-media{background:#ede9fe;color:#4c1d95}
 .pc-tech{background:#d1fae5;color:#065f46} .pc-venue{background:#dbeafe;color:#1e3a8a}
-.pc-default{background:var(--gray-100);color:var(--text-secondary)}
+.pc-default{background:rgba(255,255,255,.06);color:rgba(255,255,255,.55)}
 .pc-desc { font-size:.83rem; color:var(--text-muted); line-height:1.6; }
 .pc-actions { display:flex; gap:.6rem; }
 .pc-btn-d { flex:1; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.55rem; border-radius:8px; border:1.5px solid var(--border-dark); font-size:.8rem; font-weight:700; color:var(--text-primary); background:transparent; cursor:pointer; transition:border-color .2s, background .2s; text-decoration:none; }
@@ -301,7 +301,7 @@
 .pc-btn-v { flex:1; display:flex; align-items:center; justify-content:center; gap:.4rem; padding:.55rem; border-radius:8px; background:var(--primary); color:#fff; font-size:.8rem; font-weight:700; text-decoration:none; transition:opacity .2s; }
 .pc-btn-v:hover { opacity:.88; color:#fff; }
 .p-pg { display:flex; align-items:center; justify-content:center; gap:.75rem; margin-top:2rem; }
-.p-pg-btn { width:36px; height:36px; border-radius:8px; border:1.5px solid var(--border-dark); background:var(--bg-surface); display:flex; align-items:center; justify-content:center; font-size:.85rem; color:var(--text-secondary); text-decoration:none; transition:border-color .2s, color .2s; }
+.p-pg-btn { width:36px; height:36px; border-radius:8px; border:1.5px solid var(--border-dark); background:var(--bg-surface); display:flex; align-items:center; justify-content:center; font-size:.85rem; color:rgba(255,255,255,.55); text-decoration:none; transition:border-color .2s, color .2s; }
 .p-pg-btn:hover { border-color:var(--primary); color:var(--primary); }
 .p-pg-info { font-size:.82rem; color:var(--text-muted); padding:0 .5rem; }
 
@@ -314,12 +314,12 @@
 .bcard:hover { border-color:var(--primary); transform:translateY(-4px); box-shadow:0 20px 50px rgba(220,38,38,.1); }
 .bcard::after { content:''; position:absolute; bottom:0; left:0; right:0; height:0; background:linear-gradient(to top,rgba(220,38,38,.04),transparent); transition:height .4s; }
 .bcard:hover::after { height:100%; }
-.bi { width:52px; height:52px; border-radius:14px; background:var(--primary-light); display:flex; align-items:center; justify-content:center; font-size:1.3rem; color:var(--primary); margin-bottom:1rem; transition:transform .3s, background .3s; position:relative; z-index:1; }
+.bi { width:52px; height:52px; border-radius:14px; background:rgba(220,38,38,.12); display:flex; align-items:center; justify-content:center; font-size:1.3rem; color:var(--primary); margin-bottom:1rem; transition:transform .3s, background .3s; position:relative; z-index:1; }
 .bcard:hover .bi { background:var(--primary); color:#fff; transform:rotate(-8deg) scale(1.1); }
 .b-cat { font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--primary); margin-bottom:.4rem; position:relative; z-index:1; }
 .b-title { font-size:.95rem; font-weight:800; color:var(--text-primary); margin-bottom:.5rem; letter-spacing:-.02em; position:relative; z-index:1; }
 .b-desc { font-size:.82rem; color:var(--text-muted); line-height:1.6; position:relative; z-index:1; }
-.b-disc { font-size:.8rem; font-weight:700; color:var(--success); background:var(--success-light); border-radius:50px; padding:.2rem .65rem; display:inline-flex; align-items:center; gap:.3rem; margin-top:.75rem; position:relative; z-index:1; }
+.b-disc { font-size:.8rem; font-weight:700; color:#4ade80; background:rgba(34,197,94,.1); border-radius:50px; padding:.2rem .65rem; display:inline-flex; align-items:center; gap:.3rem; margin-top:.75rem; position:relative; z-index:1; }
 
 /* ════════════════════════════════════════════════════════════════
    10. DONATE
@@ -403,50 +403,104 @@
     .don-grid { grid-template-columns: 1fr !important; gap: 2rem; }
 }
 
-/* ════ CONTRAST SMOOTHING ════════════════════════════════════════
-   Replace harsh #fff ↔ #0a0a0f jumps with layered soft tones.
-   Pattern: dark #0e0e18 ← warm-dark → #f0f0f8 ← near-white → #f8f8fc
+/* ════════════════════════════════════════════════════════════════
+   ЕДИНЫЙ ТЁМНЫЙ СТИЛЬ — эталон: страницы Login / Register
+   Цветовые токены: bg #07070e, card rgba(255,255,255,.025),
+   border rgba(255,255,255,.07), акцент rgba(220,38,38,.x)
 ════════════════════════════════════════════════════════════════ */
 
-/* ── Section backgrounds ── */
-#hp-offers  { background: #f2f2f8 !important; }
-#hp-mission { background: #eeeef6 !important; }
-#hp-products{ background: #f5f5fb !important; }
-#hp-events  { background: #f2f2f8 !important; }
-#hp-partners{ background: #eeeef6 !important; }
+/* ── ВСЕ секции — глубокий тёмный фон ── */
+#hp-offers   { background: #0a0a0f !important; }
+#hp-mission  { background: #07070e !important; }
+#hp-products { background: #0a0a0f !important; }
+#hp-events   { background: #07070e !important; }
+#hp-partners { background: #0a0a0f !important; }
+#hp-stats    { background: #07070e !important; }
+#hp-about    { background: #07070e !important; overflow: hidden; }
+#hp-benefits { background: #0a0a0f !important; }
+#hp-donate   { background: #07070e !important; }
 
-/* Stats and About remain dark but slightly softer */
-#hp-stats { background: linear-gradient(180deg, #0e0e18 0%, #101020 100%) !important; }
-#hp-about { background: linear-gradient(180deg, #0c0c16 0%, #0e0e18 100%) !important; overflow: hidden; }
+/* ── Карточки — стиль auth-page (глассморфизм) ── */
+.offer-card-v2, .iesa-do-item, .mission-panel,
+.prod-card, .ev-card, .bcard, .pc-v2 {
+    background: rgba(255,255,255,.025) !important;
+    border: 1px solid rgba(255,255,255,.07) !important;
+    box-shadow: 0 0 0 1px rgba(220,38,38,.07), 0 20px 50px rgba(0,0,0,.45) !important;
+}
+.offer-card-v2:hover, .iesa-do-item:hover, .mission-panel:hover,
+.prod-card:hover, .ev-card:hover, .bcard:hover, .pc-v2:hover {
+    border-color: rgba(220,38,38,.4) !important;
+    box-shadow: 0 0 0 1px rgba(220,38,38,.2), 0 24px 60px rgba(220,38,38,.12), 0 0 40px rgba(220,38,38,.08) !important;
+}
+/* Красная верхняя линия — фирменный штрих auth-стиля */
+.offer-card-v2, .bcard, .pc-v2, .ev-card, .prod-card {
+    border-top: 1.5px solid rgba(220,38,38,.28) !important;
+}
 
-/* Dark surface cards */
-.offer-card-v2, .prod-card, .ev-card,
-.mission-panel, .pc-v2 { background: var(--bg-surface) !important; }
-.marquee-logo { background: rgba(255,255,255,.05) !important; }
+/* ── Иконки — заменяем var(--primary-light) на dark rgba ── */
+.offer-icon-v2, .iesa-do-icon, .bi, .mp-icon,
+.mission-list .mi, .dp-icon-wrap {
+    background: rgba(220,38,38,.12) !important;
+    border: 1px solid rgba(220,38,38,.2) !important;
+}
 
-/* ── Gradient transition strips at section borders ── */
-/* After hero (dark) → offers (near-white): add a strip on #hp-offers top */
-#hp-offers {
-    position: relative;
-    box-shadow: inset 0 80px 80px -40px rgba(10,10,18,0.55);
+/* ── Бейджи продуктов и партнёров — убираем яркие светлые цвета ── */
+.pc-sponsor { background: rgba(245,158,11,.1) !important; color: #fbbf24 !important; border: 1px solid rgba(245,158,11,.2); }
+.pc-media   { background: rgba(139,92,246,.1) !important; color: #a78bfa !important; border: 1px solid rgba(139,92,246,.2); }
+.pc-tech    { background: rgba(34,197,94,.1)  !important; color: #4ade80 !important; border: 1px solid rgba(34,197,94,.2); }
+.pc-venue   { background: rgba(59,130,246,.1) !important; color: #60a5fa !important; border: 1px solid rgba(59,130,246,.2); }
+.pc-default { background: rgba(255,255,255,.06) !important; color: rgba(255,255,255,.5) !important; }
+
+/* ── Скидочный бейдж (зелёный light) → тёмный ── */
+.b-disc { color: #4ade80 !important; background: rgba(34,197,94,.1) !important; border: 1px solid rgba(34,197,94,.2) !important; }
+
+/* ── Цена продукта (primary-light → dark) ── */
+.prod-price { background: rgba(220,38,38,.1) !important; color: #f87171 !important; border: 1px solid rgba(220,38,38,.18); }
+
+/* ── Пиллы и теги ── */
+.offer-badge-v2 { background: rgba(255,255,255,.06) !important; color: rgba(255,255,255,.55) !important; }
+.prod-tag       { background: rgba(255,255,255,.06) !important; color: rgba(255,255,255,.55) !important; }
+.ev-pill        { background: rgba(255,255,255,.06) !important; color: rgba(255,255,255,.55) !important; }
+.hero-kicker    { background: rgba(220,38,38,.12) !important; border-color: rgba(220,38,38,.28) !important; }
+
+/* ── Marquee — фейд-маски привязать к новому тёмному фону ── */
+.marquee-wrap::before { background: linear-gradient(to right,  #0a0a0f, transparent) !important; }
+.marquee-wrap::after  { background: linear-gradient(to left,   #0a0a0f, transparent) !important; }
+.marquee-logo { background: rgba(255,255,255,.04) !important; border: 1px solid rgba(255,255,255,.07) !important; }
+
+/* ── Partner card buttons ── */
+.pc-btn-d {
+    border-color: rgba(255,255,255,.1) !important;
+    background: rgba(255,255,255,.03) !important;
+    color: rgba(255,255,255,.65) !important;
 }
-/* offers (near-white) → stats (dark): shadow on stats top */
-#hp-stats {
-    box-shadow: inset 0 80px 80px -40px rgba(242,242,248,0.12);
+.pc-btn-d:hover {
+    border-color: rgba(220,38,38,.4) !important;
+    background: rgba(220,38,38,.08) !important;
+    color: #f87171 !important;
 }
-/* stats → mission: bottom of stats fades slightly */
-#hp-mission {
-    position: relative;
-    box-shadow: inset 0 80px 80px -40px rgba(14,14,24,0.45);
+.p-pg-btn { background: rgba(255,255,255,.04) !important; border-color: rgba(255,255,255,.1) !important; }
+
+/* ── Мотивационный блок-tagline — auth-стиль ── */
+.iesa-tagline {
+    background: rgba(220,38,38,.06) !important;
+    border: 1.5px solid rgba(220,38,38,.22) !important;
+    border-top: 2px solid rgba(220,38,38,.5) !important;
+    box-shadow: 0 0 0 1px rgba(220,38,38,.08), 0 20px 40px rgba(0,0,0,.4) !important;
 }
-/* events → about */
-#hp-about {
-    box-shadow: inset 0 80px 80px -40px rgba(242,242,248,0.1);
-}
-/* about → partners */
-#hp-partners {
-    box-shadow: inset 0 80px 80px -40px rgba(12,12,22,0.40);
-}
+.iesa-tagline .tagline-main { color: #f1f5f9 !important; }
+
+/* ── text overrides для светлых секций ── */
+.hp-h2 { color: #f1f5f9 !important; }
+.hp-sub { color: rgba(255,255,255,.5) !important; }
+.offer-title-v2, .iesa-do-content h3, .mp-title,
+.prod-title, .ev-title, .b-title, .pc-name { color: #f1f5f9 !important; }
+.offer-text-v2, .iesa-do-content p, .mp-text,
+.prod-desc, .ev-desc, .b-desc, .pc-desc { color: rgba(255,255,255,.5) !important; }
+
+/* ── Убираем box-shadow от старых "переходных полос" ── */
+#hp-stats, #hp-mission, #hp-about, #hp-partners { box-shadow: none !important; }
+#hp-offers { box-shadow: none !important; }
 </style>
 {% endblock %}
 
