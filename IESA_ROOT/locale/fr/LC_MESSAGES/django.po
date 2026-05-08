@@ -3435,6 +3435,99 @@ msgstr ""
 "devient un outil de croissance, de santé et d’un environnement fort et "
 "inspirant."
 
+msgid "Desired Account Type"
+msgstr "Type de compte souhaité"
+
+msgid "External Partner"
+msgstr "Partenaire externe"
+
+msgid "Association Staff (IESA)"
+msgstr "Personnel de l'association (IESA)"
+
+msgid "Reviewed"
+msgstr "Examiné"
+
+msgid "Reason / Description of Activity"
+msgstr "Raison / Description de l'activité"
+
+msgid "Account Change Request"
+msgstr "Demande de changement de compte"
+
+msgid "Account Change Requests"
+msgstr "Demandes de changement de compte"
+
+msgid "Admin Note"
+msgstr "Note administrateur"
+
+msgid "Internal note for the administrator (not shown to user)."
+msgstr "Note interne pour l'administrateur (non visible par l'utilisateur)."
+
+msgid "STATUS UPGRADE"
+msgstr "MISE À NIVEAU DU STATUT"
+
+msgid "Apply for a role upgrade"
+msgstr "Demander une mise à niveau du rôle"
+
+msgid "DESIRED ROLE"
+msgstr "RÔLE SOUHAITÉ"
+
+msgid "Submit Request"
+msgstr "Soumettre la demande"
+
+msgid "Your request is under review"
+msgstr "Votre demande est en cours d'examen"
+
+msgid "Submitted"
+msgstr "Soumis"
+
+msgid "Request submitted!"
+msgstr "Demande soumise !"
+
+msgid "We will review your application and contact you via email or Telegram."
+msgstr ""
+"Nous examinerons votre candidature et vous contacterons par e-mail ou "
+"Telegram."
+
+msgid "Your request has been submitted! We will contact you soon."
+msgstr "Votre demande a été soumise ! Nous vous contacterons bientôt."
+
+msgid "You already have a pending request. Please wait for it to be reviewed."
+msgstr "Vous avez déjà une demande en attente. Veuillez patienter."
+
+msgid ""
+"Want to become an IESA partner or association staff member? Submit a request"
+" — we'll review it and contact you."
+msgstr ""
+"Vous souhaitez devenir partenaire ou membre du personnel de l'IESA ? "
+"Soumettez une demande."
+
+msgid "REASON / DESCRIPTION"
+msgstr "RAISON / DESCRIPTION"
+
+msgid "Network error. Please try again."
+msgstr "Erreur réseau. Veuillez réessayer."
+
+msgid "Why do you want to change your account type?"
+msgstr "Pourquoi souhaitez-vous changer de type de compte ?"
+
+msgid "Please describe your activity in at least 50 characters."
+msgstr "Veuillez décrire votre activité en au moins 50 caractères."
+
+msgid "gym, shop, service"
+msgstr "salle, boutique, service"
+
+msgid "lawyer, accountant, manager"
+msgstr "avocat, comptable, manager"
+
+msgid "chars"
+msgstr "caractères"
+
+msgid "min. 50"
+msgstr "min. 50"
+
+msgid "choose"
+msgstr "choisir"
+
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Le sport extrême comme manière de penser et de vivre"
 

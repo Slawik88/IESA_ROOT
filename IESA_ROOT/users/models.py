@@ -644,3 +644,77 @@ class InviteToken(models.Model):
         if self.use_count >= self.max_uses:
             self.is_active = False
         self.save(update_fields=['used_by', 'used_at', 'use_count', 'is_active'])
+
+
+# ---------------------------------------------------------------------------
+# Заявки на смену типа аккаунта (Часть 1, Задача 1)
+# ---------------------------------------------------------------------------
+
+class AccountChangeRequest(models.Model):
+    """
+    Заявка пользователя на повышение/смену типа аккаунта.
+
+    Процесс:
+      1. Пользователь заполняет форму → заявка со статусом 'pending'.
+      2. Суперюзер видит заявку в Django Admin (с контактами),
+         связывается с пользователем и принимает решение вручную.
+      3. Смена роли происходит ТОЛЬКО вручную в Admin — модель НЕ меняет роль автоматически.
+    """
+
+    DESIRED_TYPE_CHOICES = [
+        ('partner',           _('External Partner')),
+        ('association_staff', _('Association Staff (IESA)')),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending',   _('Pending Review')),
+        ('reviewed',  _('Reviewed')),
+        ('rejected',  _('Rejected')),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='account_change_requests',
+        verbose_name=_('User'),
+    )
+    desired_type = models.CharField(
+        max_length=50,
+        choices=DESIRED_TYPE_CHOICES,
+        verbose_name=_('Desired Account Type'),
+    )
+    reason = models.TextField(
+        verbose_name=_('Reason / Description of Activity'),
+        help_text=_('Describe why you want to change your account type and what you do.'),
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name=_('Status'),
+    )
+    admin_note = models.TextField(
+        blank=True,
+        verbose_name=_('Admin Note'),
+        help_text=_('Internal note for the administrator (not shown to user).'),
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_('Created At'),
+    )
+
+    class Meta:
+        verbose_name = _('Account Change Request')
+        verbose_name_plural = _('Account Change Requests')
+        db_table = 'users_accountchangerequest'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at'], name='acr_status_date_idx'),
+            models.Index(fields=['user', 'status'],        name='acr_user_status_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} → {self.get_desired_type_display()} [{self.get_status_display()}]"
+
+    def is_pending(self) -> bool:
+        return self.status == 'pending'

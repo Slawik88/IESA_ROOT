@@ -3410,6 +3410,112 @@ msgstr ""
 " Ми створюємо простір, де спорт стає інструментом зростання, здоров’я та "
 "сильного, натхнення середовища."
 
+msgid "Desired Account Type"
+msgstr "Бажаний тип акаунта"
+
+msgid "External Partner"
+msgstr "Зовнішній партнер"
+
+msgid "Association Staff (IESA)"
+msgstr "Персонал асоціації (IESA)"
+
+msgid "Reviewed"
+msgstr "Розглянуто"
+
+msgid "Reason / Description of Activity"
+msgstr "Причина / Опис діяльності"
+
+msgid "Describe why you want to change your account type and what you do."
+msgstr "Опишіть, чому ви хочете змінити тип акаунта та чим займаєтесь."
+
+msgid "Admin Note"
+msgstr "Нотатка адміністратора"
+
+msgid "Internal note for the administrator (not shown to user)."
+msgstr ""
+"Внутрішня нотатка для адміністратора (не відображається користувачеві)."
+
+msgid "Account Change Request"
+msgstr "Заявка на зміну типу акаунта"
+
+msgid "Account Change Requests"
+msgstr "Заявки на зміну типу акаунта"
+
+msgid "Why do you want to change your account type?"
+msgstr "Чому ви хочете змінити тип акаунта?"
+
+msgid "Describe your activity, role and goals. Minimum 50 characters."
+msgstr "Опишіть свою діяльність, роль та цілі. Мінімум 50 символів."
+
+msgid "Please describe your activity in at least 50 characters."
+msgstr "Будь ласка, опишіть свою діяльність щонайменше у 50 символах."
+
+msgid "STATUS UPGRADE"
+msgstr "ПІДВИЩЕННЯ СТАТУСУ"
+
+msgid "Apply for a role upgrade"
+msgstr "Подати заявку на підвищення ролі"
+
+msgid ""
+"Want to become an IESA partner or association staff member? Submit a request"
+" — we'll review it and contact you."
+msgstr ""
+"Хочете стати партнером або співробітником IESA? Надішліть заявку — ми "
+"розглянемо її та зв'яжемось з вами."
+
+msgid "DESIRED ROLE"
+msgstr "БАЖАНА РОЛЬ"
+
+msgid "choose"
+msgstr "оберіть"
+
+msgid "gym, shop, service"
+msgstr "зал, магазин, послуги"
+
+msgid "lawyer, accountant, manager"
+msgstr "юрист, бухгалтер, менеджер"
+
+msgid "REASON / DESCRIPTION"
+msgstr "ПРИЧИНА / ОПИС"
+
+msgid ""
+"Describe your activity, role and why you want to join as a partner or "
+"staff..."
+msgstr ""
+"Опишіть свою діяльність, роль та причину, чому ви хочете приєднатись як "
+"партнер або співробітник..."
+
+msgid "chars"
+msgstr "символів"
+
+msgid "min. 50"
+msgstr "мін. 50"
+
+msgid "Submit Request"
+msgstr "Надіслати заявку"
+
+msgid "Network error. Please try again."
+msgstr "Помилка мережі. Будь ласка, спробуйте ще раз."
+
+msgid "Your request is under review"
+msgstr "Ваша заявка на розгляді"
+
+msgid "Submitted"
+msgstr "Надіслано"
+
+msgid "Request submitted!"
+msgstr "Заявку надіслано!"
+
+msgid "We will review your application and contact you via email or Telegram."
+msgstr ""
+"Ми розглянемо вашу заявку та зв'яжемось з вами через email або Telegram."
+
+msgid "Your request has been submitted! We will contact you soon."
+msgstr "Вашу заявку надіслано! Ми зв'яжемось з вами найближчим часом."
+
+msgid "You already have a pending request. Please wait for it to be reviewed."
+msgstr "У вас вже є заявка на розгляді. Будь ласка, зачекайте."
+
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
 

@@ -9,6 +9,104 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/profile-page.css' %}">
 {# styles → static/css/profile-page.css (П9-01) #}
+<style>
+/* ══ Блок заявки на повышение статуса (ACR) ══════════════════════════
+   Стиль: tech/glassmorphism — эталон: login.html / register.html
+═══════════════════════════════════════════════════════════════════ */
+.acr-card {
+  background: rgba(255,255,255,.025);
+  border: 1px solid rgba(255,255,255,.07);
+  border-top: 2px solid rgba(220,38,38,.45);
+  border-radius: 20px;
+  box-shadow: 0 0 0 1px rgba(220,38,38,.08), 0 30px 70px rgba(0,0,0,.55);
+  padding: 2.5rem 2.5rem 2rem;
+  max-width: 780px; margin: 2.5rem auto 0;
+  position: relative; overflow: hidden;
+}
+.acr-card::before {
+  content:''; position:absolute; top:-80px; right:-60px;
+  width:280px; height:280px;
+  background:radial-gradient(circle,rgba(220,38,38,.18) 0%,transparent 65%);
+  pointer-events:none;
+}
+.acr-card-head { margin-bottom: 2rem; }
+.acr-eyebrow {
+  display:inline-flex; align-items:center; gap:.55rem;
+  font-size:.64rem; font-weight:800; letter-spacing:.2em; text-transform:uppercase;
+  color:#ef4444; font-family:var(--font-mono); margin-bottom:1rem;
+}
+.acr-eyebrow::before,.acr-eyebrow::after { content:''; flex:0 0 28px; height:1px; background:rgba(220,38,38,.4); }
+.acr-title { font-size:1.6rem; font-weight:900; color:#fff; margin-bottom:.4rem; letter-spacing:-.02em; }
+.acr-desc  { color:rgba(255,255,255,.42); font-size:.9rem; line-height:1.6; }
+
+/* Fields */
+.acr-field { margin-bottom:1.4rem; }
+.acr-label {
+  display:block; font-size:.63rem; font-weight:700;
+  letter-spacing:.15em; text-transform:uppercase;
+  color:rgba(255,255,255,.38); font-family:var(--font-mono); margin-bottom:.5rem;
+}
+.acr-select-wrap { position:relative; }
+.acr-select {
+  width:100%; appearance:none; -webkit-appearance:none;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+  border-radius:10px; color:#fff; font-size:.95rem;
+  padding:.72rem 2.6rem .72rem 1rem;
+  transition:border-color .2s, box-shadow .2s, background .2s; outline:none;
+}
+.acr-select:focus { border-color:rgba(220,38,38,.6); background:rgba(220,38,38,.05); box-shadow:0 0 0 3px rgba(220,38,38,.12); }
+.acr-select option { background:#12111c; color:#fff; }
+.acr-select-arrow { position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.28); pointer-events:none; font-size:.8rem; }
+.acr-textarea {
+  width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+  border-radius:10px; color:#fff; font-size:.92rem;
+  padding:.75rem 1rem; resize:vertical; min-height:120px;
+  transition:border-color .2s, box-shadow .2s; outline:none;
+  font-family:var(--font-family);
+}
+.acr-textarea:focus { border-color:rgba(220,38,38,.6); background:rgba(220,38,38,.05); box-shadow:0 0 0 3px rgba(220,38,38,.12); }
+.acr-textarea::placeholder { color:rgba(255,255,255,.18); }
+.acr-hint { font-size:.7rem; color:rgba(255,255,255,.25); margin-top:.35rem; font-family:var(--font-mono); }
+.acr-error-bar {
+  background:rgba(220,38,38,.1); border:1px solid rgba(220,38,38,.28);
+  border-radius:10px; padding:.75rem 1rem; color:#fca5a5;
+  font-size:.875rem; display:flex; align-items:center; gap:.6rem;
+  margin-bottom:1.2rem;
+}
+.acr-submit {
+  width:100%; background:linear-gradient(135deg,#dc2626,#b91c1c);
+  border:none; border-radius:10px; padding:.85rem 1.5rem;
+  color:#fff; font-size:.95rem; font-weight:700; cursor:pointer;
+  transition:transform .15s, box-shadow .2s, filter .2s;
+  display:flex; align-items:center; justify-content:center; gap:.6rem;
+  box-shadow:0 4px 20px rgba(220,38,38,.35); letter-spacing:.02em; margin-top:.5rem;
+}
+.acr-submit:hover { filter:brightness(1.1); box-shadow:0 6px 30px rgba(220,38,38,.5); transform:translateY(-1px); }
+.acr-submit:disabled { opacity:.6; cursor:not-allowed; transform:none; }
+
+/* Успех */
+.acr-success-card {
+  background:rgba(34,197,94,.07); border:1px solid rgba(34,197,94,.22);
+  border-top:2px solid rgba(34,197,94,.5); border-radius:20px;
+  padding:2.5rem; text-align:center; max-width:780px; margin:2.5rem auto 0;
+}
+.acr-sc-icon { font-size:3rem; color:#4ade80; margin-bottom:1rem; }
+.acr-sc-title { font-size:1.4rem; font-weight:800; color:#fff; margin-bottom:.5rem; }
+.acr-sc-text { color:rgba(255,255,255,.5); font-size:.9rem; line-height:1.65; }
+
+/* Уже есть активная заявка */
+.acr-pending-notice {
+  display:flex; align-items:flex-start; gap:1.25rem;
+  background:rgba(245,158,11,.07); border:1px solid rgba(245,158,11,.22);
+  border-top:2px solid rgba(245,158,11,.45); border-radius:20px;
+  padding:1.75rem 2rem; max-width:780px; margin:2.5rem auto 0;
+}
+.acr-pn-icon { font-size:1.5rem; color:#fbbf24; flex-shrink:0; margin-top:.2rem; }
+.acr-pn-title { font-size:1rem; font-weight:800; color:#fff; margin-bottom:.35rem; }
+.acr-pn-sub { font-size:.875rem; color:rgba(255,255,255,.55); line-height:1.6; margin-bottom:.5rem; }
+.acr-pn-sub strong { color:#fbbf24; }
+.acr-pn-date { font-size:.75rem; color:rgba(255,255,255,.32); font-family:var(--font-mono); }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -405,6 +503,85 @@
       </div><!-- /col-lg-8 -->
     </div>
   </div><!-- /cab-wrap -->
+
+  {# ══════════════════════════════════════════════
+     БЛОК ЗАЯВКИ НА ПОВЫШЕНИЕ СТАТУСА
+  ══════════════════════════════════════════════ #}
+  {% if not user.is_partner and user.membership_status != 'active' or True %}
+  <div class="cab-wrap" style="margin-top:0; padding-top:0;">
+    <div id="acr-section" data-reveal data-delay="5">
+
+      {% if pending_upgrade_request %}
+      {# ── Уже есть активная заявка ── #}
+      <div class="acr-pending-notice">
+        <div class="acr-pn-icon"><i class="fas fa-hourglass-half"></i></div>
+        <div>
+          <div class="acr-pn-title">{% trans "Your request is under review" %}</div>
+          <div class="acr-pn-sub">
+            {% blocktrans with dtype=pending_upgrade_request.get_desired_type_display %}
+            You applied for <strong>{{ dtype }}</strong> status. We will contact you soon.
+            {% endblocktrans %}
+          </div>
+          <div class="acr-pn-date">
+            <i class="fas fa-clock me-1"></i>{% trans "Submitted" %}: {{ pending_upgrade_request.created_at|date:"d M Y" }}
+          </div>
+        </div>
+      </div>
+
+      {% else %}
+      {# ── Форма подачи заявки ── #}
+      <div class="acr-card" id="acr-card">
+        <div class="acr-card-head">
+          <div class="acr-eyebrow">{% trans "STATUS UPGRADE" %}</div>
+          <h2 class="acr-title">{% trans "Apply for a role upgrade" %}</h2>
+          <p class="acr-desc">
+            {% trans "Want to become an IESA partner or association staff member? Submit a request — we'll review it and contact you." %}
+          </p>
+        </div>
+
+        <form id="acr-form" novalidate>
+          {% csrf_token %}
+
+          <div class="acr-field">
+            <label class="acr-label">{% trans "DESIRED ROLE" %}</label>
+            <div class="acr-select-wrap">
+              <select name="desired_type" class="acr-select" required>
+                <option value="">— {% trans "choose" %} —</option>
+                <option value="partner">{% trans "External Partner" %} ({% trans "gym, shop, service" %})</option>
+                <option value="association_staff">{% trans "Association Staff" %} ({% trans "lawyer, accountant, manager" %})</option>
+              </select>
+              <i class="fas fa-chevron-down acr-select-arrow"></i>
+            </div>
+          </div>
+
+          <div class="acr-field">
+            <label class="acr-label">{% trans "REASON / DESCRIPTION" %}</label>
+            <textarea name="reason" class="acr-textarea" rows="5"
+              placeholder="{% trans 'Describe your activity, role and why you want to join as a partner or staff...' %}"
+              required minlength="50"></textarea>
+            <div class="acr-hint"><span id="acr-char-count">0</span> / 2000 {% trans "chars" %} ({% trans "min. 50" %})</div>
+          </div>
+
+          <div id="acr-error" class="acr-error-bar" style="display:none;"></div>
+
+          <button type="submit" class="acr-submit" id="acr-submit-btn">
+            <i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}
+          </button>
+        </form>
+      </div>
+
+      {# ── Успех (показывается после отправки) ── #}
+      <div id="acr-success" class="acr-success-card" style="display:none;">
+        <div class="acr-sc-icon"><i class="fas fa-check-circle"></i></div>
+        <h3 class="acr-sc-title">{% trans "Request submitted!" %}</h3>
+        <p class="acr-sc-text">{% trans "We will review your application and contact you via email or Telegram." %}</p>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endif %}
+
 </div><!-- /cab-page -->
 
 <script>
@@ -473,5 +650,60 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 });
+</script>
+
+<script>
+/* ══ Форма заявки на повышение статуса (ACR) ══ */
+(function () {
+  var form    = document.getElementById('acr-form');
+  var errBar  = document.getElementById('acr-error');
+  var success = document.getElementById('acr-success');
+  var card    = document.getElementById('acr-card');
+  var textarea = form && form.querySelector('textarea[name="reason"]');
+  var counter  = document.getElementById('acr-char-count');
+
+  if (!form) return;
+
+  /* ── Счётчик символов ── */
+  if (textarea && counter) {
+    textarea.addEventListener('input', function () {
+      counter.textContent = textarea.value.length;
+      counter.style.color = textarea.value.length >= 50
+        ? 'rgba(34,197,94,.8)' : 'rgba(255,255,255,.25)';
+    });
+  }
+
+  /* ── Отправка формы ── */
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = document.getElementById('acr-submit-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>{% trans "Submitting..." %}'; }
+    if (errBar) errBar.style.display = 'none';
+
+    var data = new FormData(form);
+    fetch('{% url "users:account_upgrade" %}', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': data.get('csrfmiddlewaretoken') },
+      body: data,
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (json) {
+      if (json.ok) {
+        if (card)    card.style.display    = 'none';
+        if (success) success.style.display = 'block';
+        /* Toast через глобальную утилиту если доступна */
+        if (window._iesa_showToast) window._iesa_showToast(json.message, 'info');
+      } else {
+        var msg = json.error || Object.values(json.errors || {}).join(' ');
+        if (errBar) { errBar.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>' + msg; errBar.style.display = 'flex'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
+      }
+    })
+    .catch(function () {
+      if (errBar) { errBar.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>{% trans "Network error. Please try again." %}'; errBar.style.display = 'flex'; }
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
+    });
+  });
+})();
 </script>
 {% endblock %}
