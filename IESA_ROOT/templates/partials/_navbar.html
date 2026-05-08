@@ -2,23 +2,6 @@
 {% get_current_language as LANGUAGE_CODE %}
 {% get_available_languages as LANGUAGES %}
 
-<!-- DEV BANNER -->
-<div class="dev-banner" id="dev-banner">
-    <i class="bi bi-tools dev-banner-icon"></i>
-    <strong>{% trans "Dev mode" %}</strong> — {% trans "Site is under active development." %}
-    <button class="dev-banner-close" id="dev-banner-close" aria-label="Close">&#x2715;</button>
-</div>
-<script>
-(function(){
-    var b=document.getElementById('dev-banner');
-    if(!b)return;
-    if(localStorage.getItem('dev-banner-dismissed')==='1'){b.style.display='none';return;}
-    document.getElementById('dev-banner-close').addEventListener('click',function(){
-        b.remove();try{localStorage.setItem('dev-banner-dismissed','1');}catch(e){}
-    });
-})();
-</script>
-
 <header class="iesa-header">
 
     <!-- Bootstrap-стандартная структура navbar — JS dropdowns работают 100% -->
