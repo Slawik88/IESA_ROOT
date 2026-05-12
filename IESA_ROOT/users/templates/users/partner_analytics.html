@@ -62,6 +62,8 @@
     <a href="{% url 'users:partner_profile_edit' %}">{% trans "Company Profile" %}</a>
   </nav>
 
+  {% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
+
   <!-- HERO -->
   <div class="pp-hero">
     <div style="position:relative;z-index:1;">

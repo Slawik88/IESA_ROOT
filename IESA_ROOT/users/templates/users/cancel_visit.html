@@ -47,6 +47,7 @@
     <a href="{% url 'users:partner_profile_edit' %}">{% trans "Company Profile" %}</a>
   </nav>
 
+  {% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
   <div style="background:linear-gradient(135deg,#0d0d18 0%,#12060d 100%);padding:24px 24px 20px;border-bottom:1px solid rgba(255,255,255,.05);">
     <div style="font-size:.72rem;font-family:var(--font-mono);color:rgba(248,113,113,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">CANCEL VISIT</div>
     <div style="font-size:1.25rem;font-weight:700;color:#fff;">{% trans "Cancel Visit Record" %}</div>

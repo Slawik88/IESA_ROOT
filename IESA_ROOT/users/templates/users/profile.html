@@ -224,6 +224,27 @@
             <i class="fas fa-fingerprint"></i> {% trans "PIN & Card" %}
           </a>
         {% endif %}
+
+        {# ── 2a: Быстрые действия ── #}
+        <div class="hero-quick-actions">
+          <a href="{% url 'blog:post_create' %}" class="btn-hero-quick"
+             title="{% trans 'Write a new post' %}">
+            <i class="fas fa-pen-nib"></i>
+            <span>{% trans "New Post" %}</span>
+          </a>
+          <a href="{% url 'users:user_calendar' %}" class="btn-hero-quick"
+             title="{% trans 'My meeting calendar' %}">
+            <i class="fas fa-calendar-alt"></i>
+            <span>{% trans "Calendar" %}</span>
+          </a>
+          {% if not pending_upgrade_request and not profile_user.is_partner %}
+          <a href="{% url 'users:insurance_agent' %}" class="btn-hero-quick"
+             title="{% trans 'Request an insurance agent' %}">
+            <i class="fas fa-shield-alt"></i>
+            <span>{% trans "Insurance" %}</span>
+          </a>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
@@ -275,6 +296,32 @@
   .cab-qn-item:hover,
   .cab-qn-item.active { background: rgba(255,255,255,.07); color: rgba(255,255,255,.88); }
   .cab-qn-item i { font-size: .78rem; }
+  {# ═══ Block 2a: Quick Actions CSS ═══ #}
+  <style>
+  .hero-quick-actions {
+    display: flex; align-items: center; gap: .45rem;
+    margin-top: .5rem; flex-wrap: wrap;
+  }
+  .btn-hero-quick {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .38rem .85rem; border-radius: 8px;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+    color: rgba(255,255,255,.6); font-size: .78rem; font-weight: 600;
+    text-decoration: none; white-space: nowrap;
+    transition: background .15s, border-color .15s, color .15s, transform .15s;
+  }
+  .btn-hero-quick:hover {
+    background: rgba(220,38,38,.1); border-color: rgba(220,38,38,.3);
+    color: #fff; transform: translateY(-1px);
+  }
+  .btn-hero-quick i { font-size: .8rem; }
+  @media (max-width: 480px) {
+    .btn-hero-quick span { display: none; }
+    .btn-hero-quick { padding: .45rem .6rem; }
+    .btn-hero-quick i { font-size: .95rem; }
+  }
+  </style>
+
   {# ═══ ОНБОРДИНГ: CSS ═══ #}
   <style>
   /* ── Welcome Modal (1a) ─────────────────────────────────────────── */
