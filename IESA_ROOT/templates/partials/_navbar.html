@@ -303,6 +303,9 @@
 
                     {% else %}
                     <!-- Гость -->
+                    <a href="{% url 'users:how_it_works' %}" class="btn-nav-ghost me-1" style="font-size:.8rem;">
+                      <i class="fas fa-question-circle" style="margin-right:.3rem;opacity:.6;"></i>{% trans "How it works" %}
+                    </a>
                     <a href="{% url 'users:login' %}" class="btn-nav-ghost">{% trans "Sign In" %}</a>
                     <a href="{% url 'users:register' %}" class="btn-nav-primary ms-1">{% trans "Register" %}</a>
                     {% endif %}

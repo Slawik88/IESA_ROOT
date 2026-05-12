@@ -176,6 +176,13 @@ class User(AbstractUser):
     # Activity points for gamification
     activity_points = models.PositiveIntegerField(default=0, verbose_name=_('Activity Points'))
 
+    # Onboarding flag — False пока пользователь не закрыл welcome-modal (Block 1a)
+    onboarded = models.BooleanField(
+        default=False,
+        verbose_name=_('Onboarded'),
+        help_text=_('True после того как пользователь прошёл welcome-modal'),
+    )
+
     # Custom manager with search() support
     objects = UserManager()
 
@@ -329,6 +336,60 @@ class User(AbstractUser):
         import time
         interval = 720
         return interval - (int(time.time()) % interval)
+
+    @property
+    def profile_completeness(self) -> dict:
+        """
+        Возвращает процент заполнения профиля и список незаполненных шагов.
+        Используется в Block 1b — progress-bar онбординга.
+        """
+        steps = [
+            {
+                'key': 'avatar',
+                'done': bool(self.avatar and self.avatar.name != 'avatars/default.png'),
+                'label': _('Add a profile photo'),
+                'url': 'users:profile_edit',
+                'icon': 'fas fa-camera',
+            },
+            {
+                'key': 'name',
+                'done': bool(self.first_name and self.last_name),
+                'label': _('Add your full name'),
+                'url': 'users:profile_edit',
+                'icon': 'fas fa-user',
+            },
+            {
+                'key': 'phone',
+                'done': bool(self.phone_number),
+                'label': _('Add a phone number'),
+                'url': 'users:profile_edit',
+                'icon': 'fas fa-phone',
+            },
+            {
+                'key': 'telegram',
+                'done': bool(self.telegram_chat_id),
+                'label': _('Connect Telegram for instant notifications'),
+                'url': 'users:connect_telegram_code',
+                'icon': 'fab fa-telegram',
+            },
+            {
+                'key': 'dob',
+                'done': bool(self.date_of_birth),
+                'label': _('Add your date of birth'),
+                'url': 'users:profile_edit',
+                'icon': 'fas fa-birthday-cake',
+            },
+        ]
+        done_count = sum(1 for s in steps if s['done'])
+        pct = int(done_count / len(steps) * 100)
+        return {
+            'percent': pct,
+            'done': done_count,
+            'total': len(steps),
+            'steps': steps,
+            'incomplete': [s for s in steps if not s['done']],
+            'is_complete': pct == 100,
+        }
 
 
 class Partner(models.Model):

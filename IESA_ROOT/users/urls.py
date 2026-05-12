@@ -65,4 +65,9 @@ urlpatterns = [
 
     # Insurance agent
     path('insurance-agent/', views.insurance_agent_request, name='insurance_agent'),
+
+    # Onboarding (Block 1)
+    path('onboarded/',         views.mark_onboarded,    name='mark_onboarded'),
+    path('check-username/',    views.username_available, name='username_available'),
+    path('how-it-works/',      views.how_it_works,       name='how_it_works'),
 ]
