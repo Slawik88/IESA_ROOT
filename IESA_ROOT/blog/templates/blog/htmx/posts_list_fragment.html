@@ -602,9 +602,21 @@
     {% endfor %}
     </div>
 {% else %}
-    <div class="text-center py-5" data-reveal>
-        <div style="font-size:2.5rem;margin-bottom:.75rem;animation:gal-float 3s ease-in-out infinite;">🔍</div>
-        <p style="color:rgba(255,255,255,.4);">{% trans "No posts found" %}</p>
+    {# 4d: Улучшенный empty state при 0 результатах фильтрации #}
+    <div class="text-center py-5" data-reveal
+         style="background:rgba(255,255,255,.025);border:1.5px dashed rgba(255,255,255,.08);border-radius:20px;padding:3.5rem 2rem;max-width:480px;margin:2rem auto;">
+        <div style="font-size:3rem;margin-bottom:.9rem;animation:gal-float 3s ease-in-out infinite;">🔍</div>
+        <div style="font-size:.95rem;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:.4rem;">{% trans "No posts found for your query" %}</div>
+        <p style="font-size:.82rem;color:rgba(255,255,255,.35);margin-bottom:1.3rem;">{% trans "Try a different keyword or remove the filters." %}</p>
+        <button type="button"
+                hx-get="{% url 'blog:post_search' %}"
+                hx-target="#posts-container"
+                hx-swap="innerHTML"
+                onclick="document.querySelectorAll('[name=q]').forEach(el=>el.value='');document.querySelectorAll('#cmd-status,#cmd-sort').forEach(el=>el.selectedIndex=0);"
+                style="display:inline-flex;align-items:center;gap:.5rem;padding:.45rem 1.1rem;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);border-radius:8px;color:#f87171;font-size:.8rem;font-weight:700;cursor:pointer;transition:background .15s;"
+                onmouseover="this.style.background='rgba(220,38,38,.2)'" onmouseout="this.style.background='rgba(220,38,38,.1)'">
+            <i class="fas fa-times-circle"></i> {% trans "Reset Filters" %}
+        </button>
     </div>
 {% endif %}
 

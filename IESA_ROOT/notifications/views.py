@@ -27,15 +27,16 @@ def notification_list(request):
         return render(request, 'notifications/dropdown_list.html', {'notifications': notifications})
     
     # For full page view, paginate
+    total_count = notifications.count()
+    unread_count = notifications.filter(is_read=False).count()
     paginator = Paginator(notifications, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
-    unread_count = notifications.filter(is_read=False).count()
 
     context = {
         'notifications': page_obj,
         'unread_count': unread_count,
+        'total_count': total_count,
     }
     return render(request, 'notifications/notification_list.html', context)
 

@@ -340,6 +340,26 @@
 /* ── Пустой день ── */
 .cal-empty-day { text-align: center; padding: 2.5rem 1rem; color: rgba(255,255,255,.25); }
 .cal-empty-day i { font-size: 2rem; margin-bottom: .75rem; display: block; }
+
+/* ── Block 4b: Empty day overlay ── */
+.cal-no-meetings {
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  padding: 3rem 1.5rem; text-align: center;
+  position: absolute; inset: 0; pointer-events: none;
+}
+.cal-no-meetings.visible { display: flex; }
+.cal-no-meetings-icon { font-size: 2.5rem; margin-bottom: .75rem; animation: float-icon 3.5s ease-in-out infinite; }
+@keyframes float-icon { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+.cal-no-meetings-title { font-size: .9rem; font-weight: 700; color: rgba(255,255,255,.5); margin-bottom: .35rem; }
+.cal-no-meetings-sub { font-size: .75rem; color: rgba(255,255,255,.25); margin-bottom: 1rem; }
+.cal-no-meetings-btn {
+  pointer-events: all;
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .4rem 1rem; background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.25);
+  border-radius: 8px; color: #f87171; font-size: .8rem; font-weight: 700;
+  text-decoration: none; cursor: pointer; transition: background .15s;
+}
+.cal-no-meetings-btn:hover { background: rgba(220,38,38,.2); }
 </style>
 {% endblock %}
 
@@ -542,7 +562,7 @@
           {% endif %}
 
           {# Почасовая сетка #}
-          <div class="cal-hour-grid">
+          <div class="cal-hour-grid" style="position:relative;">
 
             {# Встречи без времени (вверху) #}
             {% with no_time_meetings=day_meetings|dictsort:"start_time" %}
@@ -552,6 +572,17 @@
             </div>
             {% endif %}
             {% endwith %}
+
+            {# 4b: Empty day overlay — видна когда нет встреч (управляется JS) #}
+            <div class="cal-no-meetings" id="cal-no-meetings-overlay">
+              <div class="cal-no-meetings-icon">📅</div>
+              <div class="cal-no-meetings-title">{% trans "No meetings on this day" %}</div>
+              <div class="cal-no-meetings-sub">{% trans "Click any time slot to schedule a meeting" %}</div>
+              <a href="#add-meeting" class="cal-no-meetings-btn"
+                 onclick="document.getElementById('cal-form-toggle').checked=true;document.getElementById('cal-form-arrow').style.transform='rotate(180deg)';">
+                <i class="fas fa-plus"></i> {% trans "Schedule Meeting" %}
+              </a>
+            </div>
 
             <div class="cal-hour-grid-inner" id="cal-hour-grid">
 
@@ -763,6 +794,17 @@ function renderMeetings() {
     }
 }
 
+/* 4b: Показываем/скрываем empty-day overlay */
+function toggleEmptyOverlay() {
+    var overlay = document.getElementById('cal-no-meetings-overlay');
+    if (!overlay) return;
+    if (MEETINGS.length === 0) {
+        overlay.classList.add('visible');
+    } else {
+        overlay.classList.remove('visible');
+    }
+}
+
 /* "Сейчас" линия */
 function renderNowLine() {
     if (SELECTED_DAY !== TODAY) return;
@@ -850,6 +892,7 @@ function escapeHtml(s) {
 /* Init */
 document.addEventListener('DOMContentLoaded', function() {
     renderMeetings();
+    toggleEmptyOverlay();
     renderNowLine();
     setInterval(renderNowLine, 60000); // обновляем каждую минуту
 
