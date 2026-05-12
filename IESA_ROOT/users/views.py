@@ -100,23 +100,27 @@ class ProfileView(DetailView):
         if (user.is_authenticated
                 and getattr(user, 'membership_status', None) == 'active'
                 and user.totp_secret):
-            current_pin = user.get_current_pin()
+            _now  = int(_time.time())
+            _step = _now // PIN_INTERVAL
+            _secs = (_step + 1) * PIN_INTERVAL - _now
+            # Кэш PIN на текущий интервал — ключ включает step, инвалидируется автоматически
+            _pin_key = f'pin_code_{user.pk}_{_step}'
+            current_pin = cache.get_or_set(
+                _pin_key,
+                user.get_current_pin,
+                timeout=_secs + 5,
+            )
             if current_pin:
-                _now  = int(_time.time())
-                _step = _now // PIN_INTERVAL
-                context['current_pin']      = current_pin
-                context['seconds_remaining'] = (_step + 1) * PIN_INTERVAL - _now
+                context['current_pin']       = current_pin
+                context['seconds_remaining'] = _secs
 
         # Данные физической карты и история визитов (были в member_cabinet)
         context['card_active']    = user.card_active
         context['card_issued_at'] = user.card_issued_at
-        context['recent_visits']  = (
-            Visit.objects
-            .filter(member=user)
-            .select_related('partner')
-            .order_by('-timestamp')[:CABINET_VISITS_LIMIT]
-        )
-        context['total_visits'] = Visit.objects.filter(member=user).count()
+        # Block 6d: один queryset — count() + slice без повторного COUNT-запроса
+        _visit_qs = Visit.objects.filter(member=user).select_related('partner').order_by('-timestamp')
+        context['total_visits']  = _visit_qs.count()
+        context['recent_visits'] = _visit_qs[:CABINET_VISITS_LIMIT]
 
         # ── Заявка на смену типа аккаунта ────────────────────────────────
         context['pending_upgrade_request'] = AccountChangeRequest.objects.filter(

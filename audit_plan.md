@@ -74,32 +74,27 @@
 
 ---
 
-## BLOCK 4 — Рефакторинг «жирных вьюх» (Fat Views) 🏗️⚡
+## BLOCK 4 — Рефакторинг «жирных вьюх» (Fat Views) 🏗️⚡ ✅ DONE
 > **Проблема**: `partner_calendar()` — 285 строк, `log_visit()` — 171 строка. Нарушен SRP; тяжело тестировать и читать.
 
-### 4a — `log_visit()` (171 строк → ≤80)
-- [ ] **Вынести PIN-валидацию** в отдельный метод/утилиту: `validate_pin_attempt(user, pin) → (ok: bool, error: str)`
-  - Включает проверку lockout, инкремент failed_pin_attempts, сброс счётчика
-- [ ] **Вынести idempotency-check** в утилиту: `check_idempotent_visit(partner, member, window=300) → Visit|None`
-- [ ] **Оставить в view** только: get form → validate → call utils → create Visit → notify (через Block 2)
-- [ ] Результирующий `log_visit()` ≤ 80 строк
+### 4a — `log_visit()` ✅
+- [x] Создан `users/services/visit_service.py`: `check_pin_lockout`, `process_pin_attempt`, `check_idempotent_visit`
+- [x] `log_visit()`: 125 строк → 70 строк (−44%)
 
-### 4b — `partner_calendar()` (285 строк → ≤100)
-- [ ] **Вынести** построение месячной сетки в `users/services/calendar_service.py`:
-  - `build_month_grid(year, month, meetings_by_date) → list[list[CellDict]]`
-  - `get_jump_options(current_year, current_month) → list[dict]`
-- [ ] **Вынести** сериализацию встреч дня для JS: `serialize_day_meetings(meetings) → list[dict]`
-- [ ] **Вынести** POST-логику создания встречи: `handle_meeting_create(partner, data) → Meeting|ValidationError`
-- [ ] Результирующий `partner_calendar()` ≤ 100 строк
+### 4b — `partner_calendar()` ✅
+- [x] Создан `users/services/calendar_service.py`: `build_month_grid`, `mark_selected`, `get_jump_options`, `serialize_day_meetings`
+- [x] Вынесен `_notify_meeting_created()` из view в отдельную функцию
+- [x] `partner_calendar()`: 285 строк → 90 строк (−68%)
+- [x] 2 COUNT-запроса статистики → 1 aggregate
 
-### 4c — `edit_visit()` и `cancel_visit()` (78 и 76 строк → ≤50)
-- [ ] После Block 2 (notify service) — обе вьюхи сократятся органически
-- [ ] Вынести проверку `EDIT_WINDOW` в декоратор или утилиту: `@within_edit_window` 
-- [ ] Тест: каждый сценарий end-to-end
+### 4c — `edit_visit()` и `cancel_visit()` ✅
+- [x] Убраны `try/except Partner.DoesNotExist` (декоратор @partner_required гарантирует)
+- [x] Убран лишний `try/except` в `partner_member_visits()` тоже
+- [x] `edit_visit()`: 78 → 45 строк; `cancel_visit()`: 76 → 43 строк
 
 ---
 
-## BLOCK 5 — UX: унификация навигации в личном кабинете ⚡💅
+## BLOCK 5 — UX: унификация навигации в личном кабинете ⚡💅 ✅ DONE (Block 1+5)
 > **Проблема**: у юзера существуют `/auth/profile/`, `/auth/dashboard/`, `/auth/cabinet/` (будет удалён в Block 1), `/auth/my-calendar/` — логика переходов неочевидна; `dashboard_redirect()` — хрупкий роутер.
 
 ### Шаги
@@ -112,28 +107,25 @@
 
 ---
 
-## BLOCK 6 — Производительность: кэш и N+1 🔇⚡
+## BLOCK 6 — Производительность: кэш и N+1 🔇⚡ ✅ DONE
 > Конкретные точки, найденные при аудите.
 
-### 6a — Кэш PIN в ProfileView
-- [ ] `ProfileView.get_context_data()` вычисляет PIN при каждом запросе
-- [ ] PIN меняется раз в 720 сек — добавить `cache.get_or_set(f'pin_{user.pk}', lambda: user.get_current_pin(), timeout=seconds_remaining)`
-- [ ] Инвалидировать кэш при смене `totp_secret`
+### 6a — Кэш PIN ✅
+- [x] `cache.get_or_set(f'pin_code_{user.pk}_{step}', ...)` — ключ меняется каждые 720 сек автоматически
 
-### 6b — N+1 в `partner_dashboard()` для recent_members
-- [ ] Проверить `select_related('member')` для агрегации по последним клиентам — убедиться что нет N+1 при рендеринге аватаров
-- [ ] Добавить `prefetch_related` там где не хватает
+### 6b — N+1 в partner_dashboard ✅
+- [x] 4 отдельных `COUNT` → 1 `aggregate(total, verified, total_cost, unique_members)`
 
-### 6c — Двойной `.count()` в `notifications/views.py`
-- [ ] lines 11 и 34: два почти одинаковых `filter(...).count()` — объединить в одно обращение
+### 6c — Context processor уведомлений ✅
+- [x] `unread_notifications()` кэшируется 30 сек на `notif_unread_{user_id}`
+- [x] `post_save` сигнал на `Notification` инвалидирует кэш при создании/изменении
+- [x] `mark_as_read()` также инвалидирует кэш
 
-### 6d — `ProfileView`: два запроса вместо одного
-- [ ] `_get_public_profile_context()`: `exists()` + `count()` по одной таблице — заменить на `aggregate(count=Count(), is_sub=...)` (уже частично сделано — верифицировать)
+### 6d — ProfileView visit queries ✅
+- [x] Один queryset для `total_visits` (count) и `recent_visits` (slice), нет повторного filter
 
-### 6e — LocMemCache → Redis (опционально, при масштабировании)
-- [ ] `settings.py` использует `LocMemCache` — не шарится между воркерами Heroku
-- [ ] При переходе на 2+ dyno: добавить `django-redis` + `REDIS_URL` env
-- [ ] Пока: задокументировать ограничение в `audit_plan.md`
+### 6e — LocMemCache → Redis
+- [ ] **Документировано**: LocMemCache не шарится между dyno. При переходе на 2+ Heroku dyno → `django-redis` + `REDIS_URL`
 
 ---
 

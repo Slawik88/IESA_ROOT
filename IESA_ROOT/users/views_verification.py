@@ -143,11 +143,6 @@ def public_profile(request, uuid):
     })
 
 
-    # member_cabinet() удалён — Block 1 рефакторинг.
-    # Весь контент (PIN, карта, история визитов) перенесён во вкладку профиля.
-    # URL /auth/cabinet/ перенаправляет на /auth/profile/ (см. urls.py).
-
-
 # ---------------------------------------------------------------------------
 # Partner dashboard
 # ---------------------------------------------------------------------------
@@ -172,10 +167,17 @@ def partner_dashboard(request):
         return redirect('core:home')
 
     visits = Visit.objects.filter(partner=partner).select_related('member').order_by('-timestamp')
-    total_visits = visits.count()
-    verified_visits = visits.filter(pin_verified=True).count()
-    total_cost = visits.aggregate(Sum('cost'))['cost__sum'] or 0
-    unique_members = visits.values('member').distinct().count()
+    # Block 6b: 4 COUNT-запроса → 1 aggregate (N+1 fix)
+    _stats = Visit.objects.filter(partner=partner).aggregate(
+        total_visits=Count('id'),
+        verified_visits=Count('id', filter=Q(pin_verified=True)),
+        total_cost=Sum('cost'),
+        unique_members=Count('member', distinct=True),
+    )
+    total_visits    = _stats['total_visits']    or 0
+    verified_visits = _stats['verified_visits'] or 0
+    total_cost      = _stats['total_cost']      or 0
+    unique_members  = _stats['unique_members']  or 0
 
     # Today's activity
     today = timezone.localdate()
@@ -248,128 +250,84 @@ def partner_dashboard(request):
 @require_http_methods(["GET", "POST"])
 @ratelimit(key='user', rate='10/m', method='POST', block=True)
 def log_visit(request, member_id):
-    """Log a visit for a member. Includes brute-force protection + idempotency."""
-    try:
-        partner = request.user.partner_profile
-    except Partner.DoesNotExist:
-        messages.error(request, _('Partner profile not found.'))
-        return redirect('users:partner_dashboard')
-
-    member = get_object_or_404(User, id=member_id)
+    """Логировать визит участника. Brute-force защита + идемпотентность."""
+    partner = request.user.partner_profile
+    member  = get_object_or_404(User, id=member_id)
 
     if member.membership_status != 'active':
-        messages.warning(request, _('⚠️ Warning: %(name)s membership is currently inactive.') % {'name': member.get_full_name()})
+        messages.warning(request, _(
+            '⚠️ Warning: %(name)s membership is currently inactive.'
+        ) % {'name': member.get_full_name()})
 
     if request.method == 'POST':
         form = VisitForm(request.POST)
         if form.is_valid():
             now = timezone.now()
 
-            # Brute-force check
-            if member.pin_lockout_until and member.pin_lockout_until > now:
-                remaining = int((member.pin_lockout_until - now).total_seconds() // 60) + 1
-                messages.error(
-                    request,
-                    _('🔒 PIN entry locked for this member. Please wait %(remaining)d minute(s).') % {'remaining': remaining}
-                )
+            # Проверка блокировки PIN (Block 4a: сервис)
+            from users.services.visit_service import check_pin_lockout, process_pin_attempt, check_idempotent_visit
+            locked, remaining = check_pin_lockout(member, now)
+            if locked:
+                messages.error(request, _(
+                    '🔒 PIN entry locked for this member. Please wait %(remaining)d minute(s).'
+                ) % {'remaining': remaining})
                 return render(request, 'users/log_visit.html', {
-                    'form': form, 'member': member, 'partner': partner
+                    'form': form, 'member': member, 'partner': partner,
                 })
-
-            provided_pin = form.cleaned_data['pin']
 
             if not member.totp_secret:
                 messages.error(request, _('⚠️ Member PIN system not configured. Contact administrator.'))
                 return redirect('users:partner_dashboard')
 
-            if member.verify_pin(provided_pin):
-                # Idempotency check
-                cutoff = now - timezone.timedelta(seconds=IDEMPOTENCY_WINDOW)
-                existing = Visit.objects.filter(
-                    partner=partner,
-                    member=member,
-                    service_type=form.cleaned_data['service_type'],
-                    cost=form.cleaned_data.get('cost'),
-                    timestamp__gte=cutoff,
-                ).first()
+            pin_ok, pin_error = process_pin_attempt(member, form.cleaned_data['pin'], now)
 
+            if not pin_ok:
+                form.add_error('pin', pin_error)
+            else:
+                # Идемпотентность (Block 4a: сервис)
+                existing = check_idempotent_visit(
+                    partner, member,
+                    form.cleaned_data['service_type'],
+                    form.cleaned_data.get('cost'),
+                )
                 if existing:
-                    member_name = member.get_full_name() or member.username
-                    messages.warning(
-                        request,
-                        _('ℹ️ Duplicate detected: identical visit already logged within the last 5 minutes '
-                          'for %(name)s. No new record created.') % {'name': member_name}
-                    )
+                    messages.warning(request, _(
+                        'ℹ️ Duplicate detected: identical visit already logged within the '
+                        'last 5 minutes for %(name)s. No new record created.'
+                    ) % {'name': member.get_full_name() or member.username})
                     return redirect('users:partner_dashboard')
 
-                # Save visit + reset counter atomically (B1-03, B1-04)
+                # Сохранить визит (B1-03)
                 from django.db import transaction as _tx
                 with _tx.atomic():
                     visit = form.save(commit=False)
-                    visit.member = member
-                    visit.partner = partner
+                    visit.member       = member
+                    visit.partner      = partner
                     visit.pin_verified = True
-                    visit.status = 'ACTIVE'
+                    visit.status       = 'ACTIVE'
                     visit.save()
 
-                    # Reset brute-force counter atomically inside same tx
-                    if member.failed_pin_attempts:
-                        User.objects.filter(pk=member.pk).update(
-                            failed_pin_attempts=0,
-                            pin_lockout_until=None,
-                        )
-                        member.failed_pin_attempts = 0
-                        member.pin_lockout_until = None
-
-                # --- Уведомление участнику (Block 2: вынесено в сервис) ---
-                from users.services.visit_notifications import notify_visit_logged as _nv_logged
-                _nv_logged(visit, partner, member)
+                # Уведомить участника (Block 2: сервис)
+                from users.services.visit_notifications import notify_visit_logged as _nv
+                _nv(visit, partner, member)
                 if not getattr(member, 'telegram_chat_id', None):
-                    messages.info(
-                        request,
-                        _('ℹ️ Member has no Telegram linked — in-site notification sent instead.')
-                    )
+                    messages.info(request, _(
+                        'ℹ️ Member has no Telegram linked — in-site notification sent instead.'
+                    ))
 
-                member_name = member.get_full_name() or member.username
-                cost_display = f'{visit.cost} CHF' if visit.cost else 'N/A'
-                messages.success(
-                    request,
-                    _('✅ Visit logged! Member: %(name)s | '
-                      'Service: %(service)s | Cost: %(cost)s') % {
-                        'name': member_name,
-                        'service': visit.get_service_type_display(),
-                        'cost': cost_display,
-                    }
-                )
+                messages.success(request, _(
+                    '✅ Visit logged! Member: %(name)s | Service: %(service)s | Cost: %(cost)s'
+                ) % {
+                    'name':    member.get_full_name() or member.username,
+                    'service': visit.get_service_type_display(),
+                    'cost':    f'{visit.cost} CHF' if visit.cost else 'N/A',
+                })
                 return redirect('users:partner_dashboard')
-
-            else:
-                # Wrong PIN — атомарный инкремент через F() (B1-02)
-                from django.db.models import F as _F
-                from django.db import transaction as _tx
-                with _tx.atomic():
-                    User.objects.filter(pk=member.pk).update(
-                        failed_pin_attempts=_F('failed_pin_attempts') + 1
-                    )
-                    member.refresh_from_db(fields=['failed_pin_attempts'])
-
-                if member.failed_pin_attempts >= PIN_MAX_ATTEMPTS:
-                    User.objects.filter(pk=member.pk).update(
-                        pin_lockout_until=now + timezone.timedelta(minutes=PIN_LOCKOUT_MINUTES),
-                        failed_pin_attempts=0,
-                    )
-                    member.failed_pin_attempts = 0
-                    form.add_error('pin', _('🔒 Too many wrong PINs. PIN locked for %(minutes)d minutes.') % {'minutes': PIN_LOCKOUT_MINUTES})
-                else:
-                    attempts_left = PIN_MAX_ATTEMPTS - member.failed_pin_attempts
-                    form.add_error('pin', _('❌ Invalid PIN. %(left)d attempt(s) remaining before lockout.') % {'left': attempts_left})
     else:
         form = VisitForm()
 
     return render(request, 'users/log_visit.html', {
-        'form': form,
-        'member': member,
-        'partner': partner,
+        'form': form, 'member': member, 'partner': partner,
     })
 
 
@@ -380,20 +338,14 @@ def log_visit(request, member_id):
 @partner_required
 @require_http_methods(["GET", "POST"])
 def edit_visit(request, visit_id):
-    """Edit a visit within the 20-minute window."""
-    try:
-        partner = request.user.partner_profile
-    except Partner.DoesNotExist:
-        messages.error(request, _('Partner profile not found.'))
-        return redirect('users:partner_dashboard')
+    """Редактировать визит в течение 20-минутного окна."""
+    partner = request.user.partner_profile
+    visit   = get_object_or_404(Visit, id=visit_id, partner=partner)
+    age     = (timezone.now() - visit.timestamp).total_seconds()
 
-    visit = get_object_or_404(Visit, id=visit_id, partner=partner)
-
-    age = (timezone.now() - visit.timestamp).total_seconds()
     if age > EDIT_WINDOW:
         messages.error(request, _('⏰ Edit window expired. Visits can only be edited within 20 minutes of logging.'))
         return redirect('users:partner_dashboard')
-
     if visit.status == 'CANCELLED':
         messages.error(request, _('❌ Cancelled visits cannot be edited.'))
         return redirect('users:partner_dashboard')
@@ -443,20 +395,14 @@ def edit_visit(request, visit_id):
 @partner_required
 @require_http_methods(["GET", "POST"])
 def cancel_visit(request, visit_id):
-    """Cancel a visit within the 20-minute window."""
-    try:
-        partner = request.user.partner_profile
-    except Partner.DoesNotExist:
-        messages.error(request, _('Partner profile not found.'))
-        return redirect('users:partner_dashboard')
+    """Отменить визит в течение 20-минутного окна."""
+    partner = request.user.partner_profile
+    visit   = get_object_or_404(Visit, id=visit_id, partner=partner)
+    age     = (timezone.now() - visit.timestamp).total_seconds()
 
-    visit = get_object_or_404(Visit, id=visit_id, partner=partner)
-
-    age = (timezone.now() - visit.timestamp).total_seconds()
     if age > EDIT_WINDOW:
         messages.error(request, _('⏰ Edit window expired. Visits can only be cancelled within 20 minutes of logging.'))
         return redirect('users:partner_dashboard')
-
     if visit.status == 'CANCELLED':
         messages.warning(request, _('This visit is already cancelled.'))
         return redirect('users:partner_dashboard')
@@ -504,14 +450,9 @@ def cancel_visit(request, visit_id):
 
 @partner_required
 def partner_member_visits(request, member_id):
-    """Full visit history between THIS partner and ONE member."""
-    try:
-        partner = request.user.partner_profile
-    except Partner.DoesNotExist:
-        messages.error(request, _('Partner profile not found.'))
-        return redirect('core:home')
-
-    member = get_object_or_404(User, id=member_id)
+    """Полная история визитов одного клиента у этого партнёра."""
+    partner = request.user.partner_profile
+    member  = get_object_or_404(User, id=member_id)
     member_visits = (
         Visit.objects
         .filter(partner=partner, member=member)
@@ -1110,290 +1051,179 @@ class MeetingForm(_dj_forms.ModelForm):
         self.fields['end_time'].required = False
 
 
+def _notify_meeting_created(meeting, partner) -> None:
+    """In-site + TG уведомление при создании встречи партнёром (Block 4b: вынесено из view)."""
+    if not meeting.notify_member:
+        return
+    from notifications.models import Notification as _Notif
+    _date_txt = meeting.date.strftime('%d %b %Y') if meeting.date else _('today')
+    _time_txt = (
+        f"{meeting.start_time.strftime('%H:%M')} — {meeting.end_time.strftime('%H:%M')}"
+        if meeting.start_time and meeting.end_time else _('time not specified')
+    )
+    _Notif.objects.create(
+        recipient=meeting.member,
+        notification_type='system',
+        title=f'📅 {partner.company_name}: {meeting.title}',
+        message=_(
+            'Partner %(company)s has scheduled a meeting with you.\n'
+            '"%(title)s"\nDate: %(date)s\nTime: %(time)s\n%(addr)s%(series)s'
+        ) % {
+            'company': partner.company_name, 'title': meeting.title,
+            'date': _date_txt, 'time': _time_txt,
+            'addr':   f'Address: {meeting.address}\n' if meeting.address else '',
+            'series': f'Series: {meeting.series_label}\n' if meeting.series_label else '',
+        },
+        link='/auth/my-calendar/',
+    )
+    if getattr(meeting.member, 'telegram_chat_id', None):
+        import threading as _thr
+        _mid = meeting.pk
+        def _tg():
+            try:
+                from users.telegram.notify import send_message as _sm
+                from users.models import Meeting as _M
+                m = _M.objects.select_related('partner', 'member').get(pk=_mid)
+                _d = m.date.strftime('%d %b %Y') if m.date else 'today'
+                _t = (f"{m.start_time.strftime('%H:%M')} — {m.end_time.strftime('%H:%M')}"
+                      if m.start_time and m.end_time else 'time TBD')
+                _sm(m.member.telegram_chat_id, (
+                    f"📅 <b>Meeting scheduled</b>\n\n<b>{m.partner.company_name}</b>: {m.title}\n"
+                    f"📆 {_d} | 🕐 {_t}\n"
+                    + (f"📍 {m.address}\n" if m.address else '')
+                    + (f"🔄 Series: {m.series_label}\n" if m.series_label else '')
+                ), parse_mode='HTML')
+            except Exception as _e:
+                logger.error("meeting TG notify failed: %s", _e)
+        _thr.Thread(target=_tg, daemon=True).start()
+    meeting.notification_sent = True
+    meeting.save(update_fields=['notification_sent'])
+
+
 @partner_required
 @require_http_methods(["GET", "POST"])
 def partner_calendar(request):
-    """
-    Календарь партнёра — месячный вид + почасовая сетка выбранного дня.
-    Навигация: ?month=YYYY-MM  или ?day=YYYY-MM-DD.
-    Быстрый прыжок: ?jump=YYYY-MM из select/input.
-    """
+    """Календарь партнёра — месячный вид + почасовая сетка. Block 4b: логика в calendar_service."""
     import calendar as _cal_mod
-    from users.models import ClientNote
     import json as _json
+    from users.models import ClientNote
+    from users.services.calendar_service import (
+        build_month_grid, mark_selected, get_jump_options, serialize_day_meetings,
+    )
 
+    partner = request.user.partner_profile
+    today   = _date_cls.today()
+
+    # ── Параметры навигации ─────────────────────────────────────────
+    month_str = request.GET.get('jump') or request.GET.get('month', '')
     try:
-        partner = request.user.partner_profile
-    except Partner.DoesNotExist:
-        return redirect('users:partner_dashboard')
-
-    today = _date_cls.today()
-
-    # ── Параметры навигации ──────────────────────────────────────────
-    # Быстрый прыжок через select (jump=YYYY-MM)
-    jump = request.GET.get('jump', '')
-
-    # Выбранный месяц (month=YYYY-MM)
-    month_str = request.GET.get('month', '')
-    if jump:
-        month_str = jump  # jump имеет приоритет
-
-    try:
-        if month_str:
-            parts = month_str.split('-')
-            cal_year, cal_month = int(parts[0]), int(parts[1])
-        else:
-            cal_year, cal_month = today.year, today.month
-    except (ValueError, IndexError):
+        parts = month_str.split('-')
+        cal_year, cal_month = int(parts[0]), int(parts[1])
+    except (ValueError, IndexError, AttributeError):
         cal_year, cal_month = today.year, today.month
+    cal_year  = max(2020, min(cal_year, today.year + 5))
+    cal_month = max(1,    min(cal_month, 12))
 
-    # Границы: не уходим дальше 10 лет назад / вперёд
-    cal_year = max(2020, min(cal_year, today.year + 5))
-    cal_month = max(1, min(cal_month, 12))
-
-    # Выбранный день
-    selected_day_str = request.GET.get('day', '')
     try:
-        selected_day = _date_cls.fromisoformat(selected_day_str) if selected_day_str else today
+        selected_day = _date_cls.fromisoformat(request.GET.get('day', ''))
     except ValueError:
         selected_day = today
 
-    # ── Месячная сетка ───────────────────────────────────────────────
-    # Получаем все дни месяца, разбитые по неделям (None = пустая ячейка)
-    cal_weeks = _cal_mod.monthcalendar(cal_year, cal_month)
-    # cal_weeks: list of lists, пн=0, вс=6; 0 = день вне месяца
-
     first_day = _date_cls(cal_year, cal_month, 1)
-    last_day_num = _cal_mod.monthrange(cal_year, cal_month)[1]
-    last_day = _date_cls(cal_year, cal_month, last_day_num)
+    last_day  = _date_cls(cal_year, cal_month, _cal_mod.monthrange(cal_year, cal_month)[1])
 
     # Пред/след месяц
-    if cal_month == 1:
-        prev_year, prev_month = cal_year - 1, 12
-    else:
-        prev_year, prev_month = cal_year, cal_month - 1
-    if cal_month == 12:
-        next_year, next_month = cal_year + 1, 1
-    else:
-        next_year, next_month = cal_year, cal_month + 1
+    prev_m = cal_month - 1 or 12
+    prev_y = cal_year - (1 if cal_month == 1 else 0)
+    next_m = (cal_month % 12) + 1
+    next_y = cal_year + (1 if cal_month == 12 else 0)
 
-    prev_month_str = f'{prev_year}-{prev_month:02d}'
-    next_month_str = f'{next_year}-{next_month:02d}'
-
-    # Список месяцев для быстрого прыжка (текущий год ± 2)
-    jump_options = []
-    month_names = ['', 'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
-                   'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
-    for y in range(today.year - 2, today.year + 4):
-        for m in range(1, 13):
-            val = f'{y}-{m:02d}'
-            label = f'{month_names[m]} {y}'
-            selected = (y == cal_year and m == cal_month)
-            jump_options.append({'value': val, 'label': label, 'selected': selected})
-
-    # ── Встречи месяца (для точек на сетке) ─────────────────────────
-    month_meetings = Meeting.objects.filter(
-        partner=partner,
-        date__range=(first_day, last_day),
+    # ── Встречи месяца ──────────────────────────────────────────────
+    month_meetings_qs = Meeting.objects.filter(
+        partner=partner, date__range=(first_day, last_day),
     ).select_related('member').order_by('date', 'start_time')
 
-    meetings_by_date = {}
-    for m in month_meetings:
+    meetings_by_date: dict = {}
+    for m in month_meetings_qs:
         if m.date:
             meetings_by_date.setdefault(m.date, []).append(m)
 
-    # Строим сетку с объектами дат (не просто числа)
-    cal_grid = []
-    for week in cal_weeks:
-        row = []
-        for day_num in week:
-            if day_num == 0:
-                row.append(None)
-            else:
-                d = _date_cls(cal_year, cal_month, day_num)
-                row.append({
-                    'date': d,
-                    'num': day_num,
-                    'is_today': d == today,
-                    'is_selected': d == selected_day,
-                    'meetings': meetings_by_date.get(d, []),
-                    'count': len(meetings_by_date.get(d, [])),
-                })
-        cal_grid.append(row)
+    cal_grid = build_month_grid(cal_year, cal_month, meetings_by_date)
+    mark_selected(cal_grid, selected_day)
 
-    # ── Встречи выбранного дня (суточный вид) ───────────────────────
+    # ── Встречи выбранного дня ──────────────────────────────────────
     day_meetings = Meeting.objects.filter(
-        partner=partner,
-        date=selected_day,
+        partner=partner, date=selected_day,
     ).select_related('member').order_by('start_time')
 
-    # Upcoming: следующие 20 встреч начиная с сегодня
     upcoming = Meeting.objects.filter(
-        partner=partner,
-        date__gte=today,
-        status__in=['scheduled', 'confirmed'],
+        partner=partner, date__gte=today, status__in=['scheduled', 'confirmed'],
     ).select_related('member').order_by('date', 'start_time')[:20]
 
-    # Часовые слоты для суточного вида: 08:00 - 22:00
-    hour_slots = list(range(8, 23))  # 8..22
-
-    # Для JS: сериализуем встречи дня в JSON
-    day_meetings_json = []
-    for m in day_meetings:
-        day_meetings_json.append({
-            'id': m.pk,
-            'title': m.title,
-            'member': m.member.get_full_name() or m.member.username,
-            'start': m.start_time.strftime('%H:%M') if m.start_time else None,
-            'end':   m.end_time.strftime('%H:%M')   if m.end_time   else None,
-            'start_h': m.start_time.hour + m.start_time.minute / 60 if m.start_time else None,
-            'end_h':   m.end_time.hour + m.end_time.minute / 60     if m.end_time   else None,
-            'status': m.status,
-            'address': m.address,
-            'is_recurring': m.is_recurring,
-            'series_label': m.series_label,
-            'cancel_url': f'/auth/partner/meeting/{m.pk}/cancel/',
-        })
-
-    # Партнёр может записать ЛЮБОГО активного пользователя
-    all_members = User.objects.filter(
-        is_active=True,
-    ).order_by('first_name', 'last_name', 'username')
-
-    # Форма
-    form = MeetingForm()
-    form.fields['member'].queryset = all_members
-
-    # Данные для prefill (при клике на time slot из GET)
-    prefill_date = request.GET.get('prefill_date', selected_day.strftime('%Y-%m-%d'))
-    prefill_time = request.GET.get('prefill_time', '')
-
-    # Обработка новой заметки о клиенте
-    note_action = request.POST.get('action')
-    if request.method == 'POST' and note_action == 'add_note':
-        note_member_id = request.POST.get('note_member_id')
+    # ── POST: заметка о клиенте ─────────────────────────────────────
+    if request.method == 'POST' and request.POST.get('action') == 'add_note':
+        note_mid  = request.POST.get('note_member_id')
         note_text = request.POST.get('note_text', '').strip()
-        if note_member_id and note_text:
-            ClientNote.objects.create(
-                partner=partner,
-                member_id=note_member_id,
-                note=note_text,
-            )
+        if note_mid and note_text:
+            ClientNote.objects.create(partner=partner, member_id=note_mid, note=note_text)
             messages.success(request, _('Note saved.'))
         return redirect(request.get_full_path())
 
-    if request.method == 'POST' and not note_action:
-        form = MeetingForm(request.POST)
+    # ── POST: новая встреча ─────────────────────────────────────────
+    all_members = User.objects.filter(is_active=True).order_by('first_name', 'last_name', 'username')
+    form = MeetingForm(request.POST or None)
+    form.fields['member'].queryset = all_members
+
+    if request.method == 'POST' and form.is_valid():
+        meeting = form.save(commit=False)
+        meeting.partner = partner
+        meeting.date    = meeting.date or today
+        meeting.save()
+        _notify_meeting_created(meeting, partner)
+        messages.success(request, _('Meeting scheduled successfully!'))
+        _mstr = f'{meeting.date.year}-{meeting.date.month:02d}'
+        return redirect(f"{request.path}?month={_mstr}&day={meeting.date.isoformat()}")
+    elif request.method != 'POST':
+        form = MeetingForm()
         form.fields['member'].queryset = all_members
-        if form.is_valid():
-            meeting = form.save(commit=False)
-            meeting.partner = partner
-            # Если дата не указана — ставим сегодня (встреча "прямо сейчас")
-            if not meeting.date:
-                meeting.date = today
-            meeting.save()
 
-            if meeting.notify_member:
-                from notifications.models import Notification as _Notif
-                _date_txt = meeting.date.strftime('%d %b %Y') if meeting.date else _('today')
-                _time_txt = (f"{meeting.start_time.strftime('%H:%M')} — {meeting.end_time.strftime('%H:%M')}"
-                             if meeting.start_time and meeting.end_time
-                             else _('time not specified'))
-                _Notif.objects.create(
-                    recipient=meeting.member,
-                    notification_type='system',
-                    title=f'📅 {partner.company_name}: {meeting.title}',
-                    message=_(
-                        'Partner %(company)s has scheduled a meeting with you.\n'
-                        '"%(title)s"\n'
-                        'Date: %(date)s\n'
-                        'Time: %(time)s\n'
-                        '%(addr)s%(series)s'
-                    ) % {
-                        'company': partner.company_name,
-                        'title':   meeting.title,
-                        'date':    _date_txt,
-                        'time':    _time_txt,
-                        'addr':    f'Address: {meeting.address}\n' if meeting.address else '',
-                        'series':  f'Series: {meeting.series_label}\n' if meeting.series_label else '',
-                    },
-                    link='/auth/my-calendar/',
-                )
-                # TG уведомление
-                if getattr(meeting.member, 'telegram_chat_id', None):
-                    import threading as _thr
-                    _mid = meeting.pk
-                    def _tg_meeting():
-                        try:
-                            from users.telegram.notify import send_message as _sm
-                            from users.models import Meeting as _M
-                            m = _M.objects.select_related('partner', 'member').get(pk=_mid)
-                            _d = m.date.strftime('%d %b %Y') if m.date else 'today'
-                            _t = (f"{m.start_time.strftime('%H:%M')} — {m.end_time.strftime('%H:%M')}"
-                                  if m.start_time and m.end_time else 'time TBD')
-                            text = (
-                                f"📅 <b>Meeting scheduled</b>\n\n"
-                                f"<b>{m.partner.company_name}</b>: {m.title}\n"
-                                f"📆 {_d} | 🕐 {_t}\n"
-                                + (f"📍 {m.address}\n" if m.address else "")
-                                + (f"📝 {m.notes}\n" if m.notes else "")
-                                + (f"🔄 Series: {m.series_label}\n" if m.series_label else "")
-                            )
-                            _sm(m.member.telegram_chat_id, text, parse_mode='HTML')
-                        except Exception as _e:
-                            logger.error("meeting TG notify failed: %s", _e)
-                    _thr.Thread(target=_tg_meeting, daemon=True).start()
-
-                meeting.notification_sent = True
-                meeting.save(update_fields=['notification_sent'])
-
-            messages.success(request, _('Meeting scheduled successfully!'))
-            # Редирект на день встречи (сохраняем месяц)
-            _day = meeting.date.isoformat() if meeting.date else today.isoformat()
-            _d = meeting.date or today
-            _mstr = f'{_d.year}-{_d.month:02d}'
-            return redirect(f"{request.path}?month={_mstr}&day={_day}")
-
-    # Клиентские заметки для выбранного дня's participants
+    # ── Клиентские заметки ──────────────────────────────────────────
     day_member_ids = list(day_meetings.values_list('member_id', flat=True))
-    client_notes_by_member = {}
+    client_notes_by_member: dict = {}
     if day_member_ids:
-        for note in ClientNote.objects.filter(partner=partner, member_id__in=day_member_ids).select_related('member'):
+        for note in ClientNote.objects.filter(
+            partner=partner, member_id__in=day_member_ids
+        ).select_related('member'):
             client_notes_by_member.setdefault(note.member_id, []).append(note)
 
-    # Статистика
-    total_meetings = Meeting.objects.filter(partner=partner, status__in=['scheduled', 'confirmed']).count()
-    month_meetings = Meeting.objects.filter(
-        partner=partner,
-        date__year=today.year,
-        date__month=today.month,
-        status__in=['scheduled', 'confirmed'],
-    ).count()
+    # ── Статистика ──────────────────────────────────────────────────
+    _meet_stats = Meeting.objects.filter(partner=partner, status__in=['scheduled', 'confirmed']).aggregate(
+        total=Count('id'),
+        this_month=Count('id', filter=Q(date__year=today.year, date__month=today.month)),
+    )
 
     return render(request, 'users/partner_calendar.html', {
         'partner':           partner,
         'form':              form,
-        # Месячный вид
         'cal_grid':          cal_grid,
         'cal_year':          cal_year,
         'cal_month':         cal_month,
         'cal_month_name':    first_day.strftime('%B %Y'),
-        'prev_month_str':    prev_month_str,
-        'next_month_str':    next_month_str,
-        'jump_options':      jump_options,
-        # Суточный вид
+        'prev_month_str':    f'{prev_y}-{prev_m:02d}',
+        'next_month_str':    f'{next_y}-{next_m:02d}',
+        'jump_options':      get_jump_options(cal_year, cal_month),
         'meetings_by_date':  meetings_by_date,
         'day_meetings':      day_meetings,
-        'day_meetings_json': _json.dumps(day_meetings_json),
+        'day_meetings_json': _json.dumps(serialize_day_meetings(day_meetings)),
         'selected_day':      selected_day,
         'today':             today,
         'upcoming':          upcoming,
-        'hour_slots':        hour_slots,
-        'prefill_date':      prefill_date,
-        'prefill_time':      prefill_time,
+        'hour_slots':        list(range(8, 23)),
+        'prefill_date':      request.GET.get('prefill_date', selected_day.strftime('%Y-%m-%d')),
+        'prefill_time':      request.GET.get('prefill_time', ''),
         'client_notes_by_member': client_notes_by_member,
-        'total_meetings':    total_meetings,
-        'month_meetings':    month_meetings,
+        'total_meetings':    _meet_stats['total']      or 0,
+        'month_meetings':    _meet_stats['this_month'] or 0,
         'all_members':       all_members,
     })
 
