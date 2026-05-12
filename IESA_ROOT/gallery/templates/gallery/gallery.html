@@ -126,6 +126,20 @@
     border-radius: 24px; padding: 4rem 2rem;
     text-align: center; margin: 3rem auto; max-width: 520px;
 }
+/* 4g: Анимированная пунктирная рамка для empty state */
+.gal-empty--animated {
+    background: rgba(255,255,255,.02);
+    border: 2px dashed rgba(255,255,255,.12);
+    animation: dash-border 3s linear infinite;
+    background-clip: padding-box;
+}
+@keyframes dash-border {
+    0%   { border-color: rgba(220,38,38,.25); }
+    25%  { border-color: rgba(255,255,255,.12); }
+    50%  { border-color: rgba(220,38,38,.25); }
+    75%  { border-color: rgba(255,255,255,.12); }
+    100% { border-color: rgba(220,38,38,.25); }
+}
 .gal-empty-icon {
     font-size: 3rem; margin-bottom: 1.25rem; display: block;
     color: rgba(255,255,255,.2); animation: gal-float 3s ease-in-out infinite;
@@ -231,14 +245,22 @@
     </div>
 
 {% else %}
+    {# 4g: Улучшенный empty state галереи #}
     <div class="container">
-        <div class="gal-empty" data-reveal>
-            <i class="fas fa-camera gal-empty-icon"></i>
-            <h5>{% trans "No photos yet" %}</h5>
-            <p class="mb-4">{% trans "Add photos from events or projects to inspire members." %}</p>
-            <a href="{% url 'blog:post_list' %}" class="btn hero-btn-p">
-                <i class="fas fa-camera me-2"></i>{% trans "Go to community" %}
+        <div class="gal-empty gal-empty--animated" data-reveal>
+            <span class="gal-empty-icon">📸</span>
+            <h5>{% trans "Your first shot goes here" %}</h5>
+            {% if user.is_staff %}
+            <p class="mb-4">{% trans "Upload photos from events or projects to showcase the community." %}</p>
+            <a href="/admin/gallery/photo/add/" class="btn hero-btn-p">
+                <i class="fas fa-upload me-2"></i>{% trans "Upload Photos" %}
             </a>
+            {% else %}
+            <p class="mb-4">{% trans "Photos from events and activities will appear here as they are added." %}</p>
+            <a href="{% url 'blog:post_list' %}" class="btn hero-btn-p">
+                <i class="fas fa-fire me-2"></i>{% trans "Explore Community" %}
+            </a>
+            {% endif %}
         </div>
     </div>
 {% endif %}
