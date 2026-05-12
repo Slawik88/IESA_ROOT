@@ -160,7 +160,7 @@
         {% endif %}
         {% if profile_user.is_partner or profile_user.partner_profile %}
           <a href="{% url 'users:partner_dashboard' %}" class="btn-cab-outline">
-            <i class="fas fa-tachometer-alt"></i> {% trans "Partner Dashboard" %>
+            <i class="fas fa-tachometer-alt"></i> {% trans "Partner Dashboard" %}
           </a>
         {% endif %}
         {% if profile_user.membership_status == 'active' %}
@@ -504,10 +504,7 @@
     </div>
   </div><!-- /cab-wrap -->
 
-  {# ══════════════════════════════════════════════
-     БЛОК ЗАЯВКИ НА ПОВЫШЕНИЕ СТАТУСА
-  ══════════════════════════════════════════════ #}
-  {% if not user.is_partner and user.membership_status != 'active' or True %}
+  {% if not user.is_partner and user.membership_status != 'active' %}
   <div class="cab-wrap" style="margin-top:0; padding-top:0;">
     <div id="acr-section" data-reveal data-delay="5">
 
