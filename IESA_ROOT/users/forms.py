@@ -258,17 +258,52 @@ class VisitForm(forms.ModelForm):
 # ---------------------------------------------------------------------------
 
 class AccountChangeRequestForm(forms.Form):
-    """Форма подачи заявки на повышение/смену типа аккаунта."""
+    """Форма подачи заявки на повышение/смену типа аккаунта — расширенная версия."""
 
     from .models import AccountChangeRequest as _ACR
 
     desired_type = forms.ChoiceField(
         choices=_ACR.DESIRED_TYPE_CHOICES,
-        label=_('Desired Account Type'),
+        label=_('Desired Role'),
         widget=forms.Select(attrs={'class': 'acr-select'}),
     )
+    business_category = forms.ChoiceField(
+        choices=[('', '— ' + str(_('choose your category')) + ' —')] + list(_ACR.BUSINESS_CATEGORY_CHOICES),
+        label=_('Business Category'),
+        required=False,
+        widget=forms.Select(attrs={'class': 'acr-select'}),
+    )
+    contact_name = forms.CharField(
+        label=_('Full Name'),
+        max_length=200,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'acr-input', 'placeholder': _('Your full name')}),
+    )
+    contact_phone = forms.CharField(
+        label=_('Phone / WhatsApp'),
+        max_length=50,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'acr-input', 'placeholder': '+41 79 000 00 00'}),
+    )
+    contact_telegram = forms.CharField(
+        label=_('Telegram'),
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'acr-input', 'placeholder': '@username'}),
+    )
+    contact_email = forms.EmailField(
+        label=_('Contact Email'),
+        required=False,
+        widget=forms.EmailInput(attrs={'class': 'acr-input', 'placeholder': 'email@example.com'}),
+    )
+    address = forms.CharField(
+        label=_('Address / Location'),
+        max_length=500,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'acr-input', 'placeholder': _('City, street, or region')}),
+    )
     reason = forms.CharField(
-        label=_('Why do you want to change your account type?'),
+        label=_('Description of Activity'),
         help_text=_('Describe your activity, role and goals. Minimum 50 characters.'),
         min_length=50,
         max_length=2000,

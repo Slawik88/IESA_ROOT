@@ -53,7 +53,12 @@
       "Bash(python manage.py makemessages -l uk -l fr -l de --ignore=staticfiles --ignore=venv)",
       "Bash(pip install *)",
       "Bash(python add_acr_translations.py)",
-      "Bash(python acr_i18n.py)"
+      "Bash(python acr_i18n.py)",
+      "Bash(git rm *)",
+      "Bash(python manage.py makemigrations --check)",
+      "Bash(python manage.py migrate users 0022)",
+      "Bash(python manage.py migrate)",
+      "Bash(python manage.py makemigrations users --name=\"acr_contact_fields_meeting\")"
     ]
   }
 }

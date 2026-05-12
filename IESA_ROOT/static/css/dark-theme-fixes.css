@@ -429,3 +429,73 @@ code {
 .badge.bg-warning-subtle { background: rgba(217, 119, 6, 0.15) !important; color: #fbbf24 !important; }
 .badge.bg-success-subtle { background: rgba(22, 163, 74, 0.15) !important; color: #4ade80 !important; }
 .badge.bg-danger-subtle  { background: rgba(239, 68, 68, 0.15) !important; color: #f87171 !important; }
+
+/* ══════════════════════════════════════════════════════════
+   FORM INPUTS — dark theme override (Bootstrap белый фон на focus)
+   Загружается последним → перекрывает Bootstrap defaults
+   ══════════════════════════════════════════════════════════ */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="date"],
+textarea,
+select,
+.form-control,
+.form-select {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus,
+input[type="date"]:focus,
+textarea:focus,
+select:focus,
+.form-control:focus,
+.form-select:focus {
+  background-color: rgba(220, 38, 38, 0.05) !important;
+  border-color: rgba(220, 38, 38, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
+  color: #fff !important;
+  outline: none !important;
+  -webkit-text-fill-color: #fff !important;
+}
+
+/* Autofill — Chrome/Safari заливают жёлтым или синим */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #111118 inset !important;
+  -webkit-text-fill-color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  caret-color: #fff;
+}
+
+/* Placeholder */
+.form-control::placeholder,
+.form-select::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255, 255, 255, 0.28) !important;
+  opacity: 1 !important;
+}
+
+/* Select dark options */
+.form-control option,
+.form-select option,
+select option {
+  background: #111118;
+  color: #fff;
+}

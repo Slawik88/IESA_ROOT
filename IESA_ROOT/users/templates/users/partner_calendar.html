@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Calendar" %} — {{ partner.company_name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<style>
+/* ── Календарная сетка ── */
+.cal-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: .5rem;
+    margin-bottom: 1.5rem;
+}
+.cal-day {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 12px;
+    min-height: 160px;
+    overflow: hidden;
+}
+.cal-day--today { border-color: rgba(220,38,38,.4); background: rgba(220,38,38,.04); }
+.cal-day-header {
+    padding: .5rem .7rem .4rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.cal-day-name { font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.3); }
+.cal-day-num  { font-size: 1.1rem; font-weight: 800; color: rgba(255,255,255,.8); }
+.cal-day--today .cal-day-num { color: #f87171; }
+.cal-meetings { padding: .4rem .5rem; display: flex; flex-direction: column; gap: .35rem; }
+.cal-meeting-chip {
+    background: rgba(220,38,38,.12);
+    border: 1px solid rgba(220,38,38,.22);
+    border-radius: 8px;
+    padding: .3rem .55rem;
+    font-size: .72rem;
+    cursor: pointer;
+    transition: background .15s;
+}
+.cal-meeting-chip:hover { background: rgba(220,38,38,.2); }
+.cal-meeting-time { font-weight: 700; color: #f87171; font-family: var(--font-mono); font-size: .68rem; }
+.cal-meeting-title { color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-meeting-member { color: rgba(255,255,255,.38); font-size: .65rem; }
+
+/* ── Форма создания встречи ── */
+.meet-form-card {
+    background: #111118;
+    border: 1.5px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+.meet-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.meet-form-label {
+    display: block;
+    font-size: .68rem; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: rgba(255,255,255,.38);
+    margin-bottom: .3rem;
+}
+.meet-submit {
+    background: var(--primary); color: #fff;
+    border: none; border-radius: 10px;
+    padding: .65rem 1.5rem;
+    font-size: .875rem; font-weight: 700; cursor: pointer;
+    transition: opacity .2s;
+}
+.meet-submit:hover { opacity: .88; }
+
+@media(max-width:768px) {
+    .cal-week { grid-template-columns: repeat(2,1fr); }
+    .meet-form-grid { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
+{% block content %}
+<div class="dash-root">
+
+  {# Sidebar #}
+  <aside class="dash-sidebar">
+    <div class="dash-sidebar__brand">
+      <div class="dash-sidebar__brand-name">{% trans "PARTNER PORTAL" %}</div>
+      <div class="dash-sidebar__company">{{ partner.company_name }}</div>
+    </div>
+    <nav class="dash-sidebar__nav">
+      <div class="dash-nav-section">
+        <a href="{% url 'users:partner_dashboard' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-tachometer-alt"></i></span>{% trans "Dashboard" %}
+        </a>
+        <a href="{% url 'users:partner_analytics' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-chart-bar"></i></span>{% trans "Analytics" %}
+        </a>
+      </div>
+      <div class="dash-nav-section">
+        <a href="{% url 'users:partner_calendar' %}" class="dash-nav-item active">
+          <span class="dash-nav-icon"><i class="fas fa-calendar-alt"></i></span>{% trans "Calendar" %}
+        </a>
+      </div>
+      <div class="dash-nav-section">
+        <a href="{% url 'users:partner_profile_edit' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-cog"></i></span>{% trans "Settings" %}
+        </a>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="dash-main">
+    <div class="dash-topbar">
+      <div>
+        <div class="dash-topbar__title">{% trans "Meeting Calendar" %}</div>
+        <div class="dash-topbar__sub">{{ partner.company_name }}</div>
+      </div>
+      <div class="dash-topbar__actions">
+        <a href="?week={{ prev_week }}" style="display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .8rem;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.65);font-size:.82rem;text-decoration:none;">
+          <i class="fas fa-chevron-left"></i> {% trans "Prev" %}
+        </a>
+        <a href="?week=0" style="display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .8rem;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.65);font-size:.82rem;text-decoration:none;">
+          {% trans "Today" %}
+        </a>
+        <a href="?week={{ next_week }}" style="display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .8rem;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.65);font-size:.82rem;text-decoration:none;">
+          {% trans "Next" %} <i class="fas fa-chevron-right"></i>
+        </a>
+      </div>
+    </div>
+
+    <div class="dash-content">
+
+      {% if messages %}
+      {% for msg in messages %}
+      <div class="dash-msg dash-msg--{% if msg.level >= 25 %}success{% else %}info{% endif %}" style="margin-bottom:1rem;">
+        {{ msg }}
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      {# Заголовок недели #}
+      <div style="font-size:.78rem;color:rgba(255,255,255,.38);margin-bottom:.75rem;font-family:var(--font-mono);">
+        {{ week_days.0|date:"d M" }} — {{ week_days.6|date:"d M Y" }}
+      </div>
+
+      {# Календарная неделя #}
+      <div class="cal-week">
+        {% for day in week_days %}
+        <div class="cal-day {% if day == today %}cal-day--today{% endif %}">
+          <div class="cal-day-header">
+            <span class="cal-day-name">{{ day|date:"D" }}</span>
+            <span class="cal-day-num">{{ day|date:"d" }}</span>
+          </div>
+          <div class="cal-meetings">
+            {% for meeting in meetings_by_date|default:''%}
+            {% endfor %}
+            {% for m in meetings_by_date|default:'' %}
+            {% endfor %}
+            {# Фильтруем встречи по дню через forloop #}
+            {% with day_meetings=meetings_by_date|default:'' %}
+            {% comment %}Django шаблон не поддерживает dict lookup по переменной напрямую — используем forloop ниже{% endcomment %}
+            {% endwith %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      {# Список всех встреч недели в виде таблицы #}
+      {% if meetings_by_date %}
+      <div class="dash-card" style="margin-bottom:1.5rem;">
+        <div class="dash-card__header">
+          <span class="dash-card__title"><i class="fas fa-list" style="color:var(--primary);"></i> {% trans "This Week's Meetings" %}</span>
+        </div>
+        <div class="dash-card__body" style="padding:0;">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>{% trans "DATE" %}</th>
+                <th>{% trans "TIME" %}</th>
+                <th>{% trans "TITLE" %}</th>
+                <th>{% trans "MEMBER" %}</th>
+                <th>{% trans "ADDRESS" %}</th>
+                <th>{% trans "STATUS" %}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for day, day_meetings in meetings_by_date.items %}
+              {% for m in day_meetings %}
+              <tr>
+                <td style="white-space:nowrap;font-family:var(--font-mono);font-size:.78rem;color:rgba(255,255,255,.5);">
+                  {{ m.date|date:"d M Y" }}{% if m.date == today %} <span style="color:#f87171;font-size:.65rem;">TODAY</span>{% endif %}
+                </td>
+                <td style="font-family:var(--font-mono);font-size:.82rem;color:#f87171;white-space:nowrap;">
+                  {{ m.start_time|time:"H:i" }}–{{ m.end_time|time:"H:i" }}
+                </td>
+                <td style="font-weight:600;color:#f1f5f9;">{{ m.title }}</td>
+                <td>
+                  <a href="{% url 'users:partner_member_visits' m.member.pk %}" style="color:rgba(255,255,255,.75);text-decoration:none;">
+                    {{ m.member.get_full_name|default:m.member.username }}
+                  </a>
+                </td>
+                <td style="font-size:.8rem;color:rgba(255,255,255,.45);">{{ m.address|default:"—" }}</td>
+                <td>
+                  <span style="font-size:.68rem;font-weight:700;border-radius:100px;padding:2px 8px;
+                    {% if m.status == 'scheduled' %}background:rgba(99,102,241,.12);color:#a5b4fc;
+                    {% elif m.status == 'confirmed' %}background:rgba(34,197,94,.12);color:#4ade80;
+                    {% elif m.status == 'cancelled' %}background:rgba(255,255,255,.06);color:rgba(255,255,255,.3);
+                    {% else %}background:rgba(245,158,11,.1);color:#fbbf24;{% endif %}">
+                    {{ m.get_status_display }}
+                  </span>
+                </td>
+                <td>
+                  {% if m.status != 'cancelled' %}
+                  <form method="post" action="{% url 'users:delete_meeting' m.pk %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" style="background:none;border:none;color:rgba(255,100,100,.6);cursor:pointer;font-size:.78rem;"
+                            onclick="return confirm('{% trans "Cancel this meeting?" %}')">
+                      {% trans "Cancel" %}
+                    </button>
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      {# Форма создания встречи #}
+      <div class="meet-form-card">
+        <div style="font-size:.78rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem;">
+          <i class="fas fa-plus" style="color:var(--primary);"></i> {% trans "SCHEDULE A MEETING" %}
+        </div>
+
+        {% if form %}
+        <form method="post">
+          {% csrf_token %}
+          <div class="meet-form-grid" style="margin-bottom:1rem;">
+            <div>
+              <label class="meet-form-label">{% trans "MEMBER" %} *</label>
+              {{ form.member }}
+            </div>
+            <div>
+              <label class="meet-form-label">{% trans "MEETING TITLE" %} *</label>
+              {{ form.title }}
+            </div>
+            <div>
+              <label class="meet-form-label">{% trans "DATE" %} *</label>
+              {{ form.date }}
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+              <div>
+                <label class="meet-form-label">{% trans "START" %} *</label>
+                {{ form.start_time }}
+              </div>
+              <div>
+                <label class="meet-form-label">{% trans "END" %} *</label>
+                {{ form.end_time }}
+              </div>
+            </div>
+            <div>
+              <label class="meet-form-label">{% trans "ADDRESS" %}</label>
+              {{ form.address }}
+            </div>
+            <div>
+              <label class="meet-form-label">{% trans "NOTES" %}</label>
+              {{ form.notes }}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+            <button type="submit" class="meet-submit">
+              <i class="fas fa-calendar-plus me-2"></i>{% trans "Schedule Meeting" %}
+            </button>
+            <label style="display:flex;align-items:center;gap:.45rem;font-size:.82rem;color:rgba(255,255,255,.55);cursor:pointer;">
+              {{ form.notify_member }}
+              {% trans "Notify member via Telegram & site" %}
+            </label>
+          </div>
+          {% if form.errors %}
+          <div style="margin-top:.75rem;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:.65rem 1rem;color:#f87171;font-size:.82rem;">
+            {% for field, errors in form.errors.items %}
+              {% for err in errors %}<div>{{ field }}: {{ err }}</div>{% endfor %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </form>
+        {% endif %}
+      </div>
+
+    </div>
+  </main>
+</div>
+{% endblock %}
