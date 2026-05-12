@@ -129,7 +129,7 @@
 
 ---
 
-## BLOCK 7 — Архитектура: разбить `views_verification.py` на модули 🏗️
+## BLOCK 7 — Архитектура: разбить `views_verification.py` на модули 🏗️ ✅ DONE
 > **Проблема**: 1600+ строк в одном файле = нечитаемо, сложно искать, тяжело тестировать. Аналогично тому как `blog/views/` разбит на подпапку.
 
 ### Предложенная структура
@@ -150,22 +150,25 @@ users/views/
 ```
 
 ### Шаги
-- [ ] Создать `users/views/` директорию
-- [ ] Перенести по одному модулю, сохраняя `__init__.py` как point of re-export
-- [ ] Обновить `users/urls.py` — импортировать из нового пакета (минимальные изменения, т.к. `views_verification.*` заменяется на `views.*`)
-- [ ] `python manage.py check` → 0 ошибок после каждого переноса
+- [x] Создан `users/views/` пакет: auth, profile, search, qr, admin_utils, utils, partner, calendar, telegram_views, invites, insurance
+- [x] `views/__init__.py` re-экспортирует все функции (обратная совместимость)
+- [x] Удалён `users/views.py` (заменён пакетом)
+- [x] `users/views_verification.py` — тонкий шим для любых внешних импортов
+- [x] `users/urls.py` — только `from . import views`, нет `views_verification`
+- [x] `python manage.py check` → 0 ошибок ✅
+- [x] Константы PIN_MAX_ATTEMPTS, PIN_LOCKOUT_MINUTES, IDEMPOTENCY_WINDOW, EDIT_WINDOW добавлены в constants.py
 
 ---
 
-## BLOCK 8 — Мелкие улучшения читаемости и гибкости кода 🔇
+## BLOCK 8 — Мелкие улучшения читаемости и гибкости кода 🔇 ✅ PARTIAL
 > Точечные правки без риска регрессий.
 
 ### 8a — Убрать дублирование `try: partner = request.user.partner_profile`
 - [ ] В каждой view с `@partner_required` после декоратора делается ещё и `try/except Partner.DoesNotExist` — лишний код. Декоратор уже гарантирует что партнёр есть. Убрать дублирующий try/except изнутри view (заменить на прямой `request.user.partner_profile`)
 
-### 8b — Вынести Telegram bot name lookup в утилиту
-- [ ] `os.environ.get('TELEGRAM_BOT_USERNAME', os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot'))` — три вхождения в views_verification.py
-- [ ] Вынести в `users/telegram/config.py` как функцию `bot_name()` (уже частично есть, проверить)
+### 8b — Вынести Telegram bot name lookup в утилиту ✅
+- [x] `config.bot_name()` обновлён: TELEGRAM_BOT_USERNAME → TELEGRAM_BOT_NAME → ''
+- [x] `telegram_views.py` использует `_tg_bot_name()` вместо os.environ.get дублирования
 
 ### 8c — `account_change_request_submit()` → возвращает JSON для HTMX, но без HTMX-заголовков
 - [ ] Добавить `HX-Trigger` заголовки для обратной связи без перезагрузки страницы
@@ -175,17 +178,16 @@ users/views/
 - [ ] `partner_calendar.html`, `partner_dashboard.html` — содержат большие блоки `<style>` прямо в шаблоне (>200 строк каждый)
 - [ ] Вынести в `static/css/partner-calendar.css` и `static/css/partner-dashboard.css`
 
-### 8e — Страница `test_telegram_view()` — HTML генерируется в Python строке
-- [ ] views_verification.py ~150 строк: Python-строки `html = f"<html>...900 chars..."` — антипаттерн
-- [ ] Перенести в шаблон `users/templates/users/test_telegram.html`
+### 8e — Страница `test_telegram_view()` ✅
+- [x] HTML перенесён в `users/templates/users/test_telegram.html`
 
-### 8f — `impersonate_user()` — нет трассировки оригинального администратора
-- [ ] После impersonate нет записи «кто зашёл под кем»
-- [ ] Добавить `request.session['impersonated_by'] = request.user.pk` и показывать баннер в базовом шаблоне
+### 8f — `impersonate_user()` ✅
+- [x] Добавлены `session['impersonated_by']` и `session['impersonated_by_username']`
+- [x] Баннер в base.html показывает «Вы вошли как X от имени admin Y»
 
 ---
 
-## BLOCK 9 — CSS: организация файлов ⚡💅
+## BLOCK 9 — CSS: организация файлов ⚡💅 ✅ PARTIAL
 > 23 CSS-файла в одной плоской директории. Сложно ориентироваться.
 
 ### Предложенная структура
@@ -201,24 +203,24 @@ static/css/
 ```
 
 ### Шаги
-- [ ] Создать поддиректории
-- [ ] Перенести файлы
-- [ ] Обновить все `{% load static %}` и `<link>` ссылки в шаблонах
-- [ ] Проверить ManifestStaticFilesStorage — хеши перегенерируются автоматически при `collectstatic`
-- [ ] `collectstatic` на локальной машине → нет ошибок
+- [x] Удалён `static/css/member-cabinet.css` (orphan — Block 1)
+- [x] Удалён `users/templates/users/member_cabinet.html` (orphan — Block 1)
+- [ ] Реорганизация в поддиректории (core/, components/, pages/, plugins/, admin/) — риск высокий из-за ManifestStaticFilesStorage, откладывается на следующий цикл
 
 ---
 
-## BLOCK 10 — Тесты: покрытие критических путей 🏗️
+## BLOCK 10 — Тесты: покрытие критических путей 🏗️ ✅ DONE
 > Сейчас тестов практически нет. Добавить минимальное smoke-покрытие для критических эндпоинтов.
 
-### Приоритеты
-- [ ] `log_visit()` — PIN validation, lockout after 10 attempts, idempotency window
-- [ ] `edit_visit()` / `cancel_visit()` — 20-min window enforcement
-- [ ] `invite_register()` — invalid token, already-used token, correct flow
-- [ ] `insurance_agent_request()` — duplicate request prevention
-- [ ] `dashboard_redirect()` — роутинг по роли
-- [ ] `member_cabinet()` (до его удаления) → убедиться что вкладка в профиле выдаёт тот же контент
+### Результат: 23 теста, все ✅
+- [x] `check_pin_lockout` — 3 теста (не заблокирован, заблокирован, истёкший)
+- [x] `process_pin_attempt` — 3 теста (верный PIN, неверный PIN, локаут после 10)
+- [x] `check_idempotent_visit` — 2 теста (нет дубля, есть дубль)
+- [x] `edit_visit` / `cancel_visit` — 3 теста (в окне, вне окна)
+- [x] `invite_register` — 3 теста (valid, expired, used)
+- [x] `insurance_agent_request` — 3 теста (GET, POST, дубль)
+- [x] `dashboard_redirect` — 2 теста (partner → partner_dashboard, user → profile)
+- [x] `ProfileView` — 4 теста (page loads, PIN в контексте, визиты, /cabinet/ redirect)
 
 ---
 

@@ -94,6 +94,18 @@
     
     {% include "partials/_navbar.html" %}
 
+    {% if request.session.impersonated_by %}
+    <div style="background:#92400e;color:#fef3c7;text-align:center;padding:.45rem 1rem;font-size:.82rem;font-weight:700;z-index:9999;position:relative;">
+      ⚠️ Вы вошли как <strong>{{ request.user.username }}</strong>
+      от имени администратора <strong>{{ request.session.impersonated_by_username }}</strong>.
+      &nbsp;
+      <a href="{% url 'users:logout' %}" style="color:#fef3c7;text-decoration:underline;"
+         onclick="fetch('{% url 'users:logout' %}',{method:'POST',headers:{'X-CSRFToken':'{{ csrf_token }}'}}).then(()=>location.reload())">
+        Выйти
+      </a>
+    </div>
+    {% endif %}
+
     <!-- Main Content -->
     <main class="main-header-pad" id="main-content" role="main">
         {% if messages %}
