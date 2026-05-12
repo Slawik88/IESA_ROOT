@@ -32,9 +32,10 @@ def _url_btn(text: str, url: str) -> dict:
 
 
 # URL constants
-CABINET_URL    = "https://iesasport.ch/auth/profile/"       # regular user profile
-CARD_URL       = "https://iesasport.ch/auth/cabinet/"        # member PIN card
-CONNECT_TG_URL = "https://iesasport.ch/auth/connect-telegram/"  # TG linking page
+CABINET_URL       = "https://iesasport.ch/auth/profile/"           # regular user profile
+CARD_URL          = "https://iesasport.ch/auth/cabinet/"           # member PIN card
+CONNECT_TG_URL    = "https://iesasport.ch/auth/connect-telegram/"  # TG linking page
+INSURANCE_URL     = "https://iesasport.ch/auth/insurance-agent/"   # страховой агент
 
 # ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -328,6 +329,64 @@ async def handle_new_channel_member(chat_id: str, new_member: dict, channel_titl
         disable_notification=True,   # silent — doesn't ping the whole group
     )
 
+
+
+async def handle_insurance(chat_id: int, text: str, user_db) -> Reply:
+    """Команда /insurance — подача заявки на страхового агента."""
+    if not user_db:
+        msg = (
+            "🛡️ <b>Страховой агент IESA</b>\n\n"
+            "Чтобы подать заявку на страхового агента, сначала привяжите "
+            "Telegram к своему аккаунту на сайте.\n\n"
+            "Нажмите <b>Привязать аккаунт</b> — это займёт 1 минуту."
+        )
+        kb = _kb(
+            [_btn("🔗 Привязать аккаунт", "cb:link")],
+            [_url_btn("🌐 Сайт IESA", "https://iesasport.ch")],
+        )
+        return msg, kb
+
+    # Проверяем существующую заявку
+    def _check_existing():
+        from users.models import InsuranceAgentRequest
+        return InsuranceAgentRequest.objects.filter(
+            user=user_db,
+            status__in=['new', 'reviewing'],
+        ).first()
+
+    existing = await sync_to_async(_check_existing)()
+
+    if existing:
+        name = await sync_to_async(lambda: user_db.get_full_name() or user_db.username)()
+        msg = (
+            f"🛡️ <b>Ваша заявка уже подана, {name}!</b>\n\n"
+            f"📋 Тип: {existing.get_request_type_display()}\n"
+            f"🔄 Статус: <b>{existing.get_status_display()}</b>\n\n"
+            "Наш менеджер обрабатывает её и скоро свяжется с вами."
+        )
+        kb = _kb(
+            [_url_btn("📋 Перейти на сайт", INSURANCE_URL)],
+        )
+        return msg, kb
+
+    name = await sync_to_async(lambda: user_db.get_full_name() or user_db.username)()
+    msg = (
+        f"🛡️ <b>Страховой агент IESA</b>\n\n"
+        f"Здравствуйте, <b>{name}</b>!\n\n"
+        "Мы подберём для вас личного страхового агента — специалиста, "
+        "который поможет с:\n"
+        "• Страхованием здоровья и жизни\n"
+        "• Спортивным страхованием\n"
+        "• Страхованием автомобиля и имущества\n"
+        "• Пенсионными и накопительными программами\n\n"
+        "📝 Нажмите кнопку ниже, чтобы заполнить заявку на сайте.\n"
+        "Ответим в течение <b>24 часов</b>!"
+    )
+    kb = _kb(
+        [_url_btn("🛡️ Подать заявку", INSURANCE_URL)],
+        [_url_btn("🏠 Личный кабинет", CABINET_URL)],
+    )
+    return msg, kb
 
 
 async def handle_echo(chat_id: int, text: str, user_db) -> Reply:

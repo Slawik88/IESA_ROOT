@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import AccountChangeRequest, InviteToken, Meeting, Partner, User, Visit, VisitAudit
+from .models import (
+    AccountChangeRequest, AdminNotificationProfile, InsuranceAgentRequest,
+    InviteToken, Meeting, Partner, SiteSettings, User, Visit, VisitAudit,
+)
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from django.utils.html import format_html
 from django.urls import path, reverse
@@ -578,3 +581,105 @@ class AccountChangeRequestAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # заявки создаются только пользователями, не из Admin
+
+
+# ---------------------------------------------------------------------------
+# InsuranceAgentRequest admin
+# ---------------------------------------------------------------------------
+
+@admin.register(InsuranceAgentRequest)
+class InsuranceAgentRequestAdmin(admin.ModelAdmin):
+    """Заявки на страхового агента."""
+    list_display = [
+        'created_at', 'status_badge', 'full_name', 'request_type_display',
+        'phone', 'email', 'telegram_username', 'city', 'assigned_agent',
+    ]
+    list_filter  = ['status', 'request_type', 'created_at']
+    search_fields = ['full_name', 'phone', 'email', 'telegram_username', 'city', 'insurance_types']
+    raw_id_fields  = ['user', 'assigned_agent']
+    readonly_fields = ['user', 'full_name', 'phone', 'email', 'telegram_username',
+                       'city', 'insurance_types', 'message', 'request_type', 'created_at', 'updated_at']
+    ordering = ['-created_at']
+    date_hierarchy = 'created_at'
+
+    fieldsets = [
+        ('Заявка', {
+            'fields': ['user', 'request_type', 'full_name', 'created_at', 'updated_at'],
+        }),
+        ('Контакты', {
+            'fields': ['phone', 'email', 'telegram_username', 'city'],
+        }),
+        ('Детали', {
+            'fields': ['insurance_types', 'message'],
+        }),
+        ('Обработка', {
+            'fields': ['status', 'assigned_agent', 'admin_note'],
+        }),
+    ]
+
+    def status_badge(self, obj):
+        colors = {'new': '#eab308', 'reviewing': '#60a5fa', 'assigned': '#4ade80', 'closed': '#6b7280'}
+        color = colors.get(obj.status, '#fff')
+        return format_html(
+            '<span style="color:{};font-weight:700;">{}</span>',
+            color, obj.get_status_display(),
+        )
+    status_badge.short_description = 'Статус'
+    status_badge.admin_order_field = 'status'
+
+    def request_type_display(self, obj):
+        return obj.get_request_type_display()
+    request_type_display.short_description = 'Тип'
+
+
+# ---------------------------------------------------------------------------
+# SiteSettings admin (singleton)
+# ---------------------------------------------------------------------------
+
+@admin.register(SiteSettings)
+class SiteSettingsAdmin(admin.ModelAdmin):
+    """Глобальные настройки сайта — singleton (одна запись)."""
+
+    def has_add_permission(self, request):
+        return not SiteSettings.objects.exists()
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+# ---------------------------------------------------------------------------
+# AdminNotificationProfile admin
+# ---------------------------------------------------------------------------
+
+@admin.register(AdminNotificationProfile)
+class AdminNotificationProfileAdmin(admin.ModelAdmin):
+    """Настройки уведомлений для администраторов."""
+    list_display  = ['admin_user', 'is_active', 'telegram_events_display', 'site_events_display']
+    list_filter   = ['is_active']
+    search_fields = ['admin_user__username', 'admin_user__email']
+    raw_id_fields  = ['admin_user']
+
+    EVENT_CHOICES = [
+        ('new_account',       'Новый аккаунт'),
+        ('post_moderation',   'Пост на модерацию'),
+        ('account_upgrade',   'Заявка на повышение'),
+        ('insurance_request', 'Заявка страхового агента'),
+        ('new_visit',         'Новый визит партнёра'),
+    ]
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        help_txt = 'Список кодов через запятую: new_account, post_moderation, account_upgrade, insurance_request, new_visit'
+        if 'telegram_events' in form.base_fields:
+            form.base_fields['telegram_events'].help_text = help_txt
+        if 'site_events' in form.base_fields:
+            form.base_fields['site_events'].help_text = help_txt
+        return form
+
+    def telegram_events_display(self, obj):
+        return ', '.join(obj.telegram_events or []) or '—'
+    telegram_events_display.short_description = 'TG события'
+
+    def site_events_display(self, obj):
+        return ', '.join(obj.site_events or []) or '—'
+    site_events_display.short_description = 'Сайт события'

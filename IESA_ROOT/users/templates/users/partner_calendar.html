@@ -6,72 +6,291 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 <style>
-/* ── Календарная сетка ── */
-.cal-week {
+/* ═══════════════════════════════════════════════════════
+   PARTNER CALENDAR — Redesigned with hourly grid
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Двухколоночный layout ── */
+.cal-layout {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: .5rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: 320px 1fr;
+    gap: 1.25rem;
+    align-items: start;
 }
-.cal-day {
+@media(max-width:1024px) { .cal-layout { grid-template-columns: 1fr; } }
+
+/* ══════════════════════════════════════
+   ЛЕВАЯ ПАНЕЛЬ
+══════════════════════════════════════ */
+.cal-left { display: flex; flex-direction: column; gap: .85rem; }
+
+/* Статистика */
+.cal-stats {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: .5rem;
+}
+.cal-stat-box {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 12px; padding: .9rem;
+    text-align: center;
+}
+.cal-stat-val { font-size: 1.6rem; font-weight: 900; color: #f87171; line-height: 1; }
+.cal-stat-lbl { font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.3); margin-top: .2rem; }
+
+/* Мини-неделя */
+.cal-week-nav {
     background: rgba(255,255,255,.03);
     border: 1px solid rgba(255,255,255,.07);
-    border-radius: 12px;
-    min-height: 160px;
+    border-radius: 14px;
     overflow: hidden;
 }
-.cal-day--today { border-color: rgba(220,38,38,.4); background: rgba(220,38,38,.04); }
-.cal-day-header {
-    padding: .5rem .7rem .4rem;
-    border-bottom: 1px solid rgba(255,255,255,.06);
+.cal-week-header {
     display: flex; align-items: center; justify-content: space-between;
+    padding: .7rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    font-size: .78rem; color: rgba(255,255,255,.5);
 }
-.cal-day-name { font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.3); }
-.cal-day-num  { font-size: 1.1rem; font-weight: 800; color: rgba(255,255,255,.8); }
-.cal-day--today .cal-day-num { color: #f87171; }
-.cal-meetings { padding: .4rem .5rem; display: flex; flex-direction: column; gap: .35rem; }
-.cal-meeting-chip {
-    background: rgba(220,38,38,.12);
-    border: 1px solid rgba(220,38,38,.22);
-    border-radius: 8px;
-    padding: .3rem .55rem;
-    font-size: .72rem;
-    cursor: pointer;
+.cal-week-nav-btn {
+    background: none; border: none; color: rgba(255,255,255,.45);
+    cursor: pointer; padding: .2rem .5rem; border-radius: 6px;
+    transition: background .15s, color .15s;
+    text-decoration: none;
+    font-size: .85rem;
+}
+.cal-week-nav-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+.cal-week-days {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    padding: .5rem;
+    gap: .25rem;
+}
+.cal-mini-day {
+    text-align: center; padding: .45rem .1rem;
+    border-radius: 8px; cursor: pointer;
     transition: background .15s;
+    text-decoration: none;
+    display: block;
 }
-.cal-meeting-chip:hover { background: rgba(220,38,38,.2); }
-.cal-meeting-time { font-weight: 700; color: #f87171; font-family: var(--font-mono); font-size: .68rem; }
-.cal-meeting-title { color: rgba(255,255,255,.75); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-meeting-member { color: rgba(255,255,255,.38); font-size: .65rem; }
+.cal-mini-day:hover { background: rgba(255,255,255,.07); }
+.cal-mini-day--selected { background: rgba(220,38,38,.2) !important; }
+.cal-mini-day--today { background: rgba(220,38,38,.12); }
+.cal-mini-day-name { font-size: .6rem; font-weight: 700; color: rgba(255,255,255,.28); text-transform: uppercase; }
+.cal-mini-day-num  { font-size: .88rem; font-weight: 700; color: rgba(255,255,255,.7); }
+.cal-mini-day--today .cal-mini-day-num { color: #f87171; }
+.cal-mini-day--selected .cal-mini-day-num { color: #fff; }
+.cal-mini-dot-row { display: flex; justify-content: center; gap: 2px; margin-top: 2px; min-height: 5px; }
+.cal-mini-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(220,38,38,.6); }
 
-/* ── Форма создания встречи ── */
-.meet-form-card {
+/* Upcoming list */
+.cal-upcoming {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 14px;
+    overflow: hidden;
+    max-height: 380px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+.cal-upcoming-head {
+    padding: .65rem 1rem;
+    font-size: .68rem; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; color: rgba(255,255,255,.3);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    position: sticky; top: 0;
+    background: #0e0e18;
+}
+.cal-upcoming-item {
+    display: flex; align-items: flex-start; gap: .75rem;
+    padding: .7rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+    text-decoration: none;
+    transition: background .12s;
+    cursor: pointer;
+}
+.cal-upcoming-item:hover { background: rgba(255,255,255,.04); }
+.cal-upcoming-item:last-child { border-bottom: none; }
+.cal-upcoming-date {
+    min-width: 44px; text-align: center;
+    background: rgba(220,38,38,.1); border-radius: 8px;
+    padding: .3rem .2rem; flex-shrink: 0;
+}
+.cal-upcoming-date-day { font-size: 1rem; font-weight: 900; color: #f87171; line-height: 1; }
+.cal-upcoming-date-mon { font-size: .6rem; color: rgba(255,255,255,.4); text-transform: uppercase; }
+.cal-upcoming-info { flex: 1; min-width: 0; }
+.cal-upcoming-title { font-size: .83rem; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-upcoming-member { font-size: .75rem; color: rgba(255,255,255,.4); }
+.cal-upcoming-time   { font-size: .72rem; color: rgba(255,255,255,.35); font-family: var(--font-mono); }
+
+/* ══════════════════════════════════════
+   ПРАВАЯ ПАНЕЛЬ — Суточный вид
+══════════════════════════════════════ */
+.cal-right { display: flex; flex-direction: column; gap: .85rem; }
+
+/* Заголовок дня */
+.cal-day-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: .75rem;
+}
+.cal-day-title { font-size: 1.2rem; font-weight: 800; color: #f1f5f9; }
+.cal-day-sub   { font-size: .8rem; color: rgba(255,255,255,.38); }
+.cal-day-nav   { display: flex; align-items: center; gap: .4rem; }
+.cal-day-nav-btn {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .35rem .75rem; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: none; color: rgba(255,255,255,.6);
+    font-size: .8rem; font-weight: 600;
+    text-decoration: none; cursor: pointer;
+    transition: all .15s;
+}
+.cal-day-nav-btn:hover { background: rgba(255,255,255,.07); color: #fff; }
+.cal-day-nav-btn--today { background: rgba(220,38,38,.1); border-color: rgba(220,38,38,.3); color: #f87171; }
+
+/* Почасовая сетка */
+.cal-hour-grid {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+}
+.cal-hour-grid-inner {
+    position: relative;
+}
+.cal-hour-row {
+    display: flex;
+    min-height: 64px;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    position: relative;
+}
+.cal-hour-row:last-child { border-bottom: none; }
+.cal-hour-row:hover .cal-hour-slot-btn { opacity: 1; }
+.cal-hour-label {
+    width: 62px; flex-shrink: 0;
+    padding: .4rem .75rem 0;
+    font-size: .68rem; font-weight: 600;
+    color: rgba(255,255,255,.28);
+    font-family: var(--font-mono);
+    border-right: 1px solid rgba(255,255,255,.04);
+}
+.cal-hour-content {
+    flex: 1; position: relative; min-height: 64px;
+}
+.cal-hour-slot-btn {
+    position: absolute; inset: 2px;
+    background: rgba(255,255,255,.02);
+    border: 1px dashed rgba(255,255,255,.08);
+    border-radius: 6px;
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity .15s, background .15s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .7rem; color: rgba(255,255,255,.3);
+    text-decoration: none;
+}
+.cal-hour-slot-btn:hover { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.25); color: rgba(220,38,38,.6); opacity: 1 !important; }
+
+/* "Сейчас" линия */
+#cal-now-line {
+    position: absolute;
+    left: 62px; right: 0;
+    height: 2px;
+    background: #f87171;
+    z-index: 10;
+    pointer-events: none;
+}
+#cal-now-line::before {
+    content: '';
+    position: absolute;
+    left: -6px; top: -4px;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #f87171;
+}
+
+/* Блоки встреч */
+.cal-meeting-block {
+    position: absolute;
+    left: 4px; right: 4px;
+    border-radius: 8px;
+    padding: .35rem .6rem;
+    overflow: hidden;
+    cursor: pointer;
+    z-index: 5;
+    transition: filter .15s, transform .15s;
+    min-height: 30px;
+}
+.cal-meeting-block:hover { filter: brightness(1.15); transform: translateX(2px); }
+.cal-meeting-block--scheduled { background: rgba(99,102,241,.2); border: 1px solid rgba(99,102,241,.4); }
+.cal-meeting-block--confirmed  { background: rgba(34,197,94,.18); border: 1px solid rgba(34,197,94,.35); }
+.cal-meeting-block--cancelled  { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); opacity: .5; }
+.cal-meeting-block--completed  { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.28); }
+.cal-meeting-block--no-time    { background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.25); position: static !important; height: auto !important; margin: .3rem; }
+.cal-mb-title    { font-size: .75rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-mb-member   { font-size: .67rem; color: rgba(255,255,255,.55); }
+.cal-mb-time     { font-size: .65rem; color: rgba(255,255,255,.4); font-family: var(--font-mono); }
+.cal-mb-icon     { font-size: .6rem; margin-right: 3px; }
+
+/* Встречи без времени */
+.cal-no-time-meetings {
+    padding: .5rem .75rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    background: rgba(255,255,255,.02);
+}
+.cal-no-time-label { font-size: .65rem; color: rgba(255,255,255,.28); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .4rem; }
+
+/* ── Форма добавления встречи ── */
+.cal-form-card {
     background: #111118;
     border: 1.5px solid rgba(255,255,255,.08);
-    border-radius: 16px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
+    border-radius: 14px;
+    overflow: hidden;
 }
-.meet-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.meet-form-label {
-    display: block;
-    font-size: .68rem; font-weight: 700; letter-spacing: .1em;
-    text-transform: uppercase; color: rgba(255,255,255,.38);
-    margin-bottom: .3rem;
+.cal-form-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .75rem 1.1rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    cursor: pointer;
 }
-.meet-submit {
-    background: var(--primary); color: #fff;
-    border: none; border-radius: 10px;
-    padding: .65rem 1.5rem;
-    font-size: .875rem; font-weight: 700; cursor: pointer;
-    transition: opacity .2s;
+.cal-form-head-title { font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.45); display: flex; align-items: center; gap: .5rem; }
+.cal-form-head-title i { color: var(--primary); }
+.cal-form-body { padding: 1rem; }
+.cal-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+@media(max-width:640px) { .cal-form-grid { grid-template-columns: 1fr; } }
+.cal-field-label { font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.35); display: block; margin-bottom: .3rem; }
+.cal-input {
+    width: 100%; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px; color: #fff; font-size: .875rem; padding: .52rem .8rem;
+    transition: border-color .15s; outline: none;
 }
-.meet-submit:hover { opacity: .88; }
+.cal-input:focus { border-color: rgba(220,38,38,.5); }
+.cal-input::placeholder { color: rgba(255,255,255,.2); }
+.cal-submit {
+    background: var(--primary); color: #fff; border: none; border-radius: 8px;
+    padding: .6rem 1.25rem; font-size: .875rem; font-weight: 700; cursor: pointer;
+    transition: opacity .15s; display: flex; align-items: center; gap: .45rem;
+}
+.cal-submit:hover { opacity: .88; }
 
-@media(max-width:768px) {
-    .cal-week { grid-template-columns: repeat(2,1fr); }
-    .meet-form-grid { grid-template-columns: 1fr; }
+/* ── Клиентские заметки ── */
+.cal-client-notes {
+    background: rgba(99,102,241,.06);
+    border: 1px solid rgba(99,102,241,.15);
+    border-radius: 12px;
+    padding: .85rem 1rem;
+    margin-bottom: .5rem;
 }
+.cal-cn-head { font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(99,102,241,.7); margin-bottom: .6rem; }
+.cal-cn-item { font-size: .82rem; color: rgba(255,255,255,.65); padding: .35rem 0; border-bottom: 1px solid rgba(255,255,255,.06); }
+.cal-cn-item:last-child { border-bottom: none; }
+.cal-cn-date { font-size: .68rem; color: rgba(255,255,255,.3); font-family: var(--font-mono); }
+
+/* ── Badge recurring ── */
+.badge-recurring { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.25); border-radius: 100px; padding: 1px 7px; font-size: .62rem; font-weight: 700; }
+
+/* ── Пустой день ── */
+.cal-empty-day { text-align: center; padding: 2.5rem 1rem; color: rgba(255,255,255,.25); }
+.cal-empty-day i { font-size: 2rem; margin-bottom: .75rem; display: block; }
 </style>
 {% endblock %}
 
@@ -87,26 +306,40 @@
       <div class="dash-sidebar__brand-name">{% trans "PARTNER PORTAL" %}</div>
       <div class="dash-sidebar__company">{{ partner.company_name }}</div>
     </div>
+    <div style="padding:.6rem .8rem .2rem;">
+      <a href="#add-meeting" class="dash-cta-btn" onclick="document.getElementById('cal-form-toggle').checked=true;">
+        <i class="fas fa-plus"></i> {% trans "Schedule Meeting" %}
+      </a>
+    </div>
     <nav class="dash-sidebar__nav">
       <div class="dash-nav-section">
         <a href="{% url 'users:partner_dashboard' %}" class="dash-nav-item">
-          <span class="dash-nav-icon"><i class="fas fa-tachometer-alt"></i></span>{% trans "Dashboard" %}
+          <span class="dash-nav-icon"><i class="fas fa-home"></i></span>{% trans "Dashboard" %}
+        </a>
+        <a href="{% url 'users:partner_calendar' %}" class="dash-nav-item active">
+          <span class="dash-nav-icon"><i class="fas fa-calendar-alt"></i></span>{% trans "Calendar" %}
         </a>
         <a href="{% url 'users:partner_analytics' %}" class="dash-nav-item">
           <span class="dash-nav-icon"><i class="fas fa-chart-bar"></i></span>{% trans "Analytics" %}
         </a>
-      </div>
-      <div class="dash-nav-section">
-        <a href="{% url 'users:partner_calendar' %}" class="dash-nav-item active">
-          <span class="dash-nav-icon"><i class="fas fa-calendar-alt"></i></span>{% trans "Calendar" %}
-        </a>
-      </div>
-      <div class="dash-nav-section">
         <a href="{% url 'users:partner_profile_edit' %}" class="dash-nav-item">
           <span class="dash-nav-icon"><i class="fas fa-cog"></i></span>{% trans "Settings" %}
         </a>
+        <a href="{% url 'users:profile' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-arrow-left"></i></span>{% trans "My Cabinet" %}
+        </a>
       </div>
     </nav>
+    <div style="padding:.75rem .9rem;border-top:1px solid rgba(255,255,255,.06);display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+      <div style="text-align:center;padding:.5rem;background:rgba(255,255,255,.03);border-radius:8px;">
+        <div style="font-size:1.1rem;font-weight:900;color:#f87171;">{{ month_meetings }}</div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.06em;">{% trans "This month" %}</div>
+      </div>
+      <div style="text-align:center;padding:.5rem;background:rgba(255,255,255,.03);border-radius:8px;">
+        <div style="font-size:1.1rem;font-weight:900;color:#4ade80;">{{ total_meetings }}</div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.06em;">{% trans "Total" %}</div>
+      </div>
+    </div>
   </aside>
 
   <main class="dash-main">
@@ -115,183 +348,430 @@
         <div class="dash-topbar__title">{% trans "Meeting Calendar" %}</div>
         <div class="dash-topbar__sub">{{ partner.company_name }}</div>
       </div>
-      <div class="dash-topbar__actions">
-        <a href="?week={{ prev_week }}" style="display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .8rem;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.65);font-size:.82rem;text-decoration:none;">
-          <i class="fas fa-chevron-left"></i> {% trans "Prev" %}
-        </a>
-        <a href="?week=0" style="display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .8rem;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.65);font-size:.82rem;text-decoration:none;">
-          {% trans "Today" %}
-        </a>
-        <a href="?week={{ next_week }}" style="display:inline-flex;align-items:center;gap:.4rem;padding:.38rem .8rem;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.65);font-size:.82rem;text-decoration:none;">
-          {% trans "Next" %} <i class="fas fa-chevron-right"></i>
-        </a>
-      </div>
     </div>
 
     <div class="dash-content">
 
       {% if messages %}
       {% for msg in messages %}
-      <div class="dash-msg dash-msg--{% if msg.level >= 25 %}success{% else %}info{% endif %}" style="margin-bottom:1rem;">
-        {{ msg }}
-      </div>
+      <div class="dash-msg dash-msg--{% if msg.level >= 25 %}success{% else %}info{% endif %}" style="margin-bottom:1rem;">{{ msg }}</div>
       {% endfor %}
       {% endif %}
 
-      {# Заголовок недели #}
-      <div style="font-size:.78rem;color:rgba(255,255,255,.38);margin-bottom:.75rem;font-family:var(--font-mono);">
-        {{ week_days.0|date:"d M" }} — {{ week_days.6|date:"d M Y" }}
-      </div>
+      <div class="cal-layout">
 
-      {# Календарная неделя #}
-      <div class="cal-week">
-        {% for day in week_days %}
-        <div class="cal-day {% if day == today %}cal-day--today{% endif %}">
-          <div class="cal-day-header">
-            <span class="cal-day-name">{{ day|date:"D" }}</span>
-            <span class="cal-day-num">{{ day|date:"d" }}</span>
-          </div>
-          <div class="cal-meetings">
-            {% for meeting in meetings_by_date|default:''%}
-            {% endfor %}
-            {% for m in meetings_by_date|default:'' %}
-            {% endfor %}
-            {# Фильтруем встречи по дню через forloop #}
-            {% with day_meetings=meetings_by_date|default:'' %}
-            {% comment %}Django шаблон не поддерживает dict lookup по переменной напрямую — используем forloop ниже{% endcomment %}
-            {% endwith %}
-          </div>
-        </div>
-        {% endfor %}
-      </div>
+        {# ════════════ ЛЕВАЯ ПАНЕЛЬ ════════════ #}
+        <div class="cal-left">
 
-      {# Список всех встреч недели в виде таблицы #}
-      {% if meetings_by_date %}
-      <div class="dash-card" style="margin-bottom:1.5rem;">
-        <div class="dash-card__header">
-          <span class="dash-card__title"><i class="fas fa-list" style="color:var(--primary);"></i> {% trans "This Week's Meetings" %}</span>
-        </div>
-        <div class="dash-card__body" style="padding:0;">
-          <table class="dash-table">
-            <thead>
-              <tr>
-                <th>{% trans "DATE" %}</th>
-                <th>{% trans "TIME" %}</th>
-                <th>{% trans "TITLE" %}</th>
-                <th>{% trans "MEMBER" %}</th>
-                <th>{% trans "ADDRESS" %}</th>
-                <th>{% trans "STATUS" %}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for day, day_meetings in meetings_by_date.items %}
-              {% for m in day_meetings %}
-              <tr>
-                <td style="white-space:nowrap;font-family:var(--font-mono);font-size:.78rem;color:rgba(255,255,255,.5);">
-                  {{ m.date|date:"d M Y" }}{% if m.date == today %} <span style="color:#f87171;font-size:.65rem;">TODAY</span>{% endif %}
-                </td>
-                <td style="font-family:var(--font-mono);font-size:.82rem;color:#f87171;white-space:nowrap;">
-                  {{ m.start_time|time:"H:i" }}–{{ m.end_time|time:"H:i" }}
-                </td>
-                <td style="font-weight:600;color:#f1f5f9;">{{ m.title }}</td>
-                <td>
-                  <a href="{% url 'users:partner_member_visits' m.member.pk %}" style="color:rgba(255,255,255,.75);text-decoration:none;">
-                    {{ m.member.get_full_name|default:m.member.username }}
-                  </a>
-                </td>
-                <td style="font-size:.8rem;color:rgba(255,255,255,.45);">{{ m.address|default:"—" }}</td>
-                <td>
-                  <span style="font-size:.68rem;font-weight:700;border-radius:100px;padding:2px 8px;
-                    {% if m.status == 'scheduled' %}background:rgba(99,102,241,.12);color:#a5b4fc;
-                    {% elif m.status == 'confirmed' %}background:rgba(34,197,94,.12);color:#4ade80;
-                    {% elif m.status == 'cancelled' %}background:rgba(255,255,255,.06);color:rgba(255,255,255,.3);
-                    {% else %}background:rgba(245,158,11,.1);color:#fbbf24;{% endif %}">
-                    {{ m.get_status_display }}
-                  </span>
-                </td>
-                <td>
-                  {% if m.status != 'cancelled' %}
-                  <form method="post" action="{% url 'users:delete_meeting' m.pk %}" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit" style="background:none;border:none;color:rgba(255,100,100,.6);cursor:pointer;font-size:.78rem;"
-                            onclick="return confirm('{% trans "Cancel this meeting?" %}')">
-                      {% trans "Cancel" %}
-                    </button>
-                  </form>
+          {# Мини-неделя с навигацией #}
+          <div class="cal-week-nav">
+            <div class="cal-week-header">
+              <a href="?week={{ prev_week }}&day={{ week_days.0|date:'Y-m-d' }}" class="cal-week-nav-btn"><i class="fas fa-chevron-left"></i></a>
+              <span>{{ week_days.0|date:"d M" }} — {{ week_days.6|date:"d M Y" }}</span>
+              <a href="?week={{ next_week }}&day={{ week_days.0|date:'Y-m-d' }}" class="cal-week-nav-btn"><i class="fas fa-chevron-right"></i></a>
+            </div>
+            <div class="cal-week-days">
+              {% for day in week_days %}
+              <a href="?week={{ week_offset }}&day={{ day|date:'Y-m-d' }}"
+                 class="cal-mini-day {% if day == selected_day %}cal-mini-day--selected{% elif day == today %}cal-mini-day--today{% endif %}">
+                <div class="cal-mini-day-name">{{ day|date:"D"|slice:":1" }}</div>
+                <div class="cal-mini-day-num">{{ day|date:"d" }}</div>
+                <div class="cal-mini-dot-row">
+                  {% with day_count=meetings_by_date|default:'' %}
+                  {% for m in meetings_by_date|default:'' %}{% endfor %}
+                  {% endwith %}
+                  {# Показываем точки по количеству встреч #}
+                  {% if day in meetings_by_date %}
+                    {% for _ in meetings_by_date|default:'' %}{% endfor %}
+                    <span class="cal-mini-dot"></span>
                   {% endif %}
-                </td>
-              </tr>
+                </div>
+              </a>
               {% endfor %}
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {% endif %}
-
-      {# Форма создания встречи #}
-      <div class="meet-form-card">
-        <div style="font-size:.78rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);margin-bottom:1.25rem;display:flex;align-items:center;gap:.5rem;">
-          <i class="fas fa-plus" style="color:var(--primary);"></i> {% trans "SCHEDULE A MEETING" %}
-        </div>
-
-        {% if form %}
-        <form method="post">
-          {% csrf_token %}
-          <div class="meet-form-grid" style="margin-bottom:1rem;">
-            <div>
-              <label class="meet-form-label">{% trans "MEMBER" %} *</label>
-              {{ form.member }}
-            </div>
-            <div>
-              <label class="meet-form-label">{% trans "MEETING TITLE" %} *</label>
-              {{ form.title }}
-            </div>
-            <div>
-              <label class="meet-form-label">{% trans "DATE" %} *</label>
-              {{ form.date }}
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
-              <div>
-                <label class="meet-form-label">{% trans "START" %} *</label>
-                {{ form.start_time }}
-              </div>
-              <div>
-                <label class="meet-form-label">{% trans "END" %} *</label>
-                {{ form.end_time }}
-              </div>
-            </div>
-            <div>
-              <label class="meet-form-label">{% trans "ADDRESS" %}</label>
-              {{ form.address }}
-            </div>
-            <div>
-              <label class="meet-form-label">{% trans "NOTES" %}</label>
-              {{ form.notes }}
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-            <button type="submit" class="meet-submit">
-              <i class="fas fa-calendar-plus me-2"></i>{% trans "Schedule Meeting" %}
-            </button>
-            <label style="display:flex;align-items:center;gap:.45rem;font-size:.82rem;color:rgba(255,255,255,.55);cursor:pointer;">
-              {{ form.notify_member }}
-              {% trans "Notify member via Telegram & site" %}
-            </label>
-          </div>
-          {% if form.errors %}
-          <div style="margin-top:.75rem;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:.65rem 1rem;color:#f87171;font-size:.82rem;">
-            {% for field, errors in form.errors.items %}
-              {% for err in errors %}<div>{{ field }}: {{ err }}</div>{% endfor %}
+
+          {# Кнопка "Сегодня" #}
+          <a href="?week=0&day={{ today|date:'Y-m-d' }}" class="cal-day-nav-btn cal-day-nav-btn--today" style="justify-content:center;padding:.5rem;">
+            <i class="fas fa-calendar-day me-1"></i>{% trans "Jump to Today" %}
+          </a>
+
+          {# Upcoming list #}
+          {% if upcoming %}
+          <div class="cal-upcoming">
+            <div class="cal-upcoming-head">{% trans "UPCOMING MEETINGS" %}</div>
+            {% for m in upcoming %}
+            <a href="?week={{ week_offset }}&day={{ m.date|date:'Y-m-d' }}"
+               class="cal-upcoming-item {% if m.date == today %}{% endif %}">
+              <div class="cal-upcoming-date">
+                <div class="cal-upcoming-date-day">{{ m.date|date:"d" }}</div>
+                <div class="cal-upcoming-date-mon">{{ m.date|date:"M" }}</div>
+              </div>
+              <div class="cal-upcoming-info">
+                <div class="cal-upcoming-title">
+                  {% if m.is_recurring %}<span class="badge-recurring me-1">↻</span>{% endif %}
+                  {{ m.title }}
+                </div>
+                <div class="cal-upcoming-member"><i class="fas fa-user" style="font-size:.6rem;margin-right:3px;"></i>{{ m.member.get_full_name|default:m.member.username }}</div>
+                <div class="cal-upcoming-time">
+                  {% if m.start_time %}{{ m.start_time|time:"H:i" }}–{{ m.end_time|time:"H:i" }}{% else %}{% trans "Time TBD" %}{% endif %}
+                  {% if m.address %} · {{ m.address|truncatewords:3 }}{% endif %}
+                </div>
+              </div>
+              {% if m.date == today %}<span style="font-size:.6rem;color:#f87171;font-weight:800;flex-shrink:0;">TODAY</span>{% endif %}
+            </a>
             {% endfor %}
           </div>
           {% endif %}
-        </form>
-        {% endif %}
-      </div>
 
-    </div>
+        </div>
+
+        {# ════════════ ПРАВАЯ ПАНЕЛЬ ════════════ #}
+        <div class="cal-right">
+
+          {# Заголовок выбранного дня #}
+          <div class="cal-day-header">
+            <div>
+              <div class="cal-day-title">
+                {{ selected_day|date:"l, d F Y" }}
+                {% if selected_day == today %}<span style="font-size:.75rem;background:rgba(220,38,38,.15);color:#f87171;border-radius:100px;padding:2px 10px;margin-left:.5rem;font-weight:700;">TODAY</span>{% endif %}
+              </div>
+              <div class="cal-day-sub">{{ day_meetings|length }} {% trans "meetings" %}</div>
+            </div>
+            <div class="cal-day-nav">
+              <a href="?week={{ week_offset }}&day={{ selected_day|date:'Y-m-d'|add:'-1' }}" class="cal-day-nav-btn"
+                 onclick="event.preventDefault(); navigateDay(-1);">
+                <i class="fas fa-chevron-left"></i> {% trans "Prev Day" %}
+              </a>
+              <a href="?week={{ week_offset }}&day={{ selected_day|date:'Y-m-d'|add:'1' }}" class="cal-day-nav-btn"
+                 onclick="event.preventDefault(); navigateDay(1);">
+                {% trans "Next Day" %} <i class="fas fa-chevron-right"></i>
+              </a>
+            </div>
+          </div>
+
+          {# Клиентские заметки (только если есть встречи) #}
+          {% if client_notes_by_member %}
+          {% for member_id, notes in client_notes_by_member.items %}
+          <div class="cal-client-notes">
+            <div class="cal-cn-head"><i class="fas fa-sticky-note me-1"></i>{% trans "Client notes" %} — {{ notes.0.member.get_full_name|default:notes.0.member.username }}</div>
+            {% for note in notes %}
+            <div class="cal-cn-item">{{ note.note }} <span class="cal-cn-date">{{ note.created_at|date:"d M Y" }}</span></div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+          {% endif %}
+
+          {# Почасовая сетка #}
+          <div class="cal-hour-grid">
+
+            {# Встречи без времени (вверху) #}
+            {% with no_time_meetings=day_meetings|dictsort:"start_time" %}
+            {% if day_meetings %}
+            <div class="cal-no-time-meetings" id="no-time-meetings" style="display:none;">
+              <div class="cal-no-time-label">{% trans "No specific time" %}</div>
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <div class="cal-hour-grid-inner" id="cal-hour-grid">
+
+              {# Линия "сейчас" (показывается только для сегодня) #}
+              {% if selected_day == today %}
+              <div id="cal-now-line" style="display:none;"></div>
+              {% endif %}
+
+              {# Часовые строки #}
+              {% for hour in hour_slots %}
+              <div class="cal-hour-row" data-hour="{{ hour }}">
+                <div class="cal-hour-label">{{ hour|stringformat:"02d" }}:00</div>
+                <div class="cal-hour-content" id="hour-{{ hour }}">
+                  <a href="?week={{ week_offset }}&day={{ selected_day|date:'Y-m-d' }}&prefill_date={{ selected_day|date:'Y-m-d' }}&prefill_time={{ hour|stringformat:'02d' }}:00#add-meeting"
+                     class="cal-hour-slot-btn"
+                     onclick="prefillMeeting('{{ selected_day|date:'Y-m-d' }}', '{{ hour|stringformat:'02d' }}:00')">
+                    <i class="fas fa-plus" style="font-size:.65rem;margin-right:3px;"></i>
+                    {{ hour|stringformat:"02d" }}:00
+                  </a>
+                </div>
+              </div>
+              {% endfor %}
+
+            </div>
+          </div>
+
+          {# Форма добавления встречи #}
+          <div class="cal-form-card" id="add-meeting">
+            <label class="cal-form-head" for="cal-form-toggle">
+              <div class="cal-form-head-title">
+                <i class="fas fa-plus-circle"></i>
+                {% trans "SCHEDULE A MEETING" %}
+              </div>
+              <i class="fas fa-chevron-down" id="cal-form-arrow" style="font-size:.75rem;color:rgba(255,255,255,.3);transition:transform .2s;"></i>
+            </label>
+            <input type="checkbox" id="cal-form-toggle" style="display:none;" checked>
+
+            <div class="cal-form-body" id="cal-form-body">
+              <form method="post">
+                {% csrf_token %}
+                <div class="cal-form-grid" style="margin-bottom:.85rem;">
+
+                  <div style="grid-column:span 2;">
+                    <label class="cal-field-label">{% trans "MEMBER / CLIENT" %} *</label>
+                    <select name="member" class="cal-input" required>
+                      <option value="">— {% trans "Search member" %} —</option>
+                      {% for m in all_members %}
+                      <option value="{{ m.pk }}">{{ m.get_full_name|default:m.username }} (@{{ m.username }})</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+
+                  <div style="grid-column:span 2;">
+                    <label class="cal-field-label">{% trans "MEETING TITLE" %} *</label>
+                    <input type="text" name="title" id="meeting-title" class="cal-input" placeholder="{% trans 'Personal training, Consultation, Insurance review...' %}" required>
+                  </div>
+
+                  <div>
+                    <label class="cal-field-label">{% trans "DATE" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.62rem;">({% trans "optional" %})</span></label>
+                    <input type="date" name="date" id="meeting-date" class="cal-input" value="{{ prefill_date }}">
+                  </div>
+
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+                    <div>
+                      <label class="cal-field-label">{% trans "START" %}</label>
+                      <input type="time" name="start_time" id="meeting-start" class="cal-input" value="{{ prefill_time }}">
+                    </div>
+                    <div>
+                      <label class="cal-field-label">{% trans "END" %}</label>
+                      <input type="time" name="end_time" id="meeting-end" class="cal-input">
+                    </div>
+                  </div>
+
+                  <div>
+                    <label class="cal-field-label">{% trans "ADDRESS" %}</label>
+                    <input type="text" name="address" class="cal-input" placeholder="{% trans 'Street, city...' %}">
+                  </div>
+
+                  <div>
+                    <label class="cal-field-label">{% trans "SERIES LABEL" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.6rem;">{% trans "(for long-term clients)" %}</span></label>
+                    <input type="text" name="series_label" class="cal-input" placeholder="{% trans 'e.g. Insurance case #123, Rehab Q1' %}">
+                  </div>
+
+                  <div style="grid-column:span 2;">
+                    <label class="cal-field-label">{% trans "NOTES FOR MEMBER" %}</label>
+                    <textarea name="notes" class="cal-input" rows="2" placeholder="{% trans 'Additional info for the client...' %}"></textarea>
+                  </div>
+
+                </div>
+
+                <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+                  <button type="submit" class="cal-submit">
+                    <i class="fas fa-calendar-check"></i> {% trans "Schedule Meeting" %}
+                  </button>
+                  <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:rgba(255,255,255,.5);cursor:pointer;">
+                    <input type="checkbox" name="notify_member" checked style="accent-color:var(--primary);">
+                    {% trans "Notify via Telegram & site" %}
+                  </label>
+                  <label style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:rgba(255,255,255,.5);cursor:pointer;">
+                    <input type="checkbox" name="is_recurring" style="accent-color:#fbbf24;">
+                    {% trans "Recurring / Long-term" %}
+                  </label>
+                </div>
+              </form>
+            </div>
+          </div>
+
+        </div>{# /cal-right #}
+      </div>{# /cal-layout #}
+    </div>{# /dash-content #}
   </main>
 </div>
+
+{# Popup для деталей встречи #}
+<div id="meeting-popup" style="display:none;position:fixed;z-index:9999;background:#111118;border:1.5px solid rgba(255,255,255,.12);border-radius:14px;padding:1.1rem 1.3rem;max-width:300px;box-shadow:0 20px 50px rgba(0,0,0,.6);">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.65rem;">
+    <div id="popup-title" style="font-size:.92rem;font-weight:700;color:#f1f5f9;"></div>
+    <button onclick="document.getElementById('meeting-popup').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:1rem;padding:0 0 0 .5rem;">✕</button>
+  </div>
+  <div id="popup-member" style="font-size:.78rem;color:rgba(255,255,255,.5);margin-bottom:.4rem;"></div>
+  <div id="popup-time"   style="font-size:.78rem;color:#f87171;font-family:var(--font-mono);margin-bottom:.4rem;"></div>
+  <div id="popup-addr"   style="font-size:.78rem;color:rgba(255,255,255,.45);margin-bottom:.5rem;"></div>
+  <div id="popup-notes"  style="font-size:.78rem;color:rgba(255,255,255,.38);font-style:italic;margin-bottom:.65rem;"></div>
+  <div style="display:flex;gap:.5rem;">
+    <a id="popup-cancel-btn" href="#" style="font-size:.75rem;color:#f87171;text-decoration:none;padding:.3rem .65rem;border:1px solid rgba(220,38,38,.3);border-radius:7px;transition:background .15s;"
+       onmouseover="this.style.background='rgba(220,38,38,.12)'" onmouseout="this.style.background=''">
+      {% trans "Cancel meeting" %}
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var MEETINGS = {{ day_meetings_json|safe }};
+var SELECTED_DAY = '{{ selected_day|date:"Y-m-d" }}';
+var HOUR_START = 8;
+var PX_PER_HOUR = 64;
+var TODAY = '{{ today|date:"Y-m-d" }}';
+
+/* Размещаем встречи на почасовой сетке */
+function renderMeetings() {
+    var noTimeList = [];
+
+    MEETINGS.forEach(function(m) {
+        if (m.start_h !== null && m.start_h >= HOUR_START) {
+            var hourRow = document.getElementById('hour-' + Math.floor(m.start_h));
+            if (!hourRow) return;
+
+            var topPx  = (m.start_h - Math.floor(m.start_h)) * PX_PER_HOUR;
+            var endH   = m.end_h || (m.start_h + 1);
+            var height = Math.max((endH - m.start_h) * PX_PER_HOUR - 4, 28);
+
+            var colors = {
+                scheduled: 'cal-meeting-block--scheduled',
+                confirmed:  'cal-meeting-block--confirmed',
+                cancelled:  'cal-meeting-block--cancelled',
+                completed:  'cal-meeting-block--completed',
+            };
+
+            var block = document.createElement('div');
+            block.className = 'cal-meeting-block ' + (colors[m.status] || 'cal-meeting-block--scheduled');
+            block.style.cssText = 'top:' + topPx + 'px;height:' + height + 'px;';
+            block.innerHTML = (
+                '<div class="cal-mb-title">' +
+                (m.is_recurring ? '<span class="badge-recurring me-1">↻</span>' : '') +
+                escapeHtml(m.title) + '</div>' +
+                '<div class="cal-mb-member"><i class="fas fa-user cal-mb-icon"></i>' + escapeHtml(m.member) + '</div>' +
+                (m.start ? '<div class="cal-mb-time">' + m.start + (m.end ? '–'+m.end : '') + '</div>' : '')
+            );
+            block.onclick = function() { showPopup(m); };
+            hourRow.style.position = 'relative';
+            hourRow.appendChild(block);
+        } else if (m.start_h === null) {
+            noTimeList.push(m);
+        }
+    });
+
+    // Встречи без времени
+    if (noTimeList.length) {
+        var noTimeDiv = document.getElementById('no-time-meetings');
+        if (noTimeDiv) {
+            noTimeDiv.style.display = '';
+            noTimeList.forEach(function(m) {
+                var block = document.createElement('div');
+                block.className = 'cal-meeting-block cal-meeting-block--no-time';
+                block.innerHTML = (
+                    '<div class="cal-mb-title">' + escapeHtml(m.title) + '</div>' +
+                    '<div class="cal-mb-member">' + escapeHtml(m.member) + '</div>'
+                );
+                block.onclick = function() { showPopup(m); };
+                noTimeDiv.appendChild(block);
+            });
+        }
+    }
+}
+
+/* "Сейчас" линия */
+function renderNowLine() {
+    if (SELECTED_DAY !== TODAY) return;
+    var line = document.getElementById('cal-now-line');
+    if (!line) return;
+    var now = new Date();
+    var h = now.getHours() + now.getMinutes() / 60;
+    if (h < HOUR_START || h > 22) { line.style.display = 'none'; return; }
+    var topPx = (h - HOUR_START) * PX_PER_HOUR;
+    line.style.top = topPx + 'px';
+    line.style.display = 'block';
+}
+
+/* Popup деталей встречи */
+function showPopup(m) {
+    var popup = document.getElementById('meeting-popup');
+    document.getElementById('popup-title').textContent  = m.title;
+    document.getElementById('popup-member').textContent = '👤 ' + m.member;
+    document.getElementById('popup-time').textContent   = m.start ? '🕐 ' + m.start + (m.end ? ' — ' + m.end : '') : '';
+    document.getElementById('popup-addr').textContent   = m.address ? '📍 ' + m.address : '';
+    document.getElementById('popup-notes').textContent  = m.series_label ? '🔄 ' + m.series_label : '';
+    document.getElementById('popup-cancel-btn').href    = m.cancel_url;
+
+    popup.style.display = 'block';
+    // Позиция по клику
+    var ev = window.event || {};
+    if (ev.clientX) {
+        var left = Math.min(ev.clientX + 10, window.innerWidth - 320);
+        var top  = Math.min(ev.clientY + 10, window.innerHeight - 250);
+        popup.style.left = left + 'px';
+        popup.style.top  = top + 'px';
+        popup.style.right = 'auto';
+    }
+}
+
+/* Навигация по дням */
+function navigateDay(delta) {
+    var d = new Date(SELECTED_DAY + 'T00:00:00');
+    d.setDate(d.getDate() + delta);
+    var iso = d.toISOString().slice(0, 10);
+    var url = new URL(window.location.href);
+    url.searchParams.set('day', iso);
+    window.location.href = url.toString();
+}
+
+/* Prefill формы при клике на время */
+function prefillMeeting(date, time) {
+    var dateInput = document.getElementById('meeting-date');
+    var timeInput = document.getElementById('meeting-start');
+    var endInput  = document.getElementById('meeting-end');
+    if (dateInput) dateInput.value = date;
+    if (timeInput) timeInput.value = time;
+    if (endInput) {
+        var h = parseInt(time.split(':')[0]) + 1;
+        endInput.value = (h < 10 ? '0' : '') + h + ':00';
+    }
+    document.getElementById('cal-form-toggle').checked = true;
+    document.querySelector('[name="title"]').focus();
+    document.getElementById('add-meeting').scrollIntoView({ behavior: 'smooth' });
+}
+
+/* Форма toggle */
+document.getElementById('cal-form-toggle').addEventListener('change', function() {
+    var arrow = document.getElementById('cal-form-arrow');
+    if (arrow) arrow.style.transform = this.checked ? 'rotate(180deg)' : '';
+});
+
+/* Закрыть popup по клику вне */
+document.addEventListener('click', function(e) {
+    var popup = document.getElementById('meeting-popup');
+    if (popup && !popup.contains(e.target) && !e.target.closest('.cal-meeting-block')) {
+        popup.style.display = 'none';
+    }
+});
+
+function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function(c) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+}
+
+/* Init */
+document.addEventListener('DOMContentLoaded', function() {
+    renderMeetings();
+    renderNowLine();
+    setInterval(renderNowLine, 60000); // обновляем каждую минуту
+
+    // Встречи дня — показываем количество точек в мини-неделе
+    {% for day, mlist in meetings_by_date.items %}
+    (function() {
+        var els = document.querySelectorAll('[href*="day={{ day|date:"Y-m-d" }}"] .cal-mini-dot-row');
+        els.forEach(function(row) {
+            row.innerHTML = '';
+            var count = Math.min({{ mlist|length }}, 3);
+            for (var i=0; i<count; i++) {
+                var dot = document.createElement('span');
+                dot.className = 'cal-mini-dot';
+                row.appendChild(dot);
+            }
+        });
+    })();
+    {% endfor %}
+});
+</script>
 {% endblock %}

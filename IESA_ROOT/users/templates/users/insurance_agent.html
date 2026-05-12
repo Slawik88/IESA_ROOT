@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Страховой агент — IESA" %}{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Страница страхового агента ─────────────────────────────────── */
+.ins-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0e0e18 0%, #12121f 60%, #1a0a0a 100%);
+  padding: 72px 0 56px;
+  text-align: center;
+}
+.ins-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 20% 30%, rgba(220,38,38,.12) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 80% 70%, rgba(220,38,38,.06) 0%, transparent 55%);
+  pointer-events: none;
+}
+.ins-hero__icon {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: rgba(220,38,38,.15);
+  border: 2px solid rgba(220,38,38,.35);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 2rem;
+  margin-bottom: 20px;
+  animation: ins-pulse 3s ease-in-out infinite;
+}
+@keyframes ins-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,.25); }
+  50%       { box-shadow: 0 0 0 14px rgba(220,38,38,.0); }
+}
+.ins-hero__title {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 12px;
+}
+.ins-hero__sub {
+  font-size: 1.05rem;
+  color: rgba(255,255,255,.6);
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ── Карточки преимуществ ────────────────────────────────────────── */
+.ins-benefits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 48px 0 40px;
+}
+.ins-benefit-card {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px;
+  padding: 24px 20px;
+  text-align: center;
+  transition: border-color .25s, transform .25s;
+}
+.ins-benefit-card:hover {
+  border-color: rgba(220,38,38,.4);
+  transform: translateY(-4px);
+}
+.ins-benefit-card__icon {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+.ins-benefit-card__title {
+  font-size: .9rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.ins-benefit-card__text {
+  font-size: .8rem;
+  color: rgba(255,255,255,.5);
+  line-height: 1.5;
+}
+
+/* ── Форма ────────────────────────────────────────────────────────── */
+.ins-form-wrap {
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 18px;
+  padding: 36px;
+  max-width: 700px;
+  margin: 0 auto;
+}
+.ins-form-wrap h3 {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 24px;
+  display: flex; align-items: center; gap: 10px;
+}
+.ins-section-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(220,38,38,.8);
+  margin: 24px 0 12px;
+}
+.ins-input {
+  width: 100%;
+  background: rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.12) !important;
+  border-radius: 10px !important;
+  color: #fff !important;
+  padding: 11px 16px !important;
+  font-size: .95rem !important;
+  transition: border-color .2s, box-shadow .2s !important;
+}
+.ins-input:focus {
+  outline: none !important;
+  border-color: rgba(220,38,38,.6) !important;
+  box-shadow: 0 0 0 3px rgba(220,38,38,.12) !important;
+  background: rgba(255,255,255,.09) !important;
+}
+.ins-input::placeholder { color: rgba(255,255,255,.3) !important; }
+.ins-radio-group {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 4px;
+}
+.ins-radio-item {
+  flex: 1 1 180px;
+  position: relative;
+}
+.ins-radio-item input[type="radio"] { display: none; }
+.ins-radio-item label {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,255,255,.05);
+  border: 1.5px solid rgba(255,255,255,.1);
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  color: rgba(255,255,255,.75);
+  font-size: .9rem;
+}
+.ins-radio-item input[type="radio"]:checked + label {
+  border-color: #dc2626;
+  background: rgba(220,38,38,.12);
+  color: #fff;
+}
+.ins-radio-item label .icon { font-size: 1.2rem; }
+
+.ins-checkbox-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+.ins-check-item input[type="checkbox"] { display: none; }
+.ins-check-item label {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: rgba(255,255,255,.65);
+  font-size: .85rem;
+  transition: border-color .2s, background .2s;
+}
+.ins-check-item input[type="checkbox"]:checked + label {
+  border-color: rgba(220,38,38,.5);
+  background: rgba(220,38,38,.1);
+  color: #fff;
+}
+.ins-check-item label::before {
+  content: '';
+  width: 16px; height: 16px; flex-shrink: 0;
+  border-radius: 4px;
+  border: 1.5px solid rgba(255,255,255,.25);
+  transition: background .2s, border-color .2s;
+}
+.ins-check-item input[type="checkbox"]:checked + label::before {
+  background: #dc2626;
+  border-color: #dc2626;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 4l3 3 5-6' stroke='%23fff' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 10px 8px;
+}
+
+.ins-submit-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+  padding: 14px 24px;
+  cursor: pointer;
+  transition: opacity .2s, transform .15s, box-shadow .2s;
+  margin-top: 8px;
+}
+.ins-submit-btn:hover {
+  opacity: .92;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(220,38,38,.35);
+}
+.ins-submit-btn:active { transform: translateY(0); }
+
+/* ── Статус уже поданной заявки ─────────────────────────────────── */
+.ins-status-card {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.ins-status-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  border-radius: 20px;
+  padding: 6px 16px;
+  font-size: .85rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.ins-status-badge.new      { background: rgba(234,179,8,.15);  color: #eab308; border: 1px solid rgba(234,179,8,.3); }
+.ins-status-badge.reviewing{ background: rgba(59,130,246,.15); color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
+.ins-status-badge.assigned { background: rgba(34,197,94,.15);  color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
+
+/* ── TG-баннер ───────────────────────────────────────────────────── */
+.ins-tg-banner {
+  background: linear-gradient(135deg, rgba(0,136,204,.15), rgba(0,136,204,.05));
+  border: 1px solid rgba(0,136,204,.25);
+  border-radius: 14px;
+  padding: 20px 24px;
+  display: flex; align-items: center; gap: 16px;
+  max-width: 700px;
+  margin: 32px auto 0;
+}
+.ins-tg-banner__icon { font-size: 2rem; flex-shrink: 0; }
+.ins-tg-banner__text { font-size: .9rem; color: rgba(255,255,255,.75); line-height: 1.5; }
+.ins-tg-banner__text a { color: #38bdf8; text-decoration: none; }
+.ins-tg-banner__text a:hover { text-decoration: underline; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<section class="ins-hero">
+  <div class="container position-relative">
+    <div class="ins-hero__icon">🛡️</div>
+    <h1 class="ins-hero__title">{% trans "Страховой агент IESA" %}</h1>
+    <p class="ins-hero__sub">
+      {% trans "Мы подберём для вас личного страхового агента — специалиста, который поможет защитить ваше здоровье, спортивную карьеру и финансовое будущее." %}
+    </p>
+  </div>
+</section>
+
+<div class="container py-5">
+
+  <!-- Преимущества -->
+  <div class="ins-benefits">
+    <div class="ins-benefit-card">
+      <div class="ins-benefit-card__icon">🤝</div>
+      <div class="ins-benefit-card__title">{% trans "Личный агент" %}</div>
+      <div class="ins-benefit-card__text">{% trans "Один специалист ведёт вас от начала до конца" %}</div>
+    </div>
+    <div class="ins-benefit-card">
+      <div class="ins-benefit-card__icon">⚡</div>
+      <div class="ins-benefit-card__title">{% trans "Быстрый отклик" %}</div>
+      <div class="ins-benefit-card__text">{% trans "Ответим в течение 24 часов после заявки" %}</div>
+    </div>
+    <div class="ins-benefit-card">
+      <div class="ins-benefit-card__icon">🏆</div>
+      <div class="ins-benefit-card__title">{% trans "Спортивная специализация" %}</div>
+      <div class="ins-benefit-card__text">{% trans "Понимаем потребности спортсменов и тренеров" %}</div>
+    </div>
+    <div class="ins-benefit-card">
+      <div class="ins-benefit-card__icon">🔒</div>
+      <div class="ins-benefit-card__title">{% trans "Конфиденциально" %}</div>
+      <div class="ins-benefit-card__text">{% trans "Данные защищены и не передаются третьим лицам" %}</div>
+    </div>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show mb-4" role="alert"
+           style="background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.3); color: #4ade80; border-radius: 12px;">
+        {{ message }}
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  {% if existing %}
+  <!-- Уже есть активная заявка -->
+  <div class="ins-status-card">
+    <div class="ins-status-badge {{ existing.status }}">
+      {% if existing.status == 'new' %}⏳{% elif existing.status == 'reviewing' %}🔍{% else %}✅{% endif %}
+      {{ existing.get_status_display }}
+    </div>
+    <h4 class="text-white fw-bold mb-2">{% trans "Ваша заявка принята" %}</h4>
+    <p class="text-white-50 mb-3">
+      {% trans "Заявка подана" %} {{ existing.created_at|date:"d.m.Y" }}.
+      {% trans "Наш менеджер обрабатывает её и скоро свяжется с вами." %}
+    </p>
+    <div style="font-size:.85rem; color:rgba(255,255,255,.45);">
+      <strong style="color:rgba(255,255,255,.7);">{{ existing.get_request_type_display }}</strong><br>
+      {% if existing.phone %}<span>📞 {{ existing.phone }}</span><br>{% endif %}
+      {% if existing.city %}<span>📍 {{ existing.city }}</span>{% endif %}
+    </div>
+  </div>
+
+  {% else %}
+  <!-- Форма заявки -->
+  <div class="ins-form-wrap">
+    <h3>
+      <span style="color:#dc2626;">📋</span>
+      {% trans "Подать заявку" %}
+    </h3>
+
+    <form method="post" id="insForm">
+      {% csrf_token %}
+
+      <!-- Тип заявки -->
+      <div class="ins-section-label">{% trans "Тип заявки" %}</div>
+      <div class="ins-radio-group mb-4">
+        <div class="ins-radio-item">
+          <input type="radio" name="request_type" id="rt_new" value="new_agent" checked>
+          <label for="rt_new">
+            <span class="icon">🆕</span>
+            {% trans "Нужен агент" %}
+          </label>
+        </div>
+        <div class="ins-radio-item">
+          <input type="radio" name="request_type" id="rt_change" value="change_agent">
+          <label for="rt_change">
+            <span class="icon">🔄</span>
+            {% trans "Смена агента" %}
+          </label>
+        </div>
+        <div class="ins-radio-item">
+          <input type="radio" name="request_type" id="rt_consult" value="consultation">
+          <label for="rt_consult">
+            <span class="icon">💬</span>
+            {% trans "Консультация" %}
+          </label>
+        </div>
+      </div>
+
+      <!-- Контактные данные -->
+      <div class="ins-section-label">{% trans "Контактные данные" %}</div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <input type="text" name="full_name" class="ins-input"
+                 placeholder="{% trans 'Полное имя *' %}"
+                 value="{{ user.get_full_name|default:'' }}" required>
+        </div>
+        <div class="col-md-6">
+          <input type="tel" name="phone" class="ins-input"
+                 placeholder="{% trans 'Телефон / WhatsApp' %}">
+        </div>
+        <div class="col-md-6">
+          <input type="email" name="email" class="ins-input"
+                 placeholder="{% trans 'Email' %}"
+                 value="{{ user.email|default:'' }}">
+        </div>
+        <div class="col-md-6">
+          <input type="text" name="telegram_username" class="ins-input"
+                 placeholder="{% trans 'Telegram @username' %}"
+                 value="{% if user.telegram_username %}@{{ user.telegram_username }}{% endif %}">
+        </div>
+        <div class="col-12">
+          <input type="text" name="city" class="ins-input"
+                 placeholder="{% trans 'Город / Регион' %}">
+        </div>
+      </div>
+
+      <!-- Виды страхования -->
+      <div class="ins-section-label">{% trans "Что вас интересует?" %}</div>
+      <div class="ins-checkbox-list mb-4" id="insCheckboxes">
+        <div class="ins-check-item">
+          <input type="checkbox" id="ins_health" value="Здоровье и жизнь" name="ins_types">
+          <label for="ins_health">❤️ {% trans "Здоровье и жизнь" %}</label>
+        </div>
+        <div class="ins-check-item">
+          <input type="checkbox" id="ins_sport" value="Спортивное страхование" name="ins_types">
+          <label for="ins_sport">🏋️ {% trans "Спортивное" %}</label>
+        </div>
+        <div class="ins-check-item">
+          <input type="checkbox" id="ins_travel" value="Путешествия" name="ins_types">
+          <label for="ins_travel">✈️ {% trans "Путешествия" %}</label>
+        </div>
+        <div class="ins-check-item">
+          <input type="checkbox" id="ins_auto" value="Автомобиль" name="ins_types">
+          <label for="ins_auto">🚗 {% trans "Автомобиль" %}</label>
+        </div>
+        <div class="ins-check-item">
+          <input type="checkbox" id="ins_property" value="Имущество" name="ins_types">
+          <label for="ins_property">🏠 {% trans "Имущество" %}</label>
+        </div>
+        <div class="ins-check-item">
+          <input type="checkbox" id="ins_business" value="Бизнес" name="ins_types">
+          <label for="ins_business">💼 {% trans "Бизнес" %}</label>
+        </div>
+        <div class="ins-check-item">
+          <input type="checkbox" id="ins_pension" value="Пенсионное и накопительное" name="ins_types">
+          <label for="ins_pension">💰 {% trans "Пенсионное/накопительное" %}</label>
+        </div>
+        <div class="ins-check-item">
+          <input type="checkbox" id="ins_other" value="Другое" name="ins_types">
+          <label for="ins_other">📋 {% trans "Другое" %}</label>
+        </div>
+      </div>
+
+      <!-- Скрытое поле — агрегирует чекбоксы -->
+      <input type="hidden" name="insurance_types" id="insuranceTypesHidden">
+
+      <!-- Сообщение -->
+      <div class="ins-section-label">{% trans "Дополнительно" %}</div>
+      <textarea name="message" class="ins-input mb-4" rows="3"
+                placeholder="{% trans 'Расскажите подробнее о вашей ситуации, пожеланиях или вопросах...' %}"></textarea>
+
+      <button type="submit" class="ins-submit-btn">
+        🛡️ {% trans "Отправить заявку" %}
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- Telegram баннер -->
+  {% with bot_name=request.session.telegram_bot_name|default:"IESA_Administrator_bot" %}
+  <div class="ins-tg-banner">
+    <div class="ins-tg-banner__icon">✈️</div>
+    <div class="ins-tg-banner__text">
+      <strong style="color:#fff;">{% trans "Заявка через Telegram" %}</strong><br>
+      {% trans "Вы также можете подать заявку через наш бот:" %}
+      <a href="https://t.me/{{ bot_name }}" target="_blank" rel="noopener">@{{ bot_name }}</a>
+      — {% trans "напишите" %} <code style="background:rgba(255,255,255,.1);padding:2px 6px;border-radius:4px;">/insurance</code>
+    </div>
+  </div>
+  {% endwith %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  // Агрегируем чекбоксы → hidden input перед отправкой
+  const form = document.getElementById('insForm');
+  if (!form) return;
+
+  form.addEventListener('submit', function () {
+    const checked = [...document.querySelectorAll('#insCheckboxes input[type="checkbox"]:checked')]
+      .map(cb => cb.value);
+    document.getElementById('insuranceTypesHidden').value = checked.join(', ');
+  });
+
+  // Анимация появления карточек преимуществ
+  const cards = document.querySelectorAll('.ins-benefit-card');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) {
+        setTimeout(() => {
+          entry.target.style.opacity = '1';
+          entry.target.style.transform = 'translateY(0)';
+        }, i * 80);
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  cards.forEach(card => {
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(20px)';
+    card.style.transition = 'opacity .4s ease, transform .4s ease';
+    observer.observe(card);
+  });
+})();
+</script>
+{% endblock %}

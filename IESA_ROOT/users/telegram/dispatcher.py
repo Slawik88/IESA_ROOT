@@ -19,6 +19,7 @@ from .handlers import (
     handle_echo,
     handle_help,
     handle_id,
+    handle_insurance,
     handle_link,
     handle_new_channel_member,
     handle_start,
@@ -31,13 +32,14 @@ logger = logging.getLogger(__name__)
 
 # ── Text command → handler ─────────────────────────────────────────────────
 COMMANDS = {
-    "/start":  handle_start,
-    "/help":   handle_help,
-    "/link":   handle_link,
-    "/id":     handle_id,
-    "/status": handle_status,
-    "/unlink": handle_unlink_ask,
-    "/admin":  handle_admin,
+    "/start":     handle_start,
+    "/help":      handle_help,
+    "/link":      handle_link,
+    "/id":        handle_id,
+    "/status":    handle_status,
+    "/unlink":    handle_unlink_ask,
+    "/admin":     handle_admin,
+    "/insurance": handle_insurance,
 }
 
 # ── Callback data → handler ────────────────────────────────────────────────
@@ -212,11 +214,12 @@ async def process_incoming_update(update: dict[str, Any]) -> bool:
 async def init_bot_commands() -> bool:
     """Register bot commands in Telegram so the / menu shows nicely."""
     commands = [
-        {"command": "start",  "description": "Главное меню"},
-        {"command": "link",   "description": "Привязать аккаунт"},
-        {"command": "status", "description": "Мой статус членства"},
-        {"command": "help",   "description": "Справка и описание функций"},
-        {"command": "unlink", "description": "Отвязать Telegram от аккаунта"},
-        {"command": "id",     "description": "Мой Telegram chat ID"},
+        {"command": "start",     "description": "Главное меню"},
+        {"command": "link",      "description": "Привязать аккаунт"},
+        {"command": "status",    "description": "Мой статус членства"},
+        {"command": "insurance", "description": "Заявка на страхового агента"},
+        {"command": "help",      "description": "Справка и описание функций"},
+        {"command": "unlink",    "description": "Отвязать Telegram от аккаунта"},
+        {"command": "id",        "description": "Мой Telegram chat ID"},
     ]
     return await set_bot_commands(commands)

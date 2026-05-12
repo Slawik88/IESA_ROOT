@@ -69,4 +69,6 @@ urlpatterns = [
     path('partner/calendar/', views_verification.partner_calendar, name='partner_calendar'),
     path('partner/meeting/<int:meeting_id>/cancel/', views_verification.delete_meeting, name='delete_meeting'),
     path('my-calendar/', views_verification.user_calendar, name='user_calendar'),
+    # Страховой агент
+    path('insurance-agent/', views_verification.insurance_agent_request, name='insurance_agent'),
 ]

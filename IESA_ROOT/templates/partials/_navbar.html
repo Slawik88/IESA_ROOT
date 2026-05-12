@@ -259,6 +259,18 @@
                             </li>
                             {% endif %}
 
+                            <li>
+                                <a class="dropdown-item pnd-item"
+                                   href="{% url 'users:insurance_agent' %}"
+                                   style="color:rgba(255,255,255,.8);">
+                                    <span class="pnd-icon" style="color:#fbbf24;"><i class="fas fa-shield-alt"></i></span>
+                                    <div>
+                                        <div class="pnd-label">{% trans "Insurance Agent" %}</div>
+                                        <div class="pnd-sub">{% trans "Request a specialist" %}</div>
+                                    </div>
+                                </a>
+                            </li>
+
                             <li><hr class="pnd-divider"></li>
 
                             <li>
