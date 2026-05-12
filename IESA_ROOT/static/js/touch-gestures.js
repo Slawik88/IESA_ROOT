@@ -416,3 +416,87 @@
     });
 })();
 
+/* ══════════════════════════════════════════════════════
+   Block 5g — Pull-to-refresh на мобиле
+   Включается на элементах с атрибутом [data-pull-refresh]
+   ══════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    var refreshEl = document.querySelector('[data-pull-refresh]');
+    if (!refreshEl) return;
+    if (window.innerWidth > 992) return;  // только мобиль
+
+    var THRESHOLD = 70;
+    var startY = 0;
+    var pulling = false;
+    var indicator = null;
+
+    function getIndicator() {
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'ptr-indicator';
+            Object.assign(indicator.style, {
+                position: 'fixed', top: '0', left: '50%',
+                transform: 'translateX(-50%) translateY(-60px)',
+                width: '40px', height: '40px',
+                background: 'rgba(220,38,38,.9)', borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: '1rem',
+                zIndex: '9998', transition: 'transform .2s ease',
+                boxShadow: '0 4px 16px rgba(0,0,0,.4)',
+            });
+            indicator.innerHTML = '<i class="fas fa-arrow-down"></i>';
+            document.body.appendChild(indicator);
+        }
+        return indicator;
+    }
+
+    document.addEventListener('touchstart', function (e) {
+        if (window.scrollY > 0) return;
+        var t = e.touches[0];
+        startY = t.clientY;
+        pulling = true;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+        if (!pulling) return;
+        var dy = e.touches[0].clientY - startY;
+        if (dy <= 0) { pulling = false; return; }
+        var pct = Math.min(dy / THRESHOLD, 1);
+        var ind = getIndicator();
+        ind.style.transform = 'translateX(-50%) translateY(' + (pct * 60 - 60) + 'px)';
+        if (pct >= 1) {
+            ind.querySelector('i').className = 'fas fa-sync-alt';
+        } else {
+            ind.querySelector('i').className = 'fas fa-arrow-down';
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function (e) {
+        if (!pulling) return;
+        var dy = e.changedTouches[0].clientY - startY;
+        pulling = false;
+        if (indicator) {
+            indicator.style.transform = 'translateX(-50%) translateY(-60px)';
+        }
+        if (dy >= THRESHOLD) {
+            /* Показываем spinner + refresh */
+            if (indicator) {
+                indicator.querySelector('i').className = 'fas fa-spinner fa-spin';
+                indicator.style.transform = 'translateX(-50%) translateY(8px)';
+            }
+            /* HTMX refresh если доступен, иначе location.reload */
+            var htmxTarget = refreshEl.getAttribute('data-pull-refresh');
+            if (htmxTarget && window.htmx) {
+                htmx.trigger(document.querySelector(htmxTarget) || refreshEl, 'refresh');
+                setTimeout(function () {
+                    if (indicator) indicator.style.transform = 'translateX(-50%) translateY(-60px)';
+                }, 800);
+            } else {
+                setTimeout(function () { location.reload(); }, 300);
+            }
+        }
+    });
+})();
+

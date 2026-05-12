@@ -108,16 +108,7 @@
 
     <!-- Main Content -->
     <main class="main-header-pad" id="main-content" role="main">
-        {% if messages %}
-            <div class="container-limited">
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        <i class="fas fa-check-circle me-2"></i>{{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{% trans 'Close' %}"></button>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
+    {# 5a: Django messages рендерятся как toasts в toast_container.html (конец страницы) #}
 
     {% block container_wrap_start %}<div class="container-limited container-limited-main-pad">{% endblock %}
     {% block content %}
@@ -195,6 +186,50 @@
             if (status === 0) { showToast('Connection lost. Please check your network.', 'warning'); return; }
             if (status === 503) { showToast('Service temporarily unavailable. Try again in a moment.', 'warning'); return; }
             if (status >= 500) { showToast('Server error. Please try again later.', 'danger'); }
+        });
+
+        /* ── 5b: Loading state на кнопках ── */
+
+        /* HTMX: во время запроса — dim + wait cursor */
+        document.body.addEventListener('htmx:beforeRequest', function (evt) {
+            var el = evt.detail.elt;
+            if (el && (el.tagName === 'BUTTON' || el.tagName === 'A')) {
+                el.setAttribute('data-orig-html', el.innerHTML);
+                el.style.opacity = '.65';
+                el.style.cursor  = 'wait';
+                el.setAttribute('disabled', 'true');
+            }
+        });
+        document.body.addEventListener('htmx:afterRequest', function (evt) {
+            var el = evt.detail.elt;
+            if (el && el.getAttribute('data-orig-html') !== null) {
+                el.style.opacity = '';
+                el.style.cursor  = '';
+                el.removeAttribute('disabled');
+                el.removeAttribute('data-orig-html');
+            }
+        });
+
+        /* Vanilla-форм: submit кнопка → spinner */
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (form.hasAttribute('data-no-loading')) return;
+            var btn = form.querySelector('[type="submit"]');
+            if (!btn || btn.hasAttribute('data-loading')) return;
+            btn.setAttribute('data-loading', '1');
+            var orig = btn.innerHTML;
+            btn.disabled = true;
+            btn.style.opacity = '.65';
+            btn.style.cursor  = 'wait';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>' + btn.textContent.trim();
+            /* Восстанавливаем при ошибке (pageshow = navigate back) */
+            window.addEventListener('pageshow', function () {
+                btn.disabled = false;
+                btn.style.opacity = '';
+                btn.style.cursor  = '';
+                btn.innerHTML = orig;
+                btn.removeAttribute('data-loading');
+            }, { once: true });
         });
 
     })();

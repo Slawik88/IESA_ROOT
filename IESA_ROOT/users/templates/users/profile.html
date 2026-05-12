@@ -1227,20 +1227,22 @@ document.addEventListener('DOMContentLoaded', function () {
     },1000);
   }
 
-  /* ── PIN copy ── */
+  /* ── 5f: PIN copy → clipboard toast + haptic ── */
   var cpBtn = document.getElementById('pin-copy-btn');
   if (cpBtn) {
-    var origLbl = document.getElementById('copy-lbl').textContent;
     cpBtn.addEventListener('click', function(){
-      navigator.clipboard && navigator.clipboard.writeText(cpBtn.dataset.pin).then(function(){
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(cpBtn.dataset.pin).then(function(){
         cpBtn.classList.add('copied');
-        document.getElementById('copy-ico').className='fas fa-check';
-        document.getElementById('copy-lbl').textContent='✔';
+        document.getElementById('copy-ico').className = 'fas fa-check';
+        document.getElementById('copy-lbl').textContent = '✔';
+        if (window._iesa_showToast) window._iesa_showToast('PIN скопирован ✓', 'success');
+        if ('vibrate' in navigator) navigator.vibrate(50);
         setTimeout(function(){
           cpBtn.classList.remove('copied');
-          document.getElementById('copy-ico').className='fas fa-copy';
-          document.getElementById('copy-lbl').textContent=origLbl;
-        },2200);
+          document.getElementById('copy-ico').className = 'fas fa-copy';
+          document.getElementById('copy-lbl').textContent = '{% trans "Copy" %}';
+        }, 2200);
       });
     });
   }

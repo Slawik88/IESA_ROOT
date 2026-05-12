@@ -237,6 +237,18 @@
                       style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);display:none;">
                   <i class="fas fa-spinner fa-spin" style="color:rgba(255,255,255,.3);font-size:.8rem;"></i>
                 </span>
+                {# 5c: skeleton-контент пока HTMX грузит результаты #}
+                <div id="mac-skeleton" style="display:none;padding:.5rem 0;">
+                  {% for _ in "123" %}
+                  <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;">
+                    <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
+                    <div style="flex:1;">
+                      <div class="skeleton" style="height:12px;width:60%;border-radius:4px;margin-bottom:5px;"></div>
+                      <div class="skeleton" style="height:10px;width:40%;border-radius:4px;"></div>
+                    </div>
+                  </div>
+                  {% endfor %}
+                </div>
               </div>
               {# Кнопка обычного поиска (fallback) #}
               <form method="get" action="" style="display:none;" id="mac-fallback-form">
@@ -572,14 +584,18 @@ document.querySelectorAll('#sidebar-log-btn, #sidebar-cta-btn, #topbar-log-btn')
     var macResults = document.getElementById('mac-results');
     if (!macInput || !macResults) return;
 
-    // HTMX indicator для spinner
+    // HTMX indicator: spinner + 5c skeleton
     macInput.addEventListener('htmx:beforeRequest', function () {
-        var sp = document.getElementById('mac-spinner');
+        var sp  = document.getElementById('mac-spinner');
+        var sk  = document.getElementById('mac-skeleton');
         if (sp) sp.style.display = 'inline';
+        if (sk && macInput.value.length >= 2) sk.style.display = 'block';
     });
     macInput.addEventListener('htmx:afterRequest', function () {
         var sp = document.getElementById('mac-spinner');
+        var sk = document.getElementById('mac-skeleton');
         if (sp) sp.style.display = 'none';
+        if (sk) sk.style.display = 'none';
     });
 
     // Keyboard navigation (↑↓ Enter Escape)
