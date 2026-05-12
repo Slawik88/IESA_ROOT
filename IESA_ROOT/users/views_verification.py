@@ -45,11 +45,16 @@ from .models import InviteToken, Meeting, Partner, User, Visit, VisitAudit
 
 logger = logging.getLogger(__name__)
 
-# Lockout constants
+# Lockout / window constants
 PIN_MAX_ATTEMPTS = 10
 PIN_LOCKOUT_MINUTES = 15
 IDEMPOTENCY_WINDOW = 300   # 5 minutes
 EDIT_WINDOW = 1200          # 20 minutes
+
+from .constants import (
+    PIN_INTERVAL, PIN_LENGTH, CABINET_VISITS_LIMIT, WEBHOOK_RATE_LIMIT,
+    PARTNER_VISITS_PER_PAGE, PARTNER_HISTORY_LIMIT,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -138,82 +143,9 @@ def public_profile(request, uuid):
     })
 
 
-@login_required
-def member_cabinet(request):
-    """Personal cabinet showing current PIN and membership info."""
-    import time
-
-    user = request.user
-
-    if not hasattr(user, 'membership_status'):
-        messages.error(request, _('⚠️ System error: Database migration required. Contact administrator.'))
-        return redirect('core:home')
-
-    _tg_ctx = {
-        'telegram_linked': bool(user.telegram_chat_id),
-        'telegram_bot_configured': bool(_token()),
-        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_USERNAME', os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot')),
-    }
-
-    if user.membership_status != 'active':
-        return render(request, 'users/member_cabinet.html', {
-            'membership_status': user.membership_status,
-            'current_pin': None,
-            'seconds_remaining': 0,
-            'error_message': _('Your membership is inactive. Contact administrator to activate your account.'),
-            **_tg_ctx,
-        })
-
-    if not user.totp_secret:
-        messages.error(request, _('⚠️ TOTP secret not configured. Contact administrator.'))
-        return render(request, 'users/member_cabinet.html', {
-            'membership_status': user.membership_status,
-            'current_pin': None,
-            'seconds_remaining': 0,
-            'error_message': _('PIN system not initialized. Contact administrator.'),
-            **_tg_ctx,
-        })
-
-    current_pin = user.get_current_pin()
-    if not current_pin:
-        messages.error(request, _('⚠️ Unable to generate PIN. Contact administrator.'))
-        return render(request, 'users/member_cabinet.html', {
-            'membership_status': user.membership_status,
-            'current_pin': None,
-            'seconds_remaining': 0,
-            'error_message': _('PIN generation failed. Contact administrator.'),
-            **_tg_ctx,
-        })
-
-    current_time = int(time.time())
-    interval = 720
-    time_step = current_time // interval
-    next_refresh = (time_step + 1) * interval
-    seconds_remaining = next_refresh - current_time
-
-    # Member's own visit history (what they see of their own visits at partners)
-    total_member_visits = Visit.objects.filter(member=user).count()
-    recent_visits = (
-        Visit.objects
-        .filter(member=user)
-        .select_related('partner', 'partner__user')
-        .order_by('-timestamp')[:20]
-    )
-
-    return render(request, 'users/member_cabinet.html', {
-        'current_pin': current_pin,
-        'seconds_remaining': seconds_remaining,
-        'membership_status': user.membership_status,
-        'user_name': user.get_full_name() or user.username,
-        'user': user,
-        'telegram_linked': bool(user.telegram_chat_id),
-        'telegram_bot_configured': bool(_token()),
-        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_USERNAME', os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot')),
-        'card_active': user.card_active,
-        'card_issued_at': user.card_issued_at,
-        'recent_visits': recent_visits,
-        'total_visits': total_member_visits,
-    })
+    # member_cabinet() удалён — Block 1 рефакторинг.
+    # Весь контент (PIN, карта, история визитов) перенесён во вкладку профиля.
+    # URL /auth/cabinet/ перенаправляет на /auth/profile/ (см. urls.py).
 
 
 # ---------------------------------------------------------------------------
@@ -389,55 +321,10 @@ def log_visit(request, member_id):
                         member.failed_pin_attempts = 0
                         member.pin_lockout_until = None
 
-                # --- Уведомление участнику ---
-                import threading as _thr
-                from notifications.models import Notification as _Notif
-
-                # 1. Всегда создаём in-site уведомление — понятный текст
-                _cost_txt = f' — {visit.cost} CHF' if visit.cost else ''
-                _pin_txt = ' ✓ (PIN verified)' if visit.pin_verified else ''
-                _Notif.objects.create(
-                    recipient=member,
-                    notification_type='system',
-                    title=f'✅ {partner.company_name} — {visit.get_service_type_display()}',
-                    message=_(
-                        'Partner %(company)s has recorded your visit.\n'
-                        'Service: %(service)s%(cost)s%(pin)s.\n'
-                        'Date: %(date)s.'
-                    ) % {
-                        'company': partner.company_name,
-                        'service': visit.get_service_type_display(),
-                        'cost':    _cost_txt,
-                        'pin':     _pin_txt,
-                        'date':    visit.timestamp.strftime('%d %b %Y, %H:%M'),
-                    },
-                    link='/auth/cabinet/',
-                )
-
-                # 2. TG-уведомление если привязан
-                _visit_id = visit.pk
-                if getattr(member, 'telegram_chat_id', None):
-                    def _notify_tg():
-                        try:
-                            from users.models import Visit as _Visit
-                            from users.telegram.notify import notify_visit_confirmed as _notify
-                            _v = _Visit.objects.select_related('member', 'partner').get(pk=_visit_id)
-                            _notify(_v)
-                        except Exception as _exc:
-                            logger.error("bg notify_visit_confirmed failed: %s", _exc)
-                    _thr.Thread(target=_notify_tg, daemon=True).start()
-                else:
-                    # TG не привязан — приглашение привязать бота
-                    _Notif.objects.create(
-                        recipient=member,
-                        notification_type='system',
-                        title='📱 Connect Telegram for instant notifications',
-                        message=_(
-                            'You don\'t have Telegram connected yet. '
-                            'Connect @IESA_Administrator_bot to receive instant notifications about your visits at %(company)s and other partners!'
-                        ) % {'company': partner.company_name},
-                        link='/auth/connect-telegram/',
-                    )
+                # --- Уведомление участнику (Block 2: вынесено в сервис) ---
+                from users.services.visit_notifications import notify_visit_logged as _nv_logged
+                _nv_logged(visit, partner, member)
+                if not getattr(member, 'telegram_chat_id', None):
                     messages.info(
                         request,
                         _('ℹ️ Member has no Telegram linked — in-site notification sent instead.')
@@ -532,31 +419,9 @@ def edit_visit(request, visit_id):
             updated_visit.save()
             audit.save()
 
-            # In-site уведомление участнику
-            from notifications.models import Notification as _Notif
-            _cost_txt = f' — {updated_visit.cost} CHF' if updated_visit.cost else ''
-            _Notif.objects.create(
-                recipient=updated_visit.member,
-                notification_type='system',
-                title=f'✏️ Visit updated — {partner.company_name}',
-                message=_(
-                    'Partner %(company)s has updated your visit record.\n'
-                    'Service: %(service)s%(cost)s.\n'
-                    'Reason: %(reason)s'
-                ) % {
-                    'company': partner.company_name,
-                    'service': updated_visit.get_service_type_display(),
-                    'cost':    _cost_txt,
-                    'reason':  audit.reason or _('No reason specified'),
-                },
-                link='/auth/cabinet/',
-            )
-
-            # TG уведомление
-            try:
-                notify_visit_edited(updated_visit, audit)
-            except Exception as exc:
-                logger.error("notify_visit_edited failed: %s", exc)
+            # Уведомление участнику (Block 2: сервис)
+            from users.services.visit_notifications import notify_visit_edited as _nv_edited
+            _nv_edited(updated_visit, audit, partner)
 
             messages.success(request, _('✅ Visit updated. Member notified.'))
             return redirect('users:partner_dashboard')
@@ -616,29 +481,9 @@ def cancel_visit(request, visit_id):
             visit.save(update_fields=['status'])
             audit.save()
 
-            # In-site уведомление участнику
-            from notifications.models import Notification as _Notif
-            _Notif.objects.create(
-                recipient=visit.member,
-                notification_type='system',
-                title=f'❌ Visit cancelled — {partner.company_name}',
-                message=_(
-                    'Partner %(company)s has cancelled your visit record.\n'
-                    'Service that was logged: %(service)s.\n'
-                    'Reason: %(reason)s'
-                ) % {
-                    'company': partner.company_name,
-                    'service': visit.get_service_type_display(),
-                    'reason':  reason or _('No reason specified'),
-                },
-                link='/auth/cabinet/',
-            )
-
-            # TG уведомление
-            try:
-                notify_visit_cancelled(visit, audit)
-            except Exception as exc:
-                logger.error("notify_visit_cancelled failed: %s", exc)
+            # Уведомление участнику (Block 2: сервис)
+            from users.services.visit_notifications import notify_visit_cancelled as _nv_cancelled
+            _nv_cancelled(visit, audit, partner)
 
             messages.success(request, _('✅ Visit cancelled. Member notified.'))
             return redirect('users:partner_dashboard')
@@ -1062,7 +907,7 @@ async def telegram_webhook_view(request, secret):
     _rl_key = f'webhook_rl_{_ip}'
     from django.core.cache import cache
     _count = cache.get(_rl_key, 0)
-    if _count >= 300:
+    if _count >= WEBHOOK_RATE_LIMIT:
         return JsonResponse({"ok": False}, status=429)
     cache.set(_rl_key, _count + 1, timeout=60)
 

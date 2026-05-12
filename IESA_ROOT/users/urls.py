@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 from . import views_verification
 
@@ -24,8 +25,8 @@ urlpatterns = [
     # MEMBERSHIP VERIFICATION SYSTEM
     # Public profile view for QR code scanning
     path('profile/<uuid:uuid>/public/', views_verification.public_profile, name='public_profile'),
-    # Member personal cabinet with current PIN
-    path('cabinet/', views_verification.member_cabinet, name='member_cabinet'),
+    # Обратная совместимость: /cabinet/ → /profile/#pin-section (Block 1)
+    path('cabinet/', RedirectView.as_view(url='/auth/profile/#pin-section', permanent=True), name='member_cabinet'),
     # Partner dashboard
     path('partner/dashboard/', views_verification.partner_dashboard, name='partner_dashboard'),
     # Partner analytics

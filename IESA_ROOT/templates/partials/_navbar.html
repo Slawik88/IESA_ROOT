@@ -236,11 +236,11 @@
                             {% if user.membership_status == 'active' %}
                             <li>
                                 <a class="dropdown-item pnd-item pnd-cabinet"
-                                   href="{% url 'users:member_cabinet' %}">
+                                   href="{% url 'users:profile' %}#pin-section">
                                     <span class="pnd-icon"><i class="fas fa-fingerprint"></i></span>
                                     <div>
-                                        <div class="pnd-label">{% trans "PIN Cabinet" %}</div>
-                                        <div class="pnd-sub">{% trans "PIN & QR access" %}</div>
+                                        <div class="pnd-label">{% trans "PIN & Card" %}</div>
+                                        <div class="pnd-sub">{% trans "PIN code & visit history" %}</div>
                                     </div>
                                 </a>
                             </li>

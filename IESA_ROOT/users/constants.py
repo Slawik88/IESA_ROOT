@@ -1,6 +1,23 @@
 """User app constants and configuration data."""
 from django.utils.translation import gettext_lazy as _
 
+# ── PIN / TOTP ──────────────────────────────────────────────────────────────
+PIN_INTERVAL = 720   # секунды между сменами PIN (12 мин)
+PIN_LENGTH   = 6     # количество цифр в PIN
+
+# ── QR-код ──────────────────────────────────────────────────────────────────
+QR_CACHE_TTL = 3600  # секунды хранения QR в кэше (1 час)
+
+# ── Telegram webhook ────────────────────────────────────────────────────────
+WEBHOOK_RATE_LIMIT = 300  # максимум запросов/мин с одного IP
+
+# ── Пагинация ────────────────────────────────────────────────────────────────
+PROFILE_POSTS_PER_PAGE  = 12
+SEARCH_RESULTS_PER_PAGE = 20
+PARTNER_VISITS_PER_PAGE = 15
+PARTNER_HISTORY_LIMIT   = 20
+CABINET_VISITS_LIMIT    = 20  # последних визитов в истории кабинета
+
 # Activity level definitions
 # FIX: Extracted from views.py to make it reusable and testable
 ACTIVITY_LEVELS = [
