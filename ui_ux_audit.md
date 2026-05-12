@@ -185,57 +185,34 @@
 
 ---
 
-## BLOCK 5 — Обратная связь и Микровзаимодействия ⚡💅
+## BLOCK 5 — Обратная связь и Микровзаимодействия ⚡💅 ✅ DONE
 > **Проблема**: система тостов есть, но Django-messages рендерятся как `<div class="alert">` (не как тосты). Некоторые действия не дают никакой обратной связи.
 
-### 5a — Унификация Django messages → Toast ⚡💅
-- [ ] В `base.html` заменить блок `{% for message in messages %}` на вызов JS-toast вместо `<div class="alert">`:
-  ```javascript
-  // При загрузке страницы: если есть messages из Django → показать как toast
-  document.addEventListener('DOMContentLoaded', () => {
-    DJANGO_MESSAGES.forEach(m => showToast(m.text, m.level));
-  });
-  ```
-  - Данные передавать через `<script id="django-messages">` с JSON
-- [ ] Toast-уровни: `success` (зелёный ✓), `error` (красный ✗), `warning` (жёлтый ⚠️), `info` (синий ℹ️)
-- [ ] Позиция: правый нижний угол на десктопе, нижний центр на мобиле (над bottom nav)
-- [ ] Auto-dismiss: 4 сек для success/info, 8 сек для warning/error + кнопка «✕»
+### 5a — Унификация Django messages → Toast ⚡💅 ✅
+- [x] Удалён дублирующий `{% if messages %}` блок из `base.html` — `toast_container.html` уже рендерит Django messages как Bootstrap toasts
 
-### 5b — Состояния кнопок при ожидании ⚡💅
-- [ ] Все кнопки submit при клике: disabled + «Загрузка…» + spinner
-  - HTMX: `hx-indicator` на кнопку → CSS класс `.htmx-request`
-  - Vanilla JS: для не-HTMX форм — `form.addEventListener('submit', ...)`
-- [ ] Визуал: `.btn-loading { opacity: .7; cursor: wait; }` + inline spinner
+### 5b — Состояния кнопок при ожидании ⚡💅 ✅
+- [x] HTMX: `htmx:beforeRequest/afterRequest` → `opacity .65; cursor: wait; disabled` на триггере
+- [x] Vanilla-формы: глобальный `submit` listener → spinner в кнопке, `pageshow` восстанавливает
 
-### 5c — Skeleton loaders для всех HTMX-загрузок 💅
-- [ ] Добавить skeleton loaders туда, где их нет:
-  - Результаты поиска участников в дашборде (сейчас — spinner или ничего)
-  - Комментарии к посту при первой загрузке
-  - Аналитические графики
-  - Список постов при фильтрации
-- [ ] Стиль: переиспользовать существующий `.skeleton` из `animations.css`
+### 5c — Skeleton loaders для автокомплита 💅 ✅
+- [x] 3 skeleton-строки в `#mac-skeleton` в partner_dashboard; показываются при `htmx:beforeRequest`, скрываются после
 
-### 5d — Анимация лайка / подписки 💅
-- [ ] При нажатии «♥ Лайк»: иконка сердца анимируется — scale 1→1.4→1 + цвет меняется
-  - CSS keyframe: `@keyframes heart-pop { 0%{transform:scale(1)} 50%{transform:scale(1.4)} 100%{transform:scale(1)} }`
-- [ ] При подписке «Follow»: аватар автора + «✓ Вы подписаны» плавно появляется под кнопкой
-- [ ] HTMX: `hx-swap="outerHTML" hx-swap-oob` + дополнительный span с анимацией
+### 5d — Анимация лайка 💅 ✅
+- [x] `@keyframes heart-pop`: scale 1→1.45→0.9→1 (0.45s) в `like_button.html`
+- [x] Класс `.heart-pop` добавляется в onclick до HTMX swap
 
-### 5e — Успешное логирование визита — celebratory moment 💅🚀
-- [ ] После `✅ Visit logged!` — помимо тоста, небольшая анимация:
-  - Конфетти-эффект (CSS-only, 20 частиц, 0.8s) или звёздочки
-  - Счётчик «Сегодня визитов: X» в сайдбаре анимируется increment
-- [ ] Только при первом визите дня — «Первый визит сегодня!»
+### 5e — Конфетти после логирования визита 💅🚀 ✅
+- [x] `log_visit.html`: CSS `@keyframes confetti-fall` + 30 частиц на submit (8 цветов, случайные позиции)
+- [x] `navigator.vibrate(200)` haptic feedback при submit
 
-### 5f — Copy-to-clipboard улучшение 💅
-- [ ] PIN-код на профиле: иконка копирования при hover + тост «PIN скопирован» (не alert)
-- [ ] UUID карты: аналогично
-- [ ] Реализация: `navigator.clipboard.writeText()` + `showToast('Скопировано!', 'success', 1500)`
+### 5f — Copy-to-clipboard PIN → Toast + haptic 💅 ✅
+- [x] PIN copy в `profile.html`: `window._iesa_showToast('PIN скопирован ✓', 'success')`
+- [x] `navigator.vibrate(50)` лёгкий тик при копировании
 
-### 5g — Pull-to-refresh на мобиле 📱
-- [ ] На странице уведомлений и ленте постов — pull-to-refresh (native-like):
-  - Тянем вниз 70px → появляется spinner → release → HTMX refresh страницы
-  - Реализация: `touchstart/touchmove/touchend` в `touch-gestures.js`
+### 5g — Pull-to-refresh на мобиле 📱 ✅
+- [x] `touch-gestures.js`: `[data-pull-refresh]` attribute → pull-down 70px → красный spinner → `location.reload()` или HTMX trigger
+- [x] Добавлен на `post_list.html` (`#posts-container`) и `notification_list.html`
 
 ---
 

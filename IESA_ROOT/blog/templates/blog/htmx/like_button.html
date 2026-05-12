@@ -1,10 +1,21 @@
 {% load i18n %}
+{# 5d: Анимация сердца при лайке — heart-pop keyframe #}
+<style>
+@keyframes heart-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.45); }
+  70%  { transform: scale(.9); }
+  100% { transform: scale(1); }
+}
+.heart-pop { animation: heart-pop .45s cubic-bezier(.22,1,.36,1) both; }
+</style>
 
 <div id="like-button-container" class="engage-chip">
     <button class="btn engage-btn {% if is_liked %}engage-btn--active{% endif %}"
             hx-post="{% url 'blog:like_post' pk=post.pk %}"
             hx-target="#like-button-container"
-            hx-swap="outerHTML">
+            hx-swap="outerHTML"
+            onclick="var ico=this.querySelector('.fa-heart');if(ico){ico.classList.add('heart-pop');ico.addEventListener('animationend',function(){ico.classList.remove('heart-pop')},{once:true});}">
         <span class="engage-icon"><i class="fas fa-heart"></i></span>
         <span class="engage-label">{% trans "Like" %}</span>
         <span class="engage-count">{{ like_count }}</span>
