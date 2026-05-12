@@ -4,7 +4,6 @@
 {% block title %}{% trans "Partner Portal" %} — {{ partner.company_name }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/partner-dashboard.css' %}">
 <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 {% endblock %}
 
@@ -15,9 +14,6 @@
 {% block content %}
 <div class="dash-root">
 
-  {# ══════════════════════════════════════════════
-     SIDEBAR
-  ══════════════════════════════════════════════ #}
   <aside class="dash-sidebar">
 
     <div class="dash-sidebar__brand">
@@ -77,9 +73,6 @@
 
   </aside>
 
-  {# ══════════════════════════════════════════════
-     MAIN CONTENT
-  ══════════════════════════════════════════════ #}
   <main class="dash-main">
 
     {# Внутренняя шапка #}
