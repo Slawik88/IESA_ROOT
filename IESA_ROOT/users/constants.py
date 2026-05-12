@@ -1,6 +1,12 @@
 """User app constants and configuration data."""
 from django.utils.translation import gettext_lazy as _
 
+# ── Brute-force / edit windows ─────────────────────────────────────────────
+PIN_MAX_ATTEMPTS    = 10
+PIN_LOCKOUT_MINUTES = 15
+IDEMPOTENCY_WINDOW  = 300   # 5 минут
+EDIT_WINDOW         = 1200  # 20 минут
+
 # ── PIN / TOTP ──────────────────────────────────────────────────────────────
 PIN_INTERVAL = 720   # секунды между сменами PIN (12 мин)
 PIN_LENGTH   = 6     # количество цифр в PIN

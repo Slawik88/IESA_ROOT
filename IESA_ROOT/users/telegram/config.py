@@ -34,7 +34,11 @@ def webhook_secret() -> str:
 
 
 def bot_name() -> str:
-    return os.environ.get("TELEGRAM_BOT_NAME", "").strip()
+    """Canonical bot-name lookup: TELEGRAM_BOT_USERNAME → TELEGRAM_BOT_NAME → ''."""
+    return (
+        os.environ.get("TELEGRAM_BOT_USERNAME", "").strip()
+        or os.environ.get("TELEGRAM_BOT_NAME", "").strip()
+    )
 
 
 def channel_id() -> str:

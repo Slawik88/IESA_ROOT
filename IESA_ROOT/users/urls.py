@@ -1,75 +1,68 @@
 from django.urls import path
 from django.views.generic import RedirectView
 from . import views
-from . import views_verification
 
 app_name = 'users'
 
 urlpatterns = [
-    # Telegram webhook (public endpoint for Telegram servers)
-    path('telegram/webhook/<slug:secret>/', views_verification.telegram_webhook_view, name='telegram_webhook'),
+    # Telegram webhook (public, called by Telegram servers)
+    path('telegram/webhook/<slug:secret>/', views.telegram_webhook_view, name='telegram_webhook'),
 
-    # Авторизация
+    # Auth
     path('register/', views.RegisterView.as_view(), name='register'),
-    path('login/', views.LoginView.as_view(), name='login'),
-    path('logout/', views.logout_view, name='logout'),
-    
-    # Профиль
-    path('profile/', views.ProfileView.as_view(), name='profile'),
-    path('profile/edit/', views.ProfileEditView.as_view(), name='profile_edit'),
-    path('profile/deactivate/', views.profile_deactivate, name='profile_deactivate'),
-    # Public profiles by username and by permanent card ID (QR)
+    path('login/',    views.LoginView.as_view(),    name='login'),
+    path('logout/',   views.logout_view,             name='logout'),
+
+    # Profile
+    path('profile/',            views.ProfileView.as_view(),   name='profile'),
+    path('profile/edit/',       views.ProfileEditView.as_view(), name='profile_edit'),
+    path('profile/deactivate/', views.profile_deactivate,      name='profile_deactivate'),
     path('user/<str:username>/', views.profile_public_by_username, name='profile_public_username'),
     path('card/<uuid:permanent_id>/', views.profile_public_by_card, name='profile_by_card'),
-    
-    # MEMBERSHIP VERIFICATION SYSTEM
-    # Public profile view for QR code scanning
-    path('profile/<uuid:uuid>/public/', views_verification.public_profile, name='public_profile'),
-    # Обратная совместимость: /cabinet/ → /profile/#pin-section (Block 1)
+
+    # Membership verification
+    path('profile/<uuid:uuid>/public/', views.public_profile, name='public_profile'),
+    # /cabinet/ removed — Block 1: 301 redirect to profile#pin-section
     path('cabinet/', RedirectView.as_view(url='/auth/profile/#pin-section', permanent=True), name='member_cabinet'),
-    # Partner dashboard
-    path('partner/dashboard/', views_verification.partner_dashboard, name='partner_dashboard'),
-    # Partner analytics
-    path('partner/analytics/', views_verification.partner_analytics, name='partner_analytics'),
-    # Partner profile edit
-    path('partner/profile/', views_verification.partner_profile_edit, name='partner_profile_edit'),
-    # Log visit for a specific member
-    path('partner/visit/<int:member_id>/', views_verification.log_visit, name='log_visit'),
-    # Per-member full visit history at this partner
-    path('partner/member/<int:member_id>/', views_verification.partner_member_visits, name='partner_member_visits'),
-    # Edit / cancel a visit (20-min window)
-    path('partner/visit/<int:visit_id>/edit/', views_verification.edit_visit, name='edit_visit'),
-    path('partner/visit/<int:visit_id>/cancel/', views_verification.cancel_visit, name='cancel_visit'),
-    # Telegram bot test page (staff only)
-    path('partner/test-telegram/', views_verification.test_telegram_view, name='test_telegram'),
-    # Telegram linking (Method A: code from bot)
-    path('connect-telegram/', views_verification.connect_telegram_code_view, name='connect_telegram_code'),
-    path('disconnect-telegram/', views_verification.disconnect_telegram_view, name='disconnect_telegram'),
-    # Telegram Login Widget callback (Method B)
-    path('telegram/login-callback/', views_verification.telegram_login_callback_view, name='telegram_login_callback'),
-    # Server time API
-    path('api/time/', views_verification.server_time, name='server_time'),
-    
-    # Serve QR image (generates if missing). Use as image src and download link.
-    path('qr/<uuid:permanent_id>/', views.qr_image, name='user_qr'),
-    # User search
-    path('search/', views.users_search, name='users_search'),
-    # Activity levels info
-    path('activity-levels/', views.activity_levels_info, name='activity_levels_info'),
-    # Admin impersonation
-    path('impersonate/<int:pk>/', views.impersonate_user, name='impersonate_user'),
-    # Умный редирект в личный кабинет (Задача 3)
-    path('dashboard/', views.dashboard_redirect, name='dashboard'),
-    # Заявка на смену типа аккаунта (Часть 1, Задача 3)
-    path('account-upgrade/', views.account_change_request_submit, name='account_upgrade'),
-    # Инвайт-система (Задача 2)
-    path('invite/', views_verification.invite_list, name='invite_list'),
-    path('invite/generate/', views_verification.invite_generate, name='invite_generate'),
-    path('invite/<uuid:token>/', views_verification.invite_register, name='invite_register'),
-    # Календари
-    path('partner/calendar/', views_verification.partner_calendar, name='partner_calendar'),
-    path('partner/meeting/<int:meeting_id>/cancel/', views_verification.delete_meeting, name='delete_meeting'),
-    path('my-calendar/', views_verification.user_calendar, name='user_calendar'),
-    # Страховой агент
-    path('insurance-agent/', views_verification.insurance_agent_request, name='insurance_agent'),
+
+    # Partner portal
+    path('partner/dashboard/', views.partner_dashboard, name='partner_dashboard'),
+    path('partner/analytics/', views.partner_analytics, name='partner_analytics'),
+    path('partner/profile/',   views.partner_profile_edit, name='partner_profile_edit'),
+    path('partner/visit/<int:member_id>/', views.log_visit, name='log_visit'),
+    path('partner/member/<int:member_id>/', views.partner_member_visits, name='partner_member_visits'),
+    path('partner/visit/<int:visit_id>/edit/',   views.edit_visit,   name='edit_visit'),
+    path('partner/visit/<int:visit_id>/cancel/', views.cancel_visit, name='cancel_visit'),
+    path('partner/test-telegram/', views.test_telegram_view, name='test_telegram'),
+
+    # Telegram linking
+    path('connect-telegram/',          views.connect_telegram_code_view,   name='connect_telegram_code'),
+    path('disconnect-telegram/',       views.disconnect_telegram_view,     name='disconnect_telegram'),
+    path('telegram/login-callback/',   views.telegram_login_callback_view, name='telegram_login_callback'),
+
+    # API
+    path('api/time/', views.server_time, name='server_time'),
+
+    # QR & search
+    path('qr/<uuid:permanent_id>/',  views.qr_image,     name='user_qr'),
+    path('search/',                  views.users_search, name='users_search'),
+    path('activity-levels/',         views.activity_levels_info, name='activity_levels_info'),
+
+    # Admin tools
+    path('impersonate/<int:pk>/',  views.impersonate_user,              name='impersonate_user'),
+    path('dashboard/',             views.dashboard_redirect,            name='dashboard'),
+    path('account-upgrade/',       views.account_change_request_submit, name='account_upgrade'),
+
+    # Invites
+    path('invite/',                views.invite_list,     name='invite_list'),
+    path('invite/generate/',       views.invite_generate, name='invite_generate'),
+    path('invite/<uuid:token>/',   views.invite_register, name='invite_register'),
+
+    # Calendar
+    path('partner/calendar/',                  views.partner_calendar, name='partner_calendar'),
+    path('partner/meeting/<int:meeting_id>/cancel/', views.delete_meeting, name='delete_meeting'),
+    path('my-calendar/',                       views.user_calendar,    name='user_calendar'),
+
+    # Insurance agent
+    path('insurance-agent/', views.insurance_agent_request, name='insurance_agent'),
 ]
