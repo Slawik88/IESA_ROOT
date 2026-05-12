@@ -69,5 +69,8 @@ urlpatterns = [
     # Onboarding (Block 1)
     path('onboarded/',         views.mark_onboarded,    name='mark_onboarded'),
     path('check-username/',    views.username_available, name='username_available'),
-    path('how-it-works/',      views.how_it_works,       name='how_it_works'),
+    path('check-email/',       views.email_available,    name='email_available'),
+    path('how-it-works/',                  views.how_it_works,        name='how_it_works'),
+    path('partner/member-autocomplete/',   views.member_autocomplete, name='member_autocomplete'),
+    path('profile/field-save/',            views.profile_field_save,  name='profile_field_save'),
 ]

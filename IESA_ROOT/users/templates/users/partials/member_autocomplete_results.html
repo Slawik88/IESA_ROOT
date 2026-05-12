@@ -1,0 +1,35 @@
+{% load i18n %}
+{% if results %}
+{% for u in results %}
+<a href="{% url 'users:log_visit' member_id=u.pk %}"
+   class="mac-item"
+   role="option"
+   data-member-id="{{ u.pk }}"
+   data-member-name="{{ u.get_full_name|default:u.username }}">
+  {# Аватар #}
+  {% if u.avatar and u.avatar.name != 'avatars/default.png' %}
+    <img src="{{ u.avatar.url }}" alt="" class="mac-avatar" loading="lazy">
+  {% else %}
+    <span class="mac-avatar mac-avatar-fallback">{{ u.username|slice:":1"|upper }}</span>
+  {% endif %}
+
+  {# Инфо #}
+  <div class="mac-info">
+    <div class="mac-name">{{ u.get_full_name|default:u.username }}</div>
+    <div class="mac-meta">
+      <span class="mac-username">@{{ u.username }}</span>
+      <span class="mac-status {% if u.membership_status == 'active' %}mac-active{% else %}mac-inactive{% endif %}">
+        {{ u.membership_status|upper }}
+      </span>
+    </div>
+  </div>
+
+  {# Action icon #}
+  <span class="mac-action-icon"><i class="fas fa-user-check"></i></span>
+</a>
+{% endfor %}
+{% else %}
+<div class="mac-empty">
+  <i class="fas fa-search"></i> {% trans "No members found" %}
+</div>
+{% endif %}

@@ -120,6 +120,15 @@
 .rf-wrap input.inv { border-color:rgba(239,68,68,.45); box-shadow:0 0 0 3px rgba(239,68,68,.08); }
 .rf-wrap input::placeholder { color:rgba(255,255,255,.16); }
 .rf-wrap input:-webkit-autofill,.rf-wrap input:-webkit-autofill:hover,.rf-wrap input:-webkit-autofill:focus,.rf-wrap input:-webkit-autofill:active { -webkit-box-shadow:0 0 0 1000px #12111c inset !important; -webkit-text-fill-color:#fff !important; caret-color:#fff; }
+
+/* 3a: Password criteria chips */
+.pw-crit { font-size:.68rem; color:rgba(255,255,255,.28); font-family:var(--font-mono); display:flex; align-items:center; gap:.3rem; transition:color .2s; padding:.15rem 0; }
+.pw-crit.met { color:#4ade80; }
+.pw-crit.met i { color:#4ade80; }
+/* 3a: Live check status icons */
+.lv-ok  { color:#4ade80; }
+.lv-err { color:#f87171; }
+.lv-loading { color:rgba(255,255,255,.3); font-size:.7rem; }
 /* Принудительный override — выше dark-theme-fixes.css */
 .rf-wrap input[type="text"],
 .rf-wrap input[type="email"],
@@ -235,32 +244,41 @@
                     {# ── Step 1: Account ───────────────────────── #}
                     <div class="reg-step-panel active" data-step="1">
                         <div class="reg-grid">
+                            {# ── 3a: Username с live-проверкой ── #}
                             <div class="rf reg-full">
                                 <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
-                                <div class="rf-wrap">
+                                <div class="rf-wrap" style="position:relative;">
                                     <i class="fas fa-at rf-ic"></i>
                                     <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}"
                                            value="{{ form.username.value|default:'' }}"
                                            class="{% if form.username.errors %}inv{% endif %}"
-                                           autocomplete="username" placeholder="{% trans "e.g. johndoe" %}" autofocus>
+                                           autocomplete="username" placeholder="{% trans "e.g. johndoe" %}" autofocus
+                                           data-live-check="username">
+                                    <span id="un-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;"></span>
                                 </div>
+                                <div id="un-msg" class="rf-hint" style="min-height:1.2em;"></div>
                                 {% if form.username.help_text %}<div class="rf-hint">{{ form.username.help_text }}</div>{% endif %}
                                 {% for err in form.username.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
                             </div>
+
+                            {# ── 3a: Email с live-проверкой ── #}
                             <div class="rf reg-full">
                                 <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
-                                <div class="rf-wrap">
+                                <div class="rf-wrap" style="position:relative;">
                                     <i class="fas fa-envelope rf-ic"></i>
                                     <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}"
                                            value="{{ form.email.value|default:'' }}"
                                            class="{% if form.email.errors %}inv{% endif %}"
-                                           autocomplete="email" placeholder="your@email.com">
+                                           autocomplete="email" placeholder="your@email.com"
+                                           data-live-check="email">
+                                    <span id="em-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;"></span>
                                 </div>
+                                <div id="em-msg" class="rf-hint" style="min-height:1.2em;"></div>
                                 {% for err in form.email.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
                             </div>
                         </div>
                         <div class="reg-step-nav">
-                            <button type="button" class="reg-btn-next" data-next="2">
+                            <button type="button" class="reg-btn-next" id="step1-next-btn" data-next="2">
                                 {% trans "Continue" %} <i class="fas fa-arrow-right ms-1"></i>
                             </button>
                         </div>
@@ -269,16 +287,31 @@
                     {# ── Step 2: Password ──────────────────────── #}
                     <div class="reg-step-panel" data-step="2">
                         <div class="reg-grid">
+                            {# ── 3a: Индикатор силы пароля ── #}
                             <div class="rf reg-full">
                                 <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
                                 <div class="rf-wrap">
                                     <i class="fas fa-lock rf-ic"></i>
                                     <input type="password" name="{{ form.password1.html_name }}" id="{{ form.password1.id_for_label }}"
                                            class="has-pw{% if form.password1.errors %} inv{% endif %}"
-                                           autocomplete="new-password" placeholder="••••••••">
+                                           autocomplete="new-password" placeholder="••••••••"
+                                           id="pw1-input">
                                     <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
                                 </div>
-                                {% if form.password1.help_text %}<div class="rf-hint">{{ form.password1.help_text }}</div>{% endif %}
+                                {# Полоска силы пароля #}
+                                <div style="margin-top:.5rem;">
+                                    <div style="height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;">
+                                        <div id="pw-strength-bar" style="height:100%;width:0;border-radius:2px;transition:width .3s,background .3s;"></div>
+                                    </div>
+                                    <div id="pw-strength-label" style="font-size:.7rem;color:rgba(255,255,255,.3);margin-top:.3rem;font-family:var(--font-mono);min-height:1em;"></div>
+                                </div>
+                                <div style="margin-top:.5rem;display:grid;grid-template-columns:1fr 1fr;gap:.25rem;" id="pw-criteria">
+                                    <div id="crit-len"  class="pw-crit"><i class="fas fa-circle" style="font-size:.45rem;"></i> ≥ 8 {% trans "characters" %}</div>
+                                    <div id="crit-upper" class="pw-crit"><i class="fas fa-circle" style="font-size:.45rem;"></i> A–Z {% trans "uppercase" %}</div>
+                                    <div id="crit-num"  class="pw-crit"><i class="fas fa-circle" style="font-size:.45rem;"></i> 0–9 {% trans "number" %}</div>
+                                    <div id="crit-spec" class="pw-crit"><i class="fas fa-circle" style="font-size:.45rem;"></i> !@# {% trans "special char" %}</div>
+                                </div>
+                                {% if form.password1.help_text %}<div class="rf-hint" style="margin-top:.5rem;">{{ form.password1.help_text }}</div>{% endif %}
                                 {% for err in form.password1.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
                             </div>
                             <div class="rf reg-full">
@@ -290,6 +323,7 @@
                                            autocomplete="new-password" placeholder="••••••••">
                                     <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
                                 </div>
+                                <div id="pw-match-msg" style="font-size:.72rem;margin-top:.3rem;min-height:1em;"></div>
                                 {% for err in form.password2.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
                             </div>
                         </div>
@@ -437,6 +471,160 @@ function togglePw(btn){
     });
 
     showStep(currentStep);
+})();
+
+/* ═══════════════════════════════════════════════
+   Block 3a — Live-валидация полей регистрации
+   ═══════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    /* ── Username availability ─── */
+    var unInput  = document.getElementById('id_username');
+    var unStatus = document.getElementById('un-status');
+    var unMsg    = document.getElementById('un-msg');
+    var unOk     = false;
+    var unTimer;
+
+    function checkUsername(val) {
+        if (!val || val.length < 3) {
+            setStatus(unStatus, unMsg, null, '{% trans "Username must be at least 3 characters" %}');
+            unOk = false; return;
+        }
+        setStatus(unStatus, unMsg, 'loading', '');
+        clearTimeout(unTimer);
+        unTimer = setTimeout(function () {
+            fetch('{% url "users:username_available" %}?u=' + encodeURIComponent(val))
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.available === true) {
+                        setStatus(unStatus, unMsg, 'ok', '✓ {% trans "Available" %}');
+                        unOk = true;
+                    } else if (d.available === false) {
+                        setStatus(unStatus, unMsg, 'err', '✗ {% trans "Username already taken" %}');
+                        unOk = false;
+                    } else {
+                        setStatus(unStatus, unMsg, null, d.hint === 'min_length' ? '{% trans "At least 3 characters" %}' : '');
+                        unOk = false;
+                    }
+                }).catch(function () { setStatus(unStatus, unMsg, null, ''); });
+        }, 500);
+    }
+
+    if (unInput) {
+        unInput.addEventListener('input', function () { checkUsername(this.value.trim()); });
+        if (unInput.value) checkUsername(unInput.value.trim());
+    }
+
+    /* ── Email availability ─── */
+    var emInput  = document.getElementById('id_email');
+    var emStatus = document.getElementById('em-status');
+    var emMsg    = document.getElementById('em-msg');
+    var emOk     = false;
+    var emTimer;
+    var emailRe  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    function checkEmail(val) {
+        if (!val) { setStatus(emStatus, emMsg, null, ''); emOk = false; return; }
+        if (!emailRe.test(val)) {
+            setStatus(emStatus, emMsg, 'err', '✗ {% trans "Invalid email format" %}');
+            emOk = false; return;
+        }
+        setStatus(emStatus, emMsg, 'loading', '');
+        clearTimeout(emTimer);
+        emTimer = setTimeout(function () {
+            fetch('{% url "users:email_available" %}?e=' + encodeURIComponent(val))
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.available === true) {
+                        setStatus(emStatus, emMsg, 'ok', '✓ {% trans "Email available" %}');
+                        emOk = true;
+                    } else if (d.available === false) {
+                        setStatus(emStatus, emMsg, 'err', '✗ {% trans "This email is already registered" %}');
+                        emOk = false;
+                    } else {
+                        setStatus(emStatus, emMsg, 'err', '✗ {% trans "Invalid email format" %}');
+                        emOk = false;
+                    }
+                }).catch(function () { setStatus(emStatus, emMsg, null, ''); });
+        }, 600);
+    }
+
+    if (emInput) {
+        emInput.addEventListener('input', function () { checkEmail(this.value.trim()); });
+        if (emInput.value) checkEmail(emInput.value.trim());
+    }
+
+    /* ── Password strength ─── */
+    var pw1     = document.getElementById('id_password1');
+    var pw2     = document.getElementById('id_password2');
+    var pwBar   = document.getElementById('pw-strength-bar');
+    var pwLabel = document.getElementById('pw-strength-label');
+    var pwMatch = document.getElementById('pw-match-msg');
+
+    var criteria = {
+        len:   document.getElementById('crit-len'),
+        upper: document.getElementById('crit-upper'),
+        num:   document.getElementById('crit-num'),
+        spec:  document.getElementById('crit-spec'),
+    };
+
+    var LEVELS = [
+        { label: '{% trans "Too weak" %}',  color: '#f87171',  pct: 25  },
+        { label: '{% trans "Fair" %}',      color: '#fbbf24',  pct: 50  },
+        { label: '{% trans "Strong" %}',    color: '#34d399',  pct: 75  },
+        { label: '{% trans "Very strong" %}', color: '#4ade80', pct: 100 },
+    ];
+
+    function checkPassword(val) {
+        var met = {
+            len:   val.length >= 8,
+            upper: /[A-Z]/.test(val),
+            num:   /[0-9]/.test(val),
+            spec:  /[!@#$%^&*()\-_=+\[\]{};:'",.<>?/\\|`~]/.test(val),
+        };
+        Object.keys(met).forEach(function (k) {
+            if (criteria[k]) criteria[k].classList.toggle('met', met[k]);
+        });
+        var score = Object.values(met).filter(Boolean).length;
+        if (!val) { score = 0; }
+        if (pwBar) {
+            pwBar.style.width  = score ? LEVELS[score-1].pct + '%' : '0%';
+            pwBar.style.background = score ? LEVELS[score-1].color : 'transparent';
+        }
+        if (pwLabel) {
+            pwLabel.textContent = score ? LEVELS[score-1].label : '';
+            pwLabel.style.color = score ? LEVELS[score-1].color : 'rgba(255,255,255,.3)';
+        }
+        checkMatch();
+    }
+
+    function checkMatch() {
+        if (!pw2 || !pw2.value) { if (pwMatch) pwMatch.textContent = ''; return; }
+        var match = pw1.value === pw2.value;
+        if (pwMatch) {
+            pwMatch.textContent = match ? '✓ {% trans "Passwords match" %}' : '✗ {% trans "Passwords do not match" %}';
+            pwMatch.style.color = match ? '#4ade80' : '#f87171';
+        }
+    }
+
+    if (pw1) pw1.addEventListener('input', function () { checkPassword(this.value); });
+    if (pw2) pw2.addEventListener('input', checkMatch);
+
+    /* ── Helper: set status ─── */
+    function setStatus(iconEl, msgEl, state, msg) {
+        if (iconEl) {
+            iconEl.className = '';
+            if (state === 'ok')      { iconEl.textContent = '✓'; iconEl.className = 'lv-ok'; }
+            else if (state === 'err'){ iconEl.textContent = '✗'; iconEl.className = 'lv-err'; }
+            else if (state === 'loading') { iconEl.textContent = '…'; iconEl.className = 'lv-loading'; }
+            else iconEl.textContent = '';
+        }
+        if (msgEl) {
+            msgEl.textContent = msg || '';
+            msgEl.style.color = state === 'ok' ? '#4ade80' : state === 'err' ? '#f87171' : 'rgba(255,255,255,.3)';
+        }
+    }
 })();
 </script>
 {% endblock %}

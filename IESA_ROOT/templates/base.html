@@ -375,6 +375,37 @@
     </div>
     {% endif %}
 
+    <!-- 3c: Phone input mask (global) -->
+    <script>
+    (function () {
+        'use strict';
+        function applyPhoneMask(input) {
+            input.addEventListener('input', function (e) {
+                var raw = this.value.replace(/\D/g, '');
+                var out = '';
+                if (raw.startsWith('41') || raw.startsWith('0')) {
+                    // Swiss format: +41 79 000 00 00
+                    if (!raw.startsWith('41')) raw = '41' + raw.replace(/^0/, '');
+                    out = '+' + raw.slice(0,2);
+                    if (raw.length > 2)  out += ' ' + raw.slice(2,4);
+                    if (raw.length > 4)  out += ' ' + raw.slice(4,7);
+                    if (raw.length > 7)  out += ' ' + raw.slice(7,9);
+                    if (raw.length > 9)  out += ' ' + raw.slice(9,11);
+                } else {
+                    // Generic international: +xx xxx xxx xx xx
+                    out = raw ? '+' + raw : '';
+                }
+                this.value = out.slice(0, 17);
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('[data-phone-mask]').forEach(applyPhoneMask);
+        });
+        // Export for dynamically added inputs
+        window._applyPhoneMask = applyPhoneMask;
+    })();
+    </script>
+
     <!-- 2f: Smart navbar back button (mobile only) -->
     <script>
     (function () {
