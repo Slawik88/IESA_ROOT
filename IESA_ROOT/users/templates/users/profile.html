@@ -275,7 +275,248 @@
   .cab-qn-item:hover,
   .cab-qn-item.active { background: rgba(255,255,255,.07); color: rgba(255,255,255,.88); }
   .cab-qn-item i { font-size: .78rem; }
+  {# ═══ ОНБОРДИНГ: CSS ═══ #}
+  <style>
+  /* ── Welcome Modal (1a) ─────────────────────────────────────────── */
+  .onb-backdrop {
+    position: fixed; inset: 0; z-index: 1080;
+    background: rgba(0,0,0,.65); backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1.5rem;
+    animation: onb-fade-in .25s ease;
+  }
+  @keyframes onb-fade-in { from { opacity:0 } to { opacity:1 } }
+  .onb-backdrop.onb-hiding { animation: onb-fade-out .2s ease forwards; }
+  @keyframes onb-fade-out { from { opacity:1 } to { opacity:0 } }
+
+  .onb-modal {
+    background: linear-gradient(145deg, #13121e 0%, #1a1828 100%);
+    border: 1px solid rgba(220,38,38,.25);
+    border-top: 3px solid #dc2626;
+    border-radius: 20px;
+    padding: 2.5rem 2rem;
+    max-width: 480px; width: 100%;
+    text-align: center;
+    box-shadow: 0 40px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(220,38,38,.08);
+    animation: onb-pop-in .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes onb-pop-in { from { opacity:0; transform:scale(.85) translateY(30px) } to { opacity:1; transform:none } }
+
+  .onb-icon { font-size: 3.5rem; margin-bottom: 1rem; display: block; }
+  .onb-title { font-size: 1.5rem; font-weight: 900; color: #fff; margin-bottom: .5rem; letter-spacing: -.02em; }
+  .onb-sub   { color: rgba(255,255,255,.5); font-size: .9rem; line-height: 1.6; margin-bottom: 1.75rem; }
+
+  .onb-steps { display: flex; flex-direction: column; gap: .55rem; margin-bottom: 2rem; text-align: left; }
+  .onb-step  { display: flex; align-items: center; gap: .75rem; padding: .6rem .85rem; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: 10px; }
+  .onb-step-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(220,38,38,.12); color: #f87171; display: flex; align-items: center; justify-content: center; font-size: .85rem; flex-shrink: 0; }
+  .onb-step-text { font-size: .85rem; color: rgba(255,255,255,.75); font-weight: 600; }
+
+  .onb-btn-primary {
+    display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+    width: 100%; background: linear-gradient(135deg,#dc2626,#b91c1c);
+    border: none; border-radius: 12px; color: #fff;
+    font-size: 1rem; font-weight: 700; padding: .875rem 1.5rem;
+    cursor: pointer; transition: filter .15s, transform .15s;
+    box-shadow: 0 4px 20px rgba(220,38,38,.35); margin-bottom: .75rem;
+  }
+  .onb-btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .onb-btn-skip { background: none; border: none; color: rgba(255,255,255,.3); font-size: .82rem; cursor: pointer; padding: .25rem; transition: color .15s; }
+  .onb-btn-skip:hover { color: rgba(255,255,255,.6); }
+
+  /* ── Profile Completeness Bar (1b) ──────────────────────────────── */
+  .pcp-wrap {
+    padding: .85rem 1.25rem;
+    background: rgba(255,255,255,.025);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .pcp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+  .pcp-label  { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.38); }
+  .pcp-pct    { font-size: .72rem; font-weight: 800; }
+  .pcp-track  { height: 5px; background: rgba(255,255,255,.07); border-radius: 100px; overflow: hidden; }
+  .pcp-fill   { height: 100%; border-radius: 100px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+
+  .pcp-steps  { display: none; padding-top: .75rem; gap: .4rem; flex-direction: column; }
+  .pcp-steps.open { display: flex; }
+  .pcp-step-item {
+    display: flex; align-items: center; gap: .6rem;
+    font-size: .8rem; color: rgba(255,255,255,.55);
+    padding: .3rem .5rem; border-radius: 7px;
+    text-decoration: none;
+    transition: background .12s;
+  }
+  .pcp-step-item:hover { background: rgba(255,255,255,.05); color: rgba(255,255,255,.85); }
+  .pcp-step-item i { width: 14px; text-align: center; color: rgba(220,38,38,.7); flex-shrink: 0; }
+  .pcp-toggle { background: none; border: none; color: rgba(255,255,255,.3); font-size: .75rem; cursor: pointer; padding: 0; transition: color .15s; margin-left: .35rem; }
+  .pcp-toggle:hover { color: rgba(255,255,255,.6); }
+
+  /* ── Contextual Tooltips (1c) ────────────────────────────────────── */
+  [data-onb-tip] {
+    position: relative;
+  }
+  [data-onb-tip]::after {
+    content: attr(data-onb-tip);
+    position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%);
+    background: #1e1b2e; border: 1px solid rgba(220,38,38,.3);
+    color: rgba(255,255,255,.85); font-size: .73rem; font-weight: 600;
+    padding: .4rem .75rem; border-radius: 8px;
+    white-space: nowrap; pointer-events: none; z-index: 100;
+    opacity: 0; transition: opacity .2s;
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  }
+  [data-onb-tip]::before {
+    content: '';
+    position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent; border-top-color: rgba(220,38,38,.3);
+    opacity: 0; transition: opacity .2s; z-index: 101;
+  }
+  [data-onb-tip]:hover::after, [data-onb-tip]:hover::before { opacity: 1; }
+
+  /* ── Quick Actions Carousel (1d) ─────────────────────────────────── */
+  .qa-onb-section {
+    padding: .85rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .qa-onb-header { font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.28); margin-bottom: .6rem; }
+  .qa-onb-scroll { display: flex; gap: .6rem; overflow-x: auto; scrollbar-width: none; padding-bottom: .25rem; }
+  .qa-onb-scroll::-webkit-scrollbar { display: none; }
+  .qa-onb-card {
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: .6rem;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px; padding: .65rem .9rem;
+    text-decoration: none; color: rgba(255,255,255,.75);
+    font-size: .8rem; font-weight: 600;
+    transition: background .15s, border-color .15s, color .15s;
+    white-space: nowrap;
+  }
+  .qa-onb-card:hover { background: rgba(220,38,38,.08); border-color: rgba(220,38,38,.25); color: #fff; }
+  .qa-onb-card.done { border-color: rgba(34,197,94,.25); color: rgba(34,197,94,.7); background: rgba(34,197,94,.05); pointer-events: none; }
+  .qa-onb-card i { font-size: .9rem; width: 16px; text-align: center; }
+  .qa-onb-card.done i { color: #4ade80; }
   </style>
+
+  {# ═══ 1a: WELCOME MODAL ═══ #}
+  {% if show_welcome %}
+  <div class="onb-backdrop" id="onb-backdrop" role="dialog" aria-modal="true" aria-labelledby="onb-title">
+    <div class="onb-modal">
+      <span class="onb-icon">🏔️</span>
+      <h2 class="onb-title" id="onb-title">{% trans "Welcome to IESA Sport!" %}</h2>
+      <p class="onb-sub">{% trans "You're now part of Switzerland's sports community. Here's how to get the most out of your membership:" %}</p>
+
+      <div class="onb-steps">
+        <div class="onb-step">
+          <div class="onb-step-icon"><i class="fas fa-id-card"></i></div>
+          <span class="onb-step-text">{% trans "Your digital membership card gives access to partner benefits" %}</span>
+        </div>
+        <div class="onb-step">
+          <div class="onb-step-icon"><i class="fas fa-shield-alt"></i></div>
+          <span class="onb-step-text">{% trans "Show your PIN at partner locations to log your visit" %}</span>
+        </div>
+        <div class="onb-step">
+          <div class="onb-step-icon"><i class="fab fa-telegram"></i></div>
+          <span class="onb-step-text">{% trans "Connect Telegram to receive instant visit confirmations" %}</span>
+        </div>
+      </div>
+
+      <button class="onb-btn-primary" id="onb-start-btn">
+        <i class="fas fa-arrow-right"></i> {% trans "Let's get started!" %}
+      </button>
+      <br>
+      <button class="onb-btn-skip" id="onb-skip-btn">{% trans "Skip for now" %}</button>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ═══ 1b: PROFILE COMPLETENESS BAR ═══ #}
+  {% if not profile_completeness.is_complete %}
+  <div class="pcp-wrap" id="pcp-wrap">
+    <div class="pcp-header">
+      <span class="pcp-label">
+        {% trans "Profile" %} —
+        <span class="pcp-pct"
+          style="color:{% if profile_completeness.percent >= 80 %}#4ade80{% elif profile_completeness.percent >= 40 %}#fbbf24{% else %}#f87171{% endif %}">
+          {{ profile_completeness.percent }}%
+        </span>
+        {% trans "complete" %}
+        <button class="pcp-toggle" id="pcp-toggle-btn" aria-label="{% trans 'Show steps' %}">
+          <i class="fas fa-chevron-down" id="pcp-chevron"></i>
+        </button>
+      </span>
+      <span style="font-size:.72rem;color:rgba(255,255,255,.3);">
+        {{ profile_completeness.done }}/{{ profile_completeness.total }} {% trans "steps" %}
+      </span>
+    </div>
+    <div class="pcp-track">
+      <div class="pcp-fill" id="pcp-fill" style="width:0%;
+        background:{% if profile_completeness.percent >= 80 %}linear-gradient(90deg,#16a34a,#4ade80){% elif profile_completeness.percent >= 40 %}linear-gradient(90deg,#d97706,#fbbf24){% else %}linear-gradient(90deg,#dc2626,#f87171){% endif %}">
+      </div>
+    </div>
+    <div class="pcp-steps" id="pcp-steps">
+      {% for step in profile_completeness.incomplete %}
+      <a href="{% url step.url %}" class="pcp-step-item">
+        <i class="{{ step.icon }}"></i>
+        {{ step.label }}
+        <i class="fas fa-chevron-right ms-auto" style="color:rgba(255,255,255,.2);font-size:.65rem;"></i>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ═══ 1d: QUICK ACTIONS CAROUSEL (до 3 визитов) ═══ #}
+  {% if show_quick_actions %}
+  <div class="qa-onb-section">
+    <div class="qa-onb-header">{% trans "Get started — quick actions" %}</div>
+    <div class="qa-onb-scroll">
+
+      {% if not profile_user.telegram_chat_id %}
+      <a href="{% url 'users:connect_telegram_code' %}" class="qa-onb-card"
+         data-onb-tip="{% trans 'Get instant visit confirmations' %}">
+        <i class="fab fa-telegram" style="color:#29a8eb;"></i>
+        {% trans "Connect Telegram" %}
+      </a>
+      {% else %}
+      <span class="qa-onb-card done">
+        <i class="fas fa-check-circle"></i> {% trans "Telegram connected" %}
+      </span>
+      {% endif %}
+
+      {% if not profile_user.avatar or profile_user.avatar.name == 'avatars/default.png' %}
+      <a href="{% url 'users:profile_edit' %}" class="qa-onb-card"
+         data-onb-tip="{% trans 'Personalise your profile' %}">
+        <i class="fas fa-camera" style="color:#a78bfa;"></i>
+        {% trans "Add a photo" %}
+      </a>
+      {% else %}
+      <span class="qa-onb-card done">
+        <i class="fas fa-check-circle"></i> {% trans "Photo added" %}
+      </span>
+      {% endif %}
+
+      <a href="{% url 'users:users_search' %}" class="qa-onb-card"
+         data-onb-tip="{% trans 'Find and visit a partner' %}">
+        <i class="fas fa-map-marker-alt" style="color:#f87171;"></i>
+        {% trans "Find a partner" %}
+      </a>
+
+      <a href="{% url 'blog:post_create' %}" class="qa-onb-card"
+         data-onb-tip="{% trans 'Share with the community' %}">
+        <i class="fas fa-pen-nib" style="color:#60a5fa;"></i>
+        {% trans "Write a post" %}
+      </a>
+
+      <a href="{% url 'users:how_it_works' %}" class="qa-onb-card"
+         data-onb-tip="{% trans 'Learn how everything works' %}">
+        <i class="fas fa-question-circle" style="color:#fbbf24;"></i>
+        {% trans "How it works" %}
+      </a>
+
+    </div>
+  </div>
+  {% endif %}
+
+  {# ═══ 1c: CONTEXTUAL TOOLTIPS — PIN и QR подсказки для новых юзеров ═══ #}
+  {# (рендерятся через data-атрибуты прямо на элементах ниже — см. JS) #}
 
   <div class="cab-wrap">
 
@@ -383,7 +624,8 @@
 
         <!-- PIN (members only) -->
         {% if current_pin %}
-        <div class="cab-card pin-card mb-3" data-reveal data-delay="4">
+        <div class="cab-card pin-card mb-3" data-reveal data-delay="4"
+          {% if show_quick_actions %}data-onb-tip="{% trans 'Show this code at any partner location' %}"{% endif %}>
           <p class="cab-card-title">
             <i class="fas fa-shield-alt" style="color:var(--red);"></i>
             {% trans "Verification PIN" %}
@@ -414,7 +656,8 @@
 
         <!-- QR CODE -->
         {% if profile_user.permanent_id %}
-        <div class="cab-card mb-3" data-reveal data-delay="{% if current_pin %}5{% else %}4{% endif %}">
+        <div class="cab-card mb-3" data-reveal data-delay="{% if current_pin %}5{% else %}4{% endif %}"
+          {% if show_quick_actions %}data-onb-tip="{% trans 'Scan at any partner for quick check-in' %}"{% endif %}>
           <p class="cab-card-title">{% trans "Your QR Card" %}</p>
           <div class="qr-wrap">
             <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}">
@@ -1009,6 +1252,68 @@ document.addEventListener('DOMContentLoaded', function () {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
     });
   });
+})();
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   ОНБОРДИНГ — Block 1 (welcome modal, progress bar, quick actions)
+   ══════════════════════════════════════════════════════ */
+(function () {
+
+  /* ── 1a: Welcome Modal ─────────────────────────────── */
+  var backdrop = document.getElementById('onb-backdrop');
+
+  function dismissModal() {
+    if (!backdrop) return;
+    backdrop.classList.add('onb-hiding');
+    setTimeout(function () { backdrop.remove(); }, 220);
+    // POST → mark_onboarded без перезагрузки страницы
+    fetch('{% url "users:mark_onboarded" %}', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value ||
+                       (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '',
+      },
+    }).catch(function () {});
+  }
+
+  var startBtn = document.getElementById('onb-start-btn');
+  var skipBtn  = document.getElementById('onb-skip-btn');
+  if (startBtn) startBtn.addEventListener('click', function () {
+    dismissModal();
+    setTimeout(function () {
+      var pcp = document.getElementById('pcp-wrap');
+      if (pcp) pcp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 250);
+  });
+  if (skipBtn) skipBtn.addEventListener('click', dismissModal);
+  if (backdrop) {
+    backdrop.addEventListener('click', function (e) {
+      if (e.target === backdrop) dismissModal();
+    });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && backdrop && document.body.contains(backdrop)) dismissModal();
+  });
+
+  /* ── 1b: Progress Bar анимация ─────────────────────── */
+  var fillEl = document.getElementById('pcp-fill');
+  if (fillEl) {
+    setTimeout(function () {
+      fillEl.style.width = '{{ profile_completeness.percent }}%';
+    }, 400);
+  }
+  var toggleBtn = document.getElementById('pcp-toggle-btn');
+  var stepsEl   = document.getElementById('pcp-steps');
+  var chevron   = document.getElementById('pcp-chevron');
+  if (toggleBtn && stepsEl) {
+    toggleBtn.addEventListener('click', function () {
+      var isOpen = stepsEl.classList.toggle('open');
+      if (chevron) chevron.style.transform = isOpen ? 'rotate(180deg)' : '';
+    });
+  }
+
 })();
 </script>
 {% endblock %}

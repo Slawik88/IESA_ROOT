@@ -73,6 +73,12 @@ class ProfileView(DetailView):
         context['pending_upgrade_request'] = AccountChangeRequest.objects.filter(
             user=user, status='pending'
         ).order_by('-created_at').first()
+
+        # ── Онбординг (Block 1) ───────────────────────────────────────
+        context['show_welcome']         = not user.onboarded
+        context['profile_completeness'] = user.profile_completeness
+        context['show_quick_actions']   = context['total_visits'] < 3
+
         return context
 
 
