@@ -197,17 +197,41 @@
                                         </label>
                                     </div>
                                 </div>
+                                {# 3g: Avatar drag-and-drop zone #}
                                 <div class="col-12">
-                                    <label for="id_avatar" class="form-label">{% trans "Avatar" %}</label>
-                                    <div class="d-flex align-items-center gap-3 mb-2">
-                                        {% if form.instance.avatar and form.instance.avatar.name != 'avatars/default.png' %}
-                                            <span class="avatar avatar-lg"><img src="{{ form.instance.avatar.url }}" alt="Current avatar"></span>
-                                        {% else %}
-                                            <span class="avatar avatar-lg avatar-fallback">{{ request.user.username|slice:":1"|upper }}</span>
-                                        {% endif %}
-                                        <div class="small text-muted">{% trans "Upload square image for best fit." %}</div>
+                                    <label class="form-label">{% trans "Avatar" %}</label>
+                                    <div id="avatar-drop-zone" style="
+                                        border: 2px dashed rgba(255,255,255,.15); border-radius: 14px;
+                                        padding: 1.5rem 1rem; text-align: center; cursor: pointer;
+                                        transition: border-color .2s, background .2s; position: relative;
+                                        background: rgba(255,255,255,.02);">
+                                        {# Превью #}
+                                        <div id="avatar-preview-wrap">
+                                          {% if form.instance.avatar and form.instance.avatar.name != 'avatars/default.png' %}
+                                            <img id="avatar-preview-img" src="{{ form.instance.avatar.url }}" alt=""
+                                                 style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:.75rem;display:block;margin-left:auto;margin-right:auto;">
+                                          {% else %}
+                                            <span class="avatar avatar-lg avatar-fallback mx-auto mb-2"
+                                                  style="display:flex;">{{ request.user.username|slice:":1"|upper }}</span>
+                                            <img id="avatar-preview-img" src="" alt="" style="display:none;width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:.75rem;margin:0 auto .75rem;">
+                                          {% endif %}
+                                        </div>
+
+                                        <div style="font-size:.82rem;color:rgba(255,255,255,.45);margin-bottom:.5rem;">
+                                          <i class="fas fa-cloud-upload-alt me-1" style="color:rgba(220,38,38,.6);"></i>
+                                          {% trans "Drag & drop or click to upload" %}
+                                        </div>
+                                        <div style="font-size:.7rem;color:rgba(255,255,255,.25);">
+                                          {% trans "JPG, PNG, WebP · Max 5 MB" %}
+                                        </div>
+
+                                        {# Реальный input скрыт #}
+                                        <div style="display:none;">{{ form.avatar }}</div>
+                                        <input type="file" id="avatar-drop-input" accept="image/*"
+                                               style="position:absolute;inset:0;opacity:0;cursor:pointer;"
+                                               aria-label="{% trans 'Upload avatar' %}">
                                     </div>
-                                    {{ form.avatar }}
+                                    <div id="avatar-file-name" style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:.4rem;"></div>
                                 </div>
                             </div>
                         </div>
@@ -366,6 +390,149 @@
         restoreDraft();
     }
     setInterval(saveDraft, 30000);
+})();
+
+/* ── 3g: Avatar drag & drop ── */
+(function () {
+    var zone    = document.getElementById('avatar-drop-zone');
+    var fileInp = document.getElementById('avatar-drop-input');
+    var preview = document.getElementById('avatar-preview-img');
+    var label   = document.getElementById('avatar-file-name');
+    var realInp = document.getElementById('id_avatar');
+    if (!zone || !fileInp) return;
+
+    // Drag events
+    zone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        zone.style.borderColor = '#dc2626';
+        zone.style.background  = 'rgba(220,38,38,.06)';
+    });
+    zone.addEventListener('dragleave', function () {
+        zone.style.borderColor = 'rgba(255,255,255,.15)';
+        zone.style.background  = 'rgba(255,255,255,.02)';
+    });
+    zone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        zone.style.borderColor = 'rgba(255,255,255,.15)';
+        zone.style.background  = 'rgba(255,255,255,.02)';
+        var file = e.dataTransfer.files[0];
+        if (file) handleFile(file);
+    });
+
+    // Click → file input
+    fileInp.addEventListener('change', function () {
+        if (this.files[0]) handleFile(this.files[0]);
+    });
+
+    function handleFile(file) {
+        if (!file.type.startsWith('image/')) {
+            if (label) label.textContent = '❌ {% trans "Not an image" %}';
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            if (label) label.textContent = '❌ {% trans "File too large (max 5 MB)" %}';
+            return;
+        }
+        // Preview
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+            if (preview) { preview.src = ev.target.result; preview.style.display = 'block'; }
+        };
+        reader.readAsDataURL(file);
+
+        // Copy to real Django form input
+        if (realInp) {
+            var dt = new DataTransfer();
+            dt.items.add(file);
+            realInp.files = dt.files;
+        }
+        if (label) label.textContent = '📎 ' + file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+        // Зелёная рамка
+        zone.style.borderColor = '#4ade80';
+        setTimeout(function () { zone.style.borderColor = 'rgba(255,255,255,.15)'; }, 2000);
+    }
+})();
+
+/* ── 3c: Phone mask ── */
+(function () {
+    var phoneEl = document.getElementById('id_phone_number');
+    if (phoneEl && window._applyPhoneMask) window._applyPhoneMask(phoneEl);
+})();
+
+/* ── 3e: Inline autosave individual fields ── */
+(function () {
+    var SAVE_URL = '{% url "users:profile_field_save" %}';
+    var CSRF     = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (!CSRF) return;
+
+    var INLINE_FIELDS = {
+        'id_first_name':   'first_name',
+        'id_last_name':    'last_name',
+        'id_phone_number': 'phone_number',
+        'id_pseudonym':    'pseudonym',
+        'id_github_url':   'github_url',
+        'id_discord_url':  'discord_url',
+        'id_telegram_url': 'telegram_url',
+        'id_website_url':  'website_url',
+    };
+
+    Object.keys(INLINE_FIELDS).forEach(function (elId) {
+        var el = document.getElementById(elId);
+        if (!el) return;
+
+        // Добавляем маленький статус-бейдж под полем
+        var badge = document.createElement('span');
+        badge.style.cssText = 'font-size:.65rem;font-family:var(--font-mono);margin-left:.5rem;opacity:0;transition:opacity .3s;';
+        el.parentNode.appendChild(badge);
+
+        var timer, lastVal = el.value;
+
+        function showBadge(msg, color) {
+            badge.textContent = msg;
+            badge.style.color = color;
+            badge.style.opacity = '1';
+            setTimeout(function () { badge.style.opacity = '0'; }, 2500);
+        }
+
+        function save() {
+            var val = el.value.trim();
+            if (val === lastVal) return;
+            badge.textContent = '{% trans "Saving…" %}';
+            badge.style.color = 'rgba(255,255,255,.3)';
+            badge.style.opacity = '1';
+
+            var body = new URLSearchParams({
+                csrfmiddlewaretoken: CSRF.value,
+                field: INLINE_FIELDS[elId],
+                value: val,
+            });
+            fetch(SAVE_URL, { method: 'POST', body: body })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d.ok) {
+                        lastVal = val;
+                        showBadge('✓ {% trans "Saved" %}', '#4ade80');
+                        // Обновляем progress bar если он есть
+                        var fillEl = document.getElementById('pcp-fill');
+                        if (fillEl && d.completeness_percent != null) {
+                            fillEl.style.width = d.completeness_percent + '%';
+                        }
+                    } else {
+                        showBadge('✗ {% trans "Error" %}', '#f87171');
+                    }
+                })
+                .catch(function () { showBadge('✗ {% trans "Error" %}', '#f87171'); });
+        }
+
+        el.addEventListener('blur', function () {
+            clearTimeout(timer);
+            save();
+        });
+        el.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(save, 1500);
+        });
+    });
 })();
 </script>
 {% endblock %}

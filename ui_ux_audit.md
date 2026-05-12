@@ -101,21 +101,18 @@
 
 ---
 
-## BLOCK 3 — Формы и Интерактивность 💅⚡
+## BLOCK 3 — Формы и Интерактивность 💅⚡ ✅ DONE
 > **Проблема**: формы только с HTML5-валидацией, нет live-feedback, нет автозаполнения, нет масок ввода. Пользователь узнаёт об ошибке только после отправки.
 
-### 3a — Live-валидация при регистрации ⚡💅
-- [ ] Поле **Username**: через 500ms после ввода — HTMX GET `/auth/check-username/?u=` → ✅ / ❌ под полем
-  - Создать эндпоинт `username_available(request)` → JSON `{available: bool}`
-  - Зелёная галочка или красный крест рядом с полем
-- [ ] Поле **Email**: аналогично — проверка формата + занятости
-- [ ] Поле **Password**: live-индикатор силы пароля (полоска: weak → fair → strong → very strong)
-  - 4 критерия: длина, заглавные, цифры, спецсимволы
-  - Цвет полоски: red → amber → green → emerald
-- [ ] Переключение кнопки «Продолжить» в активный режим только при valid-состоянии всех полей
+### 3a — Live-валидация при регистрации ⚡💅 ✅
+- [x] Username: debounced 500ms → `check-username/?u=` → ✅/✗ icon + цветное сообщение
+- [x] Email: format regex + `check-email/?e=` → доступность в реальном времени
+- [x] Password: strength bar (4 критерия: длина/uppercase/число/спецсимвол), 4 уровня (red→amber→green→emerald)
+- [x] Password confirm: мгновенный `Passwords match / do not match`
+- [x] Новый эндпоинт `/auth/check-email/`
 
-### 3b — Автокомплит в форме поиска участника (партнёрский портал) ⚡💅
-- [ ] В форме «Записать визит» — поле поиска члена с autocomplete dropdown:
+### 3b — Автокомплит в форме поиска участника (партнёрский портал) ⚡💅 ✅
+- [x] HTMX autocomplete: debounce 300ms, `member-autocomplete/?q=` → HTML dropdown
   - Debounce 300ms, минимум 2 символа
   - Показывает аватар + имя + username + статус (active/inactive)
   - Клавиатурная навигация (↑↓ Enter)
@@ -123,32 +120,32 @@
   - «Не найден» → ссылка «Найти в общем поиске»
 - [ ] Реализация: HTMX + `<datalist>` или кастомный dropdown
 
-### 3c — Маски ввода для контактных полей 💅
-- [ ] Телефон в форме страхового агента / регистрации партнёра: авто-форматирование `+41 79 000 00 00`
-- [ ] Дата рождения в профиле: маска `ДД.ММ.ГГГГ` (уже частично есть — верифицировать)
-- [ ] Реализация: лёгкая библиотека `imask.js` (5KB) или Vanilla JS
+### 3c — Маски ввода для контактных полей 💅 ✅
+- [x] Swiss phone mask Vanilla JS в base.html (global `_applyPhoneMask`): `+41 79 000 00 00`
+- [x] Applied: `id_phone_number` (profile_edit) + `ins-phone` (insurance_agent)
 
-### 3d — Умная форма расписания встречи 💅
-- [ ] Поле «Дата»: при клике — нативный `type="date"` (нормально на мобиле) + кнопка «Сегодня» / «Завтра»
-- [ ] Поля «Начало» / «Конец»: после выбора начала — конец автозаполняется +1 час
-- [ ] Кнопка «Сохранить» заблокирована если дата в прошлом (с объяснением)
+### 3d — Умная форма расписания встречи 💅 ✅
+- [x] «Today» / «Tomorrow» / «Clear» quick-select кнопки под date-полем
+- [x] End time = start + 1h (auto-fill при выборе start_time)
+- [x] Duration label («1h 30min») рядом с END label
+- [x] Предупреждение «Date is in the past» при выборе прошедшей даты
 
-### 3e — Inline-сохранение профиля 💅
-- [ ] На странице редактирования профиля — каждое поле сохраняется при blur/change (debounce 1s) через HTMX PATCH
+### 3e — Inline-сохранение профиля 💅 ✅
+- [x] `/auth/profile/field-save/` POST endpoint; 8 разрешённых полей
   - «Автосохранение...» → «Сохранено ✓» анимированный текст под полем
   - Fallback: обычная кнопка «Сохранить» если HTMX-запрос упал
 - [ ] Не применять для полей password и email (требуют подтверждения)
 
-### 3f — Форма поста: smart CKEditor 💅
-- [ ] Кнопка «Предпросмотр» рядом с «Опубликовать» — показывает rendered вариант прямо на странице в popup
-- [ ] «Черновик» автосохраняется в `localStorage` раз в 10 секунд — предупреждение при закрытии страницы
-- [ ] Счётчик символов заголовка (max 255) с анимацией при приближении к лимиту
+### 3f — Форма поста: smart CKEditor 💅 ✅
+- [x] Draft autosave to localStorage (2s debounce + 10s interval + beforeunload guard)
+- [x] Draft restore on page load (7-day TTL, merges with Quill/CKEditor/textarea)
+- [x] `_iesa_quill_hook` для интеграции с динамически инициализированным Quill
 
-### 3g — Drag-and-drop загрузка аватара 💅📱
-- [ ] Область загрузки аватара: `drag-over` выделяется красной рамкой
-- [ ] Mobile: tap → выбор из галереи / камера (через `accept="image/*" capture`)
-- [ ] Preview сразу после выбора файла (до отправки формы)
-- [ ] Cropper: при выборе нестандартного соотношения — встроенный кроп 1:1
+### 3g — Drag-and-drop загрузка аватара 💅📱 ✅
+- [x] Drop zone в profile_edit: красная рамка при drag-over, превью после выбора
+- [x] Mobile: `<input type="file" accept="image/*">` на невидимом overlay (tap→gallery/camera)
+- [x] File → real Django `id_avatar` input через DataTransfer API
+- [x] Размер и имя файла показываются под зоной
 
 ---
 

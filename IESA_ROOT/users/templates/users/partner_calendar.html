@@ -325,6 +325,15 @@
 .cal-cn-item:last-child { border-bottom: none; }
 .cal-cn-date { font-size: .68rem; color: rgba(255,255,255,.3); font-family: var(--font-mono); }
 
+/* ── 3d: Smart date quick buttons ── */
+.cal-date-quick {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+  border-radius: 6px; color: rgba(255,255,255,.6); font-size: .7rem; font-weight: 700;
+  padding: .22rem .6rem; cursor: pointer; font-family: var(--font-mono);
+  transition: background .15s, color .15s;
+}
+.cal-date-quick:hover { background: rgba(220,38,38,.12); border-color: rgba(220,38,38,.3); color: #fff; }
+
 /* ── Badge recurring ── */
 .badge-recurring { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.25); border-radius: 100px; padding: 1px 7px; font-size: .62rem; font-weight: 700; }
 
@@ -600,18 +609,32 @@
                     <input type="text" name="title" id="meeting-title" class="cal-input" placeholder="{% trans 'Personal training, Consultation, Insurance review...' %}" required>
                   </div>
 
+                  {# 3d: Smart date field с Today/Tomorrow кнопками #}
                   <div>
-                    <label class="cal-field-label">{% trans "DATE" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.62rem;">({% trans "optional" %})</span></label>
+                    <label class="cal-field-label">
+                      {% trans "DATE" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.62rem;">({% trans "optional" %})</span>
+                    </label>
                     <input type="date" name="date" id="meeting-date" class="cal-input" value="{{ prefill_date }}">
+                    <div style="display:flex;gap:.4rem;margin-top:.4rem;">
+                      <button type="button" class="cal-date-quick" id="cal-today-btn">{% trans "Today" %}</button>
+                      <button type="button" class="cal-date-quick" id="cal-tomorrow-btn">{% trans "Tomorrow" %}</button>
+                      <button type="button" class="cal-date-quick" id="cal-clear-btn" style="color:rgba(255,255,255,.3);">{% trans "Clear" %}</button>
+                    </div>
+                    <div id="cal-date-warn" style="display:none;font-size:.7rem;color:#f87171;margin-top:.3rem;">
+                      <i class="fas fa-exclamation-circle me-1"></i>{% trans "Date is in the past" %}
+                    </div>
                   </div>
 
+                  {# 3d: Time с auto-fill end = start + 1h #}
                   <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
                     <div>
                       <label class="cal-field-label">{% trans "START" %}</label>
                       <input type="time" name="start_time" id="meeting-start" class="cal-input" value="{{ prefill_time }}">
                     </div>
                     <div>
-                      <label class="cal-field-label">{% trans "END" %}</label>
+                      <label class="cal-field-label">
+                        {% trans "END" %} <span style="color:rgba(255,255,255,.3);font-size:.6rem;" id="cal-duration-label"></span>
+                      </label>
                       <input type="time" name="end_time" id="meeting-end" class="cal-input">
                     </div>
                   </div>
@@ -846,5 +869,83 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
     {% endfor %}
 });
+
+/* ── 3d: Smart meeting form ─────────────────────────── */
+(function () {
+    var dateEl  = document.getElementById('meeting-date');
+    var startEl = document.getElementById('meeting-start');
+    var endEl   = document.getElementById('meeting-end');
+    var warnEl  = document.getElementById('cal-date-warn');
+    var durLabel= document.getElementById('cal-duration-label');
+    var submitBtn = document.querySelector('.cal-submit');
+
+    // Форматирование даты YYYY-MM-DD
+    function toISO(d) {
+        return d.toISOString().slice(0, 10);
+    }
+
+    // Today / Tomorrow кнопки
+    var todayBtn    = document.getElementById('cal-today-btn');
+    var tomorrowBtn = document.getElementById('cal-tomorrow-btn');
+    var clearBtn    = document.getElementById('cal-clear-btn');
+
+    if (todayBtn) todayBtn.addEventListener('click', function () {
+        if (dateEl) { dateEl.value = toISO(new Date()); checkDate(); }
+    });
+    if (tomorrowBtn) tomorrowBtn.addEventListener('click', function () {
+        var d = new Date(); d.setDate(d.getDate() + 1);
+        if (dateEl) { dateEl.value = toISO(d); checkDate(); }
+    });
+    if (clearBtn) clearBtn.addEventListener('click', function () {
+        if (dateEl) { dateEl.value = ''; checkDate(); }
+    });
+
+    // Проверить что дата не в прошлом
+    function checkDate() {
+        if (!dateEl || !dateEl.value) {
+            if (warnEl) warnEl.style.display = 'none';
+            return;
+        }
+        var isPast = dateEl.value < toISO(new Date());
+        if (warnEl) warnEl.style.display = isPast ? '' : 'none';
+        if (submitBtn) submitBtn.style.opacity = isPast ? '.5' : '';
+    }
+    if (dateEl) {
+        dateEl.addEventListener('change', checkDate);
+        checkDate();
+    }
+
+    // Auto-fill end = start + 1 hour
+    if (startEl) {
+        startEl.addEventListener('change', function () {
+            if (!this.value) return;
+            var parts = this.value.split(':');
+            var h = parseInt(parts[0]) + 1;
+            var m = parseInt(parts[1]);
+            if (h < 24) {
+                var val = ('0'+h).slice(-2) + ':' + ('0'+m).slice(-2);
+                if (endEl && !endEl.value) endEl.value = val;
+                updateDurationLabel();
+            }
+        });
+    }
+    if (endEl) endEl.addEventListener('change', updateDurationLabel);
+
+    function updateDurationLabel() {
+        if (!startEl || !endEl || !startEl.value || !endEl.value || !durLabel) return;
+        var sp = startEl.value.split(':');
+        var ep = endEl.value.split(':');
+        var mins = (parseInt(ep[0]) * 60 + parseInt(ep[1])) - (parseInt(sp[0]) * 60 + parseInt(sp[1]));
+        if (mins > 0) {
+            var h = Math.floor(mins / 60);
+            var m = mins % 60;
+            durLabel.textContent = (h ? h + 'h ' : '') + (m ? m + 'min' : '');
+        } else {
+            durLabel.textContent = '';
+        }
+    }
+
+    updateDurationLabel();
+})();
 </script>
 {% endblock %}

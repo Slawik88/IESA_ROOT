@@ -68,7 +68,10 @@ from .invites import invite_list, invite_generate, invite_register
 from .insurance import insurance_agent_request
 
 # ── Onboarding (Block 1) ──────────────────────────────────────────────────────
-from .onboarding import mark_onboarded, username_available, how_it_works
+from .onboarding import (
+    mark_onboarded, username_available, email_available,
+    how_it_works, member_autocomplete, profile_field_save,
+)
 
 __all__ = [
     'RegisterView', 'LoginView', 'logout_view',

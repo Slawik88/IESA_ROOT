@@ -426,5 +426,111 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
+
+/* ── 3f: Draft autosave to localStorage (every 10s + on input) ── */
+(function () {
+    var DRAFT_KEY = 'iesa-post-draft-v2';
+    var titleEl   = document.querySelector('input[name="title"]');
+    var form      = document.getElementById('post-create-form');
+    var statusEl  = document.getElementById('draft-status');
+
+    function getContent() {
+        if (window._iesa_quill_instance) return window._iesa_quill_instance.root.innerHTML;
+        if (window.CKEDITOR) {
+            var k = Object.keys(CKEDITOR.instances)[0];
+            return k ? CKEDITOR.instances[k].getData() : '';
+        }
+        var ta = document.querySelector('textarea[name="text"]');
+        return ta ? ta.value : '';
+    }
+
+    function saveDraft() {
+        var title   = titleEl ? titleEl.value.trim() : '';
+        var content = getContent().trim();
+        if (!title && !content) return;
+
+        try {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({
+                title: title, content: content, ts: Date.now(),
+            }));
+            if (statusEl) {
+                statusEl.textContent = '⚡ {% trans "Draft saved" %} ' + new Date().toLocaleTimeString();
+                statusEl.style.opacity = '1';
+                setTimeout(function () { statusEl.style.opacity = '0'; }, 2500);
+            }
+        } catch (e) {}
+    }
+
+    function restoreDraft() {
+        try {
+            var raw = localStorage.getItem(DRAFT_KEY);
+            if (!raw) return;
+            var d = JSON.parse(raw);
+            var age = Date.now() - (d.ts || 0);
+            if (age > 7 * 24 * 3600 * 1000) { localStorage.removeItem(DRAFT_KEY); return; } // 7 дней
+
+            if (d.title && titleEl && !titleEl.value) titleEl.value = d.title;
+
+            // Restore content после инициализации редактора
+            if (d.content) {
+                var tryRestore = function (attempts) {
+                    if (window._iesa_quill_instance) {
+                        if (!window._iesa_quill_instance.root.innerHTML.trim().replace(/<p><br><\/p>/, '')) {
+                            window._iesa_quill_instance.root.innerHTML = d.content;
+                        }
+                        return;
+                    }
+                    if (window.CKEDITOR) {
+                        var k = Object.keys(CKEDITOR.instances)[0];
+                        if (k && !CKEDITOR.instances[k].getData().trim()) {
+                            CKEDITOR.instances[k].setData(d.content);
+                        }
+                        return;
+                    }
+                    if (attempts > 0) setTimeout(function () { tryRestore(attempts - 1); }, 500);
+                };
+                tryRestore(10);
+            }
+
+            if (statusEl) {
+                var ago = Math.round(age / 60000);
+                statusEl.textContent = '🗒 {% trans "Draft restored" %} (' + (ago < 2 ? '{% trans "just now" %}' : ago + ' {% trans "min ago" %}') + ')';
+                statusEl.style.opacity = '1';
+                setTimeout(function () { statusEl.style.opacity = '0'; }, 4000);
+            }
+        } catch (e) {}
+    }
+
+    // Autosave on input
+    if (titleEl) titleEl.addEventListener('input', function () { clearTimeout(window._draftTimer); window._draftTimer = setTimeout(saveDraft, 2000); });
+
+    // Autosave every 10 seconds
+    setInterval(saveDraft, 10000);
+
+    // Clear on submit
+    if (form) form.addEventListener('submit', function () { try { localStorage.removeItem(DRAFT_KEY); } catch(e) {} });
+
+    // Restore after short delay (give editor time to init)
+    setTimeout(restoreDraft, 300);
+
+    // Warn before leaving with unsaved content
+    window.addEventListener('beforeunload', function (e) {
+        var title = titleEl ? titleEl.value.trim() : '';
+        var content = getContent().trim();
+        if (title || content) {
+            saveDraft(); // последний шанс сохранить
+            e.preventDefault();
+            return (e.returnValue = '{% trans "You have unsaved content. Leave anyway?" %}');
+        }
+    });
+
+    // Quill hook — подключаем autosave после инициализации редактора
+    window._iesa_quill_hook = function (quill) {
+        quill.on('text-change', function () {
+            clearTimeout(window._draftTimer);
+            window._draftTimer = setTimeout(saveDraft, 2000);
+        });
+    };
+})();
 </script>
 {% endblock %}

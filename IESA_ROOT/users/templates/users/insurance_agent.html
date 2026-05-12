@@ -363,8 +363,9 @@
                  value="{{ user.get_full_name|default:'' }}" required>
         </div>
         <div class="col-md-6">
-          <input type="tel" name="phone" class="ins-input"
-                 placeholder="{% trans 'Телефон / WhatsApp' %}">
+          <input type="tel" name="phone" class="ins-input" id="ins-phone"
+                 placeholder="{% trans '+41 79 000 00 00' %}"
+                 data-phone-mask>
         </div>
         <div class="col-md-6">
           <input type="email" name="email" class="ins-input"
