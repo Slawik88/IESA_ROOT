@@ -391,7 +391,7 @@
         </div>
         {# Profile tab — active on profile, cabinet, profile_edit #}
         {% with active_profile=request.resolver_match.url_name %}
-        <a href="{% url 'users:profile' %}" class="mbn-item {% if active_profile == 'profile' or active_profile == 'member_cabinet' or active_profile == 'profile_edit' %}active{% endif %}" aria-label="{% trans "Profile" %}">
+        <a href="{% url 'users:profile' %}" class="mbn-item {% if active_profile == 'profile' or active_profile == 'profile_edit' %}active{% endif %}" aria-label="{% trans "Profile" %}">
             {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
                 <span class="mbn-avatar">
                     <img src="{{ user.avatar.url }}" alt="{{ user.username }}">
