@@ -1,3 +1,4 @@
+from django import forms as _dj_forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
@@ -5,6 +6,55 @@ from .models import (
     InviteToken, Meeting, Partner, SiteSettings, User, Visit, VisitAudit,
 )
 from .forms import CustomUserCreationForm, CustomUserChangeForm
+
+
+# ---------------------------------------------------------------------------
+# Форма с чекбоксами для AdminNotificationProfile
+# ---------------------------------------------------------------------------
+
+_EVENT_CHOICES = [
+    ('new_account',       'Новый аккаунт зарегистрирован'),
+    ('post_moderation',   'Пост отправлен на модерацию'),
+    ('account_upgrade',   'Заявка на повышение аккаунта'),
+    ('insurance_request', 'Заявка на страхового агента'),
+    ('new_visit',         'Новый визит партнёра'),
+]
+
+
+class AdminNotificationProfileForm(_dj_forms.ModelForm):
+    """Отображает telegram_events и site_events как чекбоксы — удобно для нетехнического персонала."""
+
+    telegram_events = _dj_forms.MultipleChoiceField(
+        choices=_EVENT_CHOICES,
+        widget=_dj_forms.CheckboxSelectMultiple,
+        required=False,
+        label='События в Telegram',
+        help_text='Выберите, о каких событиях присылать уведомления в Telegram.',
+    )
+    site_events = _dj_forms.MultipleChoiceField(
+        choices=_EVENT_CHOICES,
+        widget=_dj_forms.CheckboxSelectMultiple,
+        required=False,
+        label='События на сайте',
+        help_text='Выберите, о каких событиях создавать уведомления на сайте.',
+    )
+
+    class Meta:
+        model = AdminNotificationProfile
+        fields = '__all__'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Преобразуем JSONField list → список значений для чекбоксов
+        if self.instance and self.instance.pk:
+            self.initial['telegram_events'] = self.instance.telegram_events or []
+            self.initial['site_events'] = self.instance.site_events or []
+
+    def clean_telegram_events(self):
+        return list(self.cleaned_data.get('telegram_events', []))
+
+    def clean_site_events(self):
+        return list(self.cleaned_data.get('site_events', []))
 from django.utils.html import format_html
 from django.urls import path, reverse
 from django.shortcuts import redirect
@@ -653,33 +703,34 @@ class SiteSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(AdminNotificationProfile)
 class AdminNotificationProfileAdmin(admin.ModelAdmin):
-    """Настройки уведомлений для администраторов."""
+    """Настройки уведомлений для администраторов — события выбираются чекбоксами."""
+    form          = AdminNotificationProfileForm
     list_display  = ['admin_user', 'is_active', 'telegram_events_display', 'site_events_display']
     list_filter   = ['is_active']
     search_fields = ['admin_user__username', 'admin_user__email']
     raw_id_fields  = ['admin_user']
 
-    EVENT_CHOICES = [
-        ('new_account',       'Новый аккаунт'),
-        ('post_moderation',   'Пост на модерацию'),
-        ('account_upgrade',   'Заявка на повышение'),
-        ('insurance_request', 'Заявка страхового агента'),
-        ('new_visit',         'Новый визит партнёра'),
+    fieldsets = [
+        (None, {'fields': ['admin_user', 'is_active']}),
+        ('📱 Telegram уведомления', {
+            'fields': ['telegram_events'],
+            'description': 'Отмеченные события придут в Telegram, если у администратора привязан аккаунт.',
+        }),
+        ('🌐 Уведомления на сайте', {
+            'fields': ['site_events'],
+            'description': 'Отмеченные события появятся в панели уведомлений на сайте.',
+        }),
     ]
 
-    def get_form(self, request, obj=None, **kwargs):
-        form = super().get_form(request, obj, **kwargs)
-        help_txt = 'Список кодов через запятую: new_account, post_moderation, account_upgrade, insurance_request, new_visit'
-        if 'telegram_events' in form.base_fields:
-            form.base_fields['telegram_events'].help_text = help_txt
-        if 'site_events' in form.base_fields:
-            form.base_fields['site_events'].help_text = help_txt
-        return form
+    class Media:
+        css = {'all': ('admin/css/widgets.css',)}
 
     def telegram_events_display(self, obj):
-        return ', '.join(obj.telegram_events or []) or '—'
+        labels = dict(_EVENT_CHOICES)
+        return ', '.join(labels.get(e, e) for e in (obj.telegram_events or [])) or '—'
     telegram_events_display.short_description = 'TG события'
 
     def site_events_display(self, obj):
-        return ', '.join(obj.site_events or []) or '—'
+        labels = dict(_EVENT_CHOICES)
+        return ', '.join(labels.get(e, e) for e in (obj.site_events or [])) or '—'
     site_events_display.short_description = 'Сайт события'

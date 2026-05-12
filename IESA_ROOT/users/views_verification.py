@@ -1269,10 +1269,11 @@ class MeetingForm(_dj_forms.ModelForm):
 @require_http_methods(["GET", "POST"])
 def partner_calendar(request):
     """
-    Расширенный календарь встреч партнёра.
-    Режимы: week (мини-обзор недели) + day (подробный суточный вид).
-    Поддерживает долгосрочных клиентов: заметки, серийные встречи.
+    Календарь партнёра — месячный вид + почасовая сетка выбранного дня.
+    Навигация: ?month=YYYY-MM  или ?day=YYYY-MM-DD.
+    Быстрый прыжок: ?jump=YYYY-MM из select/input.
     """
+    import calendar as _cal_mod
     from users.models import ClientNote
     import json as _json
 
@@ -1283,38 +1284,105 @@ def partner_calendar(request):
 
     today = _date_cls.today()
 
-    # Параметры навигации
-    week_offset = int(request.GET.get('week', 0))
-    # selected_day: выбранный день в суточном виде (ISO-формат: YYYY-MM-DD)
+    # ── Параметры навигации ──────────────────────────────────────────
+    # Быстрый прыжок через select (jump=YYYY-MM)
+    jump = request.GET.get('jump', '')
+
+    # Выбранный месяц (month=YYYY-MM)
+    month_str = request.GET.get('month', '')
+    if jump:
+        month_str = jump  # jump имеет приоритет
+
+    try:
+        if month_str:
+            parts = month_str.split('-')
+            cal_year, cal_month = int(parts[0]), int(parts[1])
+        else:
+            cal_year, cal_month = today.year, today.month
+    except (ValueError, IndexError):
+        cal_year, cal_month = today.year, today.month
+
+    # Границы: не уходим дальше 10 лет назад / вперёд
+    cal_year = max(2020, min(cal_year, today.year + 5))
+    cal_month = max(1, min(cal_month, 12))
+
+    # Выбранный день
     selected_day_str = request.GET.get('day', '')
     try:
         selected_day = _date_cls.fromisoformat(selected_day_str) if selected_day_str else today
     except ValueError:
         selected_day = today
 
-    # Неделя
-    monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
-    week_days = [monday + timedelta(days=i) for i in range(7)]
+    # ── Месячная сетка ───────────────────────────────────────────────
+    # Получаем все дни месяца, разбитые по неделям (None = пустая ячейка)
+    cal_weeks = _cal_mod.monthcalendar(cal_year, cal_month)
+    # cal_weeks: list of lists, пн=0, вс=6; 0 = день вне месяца
 
-    # Встречи выбранной недели
-    week_meetings = Meeting.objects.filter(
+    first_day = _date_cls(cal_year, cal_month, 1)
+    last_day_num = _cal_mod.monthrange(cal_year, cal_month)[1]
+    last_day = _date_cls(cal_year, cal_month, last_day_num)
+
+    # Пред/след месяц
+    if cal_month == 1:
+        prev_year, prev_month = cal_year - 1, 12
+    else:
+        prev_year, prev_month = cal_year, cal_month - 1
+    if cal_month == 12:
+        next_year, next_month = cal_year + 1, 1
+    else:
+        next_year, next_month = cal_year, cal_month + 1
+
+    prev_month_str = f'{prev_year}-{prev_month:02d}'
+    next_month_str = f'{next_year}-{next_month:02d}'
+
+    # Список месяцев для быстрого прыжка (текущий год ± 2)
+    jump_options = []
+    month_names = ['', 'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
+                   'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
+    for y in range(today.year - 2, today.year + 4):
+        for m in range(1, 13):
+            val = f'{y}-{m:02d}'
+            label = f'{month_names[m]} {y}'
+            selected = (y == cal_year and m == cal_month)
+            jump_options.append({'value': val, 'label': label, 'selected': selected})
+
+    # ── Встречи месяца (для точек на сетке) ─────────────────────────
+    month_meetings = Meeting.objects.filter(
         partner=partner,
-        date__range=(week_days[0], week_days[-1]),
-        status__in=['scheduled', 'confirmed'],
+        date__range=(first_day, last_day),
     ).select_related('member').order_by('date', 'start_time')
 
     meetings_by_date = {}
-    for m in week_meetings:
+    for m in month_meetings:
         if m.date:
             meetings_by_date.setdefault(m.date, []).append(m)
 
-    # Встречи выбранного дня (суточный вид)
+    # Строим сетку с объектами дат (не просто числа)
+    cal_grid = []
+    for week in cal_weeks:
+        row = []
+        for day_num in week:
+            if day_num == 0:
+                row.append(None)
+            else:
+                d = _date_cls(cal_year, cal_month, day_num)
+                row.append({
+                    'date': d,
+                    'num': day_num,
+                    'is_today': d == today,
+                    'is_selected': d == selected_day,
+                    'meetings': meetings_by_date.get(d, []),
+                    'count': len(meetings_by_date.get(d, [])),
+                })
+        cal_grid.append(row)
+
+    # ── Встречи выбранного дня (суточный вид) ───────────────────────
     day_meetings = Meeting.objects.filter(
         partner=partner,
         date=selected_day,
     ).select_related('member').order_by('start_time')
 
-    # Все встречи следующих 30 дней (upcoming)
+    # Upcoming: следующие 20 встреч начиная с сегодня
     upcoming = Meeting.objects.filter(
         partner=partner,
         date__gte=today,
@@ -1435,9 +1503,11 @@ def partner_calendar(request):
                 meeting.save(update_fields=['notification_sent'])
 
             messages.success(request, _('Meeting scheduled successfully!'))
-            # Редирект на день встречи
+            # Редирект на день встречи (сохраняем месяц)
             _day = meeting.date.isoformat() if meeting.date else today.isoformat()
-            return redirect(f"{request.path}?day={_day}&week={week_offset}")
+            _d = meeting.date or today
+            _mstr = f'{_d.year}-{_d.month:02d}'
+            return redirect(f"{request.path}?month={_mstr}&day={_day}")
 
     # Клиентские заметки для выбранного дня's participants
     day_member_ids = list(day_meetings.values_list('member_id', flat=True))
@@ -1456,25 +1526,30 @@ def partner_calendar(request):
     ).count()
 
     return render(request, 'users/partner_calendar.html', {
-        'partner':         partner,
-        'form':            form,
-        'week_days':       week_days,
-        'meetings_by_date': meetings_by_date,
-        'day_meetings':    day_meetings,
+        'partner':           partner,
+        'form':              form,
+        # Месячный вид
+        'cal_grid':          cal_grid,
+        'cal_year':          cal_year,
+        'cal_month':         cal_month,
+        'cal_month_name':    first_day.strftime('%B %Y'),
+        'prev_month_str':    prev_month_str,
+        'next_month_str':    next_month_str,
+        'jump_options':      jump_options,
+        # Суточный вид
+        'meetings_by_date':  meetings_by_date,
+        'day_meetings':      day_meetings,
         'day_meetings_json': _json.dumps(day_meetings_json),
-        'selected_day':    selected_day,
-        'today':           today,
-        'upcoming':        upcoming,
-        'week_offset':     week_offset,
-        'prev_week':       week_offset - 1,
-        'next_week':       week_offset + 1,
-        'hour_slots':      hour_slots,
-        'prefill_date':    prefill_date,
-        'prefill_time':    prefill_time,
+        'selected_day':      selected_day,
+        'today':             today,
+        'upcoming':          upcoming,
+        'hour_slots':        hour_slots,
+        'prefill_date':      prefill_date,
+        'prefill_time':      prefill_time,
         'client_notes_by_member': client_notes_by_member,
-        'total_meetings':  total_meetings,
-        'month_meetings':  month_meetings,
-        'all_members':     all_members,
+        'total_meetings':    total_meetings,
+        'month_meetings':    month_meetings,
+        'all_members':       all_members,
     })
 
 

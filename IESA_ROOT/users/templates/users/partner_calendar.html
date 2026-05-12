@@ -38,46 +38,86 @@
 .cal-stat-val { font-size: 1.6rem; font-weight: 900; color: #f87171; line-height: 1; }
 .cal-stat-lbl { font-size: .65rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.3); margin-top: .2rem; }
 
-/* Мини-неделя */
-.cal-week-nav {
+/* ══ Месячный вид ══════════════════════════════════════════════ */
+.cal-month-nav {
     background: rgba(255,255,255,.03);
     border: 1px solid rgba(255,255,255,.07);
     border-radius: 14px;
     overflow: hidden;
 }
-.cal-week-header {
+.cal-month-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: .7rem 1rem;
+    padding: .65rem 1rem;
     border-bottom: 1px solid rgba(255,255,255,.06);
-    font-size: .78rem; color: rgba(255,255,255,.5);
 }
-.cal-week-nav-btn {
-    background: none; border: none; color: rgba(255,255,255,.45);
-    cursor: pointer; padding: .2rem .5rem; border-radius: 6px;
-    transition: background .15s, color .15s;
-    text-decoration: none;
-    font-size: .85rem;
+.cal-month-title { font-size: .9rem; font-weight: 800; color: #f1f5f9; letter-spacing: .02em; }
+.cal-mnav-btn {
+    background: none; border: 1px solid rgba(255,255,255,.1);
+    color: rgba(255,255,255,.5); cursor: pointer;
+    padding: .22rem .6rem; border-radius: 6px;
+    transition: all .15s; text-decoration: none; font-size: .8rem;
+    display: inline-flex; align-items: center;
 }
-.cal-week-nav-btn:hover { background: rgba(255,255,255,.08); color: #fff; }
-.cal-week-days {
+.cal-mnav-btn:hover { background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.2); }
+/* Быстрый прыжок */
+.cal-jump-row {
+    padding: .45rem .75rem;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    display: flex; align-items: center; gap: .5rem;
+}
+.cal-jump-select {
+    flex: 1; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.09);
+    border-radius: 7px; color: rgba(255,255,255,.75); font-size: .78rem; padding: .3rem .6rem;
+    cursor: pointer; outline: none;
+}
+.cal-jump-select:focus { border-color: rgba(220,38,38,.4); }
+.cal-jump-btn {
+    background: rgba(220,38,38,.12); border: 1px solid rgba(220,38,38,.28);
+    color: #f87171; border-radius: 7px; padding: .3rem .7rem; font-size: .78rem;
+    font-weight: 700; cursor: pointer; transition: background .15s; white-space: nowrap;
+}
+.cal-jump-btn:hover { background: rgba(220,38,38,.22); }
+/* Сетка месяца */
+.cal-month-grid {
+    padding: .5rem .6rem .6rem;
+}
+.cal-month-dow-row {
     display: grid; grid-template-columns: repeat(7, 1fr);
-    padding: .5rem;
-    gap: .25rem;
+    margin-bottom: .2rem;
 }
-.cal-mini-day {
-    text-align: center; padding: .45rem .1rem;
-    border-radius: 8px; cursor: pointer;
-    transition: background .15s;
-    text-decoration: none;
-    display: block;
+.cal-month-dow {
+    text-align: center; font-size: .6rem; font-weight: 800;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: rgba(255,255,255,.25); padding: .1rem 0;
 }
-.cal-mini-day:hover { background: rgba(255,255,255,.07); }
-.cal-mini-day--selected { background: rgba(220,38,38,.2) !important; }
-.cal-mini-day--today { background: rgba(220,38,38,.12); }
-.cal-mini-day-name { font-size: .6rem; font-weight: 700; color: rgba(255,255,255,.28); text-transform: uppercase; }
-.cal-mini-day-num  { font-size: .88rem; font-weight: 700; color: rgba(255,255,255,.7); }
-.cal-mini-day--today .cal-mini-day-num { color: #f87171; }
-.cal-mini-day--selected .cal-mini-day-num { color: #fff; }
+.cal-month-dow:last-child { color: rgba(220,38,38,.5); }
+.cal-month-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
+.cal-month-cell {
+    aspect-ratio: 1;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: .2rem .1rem .15rem;
+    border-radius: 7px; cursor: pointer; text-decoration: none;
+    transition: background .12s;
+    position: relative; overflow: hidden;
+}
+.cal-month-cell:hover { background: rgba(255,255,255,.07); }
+.cal-month-cell--empty { pointer-events: none; }
+.cal-month-cell--today { background: rgba(220,38,38,.12) !important; }
+.cal-month-cell--selected { background: rgba(220,38,38,.25) !important; box-shadow: inset 0 0 0 1.5px rgba(220,38,38,.55); }
+.cal-month-cell--today.cal-month-cell--selected { background: rgba(220,38,38,.32) !important; }
+.cal-month-cell--outside { opacity: .3; pointer-events: none; }
+.cal-cell-num {
+    font-size: .8rem; font-weight: 700; color: rgba(255,255,255,.7); line-height: 1.2;
+}
+.cal-month-cell--today .cal-cell-num { color: #f87171; }
+.cal-month-cell--selected .cal-cell-num { color: #fff; }
+.cal-cell-dots {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; margin-top: 1px;
+    min-height: 5px;
+}
+.cal-cell-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(220,38,38,.7); flex-shrink: 0; }
+.cal-cell-dot--many { background: #fbbf24; }
+/* Мини-метки */
 .cal-mini-dot-row { display: flex; justify-content: center; gap: 2px; margin-top: 2px; min-height: 5px; }
 .cal-mini-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(220,38,38,.6); }
 
@@ -363,46 +403,78 @@
         {# ════════════ ЛЕВАЯ ПАНЕЛЬ ════════════ #}
         <div class="cal-left">
 
-          {# Мини-неделя с навигацией #}
-          <div class="cal-week-nav">
-            <div class="cal-week-header">
-              <a href="?week={{ prev_week }}&day={{ week_days.0|date:'Y-m-d' }}" class="cal-week-nav-btn"><i class="fas fa-chevron-left"></i></a>
-              <span>{{ week_days.0|date:"d M" }} — {{ week_days.6|date:"d M Y" }}</span>
-              <a href="?week={{ next_week }}&day={{ week_days.0|date:'Y-m-d' }}" class="cal-week-nav-btn"><i class="fas fa-chevron-right"></i></a>
-            </div>
-            <div class="cal-week-days">
-              {% for day in week_days %}
-              <a href="?week={{ week_offset }}&day={{ day|date:'Y-m-d' }}"
-                 class="cal-mini-day {% if day == selected_day %}cal-mini-day--selected{% elif day == today %}cal-mini-day--today{% endif %}">
-                <div class="cal-mini-day-name">{{ day|date:"D"|slice:":1" }}</div>
-                <div class="cal-mini-day-num">{{ day|date:"d" }}</div>
-                <div class="cal-mini-dot-row">
-                  {% with day_count=meetings_by_date|default:'' %}
-                  {% for m in meetings_by_date|default:'' %}{% endfor %}
-                  {% endwith %}
-                  {# Показываем точки по количеству встреч #}
-                  {% if day in meetings_by_date %}
-                    {% for _ in meetings_by_date|default:'' %}{% endfor %}
-                    <span class="cal-mini-dot"></span>
-                  {% endif %}
-                </div>
+          {# Месячный вид #}
+          <div class="cal-month-nav">
+
+            {# Заголовок: пред/след месяц #}
+            <div class="cal-month-header">
+              <a href="?month={{ prev_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn">
+                <i class="fas fa-chevron-left"></i>
               </a>
+              <span class="cal-month-title">{{ cal_month_name }}</span>
+              <a href="?month={{ next_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn">
+                <i class="fas fa-chevron-right"></i>
+              </a>
+            </div>
+
+            {# Быстрый прыжок #}
+            <div class="cal-jump-row">
+              <form method="get" action="" style="display:flex;gap:.4rem;flex:1;margin:0;">
+                <input type="hidden" name="day" value="{{ selected_day|date:'Y-m-d' }}">
+                <select name="jump" class="cal-jump-select" onchange="this.form.submit()">
+                  {% for opt in jump_options %}
+                  <option value="{{ opt.value }}"{% if opt.selected %} selected{% endif %}>{{ opt.label }}</option>
+                  {% endfor %}
+                </select>
+                <noscript><button type="submit" class="cal-jump-btn">→</button></noscript>
+              </form>
+              <a href="?month={{ today|date:'Y-m' }}&day={{ today|date:'Y-m-d' }}" class="cal-jump-btn">
+                {% trans "Today" %}
+              </a>
+            </div>
+
+            {# Сетка месяца #}
+            <div class="cal-month-grid">
+              <div class="cal-month-dow-row">
+                <div class="cal-month-dow">Пн</div>
+                <div class="cal-month-dow">Вт</div>
+                <div class="cal-month-dow">Ср</div>
+                <div class="cal-month-dow">Чт</div>
+                <div class="cal-month-dow">Пт</div>
+                <div class="cal-month-dow">Сб</div>
+                <div class="cal-month-dow">Вс</div>
+              </div>
+              {% for week in cal_grid %}
+              <div class="cal-month-week">
+                {% for cell in week %}
+                {% if cell %}
+                <a href="?month={{ cal_year }}-{{ cal_month|stringformat:'02d' }}&day={{ cell.date|date:'Y-m-d' }}"
+                   class="cal-month-cell{% if cell.is_today %} cal-month-cell--today{% endif %}{% if cell.is_selected %} cal-month-cell--selected{% endif %}"
+                   title="{{ cell.date|date:'d F Y' }}{% if cell.count %} — {{ cell.count }} встр.{% endif %}">
+                  <div class="cal-cell-num">{{ cell.num }}</div>
+                  <div class="cal-cell-dots">
+                    {% if cell.count == 1 %}<span class="cal-cell-dot"></span>
+                    {% elif cell.count == 2 %}<span class="cal-cell-dot"></span><span class="cal-cell-dot"></span>
+                    {% elif cell.count >= 3 %}<span class="cal-cell-dot cal-cell-dot--many"></span><span class="cal-cell-dot cal-cell-dot--many"></span><span class="cal-cell-dot cal-cell-dot--many"></span>
+                    {% endif %}
+                  </div>
+                </a>
+                {% else %}
+                <div class="cal-month-cell cal-month-cell--empty"></div>
+                {% endif %}
+                {% endfor %}
+              </div>
               {% endfor %}
             </div>
-          </div>
-
-          {# Кнопка "Сегодня" #}
-          <a href="?week=0&day={{ today|date:'Y-m-d' }}" class="cal-day-nav-btn cal-day-nav-btn--today" style="justify-content:center;padding:.5rem;">
-            <i class="fas fa-calendar-day me-1"></i>{% trans "Jump to Today" %}
-          </a>
+          </div>{# /cal-month-nav #}
 
           {# Upcoming list #}
           {% if upcoming %}
           <div class="cal-upcoming">
             <div class="cal-upcoming-head">{% trans "UPCOMING MEETINGS" %}</div>
             {% for m in upcoming %}
-            <a href="?week={{ week_offset }}&day={{ m.date|date:'Y-m-d' }}"
-               class="cal-upcoming-item {% if m.date == today %}{% endif %}">
+            <a href="?month={{ m.date|date:'Y-m' }}&day={{ m.date|date:'Y-m-d' }}"
+               class="cal-upcoming-item">
               <div class="cal-upcoming-date">
                 <div class="cal-upcoming-date-day">{{ m.date|date:"d" }}</div>
                 <div class="cal-upcoming-date-mon">{{ m.date|date:"M" }}</div>
@@ -439,12 +511,10 @@
               <div class="cal-day-sub">{{ day_meetings|length }} {% trans "meetings" %}</div>
             </div>
             <div class="cal-day-nav">
-              <a href="?week={{ week_offset }}&day={{ selected_day|date:'Y-m-d'|add:'-1' }}" class="cal-day-nav-btn"
-                 onclick="event.preventDefault(); navigateDay(-1);">
+              <a href="#" class="cal-day-nav-btn" onclick="event.preventDefault(); navigateDay(-1);">
                 <i class="fas fa-chevron-left"></i> {% trans "Prev Day" %}
               </a>
-              <a href="?week={{ week_offset }}&day={{ selected_day|date:'Y-m-d'|add:'1' }}" class="cal-day-nav-btn"
-                 onclick="event.preventDefault(); navigateDay(1);">
+              <a href="#" class="cal-day-nav-btn" onclick="event.preventDefault(); navigateDay(1);">
                 {% trans "Next Day" %} <i class="fas fa-chevron-right"></i>
               </a>
             </div>
@@ -486,7 +556,7 @@
               <div class="cal-hour-row" data-hour="{{ hour }}">
                 <div class="cal-hour-label">{{ hour|stringformat:"02d" }}:00</div>
                 <div class="cal-hour-content" id="hour-{{ hour }}">
-                  <a href="?week={{ week_offset }}&day={{ selected_day|date:'Y-m-d' }}&prefill_date={{ selected_day|date:'Y-m-d' }}&prefill_time={{ hour|stringformat:'02d' }}:00#add-meeting"
+                  <a href="#add-meeting"
                      class="cal-hour-slot-btn"
                      onclick="prefillMeeting('{{ selected_day|date:'Y-m-d' }}', '{{ hour|stringformat:'02d' }}:00')">
                     <i class="fas fa-plus" style="font-size:.65rem;margin-right:3px;"></i>
@@ -705,13 +775,16 @@ function showPopup(m) {
     }
 }
 
-/* Навигация по дням */
+/* Навигация по дням (обновляет и month при переходе через границу месяца) */
 function navigateDay(delta) {
     var d = new Date(SELECTED_DAY + 'T00:00:00');
     d.setDate(d.getDate() + delta);
     var iso = d.toISOString().slice(0, 10);
+    var monthStr = iso.slice(0, 7);
     var url = new URL(window.location.href);
     url.searchParams.set('day', iso);
+    url.searchParams.set('month', monthStr);
+    url.searchParams.delete('jump');
     window.location.href = url.toString();
 }
 
