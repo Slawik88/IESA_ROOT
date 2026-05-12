@@ -1,0 +1,26 @@
+{% comment %}
+Переиспользуемый компонент breadcrumbs.
+Использование:
+  {% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
+
+crumbs — список словарей: [{'label': 'Partner Portal', 'url': '/auth/partner/dashboard/'}, ...]
+Последний элемент — текущая страница (без ссылки).
+{% endcomment %}
+{% load i18n %}
+
+{% if crumbs %}
+<nav aria-label="{% trans 'Breadcrumb' %}" class="dash-breadcrumbs">
+  <ol class="breadcrumb-list">
+    {% for crumb in crumbs %}
+    <li class="breadcrumb-item{% if forloop.last %} active{% endif %}">
+      {% if not forloop.last and crumb.url %}
+        <a href="{{ crumb.url }}">{{ crumb.label }}</a>
+        <span class="bc-sep" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+      {% else %}
+        <span>{{ crumb.label }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+</nav>
+{% endif %}

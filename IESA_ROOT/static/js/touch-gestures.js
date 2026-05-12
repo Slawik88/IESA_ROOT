@@ -347,3 +347,72 @@
     // Export for use in other scripts
     window.GestureHandler = GestureHandler;
 })();
+
+/* ══════════════════════════════════════════════════════
+   Block 2e — Swipe-right to go back (80px threshold)
+   Only on inner pages (not home, blog, profile root)
+   ══════════════════════════════════════════════════════ */
+(function () {
+    'use strict';
+
+    // Страницы-корни — на них свайп назад не включаем
+    var ROOT_PATHS = ['/', '/blog/', '/gallery/', '/products/', '/auth/profile/', '/auth/partner/dashboard/'];
+    var currentPath = window.location.pathname;
+    var isRoot = ROOT_PATHS.some(function (p) { return currentPath === p || currentPath === p.replace(/\/$/, ''); });
+    if (isRoot) return;
+
+    var startX = 0, startY = 0, active = false;
+    var indicator = null;
+
+    function createIndicator() {
+        indicator = document.createElement('div');
+        indicator.id = 'swipe-back-indicator';
+        indicator.innerHTML = '<i class="fas fa-arrow-left"></i>';
+        Object.assign(indicator.style, {
+            position: 'fixed', left: '0', top: '50%', transform: 'translateY(-50%) translateX(-100%)',
+            width: '44px', height: '44px', background: 'rgba(220,38,38,.85)',
+            borderRadius: '0 12px 12px 0', color: '#fff', fontSize: '1rem',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: '9999', transition: 'transform .15s ease', pointerEvents: 'none',
+            boxShadow: '4px 0 16px rgba(0,0,0,.35)',
+        });
+        document.body.appendChild(indicator);
+    }
+
+    document.addEventListener('touchstart', function (e) {
+        var t = e.touches[0];
+        startX = t.clientX;
+        startY = t.clientY;
+        active = t.clientX < 28; // только если старт у самого левого края
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+        if (!active) return;
+        var t = e.touches[0];
+        var dx = t.clientX - startX;
+        var dy = Math.abs(t.clientY - startY);
+        if (dy > dx) { active = false; return; } // вертикальный скролл — отменяем
+
+        if (dx > 0 && dx < 120) {
+            if (!indicator) createIndicator();
+            var pct = Math.min(dx / 80, 1);
+            indicator.style.transform = 'translateY(-50%) translateX(' + (pct * 100 - 100) + '%)';
+        }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function (e) {
+        if (!active) return;
+        var t = e.changedTouches[0];
+        var dx = t.clientX - startX;
+
+        if (indicator) {
+            indicator.style.transform = 'translateY(-50%) translateX(-100%)';
+        }
+
+        if (dx >= 80 && history.length > 1) {
+            history.back();
+        }
+        active = false;
+    });
+})();
+

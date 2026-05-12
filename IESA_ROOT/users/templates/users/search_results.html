@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% trans "User search" %} — IESA{% endblock %}
 
@@ -27,6 +27,21 @@
 .search-results-list .list-group-item .text-muted,
 .search-results-list .list-group-item small.text-muted { color: rgba(255,255,255,.45) !important; }
 .search-results-list .list-group-item code { color: #f87171; background: rgba(220,38,38,.12); padding: 1px 5px; border-radius: 4px; }
+
+/* 2d: Log Visit кнопка для партнёров */
+.search-item-wrap { display: flex; align-items: center; width: 100%; gap: .75rem; }
+.search-item-info { flex: 1; min-width: 0; }
+.btn-log-visit-inline {
+  flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .32rem .75rem; border-radius: 7px;
+  background: rgba(220,38,38,.12); border: 1px solid rgba(220,38,38,.28);
+  color: #f87171; font-size: .73rem; font-weight: 700;
+  text-decoration: none; white-space: nowrap;
+  transition: background .15s, color .15s;
+}
+.btn-log-visit-inline:hover { background: rgba(220,38,38,.22); color: #fff; }
+.btn-log-visit-inline i { font-size: .7rem; }
 </style>
 {% endblock %}
 
@@ -60,21 +75,38 @@
   <div class="list-group search-results-list">
     {% for item in results %}
       {% with u=item.user %}
-      <a href="{% url 'users:profile_public_username' username=u.username %}" class="list-group-item list-group-item-action d-flex align-items-center search-item animation-delay-{{ forloop.counter0|default:0 }}">
-        {% if u.avatar %}
-          {% if u.avatar.name and u.avatar.name != 'avatars/default.png' %}
-            <span class="avatar avatar-sm me-3"><img loading="lazy" src="{{ u.avatar.url }}" alt="{{ u.username }}"></span>
+      <div class="list-group-item list-group-item-action search-item animation-delay-{{ forloop.counter0|default:0 }}">
+        <div class="search-item-wrap">
+          {# Аватар #}
+          {% if u.avatar and u.avatar.name != 'avatars/default.png' %}
+            <a href="{% url 'users:profile_public_username' username=u.username %}">
+              <span class="avatar avatar-sm me-0"><img loading="lazy" src="{{ u.avatar.url }}" alt="{{ u.username }}"></span>
+            </a>
           {% else %}
-            <span class="avatar avatar-sm avatar-fallback me-3">{{ u.username|slice:":1"|upper }}</span>
+            <a href="{% url 'users:profile_public_username' username=u.username %}">
+              <span class="avatar avatar-sm avatar-fallback me-0">{{ u.username|slice:":1"|upper }}</span>
+            </a>
           {% endif %}
-        {% else %}
-          <span class="avatar avatar-sm avatar-fallback me-3">{{ u.username|slice:":1"|upper }}</span>
-        {% endif %}
-        <div>
-          <div><strong>{{ u.get_full_name|default:u.username }}</strong> <small class="text-muted">@{{ item.username_html|safe }}</small></div>
-          <div class="small text-muted">{{ item.email_html|safe }} • <code>{{ item.permanent_id_html|safe }}</code></div>
+
+          {# Инфо #}
+          <div class="search-item-info">
+            <a href="{% url 'users:profile_public_username' username=u.username %}" style="text-decoration:none;color:inherit;">
+              <div><strong>{{ u.get_full_name|default:u.username }}</strong> <small class="text-muted">@{{ item.username_html|safe }}</small></div>
+              <div class="small text-muted">{{ item.email_html|safe }} • <code>{{ item.permanent_id_html|safe }}</code></div>
+            </a>
+          </div>
+
+          {# 2d: Кнопка Log Visit — только для партнёров #}
+          {% if user.is_authenticated and user.is_partner %}
+          <a href="{% url 'users:log_visit' member_id=u.pk %}"
+             class="btn-log-visit-inline"
+             title="{% trans 'Log a visit for this member' %}">
+            <i class="fas fa-user-check"></i>
+            <span class="d-none d-sm-inline">{% trans "Log Visit" %}</span>
+          </a>
+          {% endif %}
         </div>
-      </a>
+      </div>
       {% endwith %}
     {% empty %}
       <div class="list-group-item">{% trans "No users found." %}</div>

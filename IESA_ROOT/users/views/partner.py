@@ -198,7 +198,15 @@ def edit_visit(request, visit_id):
             return redirect('users:partner_dashboard')
     else:
         form = EditVisitForm(instance=visit)
-    return render(request, 'users/edit_visit.html', {'form': form, 'visit': visit, 'partner': partner, 'seconds_left': max(0, int(EDIT_WINDOW - age))})
+    return render(request, 'users/edit_visit.html', {
+        'form': form, 'visit': visit, 'partner': partner,
+        'seconds_left': max(0, int(EDIT_WINDOW - age)),
+        'crumbs': [
+            {'label': _('Partner Portal'), 'url': '/auth/partner/dashboard/'},
+            {'label': _('Visit History'),  'url': '/auth/partner/dashboard/#history-section'},
+            {'label': f'#{visit.pk} — {_("Edit")}', 'url': None},
+        ],
+    })
 
 
 @partner_required
@@ -232,7 +240,15 @@ def cancel_visit(request, visit_id):
             return redirect('users:partner_dashboard')
     else:
         form = CancelVisitForm()
-    return render(request, 'users/cancel_visit.html', {'form': form, 'visit': visit, 'partner': partner, 'seconds_left': max(0, int(EDIT_WINDOW - age))})
+    return render(request, 'users/cancel_visit.html', {
+        'form': form, 'visit': visit, 'partner': partner,
+        'seconds_left': max(0, int(EDIT_WINDOW - age)),
+        'crumbs': [
+            {'label': _('Partner Portal'), 'url': '/auth/partner/dashboard/'},
+            {'label': _('Visit History'),  'url': '/auth/partner/dashboard/#history-section'},
+            {'label': f'#{visit.pk} — {_("Cancel")}', 'url': None},
+        ],
+    })
 
 
 @partner_required
@@ -249,6 +265,10 @@ def partner_member_visits(request, member_id):
         'partner': partner, 'member': member, 'visits': page_obj,
         'total': total, 'total_revenue': total_revenue,
         'verified_count': verified_count, 'last_visit': last_visit,
+        'crumbs': [
+            {'label': _('Partner Portal'), 'url': '/auth/partner/dashboard/'},
+            {'label': member.get_full_name() or member.username, 'url': None},
+        ],
     })
 
 
@@ -282,6 +302,10 @@ def partner_analytics(request):
         'chart_dates_json':   json.dumps([str(d['day']) for d in daily_data]),
         'chart_counts_json':  json.dumps([d['count'] for d in daily_data]),
         'chart_revenue_json': json.dumps([float(d['revenue'] or 0) for d in daily_data]),
+        'crumbs': [
+            {'label': _('Partner Portal'), 'url': '/auth/partner/dashboard/'},
+            {'label': _('Analytics'), 'url': None},
+        ],
     })
 
 

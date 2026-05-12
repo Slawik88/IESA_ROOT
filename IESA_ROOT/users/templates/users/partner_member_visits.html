@@ -168,11 +168,12 @@ html, body { background: var(--bg0) !important; }
     <a href="{% url 'users:partner_profile_edit' %}"><i class="fas fa-cog"></i> {% trans "Settings" %}</a>
   </nav>
 
+  {% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
+
   {# ══ HERO ══ #}
   <div class="pmv-hero">
-    <div class="pmv-breadcrumb">
-      <a href="{% url 'users:partner_dashboard' %}">{% trans "Partner Dashboard" %}</a>
-      &nbsp;›&nbsp; {% trans "Member History" %}
+    <div class="pmv-breadcrumb" style="display:none;">
+      {# Заменено на универсальный компонент _breadcrumbs.html #}
     </div>
 
     <div class="pmv-member-row">

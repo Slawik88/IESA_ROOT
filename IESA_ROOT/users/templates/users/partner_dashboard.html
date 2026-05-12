@@ -436,6 +436,37 @@
   </main>
 
 </div>{# /dash-root #}
+
+{# ══ 2c: FAB — Floating Action Button ══ #}
+<div class="dash-fab-wrap" id="dash-fab">
+  {# Дочерние кнопки (скрыты по умолчанию) #}
+  <div class="fab-actions" id="fab-actions">
+    <div class="fab-action-item" id="fab-item-1">
+      <span class="fab-action-label">{% trans "New Meeting" %}</span>
+      <a href="{% url 'users:partner_calendar' %}" class="fab-action-btn" title="{% trans 'Schedule a meeting' %}">
+        <i class="fas fa-calendar-plus"></i>
+      </a>
+    </div>
+    <div class="fab-action-item" id="fab-item-2">
+      <span class="fab-action-label">{% trans "Log Visit" %}</span>
+      <button class="fab-action-btn" id="fab-log-visit" title="{% trans 'Log a member visit' %}">
+        <i class="fas fa-user-check"></i>
+      </button>
+    </div>
+    <div class="fab-action-item" id="fab-item-3">
+      <span class="fab-action-label">{% trans "Invite Client" %}</span>
+      <a href="{% url 'users:users_search' %}" class="fab-action-btn" title="{% trans 'Find a member' %}">
+        <i class="fas fa-user-plus"></i>
+      </a>
+    </div>
+  </div>
+
+  {# Главная кнопка ✚ #}
+  <button class="fab-main" id="fab-main-btn" aria-label="{% trans 'Quick actions' %}" aria-expanded="false">
+    <i class="fas fa-plus"></i>
+  </button>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -454,5 +485,71 @@ document.querySelectorAll('#sidebar-log-btn, #sidebar-cta-btn, #topbar-log-btn')
         }
     });
 });
+
+/* ── 2c: FAB ─────────────────────────────────────────────── */
+(function () {
+  var fabBtn     = document.getElementById('fab-main-btn');
+  var fabActions = document.getElementById('fab-actions');
+  var fabItems   = [
+    document.getElementById('fab-item-3'),  // Invite (показывается первым снизу)
+    document.getElementById('fab-item-2'),  // Log Visit
+    document.getElementById('fab-item-1'),  // New Meeting
+  ];
+  var isOpen = false;
+
+  function openFab() {
+    isOpen = true;
+    fabBtn.classList.add('open');
+    fabBtn.setAttribute('aria-expanded', 'true');
+    fabItems.forEach(function (item, i) {
+      if (!item) return;
+      setTimeout(function () { item.classList.add('visible'); }, i * 60);
+    });
+  }
+
+  function closeFab() {
+    isOpen = false;
+    fabBtn.classList.remove('open');
+    fabBtn.setAttribute('aria-expanded', 'false');
+    fabItems.forEach(function (item) {
+      if (item) item.classList.remove('visible');
+    });
+  }
+
+  if (fabBtn) {
+    fabBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      isOpen ? closeFab() : openFab();
+    });
+  }
+
+  // FAB "Log Visit" кнопка скроллит к поиску
+  var fabLogVisit = document.getElementById('fab-log-visit');
+  if (fabLogVisit) {
+    fabLogVisit.addEventListener('click', function () {
+      closeFab();
+      var section = document.getElementById('search-section');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(function () {
+          var input = section.querySelector('input[name="query"]');
+          if (input) input.focus();
+        }, 400);
+      }
+    });
+  }
+
+  // Закрыть FAB при клике вне
+  document.addEventListener('click', function (e) {
+    if (isOpen && !document.getElementById('dash-fab').contains(e.target)) {
+      closeFab();
+    }
+  });
+
+  // Закрыть по Escape
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && isOpen) closeFab();
+  });
+})();
 </script>
 {% endblock %}

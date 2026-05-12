@@ -375,6 +375,32 @@
     </div>
     {% endif %}
 
+    <!-- 2f: Smart navbar back button (mobile only) -->
+    <script>
+    (function () {
+        'use strict';
+        // Страницы-корни — показываем логотип как обычно
+        var ROOT_PATHS = ['/', '/blog/', '/gallery/', '/products/', '/auth/profile/', '/auth/dashboard/', '/auth/login/', '/auth/register/'];
+        var currentPath = window.location.pathname;
+        var isRoot = ROOT_PATHS.some(function (p) { return currentPath === p || currentPath === p.replace(/\/$/, ''); });
+
+        if (!isRoot && history.length > 1 && window.innerWidth < 992) {
+            var brand = document.querySelector('.iesa-brand');
+            if (brand) {
+                var backBtn = document.createElement('button');
+                backBtn.className = 'navbar-back-btn';
+                backBtn.innerHTML = '<i class="fas fa-arrow-left"></i>';
+                backBtn.setAttribute('aria-label', 'Go back');
+                backBtn.style.cssText = 'background:none;border:none;color:rgba(255,255,255,.7);font-size:1rem;padding:.4rem .6rem;cursor:pointer;display:flex;align-items:center;margin-right:.25rem;transition:color .15s;';
+                backBtn.onmouseenter = function() { this.style.color = '#fff'; };
+                backBtn.onmouseleave = function() { this.style.color = 'rgba(255,255,255,.7)'; };
+                backBtn.addEventListener('click', function () { history.back(); });
+                brand.parentNode.insertBefore(backBtn, brand);
+            }
+        }
+    })();
+    </script>
+
     <!-- Per-page JS: override 'extra_js' block in child templates -->
     {% block extra_js %}{% endblock %}
 
