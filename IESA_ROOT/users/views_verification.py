@@ -532,12 +532,33 @@ def edit_visit(request, visit_id):
             updated_visit.save()
             audit.save()
 
+            # In-site уведомление участнику
+            from notifications.models import Notification as _Notif
+            _cost_txt = f' — {updated_visit.cost} CHF' if updated_visit.cost else ''
+            _Notif.objects.create(
+                recipient=updated_visit.member,
+                notification_type='system',
+                title=f'✏️ Visit updated — {partner.company_name}',
+                message=_(
+                    'Partner %(company)s has updated your visit record.\n'
+                    'Service: %(service)s%(cost)s.\n'
+                    'Reason: %(reason)s'
+                ) % {
+                    'company': partner.company_name,
+                    'service': updated_visit.get_service_type_display(),
+                    'cost':    _cost_txt,
+                    'reason':  audit.reason or _('No reason specified'),
+                },
+                link='/auth/cabinet/',
+            )
+
+            # TG уведомление
             try:
                 notify_visit_edited(updated_visit, audit)
             except Exception as exc:
                 logger.error("notify_visit_edited failed: %s", exc)
 
-            messages.success(request, _('✅ Visit updated. Member notified via Telegram.'))
+            messages.success(request, _('✅ Visit updated. Member notified.'))
             return redirect('users:partner_dashboard')
     else:
         form = EditVisitForm(instance=visit)
@@ -595,12 +616,31 @@ def cancel_visit(request, visit_id):
             visit.save(update_fields=['status'])
             audit.save()
 
+            # In-site уведомление участнику
+            from notifications.models import Notification as _Notif
+            _Notif.objects.create(
+                recipient=visit.member,
+                notification_type='system',
+                title=f'❌ Visit cancelled — {partner.company_name}',
+                message=_(
+                    'Partner %(company)s has cancelled your visit record.\n'
+                    'Service that was logged: %(service)s.\n'
+                    'Reason: %(reason)s'
+                ) % {
+                    'company': partner.company_name,
+                    'service': visit.get_service_type_display(),
+                    'reason':  reason or _('No reason specified'),
+                },
+                link='/auth/cabinet/',
+            )
+
+            # TG уведомление
             try:
                 notify_visit_cancelled(visit, audit)
             except Exception as exc:
                 logger.error("notify_visit_cancelled failed: %s", exc)
 
-            messages.success(request, _('✅ Visit cancelled. Member notified via Telegram.'))
+            messages.success(request, _('✅ Visit cancelled. Member notified.'))
             return redirect('users:partner_dashboard')
     else:
         form = CancelVisitForm()
@@ -1228,66 +1268,145 @@ class MeetingForm(_dj_forms.ModelForm):
 @partner_required
 @require_http_methods(["GET", "POST"])
 def partner_calendar(request):
-    """Календарь встреч партнёра."""
+    """
+    Расширенный календарь встреч партнёра.
+    Режимы: week (мини-обзор недели) + day (подробный суточный вид).
+    Поддерживает долгосрочных клиентов: заметки, серийные встречи.
+    """
+    from users.models import ClientNote
+    import json as _json
+
     try:
         partner = request.user.partner_profile
     except Partner.DoesNotExist:
         return redirect('users:partner_dashboard')
 
     today = _date_cls.today()
-    # Параметр: неделя от понедельника
+
+    # Параметры навигации
     week_offset = int(request.GET.get('week', 0))
+    # selected_day: выбранный день в суточном виде (ISO-формат: YYYY-MM-DD)
+    selected_day_str = request.GET.get('day', '')
+    try:
+        selected_day = _date_cls.fromisoformat(selected_day_str) if selected_day_str else today
+    except ValueError:
+        selected_day = today
+
+    # Неделя
     monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
     week_days = [monday + timedelta(days=i) for i in range(7)]
 
-    # Встречи в выбранной неделе
-    meetings = Meeting.objects.filter(
+    # Встречи выбранной недели
+    week_meetings = Meeting.objects.filter(
         partner=partner,
         date__range=(week_days[0], week_days[-1]),
+        status__in=['scheduled', 'confirmed'],
     ).select_related('member').order_by('date', 'start_time')
 
-    # Группируем по дате
     meetings_by_date = {}
-    for m in meetings:
-        meetings_by_date.setdefault(m.date, []).append(m)
+    for m in week_meetings:
+        if m.date:
+            meetings_by_date.setdefault(m.date, []).append(m)
 
-    # Форма создания встречи
-    # Партнёр может записать ЛЮБОГО пользователя системы
+    # Встречи выбранного дня (суточный вид)
+    day_meetings = Meeting.objects.filter(
+        partner=partner,
+        date=selected_day,
+    ).select_related('member').order_by('start_time')
+
+    # Все встречи следующих 30 дней (upcoming)
+    upcoming = Meeting.objects.filter(
+        partner=partner,
+        date__gte=today,
+        status__in=['scheduled', 'confirmed'],
+    ).select_related('member').order_by('date', 'start_time')[:20]
+
+    # Часовые слоты для суточного вида: 08:00 - 22:00
+    hour_slots = list(range(8, 23))  # 8..22
+
+    # Для JS: сериализуем встречи дня в JSON
+    day_meetings_json = []
+    for m in day_meetings:
+        day_meetings_json.append({
+            'id': m.pk,
+            'title': m.title,
+            'member': m.member.get_full_name() or m.member.username,
+            'start': m.start_time.strftime('%H:%M') if m.start_time else None,
+            'end':   m.end_time.strftime('%H:%M')   if m.end_time   else None,
+            'start_h': m.start_time.hour + m.start_time.minute / 60 if m.start_time else None,
+            'end_h':   m.end_time.hour + m.end_time.minute / 60     if m.end_time   else None,
+            'status': m.status,
+            'address': m.address,
+            'is_recurring': m.is_recurring,
+            'series_label': m.series_label,
+            'cancel_url': f'/auth/partner/meeting/{m.pk}/cancel/',
+        })
+
+    # Партнёр может записать ЛЮБОГО активного пользователя
     all_members = User.objects.filter(
-        is_active=True, membership_status='active'
+        is_active=True,
     ).order_by('first_name', 'last_name', 'username')
 
+    # Форма
     form = MeetingForm()
     form.fields['member'].queryset = all_members
 
-    if request.method == 'POST':
+    # Данные для prefill (при клике на time slot из GET)
+    prefill_date = request.GET.get('prefill_date', selected_day.strftime('%Y-%m-%d'))
+    prefill_time = request.GET.get('prefill_time', '')
+
+    # Обработка новой заметки о клиенте
+    note_action = request.POST.get('action')
+    if request.method == 'POST' and note_action == 'add_note':
+        note_member_id = request.POST.get('note_member_id')
+        note_text = request.POST.get('note_text', '').strip()
+        if note_member_id and note_text:
+            ClientNote.objects.create(
+                partner=partner,
+                member_id=note_member_id,
+                note=note_text,
+            )
+            messages.success(request, _('Note saved.'))
+        return redirect(request.get_full_path())
+
+    if request.method == 'POST' and not note_action:
         form = MeetingForm(request.POST)
         form.fields['member'].queryset = all_members
         if form.is_valid():
             meeting = form.save(commit=False)
             meeting.partner = partner
+            # Если дата не указана — ставим сегодня (встреча "прямо сейчас")
+            if not meeting.date:
+                meeting.date = today
             meeting.save()
 
-            # Уведомление участнику
             if meeting.notify_member:
                 from notifications.models import Notification as _Notif
+                _date_txt = meeting.date.strftime('%d %b %Y') if meeting.date else _('today')
+                _time_txt = (f"{meeting.start_time.strftime('%H:%M')} — {meeting.end_time.strftime('%H:%M')}"
+                             if meeting.start_time and meeting.end_time
+                             else _('time not specified'))
                 _Notif.objects.create(
                     recipient=meeting.member,
                     notification_type='system',
-                    title=_('Meeting scheduled'),
+                    title=f'📅 {partner.company_name}: {meeting.title}',
                     message=_(
-                        'You have been scheduled for a meeting at %(company)s: '
-                        '"%(title)s" on %(date)s at %(time)s%(addr)s.'
+                        'Partner %(company)s has scheduled a meeting with you.\n'
+                        '"%(title)s"\n'
+                        'Date: %(date)s\n'
+                        'Time: %(time)s\n'
+                        '%(addr)s%(series)s'
                     ) % {
                         'company': partner.company_name,
                         'title':   meeting.title,
-                        'date':    meeting.date.strftime('%d %b %Y'),
-                        'time':    meeting.start_time.strftime('%H:%M'),
-                        'addr':    f', {meeting.address}' if meeting.address else '',
+                        'date':    _date_txt,
+                        'time':    _time_txt,
+                        'addr':    f'Address: {meeting.address}\n' if meeting.address else '',
+                        'series':  f'Series: {meeting.series_label}\n' if meeting.series_label else '',
                     },
                     link='/auth/my-calendar/',
                 )
-                # TG если привязан
+                # TG уведомление
                 if getattr(meeting.member, 'telegram_chat_id', None):
                     import threading as _thr
                     _mid = meeting.pk
@@ -1296,16 +1415,18 @@ def partner_calendar(request):
                             from users.telegram.notify import send_message as _sm
                             from users.models import Meeting as _M
                             m = _M.objects.select_related('partner', 'member').get(pk=_mid)
+                            _d = m.date.strftime('%d %b %Y') if m.date else 'today'
+                            _t = (f"{m.start_time.strftime('%H:%M')} — {m.end_time.strftime('%H:%M')}"
+                                  if m.start_time and m.end_time else 'time TBD')
                             text = (
-                                f"📅 *Meeting scheduled*\n\n"
-                                f"*Partner:* {m.partner.company_name}\n"
-                                f"*Title:* {m.title}\n"
-                                f"*Date:* {m.date.strftime('%d %b %Y')}\n"
-                                f"*Time:* {m.start_time.strftime('%H:%M')} — {m.end_time.strftime('%H:%M')}\n"
-                                + (f"*Address:* {m.address}\n" if m.address else "")
-                                + (f"*Notes:* {m.notes}\n" if m.notes else "")
+                                f"📅 <b>Meeting scheduled</b>\n\n"
+                                f"<b>{m.partner.company_name}</b>: {m.title}\n"
+                                f"📆 {_d} | 🕐 {_t}\n"
+                                + (f"📍 {m.address}\n" if m.address else "")
+                                + (f"📝 {m.notes}\n" if m.notes else "")
+                                + (f"🔄 Series: {m.series_label}\n" if m.series_label else "")
                             )
-                            _sm(m.member.telegram_chat_id, text)
+                            _sm(m.member.telegram_chat_id, text, parse_mode='HTML')
                         except Exception as _e:
                             logger.error("meeting TG notify failed: %s", _e)
                     _thr.Thread(target=_tg_meeting, daemon=True).start()
@@ -1314,17 +1435,46 @@ def partner_calendar(request):
                 meeting.save(update_fields=['notification_sent'])
 
             messages.success(request, _('Meeting scheduled successfully!'))
-            return redirect(f"{request.path}?week={week_offset}")
+            # Редирект на день встречи
+            _day = meeting.date.isoformat() if meeting.date else today.isoformat()
+            return redirect(f"{request.path}?day={_day}&week={week_offset}")
+
+    # Клиентские заметки для выбранного дня's participants
+    day_member_ids = list(day_meetings.values_list('member_id', flat=True))
+    client_notes_by_member = {}
+    if day_member_ids:
+        for note in ClientNote.objects.filter(partner=partner, member_id__in=day_member_ids).select_related('member'):
+            client_notes_by_member.setdefault(note.member_id, []).append(note)
+
+    # Статистика
+    total_meetings = Meeting.objects.filter(partner=partner, status__in=['scheduled', 'confirmed']).count()
+    month_meetings = Meeting.objects.filter(
+        partner=partner,
+        date__year=today.year,
+        date__month=today.month,
+        status__in=['scheduled', 'confirmed'],
+    ).count()
 
     return render(request, 'users/partner_calendar.html', {
-        'partner': partner,
-        'form': form,
-        'week_days': week_days,
+        'partner':         partner,
+        'form':            form,
+        'week_days':       week_days,
         'meetings_by_date': meetings_by_date,
-        'today': today,
-        'week_offset': week_offset,
-        'prev_week': week_offset - 1,
-        'next_week': week_offset + 1,
+        'day_meetings':    day_meetings,
+        'day_meetings_json': _json.dumps(day_meetings_json),
+        'selected_day':    selected_day,
+        'today':           today,
+        'upcoming':        upcoming,
+        'week_offset':     week_offset,
+        'prev_week':       week_offset - 1,
+        'next_week':       week_offset + 1,
+        'hour_slots':      hour_slots,
+        'prefill_date':    prefill_date,
+        'prefill_time':    prefill_time,
+        'client_notes_by_member': client_notes_by_member,
+        'total_meetings':  total_meetings,
+        'month_meetings':  month_meetings,
+        'all_members':     all_members,
     })
 
 
@@ -1381,3 +1531,126 @@ def user_calendar(request):
         'past': past,
         'today': today,
     })
+
+
+# ---------------------------------------------------------------------------
+# Страховой агент
+# ---------------------------------------------------------------------------
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def insurance_agent_request(request):
+    """
+    Страница подачи заявки на страхового агента.
+    Доступна любому авторизованному пользователю.
+    После подачи: уведомление всем AdminNotificationProfile с событием 'insurance_request'.
+    """
+    from users.models import InsuranceAgentRequest, AdminNotificationProfile
+    from notifications.models import Notification as _Notif
+
+    # Проверяем — нет ли уже активной заявки
+    existing = InsuranceAgentRequest.objects.filter(
+        user=request.user,
+        status__in=['new', 'reviewing'],
+    ).first()
+
+    if request.method == 'POST':
+        request_type    = request.POST.get('request_type', 'new_agent')
+        full_name       = request.POST.get('full_name', '').strip()
+        phone           = request.POST.get('phone', '').strip()
+        email_val       = request.POST.get('email', '').strip()
+        telegram_un     = request.POST.get('telegram_username', '').strip()
+        city            = request.POST.get('city', '').strip()
+        insurance_types = request.POST.get('insurance_types', '').strip()
+        message_text    = request.POST.get('message', '').strip()
+
+        if not full_name:
+            messages.error(request, _('Пожалуйста, укажите ваше имя.'))
+            return redirect('users:insurance_agent')
+
+        req = InsuranceAgentRequest.objects.create(
+            user=request.user,
+            request_type=request_type,
+            full_name=full_name,
+            phone=phone,
+            email=email_val or request.user.email,
+            telegram_username=telegram_un,
+            city=city,
+            insurance_types=insurance_types,
+            message=message_text,
+        )
+
+        messages.success(request, _(
+            'Ваша заявка принята! Наш менеджер свяжется с вами в ближайшее время.'
+        ))
+
+        # Уведомляем всех администраторов с подпиской на insurance_request
+        _notify_admins_insurance(req)
+
+        return redirect('users:insurance_agent')
+
+    return render(request, 'users/insurance_agent.html', {
+        'existing': existing,
+        'user': request.user,
+    })
+
+
+def _notify_admins_insurance(req):
+    """Рассылает уведомления администраторам о новой страховой заявке."""
+    from users.models import AdminNotificationProfile
+    from notifications.models import Notification as _Notif
+
+    profiles = AdminNotificationProfile.objects.filter(
+        is_active=True,
+    ).select_related('admin_user')
+
+    for profile in profiles:
+        admin = profile.admin_user
+
+        # In-site уведомление
+        if profile.should_notify_site('insurance_request'):
+            _Notif.objects.create(
+                recipient=admin,
+                notification_type='system',
+                title=_('Новая заявка: страховой агент'),
+                message=_(
+                    '%(name)s подал(а) заявку на страхового агента.\n'
+                    'Тип: %(req_type)s\n'
+                    'Телефон: %(phone)s\n'
+                    'Email: %(email)s'
+                ) % {
+                    'name':     req.full_name,
+                    'req_type': req.get_request_type_display(),
+                    'phone':    req.phone or '—',
+                    'email':    req.email or '—',
+                },
+                link='/admin/users/insuranceagentrequest/',
+            )
+
+        # Telegram уведомление
+        if profile.should_notify_telegram('insurance_request') and getattr(admin, 'telegram_chat_id', None):
+            import threading as _thr
+            _rid = req.pk
+            _cid = admin.telegram_chat_id
+
+            def _send_tg(rid=_rid, cid=_cid):
+                try:
+                    from users.models import InsuranceAgentRequest as _IAR
+                    from users.telegram.notify import send_message as _sm
+                    r = _IAR.objects.get(pk=rid)
+                    text = (
+                        f"🛡 <b>Новая заявка: страховой агент</b>\n\n"
+                        f"👤 <b>{r.full_name}</b>\n"
+                        f"📋 {r.get_request_type_display()}\n"
+                        + (f"📞 {r.phone}\n" if r.phone else "")
+                        + (f"✉️ {r.email}\n" if r.email else "")
+                        + (f"📍 {r.city}\n" if r.city else "")
+                        + (f"🔖 {r.insurance_types}\n" if r.insurance_types else "")
+                        + (f"\n💬 {r.message}\n" if r.message else "")
+                        + f"\n🔗 /admin/users/insuranceagentrequest/{r.pk}/change/"
+                    )
+                    _sm(cid, text, parse_mode='HTML')
+                except Exception as exc:
+                    logger.error("insurance TG notify failed: %s", exc)
+
+            _thr.Thread(target=_send_tg, daemon=True).start()

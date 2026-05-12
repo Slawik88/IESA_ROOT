@@ -239,6 +239,16 @@ def send_message(
                     continue
                 return False
 
+            if resp.status_code == 400:
+                data = _safe_json(resp, "sendMessage sync 400")
+                desc = (data or {}).get("description", "").lower() if data else ""
+                if "chat not found" in desc or "bot was blocked" in desc or "user is deactivated" in desc:
+                    # Пользователь заблокировал бота или не начал диалог — это не ошибка, не повторяем
+                    logger.warning("Telegram: inactive chat %s — %s", cid, desc)
+                    return False
+                logger.warning("Telegram sync 400 for chat %s: %s", cid, data)
+                return False
+
             if resp.status_code in _RETRY_STATUSES:
                 if attempt < 2:
                     time.sleep(min(2 ** attempt, _MAX_BACKOFF))

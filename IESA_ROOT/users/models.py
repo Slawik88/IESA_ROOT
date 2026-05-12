@@ -881,6 +881,17 @@ class Meeting(models.Model):
         default=False,
         verbose_name=_('Notification Sent'),
     )
+    # Долгосрочные клиенты / серии встреч
+    is_recurring = models.BooleanField(
+        default=False,
+        verbose_name=_('Recurring Meeting'),
+        help_text=_('Mark if this is part of an ongoing series (insurance, coaching, therapy...)'),
+    )
+    series_label = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_('Series / Project Label'),
+        help_text=_('E.g. "Monthly review", "Rehab program Q1", "Insurance case #123"'),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -901,6 +912,225 @@ class Meeting(models.Model):
     @property
     def duration_minutes(self):
         from datetime import datetime, date
+        if not self.start_time or not self.end_time:
+            return None
         start = datetime.combine(date.today(), self.start_time)
         end   = datetime.combine(date.today(), self.end_time)
         return int((end - start).total_seconds() / 60)
+
+
+class ClientNote(models.Model):
+    """
+    Заметки партнёра о конкретном клиенте.
+    Удобно для долгосрочных отношений: страховые, коучинг, терапия, консультирование.
+    Видны только партнёру — НЕ видны самому клиенту.
+    """
+    partner = models.ForeignKey(
+        Partner,
+        on_delete=models.CASCADE,
+        related_name='client_notes',
+        verbose_name=_('Partner'),
+    )
+    member = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='partner_notes',
+        verbose_name=_('Member / Client'),
+    )
+    note = models.TextField(verbose_name=_('Note'))
+    is_pinned = models.BooleanField(
+        default=False,
+        verbose_name=_('Pinned'),
+        help_text=_('Show this note at the top'),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('Client Note')
+        verbose_name_plural = _('Client Notes')
+        db_table = 'users_clientnote'
+        ordering = ['-is_pinned', '-created_at']
+        indexes = [
+            models.Index(fields=['partner', 'member'], name='clientnote_partner_member_idx'),
+        ]
+
+    def __str__(self):
+        return f"Note: {self.partner} → {self.member} [{self.created_at.strftime('%d.%m.%Y')}]"
+
+
+# ---------------------------------------------------------------------------
+# Заявка на страхового агента
+# ---------------------------------------------------------------------------
+
+class InsuranceAgentRequest(models.Model):
+    """
+    Заявка пользователя на получение или смену страхового агента IESA.
+
+    Процесс:
+      1. Пользователь подаёт заявку через сайт или TG бот → статус 'new'.
+      2. Суперюзер/менеджер видит заявку в Admin, назначает агента вручную.
+      3. Статус меняется на 'assigned' / 'closed'.
+    """
+
+    STATUS_CHOICES = [
+        ('new',      _('Новая')),
+        ('reviewing', _('На рассмотрении')),
+        ('assigned', _('Агент назначен')),
+        ('closed',   _('Закрыта')),
+    ]
+
+    REQUEST_TYPE_CHOICES = [
+        ('new_agent',    _('Нужен страховой агент')),
+        ('change_agent', _('Смена страхового агента')),
+        ('consultation', _('Консультация по страхованию')),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='insurance_requests',
+        verbose_name=_('Пользователь'),
+    )
+    request_type = models.CharField(
+        max_length=20,
+        choices=REQUEST_TYPE_CHOICES,
+        default='new_agent',
+        verbose_name=_('Тип заявки'),
+    )
+    # Контактные данные (могут не совпадать с аккаунтом)
+    full_name = models.CharField(max_length=200, verbose_name=_('Полное имя'))
+    phone = models.CharField(max_length=50, blank=True, verbose_name=_('Телефон / WhatsApp'))
+    email = models.EmailField(blank=True, verbose_name=_('Email'))
+    telegram_username = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_('Telegram'),
+        help_text=_('@username'),
+    )
+    city = models.CharField(max_length=100, blank=True, verbose_name=_('Город / Регион'))
+    # Страховые потребности
+    insurance_types = models.CharField(
+        max_length=500, blank=True,
+        verbose_name=_('Виды страхования'),
+        help_text=_('Жизнь, здоровье, спорт, автомобиль...'),
+    )
+    message = models.TextField(
+        blank=True,
+        verbose_name=_('Дополнительная информация'),
+        help_text=_('Особые пожелания, вопросы, детали ситуации'),
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='new',
+        verbose_name=_('Статус'),
+    )
+    assigned_agent = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='assigned_insurance_requests',
+        verbose_name=_('Назначенный агент'),
+        limit_choices_to={'is_staff': True},
+    )
+    admin_note = models.TextField(blank=True, verbose_name=_('Внутренняя заметка'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Создана'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Обновлена'))
+
+    class Meta:
+        verbose_name = _('Заявка на страхового агента')
+        verbose_name_plural = _('Заявки на страховых агентов')
+        db_table = 'users_insuranceagentrequest'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at'], name='ins_status_date_idx'),
+            models.Index(fields=['user'],                  name='ins_user_idx'),
+        ]
+
+    def __str__(self):
+        return f"[{self.get_status_display()}] {self.full_name} — {self.get_request_type_display()}"
+
+
+# ---------------------------------------------------------------------------
+# Настройки сайта + Уведомления для администраторов
+# ---------------------------------------------------------------------------
+
+class SiteSettings(models.Model):
+    """
+    Глобальные настройки сайта — создаётся только одна запись (singleton).
+    Управляется через Django Admin.
+    """
+
+    class Meta:
+        verbose_name = _('Настройки сайта')
+        verbose_name_plural = _('Настройки сайта')
+        db_table = 'users_sitesettings'
+
+    def __str__(self):
+        return 'Настройки сайта'
+
+    @classmethod
+    def get(cls):
+        """Возвращает единственную запись настроек (создаёт если нет)."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+
+class AdminNotificationProfile(models.Model):
+    """
+    Настройки уведомлений для конкретного администратора.
+    Каждый администратор указывает, какие события ему приходят в TG и на сайте.
+    """
+
+    EVENT_CHOICES = [
+        ('new_account',      _('Новый аккаунт зарегистрирован')),
+        ('post_moderation',  _('Пост отправлен на модерацию')),
+        ('account_upgrade',  _('Заявка на повышение аккаунта')),
+        ('insurance_request', _('Заявка на страхового агента')),
+        ('new_visit',        _('Новый визит партнёра')),
+    ]
+
+    admin_user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notification_profile',
+        verbose_name=_('Администратор'),
+        limit_choices_to={'is_staff': True},
+    )
+    # Какие события получать в Telegram
+    telegram_events = models.JSONField(
+        default=list,
+        verbose_name=_('События в Telegram'),
+        help_text=_('Список кодов событий. Пример: ["new_account", "insurance_request"]'),
+    )
+    # Какие события получать на сайте (in-site)
+    site_events = models.JSONField(
+        default=list,
+        verbose_name=_('События на сайте'),
+        help_text=_('Список кодов событий для уведомлений внутри сайта'),
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name=_('Активно'),
+        help_text=_('Снимите галочку, чтобы приостановить все уведомления для этого администратора'),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _('Профиль уведомлений администратора')
+        verbose_name_plural = _('Профили уведомлений администраторов')
+        db_table = 'users_adminnotificationprofile'
+
+    def __str__(self):
+        return f"Уведомления: {self.admin_user.username}"
+
+    def should_notify_telegram(self, event: str) -> bool:
+        return self.is_active and event in (self.telegram_events or [])
+
+    def should_notify_site(self, event: str) -> bool:
+        return self.is_active and event in (self.site_events or [])
