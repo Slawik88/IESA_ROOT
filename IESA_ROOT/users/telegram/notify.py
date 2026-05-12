@@ -128,6 +128,6 @@ def notify_membership_activated(user) -> bool:
         + _('Hello, %(name)s!') % {'name': name} + "\n"
         + _('Your IESA Sport membership is now active.') + "\n\n"
         + _('🏃 Use <b>Personal Cabinet</b> to get your PIN:') + "\n"
-        "<a href='https://iesasport.ch/auth/cabinet/'>" + _('Open cabinet →') + "</a>"
+        "<a href='https://iesasport.ch/auth/profile/#pin-section'>" + _('Open profile →') + "</a>"
     )
     return send_message(text, chat_id=chat_id)

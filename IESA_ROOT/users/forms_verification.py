@@ -6,6 +6,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from .models import Visit, Partner
+from .constants import PIN_LENGTH
 
 
 class MemberSearchForm(forms.Form):
@@ -81,7 +82,7 @@ class VisitForm(forms.ModelForm):
     def clean_pin(self):
         """Validate PIN format"""
         pin = self.cleaned_data.get('pin', '').strip()
-        if not pin.isdigit() or len(pin) != 6:
+        if not pin.isdigit() or len(pin) != PIN_LENGTH:
             raise forms.ValidationError(_('❌ PIN must be exactly 6 digits (numbers only)'))
         return pin
     

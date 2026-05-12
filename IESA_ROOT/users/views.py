@@ -17,7 +17,10 @@ from .forms import AccountChangeRequestForm, CustomUserCreationForm, UserProfile
 from blog.models import Post, BlogSubscription
 from .search_utils import highlight_text, normalize_search_query
 from .ratelimit_utils import login_ratelimit, register_ratelimit
-from .constants import ACTIVITY_LEVELS, POINTS_BREAKDOWN
+from .constants import (
+    ACTIVITY_LEVELS, POINTS_BREAKDOWN,
+    PIN_INTERVAL, PROFILE_POSTS_PER_PAGE, CABINET_VISITS_LIMIT, QR_CACHE_TTL,
+)
 
 
 def logout_view(request):
@@ -51,7 +54,7 @@ class ProfileView(DetailView):
     model = User
     template_name = 'users/profile.html'
     context_object_name = 'profile_user'
-    paginate_by = 12  # Pagination for user posts
+    paginate_by = PROFILE_POSTS_PER_PAGE
 
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
@@ -90,20 +93,30 @@ class ProfileView(DetailView):
         )
         context.update(counts)
 
-        # ── PIN code shown directly on profile page ──────────────────────
+        # ── PIN + данные кабинета ────────────────────────────────────────
         import time as _time
+        from .models import Visit
         user = self.request.user
         if (user.is_authenticated
                 and getattr(user, 'membership_status', None) == 'active'
                 and user.totp_secret):
             current_pin = user.get_current_pin()
             if current_pin:
-                _now = int(_time.time())
-                _interval = 720
-                _step = _now // _interval
-                _next = (_step + 1) * _interval
-                context['current_pin'] = current_pin
-                context['seconds_remaining'] = _next - _now
+                _now  = int(_time.time())
+                _step = _now // PIN_INTERVAL
+                context['current_pin']      = current_pin
+                context['seconds_remaining'] = (_step + 1) * PIN_INTERVAL - _now
+
+        # Данные физической карты и история визитов (были в member_cabinet)
+        context['card_active']    = user.card_active
+        context['card_issued_at'] = user.card_issued_at
+        context['recent_visits']  = (
+            Visit.objects
+            .filter(member=user)
+            .select_related('partner')
+            .order_by('-timestamp')[:CABINET_VISITS_LIMIT]
+        )
+        context['total_visits'] = Visit.objects.filter(member=user).count()
 
         # ── Заявка на смену типа аккаунта ────────────────────────────────
         context['pending_upgrade_request'] = AccountChangeRequest.objects.filter(
@@ -304,7 +317,7 @@ def qr_image(request, permanent_id):
             img_io = BytesIO()
             img.save(img_io, format='PNG')
             cached_data = img_io.getvalue()
-            cache.set(cache_key, cached_data, 3600)
+            cache.set(cache_key, cached_data, QR_CACHE_TTL)
         except Exception as e:
             logger.error(f"QR generation failed for user {user_obj.id}: {str(e)}", exc_info=True)
             raise Http404("QR generation failed")
@@ -448,6 +461,5 @@ def dashboard_redirect(request):
         is_p = user.is_partner
     if is_p:
         return redirect('users:partner_dashboard')
-    if user.membership_status == 'active':
-        return redirect('users:member_cabinet')
+    # Active members → profile (PIN раздел теперь там — Block 1)
     return redirect('users:profile')

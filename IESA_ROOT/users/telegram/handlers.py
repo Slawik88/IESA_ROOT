@@ -32,8 +32,8 @@ def _url_btn(text: str, url: str) -> dict:
 
 
 # URL constants
-CABINET_URL       = "https://iesasport.ch/auth/profile/"           # regular user profile
-CARD_URL          = "https://iesasport.ch/auth/cabinet/"           # member PIN card
+CABINET_URL       = "https://iesasport.ch/auth/profile/"           # личный кабинет / профиль
+CARD_URL          = "https://iesasport.ch/auth/profile/#pin-section"  # PIN + карта (Block 1)
 CONNECT_TG_URL    = "https://iesasport.ch/auth/connect-telegram/"  # TG linking page
 INSURANCE_URL     = "https://iesasport.ch/auth/insurance-agent/"   # страховой агент
 

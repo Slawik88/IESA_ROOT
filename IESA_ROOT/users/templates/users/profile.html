@@ -101,6 +101,45 @@
 .acr-submit:hover { filter:brightness(1.1); box-shadow:0 6px 30px rgba(220,38,38,.5); transform:translateY(-1px); }
 .acr-submit:disabled { opacity:.6; cursor:not-allowed; transform:none; }
 
+/* ── Steps grid (PIN guide) ────────────────────────────── */
+.steps-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem; }
+@media(max-width:640px){.steps-grid{grid-template-columns:1fr;}}
+.step-card {
+  background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07);
+  border-radius:12px; padding:.9rem 1rem; position:relative; overflow:hidden;
+  transition:background .2s, border-color .2s, transform .2s;
+}
+.step-card:hover { background:rgba(220,38,38,.06); border-color:rgba(220,38,38,.22); transform:translateY(-2px); }
+.step-num-badge {
+  width:28px; height:28px; border-radius:8px; flex-shrink:0;
+  background:rgba(220,38,38,.15); border:1px solid rgba(220,38,38,.28);
+  color:#f87171; font-size:.82rem; font-weight:900;
+  display:inline-flex; align-items:center; justify-content:center; margin-bottom:.5rem;
+}
+.step-title { font-size:.82rem; font-weight:700; color:rgba(255,255,255,.85); margin-bottom:.25rem; }
+.step-desc  { font-size:.75rem; color:rgba(255,255,255,.42); line-height:1.5; }
+
+/* ── Visit history ──────────────────────────────────────── */
+.vh-list { padding:0 0 .5rem; }
+.vh-item { display:flex; align-items:flex-start; gap:.85rem; padding:.85rem .5rem; border-bottom:1px solid rgba(255,255,255,.06); }
+.vh-item:last-child { border-bottom:none; }
+.vh-item:hover { background:rgba(255,255,255,.02); border-radius:10px; }
+.vh-dot { width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.73rem; margin-top:.1rem; }
+.vh-dot.verified   { background:rgba(34,197,94,.13); color:#4ade80; border:1px solid rgba(34,197,94,.25); }
+.vh-dot.unverified { background:rgba(245,158,11,.12); color:#fbbf24; border:1px solid rgba(245,158,11,.25); }
+.vh-dot.cancelled  { background:rgba(148,163,184,.09); color:#94a3b8; border:1px solid rgba(148,163,184,.18); }
+.vh-main { flex:1; min-width:0; }
+.vh-partner { font-size:.88rem; font-weight:700; color:rgba(255,255,255,.88); }
+.vh-service { font-size:.76rem; color:rgba(255,255,255,.42); margin-top:.12rem; }
+.vh-cost  { font-size:.78rem; font-weight:700; color:rgba(255,255,255,.85); text-align:right; flex-shrink:0; }
+.vh-date  { font-size:.72rem; color:rgba(255,255,255,.4); text-align:right; white-space:nowrap; flex-shrink:0; }
+.vh-status-badge { display:inline-flex; align-items:center; font-size:.65rem; font-weight:700; letter-spacing:.05em; padding:.12rem .5rem; border-radius:20px; text-transform:uppercase; margin-top:.25rem; }
+.vh-status-badge.active    { background:rgba(34,197,94,.12); color:#4ade80; }
+.vh-status-badge.edited    { background:rgba(245,158,11,.12); color:#fbbf24; }
+.vh-status-badge.cancelled { background:rgba(148,163,184,.1); color:#94a3b8; }
+.vh-empty { text-align:center; padding:2.5rem 1rem; color:rgba(255,255,255,.35); font-size:.88rem; }
+.vh-empty i { font-size:2rem; margin-bottom:.6rem; display:block; opacity:.35; }
+
 /* Успех */
 .acr-success-card {
   background:rgba(34,197,94,.07); border:1px solid rgba(34,197,94,.22);
@@ -181,8 +220,8 @@
           </a>
         {% endif %}
         {% if profile_user.membership_status == 'active' %}
-          <a href="{% url 'users:member_cabinet' %}" class="btn-cab-outline">
-            <i class="fas fa-id-card"></i> {% trans "Member Cabinet" %}
+          <a href="#pin-section" class="btn-cab-outline">
+            <i class="fas fa-fingerprint"></i> {% trans "PIN & Card" %}
           </a>
         {% endif %}
       </div>
@@ -202,8 +241,8 @@
         <i class="fas fa-calendar-alt"></i> {% trans "My Calendar" %}
       </a>
       {% if profile_user.membership_status == 'active' %}
-      <a href="{% url 'users:member_cabinet' %}" class="cab-qn-item">
-        <i class="fas fa-fingerprint"></i> {% trans "PIN Cabinet" %}
+      <a href="#pin-section" class="cab-qn-item">
+        <i class="fas fa-fingerprint"></i> {% trans "PIN & Card" %}
       </a>
       {% endif %}
       {% if profile_user.is_partner or profile_user.partner_profile %}
@@ -365,9 +404,9 @@
               <i class="fas fa-copy" id="copy-ico"></i>
               <span id="copy-lbl">{% trans "Copy" %}</span>
             </button>
-            <a href="{% url 'users:member_cabinet' %}" style="font-size:.78rem;color:var(--muted);text-decoration:none;border:1px solid var(--bdr);border-radius:8px;padding:.28rem .65rem;transition:color .15s;"
+            <a href="#pin-section" style="font-size:.78rem;color:var(--muted);text-decoration:none;border:1px solid var(--bdr);border-radius:8px;padding:.28rem .65rem;transition:color .15s;"
                onmouseover="this.style.color='rgba(255,255,255,.75)'" onmouseout="this.style.color='var(--muted)'">
-              <i class="fas fa-id-card me-1"></i>{% trans "Cabinet" %}
+              <i class="fas fa-shield-alt me-1"></i>{% trans "Details" %}
             </a>
           </div>
         </div>
@@ -566,6 +605,106 @@
           </div>
           {% endif %}
         </div>
+
+        {# ══════ PIN & CARD SECTION (перенесено из member_cabinet) ══════ #}
+        {% if profile_user.membership_status == 'active' %}
+        <div id="pin-section" class="cab-card mb-3" data-reveal data-delay="5">
+          <p class="cab-card-title">
+            <i class="fas fa-fingerprint" style="color:var(--red);"></i>
+            {% trans "PIN & Membership Card" %}
+          </p>
+
+          {% if current_pin %}
+          {# ── Шаги использования PIN ── #}
+          <div class="steps-grid mb-3">
+            <div class="step-card">
+              <div class="step-num-badge">1</div>
+              <div class="step-title">{% trans "Visit a partner" %}</div>
+              <div class="step-desc">{% trans "Go to any partner gym, shop or clinic." %}</div>
+            </div>
+            <div class="step-card">
+              <div class="step-num-badge">2</div>
+              <div class="step-title">{% trans "Identify yourself" %}</div>
+              <div class="step-desc">{% trans "Tell staff you're an IESA Sport member." %}</div>
+            </div>
+            <div class="step-card">
+              <div class="step-num-badge">3</div>
+              <div class="step-title">{% trans "Show the PIN" %}</div>
+              <div class="step-desc">{% trans "Show this 6-digit code — staff enters it to confirm." %}</div>
+            </div>
+            <div class="step-card">
+              <div class="step-num-badge">4</div>
+              <div class="step-title">{% trans "Get notified ✅" %}</div>
+              <div class="step-desc">{% trans "Visit is logged. Telegram confirmation incoming." %}</div>
+            </div>
+          </div>
+          {% else %}
+          <div style="background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.22);border-radius:12px;padding:1rem 1.25rem;color:#fbbf24;font-size:.88rem;margin-bottom:1rem;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            {% trans "Membership Inactive" %} — {% trans "Contact administrator to activate your account." %}
+          </div>
+          {% endif %}
+
+          {# ── Физическая карта ── #}
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:12px;margin-bottom:.75rem;">
+            <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:{% if card_active %}rgba(34,197,94,.15){% else %}rgba(251,191,36,.12){% endif %};">
+              <i class="fas fa-id-card" style="color:{% if card_active %}#4ade80{% else %}#fbbf24{% endif %};font-size:.9rem;"></i>
+            </div>
+            <div>
+              <div style="font-size:.8rem;font-weight:700;color:rgba(255,255,255,.8);">{% trans "Physical Card" %}</div>
+              {% if card_active %}
+                <div style="font-size:.73rem;color:#4ade80;">{% trans "Active — issued" %}{% if card_issued_at %} {{ card_issued_at|date:"d.m.Y" }}{% endif %}</div>
+              {% else %}
+                <div style="font-size:.73rem;color:#fbbf24;">{% trans "Not yet issued — contact admin@iesasport.ch" %}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        {# ══════ VISIT HISTORY (перенесено из member_cabinet) ══════ #}
+        {% if recent_visits %}
+        <div class="cab-card mb-3" data-reveal data-delay="6">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <p class="cab-card-title" style="margin:0;">
+              <i class="fas fa-history" style="color:var(--red);"></i>
+              {% trans "Visit History" %}
+            </p>
+            <span style="font-size:.72rem;color:var(--muted);">{% trans "last 20" %}</span>
+          </div>
+          <div class="vh-list">
+            {% for visit in recent_visits %}
+            <div class="vh-item">
+              <div class="vh-dot {% if visit.status == 'CANCELLED' %}cancelled{% elif visit.pin_verified %}verified{% else %}unverified{% endif %}">
+                {% if visit.status == 'CANCELLED' %}<i class="fas fa-ban"></i>
+                {% elif visit.pin_verified %}<i class="fas fa-check"></i>
+                {% else %}<i class="fas fa-clock"></i>{% endif %}
+              </div>
+              <div class="vh-main">
+                <div class="vh-partner">{{ visit.partner.company_name }}</div>
+                <div class="vh-service">
+                  {{ visit.get_service_type_display }}
+                  {% if visit.service_description %}&nbsp;·&nbsp;<span style="font-style:italic;">{{ visit.service_description|truncatechars:40 }}</span>{% endif %}
+                </div>
+                <span class="vh-status-badge {% if visit.status == 'CANCELLED' %}cancelled{% elif visit.status == 'EDITED' %}edited{% else %}active{% endif %}">{{ visit.status }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;flex-shrink:0;">
+                {% if visit.cost %}<div class="vh-cost">{{ visit.cost }} CHF</div>{% endif %}
+                <div class="vh-date">{{ visit.timestamp|date:"d.m.Y" }}<br><span style="font-size:.68rem;opacity:.65;">{{ visit.timestamp|date:"H:i" }}</span></div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% elif profile_user.membership_status == 'active' %}
+        <div class="cab-card mb-3" data-reveal data-delay="6">
+          <p class="cab-card-title"><i class="fas fa-history" style="color:var(--red);"></i> {% trans "Visit History" %}</p>
+          <div class="vh-empty">
+            <i class="fas fa-map-marker-alt"></i>
+            {% trans "No visits recorded yet. Visit a partner to see history here." %}
+          </div>
+        </div>
+        {% endif %}
 
       </div><!-- /col-lg-8 -->
     </div>
