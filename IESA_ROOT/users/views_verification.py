@@ -152,7 +152,7 @@ def member_cabinet(request):
     _tg_ctx = {
         'telegram_linked': bool(user.telegram_chat_id),
         'telegram_bot_configured': bool(_token()),
-        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot'),
+        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_USERNAME', os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot')),
     }
 
     if user.membership_status != 'active':
@@ -208,7 +208,7 @@ def member_cabinet(request):
         'user': user,
         'telegram_linked': bool(user.telegram_chat_id),
         'telegram_bot_configured': bool(_token()),
-        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot'),
+        'telegram_bot_name': os.environ.get('TELEGRAM_BOT_USERNAME', os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot')),
         'card_active': user.card_active,
         'card_issued_at': user.card_issued_at,
         'recent_visits': recent_visits,
@@ -393,17 +393,23 @@ def log_visit(request, member_id):
                 import threading as _thr
                 from notifications.models import Notification as _Notif
 
-                # 1. Всегда создаём in-site уведомление
+                # 1. Всегда создаём in-site уведомление — понятный текст
+                _cost_txt = f' — {visit.cost} CHF' if visit.cost else ''
+                _pin_txt = ' ✓ (PIN verified)' if visit.pin_verified else ''
                 _Notif.objects.create(
                     recipient=member,
                     notification_type='system',
-                    title=_('Visit recorded by partner'),
+                    title=f'✅ {partner.company_name} — {visit.get_service_type_display()}',
                     message=_(
-                        'Your visit at %(company)s has been recorded. '
-                        'Service: %(service)s.'
+                        'Partner %(company)s has recorded your visit.\n'
+                        'Service: %(service)s%(cost)s%(pin)s.\n'
+                        'Date: %(date)s.'
                     ) % {
                         'company': partner.company_name,
                         'service': visit.get_service_type_display(),
+                        'cost':    _cost_txt,
+                        'pin':     _pin_txt,
+                        'date':    visit.timestamp.strftime('%d %b %Y, %H:%M'),
                     },
                     link='/auth/cabinet/',
                 )
@@ -421,14 +427,14 @@ def log_visit(request, member_id):
                             logger.error("bg notify_visit_confirmed failed: %s", _exc)
                     _thr.Thread(target=_notify_tg, daemon=True).start()
                 else:
-                    # TG не привязан — дополнительное in-site уведомление с просьбой привязать
+                    # TG не привязан — приглашение привязать бота
                     _Notif.objects.create(
                         recipient=member,
                         notification_type='system',
-                        title=_('Connect Telegram for instant notifications'),
+                        title='📱 Connect Telegram for instant notifications',
                         message=_(
-                            'A visit was logged at %(company)s. '
-                            'Connect your Telegram to receive instant notifications about future visits!'
+                            'You don\'t have Telegram connected yet. '
+                            'Connect @IESA_Administrator_bot to receive instant notifications about your visits at %(company)s and other partners!'
                         ) % {'company': partner.company_name},
                         link='/auth/connect-telegram/',
                     )
@@ -948,7 +954,7 @@ def connect_telegram_code_view(request):
 
     return render(request, "users/connect_telegram_code.html", {
         "error": error,
-        "telegram_bot_name": os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot'),
+        "telegram_bot_name": os.environ.get('TELEGRAM_BOT_USERNAME', os.environ.get('TELEGRAM_BOT_NAME', 'IESA_Administrator_bot')),
     })
 
 
@@ -1198,7 +1204,7 @@ from django import forms as _dj_forms
 
 
 class MeetingForm(_dj_forms.ModelForm):
-    """Форма создания/редактирования встречи партнёром."""
+    """Форма создания встречи партнёром. Дата и время — необязательны."""
     class Meta:
         model = Meeting
         fields = ['member', 'title', 'date', 'start_time', 'end_time', 'address', 'notes', 'notify_member']
@@ -1210,6 +1216,13 @@ class MeetingForm(_dj_forms.ModelForm):
             'address':    _dj_forms.TextInput(attrs={'class': 'dash-search-input', 'placeholder': _('Street, city...')}),
             'notes':      _dj_forms.Textarea(attrs={'class': 'dash-search-input', 'rows': 3, 'placeholder': _('Additional details for the member')}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Дата и время — необязательны
+        self.fields['date'].required = False
+        self.fields['start_time'].required = False
+        self.fields['end_time'].required = False
 
 
 @partner_required
@@ -1239,17 +1252,17 @@ def partner_calendar(request):
         meetings_by_date.setdefault(m.date, []).append(m)
 
     # Форма создания встречи
-    form = None
-    if request.user.partner_profile:
-        form = MeetingForm()
-        # Ограничиваем выбор участников — те кто уже был у партнёра
-        form.fields['member'].queryset = User.objects.filter(
-            visits__partner=partner
-        ).distinct()
+    # Партнёр может записать ЛЮБОГО пользователя системы
+    all_members = User.objects.filter(
+        is_active=True, membership_status='active'
+    ).order_by('first_name', 'last_name', 'username')
+
+    form = MeetingForm()
+    form.fields['member'].queryset = all_members
 
     if request.method == 'POST':
         form = MeetingForm(request.POST)
-        form.fields['member'].queryset = User.objects.filter(visits__partner=partner).distinct()
+        form.fields['member'].queryset = all_members
         if form.is_valid():
             meeting = form.save(commit=False)
             meeting.partner = partner

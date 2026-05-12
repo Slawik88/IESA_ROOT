@@ -225,11 +225,22 @@
   color: #38bdf8 !important;
 }
 
+/* Bootstrap 5.3.3 dark-mode-aware alerts — переопределяем полностью */
+.alert {
+  --bs-alert-bg: transparent;
+  --bs-alert-color: inherit;
+  --bs-alert-border-color: transparent;
+}
 .alert-success {
+  --bs-alert-bg: rgba(22, 163, 74, 0.1);
+  --bs-alert-border-color: rgba(22, 163, 74, 0.25);
+  --bs-alert-color: #4ade80;
   background: rgba(22, 163, 74, 0.1) !important;
-  border-color: rgba(22, 163, 74, 0.2) !important;
+  border-color: rgba(22, 163, 74, 0.25) !important;
   color: #4ade80 !important;
 }
+.alert-success .btn-close { filter: none; color: #4ade80 !important; }
+.alert-success a { color: #86efac !important; }
 
 .alert-warning {
   background: rgba(217, 119, 6, 0.1) !important;
@@ -434,14 +445,16 @@ code {
    FORM INPUTS — dark theme override (Bootstrap белый фон на focus)
    Загружается последним → перекрывает Bootstrap defaults
    ══════════════════════════════════════════════════════════ */
-input[type="text"],
-input[type="email"],
-input[type="password"],
-input[type="search"],
-input[type="number"],
-input[type="tel"],
-input[type="url"],
-input[type="date"],
+/* Исключаем OTP-боксы (.otp-box), кастомные поля логина (.af-wrap input),
+   регистрации (.reg-field-wrap input) и поля Telegram-кода — они уже стилизованы */
+input[type="text"]:not(.otp-box):not([class*="af-"]):not([class*="reg-"]),
+input[type="email"]:not(.otp-box),
+input[type="password"]:not(.otp-box),
+input[type="search"]:not(.otp-box),
+input[type="number"]:not(.otp-box),
+input[type="tel"]:not(.otp-box),
+input[type="url"]:not(.otp-box),
+input[type="date"]:not(.otp-box),
 textarea,
 select,
 .form-control,
@@ -452,7 +465,7 @@ select,
   -webkit-text-fill-color: #fff !important;
 }
 
-input[type="text"]:focus,
+input[type="text"]:not(.otp-box):focus,
 input[type="email"]:focus,
 input[type="password"]:focus,
 input[type="search"]:focus,
@@ -471,6 +484,9 @@ select:focus,
   outline: none !important;
   -webkit-text-fill-color: #fff !important;
 }
+
+/* OTP-боксы оставляем со своим стилем из connect_telegram_code.html */
+.otp-box { background-color: #1a1a28 !important; color: #fff !important; }
 
 /* Autofill — Chrome/Safari заливают жёлтым или синим */
 input:-webkit-autofill,

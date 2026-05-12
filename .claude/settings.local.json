@@ -58,7 +58,9 @@
       "Bash(python manage.py makemigrations --check)",
       "Bash(python manage.py migrate users 0022)",
       "Bash(python manage.py migrate)",
-      "Bash(python manage.py makemigrations users --name=\"acr_contact_fields_meeting\")"
+      "Bash(python manage.py makemigrations users --name=\"acr_contact_fields_meeting\")",
+      "Bash(python manage.py makemigrations users --name=\"membership_active_default\")",
+      "Bash(python manage.py makemigrations users --name=\"meeting_optional_datetime\")"
     ]
   }
 }
