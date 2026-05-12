@@ -41,7 +41,7 @@ from .forms_verification import (
     PartnerProfileForm,
     VisitForm,
 )
-from .models import InviteToken, Partner, User, Visit, VisitAudit
+from .models import InviteToken, Meeting, Partner, User, Visit, VisitAudit
 
 logger = logging.getLogger(__name__)
 
@@ -389,12 +389,29 @@ def log_visit(request, member_id):
                         member.failed_pin_attempts = 0
                         member.pin_lockout_until = None
 
-                # Уведомление — в фоновом потоке, не блокируем response (B1-05)
-                if getattr(member, 'telegram_chat_id', None):
-                    import threading as _thr
-                    _visit_id = visit.pk
+                # --- Уведомление участнику ---
+                import threading as _thr
+                from notifications.models import Notification as _Notif
 
-                    def _notify_bg():
+                # 1. Всегда создаём in-site уведомление
+                _Notif.objects.create(
+                    recipient=member,
+                    notification_type='system',
+                    title=_('Visit recorded by partner'),
+                    message=_(
+                        'Your visit at %(company)s has been recorded. '
+                        'Service: %(service)s.'
+                    ) % {
+                        'company': partner.company_name,
+                        'service': visit.get_service_type_display(),
+                    },
+                    link='/auth/cabinet/',
+                )
+
+                # 2. TG-уведомление если привязан
+                _visit_id = visit.pk
+                if getattr(member, 'telegram_chat_id', None):
+                    def _notify_tg():
                         try:
                             from users.models import Visit as _Visit
                             from users.telegram.notify import notify_visit_confirmed as _notify
@@ -402,12 +419,22 @@ def log_visit(request, member_id):
                             _notify(_v)
                         except Exception as _exc:
                             logger.error("bg notify_visit_confirmed failed: %s", _exc)
-
-                    _thr.Thread(target=_notify_bg, daemon=True).start()
+                    _thr.Thread(target=_notify_tg, daemon=True).start()
                 else:
+                    # TG не привязан — дополнительное in-site уведомление с просьбой привязать
+                    _Notif.objects.create(
+                        recipient=member,
+                        notification_type='system',
+                        title=_('Connect Telegram for instant notifications'),
+                        message=_(
+                            'A visit was logged at %(company)s. '
+                            'Connect your Telegram to receive instant notifications about future visits!'
+                        ) % {'company': partner.company_name},
+                        link='/auth/connect-telegram/',
+                    )
                     messages.info(
                         request,
-                        _('ℹ️ Telegram notification not sent — member has no Telegram linked.')
+                        _('ℹ️ Member has no Telegram linked — in-site notification sent instead.')
                     )
 
                 member_name = member.get_full_name() or member.username
@@ -1159,4 +1186,185 @@ def invite_register(request, token):
     return render(request, 'users/invite_register.html', {
         'form': form,
         'invite': invite,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Календарь партнёра и юзера
+# ---------------------------------------------------------------------------
+
+from datetime import date as _date_cls, timedelta
+from django import forms as _dj_forms
+
+
+class MeetingForm(_dj_forms.ModelForm):
+    """Форма создания/редактирования встречи партнёром."""
+    class Meta:
+        model = Meeting
+        fields = ['member', 'title', 'date', 'start_time', 'end_time', 'address', 'notes', 'notify_member']
+        widgets = {
+            'date':       _dj_forms.DateInput(attrs={'type': 'date', 'class': 'dash-search-input'}),
+            'start_time': _dj_forms.TimeInput(attrs={'type': 'time', 'class': 'dash-search-input'}),
+            'end_time':   _dj_forms.TimeInput(attrs={'type': 'time', 'class': 'dash-search-input'}),
+            'title':      _dj_forms.TextInput(attrs={'class': 'dash-search-input', 'placeholder': _('E.g. Personal training, Consultation...')}),
+            'address':    _dj_forms.TextInput(attrs={'class': 'dash-search-input', 'placeholder': _('Street, city...')}),
+            'notes':      _dj_forms.Textarea(attrs={'class': 'dash-search-input', 'rows': 3, 'placeholder': _('Additional details for the member')}),
+        }
+
+
+@partner_required
+@require_http_methods(["GET", "POST"])
+def partner_calendar(request):
+    """Календарь встреч партнёра."""
+    try:
+        partner = request.user.partner_profile
+    except Partner.DoesNotExist:
+        return redirect('users:partner_dashboard')
+
+    today = _date_cls.today()
+    # Параметр: неделя от понедельника
+    week_offset = int(request.GET.get('week', 0))
+    monday = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+    week_days = [monday + timedelta(days=i) for i in range(7)]
+
+    # Встречи в выбранной неделе
+    meetings = Meeting.objects.filter(
+        partner=partner,
+        date__range=(week_days[0], week_days[-1]),
+    ).select_related('member').order_by('date', 'start_time')
+
+    # Группируем по дате
+    meetings_by_date = {}
+    for m in meetings:
+        meetings_by_date.setdefault(m.date, []).append(m)
+
+    # Форма создания встречи
+    form = None
+    if request.user.partner_profile:
+        form = MeetingForm()
+        # Ограничиваем выбор участников — те кто уже был у партнёра
+        form.fields['member'].queryset = User.objects.filter(
+            visits__partner=partner
+        ).distinct()
+
+    if request.method == 'POST':
+        form = MeetingForm(request.POST)
+        form.fields['member'].queryset = User.objects.filter(visits__partner=partner).distinct()
+        if form.is_valid():
+            meeting = form.save(commit=False)
+            meeting.partner = partner
+            meeting.save()
+
+            # Уведомление участнику
+            if meeting.notify_member:
+                from notifications.models import Notification as _Notif
+                _Notif.objects.create(
+                    recipient=meeting.member,
+                    notification_type='system',
+                    title=_('Meeting scheduled'),
+                    message=_(
+                        'You have been scheduled for a meeting at %(company)s: '
+                        '"%(title)s" on %(date)s at %(time)s%(addr)s.'
+                    ) % {
+                        'company': partner.company_name,
+                        'title':   meeting.title,
+                        'date':    meeting.date.strftime('%d %b %Y'),
+                        'time':    meeting.start_time.strftime('%H:%M'),
+                        'addr':    f', {meeting.address}' if meeting.address else '',
+                    },
+                    link='/auth/my-calendar/',
+                )
+                # TG если привязан
+                if getattr(meeting.member, 'telegram_chat_id', None):
+                    import threading as _thr
+                    _mid = meeting.pk
+                    def _tg_meeting():
+                        try:
+                            from users.telegram.notify import send_message as _sm
+                            from users.models import Meeting as _M
+                            m = _M.objects.select_related('partner', 'member').get(pk=_mid)
+                            text = (
+                                f"📅 *Meeting scheduled*\n\n"
+                                f"*Partner:* {m.partner.company_name}\n"
+                                f"*Title:* {m.title}\n"
+                                f"*Date:* {m.date.strftime('%d %b %Y')}\n"
+                                f"*Time:* {m.start_time.strftime('%H:%M')} — {m.end_time.strftime('%H:%M')}\n"
+                                + (f"*Address:* {m.address}\n" if m.address else "")
+                                + (f"*Notes:* {m.notes}\n" if m.notes else "")
+                            )
+                            _sm(m.member.telegram_chat_id, text)
+                        except Exception as _e:
+                            logger.error("meeting TG notify failed: %s", _e)
+                    _thr.Thread(target=_tg_meeting, daemon=True).start()
+
+                meeting.notification_sent = True
+                meeting.save(update_fields=['notification_sent'])
+
+            messages.success(request, _('Meeting scheduled successfully!'))
+            return redirect(f"{request.path}?week={week_offset}")
+
+    return render(request, 'users/partner_calendar.html', {
+        'partner': partner,
+        'form': form,
+        'week_days': week_days,
+        'meetings_by_date': meetings_by_date,
+        'today': today,
+        'week_offset': week_offset,
+        'prev_week': week_offset - 1,
+        'next_week': week_offset + 1,
+    })
+
+
+@partner_required
+@require_POST
+def delete_meeting(request, meeting_id):
+    """Удаление/отмена встречи."""
+    try:
+        partner = request.user.partner_profile
+    except Partner.DoesNotExist:
+        return redirect('users:partner_dashboard')
+
+    meeting = get_object_or_404(Meeting, pk=meeting_id, partner=partner)
+    member = meeting.member
+    meeting.status = 'cancelled'
+    meeting.save(update_fields=['status'])
+
+    # Уведомление участнику
+    from notifications.models import Notification as _Notif
+    _Notif.objects.create(
+        recipient=member,
+        notification_type='system',
+        title=_('Meeting cancelled'),
+        message=_(
+            'Meeting "%(title)s" at %(company)s on %(date)s has been cancelled.'
+        ) % {
+            'title':   meeting.title,
+            'company': partner.company_name,
+            'date':    meeting.date.strftime('%d %b %Y'),
+        },
+        link='/auth/my-calendar/',
+    )
+    messages.success(request, _('Meeting cancelled.'))
+    return redirect('users:partner_calendar')
+
+
+@login_required
+def user_calendar(request):
+    """Календарь встреч пользователя — все его предстоящие встречи."""
+    today = _date_cls.today()
+    upcoming = Meeting.objects.filter(
+        member=request.user,
+        date__gte=today,
+        status__in=['scheduled', 'confirmed'],
+    ).select_related('partner').order_by('date', 'start_time')
+
+    past = Meeting.objects.filter(
+        member=request.user,
+        date__lt=today,
+    ).select_related('partner').order_by('-date', '-start_time')[:20]
+
+    return render(request, 'users/user_calendar.html', {
+        'upcoming': upcoming,
+        'past': past,
+        'today': today,
     })

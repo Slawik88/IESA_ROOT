@@ -406,10 +406,17 @@ def account_change_request_submit(request):
 
     form = AccountChangeRequestForm(request.POST)
     if form.is_valid():
+        cd = form.cleaned_data
         AccountChangeRequest.objects.create(
             user=user,
-            desired_type=form.cleaned_data['desired_type'],
-            reason=form.cleaned_data['reason'],
+            desired_type=cd['desired_type'],
+            business_category=cd.get('business_category', ''),
+            reason=cd['reason'],
+            contact_name=cd.get('contact_name', ''),
+            contact_phone=cd.get('contact_phone', ''),
+            contact_telegram=cd.get('contact_telegram', ''),
+            contact_email=cd.get('contact_email', ''),
+            address=cd.get('address', ''),
         )
         return JsonResponse({
             'ok': True,

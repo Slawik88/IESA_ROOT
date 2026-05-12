@@ -11,9 +11,14 @@ from django.utils.translation import gettext_lazy as _
 
 
 def _validate_avatar_size(file):
-    """Лимит размера аватара 5 MB (B1-13)."""
+    """Лимит размера аватара 5 MB (B1-13).
+    Игнорируем ошибку если файл не найден в S3 (default.png может отсутствовать)."""
     limit = 5 * 1024 * 1024
-    if file.size > limit:
+    try:
+        size = file.size
+    except (FileNotFoundError, OSError, Exception):
+        return  # файл не существует в хранилище — пропускаем валидацию
+    if size > limit:
         raise ValidationError(_('Avatar file size must not exceed 5 MB.'))
 
 
@@ -666,6 +671,57 @@ class AccountChangeRequest(models.Model):
         ('association_staff', _('Association Staff (IESA)')),
     ]
 
+    BUSINESS_CATEGORY_CHOICES = [
+        # Спорт и фитнес
+        ('gym',              _('Gym / Fitness Center')),
+        ('martial_arts',     _('Martial Arts School')),
+        ('yoga_pilates',     _('Yoga / Pilates Studio')),
+        ('swimming',         _('Swimming Pool / Aquatics')),
+        ('sports_club',      _('Sports Club / Team')),
+        ('personal_trainer', _('Personal Trainer / Coach')),
+        ('crossfit',         _('CrossFit / Functional Training')),
+        ('cycling',          _('Cycling / Indoor Cycling')),
+        ('dance',            _('Dance School')),
+        ('climbing',         _('Climbing / Boulder')),
+        # Здоровье и велнес
+        ('physiotherapy',    _('Physiotherapy / Rehabilitation')),
+        ('massage_spa',      _('Massage / SPA / Wellness')),
+        ('nutrition',        _('Nutrition / Dietology')),
+        ('medical',          _('Medical / Healthcare')),
+        ('psychology',       _('Psychology / Mental Health')),
+        ('chiropractic',     _('Chiropractic / Manual Therapy')),
+        # Ритейл и оборудование
+        ('sports_shop',      _('Sports Equipment Shop')),
+        ('clothing',         _('Sports Clothing / Gear')),
+        ('supplement',       _('Sports Supplements / Nutrition Products')),
+        ('bike_shop',        _('Bike Shop / Service')),
+        # Профессиональные услуги (сотрудники ассоциации)
+        ('lawyer',           _('Legal Services / Lawyer')),
+        ('accountant',       _('Accounting / Finance')),
+        ('consulting',       _('Business Consulting')),
+        ('marketing',        _('Marketing / PR / Design')),
+        ('hr',               _('HR / Recruitment')),
+        ('it',               _('IT / Technology / Software')),
+        # Образование и события
+        ('coach_trainer',    _('Professional Coaching')),
+        ('school',           _('School / Educational Center')),
+        ('event_org',        _('Event Organization')),
+        ('seminar',          _('Seminar / Workshop Host')),
+        # Туризм и активный отдых
+        ('travel',           _('Travel / Tourism / Adventure')),
+        ('outdoor',          _('Outdoor Activities / Hiking')),
+        ('water_sports',     _('Water Sports / Diving / Surfing')),
+        ('winter_sports',    _('Winter Sports / Ski')),
+        # Питание и гостеприимство
+        ('restaurant',       _('Restaurant / Cafe / Bar')),
+        ('healthy_food',     _('Healthy Food / Catering')),
+        ('hotel',            _('Hotel / Accommodation')),
+        # Медиа и другое
+        ('media',            _('Media / Content Creation / Photography')),
+        ('esports',          _('eSports / Gaming')),
+        ('other',            _('Other (describe in the form)')),
+    ]
+
     STATUS_CHOICES = [
         ('pending',   _('Pending Review')),
         ('reviewed',  _('Reviewed')),
@@ -683,9 +739,40 @@ class AccountChangeRequest(models.Model):
         choices=DESIRED_TYPE_CHOICES,
         verbose_name=_('Desired Account Type'),
     )
+    business_category = models.CharField(
+        max_length=50,
+        choices=BUSINESS_CATEGORY_CHOICES,
+        blank=True,
+        verbose_name=_('Business Category'),
+        help_text=_('Most accurately describes your activity area.'),
+    )
     reason = models.TextField(
         verbose_name=_('Reason / Description of Activity'),
         help_text=_('Describe why you want to change your account type and what you do.'),
+    )
+    # Контактные данные (могут отличаться от аккаунта)
+    contact_name = models.CharField(
+        max_length=200, blank=True,
+        verbose_name=_('Contact Name'),
+        help_text=_('Full name of the contact person.'),
+    )
+    contact_phone = models.CharField(
+        max_length=50, blank=True,
+        verbose_name=_('Phone / WhatsApp'),
+    )
+    contact_telegram = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_('Telegram'),
+        help_text=_('@username or phone number'),
+    )
+    contact_email = models.EmailField(
+        blank=True,
+        verbose_name=_('Contact Email'),
+    )
+    address = models.TextField(
+        blank=True,
+        verbose_name=_('Address / Location'),
+        help_text=_('City, street, or region where you operate.'),
     )
     status = models.CharField(
         max_length=20,
@@ -718,3 +805,92 @@ class AccountChangeRequest(models.Model):
 
     def is_pending(self) -> bool:
         return self.status == 'pending'
+
+
+# ---------------------------------------------------------------------------
+# Календарь встреч (Задача: Partner Calendar / User Calendar)
+# ---------------------------------------------------------------------------
+
+class Meeting(models.Model):
+    """
+    Встреча/запись, созданная партнёром для участника.
+
+    Партнёр создаёт встречу → участник видит её в своём календаре →
+    оба получают уведомления в TG и на сайте.
+    """
+
+    STATUS_CHOICES = [
+        ('scheduled',  _('Scheduled')),
+        ('confirmed',  _('Confirmed')),
+        ('cancelled',  _('Cancelled')),
+        ('completed',  _('Completed')),
+    ]
+
+    partner = models.ForeignKey(
+        Partner,
+        on_delete=models.CASCADE,
+        related_name='meetings',
+        verbose_name=_('Partner'),
+    )
+    member = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='scheduled_meetings',
+        verbose_name=_('Member'),
+    )
+    title = models.CharField(
+        max_length=255,
+        verbose_name=_('Meeting Title'),
+        help_text=_('E.g. "Personal training", "Consultation", "Trial class"'),
+    )
+    date = models.DateField(verbose_name=_('Date'))
+    start_time = models.TimeField(verbose_name=_('Start Time'))
+    end_time = models.TimeField(verbose_name=_('End Time'))
+    address = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name=_('Address / Location'),
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_('Notes'),
+        help_text=_('Additional details for the member.'),
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='scheduled',
+        verbose_name=_('Status'),
+    )
+    notify_member = models.BooleanField(
+        default=True,
+        verbose_name=_('Notify Member'),
+        help_text=_('Send TG and site notification to the member when created.'),
+    )
+    notification_sent = models.BooleanField(
+        default=False,
+        verbose_name=_('Notification Sent'),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('Meeting')
+        verbose_name_plural = _('Meetings')
+        db_table = 'users_meeting'
+        ordering = ['date', 'start_time']
+        indexes = [
+            models.Index(fields=['partner', 'date'], name='meeting_partner_date_idx'),
+            models.Index(fields=['member', 'date'],  name='meeting_member_date_idx'),
+            models.Index(fields=['date', 'status'],  name='meeting_date_status_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.title} — {self.member.username} @ {self.date} {self.start_time}"
+
+    @property
+    def duration_minutes(self):
+        from datetime import datetime, date
+        start = datetime.combine(date.today(), self.start_time)
+        end   = datetime.combine(date.today(), self.end_time)
+        return int((end - start).total_seconds() / 60)

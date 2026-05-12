@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "My Calendar" %} — IESA{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/profile-page.css' %}">
+<style>
+.ucal-wrap { max-width: 860px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+.ucal-title { font-size: 1.5rem; font-weight: 800; color: #f1f5f9; margin-bottom: .35rem; }
+.ucal-sub   { font-size: .88rem; color: rgba(255,255,255,.38); margin-bottom: 2rem; }
+
+.ucal-section-label {
+    font-size: .65rem; font-weight: 700; letter-spacing: .15em;
+    text-transform: uppercase; color: rgba(220,38,38,.7);
+    display: flex; align-items: center; gap: .5rem;
+    margin-bottom: .85rem;
+}
+.ucal-section-label::before,
+.ucal-section-label::after { content:''; flex:1; height:1px; background:rgba(220,38,38,.2); }
+
+.ucal-card {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+    transition: border-color .2s;
+}
+.ucal-card:hover { border-color: rgba(220,38,38,.3); }
+.ucal-card-inner {
+    display: flex;
+    align-items: stretch;
+}
+.ucal-date-block {
+    min-width: 72px;
+    background: rgba(220,38,38,.1);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 1rem .5rem;
+    border-right: 1px solid rgba(255,255,255,.06);
+    flex-shrink: 0;
+}
+.ucal-day  { font-size: 1.8rem; font-weight: 900; color: #f87171; line-height: 1; }
+.ucal-mon  { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.4); margin-top: .15rem; }
+.ucal-body { padding: 1rem 1.25rem; flex: 1; min-width: 0; }
+.ucal-meeting-title { font-size: .95rem; font-weight: 700; color: #f1f5f9; margin-bottom: .3rem; }
+.ucal-partner { font-size: .8rem; color: rgba(255,255,255,.5); margin-bottom: .35rem; }
+.ucal-meta { display: flex; flex-wrap: wrap; gap: .65rem; }
+.ucal-meta-item { display: flex; align-items: center; gap: .35rem; font-size: .78rem; color: rgba(255,255,255,.45); }
+.ucal-meta-item i { color: rgba(220,38,38,.6); font-size: .72rem; }
+.ucal-badge {
+    font-size: .65rem; font-weight: 700;
+    border-radius: 100px; padding: 2px 9px; border: 1px solid;
+    align-self: flex-start; margin-top: .75rem;
+}
+.ucal-badge--upcoming { background: rgba(99,102,241,.12); color: #a5b4fc; border-color: rgba(99,102,241,.25); }
+.ucal-badge--past     { background: rgba(255,255,255,.06); color: rgba(255,255,255,.35); border-color: rgba(255,255,255,.1); }
+
+.ucal-empty {
+    text-align: center; padding: 3rem 1rem;
+    color: rgba(255,255,255,.28);
+}
+.ucal-empty i { font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: .3; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ucal-wrap">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:2rem;flex-wrap:wrap;">
+        <div>
+            <h1 class="ucal-title">{% trans "My Calendar" %}</h1>
+            <p class="ucal-sub">{% trans "Your upcoming meetings and scheduled sessions" %}</p>
+        </div>
+        <a href="{% url 'users:profile' %}" class="btn btn-secondary ms-auto" style="white-space:nowrap;">
+            <i class="fas fa-arrow-left me-1"></i>{% trans "Back to Cabinet" %}
+        </a>
+    </div>
+
+    {# Предстоящие #}
+    <div class="ucal-section-label">{% trans "UPCOMING MEETINGS" %}</div>
+
+    {% if upcoming %}
+    {% for meeting in upcoming %}
+    <div class="ucal-card" data-reveal>
+        <div class="ucal-card-inner">
+            <div class="ucal-date-block">
+                <div class="ucal-day">{{ meeting.date|date:"d" }}</div>
+                <div class="ucal-mon">{{ meeting.date|date:"M Y" }}</div>
+            </div>
+            <div class="ucal-body">
+                <div class="ucal-meeting-title">{{ meeting.title }}</div>
+                <div class="ucal-partner">
+                    <i class="fas fa-store me-1" style="color:rgba(220,38,38,.5);"></i>
+                    {{ meeting.partner.company_name }}
+                </div>
+                <div class="ucal-meta">
+                    <span class="ucal-meta-item">
+                        <i class="fas fa-clock"></i>
+                        {{ meeting.start_time|time:"H:i" }} – {{ meeting.end_time|time:"H:i" }}
+                    </span>
+                    {% if meeting.address %}
+                    <span class="ucal-meta-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        {{ meeting.address }}
+                    </span>
+                    {% endif %}
+                    {% if meeting.notes %}
+                    <span class="ucal-meta-item">
+                        <i class="fas fa-sticky-note"></i>
+                        {{ meeting.notes|truncatewords:12 }}
+                    </span>
+                    {% endif %}
+                </div>
+                <span class="ucal-badge ucal-badge--upcoming">
+                    {{ meeting.get_status_display }}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="ucal-empty">
+        <i class="fas fa-calendar-check"></i>
+        <p>{% trans "No upcoming meetings. Check back later!" %}</p>
+    </div>
+    {% endif %}
+
+    {% if past %}
+    <div class="ucal-section-label" style="margin-top:2rem;">{% trans "PAST MEETINGS" %}</div>
+    {% for meeting in past %}
+    <div class="ucal-card" style="opacity:.6;">
+        <div class="ucal-card-inner">
+            <div class="ucal-date-block" style="background:rgba(255,255,255,.04);">
+                <div class="ucal-day" style="color:rgba(255,255,255,.4);">{{ meeting.date|date:"d" }}</div>
+                <div class="ucal-mon">{{ meeting.date|date:"M Y" }}</div>
+            </div>
+            <div class="ucal-body">
+                <div class="ucal-meeting-title" style="color:rgba(255,255,255,.6);">{{ meeting.title }}</div>
+                <div class="ucal-partner">{{ meeting.partner.company_name }}</div>
+                <div class="ucal-meta">
+                    <span class="ucal-meta-item">
+                        <i class="fas fa-clock"></i>
+                        {{ meeting.start_time|time:"H:i" }} – {{ meeting.end_time|time:"H:i" }}
+                    </span>
+                    {% if meeting.address %}
+                    <span class="ucal-meta-item">
+                        <i class="fas fa-map-marker-alt"></i>{{ meeting.address }}
+                    </span>
+                    {% endif %}
+                </div>
+                <span class="ucal-badge ucal-badge--past">{{ meeting.get_status_display }}</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+</div>
+{% endblock %}

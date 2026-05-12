@@ -52,6 +52,14 @@
       </div>
 
       <div class="dash-nav-section">
+        <div class="dash-nav-section-label">{% trans "Calendar" %}</div>
+        <a href="{% url 'users:partner_calendar' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-calendar-alt"></i></span>
+          {% trans "Schedule Meeting" %}
+        </a>
+      </div>
+
+      <div class="dash-nav-section">
         <div class="dash-nav-section-label">{% trans "Settings" %}</div>
         <a href="{% url 'users:partner_profile_edit' %}" class="dash-nav-item">
           <span class="dash-nav-icon"><i class="fas fa-cog"></i></span>

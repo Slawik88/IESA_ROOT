@@ -65,4 +65,8 @@ urlpatterns = [
     path('invite/', views_verification.invite_list, name='invite_list'),
     path('invite/generate/', views_verification.invite_generate, name='invite_generate'),
     path('invite/<uuid:token>/', views_verification.invite_register, name='invite_register'),
+    # Календари
+    path('partner/calendar/', views_verification.partner_calendar, name='partner_calendar'),
+    path('partner/meeting/<int:meeting_id>/cancel/', views_verification.delete_meeting, name='delete_meeting'),
+    path('my-calendar/', views_verification.user_calendar, name='user_calendar'),
 ]

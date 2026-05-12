@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import AccountChangeRequest, User, Partner, Visit, VisitAudit, InviteToken
+from .models import AccountChangeRequest, InviteToken, Meeting, Partner, User, Visit, VisitAudit
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from django.utils.html import format_html
 from django.urls import path, reverse
@@ -491,6 +491,17 @@ class InviteTokenAdmin(admin.ModelAdmin):
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
 
+
+@admin.register(Meeting)
+class MeetingAdmin(admin.ModelAdmin):
+    list_display = ['date', 'start_time', 'end_time', 'title', 'member', 'partner', 'status', 'notification_sent']
+    list_filter  = ['status', 'date', 'partner']
+    search_fields = ['title', 'member__username', 'partner__company_name']
+    date_hierarchy = 'date'
+    ordering = ['-date', '-start_time']
+
+
+# AccountChangeRequest уже зарегистрирован выше — только расширяем его
 
 # ---------------------------------------------------------------------------
 # AccountChangeRequest admin — Задача 2
