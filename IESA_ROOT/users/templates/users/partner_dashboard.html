@@ -14,23 +14,42 @@
 {% block content %}
 <div class="dash-root">
 
+  {# ═══════ SIDEBAR ═══════ #}
   <aside class="dash-sidebar">
 
+    {# Бренд #}
     <div class="dash-sidebar__brand">
       <div class="dash-sidebar__brand-name">
         {% if partner.partner_type == 'association_staff' %}{% trans "ASSOCIATION STAFF" %}
         {% else %}{% trans "PARTNER PORTAL" %}{% endif %}
       </div>
-      <div class="dash-sidebar__company">{{ partner.company_name }}</div>
+      <div class="dash-sidebar__company" title="{{ partner.company_name }}">{{ partner.company_name }}</div>
+    </div>
+
+    {# Главная кнопка действия — сразу видна #}
+    <div style="padding:.6rem .8rem .2rem;">
+      <a href="#search-section" class="dash-cta-btn" id="sidebar-log-btn" style="font-size:.82rem;">
+        <i class="fas fa-user-plus"></i> {% trans "Log Visit / Schedule" %}
+      </a>
     </div>
 
     <nav class="dash-sidebar__nav" aria-label="{% trans 'Partner navigation' %}">
 
+      {# Основные #}
       <div class="dash-nav-section">
-        <div class="dash-nav-section-label">{% trans "Overview" %}</div>
         <a href="{% url 'users:partner_dashboard' %}" class="dash-nav-item active">
-          <span class="dash-nav-icon"><i class="fas fa-tachometer-alt"></i></span>
+          <span class="dash-nav-icon"><i class="fas fa-home"></i></span>
           {% trans "Dashboard" %}
+          {% if today_count %}<span class="dash-nav-badge" style="background:rgba(220,38,38,.2);color:#f87171;">{{ today_count }}</span>{% endif %}
+        </a>
+        <a href="{% url 'users:partner_calendar' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-calendar-alt"></i></span>
+          {% trans "Calendar & Meetings" %}
+        </a>
+        <a href="#history-section" class="dash-nav-item" id="sidebar-history-btn">
+          <span class="dash-nav-icon"><i class="fas fa-history"></i></span>
+          {% trans "Visit History" %}
+          {% if total_visits %}<span class="dash-nav-badge">{{ total_visits }}</span>{% endif %}
         </a>
         <a href="{% url 'users:partner_analytics' %}" class="dash-nav-item">
           <span class="dash-nav-icon"><i class="fas fa-chart-bar"></i></span>
@@ -38,72 +57,58 @@
         </a>
       </div>
 
-      <div class="dash-nav-section">
-        <div class="dash-nav-section-label">{% trans "Members" %}</div>
-        <a href="#search-section" class="dash-nav-item" id="sidebar-log-btn">
-          <span class="dash-nav-icon"><i class="fas fa-user-plus"></i></span>
-          {% trans "Log New Visit" %}
-        </a>
-        <a href="#history-section" class="dash-nav-item">
-          <span class="dash-nav-icon"><i class="fas fa-list-ul"></i></span>
-          {% trans "Visit History" %}
-          {% if total_visits %}<span class="dash-nav-badge">{{ total_visits }}</span>{% endif %}
-        </a>
-      </div>
-
-      <div class="dash-nav-section">
-        <div class="dash-nav-section-label">{% trans "Calendar" %}</div>
-        <a href="{% url 'users:partner_calendar' %}" class="dash-nav-item">
-          <span class="dash-nav-icon"><i class="fas fa-calendar-alt"></i></span>
-          {% trans "Schedule Meeting" %}
-        </a>
-      </div>
-
-      <div class="dash-nav-section">
-        <div class="dash-nav-section-label">{% trans "Settings" %}</div>
+      {# Аккаунт #}
+      <div class="dash-nav-section" style="margin-top:.5rem;">
+        <div class="dash-nav-section-label">{% trans "Account" %}</div>
         <a href="{% url 'users:partner_profile_edit' %}" class="dash-nav-item">
-          <span class="dash-nav-icon"><i class="fas fa-cog"></i></span>
+          <span class="dash-nav-icon"><i class="fas fa-building"></i></span>
           {% trans "Company Profile" %}
         </a>
         <a href="{% url 'users:profile_edit' %}" class="dash-nav-item">
-          <span class="dash-nav-icon"><i class="fas fa-user-circle"></i></span>
-          {% trans "My Account" %}
+          <span class="dash-nav-icon"><i class="fas fa-sliders-h"></i></span>
+          {% trans "My Settings" %}
+        </a>
+        <a href="{% url 'users:profile' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-arrow-left"></i></span>
+          {% trans "Back to Cabinet" %}
         </a>
       </div>
 
     </nav>
 
-    <div class="dash-sidebar__cta">
-      <a href="#search-section" class="dash-cta-btn" id="sidebar-cta-btn">
-        <i class="fas fa-plus"></i> {% trans "Log Visit" %}
-      </a>
+    {# Статистика дня в футере сайдбара #}
+    <div style="padding:.75rem .9rem;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+        <div style="text-align:center;padding:.5rem;background:rgba(255,255,255,.03);border-radius:8px;">
+          <div style="font-size:1.2rem;font-weight:900;color:#f87171;">{{ today_count }}</div>
+          <div style="font-size:.62rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.06em;">{% trans "Today" %}</div>
+        </div>
+        <div style="text-align:center;padding:.5rem;background:rgba(255,255,255,.03);border-radius:8px;">
+          <div style="font-size:1.2rem;font-weight:900;color:#4ade80;">{{ today_revenue|floatformat:0 }}</div>
+          <div style="font-size:.62rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.06em;">CHF</div>
+        </div>
+      </div>
     </div>
 
   </aside>
 
   <main class="dash-main">
 
-    {# Внутренняя шапка #}
+    {# Топбар — упрощённый, без дублирования навигации #}
     <div class="dash-topbar">
       <div>
-        <div class="dash-topbar__title">{{ partner.company_name }}</div>
+        <div class="dash-topbar__title">{% trans "Dashboard" %}</div>
         <div class="dash-topbar__sub">
-          {{ partner.get_business_type_display }} &nbsp;·&nbsp;
           {% trans "Partner since" %} {{ partner.created_at|date:"M Y" }}
           {% if partner.partner_type == 'association_staff' %}
-          &nbsp;·&nbsp; <span style="color:#a5b4fc;font-size:.75rem;">{% trans "Association Staff" %}</span>
+          · <span style="color:#a5b4fc;">{% trans "Association Staff" %}</span>
           {% endif %}
         </div>
       </div>
       <div class="dash-topbar__actions">
-        <a href="{% url 'users:partner_analytics' %}"
-           style="display:inline-flex;align-items:center;gap:.45rem;padding:.38rem .85rem;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.65);font-size:.82rem;font-weight:600;text-decoration:none;transition:all .15s;">
-          <i class="fas fa-chart-line" style="font-size:.75rem;"></i> {% trans "Analytics" %}
-        </a>
-        <a href="#search-section"
-           style="display:inline-flex;align-items:center;gap:.45rem;padding:.38rem .85rem;background:var(--primary);border-radius:8px;color:#fff;font-size:.82rem;font-weight:700;text-decoration:none;transition:opacity .15s;"
-           id="topbar-log-btn">
-          <i class="fas fa-plus" style="font-size:.75rem;"></i> {% trans "Log Visit" %}
+        <a href="#search-section" id="topbar-log-btn"
+           style="display:inline-flex;align-items:center;gap:.45rem;padding:.42rem 1rem;background:var(--primary);border-radius:8px;color:#fff;font-size:.82rem;font-weight:700;text-decoration:none;">
+          <i class="fas fa-plus"></i> {% trans "Log Visit" %}
         </a>
       </div>
     </div>

@@ -124,7 +124,7 @@ class User(AbstractUser):
     membership_status = models.CharField(
         max_length=20,
         choices=[('active', _('Active')), ('inactive', _('Inactive'))],
-        default='inactive',
+        default='active',
         verbose_name=_('Membership Status')
     )
     totp_secret = models.CharField(
@@ -843,9 +843,19 @@ class Meeting(models.Model):
         verbose_name=_('Meeting Title'),
         help_text=_('E.g. "Personal training", "Consultation", "Trial class"'),
     )
-    date = models.DateField(verbose_name=_('Date'))
-    start_time = models.TimeField(verbose_name=_('Start Time'))
-    end_time = models.TimeField(verbose_name=_('End Time'))
+    date = models.DateField(
+        null=True, blank=True,
+        verbose_name=_('Date'),
+        help_text=_('Leave empty if the meeting happened right now.')
+    )
+    start_time = models.TimeField(
+        null=True, blank=True,
+        verbose_name=_('Start Time')
+    )
+    end_time = models.TimeField(
+        null=True, blank=True,
+        verbose_name=_('End Time')
+    )
     address = models.CharField(
         max_length=500,
         blank=True,
