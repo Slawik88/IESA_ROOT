@@ -143,7 +143,9 @@ if 'DATABASE_URL' in os.environ:
     # means at most ~10 long-lived DB connections instead of a fresh
     # connection per concurrent request.  Override via DB_CONN_MAX_AGE env
     # var (0 = close after each request; -1 = unlimited lifetime).
-    _CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '0'))
+    # Default 60s — avoids "remaining connection slots reserved for superuser"
+    # burst that occurs when every worker opens a new connection simultaneously.
+    _CONN_MAX_AGE = int(os.getenv('DB_CONN_MAX_AGE', '60'))
     # DATABASE_POOL_URL can point to DigitalOcean PgBouncer (port 25061) for
     # transaction-mode connection pooling — highly recommended to prevent
     # "remaining connection slots are reserved for superuser" errors.

@@ -150,6 +150,21 @@ body:has(.cab-page) { background: var(--bg0) !important; }
 }
 .btn-cab-outline:hover { background: rgba(255,255,255,.11); color: #fff; border-color: rgba(255,255,255,.2); }
 
+/* 2a: Quick action кнопки в шапке профиля */
+.hero-quick-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .25rem; }
+.btn-hero-quick {
+    display: inline-flex; align-items: center; gap: .45rem;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 9px; color: rgba(255,255,255,.65); font-size: .82rem; font-weight: 600;
+    padding: .42rem .9rem; text-decoration: none; transition: all .2s; white-space: nowrap;
+}
+.btn-hero-quick:hover { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.2); }
+/* 2a: на мобиле (< 600px) — только иконка, текст скрыт через title tooltip */
+@media (max-width: 599.98px) {
+    .btn-hero-quick span { display: none; }
+    .btn-hero-quick { padding: .42rem .65rem; }
+}
+
 /* ══════════════════════════════════════════════
    LAYOUT
 ══════════════════════════════════════════════ */
