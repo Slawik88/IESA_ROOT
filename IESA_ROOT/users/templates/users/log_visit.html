@@ -194,6 +194,14 @@
 </div>
 
 <script>
+/* 6f: Haptic на ошибке PIN — двойная вибрация при наличии ошибок формы */
+(function(){
+  var pinErrors = document.querySelectorAll('.pp-pin-field .errorlist li');
+  if (pinErrors.length > 0 && 'vibrate' in navigator) {
+    navigator.vibrate([100, 50, 100]);
+  }
+})();
+
 /* 5e: Confetti при submit + haptic feedback */
 document.getElementById('log-visit-form').addEventListener('submit', function() {
   var overlay = document.getElementById('visit-confetti');

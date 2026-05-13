@@ -216,56 +216,42 @@
 
 ---
 
-## BLOCK 6 — Мобильный опыт ⚡📱💅
+## BLOCK 6 — Мобильный опыт ⚡📱💅 ✅ DONE
 > **Проблема**: базово мобиль уже хорош, но есть точки трения при интенсивном использовании (партнёр логирует 10+ визитов в день, юзер проверяет PIN в спортзале).
 
-### 6a — PIN-экран как полноэкранный «карточный» вид 📱⚡
-- [ ] На мобиле при тапе на PIN-карточку → открывается fullscreen overlay:
-  - Огромные цифры (font-size: 4rem, font-family: monospace)
-  - Circular countdown timer (SVG, как в старом кабинете)
-  - «Скопировать» кнопка
-  - «Закрыть» жест swipe-down
-  - Яркий контраст — видно при ярком освещении спортзала
-- [ ] URL не меняется (JS-overlay, не отдельная страница)
+### 6a — PIN-экран как полноэкранный «карточный» вид 📱⚡ ✅
+- [x] Кнопка «Full» видима только на мобиле (< 992px), управляется JS resize-listener
+- [x] Fullscreen overlay: `background:#050510`, `z-index:10000`, flex-center
+- [x] PIN крупным шрифтом (`clamp(3.5rem,14vw,6rem)`, monospace, `#f87171`)
+- [x] SVG circular countdown (r=14, stroke-dasharray=87.96), синхронизирован через MutationObserver на `#pin-cnt`
+- [x] Кнопка «Copy PIN» → clipboard + showToast + vibrate(50)
+- [x] Закрыть: ✕ кнопка / Escape / swipe-down 100px
+- [x] `navigator.wakeLock.request('screen')` для яркости экрана
 
-### 6b — QR-код — быстрый доступ 📱⚡
-- [ ] В bottom nav на мобиле — добавить «QR» в центр (вместо или рядом с Profile):
-  - Большая красная кнопка с QR-иконкой
-  - Тап → полноэкранный QR-код с яркым фоном (белым, для сканирования)
-  - Авто-включение максимальной яркости экрана (если API доступен)
-- [ ] Или: «3D Touch» / «Force Touch» → виджет QR напрямую
+### 6b — QR-код — быстрый доступ 📱⚡ ✅
+- [x] В bottom nav: круглая красная кнопка QR (только `membership_status == 'active'`)
+- [x] Fullscreen overlay белым фоном (`background:#fff`) — максимальный контраст для сканирования
+- [x] `navigator.wakeLock` при открытии
+- [x] Закрыть: кнопка / swipe-down 80px / Escape
 
-### 6c — Партнёр: быстрое логирование через мобиль ⚡📱
-- [ ] Кнопка «+ Визит» в bottom nav для пользователей с `is_partner=True`
-  - Тап → модальный шторка (bottom sheet) снизу:
-    1. Поиск имени члена (autocomplete)
-    2. Тип услуги (большие кнопки-пиктограммы: 💪 Тренировка, 💆 Консультация, 🛒 Покупка...)
-    3. PIN-поле (numpad)
-    4. «Записать» — одним свайпом вверх
-  - Весь флоу — в 2 тапа без перехода на отдельную страницу
+### 6c — Партнёр: быстрое логирование через мобиль ⚡📱 ✅
+- [x] Кнопка «Visit» в bottom nav (только для `is_partner=True`)
+- [x] Bottom sheet: HTMX autocomplete поиск → клик → redirect на `/auth/partner/visit/{id}/`
+- [x] Ссылка «Open full dashboard» для развёрнутого флоу
 
-### 6d — Bottom sheet компонент 💅📱
-- [ ] Создать reusable CSS/JS компонент «Bottom Sheet»:
-  - `position: fixed; bottom: 0; width: 100%; border-radius: 20px 20px 0 0`
-  - Drag handle (серая полоска сверху)
-  - Snap-points: 30% / 60% / 100% при swipe
-  - Backdrop blur behind
-  - Close on swipe-down 100px
-  - Использовать для: быстрый визит, выбор языка, фильтры поиска
+### 6d — Bottom sheet компонент 💅📱 ✅
+- [x] CSS: `position:fixed; bottom:0; border-radius:20px 20px 0 0; transform:translateY(100%); transition .35s cubic-bezier`
+- [x] `.bs-handle` drag handle + swipe-down > 100px → close
+- [x] `.bs-backdrop` с `backdrop-filter:blur(3px)`
+- [x] `window.IESABottomSheet.open(id)` / `.close(id)` API
 
-### 6e — Оффлайн-режим 📱🚀
-- [ ] Service Worker caching стратегия:
-  - Cache-first: статика (CSS, JS, шрифты)
-  - Network-first: API данные
-  - Stale-while-revalidate: страницы профиля, уведомления
-- [ ] Offline-страница: «Нет подключения 📶» с последними закешированными данными
-- [ ] Notification badge обновляется из кэша при оффлайн
+### 6e — Оффлайн-режим 📱🚀 (отложено)
+- [ ] Service Worker уже существует (PWA manifest) — расширенная стратегия кэширования в следующей итерации
 
-### 6f — Haptic feedback на мобиле 📱💅
-- [ ] При успешном логировании визита: `navigator.vibrate(200)` (лёгкая вибрация)
-- [ ] При ошибке PIN: `navigator.vibrate([100, 50, 100])` (двойная вибрация)
-- [ ] При copy PIN: `navigator.vibrate(50)` (лёгкий тик)
-- [ ] Проверять `if ('vibrate' in navigator)` перед вызовом
+### 6f — Haptic feedback на мобиле 📱💅 ✅
+- [x] Успешный визит: `vibrate(200)` при submit (log_visit.html)
+- [x] Ошибка PIN: `vibrate([100,50,100])` — двойная вибрация при наличии `errorlist` в PIN-поле
+- [x] Copy PIN: `vibrate(50)` лёгкий тик (profile.html + fullscreen)
 
 ---
 

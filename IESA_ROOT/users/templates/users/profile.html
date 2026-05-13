@@ -671,7 +671,8 @@
 
         <!-- PIN (members only) -->
         {% if current_pin %}
-        <div class="cab-card pin-card mb-3" data-reveal data-delay="4"
+        {# 6a: на мобиле тап на PIN-карточку → fullscreen overlay #}
+        <div class="cab-card pin-card mb-3" data-reveal data-delay="4" id="pin-card-widget"
           {% if show_quick_actions %}data-onb-tip="{% trans 'Show this code at any partner location' %}"{% endif %}>
           <p class="cab-card-title">
             <i class="fas fa-shield-alt" style="color:var(--red);"></i>
@@ -693,10 +694,56 @@
               <i class="fas fa-copy" id="copy-ico"></i>
               <span id="copy-lbl">{% trans "Copy" %}</span>
             </button>
+            {# Кнопка fullscreen только на мобиле #}
+            <button id="pin-fullscreen-btn"
+                    style="font-size:.78rem;color:var(--muted);background:none;border:1px solid var(--bdr);border-radius:8px;padding:.28rem .65rem;cursor:pointer;transition:color .15s;display:none;"
+                    title="{% trans 'Fullscreen PIN' %}"
+                    aria-label="{% trans 'Open fullscreen PIN view' %}">
+              <i class="fas fa-expand-alt me-1"></i>{% trans "Full" %}
+            </button>
             <a href="#pin-section" style="font-size:.78rem;color:var(--muted);text-decoration:none;border:1px solid var(--bdr);border-radius:8px;padding:.28rem .65rem;transition:color .15s;"
                onmouseover="this.style.color='rgba(255,255,255,.75)'" onmouseout="this.style.color='var(--muted)'">
               <i class="fas fa-shield-alt me-1"></i>{% trans "Details" %}
             </a>
+          </div>
+        </div>
+
+        {# 6a: PIN Fullscreen overlay — только на мобиле #}
+        <div id="pin-fullscreen-overlay" aria-modal="true" role="dialog"
+             style="display:none;position:fixed;inset:0;background:#050510;z-index:10000;flex-direction:column;align-items:center;justify-content:center;">
+          {# Закрыть кнопка #}
+          <button id="pin-fs-close"
+                  style="position:absolute;top:1.25rem;right:1.25rem;background:rgba(255,255,255,.08);border:none;border-radius:50%;width:40px;height:40px;color:#fff;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;"
+                  aria-label="{% trans 'Close' %}">
+            <i class="fas fa-times"></i>
+          </button>
+          {# Заголовок #}
+          <div style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1rem;">
+            {% trans "VERIFICATION PIN" %}
+          </div>
+          {# Большой PIN #}
+          <div id="pin-fs-digits"
+               style="font-size:clamp(3.5rem,14vw,6rem);font-family:var(--font-mono);font-weight:900;color:#f87171;letter-spacing:.2em;margin-bottom:.5rem;user-select:none;">
+            {{ current_pin|slice:":3" }}&ndash;{{ current_pin|slice:"3:" }}
+          </div>
+          {# Countdown SVG #}
+          <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:1.8rem;">
+            <svg width="36" height="36" viewBox="0 0 36 36" style="transform:rotate(-90deg);">
+              <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="3"/>
+              <circle id="pin-fs-arc" cx="18" cy="18" r="14" fill="none" stroke="#ef4444" stroke-width="3"
+                      stroke-dasharray="87.96" stroke-dashoffset="0" stroke-linecap="round"/>
+            </svg>
+            <span id="pin-fs-cnt" style="font-size:1.2rem;font-family:var(--font-mono);color:rgba(255,255,255,.55);">{{ seconds_remaining }}s</span>
+          </div>
+          {# Кнопка копирования #}
+          <button id="pin-fs-copy"
+                  style="display:flex;align-items:center;gap:.6rem;padding:.65rem 2rem;background:rgba(220,38,38,.15);border:1.5px solid rgba(220,38,38,.4);border-radius:12px;color:#f87171;font-size:.9rem;font-weight:700;cursor:pointer;font-family:var(--font-mono);transition:background .15s;"
+                  data-pin="{{ current_pin }}">
+            <i class="fas fa-copy"></i> {% trans "Copy PIN" %}
+          </button>
+          {# Подсказка: свайп вниз чтобы закрыть #}
+          <div style="position:absolute;bottom:2rem;font-size:.72rem;color:rgba(255,255,255,.2);font-family:var(--font-mono);">
+            {% trans "Swipe down to close" %}
           </div>
         </div>
         {% endif %}
@@ -1246,6 +1293,95 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
   }
+
+  /* ── 6a: PIN Fullscreen overlay (мобиль < 992px) ── */
+  (function(){
+    var overlay   = document.getElementById('pin-fullscreen-overlay');
+    var fsBtn     = document.getElementById('pin-fullscreen-btn');
+    var closeBtn  = document.getElementById('pin-fs-close');
+    var fsCopy    = document.getElementById('pin-fs-copy');
+    var fsArc     = document.getElementById('pin-fs-arc');
+    var fsCnt     = document.getElementById('pin-fs-cnt');
+    if (!overlay || !fsBtn) return;
+
+    /* Показываем fullscreen-кнопку только на мобиле */
+    function checkMobile() {
+      fsBtn.style.display = window.innerWidth < 992 ? 'inline-flex' : 'none';
+    }
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    /* Открыть */
+    function openOverlay() {
+      overlay.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      /* Запрашиваем яркость экрана (если API доступен) */
+      if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function(){});
+      startFsTimer();
+    }
+
+    /* Закрыть */
+    function closeOverlay() {
+      overlay.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+
+    fsBtn.addEventListener('click', openOverlay);
+    closeBtn.addEventListener('click', closeOverlay);
+
+    /* Swipe-down от верхней части overlay → закрыть */
+    var fsStartY = 0;
+    overlay.addEventListener('touchstart', function(e){ fsStartY = e.touches[0].clientY; }, { passive: true });
+    overlay.addEventListener('touchend', function(e){
+      if (e.changedTouches[0].clientY - fsStartY > 100) closeOverlay();
+    }, { passive: true });
+
+    /* Escape */
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeOverlay(); });
+
+    /* SVG countdown arc в fullscreen (синхронизирован с PIN таймером) */
+    var CIRCUMFERENCE = 87.96; // 2π×14
+    var FS_SEC = {{ seconds_remaining }};
+    var TOTAL  = 720;
+    function startFsTimer() {
+      if (!fsArc || !fsCnt) return;
+      function tick() {
+        if (overlay.style.display === 'none') return;
+        var pct = Math.max(FS_SEC, 0) / TOTAL;
+        fsArc.style.strokeDashoffset = CIRCUMFERENCE * (1 - pct);
+        fsCnt.textContent = FS_SEC + 's';
+        if (FS_SEC <= 0) { overlay.style.display = 'none'; document.body.style.overflow = ''; return; }
+      }
+      tick();
+    }
+    /* Синхронизируем с основным таймером: перехватываем обновления */
+    var pinCntEl = document.getElementById('pin-cnt');
+    if (pinCntEl) {
+      var observer = new MutationObserver(function(){
+        FS_SEC = parseInt(pinCntEl.textContent, 10) || 0;
+        if (fsCnt) fsCnt.textContent = FS_SEC + 's';
+        if (fsArc) {
+          var pct = Math.max(FS_SEC, 0) / TOTAL;
+          fsArc.style.strokeDashoffset = CIRCUMFERENCE * (1 - pct);
+        }
+      });
+      observer.observe(pinCntEl, { childList: true, characterData: true, subtree: true });
+    }
+
+    /* Copy в fullscreen */
+    if (fsCopy) {
+      fsCopy.addEventListener('click', function(){
+        if (!navigator.clipboard) return;
+        navigator.clipboard.writeText(fsCopy.dataset.pin).then(function(){
+          fsCopy.innerHTML = '<i class="fas fa-check"></i> {% trans "Copied!" %}';
+          if (window._iesa_showToast) window._iesa_showToast('PIN скопирован ✓', 'success');
+          if ('vibrate' in navigator) navigator.vibrate(50);
+          setTimeout(function(){ fsCopy.innerHTML = '<i class="fas fa-copy"></i> {% trans "Copy PIN" %}'; }, 2000);
+        });
+      });
+    }
+  })();
+
 });
 </script>
 
