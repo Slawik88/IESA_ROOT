@@ -82,6 +82,15 @@
                 <!-- Правая панель -->
                 <div class="iesa-nav-actions d-flex align-items-center">
 
+                    {# 10b: Тёмная/Светлая тема #}
+                    <button id="theme-toggle" type="button"
+                            class="btn-nav-icon"
+                            title="{% trans 'Toggle theme' %}"
+                            aria-label="{% trans 'Toggle theme' %}"
+                            style="font-size:.95rem;">
+                      <i class="fas fa-moon" id="theme-icon"></i>
+                    </button>
+
                     <!-- Языковой переключатель (кастомный, не Bootstrap) -->
                     <div class="lang-picker-wrap" id="langPickerWrap">
                         <form action="{% url 'set_language' %}" method="post" id="langSwitchForm" style="display:none">

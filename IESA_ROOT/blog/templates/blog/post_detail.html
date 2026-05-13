@@ -99,7 +99,15 @@
     font-size: .9rem;
 }
 .pd-auth-notice a { color: #f87171; }
-/* Recommended */
+/* 8c: Recommended — горизонтальный carousel на мобиле */
+.pd-rec-carousel {
+  display: flex; gap: 1rem; overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: .5rem;
+}
+.pd-rec-carousel::-webkit-scrollbar { display: none; }
+@media (min-width: 768px) {
+  .pd-rec-carousel { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); overflow-x: visible; }
+}
 .pd-rec-card {
     background: #111118;
     border: 1.5px solid rgba(255,255,255,.07);
@@ -107,8 +115,10 @@
     overflow: hidden;
     text-decoration: none;
     display: block;
+    flex: 0 0 260px; scroll-snap-align: start;
     transition: border-color .2s, transform .2s;
 }
+@media (min-width: 768px) { .pd-rec-card { flex: unset; } }
 .pd-rec-card:hover { border-color: rgba(220,38,38,.35); transform: translateY(-2px); }
 .pd-rec-card img { width: 100%; height: 140px; object-fit: cover; display: block; }
 .pd-rec-card__no-img { height: 80px; background: #1a1a24; display: flex; align-items: center; justify-content: center; }
@@ -119,6 +129,11 @@
 {% endblock %}
 
 {% block content %}
+{# 8b: Reading Progress Bar — тонкая полоска вверху страницы #}
+<div id="reading-progress"
+     style="position:fixed;top:0;left:0;height:2px;width:0%;background:var(--primary,#dc2626);z-index:9999;transition:width .1s linear;pointer-events:none;"></div>
+
+{# 8a: Время чтения — показывается в meta #}
 <div class="container-limited pd-wrap">
     <div class="row justify-content-center">
         <div class="col-lg-10">
@@ -143,6 +158,8 @@
                         </span>
                         <span><i class="far fa-calendar me-1"></i>{{ post.created_at|date:"d M Y" }}</span>
                         <span><i class="far fa-eye me-1"></i>{{ post.views_count }} {% trans "views" %}</span>
+                        {# 8a: Время чтения #}
+                        <span title="{% trans 'Reading time' %}"><i class="fas fa-clock me-1"></i>{{ post.read_time_minutes }} {% trans "min read" %}</span>
                     </div>
 
                     <div class="pd-actions">
@@ -196,9 +213,10 @@
             {% if recommended_posts %}
             <section class="mb-5">
                 <span class="section-eyebrow">{% trans "RECOMMENDED POSTS" %}</span>
-                <div class="row g-3">
+                {# 8c: горизонтальный scroll-carousel на мобиле, grid на десктопе #}
+                <div class="pd-rec-carousel">
                     {% for post_rec in recommended_posts %}
-                    <div class="col-md-6">
+                    <div>
                         <a href="{% url 'blog:post_detail' post_rec.pk %}" class="pd-rec-card">
                             {% if post_rec.preview_image %}
                                 <img src="{{ post_rec.preview_image.url }}" alt="{{ post_rec.title }}" loading="lazy">
@@ -224,4 +242,21 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* 8b: Reading progress bar */
+(function(){
+  var bar = document.getElementById('reading-progress');
+  if (!bar) return;
+  function update() {
+    var scrollTop = window.scrollY || document.documentElement.scrollTop;
+    var docH = document.documentElement.scrollHeight - window.innerHeight;
+    bar.style.width = docH > 0 ? Math.min(100, scrollTop / docH * 100) + '%' : '100%';
+  }
+  window.addEventListener('scroll', update, { passive: true });
+  update();
+})();
+</script>
 {% endblock %}

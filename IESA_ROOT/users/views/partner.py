@@ -310,6 +310,105 @@ def partner_analytics(request):
 
 
 @partner_required
+def partner_today_stats(request):
+    """7a: HTMX-partial — полный stats-grid (today + all-time), polling каждые 60s."""
+    partner = request.user.partner_profile
+    today = timezone.localdate()
+    all_qs = Visit.objects.filter(partner=partner)
+    today_qs = all_qs.filter(timestamp__date=today)
+    _agg = all_qs.aggregate(
+        total=Count('id'),
+        unique=Count('member', distinct=True),
+    )
+    today_count   = today_qs.count()
+    today_revenue = today_qs.aggregate(r=Sum('cost'))['r'] or 0
+    cutoff = timezone.now() - timezone.timedelta(minutes=30)
+    has_recent = today_qs.filter(timestamp__gte=cutoff).exists()
+    return render(request, 'users/partials/partner_today_stats.html', {
+        'today_count':   today_count,
+        'today_revenue': today_revenue,
+        'unique_members': _agg['unique'] or 0,
+        'total_visits':  _agg['total'] or 0,
+        'has_recent':    has_recent,
+    })
+
+
+@partner_required
+def partner_visit_history(request):
+    """7b: HTMX-partial для фильтрованной истории визитов."""
+    partner = request.user.partner_profile
+    now = timezone.now()
+    period = request.GET.get('period', 'all')
+    status_f = request.GET.get('status_f', '')
+
+    qs = Visit.objects.filter(partner=partner).select_related('member').order_by('-timestamp')
+
+    if period == 'today':
+        qs = qs.filter(timestamp__date=timezone.localdate())
+    elif period == 'week':
+        week_start = timezone.localdate() - timezone.timedelta(days=timezone.localdate().weekday())
+        qs = qs.filter(timestamp__date__gte=week_start)
+    elif period == 'month':
+        qs = qs.filter(timestamp__year=now.year, timestamp__month=now.month)
+
+    if status_f == 'verified':
+        qs = qs.filter(pin_verified=True)
+    elif status_f == 'cancelled':
+        qs = qs.filter(status='CANCELLED')
+
+    page_obj = Paginator(qs, 15).get_page(request.GET.get('page'))
+    edit_window_cutoff = now - timezone.timedelta(seconds=EDIT_WINDOW)
+    periods = [
+        ('all', _('All')),
+        ('today', _('Today')),
+        ('week', _('This week')),
+        ('month', _('This month')),
+    ]
+    return render(request, 'users/partials/partner_visit_history.html', {
+        'visits': page_obj,
+        'edit_window_cutoff': edit_window_cutoff,
+        'period': period,
+        'status_f': status_f,
+        'periods': periods,
+    })
+
+
+@partner_required
+def partner_visits_csv(request):
+    """7e: Экспорт истории визитов в CSV."""
+    import csv
+    from django.http import StreamingHttpResponse
+
+    partner = request.user.partner_profile
+    qs = (Visit.objects
+          .filter(partner=partner)
+          .select_related('member')
+          .order_by('-timestamp'))
+
+    class Echo:
+        def write(self, value): return value
+
+    def generate():
+        writer = csv.writer(Echo())
+        yield writer.writerow(['Date', 'Member', 'Username', 'Service', 'Cost CHF', 'PIN Verified', 'Status'])
+        for v in qs.iterator():
+            yield writer.writerow([
+                v.timestamp.strftime('%Y-%m-%d %H:%M'),
+                v.member.get_full_name() or v.member.username,
+                v.member.username,
+                v.get_service_type_display(),
+                float(v.cost) if v.cost else '',
+                'Yes' if v.pin_verified else 'No',
+                v.status,
+            ])
+
+    fname = f"visits_{partner.company_name.replace(' ', '_')}_{timezone.localdate()}.csv"
+    resp = StreamingHttpResponse(generate(), content_type='text/csv; charset=utf-8')
+    resp['Content-Disposition'] = f'attachment; filename="{fname}"'
+    return resp
+
+
+@partner_required
 @require_http_methods(['GET', 'POST'])
 def partner_profile_edit(request):
     partner = request.user.partner_profile

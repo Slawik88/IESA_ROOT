@@ -44,12 +44,15 @@ from .partner import (
     partner_member_visits,
     partner_analytics,
     partner_profile_edit,
+    partner_today_stats,
+    partner_visit_history,
+    partner_visits_csv,
 )
 
 # ── Calendar ──────────────────────────────────────────────────────────────────
 from .calendar import (
     MeetingForm,
-    partner_calendar, delete_meeting, user_calendar,
+    partner_calendar, delete_meeting, user_calendar, user_calendar_ics,
 )
 
 # ── Telegram views ────────────────────────────────────────────────────────────

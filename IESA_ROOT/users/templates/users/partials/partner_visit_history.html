@@ -1,0 +1,169 @@
+{% load i18n %}
+{# 7b: HTMX partial — история визитов с умными фильтрами #}
+
+{# ── Pill-фильтры ── #}
+<div class="vh-filters" id="vh-filters">
+  {% for p, label in forloop_periods %}{% endfor %}
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap;padding:.75rem 1.25rem .5rem;border-bottom:1px solid rgba(255,255,255,.05);">
+
+    {# Period pills #}
+    <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
+      {% for val, lbl in periods %}
+      <button class="vh-pill {% if period == val %}vh-pill--active{% endif %}"
+              hx-get="{% url 'users:partner_visit_history' %}?period={{ val }}&status_f={{ status_f }}"
+              hx-target="#visit-history-wrap"
+              hx-swap="innerHTML"
+              hx-push-url="false">{{ lbl }}</button>
+      {% endfor %}
+    </div>
+
+    <div style="width:1px;background:rgba(255,255,255,.1);margin:0 .25rem;align-self:stretch;"></div>
+
+    {# Status pills #}
+    <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
+      <button class="vh-pill {% if status_f == '' %}vh-pill--active{% endif %}"
+              hx-get="{% url 'users:partner_visit_history' %}?period={{ period }}&status_f="
+              hx-target="#visit-history-wrap" hx-swap="innerHTML">{% trans "All" %}</button>
+      <button class="vh-pill {% if status_f == 'verified' %}vh-pill--active{% endif %}"
+              hx-get="{% url 'users:partner_visit_history' %}?period={{ period }}&status_f=verified"
+              hx-target="#visit-history-wrap" hx-swap="innerHTML">
+        <span style="color:#4ade80;">✓</span> {% trans "PIN verified" %}
+      </button>
+      <button class="vh-pill {% if status_f == 'cancelled' %}vh-pill--active{% endif %}"
+              hx-get="{% url 'users:partner_visit_history' %}?period={{ period }}&status_f=cancelled"
+              hx-target="#visit-history-wrap" hx-swap="innerHTML">
+        <span style="color:#f87171;">✗</span> {% trans "Cancelled" %}
+      </button>
+    </div>
+
+  </div>
+</div>
+
+{# ── Таблица ── #}
+{% if visits.object_list %}
+<div style="overflow-x:auto;">
+  <table class="dash-table">
+    <thead>
+      <tr>
+        <th>{% trans "DATE" %}</th>
+        <th>{% trans "MEMBER" %}</th>
+        <th>{% trans "SERVICE" %}</th>
+        <th>CHF</th>
+        <th>{% trans "PIN" %}</th>
+        {# 7c: статус с tooltip #}
+        <th>{% trans "STATUS" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for visit in visits %}
+      <tr>
+        <td style="white-space:nowrap;font-family:var(--font-mono);font-size:.75rem;color:rgba(255,255,255,.4);">
+          {{ visit.timestamp|date:"d M Y" }}<br>{{ visit.timestamp|date:"H:i" }}
+        </td>
+        <td>
+          <a href="{% url 'users:partner_member_visits' visit.member.pk %}" class="member-name" style="text-decoration:none;">
+            {{ visit.member.get_full_name|default:visit.member.username }}
+          </a>
+          {% if visit.member.pseudonym %}
+          <br><span style="font-size:.7rem;color:rgba(255,255,255,.28);">@{{ visit.member.pseudonym }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {{ visit.get_service_type_display }}
+          {% if visit.service_description %}
+          <br><span style="font-size:.7rem;color:rgba(255,255,255,.32);font-style:italic;">{{ visit.service_description|truncatechars:30 }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if visit.cost %}<span style="font-weight:600;">{{ visit.cost }}</span>
+          {% else %}<span style="color:rgba(255,255,255,.2);">—</span>{% endif %}
+        </td>
+        <td>
+          {% if visit.pin_verified %}
+          <span style="background:rgba(34,197,94,.1);color:#4ade80;border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;">✓ PIN</span>
+          {% else %}
+          <span style="color:rgba(255,255,255,.22);font-size:.75rem;">—</span>
+          {% endif %}
+        </td>
+        {# 7c: Status badge с CSS tooltip #}
+        <td>
+          <span class="vh-status-badge"
+                data-tooltip="{% if visit.status == 'ACTIVE' %}{% trans 'Confirmed via PIN' %}{% elif visit.status == 'EDITED' %}{% trans 'Was edited after logging' %}{% elif visit.status == 'CANCELLED' %}{% if visit.cancel_reason %}{{ visit.cancel_reason }}{% else %}{% trans 'Cancelled' %}{% endif %}{% endif %}"
+                style="border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;
+                  {% if visit.status == 'ACTIVE' %}background:rgba(34,197,94,.1);color:#4ade80;
+                  {% elif visit.status == 'EDITED' %}background:rgba(59,130,246,.1);color:#93c5fd;
+                  {% else %}background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);{% endif %}">
+            {{ visit.status }}
+          </span>
+        </td>
+        <td style="white-space:nowrap;">
+          {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
+          <a href="{% url 'users:edit_visit' visit.pk %}" style="font-size:.75rem;color:rgba(255,255,255,.45);text-decoration:none;margin-right:.4rem;">{% trans "edit" %}</a>
+          <a href="{% url 'users:cancel_visit' visit.pk %}" style="font-size:.75rem;color:#f87171;text-decoration:none;">{% trans "cancel" %}</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# Пагинация с сохранением фильтров #}
+{% if visits.has_other_pages %}
+<div style="display:flex;align-items:center;justify-content:center;gap:.4rem;padding:1rem;border-top:1px solid rgba(255,255,255,.06);">
+  {% if visits.has_previous %}
+  <button class="vh-page-btn"
+          hx-get="{% url 'users:partner_visit_history' %}?page={{ visits.previous_page_number }}&period={{ period }}&status_f={{ status_f }}"
+          hx-target="#visit-history-wrap" hx-swap="innerHTML">‹</button>
+  {% endif %}
+  {% for num in visits.paginator.page_range %}
+    {% if visits.number == num %}
+    <span style="padding:.35rem .75rem;border-radius:7px;background:var(--primary);color:#fff;font-size:.82rem;font-weight:700;">{{ num }}</span>
+    {% elif num > visits.number|add:"-3" and num < visits.number|add:"3" %}
+    <button class="vh-page-btn"
+            hx-get="{% url 'users:partner_visit_history' %}?page={{ num }}&period={{ period }}&status_f={{ status_f }}"
+            hx-target="#visit-history-wrap" hx-swap="innerHTML">{{ num }}</button>
+    {% endif %}
+  {% endfor %}
+  {% if visits.has_next %}
+  <button class="vh-page-btn"
+          hx-get="{% url 'users:partner_visit_history' %}?page={{ visits.next_page_number }}&period={{ period }}&status_f={{ status_f }}"
+          hx-target="#visit-history-wrap" hx-swap="innerHTML">›</button>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="dash-empty" style="padding:2.5rem 1.5rem;">
+  <i class="fas fa-history"></i>
+  <p>{% trans "No visits for the selected filters." %}</p>
+</div>
+{% endif %}
+
+<style>
+.vh-pill {
+  padding:.28rem .85rem;border-radius:100px;font-size:.72rem;font-weight:700;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.55);cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.vh-pill:hover { background:rgba(255,255,255,.1);color:#fff; }
+.vh-pill--active { background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4);color:#f87171; }
+.vh-page-btn {
+  padding:.35rem .75rem;border-radius:7px;background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.6);
+  font-size:.82rem;cursor:pointer;transition:background .15s;
+}
+.vh-page-btn:hover { background:rgba(255,255,255,.12);color:#fff; }
+/* 7c: Status badge tooltip */
+.vh-status-badge { position:relative;cursor:default; }
+.vh-status-badge[data-tooltip]:not([data-tooltip=""])::after {
+  content: attr(data-tooltip);
+  position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:#1a1a28;border:1px solid rgba(255,255,255,.12);
+  color:rgba(255,255,255,.85);font-size:.68rem;font-weight:400;font-family:var(--font-mono);
+  padding:.3rem .6rem;border-radius:6px;white-space:nowrap;
+  opacity:0;pointer-events:none;transition:opacity .15s;z-index:100;
+}
+.vh-status-badge[data-tooltip]:hover::after { opacity:1; }
+</style>

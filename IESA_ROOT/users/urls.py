@@ -34,6 +34,10 @@ urlpatterns = [
     path('partner/visit/<int:visit_id>/edit/',   views.edit_visit,   name='edit_visit'),
     path('partner/visit/<int:visit_id>/cancel/', views.cancel_visit, name='cancel_visit'),
     path('partner/test-telegram/', views.test_telegram_view, name='test_telegram'),
+    # 7a/7b/7e: real-time stats, filtered history, CSV export
+    path('partner/stats/',         views.partner_today_stats,    name='partner_today_stats'),
+    path('partner/history/',       views.partner_visit_history,  name='partner_visit_history'),
+    path('partner/visits.csv',     views.partner_visits_csv,     name='partner_visits_csv'),
 
     # Telegram linking
     path('connect-telegram/',          views.connect_telegram_code_view,   name='connect_telegram_code'),
@@ -62,6 +66,7 @@ urlpatterns = [
     path('partner/calendar/',                  views.partner_calendar, name='partner_calendar'),
     path('partner/meeting/<int:meeting_id>/cancel/', views.delete_meeting, name='delete_meeting'),
     path('my-calendar/',                       views.user_calendar,    name='user_calendar'),
+    path('my-calendar/export.ics',             views.user_calendar_ics, name='user_calendar_ics'),
 
     # Insurance agent
     path('insurance-agent/', views.insurance_agent_request, name='insurance_agent'),
