@@ -72,9 +72,18 @@
             <h1 class="ucal-title">{% trans "My Calendar" %}</h1>
             <p class="ucal-sub">{% trans "Your upcoming meetings and scheduled sessions" %}</p>
         </div>
-        <a href="{% url 'users:profile' %}" class="btn btn-secondary ms-auto" style="white-space:nowrap;">
+        <div class="d-flex gap-2 ms-auto flex-wrap">
+          {# 10a: Экспорт .ics #}
+          <a href="{% url 'users:user_calendar_ics' %}"
+             class="btn btn-sm"
+             style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#a5b4fc;white-space:nowrap;"
+             title="{% trans 'Export to Google Calendar / Apple Calendar / Outlook' %}">
+            <i class="fas fa-calendar-plus me-1"></i>{% trans "Export .ics" %}
+          </a>
+          <a href="{% url 'users:profile' %}" class="btn btn-secondary" style="white-space:nowrap;">
             <i class="fas fa-arrow-left me-1"></i>{% trans "Back to Cabinet" %}
-        </a>
+          </a>
+        </div>
     </div>
 
     {# Предстоящие #}

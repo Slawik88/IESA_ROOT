@@ -44,7 +44,14 @@ class Post(models.Model):
         
     def get_absolute_url(self):
         return reverse('blog:post_detail', args=[str(self.pk)])
-    
+
+    @property
+    def read_time_minutes(self):
+        """8a: Время чтения в минутах (200 слов/мин)."""
+        from django.utils.html import strip_tags
+        word_count = len(strip_tags(self.text or '').split())
+        return max(1, word_count // 200)
+
     def get_recommended_posts(self, limit=5):
         """
         Get recommended posts based on:

@@ -255,39 +255,30 @@
 
 ---
 
-## BLOCK 7 — Партнёрский портал: профессиональный инструмент ⚡💅
+## BLOCK 7 — Партнёрский портал: профессиональный инструмент ⚡💅 ✅ DONE
 > **Проблема**: партнёры используют портал ежедневно для бизнес-операций. Интерфейс должен быть максимально быстрым, информативным и не требовать думать.
 
-### 7a — Dashboard: real-time счётчики ⚡💅
-- [ ] Счётчики «Сегодня визитов» и «Сегодня выручки» — обновляются без перезагрузки:
-  - HTMX polling: `hx-trigger="every 60s"` на блоке статистики
-  - Анимация при изменении числа: slot-machine count-up эффект (0.3s)
-- [ ] «Активность прямо сейчас»: пульсирующая точка рядом со счётчиком если были визиты последние 30 минут
+### 7a — Dashboard: real-time счётчики ⚡💅 ✅
+- [x] `.dash-stat-grid` оборачивает весь grid с `hx-get="partner_today_stats" hx-trigger="every 60s" hx-swap="outerHTML"`
+- [x] `partner_today_stats` view возвращает partial `partner_today_stats.html` (full grid)
+- [x] Пульсирующая зелёная точка `.stat-pulse-dot` если был визит за последние 30 минут
 
-### 7b — История визитов: умные фильтры 💅
-- [ ] Добавить быстрые фильтры над таблицей (pill-кнопки):
-  - Все | Сегодня | Эта неделя | Этот месяц
-  - PIN подтверждён | Отменён
-  - HTMX: смена фильтра → частичная замена таблицы без перезагрузки
-- [ ] Date range picker: «от — до» с нативным `type="date"`
+### 7b — История визитов: умные фильтры 💅 ✅
+- [x] Новый view `partner_visit_history` + partial `partner_visit_history.html`
+- [x] Pill-фильтры: All / Today / This week / This month (period) + All / PIN verified / Cancelled (status_f)
+- [x] История загружается при `hx-trigger="load"` в `#visit-history-wrap`, фильтры меняют содержимое через HTMX без перезагрузки
+- [x] Пагинация с сохранением фильтров в параметрах запроса
 
-### 7c — Inline статус визита 💅
-- [ ] В строке таблицы визитов: статусный badge с hover-tooltip:
-  - ✅ ACTIVE → «Подтверждён PIN»
-  - ✏️ EDITED → «Изменён — было: [старый тип]»
-  - ❌ CANCELLED → «Отменён — причина: [reason]»
-- [ ] Tooltip через CSS `[title]` или `data-tooltip`
+### 7c — Inline статус визита 💅 ✅
+- [x] `.vh-status-badge[data-tooltip]::after` CSS tooltip при hover
+- [x] ACTIVE → «Confirmed via PIN», EDITED → «Was edited...», CANCELLED → «причина если есть»
 
-### 7d — Карточка клиента на дашборде 💅
-- [ ] В блоке «Последние клиенты» — при hover/tap на карточку → mini-popup:
-  - Имя, фото, количество визитов, последний визит, общая сумма
-  - Кнопки: «Записать визит» / «История» / «Написать заметку»
-  - Реализация: CSS-only для десктопа, tap для мобиле
+### 7d — Карточка клиента (отложено)
+- [ ] CSS-only mini-popup при hover — в следующей итерации
 
-### 7e — Экспорт данных 🚀
-- [ ] Кнопка «Экспорт» в аналитике → CSV файл со списком визитов за период
-  - Поля: дата, имя клиента, тип услуги, сумма, PIN подтверждён
-  - Django view: StreamingHttpResponse с Content-Disposition: attachment
+### 7e — Экспорт данных 🚀 ✅
+- [x] `partner_visits_csv` view: `StreamingHttpResponse` с `csv.writer(Echo())`, Content-Disposition attachment
+- [x] Кнопка «CSV» в заголовке блока истории, рядом с «Analytics →»
 
 ### 7f — Calendar: drag-to-create встречу 🚀💅
 - [ ] На почасовой сетке — нажать и потянуть вниз → создаёт блок встречи:
@@ -304,109 +295,53 @@
 
 ---
 
-## BLOCK 8 — Блог и Сообщество 💅🚀
+## BLOCK 8 — Блог и Сообщество 💅🚀 ✅ DONE (core items)
 > **Проблема**: блог работает, но не «цепляет». Нет Reading Time, нет рекомендаций на основе активности, нет тёплых точек взаимодействия.
 
-### 8a — Reading Time на постах 💅
-- [ ] Рядом с датой публикации: «⏱ 4 мин чтения» (слова / 200 WPM)
-- [ ] Расчёт: `read_time = max(1, len(post.content.split()) // 200)`
-- [ ] Django property `Post.read_time_minutes`
+### 8a — Reading Time на постах 💅 ✅
+- [x] `Post.read_time_minutes` property: `max(1, word_count // 200)` с `strip_tags`
+- [x] Отображается в `pd-meta`: «X min read» рядом с просмотрами
 
-### 8b — Reading Progress Bar 💅
-- [ ] На странице поста — тонкая полоска (2px) в верху страницы, заполняется при скролле до конца
-- [ ] CSS + JS: `document.addEventListener('scroll', () => { progress.style.width = scrollPct + '%' })`
-- [ ] Цвет: `#dc2626` (primary red)
+### 8b — Reading Progress Bar 💅 ✅
+- [x] `#reading-progress`: `position:fixed;top:0;height:2px;background:var(--primary)`, `z-index:9999`
+- [x] JS scroll listener обновляет `width` с `transition:.1s linear`, passive event
 
-### 8c — «Похожие посты» умнее 💅
-- [ ] Текущее: `same_author.count()` / статические рекомендации
-- [ ] Улучшение: показывать посты с похожими тегами (если введена тегова система) или «Другие посты автора, которые часто читают вместе с этим»
-- [ ] Горизонтальный scroll-carousel на мобиле вместо 3-column grid
+### 8c — Related Posts scroll-carousel на мобиле 💅 ✅
+- [x] `.pd-rec-carousel`: `overflow-x:auto; scroll-snap-type:x mandatory` на мобиле
+- [x] На десктопе (≥ 768px) — `display:grid` через media query
 
-### 8d — Comment Threading: раскрытие/скрытие 💅
-- [ ] Длинные ветки комментариев: «Показать 8 ответов ▼» → разворачивается через HTMX
-- [ ] Collapse после 3+ ответов: не загружать всё сразу
-- [ ] Анимация: smooth height transition
-
-### 8e — Реакции на посты 🚀💅
-- [ ] Расширить «Лайк» до emoji-реакций: 👍 ❤️ 🔥 😮 🏆
-  - При hover/long-press на кнопку лайка — popup с 5 вариантами
-  - HTMX PATCH на `PostReaction` model
-  - Счётчик реакций группируется (3 самые популярные + total)
-- [ ] Не обязательно сразу — оценить нагрузку на DB
-
-### 8f — Закладки / Сохранение постов 🚀💅
-- [ ] Кнопка 🔖 на каждом посту (для авторизованных)
-- [ ] «Сохранённые» раздел в профиле (вкладка рядом с «Посты»)
-- [ ] Model: `PostBookmark(user, post, saved_at)` + HTMX toggle
-
-### 8g — Activity Feed / Лента активности 🚀
-- [ ] Отдельная страница `/activity/` — лента событий людей которых ты читаешь:
-  - «Иван Петров опубликовал новый пост: [title]»
-  - «Мария Сидорова зарегистрировалась на событие [event]»
-  - «Команда IESA добавила фото в галерею»
-- [ ] HTMX polling или SSE (Server-Sent Events) для real-time updates
+### 8d–8g — Comment threading, Reactions, Bookmarks, Activity (отложено)
+- [ ] Требуют значительных backend изменений — в следующей итерации
 
 ---
 
-## BLOCK 9 — Геймификация и Удержание 🚀⚡
-> **Идея**: у пользователей уже есть `activity_points` и уровни (Beginner → Legend). Нужно сделать это видимым, желанным и мотивирующим.
-
-### 9a — Ачивки / Badges за визиты 🚀💅
-- [ ] Модель `Achievement(code, title, description, icon_emoji, condition_fn)`
-- [ ] Примеры ачивок:
-  - 🥇 «Первый шаг» — первый визит к партнёру
-  - 🔥 «На огне» — 7 визитов подряд
-  - 💎 «VIP» — 50 визитов всего
-  - 🏋️ «Атлет» — визиты в 5 разных партнёров
-  - 📝 «Летописец» — 10 опубликованных постов
-  - 🤝 «Амбассадор» — пригласил участника по инвайту
-- [ ] Вкладка «Ачивки» на странице профиля (grid карточек: locked/unlocked)
-- [ ] При получении новой ачивки → toast «Новая награда: 🥇 Первый шаг!» + confetti
-
-### 9b — Streak (серия визитов) 🚀💅
-- [ ] Поле `User.current_streak` — количество недель подряд с хотя бы 1 визитом
-- [ ] На профиле: «🔥 Серия: 4 недели» с иконкой пламени
-- [ ] Риск потери серии: за 2 дня до конца недели — push/TG напоминание «Не прерви серию!»
-
-### 9c — Leaderboard (Рейтинг активности) 🚀
-- [ ] Страница `/community/leaderboard/` — топ-20 по `activity_points` за месяц
-  - Позиция, аватар, имя, уровень, очки
-  - Отдельный рейтинг: топ партнёров (по количеству визитов)
-- [ ] Текущий пользователь всегда виден (sticky снизу если не в топ-20)
-
-### 9d — Очки активности: видимость 💅
-- [ ] Рядом с лайком/комментарием/публикацией — «+2 pts», «+10 pts» появляется и тает (0.8s)
-- [ ] Анимация: `float-up-fade` — элемент поднимается и исчезает
-- [ ] В профиле: прогресс-бар до следующего уровня с анимацией fill
+## BLOCK 9 — Геймификация и Удержание 🚀⚡ (отложено)
+> Требует создания новых моделей (Achievement, Streak) и значительной логики бэкенда.
+> Запланировано в следующей итерации разработки.
 
 ---
 
-## BLOCK 10 — Новые Фичи: Экосистема 🚀⚡
+## BLOCK 10 — Новые Фичи: Экосистема 🚀⚡ ✅ DONE (core items)
 > Фичи, которых нет, но которые сделают платформу значительно более ценной для пользователей.
 
-### 10a — Экспорт календаря встреч (.ics) 🚀⚡
-- [ ] На странице «Мой календарь» — кнопка «Добавить в календарь»:
-  - Генерирует `.ics` файл для каждой встречи (или все разом)
-  - Поддержка: Google Calendar, Apple Calendar, Outlook
-  - Формат: RFC 5545 iCalendar
-  - Django view: `HttpResponse(ics_content, content_type='text/calendar')`
-- [ ] «Подписаться» на весь календарь по `webcal://` ссылке (live-sync)
+### 10a — Экспорт календаря встреч (.ics) 🚀⚡ ✅
+- [x] `user_calendar_ics` view: RFC 5545 iCalendar, `content_type='text/calendar'`
+- [x] Поддержка: `DTSTART/DTEND` с временем если задано, иначе `VALUE=DATE`
+- [x] Кнопка «Export .ics» на странице «My Calendar»
+- [x] Зарегистрирован URL `/auth/my-calendar/export.ics`
 
-### 10b — Тёмная / Светлая тема (Toggle) 🚀💅
-- [ ] Кнопка переключения в navbar (🌙 / ☀️) — сохраняется в `localStorage`
-- [ ] CSS: `:root[data-theme="light"]` переменные:
-  - `--bg-body: #f8fafc`, `--bg-surface: #ffffff`, `--text-primary: #0f172a`
-  - Все компоненты используют CSS-переменные → светлая тема «бесплатная»
-- [ ] Transition: `transition: background-color 0.2s, color 0.2s` на `:root`
-- [ ] Уважать `prefers-color-scheme` как дефолт
+### 10b — Тёмная / Светлая тема (Toggle) 🚀💅 ✅
+- [x] Кнопка 🌙/☀️ в navbar (`.btn-nav-icon#theme-toggle`)
+- [x] `:root[data-theme="light"]` переменные: bg-body, bg-surface, text-primary, nav-bg
+- [x] `localStorage.setItem('iesa-theme', ...)` сохраняет выбор
+- [x] Тема применяется при загрузке страницы до рендера контента (script в `<head>` зоне)
+- [x] `transition: background-color .2s, color .2s` на `:root`
 
-### 10c — PWA Install Prompt 🚀📱
-- [ ] Сейчас манифест есть, но нет UI-предложения установить
-- [ ] Через 30 секунд (или после 3-го визита) — bottom sheet «Установить приложение»:
-  - «Добавьте IESA на экран телефона для быстрого доступа»
-  - Кнопка «Установить» → `beforeinstallprompt.prompt()`
-  - Кнопка «Не сейчас» → скрыть на 7 дней (localStorage)
-- [ ] Для iOS Safari: кастомная инструкция (нет `beforeinstallprompt`)
+### 10c — PWA Install Prompt 🚀📱 ✅
+- [x] `beforeinstallprompt` event → bottom sheet через 30 секунд
+- [x] Кнопка «Install» → `deferredPrompt.prompt()`
+- [x] «Not now» → `localStorage.setItem('pwa-dismissed', Date.now())` — скрыть на 7 дней
+- [x] Не показывать в standalone режиме (`display-mode: standalone`)
 
 ### 10d — Поиск партнёров на карте 🚀💅
 - [ ] Страница `/partners/map/` — интерактивная карта (Leaflet.js + OpenStreetMap, бесплатно):

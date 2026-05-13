@@ -176,10 +176,15 @@
         {% endfor %}
       {% endif %}
 
-      {# ── Stat карточки ── #}
-      <div class="dash-stat-grid">
-        <div class="dash-stat-card">
-          <div class="dash-stat-icon ds-red"><i class="fas fa-calendar-day"></i></div>
+      {# ── 7a: Stat карточки с HTMX polling каждые 60s ── #}
+      <div class="dash-stat-grid"
+           hx-get="{% url 'users:partner_today_stats' %}"
+           hx-trigger="every 60s"
+           hx-swap="outerHTML">
+        <div class="dash-stat-card" style="position:relative;">
+          <div class="dash-stat-icon ds-red" style="position:relative;">
+            <i class="fas fa-calendar-day"></i>
+          </div>
           <div>
             <div class="dash-stat-val">{{ today_count }}</div>
             <div class="dash-stat-lbl">{% trans "Today's visits" %}</div>
@@ -413,114 +418,46 @@
 
       </div>
 
-      {# ── Полная история визитов ── #}
+      {# ── 7b/7c/7e: История визитов с умными фильтрами ── #}
       <div class="dash-card" id="history-section">
         <div class="dash-card__header">
           <span class="dash-card__title">
             <i class="fas fa-list-ul" style="color:var(--primary);"></i>
             {% trans "All Visit History" %}
           </span>
-          <a href="{% url 'users:partner_analytics' %}"
-             style="font-size:.78rem;color:rgba(255,255,255,.4);text-decoration:none;transition:color .15s;"
-             onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.4)'">
-            {% trans "Analytics" %} →
-          </a>
+          <div style="display:flex;align-items:center;gap:.75rem;">
+            {# 7e: CSV Export #}
+            <a href="{% url 'users:partner_visits_csv' %}"
+               style="font-size:.75rem;color:rgba(255,255,255,.4);text-decoration:none;display:flex;align-items:center;gap:.3rem;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:.25rem .7rem;transition:all .15s;"
+               onmouseover="this.style.color='#fff';this.style.borderColor='rgba(255,255,255,.3)'"
+               onmouseout="this.style.color='rgba(255,255,255,.4)';this.style.borderColor='rgba(255,255,255,.12)'">
+              <i class="fas fa-download"></i> CSV
+            </a>
+            <a href="{% url 'users:partner_analytics' %}"
+               style="font-size:.78rem;color:rgba(255,255,255,.4);text-decoration:none;transition:color .15s;"
+               onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.4)'">
+              {% trans "Analytics" %} →
+            </a>
+          </div>
         </div>
         <div class="dash-card__body" style="padding:0;">
-          {% if visits.object_list %}
-          <div style="overflow-x:auto;">
-            <table class="dash-table">
-              <thead>
-                <tr>
-                  <th>{% trans "DATE" %}</th>
-                  <th>{% trans "MEMBER" %}</th>
-                  <th>{% trans "SERVICE" %}</th>
-                  <th>CHF</th>
-                  <th>{% trans "PIN" %}</th>
-                  <th>{% trans "STATUS" %}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for visit in visits %}
-                <tr>
-                  <td style="white-space:nowrap;font-family:var(--font-mono);font-size:.75rem;color:rgba(255,255,255,.4);">
-                    {{ visit.timestamp|date:"d M Y" }}<br>{{ visit.timestamp|date:"H:i" }}
-                  </td>
-                  <td>
-                    <a href="{% url 'users:partner_member_visits' visit.member.pk %}"
-                       class="member-name" style="text-decoration:none;">
-                      {{ visit.member.get_full_name|default:visit.member.username }}
-                    </a>
-                    {% if visit.member.pseudonym %}
-                    <br><span style="font-size:.7rem;color:rgba(255,255,255,.28);">@{{ visit.member.pseudonym }}</span>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ visit.get_service_type_display }}
-                    {% if visit.service_description %}
-                    <br><span style="font-size:.7rem;color:rgba(255,255,255,.32);font-style:italic;">{{ visit.service_description|truncatechars:30 }}</span>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {% if visit.cost %}<span style="font-weight:600;">{{ visit.cost }}</span>
-                    {% else %}<span style="color:rgba(255,255,255,.2);">—</span>{% endif %}
-                  </td>
-                  <td>
-                    {% if visit.pin_verified %}
-                    <span style="background:rgba(34,197,94,.1);color:#4ade80;border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;">✓ PIN</span>
-                    {% else %}
-                    <span style="color:rgba(255,255,255,.22);font-size:.75rem;">—</span>
-                    {% endif %}
-                  </td>
-                  <td>
-                    <span style="border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;
-                      {% if visit.status == 'ACTIVE' %}background:rgba(34,197,94,.1);color:#4ade80;
-                      {% elif visit.status == 'EDITED' %}background:rgba(59,130,246,.1);color:#93c5fd;
-                      {% else %}background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);{% endif %}">
-                      {{ visit.status }}
-                    </span>
-                  </td>
-                  <td style="white-space:nowrap;">
-                    {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
-                    <a href="{% url 'users:edit_visit' visit.pk %}" style="font-size:.75rem;color:rgba(255,255,255,.45);text-decoration:none;margin-right:.4rem;">{% trans "edit" %}</a>
-                    <a href="{% url 'users:cancel_visit' visit.pk %}" style="font-size:.75rem;color:#f87171;text-decoration:none;">{% trans "cancel" %}</a>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          {# 7b: HTMX контейнер с фильтрами — загружается сразу #}
+          <div id="visit-history-wrap"
+               hx-get="{% url 'users:partner_visit_history' %}"
+               hx-trigger="load"
+               hx-swap="innerHTML">
+            {# Skeleton пока грузится #}
+            <div style="padding:1rem 1.25rem;">
+              {% for _ in "12345" %}
+              <div style="display:flex;gap:1rem;padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.04);">
+                <div class="skeleton" style="height:12px;width:90px;border-radius:4px;flex-shrink:0;"></div>
+                <div class="skeleton" style="height:12px;width:140px;border-radius:4px;"></div>
+                <div class="skeleton" style="height:12px;width:80px;border-radius:4px;"></div>
+                <div class="skeleton" style="height:12px;width:40px;border-radius:4px;"></div>
+              </div>
+              {% endfor %}
+            </div>
           </div>
-
-          {# Пагинация #}
-          {% if visits.has_other_pages %}
-          <div style="display:flex;align-items:center;justify-content:center;gap:.4rem;padding:1rem;border-top:1px solid rgba(255,255,255,.06);">
-            {% if visits.has_previous %}
-            <a href="?page={{ visits.previous_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}"
-               style="padding:.35rem .75rem;border-radius:7px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:.82rem;text-decoration:none;">‹</a>
-            {% endif %}
-            {% for num in visits.paginator.page_range %}
-              {% if visits.number == num %}
-              <span style="padding:.35rem .75rem;border-radius:7px;background:var(--primary);color:#fff;font-size:.82rem;font-weight:700;">{{ num }}</span>
-              {% elif num > visits.number|add:"-3" and num < visits.number|add:"3" %}
-              <a href="?page={{ num }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}"
-                 style="padding:.35rem .75rem;border-radius:7px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:.82rem;text-decoration:none;">{{ num }}</a>
-              {% endif %}
-            {% endfor %}
-            {% if visits.has_next %}
-            <a href="?page={{ visits.next_page_number }}{% if request.GET.query %}&query={{ request.GET.query }}{% endif %}"
-               style="padding:.35rem .75rem;border-radius:7px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:.82rem;text-decoration:none;">›</a>
-            {% endif %}
-          </div>
-          {% endif %}
-
-          {% else %}
-          <div class="dash-empty" style="padding:2rem;">
-            <i class="fas fa-clipboard-list"></i>
-            <p>{% trans "No visits logged yet. Use the search above to find a member." %}</p>
-          </div>
-          {% endif %}
         </div>
       </div>
 

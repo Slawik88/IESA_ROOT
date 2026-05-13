@@ -209,3 +209,51 @@ def user_calendar(request):
     upcoming = Meeting.objects.filter(member=request.user, date__gte=today, status__in=['scheduled', 'confirmed']).select_related('partner').order_by('date', 'start_time')
     past     = Meeting.objects.filter(member=request.user, date__lt=today).select_related('partner').order_by('-date', '-start_time')[:20]
     return render(request, 'users/user_calendar.html', {'upcoming': upcoming, 'past': past, 'today': today})
+
+
+@login_required
+def user_calendar_ics(request):
+    """10a: Экспорт всех предстоящих встреч в формате RFC 5545 iCalendar (.ics)."""
+    from django.http import HttpResponse
+    import uuid as _uuid
+
+    today = _date_cls.today()
+    meetings = (Meeting.objects
+                .filter(member=request.user, date__gte=today, status__in=['scheduled', 'confirmed'])
+                .select_related('partner')
+                .order_by('date', 'start_time'))
+
+    lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//IESA Sport//Calendar//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'X-WR-CALNAME:IESA Sport Meetings',
+    ]
+
+    for m in meetings:
+        dt_date = m.date.strftime('%Y%m%d')
+        uid = str(_uuid.uuid4())
+        summary = m.title or _('Meeting')
+        description = f'Partner: {m.partner.company_name}' if hasattr(m, 'partner') and m.partner else ''
+        if m.start_time:
+            dtstart = f'DTSTART:{dt_date}T{m.start_time.strftime("%H%M%S")}'
+            dtend   = f'DTEND:{dt_date}T{m.end_time.strftime("%H%M%S")}' if m.end_time else dtstart
+        else:
+            dtstart = f'DTSTART;VALUE=DATE:{dt_date}'
+            dtend   = f'DTEND;VALUE=DATE:{dt_date}'
+        lines += [
+            'BEGIN:VEVENT',
+            f'UID:{uid}',
+            dtstart, dtend,
+            f'SUMMARY:{summary}',
+            f'DESCRIPTION:{description}',
+            'END:VEVENT',
+        ]
+
+    lines.append('END:VCALENDAR')
+    content = '\r\n'.join(lines) + '\r\n'
+    resp = HttpResponse(content, content_type='text/calendar; charset=utf-8')
+    resp['Content-Disposition'] = 'attachment; filename="iesa-meetings.ics"'
+    return resp

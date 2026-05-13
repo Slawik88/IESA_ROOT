@@ -1,0 +1,62 @@
+{% load i18n %}
+{# 7a: HTMX partial — статистика дня (polling every 60s).
+   Рендерится вместо .dash-stat-grid при hx-swap="outerHTML" #}
+<div class="dash-stat-grid"
+     hx-get="{% url 'users:partner_today_stats' %}"
+     hx-trigger="every 60s"
+     hx-swap="outerHTML">
+
+  {# Today's visits — с пульсирующей точкой если был визит за 30 минут #}
+  <div class="dash-stat-card" style="position:relative;">
+    <div class="dash-stat-icon ds-red" style="position:relative;">
+      <i class="fas fa-calendar-day"></i>
+      {% if has_recent %}
+      <span class="stat-pulse-dot" title="{% trans 'Activity in last 30 min' %}"></span>
+      {% endif %}
+    </div>
+    <div>
+      <div class="dash-stat-val">{{ today_count }}</div>
+      <div class="dash-stat-lbl">{% trans "Today's visits" %}</div>
+    </div>
+  </div>
+
+  {# Today CHF #}
+  <div class="dash-stat-card">
+    <div class="dash-stat-icon ds-green"><i class="fas fa-coins"></i></div>
+    <div>
+      <div class="dash-stat-val">{{ today_revenue|floatformat:0 }}</div>
+      <div class="dash-stat-lbl">{% trans "Today CHF" %}</div>
+    </div>
+  </div>
+
+  {# Unique clients (all-time из context) #}
+  <div class="dash-stat-card">
+    <div class="dash-stat-icon ds-blue"><i class="fas fa-users"></i></div>
+    <div>
+      <div class="dash-stat-val">{{ unique_members }}</div>
+      <div class="dash-stat-lbl">{% trans "Unique clients" %}</div>
+    </div>
+  </div>
+
+  {# Total visits (all-time) #}
+  <div class="dash-stat-card">
+    <div class="dash-stat-icon ds-amber"><i class="fas fa-list-check"></i></div>
+    <div>
+      <div class="dash-stat-val">{{ total_visits }}</div>
+      <div class="dash-stat-lbl">{% trans "Total visits" %}</div>
+    </div>
+  </div>
+
+</div>
+<style>
+.stat-pulse-dot {
+  position: absolute; top: 3px; right: 3px;
+  width: 9px; height: 9px;
+  background: #4ade80; border-radius: 50%;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .5; transform: scale(1.35); }
+}
+</style>
