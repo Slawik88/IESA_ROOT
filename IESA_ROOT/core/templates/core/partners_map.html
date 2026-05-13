@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block title %}{% trans "Partner Map" %} — IESA Sport{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+.map-wrap { background:#07070e; min-height:100vh; padding-bottom:80px; }
+.map-hero {
+  background:linear-gradient(135deg,#0d0d18 0%,#12060d 100%);
+  padding:36px 24px 32px; border-bottom:1px solid rgba(255,255,255,.05);
+  position:relative; overflow:hidden;
+}
+.map-hero::before {
+  content:''; position:absolute; right:-60px; top:-60px;
+  width:400px; height:400px;
+  background:radial-gradient(circle,rgba(220,38,38,.1) 0%,transparent 65%);
+  pointer-events:none;
+}
+.map-hero-badge {
+  display:inline-block; padding:3px 10px;
+  background:rgba(220,38,38,.15); border:1px solid rgba(220,38,38,.3);
+  border-radius:20px; font-size:.72rem; color:#ef4444; font-family:monospace;
+  letter-spacing:.08em; margin-bottom:10px;
+}
+.map-hero-title { font-size:1.4rem; font-weight:700; color:#fff; margin:0 0 4px; position:relative; }
+.map-hero-sub { font-size:.82rem; color:rgba(255,255,255,.4); font-family:monospace; }
+#partner-map {
+  height: calc(100vh - 220px);
+  min-height: 400px;
+  margin: 0;
+  background: #0a0a16;
+}
+/* Leaflet dark mode overrides */
+.leaflet-tile-pane { filter: brightness(.85) saturate(.7) invert(1) hue-rotate(180deg); }
+.leaflet-container { font-family: inherit; }
+.map-popup {
+  background:#1a1a28; border:1px solid rgba(255,255,255,.12);
+  border-radius:12px; padding:1rem; min-width:180px; color:#e2e8f0;
+}
+.map-popup-name { font-size:.9rem; font-weight:700; color:#fff; margin-bottom:.2rem; }
+.map-popup-type { font-size:.72rem; color:rgba(255,255,255,.45); margin-bottom:.6rem; font-family:monospace; }
+.map-popup-addr { font-size:.75rem; color:rgba(255,255,255,.5); margin-bottom:.6rem; line-height:1.4; }
+.map-popup-btn {
+  display:inline-flex; align-items:center; gap:.3rem;
+  padding:.32rem .85rem; background:rgba(220,38,38,.12);
+  border:1px solid rgba(220,38,38,.25); border-radius:7px;
+  color:#f87171; font-size:.75rem; font-weight:700; text-decoration:none;
+}
+/* Geolocation button */
+.map-geolocate {
+  position:absolute; bottom:80px; right:12px; z-index:1000;
+  background:#1a1a28; border:1px solid rgba(255,255,255,.15); border-radius:8px;
+  width:36px; height:36px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; color:rgba(255,255,255,.65); transition:all .2s;
+}
+.map-geolocate:hover { background:#2a2a3a; color:#fff; }
+.map-no-coords {
+  padding:2.5rem 1.5rem; text-align:center;
+  color:rgba(255,255,255,.3); font-family:monospace; font-size:.82rem;
+}
+</style>
+{% endblock %}
+
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
+{% block content %}
+<div class="map-wrap">
+  <div class="map-hero">
+    <div style="position:relative;z-index:1;">
+      <div class="map-hero-badge">PARTNER MAP</div>
+      <div class="map-hero-title">{% trans "Find IESA Partners Near You" %}</div>
+      <div class="map-hero-sub">{% trans "Explore gyms, studios and services in your area" %}</div>
+    </div>
+  </div>
+
+  {% if partners_count == 0 %}
+  <div class="map-no-coords">
+    <div style="font-size:2.5rem;margin-bottom:.75rem;">🗺️</div>
+    <div style="font-size:.9rem;color:rgba(255,255,255,.5);margin-bottom:.35rem;">{% trans "No partners with map coordinates yet" %}</div>
+    <div>{% trans "Partners can add their address in their profile settings." %}</div>
+  </div>
+  {% else %}
+  <div style="position:relative;">
+    <div id="partner-map"></div>
+    <button class="map-geolocate" id="geolocate-btn" title="{% trans 'Show my location' %}" aria-label="{% trans 'My location' %}">
+      <i class="fas fa-crosshairs"></i>
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(function(){
+  var mapEl = document.getElementById('partner-map');
+  if (!mapEl) return;
+
+  var map = L.map('partner-map', {
+    center: [47.0, 8.0],  /* Центр Швейцарии */
+    zoom: 8,
+    zoomControl: true,
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(map);
+
+  /* Кастомный маркер */
+  var icon = L.divIcon({
+    className: '',
+    html: '<div style="width:28px;height:28px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.4);"></div>',
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -30],
+  });
+
+  /* Загружаем данные */
+  fetch('{% url "core:partners_map_data" %}')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var bounds = [];
+      data.partners.forEach(function(p){
+        var marker = L.marker([p.lat, p.lon], { icon: icon }).addTo(map);
+        var popup = '<div class="map-popup">'
+          + '<div class="map-popup-name">' + p.name + '</div>'
+          + '<div class="map-popup-type">' + p.type.toUpperCase() + '</div>'
+          + (p.address ? '<div class="map-popup-addr"><i class="fas fa-map-marker-alt" style="margin-right:4px;color:#ef4444;"></i>' + p.address + '</div>' : '')
+          + '<a href="' + p.url + '" class="map-popup-btn"><i class="fas fa-external-link-alt"></i> {% trans "Visit Profile" %}</a>'
+          + '</div>';
+        marker.bindPopup(popup, { maxWidth: 240 });
+        bounds.push([p.lat, p.lon]);
+      });
+      if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+    });
+
+  /* Геолокация */
+  document.getElementById('geolocate-btn').addEventListener('click', function(){
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(function(pos){
+      var ll = [pos.coords.latitude, pos.coords.longitude];
+      map.setView(ll, 13);
+      L.circleMarker(ll, {
+        radius: 10, color:'#3b82f6', fillColor:'#60a5fa', fillOpacity:.8,
+        weight: 2,
+      }).addTo(map).bindPopup('<b>{% trans "You are here" %}</b>').openPopup();
+    });
+  });
+})();
+</script>
+{% endblock %}

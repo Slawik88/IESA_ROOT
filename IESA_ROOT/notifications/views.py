@@ -1,7 +1,8 @@
+import time
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.http import HttpResponse, HttpResponseNotAllowed
+from django.http import HttpResponse, HttpResponseNotAllowed, StreamingHttpResponse
 from django.utils.translation import gettext as _
 from .models import Notification
 
@@ -68,6 +69,44 @@ def mark_all_read(request):
         return HttpResponse(f'<span class="text-muted small">{_("All notifications marked as read")}</span>')
     
     return redirect('notifications:notification_list')
+
+@login_required
+def notification_stream(request):
+    """
+    10e: Server-Sent Events endpoint.
+    Отправляет unread_count каждые 30с.
+    Клиент получает событие 'badge' и обновляет badge без polling.
+    Fallback: если SSE недоступен, клиент использует hx-trigger="every 5m".
+    Heroku: timeouts после 55с — клиент reconnect автоматически.
+    """
+    def event_generator():
+        user_id = request.user.pk
+        last_count = -1
+        start = time.time()
+        try:
+            # Сразу отправляем текущее состояние
+            count = Notification.objects.filter(recipient_id=user_id, is_read=False).count()
+            last_count = count
+            badge = str(count) if count > 0 else '0'
+            yield f"event: badge\ndata: {badge}\n\n"
+
+            while time.time() - start < 50:  # < Heroku 55s timeout
+                time.sleep(30)
+                count = Notification.objects.filter(recipient_id=user_id, is_read=False).count()
+                if count != last_count:
+                    last_count = count
+                    badge = str(count) if count > 0 else '0'
+                    yield f"event: badge\ndata: {badge}\n\n"
+                else:
+                    yield ": keepalive\n\n"  # пустой comment — держит соединение
+        except GeneratorExit:
+            pass
+
+    response = StreamingHttpResponse(event_generator(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'  # отключаем nginx буферизацию
+    return response
+
 
 @login_required
 def notification_delete(request, pk):

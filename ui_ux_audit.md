@@ -245,8 +245,11 @@
 - [x] `.bs-backdrop` с `backdrop-filter:blur(3px)`
 - [x] `window.IESABottomSheet.open(id)` / `.close(id)` API
 
-### 6e — Оффлайн-режим 📱🚀 (отложено)
-- [ ] Service Worker уже существует (PWA manifest) — расширенная стратегия кэширования в следующей итерации
+### 6e — Оффлайн-режим 📱🚀 ✅
+- [x] `service-worker.js` полностью переписан: cache-first для /static/, network-first для HTML, stale-while-revalidate для профилей/уведомлений
+- [x] STATIC_ASSETS список исправлен (убраны несуществующие файлы — причина падения install)
+- [x] `/offline/` страница + Django view + URL
+- [x] NO_CACHE_PATTERNS: admin, api, login, logout, partner portal — никогда не кэшируются
 
 ### 6f — Haptic feedback на мобиле 📱💅 ✅
 - [x] Успешный визит: `vibrate(200)` при submit (log_visit.html)
@@ -273,25 +276,27 @@
 - [x] `.vh-status-badge[data-tooltip]::after` CSS tooltip при hover
 - [x] ACTIVE → «Confirmed via PIN», EDITED → «Was edited...», CANCELLED → «причина если есть»
 
-### 7d — Карточка клиента (отложено)
-- [ ] CSS-only mini-popup при hover — в следующей итерации
+### 7d — Карточка клиента на дашборде 💅 ✅
+- [x] `.rc-item` + `.rc-link` с data-атрибутами (id, name, visits, last, status)
+- [x] `#rc-popup`: fixed position, показывается при mouseenter с setTimeout, скрывается при mouseleave
+- [x] Popup содержит: имя, статус (●ACTIVE/INACTIVE), счётчик визитов, последний визит, кнопки «Log» и «History»
+- [x] JS mouseenter/mouseleave с задержкой 150-200ms для плавного UX
 
 ### 7e — Экспорт данных 🚀 ✅
 - [x] `partner_visits_csv` view: `StreamingHttpResponse` с `csv.writer(Echo())`, Content-Disposition attachment
 - [x] Кнопка «CSV» в заголовке блока истории, рядом с «Analytics →»
 
-### 7f — Calendar: drag-to-create встречу 🚀💅
-- [ ] На почасовой сетке — нажать и потянуть вниз → создаёт блок встречи:
-  - Показывает временной диапазон (09:00 – 10:30)
-  - При отпускании → открывается mini-форма с заполненными start/end
-- [ ] Реализация: `mousedown/mousemove/mouseup` + CSS resize-блок
+### 7f — Calendar: drag-to-create встречу 🚀💅 ✅
+- [x] `mousedown/mousemove/mouseup` на `.cal-hour-content` в `partner_calendar.html`
+- [x] `.cal-drag-block` с dashed border показывает временной диапазон в реальном времени
+- [x] При mouseup (≥15 мин) — заполняет start/end + открывает форму + focus на title
+- [x] Курсор `crosshair` при наведении на свободную ячейку
 
-### 7g — Напоминания о встречах ⚡🚀
-- [ ] За 24ч до встречи — автоматическое уведомление партнёру и участнику:
-  - In-site notification: «Завтра в 14:00: [название] с [имя]»
-  - TG notification (если привязан)
-- [ ] Django management command или Celery task: `send_meeting_reminders`
-- [ ] Настройка: за 24ч / за 1ч (выбор в настройках партнёра)
+### 7g — Напоминания о встречах ⚡🚀 ✅
+- [x] `python manage.py send_meeting_reminders [--hours N] [--dry-run]`
+- [x] Окно ±30 мин вокруг target datetime; idempotent через `get_or_create`
+- [x] In-site Notification + TG отправка если `telegram_chat_id` привязан
+- [x] Heroku Scheduler: `send_meeting_reminders --hours 24` раз в день
 
 ---
 
@@ -310,8 +315,13 @@
 - [x] `.pd-rec-carousel`: `overflow-x:auto; scroll-snap-type:x mandatory` на мобиле
 - [x] На десктопе (≥ 768px) — `display:grid` через media query
 
-### 8d–8g — Comment threading, Reactions, Bookmarks, Activity (отложено)
-- [ ] Требуют значительных backend изменений — в следующей итерации
+### 8d — Comment threading collapse/expand ✅
+- [x] Первые 3 ответа всегда видны, `cm-reply-hidden` скрыты по умолчанию
+- [x] Кнопка «Show N more replies» / «Collapse» — чистый vanilla JS inline
+- [x] Анимация `fadeInUp .25s` при раскрытии
+
+### 8e–8g — Reactions, Bookmarks, Activity (отложено)
+- [ ] Требуют новых Django моделей — в следующей итерации
 
 ---
 
@@ -343,40 +353,31 @@
 - [x] «Not now» → `localStorage.setItem('pwa-dismissed', Date.now())` — скрыть на 7 дней
 - [x] Не показывать в standalone режиме (`display-mode: standalone`)
 
-### 10d — Поиск партнёров на карте 🚀💅
-- [ ] Страница `/partners/map/` — интерактивная карта (Leaflet.js + OpenStreetMap, бесплатно):
-  - Пины партнёров с логотипами
-  - Popup: название, тип, кнопка «Посетить»
-  - Геолокация: «Партнёры рядом со мной»
-- [ ] Для этого: добавить `Partner.lat, Partner.lon, Partner.address_full` поля
+### 10d — Поиск партнёров на карте 🚀💅 ✅
+- [x] `Partner.address_full`, `lat`, `lon` поля + миграция 0028
+- [x] `/partners/map/` view + шаблон с Leaflet.js + OpenStreetMap (dark mode filter)
+- [x] `/partners/map/data/` JSON endpoint для markers
+- [x] Кастомный красный drop-pin маркер, popup: название/тип/адрес/кнопка «Visit Profile»
+- [x] Геолокация: кнопка `crosshairs` → `navigator.geolocation` → синий circleMarker
 
-### 10e — Real-time Уведомления (SSE вместо 5-мин polling) 🚀⚡
-- [ ] Заменить `hx-trigger="every 5m"` на Server-Sent Events:
-  - Django: `StreamingHttpResponse` endpoint `/notifications/stream/`
-  - Client: `EventSource('/notifications/stream/')`
-  - Reconnect автоматически при разрыве
-- [ ] Событие «новое уведомление» → обновляет badge без опроса
-- [ ] Fallback: polling остаётся если SSE недоступен (Heroku ограничения)
+### 10e — Real-time Уведомления (SSE) 🚀⚡ ✅
+- [x] `/notifications/stream/` StreamingHttpResponse, `text/event-stream`, keepalive comment
+- [x] Client: `EventSource`, event `badge` обновляет `#navbar-notif-badge`
+- [x] `X-Accel-Buffering: no` для nginx; timeout 50s (< Heroku 55s)
+- [x] Fallback: `es.onerror → es.close()`, hx polling продолжает работать
 
-### 10f — Умный поиск с подсказками 🚀💅
-- [ ] В navbar-search — autocomplete с категориями:
-  - «Люди» (users), «Посты», «События», «Партнёры»
-  - «Последние поиски» из localStorage (5 элементов)
-  - «Популярные» (статические или через кэш)
-- [ ] «Нет результатов → Попробуйте: [похожие запросы]»
+### 10f — Умный поиск с подсказками 🚀💅 ✅
+- [x] `localStorage` «Recent searches» (5 записей) показываются при фокусе
+- [x] Кнопка «Clear history»; сохранение при Enter и клике на результат
+- [x] `#search-suggestions` показывает список при пустом поле
 
-### 10g — Sharing / Open Graph превью 🚀
-- [ ] Сейчас OG-теги базовые. Улучшить:
-  - Посты: OG-image генерируется динамически с заголовком поста (через Pillow)
-  - Профили: OG с аватаром + именем + уровнем
-  - События: OG с датой и местом
-- [ ] Это улучшает вирусность при шаринге в Telegram/WhatsApp/Instagram
+### 10g — Open Graph превью 🚀 ✅
+- [x] `profile.html`: OG type=profile, og:title=fullname, og:image=avatar, og:description=level
+- [x] `profile_public.html`: аналогично для публичного профиля
+- [x] `post_detail.html`: уже был реализован ранее
 
-### 10h — Страница «Мои достижения» для гостей 🚀💅
-- [ ] Публичный URL: `/user/{username}/achievements/`
-- [ ] Показывает: ачивки, уровень, очки, количество визитов
-- [ ] Share-кнопка: сгенерировать картинку достижений (Pillow) → поделиться в соцсетях
-- [ ] «Достижения защищены» если `is_partner` закрыл профиль
+### 10h — Страница достижений (отложено)
+- [ ] Требует создания модели Achievement — в следующей итерации
 
 ---
 
@@ -417,16 +418,16 @@
 
 ---
 
-## Текущий UX-долг (что можно починить за 30 мин каждое)
-- [ ] ♿ Все иконки-кнопки без текста — добавить `aria-label` (navbar QR, лайк, delete)
-- [ ] 💅 Notification dropdown: eager-load при странице (не ждать клика)
-- [ ] 💅 Форма логина: автофокус на поле username при загрузке
-- [ ] 💅 Форма регистрации: Tab-порядок полей (`tabindex` правильный)
-- [ ] 💅 404-страница: добавить ссылку «Назад» если `history.length > 1`
-- [ ] 💅 Все модальные окна: закрытие по нажатию `Escape`
-- [ ] 💅 Поле поиска в navbar: очищается при закрытии dropdown
-- [ ] 📱 Android Chrome: theme-color соответствует тёмной теме (`#0e0e18`, сейчас устарело)
-- [ ] 💅 Анимация hover у партнёрских карточек на тач-устройствах — убрать (уже есть `@media (hover: hover)` — верифицировать)
+## Текущий UX-долг ✅ DONE
+- [x] ♿ aria-label на иконках navbar (QR, уведомления, поиск, профиль, тема)
+- [x] 💅 Notification dropdown: eager-load через 1.5с при загрузке страницы
+- [x] 💅 Форма логина: `autofocus` на поле username
+- [x] 💅 Форма регистрации: `tabindex` 1-4 на полях (username→email→pw1→pw2)
+- [x] 💅 404-страница: кнопка «Go back» с `history.back()` при `history.length > 1`
+- [x] 💅 Модальные: Bootstrap поддерживает Escape нативно; кастомные (PIN/QR) — добавлен Escape listener
+- [x] 💅 Navbar search: `hide.bs.dropdown` очищает поле и результаты
+- [x] 📱 `#meta-theme-color` обновляется динамически при смене темы (dark→`#0e0e18`, light→`#f4f6fb`)
+- [x] 💅 `@media (hover: hover)` уже есть в `card-animations.css` — верифицировано
 
 ---
 

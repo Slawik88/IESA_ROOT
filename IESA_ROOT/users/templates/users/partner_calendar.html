@@ -875,6 +875,104 @@ document.getElementById('cal-form-toggle').addEventListener('change', function()
     if (arrow) arrow.style.transform = this.checked ? 'rotate(180deg)' : '';
 });
 
+/* ── 7f: Drag-to-create meeting (mousedown→mousemove→mouseup на .cal-hour-content) ── */
+(function(){
+    var HOUR_START = 8;
+    var PX_PER_HOUR = 64;
+    var dragging = false;
+    var dragStartY = 0;
+    var dragStartHour = 0;
+    var dragBlock = null;
+
+    function hourFromY(el, y) {
+        var rect = el.getBoundingClientRect();
+        var row = el.closest('.cal-hour-row');
+        var baseHour = row ? parseInt(row.dataset.hour, 10) : HOUR_START;
+        var frac = Math.max(0, Math.min(1, (y - rect.top) / PX_PER_HOUR));
+        return baseHour + frac;
+    }
+
+    function hhmm(h) {
+        var hh = Math.floor(h);
+        var mm = Math.round((h - hh) * 60 / 15) * 15;
+        if (mm === 60) { hh++; mm = 0; }
+        return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+    }
+
+    var grid = document.getElementById('cal-hour-grid');
+    if (!grid) return;
+
+    grid.addEventListener('mousedown', function(e) {
+        if (!e.target.closest('.cal-hour-content') || e.target.closest('.cal-meeting-block')) return;
+        e.preventDefault();
+        dragging = true;
+        dragStartY = e.clientY;
+        var content = e.target.closest('.cal-hour-content');
+        dragStartHour = hourFromY(content, e.clientY);
+
+        dragBlock = document.createElement('div');
+        dragBlock.className = 'cal-drag-block';
+        Object.assign(dragBlock.style, {
+            position: 'absolute', left: '63px', right: '4px',
+            top: ((dragStartHour - HOUR_START) * PX_PER_HOUR) + 'px',
+            height: '32px', background: 'rgba(220,38,38,.25)',
+            border: '2px dashed rgba(220,38,38,.6)', borderRadius: '6px',
+            zIndex: '50', pointerEvents: 'none',
+            display: 'flex', alignItems: 'center', paddingLeft: '8px',
+            fontSize: '.72rem', color: '#f87171', fontFamily: 'var(--font-mono)',
+        });
+        grid.appendChild(dragBlock);
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (!dragging || !dragBlock) return;
+        var endHour = dragStartHour + Math.max(0.5, (e.clientY - dragStartY) / PX_PER_HOUR);
+        var topPx  = (dragStartHour - HOUR_START) * PX_PER_HOUR;
+        var height = Math.max(32, (endHour - dragStartHour) * PX_PER_HOUR);
+        dragBlock.style.top    = topPx + 'px';
+        dragBlock.style.height = height + 'px';
+        dragBlock.textContent  = hhmm(dragStartHour) + ' – ' + hhmm(endHour);
+    });
+
+    document.addEventListener('mouseup', function(e) {
+        if (!dragging) return;
+        dragging = false;
+        if (dragBlock) {
+            var endHour = dragStartHour + Math.max(0.5, (e.clientY - dragStartY) / PX_PER_HOUR);
+            dragBlock.remove();
+            dragBlock = null;
+            /* Минимальная длительность 30 мин */
+            if (endHour - dragStartHour >= 0.25) {
+                var startT = hhmm(dragStartHour);
+                var endT   = hhmm(endHour);
+                var dateInput = document.getElementById('meeting-date');
+                var startInput = document.getElementById('meeting-start');
+                var endInput   = document.getElementById('meeting-end');
+                if (dateInput)  dateInput.value  = SELECTED_DAY;
+                if (startInput) startInput.value = startT;
+                if (endInput)   endInput.value   = endT;
+                document.getElementById('cal-form-toggle').checked = true;
+                var titleField = document.querySelector('[name="title"]');
+                if (titleField) titleField.focus();
+                document.getElementById('add-meeting').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+    });
+
+    /* Стиль курсора на содержимом часа */
+    grid.addEventListener('mouseover', function(e) {
+        if (e.target.closest('.cal-hour-content') && !e.target.closest('.cal-meeting-block')) {
+            e.target.closest('.cal-hour-content').style.cursor = 'crosshair';
+        }
+    });
+    grid.addEventListener('mouseout', function(e) {
+        if (e.target.closest) {
+            var c = e.target.closest && e.target.closest('.cal-hour-content');
+            if (c) c.style.cursor = '';
+        }
+    });
+})();
+
 /* Закрыть popup по клику вне */
 document.addEventListener('click', function(e) {
     var popup = document.getElementById('meeting-popup');

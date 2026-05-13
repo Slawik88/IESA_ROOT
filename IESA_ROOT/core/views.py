@@ -140,3 +140,41 @@ class IndexView(TemplateView):
         )
 
         return context
+
+
+# ── 10d: Partner Map ─────────────────────────────────────────────
+def partners_map(request):
+    """Страница карты партнёров с Leaflet.js."""
+    from users.models import Partner as UserPartner
+    partners_with_coords = UserPartner.objects.filter(
+        lat__isnull=False, lon__isnull=False
+    ).exclude(partner_type='association_staff').select_related('user')
+    return render(request, 'core/partners_map.html', {
+        'partners_count': partners_with_coords.count(),
+    })
+
+
+def partners_map_data(request):
+    """JSON endpoint — список партнёров с координатами для Leaflet."""
+    import json
+    from django.http import JsonResponse
+    from users.models import Partner as UserPartner
+    qs = UserPartner.objects.filter(
+        lat__isnull=False, lon__isnull=False
+    ).exclude(partner_type='association_staff').values(
+        'id', 'company_name', 'business_type', 'address_full',
+        'lat', 'lon', 'user__username',
+    )
+    data = [
+        {
+            'id': p['id'],
+            'name': p['company_name'],
+            'type': p['business_type'],
+            'address': p['address_full'],
+            'lat': float(p['lat']),
+            'lon': float(p['lon']),
+            'url': f"/auth/user/{p['user__username']}/",
+        }
+        for p in qs
+    ]
+    return JsonResponse({'partners': data})

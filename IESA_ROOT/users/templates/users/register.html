@@ -253,7 +253,7 @@
                                            value="{{ form.username.value|default:'' }}"
                                            class="{% if form.username.errors %}inv{% endif %}"
                                            autocomplete="username" placeholder="{% trans "e.g. johndoe" %}" autofocus
-                                           data-live-check="username">
+                                           tabindex="1" data-live-check="username">
                                     <span id="un-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;"></span>
                                 </div>
                                 <div id="un-msg" class="rf-hint" style="min-height:1.2em;"></div>
@@ -269,6 +269,7 @@
                                     <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}"
                                            value="{{ form.email.value|default:'' }}"
                                            class="{% if form.email.errors %}inv{% endif %}"
+                                           tabindex="2"
                                            autocomplete="email" placeholder="your@email.com"
                                            data-live-check="email">
                                     <span id="em-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;"></span>
@@ -295,7 +296,7 @@
                                     <input type="password" name="{{ form.password1.html_name }}" id="{{ form.password1.id_for_label }}"
                                            class="has-pw{% if form.password1.errors %} inv{% endif %}"
                                            autocomplete="new-password" placeholder="••••••••"
-                                           id="pw1-input">
+                                           tabindex="3">
                                     <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
                                 </div>
                                 {# Полоска силы пароля #}
@@ -320,7 +321,8 @@
                                     <i class="fas fa-lock rf-ic"></i>
                                     <input type="password" name="{{ form.password2.html_name }}" id="{{ form.password2.id_for_label }}"
                                            class="has-pw{% if form.password2.errors %} inv{% endif %}"
-                                           autocomplete="new-password" placeholder="••••••••">
+                                           autocomplete="new-password" placeholder="••••••••"
+                                           tabindex="4">
                                     <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
                                 </div>
                                 <div id="pw-match-msg" style="font-size:.72rem;margin-top:.3rem;min-height:1em;"></div>

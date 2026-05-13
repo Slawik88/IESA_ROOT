@@ -1,0 +1,42 @@
+{% load i18n static %}
+<!DOCTYPE html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% trans "No Connection" %} — IESA Sport</title>
+  <meta name="theme-color" content="#0e0e18">
+  <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0e0e18; color: #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 2rem 1.5rem; text-align: center;
+  }
+  .wrap { max-width: 420px; width: 100%; }
+  .icon { font-size: 4rem; margin-bottom: 1.25rem; animation: float 3s ease-in-out infinite; display: block; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+  h1 { font-size: 1.6rem; font-weight: 800; color: #fff; margin-bottom: .65rem; }
+  p { font-size: .95rem; color: rgba(255,255,255,.5); line-height: 1.6; margin-bottom: 2rem; }
+  .btn {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .65rem 1.5rem; background: #dc2626; color: #fff; border: none;
+    border-radius: 12px; font-size: .9rem; font-weight: 700; cursor: pointer;
+    text-decoration: none; transition: opacity .2s;
+  }
+  .btn:hover { opacity: .85; }
+  .cached-hint { margin-top: 1.5rem; font-size: .78rem; color: rgba(255,255,255,.3); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <span class="icon">📶</span>
+    <h1>{% trans "No Internet Connection" %}</h1>
+    <p>{% trans "It looks like you're offline. Check your connection and try again." %}</p>
+    <button class="btn" onclick="window.location.reload()">
+      ↺ {% trans "Try again" %}
+    </button>
+    <p class="cached-hint">{% trans "Some pages may be available from cache." %}</p>
+  </div>
+</body>
+</html>
