@@ -12,4 +12,7 @@ urlpatterns = [
     path('benefits/', views.benefits_view, name='benefits'),
     # Admin appeal form submission (used from access-denied pages)
     path('appeal/', views.submit_appeal, name='submit_appeal'),
+    # 10d: Partner map
+    path('partners/map/', views.partners_map, name='partners_map'),
+    path('partners/map/data/', views.partners_map_data, name='partners_map_data'),
 ]

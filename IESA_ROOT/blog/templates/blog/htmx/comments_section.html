@@ -20,11 +20,14 @@
             {# ── Text ── #}
             <p class="cm-text">{{ comment.text }}</p>
 
-            {# ── Replies ── #}
+            {# ── 8d: Replies с collapse после 3+ ── #}
             {% if comment.replies.all %}
+            {% with replies=comment.replies.all reply_count=comment.replies.all|length %}
             <div class="cm-thread">
-                {% for reply in comment.replies.all %}
-                <div class="cm-reply-card">
+                {# Первые 3 ответа всегда видны #}
+                {% for reply in replies %}
+                <div class="cm-reply-card{% if forloop.counter > 3 %} cm-reply-hidden{% endif %}"
+                     {% if forloop.counter > 3 %}style="display:none;"{% endif %}>
                     <div class="cm-header">
                         {% if reply.author.avatar and reply.author.avatar.name != 'avatars/default.png' %}
                             <img loading="lazy" src="{{ reply.author.avatar.url }}" alt="{{ reply.author.username }}" class="cm-reply-avatar">
@@ -37,7 +40,31 @@
                     <p class="cm-reply-text">{{ reply.text }}</p>
                 </div>
                 {% endfor %}
+
+                {# Кнопка «Показать ещё» если > 3 ответов #}
+                {% if reply_count > 3 %}
+                <button class="cm-show-more-btn"
+                        onclick="(function(btn){
+                          var thread = btn.closest('.cm-thread');
+                          var hidden = thread.querySelectorAll('.cm-reply-hidden');
+                          if (btn.dataset.open === '1') {
+                            hidden.forEach(function(el){ el.style.display='none'; });
+                            btn.dataset.open = '0';
+                            btn.innerHTML = '<i class=\'fas fa-chevron-down\'></i> {% trans "Show" %} ' + hidden.length + ' {% trans "more replies" %}';
+                          } else {
+                            hidden.forEach(function(el){ el.style.display=''; el.style.animation='fadeInUp .25s ease both'; });
+                            btn.dataset.open = '1';
+                            btn.innerHTML = '<i class=\'fas fa-chevron-up\'></i> {% trans "Collapse" %}';
+                          }
+                        })(this)"
+                        data-open="0"
+                        style="margin-top:.5rem;background:none;border:1px solid rgba(255,255,255,.1);border-radius:7px;padding:.25rem .75rem;color:rgba(255,255,255,.45);font-size:.73rem;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:.4rem;">
+                    <i class="fas fa-chevron-down"></i>
+                    {% trans "Show" %} {{ reply_count|add:"-3" }} {% trans "more replies" %}
+                </button>
+                {% endif %}
             </div>
+            {% endwith %}
             {% endif %}
 
             {# ── Actions ── #}

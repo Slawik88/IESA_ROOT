@@ -441,11 +441,26 @@ class Partner(models.Model):
             'Сотрудники НЕ получают is_staff=True.'
         )
     )
+    # 10d: Map fields
+    address_full = models.CharField(
+        max_length=512, blank=True, default='',
+        verbose_name=_('Full Address'),
+        help_text=_('Street, city, country — shown on map')
+    )
+    lat = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        verbose_name=_('Latitude'),
+    )
+    lon = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True,
+        verbose_name=_('Longitude'),
+    )
+
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('Created At')
     )
-    
+
     class Meta:
         verbose_name = _('Partner')
         verbose_name_plural = _('Partners')

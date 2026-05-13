@@ -1,7 +1,12 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
-{% block title %}{{ user_obj.get_full_name|default:user_obj.username }} — {% trans "Profile" %} | IESA{% endblock %}
+{% block title %}{{ user_obj.get_full_name|default:user_obj.username }} — IESA Sport{% endblock %}
+{% block og_type %}profile{% endblock %}
+{% block og_title %}{{ user_obj.get_full_name|default:user_obj.username }} — IESA Sport{% endblock %}
+{% block og_description %}IESA Sport Member · {{ user_obj.activity_level }}{% endblock %}
+{% block og_image %}{% if user_obj.avatar and user_obj.avatar.name != 'avatars/default.png' %}{{ request.scheme }}://{{ request.get_host }}{{ user_obj.avatar.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.png' %}{% endif %}{% endblock %}
+{% block twitter_card %}summary{% endblock %}
 
 {% block extra_css %}
 <style>

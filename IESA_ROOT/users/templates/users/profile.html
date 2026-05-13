@@ -1,7 +1,17 @@
 {% extends 'base.html' %}
 {% load static i18n %}
 
-{% block title %}{% trans "My Cabinet" %} — IESA Sport{% endblock %}
+{% block title %}{{ profile_user.get_full_name|default:profile_user.username }} — IESA Sport{% endblock %}
+
+{# 10g: OG теги профиля #}
+{% block og_type %}profile{% endblock %}
+{% block og_title %}{{ profile_user.get_full_name|default:profile_user.username }} — IESA Sport{% endblock %}
+{% block og_description %}{% blocktrans with name=profile_user.get_full_name|default:profile_user.username level=profile_user.activity_level %}{{ name }} · {{ level }} · IESA Sport Member{% endblocktrans %}{% endblock %}
+{% block og_image %}{% if profile_user.avatar and profile_user.avatar.name != 'avatars/default.png' %}{{ request.scheme }}://{{ request.get_host }}{{ profile_user.avatar.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.png' %}{% endif %}{% endblock %}
+{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}
+{% block twitter_card %}summary{% endblock %}
+{% block twitter_title %}{{ profile_user.get_full_name|default:profile_user.username }} — IESA Sport{% endblock %}
+{% block twitter_image %}{% if profile_user.avatar and profile_user.avatar.name != 'avatars/default.png' %}{{ request.scheme }}://{{ request.get_host }}{{ profile_user.avatar.url }}{% else %}{{ request.scheme }}://{{ request.get_host }}{% static 'img/logo.png' %}{% endif %}{% endblock %}
 
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}

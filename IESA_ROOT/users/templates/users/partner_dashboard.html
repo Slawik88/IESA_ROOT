@@ -55,6 +55,15 @@
   0%,100% { transform: translateY(0); }
   50%      { transform: translateY(-8px); }
 }
+/* 7d: Recent clients list */
+.rc-link {
+  display:flex; align-items:center; gap:.75rem;
+  padding:.7rem 1.25rem; border-bottom:1px solid rgba(255,255,255,.05);
+  text-decoration:none; transition:background .15s;
+}
+.rc-link:hover { background:rgba(255,255,255,.03); }
+#rc-popup { animation: fadeIn .12s ease; }
+@keyframes fadeIn { from{opacity:0;transform:scale(.97)} to{opacity:1;transform:scale(1)} }
 </style>
 {% endblock %}
 
@@ -374,7 +383,7 @@
           </div>
         </div>
 
-        {# Последние клиенты #}
+        {# 7d: Последние клиенты с hover mini-popup #}
         <div class="dash-card" style="margin:0;">
           <div class="dash-card__header">
             <span class="dash-card__title">
@@ -385,27 +394,33 @@
           <div class="dash-card__body" style="padding:0;">
             {% if recent_members %}
               {% for m in recent_members %}
-              <a href="{% url 'users:partner_member_visits' m.member__id %}"
-                 style="display:flex;align-items:center;gap:.75rem;padding:.7rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.05);text-decoration:none;transition:background .15s;"
-                 onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background=''">
-                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#991b1b);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.78rem;flex-shrink:0;">
-                  {{ m.member__first_name|slice:":1"|default:m.member__username|slice:":1"|upper }}
-                </div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:.85rem;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                    {% if m.member__first_name or m.member__last_name %}{{ m.member__first_name }} {{ m.member__last_name }}
-                    {% else %}{{ m.member__username }}{% endif %}
+              <div class="rc-item" style="position:relative;">
+                <a href="{% url 'users:partner_member_visits' m.member__id %}"
+                   class="rc-link"
+                   data-id="{{ m.member__id }}"
+                   data-name="{% if m.member__first_name or m.member__last_name %}{{ m.member__first_name }} {{ m.member__last_name }}{% else %}{{ m.member__username }}{% endif %}"
+                   data-visits="{{ m.visit_count }}"
+                   data-last="{{ m.last_visit|date:'d.m.Y' }}"
+                   data-status="{{ m.member__membership_status }}">
+                  <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#991b1b);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.78rem;flex-shrink:0;">
+                    {{ m.member__first_name|slice:":1"|default:m.member__username|slice:":1"|upper }}
                   </div>
-                  <div style="font-size:.73rem;color:rgba(255,255,255,.35);">
-                    {{ m.visit_count }} {% trans "visit(s)" %} · {% trans "last" %}: {{ m.last_visit|date:"d.m.Y" }}
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-size:.85rem;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                      {% if m.member__first_name or m.member__last_name %}{{ m.member__first_name }} {{ m.member__last_name }}
+                      {% else %}{{ m.member__username }}{% endif %}
+                    </div>
+                    <div style="font-size:.73rem;color:rgba(255,255,255,.35);">
+                      {{ m.visit_count }} {% trans "visit(s)" %} · {% trans "last" %}: {{ m.last_visit|date:"d.m.Y" }}
+                    </div>
                   </div>
-                </div>
-                {% if m.member__membership_status == 'active' %}
-                <span style="font-size:.65rem;color:#4ade80;font-weight:700;">●</span>
-                {% else %}
-                <span style="font-size:.65rem;color:rgba(255,255,255,.22);font-weight:700;">●</span>
-                {% endif %}
-              </a>
+                  {% if m.member__membership_status == 'active' %}
+                  <span style="font-size:.65rem;color:#4ade80;font-weight:700;" aria-label="{% trans 'Active member' %}">●</span>
+                  {% else %}
+                  <span style="font-size:.65rem;color:rgba(255,255,255,.22);font-weight:700;" aria-label="{% trans 'Inactive member' %}">●</span>
+                  {% endif %}
+                </a>
+              </div>
               {% endfor %}
             {% else %}
             <div class="dash-empty">
@@ -413,6 +428,28 @@
               <p>{% trans "No clients yet." %}</p>
             </div>
             {% endif %}
+          </div>
+        </div>
+
+        {# 7d: mini-popup карточки клиента #}
+        <div id="rc-popup" style="
+          display:none;position:fixed;z-index:500;
+          background:#1a1a28;border:1px solid rgba(255,255,255,.12);
+          border-radius:14px;padding:1rem 1.1rem;min-width:220px;
+          box-shadow:0 16px 48px rgba(0,0,0,.6);pointer-events:none;">
+          <div id="rc-pop-name" style="font-size:.9rem;font-weight:700;color:#fff;margin-bottom:.3rem;"></div>
+          <div id="rc-pop-status" style="font-size:.68rem;font-weight:700;margin-bottom:.65rem;"></div>
+          <div style="display:flex;gap:1rem;">
+            <div><div id="rc-pop-visits" style="font-size:1.1rem;font-weight:800;color:#f87171;"></div><div style="font-size:.65rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.07em;">{% trans "Visits" %}</div></div>
+            <div><div id="rc-pop-last" style="font-size:.78rem;font-weight:600;color:rgba(255,255,255,.65);margin-top:.2rem;"></div><div style="font-size:.65rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.07em;">{% trans "Last visit" %}</div></div>
+          </div>
+          <div style="display:flex;gap:.45rem;margin-top:.75rem;">
+            <a id="rc-pop-log" href="#" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.25);border-radius:7px;color:#f87171;font-size:.72rem;font-weight:700;text-decoration:none;pointer-events:all;">
+              <i class="fas fa-plus"></i> {% trans "Log" %}
+            </a>
+            <a id="rc-pop-hist" href="#" style="display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem .7rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:rgba(255,255,255,.55);font-size:.72rem;text-decoration:none;pointer-events:all;">
+              <i class="fas fa-history"></i>
+            </a>
           </div>
         </div>
 
@@ -634,6 +671,47 @@ document.querySelectorAll('#sidebar-log-btn, #sidebar-cta-btn, #topbar-log-btn')
   // Закрыть по Escape
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && isOpen) closeFab();
+  });
+})();
+
+/* ── 7d: Recent Clients hover popup ── */
+(function(){
+  var popup = document.getElementById('rc-popup');
+  if (!popup) return;
+  var timer;
+
+  document.querySelectorAll('.rc-link').forEach(function(link){
+    link.addEventListener('mouseenter', function(e){
+      clearTimeout(timer);
+      var id     = link.dataset.id;
+      var name   = link.dataset.name;
+      var visits = link.dataset.visits;
+      var last   = link.dataset.last;
+      var status = link.dataset.status;
+      document.getElementById('rc-pop-name').textContent   = name;
+      document.getElementById('rc-pop-visits').textContent = visits;
+      document.getElementById('rc-pop-last').textContent   = last;
+      var stEl = document.getElementById('rc-pop-status');
+      stEl.textContent = status === 'active' ? '● ACTIVE' : '● INACTIVE';
+      stEl.style.color = status === 'active' ? '#4ade80' : 'rgba(255,255,255,.3)';
+      document.getElementById('rc-pop-log').href  = '/auth/partner/visit/' + id + '/';
+      document.getElementById('rc-pop-hist').href = '/auth/partner/member/' + id + '/';
+
+      popup.style.display = 'block';
+      var rect = link.getBoundingClientRect();
+      var left = Math.min(rect.right + 8, window.innerWidth - 240);
+      var top  = Math.min(rect.top, window.innerHeight - 180);
+      popup.style.left = left + 'px';
+      popup.style.top  = top + window.scrollY + 'px';
+    });
+    link.addEventListener('mouseleave', function(){
+      timer = setTimeout(function(){ popup.style.display = 'none'; }, 200);
+    });
+  });
+
+  popup.addEventListener('mouseenter', function(){ clearTimeout(timer); });
+  popup.addEventListener('mouseleave', function(){
+    timer = setTimeout(function(){ popup.style.display = 'none'; }, 150);
   });
 })();
 </script>

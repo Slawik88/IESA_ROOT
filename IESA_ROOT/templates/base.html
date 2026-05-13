@@ -12,7 +12,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="IESA">
-    <meta name="theme-color" content="#0e0e18">
+    <meta name="theme-color" content="#0e0e18" id="meta-theme-color">
+    <script>
+    /* Android Chrome theme-color при смене темы */
+    (function(){
+        var saved = localStorage.getItem('iesa-theme');
+        var meta = document.getElementById('meta-theme-color');
+        if (meta && saved === 'light') meta.setAttribute('content', '#f4f6fb');
+    })();
+    </script>
     
     <!-- SEO Meta Tags -->
     <meta name="description" content="{% block meta_description %}{% trans "IESA - Extreme Sports Community. Kitesurfing in Egypt, Boxing, Adventure Travel & Sauna Experiences. Join our international athletes and enthusiasts." %}{% endblock %}">
@@ -681,6 +689,8 @@
         localStorage.setItem('iesa-theme', next);
         var ico = document.getElementById('theme-icon');
         if (ico) ico.className = next === 'light' ? 'fas fa-sun' : 'fas fa-moon';
+        var tc = document.getElementById('meta-theme-color');
+        if (tc) tc.setAttribute('content', next === 'light' ? '#f4f6fb' : '#0e0e18');
       });
     })();
     </script>
@@ -835,6 +845,52 @@
         });
         wrap.addEventListener('click', function(e){ e.stopPropagation(); });
     })();
+
+    /* ── UX debt: navbar search — очистка при закрытии dropdown ── */
+    (function(){
+        var searchInput = document.getElementById('global-community-search');
+        var searchResults = document.getElementById('community-search-results');
+        if (!searchInput) return;
+        document.addEventListener('hide.bs.dropdown', function(e){
+            if (e.target && e.target.contains(searchInput)) {
+                searchInput.value = '';
+                if (searchResults) searchResults.innerHTML = '';
+            }
+        });
+    })();
+
+    /* ── UX debt: eager-load уведомлений при загрузке страницы (не ждать клика) ── */
+    (function(){
+        var notifContent = document.getElementById('notifications-content');
+        if (!notifContent || !window.htmx) return;
+        setTimeout(function(){
+            htmx.trigger(notifContent, 'click from:#notificationsToggle');
+        }, 1500);
+    })();
+
+    {% if user.is_authenticated %}
+    /* ── 10e: SSE real-time badge обновление ── */
+    (function(){
+        var badge = document.getElementById('navbar-notif-badge');
+        if (!badge || !window.EventSource) return;  /* fallback: hx polling остаётся */
+
+        var es = new EventSource('{% url "notifications:notification_stream" %}');
+        es.addEventListener('badge', function(e){
+            var count = parseInt(e.data, 10) || 0;
+            if (count > 0) {
+                badge.innerHTML = '<span class="notif-dot">' + (count > 99 ? '99+' : count) + '</span>';
+            } else {
+                badge.innerHTML = '';
+            }
+        });
+        es.onerror = function(){
+            /* При ошибке SSE закрываем — hx polling подхватит */
+            es.close();
+        };
+        /* Страница выгружается → закрываем соединение */
+        window.addEventListener('beforeunload', function(){ es.close(); });
+    })();
+    {% endif %}
     </script>
 </body>
 </html>

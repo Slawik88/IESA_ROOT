@@ -68,6 +68,9 @@ urlpatterns = [
     # Notifications app
     path('notifications/', include('notifications.urls')),
 
+    # 6e: Offline fallback page (кэшируется Service Worker)
+    path('offline/', TemplateView.as_view(template_name='offline.html'), name='offline'),
+
     # Sitemap
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
 

@@ -130,16 +130,67 @@
                                    class="form-control"
                                    placeholder="{% trans 'Posts, users, events…' %}"
                                    hx-get="{% url 'blog:global_search' %}"
-                                   hx-trigger="keyup changed delay:500ms"
+                                   hx-trigger="keyup changed delay:400ms"
                                    hx-target="#community-search-results"
                                    hx-indicator="#search-spinner"
                                    hx-swap="innerHTML"
-                                   autocomplete="off">
+                                   autocomplete="off"
+                                   aria-label="{% trans 'Search site' %}">
                             <div id="search-spinner" class="htmx-indicator text-center py-2">
                                 <i class="fas fa-spinner fa-spin" style="color:var(--primary);"></i>
                             </div>
+                            {# 10f: Smart suggestions при пустом поле #}
+                            <div id="search-suggestions" style="display:none;"></div>
                             <div id="community-search-results" class="navbar-search-results mt-1"></div>
                         </div>
+                        <script>
+                        /* 10f: показываем recent searches из localStorage при фокусе */
+                        (function(){
+                          var inp = document.getElementById('global-community-search');
+                          var sugg = document.getElementById('search-suggestions');
+                          var res  = document.getElementById('community-search-results');
+                          if (!inp || !sugg) return;
+                          var STORAGE_KEY = 'iesa_recent_searches';
+
+                          function getRecent() {
+                            try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+                          }
+                          function saveSearch(q) {
+                            var list = getRecent().filter(function(s){ return s !== q; });
+                            list.unshift(q);
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, 5)));
+                          }
+                          function renderSuggestions() {
+                            var recent = getRecent();
+                            if (!recent.length) { sugg.style.display = 'none'; return; }
+                            sugg.innerHTML = '<div style="font-size:.63rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;padding:.4rem .75rem .2rem;font-family:monospace;">{% trans "Recent" %}</div>'
+                              + recent.map(function(s){
+                                return '<button type="button" onclick="document.getElementById(\'global-community-search\').value=\'' + s.replace(/'/g,"\\'") + '\';this.closest(\'.dropdown-menu\').dispatchEvent(new Event(\'input\',{bubbles:true}));" style="display:flex;align-items:center;gap:.5rem;width:100%;padding:.35rem .75rem;background:none;border:none;color:rgba(255,255,255,.65);font-size:.82rem;text-align:left;cursor:pointer;transition:background .1s;" onmouseover="this.style.background=\'rgba(255,255,255,.06)\'" onmouseout="this.style.background=\'none\'">'
+                                  + '<i class="fas fa-history" style="font-size:.7rem;color:rgba(255,255,255,.25);width:14px;"></i>' + s + '</button>';
+                              }).join('')
+                              + '<button type="button" onclick="localStorage.removeItem(\'' + STORAGE_KEY + '\');document.getElementById(\'search-suggestions\').style.display=\'none\';" style="display:block;width:100%;padding:.3rem .75rem;background:none;border:none;color:rgba(255,255,255,.25);font-size:.7rem;cursor:pointer;text-align:left;">✕ {% trans "Clear history" %}</button>';
+                            sugg.style.display = 'block';
+                          }
+
+                          inp.addEventListener('focus', function(){
+                            if (!inp.value.trim()) renderSuggestions();
+                          });
+                          inp.addEventListener('input', function(){
+                            if (inp.value.trim()) {
+                              sugg.style.display = 'none';
+                            } else {
+                              renderSuggestions();
+                            }
+                          });
+                          /* Сохраняем при Enter или клике на результат */
+                          inp.addEventListener('keydown', function(e){
+                            if (e.key === 'Enter' && inp.value.trim()) saveSearch(inp.value.trim());
+                          });
+                          res.addEventListener('click', function(){
+                            if (inp.value.trim()) saveSearch(inp.value.trim());
+                          });
+                        })();
+                        </script>
                     </div>
 
                     {% if user.is_authenticated %}
