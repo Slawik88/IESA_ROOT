@@ -462,15 +462,27 @@
     </script>
     {% endif %}
     
-    <!-- Notifications Badge Polling (U2-11: every 5m, U4-22: fixed target) -->
+    <!-- Notifications Badge Polling (every 5m fallback) -->
     {% if user.is_authenticated %}
-    <div hx-get="{% url 'notifications:unread_count' %}"
+    <div id="notif-badge-poll"
+         hx-get="{% url 'notifications:unread_count' %}"
          hx-trigger="every 5m"
-         hx-swap="innerHTML"
-         hx-target="#navbar-notif-badge"
+         hx-swap="none"
          class="d-none"
          aria-hidden="true">
     </div>
+    <script>
+    /* Синхронизируем desktop + mobile badge после HTMX polling */
+    document.body.addEventListener('htmx:afterRequest', function(e){
+        if (e.detail.elt && e.detail.elt.id === 'notif-badge-poll') {
+            var html = e.detail.xhr ? e.detail.xhr.responseText : '';
+            var b1 = document.getElementById('navbar-notif-badge');
+            var b2 = document.getElementById('navbar-notif-badge-mob');
+            if (b1) b1.innerHTML = html;
+            if (b2) b2.innerHTML = html;
+        }
+    });
+    </script>
     {% endif %}
 
     {# 10c: PWA Install Prompt (bottom sheet) #}
@@ -756,30 +768,51 @@
     {% block extra_js %}{% endblock %}
 
     <!-- =====================================================
-         MOBILE BOTTOM NAVIGATION
-         Видна только на экранах < 768px (CSS display:none на десктопе)
+         MOBILE BOTTOM NAVIGATION — макс. 5 элементов
+         Видна только на экранах < 768px
          ===================================================== -->
     <nav class="mobile-bottom-nav" aria-label="{% trans "Mobile navigation" %}" id="mobileBottomNav">
+        {# Таб 1: Home #}
         <a href="{% url 'core:home' %}" class="mbn-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}" aria-label="{% trans "Home" %}">
             <i class="fas fa-home"></i>
             <span>{% trans "Home" %}</span>
         </a>
+
+        {# Таб 2: Posts #}
         <a href="{% url 'blog:post_list' %}" class="mbn-item {% if 'blog' in request.resolver_match.namespace %}active{% endif %}" aria-label="{% trans "Posts" %}">
             <i class="fas fa-newspaper"></i>
             <span>{% trans "Posts" %}</span>
         </a>
+
         {% if user.is_authenticated %}
-        {# 6c: Быстрый визит для партнёров (bottom sheet) #}
-        {% if user.is_partner %}
-        <button class="mbn-item" id="mbn-quick-visit-btn"
-                aria-label="{% trans 'Quick Visit Log' %}"
-                style="background:rgba(220,38,38,.15);border:1.5px solid rgba(220,38,38,.3);border-radius:12px;padding:.35rem .75rem;width:auto;">
-            <i class="fas fa-user-plus" style="color:#f87171;font-size:1.05rem;"></i>
-            <span style="font-size:.6rem;color:#f87171;">{% trans "Visit" %}</span>
+
+        {# Таб 3 (центр): QR для активных членов / «+» для партнёров / уведомления для остальных #}
+        {% if user.membership_status == 'active' and user.permanent_id %}
+        {# QR — большая центральная кнопка #}
+        <button class="mbn-item mbn-center-btn mbn-qr-btn" id="mbn-qr-btn"
+                aria-label="{% trans 'Show QR Code' %}">
+            <i class="fas fa-qrcode"></i>
         </button>
+        {% elif user.is_partner %}
+        {# Партнёр: быстрый визит #}
+        <button class="mbn-item mbn-center-btn" id="mbn-quick-visit-btn"
+                aria-label="{% trans 'Quick Visit Log' %}">
+            <i class="fas fa-user-plus"></i>
+            <span>{% trans "Visit" %}</span>
+        </button>
+        {% else %}
+        {# Обычный пользователь: создать пост #}
+        <a href="{% url 'blog:post_create' %}" class="mbn-item mbn-center-btn"
+           aria-label="{% trans 'Create post' %}">
+            <i class="fas fa-plus"></i>
+        </a>
         {% endif %}
+
+        {# Таб 4: Уведомления #}
         <div class="mbn-item-wrap">
-            <a href="{% url 'notifications:notification_list' %}" class="mbn-item {% if 'notifications' in request.resolver_match.namespace %}active{% endif %}" aria-label="{% trans "Notifications" %}">
+            <a href="{% url 'notifications:notification_list' %}"
+               class="mbn-item {% if 'notifications' in request.resolver_match.namespace %}active{% endif %}"
+               aria-label="{% trans "Notifications" %}">
                 <i class="fas fa-bell"></i>
                 <span>{% trans "Alerts" %}</span>
                 {% if unread_notifications_count > 0 %}
@@ -787,31 +820,29 @@
                 {% endif %}
             </a>
         </div>
-        {# 6b: QR-кнопка в центре — только для активных членов #}
-        {% if user.membership_status == 'active' and user.permanent_id %}
-        <button class="mbn-item mbn-qr-btn" id="mbn-qr-btn"
-                aria-label="{% trans 'Show QR Code' %}"
-                style="background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:50%;width:52px;height:52px;border:none;margin-bottom:10px;box-shadow:0 4px 20px rgba(220,38,38,.45);flex-shrink:0;">
-            <i class="fas fa-qrcode" style="font-size:1.35rem;color:#fff;"></i>
-        </button>
-        {% endif %}
-        {# Profile tab — active on profile, cabinet, profile_edit #}
+
+        {# Таб 5: Профиль #}
         {% with active_profile=request.resolver_match.url_name %}
-        <a href="{% url 'users:profile' %}" class="mbn-item {% if active_profile == 'profile' or active_profile == 'profile_edit' %}active{% endif %}" aria-label="{% trans "Profile" %}">
+        <a href="{% url 'users:profile' %}"
+           class="mbn-item {% if active_profile == 'profile' or active_profile == 'profile_edit' %}active{% endif %}"
+           aria-label="{% trans "Profile" %}">
             {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
-                <span class="mbn-avatar">
-                    <img src="{{ user.avatar.url }}" alt="{{ user.username }}">
-                </span>
+                <span class="mbn-avatar"><img src="{{ user.avatar.url }}" alt="{{ user.username }}"></span>
             {% else %}
                 <i class="fas fa-user"></i>
             {% endif %}
             <span>{% trans "Profile" %}</span>
         </a>
         {% endwith %}
+
         {% else %}
-        <a href="{% url 'core:benefits' %}" class="mbn-item {% if request.resolver_match.url_name == 'benefits' %}active{% endif %}" aria-label="{% trans "Benefits" %}">
+        {# Гость: Register (центр) + Sign In #}
+        <a href="{% url 'core:benefits' %}" class="mbn-item" aria-label="{% trans "Benefits" %}">
             <i class="fas fa-gift"></i>
             <span>{% trans "Benefits" %}</span>
+        </a>
+        <a href="{% url 'users:register' %}" class="mbn-item mbn-center-btn" aria-label="{% trans "Register" %}">
+            <i class="fas fa-user-plus"></i>
         </a>
         <a href="{% url 'users:login' %}" class="mbn-item {% if request.resolver_match.url_name == 'login' %}active{% endif %}" aria-label="{% trans "Sign In" %}">
             <i class="fas fa-sign-in-alt"></i>
@@ -871,17 +902,16 @@
     {% if user.is_authenticated %}
     /* ── 10e: SSE real-time badge обновление ── */
     (function(){
-        var badge = document.getElementById('navbar-notif-badge');
-        if (!badge || !window.EventSource) return;  /* fallback: hx polling остаётся */
+        var badge    = document.getElementById('navbar-notif-badge');
+        var badgeMob = document.getElementById('navbar-notif-badge-mob');
+        if (!window.EventSource) return;
 
         var es = new EventSource('{% url "notifications:notification_stream" %}');
         es.addEventListener('badge', function(e){
             var count = parseInt(e.data, 10) || 0;
-            if (count > 0) {
-                badge.innerHTML = '<span class="notif-dot">' + (count > 99 ? '99+' : count) + '</span>';
-            } else {
-                badge.innerHTML = '';
-            }
+            var html = count > 0 ? '<span class="notif-dot">' + (count > 99 ? '99+' : count) + '</span>' : '';
+            if (badge)    badge.innerHTML    = html;
+            if (badgeMob) badgeMob.innerHTML = html;
         });
         es.onerror = function(){
             /* При ошибке SSE закрываем — hx polling подхватит */

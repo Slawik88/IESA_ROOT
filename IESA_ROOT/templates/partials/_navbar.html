@@ -4,27 +4,60 @@
 
 <header class="iesa-header">
 
-    <!-- Bootstrap-стандартная структура navbar — JS dropdowns работают 100% -->
     <nav class="navbar navbar-expand-lg navbar-dark iesa-navbar"
          aria-label="{% trans 'Main navigation' %}">
         <div class="container-limited">
 
-            <!-- Логотип -->
+            <!-- Logo -->
             <a class="navbar-brand iesa-brand" href="{% url 'core:home' %}">
                 <img src="{% static 'img/logo.png' %}" alt="IESA" class="navbar-logo">
             </a>
 
-            <!-- Мобильный тоггл -->
-            <button class="iesa-toggler navbar-toggler" type="button"
+            {# ════ МОБИЛЬНАЯ ПРАВАЯ ПАНЕЛЬ (всегда видна, снаружи collapse) ════ #}
+            <div class="iesa-nav-mobile d-flex d-lg-none align-items-center ms-auto">
+
+                {# Колокол с бейджем #}
+                {% if user.is_authenticated %}
+                <a href="{% url 'notifications:notification_list' %}"
+                   class="btn-nav-icon btn-nav-icon--bell"
+                   aria-label="{% trans 'Notifications' %}"
+                   style="position:relative;">
+                    <i class="fas fa-bell"></i>
+                    <span id="navbar-notif-badge-mob" aria-live="polite">
+                        {% if unread_notifications_count > 0 %}
+                        <span class="notif-dot">{{ unread_notifications_count }}</span>
+                        {% endif %}
+                    </span>
+                </a>
+
+                {# Аватар (ведёт в профиль) #}
+                <a href="{% url 'users:profile' %}"
+                   class="btn-nav-icon nav-mob-avatar"
+                   aria-label="{% trans 'Profile' %}"
+                   style="overflow:hidden;border-radius:50%;padding:0;width:34px;height:34px;border:1.5px solid rgba(255,255,255,.2);">
+                    {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
+                        <img src="{{ user.avatar.url }}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                    {% else %}
+                        <span style="font-size:.8rem;font-weight:700;color:#fff;">{{ user.username|slice:":1"|upper }}</span>
+                    {% endif %}
+                </a>
+                {% else %}
+                <a href="{% url 'users:login' %}" class="btn-nav-ghost" style="font-size:.8rem;padding:.28rem .75rem;">{% trans "Sign In" %}</a>
+                {% endif %}
+            </div>
+
+            <!-- Гамбургер-тоггл -->
+            <button class="iesa-toggler navbar-toggler d-lg-none" type="button"
                     data-bs-toggle="collapse" data-bs-target="#iesa-nav-collapse"
                     aria-controls="iesa-nav-collapse" aria-expanded="false"
                     aria-label="{% trans 'Toggle navigation' %}">
                 <span></span><span></span><span></span>
             </button>
 
+            {# ════ COLLAPSE — только nav-ссылки ════ #}
             <div class="collapse navbar-collapse" id="iesa-nav-collapse">
 
-                <!-- Центральные ссылки -->
+                <!-- Центральные ссылки (десктоп: горизонталь; мобиль: вертикаль) -->
                 <ul class="navbar-nav mx-auto align-items-lg-center">
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'core:home' %}">{% trans "Home" %}</a>
@@ -38,8 +71,6 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'gallery:gallery' %}">{% trans "Gallery" %}</a>
                     </li>
-
-                    <!-- Community dropdown -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button"
                            data-bs-toggle="dropdown" data-bs-auto-close="true"
@@ -47,42 +78,30 @@
                             {% trans "Community" %}
                         </a>
                         <ul class="dropdown-menu">
-                            <li>
-                                <a class="dropdown-item" href="{% url 'blog:post_list' %}">
-                                    <i class="fas fa-newspaper fa-fw me-2 op-40"></i>{% trans "Posts" %}
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{% url 'blog:event_list' %}">
-                                    <i class="fas fa-calendar-alt fa-fw me-2 op-40"></i>{% trans "Events" %}
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{% url 'products:product_list' %}">
-                                    <i class="fas fa-box fa-fw me-2 op-40"></i>{% trans "Products" %}
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{% url 'users:users_search' %}">
-                                    <i class="fas fa-users fa-fw me-2 op-40"></i>{% trans "Members" %}
-                                </a>
-                            </li>
+                            <li><a class="dropdown-item" href="{% url 'blog:post_list' %}"><i class="fas fa-newspaper fa-fw me-2 op-40"></i>{% trans "Posts" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'blog:event_list' %}"><i class="fas fa-calendar-alt fa-fw me-2 op-40"></i>{% trans "Events" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'products:product_list' %}"><i class="fas fa-box fa-fw me-2 op-40"></i>{% trans "Products" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'users:users_search' %}"><i class="fas fa-users fa-fw me-2 op-40"></i>{% trans "Members" %}</a></li>
                             {% if user.is_authenticated %}
                             <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <a class="dropdown-item" href="{% url 'blog:post_create' %}">
-                                    <i class="fas fa-plus fa-fw me-2" style="color:var(--primary);"></i>{% trans "Create post" %}
-                                </a>
-                            </li>
+                            <li><a class="dropdown-item" href="{% url 'blog:post_create' %}"><i class="fas fa-plus fa-fw me-2" style="color:var(--primary);"></i>{% trans "Create post" %}</a></li>
                             {% endif %}
                         </ul>
                     </li>
+                    {% if not user.is_authenticated %}
+                    <li class="nav-item d-lg-none">
+                        <a class="nav-link" href="{% url 'users:how_it_works' %}">{% trans "How it works" %}</a>
+                    </li>
+                    <li class="nav-item d-lg-none">
+                        <a class="nav-link" href="{% url 'users:register' %}" style="color:#f87171;">{% trans "Register" %}</a>
+                    </li>
+                    {% endif %}
                 </ul>
 
-                <!-- Правая панель -->
-                <div class="iesa-nav-actions d-flex align-items-center">
+                {# ════ ДЕСКТОПНАЯ правая панель (только d-none d-lg-flex) ════ #}
+                <div class="iesa-nav-actions d-none d-lg-flex align-items-center">
 
-                    {# 10b: Тёмная/Светлая тема #}
+                    {# Тема #}
                     <button id="theme-toggle" type="button"
                             class="btn-nav-icon"
                             title="{% trans 'Toggle theme' %}"
@@ -91,7 +110,7 @@
                       <i class="fas fa-moon" id="theme-icon"></i>
                     </button>
 
-                    <!-- Языковой переключатель (кастомный, не Bootstrap) -->
+                    <!-- Языковой переключатель -->
                     <div class="lang-picker-wrap" id="langPickerWrap">
                         <form action="{% url 'set_language' %}" method="post" id="langSwitchForm" style="display:none">
                             {% csrf_token %}
@@ -117,7 +136,7 @@
                         </div>
                     </div>
 
-                    <!-- Поиск (Bootstrap dropdown) -->
+                    <!-- Поиск -->
                     <div class="dropdown">
                         <button class="btn-nav-icon" type="button"
                                 data-bs-toggle="dropdown" data-bs-auto-close="outside"
@@ -139,63 +158,35 @@
                             <div id="search-spinner" class="htmx-indicator text-center py-2">
                                 <i class="fas fa-spinner fa-spin" style="color:var(--primary);"></i>
                             </div>
-                            {# 10f: Smart suggestions при пустом поле #}
                             <div id="search-suggestions" style="display:none;"></div>
                             <div id="community-search-results" class="navbar-search-results mt-1"></div>
                         </div>
                         <script>
-                        /* 10f: показываем recent searches из localStorage при фокусе */
                         (function(){
-                          var inp = document.getElementById('global-community-search');
+                          var inp  = document.getElementById('global-community-search');
                           var sugg = document.getElementById('search-suggestions');
                           var res  = document.getElementById('community-search-results');
                           if (!inp || !sugg) return;
-                          var STORAGE_KEY = 'iesa_recent_searches';
-
-                          function getRecent() {
-                            try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+                          var KEY = 'iesa_recent_searches';
+                          function getR(){ try{ return JSON.parse(localStorage.getItem(KEY)||'[]'); }catch{ return []; } }
+                          function save(q){ var l=getR().filter(function(s){return s!==q;}); l.unshift(q); localStorage.setItem(KEY,JSON.stringify(l.slice(0,5))); }
+                          function render(){
+                            var r=getR(); if(!r.length){sugg.style.display='none';return;}
+                            sugg.innerHTML='<div style="font-size:.63rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;padding:.4rem .75rem .2rem;font-family:monospace;">{% trans "Recent" %}</div>'
+                              +r.map(function(s){return '<button type="button" onclick="document.getElementById(\'global-community-search\').value=\''+s.replace(/'/g,"\\'")+'\';this.closest(\'.dropdown-menu\').dispatchEvent(new Event(\'input\',{bubbles:true}));" style="display:flex;align-items:center;gap:.5rem;width:100%;padding:.35rem .75rem;background:none;border:none;color:rgba(255,255,255,.65);font-size:.82rem;text-align:left;cursor:pointer;" onmouseover="this.style.background=\'rgba(255,255,255,.06)\'" onmouseout="this.style.background=\'none\'"><i class="fas fa-history" style="font-size:.7rem;color:rgba(255,255,255,.25);width:14px;"></i>'+s+'</button>';}).join('')
+                              +'<button type="button" onclick="localStorage.removeItem(\''+KEY+'\');document.getElementById(\'search-suggestions\').style.display=\'none\';" style="display:block;width:100%;padding:.3rem .75rem;background:none;border:none;color:rgba(255,255,255,.25);font-size:.7rem;cursor:pointer;text-align:left;">✕ {% trans "Clear history" %}</button>';
+                            sugg.style.display='block';
                           }
-                          function saveSearch(q) {
-                            var list = getRecent().filter(function(s){ return s !== q; });
-                            list.unshift(q);
-                            localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, 5)));
-                          }
-                          function renderSuggestions() {
-                            var recent = getRecent();
-                            if (!recent.length) { sugg.style.display = 'none'; return; }
-                            sugg.innerHTML = '<div style="font-size:.63rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;padding:.4rem .75rem .2rem;font-family:monospace;">{% trans "Recent" %}</div>'
-                              + recent.map(function(s){
-                                return '<button type="button" onclick="document.getElementById(\'global-community-search\').value=\'' + s.replace(/'/g,"\\'") + '\';this.closest(\'.dropdown-menu\').dispatchEvent(new Event(\'input\',{bubbles:true}));" style="display:flex;align-items:center;gap:.5rem;width:100%;padding:.35rem .75rem;background:none;border:none;color:rgba(255,255,255,.65);font-size:.82rem;text-align:left;cursor:pointer;transition:background .1s;" onmouseover="this.style.background=\'rgba(255,255,255,.06)\'" onmouseout="this.style.background=\'none\'">'
-                                  + '<i class="fas fa-history" style="font-size:.7rem;color:rgba(255,255,255,.25);width:14px;"></i>' + s + '</button>';
-                              }).join('')
-                              + '<button type="button" onclick="localStorage.removeItem(\'' + STORAGE_KEY + '\');document.getElementById(\'search-suggestions\').style.display=\'none\';" style="display:block;width:100%;padding:.3rem .75rem;background:none;border:none;color:rgba(255,255,255,.25);font-size:.7rem;cursor:pointer;text-align:left;">✕ {% trans "Clear history" %}</button>';
-                            sugg.style.display = 'block';
-                          }
-
-                          inp.addEventListener('focus', function(){
-                            if (!inp.value.trim()) renderSuggestions();
-                          });
-                          inp.addEventListener('input', function(){
-                            if (inp.value.trim()) {
-                              sugg.style.display = 'none';
-                            } else {
-                              renderSuggestions();
-                            }
-                          });
-                          /* Сохраняем при Enter или клике на результат */
-                          inp.addEventListener('keydown', function(e){
-                            if (e.key === 'Enter' && inp.value.trim()) saveSearch(inp.value.trim());
-                          });
-                          res.addEventListener('click', function(){
-                            if (inp.value.trim()) saveSearch(inp.value.trim());
-                          });
+                          inp.addEventListener('focus',function(){ if(!inp.value.trim())render(); });
+                          inp.addEventListener('input',function(){ inp.value.trim()?sugg.style.display='none':render(); });
+                          inp.addEventListener('keydown',function(e){ if(e.key==='Enter'&&inp.value.trim())save(inp.value.trim()); });
+                          res.addEventListener('click',function(){ if(inp.value.trim())save(inp.value.trim()); });
                         })();
                         </script>
                     </div>
 
                     {% if user.is_authenticated %}
-
-                    <!-- Уведомления (Bootstrap dropdown) -->
+                    <!-- Уведомления (десктоп dropdown) -->
                     <div class="dropdown">
                         <button class="btn-nav-icon btn-nav-icon--bell" type="button"
                                 id="notificationsToggle"
@@ -232,7 +223,7 @@
                         </div>
                     </div>
 
-                    <!-- Профиль (Bootstrap dropdown) -->
+                    <!-- Профиль dropdown -->
                     <div class="dropdown">
                         <button type="button" class="nav-profile-btn dropdown-toggle"
                                 id="profNavDropBtn"
@@ -254,8 +245,6 @@
 
                         <ul class="dropdown-menu dropdown-menu-end prof-nav-drop-menu"
                             aria-labelledby="profNavDropBtn">
-
-                            <!-- Шапка с инфо юзера -->
                             <li class="pnd-user-header">
                                 {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
                                     <img src="{{ user.avatar.url }}" class="pnd-user-avatar" alt="">
@@ -268,101 +257,28 @@
                                 <div class="pnd-user-info">
                                     <div class="pnd-user-name">{{ user.get_full_name|default:user.username }}</div>
                                     <div class="pnd-user-role">
-                                        {% if user.is_staff %}
-                                            <span class="pnd-role-badge pnd-role--staff">Admin</span>
-                                        {% elif user.is_partner or user.partner_profile %}
-                                            <span class="pnd-role-badge pnd-role--partner">{% trans "Partner" %}</span>
-                                        {% elif user.membership_status == 'active' %}
-                                            <span class="pnd-role-badge pnd-role--member">{% trans "Member" %}</span>
-                                        {% else %}
-                                            <span class="pnd-role-badge pnd-role--user">{% trans "User" %}</span>
+                                        {% if user.is_staff %}<span class="pnd-role-badge pnd-role--staff">Admin</span>
+                                        {% elif user.is_partner or user.partner_profile %}<span class="pnd-role-badge pnd-role--partner">{% trans "Partner" %}</span>
+                                        {% elif user.membership_status == 'active' %}<span class="pnd-role-badge pnd-role--member">{% trans "Member" %}</span>
+                                        {% else %}<span class="pnd-role-badge pnd-role--user">{% trans "User" %}</span>
                                         {% endif %}
                                     </div>
                                 </div>
                             </li>
                             <li><hr class="pnd-divider"></li>
-
-                            <li>
-                                <a class="dropdown-item pnd-item pnd-profile"
-                                   href="{% url 'users:dashboard' %}">
-                                    <span class="pnd-icon"><i class="fas fa-th-large"></i></span>
-                                    <div>
-                                        <div class="pnd-label">{% trans "My Cabinet" %}</div>
-                                        <div class="pnd-sub">{% trans "Dashboard & stats" %}</div>
-                                    </div>
-                                </a>
-                            </li>
-
-                            {% if user.membership_status == 'active' %}
-                            <li>
-                                <a class="dropdown-item pnd-item pnd-cabinet"
-                                   href="{% url 'users:profile' %}#pin-section">
-                                    <span class="pnd-icon"><i class="fas fa-fingerprint"></i></span>
-                                    <div>
-                                        <div class="pnd-label">{% trans "PIN & Card" %}</div>
-                                        <div class="pnd-sub">{% trans "PIN code & visit history" %}</div>
-                                    </div>
-                                </a>
-                            </li>
-                            {% endif %}
-
-                            {% if user.is_partner or user.partner_profile %}
-                            <li>
-                                <a class="dropdown-item pnd-item pnd-partner"
-                                   href="{% url 'users:partner_dashboard' %}">
-                                    <span class="pnd-icon"><i class="fas fa-store"></i></span>
-                                    <div>
-                                        <div class="pnd-label">{% trans "Partner Portal" %}</div>
-                                        <div class="pnd-sub">{% trans "Visits & analytics" %}</div>
-                                    </div>
-                                </a>
-                            </li>
-                            {% endif %}
-
-                            <li>
-                                <a class="dropdown-item pnd-item"
-                                   href="{% url 'users:insurance_agent' %}"
-                                   style="color:rgba(255,255,255,.8);">
-                                    <span class="pnd-icon" style="color:#fbbf24;"><i class="fas fa-shield-alt"></i></span>
-                                    <div>
-                                        <div class="pnd-label">{% trans "Insurance Agent" %}</div>
-                                        <div class="pnd-sub">{% trans "Request a specialist" %}</div>
-                                    </div>
-                                </a>
-                            </li>
-
+                            <li><a class="dropdown-item pnd-item pnd-profile" href="{% url 'users:dashboard' %}"><span class="pnd-icon"><i class="fas fa-th-large"></i></span><div><div class="pnd-label">{% trans "My Cabinet" %}</div><div class="pnd-sub">{% trans "Dashboard & stats" %}</div></div></a></li>
+                            {% if user.membership_status == 'active' %}<li><a class="dropdown-item pnd-item pnd-cabinet" href="{% url 'users:profile' %}#pin-section"><span class="pnd-icon"><i class="fas fa-fingerprint"></i></span><div><div class="pnd-label">{% trans "PIN & Card" %}</div><div class="pnd-sub">{% trans "PIN code & visit history" %}</div></div></a></li>{% endif %}
+                            {% if user.is_partner or user.partner_profile %}<li><a class="dropdown-item pnd-item pnd-partner" href="{% url 'users:partner_dashboard' %}"><span class="pnd-icon"><i class="fas fa-store"></i></span><div><div class="pnd-label">{% trans "Partner Portal" %}</div><div class="pnd-sub">{% trans "Visits & analytics" %}</div></div></a></li>{% endif %}
+                            <li><a class="dropdown-item pnd-item" href="{% url 'users:insurance_agent' %}" style="color:rgba(255,255,255,.8);"><span class="pnd-icon" style="color:#fbbf24;"><i class="fas fa-shield-alt"></i></span><div><div class="pnd-label">{% trans "Insurance Agent" %}</div><div class="pnd-sub">{% trans "Request a specialist" %}</div></div></a></li>
                             <li><hr class="pnd-divider"></li>
-
-                            <li>
-                                <a class="dropdown-item pnd-item pnd-edit"
-                                   href="{% url 'users:profile_edit' %}">
-                                    <span class="pnd-icon"><i class="fas fa-sliders-h"></i></span>
-                                    <div>
-                                        <div class="pnd-label">{% trans "Edit Profile" %}</div>
-                                        <div class="pnd-sub">{% trans "Settings & links" %}</div>
-                                    </div>
-                                </a>
-                            </li>
-
+                            <li><a class="dropdown-item pnd-item pnd-edit" href="{% url 'users:profile_edit' %}"><span class="pnd-icon"><i class="fas fa-sliders-h"></i></span><div><div class="pnd-label">{% trans "Edit Profile" %}</div><div class="pnd-sub">{% trans "Settings & links" %}</div></div></a></li>
                             <li><hr class="pnd-divider"></li>
-
-                            <li>
-                                <button type="button"
-                                        class="dropdown-item pnd-item pnd-logout"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#logoutConfirmModal">
-                                    <span class="pnd-icon pnd-icon--danger"><i class="fas fa-sign-out-alt"></i></span>
-                                    <div>
-                                        <div class="pnd-label">{% trans "Logout" %}</div>
-                                        <div class="pnd-sub">{% trans "Sign out" %}</div>
-                                    </div>
-                                </button>
-                            </li>
+                            <li><button type="button" class="dropdown-item pnd-item pnd-logout" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"><span class="pnd-icon pnd-icon--danger"><i class="fas fa-sign-out-alt"></i></span><div><div class="pnd-label">{% trans "Logout" %}</div><div class="pnd-sub">{% trans "Sign out" %}</div></div></button></li>
                         </ul>
                     </div>
 
                     {% else %}
-                    <!-- Гость -->
+                    <!-- Гость (десктоп) -->
                     <a href="{% url 'users:how_it_works' %}" class="btn-nav-ghost me-1" style="font-size:.8rem;">
                       <i class="fas fa-question-circle" style="margin-right:.3rem;opacity:.6;"></i>{% trans "How it works" %}
                     </a>
@@ -370,7 +286,7 @@
                     <a href="{% url 'users:register' %}" class="btn-nav-primary ms-1">{% trans "Register" %}</a>
                     {% endif %}
 
-                </div>{# /iesa-nav-actions #}
+                </div>{# /iesa-nav-actions desktop #}
             </div>{# /collapse #}
         </div>{# /container-limited #}
     </nav>

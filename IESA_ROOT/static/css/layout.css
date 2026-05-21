@@ -302,26 +302,48 @@
 }
 .navbar-search-results { max-height: 380px; overflow-y: auto; }
 
-/* Responsive */
+/* ── Mobile navbar ── */
 @media (max-width: 991.98px) {
+  /* Collapse только с nav-ссылками */
   .iesa-navbar .navbar-nav { flex-direction: column; gap: 0; }
   .iesa-navbar .navbar-collapse {
     background: #0a0a0f;
     border-top: 1px solid rgba(255,255,255,.07);
-    padding: .5rem 0;
+    padding: .5rem 0 .75rem;
+    /* Collapse позиционируется под navbar */
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    z-index: 1050;
   }
-  .iesa-navbar .navbar-nav .nav-link { padding: .6rem 1.1rem; border-radius: 8px; margin: 0 .5rem; }
+  .iesa-navbar .navbar-nav .nav-link {
+    padding: .7rem 1.25rem;
+    border-radius: 10px;
+    margin: 0 .6rem;
+    font-size: .9rem;
+  }
+  .iesa-navbar .navbar-nav .dropdown-menu {
+    position: static !important;
+    background: rgba(255,255,255,.04) !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 0 0 1.2rem !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
   .iesa-toggler { display: flex; }
-  .iesa-nav-actions {
-    padding: .5rem 1rem .75rem;
-    border-top: 1px solid rgba(255,255,255,.06);
-    width: 100%; flex-wrap: wrap; margin-left: 0;
-  }
-  .nav-username { display: none !important; }
-  .btn-nav-ghost, .btn-nav-primary { font-size: .8rem; padding: .3rem .7rem; }
+  /* Мобильная правая панель: компактная */
+  .iesa-nav-mobile { gap: .3rem; }
+  .nav-mob-avatar { min-width: 34px; }
 }
 @media (max-width: 575.98px) {
-  .iesa-navbar { height: 54px; }
+  .iesa-navbar { height: 52px; }
+  .iesa-brand .navbar-logo { height: 28px; }
+}
+
+/* ── Desktop: collapse не absolute ── */
+@media (min-width: 992px) {
+  .iesa-navbar .navbar-collapse { position: static; }
 }
 
 /* Opacity helpers */
