@@ -92,6 +92,8 @@
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
     <!-- Dark-theme overrides: must be last to win the cascade -->
     <link rel="stylesheet" href="{% static 'css/dark-theme-fixes.css' %}">
+    <!-- UI/UX improvements: contrast, animations, feedback (must be after dark-theme) -->
+    <link rel="stylesheet" href="{% static 'css/ui-ux-improvements.css' %}">
 
     <!-- Per-page CSS: override 'extra_css' block in child templates -->
     {% block extra_css %}{% endblock %}
@@ -238,6 +240,34 @@
                 btn.innerHTML = orig;
                 btn.removeAttribute('data-loading');
             }, { once: true });
+        });
+
+        /* ── UI/UX: Ripple effect на всех кнопках ── */
+        document.addEventListener('mousedown', function(e){
+            var btn = e.target.closest('.btn, .hero-btn-p, .hero-btn-g, .btn-primary, .btn-secondary, .auth-btn, .pp-btn');
+            if (!btn || btn.disabled) return;
+            var r = document.createElement('span');
+            r.className = 'ripple';
+            var d = Math.max(btn.offsetWidth, btn.offsetHeight);
+            var rect = btn.getBoundingClientRect();
+            r.style.cssText = 'width:'+d+'px;height:'+d+'px;left:'+(e.clientX-rect.left-d/2)+'px;top:'+(e.clientY-rect.top-d/2)+'px;';
+            btn.appendChild(r);
+            setTimeout(function(){ r.remove(); }, 650);
+        });
+
+        /* ── UI/UX: Shake форм при Django-ошибках ── */
+        (function(){
+            var errEls = document.querySelectorAll('.errorlist, .auth-err-bar, .pp-field .errorlist');
+            if (errEls.length) {
+                var frm = errEls[0].closest('form');
+                if (frm) { frm.classList.add('form-shake'); setTimeout(function(){ frm.classList.remove('form-shake'); }, 600); }
+            }
+        })();
+
+        /* ── UI/UX: Image lazy-load — добавляем загружённый класс ── */
+        document.querySelectorAll('img[loading="lazy"]').forEach(function(img){
+            if (img.complete) { img.classList.add('img-loaded'); }
+            else { img.addEventListener('load', function(){ img.classList.add('img-loaded'); }); }
         });
 
     })();

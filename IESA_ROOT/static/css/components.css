@@ -88,13 +88,15 @@
   box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15);
 }
 
-/* Disabled state */
+/* Disabled state — улучшенная визуализация */
 .btn:disabled,
 .btn[disabled] {
-  opacity: 0.75;
+  opacity: 0.5;
   cursor: not-allowed;
-  filter: grayscale(20%);
+  filter: grayscale(60%);
   pointer-events: none;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* Primary Button */

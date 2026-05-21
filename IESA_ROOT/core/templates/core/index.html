@@ -80,7 +80,7 @@
 @keyframes word-in  { from{opacity:0;transform:translateY(60%) skewY(6deg)} to{opacity:1;transform:none} }
 .hero-h1 .dynamic-word.exiting { animation: word-out .4s cubic-bezier(.55,0,1,.45) forwards; }
 @keyframes word-out { from{opacity:1;transform:none} to{opacity:0;transform:translateY(-60%) skewY(-6deg)} }
-.hero-desc { font-size: 1.15rem; color: rgba(255,255,255,.55); max-width: 560px; margin-bottom: 2.5rem; line-height: 1.7; }
+.hero-desc { font-size: 1.15rem; color: rgba(255,255,255,.7); max-width: 560px; margin-bottom: 2.5rem; line-height: 1.78; }
 .hero-ctas { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
 .hero-btn-p {
     display: inline-flex; align-items: center; gap: .6rem; white-space: nowrap; flex-shrink: 0;
@@ -511,7 +511,7 @@
 
 <!-- ════ 1. HERO ═══════════════════════════════════════════════════ -->
 <section id="hp-hero">
-    <canvas id="hp-hero-canvas"></canvas>
+    <canvas id="hp-hero-canvas" id="hero-canvas"></canvas>
     <div class="hp-container hero-inner" style="padding-top:9rem;padding-bottom:8rem;">
         <div class="hero-kicker">
             <i class="fas fa-circle" style="font-size:.55rem;"></i>
@@ -1001,9 +1001,17 @@
     if(!c) return;
     const ctx = c.getContext('2d');
     let W, H, pts=[];
-    function resize(){ W=c.width=c.offsetWidth; H=c.height=c.offsetHeight; }
-    resize(); window.addEventListener('resize', resize);
-    for(let i=0;i<75;i++) pts.push({x:Math.random()*(W||1200),y:Math.random()*(H||800),dx:(Math.random()-.5)*.45,dy:(Math.random()-.5)*.45,r:Math.random()*1.8+.4,a:Math.random()*.5+.15});
+    /* Меньше частиц на мобиле — экономия батареи */
+    const PARTICLE_COUNT = window.innerWidth < 768 ? 28 : 75;
+    let resizeTimer;
+    function resize(){
+        W=c.width=c.offsetWidth; H=c.height=c.offsetHeight;
+    }
+    resize();
+    window.addEventListener('resize', function(){ clearTimeout(resizeTimer); resizeTimer=setTimeout(resize,200); });
+    for(let i=0;i<PARTICLE_COUNT;i++) pts.push({x:Math.random()*(W||1200),y:Math.random()*(H||800),dx:(Math.random()-.5)*.45,dy:(Math.random()-.5)*.45,r:Math.random()*1.8+.4,a:Math.random()*.5+.15});
+    /* Отключаем на prefers-reduced-motion */
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     function draw(){
         ctx.clearRect(0,0,W,H);
         pts.forEach(p=>{

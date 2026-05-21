@@ -1,0 +1,349 @@
+/*
+ * IESA Sport — UI/UX Improvements
+ * Результат аудита: контрастность, анимации, читаемость, feedback, CTA
+ */
+
+/* ══════════════════════════════════════════════════════════════
+   1. КОНТРАСТНОСТЬ — WCAG AA COMPLIANCE
+   ══════════════════════════════════════════════════════════════ */
+
+/* Hero description — было 0.55, стало 0.68 */
+.hero-desc {
+  color: rgba(255,255,255,.68) !important;
+  line-height: 1.75 !important;
+}
+
+/* Hero stats labels — было 0.4 */
+.hero-stat-label { color: rgba(255,255,255,.58) !important; }
+
+/* Offers meta items — было 0.55 */
+.offer-meta-v2 li { color: rgba(255,255,255,.65) !important; }
+
+/* Offer text — было var(--text-muted) = 0.5 */
+.offer-text-v2 { color: rgba(255,255,255,.65) !important; }
+
+/* Iesa-do description text */
+.iesa-do-content p { color: rgba(255,255,255,.65) !important; }
+
+/* Section eyebrow readable */
+.section-eyebrow { letter-spacing: .12em; }
+
+/* Метаданные в постах */
+.pd-meta { color: rgba(255,255,255,.62); }
+.pd-meta span { color: rgba(255,255,255,.62); }
+
+/* Читаемость длинного текста — max-width и line-height */
+.pd-content {
+  max-width: 720px;
+  line-height: 1.82;
+  font-size: 1.02rem;
+}
+.pd-content p { margin-bottom: 1.35em; }
+.pd-content h2 { font-weight: 800; margin-top: 2em; margin-bottom: .65em; }
+.pd-content h3 { font-weight: 700; margin-top: 1.6em; margin-bottom: .5em; }
+
+/* ══════════════════════════════════════════════════════════════
+   2. FOCUS STATES — КЛАВИАТУРНАЯ НАВИГАЦИЯ
+   ══════════════════════════════════════════════════════════════ */
+
+/* Hero CTA кнопки */
+.hero-btn-p:focus-visible,
+.hero-btn-g:focus-visible {
+  outline: 3px solid rgba(220,38,38,.7);
+  outline-offset: 3px;
+}
+
+/* Ссылки внутри поста */
+.pd-content a:focus-visible {
+  outline: 2px solid #f87171;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Карточки с hover — добавляем focus для клавиатуры */
+.offer-card-v2:focus-visible,
+.iesa-do-item:focus-visible {
+  outline: 2px solid rgba(220,38,38,.6);
+  outline-offset: 2px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   3. HERO BUTTONS — УЛУЧШЕННЫЕ HOVER/ACTIVE СОСТОЯНИЯ
+   ══════════════════════════════════════════════════════════════ */
+
+.hero-btn-p {
+  transition: box-shadow .22s, transform .22s, background .18s !important;
+}
+.hero-btn-p:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 45px rgba(220,38,38,.65) !important;
+}
+.hero-btn-p:active {
+  transform: translateY(0) !important;
+  box-shadow: 0 4px 20px rgba(220,38,38,.35) !important;
+}
+
+.hero-btn-g {
+  transition: border-color .2s, background .2s, transform .2s !important;
+}
+.hero-btn-g:hover {
+  transform: translateY(-2px) !important;
+  background: rgba(255,255,255,.07) !important;
+}
+.hero-btn-g:active { transform: translateY(0) !important; }
+
+/* ══════════════════════════════════════════════════════════════
+   4. READING PROGRESS BAR — ТОЛЩЕ И ЗАМЕТНЕЕ
+   ══════════════════════════════════════════════════════════════ */
+
+#reading-progress {
+  height: 3px !important;
+  box-shadow: 0 0 8px rgba(220,38,38,.5);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   5. CARD HOVER — КОНСИСТЕНТНЫЙ LIFT
+   ══════════════════════════════════════════════════════════════ */
+
+/* Карточки постов */
+.iesa-article {
+  transition: border-color .25s, box-shadow .25s, transform .25s !important;
+}
+.iesa-article:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(220,38,38,.35) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   6. FORM UX — SHAKE + REQUIRED + TRANSITIONS
+   ══════════════════════════════════════════════════════════════ */
+
+/* Shake анимация при ошибке валидации */
+@keyframes form-shake {
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-8px); }
+  30%       { transform: translateX(8px); }
+  45%       { transform: translateX(-6px); }
+  60%       { transform: translateX(6px); }
+  75%       { transform: translateX(-3px); }
+  90%       { transform: translateX(3px); }
+}
+.form-shake { animation: form-shake .5s cubic-bezier(.36,.07,.19,.97) both; }
+
+/* Required field indicator */
+.field-required::after {
+  content: ' *';
+  color: #f87171;
+  font-weight: 700;
+}
+
+/* Переход между шагами регистрации */
+@keyframes step-fade-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.reg-step-panel.active-anim {
+  animation: step-fade-in .32s cubic-bezier(.22,1,.36,1) both;
+}
+
+/* Плавный focus на input */
+input:focus, select:focus, textarea:focus {
+  transition: border-color .18s, box-shadow .18s;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   7. STATUS BADGE — УЛУЧШЕННАЯ ВИДИМОСТЬ
+   ══════════════════════════════════════════════════════════════ */
+
+/* Статус pending — более заметный */
+.pd-status-pending {
+  background: rgba(217,119,6,.18) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(217,119,6,.3);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   8. SECTION SEPARATORS — ВИЗУАЛЬНОЕ РАЗДЕЛЕНИЕ
+   ══════════════════════════════════════════════════════════════ */
+
+/* Тонкая разделительная линия между секциями homepage */
+.hp-section + .hp-section,
+section + section {
+  border-top: 1px solid rgba(255,255,255,.045);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   9. IMAGE PLACEHOLDERS — SKELETON ДО ЗАГРУЗКИ
+   ══════════════════════════════════════════════════════════════ */
+
+/* Фон-заглушка для картинок */
+img:not([src]), img[src=""] {
+  background: linear-gradient(90deg, #1a1a24 25%, #252535 50%, #1a1a24 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+img {
+  background-color: #1a1a24; /* fallback пока грузится */
+}
+
+/* ══════════════════════════════════════════════════════════════
+   10. PROFILE QUICK ACTIONS — HOVER ANIMATIONS
+   ══════════════════════════════════════════════════════════════ */
+
+/* Quick action cards на профиле */
+.cab-qn-item, .qa-item, .btn-hero-quick {
+  transition: background .2s, transform .2s, border-color .2s, box-shadow .2s !important;
+}
+.cab-qn-item:hover, .qa-item:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.3) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   11. MARQUEE — FOCUS PAUSE (A11Y)
+   ══════════════════════════════════════════════════════════════ */
+
+.partners-marquee-track:focus-within { animation-play-state: paused; }
+
+/* ══════════════════════════════════════════════════════════════
+   12. TOOLTIP IMPROVEMENTS
+   ══════════════════════════════════════════════════════════════ */
+
+/* Улучшенные CSS tooltips через data-tooltip */
+[data-tooltip] {
+  position: relative;
+  cursor: default;
+}
+[data-tooltip]::before {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20,20,32,.97);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.9);
+  font-size: .72rem;
+  font-weight: 500;
+  padding: .3rem .65rem;
+  border-radius: 7px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s, transform .15s;
+  transform: translateX(-50%) translateY(4px);
+  z-index: 100;
+}
+[data-tooltip]:hover::before {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   13. ТАБЛИЦЫ — ЗЕБРА И HOVER
+   ══════════════════════════════════════════════════════════════ */
+
+.dash-table tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,.015);
+}
+.dash-table tbody tr:hover td {
+  background: rgba(220,38,38,.04);
+  transition: background .12s;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   14. КНОПКИ — КОНСИСТЕНТНЫЙ ACTIVE STATE
+   ══════════════════════════════════════════════════════════════ */
+
+.btn-primary:active,
+.btn-secondary:active {
+  transform: scale(.98) !important;
+  transition: transform .08s !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   15. TYPOGRAPHY — ИЕРАРХИЯ ВНУТРИ ПОСТОВ
+   ══════════════════════════════════════════════════════════════ */
+
+.pd-content h1 { font-weight: 900; }
+.pd-content h2 { font-weight: 800; }
+.pd-content h3 { font-weight: 700; }
+.pd-content h4 { font-weight: 700; color: rgba(255,255,255,.82); }
+
+/* Ссылки внутри поста — заметнее */
+.pd-content a {
+  color: #f87171;
+  text-decoration: underline;
+  text-decoration-color: rgba(248,113,113,.35);
+  text-underline-offset: 3px;
+  transition: text-decoration-color .15s;
+}
+.pd-content a:hover {
+  text-decoration-color: #f87171;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   16. AVATAR PLACEHOLDER — ЦВЕТНОЙ ФОЛЛБЕК
+   ══════════════════════════════════════════════════════════════ */
+
+/* При отсутствии аватара — градиентный фон */
+.nav-avatar--fallback,
+.pnd-user-avatar--fallback,
+.cm-avatar-fallback,
+.cm-reply-avatar-fallback {
+  background: linear-gradient(135deg, #dc2626, #991b1b) !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   17. MOBILE — OFFERS GRID 1 COLUMN
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 575.98px) {
+  .offers-grid { grid-template-columns: 1fr !important; gap: 1rem !important; }
+  .iesa-do-grid { grid-template-columns: 1fr !important; gap: .85rem !important; }
+  .stats-grid { grid-template-columns: repeat(2,1fr) !important; }
+}
+
+@media (max-width: 767.98px) {
+  /* Уменьшаем canvas particles на мобиле */
+  #hero-canvas { opacity: .6; }
+  /* Hero stats компактнее */
+  .hero-stats { gap: 1.5rem !important; padding-top: 1.75rem !important; }
+  .hero-stat-num { font-size: 1.85rem !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   18. NOTIFICATION ITEMS — УЛУЧШЕННЫЙ HOVER
+   ══════════════════════════════════════════════════════════════ */
+
+.notification-item {
+  transition: background .18s, border-color .18s, transform .18s !important;
+}
+.notification-item:hover {
+  transform: translateX(3px) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   19. BACK-TO-TOP BUTTON — УЛУЧШЕННЫЙ СТИЛЬ
+   ══════════════════════════════════════════════════════════════ */
+
+#back-to-top {
+  transition: opacity .25s, transform .25s, box-shadow .25s !important;
+}
+#back-to-top:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 24px rgba(220,38,38,.4) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   20. EMPTY STATES — БОЛЕЕ ЗАМЕТНЫЕ
+   ══════════════════════════════════════════════════════════════ */
+
+.empty-state i, .dash-empty i {
+  font-size: 2.5rem !important;
+  opacity: .35 !important;
+  margin-bottom: .75rem !important;
+  display: block !important;
+}

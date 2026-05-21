@@ -79,6 +79,8 @@
 /* ── Step panels ─────────────────────────────────── */
 .reg-step-panel { display:none; }
 .reg-step-panel.active { display:block; }
+.reg-step-panel.active-anim { animation:step-fade-in .3s cubic-bezier(.22,1,.36,1) both; }
+@keyframes step-fade-in { from{opacity:0;transform:translateX(12px)} to{opacity:1;transform:none} }
 .reg-step-nav { display:flex; gap:.75rem; margin-top:1.5rem; }
 .reg-btn-back {
     background:rgba(255,255,255,.05); border:1.5px solid rgba(255,255,255,.1);
@@ -246,7 +248,7 @@
                         <div class="reg-grid">
                             {# ── 3a: Username с live-проверкой ── #}
                             <div class="rf reg-full">
-                                <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+                                <label for="{{ form.username.id_for_label }}">{{ form.username.label }} <span style="color:#f87171;font-weight:700;" aria-hidden="true">*</span></label>
                                 <div class="rf-wrap" style="position:relative;">
                                     <i class="fas fa-at rf-ic"></i>
                                     <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}"
@@ -263,7 +265,7 @@
 
                             {# ── 3a: Email с live-проверкой ── #}
                             <div class="rf reg-full">
-                                <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                                <label for="{{ form.email.id_for_label }}">{{ form.email.label }} <span style="color:#f87171;font-weight:700;" aria-hidden="true">*</span></label>
                                 <div class="rf-wrap" style="position:relative;">
                                     <i class="fas fa-envelope rf-ic"></i>
                                     <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}"
@@ -290,7 +292,7 @@
                         <div class="reg-grid">
                             {# ── 3a: Индикатор силы пароля ── #}
                             <div class="rf reg-full">
-                                <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+                                <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }} <span style="color:#f87171;font-weight:700;" aria-hidden="true">*</span></label>
                                 <div class="rf-wrap">
                                     <i class="fas fa-lock rf-ic"></i>
                                     <input type="password" name="{{ form.password1.html_name }}" id="{{ form.password1.id_for_label }}"
@@ -409,7 +411,16 @@ function togglePw(btn){
     else if (hasErrors(1)) currentStep = 1;
 
     function showStep(n) {
-        panels.forEach(function(p){ p.classList.toggle('active', +p.dataset.step === n); });
+        panels.forEach(function(p){
+            var isActive = +p.dataset.step === n;
+            p.classList.toggle('active', isActive);
+            /* Анимация входа при смене шага */
+            if (isActive) {
+                p.classList.remove('active-anim');
+                void p.offsetWidth; /* reflow */
+                p.classList.add('active-anim');
+            }
+        });
         indicators.forEach(function(ind){
             var s = +ind.dataset.stepInd;
             ind.classList.remove('active','done');
