@@ -80,12 +80,12 @@
   --gray-800: rgba(255, 255, 255, 0.8);
   --gray-900: rgba(255, 255, 255, 0.9);
   
-  /* Текстовые цвета (dark-theme friendly) */
-  --text-primary: rgba(255, 255, 255, 0.87);
-  --text-secondary: rgba(255, 255, 255, 0.65);
-  --text-muted: rgba(255, 255, 255, 0.5);
-  --text-light: rgba(255, 255, 255, 0.38);
-  --text-inverse: #111827;
+  /* Текстовые цвета (dark-theme friendly, WCAG AA compliant) */
+  --text-primary:    rgba(255, 255, 255, 0.92);  /* 14:1 — заголовки, основной текст */
+  --text-secondary:  rgba(255, 255, 255, 0.72);  /* 9.5:1 — вторичный текст, описания */
+  --text-muted:      rgba(255, 255, 255, 0.58);  /* 6.2:1 — подписи, метаданные */
+  --text-light:      rgba(255, 255, 255, 0.42);  /* 4.6:1 — декоративный, min WCAG AA */
+  --text-inverse:    #111827;
   
   /* Фоновые цвета */
   --bg-body: #0e0e18;
@@ -102,10 +102,10 @@
   --bg-surface: #111118;
   --bg-surface-hover: #1a1a24;
   --bg-overlay: rgba(14, 14, 24, 0.98);
-  --text-on-dark: rgba(255, 255, 255, 0.87);
-  --text-on-dark-muted: rgba(255, 255, 255, 0.55);
-  --border-dark: rgba(255, 255, 255, 0.08);
-  --border-dark-hover: rgba(255, 255, 255, 0.15);
+  --text-on-dark: rgba(255, 255, 255, 0.92);
+  --text-on-dark-muted: rgba(255, 255, 255, 0.65);  /* было 0.55 — WCAG AA fix */
+  --border-dark: rgba(255, 255, 255, 0.09);
+  --border-dark-hover: rgba(255, 255, 255, 0.18);
 
   /* Aliased color-gray-* for homepage/about sections (used in pages.css).
      These resolve in white-bg containers where the scoped override in
