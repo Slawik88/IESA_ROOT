@@ -13,15 +13,14 @@
                 <img src="{% static 'img/logo.png' %}" alt="IESA" class="navbar-logo">
             </a>
 
-            {# ════ МОБИЛЬНАЯ ПРАВАЯ ПАНЕЛЬ (всегда видна, снаружи collapse) ════ #}
-            <div class="iesa-nav-mobile d-flex d-lg-none align-items-center ms-auto">
+            {# ════ МОБИЛЬНЫЙ ПРАВЫЙ БЛОК: иконки + гамбургер вместе (ms-auto) ════ #}
+            <div class="iesa-nav-mobile-wrap d-flex d-lg-none align-items-center ms-auto gap-1">
 
-                {# Колокол с бейджем #}
                 {% if user.is_authenticated %}
+                {# Колокол с бейджем #}
                 <a href="{% url 'notifications:notification_list' %}"
-                   class="btn-nav-icon btn-nav-icon--bell"
-                   aria-label="{% trans 'Notifications' %}"
-                   style="position:relative;">
+                   class="nav-mob-btn"
+                   aria-label="{% trans 'Notifications' %}">
                     <i class="fas fa-bell"></i>
                     <span id="navbar-notif-badge-mob" aria-live="polite">
                         {% if unread_notifications_count > 0 %}
@@ -32,27 +31,26 @@
 
                 {# Аватар (ведёт в профиль) #}
                 <a href="{% url 'users:profile' %}"
-                   class="btn-nav-icon nav-mob-avatar"
-                   aria-label="{% trans 'Profile' %}"
-                   style="overflow:hidden;border-radius:50%;padding:0;width:34px;height:34px;border:1.5px solid rgba(255,255,255,.2);">
+                   class="nav-mob-avatar"
+                   aria-label="{% trans 'Profile' %}">
                     {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
-                        <img src="{{ user.avatar.url }}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                        <img src="{{ user.avatar.url }}" alt="{{ user.username }}">
                     {% else %}
-                        <span style="font-size:.8rem;font-weight:700;color:#fff;">{{ user.username|slice:":1"|upper }}</span>
+                        <span>{{ user.username|slice:":1"|upper }}</span>
                     {% endif %}
                 </a>
                 {% else %}
-                <a href="{% url 'users:login' %}" class="btn-nav-ghost" style="font-size:.8rem;padding:.28rem .75rem;">{% trans "Sign In" %}</a>
+                <a href="{% url 'users:login' %}" class="nav-mob-login">{% trans "Sign In" %}</a>
                 {% endif %}
-            </div>
 
-            <!-- Гамбургер-тоггл -->
-            <button class="iesa-toggler navbar-toggler d-lg-none" type="button"
-                    data-bs-toggle="collapse" data-bs-target="#iesa-nav-collapse"
-                    aria-controls="iesa-nav-collapse" aria-expanded="false"
-                    aria-label="{% trans 'Toggle navigation' %}">
-                <span></span><span></span><span></span>
-            </button>
+                {# Гамбургер (внутри того же блока!) #}
+                <button class="iesa-toggler" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#iesa-nav-collapse"
+                        aria-controls="iesa-nav-collapse" aria-expanded="false"
+                        aria-label="{% trans 'Toggle navigation' %}">
+                    <span></span><span></span><span></span>
+                </button>
+            </div>
 
             {# ════ COLLAPSE — только nav-ссылки ════ #}
             <div class="collapse navbar-collapse" id="iesa-nav-collapse">
