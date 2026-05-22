@@ -15,4 +15,6 @@ urlpatterns = [
     # 10d: Partner map
     path('partners/map/', views.partners_map, name='partners_map'),
     path('partners/map/data/', views.partners_map_data, name='partners_map_data'),
+    # 10b: Design system playground (staff only)
+    path('dev/components/', views.component_playground, name='component_playground'),
 ]

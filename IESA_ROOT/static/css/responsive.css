@@ -378,13 +378,13 @@ p, h1, h2, h3, h4, h5, h6,
 @media (max-width: 767.98px) {
   .hero-section,
   .hero-showcase {
-    padding: 1.5rem 1rem !important;
-    border-radius: 16px !important;
+    padding: 1.5rem 1rem;
+    border-radius: 16px;
   }
 
   .hero-section h1,
   .hero-showcase h1 {
-    font-size: clamp(1.5rem, 6vw, 2rem) !important;
+    font-size: clamp(1.5rem, 6vw, 2rem);
     line-height: 1.2;
   }
 
@@ -395,20 +395,20 @@ p, h1, h2, h3, h4, h5, h6,
   }
 
   .hero-stats {
-    gap: 0.75rem !important;
+    gap: 0.75rem;
   }
 
   .hero-stat-value {
-    font-size: 1.5rem !important;
+    font-size: 1.5rem;
   }
 
   .hero-badge {
-    font-size: 0.75rem !important;
-    padding: 0.35rem 0.7rem !important;
+    font-size: 0.75rem;
+    padding: 0.35rem 0.7rem;
     max-width: 95%;
   }
 
-  /* Канвас-частицы — уменьшаем интенсивность */
+  /* Канвас-частицы — уменьшаем интенсивность (JS может ставить inline opacity) */
   #hero-canvas, canvas.particles-canvas {
     opacity: 0.4 !important;
   }
@@ -417,7 +417,7 @@ p, h1, h2, h3, h4, h5, h6,
 @media (max-width: 575.98px) {
   .hero-section,
   .hero-showcase {
-    padding: 1.25rem 0.75rem !important;
+    padding: 1.25rem 0.75rem;
   }
 }
 
@@ -429,27 +429,27 @@ p, h1, h2, h3, h4, h5, h6,
 @media (max-width: 767.98px) {
   .section-padding,
   section[id$="-section"] {
-    padding-top: 2rem !important;
-    padding-bottom: 2rem !important;
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 
   .section-title {
-    font-size: 0.7rem !important;
+    font-size: 0.7rem;
   }
 
   .section-title::before,
   .section-title::after {
-    width: 14px !important;
+    width: 14px;
   }
 
   #events-section,
   #about-section,
   #partners-section,
   #iesa-offers {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
   }
 }
 
@@ -464,8 +464,8 @@ p, h1, h2, h3, h4, h5, h6,
   .grid-cols-3,
   .grid-cols-4,
   .grid {
-    grid-template-columns: 1fr !important;
-    gap: 1rem !important;
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   /* Карточки */
@@ -480,7 +480,7 @@ p, h1, h2, h3, h4, h5, h6,
   /* Partner card compact — вертикальный layout */
   .partner-card-compact .d-flex.align-items-start.gap-3 {
     flex-direction: column;
-    align-items: stretch !important;
+    align-items: stretch;
   }
 
   .partner-logo-compact {
@@ -490,7 +490,7 @@ p, h1, h2, h3, h4, h5, h6,
   .partner-card-compact .d-flex.gap-2,
   .partner-card-compact .btn-group {
     flex-direction: column;
-    gap: 0.5rem !important;
+    gap: 0.5rem;
   }
 
   .partner-card-compact .d-flex.gap-2 .btn {
@@ -499,23 +499,23 @@ p, h1, h2, h3, h4, h5, h6,
 
   /* Benefit cards */
   .benefit-card {
-    border-radius: 16px !important;
-    padding: 1.25rem !important;
+    border-radius: 16px;
+    padding: 1.25rem;
   }
 
   .benefit-card:hover,
   .benefit-card:hover .benefit-icon-box {
-    transform: none !important;
+    transform: none;
   }
 
   /* Product cards */
   .product-card {
-    border-radius: 14px !important;
+    border-radius: 14px;
     margin-bottom: 0.75rem;
   }
 
   .product-card-title {
-    font-size: 1rem !important;
+    font-size: 1rem;
   }
 
   /* Event cards */
@@ -524,60 +524,60 @@ p, h1, h2, h3, h4, h5, h6,
   }
 
   .event-card:hover {
-    transform: none !important;
+    transform: none;
   }
 
   /* Member cards */
   .member-card:hover {
-    transform: none !important;
+    transform: none;
   }
 
   .member-avatar {
-    width: 80px !important;
-    height: 80px !important;
+    width: 80px;
+    height: 80px;
   }
 
   /* iesa offers grid */
   .iesa-offers-grid {
-    grid-template-columns: 1fr !important;
-    gap: 1rem !important;
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .offer-card {
-    padding: 1.25rem !important;
+    padding: 1.25rem;
   }
 
   .offer-icon {
-    width: 48px !important;
-    height: 48px !important;
+    width: 48px;
+    height: 48px;
   }
 
   /* Offers actions */
   .offers-actions {
-    flex-direction: column !important;
-    align-items: stretch !important;
-    gap: 0.5rem !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
   }
 
   .offers-actions .btn,
   .offers-cta-actions .btn {
-    width: 100% !important;
+    width: 100%;
     justify-content: center;
   }
 
   .offers-cta-actions {
-    flex-direction: column !important;
-    width: 100% !important;
-    gap: 0.5rem !important;
+    flex-direction: column;
+    width: 100%;
+    gap: 0.5rem;
   }
 
   .offers-cta-title {
-    font-size: 1.3rem !important;
+    font-size: 1.3rem;
   }
 
   /* Min-width overrides */
   .min-w-280, .min-w-340 {
-    min-width: 0 !important;
+    min-width: 0;
   }
 }
 
@@ -585,11 +585,11 @@ p, h1, h2, h3, h4, h5, h6,
   /* Планшет-горизонталь: 2 колонки */
   .grid-cols-3,
   .benefit-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .iesa-offers-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -602,33 +602,33 @@ p, h1, h2, h3, h4, h5, h6,
   .hero-showcase,
   .mission-showcase,
   .about-showcase {
-    border-radius: 16px !important;
+    border-radius: 16px;
   }
 
   .mission-showcase .mission-panel,
   .events-showcase .showcase-card,
   .about-showcase .member-showcase-card,
   .partners-showcase .partner-showcase-card {
-    border-radius: 12px !important;
+    border-radius: 12px;
   }
 
   .president-card {
-    padding: 1.5rem 1rem !important;
+    padding: 1.5rem 1rem;
   }
 
   .president-card .president-avatar {
-    width: 100px !important;
-    height: 100px !important;
+    width: 100px;
+    height: 100px;
   }
 
   .president-photo {
-    width: 120px !important;
-    height: 120px !important;
+    width: 120px;
+    height: 120px;
   }
 
   .team-members-grid {
-    grid-template-columns: 1fr !important;
-    gap: 1rem !important;
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 }
 
@@ -666,8 +666,8 @@ p, h1, h2, h3, h4, h5, h6,
   /* Поиск */
   .search-form,
   .filter-form {
-    flex-direction: column !important;
-    gap: 0.5rem !important;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
   .search-form .btn,
@@ -677,8 +677,8 @@ p, h1, h2, h3, h4, h5, h6,
 
   /* Profile edit form */
   .edit-actions {
-    flex-direction: column !important;
-    gap: 0.5rem !important;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
   .edit-actions .btn {
@@ -687,7 +687,7 @@ p, h1, h2, h3, h4, h5, h6,
   }
 
   .profile-edit-card {
-    padding: 1.25rem !important;
+    padding: 1.25rem;
   }
 
   .edit-card-header {
@@ -750,23 +750,23 @@ p, h1, h2, h3, h4, h5, h6,
 
   /* Dashboard stat cards */
   .dashboard-stats .row {
-    gap: 0 !important;
+    gap: 0;
   }
 
   .dashboard-stat-card {
-    border-radius: 12px !important;
-    padding: 1rem !important;
+    border-radius: 12px;
+    padding: 1rem;
   }
 
   /* Search + filter row на дашборде */
   .partner-search-row {
-    flex-direction: column !important;
+    flex-direction: column;
     gap: 0.75rem;
   }
 
   .partner-search-row .col-lg-5,
   .partner-search-row .col-lg-7 {
-    width: 100% !important;
+    width: 100%;
   }
 }
 
@@ -777,31 +777,31 @@ p, h1, h2, h3, h4, h5, h6,
 
 @media (max-width: 767.98px) {
   .profile-page {
-    padding-top: 0.75rem !important;
-    padding-bottom: 0.75rem !important;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
   }
 
   .profile-header {
-    padding: 1.25rem !important;
-    border-radius: 16px !important;
+    padding: 1.25rem;
+    border-radius: 16px;
     text-align: center;
   }
 
   .profile-avatar,
   .profile-avatar-fallback {
-    width: 90px !important;
-    height: 90px !important;
-    font-size: 2.25rem !important;
-    border-width: 3px !important;
+    width: 90px;
+    height: 90px;
+    font-size: 2.25rem;
+    border-width: 3px;
     margin: 0 auto;
   }
 
   .profile-name {
-    font-size: 1.25rem !important;
+    font-size: 1.25rem;
   }
 
   .profile-email {
-    font-size: 0.875rem !important;
+    font-size: 0.875rem;
   }
 
   .profile-id-badge {
@@ -816,8 +816,8 @@ p, h1, h2, h3, h4, h5, h6,
   .profile-activity-card,
   .profile-posts-card,
   .profile-qr-card {
-    padding: 1rem !important;
-    border-radius: 14px !important;
+    padding: 1rem;
+    border-radius: 14px;
   }
 
   .link-chip-group {
@@ -832,21 +832,21 @@ p, h1, h2, h3, h4, h5, h6,
 
   .profile-activity-points,
   .profile-stat-value {
-    font-size: 1.75rem !important;
+    font-size: 1.75rem;
   }
 
   .profile-qr-card img {
-    width: 150px !important;
-    height: 150px !important;
+    width: 150px;
+    height: 150px;
   }
 
   .profile-stat-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   /* Инфо-грид: 1 колонка на маленьком */
   .profile-info-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: 1fr;
   }
 
   .profile-user-stats {
@@ -861,7 +861,7 @@ p, h1, h2, h3, h4, h5, h6,
 
 @media (max-width: 575.98px) {
   .profile-stat-grid {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: 1fr;
   }
 }
 
@@ -874,8 +874,8 @@ p, h1, h2, h3, h4, h5, h6,
   /* Hero band */
   .cabinet-hero,
   [class*="cabinet"] .hero-band {
-    padding: 1.25rem 1rem !important;
-    border-radius: 16px !important;
+    padding: 1.25rem 1rem;
+    border-radius: 16px;
   }
 
   /* PIN block */
@@ -883,29 +883,29 @@ p, h1, h2, h3, h4, h5, h6,
   .pin-digits,
   [class*="pin-code"],
   [class*="pin-value"] {
-    font-size: clamp(2rem, 10vw, 3rem) !important;
-    letter-spacing: 0.15em !important;
+    font-size: clamp(2rem, 10vw, 3rem);
+    letter-spacing: 0.15em;
   }
 
   /* Step grid */
   .step-grid,
   [class*="steps-grid"] {
-    grid-template-columns: 1fr !important;
-    gap: 0.75rem !important;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
 
   /* Telegram CTA */
   .tg-cta-block,
   [class*="telegram-cta"] {
-    padding: 1.25rem !important;
-    border-radius: 16px !important;
+    padding: 1.25rem;
+    border-radius: 16px;
   }
 
   /* Cards в кабинете */
   [class*="cabinet"] .card,
   [class*="cabinet"] .glass-card {
-    border-radius: 14px !important;
-    padding: 1rem !important;
+    border-radius: 14px;
+    padding: 1rem;
   }
 }
 
@@ -917,15 +917,15 @@ p, h1, h2, h3, h4, h5, h6,
 @media (max-width: 767.98px) {
   /* Auth card — убираем двухколоночный layout */
   .auth-card-new {
-    flex-direction: column !important;
-    border-radius: 16px !important;
-    margin: 0.5rem !important;
-    max-height: none !important;
-    overflow: visible !important;
+    flex-direction: column;
+    border-radius: 16px;
+    margin: 0.5rem;
+    max-height: none;
+    overflow: visible;
   }
 
   .auth-card-new .row.g-0 {
-    flex-direction: column !important;
+    flex-direction: column;
   }
 
   .auth-dark-side {
@@ -933,31 +933,31 @@ p, h1, h2, h3, h4, h5, h6,
   }
 
   .auth-light-side {
-    width: 100% !important;
-    padding: 1.5rem !important;
-    border-radius: 16px !important;
+    width: 100%;
+    padding: 1.5rem;
+    border-radius: 16px;
   }
 
   .auth-container {
-    margin: 0.75rem !important;
-    padding: 0 !important;
+    margin: 0.75rem;
+    padding: 0;
   }
 
   /* OTP boxes (connect telegram) */
   .otp-input {
-    width: 40px !important;
-    height: 48px !important;
-    font-size: 1.25rem !important;
+    width: 40px;
+    height: 48px;
+    font-size: 1.25rem;
   }
 
   .otp-box-row {
-    gap: 0.4rem !important;
+    gap: 0.4rem;
   }
 }
 
 @media (max-width: 575.98px) {
   .auth-light-side {
-    padding: 1.25rem !important;
+    padding: 1.25rem;
   }
 }
 
@@ -968,21 +968,21 @@ p, h1, h2, h3, h4, h5, h6,
 
 @media (max-width: 575.98px) {
   .gallery-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 0.5rem !important;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
   }
 }
 
 @media (min-width: 576px) and (max-width: 767.98px) {
   .gallery-grid {
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 0.75rem !important;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
   }
 }
 
 @media (min-width: 768px) and (max-width: 991.98px) {
   .gallery-grid {
-    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
@@ -1000,7 +1000,7 @@ p, h1, h2, h3, h4, h5, h6,
 @media (max-width: 767.98px) {
   /* Post list */
   .post-card {
-    border-radius: 14px !important;
+    border-radius: 14px;
   }
 
   /* Post detail */
@@ -1021,17 +1021,17 @@ p, h1, h2, h3, h4, h5, h6,
   }
 
   .event-date-day {
-    font-size: 1.15rem !important;
+    font-size: 1.15rem;
   }
 
   /* Event filters */
   #event-filters {
-    flex-direction: column !important;
-    gap: 0.5rem !important;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
   #event-filters .form-select {
-    width: 100% !important;
+    width: 100%;
   }
 
   /* Post create form */
@@ -1047,16 +1047,16 @@ p, h1, h2, h3, h4, h5, h6,
 
 @media (max-width: 575.98px) {
   .modal-dialog {
-    margin: 0.5rem !important;
-    max-width: calc(100vw - 1rem) !important;
+    margin: 0.5rem;
+    max-width: calc(100vw - 1rem);
   }
 
   .modal-content {
-    border-radius: 16px !important;
+    border-radius: 16px;
   }
 
   .modal-body {
-    padding: 1.25rem !important;
+    padding: 1.25rem;
   }
 
   .modal-footer {

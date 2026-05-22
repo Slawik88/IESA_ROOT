@@ -223,7 +223,7 @@
 .ds-blue  { background: rgba(59,130,246,.75); }
 .ds-amber { background: rgba(245,158,11,.75); }
 .dash-stat-val  { font-size: 1.5rem; font-weight: 900; color: #fff; line-height: 1; letter-spacing: -.04em; }
-.dash-stat-lbl  { font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.38); margin-top: .15rem; }
+.dash-stat-lbl  { font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.52); margin-top: .15rem; }
 
 /* ── Section card ──────────────────────────────── */
 .dash-card {
@@ -329,22 +329,112 @@
 @media (max-width: 1024px) {
     .dash-stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
 @media (max-width: 767.98px) {
     .dash-root { flex-direction: column; }
+
+    /* ── 2i: Topbar скрываем на мобиле — занимает ценное пространство ── */
+    .dash-topbar { display: none; }
+
+    /* ── 2b: Sidebar → горизонтальный scroll-nav ── */
     .dash-sidebar {
-        width: 100%; position: relative; top: 0; height: auto;
-        border-right: none; border-bottom: 1px solid rgba(255,255,255,.07);
+        width: 100%;
+        position: sticky; top: 56px; /* ниже global navbar */
+        height: auto;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid rgba(255,255,255,.07);
+        z-index: 100;
+        background: #0a0a0f;
+        overflow: visible;
     }
-    .dash-sidebar__nav { display: flex; flex-wrap: wrap; gap: .25rem; }
-    .dash-nav-section { margin-bottom: 0; }
+    /* Скрываем brand и footer stats — слишком много вертикального пространства */
+    .dash-sidebar__brand,
+    .dash-sidebar > div:last-child {
+        display: none;
+    }
+    /* Nav → горизонтальный scroll с pill-стилем */
+    .dash-sidebar__nav {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        padding: .5rem .75rem;
+        gap: .35rem;
+    }
+    .dash-sidebar__nav::-webkit-scrollbar { display: none; }
+    .dash-nav-section {
+        display: contents; /* flatten секции — все items в один ряд */
+        margin-bottom: 0;
+    }
     .dash-nav-section-label { display: none; }
-    .dash-nav-item { padding: .45rem .65rem; font-size: .8rem; }
-    .dash-topbar { position: relative; top: 0; }
-    .dash-stat-grid { grid-template-columns: 1fr 1fr; }
-    .dash-content { padding: 1rem; }
-}
-@media (max-width: 575.98px) {
-    .dash-stat-grid { grid-template-columns: 1fr; }
+    .dash-nav-item {
+        flex-shrink: 0;
+        padding: .4rem .85rem;
+        border-radius: 100px;
+        font-size: .78rem;
+        white-space: nowrap;
+        background: rgba(255,255,255,.05);
+        border: 1px solid rgba(255,255,255,.08);
+        gap: .4rem;
+    }
+    .dash-nav-item.active {
+        background: rgba(220,38,38,.14);
+        border-color: rgba(220,38,38,.35);
+        color: #f87171;
+    }
+    .dash-nav-badge {
+        font-size: .6rem;
+        padding: .05rem .35rem;
+    }
+
+    /* ── 2e: Stats → горизонтальный scroll ── */
+    .dash-stat-grid {
+        display: flex;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        gap: .75rem;
+        padding: .25rem .25rem .75rem;
+    }
+    .dash-stat-grid::-webkit-scrollbar { display: none; }
+    .dash-stat-card {
+        flex: 0 0 148px;
+        scroll-snap-align: start;
+        min-width: 0;
+    }
+
+    .dash-content { padding: .75rem; }
+
+    /* ── 2f: Today/Clients — табы на мобиле ── */
+    .dash-today-tabs { display: flex !important; gap: .35rem; }
+    .dtt-btn {
+        flex: 1; padding: .45rem .85rem;
+        background: rgba(255,255,255,.05);
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 100px; color: rgba(255,255,255,.55);
+        font-size: .78rem; font-weight: 700; cursor: pointer;
+        transition: all .15s; display: flex; align-items: center;
+        justify-content: center; gap: .4rem; white-space: nowrap;
+    }
+    .dtt-btn--active {
+        background: rgba(220,38,38,.14);
+        border-color: rgba(220,38,38,.35);
+        color: #f87171;
+    }
+    .dtt-badge {
+        background: #dc2626; color: #fff; border-radius: 100px;
+        font-size: .6rem; padding: .1rem .4rem; line-height: 1.4;
+    }
+    /* Одна колонка, скрытие неактивной панели */
+    .dash-today-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .dash-panel { display: none; }
+    .dash-panel.dtt-visible { display: block; }
 }
 
 /* ── Breadcrumbs (Block 2b) ───────────────────────────────── */

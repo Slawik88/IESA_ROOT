@@ -187,17 +187,35 @@
 
 .htmx-request .cmd-indicator { display: flex; }
 
+/* ── Mobile filter button (скрыт на десктопе) ── */
+.cmd-filter-toggle {
+    display: none;
+    align-items: center;
+    gap: .4rem;
+    padding: 0 .9rem;
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    font-weight: 700;
+    color: rgba(255,255,255,.55);
+    background: none;
+    border: none;
+    border-left: 1px solid rgba(255,255,255,.07);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color .15s, background .15s;
+}
+.cmd-filter-toggle:hover { color: #fff; background: rgba(255,255,255,.04); }
+.cmd-filter-toggle i { font-size: .78rem; }
+
 /* ── Mobile ───────────────────────────── */
 @media (max-width: 767.98px) {
     .cmd-bar { border-radius: 0 0 8px 8px; margin-left: -.5rem; margin-right: -.5rem; }
-    .cmd-bar__inner { flex-wrap: wrap; }
-    .cmd-tabs { width: 100%; border-bottom: 1px solid rgba(255,255,255,.07); }
-    .cmd-tab { flex: 1; justify-content: center; padding: .65rem .5rem; border-right: none; }
-    .cmd-tab:first-child { border-right: 1px solid rgba(255,255,255,.07); }
-    .cmd-sep { display: none; }
-    .cmd-search { padding: .5rem .9rem; border-bottom: 1px solid rgba(255,255,255,.07); }
-    .cmd-filters { width: 100%; border-bottom: 1px solid rgba(255,255,255,.07); }
-    .cmd-filter-group { flex: 1; min-width: 0; padding: .5rem .9rem; border-right: 1px solid rgba(255,255,255,.07); }
-    .cmd-filter-group:last-child { border-right: none; }
-    .cmd-cta { width: 100%; justify-content: center; padding: .6rem; border-left: none; border-top: 1px solid rgba(255,255,255,.07); }
+    /* 5a: На мобиле — только поиск + кнопка фильтра */
+    .cmd-bar__inner { flex-wrap: nowrap; }
+    .cmd-tabs    { display: none; }
+    .cmd-sep     { display: none; }
+    .cmd-filters { display: none; }
+    .cmd-cta     { display: none; }
+    .cmd-search  { padding: .55rem .9rem; border-bottom: none; }
+    .cmd-filter-toggle { display: flex; }
 }

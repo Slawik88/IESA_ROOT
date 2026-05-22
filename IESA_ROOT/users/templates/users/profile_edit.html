@@ -136,10 +136,41 @@
     border-radius: 12px !important;
 }
 
+/* 6c: Tab navigation */
+.edit-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+    position: sticky;
+    top: 56px;
+    z-index: 20;
+    background: rgba(17,17,28,.98);
+    backdrop-filter: blur(10px);
+}
+.edit-tab {
+    padding: .7rem 1.25rem;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.38);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: color .15s, border-color .15s;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    cursor: pointer;
+}
+.edit-tab:hover { color: rgba(255,255,255,.7); }
+.edit-tab.active { color: #f87171; border-bottom-color: var(--primary); }
+.edit-tab i { font-size: .72rem; }
+
 @media(max-width:576px){
     .edit-card-header { padding: 1.25rem 1.25rem 1rem; }
     .card-section { padding: 1.25rem; }
     .edit-actions { padding: 1.25rem; flex-wrap: wrap; }
+    .edit-tab { padding: .6rem .85rem; font-size: .7rem; }
 }
 </style>
 {% endblock %}
@@ -152,6 +183,14 @@
     <div class="container-limited">
         <div class="row justify-content-center">
             <div class="col-lg-8 col-xl-7">
+                {# 7c: Breadcrumbs #}
+                <nav aria-label="{% trans 'Breadcrumb' %}" class="page-bc mb-3">
+                    <ol>
+                        <li><a href="{% url 'users:profile' %}">{% trans "Profile" %}</a><span class="bc-sep"><i class="fas fa-chevron-right"></i></span></li>
+                        <li><span>{% trans "Edit Profile" %}</span></li>
+                    </ol>
+                </nav>
+
                 <div class="profile-edit-card">
                     <div class="edit-card-header">
                         <div class="edit-header-icon"><i class="fas fa-user-cog"></i></div>
@@ -161,10 +200,20 @@
                         </div>
                     </div>
 
+                    {# 6c: Sticky tab навигация по секциям #}
+                    <nav class="edit-tabs" aria-label="{% trans 'Form sections' %}">
+                        <a class="edit-tab active" href="#sec-basic" data-section="sec-basic">
+                            <i class="fas fa-user"></i> {% trans "Personal" %}
+                        </a>
+                        <a class="edit-tab" href="#sec-social" data-section="sec-social">
+                            <i class="fas fa-link"></i> {% trans "Links" %}
+                        </a>
+                    </nav>
+
                     <form method="post" enctype="multipart/form-data" class="edit-form">
                         {% csrf_token %}
 
-                        <div class="card-section">
+                        <div class="card-section" id="sec-basic">
                             <div class="section-heading">{% trans "Basic info" %}</div>
                             <div class="row g-3">
                                 <div class="col-md-6">
@@ -236,7 +285,7 @@
                             </div>
                         </div>
 
-                        <div class="card-section">
+                        <div class="card-section" id="sec-social">
                             <div class="section-heading">
                                 <i class="fas fa-link me-2"></i>{% trans "Social & links" %}
                                 <span class="text-muted" style="font-size: 0.9rem; font-weight: normal;">({% trans "examples below" %})</span>
@@ -325,6 +374,32 @@
 
 {% block extra_js %}
 <script>
+/* ── 6c: Tab navigation highlight on scroll ── */
+(function(){
+    var tabs = document.querySelectorAll('.edit-tab[data-section]');
+    var sections = [];
+    tabs.forEach(function(tab){
+        var sec = document.getElementById(tab.dataset.section);
+        if (sec) sections.push({ tab: tab, sec: sec });
+    });
+    if (!sections.length) return;
+    function updateActive(){
+        var scrollY = window.scrollY + 120;
+        var active = sections[0];
+        sections.forEach(function(s){ if (s.sec.offsetTop <= scrollY) active = s; });
+        tabs.forEach(function(t){ t.classList.remove('active'); });
+        active.tab.classList.add('active');
+    }
+    window.addEventListener('scroll', updateActive, { passive: true });
+    tabs.forEach(function(tab){
+        tab.addEventListener('click', function(e){
+            e.preventDefault();
+            var sec = document.getElementById(tab.dataset.section);
+            if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+})();
+
 /* ── Profile edit auto-save (U2-08) ── */
 (function(){
     var KEY = 'iesa-profile-draft-v1';

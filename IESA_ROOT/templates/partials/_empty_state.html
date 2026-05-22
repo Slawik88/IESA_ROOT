@@ -1,0 +1,27 @@
+{% load i18n %}
+{#
+  Unified Empty State Partial
+  Usage: {% include 'partials/_empty_state.html' with icon="fas fa-inbox" title="No items" subtitle="Description" action_url=url action_text="Create" action_icon="fas fa-plus" %}
+  All parameters are optional.
+#}
+<div class="empty-state-wrap text-center" style="padding:2.5rem 1.5rem;">
+  <div style="width:56px;height:56px;border-radius:16px;background:rgba(220,38,38,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+    <i class="{{ icon|default:'fas fa-inbox' }}" style="font-size:1.4rem;color:rgba(220,38,38,.65);"></i>
+  </div>
+  <h4 style="font-size:.95rem;font-weight:700;color:rgba(255,255,255,.75);margin-bottom:.35rem;">
+    {{ title|default:_("Nothing here yet") }}
+  </h4>
+  {% if subtitle %}
+  <p style="font-size:.82rem;color:rgba(255,255,255,.38);max-width:280px;margin:0 auto{% if action_url %} 1rem{% endif %};">
+    {{ subtitle }}
+  </p>
+  {% endif %}
+  {% if action_url and action_text %}
+  <a href="{{ action_url }}"
+     style="display:inline-flex;align-items:center;gap:.45rem;margin-top:1rem;padding:.5rem 1.25rem;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.28);border-radius:9px;color:#f87171;font-size:.82rem;font-weight:700;text-decoration:none;transition:background .15s;"
+     onmouseover="this.style.background='rgba(220,38,38,.2)'" onmouseout="this.style.background='rgba(220,38,38,.12)'">
+    {% if action_icon %}<i class="{{ action_icon }}"></i>{% endif %}
+    {{ action_text }}
+  </a>
+  {% endif %}
+</div>

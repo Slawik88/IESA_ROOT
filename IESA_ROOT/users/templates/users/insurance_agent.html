@@ -247,6 +247,24 @@
 .ins-tg-banner__text { font-size: .9rem; color: rgba(255,255,255,.75); line-height: 1.5; }
 .ins-tg-banner__text a { color: #38bdf8; text-decoration: none; }
 .ins-tg-banner__text a:hover { text-decoration: underline; }
+
+/* 6d: Mobile improvements */
+@media (max-width: 767.98px) {
+  .ins-hero { padding: 48px 0 36px; }
+  .ins-hero__title { font-size: 1.6rem; }
+  .ins-hero__sub { font-size: .9rem; }
+  .ins-benefits { grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 28px 0 24px; }
+  .ins-benefit-card { padding: 16px 14px; }
+  .ins-form-wrap { padding: 24px 18px; }
+  .ins-checkbox-list { grid-template-columns: 1fr 1fr; }
+  .ins-tg-banner { flex-direction: column; gap: 10px; padding: 16px; }
+  .ins-radio-group { flex-direction: column; }
+  .ins-radio-item { flex: none; }
+}
+@media (max-width: 400px) {
+  .ins-benefits { grid-template-columns: 1fr; }
+  .ins-checkbox-list { grid-template-columns: 1fr; }
+}
 </style>
 {% endblock %}
 

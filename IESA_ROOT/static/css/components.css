@@ -59,7 +59,7 @@
 .partner-card-compact {
   position: relative;
   overflow: hidden;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform var(--transition-smooth);
 }
 
 @keyframes badgeFadeIn {
@@ -1243,7 +1243,7 @@ textarea:focus-visible {
   border-radius: 12px;
   margin-bottom: 0.5rem;
   padding: 0.875rem 1rem;
-  transition: all 0.2s ease;
+  transition: all var(--transition-base);
 }
 
 .search-item:hover {

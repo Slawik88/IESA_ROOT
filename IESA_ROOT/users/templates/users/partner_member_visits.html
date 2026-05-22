@@ -1,186 +1,29 @@
-{% extends "base.html" %}
+{% extends "users/partner_base.html" %}
 {% load static i18n %}
 
-{% block title %}{{ member.get_full_name|default:member.username }} — {% trans "Visit History" %} · IESA Partner{% endblock %}
+{% block title %}{{ member.get_full_name|default:member.username }} — {% trans "Visit History" %}{% endblock %}
 
-{% block extra_css %}
-<style>
-:root {
-  --bg0: #06060d;
-  --card: rgba(15,15,28,0.94);
-  --bdr: rgba(255,255,255,0.07);
-  --red: #dc2626;
-  --text: rgba(255,255,255,0.88);
-  --muted: rgba(255,255,255,0.40);
-  --r: 16px;
-}
-html, body { background: var(--bg0) !important; }
-.pmv-wrap { background: var(--bg0); min-height: 100vh; padding-bottom: 80px; color: var(--text); }
+{% block partner_title %}{{ member.get_full_name|default:member.username }}{% endblock %}
+{% block partner_subtitle %}{% trans "Visit History" %}{% endblock %}
 
-/* ── NAV (reuse partner style) ──────────────────────────── */
-.pp-nav {
-  background: #0d0d18;
-  border-bottom: 1px solid rgba(220,38,38,.18);
-  padding: 0 20px;
-  display: flex; align-items: center; gap: 0;
-  overflow-x: auto; scrollbar-width: none;
-}
-.pp-nav::-webkit-scrollbar { display: none; }
-.pp-nav a {
-  display: flex; align-items: center; gap: 7px;
-  padding: 14px 20px; color: rgba(255,255,255,.55);
-  text-decoration: none; font-size: .82rem;
-  font-family: 'Courier New', monospace; white-space: nowrap;
-  border-bottom: 2px solid transparent; transition: color .2s, border-color .2s;
-}
-.pp-nav a:hover, .pp-nav a.active { color: #ef4444; border-bottom-color: #ef4444; }
-.pp-nav-brand { font-size: .85rem; font-weight: 700; color: #fff !important; margin-right: 10px; letter-spacing: .05em; border-bottom: none !important; }
-@media (max-width: 600px) {
-  .pp-nav { padding: 0 8px; }
-  .pp-nav a { padding: 11px 10px; font-size: .74rem; gap: 4px; }
-  .pp-nav-brand { font-size: .76rem; margin-right: 4px; }
-}
-@media (max-width: 430px) {
-  .pp-nav a { padding: 10px 7px; font-size: .68rem; gap: 3px; }
-  .pp-nav-brand { font-size: .7rem; }
-}
-
-/* ── HERO ───────────────────────────────────────────────── */
-.pmv-hero {
-  background: linear-gradient(135deg, #0d0d18 0%, #13060d 100%);
-  padding: 36px 24px 32px; position: relative; overflow: hidden;
-  border-bottom: 1px solid rgba(255,255,255,.05);
-}
-.pmv-hero::before {
-  content: ''; position: absolute; right: -80px; top: -80px;
-  width: 450px; height: 450px;
-  background: radial-gradient(circle, rgba(220,38,38,.1) 0%, transparent 68%);
-  pointer-events: none;
-}
-.pmv-breadcrumb {
-  font-size: .72rem; font-family: 'Courier New', monospace;
-  color: var(--muted); margin-bottom: 12px;
-}
-.pmv-breadcrumb a { color: rgba(220,38,38,.7); text-decoration: none; }
-.pmv-breadcrumb a:hover { color: #ef4444; }
-.pmv-member-row { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
-.pmv-avatar {
-  width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(220,38,38,.5), rgba(9,9,24,.8));
-  display: flex; align-items: center; justify-content: center;
-  font-size: 1.3rem; font-weight: 800; color: #fff; text-transform: uppercase;
-  border: 2px solid rgba(255,255,255,.1);
-  box-shadow: 0 0 0 2px rgba(220,38,38,.25), 0 6px 20px rgba(0,0,0,.4);
-}
-.pmv-name { font-size: 1.45rem; font-weight: 800; color: #fff; line-height: 1.1; }
-.pmv-username { font-size: .8rem; color: var(--muted); font-family: 'Courier New', monospace; margin-top: 3px; }
-.pmv-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: .2rem .7rem; border-radius: 20px; font-size: .72rem; font-weight: 700;
-  letter-spacing: .05em; text-transform: uppercase; margin-top: 6px;
-}
-.pmv-badge.active   { background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.28); color: #4ade80; }
-.pmv-badge.inactive { background: rgba(220,38,38,.12); border: 1px solid rgba(220,38,38,.28); color: #f87171; }
-
-/* ── STATS ──────────────────────────────────────────────── */
-.pmv-stats {
-  display: flex; gap: 12px; flex-wrap: wrap; margin-top: 16px;
-}
-.pmv-stat {
-  background: rgba(255,255,255,.04); border: 1px solid var(--bdr);
-  border-radius: 12px; padding: 12px 18px;
-}
-.pmv-stat-label { font-size: .66rem; font-family: 'Courier New', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 4px; }
-.pmv-stat-val { font-size: 1.4rem; font-weight: 800; color: #fff; line-height: 1; }
-.pmv-stat-val.red { color: #ef4444; }
-
-/* ── ACTION ROW ─────────────────────────────────────────── */
-.pmv-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
-.pmv-btn-primary {
-  display: inline-flex; align-items: center; gap: 7px;
-  background: linear-gradient(135deg, #dc2626, #991b1b);
-  color: #fff; border: none; border-radius: 10px;
-  padding: 10px 22px; font-size: .88rem; font-weight: 700;
-  text-decoration: none; cursor: pointer; transition: all .2s;
-  box-shadow: 0 4px 20px rgba(220,38,38,.3);
-}
-.pmv-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 28px rgba(220,38,38,.45); color: #fff; }
-.pmv-btn-secondary {
-  display: inline-flex; align-items: center; gap: 7px;
-  background: rgba(255,255,255,.05); border: 1px solid var(--bdr);
-  color: var(--muted); border-radius: 10px;
-  padding: 10px 18px; font-size: .85rem; font-weight: 600;
-  text-decoration: none; transition: all .2s;
-}
-.pmv-btn-secondary:hover { background: rgba(255,255,255,.09); color: #fff; }
-
-/* ── SECTION CARD ───────────────────────────────────────── */
-.pmc { background: var(--card); border: 1px solid var(--bdr); border-radius: var(--r); margin: 20px 24px 0; overflow: hidden; }
-.pmc-head { padding: 14px 18px; border-bottom: 1px solid var(--bdr); display: flex; align-items: center; gap: 10px; }
-.pmc-icon { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .85rem; }
-.pmc-icon.amber { background: rgba(245,158,11,.13); color: #fbbf24; }
-.pmc-icon.grn   { background: rgba(34,197,94,.13);  color: #4ade80; }
-.pmc-title { font-size: .85rem; font-weight: 700; color: var(--text); }
-.pmc-extra { margin-left: auto; font-size: .74rem; color: var(--muted); }
-
-/* ── VISIT TABLE ────────────────────────────────────────── */
-.pmc-table-wrap { overflow-x: auto; }
-.pmc-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
-.pmc-table th {
-  padding: 10px 14px; text-align: left; font-family: 'Courier New', monospace;
-  font-size: .67rem; color: var(--muted); text-transform: uppercase;
-  letter-spacing: .08em; border-bottom: 1px solid var(--bdr);
-  background: rgba(255,255,255,.02); white-space: nowrap;
-}
-.pmc-table td { padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.03); color: #cbd5e1; vertical-align: middle; }
-.pmc-table tr:last-child td { border-bottom: none; }
-.pmc-table tr:hover td { background: rgba(255,255,255,.02); }
-.pp-badge { font-size: .65rem; font-family: 'Courier New', monospace; padding: 2px 7px; border-radius: 20px; font-weight: 600; letter-spacing: .04em; }
-.pp-badge-active    { background: rgba(74,222,128,.12); color: #4ade80; border: 1px solid rgba(74,222,128,.25); }
-.pp-badge-edited    { background: rgba(250,204,21,.10); color: #fbbf24; border: 1px solid rgba(250,204,21,.22); }
-.pp-badge-cancelled { background: rgba(148,163,184,.10); color: #94a3b8; border: 1px solid rgba(148,163,184,.2); }
-.pp-badge-verified  { background: rgba(74,222,128,.12); color: #4ade80; }
-.pp-badge-unverified{ background: rgba(255,255,255,.05); color: rgba(255,255,255,.35); }
-.pp-act-link { color: var(--muted); font-size: .73rem; text-decoration: none; padding: 3px 8px; border-radius: 5px; font-family: 'Courier New', monospace; border: 1px solid var(--bdr); transition: all .2s; }
-.pp-act-link:hover { color: #ef4444; border-color: rgba(220,38,38,.35); }
-.pp-act-link.danger:hover { color: #f87171; }
-
-/* ── PAGINATION ─────────────────────────────────────────── */
-.pp-pagination { display: flex; gap: 8px; justify-content: center; padding: 20px 0; flex-wrap: wrap; }
-.pp-pagination a, .pp-pagination span { padding: 6px 14px; border-radius: 6px; font-size: .78rem; font-family: 'Courier New', monospace; color: var(--muted); background: rgba(255,255,255,.04); text-decoration: none; border: 1px solid rgba(255,255,255,.07); transition: all .2s; }
-.pp-pagination a:hover { color: #ef4444; border-color: rgba(220,38,38,.3); }
-.pp-pagination .current { color: #ef4444; border-color: rgba(220,38,38,.35); background: rgba(220,38,38,.07); }
-
-/* ── EMPTY ──────────────────────────────────────────────── */
-.pp-empty { text-align: center; padding: 48px 20px; color: var(--muted); font-family: 'Courier New', monospace; font-size: .82rem; }
-.pp-empty-icon { font-size: 2.5rem; display: block; margin-bottom: 10px; }
-</style>
+{% block partner_topbar_action %}
+<a href="{% url 'users:log_visit' member.pk %}"
+   class="dash-cta-btn" style="font-size:.82rem;">
+  <i class="fas fa-plus"></i> {% trans "Log New Visit" %}
+</a>
 {% endblock %}
 
-{% block content %}
-<div class="pmv-wrap">
+{% block partner_content %}
+{% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
 
-  {# ══ NAV ══ #}
-  <nav class="pp-nav">
-    <a href="{% url 'users:partner_dashboard' %}" class="pp-nav-brand">⬡ IESA PARTNER</a>
-    <a href="{% url 'users:partner_dashboard' %}"><i class="fas fa-tachometer-alt"></i> {% trans "Dashboard" %}</a>
-    <a href="{% url 'users:partner_analytics' %}"><i class="fas fa-chart-bar"></i> {% trans "Analytics" %}</a>
-    <a href="{% url 'users:partner_profile_edit' %}"><i class="fas fa-cog"></i> {% trans "Settings" %}</a>
-  </nav>
-
-  {% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
-
-  {# ══ HERO ══ #}
-  <div class="pmv-hero">
-    <div class="pmv-breadcrumb" style="display:none;">
-      {# Заменено на универсальный компонент _breadcrumbs.html #}
-    </div>
-
+<!-- MEMBER INFO CARD -->
+<div class="dash-card" style="margin-bottom:1.25rem;">
+  <div class="dash-card__body">
     <div class="pmv-member-row">
       <div class="pmv-avatar">
         {{ member.first_name|slice:":1"|default:member.username|slice:":1"|upper }}
       </div>
-      <div>
+      <div style="flex:1;min-width:0;">
         {% if member.first_name or member.last_name %}
           <div class="pmv-name">{{ member.get_full_name }}</div>
         {% else %}
@@ -195,7 +38,7 @@ html, body { background: var(--bg0) !important; }
       </div>
     </div>
 
-    <div class="pmv-stats">
+    <div class="pmv-stats" style="margin-top:1rem;">
       <div class="pmv-stat">
         <div class="pmv-stat-label">{% trans "Total Visits" %}</div>
         <div class="pmv-stat-val red">{{ total }}</div>
@@ -215,29 +58,22 @@ html, body { background: var(--bg0) !important; }
       </div>
       {% endif %}
     </div>
-
-    <div class="pmv-actions">
-      <a href="{% url 'users:log_visit' member.pk %}" class="pmv-btn-primary">
-        <i class="fas fa-plus"></i> {% trans "Log New Visit" %}
-      </a>
-      <a href="{% url 'users:partner_dashboard' %}" class="pmv-btn-secondary">
-        <i class="fas fa-arrow-left"></i> {% trans "Back to Dashboard" %}
-      </a>
-    </div>
   </div>
+</div>
 
-  {# ══ VISIT HISTORY ══ #}
-  <div class="pmc">
-    <div class="pmc-head">
-      <div class="pmc-icon amber"><i class="fas fa-history"></i></div>
-      <div class="pmc-title">
-        {% trans "Visit History" %} — {{ member.get_full_name|default:member.username }}
-      </div>
-      <div class="pmc-extra">{{ total }} {% trans "total" %}</div>
-    </div>
+<!-- VISIT HISTORY TABLE -->
+<div class="dash-card">
+  <div class="dash-card__header">
+    <span class="dash-card__title">
+      <i class="fas fa-history" style="color:var(--primary);"></i>
+      {% trans "Visit History" %}
+    </span>
+    <span style="font-size:.75rem;color:rgba(255,255,255,.3);">{{ total }} {% trans "total" %}</span>
+  </div>
+  <div class="dash-card__body" style="padding:0;">
 
     {% if visits.object_list %}
-      <div class="pmc-table-wrap">
+      <div style="overflow-x:auto;">
         <table class="pmc-table">
           <thead>
             <tr>
@@ -253,7 +89,7 @@ html, body { background: var(--bg0) !important; }
           <tbody>
             {% for visit in visits %}
               <tr>
-                <td style="white-space:nowrap;color:rgba(255,255,255,.45);font-size:.73rem;font-family:'Courier New',monospace;">
+                <td style="white-space:nowrap;color:rgba(255,255,255,.45);font-size:.73rem;font-family:var(--font-mono);">
                   {{ visit.timestamp|date:"d M Y" }}<br>{{ visit.timestamp|date:"H:i" }}
                 </td>
                 <td style="color:rgba(255,255,255,.75);">
@@ -299,7 +135,7 @@ html, body { background: var(--bg0) !important; }
       </div>
 
       {% if visits.has_other_pages %}
-        <div class="pp-pagination">
+        <div class="pp-pagination" style="border-top:1px solid rgba(255,255,255,.06);">
           {% if visits.has_previous %}
             <a href="?page={{ visits.previous_page_number }}">‹ {% trans "prev" %}</a>
           {% endif %}
@@ -317,16 +153,17 @@ html, body { background: var(--bg0) !important; }
       {% endif %}
 
     {% else %}
-      <div class="pp-empty">
-        <span class="pp-empty-icon">📋</span>
-        {% trans "No visits recorded for this member yet." %}
-        <br><br>
-        <a href="{% url 'users:log_visit' member.pk %}" style="color:#ef4444;text-decoration:none;">
-          + {% trans "Log first visit" %}
+      <div class="dash-empty" style="padding:2.5rem 1.5rem;">
+        <i class="fas fa-history"></i>
+        <p>{% trans "No visits recorded for this member yet." %}</p>
+        <a href="{% url 'users:log_visit' member.pk %}"
+           style="display:inline-flex;align-items:center;gap:.4rem;padding:.45rem 1rem;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.28);border-radius:8px;color:#f87171;font-size:.8rem;font-weight:700;text-decoration:none;margin-top:.75rem;">
+          <i class="fas fa-plus"></i> {% trans "Log first visit" %}
         </a>
       </div>
     {% endif %}
-  </div>
 
+  </div>
 </div>
+
 {% endblock %}

@@ -92,8 +92,8 @@
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
     <!-- Dark-theme overrides: must be last to win the cascade -->
     <link rel="stylesheet" href="{% static 'css/dark-theme-fixes.css' %}">
-    <!-- UI/UX improvements: contrast, animations, feedback (must be after dark-theme) -->
-    <link rel="stylesheet" href="{% static 'css/ui-ux-improvements.css' %}">
+    <!-- Partner portal pp-wrap design system -->
+    <link rel="stylesheet" href="{% static 'css/partner-dashboard.css' %}">
 
     <!-- Per-page CSS: override 'extra_css' block in child templates -->
     {% block extra_css %}{% endblock %}
@@ -583,6 +583,56 @@
     })();
     </script>
 
+    {# 7a: Action Menu Bottom Sheet — для обычных авторизованных пользователей #}
+    {% if user.is_authenticated and user.membership_status != 'active' and not user.is_partner %}
+    <div class="iesa-bottom-sheet" id="user-actions-sheet" style="padding:0 0 1.5rem;">
+      <div class="bs-handle"></div>
+      <div style="padding:1.1rem 1.25rem .75rem;border-bottom:1px solid rgba(255,255,255,.06);">
+        <div style="font-size:.7rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.1em;">{% trans "QUICK ACTIONS" %}</div>
+      </div>
+      <div style="padding:.75rem .85rem;display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+        <a href="{% url 'blog:post_create' %}"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.22);border-radius:12px;text-decoration:none;color:#f87171;font-size:.85rem;font-weight:700;">
+          <i class="fas fa-pen-nib" style="font-size:1rem;width:18px;text-align:center;"></i>
+          {% trans "Write Post" %}
+        </a>
+        <a href="{% url 'blog:event_list' %}"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
+          <i class="fas fa-calendar-alt" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
+          {% trans "Events" %}
+        </a>
+        <a href="{% url 'users:users_search' %}"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
+          <i class="fas fa-users" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
+          {% trans "Members" %}
+        </a>
+        <a href="{% url 'products:product_list' %}"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
+          <i class="fas fa-box" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
+          {% trans "Products" %}
+        </a>
+        <a href="{% url 'users:profile_edit' %}"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
+          <i class="fas fa-sliders-h" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
+          {% trans "Settings" %}
+        </a>
+        <a href="{% url 'users:user_calendar' %}"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
+          <i class="fas fa-calendar-check" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
+          {% trans "Calendar" %}
+        </a>
+      </div>
+    </div>
+    <script>
+    (function(){
+      var btn = document.getElementById('mbn-actions-btn');
+      if (btn) btn.addEventListener('click', function(){
+        if (window.IESABottomSheet) IESABottomSheet.open('user-actions-sheet');
+      });
+    })();
+    </script>
+    {% endif %}
+
     {# 6c: Quick Visit Bottom Sheet — только для партнёров #}
     {% if user.is_authenticated and user.is_partner %}
     <div class="iesa-bottom-sheet" id="quick-visit-sheet" style="padding:0 0 1.5rem;">
@@ -820,22 +870,25 @@
         {% if user.membership_status == 'active' and user.permanent_id %}
         {# QR — большая центральная кнопка #}
         <button class="mbn-item mbn-center-btn mbn-qr-btn" id="mbn-qr-btn"
-                aria-label="{% trans 'Show QR Code' %}">
+                aria-label="{% trans 'Show QR Code' %}"
+                title="{% trans 'Show QR Code' %}">
             <i class="fas fa-qrcode"></i>
         </button>
         {% elif user.is_partner %}
         {# Партнёр: быстрый визит #}
         <button class="mbn-item mbn-center-btn" id="mbn-quick-visit-btn"
-                aria-label="{% trans 'Quick Visit Log' %}">
+                aria-label="{% trans 'Quick Visit Log' %}"
+                title="{% trans 'Quick Visit Log' %}">
             <i class="fas fa-user-plus"></i>
             <span>{% trans "Visit" %}</span>
         </button>
         {% else %}
-        {# Обычный пользователь: создать пост #}
-        <a href="{% url 'blog:post_create' %}" class="mbn-item mbn-center-btn"
-           aria-label="{% trans 'Create post' %}">
+        {# 7a: Обычный пользователь: меню действий #}
+        <button class="mbn-item mbn-center-btn" id="mbn-actions-btn"
+                aria-label="{% trans 'Actions' %}"
+                title="{% trans 'Quick actions' %}">
             <i class="fas fa-plus"></i>
-        </a>
+        </button>
         {% endif %}
 
         {# Таб 4: Уведомления #}
@@ -854,7 +907,7 @@
         {# Таб 5: Профиль #}
         {% with active_profile=request.resolver_match.url_name %}
         <a href="{% url 'users:profile' %}"
-           class="mbn-item {% if active_profile == 'profile' or active_profile == 'profile_edit' %}active{% endif %}"
+           class="mbn-item {% if active_profile == 'profile' or active_profile == 'profile_edit' or active_profile == 'dashboard' or active_profile == 'user_calendar' or active_profile == 'partner_dashboard' or active_profile == 'partner_calendar' %}active{% endif %}"
            aria-label="{% trans "Profile" %}">
             {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
                 <span class="mbn-avatar"><img src="{{ user.avatar.url }}" alt="{{ user.username }}"></span>
