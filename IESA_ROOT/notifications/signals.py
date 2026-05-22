@@ -29,17 +29,92 @@ def capture_previous_post_status(sender, instance, **kwargs):
         instance._previous_status = None
 
 
+def _notify_admins_post_moderation(post):
+    """HOTFIX 2026-05-23: уведомить всех админов с AdminNotificationProfile.post_moderation
+       о новом посте на модерации (in-site + Telegram)."""
+    import threading
+    from users.models import AdminNotificationProfile
+    from notifications.models import Notification as _Notif
+    from django.utils.translation import gettext as _gt
+
+    try:
+        profiles = AdminNotificationProfile.objects.filter(is_active=True).select_related('admin_user')
+    except Exception as exc:
+        logger.error("AdminNotificationProfile query failed: %s", exc)
+        return
+
+    for profile in profiles:
+        admin = profile.admin_user
+        if admin.pk == post.author_id:
+            continue  # Не уведомляем автора (он и есть админ)
+
+        # In-site уведомление
+        if profile.should_notify_site('post_moderation'):
+            try:
+                _Notif.objects.create(
+                    recipient=admin,
+                    notification_type='system',
+                    title=_gt('New post on moderation'),
+                    message=_gt('%(author)s submitted a post «%(title)s» for moderation.') % {
+                        'author': post.author.username if post.author else 'Anonymous',
+                        'title': (post.title or '')[:80],
+                    },
+                    link=f'/admin/blog/post/{post.pk}/change/',
+                )
+            except Exception as exc:
+                logger.error("post_moderation in-site notif failed: %s", exc)
+
+        # Telegram уведомление
+        if profile.should_notify_telegram('post_moderation') and getattr(admin, 'telegram_chat_id', None):
+            _pid, _cid = post.pk, admin.telegram_chat_id
+
+            def _send_tg(pid=_pid, cid=_cid):
+                try:
+                    from blog.models import Post as _Post
+                    from users.telegram.notify import send_message as _sm
+                    p = _Post.objects.select_related('author').get(pk=pid)
+                    author = p.author.username if p.author else 'Anonymous'
+                    msg = (
+                        f"📝 <b>Новый пост на модерации</b>\n\n"
+                        f"👤 <b>{author}</b>\n"
+                        f"📋 «{(p.title or '')[:100]}»\n\n"
+                        f"🔗 /admin/blog/post/{p.pk}/change/"
+                    )
+                    _sm(msg, chat_id=cid, parse_mode='HTML')
+                except Exception as exc:
+                    logger.error("post_moderation TG notify failed: %s", exc)
+
+            threading.Thread(target=_send_tg, daemon=True).start()
+
+
 @receiver(post_save, sender=Post)
 def post_status_changed(sender, instance, created, **kwargs):
-    """Send notification when post status changes (published/rejected)."""
+    """Send notification when post status changes.
+
+    HOTFIX 2026-05-23: добавлено уведомление админов о новом посте на модерации
+    (события из AdminNotificationProfile.post_moderation).
+    """
     if created:
-        return  # Don't send notification when post is first created
+        # Новый пост: уведомить админов если status='pending'
+        if instance.status == 'pending':
+            try:
+                _notify_admins_post_moderation(instance)
+            except Exception as e:
+                logger.error(f"Failed to notify admins about new post {instance.id}: {e}", exc_info=True)
+        return
 
     old_status = getattr(instance, '_previous_status', None)
     new_status = instance.status
 
     if old_status is None or old_status == new_status:
         return
+
+    # HOTFIX: пост перевели из draft в pending — уведомить админов
+    if new_status == 'pending' and old_status != 'pending':
+        try:
+            _notify_admins_post_moderation(instance)
+        except Exception as e:
+            logger.error(f"Failed to notify admins about post pending {instance.id}: {e}", exc_info=True)
 
     if new_status in ['published', 'rejected']:
         try:

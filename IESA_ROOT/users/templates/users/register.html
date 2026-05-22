@@ -351,13 +351,33 @@
                                 </span>
                             </div>
                         </div>
+                        {# HOTFIX 2026-05-23: чекбокс согласия — PIN активируется сразу после регистрации #}
+                        <div class="reg-consent" style="margin:1.25rem 0;padding:1rem 1.1rem;background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.18);border-radius:12px;">
+                            <label style="display:flex;align-items:flex-start;gap:.65rem;cursor:pointer;font-size:.85rem;color:rgba(255,255,255,.78);line-height:1.55;">
+                                <input type="checkbox" name="membership_consent" id="id_membership_consent" required
+                                       style="margin-top:.18rem;width:18px;height:18px;flex-shrink:0;accent-color:var(--primary);">
+                                <span>
+                                    {% trans "I agree to become a member of IESA Sport and accept the" %}
+                                    <a href="{% url 'users:how_it_works' %}" target="_blank" style="color:#f87171;">{% trans "privacy policy" %}</a>.
+                                    {% trans "After registration, the PIN-code is available immediately. The physical card is issued later upon request." %}
+                                </span>
+                            </label>
+                            {% if form.membership_consent.errors %}
+                                {% for err in form.membership_consent.errors %}
+                                <div class="rf-err" role="alert" style="margin-top:.5rem;">
+                                    <i class="fas fa-times-circle" aria-hidden="true"></i>{{ err }}
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+
                         <div class="reg-actions">
                             <div class="reg-step-nav mb-3">
                                 <button type="button" class="reg-btn-back" data-back="2">
                                     <i class="fas fa-arrow-left me-1"></i>{% trans "Edit" %}
                                 </button>
                             </div>
-                            <button type="submit" class="reg-submit">
+                            <button type="submit" class="reg-submit" id="reg-submit-btn" disabled>
                                 <i class="fas fa-user-plus"></i>{% trans "Create Account" %}
                             </button>
                             <p class="reg-login">
@@ -387,6 +407,16 @@ function togglePw(btn){
     if(i.type==='password'){i.type='text';ic.className='fas fa-eye-slash';}
     else{i.type='password';ic.className='fas fa-eye';}
 }
+
+/* HOTFIX 2026-05-23: блокируем submit пока чекбокс согласия не отмечен */
+(function(){
+    var consent = document.getElementById('id_membership_consent');
+    var submit  = document.getElementById('reg-submit-btn');
+    if (!consent || !submit) return;
+    function sync(){ submit.disabled = !consent.checked; }
+    consent.addEventListener('change', sync);
+    sync();
+})();
 
 /* ── Multi-step registration (U2-04) ─── */
 (function(){

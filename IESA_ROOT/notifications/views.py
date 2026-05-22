@@ -77,17 +77,18 @@ async def notification_stream(request):
     """
     10e: Server-Sent Events endpoint.
     Отправляет unread_count каждые 30с.
-    Клиент получает событие 'badge' и обновляет badge без polling.
-    Fallback: если SSE недоступен, клиент использует hx-trigger="every 5m".
-    Heroku: timeouts после 55с — клиент reconnect автоматически.
 
-    BLOCK 10 (audit v3): переписано на async generator + asyncio.sleep + sync_to_async.
-    Раньше blocking time.sleep(30) в Daphne (ASGI) блокировал event loop, из-за чего
-    при graceful shutdown задача «висела» в sleep и принудительно убивалась через 60с
-    → WARNING "Application instance ... took too long to shut down and was killed".
-    Async-версия корректно отменяется через asyncio.CancelledError.
+    BLOCK 10 (audit v3): async generator + asyncio.sleep + sync_to_async.
+    HOTFIX 2026-05-22: request.user.pk триггерит sync ORM call внутри async-view
+    (SimpleLazyObject из AuthMiddleware). Оборачиваем доступ к request.user в sync_to_async.
     """
-    user_id = request.user.pk
+    # HOTFIX: request.user — SimpleLazyObject; .pk триггерит синхронный ORM запрос.
+    # В async-view это запрещено, поэтому оборачиваем через sync_to_async.
+    @sync_to_async
+    def _resolve_user_pk():
+        return request.user.pk
+
+    user_id = await _resolve_user_pk()
 
     @sync_to_async
     def _get_count() -> int:
