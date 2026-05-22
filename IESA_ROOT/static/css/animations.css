@@ -12,7 +12,52 @@ html {
 
 /* Для якорных ссылок */
 :target {
-    scroll-margin-top: 160px; /* Учитываем sticky navbar + верхний баннер */
+    scroll-margin-top: 90px; /* BLOCK 8 (audit v3): 160 → 90 — навбар 70px + gap 20px */
+}
+
+/* BLOCK 8 (audit v3): подсветка целевого блока при якорном переходе.
+   Селектор узкий — только секции/карточки/контейнеры, не inputs/buttons. */
+section:target,
+[id$="-section"]:target,
+[id^="sec-"]:target,
+.cab-card:target,
+.pp-card:target,
+.dash-card:target,
+.card:target,
+article:target {
+    animation: target-flash 1.6s cubic-bezier(.4, 0, .2, 1) 1;
+    border-radius: 14px;
+}
+
+@keyframes target-flash {
+    0%   {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+        background-color: rgba(220, 38, 38, 0);
+    }
+    15%  {
+        box-shadow: 0 0 0 4px rgba(220, 38, 38, .45);
+        background-color: rgba(220, 38, 38, .07);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+        background-color: rgba(220, 38, 38, 0);
+    }
+}
+
+/* Уважаем prefers-reduced-motion: убираем анимацию, оставляем мгновенную подсветку на 1с */
+@media (prefers-reduced-motion: reduce) {
+    section:target,
+    [id$="-section"]:target,
+    [id^="sec-"]:target,
+    .cab-card:target,
+    .pp-card:target,
+    .dash-card:target,
+    .card:target,
+    article:target {
+        animation: none;
+        outline: 2px solid rgba(220, 38, 38, .5);
+        outline-offset: 2px;
+    }
 }
 
 /* ============================================================

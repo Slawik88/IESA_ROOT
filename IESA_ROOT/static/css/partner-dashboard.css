@@ -24,7 +24,9 @@
 }
 
 /* Body bg for this page */
-body:has(.pp-wrap) { background: var(--bg0) !important; }
+/* BLOCK 5a (audit v3): был баг — var(--bg0) определена в .pp-wrap (потомке),
+   у body эта переменная недоступна → undefined → белая полоса. Используем прямое значение. */
+body:has(.pp-wrap) { background: #06060d !important; }
 
 /* ── BASE ──────────────────────────────────────────────────────── */
 .pp-wrap {

@@ -1,4 +1,6 @@
+import asyncio
 import time
+from asgiref.sync import sync_to_async
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -71,36 +73,51 @@ def mark_all_read(request):
     return redirect('notifications:notification_list')
 
 @login_required
-def notification_stream(request):
+async def notification_stream(request):
     """
     10e: Server-Sent Events endpoint.
     Отправляет unread_count каждые 30с.
     Клиент получает событие 'badge' и обновляет badge без polling.
     Fallback: если SSE недоступен, клиент использует hx-trigger="every 5m".
     Heroku: timeouts после 55с — клиент reconnect автоматически.
+
+    BLOCK 10 (audit v3): переписано на async generator + asyncio.sleep + sync_to_async.
+    Раньше blocking time.sleep(30) в Daphne (ASGI) блокировал event loop, из-за чего
+    при graceful shutdown задача «висела» в sleep и принудительно убивалась через 60с
+    → WARNING "Application instance ... took too long to shut down and was killed".
+    Async-версия корректно отменяется через asyncio.CancelledError.
     """
-    def event_generator():
-        user_id = request.user.pk
+    user_id = request.user.pk
+
+    @sync_to_async
+    def _get_count() -> int:
+        return Notification.objects.filter(recipient_id=user_id, is_read=False).count()
+
+    async def event_generator():
         last_count = -1
-        start = time.time()
+        loop = asyncio.get_event_loop()
+        start = loop.time()
         try:
             # Сразу отправляем текущее состояние
-            count = Notification.objects.filter(recipient_id=user_id, is_read=False).count()
+            count = await _get_count()
             last_count = count
             badge = str(count) if count > 0 else '0'
             yield f"event: badge\ndata: {badge}\n\n"
 
-            while time.time() - start < 50:  # < Heroku 55s timeout
-                time.sleep(30)
-                count = Notification.objects.filter(recipient_id=user_id, is_read=False).count()
+            while loop.time() - start < 50:  # < Heroku 55s timeout
+                await asyncio.sleep(30)
+                count = await _get_count()
                 if count != last_count:
                     last_count = count
                     badge = str(count) if count > 0 else '0'
                     yield f"event: badge\ndata: {badge}\n\n"
                 else:
                     yield ": keepalive\n\n"  # пустой comment — держит соединение
+        except asyncio.CancelledError:
+            # Клиент отключился / Daphne делает shutdown — выходим тихо
+            return
         except GeneratorExit:
-            pass
+            return
 
     response = StreamingHttpResponse(event_generator(), content_type='text/event-stream')
     response['Cache-Control'] = 'no-cache'

@@ -6,7 +6,9 @@ reply_markup follows the Telegram InlineKeyboardMarkup schema.
 from __future__ import annotations
 
 import asyncio
+import html as _html
 import logging
+import re
 from typing import Any
 
 from asgiref.sync import sync_to_async
@@ -15,6 +17,19 @@ from django.utils.translation import gettext as _
 from .link import generate_link_code
 
 logger = logging.getLogger(__name__)
+
+# BLOCK 9 (audit v3): Telegram parse_mode=HTML ломается на сырых угловых скобках
+# (<task>, <script>, любые `<...>` в тексте юзера). Также Telegram limit = 4096 chars.
+_MAX_USER_ECHO_LEN = 300  # запас на префикс и suffix < 4096
+
+def _safe_user_text(text: str, max_len: int = _MAX_USER_ECHO_LEN) -> str:
+    """Безопасная вставка user-input в HTML-сообщение бота: escape + обрезка."""
+    if not text:
+        return ""
+    safe = _html.escape(text, quote=False)
+    if len(safe) > max_len:
+        safe = safe[:max_len] + "…"
+    return safe
 
 # ── Keyboard builders ──────────────────────────────────────────────────────
 
@@ -390,8 +405,30 @@ async def handle_insurance(chat_id: int, text: str, user_db) -> Reply:
 
 
 async def handle_echo(chat_id: int, text: str, user_db) -> Reply:
+    # BLOCK 9b (audit v3): если юзер ввёл что похоже на 6-значный код привязки
+    # прямо в чат бота — даём специальный ответ что код вводится на сайте.
+    cleaned = re.sub(r"[\s\-]", "", text or "")
+    if cleaned.isdigit() and len(cleaned) == 6:
+        msg = (
+            "⚠️ <b>Этот код вводится не в боте, а на сайте.</b>\n\n"
+            f"Ваш код: <code>{_html.escape(cleaned)}</code>\n\n"
+            "1. Откройте страницу привязки на сайте\n"
+            "2. Войдите в свой аккаунт\n"
+            "3. Введите этот код в поле\n"
+            "4. Нажмите «Подтвердить»\n\n"
+            "⏳ Код действителен <b>10 минут</b>"
+        )
+        kb = _kb(
+            [_url_btn("🔗 Открыть страницу привязки", CONNECT_TG_URL)],
+            [_btn("🔄 Получить новый код", "cb:new_code"), _btn("❓ Помощь", "cb:help")],
+        )
+        return msg, kb
+
+    # BLOCK 9a (audit v3): обычный echo — экранируем HTML и обрезаем длину.
+    # Без этого <task>, <script> и любые угловые скобки ломают Telegram parse_mode=HTML.
+    safe = _safe_user_text(text)
     msg = (
-        f"🔁 {text}\n\n"
+        f"🔁 {safe}\n\n"
         "<i>" + _('I repeat your messages in test mode. '
                   'Use buttons or commands below.') + "</i>"
     )
