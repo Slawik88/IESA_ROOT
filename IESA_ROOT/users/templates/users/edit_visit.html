@@ -1,113 +1,62 @@
-{% extends "base.html" %}
+{% extends "users/partner_base.html" %}
 {% load static i18n %}
 
 {% block title %}{% trans "Edit Visit" %} #{{ visit.pk }}{% endblock %}
 
-{% block extra_css %}
-<style>
-.pp-wrap { background:#07070e; min-height:100vh; padding-bottom:80px; color:#e2e8f0; }
-.pp-nav { background:#0d0d18; border-bottom:1px solid rgba(220,38,38,.18); padding:0 20px; display:flex; align-items:center; overflow-x:auto; scrollbar-width:none; }
-.pp-nav::-webkit-scrollbar { display:none; }
-.pp-nav a { display:flex; align-items:center; gap:7px; padding:14px 20px; color:rgba(255,255,255,.55); text-decoration:none; font-size:.82rem; font-family:var(--font-mono); white-space:nowrap; border-bottom:2px solid transparent; transition:color .2s,border-color .2s; }
-.pp-nav a:hover { color:#ef4444; border-bottom-color:#ef4444; }
-.pp-nav-brand { font-size:.85rem; font-weight:700; color:#fff !important; margin-right:10px; letter-spacing:.05em; border-bottom:none !important; }
-@media (max-width: 600px) {
-  .pp-nav { padding: 0 8px; }
-  .pp-nav a { padding: 11px 10px; font-size: .74rem; gap: 4px; }
-  .pp-nav-brand { font-size: .76rem; margin-right: 4px; }
-}
-@media (max-width: 430px) {
-  .pp-nav a { padding: 10px 7px; font-size: .68rem; gap: 3px; }
-  .pp-nav-brand { font-size: .7rem; }
-}
-.pp-section { padding:28px 24px 0; }
-.pp-card { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:14px; padding:28px; max-width:600px; }
-.pp-visit-banner { background:rgba(250,204,21,.07); border:1px solid rgba(250,204,21,.2); border-radius:10px; padding:14px 18px; margin-bottom:22px; }
-.pp-visit-label { font-size:.68rem; font-family:var(--font-mono); color:rgba(250,204,21,.6); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; }
-.pp-visit-val { font-size:.9rem; color:#fbbf24; }
-.pp-timer { font-size:.78rem; font-family:var(--font-mono); color:rgba(250,204,21,.7); margin-top:6px; }
-.pp-field { margin-bottom:20px; }
-.pp-field label { display:block; font-size:.72rem; font-family:var(--font-mono); color:rgba(255,255,255,.45); text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
-.pp-field input, .pp-field select, .pp-field textarea {
-  width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1);
-  border-radius:8px; color:#e2e8f0; padding:10px 14px; font-size:.9rem; outline:none;
-  transition:border-color .2s; resize:vertical;
-}
-.pp-field input:focus, .pp-field select:focus, .pp-field textarea:focus { border-color:#fbbf24; background:rgba(255,255,255,.06); }
-.pp-field input::placeholder, .pp-field textarea::placeholder { color:rgba(255,255,255,.2); }
-.pp-field select option { background:#1a1a2e; color:#e2e8f0; }
-.pp-field .errorlist { list-style:none; padding:6px 0 0; margin:0; }
-.pp-field .errorlist li { font-size:.78rem; color:#f87171; font-family:var(--font-mono); }
-.pp-divider { border:none; border-top:1px solid rgba(255,255,255,.06); margin:20px 0; }
-.pp-btn { background:#fbbf24; color:#07070e; border:none; border-radius:8px; padding:12px 26px; font-size:.88rem; font-family:var(--font-mono); cursor:pointer; transition:background .2s; text-decoration:none; display:inline-flex; align-items:center; gap:8px; font-weight:700; }
-.pp-btn:hover { background:#f59e0b; color:#07070e; }
-.pp-btn-ghost { background:transparent; border:1px solid rgba(255,255,255,.12); color:rgba(255,255,255,.45); font-weight:400; }
-.pp-btn-ghost:hover { background:rgba(255,255,255,.04); color:rgba(255,255,255,.7); }
-</style>
+{% block partner_title %}{% trans "Edit Visit" %} #{{ visit.pk }}{% endblock %}
+{% block partner_subtitle %}{% trans "Correct Visit Record" %}{% endblock %}
+
+{% block partner_content %}
+{% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
+
+<div class="pp-card" style="max-width:620px;">
+
+  <!-- VISIT SUMMARY -->
+  <div class="pp-visit-banner">
+    <div class="pp-visit-label">{% trans "Visit" %} #{{ visit.pk }}</div>
+    <div class="pp-visit-val">
+      {{ visit.member.get_full_name|default:visit.member.username }}
+      &nbsp;·&nbsp; {{ visit.get_service_type_display }}
+      {% if visit.cost %}&nbsp;·&nbsp; {{ visit.cost }} CHF{% endif %}
+    </div>
+    <div style="font-size:.75rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);margin-top:4px;">
+      {{ visit.timestamp|date:"d M Y H:i" }}
+    </div>
+    {% if seconds_left > 0 %}
+      <div class="pp-timer" id="editTimer">
+        ⏱ {% trans "Edit window closes in" %}: <span id="timerVal">{{ seconds_left }}</span>s
+      </div>
+    {% endif %}
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form %}
+      {% if field.name != 'reason' %}
+      <div class="pp-field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      {% endif %}
+    {% endfor %}
+    <hr class="pp-divider">
+    <div class="pp-field">
+      <label for="{{ form.reason.id_for_label }}">{{ form.reason.label }} *</label>
+      {{ form.reason }}
+      {% if form.reason.errors %}<ul class="errorlist">{% for e in form.reason.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      {% if form.reason.help_text %}<div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:5px;font-family:var(--font-mono);">{{ form.reason.help_text }}</div>{% endif %}
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <button type="submit" class="pp-btn">✏ {% trans "Save Changes" %}</button>
+      <a href="{% url 'users:partner_dashboard' %}" class="pp-btn pp-btn-ghost">{% trans "Cancel" %}</a>
+    </div>
+  </form>
+
+</div>
 {% endblock %}
 
-{% block content %}
-<div class="pp-wrap">
-  <nav class="pp-nav">
-    <a href="{% url 'users:partner_dashboard' %}" class="pp-nav-brand">⬡ IESA PARTNER</a>
-    <a href="{% url 'users:partner_dashboard' %}">{% trans "Dashboard" %}</a>
-    <a href="{% url 'users:partner_analytics' %}">{% trans "Analytics" %}</a>
-    <a href="{% url 'users:partner_profile_edit' %}">{% trans "Company Profile" %}</a>
-  </nav>
-
-  {% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
-  <div style="background:linear-gradient(135deg,#0d0d18 0%,#12060d 100%);padding:24px 24px 20px;border-bottom:1px solid rgba(255,255,255,.05);">
-    <div style="font-size:.72rem;font-family:var(--font-mono);color:rgba(250,204,21,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">EDIT VISIT</div>
-    <div style="font-size:1.25rem;font-weight:700;color:#fff;">{% trans "Correct Visit Record" %}</div>
-  </div>
-
-  <div class="pp-section">
-    <div class="pp-card">
-      <!-- VISIT SUMMARY -->
-      <div class="pp-visit-banner">
-        <div class="pp-visit-label">{% trans "Visit" %} #{{ visit.pk }}</div>
-        <div class="pp-visit-val">
-          {{ visit.member.get_full_name|default:visit.member.username }}
-          &nbsp;·&nbsp; {{ visit.get_service_type_display }}
-          {% if visit.cost %}&nbsp;·&nbsp; {{ visit.cost }} CHF{% endif %}
-        </div>
-        <div style="font-size:.75rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);margin-top:4px;">
-          {{ visit.timestamp|date:"d M Y H:i" }}
-        </div>
-        {% if seconds_left > 0 %}
-          <div class="pp-timer" id="editTimer">
-            ⏱ {% trans "Edit window closes in" %}: <span id="timerVal">{{ seconds_left }}</span>s
-          </div>
-        {% endif %}
-      </div>
-
-      <form method="post">
-        {% csrf_token %}
-        {% for field in form %}
-          {% if field.name != 'reason' %}
-          <div class="pp-field">
-            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-            {{ field }}
-            {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-          </div>
-          {% endif %}
-        {% endfor %}
-        <hr class="pp-divider">
-        <div class="pp-field">
-          <label for="{{ form.reason.id_for_label }}">{{ form.reason.label }} *</label>
-          {{ form.reason }}
-          {% if form.reason.errors %}<ul class="errorlist">{% for e in form.reason.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-          {% if form.reason.help_text %}<div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:5px;font-family:var(--font-mono);">{{ form.reason.help_text }}</div>{% endif %}
-        </div>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <button type="submit" class="pp-btn">✏ {% trans "Save Changes" %}</button>
-          <a href="{% url 'users:partner_dashboard' %}" class="pp-btn pp-btn-ghost">{% trans "Cancel" %}</a>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
+{% block extra_js %}
 {% if seconds_left > 0 %}
 <script>
 let s = {{ seconds_left }};

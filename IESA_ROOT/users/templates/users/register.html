@@ -184,12 +184,21 @@
 .reg-fp i { color:rgba(220,38,38,.7); }
 
 /* mobile */
+@media(max-width:768px){
+    /* 6a: скрываем декоративные orbs — тяжёлые для GPU */
+    .reg-orb { display: none; }
+}
 @media(max-width:640px){
-    .reg-card-head,.reg-body { padding-left:1.5rem; padding-right:1.5rem; }
+    /* 6b: компактные padding-и для регистрации на мобиле */
+    .reg-card-head { padding: 1.25rem 1.25rem 0; }
+    .reg-body { padding: 0 1.25rem 1.5rem; }
     .reg-grid { grid-template-columns:1fr; }
     .reg-full { grid-column:1; }
-    .reg-footer { padding:1rem 1.5rem; gap:1.2rem; }
-    .reg-top { margin-bottom:1.5rem; }
+    .reg-footer { padding:1rem 1.25rem; gap:1rem; display:grid; grid-template-columns:1fr 1fr; }
+    .reg-top { margin-bottom:1rem; }
+    .reg-title { font-size:1.5rem; }
+    .reg-steps { font-size:.6rem; }
+    .reg-step { padding:.25rem .65rem; }
 }
 </style>
 {% endblock %}
@@ -250,34 +259,36 @@
                             <div class="rf reg-full">
                                 <label for="{{ form.username.id_for_label }}">{{ form.username.label }} <span style="color:#f87171;font-weight:700;" aria-hidden="true">*</span></label>
                                 <div class="rf-wrap" style="position:relative;">
-                                    <i class="fas fa-at rf-ic"></i>
+                                    <i class="fas fa-at rf-ic" aria-hidden="true"></i>
                                     <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}"
                                            value="{{ form.username.value|default:'' }}"
                                            class="{% if form.username.errors %}inv{% endif %}"
+                                           {% if form.username.errors %}aria-invalid="true" aria-describedby="err-username"{% endif %}
                                            autocomplete="username" placeholder="{% trans "e.g. johndoe" %}" autofocus
                                            tabindex="1" data-live-check="username">
-                                    <span id="un-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;"></span>
+                                    <span id="un-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;" aria-live="polite" aria-atomic="true"></span>
                                 </div>
-                                <div id="un-msg" class="rf-hint" style="min-height:1.2em;"></div>
+                                <div id="un-msg" class="rf-hint" style="min-height:1.2em;" aria-live="polite"></div>
                                 {% if form.username.help_text %}<div class="rf-hint">{{ form.username.help_text }}</div>{% endif %}
-                                {% for err in form.username.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
+                                {% for err in form.username.errors %}<div id="err-username" class="rf-err" role="alert"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
                             </div>
 
                             {# ── 3a: Email с live-проверкой ── #}
                             <div class="rf reg-full">
                                 <label for="{{ form.email.id_for_label }}">{{ form.email.label }} <span style="color:#f87171;font-weight:700;" aria-hidden="true">*</span></label>
                                 <div class="rf-wrap" style="position:relative;">
-                                    <i class="fas fa-envelope rf-ic"></i>
+                                    <i class="fas fa-envelope rf-ic" aria-hidden="true"></i>
                                     <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}"
                                            value="{{ form.email.value|default:'' }}"
                                            class="{% if form.email.errors %}inv{% endif %}"
+                                           {% if form.email.errors %}aria-invalid="true" aria-describedby="err-email"{% endif %}
                                            tabindex="2"
                                            autocomplete="email" placeholder="your@email.com"
                                            data-live-check="email">
-                                    <span id="em-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;"></span>
+                                    <span id="em-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;" aria-live="polite" aria-atomic="true"></span>
                                 </div>
-                                <div id="em-msg" class="rf-hint" style="min-height:1.2em;"></div>
-                                {% for err in form.email.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
+                                <div id="em-msg" class="rf-hint" style="min-height:1.2em;" aria-live="polite"></div>
+                                {% for err in form.email.errors %}<div id="err-email" class="rf-err" role="alert"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
                             </div>
                         </div>
                         <div class="reg-step-nav">
@@ -294,12 +305,13 @@
                             <div class="rf reg-full">
                                 <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }} <span style="color:#f87171;font-weight:700;" aria-hidden="true">*</span></label>
                                 <div class="rf-wrap">
-                                    <i class="fas fa-lock rf-ic"></i>
+                                    <i class="fas fa-lock rf-ic" aria-hidden="true"></i>
                                     <input type="password" name="{{ form.password1.html_name }}" id="{{ form.password1.id_for_label }}"
                                            class="has-pw{% if form.password1.errors %} inv{% endif %}"
+                                           {% if form.password1.errors %}aria-invalid="true" aria-describedby="err-password1"{% endif %}
                                            autocomplete="new-password" placeholder="••••••••"
                                            tabindex="3">
-                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
+                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                 </div>
                                 {# Полоска силы пароля #}
                                 <div style="margin-top:.5rem;">
@@ -315,20 +327,21 @@
                                     <div id="crit-spec" class="pw-crit"><i class="fas fa-circle" style="font-size:.45rem;"></i> !@# {% trans "special char" %}</div>
                                 </div>
                                 {% if form.password1.help_text %}<div class="rf-hint" style="margin-top:.5rem;">{{ form.password1.help_text }}</div>{% endif %}
-                                {% for err in form.password1.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
+                                {% for err in form.password1.errors %}<div id="err-password1" class="rf-err" role="alert"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
                             </div>
                             <div class="rf reg-full">
                                 <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
                                 <div class="rf-wrap">
-                                    <i class="fas fa-lock rf-ic"></i>
+                                    <i class="fas fa-lock rf-ic" aria-hidden="true"></i>
                                     <input type="password" name="{{ form.password2.html_name }}" id="{{ form.password2.id_for_label }}"
                                            class="has-pw{% if form.password2.errors %} inv{% endif %}"
+                                           {% if form.password2.errors %}aria-invalid="true" aria-describedby="err-password2"{% endif %}
                                            autocomplete="new-password" placeholder="••••••••"
                                            tabindex="4">
-                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
+                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                 </div>
-                                <div id="pw-match-msg" style="font-size:.72rem;margin-top:.3rem;min-height:1em;"></div>
-                                {% for err in form.password2.errors %}<div class="rf-err"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;"></i>{{ err }}</div>{% endfor %}
+                                <div id="pw-match-msg" style="font-size:.72rem;margin-top:.3rem;min-height:1em;" aria-live="polite"></div>
+                                {% for err in form.password2.errors %}<div id="err-password2" class="rf-err" role="alert"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
                             </div>
                         </div>
                         <div class="reg-step-nav">

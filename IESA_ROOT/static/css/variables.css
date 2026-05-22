@@ -107,6 +107,23 @@
   --border-dark: rgba(255, 255, 255, 0.09);
   --border-dark-hover: rgba(255, 255, 255, 0.18);
 
+  /* Семантические слои поверхностей (Surface Scale) */
+  --surface-0: #0e0e18;   /* фон страницы */
+  --surface-1: #111118;   /* карточка (= --bg-surface) */
+  --surface-2: #1a1a24;   /* hover-поверхность (= --bg-surface-hover) */
+  --surface-3: #232334;   /* приподнятый элемент / фокус-зона */
+
+  /* Семантические границы */
+  --border-faint:  rgba(255, 255, 255, 0.06);   /* едва видима */
+  --border-soft:   rgba(255, 255, 255, 0.10);   /* стандарт для карточек */
+  --border-strong: rgba(255, 255, 255, 0.18);   /* hover / фокус */
+
+  /* Primary с прозрачностью */
+  --primary-a8:  rgba(220, 38, 38, 0.08);
+  --primary-a12: rgba(220, 38, 38, 0.12);
+  --primary-a25: rgba(220, 38, 38, 0.25);
+  --primary-a40: rgba(220, 38, 38, 0.40);
+
   /* Aliased color-gray-* for homepage/about sections (used in pages.css).
      These resolve in white-bg containers where the scoped override in
      base.css sets --gray-* back to their light hex values. */
@@ -199,6 +216,12 @@
   --radius-btn: 0.875rem;      /* 14px - для кнопок */
   --radius-input: 0.75rem;     /* 12px - для инпутов */
   --radius-badge: 0.5rem;      /* 8px - для badges */
+
+  /* Семантические алиасы радиусов (4 уровня) */
+  --r-sm: var(--radius-input);  /* 12px — теги, инпуты */
+  --r-md: var(--radius-btn);    /* 14px — кнопки */
+  --r-lg: var(--radius-card);   /* 20px — карточки */
+  --r-xl: var(--radius-3xl);    /* 24px — модалки, hero-блоки */
   
   /* ====================================================
      5. ТЕНИ

@@ -1,127 +1,94 @@
-{% extends "base.html" %}
+{% extends "users/partner_base.html" %}
 {% load static i18n %}
 
-{% block title %}{% trans "Partner Analytics" %} — {{ partner.company_name }}{% endblock %}
+{% block title %}{% trans "Analytics" %} — {{ partner.company_name }}{% endblock %}
 
-{% block extra_css %}
+{% block partner_title %}{% trans "Analytics" %}{% endblock %}
+{% block partner_subtitle %}{% trans "Last 30 days performance overview" %}{% endblock %}
+
+{% block partner_extra_css %}
 <style>
-.pp-wrap { background:#07070e; min-height:100vh; padding-bottom:80px; color:#e2e8f0; }
-.pp-nav { background:#0d0d18; border-bottom:1px solid rgba(220,38,38,.18); padding:0 20px; display:flex; align-items:center; overflow-x:auto; scrollbar-width:none; }
-.pp-nav::-webkit-scrollbar { display:none; }
-.pp-nav a { display:flex; align-items:center; gap:7px; padding:14px 20px; color:rgba(255,255,255,.55); text-decoration:none; font-size:.82rem; font-family:'Courier New',monospace; white-space:nowrap; border-bottom:2px solid transparent; transition:color .2s,border-color .2s; }
-.pp-nav a:hover,.pp-nav a.active { color:#ef4444; border-bottom-color:#ef4444; }
-.pp-nav-brand { font-size:.85rem; font-weight:700; color:#fff !important; margin-right:10px; letter-spacing:.05em; border-bottom:none !important; }
-@media (max-width: 600px) {
-  .pp-nav { padding: 0 8px; }
-  .pp-nav a { padding: 11px 10px; font-size: .74rem; gap: 4px; }
-  .pp-nav-brand { font-size: .76rem; margin-right: 4px; }
+/* 2j: Analytics mobile — таблицы → карточки */
+@media (max-width: 767.98px) {
+  .pp-charts { grid-template-columns: 1fr; }
+  .pp-table-wrap { overflow-x: visible; }
+  .pp-table { display: block; }
+  .pp-table thead { display: none; }
+  .pp-table tbody { display: block; }
+  .pp-table tbody tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .15rem .5rem;
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 10px;
+    margin-bottom: .5rem;
+    padding: .75rem .9rem;
+  }
+  .pp-table tbody td { display: block; border: none; padding: .1rem 0; font-size: .82rem; }
+  .pp-table tbody td:first-child { grid-column: 1/-1; font-weight: 700; color: #f1f5f9; margin-bottom: .2rem; font-size: .88rem; }
+  .pp-table tbody td.pp-rank { grid-column: 1/-1; font-size: .65rem; color: rgba(255,255,255,.28); }
 }
-@media (max-width: 430px) {
-  .pp-nav a { padding: 10px 7px; font-size: .68rem; gap: 3px; }
-  .pp-nav-brand { font-size: .7rem; }
-}
-.pp-hero { background:linear-gradient(135deg,#0d0d18 0%,#12060d 100%); padding:36px 24px 32px; position:relative; overflow:hidden; border-bottom:1px solid rgba(255,255,255,.05); }
-.pp-hero::before { content:''; position:absolute; right:-80px; top:-80px; width:520px; height:520px; background:radial-gradient(circle,rgba(220,38,38,.12) 0%,transparent 68%); pointer-events:none; }
-.pp-hero-badge { display:inline-block; padding:3px 10px; background:rgba(220,38,38,.15); border:1px solid rgba(220,38,38,.3); border-radius:20px; font-size:.72rem; color:#ef4444; font-family:'Courier New',monospace; letter-spacing:.08em; margin-bottom:10px; }
-.pp-hero-title { font-size:1.4rem; font-weight:700; color:#fff; margin:0 0 4px; }
-.pp-hero-sub { font-size:.82rem; color:rgba(255,255,255,.4); font-family:'Courier New',monospace; }
-.pp-stats { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; padding:24px 24px 0; }
-@media(max-width:800px) { .pp-stats { grid-template-columns:repeat(3,1fr); } }
-@media(max-width:500px) { .pp-stats { grid-template-columns:repeat(2,1fr); } }
-.pp-stat { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:16px; }
-.pp-stat-label { font-size:.68rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
-.pp-stat-val { font-size:1.5rem; font-weight:700; color:#fff; line-height:1; }
-.pp-stat-val.red { color:#ef4444; }
-.pp-stat-detail { font-size:.7rem; color:rgba(255,255,255,.3); margin-top:4px; }
-.pp-section { padding:28px 24px 0; }
-.pp-section-title { font-size:.78rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.1em; margin-bottom:16px; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,.06); }
-.pp-charts { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-@media(max-width:700px) { .pp-charts { grid-template-columns:1fr; } }
-.pp-chart-box { background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.06); border-radius:12px; padding:20px; }
-.pp-chart-title { font-size:.75rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.4); text-transform:uppercase; letter-spacing:.08em; margin-bottom:14px; }
-.pp-table-wrap { overflow-x:auto; border-radius:12px; border:1px solid rgba(255,255,255,.06); background:rgba(255,255,255,.02); }
-.pp-table { width:100%; border-collapse:collapse; font-size:.83rem; }
-.pp-table th { padding:10px 14px; text-align:left; font-family:'Courier New',monospace; font-size:.68rem; color:rgba(255,255,255,.35); text-transform:uppercase; letter-spacing:.07em; border-bottom:1px solid rgba(255,255,255,.06); background:rgba(255,255,255,.02); white-space:nowrap; }
-.pp-table td { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.04); color:#cbd5e1; vertical-align:middle; }
-.pp-table tr:last-child td { border-bottom:none; }
-.pp-table tr:hover td { background:rgba(255,255,255,.025); }
-.pp-rank { font-size:.7rem; font-family:'Courier New',monospace; color:rgba(255,255,255,.3); }
-.pp-btn-back { display:inline-flex; align-items:center; gap:6px; padding:9px 18px; background:transparent; border:1px solid rgba(220,38,38,.3); border-radius:8px; color:#ef4444; font-size:.8rem; font-family:'Courier New',monospace; text-decoration:none; transition:background .2s; }
-.pp-btn-back:hover { background:rgba(220,38,38,.08); color:#ef4444; }
-.pp-empty { text-align:center; padding:48px 20px; color:rgba(255,255,255,.25); font-family:'Courier New',monospace; font-size:.82rem; }
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="pp-wrap">
-  <!-- PARTNER NAV -->
-  <nav class="pp-nav">
-    <a href="{% url 'users:partner_dashboard' %}" class="pp-nav-brand">⬡ IESA PARTNER</a>
-    <a href="{% url 'users:partner_dashboard' %}">{% trans "Dashboard" %}</a>
-    <a href="{% url 'users:partner_analytics' %}" class="active">{% trans "Analytics" %}</a>
-    <a href="{% url 'users:partner_profile_edit' %}">{% trans "Company Profile" %}</a>
-  </nav>
+{% block partner_content %}
 
-  {% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
-
-  <!-- HERO -->
-  <div class="pp-hero">
-    <div style="position:relative;z-index:1;">
-      <div class="pp-hero-badge">ANALYTICS</div>
-      <div class="pp-hero-title">{{ partner.company_name }}</div>
-      <div class="pp-hero-sub">{% trans "Last 30 days performance overview" %}</div>
-    </div>
+<!-- STATS 30 DAYS -->
+<div class="pp-stats">
+  <div class="pp-stat">
+    <div class="pp-stat-label">{% trans "Visits (30d)" %}</div>
+    <div class="pp-stat-val red">{{ total_30 }}</div>
+    <div class="pp-stat-detail">{% trans "last 30 days" %}</div>
   </div>
-
-  <!-- STATS 30 DAYS -->
-  <div class="pp-stats">
-    <div class="pp-stat">
-      <div class="pp-stat-label">{% trans "Visits (30d)" %}</div>
-      <div class="pp-stat-val red">{{ total_30 }}</div>
-      <div class="pp-stat-detail">{% trans "last 30 days" %}</div>
-    </div>
-    <div class="pp-stat">
-      <div class="pp-stat-label">{% trans "Verified (30d)" %}</div>
-      <div class="pp-stat-val">{{ verified_30 }}</div>
-      <div class="pp-stat-detail">{% if total_30 %}{% widthratio verified_30 total_30 100 %}%{% else %}—{% endif %}</div>
-    </div>
-    <div class="pp-stat">
-      <div class="pp-stat-label">CHF {% trans "Revenue (30d)" %}</div>
-      <div class="pp-stat-val">{{ revenue_30|floatformat:0 }}</div>
-      <div class="pp-stat-detail">{% trans "logged amount" %}</div>
-    </div>
-    <div class="pp-stat">
-      <div class="pp-stat-label">{% trans "Members (30d)" %}</div>
-      <div class="pp-stat-val">{{ unique_members_30 }}</div>
-      <div class="pp-stat-detail">{% trans "unique" %}</div>
-    </div>
-    <div class="pp-stat">
-      <div class="pp-stat-label">{% trans "Total Visits" %}</div>
-      <div class="pp-stat-val">{{ total_all }}</div>
-      <div class="pp-stat-detail">{% trans "all time" %}</div>
-    </div>
+  <div class="pp-stat">
+    <div class="pp-stat-label">{% trans "Verified (30d)" %}</div>
+    <div class="pp-stat-val">{{ verified_30 }}</div>
+    <div class="pp-stat-detail">{% if total_30 %}{% widthratio verified_30 total_30 100 %}%{% else %}—{% endif %}</div>
   </div>
-
-  <!-- CHARTS / 4c: Empty state when no data -->
-  {% if total_30 == 0 %}
-  <div class="pp-section">
-    <div style="background:rgba(255,255,255,.025);border:1.5px dashed rgba(255,255,255,.1);border-radius:16px;padding:3.5rem 2rem;text-align:center;margin-top:4px;">
-      <div style="font-size:3rem;margin-bottom:1rem;animation:float-icon 3s ease-in-out infinite;">📊</div>
-      <div style="font-size:1rem;font-weight:700;color:rgba(255,255,255,.65);margin-bottom:.4rem;">{% trans "No data for the last 30 days" %}</div>
-      <div style="font-size:.8rem;color:rgba(255,255,255,.3);margin-bottom:1.4rem;max-width:340px;margin-left:auto;margin-right:auto;line-height:1.55;">
-        {% trans "Start logging visits and within a few days the analytics will fill with insights." %}
-      </div>
-      <a href="{% url 'users:partner_dashboard' %}#search-section"
-         style="display:inline-flex;align-items:center;gap:.5rem;padding:.5rem 1.25rem;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.28);border-radius:9px;color:#f87171;font-size:.82rem;font-weight:700;text-decoration:none;transition:background .15s;"
-         onmouseover="this.style.background='rgba(220,38,38,.22)'" onmouseout="this.style.background='rgba(220,38,38,.12)'">
-        <i class="fas fa-user-plus"></i> {% trans "Log First Visit" %}
-      </a>
-    </div>
+  <div class="pp-stat">
+    <div class="pp-stat-label">CHF {% trans "Revenue (30d)" %}</div>
+    <div class="pp-stat-val">{{ revenue_30|floatformat:0 }}</div>
+    <div class="pp-stat-detail">{% trans "logged amount" %}</div>
   </div>
-  <style>@keyframes float-icon { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }</style>
-  {% else %}
-  <div class="pp-section">
-    <div class="pp-section-title">{% trans "// charts" %}</div>
+  <div class="pp-stat">
+    <div class="pp-stat-label">{% trans "Members (30d)" %}</div>
+    <div class="pp-stat-val">{{ unique_members_30 }}</div>
+    <div class="pp-stat-detail">{% trans "unique" %}</div>
+  </div>
+  <div class="pp-stat">
+    <div class="pp-stat-label">{% trans "Total Visits" %}</div>
+    <div class="pp-stat-val">{{ total_all }}</div>
+    <div class="pp-stat-detail">{% trans "all time" %}</div>
+  </div>
+</div>
+
+<!-- CHARTS / Empty state when no data -->
+{% if total_30 == 0 %}
+<div class="dash-card" style="margin-top:1.25rem;">
+  <div class="dash-card__body" style="text-align:center;padding:3rem 2rem;">
+    <div style="font-size:3rem;margin-bottom:1rem;animation:float-icon 3s ease-in-out infinite;">📊</div>
+    <div style="font-size:1rem;font-weight:700;color:rgba(255,255,255,.65);margin-bottom:.4rem;">{% trans "No data for the last 30 days" %}</div>
+    <div style="font-size:.8rem;color:rgba(255,255,255,.3);margin-bottom:1.4rem;max-width:340px;margin-left:auto;margin-right:auto;line-height:1.55;">
+      {% trans "Start logging visits and within a few days the analytics will fill with insights." %}
+    </div>
+    <a href="{% url 'users:partner_dashboard' %}#search-section"
+       class="dash-cta-btn" style="display:inline-flex;width:auto;">
+      <i class="fas fa-user-plus"></i> {% trans "Log First Visit" %}
+    </a>
+  </div>
+</div>
+<style>@keyframes float-icon { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }</style>
+{% else %}
+
+<div class="dash-card" style="margin-top:1.25rem;">
+  <div class="dash-card__header">
+    <span class="dash-card__title">
+      <i class="fas fa-chart-bar" style="color:var(--primary);"></i>
+      {% trans "Charts" %}
+    </span>
+  </div>
+  <div class="dash-card__body">
     <div class="pp-charts">
       <div class="pp-chart-box">
         <div class="pp-chart-title">{% trans "Daily Visits — last 30 days" %}</div>
@@ -133,11 +100,20 @@
       </div>
     </div>
   </div>
-  {% endif %}
+</div>
 
-  <!-- SERVICE BREAKDOWN -->
-  {% if service_breakdown %}
-  <div class="pp-section" style="margin-top:20px;">
+{% endif %}
+
+<!-- SERVICE BREAKDOWN -->
+{% if service_breakdown %}
+<div class="dash-card" style="margin-top:1.25rem;">
+  <div class="dash-card__header">
+    <span class="dash-card__title">
+      <i class="fas fa-layer-group" style="color:var(--primary);"></i>
+      {% trans "Service Breakdown" %}
+    </span>
+  </div>
+  <div class="dash-card__body">
     <div class="pp-charts">
       <div class="pp-chart-box">
         <div class="pp-chart-title">{% trans "Service Types — all time" %}</div>
@@ -166,12 +142,20 @@
       </div>
     </div>
   </div>
-  {% endif %}
+</div>
+{% endif %}
 
-  <!-- TOP MEMBERS -->
-  {% if top_members %}
-  <div class="pp-section" style="margin-top:20px;">
-    <div class="pp-section-title">{% trans "// top_members (90 days)" %}</div>
+<!-- TOP MEMBERS -->
+{% if top_members %}
+<div class="dash-card" style="margin-top:1.25rem;">
+  <div class="dash-card__header">
+    <span class="dash-card__title">
+      <i class="fas fa-trophy" style="color:var(--primary);"></i>
+      {% trans "Top Members" %}
+    </span>
+    <span style="font-size:.75rem;color:rgba(255,255,255,.3);">{% trans "last 90 days" %}</span>
+  </div>
+  <div class="dash-card__body" style="padding:0;">
     <div class="pp-table-wrap">
       <table class="pp-table">
         <thead>
@@ -204,13 +188,12 @@
       </table>
     </div>
   </div>
-  {% endif %}
-
-  <div style="padding:24px 24px 0;">
-    <a href="{% url 'users:partner_dashboard' %}" class="pp-btn-back">← {% trans "Back to Dashboard" %}</a>
-  </div>
 </div>
+{% endif %}
 
+{% endblock %}
+
+{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 const dates   = {{ chart_dates_json|safe }};
@@ -248,11 +231,6 @@ if (dates.length) {
       x: { ticks: fontOpts, grid: gridOpts },
       y: { ticks: fontOpts, grid: gridOpts, beginAtZero: true }
     }}
-  });
-} else {
-  ['chartVisits','chartRevenue'].forEach(id => {
-    const c = document.getElementById(id);
-    if (c) { c.closest('.pp-chart-box').innerHTML += '<p style="color:rgba(255,255,255,.25);font-family:Courier New,monospace;font-size:.8rem;margin-top:10px;">No data for this period.</p>'; }
   });
 }
 

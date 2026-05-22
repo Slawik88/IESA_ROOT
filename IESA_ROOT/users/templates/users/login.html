@@ -121,6 +121,8 @@
 .ar-link a:hover { color:#f87171; text-decoration:underline; }
 /* mobile */
 @media(max-width:768px){
+    /* 6a: скрываем декоративные orbs — тяжёлые для GPU */
+    .auth-orb { display: none; }
     .auth-card{flex-direction:column; max-width:460px; border-radius:20px;}
     .al{flex:none; padding:1.8rem 1.6rem 1.4rem; border-right:none; border-bottom:1px solid rgba(255,255,255,.06);}
     .al-body,.al-stats{display:none;}
@@ -169,8 +171,8 @@
             <p class="ar-desc">{% trans "Enter your credentials to continue." %}</p>
 
             {% if form.errors %}
-            <div class="auth-err-bar">
-                <i class="fas fa-exclamation-triangle"></i>
+            <div class="auth-err-bar" role="alert" aria-live="assertive">
+                <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
                 <span>{% trans "Invalid username or password. Please try again." %}</span>
             </div>
             {% endif %}
@@ -182,15 +184,22 @@
                     <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                     <div class="af-wrap">
                         {% if field.field.widget.input_type == "password" %}
-                            <i class="fas fa-lock af-ic"></i>
-                            <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="has-pw{% if field.errors %} inv{% endif %}" autocomplete="current-password" placeholder="••••••••">
-                            <button type="button" class="af-pw-btn" onclick="togglePw(this)" tabindex="-1"><i class="fas fa-eye"></i></button>
+                            <i class="fas fa-lock af-ic" aria-hidden="true"></i>
+                            <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                                   class="has-pw{% if field.errors %} inv{% endif %}"
+                                   {% if field.errors %}aria-invalid="true" aria-describedby="err-{{ field.html_name }}"{% endif %}
+                                   autocomplete="current-password" placeholder="••••••••">
+                            <button type="button" class="af-pw-btn" onclick="togglePw(this)" tabindex="-1" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                         {% else %}
-                            <i class="fas fa-user af-ic"></i>
-                            <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" {% if field.value %}value="{{ field.value }}"{% endif %} class="{% if field.errors %}inv{% endif %}" autocomplete="username" placeholder="{{ field.label }}" autofocus>
+                            <i class="fas fa-user af-ic" aria-hidden="true"></i>
+                            <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+                                   {% if field.value %}value="{{ field.value }}"{% endif %}
+                                   class="{% if field.errors %}inv{% endif %}"
+                                   {% if field.errors %}aria-invalid="true" aria-describedby="err-{{ field.html_name }}"{% endif %}
+                                   autocomplete="username" placeholder="{{ field.label }}" autofocus>
                         {% endif %}
                     </div>
-                    {% for error in field.errors %}<div class="af-err"><i class="fas fa-times-circle"></i>{{ error }}</div>{% endfor %}
+                    {% for error in field.errors %}<div id="err-{{ field.html_name }}" class="af-err" role="alert"><i class="fas fa-times-circle" aria-hidden="true"></i>{{ error }}</div>{% endfor %}
                 </div>
                 {% endfor %}
                 <input type="hidden" name="next" value="{{ next }}">

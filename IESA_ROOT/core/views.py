@@ -1,6 +1,6 @@
 from django.views.generic import TemplateView
 from django.http import HttpResponse
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.cache import cache
 from products.models import Product
 from core.models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit, AdminAppeal
@@ -178,3 +178,9 @@ def partners_map_data(request):
         for p in qs
     ]
     return JsonResponse({'partners': data})
+
+
+@user_passes_test(lambda u: u.is_staff)
+def component_playground(request):
+    """10b: Design system component playground — только для staff."""
+    return render(request, 'core/components.html')

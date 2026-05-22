@@ -15,6 +15,8 @@
             hx-post="{% url 'blog:like_post' pk=post.pk %}"
             hx-target="#like-button-container"
             hx-swap="outerHTML"
+            aria-label="{% if is_liked %}{% trans 'Unlike' %}{% else %}{% trans 'Like' %}{% endif %} ({{ like_count }})"
+            aria-pressed="{% if is_liked %}true{% else %}false{% endif %}"
             onclick="var ico=this.querySelector('.fa-heart');if(ico){ico.classList.add('heart-pop');ico.addEventListener('animationend',function(){ico.classList.remove('heart-pop')},{once:true});}">
         <span class="engage-icon"><i class="fas fa-heart"></i></span>
         <span class="engage-label">{% trans "Like" %}</span>

@@ -14,6 +14,15 @@
    0. SHARED PAGE COMPONENTS — Д2-02, Д2-04, Д2-06
    ==================================================== */
 
+/* ── 7c: Inline Breadcrumbs для обычных страниц ── */
+.page-bc { padding: .65rem 0 .25rem; }
+.page-bc ol { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+.page-bc li { display: flex; align-items: center; gap: .3rem; font-size: .78rem; color: rgba(255,255,255,.4); }
+.page-bc li a { color: rgba(255,255,255,.4); text-decoration: none; transition: color .15s; }
+.page-bc li a:hover { color: rgba(255,255,255,.75); }
+.page-bc li:last-child { color: rgba(255,255,255,.7); font-weight: 600; }
+.page-bc .bc-sep { font-size: .5rem; color: rgba(255,255,255,.22); }
+
 /* ── Unified Page Hero (replaces .pl-hero, .ev-page-hero, .gal-hero, .prod-hero, .ben-hero) ── */
 .page-hero {
   background: #0a0a0f;
@@ -220,7 +229,7 @@ mark {
   padding: 10px 24px;
   font-weight: 600;
   border-radius: 8px;
-  transition: all 0.3s ease;
+  transition: all var(--transition-smooth);
 }
 
 .edit-actions .btn-primary {
@@ -735,7 +744,7 @@ mark {
 
 /* Follow Button States */
 .follow-btn {
-  transition: all 0.3s ease;
+  transition: all var(--transition-smooth);
   position: relative;
   overflow: hidden;
 }
@@ -1488,7 +1497,7 @@ mark {
   border-radius: 18px;
   background: var(--card-bg, #fff);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-smooth);
   overflow: hidden;
 }
 
@@ -1816,7 +1825,7 @@ mark {
 
 .post-rec-card {
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 
 .post-rec-card:hover {
@@ -2270,6 +2279,14 @@ mark {
    COMMENTS SECTION (.cm-*) — Б1-07/08: extracted from HTMX partial
    ==================================================== */
 
+/* 5c: Skeleton placeholder для комментариев */
+.cm-skeleton {
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-dark);
+  border-radius: 14px;
+  padding: .85rem 1rem;
+}
+
 .cm-card {
   background: var(--bg-surface);
   border: 1.5px solid var(--border-dark);
@@ -2417,7 +2434,11 @@ mark {
   resize: vertical;
   min-height: 70px;
   outline: none;
-  transition: border-color .2s;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+.cm-reply-textarea:focus {
+  border-color: rgba(220,38,38,.5);
+  box-shadow: 0 0 0 3px rgba(220,38,38,.15);
 }
 
 .cm-reply-textarea:focus { border-color: rgba(220,38,38,.45); box-shadow: 0 0 0 2px rgba(220,38,38,.1); }

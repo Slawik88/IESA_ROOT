@@ -140,9 +140,9 @@
 .vh-dot.cancelled  { background:rgba(148,163,184,.09); color:#94a3b8; border:1px solid rgba(148,163,184,.18); }
 .vh-main { flex:1; min-width:0; }
 .vh-partner { font-size:.88rem; font-weight:700; color:rgba(255,255,255,.88); }
-.vh-service { font-size:.76rem; color:rgba(255,255,255,.42); margin-top:.12rem; }
+.vh-service { font-size:.76rem; color:rgba(255,255,255,.55); margin-top:.12rem; }
 .vh-cost  { font-size:.78rem; font-weight:700; color:rgba(255,255,255,.85); text-align:right; flex-shrink:0; }
-.vh-date  { font-size:.72rem; color:rgba(255,255,255,.4); text-align:right; white-space:nowrap; flex-shrink:0; }
+.vh-date  { font-size:.72rem; color:rgba(255,255,255,.52); text-align:right; white-space:nowrap; flex-shrink:0; }
 .vh-status-badge { display:inline-flex; align-items:center; font-size:.65rem; font-weight:700; letter-spacing:.05em; padding:.12rem .5rem; border-radius:20px; text-transform:uppercase; margin-top:.25rem; }
 .vh-status-badge.active    { background:rgba(34,197,94,.12); color:#4ade80; }
 .vh-status-badge.edited    { background:rgba(245,158,11,.12); color:#fbbf24; }
@@ -235,26 +235,6 @@
           </a>
         {% endif %}
 
-        {# ── 2a: Быстрые действия ── #}
-        <div class="hero-quick-actions">
-          <a href="{% url 'blog:post_create' %}" class="btn-hero-quick"
-             title="{% trans 'Write a new post' %}">
-            <i class="fas fa-pen-nib"></i>
-            <span>{% trans "New Post" %}</span>
-          </a>
-          <a href="{% url 'users:user_calendar' %}" class="btn-hero-quick"
-             title="{% trans 'My meeting calendar' %}">
-            <i class="fas fa-calendar-alt"></i>
-            <span>{% trans "Calendar" %}</span>
-          </a>
-          {% if not pending_upgrade_request and not profile_user.is_partner %}
-          <a href="{% url 'users:insurance_agent' %}" class="btn-hero-quick"
-             title="{% trans 'Request an insurance agent' %}">
-            <i class="fas fa-shield-alt"></i>
-            <span>{% trans "Insurance" %}</span>
-          </a>
-          {% endif %}
-        </div>
       </div>
     </div>
   </div>
@@ -679,85 +659,6 @@
           </div>
         </div>
 
-        <!-- PIN (members only) -->
-        {% if current_pin %}
-        {# 6a: на мобиле тап на PIN-карточку → fullscreen overlay #}
-        <div class="cab-card pin-card mb-3" data-reveal data-delay="4" id="pin-card-widget"
-          {% if show_quick_actions %}data-onb-tip="{% trans 'Show this code at any partner location' %}"{% endif %}>
-          <p class="cab-card-title">
-            <i class="fas fa-shield-alt" style="color:var(--red);"></i>
-            {% trans "Verification PIN" %}
-            <span class="pin-refresh-badge">12 min</span>
-          </p>
-          <div class="pin-digits">
-            {% for ch in current_pin %}
-              <div class="pin-d" style="animation-delay:{{ forloop.counter0 }}0ms">{{ ch }}</div>
-              {% if forloop.counter == 3 and not forloop.last %}<div class="pin-sep">&ndash;</div>{% endif %}
-            {% endfor %}
-          </div>
-          <div class="pin-foot">
-            <div class="pin-timer">
-              <i class="fas fa-clock"></i>
-              <span id="pin-cnt">{{ seconds_remaining }}</span>{% trans "s" %}
-            </div>
-            <button class="btn-pin-copy" id="pin-copy-btn" data-pin="{{ current_pin }}">
-              <i class="fas fa-copy" id="copy-ico"></i>
-              <span id="copy-lbl">{% trans "Copy" %}</span>
-            </button>
-            {# Кнопка fullscreen только на мобиле #}
-            <button id="pin-fullscreen-btn"
-                    style="font-size:.78rem;color:var(--muted);background:none;border:1px solid var(--bdr);border-radius:8px;padding:.28rem .65rem;cursor:pointer;transition:color .15s;display:none;"
-                    title="{% trans 'Fullscreen PIN' %}"
-                    aria-label="{% trans 'Open fullscreen PIN view' %}">
-              <i class="fas fa-expand-alt me-1"></i>{% trans "Full" %}
-            </button>
-            <a href="#pin-section" style="font-size:.78rem;color:var(--muted);text-decoration:none;border:1px solid var(--bdr);border-radius:8px;padding:.28rem .65rem;transition:color .15s;"
-               onmouseover="this.style.color='rgba(255,255,255,.75)'" onmouseout="this.style.color='var(--muted)'">
-              <i class="fas fa-shield-alt me-1"></i>{% trans "Details" %}
-            </a>
-          </div>
-        </div>
-
-        {# 6a: PIN Fullscreen overlay — только на мобиле #}
-        <div id="pin-fullscreen-overlay" aria-modal="true" role="dialog"
-             style="display:none;position:fixed;inset:0;background:#050510;z-index:10000;flex-direction:column;align-items:center;justify-content:center;">
-          {# Закрыть кнопка #}
-          <button id="pin-fs-close"
-                  style="position:absolute;top:1.25rem;right:1.25rem;background:rgba(255,255,255,.08);border:none;border-radius:50%;width:40px;height:40px;color:#fff;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;"
-                  aria-label="{% trans 'Close' %}">
-            <i class="fas fa-times"></i>
-          </button>
-          {# Заголовок #}
-          <div style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1rem;">
-            {% trans "VERIFICATION PIN" %}
-          </div>
-          {# Большой PIN #}
-          <div id="pin-fs-digits"
-               style="font-size:clamp(3.5rem,14vw,6rem);font-family:var(--font-mono);font-weight:900;color:#f87171;letter-spacing:.2em;margin-bottom:.5rem;user-select:none;">
-            {{ current_pin|slice:":3" }}&ndash;{{ current_pin|slice:"3:" }}
-          </div>
-          {# Countdown SVG #}
-          <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:1.8rem;">
-            <svg width="36" height="36" viewBox="0 0 36 36" style="transform:rotate(-90deg);">
-              <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="3"/>
-              <circle id="pin-fs-arc" cx="18" cy="18" r="14" fill="none" stroke="#ef4444" stroke-width="3"
-                      stroke-dasharray="87.96" stroke-dashoffset="0" stroke-linecap="round"/>
-            </svg>
-            <span id="pin-fs-cnt" style="font-size:1.2rem;font-family:var(--font-mono);color:rgba(255,255,255,.55);">{{ seconds_remaining }}s</span>
-          </div>
-          {# Кнопка копирования #}
-          <button id="pin-fs-copy"
-                  style="display:flex;align-items:center;gap:.6rem;padding:.65rem 2rem;background:rgba(220,38,38,.15);border:1.5px solid rgba(220,38,38,.4);border-radius:12px;color:#f87171;font-size:.9rem;font-weight:700;cursor:pointer;font-family:var(--font-mono);transition:background .15s;"
-                  data-pin="{{ current_pin }}">
-            <i class="fas fa-copy"></i> {% trans "Copy PIN" %}
-          </button>
-          {# Подсказка: свайп вниз чтобы закрыть #}
-          <div style="position:absolute;bottom:2rem;font-size:.72rem;color:rgba(255,255,255,.2);font-family:var(--font-mono);">
-            {% trans "Swipe down to close" %}
-          </div>
-        </div>
-        {% endif %}
-
         <!-- QR CODE -->
         {% if profile_user.permanent_id %}
         <div class="cab-card mb-3" data-reveal data-delay="{% if current_pin %}5{% else %}4{% endif %}"
@@ -798,79 +699,52 @@
       <!-- ── RIGHT ── -->
       <div class="col-lg-8" id="posts-section">
 
-        <!-- QUICK ACTIONS -->
+        <!-- ACCOUNT INFO -->
         <div class="cab-card mb-3" data-reveal data-delay="2">
-          <p class="cab-card-title">{% trans "Quick Actions" %}</p>
-          <div class="qa-grid">
-            <a href="{% url 'users:profile_edit' %}" class="qa-item">
-              <div class="qa-icon qi-red"><i class="fas fa-user-edit"></i></div>
-              <div><p class="qa-lbl">{% trans "Edit Profile" %}</p><p class="qa-sub">{% trans "Name, photo, contacts" %}</p></div>
-            </a>
-            <a href="{% url 'blog:post_create' %}" class="qa-item">
-              <div class="qa-icon qi-blue"><i class="fas fa-pen-nib"></i></div>
-              <div><p class="qa-lbl">{% trans "Write Post" %}</p><p class="qa-sub">{% trans "Share with the community" %}</p></div>
-            </a>
-            {% if not user.telegram_linked_at %}
-            <a href="{% url 'users:connect_telegram_code' %}" class="qa-item">
-              <div class="qa-icon" style="background:rgba(41,168,235,.8);"><i class="fab fa-telegram"></i></div>
-              <div><p class="qa-lbl">{% trans "Connect Telegram" %}</p><p class="qa-sub">{% trans "Receive instant notifications" %}</p></div>
-            </a>
-            {% else %}
-            <a href="{% url 'blog:post_list' %}" class="qa-item">
-              <div class="qa-icon qi-purple"><i class="fas fa-newspaper"></i></div>
-              <div><p class="qa-lbl">{% trans "Blog" %}</p><p class="qa-sub">{% trans "Browse community posts" %}</p></div>
-            </a>
-            {% endif %}
-            <a href="{% url 'users:activity_levels_info' %}" class="qa-item">
-              <div class="qa-icon qi-amber"><i class="fas fa-trophy"></i></div>
-              <div><p class="qa-lbl">{% trans "Activity Levels" %}</p><p class="qa-sub">{% trans "How to earn points & badges" %}</p></div>
-            </a>
-            {% if profile_user.membership_status != 'active' %}
-            <a href="/#membership" class="qa-item">
-              <div class="qa-icon qi-green"><i class="fas fa-id-card"></i></div>
-              <div><p class="qa-lbl">{% trans "Become a Member" %}</p><p class="qa-sub">{% trans "Join the IESA community" %}</p></div>
-            </a>
-            {% endif %}
-            <a href="{% url 'users:profile_deactivate' %}" class="qa-item" style="border-color:rgba(239,68,68,.14);">
-              <div class="qa-icon qi-rose"><i class="fas fa-user-slash"></i></div>
-              <div><p class="qa-lbl" style="color:#f87171;">{% trans "Deactivate Account" %}</p><p class="qa-sub">{% trans "Temporarily disable your account" %}</p></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;">
+            <p class="cab-card-title" style="margin:0;">{% trans "Account Info" %}</p>
+            <a href="{% url 'users:profile_edit' %}" class="btn-cab-outline" style="padding:.28rem .75rem;font-size:.78rem;">
+              <i class="fas fa-pencil-alt me-1"></i>{% trans "Edit" %}
             </a>
           </div>
-        </div>
-
-        <!-- ACCOUNT INFO -->
-        <div class="cab-card mb-3" data-reveal data-delay="3">
-          <p class="cab-card-title">{% trans "Account Info" %}</p>
-          <div class="row g-3">
-            <div class="col-sm-6">
-              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Full name" %}</p>
-              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">{{ profile_user.first_name|default:"—" }} {{ profile_user.last_name|default:"—" }}</p>
+          <div class="acc-info-grid">
+            <div class="acc-field">
+              <span class="acc-lbl">{% trans "Username" %}</span>
+              <span class="acc-val">@{{ profile_user.username }}</span>
             </div>
-            <div class="col-sm-6">
-              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Email" %}</p>
-              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">{{ profile_user.email }}</p>
+            <div class="acc-field">
+              <span class="acc-lbl">{% trans "Email" %}</span>
+              <span class="acc-val">{{ profile_user.email }}</span>
             </div>
-            <div class="col-sm-6">
-              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Phone" %}</p>
-              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">{% if profile_user.phone_number %}{{ profile_user.phone_number }}{% else %}—{% endif %}</p>
+            {% if profile_user.first_name or profile_user.last_name %}
+            <div class="acc-field">
+              <span class="acc-lbl">{% trans "Full name" %}</span>
+              <span class="acc-val">{{ profile_user.first_name }} {{ profile_user.last_name }}</span>
             </div>
-            <div class="col-sm-6">
-              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Date of birth" %}</p>
-              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">
-                {% if profile_user.date_of_birth %}
-                  {{ profile_user.date_of_birth|date:"d.m.Y" }}
-                  {% with age=profile_user.get_age %}{% if age %} ({{ age }} {% trans "years" %}){% endif %}{% endwith %}
-                {% else %}—{% endif %}
-              </p>
+            {% endif %}
+            {% if profile_user.phone_number %}
+            <div class="acc-field">
+              <span class="acc-lbl">{% trans "Phone" %}</span>
+              <span class="acc-val">{{ profile_user.phone_number }}</span>
             </div>
-            <div class="col-sm-6">
-              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Joined" %}</p>
-              <p style="font-size:.9rem;color:var(--text);margin:0;font-weight:600;">{{ profile_user.date_joined|date:"d M Y" }}</p>
+            {% endif %}
+            {% if profile_user.date_of_birth %}
+            <div class="acc-field">
+              <span class="acc-lbl">{% trans "Date of birth" %}</span>
+              <span class="acc-val">
+                {{ profile_user.date_of_birth|date:"d.m.Y" }}
+                {% with age=profile_user.get_age %}{% if age %} · {{ age }} {% trans "years" %}{% endif %}{% endwith %}
+              </span>
+            </div>
+            {% endif %}
+            <div class="acc-field">
+              <span class="acc-lbl">{% trans "Member since" %}</span>
+              <span class="acc-val">{{ profile_user.date_joined|date:"d M Y" }}</span>
             </div>
             {% if profile_user.permanent_id %}
-            <div class="col-sm-6">
-              <p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 .25rem;font-weight:600;">{% trans "Card ID" %}</p>
-              <p style="font-size:.85rem;color:#f87171;margin:0;font-weight:700;font-family:monospace;">{{ profile_user.permanent_id }}</p>
+            <div class="acc-field" style="grid-column:1/-1;">
+              <span class="acc-lbl">{% trans "Card ID" %}</span>
+              <span class="acc-val" style="color:#f87171;font-family:monospace;font-size:.85rem;">{{ profile_user.permanent_id }}</span>
             </div>
             {% endif %}
           </div>
@@ -891,41 +765,34 @@
           </div>
 
           {% if user_posts %}
-          <div class="table-responsive">
-            <table class="posts-tbl">
-              <thead>
-                <tr>
-                  <th>{% trans "Title" %}</th>
-                  <th>{% trans "Status" %}</th>
-                  <th>{% trans "Created" %}</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for post in user_posts %}
-                <tr>
-                  <td><span class="post-title">{{ post.title|truncatewords:9 }}</span></td>
-                  <td>
-                    {% if post.status == 'published' %}
-                      <span class="pst-badge pst-published"><i class="fas fa-check-circle"></i> {% trans "Published" %}</span>
-                    {% elif post.status == 'pending' %}
-                      <span class="pst-badge pst-pending"><i class="fas fa-clock"></i> {% trans "Pending" %}</span>
-                    {% elif post.status == 'rejected' %}
-                      <span class="pst-badge pst-rejected"><i class="fas fa-times-circle"></i> {% trans "Rejected" %}</span>
-                    {% else %}
-                      <span class="pst-badge pst-draft">{{ post.get_status_display }}</span>
-                    {% endif %}
-                  </td>
-                  <td style="color:var(--muted);font-size:.82rem;">{{ post.created_at|date:"d M Y" }}</td>
-                  <td>
-                    {% if post.status == 'published' %}
-                      <a href="{% url 'blog:post_detail' post.pk %}" class="btn-cab-outline" style="padding:.28rem .7rem;font-size:.78rem;"><i class="fas fa-eye"></i></a>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <div class="posts-grid">
+            {% for post in user_posts %}
+            <div class="post-card-item">
+              <div class="post-card-header">
+                {% if post.status == 'published' %}
+                  <span class="pst-badge pst-published"><i class="fas fa-check-circle"></i> {% trans "Published" %}</span>
+                {% elif post.status == 'pending' %}
+                  <span class="pst-badge pst-pending"><i class="fas fa-clock"></i> {% trans "Pending" %}</span>
+                {% elif post.status == 'rejected' %}
+                  <span class="pst-badge pst-rejected"><i class="fas fa-times-circle"></i> {% trans "Rejected" %}</span>
+                {% else %}
+                  <span class="pst-badge pst-draft">{{ post.get_status_display }}</span>
+                {% endif %}
+                <span style="font-size:.72rem;color:var(--muted);">{{ post.created_at|date:"d M Y" }}</span>
+              </div>
+              <div class="post-card-title">{{ post.title|truncatewords:10 }}</div>
+              <div class="post-card-meta">
+                <span><i class="fas fa-heart"></i> {{ post.likes.count }}</span>
+                <span><i class="fas fa-comment"></i> {{ post.comments.count }}</span>
+                <span><i class="fas fa-eye"></i> {{ post.views_count }}</span>
+                {% if post.status == 'published' %}
+                <a href="{% url 'blog:post_detail' post.pk %}" class="post-card-view">
+                  <i class="fas fa-external-link-alt"></i> {% trans "View" %}
+                </a>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
           </div>
 
           {% if is_paginated %}
@@ -1060,181 +927,13 @@
   {% if not user.is_partner and user.membership_status != 'active' %}
   <div class="cab-wrap" style="margin-top:0; padding-top:0;">
     <div id="acr-section" data-reveal data-delay="5">
-
-      {% if pending_upgrade_request %}
-      {# ── Уже есть активная заявка ── #}
-      <div class="acr-pending-notice">
-        <div class="acr-pn-icon"><i class="fas fa-hourglass-half"></i></div>
-        <div>
-          <div class="acr-pn-title">{% trans "Your request is under review" %}</div>
-          <div class="acr-pn-sub">
-            {% blocktrans with dtype=pending_upgrade_request.get_desired_type_display %}
-            You applied for <strong>{{ dtype }}</strong> status. We will contact you soon.
-            {% endblocktrans %}
-          </div>
-          <div class="acr-pn-date">
-            <i class="fas fa-clock me-1"></i>{% trans "Submitted" %}: {{ pending_upgrade_request.created_at|date:"d M Y" }}
-          </div>
-        </div>
-      </div>
-
-      {% else %}
-      {# ── Форма подачи заявки ── полная версия с контактами и категориями #}
-      <div class="acr-card" id="acr-card">
-        <div class="acr-card-head">
-          <div class="acr-eyebrow">{% trans "STATUS UPGRADE" %}</div>
-          <h2 class="acr-title">{% trans "Apply for a role upgrade" %}</h2>
-          <p class="acr-desc">
-            {% trans "Want to become an IESA partner or association staff? Submit a request — we'll review and contact you shortly." %}
-          </p>
-        </div>
-
-        <form id="acr-form" novalidate>
-          {% csrf_token %}
-
-          {# ── Желаемая роль ── #}
-          <div class="acr-section-title">{% trans "ROLE & ACTIVITY" %}</div>
-
-          <div class="acr-grid-2">
-            <div class="acr-field">
-              <label class="acr-label">{% trans "DESIRED ROLE" %} <span style="color:#f87171;">*</span></label>
-              <div class="acr-select-wrap">
-                <select name="desired_type" class="acr-select" required>
-                  <option value="">— {% trans "choose" %} —</option>
-                  <option value="partner">{% trans "External Partner" %}</option>
-                  <option value="association_staff">{% trans "Association Staff" %} (IESA)</option>
-                </select>
-                <i class="fas fa-chevron-down acr-select-arrow"></i>
-              </div>
-            </div>
-            <div class="acr-field">
-              <label class="acr-label">{% trans "BUSINESS CATEGORY" %}</label>
-              <div class="acr-select-wrap">
-                <select name="business_category" class="acr-select">
-                  <option value="">— {% trans "your area" %} —</option>
-                  <optgroup label="{% trans 'Sports & Fitness' %}">
-                    <option value="gym">{% trans "Gym / Fitness Center" %}</option>
-                    <option value="martial_arts">{% trans "Martial Arts School" %}</option>
-                    <option value="yoga_pilates">{% trans "Yoga / Pilates Studio" %}</option>
-                    <option value="swimming">{% trans "Swimming Pool / Aquatics" %}</option>
-                    <option value="crossfit">{% trans "CrossFit / Functional Training" %}</option>
-                    <option value="cycling">{% trans "Cycling / Indoor Cycling" %}</option>
-                    <option value="dance">{% trans "Dance School" %}</option>
-                    <option value="climbing">{% trans "Climbing / Boulder" %}</option>
-                    <option value="sports_club">{% trans "Sports Club / Team" %}</option>
-                    <option value="personal_trainer">{% trans "Personal Trainer / Coach" %}</option>
-                  </optgroup>
-                  <optgroup label="{% trans 'Health & Wellness' %}">
-                    <option value="physiotherapy">{% trans "Physiotherapy / Rehabilitation" %}</option>
-                    <option value="massage_spa">{% trans "Massage / SPA / Wellness" %}</option>
-                    <option value="nutrition">{% trans "Nutrition / Dietology" %}</option>
-                    <option value="medical">{% trans "Medical / Healthcare" %}</option>
-                    <option value="psychology">{% trans "Psychology / Mental Health" %}</option>
-                    <option value="chiropractic">{% trans "Chiropractic / Manual Therapy" %}</option>
-                  </optgroup>
-                  <optgroup label="{% trans 'Retail & Equipment' %}">
-                    <option value="sports_shop">{% trans "Sports Equipment Shop" %}</option>
-                    <option value="clothing">{% trans "Sports Clothing / Gear" %}</option>
-                    <option value="supplement">{% trans "Sports Supplements / Nutrition" %}</option>
-                    <option value="bike_shop">{% trans "Bike Shop / Service" %}</option>
-                  </optgroup>
-                  <optgroup label="{% trans 'Professional Services' %}">
-                    <option value="lawyer">{% trans "Legal Services / Lawyer" %}</option>
-                    <option value="accountant">{% trans "Accounting / Finance" %}</option>
-                    <option value="consulting">{% trans "Business Consulting" %}</option>
-                    <option value="marketing">{% trans "Marketing / PR / Design" %}</option>
-                    <option value="it">{% trans "IT / Technology / Software" %}</option>
-                  </optgroup>
-                  <optgroup label="{% trans 'Education & Events' %}">
-                    <option value="coach_trainer">{% trans "Professional Coaching" %}</option>
-                    <option value="school">{% trans "School / Educational Center" %}</option>
-                    <option value="event_org">{% trans "Event Organization" %}</option>
-                    <option value="seminar">{% trans "Seminar / Workshop Host" %}</option>
-                  </optgroup>
-                  <optgroup label="{% trans 'Travel & Outdoor' %}">
-                    <option value="travel">{% trans "Travel / Tourism / Adventure" %}</option>
-                    <option value="outdoor">{% trans "Outdoor Activities / Hiking" %}</option>
-                    <option value="water_sports">{% trans "Water Sports / Diving / Surfing" %}</option>
-                    <option value="winter_sports">{% trans "Winter Sports / Ski" %}</option>
-                  </optgroup>
-                  <optgroup label="{% trans 'Food & Hospitality' %}">
-                    <option value="restaurant">{% trans "Restaurant / Cafe / Bar" %}</option>
-                    <option value="healthy_food">{% trans "Healthy Food / Catering" %}</option>
-                    <option value="hotel">{% trans "Hotel / Accommodation" %}</option>
-                  </optgroup>
-                  <optgroup label="{% trans 'Other' %}">
-                    <option value="media">{% trans "Media / Content / Photography" %}</option>
-                    <option value="esports">{% trans "eSports / Gaming" %}</option>
-                    <option value="other">{% trans "Other (describe below)" %}</option>
-                  </optgroup>
-                </select>
-                <i class="fas fa-chevron-down acr-select-arrow"></i>
-              </div>
-            </div>
-          </div>
-
-          <div class="acr-field">
-            <label class="acr-label">{% trans "DESCRIPTION OF ACTIVITY" %} <span style="color:#f87171;">*</span></label>
-            <textarea name="reason" class="acr-textarea" rows="4"
-              placeholder="{% trans 'Describe your business/role and why you want to join IESA. What value can you offer to members?' %}"
-              required minlength="50"></textarea>
-            <div class="acr-hint"><span id="acr-char-count">0</span> / 2000 {% trans "chars" %} ({% trans "min. 50" %})</div>
-          </div>
-
-          {# ── Контактные данные ── #}
-          <div class="acr-section-title">{% trans "CONTACT DETAILS" %}</div>
-
-          <div class="acr-grid-2">
-            <div class="acr-field">
-              <label class="acr-label">{% trans "FULL NAME" %}</label>
-              <input type="text" name="contact_name" class="acr-input"
-                     placeholder="{{ user.get_full_name|default:user.username }}"
-                     value="{{ user.get_full_name|default:'' }}">
-            </div>
-            <div class="acr-field">
-              <label class="acr-label">{% trans "PHONE / WHATSAPP" %}</label>
-              <input type="tel" name="contact_phone" class="acr-input" placeholder="+41 79 000 00 00">
-            </div>
-            <div class="acr-field">
-              <label class="acr-label">{% trans "TELEGRAM" %}</label>
-              <input type="text" name="contact_telegram" class="acr-input"
-                     placeholder="@username"
-                     {% if user.telegram_url %}value="{{ user.telegram_url }}"{% endif %}>
-            </div>
-            <div class="acr-field">
-              <label class="acr-label">{% trans "EMAIL" %}</label>
-              <input type="email" name="contact_email" class="acr-input"
-                     placeholder="{{ user.email }}" value="{{ user.email }}">
-            </div>
-          </div>
-
-          <div class="acr-field">
-            <label class="acr-label">{% trans "ADDRESS / LOCATION" %}</label>
-            <input type="text" name="address" class="acr-input"
-                   placeholder="{% trans 'City, street, or region where you operate' %}">
-          </div>
-
-          <div id="acr-error" class="acr-error-bar" style="display:none;"></div>
-
-          <button type="submit" class="acr-submit" id="acr-submit-btn">
-            <i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}
-          </button>
-        </form>
-      </div>
-
-      {# ── Успех (показывается после отправки) ── #}
-      <div id="acr-success" class="acr-success-card" style="display:none;">
-        <div class="acr-sc-icon"><i class="fas fa-check-circle"></i></div>
-        <h3 class="acr-sc-title">{% trans "Request submitted!" %}</h3>
-        <p class="acr-sc-text">{% trans "We will review your application and contact you via email or Telegram." %}</p>
-      </div>
-      {% endif %}
-
+      {% include 'users/partials/acr_form.html' %}
     </div>
   </div>
   {% endif %}
 
 </div><!-- /cab-page -->
+
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

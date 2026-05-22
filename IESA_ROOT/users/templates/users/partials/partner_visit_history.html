@@ -166,4 +166,72 @@
   opacity:0;pointer-events:none;transition:opacity .15s;z-index:100;
 }
 .vh-status-badge[data-tooltip]:hover::after { opacity:1; }
+
+/* ── 2c: Таблица → карточки на мобиле ──────────────────────── */
+@media (max-width: 767.98px) {
+  /* Враппер с горизонтальным скроллом больше не нужен */
+  div[style*="overflow-x:auto"] { overflow-x: visible !important; }
+
+  .dash-table { display: block; }
+  .dash-table thead { display: none; }
+  .dash-table tbody { display: block; }
+
+  /* Каждая строка → карточка */
+  .dash-table tbody tr {
+    display: block;
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 12px;
+    margin-bottom: .65rem;
+    padding: .85rem 1rem;
+    position: relative;
+  }
+  .dash-table tbody tr:hover { background: rgba(255,255,255,.05); }
+
+  .dash-table tbody td {
+    display: block;
+    border: none;
+    padding: .1rem 0;
+    white-space: normal !important; /* сбрасываем inline white-space:nowrap */
+  }
+
+  /* td 1: дата — мелко, сверху */
+  .dash-table tbody td:nth-child(1) {
+    font-size: .7rem;
+    color: rgba(255,255,255,.35);
+    font-family: var(--font-mono);
+    margin-bottom: .3rem;
+  }
+  /* td 2: участник — крупно */
+  .dash-table tbody td:nth-child(2) {
+    font-size: .92rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: .2rem;
+  }
+  /* td 3: сервис — вторичный текст */
+  .dash-table tbody td:nth-child(3) {
+    font-size: .82rem;
+    color: rgba(255,255,255,.55);
+  }
+  /* td 4 + td 5: CHF + PIN — в одну строку */
+  .dash-table tbody td:nth-child(4),
+  .dash-table tbody td:nth-child(5) {
+    display: inline-block;
+    margin-right: .5rem;
+    font-size: .8rem;
+    margin-top: .35rem;
+  }
+  /* td 6: статус */
+  .dash-table tbody td:nth-child(6) {
+    display: inline-block;
+    margin-top: .35rem;
+  }
+  /* td 7: actions — прижать вправо вверху */
+  .dash-table tbody td:nth-child(7) {
+    position: absolute;
+    top: .75rem; right: .85rem;
+    display: flex; gap: .5rem; align-items: center;
+  }
+}
 </style>

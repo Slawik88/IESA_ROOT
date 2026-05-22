@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+{% block partner_extra_css %}{% endblock %}
+{% endblock %}
+
+{# Убираем стандартные контейнеры base.html — layout полностью наш #}
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
+{% block content %}
+<div class="dash-root">
+
+  {# ═══════════ ЕДИНЫЙ SIDEBAR ═══════════ #}
+  <aside class="dash-sidebar">
+
+    <div class="dash-sidebar__brand">
+      <div class="dash-sidebar__brand-name">
+        {% if partner.partner_type == 'association_staff' %}{% trans "ASSOCIATION STAFF" %}
+        {% else %}{% trans "PARTNER PORTAL" %}{% endif %}
+      </div>
+      <div class="dash-sidebar__company" title="{{ partner.company_name }}">{{ partner.company_name }}</div>
+    </div>
+
+    <nav class="dash-sidebar__nav" aria-label="{% trans 'Partner navigation' %}">
+
+      <div class="dash-nav-section">
+        <a href="{% url 'users:partner_dashboard' %}"
+           class="dash-nav-item {% if request.resolver_match.url_name == 'partner_dashboard' %}active{% endif %}">
+          <span class="dash-nav-icon"><i class="fas fa-home"></i></span>
+          {% trans "Dashboard" %}
+          {% block sidebar_dashboard_badge %}{% endblock %}
+        </a>
+        <a href="{% url 'users:partner_calendar' %}"
+           class="dash-nav-item {% if request.resolver_match.url_name == 'partner_calendar' %}active{% endif %}">
+          <span class="dash-nav-icon"><i class="fas fa-calendar-alt"></i></span>
+          {% trans "Calendar" %}
+        </a>
+        <a href="{% url 'users:partner_dashboard' %}#history-section"
+           class="dash-nav-item {% if request.resolver_match.url_name == 'partner_visit_history' %}active{% endif %}">
+          <span class="dash-nav-icon"><i class="fas fa-history"></i></span>
+          {% trans "Visit History" %}
+          {% block sidebar_visits_badge %}{% endblock %}
+        </a>
+        <a href="{% url 'users:partner_analytics' %}"
+           class="dash-nav-item {% if request.resolver_match.url_name == 'partner_analytics' %}active{% endif %}">
+          <span class="dash-nav-icon"><i class="fas fa-chart-bar"></i></span>
+          {% trans "Analytics" %}
+        </a>
+      </div>
+
+      <div class="dash-nav-section" style="margin-top:.5rem;">
+        <div class="dash-nav-section-label">{% trans "Account" %}</div>
+        <a href="{% url 'users:partner_profile_edit' %}"
+           class="dash-nav-item {% if request.resolver_match.url_name == 'partner_profile_edit' %}active{% endif %}">
+          <span class="dash-nav-icon"><i class="fas fa-building"></i></span>
+          {% trans "Company Profile" %}
+        </a>
+        <a href="{% url 'users:profile_edit' %}"
+           class="dash-nav-item {% if request.resolver_match.url_name == 'profile_edit' %}active{% endif %}">
+          <span class="dash-nav-icon"><i class="fas fa-sliders-h"></i></span>
+          {% trans "My Settings" %}
+        </a>
+        <a href="{% url 'users:profile' %}" class="dash-nav-item">
+          <span class="dash-nav-icon"><i class="fas fa-arrow-left"></i></span>
+          {% trans "Back to Cabinet" %}
+        </a>
+      </div>
+
+    </nav>
+
+    {% block partner_sidebar_footer %}{% endblock %}
+
+  </aside>
+
+  <main class="dash-main">
+
+    {# Топбар — скрывается на мобиле через CSS (2i) #}
+    <div class="dash-topbar">
+      <div>
+        <div class="dash-topbar__title">{% block partner_title %}{% trans "Partner Portal" %}{% endblock %}</div>
+        <div class="dash-topbar__sub">{% block partner_subtitle %}{{ partner.company_name }}{% endblock %}</div>
+      </div>
+      <div class="dash-topbar__actions">
+        {% block partner_topbar_action %}{% endblock %}
+      </div>
+    </div>
+
+    <div class="dash-content">
+      {% block partner_content %}{% endblock %}
+    </div>
+
+  </main>
+
+</div>
+
+{# FAB и другие полноэкранные оверлеи страницы #}
+{% block partner_fab %}{% endblock %}
+{% endblock %}

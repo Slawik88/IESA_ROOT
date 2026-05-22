@@ -17,43 +17,48 @@
   background:
     radial-gradient(circle at 15% 25%, rgba(220, 38, 38, 0.07), transparent 42%),
     radial-gradient(circle at 85% 75%, rgba(96, 165, 250, 0.06), transparent 46%),
-    linear-gradient(135deg, #0e0e18 0%, #13101a 50%, #0e0e18 100%) !important;
-  border-color: rgba(220, 38, 38, 0.15) !important;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35) !important;
+    linear-gradient(135deg, #0e0e18 0%, #13101a 50%, #0e0e18 100%);
+  border-color: rgba(220, 38, 38, 0.15);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
 }
 
 .hero-showcase .hero-description,
-.hero-section p { color: var(--text-secondary) !important; }
+.hero-section p { color: var(--text-secondary); }
 
 .hero-badge,
 .hero-showcase .hero-badge {
-  background: rgba(220, 38, 38, 0.1) !important;
-  border-color: rgba(220, 38, 38, 0.2) !important;
-  color: #f87171 !important;
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.2);
+  color: #f87171;
 }
 
-/* ── Все карточки — тёмный фон ───────────────────────────── */
+/* ── Наши компонентные карточки — тёмный фон ─────────────── */
 .benefit-card,
 .product-card,
 .event-card,
 .member-card,
 .partner-card-compact,
-.offer-card,
+.offer-card {
+  background: var(--bg-surface);
+  border-color: var(--border-dark);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+/* Bootstrap .card отдельно — нужен !important (Bootstrap utility) */
 .card {
   background: var(--bg-surface) !important;
   border-color: var(--border-dark) !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Сохраняем hover-lift для всех карточек */
+/* Hover-lift для наших карточек */
 .benefit-card:hover,
 .product-card:hover,
 .event-card:hover,
 .member-card:hover,
 .partner-card-compact:hover,
 .offer-card:hover {
-  background: var(--bg-surface-hover) !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4) !important;
+  background: var(--bg-surface-hover);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 }
 
 /* ── Текст на тёмных карточках ───────────────────────────── */
@@ -65,7 +70,7 @@
 .product-card .card-title,
 .benefit-card .benefit-title,
 .partner-card-compact .partner-name {
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
 }
 
 .member-card .member-bio,
@@ -78,81 +83,81 @@
 .product-card .text-muted,
 .partner-card-compact .text-muted,
 .mission-showcase li {
-  color: var(--text-muted) !important;
+  color: var(--text-muted);
 }
 
-.offer-meta { color: var(--text-secondary) !important; }
+.offer-meta { color: var(--text-secondary); }
 
 /* ── About / President / Mission секции ──────────────────── */
 #about-section {
   background:
     radial-gradient(circle at 85% 15%, rgba(220, 38, 38, 0.06), transparent 40%),
-    linear-gradient(135deg, var(--bg-surface) 0%, #0e0e18 100%) !important;
-  border-color: rgba(220, 38, 38, 0.1) !important;
+    linear-gradient(135deg, var(--bg-surface) 0%, #0e0e18 100%);
+  border-color: rgba(220, 38, 38, 0.1);
 }
 
 .president-card {
-  background: linear-gradient(135deg, var(--bg-surface) 0%, #1a1a2e 100%) !important;
-  border-color: rgba(248, 113, 113, 0.12) !important;
+  background: linear-gradient(135deg, var(--bg-surface) 0%, #1a1a2e 100%);
+  border-color: rgba(248, 113, 113, 0.12);
 }
 
 .mission-showcase {
-  background: var(--bg-surface) !important;
-  border-color: var(--border-dark) !important;
+  background: var(--bg-surface);
+  border-color: var(--border-dark);
 }
 
 .mission-showcase .mission-panel {
-  background: rgba(255, 255, 255, 0.03) !important;
-  border-color: var(--border-dark) !important;
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--border-dark);
 }
 
-.mission-showcase li { color: var(--text-secondary) !important; }
+.mission-showcase li { color: var(--text-secondary); }
 
 /* ── About showcase member cards ──────────────────────────── */
 .about-showcase,
 .about-showcase .member-showcase-card {
-  background: var(--bg-surface) !important;
-  border-color: var(--border-dark) !important;
+  background: var(--bg-surface);
+  border-color: var(--border-dark);
 }
 
 /* ── Card footers ────────────────────────────────────────── */
 .event-card .card-footer,
 .events-showcase .showcase-card .card-footer {
-  background: rgba(255, 255, 255, 0.02) !important;
-  border-color: var(--border-dark) !important;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--border-dark);
 }
 
 /* ── CTA карточки ────────────────────────────────────────── */
 .offers-cta-card {
   background:
     radial-gradient(circle at 10% 50%, rgba(220, 38, 38, 0.07), transparent 40%),
-    linear-gradient(135deg, var(--bg-surface) 0%, #15121e 100%) !important;
-  border-color: rgba(220, 38, 38, 0.15) !important;
+    linear-gradient(135deg, var(--bg-surface) 0%, #15121e 100%);
+  border-color: rgba(220, 38, 38, 0.15);
 }
 
 /* ── Badges внутри event карточек ────────────────────────── */
 .event-card .badge {
-  background: rgba(220, 38, 38, 0.12) !important;
-  color: #f87171 !important;
-  border-color: rgba(220, 38, 38, 0.2) !important;
+  background: rgba(220, 38, 38, 0.12);
+  color: #f87171;
+  border-color: rgba(220, 38, 38, 0.2);
 }
 
 /* ── Offer badge / icon box ──────────────────────────────── */
 .offer-badge {
-  background: rgba(220, 38, 38, 0.1) !important;
-  color: #f87171 !important;
-  border-color: rgba(220, 38, 38, 0.15) !important;
+  background: rgba(220, 38, 38, 0.1);
+  color: #f87171;
+  border-color: rgba(220, 38, 38, 0.15);
 }
 
 .offer-icon {
-  background: rgba(248, 113, 113, 0.1) !important;
+  background: rgba(248, 113, 113, 0.1);
   border: 1px solid rgba(248, 113, 113, 0.15);
 }
 
 /* ── Partner logo фон ────────────────────────────────────── */
 .partner-logo-compact {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-color: var(--border-dark) !important;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-dark);
 }
 
 /* ── Кнопка outline внутри partner card ──────────────────── */
@@ -163,40 +168,40 @@
 
 /* ── Partner badge colors — distinct in dark theme (U3-12) ── */
 .badge-partner-sponsor {
-  background: rgba(245,158,11,.14) !important;
-  color: #fbbf24 !important;
-  border-color: rgba(245,158,11,.28) !important;
+  background: rgba(245,158,11,.14);
+  color: #fbbf24;
+  border-color: rgba(245,158,11,.28);
 }
 .badge-partner-media {
-  background: rgba(139,92,246,.14) !important;
-  color: #c4b5fd !important;
-  border-color: rgba(139,92,246,.28) !important;
+  background: rgba(139,92,246,.14);
+  color: #c4b5fd;
+  border-color: rgba(139,92,246,.28);
 }
 .badge-partner-tech {
-  background: rgba(59,130,246,.14) !important;
-  color: #93c5fd !important;
-  border-color: rgba(59,130,246,.28) !important;
+  background: rgba(59,130,246,.14);
+  color: #93c5fd;
+  border-color: rgba(59,130,246,.28);
 }
 .badge-partner-venue {
-  background: rgba(34,197,94,.14) !important;
-  color: #4ade80 !important;
-  border-color: rgba(34,197,94,.28) !important;
+  background: rgba(34,197,94,.14);
+  color: #4ade80;
+  border-color: rgba(34,197,94,.28);
 }
 .badge-partner-default {
-  background: rgba(255,255,255,.07) !important;
-  color: var(--text-secondary) !important;
-  border-color: var(--border-dark) !important;
+  background: rgba(255,255,255,.07);
+  color: var(--text-secondary);
+  border-color: var(--border-dark);
 }
 
 /* ── Разделитель кнопок внутри partner card ──────────────── */
 .partner-card-compact .d-flex.gap-2 {
-  border-color: var(--border-dark) !important;
+  border-color: var(--border-dark);
 }
 
 /* ── Showcase card (events) ──────────────────────────────── */
 .events-showcase .showcase-card {
-  background: var(--bg-surface) !important;
-  border-color: var(--border-dark) !important;
+  background: var(--bg-surface);
+  border-color: var(--border-dark);
 }
 
 /* .modal-* — canonical definition in layout.css (U4-01) */
@@ -213,7 +218,7 @@
 .table-mobile-cards tbody tr { background: var(--bg-surface) !important; border-color: var(--border-dark) !important; }
 
 /* ── Gradient border CSS trick ───────────────────────────── */
-.gradient-border { background: var(--bg-surface) !important; }
+.gradient-border { background: var(--bg-surface); }
 
 /* .dropdown-item — canonical definition in layout.css (U3-26) */
 .dropdown-divider { border-color: rgba(255,255,255,.08) !important; }
@@ -311,7 +316,7 @@ code {
 
 /* ── Search results (B4-12 / B4-19) — вынесено из HTMX-партиала ── */
 .search-item.list-group-item-action {
-  background: rgba(255,255,255,.03) !important;
+  background: rgba(255,255,255,.03) !important;  /* fights .list-group-item !important below */
   border-color: rgba(255,255,255,.07) !important;
   color: rgba(255,255,255,.85);
   transition: background .15s, border-color .15s;
@@ -322,8 +327,7 @@ code {
 }
 .search-item .text-muted { color: rgba(255,255,255,.4) !important; }
 .search-section + .search-section { margin-top: 8px; }
-/* заменяет inline style="color:#fff;" (B4-19) */
-.search-result-text { color: rgba(255,255,255,.9) !important; }
+.search-result-text { color: rgba(255,255,255,.9); }
 .verified-check { color: #4ade80; font-size: .7rem; }
 
 /* ══════════════════════════════════════════════════════════
@@ -388,11 +392,17 @@ code {
 
 .navbar-search-dropdown .form-label { color: rgba(255, 255, 255, 0.55) !important; }
 
-/* ── Gallery: убираем focus outline ──────────────────────── */
-.gallery-grid .col:focus,
-.gallery-grid a:focus,
-.gallery-thumb:focus,
-.gallery-grid__item:focus { outline: none !important; }
+/* ── Gallery: убираем outline только для мыши, сохраняем для клавиатуры ── */
+.gallery-grid .col:focus:not(:focus-visible),
+.gallery-grid a:focus:not(:focus-visible),
+.gallery-thumb:focus:not(:focus-visible),
+.gallery-grid__item:focus:not(:focus-visible) { outline: none; }
+.gallery-thumb:focus-visible,
+.gallery-grid__item:focus-visible,
+.gallery-grid a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 
 /* ── Pagination тёмная ────────────────────────────────────── */
 .page-link {
@@ -514,4 +524,208 @@ textarea::placeholder {
 select option {
   background: #111118;
   color: #fff;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MERGED FROM ui-ux-improvements.css — UI/UX Audit Improvements
+   Контрастность, анимации, читаемость, feedback, CTA.
+   !important удалены там, где побеждаем каскадно (последний файл).
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Контрастность ── */
+.hero-desc             { color: rgba(255,255,255,.68); line-height: 1.75; }
+.hero-stat-label       { color: rgba(255,255,255,.58); }
+.offer-meta-v2 li      { color: rgba(255,255,255,.65); }
+.offer-text-v2         { color: rgba(255,255,255,.65); }
+.iesa-do-content p     { color: rgba(255,255,255,.65); }
+.section-eyebrow       { letter-spacing: .12em; }
+.pd-meta               { color: rgba(255,255,255,.62); }
+.pd-meta span          { color: rgba(255,255,255,.62); }
+.pd-content            { max-width: 720px; line-height: 1.82; font-size: 1.02rem; }
+.pd-content p          { margin-bottom: 1.35em; }
+.pd-content h2         { font-weight: 800; margin-top: 2em; margin-bottom: .65em; }
+.pd-content h3         { font-weight: 700; margin-top: 1.6em; margin-bottom: .5em; }
+
+/* ── 2. Focus states ── */
+.hero-btn-p:focus-visible,
+.hero-btn-g:focus-visible {
+  outline: 3px solid rgba(220,38,38,.7);
+  outline-offset: 3px;
+}
+.pd-content a:focus-visible {
+  outline: 2px solid #f87171;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.offer-card-v2:focus-visible,
+.iesa-do-item:focus-visible {
+  outline: 2px solid rgba(220,38,38,.6);
+  outline-offset: 2px;
+}
+
+/* ── 3. Hero buttons hover/active ── */
+.hero-btn-p {
+  transition: box-shadow .22s, transform .22s, background .18s;
+}
+.hero-btn-p:hover   { transform: translateY(-2px); box-shadow: 0 10px 45px rgba(220,38,38,.65); }
+.hero-btn-p:active  { transform: translateY(0);    box-shadow: 0 4px 20px rgba(220,38,38,.35); }
+.hero-btn-g         { transition: border-color .2s, background .2s, transform .2s; }
+.hero-btn-g:hover   { transform: translateY(-2px); background: rgba(255,255,255,.07); }
+.hero-btn-g:active  { transform: translateY(0); }
+
+/* ── 4. Reading progress bar ── */
+#reading-progress { height: 3px !important; box-shadow: 0 0 8px rgba(220,38,38,.5); }
+
+/* ── 5. Article card hover ── */
+.iesa-article { transition: border-color .25s, box-shadow .25s, transform .25s; }
+.iesa-article:hover { transform: translateY(-4px); border-color: rgba(220,38,38,.35); }
+
+/* ── 6. Form UX ── */
+@keyframes form-shake {
+  0%, 100% { transform: translateX(0); }
+  15%       { transform: translateX(-8px); }
+  30%       { transform: translateX(8px); }
+  45%       { transform: translateX(-6px); }
+  60%       { transform: translateX(6px); }
+  75%       { transform: translateX(-3px); }
+  90%       { transform: translateX(3px); }
+}
+.form-shake { animation: form-shake .5s cubic-bezier(.36,.07,.19,.97) both; }
+.field-required::after { content: ' *'; color: #f87171; font-weight: 700; }
+@keyframes step-fade-in {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.reg-step-panel.active-anim { animation: step-fade-in .32s cubic-bezier(.22,1,.36,1) both; }
+input:focus, select:focus, textarea:focus { transition: border-color .18s, box-shadow .18s; }
+
+/* ── 7. Status badges ── */
+.pd-status-pending {
+  background: rgba(217,119,6,.18);
+  color: #fbbf24;
+  border: 1px solid rgba(217,119,6,.3);
+}
+
+/* ── 8. Section separators ── */
+.hp-section + .hp-section,
+section + section { border-top: 1px solid rgba(255,255,255,.045); }
+
+/* ── 9. Image placeholders ── */
+img:not([src]), img[src=""] {
+  background: linear-gradient(90deg, #1a1a24 25%, #252535 50%, #1a1a24 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+img { background-color: #1a1a24; }
+
+/* ── 10. Profile quick actions ── */
+.cab-qn-item, .qa-item, .btn-hero-quick {
+  transition: background .2s, transform .2s, border-color .2s, box-shadow .2s;
+}
+.cab-qn-item:hover, .qa-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+
+/* ── 11. Marquee focus pause ── */
+.partners-marquee-track:focus-within { animation-play-state: paused; }
+
+/* ── 12. Tooltip ── */
+[data-tooltip] { position: relative; cursor: default; }
+[data-tooltip]::before {
+  content: attr(data-tooltip);
+  position: absolute; bottom: calc(100% + 8px); left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20,20,32,.97); border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.9); font-size: .72rem; font-weight: 500;
+  padding: .3rem .65rem; border-radius: 7px; white-space: nowrap;
+  opacity: 0; pointer-events: none;
+  transition: opacity .15s, transform .15s;
+  transform: translateX(-50%) translateY(4px); z-index: 100;
+}
+[data-tooltip]:hover::before { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── 13. Таблицы зебра ── */
+.dash-table tbody tr:nth-child(even) td { background: rgba(255,255,255,.015); }
+.dash-table tbody tr:hover td          { background: rgba(220,38,38,.04); transition: background .12s; }
+
+/* ── 14. Кнопки active state ── */
+.btn-primary:active, .btn-secondary:active { transform: scale(.98); transition: transform .08s; }
+
+/* ── 15. Типографика постов ── */
+.pd-content h1 { font-weight: 900; }
+.pd-content h2 { font-weight: 800; }
+.pd-content h3 { font-weight: 700; }
+.pd-content h4 { font-weight: 700; color: rgba(255,255,255,.82); }
+.pd-content a {
+  color: #f87171;
+  text-decoration: underline;
+  text-decoration-color: rgba(248,113,113,.35);
+  text-underline-offset: 3px;
+  transition: text-decoration-color .15s;
+}
+.pd-content a:hover { text-decoration-color: #f87171; }
+
+/* ── 16. Avatar fallback ── */
+.nav-avatar--fallback,
+.pnd-user-avatar--fallback,
+.cm-avatar-fallback,
+.cm-reply-avatar-fallback {
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+  color: #fff;
+  font-weight: 800;
+}
+
+/* ── 17. Mobile grid overrides ── */
+@media (max-width: 575.98px) {
+  .offers-grid     { grid-template-columns: 1fr; gap: 1rem; }
+  .iesa-do-grid    { grid-template-columns: 1fr; gap: .85rem; }
+  .stats-grid      { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 767.98px) {
+  #hero-canvas    { opacity: .6; }
+  .hero-stats     { gap: 1.5rem;    padding-top: 1.75rem; }
+  .hero-stat-num  { font-size: 1.85rem; }
+}
+
+/* ── 18. Notifications hover ── */
+.notification-item { transition: background .18s, border-color .18s, transform .18s; }
+.notification-item:hover { transform: translateX(3px); }
+
+/* ── 19. Back-to-top ── */
+#back-to-top { transition: opacity .25s, transform .25s, box-shadow .25s; }
+#back-to-top:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(220,38,38,.4); }
+
+/* ── 20. Empty states ── */
+.empty-state i, .dash-empty i {
+  font-size: 2.5rem;
+  opacity: .35;
+  margin-bottom: .75rem;
+  display: block;
+}
+
+/* ── 21. 8d: Touch-safe hover — убираем transform-hover на touch-устройствах ── */
+@media (hover: none), (pointer: coarse) {
+  .card:hover,
+  .search-item:hover,
+  .partner-card-compact:hover,
+  .product-card:hover,
+  .benefit-card:hover,
+  .notification-item:hover,
+  #back-to-top:hover,
+  .pd-rec-card:hover,
+  .pp-card:hover,
+  .dash-stat-card:hover,
+  .event-card:hover,
+  .member-card:hover,
+  .post-rec-card:hover {
+    transform: none;
+  }
+  .search-item:hover,
+  .post-rec-card:hover {
+    box-shadow: none;
+  }
+  #back-to-top:hover {
+    box-shadow: none;
+  }
 }

@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Component Playground | IESA Dev{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Playground layout ── */
+.pg-wrap { padding: 2rem 0 5rem; }
+.pg-section { margin-bottom: 3rem; scroll-margin-top: 80px; }
+.pg-section-title {
+    font-size: .65rem; font-weight: 700; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--primary); font-family: var(--font-mono);
+    margin-bottom: 1.25rem; padding-bottom: .5rem;
+    border-bottom: 1px solid var(--border-faint);
+}
+.pg-subsection-title {
+    font-size: .72rem; font-weight: 600; letter-spacing: .08em;
+    text-transform: uppercase; color: rgba(255,255,255,.35);
+    font-family: var(--font-mono); margin: 1.25rem 0 .75rem;
+}
+.pg-row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: flex-start; margin-bottom: 1rem; }
+.pg-swatch { width: 80px; text-align: center; }
+.pg-swatch-color { width: 80px; height: 48px; border-radius: 8px; margin-bottom: .35rem; border: 1px solid rgba(255,255,255,.06); }
+.pg-swatch-label { font-size: .6rem; color: rgba(255,255,255,.4); font-family: var(--font-mono); word-break: break-all; }
+.pg-token-row { display: flex; align-items: center; gap: .75rem; padding: .45rem .75rem; border-radius: 6px; background: rgba(255,255,255,.03); margin-bottom: .25rem; font-size: .8rem; }
+.pg-token-name { color: var(--primary); font-family: var(--font-mono); font-size: .72rem; flex-shrink:0; min-width: 200px; }
+.pg-token-val { color: rgba(255,255,255,.5); font-family: var(--font-mono); font-size: .68rem; }
+.pg-token-preview { flex-shrink: 0; }
+
+/* Sticky sidebar nav */
+.pg-sidebar { position: sticky; top: 80px; }
+.pg-nav-item {
+    display: block; padding: .35rem .75rem; border-radius: 6px;
+    color: rgba(255,255,255,.45); font-size: .78rem; text-decoration: none;
+    font-family: var(--font-mono); transition: all var(--transition-fast);
+}
+.pg-nav-item:hover { background: rgba(255,255,255,.05); color: rgba(255,255,255,.8); }
+.pg-nav-item.active { background: var(--primary-a12); color: var(--primary); }
+</style>
+{% endblock %}
+
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
+{% block content %}
+<div class="container-limited pg-wrap">
+
+    <div class="row g-4">
+
+        <!-- Sidebar nav -->
+        <div class="col-lg-2">
+            <nav class="pg-sidebar" aria-label="Playground sections">
+                <div style="font-size:.58rem;font-family:var(--font-mono);color:rgba(255,255,255,.2);letter-spacing:.12em;text-transform:uppercase;padding:.35rem .75rem .5rem;">IESA DEV</div>
+                <a href="#colors"      class="pg-nav-item">Colors</a>
+                <a href="#typography"  class="pg-nav-item">Typography</a>
+                <a href="#spacing"     class="pg-nav-item">Spacing</a>
+                <a href="#radius"      class="pg-nav-item">Radius</a>
+                <a href="#transitions" class="pg-nav-item">Transitions</a>
+                <a href="#buttons"     class="pg-nav-item">Buttons</a>
+                <a href="#badges"      class="pg-nav-item">Badges</a>
+                <a href="#cards"       class="pg-nav-item">Cards</a>
+                <a href="#forms"       class="pg-nav-item">Forms</a>
+                <a href="#alerts"      class="pg-nav-item">Alerts</a>
+                <a href="#loading"     class="pg-nav-item">Loading</a>
+                <a href="#modals"      class="pg-nav-item">Modals</a>
+                <a href="#icons"       class="pg-nav-item">Icons</a>
+            </nav>
+        </div>
+
+        <!-- Main content -->
+        <div class="col-lg-10">
+
+            <div class="mb-4">
+                <h1 style="font-size:1.5rem;font-weight:900;color:#fff;margin:0;">IESA Design System</h1>
+                <div style="font-size:.78rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);margin-top:.25rem;">
+                    Component Playground · Staff Only · <a href="/STYLEGUIDE.md" style="color:var(--primary);">STYLEGUIDE.md</a>
+                </div>
+            </div>
+
+            <!-- ════ COLORS ════════════════════════════════════════════════ -->
+            <section id="colors" class="pg-section">
+                <div class="pg-section-title">Colors</div>
+
+                <div class="pg-subsection-title">Primary</div>
+                <div class="pg-row">
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--primary);"></div><div class="pg-swatch-label">--primary<br>#dc2626</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--primary-hover);"></div><div class="pg-swatch-label">--primary-hover<br>#b91c1c</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--primary-a12);"></div><div class="pg-swatch-label">--primary-a12</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--primary-a25);"></div><div class="pg-swatch-label">--primary-a25</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--primary-a40);"></div><div class="pg-swatch-label">--primary-a40</div></div>
+                </div>
+
+                <div class="pg-subsection-title">Semantic</div>
+                <div class="pg-row">
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--success);"></div><div class="pg-swatch-label">--success</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--warning);"></div><div class="pg-swatch-label">--warning</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--danger);"></div><div class="pg-swatch-label">--danger</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--info);"></div><div class="pg-swatch-label">--info</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--secondary);"></div><div class="pg-swatch-label">--secondary</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--emerald);"></div><div class="pg-swatch-label">--emerald</div></div>
+                </div>
+
+                <div class="pg-subsection-title">Surface Scale</div>
+                <div class="pg-row">
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--surface-0);border:1px solid rgba(255,255,255,.15);"></div><div class="pg-swatch-label">--surface-0<br>#0e0e18</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--surface-1);"></div><div class="pg-swatch-label">--surface-1<br>#111118</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--surface-2);"></div><div class="pg-swatch-label">--surface-2<br>#1a1a24</div></div>
+                    <div class="pg-swatch"><div class="pg-swatch-color" style="background:var(--surface-3);"></div><div class="pg-swatch-label">--surface-3<br>#232334</div></div>
+                </div>
+
+                <div class="pg-subsection-title">Text (WCAG AA)</div>
+                <div style="background:var(--surface-1);border:1px solid var(--border-soft);border-radius:10px;padding:1rem 1.25rem;">
+                    <div style="color:var(--text-primary); font-size:1rem;margin-bottom:.35rem;">--text-primary · 14:1 contrast · rgba(.92)</div>
+                    <div style="color:var(--text-secondary); font-size:.9rem;margin-bottom:.35rem;">--text-secondary · 9.5:1 contrast · rgba(.72)</div>
+                    <div style="color:var(--text-muted); font-size:.85rem;margin-bottom:.35rem;">--text-muted · 6.2:1 contrast · rgba(.58)</div>
+                    <div style="color:var(--text-light); font-size:.8rem;">--text-light · 4.6:1 contrast · rgba(.42) — min WCAG AA</div>
+                </div>
+            </section>
+
+            <!-- ════ TYPOGRAPHY ═══════════════════════════════════════════ -->
+            <section id="typography" class="pg-section">
+                <div class="pg-section-title">Typography</div>
+                <div style="background:var(--surface-1);border:1px solid var(--border-soft);border-radius:10px;padding:1.25rem;">
+                    <div style="font-size:var(--text-5xl);font-weight:900;line-height:1.1;margin-bottom:.5rem;">--text-5xl · 3rem · 48px</div>
+                    <div style="font-size:var(--text-4xl);font-weight:800;line-height:1.15;margin-bottom:.5rem;">--text-4xl · 2.25rem · 36px</div>
+                    <div style="font-size:var(--text-3xl);font-weight:700;margin-bottom:.5rem;">--text-3xl · 1.875rem · 30px</div>
+                    <div style="font-size:var(--text-2xl);font-weight:700;margin-bottom:.5rem;">--text-2xl · 1.5rem · 24px</div>
+                    <div style="font-size:var(--text-xl);font-weight:600;margin-bottom:.5rem;">--text-xl · 1.25rem · 20px</div>
+                    <div style="font-size:var(--text-lg);margin-bottom:.5rem;">--text-lg · 1.125rem · 18px</div>
+                    <div style="font-size:var(--text-base);margin-bottom:.5rem;">--text-base · 1rem · 16px · Inter Regular</div>
+                    <div style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:.5rem;">--text-sm · 0.875rem · 14px · muted</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-light);">--text-xs · 0.75rem · 12px · light</div>
+                </div>
+                <div class="pg-subsection-title">Monospace (только для кодов/PIN)</div>
+                <div style="font-family:var(--font-mono);background:var(--surface-2);border-radius:8px;padding:.75rem 1rem;font-size:.9rem;color:var(--text-secondary);">
+                    PIN: 4829 · UUID: a3f2-bc7d · font-family: var(--font-mono)
+                </div>
+            </section>
+
+            <!-- ════ SPACING ══════════════════════════════════════════════ -->
+            <section id="spacing" class="pg-section">
+                <div class="pg-section-title">Spacing</div>
+                <div class="pg-row" style="align-items:flex-end;">
+                    {% for item in "12345681012" %}
+                    {% endfor %}
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+                        <div style="background:var(--primary-a25);height:var(--space-1);width:32px;border-radius:2px;"></div>
+                        <div style="font-size:.58rem;color:rgba(255,255,255,.3);font-family:var(--font-mono);">--space-1<br>4px</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+                        <div style="background:var(--primary-a25);height:var(--space-2);width:32px;border-radius:2px;"></div>
+                        <div style="font-size:.58rem;color:rgba(255,255,255,.3);font-family:var(--font-mono);">--space-2<br>8px</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+                        <div style="background:var(--primary-a25);height:var(--space-3);width:32px;border-radius:2px;"></div>
+                        <div style="font-size:.58rem;color:rgba(255,255,255,.3);font-family:var(--font-mono);">--space-3<br>12px</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+                        <div style="background:var(--primary-a25);height:var(--space-4);width:32px;border-radius:2px;"></div>
+                        <div style="font-size:.58rem;color:rgba(255,255,255,.3);font-family:var(--font-mono);">--space-4<br>16px</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+                        <div style="background:var(--primary-a25);height:var(--space-6);width:32px;border-radius:2px;"></div>
+                        <div style="font-size:.58rem;color:rgba(255,255,255,.3);font-family:var(--font-mono);">--space-6<br>24px</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+                        <div style="background:var(--primary-a25);height:var(--space-8);width:32px;border-radius:2px;"></div>
+                        <div style="font-size:.58rem;color:rgba(255,255,255,.3);font-family:var(--font-mono);">--space-8<br>32px</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+                        <div style="background:var(--primary-a25);height:var(--space-12);width:32px;border-radius:2px;"></div>
+                        <div style="font-size:.58rem;color:rgba(255,255,255,.3);font-family:var(--font-mono);">--space-12<br>48px</div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;align-items:center;gap:.35rem;">
+                        <div style="background:var(--primary-a25);height:var(--space-16);width:32px;border-radius:2px;"></div>
+                        <div style="font-size:.58rem;color:rgba(255,255,255,.3);font-family:var(--font-mono);">--space-16<br>64px</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ RADIUS ════════════════════════════════════════════════ -->
+            <section id="radius" class="pg-section">
+                <div class="pg-section-title">Border Radius</div>
+                <div class="pg-row">
+                    <div style="text-align:center;">
+                        <div style="width:60px;height:60px;background:var(--primary-a12);border:1.5px solid var(--primary-a25);border-radius:var(--r-sm);margin:0 auto .35rem;"></div>
+                        <div style="font-size:.6rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);">--r-sm<br>12px</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="width:60px;height:60px;background:var(--primary-a12);border:1.5px solid var(--primary-a25);border-radius:var(--r-md);margin:0 auto .35rem;"></div>
+                        <div style="font-size:.6rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);">--r-md<br>14px</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="width:60px;height:60px;background:var(--primary-a12);border:1.5px solid var(--primary-a25);border-radius:var(--r-lg);margin:0 auto .35rem;"></div>
+                        <div style="font-size:.6rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);">--r-lg<br>20px</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="width:60px;height:60px;background:var(--primary-a12);border:1.5px solid var(--primary-a25);border-radius:var(--r-xl);margin:0 auto .35rem;"></div>
+                        <div style="font-size:.6rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);">--r-xl<br>24px</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="width:60px;height:60px;background:var(--primary-a12);border:1.5px solid var(--primary-a25);border-radius:var(--radius-full);margin:0 auto .35rem;"></div>
+                        <div style="font-size:.6rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);">--radius-full<br>9999px</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ TRANSITIONS ══════════════════════════════════════════ -->
+            <section id="transitions" class="pg-section">
+                <div class="pg-section-title">Transitions</div>
+                <div class="pg-row" style="flex-direction:column;max-width:480px;">
+                    <div class="pg-token-row">
+                        <span class="pg-token-name">--transition-fast</span>
+                        <span class="pg-token-val">150ms ease</span>
+                        <span class="pg-token-preview" style="font-size:.7rem;color:rgba(255,255,255,.3);">micro-interactions</span>
+                    </div>
+                    <div class="pg-token-row">
+                        <span class="pg-token-name">--transition-base</span>
+                        <span class="pg-token-val">200ms ease</span>
+                        <span class="pg-token-preview" style="font-size:.7rem;color:rgba(255,255,255,.3);">standard</span>
+                    </div>
+                    <div class="pg-token-row">
+                        <span class="pg-token-name">--transition-slow</span>
+                        <span class="pg-token-val">300ms ease</span>
+                        <span class="pg-token-preview" style="font-size:.7rem;color:rgba(255,255,255,.3);">slow fade</span>
+                    </div>
+                    <div class="pg-token-row">
+                        <span class="pg-token-name">--transition-smooth</span>
+                        <span class="pg-token-val">300ms cubic-bezier(.4,0,.2,1)</span>
+                        <span class="pg-token-preview" style="font-size:.7rem;color:rgba(255,255,255,.3);">cards, buttons</span>
+                    </div>
+                    <div class="pg-token-row">
+                        <span class="pg-token-name">--transition-bounce</span>
+                        <span class="pg-token-val">300ms cubic-bezier(.68,-.55,.265,1.55)</span>
+                        <span class="pg-token-preview" style="font-size:.7rem;color:rgba(255,255,255,.3);">bounce</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ BUTTONS ══════════════════════════════════════════════ -->
+            <section id="buttons" class="pg-section">
+                <div class="pg-section-title">Buttons</div>
+
+                <div class="pg-subsection-title">Hero Buttons (main CTA)</div>
+                <div class="pg-row">
+                    <button class="btn hero-btn-p">Primary CTA</button>
+                    <button class="btn hero-btn-g">Secondary CTA</button>
+                </div>
+
+                <div class="pg-subsection-title">Bootstrap Buttons</div>
+                <div class="pg-row">
+                    <button class="btn btn-primary">Primary</button>
+                    <button class="btn btn-secondary">Secondary</button>
+                    <button class="btn btn-success">Success</button>
+                    <button class="btn btn-danger">Danger</button>
+                    <button class="btn btn-warning">Warning</button>
+                    <button class="btn btn-info">Info</button>
+                </div>
+
+                <div class="pg-subsection-title">Outline Variants</div>
+                <div class="pg-row">
+                    <button class="btn btn-outline-primary">Primary</button>
+                    <button class="btn btn-outline-secondary">Secondary</button>
+                    <button class="btn btn-outline-success">Success</button>
+                    <button class="btn btn-outline-danger">Danger</button>
+                </div>
+
+                <div class="pg-subsection-title">Sizes</div>
+                <div class="pg-row" style="align-items:center;">
+                    <button class="btn hero-btn-p btn-lg">Large</button>
+                    <button class="btn hero-btn-p">Default</button>
+                    <button class="btn hero-btn-p btn-sm">Small</button>
+                </div>
+
+                <div class="pg-subsection-title">States</div>
+                <div class="pg-row">
+                    <button class="btn hero-btn-p" disabled>Disabled</button>
+                    <button class="btn hero-btn-p" style="opacity:.65;cursor:wait;">Loading</button>
+                    <button class="btn hero-btn-p"><i class="fas fa-spinner fa-spin me-2" aria-hidden="true"></i>With Spinner</button>
+                </div>
+
+                <div class="pg-subsection-title">Partner Buttons (pp-wrap system)</div>
+                <div class="pg-row">
+                    <button class="pp-btn">pp-btn</button>
+                    <button class="pp-btn-ghost">pp-btn-ghost</button>
+                    <button class="pp-btn-danger">pp-btn-danger</button>
+                    <button class="pp-btn-back">← pp-btn-back</button>
+                </div>
+            </section>
+
+            <!-- ════ BADGES ════════════════════════════════════════════════ -->
+            <section id="badges" class="pg-section">
+                <div class="pg-section-title">Badges & Status</div>
+
+                <div class="pg-subsection-title">Profile Nav Dropdown Roles</div>
+                <div class="pg-row">
+                    <span class="pnd-role-badge pnd-role--member">Member</span>
+                    <span class="pnd-role-badge pnd-role--partner">Partner</span>
+                    <span class="pnd-role-badge pnd-role--staff">Admin</span>
+                    <span class="pnd-role-badge pnd-role--user">User</span>
+                </div>
+
+                <div class="pg-subsection-title">Bootstrap Badges</div>
+                <div class="pg-row">
+                    <span class="badge bg-primary">Primary</span>
+                    <span class="badge bg-success">Success</span>
+                    <span class="badge bg-warning text-dark">Warning</span>
+                    <span class="badge bg-danger">Danger</span>
+                    <span class="badge bg-info">Info</span>
+                    <span class="badge bg-secondary">Secondary</span>
+                </div>
+
+                <div class="pg-subsection-title">Visit Status</div>
+                <div class="pg-row">
+                    <span class="pp-visit-banner">Active Visit</span>
+                    <span class="pp-warn">Warning / Pending</span>
+                    <span class="pp-danger-banner">Cancelled</span>
+                </div>
+            </section>
+
+            <!-- ════ CARDS ═════════════════════════════════════════════════ -->
+            <section id="cards" class="pg-section">
+                <div class="pg-section-title">Cards</div>
+
+                <div class="pg-subsection-title">Base Card (.card)</div>
+                <div class="card p-4" style="max-width:320px;">
+                    <h5 class="card-title mb-2">Card Title</h5>
+                    <p class="card-text small mb-3">Card body text. Тёмный фон, тонкий бордер.</p>
+                    <button class="btn hero-btn-p btn-sm">Action</button>
+                </div>
+
+                <div class="pg-subsection-title" style="margin-top:1.5rem;">Partner Card (.pp-card)</div>
+                <div class="pp-card" style="max-width:320px;">
+                    <div style="font-weight:700;color:#fff;margin-bottom:.5rem;">Partner Card</div>
+                    <div style="font-size:.82rem;color:rgba(255,255,255,.5);">Используется в партнёрском портале. Тот же surface-1 с border-soft.</div>
+                </div>
+
+                <div class="pg-subsection-title" style="margin-top:1.5rem;">Dashboard Stat Card</div>
+                <div class="pg-row">
+                    <div class="dash-stat-card ds-red">
+                        <div class="dash-stat-val">42</div>
+                        <div class="dash-stat-lbl">Total Visits</div>
+                    </div>
+                    <div class="dash-stat-card ds-green">
+                        <div class="dash-stat-val">18</div>
+                        <div class="dash-stat-lbl">This Month</div>
+                    </div>
+                    <div class="dash-stat-card ds-blue">
+                        <div class="dash-stat-val">127</div>
+                        <div class="dash-stat-lbl">Members</div>
+                    </div>
+                    <div class="dash-stat-card ds-amber">
+                        <div class="dash-stat-val">5</div>
+                        <div class="dash-stat-lbl">Pending</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ FORMS ═════════════════════════════════════════════════ -->
+            <section id="forms" class="pg-section">
+                <div class="pg-section-title">Forms</div>
+
+                <div style="max-width:440px;">
+                    <div class="mb-3">
+                        <label for="pg-input-1" class="form-label">Text Input</label>
+                        <input type="text" class="form-control" id="pg-input-1" placeholder="Placeholder text">
+                    </div>
+                    <div class="mb-3">
+                        <label for="pg-input-err" class="form-label">Input with Error</label>
+                        <input type="text" class="form-control inv" id="pg-input-err" value="Invalid value" aria-invalid="true" aria-describedby="pg-err-1">
+                        <div id="pg-err-1" class="af-err mt-1" role="alert">
+                            <i class="fas fa-times-circle" aria-hidden="true"></i> This field is required
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pg-select" class="form-label">Select</label>
+                        <select class="form-select" id="pg-select">
+                            <option value="">— Choose —</option>
+                            <option>Option 1</option>
+                            <option>Option 2</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pg-textarea" class="form-label">Textarea</label>
+                        <textarea class="form-control" id="pg-textarea" rows="3" placeholder="Your message..."></textarea>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="pg-check">
+                        <label class="form-check-label" for="pg-check">Checkbox label</label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ ALERTS ════════════════════════════════════════════════ -->
+            <section id="alerts" class="pg-section">
+                <div class="pg-section-title">Alerts & Toasts</div>
+
+                <div class="pg-subsection-title">Bootstrap Alerts</div>
+                <div class="alert alert-danger d-flex align-items-center gap-2 mb-2">
+                    <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+                    <span>Danger alert — something went wrong.</span>
+                </div>
+                <div class="alert alert-warning d-flex align-items-center gap-2 mb-2">
+                    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                    <span>Warning alert — pay attention.</span>
+                </div>
+                <div class="alert alert-success d-flex align-items-center gap-2 mb-2">
+                    <i class="fas fa-check-circle" aria-hidden="true"></i>
+                    <span>Success alert — action completed.</span>
+                </div>
+                <div class="alert alert-info d-flex align-items-center gap-2 mb-3">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                    <span>Info alert — here is some information.</span>
+                </div>
+
+                <div class="pg-subsection-title">Auth Error Bar</div>
+                <div class="auth-err-bar" role="alert" aria-live="assertive">
+                    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                    <span>Invalid credentials. Please try again.</span>
+                </div>
+
+                <div class="pg-subsection-title" style="margin-top:1rem;">JS Toast API</div>
+                <div class="pg-row">
+                    <button class="btn btn-sm btn-danger" onclick="window._iesa_showToast('Error toast message', 'danger')">
+                        Toast Danger
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="window._iesa_showToast('Warning toast message', 'warning')">
+                        Toast Warning
+                    </button>
+                    <button class="btn btn-sm btn-info" onclick="window._iesa_showToast('Info toast message', 'info')">
+                        Toast Info
+                    </button>
+                </div>
+            </section>
+
+            <!-- ════ LOADING ═══════════════════════════════════════════════ -->
+            <section id="loading" class="pg-section">
+                <div class="pg-section-title">Loading States</div>
+
+                <div class="pg-subsection-title">Skeleton Lines</div>
+                <div style="max-width:320px;">
+                    <div class="skeleton rounded mb-2" style="height:.7rem;width:85%;"></div>
+                    <div class="skeleton rounded mb-2" style="height:.7rem;width:65%;"></div>
+                    <div class="skeleton rounded" style="height:.7rem;width:45%;"></div>
+                </div>
+
+                <div class="pg-subsection-title" style="margin-top:1rem;">Skeleton Card</div>
+                <div style="max-width:320px;background:var(--surface-1);border:1px solid var(--border-soft);border-radius:var(--r-lg);padding:1rem;">
+                    <div style="display:flex;gap:.75rem;align-items:flex-start;">
+                        <div class="skeleton" style="width:40px;height:40px;border-radius:50%;flex-shrink:0;"></div>
+                        <div style="flex:1;">
+                            <div class="skeleton rounded mb-2" style="height:.65rem;width:55%;"></div>
+                            <div class="skeleton rounded mb-1" style="height:.55rem;width:90%;"></div>
+                            <div class="skeleton rounded" style="height:.55rem;width:70%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pg-subsection-title" style="margin-top:1rem;">Spinner</div>
+                <div class="pg-row">
+                    <i class="fas fa-spinner fa-spin" style="color:var(--primary);font-size:1.5rem;" aria-label="Loading"></i>
+                    <div class="spinner-border text-danger" style="width:1.5rem;height:1.5rem;" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ════ MODALS ════════════════════════════════════════════════ -->
+            <section id="modals" class="pg-section">
+                <div class="pg-section-title">Modals & Bottom Sheets</div>
+
+                <div class="pg-subsection-title">Bootstrap Modal</div>
+                <button class="btn hero-btn-p btn-sm" data-bs-toggle="modal" data-bs-target="#pg-modal">
+                    Open Modal
+                </button>
+
+                <div class="pg-subsection-title" style="margin-top:1rem;">Bottom Sheet</div>
+                <button class="btn hero-btn-g btn-sm" onclick="IESABottomSheet.open('pg-bottom-sheet')">
+                    Open Bottom Sheet
+                </button>
+            </section>
+
+            <!-- ════ ICONS ═════════════════════════════════════════════════ -->
+            <section id="icons" class="pg-section">
+                <div class="pg-section-title">Icon Usage</div>
+
+                <div class="pg-subsection-title">Decorative (aria-hidden — рядом с текстом)</div>
+                <div class="pg-row" style="flex-direction:column;gap:.5rem;">
+                    <div><i class="fas fa-check-circle me-2 text-success" aria-hidden="true"></i> Success action completed</div>
+                    <div><i class="fas fa-exclamation-triangle me-2 text-warning" aria-hidden="true"></i> Warning message here</div>
+                    <div><i class="fas fa-info-circle me-2 text-info" aria-hidden="true"></i> Informational text</div>
+                </div>
+
+                <div class="pg-subsection-title">Icon-only (aria-label required)</div>
+                <div class="pg-row">
+                    <button class="btn-nav-icon" aria-label="Search" title="Search">
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn-nav-icon" aria-label="Notifications" title="Notifications">
+                        <i class="fas fa-bell" aria-hidden="true"></i>
+                    </button>
+                    <button class="btn-nav-icon" aria-label="Toggle theme" title="Toggle theme">
+                        <i class="fas fa-moon" aria-hidden="true"></i>
+                    </button>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</div>
+
+<!-- Demo Modal -->
+<div class="modal fade" id="pg-modal" tabindex="-1" aria-labelledby="pg-modal-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pg-modal-title">Modal Demo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Modal body content. Используется Bootstrap modal с dark-theme стилями.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn hero-btn-p btn-sm">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Demo Bottom Sheet -->
+<div class="iesa-bottom-sheet" id="pg-bottom-sheet" style="padding:1.5rem 1.25rem 2rem;">
+    <div class="bs-handle"></div>
+    <div style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1rem;">BOTTOM SHEET DEMO</div>
+    <p style="color:rgba(255,255,255,.7);font-size:.9rem;margin-bottom:1.25rem;">
+        Снизу вверх slide-up sheet. Закрывается свайпом вниз или кликом по backdrop.
+    </p>
+    <button class="btn hero-btn-p btn-sm" onclick="IESABottomSheet.close('pg-bottom-sheet')">
+        Close Sheet
+    </button>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Active nav highlighting on scroll */
+(function(){
+    var navItems = document.querySelectorAll('.pg-nav-item');
+    var sections = document.querySelectorAll('.pg-section[id]');
+    var observer = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){
+            if (e.isIntersecting) {
+                navItems.forEach(function(n){ n.classList.remove('active'); });
+                var a = document.querySelector('.pg-nav-item[href="#'+e.target.id+'"]');
+                if (a) a.classList.add('active');
+            }
+        });
+    }, { rootMargin: '-20% 0px -70% 0px' });
+    sections.forEach(function(s){ observer.observe(s); });
+})();
+</script>
+{% endblock %}

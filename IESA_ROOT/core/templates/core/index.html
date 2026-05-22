@@ -10,7 +10,8 @@
 ================================================================ */
 
 /* ── GLOBALS ──────────────────────────────────────────────────── */
-.hp-section { padding: 7rem 0; }
+/* 4e: больше воздуха между секциями */
+.hp-section { padding: 7.5rem 0; }
 .hp-label {
     font-size: .72rem; letter-spacing: .2em; font-weight: 700; text-transform: uppercase;
     color: var(--primary); display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1rem;
@@ -23,7 +24,9 @@
     color: var(--text-primary); letter-spacing: -.03em;
 }
 .hp-h2 span { color: var(--primary); }
-.hp-sub { font-size: 1.05rem; color: var(--text-muted); max-width: 540px; margin: .75rem auto 0; }
+/* 4e: описания секций с ограничением ширины для читаемости */
+.hp-sub { font-size: 1.05rem; color: var(--text-muted); max-width: 620px; margin: .75rem auto 0; line-height: 1.7; }
+.text-center .hp-h2 { max-width: 760px; margin-left: auto; margin-right: auto; }
 .hp-divider { width: 48px; height: 3px; background: var(--primary); border-radius: 2px; margin: 1.25rem auto 0; }
 .hp-container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
 
@@ -149,6 +152,12 @@
 .iesa-do-item:hover .iesa-do-icon { background:var(--primary); color:#fff; transform:scale(1.08); }
 .iesa-do-content h3 { font-size:.95rem; font-weight:800; color:var(--text-primary); margin-bottom:.35rem; letter-spacing:-.01em; }
 .iesa-do-content p { font-size:.85rem; color:var(--text-muted); line-height:1.65; margin:0; }
+/* 4b: Compact secondary list */
+.iesa-also-does { margin-top:1.5rem; display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap; }
+.iad-label { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:rgba(255,255,255,.28); flex-shrink:0; margin:0; }
+.iad-list { list-style:none; padding:0; margin:0; display:flex; flex-wrap:wrap; gap:.5rem .85rem; }
+.iad-list li { font-size:.82rem; color:rgba(255,255,255,.42); display:flex; align-items:center; gap:.35rem; }
+.iad-list li i { font-size:.72rem; color:rgba(220,38,38,.5); }
 .iesa-tagline {
     margin-top:2.5rem; padding:2.25rem 3rem;
     background:linear-gradient(135deg,rgba(220,38,38,.06) 0%,rgba(220,38,38,.02) 100%);
@@ -360,11 +369,18 @@
     .hero-ctas .hero-btn-p,.hero-ctas .hero-btn-g{width:100%;justify-content:center}
 }
 @media(max-width:480px){
-    .hero-stats{flex-direction:column;gap:1rem;padding-top:1.5rem}
+    /* 4c: stats в 2 колонки на мобиле (лучше чем flex-column) */
+    .hero-stats{display:grid;grid-template-columns:1fr 1fr;gap:.85rem 1.5rem;padding-top:1.5rem}
+    .hero-stat-num{font-size:1.85rem}
+    .hero-stat-label{font-size:.7rem}
     .don-grid{gap:3rem}
 }
+@media(max-width:320px){
+    /* 4c: iPhone SE 1st gen — одна колонка */
+    .hero-stats{grid-template-columns:1fr;gap:.65rem}
+}
 @media(max-width:640px){
-    .hp-section{padding:4rem 0}
+    .hp-section{padding:3.5rem 0}
     .stats-grid{grid-template-columns:repeat(2,1fr)}
     .benefits-grid{grid-template-columns:repeat(2,1fr)}
     .events-grid,.partners-grid-v2{grid-template-columns:1fr}
@@ -511,7 +527,7 @@
 
 <!-- ════ 1. HERO ═══════════════════════════════════════════════════ -->
 <section id="hp-hero">
-    <canvas id="hp-hero-canvas" id="hero-canvas"></canvas>
+    <canvas id="hp-hero-canvas" aria-hidden="true"></canvas>
     <div class="hp-container hero-inner" style="padding-top:9rem;padding-bottom:8rem;">
         <div class="hero-kicker">
             <i class="fas fa-circle" style="font-size:.55rem;"></i>
@@ -524,7 +540,7 @@
             </span>
         </h1>
         <p class="hero-desc">
-            {% trans "IESA rassemble des personnes qui choisissent une vie active, le développement et de nouveaux horizons. Nous créons un espace où le sport devient un outil de croissance, de santé et d'un environnement fort et inspirant." %}
+            {% trans "IESA unites athletes, active lifestyle communities, and everyone who grows through adventure and extreme challenges." %}
         </p>
         <div class="hero-ctas">
             <a href="{% url 'users:register' %}" class="hero-btn-p mag-btn"><i class="fas fa-user-plus"></i> {% trans "Become a member" %}</a>
@@ -548,6 +564,7 @@
             <h2 class="hp-h2" data-reveal data-delay="1">{% trans "Discover a world of" %} <span>{% trans "movement, strength, and real life." %}</span></h2>
             <div class="hp-divider" data-reveal data-delay="2"></div>
         </div>
+        {# 4b: 6 главных направлений (было 10) #}
         <div class="iesa-do-grid">
             <div class="iesa-do-item" data-reveal data-delay="1">
                 <div class="iesa-do-icon"><i class="fas fa-map-marked-alt"></i></div>
@@ -571,45 +588,17 @@
                 </div>
             </div>
             <div class="iesa-do-item" data-reveal data-delay="4">
-                <div class="iesa-do-icon"><i class="fas fa-network-wired"></i></div>
-                <div class="iesa-do-content">
-                    <h3>{% trans "Global network expansion" %}</h3>
-                    <p>{% trans "We expand networks and introduce IESA to a wider audience." %}</p>
-                </div>
-            </div>
-            <div class="iesa-do-item" data-reveal data-delay="1">
                 <div class="iesa-do-icon"><i class="fas fa-lightbulb"></i></div>
                 <div class="iesa-do-content">
                     <h3>{% trans "Event creation &amp; management" %}</h3>
                     <p>{% trans "We provide practical knowledge in creating and managing events and projects." %}</p>
                 </div>
             </div>
-            <div class="iesa-do-item" data-reveal data-delay="2">
-                <div class="iesa-do-icon"><i class="fas fa-chess"></i></div>
-                <div class="iesa-do-content">
-                    <h3>{% trans "Chess &amp; strategic thinking" %}</h3>
-                    <p>{% trans "We teach children and adults unique knowledge and strategic thinking through chess." %}</p>
-                </div>
-            </div>
-            <div class="iesa-do-item" data-reveal data-delay="3">
+            <div class="iesa-do-item" data-reveal data-delay="1">
                 <div class="iesa-do-icon"><i class="fas fa-trophy"></i></div>
                 <div class="iesa-do-content">
                     <h3>{% trans "Sports competitions" %}</h3>
                     <p>{% trans "We organize competitions that strengthen the role of sport in people's lives." %}</p>
-                </div>
-            </div>
-            <div class="iesa-do-item" data-reveal data-delay="4">
-                <div class="iesa-do-icon"><i class="fas fa-coins"></i></div>
-                <div class="iesa-do-content">
-                    <h3>{% trans "Internal points ecosystem" %}</h3>
-                    <p>{% trans "We build an internal ecosystem through a points system — internal currency — for exchanging services between members." %}</p>
-                </div>
-            </div>
-            <div class="iesa-do-item" data-reveal data-delay="1">
-                <div class="iesa-do-icon"><i class="fas fa-handshake"></i></div>
-                <div class="iesa-do-content">
-                    <h3>{% trans "Member promotion &amp; support" %}</h3>
-                    <p>{% trans "We support members in promoting their services, projects, and personal brands." %}</p>
                 </div>
             </div>
             <div class="iesa-do-item" data-reveal data-delay="2">
@@ -619,6 +608,17 @@
                     <p>{% trans "We care about the physical and mental health of both adults and children within the association." %}</p>
                 </div>
             </div>
+        </div>
+
+        {# 4b: Компактный список остальных направлений #}
+        <div class="iesa-also-does" data-reveal data-delay="3">
+            <p class="iad-label">{% trans "Also" %}</p>
+            <ul class="iad-list">
+                <li><i class="fas fa-network-wired"></i> {% trans "Global network expansion" %}</li>
+                <li><i class="fas fa-chess"></i> {% trans "Chess &amp; strategic thinking" %}</li>
+                <li><i class="fas fa-coins"></i> {% trans "Internal points ecosystem" %}</li>
+                <li><i class="fas fa-handshake"></i> {% trans "Member promotion &amp; support" %}</li>
+            </ul>
         </div>
         <div class="iesa-tagline" data-reveal>
             <p class="tagline-main">{% trans "IESA — it's more than sport." %} <span>{% trans "It's a lifestyle, growth, and a strong international community." %}</span></p>
@@ -999,9 +999,13 @@
 (function(){
     const c = document.getElementById('hp-hero-canvas');
     if(!c) return;
+    /* 4d: полностью отключаем на мобиле < 480px — экономия батареи */
+    if(window.innerWidth < 480) return;
+    /* Отключаем на prefers-reduced-motion и prefers-reduced-data */
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if(window.matchMedia('(prefers-reduced-data: reduce)').matches) return;
     const ctx = c.getContext('2d');
     let W, H, pts=[];
-    /* Меньше частиц на мобиле — экономия батареи */
     const PARTICLE_COUNT = window.innerWidth < 768 ? 28 : 75;
     let resizeTimer;
     function resize(){
@@ -1010,8 +1014,6 @@
     resize();
     window.addEventListener('resize', function(){ clearTimeout(resizeTimer); resizeTimer=setTimeout(resize,200); });
     for(let i=0;i<PARTICLE_COUNT;i++) pts.push({x:Math.random()*(W||1200),y:Math.random()*(H||800),dx:(Math.random()-.5)*.45,dy:(Math.random()-.5)*.45,r:Math.random()*1.8+.4,a:Math.random()*.5+.15});
-    /* Отключаем на prefers-reduced-motion */
-    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     function draw(){
         ctx.clearRect(0,0,W,H);
         pts.forEach(p=>{
@@ -1057,11 +1059,13 @@ setTimeout(()=>document.querySelectorAll('.hero-stats .cnt').forEach(c=>animCnt(
 const statsEl=document.getElementById('hp-stats');
 if(statsEl){ const io=new IntersectionObserver(entries=>{ if(!entries[0].isIntersecting) return; document.querySelectorAll('.cnt-b').forEach(c=>animCnt(c,+c.dataset.count,1600)); io.disconnect(); },{threshold:.4}); io.observe(statsEl); }
 
-/* ── 5. TILT 3D ────────────────── */
-document.querySelectorAll('.tilt3d').forEach(card=>{
-    card.addEventListener('mousemove',e=>{ const r=card.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5; card.style.transform=`perspective(600px) rotateY(${x*10}deg) rotateX(${-y*10}deg) scale(1.02)`; });
-    card.addEventListener('mouseleave',()=>card.style.transform='');
-});
+/* ── 5. TILT 3D — только на устройствах с мышью (4f) ── */
+if(window.matchMedia('(hover:hover) and (pointer:fine)').matches){
+    document.querySelectorAll('.tilt3d').forEach(card=>{
+        card.addEventListener('mousemove',e=>{ const r=card.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5; card.style.transform=`perspective(600px) rotateY(${x*10}deg) rotateX(${-y*10}deg) scale(1.02)`; });
+        card.addEventListener('mouseleave',()=>card.style.transform='');
+    });
+}
 
 /* ── 6. MAGNETIC BUTTONS ───────── */
 document.querySelectorAll('.mag-btn').forEach(btn=>{

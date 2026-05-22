@@ -14,20 +14,13 @@ _RETRY_STATUSES = {429, 500, 502, 503, 504}
 _MAX_BACKOFF = 30  # Максимум ожидания между retry (B3-04)
 
 
-# ── Shared async client pool (B3-09) ───────────────────────────────────────
-# Переиспользуем один клиент вместо открытия нового соединения на каждый запрос.
-# Клиент создаётся лениво и заменяется если закрыт (shutdown/restart).
-_shared_async_client: httpx.AsyncClient | None = None
+# ── Per-request async client ────────────────────────────────────────────────
+# В Daphne/ASGI каждый запрос может выполняться в отдельном event loop.
+# Глобальный AsyncClient вызывает "Event loop is closed" при повторном использовании.
+# Используем context manager — новый клиент на каждый вызов.
 
-
-def _get_async_client() -> httpx.AsyncClient:
-    global _shared_async_client
-    if _shared_async_client is None or _shared_async_client.is_closed:
-        _shared_async_client = httpx.AsyncClient(
-            timeout=10,
-            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
-        )
-    return _shared_async_client
+def _make_async_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(timeout=10)
 
 
 def _safe_json(resp: httpx.Response, context: str = "") -> dict | None:
@@ -41,13 +34,17 @@ def _safe_json(resp: httpx.Response, context: str = "") -> dict | None:
 
 
 async def _post_with_retry(method: str, payload: dict, retries: int = 3) -> dict | None:
-    """POST к Telegram API с exponential backoff на transient-ошибки."""
-    client = _get_async_client()
+    """POST к Telegram API с exponential backoff на transient-ошибки.
+
+    Каждый вызов открывает новый httpx.AsyncClient — это чуть менее эффективно
+    по connection pooling, но гарантирует работу в Daphne/ASGI где event loop
+    может меняться между запросами.
+    """
     for attempt in range(retries):
         try:
-            resp = await client.post(api_url(method), json=payload)
+            async with _make_async_client() as client:
+                resp = await client.post(api_url(method), json=payload)
             if resp.status_code == 429:
-                # Ограничиваем retry_after максимумом (B3-04)
                 retry_after = min(int(resp.headers.get("Retry-After", 5)), _MAX_BACKOFF)
                 logger.warning("Telegram rate-limited; retry after %ds (attempt %d)", retry_after, attempt + 1)
                 if attempt < retries - 1:
@@ -60,7 +57,7 @@ async def _post_with_retry(method: str, payload: dict, retries: int = 3) -> dict
                     continue
                 logger.error("Telegram %s: server error %s after %d retries", method, resp.status_code, retries)
                 return None
-            return _safe_json(resp, method)  # B3-07
+            return _safe_json(resp, method)
         except (httpx.TimeoutException, httpx.NetworkError) as exc:
             if attempt < retries - 1:
                 await asyncio.sleep(min(2 ** attempt, _MAX_BACKOFF))
@@ -167,11 +164,11 @@ async def answer_callback_query(
     if not t:
         return False
     try:
-        client = _get_async_client()
-        resp = await client.post(
-            api_url("answerCallbackQuery"),
-            json={"callback_query_id": callback_query_id, "text": text, "show_alert": show_alert},
-        )
+        async with _make_async_client() as client:
+            resp = await client.post(
+                api_url("answerCallbackQuery"),
+                json={"callback_query_id": callback_query_id, "text": text, "show_alert": show_alert},
+            )
         return bool(resp.is_success)
     except Exception as exc:
         logger.error("Telegram answerCallbackQuery failed: %s", exc)
@@ -186,9 +183,9 @@ async def set_bot_commands(commands: list[dict]) -> bool:
     if not t:
         return False
     try:
-        client = _get_async_client()
-        resp = await client.post(api_url("setMyCommands"), json={"commands": commands})
-        data = _safe_json(resp, "setMyCommands")  # B3-07
+        async with _make_async_client() as client:
+            resp = await client.post(api_url("setMyCommands"), json={"commands": commands})
+        data = _safe_json(resp, "setMyCommands")
         if data is None:
             return False
         ok = bool(resp.is_success and data.get("ok"))

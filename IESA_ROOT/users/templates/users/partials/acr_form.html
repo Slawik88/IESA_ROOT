@@ -1,0 +1,169 @@
+{% load i18n %}
+{# ACR — Apply for Change Role. Включается в profile.html через {% include %} #}
+
+{% if pending_upgrade_request %}
+{# ── Уже есть активная заявка ── #}
+<div class="acr-pending-notice">
+  <div class="acr-pn-icon"><i class="fas fa-hourglass-half"></i></div>
+  <div>
+    <div class="acr-pn-title">{% trans "Your request is under review" %}</div>
+    <div class="acr-pn-sub">
+      {% blocktrans with dtype=pending_upgrade_request.get_desired_type_display %}
+      You applied for <strong>{{ dtype }}</strong> status. We will contact you soon.
+      {% endblocktrans %}
+    </div>
+    <div class="acr-pn-date">
+      <i class="fas fa-clock me-1"></i>{% trans "Submitted" %}: {{ pending_upgrade_request.created_at|date:"d M Y" }}
+    </div>
+  </div>
+</div>
+
+{% else %}
+{# ── Форма подачи заявки ── #}
+<div class="acr-card" id="acr-card">
+  <div class="acr-card-head">
+    <div class="acr-eyebrow">{% trans "STATUS UPGRADE" %}</div>
+    <h2 class="acr-title">{% trans "Apply for a role upgrade" %}</h2>
+    <p class="acr-desc">
+      {% trans "Want to become an IESA partner or association staff? Submit a request — we'll review and contact you shortly." %}
+    </p>
+  </div>
+
+  <form id="acr-form" novalidate>
+    {% csrf_token %}
+
+    <div class="acr-section-title">{% trans "ROLE & ACTIVITY" %}</div>
+
+    <div class="acr-grid-2">
+      <div class="acr-field">
+        <label class="acr-label">{% trans "DESIRED ROLE" %} <span style="color:#f87171;">*</span></label>
+        <div class="acr-select-wrap">
+          <select name="desired_type" class="acr-select" required>
+            <option value="">— {% trans "choose" %} —</option>
+            <option value="partner">{% trans "External Partner" %}</option>
+            <option value="association_staff">{% trans "Association Staff" %} (IESA)</option>
+          </select>
+          <i class="fas fa-chevron-down acr-select-arrow"></i>
+        </div>
+      </div>
+      <div class="acr-field">
+        <label class="acr-label">{% trans "BUSINESS CATEGORY" %}</label>
+        <div class="acr-select-wrap">
+          <select name="business_category" class="acr-select">
+            <option value="">— {% trans "your area" %} —</option>
+            <optgroup label="{% trans 'Sports & Fitness' %}">
+              <option value="gym">{% trans "Gym / Fitness Center" %}</option>
+              <option value="martial_arts">{% trans "Martial Arts School" %}</option>
+              <option value="yoga_pilates">{% trans "Yoga / Pilates Studio" %}</option>
+              <option value="swimming">{% trans "Swimming Pool / Aquatics" %}</option>
+              <option value="crossfit">{% trans "CrossFit / Functional Training" %}</option>
+              <option value="cycling">{% trans "Cycling / Indoor Cycling" %}</option>
+              <option value="dance">{% trans "Dance School" %}</option>
+              <option value="climbing">{% trans "Climbing / Boulder" %}</option>
+              <option value="sports_club">{% trans "Sports Club / Team" %}</option>
+              <option value="personal_trainer">{% trans "Personal Trainer / Coach" %}</option>
+            </optgroup>
+            <optgroup label="{% trans 'Health & Wellness' %}">
+              <option value="physiotherapy">{% trans "Physiotherapy / Rehabilitation" %}</option>
+              <option value="massage_spa">{% trans "Massage / SPA / Wellness" %}</option>
+              <option value="nutrition">{% trans "Nutrition / Dietology" %}</option>
+              <option value="medical">{% trans "Medical / Healthcare" %}</option>
+              <option value="psychology">{% trans "Psychology / Mental Health" %}</option>
+              <option value="chiropractic">{% trans "Chiropractic / Manual Therapy" %}</option>
+            </optgroup>
+            <optgroup label="{% trans 'Retail & Equipment' %}">
+              <option value="sports_shop">{% trans "Sports Equipment Shop" %}</option>
+              <option value="clothing">{% trans "Sports Clothing / Gear" %}</option>
+              <option value="supplement">{% trans "Sports Supplements / Nutrition" %}</option>
+              <option value="bike_shop">{% trans "Bike Shop / Service" %}</option>
+            </optgroup>
+            <optgroup label="{% trans 'Professional Services' %}">
+              <option value="lawyer">{% trans "Legal Services / Lawyer" %}</option>
+              <option value="accountant">{% trans "Accounting / Finance" %}</option>
+              <option value="consulting">{% trans "Business Consulting" %}</option>
+              <option value="marketing">{% trans "Marketing / PR / Design" %}</option>
+              <option value="it">{% trans "IT / Technology / Software" %}</option>
+            </optgroup>
+            <optgroup label="{% trans 'Education & Events' %}">
+              <option value="coach_trainer">{% trans "Professional Coaching" %}</option>
+              <option value="school">{% trans "School / Educational Center" %}</option>
+              <option value="event_org">{% trans "Event Organization" %}</option>
+              <option value="seminar">{% trans "Seminar / Workshop Host" %}</option>
+            </optgroup>
+            <optgroup label="{% trans 'Travel & Outdoor' %}">
+              <option value="travel">{% trans "Travel / Tourism / Adventure" %}</option>
+              <option value="outdoor">{% trans "Outdoor Activities / Hiking" %}</option>
+              <option value="water_sports">{% trans "Water Sports / Diving / Surfing" %}</option>
+              <option value="winter_sports">{% trans "Winter Sports / Ski" %}</option>
+            </optgroup>
+            <optgroup label="{% trans 'Food & Hospitality' %}">
+              <option value="restaurant">{% trans "Restaurant / Cafe / Bar" %}</option>
+              <option value="healthy_food">{% trans "Healthy Food / Catering" %}</option>
+              <option value="hotel">{% trans "Hotel / Accommodation" %}</option>
+            </optgroup>
+            <optgroup label="{% trans 'Other' %}">
+              <option value="media">{% trans "Media / Content / Photography" %}</option>
+              <option value="esports">{% trans "eSports / Gaming" %}</option>
+              <option value="other">{% trans "Other (describe below)" %}</option>
+            </optgroup>
+          </select>
+          <i class="fas fa-chevron-down acr-select-arrow"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="acr-field">
+      <label class="acr-label">{% trans "DESCRIPTION OF ACTIVITY" %} <span style="color:#f87171;">*</span></label>
+      <textarea name="reason" class="acr-textarea" rows="4"
+        placeholder="{% trans 'Describe your business/role and why you want to join IESA. What value can you offer to members?' %}"
+        required minlength="50"></textarea>
+      <div class="acr-hint"><span id="acr-char-count">0</span> / 2000 {% trans "chars" %} ({% trans "min. 50" %})</div>
+    </div>
+
+    <div class="acr-section-title">{% trans "CONTACT DETAILS" %}</div>
+
+    <div class="acr-grid-2">
+      <div class="acr-field">
+        <label class="acr-label">{% trans "FULL NAME" %}</label>
+        <input type="text" name="contact_name" class="acr-input"
+               placeholder="{{ user.get_full_name|default:user.username }}"
+               value="{{ user.get_full_name|default:'' }}">
+      </div>
+      <div class="acr-field">
+        <label class="acr-label">{% trans "PHONE / WHATSAPP" %}</label>
+        <input type="tel" name="contact_phone" class="acr-input" placeholder="+41 79 000 00 00">
+      </div>
+      <div class="acr-field">
+        <label class="acr-label">{% trans "TELEGRAM" %}</label>
+        <input type="text" name="contact_telegram" class="acr-input"
+               placeholder="@username"
+               {% if user.telegram_url %}value="{{ user.telegram_url }}"{% endif %}>
+      </div>
+      <div class="acr-field">
+        <label class="acr-label">{% trans "EMAIL" %}</label>
+        <input type="email" name="contact_email" class="acr-input"
+               placeholder="{{ user.email }}" value="{{ user.email }}">
+      </div>
+    </div>
+
+    <div class="acr-field">
+      <label class="acr-label">{% trans "ADDRESS / LOCATION" %}</label>
+      <input type="text" name="address" class="acr-input"
+             placeholder="{% trans 'City, street, or region where you operate' %}">
+    </div>
+
+    <div id="acr-error" class="acr-error-bar" style="display:none;"></div>
+
+    <button type="submit" class="acr-submit" id="acr-submit-btn">
+      <i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}
+    </button>
+  </form>
+</div>
+
+{# ── Успех (показывается после отправки) ── #}
+<div id="acr-success" class="acr-success-card" style="display:none;">
+  <div class="acr-sc-icon"><i class="fas fa-check-circle"></i></div>
+  <h3 class="acr-sc-title">{% trans "Request submitted!" %}</h3>
+  <p class="acr-sc-text">{% trans "We will review your application and contact you via email or Telegram." %}</p>
+</div>
+{% endif %}

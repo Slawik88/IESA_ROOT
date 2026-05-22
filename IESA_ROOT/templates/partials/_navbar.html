@@ -57,7 +57,8 @@
 
                 <!-- Центральные ссылки (десктоп: горизонталь; мобиль: вертикаль) -->
                 <ul class="navbar-nav mx-auto align-items-lg-center">
-                    <li class="nav-item">
+                    {# 7b: Home скрыт в hamburger на мобиле — дублирует bottom-nav Home #}
+                    <li class="nav-item d-none d-lg-block">
                         <a class="nav-link" href="{% url 'core:home' %}">{% trans "Home" %}</a>
                     </li>
                     <li class="nav-item">
@@ -76,13 +77,13 @@
                             {% trans "Community" %}
                         </a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{% url 'blog:post_list' %}"><i class="fas fa-newspaper fa-fw me-2 op-40"></i>{% trans "Posts" %}</a></li>
-                            <li><a class="dropdown-item" href="{% url 'blog:event_list' %}"><i class="fas fa-calendar-alt fa-fw me-2 op-40"></i>{% trans "Events" %}</a></li>
-                            <li><a class="dropdown-item" href="{% url 'products:product_list' %}"><i class="fas fa-box fa-fw me-2 op-40"></i>{% trans "Products" %}</a></li>
-                            <li><a class="dropdown-item" href="{% url 'users:users_search' %}"><i class="fas fa-users fa-fw me-2 op-40"></i>{% trans "Members" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'blog:post_list' %}"><i class="fas fa-newspaper fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Posts" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'blog:event_list' %}"><i class="fas fa-calendar-alt fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Events" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'products:product_list' %}"><i class="fas fa-box fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Products" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'users:users_search' %}"><i class="fas fa-users fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Members" %}</a></li>
                             {% if user.is_authenticated %}
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'blog:post_create' %}"><i class="fas fa-plus fa-fw me-2" style="color:var(--primary);"></i>{% trans "Create post" %}</a></li>
+                            <li><a class="dropdown-item" href="{% url 'blog:post_create' %}"><i class="fas fa-plus fa-fw me-2" style="color:var(--primary);" aria-hidden="true"></i>{% trans "Create post" %}</a></li>
                             {% endif %}
                         </ul>
                     </li>
@@ -138,7 +139,9 @@
                     <div class="dropdown">
                         <button class="btn-nav-icon" type="button"
                                 data-bs-toggle="dropdown" data-bs-auto-close="outside"
-                                aria-expanded="false" aria-label="{% trans 'Search' %}">
+                                aria-expanded="false"
+                                aria-label="{% trans 'Search' %}"
+                                title="{% trans 'Search' %}">
                             <i class="fas fa-search"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end navbar-search-dropdown"
@@ -189,7 +192,9 @@
                         <button class="btn-nav-icon btn-nav-icon--bell" type="button"
                                 id="notificationsToggle"
                                 data-bs-toggle="dropdown" data-bs-auto-close="outside"
-                                aria-expanded="false" aria-label="{% trans 'Notifications' %}">
+                                aria-expanded="false"
+                                aria-label="{% trans 'Notifications' %}"
+                                title="{% trans 'Notifications' %}">
                             <i class="fas fa-bell"></i>
                             <span id="navbar-notif-badge" aria-live="polite">
                                 {% if unread_notifications_count > 0 %}
@@ -264,14 +269,12 @@
                                 </div>
                             </li>
                             <li><hr class="pnd-divider"></li>
-                            <li><a class="dropdown-item pnd-item pnd-profile" href="{% url 'users:dashboard' %}"><span class="pnd-icon"><i class="fas fa-th-large"></i></span><div><div class="pnd-label">{% trans "My Cabinet" %}</div><div class="pnd-sub">{% trans "Dashboard & stats" %}</div></div></a></li>
-                            {% if user.membership_status == 'active' %}<li><a class="dropdown-item pnd-item pnd-cabinet" href="{% url 'users:profile' %}#pin-section"><span class="pnd-icon"><i class="fas fa-fingerprint"></i></span><div><div class="pnd-label">{% trans "PIN & Card" %}</div><div class="pnd-sub">{% trans "PIN code & visit history" %}</div></div></a></li>{% endif %}
-                            {% if user.is_partner or user.partner_profile %}<li><a class="dropdown-item pnd-item pnd-partner" href="{% url 'users:partner_dashboard' %}"><span class="pnd-icon"><i class="fas fa-store"></i></span><div><div class="pnd-label">{% trans "Partner Portal" %}</div><div class="pnd-sub">{% trans "Visits & analytics" %}</div></div></a></li>{% endif %}
-                            <li><a class="dropdown-item pnd-item" href="{% url 'users:insurance_agent' %}" style="color:rgba(255,255,255,.8);"><span class="pnd-icon" style="color:#fbbf24;"><i class="fas fa-shield-alt"></i></span><div><div class="pnd-label">{% trans "Insurance Agent" %}</div><div class="pnd-sub">{% trans "Request a specialist" %}</div></div></a></li>
+                            <li><a class="dropdown-item pnd-item pnd-profile" href="{% url 'users:dashboard' %}"><span class="pnd-icon"><i class="fas fa-th-large" aria-hidden="true"></i></span><div><div class="pnd-label">{% trans "My Cabinet" %}</div><div class="pnd-sub">{% trans "Dashboard & stats" %}</div></div></a></li>
+                            {% if user.is_partner or user.partner_profile %}<li><a class="dropdown-item pnd-item pnd-partner" href="{% url 'users:partner_dashboard' %}"><span class="pnd-icon"><i class="fas fa-store" aria-hidden="true"></i></span><div><div class="pnd-label">{% trans "Partner Portal" %}</div><div class="pnd-sub">{% trans "Visits & analytics" %}</div></div></a></li>{% endif %}
                             <li><hr class="pnd-divider"></li>
-                            <li><a class="dropdown-item pnd-item pnd-edit" href="{% url 'users:profile_edit' %}"><span class="pnd-icon"><i class="fas fa-sliders-h"></i></span><div><div class="pnd-label">{% trans "Edit Profile" %}</div><div class="pnd-sub">{% trans "Settings & links" %}</div></div></a></li>
+                            <li><a class="dropdown-item pnd-item pnd-edit" href="{% url 'users:profile_edit' %}"><span class="pnd-icon"><i class="fas fa-sliders-h" aria-hidden="true"></i></span><div><div class="pnd-label">{% trans "Edit Profile" %}</div><div class="pnd-sub">{% trans "Settings & links" %}</div></div></a></li>
                             <li><hr class="pnd-divider"></li>
-                            <li><button type="button" class="dropdown-item pnd-item pnd-logout" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"><span class="pnd-icon pnd-icon--danger"><i class="fas fa-sign-out-alt"></i></span><div><div class="pnd-label">{% trans "Logout" %}</div><div class="pnd-sub">{% trans "Sign out" %}</div></div></button></li>
+                            <li><button type="button" class="dropdown-item pnd-item pnd-logout" data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"><span class="pnd-icon pnd-icon--danger"><i class="fas fa-sign-out-alt" aria-hidden="true"></i></span><div><div class="pnd-label">{% trans "Logout" %}</div><div class="pnd-sub">{% trans "Sign out" %}</div></div></button></li>
                         </ul>
                     </div>
 
