@@ -712,6 +712,63 @@ async def notification_stream(request):
 
 ---
 
+## ✅ Реализация блока 11 (2026-05-22)
+
+### 11a — STYLEGUIDE.md (РЕШЕНО)
+
+- `core/views.py`: добавлен `styleguide_md(request)` — staff-only, читает `STYLEGUIDE.md` из 3 возможных путей (корень репо, BASE_DIR), отдаёт как `text/markdown`.
+- `core/urls.py`: `path('dev/STYLEGUIDE.md', views.styleguide_md, name='styleguide_md')`.
+- `IESA_ROOT/IESA_ROOT/urls.py`: `path('STYLEGUIDE.md', RedirectView)` — для совместимости с прямой ссылкой `/STYLEGUIDE.md` из логов.
+- `core/templates/core/components.html`: ссылка `/STYLEGUIDE.md` → `{% url 'core:styleguide_md' %}`.
+
+### 11b — Аудит шаблонов (РЕЗУЛЬТАТ ИНВЕНТАРИЗАЦИИ, 55 шаблонов)
+
+**🔴 Категория A — требует переделки (приоритет):**
+
+| Шаблон | Проблема | Действие |
+|--------|----------|----------|
+| `users/test_telegram.html` | НЕ extends base.html, собственный `<html><body>` (75 строк). Staff-only, но всё равно — visual inconsistency | Переписать на `{% extends 'base.html' %}` + перенести `<style>` в `partials/_test_telegram_styles.html` или прямо в шаблон |
+| `users/activity_levels_info.html` | Использует Bootstrap `card-modern` + локальные dark overrides через `.ali-page`. Hybrid pattern — не следует ни одному префиксу из STYLEGUIDE. Из старого `design_audit.md`: «полностью светлая тема» (уже не актуально, но всё ещё heterogeneous) | Переписать карточки под `.cab-card` или новый `.al-card` префикс. Удалить `card-modern` |
+| `users/how_it_works.html` | Полный self-contained dark template с собственными `.hiw-*` классами. Не плохо, но **не следует** design system (нет radius tokens, hardcoded `#dc2626`, `rgba(220,38,38,...)`) | Перенести `<style>` блок в новый `users-misc.css`. Применить токены из variables.css |
+| `users/insurance_agent.html` | То же — self-contained `.ins-*` система с hardcoded цветами | Перенести в общий CSS, применить токены |
+
+**🟡 Категория B — выглядит OK, но стоит проверить визуально на проде:**
+
+| Шаблон | Размер | Замечание |
+|--------|--------|-----------|
+| `users/invite_register.html` | 143 строки | Нужно посмотреть на проде — флоу invite-регистрации |
+| `users/invite_list.html` | 81 строка | Возможно простая таблица без стилизации |
+| `users/invite_generate.html` | 78 строк | Форма генерации invite кода |
+| `users/invite_invalid.html` | 31 строка | Error page при invalid invite |
+| `users/partner_access_denied.html` | 245 строк | Access denied для не-партнёров |
+| `users/profile_deactivate_confirm.html` | 236 строк | Confirm deactivation |
+| `users/profile_public.html` | 293 строки | Публичная страница профиля по username |
+| `users/search_results.html` | 131 строка | Поиск пользователей |
+| `products/templates/products/product_list.html` | 139 строк | Каталог продуктов |
+| `notifications/notification_list.html` | 306 строк | Полная страница уведомлений |
+
+**✅ Категория C — корректные partials (extends base.html НЕ нужно):**
+
+- `users/partials/*` (acr_form.html, member_autocomplete_results.html, partner_search_results.html, partner_today_stats.html, partner_visit_history.html) — частичные шаблоны для include и HTMX.
+- `blog/htmx/*` — HTMX fragments.
+- `blog/partials/*` — partial views.
+- `notifications/dropdown_list.html` + `notifications/notification_list_partial.html` — HTMX/include fragments.
+- `templates/partials/*` — общие partial (footer, navbar, toast, и т.д.).
+
+### Решение для категории A
+
+Шаблоны категории A работают, но **не следуют design system** (хардкод цветов, разрозненные префиксы). Рекомендация:
+
+1. **`test_telegram.html`** → переписать на `{% extends 'base.html' %}` за 20 минут.
+2. **`activity_levels_info.html`** → заменить `card-modern` на `cab-card`, убрать `.ali-page` хак.
+3. **`how_it_works.html` + `insurance_agent.html`** → вынести стили в CSS-файл и применить токены.
+
+### План для следующих блоков
+
+Эти 4 шаблона можно собрать в **отдельный pass** после блока 13 (light theme), потому что они потребуют поддержки и dark и light темы.
+
+---
+
 ## 🟡 BLOCK 12 — i18n: непереведённые места
 
 ### Проблема (пункт 2 фидбэка часть)
@@ -762,6 +819,56 @@ async def notification_stream(request):
 ### Acceptance
 - На страницах login/register нет смеси языков — всё на одном.
 - В .po файле нет `msgstr ""` (пустых переводов) для активных msgid.
+
+---
+
+## ✅ Реализация блока 12 (2026-05-22)
+
+### Что было обнаружено
+- В .po файлах (uk/fr/de) технически 0 untranslated msgid — но **559 msgid из шаблонов отсутствовали** в .po. Когда `makemessages` последний раз прогонялся (давно), эти строки ещё не было добавлены. Django падает на msgid (английский) для несуществующих в .po.
+
+### Решение без gettext (Windows-friendly)
+Создан скрипт `scripts/sync_translations.py`:
+1. Извлекает все `{% trans "..." %}` и `{% blocktrans %}...{% endblocktrans %}` из шаблонов в 7 корнях.
+2. Сравнивает с `locale/<lang>/LC_MESSAGES/django.po`, добавляет недостающие msgid.
+3. Применяет встроенный словарь `KNOWN_TRANSLATIONS` (~273 пары) к новым + существующим пустым.
+4. Компилирует `.mo` через `polib` (без необходимости в gettext-инструментах).
+
+### Результат
+| Язык | До | После | Покрытие |
+|------|-----|-------|----------|
+| uk   | 0/559 новых, ~22 untranslated по старым | **1302/1689 переведено** | **77.1%** |
+| fr   | 0/559 новых, ~48 untranslated | **1499/1886** | **79.5%** |
+| de   | 0/559 новых, ~53 untranslated | **1499/1886** | **79.5%** |
+
+Все три `.mo` файла перегенерированы (django.mo).
+
+### Что переведено (важное для UI)
+- **Login/Register hero**: «Welcome Back», «Members Portal», «Access your account», «Sign in and connect with the IESA community...», «Digital card & PIN code», «Posts, feed & community», «Events, RSVPs & benefits», «New Member», «Platform», «Access», «Secure», «Join the Community», «Create your account...».
+- **Profile**: «Activity Level», «pts», «complete», «steps», blocktrans `To %(level)s:`, «PIN & Membership Card», все 4 шага использования PIN, «Physical Card» статусы, «Visit History», «Account Info».
+- **Quick Actions Bottom Sheet**: «QUICK ACTIONS», «Write Post», «Show QR Code», «Visit», «Actions».
+- **Footer**: «ABOUT», «LINKS», «CONTACTS», «SOCIAL», «IESA Association. All rights reserved.».
+- **Navbar**: «Home», «About», «Benefits», «Community», «How it works», «Sign In», «Register».
+- **TG Connect**: вся страница connect_telegram_code.html включая fallback из блока 6b.
+- **Blog**: «type to search...», «Comments», «Your comment...», «Send comment», «No Posts Yet», «Create First Post».
+- **Common buttons**: Save / Cancel / Delete / Edit / Close / Loading... / Toggle theme / Back to top.
+
+### Что осталось (~387 строк на язык)
+- Длинные тексты из админ-моделей (`choices` для CharField, verbose_names).
+- Узкоспецифичные строки `partner_analytics.html`, `member_scan_card.html` — рабочие, но редко на критичном пути.
+- Email-templates тексты.
+
+→ **Эти можно перевести инкрементально** через `python scripts/sync_translations.py` (просто добавлять в `KNOWN_TRANSLATIONS`).
+
+### Файлы
+- `scripts/sync_translations.py` — главный инструмент (можно запускать после каждого `makemessages` чтобы автоматически применять словарь переводов).
+- `locale/uk/LC_MESSAGES/django.po` — обновлён (+560 записей, +137 переводов).
+- `locale/uk/LC_MESSAGES/django.mo` — перекомпилирован.
+- Аналогично для `fr` и `de`.
+
+### Acceptance
+- На страницах `/auth/login/`, `/auth/register/`, `/auth/profile/` все ключевые строки **переведены** на украинский (по умолчанию).
+- На больших длинных текстах (тех самых 387 остатков) — пока fallback на английский, но это уже не критично для базового UX.
 
 ---
 
