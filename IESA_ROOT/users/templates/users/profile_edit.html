@@ -62,8 +62,24 @@
     color: #fff !important;
     border-radius: 10px !important;
 }
+/* BLOCK 7b (audit v3): placeholder явно отличается от введённого текста — italic + тусклее */
 .edit-form .form-control::placeholder,
-.edit-form textarea::placeholder { color: rgba(255,255,255,.28) !important; }
+.edit-form textarea::placeholder {
+    color: rgba(255,255,255,.22) !important;
+    font-style: italic !important;
+    opacity: 1 !important; /* Firefox по умолчанию делает .5 — переопределяем */
+    font-weight: 400 !important;
+}
+.edit-form .form-control:-ms-input-placeholder,
+.edit-form textarea:-ms-input-placeholder {
+    color: rgba(255,255,255,.22) !important;
+    font-style: italic !important;
+}
+.edit-form .form-control::-webkit-input-placeholder,
+.edit-form textarea::-webkit-input-placeholder {
+    color: rgba(255,255,255,.22) !important;
+    font-style: italic !important;
+}
 .edit-form .form-control:focus,
 .edit-form .form-select:focus,
 .edit-form textarea:focus {
@@ -171,6 +187,17 @@
     .card-section { padding: 1.25rem; }
     .edit-actions { padding: 1.25rem; flex-wrap: wrap; }
     .edit-tab { padding: .6rem .85rem; font-size: .7rem; }
+    /* BLOCK 7a (audit v3): Examples hint — 2 колонки → 1 на мобиле,
+       чтобы длинные URL не выходили за границу экрана */
+    .social-examples-grid { grid-template-columns: 1fr !important; }
+    .social-examples-grid code { word-break: break-all; font-size: .78rem !important; }
+}
+/* BLOCK 7a (audit v3): сами code-теги не должны вылезать за родителя */
+.social-examples-grid code {
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 </style>
 {% endblock %}
@@ -292,8 +319,8 @@
                             </div>
                             
                             <!-- Examples hint -->
-                            <div style="background: rgba(255,255,255,0.04); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626;">
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.9rem;">
+                            <div style="background: rgba(255,255,255,0.04); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626; max-width: 100%; overflow: hidden;">
+                                <div class="social-examples-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.9rem;">
                                     <div>
                                         <strong><i class="fab fa-github me-2"></i>{% trans "GitHub" %}:</strong><br>
                                         <code>https://github.com/username</code>

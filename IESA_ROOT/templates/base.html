@@ -437,8 +437,8 @@
     <!-- Toast Notifications Container -->
     {% include 'partials/toast_container.html' %}
 
-    {# 6b: QR Fullscreen overlay (только для активных членов) #}
-    {% if user.is_authenticated and user.membership_status == 'active' and user.permanent_id %}
+    {# 6b: QR Fullscreen overlay (BLOCK 3a audit v3: для всех аутентифицированных, permanent_id есть всегда) #}
+    {% if user.is_authenticated and user.permanent_id %}
     <div id="qr-fullscreen-overlay"
          style="display:none;position:fixed;inset:0;background:#fff;z-index:10001;flex-direction:column;align-items:center;justify-content:center;"
          aria-modal="true" role="dialog" aria-label="{% trans 'Your QR Code' %}">
@@ -866,8 +866,9 @@
 
         {% if user.is_authenticated %}
 
-        {# Таб 3 (центр): QR для активных членов / «+» для партнёров / уведомления для остальных #}
-        {% if user.membership_status == 'active' and user.permanent_id %}
+        {# Таб 3 (центр): QR для всех юзеров с permanent_id / Visit для партнёров / меню действий для остальных #}
+        {# BLOCK 3a (audit v3): убран гейт membership_status — permanent_id есть у всех (UUID default) #}
+        {% if user.permanent_id and not user.is_partner %}
         {# QR — большая центральная кнопка #}
         <button class="mbn-item mbn-center-btn mbn-qr-btn" id="mbn-qr-btn"
                 aria-label="{% trans 'Show QR Code' %}"

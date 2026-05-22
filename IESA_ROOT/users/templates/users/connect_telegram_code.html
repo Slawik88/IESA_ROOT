@@ -141,6 +141,64 @@
     flex-shrink: 0;
 }
 
+/* BLOCK 6b (audit v3): Fallback для ручного поиска бота, если ссылка t.me не открывается */
+.tg-fallback {
+    margin: -.5rem 0 1.4rem;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.015);
+}
+.tg-fallback summary {
+    cursor: pointer;
+    list-style: none;
+    padding: .55rem .85rem;
+    font-size: .78rem;
+    color: rgba(255,255,255,0.45);
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    transition: color .15s, background .15s;
+}
+.tg-fallback summary::-webkit-details-marker { display: none; }
+.tg-fallback summary::before {
+    content: '\f0d7';  /* chevron-down */
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: .65rem;
+    transition: transform .2s;
+    color: rgba(255,255,255,0.3);
+}
+.tg-fallback[open] summary::before { transform: rotate(-180deg); }
+.tg-fallback summary:hover { color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.02); }
+.tg-fallback-body {
+    padding: .35rem 1rem .9rem;
+    font-size: .82rem;
+    color: rgba(255,255,255,0.6);
+    line-height: 1.55;
+    border-top: 1px solid rgba(255,255,255,0.04);
+}
+.tg-fallback-body ol { margin: .5rem 0; padding-left: 1.2rem; }
+.tg-fallback-body li { margin-bottom: .3rem; }
+.tg-fallback-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    background: rgba(41,168,235,0.10);
+    border: 1px solid rgba(41,168,235,0.22);
+    color: var(--tg-color);
+    padding: .25rem .55rem;
+    border-radius: 6px;
+    font-family: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
+    font-size: .82rem;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: all;
+    transition: background .15s;
+}
+.tg-fallback-copy:hover { background: rgba(41,168,235,0.18); }
+.tg-fallback-copy.copied { background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.4); color: #4ade80; }
+
 /* Section label */
 .tg-section-label {
     font-size: .7rem;
@@ -423,6 +481,23 @@
                 </div>
                 <div class="bb-arrow"><i class="fas fa-external-link-alt"></i></div>
             </a>
+
+            {# BLOCK 6b (audit v3): fallback — если ссылка t.me не открывается, инструкция ручного поиска #}
+            <details class="tg-fallback">
+                <summary>{% trans "Bot link doesn't work? Find manually" %}</summary>
+                <div class="tg-fallback-body">
+                    <ol>
+                        <li>{% trans "Open the Telegram app" %}</li>
+                        <li>
+                            {% trans "In the search field at the top, paste:" %}<br>
+                            <span class="tg-fallback-copy" data-copy="@{{ telegram_bot_name }}" role="button" tabindex="0">
+                                <i class="fas fa-copy" aria-hidden="true"></i> @{{ telegram_bot_name }}
+                            </span>
+                        </li>
+                        <li>{% trans "Open the bot and press the «Start» button" %}</li>
+                    </ol>
+                </div>
+            </details>
             {% endif %}
 
             <div class="tg-section-label">{% trans "Instructions" %}</div>
@@ -562,6 +637,37 @@
     });
 
     boxes[0].focus();
+})();
+
+/* BLOCK 6b (audit v3): copy-to-clipboard для @{{ bot }} */
+(function(){
+    document.querySelectorAll('.tg-fallback-copy').forEach(function(el){
+        function copy() {
+            var val = el.getAttribute('data-copy') || el.textContent.trim();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(val).then(function(){
+                    var orig = el.innerHTML;
+                    el.classList.add('copied');
+                    el.innerHTML = '<i class="fas fa-check"></i> {% trans "Copied" %}';
+                    setTimeout(function(){
+                        el.classList.remove('copied');
+                        el.innerHTML = orig;
+                    }, 1600);
+                }).catch(function(){
+                    /* Fallback: выделяем текст для ручного копирования */
+                    var range = document.createRange();
+                    range.selectNodeContents(el);
+                    var sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                });
+            }
+        }
+        el.addEventListener('click', copy);
+        el.addEventListener('keydown', function(e){
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy(); }
+        });
+    });
 })();
 </script>
 {% endblock %}

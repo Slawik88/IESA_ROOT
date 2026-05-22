@@ -12,6 +12,18 @@ logger = logging.getLogger(__name__)
 
 _RETRY_STATUSES = {429, 500, 502, 503, 504}
 _MAX_BACKOFF = 30  # Максимум ожидания между retry (B3-04)
+# BLOCK 9a (audit v3): Telegram API hard limit на длину сообщения = 4096 символов
+_TG_MAX_MESSAGE_LEN = 4096
+
+
+def _truncate_for_telegram(text: str) -> str:
+    """Safeguard: обрезаем любое исходящее сообщение до Telegram-limit."""
+    if not text:
+        return text
+    if len(text) <= _TG_MAX_MESSAGE_LEN:
+        return text
+    # Оставляем место под индикатор обрезки
+    return text[: _TG_MAX_MESSAGE_LEN - 2] + "…"
 
 
 # ── Per-request async client ────────────────────────────────────────────────
@@ -85,7 +97,7 @@ async def send_message_async(
 
     payload: dict[str, Any] = {
         "chat_id": cid,
-        "text": text,
+        "text": _truncate_for_telegram(text),  # BLOCK 9a (audit v3)
         "parse_mode": parse_mode,
         "disable_web_page_preview": True,
     }
@@ -118,7 +130,7 @@ async def edit_message_text(
     payload: dict[str, Any] = {
         "chat_id": str(chat_id),
         "message_id": message_id,
-        "text": text,
+        "text": _truncate_for_telegram(text),  # BLOCK 9a (audit v3)
         "parse_mode": parse_mode,
         "disable_web_page_preview": True,
     }
@@ -216,7 +228,7 @@ def send_message(
 
     payload: dict[str, Any] = {
         "chat_id": cid,
-        "text": text,
+        "text": _truncate_for_telegram(text),  # BLOCK 9a (audit v3)
         "parse_mode": parse_mode,
         "disable_web_page_preview": True,
     }

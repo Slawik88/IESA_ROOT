@@ -30,7 +30,7 @@
     margin-bottom:2rem;
 }
 .reg-logo { display:flex; align-items:center; gap:.7rem; text-decoration:none; }
-.reg-logo img { height:34px; filter:drop-shadow(0 0 10px rgba(220,38,38,.45)); }
+.reg-logo img { height:34px; } /* filter + mix-blend-mode → dark-theme-fixes.css (audit v3 #1) */
 .reg-logo span { font-size:1rem; font-weight:900; color:#fff; letter-spacing:.04em; }
 .reg-tag {
     display:flex; align-items:center; gap:.45rem;
@@ -118,7 +118,7 @@
     color:#fff; font-size:.95rem;
     transition:border-color .2s,box-shadow .2s,background .2s; outline:none; -webkit-appearance:none;
 }
-.rf-wrap input:focus,.rf-wrap select:focus { border-color:rgba(220,38,38,.55); background:rgba(220,38,38,.04); box-shadow:0 0 0 3px rgba(220,38,38,.1); }
+.rf-wrap input:focus,.rf-wrap select:focus { border-color:rgba(220,38,38,.55); background:rgba(255,255,255,.06); box-shadow:0 0 0 3px rgba(220,38,38,.10); }
 .rf-wrap input.inv { border-color:rgba(239,68,68,.45); box-shadow:0 0 0 3px rgba(239,68,68,.08); }
 .rf-wrap input::placeholder { color:rgba(255,255,255,.16); }
 .rf-wrap input:-webkit-autofill,.rf-wrap input:-webkit-autofill:hover,.rf-wrap input:-webkit-autofill:focus,.rf-wrap input:-webkit-autofill:active { -webkit-box-shadow:0 0 0 1000px #12111c inset !important; -webkit-text-fill-color:#fff !important; caret-color:#fff; }
@@ -131,28 +131,7 @@
 .lv-ok  { color:#4ade80; }
 .lv-err { color:#f87171; }
 .lv-loading { color:rgba(255,255,255,.3); font-size:.7rem; }
-/* Принудительный override — выше dark-theme-fixes.css */
-.rf-wrap input[type="text"],
-.rf-wrap input[type="email"],
-.rf-wrap input[type="password"],
-.rf-wrap input[type="tel"],
-.rf-wrap select {
-  background-color: rgba(255,255,255,.06) !important;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
-  border-color: rgba(255,255,255,.1) !important;
-}
-.rf-wrap input[type="text"]:focus,
-.rf-wrap input[type="email"]:focus,
-.rf-wrap input[type="password"]:focus,
-.rf-wrap input[type="tel"]:focus,
-.rf-wrap select:focus {
-  background-color: rgba(220,38,38,.05) !important;
-  border-color: rgba(220,38,38,.55) !important;
-  box-shadow: 0 0 0 3px rgba(220,38,38,.12) !important;
-  color: #fff !important;
-  -webkit-text-fill-color: #fff !important;
-}
+/* BLOCK 2 (audit v3): локальный override-блок удалён — все правила теперь в dark-theme-fixes.css */
 .rf-pw-btn { position:absolute; right:.85rem; top:50%; transform:translateY(-50%); background:none; border:none; color:rgba(255,255,255,.22); cursor:pointer; padding:.2rem; font-size:.82rem; transition:color .2s; line-height:1; }
 .rf-pw-btn:hover { color:rgba(255,255,255,.55); }
 .rf-wrap input.has-pw { padding-right:2.6rem; }

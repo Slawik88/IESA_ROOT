@@ -229,11 +229,10 @@
             <i class="fas fa-tachometer-alt"></i> {% trans "Partner Dashboard" %}
           </a>
         {% endif %}
-        {% if profile_user.membership_status == 'active' %}
-          <a href="#pin-section" class="btn-cab-outline">
-            <i class="fas fa-fingerprint"></i> {% trans "PIN & Card" %}
-          </a>
-        {% endif %}
+        {# BLOCK 3a (audit v3): PIN/Card доступны всем (TOTP + permanent_id есть у каждого) #}
+        <a href="#pin-section" class="btn-cab-outline">
+          <i class="fas fa-fingerprint"></i> {% trans "PIN & Card" %}
+        </a>
 
       </div>
     </div>
@@ -251,11 +250,10 @@
       <a href="{% url 'users:user_calendar' %}" class="cab-qn-item">
         <i class="fas fa-calendar-alt"></i> {% trans "My Calendar" %}
       </a>
-      {% if profile_user.membership_status == 'active' %}
+      {# BLOCK 3a (audit v3): PIN/Card доступны всем #}
       <a href="#pin-section" class="cab-qn-item">
         <i class="fas fa-fingerprint"></i> {% trans "PIN & Card" %}
       </a>
-      {% endif %}
       {% if profile_user.is_partner or profile_user.partner_profile %}
       <a href="{% url 'users:partner_dashboard' %}" class="cab-qn-item">
         <i class="fas fa-store"></i> {% trans "Partner Portal" %}
@@ -364,7 +362,14 @@
   .pcp-wrap {
     padding: .85rem 1.25rem;
     background: rgba(255,255,255,.025);
-    border-bottom: 1px solid rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 14px;
+    /* BLOCK 4 (audit v3): ограничение ширины как у .cab-wrap (1140px) */
+    max-width: 1140px;
+    margin: .75rem auto;
+  }
+  @media (max-width: 1180px) {
+    .pcp-wrap { margin-left: 1.25rem; margin-right: 1.25rem; }
   }
   .pcp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
   .pcp-label  { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.38); }
@@ -411,7 +416,15 @@
   /* ── Quick Actions Carousel (1d) ─────────────────────────────────── */
   .qa-onb-section {
     padding: .85rem 1.25rem;
-    border-bottom: 1px solid rgba(255,255,255,.06);
+    background: rgba(255,255,255,.02);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 14px;
+    /* BLOCK 4 (audit v3): ограничение ширины как у .cab-wrap (1140px) */
+    max-width: 1140px;
+    margin: .75rem auto;
+  }
+  @media (max-width: 1180px) {
+    .qa-onb-section { margin-left: 1.25rem; margin-right: 1.25rem; }
   }
   .qa-onb-header { font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.28); margin-bottom: .6rem; }
   .qa-onb-scroll { display: flex; gap: .6rem; overflow-x: auto; scrollbar-width: none; padding-bottom: .25rem; }
@@ -821,7 +834,7 @@
         </div>
 
         {# ══════ PIN & CARD SECTION (перенесено из member_cabinet) ══════ #}
-        {% if profile_user.membership_status == 'active' %}
+        {# BLOCK 3a (audit v3): PIN-секция доступна всем — TOTP + permanent_id есть у каждого юзера #}
         <div id="pin-section" class="cab-card mb-3" data-reveal data-delay="5">
           <p class="cab-card-title">
             <i class="fas fa-fingerprint" style="color:var(--red);"></i>
@@ -869,12 +882,12 @@
               {% if card_active %}
                 <div style="font-size:.73rem;color:#4ade80;">{% trans "Active — issued" %}{% if card_issued_at %} {{ card_issued_at|date:"d.m.Y" }}{% endif %}</div>
               {% else %}
-                <div style="font-size:.73rem;color:#fbbf24;">{% trans "Not yet issued — contact admin@iesasport.ch" %}</div>
+                <div style="font-size:.73rem;color:#fbbf24;">{% trans "Not yet issued — contact iesa@iesasport.ch" %}</div>
               {% endif %}
             </div>
           </div>
         </div>
-        {% endif %}
+        {# BLOCK 3a (audit v3): {% endif %} удалён вместе с гейтом membership_status == 'active' #}
 
         {# ══════ VISIT HISTORY (перенесено из member_cabinet) ══════ #}
         {% if recent_visits %}

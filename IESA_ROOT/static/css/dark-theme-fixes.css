@@ -487,9 +487,11 @@ textarea:focus,
 select:focus,
 .form-control:focus,
 .form-select:focus {
-  background-color: rgba(220, 38, 38, 0.05) !important;
+  /* BLOCK 2 (audit v3): убираем красно-светлый bg при focus — оставляем тёмный.
+     Индикация focus — через border + box-shadow, без подсветки фона. */
+  background-color: rgba(255, 255, 255, 0.06) !important;
   border-color: rgba(220, 38, 38, 0.55) !important;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.10) !important;
   color: #fff !important;
   outline: none !important;
   -webkit-text-fill-color: #fff !important;
@@ -498,13 +500,24 @@ select:focus,
 /* OTP-боксы оставляем со своим стилем из connect_telegram_code.html */
 .otp-box { background-color: #1a1a28 !important; color: #fff !important; }
 
-/* Autofill — Chrome/Safari заливают жёлтым или синим */
+/* Autofill — Chrome/Safari/Edge заливают жёлтым или синим */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
   -webkit-box-shadow: 0 0 0 1000px #111118 inset !important;
   -webkit-text-fill-color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  caret-color: #fff;
+  /* BLOCK 2 (audit v3): дополнительный «trick» — задерживаем смену bg на 9999s,
+     чтобы браузер не успел перекрасить поле в свой autofill-цвет */
+  transition: background-color 9999s ease-in-out 0s !important;
+}
+/* BLOCK 2 (audit v3): Firefox autofill — стандартный псевдо-класс :autofill */
+input:autofill,
+input:-moz-autofill {
+  box-shadow: 0 0 0 1000px #111118 inset !important;
+  -moz-text-fill-color: #fff !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
   caret-color: #fff;
 }
@@ -728,4 +741,42 @@ img { background-color: #1a1a24; }
   #back-to-top:hover {
     box-shadow: none;
   }
+}
+
+/* ── 22. BLOCK 1 (audit v3): логотип — убираем «квадрат» PNG через blend ── */
+/* На тёмном фоне сайта тёмный силуэт runner-а сливается с фоном через mix-blend-mode: screen.
+   Красные буквы "IESA" остаются красными (screen к красному = красный).
+   На светлой теме (data-theme="light") blend отключаем — лого работает как обычная картинка. */
+.navbar-logo,
+.al-logo img,
+.reg-logo img {
+    mix-blend-mode: screen;
+}
+/* Дополнительно: убираем неравномерное anti-aliasing PNG, добавляем мягкое красное свечение */
+.al-logo img,
+.reg-logo img {
+    filter: drop-shadow(0 0 14px rgba(220,38,38,.55));
+}
+.navbar-logo {
+    filter: drop-shadow(0 0 6px rgba(220,38,38,.25));
+}
+
+:root[data-theme="light"] .navbar-logo,
+:root[data-theme="light"] .al-logo img,
+:root[data-theme="light"] .reg-logo img {
+    mix-blend-mode: normal;
+    filter: none;
+}
+
+/* ── 23. BLOCK 5a (audit v3): defensive — гарантируем тёмный фон body на ЛЮБОЙ странице
+   Защита от багов вроде var(--bg0) на body, где переменная определена в потомке. */
+html, body { background-color: #0e0e18; }
+main { background-color: transparent; }
+
+/* ── 24. BLOCK 5b (audit v3): на мобиле bottom-nav не должна перекрывать футер ── */
+@media (max-width: 767.98px) {
+    .footer-enhanced {
+        /* добавляем padding-bottom равный высоте bottom-nav (~72px) + safe-area */
+        padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+    }
 }

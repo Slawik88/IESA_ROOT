@@ -47,7 +47,7 @@
 .al::before { content:''; position:absolute; top:-90px;left:-80px; width:340px;height:340px; background:radial-gradient(circle,rgba(220,38,38,.3) 0%,transparent 65%); pointer-events:none; }
 .al::after  { content:''; position:absolute; bottom:-60px;right:-60px; width:240px;height:240px; background:radial-gradient(circle,rgba(220,38,38,.14) 0%,transparent 65%); pointer-events:none; }
 .al-logo { display:flex; align-items:center; gap:.75rem; position:relative;z-index:1; margin-bottom:3rem; }
-.al-logo img { height:36px; filter:drop-shadow(0 0 12px rgba(220,38,38,.5)); }
+.al-logo img { height:36px; } /* filter + mix-blend-mode → dark-theme-fixes.css (audit v3 #1) */
 .al-logo span { font-size:1.1rem; font-weight:900; color:#fff; letter-spacing:.04em; }
 .al-body { position:relative;z-index:1; flex:1; display:flex; flex-direction:column; justify-content:center; }
 .al-badge {
@@ -91,7 +91,7 @@
     color:#fff; font-size:.95rem;
     transition:border-color .2s,box-shadow .2s,background .2s; outline:none; -webkit-appearance:none;
 }
-.af-wrap input:focus { border-color:rgba(220,38,38,.6); background:rgba(220,38,38,.05); box-shadow:0 0 0 3px rgba(220,38,38,.12); }
+.af-wrap input:focus { border-color:rgba(220,38,38,.6); background:rgba(255,255,255,.06); box-shadow:0 0 0 3px rgba(220,38,38,.10); }
 .af-wrap input:focus + .af-ic { color:#ef4444; }
 .af-wrap input.inv { border-color:rgba(239,68,68,.5); box-shadow:0 0 0 3px rgba(239,68,68,.1); }
 .af-wrap input::placeholder { color:rgba(255,255,255,.18); }
