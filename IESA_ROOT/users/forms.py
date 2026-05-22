@@ -16,8 +16,19 @@ class CustomUserCreationForm(UserCreationForm):
     """
     Форма создания нового пользователя для админки/регистрации.
     QR код и идентификатор создаются автоматически для всех пользователей.
+
+    HOTFIX 2026-05-23: добавлено обязательное согласие — пользователь должен подтвердить,
+    что соглашается стать членом ассоциации и принимает политику конфиденциальности.
+    После согласия membership_status='active' и PIN-код доступен сразу.
     """
-    
+    membership_consent = forms.BooleanField(
+        required=True,
+        label=_("I agree to become a member of IESA Sport and accept the privacy policy"),
+        error_messages={
+            'required': _("You must agree to become a member to register."),
+        },
+    )
+
     class Meta(UserCreationForm.Meta):
         model = User
         # Только обязательные поля для регистрации
@@ -25,13 +36,17 @@ class CustomUserCreationForm(UserCreationForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        
-        # QR код и идентификатор создаются автоматически через сигналы
-        # Ничего дополнительно делать не нужно
-        
+
+        # HOTFIX 2026-05-23: активируем membership сразу — юзер дал согласие.
+        # PIN-код (TOTP, ротация каждые 12 мин) доступен сразу.
+        # Физическая карта выдаётся позже по запросу на iesa@iesasport.ch.
+        user.membership_status = 'active'
+
+        # QR-UUID и totp_secret создаются автоматически в User.save()
+
         if commit:
             user.save()
-        
+
         return user
 
 

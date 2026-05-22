@@ -94,6 +94,24 @@
                     <li class="nav-item d-lg-none">
                         <a class="nav-link" href="{% url 'users:register' %}" style="color:#f87171;">{% trans "Register" %}</a>
                     </li>
+                    {% else %}
+                    {# HOTFIX 2026-05-22: Logout-пункт в hamburger меню для мобилы (на ПК есть в profile dropdown) #}
+                    <li class="nav-item d-lg-none">
+                        <hr class="dropdown-divider" style="margin:.5rem 0;border-color:rgba(255,255,255,.08);">
+                    </li>
+                    <li class="nav-item d-lg-none">
+                        <a class="nav-link" href="{% url 'users:profile_edit' %}">
+                            <i class="fas fa-sliders-h fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Edit Profile" %}
+                        </a>
+                    </li>
+                    <li class="nav-item d-lg-none">
+                        <button type="button" class="nav-link"
+                                style="background:none;border:none;width:100%;text-align:left;color:#f87171;cursor:pointer;"
+                                data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"
+                                data-bs-dismiss="offcanvas">
+                            <i class="fas fa-sign-out-alt fa-fw me-2" aria-hidden="true"></i>{% trans "Logout" %}
+                        </button>
+                    </li>
                     {% endif %}
                 </ul>
 

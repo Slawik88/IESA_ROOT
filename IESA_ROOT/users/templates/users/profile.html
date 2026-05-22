@@ -258,6 +258,15 @@
       <a href="{% url 'users:partner_dashboard' %}" class="cab-qn-item">
         <i class="fas fa-store"></i> {% trans "Partner Portal" %}
       </a>
+      {% else %}
+      {# HOTFIX 2026-05-22: ACR — заявка на повышение статуса (для не-партнёров) #}
+      <a href="#acr-section" class="cab-qn-item" id="cab-qn-acr">
+        {% if pending_upgrade_request %}
+          <i class="fas fa-hourglass-half" style="color:#fbbf24;"></i> {% trans "Application pending" %}
+        {% else %}
+          <i class="fas fa-arrow-trend-up"></i> {% trans "Apply for partner" %}
+        {% endif %}
+      </a>
       {% endif %}
       <a href="{% url 'users:profile_edit' %}" class="cab-qn-item">
         <i class="fas fa-sliders-h"></i> {% trans "Settings" %}
@@ -937,7 +946,9 @@
     </div>
   </div><!-- /cab-wrap -->
 
-  {% if not user.is_partner and user.membership_status != 'active' %}
+  {# HOTFIX 2026-05-22: ACR форма доступна всем не-партнёрам (раньше — только inactive,
+     но после блока 3a у всех membership_status='active' по умолчанию, и ACR никому не показывался). #}
+  {% if not user.is_partner %}
   <div class="cab-wrap" style="margin-top:0; padding-top:0;">
     <div id="acr-section" data-reveal data-delay="5">
       {% include 'users/partials/acr_form.html' %}

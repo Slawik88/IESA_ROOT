@@ -68,7 +68,9 @@ def _notify_admins_insurance(req) -> None:
                     from users.models import InsuranceAgentRequest as _IAR
                     from users.telegram.notify import send_message as _sm
                     r = _IAR.objects.get(pk=rid)
-                    _sm(cid, (
+                    # HOTFIX 2026-05-23: было неправильное позиционирование (cid, text)
+                    # — send_message(text, chat_id, ...) ожидает text первым.
+                    _sm((
                         f"🛡 <b>Новая заявка: страховой агент</b>\n\n👤 <b>{r.full_name}</b>\n"
                         f"📋 {r.get_request_type_display()}\n"
                         + (f"📞 {r.phone}\n" if r.phone else "")
@@ -76,7 +78,7 @@ def _notify_admins_insurance(req) -> None:
                         + (f"📍 {r.city}\n" if r.city else "")
                         + (f"\n💬 {r.message}\n" if r.message else "")
                         + f"\n🔗 /admin/users/insuranceagentrequest/{r.pk}/change/"
-                    ), parse_mode='HTML')
+                    ), chat_id=cid, parse_mode='HTML')
                 except Exception as exc:
                     logger.error("insurance TG notify failed: %s", exc)
 
