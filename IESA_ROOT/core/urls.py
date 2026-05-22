@@ -17,4 +17,6 @@ urlpatterns = [
     path('partners/map/data/', views.partners_map_data, name='partners_map_data'),
     # 10b: Design system playground (staff only)
     path('dev/components/', views.component_playground, name='component_playground'),
+    # BLOCK 11a (audit v3): STYLEGUIDE.md из корня репо (staff only)
+    path('dev/STYLEGUIDE.md', views.styleguide_md, name='styleguide_md'),
 ]

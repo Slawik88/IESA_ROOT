@@ -1,75 +1,180 @@
-{% load i18n %}<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Тест Telegram бота — IESA Sport</title>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 40px 20px; color: #333; }
-    .card { background: #fff; max-width: 580px; margin: 0 auto; padding: 36px; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.1); }
-    h2 { margin: 0 0 4px; }
-    .sub { color: #777; font-size: 13px; margin-bottom: 20px; }
-    .badges { margin-bottom: 20px; }
-    .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-right: 6px; margin-bottom: 6px; }
-    .badge.ok  { background: #d4edda; color: #155724; }
-    .badge.err { background: #f8d7da; color: #721c24; }
-    .info-box { background: #e8f4fd; border-left: 4px solid #3498db; padding: 14px 16px; border-radius: 0 8px 8px 0; margin-bottom: 22px; font-size: 13px; line-height: 1.6; }
-    .info-box code { background: #d0e8f8; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
-    label { display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; margin-top: 14px; }
-    button { margin-top: 16px; width: 100%; padding: 12px; background: linear-gradient(135deg, #29b6f6, #0288d1); color: #fff; border: none; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: bold; }
-    button:hover { opacity: .88; }
-    .alert { margin-top: 18px; padding: 14px 18px; border-radius: 8px; font-size: 14px; }
-    .alert.ok  { background: #d4edda; color: #155724; }
-    .alert.err { background: #f8d7da; color: #721c24; }
-    .back { display: block; text-align: center; margin-top: 18px; font-size: 13px; color: #999; text-decoration: none; }
-    .back:hover { color: #333; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h2>🤖 Telegram Bot Setup</h2>
-    <p class="sub">Только для администраторов. Настройка webhook.</p>
+{% extends "base.html" %}
+{% load i18n static %}
 
-    <div class="badges">
-      {% if token_set %}
-        <span class="badge ok">✅ TELEGRAM_BOT_TOKEN задан</span>
-      {% else %}
-        <span class="badge err">❌ TELEGRAM_BOT_TOKEN не задан</span>
-      {% endif %}
-      {% if secret_set %}
-        <span class="badge ok">✅ TELEGRAM_WEBHOOK_SECRET задан</span>
-      {% else %}
-        <span class="badge err">❌ TELEGRAM_WEBHOOK_SECRET не задан</span>
-      {% endif %}
+{% block title %}{% trans "Telegram Bot Setup" %} — IESA Sport{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Telegram Setup — staff-only page. Использует токены design system. */
+.tg-setup-page { padding: 2.5rem 0 4rem; }
+.tg-setup-card {
+    max-width: 620px;
+    margin: 0 auto;
+    background: var(--surface-1, #111118);
+    border: 1px solid var(--border-soft, rgba(255,255,255,.10));
+    border-radius: var(--r-lg, 20px);
+    padding: 2rem 2.25rem;
+    box-shadow: var(--shadow-card-lg);
+}
+.tg-setup-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0 0 .35rem;
+}
+.tg-setup-sub {
+    color: var(--text-muted);
+    font-size: .88rem;
+    margin: 0 0 1.5rem;
+}
+.tg-setup-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+    margin-bottom: 1.25rem;
+}
+.tg-setup-badges .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .35rem .85rem;
+    border-radius: var(--radius-full, 9999px);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+.tg-setup-badges .badge.ok {
+    background: rgba(34,197,94,.12);
+    color: #4ade80;
+    border: 1px solid rgba(34,197,94,.22);
+}
+.tg-setup-badges .badge.err {
+    background: rgba(220,38,38,.12);
+    color: #f87171;
+    border: 1px solid rgba(220,38,38,.25);
+}
+.tg-setup-alert {
+    margin-bottom: 1.25rem;
+    padding: .85rem 1.1rem;
+    border-radius: 12px;
+    font-size: .87rem;
+    line-height: 1.55;
+}
+.tg-setup-alert.ok {
+    background: rgba(34,197,94,.08);
+    border: 1px solid rgba(34,197,94,.22);
+    color: #86efac;
+}
+.tg-setup-alert.err {
+    background: rgba(220,38,38,.08);
+    border: 1px solid rgba(220,38,38,.22);
+    color: #fca5a5;
+}
+.tg-setup-alert code {
+    background: rgba(255,255,255,.08);
+    color: var(--text-primary);
+    padding: .12rem .42rem;
+    border-radius: 5px;
+    font-size: .82rem;
+}
+.tg-setup-info {
+    background: rgba(37,99,235,.06);
+    border-left: 3px solid #3b82f6;
+    border-radius: 0 12px 12px 0;
+    padding: 1rem 1.2rem;
+    margin-bottom: 1.5rem;
+    font-size: .85rem;
+    line-height: 1.65;
+    color: var(--text-secondary);
+}
+.tg-setup-info code {
+    background: rgba(255,255,255,.08);
+    color: #93c5fd;
+    padding: .12rem .42rem;
+    border-radius: 5px;
+    font-size: .8rem;
+    font-family: var(--font-mono, 'Courier New', monospace);
+}
+.tg-setup-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #29b6f6, #0288d1);
+    color: #fff;
+    border: none;
+    border-radius: var(--r-md, 14px);
+    padding: .85rem;
+    font-size: .95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity var(--transition-base), transform var(--transition-base);
+}
+.tg-setup-btn:hover { opacity: .92; transform: translateY(-1px); }
+.tg-setup-back {
+    display: block;
+    text-align: center;
+    margin-top: 1.25rem;
+    font-size: .82rem;
+    color: var(--text-muted);
+    text-decoration: none;
+}
+.tg-setup-back:hover { color: var(--text-primary); }
+</style>
+{% endblock %}
+
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
+{% block content %}
+<div class="container-limited tg-setup-page">
+    <div class="tg-setup-card">
+        <h2 class="tg-setup-title">🤖 Telegram Bot Setup</h2>
+        <p class="tg-setup-sub">{% trans "Admin only. Webhook configuration." %}</p>
+
+        <div class="tg-setup-badges">
+            {% if token_set %}
+                <span class="badge ok"><i class="fas fa-check-circle" aria-hidden="true"></i> TELEGRAM_BOT_TOKEN OK</span>
+            {% else %}
+                <span class="badge err"><i class="fas fa-times-circle" aria-hidden="true"></i> TELEGRAM_BOT_TOKEN missing</span>
+            {% endif %}
+            {% if secret_set %}
+                <span class="badge ok"><i class="fas fa-check-circle" aria-hidden="true"></i> TELEGRAM_WEBHOOK_SECRET OK</span>
+            {% else %}
+                <span class="badge err"><i class="fas fa-times-circle" aria-hidden="true"></i> TELEGRAM_WEBHOOK_SECRET missing</span>
+            {% endif %}
+        </div>
+
+        {% if current_url %}
+            <div class="tg-setup-alert ok">
+                {% trans "Current webhook:" %} <code>{{ current_url }}</code>
+            </div>
+        {% else %}
+            <div class="tg-setup-alert err">{% trans "Webhook is not yet set." %}</div>
+        {% endif %}
+
+        <div class="tg-setup-info">
+            <strong>{% trans "Where to set env vars:" %}</strong><br>
+            DigitalOcean App Platform → Settings → App-Level Env Vars<br><br>
+            <code>TELEGRAM_BOT_TOKEN</code> — {% trans "token from @BotFather" %}<br>
+            <code>TELEGRAM_WEBHOOK_SECRET</code> — {% trans "random string (32+ chars)" %}<br><br>
+            {% trans "Webhook URL for Telegram:" %}<br>
+            <code>{{ webhook_url|default:_("Set TELEGRAM_WEBHOOK_SECRET first") }}</code><br><br>
+            {% trans "After setting webhook: open bot in Telegram, press Start." %}
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="set_webhook">
+            <button type="submit" class="tg-setup-btn">
+                <i class="fas fa-link me-2" aria-hidden="true"></i>{% trans "Set webhook in Telegram" %}
+            </button>
+        </form>
+
+        {% if result_html %}
+            <div style="margin-top:1rem;">{{ result_html|safe }}</div>
+        {% endif %}
+
+        <a href="{% url 'core:home' %}" class="tg-setup-back">
+            <i class="fas fa-arrow-left me-1" aria-hidden="true"></i>{% trans "Back to home" %}
+        </a>
     </div>
-
-    {% if current_url %}
-      <div class="alert ok">Текущий webhook: <code>{{ current_url }}</code></div>
-    {% else %}
-      <div class="alert err">Webhook пока не установлен.</div>
-    {% endif %}
-
-    <div class="info-box">
-      <b>Где задать переменные:</b><br>
-      DigitalOcean App Platform → твоё приложение → <b>Settings</b> → <b>App-Level Env Vars</b><br><br>
-      <code>TELEGRAM_BOT_TOKEN</code> — токен от @BotFather<br>
-      <code>TELEGRAM_WEBHOOK_SECRET</code> — случайная строка (32+ символа)<br><br>
-      Webhook URL для Telegram:<br>
-      <code>{{ webhook_url|default:"Сначала задай TELEGRAM_WEBHOOK_SECRET" }}</code><br><br>
-      После установки webhook: открой бота в Telegram, нажми <b>Start</b>.
-    </div>
-
-    <form method="post">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="set_webhook">
-      <button type="submit">🔗 Установить webhook в Telegram</button>
-    </form>
-
-    {% if result_html %}
-      {{ result_html|safe }}
-    {% endif %}
-
-    <a href="/" class="back">← На главную</a>
-  </div>
-</body>
-</html>
+</div>
+{% endblock %}

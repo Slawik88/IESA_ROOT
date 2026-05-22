@@ -3,83 +3,92 @@
 
 {% block title %}{% trans "How It Works" %} — IESA Sport{% endblock %}
 
-{% block extra_head %}
+{% block extra_css %}
 <style>
-/* ── How It Works page ─────────────────────────────────────── */
+/* ── How It Works page — на design tokens, поддерживает light/dark ── */
 .hiw-page {
-  min-height: 100vh;
-  background: #07070e;
-  position: relative;
-  overflow: hidden;
+    min-height: 100vh;
+    background: var(--bg-body);
+    position: relative;
+    overflow: hidden;
 }
 .hiw-page::before {
-  content: '';
-  position: fixed; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(ellipse 60% 50% at 15% 20%, rgba(220,38,38,.07) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 85% 75%, rgba(220,38,38,.05) 0%, transparent 50%);
+    content: '';
+    position: fixed; inset: 0; pointer-events: none;
+    background:
+        radial-gradient(ellipse 60% 50% at 15% 20%, rgba(220,38,38,.07) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 85% 75%, rgba(220,38,38,.05) 0%, transparent 50%);
+}
+:root[data-theme="light"] .hiw-page::before {
+    background:
+        radial-gradient(ellipse 60% 50% at 15% 20%, rgba(220,38,38,.04) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 85% 75%, rgba(220,38,38,.03) 0%, transparent 50%);
 }
 
 /* ── Hero ─────────────────────────────────────────────────── */
 .hiw-hero {
-  text-align: center;
-  padding: 5rem 1.5rem 3rem;
-  position: relative;
+    text-align: center;
+    padding: 5rem 1.5rem 3rem;
+    position: relative;
 }
 .hiw-hero-kicker {
-  display: inline-flex; align-items: center; gap: .5rem;
-  font-size: .7rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase;
-  color: #f87171; font-family: 'Courier New', monospace;
-  background: rgba(220,38,38,.08); border: 1px solid rgba(220,38,38,.2);
-  border-radius: 100px; padding: .3rem .9rem; margin-bottom: 1.25rem;
+    display: inline-flex; align-items: center; gap: .5rem;
+    font-size: .7rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--primary); font-family: var(--font-mono);
+    background: rgba(220,38,38,.08); border: 1px solid rgba(220,38,38,.20);
+    border-radius: var(--radius-full); padding: .3rem .9rem; margin-bottom: 1.25rem;
 }
 .hiw-hero-title {
-  font-size: clamp(2rem, 5vw, 3.2rem);
-  font-weight: 900; color: #fff; letter-spacing: -.03em;
-  margin-bottom: .75rem;
-  line-height: 1.1;
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 900; color: var(--text-primary); letter-spacing: -.03em;
+    margin-bottom: .75rem;
+    line-height: 1.1;
 }
-.hiw-hero-title span { color: #f87171; }
+.hiw-hero-title span { color: var(--primary); }
 .hiw-hero-sub {
-  color: rgba(255,255,255,.45); font-size: 1.05rem;
-  max-width: 520px; margin: 0 auto 2.5rem; line-height: 1.65;
+    color: var(--text-muted); font-size: 1.05rem;
+    max-width: 520px; margin: 0 auto 2.5rem; line-height: 1.65;
 }
 .hiw-hero-cta {
-  display: inline-flex; align-items: center; gap: .5rem;
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-  color: #fff; font-size: .95rem; font-weight: 700;
-  padding: .8rem 2rem; border-radius: 12px; text-decoration: none;
-  box-shadow: 0 4px 20px rgba(220,38,38,.4);
-  transition: filter .15s, transform .15s;
+    display: inline-flex; align-items: center; gap: .5rem;
+    background: linear-gradient(135deg, var(--primary), #b91c1c);
+    color: #fff; font-size: .95rem; font-weight: 700;
+    padding: .8rem 2rem;
+    border-radius: var(--r-md);
+    text-decoration: none;
+    box-shadow: var(--shadow-primary);
+    transition: filter var(--transition-base), transform var(--transition-base);
 }
-.hiw-hero-cta:hover { filter: brightness(1.1); transform: translateY(-2px); color: #fff; }
+.hiw-hero-cta:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+    color: #fff;
+}
 
 /* ── Steps ────────────────────────────────────────────────── */
 .hiw-steps {
-  max-width: 900px; margin: 0 auto; padding: 1rem 1.5rem 5rem;
-  position: relative;
+    max-width: 900px; margin: 0 auto; padding: 1rem 1.5rem 5rem;
+    position: relative;
 }
-
-/* Вертикальная линия между шагами */
 .hiw-steps::before {
-  content: '';
-  position: absolute; left: 50%; top: 0; bottom: 0;
-  width: 2px;
-  background: linear-gradient(to bottom, rgba(220,38,38,.4), rgba(220,38,38,.05));
-  transform: translateX(-50%);
+    content: '';
+    position: absolute; left: 50%; top: 0; bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, rgba(220,38,38,.4), rgba(220,38,38,.05));
+    transform: translateX(-50%);
 }
 @media (max-width: 680px) {
-  .hiw-steps::before { left: 28px; }
+    .hiw-steps::before { left: 28px; }
 }
 
 .hiw-step {
-  display: grid;
-  grid-template-columns: 1fr 56px 1fr;
-  align-items: center;
-  gap: 1.5rem;
-  margin-bottom: 3rem;
-  opacity: 0; transform: translateY(30px);
-  transition: opacity .5s ease, transform .5s ease;
+    display: grid;
+    grid-template-columns: 1fr 56px 1fr;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+    opacity: 0; transform: translateY(30px);
+    transition: opacity .5s ease, transform .5s ease;
 }
 .hiw-step.revealed { opacity: 1; transform: none; }
 
@@ -89,113 +98,137 @@
 .hiw-step:nth-child(even) .hiw-step-spacer { order: 1; }
 
 @media (max-width: 680px) {
-  .hiw-steps { padding: 1rem 1.5rem 1rem 4rem; }
-  .hiw-step {
-    grid-template-columns: 56px 1fr;
-    margin-bottom: 2.5rem;
-  }
-  .hiw-step:nth-child(even) .hiw-step-card   { order: unset; }
-  .hiw-step:nth-child(even) .hiw-step-num-wrap { order: unset; }
-  .hiw-step:nth-child(even) .hiw-step-spacer { display: none; }
-  .hiw-step-spacer { display: none; }
-  .hiw-step-num-wrap { order: 0 !important; }
-  .hiw-step-card { order: 1 !important; }
+    .hiw-steps { padding: 1rem 1.5rem 1rem 4rem; }
+    .hiw-step {
+        grid-template-columns: 56px 1fr;
+        margin-bottom: 2.5rem;
+    }
+    .hiw-step:nth-child(even) .hiw-step-card { order: unset; }
+    .hiw-step:nth-child(even) .hiw-step-num-wrap { order: unset; }
+    .hiw-step:nth-child(even) .hiw-step-spacer { display: none; }
+    .hiw-step-spacer { display: none; }
+    .hiw-step-num-wrap { order: 0 !important; }
+    .hiw-step-card { order: 1 !important; }
 }
-
-.hiw-step-spacer { /* пустая колонка для выравнивания */ }
 
 .hiw-step-num-wrap {
-  display: flex; flex-direction: column; align-items: center; gap: .4rem;
-  position: relative; z-index: 2;
+    display: flex; flex-direction: column; align-items: center; gap: .4rem;
+    position: relative; z-index: 2;
 }
 .hiw-step-num {
-  width: 56px; height: 56px; border-radius: 50%;
-  background: linear-gradient(135deg, #dc2626, #991b1b);
-  color: #fff; font-size: 1.3rem; font-weight: 900;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 0 6px rgba(220,38,38,.12), 0 8px 24px rgba(220,38,38,.35);
-  flex-shrink: 0;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), #991b1b);
+    color: #fff; font-size: 1.3rem; font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 6px rgba(220,38,38,.12), 0 8px 24px rgba(220,38,38,.35);
+    flex-shrink: 0;
 }
-.hiw-step-emoji {
-  font-size: 1.4rem; line-height: 1;
-}
+.hiw-step-emoji { font-size: 1.4rem; line-height: 1; }
 
 .hiw-step-card {
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 18px;
-  padding: 1.75rem;
-  position: relative; overflow: hidden;
-  transition: border-color .25s, background .25s, transform .25s;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-lg);
+    padding: 1.75rem;
+    position: relative; overflow: hidden;
+    box-shadow: var(--shadow-card);
+    transition: border-color var(--transition-base), transform var(--transition-base);
 }
 .hiw-step-card:hover {
-  border-color: rgba(220,38,38,.3);
-  background: rgba(220,38,38,.03);
-  transform: translateY(-3px);
+    border-color: rgba(220,38,38,.30);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-card-hover);
 }
 .hiw-step-card::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(220,38,38,.5), transparent);
-  opacity: 0; transition: opacity .25s;
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(220,38,38,.5), transparent);
+    opacity: 0; transition: opacity var(--transition-base);
 }
 .hiw-step-card:hover::before { opacity: 1; }
 
 .hiw-step-title {
-  font-size: 1.1rem; font-weight: 800; color: #fff;
-  margin-bottom: .5rem; letter-spacing: -.01em;
+    font-size: 1.1rem; font-weight: 800; color: var(--text-primary);
+    margin-bottom: .5rem; letter-spacing: -.01em;
 }
 .hiw-step-desc {
-  color: rgba(255,255,255,.5); font-size: .9rem; line-height: 1.6;
-  margin-bottom: 0;
+    color: var(--text-secondary); font-size: .9rem; line-height: 1.6;
+    margin-bottom: 0;
 }
 .hiw-step-detail {
-  display: flex; align-items: center; gap: .5rem;
-  margin-top: .85rem; padding-top: .75rem;
-  border-top: 1px solid rgba(255,255,255,.06);
-  font-size: .78rem; color: rgba(255,255,255,.3);
+    display: flex; align-items: center; gap: .5rem;
+    margin-top: .85rem; padding-top: .75rem;
+    border-top: 1px solid var(--border-faint);
+    font-size: .78rem; color: var(--text-muted);
 }
 .hiw-step-detail i { color: rgba(220,38,38,.6); font-size: .8rem; }
 
 /* ── Benefits strip ───────────────────────────────────────── */
 .hiw-benefits {
-  background: rgba(220,38,38,.04);
-  border-top: 1px solid rgba(220,38,38,.1);
-  border-bottom: 1px solid rgba(220,38,38,.1);
-  padding: 3rem 1.5rem;
-  text-align: center;
+    background: rgba(220,38,38,.04);
+    border-top: 1px solid rgba(220,38,38,.10);
+    border-bottom: 1px solid rgba(220,38,38,.10);
+    padding: 3rem 1.5rem;
+    text-align: center;
 }
 .hiw-benefits-title {
-  font-size: 1.4rem; font-weight: 800; color: #fff;
-  margin-bottom: 2rem;
+    font-size: 1.4rem; font-weight: 800; color: var(--text-primary);
+    margin-bottom: 2rem;
 }
 .hiw-benefits-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  max-width: 800px; margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    max-width: 800px; margin: 0 auto;
 }
 .hiw-benefit-item {
-  background: rgba(255,255,255,.03);
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: 14px; padding: 1.25rem;
-  transition: border-color .2s, transform .2s;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--r-md);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-card);
+    transition: border-color var(--transition-base), transform var(--transition-base);
 }
-.hiw-benefit-item:hover { border-color: rgba(220,38,38,.25); transform: translateY(-3px); }
+.hiw-benefit-item:hover {
+    border-color: rgba(220,38,38,.25);
+    transform: translateY(-3px);
+}
 .hiw-benefit-icon { font-size: 1.8rem; margin-bottom: .6rem; display: block; }
-.hiw-benefit-title { font-size: .88rem; font-weight: 700; color: #fff; margin-bottom: .3rem; }
-.hiw-benefit-text  { font-size: .78rem; color: rgba(255,255,255,.42); line-height: 1.5; }
+.hiw-benefit-title {
+    font-size: .88rem; font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: .3rem;
+}
+.hiw-benefit-text {
+    font-size: .78rem; color: var(--text-muted); line-height: 1.5;
+}
 
 /* ── Final CTA ────────────────────────────────────────────── */
 .hiw-cta-section {
-  text-align: center; padding: 4rem 1.5rem;
+    text-align: center; padding: 4rem 1.5rem;
 }
 .hiw-cta-title {
-  font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 900;
-  color: #fff; margin-bottom: .75rem; letter-spacing: -.02em;
+    font-size: clamp(1.5rem, 4vw, 2.2rem); font-weight: 900;
+    color: var(--text-primary); margin-bottom: .75rem; letter-spacing: -.02em;
 }
-.hiw-cta-sub { color: rgba(255,255,255,.4); font-size: .95rem; margin-bottom: 2rem; }
+.hiw-cta-sub {
+    color: var(--text-muted); font-size: .95rem; margin-bottom: 2rem;
+}
 .hiw-cta-btns { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.hiw-cta-secondary {
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .8rem 1.75rem;
+    border: 1.5px solid var(--border-soft);
+    border-radius: var(--r-md);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-weight: 600; font-size: .95rem;
+    transition: border-color var(--transition-base), color var(--transition-base);
+}
+.hiw-cta-secondary:hover {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+}
 </style>
 {% endblock %}
 
@@ -205,157 +238,157 @@
 {% block content %}
 <div class="hiw-page">
 
-  <!-- Hero -->
-  <section class="hiw-hero">
-    <div class="hiw-hero-kicker">
-      <i class="fas fa-info-circle"></i> {% trans "How it works" %}
-    </div>
-    <h1 class="hiw-hero-title">
-      {% trans "Your" %} <span>{% trans "IESA Sport" %}</span><br>{% trans "membership, explained" %}
-    </h1>
-    <p class="hiw-hero-sub">
-      {% trans "Four simple steps to unlock exclusive partner benefits, track your activity, and connect with the community." %}
-    </p>
-    {% if not user.is_authenticated %}
-    <a href="{% url 'users:register' %}" class="hiw-hero-cta">
-      <i class="fas fa-user-plus"></i> {% trans "Join for free" %}
-    </a>
-    {% else %}
-    <a href="{% url 'users:profile' %}" class="hiw-hero-cta">
-      <i class="fas fa-arrow-right"></i> {% trans "Go to my profile" %}
-    </a>
-    {% endif %}
-  </section>
-
-  <!-- Steps -->
-  <div class="hiw-steps">
-
-    <div class="hiw-step" data-hiw-step>
-      <div class="hiw-step-card">
-        <div class="hiw-step-title">{% trans "Register & Get Your Card" %}</div>
-        <p class="hiw-step-desc">
-          {% trans "Sign up in seconds — no credit card, no fees. You instantly receive a digital membership card with a unique QR code and permanent ID." %}
-        </p>
-        <div class="hiw-step-detail">
-          <i class="fas fa-clock"></i> {% trans "Takes about 1 minute" %}
+    <!-- Hero -->
+    <section class="hiw-hero">
+        <div class="hiw-hero-kicker">
+            <i class="fas fa-info-circle" aria-hidden="true"></i> {% trans "How it works" %}
         </div>
-      </div>
-      <div class="hiw-step-num-wrap">
-        <div class="hiw-step-num">1</div>
-        <div class="hiw-step-emoji">🎫</div>
-      </div>
-      <div class="hiw-step-spacer"></div>
-    </div>
-
-    <div class="hiw-step" data-hiw-step>
-      <div class="hiw-step-spacer"></div>
-      <div class="hiw-step-num-wrap">
-        <div class="hiw-step-num">2</div>
-        <div class="hiw-step-emoji">🔔</div>
-      </div>
-      <div class="hiw-step-card">
-        <div class="hiw-step-title">{% trans "Connect Telegram" %}</div>
-        <p class="hiw-step-desc">
-          {% trans "Link your Telegram account to receive instant visit confirmations and important updates directly in the messenger. One tap, always informed." %}
+        <h1 class="hiw-hero-title">
+            {% trans "Your" %} <span>{% trans "IESA Sport" %}</span><br>{% trans "membership, explained" %}
+        </h1>
+        <p class="hiw-hero-sub">
+            {% trans "Four simple steps to unlock exclusive partner benefits, track your activity, and connect with the community." %}
         </p>
-        <div class="hiw-step-detail">
-          <i class="fas fa-shield-alt"></i> {% trans "Your phone stays private" %}
-        </div>
-      </div>
-    </div>
-
-    <div class="hiw-step" data-hiw-step>
-      <div class="hiw-step-card">
-        <div class="hiw-step-title">{% trans "Visit a Partner" %}</div>
-        <p class="hiw-step-desc">
-          {% trans "Go to any IESA partner location — gym, spa, clinic, shop. Tell staff you're an IESA member and show your 6-digit PIN. It refreshes every 12 minutes." %}
-        </p>
-        <div class="hiw-step-detail">
-          <i class="fas fa-sync-alt"></i> {% trans "PIN renews automatically every 12 minutes" %}
-        </div>
-      </div>
-      <div class="hiw-step-num-wrap">
-        <div class="hiw-step-num">3</div>
-        <div class="hiw-step-emoji">🏋️</div>
-      </div>
-      <div class="hiw-step-spacer"></div>
-    </div>
-
-    <div class="hiw-step" data-hiw-step>
-      <div class="hiw-step-spacer"></div>
-      <div class="hiw-step-num-wrap">
-        <div class="hiw-step-num">4</div>
-        <div class="hiw-step-emoji">🎁</div>
-      </div>
-      <div class="hiw-step-card">
-        <div class="hiw-step-title">{% trans "Enjoy Exclusive Benefits" %}</div>
-        <p class="hiw-step-desc">
-          {% trans "Your visit is logged instantly. Earn activity points, unlock achievement levels, and access member-only discounts and privileges at all partner locations." %}
-        </p>
-        <div class="hiw-step-detail">
-          <i class="fas fa-star"></i> {% trans "Points add up every visit" %}
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <!-- Benefits strip -->
-  <section class="hiw-benefits">
-    <h2 class="hiw-benefits-title">{% trans "What you get as a member" %}</h2>
-    <div class="hiw-benefits-grid">
-      <div class="hiw-benefit-item">
-        <span class="hiw-benefit-icon">🃏</span>
-        <div class="hiw-benefit-title">{% trans "Digital Card" %}</div>
-        <div class="hiw-benefit-text">{% trans "QR code + unique ID for instant identification at partners" %}</div>
-      </div>
-      <div class="hiw-benefit-item">
-        <span class="hiw-benefit-icon">🔐</span>
-        <div class="hiw-benefit-title">{% trans "Secure PIN" %}</div>
-        <div class="hiw-benefit-text">{% trans "Time-based 6-digit code, refreshes every 12 minutes" %}</div>
-      </div>
-      <div class="hiw-benefit-item">
-        <span class="hiw-benefit-icon">📊</span>
-        <div class="hiw-benefit-title">{% trans "Visit History" %}</div>
-        <div class="hiw-benefit-text">{% trans "Full log of every partner visit with timestamps" %}</div>
-      </div>
-      <div class="hiw-benefit-item">
-        <span class="hiw-benefit-icon">⚡</span>
-        <div class="hiw-benefit-title">{% trans "Activity Points" %}</div>
-        <div class="hiw-benefit-text">{% trans "Earn points for posts, likes, comments and visits" %}</div>
-      </div>
-      <div class="hiw-benefit-item">
-        <span class="hiw-benefit-icon">🤝</span>
-        <div class="hiw-benefit-title">{% trans "Community" %}</div>
-        <div class="hiw-benefit-text">{% trans "Blog, events, members, and shared experiences" %}</div>
-      </div>
-      <div class="hiw-benefit-item">
-        <span class="hiw-benefit-icon">🛡️</span>
-        <div class="hiw-benefit-title">{% trans "Insurance" %}</div>
-        <div class="hiw-benefit-text">{% trans "Request a personal insurance agent through the portal" %}</div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Final CTA -->
-  <section class="hiw-cta-section">
-    <h2 class="hiw-cta-title">{% trans "Ready to get started?" %}</h2>
-    <p class="hiw-cta-sub">{% trans "Join Switzerland's sports community — it's free and takes one minute." %}</p>
-    <div class="hiw-cta-btns">
-      {% if user.is_authenticated %}
-        <a href="{% url 'users:profile' %}" class="hiw-hero-cta">
-          <i class="fas fa-user"></i> {% trans "My Profile" %}
-        </a>
-      {% else %}
+        {% if not user.is_authenticated %}
         <a href="{% url 'users:register' %}" class="hiw-hero-cta">
-          <i class="fas fa-user-plus"></i> {% trans "Join for free" %}
+            <i class="fas fa-user-plus" aria-hidden="true"></i> {% trans "Join for free" %}
         </a>
-        <a href="{% url 'users:login' %}" style="display:inline-flex;align-items:center;gap:.5rem;padding:.8rem 1.75rem;border:1.5px solid rgba(255,255,255,.15);border-radius:12px;color:rgba(255,255,255,.65);text-decoration:none;font-weight:600;font-size:.95rem;transition:border-color .15s,color .15s;" onmouseover="this.style.borderColor='rgba(255,255,255,.3)';this.style.color='#fff'" onmouseout="this.style.borderColor='rgba(255,255,255,.15)';this.style.color='rgba(255,255,255,.65)'">
-          {% trans "Sign in" %}
+        {% else %}
+        <a href="{% url 'users:profile' %}" class="hiw-hero-cta">
+            <i class="fas fa-arrow-right" aria-hidden="true"></i> {% trans "Go to my profile" %}
         </a>
-      {% endif %}
+        {% endif %}
+    </section>
+
+    <!-- Steps -->
+    <div class="hiw-steps">
+
+        <div class="hiw-step" data-hiw-step>
+            <div class="hiw-step-card">
+                <div class="hiw-step-title">{% trans "Register & Get Your Card" %}</div>
+                <p class="hiw-step-desc">
+                    {% trans "Sign up in seconds — no credit card, no fees. You instantly receive a digital membership card with a unique QR code and permanent ID." %}
+                </p>
+                <div class="hiw-step-detail">
+                    <i class="fas fa-clock" aria-hidden="true"></i> {% trans "Takes about 1 minute" %}
+                </div>
+            </div>
+            <div class="hiw-step-num-wrap">
+                <div class="hiw-step-num">1</div>
+                <div class="hiw-step-emoji">🎫</div>
+            </div>
+            <div class="hiw-step-spacer"></div>
+        </div>
+
+        <div class="hiw-step" data-hiw-step>
+            <div class="hiw-step-spacer"></div>
+            <div class="hiw-step-num-wrap">
+                <div class="hiw-step-num">2</div>
+                <div class="hiw-step-emoji">🔔</div>
+            </div>
+            <div class="hiw-step-card">
+                <div class="hiw-step-title">{% trans "Connect Telegram" %}</div>
+                <p class="hiw-step-desc">
+                    {% trans "Link your Telegram account to receive instant visit confirmations and important updates directly in the messenger. One tap, always informed." %}
+                </p>
+                <div class="hiw-step-detail">
+                    <i class="fas fa-shield-alt" aria-hidden="true"></i> {% trans "Your phone stays private" %}
+                </div>
+            </div>
+        </div>
+
+        <div class="hiw-step" data-hiw-step>
+            <div class="hiw-step-card">
+                <div class="hiw-step-title">{% trans "Visit a Partner" %}</div>
+                <p class="hiw-step-desc">
+                    {% trans "Go to any IESA partner location — gym, spa, clinic, shop. Tell staff you're an IESA member and show your 6-digit PIN. It refreshes every 12 minutes." %}
+                </p>
+                <div class="hiw-step-detail">
+                    <i class="fas fa-sync-alt" aria-hidden="true"></i> {% trans "PIN renews automatically every 12 minutes" %}
+                </div>
+            </div>
+            <div class="hiw-step-num-wrap">
+                <div class="hiw-step-num">3</div>
+                <div class="hiw-step-emoji">🏋️</div>
+            </div>
+            <div class="hiw-step-spacer"></div>
+        </div>
+
+        <div class="hiw-step" data-hiw-step>
+            <div class="hiw-step-spacer"></div>
+            <div class="hiw-step-num-wrap">
+                <div class="hiw-step-num">4</div>
+                <div class="hiw-step-emoji">🎁</div>
+            </div>
+            <div class="hiw-step-card">
+                <div class="hiw-step-title">{% trans "Enjoy Exclusive Benefits" %}</div>
+                <p class="hiw-step-desc">
+                    {% trans "Your visit is logged instantly. Earn activity points, unlock achievement levels, and access member-only discounts and privileges at all partner locations." %}
+                </p>
+                <div class="hiw-step-detail">
+                    <i class="fas fa-star" aria-hidden="true"></i> {% trans "Points add up every visit" %}
+                </div>
+            </div>
+        </div>
+
     </div>
-  </section>
+
+    <!-- Benefits strip -->
+    <section class="hiw-benefits">
+        <h2 class="hiw-benefits-title">{% trans "What you get as a member" %}</h2>
+        <div class="hiw-benefits-grid">
+            <div class="hiw-benefit-item">
+                <span class="hiw-benefit-icon">🃏</span>
+                <div class="hiw-benefit-title">{% trans "Digital Card" %}</div>
+                <div class="hiw-benefit-text">{% trans "QR code + unique ID for instant identification at partners" %}</div>
+            </div>
+            <div class="hiw-benefit-item">
+                <span class="hiw-benefit-icon">🔐</span>
+                <div class="hiw-benefit-title">{% trans "Secure PIN" %}</div>
+                <div class="hiw-benefit-text">{% trans "Time-based 6-digit code, refreshes every 12 minutes" %}</div>
+            </div>
+            <div class="hiw-benefit-item">
+                <span class="hiw-benefit-icon">📊</span>
+                <div class="hiw-benefit-title">{% trans "Visit History" %}</div>
+                <div class="hiw-benefit-text">{% trans "Full log of every partner visit with timestamps" %}</div>
+            </div>
+            <div class="hiw-benefit-item">
+                <span class="hiw-benefit-icon">⚡</span>
+                <div class="hiw-benefit-title">{% trans "Activity Points" %}</div>
+                <div class="hiw-benefit-text">{% trans "Earn points for posts, likes, comments and visits" %}</div>
+            </div>
+            <div class="hiw-benefit-item">
+                <span class="hiw-benefit-icon">🤝</span>
+                <div class="hiw-benefit-title">{% trans "Community" %}</div>
+                <div class="hiw-benefit-text">{% trans "Blog, events, members, and shared experiences" %}</div>
+            </div>
+            <div class="hiw-benefit-item">
+                <span class="hiw-benefit-icon">🛡️</span>
+                <div class="hiw-benefit-title">{% trans "Insurance" %}</div>
+                <div class="hiw-benefit-text">{% trans "Request a personal insurance agent through the portal" %}</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="hiw-cta-section">
+        <h2 class="hiw-cta-title">{% trans "Ready to get started?" %}</h2>
+        <p class="hiw-cta-sub">{% trans "Join Switzerland's sports community — it's free and takes one minute." %}</p>
+        <div class="hiw-cta-btns">
+            {% if user.is_authenticated %}
+                <a href="{% url 'users:profile' %}" class="hiw-hero-cta">
+                    <i class="fas fa-user" aria-hidden="true"></i> {% trans "My Profile" %}
+                </a>
+            {% else %}
+                <a href="{% url 'users:register' %}" class="hiw-hero-cta">
+                    <i class="fas fa-user-plus" aria-hidden="true"></i> {% trans "Join for free" %}
+                </a>
+                <a href="{% url 'users:login' %}" class="hiw-cta-secondary">
+                    {% trans "Sign in" %}
+                </a>
+            {% endif %}
+        </div>
+    </section>
 
 </div>
 {% endblock %}
@@ -364,21 +397,17 @@
 <script>
 /* Scroll-reveal для шагов */
 (function () {
-  var steps = document.querySelectorAll('[data-hiw-step]');
-  if (!steps.length) return;
-
-  var observer = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry, i) {
-      if (entry.isIntersecting) {
-        setTimeout(function () {
-          entry.target.classList.add('revealed');
-        }, i * 120);
-        observer.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.15 });
-
-  steps.forEach(function (el) { observer.observe(el); });
+    var steps = document.querySelectorAll('[data-hiw-step]');
+    if (!steps.length) return;
+    var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry, i) {
+            if (entry.isIntersecting) {
+                setTimeout(function () { entry.target.classList.add('revealed'); }, i * 120);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.15 });
+    steps.forEach(function (el) { observer.observe(el); });
 })();
 </script>
 {% endblock %}

@@ -14,11 +14,19 @@
     <meta name="apple-mobile-web-app-title" content="IESA">
     <meta name="theme-color" content="#0e0e18" id="meta-theme-color">
     <script>
-    /* Android Chrome theme-color при смене темы */
+    /* BLOCK 13g (audit v3): Android Chrome theme-color + ранний preset темы (FOUC-fix).
+       Применяем data-theme="light" ДО рендеринга body чтобы избежать flash. */
     (function(){
         var saved = localStorage.getItem('iesa-theme');
+        if (!saved) {
+          try { saved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
+          catch (e) { saved = 'dark'; }
+        }
+        if (saved === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
         var meta = document.getElementById('meta-theme-color');
-        if (meta && saved === 'light') meta.setAttribute('content', '#f4f6fb');
+        if (meta) meta.setAttribute('content', saved === 'light' ? '#f8fafc' : '#0e0e18');
     })();
     </script>
     
@@ -94,6 +102,8 @@
     <link rel="stylesheet" href="{% static 'css/dark-theme-fixes.css' %}">
     <!-- Partner portal pp-wrap design system -->
     <link rel="stylesheet" href="{% static 'css/partner-dashboard.css' %}">
+    <!-- BLOCK 13 (audit v3): Light theme overrides — должен идти ПОСЛЕ всех dark стилей -->
+    <link rel="stylesheet" href="{% static 'css/light-theme.css' %}">
 
     <!-- Per-page CSS: override 'extra_css' block in child templates -->
     {% block extra_css %}{% endblock %}
@@ -744,33 +754,23 @@
     };
     </script>
 
-    {# 10b: Тема — CSS переменные светлой темы #}
-    <style>
-    :root[data-theme="light"] {
-      --bg-body:      #f4f6fb;
-      --bg-surface:   #ffffff;
-      --text-primary: #0f172a;
-      --text-muted:   #64748b;
-      --bdr:          rgba(0,0,0,.1);
-      --nav-bg:       rgba(255,255,255,.95);
-    }
-    :root[data-theme="light"] body { background: var(--bg-body); color: var(--text-primary); }
-    :root[data-theme="light"] .iesa-navbar { background: var(--nav-bg) !important; }
-    :root[data-theme="light"] .cab-card,
-    :root[data-theme="light"] .iesa-article,
-    :root[data-theme="light"] .notification-item {
-      background: #fff; border-color: rgba(0,0,0,.08);
-    }
-    :root { transition: background-color .2s, color .2s; }
-    </style>
+    {# BLOCK 13 (audit v3): light-theme стили вынесены в /static/css/light-theme.css #}
     <script>
-    /* 10b: Theme toggle — читаем из localStorage */
+    /* BLOCK 13g (audit v3): Theme toggle с auto-detect prefers-color-scheme + smooth transition */
     (function(){
-      var saved = localStorage.getItem('iesa-theme') || 'dark';
+      var saved = localStorage.getItem('iesa-theme');
+      /* Если пользователь не выбирал — берём системную тему */
+      if (!saved) {
+        try {
+          saved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        } catch (e) { saved = 'dark'; }
+      }
       if (saved === 'light') {
         document.documentElement.setAttribute('data-theme', 'light');
         var ico = document.getElementById('theme-icon');
         if (ico) { ico.className = 'fas fa-sun'; }
+        var tc0 = document.getElementById('meta-theme-color');
+        if (tc0) tc0.setAttribute('content', '#f8fafc');
       }
       var btn = document.getElementById('theme-toggle');
       if (!btn) return;
@@ -782,7 +782,7 @@
         var ico = document.getElementById('theme-icon');
         if (ico) ico.className = next === 'light' ? 'fas fa-sun' : 'fas fa-moon';
         var tc = document.getElementById('meta-theme-color');
-        if (tc) tc.setAttribute('content', next === 'light' ? '#f4f6fb' : '#0e0e18');
+        if (tc) tc.setAttribute('content', next === 'light' ? '#f8fafc' : '#0e0e18');
       });
     })();
     </script>

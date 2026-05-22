@@ -846,8 +846,7 @@ msgid "Want access to these benefits?"
 msgstr "Voulez-vous accéder à ces avantages ?"
 
 msgid "Become an IESA member and receive exclusive discounts and privileges"
-msgstr ""
-"Devenez membre IESA et recevez des réductions et privilèges exclusifs"
+msgstr "Devenez membre IESA et recevez des réductions et privilèges exclusifs"
 
 msgid "Join now"
 msgstr "Rejoindre maintenant"
@@ -1175,8 +1174,7 @@ msgid "IESA?"
 msgstr "l'IESA ?"
 
 msgid "Exclusive advantages available to every member of the association"
-msgstr ""
-"Avantages exclusifs disponibles pour chaque membre de l'association"
+msgstr "Avantages exclusifs disponibles pour chaque membre de l'association"
 
 msgid "View all benefits"
 msgstr "Voir tous les avantages"
@@ -3506,6 +3504,1730 @@ msgstr "min. 50"
 
 msgid "choose"
 msgstr "choisir"
+
+msgid "(for long-term clients)"
+msgstr ""
+
+msgid "+41 79 000 00 00"
+msgstr ""
+
+msgid "404 — Page not found"
+msgstr ""
+
+msgid "500 — Server error"
+msgstr ""
+
+msgid "6-digit verification code"
+msgstr "Code de vérification à 6 chiffres"
+
+msgid "ACTIVE MEMBER"
+msgstr "MEMBRE ACTIF"
+
+msgid "ADDRESS"
+msgstr "ADRESSE"
+
+msgid "ADDRESS / LOCATION"
+msgstr ""
+
+msgid "ADMIN PANEL"
+msgstr ""
+
+msgid "ALL"
+msgstr "TOUS"
+
+msgid "ASSOCIATION STAFF"
+msgstr ""
+
+msgid "About levels"
+msgstr "À propos des niveaux"
+
+msgid "Access"
+msgstr "Accès"
+
+msgid "Access Restricted"
+msgstr ""
+
+msgid "Access your account"
+msgstr "Accédez à votre compte"
+
+msgid "Accessories"
+msgstr ""
+
+msgid "Account"
+msgstr "Compte"
+
+msgid "Account / membership issue"
+msgstr "Problème de compte / d'adhésion"
+
+msgid "Account Info"
+msgstr "Infos du compte"
+
+msgid "Accounting / Finance"
+msgstr ""
+
+msgid "Active — issued"
+msgstr "Active — émise"
+
+msgid "Activity Level"
+msgstr "Niveau d'activité"
+
+msgid "Activity in last 30 min"
+msgstr ""
+
+msgid "Add a photo"
+msgstr ""
+
+msgid "Add to your home screen"
+msgstr ""
+
+msgid "Additional Comments"
+msgstr ""
+
+msgid "Additional info for the client..."
+msgstr ""
+
+msgid "Ages {{ min_age }}-{{ max_age }}"
+msgstr ""
+
+msgid "All"
+msgstr "Tous"
+
+msgid "All Visit History"
+msgstr ""
+
+msgid "All caught up!"
+msgstr ""
+
+msgid "Also"
+msgstr "Aussi"
+
+msgid "Analytics"
+msgstr ""
+
+msgid "Any unsaved changes on this page have been preserved."
+msgstr ""
+
+msgid "Apparel"
+msgstr "Vêtements"
+
+msgid "Appeal submitted!"
+msgstr ""
+
+msgid "Ask the member to show their current PIN from their personal cabinet"
+msgstr ""
+"Demandez au membre de montrer son PIN actuel depuis son espace personnel"
+
+msgid "Association Staff"
+msgstr ""
+
+msgid "At least 3 characters"
+msgstr ""
+
+msgid "Available"
+msgstr ""
+
+msgid "A→Z"
+msgstr "A→Z"
+
+msgid "BLOG"
+msgstr "BLOG"
+
+msgid "BUSINESS CATEGORY"
+msgstr ""
+
+msgid "Back"
+msgstr "Retour"
+
+msgid "Back to Cabinet"
+msgstr ""
+
+msgid "Back to invite list"
+msgstr ""
+
+msgid "Back to profile"
+msgstr "Retour au profil"
+
+msgid "Bike Shop / Service"
+msgstr ""
+
+msgid "Blog"
+msgstr "Blog"
+
+msgid "Blog, events, members, and shared experiences"
+msgstr "Blog, événements, membres et expériences partagées"
+
+msgid "Bot link doesn't work? Find manually"
+msgstr "Le lien ne fonctionne pas ? Recherchez manuellement"
+
+msgid "Breadcrumb"
+msgstr "Fil d'Ariane"
+
+msgid "Business Consulting"
+msgstr ""
+
+msgid "CONTACT DETAILS"
+msgstr ""
+
+msgid "Cabinet navigation"
+msgstr ""
+
+msgid "Calendar"
+msgstr "Calendrier"
+
+msgid "Call IESA"
+msgstr "Appeler IESA"
+
+msgid "Cancel Visit Record"
+msgstr ""
+
+msgid "Cancel meeting"
+msgstr ""
+
+msgid "Capacity"
+msgstr "Capacité"
+
+msgid "Card ID"
+msgstr "ID carte"
+
+msgid "Charts"
+msgstr "Graphiques"
+
+msgid "Chess &amp; strategic thinking"
+msgstr ""
+
+msgid "Chiropractic / Manual Therapy"
+msgstr ""
+
+msgid "City, street, or region where you operate"
+msgstr ""
+
+msgid "Clear history"
+msgstr ""
+
+msgid "Click any time slot to schedule a meeting"
+msgstr ""
+
+msgid "Client notes"
+msgstr ""
+
+msgid "Climbing / Boulder"
+msgstr ""
+
+msgid "Collapse"
+msgstr "Réduire"
+
+msgid "Company Profile"
+msgstr ""
+
+msgid "Confirm"
+msgstr "Confirmer"
+
+msgid "Confirm & Connect"
+msgstr "Confirmer & connecter"
+
+msgid "Confirmed via PIN"
+msgstr ""
+
+msgid "Connect"
+msgstr "Connecter"
+
+msgid "Connect Telegram to receive instant visit confirmations"
+msgstr ""
+
+msgid "Connected"
+msgstr ""
+
+msgid "Contact administrator to activate your account."
+msgstr "Contactez l'administrateur pour activer votre compte."
+
+msgid "Continue"
+msgstr "Continuer"
+
+msgid "Copied"
+msgstr "Copié"
+
+msgid "Correct Visit Record"
+msgstr ""
+
+msgid "Cost CHF"
+msgstr "Coût CHF"
+
+msgid "Create your account and become part of IESA."
+msgstr "Créez votre compte et devenez membre d'IESA."
+
+msgid "CrossFit / Functional Training"
+msgstr ""
+
+msgid "Cycling / Indoor Cycling"
+msgstr ""
+
+msgid "DATE"
+msgstr "DATE"
+
+msgid "DATE ↑"
+msgstr "DATE ↑"
+
+msgid "DATE ↓"
+msgstr "DATE ↓"
+
+msgid "DESCRIPTION OF ACTIVITY"
+msgstr ""
+
+msgid "Daily Visits — last 30 days"
+msgstr ""
+
+msgid "Dance School"
+msgstr ""
+
+msgid "Dashboard"
+msgstr "Tableau de bord"
+
+msgid "Dashboard & stats"
+msgstr "Tableau de bord et stats"
+
+msgid "Date is in the past"
+msgstr ""
+
+msgid "Deactivate"
+msgstr ""
+
+msgid ""
+"Describe your business/role and why you want to join IESA. What value can "
+"you offer to members?"
+msgstr ""
+"Décrivez votre activité/rôle et pourquoi vous souhaitez rejoindre IESA. "
+"Quelle valeur pouvez-vous offrir aux membres ?"
+
+msgid "Describe your situation in detail..."
+msgstr ""
+
+msgid "Digital Card"
+msgstr ""
+
+msgid "Digital card & PIN code"
+msgstr "Carte numérique et code PIN"
+
+msgid "Digital membership card"
+msgstr "Carte de membre numérique"
+
+msgid "Disconnect"
+msgstr ""
+
+msgid "Disconnect Telegram from your account?"
+msgstr ""
+
+msgid "Draft restored"
+msgstr ""
+
+msgid "Draft saved"
+msgstr ""
+
+msgid "Drag & drop or click to upload"
+msgstr ""
+
+msgid "E-mail"
+msgstr "E-mail"
+
+msgid "EMAIL"
+msgstr "E-MAIL"
+
+msgid "END"
+msgstr "FIN"
+
+msgid "EVENTS"
+msgstr "ÉVÉNEMENTS"
+
+msgid "Earn points for posts, likes, comments and visits"
+msgstr ""
+
+msgid "Education & Events"
+msgstr ""
+
+msgid "Email IESA"
+msgstr "Email IESA"
+
+msgid "Email available"
+msgstr ""
+
+msgid "Enjoy Exclusive Benefits"
+msgstr ""
+
+msgid "Enter your credentials to continue."
+msgstr "Saisissez vos identifiants pour continuer."
+
+msgid "Equipment"
+msgstr ""
+
+msgid "Event Organization"
+msgstr ""
+
+msgid "Event creation &amp; management"
+msgstr ""
+
+msgid "Events ({{ count }})"
+msgstr ""
+
+msgid "Events, RSVPs & benefits"
+msgstr "Événements, inscriptions et avantages"
+
+msgid "Explore Community"
+msgstr ""
+
+msgid "Explore gyms, studios and services in your area"
+msgstr ""
+
+msgid "Export .ics"
+msgstr ""
+
+msgid "Export to Google Calendar / Apple Calendar / Outlook"
+msgstr ""
+
+msgid "FILTERS"
+msgstr "FILTRES"
+
+msgid "FULL NAME"
+msgstr ""
+
+msgid "Fair"
+msgstr "Correct"
+
+msgid "Featured"
+msgstr "En vedette"
+
+msgid "File too large (max 5 MB)"
+msgstr ""
+
+msgid "Filters"
+msgstr "Filtres"
+
+msgid "Find IESA Partners Near You"
+msgstr ""
+
+msgid "Find Member & Log Visit"
+msgstr "Trouver un membre et enregistrer une visite"
+
+msgid "Find a partner"
+msgstr ""
+
+msgid "Find and visit a partner"
+msgstr ""
+
+msgid "Food & Hospitality"
+msgstr ""
+
+msgid "Form sections"
+msgstr ""
+
+msgid ""
+"Four simple steps to unlock exclusive partner benefits, track your activity,"
+" and connect with the community."
+msgstr ""
+
+msgid "Full log of every partner visit with timestamps"
+msgstr ""
+
+msgid "Generate Invite"
+msgstr ""
+
+msgid "Generate Invite Link"
+msgstr ""
+
+msgid "Get instant visit confirmations"
+msgstr ""
+
+msgid ""
+"Get quick access to your PIN, QR code and partner portal without opening a "
+"browser."
+msgstr ""
+
+msgid "Get started by writing your first post or exploring the community."
+msgstr ""
+
+msgid "Get started — quick actions"
+msgstr "Commencer — actions rapides"
+
+msgid "Get visit notifications instantly"
+msgstr ""
+
+msgid "Go Back"
+msgstr "Retour"
+
+msgid ""
+"Go to any IESA partner location — gym, spa, clinic, shop. Tell staff you're "
+"an IESA member and show your 6-digit PIN. It refreshes every 12 minutes."
+msgstr ""
+"Rendez-vous chez n'importe quel partenaire IESA — salle de sport, spa, "
+"clinique, boutique. Dites au personnel que vous êtes membre IESA et montrez "
+"votre code PIN à 6 chiffres. Il se renouvelle toutes les 12 minutes."
+
+msgid "Go to blog"
+msgstr ""
+
+msgid "Go to my profile"
+msgstr ""
+
+msgid "Gym / Fitness Center"
+msgstr ""
+
+msgid "Health & Wellness"
+msgstr ""
+
+msgid "Health &amp; wellbeing for all"
+msgstr ""
+
+msgid "Healthy Food / Catering"
+msgstr ""
+
+msgid "Hotel / Accommodation"
+msgstr ""
+
+msgid "How It Works"
+msgstr ""
+
+msgid "How it works"
+msgstr "Comment ça marche"
+
+msgid "How to reach {{ name }}"
+msgstr ""
+
+msgid "IESA Sport"
+msgstr ""
+
+msgid "IESA — it's more than sport."
+msgstr ""
+
+msgid "IT / Technology / Software"
+msgstr ""
+
+msgid ""
+"If you believe you should have partner access — fill in the appeal form "
+"below and the administration will contact you."
+msgstr ""
+
+msgid ""
+"If you believe you should have partner access, please contact the IESA "
+"administration to have your account verified and enabled."
+msgstr ""
+
+msgid "In the search field at the top, paste:"
+msgstr "Dans le champ de recherche en haut, collez :"
+
+msgid "Install"
+msgstr "Installer"
+
+msgid "Install IESA Sport"
+msgstr ""
+
+msgid "Instant community access"
+msgstr ""
+
+msgid "Instructions"
+msgstr "Instructions"
+
+msgid "Insurance"
+msgstr ""
+
+msgid "Invalid Invite"
+msgstr ""
+
+msgid "Invalid email format"
+msgstr ""
+
+msgid "Invalid invite link"
+msgstr ""
+
+msgid "Invitation for {{ name }}"
+msgstr ""
+
+msgid "Invite Links"
+msgstr ""
+
+msgid "Invite link has already been used"
+msgstr ""
+
+msgid "Invite link has expired"
+msgstr ""
+
+msgid "Invite to IESA Sport"
+msgstr ""
+
+msgid "It looks like you're offline. Check your connection and try again."
+msgstr ""
+
+msgid "It's a lifestyle, growth, and a strong international community."
+msgstr ""
+
+msgid "JPG, PNG, WebP · Max 5 MB"
+msgstr ""
+
+msgid "Join Switzerland's sports community — it's free and takes one minute."
+msgstr ""
+
+msgid "Join for free"
+msgstr ""
+
+msgid "Join the Community"
+msgstr "Rejoindre la communauté"
+
+msgid "LATEST"
+msgstr "RÉCENTS"
+
+msgid "Last 30 days performance overview"
+msgstr ""
+
+msgid "Last Visit"
+msgstr ""
+
+msgid "Last visit"
+msgstr ""
+
+msgid "Learn how everything works"
+msgstr ""
+
+msgid "Legal Services / Lawyer"
+msgstr ""
+
+msgid "Let's get started!"
+msgstr ""
+
+msgid ""
+"Link your Telegram account to receive instant visit confirmations and "
+"important updates directly in the messenger. One tap, always informed."
+msgstr ""
+
+msgid "Link your account to receive instant notifications"
+msgstr ""
+
+msgid "Linked"
+msgstr "Lié"
+
+msgid "Links"
+msgstr "Liens"
+
+msgid "Log"
+msgstr "Journal"
+
+msgid "Log First Visit"
+msgstr ""
+
+msgid "Log In Again"
+msgstr ""
+
+msgid "Log New Visit"
+msgstr ""
+
+msgid "Log a Visit"
+msgstr ""
+
+msgid "Log a visit for this member"
+msgstr "Enregistrer une visite pour ce membre"
+
+msgid "Log first visit"
+msgstr ""
+
+msgid "Log the first visit and start your day."
+msgstr ""
+
+msgid "MEETING TITLE"
+msgstr ""
+
+msgid "MEMBER"
+msgstr "MEMBRE"
+
+msgid "MEMBER / CLIENT"
+msgstr "MEMBRE / CLIENT"
+
+msgid "Marketing / PR / Design"
+msgstr ""
+
+msgid "Martial Arts School"
+msgstr ""
+
+msgid "Massage / SPA / Wellness"
+msgstr ""
+
+msgid "Media / Content / Photography"
+msgstr ""
+
+msgid "Medical / Healthcare"
+msgstr ""
+
+msgid "Meeting Calendar"
+msgstr ""
+
+msgid "Member PIN Code (6 digits)"
+msgstr "Code PIN du membre (6 chiffres)"
+
+msgid "Member Profile"
+msgstr "Profil du membre"
+
+msgid "Member promotion &amp; support"
+msgstr "Promotion et soutien des membres"
+
+msgid "Member suggestions"
+msgstr "Suggestions des membres"
+
+msgid "Members (30d)"
+msgstr "Membres (30j)"
+
+msgid "Members Portal"
+msgstr "Portail des membres"
+
+msgid "My Cabinet"
+msgstr "Mon espace"
+
+msgid "My Calendar"
+msgstr "Mon calendrier"
+
+msgid "My Posts"
+msgstr "Mes publications"
+
+msgid "My Profile"
+msgstr ""
+
+msgid "My Settings"
+msgstr ""
+
+msgid "My location"
+msgstr ""
+
+msgid "NEW POST"
+msgstr "NOUVEAU POST"
+
+msgid "NOTES"
+msgstr "NOTES"
+
+msgid "NOTES FOR MEMBER"
+msgstr "NOTES POUR LE MEMBRE"
+
+msgid "Name or username…"
+msgstr ""
+
+msgid "New Meeting"
+msgstr ""
+
+msgid "New Member"
+msgstr "Nouveau membre"
+
+msgid "Next Day"
+msgstr "Jour suivant"
+
+msgid "No Connection"
+msgstr ""
+
+msgid "No Internet Connection"
+msgstr ""
+
+msgid "No Telegram — notification will not be sent"
+msgstr ""
+
+msgid "No clients yet."
+msgstr ""
+
+msgid "No content yet"
+msgstr ""
+
+msgid "No data for the last 30 days"
+msgstr ""
+
+msgid "No invite links yet."
+msgstr ""
+
+msgid "No meetings on this day"
+msgstr ""
+
+msgid "No members found"
+msgstr "Aucun membre trouvé"
+
+msgid "No members found for"
+msgstr ""
+
+msgid "No partners with map coordinates yet"
+msgstr ""
+
+msgid "No posts found for your query"
+msgstr ""
+
+msgid "No results for \"{{ q }}\""
+msgstr ""
+
+msgid "No results found for \"{{ q }}\""
+msgstr ""
+
+msgid "No specific time"
+msgstr ""
+
+msgid "No upcoming meetings. Check back later!"
+msgstr ""
+
+msgid "No visits for the selected filters."
+msgstr ""
+
+msgid "No visits recorded for this member yet."
+msgstr ""
+
+msgid "No visits recorded yet. Visit a partner to see history here."
+msgstr ""
+
+msgid "No visits yet today."
+msgstr ""
+
+msgid "Not an image"
+msgstr ""
+
+msgid "Not connected"
+msgstr ""
+
+msgid "Not now"
+msgstr "Pas maintenant"
+
+msgid "Not yet issued — contact iesa@iesasport.ch"
+msgstr "Pas encore émise — contactez iesa@iesasport.ch"
+
+msgid ""
+"Notifications appear here when someone likes your post, comments, or follows"
+" you."
+msgstr ""
+
+msgid "Notify via Telegram & site"
+msgstr ""
+
+msgid "Nutrition / Dietology"
+msgstr ""
+
+msgid "OR SEARCH THE SITE"
+msgstr ""
+
+msgid "Oops! The page you are looking for does not exist or has been moved."
+msgstr ""
+
+msgid "Open date picker"
+msgstr ""
+
+msgid "Open full dashboard"
+msgstr ""
+
+msgid "Open in Telegram"
+msgstr "Ouvrir dans Telegram"
+
+msgid "Open the Telegram app"
+msgstr "Ouvrez l'application Telegram"
+
+msgid "Open the bot and press the «Start» button"
+msgstr "Ouvrez le bot et appuyez sur le bouton « Start »"
+
+msgid "Other (describe below)"
+msgstr ""
+
+msgid "Our Partners"
+msgstr ""
+
+msgid "Outdoor Activities / Hiking"
+msgstr ""
+
+msgid "Overview"
+msgstr "Aperçu"
+
+msgid "PARTNER PORTAL"
+msgstr ""
+
+msgid "PAST"
+msgstr "PASSÉ"
+
+msgid "PAST MEETINGS"
+msgstr ""
+
+msgid "PENDING"
+msgstr "EN ATTENTE"
+
+msgid "PHONE / WHATSAPP"
+msgstr ""
+
+msgid "PIN"
+msgstr "PIN"
+
+msgid "PIN & Card"
+msgstr "PIN & Carte"
+
+msgid "PIN & Membership Card"
+msgstr "PIN & Carte de membre"
+
+msgid "PIN renews automatically every 12 minutes"
+msgstr ""
+
+msgid "PIN verified"
+msgstr ""
+
+msgid "POPULAR"
+msgstr "POPULAIRES"
+
+msgid "POSTS"
+msgstr "PUBLICATIONS"
+
+msgid "PUBLISHED"
+msgstr "PUBLIÉ"
+
+msgid "Page {{ page }} of {{ total }}"
+msgstr ""
+
+msgid "Partner Map"
+msgstr ""
+
+msgid "Partner Portal"
+msgstr "Portail partenaire"
+
+msgid "Partner Registration"
+msgstr ""
+
+msgid "Partner navigation"
+msgstr ""
+
+msgid "Partner portal access request"
+msgstr ""
+
+msgid "Partner since"
+msgstr ""
+
+msgid "Partners ({{ count }})"
+msgstr ""
+
+msgid "Partners can add their address in their profile settings."
+msgstr ""
+
+msgid "Password"
+msgstr ""
+
+msgid "Passwords do not match"
+msgstr ""
+
+msgid "Passwords match"
+msgstr ""
+
+msgid "Pending verification"
+msgstr "En attente de vérification"
+
+msgid "Personal"
+msgstr ""
+
+msgid "Personal Trainer / Coach"
+msgstr ""
+
+msgid "Personal training, Consultation, Insurance review..."
+msgstr ""
+
+msgid "Personalise your profile"
+msgstr ""
+
+msgid "Photo added"
+msgstr ""
+
+msgid "Photos from events and activities will appear here as they are added."
+msgstr ""
+
+msgid "Physical Card"
+msgstr "Carte physique"
+
+msgid "Physiotherapy / Rehabilitation"
+msgstr ""
+
+msgid "Platform"
+msgstr "Plateforme"
+
+msgid "Please contact an administrator to receive a new invite."
+msgstr ""
+
+msgid "Please log out first before using an invite link."
+msgstr ""
+
+msgid "Please read carefully before proceeding"
+msgstr ""
+
+msgid "Points"
+msgstr "Points"
+
+msgid "Points add up every visit"
+msgstr ""
+
+msgid "Posts ({{ count }})"
+msgstr ""
+
+msgid "Posts, feed & community"
+msgstr "Publications, flux et communauté"
+
+msgid "Posts, users, events…"
+msgstr ""
+
+msgid "Preparation"
+msgstr ""
+
+msgid "Prev Day"
+msgstr ""
+
+msgid "Professional Coaching"
+msgstr ""
+
+msgid "Professional Services"
+msgstr ""
+
+msgid "Profile menu"
+msgstr "Menu profil"
+
+msgid "Psychology / Mental Health"
+msgstr ""
+
+msgid "QR code + unique ID for instant identification at partners"
+msgstr ""
+
+msgid "QUICK ACTIONS"
+msgstr "ACTIONS RAPIDES"
+
+msgid "QUICK VISIT LOG"
+msgstr ""
+
+msgid "Quick Visit Log"
+msgstr "Visite rapide"
+
+msgid "Quick actions"
+msgstr "Actions rapides"
+
+msgid "ROLE & ACTIVITY"
+msgstr ""
+
+msgid "Reading time"
+msgstr "Temps de lecture"
+
+msgid "Ready to get started?"
+msgstr ""
+
+msgid "Recent"
+msgstr "Récents"
+
+msgid "Recent Clients"
+msgstr ""
+
+msgid "Recurring / Long-term"
+msgstr ""
+
+msgid "Register & Get Your Card"
+msgstr ""
+
+msgid "Request a personal insurance agent through the portal"
+msgstr ""
+
+msgid "Requested:"
+msgstr ""
+
+msgid "Reset Filters"
+msgstr ""
+
+msgid "Restaurant / Cafe / Bar"
+msgstr ""
+
+msgid "Retail & Equipment"
+msgstr ""
+
+msgid "Revenue"
+msgstr "Revenus"
+
+msgid "Revenue (30d)"
+msgstr ""
+
+msgid "Revenue CHF — last 30 days"
+msgstr ""
+
+msgid "Review"
+msgstr "Examen"
+
+msgid "SCHEDULE A MEETING"
+msgstr ""
+
+msgid "SERIES LABEL"
+msgstr ""
+
+msgid "SERVICE"
+msgstr "SERVICE"
+
+msgid "START"
+msgstr "DÉBUT"
+
+msgid "STATUS"
+msgstr "STATUT"
+
+msgid "Saved"
+msgstr "Enregistré"
+
+msgid "Savings"
+msgstr "Économies"
+
+msgid "Saving…"
+msgstr "Enregistrement…"
+
+msgid "Scan at any partner for quick check-in"
+msgstr ""
+
+msgid "Scan at partner location"
+msgstr "Scannez chez un partenaire"
+
+msgid "Scan to open your public profile"
+msgstr "Scannez pour ouvrir votre profil public"
+
+msgid "Schedule Meeting"
+msgstr ""
+
+msgid "Schedule a new meeting"
+msgstr ""
+
+msgid "School / Educational Center"
+msgstr ""
+
+msgid "Search member"
+msgstr ""
+
+msgid "Search site"
+msgstr ""
+
+msgid "Section"
+msgstr "Section"
+
+msgid "Secure"
+msgstr "Sécurisé"
+
+msgid "Secure PIN"
+msgstr ""
+
+msgid "Secure registration"
+msgstr ""
+
+msgid "Seminar / Workshop Host"
+msgstr ""
+
+msgid "Send Appeal"
+msgstr ""
+
+msgid "Service Breakdown"
+msgstr ""
+
+msgid "Service Types — all time"
+msgstr ""
+
+msgid "Services"
+msgstr ""
+
+msgid "Session Expired"
+msgstr ""
+
+msgid "Set"
+msgstr "Définir"
+
+msgid "Settings"
+msgstr "Paramètres"
+
+msgid "Settings & links"
+msgstr "Paramètres et liens"
+
+msgid "Share with the community"
+msgstr ""
+
+msgid "Show"
+msgstr "Afficher"
+
+msgid "Show QR Code"
+msgstr "Afficher QR"
+
+msgid "Show my location"
+msgstr ""
+
+msgid "Show steps"
+msgstr "Afficher les étapes"
+
+msgid "Show your PIN at partner locations to log your visit"
+msgstr ""
+
+msgid ""
+"Sign in and connect with the IESA community — posts, events, benefits and "
+"more."
+msgstr ""
+"Connectez-vous à la communauté IESA — publications, événements, avantages et"
+" plus."
+
+msgid "Sign out"
+msgstr "Déconnexion"
+
+msgid ""
+"Sign up in seconds — no credit card, no fees. You instantly receive a "
+"digital membership card with a unique QR code and permanent ID."
+msgstr ""
+
+msgid "Skip for now"
+msgstr "Passer"
+
+msgid "Some pages may be available from cache."
+msgstr ""
+
+msgid "Something went wrong on our side. We are already working to fix it."
+msgstr ""
+
+msgid "Sports & Fitness"
+msgstr ""
+
+msgid "Sports Clothing / Gear"
+msgstr ""
+
+msgid "Sports Club / Team"
+msgstr ""
+
+msgid "Sports Equipment Shop"
+msgstr ""
+
+msgid "Sports Gear"
+msgstr ""
+
+msgid "Sports Supplements / Nutrition"
+msgstr ""
+
+msgid ""
+"Start logging visits and within a few days the analytics will fill with "
+"insights."
+msgstr ""
+
+msgid "Start typing name or username…"
+msgstr ""
+
+msgid "Strategic <span>Partners</span>"
+msgstr ""
+
+msgid "Street, city..."
+msgstr ""
+
+msgid "Strong"
+msgstr "Fort"
+
+msgid "Subscribe to {{ username }}'s blog"
+msgstr ""
+
+msgid "Swimming Pool / Aquatics"
+msgstr ""
+
+msgid "Swipe down to close"
+msgstr "Glissez vers le bas pour fermer"
+
+msgid "TELEGRAM"
+msgstr ""
+
+msgid "TOTAL"
+msgstr "TOTAL"
+
+msgid "TRENDING"
+msgstr "TENDANCES"
+
+msgid "Takes about 1 minute"
+msgstr ""
+
+msgid "Telegram @username"
+msgstr ""
+
+msgid "Telegram connected"
+msgstr ""
+
+msgid "Telegram linked"
+msgstr ""
+
+msgid ""
+"Thank you. The administration will review your request and contact you by "
+"e-mail."
+msgstr ""
+
+msgid "The code is valid for 10 minutes and can only be used once."
+msgstr "Le code est valide 10 minutes et ne peut être utilisé qu'une fois."
+
+msgid "The page you are looking for does not exist or has been moved."
+msgstr ""
+
+msgid "Think this is a mistake?"
+msgstr ""
+
+msgid ""
+"This action cannot be undone. The member will be notified via Telegram."
+msgstr ""
+
+msgid "This action requires your password to confirm"
+msgstr ""
+
+msgid "This email is already registered"
+msgstr ""
+
+msgid "This month"
+msgstr ""
+
+msgid "This person might not be a member yet."
+msgstr ""
+
+msgid ""
+"This section is available exclusively for certified IESA partner businesses."
+msgstr ""
+
+msgid "This section is exclusively for certified IESA partner businesses."
+msgstr ""
+
+msgid "Time TBD"
+msgstr ""
+
+msgid "Time-based 6-digit code, refreshes every 12 minutes"
+msgstr ""
+
+msgid "To {{ level }}:"
+msgstr ""
+
+msgid "Today CHF"
+msgstr ""
+
+msgid "Today's Visits"
+msgstr ""
+
+msgid "Today's visits"
+msgstr ""
+
+msgid "Toggle password visibility"
+msgstr "Afficher/masquer le mot de passe"
+
+msgid "Toggle theme"
+msgstr "Changer de thème"
+
+msgid "Tomorrow"
+msgstr ""
+
+msgid "Too weak"
+msgstr ""
+
+msgid "Top Members"
+msgstr ""
+
+msgid "Total"
+msgstr "Total"
+
+msgid "Total visits"
+msgstr ""
+
+msgid "Travel & Outdoor"
+msgstr ""
+
+msgid "Travel / Tourism / Adventure"
+msgstr ""
+
+msgid "Try a different keyword or remove the filters."
+msgstr ""
+
+msgid "Try again"
+msgstr ""
+
+msgid "Try changing your search query \"{{ query }}\""
+msgstr ""
+
+msgid "UPCOMING"
+msgstr ""
+
+msgid "UPCOMING MEETINGS"
+msgstr ""
+
+msgid "Unique clients"
+msgstr ""
+
+msgid "Unique trips &amp; experiences"
+msgstr ""
+
+msgid "Unlike"
+msgstr "Je n'aime plus"
+
+msgid "Upload Photos"
+msgstr ""
+
+msgid "Upload avatar"
+msgstr ""
+
+msgid "Upload photos from events or projects to showcase the community."
+msgstr ""
+
+msgid "Username"
+msgstr "Nom d'utilisateur"
+
+msgid "Username already taken"
+msgstr ""
+
+msgid "Username must be at least 3 characters"
+msgstr ""
+
+msgid "Users ({{ count }})"
+msgstr ""
+
+msgid "VISITS"
+msgstr "VISITES"
+
+msgid "Verification request"
+msgstr ""
+
+msgid "Verified (30d)"
+msgstr ""
+
+msgid "Very strong"
+msgstr ""
+
+msgid "Visit History"
+msgstr "Historique des visites"
+
+msgid "Visit Profile"
+msgstr ""
+
+msgid "Visit a Partner"
+msgstr ""
+
+msgid "Visit history"
+msgstr ""
+
+msgid "Visits & analytics"
+msgstr "Visites et analytique"
+
+msgid "Visits (30d)"
+msgstr ""
+
+msgid ""
+"Want to become an IESA partner or association staff? Submit a request — "
+"we'll review and contact you shortly."
+msgstr ""
+
+msgid "Warning: this member's membership is currently inactive/expired."
+msgstr ""
+
+msgid "Was edited after logging"
+msgstr ""
+
+msgid "Water Sports / Diving / Surfing"
+msgstr ""
+
+msgid ""
+"We organize competitions that strengthen the role of sport in people's "
+"lives."
+msgstr ""
+
+msgid "Welcome"
+msgstr "Bienvenue"
+
+msgid "Welcome to IESA Sport!"
+msgstr ""
+
+msgid "What you get as a member"
+msgstr ""
+
+msgid "Winter Sports / Ski"
+msgstr ""
+
+msgid "Write Post"
+msgstr "Écrire un post"
+
+msgid "Write a post"
+msgstr ""
+
+msgid "Write first post"
+msgstr ""
+
+msgid "YOUR MEMBERSHIP QR"
+msgstr "VOTRE QR MEMBRE"
+
+msgid "Yoga / Pilates Studio"
+msgstr ""
+
+msgid ""
+"You applied for <strong>{{ dtype }}</strong> status. We will contact you "
+"soon."
+msgstr ""
+
+msgid "You are already logged in"
+msgstr ""
+
+msgid "You are here"
+msgstr ""
+
+msgid "You have been invited to join IESA as a partner."
+msgstr ""
+
+msgid "You have unsaved content. Leave anyway?"
+msgstr ""
+
+msgid "You haven't written any posts yet."
+msgstr ""
+
+msgid ""
+"You're now part of Switzerland's sports community. Here's how to get the "
+"most out of your membership:"
+msgstr ""
+
+msgid "You've read all your notifications. New ones will appear here."
+msgstr ""
+
+msgid "Your"
+msgstr "Votre"
+
+msgid "Your QR Card"
+msgstr "Votre carte QR"
+
+msgid "Your account does not currently have partner access."
+msgstr ""
+
+msgid "Your account does not have partner access."
+msgstr ""
+
+msgid "Your digital membership card gives access to partner benefits"
+msgstr ""
+
+msgid "Your first shot goes here"
+msgstr ""
+
+msgid "Your name"
+msgstr ""
+
+msgid "Your phone stays private"
+msgstr ""
+
+msgid "Your session has expired. Please log in again to continue."
+msgstr ""
+
+msgid "Your upcoming meetings and scheduled sessions"
+msgstr ""
+
+msgid ""
+"Your visit is logged instantly. Earn activity points, unlock achievement "
+"levels, and access member-only discounts and privileges at all partner "
+"locations."
+msgstr ""
+
+msgid "Z→A"
+msgstr "Z→A"
+
+msgid "all time"
+msgstr ""
+
+msgid "cancel"
+msgstr "annuler"
+
+msgid "characters"
+msgstr ""
+
+msgid "complete"
+msgstr "complété"
+
+msgid "e.g. Insurance case #123, Rehab Q1"
+msgstr ""
+
+msgid "e.g. johndoe"
+msgstr ""
+
+msgid "eSports / Gaming"
+msgstr ""
+
+msgid "edit"
+msgstr "modifier"
+
+msgid "just now"
+msgstr ""
+
+msgid "last"
+msgstr "derniers"
+
+msgid "last 20"
+msgstr "20 derniers"
+
+msgid "last 30 days"
+msgstr ""
+
+msgid "last 90 days"
+msgstr ""
+
+msgid "logged amount"
+msgstr ""
+
+msgid "meetings"
+msgstr ""
+
+msgid "membership, explained"
+msgstr ""
+
+msgid "min ago"
+msgstr "min plus tôt"
+
+msgid "min read"
+msgstr "min de lecture"
+
+msgid "more replies"
+msgstr ""
+
+msgid "next"
+msgstr "suivant"
+
+msgid "number"
+msgstr "chiffre"
+
+msgid "optional"
+msgstr ""
+
+msgid "photos"
+msgstr "photos"
+
+msgid "prev"
+msgstr "précédent"
+
+msgid "pts"
+msgstr "pts"
+
+msgid "result(s)"
+msgstr ""
+
+msgid "special char"
+msgstr ""
+
+msgid "steps"
+msgstr "étapes"
+
+msgid "total"
+msgstr "total"
+
+msgid "type to search..."
+msgstr "tapez pour rechercher..."
+
+msgid "unique"
+msgstr "unique"
+
+msgid "uppercase"
+msgstr ""
+
+msgid "visit(s)"
+msgstr ""
+
+msgid "words"
+msgstr "mots"
+
+msgid "years"
+msgstr "ans"
+
+msgid "your area"
+msgstr ""
+
+msgid "{{ min_age }}–{{ max_age }}"
+msgstr ""
+
+msgid "{{ name }} · {{ level }} · IESA Sport Member"
+msgstr ""
+
+msgid "Автомобиль"
+msgstr ""
+
+msgid "Бизнес"
+msgstr ""
+
+msgid "Быстрый отклик"
+msgstr ""
+
+msgid "Ваша заявка принята"
+msgstr ""
+
+msgid "Вы также можете подать заявку через наш бот:"
+msgstr ""
+
+msgid "Город / Регион"
+msgstr ""
+
+msgid "Данные защищены и не передаются третьим лицам"
+msgstr ""
+
+msgid "Дополнительно"
+msgstr ""
+
+msgid "Другое"
+msgstr ""
+
+msgid "Заявка подана"
+msgstr ""
+
+msgid "Заявка через Telegram"
+msgstr ""
+
+msgid "Здоровье и жизнь"
+msgstr ""
+
+msgid "Имущество"
+msgstr ""
+
+msgid "Консультация"
+msgstr ""
+
+msgid "Контактные данные"
+msgstr ""
+
+msgid "Конфиденциально"
+msgstr ""
+
+msgid "Личный агент"
+msgstr ""
+
+msgid ""
+"Мы подберём для вас личного страхового агента — специалиста, который поможет"
+" защитить ваше здоровье, спортивную карьеру и финансовое будущее."
+msgstr ""
+
+msgid "Наш менеджер обрабатывает её и скоро свяжется с вами."
+msgstr ""
+
+msgid "Нужен агент"
+msgstr ""
+
+msgid "Один специалист ведёт вас от начала до конца"
+msgstr ""
+
+msgid "Ответим в течение 24 часов после заявки"
+msgstr ""
+
+msgid "Отправить заявку"
+msgstr ""
+
+msgid "Пенсионное/накопительное"
+msgstr ""
+
+msgid "Подать заявку"
+msgstr ""
+
+msgid "Полное имя *"
+msgstr ""
+
+msgid "Понимаем потребности спортсменов и тренеров"
+msgstr ""
+
+msgid "Путешествия"
+msgstr ""
+
+msgid "Расскажите подробнее о вашей ситуации, пожеланиях или вопросах..."
+msgstr ""
+
+msgid "Смена агента"
+msgstr ""
+
+msgid "Спортивная специализация"
+msgstr ""
+
+msgid "Спортивное"
+msgstr ""
+
+msgid "Страховой агент IESA"
+msgstr ""
+
+msgid "Страховой агент — IESA"
+msgstr ""
+
+msgid "Тип заявки"
+msgstr ""
+
+msgid "Что вас интересует?"
+msgstr ""
+
+msgid "напишите"
+msgstr ""
 
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Le sport extrême comme manière de penser et de vivre"

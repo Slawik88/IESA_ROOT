@@ -184,3 +184,27 @@ def partners_map_data(request):
 def component_playground(request):
     """10b: Design system component playground — только для staff."""
     return render(request, 'core/components.html')
+
+
+@user_passes_test(lambda u: u.is_staff)
+def styleguide_md(request):
+    """BLOCK 11a (audit v3): отдаём STYLEGUIDE.md из корня репо как text/markdown.
+    Файл живёт вне статики (он dev-док), поэтому Django не обслуживает его автоматически.
+    Доступ только для staff."""
+    import os
+    from django.conf import settings
+    # BASE_DIR = .../IESA_ROOT/IESA_ROOT; STYLEGUIDE.md в g:/IESA_ROOT/STYLEGUIDE.md
+    candidates = [
+        os.path.join(os.path.dirname(settings.BASE_DIR), 'STYLEGUIDE.md'),
+        os.path.join(settings.BASE_DIR, 'STYLEGUIDE.md'),
+        os.path.join(os.path.dirname(os.path.dirname(settings.BASE_DIR)), 'STYLEGUIDE.md'),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                return HttpResponse(content, content_type='text/markdown; charset=utf-8')
+            except OSError:
+                continue
+    return HttpResponse('STYLEGUIDE.md not found on server.', status=404, content_type='text/plain')

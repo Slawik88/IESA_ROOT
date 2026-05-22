@@ -92,6 +92,9 @@ urlpatterns = [
 
     # Favicon
     path('favicon.ico', RedirectView.as_view(url=static_static('img/favicon.png'), permanent=True)),
+
+    # BLOCK 11a (audit v3): /STYLEGUIDE.md → редирект на staff-protected view
+    path('STYLEGUIDE.md', RedirectView.as_view(url='/dev/STYLEGUIDE.md', permanent=False)),
 ]
 
 if settings.DEBUG:
