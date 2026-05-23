@@ -1239,12 +1239,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (!form) return;
 
-  /* ── Счётчик символов ── */
+  /* ── Счётчик символов (BLOCK 1 audit v4: убран minimum 50) ── */
   if (textarea && counter) {
     textarea.addEventListener('input', function () {
-      counter.textContent = textarea.value.length;
-      counter.style.color = textarea.value.length >= 50
-        ? 'rgba(34,197,94,.8)' : 'rgba(255,255,255,.25)';
+      var len = textarea.value.length;
+      counter.textContent = len;
+      counter.style.color = len > 0 ? 'rgba(34,197,94,.8)' : 'rgba(255,255,255,.25)';
     });
   }
 

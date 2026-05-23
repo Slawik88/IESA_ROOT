@@ -407,6 +407,121 @@ KNOWN: dict[str, dict[str, str]] = {
     'Contact administrator to activate your account.':{'uk':'Зв\'яжіться з адміністратором для активації акаунта.','fr':'Contactez l\'administrateur pour activer votre compte.','de':'Wenden Sie sich an den Administrator, um Ihr Konto zu aktivieren.'},
     'Physical Card':    {'uk':'Фізична карта',       'fr':'Carte physique',  'de':'Physische Karte'},
     'Active — issued':  {'uk':'Активна — видана',    'fr':'Active — émise',  'de':'Aktiv — ausgestellt'},
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # BLOCK 1 (audit v4): расширенный placeholder для ACR description
+    # ──────────────────────────────────────────────────────────────────────────
+    'Describe your activity and why you want to join IESA. You can also add extra contacts for feedback (Telegram, WhatsApp, work email), specialization, experience — anything that will help us process your application faster.': {
+        'uk': "Опишіть свою діяльність та чому хочете приєднатися до IESA. Можете додати додаткові контакти для зворотного зв'язку (Telegram, WhatsApp, робочий email), спеціалізацію, досвід — усе, що допоможе нам швидше обробити заявку.",
+        'fr': "Décrivez votre activité et pourquoi vous souhaitez rejoindre IESA. Vous pouvez également ajouter des contacts supplémentaires pour le retour (Telegram, WhatsApp, e-mail professionnel), votre spécialisation, votre expérience — tout ce qui nous aidera à traiter votre demande plus rapidement.",
+        'de': "Beschreiben Sie Ihre Tätigkeit und warum Sie IESA beitreten möchten. Sie können auch zusätzliche Kontakte für Rückmeldungen (Telegram, WhatsApp, Arbeits-E-Mail), Spezialisierung, Erfahrung hinzufügen — alles, was uns hilft, Ihren Antrag schneller zu bearbeiten.",
+    },
+    'chars': {'uk':'символів', 'fr':'caractères', 'de':'Zeichen'},
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # BLOCK 2 (audit v4): BUSINESS CATEGORY — 9 групп + 40+ опций
+    # ──────────────────────────────────────────────────────────────────────────
+    # Группы
+    'Sports & Fitness':              {'uk':'Спорт і фітнес',            'fr':'Sports et fitness',         'de':'Sport & Fitness'},
+    'Health & Wellness':             {'uk':"Здоров'я та велнес",        'fr':'Santé et bien-être',        'de':'Gesundheit & Wellness'},
+    'Insurance & Financial Services':{'uk':'Страхування та фінансові послуги','fr':'Assurance et services financiers','de':'Versicherung & Finanzdienstleistungen'},
+    'Retail & Equipment':            {'uk':'Роздрібна торгівля та обладнання','fr':'Commerce et équipement','de':'Einzelhandel & Ausrüstung'},
+    'Professional Services':         {'uk':'Професійні послуги',        'fr':'Services professionnels',   'de':'Professionelle Dienstleistungen'},
+    'Education & Events':            {'uk':'Освіта та події',           'fr':'Éducation et événements',   'de':'Bildung & Veranstaltungen'},
+    'Travel & Outdoor':              {'uk':'Подорожі та активний відпочинок','fr':'Voyages et plein air','de':'Reisen & Outdoor'},
+    'Food & Hospitality':            {'uk':'Харчування та гостинність', 'fr':'Restauration et hospitalité','de':'Gastronomie & Gastgewerbe'},
+    'Other':                         {'uk':'Інше',                      'fr':'Autre',                     'de':'Sonstiges'},
+
+    # Опции — Sports & Fitness
+    'Gym / Fitness Center':          {'uk':'Спортзал / Фітнес-центр',   'fr':'Salle de sport / Centre de fitness','de':'Fitnessstudio / Fitnesscenter'},
+    'Martial Arts School':           {'uk':'Школа бойових мистецтв',    'fr':"École d'arts martiaux",     'de':'Kampfsportschule'},
+    'Yoga / Pilates Studio':         {'uk':'Студія йоги / пілатесу',    'fr':'Studio de yoga / pilates',  'de':'Yoga- / Pilates-Studio'},
+    'Swimming Pool / Aquatics':      {'uk':'Басейн / Водні види спорту','fr':'Piscine / Sports aquatiques','de':'Schwimmbad / Wassersport'},
+    'CrossFit / Functional Training':{'uk':'Кросфіт / Функціональний тренінг','fr':'CrossFit / Entraînement fonctionnel','de':'CrossFit / Funktionelles Training'},
+    'Cycling / Indoor Cycling':      {'uk':'Велоспорт / Велотренажери', 'fr':'Cyclisme / Cyclisme indoor','de':'Radsport / Indoor Cycling'},
+    'Dance School':                  {'uk':'Школа танців',              'fr':'École de danse',            'de':'Tanzschule'},
+    'Climbing / Boulder':            {'uk':'Скелелазіння / Болдер',     'fr':'Escalade / Bloc',           'de':'Klettern / Bouldern'},
+    'Sports Club / Team':            {'uk':'Спортивний клуб / Команда', 'fr':'Club / Équipe sportive',    'de':'Sportverein / Mannschaft'},
+    'Personal Trainer / Coach':      {'uk':'Персональний тренер',       'fr':'Coach personnel',           'de':'Personal Trainer / Coach'},
+
+    # Опции — Health & Wellness
+    'Physiotherapy / Rehabilitation':{'uk':'Фізіотерапія / Реабілітація','fr':'Physiothérapie / Réadaptation','de':'Physiotherapie / Rehabilitation'},
+    'Massage / SPA / Wellness':      {'uk':'Масаж / СПА / Велнес',      'fr':'Massage / SPA / Bien-être', 'de':'Massage / SPA / Wellness'},
+    'Nutrition / Dietology':         {'uk':'Харчування / Дієтологія',   'fr':'Nutrition / Diététique',    'de':'Ernährung / Diätologie'},
+    'Medical / Healthcare':          {'uk':"Медицина / Охорона здоров'я",'fr':'Médical / Santé',          'de':'Medizin / Gesundheitswesen'},
+    'Psychology / Mental Health':    {'uk':"Психологія / Психічне здоров'я",'fr':'Psychologie / Santé mentale','de':'Psychologie / Psychische Gesundheit'},
+    'Chiropractic / Manual Therapy': {'uk':'Хіропрактика / Мануальна терапія','fr':'Chiropratique / Thérapie manuelle','de':'Chiropraktik / Manuelle Therapie'},
+
+    # Опции — Insurance & Financial Services
+    'Insurance Agent / Broker':      {'uk':'Страховий агент / Брокер',  'fr':"Agent d'assurance / Courtier",'de':'Versicherungsagent / Makler'},
+    'Bank / Banking Services':       {'uk':'Банк / Банківські послуги', 'fr':'Banque / Services bancaires','de':'Bank / Bankdienstleistungen'},
+    'Financial Advisor':             {'uk':'Фінансовий консультант',    'fr':'Conseiller financier',      'de':'Finanzberater'},
+
+    # Опции — Retail & Equipment
+    'Sports Equipment Shop':         {'uk':'Магазин спортивного інвентарю','fr':"Magasin d'équipement sportif",'de':'Sportgeschäft'},
+    'Sports Clothing / Gear':        {'uk':'Спортивний одяг / Спорядження','fr':'Vêtements de sport / Équipement','de':'Sportbekleidung / Ausrüstung'},
+    'Sports Supplements / Nutrition':{'uk':'Спортивне харчування',      'fr':'Compléments sportifs / Nutrition','de':'Sportergänzungen / Ernährung'},
+    'Bike Shop / Service':           {'uk':'Веломагазин / Сервіс',      'fr':'Magasin de vélos / Service','de':'Fahrradgeschäft / Service'},
+
+    # Опции — Professional Services
+    'Legal Services / Lawyer':       {'uk':'Юридичні послуги / Адвокат','fr':'Services juridiques / Avocat','de':'Rechtsdienstleistungen / Anwalt'},
+    'Accounting / Finance':          {'uk':'Бухгалтерія / Фінанси',     'fr':'Comptabilité / Finance',    'de':'Buchhaltung / Finanzen'},
+    'Business Consulting':           {'uk':'Бізнес-консалтинг',         'fr':'Conseil en affaires',       'de':'Unternehmensberatung'},
+    'Marketing / PR / Design':       {'uk':'Маркетинг / PR / Дизайн',   'fr':'Marketing / RP / Design',   'de':'Marketing / PR / Design'},
+    'IT / Technology / Software':    {'uk':'IT / Технології / ПЗ',      'fr':'IT / Technologie / Logiciel','de':'IT / Technologie / Software'},
+
+    # Опции — Education & Events
+    'Professional Coaching':         {'uk':'Професійний коучинг',       'fr':'Coaching professionnel',    'de':'Professionelles Coaching'},
+    'School / Educational Center':   {'uk':'Школа / Освітній центр',    'fr':'École / Centre éducatif',   'de':'Schule / Bildungszentrum'},
+    'Event Organization':            {'uk':'Організація подій',         'fr':"Organisation d'événements", 'de':'Veranstaltungsorganisation'},
+    'Seminar / Workshop Host':       {'uk':'Семінари / Майстер-класи',  'fr':'Hôte de séminaires / ateliers','de':'Seminar- / Workshop-Veranstalter'},
+
+    # Опции — Travel & Outdoor
+    'Travel / Tourism / Adventure':  {'uk':'Подорожі / Туризм / Пригоди','fr':'Voyages / Tourisme / Aventure','de':'Reisen / Tourismus / Abenteuer'},
+    'Outdoor Activities / Hiking':   {'uk':'Активний відпочинок / Походи','fr':'Activités plein air / Randonnée','de':'Outdoor-Aktivitäten / Wandern'},
+    'Water Sports / Diving / Surfing':{'uk':'Водні види спорту / Дайвінг / Серфінг','fr':'Sports nautiques / Plongée / Surf','de':'Wassersport / Tauchen / Surfen'},
+    'Winter Sports / Ski':           {'uk':'Зимові види спорту / Лижі', 'fr':"Sports d'hiver / Ski",      'de':'Wintersport / Ski'},
+
+    # Опции — Food & Hospitality
+    'Restaurant / Cafe / Bar':       {'uk':'Ресторан / Кафе / Бар',     'fr':'Restaurant / Café / Bar',   'de':'Restaurant / Café / Bar'},
+    'Healthy Food / Catering':       {'uk':'Здорове харчування / Кейтеринг','fr':'Alimentation saine / Traiteur','de':'Gesunde Ernährung / Catering'},
+    'Hotel / Accommodation':         {'uk':'Готель / Розміщення',       'fr':'Hôtel / Hébergement',       'de':'Hotel / Unterkunft'},
+
+    # Опции — Other
+    'Media / Content / Photography': {'uk':'Медіа / Контент / Фото',    'fr':'Médias / Contenu / Photographie','de':'Medien / Content / Fotografie'},
+    'eSports / Gaming':              {'uk':'Кіберспорт / Геймінг',      'fr':'eSports / Jeux',            'de':'eSports / Gaming'},
+    'Other (describe below)':        {'uk':'Інше (опишіть нижче)',      'fr':'Autre (décrire ci-dessous)','de':'Sonstiges (unten beschreiben)'},
+
+    # Связанные ACR метки
+    'BUSINESS CATEGORY':             {'uk':'КАТЕГОРІЯ БІЗНЕСУ',         'fr':"CATÉGORIE D'ACTIVITÉ",      'de':'GESCHÄFTSKATEGORIE'},
+    'your area':                     {'uk':'ваша сфера',                'fr':'votre domaine',             'de':'Ihr Bereich'},
+    'choose':                        {'uk':'оберіть',                   'fr':'choisir',                   'de':'wählen'},
+    'External Partner':              {'uk':'Зовнішній партнер',         'fr':'Partenaire externe',        'de':'Externer Partner'},
+    'Association Staff':             {'uk':'Співробітник асоціації',    'fr':"Personnel de l'association",'de':'Vereinsmitarbeiter'},
+    'DESCRIPTION OF ACTIVITY':       {'uk':'ОПИС ДІЯЛЬНОСТІ',           'fr':"DESCRIPTION DE L'ACTIVITÉ", 'de':'TÄTIGKEITSBESCHREIBUNG'},
+    'CONTACT DETAILS':               {'uk':'КОНТАКТНІ ДАНІ',            'fr':'COORDONNÉES',               'de':'KONTAKTDATEN'},
+    'FULL NAME':                     {'uk':"ПОВНЕ ІМ'Я",                'fr':'NOM COMPLET',               'de':'VOLLSTÄNDIGER NAME'},
+    'PHONE / WHATSAPP':              {'uk':'ТЕЛЕФОН / WHATSAPP',        'fr':'TÉLÉPHONE / WHATSAPP',      'de':'TELEFON / WHATSAPP'},
+    'TELEGRAM':                      {'uk':'TELEGRAM',                  'fr':'TELEGRAM',                  'de':'TELEGRAM'},
+    'ADDRESS / LOCATION':            {'uk':'АДРЕСА / МІСЦЕЗНАХОДЖЕННЯ', 'fr':'ADRESSE / LOCALISATION',    'de':'ADRESSE / STANDORT'},
+    'City, street, or region where you operate':{
+        'uk':'Місто, вулиця або регіон роботи',
+        'fr':'Ville, rue ou région où vous opérez',
+        'de':'Stadt, Straße oder Region, in der Sie tätig sind',
+    },
+    'Submit Request':                {'uk':'Надіслати заявку',          'fr':'Envoyer la demande',        'de':'Antrag senden'},
+    'Submitting...':                 {'uk':'Надсилається...',           'fr':'Envoi en cours...',         'de':'Wird gesendet...'},
+    'Request submitted!':            {'uk':'Заявку надіслано!',         'fr':'Demande envoyée !',         'de':'Antrag gesendet!'},
+    'We will review your application and contact you via email or Telegram.':{
+        'uk':"Ми розглянемо вашу заявку та зв'яжемося з вами електронною поштою або в Telegram.",
+        'fr':'Nous examinerons votre demande et vous contacterons par e-mail ou Telegram.',
+        'de':'Wir prüfen Ihren Antrag und kontaktieren Sie per E-Mail oder Telegram.',
+    },
+    'Network error. Please try again.':{
+        'uk':'Помилка мережі. Спробуйте ще раз.',
+        'fr':'Erreur réseau. Veuillez réessayer.',
+        'de':'Netzwerkfehler. Bitte erneut versuchen.',
+    },
 }
 
 

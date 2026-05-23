@@ -3536,7 +3536,7 @@ msgid "ADDRESS"
 msgstr "ADRESSE"
 
 msgid "ADDRESS / LOCATION"
-msgstr ""
+msgstr "ADRESSE / STANDORT"
 
 msgid "ADMIN PANEL"
 msgstr ""
@@ -3572,7 +3572,7 @@ msgid "Account Info"
 msgstr "Konto-Info"
 
 msgid "Accounting / Finance"
-msgstr ""
+msgstr "Buchhaltung / Finanzen"
 
 msgid "Active — issued"
 msgstr "Aktiv — ausgestellt"
@@ -3628,7 +3628,7 @@ msgstr ""
 "anzuzeigen"
 
 msgid "Association Staff"
-msgstr ""
+msgstr "Vereinsmitarbeiter"
 
 msgid "At least 3 characters"
 msgstr ""
@@ -3643,7 +3643,7 @@ msgid "BLOG"
 msgstr "BLOG"
 
 msgid "BUSINESS CATEGORY"
-msgstr ""
+msgstr "GESCHÄFTSKATEGORIE"
 
 msgid "Back"
 msgstr "Zurück"
@@ -3658,7 +3658,7 @@ msgid "Back to profile"
 msgstr "Zurück zum Profil"
 
 msgid "Bike Shop / Service"
-msgstr ""
+msgstr "Fahrradgeschäft / Service"
 
 msgid "Blog"
 msgstr "Blog"
@@ -3673,10 +3673,10 @@ msgid "Breadcrumb"
 msgstr "Breadcrumb"
 
 msgid "Business Consulting"
-msgstr ""
+msgstr "Unternehmensberatung"
 
 msgid "CONTACT DETAILS"
-msgstr ""
+msgstr "KONTAKTDATEN"
 
 msgid "Cabinet navigation"
 msgstr ""
@@ -3706,10 +3706,10 @@ msgid "Chess &amp; strategic thinking"
 msgstr ""
 
 msgid "Chiropractic / Manual Therapy"
-msgstr ""
+msgstr "Chiropraktik / Manuelle Therapie"
 
 msgid "City, street, or region where you operate"
-msgstr ""
+msgstr "Stadt, Straße oder Region, in der Sie tätig sind"
 
 msgid "Clear history"
 msgstr ""
@@ -3721,7 +3721,7 @@ msgid "Client notes"
 msgstr ""
 
 msgid "Climbing / Boulder"
-msgstr ""
+msgstr "Klettern / Bouldern"
 
 msgid "Collapse"
 msgstr "Einklappen"
@@ -3766,10 +3766,10 @@ msgid "Create your account and become part of IESA."
 msgstr "Erstellen Sie Ihr Konto und werden Sie Teil von IESA."
 
 msgid "CrossFit / Functional Training"
-msgstr ""
+msgstr "CrossFit / Funktionelles Training"
 
 msgid "Cycling / Indoor Cycling"
-msgstr ""
+msgstr "Radsport / Indoor Cycling"
 
 msgid "DATE"
 msgstr "DATUM"
@@ -3781,13 +3781,13 @@ msgid "DATE ↓"
 msgstr "DATUM ↓"
 
 msgid "DESCRIPTION OF ACTIVITY"
-msgstr ""
+msgstr "TÄTIGKEITSBESCHREIBUNG"
 
 msgid "Daily Visits — last 30 days"
 msgstr ""
 
 msgid "Dance School"
-msgstr ""
+msgstr "Tanzschule"
 
 msgid "Dashboard"
 msgstr "Dashboard"
@@ -3851,7 +3851,7 @@ msgid "Earn points for posts, likes, comments and visits"
 msgstr ""
 
 msgid "Education & Events"
-msgstr ""
+msgstr "Bildung & Veranstaltungen"
 
 msgid "Email IESA"
 msgstr "E-Mail IESA"
@@ -3869,7 +3869,7 @@ msgid "Equipment"
 msgstr ""
 
 msgid "Event Organization"
-msgstr ""
+msgstr "Veranstaltungsorganisation"
 
 msgid "Event creation &amp; management"
 msgstr ""
@@ -3896,7 +3896,7 @@ msgid "FILTERS"
 msgstr "FILTER"
 
 msgid "FULL NAME"
-msgstr ""
+msgstr "VOLLSTÄNDIGER NAME"
 
 msgid "Fair"
 msgstr "Mittel"
@@ -3923,7 +3923,7 @@ msgid "Find and visit a partner"
 msgstr ""
 
 msgid "Food & Hospitality"
-msgstr ""
+msgstr "Gastronomie & Gastgewerbe"
 
 msgid "Form sections"
 msgstr ""
@@ -3977,19 +3977,19 @@ msgid "Go to my profile"
 msgstr ""
 
 msgid "Gym / Fitness Center"
-msgstr ""
+msgstr "Fitnessstudio / Fitnesscenter"
 
 msgid "Health & Wellness"
-msgstr ""
+msgstr "Gesundheit & Wellness"
 
 msgid "Health &amp; wellbeing for all"
 msgstr ""
 
 msgid "Healthy Food / Catering"
-msgstr ""
+msgstr "Gesunde Ernährung / Catering"
 
 msgid "Hotel / Accommodation"
-msgstr ""
+msgstr "Hotel / Unterkunft"
 
 msgid "How It Works"
 msgstr ""
@@ -4007,7 +4007,7 @@ msgid "IESA — it's more than sport."
 msgstr ""
 
 msgid "IT / Technology / Software"
-msgstr ""
+msgstr "IT / Technologie / Software"
 
 msgid ""
 "If you believe you should have partner access — fill in the appeal form "
@@ -4095,7 +4095,7 @@ msgid "Learn how everything works"
 msgstr ""
 
 msgid "Legal Services / Lawyer"
-msgstr ""
+msgstr "Rechtsdienstleistungen / Anwalt"
 
 msgid "Let's get started!"
 msgstr ""
@@ -4148,19 +4148,19 @@ msgid "MEMBER / CLIENT"
 msgstr "MITGLIED / KUNDE"
 
 msgid "Marketing / PR / Design"
-msgstr ""
+msgstr "Marketing / PR / Design"
 
 msgid "Martial Arts School"
-msgstr ""
+msgstr "Kampfsportschule"
 
 msgid "Massage / SPA / Wellness"
-msgstr ""
+msgstr "Massage / SPA / Wellness"
 
 msgid "Media / Content / Photography"
-msgstr ""
+msgstr "Medien / Content / Fotografie"
 
 msgid "Medical / Healthcare"
-msgstr ""
+msgstr "Medizin / Gesundheitswesen"
 
 msgid "Meeting Calendar"
 msgstr ""
@@ -4303,7 +4303,7 @@ msgid "Notify via Telegram & site"
 msgstr ""
 
 msgid "Nutrition / Dietology"
-msgstr ""
+msgstr "Ernährung / Diätologie"
 
 msgid "OR SEARCH THE SITE"
 msgstr ""
@@ -4327,13 +4327,13 @@ msgid "Open the bot and press the «Start» button"
 msgstr "Öffnen Sie den Bot und drücken Sie „Start\""
 
 msgid "Other (describe below)"
-msgstr ""
+msgstr "Sonstiges (unten beschreiben)"
 
 msgid "Our Partners"
 msgstr ""
 
 msgid "Outdoor Activities / Hiking"
-msgstr ""
+msgstr "Outdoor-Aktivitäten / Wandern"
 
 msgid "Overview"
 msgstr "Überblick"
@@ -4351,7 +4351,7 @@ msgid "PENDING"
 msgstr "AUSSTEHEND"
 
 msgid "PHONE / WHATSAPP"
-msgstr ""
+msgstr "TELEFON / WHATSAPP"
 
 msgid "PIN"
 msgstr "PIN"
@@ -4420,7 +4420,7 @@ msgid "Personal"
 msgstr ""
 
 msgid "Personal Trainer / Coach"
-msgstr ""
+msgstr "Personal Trainer / Coach"
 
 msgid "Personal training, Consultation, Insurance review..."
 msgstr ""
@@ -4438,7 +4438,7 @@ msgid "Physical Card"
 msgstr "Physische Karte"
 
 msgid "Physiotherapy / Rehabilitation"
-msgstr ""
+msgstr "Physiotherapie / Rehabilitation"
 
 msgid "Platform"
 msgstr "Plattform"
@@ -4474,16 +4474,16 @@ msgid "Prev Day"
 msgstr ""
 
 msgid "Professional Coaching"
-msgstr ""
+msgstr "Professionelles Coaching"
 
 msgid "Professional Services"
-msgstr ""
+msgstr "Professionelle Dienstleistungen"
 
 msgid "Profile menu"
 msgstr "Profilmenü"
 
 msgid "Psychology / Mental Health"
-msgstr ""
+msgstr "Psychologie / Psychische Gesundheit"
 
 msgid "QR code + unique ID for instant identification at partners"
 msgstr ""
@@ -4531,10 +4531,10 @@ msgid "Reset Filters"
 msgstr ""
 
 msgid "Restaurant / Cafe / Bar"
-msgstr ""
+msgstr "Restaurant / Café / Bar"
 
 msgid "Retail & Equipment"
-msgstr ""
+msgstr "Einzelhandel & Ausrüstung"
 
 msgid "Revenue"
 msgstr "Einnahmen"
@@ -4588,7 +4588,7 @@ msgid "Schedule a new meeting"
 msgstr ""
 
 msgid "School / Educational Center"
-msgstr ""
+msgstr "Schule / Bildungszentrum"
 
 msgid "Search member"
 msgstr ""
@@ -4609,7 +4609,7 @@ msgid "Secure registration"
 msgstr ""
 
 msgid "Seminar / Workshop Host"
-msgstr ""
+msgstr "Seminar- / Workshop-Veranstalter"
 
 msgid "Send Appeal"
 msgstr ""
@@ -4678,22 +4678,22 @@ msgid "Something went wrong on our side. We are already working to fix it."
 msgstr ""
 
 msgid "Sports & Fitness"
-msgstr ""
+msgstr "Sport & Fitness"
 
 msgid "Sports Clothing / Gear"
-msgstr ""
+msgstr "Sportbekleidung / Ausrüstung"
 
 msgid "Sports Club / Team"
-msgstr ""
+msgstr "Sportverein / Mannschaft"
 
 msgid "Sports Equipment Shop"
-msgstr ""
+msgstr "Sportgeschäft"
 
 msgid "Sports Gear"
 msgstr ""
 
 msgid "Sports Supplements / Nutrition"
-msgstr ""
+msgstr "Sportergänzungen / Ernährung"
 
 msgid ""
 "Start logging visits and within a few days the analytics will fill with "
@@ -4716,13 +4716,13 @@ msgid "Subscribe to {{ username }}'s blog"
 msgstr ""
 
 msgid "Swimming Pool / Aquatics"
-msgstr ""
+msgstr "Schwimmbad / Wassersport"
 
 msgid "Swipe down to close"
 msgstr "Nach unten wischen zum Schließen"
 
 msgid "TELEGRAM"
-msgstr ""
+msgstr "TELEGRAM"
 
 msgid "TOTAL"
 msgstr "GESAMT"
@@ -4819,10 +4819,10 @@ msgid "Total visits"
 msgstr ""
 
 msgid "Travel & Outdoor"
-msgstr ""
+msgstr "Reisen & Outdoor"
 
 msgid "Travel / Tourism / Adventure"
-msgstr ""
+msgstr "Reisen / Tourismus / Abenteuer"
 
 msgid "Try a different keyword or remove the filters."
 msgstr ""
@@ -4913,7 +4913,7 @@ msgid "Was edited after logging"
 msgstr ""
 
 msgid "Water Sports / Diving / Surfing"
-msgstr ""
+msgstr "Wassersport / Tauchen / Surfen"
 
 msgid ""
 "We organize competitions that strengthen the role of sport in people's "
@@ -4930,7 +4930,7 @@ msgid "What you get as a member"
 msgstr ""
 
 msgid "Winter Sports / Ski"
-msgstr ""
+msgstr "Wintersport / Ski"
 
 msgid "Write Post"
 msgstr "Beitrag schreiben"
@@ -4945,7 +4945,7 @@ msgid "YOUR MEMBERSHIP QR"
 msgstr "IHR MITGLIEDS-QR"
 
 msgid "Yoga / Pilates Studio"
-msgstr ""
+msgstr "Yoga- / Pilates-Studio"
 
 msgid ""
 "You applied for <strong>{{ dtype }}</strong> status. We will contact you "
@@ -5033,7 +5033,7 @@ msgid "e.g. johndoe"
 msgstr ""
 
 msgid "eSports / Gaming"
-msgstr ""
+msgstr "eSports / Gaming"
 
 msgid "edit"
 msgstr "bearbeiten"
@@ -5120,7 +5120,7 @@ msgid "years"
 msgstr "Jahre"
 
 msgid "your area"
-msgstr ""
+msgstr "Ihr Bereich"
 
 msgid "{{ min_age }}–{{ max_age }}"
 msgstr ""
@@ -5290,6 +5290,34 @@ msgstr ""
 
 msgid "token from @BotFather"
 msgstr ""
+
+msgid "Bank / Banking Services"
+msgstr "Bank / Bankdienstleistungen"
+
+msgid ""
+"Describe your activity and why you want to join IESA. You can also add extra"
+" contacts for feedback (Telegram, WhatsApp, work email), specialization, "
+"experience — anything that will help us process your application faster."
+msgstr ""
+"Beschreiben Sie Ihre Tätigkeit und warum Sie IESA beitreten möchten. Sie "
+"können auch zusätzliche Kontakte für Rückmeldungen (Telegram, WhatsApp, "
+"Arbeits-E-Mail), Spezialisierung, Erfahrung hinzufügen — alles, was uns "
+"hilft, Ihren Antrag schneller zu bearbeiten."
+
+msgid "Financial Advisor"
+msgstr "Finanzberater"
+
+msgid "Insurance & Financial Services"
+msgstr "Versicherung & Finanzdienstleistungen"
+
+msgid "Insurance Agent / Broker"
+msgstr "Versicherungsagent / Makler"
+
+msgid "No results found"
+msgstr "Keine Ergebnisse"
+
+msgid "Search activity area..."
+msgstr "Tätigkeitsbereich suchen..."
 
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Extremsport als Denk- und Lebensweise"

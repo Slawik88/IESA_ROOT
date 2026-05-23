@@ -147,10 +147,11 @@
 
     <div class="acr-field">
       <label class="acr-label">{% trans "DESCRIPTION OF ACTIVITY" %} <span style="color:#f87171;">*</span></label>
-      <textarea name="reason" class="acr-textarea" rows="4"
-        placeholder="{% trans 'Describe your business/role and why you want to join IESA. What value can you offer to members?' %}"
-        required minlength="50"></textarea>
-      <div class="acr-hint"><span id="acr-char-count">0</span> / 2000 {% trans "chars" %} ({% trans "min. 50" %})</div>
+      {# BLOCK 1 (audit v4): убран minlength=50 — теперь без ограничения; новый расширенный placeholder #}
+      <textarea name="reason" class="acr-textarea" rows="5"
+        placeholder="{% trans 'Describe your activity and why you want to join IESA. You can also add extra contacts for feedback (Telegram, WhatsApp, work email), specialization, experience — anything that will help us process your application faster.' %}"
+        required></textarea>
+      <div class="acr-hint"><span id="acr-char-count">0</span> / 2000 {% trans "chars" %}</div>
     </div>
 
     <div class="acr-section-title">{% trans "CONTACT DETAILS" %}</div>
