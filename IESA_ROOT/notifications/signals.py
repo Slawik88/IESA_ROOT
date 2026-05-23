@@ -35,24 +35,45 @@ def _site_origin():
     return os.environ.get('SITE_URL', 'https://iesasport.ch').rstrip('/')
 
 
+def _safe_str(value):
+    """BLOCK 9 (audit v4): конвертирует lazy translatable strings в str.
+       Иначе f-string могут вставить repr lazy-объекта вместо текста."""
+    if value is None:
+        return ''
+    try:
+        return str(value)
+    except Exception:
+        return repr(value)
+
+
 def _notify_admins(event_code, *, site_title, site_message, site_link,
                    tg_text, tg_button_url=None, tg_button_label='🔧 Открыть в админке',
                    exclude_user_id=None):
     """
-    HOTFIX 2026-05-23: универсальный sender для admin-уведомлений.
+    HOTFIX 2026-05-23 + BLOCK 9 audit v4: универсальный sender admin-уведомлений
+    с debug logging на каждом шаге.
 
-    - site_title / site_message / site_link → in-site Notification (link рендерится как кнопка)
-    - tg_text → Telegram (HTML). Если tg_button_url задан — добавляется inline-кнопка
-      «Открыть в админке» (абсолютный URL для клика прямо из TG-клиента).
+    - site_title / site_message / site_link → in-site Notification (link → кнопка)
+    - tg_text → Telegram (HTML). Если tg_button_url задан → inline-кнопка с URL.
+    - exclude_user_id: если None → НЕ исключаем никого (даже автора события).
+      Это нужно для тестов: админ должен видеть уведомления о СВОИХ действиях
+      чтобы проверить что система работает. Раньше exclude_user_id=author исключало
+      админа из его же уведомлений — это сбивало с толку при дебаге.
     """
     import threading
     from users.models import AdminNotificationProfile
     from notifications.models import Notification as _Notif
 
     try:
-        profiles = AdminNotificationProfile.objects.filter(is_active=True).select_related('admin_user')
+        profiles_qs = AdminNotificationProfile.objects.filter(is_active=True).select_related('admin_user')
+        profiles = list(profiles_qs)
     except Exception as exc:
-        logger.error("AdminNotificationProfile query failed: %s", exc)
+        logger.error("[notify_admins] AdminNotificationProfile query failed for event=%s: %s", event_code, exc, exc_info=True)
+        return
+
+    logger.info("[notify_admins] event=%s — found %d active profile(s)", event_code, len(profiles))
+    if not profiles:
+        logger.warning("[notify_admins] event=%s — НЕТ активных профилей (создайте AdminNotificationProfile в Django admin)", event_code)
         return
 
     abs_button_url = None
@@ -62,13 +83,28 @@ def _notify_admins(event_code, *, site_title, site_message, site_link,
         else:
             abs_button_url = _site_origin() + '/' + tg_button_url.lstrip('/')
 
+    # BLOCK 9: безопасная конвертация lazy strings (без неё f-string могут вставить proxy-объект)
+    site_title   = _safe_str(site_title)
+    site_message = _safe_str(site_message)
+    tg_text      = _safe_str(tg_text)
+
+    sent_site = 0
+    sent_tg = 0
+    skipped = 0
+
     for profile in profiles:
         admin = profile.admin_user
         if exclude_user_id is not None and admin.pk == exclude_user_id:
+            logger.info("[notify_admins] event=%s — skip admin=%s (exclude_user_id matches)", event_code, admin.pk)
+            skipped += 1
             continue
 
         # In-site
-        if profile.should_notify_site(event_code):
+        should_site = profile.should_notify_site(event_code)
+        logger.info("[notify_admins] event=%s admin=%s should_notify_site=%s telegram_events=%s site_events=%s",
+                    event_code, admin.pk, should_site,
+                    profile.telegram_events, profile.site_events)
+        if should_site:
             try:
                 _Notif.objects.create(
                     recipient=admin,
@@ -77,25 +113,38 @@ def _notify_admins(event_code, *, site_title, site_message, site_link,
                     message=site_message,
                     link=site_link,
                 )
+                sent_site += 1
+                logger.info("[notify_admins] event=%s admin=%s — in-site notif CREATED", event_code, admin.pk)
             except Exception as exc:
-                logger.error("%s in-site notif failed: %s", event_code, exc)
+                logger.error("[notify_admins] event=%s admin=%s — in-site notif FAILED: %s", event_code, admin.pk, exc, exc_info=True)
 
         # Telegram
-        if profile.should_notify_telegram(event_code) and getattr(admin, 'telegram_chat_id', None):
-            _cid = admin.telegram_chat_id
+        should_tg = profile.should_notify_telegram(event_code)
+        chat_id = getattr(admin, 'telegram_chat_id', None)
+        if should_tg and not chat_id:
+            logger.warning("[notify_admins] event=%s admin=%s — TG enabled but telegram_chat_id is empty", event_code, admin.pk)
+        if should_tg and chat_id:
+            _cid = chat_id
             _text = tg_text
             _kb = None
             if abs_button_url:
                 _kb = {"inline_keyboard": [[{"text": tg_button_label, "url": abs_button_url}]]}
 
-            def _send_tg(cid=_cid, text=_text, kb=_kb):
+            def _send_tg(cid=_cid, text=_text, kb=_kb, evt=event_code, aid=admin.pk):
                 try:
                     from users.telegram.client import send_message as _sm
-                    _sm(text, chat_id=cid, parse_mode='HTML', reply_markup=kb)
+                    ok = _sm(text, chat_id=cid, parse_mode='HTML', reply_markup=kb)
+                    if ok:
+                        logger.info("[notify_admins] event=%s admin=%s — TG SENT to chat=%s", evt, aid, cid)
+                    else:
+                        logger.warning("[notify_admins] event=%s admin=%s — TG send_message returned False (check token/chat_id)", evt, aid)
                 except Exception as exc:
-                    logger.error("%s TG notify failed: %s", event_code, exc)
+                    logger.error("[notify_admins] event=%s admin=%s — TG SEND FAILED: %s", evt, aid, exc, exc_info=True)
 
             threading.Thread(target=_send_tg, daemon=True).start()
+            sent_tg += 1
+
+    logger.info("[notify_admins] event=%s DONE: site=%d, tg=%d (queued), skipped=%d", event_code, sent_site, sent_tg, skipped)
 
 
 def _notify_admins_post_moderation(post):
@@ -219,12 +268,32 @@ _User = get_user_model()
 
 
 @receiver(post_save, sender=_User)
+def _auto_create_admin_notification_profile(sender, instance, created, **kwargs):
+    """BLOCK 9 (audit v4): при создании нового staff-юзера автоматически
+    создаём AdminNotificationProfile со всеми событиями включёнными."""
+    if not instance.is_staff:
+        return
+    try:
+        from users.models import AdminNotificationProfile
+        AdminNotificationProfile.objects.get_or_create(
+            admin_user=instance,
+            defaults={
+                'telegram_events': ['new_account', 'post_moderation', 'account_upgrade', 'insurance_request', 'new_visit'],
+                'site_events':     ['new_account', 'post_moderation', 'account_upgrade', 'insurance_request', 'new_visit'],
+                'is_active': True,
+            },
+        )
+    except Exception as e:
+        logger.error("Auto-create AdminNotificationProfile failed for user %s: %s", instance.pk, e)
+
+
+@receiver(post_save, sender=_User)
 def _notify_admins_new_account(sender, instance, created, **kwargs):
     if not created or instance.is_staff:
         return
+    logger.info("[signals] new_account triggered — user_id=%s username=%s", instance.pk, instance.username)
     try:
         admin_path = f'/admin/users/user/{instance.pk}/change/'
-        profile_path = f'/auth/user/{instance.username}/'
         _notify_admins(
             'new_account',
             site_title=_gt('New account registered'),
@@ -239,10 +308,11 @@ def _notify_admins_new_account(sender, instance, created, **kwargs):
                 f"✉️ {instance.email or '—'}"
             ),
             tg_button_url=admin_path,
-            exclude_user_id=instance.pk,
+            # BLOCK 9 (audit v4): новый юзер не может быть в админах сам себе (создаётся inactive)
+            exclude_user_id=None,
         )
     except Exception as e:
-        logger.error("new_account notification failed for user %s: %s", instance.pk, e)
+        logger.error("new_account notification failed for user %s: %s", instance.pk, e, exc_info=True)
 
 
 try:
@@ -252,10 +322,19 @@ try:
     def _notify_admins_account_upgrade(sender, instance, created, **kwargs):
         if not created:
             return
+        logger.info("[signals] account_upgrade triggered — ACR=%s user=%s desired_type=%s",
+                    instance.pk, instance.user_id, instance.desired_type)
         try:
             admin_path = f'/admin/users/accountchangerequest/{instance.pk}/change/'
             applicant = instance.user.username if instance.user else 'Anonymous'
-            desired = instance.get_desired_type_display() if hasattr(instance, 'get_desired_type_display') else (instance.desired_type or '')
+            # BLOCK 9 (audit v4): get_desired_type_display() возвращает lazy translatable —
+            # str() конвертирует в реальный текст
+            desired_raw = instance.get_desired_type_display() if hasattr(instance, 'get_desired_type_display') else (instance.desired_type or '')
+            desired = str(desired_raw)
+            # Используем first_name+last_name если есть, иначе username
+            fn = (instance.first_name or '').strip()
+            ln = (instance.last_name or '').strip()
+            full_name = (f'{fn} {ln}'.strip()) or applicant
             _notify_admins(
                 'account_upgrade',
                 site_title=_gt('New account upgrade request'),
@@ -265,16 +344,20 @@ try:
                 site_link=admin_path,
                 tg_text=(
                     f"🚀 <b>Заявка на повышение статуса</b>\n\n"
-                    f"👤 <b>{applicant}</b>\n"
+                    f"👤 <b>{full_name}</b> (@{applicant})\n"
                     f"🎯 {desired}\n"
+                    + (f"📞 {instance.contact_phone}\n" if getattr(instance, 'contact_phone', '') else '')
+                    + (f"✉️ {instance.contact_email}\n" if getattr(instance, 'contact_email', '') else '')
                     + (f"📍 {instance.address}\n" if getattr(instance, 'address', '') else '')
-                    + (f"💬 {(instance.reason or '')[:160]}\n" if getattr(instance, 'reason', '') else '')
+                    + (f"\n💬 {(instance.reason or '')[:200]}\n" if getattr(instance, 'reason', '') else '')
                 ),
                 tg_button_url=admin_path,
-                exclude_user_id=instance.user_id,
+                # BLOCK 9: НЕ исключаем автора — админ должен видеть уведомление о своей заявке
+                # (важно для тестирования системы и для admin'ов которые подают заявку как обычные юзеры)
+                exclude_user_id=None,
             )
         except Exception as e:
-            logger.error("account_upgrade notification failed for %s: %s", instance.pk, e)
+            logger.error("account_upgrade notification failed for %s: %s", instance.pk, e, exc_info=True)
 except ImportError:
     logger.warning("AccountChangeRequest model not importable — account_upgrade signal not registered")
 
