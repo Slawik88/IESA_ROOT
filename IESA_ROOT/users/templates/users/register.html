@@ -408,17 +408,36 @@ function togglePw(btn){
     else{i.type='password';ic.className='fas fa-eye';}
 }
 
-/* HOTFIX 2026-05-23: блокируем submit пока чекбокс согласия не отмечен */
+/* HOTFIX 2026-05-23 + BLOCK 5 audit v4: блокируем финальный submit пока:
+   1) Чекбокс согласия НЕ отмечен, ИЛИ
+   2) Шаги 1+2 не валидны (username/email/password). */
 (function(){
     var consent = document.getElementById('id_membership_consent');
     var submit  = document.getElementById('reg-submit-btn');
     if (!consent || !submit) return;
-    function sync(){ submit.disabled = !consent.checked; }
+    function sync(){
+        var V = window._regValidity || {};
+        var stepsOk = V.un && V.em && V.pw_strong && V.pw_match;
+        submit.disabled = !(consent.checked && stepsOk);
+        submit.style.opacity = submit.disabled ? '.55' : '';
+        submit.style.cursor  = submit.disabled ? 'not-allowed' : '';
+    }
     consent.addEventListener('change', sync);
+    /* Также реагируем на изменение глобального state через event */
+    document.addEventListener('input', sync);
+    document.addEventListener('change', sync);
     sync();
 })();
 
-/* ── Multi-step registration (U2-04) ─── */
+/* ── Multi-step registration (U2-04, BLOCK 5 audit v4) ─── */
+
+/* BLOCK 5 (audit v4): глобальный validity-state — обновляется live-валидацией,
+   читается multi-step navigation. */
+window._regValidity = window._regValidity || {
+    un: false, em: false,
+    pw_strong: false, pw_match: false,
+};
+
 (function(){
     var panels = document.querySelectorAll('.reg-step-panel');
     var indicators = document.querySelectorAll('[data-step-ind]');
@@ -436,7 +455,6 @@ function togglePw(btn){
         panels.forEach(function(p){
             var isActive = +p.dataset.step === n;
             p.classList.toggle('active', isActive);
-            /* Анимация входа при смене шага */
             if (isActive) {
                 p.classList.remove('active-anim');
                 void p.offsetWidth; /* reflow */
@@ -450,26 +468,70 @@ function togglePw(btn){
             else if (s < n) ind.classList.add('done');
         });
         currentStep = n;
+        updateButtonsState();
     }
 
-    function validateStep(n) {
+    /* BLOCK 5: проверка валидности шага — теперь использует _regValidity (live-check) */
+    function isStepValid(n) {
+        var V = window._regValidity;
         if (n === 1) {
             var u = document.getElementById('id_username');
             var e = document.getElementById('id_email');
-            var ok = true;
-            if (!u.value.trim()) { u.classList.add('inv'); u.focus(); ok = false; }
-            if (!e.value.trim() || !e.value.includes('@')) { e.classList.add('inv'); if(ok) e.focus(); ok = false; }
-            return ok;
+            /* Минимум: поля заполнены + live-check ok (или нет конфликтующих результатов) */
+            if (!u.value.trim() || !e.value.trim()) return false;
+            /* Если live-check вернул false (already taken / invalid) — блок */
+            if (V.un === false && u.value.trim().length >= 3) return false;
+            if (V.em === false && /\S+@\S+\.\S+/.test(e.value.trim())) return false;
+            return true;
         }
         if (n === 2) {
             var p1 = document.getElementById('id_password1');
             var p2 = document.getElementById('id_password2');
-            var ok = true;
-            if (!p1.value) { p1.classList.add('inv'); p1.focus(); ok = false; }
-            if (!p2.value || p2.value !== p1.value) { p2.classList.add('inv'); if(ok) p2.focus(); ok = false; }
-            return ok;
+            if (!p1.value || !p2.value) return false;
+            if (!V.pw_strong) return false;       /* пароль слабый */
+            if (!V.pw_match)  return false;       /* пароли не совпадают */
+            return true;
+        }
+        if (n === 3) {
+            var consent = document.getElementById('id_membership_consent');
+            return !!(consent && consent.checked);
         }
         return true;
+    }
+
+    /* BLOCK 5: показать ошибку рядом с конкретным полем + scroll/focus */
+    function markInvalid(n) {
+        var V = window._regValidity;
+        if (n === 1) {
+            var u = document.getElementById('id_username');
+            var e = document.getElementById('id_email');
+            if (!u.value.trim() || (V.un === false && u.value.trim().length >= 3)) {
+                u.classList.add('inv'); u.focus(); return;
+            }
+            if (!e.value.trim() || !/\S+@\S+\.\S+/.test(e.value.trim()) || V.em === false) {
+                e.classList.add('inv'); e.focus(); return;
+            }
+        } else if (n === 2) {
+            var p1 = document.getElementById('id_password1');
+            var p2 = document.getElementById('id_password2');
+            if (!p1.value || !V.pw_strong) { p1.classList.add('inv'); p1.focus(); return; }
+            if (!p2.value || !V.pw_match)  { p2.classList.add('inv'); p2.focus(); return; }
+        }
+    }
+
+    /* BLOCK 5: дисэйблим кнопку Continue/Submit когда шаг не валиден */
+    function updateButtonsState() {
+        var btns = document.querySelectorAll('[data-next], [type="submit"].reg-submit');
+        btns.forEach(function(b){
+            var ok = isStepValid(currentStep);
+            if (b.matches('[data-next]')) {
+                b.disabled = !ok;
+                b.style.opacity = ok ? '' : '.55';
+                b.style.cursor  = ok ? '' : 'not-allowed';
+            }
+            /* reg-submit — финальная submit-кнопка (шаг 3) — управляется чекбоксом
+               consent в отдельном замыкании ниже + наш isStepValid(3) учитывает её */
+        });
     }
 
     function updateReview() {
@@ -485,7 +547,10 @@ function togglePw(btn){
         var next = evt.target.closest('[data-next]');
         if (next) {
             var target = +next.dataset.next;
-            if (!validateStep(currentStep)) return;
+            if (!isStepValid(currentStep)) {
+                markInvalid(currentStep);
+                return;
+            }
             if (target === 3) updateReview();
             showStep(target);
             return;
@@ -494,16 +559,19 @@ function togglePw(btn){
         if (back) {
             showStep(+back.dataset.back);
         }
-        /* Clear inv on input change */
-        if (evt.target.matches('input')) {
-            evt.target.classList.remove('inv');
-        }
     });
 
-    /* Remove inv on typing */
-    document.querySelectorAll('input').forEach(function(inp){
-        inp.addEventListener('input', function(){ inp.classList.remove('inv'); });
+    /* BLOCK 5: при изменении полей — обновляем состояние кнопок + снимаем .inv */
+    document.addEventListener('input', function(evt){
+        if (evt.target.matches('input, textarea, select')) {
+            evt.target.classList.remove('inv');
+            updateButtonsState();
+        }
     });
+    document.addEventListener('change', updateButtonsState);
+
+    /* Экспортируем для использования из live-check замыкания */
+    window._regUpdateButtonsState = updateButtonsState;
 
     showStep(currentStep);
 })();
@@ -542,6 +610,9 @@ function togglePw(btn){
                         setStatus(unStatus, unMsg, null, d.hint === 'min_length' ? '{% trans "At least 3 characters" %}' : '');
                         unOk = false;
                     }
+                    /* BLOCK 5 (audit v4): sync с глобальным state */
+                    if (window._regValidity) window._regValidity.un = unOk;
+                    if (window._regUpdateButtonsState) window._regUpdateButtonsState();
                 }).catch(function () { setStatus(unStatus, unMsg, null, ''); });
         }, 500);
     }
@@ -581,6 +652,9 @@ function togglePw(btn){
                         setStatus(emStatus, emMsg, 'err', '✗ {% trans "Invalid email format" %}');
                         emOk = false;
                     }
+                    /* BLOCK 5 (audit v4): sync с глобальным state */
+                    if (window._regValidity) window._regValidity.em = emOk;
+                    if (window._regUpdateButtonsState) window._regUpdateButtonsState();
                 }).catch(function () { setStatus(emStatus, emMsg, null, ''); });
         }, 600);
     }
@@ -631,16 +705,27 @@ function togglePw(btn){
             pwLabel.textContent = score ? LEVELS[score-1].label : '';
             pwLabel.style.color = score ? LEVELS[score-1].color : 'rgba(255,255,255,.3)';
         }
+        /* BLOCK 5 (audit v4): пароль "достаточно сильный" — все 4 критерия выполнены */
+        if (window._regValidity) window._regValidity.pw_strong = (score === 4);
+        if (window._regUpdateButtonsState) window._regUpdateButtonsState();
         checkMatch();
     }
 
     function checkMatch() {
-        if (!pw2 || !pw2.value) { if (pwMatch) pwMatch.textContent = ''; return; }
+        if (!pw2 || !pw2.value) {
+            if (pwMatch) pwMatch.textContent = '';
+            if (window._regValidity) window._regValidity.pw_match = false;
+            if (window._regUpdateButtonsState) window._regUpdateButtonsState();
+            return;
+        }
         var match = pw1.value === pw2.value;
         if (pwMatch) {
             pwMatch.textContent = match ? '✓ {% trans "Passwords match" %}' : '✗ {% trans "Passwords do not match" %}';
             pwMatch.style.color = match ? '#4ade80' : '#f87171';
         }
+        /* BLOCK 5: sync с глобальным state */
+        if (window._regValidity) window._regValidity.pw_match = match;
+        if (window._regUpdateButtonsState) window._regUpdateButtonsState();
     }
 
     if (pw1) pw1.addEventListener('input', function () { checkPassword(this.value); });
