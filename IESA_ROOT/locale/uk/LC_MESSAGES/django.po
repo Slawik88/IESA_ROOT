@@ -3538,7 +3538,7 @@ msgid "ADDRESS"
 msgstr "АДРЕСА"
 
 msgid "ADDRESS / LOCATION"
-msgstr ""
+msgstr "АДРЕСА / МІСЦЕЗНАХОДЖЕННЯ"
 
 msgid "ADMIN PANEL"
 msgstr ""
@@ -3574,7 +3574,7 @@ msgid "Account Info"
 msgstr "Інформація про акаунт"
 
 msgid "Accounting / Finance"
-msgstr ""
+msgstr "Бухгалтерія / Фінанси"
 
 msgid "Active — issued"
 msgstr "Активна — видана"
@@ -3628,7 +3628,7 @@ msgid "Ask the member to show their current PIN from their personal cabinet"
 msgstr "Попросіть учасника показати поточний PIN з особистого кабінету"
 
 msgid "Association Staff"
-msgstr ""
+msgstr "Співробітник асоціації"
 
 msgid "At least 3 characters"
 msgstr ""
@@ -3643,7 +3643,7 @@ msgid "BLOG"
 msgstr "БЛОГ"
 
 msgid "BUSINESS CATEGORY"
-msgstr ""
+msgstr "КАТЕГОРІЯ БІЗНЕСУ"
 
 msgid "Back"
 msgstr "Знову"
@@ -3658,7 +3658,7 @@ msgid "Back to profile"
 msgstr "Назад до профілю"
 
 msgid "Bike Shop / Service"
-msgstr ""
+msgstr "Веломагазин / Сервіс"
 
 msgid "Blog"
 msgstr "Блог"
@@ -3673,10 +3673,10 @@ msgid "Breadcrumb"
 msgstr "Хлібні крихти"
 
 msgid "Business Consulting"
-msgstr ""
+msgstr "Бізнес-консалтинг"
 
 msgid "CONTACT DETAILS"
-msgstr ""
+msgstr "КОНТАКТНІ ДАНІ"
 
 msgid "Cabinet navigation"
 msgstr ""
@@ -3706,10 +3706,10 @@ msgid "Chess &amp; strategic thinking"
 msgstr ""
 
 msgid "Chiropractic / Manual Therapy"
-msgstr ""
+msgstr "Хіропрактика / Мануальна терапія"
 
 msgid "City, street, or region where you operate"
-msgstr ""
+msgstr "Місто, вулиця або регіон роботи"
 
 msgid "Clear"
 msgstr "Очистити"
@@ -3724,7 +3724,7 @@ msgid "Client notes"
 msgstr ""
 
 msgid "Climbing / Boulder"
-msgstr ""
+msgstr "Скелелазіння / Болдер"
 
 msgid "Collapse"
 msgstr "Згорнути"
@@ -3769,10 +3769,10 @@ msgid "Create your account and become part of IESA."
 msgstr "Створіть обліковий запис і станьте частиною IESA."
 
 msgid "CrossFit / Functional Training"
-msgstr ""
+msgstr "Кросфіт / Функціональний тренінг"
 
 msgid "Cycling / Indoor Cycling"
-msgstr ""
+msgstr "Велоспорт / Велотренажери"
 
 msgid "DATE"
 msgstr "ДАТА"
@@ -3784,13 +3784,13 @@ msgid "DATE ↓"
 msgstr "ДАТА ↓"
 
 msgid "DESCRIPTION OF ACTIVITY"
-msgstr ""
+msgstr "ОПИС ДІЯЛЬНОСТІ"
 
 msgid "Daily Visits — last 30 days"
 msgstr ""
 
 msgid "Dance School"
-msgstr ""
+msgstr "Школа танців"
 
 msgid "Dashboard"
 msgstr "Кабінет"
@@ -3854,7 +3854,7 @@ msgid "Earn points for posts, likes, comments and visits"
 msgstr ""
 
 msgid "Education & Events"
-msgstr ""
+msgstr "Освіта та події"
 
 msgid "Email IESA"
 msgstr "Email IESA"
@@ -3872,7 +3872,7 @@ msgid "Equipment"
 msgstr ""
 
 msgid "Event Organization"
-msgstr ""
+msgstr "Організація подій"
 
 msgid "Event creation &amp; management"
 msgstr ""
@@ -3899,7 +3899,7 @@ msgid "FILTERS"
 msgstr "ФІЛЬТРИ"
 
 msgid "FULL NAME"
-msgstr ""
+msgstr "ПОВНЕ ІМ'Я"
 
 msgid "Fair"
 msgstr "Задовільно"
@@ -3926,7 +3926,7 @@ msgid "Find and visit a partner"
 msgstr ""
 
 msgid "Food & Hospitality"
-msgstr ""
+msgstr "Харчування та гостинність"
 
 msgid "Form sections"
 msgstr ""
@@ -3980,19 +3980,19 @@ msgid "Go to my profile"
 msgstr ""
 
 msgid "Gym / Fitness Center"
-msgstr ""
+msgstr "Спортзал / Фітнес-центр"
 
 msgid "Health & Wellness"
-msgstr ""
+msgstr "Здоров'я та велнес"
 
 msgid "Health &amp; wellbeing for all"
 msgstr ""
 
 msgid "Healthy Food / Catering"
-msgstr ""
+msgstr "Здорове харчування / Кейтеринг"
 
 msgid "Hotel / Accommodation"
-msgstr ""
+msgstr "Готель / Розміщення"
 
 msgid "How It Works"
 msgstr ""
@@ -4010,7 +4010,7 @@ msgid "IESA — it's more than sport."
 msgstr ""
 
 msgid "IT / Technology / Software"
-msgstr ""
+msgstr "IT / Технології / ПЗ"
 
 msgid ""
 "If you believe you should have partner access — fill in the appeal form "
@@ -4098,7 +4098,7 @@ msgid "Learn how everything works"
 msgstr ""
 
 msgid "Legal Services / Lawyer"
-msgstr ""
+msgstr "Юридичні послуги / Адвокат"
 
 msgid "Let's get started!"
 msgstr ""
@@ -4151,19 +4151,19 @@ msgid "MEMBER / CLIENT"
 msgstr "УЧАСНИК / КЛІЄНТ"
 
 msgid "Marketing / PR / Design"
-msgstr ""
+msgstr "Маркетинг / PR / Дизайн"
 
 msgid "Martial Arts School"
-msgstr ""
+msgstr "Школа бойових мистецтв"
 
 msgid "Massage / SPA / Wellness"
-msgstr ""
+msgstr "Масаж / СПА / Велнес"
 
 msgid "Media / Content / Photography"
-msgstr ""
+msgstr "Медіа / Контент / Фото"
 
 msgid "Medical / Healthcare"
-msgstr ""
+msgstr "Медицина / Охорона здоров'я"
 
 msgid "Meeting Calendar"
 msgstr ""
@@ -4306,7 +4306,7 @@ msgid "Notify via Telegram & site"
 msgstr ""
 
 msgid "Nutrition / Dietology"
-msgstr ""
+msgstr "Харчування / Дієтологія"
 
 msgid "OR SEARCH THE SITE"
 msgstr ""
@@ -4330,13 +4330,13 @@ msgid "Open the bot and press the «Start» button"
 msgstr "Відкрийте бота і натисніть «Start»"
 
 msgid "Other (describe below)"
-msgstr ""
+msgstr "Інше (опишіть нижче)"
 
 msgid "Our Partners"
 msgstr ""
 
 msgid "Outdoor Activities / Hiking"
-msgstr ""
+msgstr "Активний відпочинок / Походи"
 
 msgid "Overview"
 msgstr "Огляд"
@@ -4354,7 +4354,7 @@ msgid "PENDING"
 msgstr "ОЧІКУВАННЯ"
 
 msgid "PHONE / WHATSAPP"
-msgstr ""
+msgstr "ТЕЛЕФОН / WHATSAPP"
 
 msgid "PIN"
 msgstr "PIN"
@@ -4423,7 +4423,7 @@ msgid "Personal"
 msgstr ""
 
 msgid "Personal Trainer / Coach"
-msgstr ""
+msgstr "Персональний тренер"
 
 msgid "Personal training, Consultation, Insurance review..."
 msgstr ""
@@ -4441,7 +4441,7 @@ msgid "Physical Card"
 msgstr "Фізична карта"
 
 msgid "Physiotherapy / Rehabilitation"
-msgstr ""
+msgstr "Фізіотерапія / Реабілітація"
 
 msgid "Platform"
 msgstr "Платформа"
@@ -4477,16 +4477,16 @@ msgid "Prev Day"
 msgstr ""
 
 msgid "Professional Coaching"
-msgstr ""
+msgstr "Професійний коучинг"
 
 msgid "Professional Services"
-msgstr ""
+msgstr "Професійні послуги"
 
 msgid "Profile menu"
 msgstr "Меню профілю"
 
 msgid "Psychology / Mental Health"
-msgstr ""
+msgstr "Психологія / Психічне здоров'я"
 
 msgid "QR code + unique ID for instant identification at partners"
 msgstr ""
@@ -4534,10 +4534,10 @@ msgid "Reset Filters"
 msgstr ""
 
 msgid "Restaurant / Cafe / Bar"
-msgstr ""
+msgstr "Ресторан / Кафе / Бар"
 
 msgid "Retail & Equipment"
-msgstr ""
+msgstr "Роздрібна торгівля та обладнання"
 
 msgid "Revenue"
 msgstr "Дохід"
@@ -4591,7 +4591,7 @@ msgid "Schedule a new meeting"
 msgstr ""
 
 msgid "School / Educational Center"
-msgstr ""
+msgstr "Школа / Освітній центр"
 
 msgid "Search member"
 msgstr ""
@@ -4612,7 +4612,7 @@ msgid "Secure registration"
 msgstr ""
 
 msgid "Seminar / Workshop Host"
-msgstr ""
+msgstr "Семінари / Майстер-класи"
 
 msgid "Send Appeal"
 msgstr ""
@@ -4680,22 +4680,22 @@ msgid "Something went wrong on our side. We are already working to fix it."
 msgstr ""
 
 msgid "Sports & Fitness"
-msgstr ""
+msgstr "Спорт і фітнес"
 
 msgid "Sports Clothing / Gear"
-msgstr ""
+msgstr "Спортивний одяг / Спорядження"
 
 msgid "Sports Club / Team"
-msgstr ""
+msgstr "Спортивний клуб / Команда"
 
 msgid "Sports Equipment Shop"
-msgstr ""
+msgstr "Магазин спортивного інвентарю"
 
 msgid "Sports Gear"
 msgstr ""
 
 msgid "Sports Supplements / Nutrition"
-msgstr ""
+msgstr "Спортивне харчування"
 
 msgid ""
 "Start logging visits and within a few days the analytics will fill with "
@@ -4718,13 +4718,13 @@ msgid "Subscribe to {{ username }}'s blog"
 msgstr ""
 
 msgid "Swimming Pool / Aquatics"
-msgstr ""
+msgstr "Басейн / Водні види спорту"
 
 msgid "Swipe down to close"
 msgstr "Свайп вниз для закриття"
 
 msgid "TELEGRAM"
-msgstr ""
+msgstr "TELEGRAM"
 
 msgid "TOTAL"
 msgstr "ВСЬОГО"
@@ -4821,10 +4821,10 @@ msgid "Total visits"
 msgstr ""
 
 msgid "Travel & Outdoor"
-msgstr ""
+msgstr "Подорожі та активний відпочинок"
 
 msgid "Travel / Tourism / Adventure"
-msgstr ""
+msgstr "Подорожі / Туризм / Пригоди"
 
 msgid "Try a different keyword or remove the filters."
 msgstr ""
@@ -4915,7 +4915,7 @@ msgid "Was edited after logging"
 msgstr ""
 
 msgid "Water Sports / Diving / Surfing"
-msgstr ""
+msgstr "Водні види спорту / Дайвінг / Серфінг"
 
 msgid ""
 "We organize competitions that strengthen the role of sport in people's "
@@ -4932,7 +4932,7 @@ msgid "What you get as a member"
 msgstr ""
 
 msgid "Winter Sports / Ski"
-msgstr ""
+msgstr "Зимові види спорту / Лижі"
 
 msgid "Write Post"
 msgstr "Написати пост"
@@ -4947,7 +4947,7 @@ msgid "YOUR MEMBERSHIP QR"
 msgstr "ВАШ QR УЧАСНИКА"
 
 msgid "Yoga / Pilates Studio"
-msgstr ""
+msgstr "Студія йоги / пілатесу"
 
 msgid ""
 "You applied for <strong>{{ dtype }}</strong> status. We will contact you "
@@ -5035,7 +5035,7 @@ msgid "e.g. johndoe"
 msgstr ""
 
 msgid "eSports / Gaming"
-msgstr ""
+msgstr "Кіберспорт / Геймінг"
 
 msgid "edit"
 msgstr "редагувати"
@@ -5122,7 +5122,7 @@ msgid "years"
 msgstr "років"
 
 msgid "your area"
-msgstr ""
+msgstr "ваша сфера"
 
 msgid "{{ min_age }}–{{ max_age }}"
 msgstr ""
@@ -5292,6 +5292,33 @@ msgstr ""
 
 msgid "token from @BotFather"
 msgstr ""
+
+msgid "Bank / Banking Services"
+msgstr "Банк / Банківські послуги"
+
+msgid ""
+"Describe your activity and why you want to join IESA. You can also add extra"
+" contacts for feedback (Telegram, WhatsApp, work email), specialization, "
+"experience — anything that will help us process your application faster."
+msgstr ""
+"Опишіть свою діяльність та чому хочете приєднатися до IESA. Можете додати "
+"додаткові контакти для зворотного зв'язку (Telegram, WhatsApp, робочий "
+"email), спеціалізацію, досвід — усе, що допоможе нам швидше обробити заявку."
+
+msgid "Financial Advisor"
+msgstr "Фінансовий консультант"
+
+msgid "Insurance & Financial Services"
+msgstr "Страхування та фінансові послуги"
+
+msgid "Insurance Agent / Broker"
+msgstr "Страховий агент / Брокер"
+
+msgid "No results found"
+msgstr "Нічого не знайдено"
+
+msgid "Search activity area..."
+msgstr "Пошук сфери діяльності..."
 
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
