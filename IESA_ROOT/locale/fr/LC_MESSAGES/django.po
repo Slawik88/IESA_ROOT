@@ -4491,7 +4491,7 @@ msgid "Quick actions"
 msgstr "Actions rapides"
 
 msgid "ROLE & ACTIVITY"
-msgstr ""
+msgstr "RÔLE ET ACTIVITÉ"
 
 msgid "Reading time"
 msgstr "Temps de lecture"
@@ -4893,6 +4893,8 @@ msgid ""
 "Want to become an IESA partner or association staff? Submit a request — "
 "we'll review and contact you shortly."
 msgstr ""
+"Voulez-vous devenir partenaire ou membre du personnel IESA ? Soumettez une "
+"demande — nous l'examinerons et vous contacterons."
 
 msgid "Warning: this member's membership is currently inactive/expired."
 msgstr ""
@@ -5227,6 +5229,56 @@ msgid "Что вас интересует?"
 msgstr ""
 
 msgid "напишите"
+msgstr ""
+
+msgid "Achievement system"
+msgstr ""
+
+msgid "Admin only. Webhook configuration."
+msgstr ""
+
+msgid ""
+"After registration, the PIN-code is available immediately. The physical card"
+" is issued later upon request."
+msgstr ""
+
+msgid "After setting webhook: open bot in Telegram, press Start."
+msgstr ""
+
+msgid "Application pending"
+msgstr "Demande en attente"
+
+msgid "Apply for partner"
+msgstr "Devenir partenaire"
+
+msgid "Current webhook:"
+msgstr ""
+
+msgid "I agree to become a member of IESA Sport and accept the"
+msgstr ""
+
+msgid "Set webhook in Telegram"
+msgstr ""
+
+msgid "Telegram Bot Setup"
+msgstr ""
+
+msgid "Webhook URL for Telegram:"
+msgstr ""
+
+msgid "Webhook is not yet set."
+msgstr ""
+
+msgid "Where to set env vars:"
+msgstr ""
+
+msgid "privacy policy"
+msgstr ""
+
+msgid "random string (32+ chars)"
+msgstr ""
+
+msgid "token from @BotFather"
 msgstr ""
 
 #~ msgid "Extreme sport as a way of thinking and life"

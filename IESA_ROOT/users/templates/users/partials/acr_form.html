@@ -48,66 +48,99 @@
       </div>
       <div class="acr-field">
         <label class="acr-label">{% trans "BUSINESS CATEGORY" %}</label>
-        <div class="acr-select-wrap">
-          <select name="business_category" class="acr-select">
-            <option value="">— {% trans "your area" %} —</option>
-            <optgroup label="{% trans 'Sports & Fitness' %}">
-              <option value="gym">{% trans "Gym / Fitness Center" %}</option>
-              <option value="martial_arts">{% trans "Martial Arts School" %}</option>
-              <option value="yoga_pilates">{% trans "Yoga / Pilates Studio" %}</option>
-              <option value="swimming">{% trans "Swimming Pool / Aquatics" %}</option>
-              <option value="crossfit">{% trans "CrossFit / Functional Training" %}</option>
-              <option value="cycling">{% trans "Cycling / Indoor Cycling" %}</option>
-              <option value="dance">{% trans "Dance School" %}</option>
-              <option value="climbing">{% trans "Climbing / Boulder" %}</option>
-              <option value="sports_club">{% trans "Sports Club / Team" %}</option>
-              <option value="personal_trainer">{% trans "Personal Trainer / Coach" %}</option>
-            </optgroup>
-            <optgroup label="{% trans 'Health & Wellness' %}">
-              <option value="physiotherapy">{% trans "Physiotherapy / Rehabilitation" %}</option>
-              <option value="massage_spa">{% trans "Massage / SPA / Wellness" %}</option>
-              <option value="nutrition">{% trans "Nutrition / Dietology" %}</option>
-              <option value="medical">{% trans "Medical / Healthcare" %}</option>
-              <option value="psychology">{% trans "Psychology / Mental Health" %}</option>
-              <option value="chiropractic">{% trans "Chiropractic / Manual Therapy" %}</option>
-            </optgroup>
-            <optgroup label="{% trans 'Retail & Equipment' %}">
-              <option value="sports_shop">{% trans "Sports Equipment Shop" %}</option>
-              <option value="clothing">{% trans "Sports Clothing / Gear" %}</option>
-              <option value="supplement">{% trans "Sports Supplements / Nutrition" %}</option>
-              <option value="bike_shop">{% trans "Bike Shop / Service" %}</option>
-            </optgroup>
-            <optgroup label="{% trans 'Professional Services' %}">
-              <option value="lawyer">{% trans "Legal Services / Lawyer" %}</option>
-              <option value="accountant">{% trans "Accounting / Finance" %}</option>
-              <option value="consulting">{% trans "Business Consulting" %}</option>
-              <option value="marketing">{% trans "Marketing / PR / Design" %}</option>
-              <option value="it">{% trans "IT / Technology / Software" %}</option>
-            </optgroup>
-            <optgroup label="{% trans 'Education & Events' %}">
-              <option value="coach_trainer">{% trans "Professional Coaching" %}</option>
-              <option value="school">{% trans "School / Educational Center" %}</option>
-              <option value="event_org">{% trans "Event Organization" %}</option>
-              <option value="seminar">{% trans "Seminar / Workshop Host" %}</option>
-            </optgroup>
-            <optgroup label="{% trans 'Travel & Outdoor' %}">
-              <option value="travel">{% trans "Travel / Tourism / Adventure" %}</option>
-              <option value="outdoor">{% trans "Outdoor Activities / Hiking" %}</option>
-              <option value="water_sports">{% trans "Water Sports / Diving / Surfing" %}</option>
-              <option value="winter_sports">{% trans "Winter Sports / Ski" %}</option>
-            </optgroup>
-            <optgroup label="{% trans 'Food & Hospitality' %}">
-              <option value="restaurant">{% trans "Restaurant / Cafe / Bar" %}</option>
-              <option value="healthy_food">{% trans "Healthy Food / Catering" %}</option>
-              <option value="hotel">{% trans "Hotel / Accommodation" %}</option>
-            </optgroup>
-            <optgroup label="{% trans 'Other' %}">
-              <option value="media">{% trans "Media / Content / Photography" %}</option>
-              <option value="esports">{% trans "eSports / Gaming" %}</option>
-              <option value="other">{% trans "Other (describe below)" %}</option>
-            </optgroup>
-          </select>
-          <i class="fas fa-chevron-down acr-select-arrow"></i>
+        {# HOTFIX 2026-05-23: searchable combobox вместо нативного <select>+<optgroup> — live-поиск, лучше UX #}
+        <div class="acr-combo" data-acr-combo>
+          <button type="button" class="acr-combo-btn" data-acr-combo-toggle aria-haspopup="listbox" aria-expanded="false">
+            <span class="acr-combo-current empty" data-acr-combo-current>— {% trans "your area" %} —</span>
+            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+          </button>
+          <input type="hidden" name="business_category" data-acr-combo-input value="">
+
+          <div class="acr-combo-dropdown" data-acr-combo-dropdown role="listbox">
+            <div class="acr-combo-search-wrap">
+              <i class="fas fa-search" aria-hidden="true"></i>
+              <input type="text" class="acr-combo-search" data-acr-combo-search
+                     placeholder="{% trans 'Search activity area...' %}"
+                     autocomplete="off"
+                     aria-label="{% trans 'Search activity area...' %}">
+            </div>
+
+            <div class="acr-combo-list" data-acr-combo-list>
+              <div class="acr-combo-group" data-acr-combo-group>
+                <div class="acr-combo-group-label">{% trans "Sports & Fitness" %}</div>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="gym">{% trans "Gym / Fitness Center" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="martial_arts">{% trans "Martial Arts School" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="yoga_pilates">{% trans "Yoga / Pilates Studio" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="swimming">{% trans "Swimming Pool / Aquatics" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="crossfit">{% trans "CrossFit / Functional Training" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="cycling">{% trans "Cycling / Indoor Cycling" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="dance">{% trans "Dance School" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="climbing">{% trans "Climbing / Boulder" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="sports_club">{% trans "Sports Club / Team" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="personal_trainer">{% trans "Personal Trainer / Coach" %}</button>
+              </div>
+              <div class="acr-combo-group" data-acr-combo-group>
+                <div class="acr-combo-group-label">{% trans "Health & Wellness" %}</div>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="physiotherapy">{% trans "Physiotherapy / Rehabilitation" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="massage_spa">{% trans "Massage / SPA / Wellness" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="nutrition">{% trans "Nutrition / Dietology" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="medical">{% trans "Medical / Healthcare" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="psychology">{% trans "Psychology / Mental Health" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="chiropractic">{% trans "Chiropractic / Manual Therapy" %}</button>
+              </div>
+              <div class="acr-combo-group" data-acr-combo-group>
+                <div class="acr-combo-group-label">{% trans "Insurance & Financial Services" %}</div>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="insurance_agent">{% trans "Insurance Agent / Broker" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="bank">{% trans "Bank / Banking Services" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="financial_advisor">{% trans "Financial Advisor" %}</button>
+              </div>
+              <div class="acr-combo-group" data-acr-combo-group>
+                <div class="acr-combo-group-label">{% trans "Retail & Equipment" %}</div>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="sports_shop">{% trans "Sports Equipment Shop" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="clothing">{% trans "Sports Clothing / Gear" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="supplement">{% trans "Sports Supplements / Nutrition" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="bike_shop">{% trans "Bike Shop / Service" %}</button>
+              </div>
+              <div class="acr-combo-group" data-acr-combo-group>
+                <div class="acr-combo-group-label">{% trans "Professional Services" %}</div>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="lawyer">{% trans "Legal Services / Lawyer" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="accountant">{% trans "Accounting / Finance" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="consulting">{% trans "Business Consulting" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="marketing">{% trans "Marketing / PR / Design" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="it">{% trans "IT / Technology / Software" %}</button>
+              </div>
+              <div class="acr-combo-group" data-acr-combo-group>
+                <div class="acr-combo-group-label">{% trans "Education & Events" %}</div>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="coach_trainer">{% trans "Professional Coaching" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="school">{% trans "School / Educational Center" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="event_org">{% trans "Event Organization" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="seminar">{% trans "Seminar / Workshop Host" %}</button>
+              </div>
+              <div class="acr-combo-group" data-acr-combo-group>
+                <div class="acr-combo-group-label">{% trans "Travel & Outdoor" %}</div>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="travel">{% trans "Travel / Tourism / Adventure" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="outdoor">{% trans "Outdoor Activities / Hiking" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="water_sports">{% trans "Water Sports / Diving / Surfing" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="winter_sports">{% trans "Winter Sports / Ski" %}</button>
+              </div>
+              <div class="acr-combo-group" data-acr-combo-group>
+                <div class="acr-combo-group-label">{% trans "Food & Hospitality" %}</div>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="restaurant">{% trans "Restaurant / Cafe / Bar" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="healthy_food">{% trans "Healthy Food / Catering" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="hotel">{% trans "Hotel / Accommodation" %}</button>
+              </div>
+              <div class="acr-combo-group" data-acr-combo-group>
+                <div class="acr-combo-group-label">{% trans "Other" %}</div>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="media">{% trans "Media / Content / Photography" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="esports">{% trans "eSports / Gaming" %}</button>
+                <button type="button" class="acr-combo-item" data-acr-combo-item data-value="other">{% trans "Other (describe below)" %}</button>
+              </div>
+            </div>
+            <div class="acr-combo-empty" data-acr-combo-empty hidden>
+              <i class="fas fa-search" aria-hidden="true"></i>
+              {% trans "No results found" %}
+            </div>
+          </div>
         </div>
       </div>
     </div>

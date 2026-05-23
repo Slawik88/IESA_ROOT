@@ -287,6 +287,29 @@ KNOWN: dict[str, dict[str, str]] = {
     '6-digit verification code':{'uk':'6-значний код підтвердження','fr':'Code de vérification à 6 chiffres','de':'6-stelliger Bestätigungscode'},
     'Confirm & Connect':{'uk':'Підтвердити та підключити','fr':'Confirmer & connecter','de':'Bestätigen & verbinden'},
 
+    # HOTFIX 2026-05-23: ACR strings (audit feedback round 2)
+    'Apply for partner':{'uk':'Стати партнером', 'fr':'Devenir partenaire', 'de':'Partner werden'},
+    'Application pending':{'uk':'Заявка на розгляді', 'fr':'Demande en attente', 'de':'Antrag in Bearbeitung'},
+    'STATUS UPGRADE':{'uk':'ПІДВИЩЕННЯ СТАТУСУ', 'fr':'PROMOTION DE STATUT', 'de':'STATUS-UPGRADE'},
+    'Apply for a role upgrade':{'uk':'Подати заявку на підвищення ролі', 'fr':'Demander une promotion de rôle', 'de':'Rollen-Upgrade beantragen'},
+    "Want to become an IESA partner or association staff? Submit a request — we'll review and contact you shortly.":{
+        'uk':'Хочете стати партнером або співробітником асоціації IESA? Подайте заявку — ми розглянемо її та зв\'яжемось з вами.',
+        'fr':'Voulez-vous devenir partenaire ou membre du personnel IESA ? Soumettez une demande — nous l\'examinerons et vous contacterons.',
+        'de':'Möchten Sie IESA-Partner oder Mitarbeiter werden? Reichen Sie einen Antrag ein — wir prüfen ihn und melden uns bei Ihnen.'
+    },
+    'ROLE & ACTIVITY':{'uk':'РОЛЬ ТА ДІЯЛЬНІСТЬ', 'fr':'RÔLE ET ACTIVITÉ', 'de':'ROLLE UND TÄTIGKEIT'},
+    'DESIRED ROLE':{'uk':'БАЖАНА РОЛЬ', 'fr':'RÔLE SOUHAITÉ', 'de':'GEWÜNSCHTE ROLLE'},
+    'Your request is under review':{'uk':'Ваша заявка на розгляді', 'fr':'Votre demande est en cours d\'examen', 'de':'Ihr Antrag wird geprüft'},
+    'Submitted':{'uk':'Подано', 'fr':'Soumis', 'de':'Eingereicht'},
+    'Search activity area...':{'uk':'Пошук сфери діяльності...', 'fr':'Rechercher un domaine...', 'de':'Tätigkeitsbereich suchen...'},
+    'No results found':{'uk':'Нічого не знайдено', 'fr':'Aucun résultat', 'de':'Keine Ergebnisse'},
+    'Submit application':{'uk':'Подати заявку', 'fr':'Envoyer la demande', 'de':'Antrag senden'},
+    'Tell us about yourself':{'uk':'Розкажіть про себе', 'fr':'Parlez-nous de vous', 'de':'Erzählen Sie von sich'},
+    'Contact information':{'uk':'Контактна інформація', 'fr':'Informations de contact', 'de':'Kontaktdaten'},
+    'City / Country':{'uk':'Місто / Країна', 'fr':'Ville / Pays', 'de':'Stadt / Land'},
+    'Activity area':{'uk':'Сфера діяльності', 'fr':'Domaine d\'activité', 'de':'Tätigkeitsbereich'},
+    'Your message':{'uk':'Ваше повідомлення', 'fr':'Votre message', 'de':'Ihre Nachricht'},
+
     # Батч 3: исправления + новые UI строки из .po (empty msgstr)
     'Platform':         {'uk':'Платформа',           'fr':'Plateforme',      'de':'Plattform'},
     'New Member':       {'uk':'Новий учасник',       'fr':'Nouveau membre',  'de':'Neues Mitglied'},

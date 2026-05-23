@@ -771,6 +771,10 @@ class AccountChangeRequest(models.Model):
         ('clothing',         _('Sports Clothing / Gear')),
         ('supplement',       _('Sports Supplements / Nutrition Products')),
         ('bike_shop',        _('Bike Shop / Service')),
+        # HOTFIX 2026-05-23: Insurance & Financial (отсутствовали — фидбэк юзера)
+        ('insurance_agent',   _('Insurance Agent / Broker')),
+        ('bank',              _('Bank / Banking Services')),
+        ('financial_advisor', _('Financial Advisor')),
         # Профессиональные услуги (сотрудники ассоциации)
         ('lawyer',           _('Legal Services / Lawyer')),
         ('accountant',       _('Accounting / Finance')),
