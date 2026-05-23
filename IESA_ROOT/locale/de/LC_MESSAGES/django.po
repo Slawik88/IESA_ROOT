@@ -5360,6 +5360,18 @@ msgstr "z.B. Johann"
 msgid "you@example.com"
 msgstr "sie@beispiel.com"
 
+msgid "Copy PIN to clipboard"
+msgstr "PIN kopieren"
+
+msgid "PIN code {{ current_pin }}"
+msgstr ""
+
+msgid "Refreshes in"
+msgstr "Erneuert in"
+
+msgid "Your current PIN"
+msgstr "Ihr aktueller PIN"
+
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Extremsport als Denk- und Lebensweise"
 

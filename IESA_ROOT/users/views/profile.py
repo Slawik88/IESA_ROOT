@@ -49,9 +49,11 @@ class ProfileView(DetailView):
             draft_count=Count('id', filter=Q(status='draft')),
         ))
 
-        if (user.is_authenticated
-                and getattr(user, 'membership_status', None) == 'active'
-                and user.totp_secret):
+        # BLOCK 8 (audit v4): PIN доступен ВСЕМ юзерам сразу после регистрации.
+        # Убран гейт membership_status == 'active' — теперь PIN работает с момента
+        # создания totp_secret (генерируется автоматически в User.save()).
+        # Физическая карта всё ещё выдаётся вручную (контекст card_active).
+        if user.is_authenticated and user.totp_secret:
             _now  = int(_time.time())
             _step = _now // PIN_INTERVAL
             _secs = (_step + 1) * PIN_INTERVAL - _now

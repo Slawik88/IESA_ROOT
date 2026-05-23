@@ -560,6 +560,15 @@ KNOWN: dict[str, dict[str, str]] = {
         'fr':'Veuillez préciser votre adresse ou votre emplacement.',
         'de':'Bitte geben Sie Ihre Adresse oder Ihren Standort an.',
     },
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # BLOCK 8 (audit v4): PIN display
+    # ──────────────────────────────────────────────────────────────────────────
+    'Your current PIN':  {'uk':'Ваш поточний PIN',    'fr':'Votre PIN actuel',    'de':'Ihr aktueller PIN'},
+    'Refreshes in':      {'uk':'Оновлення через',     'fr':'Renouvellement dans', 'de':'Erneuert in'},
+    'sec':               {'uk':'сек',                 'fr':'sec',                 'de':'Sek.'},
+    'Copy':              {'uk':'Копіювати',           'fr':'Copier',              'de':'Kopieren'},
+    'Copy PIN to clipboard':{'uk':'Скопіювати PIN',   'fr':'Copier le PIN',       'de':'PIN kopieren'},
 }
 
 

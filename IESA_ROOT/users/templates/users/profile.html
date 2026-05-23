@@ -280,6 +280,98 @@
 .acr-submit:hover { filter:brightness(1.1); box-shadow:0 6px 30px rgba(220,38,38,.5); transform:translateY(-1px); }
 .acr-submit:disabled { opacity:.6; cursor:not-allowed; transform:none; }
 
+/* BLOCK 8 (audit v4): PIN display card — большие цифры + таймер автоматического обновления */
+.pin-display-card {
+  background: linear-gradient(135deg, rgba(220,38,38,.12) 0%, rgba(220,38,38,.04) 100%);
+  border: 1.5px solid rgba(220,38,38,.32);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  text-align: center;
+  margin-bottom: 1.25rem;
+  position: relative;
+  overflow: hidden;
+}
+.pin-display-card::before {
+  content:''; position:absolute; top:-40px; right:-40px;
+  width:160px; height:160px;
+  background:radial-gradient(circle,rgba(220,38,38,.18) 0%,transparent 65%);
+  pointer-events:none;
+}
+.pin-display-label {
+  position: relative; z-index: 1;
+  font-size: .7rem; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: rgba(248,113,113,.95);
+  font-family: var(--font-mono);
+  margin-bottom: .85rem;
+  display: inline-flex; align-items: center; gap: .4rem;
+}
+.pin-display-label i { font-size: .85rem; }
+.pin-display-digits {
+  position: relative; z-index: 1;
+  display: inline-flex; gap: .4rem; flex-wrap: wrap; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 2.2rem; font-weight: 900;
+  color: #fff;
+  letter-spacing: .04em;
+  margin-bottom: .5rem;
+}
+.pin-display-digit {
+  background: rgba(255,255,255,.05);
+  border: 1.5px solid rgba(220,38,38,.30);
+  border-radius: 10px;
+  padding: .3rem .6rem;
+  min-width: 1.3em; text-align: center;
+  transition: background .2s, border-color .2s;
+}
+.pin-display-digit:hover { background: rgba(220,38,38,.10); border-color: rgba(220,38,38,.50); }
+@media (max-width: 480px) {
+  .pin-display-digits { font-size: 1.7rem; gap: .25rem; }
+  .pin-display-digit { padding: .25rem .45rem; border-radius: 8px; }
+}
+.pin-display-timer {
+  position: relative; z-index: 1;
+  margin-top: .65rem;
+  font-size: .78rem; color: rgba(255,255,255,.55);
+  font-family: var(--font-mono);
+  display: flex; align-items: center; justify-content: center; gap: .35rem;
+}
+.pin-display-timer i { font-size: .72rem; opacity: .6; }
+.pin-display-timer span { color: #fbbf24; font-weight: 700; min-width: 2.5em; display: inline-block; }
+.pin-display-refresh-bar {
+  margin-top: .55rem;
+  height: 3px; background: rgba(255,255,255,.06);
+  border-radius: 2px; overflow: hidden;
+  position: relative; z-index: 1;
+}
+.pin-display-refresh-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #dc2626, #f87171);
+  border-radius: 2px;
+  width: 100%;
+  transform-origin: left center;
+  animation: pin-refresh-shrink linear forwards;
+}
+@keyframes pin-refresh-shrink {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+.pin-display-copy {
+  position: relative; z-index: 1;
+  margin-top: .9rem;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 8px;
+  padding: .35rem .85rem;
+  color: rgba(255,255,255,.75);
+  font-size: .78rem;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: .35rem;
+  transition: background .2s, border-color .2s, color .2s;
+}
+.pin-display-copy:hover { background: rgba(220,38,38,.10); border-color: rgba(220,38,38,.30); color: #f87171; }
+.pin-display-copy.copied { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.30); color: #4ade80; }
+
 /* ── Steps grid (PIN guide) ────────────────────────────── */
 .steps-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem; }
 @media(max-width:640px){.steps-grid{grid-template-columns:1fr;}}
@@ -1020,6 +1112,34 @@
           </p>
 
           {% if current_pin %}
+          {# BLOCK 8 (audit v4): отображение PIN-кода большими цифрами с обратным отсчётом #}
+          <div class="pin-display-card">
+            <div class="pin-display-label">
+              <i class="fas fa-fingerprint" aria-hidden="true"></i>
+              {% trans "Your current PIN" %}
+            </div>
+            <div class="pin-display-digits" id="pin-display-digits"
+                 role="text" aria-label="{% blocktrans %}PIN code {{ current_pin }}{% endblocktrans %}">
+              {% for digit in current_pin %}
+                <span class="pin-display-digit">{{ digit }}</span>
+              {% endfor %}
+            </div>
+            <div class="pin-display-timer">
+              <i class="far fa-clock" aria-hidden="true"></i>
+              {% trans "Refreshes in" %}
+              <span id="pin-timer">{{ seconds_remaining|default:720 }}</span> {% trans "sec" %}
+            </div>
+            <div class="pin-display-refresh-bar" aria-hidden="true">
+              <div class="pin-display-refresh-fill" id="pin-refresh-fill"
+                   style="animation-duration: {{ seconds_remaining|default:720 }}s;"></div>
+            </div>
+            <button type="button" class="pin-display-copy" id="pin-copy-btn"
+                    data-pin="{{ current_pin }}"
+                    aria-label="{% trans 'Copy PIN to clipboard' %}">
+              <i class="far fa-copy" aria-hidden="true"></i> {% trans "Copy" %}
+            </button>
+          </div>
+
           {# ── Шаги использования PIN ── #}
           <div class="steps-grid mb-3">
             <div class="step-card">
@@ -1581,6 +1701,53 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!combo.contains(e.target) && combo.classList.contains('open')) close();
         });
     });
+})();
+</script>
+
+<script>
+/* BLOCK 8 (audit v4): PIN display — countdown timer + auto-refresh + copy-to-clipboard */
+(function(){
+    var timerEl = document.getElementById('pin-timer');
+    var copyBtn = document.getElementById('pin-copy-btn');
+    if (!timerEl && !copyBtn) return;
+
+    /* Countdown timer */
+    if (timerEl) {
+        var seconds = parseInt(timerEl.textContent, 10) || 0;
+        function tick() {
+            seconds--;
+            if (seconds <= 0) {
+                /* PIN истёк — перезагружаем страницу для получения нового */
+                timerEl.textContent = '0';
+                /* hard reload без cache чтобы получить свежий PIN */
+                setTimeout(function(){ window.location.reload(); }, 500);
+                return;
+            }
+            timerEl.textContent = seconds;
+            /* Цвет таймера: зелёный > 60с, жёлтый > 15с, красный < 15с */
+            if (seconds > 60)      timerEl.style.color = '#4ade80';
+            else if (seconds > 15) timerEl.style.color = '#fbbf24';
+            else                    timerEl.style.color = '#f87171';
+        }
+        setInterval(tick, 1000);
+    }
+
+    /* Copy PIN to clipboard */
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function(){
+            var pin = copyBtn.getAttribute('data-pin') || '';
+            if (!pin || !navigator.clipboard) return;
+            navigator.clipboard.writeText(pin).then(function(){
+                var orig = copyBtn.innerHTML;
+                copyBtn.classList.add('copied');
+                copyBtn.innerHTML = '<i class="fas fa-check" aria-hidden="true"></i> {% trans "Copied" %}';
+                setTimeout(function(){
+                    copyBtn.classList.remove('copied');
+                    copyBtn.innerHTML = orig;
+                }, 1500);
+            });
+        });
+    }
 })();
 </script>
 
