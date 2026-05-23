@@ -67,6 +67,116 @@
 .acr-select:focus { border-color:rgba(220,38,38,.6); background:rgba(220,38,38,.05); box-shadow:0 0 0 3px rgba(220,38,38,.12); }
 .acr-select option { background:#12111c; color:#fff; }
 .acr-select-arrow { position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.28); pointer-events:none; font-size:.8rem; }
+
+/* HOTFIX 2026-05-23 — Searchable combobox для категории бизнеса */
+.acr-combo { position: relative; }
+.acr-combo-btn {
+    width: 100%;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 10px;
+    color: #fff; font-size: .95rem;
+    padding: .72rem 2.6rem .72rem 1rem;
+    text-align: left;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative;
+}
+.acr-combo-btn:hover, .acr-combo-btn:focus { border-color: rgba(220,38,38,.4); outline: none; }
+.acr-combo-btn .acr-combo-current { color: #fff; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acr-combo-btn .acr-combo-current.empty { color: rgba(255,255,255,.30); font-style: italic; }
+.acr-combo-btn i.fa-chevron-down { color: rgba(255,255,255,.4); font-size: .75rem; transition: transform .2s; }
+.acr-combo.open .acr-combo-btn { border-color: rgba(220,38,38,.55); box-shadow: 0 0 0 3px rgba(220,38,38,.10); }
+.acr-combo.open .acr-combo-btn i.fa-chevron-down { transform: rotate(180deg); }
+.acr-combo-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0; right: 0;
+    background: #12121f;
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 12px;
+    z-index: 100;
+    box-shadow: 0 12px 36px rgba(0,0,0,.55);
+    max-height: 380px;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+}
+.acr-combo.open .acr-combo-dropdown { display: flex; }
+.acr-combo-search-wrap {
+    position: relative;
+    padding: .65rem .75rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    background: rgba(255,255,255,.02);
+}
+.acr-combo-search-wrap i.fa-search {
+    position: absolute;
+    left: 1.4rem; top: 50%; transform: translateY(-50%);
+    color: rgba(255,255,255,.30);
+    font-size: .82rem;
+    pointer-events: none;
+}
+.acr-combo-search {
+    width: 100%;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 8px;
+    color: #fff; font-size: .9rem;
+    padding: .5rem .75rem .5rem 2rem;
+    outline: none;
+}
+.acr-combo-search:focus { border-color: rgba(220,38,38,.5); background: rgba(255,255,255,.07); }
+.acr-combo-search::placeholder { color: rgba(255,255,255,.30); }
+.acr-combo-list { overflow-y: auto; flex: 1; padding: .4rem 0; }
+.acr-combo-list::-webkit-scrollbar { width: 8px; }
+.acr-combo-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.10); border-radius: 4px; }
+.acr-combo-group-label {
+    font-size: .62rem; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: rgba(220,38,38,.7);
+    font-family: var(--font-mono);
+    padding: .65rem .9rem .35rem;
+    background: rgba(220,38,38,.04);
+    border-top: 1px solid rgba(220,38,38,.08);
+}
+.acr-combo-group:first-child .acr-combo-group-label { border-top: none; }
+.acr-combo-item {
+    display: flex; align-items: center; gap: .55rem;
+    width: 100%;
+    background: none; border: none; outline: none;
+    text-align: left;
+    color: rgba(255,255,255,.78);
+    font-size: .87rem;
+    padding: .55rem .9rem;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.acr-combo-item:hover, .acr-combo-item.focused {
+    background: rgba(220,38,38,.10);
+    color: #fff;
+}
+.acr-combo-item.selected {
+    background: rgba(220,38,38,.15);
+    color: #f87171;
+    font-weight: 600;
+}
+.acr-combo-item.selected::after {
+    content: '\f00c'; /* check */
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: .75rem;
+    color: var(--primary, #dc2626);
+    margin-left: auto;
+}
+.acr-combo-item .acr-combo-item-hl { background: rgba(220,38,38,.30); color: #fff; padding: 0 1px; border-radius: 2px; }
+.acr-combo-empty {
+    padding: 1.5rem;
+    text-align: center;
+    color: rgba(255,255,255,.40);
+    font-size: .9rem;
+}
+.acr-combo-empty i { display: block; margin-bottom: .5rem; font-size: 1.4rem; color: rgba(255,255,255,.20); }
+.acr-combo-group.hidden { display: none; }
 .acr-textarea {
   width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
   border-radius:10px; color:#fff; font-size:.92rem;
@@ -946,8 +1056,7 @@
     </div>
   </div><!-- /cab-wrap -->
 
-  {# HOTFIX 2026-05-22: ACR форма доступна всем не-партнёрам (раньше — только inactive,
-     но после блока 3a у всех membership_status='active' по умолчанию, и ACR никому не показывался). #}
+  {% comment %}HOTFIX 2026-05-22: ACR форма доступна всем не-партнёрам — раньше был гейт membership_status != 'active', но после блока 3a у всех по умолчанию active.{% endcomment %}
   {% if not user.is_partner %}
   <div class="cab-wrap" style="margin-top:0; padding-top:0;">
     <div id="acr-section" data-reveal data-delay="5">
@@ -1170,6 +1279,105 @@ document.addEventListener('DOMContentLoaded', function () {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
     });
   });
+})();
+</script>
+
+<script>
+/* HOTFIX 2026-05-23: Searchable combobox для категории бизнеса в ACR-форме.
+   Заменяет нативный <select>+<optgroup>, добавляет live-поиск.  */
+(function(){
+    var combos = document.querySelectorAll('[data-acr-combo]');
+    if (!combos.length) return;
+
+    function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+    function highlight(text, query) {
+        if (!query) return text;
+        var re = new RegExp('(' + escapeRegex(query) + ')', 'gi');
+        return text.replace(re, '<span class="acr-combo-item-hl">$1</span>');
+    }
+
+    combos.forEach(function(combo){
+        var btn      = combo.querySelector('[data-acr-combo-toggle]');
+        var input    = combo.querySelector('[data-acr-combo-input]');
+        var current  = combo.querySelector('[data-acr-combo-current]');
+        var dropdown = combo.querySelector('[data-acr-combo-dropdown]');
+        var search   = combo.querySelector('[data-acr-combo-search]');
+        var list     = combo.querySelector('[data-acr-combo-list]');
+        var empty    = combo.querySelector('[data-acr-combo-empty]');
+        var items    = list.querySelectorAll('[data-acr-combo-item]');
+        var groups   = list.querySelectorAll('[data-acr-combo-group]');
+
+        /* Сохраняем оригинальный текст для подсветки */
+        items.forEach(function(it){ it.dataset.originalText = it.textContent.trim(); });
+
+        function open() {
+            combo.classList.add('open');
+            btn.setAttribute('aria-expanded', 'true');
+            setTimeout(function(){ search.focus(); }, 50);
+        }
+        function close() {
+            combo.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+            search.value = '';
+            doFilter('');
+        }
+        function toggle() {
+            combo.classList.contains('open') ? close() : open();
+        }
+        function selectItem(item) {
+            var val = item.getAttribute('data-value');
+            var label = item.dataset.originalText;
+            input.value = val;
+            current.textContent = label;
+            current.classList.remove('empty');
+            items.forEach(function(it){ it.classList.remove('selected'); });
+            item.classList.add('selected');
+            close();
+        }
+
+        function doFilter(q) {
+            q = (q || '').trim().toLowerCase();
+            var anyVisible = false;
+            groups.forEach(function(group){
+                var groupHasMatch = false;
+                var gItems = group.querySelectorAll('[data-acr-combo-item]');
+                gItems.forEach(function(it){
+                    var text = it.dataset.originalText.toLowerCase();
+                    var match = !q || text.indexOf(q) !== -1;
+                    if (match) {
+                        it.style.display = '';
+                        it.innerHTML = highlight(it.dataset.originalText, q);
+                        groupHasMatch = true;
+                        anyVisible = true;
+                    } else {
+                        it.style.display = 'none';
+                    }
+                });
+                group.classList.toggle('hidden', !groupHasMatch);
+            });
+            empty.hidden = anyVisible;
+        }
+
+        btn.addEventListener('click', function(e){ e.stopPropagation(); toggle(); });
+        search.addEventListener('input', function(){ doFilter(search.value); });
+        search.addEventListener('keydown', function(e){
+            if (e.key === 'Escape') { close(); btn.focus(); }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var first = list.querySelector('[data-acr-combo-item]:not([style*="display: none"])');
+                if (first) selectItem(first);
+            }
+        });
+        items.forEach(function(item){
+            item.addEventListener('click', function(e){ e.stopPropagation(); selectItem(item); });
+        });
+
+        /* Закрываем при клике вне */
+        document.addEventListener('click', function(e){
+            if (!combo.contains(e.target) && combo.classList.contains('open')) close();
+        });
+    });
 })();
 </script>
 
