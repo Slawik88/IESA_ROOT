@@ -5360,6 +5360,18 @@ msgstr "напр. Іван"
 msgid "you@example.com"
 msgstr "ви@example.com"
 
+msgid "Copy PIN to clipboard"
+msgstr "Скопіювати PIN"
+
+msgid "PIN code {{ current_pin }}"
+msgstr ""
+
+msgid "Refreshes in"
+msgstr "Оновлення через"
+
+msgid "Your current PIN"
+msgstr "Ваш поточний PIN"
+
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
 
