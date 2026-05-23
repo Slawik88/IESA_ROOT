@@ -564,22 +564,44 @@ class MeetingAdmin(admin.ModelAdmin):
 class AccountChangeRequestAdmin(admin.ModelAdmin):
     """
     Админка заявок на смену типа аккаунта.
-    Показывает контакты пользователя прямо в списке для быстрой связи.
+
+    BLOCK 10 (audit v4): добавлены actions Approve / Reject:
+    - approve_request: ставит роль (is_partner / is_staff / is_president) и создаёт Partner объект
+    - reject_request: ставит status='rejected' (rejection_reason из admin_note)
+    - Кастомные кнопки прямо на change_view
     """
+    change_form_template = 'admin/accountchangerequest_change_form.html'
     list_display = [
-        'user_link', 'desired_type', 'status',
+        'user_link', 'desired_type', 'status_badge',
         'user_email', 'user_phone', 'user_telegram',
         'reason_short', 'created_at',
     ]
     list_filter  = ['status', 'desired_type', 'created_at']
-    search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name', 'reason']
-    readonly_fields = ['user', 'desired_type', 'reason', 'created_at', 'user_contact_card']
+    search_fields = ['user__username', 'user__email', 'user__first_name', 'user__last_name',
+                     'first_name', 'last_name', 'reason']
+    readonly_fields = [
+        'user', 'desired_type', 'reason', 'created_at', 'user_contact_card',
+        'first_name', 'last_name', 'business_category',
+        'contact_phone', 'contact_telegram', 'contact_email', 'address',
+        'reviewed_at', 'reviewed_by',
+    ]
     ordering = ['-created_at']
+    actions = ['approve_request_action', 'reject_request_action']
 
     fieldsets = [
-        ('Заявка', {'fields': ['user', 'desired_type', 'reason', 'created_at']}),
-        ('Контакт пользователя', {'fields': ['user_contact_card']}),
-        ('Решение администратора', {'fields': ['status', 'admin_note']}),
+        ('Заявка', {
+            'fields': ['user', 'desired_type', 'business_category', 'reason', 'created_at'],
+        }),
+        ('Имя и контакты заявителя', {
+            'fields': ['first_name', 'last_name',
+                       'contact_phone', 'contact_email', 'contact_telegram', 'address'],
+        }),
+        ('Контактная карточка аккаунта', {'fields': ['user_contact_card']}),
+        ('Решение администратора', {
+            'fields': ['status', 'admin_note', 'rejection_reason', 'reviewed_at', 'reviewed_by'],
+            'description': '⚠️ Используйте кнопки <b>Approve</b> / <b>Reject</b> внизу страницы — '
+                           'они автоматически назначают роль и создают связанные объекты.',
+        }),
     ]
 
     # ── Вычисляемые колонки ──────────────────────────────────────
@@ -631,6 +653,225 @@ class AccountChangeRequestAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False  # заявки создаются только пользователями, не из Admin
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # BLOCK 10 (audit v4): кастомные actions Approve / Reject
+    # ──────────────────────────────────────────────────────────────────────────
+
+    def status_badge(self, obj):
+        colors = {
+            'pending':   ('#fbbf24', '#92400e', '⏳'),
+            'reviewed':  ('#60a5fa', '#1e40af', '🔍'),
+            'approved':  ('#4ade80', '#166534', '✅'),
+            'rejected':  ('#f87171', '#991b1b', '❌'),
+            'cancelled': ('#94a3b8', '#475569', '🚫'),
+        }
+        bg, fg, icon = colors.get(obj.status, ('#94a3b8', '#475569', '•'))
+        return format_html(
+            '<span style="background:{0}33;color:{1};padding:.18rem .55rem;'
+            'border-radius:10px;font-weight:700;font-size:.78rem;'
+            'border:1px solid {0}66;">{2} {3}</span>',
+            bg, fg, icon, obj.get_status_display(),
+        )
+    status_badge.short_description = 'Статус'
+    status_badge.admin_order_field = 'status'
+
+    @admin.action(description='✅ Approve & assign role')
+    def approve_request_action(self, request, queryset):
+        from django.utils import timezone
+        from .models import Partner as _Partner
+        approved = 0
+        skipped = 0
+        for acr in queryset:
+            if acr.status in ('approved', 'rejected', 'cancelled'):
+                skipped += 1
+                continue
+            self._apply_approval(acr, request)
+            approved += 1
+        self.message_user(
+            request,
+            f'✅ Approved: {approved}, skipped (already finalized): {skipped}',
+            level='success' if approved else 'warning',
+        )
+
+    @admin.action(description='❌ Reject (admin_note → rejection reason)')
+    def reject_request_action(self, request, queryset):
+        from django.utils import timezone
+        rejected = 0
+        for acr in queryset:
+            if acr.status in ('approved', 'rejected', 'cancelled'):
+                continue
+            acr.status = 'rejected'
+            acr.rejection_reason = acr.admin_note or 'Rejected by administrator without specific reason.'
+            acr.reviewed_at = timezone.now()
+            acr.reviewed_by = request.user
+            acr.save(update_fields=['status', 'rejection_reason', 'reviewed_at', 'reviewed_by'])
+            self._notify_applicant_rejected(acr)
+            rejected += 1
+        self.message_user(request, f'❌ Rejected: {rejected}', level='warning')
+
+    def _apply_approval(self, acr, request):
+        """Применяет approve-логику: назначает роль и создаёт связанные объекты."""
+        from django.utils import timezone
+        from .models import Partner as _Partner
+        user = acr.user
+        if not user:
+            return
+
+        if acr.desired_type == 'partner':
+            user.is_partner = True
+            user.save(update_fields=['is_partner'])
+            # Создаём Partner объект если его ещё нет
+            if not hasattr(user, 'partner_profile'):
+                company = (f'{acr.first_name} {acr.last_name}'.strip()
+                           or acr.contact_name
+                           or user.get_full_name()
+                           or user.username)
+                _Partner.objects.create(
+                    user=user,
+                    company_name=company,
+                    partner_type='partner',
+                    address_full=acr.address or '',
+                )
+        elif acr.desired_type == 'association_staff':
+            # Сотрудник ассоциации — Partner с partner_type='association_staff'
+            # (доступ к B2B-кабинету, БЕЗ is_staff)
+            user.is_partner = True
+            user.save(update_fields=['is_partner'])
+            if not hasattr(user, 'partner_profile'):
+                _Partner.objects.create(
+                    user=user,
+                    company_name=(f'{acr.first_name} {acr.last_name}'.strip() or user.username),
+                    partner_type='association_staff',
+                )
+        elif acr.desired_type == 'president':
+            user.is_president = True
+            user.save(update_fields=['is_president'])
+
+        acr.status = 'approved'
+        acr.reviewed_at = timezone.now()
+        acr.reviewed_by = request.user
+        acr.save(update_fields=['status', 'reviewed_at', 'reviewed_by'])
+
+        # BLOCK 10 (audit v4): уведомить применителя об одобрении (in-site + TG)
+        self._notify_applicant_approved(acr)
+
+    def _notify_applicant_approved(self, acr):
+        """Уведомление пользователя что его заявка одобрена (in-site + TG)."""
+        try:
+            from notifications.models import Notification as _Notif
+            _Notif.objects.create(
+                recipient=acr.user,
+                notification_type='success',
+                title='Заявка одобрена ✅',
+                message=f'Ваша заявка на роль «{acr.get_desired_type_display()}» одобрена администратором.',
+                link='/auth/profile/',
+            )
+        except Exception:
+            pass
+        # TG в фоне
+        chat_id = getattr(acr.user, 'telegram_chat_id', None)
+        if chat_id:
+            import threading
+            def _send():
+                try:
+                    from users.telegram.client import send_message as _sm
+                    _sm(
+                        text=(
+                            f"🎉 <b>Ваша заявка одобрена!</b>\n\n"
+                            f"Роль: <b>{acr.get_desired_type_display()}</b>\n"
+                            f"Теперь вам доступен расширенный функционал в личном кабинете."
+                        ),
+                        chat_id=chat_id, parse_mode='HTML',
+                    )
+                except Exception:
+                    pass
+            threading.Thread(target=_send, daemon=True).start()
+
+    # ── Кастомные URL-ы для кнопок approve/reject на change_view ────────────
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom = [
+            path('<int:acr_id>/approve/',
+                 self.admin_site.admin_view(self.approve_single_view),
+                 name='users_accountchangerequest_approve'),
+            path('<int:acr_id>/reject/',
+                 self.admin_site.admin_view(self.reject_single_view),
+                 name='users_accountchangerequest_reject'),
+        ]
+        return custom + urls
+
+    def approve_single_view(self, request, acr_id):
+        from django.shortcuts import redirect
+        from django.contrib import messages
+        from .models import AccountChangeRequest as _ACR
+        acr = _ACR.objects.filter(pk=acr_id).first()
+        if not acr:
+            messages.error(request, 'Заявка не найдена.')
+            return redirect('admin:users_accountchangerequest_changelist')
+        if acr.status in ('approved', 'rejected', 'cancelled'):
+            messages.warning(request, f'Заявка уже в статусе «{acr.get_status_display()}».')
+            return redirect('admin:users_accountchangerequest_change', acr.pk)
+        self._apply_approval(acr, request)
+        messages.success(request,
+            f'✅ Заявка одобрена. Юзеру {acr.user.username} назначена роль «{acr.get_desired_type_display()}».')
+        return redirect('admin:users_accountchangerequest_change', acr.pk)
+
+    def reject_single_view(self, request, acr_id):
+        from django.shortcuts import redirect
+        from django.contrib import messages
+        from django.utils import timezone
+        from .models import AccountChangeRequest as _ACR
+        acr = _ACR.objects.filter(pk=acr_id).first()
+        if not acr:
+            messages.error(request, 'Заявка не найдена.')
+            return redirect('admin:users_accountchangerequest_changelist')
+        if acr.status in ('approved', 'rejected', 'cancelled'):
+            messages.warning(request, f'Заявка уже в статусе «{acr.get_status_display()}».')
+            return redirect('admin:users_accountchangerequest_change', acr.pk)
+        acr.status = 'rejected'
+        acr.rejection_reason = acr.admin_note or 'Rejected by administrator.'
+        acr.reviewed_at = timezone.now()
+        acr.reviewed_by = request.user
+        acr.save(update_fields=['status', 'rejection_reason', 'reviewed_at', 'reviewed_by'])
+        # BLOCK 10: уведомить применителя об отклонении (in-site + TG)
+        self._notify_applicant_rejected(acr)
+        messages.success(request, f'❌ Заявка отклонена для {acr.user.username}.')
+        return redirect('admin:users_accountchangerequest_change', acr.pk)
+
+    def _notify_applicant_rejected(self, acr):
+        """Уведомление пользователя об отклонении заявки."""
+        try:
+            from notifications.models import Notification as _Notif
+            _Notif.objects.create(
+                recipient=acr.user,
+                notification_type='warning',
+                title='Заявка отклонена',
+                message=(f'Ваша заявка на роль «{acr.get_desired_type_display()}» отклонена. '
+                         f'Причина: {acr.rejection_reason or "не указана"}'),
+                link='/auth/profile/',
+            )
+        except Exception:
+            pass
+        chat_id = getattr(acr.user, 'telegram_chat_id', None)
+        if chat_id:
+            import threading
+            def _send():
+                try:
+                    from users.telegram.client import send_message as _sm
+                    _sm(
+                        text=(
+                            f"⚠️ <b>Заявка отклонена</b>\n\n"
+                            f"Роль: {acr.get_desired_type_display()}\n"
+                            + (f"\n<i>Причина: {acr.rejection_reason}</i>\n" if acr.rejection_reason else '')
+                            + "\nВы можете подать новую заявку, учтя замечания."
+                        ),
+                        chat_id=chat_id, parse_mode='HTML',
+                    )
+                except Exception:
+                    pass
+            threading.Thread(target=_send, daemon=True).start()
 
 
 # ---------------------------------------------------------------------------
