@@ -113,6 +113,12 @@ class User(AbstractUser):
         help_text=_('Grant partner portal access without displaying on homepage. '
                     'Partner can log member visits via the partner portal.')
     )
+    # BLOCK 10 (audit v4): новая роль «Президент ассоциации»
+    is_president = models.BooleanField(
+        default=False,
+        verbose_name=_('President of Association'),
+        help_text=_('Marks user as president of the association. Displayed with a crown badge.')
+    )
 
     # Permanent card identifier (immutable). Used for QR cards and stable linking.
     permanent_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False, verbose_name=_('Permanent ID'))
@@ -807,7 +813,9 @@ class AccountChangeRequest(models.Model):
     STATUS_CHOICES = [
         ('pending',   _('Pending Review')),
         ('reviewed',  _('Reviewed')),
+        ('approved',  _('Approved')),       # BLOCK 10 (audit v4): новый финальный статус
         ('rejected',  _('Rejected')),
+        ('cancelled', _('Cancelled by user')),
     ]
 
     user = models.ForeignKey(
@@ -875,6 +883,22 @@ class AccountChangeRequest(models.Model):
         blank=True,
         verbose_name=_('Admin Note'),
         help_text=_('Internal note for the administrator (not shown to user).'),
+    )
+    # BLOCK 10 (audit v4): audit trail для approve/reject
+    rejection_reason = models.TextField(
+        blank=True,
+        verbose_name=_('Rejection Reason'),
+        help_text=_('Shown to user if request is rejected.'),
+    )
+    reviewed_at = models.DateTimeField(
+        null=True, blank=True,
+        verbose_name=_('Reviewed At'),
+    )
+    reviewed_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+        verbose_name=_('Reviewed By'),
     )
     created_at = models.DateTimeField(
         auto_now_add=True,

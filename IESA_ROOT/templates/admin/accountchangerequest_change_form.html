@@ -1,0 +1,53 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    {% if original and original.pk and original.status == 'pending' %}
+    <li>
+        <a href="{% url 'admin:users_accountchangerequest_approve' original.pk %}"
+           class="approve-btn"
+           style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;border:none;border-radius:8px;padding:.55rem 1.1rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem;box-shadow:0 4px 14px rgba(34,197,94,.30);"
+           onclick="return confirm('{% blocktrans with user=original.user.username role=original.get_desired_type_display %}Approve request from {{ user }} for role «{{ role }}»? This will assign the role and create related Partner object.{% endblocktrans %}');">
+            ✅ {% trans "Approve & Assign Role" %}
+        </a>
+    </li>
+    <li>
+        <a href="{% url 'admin:users_accountchangerequest_reject' original.pk %}"
+           class="reject-btn"
+           style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;border:none;border-radius:8px;padding:.55rem 1.1rem;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem;box-shadow:0 4px 14px rgba(220,38,38,.30);"
+           onclick="return confirm('{% blocktrans with user=original.user.username %}Reject request from {{ user }}? Make sure you filled in admin_note — it will be saved as rejection_reason.{% endblocktrans %}');">
+            ❌ {% trans "Reject" %}
+        </a>
+    </li>
+    {% elif original and original.status %}
+    <li>
+        <span style="background:rgba(0,0,0,.08);padding:.45rem .9rem;border-radius:8px;font-weight:600;color:#475569;">
+            {% trans "Status:" %} <strong>{{ original.get_status_display }}</strong>
+            {% if original.reviewed_by %} ({% trans "by" %} {{ original.reviewed_by.username }}){% endif %}
+        </span>
+    </li>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+{% if original and original.pk and original.status == 'pending' %}
+<div style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.02));border:1.5px solid rgba(34,197,94,.20);border-left:4px solid #22c55e;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;color:#166534;">
+    <strong>🎯 {% trans "Quick actions" %}:</strong>
+    {% blocktrans with role=original.get_desired_type_display %}
+    Use <b>Approve & Assign Role</b> button at the top to grant <b>{{ role }}</b> role automatically.
+    {% endblocktrans %}
+    {% if original.desired_type == 'partner' %}
+        {% trans "A Partner object will be created with the user's address." %}
+    {% elif original.desired_type == 'association_staff' %}
+        {% trans "User will get is_partner=True with partner_type='association_staff' (no is_staff)." %}
+    {% elif original.desired_type == 'president' %}
+        {% trans "User will get is_president=True." %}
+    {% endif %}
+    {% blocktrans %}
+    Or fill <b>admin_note</b> and click <b>Reject</b> to deny the request.
+    {% endblocktrans %}
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

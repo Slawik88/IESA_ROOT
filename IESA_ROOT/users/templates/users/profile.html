@@ -459,8 +459,14 @@
           </h1>
           <p class="cab-sub">@{{ profile_user.username }} &nbsp;·&nbsp; {{ profile_user.email }}</p>
           <div class="cab-badges">
-            {% if profile_user.is_staff %}
+            {# BLOCK 10/11 (audit v4): иерархия ролей — Owner > Staff > President > Partner > Member > Verified #}
+            {% if profile_user.is_superuser %}
+              <span class="sb sb-owner"><i class="fas fa-crown"></i> Owner</span>
+            {% elif profile_user.is_staff %}
               <span class="sb sb-staff"><i class="fas fa-shield-alt"></i> Admin</span>
+            {% endif %}
+            {% if profile_user.is_president %}
+              <span class="sb sb-president"><i class="fas fa-chess-king"></i> {% trans "President" %}</span>
             {% endif %}
             {% if profile_user.is_partner or profile_user.partner_profile %}
               <span class="sb sb-partner"><i class="fas fa-handshake"></i> {% trans "Partner" %}</span>
