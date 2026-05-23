@@ -5310,6 +5310,47 @@ msgstr "Aucun résultat"
 msgid "Search activity area..."
 msgstr "Rechercher un domaine..."
 
+msgid ""
+"Association Staff — for individuals helping IESA (programmer, lawyer, "
+"designer, coordinator, etc.). No business or address needed."
+msgstr ""
+"Personnel de l'association — pour les particuliers aidant IESA (programmeur,"
+" avocat, designer, coordinateur, etc.). Aucune entreprise ni adresse "
+"requise."
+
+msgid ""
+"External Partner — for businesses (gym, clinic, shop, insurance agency, "
+"etc.). You will need to provide business category and address."
+msgstr ""
+"Partenaire externe — pour les entreprises (salle de sport, clinique, "
+"magasin, agence d'assurance, etc.). Vous devrez fournir la catégorie "
+"d'activité et l'adresse."
+
+msgid "FIRST NAME"
+msgstr "PRÉNOM"
+
+msgid "LAST NAME"
+msgstr "NOM"
+
+msgid "President of Association"
+msgstr "Président de l'association"
+
+msgid ""
+"President of the Association — only for board members. Submit your contact "
+"details, admin will verify."
+msgstr ""
+"Président de l'association — réservé aux membres du conseil. Soumettez vos "
+"coordonnées, l'admin vérifiera."
+
+msgid "e.g. Doe"
+msgstr "p.ex. Dupont"
+
+msgid "e.g. John"
+msgstr "p.ex. Jean"
+
+msgid "you@example.com"
+msgstr "vous@exemple.com"
+
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Le sport extrême comme manière de penser et de vivre"
 

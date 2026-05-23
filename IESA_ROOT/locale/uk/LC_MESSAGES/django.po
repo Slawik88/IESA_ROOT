@@ -5320,6 +5320,46 @@ msgstr "Нічого не знайдено"
 msgid "Search activity area..."
 msgstr "Пошук сфери діяльності..."
 
+msgid ""
+"Association Staff — for individuals helping IESA (programmer, lawyer, "
+"designer, coordinator, etc.). No business or address needed."
+msgstr ""
+"Співробітник асоціації — для приватних осіб, які допомагають IESA "
+"(програміст, юрист, дизайнер, координатор тощо). Бізнес чи адреса не "
+"потрібні."
+
+msgid ""
+"External Partner — for businesses (gym, clinic, shop, insurance agency, "
+"etc.). You will need to provide business category and address."
+msgstr ""
+"Зовнішній партнер — для бізнесу (спортзал, клініка, магазин, страхове "
+"агентство тощо). Потрібно вказати категорію бізнесу та адресу."
+
+msgid "FIRST NAME"
+msgstr "ІМ'Я"
+
+msgid "LAST NAME"
+msgstr "ПРІЗВИЩЕ"
+
+msgid "President of Association"
+msgstr "Президент асоціації"
+
+msgid ""
+"President of the Association — only for board members. Submit your contact "
+"details, admin will verify."
+msgstr ""
+"Президент асоціації — лише для членів правління. Надішліть контактні дані, "
+"адміністратор перевірить."
+
+msgid "e.g. Doe"
+msgstr "напр. Петренко"
+
+msgid "e.g. John"
+msgstr "напр. Іван"
+
+msgid "you@example.com"
+msgstr "ви@example.com"
+
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
 

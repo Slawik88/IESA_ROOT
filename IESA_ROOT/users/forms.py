@@ -216,12 +216,21 @@ class AccountChangeRequestForm(forms.Form):
         required=False,
         widget=forms.Select(attrs={'class': 'acr-select'}),
     )
-    contact_name = forms.CharField(
-        label=_('Full Name'),
-        max_length=200,
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'acr-input', 'placeholder': _('Your full name')}),
+    # BLOCK 7 (audit v4): first_name + last_name отдельно (раньше — contact_name одним полем)
+    first_name = forms.CharField(
+        label=_('First Name'),
+        max_length=100,
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'acr-input', 'placeholder': _('e.g. John')}),
     )
+    last_name = forms.CharField(
+        label=_('Last Name'),
+        max_length=100,
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'acr-input', 'placeholder': _('e.g. Doe')}),
+    )
+    # contact_name — legacy fallback (заполняется автоматически из first+last)
+    contact_name = forms.CharField(required=False, widget=forms.HiddenInput())
     contact_phone = forms.CharField(
         label=_('Phone / WhatsApp'),
         max_length=50,
@@ -236,7 +245,7 @@ class AccountChangeRequestForm(forms.Form):
     )
     contact_email = forms.EmailField(
         label=_('Contact Email'),
-        required=False,
+        required=True,
         widget=forms.EmailInput(attrs={'class': 'acr-input', 'placeholder': 'email@example.com'}),
     )
     address = forms.CharField(
@@ -247,8 +256,7 @@ class AccountChangeRequestForm(forms.Form):
     )
     reason = forms.CharField(
         label=_('Description of Activity'),
-        help_text=_('Describe your activity, role and goals. Minimum 50 characters.'),
-        min_length=50,
+        help_text=_('Describe your activity, role and goals.'),
         max_length=2000,
         widget=forms.Textarea(attrs={
             'class': 'acr-textarea',
@@ -257,11 +265,31 @@ class AccountChangeRequestForm(forms.Form):
         }),
     )
 
+    def clean(self):
+        """BLOCK 6 (audit v4): динамическая валидация в зависимости от desired_type.
+
+        - partner: business_category, address — required
+        - association_staff / president: business_category, address, contact_telegram — НЕ обязательны
+          (это частные лица без бизнеса)
+        """
+        cleaned = super().clean()
+        desired = cleaned.get('desired_type', '')
+
+        if desired == 'partner':
+            if not cleaned.get('business_category'):
+                self.add_error('business_category', _('Please choose your business category.'))
+            if not (cleaned.get('address') or '').strip():
+                self.add_error('address', _('Please specify your address or location.'))
+
+        # contact_name автозаполняется из first_name + last_name (backward compat)
+        fn = (cleaned.get('first_name') or '').strip()
+        ln = (cleaned.get('last_name') or '').strip()
+        if fn or ln:
+            cleaned['contact_name'] = f'{fn} {ln}'.strip()
+
+        return cleaned
+
     def clean_reason(self):
-        reason = self.cleaned_data.get('reason', '').strip()
-        if len(reason) < 50:
-            raise forms.ValidationError(
-                _('Please describe your activity in at least 50 characters.')
-            )
-        return reason
+        # BLOCK 1 (audit v4): убрана min length=50 — теперь без ограничения
+        return (self.cleaned_data.get('reason') or '').strip()
 

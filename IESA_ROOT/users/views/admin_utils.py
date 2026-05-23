@@ -42,6 +42,9 @@ def account_change_request_submit(request):
             desired_type=cd['desired_type'],
             business_category=cd.get('business_category', ''),
             reason=cd['reason'],
+            # BLOCK 7 (audit v4): first_name/last_name отдельно + legacy contact_name
+            first_name=cd.get('first_name', ''),
+            last_name=cd.get('last_name', ''),
             contact_name=cd.get('contact_name', ''),
             contact_phone=cd.get('contact_phone', ''),
             contact_telegram=cd.get('contact_telegram', ''),

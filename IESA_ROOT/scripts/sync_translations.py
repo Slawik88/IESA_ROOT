@@ -522,6 +522,44 @@ KNOWN: dict[str, dict[str, str]] = {
         'fr':'Erreur réseau. Veuillez réessayer.',
         'de':'Netzwerkfehler. Bitte erneut versuchen.',
     },
+
+    # ──────────────────────────────────────────────────────────────────────────
+    # BLOCK 6-7 (audit v4): динамическая ACR форма + president + first/last name
+    # ──────────────────────────────────────────────────────────────────────────
+    'President of Association': {'uk':'Президент асоціації',     'fr':'Président de l\'association', 'de':'Präsident des Vereins'},
+    'President of the Association — only for board members. Submit your contact details, admin will verify.': {
+        'uk':'Президент асоціації — лише для членів правління. Надішліть контактні дані, адміністратор перевірить.',
+        'fr':"Président de l'association — réservé aux membres du conseil. Soumettez vos coordonnées, l'admin vérifiera.",
+        'de':'Präsident des Vereins — nur für Vorstandsmitglieder. Senden Sie Ihre Kontaktdaten, der Admin prüft.',
+    },
+    'External Partner — for businesses (gym, clinic, shop, insurance agency, etc.). You will need to provide business category and address.': {
+        'uk':'Зовнішній партнер — для бізнесу (спортзал, клініка, магазин, страхове агентство тощо). Потрібно вказати категорію бізнесу та адресу.',
+        'fr':"Partenaire externe — pour les entreprises (salle de sport, clinique, magasin, agence d'assurance, etc.). Vous devrez fournir la catégorie d'activité et l'adresse.",
+        'de':'Externer Partner — für Unternehmen (Fitnessstudio, Klinik, Geschäft, Versicherungsagentur usw.). Sie müssen die Geschäftskategorie und die Adresse angeben.',
+    },
+    'Association Staff — for individuals helping IESA (programmer, lawyer, designer, coordinator, etc.). No business or address needed.': {
+        'uk':'Співробітник асоціації — для приватних осіб, які допомагають IESA (програміст, юрист, дизайнер, координатор тощо). Бізнес чи адреса не потрібні.',
+        'fr':"Personnel de l'association — pour les particuliers aidant IESA (programmeur, avocat, designer, coordinateur, etc.). Aucune entreprise ni adresse requise.",
+        'de':'Vereinsmitarbeiter — für Privatpersonen, die IESA unterstützen (Programmierer, Anwalt, Designer, Koordinator usw.). Kein Unternehmen oder Adresse erforderlich.',
+    },
+    'FIRST NAME':       {'uk':"ІМ'Я",          'fr':'PRÉNOM',           'de':'VORNAME'},
+    'LAST NAME':        {'uk':'ПРІЗВИЩЕ',      'fr':'NOM',              'de':'NACHNAME'},
+    'e.g. John':        {'uk':'напр. Іван',    'fr':'p.ex. Jean',       'de':'z.B. Johann'},
+    'e.g. Doe':         {'uk':'напр. Петренко','fr':'p.ex. Dupont',     'de':'z.B. Mustermann'},
+    'e.g. John Doe':    {'uk':'напр. Іван Петренко','fr':'p.ex. Jean Dupont','de':'z.B. Johann Mustermann'},
+    'you@example.com':  {'uk':'ви@example.com','fr':'vous@exemple.com', 'de':'sie@beispiel.com'},
+    'First Name':       {'uk':"Ім'я",          'fr':'Prénom',           'de':'Vorname'},
+    'Last Name':        {'uk':'Прізвище',      'fr':'Nom',              'de':'Nachname'},
+    'Please choose your business category.': {
+        'uk':'Будь ласка, виберіть категорію вашого бізнесу.',
+        'fr':"Veuillez choisir la catégorie de votre activité.",
+        'de':'Bitte wählen Sie Ihre Geschäftskategorie.',
+    },
+    'Please specify your address or location.': {
+        'uk':'Будь ласка, вкажіть вашу адресу або місцезнаходження.',
+        'fr':'Veuillez préciser votre adresse ou votre emplacement.',
+        'de':'Bitte geben Sie Ihre Adresse oder Ihren Standort an.',
+    },
 }
 
 
