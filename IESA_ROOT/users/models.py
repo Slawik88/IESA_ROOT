@@ -745,6 +745,8 @@ class AccountChangeRequest(models.Model):
     DESIRED_TYPE_CHOICES = [
         ('partner',           _('External Partner')),
         ('association_staff', _('Association Staff (IESA)')),
+        # BLOCK 7 (audit v4): новая категория «Президент ассоциации»
+        ('president',         _('President of Association')),
     ]
 
     BUSINESS_CATEGORY_CHOICES = [
@@ -831,10 +833,19 @@ class AccountChangeRequest(models.Model):
         help_text=_('Describe why you want to change your account type and what you do.'),
     )
     # Контактные данные (могут отличаться от аккаунта)
+    # BLOCK 7 (audit v4): first_name + last_name отдельно (раньше было одно contact_name)
+    first_name = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_('First Name'),
+    )
+    last_name = models.CharField(
+        max_length=100, blank=True,
+        verbose_name=_('Last Name'),
+    )
     contact_name = models.CharField(
         max_length=200, blank=True,
         verbose_name=_('Contact Name'),
-        help_text=_('Full name of the contact person.'),
+        help_text=_('Deprecated: now stored as first_name + last_name. Kept for backward compatibility.'),
     )
     contact_phone = models.CharField(
         max_length=50, blank=True,

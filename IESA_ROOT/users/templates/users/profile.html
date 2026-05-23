@@ -222,6 +222,33 @@
   animation: acrShake .35s ease;
 }
 .acr-field-error i { font-size: .75rem; margin-top: .1rem; color: #ef4444; flex-shrink: 0; }
+/* BLOCK 6 (audit v4): динамические поля — плавная анимация show/hide */
+.acr-field[data-show-when-desired] {
+  transition: opacity .25s ease, transform .25s ease;
+}
+.acr-field[data-show-when-desired][hidden] {
+  display: none !important;
+}
+/* BLOCK 6: role-hint баннер — объясняет что значит выбранная роль */
+.acr-role-hint {
+  display: flex; align-items: flex-start; gap: .65rem;
+  margin: 1rem 0;
+  padding: .85rem 1rem;
+  background: rgba(59,130,246,.08);
+  border: 1px solid rgba(59,130,246,.22);
+  border-left: 3px solid #3b82f6;
+  border-radius: 10px;
+  font-size: .85rem;
+  color: rgba(255,255,255,.78);
+  line-height: 1.5;
+  animation: acrFadeIn .3s ease;
+}
+.acr-role-hint i { color: #60a5fa; font-size: .95rem; margin-top: .12rem; flex-shrink: 0; }
+.acr-role-hint[hidden] { display: none !important; }
+@keyframes acrFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 @keyframes acrShake {
   0%, 100% { transform: translateX(0); }
   25%       { transform: translateX(-4px); }
@@ -1278,6 +1305,71 @@ document.addEventListener('DOMContentLoaded', function () {
       counter.textContent = len;
       counter.style.color = len > 0 ? 'rgba(34,197,94,.8)' : 'rgba(255,255,255,.25)';
     });
+  }
+
+  /* BLOCK 6 (audit v4): динамическая форма по desired_type.
+     Поля с data-show-when-desired="partner" видны только при выборе External Partner.
+     Поля без этого атрибута — общие (всегда видны). */
+  var desiredSelect = document.getElementById('acr-desired-type');
+  var conditionalFields = form.querySelectorAll('[data-show-when-desired]');
+  var roleHint = document.getElementById('acr-role-hint');
+  var roleHintText = form.querySelector('[data-acr-role-hint-text]');
+
+  var ROLE_HINTS = {
+    'partner': '{% trans "External Partner — for businesses (gym, clinic, shop, insurance agency, etc.). You will need to provide business category and address." %}',
+    'association_staff': '{% trans "Association Staff — for individuals helping IESA (programmer, lawyer, designer, coordinator, etc.). No business or address needed." %}',
+    'president': '{% trans "President of the Association — only for board members. Submit your contact details, admin will verify." %}',
+  };
+
+  function applyDesiredType(value) {
+    conditionalFields.forEach(function(field){
+      var showFor = field.getAttribute('data-show-when-desired');
+      if (!showFor) return;
+      var shouldShow = showFor.split(',').map(function(s){return s.trim();}).includes(value);
+      field.hidden = !shouldShow;
+      /* Если поле скрыто — снимаем required (HTML5) чтобы submit не блокировался */
+      field.querySelectorAll('input, select, textarea').forEach(function(inp){
+        if (shouldShow) {
+          if (inp.dataset.wasRequired === '1') inp.setAttribute('required', '');
+        } else {
+          if (inp.hasAttribute('required')) {
+            inp.dataset.wasRequired = '1';
+            inp.removeAttribute('required');
+          }
+          /* Также чистим значение скрытых полей чтобы не передавать на backend */
+          if (inp.type !== 'hidden') inp.value = '';
+        }
+      });
+    });
+    /* Role hint */
+    if (roleHint && roleHintText) {
+      if (value && ROLE_HINTS[value]) {
+        roleHintText.textContent = ROLE_HINTS[value];
+        roleHint.hidden = false;
+      } else {
+        roleHint.hidden = true;
+      }
+    }
+    /* Также управление combobox (категория бизнеса) — сбрасываем при non-partner */
+    if (value !== 'partner') {
+      var comboInput = form.querySelector('[data-acr-combo-input]');
+      var comboCurrent = form.querySelector('[data-acr-combo-current]');
+      if (comboInput) comboInput.value = '';
+      if (comboCurrent) {
+        comboCurrent.textContent = '— {% trans "your area" %} —';
+        comboCurrent.classList.add('empty');
+      }
+      var combo = form.querySelector('[data-acr-combo]');
+      if (combo) {
+        combo.querySelectorAll('[data-acr-combo-item].selected').forEach(function(it){ it.classList.remove('selected'); });
+      }
+    }
+  }
+
+  if (desiredSelect) {
+    desiredSelect.addEventListener('change', function(){ applyDesiredType(this.value); });
+    /* Применяем сразу при загрузке (если есть saved value, e.g. при server-side errors) */
+    applyDesiredType(desiredSelect.value || '');
   }
 
   /* BLOCK 4 (audit v4): валидация — ошибки рядом с полем (не общим banner-ом) */

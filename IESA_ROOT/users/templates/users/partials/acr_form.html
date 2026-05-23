@@ -38,16 +38,19 @@
       <div class="acr-field" data-acr-field>
         <label class="acr-label" for="acr-desired-type">{% trans "DESIRED ROLE" %} <span style="color:#f87171;">*</span></label>
         <div class="acr-select-wrap">
+          {# BLOCK 6+7 (audit v4): динамическая форма по desired_type + новая опция 'president' #}
           <select id="acr-desired-type" name="desired_type" class="acr-select" required>
             <option value="">— {% trans "choose" %} —</option>
             <option value="partner">{% trans "External Partner" %}</option>
             <option value="association_staff">{% trans "Association Staff" %} (IESA)</option>
+            <option value="president">{% trans "President of Association" %}</option>
           </select>
           <i class="fas fa-chevron-down acr-select-arrow"></i>
         </div>
       </div>
-      <div class="acr-field" data-acr-field>
-        <label class="acr-label">{% trans "BUSINESS CATEGORY" %}</label>
+      {# BLOCK 6 (audit v4): BUSINESS CATEGORY показывается ТОЛЬКО при partner #}
+      <div class="acr-field" data-acr-field data-show-when-desired="partner">
+        <label class="acr-label">{% trans "BUSINESS CATEGORY" %} <span style="color:#f87171;">*</span></label>
         {# HOTFIX 2026-05-23: searchable combobox вместо нативного <select>+<optgroup> — live-поиск, лучше UX #}
         <div class="acr-combo" data-acr-combo>
           <button type="button" class="acr-combo-btn" data-acr-combo-toggle aria-haspopup="listbox" aria-expanded="false">
@@ -154,29 +157,36 @@
       <div class="acr-hint"><span id="acr-char-count">0</span> / 2000 {% trans "chars" %}</div>
     </div>
 
+    {# BLOCK 6 (audit v4): объяснительный баннер — что значит выбранная роль #}
+    <div class="acr-role-hint" id="acr-role-hint" data-acr-field hidden>
+      <i class="fas fa-info-circle" aria-hidden="true"></i>
+      <span data-acr-role-hint-text></span>
+    </div>
+
     <div class="acr-section-title">{% trans "CONTACT DETAILS" %}</div>
 
-    {# BLOCK 3 (audit v4): placeholders теперь явно italic (CSS), value НЕ дублирует placeholder #}
+    {# BLOCK 7 (audit v4): First Name + Last Name отдельно (раньше — одно FULL NAME) #}
     <div class="acr-grid-2">
       <div class="acr-field" data-acr-field>
-        <label class="acr-label" for="acr-contact-name">{% trans "FULL NAME" %}</label>
-        <input type="text" id="acr-contact-name" name="contact_name" class="acr-input"
-               placeholder="{% trans 'e.g. John Doe' %}"
-               value="{{ user.get_full_name|default:'' }}"
-               autocomplete="name">
+        <label class="acr-label" for="acr-first-name">{% trans "FIRST NAME" %} <span style="color:#f87171;">*</span></label>
+        <input type="text" id="acr-first-name" name="first_name" class="acr-input"
+               placeholder="{% trans 'e.g. John' %}"
+               value="{{ user.first_name|default:'' }}"
+               autocomplete="given-name" required>
       </div>
       <div class="acr-field" data-acr-field>
-        <label class="acr-label" for="acr-contact-phone">{% trans "PHONE / WHATSAPP" %}</label>
+        <label class="acr-label" for="acr-last-name">{% trans "LAST NAME" %} <span style="color:#f87171;">*</span></label>
+        <input type="text" id="acr-last-name" name="last_name" class="acr-input"
+               placeholder="{% trans 'e.g. Doe' %}"
+               value="{{ user.last_name|default:'' }}"
+               autocomplete="family-name" required>
+      </div>
+      <div class="acr-field" data-acr-field>
+        <label class="acr-label" for="acr-contact-phone">{% trans "PHONE / WHATSAPP" %} <span style="color:#f87171;">*</span></label>
         <input type="tel" id="acr-contact-phone" name="contact_phone" class="acr-input"
                placeholder="+41 79 000 00 00"
                value="{{ user.phone_number|default:'' }}"
-               autocomplete="tel">
-      </div>
-      <div class="acr-field" data-acr-field>
-        <label class="acr-label" for="acr-contact-telegram">{% trans "TELEGRAM" %}</label>
-        <input type="text" id="acr-contact-telegram" name="contact_telegram" class="acr-input"
-               placeholder="@username"
-               {% if user.telegram_url %}value="{{ user.telegram_url }}"{% endif %}>
+               autocomplete="tel" required>
       </div>
       <div class="acr-field" data-acr-field>
         <label class="acr-label" for="acr-contact-email">{% trans "EMAIL" %} <span style="color:#f87171;">*</span></label>
@@ -185,10 +195,18 @@
                value="{{ user.email|default:'' }}"
                autocomplete="email" required>
       </div>
+      {# BLOCK 6 (audit v4): TELEGRAM показывается ТОЛЬКО при partner (по запросу юзера) #}
+      <div class="acr-field" data-acr-field data-show-when-desired="partner">
+        <label class="acr-label" for="acr-contact-telegram">{% trans "TELEGRAM" %}</label>
+        <input type="text" id="acr-contact-telegram" name="contact_telegram" class="acr-input"
+               placeholder="@username"
+               {% if user.telegram_url %}value="{{ user.telegram_url }}"{% endif %}>
+      </div>
     </div>
 
-    <div class="acr-field" data-acr-field>
-      <label class="acr-label" for="acr-address">{% trans "ADDRESS / LOCATION" %}</label>
+    {# BLOCK 6 (audit v4): ADDRESS показывается ТОЛЬКО при partner (частные лица не имеют офиса) #}
+    <div class="acr-field" data-acr-field data-show-when-desired="partner">
+      <label class="acr-label" for="acr-address">{% trans "ADDRESS / LOCATION" %} <span style="color:#f87171;">*</span></label>
       <input type="text" id="acr-address" name="address" class="acr-input"
              placeholder="{% trans 'City, street, or region where you operate' %}">
     </div>
