@@ -593,97 +593,110 @@
     })();
     </script>
 
-    {# 7a: Action Menu Bottom Sheet — для обычных авторизованных пользователей #}
-    {% if user.is_authenticated and user.membership_status != 'active' and not user.is_partner %}
-    <div class="iesa-bottom-sheet" id="user-actions-sheet" style="padding:0 0 1.5rem;">
+    {% comment %}FIX 2026-05-23: Единый Action Menu Bottom Sheet для ВСЕХ аутентифицированных юзеров. Раньше было 2 разных sheet'а (user-actions/quick-visit) с разными conditions — это давало "мёртвые" клики у партнёров. Теперь один sheet, разделы видны по роли.{% endcomment %}
+    {% if user.is_authenticated %}
+    <div class="iesa-bottom-sheet" id="center-actions-sheet" style="padding:0 0 1.5rem;">
       <div class="bs-handle"></div>
-      <div style="padding:1.1rem 1.25rem .75rem;border-bottom:1px solid rgba(255,255,255,.06);">
-        <div style="font-size:.7rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.1em;">{% trans "QUICK ACTIONS" %}</div>
+
+      {# QR Code — главное действие для активных членов #}
+      {% if user.permanent_id %}
+      <div style="padding:1.1rem 1.25rem .5rem;text-align:center;border-bottom:1px solid rgba(255,255,255,.06);">
+        <div style="font-size:.66rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.65rem;">{% trans "YOUR MEMBERSHIP" %}</div>
+        <button type="button" id="center-show-qr"
+                style="display:inline-flex;align-items:center;gap:.6rem;padding:.7rem 1.4rem;background:linear-gradient(135deg,#dc2626,#991b1b);border:none;border-radius:12px;color:#fff;font-size:.92rem;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(220,38,38,.40);">
+          <i class="fas fa-qrcode" aria-hidden="true"></i> {% trans "Show QR Code" %}
+        </button>
       </div>
-      <div style="padding:.75rem .85rem;display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+      {% endif %}
+
+      {# Quick Visit — только для партнёров #}
+      {% if user.is_partner %}
+      <div style="padding:.85rem 1.25rem .5rem;">
+        <div style="font-size:.66rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.55rem;">{% trans "PARTNER ACTIONS" %}</div>
+        <a href="{% url 'users:partner_dashboard' %}#search-section"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25);border-radius:12px;text-decoration:none;color:#fbbf24;font-size:.88rem;font-weight:700;">
+          <i class="fas fa-user-plus" aria-hidden="true" style="font-size:1rem;width:18px;text-align:center;"></i>
+          {% trans "Log Visit" %}
+        </a>
+      </div>
+      {% endif %}
+
+      {# Общие действия для всех — Quick Actions grid #}
+      <div style="padding:.85rem 1.25rem .5rem;">
+        <div style="font-size:.66rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.55rem;">{% trans "QUICK ACTIONS" %}</div>
+      </div>
+      <div style="padding:0 .85rem .5rem;display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
         <a href="{% url 'blog:post_create' %}"
-           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.22);border-radius:12px;text-decoration:none;color:#f87171;font-size:.85rem;font-weight:700;">
-          <i class="fas fa-pen-nib" style="font-size:1rem;width:18px;text-align:center;"></i>
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(220,38,38,.10);border:1px solid rgba(220,38,38,.22);border-radius:12px;text-decoration:none;color:#f87171;font-size:.85rem;font-weight:700;">
+          <i class="fas fa-pen-nib" aria-hidden="true" style="font-size:1rem;width:18px;text-align:center;"></i>
           {% trans "Write Post" %}
-        </a>
-        <a href="{% url 'blog:event_list' %}"
-           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
-          <i class="fas fa-calendar-alt" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
-          {% trans "Events" %}
-        </a>
-        <a href="{% url 'users:users_search' %}"
-           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
-          <i class="fas fa-users" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
-          {% trans "Members" %}
-        </a>
-        <a href="{% url 'products:product_list' %}"
-           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
-          <i class="fas fa-box" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
-          {% trans "Products" %}
-        </a>
-        <a href="{% url 'users:profile_edit' %}"
-           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
-          <i class="fas fa-sliders-h" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
-          {% trans "Settings" %}
         </a>
         <a href="{% url 'users:user_calendar' %}"
            style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
-          <i class="fas fa-calendar-check" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
+          <i class="fas fa-calendar-check" aria-hidden="true" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
           {% trans "Calendar" %}
         </a>
-      </div>
-    </div>
-    <script>
-    (function(){
-      var btn = document.getElementById('mbn-actions-btn');
-      if (btn) btn.addEventListener('click', function(){
-        if (window.IESABottomSheet) IESABottomSheet.open('user-actions-sheet');
-      });
-    })();
-    </script>
-    {% endif %}
-
-    {# 6c: Quick Visit Bottom Sheet — только для партнёров #}
-    {% if user.is_authenticated and user.is_partner %}
-    <div class="iesa-bottom-sheet" id="quick-visit-sheet" style="padding:0 0 1.5rem;">
-      <div class="bs-handle"></div>
-      <div style="padding:1.25rem 1.25rem .75rem;border-bottom:1px solid rgba(255,255,255,.06);">
-        <div style="font-size:.7rem;font-family:monospace;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.1em;">{% trans "QUICK VISIT LOG" %}</div>
-        <div style="font-size:1.05rem;font-weight:700;color:#fff;margin-top:.2rem;">{% trans "Find Member & Log Visit" %}</div>
-      </div>
-      <div style="padding:1rem 1.25rem;">
-        {# Автокомплит участника (HTMX) #}
-        <div style="position:relative;margin-bottom:.75rem;">
-          <i class="fas fa-search" style="position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3);font-size:.8rem;pointer-events:none;"></i>
-          <input type="text" id="qv-search"
-                 class="dash-search-input" style="padding-left:2.4rem;width:100%;"
-                 placeholder="{% trans 'Name or username…' %}"
-                 autocomplete="off"
-                 hx-get="{% url 'users:member_autocomplete' %}"
-                 hx-trigger="input changed delay:300ms"
-                 hx-target="#qv-results"
-                 hx-swap="innerHTML" name="q">
-        </div>
-        <div id="qv-results" style="max-height:200px;overflow-y:auto;border-radius:10px;"></div>
-        {# Ссылка на полную форму #}
-        <a href="{% url 'users:partner_dashboard' %}#search-section"
-           style="display:block;text-align:center;margin-top:.75rem;font-size:.78rem;color:rgba(255,255,255,.35);text-decoration:none;">
-          {% trans "Open full dashboard" %} →
+        <a href="{% url 'users:profile_edit' %}"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
+          <i class="fas fa-sliders-h" aria-hidden="true" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
+          {% trans "Edit Profile" %}
         </a>
+        {% if user.is_partner or user.partner_profile %}
+        <a href="{% url 'users:partner_dashboard' %}"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.20);border-radius:12px;text-decoration:none;color:#fbbf24;font-size:.85rem;font-weight:700;">
+          <i class="fas fa-store" aria-hidden="true" style="font-size:1rem;width:18px;text-align:center;"></i>
+          {% trans "Partner Portal" %}
+        </a>
+        {% else %}
+        <a href="{% url 'users:profile' %}#acr-section"
+           style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;text-decoration:none;color:rgba(255,255,255,.75);font-size:.85rem;font-weight:700;">
+          <i class="fas fa-arrow-trend-up" aria-hidden="true" style="font-size:1rem;width:18px;text-align:center;color:rgba(255,255,255,.45);"></i>
+          {% trans "Apply for partner" %}
+        </a>
+        {% endif %}
+      </div>
+
+      {# Logout — внизу с разделителем #}
+      <div style="padding:.5rem .85rem 0;margin-top:.5rem;border-top:1px solid rgba(255,255,255,.06);">
+        <button type="button" id="center-logout-btn"
+                data-bs-toggle="modal" data-bs-target="#logoutConfirmModal"
+                style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.08);border-radius:12px;color:#f87171;font-size:.85rem;font-weight:700;width:100%;cursor:pointer;">
+          <i class="fas fa-sign-out-alt" aria-hidden="true" style="font-size:1rem;width:18px;text-align:center;"></i>
+          {% trans "Logout" %}
+        </button>
       </div>
     </div>
+
     <script>
     (function(){
-      var btn = document.getElementById('mbn-quick-visit-btn');
-      if (btn) btn.addEventListener('click', function(){ IESABottomSheet.open('quick-visit-sheet'); });
-      /* При выборе участника — переход на log_visit */
-      document.addEventListener('click', function(e){
-        var item = e.target.closest('#qv-results .mac-item');
-        if (!item) return;
+      /* FIX 2026-05-23: универсальный обработчик для центральной кнопки */
+      var btn = document.getElementById('mbn-center-btn');
+      if (!btn) return;
+      btn.addEventListener('click', function(e){
         e.preventDefault();
-        var mid = item.getAttribute('data-member-id');
-        if (mid) window.location.href = '/auth/partner/visit/' + mid + '/';
+        if (window.IESABottomSheet) {
+          window.IESABottomSheet.open('center-actions-sheet');
+        }
       });
+      /* QR-кнопка внутри sheet → открыть fullscreen QR overlay */
+      var qrInner = document.getElementById('center-show-qr');
+      if (qrInner) {
+        qrInner.addEventListener('click', function(){
+          if (window.IESABottomSheet) window.IESABottomSheet.close('center-actions-sheet');
+          var overlay = document.getElementById('qr-fullscreen-overlay');
+          if (overlay) {
+            overlay.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+          }
+        });
+      }
+      /* Logout-кнопка внутри sheet → закрыть sheet, modal откроется через data-bs-toggle */
+      var logoutInner = document.getElementById('center-logout-btn');
+      if (logoutInner) {
+        logoutInner.addEventListener('click', function(){
+          if (window.IESABottomSheet) window.IESABottomSheet.close('center-actions-sheet');
+        });
+      }
     })();
     </script>
     {% endif %}
@@ -866,31 +879,12 @@
 
         {% if user.is_authenticated %}
 
-        {# Таб 3 (центр): QR для всех юзеров с permanent_id / Visit для партнёров / меню действий для остальных #}
-        {# BLOCK 3a (audit v3): убран гейт membership_status — permanent_id есть у всех (UUID default) #}
-        {% if user.permanent_id and not user.is_partner %}
-        {# QR — большая центральная кнопка #}
-        <button class="mbn-item mbn-center-btn mbn-qr-btn" id="mbn-qr-btn"
-                aria-label="{% trans 'Show QR Code' %}"
-                title="{% trans 'Show QR Code' %}">
+        {% comment %}FIX 2026-05-23: единая центральная кнопка → универсальный action menu. Раньше 3 разных кнопки (QR/Visit/Actions) с разными sheets — давало "мёртвые" клики в edge-cases. Теперь один обработчик → одно меню → все действия в одном месте.{% endcomment %}
+        <button class="mbn-item mbn-center-btn mbn-qr-btn" id="mbn-center-btn"
+                aria-label="{% trans 'Quick actions' %}"
+                title="{% trans 'Quick actions' %}">
             <i class="fas fa-qrcode"></i>
         </button>
-        {% elif user.is_partner %}
-        {# Партнёр: быстрый визит #}
-        <button class="mbn-item mbn-center-btn" id="mbn-quick-visit-btn"
-                aria-label="{% trans 'Quick Visit Log' %}"
-                title="{% trans 'Quick Visit Log' %}">
-            <i class="fas fa-user-plus"></i>
-            <span>{% trans "Visit" %}</span>
-        </button>
-        {% else %}
-        {# 7a: Обычный пользователь: меню действий #}
-        <button class="mbn-item mbn-center-btn" id="mbn-actions-btn"
-                aria-label="{% trans 'Actions' %}"
-                title="{% trans 'Quick actions' %}">
-            <i class="fas fa-plus"></i>
-        </button>
-        {% endif %}
 
         {# Таб 4: Уведомления #}
         <div class="mbn-item-wrap">
