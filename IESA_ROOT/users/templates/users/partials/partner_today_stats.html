@@ -1,6 +1,5 @@
 {% load i18n %}
-{# 7a: HTMX partial — статистика дня (polling every 60s).
-   Рендерится вместо .dash-stat-grid при hx-swap="outerHTML" #}
+{% comment %}7a: HTMX partial — статистика дня (polling every 60s). Рендерится вместо .dash-stat-grid при hx-swap="outerHTML".{% endcomment %}
 <div class="dash-stat-grid"
      hx-get="{% url 'users:partner_today_stats' %}"
      hx-trigger="every 60s"

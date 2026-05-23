@@ -150,11 +150,10 @@ def profile_deactivate(request):
 
 @login_required
 def dashboard_redirect(request):
-    user = request.user
-    try:
-        is_p = user.is_partner or user.partner_profile is not None
-    except Exception:
-        is_p = user.is_partner
-    if is_p:
-        return redirect('users:partner_dashboard')
+    """«Мой кабинет» — ВСЕГДА личный профиль.
+
+    BLOCK fix 2026-05-23: раньше партнёры авто-редиректились в partner_dashboard,
+    но в navbar dropdown есть отдельная кнопка «Partner Portal». Теперь оба пути
+    разделены: «My Cabinet» → личный профиль, «Partner Portal» → партнёрский кабинет.
+    """
     return redirect('users:profile')
