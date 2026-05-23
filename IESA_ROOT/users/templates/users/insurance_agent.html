@@ -4,8 +4,7 @@
 {% block title %}{% trans "Страховой агент — IESA" %}{% endblock %}
 
 {% block extra_css %}
-{# BLOCK 11/13 (audit v3): был критичный баг — extra_head НЕ существует в base.html,
-   из-за чего стили никогда не загружались. Исправлено + перевод на design tokens. #}
+{% comment %}BLOCK 11/13 (audit v3): был критичный баг — extra_head НЕ существует в base.html, из-за чего стили никогда не загружались. Исправлено + перевод на design tokens.{% endcomment %}
 <style>
 /* ── Страница страхового агента ─────────────────────────────────── */
 .ins-hero {
