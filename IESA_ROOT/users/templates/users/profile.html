@@ -194,7 +194,39 @@
   transition:border-color .2s, box-shadow .2s, background .2s; outline:none;
 }
 .acr-input:focus { border-color:rgba(220,38,38,.6); background:rgba(220,38,38,.05); box-shadow:0 0 0 3px rgba(220,38,38,.12); }
-.acr-input::placeholder { color:rgba(255,255,255,.18); }
+/* BLOCK 3 (audit v4): placeholder явно отличается от введённого — italic + opacity */
+.acr-input::placeholder,
+.acr-textarea::placeholder {
+  color: rgba(255,255,255,.30) !important;
+  font-style: italic !important;
+  opacity: 1 !important; /* Firefox по умолчанию делает 0.5 */
+  font-weight: 400 !important;
+}
+.acr-input::-webkit-input-placeholder,
+.acr-textarea::-webkit-input-placeholder { color: rgba(255,255,255,.30); font-style: italic; }
+.acr-input::-moz-placeholder,
+.acr-textarea::-moz-placeholder { color: rgba(255,255,255,.30); font-style: italic; opacity: 1; }
+/* Error state для полей с ошибками валидации */
+.acr-input.acr-field-invalid,
+.acr-textarea.acr-field-invalid {
+  border-color: rgba(239,68,68,.65) !important;
+  background: rgba(239,68,68,.05) !important;
+  box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important;
+}
+.acr-field-error {
+  display: flex; align-items: flex-start; gap: .4rem;
+  margin-top: .35rem;
+  color: #fca5a5;
+  font-size: .78rem;
+  line-height: 1.45;
+  animation: acrShake .35s ease;
+}
+.acr-field-error i { font-size: .75rem; margin-top: .1rem; color: #ef4444; flex-shrink: 0; }
+@keyframes acrShake {
+  0%, 100% { transform: translateX(0); }
+  25%       { transform: translateX(-4px); }
+  75%       { transform: translateX(4px); }
+}
 .acr-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
 @media(max-width:640px){ .acr-grid-2 { grid-template-columns:1fr; } }
 .acr-section-title {
@@ -1248,12 +1280,51 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  /* BLOCK 4 (audit v4): валидация — ошибки рядом с полем (не общим banner-ом) */
+  function clearFieldErrors() {
+    form.querySelectorAll('.acr-field-error').forEach(function(el){ el.remove(); });
+    form.querySelectorAll('.acr-field-invalid').forEach(function(el){
+      el.classList.remove('acr-field-invalid');
+      el.removeAttribute('aria-invalid');
+      el.removeAttribute('aria-describedby');
+    });
+    if (errBar) { errBar.style.display = 'none'; errBar.innerHTML = ''; }
+  }
+
+  function showFieldError(fieldName, messages) {
+    var field = form.querySelector('[name="' + fieldName + '"]');
+    if (!field) return false;
+    field.classList.add('acr-field-invalid');
+    field.setAttribute('aria-invalid', 'true');
+    var errId = 'acr-err-' + fieldName;
+    field.setAttribute('aria-describedby', errId);
+    var msg = Array.isArray(messages) ? messages.join(' ') : String(messages || '');
+    /* Очищаем "* " префиксы которые добавляет Django .as_text() */
+    msg = msg.replace(/^[\s\*]+/, '').trim();
+    var errDiv = document.createElement('div');
+    errDiv.className = 'acr-field-error';
+    errDiv.id = errId;
+    errDiv.setAttribute('role', 'alert');
+    errDiv.innerHTML = '<i class="fas fa-exclamation-circle" aria-hidden="true"></i><span>' + msg + '</span>';
+    /* Вставляем сразу после поля (или после wrapper-а .acr-select-wrap / .acr-combo) */
+    var insertAfter = field.closest('.acr-select-wrap, .acr-combo') || field;
+    insertAfter.parentNode.insertBefore(errDiv, insertAfter.nextSibling);
+    return true;
+  }
+
+  function showGlobalError(msg) {
+    if (!errBar) return;
+    errBar.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>' + msg;
+    errBar.style.display = 'flex';
+    errBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   /* ── Отправка формы ── */
   form.addEventListener('submit', function (e) {
     e.preventDefault();
+    clearFieldErrors();
     var btn = document.getElementById('acr-submit-btn');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>{% trans "Submitting..." %}'; }
-    if (errBar) errBar.style.display = 'none';
 
     var data = new FormData(form);
     fetch('{% url "users:account_upgrade" %}', {
@@ -1266,18 +1337,58 @@ document.addEventListener('DOMContentLoaded', function () {
       if (json.ok) {
         if (card)    card.style.display    = 'none';
         if (success) success.style.display = 'block';
-        /* Toast через глобальную утилиту если доступна */
         if (window._iesa_showToast) window._iesa_showToast(json.message, 'info');
-      } else {
-        var msg = json.error || Object.values(json.errors || {}).join(' ');
-        if (errBar) { errBar.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>' + msg; errBar.style.display = 'flex'; }
-        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
+        return;
       }
+      /* BLOCK 4: разбираем errors по полям, привязываем ошибки */
+      var firstInvalid = null;
+      var unboundMessages = [];
+      var errors = json.errors || {};
+      Object.keys(errors).forEach(function(fieldName){
+        if (fieldName === '__all__' || fieldName === 'non_field_errors') {
+          unboundMessages.push(errors[fieldName]);
+          return;
+        }
+        var ok = showFieldError(fieldName, errors[fieldName]);
+        if (ok && !firstInvalid) firstInvalid = form.querySelector('[name="' + fieldName + '"]');
+        if (!ok) unboundMessages.push(errors[fieldName]);
+      });
+      /* Если ошибка не привязана к полю — показываем глобально */
+      if (json.error) unboundMessages.unshift(json.error);
+      if (unboundMessages.length) showGlobalError(unboundMessages.join(' '));
+      /* Скроллим к первой ошибке + фокус */
+      if (firstInvalid) {
+        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(function(){ try { firstInvalid.focus(); } catch(e){} }, 350);
+      }
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
     })
     .catch(function () {
-      if (errBar) { errBar.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>{% trans "Network error. Please try again." %}'; errBar.style.display = 'flex'; }
+      showGlobalError('{% trans "Network error. Please try again." %}');
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
     });
+  });
+
+  /* BLOCK 4: при изменении поля — снимаем класс ошибки и удаляем error div */
+  form.addEventListener('input', function(e){
+    var t = e.target;
+    if (t.classList.contains('acr-field-invalid')) {
+      t.classList.remove('acr-field-invalid');
+      t.removeAttribute('aria-invalid');
+      var errId = t.getAttribute('aria-describedby');
+      if (errId) {
+        var ed = document.getElementById(errId);
+        if (ed) ed.remove();
+        t.removeAttribute('aria-describedby');
+      }
+    }
+  });
+  form.addEventListener('change', function(e){
+    var t = e.target;
+    if (t.classList.contains('acr-field-invalid')) {
+      t.classList.remove('acr-field-invalid');
+      t.removeAttribute('aria-invalid');
+    }
   });
 })();
 </script>

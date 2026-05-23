@@ -35,10 +35,10 @@
     <div class="acr-section-title">{% trans "ROLE & ACTIVITY" %}</div>
 
     <div class="acr-grid-2">
-      <div class="acr-field">
-        <label class="acr-label">{% trans "DESIRED ROLE" %} <span style="color:#f87171;">*</span></label>
+      <div class="acr-field" data-acr-field>
+        <label class="acr-label" for="acr-desired-type">{% trans "DESIRED ROLE" %} <span style="color:#f87171;">*</span></label>
         <div class="acr-select-wrap">
-          <select name="desired_type" class="acr-select" required>
+          <select id="acr-desired-type" name="desired_type" class="acr-select" required>
             <option value="">— {% trans "choose" %} —</option>
             <option value="partner">{% trans "External Partner" %}</option>
             <option value="association_staff">{% trans "Association Staff" %} (IESA)</option>
@@ -46,7 +46,7 @@
           <i class="fas fa-chevron-down acr-select-arrow"></i>
         </div>
       </div>
-      <div class="acr-field">
+      <div class="acr-field" data-acr-field>
         <label class="acr-label">{% trans "BUSINESS CATEGORY" %}</label>
         {# HOTFIX 2026-05-23: searchable combobox вместо нативного <select>+<optgroup> — live-поиск, лучше UX #}
         <div class="acr-combo" data-acr-combo>
@@ -145,10 +145,10 @@
       </div>
     </div>
 
-    <div class="acr-field">
-      <label class="acr-label">{% trans "DESCRIPTION OF ACTIVITY" %} <span style="color:#f87171;">*</span></label>
+    <div class="acr-field" data-acr-field>
+      <label class="acr-label" for="acr-reason">{% trans "DESCRIPTION OF ACTIVITY" %} <span style="color:#f87171;">*</span></label>
       {# BLOCK 1 (audit v4): убран minlength=50 — теперь без ограничения; новый расширенный placeholder #}
-      <textarea name="reason" class="acr-textarea" rows="5"
+      <textarea id="acr-reason" name="reason" class="acr-textarea" rows="5"
         placeholder="{% trans 'Describe your activity and why you want to join IESA. You can also add extra contacts for feedback (Telegram, WhatsApp, work email), specialization, experience — anything that will help us process your application faster.' %}"
         required></textarea>
       <div class="acr-hint"><span id="acr-char-count">0</span> / 2000 {% trans "chars" %}</div>
@@ -156,33 +156,40 @@
 
     <div class="acr-section-title">{% trans "CONTACT DETAILS" %}</div>
 
+    {# BLOCK 3 (audit v4): placeholders теперь явно italic (CSS), value НЕ дублирует placeholder #}
     <div class="acr-grid-2">
-      <div class="acr-field">
-        <label class="acr-label">{% trans "FULL NAME" %}</label>
-        <input type="text" name="contact_name" class="acr-input"
-               placeholder="{{ user.get_full_name|default:user.username }}"
-               value="{{ user.get_full_name|default:'' }}">
+      <div class="acr-field" data-acr-field>
+        <label class="acr-label" for="acr-contact-name">{% trans "FULL NAME" %}</label>
+        <input type="text" id="acr-contact-name" name="contact_name" class="acr-input"
+               placeholder="{% trans 'e.g. John Doe' %}"
+               value="{{ user.get_full_name|default:'' }}"
+               autocomplete="name">
       </div>
-      <div class="acr-field">
-        <label class="acr-label">{% trans "PHONE / WHATSAPP" %}</label>
-        <input type="tel" name="contact_phone" class="acr-input" placeholder="+41 79 000 00 00">
+      <div class="acr-field" data-acr-field>
+        <label class="acr-label" for="acr-contact-phone">{% trans "PHONE / WHATSAPP" %}</label>
+        <input type="tel" id="acr-contact-phone" name="contact_phone" class="acr-input"
+               placeholder="+41 79 000 00 00"
+               value="{{ user.phone_number|default:'' }}"
+               autocomplete="tel">
       </div>
-      <div class="acr-field">
-        <label class="acr-label">{% trans "TELEGRAM" %}</label>
-        <input type="text" name="contact_telegram" class="acr-input"
+      <div class="acr-field" data-acr-field>
+        <label class="acr-label" for="acr-contact-telegram">{% trans "TELEGRAM" %}</label>
+        <input type="text" id="acr-contact-telegram" name="contact_telegram" class="acr-input"
                placeholder="@username"
                {% if user.telegram_url %}value="{{ user.telegram_url }}"{% endif %}>
       </div>
-      <div class="acr-field">
-        <label class="acr-label">{% trans "EMAIL" %}</label>
-        <input type="email" name="contact_email" class="acr-input"
-               placeholder="{{ user.email }}" value="{{ user.email }}">
+      <div class="acr-field" data-acr-field>
+        <label class="acr-label" for="acr-contact-email">{% trans "EMAIL" %} <span style="color:#f87171;">*</span></label>
+        <input type="email" id="acr-contact-email" name="contact_email" class="acr-input"
+               placeholder="{% trans 'you@example.com' %}"
+               value="{{ user.email|default:'' }}"
+               autocomplete="email" required>
       </div>
     </div>
 
-    <div class="acr-field">
-      <label class="acr-label">{% trans "ADDRESS / LOCATION" %}</label>
-      <input type="text" name="address" class="acr-input"
+    <div class="acr-field" data-acr-field>
+      <label class="acr-label" for="acr-address">{% trans "ADDRESS / LOCATION" %}</label>
+      <input type="text" id="acr-address" name="address" class="acr-input"
              placeholder="{% trans 'City, street, or region where you operate' %}">
     </div>
 
