@@ -569,6 +569,37 @@ KNOWN: dict[str, dict[str, str]] = {
     'sec':               {'uk':'сек',                 'fr':'sec',                 'de':'Sek.'},
     'Copy':              {'uk':'Копіювати',           'fr':'Copier',              'de':'Kopieren'},
     'Copy PIN to clipboard':{'uk':'Скопіювати PIN',   'fr':'Copier le PIN',       'de':'PIN kopieren'},
+
+    # audit v5: новые UI строки
+    'Quick actions':           {'uk':'Швидкі дії',          'fr':'Actions rapides',     'de':'Schnellaktionen'},
+    'QUICK ACTIONS':           {'uk':'ШВИДКІ ДІЇ',          'fr':'ACTIONS RAPIDES',     'de':'SCHNELLAKTIONEN'},
+    'YOUR MEMBERSHIP':         {'uk':'ВАШЕ ЧЛЕНСТВО',       'fr':'VOTRE ADHÉSION',      'de':'IHRE MITGLIEDSCHAFT'},
+    'PARTNER ACTIONS':         {'uk':'ДІЇ ПАРТНЕРА',        'fr':'ACTIONS PARTENAIRE',  'de':'PARTNER-AKTIONEN'},
+    'Log Visit':               {'uk':'Записати візит',      'fr':'Enregistrer visite',  'de':'Besuch eintragen'},
+    # Поиск с фильтрами
+    'Role':                    {'uk':'Роль',                'fr':'Rôle',                'de':'Rolle'},
+    'Partners':                {'uk':'Партнери',            'fr':'Partenaires',         'de':'Partner'},
+    'Staff':                   {'uk':'Персонал',            'fr':'Personnel',           'de':'Personal'},
+    'Members':                 {'uk':'Учасники',            'fr':'Membres',             'de':'Mitglieder'},
+    'Verified':                {'uk':'Підтверджені',        'fr':'Vérifiés',            'de':'Verifizierte'},
+    'President':               {'uk':'Президент',           'fr':'Président',           'de':'Präsident'},
+    'Relevance':               {'uk':'За релевантністю',    'fr':'Pertinence',          'de':'Relevanz'},
+    'Newest first':            {'uk':'Спочатку нові',       'fr':"Plus récents d'abord",'de':'Neueste zuerst'},
+    'Oldest first':            {'uk':'Спочатку старі',      'fr':"Plus anciens d'abord",'de':'Älteste zuerst'},
+    'Showing all users with role': {'uk':'Усі користувачі з роллю','fr':"Tous les utilisateurs avec le rôle",'de':'Alle Benutzer mit der Rolle'},
+    # Rate limiting
+    'Too many requests. Please wait an hour before submitting another application.': {
+        'uk':'Забагато запитів. Зачекайте годину перед подачею нової заявки.',
+        'fr':"Trop de demandes. Veuillez attendre une heure avant d'en soumettre une autre.",
+        'de':'Zu viele Anfragen. Bitte warten Sie eine Stunde, bevor Sie einen weiteren Antrag stellen.',
+    },
+    # ACR Audit Trail
+    'Rejection Reason':        {'uk':'Причина відхилення',  'fr':'Motif de refus',      'de':'Ablehnungsgrund'},
+    'Reviewed At':             {'uk':'Розглянуто',          'fr':'Examiné le',          'de':'Geprüft am'},
+    'Reviewed By':             {'uk':'Розглянув',           'fr':'Examiné par',         'de':'Geprüft von'},
+    'Approved':                {'uk':'Схвалено',            'fr':'Approuvé',            'de':'Genehmigt'},
+    'Cancelled by user':       {'uk':'Скасовано користувачем','fr':"Annulé par l'utilisateur",'de':'Vom Benutzer storniert'},
+    'President of Association':{'uk':'Президент асоціації', 'fr':"Président de l'association",'de':'Vereinspräsident'},
 }
 
 

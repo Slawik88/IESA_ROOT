@@ -5372,6 +5372,94 @@ msgstr "Оновлення через"
 msgid "Your current PIN"
 msgstr "Ваш поточний PIN"
 
+msgid "A Partner object will be created with the user's address."
+msgstr ""
+
+msgid "Approve & Assign Role"
+msgstr ""
+
+msgid ""
+"Approve request from {{ user }} for role «{{ role }}»? This will assign the "
+"role and create related Partner object."
+msgstr ""
+
+msgid ""
+"How IESA Sport works: register, get your digital card, connect Telegram, "
+"visit partner gyms and clinics, enjoy exclusive benefits. 4 simple steps."
+msgstr ""
+
+msgid ""
+"IESA Community blog — share ideas, events and news with fellow extreme "
+"sports enthusiasts. Posts about kitesurfing, boxing, adventure travel, and "
+"IESA member experiences."
+msgstr ""
+
+msgid ""
+"IESA blog, extreme sports community, kitesurfing posts, athletes "
+"Switzerland, member stories"
+msgstr ""
+
+msgid ""
+"Join IESA — Switzerland extreme sports community. Free membership in 1 "
+"minute: digital card, PIN code, partner discounts, events."
+msgstr ""
+
+msgid "Newest first"
+msgstr "Спочатку нові"
+
+msgid "Oldest first"
+msgstr "Спочатку старі"
+
+msgid "Or fill <b>admin_note</b> and click <b>Reject</b> to deny the request."
+msgstr ""
+
+msgid "PARTNER ACTIONS"
+msgstr "ДІЇ ПАРТНЕРА"
+
+msgid "Reject"
+msgstr ""
+
+msgid ""
+"Reject request from {{ user }}? Make sure you filled in admin_note — it will"
+" be saved as rejection_reason."
+msgstr ""
+
+msgid "Relevance"
+msgstr "За релевантністю"
+
+msgid "Role"
+msgstr "Роль"
+
+msgid "Showing all users with role"
+msgstr "Усі користувачі з роллю"
+
+msgid ""
+"Sign in to IESA Sport — digital membership card, PIN code, partner visits "
+"and community access."
+msgstr ""
+
+msgid "Status:"
+msgstr ""
+
+msgid ""
+"Use <b>Approve & Assign Role</b> button at the top to grant <b>{{ role "
+"}}</b> role automatically."
+msgstr ""
+
+msgid ""
+"User will get is_partner=True with partner_type='association_staff' (no "
+"is_staff)."
+msgstr ""
+
+msgid "User will get is_president=True."
+msgstr ""
+
+msgid "YOUR MEMBERSHIP"
+msgstr "ВАШЕ ЧЛЕНСТВО"
+
+msgid "by"
+msgstr ""
+
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
 

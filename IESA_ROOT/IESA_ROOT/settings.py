@@ -87,6 +87,7 @@ if DEBUG:
 # Наше кастомное Middleware для обновления статуса пользователя
 MIDDLEWARE = [
     'users.middleware.BlockScannerMiddleware',  # Silence .php/.wp scanner spam
+    'IESA_ROOT.security_middleware.SecurityHeadersMiddleware',  # audit v5: CSP + Permissions-Policy
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files for production
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -395,13 +396,20 @@ if not DEBUG:
 # Кастомная модель пользователя
 AUTH_USER_MODEL = 'users.User'
 
-# Cache Configuration - Use local memory cache (no Redis required)
+# Cache Configuration — DatabaseCache (shared across all workers, no Redis required)
+# audit v5: LocMemCache был per-process — между gunicorn/daphne воркерами не работал.
+# DatabaseCache использует ту же PostgreSQL, что и приложение — shared cache между
+# всеми воркерами (важно для rate-limiting, SSE state, expensive queries).
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-snowflake',
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache_table',
         'KEY_PREFIX': 'iesa',
         'TIMEOUT': 3600,  # 1 hour default
+        'OPTIONS': {
+            'MAX_ENTRIES': 5000,
+            'CULL_FREQUENCY': 3,   # При переполнении удаляется 1/3 устаревших записей
+        },
     }
 }
 

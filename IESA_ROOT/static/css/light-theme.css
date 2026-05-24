@@ -736,3 +736,172 @@
 }
 
 /* Логотип — на светлой теме нет blend (определено в dark-theme-fixes.css блок 22) */
+
+
+/* ──────────────────────────────────────────────────────────────
+   audit v5: добавлены непокрытые классы для полного light-theme покрытия
+   ────────────────────────────────────────────────────────────── */
+
+:root[data-theme="light"] {
+    /* HIW — How It Works страница */
+    .hiw-page::before {
+        background:
+            radial-gradient(ellipse 60% 50% at 15% 20%, rgba(220,38,38,.04) 0%, transparent 55%),
+            radial-gradient(ellipse 50% 40% at 85% 75%, rgba(220,38,38,.03) 0%, transparent 50%);
+    }
+    .hiw-step-card,
+    .hiw-benefit-item {
+        background: var(--bg-surface);
+        border-color: var(--border-soft);
+    }
+    .hiw-step-detail { border-top-color: var(--border-faint); }
+    .hiw-benefits {
+        background: rgba(220,38,38,.03);
+        border-top-color: rgba(220,38,38,.10);
+        border-bottom-color: rgba(220,38,38,.10);
+    }
+
+    /* INS — Insurance Agent страница */
+    .ins-hero {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 60%, #fef2f2 100%) !important;
+    }
+    .ins-benefit-card,
+    .ins-form-wrap,
+    .ins-status-card {
+        background: var(--bg-surface) !important;
+        border-color: var(--border-soft) !important;
+    }
+    .ins-radio-item label,
+    .ins-check-item label {
+        background: var(--surface-2);
+        border-color: var(--border-soft);
+        color: var(--text-secondary);
+    }
+    .ins-radio-item input[type="radio"]:checked + label,
+    .ins-check-item input[type="checkbox"]:checked + label {
+        color: var(--text-primary);
+    }
+    .ins-tg-banner__text { color: var(--text-secondary); }
+    .ins-tg-banner__text strong { color: var(--text-primary); }
+
+    /* AL — Activity Levels страница */
+    .al-points-card,
+    .al-level-card,
+    .al-info-card {
+        background: var(--bg-surface);
+        border-color: var(--border-soft);
+    }
+    .al-level-header {
+        background: linear-gradient(135deg, rgba(220,38,38,.03), rgba(220,38,38,.01));
+    }
+    .al-tips-list li,
+    .al-info-list li { color: var(--text-secondary); }
+    .al-info-list strong { color: var(--text-primary); }
+
+    /* TG Setup (staff) */
+    .tg-setup-card { background: #fff; border-color: var(--border-soft); }
+    .tg-setup-info { background: rgba(59,130,246,.06); color: var(--text-secondary); }
+    .tg-setup-info code { background: rgba(0,0,0,.06); color: var(--text-primary); }
+    .tg-setup-alert.ok { background: rgba(34,197,94,.08); color: #166534; }
+    .tg-setup-alert.err { background: rgba(220,38,38,.08); color: #991b1b; }
+
+    /* TG Connect страница */
+    .tg-card { background: #fff !important; border-color: var(--border-soft); }
+    .tg-bot-banner { background: rgba(41,168,235,.06); border-color: rgba(41,168,235,.20); }
+    .tg-bot-banner .bb-name { color: var(--text-primary); }
+    .tg-bot-banner .bb-sub { color: var(--text-muted); }
+    .tg-steps { border-color: var(--border-soft); }
+    .tg-step {
+        background: var(--surface-2);
+        border-color: var(--border-faint);
+        color: var(--text-secondary);
+    }
+    .tg-step:hover { background: var(--surface-3); }
+    .tg-security-note { background: var(--surface-2); border-color: var(--border-faint); color: var(--text-muted); }
+    .tg-fallback { background: var(--surface-2); border-color: var(--border-soft); }
+    .tg-fallback summary { color: var(--text-muted); }
+    .tg-fallback summary:hover { color: var(--text-primary); background: var(--surface-3); }
+    .tg-fallback-body { color: var(--text-secondary); border-top-color: var(--border-faint); }
+    .otp-box { background: #fff !important; border-color: var(--border-soft); color: var(--text-primary) !important; }
+    .otp-box:focus { background: rgba(41,168,235,.05) !important; }
+
+    /* ACR форма */
+    .acr-card {
+        background: #fff;
+        border-color: var(--border-soft);
+        box-shadow: 0 0 0 1px rgba(220,38,38,.04), 0 20px 40px rgba(0,0,0,.05);
+    }
+    .acr-title { color: var(--text-primary); }
+    .acr-desc { color: var(--text-secondary); }
+    .acr-input, .acr-textarea, .acr-select {
+        background: var(--surface-2) !important;
+        border-color: var(--border-soft) !important;
+        color: var(--text-primary) !important;
+    }
+    .acr-input:focus, .acr-textarea:focus, .acr-select:focus {
+        background: #fff !important;
+        border-color: rgba(220,38,38,.5) !important;
+    }
+    .acr-combo-btn { background: var(--surface-2); border-color: var(--border-soft); color: var(--text-primary); }
+    .acr-combo-dropdown { background: #fff; border-color: var(--border-soft); }
+    .acr-combo-search { background: var(--surface-2); border-color: var(--border-soft); color: var(--text-primary); }
+    .acr-combo-item { color: var(--text-secondary); }
+    .acr-combo-item:hover { color: var(--text-primary); }
+    .acr-pending-notice {
+        background: rgba(245,158,11,.06);
+        border-color: rgba(245,158,11,.25);
+        color: var(--text-secondary);
+    }
+    .acr-pn-title { color: var(--text-primary); }
+    .acr-pn-sub { color: var(--text-secondary); }
+    .acr-pn-sub strong { color: #b45309; }
+    .acr-role-hint {
+        background: rgba(59,130,246,.06);
+        border-color: rgba(59,130,246,.20);
+        color: var(--text-secondary);
+    }
+
+    /* PIN display card */
+    .pin-display-card {
+        background: linear-gradient(135deg, rgba(220,38,38,.06), rgba(220,38,38,.02));
+        border-color: rgba(220,38,38,.20);
+    }
+    .pin-display-digit {
+        background: rgba(220,38,38,.05);
+        border-color: rgba(220,38,38,.25);
+        color: var(--primary);
+    }
+    .pin-display-digits { color: var(--primary); }
+    .pin-display-copy {
+        background: rgba(0,0,0,.04);
+        border-color: var(--border-soft);
+        color: var(--text-secondary);
+    }
+    .pin-display-copy:hover { background: rgba(220,38,38,.08); color: var(--primary); }
+
+    /* Admin analytics dashboard */
+    .aa-stat { background: var(--bg-surface); border-color: var(--border-soft); }
+    .aa-stat-val { color: var(--text-primary); }
+    .aa-list-card { background: var(--bg-surface); border-color: var(--border-soft); }
+    .aa-quick { background: rgba(220,38,38,.04); border-color: rgba(220,38,38,.15); }
+    .aa-quick a { background: var(--surface-2); border-color: var(--border-soft); color: var(--text-secondary); }
+
+    /* Search role pills */
+    .search-role-pill {
+        background: var(--surface-2) !important;
+        border-color: var(--border-soft) !important;
+        color: var(--text-secondary) !important;
+    }
+    .search-role-pill.active {
+        background: rgba(220,38,38,.08) !important;
+        color: var(--primary) !important;
+    }
+
+    /* Mobile bottom-nav center action sheet */
+    #center-actions-sheet { background: #fff !important; }
+    #center-actions-sheet a, #center-actions-sheet button {
+        background: var(--surface-2) !important;
+        border-color: var(--border-soft) !important;
+        color: var(--text-secondary) !important;
+    }
+}

@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% load i18n static %}
+
+{% block title %}Analytics Dashboard | IESA Dev{% endblock %}
+
+{% block extra_css %}
+<style>
+.aa-wrap { padding: 2rem 0 4rem; }
+.aa-section {
+    margin-bottom: 2rem;
+}
+.aa-section-title {
+    font-size: .68rem; font-weight: 700; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--primary);
+    font-family: var(--font-mono); margin-bottom: 1rem;
+    padding-bottom: .5rem; border-bottom: 1px solid var(--border-faint);
+}
+.aa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+.aa-stat {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    padding: 1.1rem 1.25rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform var(--transition-base), border-color var(--transition-base);
+}
+.aa-stat:hover { transform: translateY(-2px); border-color: rgba(220,38,38,.25); }
+.aa-stat::before {
+    content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+    background: var(--accent, var(--primary));
+}
+.aa-stat.red    { --accent: #dc2626; }
+.aa-stat.green  { --accent: #22c55e; }
+.aa-stat.blue   { --accent: #3b82f6; }
+.aa-stat.amber  { --accent: #f59e0b; }
+.aa-stat.purple { --accent: #a855f7; }
+.aa-stat-label {
+    font-size: .65rem; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text-muted);
+    font-family: var(--font-mono); margin-bottom: .35rem;
+}
+.aa-stat-val {
+    font-size: 1.85rem; font-weight: 900; color: var(--text-primary);
+    line-height: 1; letter-spacing: -.02em;
+}
+.aa-stat-sub {
+    font-size: .72rem; color: var(--text-muted); margin-top: .35rem;
+}
+
+/* Activity columns */
+.aa-cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+.aa-list-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+}
+.aa-list-title {
+    font-size: .82rem; font-weight: 700; color: var(--text-primary);
+    margin-bottom: .65rem;
+    display: flex; align-items: center; gap: .45rem;
+}
+.aa-list-title i { color: var(--primary); }
+.aa-list-row {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .5rem 0;
+    border-bottom: 1px solid var(--border-faint);
+    font-size: .82rem;
+    color: var(--text-secondary);
+}
+.aa-list-row:last-child { border-bottom: none; }
+.aa-list-row a { color: var(--text-primary); text-decoration: none; }
+.aa-list-row a:hover { color: var(--primary); }
+.aa-list-row .aa-list-meta { margin-left: auto; font-size: .72rem; color: var(--text-muted); }
+.aa-list-empty { color: var(--text-muted); font-size: .85rem; padding: .85rem 0; text-align: center; }
+
+/* Quick links bar */
+.aa-quick {
+    display: flex; flex-wrap: wrap; gap: .5rem;
+    margin-bottom: 1.5rem;
+    padding: .85rem 1rem;
+    background: rgba(220,38,38,.04);
+    border: 1px solid rgba(220,38,38,.15);
+    border-radius: 12px;
+}
+.aa-quick a {
+    padding: .45rem .85rem; border-radius: 8px;
+    background: rgba(255,255,255,.04); border: 1px solid var(--border-soft);
+    color: var(--text-secondary); text-decoration: none;
+    font-size: .8rem; font-weight: 600;
+    transition: background var(--transition-base), color var(--transition-base);
+}
+.aa-quick a:hover { background: rgba(220,38,38,.10); color: var(--primary); border-color: rgba(220,38,38,.25); }
+.aa-quick a i { font-size: .72rem; margin-right: .3rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-limited aa-wrap">
+
+    <div class="mb-4">
+        <h1 style="font-size:1.5rem;font-weight:900;color:var(--text-primary);margin:0;">
+            <i class="fas fa-chart-line" style="color:var(--primary);margin-right:.5rem;"></i>
+            IESA Analytics
+        </h1>
+        <div style="font-size:.78rem;color:var(--text-muted);font-family:var(--font-mono);margin-top:.25rem;">
+            Staff Only · Snapshot at {% now "d M Y H:i" %}
+        </div>
+    </div>
+
+    <div class="aa-quick">
+        <a href="/admin/"><i class="fas fa-cog"></i> Django Admin</a>
+        <a href="/admin/users/user/"><i class="fas fa-users"></i> Users</a>
+        <a href="/admin/users/accountchangerequest/?status__exact=pending"><i class="fas fa-arrow-trend-up"></i> Pending ACR ({{ stats.acr_pending }})</a>
+        <a href="/admin/blog/post/?status__exact=pending"><i class="fas fa-newspaper"></i> Posts on moderation ({{ stats.post_pending }})</a>
+        <a href="/admin/users/insuranceagentrequest/"><i class="fas fa-shield-alt"></i> Insurance requests</a>
+        <a href="{% url 'core:component_playground' %}"><i class="fas fa-palette"></i> Components</a>
+    </div>
+
+    <!-- Users -->
+    <section class="aa-section">
+        <div class="aa-section-title">👥 Users</div>
+        <div class="aa-grid">
+            <div class="aa-stat red">
+                <div class="aa-stat-label">Total Users</div>
+                <div class="aa-stat-val">{{ stats.user_total }}</div>
+                <div class="aa-stat-sub">{{ stats.user_active }} active · {{ stats.user_verified }} verified</div>
+            </div>
+            <div class="aa-stat green">
+                <div class="aa-stat-label">New (7d)</div>
+                <div class="aa-stat-val">{{ stats.user_new_7d }}</div>
+                <div class="aa-stat-sub">{{ stats.user_new_30d }} last 30 days</div>
+            </div>
+            <div class="aa-stat amber">
+                <div class="aa-stat-label">Partners</div>
+                <div class="aa-stat-val">{{ stats.user_partners }}</div>
+                <div class="aa-stat-sub">B2B accounts</div>
+            </div>
+            <div class="aa-stat blue">
+                <div class="aa-stat-label">Staff</div>
+                <div class="aa-stat-val">{{ stats.user_staff }}</div>
+                <div class="aa-stat-sub">Admins + association staff</div>
+            </div>
+            <div class="aa-stat purple">
+                <div class="aa-stat-label">Presidents</div>
+                <div class="aa-stat-val">{{ stats.user_president }}</div>
+                <div class="aa-stat-sub">Board members</div>
+            </div>
+            <div class="aa-stat blue">
+                <div class="aa-stat-label">Telegram Linked</div>
+                <div class="aa-stat-val">{{ stats.user_tg_linked }}</div>
+                <div class="aa-stat-sub">
+                    {% widthratio stats.user_tg_linked stats.user_total 100 %}% of total
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Content (Blog) -->
+    <section class="aa-section">
+        <div class="aa-section-title">📝 Content</div>
+        <div class="aa-grid">
+            <div class="aa-stat green">
+                <div class="aa-stat-label">Posts Total</div>
+                <div class="aa-stat-val">{{ stats.post_total }}</div>
+                <div class="aa-stat-sub">{{ stats.post_published }} published · {{ stats.post_pending }} pending</div>
+            </div>
+            <div class="aa-stat amber">
+                <div class="aa-stat-label">New Posts (7d)</div>
+                <div class="aa-stat-val">{{ stats.post_new_7d }}</div>
+            </div>
+            <div class="aa-stat red">
+                <div class="aa-stat-label">On Moderation</div>
+                <div class="aa-stat-val">{{ stats.post_pending }}</div>
+                <div class="aa-stat-sub">
+                    <a href="/admin/blog/post/?status__exact=pending" style="color:#f87171;">
+                        Review now →
+                    </a>
+                </div>
+            </div>
+            <div class="aa-stat blue">
+                <div class="aa-stat-label">Comments</div>
+                <div class="aa-stat-val">{{ stats.comment_total }}</div>
+            </div>
+            <div class="aa-stat purple">
+                <div class="aa-stat-label">Likes</div>
+                <div class="aa-stat-val">{{ stats.like_total }}</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Partner Visits -->
+    <section class="aa-section">
+        <div class="aa-section-title">🏢 Partner Visits</div>
+        <div class="aa-grid">
+            <div class="aa-stat amber">
+                <div class="aa-stat-label">Total Visits</div>
+                <div class="aa-stat-val">{{ stats.visit_total }}</div>
+                <div class="aa-stat-sub">{{ stats.visit_verified }} PIN-verified</div>
+            </div>
+            <div class="aa-stat green">
+                <div class="aa-stat-label">Visits (7d)</div>
+                <div class="aa-stat-val">{{ stats.visit_7d }}</div>
+            </div>
+            <div class="aa-stat blue">
+                <div class="aa-stat-label">Visits (30d)</div>
+                <div class="aa-stat-val">{{ stats.visit_30d }}</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ACR + Notifications -->
+    <section class="aa-section">
+        <div class="aa-section-title">🚀 Account Change Requests</div>
+        <div class="aa-grid">
+            <div class="aa-stat amber">
+                <div class="aa-stat-label">Pending</div>
+                <div class="aa-stat-val">{{ stats.acr_pending }}</div>
+                {% if stats.acr_pending %}
+                <div class="aa-stat-sub">
+                    <a href="/admin/users/accountchangerequest/?status__exact=pending" style="color:#fbbf24;">
+                        Review now →
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            <div class="aa-stat green">
+                <div class="aa-stat-label">Approved</div>
+                <div class="aa-stat-val">{{ stats.acr_approved }}</div>
+            </div>
+            <div class="aa-stat red">
+                <div class="aa-stat-label">Rejected</div>
+                <div class="aa-stat-val">{{ stats.acr_rejected }}</div>
+            </div>
+            <div class="aa-stat blue">
+                <div class="aa-stat-label">Total</div>
+                <div class="aa-stat-val">{{ stats.acr_total }}</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Recent activity -->
+    <section class="aa-section">
+        <div class="aa-section-title">⚡ Recent Activity</div>
+        <div class="aa-cols">
+
+            <div class="aa-list-card">
+                <div class="aa-list-title"><i class="fas fa-user-plus"></i> Latest Users</div>
+                {% for u in recent_users %}
+                <div class="aa-list-row">
+                    <a href="/admin/users/user/{{ u.pk }}/change/">{{ u.username }}</a>
+                    <span class="aa-list-meta">{{ u.date_joined|date:"d M H:i" }}</span>
+                </div>
+                {% empty %}
+                <div class="aa-list-empty">No users yet</div>
+                {% endfor %}
+            </div>
+
+            <div class="aa-list-card">
+                <div class="aa-list-title"><i class="fas fa-newspaper"></i> Latest Posts</div>
+                {% for p in recent_posts %}
+                <div class="aa-list-row">
+                    <a href="/admin/blog/post/{{ p.pk }}/change/">{{ p.title|truncatechars:35 }}</a>
+                    <span class="aa-list-meta">{{ p.status }}</span>
+                </div>
+                {% empty %}
+                <div class="aa-list-empty">No posts yet</div>
+                {% endfor %}
+            </div>
+
+            <div class="aa-list-card">
+                <div class="aa-list-title"><i class="fas fa-arrow-trend-up"></i> Latest ACR</div>
+                {% for r in recent_acr %}
+                <div class="aa-list-row">
+                    <a href="/admin/users/accountchangerequest/{{ r.pk }}/change/">
+                        {{ r.user.username }} → {{ r.get_desired_type_display }}
+                    </a>
+                    <span class="aa-list-meta">{{ r.status }}</span>
+                </div>
+                {% empty %}
+                <div class="aa-list-empty">No requests yet</div>
+                {% endfor %}
+            </div>
+
+            <div class="aa-list-card">
+                <div class="aa-list-title"><i class="fas fa-store"></i> Latest Visits</div>
+                {% for v in recent_visits %}
+                <div class="aa-list-row">
+                    <a href="/admin/users/visit/{{ v.pk }}/change/">
+                        {{ v.member.username }} @ {{ v.partner.company_name|truncatechars:25 }}
+                    </a>
+                    <span class="aa-list-meta">{{ v.timestamp|date:"d M H:i" }}</span>
+                </div>
+                {% empty %}
+                <div class="aa-list-empty">No visits yet</div>
+                {% endfor %}
+            </div>
+
+        </div>
+    </section>
+
+</div>
+{% endblock %}

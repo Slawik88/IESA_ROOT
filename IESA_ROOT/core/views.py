@@ -187,6 +187,105 @@ def component_playground(request):
 
 
 @user_passes_test(lambda u: u.is_staff)
+def admin_analytics(request):
+    """audit v5: простой аналитический дашборд для staff.
+
+    Показывает ключевые метрики экосистемы IESA:
+      - Users: всего / active / partners / staff / new last 7d / 30d
+      - Posts: total / published / pending / created last 7d
+      - Visits (Partner visits) last 7d/30d
+      - ACR requests pending / approved / rejected
+      - Notifications: total / unread
+    Без графиков (чистый Django + CSS). Графики — отдельный блок если нужны.
+    """
+    from datetime import timedelta
+    from django.db.models import Count, Q
+    from django.utils import timezone
+    from users.models import User, AccountChangeRequest, Visit
+    from blog.models import Post, Comment, Like
+    from notifications.models import Notification
+
+    now = timezone.now()
+    d7  = now - timedelta(days=7)
+    d30 = now - timedelta(days=30)
+
+    # User stats
+    user_total      = User.objects.count()
+    user_active     = User.objects.filter(membership_status='active').count()
+    user_partners   = User.objects.filter(is_partner=True).count()
+    user_staff      = User.objects.filter(is_staff=True).count()
+    user_president  = User.objects.filter(is_president=True).count()
+    user_verified   = User.objects.filter(is_verified=True).count()
+    user_new_7d     = User.objects.filter(date_joined__gte=d7).count()
+    user_new_30d    = User.objects.filter(date_joined__gte=d30).count()
+    user_tg_linked  = User.objects.filter(telegram_chat_id__isnull=False).exclude(telegram_chat_id=0).count()
+
+    # Posts
+    post_total      = Post.objects.count()
+    post_published  = Post.objects.filter(status='published').count()
+    post_pending    = Post.objects.filter(status='pending').count()
+    post_new_7d     = Post.objects.filter(created_at__gte=d7).count()
+    comment_total   = Comment.objects.count()
+    like_total      = Like.objects.count()
+
+    # Visits
+    visit_total    = Visit.objects.count()
+    visit_7d       = Visit.objects.filter(timestamp__gte=d7).count()
+    visit_30d      = Visit.objects.filter(timestamp__gte=d30).count()
+    visit_verified = Visit.objects.filter(pin_verified=True).count()
+
+    # ACR
+    acr_pending  = AccountChangeRequest.objects.filter(status='pending').count()
+    acr_approved = AccountChangeRequest.objects.filter(status='approved').count()
+    acr_rejected = AccountChangeRequest.objects.filter(status='rejected').count()
+    acr_total    = AccountChangeRequest.objects.count()
+
+    # Notifications
+    notif_total  = Notification.objects.count()
+    notif_unread = Notification.objects.filter(is_read=False).count()
+
+    # Recent activity (last 5 of each)
+    recent_acr    = AccountChangeRequest.objects.select_related('user').order_by('-created_at')[:5]
+    recent_users  = User.objects.order_by('-date_joined')[:5]
+    recent_posts  = Post.objects.select_related('author').order_by('-created_at')[:5]
+    recent_visits = Visit.objects.select_related('member', 'partner').order_by('-timestamp')[:5]
+
+    return render(request, 'core/admin_analytics.html', {
+        'stats': {
+            'user_total': user_total,
+            'user_active': user_active,
+            'user_partners': user_partners,
+            'user_staff': user_staff,
+            'user_president': user_president,
+            'user_verified': user_verified,
+            'user_new_7d': user_new_7d,
+            'user_new_30d': user_new_30d,
+            'user_tg_linked': user_tg_linked,
+            'post_total': post_total,
+            'post_published': post_published,
+            'post_pending': post_pending,
+            'post_new_7d': post_new_7d,
+            'comment_total': comment_total,
+            'like_total': like_total,
+            'visit_total': visit_total,
+            'visit_7d': visit_7d,
+            'visit_30d': visit_30d,
+            'visit_verified': visit_verified,
+            'acr_pending': acr_pending,
+            'acr_approved': acr_approved,
+            'acr_rejected': acr_rejected,
+            'acr_total': acr_total,
+            'notif_total': notif_total,
+            'notif_unread': notif_unread,
+        },
+        'recent_acr': recent_acr,
+        'recent_users': recent_users,
+        'recent_posts': recent_posts,
+        'recent_visits': recent_visits,
+    })
+
+
+@user_passes_test(lambda u: u.is_staff)
 def styleguide_md(request):
     """BLOCK 11a (audit v3): отдаём STYLEGUIDE.md из корня репо как text/markdown.
     Файл живёт вне статики (он dev-док), поэтому Django не обслуживает его автоматически.
