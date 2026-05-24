@@ -258,7 +258,7 @@ msgid "events"
 msgstr "подій"
 
 msgid "gatherings"
-msgstr "зустрічі"
+msgstr "зустрічей"
 
 # Events
 msgid "Date & time"
@@ -1109,7 +1109,7 @@ msgid "Learn more"
 msgstr "Дізнатися більше"
 
 msgid "Join our next"
-msgstr "Приєднатися до нашої наступної"
+msgstr "Приєднайтеся до наших наступних"
 
 msgid "View all events"
 msgstr "Переглянути всі події"
@@ -1133,7 +1133,7 @@ msgid "Our team"
 msgstr "Наша команда"
 
 msgid "Dedicated"
-msgstr "Відданий"
+msgstr "Віддане"
 
 msgid "leadership"
 msgstr "керівництво"
@@ -1151,7 +1151,7 @@ msgid "Organizations we"
 msgstr "Організації, з якими ми"
 
 msgid "collaborate with"
-msgstr "співпрацюємо з"
+msgstr "співпрацюємо"
 
 msgid "Media"
 msgstr "Медіа"
@@ -2528,7 +2528,7 @@ msgid "Press"
 msgstr "Натисніть"
 
 msgid "Attach account"
-msgstr "Прив'язати акаунт"
+msgstr "Прив'яжіть акаунт"
 
 msgid "or send"
 msgstr "або надішліть"
@@ -3299,7 +3299,7 @@ msgid "What we do"
 msgstr "Що ми робимо"
 
 msgid "Discover a world of"
-msgstr "Відкрйте світ"
+msgstr "Відкрийте світ"
 
 msgid "movement, strength, and real life."
 msgstr "руху, сили та справжнього життя."
@@ -5459,6 +5459,12 @@ msgstr "ВАШЕ ЧЛЕНСТВО"
 
 msgid "by"
 msgstr ""
+
+msgid "The people behind <span>our mission</span>"
+msgstr "Люди, що стоять за <span>нашою місією</span>"
+
+msgid "Why join <span>IESA?</span>"
+msgstr "Чому варто приєднатися до <span>IESA?</span>"
 
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
