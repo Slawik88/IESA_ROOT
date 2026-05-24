@@ -105,7 +105,7 @@ msgid "Creation date"
 msgstr "Дата створення"
 
 msgid "Preview image"
-msgstr "Зображення для попереднього перегляду"
+msgstr "Превʼю зображення"
 
 msgid "Status"
 msgstr "Статус"
@@ -114,10 +114,10 @@ msgid "Views"
 msgstr "Перегляди"
 
 msgid "Post"
-msgstr "Публікація"
+msgstr "Допис"
 
 msgid "Posts"
-msgstr "Публікації"
+msgstr "Дописи"
 
 msgid "Comment text"
 msgstr "Текст коментаря"
@@ -144,10 +144,10 @@ msgid "Comment Likes"
 msgstr "Вподобання коментарів"
 
 msgid "Like"
-msgstr "Вподобання"
+msgstr "Лайк"
 
 msgid "Likes"
-msgstr "Вподобання"
+msgstr "Лайки"
 
 msgid "IP Address"
 msgstr "IP-адреса"
@@ -168,7 +168,7 @@ msgid "Ongoing"
 msgstr "Тривають"
 
 msgid "Completed"
-msgstr "Завершені"
+msgstr "Виконано"
 
 msgid "Cancelled"
 msgstr "Скасовано"
@@ -231,7 +231,7 @@ msgid "Attended"
 msgstr "Відвідав"
 
 msgid "Registered at"
-msgstr "Зареєстровано"
+msgstr "Дата реєстрації"
 
 msgid "Notes"
 msgstr "Примітки"
@@ -255,14 +255,14 @@ msgid "Blog Subscriptions"
 msgstr "Підписки на блог"
 
 msgid "events"
-msgstr "події"
+msgstr "подій"
 
 msgid "gatherings"
 msgstr "зустрічі"
 
 # Events
 msgid "Date & time"
-msgstr "Дата і час"
+msgstr "Дата та час"
 
 msgid "Age restriction"
 msgstr "Вікове обмеження"
@@ -387,7 +387,7 @@ msgid "Anonymous"
 msgstr "Анонім"
 
 msgid "views"
-msgstr "перегляди"
+msgstr "переглядів"
 
 msgid "Partners"
 msgstr "Партнери"
@@ -522,7 +522,7 @@ msgid "RECOMMENDED POSTS"
 msgstr "РЕКОМЕНДОВАНІ ПУБЛІКАЦІЇ"
 
 msgid "Community & Blog"
-msgstr "Спільнота та блог"
+msgstr "Спільнота і блог"
 
 msgid "COMMUNITY"
 msgstr "СПІЛЬНОТА"
@@ -546,7 +546,7 @@ msgid "All statuses"
 msgstr "Усі статуси"
 
 msgid "Latest"
-msgstr "Найновіші"
+msgstr "Останні"
 
 msgid "Popular"
 msgstr "Популярні"
@@ -668,7 +668,7 @@ msgstr "Посада"
 
 # Messages
 msgid "Bio/Message"
-msgstr "Біографія/повідомлення"
+msgstr "Біо / Повідомлення"
 
 msgid "President"
 msgstr "Президент"
@@ -1006,7 +1006,7 @@ msgid "Upcoming events"
 msgstr "Майбутні події"
 
 msgid "Multi-sport"
-msgstr "Мультиспорт"
+msgstr "Мульти-спорт"
 
 msgid "Kitesurfing · Diving · Climbing · Yachting · Surfing · Boxing"
 msgstr "Кайтсерфінг · Дайвінг · Скелелазіння · Яхтинг · Серфінг · Бокс"
@@ -1163,7 +1163,7 @@ msgid "Venue"
 msgstr "Майданчик"
 
 msgid "Visit"
-msgstr "Відвідати"
+msgstr "Візит"
 
 #, python-format
 msgid "Page %(page)s of %(total)s"
@@ -1191,7 +1191,7 @@ msgid "Support our"
 msgstr "Підтримайте нашу"
 
 msgid "association"
-msgstr "асоціацію"
+msgstr "асоціація"
 
 msgid ""
 "Your support helps us launch new projects, organize events and grow our "
@@ -1257,7 +1257,7 @@ msgid "Uploaded At"
 msgstr "Завантажено"
 
 msgid "Photos"
-msgstr "Фото"
+msgstr "Фотографії"
 
 msgid "Gallery"
 msgstr "Галерея"
@@ -1654,7 +1654,7 @@ msgid "Users (%(count)s)"
 msgstr "Користувачі (%(count)s)"
 
 msgid "Verified"
-msgstr "Верифікований"
+msgstr "Підтверджено"
 
 #, python-format
 msgid "Posts (%(count)s)"
@@ -2114,7 +2114,7 @@ msgid "Last Online"
 msgstr "Останній візит онлайн"
 
 msgid "Verified User"
-msgstr "Верифікований користувач"
+msgstr "Перевірений користувач"
 
 msgid "Inactive"
 msgstr "Неактивний"
@@ -2361,7 +2361,7 @@ msgid "Understand how to progress through our community achievement levels"
 msgstr "Дізнайтесь, як просуватися через рівні досягнень нашої спільноти"
 
 msgid "Create a Post"
-msgstr "Створити публікацію"
+msgstr "Створити допис"
 
 msgid "points"
 msgstr "балів"
@@ -2467,7 +2467,7 @@ msgid "Create an account and start your journey to becoming a legend."
 msgstr "Створіть акаунт і почніть свій шлях до того, щоб стати легендою."
 
 msgid "Sign Up Now"
-msgstr "Зареєструватися зараз"
+msgstr "Зареєструватися"
 
 msgid "Cancel Visit"
 msgstr "Скасувати візит"
@@ -2882,7 +2882,7 @@ msgid "Scan to view profile"
 msgstr "Скануйте для перегляду профілю"
 
 msgid "Stats"
-msgstr "Статистика"
+msgstr "Стат."
 
 msgid "Find me"
 msgstr "Знайти мене"
@@ -2891,10 +2891,10 @@ msgid "Total posts"
 msgstr "Всього публікацій"
 
 msgid "Likes received"
-msgstr "Отримані вподобання"
+msgstr "Отримано лайків"
 
 msgid "Comments made"
-msgstr "Коментарі"
+msgstr "Залишено коментарів"
 
 msgid "Created"
 msgstr "Створено"
@@ -4083,7 +4083,7 @@ msgid "Join the Community"
 msgstr "Приєднатися до спільноти"
 
 msgid "LATEST"
-msgstr "НОВІ"
+msgstr "ОСТАННІ"
 
 msgid "Last 30 days performance overview"
 msgstr ""
@@ -4351,7 +4351,7 @@ msgid "PAST MEETINGS"
 msgstr ""
 
 msgid "PENDING"
-msgstr "ОЧІКУВАННЯ"
+msgstr "ОЧІКУЄ"
 
 msgid "PHONE / WHATSAPP"
 msgstr "ТЕЛЕФОН / WHATSAPP"

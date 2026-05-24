@@ -96,7 +96,7 @@ msgid "Creation date"
 msgstr "Date de création"
 
 msgid "Preview image"
-msgstr "Image d'aperçu"
+msgstr "Image de prévisualisation"
 
 msgid "Status"
 msgstr "Statut"
@@ -226,7 +226,7 @@ msgid "Attended"
 msgstr "Participé"
 
 msgid "Registered at"
-msgstr "Inscrit le"
+msgstr "Date d'inscription"
 
 msgid "Notes"
 msgstr "Notes"
@@ -351,7 +351,7 @@ msgstr ""
 "avec les membres"
 
 msgid "Sign In"
-msgstr "Se connecter"
+msgstr "Connexion"
 
 msgid "Reply"
 msgstr "Répondre"
@@ -517,7 +517,7 @@ msgid "RECOMMENDED POSTS"
 msgstr "PUBLICATIONS RECOMMANDÉES"
 
 msgid "Community & Blog"
-msgstr "Communauté et blog"
+msgstr "Communauté et Blog"
 
 msgid "COMMUNITY"
 msgstr "COMMUNAUTÉ"
@@ -541,7 +541,7 @@ msgid "All statuses"
 msgstr "Tous les statuts"
 
 msgid "Latest"
-msgstr "Plus récents"
+msgstr "Récents"
 
 msgid "Popular"
 msgstr "Populaires"
@@ -650,7 +650,7 @@ msgid "Warning"
 msgstr "Avertissement"
 
 msgid "Information"
-msgstr "Information"
+msgstr "Informations"
 
 msgid "Notification"
 msgstr "Notification"
@@ -662,7 +662,7 @@ msgid "Position"
 msgstr "Poste"
 
 msgid "Bio/Message"
-msgstr "Bio/Message"
+msgstr "Bio / Message"
 
 msgid "President"
 msgstr "Président"
@@ -1001,7 +1001,7 @@ msgid "Upcoming events"
 msgstr "Événements à venir"
 
 msgid "Multi-sport"
-msgstr "Multi-sport"
+msgstr "Multisport"
 
 msgid "Kitesurfing · Diving · Climbing · Yachting · Surfing · Boxing"
 msgstr "Kitesurf · Plongée · Escalade · Voile · Surf · Boxe"
@@ -1158,7 +1158,7 @@ msgid "Venue"
 msgstr "Lieu"
 
 msgid "Visit"
-msgstr "Visiter"
+msgstr "Visite"
 
 #, python-format
 msgid "Page %(page)s of %(total)s"
@@ -2468,7 +2468,7 @@ msgid "Create an account and start your journey to becoming a legend."
 msgstr "Créez un compte et commencez votre parcours pour devenir une légende."
 
 msgid "Sign Up Now"
-msgstr "S'inscrire maintenant"
+msgstr "Inscrivez-vous"
 
 msgid "Cancel Visit"
 msgstr "Annuler la visite"
@@ -2875,7 +2875,7 @@ msgid "Scan to view profile"
 msgstr "Scannez pour voir le profil"
 
 msgid "Stats"
-msgstr "Statistiques"
+msgstr "Stats"
 
 msgid "Find me"
 msgstr "Me trouver"
@@ -2887,7 +2887,7 @@ msgid "Likes received"
 msgstr "J'aime reçus"
 
 msgid "Comments made"
-msgstr "Commentaires écrits"
+msgstr "Commentaires laissés"
 
 msgid "Created"
 msgstr "Créé"
