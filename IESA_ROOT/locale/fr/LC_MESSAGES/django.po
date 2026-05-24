@@ -3622,10 +3622,10 @@ msgid "Association Staff"
 msgstr "Personnel de l'association"
 
 msgid "At least 3 characters"
-msgstr ""
+msgstr "Au moins 3 caractères"
 
 msgid "Available"
-msgstr ""
+msgstr "Disponible"
 
 msgid "A→Z"
 msgstr "A→Z"
@@ -3803,7 +3803,7 @@ msgid "Describe your situation in detail..."
 msgstr ""
 
 msgid "Digital Card"
-msgstr ""
+msgstr "Carte numérique"
 
 msgid "Digital card & PIN code"
 msgstr "Carte numérique et code PIN"
@@ -3840,6 +3840,7 @@ msgstr "ÉVÉNEMENTS"
 
 msgid "Earn points for posts, likes, comments and visits"
 msgstr ""
+"Gagnez des points pour les publications, j'aime, commentaires et visites"
 
 msgid "Education & Events"
 msgstr "Éducation et événements"
@@ -3848,10 +3849,10 @@ msgid "Email IESA"
 msgstr "Email IESA"
 
 msgid "Email available"
-msgstr ""
+msgstr "E-mail disponible"
 
 msgid "Enjoy Exclusive Benefits"
-msgstr ""
+msgstr "Profitez des avantages exclusifs"
 
 msgid "Enter your credentials to continue."
 msgstr "Saisissez vos identifiants pour continuer."
@@ -3923,9 +3924,11 @@ msgid ""
 "Four simple steps to unlock exclusive partner benefits, track your activity,"
 " and connect with the community."
 msgstr ""
+"Quatre étapes simples pour débloquer les avantages exclusifs des "
+"partenaires, suivre votre activité et rejoindre la communauté."
 
 msgid "Full log of every partner visit with timestamps"
-msgstr ""
+msgstr "Journal complet de chaque visite partenaire avec horodatages"
 
 msgid "Generate Invite"
 msgstr ""
@@ -3967,7 +3970,7 @@ msgid "Go to blog"
 msgstr ""
 
 msgid "Go to my profile"
-msgstr ""
+msgstr "Aller à mon profil"
 
 msgid "Gym / Fitness Center"
 msgstr "Salle de sport / Centre de fitness"
@@ -3985,7 +3988,7 @@ msgid "Hotel / Accommodation"
 msgstr "Hôtel / Hébergement"
 
 msgid "How It Works"
-msgstr ""
+msgstr "Comment ça marche"
 
 msgid "How it works"
 msgstr "Comment ça marche"
@@ -3994,7 +3997,7 @@ msgid "How to reach {{ name }}"
 msgstr ""
 
 msgid "IESA Sport"
-msgstr ""
+msgstr "IESA Sport"
 
 msgid "IESA — it's more than sport."
 msgstr ""
@@ -4022,19 +4025,19 @@ msgid "Install IESA Sport"
 msgstr "Installer IESA Sport"
 
 msgid "Instant community access"
-msgstr ""
+msgstr "Accès instantané à la communauté"
 
 msgid "Instructions"
 msgstr "Instructions"
 
 msgid "Insurance"
-msgstr ""
+msgstr "Assurance"
 
 msgid "Invalid Invite"
 msgstr ""
 
 msgid "Invalid email format"
-msgstr ""
+msgstr "Format d'e-mail invalide"
 
 msgid "Invalid invite link"
 msgstr ""
@@ -4065,9 +4068,10 @@ msgstr ""
 
 msgid "Join Switzerland's sports community — it's free and takes one minute."
 msgstr ""
+"Rejoignez la communauté sportive suisse — c'est gratuit et prend une minute."
 
 msgid "Join for free"
-msgstr ""
+msgstr "Rejoindre gratuitement"
 
 msgid "Join the Community"
 msgstr "Rejoindre la communauté"
@@ -4097,6 +4101,9 @@ msgid ""
 "Link your Telegram account to receive instant visit confirmations and "
 "important updates directly in the messenger. One tap, always informed."
 msgstr ""
+"Liez votre compte Telegram pour recevoir des confirmations de visite "
+"instantanées et des mises à jour importantes directement dans la messagerie."
+" Un tap, toujours informé."
 
 msgid "Link your account to receive instant notifications"
 msgstr ""
@@ -4186,7 +4193,7 @@ msgid "My Posts"
 msgstr "Mes publications"
 
 msgid "My Profile"
-msgstr ""
+msgstr "Mon profil"
 
 msgid "My Settings"
 msgstr ""
@@ -4356,7 +4363,7 @@ msgid "PIN & Membership Card"
 msgstr "PIN & Carte de membre"
 
 msgid "PIN renews automatically every 12 minutes"
-msgstr ""
+msgstr "Le PIN se renouvelle automatiquement toutes les 12 minutes"
 
 msgid "PIN verified"
 msgstr ""
@@ -4398,13 +4405,13 @@ msgid "Partners can add their address in their profile settings."
 msgstr ""
 
 msgid "Password"
-msgstr ""
+msgstr "Mot de passe"
 
 msgid "Passwords do not match"
-msgstr ""
+msgstr "Les mots de passe ne correspondent pas"
 
 msgid "Passwords match"
-msgstr ""
+msgstr "Les mots de passe correspondent"
 
 msgid "Pending verification"
 msgstr "En attente de vérification"
@@ -4449,7 +4456,7 @@ msgid "Points"
 msgstr "Points"
 
 msgid "Points add up every visit"
-msgstr ""
+msgstr "Les points s'accumulent à chaque visite"
 
 msgid "Posts ({{ count }})"
 msgstr ""
@@ -4480,6 +4487,8 @@ msgstr "Psychologie / Santé mentale"
 
 msgid "QR code + unique ID for instant identification at partners"
 msgstr ""
+"Code QR + identifiant unique pour une identification instantanée chez les "
+"partenaires"
 
 msgid "QUICK ACTIONS"
 msgstr "ACTIONS RAPIDES"
@@ -4500,7 +4509,7 @@ msgid "Reading time"
 msgstr "Temps de lecture"
 
 msgid "Ready to get started?"
-msgstr ""
+msgstr "Prêt à commencer ?"
 
 msgid "Recent"
 msgstr "Récents"
@@ -4512,10 +4521,10 @@ msgid "Recurring / Long-term"
 msgstr ""
 
 msgid "Register & Get Your Card"
-msgstr ""
+msgstr "S'inscrire et obtenir votre carte"
 
 msgid "Request a personal insurance agent through the portal"
-msgstr ""
+msgstr "Demander un agent d'assurance personnel via le portail"
 
 msgid "Requested:"
 msgstr ""
@@ -4539,7 +4548,7 @@ msgid "Revenue CHF — last 30 days"
 msgstr ""
 
 msgid "Review"
-msgstr "Examen"
+msgstr "Vérifier"
 
 msgid "SCHEDULE A MEETING"
 msgstr ""
@@ -4596,10 +4605,10 @@ msgid "Secure"
 msgstr "Sécurisé"
 
 msgid "Secure PIN"
-msgstr ""
+msgstr "PIN sécurisé"
 
 msgid "Secure registration"
-msgstr ""
+msgstr "Inscription sécurisée"
 
 msgid "Seminar / Workshop Host"
 msgstr "Hôte de séminaires / ateliers"
@@ -4660,6 +4669,9 @@ msgid ""
 "Sign up in seconds — no credit card, no fees. You instantly receive a "
 "digital membership card with a unique QR code and permanent ID."
 msgstr ""
+"Inscrivez-vous en quelques secondes — sans carte bancaire ni frais. Vous "
+"recevez immédiatement une carte de membre numérique avec un code QR unique "
+"et un ID permanent."
 
 msgid "Skip for now"
 msgstr "Passer"
@@ -4724,7 +4736,7 @@ msgid "TRENDING"
 msgstr "TENDANCES"
 
 msgid "Takes about 1 minute"
-msgstr ""
+msgstr "Prend environ 1 minute"
 
 msgid "Telegram @username"
 msgstr ""
@@ -4757,7 +4769,7 @@ msgid "This action requires your password to confirm"
 msgstr ""
 
 msgid "This email is already registered"
-msgstr ""
+msgstr "Cet e-mail est déjà enregistré"
 
 msgid "This month"
 msgstr ""
@@ -4776,7 +4788,7 @@ msgid "Time TBD"
 msgstr ""
 
 msgid "Time-based 6-digit code, refreshes every 12 minutes"
-msgstr ""
+msgstr "Code à 6 chiffres temporel, renouvelé toutes les 12 minutes"
 
 msgid "To {{ level }}:"
 msgstr ""
@@ -4800,7 +4812,7 @@ msgid "Tomorrow"
 msgstr ""
 
 msgid "Too weak"
-msgstr ""
+msgstr "Trop faible"
 
 msgid "Top Members"
 msgstr ""
@@ -4854,10 +4866,10 @@ msgid "Username"
 msgstr "Nom d'utilisateur"
 
 msgid "Username already taken"
-msgstr ""
+msgstr "Nom d'utilisateur déjà pris"
 
 msgid "Username must be at least 3 characters"
-msgstr ""
+msgstr "Le nom d'utilisateur doit contenir au moins 3 caractères"
 
 msgid "Users ({{ count }})"
 msgstr ""
@@ -4872,7 +4884,7 @@ msgid "Verified (30d)"
 msgstr ""
 
 msgid "Very strong"
-msgstr ""
+msgstr "Très fort"
 
 msgid "Visit History"
 msgstr "Historique des visites"
@@ -4881,7 +4893,7 @@ msgid "Visit Profile"
 msgstr ""
 
 msgid "Visit a Partner"
-msgstr ""
+msgstr "Visiter un partenaire"
 
 msgid "Visit history"
 msgstr ""
@@ -4922,7 +4934,7 @@ msgid "Welcome to IESA Sport!"
 msgstr ""
 
 msgid "What you get as a member"
-msgstr ""
+msgstr "Ce que vous obtenez en tant que membre"
 
 msgid "Winter Sports / Ski"
 msgstr "Sports d'hiver / Ski"
@@ -4992,7 +5004,7 @@ msgid "Your name"
 msgstr ""
 
 msgid "Your phone stays private"
-msgstr ""
+msgstr "Votre téléphone reste privé"
 
 msgid "Your session has expired. Please log in again to continue."
 msgstr "Votre session a expiré. Veuillez vous reconnecter pour continuer."
@@ -5005,6 +5017,9 @@ msgid ""
 "levels, and access member-only discounts and privileges at all partner "
 "locations."
 msgstr ""
+"Votre visite est enregistrée instantanément. Gagnez des points d'activité, "
+"débloquez des niveaux et accédez à des réductions et privilèges réservés aux"
+" membres dans toutes les locations partenaires."
 
 msgid "Z→A"
 msgstr "Z→A"
@@ -5016,7 +5031,7 @@ msgid "cancel"
 msgstr "annuler"
 
 msgid "characters"
-msgstr ""
+msgstr "caractères"
 
 msgid "complete"
 msgstr "complété"
@@ -5025,7 +5040,7 @@ msgid "e.g. Insurance case #123, Rehab Q1"
 msgstr ""
 
 msgid "e.g. johndoe"
-msgstr ""
+msgstr "ex. johndoe"
 
 msgid "eSports / Gaming"
 msgstr "eSports / Jeux"
@@ -5055,7 +5070,7 @@ msgid "meetings"
 msgstr ""
 
 msgid "membership, explained"
-msgstr ""
+msgstr "l'adhésion, expliquée"
 
 msgid "min ago"
 msgstr "min plus tôt"
@@ -5088,7 +5103,7 @@ msgid "result(s)"
 msgstr ""
 
 msgid "special char"
-msgstr ""
+msgstr "caractère spécial"
 
 msgid "steps"
 msgstr "étapes"
@@ -5103,7 +5118,7 @@ msgid "unique"
 msgstr "unique"
 
 msgid "uppercase"
-msgstr ""
+msgstr "majuscule"
 
 msgid "visit(s)"
 msgstr ""
@@ -5246,6 +5261,8 @@ msgid ""
 "After registration, the PIN-code is available immediately. The physical card"
 " is issued later upon request."
 msgstr ""
+"Après l'inscription, le code PIN est disponible immédiatement. La carte "
+"physique est délivrée plus tard sur demande."
 
 msgid "After setting webhook: open bot in Telegram, press Start."
 msgstr ""
@@ -5260,7 +5277,7 @@ msgid "Current webhook:"
 msgstr ""
 
 msgid "I agree to become a member of IESA Sport and accept the"
-msgstr ""
+msgstr "Je consens à devenir membre de IESA Sport et accepte la"
 
 msgid "Set webhook in Telegram"
 msgstr ""
@@ -5278,7 +5295,7 @@ msgid "Where to set env vars:"
 msgstr ""
 
 msgid "privacy policy"
-msgstr ""
+msgstr "politique de confidentialité"
 
 msgid "random string (32+ chars)"
 msgstr ""
@@ -5383,6 +5400,9 @@ msgid ""
 "How IESA Sport works: register, get your digital card, connect Telegram, "
 "visit partner gyms and clinics, enjoy exclusive benefits. 4 simple steps."
 msgstr ""
+"Comment fonctionne IESA Sport : inscrivez-vous, recevez votre carte "
+"numérique, connectez Telegram, visitez les salles et cliniques partenaires, "
+"profitez des avantages exclusifs. 4 étapes simples."
 
 msgid ""
 "IESA Community blog — share ideas, events and news with fellow extreme "
@@ -5399,6 +5419,9 @@ msgid ""
 "Join IESA — Switzerland extreme sports community. Free membership in 1 "
 "minute: digital card, PIN code, partner discounts, events."
 msgstr ""
+"Rejoignez IESA — la communauté suisse des sports extrêmes. Adhésion gratuite"
+" en 1 minute : carte numérique, code PIN, réductions partenaires, "
+"événements."
 
 msgid "Newest first"
 msgstr "Plus récents d'abord"
@@ -5433,6 +5456,8 @@ msgid ""
 "Sign in to IESA Sport — digital membership card, PIN code, partner visits "
 "and community access."
 msgstr ""
+"Connectez-vous à IESA Sport — carte de membre numérique, code PIN, visites "
+"partenaires et accès à la communauté."
 
 msgid "Status:"
 msgstr ""
@@ -5471,6 +5496,9 @@ msgstr ""
 
 msgid "Dedicated <span>leadership</span>"
 msgstr "Leadership <span>dévoué</span>"
+
+msgid "Welcome<br><span>Back</span>"
+msgstr "Heureux de vous<br><span>revoir</span>"
 
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Le sport extrême comme manière de penser et de vivre"
