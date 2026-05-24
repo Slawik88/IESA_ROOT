@@ -56,18 +56,40 @@
     <p class="text-muted">{% trans "Search our community by name, username, email or ID" %}</p>
   </div>
 
-  <!-- Search form -->
+  <!-- Search form with filters (audit v5) -->
   <form method="get" action="{% url 'users:users_search' %}" class="mb-4">
-    <div class="input-group">
+    <div class="input-group mb-2">
       <input type="search" name="q" class="form-control" placeholder="{% trans "Search by name, username, email or ID..." %}" value="{{ query }}" autofocus>
       <button type="submit" class="btn btn-primary btn-modern">
         <i class="fas fa-search"></i> {% trans "Search" %}
       </button>
     </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <div class="d-flex gap-1 flex-wrap">
+        <span style="font-size:.7rem;font-family:var(--font-mono);color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.1em;align-self:center;margin-right:.4rem;">{% trans "Role" %}:</span>
+        {% for code, label in role_choices_display %}
+        <button type="submit" name="role" value="{{ code }}"
+                class="search-role-pill {% if role_filter == code %}active{% endif %}"
+                style="padding:.35rem .85rem;border-radius:100px;font-size:.78rem;font-weight:600;border:1px solid rgba(255,255,255,.12);background:{% if role_filter == code %}rgba(220,38,38,.18){% else %}rgba(255,255,255,.04){% endif %};color:{% if role_filter == code %}#f87171{% else %}rgba(255,255,255,.65){% endif %};cursor:pointer;">
+          {{ label }}
+        </button>
+        {% endfor %}
+      </div>
+      <select name="sort" onchange="this.form.submit()"
+              style="margin-left:auto;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:.4rem .75rem;font-size:.85rem;">
+        <option value="relevance" {% if sort_by == 'relevance' %}selected{% endif %}>{% trans "Relevance" %}</option>
+        <option value="newest"    {% if sort_by == 'newest'    %}selected{% endif %}>{% trans "Newest first" %}</option>
+        <option value="oldest"    {% if sort_by == 'oldest'    %}selected{% endif %}>{% trans "Oldest first" %}</option>
+        <option value="az"        {% if sort_by == 'az'        %}selected{% endif %}>A → Z</option>
+        <option value="za"        {% if sort_by == 'za'        %}selected{% endif %}>Z → A</option>
+      </select>
+    </div>
   </form>
 
   {% if query %}
-  <h5 class="mb-3 text-muted">{% trans "Results for" %} "{{ query }}"</h5>
+  <h5 class="mb-3 text-muted">{% trans "Results for" %} "{{ query }}"{% if role_filter != 'all' %} · {{ role_filter }}{% endif %}</h5>
+  {% elif role_filter != 'all' %}
+  <h5 class="mb-3 text-muted">{% trans "Showing all users with role" %}: <strong>{{ role_filter }}</strong></h5>
   {% endif %}
 
 

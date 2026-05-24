@@ -26,8 +26,22 @@ def impersonate_user(request, pk):
 @login_required
 @require_POST
 def account_change_request_submit(request):
-    """HTMX/POST: submit account type change request."""
+    """HTMX/POST: submit account type change request.
+
+    audit v5: + rate limiting (5 заявок в час на юзера) для защиты от спама.
+    """
+    # Rate limit: 5 заявок/час на пользователя
+    from django.core.cache import cache
     user = request.user
+    rl_key = f'acr_submit_rate_{user.pk}'
+    attempts = cache.get(rl_key, 0)
+    if attempts >= 5:
+        return JsonResponse({
+            'ok': False,
+            'error': _('Too many requests. Please wait an hour before submitting another application.'),
+        }, status=429)
+    cache.set(rl_key, attempts + 1, timeout=3600)
+
     if AccountChangeRequest.objects.filter(user=user, status='pending').exists():
         return JsonResponse({
             'ok': False,
