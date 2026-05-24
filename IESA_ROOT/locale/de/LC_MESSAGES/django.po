@@ -1103,7 +1103,7 @@ msgid "Learn more"
 msgstr "Mehr erfahren"
 
 msgid "Join our next"
-msgstr "Nehmen Sie teil an unserer nächsten"
+msgstr "Nehmen Sie teil an unseren nächsten"
 
 msgid "View all events"
 msgstr "Alle Veranstaltungen ansehen"
@@ -1167,7 +1167,7 @@ msgid "We are looking for new partners!"
 msgstr "Wir suchen neue Partner!"
 
 msgid "Why join"
-msgstr "Warum beitreten"
+msgstr "Warum"
 
 msgid "IESA?"
 msgstr "IESA?"
@@ -5459,6 +5459,12 @@ msgstr "IHRE MITGLIEDSCHAFT"
 
 msgid "by"
 msgstr ""
+
+msgid "The people behind <span>our mission</span>"
+msgstr "Die Menschen hinter <span>unserer Mission</span>"
+
+msgid "Why join <span>IESA?</span>"
+msgstr "Warum sollten Sie <span>IESA beitreten?</span>"
 
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Extremsport als Denk- und Lebensweise"

@@ -1104,7 +1104,7 @@ msgid "Learn more"
 msgstr "En savoir plus"
 
 msgid "Join our next"
-msgstr "Rejoignez notre prochain"
+msgstr "Rejoignez nos prochaines"
 
 msgid "View all events"
 msgstr "Voir tous les événements"
@@ -2528,7 +2528,7 @@ msgid "Press"
 msgstr "Appuyez sur"
 
 msgid "Attach account"
-msgstr "Lier le compte"
+msgstr "Liez le compte"
 
 msgid "or send"
 msgstr "ou envoyez"
@@ -5450,6 +5450,12 @@ msgstr "VOTRE ADHÉSION"
 
 msgid "by"
 msgstr ""
+
+msgid "The people behind <span>our mission</span>"
+msgstr "Les personnes derrière <span>notre mission</span>"
+
+msgid "Why join <span>IESA?</span>"
+msgstr "Pourquoi rejoindre <span>l'IESA ?</span>"
 
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Le sport extrême comme manière de penser et de vivre"
