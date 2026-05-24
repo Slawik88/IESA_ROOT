@@ -3587,7 +3587,7 @@ msgid "Add a photo"
 msgstr ""
 
 msgid "Add to your home screen"
-msgstr ""
+msgstr "Zum Startbildschirm hinzufügen"
 
 msgid "Additional Comments"
 msgstr ""
@@ -3615,6 +3615,7 @@ msgstr ""
 
 msgid "Any unsaved changes on this page have been preserved."
 msgstr ""
+"Alle nicht gespeicherten Änderungen auf dieser Seite wurden beibehalten."
 
 msgid "Apparel"
 msgstr "Kleidung"
@@ -3703,7 +3704,7 @@ msgid "Charts"
 msgstr "Diagramme"
 
 msgid "Chess &amp; strategic thinking"
-msgstr ""
+msgstr "Schach & strategisches Denken"
 
 msgid "Chiropractic / Manual Therapy"
 msgstr "Chiropraktik / Manuelle Therapie"
@@ -3712,7 +3713,7 @@ msgid "City, street, or region where you operate"
 msgstr "Stadt, Straße oder Region, in der Sie tätig sind"
 
 msgid "Clear history"
-msgstr ""
+msgstr "Verlauf löschen"
 
 msgid "Click any time slot to schedule a meeting"
 msgstr ""
@@ -3872,7 +3873,7 @@ msgid "Event Organization"
 msgstr "Veranstaltungsorganisation"
 
 msgid "Event creation &amp; management"
-msgstr ""
+msgstr "Erstellung & Verwaltung von Veranstaltungen"
 
 msgid "Events ({{ count }})"
 msgstr ""
@@ -3949,6 +3950,8 @@ msgid ""
 "Get quick access to your PIN, QR code and partner portal without opening a "
 "browser."
 msgstr ""
+"Schneller Zugriff auf Ihre PIN, den QR-Code und das Partnerportal ohne "
+"Browser zu öffnen."
 
 msgid "Get started by writing your first post or exploring the community."
 msgstr ""
@@ -3983,7 +3986,7 @@ msgid "Health & Wellness"
 msgstr "Gesundheit & Wellness"
 
 msgid "Health &amp; wellbeing for all"
-msgstr ""
+msgstr "Gesundheit & Wohlbefinden für alle"
 
 msgid "Healthy Food / Catering"
 msgstr "Gesunde Ernährung / Catering"
@@ -4026,7 +4029,7 @@ msgid "Install"
 msgstr "Installieren"
 
 msgid "Install IESA Sport"
-msgstr ""
+msgstr "IESA Sport installieren"
 
 msgid "Instant community access"
 msgstr ""
@@ -4121,7 +4124,7 @@ msgid "Log First Visit"
 msgstr ""
 
 msgid "Log In Again"
-msgstr ""
+msgstr "Erneut anmelden"
 
 msgid "Log New Visit"
 msgstr ""
@@ -4172,7 +4175,7 @@ msgid "Member Profile"
 msgstr "Mitgliedsprofil"
 
 msgid "Member promotion &amp; support"
-msgstr "Mitgliederwerbung & Support"
+msgstr "Mitgliederförderung & Support"
 
 msgid "Member suggestions"
 msgstr "Mitgliedervorschläge"
@@ -4378,7 +4381,7 @@ msgid "PUBLISHED"
 msgstr "VERÖFFENTLICHT"
 
 msgid "Page {{ page }} of {{ total }}"
-msgstr ""
+msgstr "Seite {{ page }} von {{ total }}"
 
 msgid "Partner Map"
 msgstr ""
@@ -4624,7 +4627,7 @@ msgid "Services"
 msgstr ""
 
 msgid "Session Expired"
-msgstr ""
+msgstr "Sitzung abgelaufen"
 
 msgid "Set"
 msgstr "Festlegen"
@@ -4843,7 +4846,7 @@ msgid "Unique clients"
 msgstr ""
 
 msgid "Unique trips &amp; experiences"
-msgstr ""
+msgstr "Einzigartige Reisen & Erlebnisse"
 
 msgid "Unlike"
 msgstr "Nicht mehr gefallen"
@@ -4919,6 +4922,8 @@ msgid ""
 "We organize competitions that strengthen the role of sport in people's "
 "lives."
 msgstr ""
+"Wir organisieren Wettkämpfe, die die Rolle des Sports im Leben der Menschen "
+"stärken."
 
 msgid "Welcome"
 msgstr "Willkommen"
@@ -5001,6 +5006,8 @@ msgstr ""
 
 msgid "Your session has expired. Please log in again to continue."
 msgstr ""
+"Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an, um "
+"fortzufahren."
 
 msgid "Your upcoming meetings and scheduled sessions"
 msgstr ""
@@ -5465,6 +5472,16 @@ msgstr "Die Menschen hinter <span>unserer Mission</span>"
 
 msgid "Why join <span>IESA?</span>"
 msgstr "Warum sollten Sie <span>IESA beitreten?</span>"
+
+msgid ""
+"IESA — it's more than sport. <span>It's a lifestyle, growth, and a strong "
+"international community.</span>"
+msgstr ""
+"IESA — mehr als Sport. <span>Es ist ein Lebensstil, Wachstum und eine starke"
+" internationale Gemeinschaft.</span>"
+
+msgid "Dedicated <span>leadership</span>"
+msgstr "Engagierte <span>Führung</span>"
 
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Extremsport als Denk- und Lebensweise"
