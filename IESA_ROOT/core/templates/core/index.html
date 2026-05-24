@@ -621,7 +621,7 @@
             </ul>
         </div>
         <div class="iesa-tagline" data-reveal>
-            <p class="tagline-main">{% trans "IESA — it's more than sport." %} <span>{% trans "It's a lifestyle, growth, and a strong international community." %}</span></p>
+            <p class="tagline-main">{% blocktrans %}IESA — it's more than sport. <span>It's a lifestyle, growth, and a strong international community.</span>{% endblocktrans %}</p>
         </div>
         <div class="offers-footer" data-reveal>
             <a href="{% url 'users:register' %}" class="hero-btn-p mag-btn" style="box-shadow:none;"><i class="fas fa-user-plus"></i> {% trans "Become a member" %}</a>
@@ -802,7 +802,7 @@
         {% if members %}
         <div class="text-center" style="margin-top:4rem;margin-bottom:2rem;">
             <p class="hp-label" data-reveal>{% trans "Our team" %}</p>
-            <h3 class="hp-h2" style="font-size:clamp(1.5rem,3vw,2.2rem);" data-reveal>{% trans "Dedicated" %} <span>{% trans "leadership" %}</span></h3>
+            <h3 class="hp-h2" style="font-size:clamp(1.5rem,3vw,2.2rem);" data-reveal>{% blocktrans %}Dedicated <span>leadership</span>{% endblocktrans %}</h3>
         </div>
         <div class="members-grid">
             {% for member in members %}

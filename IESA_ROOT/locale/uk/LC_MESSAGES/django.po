@@ -1210,7 +1210,7 @@ msgid "donors"
 msgstr "донорів"
 
 msgid "Ends Dec 2026"
-msgstr "Закінчується грудень 2026"
+msgstr "Завершується у грудні 2026"
 
 msgid "Make a Donation (Coming Soon)"
 msgstr "Зробити внесок (незабаром)"
@@ -1637,7 +1637,7 @@ msgid "Cancel"
 msgstr "Скасувати"
 
 msgid "Back to top"
-msgstr "Наверх"
+msgstr "Догори"
 
 msgid "Mobile navigation"
 msgstr "Мобільна навігація"
@@ -3589,7 +3589,7 @@ msgid "Add a photo"
 msgstr ""
 
 msgid "Add to your home screen"
-msgstr ""
+msgstr "Додайте на головний екран"
 
 msgid "Additional Comments"
 msgstr ""
@@ -3616,7 +3616,7 @@ msgid "Analytics"
 msgstr ""
 
 msgid "Any unsaved changes on this page have been preserved."
-msgstr ""
+msgstr "Усі незбережені зміни на цій сторінці збережено."
 
 msgid "Apparel"
 msgstr "Одяг"
@@ -3703,7 +3703,7 @@ msgid "Charts"
 msgstr "Графіки"
 
 msgid "Chess &amp; strategic thinking"
-msgstr ""
+msgstr "Шахи та стратегічне мислення"
 
 msgid "Chiropractic / Manual Therapy"
 msgstr "Хіропрактика / Мануальна терапія"
@@ -3715,7 +3715,7 @@ msgid "Clear"
 msgstr "Очистити"
 
 msgid "Clear history"
-msgstr ""
+msgstr "Очистити історію"
 
 msgid "Click any time slot to schedule a meeting"
 msgstr ""
@@ -3875,7 +3875,7 @@ msgid "Event Organization"
 msgstr "Організація подій"
 
 msgid "Event creation &amp; management"
-msgstr ""
+msgstr "Створення та керування подіями"
 
 msgid "Events ({{ count }})"
 msgstr ""
@@ -3952,6 +3952,8 @@ msgid ""
 "Get quick access to your PIN, QR code and partner portal without opening a "
 "browser."
 msgstr ""
+"Отримайте швидкий доступ до PIN, QR-коду та партнерського порталу без "
+"відкриття браузера."
 
 msgid "Get started by writing your first post or exploring the community."
 msgstr ""
@@ -3986,7 +3988,7 @@ msgid "Health & Wellness"
 msgstr "Здоров'я та велнес"
 
 msgid "Health &amp; wellbeing for all"
-msgstr ""
+msgstr "Здоровʼя та благополуччя для всіх"
 
 msgid "Healthy Food / Catering"
 msgstr "Здорове харчування / Кейтеринг"
@@ -4029,7 +4031,7 @@ msgid "Install"
 msgstr "Встановити"
 
 msgid "Install IESA Sport"
-msgstr ""
+msgstr "Встановити IESA Sport"
 
 msgid "Instant community access"
 msgstr ""
@@ -4124,7 +4126,7 @@ msgid "Log First Visit"
 msgstr ""
 
 msgid "Log In Again"
-msgstr ""
+msgstr "Увійти знову"
 
 msgid "Log New Visit"
 msgstr ""
@@ -4381,7 +4383,7 @@ msgid "PUBLISHED"
 msgstr "ОПУБЛІКОВАНО"
 
 msgid "Page {{ page }} of {{ total }}"
-msgstr ""
+msgstr "Сторінка {{ page }} з {{ total }}"
 
 msgid "Partner Map"
 msgstr ""
@@ -4627,7 +4629,7 @@ msgid "Services"
 msgstr ""
 
 msgid "Session Expired"
-msgstr ""
+msgstr "Сесія завершена"
 
 msgid "Set"
 msgstr "Встановити"
@@ -4845,7 +4847,7 @@ msgid "Unique clients"
 msgstr ""
 
 msgid "Unique trips &amp; experiences"
-msgstr ""
+msgstr "Унікальні подорожі та враження"
 
 msgid "Unlike"
 msgstr "Не подобається"
@@ -4920,7 +4922,7 @@ msgstr "Водні види спорту / Дайвінг / Серфінг"
 msgid ""
 "We organize competitions that strengthen the role of sport in people's "
 "lives."
-msgstr ""
+msgstr "Ми організовуємо змагання, які зміцнюють роль спорту в житті людей."
 
 msgid "Welcome"
 msgstr "Вітаємо"
@@ -4935,7 +4937,7 @@ msgid "Winter Sports / Ski"
 msgstr "Зимові види спорту / Лижі"
 
 msgid "Write Post"
-msgstr "Написати пост"
+msgstr "Написати допис"
 
 msgid "Write a post"
 msgstr ""
@@ -5002,7 +5004,7 @@ msgid "Your phone stays private"
 msgstr ""
 
 msgid "Your session has expired. Please log in again to continue."
-msgstr ""
+msgstr "Ваша сесія завершилася. Будь ласка, увійдіть знову, щоб продовжити."
 
 msgid "Your upcoming meetings and scheduled sessions"
 msgstr ""
@@ -5465,6 +5467,16 @@ msgstr "Люди, що стоять за <span>нашою місією</span>"
 
 msgid "Why join <span>IESA?</span>"
 msgstr "Чому варто приєднатися до <span>IESA?</span>"
+
+msgid ""
+"IESA — it's more than sport. <span>It's a lifestyle, growth, and a strong "
+"international community.</span>"
+msgstr ""
+"IESA — це більше, ніж спорт. <span>Це стиль життя, зростання та сильна "
+"міжнародна спільнота.</span>"
+
+msgid "Dedicated <span>leadership</span>"
+msgstr "Віддане <span>керівництво</span>"
 
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
