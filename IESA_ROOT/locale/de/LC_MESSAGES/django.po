@@ -27,7 +27,7 @@ msgid "Draft"
 msgstr "Entwurf"
 
 msgid "author"
-msgstr "Autor"
+msgstr "autor"
 
 #, python-format
 msgid "%(count)d post(s) published successfully."
@@ -135,7 +135,7 @@ msgid "Like"
 msgstr "Gefällt mir"
 
 msgid "Likes"
-msgstr "Gefällt mir"
+msgstr "Likes"
 
 msgid "IP Address"
 msgstr "IP-Adresse"
@@ -156,7 +156,7 @@ msgid "Ongoing"
 msgstr "Laufend"
 
 msgid "Completed"
-msgstr "Abgeschlossen"
+msgstr "Erledigt"
 
 msgid "Cancelled"
 msgstr "Abgesagt"
@@ -214,7 +214,7 @@ msgstr "Veranstaltung"
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
 msgid "Events"
-msgstr "Veranstaltungen"
+msgstr "Events"
 
 msgid "Pending"
 msgstr "Ausstehend"
@@ -250,7 +250,7 @@ msgid "Blog Subscriptions"
 msgstr "Blog-Abonnements"
 
 msgid "events"
-msgstr "Veranstaltungen"
+msgstr "events"
 
 msgid "gatherings"
 msgstr "Treffen"
@@ -652,7 +652,7 @@ msgid "Warning"
 msgstr "Warnung"
 
 msgid "Information"
-msgstr "Information"
+msgstr "Informationen"
 
 msgid "Notification"
 msgstr "Benachrichtigung"
@@ -664,7 +664,7 @@ msgid "Position"
 msgstr "Position"
 
 msgid "Bio/Message"
-msgstr "Bio/Nachricht"
+msgstr "Bio / Nachricht"
 
 msgid "President"
 msgstr "Präsident"
@@ -1157,7 +1157,7 @@ msgid "Venue"
 msgstr "Veranstaltungsort"
 
 msgid "Visit"
-msgstr "Besuchen"
+msgstr "Besuch"
 
 #, python-format
 msgid "Page %(page)s of %(total)s"
@@ -1584,7 +1584,7 @@ msgid "Open search menu"
 msgstr "Suchmenü öffnen"
 
 msgid "Search"
-msgstr "Suche"
+msgstr "Suchen"
 
 msgid "Posts, users, events..."
 msgstr "Beiträge, Benutzer, Veranstaltungen..."
@@ -1813,7 +1813,7 @@ msgid "Engage with the community"
 msgstr "Engagieren Sie sich in der Community"
 
 msgid "Intermediate"
-msgstr "Fortgeschrittener"
+msgstr "Mittel"
 
 msgid "You're becoming an active member"
 msgstr "Sie werden ein aktives Mitglied"
@@ -2361,7 +2361,7 @@ msgid "Create a Post"
 msgstr "Beitrag erstellen"
 
 msgid "points"
-msgstr "Punkte"
+msgstr "punkte"
 
 msgid "Every published post contributes to your level"
 msgstr "Jeder veröffentlichte Beitrag trägt zu Ihrem Level bei"
@@ -2838,7 +2838,7 @@ msgid "Full name"
 msgstr "Vollständiger Name"
 
 msgid " years"
-msgstr " Jahre"
+msgstr " jahre"
 
 msgid "Phone"
 msgstr "Telefon"
@@ -2878,7 +2878,7 @@ msgid "Scan to view profile"
 msgstr "Scannen, um Profil anzuzeigen"
 
 msgid "Stats"
-msgstr "Statistik"
+msgstr "Stats"
 
 msgid "Find me"
 msgstr "Finde mich"
@@ -2890,7 +2890,7 @@ msgid "Likes received"
 msgstr "Erhaltene Likes"
 
 msgid "Comments made"
-msgstr "Geschriebene Kommentare"
+msgstr "Hinterlassene Kommentare"
 
 msgid "Created"
 msgstr "Erstellt"
@@ -5081,7 +5081,7 @@ msgid "optional"
 msgstr ""
 
 msgid "photos"
-msgstr "Fotos"
+msgstr "fotos"
 
 msgid "prev"
 msgstr "vorherige"
@@ -5117,7 +5117,7 @@ msgid "words"
 msgstr "Wörter"
 
 msgid "years"
-msgstr "Jahre"
+msgstr "jahre"
 
 msgid "your area"
 msgstr "Ihr Bereich"
@@ -5888,7 +5888,7 @@ msgstr ""
 #~ msgstr "Text"
 
 #~ msgid "Time"
-#~ msgstr "Zeit"
+#~ msgstr "Uhrzeit"
 
 #~ msgid "URL"
 #~ msgstr "URL"
@@ -6204,7 +6204,7 @@ msgstr ""
 #~ msgstr "Apr"
 
 #~ msgid "may"
-#~ msgstr "Mai"
+#~ msgstr "mai"
 
 #~ msgid "jun"
 #~ msgstr "Jun"
@@ -6379,7 +6379,7 @@ msgstr ""
 #~ msgstr "Überprüfen Sie die korrekten settings.CKEDITOR_5_CONFIGS "
 
 #~ msgid "Thumbnail"
-#~ msgstr "Vorschaubild"
+#~ msgstr "Miniaturansicht"
 
 #~ msgid "Member Cabinet — IESA Sport"
 #~ msgstr "Mitgliederbereich — IESA Sport"
