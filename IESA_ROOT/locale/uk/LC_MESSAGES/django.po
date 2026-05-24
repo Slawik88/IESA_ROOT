@@ -877,7 +877,7 @@ msgid "Master the art"
 msgstr "Опануй мистецтво"
 
 msgid "of"
-msgstr " "
+msgstr "з"
 
 msgid "Kitesurfing"
 msgstr "Кайтсерфінг"
@@ -3520,13 +3520,13 @@ msgid "(for long-term clients)"
 msgstr "(для довгострокових клієнтів)"
 
 msgid "+41 79 000 00 00"
-msgstr ""
+msgstr "+41 79 000 00 00"
 
 msgid "404 — Page not found"
-msgstr ""
+msgstr "404 — Сторінку не знайдено"
 
 msgid "500 — Server error"
-msgstr ""
+msgstr "500 — Помилка сервера"
 
 msgid "6-digit verification code"
 msgstr "6-значний код підтвердження"
@@ -3541,7 +3541,7 @@ msgid "ADDRESS / LOCATION"
 msgstr "АДРЕСА / МІСЦЕЗНАХОДЖЕННЯ"
 
 msgid "ADMIN PANEL"
-msgstr ""
+msgstr "АДМІН-ПАНЕЛЬ"
 
 msgid "ALL"
 msgstr "УСІ"
@@ -3562,7 +3562,7 @@ msgid "Access your account"
 msgstr "Доступ до вашого облікового запису"
 
 msgid "Accessories"
-msgstr ""
+msgstr "Аксесуари"
 
 msgid "Account"
 msgstr "Обліковий запис"
@@ -3583,7 +3583,7 @@ msgid "Activity Level"
 msgstr "Рівень активності"
 
 msgid "Activity in last 30 min"
-msgstr ""
+msgstr "Активність за останні 30 хв"
 
 msgid "Add a photo"
 msgstr "Додати фото"
@@ -3595,7 +3595,7 @@ msgid "Additional Comments"
 msgstr "Додаткові коментарі"
 
 msgid "Additional info for the client..."
-msgstr ""
+msgstr "Додаткова інформація для клієнта..."
 
 msgid "Ages {{ min_age }}-{{ max_age }}"
 msgstr "Вік {{ min_age }}-{{ max_age }}"
@@ -3607,7 +3607,7 @@ msgid "All Visit History"
 msgstr "Уся історія візитів"
 
 msgid "All caught up!"
-msgstr ""
+msgstr "Все прочитано!"
 
 msgid "Also"
 msgstr "Також"
@@ -3622,7 +3622,7 @@ msgid "Apparel"
 msgstr "Одяг"
 
 msgid "Appeal submitted!"
-msgstr ""
+msgstr "Звернення надіслано!"
 
 msgid "Ask the member to show their current PIN from their personal cabinet"
 msgstr "Попросіть учасника показати поточний PIN з особистого кабінету"
@@ -3652,7 +3652,7 @@ msgid "Back to Cabinet"
 msgstr "Повернутися до кабінету"
 
 msgid "Back to invite list"
-msgstr ""
+msgstr "Назад до списку запрошень"
 
 msgid "Back to profile"
 msgstr "Назад до профілю"
@@ -3679,7 +3679,7 @@ msgid "CONTACT DETAILS"
 msgstr "КОНТАКТНІ ДАНІ"
 
 msgid "Cabinet navigation"
-msgstr ""
+msgstr "Навігація кабінету"
 
 msgid "Calendar"
 msgstr "Календар"
@@ -3688,7 +3688,7 @@ msgid "Call IESA"
 msgstr "Подзвонити IESA"
 
 msgid "Cancel Visit Record"
-msgstr ""
+msgstr "Скасувати запис візиту"
 
 msgid "Cancel meeting"
 msgstr "Скасувати зустріч"
@@ -3739,7 +3739,7 @@ msgid "Confirm & Connect"
 msgstr "Підтвердити та підключити"
 
 msgid "Confirmed via PIN"
-msgstr ""
+msgstr "Підтверджено через PIN"
 
 msgid "Connect"
 msgstr "Підключити"
@@ -3760,7 +3760,7 @@ msgid "Copied"
 msgstr "Скопійовано"
 
 msgid "Correct Visit Record"
-msgstr ""
+msgstr "Виправити запис візиту"
 
 msgid "Cost CHF"
 msgstr "Вартість CHF"
@@ -3802,7 +3802,7 @@ msgid "Date is in the past"
 msgstr "Дата в минулому"
 
 msgid "Deactivate"
-msgstr ""
+msgstr "Деактивувати"
 
 msgid ""
 "Describe your business/role and why you want to join IESA. What value can "
@@ -3812,7 +3812,7 @@ msgstr ""
 "ви можете запропонувати учасникам?"
 
 msgid "Describe your situation in detail..."
-msgstr ""
+msgstr "Опишіть свою ситуацію детальніше..."
 
 msgid "Digital Card"
 msgstr "Цифрова карта"
@@ -3869,7 +3869,7 @@ msgid "Enter your credentials to continue."
 msgstr "Введіть свої облікові дані для продовження."
 
 msgid "Equipment"
-msgstr ""
+msgstr "Обладнання"
 
 msgid "Event Organization"
 msgstr "Організація подій"
@@ -3878,22 +3878,22 @@ msgid "Event creation &amp; management"
 msgstr "Створення та керування подіями"
 
 msgid "Events ({{ count }})"
-msgstr ""
+msgstr "Події ({{ count }})"
 
 msgid "Events, RSVPs & benefits"
 msgstr "Події, реєстрації та переваги"
 
 msgid "Explore Community"
-msgstr ""
+msgstr "Дослідити спільноту"
 
 msgid "Explore gyms, studios and services in your area"
-msgstr ""
+msgstr "Досліджуйте спортзали, студії та послуги у вашому районі"
 
 msgid "Export .ics"
-msgstr ""
+msgstr "Експорт .ics"
 
 msgid "Export to Google Calendar / Apple Calendar / Outlook"
-msgstr ""
+msgstr "Експортувати в Google Calendar / Apple Calendar / Outlook"
 
 msgid "FILTERS"
 msgstr "ФІЛЬТРИ"
@@ -3914,7 +3914,7 @@ msgid "Filters"
 msgstr "Фільтри"
 
 msgid "Find IESA Partners Near You"
-msgstr ""
+msgstr "Знайдіть партнерів IESA поруч"
 
 msgid "Find Member & Log Visit"
 msgstr "Знайти учасника та записати візит"
@@ -3923,13 +3923,13 @@ msgid "Find a partner"
 msgstr "Знайти партнера"
 
 msgid "Find and visit a partner"
-msgstr ""
+msgstr "Знайти й відвідати партнера"
 
 msgid "Food & Hospitality"
 msgstr "Харчування та гостинність"
 
 msgid "Form sections"
-msgstr ""
+msgstr "Секції форми"
 
 msgid ""
 "Four simple steps to unlock exclusive partner benefits, track your activity,"
@@ -3942,13 +3942,13 @@ msgid "Full log of every partner visit with timestamps"
 msgstr "Повний журнал кожного партнерського візиту з мітками часу"
 
 msgid "Generate Invite"
-msgstr ""
+msgstr "Створити запрошення"
 
 msgid "Generate Invite Link"
-msgstr ""
+msgstr "Створити посилання-запрошення"
 
 msgid "Get instant visit confirmations"
-msgstr ""
+msgstr "Отримуйте миттєві підтвердження візитів"
 
 msgid ""
 "Get quick access to your PIN, QR code and partner portal without opening a "
@@ -3958,7 +3958,7 @@ msgstr ""
 "відкриття браузера."
 
 msgid "Get started by writing your first post or exploring the community."
-msgstr ""
+msgstr "Почніть із написання першого допису або дослідження спільноти."
 
 msgid "Get started — quick actions"
 msgstr "Почати — швидкі дії"
@@ -3978,7 +3978,7 @@ msgstr ""
 "PIN. Він оновлюється кожні 12 хвилин."
 
 msgid "Go to blog"
-msgstr ""
+msgstr "Перейти до блогу"
 
 msgid "Go to my profile"
 msgstr "Перейти до мого профілю"
@@ -4005,13 +4005,13 @@ msgid "How it works"
 msgstr "Як це працює"
 
 msgid "How to reach {{ name }}"
-msgstr ""
+msgstr "Як зв'язатися з {{ name }}"
 
 msgid "IESA Sport"
 msgstr "IESA Sport"
 
 msgid "IESA — it's more than sport."
-msgstr ""
+msgstr "IESA — це більше, ніж спорт."
 
 msgid "IT / Technology / Software"
 msgstr "IT / Технології / ПЗ"
@@ -4049,34 +4049,34 @@ msgid "Insurance"
 msgstr "Страхування"
 
 msgid "Invalid Invite"
-msgstr ""
+msgstr "Недійсне запрошення"
 
 msgid "Invalid email format"
 msgstr "Невірний формат e-mail"
 
 msgid "Invalid invite link"
-msgstr ""
+msgstr "Недійсне посилання-запрошення"
 
 msgid "Invitation for {{ name }}"
-msgstr ""
+msgstr "Запрошення для {{ name }}"
 
 msgid "Invite Links"
-msgstr ""
+msgstr "Посилання-запрошення"
 
 msgid "Invite link has already been used"
-msgstr ""
+msgstr "Посилання-запрошення вже використано"
 
 msgid "Invite link has expired"
-msgstr ""
+msgstr "Термін дії посилання-запрошення закінчився"
 
 msgid "Invite to IESA Sport"
-msgstr ""
+msgstr "Запросити до IESA Sport"
 
 msgid "It looks like you're offline. Check your connection and try again."
-msgstr ""
+msgstr "Схоже, ви офлайн. Перевірте з'єднання та спробуйте ще раз."
 
 msgid "It's a lifestyle, growth, and a strong international community."
-msgstr ""
+msgstr "Це стиль життя, зростання та сильна міжнародна спільнота."
 
 msgid "JPG, PNG, WebP · Max 5 MB"
 msgstr "JPG, PNG, WebP · Макс. 5 МБ"
@@ -4105,7 +4105,7 @@ msgid "Last visit"
 msgstr "Останній візит"
 
 msgid "Learn how everything works"
-msgstr ""
+msgstr "Дізнайтесь, як усе працює"
 
 msgid "Legal Services / Lawyer"
 msgstr "Юридичні послуги / Адвокат"
@@ -4122,7 +4122,7 @@ msgstr ""
 "курсі."
 
 msgid "Link your account to receive instant notifications"
-msgstr ""
+msgstr "Прив'яжіть акаунт, щоб отримувати миттєві сповіщення"
 
 msgid "Linked"
 msgstr "Прив'язано"
@@ -4215,7 +4215,7 @@ msgid "My Settings"
 msgstr "Мої налаштування"
 
 msgid "My location"
-msgstr ""
+msgstr "Моє місцезнаходження"
 
 msgid "NEW POST"
 msgstr "НОВИЙ ДОПИС"
@@ -4227,10 +4227,10 @@ msgid "NOTES FOR MEMBER"
 msgstr "НОТАТКИ ДЛЯ УЧАСНИКА"
 
 msgid "Name or username…"
-msgstr ""
+msgstr "Ім'я або ім'я користувача…"
 
 msgid "New Meeting"
-msgstr ""
+msgstr "Нова зустріч"
 
 msgid "New Member"
 msgstr "Новий учасник"
@@ -4239,10 +4239,10 @@ msgid "Next Day"
 msgstr "Наступний день"
 
 msgid "No Connection"
-msgstr ""
+msgstr "Немає з'єднання"
 
 msgid "No Internet Connection"
-msgstr ""
+msgstr "Немає з'єднання з інтернетом"
 
 msgid "No Telegram — notification will not be sent"
 msgstr "Без Telegram — сповіщення не буде надіслано"
@@ -4251,13 +4251,13 @@ msgid "No clients yet."
 msgstr "Поки що немає клієнтів."
 
 msgid "No content yet"
-msgstr ""
+msgstr "Поки немає контенту"
 
 msgid "No data for the last 30 days"
 msgstr "Немає даних за останні 30 днів"
 
 msgid "No invite links yet."
-msgstr ""
+msgstr "Поки що немає посилань-запрошень."
 
 msgid "No meetings on this day"
 msgstr "У цей день немає зустрічей"
@@ -4269,25 +4269,25 @@ msgid "No members found for"
 msgstr "Учасників не знайдено для"
 
 msgid "No partners with map coordinates yet"
-msgstr ""
+msgstr "Поки немає партнерів з координатами на карті"
 
 msgid "No posts found for your query"
-msgstr ""
+msgstr "За вашим запитом дописів не знайдено"
 
 msgid "No results for \"{{ q }}\""
-msgstr ""
+msgstr "Немає результатів для «{{ q }}»"
 
 msgid "No results found for \"{{ q }}\""
-msgstr ""
+msgstr "Не знайдено результатів для «{{ q }}»"
 
 msgid "No specific time"
 msgstr "Без конкретного часу"
 
 msgid "No upcoming meetings. Check back later!"
-msgstr ""
+msgstr "Найближчих зустрічей немає. Заходьте пізніше!"
 
 msgid "No visits for the selected filters."
-msgstr ""
+msgstr "За обраними фільтрами візитів немає."
 
 msgid "No visits recorded for this member yet."
 msgstr "Для цього учасника ще не записано візитів."
@@ -4316,6 +4316,8 @@ msgid ""
 "Notifications appear here when someone likes your post, comments, or follows"
 " you."
 msgstr ""
+"Сповіщення з'являються тут, коли хтось вподобає ваш допис, коментує або "
+"підписується."
 
 msgid "Notify via Telegram & site"
 msgstr "Сповістити через Telegram і сайт"
@@ -4324,16 +4326,16 @@ msgid "Nutrition / Dietology"
 msgstr "Харчування / Дієтологія"
 
 msgid "OR SEARCH THE SITE"
-msgstr ""
+msgstr "АБО ШУКАЙТЕ ПО САЙТУ"
 
 msgid "Oops! The page you are looking for does not exist or has been moved."
-msgstr ""
+msgstr "Упс! Сторінка, яку ви шукаєте, не існує або була переміщена."
 
 msgid "Open date picker"
-msgstr ""
+msgstr "Відкрити вибір дати"
 
 msgid "Open full dashboard"
-msgstr ""
+msgstr "Відкрити повний кабінет"
 
 msgid "Open in Telegram"
 msgstr "Відкрити в Telegram"
@@ -4348,7 +4350,7 @@ msgid "Other (describe below)"
 msgstr "Інше (опишіть нижче)"
 
 msgid "Our Partners"
-msgstr ""
+msgstr "Наші партнери"
 
 msgid "Outdoor Activities / Hiking"
 msgstr "Активний відпочинок / Походи"
@@ -4363,7 +4365,7 @@ msgid "PAST"
 msgstr "МИНУЛІ"
 
 msgid "PAST MEETINGS"
-msgstr ""
+msgstr "МИНУЛІ ЗУСТРІЧІ"
 
 msgid "PENDING"
 msgstr "ОЧІКУЄ"
@@ -4384,7 +4386,7 @@ msgid "PIN renews automatically every 12 minutes"
 msgstr "PIN автоматично оновлюється кожні 12 хвилин"
 
 msgid "PIN verified"
-msgstr ""
+msgstr "PIN підтверджено"
 
 msgid "POPULAR"
 msgstr "ПОПУЛЯРНІ"
@@ -4399,28 +4401,28 @@ msgid "Page {{ page }} of {{ total }}"
 msgstr "Сторінка {{ page }} з {{ total }}"
 
 msgid "Partner Map"
-msgstr ""
+msgstr "Карта партнерів"
 
 msgid "Partner Portal"
 msgstr "Портал партнера"
 
 msgid "Partner Registration"
-msgstr ""
+msgstr "Реєстрація партнера"
 
 msgid "Partner navigation"
-msgstr ""
+msgstr "Партнерська навігація"
 
 msgid "Partner portal access request"
-msgstr ""
+msgstr "Запит доступу до партнерського порталу"
 
 msgid "Partner since"
 msgstr "Партнер з"
 
 msgid "Partners ({{ count }})"
-msgstr ""
+msgstr "Партнери ({{ count }})"
 
 msgid "Partners can add their address in their profile settings."
-msgstr ""
+msgstr "Партнери можуть додати свою адресу в налаштуваннях профілю."
 
 msgid "Password"
 msgstr "Пароль"
@@ -4441,16 +4443,16 @@ msgid "Personal Trainer / Coach"
 msgstr "Персональний тренер"
 
 msgid "Personal training, Consultation, Insurance review..."
-msgstr ""
+msgstr "Персональні тренування, Консультація, Огляд страхування..."
 
 msgid "Personalise your profile"
-msgstr ""
+msgstr "Персоналізуйте свій профіль"
 
 msgid "Photo added"
 msgstr "Фото додано"
 
 msgid "Photos from events and activities will appear here as they are added."
-msgstr ""
+msgstr "Фото з подій та активностей з'являтимуться тут, коли їх додають."
 
 msgid "Physical Card"
 msgstr "Фізична карта"
@@ -4462,13 +4464,15 @@ msgid "Platform"
 msgstr "Платформа"
 
 msgid "Please contact an administrator to receive a new invite."
-msgstr ""
+msgstr "Зверніться до адміністратора, щоб отримати нове запрошення."
 
 msgid "Please log out first before using an invite link."
 msgstr ""
+"Будь ласка, вийдіть з акаунта, перш ніж використовувати посилання-"
+"запрошення."
 
 msgid "Please read carefully before proceeding"
-msgstr ""
+msgstr "Будь ласка, уважно прочитайте перед продовженням"
 
 msgid "Points"
 msgstr "Очки"
@@ -4477,16 +4481,16 @@ msgid "Points add up every visit"
 msgstr "Бали додаються за кожен візит"
 
 msgid "Posts ({{ count }})"
-msgstr ""
+msgstr "Дописи ({{ count }})"
 
 msgid "Posts, feed & community"
 msgstr "Пости, стрічка та спільнота"
 
 msgid "Posts, users, events…"
-msgstr ""
+msgstr "Дописи, користувачі, події…"
 
 msgid "Preparation"
-msgstr ""
+msgstr "Підготовка"
 
 msgid "Prev Day"
 msgstr "Попередній день"
@@ -4510,7 +4514,7 @@ msgid "QUICK ACTIONS"
 msgstr "ШВИДКІ ДІЇ"
 
 msgid "QUICK VISIT LOG"
-msgstr ""
+msgstr "ШВИДКИЙ ЗАПИС ВІЗИТУ"
 
 msgid "Quick Visit Log"
 msgstr "Швидкий запис візиту"
@@ -4546,7 +4550,7 @@ msgid "Requested:"
 msgstr "Запитано:"
 
 msgid "Reset Filters"
-msgstr ""
+msgstr "Скинути фільтри"
 
 msgid "Restaurant / Cafe / Bar"
 msgstr "Ресторан / Кафе / Бар"
@@ -4591,7 +4595,7 @@ msgid "Saving…"
 msgstr "Збереження…"
 
 msgid "Scan at any partner for quick check-in"
-msgstr ""
+msgstr "Скануйте у будь-якого партнера для швидкої реєстрації"
 
 msgid "Scan at partner location"
 msgstr "Скануй у партнера"
@@ -4603,7 +4607,7 @@ msgid "Schedule Meeting"
 msgstr "Запланувати зустріч"
 
 msgid "Schedule a new meeting"
-msgstr ""
+msgstr "Запланувати нову зустріч"
 
 msgid "School / Educational Center"
 msgstr "Школа / Освітній центр"
@@ -4612,7 +4616,7 @@ msgid "Search member"
 msgstr "Знайти учасника"
 
 msgid "Search site"
-msgstr ""
+msgstr "Пошук по сайту"
 
 msgid "Section"
 msgstr "Розділ"
@@ -4630,7 +4634,7 @@ msgid "Seminar / Workshop Host"
 msgstr "Семінари / Майстер-класи"
 
 msgid "Send Appeal"
-msgstr ""
+msgstr "Надіслати звернення"
 
 msgid "Service Breakdown"
 msgstr "Розподіл послуг"
@@ -4639,7 +4643,7 @@ msgid "Service Types — all time"
 msgstr "Типи послуг — за весь час"
 
 msgid "Services"
-msgstr ""
+msgstr "Послуги"
 
 msgid "Session Expired"
 msgstr "Сесія завершена"
@@ -4654,7 +4658,7 @@ msgid "Settings & links"
 msgstr "Налаштування та посилання"
 
 msgid "Share with the community"
-msgstr ""
+msgstr "Поділитися зі спільнотою"
 
 msgid "Show"
 msgstr "Показати"
@@ -4663,7 +4667,7 @@ msgid "Show QR Code"
 msgstr "Показати QR-код"
 
 msgid "Show my location"
-msgstr ""
+msgstr "Показати моє місцезнаходження"
 
 msgid "Show steps"
 msgstr "Показати кроки"
@@ -4691,10 +4695,10 @@ msgid "Skip for now"
 msgstr "Пропустити"
 
 msgid "Some pages may be available from cache."
-msgstr ""
+msgstr "Деякі сторінки можуть бути доступні з кешу."
 
 msgid "Something went wrong on our side. We are already working to fix it."
-msgstr ""
+msgstr "У нас на стороні щось пішло не так. Ми вже працюємо над виправленням."
 
 msgid "Sports & Fitness"
 msgstr "Спорт і фітнес"
@@ -4709,7 +4713,7 @@ msgid "Sports Equipment Shop"
 msgstr "Магазин спортивного інвентарю"
 
 msgid "Sports Gear"
-msgstr ""
+msgstr "Спортивне спорядження"
 
 msgid "Sports Supplements / Nutrition"
 msgstr "Спортивне харчування"
@@ -4721,19 +4725,19 @@ msgstr ""
 "Почніть фіксувати візити, і за кілька днів аналітика наповниться даними."
 
 msgid "Start typing name or username…"
-msgstr ""
+msgstr "Почніть вводити ім'я або ім'я користувача…"
 
 msgid "Strategic <span>Partners</span>"
-msgstr ""
+msgstr "Стратегічні <span>партнери</span>"
 
 msgid "Street, city..."
-msgstr ""
+msgstr "Вулиця, місто..."
 
 msgid "Strong"
 msgstr "Сильний"
 
 msgid "Subscribe to {{ username }}'s blog"
-msgstr ""
+msgstr "Підписатися на блог {{ username }}"
 
 msgid "Swimming Pool / Aquatics"
 msgstr "Басейн / Водні види спорту"
@@ -4754,7 +4758,7 @@ msgid "Takes about 1 minute"
 msgstr "Займає близько 1 хвилини"
 
 msgid "Telegram @username"
-msgstr ""
+msgstr "Telegram @username"
 
 msgid "Telegram connected"
 msgstr "Telegram підключено"
@@ -4766,22 +4770,24 @@ msgid ""
 "Thank you. The administration will review your request and contact you by "
 "e-mail."
 msgstr ""
+"Дякуємо. Адміністрація розгляне ваш запит і зв'яжеться з вами електронною "
+"поштою."
 
 msgid "The code is valid for 10 minutes and can only be used once."
 msgstr "Код дійсний 10 хвилин і використовується одноразово."
 
 msgid "The page you are looking for does not exist or has been moved."
-msgstr ""
+msgstr "Сторінка, яку ви шукаєте, не існує або була переміщена."
 
 msgid "Think this is a mistake?"
 msgstr "Вважаєте, що це помилка?"
 
 msgid ""
 "This action cannot be undone. The member will be notified via Telegram."
-msgstr ""
+msgstr "Цю дію неможливо скасувати. Учасника буде сповіщено через Telegram."
 
 msgid "This action requires your password to confirm"
-msgstr ""
+msgstr "Ця дія потребує вашого пароля для підтвердження"
 
 msgid "This email is already registered"
 msgstr "Цей e-mail вже зареєстрований"
@@ -4790,7 +4796,7 @@ msgid "This month"
 msgstr "Цей місяць"
 
 msgid "This person might not be a member yet."
-msgstr ""
+msgstr "Ця особа, можливо, ще не є учасником."
 
 msgid ""
 "This section is available exclusively for certified IESA partner businesses."
@@ -4848,13 +4854,13 @@ msgid "Travel / Tourism / Adventure"
 msgstr "Подорожі / Туризм / Пригоди"
 
 msgid "Try a different keyword or remove the filters."
-msgstr ""
+msgstr "Спробуйте інше ключове слово або зніміть фільтри."
 
 msgid "Try again"
-msgstr ""
+msgstr "Спробувати ще раз"
 
 msgid "Try changing your search query \"{{ query }}\""
-msgstr ""
+msgstr "Спробуйте змінити пошуковий запит «{{ query }}»"
 
 msgid "UPCOMING"
 msgstr "НАЙБЛИЖЧІ"
@@ -4872,13 +4878,13 @@ msgid "Unlike"
 msgstr "Не подобається"
 
 msgid "Upload Photos"
-msgstr ""
+msgstr "Завантажити фото"
 
 msgid "Upload avatar"
-msgstr ""
+msgstr "Завантажити аватар"
 
 msgid "Upload photos from events or projects to showcase the community."
-msgstr ""
+msgstr "Завантажуйте фото з подій або проєктів, щоб показати спільноту."
 
 msgid "Username"
 msgstr "Ім'я користувача"
@@ -4890,13 +4896,13 @@ msgid "Username must be at least 3 characters"
 msgstr "Ім'я користувача має містити щонайменше 3 символи"
 
 msgid "Users ({{ count }})"
-msgstr ""
+msgstr "Користувачі ({{ count }})"
 
 msgid "VISITS"
 msgstr "ВІЗИТИ"
 
 msgid "Verification request"
-msgstr ""
+msgstr "Запит на перевірку"
 
 msgid "Verified (30d)"
 msgstr "Підтверджено (30 дн)"
@@ -4908,13 +4914,13 @@ msgid "Visit History"
 msgstr "Історія візитів"
 
 msgid "Visit Profile"
-msgstr ""
+msgstr "Перейти до профілю"
 
 msgid "Visit a Partner"
 msgstr "Відвідати партнера"
 
 msgid "Visit history"
-msgstr ""
+msgstr "Історія візитів"
 
 msgid "Visits & analytics"
 msgstr "Візити та аналітика"
@@ -4933,7 +4939,7 @@ msgid "Warning: this member's membership is currently inactive/expired."
 msgstr "Увага: членство цього учасника наразі неактивне/завершилося."
 
 msgid "Was edited after logging"
-msgstr ""
+msgstr "Відредаговано після запису"
 
 msgid "Water Sports / Diving / Surfing"
 msgstr "Водні види спорту / Дайвінг / Серфінг"
@@ -4978,16 +4984,16 @@ msgstr ""
 "зв'яжемось."
 
 msgid "You are already logged in"
-msgstr ""
+msgstr "Ви вже увійшли в систему"
 
 msgid "You are here"
-msgstr ""
+msgstr "Ви тут"
 
 msgid "You have been invited to join IESA as a partner."
-msgstr ""
+msgstr "Ви отримали запрошення приєднатися до IESA як партнер."
 
 msgid "You have unsaved content. Leave anyway?"
-msgstr ""
+msgstr "У вас є незбережений контент. Все одно покинути?"
 
 msgid "You haven't written any posts yet."
 msgstr "Ви ще не написали жодного допису."
@@ -5000,7 +5006,7 @@ msgstr ""
 "максимум від членства:"
 
 msgid "You've read all your notifications. New ones will appear here."
-msgstr ""
+msgstr "Ви прочитали всі сповіщення. Нові з'являтимуться тут."
 
 msgid "Your"
 msgstr "Ваш"
@@ -5018,10 +5024,10 @@ msgid "Your digital membership card gives access to partner benefits"
 msgstr "Ваша цифрова членська карта дає доступ до партнерських переваг"
 
 msgid "Your first shot goes here"
-msgstr ""
+msgstr "Ваш перший знімок з'явиться тут"
 
 msgid "Your name"
-msgstr ""
+msgstr "Ваше ім'я"
 
 msgid "Your phone stays private"
 msgstr "Ваш номер залишається приватним"
@@ -5030,7 +5036,7 @@ msgid "Your session has expired. Please log in again to continue."
 msgstr "Ваша сесія завершилася. Будь ласка, увійдіть знову, щоб продовжити."
 
 msgid "Your upcoming meetings and scheduled sessions"
-msgstr ""
+msgstr "Ваші найближчі зустрічі та заплановані сесії"
 
 msgid ""
 "Your visit is logged instantly. Earn activity points, unlock achievement "
@@ -5057,7 +5063,7 @@ msgid "complete"
 msgstr "заповнено"
 
 msgid "e.g. Insurance case #123, Rehab Q1"
-msgstr ""
+msgstr "напр. Страховий випадок #123, Реабілітація Q1"
 
 msgid "e.g. johndoe"
 msgstr "напр. johndoe"
@@ -5069,7 +5075,7 @@ msgid "edit"
 msgstr "редагувати"
 
 msgid "just now"
-msgstr ""
+msgstr "щойно"
 
 msgid "last"
 msgstr "останні"
@@ -5099,7 +5105,7 @@ msgid "min read"
 msgstr "хв читання"
 
 msgid "more replies"
-msgstr ""
+msgstr "ще відповіді"
 
 msgid "next"
 msgstr "наступний"
@@ -5153,7 +5159,7 @@ msgid "your area"
 msgstr "ваша сфера"
 
 msgid "{{ min_age }}–{{ max_age }}"
-msgstr ""
+msgstr "{{ min_age }}–{{ max_age }}"
 
 msgid "{{ name }} · {{ level }} · IESA Sport Member"
 msgstr "{{ name }} · {{ level }} · Учасник IESA Sport"
@@ -5174,7 +5180,7 @@ msgid "Вы также можете подать заявку через наш 
 msgstr "Ви також можете подати заявку через наш бот:"
 
 msgid "Город / Регион"
-msgstr ""
+msgstr "Місто / Регіон"
 
 msgid "Данные защищены и не передаются третьим лицам"
 msgstr "Дані захищені та не передаються третім особам"
@@ -5238,7 +5244,7 @@ msgid "Подать заявку"
 msgstr "Подати заявку"
 
 msgid "Полное имя *"
-msgstr ""
+msgstr "Повне ім'я *"
 
 msgid "Понимаем потребности спортсменов и тренеров"
 msgstr "Розуміємо потреби спортсменів і тренерів"
@@ -5247,7 +5253,7 @@ msgid "Путешествия"
 msgstr "Подорожі"
 
 msgid "Расскажите подробнее о вашей ситуации, пожеланиях или вопросах..."
-msgstr ""
+msgstr "Розкажіть детальніше про вашу ситуацію, побажання або питання..."
 
 msgid "Смена агента"
 msgstr "Зміна агента"
@@ -5274,10 +5280,10 @@ msgid "напишите"
 msgstr "напишіть"
 
 msgid "Achievement system"
-msgstr ""
+msgstr "Система досягнень"
 
 msgid "Admin only. Webhook configuration."
-msgstr ""
+msgstr "Тільки для адмінів. Налаштування webhook."
 
 msgid ""
 "After registration, the PIN-code is available immediately. The physical card"
@@ -5288,6 +5294,7 @@ msgstr ""
 
 msgid "After setting webhook: open bot in Telegram, press Start."
 msgstr ""
+"Після налаштування webhook: відкрийте бота в Telegram, натисніть Start."
 
 msgid "Application pending"
 msgstr "Заявка на розгляді"
@@ -5296,34 +5303,34 @@ msgid "Apply for partner"
 msgstr "Стати партнером"
 
 msgid "Current webhook:"
-msgstr ""
+msgstr "Поточний webhook:"
 
 msgid "I agree to become a member of IESA Sport and accept the"
 msgstr "Я погоджуюсь стати учасником IESA Sport та приймаю"
 
 msgid "Set webhook in Telegram"
-msgstr ""
+msgstr "Встановити webhook у Telegram"
 
 msgid "Telegram Bot Setup"
-msgstr ""
+msgstr "Налаштування Telegram-бота"
 
 msgid "Webhook URL for Telegram:"
-msgstr ""
+msgstr "URL webhook для Telegram:"
 
 msgid "Webhook is not yet set."
-msgstr ""
+msgstr "Webhook ще не встановлено."
 
 msgid "Where to set env vars:"
-msgstr ""
+msgstr "Де встановити env-змінні:"
 
 msgid "privacy policy"
 msgstr "політику конфіденційності"
 
 msgid "random string (32+ chars)"
-msgstr ""
+msgstr "випадковий рядок (32+ символи)"
 
 msgid "token from @BotFather"
-msgstr ""
+msgstr "токен від @BotFather"
 
 msgid "Bank / Banking Services"
 msgstr "Банк / Банківські послуги"
@@ -5405,15 +5412,17 @@ msgid "Your current PIN"
 msgstr "Ваш поточний PIN"
 
 msgid "A Partner object will be created with the user's address."
-msgstr ""
+msgstr "Буде створено об'єкт Partner з адресою користувача."
 
 msgid "Approve & Assign Role"
-msgstr ""
+msgstr "Затвердити та призначити роль"
 
 msgid ""
 "Approve request from {{ user }} for role «{{ role }}»? This will assign the "
 "role and create related Partner object."
 msgstr ""
+"Затвердити запит від {{ user }} на роль «{{ role }}»? Це призначить роль і "
+"створить відповідний об'єкт Partner."
 
 msgid ""
 "How IESA Sport works: register, get your digital card, connect Telegram, "
@@ -5455,17 +5464,21 @@ msgstr "Спочатку старі"
 
 msgid "Or fill <b>admin_note</b> and click <b>Reject</b> to deny the request."
 msgstr ""
+"Або заповніть <b>admin_note</b> і натисніть <b>Відхилити</b>, щоб відмовити "
+"в запиті."
 
 msgid "PARTNER ACTIONS"
 msgstr "ДІЇ ПАРТНЕРА"
 
 msgid "Reject"
-msgstr ""
+msgstr "Відхилити"
 
 msgid ""
 "Reject request from {{ user }}? Make sure you filled in admin_note — it will"
 " be saved as rejection_reason."
 msgstr ""
+"Відхилити запит від {{ user }}? Переконайтесь, що ви заповнили admin_note — "
+"це буде збережено як rejection_reason."
 
 msgid "Relevance"
 msgstr "За релевантністю"
@@ -5484,26 +5497,30 @@ msgstr ""
 " та доступ до спільноти."
 
 msgid "Status:"
-msgstr ""
+msgstr "Статус:"
 
 msgid ""
 "Use <b>Approve & Assign Role</b> button at the top to grant <b>{{ role "
 "}}</b> role automatically."
 msgstr ""
+"Використайте кнопку <b>Затвердити та призначити роль</b> вгорі, щоб "
+"автоматично надати роль <b>{{ role }}</b>."
 
 msgid ""
 "User will get is_partner=True with partner_type='association_staff' (no "
 "is_staff)."
 msgstr ""
+"Користувач отримає is_partner=True із partner_type='association_staff' (без "
+"is_staff)."
 
 msgid "User will get is_president=True."
-msgstr ""
+msgstr "Користувач отримає is_president=True."
 
 msgid "YOUR MEMBERSHIP"
 msgstr "ВАШЕ ЧЛЕНСТВО"
 
 msgid "by"
-msgstr ""
+msgstr "від"
 
 msgid "The people behind <span>our mission</span>"
 msgstr "Люди, що стоять за <span>нашою місією</span>"

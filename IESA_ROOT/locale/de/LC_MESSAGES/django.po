@@ -872,7 +872,7 @@ msgid "Master the art"
 msgstr "Meistere die Kunst"
 
 msgid "of"
-msgstr "des"
+msgstr "von"
 
 msgid "Kitesurfing"
 msgstr "Kitesurfen"
@@ -3518,13 +3518,13 @@ msgid "(for long-term clients)"
 msgstr "(für Langzeitkunden)"
 
 msgid "+41 79 000 00 00"
-msgstr ""
+msgstr "+41 79 000 00 00"
 
 msgid "404 — Page not found"
-msgstr ""
+msgstr "404 — Seite nicht gefunden"
 
 msgid "500 — Server error"
-msgstr ""
+msgstr "500 — Serverfehler"
 
 msgid "6-digit verification code"
 msgstr "6-stelliger Bestätigungscode"
@@ -3539,7 +3539,7 @@ msgid "ADDRESS / LOCATION"
 msgstr "ADRESSE / STANDORT"
 
 msgid "ADMIN PANEL"
-msgstr ""
+msgstr "ADMIN-PANEL"
 
 msgid "ALL"
 msgstr "ALLE"
@@ -3560,7 +3560,7 @@ msgid "Access your account"
 msgstr "Greifen Sie auf Ihr Konto zu"
 
 msgid "Accessories"
-msgstr ""
+msgstr "Zubehör"
 
 msgid "Account"
 msgstr "Konto"
@@ -3581,7 +3581,7 @@ msgid "Activity Level"
 msgstr "Aktivitätsstufe"
 
 msgid "Activity in last 30 min"
-msgstr ""
+msgstr "Aktivität in den letzten 30 Min."
 
 msgid "Add a photo"
 msgstr "Foto hinzufügen"
@@ -3593,7 +3593,7 @@ msgid "Additional Comments"
 msgstr "Zusätzliche Kommentare"
 
 msgid "Additional info for the client..."
-msgstr ""
+msgstr "Zusätzliche Informationen für den Kunden..."
 
 msgid "Ages {{ min_age }}-{{ max_age }}"
 msgstr "Alter {{ min_age }}-{{ max_age }}"
@@ -3605,7 +3605,7 @@ msgid "All Visit History"
 msgstr "Gesamte Besuchshistorie"
 
 msgid "All caught up!"
-msgstr ""
+msgstr "Alles gelesen!"
 
 msgid "Also"
 msgstr "Auch"
@@ -3621,7 +3621,7 @@ msgid "Apparel"
 msgstr "Kleidung"
 
 msgid "Appeal submitted!"
-msgstr ""
+msgstr "Antrag eingereicht!"
 
 msgid "Ask the member to show their current PIN from their personal cabinet"
 msgstr ""
@@ -3653,7 +3653,7 @@ msgid "Back to Cabinet"
 msgstr "Zurück zum Cabinet"
 
 msgid "Back to invite list"
-msgstr ""
+msgstr "Zurück zur Einladungsliste"
 
 msgid "Back to profile"
 msgstr "Zurück zum Profil"
@@ -3680,7 +3680,7 @@ msgid "CONTACT DETAILS"
 msgstr "KONTAKTDATEN"
 
 msgid "Cabinet navigation"
-msgstr ""
+msgstr "Cabinet-Navigation"
 
 msgid "Calendar"
 msgstr "Kalender"
@@ -3689,7 +3689,7 @@ msgid "Call IESA"
 msgstr "IESA anrufen"
 
 msgid "Cancel Visit Record"
-msgstr ""
+msgstr "Besuchseintrag stornieren"
 
 msgid "Cancel meeting"
 msgstr "Termin absagen"
@@ -3737,7 +3737,7 @@ msgid "Confirm & Connect"
 msgstr "Bestätigen & verbinden"
 
 msgid "Confirmed via PIN"
-msgstr ""
+msgstr "Per PIN bestätigt"
 
 msgid "Connect"
 msgstr "Verbinden"
@@ -3758,7 +3758,7 @@ msgid "Copied"
 msgstr "Kopiert"
 
 msgid "Correct Visit Record"
-msgstr ""
+msgstr "Besuchseintrag korrigieren"
 
 msgid "Cost CHF"
 msgstr "Kosten CHF"
@@ -3800,7 +3800,7 @@ msgid "Date is in the past"
 msgstr "Datum liegt in der Vergangenheit"
 
 msgid "Deactivate"
-msgstr ""
+msgstr "Deaktivieren"
 
 msgid ""
 "Describe your business/role and why you want to join IESA. What value can "
@@ -3810,7 +3810,7 @@ msgstr ""
 "möchten. Welchen Wert können Sie den Mitgliedern bieten?"
 
 msgid "Describe your situation in detail..."
-msgstr ""
+msgstr "Beschreiben Sie Ihre Situation im Detail..."
 
 msgid "Digital Card"
 msgstr "Digitale Karte"
@@ -3867,7 +3867,7 @@ msgid "Enter your credentials to continue."
 msgstr "Geben Sie Ihre Anmeldedaten ein, um fortzufahren."
 
 msgid "Equipment"
-msgstr ""
+msgstr "Ausrüstung"
 
 msgid "Event Organization"
 msgstr "Veranstaltungsorganisation"
@@ -3876,22 +3876,23 @@ msgid "Event creation &amp; management"
 msgstr "Erstellung & Verwaltung von Veranstaltungen"
 
 msgid "Events ({{ count }})"
-msgstr ""
+msgstr "Veranstaltungen ({{ count }})"
 
 msgid "Events, RSVPs & benefits"
 msgstr "Veranstaltungen, RSVPs & Vorteile"
 
 msgid "Explore Community"
-msgstr ""
+msgstr "Community erkunden"
 
 msgid "Explore gyms, studios and services in your area"
 msgstr ""
+"Erkunden Sie Fitnessstudios, Studios und Dienstleistungen in Ihrer Umgebung"
 
 msgid "Export .ics"
-msgstr ""
+msgstr ".ics exportieren"
 
 msgid "Export to Google Calendar / Apple Calendar / Outlook"
-msgstr ""
+msgstr "In Google Calendar / Apple Calendar / Outlook exportieren"
 
 msgid "FILTERS"
 msgstr "FILTER"
@@ -3912,7 +3913,7 @@ msgid "Filters"
 msgstr "Filter"
 
 msgid "Find IESA Partners Near You"
-msgstr ""
+msgstr "Finden Sie IESA-Partner in Ihrer Nähe"
 
 msgid "Find Member & Log Visit"
 msgstr "Mitglied finden & Besuch eintragen"
@@ -3921,13 +3922,13 @@ msgid "Find a partner"
 msgstr "Partner finden"
 
 msgid "Find and visit a partner"
-msgstr ""
+msgstr "Partner finden und besuchen"
 
 msgid "Food & Hospitality"
 msgstr "Gastronomie & Gastgewerbe"
 
 msgid "Form sections"
-msgstr ""
+msgstr "Formularabschnitte"
 
 msgid ""
 "Four simple steps to unlock exclusive partner benefits, track your activity,"
@@ -3940,13 +3941,13 @@ msgid "Full log of every partner visit with timestamps"
 msgstr "Vollständiges Protokoll jedes Partnerbesuchs mit Zeitstempeln"
 
 msgid "Generate Invite"
-msgstr ""
+msgstr "Einladung generieren"
 
 msgid "Generate Invite Link"
-msgstr ""
+msgstr "Einladungs-Link generieren"
 
 msgid "Get instant visit confirmations"
-msgstr ""
+msgstr "Sofortige Besuchsbestätigungen erhalten"
 
 msgid ""
 "Get quick access to your PIN, QR code and partner portal without opening a "
@@ -3957,6 +3958,8 @@ msgstr ""
 
 msgid "Get started by writing your first post or exploring the community."
 msgstr ""
+"Beginnen Sie damit, Ihren ersten Beitrag zu schreiben oder die Community zu "
+"erkunden."
 
 msgid "Get started — quick actions"
 msgstr "Loslegen — Schnellaktionen"
@@ -3976,7 +3979,7 @@ msgstr ""
 "zeigen Sie Ihren 6-stelligen PIN. Er wird alle 12 Minuten aktualisiert."
 
 msgid "Go to blog"
-msgstr ""
+msgstr "Zum Blog"
 
 msgid "Go to my profile"
 msgstr "Zu meinem Profil"
@@ -4003,13 +4006,13 @@ msgid "How it works"
 msgstr "Wie es funktioniert"
 
 msgid "How to reach {{ name }}"
-msgstr ""
+msgstr "So erreichen Sie {{ name }}"
 
 msgid "IESA Sport"
 msgstr "IESA Sport"
 
 msgid "IESA — it's more than sport."
-msgstr ""
+msgstr "IESA — mehr als Sport."
 
 msgid "IT / Technology / Software"
 msgstr "IT / Technologie / Software"
@@ -4048,34 +4051,37 @@ msgid "Insurance"
 msgstr "Versicherung"
 
 msgid "Invalid Invite"
-msgstr ""
+msgstr "Ungültige Einladung"
 
 msgid "Invalid email format"
 msgstr "Ungültiges E-Mail-Format"
 
 msgid "Invalid invite link"
-msgstr ""
+msgstr "Ungültiger Einladungs-Link"
 
 msgid "Invitation for {{ name }}"
-msgstr ""
+msgstr "Einladung für {{ name }}"
 
 msgid "Invite Links"
-msgstr ""
+msgstr "Einladungs-Links"
 
 msgid "Invite link has already been used"
-msgstr ""
+msgstr "Einladungs-Link wurde bereits verwendet"
 
 msgid "Invite link has expired"
-msgstr ""
+msgstr "Einladungs-Link ist abgelaufen"
 
 msgid "Invite to IESA Sport"
-msgstr ""
+msgstr "Zu IESA Sport einladen"
 
 msgid "It looks like you're offline. Check your connection and try again."
 msgstr ""
+"Sie scheinen offline zu sein. Überprüfen Sie Ihre Verbindung und versuchen "
+"Sie es erneut."
 
 msgid "It's a lifestyle, growth, and a strong international community."
 msgstr ""
+"Es ist ein Lebensstil, Wachstum und eine starke internationale Gemeinschaft."
 
 msgid "JPG, PNG, WebP · Max 5 MB"
 msgstr "JPG, PNG, WebP · Max. 5 MB"
@@ -4104,7 +4110,7 @@ msgid "Last visit"
 msgstr "Letzter Besuch"
 
 msgid "Learn how everything works"
-msgstr ""
+msgstr "Erfahren Sie, wie alles funktioniert"
 
 msgid "Legal Services / Lawyer"
 msgstr "Rechtsdienstleistungen / Anwalt"
@@ -4121,7 +4127,7 @@ msgstr ""
 "informiert."
 
 msgid "Link your account to receive instant notifications"
-msgstr ""
+msgstr "Verknüpfen Sie Ihr Konto, um sofortige Benachrichtigungen zu erhalten"
 
 msgid "Linked"
 msgstr "Verknüpft"
@@ -4214,7 +4220,7 @@ msgid "My Settings"
 msgstr "Meine Einstellungen"
 
 msgid "My location"
-msgstr ""
+msgstr "Mein Standort"
 
 msgid "NEW POST"
 msgstr "NEUER BEITRAG"
@@ -4226,10 +4232,10 @@ msgid "NOTES FOR MEMBER"
 msgstr "NOTIZEN FÜR DAS MITGLIED"
 
 msgid "Name or username…"
-msgstr ""
+msgstr "Name oder Benutzername…"
 
 msgid "New Meeting"
-msgstr ""
+msgstr "Neuer Termin"
 
 msgid "New Member"
 msgstr "Neues Mitglied"
@@ -4238,10 +4244,10 @@ msgid "Next Day"
 msgstr "Nächster Tag"
 
 msgid "No Connection"
-msgstr ""
+msgstr "Keine Verbindung"
 
 msgid "No Internet Connection"
-msgstr ""
+msgstr "Keine Internetverbindung"
 
 msgid "No Telegram — notification will not be sent"
 msgstr "Kein Telegram — Benachrichtigung wird nicht gesendet"
@@ -4250,13 +4256,13 @@ msgid "No clients yet."
 msgstr "Noch keine Kunden."
 
 msgid "No content yet"
-msgstr ""
+msgstr "Noch kein Inhalt"
 
 msgid "No data for the last 30 days"
 msgstr "Keine Daten für die letzten 30 Tage"
 
 msgid "No invite links yet."
-msgstr ""
+msgstr "Noch keine Einladungs-Links."
 
 msgid "No meetings on this day"
 msgstr "Keine Termine an diesem Tag"
@@ -4268,25 +4274,25 @@ msgid "No members found for"
 msgstr "Keine Mitglieder gefunden für"
 
 msgid "No partners with map coordinates yet"
-msgstr ""
+msgstr "Noch keine Partner mit Kartenkoordinaten"
 
 msgid "No posts found for your query"
-msgstr ""
+msgstr "Keine Beiträge für Ihre Anfrage gefunden"
 
 msgid "No results for \"{{ q }}\""
-msgstr ""
+msgstr "Keine Ergebnisse für „{{ q }}\""
 
 msgid "No results found for \"{{ q }}\""
-msgstr ""
+msgstr "Keine Ergebnisse für „{{ q }}\" gefunden"
 
 msgid "No specific time"
 msgstr "Keine bestimmte Uhrzeit"
 
 msgid "No upcoming meetings. Check back later!"
-msgstr ""
+msgstr "Keine kommenden Termine. Schauen Sie später vorbei!"
 
 msgid "No visits for the selected filters."
-msgstr ""
+msgstr "Keine Besuche für die ausgewählten Filter."
 
 msgid "No visits recorded for this member yet."
 msgstr "Für dieses Mitglied wurden noch keine Besuche erfasst."
@@ -4315,6 +4321,8 @@ msgid ""
 "Notifications appear here when someone likes your post, comments, or follows"
 " you."
 msgstr ""
+"Benachrichtigungen erscheinen hier, wenn jemand Ihren Beitrag liked, "
+"kommentiert oder Ihnen folgt."
 
 msgid "Notify via Telegram & site"
 msgstr "Über Telegram & Website benachrichtigen"
@@ -4323,16 +4331,16 @@ msgid "Nutrition / Dietology"
 msgstr "Ernährung / Diätologie"
 
 msgid "OR SEARCH THE SITE"
-msgstr ""
+msgstr "ODER WEBSITE DURCHSUCHEN"
 
 msgid "Oops! The page you are looking for does not exist or has been moved."
-msgstr ""
+msgstr "Hoppla! Die gesuchte Seite existiert nicht oder wurde verschoben."
 
 msgid "Open date picker"
-msgstr ""
+msgstr "Datumsauswahl öffnen"
 
 msgid "Open full dashboard"
-msgstr ""
+msgstr "Vollständiges Dashboard öffnen"
 
 msgid "Open in Telegram"
 msgstr "In Telegram öffnen"
@@ -4347,7 +4355,7 @@ msgid "Other (describe below)"
 msgstr "Sonstiges (unten beschreiben)"
 
 msgid "Our Partners"
-msgstr ""
+msgstr "Unsere Partner"
 
 msgid "Outdoor Activities / Hiking"
 msgstr "Outdoor-Aktivitäten / Wandern"
@@ -4362,7 +4370,7 @@ msgid "PAST"
 msgstr "VERGANGEN"
 
 msgid "PAST MEETINGS"
-msgstr ""
+msgstr "VERGANGENE TERMINE"
 
 msgid "PENDING"
 msgstr "AUSSTEHEND"
@@ -4383,7 +4391,7 @@ msgid "PIN renews automatically every 12 minutes"
 msgstr "PIN wird automatisch alle 12 Minuten erneuert"
 
 msgid "PIN verified"
-msgstr ""
+msgstr "PIN verifiziert"
 
 msgid "POPULAR"
 msgstr "BELIEBT"
@@ -4398,28 +4406,28 @@ msgid "Page {{ page }} of {{ total }}"
 msgstr "Seite {{ page }} von {{ total }}"
 
 msgid "Partner Map"
-msgstr ""
+msgstr "Partnerkarte"
 
 msgid "Partner Portal"
 msgstr "Partner-Portal"
 
 msgid "Partner Registration"
-msgstr ""
+msgstr "Partnerregistrierung"
 
 msgid "Partner navigation"
-msgstr ""
+msgstr "Partner-Navigation"
 
 msgid "Partner portal access request"
-msgstr ""
+msgstr "Zugangsanfrage für Partner-Portal"
 
 msgid "Partner since"
 msgstr "Partner seit"
 
 msgid "Partners ({{ count }})"
-msgstr ""
+msgstr "Partner ({{ count }})"
 
 msgid "Partners can add their address in their profile settings."
-msgstr ""
+msgstr "Partner können ihre Adresse in den Profileinstellungen hinzufügen."
 
 msgid "Password"
 msgstr "Passwort"
@@ -4440,16 +4448,18 @@ msgid "Personal Trainer / Coach"
 msgstr "Personal Trainer / Coach"
 
 msgid "Personal training, Consultation, Insurance review..."
-msgstr ""
+msgstr "Personaltraining, Beratung, Versicherungsprüfung..."
 
 msgid "Personalise your profile"
-msgstr ""
+msgstr "Personalisieren Sie Ihr Profil"
 
 msgid "Photo added"
 msgstr "Foto hinzugefügt"
 
 msgid "Photos from events and activities will appear here as they are added."
 msgstr ""
+"Fotos von Veranstaltungen und Aktivitäten erscheinen hier, sobald sie "
+"hinzugefügt werden."
 
 msgid "Physical Card"
 msgstr "Physische Karte"
@@ -4462,12 +4472,13 @@ msgstr "Plattform"
 
 msgid "Please contact an administrator to receive a new invite."
 msgstr ""
+"Wenden Sie sich an einen Administrator, um eine neue Einladung zu erhalten."
 
 msgid "Please log out first before using an invite link."
-msgstr ""
+msgstr "Bitte melden Sie sich ab, bevor Sie einen Einladungs-Link verwenden."
 
 msgid "Please read carefully before proceeding"
-msgstr ""
+msgstr "Bitte lesen Sie sorgfältig, bevor Sie fortfahren"
 
 msgid "Points"
 msgstr "Punkte"
@@ -4476,16 +4487,16 @@ msgid "Points add up every visit"
 msgstr "Punkte sammeln sich bei jedem Besuch"
 
 msgid "Posts ({{ count }})"
-msgstr ""
+msgstr "Beiträge ({{ count }})"
 
 msgid "Posts, feed & community"
 msgstr "Beiträge, Feed & Community"
 
 msgid "Posts, users, events…"
-msgstr ""
+msgstr "Beiträge, Benutzer, Veranstaltungen…"
 
 msgid "Preparation"
-msgstr ""
+msgstr "Vorbereitung"
 
 msgid "Prev Day"
 msgstr "Vorheriger Tag"
@@ -4509,7 +4520,7 @@ msgid "QUICK ACTIONS"
 msgstr "SCHNELLAKTIONEN"
 
 msgid "QUICK VISIT LOG"
-msgstr ""
+msgstr "SCHNELL-BESUCHSPROTOKOLL"
 
 msgid "Quick Visit Log"
 msgstr "Schneller Besuch"
@@ -4545,7 +4556,7 @@ msgid "Requested:"
 msgstr "Angefragt:"
 
 msgid "Reset Filters"
-msgstr ""
+msgstr "Filter zurücksetzen"
 
 msgid "Restaurant / Cafe / Bar"
 msgstr "Restaurant / Café / Bar"
@@ -4590,7 +4601,7 @@ msgid "Saving…"
 msgstr "Wird gespeichert…"
 
 msgid "Scan at any partner for quick check-in"
-msgstr ""
+msgstr "Scannen Sie bei jedem Partner für schnelles Check-in"
 
 msgid "Scan at partner location"
 msgstr "Beim Partner scannen"
@@ -4602,7 +4613,7 @@ msgid "Schedule Meeting"
 msgstr "Termin planen"
 
 msgid "Schedule a new meeting"
-msgstr ""
+msgstr "Neuen Termin planen"
 
 msgid "School / Educational Center"
 msgstr "Schule / Bildungszentrum"
@@ -4611,7 +4622,7 @@ msgid "Search member"
 msgstr "Mitglied suchen"
 
 msgid "Search site"
-msgstr ""
+msgstr "Website durchsuchen"
 
 msgid "Section"
 msgstr "Abschnitt"
@@ -4629,7 +4640,7 @@ msgid "Seminar / Workshop Host"
 msgstr "Seminar- / Workshop-Veranstalter"
 
 msgid "Send Appeal"
-msgstr ""
+msgstr "Antrag senden"
 
 msgid "Service Breakdown"
 msgstr "Dienstleistungsaufschlüsselung"
@@ -4638,7 +4649,7 @@ msgid "Service Types — all time"
 msgstr "Dienstleistungsarten — gesamter Zeitraum"
 
 msgid "Services"
-msgstr ""
+msgstr "Dienstleistungen"
 
 msgid "Session Expired"
 msgstr "Sitzung abgelaufen"
@@ -4653,7 +4664,7 @@ msgid "Settings & links"
 msgstr "Einstellungen & Links"
 
 msgid "Share with the community"
-msgstr ""
+msgstr "Mit der Community teilen"
 
 msgid "Show"
 msgstr "Anzeigen"
@@ -4662,7 +4673,7 @@ msgid "Show QR Code"
 msgstr "QR-Code anzeigen"
 
 msgid "Show my location"
-msgstr ""
+msgstr "Meinen Standort anzeigen"
 
 msgid "Show steps"
 msgstr "Schritte anzeigen"
@@ -4693,10 +4704,11 @@ msgid "Skip for now"
 msgstr "Überspringen"
 
 msgid "Some pages may be available from cache."
-msgstr ""
+msgstr "Einige Seiten sind möglicherweise aus dem Cache verfügbar."
 
 msgid "Something went wrong on our side. We are already working to fix it."
 msgstr ""
+"Bei uns ist etwas schiefgelaufen. Wir arbeiten bereits daran, es zu beheben."
 
 msgid "Sports & Fitness"
 msgstr "Sport & Fitness"
@@ -4711,7 +4723,7 @@ msgid "Sports Equipment Shop"
 msgstr "Sportgeschäft"
 
 msgid "Sports Gear"
-msgstr ""
+msgstr "Sportausrüstung"
 
 msgid "Sports Supplements / Nutrition"
 msgstr "Sportergänzungen / Ernährung"
@@ -4724,19 +4736,19 @@ msgstr ""
 " sich die Analytik mit Erkenntnissen."
 
 msgid "Start typing name or username…"
-msgstr ""
+msgstr "Geben Sie Name oder Benutzername ein…"
 
 msgid "Strategic <span>Partners</span>"
-msgstr ""
+msgstr "Strategische <span>Partner</span>"
 
 msgid "Street, city..."
-msgstr ""
+msgstr "Straße, Stadt..."
 
 msgid "Strong"
 msgstr "Stark"
 
 msgid "Subscribe to {{ username }}'s blog"
-msgstr ""
+msgstr "Blog von {{ username }} abonnieren"
 
 msgid "Swimming Pool / Aquatics"
 msgstr "Schwimmbad / Wassersport"
@@ -4757,7 +4769,7 @@ msgid "Takes about 1 minute"
 msgstr "Dauert etwa 1 Minute"
 
 msgid "Telegram @username"
-msgstr ""
+msgstr "Telegram @username"
 
 msgid "Telegram connected"
 msgstr "Telegram verbunden"
@@ -4769,12 +4781,14 @@ msgid ""
 "Thank you. The administration will review your request and contact you by "
 "e-mail."
 msgstr ""
+"Vielen Dank. Die Verwaltung wird Ihre Anfrage prüfen und Sie per E-Mail "
+"kontaktieren."
 
 msgid "The code is valid for 10 minutes and can only be used once."
 msgstr "Der Code ist 10 Minuten gültig und nur einmal verwendbar."
 
 msgid "The page you are looking for does not exist or has been moved."
-msgstr ""
+msgstr "Die gesuchte Seite existiert nicht oder wurde verschoben."
 
 msgid "Think this is a mistake?"
 msgstr "Halten Sie das für einen Fehler?"
@@ -4782,9 +4796,11 @@ msgstr "Halten Sie das für einen Fehler?"
 msgid ""
 "This action cannot be undone. The member will be notified via Telegram."
 msgstr ""
+"Diese Aktion kann nicht rückgängig gemacht werden. Das Mitglied wird über "
+"Telegram benachrichtigt."
 
 msgid "This action requires your password to confirm"
-msgstr ""
+msgstr "Diese Aktion erfordert Ihr Passwort zur Bestätigung"
 
 msgid "This email is already registered"
 msgstr "Diese E-Mail ist bereits registriert"
@@ -4793,7 +4809,7 @@ msgid "This month"
 msgstr "Dieser Monat"
 
 msgid "This person might not be a member yet."
-msgstr ""
+msgstr "Diese Person ist möglicherweise noch kein Mitglied."
 
 msgid ""
 "This section is available exclusively for certified IESA partner businesses."
@@ -4852,13 +4868,13 @@ msgid "Travel / Tourism / Adventure"
 msgstr "Reisen / Tourismus / Abenteuer"
 
 msgid "Try a different keyword or remove the filters."
-msgstr ""
+msgstr "Versuchen Sie ein anderes Stichwort oder entfernen Sie die Filter."
 
 msgid "Try again"
-msgstr ""
+msgstr "Erneut versuchen"
 
 msgid "Try changing your search query \"{{ query }}\""
-msgstr ""
+msgstr "Versuchen Sie, Ihre Suchanfrage „{{ query }}\" zu ändern"
 
 msgid "UPCOMING"
 msgstr "KOMMENDE"
@@ -4876,13 +4892,15 @@ msgid "Unlike"
 msgstr "Nicht mehr gefallen"
 
 msgid "Upload Photos"
-msgstr ""
+msgstr "Fotos hochladen"
 
 msgid "Upload avatar"
-msgstr ""
+msgstr "Avatar hochladen"
 
 msgid "Upload photos from events or projects to showcase the community."
 msgstr ""
+"Laden Sie Fotos von Veranstaltungen oder Projekten hoch, um die Community zu"
+" präsentieren."
 
 msgid "Username"
 msgstr "Benutzername"
@@ -4894,13 +4912,13 @@ msgid "Username must be at least 3 characters"
 msgstr "Benutzername muss mindestens 3 Zeichen enthalten"
 
 msgid "Users ({{ count }})"
-msgstr ""
+msgstr "Benutzer ({{ count }})"
 
 msgid "VISITS"
 msgstr "BESUCHE"
 
 msgid "Verification request"
-msgstr ""
+msgstr "Verifikationsanfrage"
 
 msgid "Verified (30d)"
 msgstr "Verifiziert (30T)"
@@ -4912,13 +4930,13 @@ msgid "Visit History"
 msgstr "Besuchshistorie"
 
 msgid "Visit Profile"
-msgstr ""
+msgstr "Profil besuchen"
 
 msgid "Visit a Partner"
 msgstr "Partner besuchen"
 
 msgid "Visit history"
-msgstr ""
+msgstr "Besuchshistorie"
 
 msgid "Visits & analytics"
 msgstr "Besuche & Analytik"
@@ -4938,7 +4956,7 @@ msgstr ""
 "Achtung: Die Mitgliedschaft dieses Mitglieds ist derzeit inaktiv/abgelaufen."
 
 msgid "Was edited after logging"
-msgstr ""
+msgstr "Wurde nach der Erfassung bearbeitet"
 
 msgid "Water Sports / Diving / Surfing"
 msgstr "Wassersport / Tauchen / Surfen"
@@ -4985,16 +5003,16 @@ msgstr ""
 "bald bei Ihnen."
 
 msgid "You are already logged in"
-msgstr ""
+msgstr "Sie sind bereits angemeldet"
 
 msgid "You are here"
-msgstr ""
+msgstr "Sie sind hier"
 
 msgid "You have been invited to join IESA as a partner."
-msgstr ""
+msgstr "Sie wurden eingeladen, IESA als Partner beizutreten."
 
 msgid "You have unsaved content. Leave anyway?"
-msgstr ""
+msgstr "Sie haben nicht gespeicherten Inhalt. Trotzdem verlassen?"
 
 msgid "You haven't written any posts yet."
 msgstr "Sie haben noch keine Beiträge geschrieben."
@@ -5007,7 +5025,7 @@ msgstr ""
 "aus Ihrer Mitgliedschaft heraus:"
 
 msgid "You've read all your notifications. New ones will appear here."
-msgstr ""
+msgstr "Sie haben alle Benachrichtigungen gelesen. Neue erscheinen hier."
 
 msgid "Your"
 msgstr "Ihr"
@@ -5025,10 +5043,10 @@ msgid "Your digital membership card gives access to partner benefits"
 msgstr "Ihre digitale Mitgliedskarte gewährt Zugang zu Partnervorteilen"
 
 msgid "Your first shot goes here"
-msgstr ""
+msgstr "Ihr erstes Foto kommt hierher"
 
 msgid "Your name"
-msgstr ""
+msgstr "Ihr Name"
 
 msgid "Your phone stays private"
 msgstr "Ihre Telefonnummer bleibt privat"
@@ -5039,7 +5057,7 @@ msgstr ""
 "fortzufahren."
 
 msgid "Your upcoming meetings and scheduled sessions"
-msgstr ""
+msgstr "Ihre kommenden Termine und geplanten Sitzungen"
 
 msgid ""
 "Your visit is logged instantly. Earn activity points, unlock achievement "
@@ -5066,7 +5084,7 @@ msgid "complete"
 msgstr "abgeschlossen"
 
 msgid "e.g. Insurance case #123, Rehab Q1"
-msgstr ""
+msgstr "z. B. Versicherungsfall #123, Reha Q1"
 
 msgid "e.g. johndoe"
 msgstr "z. B. johndoe"
@@ -5078,7 +5096,7 @@ msgid "edit"
 msgstr "bearbeiten"
 
 msgid "just now"
-msgstr ""
+msgstr "gerade eben"
 
 msgid "last"
 msgstr "letzte"
@@ -5108,7 +5126,7 @@ msgid "min read"
 msgstr "Min. Lesezeit"
 
 msgid "more replies"
-msgstr ""
+msgstr "weitere Antworten"
 
 msgid "next"
 msgstr "nächste"
@@ -5162,7 +5180,7 @@ msgid "your area"
 msgstr "Ihr Bereich"
 
 msgid "{{ min_age }}–{{ max_age }}"
-msgstr ""
+msgstr "{{ min_age }}–{{ max_age }}"
 
 msgid "{{ name }} · {{ level }} · IESA Sport Member"
 msgstr "{{ name }} · {{ level }} · IESA Sport-Mitglied"
@@ -5183,7 +5201,7 @@ msgid "Вы также можете подать заявку через наш 
 msgstr "Sie können auch über unseren Bot einen Antrag stellen:"
 
 msgid "Город / Регион"
-msgstr ""
+msgstr "Stadt / Region"
 
 msgid "Данные защищены и не передаются третьим лицам"
 msgstr "Daten sind geschützt und werden nicht an Dritte weitergegeben"
@@ -5248,7 +5266,7 @@ msgid "Подать заявку"
 msgstr "Antrag einreichen"
 
 msgid "Полное имя *"
-msgstr ""
+msgstr "Vollständiger Name *"
 
 msgid "Понимаем потребности спортсменов и тренеров"
 msgstr "Wir verstehen die Bedürfnisse von Sportlern und Trainern"
@@ -5257,7 +5275,7 @@ msgid "Путешествия"
 msgstr "Reisen"
 
 msgid "Расскажите подробнее о вашей ситуации, пожеланиях или вопросах..."
-msgstr ""
+msgstr "Beschreiben Sie ausführlicher Ihre Situation, Wünsche oder Fragen..."
 
 msgid "Смена агента"
 msgstr "Agentenwechsel"
@@ -5284,10 +5302,10 @@ msgid "напишите"
 msgstr "schreiben Sie"
 
 msgid "Achievement system"
-msgstr ""
+msgstr "Achievement-System"
 
 msgid "Admin only. Webhook configuration."
-msgstr ""
+msgstr "Nur für Admins. Webhook-Konfiguration."
 
 msgid ""
 "After registration, the PIN-code is available immediately. The physical card"
@@ -5297,7 +5315,7 @@ msgstr ""
 "Karte wird später auf Anfrage ausgestellt."
 
 msgid "After setting webhook: open bot in Telegram, press Start."
-msgstr ""
+msgstr "Nach Webhook-Einstellung: Bot in Telegram öffnen, Start drücken."
 
 msgid "Application pending"
 msgstr "Antrag in Bearbeitung"
@@ -5306,34 +5324,34 @@ msgid "Apply for partner"
 msgstr "Partner werden"
 
 msgid "Current webhook:"
-msgstr ""
+msgstr "Aktueller Webhook:"
 
 msgid "I agree to become a member of IESA Sport and accept the"
 msgstr "Ich stimme zu, Mitglied von IESA Sport zu werden, und akzeptiere die"
 
 msgid "Set webhook in Telegram"
-msgstr ""
+msgstr "Webhook in Telegram festlegen"
 
 msgid "Telegram Bot Setup"
-msgstr ""
+msgstr "Telegram-Bot-Einrichtung"
 
 msgid "Webhook URL for Telegram:"
-msgstr ""
+msgstr "Webhook-URL für Telegram:"
 
 msgid "Webhook is not yet set."
-msgstr ""
+msgstr "Webhook ist noch nicht festgelegt."
 
 msgid "Where to set env vars:"
-msgstr ""
+msgstr "Wo Umgebungsvariablen festgelegt werden:"
 
 msgid "privacy policy"
 msgstr "Datenschutzrichtlinie"
 
 msgid "random string (32+ chars)"
-msgstr ""
+msgstr "zufällige Zeichenkette (32+ Zeichen)"
 
 msgid "token from @BotFather"
-msgstr ""
+msgstr "Token von @BotFather"
 
 msgid "Bank / Banking Services"
 msgstr "Bank / Bankdienstleistungen"
@@ -5417,15 +5435,17 @@ msgid "Your current PIN"
 msgstr "Ihr aktueller PIN"
 
 msgid "A Partner object will be created with the user's address."
-msgstr ""
+msgstr "Ein Partner-Objekt wird mit der Adresse des Benutzers erstellt."
 
 msgid "Approve & Assign Role"
-msgstr ""
+msgstr "Genehmigen & Rolle zuweisen"
 
 msgid ""
 "Approve request from {{ user }} for role «{{ role }}»? This will assign the "
 "role and create related Partner object."
 msgstr ""
+"Anfrage von {{ user }} für die Rolle „{{ role }}\" genehmigen? Dies weist "
+"die Rolle zu und erstellt das zugehörige Partner-Objekt."
 
 msgid ""
 "How IESA Sport works: register, get your digital card, connect Telegram, "
@@ -5467,17 +5487,21 @@ msgstr "Älteste zuerst"
 
 msgid "Or fill <b>admin_note</b> and click <b>Reject</b> to deny the request."
 msgstr ""
+"Oder füllen Sie <b>admin_note</b> aus und klicken Sie auf <b>Ablehnen</b>, "
+"um die Anfrage abzulehnen."
 
 msgid "PARTNER ACTIONS"
 msgstr "PARTNER-AKTIONEN"
 
 msgid "Reject"
-msgstr ""
+msgstr "Ablehnen"
 
 msgid ""
 "Reject request from {{ user }}? Make sure you filled in admin_note — it will"
 " be saved as rejection_reason."
 msgstr ""
+"Anfrage von {{ user }} ablehnen? Stellen Sie sicher, dass Sie admin_note "
+"ausgefüllt haben — es wird als rejection_reason gespeichert."
 
 msgid "Relevance"
 msgstr "Relevanz"
@@ -5496,26 +5520,30 @@ msgstr ""
 "und Community-Zugang."
 
 msgid "Status:"
-msgstr ""
+msgstr "Status:"
 
 msgid ""
 "Use <b>Approve & Assign Role</b> button at the top to grant <b>{{ role "
 "}}</b> role automatically."
 msgstr ""
+"Verwenden Sie die Schaltfläche <b>Genehmigen & Rolle zuweisen</b> oben, um "
+"die Rolle <b>{{ role }}</b> automatisch zu vergeben."
 
 msgid ""
 "User will get is_partner=True with partner_type='association_staff' (no "
 "is_staff)."
 msgstr ""
+"Der Benutzer erhält is_partner=True mit partner_type='association_staff' "
+"(ohne is_staff)."
 
 msgid "User will get is_president=True."
-msgstr ""
+msgstr "Der Benutzer erhält is_president=True."
 
 msgid "YOUR MEMBERSHIP"
 msgstr "IHRE MITGLIEDSCHAFT"
 
 msgid "by"
-msgstr ""
+msgstr "von"
 
 msgid "The people behind <span>our mission</span>"
 msgstr "Die Menschen hinter <span>unserer Mission</span>"
@@ -5842,14 +5870,18 @@ msgstr "Heute"
 #, python-format
 #~ msgid "Ensure that there are no more than %(max)s digit in total."
 #~ msgid_plural "Ensure that there are no more than %(max)s digits in total."
-#~ msgstr[0] "Ensure that there are no more than %(max)s digit in total."
-#~ msgstr[1] "Ensure that there are no more than %(max)s digits in total."
+#~ msgstr[0] ""
+#~ "Stellen Sie sicher, dass es nicht mehr als %(max)s Ziffer insgesamt gibt."
+#~ msgstr[1] ""
+#~ "Stellen Sie sicher, dass es nicht mehr als %(max)s Ziffern insgesamt gibt."
 
 #, python-format
 #~ msgid "Ensure that there are no more than %(max)s decimal place."
 #~ msgid_plural "Ensure that there are no more than %(max)s decimal places."
-#~ msgstr[0] "Ensure that there are no more than %(max)s decimal place."
-#~ msgstr[1] "Ensure that there are no more than %(max)s decimal places."
+#~ msgstr[0] ""
+#~ "Stellen Sie sicher, dass es nicht mehr als %(max)s Dezimalstelle gibt."
+#~ msgstr[1] ""
+#~ "Stellen Sie sicher, dass es nicht mehr als %(max)s Dezimalstellen gibt."
 
 #~ msgid "Null characters are not allowed."
 #~ msgstr "Null-Zeichen sind nicht erlaubt."
@@ -6060,9 +6092,11 @@ msgstr "Heute"
 #~ msgid_plural ""
 #~ "Ensure this filename has at most %(max)d characters (it has %(length)d)."
 #~ msgstr[0] ""
-#~ "Ensure this filename has at most %(max)d character (it has %(length)d)."
+#~ "Stellen Sie sicher, dass dieser Dateiname höchstens %(max)d Zeichen enthält "
+#~ "(er hat %(length)d)."
 #~ msgstr[1] ""
-#~ "Ensure this filename has at most %(max)d characters (it has %(length)d)."
+#~ "Stellen Sie sicher, dass dieser Dateiname höchstens %(max)d Zeichen enthält "
+#~ "(er hat %(length)d)."
 
 #~ msgid "Please either submit a file or check the clear checkbox, not both."
 #~ msgstr ""
@@ -6097,14 +6131,14 @@ msgstr "Heute"
 #, python-format
 #~ msgid "Please submit at most %(num)d form."
 #~ msgid_plural "Please submit at most %(num)d forms."
-#~ msgstr[0] "Please submit at most %(num)d form."
-#~ msgstr[1] "Please submit at most %(num)d forms."
+#~ msgstr[0] "Bitte reichen Sie höchstens %(num)d Formular ein."
+#~ msgstr[1] "Bitte reichen Sie höchstens %(num)d Formulare ein."
 
 #, python-format
 #~ msgid "Please submit at least %(num)d form."
 #~ msgid_plural "Please submit at least %(num)d forms."
-#~ msgstr[0] "Please submit at least %(num)d form."
-#~ msgstr[1] "Please submit at least %(num)d forms."
+#~ msgstr[0] "Bitte reichen Sie mindestens %(num)d Formular ein."
+#~ msgstr[1] "Bitte reichen Sie mindestens %(num)d Formulare ein."
 
 #~ msgid "Order"
 #~ msgstr "Reihenfolge"
@@ -6154,8 +6188,8 @@ msgstr "Heute"
 #, python-format
 #~ msgid "%(size)d byte"
 #~ msgid_plural "%(size)d bytes"
-#~ msgstr[0] "%(size)d byte"
-#~ msgstr[1] "%(size)d bytes"
+#~ msgstr[0] "%(size)d Byte"
+#~ msgstr[1] "%(size)d Bytes"
 
 #, python-format
 #~ msgid "%s KB"
@@ -6343,32 +6377,32 @@ msgstr "Heute"
 #, python-format
 #~ msgid "%(num)d year"
 #~ msgid_plural "%(num)d years"
-#~ msgstr[0] "%(num)d year"
-#~ msgstr[1] "%(num)d years"
+#~ msgstr[0] "%(num)d Jahr"
+#~ msgstr[1] "%(num)d Jahre"
 
 #, python-format
 #~ msgid "%(num)d month"
 #~ msgid_plural "%(num)d months"
-#~ msgstr[0] "%(num)d month"
-#~ msgstr[1] "%(num)d months"
+#~ msgstr[0] "%(num)d Monat"
+#~ msgstr[1] "%(num)d Monate"
 
 #, python-format
 #~ msgid "%(num)d day"
 #~ msgid_plural "%(num)d days"
-#~ msgstr[0] "%(num)d day"
-#~ msgstr[1] "%(num)d days"
+#~ msgstr[0] "%(num)d Tag"
+#~ msgstr[1] "%(num)d Tage"
 
 #, python-format
 #~ msgid "%(num)d hour"
 #~ msgid_plural "%(num)d hours"
-#~ msgstr[0] "%(num)d hour"
-#~ msgstr[1] "%(num)d hours"
+#~ msgstr[0] "%(num)d Stunde"
+#~ msgstr[1] "%(num)d Stunden"
 
 #, python-format
 #~ msgid "%(num)d minute"
 #~ msgid_plural "%(num)d minutes"
-#~ msgstr[0] "%(num)d minute"
-#~ msgstr[1] "%(num)d minutes"
+#~ msgstr[0] "%(num)d Minute"
+#~ msgstr[1] "%(num)d Minuten"
 
 #~ msgid "CSRF verification failed. Request aborted."
 #~ msgstr "CSRF-Überprüfung fehlgeschlagen. Anfrage abgebrochen."
