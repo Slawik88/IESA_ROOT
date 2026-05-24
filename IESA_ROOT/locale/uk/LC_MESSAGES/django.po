@@ -3631,10 +3631,10 @@ msgid "Association Staff"
 msgstr "Співробітник асоціації"
 
 msgid "At least 3 characters"
-msgstr ""
+msgstr "Щонайменше 3 символи"
 
 msgid "Available"
-msgstr ""
+msgstr "Доступно"
 
 msgid "A→Z"
 msgstr "А→Я"
@@ -3646,7 +3646,7 @@ msgid "BUSINESS CATEGORY"
 msgstr "КАТЕГОРІЯ БІЗНЕСУ"
 
 msgid "Back"
-msgstr "Знову"
+msgstr "Назад"
 
 msgid "Back to Cabinet"
 msgstr ""
@@ -3815,7 +3815,7 @@ msgid "Describe your situation in detail..."
 msgstr ""
 
 msgid "Digital Card"
-msgstr ""
+msgstr "Цифрова карта"
 
 msgid "Digital card & PIN code"
 msgstr "Цифрова карта та PIN-код"
@@ -3851,7 +3851,7 @@ msgid "EVENTS"
 msgstr "ПОДІЇ"
 
 msgid "Earn points for posts, likes, comments and visits"
-msgstr ""
+msgstr "Отримуйте бали за публікації, вподобайки, коментарі та візити"
 
 msgid "Education & Events"
 msgstr "Освіта та події"
@@ -3860,10 +3860,10 @@ msgid "Email IESA"
 msgstr "Email IESA"
 
 msgid "Email available"
-msgstr ""
+msgstr "E-mail доступний"
 
 msgid "Enjoy Exclusive Benefits"
-msgstr ""
+msgstr "Насолоджуйтесь ексклюзивними перевагами"
 
 msgid "Enter your credentials to continue."
 msgstr "Введіть свої облікові дані для продовження."
@@ -3935,9 +3935,11 @@ msgid ""
 "Four simple steps to unlock exclusive partner benefits, track your activity,"
 " and connect with the community."
 msgstr ""
+"Чотири прості кроки, щоб відкрити ексклюзивні партнерські переваги, "
+"відстежувати активність і приєднатися до спільноти."
 
 msgid "Full log of every partner visit with timestamps"
-msgstr ""
+msgstr "Повний журнал кожного партнерського візиту з мітками часу"
 
 msgid "Generate Invite"
 msgstr ""
@@ -3979,7 +3981,7 @@ msgid "Go to blog"
 msgstr ""
 
 msgid "Go to my profile"
-msgstr ""
+msgstr "Перейти до мого профілю"
 
 msgid "Gym / Fitness Center"
 msgstr "Спортзал / Фітнес-центр"
@@ -3997,7 +3999,7 @@ msgid "Hotel / Accommodation"
 msgstr "Готель / Розміщення"
 
 msgid "How It Works"
-msgstr ""
+msgstr "Як це працює"
 
 msgid "How it works"
 msgstr "Як це працює"
@@ -4006,7 +4008,7 @@ msgid "How to reach {{ name }}"
 msgstr ""
 
 msgid "IESA Sport"
-msgstr ""
+msgstr "IESA Sport"
 
 msgid "IESA — it's more than sport."
 msgstr ""
@@ -4034,19 +4036,19 @@ msgid "Install IESA Sport"
 msgstr "Встановити IESA Sport"
 
 msgid "Instant community access"
-msgstr ""
+msgstr "Миттєвий доступ до спільноти"
 
 msgid "Instructions"
 msgstr "Інструкції"
 
 msgid "Insurance"
-msgstr ""
+msgstr "Страхування"
 
 msgid "Invalid Invite"
 msgstr ""
 
 msgid "Invalid email format"
-msgstr ""
+msgstr "Невірний формат e-mail"
 
 msgid "Invalid invite link"
 msgstr ""
@@ -4077,9 +4079,11 @@ msgstr ""
 
 msgid "Join Switzerland's sports community — it's free and takes one minute."
 msgstr ""
+"Приєднуйтесь до швейцарської спортивної спільноти — це безкоштовно та займає"
+" одну хвилину."
 
 msgid "Join for free"
-msgstr ""
+msgstr "Приєднатися безкоштовно"
 
 msgid "Join the Community"
 msgstr "Приєднатися до спільноти"
@@ -4109,6 +4113,9 @@ msgid ""
 "Link your Telegram account to receive instant visit confirmations and "
 "important updates directly in the messenger. One tap, always informed."
 msgstr ""
+"Прив'яжіть свій акаунт Telegram, щоб отримувати миттєві підтвердження "
+"візитів та важливі оновлення прямо у месенджері. Один тап — і ви завжди в "
+"курсі."
 
 msgid "Link your account to receive instant notifications"
 msgstr ""
@@ -4198,7 +4205,7 @@ msgid "My Posts"
 msgstr "Мої дописи"
 
 msgid "My Profile"
-msgstr ""
+msgstr "Мій профіль"
 
 msgid "My Settings"
 msgstr ""
@@ -4368,7 +4375,7 @@ msgid "PIN & Membership Card"
 msgstr "PIN та членська карта"
 
 msgid "PIN renews automatically every 12 minutes"
-msgstr ""
+msgstr "PIN автоматично оновлюється кожні 12 хвилин"
 
 msgid "PIN verified"
 msgstr ""
@@ -4410,13 +4417,13 @@ msgid "Partners can add their address in their profile settings."
 msgstr ""
 
 msgid "Password"
-msgstr ""
+msgstr "Пароль"
 
 msgid "Passwords do not match"
-msgstr ""
+msgstr "Паролі не співпадають"
 
 msgid "Passwords match"
-msgstr ""
+msgstr "Паролі співпадають"
 
 msgid "Pending verification"
 msgstr "Очікує підтвердження"
@@ -4461,7 +4468,7 @@ msgid "Points"
 msgstr "Очки"
 
 msgid "Points add up every visit"
-msgstr ""
+msgstr "Бали додаються за кожен візит"
 
 msgid "Posts ({{ count }})"
 msgstr ""
@@ -4491,7 +4498,7 @@ msgid "Psychology / Mental Health"
 msgstr "Психологія / Психічне здоров'я"
 
 msgid "QR code + unique ID for instant identification at partners"
-msgstr ""
+msgstr "QR-код + унікальний ID для миттєвої ідентифікації у партнерів"
 
 msgid "QUICK ACTIONS"
 msgstr "ШВИДКІ ДІЇ"
@@ -4512,7 +4519,7 @@ msgid "Reading time"
 msgstr "Час читання"
 
 msgid "Ready to get started?"
-msgstr ""
+msgstr "Готові розпочати?"
 
 msgid "Recent"
 msgstr "Нещодавні"
@@ -4524,10 +4531,10 @@ msgid "Recurring / Long-term"
 msgstr ""
 
 msgid "Register & Get Your Card"
-msgstr ""
+msgstr "Зареєструватись і отримати картку"
 
 msgid "Request a personal insurance agent through the portal"
-msgstr ""
+msgstr "Запитати персонального страхового агента через портал"
 
 msgid "Requested:"
 msgstr ""
@@ -4551,7 +4558,7 @@ msgid "Revenue CHF — last 30 days"
 msgstr ""
 
 msgid "Review"
-msgstr "Відгук"
+msgstr "Огляд"
 
 msgid "SCHEDULE A MEETING"
 msgstr ""
@@ -4608,10 +4615,10 @@ msgid "Secure"
 msgstr "Безпечно"
 
 msgid "Secure PIN"
-msgstr ""
+msgstr "Безпечний PIN"
 
 msgid "Secure registration"
-msgstr ""
+msgstr "Безпечна реєстрація"
 
 msgid "Seminar / Workshop Host"
 msgstr "Семінари / Майстер-класи"
@@ -4671,6 +4678,8 @@ msgid ""
 "Sign up in seconds — no credit card, no fees. You instantly receive a "
 "digital membership card with a unique QR code and permanent ID."
 msgstr ""
+"Реєстрація за секунди — без банківської картки та комісій. Ви одразу "
+"отримуєте цифрову членську карту з унікальним QR-кодом і постійним ID."
 
 msgid "Skip for now"
 msgstr "Пропустити"
@@ -4735,7 +4744,7 @@ msgid "TRENDING"
 msgstr "В ТРЕНДІ"
 
 msgid "Takes about 1 minute"
-msgstr ""
+msgstr "Займає близько 1 хвилини"
 
 msgid "Telegram @username"
 msgstr ""
@@ -4768,7 +4777,7 @@ msgid "This action requires your password to confirm"
 msgstr ""
 
 msgid "This email is already registered"
-msgstr ""
+msgstr "Цей e-mail вже зареєстрований"
 
 msgid "This month"
 msgstr ""
@@ -4787,7 +4796,7 @@ msgid "Time TBD"
 msgstr ""
 
 msgid "Time-based 6-digit code, refreshes every 12 minutes"
-msgstr ""
+msgstr "Тимчасовий 6-значний код, оновлюється кожні 12 хвилин"
 
 msgid "To {{ level }}:"
 msgstr ""
@@ -4811,7 +4820,7 @@ msgid "Tomorrow"
 msgstr ""
 
 msgid "Too weak"
-msgstr ""
+msgstr "Занадто слабкий"
 
 msgid "Top Members"
 msgstr ""
@@ -4865,10 +4874,10 @@ msgid "Username"
 msgstr "Ім'я користувача"
 
 msgid "Username already taken"
-msgstr ""
+msgstr "Ім'я користувача вже зайнято"
 
 msgid "Username must be at least 3 characters"
-msgstr ""
+msgstr "Ім'я користувача має містити щонайменше 3 символи"
 
 msgid "Users ({{ count }})"
 msgstr ""
@@ -4883,7 +4892,7 @@ msgid "Verified (30d)"
 msgstr ""
 
 msgid "Very strong"
-msgstr ""
+msgstr "Дуже сильний"
 
 msgid "Visit History"
 msgstr "Історія візитів"
@@ -4892,7 +4901,7 @@ msgid "Visit Profile"
 msgstr ""
 
 msgid "Visit a Partner"
-msgstr ""
+msgstr "Відвідати партнера"
 
 msgid "Visit history"
 msgstr ""
@@ -4931,7 +4940,7 @@ msgid "Welcome to IESA Sport!"
 msgstr ""
 
 msgid "What you get as a member"
-msgstr ""
+msgstr "Що ви отримуєте як учасник"
 
 msgid "Winter Sports / Ski"
 msgstr "Зимові види спорту / Лижі"
@@ -5001,7 +5010,7 @@ msgid "Your name"
 msgstr ""
 
 msgid "Your phone stays private"
-msgstr ""
+msgstr "Ваш номер залишається приватним"
 
 msgid "Your session has expired. Please log in again to continue."
 msgstr "Ваша сесія завершилася. Будь ласка, увійдіть знову, щоб продовжити."
@@ -5014,6 +5023,9 @@ msgid ""
 "levels, and access member-only discounts and privileges at all partner "
 "locations."
 msgstr ""
+"Ваш візит записується миттєво. Заробляйте бали активності, відкривайте рівні"
+" досягнень і отримуйте знижки та привілеї лише для учасників у всіх "
+"партнерських локаціях."
 
 msgid "Z→A"
 msgstr "Я→А"
@@ -5025,7 +5037,7 @@ msgid "cancel"
 msgstr "скасувати"
 
 msgid "characters"
-msgstr ""
+msgstr "символів"
 
 msgid "complete"
 msgstr "заповнено"
@@ -5034,7 +5046,7 @@ msgid "e.g. Insurance case #123, Rehab Q1"
 msgstr ""
 
 msgid "e.g. johndoe"
-msgstr ""
+msgstr "напр. johndoe"
 
 msgid "eSports / Gaming"
 msgstr "Кіберспорт / Геймінг"
@@ -5064,7 +5076,7 @@ msgid "meetings"
 msgstr ""
 
 msgid "membership, explained"
-msgstr ""
+msgstr "про членство, доступно"
 
 msgid "min ago"
 msgstr "хв тому"
@@ -5097,7 +5109,7 @@ msgid "result(s)"
 msgstr ""
 
 msgid "special char"
-msgstr ""
+msgstr "спецсимвол"
 
 msgid "steps"
 msgstr "кроків"
@@ -5112,7 +5124,7 @@ msgid "unique"
 msgstr "унікальний"
 
 msgid "uppercase"
-msgstr ""
+msgstr "велика літера"
 
 msgid "visit(s)"
 msgstr ""
@@ -5255,6 +5267,8 @@ msgid ""
 "After registration, the PIN-code is available immediately. The physical card"
 " is issued later upon request."
 msgstr ""
+"Після реєстрації PIN-код доступний одразу. Фізична карта видається пізніше "
+"за запитом."
 
 msgid "After setting webhook: open bot in Telegram, press Start."
 msgstr ""
@@ -5269,7 +5283,7 @@ msgid "Current webhook:"
 msgstr ""
 
 msgid "I agree to become a member of IESA Sport and accept the"
-msgstr ""
+msgstr "Я погоджуюсь стати учасником IESA Sport та приймаю"
 
 msgid "Set webhook in Telegram"
 msgstr ""
@@ -5287,7 +5301,7 @@ msgid "Where to set env vars:"
 msgstr ""
 
 msgid "privacy policy"
-msgstr ""
+msgstr "політику конфіденційності"
 
 msgid "random string (32+ chars)"
 msgstr ""
@@ -5389,6 +5403,9 @@ msgid ""
 "How IESA Sport works: register, get your digital card, connect Telegram, "
 "visit partner gyms and clinics, enjoy exclusive benefits. 4 simple steps."
 msgstr ""
+"Як працює IESA Sport: зареєструйтесь, отримайте цифрову карту, підключіть "
+"Telegram, відвідуйте партнерські спортзали та клініки, насолоджуйтесь "
+"ексклюзивними перевагами. 4 прості кроки."
 
 msgid ""
 "IESA Community blog — share ideas, events and news with fellow extreme "
@@ -5405,6 +5422,9 @@ msgid ""
 "Join IESA — Switzerland extreme sports community. Free membership in 1 "
 "minute: digital card, PIN code, partner discounts, events."
 msgstr ""
+"Приєднуйтесь до IESA — швейцарської спільноти екстремальних видів спорту. "
+"Безкоштовне членство за 1 хвилину: цифрова карта, PIN-код, партнерські "
+"знижки, події."
 
 msgid "Newest first"
 msgstr "Спочатку нові"
@@ -5439,6 +5459,8 @@ msgid ""
 "Sign in to IESA Sport — digital membership card, PIN code, partner visits "
 "and community access."
 msgstr ""
+"Увійдіть до IESA Sport — цифрова членська карта, PIN-код, партнерські візити"
+" та доступ до спільноти."
 
 msgid "Status:"
 msgstr ""
@@ -5477,6 +5499,9 @@ msgstr ""
 
 msgid "Dedicated <span>leadership</span>"
 msgstr "Віддане <span>керівництво</span>"
+
+msgid "Welcome<br><span>Back</span>"
+msgstr "Знову<br><span>вітаємо</span>"
 
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
