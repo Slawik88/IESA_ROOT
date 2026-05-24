@@ -3506,7 +3506,7 @@ msgid "choose"
 msgstr "choisir"
 
 msgid "(for long-term clients)"
-msgstr ""
+msgstr "(pour les clients à long terme)"
 
 msgid "+41 79 000 00 00"
 msgstr ""
@@ -3536,7 +3536,7 @@ msgid "ALL"
 msgstr "TOUS"
 
 msgid "ASSOCIATION STAFF"
-msgstr ""
+msgstr "PERSONNEL DE L'ASSOCIATION"
 
 msgid "About levels"
 msgstr "À propos des niveaux"
@@ -3545,7 +3545,7 @@ msgid "Access"
 msgstr "Accès"
 
 msgid "Access Restricted"
-msgstr ""
+msgstr "Accès restreint"
 
 msgid "Access your account"
 msgstr "Accédez à votre compte"
@@ -3581,7 +3581,7 @@ msgid "Add to your home screen"
 msgstr "Ajouter à l'écran d'accueil"
 
 msgid "Additional Comments"
-msgstr ""
+msgstr "Commentaires supplémentaires"
 
 msgid "Additional info for the client..."
 msgstr ""
@@ -3593,7 +3593,7 @@ msgid "All"
 msgstr "Tous"
 
 msgid "All Visit History"
-msgstr ""
+msgstr "Tout l'historique des visites"
 
 msgid "All caught up!"
 msgstr ""
@@ -3602,7 +3602,7 @@ msgid "Also"
 msgstr "Aussi"
 
 msgid "Analytics"
-msgstr ""
+msgstr "Analytique"
 
 msgid "Any unsaved changes on this page have been preserved."
 msgstr ""
@@ -3640,7 +3640,7 @@ msgid "Back"
 msgstr "Retour"
 
 msgid "Back to Cabinet"
-msgstr ""
+msgstr "Retour au cabinet"
 
 msgid "Back to invite list"
 msgstr ""
@@ -3682,7 +3682,7 @@ msgid "Cancel Visit Record"
 msgstr ""
 
 msgid "Cancel meeting"
-msgstr ""
+msgstr "Annuler la réunion"
 
 msgid "Capacity"
 msgstr "Capacité"
@@ -3706,10 +3706,10 @@ msgid "Clear history"
 msgstr "Effacer l'historique"
 
 msgid "Click any time slot to schedule a meeting"
-msgstr ""
+msgstr "Cliquez sur n'importe quel créneau horaire pour planifier une réunion"
 
 msgid "Client notes"
-msgstr ""
+msgstr "Notes client"
 
 msgid "Climbing / Boulder"
 msgstr "Escalade / Bloc"
@@ -3718,7 +3718,7 @@ msgid "Collapse"
 msgstr "Réduire"
 
 msgid "Company Profile"
-msgstr ""
+msgstr "Profil de l'entreprise"
 
 msgid "Confirm"
 msgstr "Confirmer"
@@ -3776,7 +3776,7 @@ msgid "DESCRIPTION OF ACTIVITY"
 msgstr "DESCRIPTION DE L'ACTIVITÉ"
 
 msgid "Daily Visits — last 30 days"
-msgstr ""
+msgstr "Visites quotidiennes — 30 derniers jours"
 
 msgid "Dance School"
 msgstr "École de danse"
@@ -3788,7 +3788,7 @@ msgid "Dashboard & stats"
 msgstr "Tableau de bord et stats"
 
 msgid "Date is in the past"
-msgstr ""
+msgstr "La date est dans le passé"
 
 msgid "Deactivate"
 msgstr ""
@@ -4010,11 +4010,15 @@ msgid ""
 "If you believe you should have partner access — fill in the appeal form "
 "below and the administration will contact you."
 msgstr ""
+"Si vous pensez que vous devriez avoir un accès partenaire — remplissez le "
+"formulaire d'appel ci-dessous et l'administration vous contactera."
 
 msgid ""
 "If you believe you should have partner access, please contact the IESA "
 "administration to have your account verified and enabled."
 msgstr ""
+"Si vous pensez que vous devriez avoir un accès partenaire, veuillez "
+"contacter l'administration IESA pour faire vérifier et activer votre compte."
 
 msgid "In the search field at the top, paste:"
 msgstr "Dans le champ de recherche en haut, collez :"
@@ -4081,13 +4085,13 @@ msgid "LATEST"
 msgstr "RÉCENTS"
 
 msgid "Last 30 days performance overview"
-msgstr ""
+msgstr "Aperçu des performances des 30 derniers jours"
 
 msgid "Last Visit"
-msgstr ""
+msgstr "Dernière visite"
 
 msgid "Last visit"
-msgstr ""
+msgstr "Dernière visite"
 
 msgid "Learn how everything works"
 msgstr ""
@@ -4119,28 +4123,28 @@ msgid "Log"
 msgstr "Journal"
 
 msgid "Log First Visit"
-msgstr ""
+msgstr "Enregistrer la première visite"
 
 msgid "Log In Again"
 msgstr "Se reconnecter"
 
 msgid "Log New Visit"
-msgstr ""
+msgstr "Enregistrer une nouvelle visite"
 
 msgid "Log a Visit"
-msgstr ""
+msgstr "Enregistrer une visite"
 
 msgid "Log a visit for this member"
 msgstr "Enregistrer une visite pour ce membre"
 
 msgid "Log first visit"
-msgstr ""
+msgstr "Enregistrer la première visite"
 
 msgid "Log the first visit and start your day."
-msgstr ""
+msgstr "Enregistrez la première visite et commencez votre journée."
 
 msgid "MEETING TITLE"
-msgstr ""
+msgstr "TITRE DE LA RÉUNION"
 
 msgid "MEMBER"
 msgstr "MEMBRE"
@@ -4164,7 +4168,7 @@ msgid "Medical / Healthcare"
 msgstr "Médical / Santé"
 
 msgid "Meeting Calendar"
-msgstr ""
+msgstr "Calendrier des réunions"
 
 msgid "Member PIN Code (6 digits)"
 msgstr "Code PIN du membre (6 chiffres)"
@@ -4197,7 +4201,7 @@ msgid "My Profile"
 msgstr "Mon profil"
 
 msgid "My Settings"
-msgstr ""
+msgstr "Mes paramètres"
 
 msgid "My location"
 msgstr ""
@@ -4230,28 +4234,28 @@ msgid "No Internet Connection"
 msgstr ""
 
 msgid "No Telegram — notification will not be sent"
-msgstr ""
+msgstr "Pas de Telegram — la notification ne sera pas envoyée"
 
 msgid "No clients yet."
-msgstr ""
+msgstr "Pas encore de clients."
 
 msgid "No content yet"
 msgstr ""
 
 msgid "No data for the last 30 days"
-msgstr ""
+msgstr "Aucune donnée pour les 30 derniers jours"
 
 msgid "No invite links yet."
 msgstr ""
 
 msgid "No meetings on this day"
-msgstr ""
+msgstr "Aucune réunion ce jour-là"
 
 msgid "No members found"
 msgstr "Aucun membre trouvé"
 
 msgid "No members found for"
-msgstr ""
+msgstr "Aucun membre trouvé pour"
 
 msgid "No partners with map coordinates yet"
 msgstr ""
@@ -4266,7 +4270,7 @@ msgid "No results found for \"{{ q }}\""
 msgstr ""
 
 msgid "No specific time"
-msgstr ""
+msgstr "Pas d'heure précise"
 
 msgid "No upcoming meetings. Check back later!"
 msgstr ""
@@ -4275,7 +4279,7 @@ msgid "No visits for the selected filters."
 msgstr ""
 
 msgid "No visits recorded for this member yet."
-msgstr ""
+msgstr "Aucune visite enregistrée pour ce membre."
 
 msgid "No visits recorded yet. Visit a partner to see history here."
 msgstr ""
@@ -4283,7 +4287,7 @@ msgstr ""
 "l'historique ici."
 
 msgid "No visits yet today."
-msgstr ""
+msgstr "Aucune visite aujourd'hui."
 
 msgid "Not an image"
 msgstr "Pas une image"
@@ -4303,7 +4307,7 @@ msgid ""
 msgstr ""
 
 msgid "Notify via Telegram & site"
-msgstr ""
+msgstr "Notifier via Telegram et le site"
 
 msgid "Nutrition / Dietology"
 msgstr "Nutrition / Diététique"
@@ -4342,7 +4346,7 @@ msgid "Overview"
 msgstr "Aperçu"
 
 msgid "PARTNER PORTAL"
-msgstr ""
+msgstr "PORTAIL PARTENAIRE"
 
 msgid "PAST"
 msgstr "PASSÉ"
@@ -4399,7 +4403,7 @@ msgid "Partner portal access request"
 msgstr ""
 
 msgid "Partner since"
-msgstr ""
+msgstr "Partenaire depuis"
 
 msgid "Partners ({{ count }})"
 msgstr ""
@@ -4474,7 +4478,7 @@ msgid "Preparation"
 msgstr ""
 
 msgid "Prev Day"
-msgstr ""
+msgstr "Jour précédent"
 
 msgid "Professional Coaching"
 msgstr "Coaching professionnel"
@@ -4518,10 +4522,10 @@ msgid "Recent"
 msgstr "Récents"
 
 msgid "Recent Clients"
-msgstr ""
+msgstr "Clients récents"
 
 msgid "Recurring / Long-term"
-msgstr ""
+msgstr "Récurrent / Long terme"
 
 msgid "Register & Get Your Card"
 msgstr "S'inscrire et obtenir votre carte"
@@ -4530,7 +4534,7 @@ msgid "Request a personal insurance agent through the portal"
 msgstr "Demander un agent d'assurance personnel via le portail"
 
 msgid "Requested:"
-msgstr ""
+msgstr "Demandé :"
 
 msgid "Reset Filters"
 msgstr ""
@@ -4545,19 +4549,19 @@ msgid "Revenue"
 msgstr "Revenus"
 
 msgid "Revenue (30d)"
-msgstr ""
+msgstr "Revenus (30j)"
 
 msgid "Revenue CHF — last 30 days"
-msgstr ""
+msgstr "Revenus CHF — 30 derniers jours"
 
 msgid "Review"
 msgstr "Vérifier"
 
 msgid "SCHEDULE A MEETING"
-msgstr ""
+msgstr "PLANIFIER UNE RÉUNION"
 
 msgid "SERIES LABEL"
-msgstr ""
+msgstr "ÉTIQUETTE DE SÉRIE"
 
 msgid "SERVICE"
 msgstr "SERVICE"
@@ -4587,7 +4591,7 @@ msgid "Scan to open your public profile"
 msgstr "Scannez pour ouvrir votre profil public"
 
 msgid "Schedule Meeting"
-msgstr ""
+msgstr "Planifier une réunion"
 
 msgid "Schedule a new meeting"
 msgstr ""
@@ -4596,7 +4600,7 @@ msgid "School / Educational Center"
 msgstr "École / Centre éducatif"
 
 msgid "Search member"
-msgstr ""
+msgstr "Rechercher un membre"
 
 msgid "Search site"
 msgstr ""
@@ -4620,10 +4624,10 @@ msgid "Send Appeal"
 msgstr ""
 
 msgid "Service Breakdown"
-msgstr ""
+msgstr "Détail des services"
 
 msgid "Service Types — all time"
-msgstr ""
+msgstr "Types de services — depuis le début"
 
 msgid "Services"
 msgstr ""
@@ -4709,6 +4713,8 @@ msgid ""
 "Start logging visits and within a few days the analytics will fill with "
 "insights."
 msgstr ""
+"Commencez à enregistrer des visites et en quelques jours, les analytiques se"
+" rempliront de données."
 
 msgid "Start typing name or username…"
 msgstr ""
@@ -4750,7 +4756,7 @@ msgid "Telegram connected"
 msgstr "Telegram connecté"
 
 msgid "Telegram linked"
-msgstr ""
+msgstr "Telegram lié"
 
 msgid ""
 "Thank you. The administration will review your request and contact you by "
@@ -4764,7 +4770,7 @@ msgid "The page you are looking for does not exist or has been moved."
 msgstr ""
 
 msgid "Think this is a mistake?"
-msgstr ""
+msgstr "Vous pensez que c'est une erreur ?"
 
 msgid ""
 "This action cannot be undone. The member will be notified via Telegram."
@@ -4777,7 +4783,7 @@ msgid "This email is already registered"
 msgstr "Cet e-mail est déjà enregistré"
 
 msgid "This month"
-msgstr ""
+msgstr "Ce mois"
 
 msgid "This person might not be a member yet."
 msgstr ""
@@ -4785,12 +4791,16 @@ msgstr ""
 msgid ""
 "This section is available exclusively for certified IESA partner businesses."
 msgstr ""
+"Cette section est disponible exclusivement pour les entreprises partenaires "
+"certifiées IESA."
 
 msgid "This section is exclusively for certified IESA partner businesses."
 msgstr ""
+"Cette section est réservée exclusivement aux entreprises partenaires "
+"certifiées IESA."
 
 msgid "Time TBD"
-msgstr ""
+msgstr "Heure à confirmer"
 
 msgid "Time-based 6-digit code, refreshes every 12 minutes"
 msgstr "Code à 6 chiffres temporel, renouvelé toutes les 12 minutes"
@@ -4799,13 +4809,13 @@ msgid "To {{ level }}:"
 msgstr "Vers {{ level }} :"
 
 msgid "Today CHF"
-msgstr ""
+msgstr "Aujourd'hui CHF"
 
 msgid "Today's Visits"
-msgstr ""
+msgstr "Visites d'aujourd'hui"
 
 msgid "Today's visits"
-msgstr ""
+msgstr "Visites d'aujourd'hui"
 
 msgid "Toggle password visibility"
 msgstr "Afficher/masquer le mot de passe"
@@ -4814,19 +4824,19 @@ msgid "Toggle theme"
 msgstr "Changer de thème"
 
 msgid "Tomorrow"
-msgstr ""
+msgstr "Demain"
 
 msgid "Too weak"
 msgstr "Trop faible"
 
 msgid "Top Members"
-msgstr ""
+msgstr "Top membres"
 
 msgid "Total"
 msgstr "Total"
 
 msgid "Total visits"
-msgstr ""
+msgstr "Total des visites"
 
 msgid "Travel & Outdoor"
 msgstr "Voyages et plein air"
@@ -4847,10 +4857,10 @@ msgid "UPCOMING"
 msgstr "À VENIR"
 
 msgid "UPCOMING MEETINGS"
-msgstr ""
+msgstr "PROCHAINES RÉUNIONS"
 
 msgid "Unique clients"
-msgstr ""
+msgstr "Clients uniques"
 
 msgid "Unique trips &amp; experiences"
 msgstr "Voyages et expériences uniques"
@@ -4886,7 +4896,7 @@ msgid "Verification request"
 msgstr ""
 
 msgid "Verified (30d)"
-msgstr ""
+msgstr "Vérifié (30j)"
 
 msgid "Very strong"
 msgstr "Très fort"
@@ -4907,7 +4917,7 @@ msgid "Visits & analytics"
 msgstr "Visites et analytique"
 
 msgid "Visits (30d)"
-msgstr ""
+msgstr "Visites (30j)"
 
 msgid ""
 "Want to become an IESA partner or association staff? Submit a request — "
@@ -4918,6 +4928,7 @@ msgstr ""
 
 msgid "Warning: this member's membership is currently inactive/expired."
 msgstr ""
+"Attention : l'adhésion de ce membre est actuellement inactive/expirée."
 
 msgid "Was edited after logging"
 msgstr ""
@@ -4998,10 +5009,10 @@ msgid "Your QR Card"
 msgstr "Votre carte QR"
 
 msgid "Your account does not currently have partner access."
-msgstr ""
+msgstr "Votre compte n'a pas actuellement d'accès partenaire."
 
 msgid "Your account does not have partner access."
-msgstr ""
+msgstr "Votre compte n'a pas d'accès partenaire."
 
 msgid "Your digital membership card gives access to partner benefits"
 msgstr "Votre carte de membre numérique donne accès aux avantages partenaires"
@@ -5034,7 +5045,7 @@ msgid "Z→A"
 msgstr "Z→A"
 
 msgid "all time"
-msgstr ""
+msgstr "depuis le début"
 
 msgid "cancel"
 msgstr "annuler"
@@ -5067,16 +5078,16 @@ msgid "last 20"
 msgstr "20 derniers"
 
 msgid "last 30 days"
-msgstr ""
+msgstr "30 derniers jours"
 
 msgid "last 90 days"
-msgstr ""
+msgstr "90 derniers jours"
 
 msgid "logged amount"
-msgstr ""
+msgstr "montant enregistré"
 
 msgid "meetings"
-msgstr ""
+msgstr "réunions"
 
 msgid "membership, explained"
 msgstr "l'adhésion, expliquée"
@@ -5097,7 +5108,7 @@ msgid "number"
 msgstr "chiffre"
 
 msgid "optional"
-msgstr ""
+msgstr "facultatif"
 
 msgid "photos"
 msgstr "photos"
@@ -5109,7 +5120,7 @@ msgid "pts"
 msgstr "pts"
 
 msgid "result(s)"
-msgstr ""
+msgstr "résultat(s)"
 
 msgid "special char"
 msgstr "caractère spécial"
@@ -5130,7 +5141,7 @@ msgid "uppercase"
 msgstr "majuscule"
 
 msgid "visit(s)"
-msgstr ""
+msgstr "visite(s)"
 
 msgid "words"
 msgstr "mots"
@@ -5148,117 +5159,120 @@ msgid "{{ name }} · {{ level }} · IESA Sport Member"
 msgstr "{{ name }} · {{ level }} · Membre IESA Sport"
 
 msgid "Автомобиль"
-msgstr ""
+msgstr "Automobile"
 
 msgid "Бизнес"
-msgstr ""
+msgstr "Affaires"
 
 msgid "Быстрый отклик"
-msgstr ""
+msgstr "Réponse rapide"
 
 msgid "Ваша заявка принята"
-msgstr ""
+msgstr "Votre demande a été acceptée"
 
 msgid "Вы также можете подать заявку через наш бот:"
-msgstr ""
+msgstr "Vous pouvez également soumettre une demande via notre bot :"
 
 msgid "Город / Регион"
 msgstr ""
 
 msgid "Данные защищены и не передаются третьим лицам"
-msgstr ""
+msgstr "Les données sont protégées et ne sont pas transmises à des tiers"
 
 msgid "Дополнительно"
-msgstr ""
+msgstr "En plus"
 
 msgid "Другое"
-msgstr ""
+msgstr "Autre"
 
 msgid "Заявка подана"
-msgstr ""
+msgstr "Demande soumise"
 
 msgid "Заявка через Telegram"
-msgstr ""
+msgstr "Demande via Telegram"
 
 msgid "Здоровье и жизнь"
-msgstr ""
+msgstr "Santé et vie"
 
 msgid "Имущество"
-msgstr ""
+msgstr "Biens"
 
 msgid "Консультация"
-msgstr ""
+msgstr "Consultation"
 
 msgid "Контактные данные"
-msgstr ""
+msgstr "Coordonnées"
 
 msgid "Конфиденциально"
-msgstr ""
+msgstr "Confidentiel"
 
 msgid "Личный агент"
-msgstr ""
+msgstr "Agent personnel"
 
 msgid ""
 "Мы подберём для вас личного страхового агента — специалиста, который поможет"
 " защитить ваше здоровье, спортивную карьеру и финансовое будущее."
 msgstr ""
+"Nous vous trouverons un agent d'assurance personnel — un spécialiste qui "
+"aidera à protéger votre santé, votre carrière sportive et votre avenir "
+"financier."
 
 msgid "Наш менеджер обрабатывает её и скоро свяжется с вами."
-msgstr ""
+msgstr "Notre gestionnaire la traite et vous contactera bientôt."
 
 msgid "Нужен агент"
-msgstr ""
+msgstr "Besoin d'un agent"
 
 msgid "Один специалист ведёт вас от начала до конца"
-msgstr ""
+msgstr "Un spécialiste vous accompagne du début à la fin"
 
 msgid "Ответим в течение 24 часов после заявки"
-msgstr ""
+msgstr "Nous répondrons dans les 24 heures suivant la demande"
 
 msgid "Отправить заявку"
-msgstr ""
+msgstr "Envoyer la demande"
 
 msgid "Пенсионное/накопительное"
-msgstr ""
+msgstr "Retraite/épargne"
 
 msgid "Подать заявку"
-msgstr ""
+msgstr "Soumettre une demande"
 
 msgid "Полное имя *"
 msgstr ""
 
 msgid "Понимаем потребности спортсменов и тренеров"
-msgstr ""
+msgstr "Nous comprenons les besoins des athlètes et des entraîneurs"
 
 msgid "Путешествия"
-msgstr ""
+msgstr "Voyages"
 
 msgid "Расскажите подробнее о вашей ситуации, пожеланиях или вопросах..."
 msgstr ""
 
 msgid "Смена агента"
-msgstr ""
+msgstr "Changement d'agent"
 
 msgid "Спортивная специализация"
-msgstr ""
+msgstr "Spécialisation sportive"
 
 msgid "Спортивное"
-msgstr ""
+msgstr "Sportif"
 
 msgid "Страховой агент IESA"
-msgstr ""
+msgstr "Agent d'assurance IESA"
 
 msgid "Страховой агент — IESA"
-msgstr ""
+msgstr "Agent d'assurance — IESA"
 
 msgid "Тип заявки"
-msgstr ""
+msgstr "Type de demande"
 
 msgid "Что вас интересует?"
-msgstr ""
+msgstr "Qu'est-ce qui vous intéresse ?"
 
 msgid "напишите"
-msgstr ""
+msgstr "écrivez"
 
 msgid "Achievement system"
 msgstr ""
@@ -5513,6 +5527,12 @@ msgstr "Leadership <span>dévoué</span>"
 
 msgid "Welcome<br><span>Back</span>"
 msgstr "Heureux de vous<br><span>revoir</span>"
+
+msgid "Clear"
+msgstr "Effacer"
+
+msgid "Today"
+msgstr "Aujourd'hui"
 
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Le sport extrême comme manière de penser et de vivre"
