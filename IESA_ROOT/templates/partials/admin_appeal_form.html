@@ -1,9 +1,10 @@
 {% load i18n %}
-{# Reusable admin appeal form.
-   Include with: {% include "partials/admin_appeal_form.html" with appeal_requested_url=request.path %}
-   Styles: admin-appeal.css — load it in the parent template's extra_css block.
-   Submits via HTMX POST → swaps itself with success message on success.
-#}
+{% comment %}
+Reusable admin appeal form.
+Include with: {% include "partials/admin_appeal_form.html" with appeal_requested_url=request.path %}
+Styles: admin-appeal.css — load it in the parent template's extra_css block.
+Submits via HTMX POST → swaps itself with success message on success.
+{% endcomment %}
 
 <div id="appeal-form-wrap">
   {% if appeal_errors %}
