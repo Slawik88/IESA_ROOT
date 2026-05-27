@@ -5164,121 +5164,6 @@ msgstr "{{ min_age }}–{{ max_age }}"
 msgid "{{ name }} · {{ level }} · IESA Sport Member"
 msgstr "{{ name }} · {{ level }} · Учасник IESA Sport"
 
-msgid "Автомобиль"
-msgstr "Автомобіль"
-
-msgid "Бизнес"
-msgstr "Бізнес"
-
-msgid "Быстрый отклик"
-msgstr "Швидка відповідь"
-
-msgid "Ваша заявка принята"
-msgstr "Вашу заявку прийнято"
-
-msgid "Вы также можете подать заявку через наш бот:"
-msgstr "Ви також можете подати заявку через наш бот:"
-
-msgid "Город / Регион"
-msgstr "Місто / Регіон"
-
-msgid "Данные защищены и не передаются третьим лицам"
-msgstr "Дані захищені та не передаються третім особам"
-
-msgid "Дополнительно"
-msgstr "Додатково"
-
-msgid "Другое"
-msgstr "Інше"
-
-msgid "Заявка подана"
-msgstr "Заявку подано"
-
-msgid "Заявка через Telegram"
-msgstr "Заявка через Telegram"
-
-msgid "Здоровье и жизнь"
-msgstr "Здоров'я та життя"
-
-msgid "Имущество"
-msgstr "Майно"
-
-msgid "Консультация"
-msgstr "Консультація"
-
-msgid "Контактные данные"
-msgstr "Контактні дані"
-
-msgid "Конфиденциально"
-msgstr "Конфіденційно"
-
-msgid "Личный агент"
-msgstr "Особистий агент"
-
-msgid ""
-"Мы подберём для вас личного страхового агента — специалиста, который поможет"
-" защитить ваше здоровье, спортивную карьеру и финансовое будущее."
-msgstr ""
-"Ми підберемо для вас особистого страхового агента — фахівця, який допоможе "
-"захистити ваше здоров'я, спортивну кар'єру та фінансове майбутнє."
-
-msgid "Наш менеджер обрабатывает её и скоро свяжется с вами."
-msgstr "Наш менеджер обробляє її і скоро зв'яжеться з вами."
-
-msgid "Нужен агент"
-msgstr "Потрібен агент"
-
-msgid "Один специалист ведёт вас от начала до конца"
-msgstr "Один фахівець веде вас від початку до кінця"
-
-msgid "Ответим в течение 24 часов после заявки"
-msgstr "Відповімо протягом 24 годин після заявки"
-
-msgid "Отправить заявку"
-msgstr "Надіслати заявку"
-
-msgid "Пенсионное/накопительное"
-msgstr "Пенсійне/накопичувальне"
-
-msgid "Подать заявку"
-msgstr "Подати заявку"
-
-msgid "Полное имя *"
-msgstr "Повне ім'я *"
-
-msgid "Понимаем потребности спортсменов и тренеров"
-msgstr "Розуміємо потреби спортсменів і тренерів"
-
-msgid "Путешествия"
-msgstr "Подорожі"
-
-msgid "Расскажите подробнее о вашей ситуации, пожеланиях или вопросах..."
-msgstr "Розкажіть детальніше про вашу ситуацію, побажання або питання..."
-
-msgid "Смена агента"
-msgstr "Зміна агента"
-
-msgid "Спортивная специализация"
-msgstr "Спортивна спеціалізація"
-
-msgid "Спортивное"
-msgstr "Спортивне"
-
-msgid "Страховой агент IESA"
-msgstr "Страховий агент IESA"
-
-msgid "Страховой агент — IESA"
-msgstr "Страховий агент — IESA"
-
-msgid "Тип заявки"
-msgstr "Тип заявки"
-
-msgid "Что вас интересует?"
-msgstr "Що вас цікавить?"
-
-msgid "напишите"
-msgstr "напишіть"
-
 msgid "Achievement system"
 msgstr "Система досягнень"
 
@@ -5546,6 +5431,112 @@ msgstr "Сьогодні"
 
 msgid "Checking…"
 msgstr "Перевіряємо…"
+
+msgid "IESA Insurance Agent"
+msgstr "Страховий агент IESA"
+
+msgid ""
+"We will match you with a personal insurance agent — a specialist who will "
+"help protect your health, sports career and financial future."
+msgstr ""
+"Ми підберемо для вас особистого страхового агента — фахівця, який допоможе "
+"захистити ваше здоров'я, спортивну кар'єру та фінансове майбутнє."
+
+msgid "Personal agent"
+msgstr "Особистий агент"
+
+msgid "One specialist guides you from start to finish"
+msgstr "Один фахівець веде вас від початку до кінця"
+
+msgid "Fast response"
+msgstr "Швидка відповідь"
+
+msgid "We will respond within 24 hours after your request"
+msgstr "Відповімо протягом 24 годин після заявки"
+
+msgid "Sports specialization"
+msgstr "Спортивна спеціалізація"
+
+msgid "We understand the needs of athletes and coaches"
+msgstr "Розуміємо потреби спортсменів і тренерів"
+
+msgid "Confidential"
+msgstr "Конфіденційно"
+
+msgid "Data is protected and not shared with third parties"
+msgstr "Дані захищені та не передаються третім особам"
+
+msgid "Your request has been received"
+msgstr "Вашу заявку прийнято"
+
+msgid "Request submitted on"
+msgstr "Заявку подано"
+
+msgid "Our manager is processing it and will contact you soon."
+msgstr "Наш менеджер обробляє її і скоро зв'яжеться з вами."
+
+msgid "Submit a request"
+msgstr "Подати заявку"
+
+msgid "Request type"
+msgstr "Тип заявки"
+
+msgid "Need an agent"
+msgstr "Потрібен агент"
+
+msgid "Change agent"
+msgstr "Зміна агента"
+
+msgid "Contact details"
+msgstr "Контактні дані"
+
+msgid "Full name *"
+msgstr "Повне ім'я *"
+
+msgid "City / Region"
+msgstr "Місто / Регіон"
+
+msgid "What interests you?"
+msgstr "Що вас цікавить?"
+
+msgid "Health & life"
+msgstr "Здоров'я та життя"
+
+msgid "Sports insurance"
+msgstr "Спортивне страхування"
+
+msgid "Travel"
+msgstr "Подорожі"
+
+msgid "Auto"
+msgstr "Автомобіль"
+
+msgid "Property"
+msgstr "Майно"
+
+msgid "Business"
+msgstr "Бізнес"
+
+msgid "Pension / savings"
+msgstr "Пенсійне / накопичувальне"
+
+msgid "Additional info"
+msgstr "Додаткова інформація"
+
+msgid "Tell us more about your situation, wishes or questions..."
+msgstr "Розкажіть детальніше про вашу ситуацію, побажання або питання..."
+
+msgid "Send request"
+msgstr "Надіслати заявку"
+
+msgid "Request via Telegram"
+msgstr "Заявка через Telegram"
+
+msgid "You can also submit a request via our bot:"
+msgstr "Ви також можете подати заявку через наш бот:"
+
+msgid "write"
+msgstr "напишіть"
 
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"

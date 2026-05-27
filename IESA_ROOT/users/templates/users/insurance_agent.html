@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load i18n static %}
 
-{% block title %}{% trans "Страховой агент — IESA" %}{% endblock %}
+{% block title %}{% trans "IESA Insurance Agent" %}{% endblock %}
 
 {% block extra_css %}
 {% comment %}BLOCK 11/13 (audit v3): был критичный баг — extra_head НЕ существует в base.html, из-за чего стили никогда не загружались. Исправлено + перевод на design tokens.{% endcomment %}
@@ -281,9 +281,9 @@
 <section class="ins-hero">
   <div class="container position-relative">
     <div class="ins-hero__icon">🛡️</div>
-    <h1 class="ins-hero__title">{% trans "Страховой агент IESA" %}</h1>
+    <h1 class="ins-hero__title">{% trans "IESA Insurance Agent" %}</h1>
     <p class="ins-hero__sub">
-      {% trans "Мы подберём для вас личного страхового агента — специалиста, который поможет защитить ваше здоровье, спортивную карьеру и финансовое будущее." %}
+      {% trans "We will match you with a personal insurance agent — a specialist who will help protect your health, sports career and financial future." %}
     </p>
   </div>
 </section>
@@ -294,23 +294,23 @@
   <div class="ins-benefits">
     <div class="ins-benefit-card">
       <div class="ins-benefit-card__icon">🤝</div>
-      <div class="ins-benefit-card__title">{% trans "Личный агент" %}</div>
-      <div class="ins-benefit-card__text">{% trans "Один специалист ведёт вас от начала до конца" %}</div>
+      <div class="ins-benefit-card__title">{% trans "Personal agent" %}</div>
+      <div class="ins-benefit-card__text">{% trans "One specialist guides you from start to finish" %}</div>
     </div>
     <div class="ins-benefit-card">
       <div class="ins-benefit-card__icon">⚡</div>
-      <div class="ins-benefit-card__title">{% trans "Быстрый отклик" %}</div>
-      <div class="ins-benefit-card__text">{% trans "Ответим в течение 24 часов после заявки" %}</div>
+      <div class="ins-benefit-card__title">{% trans "Fast response" %}</div>
+      <div class="ins-benefit-card__text">{% trans "We will respond within 24 hours after your request" %}</div>
     </div>
     <div class="ins-benefit-card">
       <div class="ins-benefit-card__icon">🏆</div>
-      <div class="ins-benefit-card__title">{% trans "Спортивная специализация" %}</div>
-      <div class="ins-benefit-card__text">{% trans "Понимаем потребности спортсменов и тренеров" %}</div>
+      <div class="ins-benefit-card__title">{% trans "Sports specialization" %}</div>
+      <div class="ins-benefit-card__text">{% trans "We understand the needs of athletes and coaches" %}</div>
     </div>
     <div class="ins-benefit-card">
       <div class="ins-benefit-card__icon">🔒</div>
-      <div class="ins-benefit-card__title">{% trans "Конфиденциально" %}</div>
-      <div class="ins-benefit-card__text">{% trans "Данные защищены и не передаются третьим лицам" %}</div>
+      <div class="ins-benefit-card__title">{% trans "Confidential" %}</div>
+      <div class="ins-benefit-card__text">{% trans "Data is protected and not shared with third parties" %}</div>
     </div>
   </div>
 
@@ -331,10 +331,10 @@
       {% if existing.status == 'new' %}⏳{% elif existing.status == 'reviewing' %}🔍{% else %}✅{% endif %}
       {{ existing.get_status_display }}
     </div>
-    <h4 class="fw-bold mb-2" style="color:var(--text-primary);">{% trans "Ваша заявка принята" %}</h4>
+    <h4 class="fw-bold mb-2" style="color:var(--text-primary);">{% trans "Your request has been received" %}</h4>
     <p class="mb-3" style="color:var(--text-muted);">
-      {% trans "Заявка подана" %} {{ existing.created_at|date:"d.m.Y" }}.
-      {% trans "Наш менеджер обрабатывает её и скоро свяжется с вами." %}
+      {% trans "Request submitted on" %} {{ existing.created_at|date:"d.m.Y" }}.
+      {% trans "Our manager is processing it and will contact you soon." %}
     </p>
     <div style="font-size:.85rem; color:var(--text-muted);">
       <strong style="color:var(--text-secondary);">{{ existing.get_request_type_display }}</strong><br>
@@ -348,44 +348,44 @@
   <div class="ins-form-wrap">
     <h3>
       <span style="color:#dc2626;">📋</span>
-      {% trans "Подать заявку" %}
+      {% trans "Submit a request" %}
     </h3>
 
     <form method="post" id="insForm">
       {% csrf_token %}
 
       <!-- Тип заявки -->
-      <div class="ins-section-label">{% trans "Тип заявки" %}</div>
+      <div class="ins-section-label">{% trans "Request type" %}</div>
       <div class="ins-radio-group mb-4">
         <div class="ins-radio-item">
           <input type="radio" name="request_type" id="rt_new" value="new_agent" checked>
           <label for="rt_new">
             <span class="icon">🆕</span>
-            {% trans "Нужен агент" %}
+            {% trans "Need an agent" %}
           </label>
         </div>
         <div class="ins-radio-item">
           <input type="radio" name="request_type" id="rt_change" value="change_agent">
           <label for="rt_change">
             <span class="icon">🔄</span>
-            {% trans "Смена агента" %}
+            {% trans "Change agent" %}
           </label>
         </div>
         <div class="ins-radio-item">
           <input type="radio" name="request_type" id="rt_consult" value="consultation">
           <label for="rt_consult">
             <span class="icon">💬</span>
-            {% trans "Консультация" %}
+            {% trans "Consultation" %}
           </label>
         </div>
       </div>
 
       <!-- Контактные данные -->
-      <div class="ins-section-label">{% trans "Контактные данные" %}</div>
+      <div class="ins-section-label">{% trans "Contact details" %}</div>
       <div class="row g-3 mb-3">
         <div class="col-md-6">
           <input type="text" name="full_name" class="ins-input"
-                 placeholder="{% trans 'Полное имя *' %}"
+                 placeholder="{% trans 'Full name *' %}"
                  value="{{ user.get_full_name|default:'' }}" required>
         </div>
         <div class="col-md-6">
@@ -405,44 +405,44 @@
         </div>
         <div class="col-12">
           <input type="text" name="city" class="ins-input"
-                 placeholder="{% trans 'Город / Регион' %}">
+                 placeholder="{% trans 'City / Region' %}">
         </div>
       </div>
 
       <!-- Виды страхования -->
-      <div class="ins-section-label">{% trans "Что вас интересует?" %}</div>
+      <div class="ins-section-label">{% trans "What interests you?" %}</div>
       <div class="ins-checkbox-list mb-4" id="insCheckboxes">
         <div class="ins-check-item">
-          <input type="checkbox" id="ins_health" value="Здоровье и жизнь" name="ins_types">
-          <label for="ins_health">❤️ {% trans "Здоровье и жизнь" %}</label>
+          <input type="checkbox" id="ins_health" value="Health & life" name="ins_types">
+          <label for="ins_health">❤️ {% trans "Health & life" %}</label>
         </div>
         <div class="ins-check-item">
           <input type="checkbox" id="ins_sport" value="Спортивное страхование" name="ins_types">
-          <label for="ins_sport">🏋️ {% trans "Спортивное" %}</label>
+          <label for="ins_sport">🏋️ {% trans "Sports insurance" %}</label>
         </div>
         <div class="ins-check-item">
-          <input type="checkbox" id="ins_travel" value="Путешествия" name="ins_types">
-          <label for="ins_travel">✈️ {% trans "Путешествия" %}</label>
+          <input type="checkbox" id="ins_travel" value="Travel" name="ins_types">
+          <label for="ins_travel">✈️ {% trans "Travel" %}</label>
         </div>
         <div class="ins-check-item">
-          <input type="checkbox" id="ins_auto" value="Автомобиль" name="ins_types">
-          <label for="ins_auto">🚗 {% trans "Автомобиль" %}</label>
+          <input type="checkbox" id="ins_auto" value="Auto" name="ins_types">
+          <label for="ins_auto">🚗 {% trans "Auto" %}</label>
         </div>
         <div class="ins-check-item">
-          <input type="checkbox" id="ins_property" value="Имущество" name="ins_types">
-          <label for="ins_property">🏠 {% trans "Имущество" %}</label>
+          <input type="checkbox" id="ins_property" value="Property" name="ins_types">
+          <label for="ins_property">🏠 {% trans "Property" %}</label>
         </div>
         <div class="ins-check-item">
-          <input type="checkbox" id="ins_business" value="Бизнес" name="ins_types">
-          <label for="ins_business">💼 {% trans "Бизнес" %}</label>
+          <input type="checkbox" id="ins_business" value="Business" name="ins_types">
+          <label for="ins_business">💼 {% trans "Business" %}</label>
         </div>
         <div class="ins-check-item">
           <input type="checkbox" id="ins_pension" value="Пенсионное и накопительное" name="ins_types">
-          <label for="ins_pension">💰 {% trans "Пенсионное/накопительное" %}</label>
+          <label for="ins_pension">💰 {% trans "Pension / savings" %}</label>
         </div>
         <div class="ins-check-item">
-          <input type="checkbox" id="ins_other" value="Другое" name="ins_types">
-          <label for="ins_other">📋 {% trans "Другое" %}</label>
+          <input type="checkbox" id="ins_other" value="Other" name="ins_types">
+          <label for="ins_other">📋 {% trans "Other" %}</label>
         </div>
       </div>
 
@@ -450,12 +450,12 @@
       <input type="hidden" name="insurance_types" id="insuranceTypesHidden">
 
       <!-- Сообщение -->
-      <div class="ins-section-label">{% trans "Дополнительно" %}</div>
+      <div class="ins-section-label">{% trans "Additional info" %}</div>
       <textarea name="message" class="ins-input mb-4" rows="3"
-                placeholder="{% trans 'Расскажите подробнее о вашей ситуации, пожеланиях или вопросах...' %}"></textarea>
+                placeholder="{% trans 'Tell us more about your situation, wishes or questions...' %}"></textarea>
 
       <button type="submit" class="ins-submit-btn">
-        🛡️ {% trans "Отправить заявку" %}
+        🛡️ {% trans "Send request" %}
       </button>
     </form>
   </div>
@@ -466,10 +466,10 @@
   <div class="ins-tg-banner">
     <div class="ins-tg-banner__icon">✈️</div>
     <div class="ins-tg-banner__text">
-      <strong style="color:#fff;">{% trans "Заявка через Telegram" %}</strong><br>
-      {% trans "Вы также можете подать заявку через наш бот:" %}
+      <strong style="color:#fff;">{% trans "Request via Telegram" %}</strong><br>
+      {% trans "You can also submit a request via our bot:" %}
       <a href="https://t.me/{{ bot_name }}" target="_blank" rel="noopener">@{{ bot_name }}</a>
-      — {% trans "напишите" %} <code style="background:rgba(255,255,255,.1);padding:2px 6px;border-radius:4px;">/insurance</code>
+      — {% trans "write" %} <code style="background:rgba(255,255,255,.1);padding:2px 6px;border-radius:4px;">/insurance</code>
     </div>
   </div>
   {% endwith %}

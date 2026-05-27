@@ -14,19 +14,24 @@
     <meta name="apple-mobile-web-app-title" content="IESA">
     <meta name="theme-color" content="#0e0e18" id="meta-theme-color">
     <script>
-    /* BLOCK 13g (audit v3): Android Chrome theme-color + ранний preset темы (FOUC-fix).
-       Применяем data-theme="light" ДО рендеринга body чтобы избежать flash. */
+    /* FIX 2026-05-27: Принудительно тёмная тема для всех, кроме суперюзера.
+       Дефолт — dark (НЕ читаем prefers-color-scheme — пользователь явно требует).
+       Light доступна только если is_superuser=true И юзер сам кликнул toggle. */
     (function(){
-        var saved = localStorage.getItem('iesa-theme');
-        if (!saved) {
-          try { saved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
-          catch (e) { saved = 'dark'; }
+        var isSuperuser = {% if request.user.is_superuser %}true{% else %}false{% endif %};
+        var theme = 'dark';
+        if (isSuperuser) {
+            var saved = localStorage.getItem('iesa-theme');
+            if (saved === 'light') theme = 'light';
+        } else {
+            /* Не суперюзер — очищаем localStorage чтобы старые токены не активировали light */
+            try { localStorage.removeItem('iesa-theme'); } catch(e) {}
         }
-        if (saved === 'light') {
-          document.documentElement.setAttribute('data-theme', 'light');
+        if (theme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
         }
         var meta = document.getElementById('meta-theme-color');
-        if (meta) meta.setAttribute('content', saved === 'light' ? '#f8fafc' : '#0e0e18');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#f8fafc' : '#0e0e18');
     })();
     </script>
     
@@ -769,31 +774,30 @@
 
     {# BLOCK 13 (audit v3): light-theme стили вынесены в /static/css/light-theme.css #}
     <script>
-    /* BLOCK 13g (audit v3): Theme toggle с auto-detect prefers-color-scheme + smooth transition */
+    /* FIX 2026-05-27: Theme toggle — ТОЛЬКО для суперюзера.
+       Все остальные пользователи всегда видят тёмную тему. */
     (function(){
-      var saved = localStorage.getItem('iesa-theme');
-      /* Если пользователь не выбирал — берём системную тему */
-      if (!saved) {
-        try {
-          saved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-        } catch (e) { saved = 'dark'; }
-      }
-      if (saved === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light');
-        var ico = document.getElementById('theme-icon');
-        if (ico) { ico.className = 'fas fa-sun'; }
-        var tc0 = document.getElementById('meta-theme-color');
-        if (tc0) tc0.setAttribute('content', '#f8fafc');
-      }
+      var isSuperuser = {% if request.user.is_superuser %}true{% else %}false{% endif %};
+      /* Sync icon с текущей темой (ранний preset уже выставил data-theme) */
+      var current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      var ico = document.getElementById('theme-icon');
+      if (ico) ico.className = current === 'light' ? 'fas fa-sun' : 'fas fa-moon';
+
       var btn = document.getElementById('theme-toggle');
       if (!btn) return;
+      if (!isSuperuser) {
+        /* Скрываем кнопку для не-суперюзеров (защита если template-условие пропустили) */
+        btn.style.display = 'none';
+        return;
+      }
       btn.addEventListener('click', function(){
-        var current = document.documentElement.getAttribute('data-theme') || 'dark';
-        var next = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-theme', next);
+        var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+        var next = cur === 'dark' ? 'light' : 'dark';
+        if (next === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        else document.documentElement.removeAttribute('data-theme');
         localStorage.setItem('iesa-theme', next);
-        var ico = document.getElementById('theme-icon');
-        if (ico) ico.className = next === 'light' ? 'fas fa-sun' : 'fas fa-moon';
+        var ic = document.getElementById('theme-icon');
+        if (ic) ic.className = next === 'light' ? 'fas fa-sun' : 'fas fa-moon';
         var tc = document.getElementById('meta-theme-color');
         if (tc) tc.setAttribute('content', next === 'light' ? '#f8fafc' : '#0e0e18');
       });

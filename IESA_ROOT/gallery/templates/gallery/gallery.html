@@ -252,7 +252,7 @@
             <h5>{% trans "Your first shot goes here" %}</h5>
             {% if user.is_staff %}
             <p class="mb-4">{% trans "Upload photos from events or projects to showcase the community." %}</p>
-            <a href="/admin/gallery/photo/add/" class="btn hero-btn-p">
+            <a href="{% url 'admin:gallery_photo_add' %}" class="btn hero-btn-p">
                 <i class="fas fa-upload me-2"></i>{% trans "Upload Photos" %}
             </a>
             {% else %}
