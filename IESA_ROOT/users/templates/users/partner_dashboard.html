@@ -233,11 +233,11 @@
 
 {# ── Табы на мобиле: Today / Recent Clients ── #}
 <div class="dash-today-tabs" aria-label="{% trans 'Today' %}" style="display:none;margin-bottom:.75rem;">
-  <button class="dtt-btn dtt-btn--active" data-panel="today">
+  <button type="button" class="dtt-btn dtt-btn--active" data-panel="today">
     <i class="fas fa-bolt"></i> {% trans "Today's Visits" %}
     {% if today_visit_list %}<span class="dtt-badge">{{ today_visit_list|length }}</span>{% endif %}
   </button>
-  <button class="dtt-btn" data-panel="clients">
+  <button type="button" class="dtt-btn" data-panel="clients">
     <i class="fas fa-users"></i> {% trans "Recent Clients" %}
   </button>
 </div>

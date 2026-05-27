@@ -440,7 +440,7 @@
     <script src="{% static 'js/community-ui.js' %}"></script>
     
     <!-- Back to Top Button -->
-    <button id="back-to-top" aria-label="{% trans "Back to top" %}" title="{% trans "Back to top" %}">
+    <button type="button" id="back-to-top" aria-label="{% trans "Back to top" %}" title="{% trans "Back to top" %}">
         <i class="fas fa-arrow-up"></i>
     </button>
     
@@ -463,7 +463,7 @@
       <div style="font-size:.72rem;color:rgba(0,0,0,.45);margin-top:.25rem;font-family:monospace;">
         {% trans "Scan at partner location" %}
       </div>
-      <button id="qr-fs-close"
+      <button type="button" id="qr-fs-close"
               style="margin-top:2rem;padding:.55rem 1.5rem;background:rgba(0,0,0,.08);border:1.5px solid rgba(0,0,0,.12);border-radius:10px;color:#333;font-size:.85rem;font-weight:600;cursor:pointer;">
         <i class="fas fa-times me-1"></i>{% trans "Close" %}
       </button>
@@ -541,11 +541,11 @@
         {% trans "Get quick access to your PIN, QR code and partner portal without opening a browser." %}
       </p>
       <div style="display:flex;gap:.75rem;">
-        <button id="pwa-install-btn"
+        <button type="button" id="pwa-install-btn"
                 style="flex:1;padding:.65rem;background:var(--primary,#dc2626);border:none;border-radius:10px;color:#fff;font-size:.88rem;font-weight:700;cursor:pointer;">
           <i class="fas fa-download me-1"></i>{% trans "Install" %}
         </button>
-        <button id="pwa-install-dismiss"
+        <button type="button" id="pwa-install-dismiss"
                 style="padding:.65rem 1.1rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:10px;color:rgba(255,255,255,.55);font-size:.88rem;cursor:pointer;">
           {% trans "Not now" %}
         </button>
@@ -880,7 +880,7 @@
         {% if user.is_authenticated %}
 
         {% comment %}FIX 2026-05-23: единая центральная кнопка → универсальный action menu. Раньше 3 разных кнопки (QR/Visit/Actions) с разными sheets — давало "мёртвые" клики в edge-cases. Теперь один обработчик → одно меню → все действия в одном месте.{% endcomment %}
-        <button class="mbn-item mbn-center-btn mbn-qr-btn" id="mbn-center-btn"
+        <button type="button" class="mbn-item mbn-center-btn mbn-qr-btn" id="mbn-center-btn"
                 aria-label="{% trans 'Quick actions' %}"
                 title="{% trans 'Quick actions' %}">
             <i class="fas fa-qrcode"></i>

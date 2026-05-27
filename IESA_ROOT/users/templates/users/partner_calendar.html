@@ -204,7 +204,7 @@
 {% block partner_subtitle %}{{ partner.company_name }}{% endblock %}
 
 {% block partner_topbar_action %}
-<button class="dash-cta-btn" style="font-size:.82rem;cursor:pointer;"
+<button type="button" class="dash-cta-btn" style="font-size:.82rem;cursor:pointer;"
         onclick="openFormDrawer('{{ selected_day|date:'Y-m-d' }}', '')">
   <i class="fas fa-plus"></i> {% trans "Schedule Meeting" %}
 </button>
@@ -232,7 +232,7 @@
 {% endif %}
 
 {# ── 2g: Кнопка «Выбрать дату» (только мобиль) ── #}
-<button class="cal-mobile-date-btn" id="cal-mobile-date-btn" aria-label="{% trans 'Open date picker' %}">
+<button type="button" class="cal-mobile-date-btn" id="cal-mobile-date-btn" aria-label="{% trans 'Open date picker' %}">
   <span>
     <i class="fas fa-calendar-alt"></i>
     {{ selected_day|date:"l, d F Y" }}
@@ -244,7 +244,7 @@
 {# ── Оверлей мини-календаря (открывается по кнопке выше) ── #}
 <div class="cal-date-overlay" id="cal-date-overlay">
   <div class="cal-date-overlay-panel">
-    <button class="cal-date-overlay-close" id="cal-date-overlay-close">
+    <button type="button" class="cal-date-overlay-close" id="cal-date-overlay-close">
       <i class="fas fa-times"></i> {% trans "Close" %}
     </button>
     {# Копия левой панели: мини-календарь + список предстоящих #}
@@ -445,7 +445,7 @@
         <div class="cal-no-meetings-icon">📅</div>
         <div class="cal-no-meetings-title">{% trans "No meetings on this day" %}</div>
         <div class="cal-no-meetings-sub">{% trans "Click any time slot to schedule a meeting" %}</div>
-        <button class="cal-no-meetings-btn" onclick="openFormDrawer('{{ selected_day|date:'Y-m-d' }}', '')">
+        <button type="button" class="cal-no-meetings-btn" onclick="openFormDrawer('{{ selected_day|date:'Y-m-d' }}', '')">
           <i class="fas fa-plus"></i> {% trans "Schedule Meeting" %}
         </button>
       </div>
@@ -458,7 +458,7 @@
         <div class="cal-hour-row" data-hour="{{ hour }}">
           <div class="cal-hour-label">{{ hour|stringformat:"02d" }}:00</div>
           <div class="cal-hour-content" id="hour-{{ hour }}">
-            <button class="cal-hour-slot-btn"
+            <button type="button" class="cal-hour-slot-btn"
                onclick="openFormDrawer('{{ selected_day|date:'Y-m-d' }}', '{{ hour|stringformat:'02d' }}:00')">
               <i class="fas fa-plus" style="font-size:.65rem;margin-right:3px;"></i>
               {{ hour|stringformat:"02d" }}:00
@@ -490,7 +490,7 @@
           <i class="fas fa-calendar-plus" style="color:var(--primary);margin-right:.35rem;"></i>
           {% trans "Schedule Meeting" %}
         </div>
-        <button onclick="closeFormDrawer()" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:1.1rem;cursor:pointer;padding:.2rem .4rem;line-height:1;">✕</button>
+        <button type="button" onclick="closeFormDrawer()" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:1.1rem;cursor:pointer;padding:.2rem .4rem;line-height:1;">✕</button>
       </div>
         <form method="post">
           {% csrf_token %}
@@ -570,7 +570,7 @@
 <div id="meeting-popup" style="display:none;position:fixed;z-index:9999;background:#111118;border:1.5px solid rgba(255,255,255,.12);border-radius:14px;padding:1.1rem 1.3rem;max-width:300px;box-shadow:0 20px 50px rgba(0,0,0,.6);">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.65rem;">
     <div id="popup-title" style="font-size:.92rem;font-weight:700;color:#f1f5f9;"></div>
-    <button onclick="document.getElementById('meeting-popup').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:1rem;padding:0 0 0 .5rem;">✕</button>
+    <button type="button" onclick="document.getElementById('meeting-popup').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:1rem;padding:0 0 0 .5rem;">✕</button>
   </div>
   <div id="popup-member" style="font-size:.78rem;color:rgba(255,255,255,.5);margin-bottom:.4rem;"></div>
   <div id="popup-time"   style="font-size:.78rem;color:#f87171;font-family:var(--font-mono);margin-bottom:.4rem;"></div>

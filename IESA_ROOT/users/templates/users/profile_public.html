@@ -220,11 +220,11 @@
                 <div class="pp-card-dark">
                     <span class="pp-card-title">{% trans "LINKS" %}</span>
                     <div class="link-chips-pp">
-                        {% if user_obj.github_url %}<a href="{{ user_obj.github_url }}" target="_blank" class="link-chip-pp"><i class="fab fa-github"></i>GitHub</a>{% endif %}
-                        {% if user_obj.website_url %}<a href="{{ user_obj.website_url }}" target="_blank" class="link-chip-pp"><i class="fas fa-globe"></i>{% trans "Website" %}</a>{% endif %}
-                        {% if user_obj.telegram_url %}<a href="{{ user_obj.telegram_url }}" target="_blank" class="link-chip-pp" style="border-color:rgba(41,168,235,.25);color:#7dd3fc;"><i class="fab fa-telegram"></i>Telegram</a>{% endif %}
-                        {% if user_obj.discord_url %}<a href="{{ user_obj.discord_url }}" target="_blank" class="link-chip-pp" style="border-color:rgba(88,101,242,.25);color:#a5b4fc;"><i class="fab fa-discord"></i>Discord</a>{% endif %}
-                        {% if other_links_list %}{% for line in other_links_list %}<a href="{{ line }}" target="_blank" class="link-chip-pp"><i class="fas fa-link"></i>{{ line|slice:":22" }}</a>{% endfor %}{% endif %}
+                        {% if user_obj.github_url %}<a href="{{ user_obj.github_url }}" target="_blank" class="link-chip-pp" rel="noopener noreferrer"><i class="fab fa-github"></i>GitHub</a>{% endif %}
+                        {% if user_obj.website_url %}<a href="{{ user_obj.website_url }}" target="_blank" class="link-chip-pp" rel="noopener noreferrer"><i class="fas fa-globe"></i>{% trans "Website" %}</a>{% endif %}
+                        {% if user_obj.telegram_url %}<a href="{{ user_obj.telegram_url }}" target="_blank" class="link-chip-pp" style="border-color:rgba(41,168,235,.25);color:#7dd3fc;" rel="noopener noreferrer"><i class="fab fa-telegram"></i>Telegram</a>{% endif %}
+                        {% if user_obj.discord_url %}<a href="{{ user_obj.discord_url }}" target="_blank" class="link-chip-pp" style="border-color:rgba(88,101,242,.25);color:#a5b4fc;" rel="noopener noreferrer"><i class="fab fa-discord"></i>Discord</a>{% endif %}
+                        {% if other_links_list %}{% for line in other_links_list %}<a href="{{ line }}" target="_blank" class="link-chip-pp" rel="noopener noreferrer"><i class="fas fa-link"></i>{{ line|slice:":22" }}</a>{% endfor %}{% endif %}
                     </div>
                 </div>
                 {% endif %}
@@ -282,7 +282,7 @@
                     <span class="pp-card-title" style="color:#a5b4fc;">{% trans "YOUR PERMANENT ID" %}</span>
                     <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
                         <code id="permanent-{{ user_obj.permanent_id }}" style="background:rgba(255,255,255,.07);padding:.35rem .85rem;border-radius:8px;font-size:.9rem;color:#f1f5f9;letter-spacing:.05em;">{{ user_obj.permanent_id }}</code>
-                        <button class="link-chip-pp copy-id" data-copy="#permanent-{{ user_obj.permanent_id }}" title="{% trans "Copy ID" %}" style="border:none;cursor:pointer;"><i class="far fa-copy"></i>{% trans "Copy" %}</button>
+                        <button type="button" class="link-chip-pp copy-id" data-copy="#permanent-{{ user_obj.permanent_id }}" title="{% trans "Copy ID" %}" style="border:none;cursor:pointer;"><i class="far fa-copy"></i>{% trans "Copy" %}</button>
                     </div>
                 </div>
                 {% endif %}

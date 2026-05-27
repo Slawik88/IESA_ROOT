@@ -9,7 +9,7 @@
     {# Period pills #}
     <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
       {% for val, lbl in periods %}
-      <button class="vh-pill {% if period == val %}vh-pill--active{% endif %}"
+      <button type="button" class="vh-pill {% if period == val %}vh-pill--active{% endif %}"
               hx-get="{% url 'users:partner_visit_history' %}?period={{ val }}&status_f={{ status_f }}"
               hx-target="#visit-history-wrap"
               hx-swap="innerHTML"
@@ -21,15 +21,15 @@
 
     {# Status pills #}
     <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
-      <button class="vh-pill {% if status_f == '' %}vh-pill--active{% endif %}"
+      <button type="button" class="vh-pill {% if status_f == '' %}vh-pill--active{% endif %}"
               hx-get="{% url 'users:partner_visit_history' %}?period={{ period }}&status_f="
               hx-target="#visit-history-wrap" hx-swap="innerHTML">{% trans "All" %}</button>
-      <button class="vh-pill {% if status_f == 'verified' %}vh-pill--active{% endif %}"
+      <button type="button" class="vh-pill {% if status_f == 'verified' %}vh-pill--active{% endif %}"
               hx-get="{% url 'users:partner_visit_history' %}?period={{ period }}&status_f=verified"
               hx-target="#visit-history-wrap" hx-swap="innerHTML">
         <span style="color:#4ade80;">✓</span> {% trans "PIN verified" %}
       </button>
-      <button class="vh-pill {% if status_f == 'cancelled' %}vh-pill--active{% endif %}"
+      <button type="button" class="vh-pill {% if status_f == 'cancelled' %}vh-pill--active{% endif %}"
               hx-get="{% url 'users:partner_visit_history' %}?period={{ period }}&status_f=cancelled"
               hx-target="#visit-history-wrap" hx-swap="innerHTML">
         <span style="color:#f87171;">✗</span> {% trans "Cancelled" %}
@@ -113,7 +113,7 @@
 {% if visits.has_other_pages %}
 <div style="display:flex;align-items:center;justify-content:center;gap:.4rem;padding:1rem;border-top:1px solid rgba(255,255,255,.06);">
   {% if visits.has_previous %}
-  <button class="vh-page-btn"
+  <button type="button" class="vh-page-btn"
           hx-get="{% url 'users:partner_visit_history' %}?page={{ visits.previous_page_number }}&period={{ period }}&status_f={{ status_f }}"
           hx-target="#visit-history-wrap" hx-swap="innerHTML">‹</button>
   {% endif %}
@@ -121,13 +121,13 @@
     {% if visits.number == num %}
     <span style="padding:.35rem .75rem;border-radius:7px;background:var(--primary);color:#fff;font-size:.82rem;font-weight:700;">{{ num }}</span>
     {% elif num > visits.number|add:"-3" and num < visits.number|add:"3" %}
-    <button class="vh-page-btn"
+    <button type="button" class="vh-page-btn"
             hx-get="{% url 'users:partner_visit_history' %}?page={{ num }}&period={{ period }}&status_f={{ status_f }}"
             hx-target="#visit-history-wrap" hx-swap="innerHTML">{{ num }}</button>
     {% endif %}
   {% endfor %}
   {% if visits.has_next %}
-  <button class="vh-page-btn"
+  <button type="button" class="vh-page-btn"
           hx-get="{% url 'users:partner_visit_history' %}?page={{ visits.next_page_number }}&period={{ period }}&status_f={{ status_f }}"
           hx-target="#visit-history-wrap" hx-swap="innerHTML">›</button>
   {% endif %}

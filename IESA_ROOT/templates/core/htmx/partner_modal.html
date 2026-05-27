@@ -39,10 +39,10 @@
     <div class="contract-preview">
       <img loading="lazy" src="{{ partner.contract.url }}" alt="{% trans "Contract" %}" class="contract-image">
       <div class="contract-actions">
-        <a href="{{ partner.contract.url }}" target="_blank" download class="pm-btn-ghost">
+        <a href="{{ partner.contract.url }}" target="_blank" download class="pm-btn-ghost" rel="noopener noreferrer">
           <i class="fas fa-download me-1"></i>{% trans "Download" %}
         </a>
-        <a href="{{ partner.contract.url }}" target="_blank" class="pm-btn-ghost">
+        <a href="{{ partner.contract.url }}" target="_blank" class="pm-btn-ghost" rel="noopener noreferrer">
           <i class="fas fa-expand me-1"></i>{% trans "View Full Size" %}
         </a>
       </div>

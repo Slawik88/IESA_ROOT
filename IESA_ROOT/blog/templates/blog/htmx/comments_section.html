@@ -43,7 +43,7 @@
 
                 {# Кнопка «Показать ещё» если > 3 ответов #}
                 {% if reply_count > 3 %}
-                <button class="cm-show-more-btn"
+                <button type="button" class="cm-show-more-btn"
                         onclick="(function(btn){
                           var thread = btn.closest('.cm-thread');
                           var hidden = thread.querySelectorAll('.cm-reply-hidden');
@@ -73,7 +73,7 @@
 
                 {# Like button #}
                 <div id="comment-like-{{ comment.pk }}">
-                    <button class="cm-btn {% if comment_likes_map|get_item:comment.pk %}cm-btn--liked{% endif %}"
+                    <button type="button" class="cm-btn {% if comment_likes_map|get_item:comment.pk %}cm-btn--liked{% endif %}"
                             hx-post="{% url 'blog:toggle_comment_like' pk=post.pk comment_pk=comment.pk %}"
                             hx-target="#comment-like-{{ comment.pk }}"
                             hx-swap="outerHTML">
@@ -83,7 +83,7 @@
                 </div>
 
                 {# Reply button #}
-                <button class="cm-btn"
+                <button type="button" class="cm-btn"
                         data-bs-toggle="collapse"
                         data-bs-target="#reply-form-{{ comment.pk }}">
                     <i class="fas fa-reply"></i> {% trans "Reply" %}
@@ -139,7 +139,7 @@ document.querySelectorAll('[data-just-posted="true"]').forEach(card => {
     const commentPostedText = "{% trans "Comment posted." %}";
     const undoText = "{% trans "Undo in" %}";
     const secondsSuffix = "{% trans "s" %}";
-    notice.innerHTML = `<i class="fas fa-check-circle"></i>${commentPostedText} <button style="background:none;border:none;color:#4ade80;font-size:.78rem;cursor:pointer;padding:0;text-decoration:underline;">${undoText} <span class="countdown">4</span>${secondsSuffix}</button>`;
+    notice.innerHTML = `<i class="fas fa-check-circle"></i>${commentPostedText} <button type="button" style="background:none;border:none;color:#4ade80;font-size:.78rem;cursor:pointer;padding:0;text-decoration:underline;">${undoText} <span class="countdown">4</span>${secondsSuffix}</button>`;
     const body = card.querySelector('.cm-body');
     if (body) body.appendChild(notice);
     let seconds = 4;

@@ -847,7 +847,7 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{% trans "Close" %}</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{% trans "Close" %}</button>
                 </div>
             </div>
         </div>
@@ -890,7 +890,7 @@
                 </div>
                 <p class="pc-desc">{{ partner.description|striptags|truncatewords:12 }}</p>
                 <div class="pc-actions">
-                    <button class="pc-btn-d"
+                    <button type="button" class="pc-btn-d"
                         hx-get="{% url 'core:partner_detail' pk=partner.pk %}"
                         hx-target="#partner-modal-body"
                         data-bs-toggle="modal"
