@@ -118,8 +118,7 @@
                 {# ════ ДЕСКТОПНАЯ правая панель (только d-none d-lg-flex) ════ #}
                 <div class="iesa-nav-actions d-none d-lg-flex align-items-center">
 
-                    {# Тема — FIX 2026-05-27: переключатель ТОЛЬКО для суперюзера.
-                       Все остальные принудительно на тёмной теме. #}
+                    {# Тема — переключатель только для суперюзера #}
                     {% if request.user.is_superuser %}
                     <button id="theme-toggle" type="button"
                             class="btn-nav-icon"

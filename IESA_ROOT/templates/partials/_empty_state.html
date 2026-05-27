@@ -1,9 +1,9 @@
 {% load i18n %}
-{#
-  Unified Empty State Partial
-  Usage: {% include 'partials/_empty_state.html' with icon="fas fa-inbox" title="No items" subtitle="Description" action_url=url action_text="Create" action_icon="fas fa-plus" %}
-  All parameters are optional.
-#}
+{% comment %}
+Unified Empty State Partial
+Usage: {% include 'partials/_empty_state.html' with icon="fas fa-inbox" title="No items" subtitle="Description" action_url=url action_text="Create" action_icon="fas fa-plus" %}
+All parameters are optional.
+{% endcomment %}
 <div class="empty-state-wrap text-center" style="padding:2.5rem 1.5rem;">
   <div style="width:56px;height:56px;border-radius:16px;background:rgba(220,38,38,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
     <i class="{{ icon|default:'fas fa-inbox' }}" style="font-size:1.4rem;color:rgba(220,38,38,.65);"></i>
