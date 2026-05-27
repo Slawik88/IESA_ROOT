@@ -33,10 +33,15 @@
     <span class="icon">📶</span>
     <h1>{% trans "No Internet Connection" %}</h1>
     <p>{% trans "It looks like you're offline. Check your connection and try again." %}</p>
-    <button type="button" class="btn" onclick="window.location.reload()">
+    <button type="button" class="btn" id="offline-retry-btn">
       ↺ {% trans "Try again" %}
     </button>
     <p class="cached-hint">{% trans "Some pages may be available from cache." %}</p>
   </div>
+  <script>
+    document.getElementById('offline-retry-btn').addEventListener('click', function(){
+      window.location.reload();
+    });
+  </script>
 </body>
 </html>
