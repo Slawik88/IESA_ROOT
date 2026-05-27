@@ -359,7 +359,7 @@
                                        style="margin-top:.18rem;width:18px;height:18px;flex-shrink:0;accent-color:var(--primary);">
                                 <span>
                                     {% trans "I agree to become a member of IESA Sport and accept the" %}
-                                    <a href="{% url 'users:how_it_works' %}" target="_blank" style="color:#f87171;">{% trans "privacy policy" %}</a>.
+                                    <a href="{% url 'users:how_it_works' %}" target="_blank" style="color:#f87171;" rel="noopener noreferrer">{% trans "privacy policy" %}</a>.
                                     {% trans "After registration, the PIN-code is available immediately. The physical card is issued later upon request." %}
                                 </span>
                             </label>
@@ -417,8 +417,12 @@ function togglePw(btn){
     var submit  = document.getElementById('reg-submit-btn');
     if (!consent || !submit) return;
     function sync(){
+        /* FIX 2026-05-27: tri-state — блокируем только при явном false (не при null).
+           Пароль остаётся bool (sync проверка). */
         var V = window._regValidity || {};
-        var stepsOk = V.un && V.em && V.pw_strong && V.pw_match;
+        var unOk = V.un !== false;
+        var emOk = V.em !== false;
+        var stepsOk = unOk && emOk && V.pw_strong && V.pw_match;
         submit.disabled = !(consent.checked && stepsOk);
         submit.style.opacity = submit.disabled ? '.55' : '';
         submit.style.cursor  = submit.disabled ? 'not-allowed' : '';
@@ -432,10 +436,12 @@ function togglePw(btn){
 
 /* ── Multi-step registration (U2-04, BLOCK 5 audit v4) ─── */
 
-/* BLOCK 5 (audit v4): глобальный validity-state — обновляется live-валидацией,
-   читается multi-step navigation. */
+/* BLOCK 5 (audit v4) + FIX 2026-05-27: глобальный validity-state — tri-state.
+   null  = ещё не проверили / сеть упала (НЕ блокируем — server-side валидация поймает при submit)
+   true  = API подтвердил доступность
+   false = API подтвердил занятость (ТОЛЬКО это блокирует переход) */
 window._regValidity = window._regValidity || {
-    un: false, em: false,
+    un: null, em: null,
     pw_strong: false, pw_match: false,
 };
 
@@ -472,17 +478,24 @@ window._regValidity = window._regValidity || {
         updateButtonsState();
     }
 
-    /* BLOCK 5: проверка валидности шага — теперь использует _regValidity (live-check) */
+    /* BLOCK 5 + FIX 2026-05-27: tri-state валидация шага.
+       Разрешаем переход если поля валидны по формату — server-side валидация
+       поймёт реальные конфликты при submit. Блокируем только когда live-check
+       ЯВНО вернул занятость (V.x === false), но НЕ когда null (не проверили). */
     function isStepValid(n) {
         var V = window._regValidity;
         if (n === 1) {
             var u = document.getElementById('id_username');
             var e = document.getElementById('id_email');
-            /* Минимум: поля заполнены + live-check ok (или нет конфликтующих результатов) */
-            if (!u.value.trim() || !e.value.trim()) return false;
-            /* Если live-check вернул false (already taken / invalid) — блок */
-            if (V.un === false && u.value.trim().length >= 3) return false;
-            if (V.em === false && /\S+@\S+\.\S+/.test(e.value.trim())) return false;
+            var uv = u.value.trim();
+            var ev = e.value.trim();
+            /* Базовые требования: оба поля + формат */
+            if (!uv || !ev) return false;
+            if (uv.length < 3) return false;
+            if (!/\S+@\S+\.\S+/.test(ev)) return false;
+            /* Блок ТОЛЬКО при явном negative от API (null = неизвестно, пропускаем) */
+            if (V.un === false) return false;
+            if (V.em === false) return false;
             return true;
         }
         if (n === 2) {
@@ -593,29 +606,42 @@ window._regValidity = window._regValidity || {
     function checkUsername(val) {
         if (!val || val.length < 3) {
             setStatus(unStatus, unMsg, null, '{% trans "Username must be at least 3 characters" %}');
-            unOk = false; return;
+            /* FIX 2026-05-27: state = null когда длина < 3 (не блокируем кнопку явно, isStepValid сам проверит длину) */
+            if (window._regValidity) window._regValidity.un = null;
+            if (window._regUpdateButtonsState) window._regUpdateButtonsState();
+            return;
         }
-        setStatus(unStatus, unMsg, 'loading', '');
+        /* FIX 2026-05-27: loading state ВСЁ время пока fetch не вернётся */
+        setStatus(unStatus, unMsg, 'loading', '{% trans "Checking…" %}');
         clearTimeout(unTimer);
+        /* FIX 2026-05-27: debounce 300ms (раньше 500) — быстрее реагирует */
         unTimer = setTimeout(function () {
             fetch('{% url "users:username_available" %}?u=' + encodeURIComponent(val))
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
+                    /* FIX 2026-05-27: tri-state — null означает «неопределённость»,
+                       не блокируем кнопку (длина уже проверяется в isStepValid). */
+                    var newState = null;
                     if (d.available === true) {
                         setStatus(unStatus, unMsg, 'ok', '✓ {% trans "Available" %}');
-                        unOk = true;
+                        newState = true;
                     } else if (d.available === false) {
                         setStatus(unStatus, unMsg, 'err', '✗ {% trans "Username already taken" %}');
-                        unOk = false;
+                        newState = false;
                     } else {
                         setStatus(unStatus, unMsg, null, d.hint === 'min_length' ? '{% trans "At least 3 characters" %}' : '');
-                        unOk = false;
+                        newState = null;
                     }
-                    /* BLOCK 5 (audit v4): sync с глобальным state */
-                    if (window._regValidity) window._regValidity.un = unOk;
+                    if (window._regValidity) window._regValidity.un = newState;
                     if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-                }).catch(function () { setStatus(unStatus, unMsg, null, ''); });
-        }, 500);
+                }).catch(function () {
+                    /* FIX 2026-05-27: при network error — state = null (не блокируем кнопку,
+                       server-side validation поймает занятость при submit) */
+                    setStatus(unStatus, unMsg, null, '');
+                    if (window._regValidity) window._regValidity.un = null;
+                    if (window._regUpdateButtonsState) window._regUpdateButtonsState();
+                });
+        }, 300);
     }
 
     if (unInput) {
@@ -632,32 +658,48 @@ window._regValidity = window._regValidity || {
     var emailRe  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     function checkEmail(val) {
-        if (!val) { setStatus(emStatus, emMsg, null, ''); emOk = false; return; }
+        if (!val) {
+            setStatus(emStatus, emMsg, null, '');
+            if (window._regValidity) window._regValidity.em = null;
+            if (window._regUpdateButtonsState) window._regUpdateButtonsState();
+            return;
+        }
         if (!emailRe.test(val)) {
             setStatus(emStatus, emMsg, 'err', '✗ {% trans "Invalid email format" %}');
-            emOk = false; return;
+            /* FIX 2026-05-27: формат проверяется в isStepValid отдельно — state = null */
+            if (window._regValidity) window._regValidity.em = null;
+            if (window._regUpdateButtonsState) window._regUpdateButtonsState();
+            return;
         }
-        setStatus(emStatus, emMsg, 'loading', '');
+        /* FIX 2026-05-27: persistent loading */
+        setStatus(emStatus, emMsg, 'loading', '{% trans "Checking…" %}');
         clearTimeout(emTimer);
+        /* FIX 2026-05-27: debounce 300ms */
         emTimer = setTimeout(function () {
             fetch('{% url "users:email_available" %}?e=' + encodeURIComponent(val))
                 .then(function (r) { return r.json(); })
                 .then(function (d) {
+                    /* FIX 2026-05-27: tri-state — формат проверяется в isStepValid. */
+                    var newState = null;
                     if (d.available === true) {
                         setStatus(emStatus, emMsg, 'ok', '✓ {% trans "Email available" %}');
-                        emOk = true;
+                        newState = true;
                     } else if (d.available === false) {
                         setStatus(emStatus, emMsg, 'err', '✗ {% trans "This email is already registered" %}');
-                        emOk = false;
+                        newState = false;
                     } else {
                         setStatus(emStatus, emMsg, 'err', '✗ {% trans "Invalid email format" %}');
-                        emOk = false;
+                        newState = null;
                     }
-                    /* BLOCK 5 (audit v4): sync с глобальным state */
-                    if (window._regValidity) window._regValidity.em = emOk;
+                    if (window._regValidity) window._regValidity.em = newState;
                     if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-                }).catch(function () { setStatus(emStatus, emMsg, null, ''); });
-        }, 600);
+                }).catch(function () {
+                    /* FIX 2026-05-27: при network error — state = null */
+                    setStatus(emStatus, emMsg, null, '');
+                    if (window._regValidity) window._regValidity.em = null;
+                    if (window._regUpdateButtonsState) window._regUpdateButtonsState();
+                });
+        }, 300);
     }
 
     if (emInput) {

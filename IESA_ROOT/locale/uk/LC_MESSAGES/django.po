@@ -5544,6 +5544,9 @@ msgstr "Знову<br><span>вітаємо</span>"
 msgid "Today"
 msgstr "Сьогодні"
 
+msgid "Checking…"
+msgstr "Перевіряємо…"
+
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
 

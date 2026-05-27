@@ -508,7 +508,7 @@
                     <div class="sn">1</div>
                     <span>
                     {% if telegram_bot_name %}
-                        {% trans "Open" %} <a href="https://t.me/{{ telegram_bot_name }}" target="_blank">@{{ telegram_bot_name }}</a> {% trans "in Telegram" %}
+                        {% trans "Open" %} <a href="https://t.me/{{ telegram_bot_name }}" target="_blank" rel="noopener noreferrer">@{{ telegram_bot_name }}</a> {% trans "in Telegram" %}
                     {% else %}
                         {% trans "Open the IESA Sport bot in Telegram" %}
                     {% endif %}

@@ -744,11 +744,11 @@
         </div>
       </div>
 
-      <button class="onb-btn-primary" id="onb-start-btn">
+      <button type="button" class="onb-btn-primary" id="onb-start-btn">
         <i class="fas fa-arrow-right"></i> {% trans "Let's get started!" %}
       </button>
       <br>
-      <button class="onb-btn-skip" id="onb-skip-btn">{% trans "Skip for now" %}</button>
+      <button type="button" class="onb-btn-skip" id="onb-skip-btn">{% trans "Skip for now" %}</button>
     </div>
   </div>
   {% endif %}
@@ -764,7 +764,7 @@
           {{ profile_completeness.percent }}%
         </span>
         {% trans "complete" %}
-        <button class="pcp-toggle" id="pcp-toggle-btn" aria-label="{% trans 'Show steps' %}">
+        <button type="button" class="pcp-toggle" id="pcp-toggle-btn" aria-label="{% trans 'Show steps' %}">
           <i class="fas fa-chevron-down" id="pcp-chevron"></i>
         </button>
       </span>
@@ -968,16 +968,16 @@
           <p class="cab-card-title">{% trans "Links" %}</p>
           <div class="link-chips">
             {% if profile_user.github_url %}
-              <a href="{{ profile_user.github_url }}" target="_blank" class="link-chip"><i class="fab fa-github"></i> GitHub</a>
+              <a href="{{ profile_user.github_url }}" target="_blank" class="link-chip" rel="noopener noreferrer"><i class="fab fa-github"></i> GitHub</a>
             {% endif %}
             {% if profile_user.website_url %}
-              <a href="{{ profile_user.website_url }}" target="_blank" class="link-chip"><i class="fas fa-globe"></i> {% trans "Website" %}</a>
+              <a href="{{ profile_user.website_url }}" target="_blank" class="link-chip" rel="noopener noreferrer"><i class="fas fa-globe"></i> {% trans "Website" %}</a>
             {% endif %}
             {% if profile_user.telegram_url %}
-              <a href="{{ profile_user.telegram_url }}" target="_blank" class="link-chip"><i class="fab fa-telegram"></i> Telegram</a>
+              <a href="{{ profile_user.telegram_url }}" target="_blank" class="link-chip" rel="noopener noreferrer"><i class="fab fa-telegram"></i> Telegram</a>
             {% endif %}
             {% if profile_user.discord_url %}
-              <a href="{{ profile_user.discord_url }}" target="_blank" class="link-chip"><i class="fab fa-discord"></i> Discord</a>
+              <a href="{{ profile_user.discord_url }}" target="_blank" class="link-chip" rel="noopener noreferrer"><i class="fab fa-discord"></i> Discord</a>
             {% endif %}
           </div>
         </div>

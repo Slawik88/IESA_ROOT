@@ -11,7 +11,7 @@
 </style>
 
 <div id="like-button-container" class="engage-chip">
-    <button class="btn engage-btn {% if is_liked %}engage-btn--active{% endif %}"
+    <button type="button" class="btn engage-btn {% if is_liked %}engage-btn--active{% endif %}"
             hx-post="{% url 'blog:like_post' pk=post.pk %}"
             hx-target="#like-button-container"
             hx-swap="outerHTML"

@@ -5563,6 +5563,9 @@ msgstr "Effacer"
 msgid "Today"
 msgstr "Aujourd'hui"
 
+msgid "Checking…"
+msgstr "Vérification…"
+
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Le sport extrême comme manière de penser et de vivre"
 
