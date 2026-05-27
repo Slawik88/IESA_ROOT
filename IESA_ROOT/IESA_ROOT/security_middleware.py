@@ -30,7 +30,7 @@ class SecurityHeadersMiddleware:
         "style-src 'self' 'unsafe-inline' "
         "https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
         "img-src 'self' data: blob: https: ",
-        "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com",
+        "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
         # connect-src: HTMX requests + map tiles + наш API
         "connect-src 'self' https://api.telegram.org https://*.tile.openstreetmap.org",
         "media-src 'self' data: blob:",

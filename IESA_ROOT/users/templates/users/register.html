@@ -606,14 +606,14 @@ window._regValidity = window._regValidity || {
 
     function checkUsername(val) {
         if (!val || val.length < 3) {
-            setStatus(unStatus, unMsg, null, '{% trans "Username must be at least 3 characters" %}');
+            setStatus(unStatus, unMsg, null, '{% filter escapejs %}{% trans "Username must be at least 3 characters" %}{% endfilter %}');
             /* FIX 2026-05-27: state = null когда длина < 3 (не блокируем кнопку явно, isStepValid сам проверит длину) */
             if (window._regValidity) window._regValidity.un = null;
             if (window._regUpdateButtonsState) window._regUpdateButtonsState();
             return;
         }
         /* FIX 2026-05-27: loading state ВСЁ время пока fetch не вернётся */
-        setStatus(unStatus, unMsg, 'loading', '{% trans "Checking…" %}');
+        setStatus(unStatus, unMsg, 'loading', '{% filter escapejs %}{% trans "Checking…" %}{% endfilter %}');
         clearTimeout(unTimer);
         /* FIX 2026-05-27: debounce 300ms (раньше 500) — быстрее реагирует */
         unTimer = setTimeout(function () {
@@ -624,13 +624,13 @@ window._regValidity = window._regValidity || {
                        не блокируем кнопку (длина уже проверяется в isStepValid). */
                     var newState = null;
                     if (d.available === true) {
-                        setStatus(unStatus, unMsg, 'ok', '✓ {% trans "Available" %}');
+                        setStatus(unStatus, unMsg, 'ok', '✓ {% filter escapejs %}{% trans "Available" %}{% endfilter %}');
                         newState = true;
                     } else if (d.available === false) {
-                        setStatus(unStatus, unMsg, 'err', '✗ {% trans "Username already taken" %}');
+                        setStatus(unStatus, unMsg, 'err', '✗ {% filter escapejs %}{% trans "Username already taken" %}{% endfilter %}');
                         newState = false;
                     } else {
-                        setStatus(unStatus, unMsg, null, d.hint === 'min_length' ? '{% trans "At least 3 characters" %}' : '');
+                        setStatus(unStatus, unMsg, null, d.hint === 'min_length' ? '{% filter escapejs %}{% trans "At least 3 characters" %}{% endfilter %}' : '');
                         newState = null;
                     }
                     if (window._regValidity) window._regValidity.un = newState;
@@ -666,14 +666,14 @@ window._regValidity = window._regValidity || {
             return;
         }
         if (!emailRe.test(val)) {
-            setStatus(emStatus, emMsg, 'err', '✗ {% trans "Invalid email format" %}');
+            setStatus(emStatus, emMsg, 'err', '✗ {% filter escapejs %}{% trans "Invalid email format" %}{% endfilter %}');
             /* FIX 2026-05-27: формат проверяется в isStepValid отдельно — state = null */
             if (window._regValidity) window._regValidity.em = null;
             if (window._regUpdateButtonsState) window._regUpdateButtonsState();
             return;
         }
         /* FIX 2026-05-27: persistent loading */
-        setStatus(emStatus, emMsg, 'loading', '{% trans "Checking…" %}');
+        setStatus(emStatus, emMsg, 'loading', '{% filter escapejs %}{% trans "Checking…" %}{% endfilter %}');
         clearTimeout(emTimer);
         /* FIX 2026-05-27: debounce 300ms */
         emTimer = setTimeout(function () {
@@ -683,13 +683,13 @@ window._regValidity = window._regValidity || {
                     /* FIX 2026-05-27: tri-state — формат проверяется в isStepValid. */
                     var newState = null;
                     if (d.available === true) {
-                        setStatus(emStatus, emMsg, 'ok', '✓ {% trans "Email available" %}');
+                        setStatus(emStatus, emMsg, 'ok', '✓ {% filter escapejs %}{% trans "Email available" %}{% endfilter %}');
                         newState = true;
                     } else if (d.available === false) {
-                        setStatus(emStatus, emMsg, 'err', '✗ {% trans "This email is already registered" %}');
+                        setStatus(emStatus, emMsg, 'err', '✗ {% filter escapejs %}{% trans "This email is already registered" %}{% endfilter %}');
                         newState = false;
                     } else {
-                        setStatus(emStatus, emMsg, 'err', '✗ {% trans "Invalid email format" %}');
+                        setStatus(emStatus, emMsg, 'err', '✗ {% filter escapejs %}{% trans "Invalid email format" %}{% endfilter %}');
                         newState = null;
                     }
                     if (window._regValidity) window._regValidity.em = newState;
@@ -723,10 +723,10 @@ window._regValidity = window._regValidity || {
     };
 
     var LEVELS = [
-        { label: '{% trans "Too weak" %}',  color: '#f87171',  pct: 25  },
-        { label: '{% trans "Fair" %}',      color: '#fbbf24',  pct: 50  },
-        { label: '{% trans "Strong" %}',    color: '#34d399',  pct: 75  },
-        { label: '{% trans "Very strong" %}', color: '#4ade80', pct: 100 },
+        { label: '{% filter escapejs %}{% trans "Too weak" %}{% endfilter %}',  color: '#f87171',  pct: 25  },
+        { label: '{% filter escapejs %}{% trans "Fair" %}{% endfilter %}',      color: '#fbbf24',  pct: 50  },
+        { label: '{% filter escapejs %}{% trans "Strong" %}{% endfilter %}',    color: '#34d399',  pct: 75  },
+        { label: '{% filter escapejs %}{% trans "Very strong" %}{% endfilter %}', color: '#4ade80', pct: 100 },
     ];
 
     function checkPassword(val) {
@@ -764,7 +764,7 @@ window._regValidity = window._regValidity || {
         }
         var match = pw1.value === pw2.value;
         if (pwMatch) {
-            pwMatch.textContent = match ? '✓ {% trans "Passwords match" %}' : '✗ {% trans "Passwords do not match" %}';
+            pwMatch.textContent = match ? '✓ {% filter escapejs %}{% trans "Passwords match" %}{% endfilter %}' : '✗ {% filter escapejs %}{% trans "Passwords do not match" %}{% endfilter %}';
             pwMatch.style.color = match ? '#4ade80' : '#f87171';
         }
         /* BLOCK 5: sync с глобальным state */
