@@ -533,18 +533,19 @@ window._regValidity = window._regValidity || {
         }
     }
 
-    /* BLOCK 5: дисэйблим кнопку Continue/Submit когда шаг не валиден */
+    /* FIX 2026-05-27 v2: НЕ дисэйблим кнопку Continue — позволяем клик всегда.
+       При невалидности на клик markInvalid() покажет ошибку рядом с полем.
+       Раньше disabled=true ломал клик-event-delegation, и кнопка казалась
+       "не реагирующей". Также autofill браузера не триггерит input-event,
+       и кнопка оставалась disabled навсегда. */
     function updateButtonsState() {
-        var btns = document.querySelectorAll('[data-next], [type="submit"].reg-submit');
+        var btns = document.querySelectorAll('[data-next]');
+        var ok = isStepValid(currentStep);
         btns.forEach(function(b){
-            var ok = isStepValid(currentStep);
-            if (b.matches('[data-next]')) {
-                b.disabled = !ok;
-                b.style.opacity = ok ? '' : '.55';
-                b.style.cursor  = ok ? '' : 'not-allowed';
-            }
-            /* reg-submit — финальная submit-кнопка (шаг 3) — управляется чекбоксом
-               consent в отдельном замыкании ниже + наш isStepValid(3) учитывает её */
+            /* НЕ ставим disabled — кнопка всегда кликабельна.
+               Просто меняем визуальную «активность». */
+            b.disabled = false;
+            b.style.opacity = ok ? '' : '.65';
         });
     }
 
