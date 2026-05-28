@@ -77,7 +77,9 @@ class ProfileView(DetailView):
         ).order_by('-created_at').first()
 
         # ── Онбординг (Block 1) ───────────────────────────────────────
-        context['show_welcome']         = not user.onboarded
+        # FIX 2026-05-28: welcome-модалка заменена на interactive tour ниже.
+        # show_welcome всегда False — модалка не показывается.
+        context['show_welcome']         = False
         context['profile_completeness'] = user.profile_completeness
         context['show_quick_actions']   = context['total_visits'] < 3
 
@@ -87,6 +89,12 @@ class ProfileView(DetailView):
         tours = user.tours_completed or {}
         context['show_tour'] = not tours.get('user', False)
         context['tour_name'] = 'user'
+
+        # Если показываем тур — заодно помечаем onboarded=True, чтобы
+        # старая welcome-модалка точно никогда не всплыла.
+        if context['show_tour'] and not user.onboarded:
+            user.onboarded = True
+            user.save(update_fields=['onboarded'])
 
         return context
 

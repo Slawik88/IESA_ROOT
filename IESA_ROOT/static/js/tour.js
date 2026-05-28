@@ -80,7 +80,20 @@
         var step = data.steps[idx];
         if (!step) return finishTour(true);
 
-        var el = step.selector ? document.querySelector(step.selector) : null;
+        // ── CENTERED step (нет selector или selector='center') ───────
+        // Используется для welcome/finish шагов — tooltip по центру экрана,
+        // подсветки нет, оверлей затемнён.
+        if (!step.selector || step.selector === 'center') {
+            spotlight.classList.remove('visible');
+            spotlight.style.width = '0';
+            spotlight.style.height = '0';
+            overlay.classList.add('visible');
+            renderTipContent(idx, step);
+            positionTipCentered();
+            return;
+        }
+
+        var el = document.querySelector(step.selector);
         if (!el) {
             // Селектор не найден — пропускаем шаг
             return nextStep();
@@ -92,10 +105,17 @@
         if (rect.top < 80 || rect.bottom > vh - 80) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             // Подождать прокрутку и пере-вычислить позицию
-            setTimeout(function () { positionUI(el, step); }, 400);
-        } else {
-            positionUI(el, step);
+            setTimeout(function () {
+                renderTipContent(idx, step);
+                positionUI(el, step);
+            }, 400);
+            return;
         }
+        renderTipContent(idx, step);
+        positionUI(el, step);
+    }
+
+    function renderTipContent(idx, step) {
 
         // Build tooltip content
         var stepLabel = (idx + 1) + ' ' + (data.labels.of || 'of') + ' ' + data.steps.length;
@@ -133,6 +153,19 @@
             finishTour(true);
         });
         tip.querySelector('.iesa-tour-btn').addEventListener('click', nextStep);
+    }
+
+    function positionTipCentered() {
+        // Tooltip по центру экрана — используется для welcome/finish шагов.
+        // Mobile: CSS-правила (.iesa-tour-tip) переопределяют left/right.
+        var tipW = Math.min(380, window.innerWidth - 32);
+        var tipH = tip.offsetHeight || 220;
+        var top  = Math.max(16, (window.innerHeight - tipH) / 2);
+        var left = Math.max(16, (window.innerWidth - tipW) / 2);
+        tip.style.top  = top + 'px';
+        tip.style.left = left + 'px';
+        tip.setAttribute('data-pos', 'center');
+        tip.classList.add('visible');
     }
 
     function positionUI(el, step) {
@@ -230,7 +263,12 @@
         var rePosition = function () {
             var step = data.steps[current];
             if (!step) return;
-            var el = step.selector ? document.querySelector(step.selector) : null;
+            // Centered step (welcome/finish) — без selector или с 'center'
+            if (!step.selector || step.selector === 'center') {
+                positionTipCentered();
+                return;
+            }
+            var el = document.querySelector(step.selector);
             if (el) positionUI(el, step);
         };
         window.addEventListener('resize', rePosition);
@@ -240,7 +278,8 @@
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', start);
     } else {
-        // Дать странице отрисоваться + анимациям доехать
-        setTimeout(start, 500);
+        // FIX 2026-05-28: запускаемся сразу, без задержки. Welcome-модалка
+        // больше не показывается, ждать её появления/закрытия не нужно.
+        start();
     }
 })();
