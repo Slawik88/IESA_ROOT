@@ -282,6 +282,9 @@ def admin_analytics(request):
         'recent_users': recent_users,
         'recent_posts': recent_posts,
         'recent_visits': recent_visits,
+        # Interactive tour (2026-05-27) — для президента
+        'show_tour': request.user.is_authenticated and not (request.user.tours_completed or {}).get('president', False),
+        'tour_name': 'president',
     })
 
 

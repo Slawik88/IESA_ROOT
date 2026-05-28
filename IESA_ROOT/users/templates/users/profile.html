@@ -483,11 +483,11 @@
         </div>
       </div>
       <div class="hero-actions">
-        <a href="{% url 'users:profile_edit' %}" class="btn-cab-primary">
+        <a href="{% url 'users:profile_edit' %}" class="btn-cab-primary" data-tour="edit-profile">
           <i class="fas fa-pencil-alt"></i> {% trans "Edit Profile" %}
         </a>
         {% if profile_user.permanent_id %}
-          <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn-cab-outline">
+          <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn-cab-outline" data-tour="qr">
             <i class="fas fa-qrcode"></i> {% trans "QR Code" %}
           </a>
         {% endif %}
@@ -1119,7 +1119,7 @@
 
           {% if current_pin %}
           {# BLOCK 8 (audit v4): отображение PIN-кода большими цифрами с обратным отсчётом #}
-          <div class="pin-display-card">
+          <div class="pin-display-card" data-tour="pin">
             <div class="pin-display-label">
               <i class="fas fa-fingerprint" aria-hidden="true"></i>
               {% trans "Your current PIN" %}
@@ -1818,4 +1818,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 })();
 </script>
+
+{# Interactive tour for new members (2026-05-27) #}
+{% include 'partials/_tour.html' %}
 {% endblock %}

@@ -84,6 +84,8 @@ def partner_dashboard(request):
 
     page_obj = Paginator(visits, 15).get_page(request.GET.get('page'))
     now = timezone.now()
+    # Interactive tour (2026-05-27) — показываем при первом заходе партнёра
+    _tours = request.user.tours_completed or {}
     context = {
         'partner': partner, 'search_form': search_form, 'search_results': search_results,
         'visits': page_obj, 'total_visits': total_visits, 'verified_visits': verified_visits,
@@ -92,6 +94,8 @@ def partner_dashboard(request):
         'recent_members': recent_members, 'now': now,
         'edit_window': EDIT_WINDOW,
         'edit_window_cutoff': now - timezone.timedelta(seconds=EDIT_WINDOW),
+        'show_tour': not _tours.get('partner', False),
+        'tour_name': 'partner',
     }
     if request.headers.get('HX-Request'):
         return render(request, 'users/partials/partner_search_results.html', context)

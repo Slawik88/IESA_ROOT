@@ -72,7 +72,8 @@ from .insurance import insurance_agent_request
 
 # ── Onboarding (Block 1) ──────────────────────────────────────────────────────
 from .onboarding import (
-    mark_onboarded, username_available, email_available,
+    mark_onboarded, mark_tour_completed,
+    username_available, email_available,
     how_it_works, member_autocomplete, profile_field_save,
 )
 

@@ -189,6 +189,14 @@ class User(AbstractUser):
         help_text=_('True после того как пользователь прошёл welcome-modal'),
     )
 
+    # Interactive tours completion state (Tour system 2026-05-27)
+    # JSON: {"user": true, "partner": false, "president": false}
+    tours_completed = models.JSONField(
+        default=dict, blank=True,
+        verbose_name=_('Tours Completed'),
+        help_text=_('Tracks which interactive tours user has finished'),
+    )
+
     # Custom manager with search() support
     objects = UserManager()
 

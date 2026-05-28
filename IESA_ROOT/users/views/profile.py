@@ -81,6 +81,13 @@ class ProfileView(DetailView):
         context['profile_completeness'] = user.profile_completeness
         context['show_quick_actions']   = context['total_visits'] < 3
 
+        # ── Interactive tour (2026-05-27) ─────────────────────────────
+        # Показываем "user" тур если он ещё не пройден.
+        # Партнёры/президенты увидят свои туры на соответствующих страницах.
+        tours = user.tours_completed or {}
+        context['show_tour'] = not tours.get('user', False)
+        context['tour_name'] = 'user'
+
         return context
 
 

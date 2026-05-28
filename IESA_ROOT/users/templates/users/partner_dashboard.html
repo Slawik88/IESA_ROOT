@@ -68,6 +68,7 @@
 
 {% block partner_topbar_action %}
 <a href="{% url 'users:partner_analytics' %}"
+   data-tour="analytics"
    style="display:inline-flex;align-items:center;gap:.45rem;padding:.42rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:rgba(255,255,255,.7);font-size:.82rem;text-decoration:none;transition:background .15s;"
    onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='rgba(255,255,255,.07)'">
   <i class="fas fa-chart-bar"></i> {% trans "Analytics" %}
@@ -208,6 +209,7 @@
             <div style="font-size:.78rem;color:rgba(255,255,255,.38);margin-bottom:.75rem;">@{{ u.username }}</div>
             <div style="display:flex;gap:.5rem;">
               <a href="{% url 'users:log_visit' u.pk %}"
+                 data-tour="log-visit"
                  style="flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.45rem;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.25);border-radius:8px;color:#f87171;font-size:.8rem;font-weight:700;text-decoration:none;transition:background .15s;">
                 <i class="fas fa-plus"></i> {% trans "Log Visit" %}
               </a>
@@ -414,6 +416,7 @@
 <div class="dash-fab-wrap" id="dash-fab">
   <a href="{% url 'users:partner_calendar' %}"
      class="fab-main"
+     data-tour="calendar"
      aria-label="{% trans 'Schedule a new meeting' %}"
      title="{% trans 'New Meeting' %}">
     <i class="fas fa-calendar-plus"></i>
@@ -522,4 +525,7 @@
   document.addEventListener('DOMContentLoaded', initTabs);
 })();
 </script>
+
+{# Interactive tour for new partners (2026-05-27) #}
+{% include 'partials/_tour.html' %}
 {% endblock %}

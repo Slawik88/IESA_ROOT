@@ -78,4 +78,7 @@ urlpatterns = [
     path('how-it-works/',                  views.how_it_works,        name='how_it_works'),
     path('partner/member-autocomplete/',   views.member_autocomplete, name='member_autocomplete'),
     path('profile/field-save/',            views.profile_field_save,  name='profile_field_save'),
+
+    # Interactive tour completion (Tour system 2026-05-27)
+    path('tour/<str:tour_name>/complete/', views.mark_tour_completed, name='mark_tour_completed'),
 ]
