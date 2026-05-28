@@ -31,7 +31,9 @@ class StaticViewSitemap(Sitemap):
     changefreq = "monthly"
     
     def items(self):
-        return ['home', 'blog:post_list', 'blog:event_list', 'products:product_list', 'gallery:gallery']
+        # FIX 2026-05-28: 'home' → 'core:home' (правильное URL name из core/urls.py).
+        # Раньше при каждом hit sitemap.xml логировался warning.
+        return ['core:home', 'blog:post_list', 'blog:event_list', 'products:product_list', 'gallery:gallery']
     
     def location(self, item):
         try:
