@@ -5564,6 +5564,242 @@ msgstr "Sie können auch über unseren Bot einen Antrag stellen:"
 msgid "write"
 msgstr "schreiben Sie"
 
+msgid "Got it"
+msgstr "Verstanden"
+
+msgid "Skip"
+msgstr "Überspringen"
+
+msgid "Done"
+msgstr "Fertig"
+
+msgid ""
+"Let us walk you through the key features. Click 'Got it' to continue or "
+"'Skip' to close."
+msgstr ""
+"Wir zeigen Ihnen die wichtigsten Funktionen. Klicken Sie auf „Verstanden\", "
+"um fortzufahren, oder „Überspringen\", um zu schließen."
+
+msgid "Your PIN code"
+msgstr "Ihr PIN-Code"
+
+msgid ""
+"This 6-digit code is your access pass. Show it to staff at any IESA partner "
+"location to log your visit. It refreshes automatically every 12 minutes."
+msgstr ""
+"Dieser 6-stellige Code ist Ihr Zugangspass. Zeigen Sie ihn dem Personal in "
+"jedem IESA-Partnerort, um Ihren Besuch zu erfassen. Er wird automatisch alle"
+" 12 Minuten erneuert."
+
+msgid "Your digital membership card"
+msgstr "Ihre digitale Mitgliedskarte"
+
+msgid ""
+"Your unique ID and QR-code. Partners can scan it for quick identification, "
+"or you can show this card on your phone."
+msgstr ""
+"Ihre eindeutige ID und QR-Code. Partner können ihn zur schnellen "
+"Identifikation scannen oder Sie können diese Karte auf Ihrem Telefon zeigen."
+
+msgid "Edit your profile"
+msgstr "Bearbeiten Sie Ihr Profil"
+
+msgid ""
+"Click here anytime to update your name, photo, contact details and social "
+"links. A complete profile helps the community find you."
+msgstr ""
+"Klicken Sie hier jederzeit, um Ihren Namen, Ihr Foto, Kontaktdaten und "
+"Soziale-Media-Links zu aktualisieren. Ein vollständiges Profil hilft der "
+"Community, Sie zu finden."
+
+msgid "Your activity & points"
+msgstr "Ihre Aktivität & Punkte"
+
+msgid ""
+"Earn points for visits, posts, likes and comments. Higher activity level "
+"unlocks new perks and badges."
+msgstr ""
+"Sammeln Sie Punkte für Besuche, Beiträge, Likes und Kommentare. Ein höheres "
+"Aktivitätsniveau schaltet neue Vorteile und Abzeichen frei."
+
+msgid "Your visit history"
+msgstr "Ihre Besuchshistorie"
+
+msgid ""
+"All your partner visits appear here. Each visit earns points and contributes"
+" to your activity level."
+msgstr ""
+"Alle Ihre Partnerbesuche erscheinen hier. Jeder Besuch bringt Punkte und "
+"trägt zu Ihrem Aktivitätsniveau bei."
+
+msgid "Want to become a partner?"
+msgstr "Möchten Sie Partner werden?"
+
+msgid ""
+"If you run a gym, clinic, shop or other business — submit a request to "
+"become an IESA partner. You will get tools to log member visits, see "
+"analytics and grow your client base."
+msgstr ""
+"Wenn Sie ein Fitnessstudio, eine Klinik, ein Geschäft oder ein anderes "
+"Unternehmen betreiben — reichen Sie einen Antrag ein, um IESA-Partner zu "
+"werden. Sie erhalten Tools zur Erfassung von Mitgliederbesuchen, zur Anzeige"
+" von Analytik und zum Ausbau Ihres Kundenstamms."
+
+msgid "All set!"
+msgstr "Alles bereit!"
+
+msgid ""
+"You are ready to explore IESA Sport. Visit a partner, write a post, follow "
+"other members. Have fun!"
+msgstr ""
+"Sie sind bereit, IESA Sport zu erkunden. Besuchen Sie einen Partner, "
+"schreiben Sie einen Beitrag, folgen Sie anderen Mitgliedern. Viel Spaß!"
+
+msgid "Welcome to the Partner Portal!"
+msgstr "Willkommen im Partner-Portal!"
+
+msgid ""
+"Congratulations on becoming an IESA partner. Let us show you around your "
+"dashboard."
+msgstr ""
+"Herzlichen Glückwunsch zum IESA-Partner. Wir zeigen Ihnen Ihr Dashboard."
+
+msgid "Log a member visit"
+msgstr "Mitgliederbesuch erfassen"
+
+msgid ""
+"When an IESA member visits your business — click here to record it. Ask them"
+" for their 6-digit PIN code."
+msgstr ""
+"Wenn ein IESA-Mitglied Ihr Unternehmen besucht — klicken Sie hier, um es zu "
+"erfassen. Bitten Sie um den 6-stelligen PIN-Code."
+
+msgid "Today's statistics"
+msgstr "Heutige Statistik"
+
+msgid ""
+"Live counter of today's visits and revenue. Updates automatically when you "
+"log a new visit."
+msgstr ""
+"Live-Zähler der heutigen Besuche und Einnahmen. Aktualisiert automatisch "
+"nach jedem neuen Eintrag."
+
+msgid "Member visit history"
+msgstr "Besuchshistorie der Mitglieder"
+
+msgid ""
+"Full log of every visit you have recorded, with timestamps, service types "
+"and revenue. Export to CSV anytime."
+msgstr ""
+"Vollständiges Protokoll jedes erfassten Besuchs, mit Zeitstempeln, "
+"Dienstleistungsarten und Einnahmen. CSV-Export jederzeit möglich."
+
+msgid "Analytics dashboard"
+msgstr "Analytik-Dashboard"
+
+msgid ""
+"Detailed reports — visits over time, top clients, service breakdown, monthly"
+" revenue. Use it to grow your business."
+msgstr ""
+"Detaillierte Berichte — Besuche im Zeitverlauf, Top-Kunden, "
+"Dienstleistungsaufschlüsselung, monatliche Einnahmen. Nutzen Sie es, um Ihr "
+"Geschäft auszubauen."
+
+msgid "Meeting calendar"
+msgstr "Terminkalender"
+
+msgid ""
+"Schedule consultations or long-term sessions. Click any time slot to add a "
+"new meeting."
+msgstr ""
+"Planen Sie Beratungen oder langfristige Sitzungen. Klicken Sie auf einen "
+"beliebigen Zeitslot, um einen neuen Termin hinzuzufügen."
+
+msgid "Your partner profile"
+msgstr "Ihr Partnerprofil"
+
+msgid ""
+"Update your business name, address, services and contact details. Customers "
+"will find you in the partner map."
+msgstr ""
+"Aktualisieren Sie Ihren Geschäftsnamen, Adresse, Dienstleistungen und "
+"Kontaktdaten. Kunden finden Sie auf der Partnerkarte."
+
+msgid "You are ready!"
+msgstr "Sie sind bereit!"
+
+msgid ""
+"Start logging visits, schedule meetings and watch your analytics grow. "
+"Welcome aboard!"
+msgstr ""
+"Beginnen Sie mit der Erfassung von Besuchen, planen Sie Termine und "
+"beobachten Sie, wie Ihre Analytik wächst. Willkommen an Bord!"
+
+msgid "Welcome, President!"
+msgstr "Willkommen, Präsident!"
+
+msgid ""
+"You now have administrative access. Let us show you the management tools."
+msgstr ""
+"Sie haben jetzt administrativen Zugriff. Wir zeigen Ihnen die Management-"
+"Tools."
+
+msgid "Site analytics"
+msgstr "Website-Analytik"
+
+msgid ""
+"Overview of all users, content, partner visits and pending requests. "
+"Refreshes in real time."
+msgstr ""
+"Überblick über alle Benutzer, Inhalte, Partnerbesuche und ausstehende "
+"Anfragen. Aktualisierung in Echtzeit."
+
+msgid "Generate invite links"
+msgstr "Einladungslinks generieren"
+
+msgid ""
+"Create unique invitation links for new partners or staff members. Each link "
+"is single-use and tracked."
+msgstr ""
+"Erstellen Sie eindeutige Einladungslinks für neue Partner oder Mitarbeiter. "
+"Jeder Link ist einmalig und wird verfolgt."
+
+msgid "Moderate content"
+msgstr "Inhalte moderieren"
+
+msgid ""
+"Approve or reject pending posts and Account Change Requests. Quick links "
+"above each section."
+msgstr ""
+"Genehmigen oder lehnen Sie ausstehende Beiträge und Account-Change-Requests "
+"ab. Schnellverknüpfungen über jeder Sektion."
+
+msgid "Django admin panel"
+msgstr "Django-Admin-Panel"
+
+msgid ""
+"Full access to the database admin — for advanced operations like role "
+"assignments and data fixes."
+msgstr ""
+"Vollständiger Zugriff auf den Datenbank-Admin — für erweiterte Operationen "
+"wie Rollenzuweisungen und Datenkorrekturen."
+
+msgid "Welcome to your control room"
+msgstr "Willkommen in Ihrer Kommandozentrale"
+
+msgid ""
+"Use these tools wisely. All admin actions are logged. Have a great day "
+"managing IESA!"
+msgstr ""
+"Nutzen Sie diese Tools weise. Alle Admin-Aktionen werden protokolliert. "
+"Einen schönen Tag beim Management von IESA!"
+
+msgid "Tours Completed"
+msgstr "Abgeschlossene Touren"
+
+msgid "Tracks which interactive tours user has finished"
+msgstr "Verfolgt, welche interaktiven Touren der Benutzer abgeschlossen hat"
+
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Extremsport als Denk- und Lebensweise"
 

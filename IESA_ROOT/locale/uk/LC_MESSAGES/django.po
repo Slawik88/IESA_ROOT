@@ -5538,6 +5538,237 @@ msgstr "Ви також можете подати заявку через наш
 msgid "write"
 msgstr "напишіть"
 
+msgid "Got it"
+msgstr "Зрозуміло"
+
+msgid "Skip"
+msgstr "Пропустити"
+
+msgid "Done"
+msgstr "Готово"
+
+msgid ""
+"Let us walk you through the key features. Click 'Got it' to continue or "
+"'Skip' to close."
+msgstr ""
+"Покажемо вам ключові можливості. Натисніть «Зрозуміло» для продовження або "
+"«Пропустити», щоб закрити."
+
+msgid "Your PIN code"
+msgstr "Ваш PIN-код"
+
+msgid ""
+"This 6-digit code is your access pass. Show it to staff at any IESA partner "
+"location to log your visit. It refreshes automatically every 12 minutes."
+msgstr ""
+"Цей 6-значний код — ваш перепустка. Покажіть його персоналу у будь-якій "
+"партнерській локації IESA, щоб зафіксувати візит. Код оновлюється "
+"автоматично кожні 12 хвилин."
+
+msgid "Your digital membership card"
+msgstr "Ваша цифрова членська картка"
+
+msgid ""
+"Your unique ID and QR-code. Partners can scan it for quick identification, "
+"or you can show this card on your phone."
+msgstr ""
+"Ваш унікальний ID та QR-код. Партнери можуть відсканувати його для швидкої "
+"ідентифікації, або ви можете показати картку на телефоні."
+
+msgid "Edit your profile"
+msgstr "Редагуйте свій профіль"
+
+msgid ""
+"Click here anytime to update your name, photo, contact details and social "
+"links. A complete profile helps the community find you."
+msgstr ""
+"Натисніть тут будь-коли, щоб оновити ім'я, фото, контактні дані та соціальні"
+" посилання. Повний профіль допомагає спільноті знайти вас."
+
+msgid "Your activity & points"
+msgstr "Ваша активність і бали"
+
+msgid ""
+"Earn points for visits, posts, likes and comments. Higher activity level "
+"unlocks new perks and badges."
+msgstr ""
+"Отримуйте бали за візити, публікації, вподобайки та коментарі. Вищий рівень "
+"активності відкриває нові переваги та значки."
+
+msgid "Your visit history"
+msgstr "Історія ваших візитів"
+
+msgid ""
+"All your partner visits appear here. Each visit earns points and contributes"
+" to your activity level."
+msgstr ""
+"Усі ваші партнерські візити з'являються тут. Кожен візит дає бали та "
+"підвищує ваш рівень активності."
+
+msgid "Want to become a partner?"
+msgstr "Хочете стати партнером?"
+
+msgid ""
+"If you run a gym, clinic, shop or other business — submit a request to "
+"become an IESA partner. You will get tools to log member visits, see "
+"analytics and grow your client base."
+msgstr ""
+"Якщо ви керуєте спортзалом, клінікою, магазином або іншим бізнесом — подайте"
+" заявку, щоб стати партнером IESA. Ви отримаєте інструменти для запису "
+"візитів учасників, перегляду аналітики та зростання клієнтської бази."
+
+msgid "All set!"
+msgstr "Готово!"
+
+msgid ""
+"You are ready to explore IESA Sport. Visit a partner, write a post, follow "
+"other members. Have fun!"
+msgstr ""
+"Ви готові досліджувати IESA Sport. Відвідайте партнера, напишіть допис, "
+"підпишіться на інших учасників. Гарного часу!"
+
+msgid "Welcome to the Partner Portal!"
+msgstr "Ласкаво просимо до Партнерського порталу!"
+
+msgid ""
+"Congratulations on becoming an IESA partner. Let us show you around your "
+"dashboard."
+msgstr "Вітаємо зі статусом партнера IESA. Покажемо вам ваш кабінет."
+
+msgid "Log a member visit"
+msgstr "Запишіть візит учасника"
+
+msgid ""
+"When an IESA member visits your business — click here to record it. Ask them"
+" for their 6-digit PIN code."
+msgstr ""
+"Коли учасник IESA приходить до вашого бізнесу — натисніть тут, щоб "
+"зафіксувати візит. Попросіть у нього 6-значний PIN-код."
+
+msgid "Today's statistics"
+msgstr "Сьогоднішня статистика"
+
+msgid ""
+"Live counter of today's visits and revenue. Updates automatically when you "
+"log a new visit."
+msgstr ""
+"Живий лічильник сьогоднішніх візитів і доходу. Оновлюється автоматично після"
+" нового запису."
+
+msgid "Member visit history"
+msgstr "Історія візитів учасників"
+
+msgid ""
+"Full log of every visit you have recorded, with timestamps, service types "
+"and revenue. Export to CSV anytime."
+msgstr ""
+"Повний журнал кожного зафіксованого візиту, з мітками часу, типами послуг та"
+" доходом. Експорт у CSV у будь-який час."
+
+msgid "Analytics dashboard"
+msgstr "Панель аналітики"
+
+msgid ""
+"Detailed reports — visits over time, top clients, service breakdown, monthly"
+" revenue. Use it to grow your business."
+msgstr ""
+"Детальні звіти — візити в часі, топ-клієнти, розподіл послуг, місячний "
+"дохід. Використовуйте для зростання бізнесу."
+
+msgid "Meeting calendar"
+msgstr "Календар зустрічей"
+
+msgid ""
+"Schedule consultations or long-term sessions. Click any time slot to add a "
+"new meeting."
+msgstr ""
+"Плануйте консультації або довгострокові сесії. Натисніть будь-який часовий "
+"слот, щоб додати нову зустріч."
+
+msgid "Your partner profile"
+msgstr "Ваш профіль партнера"
+
+msgid ""
+"Update your business name, address, services and contact details. Customers "
+"will find you in the partner map."
+msgstr ""
+"Оновіть назву бізнесу, адресу, послуги та контактні дані. Клієнти знайдуть "
+"вас на карті партнерів."
+
+msgid "You are ready!"
+msgstr "Ви готові!"
+
+msgid ""
+"Start logging visits, schedule meetings and watch your analytics grow. "
+"Welcome aboard!"
+msgstr ""
+"Починайте фіксувати візити, плануйте зустрічі та спостерігайте за зростанням"
+" аналітики. Ласкаво просимо на борт!"
+
+msgid "Welcome, President!"
+msgstr "Вітаємо, Президенте!"
+
+msgid ""
+"You now have administrative access. Let us show you the management tools."
+msgstr ""
+"Тепер у вас є адміністративний доступ. Покажемо вам інструменти управління."
+
+msgid "Site analytics"
+msgstr "Аналітика сайту"
+
+msgid ""
+"Overview of all users, content, partner visits and pending requests. "
+"Refreshes in real time."
+msgstr ""
+"Огляд усіх користувачів, контенту, партнерських візитів та запитів на "
+"розгляді. Оновлюється в реальному часі."
+
+msgid "Generate invite links"
+msgstr "Створіть посилання-запрошення"
+
+msgid ""
+"Create unique invitation links for new partners or staff members. Each link "
+"is single-use and tracked."
+msgstr ""
+"Створюйте унікальні посилання-запрошення для нових партнерів або "
+"співробітників. Кожне посилання одноразове та відстежується."
+
+msgid "Moderate content"
+msgstr "Модерація контенту"
+
+msgid ""
+"Approve or reject pending posts and Account Change Requests. Quick links "
+"above each section."
+msgstr ""
+"Затверджуйте або відхиляйте публікації на розгляді та заявки на зміну "
+"акаунта. Швидкі посилання над кожною секцією."
+
+msgid "Django admin panel"
+msgstr "Панель адміністратора Django"
+
+msgid ""
+"Full access to the database admin — for advanced operations like role "
+"assignments and data fixes."
+msgstr ""
+"Повний доступ до адміна бази даних — для розширених операцій, як-от "
+"призначення ролей і виправлення даних."
+
+msgid "Welcome to your control room"
+msgstr "Ласкаво просимо до вашої командної"
+
+msgid ""
+"Use these tools wisely. All admin actions are logged. Have a great day "
+"managing IESA!"
+msgstr ""
+"Використовуйте ці інструменти з розумом. Усі дії адміна логуються. Гарного "
+"дня в управлінні IESA!"
+
+msgid "Tours Completed"
+msgstr "Пройдені тури"
+
+msgid "Tracks which interactive tours user has finished"
+msgstr "Відстежує які інтерактивні тури користувач пройшов"
+
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
 

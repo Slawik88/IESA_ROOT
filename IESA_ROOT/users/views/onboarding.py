@@ -18,6 +18,30 @@ def mark_onboarded(request):
     return HttpResponse(status=204)  # 204 No Content — HTMX проглатывает молча
 
 
+# Tour system (2026-05-27): помечает конкретный тур (user/partner/president)
+# пройденным. Вызывается JS POST с CSRF-токеном при клике "Skip"/"Понятно на
+# последнем шаге"/Esc.
+ALLOWED_TOURS = {'user', 'partner', 'president'}
+
+
+@login_required
+@require_POST
+def mark_tour_completed(request, tour_name):
+    """POST /auth/tour/<name>/complete → помечает тур пройденным.
+
+    name ∈ {'user', 'partner', 'president'}.
+    Хранит флаги в User.tours_completed (JSONField).
+    """
+    if tour_name not in ALLOWED_TOURS:
+        return JsonResponse({'ok': False, 'error': 'Unknown tour'}, status=400)
+
+    tours = dict(request.user.tours_completed or {})
+    tours[tour_name] = True
+    request.user.tours_completed = tours
+    request.user.save(update_fields=['tours_completed'])
+    return JsonResponse({'ok': True, 'tour': tour_name})
+
+
 @require_GET
 def username_available(request):
     """Проверить доступность username в реальном времени (Block 3a).

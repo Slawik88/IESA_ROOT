@@ -1,0 +1,208 @@
+{% load i18n static %}
+{% comment %}
+Interactive Tour partial — подсказки для разных ролей.
+Включается на конкретной странице:
+    {% include 'partials/_tour.html' with tour_name="user" %}
+    {% include 'partials/_tour.html' with tour_name="partner" %}
+    {% include 'partials/_tour.html' with tour_name="president" %}
+
+Показывается только если соответствующий тур ещё не пройден
+(см. ProfileView/PartnerDashboardView context).
+
+Все строки обёрнуты в {% trans %} чтобы попадать в .po файлы.
+{% endcomment %}
+
+{% if show_tour %}
+    {# ── Tour: NEW MEMBER (на странице профиля) ─────────────────── #}
+    {% if tour_name == "user" %}
+    {% trans "Welcome to IESA Sport!" as t_user_1_title %}
+    {% trans "Let us walk you through the key features. Click 'Got it' to continue or 'Skip' to close." as t_user_1_text %}
+    {% trans "Your PIN code" as t_user_2_title %}
+    {% trans "This 6-digit code is your access pass. Show it to staff at any IESA partner location to log your visit. It refreshes automatically every 12 minutes." as t_user_2_text %}
+    {% trans "Your digital membership card" as t_user_3_title %}
+    {% trans "Your unique ID and QR-code. Partners can scan it for quick identification, or you can show this card on your phone." as t_user_3_text %}
+    {% trans "Edit your profile" as t_user_4_title %}
+    {% trans "Click here anytime to update your name, photo, contact details and social links. A complete profile helps the community find you." as t_user_4_text %}
+    {% trans "Your activity & points" as t_user_5_title %}
+    {% trans "Earn points for visits, posts, likes and comments. Higher activity level unlocks new perks and badges." as t_user_5_text %}
+    {% trans "Your visit history" as t_user_6_title %}
+    {% trans "All your partner visits appear here. Each visit earns points and contributes to your activity level." as t_user_6_text %}
+    {% trans "Want to become a partner?" as t_user_7_title %}
+    {% trans "If you run a gym, clinic, shop or other business — submit a request to become an IESA partner. You will get tools to log member visits, see analytics and grow your client base." as t_user_7_text %}
+    {% trans "All set!" as t_user_8_title %}
+    {% trans "You are ready to explore IESA Sport. Visit a partner, write a post, follow other members. Have fun!" as t_user_8_text %}
+
+    <script id="tour-data" type="application/json">
+    {
+      "name": "user",
+      "complete_url": "{% url 'users:mark_tour_completed' 'user' %}",
+      "csrf_token": "{{ csrf_token }}",
+      "labels": {
+        "next":   "{% filter escapejs %}{% trans 'Got it' %}{% endfilter %}",
+        "skip":   "{% filter escapejs %}{% trans 'Skip' %}{% endfilter %}",
+        "finish": "{% filter escapejs %}{% trans 'Done' %}{% endfilter %}",
+        "of":     "{% filter escapejs %}{% trans 'of' %}{% endfilter %}"
+      },
+      "steps": [
+        {"selector": ".welcome-modal, .profile-header, body",
+         "title": "{{ t_user_1_title|escapejs }}",
+         "text": "{{ t_user_1_text|escapejs }}",
+         "pos": "bottom"},
+        {"selector": "#current-pin, .pin-display, [data-tour='pin']",
+         "title": "{{ t_user_2_title|escapejs }}",
+         "text": "{{ t_user_2_text|escapejs }}",
+         "pos": "bottom"},
+        {"selector": "#qr-card, .qr-card, [data-tour='qr']",
+         "title": "{{ t_user_3_title|escapejs }}",
+         "text": "{{ t_user_3_text|escapejs }}",
+         "pos": "right"},
+        {"selector": "[data-tour='edit-profile'], a[href*='profile/edit'], #edit-profile-btn",
+         "title": "{{ t_user_4_title|escapejs }}",
+         "text": "{{ t_user_4_text|escapejs }}",
+         "pos": "bottom"},
+        {"selector": "[data-tour='activity'], #activity-level, .activity-card",
+         "title": "{{ t_user_5_title|escapejs }}",
+         "text": "{{ t_user_5_text|escapejs }}",
+         "pos": "top"},
+        {"selector": "[data-tour='visits'], #visit-history, .visit-history-card",
+         "title": "{{ t_user_6_title|escapejs }}",
+         "text": "{{ t_user_6_text|escapejs }}",
+         "pos": "top"},
+        {"selector": "[data-tour='acr'], #acr-form, .acr-section",
+         "title": "{{ t_user_7_title|escapejs }}",
+         "text": "{{ t_user_7_text|escapejs }}",
+         "pos": "top"},
+        {"selector": "body",
+         "title": "{{ t_user_8_title|escapejs }}",
+         "text": "{{ t_user_8_text|escapejs }}",
+         "pos": "bottom"}
+      ]
+    }
+    </script>
+    <script src="{% static 'js/tour.js' %}" defer></script>
+
+    {# ── Tour: PARTNER (на партнёрском дашборде) ─────────────────── #}
+    {% elif tour_name == "partner" %}
+    {% trans "Welcome to the Partner Portal!" as t_part_1_title %}
+    {% trans "Congratulations on becoming an IESA partner. Let us show you around your dashboard." as t_part_1_text %}
+    {% trans "Log a member visit" as t_part_2_title %}
+    {% trans "When an IESA member visits your business — click here to record it. Ask them for their 6-digit PIN code." as t_part_2_text %}
+    {% trans "Today's statistics" as t_part_3_title %}
+    {% trans "Live counter of today's visits and revenue. Updates automatically when you log a new visit." as t_part_3_text %}
+    {% trans "Member visit history" as t_part_4_title %}
+    {% trans "Full log of every visit you have recorded, with timestamps, service types and revenue. Export to CSV anytime." as t_part_4_text %}
+    {% trans "Analytics dashboard" as t_part_5_title %}
+    {% trans "Detailed reports — visits over time, top clients, service breakdown, monthly revenue. Use it to grow your business." as t_part_5_text %}
+    {% trans "Meeting calendar" as t_part_6_title %}
+    {% trans "Schedule consultations or long-term sessions. Click any time slot to add a new meeting." as t_part_6_text %}
+    {% trans "Your partner profile" as t_part_7_title %}
+    {% trans "Update your business name, address, services and contact details. Customers will find you in the partner map." as t_part_7_text %}
+    {% trans "You are ready!" as t_part_8_title %}
+    {% trans "Start logging visits, schedule meetings and watch your analytics grow. Welcome aboard!" as t_part_8_text %}
+
+    <script id="tour-data" type="application/json">
+    {
+      "name": "partner",
+      "complete_url": "{% url 'users:mark_tour_completed' 'partner' %}",
+      "csrf_token": "{{ csrf_token }}",
+      "labels": {
+        "next":   "{% filter escapejs %}{% trans 'Got it' %}{% endfilter %}",
+        "skip":   "{% filter escapejs %}{% trans 'Skip' %}{% endfilter %}",
+        "finish": "{% filter escapejs %}{% trans 'Done' %}{% endfilter %}",
+        "of":     "{% filter escapejs %}{% trans 'of' %}{% endfilter %}"
+      },
+      "steps": [
+        {"selector": "body",
+         "title": "{{ t_part_1_title|escapejs }}",
+         "text": "{{ t_part_1_text|escapejs }}",
+         "pos": "bottom"},
+        {"selector": "[data-tour='log-visit'], a[href*='log-visit'], #log-visit-btn",
+         "title": "{{ t_part_2_title|escapejs }}",
+         "text": "{{ t_part_2_text|escapejs }}",
+         "pos": "bottom"},
+        {"selector": "[data-tour='today-stats'], #today-stats, .today-stats-card",
+         "title": "{{ t_part_3_title|escapejs }}",
+         "text": "{{ t_part_3_text|escapejs }}",
+         "pos": "bottom"},
+        {"selector": "[data-tour='visit-history'], a[href*='member-visits']",
+         "title": "{{ t_part_4_title|escapejs }}",
+         "text": "{{ t_part_4_text|escapejs }}",
+         "pos": "top"},
+        {"selector": "[data-tour='analytics'], a[href*='analytics']",
+         "title": "{{ t_part_5_title|escapejs }}",
+         "text": "{{ t_part_5_text|escapejs }}",
+         "pos": "top"},
+        {"selector": "[data-tour='calendar'], a[href*='calendar']",
+         "title": "{{ t_part_6_title|escapejs }}",
+         "text": "{{ t_part_6_text|escapejs }}",
+         "pos": "top"},
+        {"selector": "[data-tour='partner-profile'], a[href*='partner/profile']",
+         "title": "{{ t_part_7_title|escapejs }}",
+         "text": "{{ t_part_7_text|escapejs }}",
+         "pos": "left"},
+        {"selector": "body",
+         "title": "{{ t_part_8_title|escapejs }}",
+         "text": "{{ t_part_8_text|escapejs }}",
+         "pos": "bottom"}
+      ]
+    }
+    </script>
+    <script src="{% static 'js/tour.js' %}" defer></script>
+
+    {# ── Tour: PRESIDENT (на admin analytics) ────────────────────── #}
+    {% elif tour_name == "president" %}
+    {% trans "Welcome, President!" as t_pres_1_title %}
+    {% trans "You now have administrative access. Let us show you the management tools." as t_pres_1_text %}
+    {% trans "Site analytics" as t_pres_2_title %}
+    {% trans "Overview of all users, content, partner visits and pending requests. Refreshes in real time." as t_pres_2_text %}
+    {% trans "Generate invite links" as t_pres_3_title %}
+    {% trans "Create unique invitation links for new partners or staff members. Each link is single-use and tracked." as t_pres_3_text %}
+    {% trans "Moderate content" as t_pres_4_title %}
+    {% trans "Approve or reject pending posts and Account Change Requests. Quick links above each section." as t_pres_4_text %}
+    {% trans "Django admin panel" as t_pres_5_title %}
+    {% trans "Full access to the database admin — for advanced operations like role assignments and data fixes." as t_pres_5_text %}
+    {% trans "Welcome to your control room" as t_pres_6_title %}
+    {% trans "Use these tools wisely. All admin actions are logged. Have a great day managing IESA!" as t_pres_6_text %}
+
+    <script id="tour-data" type="application/json">
+    {
+      "name": "president",
+      "complete_url": "{% url 'users:mark_tour_completed' 'president' %}",
+      "csrf_token": "{{ csrf_token }}",
+      "labels": {
+        "next":   "{% filter escapejs %}{% trans 'Got it' %}{% endfilter %}",
+        "skip":   "{% filter escapejs %}{% trans 'Skip' %}{% endfilter %}",
+        "finish": "{% filter escapejs %}{% trans 'Done' %}{% endfilter %}",
+        "of":     "{% filter escapejs %}{% trans 'of' %}{% endfilter %}"
+      },
+      "steps": [
+        {"selector": "body",
+         "title": "{{ t_pres_1_title|escapejs }}",
+         "text": "{{ t_pres_1_text|escapejs }}",
+         "pos": "bottom"},
+        {"selector": "[data-tour='analytics'], .aa-section, .aa-grid",
+         "title": "{{ t_pres_2_title|escapejs }}",
+         "text": "{{ t_pres_2_text|escapejs }}",
+         "pos": "bottom"},
+        {"selector": "[data-tour='invites'], a[href*='invite']",
+         "title": "{{ t_pres_3_title|escapejs }}",
+         "text": "{{ t_pres_3_text|escapejs }}",
+         "pos": "top"},
+        {"selector": "[data-tour='moderate'], a[href*='accountchangerequest'], a[href*='blog_post']",
+         "title": "{{ t_pres_4_title|escapejs }}",
+         "text": "{{ t_pres_4_text|escapejs }}",
+         "pos": "top"},
+        {"selector": "[data-tour='django-admin'], a[href*='admin:index'], a[href='/admin/']",
+         "title": "{{ t_pres_5_title|escapejs }}",
+         "text": "{{ t_pres_5_text|escapejs }}",
+         "pos": "right"},
+        {"selector": "body",
+         "title": "{{ t_pres_6_title|escapejs }}",
+         "text": "{{ t_pres_6_text|escapejs }}",
+         "pos": "bottom"}
+      ]
+    }
+    </script>
+    <script src="{% static 'js/tour.js' %}" defer></script>
+    {% endif %}
+{% endif %}
