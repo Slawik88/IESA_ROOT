@@ -410,8 +410,24 @@ CACHES = {
             'MAX_ENTRIES': 5000,
             'CULL_FREQUENCY': 3,   # При переполнении удаляется 1/3 устаревших записей
         },
-    }
+    },
+    # FIX 2026-05-28: отдельный кэш для rate-limit и других hot-loop проверок.
+    # Используем LocMemCache (per-process) чтобы каждый запрос НЕ открывал
+    # новое DB-соединение. Trade-off: rate-limit per worker, не глобальный
+    # для всего кластера. Для нашей нагрузки (~5 workers) это OK защита
+    # от brute-force, но НЕ открываем 100+ DB connections на бот-атаку.
+    # Главный профит: избегаем "remaining connection slots reserved for
+    # superuser" при scan-атаках (100+ запросов в секунду).
+    'ratelimit': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'iesa-ratelimit',
+        'TIMEOUT': 3600,
+        'OPTIONS': {'MAX_ENTRIES': 10000},
+    },
 }
+
+# Используем отдельный кэш для django_ratelimit (см. CACHES['ratelimit'] выше)
+RATELIMIT_USE_CACHE = 'ratelimit'
 
 # Session Configuration - Support multiple devices/sessions per user
 # cached_db checks the in-process cache (LocMemCache) first and only
