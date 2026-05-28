@@ -8,12 +8,13 @@
     position: fixed;
     inset: 0;
     z-index: 9998;
-    background: rgba(0, 0, 0, 0.72);
+    background: rgba(0, 0, 0, 0.78);
     pointer-events: auto;
     opacity: 0;
     transition: opacity .25s ease;
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
+    /* НЕ используем backdrop-filter — конфликтует с другими модалками
+       которые тоже blur'ят страницу (welcome-modal раньше). С двойным
+       blur весь UI становится нечитабельным. */
 }
 .iesa-tour-overlay.visible { opacity: 1; }
 
@@ -55,14 +56,14 @@
 .iesa-tour-tip {
     position: fixed;
     z-index: 10000;
-    width: min(360px, calc(100vw - 32px));
+    width: min(380px, calc(100vw - 32px));
     background: linear-gradient(145deg, #1a1a26, #12121c);
     border: 1px solid rgba(220, 38, 38, 0.35);
     border-radius: 16px;
-    padding: 1.25rem 1.4rem 1.1rem;
+    padding: 1.5rem 1.5rem 1.2rem;
     color: #fff;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6),
-                0 0 0 1px rgba(220, 38, 38, 0.1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7),
+                0 0 0 1px rgba(220, 38, 38, 0.12);
     opacity: 0;
     transform: translateY(8px);
     transition: opacity .25s ease, transform .25s ease,
@@ -74,7 +75,7 @@
     transform: translateY(0);
 }
 
-/* Arrow */
+/* Arrow — НЕ показывается для центрированного варианта */
 .iesa-tour-tip::before {
     content: '';
     position: absolute;
@@ -97,6 +98,32 @@
 .iesa-tour-tip[data-pos="left"]::before {
     right: -8px; top: 28px;
     transform: rotate(135deg);
+}
+/* Centered welcome/finish — без стрелки, увеличенный размер */
+.iesa-tour-tip[data-pos="center"]::before { display: none; }
+.iesa-tour-tip[data-pos="center"] {
+    width: min(420px, calc(100vw - 32px));
+    padding: 1.75rem 1.75rem 1.4rem;
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.75),
+                0 0 0 1px rgba(220, 38, 38, 0.18),
+                0 0 60px rgba(220, 38, 38, 0.15);
+}
+.iesa-tour-tip[data-pos="center"] .iesa-tour-title {
+    font-size: 1.25rem;
+}
+.iesa-tour-tip[data-pos="center"] .iesa-tour-foot {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: center;
+}
+.iesa-tour-tip[data-pos="center"] .iesa-tour-actions {
+    width: 100%;
+}
+.iesa-tour-tip[data-pos="center"] .iesa-tour-actions .iesa-tour-btn {
+    width: 100%;
+    padding: .75rem;
+    font-size: .9rem;
 }
 
 /* Header row: step counter + close */
@@ -206,13 +233,56 @@
     color: #fff;
 }
 
-/* Mobile: full-width tooltip at bottom */
+/* ── MOBILE — фиксим положение tooltip + размер spotlight ──────────── */
 @media (max-width: 640px) {
+    /* На узких экранах tooltip ВСЕГДА снизу экрана (sticky-bottom),
+       занимает почти всю ширину. Это самое надёжное решение чтобы tooltip
+       никогда не выезжал за край и не накрывал spotlight целиком. */
     .iesa-tour-tip {
-        left: 16px !important;
-        right: 16px !important;
+        left: 12px !important;
+        right: 12px !important;
+        top: auto !important;
+        bottom: 12px !important;
         width: auto !important;
         max-width: none !important;
+        padding: 1rem 1.1rem .9rem;
+        border-radius: 14px;
+    }
+    .iesa-tour-tip[data-pos="center"] {
+        /* На mobile центрированный шаг тоже sticky-bottom для consistency */
+        bottom: 12px !important;
+        padding: 1.1rem 1.2rem 1rem;
+        text-align: left;
+    }
+    .iesa-tour-tip[data-pos="center"] .iesa-tour-foot {
+        flex-direction: row;
+        gap: .75rem;
+    }
+    .iesa-tour-tip[data-pos="center"] .iesa-tour-actions .iesa-tour-btn {
+        padding: .55rem 1.1rem;
+        font-size: .85rem;
+    }
+    /* Стрелка не имеет смысла на mobile fixed-bottom — скрываем */
+    .iesa-tour-tip::before { display: none; }
+
+    .iesa-tour-title { font-size: 1rem; }
+    .iesa-tour-text  { font-size: .82rem; line-height: 1.45; margin-bottom: .85rem; }
+
+    /* На mobile spotlight чуть толще rim для читаемости */
+    .iesa-tour-spotlight {
+        box-shadow:
+            0 0 0 3px rgba(220, 38, 38, 0.6),
+            0 0 0 9999px rgba(0, 0, 0, 0.78),
+            0 0 30px rgba(220, 38, 38, 0.4);
+    }
+}
+
+/* iOS Safari: безопасные отступы под home-indicator */
+@supports (padding: env(safe-area-inset-bottom)) {
+    @media (max-width: 640px) {
+        .iesa-tour-tip {
+            bottom: calc(12px + env(safe-area-inset-bottom)) !important;
+        }
     }
 }
 
