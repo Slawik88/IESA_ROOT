@@ -20,7 +20,12 @@ from services.formatting import (  # noqa: F401
 async def check_callback_owner(
     query: _types.CallbackQuery, owner_user_id: int
 ) -> bool:
-    """Return True if the query is from the expected user; answer with error otherwise."""
+    """
+    Return True if the query is from the expected user; answer with error otherwise.
+    If owner_user_id == 0 (legacy button without user_id), allows anyone (backwards compat).
+    """
+    if owner_user_id == 0:
+        return True  # no restriction on old-style buttons
     if query.from_user.id != owner_user_id:
         await query.answer("❌ Это не ваше меню.", show_alert=True)
         return False

@@ -14,7 +14,7 @@ from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.exchange import (
     get_active_event, get_user_quota, add_quota,
 )
-from services.utils import format_currency, parse_dt
+from services.utils import format_currency, parse_dt, check_callback_owner
 
 router = Router(name="exchange_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -132,12 +132,16 @@ async def cmd_exchange(message: types.Message, db, text_args: str = None):
 
 @router.callback_query(ExchCB.filter(F.action == "menu"))
 async def cb_exchange_menu(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     await query.answer()
     await cmd_exchange(query.message, db)
 
 
 @router.callback_query(ExchCB.filter(F.action == "confirm"))
 async def cb_exchange_confirm(query: types.CallbackQuery, callback_data: ExchCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     diamonds = callback_data.amount
     user_id = query.from_user.id
 

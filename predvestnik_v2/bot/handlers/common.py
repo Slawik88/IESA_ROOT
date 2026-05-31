@@ -144,19 +144,19 @@ HELP_PAGES = {
     ),
 }
 
-def get_help_keyboard(active_tab: str = "main", is_dev: bool = False) -> types.InlineKeyboardMarkup:
+def get_help_keyboard(active_tab: str = "main", is_dev: bool = False, user_id: int = 0) -> types.InlineKeyboardMarkup:
     """Генерирует клавиатуру с вкладками; помечает активную."""
     def label(text: str, tab: str) -> str:
         return f"· {text} ·" if tab == active_tab else text
 
     builder = InlineKeyboardBuilder()
-    builder.button(text=label("🏠 Главная", "main"), callback_data=HelpCallback(tab="main"))
-    builder.button(text=label("🛡 Админ", "admin"), callback_data=HelpCallback(tab="admin"))
-    builder.button(text=label("💰 Экономика", "economy"), callback_data=HelpCallback(tab="economy"))
-    builder.button(text=label("🐾 Питомцы", "social"), callback_data=HelpCallback(tab="social"))
-    builder.button(text=label("📊 Топы", "stats"), callback_data=HelpCallback(tab="stats"))
+    builder.button(text=label("🏠 Главная", "main"), callback_data=HelpCallback(tab="main", user_id=user_id))
+    builder.button(text=label("🛡 Админ", "admin"), callback_data=HelpCallback(tab="admin", user_id=user_id))
+    builder.button(text=label("💰 Экономика", "economy"), callback_data=HelpCallback(tab="economy", user_id=user_id))
+    builder.button(text=label("🐾 Питомцы", "social"), callback_data=HelpCallback(tab="social", user_id=user_id))
+    builder.button(text=label("📊 Топы", "stats"), callback_data=HelpCallback(tab="stats", user_id=user_id))
     if is_dev:
-        builder.button(text=label("👨‍💻 Developer", "developer"), callback_data=HelpCallback(tab="developer"))
+        builder.button(text=label("👨‍💻 Developer", "developer"), callback_data=HelpCallback(tab="developer", user_id=user_id))
         builder.adjust(1, 2, 2, 1)
     else:
         builder.adjust(1, 2, 2)
@@ -227,13 +227,15 @@ async def cmd_help(message: types.Message, developer_id: int = 0):
     is_dev = bool(developer_id and message.from_user.id == developer_id)
     await message.answer(
         text=HELP_PAGES["main"],
-        reply_markup=get_help_keyboard("main", is_dev=is_dev),
+        reply_markup=get_help_keyboard("main", is_dev=is_dev, user_id=message.from_user.id),
         parse_mode="HTML",
     )
 
 
 @router.callback_query(HelpCallback.filter())
 async def handle_help_tabs(query: types.CallbackQuery, callback_data: HelpCallback, developer_id: int = 0):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     tab = callback_data.tab
     if tab not in HELP_PAGES:
         return await query.answer("Ошибка: страница не найдена.")
@@ -244,7 +246,7 @@ async def handle_help_tabs(query: types.CallbackQuery, callback_data: HelpCallba
     try:
         await query.message.edit_text(
             text=HELP_PAGES[tab],
-            reply_markup=get_help_keyboard(tab, is_dev=is_dev),
+            reply_markup=get_help_keyboard(tab, is_dev=is_dev, user_id=callback_data.user_id),
             parse_mode="HTML",
         )
     except Exception:

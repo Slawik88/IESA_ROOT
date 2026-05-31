@@ -15,7 +15,7 @@ from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.gacha import get_all_pity, get_recent_history
 from services.gacha import roll_single, roll_multi, get_token_count
 from services.quests import increment_metric as quest_increment
-from services.utils import format_currency, safe_html
+from services.utils import format_currency, safe_html, check_callback_owner
 
 router = Router(name="gacha_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -357,6 +357,8 @@ async def cmd_gacha(message: types.Message, db, text_args: str = None):
 
 @router.callback_query(GachaCB.filter(F.action == "menu"))
 async def cb_gacha_menu(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     text = await _build_main_text(db, query.from_user.id)
     await query.message.edit_text(text, reply_markup=_main_menu_kb(), parse_mode="HTML")
     await query.answer()
@@ -364,6 +366,8 @@ async def cb_gacha_menu(query: types.CallbackQuery, db):
 
 @router.callback_query(GachaCB.filter(F.action == "type"))
 async def cb_gacha_type(query: types.CallbackQuery, callback_data: GachaCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     text, token_count = await _build_spin_type_text(db, query.from_user.id, callback_data.spin_type)
     await query.message.edit_text(
         text,
@@ -375,6 +379,8 @@ async def cb_gacha_type(query: types.CallbackQuery, callback_data: GachaCB, db):
 
 @router.callback_query(GachaCB.filter(F.action == "spin1"))
 async def cb_gacha_spin1(query: types.CallbackQuery, callback_data: GachaCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     await query.answer()
     spin_type = callback_data.spin_type
 
@@ -436,6 +442,8 @@ async def cb_gacha_spin1(query: types.CallbackQuery, callback_data: GachaCB, db)
 
 @router.callback_query(GachaCB.filter(F.action == "spin10"))
 async def cb_gacha_spin10(query: types.CallbackQuery, callback_data: GachaCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     await query.answer()
     spin_type = callback_data.spin_type
 
@@ -468,6 +476,8 @@ async def cb_gacha_spin10(query: types.CallbackQuery, callback_data: GachaCB, db
 
 @router.callback_query(GachaCB.filter(F.action == "pity"))
 async def cb_gacha_pity(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     pity_all = await get_all_pity(db, query.from_user.id)
     lines = ["📊 <b>МОИ СЧЁТЧИКИ ПИТИ</b>\n"]
     for st in _SPIN_ORDER:
@@ -493,6 +503,8 @@ async def cb_gacha_pity(query: types.CallbackQuery, db):
 
 @router.callback_query(GachaCB.filter(F.action == "history"))
 async def cb_gacha_history(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     history = await get_recent_history(db, query.from_user.id, limit=20)
     if not history:
         text = "📜 <b>ИСТОРИЯ КРУТКИ</b>\n\n<i>Вы ещё ничего не крутили.</i>"
@@ -525,6 +537,8 @@ async def cb_gacha_history(query: types.CallbackQuery, db):
 
 @router.callback_query(GachaCB.filter(F.action == "chances"))
 async def cb_gacha_chances(query: types.CallbackQuery, callback_data: GachaCB):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     text = _format_chances(callback_data.spin_type)
     await query.message.edit_text(
         text,

@@ -7,7 +7,7 @@ from bot.filters.text_commands import TextCmd
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories.daily_deal import already_purchased
 from services.daily_deal import ensure_deals_fresh, purchase_slot, _get_today_utc
-from services.utils import format_currency
+from services.utils import format_currency, check_callback_owner
 
 router = Router(name="daily_deal_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -91,6 +91,8 @@ async def cmd_daily_deal(message: types.Message, db):
 
 @router.callback_query(DealCB.filter(F.action == "menu"))
 async def cb_deal_menu(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     text, kb = await _build_deal_menu(db, query.from_user.id)
     await query.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     await query.answer()
@@ -98,6 +100,8 @@ async def cb_deal_menu(query: types.CallbackQuery, db):
 
 @router.callback_query(DealCB.filter(F.action == "refresh"))
 async def cb_deal_refresh(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     text, kb = await _build_deal_menu(db, query.from_user.id)
     try:
         await query.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
@@ -108,6 +112,8 @@ async def cb_deal_refresh(query: types.CallbackQuery, db):
 
 @router.callback_query(DealCB.filter(F.action == "buy"))
 async def cb_deal_buy(query: types.CallbackQuery, callback_data: DealCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     ok, msg = await purchase_slot(db, query.from_user.id, callback_data.slot)
 
     if not ok:

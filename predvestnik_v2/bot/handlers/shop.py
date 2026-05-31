@@ -6,7 +6,7 @@ from bot.filters.text_commands import TextCmd
 from core.registry import ITEMS_REGISTRY
 from services.economy import EconomyService
 from infrastructure.repositories.economy import get_inventory, get_balance
-from services.utils import format_currency
+from services.utils import format_currency, check_callback_owner
 
 router = Router(name="shop_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -96,6 +96,8 @@ async def cmd_shop(message: types.Message, db):
 
 @router.callback_query(ShopCB.filter(F.action == "qty"))
 async def cb_shop_qty(query: types.CallbackQuery, callback_data: ShopCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     item_id = callback_data.item_id
     item = ITEMS_REGISTRY.get(item_id)
     if not item:
@@ -192,6 +194,8 @@ async def cb_shop_qty(query: types.CallbackQuery, callback_data: ShopCB, db):
 
 @router.callback_query(ShopCB.filter(F.action == "do_buy"))
 async def cb_shop_do_buy(query: types.CallbackQuery, callback_data: ShopCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     item_id = callback_data.item_id
     qty = callback_data.qty
 
@@ -224,5 +228,7 @@ async def cb_shop_do_buy(query: types.CallbackQuery, callback_data: ShopCB, db):
 
 @router.callback_query(ShopCB.filter(F.action == "back"))
 async def cb_shop_back(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     await render_shop(query.message, db, query.from_user.id, is_edit=True)
     await query.answer()

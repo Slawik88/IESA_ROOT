@@ -6,7 +6,7 @@ from datetime import datetime
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.wallet_log import get_recent
-from services.utils import format_currency
+from services.utils import format_currency, check_callback_owner
 
 router = Router(name="wallet_history_router")
 
@@ -130,6 +130,8 @@ async def cmd_wallet_history(message: types.Message, db, text_args: str = None):
 
 @router.callback_query(WalletCB.filter(F.action == "filter"))
 async def cb_wallet_filter(query: types.CallbackQuery, callback_data: WalletCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     text = await _build_text(db, query.from_user.id, n=20, filter_src=callback_data.filter_src)
     try:
         await query.message.edit_text(

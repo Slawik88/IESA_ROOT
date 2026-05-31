@@ -1,5 +1,5 @@
 from aiogram import Router, types
-from services.utils import resolve_target, safe_html, parse_dt
+from services.utils import resolve_target, safe_html, parse_dt, check_callback_owner
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
@@ -131,8 +131,8 @@ async def cmd_divorce(message: types.Message, db):
     partner_link = f'<a href="tg://user?id={partner_id}">{safe_html(partner_name)}</a>'
 
     builder = InlineKeyboardBuilder()
-    builder.button(text="✅ Да, развестись", callback_data=DivorceConfirm(action="confirm"))
-    builder.button(text="❌ Нет, остаться", callback_data=DivorceConfirm(action="cancel"))
+    builder.button(text="✅ Да, развестись", callback_data=DivorceConfirm(action="confirm", user_id=message.from_user.id))
+    builder.button(text="❌ Нет, остаться", callback_data=DivorceConfirm(action="cancel", user_id=message.from_user.id))
     builder.adjust(2)
 
     await message.answer(
@@ -146,6 +146,8 @@ async def cmd_divorce(message: types.Message, db):
 
 @router.callback_query(DivorceConfirm.filter())
 async def process_divorce_confirm(callback: types.CallbackQuery, callback_data: DivorceConfirm, db):
+    if not await check_callback_owner(callback, callback_data.user_id):
+        return
     if callback_data.action == "cancel":
         await callback.message.edit_text("💍 <b>Развод отменён.</b> Семья сохранена.", parse_mode="HTML")
         return await callback.answer()
