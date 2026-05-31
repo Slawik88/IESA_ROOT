@@ -1,4 +1,4 @@
-"""
+﻿"""
 services/auction.py
 Business logic for the global auction system.
 No bot imports — callers handle notifications.
@@ -212,7 +212,7 @@ async def _finalize_lot(db, lot: dict, winner_id: int, price: float, chat_id: in
     if lot["item_type"] == "inventory":
         await db.execute(
             "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = quantity + ?",
+            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
             (winner_id, str(lot["item_id_or_pet_id"]), lot["quantity"], lot["quantity"]),
         )
     elif lot["item_type"] == "pet":

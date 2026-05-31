@@ -1,4 +1,4 @@
-"""
+﻿"""
 services/gacha.py
 Pure gacha business logic.
 No bot/django imports. All DB writes happen inside one transaction per roll.
@@ -54,7 +54,7 @@ async def _apply_entry(db, user_id: int, entry: dict) -> dict:
         from core.registry import ITEMS_REGISTRY
         await db.execute(
             "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = quantity + ?",
+            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
             (user_id, item_id, qty, qty),
         )
         name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)

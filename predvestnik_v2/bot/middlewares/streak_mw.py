@@ -96,7 +96,7 @@ async def streak_middleware(
                     if reward.get("is_block_end"):
                         await db.execute(
                             "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, 1) "
-                            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = quantity + 1",
+                            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + 1",
                             (user.id, "spin_token_novice"),
                         )
 
