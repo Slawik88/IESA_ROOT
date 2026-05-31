@@ -18,9 +18,10 @@ def _get_today_utc() -> str:
 
 
 def _get_reset_timestamp() -> str:
-    """Return 'YYYY-MM-DD HH:MM:SS' for today's 00:00 UTC."""
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    return today.strftime("%Y-%m-%d %H:%M:%S")
+    """Return 'YYYY-MM-DD' for today UTC.
+    Date-only format avoids pg_adapter coercing the string to datetime
+    when inserting into daily_deal_current.generated_at TEXT column."""
+    return _get_today_utc()
 
 
 def _seconds_until_midnight_utc() -> int:
