@@ -16,8 +16,9 @@ router = Router(name="eco_router")
 
 @router.message(TextCmd(["баланс", "кошелек", "счет", "деньги", "кошелёк"]))
 async def cmd_balance(message: types.Message, db):
+    from services.utils import resolve_display_name
     user_id = message.from_user.id
-    name = safe_html(message.from_user.first_name)
+    name = await resolve_display_name(db, user_id, message.chat.id, message.from_user.first_name)
     balance = await eco_db.get_balance(db, user_id)
     dark_mora = await get_dark_mora_balance(db, user_id)
     mora = format_currency(balance['user_balance_mora'])

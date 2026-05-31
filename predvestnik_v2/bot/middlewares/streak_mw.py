@@ -128,7 +128,10 @@ async def streak_middleware(
                     except Exception:
                         pass
 
-                    user_name = user.first_name or f"ID{user.id}"
+                    from services.utils import resolve_display_name
+                    user_name = await resolve_display_name(
+                        db, user.id, chat_obj.id, user.first_name or f"ID{user.id}"
+                    )
                     text = _build_streak_notification(result, user_name, user.id)
                     if bot:
                         try:

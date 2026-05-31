@@ -30,7 +30,8 @@ async def cmd_profile(message: types.Message, db: aiosqlite.Connection, develope
 
     user_id = message.from_user.id
     chat_id = message.chat.id
-    raw_name = safe_html(message.from_user.first_name) 
+    from services.utils import resolve_display_name
+    raw_name = await resolve_display_name(db, user_id, chat_id, message.from_user.first_name)
 
     # 1. Сбор данных из разных таблиц
     await zoo_db.apply_fatigue_decay(db, user_id)
