@@ -21,17 +21,20 @@ async def cmd_balance(message: types.Message, db):
     name = await resolve_display_name(db, user_id, message.chat.id, message.from_user.first_name)
     balance = await eco_db.get_balance(db, user_id)
     dark_mora = await get_dark_mora_balance(db, user_id)
-    mora = format_currency(balance['user_balance_mora'])
-    diamonds = format_currency(balance['user_balance_diamonds'])
+    mora      = format_currency(balance['user_balance_mora'])
+    diamonds  = format_currency(balance['user_balance_diamonds'])
+    crystals  = float(balance.get('user_balance_crystals', 0) or 0)
 
-    dark_line = f"\n└ 🌑 Тёмная Мора: <code>{dark_mora:.0f}</code>" if dark_mora > 0 else \
-                f"\n└ 🌑 Тёмная Мора: <code>0</code> <i>(добыть: «бот контрабанда»)</i>"
+    dark_line = f"\n├ 🌑 Тёмная Мора: <code>{dark_mora:.0f}</code>" if dark_mora > 0 else \
+                f"\n├ 🌑 Тёмная Мора: <code>0</code> <i>(добыть: «бот контрабанда»)</i>"
+    crystals_line = f"\n└ 💠 Кристаллы: <code>{crystals:.0f}</code>" if crystals > 0 else ""
 
     text = (
         f"💳 <b>КОШЕЛЁК</b> — {name}\n\n"
         f"🪙 Мора: <code>{mora}</code>\n"
         f"💎 Алмазы: <code>{diamonds}</code>"
         f"{dark_line}"
+        f"{crystals_line}"
     )
 
     if message.chat.type != "private":

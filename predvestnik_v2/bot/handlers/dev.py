@@ -433,20 +433,33 @@ async def cmd_dev_lookup_ids(message: types.Message, db, text_args: str = None):
 
 @router.message(TextCmd(["dev анонс", "dev announce", "dev объявление"]))
 async def cmd_dev_announce(message: types.Message, text_args: str = None):
-    """Бот отправляет текст от своего имени. Сообщение разработчика удаляется."""
+    """Бот отправляет текст от своего имени, сохраняя Telegram-форматирование."""
     if not text_args or not text_args.strip():
         return await message.answer(
             "ℹ️ <b>Использование:</b>\n"
             "<code>бот dev анонс, [текст]</code>\n\n"
             "<i>Бот отправит текст в этот чат от своего имени.\n"
-            "Твоё сообщение будет удалено автоматически.\n"
-            "Поддерживается HTML-форматирование.</i>",
+            "Форматирование Telegram (жирный, курсив, моноширинный) сохраняется.\n"
+            "Твоё сообщение будет удалено автоматически.</i>",
             parse_mode="HTML",
         )
 
-    text = text_args.strip()
+    # Извлекаем текст объявления с сохранением форматирования через html_text.
+    # message.html_text конвертирует Telegram-entities (bold, italic, code и т.д.)
+    # в HTML-теги. Prefix команды — обычный текст, его длина совпадает в raw и html.
+    raw = message.text or ""
+    sep_pos = raw.find(",")
+    if sep_pos != -1 and sep_pos < len(raw) - 1:
+        content_start = sep_pos + 1
+        html_full = message.html_text or raw
+        text = html_full[content_start:].strip()
+    else:
+        text = text_args.strip()
 
-    # Удаляем команду девелопера — чтобы анонс выглядел как будто бот сам написал
+    if not text:
+        return await message.answer("❌ Текст объявления пустой.", parse_mode="HTML")
+
+    # Удаляем команду — анонс выглядит как будто бот написал сам
     try:
         await message.delete()
     except Exception:

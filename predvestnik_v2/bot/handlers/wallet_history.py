@@ -75,8 +75,9 @@ def _entry_line(e: dict) -> str:
     label = _SOURCE_LABELS.get(e["source"], e["source"])
 
     parts = []
-    dm = e.get("delta_mora", 0.0)
-    dd = e.get("delta_diamonds", 0.0)
+    dm  = e.get("delta_mora", 0.0)
+    dd  = e.get("delta_diamonds", 0.0)
+    dc  = e.get("delta_crystals", 0.0)
 
     if dm != 0:
         sign = "+" if dm > 0 else ""
@@ -84,6 +85,9 @@ def _entry_line(e: dict) -> str:
     if dd != 0:
         sign = "+" if dd > 0 else ""
         parts.append(f"{sign}{format_currency(dd)} 💎")
+    if dc != 0:
+        sign = "+" if dc > 0 else ""
+        parts.append(f"{sign}{format_currency(dc)} 💠")
 
     change = " · ".join(parts) if parts else "—"
     bal = f"{format_currency(e['balance_mora_after'])} 🪙"

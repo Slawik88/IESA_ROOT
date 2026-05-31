@@ -39,6 +39,7 @@ async def create_promocode(
     mora: float,
     diamonds: float,
     dark_mora: float,
+    crystals: float,
     items_json: str,
     max_activations: int,
     valid_from: str | None,
@@ -50,12 +51,12 @@ async def create_promocode(
     try:
         await db.execute(
             "INSERT INTO promocodes "
-            "(code, description, reward_mora, reward_diamonds, reward_dark_mora, "
+            "(code, description, reward_mora, reward_diamonds, reward_dark_mora, reward_crystals, "
             "reward_items_json, max_activations, valid_from, valid_until, created_by, "
             "allowed_users_json, allowed_chats_json) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                code.upper(), description, mora, diamonds, dark_mora, items_json,
+                code.upper(), description, mora, diamonds, dark_mora, crystals, items_json,
                 max_activations, valid_from, valid_until, created_by,
                 allowed_users_json, allowed_chats_json,
             ),

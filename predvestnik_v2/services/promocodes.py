@@ -110,9 +110,10 @@ async def activate_promocode(
         (code,),
     )
 
-    mora = float(promo["reward_mora"] or 0)
-    diamonds = float(promo["reward_diamonds"] or 0)
+    mora      = float(promo["reward_mora"] or 0)
+    diamonds  = float(promo["reward_diamonds"] or 0)
     dark_mora = float(promo.get("reward_dark_mora") or 0)
+    crystals  = float(promo.get("reward_crystals") or 0)
 
     try:
         items: dict[str, int] = json.loads(promo["reward_items_json"] or "{}")
@@ -120,9 +121,9 @@ async def activate_promocode(
         items = {}
 
     # Apply all rewards
-    if mora > 0 or diamonds > 0:
+    if mora > 0 or diamonds > 0 or crystals > 0:
         await add_balance(
-            db, user_id, mora, diamonds,
+            db, user_id, mora, diamonds, crystals=crystals,
             commit=False, source="promocode", chat_id=chat_id, note=f"Promo:{code}"
         )
 
@@ -144,6 +145,7 @@ async def activate_promocode(
         "mora": mora,
         "diamonds": diamonds,
         "dark_mora": dark_mora,
+        "crystals": crystals,
         "items": items,
     }
 
@@ -157,6 +159,8 @@ def format_reward_text(reward: dict) -> str:
         parts.append(f"💎 <b>+{reward['diamonds']:,.1f}</b> Алмазов")
     if reward.get("dark_mora", 0) > 0:
         parts.append(f"🌑 <b>+{reward['dark_mora']:,.0f}</b> Тёмной Моры")
+    if reward.get("crystals", 0) > 0:
+        parts.append(f"💠 <b>+{reward['crystals']:,.0f}</b> Кристаллов")
     for item_id, qty in reward.get("items", {}).items():
         item_name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
         parts.append(f"📦 <b>{item_name}</b> ×{qty}")
