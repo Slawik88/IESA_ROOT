@@ -59,11 +59,34 @@ async def activate_promocode(
     if max_act > 0 and promo["activations_count"] >= max_act:
         raise PromoError("❌ Лимит активаций исчерпан. Промокод больше не действует.")
 
+    # Check user whitelist (if set)
+    allowed_users_raw = promo.get("allowed_users_json") or "[]"
+    try:
+        allowed_users: list[int] = json.loads(allowed_users_raw)
+    except (json.JSONDecodeError, TypeError):
+        allowed_users = []
+    if allowed_users and user_id not in allowed_users:
+        raise PromoError("🔒 Этот промокод предназначен для конкретных пользователей.")
+
+    # Check chat whitelist (if set)
+    allowed_chats_raw = promo.get("allowed_chats_json") or "[]"
+    try:
+        allowed_chats: list[int] = json.loads(allowed_chats_raw)
+    except (json.JSONDecodeError, TypeError):
+        allowed_chats = []
+    if allowed_chats:
+        if chat_id is None or chat_id not in allowed_chats:
+            raise PromoError(
+                "🔒 Этот промокод действует только в определённых чатах.\n"
+                "<i>Попробуй активировать его в нужном чате.</i>"
+            )
+
     if await promo_repo.has_user_redeemed(db, code, user_id):
         raise PromoError("⚠️ Вы уже активировали этот промокод ранее.")
 
     mora = float(promo["reward_mora"] or 0)
     diamonds = float(promo["reward_diamonds"] or 0)
+    dark_mora = float(promo.get("reward_dark_mora") or 0)
 
     try:
         items: dict[str, int] = json.loads(promo["reward_items_json"] or "{}")
@@ -76,6 +99,10 @@ async def activate_promocode(
             db, user_id, mora, diamonds,
             commit=False, source="promocode", chat_id=chat_id, note=f"Promo:{code}"
         )
+
+    if dark_mora > 0:
+        from infrastructure.repositories.dark_mora import add_dark_mora
+        await add_dark_mora(db, user_id, dark_mora, source="promocode", note=f"Promo:{code}")
 
     for item_id, qty in items.items():
         if qty > 0:
@@ -92,6 +119,7 @@ async def activate_promocode(
         "description": promo.get("description", ""),
         "mora": mora,
         "diamonds": diamonds,
+        "dark_mora": dark_mora,
         "items": items,
     }
 
@@ -100,9 +128,11 @@ def format_reward_text(reward: dict) -> str:
     """Build a human-readable reward summary line."""
     parts = []
     if reward["mora"] > 0:
-        parts.append(f"🪙 <b>+{reward['mora']:,.2f}</b> Моры")
+        parts.append(f"🪙 <b>+{reward['mora']:,.0f}</b> Моры")
     if reward["diamonds"] > 0:
-        parts.append(f"💎 <b>+{reward['diamonds']:,.2f}</b> Алмазов")
+        parts.append(f"💎 <b>+{reward['diamonds']:,.1f}</b> Алмазов")
+    if reward.get("dark_mora", 0) > 0:
+        parts.append(f"🌑 <b>+{reward['dark_mora']:,.0f}</b> Тёмной Моры")
     for item_id, qty in reward.get("items", {}).items():
         item_name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
         parts.append(f"📦 <b>{item_name}</b> ×{qty}")

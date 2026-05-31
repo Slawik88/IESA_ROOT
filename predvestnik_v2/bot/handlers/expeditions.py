@@ -28,7 +28,10 @@ def _build_expedition_list() -> str:
             f"{prefix} <code>бот поход, {hours}</code> · {hours} ч. · "
             f"<i>{data['min_m']}-{data['max_m']} 🪙, {data['min_xp']}-{data['max_xp']} XP</i> · {cost}"
         )
-    lines.append("\n<i>💡 Нужен Активный питомец. Настройте его командой «бот зоопарк».</i>")
+    lines.append(
+        "\n<i>💡 Нужен Активный питомец — «бот зоопарк».\n"
+        "⏩ Ускорители походов: «бот ускорить поход»</i>"
+    )
     return "\n".join(lines)
 
 
@@ -68,8 +71,19 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
     ) as cursor:
         active_row = await cursor.fetchone()
     if active_row:
+        raw_ends = active_row[0]
+        if hasattr(raw_ends, "strftime"):
+            now = datetime.now()
+            if raw_ends.date() == now.date():
+                ends_display = raw_ends.strftime("%H:%M")
+            else:
+                ends_display = raw_ends.strftime("%d.%m %H:%M")
+        else:
+            ends_display = str(raw_ends)[:16]
         return await message.answer(
-            f"⏳ <b>Питомец уже в походе!</b>\n<i>Вернётся в <code>{active_row[0]}</code>.</i>",
+            f"⏳ <b>Питомец уже в походе!</b>\n"
+            f"<i>Вернётся в <code>{ends_display}</code>.</i>\n"
+            f"<i>Ускорить: «бот ускорить поход»</i>",
             parse_mode="HTML"
         )
 
@@ -182,11 +196,16 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
     )
     dog_block = ("\n" + "\n".join(f"<i>{l}</i>" for l in dog_extra_lines)) if dog_extra_lines else ""
 
+    now = datetime.now()
+    if ends_at.date() == now.date():
+        ends_str = ends_at.strftime("%H:%M")
+    else:
+        ends_str = ends_at.strftime("%d.%m %H:%M")
     text = (
         f"🎒 <b>ЭКСПЕДИЦИЯ НАЧАЛАСЬ!</b>\n\n"
         f"├ 🐾 Питомец: <b>{pet_name}</b> <i>({species_name})</i>\n"
         f"├ ⏳ Длительность: <code>{duration_str}</code>\n"
-        f"├ 🕒 Возвращение: <code>{ends_at.strftime('%H:%M')}</code>\n"
+        f"├ 🕒 Возвращение: <code>{ends_str}</code>\n"
         f"└ 💪 Усталость: <code>{fatigue} → {fatigue + expedition_fatigue}/100</code>"
         f"{dog_block}{wolf_bonus_line}{zero_line}{turtle_bonus_line}"
     )

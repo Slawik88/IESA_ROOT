@@ -38,32 +38,47 @@ async def create_promocode(
     description: str,
     mora: float,
     diamonds: float,
+    dark_mora: float,
     items_json: str,
     max_activations: int,
     valid_from: str | None,
     valid_until: str | None,
     created_by: int,
+    allowed_users_json: str = "[]",
+    allowed_chats_json: str = "[]",
 ) -> bool:
     try:
         await db.execute(
             "INSERT INTO promocodes "
-            "(code, description, reward_mora, reward_diamonds, reward_items_json, "
-            "max_activations, valid_from, valid_until, created_by) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "(code, description, reward_mora, reward_diamonds, reward_dark_mora, "
+            "reward_items_json, max_activations, valid_from, valid_until, created_by, "
+            "allowed_users_json, allowed_chats_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
-                code.upper(), description, mora, diamonds, items_json,
+                code.upper(), description, mora, diamonds, dark_mora, items_json,
                 max_activations, valid_from, valid_until, created_by,
+                allowed_users_json, allowed_chats_json,
             ),
         )
         await db.commit()
         return True
-    except aiosqlite.IntegrityError:
+    except Exception:
         return False
 
 
 async def list_promocodes(db: aiosqlite.Connection) -> list[dict]:
     async with db.execute(
         "SELECT * FROM promocodes ORDER BY created_at DESC"
+    ) as c:
+        return [dict(row) for row in await c.fetchall()]
+
+
+async def get_promo_activators(db: aiosqlite.Connection, code: str, limit: int = 20) -> list[dict]:
+    """Return list of {user_id, chat_id, redeemed_at} for a given code."""
+    async with db.execute(
+        "SELECT user_id, chat_id, redeemed_at FROM promocode_redemptions "
+        "WHERE code = ? ORDER BY redeemed_at DESC LIMIT ?",
+        (code.upper(), limit),
     ) as c:
         return [dict(row) for row in await c.fetchall()]
 
