@@ -205,7 +205,7 @@ async def cmd_dev_deal(message: types.Message, db):
     from infrastructure.repositories.daily_deal import save_deals
     from datetime import datetime, timezone
     slots = generate_deal_slots()
-    await save_deals(db, slots, datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"))
+    await save_deals(db, slots, datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     await message.answer("✅ Акция дня принудительно обновлена.\n<code>бот акция</code>", parse_mode="HTML")
 
 

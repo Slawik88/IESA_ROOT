@@ -18,16 +18,19 @@ from datetime import datetime as _datetime
 import asyncpg
 from loguru import logger
 
-# Regex to detect timestamp strings like '2026-05-31 12:11:37' or '2026-05-31'
-_TS_RE = re.compile(r'^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}:\d{2}(?:\.\d+)?)?$')
+# Only convert FULL datetime strings (with time component) to datetime objects.
+# Date-only strings like '2026-05-31' stay as str — they go to TEXT columns
+# (daily_deal_purchases.purchase_date, daily_quests.date, etc.) and asyncpg
+# requires str for TEXT.  TIMESTAMP columns receive full '2026-05-31 HH:MM:SS'.
+_TS_RE = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?$')
 
 
 def _coerce_args(args: list) -> list:
-    """Convert timestamp strings to datetime objects for asyncpg compatibility."""
+    """Convert full datetime strings to datetime objects for asyncpg TIMESTAMP columns."""
     result = []
     for a in args:
         if isinstance(a, str) and _TS_RE.match(a):
-            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d"):
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
                 try:
                     result.append(_datetime.strptime(a, fmt))
                     break
