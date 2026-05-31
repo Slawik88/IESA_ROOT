@@ -76,7 +76,7 @@ async def get_weekly_count(db: aiosqlite.Connection, seller_id: int, week_start:
 async def incr_weekly_count(db: aiosqlite.Connection, seller_id: int, week_start: str) -> None:
     await db.execute(
         "INSERT INTO auction_weekly_count (user_id, week_start, count) VALUES (?, ?, 1) "
-        "ON CONFLICT(user_id, week_start) DO UPDATE SET count = count + 1",
+        "ON CONFLICT(user_id, week_start) DO UPDATE SET count = auction_weekly_count.count + 1",
         (seller_id, week_start),
     )
 

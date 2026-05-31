@@ -508,7 +508,7 @@ async def cb_gacha_pity(query: types.CallbackQuery, db):
 
 
 @router.callback_query(GachaCB.filter(F.action == "history"))
-async def cb_gacha_history(query: types.CallbackQuery, db):
+async def cb_gacha_history(query: types.CallbackQuery, callback_data: GachaCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     history = await get_recent_history(db, query.from_user.id, limit=20)
