@@ -101,21 +101,22 @@ async def _build_text(db, user_id: int, n: int = 20, filter_src: str = "") -> st
     return "\n".join(lines)
 
 
-def _filter_kb(active: str = "") -> types.InlineKeyboardMarkup:
+def _filter_kb(active: str = "", user_id: int = 0) -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     filters = [("Все", ""), ("Гача", "гача"), ("Переводы", "переводы"),
                ("Магазин", "магазин"), ("Стрик", "стрик"), ("Игры", "игры"), ("Походы", "походы")]
     for label, src in filters:
         mark = "· " if src == active else ""
-        b.button(text=f"{mark}{label}", callback_data=WalletCB(action="filter", filter_src=src))
+        b.button(text=f"{mark}{label}", callback_data=WalletCB(action="filter", filter_src=src, user_id=user_id))
     b.adjust(2, 2, 2, 1)
     return b.as_markup()
 
 
-@router.message(TextCmd(["история кошелька", "история кошелка", "кошелёк история"]))
+@router.message(TextCmd([
+    "история кошелька", "история кошелка", "кошелёк история",
+    "баланс лог", "лог баланс", "лог кошелька", "лог кошелёк",
+]))
 async def cmd_wallet_history(message: types.Message, db, text_args: str = None):
-    if message.chat.type == "private":
-        return
     raw = (text_args or "").strip().lower()
     n = 20
     filter_src = ""
@@ -125,7 +126,11 @@ async def cmd_wallet_history(message: types.Message, db, text_args: str = None):
         filter_src = raw
 
     text = await _build_text(db, message.from_user.id, n=n, filter_src=filter_src)
-    await message.answer(text, reply_markup=_filter_kb(filter_src), parse_mode="HTML")
+    await message.answer(
+        text,
+        reply_markup=_filter_kb(filter_src, user_id=message.from_user.id),
+        parse_mode="HTML",
+    )
 
 
 @router.callback_query(WalletCB.filter(F.action == "filter"))
@@ -135,8 +140,43 @@ async def cb_wallet_filter(query: types.CallbackQuery, callback_data: WalletCB, 
     text = await _build_text(db, query.from_user.id, n=20, filter_src=callback_data.filter_src)
     try:
         await query.message.edit_text(
-            text, reply_markup=_filter_kb(callback_data.filter_src), parse_mode="HTML"
+            text,
+            reply_markup=_filter_kb(callback_data.filter_src, user_id=callback_data.user_id),
+            parse_mode="HTML",
         )
     except Exception:
         pass
     await query.answer()
+
+
+@router.message(TextCmd(["god лог", "god wallet log", "god лог кошелька"]))
+async def cmd_dev_wallet_log(
+    message: types.Message, db, text_args: str = None, developer_id: int = 0
+):
+    if message.from_user.id != developer_id:
+        return
+
+    target_id: int | None = None
+    if message.reply_to_message and message.reply_to_message.from_user:
+        target_id = message.reply_to_message.from_user.id
+    elif text_args:
+        try:
+            target_id = int(text_args.strip().split()[0])
+        except (ValueError, IndexError):
+            pass
+
+    if not target_id:
+        return await message.answer(
+            "ℹ️ <b>Использование:</b> <code>бот god лог, [user_id]</code> или реплай на сообщение.",
+            parse_mode="HTML",
+        )
+
+    n = 50
+    if text_args:
+        parts = text_args.strip().split()
+        if len(parts) >= 2 and parts[1].isdigit():
+            n = min(int(parts[1]), 200)
+
+    text = await _build_text(db, target_id, n=n)
+    text = f"🛠 <b>DEV: лог юзера {target_id}</b>\n\n" + text
+    await message.answer(text, parse_mode="HTML")
