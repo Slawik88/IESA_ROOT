@@ -466,3 +466,239 @@ async def cmd_dev_announce(message: types.Message, text_args: str = None):
         pass
 
     await message.answer(text, parse_mode="HTML")
+
+
+# ── Full chat info ────────────────────────────────────────────────────────────
+
+@router.message(TextCmd(["dev чат", "dev chat info", "dev chat"]))
+async def cmd_dev_chat_info(message: types.Message, db, text_args: str = None):
+    """Полная информация о чате — все данные из БД."""
+    from datetime import datetime, timezone
+    from services import roles
+
+    # Resolve chat_id
+    if text_args and text_args.strip().lstrip("-").isdigit():
+        chat_id = int(text_args.strip())
+    elif message.chat.type != "private":
+        chat_id = message.chat.id
+    else:
+        return await message.answer(
+            "ℹ️ <b>Использование:</b>\n"
+            "<code>бот dev чат</code> — в группе (текущий чат)\n"
+            "<code>бот dev чат, [chat_id]</code> — любой чат по ID",
+            parse_mode="HTML",
+        )
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # ── All DB queries ────────────────────────────────────────────────────────
+
+    async def _q(sql, *args):
+        async with db.execute(sql, args if args else ()) as c:
+            return await c.fetchone()
+
+    async def _qa(sql, *args):
+        async with db.execute(sql, args if args else ()) as c:
+            return await c.fetchall()
+
+    # Basic settings
+    settings = await _q("SELECT * FROM chat_settings WHERE chat_id = ?", chat_id)
+
+    # User stats
+    users_row = await _q(
+        "SELECT COUNT(*) AS cnt, COALESCE(SUM(user_messages_count_all_time), 0) AS total_msg, "
+        "COALESCE(AVG(user_level), 1) AS avg_lvl "
+        "FROM user_chat_stats WHERE chat_tg_id = ? AND is_left = FALSE",
+        chat_id,
+    )
+    users_total_row = await _q(
+        "SELECT COUNT(*) FROM user_chat_stats WHERE chat_tg_id = ?", chat_id
+    )
+
+    # Messages today / week
+    today_row = await _q(
+        "SELECT COALESCE(SUM(message_count), 0) FROM daily_user_stats "
+        "WHERE chat_id = ? AND date = ?", chat_id, today,
+    )
+    week_row = await _q(
+        "SELECT COALESCE(SUM(message_count), 0) FROM daily_user_stats "
+        "WHERE chat_id = ? AND date >= TO_CHAR(NOW() - INTERVAL '7 days', 'YYYY-MM-DD')",
+        chat_id,
+    )
+    month_row = await _q(
+        "SELECT COALESCE(SUM(message_count), 0) FROM daily_user_stats "
+        "WHERE chat_id = ? AND date >= TO_CHAR(NOW() - INTERVAL '30 days', 'YYYY-MM-DD')",
+        chat_id,
+    )
+
+    # Top-5 users
+    top5 = await _qa(
+        "SELECT u.user_tg_username, s.user_messages_count_all_time, s.user_level "
+        "FROM user_chat_stats s JOIN users u ON u.user_tg_id = s.user_tg_id "
+        "WHERE s.chat_tg_id = ? ORDER BY s.user_messages_count_all_time DESC LIMIT 5",
+        chat_id,
+    )
+
+    # Active expeditions
+    exped_row = await _q(
+        "SELECT COUNT(*) FROM active_expeditions WHERE chat_id = ?", chat_id
+    )
+
+    # Marriages
+    marriage_row = await _q(
+        "SELECT COUNT(*) FROM marriages WHERE chat_id = ?", chat_id
+    )
+
+    # Warnings last 30 days
+    warn_row = await _q(
+        "SELECT COUNT(*) FROM user_warnings WHERE chat_id = ? "
+        "AND created_at > NOW() - INTERVAL '30 days'", chat_id,
+    )
+
+    # Moderation actions last 30 days
+    mod_row = await _q(
+        "SELECT COUNT(*) FROM moderation_logs WHERE chat_id = ? "
+        "AND created_at > NOW() - INTERVAL '30 days'", chat_id,
+    )
+
+    # Active chest events
+    chest_row = await _q(
+        "SELECT COUNT(*) FROM chest_events WHERE chat_id = ? AND status = 'active'", chat_id
+    )
+
+    # Quests today
+    quest_active_row = await _q(
+        "SELECT COUNT(*) FROM daily_quests WHERE chat_id = ? AND date = ? AND completed = 0",
+        chat_id, today,
+    )
+    quest_done_row = await _q(
+        "SELECT COUNT(*) FROM daily_quests WHERE chat_id = ? AND date = ? AND completed = 1",
+        chat_id, today,
+    )
+
+    # Nicknames count
+    nick_row = await _q(
+        "SELECT COUNT(*) FROM user_nicknames WHERE chat_id = ?", chat_id
+    )
+
+    # Streak participants
+    streak_row = await _q(
+        "SELECT COUNT(*) FROM daily_login WHERE chat_id = ?", chat_id
+    )
+
+    # Duels last 30 days
+    duel_row = await _q(
+        "SELECT COUNT(*) FROM duels WHERE chat_id = ? "
+        "AND created_at > NOW() - INTERVAL '30 days'", chat_id,
+    )
+
+    # Blacklist
+    bl_row = await _q(
+        "SELECT 1 FROM global_blacklist WHERE entity_type = 'chat' AND entity_id = ?", chat_id
+    )
+
+    # ── Build output ──────────────────────────────────────────────────────────
+
+    def _v(row, idx=0):
+        return row[idx] if row else 0
+
+    def _m(val):
+        return "✅" if val else "❌"
+
+    s = dict(settings) if settings else {}
+    title = safe_html(s.get("chat_title") or "неизвестно")
+    tz = s.get("timezone_offset", 0) or 0
+    tz_str = f"UTC+{tz}" if tz >= 0 else f"UTC{tz}"
+    last_chest = s.get("last_chest_at")
+    if last_chest and hasattr(last_chest, "strftime"):
+        last_chest_str = last_chest.strftime("%Y-%m-%d %H:%M")
+    elif last_chest:
+        last_chest_str = str(last_chest)[:16]
+    else:
+        last_chest_str = "—"
+
+    bl_str = "⛔ В глобальном ЧС" if bl_row else "✅ Не в ЧС"
+    users_active = _v(users_row, 0)
+    users_all = _v(users_total_row, 0)
+    total_msg = int(_v(users_row, 1))
+    avg_lvl = round(float(_v(users_row, 2) or 1), 1)
+
+    # ── Part 1: basics + modules + ranks ─────────────────────────────────────
+    rank_names = roles.LOCAL_RANKS_MAP
+
+    def _rank(key, default=0):
+        v = s.get(key, default) or default
+        name = rank_names.get(v, f"Ранг {v}")
+        return f"{name} ({v}+)"
+
+    part1 = (
+        f"🔍 <b>ИНФО ЧАТА</b> — {title}\n\n"
+        f"📋 <b>Основное</b>\n"
+        f"├ ID: <code>{chat_id}</code>\n"
+        f"├ Часовой пояс: <code>{tz_str}</code>\n"
+        f"├ Последний сундук: <code>{last_chest_str}</code>\n"
+        f"└ Статус: {bl_str}\n\n"
+        f"🧩 <b>Модули</b>\n"
+        f"├ 🛒 Магазин: {_m(s.get('module_shop', 1))}\n"
+        f"├ 🎰 Гача: {_m(s.get('module_gacha', 1))}\n"
+        f"├ 🗺 Экспедиции: {_m(s.get('module_expeditions', 1))}\n"
+        f"├ 🏛 Аукцион: {_m(s.get('module_auction', 1))}\n"
+        f"├ 🎲 Мини-игры: {_m(s.get('module_games', 1))}\n"
+        f"├ 💱 Конвертер: {_m(s.get('module_exchange', 1))}\n"
+        f"├ 📋 Квесты: {_m(s.get('module_quests', 1))}\n"
+        f"├ 🐾 Зоопарк: {_m(s.get('module_zoo', 1))}\n"
+        f"├ 🤝 Варпы: {_m(s.get('module_warps', 1))}\n"
+        f"└ 🏷 Акция дня: {_m(s.get('module_daily_deal', 1))}\n\n"
+        f"🔒 <b>Права доступа</b>\n"
+        f"├ ⚠️ Варны: {_rank('rank_warn', 2)}\n"
+        f"├ 🔇 Мут: {_rank('rank_mute', 3)}\n"
+        f"├ 👢 Кик: {_rank('rank_kick', 4)}\n"
+        f"├ 🔨 Бан: {_rank('rank_ban', 5)}\n"
+        f"├ 🛡 Щит: {_rank('rank_shield', 4)}\n"
+        f"├ 🔰 Иммунитет: {_rank('rank_immune', 5)}\n"
+        f"├ ⚔️ Дуэли: {_rank('rank_duel', 0)}\n"
+        f"├ 💍 Брак: {_rank('rank_marriage', 0)}\n"
+        f"└ 💸 Перевод: {_rank('rank_give', 0)}\n"
+    )
+
+    # ── Part 2: stats + top + misc ────────────────────────────────────────────
+    top_lines = []
+    medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+    for i, row in enumerate(top5):
+        uname = safe_html(row[0] or f"ID неизвестен")
+        msgs = int(row[1] or 0)
+        lvl = int(row[2] or 1)
+        prefix = "└" if i == len(top5) - 1 else "├"
+        top_lines.append(f"{prefix} {medals[i]} @{uname} — {msgs:,} сообщ. (Ур.{lvl})")
+    top_str = "\n".join(top_lines) if top_lines else "└ <i>нет данных</i>"
+
+    part2 = (
+        f"📊 <b>Активность</b>\n"
+        f"├ 👥 Участников в БД: <code>{users_active}</code> активных / <code>{users_all}</code> всего\n"
+        f"├ 💬 Сообщений всего: <code>{total_msg:,}</code>\n"
+        f"├ 📅 Сегодня: <code>{int(_v(today_row)):,}</code>\n"
+        f"├ 📅 За 7 дней: <code>{int(_v(week_row)):,}</code>\n"
+        f"├ 📅 За 30 дней: <code>{int(_v(month_row)):,}</code>\n"
+        f"└ 📈 Средний уровень: <code>{avg_lvl}</code>\n\n"
+        f"🏆 <b>Топ-5 по сообщениям</b>\n"
+        f"{top_str}\n\n"
+        f"⚙️ <b>Прочее</b>\n"
+        f"├ 💍 Браков: <code>{int(_v(marriage_row))}</code>\n"
+        f"├ 🔥 Стрик-участников: <code>{int(_v(streak_row))}</code>\n"
+        f"├ 🗺 Активных экспедиций: <code>{int(_v(exped_row))}</code>\n"
+        f"├ 💰 Активных сундуков: <code>{int(_v(chest_row))}</code>\n"
+        f"├ 📋 Квестов сегодня: <code>{int(_v(quest_active_row))}</code> актив. / "
+        f"<code>{int(_v(quest_done_row))}</code> завершено\n"
+        f"├ 🏷 Никнеймов: <code>{int(_v(nick_row))}</code>\n"
+        f"├ ⚔️ Дуэлей (30 дней): <code>{int(_v(duel_row))}</code>\n"
+        f"├ ⚠️ Варнов выдано (30 дней): <code>{int(_v(warn_row))}</code>\n"
+        f"└ 🛠 Мод. действий (30 дней): <code>{int(_v(mod_row))}</code>\n"
+    )
+
+    # Send in 2 messages if combined is too long (>4096), otherwise single
+    combined = part1 + "\n" + part2
+    if len(combined) <= 4096:
+        await message.answer(combined, parse_mode="HTML")
+    else:
+        await message.answer(part1, parse_mode="HTML")
+        await message.answer(part2, parse_mode="HTML")
