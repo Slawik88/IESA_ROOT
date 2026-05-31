@@ -362,7 +362,7 @@ async def cmd_gacha(message: types.Message, db, text_args: str = None):
 
 
 @router.callback_query(GachaCB.filter(F.action == "menu"))
-async def cb_gacha_menu(query: types.CallbackQuery, db):
+async def cb_gacha_menu(query: types.CallbackQuery, callback_data: GachaCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     text = await _build_main_text(db, query.from_user.id)

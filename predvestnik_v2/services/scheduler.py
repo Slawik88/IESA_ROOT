@@ -1,4 +1,4 @@
-# services/scheduler.py
+﻿# services/scheduler.py
 # Background task: polls completed expeditions and distributes rewards.
 import asyncio
 from loguru import logger
@@ -104,7 +104,7 @@ async def expedition_background_task(bot: Bot):
                         for item_id, qty in reward.get("extras", []):
                             await db.execute(
                                 "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-                                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = quantity + ?",
+                                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
                                 (owner_id, item_id, qty, qty),
                             )
 

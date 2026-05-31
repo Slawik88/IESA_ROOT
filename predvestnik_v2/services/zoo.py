@@ -1,4 +1,4 @@
-from core.constants import WOLF_BONUSES, WOLF_REDUCTION_CAP, get_pet_bonus, PET_LEVEL_MILESTONE_REWARDS
+﻿from core.constants import WOLF_BONUSES, WOLF_REDUCTION_CAP, get_pet_bonus, PET_LEVEL_MILESTONE_REWARDS
 
 
 async def get_wolf_fatigue_reduction(db, user_id: int) -> float:
@@ -182,7 +182,7 @@ async def apply_pet_milestones(
         for item_id, qty in reward.get("items", ()):
             await db.execute(
                 "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = quantity + ?",
+                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
                 (user_id, item_id, qty, qty),
             )
 

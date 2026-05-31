@@ -23,6 +23,10 @@ async def activate_promocode(
     Validate and apply a promo code for user_id.
     Returns dict with reward details on success.
     Raises PromoError with a user-friendly message on failure.
+
+    ATOMICITY: The INSERT into promocode_redemptions happens FIRST (before
+    any rewards). Its PRIMARY KEY constraint prevents double-redemption even
+    when two bot instances process the same update simultaneously.
     """
     code = code.strip().upper()
     promo = await promo_repo.get_promocode(db, code)
@@ -81,8 +85,30 @@ async def activate_promocode(
                 "<i>Попробуй активировать его в нужном чате.</i>"
             )
 
+    # Quick pre-check (avoids the PK violation path for normal "already redeemed" case)
     if await promo_repo.has_user_redeemed(db, code, user_id):
         raise PromoError("⚠️ Вы уже активировали этот промокод ранее.")
+
+    # ATOMIC GUARD: INSERT redemption record FIRST — before any rewards.
+    # If two bot instances process the same update simultaneously, only one
+    # INSERT will succeed; the other gets a PRIMARY KEY violation here,
+    # before any balance/inventory changes are made.
+    try:
+        await db.execute(
+            "INSERT INTO promocode_redemptions (code, user_id, chat_id) VALUES (?, ?, ?)",
+            (code, user_id, chat_id),
+        )
+    except Exception as exc:
+        err = str(exc).lower()
+        if "unique" in err or "duplicate" in err or "primary" in err:
+            raise PromoError("⚠️ Вы уже активировали этот промокод ранее.")
+        raise PromoError("❌ Ошибка при активации промокода. Попробуй ещё раз.")
+
+    # Increment activation counter
+    await db.execute(
+        "UPDATE promocodes SET activations_count = activations_count + 1 WHERE code = ?",
+        (code,),
+    )
 
     mora = float(promo["reward_mora"] or 0)
     diamonds = float(promo["reward_diamonds"] or 0)
@@ -93,7 +119,7 @@ async def activate_promocode(
     except (json.JSONDecodeError, TypeError):
         items = {}
 
-    # Apply all rewards atomically — single commit at the end via redeem_promocode
+    # Apply all rewards
     if mora > 0 or diamonds > 0:
         await add_balance(
             db, user_id, mora, diamonds,
@@ -108,11 +134,9 @@ async def activate_promocode(
         if qty > 0:
             await db.execute(
                 "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = quantity + ?",
+                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
                 (user_id, item_id, qty, qty),
             )
-
-    await promo_repo.redeem_promocode(db, code, user_id, chat_id)
 
     return {
         "code": code,

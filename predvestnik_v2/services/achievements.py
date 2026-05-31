@@ -1,4 +1,4 @@
-"""
+﻿"""
 services/achievements.py
 Achievement increment, threshold checking, and reward granting.
 No bot/django imports.
@@ -63,7 +63,7 @@ async def increment_metric(
                 for item_id, qty in reward.get("items", ()):
                     await db.execute(
                         "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-                        "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = quantity + ?",
+                        "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
                         (user_id, item_id, qty, qty),
                     )
 
