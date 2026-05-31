@@ -16,7 +16,8 @@ from infrastructure.repositories.exchange import (
     activate_event as _activate_exchange_event,
     finish_event as _finish_exchange_event,
 )
-import aiosqlite
+from infrastructure.database import get_pool
+from infrastructure.pg_adapter import PGAdapter
 
 
 async def expedition_background_task(bot: Bot):
@@ -24,8 +25,8 @@ async def expedition_background_task(bot: Bot):
     while True:
         await asyncio.sleep(60)
         try:
-            async with aiosqlite.connect(config.db_path) as db:
-                db.row_factory = aiosqlite.Row
+            async with get_pool().acquire() as _conn:
+                db = PGAdapter(_conn)
                 async with db.execute(
                     "SELECT e.pet_id, e.chat_id, e.duration_hours, "
                     "p.name, p.owner_id, p.marriage_id, p.species_id, "
@@ -144,8 +145,8 @@ async def daily_deal_task():
     logger.info("Фоновая задача акции дня запущена.")
     while True:
         try:
-            async with aiosqlite.connect(config.db_path) as db:
-                db.row_factory = aiosqlite.Row
+            async with get_pool().acquire() as _conn:
+                db = PGAdapter(_conn)
                 await ensure_deals_fresh(db)
         except Exception as e:
             logger.error(f"Ошибка в задаче акции дня: {e}")
@@ -158,8 +159,8 @@ async def duel_and_auction_task(bot: Bot):
     while True:
         await asyncio.sleep(60)
         try:
-            async with aiosqlite.connect(config.db_path) as db:
-                db.row_factory = aiosqlite.Row
+            async with get_pool().acquire() as _conn:
+                db = PGAdapter(_conn)
 
                 # ── Expire timed-out duels ────────────────────────────────────
                 from core.constants import DUEL_TIMEOUT_SECONDS
@@ -253,8 +254,8 @@ async def chest_spawn_task(bot: Bot):
             from infrastructure.repositories.wallet_log import log_wallet as _lw
             from datetime import datetime, timedelta, timezone
 
-            async with aiosqlite.connect(config.db_path) as db:
-                db.row_factory = aiosqlite.Row
+            async with get_pool().acquire() as _conn:
+                db = PGAdapter(_conn)
 
                 # Close expired chests (rewards already paid immediately in events.py on click)
                 expired = await get_expired_active(db)
@@ -319,8 +320,8 @@ async def exchange_scheduler_task(bot: Bot):
             now = datetime.now(tz.utc)
             now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
-            async with aiosqlite.connect(config.db_path) as db:
-                db.row_factory = aiosqlite.Row
+            async with get_pool().acquire() as _conn:
+                db = PGAdapter(_conn)
 
                 # Finish active events that have ended
                 active = await _get_active_exchange(db)

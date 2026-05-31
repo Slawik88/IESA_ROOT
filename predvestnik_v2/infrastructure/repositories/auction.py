@@ -129,7 +129,7 @@ async def get_user_active_bids(db: aiosqlite.Connection, bidder_id: int) -> list
 
 async def get_expired_active_lots(db: aiosqlite.Connection) -> list[dict]:
     async with db.execute(
-        "SELECT * FROM auction_lots WHERE status = 'active' AND ends_at <= datetime('now')"
+        "SELECT * FROM auction_lots WHERE status = 'active' AND ends_at <= NOW()"
     ) as c:
         return [dict(r) for r in await c.fetchall()]
 

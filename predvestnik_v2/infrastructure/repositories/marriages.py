@@ -27,48 +27,42 @@ async def family_bank_transaction(
         return False, "Сумма должна быть больше нуля."
 
     try:
-        await db.execute("BEGIN TRANSACTION")
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT family_balance FROM marriages WHERE id = ?", (marriage_id,)
+            ) as cursor:
+                m_row = await cursor.fetchone()
+                if not m_row:
+                    return False, "Брак не найден."
+                family_balance = m_row[0]
 
-        async with db.execute(
-            "SELECT family_balance FROM marriages WHERE id = ?", (marriage_id,)
-        ) as cursor:
-            m_row = await cursor.fetchone()
-            if not m_row:
-                await db.rollback()
-                return False, "Брак не найден."
-            family_balance = m_row[0]
+            user_bal = await get_balance(db, user_id)
 
-        user_bal = await get_balance(db, user_id)
+            if action == "deposit":
+                if user_bal["user_balance_mora"] < amount:
+                    return False, "Недостаточно личной Моры."
+                await db.execute(
+                    "UPDATE users SET user_balance_mora = user_balance_mora - ? WHERE user_tg_id = ?",
+                    (amount, user_id),
+                )
+                await db.execute(
+                    "UPDATE marriages SET family_balance = family_balance + ? WHERE id = ?",
+                    (amount, marriage_id),
+                )
+            elif action == "withdraw":
+                if family_balance < amount:
+                    return False, "Недостаточно Моры в семейном бюджете."
+                await db.execute(
+                    "UPDATE marriages SET family_balance = family_balance - ? WHERE id = ?",
+                    (amount, marriage_id),
+                )
+                await db.execute(
+                    "UPDATE users SET user_balance_mora = user_balance_mora + ? WHERE user_tg_id = ?",
+                    (amount, user_id),
+                )
 
-        if action == "deposit":
-            if user_bal["user_balance_mora"] < amount:
-                await db.rollback()
-                return False, "Недостаточно личной Моры."
-            await db.execute(
-                "UPDATE users SET user_balance_mora = user_balance_mora - ? WHERE user_tg_id = ?",
-                (amount, user_id),
-            )
-            await db.execute(
-                "UPDATE marriages SET family_balance = family_balance + ? WHERE id = ?",
-                (amount, marriage_id),
-            )
-        elif action == "withdraw":
-            if family_balance < amount:
-                await db.rollback()
-                return False, "Недостаточно Моры в семейном бюджете."
-            await db.execute(
-                "UPDATE marriages SET family_balance = family_balance - ? WHERE id = ?",
-                (amount, marriage_id),
-            )
-            await db.execute(
-                "UPDATE users SET user_balance_mora = user_balance_mora + ? WHERE user_tg_id = ?",
-                (amount, user_id),
-            )
-
-        await db.commit()
         return True, "Успешно."
     except Exception as e:
-        await db.rollback()
         return False, f"Ошибка: {e}"
 
 
