@@ -79,7 +79,7 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
     # 1. ЗАБЛОКИРОВАТЬ ЧАТ (Глобальный мут для юзеров)
     settings = await mod_db.get_chat_settings(db, message.chat.id)
     purge_min_rank = settings.get("purge_min_rank", 4)
-    await mod_db.update_chat_settings(db, message.chat.id, is_purging=1)
+    await mod_db.update_chat_settings(db, message.chat.id, is_purging = True)
     try:
         await bot.set_chat_permissions(message.chat.id, ChatPermissions(can_send_messages=False))
     except Exception:
@@ -100,13 +100,13 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
         SELECT 
             u.user_tg_id as id, u.user_tg_username as username,
             s.local_rank, s.joined_at, s.is_immune, s.immune_until, s.warnings,
-            IFNULL(SUM(d.message_count), 0) as msg_sum
+            COALESCE(SUM(d.message_count), 0) as msg_sum
         FROM user_chat_stats s
         LEFT JOIN users u ON s.user_tg_id = u.user_tg_id
         LEFT JOIN daily_user_stats d ON s.user_tg_id = d.user_id 
                                      AND d.chat_id = s.chat_tg_id 
                                      AND d.date BETWEEN ? AND ?
-        WHERE s.chat_tg_id = ? AND s.is_left = 0
+        WHERE s.chat_tg_id = ? AND s.is_left = FALSE
         GROUP BY u.user_tg_id
     """
     
@@ -228,7 +228,7 @@ async def cmd_purge_stop(message: types.Message, db, bot: Bot, developer_id: int
     can_mod, err = await mod_service.check_admin_rights(db, message.chat.id, message.from_user.id, 4, developer_id=developer_id)
     if not can_mod: return await message.answer(err, parse_mode="HTML")
 
-    await mod_db.update_chat_settings(db, message.chat.id, is_purging=0)
+    await mod_db.update_chat_settings(db, message.chat.id, is_purging = False)
     try:
         permissions = ChatPermissions(
             can_send_messages=True, can_send_audios=True, can_send_documents=True,

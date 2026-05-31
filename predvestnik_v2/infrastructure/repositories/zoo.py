@@ -424,7 +424,7 @@ async def open_eggs_batch(
             # Apply is_summoned flag to newly created copies only
             if is_summoned and result["outcome"] in ("first_copy_created", "new_copy_created"):
                 await db.execute(
-                    "UPDATE pets SET is_summoned = 1 WHERE id = ?", (result["pet_id"],)
+                    "UPDATE pets SET is_summoned = TRUE WHERE id = ?", (result["pet_id"],)
                 )
 
             result["species_id"] = species_id
