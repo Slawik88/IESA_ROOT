@@ -92,12 +92,14 @@ async def db_middleware(
                     (chat_obj.id, chat_title),
                 )
 
+                # Embed tz as literal — asyncpg can't encode str as INTERVAL param
+                _tz = config.timezone_offset.replace("'", "")
                 await db.execute(
                     "INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) "
-                    "VALUES (?, ?, TO_CHAR(NOW() + ?::INTERVAL, 'YYYY-MM-DD'), 1) "
+                    f"VALUES (?, ?, TO_CHAR(NOW() + INTERVAL '{_tz}', 'YYYY-MM-DD'), 1) "
                     "ON CONFLICT(user_id, chat_id, date) "
                     "DO UPDATE SET message_count = daily_user_stats.message_count + 1",
-                    (user.id, chat_obj.id, config.timezone_offset),
+                    (user.id, chat_obj.id),
                 )
 
             data["db"] = db
@@ -105,4 +107,7 @@ async def db_middleware(
 
         except Exception as e:
             logger.error(f"DB middleware error: {e}")
-            return await handler(event, data)
+            # Only forward to handler if db was successfully injected —
+            # calling handler without db causes TypeError in every command.
+            if "db" in data:
+                return await handler(event, data)
