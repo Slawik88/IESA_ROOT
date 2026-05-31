@@ -548,9 +548,10 @@ async def init_db():
             )
         """)
 
-        # 31b. Promo code extensions (user/chat whitelists + dark mora reward)
+        # 31b. Promo code extensions (user/chat whitelists + dark mora + crystals rewards)
         for _col, _type, _def in [
             ("reward_dark_mora",   "FLOAT8", "0"),
+            ("reward_crystals",    "FLOAT8", "0"),
             ("allowed_users_json", "TEXT",   "''"),
             ("allowed_chats_json", "TEXT",   "''"),
         ]:
@@ -565,6 +566,13 @@ async def init_db():
         await db.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS user_balance_dark_mora FLOAT8 DEFAULT 0.0
         """)
+        # 32b. Donate crystals balance
+        try:
+            await db.execute("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS user_balance_crystals FLOAT8 DEFAULT 0.0
+            """)
+        except Exception:
+            pass
         await db.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS active_theme TEXT DEFAULT NULL
         """)
@@ -665,10 +673,12 @@ async def init_db():
             )
         """)
 
-        # Migrations: wallet_log dark mora columns
+        # Migrations: wallet_log dark mora + crystals columns
         for _col, _def in [
-            ("delta_dark_mora", "0"),
-            ("balance_dark_mora_after", "0"),
+            ("delta_dark_mora",          "0"),
+            ("balance_dark_mora_after",  "0"),
+            ("delta_crystals",           "0"),
+            ("balance_crystals_after",   "0"),
         ]:
             try:
                 await db.execute(
