@@ -8,6 +8,7 @@ from aiogram.filters.callback_data import CallbackData
 from bot.filters.text_commands import TextCmd, WrongSyntaxCmd, UnknownBotCmd
 from services.utils import check_callback_owner
 from core.registry import ITEMS_REGISTRY
+from html import escape as _he
 
 _WEB_BASE_URL = os.getenv("WEB_BASE_URL", "http://127.0.0.1:8000")
 
@@ -386,26 +387,26 @@ async def cmd_item_info(message: types.Message, text_args: str = None):
             parse_mode="HTML",
         )
 
+    safe_raw = _he(raw)
     item = ITEMS_REGISTRY.get(raw)
     if not item:
-        # Fuzzy match: try partial match
         matches = [k for k in ITEMS_REGISTRY if raw in k]
         if matches:
-            tip = "\n".join(f"· <code>{m}</code>" for m in matches[:5])
+            tip = "\n".join(f"· <code>{_he(m)}</code>" for m in matches[:5])
             return await message.answer(
-                f"❓ Предмет <code>{raw}</code> не найден. Похожие:\n{tip}",
+                f"❓ Предмет <code>{safe_raw}</code> не найден. Похожие:\n{tip}",
                 parse_mode="HTML",
             )
         return await message.answer(
-            f"❌ Предмет <code>{raw}</code> не найден.\n"
+            f"❌ Предмет <code>{safe_raw}</code> не найден.\n"
             "<i>Список предметов: раздел «📦 Предметы» в <code>бот помощь</code></i>",
             parse_mode="HTML",
         )
 
     name = item.get("name", raw)
-    desc = item.get("description", "<i>Нет описания.</i>")
+    desc = _he(item.get("description", "Нет описания."))
     cat = item.get("category", "—")
-    lines = [f"📦 <b>{name}</b>", f"└ ID: <code>{raw}</code>", ""]
+    lines = [f"📦 <b>{name}</b>", f"└ ID: <code>{safe_raw}</code>", ""]
 
     _CAT_LABELS = {
         "egg": "🥚 Яйцо",

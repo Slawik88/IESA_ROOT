@@ -5,7 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime, timedelta
 
 from bot.filters.text_commands import TextCmd
-from services.utils import check_callback_owner
+from services.utils import check_callback_owner, safe_html
 from core.registry import EXPEDITIONS_DATA, PET_SPECIES
 from core.constants import get_pet_bonus
 from infrastructure.repositories import economy as eco_db
@@ -230,7 +230,7 @@ async def cmd_exp_boost_menu(message: types.Message, db):
             parse_mode="HTML",
         )
 
-    pet_name = exp_row[2]
+    pet_name = safe_html(exp_row[2] or "?")
     ends_at = exp_row[1]
     ends_str = ends_at.strftime("%H:%M") if hasattr(ends_at, "strftime") else str(ends_at)[:16]
 
