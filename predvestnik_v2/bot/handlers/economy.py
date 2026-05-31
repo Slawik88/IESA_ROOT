@@ -6,6 +6,7 @@ from infrastructure.repositories import economy as eco_db
 from infrastructure.repositories import marriages as marriages_db
 from infrastructure.repositories.moderation import get_chat_settings
 from infrastructure.repositories.chat import get_chat_stats
+from infrastructure.repositories.dark_mora import get_dark_mora_balance
 from services.admin_service import give_resource, set_resource
 from services.utils import resolve_target, safe_html, format_currency
 from core.registry import ITEMS_REGISTRY
@@ -18,14 +19,18 @@ async def cmd_balance(message: types.Message, db):
     user_id = message.from_user.id
     name = safe_html(message.from_user.first_name)
     balance = await eco_db.get_balance(db, user_id)
+    dark_mora = await get_dark_mora_balance(db, user_id)
     mora = format_currency(balance['user_balance_mora'])
     diamonds = format_currency(balance['user_balance_diamonds'])
 
+    dark_line = f"\n└ 🌑 Тёмная Мора: <code>{dark_mora:.0f}</code>" if dark_mora > 0 else \
+                f"\n└ 🌑 Тёмная Мора: <code>0</code> <i>(добыть: «бот контрабанда»)</i>"
+
     text = (
-        f"💳 <b>КОШЕЛЁК:</b> {name}\n\n"
-        f"💰 <b>ЛИЧНЫЙ БАЛАНС</b>\n"
-        f"├ 🪙 Мора: <code>{mora}</code>\n"
-        f"└ 💎 Алмазы: <code>{diamonds}</code>"
+        f"💳 <b>КОШЕЛЁК</b> — {name}\n\n"
+        f"🪙 Мора: <code>{mora}</code>\n"
+        f"💎 Алмазы: <code>{diamonds}</code>"
+        f"{dark_line}"
     )
 
     if message.chat.type != "private":
@@ -34,8 +39,8 @@ async def cmd_balance(message: types.Message, db):
             family_mora = format_currency(marriage['family_balance'])
             partner_name = marriage['user2_name'] if marriage['user1_id'] == user_id else marriage['user1_name']
             text += (
-                f"\n\n🏦 <b>СЕМЕЙНЫЙ БЮДЖЕТ</b>\n"
-                f"├ 💞 С партнёром: <b>{safe_html(partner_name)}</b>\n"
+                f"\n\n🏦 <b>СЕМЕЙНЫЙ БАНК</b>\n"
+                f"├ 💞 Партнёр: <b>{safe_html(partner_name)}</b>\n"
                 f"└ 🪙 Общак: <code>{family_mora}</code>"
             )
 
