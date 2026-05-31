@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 
 from core.constants import (
     AUCTION_DURATION_HOURS, AUCTION_MAX_ACTIVE_LOTS, AUCTION_MAX_LOTS_PER_WEEK,
-    AUCTION_MIN_BID, AUCTION_MIN_BID_RAISE, AUCTION_COMMISSION,
+    AUCTION_MIN_BID, AUCTION_MIN_BID_RAISE, AUCTION_COMMISSION, AUCTION_MAX_BID,
 )
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.auction import (
@@ -51,6 +51,11 @@ async def create_auction_lot(
 
     if min_bid < AUCTION_MIN_BID:
         min_bid = AUCTION_MIN_BID
+    if min_bid > AUCTION_MAX_BID:
+        return False, f"Минимальная ставка не может превышать {AUCTION_MAX_BID:,.0f} 🪙.".replace(",", " ")
+
+    if buyout is not None and buyout > AUCTION_MAX_BID:
+        buyout = AUCTION_MAX_BID
 
     lot_id = await create_lot(
         db, seller_id, category, item_type, item_id_or_pet_id,
@@ -94,6 +99,8 @@ async def place_bid(
     min_required = max(lot["min_bid"], current_high * (1 + AUCTION_MIN_BID_RAISE))
     if amount < min_required:
         return {"ok": False, "error": f"Ставка должна быть ≥ {min_required:.0f} 🪙."}
+    if amount > AUCTION_MAX_BID:
+        return {"ok": False, "error": f"Максимальная ставка — {int(AUCTION_MAX_BID):,} 🪙.".replace(",", " ")}
 
     # Check free balance
     bal = await eco_repo.get_balance(db, bidder_id)

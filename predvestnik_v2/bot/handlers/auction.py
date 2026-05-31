@@ -11,7 +11,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
-from core.constants import AUCTION_MIN_BID, AUCTION_COMMISSION
+from core.constants import AUCTION_MIN_BID, AUCTION_COMMISSION, AUCTION_MAX_BID
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.auction import (
@@ -386,7 +386,7 @@ async def cb_create_item(query: types.CallbackQuery, callback_data: AucCB, db):
         _pending[user_id]["quantity"] = 1
         _show_bid_step(b, user_id)
         await query.message.edit_text(
-            "🏛 <b>ВЫСТАВИТЬ ЛОТ</b>\n\nМинимальная ставка (Моры):",
+            f"🏛 <b>ВЫСТАВИТЬ ЛОТ</b>\n\nМинимальная ставка (Моры, макс {int(AUCTION_MAX_BID):,} 🪙):".replace(",", " "),
             reply_markup=b.as_markup(),
             parse_mode="HTML",
         )
@@ -408,10 +408,10 @@ async def cb_create_item(query: types.CallbackQuery, callback_data: AucCB, db):
 
 
 def _show_bid_step(b: InlineKeyboardBuilder, user_id: int):
-    for preset in [100, 500, 1000, 5000]:
-        b.button(text=f"{preset} 🪙", callback_data=AucCB(action="create_bid", v=str(preset)))
+    for preset in [100, 500, 1000, 5000, 25000, 100000]:
+        b.button(text=f"{preset:,} 🪙".replace(",", " "), callback_data=AucCB(action="create_bid", v=str(preset)))
     b.button(text="❌ Отмена", callback_data=AucCB(action="cancel_create"))
-    b.adjust(2, 2, 1)
+    b.adjust(3, 3, 1)
 
 
 @router.callback_query(AucCB.filter(F.action == "create_qty"))
@@ -421,7 +421,7 @@ async def cb_create_qty(query: types.CallbackQuery, callback_data: AucCB):
     b = InlineKeyboardBuilder()
     _show_bid_step(b, user_id)
     await query.message.edit_text(
-        "🏛 <b>ВЫСТАВИТЬ ЛОТ</b>\n\nМинимальная ставка (Моры):",
+        f"🏛 <b>ВЫСТАВИТЬ ЛОТ</b>\n\nМинимальная ставка (Моры, макс {int(AUCTION_MAX_BID):,} 🪙):".replace(",", " "),
         reply_markup=b.as_markup(),
         parse_mode="HTML",
     )

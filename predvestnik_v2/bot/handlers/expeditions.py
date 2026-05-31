@@ -1,8 +1,11 @@
 import random
-from aiogram import Router, types
+from aiogram import Router, types, F
+from aiogram.filters.callback_data import CallbackData
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime, timedelta
 
 from bot.filters.text_commands import TextCmd
+from services.utils import check_callback_owner
 from core.registry import EXPEDITIONS_DATA, PET_SPECIES
 from core.constants import get_pet_bonus
 from infrastructure.repositories import economy as eco_db
@@ -188,3 +191,172 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
         f"{dog_block}{wolf_bonus_line}{zero_line}{turtle_bonus_line}"
     )
     await message.answer(text, parse_mode="HTML")
+
+
+# ── Expedition boost (ускоритель) ─────────────────────────────────────────────
+
+_BOOST_ITEMS = {
+    "exp_boost_1h": {"label": "⏩ Ускоритель (1ч)",  "hours": 1},
+    "exp_boost_2h": {"label": "⏩⏩ Ускоритель (2ч)", "hours": 2},
+    "exp_boost_4h": {"label": "🚀 Ускоритель (4ч)",  "hours": 4},
+}
+
+
+class ExpBoostCB(CallbackData, prefix="expboost"):
+    item_id: str
+    user_id: int = 0
+
+
+@router.message(TextCmd(["ускорить поход", "ускорить экспедицию", "ускорение похода"]))
+async def cmd_exp_boost_menu(message: types.Message, db):
+    if message.chat.type == "private":
+        return
+    user_id = message.from_user.id
+
+    # Find active pet and its expedition
+    async with db.execute(
+        "SELECT ae.pet_id, ae.ends_at, p.name "
+        "FROM active_expeditions ae "
+        "JOIN pets p ON ae.pet_id = p.id "
+        "WHERE p.owner_id = ? AND ae.ends_at > NOW() "
+        "ORDER BY ae.ends_at ASC LIMIT 1",
+        (user_id,),
+    ) as c:
+        exp_row = await c.fetchone()
+
+    if not exp_row:
+        return await message.answer(
+            "❌ <b>Нет активной экспедиции.</b>\n<i>Сначала отправьте питомца в поход.</i>",
+            parse_mode="HTML",
+        )
+
+    pet_name = exp_row[2]
+    ends_at = exp_row[1]
+    ends_str = ends_at.strftime("%H:%M") if hasattr(ends_at, "strftime") else str(ends_at)[:16]
+
+    # Check which boost items user has
+    available = []
+    for item_id, info in _BOOST_ITEMS.items():
+        async with db.execute(
+            "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? AND quantity > 0",
+            (user_id, item_id),
+        ) as c:
+            row = await c.fetchone()
+        if row:
+            available.append((item_id, info["label"], info["hours"], row[0]))
+
+    if not available:
+        return await message.answer(
+            "❌ <b>Нет ускорителей.</b>\n<i>Их можно получить из гачи.</i>",
+            parse_mode="HTML",
+        )
+
+    b = InlineKeyboardBuilder()
+    for item_id, label, hours, qty in available:
+        b.button(
+            text=f"{label} (x{qty})",
+            callback_data=ExpBoostCB(item_id=item_id, user_id=user_id),
+        )
+    b.adjust(1)
+
+    await message.answer(
+        f"⏩ <b>УСКОРИТЕЛЬ ПОХОДА</b>\n\n"
+        f"├ 🐾 Питомец: <b>{pet_name}</b>\n"
+        f"└ 🕒 Ожидаемое возвращение: <code>{ends_str}</code>\n\n"
+        f"<i>Выберите ускоритель:</i>",
+        reply_markup=b.as_markup(),
+        parse_mode="HTML",
+    )
+
+
+@router.callback_query(ExpBoostCB.filter())
+async def cb_exp_boost_apply(query: types.CallbackQuery, callback_data: ExpBoostCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
+
+    user_id = query.from_user.id
+    item_id = callback_data.item_id
+    boost_info = _BOOST_ITEMS.get(item_id)
+    if not boost_info:
+        return await query.answer("❌ Неизвестный ускоритель.", show_alert=True)
+
+    boost_hours = boost_info["hours"]
+
+    # Find active pet's expedition (for update)
+    async with db.execute(
+        "SELECT ae.pet_id, ae.ends_at FROM active_expeditions ae "
+        "JOIN pets p ON ae.pet_id = p.id "
+        "WHERE p.owner_id = ? AND ae.ends_at > NOW() "
+        "ORDER BY ae.ends_at ASC LIMIT 1",
+        (user_id,),
+    ) as c:
+        exp_row = await c.fetchone()
+
+    if not exp_row:
+        return await query.answer("❌ Экспедиция уже завершилась!", show_alert=True)
+
+    pet_id = exp_row[0]
+    current_ends = exp_row[1]
+    if not hasattr(current_ends, "tzinfo"):
+        current_ends = datetime.strptime(str(current_ends)[:19], "%Y-%m-%d %H:%M:%S")
+
+    # Calculate new ends_at — cap at now + 30 seconds to let scheduler finalize
+    new_ends = max(
+        current_ends - timedelta(hours=boost_hours),
+        datetime.now() + timedelta(seconds=30),
+    )
+
+    # Atomic: remove item + update expedition in one transaction
+    try:
+        async with db.connection.transaction():
+            # Check item still available (FOR UPDATE to prevent race)
+            async with db.execute(
+                "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? FOR UPDATE",
+                (user_id, item_id),
+            ) as c:
+                inv_row = await c.fetchone()
+            if not inv_row or inv_row[0] < 1:
+                raise ValueError("no_item")
+
+            # Remove 1 item
+            await db.execute(
+                "UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = ?",
+                (user_id, item_id),
+            )
+            await db.execute(
+                "DELETE FROM inventory WHERE user_id = ? AND item_id = ? AND quantity <= 0",
+                (user_id, item_id),
+            )
+
+            # Update expedition (also verify it's still active)
+            async with db.execute(
+                "UPDATE active_expeditions SET ends_at = ? "
+                "WHERE pet_id = ? AND ends_at > NOW() RETURNING ends_at",
+                (new_ends.strftime("%Y-%m-%d %H:%M:%S"), pet_id),
+            ) as c:
+                updated = await c.fetchone()
+
+            if not updated:
+                raise ValueError("already_done")
+
+    except ValueError as e:
+        if str(e) == "no_item":
+            return await query.answer("❌ Предмет не найден в инвентаре.", show_alert=True)
+        return await query.answer("❌ Экспедиция уже завершилась!", show_alert=True)
+    except Exception:
+        return await query.answer("❌ Ошибка. Попробуйте ещё раз.", show_alert=True)
+
+    saved = current_ends - new_ends
+    saved_min = int(saved.total_seconds() / 60)
+    new_ends_str = new_ends.strftime("%H:%M")
+
+    try:
+        await query.message.edit_text(
+            f"✅ <b>Ускоритель применён!</b>\n\n"
+            f"├ Сэкономлено: <code>{saved_min} мин.</code>\n"
+            f"└ Возвращение: <code>{new_ends_str}</code>",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+    await query.answer()

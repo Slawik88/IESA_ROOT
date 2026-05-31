@@ -537,6 +537,122 @@ async def init_db():
             )
         """)
 
+        # 32. Dark Mora balance & cooldowns
+        await db.execute("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS user_balance_dark_mora FLOAT8 DEFAULT 0.0
+        """)
+        await db.execute("""
+            ALTER TABLE users ADD COLUMN IF NOT EXISTS active_theme TEXT DEFAULT NULL
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS dark_mora_cooldowns (
+                user_id        BIGINT,
+                action         TEXT,
+                available_from TIMESTAMP NOT NULL,
+                PRIMARY KEY (user_id, action)
+            )
+        """)
+
+        # 33. Player buffs (one-use or timed)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS player_buffs (
+                user_id    BIGINT,
+                buff_type  TEXT,
+                uses_left  INTEGER DEFAULT 1,
+                expires_at TIMESTAMP DEFAULT NULL,
+                value      FLOAT8 DEFAULT 0.0,
+                PRIMARY KEY (user_id, buff_type)
+            )
+        """)
+
+        # 34. Profile themes ownership
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_themes (
+                user_id     BIGINT,
+                theme_id    TEXT,
+                acquired_at TIMESTAMP DEFAULT NOW(),
+                PRIMARY KEY (user_id, theme_id)
+            )
+        """)
+
+        # 35. Artifact instances (limited-print)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS artifact_instances (
+                id          SERIAL PRIMARY KEY,
+                art_id      TEXT NOT NULL,
+                owner_id    BIGINT NOT NULL,
+                source      TEXT,
+                acquired_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS artifact_award_log (
+                id          SERIAL PRIMARY KEY,
+                art_id      TEXT NOT NULL,
+                user_id     BIGINT NOT NULL,
+                chat_id     BIGINT,
+                award_type  TEXT,
+                award_month TEXT NOT NULL,
+                UNIQUE (user_id, art_id, award_month)
+            )
+        """)
+
+        # 36. Relic instances (very limited-print)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS relic_instances (
+                id          SERIAL PRIMARY KEY,
+                rel_id      TEXT NOT NULL,
+                owner_id    BIGINT NOT NULL,
+                source      TEXT,
+                acquired_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS relic_award_log (
+                id          SERIAL PRIMARY KEY,
+                rel_id      TEXT NOT NULL,
+                user_id     BIGINT NOT NULL,
+                chat_id     BIGINT,
+                award_type  TEXT,
+                award_period TEXT NOT NULL,
+                UNIQUE (user_id, rel_id, award_period)
+            )
+        """)
+
+        # 37. Shadow Merchant events (Теневой Торговец)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS shadow_merchant_events (
+                id         SERIAL PRIMARY KEY,
+                chat_id    BIGINT NOT NULL,
+                keyword    TEXT NOT NULL,
+                posted_at  TIMESTAMP DEFAULT NOW(),
+                expires_at TIMESTAMP NOT NULL,
+                status     TEXT DEFAULT 'active'
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS shadow_merchant_winners (
+                event_id  INTEGER NOT NULL,
+                user_id   BIGINT NOT NULL,
+                position  INTEGER NOT NULL,
+                reward    FLOAT8 NOT NULL,
+                won_at    TIMESTAMP DEFAULT NOW(),
+                PRIMARY KEY (event_id, user_id)
+            )
+        """)
+
+        # Migrations: wallet_log dark mora columns
+        for _col, _def in [
+            ("delta_dark_mora", "0"),
+            ("balance_dark_mora_after", "0"),
+        ]:
+            try:
+                await db.execute(
+                    f"ALTER TABLE wallet_log ADD COLUMN IF NOT EXISTS {_col} FLOAT8 DEFAULT {_def}"
+                )
+            except Exception:
+                pass
+
         # ── Indexes ────────────────────────────────────────────────────────────
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_users_username ON users(user_tg_username)",
@@ -555,6 +671,12 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS idx_daily_quests ON daily_quests(user_id, chat_id, date)",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_nickname_unique ON user_nicknames(chat_id, LOWER(nickname))",
             "CREATE INDEX IF NOT EXISTS idx_promo_redemptions ON promocode_redemptions(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_artifact_owner ON artifact_instances(owner_id)",
+            "CREATE INDEX IF NOT EXISTS idx_artifact_art ON artifact_instances(art_id)",
+            "CREATE INDEX IF NOT EXISTS idx_relic_owner ON relic_instances(owner_id)",
+            "CREATE INDEX IF NOT EXISTS idx_user_themes ON user_themes(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_shadow_events ON shadow_merchant_events(status, expires_at)",
+            "CREATE INDEX IF NOT EXISTS idx_player_buffs ON player_buffs(user_id, buff_type)",
         ]
         for idx_sql in indexes:
             await db.execute(idx_sql)
