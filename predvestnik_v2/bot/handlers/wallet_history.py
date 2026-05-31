@@ -43,6 +43,10 @@ _SOURCE_LABELS: dict[str, str] = {
     "system": "⚙️ Система",
     "spend": "💸 Списание",
     "gacha_drop": "🎁 Гача (дроп)",
+    "contrabanda_stake": "🌑 Контрабанда (ставка)",
+    "contrabanda_refund": "🌑 Контрабанда (возврат)",
+    "cult_ritual": "🌑 Ритуал",
+    "shadow_merchant": "🌑 Тенев. торговец",
 }
 
 _FILTER_LABELS = {

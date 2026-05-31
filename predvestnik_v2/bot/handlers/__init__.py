@@ -30,6 +30,7 @@ from .chat_settings import router as chat_settings_router
 from .quests import router as quests_router
 from .blacklist import router as blacklist_router
 from .promocodes import router as promo_router
+from .dark_mora import router as dark_mora_router
 from . import dev
 
 
@@ -67,6 +68,7 @@ main_router.include_routers(
     quests_router,         # B20 ежедневные квесты
     blacklist_router,      # C1-A чёрный список чата
     promo_router,          # промокоды
+    dark_mora_router,      # Тёмная Мора: контрабанда, ритуал
     dev.router,
     unknown_cmd_router,    # B6: подсказки опечаток — перед fallback, после всех команд
     fallback_router,       # должен быть последним — ловит неверный синтаксис

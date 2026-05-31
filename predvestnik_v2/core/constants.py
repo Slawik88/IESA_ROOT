@@ -311,6 +311,7 @@ AUCTION_MAX_LOTS_PER_WEEK: int = 30
 AUCTION_MIN_BID: float = 10.0
 AUCTION_MIN_BID_RAISE: float = 0.05
 AUCTION_COMMISSION: float = 0.05
+AUCTION_MAX_BID: float = 1_000_000.0
 
 # ── Chat settings defaults (B19) ─────────────────────────────────────────────
 CHAT_RANK_WARN: int = 2      # minimum local rank to issue a warn
@@ -339,3 +340,42 @@ GAMBLE_DAILY_CAP: float = 5000.0
 ROULETTE_RED_NUMBERS: frozenset = frozenset({
     1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36
 })
+
+# ── Dark Mora (Тёмная Мора) ───────────────────────────────────────────────────
+# Контрабанда
+DARK_MORA_CONTRABANDA_COOLDOWN_DAYS: int = 7
+DARK_MORA_CONTRABANDA_CATCH_PENALTY_DAYS: int = 14
+DARK_MORA_CONTRABANDA_MIN_STAKE: float = 500.0
+DARK_MORA_CONTRABANDA_MAX_STAKE: float = 5000.0
+DARK_MORA_CONTRABANDA_SUCCESS_CHANCE: float = 0.40   # 40% success
+DARK_MORA_CONTRABANDA_FAIL_CHANCE: float = 0.35      # 35% fail (total 75%, rest is catch)
+DARK_MORA_CONTRABANDA_MORA_PER_DARK: float = 300.0   # mora per 1 dark mora gained
+
+# Культ Бездны — 23:00–01:00 UTC (window crosses midnight)
+DARK_MORA_CULT_HOUR_START: int = 23
+DARK_MORA_CULT_HOUR_END: int = 1
+DARK_MORA_CULT_STREAK_MIN: int = 7
+DARK_MORA_CULT_LEVEL_MIN: int = 6
+DARK_MORA_CULT_PETS_MIN: int = 3
+DARK_MORA_CULT_COOLDOWN_DAYS: int = 30
+DARK_MORA_CULT_REWARD_MIN: int = 10
+DARK_MORA_CULT_REWARD_MAX: int = 20
+
+# Теневой Торговец
+DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS: int = 3
+DARK_MORA_SHADOW_MERCHANT_WINNERS: int = 3
+DARK_MORA_SHADOW_MERCHANT_REWARD_MIN: int = 5
+DARK_MORA_SHADOW_MERCHANT_REWARD_MAX: int = 15
+DARK_MORA_SHADOW_MERCHANT_ACTIVE_MINUTES: int = 120  # окно ответа 2 часа
+
+# Предательство
+DARK_MORA_BETRAYAL_REWARD: int = 3
+DARK_MORA_BETRAYAL_TOP_STREAK: int = 2    # недель в топ-3 подряд
+DARK_MORA_BETRAYAL_SILENCE_DAYS: int = 3  # дней молчания после
+
+# ── Artifacts & Relics ────────────────────────────────────────────────────────
+ARTIFACT_TOP_MONTH_MIN_MESSAGES: int = 3000
+ARTIFACT_TOP_MONTH_COUNT: int = 5
+RELIC_TOP_GLOBAL_MIN_MESSAGES: int = 4000
+RELIC_TOP_GLOBAL_CHAT_COUNT: int = 3
+RELIC_TOP_GLOBAL_USERS_PER_CHAT: int = 5
