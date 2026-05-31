@@ -122,7 +122,7 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
             uid = user_data['id']
             uname = safe_html(user_data['username'] or f"ID {uid}")
             msg_sum = user_data['msg_sum']
-            link = f"<a href='tg://user?id={uid}'>{uname}</a>"
+            link = f'<a href="tg://user?id={uid}">{uname}</a>'
 
             is_exempt = user_data['local_rank'] >= purge_min_rank
             has_absolute_immunity = user_data['is_immune'] == 1
@@ -174,7 +174,7 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
         protected_users[-1] = protected_users[-1].replace("├", "└")
         report += f"<b>Под защитой ({len(protected_users)}):</b>\n" + "\n".join(protected_users) + "\n\n"
     if failed_users:
-        failed_lines = [f"├ <a href='tg://user?id={u['id']}'>{safe_html(u['username'] or str(u['id']))}</a> ({u['msg_sum']} msg)" for u in failed_users]
+        failed_lines = [f"""├ <a href="tg://user?id={u['id']}">{safe_html(u['username'] or str(u['id']))}</a> ({u['msg_sum']} msg)""" for u in failed_users]
         failed_lines[-1] = failed_lines[-1].replace("├", "└")
         report += f"<b>❌ НЕ ПРОШЛИ ({len(failed_users)}):</b>\n" + "\n".join(failed_lines)
     else:
@@ -198,7 +198,7 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
             
             uname = safe_html(u['username'] or f"ID {u['id']}")
             dossier = (
-                f"🗂 <b>ДОСЬЕ НАРУШИТЕЛЯ:</b> <a href='tg://user?id={u['id']}'>{uname}</a>\n"
+                f"""🗂 <b>ДОСЬЕ НАРУШИТЕЛЯ:</b> <a href="tg://user?id={u['id']}">{uname}</a>\n"""
                 f"├ Сообщений за период: <b>{u['msg_sum']}</b> из {norm}\n"
                 f"├ Дней в чате: <b>{days_in_chat}</b> (с {joined_dt.strftime('%d.%m.%Y')})\n"
                 f"└ Текущие варны: <b>{u['warnings']}</b>\n\n"

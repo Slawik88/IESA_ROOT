@@ -168,7 +168,7 @@ async def cmd_chat_info(message: types.Message, db):
     rank_groups: dict[int, list[str]] = {}
     for a in admins:
         name = safe_html(a['user_tg_username'] or f"ID {a['user_tg_id']}")
-        link = f"<a href='tg://user?id={a['user_tg_id']}'>{name}</a>"
+        link = f"""<a href="tg://user?id={a['user_tg_id']}">{name}</a>"""
         rank_groups.setdefault(a['local_rank'], []).append(link)
 
     admin_lines = []

@@ -60,7 +60,7 @@ async def build_top_text(db, chat_id: int, period: str) -> str:
         medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else "🏅" if idx <= 10 else f"{idx}."
         
         name = safe_html(user['user_tg_username'] or f"Пользователь {user['user_tg_id']}")
-        link = f"<a href='tg://user?id={user['user_tg_id']}'>{name}</a>"
+        link = f"""<a href="tg://user?id={user['user_tg_id']}">{name}</a>"""
         count = user['msg_count']
         
         text += f"{medal} {link} — <code>{count}</code>\n"
@@ -181,7 +181,7 @@ async def _build_cat_top(db, chat_id: int, cat: str, mode: str) -> str:
         medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else "🏅" if idx <= 10 else f"{idx}."
         uid = row.get("user_tg_id", 0)
         name = safe_html(row.get("user_tg_username") or f"ID{uid}")
-        link = f"<a href='tg://user?id={uid}'>{name}</a>"
+        link = f'<a href="tg://user?id={uid}">{name}</a>'
         val = row.get("value", row.get("msg_count", 0))
         if cat in ("mora", "diamonds"):
             val_str = format_currency(float(val))
@@ -252,7 +252,7 @@ async def cmd_inactive(message: types.Message, db):
 
     for u in inactive_users:
         name = safe_html(u['user_tg_username'] or f"Пользователь {u['user_tg_id']}")
-        link = f"<a href='tg://user?id={u['user_tg_id']}'>{name}</a>"
+        link = f"""<a href="tg://user?id={u['user_tg_id']}">{name}</a>"""
         text += f"├ {link} — <code>{u['days_offline']} дн. назад</code>\n"
 
     last_pos = text.rfind("├")

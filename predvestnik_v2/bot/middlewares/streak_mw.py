@@ -38,7 +38,7 @@ def _build_streak_notification(result: dict, user_name: str, chat_id: int) -> st
         block_text = f"\n🎉 <b>Блок #{cycle + 1} завершён!</b> Бонусная награда!"
 
     return (
-        f"🔥 <b>ЕЖЕДНЕВНЫЙ ВХОД</b> — <a href='tg://user?id={chat_id}'>{user_name}</a>\n\n"
+        f'🔥 <b>ЕЖЕДНЕВНЫЙ ВХОД</b> — <a href="tg://user?id={chat_id}">{user_name}</a>\n\n'
         f"🗓 Стрик: <b>{streak} дней</b>{block_text}\n"
         f"{filled}\n\n"
         f"🎁 Награда:\n"
