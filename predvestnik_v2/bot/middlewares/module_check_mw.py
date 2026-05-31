@@ -8,7 +8,7 @@ Usage (in each handler file):
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, TelegramObject
+from aiogram.types import Message, CallbackQuery, TelegramObject
 
 
 class ModuleCheckMiddleware(BaseMiddleware):
@@ -34,6 +34,8 @@ class ModuleCheckMiddleware(BaseMiddleware):
             if row is not None and row[0] == 0:
                 if isinstance(event, Message):
                     await event.answer("🔧 Этот раздел временно недоступен в данном чате.")
+                elif isinstance(event, CallbackQuery):
+                    await event.answer("🔧 Этот раздел временно недоступен в данном чате.", show_alert=True)
                 return
 
             # Global check
@@ -45,6 +47,8 @@ class ModuleCheckMiddleware(BaseMiddleware):
             if grow is not None and grow[0] == 0:
                 if isinstance(event, Message):
                     await event.answer("🔧 Этот раздел временно отключён глобально.")
+                elif isinstance(event, CallbackQuery):
+                    await event.answer("🔧 Этот раздел временно отключён глобально.", show_alert=True)
                 return
 
         return await handler(event, data)

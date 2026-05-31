@@ -5,6 +5,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
 from infrastructure.repositories import marriages, users
+from infrastructure.repositories.moderation import get_chat_settings
+from infrastructure.repositories.chat import get_chat_stats
 from services import marriage as marriage_service
 from bot.filters.text_commands import TextCmd
 from services.utils import format_currency
@@ -30,6 +32,18 @@ async def cmd_marriage(message: types.Message, db, text_args: str = None):
 
     initiator_id = message.from_user.id
     initiator_name = safe_html(message.from_user.first_name)
+
+    settings = await get_chat_settings(db, message.chat.id)
+    rank_required = settings.get("rank_marriage", 0)
+    if rank_required > 0:
+        u_stats = await get_chat_stats(db, initiator_id, message.chat.id)
+        if u_stats.get("local_rank", 0) < rank_required:
+            from services import roles as _roles
+            rname = _roles.LOCAL_RANKS_MAP.get(rank_required, f"Ранг {rank_required}")
+            return await message.answer(
+                f"❌ Браки в этом чате доступны с ранга <b>{rname}</b> ({rank_required}+).",
+                parse_mode="HTML",
+            )
 
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
 

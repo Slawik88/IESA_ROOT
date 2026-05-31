@@ -77,7 +77,12 @@ async def place_bid(
     if not lot or lot["status"] != "active":
         return {"ok": False, "error": "Лот не найден или уже закрыт."}
 
-    if lot["ends_at"] <= datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"):
+    ends = lot["ends_at"]
+    if isinstance(ends, str):
+        ends = datetime.strptime(ends, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    elif ends.tzinfo is None:
+        ends = ends.replace(tzinfo=timezone.utc)
+    if ends <= datetime.now(timezone.utc):
         return {"ok": False, "error": "Аукцион истёк."}
 
     if bidder_id == lot["seller_id"]:

@@ -12,7 +12,7 @@ _COLUMNS_MAP = {
 
 
 async def get_top_messages(
-    db: aiosqlite.Connection, chat_id: int, period: str, limit: int = 10
+    db: aiosqlite.Connection, chat_id: int, period: str, limit: int = 500
 ) -> list[dict]:
     col = _COLUMNS_MAP.get(period, "user_messages_count_all_time")
     async with db.execute(
@@ -22,6 +22,22 @@ async def get_top_messages(
         f"WHERE s.chat_tg_id = ? AND s.is_left = FALSE AND s.{col} > 0 "
         f"ORDER BY s.{col} DESC LIMIT ?",
         (chat_id, limit),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def get_zero_message_users(
+    db: aiosqlite.Connection, chat_id: int, period: str
+) -> list[dict]:
+    """Returns users in chat who have 0 messages in the given period."""
+    col = _COLUMNS_MAP.get(period, "user_messages_count_all_time")
+    async with db.execute(
+        f"SELECT s.user_tg_id, u.user_tg_username "
+        f"FROM user_chat_stats s "
+        f"LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
+        f"WHERE s.chat_tg_id = ? AND s.is_left = FALSE AND (s.{col} IS NULL OR s.{col} = 0) "
+        f"ORDER BY u.user_tg_username NULLS LAST LIMIT 50",
+        (chat_id,),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 

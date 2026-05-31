@@ -212,7 +212,7 @@ async def cmd_open_eggs(message: types.Message, db, text_args: str = None):
 
 @router.callback_query(InvCB.filter(F.action == "open_egg"))
 async def cb_open_egg(callback: types.CallbackQuery, callback_data: InvCB, db):
-    if not await check_callback_owner(query, callback_data.user_id):
+    if not await check_callback_owner(callback, callback_data.user_id):
         return
     egg_id = callback_data.item_id
     user_id = callback.from_user.id

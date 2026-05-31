@@ -20,12 +20,15 @@ class ChatSettingsCB(CallbackData, prefix="cs"):
 
 # Human-readable descriptions for each rank setting
 _RANK_SETTINGS: dict = {
-    "rank_warn":   ("⚠️", "Выдавать варны",    "rank_warn"),
-    "rank_mute":   ("🔇", "Ставить мут",        "rank_mute"),
-    "rank_kick":   ("👢", "Кикнуть из чата",    "rank_kick"),
-    "rank_ban":    ("🔨", "Забанить навсегда",  "rank_ban"),
-    "rank_shield": ("🛡", "Выдавать щит",       "rank_shield"),
-    "rank_immune": ("🔰", "Давать иммунитет",   "rank_immune"),
+    "rank_warn":     ("⚠️",  "Выдавать варны",       "rank_warn"),
+    "rank_mute":     ("🔇",  "Ставить мут",           "rank_mute"),
+    "rank_kick":     ("👢",  "Кикнуть из чата",       "rank_kick"),
+    "rank_ban":      ("🔨",  "Забанить навсегда",     "rank_ban"),
+    "rank_shield":   ("🛡",  "Выдавать щит",          "rank_shield"),
+    "rank_immune":   ("🔰",  "Давать иммунитет",      "rank_immune"),
+    "rank_duel":     ("⚔️",  "Начинать дуэли",        "rank_duel"),
+    "rank_marriage": ("💍",  "Предлагать брак",        "rank_marriage"),
+    "rank_give":     ("💸",  "Переводить мору/алмазы","rank_give"),
 }
 
 _TOGGLE_SETTINGS: dict = {
@@ -208,7 +211,11 @@ async def cb_toggle_setting(query: types.CallbackQuery, callback_data: ChatSetti
     new_val = 0 if s.get(key, 1) else 1
     await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
     await db.commit()
-    icon, desc = _TOGGLE_SETTINGS.get(key, ("", key))
+    if key in _TOGGLE_SETTINGS:
+        icon, desc = _TOGGLE_SETTINGS[key]
+    else:
+        icon, name = _MODULE_SETTINGS.get(key, ("🧩", key))
+        desc = f"Модуль «{name}»"
     status = "включено" if new_val else "выключено"
     await query.answer(f"{icon} {desc} — {status}!", show_alert=False)
     text = await _build_menu_text(db, chat_id)

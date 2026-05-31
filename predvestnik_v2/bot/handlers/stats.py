@@ -3,9 +3,12 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from infrastructure.repositories import stats
+from infrastructure.repositories.stats import get_zero_message_users
 from services.utils import safe_html, format_currency, check_callback_owner
 from bot.filters.text_commands import TextCmd
 from core.constants import INACTIVE_THRESHOLD_DAYS
+
+_TOP_PAGE_SIZE = 15
 
 router = Router(name="stats_router")
 
@@ -13,6 +16,7 @@ router = Router(name="stats_router")
 class TopPeriodData(CallbackData, prefix="top"):
     period: str
     user_id: int = 0
+    page: int = 0
 
 # Человекочитаемые названия периодов
 PERIOD_NAMES = {
@@ -32,41 +36,83 @@ TEXT_PERIOD_MAP = {
     "прошлая неделя": "last_week", "прошлую неделю": "last_week"
 }
 
-def generate_top_keyboard(current_period: str, user_id: int = 0) -> types.InlineKeyboardMarkup:
-    """Генерирует кнопки, помечая текущую галочкой."""
+def generate_top_keyboard(
+    current_period: str,
+    user_id: int = 0,
+    page: int = 0,
+    total_pages: int = 1,
+) -> types.InlineKeyboardMarkup:
+    """Генерирует кнопки периодов + пагинацию."""
     builder = InlineKeyboardBuilder()
-    
-    # Кнопки периодов
+
     periods = ["day", "week", "all_time", "last_day", "last_week"]
     for p in periods:
-        text = f"✅ {PERIOD_NAMES[p]}" if p == current_period else PERIOD_NAMES[p]
-        builder.button(text=text, callback_data=TopPeriodData(period=p, user_id=user_id))
-    
-    # Расставляем кнопки: 2 в ряд, последняя на всю ширину
+        label = f"✅ {PERIOD_NAMES[p]}" if p == current_period else PERIOD_NAMES[p]
+        builder.button(text=label, callback_data=TopPeriodData(period=p, user_id=user_id, page=0))
+
     builder.adjust(2, 2, 1)
+
+    if total_pages > 1:
+        nav = InlineKeyboardBuilder()
+        prev_page = max(0, page - 1)
+        next_page = min(total_pages - 1, page + 1)
+        if page > 0:
+            nav.button(text="◀️ Назад", callback_data=TopPeriodData(period=current_period, user_id=user_id, page=prev_page))
+        nav.button(text=f"📄 {page + 1}/{total_pages}", callback_data=TopPeriodData(period=current_period, user_id=user_id, page=page))
+        if page < total_pages - 1:
+            nav.button(text="Вперёд ▶️", callback_data=TopPeriodData(period=current_period, user_id=user_id, page=next_page))
+        nav.adjust(3)
+        builder.attach(nav)
+
     return builder.as_markup()
 
-async def build_top_text(db, chat_id: int, period: str) -> str:
-    """Собирает красивый текст лидерборда."""
-    top_users = await stats.get_top_messages(db, chat_id, period)
+
+async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[str, int]:
+    """Возвращает (текст страницы, total_pages).
+    Показывает ВСЕХ с > 0 сообщений с пагинацией.
+    На последней странице добавляет секцию молчунов (0 сообщений)."""
+    all_users = await stats.get_top_messages(db, chat_id, period)
     period_name = PERIOD_NAMES.get(period, "За всё время")
-    
-    if not top_users:
-        return f"🏆 <b>ТОП АКТИВНОСТИ</b>\n└ <i>{period_name} сообщений нет.</i>"
 
-    text = f"🏆 <b>ТОП АКТИВНОСТИ</b>\n📅 <b>Период:</b> {period_name}\n\n"
-    
-    for idx, user in enumerate(top_users, 1):
-        # Медали для первых трех мест
-        medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else "🏅" if idx <= 10 else f"{idx}."
-        
-        name = safe_html(user['user_tg_username'] or f"Пользователь {user['user_tg_id']}")
-        link = f"""<a href="tg://user?id={user['user_tg_id']}">{name}</a>"""
-        count = user['msg_count']
-        
-        text += f"{medal} {link} — <code>{count}</code>\n"
+    if not all_users:
+        # Сразу показываем молчунов
+        zero = await get_zero_message_users(db, chat_id, period)
+        if zero:
+            lines = [f"🏆 <b>ТОП АКТИВНОСТИ</b>\n📅 <b>Период:</b> {period_name}\n"]
+            lines.append("\n😶 <b>Молчуны (0 сообщений):</b>")
+            for u in zero:
+                name = safe_html(u["user_tg_username"] or f"ID{u['user_tg_id']}")
+                lines.append(f"· <a href=\"tg://user?id={u['user_tg_id']}\">{name}</a>")
+            return "\n".join(lines), 1
+        return f"🏆 <b>ТОП АКТИВНОСТИ</b>\n└ <i>{period_name}: сообщений нет.</i>", 1
 
-    return text
+    total_pages = max(1, -(-len(all_users) // _TOP_PAGE_SIZE))  # ceiling div
+    page = max(0, min(page, total_pages - 1))
+
+    slice_start = page * _TOP_PAGE_SIZE
+    slice_end = slice_start + _TOP_PAGE_SIZE
+    page_users = all_users[slice_start:slice_end]
+
+    lines = [f"🏆 <b>ТОП АКТИВНОСТИ</b>\n📅 <b>Период:</b> {period_name}\n"]
+    for local_idx, user in enumerate(page_users, 1):
+        global_idx = slice_start + local_idx
+        medal = "🥇" if global_idx == 1 else "🥈" if global_idx == 2 else "🥉" if global_idx == 3 else "🏅" if global_idx <= 10 else f"{global_idx}."
+        name = safe_html(user["user_tg_username"] or f"Пользователь {user['user_tg_id']}")
+        link = f'<a href="tg://user?id={user["user_tg_id"]}">{name}</a>'
+        lines.append(f"{medal} {link} — <code>{user['msg_count']}</code>")
+
+    # На последней странице — молчуны
+    if page == total_pages - 1:
+        zero = await get_zero_message_users(db, chat_id, period)
+        if zero:
+            lines.append("\n😶 <b>Молчуны (0 сообщений):</b>")
+            for u in zero[:20]:
+                name = safe_html(u["user_tg_username"] or f"ID{u['user_tg_id']}")
+                lines.append(f"· <a href=\"tg://user?id={u['user_tg_id']}\">{name}</a>")
+            if len(zero) > 20:
+                lines.append(f"<i>...и ещё {len(zero) - 20}</i>")
+
+    return "\n".join(lines), total_pages
 
 # ==========================================
 # КОМАНДА: /top
@@ -87,9 +133,9 @@ async def cmd_top(message: types.Message, db, text_args: str = None):
             period = p
             break
 
-    text = await build_top_text(db, message.chat.id, period)
-    keyboard = generate_top_keyboard(period, user_id=message.from_user.id)
-    
+    text, total_pages = await build_top_text(db, message.chat.id, period, page=0)
+    keyboard = generate_top_keyboard(period, user_id=message.from_user.id, page=0, total_pages=total_pages)
+
     await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 # Обработчик кнопок ТОПа
@@ -97,15 +143,17 @@ async def cmd_top(message: types.Message, db, text_args: str = None):
 async def process_top_period(callback: types.CallbackQuery, callback_data: TopPeriodData, db):
     if not await check_callback_owner(callback, callback_data.user_id):
         return
-    text = await build_top_text(db, callback.message.chat.id, callback_data.period)
-    keyboard = generate_top_keyboard(callback_data.period, user_id=callback_data.user_id)
-    
-    # Отлавливаем только ошибку неизмененного сообщения, остальные ошибки бот должен показать!
+    text, total_pages = await build_top_text(db, callback.message.chat.id, callback_data.period, callback_data.page)
+    keyboard = generate_top_keyboard(
+        callback_data.period,
+        user_id=callback_data.user_id,
+        page=callback_data.page,
+        total_pages=total_pages,
+    )
     try:
         await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     except TelegramBadRequest:
         pass
-        
     await callback.answer()
 
 
@@ -212,8 +260,8 @@ async def cb_top_cat(query: types.CallbackQuery, callback_data: TopCatCB, db):
 
 @router.callback_query(TopCatCB.filter(F.cat == "activity"))
 async def cb_top_activity(query: types.CallbackQuery, callback_data: TopCatCB, db):
-    text = await build_top_text(db, query.message.chat.id, "all_time")
-    kb = generate_top_keyboard("all_time")
+    text, total_pages = await build_top_text(db, query.message.chat.id, "all_time", page=0)
+    kb = generate_top_keyboard("all_time", user_id=query.from_user.id, page=0, total_pages=total_pages)
     try:
         await query.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     except TelegramBadRequest:
