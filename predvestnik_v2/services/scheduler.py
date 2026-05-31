@@ -256,29 +256,13 @@ async def chest_spawn_task(bot: Bot):
             async with aiosqlite.connect(config.db_path) as db:
                 db.row_factory = aiosqlite.Row
 
-                # Close expired chests and pay out
+                # Close expired chests (rewards already paid immediately in events.py on click)
                 expired = await get_expired_active(db)
                 for chest in expired:
                     try:
-                        claims = await get_claims(db, chest["id"])
-                        for claim in claims:
-                            from core.constants import CHEST_REWARDS_BY_POSITION, CHEST_TOP3_BONUS_ITEM
-                            mora = float(CHEST_REWARDS_BY_POSITION.get(claim["position"], 0))
-                            if mora > 0:
-                                await _ab(db, claim["user_id"], mora=mora, commit=False,
-                                          source="event_chest",
-                                          chat_id=chest["chat_id"],
-                                          note=f"pos={claim['position']}")
-                            if claim["position"] <= 3:
-                                await db.execute(
-                                    "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, 1) "
-                                    "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = quantity + 1",
-                                    (claim["user_id"], CHEST_TOP3_BONUS_ITEM),
-                                )
                         await close_chest(db, chest["id"])
                         await update_last_chest_at(db, chest["chat_id"])
                         await db.commit()
-                        # Edit the chest message to show it's closed (best effort)
                     except Exception as e:
                         logger.error(f"Chest expire error {chest['id']}: {e}")
 
@@ -308,8 +292,12 @@ async def chest_spawn_task(bot: Bot):
                         )
                         await bot.send_message(
                             chat_id,
-                            "💰 <b>НАЙДЕН СУНДУК!</b>\n\n"
-                            "Первые 15 нажавших получат Мору! ⏳ 90 секунд.",
+                            "💰 <b>НАЙДЕН СУНДУК ПРЕДВЕСТНИКА!</b>\n\n"
+                            "🥇 1 место: <b>70 🪙</b> + 🎟 Жетон\n"
+                            "🥈 2 место: <b>65 🪙</b> + 🎟 Жетон\n"
+                            "🥉 3 место: <b>60 🪙</b> + 🎟 Жетон\n"
+                            "4–15 место: <b>55 → 10 🪙</b>\n\n"
+                            "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
                             reply_markup=b.as_markup(),
                             parse_mode="HTML",
                         )
