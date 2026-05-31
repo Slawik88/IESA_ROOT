@@ -8,10 +8,14 @@ __pycache__/
 dist/
 build/
 
-# Django
+# Django / SQLite
 *.log
 db.sqlite3
 db.sqlite3-journal
+db.sqlite3-wal
+db.sqlite3-shm
+*.sqlite3-wal
+*.sqlite3-shm
 /media/
 /staticfiles/
 /static/
@@ -21,6 +25,17 @@ local_settings.py
 venv/
 env/
 ENV/
+.venv/
+
+# SQLite databases (bot + django)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Bot runtime files
+predvestnik_v2/.env
+predvestnik_v2/db.sqlite3
 
 # IDE
 .vscode/
@@ -53,3 +68,7 @@ htmlcov/
 # mypy
 .mypy_cache/
 .venv/
+
+# Claude Code local settings
+.claude/
+**/.claude/
