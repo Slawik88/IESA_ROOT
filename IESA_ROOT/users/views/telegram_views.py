@@ -169,10 +169,10 @@ async def telegram_webhook_view(request, secret):
 
     _ip     = request.META.get('REMOTE_ADDR', 'unknown')
     _rl_key = f'webhook_rl_{_ip}'
-    _count  = cache.get(_rl_key, 0)
+    _count  = await cache.aget(_rl_key, 0)
     if _count >= WEBHOOK_RATE_LIMIT:
         return JsonResponse({"ok": False}, status=429)
-    cache.set(_rl_key, _count + 1, timeout=60)
+    await cache.aset(_rl_key, _count + 1, timeout=60)
 
     from users.telegram.config import webhook_secret as _get_expected_secret, is_active
     expected = _get_expected_secret()
