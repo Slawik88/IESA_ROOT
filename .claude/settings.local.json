@@ -60,7 +60,27 @@
       "Bash(python manage.py migrate)",
       "Bash(python manage.py makemigrations users --name=\"acr_contact_fields_meeting\")",
       "Bash(python manage.py makemigrations users --name=\"membership_active_default\")",
-      "Bash(python manage.py makemigrations users --name=\"meeting_optional_datetime\")"
+      "Bash(python manage.py makemigrations users --name=\"meeting_optional_datetime\")",
+      "Bash(python manage.py makemigrations users --name=\"meeting_recurring_clientnote\")",
+      "Bash(Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\" -Recurse -Directory)",
+      "Bash(Select-Object FullName)",
+      "Bash(xargs wc -l)",
+      "Bash(Get-ChildItem -Path \"g:\\\\IESA_ROOT\\\\IESA_ROOT\" -Directory)",
+      "Bash(Get-ChildItem IESA_ROOT/users/templates/users/)",
+      "Bash(python -m py_compile IESA_ROOT/users/views/onboarding.py IESA_ROOT/users/views/partner.py IESA_ROOT/users/views/profile.py IESA_ROOT/notifications/views.py)",
+      "Bash(python -m py_compile IESA_ROOT/users/views/onboarding.py IESA_ROOT/users/views/partner.py IESA_ROOT/users/views/profile.py IESA_ROOT/notifications/views.py IESA_ROOT/users/models.py IESA_ROOT/blog/views/posts.py)",
+      "Bash(python -m py_compile IESA_ROOT/users/views/partner.py IESA_ROOT/users/views/__init__.py IESA_ROOT/users/urls.py)",
+      "Bash(python -m py_compile IESA_ROOT/users/views/partner.py IESA_ROOT/users/views/calendar.py IESA_ROOT/users/views/__init__.py IESA_ROOT/users/urls.py IESA_ROOT/blog/models.py)",
+      "Bash(python -m py_compile IESA_ROOT/users/views/qr.py IESA_ROOT/IESA_ROOT/settings.py)",
+      "Bash(python -m py_compile IESA_ROOT/users/management/commands/send_meeting_reminders.py)",
+      "Bash(python manage.py makemigrations users --name \"add_partner_map_fields\")",
+      "Bash(python IESA_ROOT/manage.py makemigrations users --name \"add_partner_map_fields\")",
+      "Bash(python -m py_compile IESA_ROOT/core/views.py IESA_ROOT/core/urls.py IESA_ROOT/users/models.py)",
+      "Bash(python -m py_compile IESA_ROOT/notifications/views.py IESA_ROOT/notifications/urls.py IESA_ROOT/core/views.py IESA_ROOT/core/urls.py IESA_ROOT/users/models.py IESA_ROOT/IESA_ROOT/urls.py)",
+      "Bash(python -m py_compile IESA_ROOT/notifications/views.py IESA_ROOT/IESA_ROOT/urls.py)",
+      "Bash(awk -F: '{print $2\": \"$0}')",
+      "Bash(python -m py_compile IESA_ROOT/notifications/views.py)",
+      "Bash(python -m py_compile IESA_ROOT/notifications/views.py IESA_ROOT/users/models.py IESA_ROOT/blog/models.py)"
     ]
   }
 }

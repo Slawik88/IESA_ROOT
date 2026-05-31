@@ -1,6 +1,7 @@
 import aiosqlite
 import random
 from datetime import datetime, timedelta
+from services.formatting import parse_dt
 
 from core.registry import GACHA_RATES, PET_SPECIES
 from core.constants import (

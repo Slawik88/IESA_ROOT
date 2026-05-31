@@ -20,7 +20,7 @@ from infrastructure.repositories.auction import (
 )
 from services.auction import create_auction_lot, place_bid, cancel_lot
 from services.quests import increment_metric as quest_increment
-from services.utils import safe_html, format_currency
+from services.utils import safe_html, format_currency, parse_dt
 
 router = Router(name="auction_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware

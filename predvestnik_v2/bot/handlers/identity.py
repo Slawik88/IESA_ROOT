@@ -19,7 +19,7 @@ from infrastructure.repositories import users as users_repo
 from infrastructure.repositories import zoo as zoo_db
 from infrastructure.repositories.streak import get_streak
 from services import roles
-from services.utils import format_currency, safe_html, resolve_target
+from services.utils import format_currency, safe_html, resolve_target, parse_dt
 
 router = Router(name="identity_router")
 

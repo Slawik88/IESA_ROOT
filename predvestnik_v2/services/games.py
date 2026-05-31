@@ -4,6 +4,7 @@ Pure gambling logic. No bot imports.
 """
 import random
 from datetime import datetime, timedelta
+from services.formatting import parse_dt
 
 from core.constants import GAMES, GAMBLE_DAILY_CAP, ROULETTE_RED_NUMBERS
 from infrastructure.repositories import economy as eco_repo

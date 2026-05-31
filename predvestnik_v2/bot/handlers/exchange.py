@@ -14,7 +14,7 @@ from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.exchange import (
     get_active_event, get_user_quota, add_quota,
 )
-from services.utils import format_currency
+from services.utils import format_currency, parse_dt
 
 router = Router(name="exchange_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware

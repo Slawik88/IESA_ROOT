@@ -1,6 +1,7 @@
 # bot/handlers/zoo.py
 import random
 from datetime import datetime
+from services.formatting import parse_dt
 
 from aiogram import Router, types, F
 from aiogram.utils.keyboard import InlineKeyboardBuilder
