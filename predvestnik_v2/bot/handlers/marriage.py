@@ -31,7 +31,8 @@ async def cmd_marriage(message: types.Message, db, text_args: str = None):
         return await message.answer("❌ <b>Ошибка:</b> Браки заключаются только в группах!", parse_mode="HTML")
 
     initiator_id = message.from_user.id
-    initiator_name = safe_html(message.from_user.first_name)
+    from services.utils import resolve_display_name
+    initiator_name = await resolve_display_name(db, initiator_id, message.chat.id, message.from_user.first_name)
 
     settings = await get_chat_settings(db, message.chat.id)
     rank_required = settings.get("rank_marriage", 0)
@@ -95,8 +96,11 @@ async def process_marriage_action(callback: types.CallbackQuery, callback_data: 
     if callback.from_user.id != callback_data.target_id:
         return await callback.answer("❌ Это предложение сделали не вам!", show_alert=True)
 
-    target_name = safe_html(callback.from_user.first_name)
-    
+    from services.utils import resolve_display_name
+    target_name = await resolve_display_name(
+        db, callback.from_user.id, callback.message.chat.id, callback.from_user.first_name
+    )
+
     if callback_data.action == "decline":
         await callback.message.edit_text(
             f"💔 <b>ОТКАЗ</b>\n\n"

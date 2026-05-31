@@ -66,7 +66,8 @@ async def cmd_inventory(message: types.Message, db):
     if message.chat.type == "private":
         return
     user_id = message.from_user.id
-    name = safe_html(message.from_user.first_name)
+    from services.utils import resolve_display_name
+    name = await resolve_display_name(db, user_id, message.chat.id, message.from_user.first_name)
 
     async with db.execute("SELECT item_id, quantity FROM inventory WHERE user_id = ?", (user_id,)) as cursor:
         rows = await cursor.fetchall()
