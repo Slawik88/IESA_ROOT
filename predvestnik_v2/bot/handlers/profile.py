@@ -23,7 +23,7 @@ def _fatigue_icon(fatigue: int) -> str:
 
 router = Router(name="profile_router")
 
-@router.message(TextCmd(["профиль", "стата", "кто я", "стат", "мой профиль"]))
+# профиль/стата/я/стат/мой профиль now handled by identity_router
 async def cmd_profile(message: types.Message, db: aiosqlite.Connection, developer_id: int = 0):
     if message.chat.type == "private":
         return await message.answer("❌ Эта команда доступна только в группах.")
