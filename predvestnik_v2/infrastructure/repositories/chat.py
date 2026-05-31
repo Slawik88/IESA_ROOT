@@ -8,10 +8,10 @@ async def increment_stats_and_get_xp(
     chat_id: int,
     timezone_offset: str = "+3 hours",
 ) -> dict:
-    tz = timezone_offset
-    # PostgreSQL equivalent of SQLite strftime comparisons.
-    # TO_CHAR(col + tz::INTERVAL, fmt) compares day/week/month in the local timezone.
-    query = """
+    # Embed timezone_offset as a SQL literal (config value, not user input).
+    # asyncpg cannot encode Python str as INTERVAL — must use INTERVAL 'X hours' syntax.
+    tz = timezone_offset.replace("'", "")  # sanitise the config value just in case
+    query = f"""
         INSERT INTO user_chat_stats (
             user_tg_id, chat_tg_id,
             user_messages_count_per_day, user_messages_count_per_week,
@@ -22,35 +22,35 @@ async def increment_stats_and_get_xp(
         ON CONFLICT(user_tg_id, chat_tg_id)
         DO UPDATE SET
             user_messages_count_per_last_day  = CASE
-                WHEN TO_CHAR(user_chat_stats.last_message_at + $3::INTERVAL, 'YYYY-MM-DD')
-                  != TO_CHAR(NOW() + $3::INTERVAL, 'YYYY-MM-DD')
+                WHEN TO_CHAR(user_chat_stats.last_message_at + INTERVAL '{tz}', 'YYYY-MM-DD')
+                  != TO_CHAR(NOW() + INTERVAL '{tz}', 'YYYY-MM-DD')
                 THEN user_chat_stats.user_messages_count_per_day
                 ELSE user_chat_stats.user_messages_count_per_last_day END,
             user_messages_count_per_day       = CASE
-                WHEN TO_CHAR(user_chat_stats.last_message_at + $3::INTERVAL, 'YYYY-MM-DD')
-                  != TO_CHAR(NOW() + $3::INTERVAL, 'YYYY-MM-DD')
+                WHEN TO_CHAR(user_chat_stats.last_message_at + INTERVAL '{tz}', 'YYYY-MM-DD')
+                  != TO_CHAR(NOW() + INTERVAL '{tz}', 'YYYY-MM-DD')
                 THEN 1
                 ELSE user_chat_stats.user_messages_count_per_day + 1 END,
 
             user_messages_count_per_last_week = CASE
-                WHEN TO_CHAR(user_chat_stats.last_message_at + $3::INTERVAL, 'IW')
-                  != TO_CHAR(NOW() + $3::INTERVAL, 'IW')
+                WHEN TO_CHAR(user_chat_stats.last_message_at + INTERVAL '{tz}', 'IW')
+                  != TO_CHAR(NOW() + INTERVAL '{tz}', 'IW')
                 THEN user_chat_stats.user_messages_count_per_week
                 ELSE user_chat_stats.user_messages_count_per_last_week END,
             user_messages_count_per_week      = CASE
-                WHEN TO_CHAR(user_chat_stats.last_message_at + $3::INTERVAL, 'IW')
-                  != TO_CHAR(NOW() + $3::INTERVAL, 'IW')
+                WHEN TO_CHAR(user_chat_stats.last_message_at + INTERVAL '{tz}', 'IW')
+                  != TO_CHAR(NOW() + INTERVAL '{tz}', 'IW')
                 THEN 1
                 ELSE user_chat_stats.user_messages_count_per_week + 1 END,
 
             user_messages_count_per_last_month = CASE
-                WHEN TO_CHAR(user_chat_stats.last_message_at + $3::INTERVAL, 'MM')
-                  != TO_CHAR(NOW() + $3::INTERVAL, 'MM')
+                WHEN TO_CHAR(user_chat_stats.last_message_at + INTERVAL '{tz}', 'MM')
+                  != TO_CHAR(NOW() + INTERVAL '{tz}', 'MM')
                 THEN user_chat_stats.user_messages_count_per_month
                 ELSE user_chat_stats.user_messages_count_per_last_month END,
             user_messages_count_per_month      = CASE
-                WHEN TO_CHAR(user_chat_stats.last_message_at + $3::INTERVAL, 'MM')
-                  != TO_CHAR(NOW() + $3::INTERVAL, 'MM')
+                WHEN TO_CHAR(user_chat_stats.last_message_at + INTERVAL '{tz}', 'MM')
+                  != TO_CHAR(NOW() + INTERVAL '{tz}', 'MM')
                 THEN 1
                 ELSE user_chat_stats.user_messages_count_per_month + 1 END,
 
@@ -59,7 +59,7 @@ async def increment_stats_and_get_xp(
             last_message_at = NOW()
         RETURNING user_xp, user_level
     """
-    async with db.execute(query, (user_id, chat_id, tz)) as cursor:
+    async with db.execute(query, (user_id, chat_id)) as cursor:
         row = await cursor.fetchone()
         return dict(row) if row else {"user_xp": 0, "user_level": 1}
 
