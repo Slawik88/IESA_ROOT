@@ -66,7 +66,17 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
         "COALESCE(auction_min_rank, 0) AS auction_min_rank, "
         "COALESCE(rank_duel, 0) AS rank_duel, "
         "COALESCE(rank_marriage, 0) AS rank_marriage, "
-        "COALESCE(rank_give, 0) AS rank_give "
+        "COALESCE(rank_give, 0) AS rank_give, "
+        "COALESCE(module_shop, 1) AS module_shop, "
+        "COALESCE(module_gacha, 1) AS module_gacha, "
+        "COALESCE(module_expeditions, 1) AS module_expeditions, "
+        "COALESCE(module_auction, 1) AS module_auction, "
+        "COALESCE(module_games, 1) AS module_games, "
+        "COALESCE(module_exchange, 1) AS module_exchange, "
+        "COALESCE(module_quests, 1) AS module_quests, "
+        "COALESCE(module_zoo, 1) AS module_zoo, "
+        "COALESCE(module_warps, 1) AS module_warps, "
+        "COALESCE(module_daily_deal, 1) AS module_daily_deal "
         "FROM chat_settings WHERE chat_id = ?",
         (chat_id,),
     ) as cursor:
@@ -79,6 +89,9 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
             "rank_shield": 4, "rank_immune": 5,
             "events_enabled": 1, "nsfw_warps_allowed": 1, "auction_min_rank": 0,
             "rank_duel": 0, "rank_marriage": 0, "rank_give": 0,
+            "module_shop": 1, "module_gacha": 1, "module_expeditions": 1,
+            "module_auction": 1, "module_games": 1, "module_exchange": 1,
+            "module_quests": 1, "module_zoo": 1, "module_warps": 1, "module_daily_deal": 1,
         }
 
 
