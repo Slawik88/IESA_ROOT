@@ -67,7 +67,11 @@ class WalletCB(CallbackData, prefix="wlog"):
 
 
 def _entry_line(e: dict) -> str:
-    ts = e.get("created_at", "")[:16]
+    raw_ts = e.get("created_at", "")
+    if hasattr(raw_ts, "strftime"):
+        ts = raw_ts.strftime("%Y-%m-%d %H:%M")
+    else:
+        ts = str(raw_ts)[:16]
     label = _SOURCE_LABELS.get(e["source"], e["source"])
 
     parts = []
