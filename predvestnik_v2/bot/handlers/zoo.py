@@ -1,3 +1,4 @@
+from services.utils import check_callback_owner
 # bot/handlers/zoo.py
 import random
 from datetime import datetime
@@ -210,12 +211,16 @@ async def cmd_zoo(message: types.Message, db):
 
 @router.callback_query(ZooCB.filter(F.action == "main"))
 async def cb_zoo_main(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     await render_main_zoo(query.message, db, query.from_user.id, is_edit=True)
     await query.answer()
 
 
 @router.callback_query(ZooCB.filter(F.action == "storage"))
 async def cb_zoo_storage(query: types.CallbackQuery, callback_data: ZooCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     await render_storage(query.message, db, query.from_user.id, callback_data.page)
     await query.answer()
 
@@ -224,6 +229,8 @@ async def cb_zoo_storage(query: types.CallbackQuery, callback_data: ZooCB, db):
 
 @router.callback_query(ZooCB.filter(F.action == "pet_view"))
 async def cb_pet_view(query: types.CallbackQuery, callback_data: ZooCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     pet = await zoo_db.get_pet_by_id(db, callback_data.pet_id)
     if not pet:
         return await query.answer("❌ Питомец не найден! Возможно, он был отпущен.", show_alert=True)
@@ -318,6 +325,8 @@ async def cb_pet_view(query: types.CallbackQuery, callback_data: ZooCB, db):
 
 @router.callback_query(ZooCB.filter(F.action.in_(["equip_act", "equip_pas", "store"])))
 async def cb_pet_move(query: types.CallbackQuery, callback_data: ZooCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     user_id = query.from_user.id
     pet_id = callback_data.pet_id
     new_placement = (
@@ -400,6 +409,8 @@ async def cb_pet_move(query: types.CallbackQuery, callback_data: ZooCB, db):
 
 @router.callback_query(ZooCB.filter(F.action == "confirm_release"))
 async def cb_confirm_release(query: types.CallbackQuery, callback_data: ZooCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     pet = await zoo_db.get_pet_by_id(db, callback_data.pet_id)
     if not pet:
         return await query.answer("❌ Питомец не найден!", show_alert=True)
@@ -434,6 +445,8 @@ async def cb_confirm_release(query: types.CallbackQuery, callback_data: ZooCB, d
 
 @router.callback_query(ZooCB.filter(F.action == "do_release"))
 async def cb_pet_release(query: types.CallbackQuery, callback_data: ZooCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     pet = await zoo_db.get_pet_by_id(db, callback_data.pet_id)
     if not pet:
         return await query.answer("❌ Питомец не найден!", show_alert=True)
@@ -457,6 +470,8 @@ async def cb_pet_release(query: types.CallbackQuery, callback_data: ZooCB, db):
 
 @router.callback_query(ZooCB.filter(F.action == "feed_all"))
 async def cb_zoo_feed_all(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     user_id = query.from_user.id
 
     pets = await zoo_db.get_user_pets(db, user_id, placement="nursery")
@@ -521,6 +536,8 @@ async def cb_zoo_feed_all(query: types.CallbackQuery, db):
 
 @router.callback_query(ZooCB.filter(F.action == "collect"))
 async def cb_zoo_collect(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     user_id = query.from_user.id
 
     pets = await zoo_db.get_user_pets(db, user_id, placement="nursery")
@@ -597,6 +614,8 @@ async def cb_zoo_collect(query: types.CallbackQuery, db):
 
 @router.callback_query(ZooCB.filter(F.action == "feed_super"))
 async def cb_zoo_feed_super(query: types.CallbackQuery, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     user_id = query.from_user.id
     qty = await get_item_quantity(db, user_id, "food_super")
     if qty < 1:
@@ -631,6 +650,8 @@ async def cb_zoo_feed_super(query: types.CallbackQuery, db):
 
 @router.callback_query(ZooCB.filter(F.action.in_(["use_dust_s", "use_dust_l"])))
 async def cb_use_stardust(query: types.CallbackQuery, callback_data: ZooCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     """Apply Звёздная or Небесная пыль to the pet shown on the card.
     dust_s = +1 duplicate, dust_l = +5 duplicates."""
     user_id = query.from_user.id

@@ -3,7 +3,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from infrastructure.repositories import stats
-from services.utils import safe_html, format_currency
+from services.utils import safe_html, format_currency, check_callback_owner
 from bot.filters.text_commands import TextCmd
 from core.constants import INACTIVE_THRESHOLD_DAYS
 
@@ -32,7 +32,7 @@ TEXT_PERIOD_MAP = {
     "прошлая неделя": "last_week", "прошлую неделю": "last_week"
 }
 
-def generate_top_keyboard(current_period: str) -> types.InlineKeyboardMarkup:
+def generate_top_keyboard(current_period: str, user_id: int = 0) -> types.InlineKeyboardMarkup:
     """Генерирует кнопки, помечая текущую галочкой."""
     builder = InlineKeyboardBuilder()
     
@@ -40,7 +40,7 @@ def generate_top_keyboard(current_period: str) -> types.InlineKeyboardMarkup:
     periods = ["day", "week", "all_time", "last_day", "last_week"]
     for p in periods:
         text = f"✅ {PERIOD_NAMES[p]}" if p == current_period else PERIOD_NAMES[p]
-        builder.button(text=text, callback_data=TopPeriodData(period=p))
+        builder.button(text=text, callback_data=TopPeriodData(period=p, user_id=user_id))
     
     # Расставляем кнопки: 2 в ряд, последняя на всю ширину
     builder.adjust(2, 2, 1)
@@ -88,15 +88,17 @@ async def cmd_top(message: types.Message, db, text_args: str = None):
             break
 
     text = await build_top_text(db, message.chat.id, period)
-    keyboard = generate_top_keyboard(period)
+    keyboard = generate_top_keyboard(period, user_id=message.from_user.id)
     
     await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 # Обработчик кнопок ТОПа
 @router.callback_query(TopPeriodData.filter())
 async def process_top_period(callback: types.CallbackQuery, callback_data: TopPeriodData, db):
+    if not await check_callback_owner(callback, callback_data.user_id):
+        return
     text = await build_top_text(db, callback.message.chat.id, callback_data.period)
-    keyboard = generate_top_keyboard(callback_data.period)
+    keyboard = generate_top_keyboard(callback_data.period, user_id=callback_data.user_id)
     
     # Отлавливаем только ошибку неизмененного сообщения, остальные ошибки бот должен показать!
     try:

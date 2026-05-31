@@ -57,7 +57,7 @@ async def cmd_profile(message: types.Message, db: aiosqlite.Connection, develope
     if marriage:
         p_id = marriage['user2_id'] if marriage['user1_id'] == user_id else marriage['user1_id']
         p_name = marriage['user2_name'] if marriage['user1_id'] == user_id else marriage['user1_name']
-        marriage_text = f'💍 в браке с <a href="tg://user?id={p_id}">{safe_html(p_name)}</a>'
+        marriage_text = f"💍 в браке с <b>{safe_html(p_name)}</b>"
 
     # 4. СИСТЕМА ЗАЩИТЫ И ВАРНОВ
     is_immune = stats.get('is_immune', 0)
@@ -194,7 +194,7 @@ async def cmd_user_info(message: types.Message, db: aiosqlite.Connection, text_a
     if marriage:
         p_id = marriage['user2_id'] if marriage['user1_id'] == target_id else marriage['user1_id']
         p_name = marriage['user2_name'] if marriage['user1_id'] == target_id else marriage['user1_name']
-        marriage_text = f'💍 в браке с <a href="tg://user?id={p_id}">{safe_html(p_name)}</a>'
+        marriage_text = f"💍 в браке с <b>{safe_html(p_name)}</b>"
 
     is_immune = stats.get('is_immune', 0)
     immune_until = stats.get('immune_until')

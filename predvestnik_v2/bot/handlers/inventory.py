@@ -6,7 +6,7 @@ from bot.filters.text_commands import TextCmd
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 from infrastructure.repositories.economy import get_inventory
 from infrastructure.repositories.zoo import open_eggs_batch
-from services.utils import safe_html
+from services.utils import safe_html, check_callback_owner
 from services.zoo import apply_pet_milestones
 from services.achievements import increment_metric, format_achievement_notification
 from services.quests import increment_metric as quest_increment
@@ -212,6 +212,8 @@ async def cmd_open_eggs(message: types.Message, db, text_args: str = None):
 
 @router.callback_query(InvCB.filter(F.action == "open_egg"))
 async def cb_open_egg(callback: types.CallbackQuery, callback_data: InvCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     egg_id = callback_data.item_id
     user_id = callback.from_user.id
 
