@@ -98,9 +98,22 @@ async def init_db():
                 module_quests        INTEGER DEFAULT 1,
                 module_zoo           INTEGER DEFAULT 1,
                 module_warps         INTEGER DEFAULT 1,
-                module_daily_deal    INTEGER DEFAULT 1
+                module_daily_deal    INTEGER DEFAULT 1,
+                rank_duel            INTEGER DEFAULT 0,
+                rank_marriage        INTEGER DEFAULT 0,
+                rank_give            INTEGER DEFAULT 0
             )
         """)
+        # Migrations: add new columns to existing chat_settings rows
+        for _col, _default in [
+            ("rank_duel", 0), ("rank_marriage", 0), ("rank_give", 0),
+        ]:
+            try:
+                await db.execute(
+                    f"ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS {_col} INTEGER DEFAULT {_default}"
+                )
+            except Exception:
+                pass
 
         # 5. Warnings history
         await db.execute("""

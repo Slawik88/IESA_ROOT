@@ -63,7 +63,10 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
         "COALESCE(rank_immune, 5) AS rank_immune, "
         "COALESCE(events_enabled, 1) AS events_enabled, "
         "COALESCE(nsfw_warps_allowed, 1) AS nsfw_warps_allowed, "
-        "COALESCE(auction_min_rank, 0) AS auction_min_rank "
+        "COALESCE(auction_min_rank, 0) AS auction_min_rank, "
+        "COALESCE(rank_duel, 0) AS rank_duel, "
+        "COALESCE(rank_marriage, 0) AS rank_marriage, "
+        "COALESCE(rank_give, 0) AS rank_give "
         "FROM chat_settings WHERE chat_id = ?",
         (chat_id,),
     ) as cursor:
@@ -75,6 +78,7 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
             "rank_warn": 2, "rank_mute": 3, "rank_kick": 4, "rank_ban": 5,
             "rank_shield": 4, "rank_immune": 5,
             "events_enabled": 1, "nsfw_warps_allowed": 1, "auction_min_rank": 0,
+            "rank_duel": 0, "rank_marriage": 0, "rank_give": 0,
         }
 
 

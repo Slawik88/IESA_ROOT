@@ -4,6 +4,8 @@ from aiogram import Router, types
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import economy as eco_db
 from infrastructure.repositories import marriages as marriages_db
+from infrastructure.repositories.moderation import get_chat_settings
+from infrastructure.repositories.chat import get_chat_stats
 from services.admin_service import give_resource, set_resource
 from services.utils import resolve_target, safe_html, format_currency
 from core.registry import ITEMS_REGISTRY
@@ -52,6 +54,18 @@ async def cmd_pay(message: types.Message, db, text_args: str = None):
             "Или ответьте на сообщение пользователя.",
             parse_mode="HTML"
         )
+
+    settings = await get_chat_settings(db, message.chat.id)
+    rank_required = settings.get("rank_give", 0)
+    if rank_required > 0:
+        u_stats = await get_chat_stats(db, message.from_user.id, message.chat.id)
+        if u_stats.get("local_rank", 0) < rank_required:
+            from services import roles as _roles
+            rname = _roles.LOCAL_RANKS_MAP.get(rank_required, f"Ранг {rank_required}")
+            return await message.answer(
+                f"❌ Переводы в этом чате доступны с ранга <b>{rname}</b> ({rank_required}+).",
+                parse_mode="HTML",
+            )
 
     if target_id == message.from_user.id:
         return await message.answer("❌ Вы не можете перевести мору самому себе.")

@@ -7,6 +7,8 @@ from core.constants import DUEL_MIN_BET, DUEL_MAX_BET
 from core.registry import PET_SPECIES
 from infrastructure.repositories import zoo as zoo_db
 from infrastructure.repositories.users import get_nickname
+from infrastructure.repositories.moderation import get_chat_settings
+from infrastructure.repositories.chat import get_chat_stats
 from services.duel import create_challenge, accept_duel, decline_duel, calculate_power
 from services.utils import safe_html, resolve_target
 from services.achievements import increment_metric
@@ -31,6 +33,18 @@ async def cmd_duel(message: types.Message, db, text_args: str = None):
 
     challenger_id = message.from_user.id
     chat_id = message.chat.id
+
+    settings = await get_chat_settings(db, chat_id)
+    rank_required = settings.get("rank_duel", 0)
+    if rank_required > 0:
+        u_stats = await get_chat_stats(db, challenger_id, chat_id)
+        if u_stats.get("local_rank", 0) < rank_required:
+            from services import roles as _roles
+            rname = _roles.LOCAL_RANKS_MAP.get(rank_required, f"Ранг {rank_required}")
+            return await message.answer(
+                f"❌ Дуэли в этом чате доступны с ранга <b>{rname}</b> ({rank_required}+).",
+                parse_mode="HTML",
+            )
 
     # Parse: "@target, stake" or "stake, @target"
     raw = text_args or ""
