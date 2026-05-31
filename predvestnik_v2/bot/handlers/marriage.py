@@ -18,6 +18,7 @@ class MarriageAction(CallbackData, prefix="marry"):
 
 class DivorceConfirm(CallbackData, prefix="divorce"):
     action: str  # "confirm" | "cancel"
+    user_id: int = 0
 
 # ==========================================
 # КОМАНДА 1: Предложение (/marriage)

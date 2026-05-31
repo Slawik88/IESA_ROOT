@@ -17,6 +17,7 @@ router.message.middleware(ModuleCheckMiddleware("module_daily_deal"))
 class DealCB(CallbackData, prefix="deal"):
     action: str   # "menu" | "buy" | "refresh"
     slot: int = 0
+    user_id: int = 0
 
 
 def _time_until_reset() -> str:

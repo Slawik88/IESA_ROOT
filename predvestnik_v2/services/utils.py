@@ -4,6 +4,8 @@
 import aiosqlite
 from aiogram import types
 
+from aiogram import types as _types
+
 from services.formatting import (  # noqa: F401
     format_currency,
     format_number,
@@ -13,6 +15,16 @@ from services.formatting import (  # noqa: F401
     format_seconds_to_time,
     parse_dt,
 )
+
+
+async def check_callback_owner(
+    query: _types.CallbackQuery, owner_user_id: int
+) -> bool:
+    """Return True if the query is from the expected user; answer with error otherwise."""
+    if query.from_user.id != owner_user_id:
+        await query.answer("❌ Это не ваше меню.", show_alert=True)
+        return False
+    return True
 
 
 async def resolve_display_name(

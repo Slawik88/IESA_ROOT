@@ -59,6 +59,7 @@ class WalletCB(CallbackData, prefix="wlog"):
     action: str   # "page" | "filter"
     page: int = 1
     filter_src: str = ""
+    user_id: int = 0
 
 
 def _entry_line(e: dict) -> str:

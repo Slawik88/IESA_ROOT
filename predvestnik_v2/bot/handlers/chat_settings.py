@@ -6,6 +6,7 @@ from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import chat as chat_repo
 from services import roles
+from services.utils import check_callback_owner
 
 router = Router(name="chat_settings_router")
 
@@ -14,6 +15,7 @@ class ChatSettingsCB(CallbackData, prefix="cs"):
     action: str    # "menu" | "set_rank" | "toggle"
     key: str = ""
     value: str = ""
+    user_id: int = 0
 
 
 # Human-readable descriptions for each rank setting
@@ -93,45 +95,40 @@ async def _build_menu_text(db, chat_id: int) -> str:
     return "\n".join(lines)
 
 
-def _settings_kb() -> types.InlineKeyboardMarkup:
+def _settings_kb(user_id: int = 0) -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for key, (icon, desc, _key) in _RANK_SETTINGS.items():
         b.button(
             text=f"✏️ {icon} {desc}",
-            callback_data=ChatSettingsCB(action="set_rank", key=key),
+            callback_data=ChatSettingsCB(action="set_rank", key=key, user_id=user_id),
         )
     for key, (icon, desc) in _TOGGLE_SETTINGS.items():
         b.button(
             text=f"🔄 {icon} {desc}",
-            callback_data=ChatSettingsCB(action="toggle", key=key),
+            callback_data=ChatSettingsCB(action="toggle", key=key, user_id=user_id),
         )
     b.button(
         text="✏️ 🏛 Минимальный ранг для аукциона",
-        callback_data=ChatSettingsCB(action="set_rank", key="auction_min_rank"),
+        callback_data=ChatSettingsCB(action="set_rank", key="auction_min_rank", user_id=user_id),
     )
     for key, (icon, name) in _MODULE_SETTINGS.items():
         b.button(
             text=f"🔄 {icon} {name}",
-            callback_data=ChatSettingsCB(action="toggle", key=key),
+            callback_data=ChatSettingsCB(action="toggle", key=key, user_id=user_id),
         )
     b.adjust(1)
     return b.as_markup()
 
 
-def _rank_picker_kb(key: str, current: int, label: str) -> types.InlineKeyboardMarkup:
+def _rank_picker_kb(key: str, current: int, label: str, user_id: int = 0) -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(
-        text=f"🚫 Никому (заблокировать)" if key not in ("rank_warn",) else "Снять ограничение",
-        callback_data=ChatSettingsCB(action="set_rank", key=key, value="99"),
-    ) if False else None  # placeholder - not adding 99 rank
-
     for rank_id, rank_name in sorted(_RANK_NAMES.items()):
         mark = "✅ " if rank_id == current else ""
         b.button(
             text=f"{mark}{rank_name} и выше ({rank_id}+)",
-            callback_data=ChatSettingsCB(action="set_rank", key=key, value=str(rank_id)),
+            callback_data=ChatSettingsCB(action="set_rank", key=key, value=str(rank_id), user_id=user_id),
         )
-    b.button(text="⬅️ Назад к настройкам", callback_data=ChatSettingsCB(action="menu"))
+    b.button(text="⬅️ Назад к настройкам", callback_data=ChatSettingsCB(action="menu", user_id=user_id))
     b.adjust(1)
     return b.as_markup()
 
@@ -151,20 +148,26 @@ async def cmd_chat_settings(message: types.Message, db, developer_id: int = 0):
         )
 
     text = await _build_menu_text(db, message.chat.id)
-    await message.answer(text, reply_markup=_settings_kb(), parse_mode="HTML")
+    await message.answer(text, reply_markup=_settings_kb(user_id=message.from_user.id), parse_mode="HTML")
 
 
 @router.callback_query(ChatSettingsCB.filter(F.action == "menu"))
-async def cb_settings_menu(query: types.CallbackQuery, db):
+async def cb_settings_menu(query: types.CallbackQuery, callback_data: ChatSettingsCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     text = await _build_menu_text(db, query.message.chat.id)
-    await query.message.edit_text(text, reply_markup=_settings_kb(), parse_mode="HTML")
+    uid = callback_data.user_id
+    await query.message.edit_text(text, reply_markup=_settings_kb(user_id=uid), parse_mode="HTML")
     await query.answer()
 
 
 @router.callback_query(ChatSettingsCB.filter(F.action == "set_rank"))
 async def cb_set_rank(query: types.CallbackQuery, callback_data: ChatSettingsCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     chat_id = query.message.chat.id
     key = callback_data.key
+    uid = callback_data.user_id
 
     if callback_data.value != "":
         new_val = int(callback_data.value)
@@ -172,7 +175,7 @@ async def cb_set_rank(query: types.CallbackQuery, callback_data: ChatSettingsCB,
         await db.commit()
         await query.answer("✅ Сохранено!", show_alert=False)
         text = await _build_menu_text(db, chat_id)
-        await query.message.edit_text(text, reply_markup=_settings_kb(), parse_mode="HTML")
+        await query.message.edit_text(text, reply_markup=_settings_kb(user_id=uid), parse_mode="HTML")
         return
 
     s = await mod_db.get_chat_settings(db, chat_id)
@@ -188,7 +191,7 @@ async def cb_set_rank(query: types.CallbackQuery, callback_data: ChatSettingsCB,
         f"✏️ <b>{label}</b>\n\n"
         f"Выберите минимальный ранг, начиная с которого разрешено это действие:\n"
         f"<i>Текущее: {_rank_label(current)}</i>",
-        reply_markup=_rank_picker_kb(key, current, label),
+        reply_markup=_rank_picker_kb(key, current, label, user_id=uid),
         parse_mode="HTML",
     )
     await query.answer()
@@ -196,8 +199,11 @@ async def cb_set_rank(query: types.CallbackQuery, callback_data: ChatSettingsCB,
 
 @router.callback_query(ChatSettingsCB.filter(F.action == "toggle"))
 async def cb_toggle_setting(query: types.CallbackQuery, callback_data: ChatSettingsCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
     chat_id = query.message.chat.id
     key = callback_data.key
+    uid = callback_data.user_id
     s = await mod_db.get_chat_settings(db, chat_id)
     new_val = 0 if s.get(key, 1) else 1
     await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
@@ -206,4 +212,4 @@ async def cb_toggle_setting(query: types.CallbackQuery, callback_data: ChatSetti
     status = "включено" if new_val else "выключено"
     await query.answer(f"{icon} {desc} — {status}!", show_alert=False)
     text = await _build_menu_text(db, chat_id)
-    await query.message.edit_text(text, reply_markup=_settings_kb(), parse_mode="HTML")
+    await query.message.edit_text(text, reply_markup=_settings_kb(user_id=uid), parse_mode="HTML")

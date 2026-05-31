@@ -2,6 +2,10 @@
 infrastructure/pg_adapter.py
 Wraps asyncpg.Connection to provide an aiosqlite-compatible API.
 
+Auto-coercion: timestamp strings ('YYYY-MM-DD HH:MM:SS') are converted to
+datetime objects before passing to asyncpg, since asyncpg requires datetime
+for TIMESTAMP columns (unlike aiosqlite which accepted strings).
+
 Automatic translations:
   ?            → $1, $2, $3 ...
   INSERT OR IGNORE INTO  → INSERT INTO ... ON CONFLICT DO NOTHING
@@ -10,8 +14,30 @@ Automatic translations:
   datetime('now', $N)    → NOW() + $N::INTERVAL
 """
 import re
+from datetime import datetime as _datetime
 import asyncpg
 from loguru import logger
+
+# Regex to detect timestamp strings like '2026-05-31 12:11:37' or '2026-05-31'
+_TS_RE = re.compile(r'^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}:\d{2}(?:\.\d+)?)?$')
+
+
+def _coerce_args(args: list) -> list:
+    """Convert timestamp strings to datetime objects for asyncpg compatibility."""
+    result = []
+    for a in args:
+        if isinstance(a, str) and _TS_RE.match(a):
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d"):
+                try:
+                    result.append(_datetime.strptime(a, fmt))
+                    break
+                except ValueError:
+                    continue
+            else:
+                result.append(a)
+        else:
+            result.append(a)
+    return result
 
 
 # ── SQL translators ────────────────────────────────────────────────────────────
@@ -179,7 +205,7 @@ class _Execute:
             return self._cursor
 
         pg_sql = _pg_sql(self._sql)
-        args = list(self._args) if self._args else []
+        args = _coerce_args(list(self._args) if self._args else [])
 
         try:
             is_select = (
