@@ -190,15 +190,20 @@ def _format_chances(spin_type: str) -> str:
 
 # ── Keyboard builders ─────────────────────────────────────────────────────────
 
-def _main_menu_kb() -> types.InlineKeyboardMarkup:
+def _main_menu_kb(user_id: int = 0) -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for st in _SPIN_ORDER:
         label = SPIN_TYPE_LABELS[st]
         cost = _fmt_cost(st)
-        b.button(text=f"{label}  {cost}", callback_data=GachaCB(action="type", spin_type=st))
-    b.button(text="📊 Мои пити",  callback_data=GachaCB(action="pity"))
-    b.button(text="📜 История",   callback_data=GachaCB(action="history"))
-    b.adjust(1, 1, 1, 1, 2)
+        # Main spin button + 📋 quick loot preview side by side
+        b.button(text=f"{label}  {cost}",
+                 callback_data=GachaCB(action="type",    spin_type=st, user_id=user_id))
+        b.button(text="📋",
+                 callback_data=GachaCB(action="chances", spin_type=st, user_id=user_id))
+    b.button(text="📊 Мои пити",  callback_data=GachaCB(action="pity",    user_id=user_id))
+    b.button(text="📜 История",   callback_data=GachaCB(action="history", user_id=user_id))
+    # 4 spin rows × 2 cols, then 2-wide footer
+    b.adjust(2, 2, 2, 2, 2)
     return b.as_markup()
 
 
@@ -218,11 +223,12 @@ def _spin_type_kb(spin_type: str, token_count: int, pity: int) -> types.InlineKe
     return b.as_markup()
 
 
-def _back_kb(spin_type: str = "") -> types.InlineKeyboardMarkup:
+def _back_kb(spin_type: str = "", user_id: int = 0) -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     if spin_type:
-        b.button(text="⬅️ Назад к крутке",  callback_data=GachaCB(action="type", spin_type=spin_type))
-    b.button(text="🏠 Меню гачи",           callback_data=GachaCB(action="menu"))
+        b.button(text="⬅️ Назад к крутке",
+                 callback_data=GachaCB(action="type", spin_type=spin_type, user_id=user_id))
+    b.button(text="🏠 Меню гачи", callback_data=GachaCB(action="menu", user_id=user_id))
     b.adjust(1)
     return b.as_markup()
 
@@ -352,7 +358,7 @@ async def cmd_gacha(message: types.Message, db, text_args: str = None):
         )
     else:
         text = await _build_main_text(db, message.from_user.id)
-        await message.answer(text, reply_markup=_main_menu_kb(), parse_mode="HTML")
+        await message.answer(text, reply_markup=_main_menu_kb(message.from_user.id), parse_mode="HTML")
 
 
 @router.callback_query(GachaCB.filter(F.action == "menu"))
@@ -360,7 +366,7 @@ async def cb_gacha_menu(query: types.CallbackQuery, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     text = await _build_main_text(db, query.from_user.id)
-    await query.message.edit_text(text, reply_markup=_main_menu_kb(), parse_mode="HTML")
+    await query.message.edit_text(text, reply_markup=_main_menu_kb(query.from_user.id), parse_mode="HTML")
     await query.answer()
 
 
@@ -542,7 +548,7 @@ async def cb_gacha_chances(query: types.CallbackQuery, callback_data: GachaCB):
     text = _format_chances(callback_data.spin_type)
     await query.message.edit_text(
         text,
-        reply_markup=_back_kb(callback_data.spin_type),
+        reply_markup=_back_kb(callback_data.spin_type, user_id=callback_data.user_id),
         parse_mode="HTML",
     )
     await query.answer()
