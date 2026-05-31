@@ -15,7 +15,7 @@ async def incr_pity(db: aiosqlite.Connection, user_id: int, spin_type: str) -> i
     """Increment pity counter by 1 and return the new value. No commit."""
     await db.execute(
         """INSERT INTO gacha_pity (user_id, spin_type, count) VALUES (?, ?, 1)
-           ON CONFLICT(user_id, spin_type) DO UPDATE SET count = count + 1""",
+           ON CONFLICT(user_id, spin_type) DO UPDATE SET count = gacha_pity.count + 1""",
         (user_id, spin_type),
     )
     async with db.execute(
