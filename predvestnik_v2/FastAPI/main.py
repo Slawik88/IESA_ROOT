@@ -76,7 +76,7 @@ async def get_profile(user_id: int, db: aiosqlite.Connection = Depends(get_db)):
         "ucs.joined_at, ucs.is_left, cs.chat_title "
         "FROM user_chat_stats ucs "
         "LEFT JOIN chat_settings cs ON cs.chat_id = ucs.chat_tg_id "
-        "WHERE ucs.user_tg_id = ? AND ucs.is_left = 0",
+        "WHERE ucs.user_tg_id = ? AND ucs.is_left = FALSE",
         (user_id,),
     ) as cur:
         chats = [dict(r) for r in await cur.fetchall()]

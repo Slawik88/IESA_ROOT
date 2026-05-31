@@ -19,7 +19,7 @@ async def get_top_messages(
         f"SELECT s.user_tg_id, u.user_tg_username, s.{col} AS msg_count "
         f"FROM user_chat_stats s "
         f"LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
-        f"WHERE s.chat_tg_id = ? AND s.is_left = 0 AND s.{col} > 0 "
+        f"WHERE s.chat_tg_id = ? AND s.is_left = FALSE AND s.{col} > 0 "
         f"ORDER BY s.{col} DESC LIMIT ?",
         (chat_id, limit),
     ) as cursor:
@@ -33,7 +33,7 @@ _MIN_GLOBAL_MSGS = 100  # minimum all_time messages for global tops
 
 async def _local_user_ids(db: aiosqlite.Connection, chat_id: int) -> list[int]:
     async with db.execute(
-        "SELECT user_tg_id FROM user_chat_stats WHERE chat_tg_id = ? AND is_left = 0",
+        "SELECT user_tg_id FROM user_chat_stats WHERE chat_tg_id = ? AND is_left = FALSE",
         (chat_id,),
     ) as c:
         return [r[0] for r in await c.fetchall()]

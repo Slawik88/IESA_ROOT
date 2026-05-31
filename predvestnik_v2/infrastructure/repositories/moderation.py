@@ -46,7 +46,7 @@ async def get_left_users(db: aiosqlite.Connection, chat_id: int) -> list[dict]:
     async with db.execute(
         "SELECT s.user_tg_id, u.user_tg_username FROM user_chat_stats s "
         "LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
-        "WHERE s.chat_tg_id = ? AND s.is_left = 1",
+        "WHERE s.chat_tg_id = ? AND s.is_left = TRUE",
         (chat_id,),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
