@@ -28,7 +28,7 @@ class ExchCB(CallbackData, prefix="exch"):
 
 def _time_left(ends_at_str: str) -> str:
     try:
-        ends = datetime.strptime(ends_at_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        ends = parse_dt(ends_at_str).replace(tzinfo=timezone.utc)
         delta = ends - datetime.now(timezone.utc)
         if delta.total_seconds() <= 0:
             return "завершён"
@@ -44,7 +44,7 @@ async def _find_next_event_info(db) -> str:
     ev = await get_scheduled_event(db)
     if ev:
         try:
-            dt = datetime.strptime(ev["starts_at"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            dt = parse_dt(ev["starts_at"]).replace(tzinfo=timezone.utc)
             delta = dt - datetime.now(timezone.utc)
             h, rem = divmod(int(max(0, delta.total_seconds())), 3600)
             d = h // 24

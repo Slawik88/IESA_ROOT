@@ -35,7 +35,7 @@ async def activate_promocode(
 
     if promo["valid_from"]:
         try:
-            vf = datetime.strptime(promo["valid_from"], "%Y-%m-%d %H:%M:%S")
+            vf = parse_dt(promo["valid_from"])
         except ValueError:
             vf = datetime.strptime(promo["valid_from"], "%Y-%m-%d")
         if now < vf:
@@ -46,7 +46,7 @@ async def activate_promocode(
 
     if promo["valid_until"]:
         try:
-            vu = datetime.strptime(promo["valid_until"], "%Y-%m-%d %H:%M:%S")
+            vu = parse_dt(promo["valid_until"])
         except ValueError:
             vu = datetime.strptime(promo["valid_until"], "%Y-%m-%d")
         if now > vu:

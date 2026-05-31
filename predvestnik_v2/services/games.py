@@ -23,7 +23,7 @@ async def _check_cooldown(db, user_id: int, game: str) -> str | None:
         return None
     cooldown_min = GAMES[game]["cooldown_min"]
     try:
-        last_dt = datetime.strptime(last, "%Y-%m-%d %H:%M:%S")
+        last_dt = parse_dt(last)
         elapsed = (datetime.utcnow() - last_dt).total_seconds() / 60
         if elapsed < cooldown_min:
             remaining = int(cooldown_min - elapsed) + 1

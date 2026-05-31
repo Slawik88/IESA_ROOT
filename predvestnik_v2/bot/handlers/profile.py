@@ -70,7 +70,7 @@ async def cmd_profile(message: types.Message, db: aiosqlite.Connection, develope
     elif immune_until:
         try:
             # Используем осознанную дату
-            dt = datetime.strptime(immune_until, "%Y-%m-%d %H:%M:%S")
+            dt = parse_dt(immune_until)
             if dt > datetime.now():
                 protection_text = f"🔰 <b>Временный щит</b> <i>(до {dt.strftime('%d.%m %H:%M')})</i>"
         except Exception:
@@ -205,7 +205,7 @@ async def cmd_user_info(message: types.Message, db: aiosqlite.Connection, text_a
         protection_text = "🛡 <b>Абсолютный иммунитет</b>"
     elif immune_until:
         try:
-            dt = datetime.strptime(immune_until, "%Y-%m-%d %H:%M:%S")
+            dt = parse_dt(immune_until)
             if dt > datetime.now():
                 protection_text = f"🔰 <b>Временный щит</b> <i>(до {dt.strftime('%d.%m %H:%M')})</i>"
         except Exception:

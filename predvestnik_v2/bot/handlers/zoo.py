@@ -50,7 +50,7 @@ def _calc_hamster_income(
     if not last_collection or not hamsters:
         return 0, "—"
     try:
-        last_dt = datetime.strptime(last_collection, "%Y-%m-%d %H:%M:%S")
+        last_dt = parse_dt(last_collection)
     except ValueError:
         return 0, "—"
     hours = (datetime.now() - last_dt).total_seconds() / 3600.0

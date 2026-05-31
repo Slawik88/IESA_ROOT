@@ -303,7 +303,7 @@ async def apply_fatigue_decay(db: aiosqlite.Connection, user_id: int):
             continue
 
         try:
-            last_dt = datetime.strptime(last_upd, "%Y-%m-%d %H:%M:%S")
+            last_dt = parse_dt(last_upd)
         except ValueError:
             await db.execute(
                 "UPDATE pets SET last_fatigue_update = ? WHERE id = ?",
@@ -357,7 +357,7 @@ async def get_pending_hamster_income(db: aiosqlite.Connection, user_id: int) -> 
         return 0.0
 
     try:
-        last_dt = datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S")
+        last_dt = parse_dt(row[0])
     except ValueError:
         return 0.0
 
