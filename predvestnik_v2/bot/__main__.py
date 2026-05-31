@@ -11,12 +11,17 @@ from bot.middlewares.config_mw import config_middleware
 from bot.middlewares.pet_bonuses_mw import pet_bonuses_middleware
 from bot.middlewares.streak_mw import streak_middleware
 from bot.handlers import main_router
-from infrastructure.database import create_pool
+from infrastructure.database import create_pool, get_pool
 from services.scheduler import (
     expedition_background_task, daily_deal_task,
     duel_and_auction_task, chest_spawn_task,
     exchange_scheduler_task,
 )
+
+# Unique advisory lock key for this bot (arbitrary fixed integer).
+# pg_advisory_lock blocks until no other session holds the same key,
+# so a new deploy waits for the old dyno to die before it starts polling.
+_ADVISORY_LOCK_KEY = 1748293847
 
 
 async def main():
@@ -28,11 +33,22 @@ async def main():
     logger.info("📊 Архитектура: PostgreSQL + asyncpg")
 
     logger.info("🐘 Подключение к PostgreSQL...")
-    await create_pool()
+    pool = await create_pool()
 
     logger.info("🗄️  Инициализация схемы БД...")
     await init_db()
     logger.info("✅ База данных готова!")
+
+    # ── Advisory lock: only one bot instance polls at a time ──────────────────
+    # Acquires a session-level PostgreSQL advisory lock. If another instance
+    # holds it (e.g. the previous dyno during a rolling redeploy), this call
+    # blocks until that instance dies and its connection is closed.
+    # The lock is automatically released when _lock_conn is closed in finally.
+    logger.info("🔒 Ожидание advisory lock (единственный инстанс)...")
+    _lock_conn = await pool.acquire()
+    await _lock_conn.execute(f"SELECT pg_advisory_lock({_ADVISORY_LOCK_KEY})")
+    logger.info("🔒 Advisory lock получен — этот инстанс единственный.")
+    # ─────────────────────────────────────────────────────────────────────────
 
     logger.info("⚙️  Инициализация Telegram Bot API...")
     bot = Bot(token=config.bot_token)
@@ -74,6 +90,11 @@ async def main():
     finally:
         logger.warning("🛑 Завершение сессии бота...")
         await bot.session.close()
+        # Release advisory lock by closing the dedicated connection
+        try:
+            await pool.release(_lock_conn)
+        except Exception:
+            pass
         logger.info("✅ Сессия закрыта.")
 
 
