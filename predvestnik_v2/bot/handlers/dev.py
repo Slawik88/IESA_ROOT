@@ -169,7 +169,11 @@ async def cmd_dev_chest(message: types.Message, db):
     b.button(text=f"👋 Забрать! (0/{CHEST_MAX_CLAIMANTS})", callback_data=ChestCB(chest_id=chest_id))
     await message.answer(
         "💰 <b>DEV — ПРИНУДИТЕЛЬНЫЙ СУНДУК!</b>\n\n"
-        "Первые 15 нажавших получат Мору. ⏳ 90 секунд.",
+        "🥇 1 место: <b>70 🪙</b> + 🎟 Жетон\n"
+        "🥈 2 место: <b>65 🪙</b> + 🎟 Жетон\n"
+        "🥉 3 место: <b>60 🪙</b> + 🎟 Жетон\n"
+        "4–15 место: <b>55 → 10 🪙</b>\n\n"
+        "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
         reply_markup=b.as_markup(),
         parse_mode="HTML",
     )
