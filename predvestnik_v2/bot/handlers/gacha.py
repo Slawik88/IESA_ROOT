@@ -36,6 +36,7 @@ _OUTCOME_EMOJI = {
 class GachaCB(CallbackData, prefix="gacha"):
     action: str        # menu | type | spin1 | spin10 | token | history | pity | chances | close
     spin_type: str = ""
+    user_id: int = 0
 
 
 # ── Text formatters ───────────────────────────────────────────────────────────

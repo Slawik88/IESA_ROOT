@@ -12,6 +12,7 @@ router = Router(name="stats_router")
 # Фабрика кнопок для переключения периодов в ТОПе
 class TopPeriodData(CallbackData, prefix="top"):
     period: str
+    user_id: int = 0
 
 # Человекочитаемые названия периодов
 PERIOD_NAMES = {
@@ -113,6 +114,7 @@ async def process_top_period(callback: types.CallbackQuery, callback_data: TopPe
 class TopCatCB(CallbackData, prefix="topcat"):
     cat: str    # mora | diamonds | pets | levels | achievements | msgs | streaks | auction
     mode: str   # local | global
+    user_id: int = 0
 
 
 _CAT_LABELS = {

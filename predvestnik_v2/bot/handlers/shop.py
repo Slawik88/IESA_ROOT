@@ -17,6 +17,7 @@ class ShopCB(CallbackData, prefix="shop"):
     action: str          # "qty" | "do_buy" | "back"
     item_id: str = ""
     qty: int = 0
+    user_id: int = 0
 
 
 CATEGORIES = {

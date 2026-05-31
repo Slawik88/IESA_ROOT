@@ -58,6 +58,7 @@ def _fmt_milestone_lines(granted: list[dict]) -> str:
 class InvCB(CallbackData, prefix="inv"):
     action: str
     item_id: str
+    user_id: int = 0
 
 
 @router.message(TextCmd(["инвентарь", "рюкзак", "вещи"]))

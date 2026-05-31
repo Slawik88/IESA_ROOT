@@ -14,6 +14,7 @@ router = Router(name="common_router")
 # Определяем структуру данных для кнопок
 class HelpCallback(CallbackData, prefix="help"):
     tab: str
+    user_id: int = 0
 
 # Словарь с текстами для каждой вкладки
 HELP_PAGES = {

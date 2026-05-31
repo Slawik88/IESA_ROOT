@@ -38,6 +38,7 @@ class ZooCB(CallbackData, prefix="zoo"):
     action: str
     pet_id: int = 0
     page: int = 1
+    user_id: int = 0
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

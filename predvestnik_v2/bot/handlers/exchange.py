@@ -24,6 +24,7 @@ router.message.middleware(ModuleCheckMiddleware("module_exchange"))
 class ExchCB(CallbackData, prefix="exch"):
     action: str   # "menu" | "confirm"
     amount: float = 0.0
+    user_id: int = 0
 
 
 def _time_left(ends_at_str: str) -> str:
