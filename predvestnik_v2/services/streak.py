@@ -13,18 +13,35 @@ from core.constants import (
 )
 
 
-def get_today_in_tz(tz_offset: int) -> str:
-    """Return 'YYYY-MM-DD' for today in the given UTC offset."""
+def get_today_in_tz(tz_offset: int) -> datetime:
+    """Return midnight datetime for today in the given UTC offset (naive)."""
     now_utc = datetime.now(timezone.utc)
     adjusted = now_utc + timedelta(hours=tz_offset)
-    return adjusted.strftime("%Y-%m-%d")
+    return adjusted.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
 
 
-def days_between(date_str_a: str, date_str_b: str) -> int:
+def _to_date(v) -> "datetime | None":
+    """Normalise datetime / date-string / None to a naive datetime."""
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v.replace(tzinfo=None)
+    if hasattr(v, "year"):          # datetime.date object
+        return datetime(v.year, v.month, v.day)
+    s = str(v)[:10]
+    try:
+        return datetime.strptime(s, "%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def days_between(a, b) -> int:
     """Return (b - a) in calendar days. Positive means b is after a."""
-    a = datetime.strptime(date_str_a, "%Y-%m-%d")
-    b = datetime.strptime(date_str_b, "%Y-%m-%d")
-    return (b - a).days
+    da = _to_date(a)
+    db = _to_date(b)
+    if da is None or db is None:
+        return 0
+    return (db.date() - da.date()).days
 
 
 def calc_new_streak(old_streak: int, missed_days: int) -> int:
@@ -69,28 +86,44 @@ def calc_recovery_cost(missed_days: int) -> dict:
     }
 
 
+def recovery_expires_dt() -> datetime:
+    """Return datetime when the recovery window closes."""
+    return datetime.now() + timedelta(hours=STREAK_RECOVERY_WINDOW_HOURS)
+
+
+# Keep old name as alias so existing callers don't break
 def recovery_expires_str() -> str:
-    """Return ISO datetime string for when the recovery window closes."""
-    expires = datetime.now() + timedelta(hours=STREAK_RECOVERY_WINDOW_HOURS)
-    return expires.strftime("%Y-%m-%d %H:%M:%S")
+    return recovery_expires_dt().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def is_recovery_valid(recovery_expires: str) -> bool:
-    """True if the recovery window has not yet expired."""
+def is_recovery_valid(recovery_expires) -> bool:
+    """True if the recovery window has not yet expired. Accepts datetime or str."""
     if not recovery_expires:
         return False
+    if isinstance(recovery_expires, datetime):
+        return datetime.now() < recovery_expires.replace(tzinfo=None)
     try:
-        expires = parse_dt(recovery_expires)
+        expires = parse_dt(str(recovery_expires))
         return datetime.now() < expires
-    except ValueError:
+    except (ValueError, TypeError):
         return False
 
 
-def process_daily_login(streak_row: dict, today: str) -> dict:
+def _same_day(a, b) -> bool:
+    """Compare two values (datetime / date / str / None) by calendar date."""
+    da = _to_date(a)
+    db = _to_date(b)
+    if da is None or db is None:
+        return False
+    return da.date() == db.date()
+
+
+def process_daily_login(streak_row: dict, today: datetime) -> dict:
     """Pure business logic for handling a user's first message of the day.
 
-    Returns a result dict with all the info needed by the middleware
-    to update the DB and send notifications.
+    `today` should be a naive datetime at midnight (from get_today_in_tz).
+    `streak_row` values last_login / last_notified may be datetime objects
+    (TIMESTAMP columns) or None.
 
     result keys:
         is_new_day: bool
@@ -99,19 +132,19 @@ def process_daily_login(streak_row: dict, today: str) -> dict:
         reward: dict | None
         missed_days: int
         penalty_applied: bool
-        recovery_streak: int  — original streak before penalty (0 if no penalty)
+        recovery_streak: int
         recovery_missed_days: int
-        recovery_expires: str | None
+        recovery_expires: datetime | None
     """
     last_login = streak_row.get("last_login")
     last_notified = streak_row.get("last_notified")
     old_streak = streak_row.get("streak", 0)
 
     # Not a new day yet (already logged in today)
-    if last_login == today:
+    if _same_day(last_login, today):
         return {
             "is_new_day": False,
-            "already_notified": (last_notified == today),
+            "already_notified": _same_day(last_notified, today),
             "new_streak": old_streak,
             "reward": None,
             "missed_days": 0,
@@ -133,7 +166,7 @@ def process_daily_login(streak_row: dict, today: str) -> dict:
             missed_days = delta - 1
             recovery_streak = old_streak
             recovery_missed_days = missed_days
-            recovery_expires_val = recovery_expires_str()
+            recovery_expires_val = recovery_expires_dt()
             old_streak = calc_new_streak(old_streak, missed_days)
             penalty_applied = True
 
