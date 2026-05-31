@@ -27,6 +27,18 @@ KNOWN_COMMANDS: list[str] = [
     "помощь", "инфо чата", "часовой пояс чата", "привязать",
     # Nicknames / misc
     "мой ник", "сайт",
+    # Auction / exchange
+    "аукцион", "обмен", "игры", "достижения", "промокод",
+    # Dark mora
+    "тёмная мора", "контрабанда", "ритуал",
+    # Expedition boost
+    "ускорить поход",
+    # Item info
+    "предмет",
+    # Wallet history
+    "история кошелька", "баланс лог",
+    # Duel
+    "дуэль",
 ]
 
 _SORTED_KNOWN = sorted(KNOWN_COMMANDS, key=len)
