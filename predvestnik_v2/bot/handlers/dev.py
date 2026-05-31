@@ -427,3 +427,29 @@ async def cmd_dev_lookup_ids(message: types.Message, db, text_args: str = None):
         )
 
     await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+# ── Dev announce (бот пишет от своего имени) ──────────────────────────────────
+
+@router.message(TextCmd(["dev анонс", "dev announce", "dev объявление"]))
+async def cmd_dev_announce(message: types.Message, text_args: str = None):
+    """Бот отправляет текст от своего имени. Сообщение разработчика удаляется."""
+    if not text_args or not text_args.strip():
+        return await message.answer(
+            "ℹ️ <b>Использование:</b>\n"
+            "<code>бот dev анонс, [текст]</code>\n\n"
+            "<i>Бот отправит текст в этот чат от своего имени.\n"
+            "Твоё сообщение будет удалено автоматически.\n"
+            "Поддерживается HTML-форматирование.</i>",
+            parse_mode="HTML",
+        )
+
+    text = text_args.strip()
+
+    # Удаляем команду девелопера — чтобы анонс выглядел как будто бот сам написал
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    await message.answer(text, parse_mode="HTML")
