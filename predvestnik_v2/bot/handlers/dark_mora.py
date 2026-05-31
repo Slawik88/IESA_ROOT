@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 from aiogram import Router, types
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories.dark_mora import (
-    get_dark_mora_balance, add_dark_mora, spend_dark_mora,
+    get_dark_mora_balance, add_dark_mora,
     get_cooldown, set_cooldown,
 )
 from infrastructure.repositories import economy as eco_repo
@@ -119,9 +119,10 @@ async def cmd_contrabanda(message: types.Message, db, text_args: str = None):
     if roll < DARK_MORA_CONTRABANDA_SUCCESS_CHANCE:
         # SUCCESS: stake spent, gain dark mora
         dark_gained = max(1, int(stake / DARK_MORA_CONTRABANDA_MORA_PER_DARK))
-        await add_dark_mora(db, user_id, dark_gained, source="contrabanda", note=f"ставка {stake:.0f}")
+        # Set cooldown FIRST — so if add_dark_mora fails, user can't retry for free
         cooldown_until = now + timedelta(days=DARK_MORA_CONTRABANDA_COOLDOWN_DAYS)
         await set_cooldown(db, user_id, "contrabanda", cooldown_until)
+        await add_dark_mora(db, user_id, dark_gained, source="contrabanda", note=f"ставка {stake:.0f}")
         text = (
             f"🌑 <b>Контрабанда удалась!</b>\n\n"
             f"├ Потрачено: <code>{format_currency(stake)} 🪙</code>\n"
@@ -129,11 +130,11 @@ async def cmd_contrabanda(message: types.Message, db, text_args: str = None):
             f"└ Следующая попытка: через {DARK_MORA_CONTRABANDA_COOLDOWN_DAYS} дней"
         )
     elif roll < DARK_MORA_CONTRABANDA_SUCCESS_CHANCE + DARK_MORA_CONTRABANDA_FAIL_CHANCE:
-        # FAIL: return half stake
-        refund = round(stake * 0.5)
-        await eco_repo.add_balance(db, user_id, mora=refund, source="contrabanda_refund", note="провал, возврат 50%")
+        # FAIL: return half stake — set cooldown first
         cooldown_until = now + timedelta(days=DARK_MORA_CONTRABANDA_COOLDOWN_DAYS)
         await set_cooldown(db, user_id, "contrabanda", cooldown_until)
+        refund = round(stake * 0.5)
+        await eco_repo.add_balance(db, user_id, mora=refund, source="contrabanda_refund", note="провал, возврат 50%")
         text = (
             f"😞 <b>Контрабанда провалилась.</b>\n\n"
             f"├ Потеряно: <code>{format_currency(stake - refund)} 🪙</code>\n"
@@ -228,11 +229,11 @@ async def cmd_ritual(message: types.Message, db):
             parse_mode="HTML",
         )
 
-    # All conditions met — perform ritual
+    # All conditions met — set cooldown FIRST, then reward
     reward = random.randint(DARK_MORA_CULT_REWARD_MIN, DARK_MORA_CULT_REWARD_MAX)
-    await add_dark_mora(db, user_id, reward, source="cult_ritual", note="Культ Бездны")
     cooldown_until = now + timedelta(days=DARK_MORA_CULT_COOLDOWN_DAYS)
     await set_cooldown(db, user_id, "ritual", cooldown_until)
+    await add_dark_mora(db, user_id, reward, source="cult_ritual", note="Культ Бездны")
 
     new_balance = await get_dark_mora_balance(db, user_id)
 
