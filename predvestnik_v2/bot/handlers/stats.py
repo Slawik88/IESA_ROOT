@@ -75,13 +75,16 @@ async def cmd_top(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
         return await message.answer("❌ <b>Ошибка:</b> Топы доступны только в группах.", parse_mode="HTML")
 
-    # Умное определение периода из аргументов
-    args = text_args
-    period = "all_time" # По умолчанию - за всё время
-    
-    if args:
-        clean_arg = args.strip().lower()
-        period = TEXT_PERIOD_MAP.get(clean_arg, "all_time")
+    # Support both "бот топ, день" (comma, TextCmd arg) and "бот топ день" (no comma)
+    period = "all_time"
+    search_text = (text_args or "").strip().lower()
+    if not search_text:
+        # Try to extract period keyword from full message text (no-comma variant)
+        search_text = message.text.lower().strip()
+    for keyword, p in sorted(TEXT_PERIOD_MAP.items(), key=lambda x: -len(x[0])):
+        if keyword in search_text:
+            period = p
+            break
 
     text = await build_top_text(db, message.chat.id, period)
     keyboard = generate_top_keyboard(period)
