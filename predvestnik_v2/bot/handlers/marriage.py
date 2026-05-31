@@ -174,7 +174,7 @@ async def cmd_couple(message: types.Message, db):
     my_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
     partner_link = f'<a href="tg://user?id={partner_id}">{safe_html(partner_name)}</a>'
     
-    date_obj = datetime.strptime(marriage['marriage_date'], "%Y-%m-%d %H:%M:%S")
+    date_obj = parse_dt(marriage['marriage_date'])
     date_str = date_obj.strftime("%d.%m.%Y")
     days_together = (datetime.now() - date_obj).days
     family_balance = marriage.get('family_balance', 0)
@@ -207,7 +207,7 @@ async def cmd_all_couples(message: types.Message, db):
         u1_link = f"""<a href="tg://user?id={m['user1_id']}">{safe_html(m['user1_name'])}</a>"""
         u2_link = f"""<a href="tg://user?id={m['user2_id']}">{safe_html(m['user2_name'])}</a>"""
         try:
-            date_obj = datetime.strptime(m['marriage_date'], "%Y-%m-%d %H:%M:%S")
+            date_obj = parse_dt(m['marriage_date'])
             delta = datetime.now() - date_obj
             days = delta.days
             hours = delta.seconds // 3600
@@ -260,7 +260,7 @@ async def cmd_family_info(message: types.Message, db):
     my_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
     partner_link = f'<a href="tg://user?id={partner_id}">{safe_html(partner_name)}</a>'
 
-    date_obj = datetime.strptime(marriage['marriage_date'], "%Y-%m-%d %H:%M:%S")
+    date_obj = parse_dt(marriage['marriage_date'])
     date_str = date_obj.strftime("%d.%m.%Y")
     days_together = (datetime.now() - date_obj).days
     family_balance = marriage.get('family_balance', 0)

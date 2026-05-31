@@ -36,7 +36,7 @@ async def create_challenge(
     last = await get_cooldown(db, challenger_id, challenged_id)
     if last:
         try:
-            last_dt = datetime.strptime(last, "%Y-%m-%d %H:%M:%S")
+            last_dt = parse_dt(last)
             if datetime.now() - last_dt < timedelta(hours=DUEL_COOLDOWN_HOURS):
                 remaining = timedelta(hours=DUEL_COOLDOWN_HOURS) - (datetime.now() - last_dt)
                 h, rem = divmod(int(remaining.total_seconds()), 3600)

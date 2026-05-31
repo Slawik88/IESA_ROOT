@@ -130,7 +130,7 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
 
             if user_data['immune_until']:
                 try:
-                    dt = datetime.strptime(user_data['immune_until'], "%Y-%m-%d %H:%M:%S")
+                    dt = parse_dt(user_data['immune_until'])
                     if dt > datetime.now(): has_temp_shield = True
                 except: pass
 
@@ -193,7 +193,7 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
         
         for u in failed_users:
             # Считаем время в чате
-            joined_dt = datetime.strptime(u['joined_at'], "%Y-%m-%d %H:%M:%S") if u['joined_at'] else datetime.now()
+            joined_dt = parse_dt(u['joined_at']) if u['joined_at'] else datetime.now()
             days_in_chat = max(1, (datetime.now() - joined_dt).days)
             
             uname = safe_html(u['username'] or f"ID {u['id']}")

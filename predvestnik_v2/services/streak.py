@@ -79,7 +79,7 @@ def is_recovery_valid(recovery_expires: str) -> bool:
     if not recovery_expires:
         return False
     try:
-        expires = datetime.strptime(recovery_expires, "%Y-%m-%d %H:%M:%S")
+        expires = parse_dt(recovery_expires)
         return datetime.now() < expires
     except ValueError:
         return False

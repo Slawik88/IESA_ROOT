@@ -57,7 +57,7 @@ def _item_category(item_id: str) -> str:
 
 def _time_left(ends_at_str: str) -> str:
     try:
-        ends = datetime.strptime(ends_at_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+        ends = parse_dt(ends_at_str).replace(tzinfo=timezone.utc)
         delta = ends - datetime.now(timezone.utc)
         if delta.total_seconds() <= 0:
             return "истёк"

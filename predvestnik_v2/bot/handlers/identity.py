@@ -31,7 +31,7 @@ def _marriage_duration(marriage_date_str: str | None) -> str:
     if not marriage_date_str:
         return "Нет"
     try:
-        dt = datetime.strptime(marriage_date_str, "%Y-%m-%d %H:%M:%S")
+        dt = parse_dt(marriage_date_str)
     except ValueError:
         try:
             dt = datetime.strptime(marriage_date_str, "%Y-%m-%d")
@@ -47,7 +47,7 @@ def _ecosystem_age(first_seen: str | None) -> str:
     if not first_seen:
         return "—"
     try:
-        dt = datetime.strptime(first_seen, "%Y-%m-%d %H:%M:%S")
+        dt = parse_dt(first_seen)
     except ValueError:
         try:
             dt = datetime.strptime(first_seen, "%Y-%m-%d")
