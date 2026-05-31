@@ -45,18 +45,26 @@ async def create_challenge(
         except ValueError:
             pass
 
-    # Reserve stake
-    bal = await eco_repo.get_balance(db, challenger_id)
-    free = bal["user_balance_mora"] - await _get_reserved(db, challenger_id)
-    if free < stake:
-        return False, f"Недостаточно Моры (нужно {stake:.0f} 🪙, свободно {free:.0f} 🪙)."
+    # Reserve stake atomically — prevents double-spend under concurrency
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT user_balance_mora FROM users WHERE user_tg_id = ? FOR UPDATE",
+                (challenger_id,),
+            ) as c:
+                row = await c.fetchone()
+            bal_mora = row[0] if row else 0.0
+            reserved = await _get_reserved(db, challenger_id)
+            free = bal_mora - reserved
+            if free < stake:
+                return False, f"Недостаточно Моры (нужно {stake:.0f} 🪙, свободно {free:.0f} 🪙)."
 
-    await _add_reserve(db, challenger_id, stake)
-
-    duel_id = await create_duel(
-        db, challenger_id, challenged_id, chat_id, stake, challenger_pet["id"]
-    )
-    await db.commit()
+            await _add_reserve(db, challenger_id, stake)
+            duel_id = await create_duel(
+                db, challenger_id, challenged_id, chat_id, stake, challenger_pet["id"]
+            )
+    except Exception as e:
+        return False, f"Ошибка: {e}"
 
     return True, {"duel_id": duel_id, "challenger_pet": challenger_pet}
 
@@ -76,13 +84,18 @@ async def accept_duel(
     challenged_id = duel["challenged_id"]
     challenger_id = duel["challenger_id"]
 
-    # Reserve challenged's stake
-    bal = await eco_repo.get_balance(db, challenged_id)
-    free = bal["user_balance_mora"] - await _get_reserved(db, challenged_id)
-    if free < stake:
-        return False, f"Недостаточно Моры для принятия ставки ({stake:.0f} 🪙)."
-
-    await _add_reserve(db, challenged_id, stake)
+    # Reserve challenged's stake atomically
+    async with db.connection.transaction():
+        async with db.execute(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id = ? FOR UPDATE",
+            (challenged_id,),
+        ) as c:
+            row = await c.fetchone()
+        bal_mora = row[0] if row else 0.0
+        reserved = await _get_reserved(db, challenged_id)
+        if bal_mora - reserved < stake:
+            return False, f"Недостаточно Моры для принятия ставки ({stake:.0f} 🪙)."
+        await _add_reserve(db, challenged_id, stake)
 
     # Calculate powers
     challenger_pet_row = duel.get("challenger_pet_id")
@@ -106,31 +119,26 @@ async def accept_duel(
     commission = total_pot * DUEL_COMMISSION
     winner_gain = total_pot - commission - stake  # net gain (already deducted stake from winner)
 
-    # Unreserve both
-    await _remove_reserve(db, challenger_id, stake)
-    await _remove_reserve(db, challenged_id, stake)
-
-    # Deduct from loser, add to winner net gain
-    await eco_repo.add_balance(db, loser_id, mora=-stake, commit=False,
-                               source="duel_loss", chat_id=duel["chat_id"])
-    await eco_repo.add_balance(db, winner_id, mora=winner_gain, commit=False,
-                               source="duel_win", chat_id=duel["chat_id"])
-
-    # Apply fatigue to both pets
-    await db.execute(
-        "UPDATE pets SET fatigue = MIN(100, fatigue + ?) WHERE id = ?",
-        (DUEL_PET_FATIGUE_COST, duel["challenger_pet_id"]),
-    )
-    await db.execute(
-        "UPDATE pets SET fatigue = MIN(100, fatigue + ?) WHERE id = ?",
-        (DUEL_PET_FATIGUE_COST, challenged_pet["id"]),
-    )
-
-    await set_duel_status(db, duel_id, "finished",
-                          winner_id=winner_id,
-                          challenged_pet_id=challenged_pet["id"])
-    await set_cooldown(db, challenger_id, challenged_id)
-    await db.commit()
+    # Settle all finances atomically
+    async with db.connection.transaction():
+        await _remove_reserve(db, challenger_id, stake)
+        await _remove_reserve(db, challenged_id, stake)
+        await eco_repo.add_balance(db, loser_id, mora=-stake,
+                                   source="duel_loss", chat_id=duel["chat_id"])
+        await eco_repo.add_balance(db, winner_id, mora=winner_gain,
+                                   source="duel_win", chat_id=duel["chat_id"])
+        await db.execute(
+            "UPDATE pets SET fatigue = LEAST(100, fatigue + ?) WHERE id = ?",
+            (DUEL_PET_FATIGUE_COST, duel["challenger_pet_id"]),
+        )
+        await db.execute(
+            "UPDATE pets SET fatigue = LEAST(100, fatigue + ?) WHERE id = ?",
+            (DUEL_PET_FATIGUE_COST, challenged_pet["id"]),
+        )
+        await set_duel_status(db, duel_id, "finished",
+                              winner_id=winner_id,
+                              challenged_pet_id=challenged_pet["id"])
+        await set_cooldown(db, challenger_id, challenged_id)
 
     return True, {
         "duel_id": duel_id,
@@ -179,6 +187,6 @@ async def _add_reserve(db, user_id: int, amount: float) -> None:
 
 async def _remove_reserve(db, user_id: int, amount: float) -> None:
     await db.execute(
-        "UPDATE user_reserve SET reserved_mora = MAX(0, reserved_mora - ?) WHERE user_id = ?",
+        "UPDATE user_reserve SET reserved_mora = GREATEST(0, reserved_mora - ?) WHERE user_id = ?",
         (amount, user_id),
     )

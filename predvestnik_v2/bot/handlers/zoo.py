@@ -368,12 +368,12 @@ async def cb_pet_move(query: types.CallbackQuery, callback_data: ZooCB, db):
         if new_placement != "storage":
             # Reset fatigue decay timer when entering nursery
             await db.execute(
-                "UPDATE pets SET placement = ?, fatigue = MIN(100, fatigue + ?), last_fatigue_update = ? WHERE id = ?",
+                "UPDATE pets SET placement = ?, fatigue = LEAST(100, fatigue + ?), last_fatigue_update = ? WHERE id = ?",
                 (new_placement, fatigue_cost, now_str, pet["id"]),
             )
         else:
             await db.execute(
-                "UPDATE pets SET placement = ?, fatigue = MIN(100, fatigue + ?) WHERE id = ?",
+                "UPDATE pets SET placement = ?, fatigue = LEAST(100, fatigue + ?) WHERE id = ?",
                 (new_placement, fatigue_cost, pet["id"]),
             )
 

@@ -319,68 +319,69 @@ async def cb_chest_claim(query: types.CallbackQuery, callback_data: ChestCB, db)
         await query.answer("⏰ Сундук уже закрыт!", show_alert=False)
         return
 
-    # Atomic position assignment via INSERT … SELECT (no explicit BEGIN needed).
-    # Python sqlite3's implicit transaction handles atomicity for this statement.
-    # UNIQUE(chest_id, user_id) prevents the same user claiming twice.
+    position = 0
+    claims_count = 0
     try:
-        await db.execute(
-            """INSERT OR IGNORE INTO chest_claims (chest_id, user_id, position)
-               SELECT ?, ?, COALESCE(MAX(position), 0) + 1
-               FROM chest_claims WHERE chest_id = ?""",
-            (chest_id, user_id, chest_id),
-        )
+        # Atomic claim: lock the chest row first so only one user at a time
+        # can read MAX(position) and insert — eliminates the race condition.
+        async with db.connection.transaction():
+            # Lock chest row exclusively for the duration of this transaction
+            async with db.execute(
+                "SELECT id FROM chest_events WHERE id = ? AND status = 'active' FOR UPDATE",
+                (chest_id,),
+            ) as c:
+                locked = await c.fetchone()
+            if not locked:
+                await query.answer("⏰ Сундук уже закрыт!", show_alert=False)
+                return
 
-        # Check if the INSERT happened (not ignored due to prior claim)
-        async with db.execute(
-            "SELECT position FROM chest_claims WHERE chest_id = ? AND user_id = ?",
-            (chest_id, user_id),
-        ) as c:
-            claim_row = await c.fetchone()
-
-        if not claim_row:
-            await query.answer("❌ Вы уже нажали!", show_alert=True)
-            return
-
-        position = claim_row[0]
-
-        if position > CHEST_MAX_CLAIMANTS:
-            # Race condition: someone else filled the last slot simultaneously
-            await db.execute(
-                "DELETE FROM chest_claims WHERE chest_id = ? AND user_id = ?",
+            # Check if user already claimed
+            async with db.execute(
+                "SELECT position FROM chest_claims WHERE chest_id = ? AND user_id = ?",
                 (chest_id, user_id),
-            )
-            await db.commit()
-            await query.answer("❌ Все места уже заняты!", show_alert=True)
-            return
+            ) as c:
+                existing = await c.fetchone()
+            if existing:
+                await query.answer("❌ Вы уже нажали!", show_alert=True)
+                return
 
-        mora_reward = float(CHEST_REWARDS_BY_POSITION.get(position, 0))
-        await eco_repo.add_balance(
-            db, user_id,
-            mora=mora_reward,
-            commit=False,
-            source="event_chest",
-            chat_id=query.message.chat.id,
-            note=f"pos={position}",
-        )
+            # Get current position count (safe because we hold FOR UPDATE lock)
+            async with db.execute(
+                "SELECT COALESCE(MAX(position), 0) FROM chest_claims WHERE chest_id = ?",
+                (chest_id,),
+            ) as c:
+                max_pos = (await c.fetchone())[0]
 
-        if position <= 3:
+            position = max_pos + 1
+            if position > CHEST_MAX_CLAIMANTS:
+                await query.answer("❌ Все места уже заняты!", show_alert=True)
+                return
+
             await db.execute(
-                "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, 1) "
-                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = quantity + 1",
-                (user_id, CHEST_TOP3_BONUS_ITEM),
+                "INSERT INTO chest_claims (chest_id, user_id, position) VALUES (?, ?, ?)",
+                (chest_id, user_id, position),
             )
 
-        # Check if chest is now full
-        async with db.execute(
-            "SELECT COUNT(*) FROM chest_claims WHERE chest_id = ?", (chest_id,)
-        ) as c:
-            claims_count = (await c.fetchone())[0]
+            mora_reward = float(CHEST_REWARDS_BY_POSITION.get(position, 0))
+            await eco_repo.add_balance(
+                db, user_id,
+                mora=mora_reward,
+                source="event_chest",
+                chat_id=query.message.chat.id,
+                note=f"pos={position}",
+            )
 
-        if claims_count >= CHEST_MAX_CLAIMANTS:
-            await close_chest(db, chest_id)
-            await update_last_chest_at(db, query.message.chat.id)
+            if position <= 3:
+                await db.execute(
+                    "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, 1) "
+                    "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + 1",
+                    (user_id, CHEST_TOP3_BONUS_ITEM),
+                )
 
-        await db.commit()
+            claims_count = position  # position == number of claims so far
+            if claims_count >= CHEST_MAX_CLAIMANTS:
+                await close_chest(db, chest_id)
+                await update_last_chest_at(db, query.message.chat.id)
 
         bonus_text = " + 🎟 Жетон!" if position <= 3 else ""
         await query.answer(
@@ -388,7 +389,6 @@ async def cb_chest_claim(query: types.CallbackQuery, callback_data: ChestCB, db)
             show_alert=False,
         )
 
-        # Update button counter
         try:
             if claims_count >= CHEST_MAX_CLAIMANTS:
                 await query.message.edit_text(
@@ -405,7 +405,7 @@ async def cb_chest_claim(query: types.CallbackQuery, callback_data: ChestCB, db)
 
     except Exception as e:
         try:
-            await db.rollback()
+            pass  # transaction already rolled back by context manager
         except Exception:
             pass
         await query.answer("❌ Ошибка, попробуйте ещё раз.", show_alert=True)

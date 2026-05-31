@@ -154,11 +154,11 @@ async def get_inactive_users(
 ) -> list[dict]:
     async with db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, s.last_message_at, "
-        "CAST(julianday('now') - julianday(s.last_message_at) AS INTEGER) AS days_offline "
+        "EXTRACT(DAY FROM NOW() - s.last_message_at)::INTEGER AS days_offline "
         "FROM user_chat_stats s "
         "LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
-        "WHERE s.chat_tg_id = ? AND s.is_left = 0 "
-        "AND CAST(julianday('now') - julianday(s.last_message_at) AS INTEGER) >= ? "
+        "WHERE s.chat_tg_id = ? AND s.is_left = FALSE "
+        "AND EXTRACT(DAY FROM NOW() - s.last_message_at) >= ? "
         "ORDER BY days_offline DESC",
         (chat_id, days_limit),
     ) as cursor:
