@@ -1,4 +1,4 @@
-"""
+﻿"""
 infrastructure/repositories/wallet_log.py
 All wallet_log DB operations. No business logic.
 """
@@ -28,7 +28,7 @@ async def log_wallet(
     *,
     delta_mora: float = 0.0,
     delta_diamonds: float = 0.0,
-    delta_crystals: float = 0.0,
+    delta_zarniki: float = 0.0,
     source: str,
     chat_id: int | None = None,
     target_id: int | None = None,
@@ -36,27 +36,27 @@ async def log_wallet(
 ) -> None:
     """Record a wallet change. Reads current balance from DB after the operation.
     Does NOT commit — the caller controls the transaction."""
-    if delta_mora == 0.0 and delta_diamonds == 0.0 and delta_crystals == 0.0:
+    if delta_mora == 0.0 and delta_diamonds == 0.0 and delta_zarniki == 0.0:
         return
 
     async with db.execute(
         "SELECT user_balance_mora, user_balance_diamonds, "
-        "COALESCE(user_balance_crystals, 0) FROM users WHERE user_tg_id = ?",
+        "COALESCE(user_balance_zarniki, 0) FROM users WHERE user_tg_id = ?",
         (user_id,),
     ) as c:
         row = await c.fetchone()
     bal_mora      = row[0] if row else 0.0
     bal_dia       = row[1] if row else 0.0
-    bal_crystals  = row[2] if row else 0.0
+    bal_zarniki  = row[2] if row else 0.0
 
     await db.execute(
         """INSERT INTO wallet_log
-            (user_id, chat_id, delta_mora, delta_diamonds, delta_crystals,
-             balance_mora_after, balance_diamonds_after, balance_crystals_after,
+            (user_id, chat_id, delta_mora, delta_diamonds, delta_zarniki,
+             balance_mora_after, balance_diamonds_after, balance_zarniki_after,
              source, target_id, note)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (user_id, chat_id, delta_mora, delta_diamonds, delta_crystals,
-         bal_mora, bal_dia, bal_crystals, source, target_id, note),
+        (user_id, chat_id, delta_mora, delta_diamonds, delta_zarniki,
+         bal_mora, bal_dia, bal_zarniki, source, target_id, note),
     )
 
 
@@ -75,9 +75,9 @@ async def get_recent(
 
     base_cols = (
         "id, delta_mora, delta_diamonds, "
-        "COALESCE(delta_crystals, 0) AS delta_crystals, "
+        "COALESCE(delta_zarniki, 0) AS delta_zarniki, "
         "balance_mora_after, balance_diamonds_after, "
-        "COALESCE(balance_crystals_after, 0) AS balance_crystals_after, "
+        "COALESCE(balance_zarniki_after, 0) AS balance_zarniki_after, "
         "source, target_id, note, created_at"
     )
 

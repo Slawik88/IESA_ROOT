@@ -1,4 +1,4 @@
-"""
+﻿"""
 infrastructure/repositories/economy.py
 All balance-changing functions use explicit asyncpg transactions
 to prevent race conditions with concurrent users.
@@ -13,7 +13,7 @@ async def get_balance(db: PGAdapter, user_id: int) -> dict:
     )
     async with db.execute(
         "SELECT user_balance_mora, user_balance_diamonds, "
-        "COALESCE(user_balance_crystals, 0) AS user_balance_crystals "
+        "COALESCE(user_balance_zarniki, 0) AS user_balance_zarniki "
         "FROM users WHERE user_tg_id = ?",
         (user_id,),
     ) as c:
@@ -21,7 +21,7 @@ async def get_balance(db: PGAdapter, user_id: int) -> dict:
     return dict(row) if row else {
         "user_balance_mora": 0.0,
         "user_balance_diamonds": 0.0,
-        "user_balance_crystals": 0.0,
+        "user_balance_zarniki": 0.0,
     }
 
 
@@ -30,7 +30,7 @@ async def add_balance(
     user_id: int,
     mora: float = 0,
     diamonds: float = 0,
-    crystals: float = 0,
+    zarniki: float = 0,
     commit: bool = True,    # kept for API compat — no-op in asyncpg auto-commit
     source: str = "system",
     chat_id: int | None = None,
@@ -44,12 +44,12 @@ async def add_balance(
         "UPDATE users SET "
         "user_balance_mora = user_balance_mora + ?, "
         "user_balance_diamonds = user_balance_diamonds + ?, "
-        "user_balance_crystals = COALESCE(user_balance_crystals, 0) + ? "
+        "user_balance_zarniki = COALESCE(user_balance_zarniki, 0) + ? "
         "WHERE user_tg_id = ?",
-        (mora, diamonds, crystals, user_id),
+        (mora, diamonds, zarniki, user_id),
     )
     await log_wallet(
-        db, user_id, delta_mora=mora, delta_diamonds=diamonds, delta_crystals=crystals,
+        db, user_id, delta_mora=mora, delta_diamonds=diamonds, delta_zarniki=zarniki,
         source=source, chat_id=chat_id, note=note,
     )
 

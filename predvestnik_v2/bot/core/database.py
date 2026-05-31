@@ -548,10 +548,10 @@ async def init_db():
             )
         """)
 
-        # 31b. Promo code extensions (user/chat whitelists + dark mora + crystals rewards)
+        # 31b. Promo code extensions (user/chat whitelists + dark mora + zarniki rewards)
         for _col, _type, _def in [
             ("reward_dark_mora",   "FLOAT8", "0"),
-            ("reward_crystals",    "FLOAT8", "0"),
+            ("reward_zarniki",     "FLOAT8", "0"),
             ("allowed_users_json", "TEXT",   "''"),
             ("allowed_chats_json", "TEXT",   "''"),
         ]:
@@ -561,16 +561,26 @@ async def init_db():
                 )
             except Exception:
                 pass
+        # Rename old crystals column if it exists (migration from wrong name)
+        try:
+            await db.execute("ALTER TABLE promocodes RENAME COLUMN reward_crystals TO reward_zarniki")
+        except Exception:
+            pass
 
         # 32. Dark Mora balance & cooldowns
         await db.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS user_balance_dark_mora FLOAT8 DEFAULT 0.0
         """)
-        # 32b. Donate crystals balance
+        # 32b. Zarniki (donate currency ✨) balance
         try:
             await db.execute("""
-                ALTER TABLE users ADD COLUMN IF NOT EXISTS user_balance_crystals FLOAT8 DEFAULT 0.0
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS user_balance_zarniki FLOAT8 DEFAULT 0.0
             """)
+        except Exception:
+            pass
+        # Rename old crystals column if it exists
+        try:
+            await db.execute("ALTER TABLE users RENAME COLUMN user_balance_crystals TO user_balance_zarniki")
         except Exception:
             pass
         await db.execute("""
@@ -673,17 +683,26 @@ async def init_db():
             )
         """)
 
-        # Migrations: wallet_log dark mora + crystals columns
+        # Migrations: wallet_log dark mora + zarniki columns
         for _col, _def in [
-            ("delta_dark_mora",          "0"),
-            ("balance_dark_mora_after",  "0"),
-            ("delta_crystals",           "0"),
-            ("balance_crystals_after",   "0"),
+            ("delta_dark_mora",         "0"),
+            ("balance_dark_mora_after", "0"),
+            ("delta_zarniki",           "0"),
+            ("balance_zarniki_after",   "0"),
         ]:
             try:
                 await db.execute(
                     f"ALTER TABLE wallet_log ADD COLUMN IF NOT EXISTS {_col} FLOAT8 DEFAULT {_def}"
                 )
+            except Exception:
+                pass
+        # Rename old crystals columns if they exist
+        for _old, _new in [
+            ("delta_crystals",         "delta_zarniki"),
+            ("balance_crystals_after", "balance_zarniki_after"),
+        ]:
+            try:
+                await db.execute(f"ALTER TABLE wallet_log RENAME COLUMN {_old} TO {_new}")
             except Exception:
                 pass
 

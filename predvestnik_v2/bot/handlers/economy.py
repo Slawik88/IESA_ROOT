@@ -1,4 +1,4 @@
-# bot/handlers/economy.py
+﻿# bot/handlers/economy.py
 from aiogram import Router, types
 
 from bot.filters.text_commands import TextCmd
@@ -23,18 +23,18 @@ async def cmd_balance(message: types.Message, db):
     dark_mora = await get_dark_mora_balance(db, user_id)
     mora      = format_currency(balance['user_balance_mora'])
     diamonds  = format_currency(balance['user_balance_diamonds'])
-    crystals  = float(balance.get('user_balance_crystals', 0) or 0)
+    zarniki  = float(balance.get('user_balance_zarniki', 0) or 0)
 
     dark_line = f"\n├ 🌑 Тёмная Мора: <code>{dark_mora:.0f}</code>" if dark_mora > 0 else \
                 f"\n├ 🌑 Тёмная Мора: <code>0</code> <i>(добыть: «бот контрабанда»)</i>"
-    crystals_line = f"\n└ 💠 Кристаллы: <code>{crystals:.0f}</code>" if crystals > 0 else ""
+    zarniki_line = f"\n└ ✨ Зарники: <code>{zarniki:.0f}</code>" if zarniki > 0 else ""
 
     text = (
         f"💳 <b>КОШЕЛЁК</b> — {name}\n\n"
         f"🪙 Мора: <code>{mora}</code>\n"
         f"💎 Алмазы: <code>{diamonds}</code>"
         f"{dark_line}"
-        f"{crystals_line}"
+        f"{zarniki_line}"
     )
 
     if message.chat.type != "private":

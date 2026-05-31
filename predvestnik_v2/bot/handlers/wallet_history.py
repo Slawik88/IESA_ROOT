@@ -1,4 +1,4 @@
-from aiogram import Router, types, F
+﻿from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
@@ -77,7 +77,7 @@ def _entry_line(e: dict) -> str:
     parts = []
     dm  = e.get("delta_mora", 0.0)
     dd  = e.get("delta_diamonds", 0.0)
-    dc  = e.get("delta_crystals", 0.0)
+    dc  = e.get("delta_zarniki", 0.0)
 
     if dm != 0:
         sign = "+" if dm > 0 else ""
@@ -87,7 +87,7 @@ def _entry_line(e: dict) -> str:
         parts.append(f"{sign}{format_currency(dd)} 💎")
     if dc != 0:
         sign = "+" if dc > 0 else ""
-        parts.append(f"{sign}{format_currency(dc)} 💠")
+        parts.append(f"{sign}{format_currency(dc)} ✨")
 
     change = " · ".join(parts) if parts else "—"
     bal = f"{format_currency(e['balance_mora_after'])} 🪙"
