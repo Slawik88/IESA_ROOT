@@ -548,6 +548,19 @@ async def init_db():
             )
         """)
 
+        # 31b. Promo code extensions (user/chat whitelists + dark mora reward)
+        for _col, _type, _def in [
+            ("reward_dark_mora",   "FLOAT8", "0"),
+            ("allowed_users_json", "TEXT",   "''"),
+            ("allowed_chats_json", "TEXT",   "''"),
+        ]:
+            try:
+                await db.execute(
+                    f"ALTER TABLE promocodes ADD COLUMN IF NOT EXISTS {_col} {_type} DEFAULT {_def}"
+                )
+            except Exception:
+                pass
+
         # 32. Dark Mora balance & cooldowns
         await db.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS user_balance_dark_mora FLOAT8 DEFAULT 0.0
