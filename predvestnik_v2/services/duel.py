@@ -13,6 +13,7 @@ from infrastructure.repositories.duel import (
     create_duel, set_duel_status, set_cooldown, get_cooldown, get_duel,
 )
 from infrastructure.repositories.wallet_log import log_wallet
+from services.formatting import parse_dt
 
 
 def calculate_power(rarity: str, level: int) -> float:
