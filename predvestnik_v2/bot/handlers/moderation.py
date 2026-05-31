@@ -97,7 +97,7 @@ async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, 
     max_warns = settings["max_warnings"]
 
     # 5. Формируем и отправляем ответ
-    target_link = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
+    target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
     reason_text = f"\n📝 <b>Причина:</b> {safe_html(reason)}" if reason else ""
     
     await message.answer(
@@ -202,8 +202,8 @@ async def process_warn_action(
             "У вас нет прав для этого вердикта!", show_alert=True
         )
 
-    target_link = f"<a href='tg://user?id={target_id}'>Нарушитель</a>"
-    admin_link = f"<a href='tg://user?id={callback.from_user.id}'>{safe_html(callback.from_user.first_name)}</a>"
+    target_link = f'<a href="tg://user?id={target_id}">Нарушитель</a>'
+    admin_link = f'<a href="tg://user?id={callback.from_user.id}">{safe_html(callback.from_user.first_name)}</a>'
 
     try:
         if action == "ban":
@@ -484,8 +484,8 @@ async def cmd_ban(
         await mod_db.log_moderation_action(
             db, message.chat.id, target_id, message.from_user.id, "ban"
         )
-        target_link = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
-        initiator_link = f"<a href='tg://user?id={message.from_user.id}'>{safe_html(message.from_user.first_name)}</a>"
+        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
         reason_text = (
             f"\n📝 <b>Причина:</b> {safe_html(extra_args)}" if extra_args else ""
         )
@@ -528,8 +528,8 @@ async def cmd_unban(
     try:
         await bot.unban_chat_member(message.chat.id, target_id, only_if_banned=True)
         await mod_db.remove_ban_log(db, message.chat.id, target_id)
-        target_link = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
-        initiator_link = f"<a href='tg://user?id={message.from_user.id}'>{safe_html(message.from_user.first_name)}</a>"
+        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
         detailed = f"🕊 <b>ПОЛЬЗОВАТЕЛЬ РАЗБЛОКИРОВАН</b>\n\n👤 {target_link} исключен из черного списка."
         short = f"✅ <b>{target_name}</b> разблокирован."
         await notify_action(bot, db, message.chat, initiator_link, detailed, short)
@@ -572,8 +572,8 @@ async def cmd_kick(
         await mod_db.log_moderation_action(
             db, message.chat.id, target_id, message.from_user.id, "kick"
         )
-        target_link = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
-        initiator_link = f"<a href='tg://user?id={message.from_user.id}'>{safe_html(message.from_user.first_name)}</a>"
+        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
         reason_text = (
             f"\n📝 <b>Причина:</b> {safe_html(extra_args)}" if extra_args else ""
         )
@@ -630,8 +630,8 @@ async def cmd_mute(
         await mod_db.log_moderation_action(
             db, message.chat.id, target_id, message.from_user.id, "mute"
         )
-        target_link = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
-        initiator_link = f"<a href='tg://user?id={message.from_user.id}'>{safe_html(message.from_user.first_name)}</a>"
+        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
         reason_text = f"\n📝 <b>Причина:</b> {safe_html(reason)}" if reason else ""
         detailed = f"🤐 <b>ПОЛЬЗОВАТЕЛЬ ЗАГЛУШЕН</b>\n\n👤 {target_link} теперь не может писать.\n⏳ <b>Срок:</b> {time_display}{reason_text}"
         short = f"✅ <b>{target_name}</b> заглушен ({time_display})."
@@ -683,8 +683,8 @@ async def cmd_unmute(
         await bot.restrict_chat_member(
             message.chat.id, target_id, permissions=permissions
         )
-        target_link = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
-        initiator_link = f"<a href='tg://user?id={message.from_user.id}'>{safe_html(message.from_user.first_name)}</a>"
+        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
         detailed = (
             f"🗣 <b>ПРАВА ВОССТАНОВЛЕНЫ</b>\n\n👤 {target_link} снова может общаться."
         )
@@ -705,7 +705,7 @@ async def build_mod_list(
     lines = [f"📋 <b>{title}</b>\n"]
     for u in users_list:
         name = safe_html(u["user_tg_username"] or f"ID {u['user_id']}")
-        lines.append(f"├ <a href='tg://user?id={u['user_id']}'>{name}</a>")
+        lines.append(f"""├ <a href="tg://user?id={u['user_id']}">{name}</a>""")
     if len(lines) > 1:
         lines[-1] = lines[-1].replace("├", "└")
     return "\n".join(lines)
@@ -745,7 +745,7 @@ async def cmd_left_list(message: types.Message, db):
     lines = [f"🚶‍♂️ <b>ТЕ, КТО ПОКИНУЛ НАС</b>\n"]
     for u in left_users:
         name = safe_html(u["user_tg_username"] or f"ID {u['user_tg_id']}")
-        lines.append(f"├ <a href='tg://user?id={u['user_tg_id']}'>{name}</a>")
+        lines.append(f"""├ <a href="tg://user?id={u['user_tg_id']}">{name}</a>""")
     if len(lines) > 1:
         lines[-1] = lines[-1].replace("├", "└")
     await message.answer("\n".join(lines), parse_mode="HTML")

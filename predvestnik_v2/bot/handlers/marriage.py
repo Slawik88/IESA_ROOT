@@ -62,8 +62,8 @@ async def cmd_marriage(message: types.Message, db, text_args: str = None):
     builder.button(text="❌ Отказаться", callback_data=MarriageAction(action="decline", target_id=target_id, initiator_id=initiator_id))
     builder.adjust(2)
 
-    target_link = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
-    initiator_link = f"<a href='tg://user?id={initiator_id}'>{initiator_name}</a>"
+    target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+    initiator_link = f'<a href="tg://user?id={initiator_id}">{initiator_name}</a>'
 
     text = (
         f"💍 <b>ПРЕДЛОЖЕНИЕ РУКИ И СЕРДЦА</b>\n\n"
@@ -85,7 +85,7 @@ async def process_marriage_action(callback: types.CallbackQuery, callback_data: 
     if callback_data.action == "decline":
         await callback.message.edit_text(
             f"💔 <b>ОТКАЗ</b>\n\n"
-            f"Пользователь <a href='tg://user?id={callback_data.target_id}'>{target_name}</a> отклонил предложение.",
+            f'Пользователь <a href="tg://user?id={callback_data.target_id}">{target_name}</a> отклонил предложение.',
             parse_mode="HTML"
         )
         return await callback.answer()
@@ -103,8 +103,8 @@ async def process_marriage_action(callback: types.CallbackQuery, callback_data: 
         callback_data.target_id, target_name
     )
 
-    initiator_link = f"<a href='tg://user?id={callback_data.initiator_id}'>{initiator_name}</a>"
-    target_link = f"<a href='tg://user?id={callback_data.target_id}'>{target_name}</a>"
+    initiator_link = f'<a href="tg://user?id={callback_data.initiator_id}">{initiator_name}</a>'
+    target_link = f'<a href="tg://user?id={callback_data.target_id}">{target_name}</a>'
 
     text = (
         f"🎉 <b>НОВЫЙ СОЮЗ ЗАКЛЮЧЕН!</b>\n\n"
@@ -127,7 +127,7 @@ async def cmd_divorce(message: types.Message, db):
 
     partner_id = marriage['user2_id'] if marriage['user1_id'] == message.from_user.id else marriage['user1_id']
     partner_name = marriage['user2_name'] if marriage['user1_id'] == message.from_user.id else marriage['user1_name']
-    partner_link = f"<a href='tg://user?id={partner_id}'>{safe_html(partner_name)}</a>"
+    partner_link = f'<a href="tg://user?id={partner_id}">{safe_html(partner_name)}</a>'
 
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Да, развестись", callback_data=DivorceConfirm(action="confirm"))
@@ -171,8 +171,8 @@ async def cmd_couple(message: types.Message, db):
     partner_id = marriage['user2_id'] if marriage['user1_id'] == message.from_user.id else marriage['user1_id']
     partner_name = marriage['user2_name'] if marriage['user1_id'] == message.from_user.id else marriage['user1_name']
 
-    my_link = f"<a href='tg://user?id={message.from_user.id}'>{safe_html(message.from_user.first_name)}</a>"
-    partner_link = f"<a href='tg://user?id={partner_id}'>{safe_html(partner_name)}</a>"
+    my_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
+    partner_link = f'<a href="tg://user?id={partner_id}">{safe_html(partner_name)}</a>'
     
     date_obj = datetime.strptime(marriage['marriage_date'], "%Y-%m-%d %H:%M:%S")
     date_str = date_obj.strftime("%d.%m.%Y")
@@ -204,8 +204,8 @@ async def cmd_all_couples(message: types.Message, db):
     text = f"💒 <b>БРАКИ ЭТОГО ЧАТА</b>\n\n"
     
     for idx, m in enumerate(all_m, 1):
-        u1_link = f"<a href='tg://user?id={m['user1_id']}'>{safe_html(m['user1_name'])}</a>"
-        u2_link = f"<a href='tg://user?id={m['user2_id']}'>{safe_html(m['user2_name'])}</a>"
+        u1_link = f"""<a href="tg://user?id={m['user1_id']}">{safe_html(m['user1_name'])}</a>"""
+        u2_link = f"""<a href="tg://user?id={m['user2_id']}">{safe_html(m['user2_name'])}</a>"""
         try:
             date_obj = datetime.strptime(m['marriage_date'], "%Y-%m-%d %H:%M:%S")
             delta = datetime.now() - date_obj
@@ -257,8 +257,8 @@ async def cmd_family_info(message: types.Message, db):
     partner_id = marriage['user2_id'] if marriage['user1_id'] == message.from_user.id else marriage['user1_id']
     partner_name = marriage['user2_name'] if marriage['user1_id'] == message.from_user.id else marriage['user1_name']
 
-    my_link = f"<a href='tg://user?id={message.from_user.id}'>{safe_html(message.from_user.first_name)}</a>"
-    partner_link = f"<a href='tg://user?id={partner_id}'>{safe_html(partner_name)}</a>"
+    my_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
+    partner_link = f'<a href="tg://user?id={partner_id}">{safe_html(partner_name)}</a>'
 
     date_obj = datetime.strptime(marriage['marriage_date'], "%Y-%m-%d %H:%M:%S")
     date_str = date_obj.strftime("%d.%m.%Y")

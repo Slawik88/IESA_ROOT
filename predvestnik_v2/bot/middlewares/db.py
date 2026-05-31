@@ -79,7 +79,7 @@ async def db_middleware(
                             now = time.time()
                             if now - anti_spam_cache.get(user.id, 0) > 30:
                                 anti_spam_cache[user.id] = now
-                                await event.message.answer(f"🤫 Тссс, <a href='tg://user?id={user.id}'>{user.first_name}</a>! Идет глобальная чистка чата. Подождите.", parse_mode="HTML")
+                                await event.message.answer(f'🤫 Тссс, <a href="tg://user?id={user.id}">{user.first_name}</a>! Идет глобальная чистка чата. Подождите.', parse_mode="HTML")
                         except Exception:
                             pass
                         return # Останавливаем обработку сообщения!

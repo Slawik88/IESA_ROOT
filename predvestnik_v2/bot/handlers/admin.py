@@ -61,8 +61,8 @@ async def cmd_setrankbot(message: types.Message, db, text_args: str = None, deve
     await users.set_global_rank(db, target_id, rank_id)
     rank_name = roles.GLOBAL_RANKS_MAP[rank_id]
     
-    initiator_link = f"<a href='tg://user?id={message.from_user.id}'>Главный Разработчик</a>"
-    target_link = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
+    initiator_link = f'<a href="tg://user?id={message.from_user.id}">Главный Разработчик</a>'
+    target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
 
     text = (
         f"✅ <b>ГЛОБАЛЬНЫЙ РАНГ УСТАНОВЛЕН!</b>\n\n"
@@ -129,8 +129,8 @@ async def cmd_setrank(message: types.Message, db, text_args: str = None, develop
     )
     
     rank_name = roles.LOCAL_RANKS_MAP[new_rank_id]
-    target_link = f"<a href='tg://user?id={target_id}'>{target_name}</a>"
-    initiator_link = f"<a href='tg://user?id={initiator_id}'>{safe_html(message.from_user.first_name)}</a>"
+    target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+    initiator_link = f'<a href="tg://user?id={initiator_id}">{safe_html(message.from_user.first_name)}</a>'
 
     text = (
         f"⏳ <b>ЗАПРОС НА ПОВЫШЕНИЕ</b>\n\n"
@@ -158,11 +158,11 @@ async def process_rank_confirmation(callback: types.CallbackQuery, callback_data
     await chat.set_local_rank(db, callback_data.target_id, chat_id, callback_data.new_rank_id)
     
     approver_name = safe_html(callback.from_user.first_name)
-    approver_link = f"<a href='tg://user?id={approver_id}'>{approver_name}</a>"
+    approver_link = f'<a href="tg://user?id={approver_id}">{approver_name}</a>'
     rank_name = roles.LOCAL_RANKS_MAP[callback_data.new_rank_id]
     
-    initiator_link = f"<a href='tg://user?id={callback_data.initiator_id}'>Инициатор (ID: {callback_data.initiator_id})</a>"
-    target_link = f"<a href='tg://user?id={callback_data.target_id}'>Пользователь (ID: {callback_data.target_id})</a>"
+    initiator_link = f'<a href="tg://user?id={callback_data.initiator_id}">Инициатор (ID: {callback_data.initiator_id})</a>'
+    target_link = f'<a href="tg://user?id={callback_data.target_id}">Пользователь (ID: {callback_data.target_id})</a>'
 
     text = (
         f"✅ <b>ЛОКАЛЬНЫЙ РАНГ УСПЕШНО ВЫДАН!</b>\n\n"
