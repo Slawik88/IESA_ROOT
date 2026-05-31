@@ -1,5 +1,6 @@
 import aiosqlite
 from datetime import datetime, timedelta
+from typing import Optional
 
 
 async def get_streak(db: aiosqlite.Connection, user_id: int, chat_id: int) -> dict:
@@ -27,10 +28,10 @@ async def upsert_streak(
     user_id: int,
     chat_id: int,
     streak: int,
-    today: str,
+    today: datetime,
     recovery_streak: int = 0,
     recovery_missed_days: int = 0,
-    recovery_expires: str = None,
+    recovery_expires: Optional[datetime] = None,
 ) -> None:
     await db.execute(
         """INSERT INTO daily_login

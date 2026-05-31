@@ -230,14 +230,25 @@ async def init_db():
                 user_id                BIGINT,
                 chat_id                BIGINT,
                 streak                 INTEGER DEFAULT 0,
-                last_login             TEXT DEFAULT NULL,
-                last_notified          TEXT DEFAULT NULL,
+                last_login             TIMESTAMP DEFAULT NULL,
+                last_notified          TIMESTAMP DEFAULT NULL,
                 recovery_streak        INTEGER DEFAULT 0,
                 recovery_missed_days   INTEGER DEFAULT 0,
-                recovery_expires       TEXT DEFAULT NULL,
+                recovery_expires       TIMESTAMP DEFAULT NULL,
                 PRIMARY KEY (user_id, chat_id)
             )
         """)
+        # Migration: TEXT → TIMESTAMP for existing tables (safe, idempotent)
+        for _col in ("last_login", "last_notified", "recovery_expires"):
+            try:
+                await db.execute(
+                    f"ALTER TABLE daily_login ALTER COLUMN {_col} "
+                    f"TYPE TIMESTAMP USING "
+                    f"CASE WHEN {_col} IS NOT NULL AND {_col} != '' "
+                    f"THEN {_col}::TIMESTAMP ELSE NULL END"
+                )
+            except Exception:
+                pass  # already TIMESTAMP or migration failed (non-fatal)
 
         # 15. Pet milestones
         await db.execute("""
