@@ -6,6 +6,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 
 from bot.filters.text_commands import TextCmd, WrongSyntaxCmd, UnknownBotCmd
+from services.utils import check_callback_owner
 
 _WEB_BASE_URL = os.getenv("WEB_BASE_URL", "http://127.0.0.1:8000")
 
