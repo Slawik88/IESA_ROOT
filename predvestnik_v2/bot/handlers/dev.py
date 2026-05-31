@@ -363,3 +363,67 @@ async def cmd_dev_reset_pity(message: types.Message, db, text_args: str = None):
     await db.execute("DELETE FROM gacha_pity WHERE user_id = ?", (target_id,))
     await db.commit()
     await message.answer(f"✅ Пити гачи сброшен для {safe_html(target_name)}.", parse_mode="HTML")
+
+
+# ── Username → ID lookup ──────────────────────────────────────────────────────
+
+@router.message(TextCmd(["dev айди", "dev id", "dev lookup"]))
+async def cmd_dev_lookup_ids(message: types.Message, db, text_args: str = None):
+    """Принимает список @username-ов и возвращает их user_id из БД."""
+    import re
+    if not text_args or not text_args.strip():
+        return await message.answer(
+            "ℹ️ <b>Использование:</b>\n"
+            "<code>бот dev айди, @user1 @user2 @user3</code>\n\n"
+            "<i>Принимает любое количество ников через пробел или запятую.</i>",
+            parse_mode="HTML",
+        )
+
+    # Parse: split by spaces/commas, strip @ prefix
+    raw_tokens = re.split(r'[\s,]+', text_args.strip())
+    usernames = []
+    for tok in raw_tokens:
+        tok = tok.strip().lstrip('@')
+        if tok:
+            usernames.append(tok)
+
+    if not usernames:
+        return await message.answer("❌ Не указано ни одного имени пользователя.", parse_mode="HTML")
+
+    if len(usernames) > 50:
+        return await message.answer("❌ Максимум 50 ников за один запрос.", parse_mode="HTML")
+
+    found: list[tuple[str, int]] = []   # (original_username, user_id)
+    not_found: list[str] = []
+
+    for uname in usernames:
+        async with db.execute(
+            "SELECT user_tg_id, user_tg_username FROM users "
+            "WHERE LOWER(user_tg_username) = LOWER(?)",
+            (uname,),
+        ) as c:
+            row = await c.fetchone()
+        if row:
+            found.append((row[1] or uname, row[0]))
+        else:
+            not_found.append(uname)
+
+    lines = [f"🔍 <b>ПОИСК АЙДИ</b> — запрошено {len(usernames)}\n"]
+
+    if found:
+        lines.append(f"✅ <b>Найдено ({len(found)}):</b>")
+        for i, (uname, uid) in enumerate(found):
+            prefix = "└" if i == len(found) - 1 and not not_found else "├"
+            lines.append(f"{prefix} @{safe_html(uname)} → <code>{uid}</code>")
+
+    if not_found:
+        lines.append(f"\n❌ <b>Не найдено в БД ({len(not_found)}):</b>")
+        for i, uname in enumerate(not_found):
+            prefix = "└" if i == len(not_found) - 1 else "├"
+            lines.append(f"{prefix} @{safe_html(uname)}")
+        lines.append(
+            "\n<i>💡 Пользователь должен хотя бы раз написать в чате с ботом,\n"
+            "чтобы попасть в базу данных.</i>"
+        )
+
+    await message.answer("\n".join(lines), parse_mode="HTML")
