@@ -40,7 +40,8 @@ main_router.include_routers(
     admin_router,      # до eco: "дать ранг" перехватывается раньше чем "дать"
     eco_router,
     inventory_router,
-    profile_router,
+    identity_router,       # я/профиль/кто/анкета — до profile_router чтобы перехватить "профиль"
+    profile_router,        # только "кто я" + инфо/досье
     stats_router,
     mod_router,        # до marriage: "снять варн/мут/защиту" перехватывается раньше чем "снять"
     marriage_router,
@@ -54,7 +55,6 @@ main_router.include_routers(
     pet_showcase_router,
     gacha_router,
     daily_deal_router,
-    identity_router,       # бот я / бот кто / бот анкета
     nicknames_router,      # бот мой ник
     wallet_history_router, # история кошелька
     warps_router,          # варп-команды
