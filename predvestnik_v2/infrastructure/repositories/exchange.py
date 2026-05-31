@@ -18,11 +18,12 @@ async def get_scheduled_event(db: aiosqlite.Connection) -> dict | None:
 
 
 async def create_event(db: aiosqlite.Connection, starts_at: str, ends_at: str) -> int:
-    cursor = await db.execute(
-        "INSERT INTO exchange_events (starts_at, ends_at) VALUES (?, ?)",
+    async with db.execute(
+        "INSERT INTO exchange_events (starts_at, ends_at) VALUES (?, ?) RETURNING id",
         (starts_at, ends_at),
-    )
-    return cursor.lastrowid
+    ) as c:
+        row = await c.fetchone()
+    return row[0] if row else 0
 
 
 async def activate_event(db: aiosqlite.Connection, event_id: int) -> None:

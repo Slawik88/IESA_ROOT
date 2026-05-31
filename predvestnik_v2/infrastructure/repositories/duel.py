@@ -11,12 +11,13 @@ async def create_duel(
     challenger_pet_id: int,
 ) -> int:
     """Insert pending duel. Returns new duel id."""
-    cursor = await db.execute(
+    async with db.execute(
         """INSERT INTO duels (challenger_id, challenged_id, chat_id, stake, challenger_pet_id)
-           VALUES (?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?) RETURNING id""",
         (challenger_id, challenged_id, chat_id, stake, challenger_pet_id),
-    )
-    return cursor.lastrowid
+    ) as c:
+        row = await c.fetchone()
+    return row[0] if row else 0
 
 
 async def get_duel(db: aiosqlite.Connection, duel_id: int) -> dict | None:
@@ -65,7 +66,7 @@ async def get_expired_pending(db: aiosqlite.Connection, timeout_seconds: int) ->
     """Return pending duels that timed out."""
     async with db.execute(
         "SELECT * FROM duels WHERE status = 'pending' "
-        "AND CAST((julianday('now') - julianday(created_at)) * 86400 AS INTEGER) >= ?",
+        "AND EXTRACT(EPOCH FROM (NOW() - created_at)) >= ?",
         (timeout_seconds,),
     ) as c:
         rows = await c.fetchall()

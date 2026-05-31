@@ -12,6 +12,14 @@ async def init_db():
         # Create dedicated schema
         await db.execute(f"CREATE SCHEMA IF NOT EXISTS {_SCHEMA}")
         await db.execute(f"SET search_path TO {_SCHEMA}, public")
+        # Permanently set search_path for this DB user so RESET ALL still
+        # resolves to 'predvestnik' (asyncpg calls RESET ALL on pool release).
+        try:
+            await db.execute(
+                f"ALTER ROLE CURRENT_USER SET search_path TO {_SCHEMA}, public"
+            )
+        except Exception:
+            pass  # might fail without ALTER ROLE privilege; server_settings handles it
 
         # 1. Users
         await db.execute("""

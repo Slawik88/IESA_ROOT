@@ -143,7 +143,7 @@ async def add_warn(
 async def remove_warn(db: aiosqlite.Connection, chat_id: int, user_id: int, count: int = 1) -> int:
     await _ensure_chat_stats_row(db, chat_id, user_id)
     await db.execute(
-        "UPDATE user_chat_stats SET warnings = MAX(0, warnings - ?) "
+        "UPDATE user_chat_stats SET warnings = GREATEST(0, warnings - ?) "
         "WHERE user_tg_id = ? AND chat_tg_id = ?",
         (count, user_id, chat_id),
     )

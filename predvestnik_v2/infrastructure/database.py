@@ -1,6 +1,12 @@
 """
 infrastructure/database.py
 asyncpg connection pool — shared across bot and scheduler.
+
+IMPORTANT: asyncpg calls RESET ALL when returning connections to the pool,
+which resets search_path to PostgreSQL default. We fix this via:
+  1. server_settings sends search_path as a startup param (survives RESET ALL)
+  2. init callback sets it again when connection is first created
+  3. init_db() calls ALTER ROLE to make predvestnik the permanent default
 """
 import os
 import asyncpg
@@ -19,7 +25,10 @@ async def create_pool() -> asyncpg.Pool:
         url,
         min_size=3,
         max_size=15,
-        statement_cache_size=0,   # required for pgbouncer / DO managed PG
+        statement_cache_size=0,   # required for DO managed PG / pgbouncer
+        # server_settings are sent as PostgreSQL startup parameters;
+        # they survive RESET ALL (which asyncpg issues on pool release).
+        server_settings={"search_path": f"{_SCHEMA},public"},
         init=_set_schema,
     )
     logger.info(f"✅ PostgreSQL pool готов (min=3 max=15, schema={_SCHEMA})")
@@ -27,6 +36,7 @@ async def create_pool() -> asyncpg.Pool:
 
 
 async def _set_schema(conn: asyncpg.Connection):
+    """Called when a new connection is added to the pool."""
     await conn.execute(f"SET search_path TO {_SCHEMA}, public")
 
 

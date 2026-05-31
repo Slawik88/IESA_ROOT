@@ -14,15 +14,16 @@ async def create_lot(
     buyout: float | None,
     ends_at: str,
 ) -> int:
-    cursor = await db.execute(
+    async with db.execute(
         """INSERT INTO auction_lots
             (seller_id, category, item_type, item_id_or_pet_id, quantity,
              item_name, min_bid, buyout, ends_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
         (seller_id, category, item_type, item_id_or_pet_id, quantity,
          item_name, min_bid, buyout, ends_at),
-    )
-    return cursor.lastrowid
+    ) as c:
+        row = await c.fetchone()
+    return row[0] if row else 0
 
 
 async def get_lot(db: aiosqlite.Connection, lot_id: int) -> dict | None:
@@ -109,11 +110,12 @@ async def deactivate_bid(db: aiosqlite.Connection, bid_id: int) -> None:
 async def insert_bid(
     db: aiosqlite.Connection, lot_id: int, bidder_id: int, amount: float
 ) -> int:
-    cursor = await db.execute(
-        "INSERT INTO auction_bids (lot_id, bidder_id, amount) VALUES (?, ?, ?)",
+    async with db.execute(
+        "INSERT INTO auction_bids (lot_id, bidder_id, amount) VALUES (?, ?, ?) RETURNING id",
         (lot_id, bidder_id, amount),
-    )
-    return cursor.lastrowid
+    ) as c:
+        row = await c.fetchone()
+    return row[0] if row else 0
 
 
 async def get_user_active_bids(db: aiosqlite.Connection, bidder_id: int) -> list[dict]:
@@ -152,6 +154,6 @@ async def add_reserve(db: aiosqlite.Connection, user_id: int, amount: float) -> 
 
 async def remove_reserve(db: aiosqlite.Connection, user_id: int, amount: float) -> None:
     await db.execute(
-        "UPDATE user_reserve SET reserved_mora = MAX(0, reserved_mora - ?) WHERE user_id = ?",
+        "UPDATE user_reserve SET reserved_mora = GREATEST(0, reserved_mora - ?) WHERE user_id = ?",
         (amount, user_id),
     )

@@ -161,14 +161,15 @@ async def grant_duplicate(db, user_id: int, species_id: str) -> dict:
 
     # Case 1: no existing pet of this species
     if not pets:
-        cursor = await db.execute(
+        async with db.execute(
             "INSERT INTO pets "
             "(owner_id, species_id, rarity, name, placement, fatigue, is_summoned, "
             "pet_level, duplicates_collected, copy_index) "
-            "VALUES (?, ?, ?, ?, 'storage', 0, 0, 1, 1, 1)",
+            "VALUES (?, ?, ?, ?, 'storage', 0, 0, 1, 1, 1) RETURNING id",
             (user_id, species_id, rarity, pet_name),
-        )
-        new_pet_id = cursor.lastrowid
+        ) as _c:
+            _r = await _c.fetchone()
+        new_pet_id = _r[0] if _r else 0
         return {
             "outcome": "first_copy_created",
             "pet_id": new_pet_id,
@@ -211,16 +212,17 @@ async def grant_duplicate(db, user_id: int, species_id: str) -> dict:
     # Case 3: all existing copies at Lv10, capacity available → create new copy
     if len(pets) < MAX_PET_COPIES:
         next_index = max((p.get("copy_index") or 1) for p in pets) + 1
-        cursor = await db.execute(
+        async with db.execute(
             "INSERT INTO pets "
             "(owner_id, species_id, rarity, name, placement, fatigue, is_summoned, "
             "pet_level, duplicates_collected, copy_index) "
-            "VALUES (?, ?, ?, ?, 'storage', 0, 0, 1, 1, ?)",
+            "VALUES (?, ?, ?, ?, 'storage', 0, 0, 1, 1, ?) RETURNING id",
             (user_id, species_id, rarity, pet_name, next_index),
-        )
+        ) as _c:
+            _r = await _c.fetchone()
         return {
             "outcome": "new_copy_created",
-            "pet_id": cursor.lastrowid,
+            "pet_id": _r[0] if _r else 0,
             "copy_index": next_index,
             "new_level": 1,
             "prev_level": 0,
