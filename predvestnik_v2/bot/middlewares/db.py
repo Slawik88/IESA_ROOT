@@ -81,10 +81,9 @@ async def db_middleware(
                             pass
                         return
 
-                await leveling.process_message_xp(
-                    db, user.id, chat_obj.id, config.timezone_offset
-                )
-
+                # Ensure chat_settings row exists, then read the chat-local
+                # timezone — single source of truth for ALL date buckets
+                # (level/day/week/month counters → tops, daily stats, quests).
                 chat_title = getattr(chat_obj, "title", None)
                 await db.execute(
                     "INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, ?) "
@@ -92,8 +91,6 @@ async def db_middleware(
                     (chat_obj.id, chat_title),
                 )
 
-                # Use the chat-local timezone (single source of truth for date
-                # buckets: daily stats, tops, quests all agree).
                 from infrastructure.repositories.streak import get_chat_timezone
                 try:
                     _tz_int = await get_chat_timezone(db, chat_obj.id)
@@ -101,6 +98,13 @@ async def db_middleware(
                     _tz_int = 0
                 _sign = "+" if _tz_int >= 0 else "-"
                 _tz = f"{_sign}{abs(_tz_int)} hours"
+
+                # Rolling per-day/week/month counters (used by «бот топ») now
+                # reset at the CHAT-local boundary, not a global config tz.
+                await leveling.process_message_xp(
+                    db, user.id, chat_obj.id, _tz
+                )
+
                 await db.execute(
                     "INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) "
                     f"VALUES (?, ?, TO_CHAR(NOW() + INTERVAL '{_tz}', 'YYYY-MM-DD'), 1) "

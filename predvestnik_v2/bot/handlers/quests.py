@@ -30,20 +30,16 @@ def _reward_str(reward: dict) -> str:
 
 
 @router.message(TextCmd(["задания", "квесты", "дейлики"]))
-async def cmd_quests(message: types.Message, db, timezone_offset: str = "+0 hours"):
+async def cmd_quests(message: types.Message, db):
     if message.chat.type == "private":
         return
 
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    # Parse tz_offset from string like "+3 hours"
-    try:
-        tz_offset = int(timezone_offset.split()[0])
-    except (ValueError, IndexError):
-        tz_offset = 0
-
-    quests = await get_or_assign_quests(db, user_id, chat_id, tz_offset)
+    # tz_offset=None → get_or_assign_quests resolves the CHAT-local timezone,
+    # the same one increment_metric uses, so assignment + progress always agree.
+    quests = await get_or_assign_quests(db, user_id, chat_id)
 
     lines = ["📋 <b>ЕЖЕДНЕВНЫЕ ЗАДАНИЯ</b>\n"]
     for q in quests:
