@@ -1,4 +1,4 @@
-﻿import aiosqlite
+import aiosqlite
 
 
 async def get_promocode(db: aiosqlite.Connection, code: str) -> dict | None:

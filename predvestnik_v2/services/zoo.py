@@ -1,4 +1,4 @@
-﻿from core.constants import WOLF_BONUSES, WOLF_REDUCTION_CAP, get_pet_bonus, PET_LEVEL_MILESTONE_REWARDS
+from core.constants import WOLF_BONUSES, WOLF_REDUCTION_CAP, get_pet_bonus, PET_LEVEL_MILESTONE_REWARDS
 
 
 async def get_wolf_fatigue_reduction(db, user_id: int) -> float:

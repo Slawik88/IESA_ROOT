@@ -1,4 +1,4 @@
-﻿"""
+"""
 infrastructure/repositories/economy.py
 All balance-changing functions use explicit asyncpg transactions
 to prevent race conditions with concurrent users.

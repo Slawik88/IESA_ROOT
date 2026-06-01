@@ -1,4 +1,4 @@
-﻿"""
+"""
 bot/handlers/promocodes.py
 Promo code system:
   User: бот промокод, CODE  → activation with loot animation

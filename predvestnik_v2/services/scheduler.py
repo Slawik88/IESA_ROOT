@@ -1,4 +1,4 @@
-﻿# services/scheduler.py
+# services/scheduler.py
 # Background task: polls completed expeditions and distributes rewards.
 import asyncio
 from loguru import logger

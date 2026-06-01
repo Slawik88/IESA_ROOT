@@ -1,4 +1,4 @@
-﻿import re
+import re
 import logging
 from datetime import timedelta, datetime
 from aiogram import Router, types, Bot

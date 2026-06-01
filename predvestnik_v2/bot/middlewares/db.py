@@ -92,8 +92,15 @@ async def db_middleware(
                     (chat_obj.id, chat_title),
                 )
 
-                # Embed tz as literal — asyncpg can't encode str as INTERVAL param
-                _tz = config.timezone_offset.replace("'", "")
+                # Use the chat-local timezone (single source of truth for date
+                # buckets: daily stats, tops, quests all agree).
+                from infrastructure.repositories.streak import get_chat_timezone
+                try:
+                    _tz_int = await get_chat_timezone(db, chat_obj.id)
+                except Exception:
+                    _tz_int = 0
+                _sign = "+" if _tz_int >= 0 else "-"
+                _tz = f"{_sign}{abs(_tz_int)} hours"
                 await db.execute(
                     "INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) "
                     f"VALUES (?, ?, TO_CHAR(NOW() + INTERVAL '{_tz}', 'YYYY-MM-DD'), 1) "
@@ -101,6 +108,14 @@ async def db_middleware(
                     "DO UPDATE SET message_count = daily_user_stats.message_count + 1",
                     (user.id, chat_obj.id),
                 )
+
+                # Daily quest: messages_in_chat_today (most common quest metric).
+                # No-op if the user has not opened «бот задания» today.
+                try:
+                    from services.quests import increment_metric as _quest_incr
+                    await _quest_incr(db, user.id, chat_obj.id, "messages_in_chat_today", delta=1.0)
+                except Exception:
+                    pass
 
             data["db"] = db
             return await handler(event, data)
