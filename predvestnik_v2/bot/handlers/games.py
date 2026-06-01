@@ -240,13 +240,27 @@ async def cmd_number(message: types.Message, db, text_args: str = None):
 
 @router.callback_query(GameCB.filter(F.action == "number"))
 async def cb_number_pick(query: types.CallbackQuery, callback_data: GameCB, db):
-    if callback_data.v2 and not callback_data.v:
-        # Chose number, now pick stake
-        await query.message.edit_text(
-            f"🔢 Число: <b>{callback_data.v2}</b> — выберите ставку:",
-            reply_markup=_stake_kb("number", extra=callback_data.v2),
-            parse_mode="HTML",
-        )
+    if not callback_data.v:
+        # No bet yet — show number picker or stake picker
+        if callback_data.v2:
+            # Has number, needs stake
+            await query.message.edit_text(
+                f"🔢 Число: <b>{callback_data.v2}</b> — выберите ставку:",
+                reply_markup=_stake_kb("number", extra=callback_data.v2),
+                parse_mode="HTML",
+            )
+        else:
+            # Needs number first
+            b = InlineKeyboardBuilder()
+            for n in range(1, 11):
+                b.button(text=str(n), callback_data=GameCB(action="number", v2=str(n)))
+            b.button(text="⬅️ Назад", callback_data=GameCB(action="menu"))
+            b.adjust(5, 5, 1)
+            await query.message.edit_text(
+                f"🔢 <b>УГАДАЙ ЧИСЛО</b> 1–10\nВыберите число:",
+                reply_markup=b.as_markup(),
+                parse_mode="HTML",
+            )
         await query.answer()
         return
     # Have both bet and number

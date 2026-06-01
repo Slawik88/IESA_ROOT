@@ -1,6 +1,7 @@
 import asyncio
 
 from aiogram import Router, types, F
+from aiogram.exceptions import TelegramRetryAfter
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -37,6 +38,22 @@ class GachaCB(CallbackData, prefix="gacha"):
     action: str        # menu | type | spin1 | spin10 | token | history | pity | chances | close
     spin_type: str = ""
     user_id: int = 0
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+async def _safe_edit(msg: types.Message, text: str, **kwargs) -> types.Message:
+    """edit_text с обработкой TelegramRetryAfter — ждёт и повторяет один раз."""
+    try:
+        return await msg.edit_text(text, **kwargs)
+    except TelegramRetryAfter as e:
+        await asyncio.sleep(min(e.retry_after, 30))
+        try:
+            return await msg.edit_text(text, **kwargs)
+        except Exception:
+            return msg
+    except Exception:
+        return msg
 
 
 # ── Text formatters ───────────────────────────────────────────────────────────
@@ -395,12 +412,14 @@ async def cb_gacha_spin1(query: types.CallbackQuery, callback_data: GachaCB, db)
     token_note = " 🎟" if has_token_before else ""
 
     # Animate: show spinner, then result
-    sent = await query.message.edit_text(
+    sent = await _safe_edit(
+        query.message,
         f"🎰 <b>КРУТИМ БАРАБАН...{token_note}</b>\n[████░░░░░░]",
         parse_mode="HTML",
     )
     await asyncio.sleep(0.7)
-    await sent.edit_text(
+    await _safe_edit(
+        sent,
         f"🎰 <b>ЗАМЕДЛЯЕТСЯ...{token_note}</b>\n[████████░░]",
         parse_mode="HTML",
     )
@@ -409,7 +428,8 @@ async def cb_gacha_spin1(query: types.CallbackQuery, callback_data: GachaCB, db)
     ok, result = await roll_single(db, query.from_user.id, spin_type)
 
     if not ok:
-        await sent.edit_text(
+        await _safe_edit(
+            sent,
             f"❌ <b>Отказ:</b> {result}",
             parse_mode="HTML",
             reply_markup=_back_kb(spin_type, user_id=callback_data.user_id),
@@ -444,7 +464,7 @@ async def cb_gacha_spin1(query: types.CallbackQuery, callback_data: GachaCB, db)
     b.button(text="🏠 Меню",          callback_data=GachaCB(action="menu",  user_id=uid))
     b.adjust(1, 2)
 
-    await sent.edit_text(text, reply_markup=b.as_markup(), parse_mode="HTML")
+    await _safe_edit(sent, text, reply_markup=b.as_markup(), parse_mode="HTML")
 
 
 @router.callback_query(GachaCB.filter(F.action == "spin10"))
