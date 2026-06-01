@@ -90,7 +90,7 @@ async def cmd_daily_deal(message: types.Message, db):
 
 
 @router.callback_query(DealCB.filter(F.action == "menu"))
-async def cb_deal_menu(query: types.CallbackQuery, db):
+async def cb_deal_menu(query: types.CallbackQuery, callback_data: DealCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     text, kb = await _build_deal_menu(db, query.from_user.id)
@@ -99,7 +99,7 @@ async def cb_deal_menu(query: types.CallbackQuery, db):
 
 
 @router.callback_query(DealCB.filter(F.action == "refresh"))
-async def cb_deal_refresh(query: types.CallbackQuery, db):
+async def cb_deal_refresh(query: types.CallbackQuery, callback_data: DealCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     text, kb = await _build_deal_menu(db, query.from_user.id)

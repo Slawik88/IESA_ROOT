@@ -207,7 +207,7 @@ def _main_menu_kb(user_id: int = 0) -> types.InlineKeyboardMarkup:
     return b.as_markup()
 
 
-def _spin_type_kb(spin_type: str, token_count: int, pity: int) -> types.InlineKeyboardMarkup:
+def _spin_type_kb(spin_type: str, token_count: int, pity: int, user_id: int = 0) -> types.InlineKeyboardMarkup:
     """token_count > 0 → кнопка 1× показывает жетон и пишет '(бесплатно)'."""
     b = InlineKeyboardBuilder()
     if token_count > 0:
@@ -215,10 +215,10 @@ def _spin_type_kb(spin_type: str, token_count: int, pity: int) -> types.InlineKe
     else:
         spin1_label = f"🎲 Крутить 1×  {_fmt_cost(spin_type)}"
     cost10 = _fmt_cost_multi(spin_type)
-    b.button(text=spin1_label,                     callback_data=GachaCB(action="spin1",   spin_type=spin_type))
-    b.button(text=f"🎰 Крутить 10×  {cost10}",     callback_data=GachaCB(action="spin10",  spin_type=spin_type))
-    b.button(text="👀 Шансы",                       callback_data=GachaCB(action="chances", spin_type=spin_type))
-    b.button(text="⬅️ Назад",                       callback_data=GachaCB(action="menu"))
+    b.button(text=spin1_label,                     callback_data=GachaCB(action="spin1",   spin_type=spin_type, user_id=user_id))
+    b.button(text=f"🎰 Крутить 10×  {cost10}",     callback_data=GachaCB(action="spin10",  spin_type=spin_type, user_id=user_id))
+    b.button(text="👀 Шансы",                       callback_data=GachaCB(action="chances", spin_type=spin_type, user_id=user_id))
+    b.button(text="⬅️ Назад",                       callback_data=GachaCB(action="menu",    user_id=user_id))
     b.adjust(1, 1, 2)
     return b.as_markup()
 
@@ -377,7 +377,7 @@ async def cb_gacha_type(query: types.CallbackQuery, callback_data: GachaCB, db):
     text, token_count = await _build_spin_type_text(db, query.from_user.id, callback_data.spin_type)
     await query.message.edit_text(
         text,
-        reply_markup=_spin_type_kb(callback_data.spin_type, token_count, 0),
+        reply_markup=_spin_type_kb(callback_data.spin_type, token_count, 0, user_id=callback_data.user_id),
         parse_mode="HTML",
     )
     await query.answer()
@@ -412,7 +412,7 @@ async def cb_gacha_spin1(query: types.CallbackQuery, callback_data: GachaCB, db)
         await sent.edit_text(
             f"❌ <b>Отказ:</b> {result}",
             parse_mode="HTML",
-            reply_markup=_back_kb(spin_type),
+            reply_markup=_back_kb(spin_type, user_id=callback_data.user_id),
         )
         return
 
@@ -437,10 +437,11 @@ async def cb_gacha_spin1(query: types.CallbackQuery, callback_data: GachaCB, db)
     else:
         again_label = f"🔁 Ещё раз  {_fmt_cost(spin_type)}"
 
+    uid = callback_data.user_id
     b = InlineKeyboardBuilder()
-    b.button(text=again_label,        callback_data=GachaCB(action="spin1", spin_type=spin_type))
-    b.button(text="⬅️ К крутке",      callback_data=GachaCB(action="type",  spin_type=spin_type))
-    b.button(text="🏠 Меню",          callback_data=GachaCB(action="menu"))
+    b.button(text=again_label,        callback_data=GachaCB(action="spin1", spin_type=spin_type, user_id=uid))
+    b.button(text="⬅️ К крутке",      callback_data=GachaCB(action="type",  spin_type=spin_type, user_id=uid))
+    b.button(text="🏠 Меню",          callback_data=GachaCB(action="menu",  user_id=uid))
     b.adjust(1, 2)
 
     await sent.edit_text(text, reply_markup=b.as_markup(), parse_mode="HTML")
@@ -464,7 +465,7 @@ async def cb_gacha_spin10(query: types.CallbackQuery, callback_data: GachaCB, db
         await query.message.edit_text(
             f"❌ <b>Отказ:</b> {results}",
             parse_mode="HTML",
-            reply_markup=_back_kb(spin_type),
+            reply_markup=_back_kb(spin_type, user_id=callback_data.user_id),
         )
         return
 
@@ -475,13 +476,13 @@ async def cb_gacha_spin10(query: types.CallbackQuery, callback_data: GachaCB, db
 
     await query.message.edit_text(
         text,
-        reply_markup=_back_kb(spin_type),
+        reply_markup=_back_kb(spin_type, user_id=callback_data.user_id),
         parse_mode="HTML",
     )
 
 
 @router.callback_query(GachaCB.filter(F.action == "pity"))
-async def cb_gacha_pity(query: types.CallbackQuery, db):
+async def cb_gacha_pity(query: types.CallbackQuery, callback_data: GachaCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     pity_all = await get_all_pity(db, query.from_user.id)
@@ -501,7 +502,7 @@ async def cb_gacha_pity(query: types.CallbackQuery, db):
     lines.append("\n<i>Пити сбрасывается при выпадении ⭐-дропа или жёсткой гарантии.</i>")
     await query.message.edit_text(
         "\n".join(lines),
-        reply_markup=_back_kb(),
+        reply_markup=_back_kb(user_id=callback_data.user_id),
         parse_mode="HTML",
     )
     await query.answer()
@@ -537,7 +538,7 @@ async def cb_gacha_history(query: types.CallbackQuery, callback_data: GachaCB, d
         lines[-1] = "└" + lines[-1][1:]
         text = "\n".join(lines)
 
-    await query.message.edit_text(text, reply_markup=_back_kb(), parse_mode="HTML")
+    await query.message.edit_text(text, reply_markup=_back_kb(user_id=callback_data.user_id), parse_mode="HTML")
     await query.answer()
 
 
