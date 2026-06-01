@@ -173,7 +173,14 @@ async def cb_set_rank(query: types.CallbackQuery, callback_data: ChatSettingsCB,
     uid = callback_data.user_id
 
     if callback_data.value != "":
-        new_val = int(callback_data.value)
+        try:
+            new_val = int(callback_data.value)
+        except (ValueError, TypeError):
+            return await query.answer("❌ Некорректное значение.", show_alert=True)
+        # Validate rank is within the allowed range to prevent crafted callbacks
+        valid_ranks = set(roles.LOCAL_RANKS_MAP.keys())
+        if new_val not in valid_ranks:
+            return await query.answer("❌ Недопустимый ранг.", show_alert=True)
         await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
         await db.commit()
         await query.answer("✅ Сохранено!", show_alert=False)

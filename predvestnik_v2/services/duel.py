@@ -77,9 +77,22 @@ async def accept_duel(
 ) -> tuple[bool, dict | str]:
     """Process the challenged player accepting. Resolve the duel.
     Returns (True, result_dict) or (False, error_str)."""
+    # Lock duel row immediately to prevent double-accept race condition
+    async with db.connection.transaction():
+        async with db.execute(
+            "SELECT id, status, stake, challenger_id, challenged_id, challenger_pet_id, chat_id "
+            "FROM duels WHERE id = ? FOR UPDATE",
+            (duel_id,),
+        ) as _dc:
+            _drow = await _dc.fetchone()
+        if not _drow or _drow[1] != "pending":
+            return False, "Вызов уже недействителен."
+        # Mark as processing immediately to block concurrent accepts
+        await db.execute("UPDATE duels SET status = 'processing' WHERE id = ?", (duel_id,))
+
     duel = await get_duel(db, duel_id)
-    if not duel or duel["status"] != "pending":
-        return False, "Вызов уже недействителен."
+    if not duel:
+        return False, "Вызов не найден."
 
     stake = duel["stake"]
     challenged_id = duel["challenged_id"]
@@ -99,18 +112,15 @@ async def accept_duel(
         await _add_reserve(db, challenged_id, stake)
 
     # Calculate powers
-    challenger_pet_row = duel.get("challenger_pet_id")
-    challenger_power = calculate_power(challenged_pet.get("rarity", "common"), challenged_pet.get("pet_level") or 1)
+    challenged_power = calculate_power(challenged_pet.get("rarity", "common"), challenged_pet.get("pet_level") or 1)
 
-    # Get challenger's pet info
+    # Get challenger's pet info (was wrongly using challenged_pet data before fix)
+    challenger_pet_id = duel.get("challenger_pet_id")
     async with db.execute(
-        "SELECT rarity, COALESCE(pet_level, 1) FROM pets WHERE id = ?", (challenger_pet_row,)
+        "SELECT rarity, COALESCE(pet_level, 1) FROM pets WHERE id = ?", (challenger_pet_id,)
     ) as c:
         chal_row = await c.fetchone()
-    if chal_row:
-        challenger_power = calculate_power(chal_row[0], chal_row[1])
-
-    challenged_power = calculate_power(challenged_pet.get("rarity", "common"), challenged_pet.get("pet_level") or 1)
+    challenger_power = calculate_power(chal_row[0], chal_row[1]) if chal_row else challenged_power
 
     winner_id = challenger_id if challenger_power >= challenged_power else challenged_id
     loser_id = challenged_id if winner_id == challenger_id else challenger_id

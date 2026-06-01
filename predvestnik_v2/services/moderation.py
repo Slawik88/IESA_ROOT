@@ -13,12 +13,15 @@ async def check_mod_rights(
     target_id: int,
     min_rank: int = 1,
     developer_id: int = 0,
+    bot_id: int = 0,
 ) -> tuple[bool, str]:
     """Return (allowed, error_message). Empty string means allowed."""
     if admin_id == target_id:
         return False, "🤡 <b>Ошибка:</b> Нельзя применить это к самому себе."
     if developer_id and target_id == developer_id:
         return False, "🛡 <b>Ошибка:</b> На этого пользователя не действуют законы смертных."
+    if bot_id and target_id == bot_id:
+        return False, "🤖 <b>Ошибка:</b> Нельзя применять меры воздействия к боту."
 
     admin_stats = await get_chat_stats(db, admin_id, chat_id)
     target_stats = await get_chat_stats(db, target_id, chat_id)

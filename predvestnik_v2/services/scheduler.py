@@ -137,7 +137,8 @@ async def expedition_background_task(bot: Bot):
                         logger.error(f"Не удалось отправить уведомление в чат {chat_id}: {e}")
 
         except Exception as e:
-            logger.error(f"Ошибка в фоновом процессе: {e}")
+            logger.error(f"Ошибка в фоновом процессе экспедиций: {e}")
+            await asyncio.sleep(30)  # backoff on error — avoid tight crash loops
 
 
 async def daily_deal_task():
@@ -150,6 +151,7 @@ async def daily_deal_task():
                 await ensure_deals_fresh(db)
         except Exception as e:
             logger.error(f"Ошибка в задаче акции дня: {e}")
+            await asyncio.sleep(30)
         await asyncio.sleep(600)
 
 
@@ -234,6 +236,7 @@ async def duel_and_auction_task(bot: Bot):
 
         except Exception as e:
             logger.error(f"Ошибка в задаче дуэлей/аукциона: {e}")
+            await asyncio.sleep(30)
 
 
 async def chest_spawn_task(bot: Bot):
@@ -307,6 +310,7 @@ async def chest_spawn_task(bot: Bot):
 
         except Exception as e:
             logger.error(f"Ошибка в задаче сундуков: {e}")
+            await asyncio.sleep(30)
 
 
 async def exchange_scheduler_task(bot: Bot):
@@ -374,3 +378,4 @@ async def exchange_scheduler_task(bot: Bot):
 
         except Exception as e:
             logger.error(f"Ошибка в задаче обмена: {e}")
+            await asyncio.sleep(30)
