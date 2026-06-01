@@ -131,7 +131,7 @@ async def cmd_exchange(message: types.Message, db, text_args: str = None):
 
 
 @router.callback_query(ExchCB.filter(F.action == "menu"))
-async def cb_exchange_menu(query: types.CallbackQuery, db):
+async def cb_exchange_menu(query: types.CallbackQuery, callback_data: ExchCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     await query.answer()
