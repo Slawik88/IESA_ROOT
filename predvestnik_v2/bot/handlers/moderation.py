@@ -1,4 +1,4 @@
-import re
+﻿import re
 import logging
 from datetime import timedelta, datetime
 from aiogram import Router, types, Bot
@@ -87,7 +87,7 @@ async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, 
         )
 
     cs = await mod_db.get_chat_settings(db, message.chat.id)
-    can_mod, err = await mod_service.check_mod_rights(db, message.chat.id, message.from_user.id, target_id, cs.get("rank_warn", 2), developer_id=developer_id)
+    can_mod, err = await mod_service.check_mod_rights(db, message.chat.id, message.from_user.id, target_id, cs.get("rank_warn", 2), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -165,8 +165,7 @@ async def cmd_unwarn(
         )
 
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -195,8 +194,7 @@ async def process_warn_action(
     action = callback_data.action
 
     can_mod, err = await mod_service.check_mod_rights(
-        db, chat_id, callback.from_user.id, target_id, 2, developer_id=developer_id
-    )
+        db, chat_id, callback.from_user.id, target_id, 2, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await callback.answer(
             "У вас нет прав для этого вердикта!", show_alert=True
@@ -260,8 +258,7 @@ async def cmd_immune(
         )
 
     can_mod, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -295,8 +292,7 @@ async def cmd_protect(
         )
 
     can_mod, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 4, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, 4, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -331,8 +327,7 @@ async def cmd_unprotect(
         )
 
     can_mod, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 4, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, 4, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -352,8 +347,7 @@ async def cmd_setshield(
     if message.chat.type == "private":
         return
     can_mod, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -383,8 +377,7 @@ async def cmd_set_purge_rank(
     if message.chat.type == "private":
         return
     can_mod, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -428,8 +421,7 @@ async def cmd_setwarns(
     if message.chat.type == "private":
         return
     can_mod, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -475,8 +467,7 @@ async def cmd_ban(
             parse_mode="HTML",
         )
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 2, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, target_id, 2, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
     try:
@@ -521,8 +512,7 @@ async def cmd_unban(
             parse_mode="HTML",
         )
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 2, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, target_id, 2, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
     try:
@@ -562,8 +552,7 @@ async def cmd_kick(
             parse_mode="HTML"
         )
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
     try:
@@ -608,8 +597,7 @@ async def cmd_mute(
             parse_mode="HTML",
         )
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -664,8 +652,7 @@ async def cmd_unmute(
             parse_mode="HTML",
         )
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id
-    )
+        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
     try:
