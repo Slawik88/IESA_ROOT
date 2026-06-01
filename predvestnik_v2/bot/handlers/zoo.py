@@ -11,7 +11,7 @@ from aiogram.filters.callback_data import CallbackData
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import zoo as zoo_db
 from infrastructure.repositories.economy import add_item, remove_item, add_balance, get_item_quantity
-from core.registry import PET_SPECIES
+from core.registry import PET_SPECIES, ITEMS_REGISTRY
 from core.constants import (
     PET_PLACEMENT_FATIGUE_RESTORE,
     HAMSTER_BONUSES,
@@ -40,6 +40,7 @@ class ZooCB(CallbackData, prefix="zoo"):
     pet_id: int = 0
     page: int = 1
     user_id: int = 0
+    food_id: str = ""   # for feed_menu / feed_one actions
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -369,6 +370,19 @@ async def cb_pet_view(query: types.CallbackQuery, callback_data: ZooCB, db):
         text=f"🔥 Отпустить на волю{shard_text}",
         callback_data=ZooCB(action="confirm_release", pet_id=pet["id"], page=callback_data.page),
     )
+
+    # Feed this pet button — show only if pet needs food AND user has any food
+    _FOOD_IDS = ["food_basic", "food_elite", "food_energy", "food_super", "food_diamond"]
+    has_any_food = False
+    for _fid in _FOOD_IDS:
+        if await get_item_quantity(db, query.from_user.id, _fid) > 0:
+            has_any_food = True
+            break
+    if pet["fatigue"] > 0 and has_any_food:
+        builder.button(
+            text="🍖 Покормить этого питомца",
+            callback_data=ZooCB(action="feed_menu", pet_id=pet["id"], page=callback_data.page, user_id=callback_data.user_id),
+        )
 
     # Star dust buttons: show only if pet is not Lv10 and user owns the item
     if pet_level < 10:
@@ -815,5 +829,173 @@ async def cb_use_stardust(query: types.CallbackQuery, callback_data: ZooCB, db):
     await query.answer(msg, show_alert=True)
 
     # Refresh pet card
+    callback_data.action = "pet_view"
+    await cb_pet_view(query, callback_data, db)
+
+
+# ── Feed one pet: food selection menu ────────────────────────────────────────
+
+_FOOD_ITEMS = [
+    "food_basic",
+    "food_elite",
+    "food_energy",
+    "food_super",
+    "food_diamond",
+]
+
+
+@router.callback_query(ZooCB.filter(F.action == "feed_menu"))
+async def cb_zoo_feed_menu(query: types.CallbackQuery, callback_data: ZooCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
+    user_id = query.from_user.id
+    pet_id = callback_data.pet_id
+
+    pet = await zoo_db.get_pet_by_id(db, pet_id)
+    if not pet or pet["owner_id"] != user_id:
+        return await query.answer("❌ Питомец не найден.", show_alert=True)
+
+    if pet["fatigue"] == 0:
+        return await query.answer("✅ Питомец уже полностью отдохнул!", show_alert=True)
+
+    fatigue = pet["fatigue"]
+    fatigue_bar = "█" * (fatigue // 10) + "░" * (10 - fatigue // 10)
+    lines = [
+        f"🍖 <b>КОРМЛЕНИЕ: {pet['name']}</b>\n",
+        f"😴 Усталость: <code>{fatigue}/100  [{fatigue_bar}]</code>\n",
+        "<i>Выбери еду из тех, что есть в инвентаре:</i>",
+    ]
+
+    builder = InlineKeyboardBuilder()
+    has_food = False
+
+    for food_id in _FOOD_ITEMS:
+        item = ITEMS_REGISTRY.get(food_id, {})
+        qty = await get_item_quantity(db, user_id, food_id)
+        if qty <= 0:
+            continue
+        has_food = True
+        restore = item.get("fatigue_restore", 0)
+        new_fat = max(0, fatigue - restore)
+        gain = fatigue - new_fat
+        extras = ""
+        if food_id == "food_energy":
+            extras = " + сброс КД похода"
+        elif food_id == "food_super":
+            extras = " + −5 всем в питомнике"
+        elif food_id == "food_diamond":
+            extras = " + эффективность 24ч"
+        builder.button(
+            text=f"{item.get('name', food_id)}  ×{qty}  (−{gain} уст.{extras})",
+            callback_data=ZooCB(
+                action="feed_one",
+                pet_id=pet_id,
+                page=callback_data.page,
+                user_id=callback_data.user_id,
+                food_id=food_id,
+            ),
+        )
+
+    if not has_food:
+        return await query.answer("❌ У вас нет корма. Купите его в «бот магазин».", show_alert=True)
+
+    builder.button(
+        text="🔙 Назад",
+        callback_data=ZooCB(action="pet_view", pet_id=pet_id, page=callback_data.page, user_id=callback_data.user_id),
+    )
+    builder.adjust(1)
+
+    try:
+        await query.message.edit_text("\n".join(lines), reply_markup=builder.as_markup(), parse_mode="HTML")
+    except Exception:
+        pass
+    await query.answer()
+
+
+# ── Feed one pet: execute feeding ────────────────────────────────────────────
+
+@router.callback_query(ZooCB.filter(F.action == "feed_one"))
+async def cb_zoo_feed_one(query: types.CallbackQuery, callback_data: ZooCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
+    user_id = query.from_user.id
+    pet_id = callback_data.pet_id
+    food_id = callback_data.food_id
+
+    pet = await zoo_db.get_pet_by_id(db, pet_id)
+    if not pet or pet["owner_id"] != user_id:
+        return await query.answer("❌ Питомец не найден.", show_alert=True)
+
+    item = ITEMS_REGISTRY.get(food_id, {})
+    if not item:
+        return await query.answer("❌ Неизвестный корм.", show_alert=True)
+
+    qty = await get_item_quantity(db, user_id, food_id)
+    if qty <= 0:
+        return await query.answer("❌ Этого корма больше нет в инвентаре.", show_alert=True)
+
+    # Dragon free-food chance
+    dragon_level = await zoo_db.get_active_species_level(db, user_id, "dragon")
+    dragon_free_chance = (
+        get_pet_bonus("dragon", dragon_level).get("free_food_chance", 0.0)
+        if dragon_level > 0 else 0.0
+    )
+    free_food = dragon_free_chance > 0 and random.random() < dragon_free_chance
+
+    restore = item.get("fatigue_restore", 0)
+    # Wolf bonus for basic food
+    if food_id == "food_basic":
+        wolf_extra = await get_active_wolf_food_extra(db, user_id) if await is_wolf_active_slot(db, user_id) else 0
+        restore += wolf_extra
+
+    old_fatigue = pet["fatigue"]
+    new_fatigue = max(0, old_fatigue - restore)
+    gained = old_fatigue - new_fatigue
+
+    try:
+        await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_fatigue, pet_id))
+
+        # food_super also restores −5 to all other nursery pets
+        if food_id == "food_super":
+            other_pets = await zoo_db.get_user_pets(db, user_id, placement="nursery")
+            for op in other_pets:
+                if op["id"] != pet_id:
+                    new_f = max(0, op["fatigue"] - 5)
+                    await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_f, op["id"]))
+
+        # food_diamond: efficiency buff (placeholder — buff system not fully implemented)
+        # food_energy: expedition CD reset
+        if food_id == "food_energy":
+            await db.execute(
+                "UPDATE active_expeditions SET ends_at = CURRENT_TIMESTAMP WHERE pet_id = ?",
+                (pet_id,),
+            )
+
+        if not free_food:
+            await remove_item(db, user_id, food_id, 1, commit=False)
+
+        await db.commit()
+
+        # Quest increment
+        await quest_increment(db, user_id, query.message.chat.id, "pet_feeds_today", delta=1.0)
+        await db.commit()
+
+    except Exception as e:
+        await db.rollback()
+        return await query.answer(f"❌ Ошибка: {e}", show_alert=True)
+
+    dragon_note = " (🐉 Дракон сэкономил корм!)" if free_food else ""
+    wolf_note = f" (🐺 Волк +{restore - item.get('fatigue_restore', 0)})" if food_id == "food_basic" and restore > item.get("fatigue_restore", 0) else ""
+    energy_note = " · Поход завершён досрочно!" if food_id == "food_energy" else ""
+    super_note = " · −5 всем питомцам в питомнике" if food_id == "food_super" else ""
+
+    msg = (
+        f"✅ {item.get('name', food_id)}: −{gained} усталости "
+        f"({old_fatigue} → {new_fatigue})"
+        f"{wolf_note}{dragon_note}{energy_note}{super_note}"
+    )
+    await query.answer(msg, show_alert=True)
+
+    # Back to pet card
     callback_data.action = "pet_view"
     await cb_pet_view(query, callback_data, db)
