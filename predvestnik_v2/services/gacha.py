@@ -90,6 +90,8 @@ async def _apply_entry(db, user_id: int, entry: dict) -> dict:
         for _ in range(count):
             species_id = random.choice(species_pool)
             dup = await grant_duplicate(db, user_id, species_id)
+            dup["species_id"] = species_id
+            dup["species_name"] = PET_SPECIES.get(species_id, {}).get("name", species_id)
             summary["dup_outcomes"].append(dup)
             # Overflow compensation: grant mora/stardust
             if dup["outcome"] == "overflow" and dup.get("overflow"):
