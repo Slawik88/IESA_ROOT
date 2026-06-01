@@ -407,6 +407,18 @@ async def open_eggs_batch(
     results: list[dict] = []
     try:
         await db.execute("BEGIN IMMEDIATE")
+
+        # Lock inventory row with FOR UPDATE before processing to prevent
+        # concurrent requests from both opening the same eggs (negative inventory)
+        async with db.execute(
+            "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? FOR UPDATE",
+            (user_id, egg_id),
+        ) as _c:
+            _inv_row = await _c.fetchone()
+        if not _inv_row or _inv_row[0] < count:
+            await db.rollback()
+            return []
+
         for _ in range(count):
             rand = random.randint(1, 100)
             cumulative = 0
