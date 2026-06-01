@@ -166,7 +166,7 @@ async def grant_duplicate(db, user_id: int, species_id: str) -> dict:
             "INSERT INTO pets "
             "(owner_id, species_id, rarity, name, placement, fatigue, is_summoned, "
             "pet_level, duplicates_collected, copy_index) "
-            "VALUES (?, ?, ?, ?, 'storage', 0, 0, 1, 1, 1) RETURNING id",
+            "VALUES (?, ?, ?, ?, 'storage', 0, FALSE, 1, 1, 1) RETURNING id",
             (user_id, species_id, rarity, pet_name),
         ) as _c:
             _r = await _c.fetchone()
@@ -217,7 +217,7 @@ async def grant_duplicate(db, user_id: int, species_id: str) -> dict:
             "INSERT INTO pets "
             "(owner_id, species_id, rarity, name, placement, fatigue, is_summoned, "
             "pet_level, duplicates_collected, copy_index) "
-            "VALUES (?, ?, ?, ?, 'storage', 0, 0, 1, 1, ?) RETURNING id",
+            "VALUES (?, ?, ?, ?, 'storage', 0, FALSE, 1, 1, ?) RETURNING id",
             (user_id, species_id, rarity, pet_name, next_index),
         ) as _c:
             _r = await _c.fetchone()
