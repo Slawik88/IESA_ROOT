@@ -102,42 +102,48 @@ async def place_bid(
     if amount > AUCTION_MAX_BID:
         return {"ok": False, "error": f"Максимальная ставка — {int(AUCTION_MAX_BID):,} 🪙.".replace(",", " ")}
 
-    # Check free balance
-    bal = await eco_repo.get_balance(db, bidder_id)
-    already_reserved = await get_reserve(db, bidder_id)
-    # Subtract the bidder's own current bid on THIS lot to get truly free balance
-    own_bid = await get_user_active_bid(db, lot_id, bidder_id)
-    own_bid_amount = own_bid["amount"] if own_bid else 0.0
-    free_balance = bal["user_balance_mora"] - already_reserved + own_bid_amount
-
-    if free_balance < amount:
-        return {"ok": False, "error": f"Недостаточно Моры (нужно {amount:.0f}, свободно {free_balance:.0f})."}
-
+    # Lock user balance with FOR UPDATE to prevent race conditions on parallel bids.
+    # The entire balance-check + bid-write sequence runs inside one transaction.
     outbid_user_id = None
     outbid_amount = 0.0
+    is_buyout = False
 
-    # Deactivate previous highest bid (if from different user)
-    if highest and highest["bidder_id"] != bidder_id:
-        outbid_user_id = highest["bidder_id"]
-        outbid_amount = highest["amount"]
-        await deactivate_bid(db, highest["id"])
-        await remove_reserve(db, outbid_user_id, outbid_amount)
+    async with db.connection.transaction():
+        async with db.execute(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id = ? FOR UPDATE",
+            (bidder_id,),
+        ) as _c:
+            _bal_row = await _c.fetchone()
+        bal_mora = float(_bal_row[0]) if _bal_row else 0.0
 
-    # Deactivate own old bid on this lot
-    if own_bid:
-        await deactivate_bid(db, own_bid["id"])
-        await remove_reserve(db, bidder_id, own_bid_amount)
+        already_reserved = await get_reserve(db, bidder_id)
+        own_bid = await get_user_active_bid(db, lot_id, bidder_id)
+        own_bid_amount = own_bid["amount"] if own_bid else 0.0
+        free_balance = bal_mora - already_reserved + own_bid_amount
 
-    # Insert new bid + reserve
-    await insert_bid(db, lot_id, bidder_id, amount)
-    await add_reserve(db, bidder_id, amount)
+        if free_balance < amount:
+            return {"ok": False, "error": f"Недостаточно Моры (нужно {amount:.0f}, свободно {free_balance:.0f})."}
 
-    # Buyout?
-    is_buyout = lot.get("buyout") is not None and amount >= lot["buyout"]
-    if is_buyout:
-        await _finalize_lot(db, lot, bidder_id, amount, chat_id)
+        # Deactivate previous highest bid (if from different user)
+        if highest and highest["bidder_id"] != bidder_id:
+            outbid_user_id = highest["bidder_id"]
+            outbid_amount = highest["amount"]
+            await deactivate_bid(db, highest["id"])
+            await remove_reserve(db, outbid_user_id, outbid_amount)
 
-    await db.commit()
+        # Deactivate own old bid on this lot
+        if own_bid:
+            await deactivate_bid(db, own_bid["id"])
+            await remove_reserve(db, bidder_id, own_bid_amount)
+
+        # Insert new bid + reserve
+        await insert_bid(db, lot_id, bidder_id, amount)
+        await add_reserve(db, bidder_id, amount)
+
+        # Buyout?
+        is_buyout = lot.get("buyout") is not None and amount >= lot["buyout"]
+        if is_buyout:
+            await _finalize_lot(db, lot, bidder_id, amount, chat_id)
 
     return {
         "ok": True,

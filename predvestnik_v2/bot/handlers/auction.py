@@ -521,18 +521,37 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
     else:
         item_id = v.split(":")[0]
         item_type = "inventory"
-        item_id_or_pet_id = 0  # stored as string in item_name context; we save item_id string as int hash
         item_name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
-        # Remove from inventory
-        from infrastructure.repositories.economy import remove_item
-        ok = await remove_item(db, user_id, item_id, qty, commit=False)
-        if not ok:
-            await db.rollback()
-            return await query.answer("❌ Недостаточно предметов.", show_alert=True)
-        # Store item_id encoded as integer via hash (we use item_name for display)
         item_id_or_pet_id = abs(hash(item_id)) % (10**9)
-        # Store actual item_id string in item_name suffix (workaround since column is INT)
-        item_name = f"{item_name}||{item_id}"  # delimiter for resolver
+        item_name = f"{item_name}||{item_id}"
+
+        # Create lot FIRST — if bot restarts after this the lot exists in DB.
+        # Then remove item. Order matters: losing item without a lot is worse
+        # than having a lot without item deduction (can be fixed manually).
+        ok, result = await create_auction_lot(
+            db, user_id, cat, item_type, item_id_or_pet_id, qty, item_name, min_bid, buyout
+        )
+        if not ok:
+            return await query.answer(f"❌ {result}", show_alert=True)
+
+        from infrastructure.repositories.economy import remove_item
+        removed = await remove_item(db, user_id, item_id, qty, commit=False)
+        if not removed:
+            # Lot was created but item is gone — cancel the lot
+            from services.auction import cancel_lot
+            await cancel_lot(db, result)
+            return await query.answer("❌ Недостаточно предметов в инвентаре.", show_alert=True)
+
+        await db.commit()
+        await query.answer("✅ Лот выставлен!", show_alert=False)
+        try:
+            await query.message.edit_text(
+                f"✅ <b>Лот #{result} создан!</b>\n<i>Аукцион длится 24 часа.</i>",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass
+        return
 
     ok, result = await create_auction_lot(
         db, user_id, cat, item_type, item_id_or_pet_id, qty, item_name, min_bid, buyout

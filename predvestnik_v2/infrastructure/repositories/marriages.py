@@ -28,18 +28,23 @@ async def family_bank_transaction(
 
     try:
         async with db.connection.transaction():
+            # FOR UPDATE locks both rows to prevent race conditions on parallel operations
             async with db.execute(
-                "SELECT family_balance FROM marriages WHERE id = ?", (marriage_id,)
+                "SELECT family_balance FROM marriages WHERE id = ? FOR UPDATE", (marriage_id,)
             ) as cursor:
                 m_row = await cursor.fetchone()
                 if not m_row:
                     return False, "Брак не найден."
-                family_balance = m_row[0]
-
-            user_bal = await get_balance(db, user_id)
+                family_balance = float(m_row[0])
 
             if action == "deposit":
-                if user_bal["user_balance_mora"] < amount:
+                async with db.execute(
+                    "SELECT user_balance_mora FROM users WHERE user_tg_id = ? FOR UPDATE",
+                    (user_id,),
+                ) as c:
+                    u_row = await c.fetchone()
+                user_mora = float(u_row[0]) if u_row else 0.0
+                if user_mora < amount:
                     return False, "Недостаточно личной Моры."
                 await db.execute(
                     "UPDATE users SET user_balance_mora = user_balance_mora - ? WHERE user_tg_id = ?",
