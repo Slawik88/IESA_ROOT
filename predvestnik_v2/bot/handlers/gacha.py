@@ -42,6 +42,32 @@ class GachaCB(CallbackData, prefix="gacha"):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+async def _maybe_theme_drop(db, user_id: int, spin_type: str) -> str:
+    """Small chance to unlock a profile theme from this spin tier's pool.
+    Returns a notice string to append, or '' if nothing dropped."""
+    import random as _r
+    from core.themes import THEME_GACHA_DROPS, THEMES
+    from infrastructure.repositories.themes import list_owned, grant_theme
+    pool = THEME_GACHA_DROPS.get(spin_type, [])
+    if not pool:
+        return ""
+    chance = {"novice": 0.02, "standard": 0.03, "premium": 0.05, "diamond": 0.08}.get(spin_type, 0.02)
+    if _r.random() >= chance:
+        return ""
+    try:
+        owned = await list_owned(db, user_id)
+        available = [t for t in pool if t not in owned]
+        if not available:
+            return ""
+        tid = _r.choice(available)
+        await grant_theme(db, user_id, tid)
+        await db.commit()
+        name = THEMES.get(tid, {}).get("name", tid)
+        return f"\n\n🎨 <b>РЕДКИЙ ДРОП — ТЕМА ПРОФИЛЯ!</b>\n└ {name} <i>(надеть: «бот темы»)</i>"
+    except Exception:
+        return ""
+
+
 async def _safe_edit(msg: types.Message, text: str, **kwargs) -> types.Message:
     """edit_text с обработкой TelegramRetryAfter — ждёт и повторяет один раз."""
     try:
@@ -443,6 +469,11 @@ async def cb_gacha_spin1(query: types.CallbackQuery, callback_data: GachaCB, db)
         text += "\n\n<i>🎟 Жетон использован (спин бесплатный)</i>"
     text += f"\n<i>Пити: {pity_after}/{hard} [{_pity_bar(pity_after, hard)}]</i>"
 
+    # Theme drop (rare cosmetic bonus)
+    theme_note = await _maybe_theme_drop(db, query.from_user.id, spin_type)
+    if theme_note:
+        text += theme_note
+
     # Quest: gacha_spins_today
     try:
         await quest_increment(db, query.from_user.id, query.message.chat.id, "gacha_spins_today", delta=1.0)
@@ -493,6 +524,13 @@ async def cb_gacha_spin10(query: types.CallbackQuery, callback_data: GachaCB, db
     pity_final = results[-1]["pity_after"]
     hard = PITY_HARD[spin_type]
     text += f"\n\n<i>Пити после: {pity_final}/{hard}</i>"
+
+    # Theme drop — 10× spins roll the chance 10 times (slightly better odds)
+    for _ in range(SPIN_MULTI_COUNT):
+        theme_note = await _maybe_theme_drop(db, query.from_user.id, spin_type)
+        if theme_note:
+            text += theme_note
+            break
 
     await query.message.edit_text(
         text,

@@ -149,8 +149,17 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
 
     hamster_note = f"  <i>(+{format_currency(hamster_income)} хомяки)</i>" if hamster_income > 0 else ""
 
+    # Active profile theme — decorative frame + accent emoji
+    from infrastructure.repositories.themes import get_active_theme
+    from core.themes import THEMES, DEFAULT_THEME
+    theme_id = await get_active_theme(db, user_id)
+    theme = THEMES.get(theme_id, THEMES[DEFAULT_THEME])
+    t_top = theme.get("top", "")
+    t_accent = theme.get("accent", "")
+
     text = (
-        f"👤 <b>ПРОФИЛЬ</b> — {display_name}\n"
+        f"{t_top}\n"
+        f"👤 <b>ПРОФИЛЬ</b> — {display_name} {t_accent}\n"
         f"<code>🆔 {user_id}</code>\n\n"
 
         f"🌍 {global_rank}  ·  🏘 {local_rank}\n"
@@ -163,6 +172,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
 
         f"\n🐾 <b>ПИТОМЦЫ</b>\n"
         + _pets_block(nursery_pets)
+        + f"\n{t_top if not theme.get('bot') else theme.get('bot')}"
     )
 
     await message.answer(text, parse_mode="HTML")
