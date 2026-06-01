@@ -227,7 +227,7 @@ async def cb_shop_do_buy(query: types.CallbackQuery, callback_data: ShopCB, db):
 # ── Назад в магазин ───────────────────────────────────────────────────────────
 
 @router.callback_query(ShopCB.filter(F.action == "back"))
-async def cb_shop_back(query: types.CallbackQuery, db):
+async def cb_shop_back(query: types.CallbackQuery, callback_data: ShopCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     await render_shop(query.message, db, query.from_user.id, is_edit=True)

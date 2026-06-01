@@ -119,9 +119,6 @@ async def purchase_slot(
     if not deal:
         return False, "Слот не найден. Попробуйте обновить акцию (/акция)."
 
-    if await repo.already_purchased(db, user_id, slot, today):
-        return False, "Вы уже купили этот слот сегодня."
-
     mora_cost = deal["price_mora"]
     dia_cost = deal["price_diamonds"]
     item_id = deal["item_id"]
@@ -129,6 +126,11 @@ async def purchase_slot(
 
     try:
         await db.execute("BEGIN IMMEDIATE")
+
+        # Check inside transaction to prevent double-purchase race condition
+        if await repo.already_purchased(db, user_id, slot, today):
+            await db.rollback()
+            return False, "Вы уже купили этот слот сегодня."
 
         bal = await eco_repo.get_balance(db, user_id)
         if mora_cost > 0 and bal["user_balance_mora"] < mora_cost:
