@@ -1,4 +1,4 @@
-﻿"""
+"""
 services/auction.py
 Business logic for the global auction system.
 No bot imports — callers handle notifications.

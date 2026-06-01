@@ -1,4 +1,4 @@
-﻿"""
+"""
 services/achievements.py
 Achievement increment, threshold checking, and reward granting.
 No bot/django imports.

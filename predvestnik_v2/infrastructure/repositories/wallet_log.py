@@ -1,4 +1,4 @@
-﻿"""
+"""
 infrastructure/repositories/wallet_log.py
 All wallet_log DB operations. No business logic.
 """

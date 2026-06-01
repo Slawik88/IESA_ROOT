@@ -1,4 +1,4 @@
-﻿from aiogram import Router, types, F
+from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime

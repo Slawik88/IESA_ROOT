@@ -1,4 +1,4 @@
-﻿"""
+"""
 services/quests.py
 Daily quest system. No bot imports.
 """
@@ -10,11 +10,23 @@ from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.quests import (
     get_user_quests, upsert_quest, increment_quest_progress, mark_completed,
 )
+from infrastructure.repositories.streak import get_chat_timezone
 
 
 def _today_for_tz(tz_offset: int = 0) -> str:
     now = datetime.now(timezone.utc) + timedelta(hours=tz_offset)
     return now.strftime("%Y-%m-%d")
+
+
+async def _resolve_tz(db, chat_id: int, tz_offset: int | None) -> int:
+    """Resolve the chat-local timezone so assign + increment always agree.
+    If tz_offset is explicitly given, use it; otherwise read the chat setting."""
+    if tz_offset is not None:
+        return tz_offset
+    try:
+        return await get_chat_timezone(db, chat_id)
+    except Exception:
+        return 0
 
 
 def _select_quests(n: int = 3) -> list[dict]:
@@ -46,9 +58,10 @@ async def get_or_assign_quests(
     db,
     user_id: int,
     chat_id: int,
-    tz_offset: int = 0,
+    tz_offset: int | None = None,
 ) -> list[dict]:
     """Return today's 3 quests, assigning them if this is the first call today."""
+    tz_offset = await _resolve_tz(db, chat_id, tz_offset)
     today = _today_for_tz(tz_offset)
     existing = await get_user_quests(db, user_id, chat_id, today)
 
@@ -75,13 +88,17 @@ async def increment_metric(
     chat_id: int,
     metric_name: str,
     delta: float = 1.0,
-    tz_offset: int = 0,
+    tz_offset: int | None = None,
 ) -> list[dict]:
     """Increment progress on all active quests tracking this metric.
     Auto-completes and grants reward if target reached.
     Returns list of completed quest dicts (for notification).
     No commit — caller handles commit.
+
+    tz_offset is resolved from the chat's setting so that quest assignment
+    (бот задания) and metric increments always use the same date key.
     """
+    tz_offset = await _resolve_tz(db, chat_id, tz_offset)
     today = _today_for_tz(tz_offset)
     existing = await get_user_quests(db, user_id, chat_id, today)
     if not existing:

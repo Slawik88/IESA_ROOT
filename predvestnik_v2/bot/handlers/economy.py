@@ -1,4 +1,4 @@
-﻿# bot/handlers/economy.py
+# bot/handlers/economy.py
 from aiogram import Router, types
 
 from bot.filters.text_commands import TextCmd

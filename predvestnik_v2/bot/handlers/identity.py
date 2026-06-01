@@ -68,18 +68,22 @@ def _active_pet_str(nursery_pets: list) -> str:
     return f"{sp} Lv{lvl} {_fatigue_icon(fat)}"
 
 
+_RARITY_BADGE = {"common": "⚪️", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
+
+
 def _pets_block(nursery_pets: list) -> str:
     if not nursery_pets:
         return "└ <i>Питомник пуст</i>"
     role_map = {"active": "⚔️", "passive": "💤"}
     lines = []
-    for p in nursery_pets:
+    for i, p in enumerate(nursery_pets):
         sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
         icon = role_map.get(p["placement"], "📦")
+        r_badge = _RARITY_BADGE.get(p.get("rarity", "common"), "⚪️")
         lvl = p.get("pet_level", 1) or 1
         fat = p.get("fatigue", 0)
-        lines.append(f"├ {icon} <b>{p['name']}</b> <i>({sp})</i> · Lv{lvl} · {fat}/100 {_fatigue_icon(fat)}")
-    lines[-1] = lines[-1].replace("├", "└")
+        prefix = "└" if i == len(nursery_pets) - 1 else "├"
+        lines.append(f"{prefix} {icon} {r_badge} <b>{p['name']}</b> <i>{sp}</i> · Lv{lvl} · {_fatigue_icon(fat)} {fat}/100")
     return "\n".join(lines)
 
 
@@ -143,36 +147,21 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
     a_msgs = stats.get("user_messages_count_all_time", 0)
     streak = streak_row.get("streak", 0)
 
+    hamster_note = f"  <i>(+{format_currency(hamster_income)} хомяки)</i>" if hamster_income > 0 else ""
+
     text = (
         f"👤 <b>ПРОФИЛЬ</b> — {display_name}\n"
-        f"<code>ID: {user_id}</code>\n\n"
+        f"<code>🆔 {user_id}</code>\n\n"
 
-        f"🌐 <b>Ранги</b>\n"
-        f"├ 🌍 Глобально: <b>{global_rank}</b>\n"
-        f"└ 🏘 В чате: <b>{local_rank}</b>\n\n"
+        f"🌍 {global_rank}  ·  🏘 {local_rank}\n"
+        f"💍 {partner_line if marriage else '<i>Одинок(а)</i>'}  ·  ⚠️ {warns} варн.\n"
+        f"🛡 Защита: {shield_line}\n\n"
 
-        f"⭐ <b>Уровень {lvl}</b>  {bar}  <i>{xp_in_lvl}/{XP_PER_LEVEL} XP</i>\n"
-        f"└ До {lvl + 1} уровня: <code>{xp_left}</code> XP\n\n"
+        f"⭐ <b>Lv{lvl}</b>  <code>[{bar}]</code>  {xp_in_lvl}/{XP_PER_LEVEL} · +{xp_left} XP\n"
+        f"💰 <b>{mora} 🪙 · {diamonds} 💎</b>{hamster_note}\n"
+        f"🔥 Стрик <b>{streak}</b> дн.  ·  💬 {d_msgs} / {w_msgs} / {a_msgs} <i>(д/н/всё)</i>\n"
 
-        f"💰 <b>Баланс</b>\n"
-        f"├ 🪙 Мора: <code>{mora}</code>"
-    )
-
-    if hamster_income > 0:
-        text += f"  <i>(+{format_currency(hamster_income)} от хомяков)</i>"
-    text += (
-        f"\n└ 💎 Алмазы: <code>{diamonds}</code>\n\n"
-
-        f"💍 <b>Отношения</b>\n"
-        f"├ Партнёр: {partner_line}\n"
-        f"├ ⚠️ Варны: <code>{warns}</code>\n"
-        f"└ Защита: {shield_line}\n\n"
-
-        f"⚡ <b>Активность</b>\n"
-        f"├ 🔥 Стрик: <b>{streak}</b> дн.\n"
-        f"├ 📅 Сегодня: <code>{d_msgs}</code>  · 🗓 Неделя: <code>{w_msgs}</code>  · 🏆 Всего: <code>{a_msgs}</code>\n\n"
-
-        f"🐾 <b>Питомцы</b>\n"
+        f"\n🐾 <b>ПИТОМЦЫ</b>\n"
         + _pets_block(nursery_pets)
     )
 
@@ -230,7 +219,7 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
 
     text = (
         f"🔍 <b>КАРТОЧКА</b> — {display_name}\n"
-        f"<code>ID: {target_id}</code>\n\n"
+        f"<code>🆔 {target_id}</code>\n\n"
 
         f"🌍 <b>{global_rank}</b>  ·  🏘 <b>{local_rank}</b>\n"
         f"⭐ Уровень: <b>{lvl}</b>  {bar}\n\n"
