@@ -210,7 +210,7 @@ async def cmd_zoo(message: types.Message, db):
 
 
 @router.callback_query(ZooCB.filter(F.action == "main"))
-async def cb_zoo_main(query: types.CallbackQuery, db):
+async def cb_zoo_main(query: types.CallbackQuery, callback_data: ZooCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     await render_main_zoo(query.message, db, query.from_user.id, is_edit=True)
@@ -234,6 +234,8 @@ async def cb_pet_view(query: types.CallbackQuery, callback_data: ZooCB, db):
     pet = await zoo_db.get_pet_by_id(db, callback_data.pet_id)
     if not pet:
         return await query.answer("❌ Питомец не найден! Возможно, он был отпущен.", show_alert=True)
+    if pet["owner_id"] != query.from_user.id:
+        return await query.answer("❌ Это не ваш питомец.", show_alert=True)
 
     species_data = PET_SPECIES.get(pet["species_id"], {})
     rarity_emojis = {
@@ -343,6 +345,9 @@ async def cb_pet_move(query: types.CallbackQuery, callback_data: ZooCB, db):
         if not pet:
             await db.rollback()
             return await query.answer("❌ Питомец не найден!", show_alert=True)
+        if pet["owner_id"] != user_id:
+            await db.rollback()
+            return await query.answer("❌ Это не ваш питомец.", show_alert=True)
 
         if new_placement != "storage":
             nursery_count = await zoo_db.get_nursery_count(db, user_id)
@@ -414,6 +419,8 @@ async def cb_confirm_release(query: types.CallbackQuery, callback_data: ZooCB, d
     pet = await zoo_db.get_pet_by_id(db, callback_data.pet_id)
     if not pet:
         return await query.answer("❌ Питомец не найден!", show_alert=True)
+    if pet["owner_id"] != query.from_user.id:
+        return await query.answer("❌ Это не ваш питомец.", show_alert=True)
 
     shard_note = (
         "Осколок Души не будет выдан (призванный)."
@@ -450,6 +457,8 @@ async def cb_pet_release(query: types.CallbackQuery, callback_data: ZooCB, db):
     pet = await zoo_db.get_pet_by_id(db, callback_data.pet_id)
     if not pet:
         return await query.answer("❌ Питомец не найден!", show_alert=True)
+    if pet["owner_id"] != query.from_user.id:
+        return await query.answer("❌ Это не ваш питомец.", show_alert=True)
 
     try:
         await db.execute("BEGIN TRANSACTION")
