@@ -107,9 +107,10 @@ async def render_main_zoo(message: types.Message, db, user_id: int, is_edit: boo
             species_data = PET_SPECIES.get(p["species_id"], {})
             status_icon = "⚔️ Активный" if p["placement"] == "active" else "💤 Пассивный"
             pet_level = p.get("pet_level", 1) or 1
+            fatigue_bar = "█" * (p["fatigue"] // 10) + "░" * (10 - p["fatigue"] // 10)
             lines.append(f"<b>{p['name']}</b> — {species_data.get('name', 'Неизвестный')} (Ур. {pet_level})")
-            lines.append(f"├ Роль: {status_icon}")
-            lines.append(f"└ Усталость: {p['fatigue']}/100\n")
+            lines.append(f"├ {status_icon}")
+            lines.append(f"└ 😴 {p['fatigue']}/100 <code>[{fatigue_bar}]</code>\n")
             if p["fatigue"] == 100:
                 exhausted_names.append(p["name"])
 
@@ -130,15 +131,29 @@ async def render_main_zoo(message: types.Message, db, user_id: int, is_edit: boo
             lines.append(f"💰 <i>Хомяки накопили: ~{accumulated} Моры за {time_str}</i>")
 
     builder = InlineKeyboardBuilder()
-    builder.button(text="🔄 Покормить всех (Баз. корм)", callback_data=ZooCB(action="feed_all", page=1))
+
+    # Clickable buttons for each nursery pet
+    for p in nursery_pets:
+        role_icon = "⚔️" if p["placement"] == "active" else "💤"
+        builder.button(
+            text=f"{role_icon} {p['name']}",
+            callback_data=ZooCB(action="pet_view", pet_id=p["id"], page=1, user_id=user_id),
+        )
+
+    builder.button(text="🔄 Покормить всех (Баз. корм)", callback_data=ZooCB(action="feed_all", page=1, user_id=user_id))
     # Show food_super button if user has any in inventory
     super_qty = await get_item_quantity(db, user_id, "food_super")
     if super_qty > 0:
         builder.button(text=f"💊 Суперкорм ×{super_qty} (−60 акт. + −5 всем)",
-                        callback_data=ZooCB(action="feed_super", page=1))
-    builder.button(text="💰 Собрать доход", callback_data=ZooCB(action="collect", page=1))
-    builder.button(text="📦 Открыть Склад", callback_data=ZooCB(action="storage", page=1))
-    builder.adjust(1, 1, 1, 1)
+                        callback_data=ZooCB(action="feed_super", page=1, user_id=user_id))
+    builder.button(text="💰 Собрать доход", callback_data=ZooCB(action="collect", page=1, user_id=user_id))
+    builder.button(text="📦 Склад", callback_data=ZooCB(action="storage", page=1, user_id=user_id))
+
+    pet_count = len(nursery_pets)
+    widths = [1] * pet_count + [1, 1, 1]
+    if super_qty > 0:
+        widths = [1] * pet_count + [1, 1, 1, 1]
+    builder.adjust(*widths)
 
     text = "\n".join(lines)
     if is_edit:
@@ -478,7 +493,7 @@ async def cb_pet_release(query: types.CallbackQuery, callback_data: ZooCB, db):
 # ── Feed all (§6 dragon free food, §9 wolf extra restore, §15 pet XP) ─────────
 
 @router.callback_query(ZooCB.filter(F.action == "feed_all"))
-async def cb_zoo_feed_all(query: types.CallbackQuery, db):
+async def cb_zoo_feed_all(query: types.CallbackQuery, callback_data: ZooCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     user_id = query.from_user.id
@@ -544,7 +559,7 @@ async def cb_zoo_feed_all(query: types.CallbackQuery, db):
 # ── Collect hamster income (§3/§8 accumulative model, §6 dragon bonus) ───────
 
 @router.callback_query(ZooCB.filter(F.action == "collect"))
-async def cb_zoo_collect(query: types.CallbackQuery, db):
+async def cb_zoo_collect(query: types.CallbackQuery, callback_data: ZooCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     user_id = query.from_user.id
@@ -622,7 +637,7 @@ async def cb_zoo_collect(query: types.CallbackQuery, db):
 # ── food_super: −60 active, −5 all nursery ────────────────────────────────────
 
 @router.callback_query(ZooCB.filter(F.action == "feed_super"))
-async def cb_zoo_feed_super(query: types.CallbackQuery, db):
+async def cb_zoo_feed_super(query: types.CallbackQuery, callback_data: ZooCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
     user_id = query.from_user.id
