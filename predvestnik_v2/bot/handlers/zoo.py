@@ -100,18 +100,30 @@ async def render_main_zoo(message: types.Message, db, user_id: int, is_edit: boo
 
     exhausted_names = []
 
+    _rarity_badge = {"common": "⚪️", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
+
     if not nursery_pets:
-        lines.append("<i>Ваш питомник пуст. Перейдите на Склад, чтобы разместить животных.</i>")
+        lines.append("<i>Питомник пуст. Открой «📦 Склад» и разместите питомца.</i>")
     else:
-        for p in nursery_pets:
+        for i, p in enumerate(nursery_pets):
             species_data = PET_SPECIES.get(p["species_id"], {})
-            status_icon = "⚔️ Активный" if p["placement"] == "active" else "💤 Пассивный"
+            role_icon = "⚔️" if p["placement"] == "active" else "💤"
             pet_level = p.get("pet_level", 1) or 1
-            fatigue_bar = "█" * (p["fatigue"] // 10) + "░" * (10 - p["fatigue"] // 10)
-            lines.append(f"<b>{p['name']}</b> — {species_data.get('name', 'Неизвестный')} (Ур. {pet_level})")
-            lines.append(f"├ {status_icon}")
-            lines.append(f"└ 😴 {p['fatigue']}/100 <code>[{fatigue_bar}]</code>\n")
-            if p["fatigue"] == 100:
+            fatigue = p.get("fatigue", 0)
+            fatigue_bar = "█" * (fatigue // 10) + "░" * (10 - fatigue // 10)
+            r_badge = _rarity_badge.get(p.get("rarity", "common"), "⚪️")
+            bonus_active = "✅" if fatigue < 100 else "❌"
+            is_last = i == len(nursery_pets) - 1
+            sep = "└" if is_last else "├"
+            lines.append(
+                f"{sep} {role_icon} {r_badge} <b>{p['name']}</b>  "
+                f"<i>{species_data.get('name', '?')}</i>  Lv{pet_level}"
+            )
+            lines.append(
+                f"{'  ' if is_last else '│ '} 😴 {fatigue}/100 <code>[{fatigue_bar}]</code>  "
+                f"Бонус: {bonus_active}\n"
+            )
+            if fatigue >= 100:
                 exhausted_names.append(p["name"])
 
     if exhausted_names:
@@ -179,15 +191,25 @@ async def render_storage(message: types.Message, db, user_id: int, page: int):
 
     builder = InlineKeyboardBuilder()
 
+    _rarity_badge = {"common": "⚪️", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
+
     if not storage_pets:
         lines.append("Склад пуст. Откройте яйцо в магазине!")
     else:
         for idx, p in enumerate(pets_on_page, start=start_idx + 1):
             species_data = PET_SPECIES.get(p["species_id"], {})
-            lines.append(f"<b>{idx}.</b> {p['name']} <i>({species_data.get('name', '???')})</i>")
+            r_badge = _rarity_badge.get(p.get("rarity", "common"), "⚪️")
+            lv = p.get("pet_level", 1) or 1
+            fatigue = p.get("fatigue", 0)
+            fat_icon = "😴" if fatigue >= 100 else "✅"
+            prefix = "└" if idx == start_idx + len(pets_on_page) else "├"
+            lines.append(
+                f"{prefix} {r_badge} <b>{p['name']}</b>  <i>{species_data.get('name', '???')}</i>"
+                f"  Lv{lv} · {fat_icon} {fatigue}/100"
+            )
             builder.button(
-                text=f"⚙️ Настроить {p['name']}",
-                callback_data=ZooCB(action="pet_view", pet_id=p["id"], page=page),
+                text=f"{r_badge} {p['name']} Lv{lv}",
+                callback_data=ZooCB(action="pet_view", pet_id=p["id"], page=page, user_id=user_id),
             )
 
     nav_buttons = []
@@ -267,28 +289,63 @@ async def cb_pet_view(query: types.CallbackQuery, callback_data: ZooCB, db):
     duplicates = pet.get("duplicates_collected", 0) or 0
     copy_index = pet.get("copy_index", 1) or 1
     rarity = pet.get("rarity", "common")
+    fatigue = pet.get("fatigue", 0)
 
-    lines = ["🔍 <b>ИНФОРМАЦИЯ О ПИТОМЦЕ</b>"]
-    lines.append(
-        f"Имя: <b>{pet['name']}</b> <i>({species_data.get('name', '???')})</i> · "
-        f"Копия {copy_index}/{MAX_PET_COPIES}"
-    )
-    lines.append(f"Редкость: {rarity_emojis.get(pet['rarity'], 'Неизвестно')}")
-    lines.append(f"Усталость: <b>{pet['fatigue']}/100</b>")
-    lines.append(f"Бафф: {species_data.get('desc', 'Нет')}")
+    # Fatigue bar
+    filled = fatigue // 10
+    fatigue_bar = "█" * filled + "░" * (10 - filled)
+    fatigue_status = "😴 Устал (бонусы выключены)" if fatigue >= 100 else ("😮‍💨 Устаёт" if fatigue >= 60 else "✅ Активен")
+
+    # Level-specific bonus summary
+    bonus = get_pet_bonus(pet["species_id"], pet_level)
+    bonus_lines = []
+    sid = pet["species_id"]
+    if sid == "hamster":
+        bonus_lines.append(f"🪙 {bonus.get('mora_per_hour', 0)}/час · Кап {bonus.get('cap', 0)} 🪙")
+        if bonus.get("ignore_exhaustion"):
+            bonus_lines.append("✨ Работает при 100 усталости")
+        if bonus.get("double_chance", 0) > 0:
+            bonus_lines.append(f"🎲 Шанс ×2 при сборе: {int(bonus['double_chance']*100)}%")
+    elif sid == "dog":
+        bonus_lines.append(f"⏩ Поход быстрее: −{int(bonus.get('speed_reduction', 0)*100)}%")
+        if bonus.get("self_fatigue_reduction", 0) > 0:
+            bonus_lines.append(f"💪 Своя усталость −{int(bonus['self_fatigue_reduction']*100)}%")
+        if bonus.get("zero_fatigue_chance", 0) > 0:
+            bonus_lines.append(f"✨ Шанс 0 усталости в походе: {int(bonus['zero_fatigue_chance']*100)}%")
+    elif sid == "turtle":
+        bonus_lines.append(f"🏪 Скидка в магазине: −{int(bonus.get('shop_discount', 0)*100)}%")
+        if bonus.get("expedition_discount", 0) > 0:
+            bonus_lines.append(f"🗺 Скидка на поход: −{int(bonus['expedition_discount']*100)}%")
+    elif sid == "wolf":
+        bonus_lines.append(f"🐾 Питомник: −{int(bonus.get('nursery_fatigue_reduce', 0)*100)}% усталости от перемещений")
+        if bonus.get("daily_fatigue_restore", 0) > 0:
+            bonus_lines.append(f"🌙 Восстанавливает {bonus['daily_fatigue_restore']} усталости раз в день")
+    elif sid == "dragon":
+        bonus_lines.append(f"🏦 Семейный банк +{bonus.get('family_bank_cap_bonus', 0)} 🪙 кап")
+        if bonus.get("free_food_chance", 0) > 0:
+            bonus_lines.append(f"🍖 Шанс бесплатного корма: {int(bonus['free_food_chance']*100)}%")
+
+    bonus_str = "\n".join(f"  └ {b}" for b in bonus_lines) if bonus_lines else "  └ Нет данных"
 
     bar, label = _duplicates_bar(rarity, pet_level, duplicates)
+
+    lines = [
+        f"🐾 <b>{pet['name']}</b>  <i>{species_data.get('name', '???')}</i>",
+        f"├ {rarity_emojis.get(rarity, '?')} · Копия {copy_index}/{MAX_PET_COPIES}",
+        f"├ {status_map.get(pet['placement'], '?')}",
+        f"├ 😴 Усталость: <code>{fatigue}/100  [{fatigue_bar}]</code>  {fatigue_status}",
+    ]
     if pet_level >= 10:
-        lines.append(f"Уровень: <b>{pet_level}</b> ✨ Макс!  [{bar}]")
+        lines.append(f"└ ⭐ Уровень: <b>Lv{pet_level} MAX</b>  <code>[{bar}]</code>")
     else:
-        lines.append(f"Уровень: <b>{pet_level}</b>  [{bar}] {label} к Ур.{pet_level + 1}")
+        lines.append(f"└ ⭐ Уровень: <b>Lv{pet_level}</b>  <code>[{bar}]</code>  {label} → Lv{pet_level + 1}")
 
-    lines.append(f"\nЛокация: <b>{status_map.get(pet['placement'], 'Неизвестно')}</b>")
+    lines.append(f"\n🎯 <b>Бонус Lv{pet_level}:</b>")
+    lines.append(f"  ├ <i>{species_data.get('desc', 'Нет описания')}</i>")
+    lines.append(bonus_str)
 
-    if pet["fatigue"] == 100:
-        lines.append("\n<i>😴 Питомец полностью устал — бонусы отключены. Покормите его.</i>")
-    if pet["is_summoned"]:
-        lines.append("\n<i>✨ Призван из Осколков (не даёт осколок при распылении)</i>")
+    if pet.get("is_summoned"):
+        lines.append("\n<i>✨ Призван из Осколков — при распылении не даст осколок</i>")
 
     builder = InlineKeyboardBuilder()
     move_note = f"(+{PET_PLACEMENT_FATIGUE_RESTORE} уст.)"
@@ -328,10 +385,17 @@ async def cb_pet_view(query: types.CallbackQuery, callback_data: ZooCB, db):
                 callback_data=ZooCB(action="use_dust_l", pet_id=pet["id"], page=callback_data.page),
             )
 
-    builder.button(
-        text="🔙 Назад на Склад",
-        callback_data=ZooCB(action="storage", page=callback_data.page),
-    )
+    # Back button: nursery if pet is there, storage otherwise
+    if pet["placement"] in ("active", "passive"):
+        builder.button(
+            text="🔙 Назад в питомник",
+            callback_data=ZooCB(action="main", user_id=callback_data.user_id),
+        )
+    else:
+        builder.button(
+            text="🔙 Назад на склад",
+            callback_data=ZooCB(action="storage", page=callback_data.page, user_id=callback_data.user_id),
+        )
     builder.adjust(1, 1, 1, 1)
 
     await query.message.edit_text("\n".join(lines), reply_markup=builder.as_markup(), parse_mode="HTML")
