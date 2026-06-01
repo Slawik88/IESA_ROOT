@@ -39,6 +39,8 @@ KNOWN_COMMANDS: list[str] = [
     "история кошелька", "баланс лог",
     # Duel
     "дуэль",
+    # Profile themes
+    "темы", "мои темы",
 ]
 
 _SORTED_KNOWN = sorted(KNOWN_COMMANDS, key=len)
