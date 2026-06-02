@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import signal
 from aiogram import Bot, Dispatcher
 from loguru import logger
@@ -85,6 +86,25 @@ async def main():
         asyncio.create_task(duel_and_auction_task(bot))
         asyncio.create_task(chest_spawn_task(bot))
         asyncio.create_task(exchange_scheduler_task(bot))
+
+        # FastAPI mini-app server — same process, same DB pool.
+        # Activated when PORT env var is set (DigitalOcean Web Service sets it).
+        _api_port = int(os.getenv("PORT", "0"))
+        if _api_port:
+            try:
+                import uvicorn
+                from FastAPI.main import app as _fastapi_app
+                _api_cfg = uvicorn.Config(
+                    _fastapi_app,
+                    host="0.0.0.0",
+                    port=_api_port,
+                    log_level="warning",
+                    lifespan="on",
+                )
+                asyncio.create_task(uvicorn.Server(_api_cfg).serve())
+                logger.info(f"🌐 FastAPI мини-апп запущен на порту {_api_port}")
+            except Exception as _e:
+                logger.warning(f"FastAPI не запущен: {_e}")
 
         await dp.start_polling(bot)
     finally:
