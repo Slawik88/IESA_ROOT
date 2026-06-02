@@ -1287,25 +1287,37 @@ function submitLot(itemId) {
     .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
 
-function openBidModal(lotId,name,minBid,btn) {
-  const suggestedBid=Math.ceil(minBid*1.05);
-  OM(`💰 Ставка: ${name}`,
-    `<div class="irow"><span class="ik">Текущая ставка</span><span class="iv">${fmt(minBid)} 🪙</span></div>
-     <div class="irow"><span class="ik">Минимум для обгона</span><span style="color:var(--gold)">${fmt(Math.ceil(minBid+1))} 🪙</span></div>
-     <div class="divider"></div>
-     <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">Введите вашу ставку:</div>
-     <input id="bid-val" type="number" value="${suggestedBid}" min="${Math.ceil(minBid+1)}"
-       style="width:100%;background:var(--card);border:1px solid var(--border2);border-radius:var(--r);
-              padding:9px 12px;color:var(--bright);font-size:14px;font-family:inherit"/>`,
-    [{l:'💰 Поставить',c:'btn-gold',f:`doBid(${lotId},this)`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+// openBidModal(lotId, name, currentBid, minNextBid, hasBids, buyout)
+// minNextBid comes from server (min_bid if no bids, ceil(cur*1.05) if bids exist)
+function openBidModal(lotId, name, currentBid, minNextBid, hasBids, buyout) {
+  const firstBid = !hasBids;
+  const minLabel = firstBid
+    ? `Первая ставка — не менее <b>${fmt(minNextBid)} 🪙</b>`
+    : `Мин. для обгона — <b>${fmt(minNextBid)} 🪙</b> (текущая × 1.05)`;
+  const buyoutBtn = buyout
+    ? `<button class="btn btn-teal btn-full" style="margin-top:8px"
+             onclick="doBid(${lotId},this,${buyout})">⚡ Выкупить за ${fmt(buyout)} 🪙</button>`
+    : '';
+  OM(`💰 Ставка: ${name}`, `
+    <div class="irow"><span class="ik">Текущая ставка</span><span style="color:var(--gold);font-weight:700">${fmt(currentBid)} 🪙</span></div>
+    <div style="font-size:11px;color:var(--muted);margin:8px 0">${minLabel}</div>
+    <div class="divider"></div>
+    <input id="bid-val" class="num-input" type="number"
+           value="${minNextBid}" min="${minNextBid}" step="1"
+           placeholder="Ваша ставка 🪙"/>
+    <div style="font-size:10px;color:var(--muted);margin-top:6px">
+      Мора будет зарезервирована до завершения аукциона.
+    </div>
+    ${buyoutBtn}
+  `, [{l:'💰 Поставить ставку', c:'btn-gold', f:`doBid(${lotId},this,0)`}, {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
 }
-function doBid(lotId,btn) {
-  const v=parseFloat(el('bid-val').value);
-  if(isNaN(v)||v<=0){toast('Введите сумму.',false);return;}
-  btn.disabled=true;
-  api('/auction/bid',{method:'POST',body:JSON.stringify({lot_id:lotId,amount:v})})
-    .then(r=>{toast(r.is_buyout?'🎉 Выкуплено!':'✅ Ставка принята!');CM();loadAuction();})
-    .catch(e=>{toast(e,false);btn.disabled=false;});
+function doBid(lotId, btn, fixedAmount) {
+  const v = fixedAmount > 0 ? fixedAmount : parseFloat(el('bid-val')?.value || 0);
+  if (!v || v <= 0) { toast('Введите сумму.', false); return; }
+  btn.disabled = true;
+  api('/auction/bid', {method:'POST', body:JSON.stringify({lot_id:lotId, amount:v})})
+    .then(r => { toast(r.is_buyout ? '🎉 Выкуплено!' : '✅ Ставка принята!'); CM(); loadAuction(); })
+    .catch(e => { toast(e, false); btn.disabled = false; });
 }
 
 function loadShopCatalog() {
@@ -1332,10 +1344,36 @@ function loadShopCatalog() {
       </div>`).join('')}</div>`).join('');
   }).catch(e=>{el('mkt-shop').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
-function buyItem(id,btn) {
-  btn.disabled=true;
-  api('/shop/buy',{method:'POST',body:JSON.stringify({item_id:id,quantity:1})})
-    .then(r=>{toast('✅ Куплено: '+r.item_name);loadShopCatalog();}).catch(e=>{toast(e,false);btn.disabled=false;});
+// Block 9: warn before buying if already in inventory
+function buyItem(id, btn) {
+  const existing = _invData.find(i => i.item_id === id);
+  if (existing) {
+    OM('⚠️ Уже в инвентаре', `
+      <div style="text-align:center;padding:10px 0 14px">
+        <div style="font-size:24px;margin-bottom:8px">⚠️</div>
+        <div style="font-size:13px;font-weight:600;color:var(--bright);margin-bottom:6px">У вас уже есть этот предмет</div>
+        <div style="font-size:12px;color:var(--muted)">В инвентаре: <b style="color:var(--gold)">×${existing.quantity}</b></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">Купить ещё?</div>
+      </div>
+    `, [
+      {l:'✅ Да, купить ещё', c:'btn-gold', f:`doBuyConfirmed('${id}')`},
+      {l:'Отмена', c:'btn-ghost', f:'CM()'},
+    ]);
+    return;
+  }
+  _execBuy(id, btn);
+}
+function doBuyConfirmed(id) {
+  CM();
+  api('/shop/buy', {method:'POST', body:JSON.stringify({item_id:id, quantity:1})})
+    .then(r => { toast('✅ Куплено: ' + r.item_name); loadShopCatalog(); })
+    .catch(e => toast(e, false));
+}
+function _execBuy(id, btn) {
+  if(btn) btn.disabled = true;
+  api('/shop/buy', {method:'POST', body:JSON.stringify({item_id:id, quantity:1})})
+    .then(r => { toast('✅ Куплено: ' + r.item_name); loadShopCatalog(); })
+    .catch(e => { toast(e, false); if(btn) btn.disabled = false; });
 }
 function loadInventory() {
   el('mkt-inv').innerHTML='<div class="loader">Загрузка...</div>';
@@ -1742,18 +1780,32 @@ function filterAuction(q) {
   renderLots(lots);
 }
 function renderLots(lots) {
-  if(!el('lot-list'))return;
-  el('lot-list').innerHTML=lots.length?lots.map(l=>{
-    const ends=new Date((l.ends_at+'').includes('T')?l.ends_at:l.ends_at+'Z');
-    const diff=Math.max(0,Math.floor((ends-Date.now())/1000));
-    const tl=diff>3600?Math.floor(diff/3600)+'ч':(Math.floor(diff/60))+'мин';
+  if (!el('lot-list')) return;
+  el('lot-list').innerHTML = lots.length ? lots.map(l => {
+    const ends = new Date((l.ends_at+'').includes('T') ? l.ends_at : l.ends_at+'Z');
+    const diff = Math.max(0, Math.floor((ends - Date.now()) / 1000));
+    const tl = diff > 3600 ? Math.floor(diff/3600)+'ч' : Math.floor(diff/60)+'м';
+    const hasBids = !!l.has_bids;
+    const curBid = l.current_bid || l.min_bid;
+    const minNext = l.min_next_bid || (hasBids ? Math.ceil(curBid * 1.05) + 1 : Math.ceil(l.min_bid));
+    const buyout = l.buyout || 0;
+    const bidArgs = `${l.id},'${(l.item_name||'').replace(/'/g,'')}',${curBid},${minNext},${hasBids},${buyout}`;
     return `<div class="lot-card">
       <div class="lot-name">${l.item_name}${l.quantity>1?' ×'+l.quantity:''}</div>
-      <div class="lot-meta"><span>от ${l.seller_name||'Игрок'}</span><span>⏳ ${tl}</span></div>
+      <div class="lot-meta">
+        <span>от ${l.seller_name||'Игрок'}</span>
+        <span>⏳ ${tl}</span>
+        ${hasBids ? '<span style="color:var(--green);font-size:10px">🔥 Есть ставки</span>' : '<span style="color:var(--muted);font-size:10px">Первая ставка</span>'}
+      </div>
       <div style="display:flex;align-items:center;justify-content:space-between">
-        <div class="lot-bid">${fmt(l.current_bid||l.min_bid)} 🪙</div>
-        <button class="btn btn-sm btn-gold" onclick="openBidModal(${l.id},'${l.item_name}',${l.current_bid||l.min_bid},this)">💰 Ставка</button>
-      </div></div>`;}).join(''):'<div style="color:var(--muted);font-size:12px;padding:12px;text-align:center">Лотов нет.</div>';
+        <div>
+          <div class="lot-bid">${fmt(curBid)} 🪙</div>
+          ${buyout ? `<div style="font-size:10px;color:var(--teal)">⚡ Выкуп: ${fmt(buyout)} 🪙</div>` : ''}
+        </div>
+        <button class="btn btn-sm btn-gold" onclick="openBidModal(${bidArgs})">💰 Ставка</button>
+      </div>
+    </div>`;
+  }).join('') : '<div style="color:var(--muted);font-size:12px;padding:12px;text-align:center">Лотов нет.</div>';
 }
 
 // ── Duel challenge via web ────────────────────────────────────────────────────

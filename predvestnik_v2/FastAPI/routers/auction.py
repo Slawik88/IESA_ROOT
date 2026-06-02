@@ -6,6 +6,7 @@ from FastAPI.deps import get_db, require_tg_user
 from core.constants import AUCTION_COMMISSION, AUCTION_MIN_BID
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories.economy import get_balance, get_item_quantity
+from infrastructure.repositories.auction import get_reserve
 from services.auction import place_bid, create_auction_lot
 
 router = APIRouter(prefix="/auction", tags=["auction"])
@@ -13,11 +14,12 @@ router = APIRouter(prefix="/auction", tags=["auction"])
 
 @router.get("/lots")
 async def active_lots(db=Depends(get_db)):
-    """Активные лоты аукциона."""
+    """Активные лоты аукциона с флагом наличия ставок."""
     async with db.execute(
         "SELECT al.id, al.seller_id, al.item_name, al.quantity, al.min_bid, "
         "al.buyout, al.ends_at, al.status, "
         "COALESCE(MAX(ab.amount), al.min_bid) AS current_bid, "
+        "COUNT(ab.id) AS bid_count, "
         "u.user_tg_username AS seller_name "
         "FROM auction_lots al "
         "LEFT JOIN auction_bids ab ON ab.lot_id = al.id AND ab.is_active = 1 "
@@ -26,13 +28,20 @@ async def active_lots(db=Depends(get_db)):
         "GROUP BY al.id, u.user_tg_username "
         "ORDER BY al.ends_at ASC LIMIT 50",
     ) as c:
-        lots = [dict(r) for r in await c.fetchall()]
-    return lots
+        rows = [dict(r) for r in await c.fetchall()]
+    # Add has_bids and compute minimum_next_bid for correct UI validation
+    for r in rows:
+        r["has_bids"] = r.get("bid_count", 0) > 0
+        if r["has_bids"]:
+            r["min_next_bid"] = int(r["current_bid"] * 1.05) + 1
+        else:
+            r["min_next_bid"] = int(r["min_bid"])
+    return rows
 
 
 @router.get("/my-lots")
 async def my_lots(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Лоты текущего пользователя (активные и завершённые)."""
+    """Лоты текущего пользователя."""
     async with db.execute(
         "SELECT id, item_name, quantity, min_bid, buyout, ends_at, status, "
         "COALESCE((SELECT MAX(amount) FROM auction_bids WHERE lot_id = auction_lots.id AND is_active=1), 0) AS current_bid "
@@ -59,10 +68,10 @@ async def my_bids(db=Depends(get_db), user=Depends(require_tg_user)):
 
 
 class CreateLotRequest(BaseModel):
-    item_id: str
+    item_id:  str
     quantity: int = 1
-    min_bid: float
-    buyout: float | None = None
+    min_bid:  float
+    buyout:   float | None = None
 
 
 @router.post("/create")
@@ -80,7 +89,7 @@ async def create_lot(body: CreateLotRequest, db=Depends(get_db), user=Depends(re
 
     ok, result = await create_auction_lot(
         db, user["id"], item.get("category", "item"),
-        "inventory", body.item_id, body.quantity,
+        "inventory", abs(hash(body.item_id)) % (10**9), body.quantity,
         f"{item['name']} ×{body.quantity}" if body.quantity > 1 else item["name"],
         body.min_bid, body.buyout,
     )
@@ -97,15 +106,25 @@ class BidRequest(BaseModel):
 
 @router.post("/bid")
 async def bid(body: BidRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Поставить ставку на лот."""
+    """Поставить ставку. Проверяет свободный баланс (за вычетом резерва)."""
     bal = await get_balance(db, user["id"])
-    if bal["user_balance_mora"] < body.amount:
-        raise HTTPException(400, f"Недостаточно Моры. Нужно {body.amount}, есть {bal['user_balance_mora']:.0f}.")
+    reserved = await get_reserve(db, user["id"])
+    free_mora = bal["user_balance_mora"] - reserved
+
+    if free_mora < body.amount:
+        raise HTTPException(
+            400,
+            f"Недостаточно свободной Моры. Свободно: {free_mora:.0f} 🪙 "
+            f"(зарезервировано в ставках: {reserved:.0f} 🪙).",
+        )
 
     result = await place_bid(db, body.lot_id, user["id"], body.amount)
     if not result.get("ok"):
         raise HTTPException(400, result.get("error", "Ошибка ставки."))
 
     await db.commit()
-    return {"ok": True, "is_buyout": result.get("is_buyout", False),
-            "commission_pct": AUCTION_COMMISSION * 100}
+    return {
+        "ok": True,
+        "is_buyout": result.get("is_buyout", False),
+        "commission_pct": AUCTION_COMMISSION * 100,
+    }
