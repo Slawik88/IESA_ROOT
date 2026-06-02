@@ -6,20 +6,25 @@ Dev-команды для принудительного запуска.
 from datetime import datetime, timedelta, timezone
 
 from aiogram import Router, types, Bot
+from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from core.constants import (
+    CHEST_DURATION_SECONDS,
     CHEST_SPAWN_MIN_HOURS, CHEST_SPAWN_MAX_HOURS, CHEST_MAX_CLAIMANTS,
-    CHEST_REWARDS_BY_POSITION, CHEST_TOP3_BONUS_ITEM,
+    CHEST_REWARDS_BY_POSITION,
     EXCHANGE_RATE_MORA_PER_DIAMOND, EXCHANGE_DAILY_CAP_DIAMONDS,
     DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS,
     DARK_MORA_CONTRABANDA_COOLDOWN_DAYS,
     DARK_MORA_CULT_COOLDOWN_DAYS,
 )
+from infrastructure.repositories.chest_events import create_chest
 from infrastructure.repositories.exchange import (
     get_active_event as _get_active_exchange,
     get_scheduled_event as _get_scheduled_exchange,
+    create_event as _create_exchange_event,
+    activate_event as _activate_exchange_event,
 )
 from infrastructure.repositories.streak import get_chat_timezone
 
@@ -128,6 +133,10 @@ async def cmd_events_info(message: types.Message, db):
 
 # ── Developer force-commands ──────────────────────────────────────────────────
 
+class _ChestCB(CallbackData, prefix="chest"):
+    chest_id: int
+
+
 @router.message(TextCmd(["форс сундук", "форс_сундук", "force chest"]))
 async def cmd_force_chest(message: types.Message, db, bot: Bot, developer_id: int = 0):
     """Dev-only: force-spawn a chest in the current chat."""
@@ -136,18 +145,10 @@ async def cmd_force_chest(message: types.Message, db, bot: Bot, developer_id: in
     if message.chat.type == "private":
         return await message.answer("❌ Только в группах.")
 
-    from datetime import timedelta
-    from core.constants import CHEST_DURATION_SECONDS
-    from infrastructure.repositories.chest_events import create_chest
-    from aiogram.filters.callback_data import CallbackData
-
     expires = datetime.now(timezone.utc) + timedelta(seconds=CHEST_DURATION_SECONDS)
     expires_str = expires.strftime("%Y-%m-%d %H:%M:%S")
     chest_id = await create_chest(db, message.chat.id, expires_str)
     await db.commit()
-
-    class _ChestCB(CallbackData, prefix="chest"):
-        chest_id: int
 
     b = InlineKeyboardBuilder()
     b.button(
@@ -159,10 +160,10 @@ async def cmd_force_chest(message: types.Message, db, bot: Bot, developer_id: in
     await bot.send_message(
         message.chat.id,
         f"💰 <b>НАЙДЕН СУНДУК ПРЕДВЕСТНИКА!</b>\n\n"
-        f"🥇 1 место: <b>{int(r.get(1,300))} 🪙</b> + 🎟 Жетон\n"
-        f"🥈 2 место: <b>{int(r.get(2,260))} 🪙</b> + 🎟 Жетон\n"
-        f"🥉 3 место: <b>{int(r.get(3,220))} 🪙</b> + 🎟 Жетон\n"
-        f"4–15 место: <b>{int(r.get(15,30))}–{int(r.get(4,190))} 🪙</b>\n\n"
+        f"🥇 1 место: <b>{int(r.get(1, 300))} 🪙</b> + 🎟 Жетон\n"
+        f"🥈 2 место: <b>{int(r.get(2, 260))} 🪙</b> + 🎟 Жетон\n"
+        f"🥉 3 место: <b>{int(r.get(3, 220))} 🪙</b> + 🎟 Жетон\n"
+        f"4–15 место: <b>{int(r.get(15, 30))}–{int(r.get(4, 190))} 🪙</b>\n\n"
         "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
         reply_markup=b.as_markup(),
         parse_mode="HTML",
@@ -176,20 +177,15 @@ async def cmd_force_exchange(message: types.Message, db, developer_id: int = 0):
     if not developer_id or message.from_user.id != developer_id:
         return
 
-    from infrastructure.repositories.exchange import (
-        create_event, activate_event,
-        get_active_event, get_scheduled_event,
-    )
-
-    active = await get_active_event(db)
+    active = await _get_active_exchange(db)
     if active:
         return await message.answer("⚠️ Ивент обмена уже активен.")
 
     now = datetime.now(timezone.utc)
     starts = now.strftime("%Y-%m-%d %H:%M:%S")
     ends = (now + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
-    eid = await create_event(db, starts, ends)
-    await activate_event(db, eid)
+    eid = await _create_exchange_event(db, starts, ends)
+    await _activate_exchange_event(db, eid)
     await db.commit()
     await message.answer(
         f"✅ <b>Ивент обмена запущен!</b>\n"

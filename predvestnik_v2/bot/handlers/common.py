@@ -11,6 +11,8 @@ from core.registry import ITEMS_REGISTRY
 from html import escape as _he
 
 _WEB_BASE_URL = os.getenv("WEB_BASE_URL", "http://127.0.0.1:8000")
+# URL Telegram Mini App (FastAPI). Must be HTTPS for WebAppInfo to work.
+_MINIAPP_URL = os.getenv("MINIAPP_URL", _WEB_BASE_URL)
 
 router = Router(name="common_router")
 
@@ -491,21 +493,26 @@ async def handle_help_tabs(query: types.CallbackQuery, callback_data: HelpCallba
 
 
 
-@router.message(TextCmd(["сайт", "веб", "панель"]))
+@router.message(TextCmd(["сайт", "веб", "мини апп", "miniapp", "app", "приложение"]))
 async def cmd_web(message: types.Message):
     builder = InlineKeyboardBuilder()
 
-    # Динамическая ссылка: подставляем ID пользователя прямо в URL
-    user_id = message.from_user.id
-    url = f"{_WEB_BASE_URL}/profile/{user_id}/"
-
-    builder.button(text="🌐 Открыть мой профиль", url=url)
+    # Telegram Mini App button — opens inline WebView inside Telegram.
+    # Falls back to URL button if the URL is not HTTPS (local dev).
+    if _MINIAPP_URL.startswith("https://"):
+        builder.button(
+            text="🔮 Открыть мини-апп",
+            web_app=types.WebAppInfo(url=_MINIAPP_URL),
+        )
+    else:
+        builder.button(text="🔮 Открыть мини-апп", url=_MINIAPP_URL)
 
     await message.answer(
-        "🖥 <b>ВЕБ-ПАНЕЛЬ ПРЕДВЕСТНИКА</b>\n\n"
-        "<i>Нажмите на кнопку ниже, чтобы открыть свою персональную страницу.</i>",
+        "🔮 <b>ПРЕДВЕСТНИК — МИНИ-АПП</b>\n\n"
+        "Твой профиль, топы, статус ивентов — прямо в Telegram.\n\n"
+        "<i>Нажми кнопку ниже ↓</i>",
         reply_markup=builder.as_markup(),
-        parse_mode="HTML"
+        parse_mode="HTML",
     )
 
 
