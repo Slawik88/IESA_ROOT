@@ -10,6 +10,7 @@ from infrastructure.repositories import users
 from infrastructure.repositories.streak import get_chat_timezone
 from services import leveling
 from services.quests import increment_metric as quest_increment_metric
+from services.achievements import increment_metric as ach_increment_metric, format_achievement_notification
 from services.utils import safe_html
 
 anti_spam_cache: dict[int, float] = {}
@@ -26,6 +27,16 @@ _QUEST_METRIC_LABELS: dict[str, str] = {
     "rare_or_better_pet_dups_today": "Rare+ дубликатов",
     "pet_level_ups_today":           "Уровень питомца поднят",
 }
+
+
+def _notify_achievements(bot, chat_id: int, grants: list) -> None:
+    """Fire-and-forget achievement notifications in chat."""
+    import asyncio
+    text = format_achievement_notification(grants)
+    if bot and text:
+        asyncio.ensure_future(
+            bot.send_message(chat_id, text, parse_mode="HTML")
+        )
 
 
 def _notify_quest_completions(bot, chat_id: int, user, completed: list) -> None:
@@ -147,13 +158,24 @@ async def db_middleware(
                     db, user.id, chat_obj.id, _tz
                 )
 
-                # Daily quest: messages_in_chat_today — no-op if user hasn't opened задания today.
+                # Daily quest: messages_in_chat_today
                 try:
                     completed = await quest_increment_metric(
                         db, user.id, chat_obj.id, "messages_in_chat_today", delta=1.0
                     )
                     if completed:
                         _notify_quest_completions(data.get("bot"), chat_obj.id, user, completed)
+                except Exception:
+                    pass
+
+                # Achievement: talker (messages_total_global — глобальный счётчик)
+                try:
+                    ach_grants = await ach_increment_metric(
+                        db, user.id, "messages_total_global", delta=1.0, chat_id=chat_obj.id
+                    )
+                    if ach_grants:
+                        await db.commit()
+                        _notify_achievements(data.get("bot"), chat_obj.id, ach_grants)
                 except Exception:
                     pass
 

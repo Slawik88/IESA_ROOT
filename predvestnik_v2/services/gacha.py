@@ -13,6 +13,7 @@ from core.registry import GACHA_TABLES, PITY_HARD_REWARD, PET_SPECIES
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories import gacha as gacha_repo
 from infrastructure.repositories.zoo import grant_duplicate
+from services.achievements import increment_metric as _incr_ach
 
 
 # ── Low-level helpers ─────────────────────────────────────────────────────────
@@ -218,8 +219,7 @@ async def roll_single(
         await db.commit()
         # Achievement: gacha_spins
         try:
-            from services.achievements import increment_metric as _incr
-            await _incr(db, user_id, "gacha_spins", delta=1.0)
+            await _incr_ach(db, user_id, "gacha_spins", delta=1.0)
             await db.commit()
         except Exception:
             pass

@@ -5,6 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.filters.text_commands import TextCmd
 from core.registry import ITEMS_REGISTRY
 from services.economy import EconomyService
+from services.achievements import increment_metric as ach_incr
 from infrastructure.repositories.economy import get_inventory, get_balance
 from services.utils import format_currency, check_callback_owner, safe_html
 
@@ -279,6 +280,15 @@ async def cb_shop_do_buy(query: types.CallbackQuery, callback_data: ShopCB, db):
     success, msg = await economy.purchase_item(query.from_user.id, item_id, qty)
 
     if success:
+        # Track patron achievement (mora spent in shop)
+        prices = await economy.get_item_prices(item_id, query.from_user.id)
+        mora_spent = prices["mora"] * qty
+        if mora_spent > 0:
+            try:
+                await ach_incr(db, query.from_user.id, "patron", delta=mora_spent)
+                await db.commit()
+            except Exception:
+                pass
         async with db.execute(
             "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?",
             (query.from_user.id, item_id),
