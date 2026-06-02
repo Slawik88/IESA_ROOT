@@ -504,9 +504,12 @@ dialog::backdrop{background:rgba(0,0,0,.82);backdrop-filter:blur(5px)}
 
 <script>
 const tg = window.Telegram?.WebApp;
-if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#08090f'); }
+if (tg) { tg.ready(); tg.expand(); }  // setHeaderColor removed — deprecated in TG WebApp v6.0
 
 const BASE = (location.origin + location.pathname).replace(/\/$/, '');
+
+// el() defined here — BEFORE any usage to avoid TDZ ReferenceError
+const el = id => document.getElementById(id);
 const INIT_DATA = tg?.initData || '';
 const SK = 'pv_sess';
 const MEDALS = ['🥇','🥈','🥉'];
@@ -566,7 +569,6 @@ function showWsNotif(event) {
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
-const el = id => document.getElementById(id);
 const fmt = n => Number(n).toLocaleString('ru');
 const fatC = f => f<40?'var(--green)':f<70?'var(--gold)':'var(--red)';
 function rc(r) { return `<span class="rc ${RC[r]||'rc-common'}">${r}</span>`; }

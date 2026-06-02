@@ -115,6 +115,18 @@ async def init_db():
             except Exception:
                 pass
 
+        # Migrations: add dark mora columns to users
+        for _stmt in [
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS dark_mora INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS contrabanda_last_at TIMESTAMP DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS contrabanda_banned_until TIMESTAMP DEFAULT NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS ritual_last_at TIMESTAMP DEFAULT NULL",
+        ]:
+            try:
+                await db.execute(_stmt)
+            except Exception:
+                pass
+
         # 5. Warnings history
         await db.execute("""
             CREATE TABLE IF NOT EXISTS user_warnings (

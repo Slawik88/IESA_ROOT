@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
-from services.duel import decline_duel
+from infrastructure.repositories.zoo import get_user_pets as _get_pets
+from services.duel import decline_duel, create_challenge
 
 router = APIRouter(prefix="/duels", tags=["duels"])
 
@@ -61,13 +62,11 @@ async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(req
     if target[0] == user["id"]:
         raise HTTPException(400, "Нельзя вызвать самого себя.")
 
-    # Need at least one active pet with non-100 fatigue
     my_pets = await _get_pets(db, user["id"], placement="nursery")
     if not my_pets:
         raise HTTPException(400, "Нужен хотя бы один питомец в питомнике.")
 
     pet = my_pets[0]
-    from services.duel import create_challenge
     ok, result = await create_challenge(
         db, user["id"], target[0], body.chat_id, body.stake, pet
     )
