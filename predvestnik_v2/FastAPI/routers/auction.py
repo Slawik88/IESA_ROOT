@@ -1,11 +1,12 @@
-"""FastAPI/routers/auction.py — просмотр лотов и ставки."""
+"""FastAPI/routers/auction.py — просмотр лотов, ставки, создание."""
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
-from core.constants import AUCTION_COMMISSION
-from infrastructure.repositories.economy import get_balance
-from services.auction import place_bid
+from core.constants import AUCTION_COMMISSION, AUCTION_MIN_BID
+from core.registry import ITEMS_REGISTRY
+from infrastructure.repositories.economy import get_balance, get_item_quantity
+from services.auction import place_bid, create_auction_lot
 
 router = APIRouter(prefix="/auction", tags=["auction"])
 
@@ -55,6 +56,38 @@ async def my_bids(db=Depends(get_db), user=Depends(require_tg_user)):
         (user["id"],),
     ) as c:
         return [dict(r) for r in await c.fetchall()]
+
+
+class CreateLotRequest(BaseModel):
+    item_id: str
+    quantity: int = 1
+    min_bid: float
+    buyout: float | None = None
+
+
+@router.post("/create")
+async def create_lot(body: CreateLotRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Выставить предмет из инвентаря на аукцион."""
+    item = ITEMS_REGISTRY.get(body.item_id)
+    if not item:
+        raise HTTPException(400, "Предмет не найден.")
+    if body.min_bid < AUCTION_MIN_BID:
+        raise HTTPException(400, f"Минимальная ставка: {AUCTION_MIN_BID} 🪙.")
+
+    have = await get_item_quantity(db, user["id"], body.item_id)
+    if have < body.quantity:
+        raise HTTPException(400, f"В инвентаре только {have} шт.")
+
+    ok, result = await create_auction_lot(
+        db, user["id"], item.get("category", "item"),
+        "inventory", body.item_id, body.quantity,
+        f"{item['name']} ×{body.quantity}" if body.quantity > 1 else item["name"],
+        body.min_bid, body.buyout,
+    )
+    if not ok:
+        raise HTTPException(400, str(result))
+    await db.commit()
+    return {"ok": True, "lot_id": result}
 
 
 class BidRequest(BaseModel):
