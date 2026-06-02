@@ -226,16 +226,29 @@ body{background:var(--bg);color:var(--text);
 .ach-fill{height:100%;border-radius:2px;background:var(--gold);transition:.4s}
 .ach-prog{font-size:10px;color:var(--muted)}
 
-/* Themes */
+/* Themes / Cosmetics */
 .theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.theme-card{background:var(--s);border-radius:var(--r);padding:12px;cursor:pointer;
-            border:1px solid var(--border2);transition:.15s;position:relative}
-.theme-card:hover{border-color:var(--border)}
-.theme-card.owned{border-color:rgba(82,179,96,.3)}
-.theme-card.active-theme{border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.2)}
-.theme-preview{font-size:12px;color:var(--muted);margin:4px 0;font-family:monospace;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.theme-name{font-size:13px;font-weight:600;color:var(--bright);margin-bottom:2px}
-.theme-price{font-size:11px;color:var(--gold);margin-top:4px}
+.theme-card{background:var(--s);border-radius:var(--r);padding:10px;cursor:pointer;
+            border:1px solid var(--border2);transition:.15s;position:relative;overflow:hidden}
+.theme-card:hover{border-color:var(--border);transform:translateY(-1px)}
+.theme-card.owned{border-color:rgba(82,179,96,.35)}
+.theme-card.active-theme{border-color:var(--gold);box-shadow:0 0 10px rgba(201,168,76,.25),0 0 0 1px rgba(201,168,76,.1)}
+.theme-deco{font-size:10px;color:var(--muted);font-family:monospace;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;letter-spacing:0}
+.theme-name{font-size:12px;font-weight:700;color:var(--bright);margin:5px 0 2px}
+.theme-price{font-size:10px;color:var(--gold);margin-top:4px}
+.theme-status{font-size:9px;padding:2px 6px;border-radius:99px;font-weight:600}
+.ts-active{background:rgba(201,168,76,.2);color:var(--gold)}
+.ts-owned{background:rgba(82,179,96,.2);color:var(--green)}
+.ts-event{background:rgba(99,102,241,.2);color:#818cf8}
+.ts-gacha{background:rgba(157,114,255,.2);color:var(--purple)}
+.ts-dark{background:rgba(100,80,150,.2);color:#9080c0}
+
+/* Profile preview in theme modal */
+.profile-preview{background:var(--card);border-radius:var(--r);padding:12px;margin:10px 0;border:1px solid var(--border2)}
+.pp-deco{font-size:11px;font-family:monospace;color:var(--muted);text-align:center;letter-spacing:0}
+.pp-content{padding:8px 0;text-align:center}
+.pp-name{font-size:14px;font-weight:700;color:var(--bright);margin-bottom:3px}
+.pp-info{font-size:11px;color:var(--muted)}
 
 /* Auction */
 .lot-card{padding:11px 0;border-bottom:1px solid var(--border2)}
@@ -637,6 +650,7 @@ function loadProfile() {
   api('/profile/me').then(d=>{
     _cid=d.chats?.[0]?.chat_tg_id||0;
     if(d.user_id) _uid=d.user_id;
+    _profileData=d;  // cache for theme preview
     const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,3);
     el('pro-main').innerHTML=`
       <div class="card card-gold">
@@ -1290,59 +1304,146 @@ function doApplyDust(did,pid,row) {
 }
 function goArenaGacha() { CM(); document.querySelectorAll('.nb')[2].click(); swArena('gacha',document.querySelectorAll('#pg-arena .tb')[1]); }
 
+// ── Source info for themes ────────────────────────────────────────────────────
+const SRC = {
+  start:          {label:'Стартовая',     desc:'Есть у всех игроков с самого начала. Бесплатно!', action:null},
+  shop_mora:      {label:'Магазин 🪙',    desc:'Купите напрямую в Магазине за Мору.', action:null},
+  shop_diamond:   {label:'Магазин 💎',    desc:'Купите в Магазине за Алмазы.', action:null},
+  dark:           {label:'Чёрный Рынок 🌑', desc:'Покупается за Тёмную Мору на Чёрном Рынке. Зарабатывайте Тёмную Мору через Контрабанду и Ритуал Культа Бездны.', action:{l:'🌑 Открыть Тёмную Мору', f:"goTo('arena','dark')"}},
+  zarniki:        {label:'Зарники ✨',     desc:'Приобретается за донат-валюту Зарники (Telegram Stars). 1 Звезда = 10 Зарников.', action:null},
+  gacha_novice:   {label:'Гача 🎲',       desc:'Может выпасть из Ученической крутки гачи. Шанс — случайный.', action:{l:'🎲 Открыть Гачу', f:"goTo('arena','gacha')"}},
+  gacha_standard: {label:'Гача 🎲',       desc:'Может выпасть из Стандартной крутки гачи (1000 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('arena','gacha')"}},
+  gacha_premium:  {label:'Гача 🎲',       desc:'Может выпасть из Премиум крутки гачи (2800 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('arena','gacha')"}},
+  gacha_diamond:  {label:'Гача 💎',       desc:'Выпадает из Алмазной крутки гачи (5 💎 / спин). Самые редкие темы.', action:{l:'🎲 Открыть Гачу', f:"goTo('arena','gacha')"}},
+  event:          {label:'Ивент 🎪',      desc:'Выдаётся за участие в особых мировых событиях. Следите за объявлениями в чате.', action:null},
+  auction:        {label:'Аукцион 🏛',    desc:'Можно купить у других игроков на Аукционе.', action:{l:'🏛 Открыть Аукцион', f:"goTo('market','auc')"}},
+};
+
+function goTo(page, sub) {
+  CM();
+  const pageBtn = [...document.querySelectorAll('.nb')].find(b=>b.onclick?.toString().includes(`'${page}'`));
+  if(pageBtn) pageBtn.click();
+  setTimeout(() => {
+    const subBtn = document.querySelector(`#pg-${page} .tb`);
+    if(sub && subBtn) {
+      const allTabs = document.querySelectorAll(`#pg-${page} .tb`);
+      const target = [...allTabs].find(b=>b.onclick?.toString().includes(`'${sub}'`));
+      if(target) target.click();
+    }
+  }, 100);
+}
+
 // ── Collection ────────────────────────────────────────────────────────────────
+let _profileData = null;   // cache for profile preview in theme modal
+
 function loadColl(){swColl('themes',document.querySelector('#pg-coll .tb'));}
 function swColl(tab,btn) {
   document.querySelectorAll('#pg-coll .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   el('col-themes').style.display=tab==='themes'?'':'none';
   el('col-top').style.display=tab==='top'?'':'none';
-  if(tab==='themes')loadThemes();
-  else if(tab==='top'&&!el('top-c').textContent.includes('🥇'))loadTop();
+  if(tab==='themes') loadThemes();
+  else if(tab==='top') loadTop();
 }
+
+function themeStatusBadge(t) {
+  if(t.active)   return '<span class="theme-status ts-active">✓ Активна</span>';
+  if(t.owned)    return '<span class="theme-status ts-owned">В коллекции</span>';
+  if(t.source && t.source.startsWith('gacha')) return '<span class="theme-status ts-gacha">Гача 🎲</span>';
+  if(t.source === 'event')   return '<span class="theme-status ts-event">Ивент 🎪</span>';
+  if(t.source === 'dark')    return '<span class="theme-status ts-dark">🌑</span>';
+  if(t.price_mora)    return `<div class="theme-price">${fmt(t.price_mora)} 🪙</div>`;
+  if(t.price_diamonds)return `<div class="theme-price">${t.price_diamonds} 💎</div>`;
+  return '';
+}
+
 function loadThemes() {
-  api('/themes/').then(themes=>{
-    _themeData=themes;
-    const groups={};
-    themes.forEach(t=>(groups[t.rarity]=groups[t.rarity]||[]).push(t));
-    const order=['common','uncommon','rare','epic','legendary','mythic','shadow','zarniki','seasonal'];
-    el('col-themes').innerHTML=order.filter(r=>groups[r]).map(r=>`<div class="card">
-      <div class="card-title">${themes.find(t=>t.rarity===r)?.badge||''} ${themes.find(t=>t.rarity===r)?.rarity_label||r}</div>
-      <div class="theme-grid">${groups[r].map(t=>`<div class="theme-card${t.owned?' owned':''}${t.active?' active-theme':''}" onclick="openThemeModal('${t.theme_id}')">
-        <div class="theme-name">${t.name}</div>
-        <div class="theme-preview">${t.top||'—'}</div>
-        <div style="font-size:10px;color:var(--muted)">${t.desc||''}</div>
-        ${t.active?'<div style="font-size:10px;color:var(--gold);margin-top:4px">✓ Активна</div>':t.owned?'<div style="font-size:10px;color:var(--green);margin-top:4px">В коллекции</div>':t.price_mora?`<div class="theme-price">${fmt(t.price_mora)} 🪙</div>`:t.price_diamonds?`<div class="theme-price">${t.price_diamonds} 💎</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:4px">${t.source}</div>'}
-      </div>`).join('')}</div></div>`).join('');
-  }).catch(e=>{el('col-themes').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
+  api('/themes/').then(themes => {
+    _themeData = themes;
+    const groups = {};
+    themes.forEach(t => (groups[t.rarity] = groups[t.rarity]||[]).push(t));
+    const ORDER = ['common','uncommon','rare','epic','legendary','mythic','shadow','zarniki','seasonal'];
+    el('col-themes').innerHTML = ORDER.filter(r => groups[r]).map(r => {
+      const label = `${groups[r][0]?.badge||''} ${groups[r][0]?.rarity_label||r}`;
+      return `<div class="card">
+        <div class="card-title">${label}</div>
+        <div class="theme-grid">${groups[r].map(t => `
+          <div class="theme-card${t.owned?' owned':''}${t.active?' active-theme':''}" onclick="openThemeModal('${t.theme_id}')">
+            <div class="theme-deco">${t.top||'━━━━━━━━'}</div>
+            <div class="theme-name">${t.name}</div>
+            <div class="theme-deco" style="margin-top:3px">${t.bot_line||'━━━━━━━━'}</div>
+            <div style="margin-top:6px">${themeStatusBadge(t)}</div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }).catch(e => { el('col-themes').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
+
+function buildProfilePreview(t) {
+  const p = _profileData;
+  const name = p ? `@${p.username||'Игрок'}` : '@Игрок';
+  const info = p ? `Lv${p.chats?.[0]?.user_level||1} · 🔥${p.streak||0} стрик · 🪙 ${fmt(p.mora||0)}` : 'Загрузка...';
+  return `<div class="profile-preview">
+    <div class="pp-deco">${t.top||''}</div>
+    <div class="pp-content">
+      <div class="pp-name">${t.accent||'🔮'} ${name}</div>
+      <div class="pp-info">${t.rarity_label} · ${info}</div>
+    </div>
+    <div class="pp-deco">${t.bot_line||''}</div>
+  </div>`;
+}
+
 function openThemeModal(tid) {
-  if(!_themeData)return;
-  const t=_themeData.find(x=>x.theme_id===tid);if(!t)return;
-  const price=t.price_mora?`${fmt(t.price_mora)} 🪙`:t.price_diamonds?`${t.price_diamonds} 💎`:null;
-  let body=`<div style="text-align:center;padding:12px 0">
-    <div style="font-size:11px;color:var(--muted);font-family:monospace;margin-bottom:6px">${t.top||''}</div>
-    <div style="font-size:14px;font-weight:600;color:var(--bright);margin:4px 0">${t.name}</div>
-    <div style="font-size:11px;color:var(--muted);font-family:monospace">${t.bot_line||''}</div>
-  </div>
-  <div class="divider"></div>
-  <div class="irow"><span class="ik">Редкость</span><span>${t.badge} ${t.rarity_label}</span></div>
-  <div class="irow"><span class="ik">Источник</span><span class="iv">${t.source}</span></div>
-  ${price?`<div class="irow"><span class="ik">Цена</span><span style="color:var(--gold)">${price}</span></div>`:''}
-  ${t.desc?`<div style="font-size:11px;color:var(--muted);margin-top:8px">${t.desc}</div>`:''}`;
-  const btns=[{l:'Закрыть',c:'btn-ghost',f:'CM()'}];
-  if(t.active){}
-  else if(t.owned)btns.unshift({l:'✓ Надеть',c:'btn-gold',f:`doEquipTheme('${tid}')`});
-  else if(price&&(t.source==='shop_mora'||t.source==='shop_diamond'))btns.unshift({l:`Купить ${price}`,c:'btn-gold',f:`doBuyTheme('${tid}')`});
-  OM(t.name,body,btns);
+  if(!_themeData) return;
+  const t = _themeData.find(x => x.theme_id === tid);
+  if(!t) return;
+
+  const price = t.price_mora ? `${fmt(t.price_mora)} 🪙` : t.price_diamonds ? `${t.price_diamonds} 💎` : null;
+  const src = SRC[t.source] || SRC[t.source?.split('_')[0]+'_'+t.source?.split('_').slice(1).join('_')] || {label:t.source, desc:'', action:null};
+  const buyable = price && (t.source === 'shop_mora' || t.source === 'shop_diamond');
+
+  const body = `
+    <!-- Profile preview with this theme -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Предпросмотр профиля</div>
+      ${buildProfilePreview(t)}
+    </div>
+    <div class="divider"></div>
+    <div class="irow"><span class="ik">Редкость</span><span>${t.badge} ${t.rarity_label}</span></div>
+    ${t.desc ? `<div style="font-size:11px;color:var(--muted);margin:8px 0;line-height:1.4">${t.desc}</div>` : ''}
+    <div class="divider"></div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Как получить</div>
+    <div style="background:var(--card);border-radius:var(--r);padding:10px">
+      <div style="font-size:12px;font-weight:600;color:var(--bright);margin-bottom:4px">${src.label}</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.4">${src.desc}</div>
+      ${src.action ? `<button class="btn btn-ghost btn-sm btn-full" style="margin-top:8px" onclick="${src.action.f}">${src.action.l}</button>` : ''}
+    </div>
+    ${price ? `<div class="irow" style="margin-top:10px"><span class="ik">Цена</span><span style="color:var(--gold);font-weight:700">${price}</span></div>` : ''}
+    ${t.active ? `<div style="text-align:center;padding:10px;color:var(--gold);font-size:12px;font-weight:600">✓ Это ваша активная тема</div>` : ''}
+  `;
+
+  const btns = [{l:'Закрыть', c:'btn-ghost', f:'CM()'}];
+  if(!t.active && t.owned) btns.unshift({l:'✓ Надеть', c:'btn-gold', f:`doEquipTheme('${tid}')`});
+  else if(buyable && !t.owned) btns.unshift({l:`Купить — ${price}`, c:'btn-gold', f:`doBuyTheme('${tid}')`});
+
+  OM(t.name, body, btns);
+
+  // Lazy-load profile for preview
+  if(!_profileData && (INIT_DATA || sess())) {
+    api('/profile/me').then(d => { _profileData=d; el('mb').innerHTML=body; }).catch(()=>{});
+  }
 }
+
 function doBuyTheme(tid) {
-  api('/themes/buy',{method:'POST',body:JSON.stringify({theme_id:tid})})
-    .then(r=>{toast(`✅ ${r.theme_name} куплена!`);CM();loadThemes();}).catch(e=>toast(e,false));
+  api('/themes/buy', {method:'POST', body:JSON.stringify({theme_id:tid})})
+    .then(r => { toast(`✅ ${r.theme_name} куплена!`); CM(); loadThemes(); })
+    .catch(e => toast(e, false));
 }
 function doEquipTheme(tid) {
-  api('/themes/equip',{method:'POST',body:JSON.stringify({theme_id:tid})})
-    .then(()=>{toast('✅ Тема активирована!');CM();loadThemes();}).catch(e=>toast(e,false));
+  api('/themes/equip', {method:'POST', body:JSON.stringify({theme_id:tid})})
+    .then(() => { toast('✅ Тема активирована!'); CM(); loadThemes(); })
+    .catch(e => toast(e, false));
 }
 
 // ── Top ───────────────────────────────────────────────────────────────────────
