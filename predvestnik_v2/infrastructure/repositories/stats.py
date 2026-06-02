@@ -129,11 +129,13 @@ async def get_top_achievements(db: aiosqlite.Connection, chat_id: int | None, li
 
 
 async def get_top_messages_global(db: aiosqlite.Connection, limit: int = 10) -> list[dict]:
+    # PostgreSQL requires all non-aggregated columns in GROUP BY.
     async with db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, "
         "SUM(s.user_messages_count_all_time) AS value "
         "FROM user_chat_stats s LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
-        f"GROUP BY s.user_tg_id HAVING SUM(s.user_messages_count_all_time) >= {_MIN_GLOBAL_MSGS} "
+        f"GROUP BY s.user_tg_id, u.user_tg_username "
+        f"HAVING SUM(s.user_messages_count_all_time) >= {_MIN_GLOBAL_MSGS} "
         "ORDER BY value DESC LIMIT ?",
         (limit,),
     ) as c:
