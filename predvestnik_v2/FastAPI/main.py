@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -111,7 +111,6 @@ async def api_events():
 
 @app.get("/manifest.json")
 async def pwa_manifest():
-    from fastapi.responses import JSONResponse
     return JSONResponse({
         "name": "Предвестник",
         "short_name": "Предвестник",
@@ -900,7 +899,7 @@ function loadAuction() {
       <input type="text" class="num-input" style="margin:0;font-size:12px" placeholder="🔍 Поиск по названию..." oninput="filterAuction(this.value)"/>
     </div><div id="lot-list"></div>`;
     renderLots(lots);
-  }).catch(e=>{el('mkt-auc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; _allLots=[];
+  }).catch(e=>{el('mkt-auc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;_allLots=[];});
 }
 function openBidModal(lotId,name,minBid,btn) {
   const suggestedBid=Math.ceil(minBid*1.05);
@@ -1206,8 +1205,7 @@ function doRitual(btn) {
 }
 
 // ── swArena update for new tabs ───────────────────────────────────────────────
-const _origSwArena=swArena;
-// Patch swArena to handle dark tab
+// Override swArena to handle dark tab
 function swArena(tab,btn) {
   _arenaTab=tab;
   document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
@@ -1274,7 +1272,7 @@ function submitDuelChallenge(btn) {
 }
 
 // ── Gacha flip animation ──────────────────────────────────────────────────────
-const _origDoSpin=doSpin;
+// Override doSpin with flip animation
 function doSpin(st,row) {
   row.style.opacity='.5';row.style.pointerEvents='none';
   api('/gacha/spin',{method:'POST',body:JSON.stringify({spin_type:st})}).then(r=>{
@@ -1304,7 +1302,7 @@ function browserNotif(title, body) {
   }
 }
 // Request permission when user first connects WS
-const _origConnectWS = connectWS;
+// Override connectWS with browser notification support
 function connectWS() {
   if (!_uid) return;
   requestBrowserNotif();
