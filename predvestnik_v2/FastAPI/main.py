@@ -521,6 +521,11 @@ const PL = {active:'Активный',passive:'Пассивный',storage:'Ск
 const RC = {common:'rc-common',uncommon:'rc-uncommon',rare:'rc-rare',
             epic:'rc-epic',legendary:'rc-legendary',shadow:'rc-shadow'};
 
+// Chat where the mini app was opened from (from Telegram WebApp context)
+const _tgChat = tg?.initDataUnsafe?.chat || null;
+const _initChatId = _tgChat?.id || 0;   // primary chat_id for local top
+const _initChatTitle = _tgChat?.title || '';
+
 let _cid = 0, _uid = 0, _actTab='quests', _zooTab='active', _arenaTab='quests';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='auc';
 let _proTab='main';
@@ -1059,18 +1064,42 @@ function doSpin(st,row) {
   }).catch(e=>{toast(e,false);row.style.opacity='1';row.style.pointerEvents='';});
 }
 function loadCraft() {
-  api('/craft/').then(r=>{
-    el('cc').innerHTML=r.length?'<div class="card"><div class="card-title">Рецепты</div>'+r.map(rc=>
-      `<div style="padding:10px 0;border-bottom:1px solid var(--border2)">
-        <div style="font-size:13px;font-weight:600;color:var(--bright);margin-bottom:4px">${rc.name}</div>
-        <div>${rc.ingredients_status.map(i=>`<span style="color:${i.ok?'var(--green)':'var(--red)'};font-size:11px">${i.item_name}: ${i.have}/${i.needed}</span>`).join('  ')}</div>
-        <button class="btn btn-sm ${rc.can_craft?'btn-gold':'btn-ghost'}" style="margin-top:7px" ${rc.can_craft?'':'disabled'} onclick="doCraft('${rc.recipe_id}',this)">${rc.can_craft?'⚗️ Скрафтить':'🔒 Не хватает'}</button>
-      </div>`).join('')+'</div>':'<div class="loader">Рецептов нет.</div>';
-  }).catch(e=>{el('cc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
+  api('/craft/').then(recipes => {
+    if (!recipes.length) { el('cc').innerHTML='<div class="loader">Рецептов пока нет.</div>'; return; }
+    el('cc').innerHTML = recipes.map(rc => `
+      <div class="card card-gold">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:15px;font-weight:700;color:var(--bright)">${rc.name}</div>
+          ${rc.can_craft_times>1?`<span style="font-size:11px;color:var(--green);background:rgba(82,179,96,.15);padding:2px 8px;border-radius:99px">×${rc.can_craft_times} возможно</span>`:''}
+        </div>
+        ${rc.what_is?`<div style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:10px">${rc.what_is}</div>`:''}
+        ${rc.how_use?`<div class="irow"><span class="ik">Как использовать</span><span style="color:var(--teal);font-size:11px">${rc.how_use}</span></div>`:''}
+        ${rc.gacha_rates?`<div class="irow"><span class="ik">Шансы при открытии</span><span style="font-size:11px">${rc.gacha_rates}</span></div>`:''}
+        ${rc.special_note?`<div style="background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.25);border-radius:var(--r);padding:8px 10px;font-size:11px;color:var(--red);margin:8px 0">${rc.special_note}</div>`:''}
+        <div class="divider"></div>
+        <div class="card-title">Нужно для крафта</div>
+        ${rc.ingredients_status.map(i=>`
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:18px">${i.have>=i.needed?'✅':'❌'}</span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:600">${i.item_name}</div>
+              <div style="font-size:10px;color:var(--muted)">${i.have} из ${i.needed} в инвентаре</div>
+            </div>
+            <div style="font-size:14px;font-weight:700;color:${i.have>=i.needed?'var(--green)':'var(--red)'}">${i.have}/${i.needed}</div>
+          </div>`).join('')}
+        ${rc.ingredient_tip?`<div style="font-size:11px;color:var(--muted);margin-top:6px;padding:8px;background:var(--s);border-radius:var(--r)">💡 ${rc.ingredient_tip}</div>`:''}
+        <button class="btn btn-full ${rc.can_craft?'btn-gold':'btn-ghost'}" style="margin-top:12px"
+                ${rc.can_craft?'':'disabled'} onclick="doCraft('${rc.recipe_id}',this)">
+          ${rc.can_craft?`⚗️ Скрафтить ${rc.name}`:'🔒 Недостаточно ингредиентов'}
+        </button>
+      </div>`).join('');
+  }).catch(e => { el('cc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
-function doCraft(id,btn) {
-  btn.disabled=true;
-  api(`/craft/${id}`,{method:'POST'}).then(r=>{toast(`✅ ${r.name}!`);loadCraft();}).catch(e=>{toast(e,false);btn.disabled=false;});
+function doCraft(recipeId, btn) {
+  btn.disabled = true;
+  api(`/craft/${recipeId}`, {method:'POST'})
+    .then(r => { toast(`✅ Скрафтено: ${r.name}!`); loadCraft(); })
+    .catch(e => { toast(e, false); btn.disabled = false; });
 }
 function loadDuels() {
   Promise.all([api('/duels/active'),api('/duels/history')]).then(([active,hist])=>{
@@ -1317,19 +1346,34 @@ function doEquipTheme(tid) {
 }
 
 // ── Top ───────────────────────────────────────────────────────────────────────
+// Priority: chat where mini app was opened (_initChatId) → profile chat (_cid)
 function loadTop(){switchTop('local',document.querySelector('#col-top .tb'));}
-function switchTop(mode,btn) {
+function switchTop(mode, btn) {
   document.querySelectorAll('#col-top .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  if(mode==='local'&&!_cid){el('top-c').innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">Нужен Профиль с чатом.</div>';return;}
+
+  const localChatId = _initChatId || _cid;
+  const localChatName = _initChatTitle || '(из профиля)';
+
+  if (mode === 'local' && !localChatId) {
+    el('top-c').innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">Откройте мини-апп через кнопку в чате, чтобы видеть его топ.</div>';
+    return;
+  }
   el('top-c').innerHTML='<div class="loader">Загрузка...</div>';
-  api(mode==='global'?'/top/global':`/top/local/${_cid}`).then(rows=>{
-    el('top-c').innerHTML=rows.length?'<div class="card">'+rows.slice(0,30).map((r,i)=>`<div class="trow">
-      <div class="tpos">${MEDALS[i]||(i+1)+'.'}</div>
-      <div class="tname">${r.username}</div>
-      <div class="tcnt">${fmt(r.count)} 💬</div>
-    </div>`).join('')+'</div>':'<div class="loader">Данных пока нет.</div>';
-  }).catch(e=>{el('top-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
+  api(mode==='global' ? '/top/global' : `/top/local/${localChatId}`)
+    .then(rows => {
+      const header = mode === 'local'
+        ? `<div style="font-size:11px;color:var(--muted);padding:0 0 8px">📍 Чат: ${localChatName}</div>`
+        : `<div style="font-size:11px;color:var(--muted);padding:0 0 8px">🌍 Все чаты · за всё время</div>`;
+      el('top-c').innerHTML = rows.length
+        ? '<div class="card">' + header + rows.slice(0,30).map((r,i)=>`<div class="trow">
+            <div class="tpos">${MEDALS[i]||(i+1)+'.'}</div>
+            <div class="tname">${r.username}</div>
+            <div class="tcnt">${fmt(r.count)} 💬</div>
+          </div>`).join('') + '</div>'
+        : '<div class="loader">Данных пока нет.</div>';
+    })
+    .catch(e => { el('top-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
 
 // ── Exchange ──────────────────────────────────────────────────────────────────

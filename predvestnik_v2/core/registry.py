@@ -406,19 +406,21 @@ ACHIEVEMENT_LEVEL_REWARDS: Dict[int, Dict] = {
 
 
 # ── Craft Recipes ─────────────────────────────────────────────────────────────
-# Each recipe: result_item, result_qty, ingredients [(item_id, qty), ...], name, desc.
-# Ingredient quantities reference constants — no raw numbers here.
+# Single source of truth for all craftable items. Ingredient quantities from constants.
 CRAFT_RECIPES: Dict[str, Dict[str, Any]] = {
     "egg_summon": {
         "result_item": "egg_summon",
         "result_qty": 1,
         "ingredients": [("soul_shard", SOUL_SHARDS_FOR_SUMMON_EGG)],
         "name": "🔮 Яйцо Призыва",
-        "desc": (
-            f"Яйцо, которое нельзя купить — только скрафтить. "
-            f"Требует {SOUL_SHARDS_FOR_SUMMON_EGG}× 💠 Осколков Души.\n"
-            "Шансы: 80% Common / 19% Rare / 1% Epic. "
-            "При распылении питомца из этого яйца осколок не возвращается."
-        ),
+        "category": "egg",
+        # How to get soul_shards
+        "ingredient_tip": "💠 Осколки Души — выпадают когда распыляете лишних питомцев в Зоопарке",
+        # What the result does
+        "what_is": "Особое яйцо, которое нельзя купить — только скрафтить из Осколков.",
+        "gacha_rates": "80% Обычный · 19% Редкий · 1% Эпический",
+        "how_use": "Перейдите в Инвентарь и нажмите на яйцо → «Открыть»",
+        "special_note": "⚠️ Питомцы из этого яйца при распылении НЕ дают Осколок обратно",
+        "how_to_get_ingredients": f"1 Осколок = 1 распылённый питомец. Нужно {SOUL_SHARDS_FOR_SUMMON_EGG} Осколков.",
     },
 }
