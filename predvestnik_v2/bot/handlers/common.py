@@ -505,9 +505,10 @@ async def cmd_web(message: types.Message):
         )
 
     builder = InlineKeyboardBuilder()
-    # WebAppInfo opens inline inside Telegram (requires HTTPS).
-    # Regular URL button as fallback for local/http dev.
-    if _MINIAPP_URL.startswith("https://"):
+    # Telegram allows WebAppInfo buttons ONLY in private chats (DMs).
+    # In groups, web_app type raises BUTTON_TYPE_INVALID — use plain url instead.
+    is_private = message.chat.type == "private"
+    if is_private and _MINIAPP_URL.startswith("https://"):
         builder.button(
             text="🔮 Открыть мини-апп",
             web_app=types.WebAppInfo(url=_MINIAPP_URL),
