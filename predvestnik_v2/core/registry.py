@@ -3,6 +3,8 @@
 # Used by both the Bot and the Web panel. Never import platform-specific code here.
 from typing import Dict, Any
 
+from core.constants import SOUL_SHARDS_FOR_SUMMON_EGG
+
 
 # ── Items (inventory, shop, consumables) ──────────────────────────────────────
 ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
@@ -400,4 +402,23 @@ ACHIEVEMENT_LEVEL_REWARDS: Dict[int, Dict] = {
     8:  {"mora": 12000.0, "diamonds": 5.0, "items": (("spin_token_premium", 1),)},
     9:  {"mora": 25000.0, "diamonds": 10.0, "items": (("egg_mythic", 1),)},
     10: {"mora": 50000.0, "diamonds": 25.0, "items": (("spin_token_diamond", 3), ("egg_crystal", 1))},
+}
+
+
+# ── Craft Recipes ─────────────────────────────────────────────────────────────
+# Each recipe: result_item, result_qty, ingredients [(item_id, qty), ...], name, desc.
+# Ingredient quantities reference constants — no raw numbers here.
+CRAFT_RECIPES: Dict[str, Dict[str, Any]] = {
+    "egg_summon": {
+        "result_item": "egg_summon",
+        "result_qty": 1,
+        "ingredients": [("soul_shard", SOUL_SHARDS_FOR_SUMMON_EGG)],
+        "name": "🔮 Яйцо Призыва",
+        "desc": (
+            f"Яйцо, которое нельзя купить — только скрафтить. "
+            f"Требует {SOUL_SHARDS_FOR_SUMMON_EGG}× 💠 Осколков Души.\n"
+            "Шансы: 80% Common / 19% Rare / 1% Epic. "
+            "При распылении питомца из этого яйца осколок не возвращается."
+        ),
+    },
 }
