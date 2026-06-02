@@ -35,7 +35,7 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "study_notes": {
         "name": "📚 Конспект",
         "category": "utility",
-        "price_mora": 250,
+        "price_mora": 600,
         "description": "+50% XP от сообщений на 4 часа.",
         "is_tradable": False,
     },
@@ -51,45 +51,45 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "spin_token_premium":  {"name": "🎟 Жетон Премиум",       "category": "spin_token", "spin_type": "premium",  "is_tradable": False, "description": "Один бесплатный спин Премиум крутки."},
     "spin_token_diamond":  {"name": "🎟 Жетон Алмазной",      "category": "spin_token", "spin_type": "diamond",  "is_tradable": False, "description": "Один бесплатный спин Алмазной крутки."},
     # Eggs (gacha)
-    "egg_basic":   {"name": "🥚 Базовое Яйцо",      "category": "egg", "price_mora": 2500,     "description": "80% Common / 19% Rare / 1% Epic"},
+    "egg_basic":   {"name": "🥚 Базовое Яйцо",      "category": "egg", "price_mora": 8000,      "description": "80% Common / 19% Rare / 1% Epic"},
     "egg_summon":  {"name": "🔮 Яйцо Призыва",      "category": "egg",                          "description": "Крафтится из 5 Осколков. Не даёт осколков при распылении."},
-    "egg_silver":  {"name": "🥈 Серебряное Яйцо",   "category": "egg", "price_mora": 8000,      "description": "50% Common / 40% Rare / 10% Epic"},
-    "egg_gold":    {"name": "🪙 Золотое Яйцо",      "category": "egg", "price_diamonds": 150, "price_mora": 25000, "description": "75% Rare / 25% Epic"},
-    "egg_mythic":  {"name": "💎 Мифическое Яйцо",   "category": "egg", "price_diamonds": 400,   "description": "40% Rare / 60% Epic"},
+    "egg_silver":  {"name": "🥈 Серебряное Яйцо",   "category": "egg", "price_mora": 28000,     "description": "50% Common / 40% Rare / 10% Epic"},
+    "egg_gold":    {"name": "🪙 Золотое Яйцо",      "category": "egg", "price_diamonds": 250, "price_mora": 120000, "description": "75% Rare / 25% Epic"},
+    "egg_mythic":  {"name": "💎 Мифическое Яйцо",   "category": "egg", "price_diamonds": 500,   "description": "40% Rare / 60% Epic"},
     "egg_unity":   {"name": "💖 Яйцо Единства",     "category": "egg",                          "description": "100% Legendary. Только для Семей."},
     "egg_crystal": {"name": "🔷 Кристальное Яйцо",  "category": "egg",                          "description": "30% Epic / 70% Legendary. Только из гачи."},
     "egg_daily":   {"name": "🎁 Яйцо Дня",          "category": "egg",                          "description": "70% Common / 29% Rare / 1% Epic. Бесплатно 1 раз в день."},
     # Food / consumables
     "food_basic":   {
-        "name": "🥩 Базовый корм",        "category": "food", "price_mora": 50,
+        "name": "🥩 Базовый корм",        "category": "food", "price_mora": 120,
         "fatigue_restore": 15,            "description": "Снижает 15 усталости.",
     },
     "food_elite":   {
-        "name": "🍗 Элитный корм",        "category": "food", "price_mora": 150,
+        "name": "🍗 Элитный корм",        "category": "food", "price_mora": 450,
         "fatigue_restore": 50,            "description": "Снижает 50 усталости.",
     },
     "food_energy":  {
-        "name": "⚡️ Энергетик",          "category": "food", "price_mora": 250,
+        "name": "⚡️ Энергетик",          "category": "food", "price_mora": 750,
         "fatigue_restore": 20,            "buff": "expedition_cd_reset",
         "description": "Снижает 20 усталости + сброс КД экспедиции.",
     },
     "food_super": {
-        "name": "💊 Суперкорм",           "category": "food", "price_mora": 350,
+        "name": "💊 Суперкорм",           "category": "food", "price_mora": 1100,
         "fatigue_restore": 60,            "description": "Снижает 60 усталости активному питомцу + 5 всем питомцам в питомнике.",
     },
     "food_diamond": {
-        "name": "💎 Алмазное лакомство",  "category": "food", "price_diamonds": 8,
+        "name": "💎 Алмазное лакомство",  "category": "food", "price_diamonds": 12,
         "fatigue_restore": 100,           "buff": "efficiency_20", "duration_hours": 24,
         "description": "Полностью снимает усталость + 20% к эффективности на 24ч.",
     },
     # Utility (shop + deal)
     "slot_expander": {
-        "name": "🏡 Расширитель слота", "category": "utility", "price_diamonds": 10,
+        "name": "🏡 Расширитель слота", "category": "utility", "price_diamonds": 15,
         "description": "Постоянно +1 слот в питомнике (макс 6).", "is_tradable": False,
     },
     # Player buffs (for player, not pet)
     "potion_luck_s": {
-        "name": "🧪 Зелье Удачи (М)", "category": "booster", "price_mora": 100,
+        "name": "🧪 Зелье Удачи (М)", "category": "booster", "price_mora": 400,
         "description": "Следующий спин гачи: +15% к шансу ред.+ (разовый).",
         "is_tradable": False, "buff_type": "gacha_luck", "buff_value": 0.15, "buff_uses": 1,
     },
@@ -242,10 +242,10 @@ PITY_HARD_REWARD: Dict[str, dict] = {
 
 # ── Expedition data ───────────────────────────────────────────────────────────
 EXPEDITIONS_DATA: Dict[int, Dict[str, int]] = {
-    2: {"cost": 0,  "min_m": 10, "max_m": 15,  "min_xp": 10, "max_xp": 10,  "fatigue": 10},
-    4: {"cost": 15, "min_m": 40, "max_m": 45,  "min_xp": 20, "max_xp": 40,  "fatigue": 20},
-    6: {"cost": 25, "min_m": 80, "max_m": 90,  "min_xp": 50, "max_xp": 70,  "fatigue": 30},
-    8: {"cost": 35, "min_m": 90, "max_m": 120, "min_xp": 80, "max_xp": 100, "fatigue": 40},
+    2: {"cost":   0, "min_m":  55, "max_m":  85, "min_xp":  15, "max_xp":  15, "fatigue": 10},
+    4: {"cost":  40, "min_m": 130, "max_m": 175, "min_xp":  30, "max_xp":  55, "fatigue": 20},
+    6: {"cost":  60, "min_m": 270, "max_m": 380, "min_xp":  70, "max_xp":  95, "fatigue": 30},
+    8: {"cost": 100, "min_m": 430, "max_m": 620, "min_xp": 100, "max_xp": 140, "fatigue": 40},
 }
 
 
@@ -255,29 +255,29 @@ EXPEDITIONS_DATA: Dict[int, Dict[str, int]] = {
 # The actual slot price = round(qty × base_price × (1 - discount)).
 
 DAILY_DEAL_POOL_MORA: list = [
-    {"item_id": "food_basic",          "qty_range": (1, 5), "base_price_mora": 50},
-    {"item_id": "food_elite",          "qty_range": (1, 3), "base_price_mora": 150},
-    {"item_id": "food_energy",         "qty_range": (1, 3), "base_price_mora": 250},
-    {"item_id": "food_super",          "qty_range": (1, 2), "base_price_mora": 350},
-    {"item_id": "spin_token_novice",   "qty_range": (1, 3), "base_price_mora": 110},
-    {"item_id": "spin_token_standard", "qty_range": (1, 2), "base_price_mora": 330},
-    {"item_id": "spin_token_premium",  "qty_range": (1, 1), "base_price_mora": 880},
-    {"item_id": "egg_basic",           "qty_range": (1, 2), "base_price_mora": 2500},
-    {"item_id": "egg_silver",          "qty_range": (1, 1), "base_price_mora": 8000},
-    {"item_id": "treasure_map",        "qty_range": (1, 2), "base_price_mora": 300},
-    {"item_id": "lucky_charm",         "qty_range": (1, 2), "base_price_mora": 300},
-    {"item_id": "study_notes",         "qty_range": (1, 2), "base_price_mora": 200},
-    {"item_id": "soul_shard",          "qty_range": (3, 10), "base_price_mora": 30},
-    {"item_id": "star_dust_s",         "qty_range": (2, 5), "base_price_mora": 220},
-    {"item_id": "star_dust_l",         "qty_range": (1, 2), "base_price_mora": 950},
+    {"item_id": "food_basic",          "qty_range": (1, 5), "base_price_mora": 120},
+    {"item_id": "food_elite",          "qty_range": (1, 3), "base_price_mora": 450},
+    {"item_id": "food_energy",         "qty_range": (1, 3), "base_price_mora": 750},
+    {"item_id": "food_super",          "qty_range": (1, 2), "base_price_mora": 1100},
+    {"item_id": "spin_token_novice",   "qty_range": (1, 3), "base_price_mora": 350},
+    {"item_id": "spin_token_standard", "qty_range": (1, 2), "base_price_mora": 1000},
+    {"item_id": "spin_token_premium",  "qty_range": (1, 1), "base_price_mora": 2800},
+    {"item_id": "egg_basic",           "qty_range": (1, 2), "base_price_mora": 8000},
+    {"item_id": "egg_silver",          "qty_range": (1, 1), "base_price_mora": 28000},
+    {"item_id": "treasure_map",        "qty_range": (1, 2), "base_price_mora": 900},
+    {"item_id": "lucky_charm",         "qty_range": (1, 2), "base_price_mora": 900},
+    {"item_id": "study_notes",         "qty_range": (1, 2), "base_price_mora": 600},
+    {"item_id": "soul_shard",          "qty_range": (3, 10), "base_price_mora": 100},
+    {"item_id": "star_dust_s",         "qty_range": (2, 5), "base_price_mora": 700},
+    {"item_id": "star_dust_l",         "qty_range": (1, 2), "base_price_mora": 3000},
 ]
 
 DAILY_DEAL_POOL_DIAMOND: list = [
-    {"item_id": "food_diamond",       "qty_range": (1, 3), "base_price_dia": 8},
-    {"item_id": "spin_token_diamond", "qty_range": (1, 2), "base_price_dia": 3},
-    {"item_id": "egg_mythic",         "qty_range": (1, 1), "base_price_dia": 400},
-    {"item_id": "slot_expander",      "qty_range": (1, 1), "base_price_dia": 10},
-    {"item_id": "egg_crystal",        "qty_range": (1, 1), "base_price_dia": 25},
+    {"item_id": "food_diamond",       "qty_range": (1, 3), "base_price_dia": 12},
+    {"item_id": "spin_token_diamond", "qty_range": (1, 2), "base_price_dia": 5},
+    {"item_id": "egg_mythic",         "qty_range": (1, 1), "base_price_dia": 500},
+    {"item_id": "slot_expander",      "qty_range": (1, 1), "base_price_dia": 15},
+    {"item_id": "egg_crystal",        "qty_range": (1, 1), "base_price_dia": 35},
 ]
 
 
@@ -293,21 +293,21 @@ def get_species(species_id: str) -> Dict | None:
 # ── Daily Quests (B20) ───────────────────────────────────────────────────────
 DAILY_QUESTS: list = [
     # Easy
-    {"id": "msg_15",     "metric": "messages_in_chat_today",        "target": 15, "reward": {"mora": 50.0},                                  "weight": 5},
-    {"id": "msg_30",     "metric": "messages_in_chat_today",        "target": 30, "reward": {"mora": 100.0},                                 "weight": 4},
-    {"id": "feed_pet",   "metric": "pet_feeds_today",               "target": 1,  "reward": {"mora": 40.0},                                  "weight": 5},
-    {"id": "gacha_3",    "metric": "gacha_spins_today",             "target": 3,  "reward": {"items": [("star_dust_s", 1)]},                 "weight": 4},
+    {"id": "msg_15",     "metric": "messages_in_chat_today",        "target": 15, "reward": {"mora": 200.0},                                  "weight": 5},
+    {"id": "msg_30",     "metric": "messages_in_chat_today",        "target": 30, "reward": {"mora": 400.0},                                  "weight": 4},
+    {"id": "feed_pet",   "metric": "pet_feeds_today",               "target": 1,  "reward": {"mora": 150.0},                                  "weight": 5},
+    {"id": "gacha_3",    "metric": "gacha_spins_today",             "target": 3,  "reward": {"items": [("star_dust_s", 1)]},                  "weight": 4},
     # Medium
-    {"id": "exped_2",    "metric": "expeditions_today",             "target": 2,  "reward": {"mora": 150.0},                                 "weight": 3},
-    {"id": "open_egg",   "metric": "eggs_opened_today",             "target": 1,  "reward": {"items": [("soul_shard", 1)]},                  "weight": 3},
-    {"id": "warp_3",     "metric": "warps_to_distinct_users_today", "target": 3,  "reward": {"mora": 50.0},                                  "weight": 3},
-    {"id": "auction_bid","metric": "auction_bids_today",            "target": 1,  "reward": {"mora": 60.0},                                  "weight": 2},
+    {"id": "exped_2",    "metric": "expeditions_today",             "target": 2,  "reward": {"mora": 500.0},                                  "weight": 3},
+    {"id": "open_egg",   "metric": "eggs_opened_today",             "target": 1,  "reward": {"items": [("soul_shard", 1)]},                   "weight": 3},
+    {"id": "warp_3",     "metric": "warps_to_distinct_users_today", "target": 3,  "reward": {"mora": 200.0},                                  "weight": 3},
+    {"id": "auction_bid","metric": "auction_bids_today",            "target": 1,  "reward": {"mora": 200.0},                                  "weight": 2},
     # Hard
-    {"id": "exped_4",    "metric": "expeditions_today",             "target": 4,  "reward": {"mora": 300.0},                                 "weight": 2},
-    {"id": "gacha_10",   "metric": "gacha_spins_today",             "target": 10, "reward": {"mora": 200.0, "items": [("spin_token_novice", 1)]}, "weight": 2},
-    {"id": "hug_5",      "metric": "warps_hug_distinct_today",      "target": 5,  "reward": {"mora": 100.0},                                 "weight": 2},
-    {"id": "rare_dup",   "metric": "rare_or_better_pet_dups_today", "target": 1,  "reward": {"mora": 250.0},                                 "weight": 1},
-    {"id": "level_pet",  "metric": "pet_level_ups_today",           "target": 1,  "reward": {"mora": 150.0},                                 "weight": 1},
+    {"id": "exped_4",    "metric": "expeditions_today",             "target": 4,  "reward": {"mora": 1000.0},                                 "weight": 2},
+    {"id": "gacha_10",   "metric": "gacha_spins_today",             "target": 10, "reward": {"mora": 600.0, "items": [("spin_token_novice", 1)]}, "weight": 2},
+    {"id": "hug_5",      "metric": "warps_hug_distinct_today",      "target": 5,  "reward": {"mora": 300.0},                                  "weight": 2},
+    {"id": "rare_dup",   "metric": "rare_or_better_pet_dups_today", "target": 1,  "reward": {"mora": 800.0},                                  "weight": 1},
+    {"id": "level_pet",  "metric": "pet_level_ups_today",           "target": 1,  "reward": {"mora": 500.0},                                  "weight": 1},
 ]
 
 # ── Achievements (B11) ────────────────────────────────────────────────────────

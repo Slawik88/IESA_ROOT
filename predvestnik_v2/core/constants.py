@@ -5,8 +5,8 @@
 # ── Leveling ──────────────────────────────────────────────────────────────────
 XP_PER_MESSAGE: int = 10          # base XP awarded per chat message
 XP_PER_LEVEL: int = 3_000         # XP needed for each level step
-MORA_PER_LEVEL: float = 200.0     # Mora reward on level-up
-DIAMONDS_PER_LEVEL: float = 0.5   # Diamond reward on level-up
+MORA_PER_LEVEL: float = 500.0     # Mora reward on level-up
+DIAMONDS_PER_LEVEL: float = 1.0   # Diamond reward on level-up
 
 # ── Economy ───────────────────────────────────────────────────────────────────
 FAMILY_BANK_DEFAULT_CAP: float = 50_000.0
@@ -27,14 +27,14 @@ PET_LEVEL_DUPLICATES: dict = {
     "legendary": {2: 2,  3: 4,  4: 6,  5: 8,  6: 10, 7: 13, 8: 16, 9: 20, 10: 25},
 }
 MAX_PET_COPIES: int = 3
-DUPLICATE_OVERFLOW_MORA: dict = {"common": 25.0, "rare": 75.0, "epic": 150.0, "legendary": 400.0}
+DUPLICATE_OVERFLOW_MORA: dict = {"common": 60.0, "rare": 200.0, "epic": 450.0, "legendary": 1000.0}
 DUPLICATE_OVERFLOW_STARDUST: dict = {"common": 0, "rare": 1, "epic": 1, "legendary": 2}
 
 PET_LEVEL_MILESTONE_REWARDS: dict = {
-    3:  {"mora": 300.0,  "diamonds": 0.0, "items": (),                                            "announce_chat": False},
-    5:  {"mora": 800.0,  "diamonds": 0.0, "items": (("egg_silver", 1), ("spin_token_novice", 1)), "announce_chat": False},
-    7:  {"mora": 1500.0, "diamonds": 0.0, "items": (("egg_gold", 1), ("spin_token_standard", 1)), "announce_chat": False},
-    10: {"mora": 3000.0, "diamonds": 2.0, "items": (),                                            "announce_chat": True},
+    3:  {"mora": 800.0,  "diamonds": 0.0, "items": (),                                            "announce_chat": False},
+    5:  {"mora": 2000.0, "diamonds": 0.0, "items": (("egg_silver", 1), ("spin_token_novice", 1)), "announce_chat": False},
+    7:  {"mora": 4500.0, "diamonds": 0.0, "items": (("egg_gold", 1), ("spin_token_standard", 1)), "announce_chat": False},
+    10: {"mora": 8000.0, "diamonds": 5.0, "items": (),                                            "announce_chat": True},
 }
 
 
@@ -235,10 +235,10 @@ DAILY_DEAL_DIAMOND_SLOTS: int = 1                   # diamond slot per day
 
 # ── Gacha (B3) ───────────────────────────────────────────────────────────────
 SPIN_COSTS: dict = {
-    "novice":   {"mora": 100.0, "diamonds": 0.0},
-    "standard": {"mora": 300.0, "diamonds": 0.0},
-    "premium":  {"mora": 800.0, "diamonds": 0.0},
-    "diamond":  {"mora": 0.0,   "diamonds": 3.0},
+    "novice":   {"mora": 350.0,  "diamonds": 0.0},
+    "standard": {"mora": 1000.0, "diamonds": 0.0},
+    "premium":  {"mora": 2800.0, "diamonds": 0.0},
+    "diamond":  {"mora": 0.0,    "diamonds": 5.0},
 }
 SPIN_MULTI_DISCOUNT: float = 0.10  # 10% off for 10× multi-pull
 SPIN_MULTI_COUNT: int = 10
@@ -272,19 +272,19 @@ CHAT_TIMEZONE_MAX: int = 14
 
 # ── Daily Streak (§21) ────────────────────────────────────────────────────────
 STREAK_BLOCK_SIZE: int = 7
-STREAK_RECOVERY_DIAMONDS: float = 0.65
-STREAK_RECOVERY_MORA: float = 30.0
-STREAK_BASE_MORA_REWARD: float = 10.0
-STREAK_BASE_DIAMONDS_REWARD: float = 0.10
-STREAK_BLOCK_BONUS_MULT: float = 3.0
+STREAK_RECOVERY_DIAMONDS: float = 1.5
+STREAK_RECOVERY_MORA: float = 100.0
+STREAK_BASE_MORA_REWARD: float = 70.0
+STREAK_BASE_DIAMONDS_REWARD: float = 0.15
+STREAK_BLOCK_BONUS_MULT: float = 4.0
 STREAK_RECOVERY_WINDOW_HOURS: int = 48
 
 # ── Stats ──────────────────────────────────────────────────────────────────────
 INACTIVE_THRESHOLD_DAYS: int = 4
 
 # ── PvP Duels (B12) ──────────────────────────────────────────────────────────
-DUEL_MIN_BET: float = 50.0
-DUEL_MAX_BET: float = 5000.0
+DUEL_MIN_BET: float = 200.0
+DUEL_MAX_BET: float = 15000.0
 DUEL_COMMISSION: float = 0.05    # 5% commission from winner's pot (goes to sink)
 DUEL_COOLDOWN_HOURS: int = 24
 DUEL_TIMEOUT_SECONDS: int = 60
@@ -293,9 +293,9 @@ RARITY_POWER: dict = {"common": 1.0, "rare": 2.5, "epic": 5.0, "legendary": 10.0
 
 # ── Chest Events (B14) ───────────────────────────────────────────────────────
 CHEST_REWARDS_BY_POSITION: dict = {
-    1: 70.0, 2: 65.0, 3: 60.0, 4: 55.0, 5: 50.0,
-    6: 45.0, 7: 40.0, 8: 35.0, 9: 30.0, 10: 25.0,
-    11: 20.0, 12: 15.0, 13: 10.0, 14: 10.0, 15: 10.0,
+    1: 300.0, 2: 260.0, 3: 220.0, 4: 190.0, 5: 160.0,
+    6: 130.0, 7: 110.0, 8:  90.0, 9:  70.0, 10: 55.0,
+    11: 40.0, 12: 35.0, 13: 30.0, 14:  30.0, 15: 30.0,
 }
 CHEST_TOP3_BONUS_ITEM: str = "spin_token_novice"
 CHEST_DURATION_SECONDS: int = 90
@@ -325,18 +325,18 @@ CHAT_NSFW_WARPS_ALLOWED: int = 1  # 18+ warps on by default
 CHAT_AUCTION_MIN_RANK: int = 0    # any user can post to auction
 
 # ── Exchange Event (B15) ──────────────────────────────────────────────────────
-EXCHANGE_RATE_MORA_PER_DIAMOND: float = 2000.0
-EXCHANGE_DAILY_CAP_DIAMONDS: float = 600.0
+EXCHANGE_RATE_MORA_PER_DIAMOND: float = 3000.0
+EXCHANGE_DAILY_CAP_DIAMONDS: float = 300.0
 EXCHANGE_MIN_DIAMONDS_PER_REQUEST: float = 5.0
 
 # ── Mini-games (B16) ─────────────────────────────────────────────────────────
 GAMES: dict = {
-    "dice":     {"cooldown_min": 20, "min_bet": 50.0,  "max_bet": 1000.0, "multiplier": 2.0},
-    "coin":     {"cooldown_min": 20, "min_bet": 50.0,  "max_bet": 1000.0, "multiplier": 1.9},
-    "number":   {"cooldown_min": 30, "min_bet": 50.0,  "max_bet": 500.0,  "multiplier": 8.0},
-    "roulette": {"cooldown_min": 60, "min_bet": 100.0, "max_bet": 2000.0, "multiplier": 1.9},
+    "dice":     {"cooldown_min": 20, "min_bet": 100.0, "max_bet": 3000.0, "multiplier": 2.0},
+    "coin":     {"cooldown_min": 20, "min_bet": 100.0, "max_bet": 3000.0, "multiplier": 1.9},
+    "number":   {"cooldown_min": 30, "min_bet": 100.0, "max_bet": 1500.0, "multiplier": 8.0},
+    "roulette": {"cooldown_min": 60, "min_bet": 200.0, "max_bet": 6000.0, "multiplier": 1.9},
 }
-GAMBLE_DAILY_CAP: float = 5000.0
+GAMBLE_DAILY_CAP: float = 15000.0
 ROULETTE_RED_NUMBERS: frozenset = frozenset({
     1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36
 })
@@ -345,11 +345,11 @@ ROULETTE_RED_NUMBERS: frozenset = frozenset({
 # Контрабанда
 DARK_MORA_CONTRABANDA_COOLDOWN_DAYS: int = 7
 DARK_MORA_CONTRABANDA_CATCH_PENALTY_DAYS: int = 14
-DARK_MORA_CONTRABANDA_MIN_STAKE: float = 500.0
-DARK_MORA_CONTRABANDA_MAX_STAKE: float = 5000.0
+DARK_MORA_CONTRABANDA_MIN_STAKE: float = 1500.0
+DARK_MORA_CONTRABANDA_MAX_STAKE: float = 12000.0
 DARK_MORA_CONTRABANDA_SUCCESS_CHANCE: float = 0.40   # 40% success
 DARK_MORA_CONTRABANDA_FAIL_CHANCE: float = 0.35      # 35% fail (total 75%, rest is catch)
-DARK_MORA_CONTRABANDA_MORA_PER_DARK: float = 300.0   # mora per 1 dark mora gained
+DARK_MORA_CONTRABANDA_MORA_PER_DARK: float = 600.0   # mora per 1 dark mora gained
 
 # Культ Бездны — 23:00–01:00 UTC (window crosses midnight)
 DARK_MORA_CULT_HOUR_START: int = 23
