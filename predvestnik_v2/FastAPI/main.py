@@ -517,13 +517,14 @@ dialog::backdrop{background:rgba(0,0,0,.85);backdrop-filter:blur(6px)}
   <div class="nb" onclick="switchPage('arena',this)"><span class="ni">⚔️</span>Арена</div>
   <div class="nb" onclick="switchPage('market',this)"><span class="ni">🏛</span>Рынок</div>
   <div class="nb" onclick="switchPage('coll',this)"><span class="ni">🎨</span>Коллекция</div>
+  <div class="nb" onclick="refreshPage()" style="max-width:40px"><span class="ni">🔄</span></div>
 </nav>
 
 <script>
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }  // setHeaderColor removed — deprecated in TG WebApp v6.0
 
-const BASE = (location.origin + location.pathname).replace(/\/$/, '');
+const BASE = (location.origin + location.pathname).replace(/[/]$/, '');
 
 // el() defined here — BEFORE any usage to avoid TDZ ReferenceError
 const el = id => document.getElementById(id);
@@ -646,11 +647,12 @@ function switchPro(tab,btn) {
 }
 
 function loadProfile() {
-  el('pro-main').innerHTML='<div class="sk" style="height:140px;border-radius:var(--r)"></div>';
+  el('pro-main').innerHTML='<div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div>';
   api('/profile/me').then(d=>{
-    _cid=d.chats?.[0]?.chat_tg_id||0;
-    if(d.user_id) _uid=d.user_id;
-    _profileData=d;  // cache for theme preview
+    if(!d || typeof d !== 'object') throw new Error('Неверный формат ответа сервера');
+    _cid = d.chats?.[0]?.chat_tg_id || 0;
+    if(d.user_id) _uid = d.user_id;
+    _profileData = d;
     const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,3);
     el('pro-main').innerHTML=`
       <div class="card card-gold">
@@ -1040,8 +1042,8 @@ function swArena(tab,btn) {
   _arenaTab=tab;
   document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['quests','gacha','craft','duels'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
-  ({quests:loadQuests,gacha:loadGacha,craft:loadCraft,duels:loadDuels}[tab])();
+  ['quests','gacha','craft','duels','dark'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
+  ({quests:loadQuests,gacha:loadGacha,craft:loadCraft,duels:loadDuels,dark:loadDarkMora}[tab]||loadQuests)();
 }
 function loadQuests() {
   if(!_cid){el('qc').innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">Нужен Профиль с чатом.</div>';return;}
@@ -1066,17 +1068,28 @@ function loadGacha() {
       </div>`).join('')}</div><div id="spin-res"></div>`;
   }).catch(e=>{el('gc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
-function doSpin(st,row) {
-  row.style.opacity='.5';row.style.pointerEvents='none';
-  api('/gacha/spin',{method:'POST',body:JSON.stringify({spin_type:st})}).then(r=>{
-    const mora=r.mora?`🪙 ${fmt(r.mora)}`:'',dia=r.diamonds?`💎 ${r.diamonds}`:'';
-    const items=(r.items||[]).map(i=>`${i.name} ×${i.qty}`).join(', ');
-    const dups=(r.dup_outcomes||[]).map(d=>`${d.species||''} дубл`).join(', ');
-    const got=[mora,dia,items,dups].filter(Boolean).join(' · ')||'—';
-    el('spin-res').innerHTML=`<div class="spin-res"><div style="font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:5px">🎉 Результат!</div><div style="font-size:13px">${got}</div></div>`;
-    loadGacha();
-  }).catch(e=>{toast(e,false);row.style.opacity='1';row.style.pointerEvents='';});
+// doSpin — does NOT call loadGacha() to preserve the result display
+function doSpin(st, row) {
+  row.style.opacity = '.5'; row.style.pointerEvents = 'none';
+  api('/gacha/spin', {method:'POST', body:JSON.stringify({spin_type:st})}).then(r => {
+    const cards = [];
+    if(r.mora) cards.push({text:`🪙 ${fmt(r.mora)} Мора`, cls:''});
+    if(r.diamonds) cards.push({text:`💎 ${r.diamonds} Алмазов`, cls:''});
+    (r.items||[]).forEach(i => cards.push({text:`${i.name} ×${i.qty}`, cls:''}));
+    (r.dup_outcomes||[]).forEach(d => cards.push({text:`🐾 ${d.species||''} дубл.`, cls:d.rarity||''}));
+    const html = cards.length
+      ? cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${i*0.1}s">${c.text}</div>`).join('')
+      : '<div class="spin-card">—</div>';
+    el('spin-res').innerHTML = `
+      <div style="font-size:12px;font-weight:700;color:var(--gold2);margin-bottom:8px">🎉 Результат!</div>
+      ${html}
+      <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="closeSpinResult()">🔄 Крутить ещё</button>`;
+    const balEl = el('gacha-bal');
+    if(balEl) api('/profile/me').then(d=>{ if(d.mora!==undefined) balEl.textContent=`🪙 ${fmt(d.mora)}`; }).catch(()=>{});
+    row.style.opacity = '1'; row.style.pointerEvents = '';
+  }).catch(e => { toast(e, false); row.style.opacity='1'; row.style.pointerEvents=''; });
 }
+function closeSpinResult() { const s=el('spin-res'); if(s)s.innerHTML=''; loadGacha(); }
 function loadCraft() {
   api('/craft/').then(recipes => {
     if (!recipes.length) { el('cc').innerHTML='<div class="loader">Рецептов пока нет.</div>'; return; }
@@ -1212,15 +1225,17 @@ function submitDuelChallenge(btn) {
 
 // ── Market ────────────────────────────────────────────────────────────────────
 function loadMarket(){swMkt('auc',document.querySelector('#pg-market .tb'));}
-function swMkt(tab,btn) {
-  _mktTab=tab;
+function swMkt(tab, _btn) {
+  const btn = _btn || document.querySelector('#pg-market .tb');
+  _mktTab = tab;
   document.querySelectorAll('#pg-market .tb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  const bd=el('balrow'); bd.style.display=tab!=='auc'?'flex':'none';
-  el('mkt-auc').style.display=tab==='auc'?'':'none';
-  el('mkt-shop').style.display=tab==='shop'?'':'none';
-  el('mkt-inv').style.display=tab==='inv'?'':'none';
-  ({auc:loadAuction,shop:loadShopCatalog,inv:loadInventory}[tab])();
+  if(btn) btn.classList.add('active');
+  const bd = el('balrow'); bd.style.display = tab === 'shop' ? 'flex' : 'none';
+  el('mkt-auc').style.display  = tab === 'auc'  ? '' : 'none';
+  el('mkt-shop').style.display = tab === 'shop' ? '' : 'none';
+  el('mkt-inv').style.display  = tab === 'inv'  ? '' : 'none';
+  el('mkt-exch').style.display = tab === 'exch' ? '' : 'none';
+  ({auc:loadAuction, shop:loadShopCatalog, inv:loadInventory, exch:loadExchange}[tab]||loadAuction)();
 }
 
 function loadAuction() {
@@ -1748,29 +1763,7 @@ function doRitual(btn) {
   api('/dark-mora/ritual',{method:'POST'}).then(r=>toast(r.message||'✅',true)).catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
-// ── swArena update for new tabs ───────────────────────────────────────────────
-// Override swArena to handle dark tab
-function swArena(tab,btn) {
-  _arenaTab=tab;
-  document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  ['quests','gacha','craft','duels','dark'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
-  ({quests:loadQuests,gacha:loadGacha,craft:loadCraft,duels:loadDuels,dark:loadDarkMora}[tab])();
-}
-
-// ── swMkt update for exchange ─────────────────────────────────────────────────
-function swMkt(tab,_btn) {
-  const btn=_btn||document.querySelector('#pg-market .tb');
-  _mktTab=tab;
-  document.querySelectorAll('#pg-market .tb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  const bd=el('balrow'); bd.style.display=tab==='shop'?'flex':'none';
-  el('mkt-auc').style.display=tab==='auc'?'':'none';
-  el('mkt-shop').style.display=tab==='shop'?'':'none';
-  el('mkt-inv').style.display=tab==='inv'?'':'none';
-  el('mkt-exch').style.display=tab==='exch'?'':'none';
-  ({auc:loadAuction,shop:loadShopCatalog,inv:loadInventory,exch:loadExchange}[tab])();
-}
+// swArena and swMkt are defined above with correct dark/exch handling
 
 // ── Auction search ────────────────────────────────────────────────────────────
 let _allLots=[];
@@ -1829,39 +1822,7 @@ function submitDuelChallenge(btn) {
     .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
-// ── Gacha flip animation ──────────────────────────────────────────────────────
-// Override doSpin with flip animation
-// NOTE: do NOT call loadGacha() here — it would overwrite the result immediately.
-function doSpin(st,row) {
-  row.style.opacity='.5';row.style.pointerEvents='none';
-  api('/gacha/spin',{method:'POST',body:JSON.stringify({spin_type:st})}).then(r=>{
-    const cards=[];
-    if(r.mora)cards.push({text:`🪙 ${fmt(r.mora)} Мора`,cls:''});
-    if(r.diamonds)cards.push({text:`💎 ${r.diamonds} Алмазов`,cls:''});
-    (r.items||[]).forEach(i=>cards.push({text:`${i.name} ×${i.qty}`,cls:''}));
-    (r.dup_outcomes||[]).forEach(d=>{
-      const cl=d.rarity||'common';
-      cards.push({text:`🐾 ${d.species||''} дубл.`,cls:cl});
-    });
-    const html=cards.length?cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${i*0.1}s">${c.text}</div>`).join(''):'<div class="spin-card">—</div>';
-    // Show result
-    el('spin-res').innerHTML=`
-      <div style="font-size:12px;font-weight:700;color:var(--gold2);margin-bottom:8px">🎉 Результат!</div>
-      ${html}
-      <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="closeSpinResult()">🔄 Крутить ещё</button>`;
-    // Update balance only (not full UI rebuild)
-    api('/profile/me').then(d=>{
-      const bv=el('gacha-bal');
-      if(bv)bv.textContent=`🪙 ${fmt(d.mora)}`;
-    }).catch(()=>{});
-    row.style.opacity='1';row.style.pointerEvents='';
-  }).catch(e=>{toast(e,false);row.style.opacity='1';row.style.pointerEvents='';});
-}
-function closeSpinResult() {
-  const sr=el('spin-res');
-  if(sr)sr.innerHTML='';
-  loadGacha();
-}
+// doSpin and closeSpinResult defined above (no loadGacha to avoid overwriting result)
 
 // ── Browser Notifications ─────────────────────────────────────────────────────
 function requestBrowserNotif() {
@@ -1892,9 +1853,29 @@ function connectWS() {
 // ── WS ping/pong — prevents Cloudflare 100s idle timeout ─────────────────────
 setInterval(() => { if (_ws?.readyState === WebSocket.OPEN) _ws.send('ping'); }, 25000);
 
+// ── Refresh button helper ─────────────────────────────────────────────────────
+function addRefreshBtn(containerId, reloadFn) {
+  const c = el(containerId);
+  if(!c) return;
+  const ts = new Date().toLocaleTimeString('ru', {hour:'2-digit',minute:'2-digit'});
+  const btn = `<div style="text-align:right;padding:0 0 8px">
+    <button class="btn btn-ghost" style="font-size:10px;padding:3px 8px"
+            onclick="${reloadFn}">🔄 Обновить · ${ts}</button>
+  </div>`;
+  if(!c.querySelector('[onclick*="Обновить"]')) c.insertAdjacentHTML('afterbegin', btn);
+}
+
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
 setInterval(()=>{if(_loaded.has('profile'))loadProfile();},300000);
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
+
+// Refresh current page data
+function refreshPage() {
+  const page = document.querySelector('.nb.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1];
+  const loaders = {profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();},
+                   arena:loadArena, market:loadMarket, coll:loadColl};
+  if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('🔄 Обновлено!'); }
+}
 </script>
 </body>
 </html>"""
