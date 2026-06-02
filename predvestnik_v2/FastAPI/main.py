@@ -324,15 +324,18 @@ body{background:var(--bg);color:var(--text);
 .bal .bv{font-size:14px;font-weight:700;color:var(--bright);font-variant-numeric:tabular-nums}
 .bal .bl{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:1px}
 
-/* Modal */
+/* Modal — explicit centering for mobile/Telegram WebApp */
 dialog{background:var(--s);border:1px solid var(--border);border-radius:var(--r-lg);
-       padding:0;max-width:380px;width:90%;color:var(--text);animation:slideUp .18s ease}
-dialog::backdrop{background:rgba(0,0,0,.82);backdrop-filter:blur(5px)}
+       padding:0;max-width:360px;width:calc(100% - 24px);color:var(--text);
+       animation:slideUp .18s ease;
+       position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);margin:0}
+dialog::backdrop{background:rgba(0,0,0,.85);backdrop-filter:blur(6px)}
+.mbody{padding:13px 15px;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .mhead{display:flex;align-items:center;justify-content:space-between;
        padding:13px 15px;border-bottom:1px solid var(--border2)}
 .mtitle{font-size:14px;font-weight:700;color:var(--bright)}
 .mclose{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:2px 6px;line-height:1}
-.mbody{padding:13px 15px;max-height:60vh;overflow-y:auto}
+/* mbody also defined above with mobile-scroll fix */
 .mfoot{padding:10px 15px;border-top:1px solid var(--border2);display:flex;gap:7px;justify-content:flex-end}
 
 /* Info row */
@@ -814,7 +817,7 @@ function loadQuests() {
 }
 function loadGacha() {
   api('/gacha/').then(d=>{
-    el('gc').innerHTML=`<div class="balrow"><div class="bal"><div class="bv">🪙 ${fmt(d.mora)}</div><div class="bl">Мора</div></div></div>
+    el('gc').innerHTML=`<div class="balrow"><div class="bal"><div class="bv" id="gacha-bal">🪙 ${fmt(d.mora)}</div><div class="bl">Мора</div></div></div>
       <div class="card"><div class="card-title">Выберите крутку</div>${d.spin_types.map(s=>`<div class="spin-row" onclick="doSpin('${s.spin_type}',this)">
         <span style="font-size:20px">🎲</span>
         <span style="flex:1;font-size:13px;font-weight:600">${s.label}</span>
@@ -1277,6 +1280,7 @@ function submitDuelChallenge(btn) {
 
 // ── Gacha flip animation ──────────────────────────────────────────────────────
 // Override doSpin with flip animation
+// NOTE: do NOT call loadGacha() here — it would overwrite the result immediately.
 function doSpin(st,row) {
   row.style.opacity='.5';row.style.pointerEvents='none';
   api('/gacha/spin',{method:'POST',body:JSON.stringify({spin_type:st})}).then(r=>{
@@ -1289,9 +1293,23 @@ function doSpin(st,row) {
       cards.push({text:`🐾 ${d.species||''} дубл.`,cls:cl});
     });
     const html=cards.length?cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${i*0.1}s">${c.text}</div>`).join(''):'<div class="spin-card">—</div>';
-    el('spin-res').innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--gold2);margin-bottom:8px">🎉 Результат!</div>${html}`;
-    loadGacha();
+    // Show result
+    el('spin-res').innerHTML=`
+      <div style="font-size:12px;font-weight:700;color:var(--gold2);margin-bottom:8px">🎉 Результат!</div>
+      ${html}
+      <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="closeSpinResult()">🔄 Крутить ещё</button>`;
+    // Update balance only (not full UI rebuild)
+    api('/profile/me').then(d=>{
+      const bv=el('gacha-bal');
+      if(bv)bv.textContent=`🪙 ${fmt(d.mora)}`;
+    }).catch(()=>{});
+    row.style.opacity='1';row.style.pointerEvents='';
   }).catch(e=>{toast(e,false);row.style.opacity='1';row.style.pointerEvents='';});
+}
+function closeSpinResult() {
+  const sr=el('spin-res');
+  if(sr)sr.innerHTML='';
+  loadGacha();
 }
 
 // ── Browser Notifications ─────────────────────────────────────────────────────
