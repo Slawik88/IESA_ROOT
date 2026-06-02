@@ -136,6 +136,19 @@ async def expedition_background_task(bot: Bot):
                     except Exception as e:
                         logger.error(f"Не удалось отправить уведомление в чат {chat_id}: {e}")
 
+                    # Notify WebSocket clients (same process — no-op if user not connected)
+                    if owner_id:
+                        try:
+                            from FastAPI.notifications import notify as _ws_notify
+                            await _ws_notify(owner_id, {
+                                "type": "expedition_done",
+                                "pet": pet_name,
+                                "mora": reward["mora"],
+                                "xp": reward["xp"],
+                            })
+                        except Exception:
+                            pass
+
         except Exception as e:
             logger.error(f"Ошибка в фоновом процессе экспедиций: {e}")
             await asyncio.sleep(30)  # backoff on error — avoid tight crash loops
