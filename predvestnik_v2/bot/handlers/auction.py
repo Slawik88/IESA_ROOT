@@ -173,10 +173,10 @@ async def cb_auc_lot(query: types.CallbackQuery, callback_data: AucCB, db):
     b = InlineKeyboardBuilder()
     if lot["seller_id"] != query.from_user.id:
         b.button(text=f"💰 Ставка {min_next} 🪙",
-                 callback_data=AucCB(action="bid_confirm", v=f"{lot_id}:{min_next}"))
+                 callback_data=AucCB(action="bid_confirm", v=f"{lot_id}|{min_next}"))
         if lot.get("buyout"):
             b.button(text=f"⚡ Выкуп {int(lot['buyout'])} 🪙",
-                     callback_data=AucCB(action="bid_confirm", v=f"{lot_id}:{int(lot['buyout'])}"))
+                     callback_data=AucCB(action="bid_confirm", v=f"{lot_id}|{int(lot['buyout'])}"))
     else:
         b.button(text="❌ Отменить лот", callback_data=AucCB(action="cancel_lot", v=str(lot_id)))
 
@@ -201,7 +201,7 @@ async def cb_auc_lot(query: types.CallbackQuery, callback_data: AucCB, db):
 
 @router.callback_query(AucCB.filter(F.action == "bid_confirm"))
 async def cb_bid_confirm(query: types.CallbackQuery, callback_data: AucCB, db):
-    lot_id_str, amount_str = callback_data.v.split(":")
+    lot_id_str, amount_str = callback_data.v.split("|")
     lot_id = int(lot_id_str)
     amount = float(amount_str)
 
@@ -335,7 +335,7 @@ async def cb_create_cat(query: types.CallbackQuery, callback_data: AucCB, db):
         name = item_data.get("name", iid)
         b.button(
             text=f"{name} ×{qty}",
-            callback_data=AucCB(action="create_item", v=f"{iid}:{qty}"),
+            callback_data=AucCB(action="create_item", v=f"{iid}|{qty}"),
         )
         shown += 1
 
@@ -346,7 +346,7 @@ async def cb_create_cat(query: types.CallbackQuery, callback_data: AucCB, db):
             name = f"{sp.get('name','?')} Lv{pet.get('pet_level') or 1}"
             b.button(
                 text=name,
-                callback_data=AucCB(action="create_item", v=f"PET:{pet['id']}"),
+                callback_data=AucCB(action="create_item", v=f"PET|{pet['id']}"),
             )
             shown += 1
 
@@ -381,7 +381,7 @@ async def cb_create_item(query: types.CallbackQuery, callback_data: AucCB, db):
     _pending.setdefault(user_id, {})["item_v"] = v
 
     b = InlineKeyboardBuilder()
-    if v.startswith("PET:"):
+    if v.startswith("PET|"):
         # Pets: quantity always 1
         _pending[user_id]["quantity"] = 1
         _show_bid_step(b, user_id)
@@ -391,7 +391,7 @@ async def cb_create_item(query: types.CallbackQuery, callback_data: AucCB, db):
             parse_mode="HTML",
         )
     else:
-        item_id, max_qty_str = v.split(":", 1)
+        item_id, max_qty_str = v.split("|", 1)
         max_qty = int(max_qty_str)
         presets = [1, 5, 10, max_qty] if max_qty > 10 else list(range(1, min(max_qty + 1, 5)))
         for q in sorted(set(presets)):
@@ -462,8 +462,8 @@ async def cb_create_buyout(query: types.CallbackQuery, callback_data: AucCB, db)
     cat = pending.get("category", "consumables")
 
     # Resolve item name
-    if v.startswith("PET:"):
-        pet_id = int(v.split(":")[1])
+    if v.startswith("PET|"):
+        pet_id = int(v.split("|")[1])
         async with db.execute("SELECT species_id, COALESCE(pet_level,1) FROM pets WHERE id = ?", (pet_id,)) as c:
             row = await c.fetchone()
         if row:
@@ -472,7 +472,7 @@ async def cb_create_buyout(query: types.CallbackQuery, callback_data: AucCB, db)
         else:
             item_name = f"Питомец #{pet_id}"
     else:
-        item_id = v.split(":")[0]
+        item_id = v.split("|")[0]
         item_name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
 
     b = InlineKeyboardBuilder()
@@ -507,8 +507,8 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
     buyout = pending.get("buyout")
     cat = pending.get("category", "consumables")
 
-    if v.startswith("PET:"):
-        pet_id = int(v.split(":")[1])
+    if v.startswith("PET|"):
+        pet_id = int(v.split("|")[1])
         item_type = "pet"
         item_id_or_pet_id = pet_id
         async with db.execute("SELECT species_id, COALESCE(pet_level,1) FROM pets WHERE id = ?", (pet_id,)) as c:
@@ -519,7 +519,7 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
         await db.execute("UPDATE pets SET placement = 'auction' WHERE id = ? AND owner_id = ?",
                          (pet_id, user_id))
     else:
-        item_id = v.split(":")[0]
+        item_id = v.split("|")[0]
         item_type = "inventory"
         item_name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
         item_id_or_pet_id = abs(hash(item_id)) % (10**9)
@@ -568,10 +568,10 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
 
 
 @router.callback_query(AucCB.filter(F.action == "cancel_create"))
-async def cb_cancel_create(query: types.CallbackQuery):
+async def cb_cancel_create(query: types.CallbackQuery, db):
     _pending.pop(query.from_user.id, None)
     await query.answer("❌ Создание лота отменено.")
-    await cb_auc_menu(query, query.bot)
+    await cb_auc_menu(query, db)
 
 
 # ── бот аукцион [sub] text commands ───────────────────────────────────────────
