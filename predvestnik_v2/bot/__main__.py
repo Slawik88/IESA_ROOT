@@ -40,6 +40,34 @@ async def main():
     await init_db()
     logger.info("✅ База данных готова!")
 
+    # ── FastAPI starts BEFORE advisory lock so health checks pass immediately ──
+    # DigitalOcean health checks port immediately after container start.
+    # Advisory lock can block for ~90s during rolling redeploy — if FastAPI
+    # starts after the lock, health checks time out and the deploy fails.
+    _api_port = int(os.getenv("PORT", "0"))
+    if _api_port:
+        try:
+            import uvicorn
+            from FastAPI.main import app as _fastapi_app
+            from FastAPI.prefix import strip_prefix_middleware
+
+            _root_path = os.getenv("ROOT_PATH", "").rstrip("/")
+            _mounted_app = (
+                strip_prefix_middleware(_fastapi_app, _root_path)
+                if _root_path else _fastapi_app
+            )
+            _api_cfg = uvicorn.Config(
+                _mounted_app,
+                host="0.0.0.0",
+                port=_api_port,
+                log_level="warning",
+                lifespan="off",
+            )
+            asyncio.ensure_future(uvicorn.Server(_api_cfg).serve())
+            logger.info(f"🌐 FastAPI мини-апп запущен на порту {_api_port} (prefix='{_root_path}')")
+        except Exception as _e:
+            logger.warning(f"FastAPI не запущен: {_e}")
+
     # ── Advisory lock: only one bot instance polls at a time ──────────────────
     # Acquires a session-level PostgreSQL advisory lock. If another instance
     # holds it (e.g. the previous dyno during a rolling redeploy), this call
@@ -86,32 +114,6 @@ async def main():
         asyncio.create_task(duel_and_auction_task(bot))
         asyncio.create_task(chest_spawn_task(bot))
         asyncio.create_task(exchange_scheduler_task(bot))
-
-        # FastAPI mini-app server — same process, same DB pool.
-        # Activated when PORT env var is set (DigitalOcean Web Service sets it).
-        _api_port = int(os.getenv("PORT", "0"))
-        if _api_port:
-            try:
-                import uvicorn
-                from FastAPI.main import app as _fastapi_app
-                from FastAPI.prefix import strip_prefix_middleware
-
-                _root_path = os.getenv("ROOT_PATH", "").rstrip("/")
-                _mounted_app = (
-                    strip_prefix_middleware(_fastapi_app, _root_path)
-                    if _root_path else _fastapi_app
-                )
-                _api_cfg = uvicorn.Config(
-                    _mounted_app,
-                    host="0.0.0.0",
-                    port=_api_port,
-                    log_level="warning",
-                    lifespan="off",  # lifespan managed by bot's pool
-                )
-                asyncio.create_task(uvicorn.Server(_api_cfg).serve())
-                logger.info(f"🌐 FastAPI мини-апп запущен на порту {_api_port} (prefix='{_root_path}')")
-            except Exception as _e:
-                logger.warning(f"FastAPI не запущен: {_e}")
 
         await dp.start_polling(bot)
     finally:
