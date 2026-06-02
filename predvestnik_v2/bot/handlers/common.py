@@ -10,9 +10,10 @@ from services.utils import check_callback_owner
 from core.registry import ITEMS_REGISTRY
 from html import escape as _he
 
-_WEB_BASE_URL = os.getenv("WEB_BASE_URL", "http://127.0.0.1:8000")
-# URL Telegram Mini App (FastAPI). Must be HTTPS for WebAppInfo to work.
-_MINIAPP_URL = os.getenv("MINIAPP_URL", _WEB_BASE_URL)
+_WEB_BASE_URL = os.getenv("WEB_BASE_URL", "")
+# Dedicated Mini App URL — MUST be set explicitly. Never falls back to WEB_BASE_URL
+# because that variable points to the IESA platform, not Predvestnik.
+_MINIAPP_URL = os.getenv("MINIAPP_URL", "")
 
 router = Router(name="common_router")
 
@@ -495,10 +496,17 @@ async def handle_help_tabs(query: types.CallbackQuery, callback_data: HelpCallba
 
 @router.message(TextCmd(["сайт", "веб", "мини апп", "miniapp", "app", "приложение"]))
 async def cmd_web(message: types.Message):
-    builder = InlineKeyboardBuilder()
+    if not _MINIAPP_URL:
+        return await message.answer(
+            "🔮 <b>ПРЕДВЕСТНИК — МИНИ-АПП</b>\n\n"
+            "⚙️ <i>Мини-апп ещё не развёрнут.</i>\n"
+            "Разработчик настраивает сервис — скоро будет доступен!",
+            parse_mode="HTML",
+        )
 
-    # Telegram Mini App button — opens inline WebView inside Telegram.
-    # Falls back to URL button if the URL is not HTTPS (local dev).
+    builder = InlineKeyboardBuilder()
+    # WebAppInfo opens inline inside Telegram (requires HTTPS).
+    # Regular URL button as fallback for local/http dev.
     if _MINIAPP_URL.startswith("https://"):
         builder.button(
             text="🔮 Открыть мини-апп",
