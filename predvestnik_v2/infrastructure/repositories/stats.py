@@ -1,43 +1,48 @@
 # infrastructure/repositories/stats.py
 import aiosqlite
 
-# Safe column whitelist — prevents SQL injection via dynamic column names.
-_COLUMNS_MAP = {
-    "day":       "user_messages_count_per_day",
-    "week":      "user_messages_count_per_week",
-    "all_time":  "user_messages_count_all_time",
-    "last_day":  "user_messages_count_per_last_day",
-    "last_week": "user_messages_count_per_last_week",
-}
+# all_time still reads from the counter column; period-based reads from daily_user_stats
+# so that stale lazy-reset counters can't show players who haven't written today.
 
 
 async def get_top_messages(
     db: aiosqlite.Connection, chat_id: int, period: str, limit: int = 500
 ) -> list[dict]:
-    col = _COLUMNS_MAP.get(period, "user_messages_count_all_time")
+    """all_time top — reads from the cumulative counter column."""
     async with db.execute(
-        f"SELECT s.user_tg_id, u.user_tg_username, s.{col} AS msg_count "
-        f"FROM user_chat_stats s "
-        f"LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
-        f"WHERE s.chat_tg_id = ? AND s.is_left = FALSE AND s.{col} > 0 "
-        f"ORDER BY s.{col} DESC LIMIT ?",
+        "SELECT s.user_tg_id, u.user_tg_username, "
+        "s.user_messages_count_all_time AS msg_count "
+        "FROM user_chat_stats s "
+        "LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
+        "WHERE s.chat_tg_id = ? AND s.is_left = FALSE "
+        "AND s.user_messages_count_all_time > 0 "
+        "ORDER BY s.user_messages_count_all_time DESC LIMIT ?",
         (chat_id, limit),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 
 
-async def get_zero_message_users(
-    db: aiosqlite.Connection, chat_id: int, period: str
+async def get_top_messages_for_dates(
+    db: aiosqlite.Connection,
+    chat_id: int,
+    date_start: str,
+    date_end: str,
+    limit: int = 500,
 ) -> list[dict]:
-    """Returns users in chat who have 0 messages in the given period."""
-    col = _COLUMNS_MAP.get(period, "user_messages_count_all_time")
+    """Period-based top using daily_user_stats — accurate even for inactive days."""
     async with db.execute(
-        f"SELECT s.user_tg_id, u.user_tg_username "
-        f"FROM user_chat_stats s "
-        f"LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
-        f"WHERE s.chat_tg_id = ? AND s.is_left = FALSE AND (s.{col} IS NULL OR s.{col} = 0) "
-        f"ORDER BY u.user_tg_username NULLS LAST LIMIT 50",
-        (chat_id,),
+        "SELECT d.user_id AS user_tg_id, u.user_tg_username, "
+        "SUM(d.message_count) AS msg_count "
+        "FROM daily_user_stats d "
+        "LEFT JOIN users u ON d.user_id = u.user_tg_id "
+        "LEFT JOIN user_chat_stats s "
+        "  ON s.user_tg_id = d.user_id AND s.chat_tg_id = d.chat_id "
+        "WHERE d.chat_id = ? AND d.date >= ? AND d.date <= ? "
+        "AND NOT (s.is_left = TRUE) "
+        "GROUP BY d.user_id, u.user_tg_username "
+        "HAVING SUM(d.message_count) > 0 "
+        "ORDER BY msg_count DESC LIMIT ?",
+        (chat_id, date_start, date_end, limit),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 

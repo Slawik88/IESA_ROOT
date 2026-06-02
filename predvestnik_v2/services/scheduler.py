@@ -248,6 +248,7 @@ async def chest_spawn_task(bot: Bot):
             from core.constants import (
                 CHEST_DURATION_SECONDS, CHEST_MIN_ACTIVE_USERS_24H,
                 CHEST_SPAWN_MIN_HOURS, CHEST_SPAWN_MAX_HOURS, CHEST_MAX_CLAIMANTS,
+                CHEST_REWARDS_BY_POSITION,
             )
             from infrastructure.repositories.chest_events import (
                 get_qualifying_chats, create_chest, close_chest,
@@ -294,13 +295,14 @@ async def chest_spawn_task(bot: Bot):
                             text=f"👋 Забрать! (0/{CHEST_MAX_CLAIMANTS})",
                             callback_data=_ChestCB(chest_id=chest_id),
                         )
+                        _r = CHEST_REWARDS_BY_POSITION
                         await bot.send_message(
                             chat_id,
                             "💰 <b>НАЙДЕН СУНДУК ПРЕДВЕСТНИКА!</b>\n\n"
-                            "🥇 1 место: <b>70 🪙</b> + 🎟 Жетон\n"
-                            "🥈 2 место: <b>65 🪙</b> + 🎟 Жетон\n"
-                            "🥉 3 место: <b>60 🪙</b> + 🎟 Жетон\n"
-                            "4–15 место: <b>55 → 10 🪙</b>\n\n"
+                            f"🥇 1 место: <b>{int(_r.get(1,300))} 🪙</b> + 🎟 Жетон\n"
+                            f"🥈 2 место: <b>{int(_r.get(2,260))} 🪙</b> + 🎟 Жетон\n"
+                            f"🥉 3 место: <b>{int(_r.get(3,220))} 🪙</b> + 🎟 Жетон\n"
+                            f"4–15 место: <b>{int(_r.get(15,30))}–{int(_r.get(4,190))} 🪙</b>\n\n"
                             "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
                             reply_markup=b.as_markup(),
                             parse_mode="HTML",
