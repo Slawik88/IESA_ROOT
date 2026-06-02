@@ -678,20 +678,67 @@ function loadStreak() {
   }).catch(e=>{el('pro-streak').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
 }
 
+// What each achievement tracks and how to earn it
+const ACH_HOW = {
+  egg_opener:  {how:'Открывайте яйца питомцев',     where:'Инвентарь → нажмите на яйцо'},
+  gacha_addict:{how:'Крутите гачу',                  where:'Арена → Гача'},
+  collector:   {how:'Получайте новые виды питомцев', where:'Открывайте яйца — каждый новый вид'},
+  trainer:     {how:'Прокачивайте питомцев до Lv10', where:'Открывайте дубликаты одного вида'},
+  wanderer:    {how:'Отправляйте питомцев в походы', where:'Зоопарк → питомец → команда бота'},
+  persistent:  {how:'Поддерживайте ежедневный стрик',where:'Пишите в бот каждый день'},
+  vow_keeper:  {how:'Состоите в браке',              where:'бот брак — оформить брак'},
+  patron:      {how:'Тратьте Мору в магазине',       where:'Рынок → Магазин'},
+  magnate:     {how:'Накапливайте Мору',             where:'Автоматически от баланса'},
+  treasury:    {how:'Накапливайте Алмазы',           where:'Автоматически от баланса'},
+  dealer:      {how:'Продавайте лоты на аукционе',   where:'Рынок → Аукцион → выставить лот'},
+  lucky_one:   {how:'Побеждайте в мини-играх',       where:'бот кости / монета / рулетка'},
+  duelist:     {how:'Побеждайте в дуэлях',           where:'бот дуэль в чате'},
+  talker:      {how:'Пишите сообщения в боте',       where:'Любой чат с ботом — просто общайтесь'},
+  star:        {how:'Будьте топ-1 в чате за неделю', where:'Пишите активнее всех в чате'},
+};
+
 function loadAch() {
   el('pro-ach').innerHTML='<div class="loader">Загрузка...</div>';
   api('/achievements/').then(achs=>{
-    el('pro-ach').innerHTML='<div class="card"><div class="card-title">Достижения</div>'+
-      achs.map(a=>`<div class="ach-item">
-        <div class="ach-head">
-          <div class="ach-icon">${a.icon}</div>
-          <div class="ach-name">${a.name}</div>
-          <div class="ach-lvl">${a.completed?'MAX':a.level>0?`Lv${a.level}`:'—'} / ${a.max_level}</div>
-        </div>
-        <div class="ach-bar"><div class="ach-fill" style="width:${a.pct}%"></div></div>
-        <div class="ach-prog">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)} ${a.completed?'✅':''}</div>
-      </div>`).join('')+'</div>';
+    el('pro-ach').innerHTML='<div class="card"><div class="card-title">Достижения (нажмите для деталей)</div>'+
+      achs.map(a=>{
+        const hw=ACH_HOW[a.id]||{};
+        return `<div class="ach-item" style="cursor:pointer" onclick="openAchModal(${JSON.stringify(a).replace(/"/g,"'")})">
+          <div class="ach-head">
+            <div class="ach-icon">${a.icon}</div>
+            <div class="ach-name">${a.name}</div>
+            <div class="ach-lvl" style="color:${a.completed?'var(--gold)':a.level>0?'var(--green)':'var(--muted)'}">
+              ${a.completed?'★ MAX':a.level>0?`Lv${a.level}`:'—'}
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${hw.how||''}</div>
+          <div class="ach-bar"><div class="ach-fill" style="width:${a.pct}%"></div></div>
+          <div class="ach-prog">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}${a.completed?' ✅':''}</div>
+        </div>`;
+      }).join('')+'</div>';
   }).catch(e=>{el('pro-ach').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
+}
+
+function openAchModal(a) {
+  const hw=ACH_HOW[a.id]||{};
+  const rw=a.next_reward||{};
+  const rwParts=[rw.mora&&`+${fmt(rw.mora)} 🪙`,rw.diamonds&&`+${rw.diamonds} 💎`].filter(Boolean).join(', ');
+  OM(`${a.icon} ${a.name}`,`
+    <div style="text-align:center;padding:8px 0 14px">
+      <div style="font-size:28px;font-weight:800;color:${a.completed?'var(--gold)':'var(--text)'}">
+        ${a.completed?'★ МАКСИМУМ':`Lv${a.level} / ${a.max_level}`}
+      </div>
+      <div class="ach-bar" style="height:8px;margin:10px 0 4px">
+        <div class="ach-fill" style="width:${a.pct}%"></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted)">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}</div>
+    </div>
+    <div class="divider"></div>
+    <div class="irow"><span class="ik">Что нужно делать</span><span style="color:var(--text);text-align:right;max-width:60%">${hw.how||'—'}</span></div>
+    <div class="irow"><span class="ik">Где делать</span><span style="color:var(--teal);text-align:right;max-width:60%">${hw.where||'—'}</span></div>
+    ${!a.completed&&rwParts?`<div class="irow"><span class="ik">Награда Lv${a.level+1}</span><span style="color:var(--gold)">${rwParts}</span></div>`:''}
+    ${a.completed?`<div style="text-align:center;padding:10px;color:var(--gold);font-size:13px;font-weight:600">🏆 Достижение полностью выполнено!</div>`:''}
+  `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
 }
 
 // ── Zoo ───────────────────────────────────────────────────────────────────────

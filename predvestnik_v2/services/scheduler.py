@@ -18,6 +18,7 @@ from infrastructure.repositories.exchange import (
 )
 from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
+from services.achievements import increment_metric as _incr_ach
 
 
 async def expedition_background_task(bot: Bot):
@@ -116,7 +117,6 @@ async def expedition_background_task(bot: Bot):
                     # Achievement + quest: expeditions
                     if owner_id:
                         try:
-                            from services.achievements import increment_metric as _incr_ach
                             from services.quests import increment_metric as _incr_quest
                             await _incr_ach(db, owner_id, "expeditions_done", delta=1.0)
                             await _incr_quest(db, owner_id, chat_id, "expeditions_today", delta=1.0)
@@ -207,6 +207,12 @@ async def duel_and_auction_task(bot: Bot):
                             seller_id = lot["seller_id"]
                             price = result.get("final_price", 0)
                             item_name = lot.get("item_name", "?").split("||")[0]
+                            # Achievement: dealer (auction sales for seller)
+                            try:
+                                await _incr_ach(db, seller_id, "dealer", delta=1.0)
+                                await db.commit()
+                            except Exception:
+                                pass
                             # Notify winner
                             try:
                                 await bot.send_message(
