@@ -153,7 +153,10 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
 
-const BASE = window.location.origin;
+// Build base URL that works both at '/' and at '/predvestnik/' (path-prefix deploy).
+// Takes everything up to (but not including) the last path segment.
+const _loc = window.location;
+const BASE = _loc.origin + _loc.pathname.replace(/\/[^/]*$/, '').replace(/\/$/, '');
 
 // Show user name from Telegram
 if (tg.initDataUnsafe?.user) {
