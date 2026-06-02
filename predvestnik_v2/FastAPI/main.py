@@ -261,9 +261,8 @@ _HTML = """<!DOCTYPE html>
 <!-- Top -->
 <div id="pg-top" class="page">
   <div class="tab-row">
-    <button class="tab-btn active" onclick="loadTop('day',this)">Сегодня</button>
-    <button class="tab-btn" onclick="loadTop('week',this)">Неделя</button>
-    <button class="tab-btn" onclick="loadTop('all_time',this)">Всё время</button>
+    <button class="tab-btn active" onclick="switchTop('local',this)">🏘 Чат</button>
+    <button class="tab-btn" onclick="switchTop('global',this)">🌍 Глобальный</button>
   </div>
   <div id="top-content" class="loader">Загрузка...</div>
 </div>
@@ -439,40 +438,35 @@ if (INIT_DATA || getSession()) loadProfile();
 _loaded.add('profile');
 
 // ── Top ───────────────────────────────────────────────────────────────────────
-let _topPeriod = 'day';
-function loadTop(period, btn) {
-  _topPeriod = period;
-  if (btn) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  }
-  const chatId = _topChatId;
-  if (!chatId) {
+function renderTopRows(rows) {
+  if (!rows.length) return '<div class="loader">Данных пока нет.</div>';
+  return '<div class="card">' +
+    rows.slice(0, 30).map((r, i) => `
+      <div class="top-row">
+        <div class="top-pos">${MEDALS[i] || (i + 1) + '.'}</div>
+        <div class="top-name">${r.username}</div>
+        <div class="top-count">${fmt(r.count)} 💬</div>
+      </div>`).join('') +
+    '</div>';
+}
+
+function switchTop(mode, btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('top-content').innerHTML = '<div class="loader">Загрузка...</div>';
+
+  const url = mode === 'global' ? '/top/global' : `/top/local/${_topChatId}`;
+  if (mode === 'local' && !_topChatId) {
     document.getElementById('top-content').innerHTML =
-      '<div class="err">Откройте профиль сначала — нужен ID чата.</div>';
+      '<div class="err">Нужен профиль с привязанным чатом.</div>';
     return;
   }
-  document.getElementById('top-content').innerHTML = '<div class="loader">Загрузка...</div>';
-  api(`/top/${chatId}?period=${period}`)
-    .then(rows => {
-      if (!rows.length) {
-        document.getElementById('top-content').innerHTML = '<div class="loader">Данных пока нет.</div>';
-        return;
-      }
-      document.getElementById('top-content').innerHTML =
-        '<div class="card">' +
-        rows.slice(0,30).map((r,i) => `
-          <div class="top-row">
-            <div class="top-pos">${MEDALS[i]||String(i+1)+'.'}</div>
-            <div class="top-name">${r.username}</div>
-            <div class="top-count">${fmt(r.count)} 💬</div>
-          </div>`).join('') +
-        '</div>';
-    })
-    .catch(e => {
-      document.getElementById('top-content').innerHTML = `<div class="err">${e}</div>`;
-    });
+  api(url)
+    .then(rows => { document.getElementById('top-content').innerHTML = renderTopRows(rows); })
+    .catch(e  => { document.getElementById('top-content').innerHTML = `<div class="err">${e}</div>`; });
 }
+
+function loadTop() { switchTop('local', document.querySelector('#pg-top .tab-btn')); }
 
 // ── Inventory ─────────────────────────────────────────────────────────────────
 function loadInventory() {
