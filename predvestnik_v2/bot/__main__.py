@@ -94,15 +94,22 @@ async def main():
             try:
                 import uvicorn
                 from FastAPI.main import app as _fastapi_app
+                from FastAPI.prefix import strip_prefix_middleware
+
+                _root_path = os.getenv("ROOT_PATH", "").rstrip("/")
+                _mounted_app = (
+                    strip_prefix_middleware(_fastapi_app, _root_path)
+                    if _root_path else _fastapi_app
+                )
                 _api_cfg = uvicorn.Config(
-                    _fastapi_app,
+                    _mounted_app,
                     host="0.0.0.0",
                     port=_api_port,
                     log_level="warning",
-                    lifespan="on",
+                    lifespan="off",  # lifespan managed by bot's pool
                 )
                 asyncio.create_task(uvicorn.Server(_api_cfg).serve())
-                logger.info(f"🌐 FastAPI мини-апп запущен на порту {_api_port}")
+                logger.info(f"🌐 FastAPI мини-апп запущен на порту {_api_port} (prefix='{_root_path}')")
             except Exception as _e:
                 logger.warning(f"FastAPI не запущен: {_e}")
 
