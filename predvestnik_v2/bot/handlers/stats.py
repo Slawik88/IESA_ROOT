@@ -1,9 +1,11 @@
+from datetime import datetime, timezone, timedelta
+
 from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from infrastructure.repositories import stats
-from infrastructure.repositories.stats import get_zero_message_users
+from infrastructure.repositories.streak import get_chat_timezone
 from services.utils import safe_html, format_currency, check_callback_owner
 from bot.filters.text_commands import TextCmd
 from core.constants import INACTIVE_THRESHOLD_DAYS
@@ -67,23 +69,37 @@ def generate_top_keyboard(
     return builder.as_markup()
 
 
+async def _get_period_users(db, chat_id: int, period: str) -> list[dict]:
+    """Route to the correct query based on period type."""
+    if period == "all_time":
+        return await stats.get_top_messages(db, chat_id, period)
+
+    tz_offset = await get_chat_timezone(db, chat_id)
+    now = datetime.now(timezone.utc) + timedelta(hours=tz_offset)
+    today = now.strftime("%Y-%m-%d")
+
+    if period == "day":
+        return await stats.get_top_messages_for_dates(db, chat_id, today, today)
+    elif period == "last_day":
+        yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+        return await stats.get_top_messages_for_dates(db, chat_id, yesterday, yesterday)
+    elif period == "week":
+        week_start = (now - timedelta(days=6)).strftime("%Y-%m-%d")
+        return await stats.get_top_messages_for_dates(db, chat_id, week_start, today)
+    elif period == "last_week":
+        last_week_end = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+        last_week_start = (now - timedelta(days=13)).strftime("%Y-%m-%d")
+        return await stats.get_top_messages_for_dates(db, chat_id, last_week_start, last_week_end)
+    return await stats.get_top_messages(db, chat_id, "all_time")
+
+
 async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[str, int]:
     """Возвращает (текст страницы, total_pages).
-    Показывает ВСЕХ с > 0 сообщений с пагинацией.
-    На последней странице добавляет секцию молчунов (0 сообщений)."""
-    all_users = await stats.get_top_messages(db, chat_id, period)
+    Данные за периоды берутся из daily_user_stats — точный учёт без lazy-reset бага."""
+    all_users = await _get_period_users(db, chat_id, period)
     period_name = PERIOD_NAMES.get(period, "За всё время")
 
     if not all_users:
-        # Сразу показываем молчунов
-        zero = await get_zero_message_users(db, chat_id, period)
-        if zero:
-            lines = [f"🏆 <b>ТОП АКТИВНОСТИ</b>\n📅 <b>Период:</b> {period_name}\n"]
-            lines.append("\n😶 <b>Молчуны (0 сообщений):</b>")
-            for u in zero:
-                name = safe_html(u["user_tg_username"] or f"ID{u['user_tg_id']}")
-                lines.append(f"· <a href=\"tg://user?id={u['user_tg_id']}\">{name}</a>")
-            return "\n".join(lines), 1
         return f"🏆 <b>ТОП АКТИВНОСТИ</b>\n└ <i>{period_name}: сообщений нет.</i>", 1
 
     total_pages = max(1, -(-len(all_users) // _TOP_PAGE_SIZE))  # ceiling div
@@ -100,17 +116,6 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
         name = safe_html(user["user_tg_username"] or f"Пользователь {user['user_tg_id']}")
         link = f'<a href="tg://user?id={user["user_tg_id"]}">{name}</a>'
         lines.append(f"{medal} {link} — <code>{user['msg_count']}</code>")
-
-    # На последней странице — молчуны
-    if page == total_pages - 1:
-        zero = await get_zero_message_users(db, chat_id, period)
-        if zero:
-            lines.append("\n😶 <b>Молчуны (0 сообщений):</b>")
-            for u in zero[:20]:
-                name = safe_html(u["user_tg_username"] or f"ID{u['user_tg_id']}")
-                lines.append(f"· <a href=\"tg://user?id={u['user_tg_id']}\">{name}</a>")
-            if len(zero) > 20:
-                lines.append(f"<i>...и ещё {len(zero) - 20}</i>")
 
     return "\n".join(lines), total_pages
 

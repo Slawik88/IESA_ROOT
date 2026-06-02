@@ -5,8 +5,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import chat as chat_repo
+from infrastructure.repositories.streak import get_chat_timezone, set_chat_timezone
 from services import roles
 from services.utils import check_callback_owner
+from core.constants import CHAT_TIMEZONE_MIN, CHAT_TIMEZONE_MAX
 
 router = Router(name="chat_settings_router")
 
@@ -59,8 +61,12 @@ def _rank_label(rank_id: int) -> str:
 
 async def _build_menu_text(db, chat_id: int) -> str:
     s = await mod_db.get_chat_settings(db, chat_id)
+    tz_offset = await get_chat_timezone(db, chat_id)
+    tz_sign = "+" if tz_offset >= 0 else ""
+    tz_label = f"UTC{tz_sign}{tz_offset}"
 
-    lines = ["⚙️ <b>НАСТРОЙКИ ЧАТА</b>\n"]
+    lines = [f"⚙️ <b>НАСТРОЙКИ ЧАТА</b>\n🕐 <b>Часовой пояс:</b> <code>{tz_label}</code>  "
+             f"<i>— бот часовой пояс, +3</i>\n"]
 
     # Rank permissions section
     lines.append("🛡 <b>Кто может выполнять действия:</b>")
@@ -227,3 +233,66 @@ async def cb_toggle_setting(query: types.CallbackQuery, callback_data: ChatSetti
     await query.answer(f"{icon} {desc} — {status}!", show_alert=False)
     text = await _build_menu_text(db, chat_id)
     await query.message.edit_text(text, reply_markup=_settings_kb(user_id=uid), parse_mode="HTML")
+
+
+# ── Timezone command ─────────────────────────────────────────────────────────
+
+@router.message(TextCmd(["часовой пояс", "timezone", "часовойпояс"]))
+async def cmd_set_timezone(message: types.Message, db, developer_id: int = 0, text_args: str = None):
+    """бот часовой пояс        → показать текущий
+    бот часовой пояс, +3   → установить UTC+3
+    бот часовой пояс, -5   → установить UTC-5"""
+    if message.chat.type == "private":
+        return
+
+    admin_stats = await chat_repo.get_chat_stats(db, message.from_user.id, message.chat.id)
+    admin_rank = admin_stats.get("local_rank", 0)
+    is_dev = developer_id and message.from_user.id == developer_id
+
+    if not is_dev and admin_rank < 5:
+        return await message.answer(
+            "❌ <b>Отказ:</b> Требуется ранг <b>Совладелец</b> (5) или выше.",
+            parse_mode="HTML",
+        )
+
+    current_tz = await get_chat_timezone(db, message.chat.id)
+    tz_sign = "+" if current_tz >= 0 else ""
+    current_label = f"UTC{tz_sign}{current_tz}"
+
+    raw = (text_args or "").strip()
+    if not raw:
+        return await message.answer(
+            f"🕐 <b>ЧАСОВОЙ ПОЯС ЧАТА</b>\n\n"
+            f"Текущий: <code>{current_label}</code>\n\n"
+            f"Чтобы изменить:\n"
+            f"<code>бот часовой пояс, +3</code>\n"
+            f"<code>бот часовой пояс, -5</code>\n\n"
+            f"<i>Диапазон: UTC{CHAT_TIMEZONE_MIN} — UTC+{CHAT_TIMEZONE_MAX}</i>",
+            parse_mode="HTML",
+        )
+
+    # Parse offset like "+3", "-5", "3", "UTC+3", "UTC-5"
+    raw_clean = raw.upper().replace("UTC", "").replace(" ", "")
+    try:
+        offset = int(raw_clean)
+    except ValueError:
+        return await message.answer(
+            "❌ <b>Отказ:</b> Неверный формат. Пример: <code>бот часовой пояс, +3</code>",
+            parse_mode="HTML",
+        )
+
+    if offset < CHAT_TIMEZONE_MIN or offset > CHAT_TIMEZONE_MAX:
+        return await message.answer(
+            f"❌ <b>Отказ:</b> Диапазон UTC{CHAT_TIMEZONE_MIN} — UTC+{CHAT_TIMEZONE_MAX}.",
+            parse_mode="HTML",
+        )
+
+    await set_chat_timezone(db, message.chat.id, offset)
+    new_sign = "+" if offset >= 0 else ""
+    new_label = f"UTC{new_sign}{offset}"
+    await message.answer(
+        f"✅ Часовой пояс чата изменён: <code>{current_label}</code> → <code>{new_label}</code>\n\n"
+        f"<i>Теперь все счётчики активности, стрик и квесты сбрасываются по полуночи "
+        f"{new_label}.</i>",
+        parse_mode="HTML",
+    )

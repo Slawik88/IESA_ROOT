@@ -32,6 +32,7 @@ from .blacklist import router as blacklist_router
 from .promocodes import router as promo_router
 from .dark_mora import router as dark_mora_router
 from .themes import router as themes_router
+from .events_info import router as events_info_router
 from . import dev
 
 
@@ -71,6 +72,7 @@ main_router.include_routers(
     promo_router,          # промокоды
     dark_mora_router,      # Тёмная Мора: контрабанда, ритуал
     themes_router,         # темы профиля
+    events_info_router,    # бот ивент: расписание + dev force-команды
     dev.router,
     unknown_cmd_router,    # B6: подсказки опечаток — перед fallback, после всех команд
     fallback_router,       # должен быть последним — ловит неверный синтаксис
