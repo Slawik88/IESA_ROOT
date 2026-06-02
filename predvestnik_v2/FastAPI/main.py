@@ -541,7 +541,7 @@ const _initChatTitle = _tgChat?.title || '';
 
 let _cid = 0, _uid = 0, _actTab='quests', _zooTab='active', _arenaTab='quests';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='auc';
-let _proTab='main';
+let _proTab='main', _profileData=null;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const sess = () => localStorage.getItem(SK)||'';
@@ -1116,38 +1116,98 @@ function doCraft(recipeId, btn) {
     .catch(e => { toast(e, false); btn.disabled = false; });
 }
 function loadDuels() {
-  Promise.all([api('/duels/active'),api('/duels/history')]).then(([active,hist])=>{
-    let html='';
-    if(active.length) {
-      html+=`<div class="card"><div class="card-title">⏳ Входящие вызовы</div>${active.filter(d=>d.challenged_id==_uid).map(d=>`
-        <div class="duel-card">
-          <div class="duel-vs">${d.challenger_name||'Игрок'} вызывает на дуэль</div>
+  el('dc').innerHTML='<div class="loader">Загрузка...</div>';
+  Promise.all([api('/duels/active'), api('/duels/history')]).then(([active, hist]) => {
+    let html = '';
+
+    // Challenge button
+    html += `<button class="btn btn-red btn-full" style="margin-bottom:10px" onclick="openDuelChallenge()">⚔️ Вызвать игрока на дуэль</button>`;
+
+    // Incoming challenges
+    const incoming = active.filter(d => d.challenged_id == _uid);
+    if(incoming.length) {
+      html += `<div class="card"><div class="card-title">⏳ Входящие вызовы (${incoming.length})</div>
+        ${incoming.map(d=>`<div class="duel-card">
+          <div class="duel-vs">${d.challenger_name||'Игрок'} вызывает вас</div>
           <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px">Принять можно ответив на вызов в чате: <code>бот принять</code></div>
           <button class="btn btn-sm btn-red" style="margin-top:6px" onclick="declineDuel(${d.id},this)">❌ Отклонить</button>
-        </div>`).join('')}</div>`;
+        </div>`).join('')}
+      </div>`;
     }
+
+    // Outgoing pending
+    const outgoing = active.filter(d => d.challenger_id == _uid);
+    if(outgoing.length) {
+      html += `<div class="card"><div class="card-title">📤 Мои вызовы</div>
+        ${outgoing.map(d=>`<div class="duel-card">
+          <div class="duel-vs">→ ${d.challenged_name||'Игрок'}</div>
+          <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
+          <div style="font-size:10px;color:var(--muted)">Ожидание ответа...</div>
+        </div>`).join('')}
+      </div>`;
+    }
+
+    // History
     if(hist.length) {
-      html+=`<div class="card"><div class="card-title">📜 История дуэлей</div>${hist.map(d=>{
-        const won=d.winner_id==_uid;const isDone=d.status==='finished';
-        const vs=d.challenger_id==_uid?d.challenged_name:d.challenger_name;
-        return `<div class="duel-card">
-          <div style="display:flex;justify-content:space-between">
-            <div class="duel-vs">vs ${vs||'Игрок'}</div>
-            <div class="duel-result${isDone?(won?' win':' lose'):''}">
-              ${isDone?(won?'Победа ✓':'Поражение'):{pending:'В ожидании',timeout:'Истёк',declined:'Отклонён'}[d.status]||d.status}
+      html += `<div class="card"><div class="card-title">📜 История (последние 20)</div>
+        ${hist.map(d => {
+          const won = d.winner_id == _uid;
+          const isDone = d.status === 'finished';
+          const vs = d.challenger_id == _uid ? d.challenged_name : d.challenger_name;
+          const statusMap = {pending:'⏳ Ожидание', timeout:'⏰ Истёк', declined:'❌ Отклонён', finished:''};
+          return `<div class="duel-card">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div class="duel-vs">vs ${vs||'Игрок'}</div>
+              <div class="duel-result${isDone?(won?' win':' lose'):''}">
+                ${isDone?(won?'✓ Победа':'✗ Поражение'):statusMap[d.status]||d.status}
+              </div>
             </div>
-          </div>
-          <div class="duel-stake">${fmt(d.stake)} 🪙</div>
-        </div>`;
-      }).join('')}</div>`;
+            <div class="duel-stake">${fmt(d.stake)} 🪙</div>
+          </div>`;
+        }).join('')}
+      </div>`;
     }
-    el('dc').innerHTML=html||'<div class="loader">Дуэлей нет. Вызывайте соперников в чате!</div>';
-  }).catch(e=>{el('dc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
+
+    el('dc').innerHTML = html || '<div class="loader">Дуэлей пока нет.</div>';
+  }).catch(e => { el('dc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
-function declineDuel(id,btn) {
-  btn.disabled=true;
-  api('/duels/decline',{method:'POST',body:JSON.stringify({duel_id:id})})
-    .then(()=>{toast('✅ Вызов отклонён.');loadDuels();}).catch(e=>{toast(e,false);btn.disabled=false;});
+
+function declineDuel(id, btn) {
+  btn.disabled = true;
+  api('/duels/decline', {method:'POST', body:JSON.stringify({duel_id:id})})
+    .then(() => { toast('✅ Вызов отклонён.'); loadDuels(); })
+    .catch(e => { toast(e, false); btn.disabled = false; });
+}
+
+function openDuelChallenge() {
+  if(!_cid) { toast('Нужен Профиль с чатом для вызова.', false); return; }
+  OM('⚔️ Вызов на дуэль', `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5">
+      Введите @username игрока и ставку. Вызов придёт в чат — там соперник сможет принять его через бота.
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">@username соперника</div>
+    <input id="duel-user" type="text" class="num-input" placeholder="@username (без @)"/>
+    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Ставка 🪙 (200 – 15 000)</div>
+    <input id="duel-stake" type="number" class="num-input" placeholder="500" min="200" max="15000"/>
+    <div style="font-size:10px;color:var(--muted);margin-top:6px">
+      ⚠️ Ставка замораживается до завершения дуэли.
+    </div>
+  `, [
+    {l:'⚔️ Вызвать', c:'btn-red', f:'submitDuelChallenge(this)'},
+    {l:'Отмена', c:'btn-ghost', f:'CM()'},
+  ]);
+}
+
+function submitDuelChallenge(btn) {
+  const username = el('duel-user')?.value?.trim().replace('@','');
+  const stake = parseFloat(el('duel-stake')?.value||0);
+  if(!username) { toast('Введите @username.', false); return; }
+  if(!stake || stake < 200) { toast('Мин. ставка 200 🪙.', false); return; }
+  btn.disabled = true;
+  api('/duels/challenge', {method:'POST', body:JSON.stringify({username, stake, chat_id:_cid})})
+    .then(() => { toast('⚔️ Вызов отправлен в чат!'); CM(); loadDuels(); })
+    .catch(e => { toast(e, false); btn.disabled = false; });
 }
 
 // ── Market ────────────────────────────────────────────────────────────────────
@@ -1166,12 +1226,67 @@ function swMkt(tab,btn) {
 function loadAuction() {
   api('/auction/lots').then(lots=>{
     _allLots=lots;
-    el('mkt-auc').innerHTML=`<div style="display:flex;gap:7px;margin-bottom:10px">
-      <input type="text" class="num-input" style="margin:0;font-size:12px" placeholder="🔍 Поиск по названию..." oninput="filterAuction(this.value)"/>
-    </div><div id="lot-list"></div>`;
+    el('mkt-auc').innerHTML=`
+      <div style="display:flex;gap:7px;margin-bottom:10px">
+        <input type="text" class="num-input" style="margin:0;flex:1;font-size:12px"
+               placeholder="🔍 Поиск по названию..." oninput="filterAuction(this.value)"/>
+        <button class="btn btn-gold btn-sm" onclick="openCreateLotModal()">+ Выставить</button>
+      </div>
+      <div id="lot-list"></div>`;
     renderLots(lots);
   }).catch(e=>{el('mkt-auc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;_allLots=[];});
 }
+// ── Create lot modal ─────────────────────────────────────────────────────────
+let _invForAuction = [];
+function openCreateLotModal() {
+  if(!_invData.length) { loadInventory(); }
+  // Filter tradable items
+  const items = _invData.filter(it => it.quantity > 0 && ['egg','food','utility','booster','spin_token','material'].includes(it.category));
+  if(!items.length) {
+    OM('🏛 Выставить лот', '<div class="err">Инвентарь пуст. Нечего выставлять.</div>', [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+    return;
+  }
+  _invForAuction = items;
+  const listHtml = items.map(it=>`
+    <div class="fopt" onclick="selectLotItem('${it.item_id}','${it.name.replace(/'/g,'')}',${it.quantity})">
+      <span class="fn">${it.name}</span>
+      <span class="fq">×${it.quantity}</span>
+    </div>`).join('');
+  OM('🏛 Выбери предмет', `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Выберите предмет для продажи:</div>
+    ${listHtml}
+  `, [{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function selectLotItem(itemId, itemName, maxQty) {
+  el('mt').textContent = `🏛 ${itemName}`;
+  el('mb').innerHTML = `
+    <div class="irow"><span class="ik">Предмет</span><span>${itemName}</span></div>
+    <div class="irow"><span class="ik">Доступно</span><span>×${maxQty}</span></div>
+    <div class="divider"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Количество (1–${Math.min(maxQty,10)})</div>
+    <input id="lot-qty" type="number" class="num-input" min="1" max="${Math.min(maxQty,10)}" value="1"/>
+    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Мин. ставка 🪙</div>
+    <input id="lot-bid" type="number" class="num-input" min="50" value="500" placeholder="Минимальная ставка..."/>
+    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Выкуп 🪙 (необязательно)</div>
+    <input id="lot-buyout" type="number" class="num-input" placeholder="Цена мгновенного выкупа (опционально)"/>
+  `;
+  el('mf').innerHTML = `
+    <button class="btn btn-ghost btn-sm" onclick="openCreateLotModal()">← Назад</button>
+    <button class="btn btn-gold btn-sm" onclick="submitLot('${itemId}')">✅ Выставить</button>
+  `;
+}
+function submitLot(itemId) {
+  const qty = parseInt(el('lot-qty')?.value||1);
+  const minBid = parseFloat(el('lot-bid')?.value||0);
+  const buyout = parseFloat(el('lot-buyout')?.value||0)||null;
+  if(!minBid||minBid<50){toast('Мин. ставка от 50 🪙',false);return;}
+  const btn = document.querySelector('#mf .btn-gold');
+  if(btn) btn.disabled=true;
+  api('/auction/create',{method:'POST',body:JSON.stringify({item_id:itemId,quantity:qty,min_bid:minBid,buyout})})
+    .then(r=>{toast(`✅ Лот #${r.lot_id} создан! (24ч)`);CM();loadAuction();})
+    .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
+}
+
 function openBidModal(lotId,name,minBid,btn) {
   const suggestedBid=Math.ceil(minBid*1.05);
   OM(`💰 Ставка: ${name}`,
@@ -1194,6 +1309,8 @@ function doBid(lotId,btn) {
 }
 
 function loadShopCatalog() {
+  // Load inventory first so we can show "already have" badges
+  if(!_invData.length) api('/inventory/').then(items=>{_invData=items;}).catch(()=>{});
   api('/shop/').then(d=>{
     el('balrow').style.display='flex';
     el('balrow').innerHTML=`<div class="bal"><div class="bv">🪙 ${fmt(d.mora)}</div><div class="bl">Мора</div></div>
@@ -1207,6 +1324,9 @@ function loadShopCatalog() {
           <div style="font-size:13px;font-weight:600;color:var(--bright)">${it.name}</div>
           <div style="font-size:11px;color:var(--gold)">${it.price_mora?fmt(it.price_mora)+' 🪙':it.price_diamonds+' 💎'}${it.discount_active?' 🐢':''}</div>
           <div style="font-size:10px;color:var(--muted)">${it.description||''}</div>
+          ${_invData.find(i=>i.item_id===it.item_id)
+            ? `<div style="font-size:10px;color:var(--green);margin-top:2px">✓ В инвентаре: ×${_invData.find(i=>i.item_id===it.item_id).quantity}</div>`
+            : ''}
         </div>
         <button class="btn btn-sm btn-gold" onclick="buyItem('${it.item_id}',this)">Купить</button>
       </div>`).join('')}</div>`).join('');
@@ -1334,7 +1454,7 @@ function goTo(page, sub) {
 }
 
 // ── Collection ────────────────────────────────────────────────────────────────
-let _profileData = null;   // cache for profile preview in theme modal
+// _profileData declared in globals above
 
 function loadColl(){swColl('themes',document.querySelector('#pg-coll .tb'));}
 function swColl(tab,btn) {
@@ -1404,7 +1524,6 @@ function openThemeModal(tid) {
   const buyable = price && (t.source === 'shop_mora' || t.source === 'shop_diamond');
 
   const body = `
-    <!-- Profile preview with this theme -->
     <div style="margin-bottom:12px">
       <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Предпросмотр профиля</div>
       ${buildProfilePreview(t)}
@@ -1482,11 +1601,25 @@ function loadExchange() {
   el('mkt-exch').innerHTML='<div class="loader">Загрузка...</div>';
   api('/exchange/').then(d=>{
     if(!d.active){
-      const when=d.scheduled?`<div style="font-size:12px;color:var(--muted);margin-top:8px">Следующий: ${d.scheduled.starts_at||'—'}</div>`:'';
-      el('mkt-exch').innerHTML=`<div class="card"><div style="text-align:center;padding:16px">
-        <div style="font-size:28px;margin-bottom:8px">💱</div>
-        <div style="font-size:14px;font-weight:600;color:var(--muted)">Ивент сейчас не активен</div>
-        ${when}</div></div>`;
+      const when=d.scheduled?`<div class="irow" style="margin-top:10px"><span class="ik">Следующий ивент</span><span style="color:var(--teal)">${d.scheduled.starts_at||'—'}</span></div>`:'';
+      el('mkt-exch').innerHTML=`<div class="card card-gold">
+        <div style="text-align:center;padding:16px 0 12px">
+          <div style="font-size:36px;margin-bottom:8px">💱</div>
+          <div style="font-size:15px;font-weight:700;color:var(--bright);margin-bottom:6px">Ивент обмена Мора → Алмазы</div>
+          <div style="font-size:11px;color:var(--muted)">Сейчас неактивен</div>
+        </div>
+        <div class="divider"></div>
+        <div style="font-size:13px;font-weight:600;color:var(--bright);margin-bottom:8px">Что такое ивент обмена?</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6">
+          Один раз в неделю (случайный день) открывается возможность
+          обменять Мору на Алмазы по фиксированному курсу.<br><br>
+          💡 <b>Курс обмена:</b> 3 000 🪙 = 1 💎<br>
+          📊 <b>Дневной лимит:</b> 300 💎<br>
+          ⏱ <b>Длительность:</b> 24 часа<br><br>
+          Когда ивент начнётся — бот объявит в чатах!
+        </div>
+        ${when}
+      </div>`;
       return;
     }
     el('mkt-exch').innerHTML=`
