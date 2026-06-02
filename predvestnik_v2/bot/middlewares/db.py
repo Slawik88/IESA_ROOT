@@ -3,12 +3,56 @@ from typing import Callable, Awaitable, Dict, Any
 from aiogram.types import TelegramObject
 from loguru import logger
 
+from bot.config import config
 from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import users
+from infrastructure.repositories.streak import get_chat_timezone
 from services import leveling
+from services.quests import increment_metric as quest_increment_metric
+from services.utils import safe_html
 
 anti_spam_cache: dict[int, float] = {}
+
+_QUEST_METRIC_LABELS: dict[str, str] = {
+    "messages_in_chat_today":        "Написать сообщений",
+    "pet_feeds_today":               "Накормить питомца",
+    "gacha_spins_today":             "Крутить гачу",
+    "expeditions_today":             "Экспедиций",
+    "eggs_opened_today":             "Открыть яйцо",
+    "warps_to_distinct_users_today": "Варп разным игрокам",
+    "auction_bids_today":            "Ставка на аукцион",
+    "warps_hug_distinct_today":      "Обнять разных игроков",
+    "rare_or_better_pet_dups_today": "Rare+ дубликатов",
+    "pet_level_ups_today":           "Уровень питомца поднят",
+}
+
+
+def _notify_quest_completions(bot, chat_id: int, user, completed: list) -> None:
+    """Fire-and-forget quest completion notifications — errors are silenced."""
+    import asyncio
+    for cq in completed:
+        reward = cq.get("reward", {})
+        parts: list[str] = []
+        if reward.get("mora", 0) > 0:
+            parts.append(f"+{int(reward['mora'])} 🪙")
+        if reward.get("diamonds", 0) > 0:
+            parts.append(f"+{reward['diamonds']} 💎")
+        for iid, qty in reward.get("items", []):
+            parts.append(f"+{qty}×{iid}")
+        reward_str = ", ".join(parts) or "—"
+        label = _QUEST_METRIC_LABELS.get(cq.get("metric", ""), "Задание")
+        name = safe_html(user.first_name or user.username or str(user.id))
+        if bot:
+            asyncio.ensure_future(
+                bot.send_message(
+                    chat_id,
+                    f"✅ <a href='tg://user?id={user.id}'>{name}</a> "
+                    f"выполнил задание <b>«{label}»</b>!\n"
+                    f"Награда: <b>{reward_str}</b>",
+                    parse_mode="HTML",
+                )
+            )
 
 
 async def db_middleware(
@@ -16,8 +60,6 @@ async def db_middleware(
     event: TelegramObject,
     data: Dict[str, Any],
 ) -> Any:
-    from bot.config import config
-
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
 
@@ -91,7 +133,6 @@ async def db_middleware(
                     (chat_obj.id, chat_title),
                 )
 
-                from infrastructure.repositories.streak import get_chat_timezone
                 try:
                     _tz_int = await get_chat_timezone(db, chat_obj.id)
                 except Exception:
@@ -99,65 +140,20 @@ async def db_middleware(
                 _sign = "+" if _tz_int >= 0 else "-"
                 _tz = f"{_sign}{abs(_tz_int)} hours"
 
-                # Rolling per-day/week/month counters (used by «бот топ») now
-                # reset at the CHAT-local boundary, not a global config tz.
+                # process_message_xp → chat_repo.increment_stats_and_get_xp which
+                # updates BOTH user_chat_stats rolling counters AND daily_user_stats.
+                # Single source of truth — no second INSERT needed here.
                 await leveling.process_message_xp(
                     db, user.id, chat_obj.id, _tz
                 )
 
-                await db.execute(
-                    "INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) "
-                    f"VALUES (?, ?, TO_CHAR(NOW() + INTERVAL '{_tz}', 'YYYY-MM-DD'), 1) "
-                    "ON CONFLICT(user_id, chat_id, date) "
-                    "DO UPDATE SET message_count = daily_user_stats.message_count + 1",
-                    (user.id, chat_obj.id),
-                )
-
-                # Daily quest: messages_in_chat_today (most common quest metric).
-                # No-op if the user has not opened «бот задания» today.
+                # Daily quest: messages_in_chat_today — no-op if user hasn't opened задания today.
                 try:
-                    from services.quests import increment_metric as _quest_incr
-                    from services.utils import safe_html as _safe_html
-                    _completed = await _quest_incr(
+                    completed = await quest_increment_metric(
                         db, user.id, chat_obj.id, "messages_in_chat_today", delta=1.0
                     )
-                    if _completed:
-                        _bot = data.get("bot")
-                        _metric_labels = {
-                            "messages_in_chat_today": "Написать сообщений",
-                            "pet_feeds_today": "Накормить питомца",
-                            "gacha_spins_today": "Крутить гачу",
-                            "expeditions_today": "Экспедиций",
-                            "eggs_opened_today": "Открыть яйцо",
-                            "warps_to_distinct_users_today": "Варп разным игрокам",
-                            "auction_bids_today": "Ставка на аукцион",
-                            "warps_hug_distinct_today": "Обнять разных игроков",
-                            "rare_or_better_pet_dups_today": "Rare+ дубликатов",
-                            "pet_level_ups_today": "Уровень питомца поднят",
-                        }
-                        for _cq in _completed:
-                            _reward = _cq.get("reward", {})
-                            _parts = []
-                            if _reward.get("mora", 0) > 0:
-                                _parts.append(f"+{int(_reward['mora'])} 🪙")
-                            if _reward.get("diamonds", 0) > 0:
-                                _parts.append(f"+{_reward['diamonds']} 💎")
-                            for _iid, _qty in _reward.get("items", []):
-                                _parts.append(f"+{_qty}×{_iid}")
-                            _reward_str = ", ".join(_parts) or "—"
-                            _label = _metric_labels.get(_cq.get("metric", ""), "Задание")
-                            _name = _safe_html(user.first_name or user.username or str(user.id))
-                            if _bot:
-                                try:
-                                    await _bot.send_message(
-                                        chat_obj.id,
-                                        f"✅ <a href='tg://user?id={user.id}'>{_name}</a> "
-                                        f"выполнил задание <b>«{_label}»</b>!\n"
-                                        f"Награда: <b>{_reward_str}</b>",
-                                        parse_mode="HTML",
-                                    )
-                                except Exception:
-                                    pass
+                    if completed:
+                        _notify_quest_completions(data.get("bot"), chat_obj.id, user, completed)
                 except Exception:
                     pass
 

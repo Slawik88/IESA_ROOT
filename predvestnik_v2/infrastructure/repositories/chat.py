@@ -61,7 +61,18 @@ async def increment_stats_and_get_xp(
     """
     async with db.execute(query, (user_id, chat_id)) as cursor:
         row = await cursor.fetchone()
-        return dict(row) if row else {"user_xp": 0, "user_level": 1}
+
+    # Keep daily_user_stats in sync — this is the source of truth for
+    # period-based tops (day/week). Same tz as the rolling counters above.
+    await db.execute(
+        f"INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) "
+        f"VALUES ($1, $2, TO_CHAR(NOW() + INTERVAL '{tz}', 'YYYY-MM-DD'), 1) "
+        f"ON CONFLICT(user_id, chat_id, date) "
+        f"DO UPDATE SET message_count = daily_user_stats.message_count + 1",
+        (user_id, chat_id),
+    )
+
+    return dict(row) if row else {"user_xp": 0, "user_level": 1}
 
 
 async def update_level(db: PGAdapter, user_id: int, chat_id: int, new_level: int):
