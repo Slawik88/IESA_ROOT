@@ -4,7 +4,9 @@ from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from core.themes import THEMES, THEME_RARITY_META, RARITY_ORDER
-from infrastructure.repositories.themes import list_owned, grant_theme, set_active_theme, get_active_theme
+from infrastructure.repositories.themes import (
+    list_owned, grant_theme, set_active_theme, get_active_theme, owns_theme,
+)
 from infrastructure.repositories.economy import get_balance
 from infrastructure.repositories import economy as eco_repo
 
@@ -56,7 +58,6 @@ async def buy_theme(body: BuyThemeRequest, db=Depends(get_db), user=Depends(requ
     if not theme:
         raise HTTPException(404, "Тема не найдена.")
 
-    from infrastructure.repositories.themes import owns_theme
     if await owns_theme(db, user["id"], body.theme_id):
         raise HTTPException(400, "Тема уже есть в коллекции.")
 
@@ -91,7 +92,6 @@ class EquipThemeRequest(BaseModel):
 
 @router.post("/equip")
 async def equip_theme(body: EquipThemeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    from infrastructure.repositories.themes import owns_theme
     if not await owns_theme(db, user["id"], body.theme_id):
         raise HTTPException(403, "Этой темы нет в вашей коллекции.")
     await set_active_theme(db, user["id"], body.theme_id)
