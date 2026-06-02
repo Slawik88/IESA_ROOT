@@ -44,18 +44,21 @@ app.include_router(shop.router)
 
 class _LoginWidgetPayload(BaseModel):
     id: int
-    first_name: str = ""
-    last_name: str = ""
-    username: str = ""
-    photo_url: str = ""
+    first_name: str
     auth_date: int
     hash: str
+    # Optional fields — absent when user has no username/photo/last_name.
+    # Must be None (not "") so they're excluded from the hash check string.
+    last_name: str | None = None
+    username:  str | None = None
+    photo_url: str | None = None
 
 
 @app.post("/auth/telegram-login")
 async def telegram_login(payload: _LoginWidgetPayload):
     """Verify Telegram Login Widget data and return a signed session token."""
-    data = payload.model_dump()
+    # Exclude None values — Telegram didn't include them in the hash.
+    data = {k: v for k, v in payload.model_dump().items() if v is not None}
     user = verify_login_widget(data)
     if not user:
         raise HTTPException(status_code=401, detail="Неверная подпись Telegram.")

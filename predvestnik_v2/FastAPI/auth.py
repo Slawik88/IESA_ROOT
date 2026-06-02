@@ -63,7 +63,12 @@ def verify_login_widget(data: dict) -> dict | None:
         return None
     try:
         check_hash = data["hash"]
-        check_fields = {k: v for k, v in data.items() if k != "hash"}
+        # Only include fields that were actually sent (non-None, non-hash).
+        # Empty/missing optional fields must be absent from the check string.
+        check_fields = {
+            k: v for k, v in data.items()
+            if k != "hash" and v is not None and v != ""
+        }
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(check_fields.items()))
         secret_key = hashlib.sha256(token.encode()).digest()
         computed = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
