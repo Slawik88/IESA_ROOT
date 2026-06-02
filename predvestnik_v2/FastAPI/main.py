@@ -141,9 +141,6 @@ _HTML = """<!DOCTYPE html>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://telegram.org/js/telegram-widget.js?22"
-        data-telegram-login="{{BOT_USERNAME}}" data-size="large" data-radius="8"
-        data-onauth="onTelegramWidgetAuth(user)" data-request-access="write" async></script>
 <style>
 :root{
   --bg:#08090f;--s:#0d1019;--card:#111621;--card2:#161d2a;
@@ -413,7 +410,12 @@ dialog::backdrop{background:rgba(0,0,0,.82);backdrop-filter:blur(5px)}
   <div style="font-size:52px;animation:glow 2s infinite">🔮</div>
   <h1>Предвестник</h1>
   <p>Войдите через Telegram для доступа к игровому профилю.</p>
-  <div id="tg-login-widget"></div>
+  <div id="tg-login-widget">
+    <!-- Widget script here so Telegram renders the button in this exact location -->
+    <script src="https://telegram.org/js/telegram-widget.js?22"
+            data-telegram-login="{{BOT_USERNAME}}" data-size="large" data-radius="8"
+            data-onauth="onTelegramWidgetAuth(user)" data-request-access="write"></script>
+  </div>
   <p style="font-size:10px;color:var(--dim)">Данные защищены подписью Telegram.</p>
 </div>
 
