@@ -17,7 +17,7 @@ from FastAPI.auth import verify_login_widget, create_session_token
 from FastAPI import notifications
 from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               craft, quests, auction, duels, achievements,
-                              themes, streak)
+                              themes, streak, exchange, dark_mora)
 
 
 @asynccontextmanager
@@ -32,7 +32,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 
 for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           gacha.router, craft.router, quests.router, auction.router, duels.router,
-          achievements.router, themes.router, streak.router]:
+          achievements.router, themes.router, streak.router, exchange.router, dark_mora.router]:
     app.include_router(r)
 
 
@@ -109,6 +109,23 @@ async def api_events():
 
 # ── Mini App HTML ──────────────────────────────────────────────────────────────
 
+@app.get("/manifest.json")
+async def pwa_manifest():
+    from fastapi.responses import JSONResponse
+    return JSONResponse({
+        "name": "Предвестник",
+        "short_name": "Предвестник",
+        "description": "Telegram-игра с питомцами и экономикой",
+        "start_url": "./",
+        "display": "standalone",
+        "background_color": "#08090f",
+        "theme_color": "#c9a84c",
+        "icons": [
+            {"src": "https://telegram.org/img/t_logo.png", "sizes": "512x512", "type": "image/png"},
+        ],
+    })
+
+
 @app.get("/", response_class=HTMLResponse)
 async def mini_app():
     return HTMLResponse(_HTML.replace("{{BOT_USERNAME}}", os.getenv("BOT_USERNAME","IIIPredvestnikIIIBot")))
@@ -120,6 +137,10 @@ _HTML = """<!DOCTYPE html>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
 <title>Предвестник</title>
+<link rel="manifest" href="./manifest.json"/>
+<meta name="theme-color" content="#c9a84c"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://telegram.org/js/telegram-widget.js?22"
         data-telegram-login="{{BOT_USERNAME}}" data-size="large" data-radius="8"
@@ -364,6 +385,26 @@ dialog::backdrop{background:rgba(0,0,0,.82);backdrop-filter:blur(5px)}
 .rc-epic{background:rgba(157,114,255,.15);color:var(--purple)}
 .rc-legendary{background:rgba(201,168,76,.15);color:var(--gold)}
 .rc-shadow{background:rgba(100,80,150,.2);color:#9080c0}
+
+/* ── Gacha flip animation ── */
+@keyframes flipIn{0%{opacity:0;transform:rotateY(-90deg) scale(.8)}100%{opacity:1;transform:rotateY(0) scale(1)}}
+.spin-card{background:var(--s);border-radius:var(--r);padding:12px;margin:5px 0;
+           border:1px solid var(--border2);animation:flipIn .35s ease}
+.spin-card.rare{border-color:var(--blue)}
+.spin-card.epic{border-color:var(--purple)}
+.spin-card.legendary{border-color:var(--gold);box-shadow:0 0 10px rgba(201,168,76,.25)}
+
+/* ── Exchange ── */
+.exch-rate{text-align:center;padding:16px;background:var(--gold-dim);border-radius:var(--r);
+           border:1px solid var(--border);margin-bottom:12px}
+.exch-rate .er{font-size:20px;font-weight:700;color:var(--gold2)}
+.exch-rate .el{font-size:11px;color:var(--muted);margin-top:3px}
+.range-wrap{padding:8px 0}
+.range-wrap input[type=range]{width:100%;accent-color:var(--gold)}
+.num-input{width:100%;background:var(--card);border:1px solid var(--border2);
+           border-radius:var(--r);padding:9px 12px;color:var(--bright);
+           font-size:15px;font-family:inherit;margin:8px 0}
+.num-input:focus{border-color:var(--border);outline:none}
 </style>
 </head>
 <body>
@@ -414,11 +455,13 @@ dialog::backdrop{background:rgba(0,0,0,.82);backdrop-filter:blur(5px)}
     <button class="tb" onclick="swArena('gacha',this)">🎲 Гача</button>
     <button class="tb" onclick="swArena('craft',this)">⚗️ Крафт</button>
     <button class="tb" onclick="swArena('duels',this)">⚔️ Дуэли</button>
+    <button class="tb" onclick="swArena('dark',this)">🌑 Тёмная</button>
   </div>
   <div id="ar-quests"><div id="qc" class="loader">Загрузка...</div></div>
   <div id="ar-gacha" style="display:none"><div id="gc" class="loader">Загрузка...</div></div>
   <div id="ar-craft" style="display:none"><div id="cc" class="loader">Загрузка...</div></div>
   <div id="ar-duels" style="display:none"><div id="dc" class="loader">Загрузка...</div></div>
+  <div id="ar-dark" style="display:none"><div id="dkc"></div></div>
 </div>
 
 <!-- 4. Рынок -->
@@ -427,11 +470,13 @@ dialog::backdrop{background:rgba(0,0,0,.82);backdrop-filter:blur(5px)}
     <button class="tb active" onclick="swMkt('auc',this)">🏛 Аукцион</button>
     <button class="tb" onclick="swMkt('shop',this)">🛒 Магазин</button>
     <button class="tb" onclick="swMkt('inv',this)">🎒 Инвентарь</button>
+    <button class="tb" onclick="swMkt('exch',this)">💱 Обмен</button>
   </div>
   <div id="balrow" class="balrow" style="display:none"></div>
   <div id="mkt-auc"><div class="loader">Загрузка...</div></div>
   <div id="mkt-shop" style="display:none"></div>
   <div id="mkt-inv" style="display:none"></div>
+  <div id="mkt-exch" style="display:none"><div class="loader">Загрузка...</div></div>
 </div>
 
 <!-- 5. Коллекция -->
@@ -850,25 +895,12 @@ function swMkt(tab,btn) {
 
 function loadAuction() {
   api('/auction/lots').then(lots=>{
-    el('mkt-auc').innerHTML=lots.length
-      ?'<div class="card"><div class="card-title">Активные лоты</div>'+lots.map(l=>{
-        const ends=new Date((l.ends_at+'').includes('T')?l.ends_at:l.ends_at+'Z');
-        const diff=Math.max(0,Math.floor((ends-Date.now())/1000));
-        const timeLeft=diff>3600?Math.floor(diff/3600)+'ч':(Math.floor(diff/60))+'мин';
-        return `<div class="lot-card">
-          <div class="lot-name">${l.item_name} ${l.quantity>1?'×'+l.quantity:''}</div>
-          <div class="lot-meta">
-            <span>от ${l.seller_name||'Игрок'}</span>
-            <span>⏳ ${timeLeft}</span>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div class="lot-bid">${fmt(l.current_bid||l.min_bid)} 🪙</div>
-            <button class="btn btn-sm btn-gold" onclick="openBidModal(${l.id},'${l.item_name}',${l.current_bid||l.min_bid},this)">💰 Ставка</button>
-          </div>
-        </div>`;
-      }).join('')+'</div>'
-      :'<div class="loader">Лотов нет.</div>';
-  }).catch(e=>{el('mkt-auc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
+    _allLots=lots;
+    el('mkt-auc').innerHTML=`<div style="display:flex;gap:7px;margin-bottom:10px">
+      <input type="text" class="num-input" style="margin:0;font-size:12px" placeholder="🔍 Поиск по названию..." oninput="filterAuction(this.value)"/>
+    </div><div id="lot-list"></div>`;
+    renderLots(lots);
+  }).catch(e=>{el('mkt-auc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; _allLots=[];
 }
 function openBidModal(lotId,name,minBid,btn) {
   const suggestedBid=Math.ceil(minBid*1.05);
@@ -915,7 +947,6 @@ function buyItem(id,btn) {
   api('/shop/buy',{method:'POST',body:JSON.stringify({item_id:id,quantity:1})})
     .then(r=>{toast('✅ Куплено: '+r.item_name);loadShopCatalog();}).catch(e=>{toast(e,false);btn.disabled=false;});
 }
-let _invData=[];
 function loadInventory() {
   el('mkt-inv').innerHTML='<div class="loader">Загрузка...</div>';
   api('/inventory/').then(items=>{
@@ -1074,7 +1105,223 @@ function switchTop(mode,btn) {
   }).catch(e=>{el('top-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 
-// Auto-refresh
+// ── Exchange ──────────────────────────────────────────────────────────────────
+function loadExchange() {
+  el('mkt-exch').innerHTML='<div class="loader">Загрузка...</div>';
+  api('/exchange/').then(d=>{
+    if(!d.active){
+      const when=d.scheduled?`<div style="font-size:12px;color:var(--muted);margin-top:8px">Следующий: ${d.scheduled.starts_at||'—'}</div>`:'';
+      el('mkt-exch').innerHTML=`<div class="card"><div style="text-align:center;padding:16px">
+        <div style="font-size:28px;margin-bottom:8px">💱</div>
+        <div style="font-size:14px;font-weight:600;color:var(--muted)">Ивент сейчас не активен</div>
+        ${when}</div></div>`;
+      return;
+    }
+    el('mkt-exch').innerHTML=`
+      <div class="exch-rate">
+        <div class="er">1 💎 = ${fmt(d.rate)} 🪙</div>
+        <div class="el">Осталось квоты: ${d.remaining.toFixed(1)} / ${d.daily_cap} 💎</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Сколько Алмазов получить?</div>
+        <div class="irow"><span class="ik">У вас</span><span>${fmt(d.mora)} 🪙</span></div>
+        <div class="irow"><span class="ik">Стоимость</span><span id="exch-cost" style="color:var(--gold)">—</span></div>
+        <div class="range-wrap">
+          <input type="range" id="exch-dia" min="1" max="${Math.floor(Math.min(d.remaining, d.mora/d.rate))}" value="1" step="1"
+                 oninput="updExch(${d.rate},${d.mora})"/>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" id="exch-num" class="num-input" style="max-width:120px"
+                 min="1" max="${Math.floor(Math.min(d.remaining, d.mora/d.rate))}" value="1"
+                 oninput="syncExchRange(${d.rate},${d.mora})"/>
+          <span style="font-size:14px">💎</span>
+        </div>
+        <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="doExchange(this)">💱 Обменять</button>
+      </div>`;
+    updExch(d.rate, d.mora);
+  }).catch(e=>{el('mkt-exch').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
+}
+function updExch(rate, mora) {
+  const v=parseInt(el('exch-dia')?.value||1);
+  if(el('exch-num'))el('exch-num').value=v;
+  const cost=v*rate;
+  const c=el('exch-cost');
+  if(c)c.textContent=`${fmt(cost)} 🪙${cost>mora?' ❌ недостаточно':''}`;
+}
+function syncExchRange(rate, mora) {
+  const v=parseInt(el('exch-num')?.value||1);
+  if(el('exch-dia'))el('exch-dia').value=v;
+  updExch(rate, mora);
+}
+function doExchange(btn) {
+  const v=parseInt(el('exch-num')?.value||0);
+  if(!v){toast('Введите количество.',false);return;}
+  btn.disabled=true;
+  api('/exchange/convert',{method:'POST',body:JSON.stringify({diamonds:v})})
+    .then(r=>{toast(`✅ +${r.diamonds_gained} 💎  −${fmt(r.mora_spent)} 🪙`);loadExchange();})
+    .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+
+// ── Dark Mora ─────────────────────────────────────────────────────────────────
+function loadDarkMora() {
+  el('dkc').innerHTML=`<div class="card card-gold">
+    <div class="card-title">🌑 Тёмная Мора</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">
+      Нелегальная валюта. Нельзя купить — только заработать нечестным путём.<br>
+      Тратится на Реликвии и Теневые темы.
+    </div>
+    <div class="divider"></div>
+    <div style="font-size:12px;font-weight:600;color:var(--bright);margin:10px 0 6px">🎲 Контрабанда</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+      Ставь Мору на рискованную сделку. 40% — успех, 35% — провал, 25% — поймали.<br>
+      Кулдаун: 7 дней. При поимке — штраф 14 дней.
+    </div>
+    <input id="contra-stake" type="number" class="num-input" placeholder="Ставка (1500–12000 🪙)" min="1500" max="12000" step="100"/>
+    <button class="btn btn-gold btn-full" onclick="doContrabanda(this)">🎲 Рискнуть</button>
+    <div class="divider"></div>
+    <div style="font-size:12px;font-weight:600;color:var(--bright);margin:10px 0 6px">🌑 Культ Бездны</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+      Ритуал доступен с 23:00 до 01:00 UTC при стрике 7+, уровне 6+, 3+ питомцах.<br>
+      Награда: 10–20 🌑 раз в 30 дней.
+    </div>
+    <button class="btn btn-ghost btn-full" onclick="doRitual(this)">🌑 Провести ритуал</button>
+  </div>`;
+}
+function doContrabanda(btn) {
+  const v=parseInt(el('contra-stake')?.value||0);
+  if(!v){toast('Введите ставку.',false);return;}
+  OM('🎲 Подтверждение',`<div class="irow"><span class="ik">Ставка</span><span style="color:var(--gold)">${fmt(v)} 🪙</span></div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">40% успех · 35% провал · 25% поймают (штраф 14д)</div>`,
+    [{l:'🎲 Рискнуть',c:'btn-red',f:`runContrabanda(${v})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function runContrabanda(stake) {
+  CM();
+  api('/dark-mora/contrabanda',{method:'POST',body:JSON.stringify({stake})})
+    .then(r=>toast(r.result_text||'Готово!',r.success))
+    .catch(e=>toast(e,false));
+}
+function doRitual(btn) {
+  btn.disabled=true;
+  api('/dark-mora/ritual',{method:'POST'}).then(r=>toast(r.message||'✅',true)).catch(e=>{toast(e,false);btn.disabled=false;});
+}
+
+// ── swArena update for new tabs ───────────────────────────────────────────────
+const _origSwArena=swArena;
+// Patch swArena to handle dark tab
+function swArena(tab,btn) {
+  _arenaTab=tab;
+  document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['quests','gacha','craft','duels','dark'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
+  ({quests:loadQuests,gacha:loadGacha,craft:loadCraft,duels:loadDuels,dark:loadDarkMora}[tab])();
+}
+
+// ── swMkt update for exchange ─────────────────────────────────────────────────
+function swMkt(tab,_btn) {
+  const btn=_btn||document.querySelector('#pg-market .tb');
+  _mktTab=tab;
+  document.querySelectorAll('#pg-market .tb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const bd=el('balrow'); bd.style.display=tab==='shop'?'flex':'none';
+  el('mkt-auc').style.display=tab==='auc'?'':'none';
+  el('mkt-shop').style.display=tab==='shop'?'':'none';
+  el('mkt-inv').style.display=tab==='inv'?'':'none';
+  el('mkt-exch').style.display=tab==='exch'?'':'none';
+  ({auc:loadAuction,shop:loadShopCatalog,inv:loadInventory,exch:loadExchange}[tab])();
+}
+
+// ── Auction search ────────────────────────────────────────────────────────────
+let _allLots=[];
+function filterAuction(q) {
+  const f=q.toLowerCase();
+  const lots=f?_allLots.filter(l=>l.item_name.toLowerCase().includes(f)):_allLots;
+  renderLots(lots);
+}
+function renderLots(lots) {
+  if(!el('lot-list'))return;
+  el('lot-list').innerHTML=lots.length?lots.map(l=>{
+    const ends=new Date((l.ends_at+'').includes('T')?l.ends_at:l.ends_at+'Z');
+    const diff=Math.max(0,Math.floor((ends-Date.now())/1000));
+    const tl=diff>3600?Math.floor(diff/3600)+'ч':(Math.floor(diff/60))+'мин';
+    return `<div class="lot-card">
+      <div class="lot-name">${l.item_name}${l.quantity>1?' ×'+l.quantity:''}</div>
+      <div class="lot-meta"><span>от ${l.seller_name||'Игрок'}</span><span>⏳ ${tl}</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="lot-bid">${fmt(l.current_bid||l.min_bid)} 🪙</div>
+        <button class="btn btn-sm btn-gold" onclick="openBidModal(${l.id},'${l.item_name}',${l.current_bid||l.min_bid},this)">💰 Ставка</button>
+      </div></div>`;}).join(''):'<div style="color:var(--muted);font-size:12px;padding:12px;text-align:center">Лотов нет.</div>';
+}
+
+// ── Duel challenge via web ────────────────────────────────────────────────────
+function openDuelChallenge() {
+  OM('⚔️ Вызов на дуэль',`
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+      Вызов отправляется в чат. Соперник принимает через бота.
+    </div>
+    <input id="duel-user" type="text" class="num-input" placeholder="@username соперника"/>
+    <input id="duel-stake" type="number" class="num-input" placeholder="Ставка 🪙 (200–15000)" min="200" max="15000"/>`,
+    [{l:'⚔️ Вызвать',c:'btn-red',f:'submitDuelChallenge(this)'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function submitDuelChallenge(btn) {
+  const username=el('duel-user')?.value?.trim().replace('@','');
+  const stake=parseFloat(el('duel-stake')?.value||0);
+  if(!username||!stake){toast('Заполните все поля.',false);return;}
+  if(!_cid){toast('Нужен Профиль с чатом.',false);return;}
+  btn.disabled=true;
+  api('/duels/challenge',{method:'POST',body:JSON.stringify({username,stake,chat_id:_cid})})
+    .then(()=>{toast('⚔️ Вызов отправлен!');CM();loadDuels();})
+    .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+
+// ── Gacha flip animation ──────────────────────────────────────────────────────
+const _origDoSpin=doSpin;
+function doSpin(st,row) {
+  row.style.opacity='.5';row.style.pointerEvents='none';
+  api('/gacha/spin',{method:'POST',body:JSON.stringify({spin_type:st})}).then(r=>{
+    const cards=[];
+    if(r.mora)cards.push({text:`🪙 ${fmt(r.mora)} Мора`,cls:''});
+    if(r.diamonds)cards.push({text:`💎 ${r.diamonds} Алмазов`,cls:''});
+    (r.items||[]).forEach(i=>cards.push({text:`${i.name} ×${i.qty}`,cls:''}));
+    (r.dup_outcomes||[]).forEach(d=>{
+      const cl=d.rarity||'common';
+      cards.push({text:`🐾 ${d.species||''} дубл.`,cls:cl});
+    });
+    const html=cards.length?cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${i*0.1}s">${c.text}</div>`).join(''):'<div class="spin-card">—</div>';
+    el('spin-res').innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--gold2);margin-bottom:8px">🎉 Результат!</div>${html}`;
+    loadGacha();
+  }).catch(e=>{toast(e,false);row.style.opacity='1';row.style.pointerEvents='';});
+}
+
+// ── Browser Notifications ─────────────────────────────────────────────────────
+function requestBrowserNotif() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().then(p => { if(p==='granted') toast('✅ Уведомления включены!'); });
+  }
+}
+function browserNotif(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    new Notification(title, {body, icon: './favicon.ico'});
+  }
+}
+// Request permission when user first connects WS
+const _origConnectWS = connectWS;
+function connectWS() {
+  if (!_uid) return;
+  requestBrowserNotif();
+  const wsUrl = BASE.replace('https://','wss://').replace('http://','ws://') + '/ws/'+_uid;
+  _ws = new WebSocket(wsUrl);
+  _ws.onmessage = e => {
+    const ev = JSON.parse(e.data);
+    if(ev.type!=='pong') showWsNotif(ev);
+  };
+  _ws.onclose = () => { setTimeout(connectWS, 4000); };
+  _ws.onerror = () => {};
+}
+
+// ── WS ping/pong — prevents Cloudflare 100s idle timeout ─────────────────────
+setInterval(() => { if (_ws?.readyState === WebSocket.OPEN) _ws.send('ping'); }, 25000);
+
+// ── Auto-refresh ──────────────────────────────────────────────────────────────
 setInterval(()=>{if(_loaded.has('profile'))loadProfile();},300000);
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
 </script>

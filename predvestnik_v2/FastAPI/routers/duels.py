@@ -41,6 +41,42 @@ async def duel_history(db=Depends(get_db), user=Depends(require_tg_user)):
         return [dict(r) for r in await c.fetchall()]
 
 
+class ChallengeRequest(BaseModel):
+    username: str
+    stake: float
+    chat_id: int
+
+
+@router.post("/challenge")
+async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Вызвать игрока на дуэль по username."""
+    from infrastructure.repositories.zoo import get_user_pets as _get_pets
+
+    async with db.execute(
+        "SELECT user_tg_id FROM users WHERE user_tg_username = ?", (body.username,)
+    ) as c:
+        target = await c.fetchone()
+    if not target:
+        raise HTTPException(404, f"Игрок @{body.username} не найден.")
+    if target[0] == user["id"]:
+        raise HTTPException(400, "Нельзя вызвать самого себя.")
+
+    # Need at least one active pet with non-100 fatigue
+    my_pets = await _get_pets(db, user["id"], placement="nursery")
+    if not my_pets:
+        raise HTTPException(400, "Нужен хотя бы один питомец в питомнике.")
+
+    pet = my_pets[0]
+    from services.duel import create_challenge
+    ok, result = await create_challenge(
+        db, user["id"], target[0], body.chat_id, body.stake, pet
+    )
+    if not ok:
+        raise HTTPException(400, str(result))
+    await db.commit()
+    return {"ok": True, "duel_id": result.get("duel_id")}
+
+
 class DeclineRequest(BaseModel):
     duel_id: int
 
