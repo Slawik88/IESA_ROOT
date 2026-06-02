@@ -974,7 +974,7 @@ function openPetModal(petId) {
       <div class="card-title">↔ Переместить</div>
       <div>${['active','passive','storage'].filter(pl=>pl!==p.placement).map(pl=>`
         <button class="btn btn-full ${pl==='storage'?'btn-ghost':pl==='active'?'btn-teal':'btn-green'}" onclick="doMove(${petId},'${pl}',this)">
-          ${pl==='active'?'⚔️ В активные (−'+${JSON.stringify(p.fatigue||0)}>0?'':'0')+' уст.)':pl==='passive'?'🛡 В пассивные':'📦 На склад'}
+          ${pl==='active'?`⚔️ В активные (−${p.fatigue||0}% уст.)`:pl==='passive'?'🛡 В пассивные':'📦 На склад'}
         </button>`).join('')}
       </div>`;
 
