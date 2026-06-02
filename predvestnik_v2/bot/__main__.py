@@ -3,6 +3,7 @@ import logging
 import os
 import signal
 from aiogram import Bot, Dispatcher
+from aiogram.types import MenuButtonWebApp, WebAppInfo
 from loguru import logger
 
 from bot.config import config
@@ -105,6 +106,22 @@ async def main():
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)
+
+        # Update the menu button URL to the mini app.
+        # MINIAPP_URL must be HTTPS for WebAppInfo (Telegram requirement).
+        _miniapp_url = os.getenv("MINIAPP_URL", "")
+        if _miniapp_url.startswith("https://"):
+            try:
+                await bot.set_chat_menu_button(
+                    menu_button=MenuButtonWebApp(
+                        text="🔮 Мини-апп",
+                        web_app=WebAppInfo(url=_miniapp_url),
+                    )
+                )
+                logger.info(f"✅ Кнопка меню → {_miniapp_url}")
+            except Exception as _e:
+                logger.warning(f"Кнопка меню не установлена: {_e}")
+
         logger.info("═" * 50)
         logger.info("🟢 БОТ ГОТОВ К ПРИЕМУ СООБЩЕНИЙ")
         logger.info("═" * 50)
