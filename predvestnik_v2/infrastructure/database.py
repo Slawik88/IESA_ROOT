@@ -19,7 +19,10 @@ _SCHEMA = "predvestnik"
 
 
 async def create_pool() -> asyncpg.Pool:
+    """Idempotent — returns the existing pool if already initialised."""
     global _pool
+    if _pool is not None:
+        return _pool
     url = os.environ["DATABASE_URL"]
     _pool = await asyncpg.create_pool(
         url,
