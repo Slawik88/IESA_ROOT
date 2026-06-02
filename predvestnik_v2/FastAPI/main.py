@@ -2,16 +2,19 @@
 Adapter layer: registers routers, serves HTML shell.
 No business logic here.
 """
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from infrastructure.database import create_pool
+from FastAPI.auth import verify_login_widget, create_session_token
 from FastAPI.routers import profile, top, inventory, shop
 
 
@@ -35,6 +38,34 @@ app.include_router(profile.router)
 app.include_router(top.router)
 app.include_router(inventory.router)
 app.include_router(shop.router)
+
+
+# ── Auth ───────────────────────────────────────────────────────────────────────
+
+class _LoginWidgetPayload(BaseModel):
+    id: int
+    first_name: str = ""
+    last_name: str = ""
+    username: str = ""
+    photo_url: str = ""
+    auth_date: int
+    hash: str
+
+
+@app.post("/auth/telegram-login")
+async def telegram_login(payload: _LoginWidgetPayload):
+    """Verify Telegram Login Widget data and return a signed session token."""
+    data = payload.model_dump()
+    user = verify_login_widget(data)
+    if not user:
+        raise HTTPException(status_code=401, detail="Неверная подпись Telegram.")
+    token = create_session_token(int(user["id"]))
+    return {
+        "session_token": token,
+        "user_id":    user["id"],
+        "username":   user.get("username", ""),
+        "first_name": user.get("first_name", ""),
+    }
 
 
 # ── Health / legacy ────────────────────────────────────────────────────────────
@@ -90,7 +121,8 @@ async def api_events():
 
 @app.get("/", response_class=HTMLResponse)
 async def mini_app():
-    return HTMLResponse(_HTML)
+    bot_username = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot")
+    return HTMLResponse(_HTML.replace("{{BOT_USERNAME}}", bot_username))
 
 
 _HTML = """<!DOCTYPE html>
@@ -100,6 +132,13 @@ _HTML = """<!DOCTYPE html>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
   <title>Предвестник</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://telegram.org/js/telegram-widget.js?22"
+          data-telegram-login="{{BOT_USERNAME}}"
+          data-size="large"
+          data-radius="10"
+          data-onauth="onTelegramWidgetAuth(user)"
+          data-request-access="write"
+          async></script>
   <style>
     :root {
       --bg:#0d0d1a; --surface:#151528; --card:#1e1e38;
@@ -117,6 +156,15 @@ _HTML = """<!DOCTYPE html>
              font-size:11px;color:var(--muted);transition:.2s}
     .nav-btn.active{color:var(--accent)}
     .nav-btn .icon{font-size:22px;display:block;margin-bottom:2px}
+    /* Login overlay */
+    .login-overlay{position:fixed;inset:0;background:var(--bg);z-index:200;
+                   display:flex;flex-direction:column;align-items:center;
+                   justify-content:center;gap:24px;padding:32px;text-align:center}
+    .login-overlay h1{font-size:28px;font-weight:800;
+                      background:linear-gradient(135deg,var(--accent),var(--accent2));
+                      -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .login-overlay p{color:var(--muted);font-size:14px;max-width:280px;line-height:1.5}
+    .login-overlay.hidden{display:none}
     /* Pages */
     .page{display:none;padding:12px}
     .page.active{display:block}
@@ -194,6 +242,14 @@ _HTML = """<!DOCTYPE html>
 <body>
 <div id="toast" class="toast"></div>
 
+<!-- Login overlay (shown when not inside Telegram WebApp) -->
+<div id="login-overlay" class="login-overlay hidden">
+  <h1>🔮 Предвестник</h1>
+  <p>Войдите через Telegram чтобы увидеть свой профиль, инвентарь и сыграть в магазине.</p>
+  <div id="tg-login-widget"></div>
+  <p style="font-size:11px;color:var(--muted)">Данные не хранятся без вашего разрешения.</p>
+</div>
+
 <!-- Profile -->
 <div id="pg-profile" class="page active">
   <div id="profile-content" class="loader">Загрузка...</div>
@@ -243,7 +299,44 @@ if (tg) { tg.ready(); tg.expand(); }
 // Base URL — works at both / and /predvestnik/
 const BASE = (window.location.origin + window.location.pathname).replace(/\/$/, '');
 const INIT_DATA = tg?.initData || '';
-let _topChatId = 0;  // will be set from profile data
+const SESSION_KEY = 'pv_session';
+let _topChatId = 0;
+
+// ── Auth flow ─────────────────────────────────────────────────────────────────
+function getSession() { return localStorage.getItem(SESSION_KEY) || ''; }
+
+function authHeaders() {
+  const h = {'content-type': 'application/json'};
+  if (INIT_DATA) h['x-init-data'] = INIT_DATA;
+  const s = getSession(); if (s) h['x-session-token'] = s;
+  return h;
+}
+
+// Called by Telegram Login Widget
+window.onTelegramWidgetAuth = function(user) {
+  fetch(BASE + '/auth/telegram-login', {
+    method: 'POST',
+    headers: {'content-type': 'application/json'},
+    body: JSON.stringify(user),
+  })
+  .then(r => r.ok ? r.json() : Promise.reject('Ошибка авторизации'))
+  .then(data => {
+    localStorage.setItem(SESSION_KEY, data.session_token);
+    document.getElementById('login-overlay').classList.add('hidden');
+    loadProfile();
+  })
+  .catch(e => alert('Ошибка входа: ' + e));
+};
+
+// Show login overlay if no auth available
+if (!INIT_DATA && !getSession()) {
+  document.getElementById('login-overlay').classList.remove('hidden');
+  // Move the widget button inside our overlay
+  const widgetScript = document.querySelector('script[data-telegram-login]');
+  if (widgetScript) {
+    document.getElementById('tg-login-widget').appendChild(widgetScript);
+  }
+}
 
 const MEDALS = ['🥇','🥈','🥉'];
 const RARITY_COLOR = {common:'#aaa',rare:'#4a9eff',epic:'#c084fc',legendary:'#f5c542'};
@@ -252,8 +345,16 @@ const PLACE_LABEL  = {active:'Активный',passive:'Пассивный',sta
 function api(path, opts={}) {
   return fetch(BASE + path, {
     ...opts,
-    headers: { 'x-init-data': INIT_DATA, 'content-type':'application/json', ...(opts.headers||{}) }
-  }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.detail || 'Ошибка')));
+    headers: { ...authHeaders(), ...(opts.headers||{}) },
+  }).then(r => {
+    if (r.status === 401) {
+      // Session expired — clear and show login
+      localStorage.removeItem(SESSION_KEY);
+      document.getElementById('login-overlay').classList.remove('hidden');
+      return Promise.reject('Требуется повторный вход.');
+    }
+    return r.ok ? r.json() : r.json().then(e => Promise.reject(e.detail || 'Ошибка'));
+  });
 }
 
 function toast(msg, ok=true) {
@@ -281,6 +382,8 @@ function switchPage(name, btn) {
 }
 
 // ── Profile ───────────────────────────────────────────────────────────────────
+function loadProfile() {
+  document.getElementById('profile-content').innerHTML = '<div class="loader">Загрузка...</div>';
 api('/profile/me')
   .then(d => {
     if (d.chats?.length) _topChatId = d.chats[0].chat_tg_id;
@@ -326,6 +429,10 @@ api('/profile/me')
     document.getElementById('profile-content').innerHTML =
       `<div class="err">${typeof e==='string'?e:'Не удалось загрузить профиль. Напишите боту чтобы создать аккаунт.'}</div>`;
   });
+}  // end loadProfile
+
+// Auto-load profile if already authenticated
+if (INIT_DATA || getSession()) loadProfile();
 _loaded.add('profile');
 
 // ── Top ───────────────────────────────────────────────────────────────────────
