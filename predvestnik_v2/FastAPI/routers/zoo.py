@@ -4,7 +4,11 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core.constants import PET_PLACEMENT_FATIGUE_RESTORE
+from core.constants import (
+    PET_PLACEMENT_FATIGUE_RESTORE,
+    get_pet_bonus, get_level_for_duplicates, get_total_duplicates_for_level,
+    PET_LEVEL_MILESTONE_REWARDS,
+)
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_item_quantity, remove_item
@@ -27,6 +31,67 @@ async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
         if (qty := await get_item_quantity(db, user["id"], fid)) > 0
     }
     return {"pets": pets, "available_food": food}
+
+
+@router.get("/pet/{pet_id}")
+async def pet_detail(pet_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Полная информация о питомце: бонусы по уровням, дубликаты, прогресс."""
+    async with db.execute(
+        "SELECT * FROM pets WHERE id = ? AND owner_id = ?",
+        (pet_id, user["id"]),
+    ) as c:
+        row = await c.fetchone()
+    if not row:
+        raise HTTPException(404, "Питомец не найден.")
+
+    pet = dict(row)
+    species = PET_SPECIES.get(pet["species_id"], {})
+    rarity = pet.get("rarity", "common")
+    level = pet.get("pet_level", 1)
+    dups = pet.get("duplicates_collected", 0)
+
+    # Build level progression table
+    levels = []
+    for lv in range(1, 11):
+        bonus = get_pet_bonus(pet["species_id"], lv)
+        dups_needed_total = get_total_duplicates_for_level(rarity, lv)
+        dups_for_next = (
+            get_total_duplicates_for_level(rarity, lv + 1) - dups_needed_total
+            if lv < 10 else None
+        )
+        milestone = PET_LEVEL_MILESTONE_REWARDS.get(lv)
+        levels.append({
+            "level": lv,
+            "unlocked": lv <= level,
+            "current": lv == level,
+            "bonus": bonus,
+            "dups_total_required": dups_needed_total,
+            "dups_for_this_level": dups_for_next,
+            "milestone": milestone,
+        })
+
+    # Duplicates needed to reach next level
+    dups_for_next_level = (
+        get_total_duplicates_for_level(rarity, level + 1) - dups
+        if level < 10 else 0
+    )
+
+    food = {
+        fid: {"name": ITEMS_REGISTRY[fid]["name"], "qty": qty,
+              "restore": ITEMS_REGISTRY[fid]["fatigue_restore"]}
+        for fid in _FOOD_IDS
+        if (qty := await get_item_quantity(db, user["id"], fid)) > 0
+    }
+
+    return {
+        **pet,
+        "species_name": species.get("name", pet["species_id"]),
+        "species_desc": species.get("desc", ""),
+        "current_bonus": get_pet_bonus(pet["species_id"], level),
+        "dups_for_next_level": max(0, dups_for_next_level),
+        "levels": levels,
+        "available_food": food,
+    }
 
 
 @router.get("/expeditions")
@@ -52,12 +117,22 @@ async def active_expeditions(db=Depends(get_db), user=Depends(require_tg_user)):
 
 @router.get("/species")
 async def species_encyclopedia():
-    """Справочник всех видов питомцев."""
-    return [
-        {"species_id": sid, "name": info["name"], "rarity": info["rarity"],
-         "role": info["default_role"], "desc": info["desc"]}
-        for sid, info in PET_SPECIES.items()
-    ]
+    """Справочник всех видов питомцев с бонусами по уровням."""
+    result = []
+    for sid, info in PET_SPECIES.items():
+        # Build readable bonus table for levels 1, 4, 8, 10 (tier breakpoints)
+        bonus_tiers = {}
+        for lv in [1, 4, 8, 10]:
+            bonus_tiers[str(lv)] = get_pet_bonus(sid, lv)
+        result.append({
+            "species_id":  sid,
+            "name":        info["name"],
+            "rarity":      info["rarity"],
+            "role":        info["default_role"],
+            "desc":        info["desc"],
+            "bonus_tiers": bonus_tiers,
+        })
+    return result
 
 
 class FeedRequest(BaseModel):
@@ -86,7 +161,8 @@ async def feed_pet(body: FeedRequest, db=Depends(get_db), user=Depends(require_t
     new_fatigue = max(0, pet["fatigue"] - item["fatigue_restore"])
     await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_fatigue, body.pet_id))
     await db.commit()
-    return {"ok": True, "fatigue_before": pet["fatigue"], "fatigue_after": new_fatigue}
+    return {"ok": True, "fatigue_before": pet["fatigue"], "fatigue_after": new_fatigue,
+            "restored": item["fatigue_restore"]}
 
 
 class BoostRequest(BaseModel):
@@ -96,7 +172,6 @@ class BoostRequest(BaseModel):
 
 @router.post("/boost")
 async def boost_expedition(body: BoostRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Ускорить экспедицию ускорителем из инвентаря."""
     item = ITEMS_REGISTRY.get(body.booster_id, {})
     boost_hours = item.get("boost_hours", 0)
     if not boost_hours:
@@ -127,12 +202,11 @@ async def boost_expedition(body: BoostRequest, db=Depends(get_db), user=Depends(
 
 class MoveRequest(BaseModel):
     pet_id: int
-    placement: str   # active | passive | storage
+    placement: str
 
 
 @router.post("/move")
 async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Переместить питомца между активным/пассивным/складом."""
     if body.placement not in _PLACEMENTS:
         raise HTTPException(400, "Допустимые значения: active, passive, storage.")
 

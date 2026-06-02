@@ -444,8 +444,7 @@ dialog::backdrop{background:rgba(0,0,0,.85);backdrop-filter:blur(6px)}
 <div id="pg-zoo" class="page">
   <div id="zoo-exp-wrap"></div>
   <div class="tabs">
-    <button class="tb active" onclick="swZoo('active',this)">⚔️ Актив.</button>
-    <button class="tb" onclick="swZoo('passive',this)">🛡 Пасс.</button>
+    <button class="tb active" onclick="swZoo('nursery',this)">🐾 В питомнике</button>
     <button class="tb" onclick="swZoo('storage',this)">📦 Склад</button>
     <button class="tb" onclick="swZoo('guide',this)">📖 Справка</button>
   </div>
@@ -723,6 +722,72 @@ function renderExps(d) {
   </div>`).join('');
   _expTimer=setInterval(()=>d.expeditions.forEach(e=>{const t=el('tm-'+e.pet_id);if(t)t.innerHTML=countdown(e.ends_at);}),1000);
 }
+// ── Zoo helpers ───────────────────────────────────────────────────────────────
+function bonusLines(sid, b) {
+  const p = v => `${(v*100).toFixed(0)}%`, ln = [];
+  ({
+    hamster: b => { ln.push(`🪙 ${b.mora_per_hour}/ч · Кап ${b.cap}`);
+      if(b.ignore_exhaustion) ln.push('✅ Копит при 100% усталости');
+      if(b.double_chance>0) ln.push(`🎲 Шанс ×2: ${p(b.double_chance)}`);
+      if(b.daily_diamond>0) ln.push(`💎 +${b.daily_diamond}/день`); },
+    owl: b => { ln.push(`📚 +${b.bonus_xp} XP каждые ${b.trigger_every_n_msg} сообщ.`);
+      if(b.expedition_xp_bonus>0) ln.push(`🗺 +${p(b.expedition_xp_bonus)} XP похода`);
+      if(b.weekend_double) ln.push('✅ ×2 XP в выходные');
+      if(b.daily_free_spin_token) ln.push('🎟 Жетон/день'); },
+    dog: b => { ln.push(`⏱ −${p(b.speed_reduction)} время похода`);
+      if(b.self_fatigue_reduction>0) ln.push(`💪 Пёс: −${p(b.self_fatigue_reduction)} усталости`);
+      if(b.zero_fatigue_chance>0) ln.push(`🍀 0 усталости: ${p(b.zero_fatigue_chance)}`);
+      if(b.expedition_cost_reduction>0) ln.push(`💰 −${p(b.expedition_cost_reduction)} стоимость`); },
+    turtle: b => { if(b.shop_discount>0) ln.push(`🛒 −${p(b.shop_discount)} магазин`);
+      if(b.expedition_discount>0) ln.push(`🗺 −${p(b.expedition_discount)} поход`);
+      if(b.gacha_daily_discount>0) ln.push(`🏷 −${p(b.gacha_daily_discount)} акция дня`);
+      if(b.double_egg_chance>0) ln.push(`🥚 ×2 яйцо: ${p(b.double_egg_chance)}`); },
+    falcon: b => { ln.push(`💰 +${p(b.mora_bonus)} Мора похода`);
+      if(b.xp_bonus>0) ln.push(`📚 +${p(b.xp_bonus)} XP`);
+      if(b.double_loot_chance>0) ln.push(`🎁 Двойной лут: ${p(b.double_loot_chance)}`);
+      if(b.capstone_8h_treasure_map) ln.push('🗺 Карта сокровищ (8ч, гарант.)'); },
+    wolf: b => { if(b.passive_reduction>0) ln.push(`😴 Пасс. −${p(b.passive_reduction)}/день`);
+      if(b.active_reduction>0) ln.push(`⚔️ Актив. −${p(b.active_reduction)}/день`);
+      if(b.food_extra>0) ln.push(`🍖 Корм +${b.food_extra} ед.`);
+      if(b.daily_restore_uses>0) ln.push(`♻️ ${b.daily_restore_uses}×/день +${b.daily_restore_amount} ед.`);
+      if(b.movement_immunity) ln.push('✅ Бесплатное перемещение'); },
+    fox: b => { if(b.diamond_chance_per_2h>0) ln.push(`💎 Алмаз каждые 2ч: ${p(b.diamond_chance_per_2h)}`);
+      if(b.common_dup_bonus>0) ln.push(`🐾 +${p(b.common_dup_bonus)} Common дубли`);
+      if(b.weekly_guaranteed_diamond) ln.push('✅ Гарант. 💎/неделю');
+      if(b.crystal_egg_chance>0) ln.push(`🔷 Кристальное яйцо: ${p(b.crystal_egg_chance)}`); },
+    dragon: b => { ln.push(`🏦 Кап банка: +${fmt(b.bank_bonus)} 🪙`);
+      if(b.free_food_chance>0) ln.push(`🍖 Бесплатный корм: ${p(b.free_food_chance)}`);
+      if(b.hamster_collect_bonus>0) ln.push(`🐹 Хомяк +${b.hamster_collect_bonus}`);
+      if(b.weekly_bank_grant>0) ln.push(`💰 +${b.weekly_bank_grant} в банк/нед.`); },
+    unicorn: b => { ln.push(`😴 −${p(b.daily_fatigue_reduction)}/день всем`);
+      if(b.immunity_uses>0) ln.push(`🛡 ${b.immunity_uses}×/день иммун. ${b.immunity_hours}ч`);
+      if(b.active_recovery_per_hour>0) ln.push(`♻️ +${b.active_recovery_per_hour} ед./ч`);
+      if(b.auto_recover) ln.push('✅ Авто-восст. при 100%'); },
+  }[sid]||(() => {}))(b);
+  return ln;
+}
+
+function petCard(p) {
+  const fatPct = p.fatigue || 0;
+  const nursery = p.placement !== 'storage';
+  const placeBadge = p.placement === 'active'
+    ? '<span style="color:var(--teal);font-size:10px">⚔️ Активный</span>'
+    : p.placement === 'passive'
+    ? '<span style="color:var(--blue);font-size:10px">🛡 Пассивный</span>'
+    : '<span style="color:var(--muted);font-size:10px">📦 Склад</span>';
+  return `<div class="pcard" style="cursor:pointer" onclick="openPetModal(${p.id})">
+    <div class="pcol">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+        <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
+        ${placeBadge}
+      </div>
+      <div class="ps">Lv${p.pet_level||1} · ${p.duplicates_collected||0} дубл.</div>
+      <div class="fat-bar"><div class="fat-fill" style="width:${fatPct}%;background:${fatC(fatPct)}"></div></div>
+      <div style="font-size:10px;color:var(--muted)">${fatPct}% усталости</div>
+    </div>
+  </div>`;
+}
+
 function swZoo(tab,btn) {
   _zooTab=tab;
   document.querySelectorAll('#pg-zoo .tb').forEach(b=>b.classList.remove('active'));
@@ -730,65 +795,174 @@ function swZoo(tab,btn) {
   if(!_zooData){loadZoo();return;}
   renderZoo(tab);
 }
+
 function renderZoo(tab) {
   if(tab==='guide'){renderZooGuide();return;}
   if(!_zooData)return;
-  const pets=_zooData.pets.filter(p=>tab==='storage'?p.placement==='storage':p.placement===tab);
-  const food=_zooData.available_food;
-  const foodHtml=Object.entries(food).map(([fid,f])=>`<div class="fopt" onclick="doFeed(${null},'${fid}',this)"><span class="fn">${f.name}</span><span class="fq">×${f.qty}</span><span class="fr" style="color:var(--green)">−${f.restore}</span></div>`).join('')||'<div style="color:var(--muted);font-size:11px;padding:5px">Нет корма</div>';
-  el('zoo-c').innerHTML=pets.length
-    ?pets.map(p=>`<div class="pcard"><div class="pcol">
-      <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
-      <div class="ps">Lv${p.pet_level} · ${PL[p.placement]||p.placement}</div>
-      <div class="fat-bar"><div class="fat-fill" style="width:${p.fatigue}%;background:${fatC(p.fatigue)}"></div></div>
-      <div style="display:flex;gap:7px;margin-top:5px;align-items:center">
-        <span style="font-size:10px;color:var(--muted)">${p.fatigue}% уст.</span>
-        ${p.placement!=='storage'?`<button class="btn btn-sm btn-teal" onclick="openFeedModal(${p.id},${p.fatigue},'${p.name||p.species_id}')">🍖</button>`:''}
-        <button class="btn btn-sm btn-ghost" onclick="openMoveModal(${p.id},'${p.placement}','${p.name||p.species_id}')">↔</button>
+  let pets;
+  if(tab==='nursery') pets=_zooData.pets.filter(p=>p.placement!=='storage');
+  else pets=_zooData.pets.filter(p=>p.placement==='storage');
+
+  if(!pets.length){
+    el('zoo-c').innerHTML=`<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px">
+      ${tab==='nursery'?'Питомников нет. Посадите питомца из склада.':'Склад пустой.'}
+    </div>`;
+    return;
+  }
+
+  if(tab==='nursery'){
+    const active=pets.filter(p=>p.placement==='active');
+    const passive=pets.filter(p=>p.placement==='passive');
+    let html='';
+    if(active.length) html+=`<div class="card-title" style="margin:8px 0 4px">⚔️ Активные (${active.length})</div>${active.map(petCard).join('')}`;
+    if(passive.length) html+=`<div class="card-title" style="margin:12px 0 4px">🛡 Пассивные (${passive.length})</div>${passive.map(petCard).join('')}`;
+    el('zoo-c').innerHTML=html;
+  } else {
+    el('zoo-c').innerHTML=pets.map(petCard).join('');
+  }
+}
+
+// Full pet modal
+function openPetModal(petId) {
+  OM('🐾 Питомец', '<div class="loader">Загрузка...</div>', []);
+  api(`/zoo/pet/${petId}`).then(p=>{
+    const fatPct = p.fatigue||0;
+    const lvl = p.pet_level||1;
+    const dups = p.duplicates_collected||0;
+    const toNext = p.dups_for_next_level||0;
+
+    // Current bonus lines
+    const curBonus = bonusLines(p.species_id, p.current_bonus||{});
+    const bonusHtml = curBonus.length
+      ? curBonus.map(l=>`<div style="font-size:11px;color:var(--text);padding:3px 0">• ${l}</div>`).join('')
+      : '<div style="font-size:11px;color:var(--muted)">Нет активных бонусов</div>';
+
+    // Level progression (show tiers)
+    const tiers = p.levels ? [1,4,8,10].map(lv=>{
+      const tier = p.levels.find(t=>t.level===lv);
+      if(!tier) return '';
+      const tlines = bonusLines(p.species_id, tier.bonus||{});
+      const isUnlocked = lv<=lvl;
+      const isCurrent = lv===lvl;
+      const color = isUnlocked ? (isCurrent?'var(--gold)':'var(--green)') : 'var(--dim)';
+      return `<div style="padding:8px;border-radius:var(--r);background:${isCurrent?'rgba(201,168,76,.1)':'var(--s)'};
+              border:1px solid ${isCurrent?'var(--border)':'var(--border2)'};margin-bottom:6px">
+        <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:4px">
+          ${isUnlocked?'✓':'○'} Lv${lv}${lv===4?' (Уровень 2)':lv===8?' (Уровень 3)':lv===10?' ★ Финал':''}
+          ${tier.milestone?` — 🎁 ${tier.milestone.mora?'+'+fmt(tier.milestone.mora)+' 🪙':''} ${tier.milestone.diamonds?'+'+tier.milestone.diamonds+' 💎':''}`:'' }
+        </div>
+        ${tlines.map(l=>`<div style="font-size:10px;color:${isUnlocked?'var(--muted)':'var(--dim)'};padding:1px 0">• ${l}</div>`).join('')}
+      </div>`;
+    }).join('') : '';
+
+    // Food options
+    const foodHtml = Object.entries(p.available_food||{}).length
+      ? Object.entries(p.available_food).map(([fid,f])=>`
+          <div class="fopt" onclick="doFeed(${petId},'${fid}',this)">
+            <span class="fn">${f.name}</span>
+            <span class="fq">×${f.qty}</span>
+            <span class="fr" style="color:var(--green)">−${f.restore} уст.</span>
+          </div>`)
+        .join('')
+      : '<div style="font-size:11px;color:var(--muted);padding:5px">Корма нет — купите в Магазине.</div>';
+
+    const body = `
+      <div style="text-align:center;padding:10px 0 14px">
+        <div style="font-size:22px;margin-bottom:4px">${p.species_name||p.name}</div>
+        <div>${rc(p.rarity)} <span style="font-size:11px;color:var(--muted)">${PL[p.placement]||p.placement}</span></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4">${p.species_desc||''}</div>
       </div>
-    </div></div>`).join('')
-    :`<div style="color:var(--muted);font-size:12px;padding:16px;text-align:center">Питомцев в «${PL[tab]||tab}» нет.</div>`;
+      <div class="divider"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div style="background:var(--s);border-radius:var(--r);padding:10px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:var(--gold)">${lvl}<span style="font-size:12px">/10</span></div>
+          <div style="font-size:10px;color:var(--muted)">Уровень</div>
+        </div>
+        <div style="background:var(--s);border-radius:var(--r);padding:10px;text-align:center">
+          <div style="font-size:20px;font-weight:700;color:var(--text)">${dups}</div>
+          <div style="font-size:10px;color:var(--muted)">Дубликатов</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between">
+          <span>УСТАЛОСТЬ</span>
+          <span style="color:${fatC(fatPct)}">${fatPct}%</span>
+        </div>
+        <div class="fat-bar" style="height:8px"><div class="fat-fill" style="width:${fatPct}%;background:${fatC(fatPct)}"></div></div>
+        ${lvl<10?`<div style="font-size:10px;color:var(--muted);margin-top:5px">До Lv${lvl+1}: ещё ${toNext} дублик.</div>`:'<div style="font-size:10px;color:var(--gold);margin-top:5px">★ Максимальный уровень!</div>'}
+      </div>
+
+      <div class="card-title">Бонус текущего уровня</div>
+      <div style="margin-bottom:12px">${bonusHtml}</div>
+
+      <div class="card-title">Прогресс уровней</div>
+      <div style="margin-bottom:12px">${tiers}</div>
+
+      <div class="card-title">🍖 Покормить (−усталость)</div>
+      <div style="margin-bottom:8px">${foodHtml}</div>
+
+      <div class="card-title">↔ Переместить</div>
+      <div>${['active','passive','storage'].filter(pl=>pl!==p.placement).map(pl=>`
+        <button class="btn btn-full ${pl==='storage'?'btn-ghost':pl==='active'?'btn-teal':'btn-green'}" onclick="doMove(${petId},'${pl}',this)">
+          ${pl==='active'?'⚔️ В активные (−'+${JSON.stringify(p.fatigue||0)}>0?'':'0')+' уст.)':pl==='passive'?'🛡 В пассивные':'📦 На склад'}
+        </button>`).join('')}
+      </div>`;
+
+    el('mt').textContent=p.name||p.species_name||p.species_id;
+    el('mb').innerHTML=body;
+    el('mf').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="CM()">Закрыть</button>`;
+  }).catch(e=>{el('mb').innerHTML=`<div style="color:var(--red);font-size:12px">${e}</div>`;});
 }
-function openFeedModal(pid,fat,name) {
-  if(!_zooData)return;
-  const fHtml=Object.entries(_zooData.available_food).map(([fid,f])=>`<div class="fopt" onclick="doFeed(${pid},'${fid}',this)"><span class="fn">${f.name}</span><span class="fq">×${f.qty}</span><span class="fr" style="color:var(--green)">−${f.restore}</span></div>`).join('')||'<div style="color:var(--red);font-size:12px">Корма нет — купите в Рынке.</div>';
-  OM(`🍖 ${name}`,`<div class="irow"><span class="ik">Усталость</span><span style="color:${fatC(fat)}">${fat}%</span></div><div class="divider"></div>${fHtml}`,[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
-}
+
 function doFeed(pid,fid,row) {
   row.style.opacity='.4';
   api('/zoo/feed',{method:'POST',body:JSON.stringify({pet_id:pid,food_id:fid})})
-    .then(r=>{toast(`✅ ${r.fatigue_before}%→${r.fatigue_after}%`);CM();_zooData=null;loadZoo();})
+    .then(r=>{toast(`✅ Усталость: ${r.fatigue_before}% → ${r.fatigue_after}%`);CM();_zooData=null;loadZoo();})
     .catch(e=>{toast(e,false);row.style.opacity='1';});
 }
-function openMoveModal(pid,cur,name) {
-  const opts=['active','passive','storage'].filter(p=>p!==cur);
-  const html=opts.map(p=>`<button class="btn btn-full ${p==='storage'?'btn-ghost':p==='active'?'btn-teal':'btn-green'}" onclick="doMove(${pid},'${p}',this)">
-    ${p==='active'?'⚔️ В Активные':p==='passive'?'🛡 В Пассивные':'📦 На Склад'}</button>`).join('');
-  OM(`↔ ${name}`,`<div class="irow"><span class="ik">Сейчас</span><span>${PL[cur]||cur}</span></div><div class="divider"></div>${html}`,[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
-}
+
 function doMove(pid,pl,btn) {
   btn.disabled=true;
   api('/zoo/move',{method:'POST',body:JSON.stringify({pet_id:pid,placement:pl})})
     .then(()=>{toast('✅ Перемещено!');CM();_zooData=null;loadZoo();})
     .catch(e=>{toast(e,false);btn.disabled=false;});
 }
+
 function boostExp(pid,bid,row) {
   row.style.opacity='.4';
   api('/zoo/boost',{method:'POST',body:JSON.stringify({pet_id:pid,booster_id:bid})})
     .then(r=>{toast(`⏩ −${r.boosted_hours}ч!`);_loaded.delete('zoo');loadZoo();})
     .catch(e=>{toast(e,false);row.style.opacity='1';});
 }
+
 function renderZooGuide() {
   el('zoo-c').innerHTML='<div class="loader">Загрузка...</div>';
+  const ORDER = {common:0,rare:1,epic:2,legendary:3};
+  const RARITY_LABEL = {common:'⬜ Обычные',rare:'🟦 Редкие',epic:'🟣 Эпические',legendary:'🟡 Легендарные'};
   api('/zoo/species').then(list=>{
+    list.sort((a,b)=>(ORDER[a.rarity]||0)-(ORDER[b.rarity]||0));
     const g={};list.forEach(s=>(g[s.rarity]=g[s.rarity]||[]).push(s));
     el('zoo-c').innerHTML=Object.entries(g).map(([r,pets])=>`<div class="card">
-      <div class="card-title">${{common:'⬜ Обычные',rare:'🟦 Редкие',epic:'🟣 Эпические',legendary:'🟡 Легендарные'}[r]||r}</div>
-      ${pets.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--border2)">
-        <div style="font-size:13px;font-weight:600;color:var(--bright);margin-bottom:3px">${p.name}</div>
-        <div style="font-size:10px;color:${p.role==='active'?'var(--teal)':'var(--blue)'};margin-bottom:4px">${p.role==='active'?'⚔️ Активная':'🛡 Пассивная'} роль</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.4">${p.desc}</div>
-      </div>`).join('')}
+      <div class="card-title">${RARITY_LABEL[r]||r} (${pets.length})</div>
+      ${pets.map(p=>{
+        const t1=bonusLines(p.species_id,(p.bonus_tiers||{})['1']||{});
+        const t4=bonusLines(p.species_id,(p.bonus_tiers||{})['4']||{});
+        const t10=bonusLines(p.species_id,(p.bonus_tiers||{})['10']||{});
+        return `<div style="padding:10px 0;border-bottom:1px solid var(--border2)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <div style="font-size:13px;font-weight:700;color:var(--bright)">${p.name}</div>
+            <div style="font-size:10px;color:${p.role==='active'?'var(--teal)':'var(--blue)'}">${p.role==='active'?'⚔️ Активный':'🛡 Пассивный'}</div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:7px;line-height:1.4">${p.desc}</div>
+          <div style="font-size:10px">
+            <span style="color:var(--muted)">Lv1: </span>${t1[0]||'—'}
+            ${t4.length?`<span style="color:var(--muted)"> · Lv4: </span>${t4[0]||'—'}`:''}
+            ${t10.length?`<span style="color:var(--muted)"> · Lv10: </span>${t10[t10.length-1]||'—'}`:''}
+          </div>
+        </div>`;
+      }).join('')}
     </div>`).join('');
   }).catch(e=>{el('zoo-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
