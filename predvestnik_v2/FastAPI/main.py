@@ -162,6 +162,7 @@ body{background:var(--bg);color:var(--text);
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fatPulse{0%,100%{opacity:1}50%{opacity:.6}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 @keyframes shimmer{from{background-position:-200% 0}to{background-position:200% 0}}
 @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
@@ -280,6 +281,7 @@ body{background:var(--bg);color:var(--text);
 .ps{font-size:11px;color:var(--muted);margin-top:1px}
 .fat-bar{height:4px;background:var(--dim);border-radius:2px;margin:6px 0 4px}
 .fat-fill{height:100%;border-radius:2px;transition:.4s}
+.fat-fill.critical{animation:fatPulse 1.2s ease-in-out infinite}
 
 /* Exp */
 .exp-card{background:var(--s);border-radius:var(--r);padding:12px;margin-bottom:8px;
@@ -923,21 +925,23 @@ function bonusLines(sid, b) {
 
 function petCard(p) {
   const fatPct = p.fatigue || 0;
-  const nursery = p.placement !== 'storage';
+  const fatWarn = fatPct >= 100 ? '⛔ ' : fatPct >= 80 ? '⚠️ ' : '';
   const placeBadge = p.placement === 'active'
-    ? '<span style="color:var(--teal);font-size:10px">⚔️ Активный</span>'
+    ? '<span style="color:var(--teal);font-size:10px;font-weight:600">⚔️ Активный</span>'
     : p.placement === 'passive'
-    ? '<span style="color:var(--blue);font-size:10px">🛡 Пассивный</span>'
-    : '<span style="color:var(--muted);font-size:10px">📦 Склад</span>';
-  return `<div class="pcard" style="cursor:pointer" onclick="openPetModal(${p.id})">
+    ? '<span style="color:var(--blue);font-size:10px;font-weight:600">🛡 Пассивный</span>'
+    : '<span style="color:var(--dim);font-size:10px">📦 Склад</span>';
+  const lvl = p.pet_level || 1;
+  const dups = p.duplicates_collected || 0;
+  return `<div class="pcard" style="cursor:pointer;${fatPct>=80?'border-color:'+fatC(fatPct)+';':''}" onclick="openPetModal(${p.id})">
     <div class="pcol">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
         <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
         ${placeBadge}
       </div>
-      <div class="ps">Lv${p.pet_level||1} · ${p.duplicates_collected||0} дубл.</div>
-      <div class="fat-bar"><div class="fat-fill" style="width:${fatPct}%;background:${fatC(fatPct)}"></div></div>
-      <div style="font-size:10px;color:var(--muted)">${fatPct}% усталости</div>
+      <div class="ps">Lv${lvl}/10 · 📦 ${dups} дубл.</div>
+      <div class="fat-bar"><div class="fat-fill${fatPct>=80?' critical':''}" style="width:${fatPct}%;background:${fatC(fatPct)}"></div></div>
+      <div style="font-size:10px;color:${fatC(fatPct)}">${fatWarn}${fatPct}% усталости</div>
     </div>
   </div>`;
 }
@@ -958,9 +962,17 @@ function renderZoo(tab) {
   else pets=_zooData.pets.filter(p=>p.placement==='storage');
 
   if(!pets.length){
-    el('zoo-c').innerHTML=`<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px">
-      ${tab==='nursery'?'Питомников нет. Посадите питомца из склада.':'Склад пустой.'}
-    </div>`;
+    el('zoo-c').innerHTML=tab==='nursery'
+      ?`<div style="text-align:center;padding:32px 16px;color:var(--muted)">
+          <div style="font-size:32px;margin-bottom:8px">🐾</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">Питомник пуст</div>
+          <div style="font-size:11px">Переведи питомца со склада в питомник через кнопку «Переместить»</div>
+        </div>`
+      :`<div style="text-align:center;padding:32px 16px;color:var(--muted)">
+          <div style="font-size:32px;margin-bottom:8px">📦</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">Склад пуст</div>
+          <div style="font-size:11px">Открой яйцо в Арене → Гача, чтобы получить питомца</div>
+        </div>`;
     return;
   }
 
@@ -970,10 +982,16 @@ function renderZoo(tab) {
     const maxSlots=_zooData.max_slots||3;
     const expandQty=_zooData.slot_expander_qty||0;
     const occupied=active.length+passive.length;
-    let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:8px 12px;background:var(--s);border-radius:var(--r);border:1px solid var(--border2)">
-      <span style="font-size:12px;color:var(--muted)">🐾 Слоты питомника</span>
-      <span style="font-size:13px;font-weight:700;color:${occupied>=maxSlots?'var(--red)':'var(--gold)'}">${occupied}/${maxSlots}</span>
-      ${expandQty>0&&maxSlots<6?`<button class="btn btn-sm" onclick="doExpandSlot()" style="padding:4px 10px;font-size:11px">🏡 +Слот (${expandQty})</button>`:''}
+    let html=`<div style="background:var(--s);border-radius:var(--r);border:1px solid var(--border2);padding:8px 12px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12px;color:var(--muted)">🐾 Слоты питомника</span>
+        <span style="font-size:14px;font-weight:700;color:${occupied>=maxSlots?'var(--red)':'var(--green)'}">${occupied}/${maxSlots}</span>
+      </div>
+      ${expandQty>0&&maxSlots<6?`
+        <div style="margin-top:8px;border-top:1px solid var(--border2);padding-top:8px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">В инвентаре: 🏡 Расширитель слота ×${expandQty}</div>
+          <button class="btn btn-full btn-sm" onclick="doExpandSlot()" style="font-size:11px">🏡 Применить расширитель (+1 слот)</button>
+        </div>`:''}
     </div>`;
     if(active.length) html+=`<div class="card-title" style="margin:8px 0 4px">⚔️ Активные (${active.length})</div>${active.map(petCard).join('')}`;
     if(passive.length) html+=`<div class="card-title" style="margin:12px 0 4px">🛡 Пассивные (${passive.length})</div>${passive.map(petCard).join('')}`;
@@ -1041,7 +1059,7 @@ function openPetModal(petId) {
           <div style="font-size:10px;color:var(--muted)">Уровень</div>
         </div>
         <div style="background:var(--s);border-radius:var(--r);padding:10px;text-align:center">
-          <div style="font-size:20px;font-weight:700;color:var(--text)">${dups}</div>
+          <div style="font-size:20px;font-weight:700;color:var(--text)">${dups}${lvl<10?`<span style="font-size:12px;color:var(--muted)"> / ${dups+toNext}</span>`:''}</div>
           <div style="font-size:10px;color:var(--muted)">Дубликатов</div>
         </div>
       </div>
@@ -1065,10 +1083,19 @@ function openPetModal(petId) {
       <div style="margin-bottom:8px">${foodHtml}</div>
 
       <div class="card-title">↔ Переместить</div>
-      <div>${['active','passive','storage'].filter(pl=>pl!==p.placement).map(pl=>`
-        <button class="btn btn-full ${pl==='storage'?'btn-ghost':pl==='active'?'btn-teal':'btn-green'}" onclick="doMove(${petId},'${pl}',this)">
-          ${pl==='active'?`⚔️ В активные (−${p.fatigue||0}% уст.)`:pl==='passive'?'🛡 В пассивные':'📦 На склад'}
-        </button>`).join('')}
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${['active','passive','storage'].filter(pl=>pl!==p.placement).map(pl=>{
+          const isActive = pl==='active';
+          const toNursery = pl !== 'storage';
+          const fatigueNote = toNursery
+            ? `<span style="font-size:10px;color:var(--muted);display:block;margin-top:2px">+${PET_PLACEMENT_FATIGUE_RESTORE||10}% усталости за перемещение</span>`
+            : '';
+          return `<div>
+            <button class="btn btn-full ${pl==='storage'?'btn-ghost':isActive?'btn-teal':'btn-green'}" onclick="doMove(${petId},'${pl}',this)">
+              ${isActive?'⚔️ В активные':pl==='passive'?'🛡 В пассивные':'📦 На склад'}
+            </button>${fatigueNote}
+          </div>`;
+        }).join('')}
       </div>`;
 
     el('mt').textContent=p.name||p.species_name||p.species_id;
@@ -1281,7 +1308,12 @@ function loadDuels() {
       </div>`;
     }
 
-    el('dc').innerHTML = html || '<div class="loader">Дуэлей пока нет.</div>';
+    if(!html) html = `<div style="text-align:center;padding:32px 16px;color:var(--muted)">
+      <div style="font-size:32px;margin-bottom:8px">⚔️</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Дуэлей пока нет</div>
+      <div style="font-size:11px">Нажми «Вызвать игрока» и бросить кому-нибудь вызов!</div>
+    </div>`;
+    el('dc').innerHTML = html;
   }).catch(e => { el('dc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
 
@@ -1294,16 +1326,20 @@ function declineDuel(id, btn) {
 
 function openDuelChallenge() {
   if(!_cid) { toast('Нужен Профиль с чатом для вызова.', false); return; }
+  // Grab current balance from profile data if available
+  const bal = _profileData?.mora || 0;
+  const balStr = bal > 0 ? `<div style="background:var(--s);border-radius:var(--r);padding:6px 10px;margin-bottom:10px;font-size:11px;display:flex;justify-content:space-between"><span style="color:var(--muted)">Ваш баланс</span><span style="color:var(--gold);font-weight:600">${fmt(bal)} 🪙</span></div>` : '';
   OM('⚔️ Вызов на дуэль', `
-    <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5">
-      Введите @username игрока и ставку. Вызов придёт в чат — там соперник сможет принять его через бота.
+    ${balStr}
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">
+      Соперник получит уведомление в Telegram — он должен ответить <code>бот принять</code> в чате.
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">@username соперника</div>
-    <input id="duel-user" type="text" class="num-input" placeholder="@username (без @)"/>
+    <input id="duel-user" type="text" class="num-input" placeholder="username (без @)"/>
     <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Ставка 🪙 (200 – 15 000)</div>
     <input id="duel-stake" type="number" class="num-input" placeholder="500" min="200" max="15000"/>
-    <div style="font-size:10px;color:var(--muted);margin-top:6px">
-      ⚠️ Ставка замораживается до завершения дуэли.
+    <div style="font-size:10px;color:var(--gold);margin-top:6px;background:var(--gold-dim);padding:6px 8px;border-radius:var(--r)">
+      🔒 Ставка заморозится до конца дуэли. Победитель забирает обе ставки.
     </div>
   `, [
     {l:'⚔️ Вызвать', c:'btn-red', f:'submitDuelChallenge(this)'},
@@ -1318,7 +1354,14 @@ function submitDuelChallenge(btn) {
   if(!stake || stake < 200) { toast('Мин. ставка 200 🪙.', false); return; }
   btn.disabled = true;
   api('/duels/challenge', {method:'POST', body:JSON.stringify({username, stake, chat_id:_cid})})
-    .then(() => { toast('⚔️ Вызов отправлен в чат!'); CM(); loadDuels(); })
+    .then(() => {
+      el('mb').innerHTML=`<div style="text-align:center;padding:20px">
+        <div style="font-size:36px;margin-bottom:8px">⚔️</div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:6px">Вызов отправлен!</div>
+        <div style="font-size:11px;color:var(--muted)">@${username} получит уведомление в Telegram.<br>Ставка <b>${fmt(stake)} 🪙</b> заморожена до конца дуэли.</div>
+      </div>`;
+      el('mf').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="CM();loadDuels()">Закрыть</button>`;
+    })
     .catch(e => { toast(e, false); btn.disabled = false; });
 }
 
@@ -1997,29 +2040,14 @@ function renderLots(lots) {
         <button class="btn btn-sm btn-gold" onclick="openBidModal(${bidArgs})">💰 Ставка</button>
       </div>
     </div>`;
-  }).join('') : '<div style="color:var(--muted);font-size:12px;padding:12px;text-align:center">Лотов нет.</div>';
+  }).join('') : `<div style="text-align:center;padding:32px 16px;color:var(--muted)">
+    <div style="font-size:32px;margin-bottom:8px">🏛️</div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px">Аукцион пуст</div>
+    <div style="font-size:11px">Выставь свой лот — нажми «+ Выставить» выше!</div>
+  </div>`;
 }
 
-// ── Duel challenge via web ────────────────────────────────────────────────────
-function openDuelChallenge() {
-  OM('⚔️ Вызов на дуэль',`
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-      Вызов отправляется в чат. Соперник принимает через бота.
-    </div>
-    <input id="duel-user" type="text" class="num-input" placeholder="@username соперника"/>
-    <input id="duel-stake" type="number" class="num-input" placeholder="Ставка 🪙 (200–15000)" min="200" max="15000"/>`,
-    [{l:'⚔️ Вызвать',c:'btn-red',f:'submitDuelChallenge(this)'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
-}
-function submitDuelChallenge(btn) {
-  const username=el('duel-user')?.value?.trim().replace('@','');
-  const stake=parseFloat(el('duel-stake')?.value||0);
-  if(!username||!stake){toast('Заполните все поля.',false);return;}
-  if(!_cid){toast('Нужен Профиль с чатом.',false);return;}
-  btn.disabled=true;
-  api('/duels/challenge',{method:'POST',body:JSON.stringify({username,stake,chat_id:_cid})})
-    .then(()=>{toast('⚔️ Вызов отправлен!');CM();loadDuels();})
-    .catch(e=>{toast(e,false);btn.disabled=false;});
-}
+// openDuelChallenge / submitDuelChallenge — defined above in the loadDuels section
 
 // doSpin and closeSpinResult defined above (no loadGacha to avoid overwriting result)
 
@@ -2183,9 +2211,14 @@ function startDealTimer() {
 }
 function buyDeal(dealId,btn) {
   btn.disabled=true;
+  btn.textContent='...';
   api('/daily-deal/buy',{method:'POST',body:JSON.stringify({deal_id:dealId})})
-    .then(r=>{toast(`✅ Куплено! +${r.qty}×${r.item_id}`);loadDeal();})
-    .catch(e=>{toast(e,false);btn.disabled=false;});
+    .then(r=>{
+      btn.textContent='✓ Куплено';
+      btn.className='btn btn-ghost btn-sm';
+      toast(`✅ Куплено +${r.qty}× предмет!`);
+    })
+    .catch(e=>{toast(e,false);btn.disabled=false;btn.textContent='Купить';});
 }
 
 // ── Promo code ────────────────────────────────────────────────────────────────
@@ -2212,8 +2245,25 @@ function redeemPromo(btn) {
   btn.disabled=true;
   api('/promo/redeem',{method:'POST',body:JSON.stringify({code})})
     .then(r=>{
-      el('promo-result').innerHTML=`<div class="ok-box">✅ ${r.message}</div>`;
       el('promo-input').value='';
+      const rw=r.reward||{};
+      const rewards=[];
+      if(rw.mora>0)    rewards.push(`<span style="color:var(--gold);font-size:22px;font-weight:800">+${fmt(rw.mora)} 🪙</span>`);
+      if(rw.diamonds>0)rewards.push(`<span style="color:var(--blue);font-size:22px;font-weight:800">+${rw.diamonds} 💎</span>`);
+      if(rw.dark_mora>0)rewards.push(`<span style="color:var(--muted);font-size:22px;font-weight:800">+${fmt(rw.dark_mora)} 🌑</span>`);
+      if(rw.zarniki>0) rewards.push(`<span style="color:var(--bright);font-size:22px;font-weight:800">+${rw.zarniki} ✨</span>`);
+      if(rw.items&&Object.keys(rw.items).length){
+        for(const[id,q] of Object.entries(rw.items)) rewards.push(`<span style="font-size:16px">+${q}× ${id}</span>`);
+      }
+      const desc=rw.description?`<div style="font-size:11px;color:var(--muted);margin-top:6px">${rw.description}</div>`:'';
+      el('promo-result').innerHTML=`
+        <div style="background:var(--s);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center;animation:fadeIn .4s ease">
+          <div style="font-size:24px;margin-bottom:6px">🎉</div>
+          <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px">Промокод активирован!</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px">${rewards.join('')}</div>
+          ${desc}
+          <div style="font-size:10px;color:var(--dim);margin-top:8px">Код: <code>${rw.code||code}</code></div>
+        </div>`;
     })
     .catch(e=>{
       el('promo-result').innerHTML=`<div class="err">${e}</div>`;

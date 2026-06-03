@@ -12,7 +12,7 @@ from core.constants import (
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_item_quantity, remove_item
-from infrastructure.repositories.zoo import get_user_pets, get_nursery_count, get_zoo_stats, expand_max_slots
+from infrastructure.repositories.zoo import get_user_pets, get_nursery_count, get_zoo_stats, expand_max_slots, get_active_count
 
 router = APIRouter(prefix="/zoo", tags=["zoo"])
 
@@ -229,7 +229,7 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
     currently_in_nursery = pet["placement"] in ("active", "passive")
 
     if entering_nursery and not currently_in_nursery:
-        # Проверяем лимит слотов питомника
+        # Проверяем лимит общих слотов питомника
         stats = await get_zoo_stats(db, user["id"])
         occupied = await get_nursery_count(db, user["id"])
         if occupied >= stats["max_slots"]:
@@ -237,6 +237,15 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
                 400,
                 f"Питомник заполнен ({occupied}/{stats['max_slots']} слотов). "
                 f"Используй 🏡 Расширитель слота, чтобы добавить слот."
+            )
+
+    # Проверяем лимит активных питомцев (макс 1)
+    if body.placement == "active" and pet["placement"] != "active":
+        active_now = await get_active_count(db, user["id"])
+        if active_now >= 1:
+            raise HTTPException(
+                400,
+                "У тебя уже есть активный питомец. Сначала переведи его в пассивный или склад."
             )
 
     if entering_nursery:
