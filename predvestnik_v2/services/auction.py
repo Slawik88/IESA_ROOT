@@ -9,6 +9,7 @@ from core.constants import (
     AUCTION_DURATION_HOURS, AUCTION_MAX_ACTIVE_LOTS, AUCTION_MAX_LOTS_PER_WEEK,
     AUCTION_MIN_BID, AUCTION_MIN_BID_RAISE, AUCTION_COMMISSION, AUCTION_MAX_BID,
 )
+from core.registry import ITEMS_REGISTRY as _ITEMS_REGISTRY
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.auction import (
     create_lot, get_lot, update_lot_status, get_highest_bid, get_user_active_bid,
@@ -221,7 +222,15 @@ async def _finalize_lot(db, lot: dict, winner_id: int, price: float, chat_id: in
     if lot["item_type"] == "inventory":
         raw_name = lot.get("item_name", "") or ""
         parts = raw_name.split("||", 1)
-        real_item_id = parts[1].strip() if len(parts) > 1 else str(lot["item_id_or_pet_id"])
+        if len(parts) > 1:
+            real_item_id = parts[1].strip()
+        else:
+            # Fallback: find item whose hash matches item_id_or_pet_id (legacy lots without || suffix)
+            numeric_id = lot["item_id_or_pet_id"]
+            real_item_id = next(
+                (iid for iid in _ITEMS_REGISTRY if abs(hash(iid)) % (10 ** 9) == numeric_id),
+                str(numeric_id),
+            )
         await db.execute(
             "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
             "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
