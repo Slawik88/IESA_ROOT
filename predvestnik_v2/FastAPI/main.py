@@ -967,7 +967,14 @@ function renderZoo(tab) {
   if(tab==='nursery'){
     const active=pets.filter(p=>p.placement==='active');
     const passive=pets.filter(p=>p.placement==='passive');
-    let html='';
+    const maxSlots=_zooData.max_slots||3;
+    const expandQty=_zooData.slot_expander_qty||0;
+    const occupied=active.length+passive.length;
+    let html=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:8px 12px;background:var(--s);border-radius:var(--r);border:1px solid var(--border2)">
+      <span style="font-size:12px;color:var(--muted)">🐾 Слоты питомника</span>
+      <span style="font-size:13px;font-weight:700;color:${occupied>=maxSlots?'var(--red)':'var(--gold)'}">${occupied}/${maxSlots}</span>
+      ${expandQty>0&&maxSlots<6?`<button class="btn btn-sm" onclick="doExpandSlot()" style="padding:4px 10px;font-size:11px">🏡 +Слот (${expandQty})</button>`:''}
+    </div>`;
     if(active.length) html+=`<div class="card-title" style="margin:8px 0 4px">⚔️ Активные (${active.length})</div>${active.map(petCard).join('')}`;
     if(passive.length) html+=`<div class="card-title" style="margin:12px 0 4px">🛡 Пассивные (${passive.length})</div>${passive.map(petCard).join('')}`;
     el('zoo-c').innerHTML=html;
@@ -1082,6 +1089,12 @@ function doMove(pid,pl,btn) {
   api('/zoo/move',{method:'POST',body:JSON.stringify({pet_id:pid,placement:pl})})
     .then(()=>{toast('✅ Перемещено!');CM();_zooData=null;loadZoo();})
     .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+
+function doExpandSlot() {
+  api('/zoo/expand-slot',{method:'POST'})
+    .then(r=>{toast(`✅ Слот добавлен! Теперь ${r.max_slots} слотов.`);_zooData=null;loadZoo();})
+    .catch(e=>toast(e,false));
 }
 
 function boostExp(pid,bid,row) {

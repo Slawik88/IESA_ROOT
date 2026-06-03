@@ -12,7 +12,7 @@ from core.constants import (
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_item_quantity, remove_item
-from infrastructure.repositories.zoo import get_user_pets
+from infrastructure.repositories.zoo import get_user_pets, get_nursery_count, get_zoo_stats, expand_max_slots
 
 router = APIRouter(prefix="/zoo", tags=["zoo"])
 
@@ -22,15 +22,22 @@ _PLACEMENTS = ("active", "passive", "storage")
 
 @router.get("/")
 async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Все питомцы + доступная еда."""
+    """Все питомцы + доступная еда + статистика слотов."""
     pets = await get_user_pets(db, user["id"])
+    stats = await get_zoo_stats(db, user["id"])
+    slot_expander_qty = await get_item_quantity(db, user["id"], "slot_expander")
     food = {
         fid: {"name": ITEMS_REGISTRY[fid]["name"], "qty": qty,
               "restore": ITEMS_REGISTRY[fid]["fatigue_restore"]}
         for fid in _FOOD_IDS
         if (qty := await get_item_quantity(db, user["id"], fid)) > 0
     }
-    return {"pets": pets, "available_food": food}
+    return {
+        "pets": pets,
+        "available_food": food,
+        "max_slots": stats["max_slots"],
+        "slot_expander_qty": slot_expander_qty,
+    }
 
 
 @router.get("/pet/{pet_id}")
@@ -219,6 +226,19 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
         raise HTTPException(404, "Питомец не найден.")
 
     entering_nursery = body.placement in ("active", "passive")
+    currently_in_nursery = pet["placement"] in ("active", "passive")
+
+    if entering_nursery and not currently_in_nursery:
+        # Проверяем лимит слотов питомника
+        stats = await get_zoo_stats(db, user["id"])
+        occupied = await get_nursery_count(db, user["id"])
+        if occupied >= stats["max_slots"]:
+            raise HTTPException(
+                400,
+                f"Питомник заполнен ({occupied}/{stats['max_slots']} слотов). "
+                f"Используй 🏡 Расширитель слота, чтобы добавить слот."
+            )
+
     if entering_nursery:
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         await db.execute(
@@ -232,3 +252,22 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
                          (body.placement, body.pet_id))
     await db.commit()
     return {"ok": True, "placement": body.placement}
+
+
+@router.post("/expand-slot")
+async def expand_slot(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Применить 🏡 Расширитель слота из инвентаря → +1 слот питомника (макс 6)."""
+    qty = await get_item_quantity(db, user["id"], "slot_expander")
+    if qty < 1:
+        raise HTTPException(400, "🏡 Расширитель слота не найден в инвентаре.")
+
+    new_slots = await expand_max_slots(db, user["id"])
+    if new_slots == 0:
+        raise HTTPException(400, "Питомник уже расширен до максимума (6 слотов).")
+
+    ok = await remove_item(db, user["id"], "slot_expander", 1, commit=False)
+    if not ok:
+        raise HTTPException(400, "Не удалось списать расширитель.")
+
+    await db.commit()
+    return {"ok": True, "max_slots": new_slots}

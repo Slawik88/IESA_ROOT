@@ -264,40 +264,51 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
 
     # ── assemble ─────────────────────────────────────────────────────────────
     if t_prefix:
-        # ZARNIKI — bordered layout, 2 explicit seps
+        # ZARNIKI — bordered layout, 2 explicit seps + empty line between blocks
         text = (
             f"{t_top}\n"
             + name_block
+            + f"\n"
             + f"{t_sep}\n"
+            + f"\n"
             + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
             + f"{P}💰 {bal_line}  |  🏆 {ach_count} ачив.\n"
             + f"{P}⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
             + (f"{P}🔥 Стрик: <b>{streak}</b> дн.\n" if streak else "")
+            + f"\n"
             + f"{t_sep}\n"
+            + f"\n"
             + f"{P}{partner_line}\n"
             + (f"{P}{shield_line}\n" if shield_line else "")
             + f"{P}🎨 Тема: {t_name}\n"
             + f"{P}💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
+            + f"\n"
             + f"{P}🐾 <b>Питомцы:</b>\n"
             + pets_str
             + tail
         )
     else:
-        # STANDARD — 4 explicit seps (+ 1 embedded in top)
+        # STANDARD — 4 explicit seps + empty line between blocks
         text = (
             f"{t_top}\n"
             + name_block
+            + f"\n"
             + f"{t_sep}\n"
+            + f"\n"
             + f"🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
             + f"⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
             + f"💰 {bal_line}  |  🏆 {ach_count} ачив.\n"
             + f"🔥 Стрик: <b>{streak}</b> дн.\n"
+            + f"\n"
             + f"{t_sep}\n"
+            + f"\n"
             + f"💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
             + f"{partner_line}\n"
             + (f"{shield_line}\n" if shield_line else "")
             + f"🎨 Тема: {t_name}\n"
+            + f"\n"
             + f"{t_sep}\n"
+            + f"\n"
             + f"🐾 <b>Питомцы:</b>\n"
             + pets_str
             + tail
