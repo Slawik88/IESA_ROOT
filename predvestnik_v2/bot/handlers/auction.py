@@ -20,6 +20,7 @@ from infrastructure.repositories.auction import (
 )
 from services.auction import create_auction_lot, place_bid, cancel_lot
 from services.quests import increment_metric as quest_increment
+from math import ceil as _ceil
 from services.utils import safe_html, format_currency, parse_dt
 
 router = Router(name="auction_router")
@@ -168,7 +169,8 @@ async def cb_auc_lot(query: types.CallbackQuery, callback_data: AucCB, db):
 
     highest = await get_highest_bid(db, lot_id)
     cur_bid = highest["amount"] if highest else lot["min_bid"]
-    min_next = int(cur_bid * 1.05) if highest else int(lot["min_bid"])
+    # ceil ensures float precision never rounds down below the required 5%
+    min_next = _ceil(cur_bid * 1.05) if highest else _ceil(lot["min_bid"])
 
     b = InlineKeyboardBuilder()
     if lot["seller_id"] != query.from_user.id:
