@@ -987,6 +987,8 @@ function renderZoo(tab) {
         <span style="font-size:12px;color:var(--muted)">🐾 Слоты питомника</span>
         <span style="font-size:14px;font-weight:700;color:${occupied>=maxSlots?'var(--red)':'var(--green)'}">${occupied}/${maxSlots}</span>
       </div>
+      ${occupied>=maxSlots&&expandQty===0&&maxSlots<6?`
+        <div style="margin-top:6px;font-size:10px;color:var(--muted)">🔒 Слоты заполнены. <span style="color:var(--gold);cursor:pointer" onclick="CM();swMkt('shop',document.querySelector('#pg-market .tb'))">Купи 🏡 Расширитель в Магазине</span></div>`:''}
       ${expandQty>0&&maxSlots<6?`
         <div style="margin-top:8px;border-top:1px solid var(--border2);padding-top:8px">
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px">В инвентаре: 🏡 Расширитель слота ×${expandQty}</div>
@@ -1001,7 +1003,7 @@ function renderZoo(tab) {
   }
 }
 
-// Full pet modal
+// Full pet modal — redesigned with all-level progression and active/passive split
 function openPetModal(petId) {
   OM('🐾 Питомец', '<div class="loader">Загрузка...</div>', []);
   api(`/zoo/pet/${petId}`).then(p=>{
@@ -1010,76 +1012,116 @@ function openPetModal(petId) {
     const dups = p.duplicates_collected||0;
     const toNext = p.dups_for_next_level||0;
 
-    // Current bonus lines
+    // ── ALL 10 LEVELS with diff-highlighting ───────────────────────────────
+    const allLevels = p.levels ? p.levels.map((tier, i)=>{
+      const isUnlocked = tier.level <= lvl;
+      const isCurrent  = tier.level === lvl;
+      const lines      = bonusLines(p.species_id, tier.bonus||{});
+
+      // Find bonuses that are NEW compared to previous level
+      const prevLines = i > 0
+        ? new Set(bonusLines(p.species_id, p.levels[i-1].bonus||{}))
+        : new Set();
+      const newLines = lines.filter(l=>!prevLines.has(l));
+      const hasNew   = newLines.length > 0;
+
+      const bg     = isCurrent ? 'rgba(201,168,76,.08)' : hasNew && !isCurrent && isUnlocked ? 'rgba(82,179,96,.05)' : 'transparent';
+      const border = isCurrent ? '1px solid var(--gold)' : hasNew ? '1px solid rgba(82,179,96,.4)' : '1px solid var(--border2)';
+
+      const milestoneBadge = tier.milestone
+        ? ` <span style="color:var(--bright);font-size:10px">🎁 ${tier.milestone.mora?'+'+fmt(tier.milestone.mora)+' 🪙':''} ${tier.milestone.diamonds?'+'+tier.milestone.diamonds+' 💎':''}</span>`
+        : '';
+
+      return `<div style="display:flex;gap:8px;padding:6px 8px;border-radius:6px;background:${bg};border:${border};margin-bottom:3px">
+        <div style="font-weight:700;font-size:11px;min-width:26px;color:${isCurrent?'var(--gold)':isUnlocked?'var(--green)':'var(--dim)'}">
+          ${isCurrent?'▶':isUnlocked?'✓':'○'}${tier.level}
+        </div>
+        <div style="flex:1">
+          ${lines.map(l=>{
+            const isNew = newLines.includes(l) && tier.level > 1;
+            return `<div style="font-size:10px;${isNew?'color:var(--gold);font-weight:700;':'color:'+(isUnlocked?'var(--text)':'var(--dim)')+''}">
+              ${isNew?'✦ ':''}${l}
+            </div>`;
+          }).join('')}
+          ${!lines.length?`<div style="font-size:10px;color:var(--dim)">—</div>`:''}
+        </div>
+        ${milestoneBadge}
+      </div>`;
+    }).join('') : '<div style="font-size:11px;color:var(--muted)">Нет данных</div>';
+
+    // ── PLACEMENT BONUS explanation ─────────────────────────────────────────
+    const isActive  = p.placement === 'active';
+    const isPassive = p.placement === 'passive';
+    const placePill = isActive
+      ? `<span style="background:rgba(82,199,180,.15);color:var(--teal);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">⚔️ Активный слот</span>`
+      : isPassive
+      ? `<span style="background:rgba(100,160,230,.15);color:var(--blue);padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">🛡 Пассивный слот</span>`
+      : `<span style="background:var(--s);color:var(--muted);padding:2px 8px;border-radius:12px;font-size:11px">📦 Склад</span>`;
+
     const curBonus = bonusLines(p.species_id, p.current_bonus||{});
     const bonusHtml = curBonus.length
-      ? curBonus.map(l=>`<div style="font-size:11px;color:var(--text);padding:3px 0">• ${l}</div>`).join('')
-      : '<div style="font-size:11px;color:var(--muted)">Нет активных бонусов</div>';
+      ? curBonus.map(l=>`<div style="font-size:11px;padding:3px 0;color:var(--text)">• ${l}</div>`).join('')
+      : `<div style="font-size:11px;color:var(--muted)">Переведи питомца в активный или пассивный слот</div>`;
 
-    // Level progression (show tiers)
-    const tiers = p.levels ? [1,4,8,10].map(lv=>{
-      const tier = p.levels.find(t=>t.level===lv);
-      if(!tier) return '';
-      const tlines = bonusLines(p.species_id, tier.bonus||{});
-      const isUnlocked = lv<=lvl;
-      const isCurrent = lv===lvl;
-      const color = isUnlocked ? (isCurrent?'var(--gold)':'var(--green)') : 'var(--dim)';
-      return `<div style="padding:8px;border-radius:var(--r);background:${isCurrent?'rgba(201,168,76,.1)':'var(--s)'};
-              border:1px solid ${isCurrent?'var(--border)':'var(--border2)'};margin-bottom:6px">
-        <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:4px">
-          ${isUnlocked?'✓':'○'} Lv${lv}${lv===4?' (Уровень 2)':lv===8?' (Уровень 3)':lv===10?' ★ Финал':''}
-          ${tier.milestone?` — 🎁 ${tier.milestone.mora?'+'+fmt(tier.milestone.mora)+' 🪙':''} ${tier.milestone.diamonds?'+'+tier.milestone.diamonds+' 💎':''}`:'' }
-        </div>
-        ${tlines.map(l=>`<div style="font-size:10px;color:${isUnlocked?'var(--muted)':'var(--dim)'};padding:1px 0">• ${l}</div>`).join('')}
-      </div>`;
-    }).join('') : '';
-
-    // Food options
+    // ── FOOD ───────────────────────────────────────────────────────────────
     const foodHtml = Object.entries(p.available_food||{}).length
       ? Object.entries(p.available_food).map(([fid,f])=>`
           <div class="fopt" onclick="doFeed(${petId},'${fid}',this)">
             <span class="fn">${f.name}</span>
             <span class="fq">×${f.qty}</span>
             <span class="fr" style="color:var(--green)">−${f.restore} уст.</span>
-          </div>`)
-        .join('')
+          </div>`).join('')
       : '<div style="font-size:11px;color:var(--muted);padding:5px">Корма нет — купите в Магазине.</div>';
 
     const body = `
-      <div style="text-align:center;padding:10px 0 14px">
-        <div style="font-size:22px;margin-bottom:4px">${p.species_name||p.name}</div>
-        <div>${rc(p.rarity)} <span style="font-size:11px;color:var(--muted)">${PL[p.placement]||p.placement}</span></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4">${p.species_desc||''}</div>
+      <!-- Header -->
+      <div style="text-align:center;padding:10px 0 10px">
+        <div style="font-size:28px;margin-bottom:6px">${p.name}</div>
+        <div style="margin-bottom:6px">${rc(p.rarity)}</div>
+        <div style="margin-bottom:8px">${placePill}</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;max-width:280px;margin:0 auto">${p.species_desc||''}</div>
       </div>
       <div class="divider"></div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <div style="background:var(--s);border-radius:var(--r);padding:10px;text-align:center">
-          <div style="font-size:20px;font-weight:700;color:var(--gold)">${lvl}<span style="font-size:12px">/10</span></div>
-          <div style="font-size:10px;color:var(--muted)">Уровень</div>
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">
+        <div style="background:var(--s);border-radius:var(--r);padding:8px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:var(--gold)">${lvl}<span style="font-size:10px">/10</span></div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">УРОВЕНЬ</div>
         </div>
-        <div style="background:var(--s);border-radius:var(--r);padding:10px;text-align:center">
-          <div style="font-size:20px;font-weight:700;color:var(--text)">${dups}${lvl<10?`<span style="font-size:12px;color:var(--muted)"> / ${dups+toNext}</span>`:''}</div>
-          <div style="font-size:10px;color:var(--muted)">Дубликатов</div>
+        <div style="background:var(--s);border-radius:var(--r);padding:8px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:var(--text)">${dups}${lvl<10?`<span style="font-size:10px;color:var(--muted)">/${dups+toNext}</span>`:''}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">ДУБЛИКАТЫ</div>
+        </div>
+        <div style="background:var(--s);border-radius:var(--r);padding:8px;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:${fatC(fatPct)}">${fatPct}<span style="font-size:10px">%</span></div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">УСТАЛОСТЬ</div>
         </div>
       </div>
 
-      <div style="margin-bottom:12px">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between">
-          <span>УСТАЛОСТЬ</span>
-          <span style="color:${fatC(fatPct)}">${fatPct}%</span>
+      <!-- Fatigue bar -->
+      <div style="margin-bottom:14px">
+        <div class="fat-bar" style="height:6px"><div class="fat-fill${fatPct>=80?' critical':''}" style="width:${fatPct}%;background:${fatC(fatPct)}"></div></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">
+          ${lvl<10?`До Lv${lvl+1}: нужно ${toNext} дублик.`:'<span style="color:var(--gold)">★ Максимальный уровень!</span>'}
         </div>
-        <div class="fat-bar" style="height:8px"><div class="fat-fill" style="width:${fatPct}%;background:${fatC(fatPct)}"></div></div>
-        ${lvl<10?`<div style="font-size:10px;color:var(--muted);margin-top:5px">До Lv${lvl+1}: ещё ${toNext} дублик.</div>`:'<div style="font-size:10px;color:var(--gold);margin-top:5px">★ Максимальный уровень!</div>'}
       </div>
 
-      <div class="card-title">Бонус текущего уровня</div>
-      <div style="margin-bottom:12px">${bonusHtml}</div>
+      <!-- Current bonuses -->
+      <div style="background:var(--s);border-radius:var(--r);padding:10px;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:6px">📊 ТЕКУЩИЕ БОНУСЫ</div>
+        ${bonusHtml}
+      </div>
 
-      <div class="card-title">Прогресс уровней</div>
-      <div style="margin-bottom:12px">${tiers}</div>
+      <!-- Level progression -->
+      <div style="margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title" style="margin:0">📈 Все уровни</div>
+        <div style="font-size:9px;color:var(--muted)">✦ = новый баф · ▶ = текущий</div>
+      </div>
+      <div style="margin-bottom:12px">${allLevels}</div>
 
-      <div class="card-title">🍖 Покормить (−усталость)</div>
+      <!-- Feed -->
+      <div class="card-title">🍖 Покормить (снизить усталость)</div>
       <div style="margin-bottom:8px">${foodHtml}</div>
 
       <div class="card-title">↔ Переместить</div>
@@ -1352,6 +1394,8 @@ function submitDuelChallenge(btn) {
   const stake = parseFloat(el('duel-stake')?.value||0);
   if(!username) { toast('Введите @username.', false); return; }
   if(!stake || stake < 200) { toast('Мин. ставка 200 🪙.', false); return; }
+  const myBal = _profileData?.mora || 0;
+  if(myBal > 0 && stake > myBal) { toast(`Недостаточно Моры. У тебя ${fmt(myBal)} 🪙.`, false); return; }
   btn.disabled = true;
   api('/duels/challenge', {method:'POST', body:JSON.stringify({username, stake, chat_id:_cid})})
     .then(() => {
@@ -1441,17 +1485,18 @@ let _invForAuction = [];
 function openCreateLotModal() {
   // Always reload fresh inventory
   OM('🏛 Выставить лот', '<div class="loader">Загрузка инвентаря...</div>', []);
-  api('/inventory/').then(items => {
+  // Load inventory AND pets for listing
+  Promise.all([api('/inventory/'), api('/zoo/')]).then(([items, zooData])=>{
     _invData = items;
-    const tradable = items.filter(it =>
-      it.quantity > 0 &&
-      ['egg','food','utility','booster','spin_token','material'].includes(it.category)
-    );
-    if(!tradable.length) {
-      el('mb').innerHTML = `<div style="text-align:center;padding:16px">
-        <div style="font-size:28px;margin-bottom:8px">📦</div>
-        <div style="font-size:13px;font-weight:600;color:var(--bright);margin-bottom:6px">Нет предметов для продажи</div>
-        <div style="font-size:11px;color:var(--muted)">Купите предметы в Магазине<br>или откройте яйца в Инвентаре.</div>
+    // ALL items with quantity > 0 (server validates tradability)
+    const tradable = items.filter(it => it.quantity > 0);
+    const pets = (zooData.pets||[]).filter(p=>p.placement !== 'storage');
+
+    if(!tradable.length && !pets.length) {
+      el('mb').innerHTML = `<div style="text-align:center;padding:20px">
+        <div style="font-size:32px;margin-bottom:8px">📦</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:6px">Нечего выставить</div>
+        <div style="font-size:11px;color:var(--muted)">Купите предметы в Магазине или получите питомцев в Гача.</div>
       </div>`;
       el('mf').innerHTML = `
         <button class="btn btn-ghost btn-sm" onclick="CM()">Закрыть</button>
@@ -1459,33 +1504,61 @@ function openCreateLotModal() {
       return;
     }
     _invForAuction = tradable;
-    el('mt').textContent = '🏛 Выберите предмет';
-    el('mb').innerHTML = `
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${tradable.length} предм. доступно</div>
-      ${tradable.map(it=>`
-        <div class="fopt" onclick="selectLotItem('${it.item_id}','${(it.name||it.item_id).replace(/'/g,'')}',${it.quantity})">
-          <span style="font-size:18px;width:24px">${(it.name||'').split(' ')[0]||'📦'}</span>
+    el('mt').textContent = '🏛 Что выставить?';
+    let html = `<div style="background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.3);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;font-size:10px;color:var(--red)">
+      ⚠️ Внимательно проверь предмет перед выставлением — отменить лот нельзя!
+    </div>`;
+
+    if(tradable.length) {
+      html += `<div class="card-title" style="margin-bottom:6px">📦 Предметы из инвентаря</div>`;
+      html += tradable.map(it=>`
+        <div class="fopt" onclick="selectLotItem('${it.item_id}','${(it.name||it.item_id).replace(/'/g,"\\'")}',${it.quantity},'','${(it.description||'').replace(/'/g,"\\'")}')">
           <div style="flex:1">
             <div class="fn">${it.name||it.item_id}</div>
-            ${it.description?`<div style="font-size:10px;color:var(--muted)">${it.description}</div>`:''}
+            ${it.description?`<div style="font-size:10px;color:var(--muted);margin-top:1px">${it.description}</div>`:''}
           </div>
-          <span class="fq">×${it.quantity}</span>
-        </div>`).join('')}`;
+          <span class="fq" style="margin-left:8px">×${it.quantity}</span>
+        </div>`).join('');
+    }
+
+    if(pets.length) {
+      html += `<div class="card-title" style="margin-top:12px;margin-bottom:6px">🐾 Питомцы</div>`;
+      html += `<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:8px;margin-bottom:6px;font-size:10px;color:var(--gold)">
+        💡 Питомцев можно выставить через бота: <code>бот аукцион</code>
+      </div>`;
+      html += pets.map(pt=>`
+        <div class="fopt" style="opacity:.6;cursor:default">
+          <div style="flex:1">
+            <div class="fn">${pt.name} ${rc(pt.rarity)}</div>
+            <div style="font-size:10px;color:var(--muted)">Lv${pt.pet_level||1} · ${pt.placement==='active'?'⚔️ Активный':'🛡 Пассивный'}</div>
+          </div>
+          <span style="font-size:10px;color:var(--muted)">через бота</span>
+        </div>`).join('');
+    }
+    el('mb').innerHTML = html;
     el('mf').innerHTML = `<button class="btn btn-ghost btn-sm" onclick="CM()">Отмена</button>`;
   }).catch(e=>{el('mb').innerHTML=`<div class="err">${e}</div>`;});
 }
-function selectLotItem(itemId, itemName, maxQty) {
-  el('mt').textContent = `🏛 ${itemName}`;
+function selectLotItem(itemId, itemName, maxQty, _unused, itemDesc) {
+  el('mt').textContent = `🏛 Выставить лот`;
+  const maxQ = Math.min(maxQty, 10);
   el('mb').innerHTML = `
-    <div class="irow"><span class="ik">Предмет</span><span>${itemName}</span></div>
-    <div class="irow"><span class="ik">Доступно</span><span>×${maxQty}</span></div>
+    <div style="background:var(--s);border-radius:var(--r);padding:10px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--bright);margin-bottom:4px">${itemName}</div>
+      ${itemDesc?`<div style="font-size:11px;color:var(--muted);line-height:1.4">${itemDesc}</div>`:''}
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">В наличии: ×${maxQty}</div>
+    </div>
     <div class="divider"></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Количество (1–${Math.min(maxQty,10)})</div>
-    <input id="lot-qty" type="number" class="num-input" min="1" max="${Math.min(maxQty,10)}" value="1"/>
-    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Мин. ставка 🪙</div>
-    <input id="lot-bid" type="number" class="num-input" min="50" value="500" placeholder="Минимальная ставка..."/>
-    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Выкуп 🪙 (необязательно)</div>
-    <input id="lot-buyout" type="number" class="num-input" placeholder="Цена мгновенного выкупа (опционально)"/>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Количество (1–${maxQ})</div>
+    <input id="lot-qty" type="number" class="num-input" min="1" max="${maxQ}" value="1"/>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Максимум 10 ед. за один лот</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Минимальная ставка 🪙</div>
+    <input id="lot-bid" type="number" class="num-input" min="50" value="500" placeholder="Мин. ставка (от 50 🪙)"/>
+    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Цена выкупа 🪙 <span style="color:var(--dim)">(необязательно)</span></div>
+    <input id="lot-buyout" type="number" class="num-input" placeholder="Оставь пустым если без выкупа"/>
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;padding:6px 8px;background:var(--s);border-radius:var(--r)">
+      ⏳ Лот активен 24 часа. После создания отменить нельзя.
+    </div>
   `;
   el('mf').innerHTML = `
     <button class="btn btn-ghost btn-sm" onclick="openCreateLotModal()">← Назад</button>
@@ -1634,10 +1707,17 @@ function doOpenEgg(eid,cnt) {
   CM();
   api('/inventory/open-egg',{method:'POST',body:JSON.stringify({egg_id:eid,count:cnt})}).then(r=>{
     const results=r.results||[];
-    OM('🎉 Яйцо открыто!',results.map(res=>{
-      const oc={first_copy_created:'🆕 Новый питомец',leveled_up:'⬆️ Уровень',added:'➕ Дубликат',overflow:'💫 Переполнение'}[res.outcome]||res.outcome;
-      return `<div class="irow"><span>${res.species||''}</span><span>${oc}${res.new_level?' Lv'+res.new_level:''}</span></div>`;
-    }).join('')||'<div style="color:var(--green);font-size:12px">Готово!</div>',[{l:'OK',c:'btn-gold',f:'CM()'}]);
+    const ocMap={first_copy_created:'🆕 Новый питомец!',leveled_up:'⬆️ Уровень вырос',added:'📦 Дубликат',overflow:'💫 Переполнение'};
+    OM('🎉 Яйцо открыто!',
+      `<div style="text-align:center;padding:4px 0 12px"><div style="font-size:32px;margin-bottom:4px">🐾</div><div style="font-size:13px;font-weight:700">Получено:</div></div>`+
+      results.map(res=>{
+        const oc=ocMap[res.outcome]||res.outcome;
+        return `<div style="background:var(--s);border-radius:var(--r);padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;font-weight:600">${res.species||''}</span>
+          <span style="font-size:11px;color:var(--gold)">${oc}${res.new_level?' Lv'+res.new_level:''}</span>
+        </div>`;
+      }).join('')||'<div style="color:var(--green);font-size:12px;text-align:center">Готово!</div>',
+      [{l:'🐾 В Зоопарк',c:'btn-teal',f:"CM();document.querySelector('.nb[onclick*=zoo]')?.click();loadZoo();"},{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
     loadInventory();
   }).catch(e=>toast(e,false));
 }
@@ -1982,7 +2062,7 @@ function loadDarkMora() {
 }
 function doContrabanda(btn) {
   const v=parseInt(el('contra-stake')?.value||0);
-  if(!v){toast('Введите ставку.',false);return;}
+  if(!v||v<100||v>5000){toast('Ставка: 100–5000 🪙.',false);return;}
   OM('🎲 Подтверждение',`<div class="irow"><span class="ik">Ставка</span><span style="color:var(--gold)">${fmt(v)} 🪙</span></div>
     <div style="font-size:11px;color:var(--muted);margin-top:8px">40% успех · 35% провал · 25% поймают (штраф 14д)</div>`,
     [{l:'🎲 Рискнуть',c:'btn-red',f:`runContrabanda(${v})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
@@ -2008,11 +2088,17 @@ function filterAuction(q) {
     const name = (l.item_name_display || l.item_name || '').split('||')[0].toLowerCase();
     return name.includes(f);
   }) : _allLots;
-  renderLots(lots);
+  renderLots(lots, f);
 }
-function renderLots(lots) {
+function renderLots(lots, searchQuery) {
   if (!el('lot-list')) return;
-  el('lot-list').innerHTML = lots.length ? lots.map(l => {
+  if(!lots.length) {
+    el('lot-list').innerHTML = searchQuery
+      ? `<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:24px;margin-bottom:6px">🔍</div><div style="font-size:12px">Ничего не найдено по «${searchQuery}»</div></div>`
+      : `<div style="text-align:center;padding:32px 16px;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">🏛️</div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Аукцион пуст</div><div style="font-size:11px">Выставь свой лот — нажми «+ Выставить»!</div></div>`;
+    return;
+  }
+  el('lot-list').innerHTML = lots.map(l => {
     const ends = new Date((l.ends_at+'').includes('T') ? l.ends_at : l.ends_at+'Z');
     const diff = Math.max(0, Math.floor((ends - Date.now()) / 1000));
     const tl = diff > 3600 ? Math.floor(diff/3600)+'ч' : Math.floor(diff/60)+'м';
@@ -2227,8 +2313,8 @@ function loadPromo() {
     <div class="card card-gold">
       <div class="card-title">🎫 Активировать промокод</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
-        Введите промокод и нажмите «Активировать».<br>
-        Каждый промокод — одноразовый.
+        Введите промокод и нажмите «Активировать». Каждый промокод — одноразовый.<br>
+        <span style="color:var(--gold);font-size:11px">💡 Промокоды публикуются в официальных чатах и анонсах бота.</span>
       </div>
       <input id="promo-input" type="text" class="num-input"
              placeholder="ПРОМОКОД" style="text-transform:uppercase"
