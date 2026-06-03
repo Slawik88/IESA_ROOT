@@ -191,7 +191,7 @@ async def _get_reserved(db, user_id: int) -> float:
 async def _add_reserve(db, user_id: int, amount: float) -> None:
     await db.execute(
         "INSERT INTO user_reserve (user_id, reserved_mora) VALUES (?, ?) "
-        "ON CONFLICT(user_id) DO UPDATE SET reserved_mora = reserved_mora + ?",
+        "ON CONFLICT(user_id) DO UPDATE SET reserved_mora = user_reserve.reserved_mora + ?",
         (user_id, amount, amount),
     )
 

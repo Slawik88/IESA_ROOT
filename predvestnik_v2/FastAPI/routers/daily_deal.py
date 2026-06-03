@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_balance
 from services.daily_deal import ensure_deals_fresh
+from core.registry import ITEMS_REGISTRY
 
 router = APIRouter(prefix="/daily-deal", tags=["daily-deal"])
 
@@ -21,8 +22,19 @@ def _next_midnight_utc() -> str:
 @router.get("/")
 async def get_deals(db=Depends(get_db), user=Depends(require_tg_user)):
     """Актуальные предметы акции дня + время до обновления."""
-    deals = await ensure_deals_fresh(db)
+    raw_deals = await ensure_deals_fresh(db)
     bal = await get_balance(db, user["id"])
+
+    # Enrich each deal with display name and description from ITEMS_REGISTRY
+    deals = []
+    for deal in raw_deals:
+        item = ITEMS_REGISTRY.get(deal.get("item_id", ""), {})
+        deals.append({
+            **deal,
+            "item_name": item.get("name", deal.get("item_id", "?")),
+            "item_description": item.get("description", ""),
+        })
+
     return {
         "deals": deals,
         "refreshes_at": _next_midnight_utc(),

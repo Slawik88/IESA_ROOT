@@ -325,7 +325,10 @@ def _build_inventory_text(name: str, items: list[tuple[str, int]]) -> str:
         lines.append("<i>Пусто.</i>")
     else:
         for idx, (item_id, qty) in enumerate(items):
-            item_data = ITEMS_REGISTRY.get(item_id, {"name": item_id})
+            item_data = ITEMS_REGISTRY.get(
+                str(item_id),
+                {"name": f"❓ Неизвестный предмет (#{item_id})"},
+            )
             prefix = "└" if idx == len(items) - 1 else "├"
             lines.append(f"{prefix} <b>{item_data['name']}</b> — <code>×{qty}</code>")
     return "\n".join(lines)
