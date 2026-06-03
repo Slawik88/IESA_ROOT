@@ -588,11 +588,23 @@ function connectWS() {
   _ws.onerror = () => {};
 }
 function showWsNotif(event) {
-  const titles = {expedition_done:'⚔️ Поход завершён!', quest_done:'✅ Квест выполнен!'};
+  const titles = {
+    expedition_done: '⚔️ Поход завершён!',
+    quest_done: '✅ Квест выполнен!',
+    duel_challenge: '⚔️ Вызов на дуэль!',
+  };
   const bodies = {
     expedition_done: e => `${e.pet} вернулся: +${fmt(e.mora)} 🪙 +${e.xp} XP`,
     quest_done: e => `«${e.quest}» — получено!`,
+    duel_challenge: e => `@${e.from} ставка ${fmt(e.stake)} 🪙 · Ответьте в чате: бот принять`,
   };
+  // Play sound for duel challenge
+  if(event.type === 'duel_challenge') {
+    if('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+    browserNotif('⚔️ Вызов на дуэль!', bodies.duel_challenge(event));
+    // Auto-reload duels if on arena page
+    if(_loaded.has('arena') && _arenaTab === 'duels') loadDuels();
+  }
   const div = document.createElement('div');
   div.className = 'ws-notif';
   div.innerHTML = `<div class="wn-title">${titles[event.type]||'🔮 Уведомление'}</div>
@@ -1249,18 +1261,61 @@ function swMkt(tab, _btn) {
   ({auc:loadAuction, shop:loadShopCatalog, inv:loadInventory, exch:loadExchange}[tab]||loadAuction)();
 }
 
-function loadAuction() {
-  api('/auction/lots').then(lots=>{
-    _allLots=lots;
+let _aucPage = 0, _aucTotal = 0, _aucPerPage = 20;
+
+function loadAuction(page) {
+  if(page !== undefined) _aucPage = page;
+  api(`/auction/lots?page=${_aucPage}&per_page=${_aucPerPage}`).then(data=>{
+    _allLots = data.lots || data;  // backward compat
+    _aucTotal = data.total || _allLots.length;
+    const totalPages = Math.ceil(_aucTotal / _aucPerPage);
+
     el('mkt-auc').innerHTML=`
-      <div style="display:flex;gap:7px;margin-bottom:10px">
+      <div style="display:flex;gap:7px;margin-bottom:8px">
         <input type="text" class="num-input" style="margin:0;flex:1;font-size:12px"
-               placeholder="🔍 Поиск по названию..." oninput="filterAuction(this.value)"/>
+               placeholder="🔍 Поиск..." oninput="filterAuction(this.value)"/>
         <button class="btn btn-gold btn-sm" onclick="openCreateLotModal()">+ Выставить</button>
       </div>
-      <div id="lot-list"></div>`;
-    renderLots(lots);
+      <!-- Reserved mora -->
+      <div id="auc-reserve" style="margin-bottom:8px"></div>
+      <div id="lot-list"></div>
+      <!-- Pagination -->
+      ${totalPages > 1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:10px">
+        ${_aucPage > 0 ? `<button class="btn btn-ghost btn-sm" onclick="loadAuction(${_aucPage-1})">← Пред.</button>` : ''}
+        <span style="font-size:11px;color:var(--muted);padding:6px">${_aucPage+1} / ${totalPages} (${_aucTotal} лотов)</span>
+        ${data.has_more ? `<button class="btn btn-ghost btn-sm" onclick="loadAuction(${_aucPage+1})">След. →</button>` : ''}
+      </div>` : `<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px">${_aucTotal} лотов</div>`}`;
+
+    renderLots(_allLots);
+    loadAucReserve();
   }).catch(e=>{el('mkt-auc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;_allLots=[];});
+}
+
+function loadAucReserve() {
+  if(!_uid && !sess()) return;
+  api('/auction/reserved').then(r=>{
+    const div = el('auc-reserve'); if(!div) return;
+    if(!r.reserved_total || !r.bids?.length) { div.innerHTML=''; return; }
+    const bidsHtml = r.bids.map(b=>{
+      const ends = new Date((b.ends_at+'').includes('T')?b.ends_at:b.ends_at+'Z');
+      const diff = Math.max(0,Math.floor((ends-Date.now())/1000));
+      const tl = diff>3600?Math.floor(diff/3600)+'ч':Math.floor(diff/60)+'м';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border2)">
+        <div>
+          <span style="font-size:11px;color:var(--bright)">${b.item_name||'Лот #'+b.lot_id}</span>
+          <span style="font-size:10px;color:var(--muted)"> · ⏳${tl}</span>
+        </div>
+        <span style="font-size:11px;color:var(--gold);font-weight:600">${fmt(b.amount)} 🪙</span>
+      </div>`;
+    }).join('');
+    div.innerHTML=`<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;font-size:11px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-weight:600;color:var(--gold2)">🔒 Зарезервировано: ${fmt(r.reserved_total)} 🪙</span>
+        <span style="font-size:10px;color:var(--muted)">${r.bids.length} ставок</span>
+      </div>
+      ${bidsHtml}
+    </div>`;
+  }).catch(()=>{});
 }
 // ── Create lot modal ─────────────────────────────────────────────────────────
 let _invForAuction = [];
@@ -1733,7 +1788,40 @@ function doExchange(btn) {
 
 // ── Dark Mora ─────────────────────────────────────────────────────────────────
 function loadDarkMora() {
-  el('dkc').innerHTML=`<div class="card card-gold">
+  // Load merchant status in parallel
+  api('/dark-mora/merchant-status').then(m=>{
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.style.marginBottom = '10px';
+    let merchantHtml = '';
+    if(m.active) {
+      merchantHtml = `<div style="background:rgba(201,168,76,.12);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:4px">🕵️ Теневой Торговец ЗДЕСЬ!</div>
+        <div style="font-size:11px;color:var(--muted)">Найди ключевое слово в пророчестве в чате → <code>бот слово, [слово]</code></div>
+      </div>`;
+    } else if(m.next_expected) {
+      const next = new Date(m.next_expected);
+      const diff = Math.max(0, Math.floor((next - Date.now()) / 1000));
+      const days = Math.floor(diff/86400), hours = Math.floor((diff%86400)/3600);
+      merchantHtml = `<div style="background:var(--dim);border-radius:var(--r);padding:10px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:600;color:var(--bright);margin-bottom:3px">🕵️ Теневой Торговец</div>
+        <div style="font-size:11px;color:var(--muted)">Следующий примерно через ${days ? days+'д '+hours+'ч' : hours+'ч'}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">${m.how_it_works}</div>
+      </div>`;
+    } else {
+      merchantHtml = `<div style="background:var(--dim);border-radius:var(--r);padding:10px;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:600;color:var(--bright);margin-bottom:3px">🕵️ Теневой Торговец</div>
+        <div style="font-size:11px;color:var(--muted)">${m.how_it_works}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">Появляется каждые ${m.cooldown_days} дня · Награда: ${m.reward_min}–${m.reward_max} 🌑</div>
+      </div>`;
+    }
+    const wrap = el('dkc-merchant');
+    if(wrap) wrap.innerHTML = merchantHtml;
+  }).catch(()=>{});
+
+  el('dkc').innerHTML=`
+    <div id="dkc-merchant"></div>
+    <div class="card card-gold">
     <div class="card-title">🌑 Тёмная Мора</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">
       Нелегальная валюта. Нельзя купить — только заработать нечестным путём.<br>
@@ -1745,7 +1833,7 @@ function loadDarkMora() {
       Ставь Мору на рискованную сделку. 40% — успех, 35% — провал, 25% — поймали.<br>
       Кулдаун: 7 дней. При поимке — штраф 14 дней.
     </div>
-    <input id="contra-stake" type="number" class="num-input" placeholder="Ставка (1500–12000 🪙)" min="1500" max="12000" step="100"/>
+    <input id="contra-stake" type="number" class="num-input" placeholder="Ставка (100–5000 🪙)" min="100" max="5000" step="50"/>
     <button class="btn btn-gold btn-full" onclick="doContrabanda(this)">🎲 Рискнуть</button>
     <div class="divider"></div>
     <div style="font-size:12px;font-weight:600;color:var(--bright);margin:10px 0 6px">🌑 Культ Бездны</div>
