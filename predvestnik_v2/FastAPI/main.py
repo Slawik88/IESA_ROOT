@@ -17,7 +17,8 @@ from FastAPI.auth import verify_login_widget, create_session_token
 from FastAPI import notifications
 from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               craft, quests, auction, duels, achievements,
-                              themes, streak, exchange, dark_mora)
+                              themes, streak, exchange, dark_mora,
+                              marriage, daily_deal, promocodes, wallet)
 
 
 @asynccontextmanager
@@ -32,7 +33,9 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 
 for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           gacha.router, craft.router, quests.router, auction.router, duels.router,
-          achievements.router, themes.router, streak.router, exchange.router, dark_mora.router]:
+          achievements.router, themes.router, streak.router, exchange.router,
+          dark_mora.router, marriage.router, daily_deal.router,
+          promocodes.router, wallet.router]:
     app.include_router(r)
 
 
@@ -443,14 +446,18 @@ dialog::backdrop{background:rgba(0,0,0,.85);backdrop-filter:blur(6px)}
 
 <!-- 1. Профиль -->
 <div id="pg-profile" class="page active">
-  <div class="tabs">
+  <div class="tabs" style="flex-wrap:wrap;gap:4px">
     <button class="tb active" onclick="switchPro('main',this)">👤 Профиль</button>
     <button class="tb" onclick="switchPro('streak',this)">🔥 Стрик</button>
     <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
+    <button class="tb" onclick="switchPro('marriage',this)">💍 Брак</button>
+    <button class="tb" onclick="switchPro('wallet',this)">💰 Кошелёк</button>
   </div>
-  <div id="pro-main"><div class="sk" style="height:140px;border-radius:var(--r)"></div></div>
+  <div id="pro-main"><div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div></div>
   <div id="pro-streak" style="display:none"></div>
   <div id="pro-ach" style="display:none"></div>
+  <div id="pro-marriage" style="display:none"></div>
+  <div id="pro-wallet" style="display:none"></div>
 </div>
 
 <!-- 2. Зоопарк -->
@@ -482,17 +489,21 @@ dialog::backdrop{background:rgba(0,0,0,.85);backdrop-filter:blur(6px)}
 
 <!-- 4. Рынок -->
 <div id="pg-market" class="page">
-  <div class="tabs">
+  <div class="tabs" style="flex-wrap:wrap;gap:4px">
     <button class="tb active" onclick="swMkt('auc',this)">🏛 Аукцион</button>
     <button class="tb" onclick="swMkt('shop',this)">🛒 Магазин</button>
     <button class="tb" onclick="swMkt('inv',this)">🎒 Инвентарь</button>
     <button class="tb" onclick="swMkt('exch',this)">💱 Обмен</button>
+    <button class="tb" onclick="swMkt('deal',this)">🏷 Акция</button>
+    <button class="tb" onclick="swMkt('promo',this)">🎫 Промо</button>
   </div>
   <div id="balrow" class="balrow" style="display:none"></div>
   <div id="mkt-auc"><div class="loader">Загрузка...</div></div>
   <div id="mkt-shop" style="display:none"></div>
   <div id="mkt-inv" style="display:none"></div>
   <div id="mkt-exch" style="display:none"><div class="loader">Загрузка...</div></div>
+  <div id="mkt-deal" style="display:none"><div class="loader">Загрузка...</div></div>
+  <div id="mkt-promo" style="display:none"></div>
 </div>
 
 <!-- 5. Коллекция -->
@@ -1863,6 +1874,187 @@ function addRefreshBtn(containerId, reloadFn) {
             onclick="${reloadFn}">🔄 Обновить · ${ts}</button>
   </div>`;
   if(!c.querySelector('[onclick*="Обновить"]')) c.insertAdjacentHTML('afterbegin', btn);
+}
+
+// ── Marriage ──────────────────────────────────────────────────────────────────
+function loadMarriage() {
+  el('pro-marriage').innerHTML='<div class="loader">Загрузка...</div>';
+  api('/marriage/').then(m=>{
+    if(!m.married){
+      el('pro-marriage').innerHTML=`<div class="card" style="text-align:center;padding:20px">
+        <div style="font-size:32px;margin-bottom:8px">💔</div>
+        <div style="font-size:14px;font-weight:600;color:var(--bright)">Вы не состоите в браке</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Команда в боте: <code>бот брак, @username</code></div>
+      </div>`;
+      return;
+    }
+    const pets=m.family_pets||[];
+    el('pro-marriage').innerHTML=`
+      <div class="card card-gold">
+        <div style="text-align:center;padding:10px 0 14px">
+          <div style="font-size:28px;margin-bottom:6px">💍</div>
+          <div style="font-size:14px;font-weight:700;color:var(--bright)">${m.partner_name||'Партнёр'}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">В браке ${m.days} дней</div>
+        </div>
+        <div class="irow"><span class="ik">Семейный банк</span><span style="color:var(--gold);font-weight:700">${fmt(m.family_balance)} 🪙</span></div>
+        <div style="display:flex;gap:7px;margin-top:10px">
+          <input id="bank-amt" type="number" class="num-input" style="margin:0;flex:1" placeholder="Сумма 🪙" min="1"/>
+          <button class="btn btn-sm btn-gold" onclick="familyBank('deposit')">📥 Вложить</button>
+          <button class="btn btn-sm btn-ghost" onclick="familyBank('withdraw')">📤 Забрать</button>
+        </div>
+      </div>
+      ${pets.length?`<div class="card"><div class="card-title">🐾 Питомцы семьи (${pets.length})</div>
+        ${pets.map(p=>`<div class="pcard"><div class="pcol">
+          <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
+          <div class="ps">Lv${p.pet_level} · ${PL[p.placement]||p.placement}</div>
+          <div class="fat-bar"><div class="fat-fill" style="width:${p.fatigue}%;background:${fatC(p.fatigue)}"></div></div>
+        </div></div>`).join('')}
+      </div>`:''}`;
+    el('pro-marriage')._mid=m.marriage_id;
+  }).catch(e=>{el('pro-marriage').innerHTML=`<div class="err">${e}</div>`;});
+}
+function familyBank(action) {
+  const v=parseFloat(el('bank-amt')?.value||0);
+  if(!v||v<=0){toast('Введите сумму.',false);return;}
+  const mid=el('pro-marriage')?._mid;
+  if(!mid){toast('Нет данных о браке.',false);return;}
+  api('/marriage/bank',{method:'POST',body:JSON.stringify({marriage_id:mid,amount:v,action})})
+    .then(r=>{toast(`✅ ${r.message}`);loadMarriage();})
+    .catch(e=>toast(e,false));
+}
+
+// ── Wallet history ────────────────────────────────────────────────────────────
+function loadWallet() {
+  el('pro-wallet').innerHTML='<div class="loader">Загрузка...</div>';
+  api('/wallet/history').then(txs=>{
+    if(!txs.length){el('pro-wallet').innerHTML='<div class="loader">Транзакций нет.</div>';return;}
+    el('pro-wallet').innerHTML='<div class="card"><div class="card-title">История транзакций</div>'+
+      txs.map(t=>{
+        const mora=t.delta_mora?`<span style="color:${t.delta_mora>0?'var(--green)':'var(--red)'};font-weight:600">${t.delta_mora>0?'+':''}${fmt(t.delta_mora)} 🪙</span>`:'';
+        const dia=t.delta_diamonds?`<span style="color:${t.delta_diamonds>0?'var(--blue)':'var(--red)'};font-weight:600">${t.delta_diamonds>0?'+':''}${t.delta_diamonds} 💎</span>`:'';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border2)">
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600;color:var(--bright)">${t.label}</div>
+            ${t.note?`<div style="font-size:10px;color:var(--muted)">${t.note}</div>`:''}
+            <div style="font-size:10px;color:var(--muted)">${t.created_at}</div>
+          </div>
+          <div style="text-align:right">${mora} ${dia}</div>
+        </div>`;
+      }).join('')+'</div>';
+  }).catch(e=>{el('pro-wallet').innerHTML=`<div class="err">${e}</div>`;});
+}
+
+// ── Daily Deal ────────────────────────────────────────────────────────────────
+let _dealRefreshAt = null;
+function loadDeal() {
+  el('mkt-deal').innerHTML='<div class="loader">Загрузка...</div>';
+  api('/daily-deal/').then(d=>{
+    _dealRefreshAt = d.refreshes_at;
+    const deals = d.deals||[];
+    el('mkt-deal').innerHTML=`
+      <div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:12px;text-align:center">
+        <div style="font-size:11px;color:var(--gold);text-transform:uppercase;letter-spacing:1px">Акция обновится через</div>
+        <div id="deal-timer" style="font-size:20px;font-weight:700;color:var(--gold2);font-family:monospace">--:--:--</div>
+      </div>
+      <div class="balrow">
+        <div class="bal"><div class="bv">🪙 ${fmt(d.mora)}</div><div class="bl">Мора</div></div>
+        <div class="bal"><div class="bv">💎 ${d.diamonds.toFixed(1)}</div><div class="bl">Алмазы</div></div>
+      </div>
+      ${deals.length?'<div class="card"><div class="card-title">🏷 Предложения сегодня</div>'+
+        deals.map(deal=>{
+          const price=deal.price_mora?`${fmt(deal.price_mora)} 🪙`:deal.price_diamonds?`${deal.price_diamonds} 💎`:'—';
+          const purchased=deal.user_purchased>=deal.max_per_user;
+          return `<div class="shop-row">
+            <div class="shop-icon">${(deal.item_name||'?').split(' ')[0]}</div>
+            <div class="shop-info">
+              <div class="shop-name">${deal.item_name||'?'} ${deal.quantity>1?'×'+deal.quantity:''}</div>
+              <div class="shop-price">${price}</div>
+              <div class="shop-desc">${deal.item_description||''}</div>
+            </div>
+            <button class="btn btn-sm ${purchased?'btn-ghost':'btn-gold'}" ${purchased?'disabled':''} onclick="buyDeal(${deal.id},this)">
+              ${purchased?'✓ Куплено':'Купить'}
+            </button>
+          </div>`;
+        }).join('')+'</div>'
+      :'<div class="loader">Акций нет.</div>'}`;
+    startDealTimer();
+  }).catch(e=>{el('mkt-deal').innerHTML=`<div class="err">${e}</div>`;});
+}
+function startDealTimer() {
+  if(_dealRefreshAt) {
+    const tick=()=>{
+      const t=el('deal-timer');if(!t)return;
+      const diff=Math.max(0,Math.floor((new Date(_dealRefreshAt)-Date.now())/1000));
+      if(diff<=0){t.textContent='Скоро обновится...';return;}
+      const h=Math.floor(diff/3600),m=Math.floor((diff%3600)/60),s=diff%60;
+      t.textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    };
+    tick();
+    setInterval(tick,1000);
+  }
+}
+function buyDeal(dealId,btn) {
+  btn.disabled=true;
+  api('/daily-deal/buy',{method:'POST',body:JSON.stringify({deal_id:dealId})})
+    .then(r=>{toast(`✅ Куплено! +${r.qty}×${r.item_id}`);loadDeal();})
+    .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+
+// ── Promo code ────────────────────────────────────────────────────────────────
+function loadPromo() {
+  el('mkt-promo').innerHTML=`
+    <div class="card card-gold">
+      <div class="card-title">🎫 Активировать промокод</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
+        Введите промокод и нажмите «Активировать».<br>
+        Каждый промокод — одноразовый.
+      </div>
+      <input id="promo-input" type="text" class="num-input"
+             placeholder="ПРОМОКОД" style="text-transform:uppercase"
+             oninput="this.value=this.value.toUpperCase()"/>
+      <button class="btn btn-gold btn-full" style="margin-top:8px" onclick="redeemPromo(this)">
+        🎫 Активировать
+      </button>
+      <div id="promo-result" style="margin-top:8px"></div>
+    </div>`;
+}
+function redeemPromo(btn) {
+  const code=el('promo-input')?.value?.trim();
+  if(!code){toast('Введите промокод.',false);return;}
+  btn.disabled=true;
+  api('/promo/redeem',{method:'POST',body:JSON.stringify({code})})
+    .then(r=>{
+      el('promo-result').innerHTML=`<div class="ok-box">✅ ${r.message}</div>`;
+      el('promo-input').value='';
+    })
+    .catch(e=>{
+      el('promo-result').innerHTML=`<div class="err">${e}</div>`;
+    })
+    .finally(()=>{btn.disabled=false;});
+}
+
+// ── switchPro update for new profile tabs ─────────────────────────────────────
+function switchPro(tab, btn) {
+  _proTab = tab;
+  document.querySelectorAll('#pg-profile .tb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  ['main','streak','ach','marriage','wallet'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
+  if(tab==='streak') loadStreak();
+  else if(tab==='ach') loadAch();
+  else if(tab==='marriage') loadMarriage();
+  else if(tab==='wallet') loadWallet();
+}
+
+// swMkt: add deal and promo
+function swMkt(tab, _btn) {
+  const btn = _btn || document.querySelector('#pg-market .tb');
+  _mktTab = tab;
+  document.querySelectorAll('#pg-market .tb').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const bd = el('balrow'); bd.style.display = tab === 'shop' ? 'flex' : 'none';
+  ['auc','shop','inv','exch','deal','promo'].forEach(t=>el('mkt-'+t).style.display=t===tab?'':'none');
+  ({auc:loadAuction, shop:loadShopCatalog, inv:loadInventory,
+    exch:loadExchange, deal:loadDeal, promo:loadPromo}[tab]||loadAuction)();
 }
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
