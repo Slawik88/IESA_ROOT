@@ -145,6 +145,8 @@ _HTML = """<!DOCTYPE html>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
+/* Force dark theme regardless of Telegram or system theme */
+html { color-scheme: dark only; }
 :root{
   --bg:#08090f;--s:#0d1019;--card:#111621;--card2:#161d2a;
   --gold:#c9a84c;--gold2:#e8c866;--gold-dim:rgba(201,168,76,.14);
@@ -724,21 +726,81 @@ function loadStreak() {
 
 // What each achievement tracks and how to earn it
 const ACH_HOW = {
-  egg_opener:  {how:'Открывайте яйца питомцев',     where:'Инвентарь → нажмите на яйцо'},
-  gacha_addict:{how:'Крутите гачу',                  where:'Арена → Гача'},
-  collector:   {how:'Получайте новые виды питомцев', where:'Открывайте яйца — каждый новый вид'},
-  trainer:     {how:'Прокачивайте питомцев до Lv10', where:'Открывайте дубликаты одного вида'},
-  wanderer:    {how:'Отправляйте питомцев в походы', where:'Зоопарк → питомец → команда бота'},
-  persistent:  {how:'Поддерживайте ежедневный стрик',where:'Пишите в бот каждый день'},
-  vow_keeper:  {how:'Состоите в браке',              where:'бот брак — оформить брак'},
-  patron:      {how:'Тратьте Мору в магазине',       where:'Рынок → Магазин'},
-  magnate:     {how:'Накапливайте Мору',             where:'Автоматически от баланса'},
-  treasury:    {how:'Накапливайте Алмазы',           where:'Автоматически от баланса'},
-  dealer:      {how:'Продавайте лоты на аукционе',   where:'Рынок → Аукцион → выставить лот'},
-  lucky_one:   {how:'Побеждайте в мини-играх',       where:'бот кости / монета / рулетка'},
-  duelist:     {how:'Побеждайте в дуэлях',           where:'бот дуэль в чате'},
-  talker:      {how:'Пишите сообщения в боте',       where:'Любой чат с ботом — просто общайтесь'},
-  star:        {how:'Будьте топ-1 в чате за неделю', where:'Пишите активнее всех в чате'},
+  egg_opener:  {
+    how:   'Открывайте яйца питомцев',
+    where: 'Инвентарь → нажмите на яйцо → «Открыть»',
+    note:  'Засчитывается каждое открытое яйцо любого типа',
+  },
+  gacha_addict:{
+    how:   'Крутите гачу',
+    where: 'Арена → Гача → выберите тип крутки',
+    note:  'Засчитывается каждый спин, включая жетоны',
+  },
+  collector:   {
+    how:   'Получите новые виды питомцев',
+    where: 'Открывайте яйца — каждый новый вид засчитывается',
+    note:  'Важен именно НОВЫЙ вид, не дубликаты существующего',
+  },
+  trainer:     {
+    how:   'Прокачайте питомца до максимального Lv10',
+    where: 'Открывайте дубликаты одного вида — уровень растёт',
+    note:  'Нужны дубликаты: Common ×10→Lv10, Epic ×4→Lv10 и т.д.',
+  },
+  wanderer:    {
+    how:   'Отправляйте питомцев в экспедиции',
+    where: 'Зоопарк → нажмите на питомца → «бот поход»',
+    note:  'Засчитывается каждое завершение похода (не старт)',
+  },
+  persistent:  {
+    how:   'Поддерживайте ежедневный стрик',
+    where: 'Пишите хотя бы одно сообщение в боте каждый день',
+    note:  'Счётчик — максимальный стрик за всё время, не текущий',
+  },
+  vow_keeper:  {
+    how:   'Пробудьте в браке суммарно N дней',
+    where: 'Оформите брак: «бот брак, @username» в чате',
+    note:  'Счётчик идёт автоматически каждый день пока вы в браке. Суммируется по всем бракам.',
+  },
+  patron:      {
+    how:   'Потратьте Мору в магазине бота',
+    where: 'Рынок → Магазин → купите любые предметы',
+    note:  'Засчитывается сумма всех покупок в магазине (бот магазин)',
+  },
+  magnate:     {
+    how:   'Накопите максимальный баланс Моры',
+    where: 'Зарабатывайте Мору всеми способами, не тратьте',
+    note:  'Трекается МАКСИМАЛЬНЫЙ баланс когда-либо, не текущий',
+  },
+  treasury:    {
+    how:   'Накопите максимальный баланс Алмазов',
+    where: 'Получайте Алмазы из стрика, ачивок, гачи',
+    note:  'Трекается МАКСИМАЛЬНЫЙ баланс когда-либо, не текущий',
+  },
+  dealer:      {
+    how:   'Продайте лоты на аукционе',
+    where: 'Рынок → Аукцион → «+ Выставить» → дождитесь покупки',
+    note:  'Засчитывается только успешная продажа (кто-то купил)',
+  },
+  lucky_one:   {
+    how:   'Побеждайте в мини-играх',
+    where: '«бот кости», «бот монета», «бот число», «бот рулетка»',
+    note:  'Засчитывается каждая победа в любой мини-игре',
+  },
+  duelist:     {
+    how:   'Побеждайте в дуэлях',
+    where: '«бот дуэль, @соперник, [ставка]» — вызов на дуэль',
+    note:  'Засчитывается только победа, не ничья',
+  },
+  talker:      {
+    how:   'Пишите сообщения в чатах с ботом',
+    where: 'Любой чат где есть бот — просто общайтесь',
+    note:  'Суммируются сообщения из ВСЕХ чатов (глобальный счётчик)',
+  },
+  star:        {
+    how:   'Будьте топ-1 в чате по активности за неделю',
+    where: 'Пишите больше всех в чате в течение недели',
+    note:  'Засчитывается каждая неделя когда вы на 1-м месте',
+  },
 };
 
 function loadAch() {
@@ -778,10 +840,11 @@ function openAchModal(a) {
       <div style="font-size:12px;color:var(--muted)">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}</div>
     </div>
     <div class="divider"></div>
-    <div class="irow"><span class="ik">Что нужно делать</span><span style="color:var(--text);text-align:right;max-width:60%">${hw.how||'—'}</span></div>
-    <div class="irow"><span class="ik">Где делать</span><span style="color:var(--teal);text-align:right;max-width:60%">${hw.where||'—'}</span></div>
-    ${!a.completed&&rwParts?`<div class="irow"><span class="ik">Награда Lv${a.level+1}</span><span style="color:var(--gold)">${rwParts}</span></div>`:''}
-    ${a.completed?`<div style="text-align:center;padding:10px;color:var(--gold);font-size:13px;font-weight:600">🏆 Достижение полностью выполнено!</div>`:''}
+    <div class="irow"><span class="ik">Что нужно</span><span style="color:var(--text);text-align:right;max-width:65%;font-size:11px">${hw.how||'—'}</span></div>
+    <div class="irow"><span class="ik">Где</span><span style="color:var(--teal);text-align:right;max-width:65%;font-size:11px">${hw.where||'—'}</span></div>
+    ${hw.note?`<div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">💡 ${hw.note}</div>`:''}
+    ${!a.completed&&rwParts?`<div class="irow" style="margin-top:8px"><span class="ik">Награда Lv${a.level+1}</span><span style="color:var(--gold)">${rwParts}</span></div>`:''}
+    ${a.completed?`<div style="text-align:center;padding:10px;color:var(--gold);font-size:13px;font-weight:600">🏆 Выполнено полностью!</div>`:''}
   `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
 }
 
@@ -1320,23 +1383,40 @@ function loadAucReserve() {
 // ── Create lot modal ─────────────────────────────────────────────────────────
 let _invForAuction = [];
 function openCreateLotModal() {
-  if(!_invData.length) { loadInventory(); }
-  // Filter tradable items
-  const items = _invData.filter(it => it.quantity > 0 && ['egg','food','utility','booster','spin_token','material'].includes(it.category));
-  if(!items.length) {
-    OM('🏛 Выставить лот', '<div class="err">Инвентарь пуст. Нечего выставлять.</div>', [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
-    return;
-  }
-  _invForAuction = items;
-  const listHtml = items.map(it=>`
-    <div class="fopt" onclick="selectLotItem('${it.item_id}','${it.name.replace(/'/g,'')}',${it.quantity})">
-      <span class="fn">${it.name}</span>
-      <span class="fq">×${it.quantity}</span>
-    </div>`).join('');
-  OM('🏛 Выбери предмет', `
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Выберите предмет для продажи:</div>
-    ${listHtml}
-  `, [{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+  // Always reload fresh inventory
+  OM('🏛 Выставить лот', '<div class="loader">Загрузка инвентаря...</div>', []);
+  api('/inventory/').then(items => {
+    _invData = items;
+    const tradable = items.filter(it =>
+      it.quantity > 0 &&
+      ['egg','food','utility','booster','spin_token','material'].includes(it.category)
+    );
+    if(!tradable.length) {
+      el('mb').innerHTML = `<div style="text-align:center;padding:16px">
+        <div style="font-size:28px;margin-bottom:8px">📦</div>
+        <div style="font-size:13px;font-weight:600;color:var(--bright);margin-bottom:6px">Нет предметов для продажи</div>
+        <div style="font-size:11px;color:var(--muted)">Купите предметы в Магазине<br>или откройте яйца в Инвентаре.</div>
+      </div>`;
+      el('mf').innerHTML = `
+        <button class="btn btn-ghost btn-sm" onclick="CM()">Закрыть</button>
+        <button class="btn btn-gold btn-sm" onclick="CM();swMkt('shop',document.querySelector('#pg-market .tb'))">🛒 В Магазин</button>`;
+      return;
+    }
+    _invForAuction = tradable;
+    el('mt').textContent = '🏛 Выберите предмет';
+    el('mb').innerHTML = `
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${tradable.length} предм. доступно</div>
+      ${tradable.map(it=>`
+        <div class="fopt" onclick="selectLotItem('${it.item_id}','${(it.name||it.item_id).replace(/'/g,'')}',${it.quantity})">
+          <span style="font-size:18px;width:24px">${(it.name||'').split(' ')[0]||'📦'}</span>
+          <div style="flex:1">
+            <div class="fn">${it.name||it.item_id}</div>
+            ${it.description?`<div style="font-size:10px;color:var(--muted)">${it.description}</div>`:''}
+          </div>
+          <span class="fq">×${it.quantity}</span>
+        </div>`).join('')}`;
+    el('mf').innerHTML = `<button class="btn btn-ghost btn-sm" onclick="CM()">Отмена</button>`;
+  }).catch(e=>{el('mb').innerHTML=`<div class="err">${e}</div>`;});
 }
 function selectLotItem(itemId, itemName, maxQty) {
   el('mt').textContent = `🏛 ${itemName}`;
@@ -1867,8 +1947,11 @@ function doRitual(btn) {
 // ── Auction search ────────────────────────────────────────────────────────────
 let _allLots=[];
 function filterAuction(q) {
-  const f=q.toLowerCase();
-  const lots=f?_allLots.filter(l=>l.item_name.toLowerCase().includes(f)):_allLots;
+  const f = q.toLowerCase();
+  const lots = f ? _allLots.filter(l => {
+    const name = (l.item_name_display || l.item_name || '').split('||')[0].toLowerCase();
+    return name.includes(f);
+  }) : _allLots;
   renderLots(lots);
 }
 function renderLots(lots) {
@@ -1881,9 +1964,13 @@ function renderLots(lots) {
     const curBid = l.current_bid || l.min_bid;
     const minNext = l.min_next_bid || (hasBids ? Math.ceil(curBid * 1.05) + 1 : Math.ceil(l.min_bid));
     const buyout = l.buyout || 0;
-    const bidArgs = `${l.id},'${(l.item_name||'').replace(/'/g,'')}',${curBid},${minNext},${hasBids},${buyout}`;
+    // Use server-parsed display name (strips '||item_id' suffix added by bot)
+    const displayName = l.item_name_display || (l.item_name||'?').split('||')[0] || '?';
+    const desc = l.item_description || '';
+    const bidArgs = `${l.id},'${displayName.replace(/'/g,'')}',${curBid},${minNext},${hasBids},${buyout}`;
     return `<div class="lot-card">
-      <div class="lot-name">${l.item_name}${l.quantity>1?' ×'+l.quantity:''}</div>
+      <div class="lot-name">${displayName}${l.quantity>1?' ×'+l.quantity:''}</div>
+      ${desc ? `<div style="font-size:10px;color:var(--muted);margin:2px 0">${desc}</div>` : ''}
       <div class="lot-meta">
         <span>от ${l.seller_name||'Игрок'}</span>
         <span>⏳ ${tl}</span>

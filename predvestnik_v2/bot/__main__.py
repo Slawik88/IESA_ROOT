@@ -122,6 +122,18 @@ async def main():
             except Exception as _e:
                 logger.warning(f"Кнопка меню не установлена: {_e}")
 
+        # Log RARITY_STICKER_ID so developer can easily copy it
+        _rarity_sid = os.getenv("RARITY_STICKER_ID", "")
+        if _rarity_sid:
+            logger.info(f"🦄 RARITY_STICKER_ID установлен: {_rarity_sid}")
+        else:
+            logger.warning(
+                "🦄 RARITY_STICKER_ID не задан. Чтобы добавить стикер Рарити:\n"
+                "   1. Перешлите стикер боту в ЛС\n"
+                "   2. В логах появится: 🎴 STICKER file_id=<id>\n"
+                "   3. Скопируйте <id> → установите RARITY_STICKER_ID в DigitalOcean env"
+            )
+
         logger.info("═" * 50)
         logger.info("🟢 БОТ ГОТОВ К ПРИЕМУ СООБЩЕНИЙ")
         logger.info("═" * 50)

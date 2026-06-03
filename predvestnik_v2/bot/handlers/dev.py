@@ -702,3 +702,21 @@ async def cmd_dev_chat_info(message: types.Message, db, text_args: str = None):
     else:
         await message.answer(part1, parse_mode="HTML")
         await message.answer(part2, parse_mode="HTML")
+
+
+# ── Sticker file_id logger ────────────────────────────────────────────────────
+
+@router.message(F.sticker)
+async def log_sticker_id(message: types.Message):
+    """Log sticker file_id so developer can copy it for RARITY_STICKER_ID."""
+    sticker = message.sticker
+    from loguru import logger
+    logger.info(
+        f"🎴 STICKER file_id={sticker.file_id}\n"
+        f"   emoji={sticker.emoji} set={sticker.set_name}"
+    )
+    await message.answer(
+        f"🎴 <b>Sticker file_id:</b>\n<code>{sticker.file_id}</code>\n\n"
+        f"Скопируйте и установите как <code>RARITY_STICKER_ID</code> в env.",
+        parse_mode="HTML",
+    )

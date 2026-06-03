@@ -33,17 +33,36 @@ RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary",
 THEMES: Dict[str, Dict[str, Any]] = {
     # ── СТАРТОВАЯ (выдаётся всем бесплатно) ──
     "theme_shadow": {"name": "🌑 Тень", "rarity": "common", "source": "start",
-                     "accent": "🌑", "top": "▪️▪️▪️▪️▪️▪️▪️▪️▪️▪️", "bot": "▪️▪️▪️▪️▪️▪️▪️▪️▪️▪️",
+                     "accent": "🌑",
+                     "top": "🌑▪️▪️▪️▪️▪️▪️▪️▪️🌑",
+                     "sep": "▪️▫️▪️▫️▪️▫️▪️",
+                     "bot": "🌑▪️▪️▪️▪️▪️▪️▪️▪️🌑",
                      "desc": "Стартовая тёмная тема. Минимализм."},
     # ── ⬜ ОБЫЧНЫЕ (магазин, Мора) ──
     "theme_dawn":  {"name": "🌅 Рассвет", "rarity": "common", "source": "shop_mora", "price_mora": 2500,
-                    "accent": "🌅", "top": "🌅━━━━━━━━🌅", "bot": "━━━━━━━━━━", "desc": "Тёплые оранжево-золотые тона."},
+                    "accent": "🌅",
+                    "top": "🌅✦━━━━━━━━━✦🌅",
+                    "sep": "✦━━━━━━━━━✦",
+                    "bot": "🌅✦━━━━━━━━━✦🌅",
+                    "desc": "Тёплые оранжево-золотые тона."},
     "theme_dusk":  {"name": "🌆 Закат", "rarity": "common", "source": "shop_mora", "price_mora": 2500,
-                    "accent": "🌆", "top": "🌆━━━━━━━━🌆", "bot": "━━━━━━━━━━", "desc": "Сиреневые тона вечернего неба."},
+                    "accent": "🌆",
+                    "top": "🌆✧━━━━━━━━━✧🌆",
+                    "sep": "✧━━━━━━━━━✧",
+                    "bot": "🌆✧━━━━━━━━━✧🌆",
+                    "desc": "Сиреневые тона вечернего неба."},
     "theme_stone": {"name": "🪨 Камень", "rarity": "common", "source": "shop_mora", "price_mora": 1800,
-                    "accent": "🪨", "top": "🪨▰▰▰▰▰▰▰▰🪨", "bot": "▰▰▰▰▰▰▰▰▰▰", "desc": "Грубые тяжёлые рамки."},
+                    "accent": "🪨",
+                    "top": "🪨▰▰▰▰▰▰▰▰🪨",
+                    "sep": "▰▱▰▱▰▱▰▱▰",
+                    "bot": "🪨▰▰▰▰▰▰▰▰🪨",
+                    "desc": "Грубые тяжёлые рамки."},
     "theme_leaf":  {"name": "🍃 Лист", "rarity": "common", "source": "shop_mora", "price_mora": 2000,
-                    "accent": "🍃", "top": "🍃～～～～～～🍃", "bot": "～～～～～～～～", "desc": "Свежая зелёная листва."},
+                    "accent": "🍃",
+                    "top": "🍃〰〰〰〰〰〰🍃",
+                    "sep": "〰〰〰〰〰〰",
+                    "bot": "🍃〰〰〰〰〰〰🍃",
+                    "desc": "Свежая зелёная листва."},
     # ── 🟩 НЕОБЫЧНЫЕ (магазин Алмазы / Обычная гача) — японские + природа ──
     "theme_sakura": {"name": "🌸 Сакура", "rarity": "uncommon", "source": "shop_diamond", "price_diamonds": 25,
                      "gacha": "novice", "accent": "🌸", "top": "🌸❀✿❀✿❀✿❀✿🌸", "bot": "❀✿❀✿❀✿❀✿❀✿", "desc": "Розовые лепестки, японские узоры."},
@@ -117,6 +136,31 @@ THEMES: Dict[str, Dict[str, Any]] = {
     "theme_summer":     {"name": "🌻 Солнцестояние", "rarity": "seasonal", "source": "event",
                          "accent": "🌻", "top": "🌻☀🌻☀🌻☀🌻☀🌻", "bot": "☀🌻☀🌻☀🌻☀🌻☀", "desc": "День солнца, июнь."},
 }
+
+# Auto-compute sep for themes that don't define it explicitly.
+# sep = section separator shown between profile blocks.
+_SEP_DEFAULTS: Dict[str, str] = {
+    "theme_sakura": "❀✿❀✿❀✿❀✿",  "theme_torii": "⛩━━━━━━━━⛩",
+    "theme_koi": "〰〰〰〰〰〰",     "theme_autumn": "🍁🍂🍁🍂🍁🍂",
+    "theme_ocean": "≈≈≈≈≈≈≈≈",    "theme_snow": "•❄️•❄️•❄️•",
+    "theme_fuji": "▲△▲△▲△▲",       "theme_fire": "◢◣◢◣◢◣◢",
+    "theme_ice": "◇◆◇◆◇◆◇",        "theme_storm": "╱╲╱╲╱╲╱",
+    "theme_moon": "✦˚✦˚✦˚✦",        "theme_cherry": "❁❀❁❀❁❀❁",
+    "theme_geisha": "✦❉✦❉✦❉✦",      "theme_cosmos": "∗･ﾟ✦∗･ﾟ✦",
+    "theme_dragon": "〆〆〆〆〆〆〆", "theme_neon": "▮▯▮▯▮▯▮",
+    "theme_jade": "❖❖❖❖❖❖❖",        "theme_herald": "༄˚✦༄˚✦",
+    "theme_phoenix": "♨彡♨彡♨彡",   "theme_royal": "♛♔♛♔♛♔♛",
+    "theme_aurora": "∼∽∼∽∼∽∼",      "theme_eclipsed": "✦☀✦☀✦☀✦",
+    "theme_void": "⠂⠂⠂⠂⠂⠂⠂⠂",     "theme_dark_trade": "†☠†☠†☠†",
+    "theme_forbidden": "⛓⛓⛓⛓⛓⛓", "theme_banished": "▚▞▚▞▚▞▚",
+    "theme_starlight": "⋆｡˚⋆｡˚⋆",   "theme_velvet": "❧❦❧❦❧❦❧",
+    "theme_prism": "◳◰◲◱◳◰◲◱",       "theme_celestial": "☁⛅☁⛅☁⛅",
+    "theme_newyear": "🎄✦🎄✦🎄✦",    "theme_summer": "☀🌻☀🌻☀🌻",
+}
+for _tid, _tdata in THEMES.items():
+    if "sep" not in _tdata:
+        _tdata["sep"] = _SEP_DEFAULTS.get(_tid, "─" * 8)
+
 
 # Какие темы могут выпасть в гаче (по типу крутки)
 THEME_GACHA_DROPS: Dict[str, list] = {
