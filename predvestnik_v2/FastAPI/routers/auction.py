@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.constants import AUCTION_COMMISSION, AUCTION_MIN_BID
 from core.registry import ITEMS_REGISTRY
+# ITEMS_REGISTRY used both here and inside loops for item metadata
 from infrastructure.repositories.economy import get_balance, get_item_quantity
 from infrastructure.repositories.auction import get_reserve
 from services.auction import place_bid, create_auction_lot
@@ -42,6 +43,16 @@ async def active_lots(
     for r in rows:
         r["has_bids"] = r.get("bid_count", 0) > 0
         r["min_next_bid"] = int(r["current_bid"] * 1.05) + 1 if r["has_bids"] else int(r["min_bid"])
+        # Strip the "||item_id" suffix stored by the bot handler for reverse lookup
+        raw_name = r.get("item_name", "") or ""
+        parts = raw_name.split("||", 1)
+        r["item_name_display"] = parts[0].strip() or "Неизвестный предмет"
+        r["item_id_ref"] = parts[1].strip() if len(parts) > 1 else ""
+        # Add description from registry if we have item_id
+        if r["item_id_ref"]:
+            item_data = ITEMS_REGISTRY.get(r["item_id_ref"], {})
+            r["item_description"] = item_data.get("description", "")
+            r["item_category"] = item_data.get("category", "")
 
     return {"lots": rows, "total": total, "page": page, "per_page": per_page,
             "has_more": (offset + per_page) < total}

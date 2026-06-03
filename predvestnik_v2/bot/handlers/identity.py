@@ -149,30 +149,43 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
 
     hamster_note = f"  <i>(+{format_currency(hamster_income)} хомяки)</i>" if hamster_income > 0 else ""
 
-    # Active profile theme — decorative frame + accent emoji
+    # Active profile theme — decorative frame wraps the entire message
     from infrastructure.repositories.themes import get_active_theme
     from core.themes import THEMES, DEFAULT_THEME
     theme_id = await get_active_theme(db, user_id)
     theme = THEMES.get(theme_id, THEMES[DEFAULT_THEME])
     t_top = theme.get("top", "")
+    t_sep = theme.get("sep", "─" * 8)
+    t_bot = theme.get("bot", t_top)
     t_accent = theme.get("accent", "")
 
     text = (
+        # ── Шапка (тема) ──────────────────────────────
         f"{t_top}\n"
-        f"👤 <b>ПРОФИЛЬ</b> — {display_name} {t_accent}\n"
-        f"<code>🆔 {user_id}</code>\n\n"
-
-        f"🌍 {global_rank}  ·  🏘 {local_rank}\n"
-        f"💍 {partner_line if marriage else '<i>Одинок(а)</i>'}  ·  ⚠️ {warns} варн.\n"
-        f"🛡 Защита: {shield_line}\n\n"
-
-        f"⭐ <b>Lv{lvl}</b>  <code>[{bar}]</code>  {xp_in_lvl}/{XP_PER_LEVEL} · +{xp_left} XP\n"
-        f"💰 <b>{mora} 🪙 · {diamonds} 💎</b>{hamster_note}\n"
-        f"🔥 Стрик <b>{streak}</b> дн.  ·  💬 {d_msgs} / {w_msgs} / {a_msgs} <i>(д/н/всё)</i>\n"
-
-        f"\n🐾 <b>ПИТОМЦЫ</b>\n"
+        f"{t_accent} <b>{display_name}</b> {t_accent}\n"
+        f"🌍 {global_rank}\n"
+        f"🏘 {local_rank}\n"
+        f"{t_sep}\n"
+        # ── Статус ────────────────────────────────────
+        f"⭐ <b>Lv{lvl}</b>  [{bar}]\n"
+        f"    +{xp_left} XP до Lv{lvl + 1}\n"
+        f"💰 <b>{mora} 🪙</b>  ·  <b>{diamonds} 💎</b>{hamster_note}\n"
+        f"🔥 Стрик <b>{streak}</b> дн.\n"
+        f"💬 <b>{a_msgs}</b> сообщ. всего · {d_msgs}/день\n"
+        f"{t_sep}\n"
+        # ── Личное ────────────────────────────────────
+        + (f"💍 {partner_line}\n" if marriage else f"💍 <i>Не в браке</i>\n")
+        + f"🛡 {shield_line}\n"
+        + (f"⚠️ Варны: <b>{warns}</b>\n" if warns > 0 else "")
+        + f"{t_sep}\n"
+        # ── Питомцы ───────────────────────────────────
+        + f"🐾 <b>Питомцы</b>\n"
         + _pets_block(nursery_pets)
-        + f"\n{t_top if not theme.get('bot') else theme.get('bot')}"
+        + f"\n{t_sep}\n"
+        # ── ID ────────────────────────────────────────
+        + f"<code>🆔 {user_id}</code>\n"
+        # ── Подвал (тема) ─────────────────────────────
+        + t_bot
     )
 
     await message.answer(text, parse_mode="HTML")

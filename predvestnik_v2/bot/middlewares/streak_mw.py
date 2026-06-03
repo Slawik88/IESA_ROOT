@@ -5,6 +5,7 @@ from aiogram import Bot
 from infrastructure.repositories import streak as streak_repo
 from infrastructure.repositories import economy as eco_repo
 from services.streak import get_today_in_tz, process_daily_login
+from services.achievements import increment_metric as _ach_incr
 from services.utils import format_currency
 
 
@@ -110,10 +111,22 @@ async def streak_middleware(
                     )
                     await db.commit()
 
+                    # Achievement: marriage_days_total (vow_keeper) — daily increment
+                    try:
+                        async with db.execute(
+                            "SELECT id FROM marriages WHERE user1_id = ? OR user2_id = ? LIMIT 1",
+                            (user.id, user.id),
+                        ) as _mc:
+                            _married = await _mc.fetchone()
+                        if _married:
+                            await _ach_incr(db, user.id, "marriage_days_total", delta=1.0)
+                            await db.commit()
+                    except Exception:
+                        pass
+
                     # Achievement: max_streak_ever (uses SET-max semantics)
                     try:
-                        from services.achievements import increment_metric as _incr_ach
-                        from infrastructure.repositories.achievements import get_achievement, upsert_achievement
+                        from infrastructure.repositories.achievements import get_achievement, upsert_achievement  # noqa: PLC0415
                         ach = await get_achievement(db, user.id, "persistent")
                         prev_max = ach["progress"] if ach else 0.0
                         new_streak_val = float(result["new_streak"])
