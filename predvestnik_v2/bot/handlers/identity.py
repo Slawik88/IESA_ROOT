@@ -2,33 +2,75 @@
 bot/handlers/identity.py
 Profile display commands (unified design).
 
-  бот я / бот профиль → full own profile card (same output, aliases)
-  бот кто, @user       → target's card
+  бот я / бот профиль → full own profile card
+  бот кто, @user       → target's card using their active theme
   бот анкета           → own detailed card with shareable tg-link
+
+Profile layout (standard themes):
+  {top}  ← header + sep embedded
+  name · ranks · join-date
+  {sep}
+  level · rep · balance · streak
+  {sep}
+  messages · partner · theme name
+  {sep}
+  pets
+  {sep}
+  id
+  {bot}  ← thematic phrase
+
+Zarniki themes use a bordered frame with prefix on each line
+and 2 explicit seps instead of 4.
 """
 from datetime import datetime
 
 from aiogram import Router, types
 from bot.filters.text_commands import TextCmd
 from core.constants import XP_PER_LEVEL
-from core.registry import PET_SPECIES
-from infrastructure.repositories import chat as chat_repo, marriages as marriage_repo
+from core.registry import ACHIEVEMENTS, PET_SPECIES
+from infrastructure.repositories import chat as chat_repo
+from infrastructure.repositories import dark_mora as dark_mora_repo
+from infrastructure.repositories import achievements as ach_repo
 from infrastructure.repositories import economy as eco_repo
+from infrastructure.repositories import marriages as marriage_repo
 from infrastructure.repositories import users as users_repo
 from infrastructure.repositories import zoo as zoo_db
 from infrastructure.repositories.streak import get_streak
 from services import roles
-from services.formatting import parse_dt, format_currency
+from services.formatting import parse_dt
 from services.utils import safe_html, resolve_target
 
 router = Router(name="identity_router")
 
+_RARITY_BADGE = {
+    "common": "⚪️", "uncommon": "🟩", "rare": "🔵",
+    "epic": "🟣", "legendary": "🟡",
+}
+ACH_TOTAL = len(ACHIEVEMENTS)
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _xp_bar(current: int, maximum: int, length: int = 10) -> str:
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _compact(n) -> str:
+    """1_500 → '1.5k'  |  12_345 → '12.3k'  |  215 → '215'"""
+    try:
+        n = int(float(n))
+    except (TypeError, ValueError):
+        return "0"
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}m".replace(".0m", "m")
+    if n >= 1_000:
+        return f"{n / 1_000:.1f}k".replace(".0k", "k")
+    return str(n)
+
+
+def _xp_bar(current: int, maximum: int, length: int = 8) -> str:
     filled = int((min(current, maximum) / maximum) * length) if maximum > 0 else 0
     return "█" * filled + "░" * (length - filled)
+
+
+def _xp_pct(current: int, maximum: int) -> int:
+    return int((min(current, maximum) / maximum) * 100) if maximum > 0 else 0
 
 
 def _marriage_duration(val) -> str:
@@ -42,15 +84,6 @@ def _marriage_duration(val) -> str:
     return f"{d} дн." if d > 0 else f"{h} ч."
 
 
-def _ecosystem_age(val) -> str:
-    if not val:
-        return "—"
-    dt = parse_dt(val)
-    if not dt:
-        return "—"
-    return f"{(datetime.now() - dt).days} дн."
-
-
 def _fatigue_icon(fatigue: int) -> str:
     if fatigue >= 100: return "⛔"
     if fatigue >= 80:  return "🔴"
@@ -58,36 +91,86 @@ def _fatigue_icon(fatigue: int) -> str:
     return "🟢"
 
 
-def _active_pet_str(nursery_pets: list) -> str:
-    p = next((p for p in nursery_pets if p["placement"] == "active"), None)
+def _load_theme(theme_id: str) -> dict:
+    from core.themes import THEMES, DEFAULT_THEME
+    return THEMES.get(theme_id, THEMES[DEFAULT_THEME])
+
+
+def _pets_block(pets: list, prefix: str = "") -> str:
+    """Compact active/passive slots for profile card."""
+    active  = [p for p in pets if p.get("placement") == "active"]
+    passive = [p for p in pets if p.get("placement") == "passive"]
+    if not active and not passive:
+        return f"{prefix}└ Нет питомцев\n"
+    slots = []
+    if active:
+        slots.append(("⚔️", "Актив", active[0]))
+    if passive:
+        slots.append(("💤", "Пассив", passive[0]))
+    lines = []
+    for i, (icon, role, p) in enumerate(slots):
+        sp   = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+        lvl  = p.get("pet_level", 1) or 1
+        dups = p.get("duplicates_collected", 0) or 0
+        fat  = p.get("fatigue", 0)
+        sym  = "└" if i == len(slots) - 1 else "├"
+        lines.append(
+            f"{prefix}{sym} {icon} {role}: <b>{p['name']}</b> ({sp})"
+            f" · Lv{lvl} · {_fatigue_icon(fat)} · 📦×{dups}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _active_pet_str(pets: list) -> str:
+    p = next((p for p in pets if p.get("placement") == "active"), None)
     if not p:
         return "нет"
-    sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+    sp  = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
     lvl = p.get("pet_level", 1) or 1
     fat = p.get("fatigue", 0)
-    return f"{sp} Lv{lvl} {_fatigue_icon(fat)}"
+    return f"{p['name']} ({sp}) · Lv{lvl} · {_fatigue_icon(fat)}"
 
 
-_RARITY_BADGE = {"common": "⚪️", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
+def _theme_fields(theme: dict) -> tuple:
+    """Unpack all relevant theme fields."""
+    return (
+        theme.get("top", ""),
+        theme.get("sep", "─" * 8),
+        theme.get("bot", ""),
+        theme.get("accent", ""),
+        theme.get("side", ""),
+        theme.get("prefix", ""),
+        theme.get("id_in_bot", False),
+        theme.get("name", "?"),
+    )
 
 
-def _pets_block(nursery_pets: list) -> str:
-    if not nursery_pets:
-        return "└ <i>Питомник пуст</i>"
-    role_map = {"active": "⚔️", "passive": "💤"}
-    lines = []
-    for i, p in enumerate(nursery_pets):
-        sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-        icon = role_map.get(p["placement"], "📦")
-        r_badge = _RARITY_BADGE.get(p.get("rarity", "common"), "⚪️")
-        lvl = p.get("pet_level", 1) or 1
-        fat = p.get("fatigue", 0)
-        prefix = "└" if i == len(nursery_pets) - 1 else "├"
-        lines.append(f"{prefix} {icon} {r_badge} <b>{p['name']}</b> <i>{sp}</i> · Lv{lvl} · {_fatigue_icon(fat)} {fat}/100")
-    return "\n".join(lines)
+def _build_name_lines(
+    name: str, g_rank: str, l_rank: str, join_str: str,
+    t_accent: str, t_side: str, t_prefix: str,
+) -> str:
+    P = t_prefix
+    if t_side:
+        return (
+            f"{P}{t_side} {t_accent} <b>{name}</b> {t_accent}\n"
+            f"{P}{t_side} 🌍 {g_rank}  |  🏘 {l_rank}\n"
+            f"{P}{t_side} 📅 В чате с: {join_str}\n"
+        )
+    return (
+        f"{P}{t_accent} <b>{name}</b>\n"
+        f"{P}🌍 {g_rank}  |  🏘 {l_rank}\n"
+        f"{P}📅 В чате с: {join_str}\n"
+    )
 
 
-# ── бот я / бот профиль (unified) ─────────────────────────────────────────────
+def _build_tail(t_bot: str, t_sep: str, t_id_in_bot: bool, user_id: int, t_prefix: str) -> str:
+    P = t_prefix
+    if t_id_in_bot:
+        return f"{t_sep}\n" + t_bot.replace("{id}", str(user_id))
+    return f"{t_sep}\n{P}🆔 <code>{user_id}</code>\n{t_bot}"
+
+
+# ── бот я / бот профиль ──────────────────────────────────────────────────────
 
 @router.message(TextCmd(["я", "профиль", "стата", "стат", "мой профиль"]))
 async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0):
@@ -97,96 +180,128 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    nickname = await users_repo.get_nickname(db, user_id, chat_id)
-    display_name = safe_html(nickname or message.from_user.first_name)
-
-    bal = await eco_repo.get_balance(db, user_id)
-    stats = await chat_repo.get_chat_stats(db, user_id, chat_id)
+    nickname       = await users_repo.get_nickname(db, user_id, chat_id)
+    name           = safe_html(nickname or message.from_user.first_name)
+    bal            = await eco_repo.get_balance(db, user_id)
+    dark_mora      = await dark_mora_repo.get_dark_mora_balance(db, user_id)
+    stats          = await chat_repo.get_chat_stats(db, user_id, chat_id)
     global_rank_id = await users_repo.get_global_rank(db, user_id)
-    nursery_pets = await zoo_db.get_user_pets(db, user_id, placement="nursery")
-    streak_row = await get_streak(db, user_id, chat_id)
-    marriage = await marriage_repo.get_user_marriage(db, chat_id, user_id)
-    hamster_income = await zoo_db.get_pending_hamster_income(db, user_id)
+    first_seen_raw = await users_repo.get_first_seen(db, user_id)
+    nursery_pets   = await zoo_db.get_user_pets(db, user_id, placement="nursery")
+    streak_row     = await get_streak(db, user_id, chat_id)
+    marriage       = await marriage_repo.get_user_marriage(db, chat_id, user_id)
+    hamster_inc    = await zoo_db.get_pending_hamster_income(db, user_id)
+    ach_count      = await ach_repo.get_user_achievements_count(db, user_id)
 
     await zoo_db.apply_fatigue_decay(db, user_id)
 
-    global_rank = roles.get_global_rank_name(user_id, global_rank_id, developer_id=developer_id)
-    local_rank  = roles.get_local_rank_name(user_id, stats.get("local_rank", 0), developer_id=developer_id)
+    from infrastructure.repositories.themes import get_active_theme
+    theme_id = await get_active_theme(db, user_id)
+    theme    = _load_theme(theme_id)
+    t_top, t_sep, t_bot, t_accent, t_side, t_prefix, t_id_in_bot, t_name = _theme_fields(theme)
+    P = t_prefix
 
-    lvl = stats.get("user_level", 1)
-    xp = stats.get("user_xp", 0)
+    # ── ranks ──────────────────────────────────────────────────────────────────
+    g_rank = roles.get_global_rank_name(user_id, global_rank_id, developer_id=developer_id)
+    l_rank = roles.get_local_rank_name(user_id, stats.get("local_rank", 0), developer_id=developer_id)
+
+    # ── xp ────────────────────────────────────────────────────────────────────
+    lvl       = stats.get("user_level", 1)
+    xp        = stats.get("user_xp", 0)
     xp_in_lvl = xp % XP_PER_LEVEL
-    bar = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
-    xp_left = XP_PER_LEVEL - xp_in_lvl
+    bar       = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
+    pct       = _xp_pct(xp_in_lvl, XP_PER_LEVEL)
+    xp_str    = f"({_compact(xp_in_lvl)}/{_compact(XP_PER_LEVEL)})"
 
-    mora = format_currency(bal["user_balance_mora"])
-    diamonds = format_currency(bal["user_balance_diamonds"])
+    # ── balance ───────────────────────────────────────────────────────────────
+    mora_v = float(bal["user_balance_mora"])
+    dia_v  = float(bal["user_balance_diamonds"])
+    zar_v  = float(bal.get("user_balance_zarniki", 0))
+    dark_v = float(dark_mora)
+    ham_note = f" +{_compact(hamster_inc)}🐹" if hamster_inc > 0 else ""
 
-    partner_line = "нет"
-    if marriage:
-        p_name = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
-        dur = _marriage_duration(marriage.get("marriage_date"))
-        partner_line = f"<b>{safe_html(p_name)}</b> · {dur}"
+    bal_parts = [f"{_compact(mora_v)} 🪙", f"💎 {_compact(dia_v)}"]
+    if zar_v > 0:
+        bal_parts.append(f"✨ {_compact(zar_v)}")
+    if dark_v > 0:
+        bal_parts.append(f"🌑 {_compact(dark_v)}")
+    bal_line = " | ".join(bal_parts) + ham_note
 
-    warns = stats.get("warnings", 0)
-    is_immune = stats.get("is_immune", False)
-    immune_until = stats.get("immune_until")
-    if is_immune:
-        shield_line = "🛡 <b>Абсолютный иммунитет</b>"
-    elif immune_until:
-        dt = parse_dt(immune_until)
-        if dt and dt > datetime.now():
-            shield_line = f"🔰 Временный щит до <code>{dt.strftime('%d.%m %H:%M')}</code>"
-        else:
-            shield_line = "нет"
-    else:
-        shield_line = "нет"
-
+    # ── social ────────────────────────────────────────────────────────────────
+    streak = streak_row.get("streak", 0)
     d_msgs = stats.get("user_messages_count_per_day", 0)
     w_msgs = stats.get("user_messages_count_per_week", 0)
     a_msgs = stats.get("user_messages_count_all_time", 0)
-    streak = streak_row.get("streak", 0)
+    warns  = stats.get("warnings", 0)
 
-    hamster_note = f"  <i>(+{format_currency(hamster_income)} хомяки)</i>" if hamster_income > 0 else ""
+    is_immune    = stats.get("is_immune", False)
+    immune_until = stats.get("immune_until")
+    if is_immune:
+        shield_line = "🛡 Абс. иммунитет"
+    elif immune_until:
+        dt = parse_dt(immune_until)
+        shield_line = f"🛡 до {dt.strftime('%d.%m %H:%M')}" if dt and dt > datetime.now() else ""
+    else:
+        shield_line = ""
 
-    # Active profile theme — decorative frame wraps the entire message
-    from infrastructure.repositories.themes import get_active_theme
-    from core.themes import THEMES, DEFAULT_THEME
-    theme_id = await get_active_theme(db, user_id)
-    theme = THEMES.get(theme_id, THEMES[DEFAULT_THEME])
-    t_top = theme.get("top", "")
-    t_sep = theme.get("sep", "─" * 8)
-    t_bot = theme.get("bot", t_top)
-    t_accent = theme.get("accent", "")
+    if marriage:
+        p_nm = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
+        dur  = _marriage_duration(marriage.get("marriage_date"))
+        partner_line = f"💍 Брак: {safe_html(p_nm)} ({dur})"
+    else:
+        partner_line = "💍 Не в браке"
 
-    text = (
-        # ── Шапка (тема) ──────────────────────────────
-        f"{t_top}\n"
-        f"{t_accent} <b>{display_name}</b> {t_accent}\n"
-        f"🌍 {global_rank}\n"
-        f"🏘 {local_rank}\n"
-        f"{t_sep}\n"
-        # ── Статус ────────────────────────────────────
-        f"⭐ <b>Lv{lvl}</b>  [{bar}]\n"
-        f"    +{xp_left} XP до Lv{lvl + 1}\n"
-        f"💰 <b>{mora} 🪙</b>  ·  <b>{diamonds} 💎</b>{hamster_note}\n"
-        f"🔥 Стрик <b>{streak}</b> дн.\n"
-        f"💬 <b>{a_msgs}</b> сообщ. всего · {d_msgs}/день\n"
-        f"{t_sep}\n"
-        # ── Личное ────────────────────────────────────
-        + (f"💍 {partner_line}\n" if marriage else f"💍 <i>Не в браке</i>\n")
-        + f"🛡 {shield_line}\n"
-        + (f"⚠️ Варны: <b>{warns}</b>\n" if warns > 0 else "")
-        + f"{t_sep}\n"
-        # ── Питомцы ───────────────────────────────────
-        + f"🐾 <b>Питомцы</b>\n"
-        + _pets_block(nursery_pets)
-        + f"\n{t_sep}\n"
-        # ── ID ────────────────────────────────────────
-        + f"<code>🆔 {user_id}</code>\n"
-        # ── Подвал (тема) ─────────────────────────────
-        + t_bot
-    )
+    # ── join date ─────────────────────────────────────────────────────────────
+    join_str = "—"
+    if first_seen_raw:
+        dt = parse_dt(first_seen_raw)
+        if dt:
+            join_str = dt.strftime("%d.%m.%Y")
+
+    name_block = _build_name_lines(name, g_rank, l_rank, join_str, t_accent, t_side, P)
+    pets_str   = _pets_block(nursery_pets, P)
+    tail       = _build_tail(t_bot, t_sep, t_id_in_bot, user_id, P)
+
+    # ── assemble ─────────────────────────────────────────────────────────────
+    if t_prefix:
+        # ZARNIKI — bordered layout, 2 explicit seps
+        text = (
+            f"{t_top}\n"
+            + name_block
+            + f"{t_sep}\n"
+            + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
+            + f"{P}💰 {bal_line}  |  🏆 {ach_count} ачив.\n"
+            + f"{P}⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
+            + (f"{P}🔥 Стрик: <b>{streak}</b> дн.\n" if streak else "")
+            + f"{t_sep}\n"
+            + f"{P}{partner_line}\n"
+            + (f"{P}{shield_line}\n" if shield_line else "")
+            + f"{P}🎨 Тема: {t_name}\n"
+            + f"{P}💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
+            + f"{P}🐾 <b>Питомцы:</b>\n"
+            + pets_str
+            + tail
+        )
+    else:
+        # STANDARD — 4 explicit seps (+ 1 embedded in top)
+        text = (
+            f"{t_top}\n"
+            + name_block
+            + f"{t_sep}\n"
+            + f"🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
+            + f"⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
+            + f"💰 {bal_line}  |  🏆 {ach_count} ачив.\n"
+            + f"🔥 Стрик: <b>{streak}</b> дн.\n"
+            + f"{t_sep}\n"
+            + f"💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
+            + f"{partner_line}\n"
+            + (f"{shield_line}\n" if shield_line else "")
+            + f"🎨 Тема: {t_name}\n"
+            + f"{t_sep}\n"
+            + f"🐾 <b>Питомцы:</b>\n"
+            + pets_str
+            + tail
+        )
 
     await message.answer(text, parse_mode="HTML")
 
@@ -199,7 +314,6 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
         return
 
     target_id, target_name, extra = await resolve_target(message, db, text_args)
-
     if extra == "error_user_not_found":
         return await message.answer(
             "❌ <b>Пользователь не найден.</b> Пусть напишет хоть одно сообщение.",
@@ -212,47 +326,63 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
         )
 
     chat_id = message.chat.id
-    nickname = await users_repo.get_nickname(db, target_id, chat_id)
-    display_name = safe_html(nickname or target_name)
 
-    stats = await chat_repo.get_chat_stats(db, target_id, chat_id)
-    global_rank_id = await users_repo.get_global_rank(db, target_id)
-    nursery_pets = await zoo_db.get_user_pets(db, target_id, placement="nursery")
-    marriage = await marriage_repo.get_user_marriage(db, chat_id, target_id)
+    nickname   = await users_repo.get_nickname(db, target_id, chat_id)
+    name       = safe_html(nickname or target_name)
+    stats      = await chat_repo.get_chat_stats(db, target_id, chat_id)
+    g_rank_id  = await users_repo.get_global_rank(db, target_id)
+    pets       = await zoo_db.get_user_pets(db, target_id, placement="nursery")
+    marriage   = await marriage_repo.get_user_marriage(db, chat_id, target_id)
     streak_row = await get_streak(db, target_id, chat_id)
 
-    global_rank = roles.get_global_rank_name(target_id, global_rank_id, developer_id=developer_id)
-    local_rank  = roles.get_local_rank_name(target_id, stats.get("local_rank", 0), developer_id=developer_id)
+    from infrastructure.repositories.themes import get_active_theme
+    theme_id = await get_active_theme(db, target_id)
+    theme    = _load_theme(theme_id)
+    t_top, t_sep, t_bot, t_accent, t_side, t_prefix, t_id_in_bot, _ = _theme_fields(theme)
+    P = t_prefix
 
-    lvl = stats.get("user_level", 1)
-    xp = stats.get("user_xp", 0)
-    xp_in_lvl = xp % XP_PER_LEVEL
-    bar = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
+    g_rank = roles.get_global_rank_name(target_id, g_rank_id, developer_id=developer_id)
+    l_rank = roles.get_local_rank_name(target_id, stats.get("local_rank", 0), developer_id=developer_id)
 
-    partner_line = "нет"
+    lvl       = stats.get("user_level", 1)
+    xp_in_lvl = stats.get("user_xp", 0) % XP_PER_LEVEL
+    bar       = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
+    pct       = _xp_pct(xp_in_lvl, XP_PER_LEVEL)
+    d_msgs    = stats.get("user_messages_count_per_day", 0)
+    w_msgs    = stats.get("user_messages_count_per_week", 0)
+    a_msgs    = stats.get("user_messages_count_all_time", 0)
+    streak    = streak_row.get("streak", 0)
+
     if marriage:
-        p_name = marriage["user2_name"] if marriage["user1_id"] == target_id else marriage["user1_name"]
-        dur = _marriage_duration(marriage.get("marriage_date"))
-        partner_line = f"<b>{safe_html(p_name)}</b> · {dur}"
+        p_nm = marriage["user2_name"] if marriage["user1_id"] == target_id else marriage["user1_name"]
+        dur  = _marriage_duration(marriage.get("marriage_date"))
+        partner_line = f"💍 Брак: {safe_html(p_nm)} ({dur})"
+    else:
+        partner_line = "💍 Не в браке"
 
-    d_msgs = stats.get("user_messages_count_per_day", 0)
-    w_msgs = stats.get("user_messages_count_per_week", 0)
-    a_msgs = stats.get("user_messages_count_all_time", 0)
-    streak = streak_row.get("streak", 0)
+    if t_side:
+        name_line = f"{P}{t_side} {t_accent} <b>{name}</b> {t_accent}\n"
+        rank_line = f"{P}{t_side} 🌍 {g_rank}  |  🏘 {l_rank}\n"
+    else:
+        name_line = f"{P}{t_accent} <b>{name}</b>\n"
+        rank_line = f"{P}🌍 {g_rank}  |  🏘 {l_rank}\n"
+
+    tail = _build_tail(t_bot, t_sep, t_id_in_bot, target_id, P)
 
     text = (
-        f"🔍 <b>КАРТОЧКА</b> — {display_name}\n"
-        f"<code>🆔 {target_id}</code>\n\n"
-
-        f"🌍 <b>{global_rank}</b>  ·  🏘 <b>{local_rank}</b>\n"
-        f"⭐ Уровень: <b>{lvl}</b>  {bar}\n\n"
-
-        f"💍 Партнёр: {partner_line}\n"
-        f"🔥 Стрик: <b>{streak}</b> дн.\n"
-        f"💬 Сегодня: <code>{d_msgs}</code> · Неделя: <code>{w_msgs}</code> · Всего: <code>{a_msgs}</code>\n\n"
-
-        f"🐾 <b>Активный питомец:</b> {_active_pet_str(nursery_pets)}"
+        f"{t_top}\n"
+        + name_line
+        + rank_line
+        + f"{t_sep}\n"
+        + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}%\n"
+        + f"{P}💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
+        + f"{P}🔥 Стрик: <b>{streak}</b> дн.\n"
+        + f"{t_sep}\n"
+        + f"{P}{partner_line}\n"
+        + f"{P}🐾 Активный: {_active_pet_str(pets)}\n"
+        + tail
     )
+
     await message.answer(text, parse_mode="HTML")
 
 
@@ -266,31 +396,50 @@ async def cmd_anketa(message: types.Message, db, developer_id: int = 0):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    stats = await chat_repo.get_chat_stats(db, user_id, chat_id)
-    global_rank_id = await users_repo.get_global_rank(db, user_id)
-    nursery_pets = await zoo_db.get_user_pets(db, user_id, placement="nursery")
-    marriage = await marriage_repo.get_user_marriage(db, chat_id, user_id)
-    streak_row = await get_streak(db, user_id, chat_id)
-    global_msgs = await users_repo.get_messages_global(db, user_id)
-    first_seen = await users_repo.get_first_seen(db, user_id)
-    bal = await eco_repo.get_balance(db, user_id)
-
-    nickname = await users_repo.get_nickname(db, user_id, chat_id)
+    nickname    = await users_repo.get_nickname(db, user_id, chat_id)
     display_name = safe_html(nickname or message.from_user.first_name)
-    self_link = f'<a href="tg://user?id={user_id}">{display_name}</a>'
+    self_link   = f'<a href="tg://user?id={user_id}">{display_name}</a>'
 
-    global_rank = roles.get_global_rank_name(user_id, global_rank_id, developer_id=developer_id)
-    local_rank  = roles.get_local_rank_name(user_id, stats.get("local_rank", 0), developer_id=developer_id)
+    stats        = await chat_repo.get_chat_stats(db, user_id, chat_id)
+    g_rank_id    = await users_repo.get_global_rank(db, user_id)
+    pets         = await zoo_db.get_user_pets(db, user_id, placement="nursery")
+    marriage     = await marriage_repo.get_user_marriage(db, chat_id, user_id)
+    streak_row   = await get_streak(db, user_id, chat_id)
+    global_msgs  = await users_repo.get_messages_global(db, user_id)
+    first_seen   = await users_repo.get_first_seen(db, user_id)
+    bal          = await eco_repo.get_balance(db, user_id)
 
-    lvl = stats.get("user_level", 1)
+    from infrastructure.repositories.themes import get_active_theme
+    theme_id = await get_active_theme(db, user_id)
+    theme    = _load_theme(theme_id)
+    t_top, t_sep, t_bot, t_accent, t_side, t_prefix, t_id_in_bot, _ = _theme_fields(theme)
+    P = t_prefix
+
+    g_rank = roles.get_global_rank_name(user_id, g_rank_id, developer_id=developer_id)
+    l_rank = roles.get_local_rank_name(user_id, stats.get("local_rank", 0), developer_id=developer_id)
+
+    lvl       = stats.get("user_level", 1)
     xp_in_lvl = stats.get("user_xp", 0) % XP_PER_LEVEL
-    bar = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
+    bar       = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
+    pct       = _xp_pct(xp_in_lvl, XP_PER_LEVEL)
 
-    partner_line = "нет"
+    mora_v = float(bal["user_balance_mora"])
+    dia_v  = float(bal["user_balance_diamonds"])
+
     if marriage:
-        p_name = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
-        dur = _marriage_duration(marriage.get("marriage_date"))
-        partner_line = f"<b>{safe_html(p_name)}</b> ({dur})"
+        p_nm = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
+        dur  = _marriage_duration(marriage.get("marriage_date"))
+        partner_line = f"💍 {safe_html(p_nm)} ({dur})"
+    else:
+        partner_line = "💍 Не в браке"
+
+    join_str = "—"
+    eco_days = 0
+    if first_seen:
+        dt = parse_dt(first_seen)
+        if dt:
+            join_str = dt.strftime("%d.%m.%Y")
+            eco_days = (datetime.now() - dt).days
 
     d_local = stats.get("user_messages_count_per_day", 0)
     w_local = stats.get("user_messages_count_per_week", 0)
@@ -299,25 +448,23 @@ async def cmd_anketa(message: types.Message, db, developer_id: int = 0):
     gw = global_msgs.get("week", 0)
     ga = global_msgs.get("all_time", 0)
 
-    mora = format_currency(bal["user_balance_mora"])
-    diamonds = format_currency(bal["user_balance_diamonds"])
+    tail = _build_tail(t_bot, t_sep, t_id_in_bot, user_id, P)
 
     text = (
-        f"📜 <b>АНКЕТА</b>\n\n"
-        f"👤 {self_link}\n"
-        f"<code>ID: {user_id}</code>\n\n"
-
-        f"🌍 <b>{global_rank}</b>  ·  🏘 <b>{local_rank}</b>  ·  ⭐ <b>Ур.{lvl}</b>\n"
-        f"{bar}  <i>{xp_in_lvl}/{XP_PER_LEVEL} XP</i>\n\n"
-
-        f"💰 <code>{mora}</code> 🪙  ·  <code>{diamonds}</code> 💎\n"
-        f"💍 Партнёр: {partner_line}\n\n"
-
-        f"🐾 Питомцев: <b>{len(nursery_pets)}</b>  ·  Активный: {_active_pet_str(nursery_pets)}\n"
-        f"🔥 Стрик: <b>{streak_row.get('streak', 0)}</b> дн.\n"
-        f"⏳ В Предвестнике: <b>{_ecosystem_age(first_seen)}</b>\n\n"
-
-        f"💬 <b>В чате</b>: <code>{d_local}</code> / <code>{w_local}</code> / <code>{a_local}</code>  <i>(день/нед/всё)</i>\n"
-        f"🌐 <b>Глобально</b>: <code>{gd}</code> / <code>{gw}</code> / <code>{ga}</code>"
+        f"{t_top}\n"
+        f"{P}{t_accent} {self_link}\n"
+        f"{P}🌍 {g_rank}  |  🏘 {l_rank}\n"
+        f"{P}📅 В Предвестнике: {join_str} ({eco_days} дн.)\n"
+        f"{t_sep}\n"
+        f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}%\n"
+        f"{P}💰 {_compact(mora_v)} 🪙  |  💎 {_compact(dia_v)}\n"
+        f"{P}{partner_line}\n"
+        f"{P}🐾 Питомцев: <b>{len(pets)}</b>  ·  Акт: {_active_pet_str(pets)}\n"
+        f"{t_sep}\n"
+        f"{P}💬 Чат:   {d_local}д  ·  {w_local}н  ·  {a_local} всего\n"
+        f"{P}🌐 Глоб.: {gd}д  ·  {gw}н  ·  {ga} всего\n"
+        f"{P}🔥 Стрик: <b>{streak_row.get('streak', 0)}</b> дн.\n"
+        + tail
     )
+
     await message.answer(text, parse_mode="HTML")
