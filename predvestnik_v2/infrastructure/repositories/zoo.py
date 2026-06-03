@@ -54,6 +54,28 @@ async def get_zoo_stats(db: aiosqlite.Connection, user_id: int):
         return dict(row) if row else {"user_id": user_id, "max_slots": 3}
 
 
+async def expand_max_slots(db, user_id: int) -> int:
+    """Увеличивает max_slots на 1 (макс 6). Возвращает новое значение или 0 если уже максимум."""
+    await db.execute(
+        "INSERT INTO user_zoo_stats (user_id, max_slots) VALUES (?, 3) "
+        "ON CONFLICT (user_id) DO NOTHING",
+        (user_id,),
+    )
+    async with db.execute(
+        "SELECT max_slots FROM user_zoo_stats WHERE user_id = ?", (user_id,)
+    ) as c:
+        row = await c.fetchone()
+    current = row[0] if row else 3
+    if current >= 6:
+        return 0
+    new_val = current + 1
+    await db.execute(
+        "UPDATE user_zoo_stats SET max_slots = ? WHERE user_id = ?",
+        (new_val, user_id),
+    )
+    return new_val
+
+
 async def get_nursery_count(db: aiosqlite.Connection, user_id: int) -> int:
     async with db.execute(
         "SELECT COUNT(*) FROM pets WHERE owner_id = ? AND placement IN ('active', 'passive')",
