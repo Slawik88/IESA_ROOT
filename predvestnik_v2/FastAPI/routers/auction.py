@@ -125,14 +125,26 @@ async def create_lot(body: CreateLotRequest, db=Depends(get_db), user=Depends(re
     if have < body.quantity:
         raise HTTPException(400, f"В инвентаре только {have} шт.")
 
+    # item_name format: "Display Name||real_item_id" — used by resolve_lot to restore item
+    display = f"{item['name']} ×{body.quantity}" if body.quantity > 1 else item["name"]
+    item_name_with_id = f"{display}||{body.item_id}"
     ok, result = await create_auction_lot(
         db, user["id"], item.get("category", "item"),
         "inventory", abs(hash(body.item_id)) % (10**9), body.quantity,
-        f"{item['name']} ×{body.quantity}" if body.quantity > 1 else item["name"],
+        item_name_with_id,
         body.min_bid, body.buyout,
     )
     if not ok:
         raise HTTPException(400, str(result))
+
+    # Remove item from seller's inventory (escrow until lot is resolved)
+    removed = await remove_item(db, user["id"], body.item_id, body.quantity, commit=False)
+    if not removed:
+        # Lot was created but item can't be removed — cancel it
+        from services.auction import cancel_lot
+        await cancel_lot(db, result)
+        raise HTTPException(400, f"Недостаточно предметов: {item['name']} ×{body.quantity}.")
+
     await db.commit()
     return {"ok": True, "lot_id": result}
 
@@ -161,6 +173,24 @@ async def bid(body: BidRequest, db=Depends(get_db), user=Depends(require_tg_user
         raise HTTPException(400, result.get("error", "Ошибка ставки."))
 
     await db.commit()
+
+    # Quest & achievement tracking (same as bot handler does)
+    try:
+        from services.quests import increment_metric as _q_incr
+        from services.achievements import increment_metric as _a_incr
+        # Get user's primary chat_id for quest context (use any active chat)
+        async with db.execute(
+            "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
+            "ORDER BY user_messages_count_all_time DESC LIMIT 1",
+            (user["id"],),
+        ) as c:
+            _chat_row = await c.fetchone()
+        if _chat_row:
+            await _q_incr(db, user["id"], _chat_row[0], "auction_bids_today", delta=1.0)
+            await db.commit()
+    except Exception:
+        pass
+
     return {
         "ok": True,
         "is_buyout": result.get("is_buyout", False),
