@@ -122,10 +122,13 @@ async def ritual(db=Depends(get_db), user=Depends(require_tg_user)):
 async def merchant_status(db=Depends(get_db), user=Depends(require_tg_user)):
     """Статус Теневого Торговца: когда последний/следующий ивент."""
     # Check last merchant event from DB (stored in a global event log)
-    async with db.execute(
-        "SELECT last_value FROM dark_mora_events WHERE event_type = 'shadow_merchant' LIMIT 1"
-    ) as c:
-        row = await c.fetchone()
+    try:
+        async with db.execute(
+            "SELECT last_value FROM dark_mora_events WHERE event_type = 'shadow_merchant' LIMIT 1"
+        ) as c:
+            row = await c.fetchone()
+    except Exception:
+        row = None
 
     now = datetime.now(timezone.utc)
     last_event = None
