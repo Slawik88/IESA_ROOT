@@ -69,7 +69,7 @@ async def my_reserved_mora(db=Depends(get_db), user=Depends(require_tg_user)):
         "JOIN auction_lots al ON al.id = ab.lot_id "
         "LEFT JOIN auction_bids all_bids ON all_bids.lot_id = ab.lot_id AND all_bids.is_active = 1 "
         "WHERE ab.bidder_id = ? AND ab.is_active = 1 AND al.status = 'active' "
-        "GROUP BY ab.lot_id, ab.amount, al.item_name, al.quantity, al.ends_at "
+        "GROUP BY ab.lot_id, ab.amount, al.item_name, al.quantity, al.ends_at, al.min_bid "
         "ORDER BY ab.amount DESC",
         (user["id"],),
     ) as c:

@@ -160,14 +160,21 @@ async def on_user_status_changed(event: ChatMemberUpdated, db, bot: Bot):
         await mod_db.set_user_left_status(db, chat_id, user_id, True)
         logger.info(f"Юзер {user_id} покинул чат {chat_id}. Скрыт из топов.")
 
+        # Сохраняем актуальный username в БД прямо в момент ухода
+        leave_user = event.old_chat_member.user
+        username = getattr(leave_user, "username", None)
+        if username:
+            await users_repo.update_user(db, user_id, username)
+
         # C1-B: отправить сообщение с кнопками "Добавить в ЧС" / "Закрыть"
-        user_name = safe_html(
-            event.old_chat_member.user.first_name or f"ID{user_id}"
-        )
+        display_name = safe_html(leave_user.first_name or f"ID{user_id}")
+        username_part = f" (@{username})" if username else f" [ID: {user_id}]"
+        kicked_note = " <i>(кикнут)</i>" if new_status == "kicked" else ""
+
         now_ts = int(time.time())
         b = InlineKeyboardBuilder()
         b.button(
-            text="🚫 Добавить в ЧС",
+            text="🚫 В чёрный список",
             callback_data=LeaveCB(action="blacklist", user_id=user_id, sent_at=now_ts),
         )
         b.button(
@@ -178,7 +185,7 @@ async def on_user_status_changed(event: ChatMemberUpdated, db, bot: Bot):
         try:
             await bot.send_message(
                 chat_id,
-                f"👋 <b>{user_name}</b> покинул(а) чат.",
+                f"👋 <b>{display_name}</b>{username_part} покинул(а) чат{kicked_note}.",
                 reply_markup=b.as_markup(),
                 parse_mode="HTML",
             )
