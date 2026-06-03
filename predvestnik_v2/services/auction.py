@@ -214,12 +214,18 @@ async def _finalize_lot(db, lot: dict, winner_id: int, price: float, chat_id: in
     await eco_repo.add_balance(db, lot["seller_id"], mora=seller_gain, commit=False,
                                source="auction_sale", note=f"lot={lot['id']}")
 
-    # Transfer item to winner
+    # Transfer item to winner.
+    # item_name is stored as "Display Name||real_item_id" by both bot and FastAPI handlers.
+    # item_id_or_pet_id is a hash of the string id (numeric) — NOT the real id.
+    # Always extract real item_id from item_name to avoid storing numeric hashes in inventory.
     if lot["item_type"] == "inventory":
+        raw_name = lot.get("item_name", "") or ""
+        parts = raw_name.split("||", 1)
+        real_item_id = parts[1].strip() if len(parts) > 1 else str(lot["item_id_or_pet_id"])
         await db.execute(
             "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
             "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
-            (winner_id, str(lot["item_id_or_pet_id"]), lot["quantity"], lot["quantity"]),
+            (winner_id, real_item_id, lot["quantity"], lot["quantity"]),
         )
     elif lot["item_type"] == "pet":
         await db.execute(
