@@ -706,9 +706,9 @@ async def cmd_dev_chat_info(message: types.Message, db, text_args: str = None):
 
 # ── Sticker file_id logger ────────────────────────────────────────────────────
 
-@router.message(F.sticker)
+@router.message(F.sticker, F.chat.type == "private")
 async def log_sticker_id(message: types.Message):
-    """Log sticker file_id so developer can copy it for RARITY_STICKER_ID."""
+    """Log sticker file_id — только в ЛС с разработчиком."""
     sticker = message.sticker
     from loguru import logger
     logger.info(
