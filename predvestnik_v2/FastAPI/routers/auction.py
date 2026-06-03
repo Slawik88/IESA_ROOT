@@ -1,5 +1,5 @@
-"""FastAPI/routers/auction.py — просмотр лотов, ставки, создание."""
-from fastapi import APIRouter, Depends, HTTPException
+"""FastAPI/routers/auction.py — просмотр лотов, ставки, создание, резерв."""
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
@@ -13,8 +13,13 @@ router = APIRouter(prefix="/auction", tags=["auction"])
 
 
 @router.get("/lots")
-async def active_lots(db=Depends(get_db)):
-    """Активные лоты аукциона с флагом наличия ставок."""
+async def active_lots(
+    page: int = Query(default=0, ge=0),
+    per_page: int = Query(default=20, le=50),
+    db=Depends(get_db),
+):
+    """Активные лоты с пагинацией. page=0,1,2... per_page=20."""
+    offset = page * per_page
     async with db.execute(
         "SELECT al.id, al.seller_id, al.item_name, al.quantity, al.min_bid, "
         "al.buyout, al.ends_at, al.status, "
@@ -26,17 +31,39 @@ async def active_lots(db=Depends(get_db)):
         "LEFT JOIN users u ON u.user_tg_id = al.seller_id "
         "WHERE al.status = 'active' "
         "GROUP BY al.id, u.user_tg_username "
-        "ORDER BY al.ends_at ASC LIMIT 50",
+        f"ORDER BY al.ends_at ASC LIMIT {per_page} OFFSET {offset}",
     ) as c:
         rows = [dict(r) for r in await c.fetchall()]
-    # Add has_bids and compute minimum_next_bid for correct UI validation
+
+    # Total count for pagination
+    async with db.execute("SELECT COUNT(*) FROM auction_lots WHERE status='active'") as c:
+        total = (await c.fetchone())[0]
+
     for r in rows:
         r["has_bids"] = r.get("bid_count", 0) > 0
-        if r["has_bids"]:
-            r["min_next_bid"] = int(r["current_bid"] * 1.05) + 1
-        else:
-            r["min_next_bid"] = int(r["min_bid"])
-    return rows
+        r["min_next_bid"] = int(r["current_bid"] * 1.05) + 1 if r["has_bids"] else int(r["min_bid"])
+
+    return {"lots": rows, "total": total, "page": page, "per_page": per_page,
+            "has_more": (offset + per_page) < total}
+
+
+@router.get("/reserved")
+async def my_reserved_mora(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Разбивка зарезервированной Моры по лотам + общий резерв."""
+    reserved_total = await get_reserve(db, user["id"])
+    async with db.execute(
+        "SELECT ab.lot_id, ab.amount, al.item_name, al.quantity, al.ends_at, "
+        "COALESCE(MAX(all_bids.amount), al.min_bid) AS top_bid "
+        "FROM auction_bids ab "
+        "JOIN auction_lots al ON al.id = ab.lot_id "
+        "LEFT JOIN auction_bids all_bids ON all_bids.lot_id = ab.lot_id AND all_bids.is_active = 1 "
+        "WHERE ab.bidder_id = ? AND ab.is_active = 1 AND al.status = 'active' "
+        "GROUP BY ab.lot_id, ab.amount, al.item_name, al.quantity, al.ends_at "
+        "ORDER BY ab.amount DESC",
+        (user["id"],),
+    ) as c:
+        bids = [dict(r) for r in await c.fetchall()]
+    return {"reserved_total": reserved_total, "bids": bids}
 
 
 @router.get("/my-lots")

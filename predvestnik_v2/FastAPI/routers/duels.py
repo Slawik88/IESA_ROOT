@@ -73,7 +73,45 @@ async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(req
     if not ok:
         raise HTTPException(400, str(result))
     await db.commit()
-    return {"ok": True, "duel_id": result.get("duel_id")}
+
+    # Notify challenged user via WebSocket (if connected)
+    try:
+        from FastAPI.notifications import notify as _ws_notify
+        await _ws_notify(target[0], {
+            "type": "duel_challenge",
+            "from": body.username,
+            "stake": body.stake,
+            "duel_id": result.get("duel_id"),
+            "message": f"⚔️ @{body.username} вызывает вас на дуэль! Ставка: {body.stake:.0f} 🪙",
+        })
+    except Exception:
+        pass
+
+    # Notify via Telegram DM (best effort using bot token)
+    try:
+        import os, httpx
+        token = os.getenv("BOT_TOKEN", "")
+        if token:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    json={
+                        "chat_id": target[0],
+                        "text": (
+                            f"⚔️ <b>Вызов на дуэль!</b>\n"
+                            f"Игрок <b>@{body.username}</b> вызывает вас на дуэль через сайт.\n"
+                            f"Ставка: <code>{body.stake:.0f} 🪙</code>\n"
+                            f"Ответьте в чате: <code>бот принять</code>"
+                        ),
+                        "parse_mode": "HTML",
+                    },
+                    timeout=5.0,
+                )
+    except Exception:
+        pass
+
+    return {"ok": True, "duel_id": result.get("duel_id"),
+            "message": f"⚔️ Вызов отправлен @{body.username}! Уведомление в Telegram."}
 
 
 class DeclineRequest(BaseModel):

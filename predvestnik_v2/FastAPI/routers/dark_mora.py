@@ -1,4 +1,4 @@
-"""FastAPI/routers/dark_mora.py — контрабанда и ритуал Тёмной Моры."""
+"""FastAPI/routers/dark_mora.py — контрабанда, ритуал и Теневой Торговец."""
 import random
 from datetime import datetime, timedelta, timezone
 
@@ -13,6 +13,8 @@ from core.constants import (
     DARK_MORA_CULT_STREAK_MIN, DARK_MORA_CULT_LEVEL_MIN, DARK_MORA_CULT_PETS_MIN,
     DARK_MORA_CULT_COOLDOWN_DAYS, DARK_MORA_CULT_REWARD_MIN, DARK_MORA_CULT_REWARD_MAX,
     DARK_MORA_CULT_HOUR_START, DARK_MORA_CULT_HOUR_END,
+    DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS, DARK_MORA_SHADOW_MERCHANT_REWARD_MIN,
+    DARK_MORA_SHADOW_MERCHANT_REWARD_MAX, DARK_MORA_SHADOW_MERCHANT_WINNERS,
 )
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories import economy as eco_repo
@@ -114,3 +116,43 @@ async def ritual(db=Depends(get_db), user=Depends(require_tg_user)):
                      (reward, now_str, user["id"]))
     await db.commit()
     return {"ok": True, "message": f"🌑 Ритуал совершён! +{reward} Тёмной Моры"}
+
+
+@router.get("/merchant-status")
+async def merchant_status(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Статус Теневого Торговца: когда последний/следующий ивент."""
+    # Check last merchant event from DB (stored in a global event log)
+    async with db.execute(
+        "SELECT last_value FROM dark_mora_events WHERE event_type = 'shadow_merchant' LIMIT 1"
+    ) as c:
+        row = await c.fetchone()
+
+    now = datetime.now(timezone.utc)
+    last_event = None
+    next_event = None
+    active = False
+
+    if row and row[0]:
+        try:
+            last_event = datetime.fromisoformat(str(row[0]).replace(" ", "T")).replace(tzinfo=timezone.utc)
+            next_event = last_event + timedelta(days=DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS)
+            active = (now - last_event).total_seconds() < 7200  # active for 2h
+        except Exception:
+            pass
+
+    # If no event data, show info about the mechanic
+    return {
+        "active":       active,
+        "last_event":   last_event.isoformat() if last_event else None,
+        "next_expected": next_event.isoformat() if next_event else None,
+        "cooldown_days": DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS,
+        "winners":       DARK_MORA_SHADOW_MERCHANT_WINNERS,
+        "reward_min":    DARK_MORA_SHADOW_MERCHANT_REWARD_MIN,
+        "reward_max":    DARK_MORA_SHADOW_MERCHANT_REWARD_MAX,
+        "how_it_works": (
+            f"Каждые {DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS} дня бот публикует зашифрованное "
+            f"пророчество в чате. Первые {DARK_MORA_SHADOW_MERCHANT_WINNERS} игрока, "
+            f"угадавшие ключевое слово, получают {DARK_MORA_SHADOW_MERCHANT_REWARD_MIN}–"
+            f"{DARK_MORA_SHADOW_MERCHANT_REWARD_MAX} 🌑 Тёмной Моры."
+        ),
+    }

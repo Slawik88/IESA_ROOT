@@ -581,6 +581,32 @@ async def cmd_item_info(message: types.Message, text_args: str = None):
     await message.answer("\n".join(lines), parse_mode="HTML")
 
 
+# ── Рарити easter egg ─────────────────────────────────────────────────────────
+# RARITY_STICKER_ID — установите через /setcommands в @BotFather или
+# загрузите стикер боту и скопируйте file_id из ответа.
+_RARITY_STICKER_ID = os.getenv("RARITY_STICKER_ID", "")
+_RARITY_RESPONSES = [
+    "🦄✨ <b>РАРИТИ!</b> — Дарлинг, ты меня позвал?",
+    "💎 <b>Рарити</b> — лучшая пони! Не обсуждается.",
+    "🪡 Рарити занята созданием шедевра. Не мешай.",
+    "✨ <i>«Я. Просто. В. Восторге!»</i> — Рарити",
+    "💜 Рарити одобряет твой вкус.",
+    "🎀 Рарити говорит: главное — стиль!",
+]
+
+
+@router.message(F.text.lower().regexp(r"рар+и+т+и|раррити|рарит+и"))
+async def cmd_rarity(message: types.Message):
+    """Пасхалка — ответ на упоминание Рарити."""
+    response = random.choice(_RARITY_RESPONSES)
+    if _RARITY_STICKER_ID:
+        try:
+            await message.answer_sticker(_RARITY_STICKER_ID)
+        except Exception:
+            pass
+    await message.answer(response, parse_mode="HTML")
+
+
 fallback_router = Router(name="fallback_router")
 
 
