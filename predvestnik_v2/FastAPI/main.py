@@ -540,7 +540,7 @@ const _tgChat = tg?.initDataUnsafe?.chat || null;
 const _initChatId = _tgChat?.id || 0;   // primary chat_id for local top
 const _initChatTitle = _tgChat?.title || '';
 
-let _cid = 0, _uid = 0, _actTab='quests', _zooTab='active', _arenaTab='quests';
+let _cid = 0, _uid = 0, _actTab='quests', _zooTab='nursery', _arenaTab='quests';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='auc';
 let _proTab='main', _profileData=null;
 
