@@ -22,6 +22,16 @@ async def get_all_achievements(db: aiosqlite.Connection, user_id: int) -> dict:
     return {r[0]: {"level": r[1], "progress": r[2]} for r in rows}
 
 
+async def get_user_achievements_count(db, user_id: int) -> int:
+    """Count achievements the user has unlocked (level > 0)."""
+    async with db.execute(
+        "SELECT COUNT(*) FROM achievements WHERE user_id = ? AND level > 0",
+        (user_id,),
+    ) as c:
+        row = await c.fetchone()
+    return int(row[0]) if row else 0
+
+
 async def upsert_achievement(
     db: aiosqlite.Connection,
     user_id: int,
