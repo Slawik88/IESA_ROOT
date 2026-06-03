@@ -66,6 +66,13 @@ async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(req
     if not my_pets:
         raise HTTPException(400, "Нужен хотя бы один питомец в питомнике.")
 
+    # Fetch challenger's own username for notifications
+    async with db.execute(
+        "SELECT user_tg_username FROM users WHERE user_tg_id = ?", (user["id"],)
+    ) as c:
+        challenger_row = await c.fetchone()
+    challenger_name = (challenger_row[0] or f"user_{user['id']}") if challenger_row else f"user_{user['id']}"
+
     pet = my_pets[0]
     ok, result = await create_challenge(
         db, user["id"], target[0], body.chat_id, body.stake, pet
@@ -79,10 +86,10 @@ async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(req
         from FastAPI.notifications import notify as _ws_notify
         await _ws_notify(target[0], {
             "type": "duel_challenge",
-            "from": body.username,
+            "from": challenger_name,
             "stake": body.stake,
             "duel_id": result.get("duel_id"),
-            "message": f"⚔️ @{body.username} вызывает вас на дуэль! Ставка: {body.stake:.0f} 🪙",
+            "message": f"⚔️ @{challenger_name} вызывает вас на дуэль! Ставка: {body.stake:.0f} 🪙",
         })
     except Exception:
         pass
@@ -99,7 +106,7 @@ async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(req
                         "chat_id": target[0],
                         "text": (
                             f"⚔️ <b>Вызов на дуэль!</b>\n"
-                            f"Игрок <b>@{body.username}</b> вызывает вас на дуэль через сайт.\n"
+                            f"Игрок <b>@{challenger_name}</b> вызывает вас на дуэль через сайт.\n"
                             f"Ставка: <code>{body.stake:.0f} 🪙</code>\n"
                             f"Ответьте в чате: <code>бот принять</code>"
                         ),
