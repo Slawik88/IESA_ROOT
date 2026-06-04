@@ -112,6 +112,8 @@ function switchPage(name,btn) {
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
   el('pg-'+name).classList.add('active');
   btn.classList.add('active');
+  // Currency bar: visible on all tabs except Profile
+  showCurrBar(name !== 'profile');
   if(!_loaded.has(name)){
     _loaded.add(name);
     ({zoo:loadZoo,arena:loadArena,market:loadMarket,coll:loadColl}[name]||(() => {}))();
@@ -149,25 +151,121 @@ function loadProfile() {
         </div></div>`).join('')}</div>`:''}
       ${d.chats.length?`<div class="card"><div class="card-title">💬 Активность</div>${d.chats.map(c=>`<div class="irow"><span class="ik">${c.chat_title||'Чат'}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}</div>`:''}`;
     if(!_ws && _uid) connectWS();
+    updateCurrBar(d);          // populate sticky currency bar from profile data
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
 if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');}
+
+// ── Sticky currency bar ───────────────────────────────────────────────────────
+// Shows 🪙💎🌑✨ at top of screen (hidden on Profile tab)
+let _currBarVisible = false;
+
+function updateCurrBar(data) {
+  // data can be profile data or a partial balance object
+  const bar = el('curr-bar');
+  if (!bar) return;
+  if (data?.mora !== undefined)     { const v=el('cb-mora'); if(v) v.textContent=fmt(Math.floor(data.mora)); }
+  if (data?.diamonds !== undefined) { const v=el('cb-dia');  if(v) v.textContent=parseFloat(data.diamonds||0).toFixed(1); }
+  if (data?.dark_mora !== undefined){ const v=el('cb-dark'); if(v) v.textContent=fmt(Math.floor(data.dark_mora||0)); }
+  if (data?.zarniki !== undefined)  { const v=el('cb-zar');  if(v) v.textContent=parseFloat(data.zarniki||0).toFixed(0); }
+}
+
+function showCurrBar(show) {
+  const bar = el('curr-bar');
+  if (!bar) return;
+  if (show) {
+    bar.classList.add('visible');
+    document.body.classList.add('has-curr-bar');
+    _currBarVisible = true;
+  } else {
+    bar.classList.remove('visible');
+    document.body.classList.remove('has-curr-bar');
+    _currBarVisible = false;
+  }
+}
+
+// Refresh bar data from server (called on a slow timer)
+function refreshCurrBar() {
+  if (!_uid || !_currBarVisible) return;
+  api('/profile/me').then(d => {
+    updateCurrBar(d);
+    if(d.mora!==undefined) _profileData = {...(_profileData||{}), mora:d.mora, diamonds:d.diamonds};
+  }).catch(()=>{});
+}
+setInterval(refreshCurrBar, 90000); // every 90s
+
+// Mirrors services/streak.py:calc_streak_reward
+function calcStreakReward(streak) {
+  if(streak<=0) streak=1;
+  const BLOCK=7, BASE_M=70, BASE_D=0.15, BONUS=4.0;
+  const cycle=Math.floor((streak-1)/BLOCK);
+  const dayInBlock=((streak-1)%BLOCK)+1;
+  const isEnd=(dayInBlock===BLOCK);
+  const logMult=1.0+0.5*Math.log(1.0+cycle);
+  const blockMult=isEnd?BONUS:1.0;
+  return {
+    mora:Math.round(BASE_M*logMult*blockMult*100)/100,
+    dia:Math.round(BASE_D*logMult*blockMult*100)/100,
+    dayInBlock, isEnd, cycle,
+  };
+}
 
 function loadStreak() {
   el('pro-streak').innerHTML='<div class="loader">Загрузка...</div>';
   api('/streak/calendar').then(d=>{
     const today=new Date().toISOString().slice(0,10);
-    el('pro-streak').innerHTML=`<div class="card card-gold">
+    const streak=d.streak||0;
+
+    // Current cycle position
+    const cur=calcStreakReward(streak||1);
+    const doneInBlock=cur.dayInBlock;   // days completed in current block (1-based = current day)
+    const cycleStart=cur.cycle*7;       // streak number of day 1 of current block
+
+    // Build 7-day cycle display
+    const cycleHtml=Array.from({length:7},(_,i)=>{
+      const dayNum=cycleStart+i+1;      // streak day number (1-indexed)
+      const rw=calcStreakReward(dayNum);
+      const isDone=(i+1)<doneInBlock;
+      const isCurrent=(i+1)===doneInBlock;
+      const isBonus=rw.isEnd;
+      let cls='sday';
+      if(isDone) cls+=' done';
+      if(isCurrent) cls+=' current';
+      if(isBonus&&!isDone) cls+=' bonus';
+      return `<div class="${cls}">
+        <div class="sd-num">День ${i+1}</div>
+        <div class="sd-mora">${fmt(Math.round(rw.mora))} 🪙</div>
+        ${rw.dia>0?`<div class="sd-dia">${rw.dia.toFixed(2)} 💎</div>`:''}
+        ${isBonus?'<div class="sd-bonus">★ БОНУС ×4</div>':''}
+        ${isDone?'<span class="sd-done">✓</span>':''}
+      </div>`;
+    }).join('');
+
+    // Next reward (tomorrow's streak)
+    const nextRw=calcStreakReward(streak+1);
+    const nextIsBonus=nextRw.isEnd;
+
+    el('pro-streak').innerHTML=`
+    <div class="card card-gold">
       <div style="text-align:center">
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Текущий стрик</div>
-        <div class="streak-num">${d.streak} 🔥</div>
+        <div class="streak-num">${streak} 🔥</div>
         <div style="font-size:11px;color:var(--muted)">дней подряд</div>
       </div>
+
       <div class="divider"></div>
-      <div class="card-title">Последние 60 дней</div>
-      <div class="cal">${d.calendar.map(day=>`<div class="cal-day${day.active?' on':''}${day.date===today?' today':''}" title="${day.date}: ${day.count} сообщ."></div>`).join('')}</div>
-      <div style="display:flex;gap:10px;margin-top:8px;font-size:10px;color:var(--muted)">
-        <span>⬜ Нет активности</span><span style="color:var(--green)">■ Есть активность</span>
+      <div class="card-title">Награды — цикл ${cur.cycle+1} (дни ${cycleStart+1}–${cycleStart+7})</div>
+      <div class="streak-cycle">${cycleHtml}</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">
+        Завтра за день ${streak+1}: <b style="color:var(--gold)">${fmt(Math.round(nextRw.mora))} 🪙${nextRw.dia>0?' + '+nextRw.dia.toFixed(2)+' 💎':''}${nextIsBonus?' ⭐ БОНУС ×4':''}</b>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:8px">
+      <div class="card-title">Активность — последние 60 дней</div>
+      <div class="cal">${d.calendar.map(day=>`<div class="cal-day${day.active?' on':''}${day.date===today?' today':''}" title="${day.active?'✓ '+day.count+' сообщ.':'Нет активности'} (${day.date})"></div>`).join('')}</div>
+      <div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--muted)">
+        <span>⬜ Нет</span><span style="color:var(--green)">■ Активен</span><span style="border:1px solid var(--gold);display:inline-block;width:10px;height:10px;vertical-align:middle"></span> Сегодня
       </div>
     </div>`;
   }).catch(e=>{el('pro-streak').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
@@ -1033,7 +1131,7 @@ function submitLot(itemId) {
   const btn = document.querySelector('#mf .btn-gold');
   if(btn) btn.disabled=true;
   api('/auction/create',{method:'POST',body:JSON.stringify({item_id:itemId,quantity:qty,min_bid:minBid,buyout})})
-    .then(r=>{toast(`✅ Лот #${r.lot_id} создан! (24ч)`);CM();loadAuction();})
+    .then(r=>{toast(`✅ Лот #${r.lot_id} создан! (24ч)`);CM();loadAuction();refreshCurrBar();})
     .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
 
@@ -1066,7 +1164,7 @@ function doBid(lotId, btn, fixedAmount) {
   if (!v || v <= 0) { toast('Введите сумму.', false); return; }
   btn.disabled = true;
   api('/auction/bid', {method:'POST', body:JSON.stringify({lot_id:lotId, amount:v})})
-    .then(r => { toast(r.is_buyout ? '🎉 Выкуплено!' : '✅ Ставка принята!'); CM(); loadAuction(); })
+    .then(r => { toast(r.is_buyout ? '🎉 Выкуплено!' : '✅ Ставка принята!'); CM(); loadAuction(); refreshCurrBar(); })
     .catch(e => { toast(e, false); btn.disabled = false; });
 }
 
@@ -1116,13 +1214,13 @@ function buyItem(id, btn) {
 function doBuyConfirmed(id) {
   CM();
   api('/shop/buy', {method:'POST', body:JSON.stringify({item_id:id, quantity:1})})
-    .then(r => { toast('✅ Куплено: ' + r.item_name); loadShopCatalog(); })
+    .then(r => { toast('✅ Куплено: ' + r.item_name); loadShopCatalog(); refreshCurrBar(); })
     .catch(e => toast(e, false));
 }
 function _execBuy(id, btn) {
   if(btn) btn.disabled = true;
   api('/shop/buy', {method:'POST', body:JSON.stringify({item_id:id, quantity:1})})
-    .then(r => { toast('✅ Куплено: ' + r.item_name); loadShopCatalog(); })
+    .then(r => { toast('✅ Куплено: ' + r.item_name); loadShopCatalog(); refreshCurrBar(); })
     .catch(e => { toast(e, false); if(btn) btn.disabled = false; });
 }
 function loadInventory() {
@@ -1458,7 +1556,7 @@ function doExchange(btn) {
   if(!v){toast('Введите количество.',false);return;}
   btn.disabled=true;
   api('/exchange/convert',{method:'POST',body:JSON.stringify({diamonds:v})})
-    .then(r=>{toast(`✅ +${r.diamonds_gained} 💎  −${fmt(r.mora_spent)} 🪙`);loadExchange();})
+    .then(r=>{toast(`✅ +${r.diamonds_gained} 💎  −${fmt(r.mora_spent)} 🪙`);loadExchange();refreshCurrBar();})
     .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
@@ -1759,6 +1857,7 @@ function buyDeal(dealId,btn) {
       btn.textContent='✓ Куплено';
       btn.className='btn btn-ghost btn-sm';
       toast(`✅ Куплено +${r.qty}× предмет!`);
+      refreshCurrBar();
     })
     .catch(e=>{toast(e,false);btn.disabled=false;btn.textContent='Купить';});
 }
