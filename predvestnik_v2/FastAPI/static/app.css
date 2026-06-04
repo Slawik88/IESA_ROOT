@@ -197,12 +197,55 @@ body.has-curr-bar{padding-top:36px}
 .qfill{height:100%;border-radius:3px;background:var(--gold);transition:.4s}
 
 /* Gacha */
-.spin-row{display:flex;align-items:center;gap:10px;padding:11px;
+/* Gacha page */
+.gacha-header{text-align:center;padding:16px 0 8px}
+.gacha-header .gh-title{font-size:22px;font-weight:800;color:var(--gold2);letter-spacing:1px;margin-bottom:4px}
+.gacha-header .gh-sub{font-size:11px;color:var(--muted)}
+.gacha-balance{display:flex;justify-content:center;gap:16px;margin-bottom:14px;
+               background:var(--s);border-radius:var(--r);padding:10px;border:1px solid var(--border2)}
+.gacha-balance .gb-item{font-size:13px;font-weight:700;color:var(--bright)}
+
+.spin-row{display:flex;align-items:center;gap:10px;padding:13px;
           background:var(--s);border-radius:var(--r);border:1px solid var(--border2);
-          cursor:pointer;transition:.15s;margin-bottom:7px}
-.spin-row:hover{border-color:var(--border)}
-.spin-res{background:var(--s);border:1px solid var(--gold);border-radius:var(--r);
-          padding:14px;margin-top:10px;animation:slideUp .2s ease}
+          cursor:pointer;transition:.2s;margin-bottom:6px;position:relative;overflow:hidden}
+.spin-row::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(201,168,76,.04),transparent);
+                  transform:translateX(-100%);transition:transform .4s}
+.spin-row:hover{border-color:var(--gold);transform:translateY(-1px)}
+.spin-row:hover::before{transform:translateX(100%)}
+.spin-row:active{transform:scale(.98)}
+.spin-row .sr-icon{font-size:24px;width:32px;text-align:center}
+.spin-row .sr-info{flex:1}
+.spin-row .sr-name{font-size:13px;font-weight:700;color:var(--bright)}
+.spin-row .sr-desc{font-size:10px;color:var(--muted);margin-top:1px}
+.spin-row .sr-cost{font-size:13px;font-weight:700;color:var(--gold)}
+
+/* Spin result overlay */
+.spin-res{margin-top:12px}
+.spin-anim-wrap{display:flex;flex-direction:column;align-items:center;padding:20px;
+                background:var(--s);border-radius:var(--r-lg);border:1px solid var(--border)}
+.spin-anim-ball{font-size:56px;animation:spinBall 3s cubic-bezier(.17,.67,.52,1.5) forwards}
+@keyframes spinBall{0%{transform:scale(.3) rotate(-720deg);opacity:0}
+  60%{transform:scale(1.15) rotate(15deg);opacity:1}
+  80%{transform:scale(.95) rotate(-5deg)}
+  100%{transform:scale(1) rotate(0deg);opacity:1}}
+
+/* Rarity-specific glow (class added to spin-res wrapper) */
+.glow-rare    .spin-anim-ball{filter:drop-shadow(0 0 18px var(--blue))}
+.glow-epic    .spin-anim-ball{filter:drop-shadow(0 0 22px var(--purple));animation-duration:3.2s}
+.glow-legendary .spin-anim-ball{filter:drop-shadow(0 0 30px var(--gold2));animation-duration:3.5s}
+.glow-mythic  .spin-anim-ball{filter:drop-shadow(0 0 40px #ff6b6b);animation-duration:3.8s}
+
+@keyframes rarePop{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.glow-legendary .spin-anim-ball,.glow-mythic .spin-anim-ball{animation:spinBall 3.5s cubic-bezier(.17,.67,.52,1.5) forwards,rarePop 1s ease 3.5s infinite}
+
+.spin-results{width:100%;margin-top:10px}
+.spin-card{background:var(--s);border-radius:var(--r);padding:10px 14px;margin:4px 0;
+           border:1px solid var(--border2);display:flex;align-items:center;gap:10px;
+           animation:fadeUp .35s ease both}
+.spin-card.rare{border-color:var(--blue);background:rgba(90,156,245,.07)}
+.spin-card.epic{border-color:var(--purple);background:rgba(157,114,255,.07)}
+.spin-card.legendary{border-color:var(--gold);background:var(--gold-dim);box-shadow:0 0 12px rgba(201,168,76,.2)}
+.spin-card.mythic{border-color:#ff6b6b;background:rgba(255,107,107,.07);box-shadow:0 0 14px rgba(255,107,107,.25)}
 
 /* Buttons */
 .btn{padding:8px 14px;border-radius:var(--r);border:none;cursor:pointer;font-family:inherit;
