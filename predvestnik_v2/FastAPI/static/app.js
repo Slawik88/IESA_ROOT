@@ -1489,54 +1489,63 @@ function _premBar(pct, len=7) {
   return '▰'.repeat(f)+'▱'.repeat(len-f);
 }
 
+// Renders a line — uses actual profile data if available, otherwise demo data
 function buildProfilePreview(t) {
   const tpl = t.premium_template;
   if(tpl) return _buildPremiumPreview(t, tpl);
 
-  const p = _profileData;
+  const p    = _profileData;
   const name = p ? (p.username || 'Игрок') : 'Игрок';
   const lvl  = p?.chats?.[0]?.user_level || 1;
-  const mora = p ? fmt(Math.round(p.mora||0)) : '—';
-  const dia  = p ? (p.diamonds||0).toFixed(1) : '—';
-  const streak = p?.streak || 0;
+  const mora = p ? fmt(Math.round(p.mora||0)) : '12 500';
+  const dia  = p ? (p.diamonds||0).toFixed(1) : '45.0';
+  const ach  = p?.achievements || 14;
+  const st   = p?.streak || 7;
   const acc  = t.accent || '🔮';
-  const side = t.side ? t.side+' ' : '';
-  const pfx  = t.prefix || '';  // zarniki side bar char
+  const side = t.side || '';
+  const pfx  = t.prefix || '';
 
-  // Build top lines (may contain \n)
-  const topLines = (t.top||'').split('\n').map(l=>`<div class="pp-line pp-header">${l}</div>`).join('');
+  // Escape helper — prevent HTML injection in names
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  // Sep line
-  const sep = `<div class="pp-line pp-sep">${t.sep||''}</div>`;
+  // Line builder: zarniki get left sidebar
+  const L = (html) => `<span class="pp-line">${pfx?'<span style="color:var(--border2)">'+pfx+'</span>':''}${html}</span><br>`;
+  const SEP = () => `<span class="pp-sep-line">${pfx?'<span style="color:var(--border2)">'+pfx+'</span>':''}${esc(t.sep||'')}</span><br>`;
 
-  // Content lines with prefix for zarniki
-  const ln = (s) => `<div class="pp-line">${pfx}${s}</div>`;
+  // Top: split by \n, first line = header style
+  const topParts = (t.top||'').split('\n');
+  const topHTML = topParts.map((l,i) =>
+    `<span class="${i===0?'pp-header-line':'pp-sep-line'}">${esc(l)}</span><br>`
+  ).join('');
 
-  // Bot phrase (may contain \n and {id})
-  const botRaw = (t.bot_line||t.bot||'').replace('{id}','894721653');
-  const botLines = botRaw.split('\n').map(l=>`<div class="pp-bot">${l}</div>`).join('');
+  // Name line: legendary themes have side emoji
+  const nameLine = side
+    ? `<b>${esc(side)} ${esc(acc)} ${esc(name)} ${esc(acc)}</b>`
+    : `<b>${esc(acc)} ${esc(name)}</b>`;
 
-  return `<div class="profile-preview">
-    ${topLines}
-    ${ln(`<span class="pp-accent">${side}${acc} <b>${name}</b>${t.side?' '+acc:''}</span>`)}
-    ${ln(`🌍 Мастер Теней  |  🏘 Ветеран`)}
-    ${ln(`📅 В чате с: 01.01.2026`)}
-    ${sep}
-    ${ln(`🌟 Ур.<b>${lvl}</b>  [████████░░] 79% (7.1k/9k)`)}
-    ${ln(`⚖️ Реп: +29  |  ⚠️ Варны: 0`)}
-    ${ln(`💰 ${mora} 🪙  |  💎 ${dia}  |  🏆 14 ачив.`)}
-    ${ln(`🔥 Стрик: ${streak} дн.`)}
-    ${sep}
-    ${ln(`💍 Партнёр: Аня (45 дн.)`)}
-    ${ln(`🎨 Тема: ${t.name||'?'}<span class="pp-badge">${t.badge||''} ${t.rarity_label||''}</span>`)}
-    ${sep}
-    ${ln(`🐾 <b>Питомцы:</b>`)}
-    ${ln(`├ ⚔️ 🟣 Буря (Феникс) · Lv8 · 🟢`)}
-    ${ln(`└ 💤 🟡 Золото (Дракон) · Lv5 · 🟡`)}
-    ${sep}
-    ${ln(`🆔 <code>894721653</code>`)}
-    ${botLines}
-  </div>`;
+  // Bot phrase: replace {id}, split \n, italic
+  const botHTML = (t.bot||'').replace('{id}','894721653').split('\n')
+    .map(l=>`<span class="pp-bot-line">${esc(l)}</span><br>`).join('');
+
+  return `<div class="profile-preview">${topHTML}
+${L(nameLine)}
+${L('🌍 Мастер Теней  |  🏘 Ветеран')}
+${L('📅 В чате с: 01.01.2026')}
+${SEP()}
+${L(`🌟 Ур.<b>${lvl}</b>  [████████░░] 79%`)}
+${L(`⚖️ Реп: +0  |  ⚠️ Варны: 0`)}
+${L(`💰 ${mora} 🪙  |  💎 ${dia}  |  🏆 ${ach} ачив.`)}
+${L(`🔥 Стрик: <b>${st}</b> дн.`)}
+${SEP()}
+${L('💍 Брак: Аня (45 дн.)')}
+${L(`🎨 Тема: ${esc(t.name||'?')}`)}
+${SEP()}
+${L('🐾 <b>Питомцы:</b>')}
+${L('├ ⚔️ 🟣 Буря (Феникс) · Lv8 · 🟢')}
+${L('└ 💤 🟡 Золото (Дракон) · Lv5 · 🟡')}
+${SEP()}
+${L('🆔 <code>894721653</code>')}
+${botHTML}</div>`;
 }
 
 function _buildPremiumPreview(t, tpl) {
