@@ -423,21 +423,33 @@ async def exchange_scheduler_task(bot: Bot):
         await asyncio.sleep(1800)
         try:
             now = datetime.now(timezone.utc)
-            now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
             async with get_pool().acquire() as _conn:
                 db = PGAdapter(_conn)
 
                 # Finish active events that have ended
+                # asyncpg returns datetime objects — compare datetime to datetime
                 active = await _get_active_exchange(db)
-                if active and active["ends_at"] <= now_str:
-                    await _finish_exchange_event(db, active["id"])
-                    await db.commit()
-                    logger.info(f"Exchange event {active['id']} finished.")
+                if active:
+                    ends_at = active["ends_at"]
+                    if isinstance(ends_at, str):
+                        ends_at = datetime.strptime(ends_at, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                    elif ends_at.tzinfo is None:
+                        ends_at = ends_at.replace(tzinfo=timezone.utc)
+                    if ends_at <= now:
+                        await _finish_exchange_event(db, active["id"])
+                        await db.commit()
+                        logger.info(f"Exchange event {active['id']} finished.")
 
                 # Activate scheduled events that have started
                 scheduled = await _get_scheduled_exchange(db)
-                if scheduled and scheduled["starts_at"] <= now_str and scheduled["status"] == "scheduled":
+                if scheduled:
+                    starts_at = scheduled["starts_at"]
+                    if isinstance(starts_at, str):
+                        starts_at = datetime.strptime(starts_at, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                    elif starts_at.tzinfo is None:
+                        starts_at = starts_at.replace(tzinfo=timezone.utc)
+                if scheduled and starts_at <= now and scheduled["status"] == "scheduled":
                     await _activate_exchange_event(db, scheduled["id"])
                     await db.commit()
                     # Announce to qualifying chats

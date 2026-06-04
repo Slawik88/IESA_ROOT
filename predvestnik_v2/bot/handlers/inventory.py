@@ -353,15 +353,8 @@ async def _pre_resolve_items(db, items: list[tuple[str, int]]) -> list[tuple[str
     for item_id, qty in items:
         raw = str(item_id)
         real = await _resolve_item_id_db(db, raw)
-        if real != raw and real in ITEMS_REGISTRY:
-            # Silently migrate this user's inventory row
-            try:
-                await db.execute(
-                    "UPDATE inventory SET item_id = ? WHERE user_id = ? AND item_id = ?",
-                    (real, db._current_user_id if hasattr(db, '_current_user_id') else 0, raw),
-                )
-            except Exception:
-                pass
+        # Note: bot _pre_resolve_items doesn't have user_id context here.
+        # Actual migration with UPSERT is done in the FastAPI endpoint that has user_id.
         resolved.append((real, qty))
     return resolved
 

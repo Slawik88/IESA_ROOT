@@ -33,7 +33,11 @@ function api(path, opts={}) {
   return fetch(BASE+path,{...opts,headers:{...hdrs(),...(opts.headers||{})}})
     .then(r=>{
       if(r.status===401){localStorage.removeItem(SK);el('login-ov').classList.remove('hidden');return Promise.reject('Войдите снова.');}
-      return r.ok?r.json():r.json().then(e=>Promise.reject(e.detail||'Ошибка'));
+      return r.ok?r.json():r.json().then(e=>{
+        const d=e.detail;
+        const msg=typeof d==='string'?d:Array.isArray(d)?d.map(x=>x.msg||x).join('; '):(d?JSON.stringify(d):'Ошибка');
+        return Promise.reject(msg);
+      });
     });
 }
 window.onTelegramWidgetAuth = u => {
