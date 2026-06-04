@@ -957,8 +957,10 @@ function loadDuels() {
         ${incoming.map(d=>`<div class="duel-card">
           <div class="duel-vs">${d.challenger_name||'Игрок'} вызывает вас</div>
           <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px">Принять можно ответив на вызов в чате: <code>бот принять</code></div>
-          <button class="btn btn-sm btn-red" style="margin-top:6px" onclick="declineDuel(${d.id},this)">❌ Отклонить</button>
+          <div style="display:flex;gap:6px;margin-top:8px">
+            <button class="btn btn-sm btn-teal" style="flex:1" onclick="acceptDuel(${d.id},this)">⚔️ Принять</button>
+            <button class="btn btn-sm btn-red" style="flex:1" onclick="declineDuel(${d.id},this)">❌ Отклонить</button>
+          </div>
         </div>`).join('')}
       </div>`;
     }
@@ -1003,6 +1005,19 @@ function loadDuels() {
     </div>`;
     el('dc').innerHTML = html;
   }).catch(e => { el('dc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
+}
+
+function acceptDuel(id, btn) {
+  btn.disabled = true;
+  btn.textContent = '...';
+  api('/duels/accept', {method:'POST', body:JSON.stringify({duel_id:id})})
+    .then(r => {
+      const won = r.winner_id == _uid;
+      toast(won ? '🏆 Победа!' : (r.winner_id ? '😔 Поражение' : '🤝 Ничья'), won);
+      loadDuels();
+      refreshCurrBar();
+    })
+    .catch(e => { toast(e, false); btn.disabled = false; btn.textContent = '⚔️ Принять'; });
 }
 
 function declineDuel(id, btn) {
@@ -1935,7 +1950,7 @@ function loadDeal() {
               <div class="shop-price">${price}</div>
               <div class="shop-desc">${deal.item_description||''}</div>
             </div>
-            <button class="btn btn-sm ${purchased?'btn-ghost':'btn-gold'}" ${purchased?'disabled':''} onclick="buyDeal(${deal.id},this)">
+            <button class="btn btn-sm ${purchased?'btn-ghost':'btn-gold'}" ${purchased?'disabled':''} onclick="buyDeal(${deal.slot},this)">
               ${purchased?'✓ Куплено':'Купить'}
             </button>
           </div>`;
