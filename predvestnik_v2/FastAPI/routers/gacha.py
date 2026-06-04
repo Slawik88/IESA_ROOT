@@ -64,7 +64,7 @@ async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_us
                 # Build human-readable drop string
                 if dups:
                     top = max(dups, key=lambda d: _RARITY_ORDER.index(d.get("rarity","common")) if d.get("rarity") in _RARITY_ORDER else 0)
-                    sp_name = _PS.get(top['species'], {}).get('name', top['species'])
+                    sp_name = _PS.get(top['species_id'], {}).get('name', top.get('species_id', '?'))
                     drop_str = f"🐾 {sp_name} [{top['rarity']}]"
                 elif result.get('mora', 0) > 0:
                     drop_str = f"🪙 {result['mora']:.0f} Мора"

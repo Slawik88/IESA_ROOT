@@ -324,11 +324,6 @@ ACHIEVEMENTS: Dict[str, Dict] = {
         "metric": "gacha_spins",
         "thresholds": [10, 50, 150, 400, 1000, 2500, 5000, 10000, 25000, 50000],
     },
-    "collector": {
-        "icon": "🐾", "name": "Коллекционер",
-        "metric": "distinct_species_owned",
-        "thresholds": [3, 5, 7, 9, 11, 13, 15, 17, 19, 21],
-    },
     "trainer": {
         "icon": "👑", "name": "Воспитатель",
         "metric": "pets_at_level_10",
