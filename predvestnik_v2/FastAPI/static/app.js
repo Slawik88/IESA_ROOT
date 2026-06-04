@@ -1489,10 +1489,13 @@ function _premBar(pct, len=7) {
   return '▰'.repeat(f)+'▱'.repeat(len-f);
 }
 
-// Renders a line — uses actual profile data if available, otherwise demo data
+// ── Profile preview — Render Raw String approach ─────────────────────────────
+// Backend generates the EXACT same HTML string as sent to Telegram.
+// Frontend just sets innerHTML + white-space:pre-wrap. No parsing.
+
 function buildProfilePreview(t) {
-  const tpl = t.premium_template;
-  if(tpl) return _buildPremiumPreview(t, tpl);
+  // Return a loading placeholder; actual fetch happens after modal opens
+  return `<div class="profile-preview pp-loading">⏳ Загрузка предпросмотра…</div>`;
 
   const p    = _profileData;
   const name = p ? (p.username || 'Игрок') : 'Игрок';
@@ -1671,10 +1674,19 @@ function openThemeModal(tid) {
 
   OM(t.name, body, btns);
 
-  // Lazy-load profile for preview
-  if(!_profileData && (INIT_DATA || sess())) {
-    api('/profile/me').then(d => { _profileData=d; el('mb').innerHTML=body; }).catch(()=>{});
-  }
+  // Fetch raw profile string from backend (Render Raw String approach)
+  // The backend returns the exact string the bot would send to Telegram.
+  api(`/themes/preview/${tid}`)
+    .then(r => {
+      const container = el('mb')?.querySelector('.profile-preview');
+      if(container && r.text) {
+        container.innerHTML = r.text;  // raw HTML — <b>,<i>,<code> render natively
+      }
+    })
+    .catch(() => {
+      const container = el('mb')?.querySelector('.profile-preview');
+      if(container) container.innerHTML = `<span style="color:var(--muted);font-size:11px">Нет данных профиля</span>`;
+    });
 }
 
 function doBuyTheme(tid) {

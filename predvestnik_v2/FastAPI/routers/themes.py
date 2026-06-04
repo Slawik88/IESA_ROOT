@@ -96,3 +96,29 @@ async def equip_theme(body: EquipThemeRequest, db=Depends(get_db), user=Depends(
         raise HTTPException(403, "Этой темы нет в вашей коллекции.")
     await set_active_theme(db, user["id"], body.theme_id)
     return {"ok": True}
+
+
+
+@router.get("/preview/{theme_id}")
+async def theme_preview_text(theme_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    """
+    Return the raw profile HTML string rendered with the given theme.
+    The string is identical to what the bot sends to Telegram.
+    Frontend should display it with white-space: pre-wrap and innerHTML.
+    """
+    if theme_id not in THEMES:
+        raise HTTPException(404, "Тема не найдена.")
+
+    # Find the user's primary chat for stats context
+    from infrastructure.pg_adapter import PGAdapter as _PGA
+    async with db.execute(
+        "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
+        "ORDER BY user_messages_count_all_time DESC LIMIT 1",
+        (user["id"],),
+    ) as c:
+        _cr = await c.fetchone()
+    chat_id = _cr[0] if _cr else 0
+
+    from services.profile_render import build_profile_text
+    text = await build_profile_text(db, user["id"], chat_id, theme_id_override=theme_id)
+    return {"text": text, "theme_id": theme_id}
