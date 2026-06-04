@@ -1497,52 +1497,76 @@ function buildProfilePreview(t) {
   const p    = _profileData;
   const name = p ? (p.username || 'Игрок') : 'Игрок';
   const lvl  = p?.chats?.[0]?.user_level || 1;
+  const xp   = p?.chats?.[0]?.user_xp || 0;
+  const xpMax = 3000; // approximate per level
+  const xpInLvl = xp % xpMax;
+  const pct  = p ? Math.min(99, Math.round(xpInLvl / xpMax * 100)) : 79;
+  const bar  = '█'.repeat(Math.round(pct/100*8)) + '░'.repeat(8 - Math.round(pct/100*8));
   const mora = p ? fmt(Math.round(p.mora||0)) : '12 500';
   const dia  = p ? (p.diamonds||0).toFixed(1) : '45.0';
   const ach  = p?.achievements || 14;
   const st   = p?.streak || 7;
+  const dMsgs = p?.chats?.[0]?.user_messages_count_per_day || 54;
+  const wMsgs = p?.chats?.[0]?.user_messages_count_per_week || 389;
+  const aMsgs = p?.chats?.[0]?.user_messages_count_all_time || 490;
   const acc  = t.accent || '🔮';
   const side = t.side || '';
   const pfx  = t.prefix || '';
+  const isZarniki = !!pfx;
 
-  // Escape helper — prevent HTML injection in names
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  // Line builder: zarniki get left sidebar
-  const L = (html) => `<span class="pp-line">${pfx?'<span style="color:var(--border2)">'+pfx+'</span>':''}${html}</span><br>`;
-  const SEP = () => `<span class="pp-sep-line">${pfx?'<span style="color:var(--border2)">'+pfx+'</span>':''}${esc(t.sep||'')}</span><br>`;
+  // Zarniki: left sidebar in accent color, regular: no prefix
+  const sideChar = pfx ? `<span style="color:#5a6480;user-select:none">${pfx}</span>` : '';
+  const L   = (html) => `<span class="pp-line">${sideChar}${html}</span><br>`;
+  const SEP = () => {
+    const sepText = esc(t.sep||'');
+    return isZarniki
+      ? `<span class="pp-sep-line">${sideChar}${sepText}</span><br>`
+      : `<span class="pp-sep-line">${sepText}</span><br>`;
+  };
 
-  // Top: split by \n, first line = header style
+  // Top block: zarniki = only frame line; others = header + sep
   const topParts = (t.top||'').split('\n');
   const topHTML = topParts.map((l,i) =>
     `<span class="${i===0?'pp-header-line':'pp-sep-line'}">${esc(l)}</span><br>`
   ).join('');
 
-  // Name line: legendary themes have side emoji
+  // Name line — mirroring identity.py logic exactly
   const nameLine = side
     ? `<b>${esc(side)} ${esc(acc)} ${esc(name)} ${esc(acc)}</b>`
     : `<b>${esc(acc)} ${esc(name)}</b>`;
 
-  // Bot phrase: replace {id}, split \n, italic
+  // Bot phrase
   const botHTML = (t.bot||'').replace('{id}','894721653').split('\n')
     .map(l=>`<span class="pp-bot-line">${esc(l)}</span><br>`).join('');
+
+  // XP compact
+  const xpStr = `(${xpInLvl<1000?xpInLvl:Math.round(xpInLvl/100)/10+'k'}/${xpMax<1000?xpMax:xpMax/1000+'k'})`;
 
   return `<div class="profile-preview">${topHTML}
 ${L(nameLine)}
 ${L('🌍 Мастер Теней  |  🏘 Ветеран')}
 ${L('📅 В чате с: 01.01.2026')}
+<br>
 ${SEP()}
-${L(`🌟 Ур.<b>${lvl}</b>  [████████░░] 79%`)}
-${L(`⚖️ Реп: +0  |  ⚠️ Варны: 0`)}
+<br>
+${L(`🌟 Ур.<b>${lvl}</b>  [${bar}] ${pct}% ${xpStr}`)}
+${L('⚖️ Реп: +0  |  ⚠️ Варны: 0')}
 ${L(`💰 ${mora} 🪙  |  💎 ${dia}  |  🏆 ${ach} ачив.`)}
 ${L(`🔥 Стрик: <b>${st}</b> дн.`)}
+<br>
 ${SEP()}
-${L('💍 Брак: Аня (45 дн.)')}
+<br>
+${L(`💬 ${dMsgs} д  |  ${wMsgs} н  |  ${aMsgs} всего`)}
+${L('💍 Не в браке')}
 ${L(`🎨 Тема: ${esc(t.name||'?')}`)}
+<br>
 ${SEP()}
+<br>
 ${L('🐾 <b>Питомцы:</b>')}
-${L('├ ⚔️ 🟣 Буря (Феникс) · Lv8 · 🟢')}
-${L('└ 💤 🟡 Золото (Дракон) · Lv5 · 🟡')}
+${L('├ ⚔️ Актив: Буря · Lv8 · 🟢 · 📦×8')}
+${L('└ 💤 Пассив: Золото · Lv5 · 🟡 · 📦×3')}
 ${SEP()}
 ${L('🆔 <code>894721653</code>')}
 ${botHTML}</div>`;

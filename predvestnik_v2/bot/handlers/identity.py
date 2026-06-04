@@ -240,8 +240,11 @@ def _pets_block(pets: list, prefix: str = "") -> str:
         dups = p.get("duplicates_collected", 0) or 0
         fat  = p.get("fatigue", 0)
         sym  = "└" if i == len(slots) - 1 else "├"
+        # Show species in parentheses only when custom name differs from species name
+        pet_name = p['name']
+        sp_part  = f" ({sp})" if sp and sp != pet_name else ""
         lines.append(
-            f"{prefix}{sym} {icon} {role}: <b>{p['name']}</b> ({sp})"
+            f"{prefix}{sym} {icon} {role}: <b>{pet_name}</b>{sp_part}"
             f" · Lv{lvl} · {_fatigue_icon(fat)} · 📦×{dups}"
         )
     return "\n".join(lines) + "\n"
