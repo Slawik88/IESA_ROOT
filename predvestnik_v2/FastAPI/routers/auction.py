@@ -32,7 +32,8 @@ async def active_lots(
         "LEFT JOIN users u ON u.user_tg_id = al.seller_id "
         "WHERE al.status = 'active' "
         "GROUP BY al.id, u.user_tg_username "
-        f"ORDER BY al.ends_at ASC LIMIT {per_page} OFFSET {offset}",
+        "ORDER BY al.ends_at ASC LIMIT ? OFFSET ?",
+        (per_page, offset),
     ) as c:
         rows = [dict(r) for r in await c.fetchall()]
 

@@ -17,9 +17,21 @@ from infrastructure.repositories.exchange import (
 )
 from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
+from datetime import datetime, timedelta, timezone as _tz_utc
+from core.constants import (
+    CHEST_DURATION_SECONDS, CHEST_MIN_ACTIVE_USERS_24H,
+    CHEST_SPAWN_MIN_HOURS, CHEST_SPAWN_MAX_HOURS, CHEST_MAX_CLAIMANTS,
+    CHEST_REWARDS_BY_POSITION,
+)
+from infrastructure.repositories.chest_events import (
+    get_qualifying_chats, create_chest, close_chest,
+    get_expired_active, get_claims, update_last_chest_at,
+)
+from infrastructure.repositories.economy import add_balance as _ab
 from services.achievements import increment_metric as _incr_ach
 from services.quests import increment_metric as _incr_quest
 from infrastructure.repositories.auction import get_expired_active_lots
+from infrastructure.repositories.wallet_log import log_wallet as _lw
 from services.auction import resolve_lot
 from infrastructure.repositories.duel import get_expired_pending
 from services.duel import decline_duel
@@ -76,7 +88,6 @@ async def expedition_background_task(bot: Bot):
                         await db.commit()
                         continue
 
-                    from infrastructure.repositories.wallet_log import log_wallet as _lw
                     if marriage_id:
                         await db.execute(
                             "UPDATE marriages SET family_balance = family_balance + ? WHERE id = ?",
@@ -294,9 +305,8 @@ async def duel_and_auction_task(bot: Bot):
                 # ── Weekly: achievement "star" (weekly_top1_count) ─────────────
                 # Run once per Monday: check that this Monday hasn't been processed yet
                 # using a sentinel row in player_buffs (buff_type='weekly_top1_done').
-                from datetime import datetime, timezone as _tz
-                _now = datetime.now(_tz.utc)
-                _monday_date = (_now - __import__('datetime').timedelta(days=_now.weekday())).strftime("%Y-%m-%d")
+                _now = datetime.now(_tz_utc.utc)
+                _monday_date = (_now - timedelta(days=_now.weekday())).strftime("%Y-%m-%d")
                 if _now.weekday() == 0 and _now.hour == 0:
                     try:
                         # Guard: only run once per Monday using a sentinel in player_buffs
@@ -347,18 +357,6 @@ async def chest_spawn_task(bot: Bot):
     while True:
         await asyncio.sleep(300)
         try:
-            from core.constants import (
-                CHEST_DURATION_SECONDS, CHEST_MIN_ACTIVE_USERS_24H,
-                CHEST_SPAWN_MIN_HOURS, CHEST_SPAWN_MAX_HOURS, CHEST_MAX_CLAIMANTS,
-                CHEST_REWARDS_BY_POSITION,
-            )
-            from infrastructure.repositories.chest_events import (
-                get_qualifying_chats, create_chest, close_chest,
-                get_expired_active, get_claims, update_last_chest_at,
-            )
-            from infrastructure.repositories.economy import add_balance as _ab
-            from infrastructure.repositories.wallet_log import log_wallet as _lw
-            from datetime import datetime, timedelta, timezone
 
             async with get_pool().acquire() as _conn:
                 db = PGAdapter(_conn)
@@ -424,8 +422,7 @@ async def exchange_scheduler_task(bot: Bot):
     while True:
         await asyncio.sleep(1800)
         try:
-            from datetime import datetime, timedelta, timezone as tz
-            now = datetime.now(tz.utc)
+            now = datetime.now(_tz_utc.utc)
             now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
             async with get_pool().acquire() as _conn:

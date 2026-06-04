@@ -84,9 +84,10 @@ async def place_bid(
         return {"ok": False, "error": "Лот не найден или уже закрыт."}
 
     ends = lot["ends_at"]
+    # asyncpg returns datetime objects; str path kept for aiosqlite compatibility
     if isinstance(ends, str):
         ends = datetime.strptime(ends, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-    elif ends.tzinfo is None:
+    elif isinstance(ends, datetime) and ends.tzinfo is None:
         ends = ends.replace(tzinfo=timezone.utc)
     if ends <= datetime.now(timezone.utc):
         return {"ok": False, "error": "Аукцион истёк."}
