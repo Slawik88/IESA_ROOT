@@ -44,6 +44,22 @@ async def process_message_xp(
     old_xp = new_xp - XP_PER_MESSAGE
     msg_count = stats.get("user_messages_count_all_time", 0)
 
+    # study_notes: +50% XP if buff active
+    try:
+        async with db.execute(
+            "SELECT expires_at, value FROM player_buffs "
+            "WHERE user_id = ? AND buff_type = 'study_xp' AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)",
+            (user_id,),
+        ) as _sb:
+            _sbrow = await _sb.fetchone()
+        if _sbrow:
+            study_bonus = int(round(XP_PER_MESSAGE * float(_sbrow["value"] or 0.5)))
+            if study_bonus > 0:
+                await chat_repo.add_xp(db, user_id, chat_id, study_bonus)
+                new_xp += study_bonus
+    except Exception:
+        pass
+
     owl_level = await zoo_repo.get_active_species_level(db, user_id, "owl")
     if owl_level > 0:
         owl = get_pet_bonus("owl", owl_level)

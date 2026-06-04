@@ -416,6 +416,57 @@ class InvCB(CallbackData, prefix="inv"):
 
 # ── Main inventory command ────────────────────────────────────────────────────
 
+@router.message(TextCmd(["использовать"]))
+async def cmd_use_item(message: types.Message, db, text_args: str = None):
+    """бот использовать, [item_id] — применить расходуемый предмет."""
+    if message.chat.type == "private":
+        return
+    if not text_args:
+        return await message.answer(
+            "❓ <b>Использование:</b> <code>бот использовать, [item_id]</code>\n"
+            "Например: <code>бот использовать, study_notes</code>",
+            parse_mode="HTML",
+        )
+    item_id = text_args.strip().lower()
+    user_id = message.from_user.id
+
+    # Check inventory
+    async with db.execute(
+        "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? AND quantity > 0",
+        (user_id, item_id),
+    ) as c:
+        row = await c.fetchone()
+    if not row:
+        return await message.answer(f"❌ У вас нет <code>{item_id}</code> в инвентаре.", parse_mode="HTML")
+
+    # ── study_notes: +50% XP на 4 часа ──────────────────────────────────────
+    if item_id == "study_notes":
+        from datetime import datetime, timedelta
+        expires = (datetime.utcnow() + timedelta(hours=4)).strftime("%Y-%m-%d %H:%M:%S")
+        await db.execute(
+            "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at, value) VALUES (?, ?, 1, ?, 0.5) "
+            "ON CONFLICT(user_id, buff_type) DO UPDATE SET expires_at = EXCLUDED.expires_at",
+            (user_id, "study_xp", expires),
+        )
+        await db.execute(
+            "UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = 'study_notes'",
+            (user_id,),
+        )
+        await db.commit()
+        return await message.answer(
+            "📚 <b>Конспект применён!</b>\n+50% XP от сообщений на 4 часа. 🔥",
+            parse_mode="HTML",
+        )
+
+    # ── Unknown usable item ──────────────────────────────────────────────────
+    item_info = ITEMS_REGISTRY.get(item_id, {})
+    await message.answer(
+        f"⚠️ Предмет <b>{item_info.get('name', item_id)}</b> нельзя применить вручную.\n"
+        f"<i>{item_info.get('description', '')}</i>",
+        parse_mode="HTML",
+    )
+
+
 @router.message(TextCmd(["инвентарь", "рюкзак", "вещи"]))
 async def cmd_inventory(message: types.Message, db):
     if message.chat.type == "private":

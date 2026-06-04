@@ -29,6 +29,38 @@ def _apply_pity_modifier(table: list, pity_count: int, soft_threshold: int) -> l
     ]
 
 
+def _apply_luck_bonus(table: list, bonus: float) -> list:
+    """Boost 'valuable' entry weights by (1 + bonus). Used for potion_luck items."""
+    if bonus <= 0:
+        return table
+    mult = 1.0 + bonus
+    return [
+        {**entry, "weight": entry["weight"] * mult} if entry.get("valuable") else entry
+        for entry in table
+    ]
+
+
+async def _consume_luck_potions(db, user_id: int) -> float:
+    """Check inventory for gacha luck potions. Consume one and return total bonus, or 0."""
+    for item_id in ("potion_luck_s", "potion_luck_m"):
+        async with db.execute(
+            "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? AND quantity > 0",
+            (user_id, item_id),
+        ) as c:
+            row = await c.fetchone()
+        if row:
+            from core.registry import ITEMS_REGISTRY as _REG
+            item = _REG.get(item_id, {})
+            buff_value = item.get("buff_value", 0.15)
+            # Consume one use
+            await db.execute(
+                "UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = ?",
+                (user_id, item_id),
+            )
+            return buff_value
+    return 0.0
+
+
 def _choose_entry(table: list) -> dict:
     total = sum(e["weight"] for e in table)
     r = random.uniform(0, total)
@@ -194,6 +226,10 @@ async def roll_single(
             modified_table = _apply_pity_modifier(
                 table, pity_before, PITY_SOFT[spin_type]
             )
+            # Apply potion_luck bonus if user has one in inventory
+            luck_bonus = await _consume_luck_potions(db, user_id)
+            if luck_bonus > 0:
+                modified_table = _apply_luck_bonus(modified_table, luck_bonus)
             chosen = _choose_entry(modified_table)
 
         # ── Apply drop ────────────────────────────────────────────────────────
