@@ -74,6 +74,32 @@ body{background:var(--bg);color:var(--text);
 .streak-num{font-size:32px;font-weight:800;color:var(--gold);
             text-shadow:0 0 20px rgba(201,168,76,.3);margin:8px 0 2px}
 
+/* Streak cycle blocks */
+.streak-cycle{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin:10px 0}
+.sday{background:var(--s);border:1px solid var(--border2);border-radius:var(--r);
+      padding:6px 2px;text-align:center;position:relative;transition:.2s}
+.sday.done{background:rgba(82,179,96,.12);border-color:rgba(82,179,96,.3)}
+.sday.current{background:var(--gold-dim);border-color:var(--gold);box-shadow:0 0 8px rgba(201,168,76,.2)}
+.sday.bonus{background:rgba(201,168,76,.08);border-color:var(--gold)}
+.sday .sd-num{font-size:9px;color:var(--muted);margin-bottom:2px}
+.sday .sd-mora{font-size:10px;font-weight:700;color:var(--gold)}
+.sday .sd-dia{font-size:9px;color:var(--blue);margin-top:1px}
+.sday .sd-done{position:absolute;top:2px;right:3px;font-size:9px;color:var(--green)}
+.sday .sd-bonus{font-size:8px;color:var(--gold);font-weight:700;margin-top:2px}
+
+/* Currency bar (sticky) */
+#curr-bar{position:fixed;top:0;left:0;right:0;z-index:90;
+          background:rgba(8,9,15,.92);backdrop-filter:blur(8px);
+          border-bottom:1px solid var(--border2);
+          display:flex;align-items:center;justify-content:center;
+          gap:16px;height:36px;padding:0 12px;
+          transform:translateY(-100%);transition:transform .25s ease}
+#curr-bar.visible{transform:translateY(0)}
+#curr-bar .cb-item{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600}
+#curr-bar .cb-val{color:var(--bright)}
+#curr-bar .cb-sep{color:var(--border2);font-size:14px}
+body.has-curr-bar{padding-top:36px}
+
 /* Achievements */
 .ach-item{padding:10px 0;border-bottom:1px solid var(--border2)}
 .ach-item:last-child{border:none}
