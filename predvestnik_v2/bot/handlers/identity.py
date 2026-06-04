@@ -96,6 +96,132 @@ def _load_theme(theme_id: str) -> dict:
     return THEMES.get(theme_id, THEMES[DEFAULT_THEME])
 
 
+def _premium_bar(pct: int, length: int = 7) -> str:
+    """▰▰▰▰▰▱▱ style bar for premium templates."""
+    filled = round(pct / 100 * length)
+    return "▰" * filled + "▱" * (length - filled)
+
+
+def _render_premium_profile(
+    template_id: str,
+    user_id: int,
+    name: str,
+    g_rank: str, l_rank: str,
+    lvl: int, pct: int,
+    mora_v: float, dia_v: float,
+    d_msgs: int, w_msgs: int, a_msgs: int,
+    streak: int, ach_count: int, warns: int,
+    marriage, nursery_pets: list,
+) -> str:
+    """Render a premium zarniki profile with tematicheskaya terminologiya."""
+    bar  = _premium_bar(pct)
+    mora = _compact(mora_v)
+    dia  = _compact(dia_v)
+    d    = _compact(d_msgs)
+    w    = _compact(w_msgs)
+    a    = _compact(a_msgs)
+
+    # Partner line
+    if marriage:
+        p_nm = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
+        dur  = _marriage_duration(marriage.get("marriage_date"))
+        partner_raw = f"{safe_html(p_nm)} ({dur})"
+    else:
+        partner_raw = None
+
+    # Pets
+    pets_active  = [p for p in nursery_pets if p.get("placement") == "active"]
+    pets_passive = [p for p in nursery_pets if p.get("placement") == "passive"]
+
+    def _pet_str(p, slot_label: str, port_label: str) -> str:
+        sp  = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+        lv  = p.get("pet_level", 1) or 1
+        return slot_label, sp, lv, port_label
+
+    name_upper = name.upper()
+
+    # ── SYSTEM OVERRIDE ───────────────────────────────────────────────────────
+    if template_id == "system_override":
+        pet_lines = ""
+        if marriage:
+            pet_lines += f"[+] 🔗 LINK: {partner_raw} 💟\n"
+        else:
+            pet_lines += "[+] 🔗 LINK: <i>null</i> 💔\n"
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp  = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv  = p.get("pet_level", 1) or 1
+            pet_lines += f"[*] 🤖 PORT_0{i}: {safe_html(p['name'])} ({sp}) [v{lv}.0]\n"
+        return (
+            f"▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼\n\n"
+            f">_ 👤 USER_ID: <b>{name}</b> 📟\n"
+            f">_ 🛡️ AUTH: <b>{g_rank}</b>\n"
+            f">_ 🏘️ NODE: <b>{l_rank}</b>\n"
+            f">_ 🔋 SYNC: Ур.<b>{lvl}</b> [{bar}] <b>{pct}%</b> ⚡\n\n"
+            f"► [ 💾 ROOT / ASSETS ] ──────────────\n"
+            f"/// 🪙 CRDT: <b>{mora}</b> 🔌 /// 💎 CRYPT: <b>{dia}</b> 🌐\n\n"
+            f"► [ 📡 ROOT / DATA ] ────────────────\n"
+            f"/// ⚖️ REP: +0 ⚙️  /// 🏆 ACHV: <b>{ach_count}</b> 🔓\n"
+            f"/// 💬 LOG: <b>{d}</b>/d 📝 | <b>{w}</b>/w 📊 | <b>{a}</b>/all 🕹️\n\n"
+            f"► [ 🔌 ROOT / ENTITIES ] ────────────\n"
+            f"{pet_lines}"
+            f"\n▲ 🕹️ ID: <code>{user_id}</code> ▲\n"
+            f"<i>*&gt;_ Проснись, Нео. Ты всё ещё в чате… ▮*</i> 🟢"
+        )
+
+    # ── ВЕТЕР СВОБОДЫ ─────────────────────────────────────────────────────────
+    elif template_id == "wind_free":
+        pet_lines = ""
+        if marriage:
+            pet_lines += f"💍 Узы: {partner_raw} 💞\n"
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp  = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv  = p.get("pet_level", 1) or 1
+            pet_lines += f"🐾 Слот {['I','II'][i-1]}: <b>{safe_html(p['name'])}</b> ({sp}) ⟡ Ранг {lv} {'🔥' if i==1 else '🌙'}\n"
+        return (
+            f"【 🎐 ‧̍̊˙· ВЕТЕР СВОБОДЫ ·˙‧̍̊ 🎐 】\n\n"
+            f"👤 <b>{name_upper}</b> ✦ 🌍 {g_rank} 🪽\n"
+            f"[ 🗺️ Ранг: 🏘 {l_rank} ]\n"
+            f"╰┈➤ 🌬️ Ур. <b>{lvl}</b> [{bar}] <b>{pct}%</b> ✨\n\n"
+            f"▽ 【 🎒 ИНВЕНТАРЬ И ЗАСЛУГИ 】\n"
+            f"[ 🪙 {mora} Монет ] ✧ [ 💎 {dia} Кристаллов ]\n"
+            f"[ ⚖️ Кармы: +0 🪷 ] ✧ [ 🏆 Ачивок: {ach_count} 📜 ]\n\n"
+            f"▽ 【 🕊️ АКТИВНОСТЬ В МИРЕ 】\n"
+            f"💬 Связь: <b>{d}</b>/дн 🍃 | <b>{w}</b>/нед ✉️ | <b>{a}</b>/вс 🌐\n\n"
+            f"▽ 【 ⚔️ СПУТНИКИ И ОТРЯД 】\n"
+            f"{pet_lines if pet_lines else '🐾 Питомников нет…\n'}"
+            f"\n【 🎐 ID: <code>{user_id}</code> 】\n"
+            f"<i>«Разве не прекрасно, когда ветер сам выбирает путь?»</i> 🍃"
+        )
+
+    # ── ИМПЕРИЯ ───────────────────────────────────────────────────────────────
+    elif template_id == "empire":
+        pet_lines = ""
+        if marriage:
+            pet_lines += f"💍 Узы крови: {partner_raw} 🌹\n"
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp   = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv   = p.get("pet_level", 1) or 1
+            role = "Телохранитель" if i == 1 else "Резерв"
+            bird = "🦅" if i == 1 else "🐉"
+            pet_lines += f"🐾 {role}: <b>{safe_html(p['name'])}</b> ({sp}) ✦ Ранг {lv} {bird}\n"
+        return (
+            f"🥂 ✧ ━━ ⚜️ ИМПЕРИЯ ⚜️ ━━ ✧ 🥂\n\n"
+            f"👑 ВЛАДЕЛЕЦ: <b>{name}</b> ✦ 🌍 {g_rank}\n"
+            f"╰┈➤ 💠 Ур. <b>{lvl}</b> [{bar}] <b>{pct}%</b> ✨\n\n"
+            f"▼ 【 🏦 ФИНАНСОВЫЙ КАПИТАЛ 】\n"
+            f"💳 Наличные: {mora} 🪙 | 💎 Брюллики: {dia} 💠\n"
+            f"⚖️ Влияние: +0 🍷 | 🏆 Награды: {ach_count} 🏵️\n\n"
+            f"▼ 【 🪩 СВЕТСКАЯ АКТИВНОСТЬ 】\n"
+            f"💌 Чат: <b>{d}</b>/дн 🍾 | <b>{w}</b>/нед 🥂 | <b>{a}</b>/вс 🎭\n\n"
+            f"▼ 【 ⚜️ ПРИВИЛЕГИИ И СВИТА 】\n"
+            f"{pet_lines if pet_lines else '🐾 Свита пуста…\n'}"
+            f"\n🥂 ✧ ━━ 💳 ID: <code>{user_id}</code> ━━ ✧ 🥂\n"
+            f"<i>«У роскоши нет предела, есть только цена…»</i> 💸"
+        )
+
+    return None  # unknown template → use standard renderer
+
+
 def _pets_block(pets: list, prefix: str = "") -> str:
     """Compact active/passive slots for profile card."""
     active  = [p for p in pets if p.get("placement") == "active"]
@@ -257,6 +383,22 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
         dt = parse_dt(first_seen_raw)
         if dt:
             join_str = dt.strftime("%d.%m.%Y")
+
+    # ── premium template override ─────────────────────────────────────────────
+    premium_tpl = theme.get("premium_template")
+    if premium_tpl:
+        premium_text = _render_premium_profile(
+            premium_tpl, user_id, name,
+            g_rank, l_rank,
+            lvl, pct,
+            mora_v, dia_v,
+            d_msgs, w_msgs, a_msgs,
+            streak, ach_count, warns,
+            marriage, nursery_pets,
+        )
+        if premium_text:
+            await message.answer(premium_text, parse_mode="HTML")
+            return
 
     name_block = _build_name_lines(name, g_rank, l_rank, join_str, t_accent, t_side, P)
     pets_str   = _pets_block(nursery_pets, P)

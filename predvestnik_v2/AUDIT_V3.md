@@ -141,7 +141,7 @@ seasonal: theme_halloween, theme_spring, theme_casino
 
 ---
 
-## БЛОК 10 — Premium (Zarniki) темы по промту юзера
+## БЛОК 10 ✅ — Premium (Zarniki) темы по промту юзера
 **Файлы**: `core/themes.py`, `FastAPI/static/app.js` (buildProfilePreview)
 **Задача**: Реализовать крутые zarniki-темы по философии из промта юзера:
 - Тематическая терминология (Кредиты, Фамильяр, Кровный пакт и т.д.)

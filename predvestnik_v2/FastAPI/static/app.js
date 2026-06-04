@@ -1484,7 +1484,15 @@ function loadThemes() {
   }).catch(e => { el('col-themes').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
 
+function _premBar(pct, len=7) {
+  const f=Math.round(pct/100*len);
+  return '▰'.repeat(f)+'▱'.repeat(len-f);
+}
+
 function buildProfilePreview(t) {
+  const tpl = t.premium_template;
+  if(tpl) return _buildPremiumPreview(t, tpl);
+
   const p = _profileData;
   const name = p ? (p.username || 'Игрок') : 'Игрок';
   const lvl  = p?.chats?.[0]?.user_level || 1;
@@ -1528,6 +1536,71 @@ function buildProfilePreview(t) {
     ${sep}
     ${ln(`🆔 <code>894721653</code>`)}
     ${botLines}
+  </div>`;
+}
+
+function _buildPremiumPreview(t, tpl) {
+  const p = _profileData;
+  const name  = p ? (p.username || 'Игрок') : 'Игрок';
+  const lvl   = p?.chats?.[0]?.user_level || 1;
+  const pct   = 79;
+  const bar   = _premBar(pct);
+  const mora  = p ? fmt(Math.round(p.mora||0)) : '47.3k';
+  const dia   = p ? (p.diamonds||0).toFixed(1) : '215';
+  const ach   = p?.achievements || 42;
+  const streak= p?.streak || 30;
+  const nameU = name.toUpperCase();
+  // simplified global rank
+  const grank = p?.rank || 'Мастер Теней';
+  const lrank = p?.chats?.[0]?.chat_local_rank_name || 'Ветеран';
+
+  const lines = [];
+  if(tpl === 'system_override') {
+    lines.push('▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼','',
+      `>_ 👤 USER_ID: ${name} 📟`,
+      `>_ 🛡️ AUTH: ${grank}`,
+      `>_ 🔋 SYNC: Ур.${lvl} [${bar}] ${pct}% ⚡`,'',
+      '► [ 💾 ROOT / ASSETS ] ──────────────',
+      `/// 🪙 CRDT: ${mora} 🔌 /// 💎 CRYPT: ${dia} 🌐`,'',
+      '► [ 📡 ROOT / DATA ] ────────────────',
+      `/// ⚖️ REP: +0 ⚙️  /// 🏆 ACHV: ${ach} 🔓`,'',
+      '► [ 🔌 ROOT / ENTITIES ] ────────────',
+      '[+] 🔗 LINK: Аня (212d) 💟',
+      '[*] 🤖 PORT_01: Буря (Феникс) [v8.0] 🔥','',
+      '▲ 🕹️ ID: 894721653 ▲',
+      '*>_ Проснись, Нео. Ты всё ещё в чате… ▮* 🟢');
+  } else if(tpl === 'wind_free') {
+    lines.push('【 🎐 ‧̍̊˙· ВЕТЕР СВОБОДЫ ·˙‧̍̊ 🎐 】','',
+      `👤 ${nameU} ✦ 🌍 ${grank} 🪽`,
+      `[ 🗺️ Ранг: 🏘 ${lrank} ]`,
+      `╰┈➤ 🌬️ Ур. ${lvl} [${bar}] ${pct}% ✨`,'',
+      '▽ 【 🎒 ИНВЕНТАРЬ И ЗАСЛУГИ 】',
+      `[ 🪙 ${mora} Монет ] ✧ [ 💎 ${dia} Кристаллов ]`,
+      `[ ⚖️ Кармы: +0 🪷 ] ✧ [ 🏆 Ачивок: ${ach} 📜 ]`,'',
+      '▽ 【 🕊️ АКТИВНОСТЬ В МИРЕ 】',
+      '💬 Связь: 42/дн 🍃 | 892/нед ✉️ | 23k/вс 🌐','',
+      '▽ 【 ⚔️ СПУТНИКИ И ОТРЯД 】',
+      '💍 Узы: Аня (212 дн.) 💞',
+      '🐾 Слот I: Буря (Феникс) ⟡ Ранг 8 🔥','',
+      '【 🎐 ID: 894721653 】',
+      '«Разве не прекрасно…» 🍃');
+  } else if(tpl === 'empire') {
+    lines.push('🥂 ✧ ━━ ⚜️ ИМПЕРИЯ ⚜️ ━━ ✧ 🥂','',
+      `👑 ВЛАДЕЛЕЦ: ${name} ✦ 🌍 ${grank}`,
+      `╰┈➤ 💠 Ур. ${lvl} [${bar}] ${pct}% ✨`,'',
+      '▼ 【 🏦 ФИНАНСОВЫЙ КАПИТАЛ 】',
+      `💳 Наличные: ${mora} 🪙 | 💎 Брюллики: ${dia} 💠`,
+      `⚖️ Влияние: +0 🍷 | 🏆 Награды: ${ach} 🏵️`,'',
+      '▼ 【 🪩 СВЕТСКАЯ АКТИВНОСТЬ 】',
+      '💌 Чат: 42/дн 🍾 | 892/нед 🥂 | 23k/вс 🎭','',
+      '▼ 【 ⚜️ ПРИВИЛЕГИИ И СВИТА 】',
+      '💍 Узы крови: Аня (212 дн.) 🌹',
+      '🐾 Телохранитель: Буря (Феникс) ✦ Ранг 8 🦅','',
+      '🥂 ✧ ━━ 💳 ID: 894721653 ━━ ✧ 🥂',
+      '«У роскоши нет предела…» 💸');
+  }
+  return `<div class="profile-preview">
+    ${lines.map(l=>l===''?'<div style="height:6px"></div>':`<div class="pp-line">${l}</div>`).join('')}
   </div>`;
 }
 
