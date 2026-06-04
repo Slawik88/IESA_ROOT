@@ -17,7 +17,7 @@ from infrastructure.repositories.exchange import (
 )
 from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
-from datetime import datetime, timedelta, timezone as _tz_utc
+from datetime import datetime, timedelta, timezone
 from core.constants import (
     CHEST_DURATION_SECONDS, CHEST_MIN_ACTIVE_USERS_24H,
     CHEST_SPAWN_MIN_HOURS, CHEST_SPAWN_MAX_HOURS, CHEST_MAX_CLAIMANTS,
@@ -305,7 +305,7 @@ async def duel_and_auction_task(bot: Bot):
                 # ── Weekly: achievement "star" (weekly_top1_count) ─────────────
                 # Run once per Monday: check that this Monday hasn't been processed yet
                 # using a sentinel row in player_buffs (buff_type='weekly_top1_done').
-                _now = datetime.now(_tz_utc.utc)
+                _now = datetime.now(timezone.utc)
                 _monday_date = (_now - timedelta(days=_now.weekday())).strftime("%Y-%m-%d")
                 if _now.weekday() == 0 and _now.hour == 0:
                     try:
@@ -422,7 +422,7 @@ async def exchange_scheduler_task(bot: Bot):
     while True:
         await asyncio.sleep(1800)
         try:
-            now = datetime.now(_tz_utc.utc)
+            now = datetime.now(timezone.utc)
             now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
             async with get_pool().acquire() as _conn:
