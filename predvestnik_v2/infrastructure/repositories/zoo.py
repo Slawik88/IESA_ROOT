@@ -441,8 +441,25 @@ async def open_eggs_batch(
             await db.rollback()
             return []
 
-        for _ in range(count):
+        # Check lucky_charm: +15% rarity boost on first egg of the batch
+        lucky_charm_active = False
+        async with db.execute(
+            "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = 'lucky_charm' AND quantity > 0",
+            (user_id,),
+        ) as _lc:
+            _lc_row = await _lc.fetchone()
+        if _lc_row:
+            lucky_charm_active = True
+            await db.execute(
+                "UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = 'lucky_charm'",
+                (user_id,),
+            )
+
+        for i in range(count):
             rand = random.randint(1, 100)
+            # lucky_charm boosts rarity on first egg only: shift thresholds by 15 pts upward
+            if lucky_charm_active and i == 0:
+                rand = max(1, rand - 15)
             cumulative = 0
             selected_rarity = "common"
             for rarity, chance in rates.items():

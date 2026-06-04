@@ -31,22 +31,25 @@ async def expedition_background_task(bot: Bot):
                 async with db.execute(
                     "SELECT e.pet_id, e.chat_id, e.duration_hours, "
                     "p.name, p.owner_id, p.marriage_id, p.species_id, "
-                    "COALESCE(p.pet_level, 1) AS pet_level "
+                    "COALESCE(p.pet_level, 1) AS pet_level, "
+                    "u.user_tg_username AS owner_username "
                     "FROM active_expeditions e "
                     "JOIN pets p ON e.pet_id = p.id "
+                    "LEFT JOIN users u ON u.user_tg_id = p.owner_id "
                     "WHERE e.ends_at <= CURRENT_TIMESTAMP"
                 ) as cursor:
                     completed = await cursor.fetchall()
 
                 for row in completed:
-                    pet_id = row["pet_id"]
-                    chat_id = row["chat_id"]
-                    hours = row["duration_hours"]
-                    pet_name = row["name"]
-                    owner_id = row["owner_id"]
+                    pet_id      = row["pet_id"]
+                    chat_id     = row["chat_id"]
+                    hours       = row["duration_hours"]
+                    pet_name    = row["name"]
+                    owner_id    = row["owner_id"]
                     marriage_id = row["marriage_id"]
-                    species_id = row["species_id"]
+                    species_id  = row["species_id"]
                     species_level = row["pet_level"]
+                    owner_username = row.get("owner_username") or None
 
                     # Collect levels of all non-exhausted nursery pets for bonus lookup.
                     species_levels: dict[str, int] = {}
@@ -109,6 +112,33 @@ async def expedition_background_task(bot: Bot):
                                 (owner_id, item_id, qty, qty),
                             )
 
+                    # 🗺 Карта Сокровищ: +50% к морe если есть в инвентаре
+                    treasure_bonus = ""
+                    if owner_id:
+                        try:
+                            async with db.execute(
+                                "SELECT quantity FROM inventory WHERE user_id = ? "
+                                "AND item_id = 'treasure_map' AND quantity > 0",
+                                (owner_id,),
+                            ) as _tm:
+                                _tm_row = await _tm.fetchone()
+                            if _tm_row:
+                                bonus = int(reward["mora"] * 0.5)
+                                reward["mora"] += bonus
+                                await db.execute(
+                                    "UPDATE inventory SET quantity = quantity - 1 "
+                                    "WHERE user_id = ? AND item_id = 'treasure_map'",
+                                    (owner_id,),
+                                )
+                                await db.execute(
+                                    "UPDATE users SET user_balance_mora = user_balance_mora + ? "
+                                    "WHERE user_tg_id = ?",
+                                    (bonus, owner_id),
+                                )
+                                treasure_bonus = f"\n🗺 <b>+{bonus} 🪙</b> <i>(Карта Сокровищ!)</i>"
+                        except Exception:
+                            pass
+
                     await db.execute(
                         "DELETE FROM active_expeditions WHERE pet_id = ?", (pet_id,)
                     )
@@ -124,13 +154,22 @@ async def expedition_background_task(bot: Bot):
                         except Exception:
                             pass
 
+                    # Build owner mention line
+                    if owner_username:
+                        owner_mention = f'<a href="tg://user?id={owner_id}">@{owner_username}</a>'
+                    elif owner_id:
+                        owner_mention = f'<a href="tg://user?id={owner_id}">Игрок</a>'
+                    else:
+                        owner_mention = "Игрок"
+
                     try:
                         text = (
-                            f"🎉 <b>ПИТОМЕЦ ВЕРНУЛСЯ!</b>\n"
-                            f"🎒 <b>{pet_name}</b> успешно завершил поход ({hours} ч.) и принес:\n"
+                            f"🎉 {owner_mention}, <b>питомец вернулся!</b>\n"
+                            f"🐾 <b>{pet_name}</b> завершил поход ({hours} ч.) и принёс:\n"
                             f"🪙 Мора: <b>+{reward['mora']}</b>\n"
                             f"💠 Опыт: <b>+{reward['xp']}</b>"
                             f"{reward['buff_message']}"
+                            f"{treasure_bonus}"
                         )
                         await bot.send_message(chat_id, text, parse_mode="HTML")
                     except Exception as e:
