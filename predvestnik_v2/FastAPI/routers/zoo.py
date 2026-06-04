@@ -168,6 +168,22 @@ async def feed_pet(body: FeedRequest, db=Depends(get_db), user=Depends(require_t
     new_fatigue = max(0, pet["fatigue"] - item["fatigue_restore"])
     await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_fatigue, body.pet_id))
     await db.commit()
+
+    # Quest: pet_feeds_today
+    try:
+        from services.quests import increment_metric as _q_incr
+        async with db.execute(
+            "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
+            "ORDER BY user_messages_count_all_time DESC LIMIT 1",
+            (user["id"],),
+        ) as _cc:
+            _cr = await _cc.fetchone()
+        if _cr:
+            await _q_incr(db, user["id"], _cr[0], "pet_feeds_today", delta=1.0)
+            await db.commit()
+    except Exception:
+        pass
+
     return {"ok": True, "fatigue_before": pet["fatigue"], "fatigue_after": new_fatigue,
             "restored": item["fatigue_restore"]}
 

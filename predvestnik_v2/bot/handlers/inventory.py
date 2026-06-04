@@ -766,6 +766,20 @@ async def cb_open_egg(callback: types.CallbackQuery, callback_data: InvCB, db):
     milestone_text = _fmt_milestone_lines(granted)
 
     ach_grants = await increment_metric(db, user_id, "eggs_opened", delta=1.0)
+    new_species_cb = 1 if r.get("outcome") == "first_copy_created" else 0
+    if new_species_cb:
+        ach_grants += await increment_metric(db, user_id, "distinct_species_owned", delta=1.0)
+    if r.get("new_level") == 10:
+        ach_grants += await increment_metric(db, user_id, "pets_at_level_10", delta=1.0)
+
+    # Quest tracking — same as cmd_open_eggs
+    chat_id_cb = callback.message.chat.id
+    await quest_increment(db, user_id, chat_id_cb, "eggs_opened_today", delta=1.0)
+    if r.get("rarity") in ("rare", "epic", "legendary", "mythic"):
+        await quest_increment(db, user_id, chat_id_cb, "rare_or_better_pet_dups_today", delta=1.0)
+    if r.get("outcome") == "leveled_up" and r.get("milestones_unlocked"):
+        await quest_increment(db, user_id, chat_id_cb, "pet_level_ups_today", delta=1.0)
+
     await db.commit()
     ach_text = format_achievement_notification(ach_grants)
 
