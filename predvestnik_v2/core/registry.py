@@ -401,6 +401,12 @@ ACHIEVEMENTS: Dict[str, Dict] = {
         "metric": "weekly_top1_count",
         "thresholds": [1, 3, 7, 15, 30, 60, 100, 150, 220, 365],
     },
+    "star_gacha": {
+        "icon": "🌠", "name": "Звёздная Гача",
+        "metric": "legendary_gacha_drops",
+        "thresholds": [1, 3, 7, 15, 30, 60, 120, 250, 500, 1000],
+        "desc": "Получите N легендарных+ питомцев из гачи. Считаются legendary и mythic.",
+    },
 }
 
 ACHIEVEMENT_LEVEL_REWARDS: Dict[int, Dict] = {

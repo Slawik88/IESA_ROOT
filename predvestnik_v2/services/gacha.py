@@ -220,6 +220,13 @@ async def roll_single(
         # Achievement: gacha_spins
         try:
             await _incr_ach(db, user_id, "gacha_spins", delta=1.0)
+            # Achievement: star_gacha — legendary+ drops from gacha
+            legendary_count = sum(
+                1 for dup in summary.get("dup_outcomes", [])
+                if dup.get("rarity") in ("legendary", "mythic")
+            )
+            if legendary_count:
+                await _incr_ach(db, user_id, "legendary_gacha_drops", delta=float(legendary_count))
             await db.commit()
         except Exception:
             pass

@@ -124,20 +124,36 @@ async def streak_middleware(
                     except Exception:
                         pass
 
-                    # Achievement: max_streak_ever (uses SET-max semantics)
+                    # Achievement: max_streak_ever (set-max semantics: only track growth)
                     try:
-                        from infrastructure.repositories.achievements import get_achievement, upsert_achievement  # noqa: PLC0415
+                        from infrastructure.repositories.achievements import get_achievement  # noqa: PLC0415
                         ach = await get_achievement(db, user.id, "persistent")
                         prev_max = ach["progress"] if ach else 0.0
                         new_streak_val = float(result["new_streak"])
                         if new_streak_val > prev_max:
-                            await upsert_achievement(
-                                db, user.id, "persistent",
-                                level=(ach["level"] if ach else 0),
-                                progress=new_streak_val,
-                            )
-                            await _incr_ach(db, user.id, "persistent", delta=new_streak_val - prev_max)
+                            # increment_metric uses metric name, not achievement key
+                            delta = new_streak_val - prev_max
+                            await _incr_ach(db, user.id, "max_streak_ever", delta=delta)
                             await db.commit()
+                    except Exception:
+                        pass
+
+                    # Achievements: peak_mora_balance (Магнат) + peak_diamonds_balance (Сокровищница)
+                    # Checked once per day — set-max semantics, no recursion risk
+                    try:
+                        from infrastructure.repositories.achievements import get_achievement  # noqa: PLC0415
+                        bal = await eco_repo.get_balance(db, user.id)
+                        cur_mora = float(bal.get("user_balance_mora", 0) or 0)
+                        cur_dia  = float(bal.get("user_balance_diamonds", 0) or 0)
+                        mora_ach = await get_achievement(db, user.id, "magnate")
+                        dia_ach  = await get_achievement(db, user.id, "treasury")
+                        prev_mora = mora_ach["progress"] if mora_ach else 0.0
+                        prev_dia  = dia_ach["progress"]  if dia_ach  else 0.0
+                        if cur_mora > prev_mora:
+                            await _ach_incr(db, user.id, "peak_mora_balance", delta=cur_mora - prev_mora)
+                        if cur_dia > prev_dia:
+                            await _ach_incr(db, user.id, "peak_diamonds_balance", delta=cur_dia - prev_dia)
+                        await db.commit()
                     except Exception:
                         pass
 

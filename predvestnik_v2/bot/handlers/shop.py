@@ -285,7 +285,7 @@ async def cb_shop_do_buy(query: types.CallbackQuery, callback_data: ShopCB, db):
         mora_spent = prices["mora"] * qty
         if mora_spent > 0:
             try:
-                await ach_incr(db, query.from_user.id, "patron", delta=mora_spent)
+                await ach_incr(db, query.from_user.id, "total_mora_spent_shop", delta=mora_spent)
                 await db.commit()
             except Exception:
                 pass
