@@ -5,17 +5,31 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.filters.text_commands import TextCmd
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 
-# Reverse-hash map: str(numeric_hash) → real item_id (same logic as auction resolver)
-_HASH_TO_ITEM: dict[str, str] = {
-    str(abs(hash(iid)) % (10 ** 9)): iid
-    for iid in ITEMS_REGISTRY
-}
-
-def _resolve_item_id(raw_id: str) -> str:
-    """Resolve legacy numeric hash item_ids to real string item_ids."""
-    if str(raw_id) in ITEMS_REGISTRY:
-        return str(raw_id)
-    return _HASH_TO_ITEM.get(str(raw_id), str(raw_id))
+# NOTE: hash() for strings is randomized per process — static reverse-hash map
+# is unreliable. Resolution is done via auction_lots history at call time.
+async def _resolve_item_id_db(db, raw_id: str) -> str:
+    """Resolve a numeric legacy item_id by looking up auction_lots.item_name."""
+    raw_id = str(raw_id)
+    if raw_id in ITEMS_REGISTRY:
+        return raw_id
+    if not raw_id.isdigit():
+        return raw_id
+    try:
+        async with db.execute(
+            "SELECT item_name FROM auction_lots "
+            "WHERE item_id_or_pet_id = ? AND item_type = 'inventory' LIMIT 1",
+            (int(raw_id),),
+        ) as c:
+            row = await c.fetchone()
+        if row and row[0]:
+            parts = row[0].split("||", 1)
+            if len(parts) > 1:
+                real = parts[1].strip()
+                if real in ITEMS_REGISTRY:
+                    return real
+    except Exception:
+        pass
+    return raw_id
 from infrastructure.repositories.economy import get_inventory
 from infrastructure.repositories.zoo import open_eggs_batch
 from services.utils import safe_html, check_callback_owner
@@ -331,14 +345,34 @@ def _fmt_milestone_lines(granted: list[dict]) -> str:
     return "\n".join(lines)
 
 
+async def _pre_resolve_items(db, items: list[tuple[str, int]]) -> list[tuple[str, int]]:
+    """Resolve any numeric legacy item_ids via auction_lots history.
+    Migrates the DB row to the real item_id so the problem self-heals.
+    """
+    resolved = []
+    for item_id, qty in items:
+        raw = str(item_id)
+        real = await _resolve_item_id_db(db, raw)
+        if real != raw and real in ITEMS_REGISTRY:
+            # Silently migrate this user's inventory row
+            try:
+                await db.execute(
+                    "UPDATE inventory SET item_id = ? WHERE user_id = ? AND item_id = ?",
+                    (real, db._current_user_id if hasattr(db, '_current_user_id') else 0, raw),
+                )
+            except Exception:
+                pass
+        resolved.append((real, qty))
+    return resolved
+
+
 def _build_inventory_text(name: str, items: list[tuple[str, int]]) -> str:
     lines = [f"🎒 <b>ИНВЕНТАРЬ:</b> {name}\n"]
     if not items:
         lines.append("<i>Пусто.</i>")
     else:
         for idx, (item_id, qty) in enumerate(items):
-            real_id = _resolve_item_id(str(item_id))
-            item_data = ITEMS_REGISTRY.get(real_id, {"name": f"❓ Предмет #{real_id}"})
+            item_data = ITEMS_REGISTRY.get(str(item_id), {"name": f"❓ Предмет #{item_id}"})
             prefix = "└" if idx == len(items) - 1 else "├"
             lines.append(f"{prefix} <b>{item_data['name']}</b> — <code>×{qty}</code>")
     return "\n".join(lines)
@@ -481,8 +515,9 @@ async def cmd_inventory(message: types.Message, db):
     ) as cursor:
         rows = await cursor.fetchall()
 
-    # Default: only owned (qty > 0)
+    # Default: only owned (qty > 0); resolve any numeric legacy item_ids
     owned = [(iid, qty) for iid, qty in rows if qty > 0]
+    owned = await _pre_resolve_items(db, owned)
 
     if not owned:
         return await message.answer(
@@ -521,7 +556,7 @@ async def cb_inv_filter(query: types.CallbackQuery, callback_data: InvCB, db):
     owned_map = {iid: qty for iid, qty in rows}
 
     if mode == "has":
-        items = [(iid, qty) for iid, qty in rows if qty > 0]
+        items = await _pre_resolve_items(db, [(iid, qty) for iid, qty in rows if qty > 0])
         text = _build_inventory_text(name, items) if items else (
             f"🎒 <b>ИНВЕНТАРЬ:</b> {name}\n\n<i>Инвентарь пуст.</i>"
         )
