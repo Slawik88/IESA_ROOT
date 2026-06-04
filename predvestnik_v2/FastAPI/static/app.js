@@ -795,39 +795,91 @@ function loadQuests() {
     }).join('')+'</div>':'<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:28px;margin-bottom:6px">📋</div><div style="font-size:12px">Нет квестов — напиши <code>бот задания</code> в чате</div></div>';
   }).catch(e=>{el('qc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
+const SPIN_ICONS = {novice:'🎟',standard:'🎲',premium:'💎',diamond:'💠'};
+const SPIN_RARITY_ORDER = ['mythic','legendary','epic','rare','uncommon','common'];
+
+function _topRarity(dups) {
+  for(const r of SPIN_RARITY_ORDER) if(dups.some(d=>d.rarity===r)) return r;
+  return '';
+}
+
 function loadGacha() {
   api('/gacha/').then(d=>{
-    el('gc').innerHTML=`<div class="balrow"><div class="bal"><div class="bv" id="gacha-bal">🪙 ${fmt(d.mora)}</div><div class="bl">Мора</div></div></div>
-      <div class="card"><div class="card-title">Выберите крутку</div>${d.spin_types.map(s=>`<div class="spin-row" onclick="doSpin('${s.spin_type}',this)">
-        <span style="font-size:20px">🎲</span>
-        <span style="flex:1;font-size:13px;font-weight:600">${s.label}</span>
-        ${s.token_qty?`<span style="font-size:11px;color:var(--green)">🎟 ×${s.token_qty}</span>`:''}
-        <span style="font-size:12px;color:var(--gold)">${s.cost_mora?fmt(s.cost_mora)+' 🪙':s.cost_dia+' 💎'}</span>
-      </div>`).join('')}</div><div id="spin-res"></div>`;
+    el('gc').innerHTML=`
+    <div class="gacha-header">
+      <div class="gh-title">✨ ГАЧА</div>
+      <div class="gh-sub">Крути яйца, получай питомцев и ресурсы</div>
+    </div>
+    <div class="gacha-balance">
+      <span class="gb-item" id="gacha-bal-mora">🪙 ${fmt(d.mora)}</span>
+      <span style="color:var(--border2)">│</span>
+      <span class="gb-item" id="gacha-bal-dia">💎 ${(d.diamonds||0).toFixed(1)}</span>
+    </div>
+    <div class="card">
+      <div class="card-title" style="margin-bottom:10px">Выберите крутку</div>
+      ${d.spin_types.map(s=>{
+        const icon = SPIN_ICONS[s.spin_type] || '🎲';
+        const cost = s.cost_mora ? `${fmt(s.cost_mora)} 🪙` : `${s.cost_dia} 💎`;
+        const rDesc = {novice:'Обычные и Редкие питомцы',standard:'Редкие и Эпические',premium:'Эпические и Легендарные',diamond:'Легендарные. Гарант на 50+'}[s.spin_type]||'';
+        return `<div class="spin-row" onclick="doSpin('${s.spin_type}',this)">
+          <div class="sr-icon">${icon}</div>
+          <div class="sr-info">
+            <div class="sr-name">${s.label}</div>
+            ${rDesc?`<div class="sr-desc">${rDesc}</div>`:''}
+          </div>
+          ${s.token_qty?`<span style="font-size:11px;color:var(--green);margin-right:6px">🎟 ×${s.token_qty}</span>`:''}
+          <div class="sr-cost">${cost}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div id="spin-res"></div>`;
   }).catch(e=>{el('gc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
-// doSpin — does NOT call loadGacha() to preserve the result display
+
+// doSpin — preserves result; no loadGacha() call
 function doSpin(st, row) {
-  row.style.opacity = '.5'; row.style.pointerEvents = 'none';
-  api('/gacha/spin', {method:'POST', body:JSON.stringify({spin_type:st})}).then(r => {
-    const cards = [];
-    if(r.mora) cards.push({text:`🪙 ${fmt(r.mora)} Мора`, cls:''});
-    if(r.diamonds) cards.push({text:`💎 ${r.diamonds} Алмазов`, cls:''});
-    (r.items||[]).forEach(i => cards.push({text:`${i.name} ×${i.qty}`, cls:''}));
-    (r.dup_outcomes||[]).forEach(d => cards.push({text:`🐾 ${d.species||''} дубл.`, cls:d.rarity||''}));
-    const html = cards.length
-      ? cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${i*0.1}s">${c.text}</div>`).join('')
-      : '<div class="spin-card">—</div>';
-    el('spin-res').innerHTML = `
-      <div style="font-size:12px;font-weight:700;color:var(--gold2);margin-bottom:8px">🎉 Результат!</div>
-      ${html}
+  row.style.opacity='.4'; row.style.pointerEvents='none';
+  el('spin-res').innerHTML='';
+  api('/gacha/spin',{method:'POST',body:JSON.stringify({spin_type:st,chat_id:_cid||0})}).then(r=>{
+    const dups = r.dup_outcomes||[];
+    const topRarity = _topRarity(dups);
+    const glowCls = topRarity ? 'glow-'+topRarity : '';
+
+    // Determine display emoji for animation ball
+    const ballEmoji = dups.length ? (PET_SPECIES_EMOJI[dups[0].species]||'🐾') : (r.mora ? '🪙' : '💎');
+
+    // Build result cards
+    const cards=[];
+    if(r.mora) cards.push({text:`🪙 ${fmt(r.mora)} Мора`, cls:'', icon:'🪙'});
+    if(r.diamonds) cards.push({text:`💎 ${r.diamonds} Алмазов`, cls:'', icon:'💎'});
+    (r.items||[]).forEach(i=>cards.push({text:`${i.name}${i.qty>1?' ×'+i.qty:''}`, cls:'', icon:'📦'}));
+    dups.forEach(d=>cards.push({
+      text:`🐾 ${d.species||''} ${rc(d.rarity||'common')} ${d.outcome==='first_copy_created'?'— НОВЫЙ!':d.new_level?'→ Lv'+d.new_level:''}`,
+      cls:d.rarity||'', icon:'🐾'
+    }));
+
+    el('spin-res').innerHTML=`
+      <div class="spin-anim-wrap ${glowCls}">
+        <div class="spin-anim-ball">${ballEmoji}</div>
+        <div style="font-size:11px;color:var(--gold2);margin-top:8px;font-weight:700">
+          ${topRarity?('⚡ '+topRarity.toUpperCase()):'Результат'}
+        </div>
+      </div>
+      <div class="spin-results">
+        ${cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${(i*0.08+3.1).toFixed(2)}s">${c.text}</div>`).join('')}
+      </div>
       <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="closeSpinResult()">🔄 Крутить ещё</button>`;
-    const balEl = el('gacha-bal');
-    if(balEl) api('/profile/me').then(d=>{ if(d.mora!==undefined) balEl.textContent=`🪙 ${fmt(d.mora)}`; }).catch(()=>{});
-    row.style.opacity = '1'; row.style.pointerEvents = '';
-  }).catch(e => { toast(e, false); row.style.opacity='1'; row.style.pointerEvents=''; });
+
+    // Update balance displays
+    refreshCurrBar();
+    const balEl=el('gacha-bal-mora');
+    if(balEl) api('/profile/me').then(d=>{ if(d.mora!==undefined) balEl.textContent='🪙 '+fmt(d.mora); }).catch(()=>{});
+    row.style.opacity='1'; row.style.pointerEvents='';
+  }).catch(e=>{toast(e,false); row.style.opacity='1'; row.style.pointerEvents='';});
 }
-function closeSpinResult() { const s=el('spin-res'); if(s)s.innerHTML=''; loadGacha(); }
+// Minimal species→emoji map (expand as needed)
+const PET_SPECIES_EMOJI={hamster:'🐹',owl:'🦉',dog:'🐕',turtle:'🐢',falcon:'🦅',wolf:'🐺',fox:'🦊',dragon:'🐉',unicorn:'🦄'};
+function closeSpinResult(){const s=el('spin-res');if(s)s.innerHTML='';loadGacha();}
 function loadCraft() {
   api('/craft/').then(recipes => {
     if (!recipes.length) { el('cc').innerHTML='<div class="loader">Рецептов пока нет.</div>'; return; }
