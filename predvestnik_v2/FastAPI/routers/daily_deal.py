@@ -49,16 +49,19 @@ class BuyDealRequest(BaseModel):
 
 @router.post("/buy")
 async def buy_deal(body: BuyDealRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Купить предмет из акции дня."""
-    from infrastructure.repositories.daily_deal import get_deal, mark_purchased, get_user_purchase_count
+    """Купить предмет из акции дня. deal_id = slot (1–7)."""
+    from infrastructure.repositories.daily_deal import (
+        get_current_deals, already_purchased, record_purchase,
+    )
     from infrastructure.repositories.economy import add_balance, add_item
 
-    deal = await get_deal(db, body.deal_id)
-    if not deal or deal.get("expires_at") < datetime.now(timezone.utc).isoformat()[:19]:
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    deals = await get_current_deals(db)
+    deal = next((d for d in deals if d["slot"] == body.deal_id), None)
+    if not deal:
         raise HTTPException(400, "Этот лот акции недоступен.")
 
-    already = await get_user_purchase_count(db, user["id"], body.deal_id)
-    if already >= deal.get("max_per_user", 1):
+    if await already_purchased(db, user["id"], body.deal_id, today):
         raise HTTPException(400, "Вы уже купили этот лот сегодня.")
 
     bal = await get_balance(db, user["id"])
@@ -76,6 +79,6 @@ async def buy_deal(body: BuyDealRequest, db=Depends(get_db), user=Depends(requir
         raise HTTPException(400, "Нет цены у этого предмета.")
 
     await add_item(db, user["id"], deal["item_id"], deal.get("quantity", 1))
-    await mark_purchased(db, user["id"], body.deal_id)
+    await record_purchase(db, user["id"], body.deal_id, today)
     await db.commit()
     return {"ok": True, "item_id": deal["item_id"], "qty": deal.get("quantity", 1)}

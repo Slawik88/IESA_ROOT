@@ -129,11 +129,15 @@ body.has-curr-bar{padding-top:36px}
 .ts-dark{background:rgba(100,80,150,.2);color:#9080c0}
 
 /* Profile preview in theme modal */
-.profile-preview{background:var(--card);border-radius:var(--r);padding:12px;margin:10px 0;border:1px solid var(--border2)}
-.pp-deco{font-size:11px;font-family:monospace;color:var(--muted);text-align:center;letter-spacing:0}
-.pp-content{padding:8px 0;text-align:center}
-.pp-name{font-size:14px;font-weight:700;color:var(--bright);margin-bottom:3px}
-.pp-info{font-size:11px;color:var(--muted)}
+.profile-preview{background:var(--card2);border-radius:var(--r-lg);padding:0;margin:10px 0;
+                 border:1px solid var(--border2);overflow:hidden;font-family:monospace}
+.pp-line{font-size:11px;color:var(--text);padding:1px 10px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+.pp-sep{color:var(--muted);opacity:.7}
+.pp-accent{color:var(--gold2);font-weight:700}
+.pp-bot{color:var(--muted);font-style:italic;padding:4px 10px 8px;font-size:10px}
+.pp-header{padding:8px 10px 4px;background:rgba(0,0,0,.15)}
+.pp-badge{display:inline-block;font-size:9px;padding:1px 6px;border-radius:99px;
+          font-weight:700;background:rgba(201,168,76,.15);color:var(--gold);margin-left:6px}
 
 /* Auction */
 /* Auction lot cards */

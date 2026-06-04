@@ -1486,15 +1486,48 @@ function loadThemes() {
 
 function buildProfilePreview(t) {
   const p = _profileData;
-  const name = p ? `@${p.username||'Игрок'}` : '@Игрок';
-  const info = p ? `Lv${p.chats?.[0]?.user_level||1} · 🔥${p.streak||0} стрик · 🪙 ${fmt(p.mora||0)}` : 'Загрузка...';
+  const name = p ? (p.username || 'Игрок') : 'Игрок';
+  const lvl  = p?.chats?.[0]?.user_level || 1;
+  const mora = p ? fmt(Math.round(p.mora||0)) : '—';
+  const dia  = p ? (p.diamonds||0).toFixed(1) : '—';
+  const streak = p?.streak || 0;
+  const acc  = t.accent || '🔮';
+  const side = t.side ? t.side+' ' : '';
+  const pfx  = t.prefix || '';  // zarniki side bar char
+
+  // Build top lines (may contain \n)
+  const topLines = (t.top||'').split('\n').map(l=>`<div class="pp-line pp-header">${l}</div>`).join('');
+
+  // Sep line
+  const sep = `<div class="pp-line pp-sep">${t.sep||''}</div>`;
+
+  // Content lines with prefix for zarniki
+  const ln = (s) => `<div class="pp-line">${pfx}${s}</div>`;
+
+  // Bot phrase (may contain \n and {id})
+  const botRaw = (t.bot_line||t.bot||'').replace('{id}','894721653');
+  const botLines = botRaw.split('\n').map(l=>`<div class="pp-bot">${l}</div>`).join('');
+
   return `<div class="profile-preview">
-    <div class="pp-deco">${t.top||''}</div>
-    <div class="pp-content">
-      <div class="pp-name">${t.accent||'🔮'} ${name}</div>
-      <div class="pp-info">${t.rarity_label} · ${info}</div>
-    </div>
-    <div class="pp-deco">${t.bot_line||''}</div>
+    ${topLines}
+    ${ln(`<span class="pp-accent">${side}${acc} <b>${name}</b>${t.side?' '+acc:''}</span>`)}
+    ${ln(`🌍 Мастер Теней  |  🏘 Ветеран`)}
+    ${ln(`📅 В чате с: 01.01.2026`)}
+    ${sep}
+    ${ln(`🌟 Ур.<b>${lvl}</b>  [████████░░] 79% (7.1k/9k)`)}
+    ${ln(`⚖️ Реп: +29  |  ⚠️ Варны: 0`)}
+    ${ln(`💰 ${mora} 🪙  |  💎 ${dia}  |  🏆 14 ачив.`)}
+    ${ln(`🔥 Стрик: ${streak} дн.`)}
+    ${sep}
+    ${ln(`💍 Партнёр: Аня (45 дн.)`)}
+    ${ln(`🎨 Тема: ${t.name||'?'}<span class="pp-badge">${t.badge||''} ${t.rarity_label||''}</span>`)}
+    ${sep}
+    ${ln(`🐾 <b>Питомцы:</b>`)}
+    ${ln(`├ ⚔️ 🟣 Буря (Феникс) · Lv8 · 🟢`)}
+    ${ln(`└ 💤 🟡 Золото (Дракон) · Lv5 · 🟡`)}
+    ${sep}
+    ${ln(`🆔 <code>894721653</code>`)}
+    ${botLines}
   </div>`;
 }
 
