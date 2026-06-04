@@ -44,7 +44,10 @@ FastAPI/        ← адаптер Web. routers → services + infrastructure
 | `bot/__main__.py` | Запуск: пул БД → FastAPI uvicorn → advisory lock → бот |
 | `bot/middlewares/db.py` | Каждое сообщение: XP, квесты (messages_in_chat_today), ачивки (talker) |
 | `bot/middlewares/streak_mw.py` | Стрик, marriage_days_total, persistent ачивка |
-| `FastAPI/main.py` | HTML мини-апп (~1900 строк), все роутеры подключены |
+| `FastAPI/main.py` | Точка входа (~170 строк): роутеры, auth, WS, отдача статики |
+| `FastAPI/static/index.html` | HTML-каркас мини-аппа (~126 строк) |
+| `FastAPI/static/app.css` | Все стили мини-аппа (~279 строк) |
+| `FastAPI/static/app.js` | Вся клиентская логика (~1825 строк, classic script) |
 | `FastAPI/notifications.py` | In-process Queue для WebSocket push-уведомлений |
 | `services/scheduler.py` | Фоновые задачи: экспедиции, аукцион, сундуки, обмен |
 

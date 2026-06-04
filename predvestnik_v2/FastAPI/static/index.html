@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<title>Предвестник</title>
+<link rel="manifest" href="./manifest.json"/>
+<meta name="theme-color" content="#c9a84c"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="{{BASE}}/static/app.css?v={{ASSET_VER}}"/>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<div id="login-ov" class="login-ov hidden">
+  <div style="font-size:52px;animation:glow 2s infinite">🔮</div>
+  <h1>Предвестник</h1>
+  <p>Войдите через Telegram для доступа к игровому профилю.</p>
+  <div id="tg-login-widget">
+    <!-- Widget script here so Telegram renders the button in this exact location -->
+    <script src="https://telegram.org/js/telegram-widget.js?22"
+            data-telegram-login="{{BOT_USERNAME}}" data-size="large" data-radius="8"
+            data-onauth="onTelegramWidgetAuth(user)" data-request-access="write"></script>
+  </div>
+  <p style="font-size:10px;color:var(--dim)">Данные защищены подписью Telegram.</p>
+</div>
+
+<dialog id="modal">
+  <div class="mhead"><span id="mt" class="mtitle"></span><button class="mclose" onclick="CM()">✕</button></div>
+  <div id="mb" class="mbody"></div>
+  <div id="mf" class="mfoot"></div>
+</dialog>
+
+<!-- 1. Профиль -->
+<div id="pg-profile" class="page active">
+  <div class="tabs" style="flex-wrap:wrap;gap:4px">
+    <button class="tb active" onclick="switchPro('main',this)">👤 Профиль</button>
+    <button class="tb" onclick="switchPro('streak',this)">🔥 Стрик</button>
+    <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
+    <button class="tb" onclick="switchPro('marriage',this)">💍 Брак</button>
+    <button class="tb" onclick="switchPro('wallet',this)">💰 Кошелёк</button>
+  </div>
+  <div id="pro-main"><div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div></div>
+  <div id="pro-streak" style="display:none"></div>
+  <div id="pro-ach" style="display:none"></div>
+  <div id="pro-marriage" style="display:none"></div>
+  <div id="pro-wallet" style="display:none"></div>
+</div>
+
+<!-- 2. Зоопарк -->
+<div id="pg-zoo" class="page">
+  <div id="zoo-exp-wrap"></div>
+  <div class="tabs">
+    <button class="tb active" onclick="swZoo('nursery',this)">🐾 В питомнике</button>
+    <button class="tb" onclick="swZoo('storage',this)">📦 Склад</button>
+    <button class="tb" onclick="swZoo('guide',this)">📖 Справка</button>
+  </div>
+  <div id="zoo-c" class="loader">Загрузка...</div>
+</div>
+
+<!-- 3. Арена -->
+<div id="pg-arena" class="page">
+  <div class="tabs">
+    <button class="tb active" onclick="swArena('quests',this)">📋 Квесты</button>
+    <button class="tb" onclick="swArena('gacha',this)">🎲 Гача</button>
+    <button class="tb" onclick="swArena('craft',this)">⚗️ Крафт</button>
+    <button class="tb" onclick="swArena('duels',this)">⚔️ Дуэли</button>
+    <button class="tb" onclick="swArena('dark',this)">🌑 Тёмная</button>
+  </div>
+  <div id="ar-quests"><div id="qc" class="loader">Загрузка...</div></div>
+  <div id="ar-gacha" style="display:none"><div id="gc" class="loader">Загрузка...</div></div>
+  <div id="ar-craft" style="display:none"><div id="cc" class="loader">Загрузка...</div></div>
+  <div id="ar-duels" style="display:none"><div id="dc" class="loader">Загрузка...</div></div>
+  <div id="ar-dark" style="display:none"><div id="dkc"></div></div>
+</div>
+
+<!-- 4. Рынок -->
+<div id="pg-market" class="page">
+  <div class="tabs" style="flex-wrap:wrap;gap:4px">
+    <button class="tb active" onclick="swMkt('auc',this)">🏛 Аукцион</button>
+    <button class="tb" onclick="swMkt('shop',this)">🛒 Магазин</button>
+    <button class="tb" onclick="swMkt('inv',this)">🎒 Инвентарь</button>
+    <button class="tb" onclick="swMkt('exch',this)">💱 Обмен</button>
+    <button class="tb" onclick="swMkt('deal',this)">🏷 Акция</button>
+    <button class="tb" onclick="swMkt('promo',this)">🎫 Промо</button>
+  </div>
+  <div id="balrow" class="balrow" style="display:none"></div>
+  <div id="mkt-auc"><div class="loader">Загрузка...</div></div>
+  <div id="mkt-shop" style="display:none"></div>
+  <div id="mkt-inv" style="display:none"></div>
+  <div id="mkt-exch" style="display:none"><div class="loader">Загрузка...</div></div>
+  <div id="mkt-deal" style="display:none"><div class="loader">Загрузка...</div></div>
+  <div id="mkt-promo" style="display:none"></div>
+</div>
+
+<!-- 5. Коллекция -->
+<div id="pg-coll" class="page">
+  <div class="tabs">
+    <button class="tb active" onclick="swColl('themes',this)">🎨 Темы</button>
+    <button class="tb" onclick="swColl('top',this)">🏆 Топ</button>
+  </div>
+  <div id="col-themes"><div class="loader">Загрузка...</div></div>
+  <div id="col-top" style="display:none">
+    <div class="tabs" style="margin-top:4px">
+      <button class="tb active" onclick="switchTop('local',this)">🏘 Чат</button>
+      <button class="tb" onclick="switchTop('global',this)">🌍 Глобально</button>
+    </div>
+    <div id="top-c" class="loader">Загрузка...</div>
+  </div>
+</div>
+
+<nav class="nav">
+  <div class="nb active" onclick="switchPage('profile',this)"><span class="ni">👤</span>Профиль</div>
+  <div class="nb" onclick="switchPage('zoo',this)"><span class="ni">🐾</span>Зоопарк</div>
+  <div class="nb" onclick="switchPage('arena',this)"><span class="ni">⚔️</span>Арена</div>
+  <div class="nb" onclick="switchPage('market',this)"><span class="ni">🏛</span>Рынок</div>
+  <div class="nb" onclick="switchPage('coll',this)"><span class="ni">🎨</span>Коллекция</div>
+  <div class="nb" onclick="refreshPage()" style="max-width:40px"><span class="ni">🔄</span></div>
+</nav>
+
+<script src="{{BASE}}/static/app.js?v={{ASSET_VER}}"></script>
+</body>
+</html>
