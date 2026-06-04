@@ -660,16 +660,41 @@ function swArena(tab,btn) {
   ['quests','gacha','craft','duels','dark'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
   ({quests:loadQuests,gacha:loadGacha,craft:loadCraft,duels:loadDuels,dark:loadDarkMora}[tab]||loadQuests)();
 }
+const QUEST_NAMES = {
+  msg_15:     {n:'💬 Болтун',         d:'Напиши 15 сообщений в чате'},
+  msg_30:     {n:'💬 Оратор',         d:'Напиши 30 сообщений в чате'},
+  feed_pet:   {n:'🍖 Забота о питомце',d:'Покорми питомца 1 раз'},
+  gacha_3:    {n:'🎲 Удача в крутке', d:'Покрути гачу 3 раза'},
+  exped_2:    {n:'🗺 Путешественник',  d:'Отправь питомца в 2 экспедиции'},
+  exped_4:    {n:'🗺 Искатель приключений',d:'Отправь питомца в 4 экспедиции'},
+  open_egg:   {n:'🥚 Яйцелов',        d:'Открой 1 яйцо в инвентаре'},
+  warp_3:     {n:'🌀 Варп-мастер',    d:'Отправь 3 варпа разным игрокам'},
+  auction_bid:{n:'🏛 Аукционист',     d:'Поставь 1 ставку на аукционе'},
+  gacha_10:   {n:'🎰 Одержимый гачей',d:'Покрути гачу 10 раз'},
+  hug_5:      {n:'🤗 Душа компании',  d:'Обними 5 разных игроков'},
+  rare_dup:   {n:'🌟 Редкий дубликат',d:'Получи дубликат редкого+ питомца'},
+  level_pet:  {n:'⬆️ Тренер',         d:'Повысь питомца до нового уровня'},
+};
 function loadQuests() {
   if(!_cid){el('qc').innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">Нужен Профиль с чатом.</div>';return;}
   api(`/quests/${_cid}`).then(qs=>{
     el('qc').innerHTML=qs.length?'<div class="card">'+qs.map(q=>{
       const pct=Math.min(100,Math.round((q.progress||0)/(q.target||1)*100));
-      const rw=q.reward?.mora?`+${fmt(q.reward.mora)} 🪙`:'';
-      return `<div class="qitem"><div style="font-size:13px;font-weight:600;color:var(--bright);margin-bottom:3px">${q.completed?'✅':'🔲'} ${q.id}</div>${rw?`<div style="font-size:11px;color:var(--gold)">${rw}</div>`:''}
+      const qi=QUEST_NAMES[q.id]||{n:q.id,d:''};
+      const rw=[
+        q.reward?.mora?`+${fmt(q.reward.mora)} 🪙`:'',
+        ...(q.reward?.items||[]).map(([id,n])=>n>1?`+${n}× ${id}`:'+'+id),
+      ].filter(Boolean).join(' · ');
+      return `<div class="qitem">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
+          <div style="font-size:13px;font-weight:600;color:var(--bright)">${q.completed?'✅':'🔲'} ${qi.n}</div>
+          ${rw?`<div style="font-size:11px;color:var(--gold);white-space:nowrap;margin-left:8px">${rw}</div>`:''}
+        </div>
+        ${qi.d?`<div style="font-size:10px;color:var(--muted);margin-bottom:4px">${qi.d}</div>`:''}
         <div class="qbar"><div class="qfill" style="width:${pct}%"></div></div>
-        <div style="font-size:10px;color:var(--muted)">${Math.round(q.progress||0)} / ${q.target}</div></div>`;
-    }).join('')+'</div>':'<div class="loader">Нет квестов — откройте «бот задания».</div>';
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">${Math.round(q.progress||0)} / ${q.target}</div>
+      </div>`;
+    }).join('')+'</div>':'<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:28px;margin-bottom:6px">📋</div><div style="font-size:12px">Нет квестов — напиши <code>бот задания</code> в чате</div></div>';
   }).catch(e=>{el('qc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 function loadGacha() {

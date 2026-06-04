@@ -6,7 +6,7 @@ from FastAPI.deps import get_db, require_tg_user
 from core.constants import AUCTION_COMMISSION, AUCTION_MIN_BID
 from core.registry import ITEMS_REGISTRY
 # ITEMS_REGISTRY used both here and inside loops for item metadata
-from infrastructure.repositories.economy import get_balance, get_item_quantity
+from infrastructure.repositories.economy import get_balance, get_item_quantity, remove_item
 from infrastructure.repositories.auction import get_reserve
 from services.auction import place_bid, create_auction_lot
 
