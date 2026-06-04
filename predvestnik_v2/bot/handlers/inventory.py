@@ -4,6 +4,18 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
+
+# Reverse-hash map: str(numeric_hash) → real item_id (same logic as auction resolver)
+_HASH_TO_ITEM: dict[str, str] = {
+    str(abs(hash(iid)) % (10 ** 9)): iid
+    for iid in ITEMS_REGISTRY
+}
+
+def _resolve_item_id(raw_id: str) -> str:
+    """Resolve legacy numeric hash item_ids to real string item_ids."""
+    if str(raw_id) in ITEMS_REGISTRY:
+        return str(raw_id)
+    return _HASH_TO_ITEM.get(str(raw_id), str(raw_id))
 from infrastructure.repositories.economy import get_inventory
 from infrastructure.repositories.zoo import open_eggs_batch
 from services.utils import safe_html, check_callback_owner
@@ -325,10 +337,8 @@ def _build_inventory_text(name: str, items: list[tuple[str, int]]) -> str:
         lines.append("<i>Пусто.</i>")
     else:
         for idx, (item_id, qty) in enumerate(items):
-            item_data = ITEMS_REGISTRY.get(
-                str(item_id),
-                {"name": f"❓ Неизвестный предмет (#{item_id})"},
-            )
+            real_id = _resolve_item_id(str(item_id))
+            item_data = ITEMS_REGISTRY.get(real_id, {"name": f"❓ Предмет #{real_id}"})
             prefix = "└" if idx == len(items) - 1 else "├"
             lines.append(f"{prefix} <b>{item_data['name']}</b> — <code>×{qty}</code>")
     return "\n".join(lines)

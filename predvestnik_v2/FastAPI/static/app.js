@@ -1700,6 +1700,9 @@ function filterAuction(q) {
   }) : _allLots;
   renderLots(lots, f);
 }
+// Category → icon emoji for auction lot cards
+const LOT_CAT_ICON={egg:'🥚',food:'🍖',spin_token:'🎟',booster:'⚡',material:'💠',utility:'🏡',theme:'🎨',pet:'🐾'};
+
 function renderLots(lots, searchQuery) {
   if (!el('lot-list')) return;
   if(!lots.length) {
@@ -1710,30 +1713,59 @@ function renderLots(lots, searchQuery) {
   }
   el('lot-list').innerHTML = lots.map(l => {
     const ends = new Date((l.ends_at+'').includes('T') ? l.ends_at : l.ends_at+'Z');
-    const diff = Math.max(0, Math.floor((ends - Date.now()) / 1000));
-    const tl = diff > 3600 ? Math.floor(diff/3600)+'ч' : Math.floor(diff/60)+'м';
+    const totalSec = 24*3600;
+    const diffSec  = Math.max(0, Math.floor((ends - Date.now())/1000));
+    const pctLeft  = Math.min(100, Math.round(diffSec/totalSec*100));
+    const tl = diffSec > 3600
+      ? Math.floor(diffSec/3600)+'ч '+Math.floor((diffSec%3600)/60)+'м'
+      : Math.floor(diffSec/60)+'м';
+    const isUrgent = diffSec < 3600;
+
     const hasBids = !!l.has_bids;
-    const curBid = l.current_bid || l.min_bid;
-    const minNext = l.min_next_bid || (hasBids ? Math.ceil(curBid * 1.05) + 1 : Math.ceil(l.min_bid));
-    const buyout = l.buyout || 0;
-    // Use server-parsed display name (strips '||item_id' suffix added by bot)
+    const curBid  = l.current_bid || l.min_bid;
+    const minNext = l.min_next_bid || (hasBids ? Math.ceil(curBid*1.05)+1 : Math.ceil(l.min_bid));
+    const buyout  = l.buyout || 0;
+
     const displayName = l.item_name_display || (l.item_name||'?').split('||')[0] || '?';
-    const desc = l.item_description || '';
-    const bidArgs = `${l.id},'${displayName.replace(/'/g,'')}',${curBid},${minNext},${hasBids},${buyout}`;
-    return `<div class="lot-card">
-      <div class="lot-name">${displayName}${l.quantity>1?' ×'+l.quantity:''}</div>
-      ${desc ? `<div style="font-size:10px;color:var(--muted);margin:2px 0">${desc}</div>` : ''}
-      <div class="lot-meta">
-        <span>от ${l.seller_name||'Игрок'}</span>
-        <span>⏳ ${tl}</span>
-        ${hasBids ? '<span style="color:var(--green);font-size:10px">🔥 Есть ставки</span>' : '<span style="color:var(--muted);font-size:10px">Первая ставка</span>'}
+    const desc   = l.item_description || '';
+    const cat    = l.item_category || '';
+    const icon   = LOT_CAT_ICON[cat] || (displayName.match(/^\p{Emoji}/u)?.[0] || '📦');
+    const qty    = l.quantity > 1 ? ` ×${l.quantity}` : '';
+    const bidArgs = `${l.id},'${displayName.replace(/'/g,"\\'")}',${curBid},${minNext},${hasBids},${buyout}`;
+
+    const hotCls     = hasBids ? ' hot' : '';
+    const buyoutCls  = buyout ? ' buyout-avail' : '';
+
+    return `<div class="lot-card${hotCls}${buyoutCls}">
+      <!-- Timer bar -->
+      <div class="lot-timer-bar">
+        <div class="lot-timer-fill" style="width:${pctLeft}%;${isUrgent?'background:var(--red)':''}"></div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div class="lot-bid">${fmt(curBid)} 🪙</div>
-          ${buyout ? `<div style="font-size:10px;color:var(--teal)">⚡ Выкуп: ${fmt(buyout)} 🪙</div>` : ''}
+      <!-- Top row: icon + info -->
+      <div class="lot-card-top">
+        <div class="lot-icon">${icon}</div>
+        <div class="lot-info">
+          <div class="lot-name">${displayName}${qty}</div>
+          ${desc?`<div class="lot-desc">${desc}</div>`:''}
+          <div class="lot-badges">
+            <span class="lot-badge seller">👤 ${l.seller_name||'Игрок'}</span>
+            <span class="lot-badge timer${isUrgent?' hot':''}">⏳ ${tl}</span>
+            ${hasBids
+              ? '<span class="lot-badge hot">🔥 Есть ставки</span>'
+              : '<span class="lot-badge first">Первая ставка</span>'}
+          </div>
         </div>
-        <button class="btn btn-sm btn-gold" onclick="openBidModal(${bidArgs})">💰 Ставка</button>
+      </div>
+      <!-- Footer: bid + button -->
+      <div class="lot-footer">
+        <div class="lot-price-wrap">
+          <div class="lot-bid-label">${hasBids?'Текущая ставка':'Старт'}</div>
+          <div class="lot-bid">${fmt(curBid)} 🪙</div>
+          ${buyout?`<div class="lot-buyout">⚡ Выкуп: ${fmt(buyout)} 🪙</div>`:''}
+        </div>
+        <button class="btn btn-sm btn-gold" onclick="openBidModal(${bidArgs})" style="padding:8px 14px">
+          💰 Ставка
+        </button>
       </div>
     </div>`;
   }).join('');

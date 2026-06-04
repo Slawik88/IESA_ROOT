@@ -11,23 +11,48 @@ router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 _CATEGORY_ORDER = {"egg": 0, "food": 1, "spin_token": 2, "booster": 3, "material": 4}
 
+# Reverse-hash lookup: numeric string ID (from legacy auction) → real item_id.
+# Built once at startup. Same logic as services/auction.py resolve_lot.
+_HASH_TO_ITEM: dict[str, str] = {
+    str(abs(hash(iid)) % (10 ** 9)): iid
+    for iid in ITEMS_REGISTRY
+}
+
+
+def _resolve_item_id(raw_id: str) -> str:
+    """Return canonical item_id, resolving numeric hash relics from legacy auction lots."""
+    if raw_id in ITEMS_REGISTRY:
+        return raw_id
+    return _HASH_TO_ITEM.get(raw_id, raw_id)
+
 
 @router.get("/")
 async def my_inventory(db=Depends(get_db), user=Depends(require_tg_user)):
     rows = await get_inventory(db, user["id"])
     result = []
     for row in rows:
-        item = ITEMS_REGISTRY.get(row["item_id"], {})
+        real_id = _resolve_item_id(row["item_id"])
+        item = ITEMS_REGISTRY.get(real_id, {})
+        # If we resolved a legacy hash, migrate the DB row silently
+        if real_id != row["item_id"] and item:
+            try:
+                await db.execute(
+                    "UPDATE inventory SET item_id = ? WHERE user_id = ? AND item_id = ?",
+                    (real_id, user["id"], row["item_id"]),
+                )
+                await db.commit()
+            except Exception:
+                pass
         result.append({
-            "item_id":     row["item_id"],
-            "name":        item.get("name", row["item_id"]),
-            "quantity":    row["quantity"],
-            "category":    item.get("category", "unknown"),
-            "description": item.get("description", ""),
-            "spin_type":   item.get("spin_type"),       # for spin tokens
-            "boost_hours": item.get("boost_hours"),     # for exp boosters
-            "fatigue_restore": item.get("fatigue_restore"),  # for food
-            "gacha_rates": GACHA_RATES.get(row["item_id"]),  # for eggs
+            "item_id":        real_id,
+            "name":           item.get("name", f"❓ Предмет #{real_id}"),
+            "quantity":       row["quantity"],
+            "category":       item.get("category", "unknown"),
+            "description":    item.get("description", ""),
+            "spin_type":      item.get("spin_type"),
+            "boost_hours":    item.get("boost_hours"),
+            "fatigue_restore": item.get("fatigue_restore"),
+            "gacha_rates":    GACHA_RATES.get(real_id),
         })
     result.sort(key=lambda x: (_CATEGORY_ORDER.get(x["category"], 9), x["item_id"]))
     return result
