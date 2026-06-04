@@ -1,5 +1,5 @@
 import aiosqlite
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 async def create_duel(
@@ -33,7 +33,7 @@ async def set_duel_status(
     winner_id: int | None = None,
     challenged_pet_id: int | None = None,
 ) -> None:
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     await db.execute(
         "UPDATE duels SET status = ?, winner_id = ?, challenged_pet_id = COALESCE(?, challenged_pet_id), "
         "resolved_at = ? WHERE id = ?",
@@ -54,7 +54,7 @@ async def get_cooldown(db: aiosqlite.Connection, user_a: int, user_b: int) -> st
 
 async def set_cooldown(db: aiosqlite.Connection, user_a: int, user_b: int) -> None:
     key_a, key_b = min(user_a, user_b), max(user_a, user_b)
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     await db.execute(
         "INSERT INTO duel_cooldowns (user_a, user_b, last_duel) VALUES (?, ?, ?) "
         "ON CONFLICT(user_a, user_b) DO UPDATE SET last_duel = excluded.last_duel",

@@ -142,7 +142,7 @@ async def create_lot(body: CreateLotRequest, db=Depends(get_db), user=Depends(re
     if not removed:
         # Lot was created but item can't be removed — cancel it
         from services.auction import cancel_lot
-        await cancel_lot(db, result)
+        await cancel_lot(db, result, user["id"])
         raise HTTPException(400, f"Недостаточно предметов: {item['name']} ×{body.quantity}.")
 
     await db.commit()

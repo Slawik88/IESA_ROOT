@@ -5,7 +5,6 @@ from loguru import logger
 from aiogram import Bot
 
 import random as _random
-from bot.config import config
 from services.expedition import calculate_reward
 from services.daily_deal import ensure_deals_fresh
 from infrastructure.repositories.zoo import get_active_species_level
@@ -19,6 +18,12 @@ from infrastructure.repositories.exchange import (
 from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
 from services.achievements import increment_metric as _incr_ach
+from services.quests import increment_metric as _incr_quest
+from infrastructure.repositories.auction import get_expired_active_lots
+from services.auction import resolve_lot
+from infrastructure.repositories.duel import get_expired_pending
+from services.duel import decline_duel
+from core.constants import DUEL_TIMEOUT_SECONDS
 
 
 async def expedition_background_task(bot: Bot):
@@ -147,7 +152,6 @@ async def expedition_background_task(bot: Bot):
                     # Achievement + quest: expeditions
                     if owner_id:
                         try:
-                            from services.quests import increment_metric as _incr_quest
                             await _incr_ach(db, owner_id, "expeditions_done", delta=1.0)
                             await _incr_quest(db, owner_id, chat_id, "expeditions_today", delta=1.0)
                             await db.commit()
@@ -217,9 +221,6 @@ async def duel_and_auction_task(bot: Bot):
                 db = PGAdapter(_conn)
 
                 # ── Expire timed-out duels ────────────────────────────────────
-                from core.constants import DUEL_TIMEOUT_SECONDS
-                from infrastructure.repositories.duel import get_expired_pending
-                from services.duel import decline_duel
                 expired_duels = await get_expired_pending(db, DUEL_TIMEOUT_SECONDS)
                 for duel in expired_duels:
                     try:
@@ -233,8 +234,6 @@ async def duel_and_auction_task(bot: Bot):
                         logger.error(f"Duel timeout error {duel['id']}: {e}")
 
                 # ── Resolve expired auction lots ──────────────────────────────
-                from infrastructure.repositories.auction import get_expired_active_lots
-                from services.auction import resolve_lot
                 expired_lots = await get_expired_active_lots(db)
                 for lot in expired_lots:
                     try:
@@ -293,28 +292,47 @@ async def duel_and_auction_task(bot: Bot):
                         logger.error(f"Auction resolve error lot {lot['id']}: {e}")
 
                 # ── Weekly: achievement "star" (weekly_top1_count) ─────────────
-                # Runs only on Monday between 00:00-00:59 UTC to avoid double-counting
+                # Run once per Monday: check that this Monday hasn't been processed yet
+                # using a sentinel row in player_buffs (buff_type='weekly_top1_done').
                 from datetime import datetime, timezone as _tz
                 _now = datetime.now(_tz.utc)
+                _monday_date = (_now - __import__('datetime').timedelta(days=_now.weekday())).strftime("%Y-%m-%d")
                 if _now.weekday() == 0 and _now.hour == 0:
                     try:
+                        # Guard: only run once per Monday using a sentinel in player_buffs
                         async with db.execute(
-                            "SELECT chat_tg_id FROM chat_settings LIMIT 500"
-                        ) as _cc:
-                            _chats = [r[0] for r in await _cc.fetchall()]
-                        for _cid in _chats:
-                            # Find user with most messages last week (daily_user_stats)
+                            "SELECT 1 FROM player_buffs WHERE user_id = 0 AND buff_type = ? LIMIT 1",
+                            (f"weekly_top1_done_{_monday_date}",),
+                        ) as _chk:
+                            _already = await _chk.fetchone()
+                        if _already:
+                            pass  # Already processed this Monday
+                        else:
+                            # Mark as done first to prevent duplicates
+                            await db.execute(
+                                "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
+                                "VALUES (0, ?, 1, NOW() + INTERVAL '8 days') "
+                                "ON CONFLICT (user_id, buff_type) DO NOTHING",
+                                (f"weekly_top1_done_{_monday_date}",),
+                            )
+                            await db.commit()
                             async with db.execute(
-                                "SELECT user_id, SUM(message_count) AS wc "
-                                "FROM daily_user_stats "
-                                "WHERE chat_tg_id = ? AND date >= CURRENT_DATE - INTERVAL '7 days' "
-                                "GROUP BY user_id ORDER BY wc DESC LIMIT 1",
-                                (_cid,),
-                            ) as _tc:
-                                _top = await _tc.fetchone()
-                            if _top and _top[0]:
-                                await _incr_ach(db, _top[0], "weekly_top1_count", delta=1.0)
-                        await db.commit()
+                                "SELECT chat_id FROM chat_settings LIMIT 500"
+                            ) as _cc:
+                                _chats = [r[0] for r in await _cc.fetchall()]
+                            for _weekly_cid in _chats:
+                                # Find user with most messages last week
+                                async with db.execute(
+                                    "SELECT user_id, SUM(message_count) AS wc "
+                                    "FROM daily_user_stats "
+                                    "WHERE chat_id = ? AND date >= CURRENT_DATE - INTERVAL '7 days' "
+                                    "GROUP BY user_id ORDER BY wc DESC LIMIT 1",
+                                    (_weekly_cid,),
+                                ) as _tc:
+                                    _top = await _tc.fetchone()
+                                if _top and _top[0]:
+                                    await _incr_ach(db, _top[0], "weekly_top1_count", delta=1.0)
+                            await db.commit()
                     except Exception as _e:
                         logger.warning(f"weekly_top1 tracking error: {_e}")
 

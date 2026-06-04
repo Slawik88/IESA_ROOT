@@ -61,7 +61,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
 
     # Достижения
     async with db.execute(
-        "SELECT COUNT(*) FROM achievements WHERE user_id = ? AND progress >= 1",
+        "SELECT COUNT(*) FROM achievements WHERE user_id = ? AND level > 0",
         (user_id,),
     ) as c:
         ach_count = (await c.fetchone())[0]
