@@ -69,7 +69,7 @@
 
 ---
 
-## БЛОК 5 — Баг инвентаря: числовые ID вместо имён
+## БЛОК 5 ✅ — Баг инвентаря: числовые ID вместо имён
 **Файлы**: `bot/handlers/inventory.py`, `FastAPI/routers/inventory.py`, `infrastructure/repositories/economy.py`
 **Задача**: Числа типа `912374303` в инвентаре = хэш из аукциона попал в `item_id` колонку.
 **Корень**: При резолюции лота без `||item_id` суффикса брался `str(hash)`. Уже частично исправлено reverse-lookup.
