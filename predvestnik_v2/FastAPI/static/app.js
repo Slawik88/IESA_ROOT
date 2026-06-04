@@ -1494,8 +1494,8 @@ function _premBar(pct, len=7) {
 // Frontend just sets innerHTML + white-space:pre-wrap. No parsing.
 
 function buildProfilePreview(t) {
-  // Return a loading placeholder; actual fetch happens after modal opens
-  return `<div class="profile-preview pp-loading">⏳ Загрузка предпросмотра…</div>`;
+  // Empty container — filled immediately via fetch (no visible flash)
+  return `<div class="profile-preview" style="min-height:40px"></div>`;
 
   const p    = _profileData;
   const name = p ? (p.username || 'Игрок') : 'Игрок';
