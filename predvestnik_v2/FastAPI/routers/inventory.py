@@ -54,11 +54,17 @@ async def my_inventory(db=Depends(get_db), user=Depends(require_tg_user)):
             resolved = await _resolve_via_auction_lots(db, raw_id)
             if resolved:
                 real_id = resolved
-                # Migrate DB row so it never appears as numeric again
+                # Migrate: merge numeric row into real item_id (UPSERT to handle duplicates)
                 try:
                     await db.execute(
-                        "UPDATE inventory SET item_id = ? WHERE user_id = ? AND item_id = ?",
+                        "INSERT INTO inventory (user_id, item_id, quantity) "
+                        "SELECT user_id, ?, quantity FROM inventory WHERE user_id = ? AND item_id = ? "
+                        "ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = inventory.quantity + EXCLUDED.quantity",
                         (real_id, user["id"], raw_id),
+                    )
+                    await db.execute(
+                        "DELETE FROM inventory WHERE user_id = ? AND item_id = ?",
+                        (user["id"], raw_id),
                     )
                     await db.commit()
                 except Exception:
