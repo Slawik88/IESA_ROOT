@@ -41,8 +41,18 @@ async def contrabanda(body: ContrabandaRequest, db=Depends(get_db), user=Depends
         row = await c.fetchone()
 
     if row:
-        if row["contrabanda_banned_until"] and str(row["contrabanda_banned_until"]) > str(now)[:19]:
-            raise HTTPException(400, "Вы пойманы! Подождите окончания штрафа.")
+        if row["contrabanda_banned_until"]:
+            ban_dt = row["contrabanda_banned_until"]
+            if isinstance(ban_dt, str):
+                ban_dt = datetime.fromisoformat(ban_dt).replace(tzinfo=timezone.utc)
+            elif ban_dt.tzinfo is None:
+                ban_dt = ban_dt.replace(tzinfo=timezone.utc)
+            if ban_dt > now:
+                diff = ban_dt - now
+                hours = int(diff.total_seconds() // 3600)
+                days = diff.days
+                time_str = f"{days}д. {hours % 24}ч." if days > 0 else f"{hours}ч."
+                raise HTTPException(400, f"🚔 Вы под следствием! До снятия штрафа: {time_str}")
         if row["contrabanda_last_at"]:
             cd_end = datetime.fromisoformat(str(row["contrabanda_last_at"])) + timedelta(days=DARK_MORA_CONTRABANDA_COOLDOWN_DAYS)
             if cd_end.replace(tzinfo=timezone.utc) > now:

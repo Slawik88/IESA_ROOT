@@ -102,7 +102,17 @@ async def increment_metric(
     today = _today_for_tz(tz_offset)
     existing = await get_user_quests(db, user_id, chat_id, today)
     if not existing:
-        return []
+        # Auto-assign so quests track 24/7 without needing «бот задания»
+        try:
+            chosen = _select_quests(3)
+            for q in chosen:
+                await upsert_quest(db, user_id, chat_id, today, q["id"], progress=0.0, completed=0)
+            await db.commit()
+            existing = await get_user_quests(db, user_id, chat_id, today)
+        except Exception:
+            return []
+        if not existing:
+            return []
 
     quest_ids_today = {r["quest_id"] for r in existing}
     completed_now: list[dict] = []

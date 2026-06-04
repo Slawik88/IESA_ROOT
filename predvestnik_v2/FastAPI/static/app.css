@@ -329,7 +329,7 @@ dialog::backdrop{background:rgba(0,0,0,.85);backdrop-filter:blur(6px)}
 /* Toast */
 .toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);
        padding:9px 16px;border-radius:99px;font-size:12px;font-weight:600;
-       z-index:9998;opacity:0;transition:.25s;pointer-events:none;white-space:nowrap}
+       z-index:10001;opacity:0;transition:.25s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
 .toast.show{opacity:1}
 
 /* Login overlay */

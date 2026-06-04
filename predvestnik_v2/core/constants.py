@@ -344,7 +344,7 @@ ROULETTE_RED_NUMBERS: frozenset = frozenset({
 # ── Dark Mora (Тёмная Мора) ───────────────────────────────────────────────────
 # Контрабанда
 DARK_MORA_CONTRABANDA_COOLDOWN_DAYS: int = 7
-DARK_MORA_CONTRABANDA_CATCH_PENALTY_DAYS: int = 14
+DARK_MORA_CONTRABANDA_CATCH_PENALTY_DAYS: int = 4
 DARK_MORA_CONTRABANDA_MIN_STAKE: float = 100.0
 DARK_MORA_CONTRABANDA_MAX_STAKE: float = 5000.0
 DARK_MORA_CONTRABANDA_SUCCESS_CHANCE: float = 0.40   # 40% success

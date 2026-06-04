@@ -125,6 +125,52 @@ class DeclineRequest(BaseModel):
     duel_id: int
 
 
+class AcceptRequest(BaseModel):
+    duel_id: int
+
+
+@router.post("/accept")
+async def accept(body: AcceptRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Принять входящий вызов на дуэль. Выбирает первого активного питомца."""
+    from infrastructure.repositories.zoo import get_user_pets as _get_pets
+    async with db.execute(
+        "SELECT id, challenger_id, challenged_id, stake FROM duels WHERE id = ? AND status = 'pending'",
+        (body.duel_id,),
+    ) as c:
+        duel = await c.fetchone()
+    if not duel or duel["challenged_id"] != user["id"]:
+        raise HTTPException(404, "Вызов не найден или уже недоступен.")
+
+    my_pets = await _get_pets(db, user["id"], placement="nursery")
+    if not my_pets:
+        raise HTTPException(400, "Нужен хотя бы один питомец в питомнике.")
+
+    challenged_pet = my_pets[0]
+    ok, result = await accept_duel(db, body.duel_id, challenged_pet)
+    if not ok:
+        raise HTTPException(400, str(result))
+    await db.commit()
+
+    # Notify via bot if possible
+    try:
+        import os, httpx
+        token = os.getenv("BOT_TOKEN", "")
+        if token and result.get("chat_id"):
+            winner_id = result.get("winner_id")
+            text = (
+                f"⚔️ <b>ДУЭЛЬ ЗАВЕРШЕНА!</b>\n"
+                f"{'🏆 Победитель: ' + str(winner_id) if winner_id else 'Ничья!'}\n"
+                f"Ставка: {duel['stake']:.0f} 🪙"
+            )
+            async with httpx.AsyncClient(timeout=3) as c_:
+                await c_.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                              json={"chat_id": result["chat_id"], "text": text, "parse_mode": "HTML"})
+    except Exception:
+        pass
+
+    return {"ok": True, "winner_id": result.get("winner_id"), "result": result}
+
+
 @router.post("/decline")
 async def decline(body: DeclineRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Отклонить входящий вызов на дуэль."""
