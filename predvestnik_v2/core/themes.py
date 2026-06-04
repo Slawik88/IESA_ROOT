@@ -538,6 +538,37 @@ THEMES: Dict[str, Dict[str, Any]] = {
         "accent": "🎰",
         "desc": "Казино, масти карт, удача против судьбы.",
     },
+    # ══ БЛОК 10: Premium Zarniki — кастомный рендер профиля ════════════════
+
+    "theme_system_override": {
+        "name": "💻 System Override", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 400,
+        "premium_template": "system_override",
+        # Минимальные поля для совместимости (рендер идёт через premium_template)
+        "top": "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼",
+        "sep": "► ─────────────────",
+        "bot": "*>_ Проснись, Нео. Ты всё ещё в чате… ▮* 🟢",
+        "accent": "💻",
+        "desc": "Взлом системы. Кибер-терминальный стиль с кодами доступа.",
+    },
+    "theme_wind_free": {
+        "name": "🎐 Ветер Свободы", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 380,
+        "premium_template": "wind_free",
+        "top": "【 🎐 ‧̍̊˙· ВЕТЕР СВОБОДЫ ·˙‧̍̊ 🎐 】",
+        "sep": "▽ 【 ───────────── 】",
+        "bot": "*«Разве не прекрасно, когда ветер сам выбирает путь?»* 🍃",
+        "accent": "🎐",
+        "desc": "Японский стиль свободы. Тематическая терминология в духе природы.",
+    },
+    "theme_empire": {
+        "name": "⚜️ Империя", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 420,
+        "premium_template": "empire",
+        "top": "🥂 ✧ ━━ ⚜️ ИМПЕРИЯ ⚜️ ━━ ✧ 🥂",
+        "sep": "▼ 【 ────────────── 】",
+        "bot": "🥂 ✧ ━━ 💳 ID: {id} ━━ ✧ 🥂\n*«У роскоши нет предела, есть только цена…»* 💸",
+        "accent": "👑",
+        "id_in_bot": True,
+        "desc": "Имперская роскошь. Тематическая терминология элиты.",
+    },
 }
 
 
