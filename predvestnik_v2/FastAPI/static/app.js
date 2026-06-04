@@ -129,7 +129,7 @@ function loadProfile() {
     _cid = d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
-    const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,3);
+    const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,6);
     el('pro-main').innerHTML=`
       <div class="card card-gold">
         <div class="phead">
@@ -779,9 +779,13 @@ function loadQuests() {
     el('qc').innerHTML=qs.length?'<div class="card">'+qs.map(q=>{
       const pct=Math.min(100,Math.round((q.progress||0)/(q.target||1)*100));
       const qi=QUEST_NAMES[q.id]||{n:q.id,d:''};
+      const _QI={'star_dust_s':'🌟 Звёздная пыль','star_dust_l':'✨ Небесная пыль',
+                 'soul_shard':'💠 Осколок','spin_token_novice':'🎟 Жетон',
+                 'spin_token_standard':'🎟 Ст. жетон','spin_token_premium':'🎟 Пр. жетон'};
       const rw=[
         q.reward?.mora?`+${fmt(q.reward.mora)} 🪙`:'',
-        ...(q.reward?.items||[]).map(([id,n])=>n>1?`+${n}× ${id}`:'+'+id),
+        q.reward?.diamonds?`+${q.reward.diamonds} 💎`:'',
+        ...(q.reward?.items||[]).map(([id,n])=>`+${n>1?n+'× ':''}${_QI[id]||id}`),
       ].filter(Boolean).join(' · ');
       return `<div class="qitem">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
@@ -837,7 +841,20 @@ function loadGacha() {
 }
 
 // doSpin — preserves result; no loadGacha() call
+let _lastSpinType = null;
+function spinAgain() {
+  if (!_lastSpinType) { loadGacha(); return; }
+  // Find the matching spin-row in the current gacha page and trigger it
+  const rows = document.querySelectorAll('.spin-row');
+  for (const r of rows) {
+    const oc = r.getAttribute('onclick') || '';
+    if (oc.includes(_lastSpinType)) { doSpin(_lastSpinType, r); return; }
+  }
+  loadGacha(); // fallback: row not found, reload
+}
+
 function doSpin(st, row) {
+  _lastSpinType = st;
   row.style.opacity='.4'; row.style.pointerEvents='none';
   el('spin-res').innerHTML='';
   api('/gacha/spin',{method:'POST',body:JSON.stringify({spin_type:st,chat_id:_cid||0})}).then(r=>{
@@ -868,7 +885,10 @@ function doSpin(st, row) {
       <div class="spin-results">
         ${cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${(i*0.08+3.1).toFixed(2)}s">${c.text}</div>`).join('')}
       </div>
-      <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="closeSpinResult()">🔄 Крутить ещё</button>`;
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-gold" style="flex:2" onclick="spinAgain()">🔄 Крутить ещё</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="closeSpinResult()">↩ Выбрать</button>
+      </div>`;
 
     // Update balance displays
     refreshCurrBar();

@@ -39,6 +39,15 @@ async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_us
         raise HTTPException(400, result)
     await db.commit()
 
+    # Track quest metric: gacha_spins_today
+    if body.chat_id:
+        try:
+            from services.quests import increment_metric as _q_incr
+            await _q_incr(db, user["id"], body.chat_id, "gacha_spins_today", delta=1.0)
+            await db.commit()
+        except Exception:
+            pass
+
     # Send bot notification to chat (best-effort)
     if body.chat_id:
         try:
@@ -49,9 +58,23 @@ async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_us
                 _raw = await _gname(db, user["id"])
                 username = f"@{_raw}" if _raw else f"Игрок #{user['id']}"
                 label = SPIN_TYPE_LABELS.get(body.spin_type, body.spin_type)
+                from core.registry import PET_SPECIES as _PS, ITEMS_REGISTRY as _IR
+                _RARITY_ORDER = ["common","uncommon","rare","epic","legendary","mythic"]
                 dups = result.get("dup_outcomes", [])
-                top = max(dups, key=lambda d: ["common","uncommon","rare","epic","legendary","mythic"].index(d.get("rarity","common")) if d.get("rarity") in ["common","uncommon","rare","epic","legendary","mythic"] else 0, default=None) if dups else None
-                drop_str = f"🐾 {top['species']} [{top['rarity']}]" if top else (f"🪙 {result.get('mora',0):.0f}" if result.get('mora') else "предмет")
+                # Build human-readable drop string
+                if dups:
+                    top = max(dups, key=lambda d: _RARITY_ORDER.index(d.get("rarity","common")) if d.get("rarity") in _RARITY_ORDER else 0)
+                    sp_name = _PS.get(top['species'], {}).get('name', top['species'])
+                    drop_str = f"🐾 {sp_name} [{top['rarity']}]"
+                elif result.get('mora', 0) > 0:
+                    drop_str = f"🪙 {result['mora']:.0f} Мора"
+                elif result.get('diamonds', 0) > 0:
+                    drop_str = f"💎 {result['diamonds']} Алмазов"
+                elif result.get('items'):
+                    first = result['items'][0]
+                    drop_str = f"{_IR.get(first['id'],{}).get('name', first['id'])} ×{first['qty']}"
+                else:
+                    drop_str = "—"
                 text = f"🎲 <b>{username}</b> крутанул <b>{label}</b>\n└ Выпало: {drop_str}"
                 async with httpx.AsyncClient(timeout=3) as c:
                     await c.post(f"https://api.telegram.org/bot{token}/sendMessage",

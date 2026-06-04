@@ -75,9 +75,10 @@ async def open_egg(body: OpenEggRequest, db=Depends(get_db), user=Depends(requir
         raise HTTPException(400, "Нет яиц в инвентаре.")
     await db.commit()
 
-    # Track achievements (same logic as bot/handlers/inventory.py)
+    # Track achievements + quest
     try:
         from services.achievements import increment_metric as _ach
+        from services.quests import increment_metric as _q_incr
         await _ach(db, user["id"], "eggs_opened", delta=float(count))
         new_species = sum(1 for r in results if r.get("outcome") == "first_copy_created")
         if new_species:
@@ -85,6 +86,20 @@ async def open_egg(body: OpenEggRequest, db=Depends(get_db), user=Depends(requir
         new_lv10 = sum(1 for r in results if r.get("new_level") == 10)
         if new_lv10:
             await _ach(db, user["id"], "pets_at_level_10", delta=float(new_lv10))
+        # Quest: eggs_opened_today — use user's primary chat
+        async with db.execute(
+            "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
+            "ORDER BY user_messages_count_all_time DESC LIMIT 1",
+            (user["id"],),
+        ) as _cc:
+            _cr = await _cc.fetchone()
+        if _cr:
+            await _q_incr(db, user["id"], _cr[0], "eggs_opened_today", delta=float(count))
+            rare_dups = sum(1 for r in results if r.get("rarity") in ("rare","epic","legendary","mythic"))
+            if rare_dups:
+                await _q_incr(db, user["id"], _cr[0], "rare_or_better_pet_dups_today", delta=float(rare_dups))
+            if new_lv10:
+                await _q_incr(db, user["id"], _cr[0], "pet_level_ups_today", delta=float(new_lv10))
         await db.commit()
     except Exception:
         pass
