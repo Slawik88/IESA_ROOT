@@ -622,10 +622,10 @@ async def cmd_open_eggs(message: types.Message, db, text_args: str = None):
     await quest_increment(db, message.from_user.id, message.chat.id, "eggs_opened_today", delta=float(count))
     new_species = sum(1 for r in dropped if r.get("outcome") == "first_copy_created")
     if new_species:
-        ach_grants += await increment_metric(db, message.from_user.id, "collector", delta=float(new_species))
+        ach_grants += await increment_metric(db, message.from_user.id, "distinct_species_owned", delta=float(new_species))
     new_lv10 = sum(1 for r in dropped if r.get("new_level") == 10)
     if new_lv10:
-        ach_grants += await increment_metric(db, message.from_user.id, "trainer", delta=float(new_lv10))
+        ach_grants += await increment_metric(db, message.from_user.id, "pets_at_level_10", delta=float(new_lv10))
 
     for r in dropped:
         if r.get("rarity") in ("rare", "epic", "legendary"):

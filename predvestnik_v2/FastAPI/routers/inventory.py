@@ -49,6 +49,21 @@ async def open_egg(body: OpenEggRequest, db=Depends(get_db), user=Depends(requir
     if results is None:
         raise HTTPException(400, "Нет яиц в инвентаре.")
     await db.commit()
+
+    # Track achievements (same logic as bot/handlers/inventory.py)
+    try:
+        from services.achievements import increment_metric as _ach
+        await _ach(db, user["id"], "eggs_opened", delta=float(count))
+        new_species = sum(1 for r in results if r.get("outcome") == "first_copy_created")
+        if new_species:
+            await _ach(db, user["id"], "distinct_species_owned", delta=float(new_species))
+        new_lv10 = sum(1 for r in results if r.get("new_level") == 10)
+        if new_lv10:
+            await _ach(db, user["id"], "pets_at_level_10", delta=float(new_lv10))
+        await db.commit()
+    except Exception:
+        pass
+
     return {"ok": True, "results": results}
 
 

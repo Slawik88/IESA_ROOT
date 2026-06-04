@@ -207,9 +207,9 @@ async def duel_and_auction_task(bot: Bot):
                             seller_id = lot["seller_id"]
                             price = result.get("final_price", 0)
                             item_name = lot.get("item_name", "?").split("||")[0]
-                            # Achievement: dealer (auction sales for seller)
+                            # Achievement: dealer — metric name, not key
                             try:
-                                await _incr_ach(db, seller_id, "dealer", delta=1.0)
+                                await _incr_ach(db, seller_id, "auction_sales", delta=1.0)
                                 await db.commit()
                             except Exception:
                                 pass
@@ -252,6 +252,32 @@ async def duel_and_auction_task(bot: Bot):
                                 pass
                     except Exception as e:
                         logger.error(f"Auction resolve error lot {lot['id']}: {e}")
+
+                # ── Weekly: achievement "star" (weekly_top1_count) ─────────────
+                # Runs only on Monday between 00:00-00:59 UTC to avoid double-counting
+                from datetime import datetime, timezone as _tz
+                _now = datetime.now(_tz.utc)
+                if _now.weekday() == 0 and _now.hour == 0:
+                    try:
+                        async with db.execute(
+                            "SELECT chat_tg_id FROM chat_settings LIMIT 500"
+                        ) as _cc:
+                            _chats = [r[0] for r in await _cc.fetchall()]
+                        for _cid in _chats:
+                            # Find user with most messages last week (daily_user_stats)
+                            async with db.execute(
+                                "SELECT user_id, SUM(message_count) AS wc "
+                                "FROM daily_user_stats "
+                                "WHERE chat_tg_id = ? AND date >= CURRENT_DATE - INTERVAL '7 days' "
+                                "GROUP BY user_id ORDER BY wc DESC LIMIT 1",
+                                (_cid,),
+                            ) as _tc:
+                                _top = await _tc.fetchone()
+                            if _top and _top[0]:
+                                await _incr_ach(db, _top[0], "weekly_top1_count", delta=1.0)
+                        await db.commit()
+                    except Exception as _e:
+                        logger.warning(f"weekly_top1 tracking error: {_e}")
 
         except Exception as e:
             logger.error(f"Ошибка в задаче дуэлей/аукциона: {e}")
