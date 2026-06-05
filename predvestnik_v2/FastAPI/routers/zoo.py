@@ -7,12 +7,16 @@ from pydantic import BaseModel
 from core.constants import (
     PET_PLACEMENT_FATIGUE_RESTORE,
     get_pet_bonus, get_level_for_duplicates, get_total_duplicates_for_level,
-    PET_LEVEL_MILESTONE_REWARDS,
+    PET_LEVEL_MILESTONE_REWARDS, HAMSTER_BONUSES,
 )
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 from FastAPI.deps import get_db, require_tg_user
-from infrastructure.repositories.economy import get_item_quantity, remove_item
-from infrastructure.repositories.zoo import get_user_pets, get_nursery_count, get_zoo_stats, expand_max_slots, get_active_count
+from infrastructure.repositories.economy import get_item_quantity, remove_item, add_balance
+from infrastructure.repositories.zoo import (
+    get_user_pets, get_nursery_count, get_zoo_stats, expand_max_slots, get_active_count,
+    get_pending_hamster_income, get_active_species_level,
+)
+from services.zoo import get_active_wolf_food_extra
 
 router = APIRouter(prefix="/zoo", tags=["zoo"])
 
@@ -32,11 +36,13 @@ async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
         for fid in _FOOD_IDS
         if (qty := await get_item_quantity(db, user["id"], fid)) > 0
     }
+    pending_mora = await get_pending_hamster_income(db, user["id"])
     return {
         "pets": pets,
         "available_food": food,
         "max_slots": stats["max_slots"],
         "slot_expander_qty": slot_expander_qty,
+        "pending_hamster_mora": round(pending_mora),
     }
 
 
@@ -165,8 +171,19 @@ async def feed_pet(body: FeedRequest, db=Depends(get_db), user=Depends(require_t
     if not ok:
         raise HTTPException(400, f"Нет {item['name']} в инвентаре.")
 
-    new_fatigue = max(0, pet["fatigue"] - item["fatigue_restore"])
+    wolf_extra = await get_active_wolf_food_extra(db, user["id"])
+    restore = item["fatigue_restore"] + wolf_extra
+    new_fatigue = max(0, pet["fatigue"] - restore)
     await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_fatigue, body.pet_id))
+
+    # food_super: restore −5 fatigue to all other nursery pets
+    if body.food_id == "food_super":
+        await db.execute(
+            "UPDATE pets SET fatigue = GREATEST(0, fatigue - 5) "
+            "WHERE owner_id = ? AND placement IN ('active', 'passive') AND id != ?",
+            (user["id"], body.pet_id),
+        )
+
     await db.commit()
 
     # Quest: pet_feeds_today
@@ -185,7 +202,7 @@ async def feed_pet(body: FeedRequest, db=Depends(get_db), user=Depends(require_t
         pass
 
     return {"ok": True, "fatigue_before": pet["fatigue"], "fatigue_after": new_fatigue,
-            "restored": item["fatigue_restore"]}
+            "restored": restore, "wolf_extra": wolf_extra}
 
 
 class BoostRequest(BaseModel):
@@ -296,3 +313,69 @@ async def expand_slot(db=Depends(get_db), user=Depends(require_tg_user)):
 
     await db.commit()
     return {"ok": True, "max_slots": new_slots}
+
+
+@router.post("/collect")
+async def collect_hamster(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Собрать накопленную Мору от Хомяков-банкиров."""
+    import random
+    from datetime import datetime as _dt
+
+    stats = await get_zoo_stats(db, user["id"])
+
+    async with db.execute(
+        "SELECT COALESCE(pet_level,1) AS pet_level, fatigue FROM pets "
+        "WHERE owner_id = ? AND species_id = 'hamster' AND placement IN ('active','passive')",
+        (user["id"],),
+    ) as c:
+        hamster_rows = [dict(r) for r in await c.fetchall()]
+
+    productive = [
+        h for h in hamster_rows
+        if h["fatigue"] < 100
+        or HAMSTER_BONUSES.get(max(1, min(10, h["pet_level"])), {}).get("ignore_exhaustion", False)
+    ]
+
+    if not productive:
+        raise HTTPException(400, "В Питомнике нет бодрствующих Хомяков-банкиров.")
+
+    accumulated = await get_pending_hamster_income(db, user["id"])
+    if accumulated < 1:
+        raise HTTPException(400, "Хомяки ещё не накопили Мору. Попробуйте через несколько минут.")
+
+    double_mora_bonus = 0
+    diamond_bonus = 0.0
+    today_str = _dt.now().strftime("%Y-%m-%d")
+    last_collect_day = (stats.get("last_income_collection") or "")[:10]
+
+    for h in productive:
+        b = HAMSTER_BONUSES.get(max(1, min(10, h["pet_level"])), {})
+        if b.get("double_chance", 0.0) > 0 and random.random() < b["double_chance"]:
+            double_mora_bonus += int(accumulated / max(1, len(productive)))
+        if b.get("daily_diamond", 0.0) > 0 and last_collect_day != today_str:
+            diamond_bonus = max(diamond_bonus, b["daily_diamond"])
+
+    dragon_level = await get_active_species_level(db, user["id"], "dragon")
+    dragon_bonus_mora = (
+        int(get_pet_bonus("dragon", dragon_level).get("hamster_collect_bonus", 0.0))
+        if dragon_level > 0 else 0
+    )
+
+    total_mora = int(accumulated) + double_mora_bonus + dragon_bonus_mora
+
+    await add_balance(db, user["id"], mora=total_mora, diamonds=diamond_bonus,
+                      commit=False, source="hamster_collect")
+    now_str = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    await db.execute(
+        "UPDATE user_zoo_stats SET last_income_collection = ? WHERE user_id = ?",
+        (now_str, user["id"]),
+    )
+    await db.commit()
+
+    return {
+        "ok": True,
+        "mora": total_mora,
+        "diamonds": diamond_bonus,
+        "double_bonus": double_mora_bonus,
+        "dragon_bonus": dragon_bonus_mora,
+    }

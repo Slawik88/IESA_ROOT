@@ -570,6 +570,8 @@ function renderZoo(tab) {
     const maxSlots=_zooData.max_slots||3;
     const expandQty=_zooData.slot_expander_qty||0;
     const occupied=active.length+passive.length;
+    const pendingMora=_zooData.pending_hamster_mora||0;
+    const hasHamsters=pets.some(p=>p.species_id==='hamster');
     let html=`<div style="background:var(--s);border-radius:var(--r);border:1px solid var(--border2);padding:8px 12px;margin-bottom:10px">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <span style="font-size:12px;color:var(--muted)">🐾 Слоты питомника</span>
@@ -582,7 +584,14 @@ function renderZoo(tab) {
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px">В инвентаре: 🏡 Расширитель слота ×${expandQty}</div>
           <button class="btn btn-full btn-sm" onclick="doExpandSlot()" style="font-size:11px">🏡 Применить расширитель (+1 слот)</button>
         </div>`:''}
-    </div>`;
+    </div>
+    ${hasHamsters?`<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:2px">🐹 Хомяк-банкир накопил</div>
+        <div style="font-size:16px;font-weight:700;color:var(--gold)">${pendingMora>0?fmt(pendingMora)+' 🪙':'Копит...'}</div>
+      </div>
+      <button class="btn btn-gold btn-sm" onclick="collectHamster(this)" ${pendingMora<1?'disabled':''}>Собрать</button>
+    </div>`:''}`;
     if(active.length) html+=`<div class="card-title" style="margin:8px 0 4px">⚔️ Активные (${active.length})</div>${active.map(petCard).join('')}`;
     if(passive.length) html+=`<div class="card-title" style="margin:12px 0 4px">🛡 Пассивные (${passive.length})</div>${passive.map(petCard).join('')}`;
     el('zoo-c').innerHTML=html;
@@ -752,6 +761,21 @@ function doExpandSlot() {
   api('/zoo/expand-slot',{method:'POST'})
     .then(r=>{toast(`✅ Слот добавлен! Теперь ${r.max_slots} слотов.`);_zooData=null;loadZoo();})
     .catch(e=>toast(e,false));
+}
+
+function collectHamster(btn) {
+  btn.disabled=true;
+  api('/zoo/collect',{method:'POST'})
+    .then(r=>{
+      let msg=`🐹 Собрано ${fmt(r.mora)} 🪙`;
+      if(r.double_bonus>0) msg+=` (×2 +${fmt(r.double_bonus)})`;
+      if(r.dragon_bonus>0) msg+=` 🐉 +${fmt(r.dragon_bonus)}`;
+      if(r.diamonds>0) msg+=` 💎 +${r.diamonds}`;
+      toast(msg);
+      refreshCurrBar();
+      _zooData=null;loadZoo();
+    })
+    .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
 function boostExp(pid,bid,row) {
