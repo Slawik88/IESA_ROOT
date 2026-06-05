@@ -138,11 +138,13 @@ function switchPage(name,btn) {
   }
 }
 
-// Programmatic navigation — use as shortcut links in profile cards etc.
-// goTo('zoo')              → переходит на страницу Зоопарк
-// goTo('profile','streak') → переходит на Профиль, открывает вкладку Стрик
-// goTo('arena','gacha')    → переходит на Арена, открывает вкладку Гача
+// Единая программная навигация — шорткаты в карточках/модалках.
+// goTo('zoo')              → страница Зоопарк
+// goTo('profile','streak') → Профиль, вкладка Стрик
+// goTo('arena','gacha')    → Арена, вкладка Гача
+// Закрывает открытую модалку (CM) — нужно для шорткатов внутри модальных окон.
 function goTo(page, tab) {
+  CM();
   const navBtn = [...document.querySelectorAll('.nb')].find(b => (b.getAttribute('onclick')||'').includes(`'${page}'`));
   if (navBtn) switchPage(page, navBtn);
   if (tab) setTimeout(() => {
@@ -183,10 +185,14 @@ function loadProfile() {
           <button class="btn btn-ghost" style="padding:2px 8px;font-size:10px" onclick="copyUid(${uid})">📋 Копировать ID</button>
         </div>
       </div>
+      <!-- Карточка брака (заполняется loadMarriageCard) -->
+      <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
+      <!-- Карточка ника (заполняется loadNickCard) -->
+      <div id="pro-nick-card"></div>
       ${pets.length?`<div class="card">
         <div class="card-title">🐾 Питомники</div>
         ${pets.map(p=>`
-        <div class="pcard"><div class="pcol">
+        <div class="pcard" onclick="goTo('zoo')" style="cursor:pointer"><div class="pcol">
           <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
           <div class="ps">Lv${p.pet_level} · ${PL[p.placement]}</div>
           <div class="fat-bar"><div class="fat-fill" style="width:${p.fatigue}%;background:${fatC(p.fatigue)}"></div></div>
@@ -194,7 +200,7 @@ function loadProfile() {
         <div class="shortcut-row">
           <span class="shortcut-link" onclick="goTo('zoo')">Управлять питомцами →</span>
         </div>
-      </div>`:''}
+      </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Питомцев пока нет</div><div class="es-sub">Открой яйцо в Гаче, чтобы завести первого</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('arena','gacha')">🎲 Открыть Гачу</button></div></div>`}
       ${d.chats.length?`<div class="card">
         <div class="card-title">💬 Активность</div>
         ${d.chats.map(c=>`<div class="irow"><span class="ik">${c.chat_title||'Чат'}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}
@@ -202,6 +208,8 @@ function loadProfile() {
           <span class="shortcut-link" onclick="goTo('coll','top')">Посмотреть топ →</span>
         </div>
       </div>`:''}`;
+    loadMarriageCard();
+    loadNickCard();
     if(!_ws && _uid) connectWS();
     updateCurrBar(d);          // populate sticky currency bar from profile data
     if(!_adminChats) checkAdminAccess();
@@ -913,22 +921,35 @@ function boostExp(pid,bid,row) {
     .catch(e=>{toast(e,false);row.style.opacity='1';});
 }
 
+// ── Бестиарий (бывш. Справка + Витрина) ───────────────────────────────────────
+// Все виды по редкостям. Клик по виду → showSpeciesDetail (бонусы по уровням).
+let _bestiaryFilter='all';
 function renderZooGuide() {
+  if(_showcaseData){_renderBestiary();return;}
   el('zoo-c').innerHTML='<div class="loader">Загрузка...</div>';
-  const ORDER = {common:0,rare:1,epic:2,legendary:3};
-  const RARITY_LABEL = {common:'⬜ Обычные',rare:'🟦 Редкие',epic:'🟣 Эпические',legendary:'🟡 Легендарные'};
-  api('/zoo/species').then(list=>{
-    list.sort((a,b)=>(ORDER[a.rarity]||0)-(ORDER[b.rarity]||0));
-    const g={};list.forEach(s=>(g[s.rarity]=g[s.rarity]||[]).push(s));
-    el('zoo-c').innerHTML=Object.entries(g).map(([r,pets])=>`<div class="card">
+  api('/zoo/species').then(list=>{_showcaseData=list;_renderBestiary();})
+    .catch(e=>{el('zoo-c').innerHTML=`<div class="err">${e}</div>`;});
+}
+function setBestiaryFilter(r){_bestiaryFilter=r;_renderBestiary();}
+function _renderBestiary() {
+  const ORDER = {common:0,uncommon:1,rare:2,epic:3,legendary:4,mythic:5};
+  const RARITY_LABEL = {common:'⬜ Обычные',uncommon:'🟢 Необычные',rare:'🟦 Редкие',epic:'🟣 Эпические',legendary:'🟡 Легендарные',mythic:'🔴 Мифические'};
+  const all=[...(_showcaseData||[])].sort((a,b)=>(ORDER[a.rarity]||0)-(ORDER[b.rarity]||0));
+  const filters=['all',...Object.keys(ORDER).filter(r=>all.some(p=>p.rarity===r))];
+  const list=_bestiaryFilter==='all'?all:all.filter(p=>p.rarity===_bestiaryFilter);
+  const g={};list.forEach(s=>(g[s.rarity]=g[s.rarity]||[]).push(s));
+  const filterRow=`<div class="tabs" style="margin-bottom:10px">
+    ${filters.map(r=>`<button class="tb ${_bestiaryFilter===r?'active':''}" onclick="setBestiaryFilter('${r}')">${r==='all'?'Все':(RARITY_LABEL[r]||r).replace(/^.. /,'')}</button>`).join('')}
+  </div>`;
+  const body=Object.entries(g).map(([r,pets])=>`<div class="card">
       <div class="card-title">${RARITY_LABEL[r]||r} (${pets.length})</div>
       ${pets.map(p=>{
         const t1=bonusLines(p.species_id,(p.bonus_tiers||{})['1']||{});
         const t4=bonusLines(p.species_id,(p.bonus_tiers||{})['4']||{});
         const t10=bonusLines(p.species_id,(p.bonus_tiers||{})['10']||{});
-        return `<div style="padding:10px 0;border-bottom:1px solid var(--border2)">
+        return `<div class="pcard" style="cursor:pointer;display:block" onclick="showSpeciesDetail('${p.species_id}')">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <div style="font-size:13px;font-weight:700;color:var(--bright)">${p.name}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--bright);flex:1">${p.name}</div>
             <div style="font-size:10px;color:${p.role==='active'?'var(--teal)':'var(--blue)'}">${p.role==='active'?'⚔️ Активный':'🛡 Пассивный'}</div>
           </div>
           <div style="font-size:11px;color:var(--muted);margin-bottom:7px;line-height:1.4">${p.desc}</div>
@@ -940,7 +961,7 @@ function renderZooGuide() {
         </div>`;
       }).join('')}
     </div>`).join('');
-  }).catch(e=>{el('zoo-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
+  el('zoo-c').innerHTML=filterRow+(body||`<div class="empty-state"><div class="es-icon">🔍</div><div class="es-title">Пусто</div><div class="es-sub">Нет видов этой редкости</div></div>`);
 }
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
 
@@ -1525,7 +1546,8 @@ function loadShopCatalog() {
       <div class="bal"><div class="bv">💎 ${d.diamonds.toFixed(1)}</div><div class="bl">Алмазы</div></div>`;
     const cats={food:'🥩 Еда',egg:'🥚 Яйца',utility:'🛠 Утилиты',booster:'⚗️ Зелья'};
     const grps={};d.items.forEach(it=>(grps[it.category]=grps[it.category]||[]).push(it));
-    el('mkt-shop').innerHTML=Object.entries(grps).map(([cat,list])=>
+    const promoBtn=`<button class="btn btn-ghost btn-full" style="margin-bottom:10px" onclick="openPromoModal()">🎫 У меня есть промокод</button>`;
+    el('mkt-shop').innerHTML=promoBtn+Object.entries(grps).map(([cat,list])=>
       `<div class="card"><div class="card-title">${cats[cat]||cat}</div>${list.map(it=>`<div class="shop-row">
         <span style="font-size:22px;width:32px;text-align:center">${it.name.split(' ')[0]}</span>
         <div style="flex:1">
@@ -1614,7 +1636,7 @@ function openItemModal(iid) {
     body+=`<div class="irow"><span class="ik">Ускорение</span><span style="color:var(--teal)">−${boost_hours}ч</span></div>`;
     if(quantity>0)btns.unshift({l:'⏩ К экспедиции',c:'btn-teal',f:`openBoostSelModal('${item_id}')`});
   } else if(category==='spin_token'){
-    if(quantity>0)btns.unshift({l:'🎲 В Гачу',c:'btn-gold',f:`goArenaGacha()`});
+    if(quantity>0)btns.unshift({l:'🎲 В Гачу',c:'btn-gold',f:`goTo('arena','gacha')`});
   } else if(item_id.startsWith('star_dust')){
     body+=`<div class="irow"><span class="ik">Даёт дубликатов</span><span style="color:var(--gold)">+${item_id.includes('_l')?5:1}</span></div>`;
     if(quantity>0)btns.unshift({l:'✨ Применить',c:'btn-gold',f:`openDustModal('${item_id}')`});
@@ -1676,7 +1698,6 @@ function doApplyDust(did,pid,row) {
     .then(r=>{toast(`✅ +${r.duplicates_added} дубл.`);CM();_zooData=null;loadInventory();})
     .catch(e=>{toast(e,false);row.style.opacity='1';});
 }
-function goArenaGacha() { CM(); document.querySelectorAll('.nb')[2].click(); swArena('gacha',document.querySelectorAll('#pg-arena .tb')[1]); }
 
 // ── Source info for themes ────────────────────────────────────────────────────
 const SRC = {
@@ -1693,19 +1714,7 @@ const SRC = {
   auction:        {label:'Аукцион 🏛',    desc:'Можно купить у других игроков на Аукционе.', action:{l:'🏛 Открыть Аукцион', f:"goTo('market','auc')"}},
 };
 
-function goTo(page, sub) {
-  CM();
-  const pageBtn = [...document.querySelectorAll('.nb')].find(b=>b.onclick?.toString().includes(`'${page}'`));
-  if(pageBtn) pageBtn.click();
-  setTimeout(() => {
-    const subBtn = document.querySelector(`#pg-${page} .tb`);
-    if(sub && subBtn) {
-      const allTabs = document.querySelectorAll(`#pg-${page} .tb`);
-      const target = [...allTabs].find(b=>b.onclick?.toString().includes(`'${sub}'`));
-      if(target) target.click();
-    }
-  }, 100);
-}
+// goTo() — единая реализация определена выше (с CM + switchPage).
 
 // ── Collection ────────────────────────────────────────────────────────────────
 // _profileData declared in globals above
@@ -1714,10 +1723,10 @@ function loadColl(){swColl('themes',document.querySelector('#pg-coll .tb'));}
 function swColl(tab,btn) {
   document.querySelectorAll('#pg-coll .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['themes','top','pets'].forEach(t=>el('col-'+t).style.display=t===tab?'':'none');
+  // Витрина питомцев переехала в Зоопарк → Бестиарий
+  ['themes','top'].forEach(t=>el('col-'+t).style.display=t===tab?'':'none');
   if(tab==='themes') loadThemes();
   else if(tab==='top') loadTop();
-  else if(tab==='pets') loadPetsShowcase();
 }
 
 function themeStatusBadge(t) {
@@ -2305,42 +2314,49 @@ function addRefreshBtn(containerId, reloadFn) {
   if(!c.querySelector('[onclick*="Обновить"]')) c.insertAdjacentHTML('afterbegin', btn);
 }
 
-// ── Marriage ──────────────────────────────────────────────────────────────────
-function loadMarriage() {
-  el('pro-marriage').innerHTML='<div class="loader">Загрузка...</div>';
+// ── Marriage card (в дашборде Обзор) ──────────────────────────────────────────
+// Рендерит в #pro-marriage-card. Развод/банк/предложения — прямо внутри карточки
+// (Закон близости: действие рядом с объектом).
+function loadMarriageCard() {
+  const host = el('pro-marriage-card');
+  if(!host) return;
   Promise.all([api('/marriage/'), api('/marriage/proposals')]).then(([m, pr])=>{
     const proposals = pr.proposals || [];
     let propHtml = '';
     if(proposals.length) {
       propHtml = `<div class="card" style="border-color:var(--gold)">
-        <div class="card-title">💌 Предложения о браке (${proposals.length})</div>
+        <div class="card-title">💌 Предложения руки и сердца (${proposals.length})</div>
         ${proposals.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
           <div>
             <span style="font-weight:600">@${p.proposer_name||'ID'+p.proposer_id}</span>
             <span style="font-size:10px;color:var(--muted);margin-left:6px">${new Date(p.proposed_at).toLocaleDateString('ru')}</span>
           </div>
           <div style="display:flex;gap:6px">
-            <button class="btn btn-sm btn-gold" onclick="acceptProposal(${p.id},this)">✅</button>
+            <button class="btn btn-sm btn-gold" onclick="acceptProposal(${p.id},this)">✅ Принять</button>
             <button class="btn btn-sm btn-ghost" onclick="declineProposal(${p.id},this)">❌</button>
           </div>
         </div>`).join('')}
       </div>`;
     }
     if(!m.married){
-      el('pro-marriage').innerHTML=propHtml+`<div class="card" style="text-align:center;padding:20px">
-        <div style="font-size:32px;margin-bottom:8px">💔</div>
-        <div style="font-size:14px;font-weight:600;color:var(--bright)">Вы не состоите в браке</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">Команда в боте: <code>бот брак, @username</code></div>
+      // Empty state с CTA (заповедь 5)
+      host.innerHTML=propHtml+`<div class="card">
+        <div class="empty-state">
+          <div class="es-icon">💔</div>
+          <div class="es-title">Вы не в браке</div>
+          <div class="es-sub">Свяжите судьбу с другим игроком — напишите в чате<br><code>бот брак, @username</code></div>
+        </div>
       </div>`;
       return;
     }
     const pets=m.family_pets||[];
-    el('pro-marriage').innerHTML=propHtml+`
+    host.innerHTML=propHtml+`
       <div class="card card-gold">
-        <div style="text-align:center;padding:10px 0 14px">
+        <div class="card-title">💍 Брак</div>
+        <div style="text-align:center;padding:4px 0 12px">
           <div style="font-size:28px;margin-bottom:6px">💍</div>
-          <div style="font-size:14px;font-weight:700;color:var(--bright)">${m.partner_name||'Партнёр'}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">В браке ${m.days} дней</div>
+          <div style="font-size:15px;font-weight:700;color:var(--bright)">${m.partner_name||'Партнёр'}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">Вместе ${m.days} дней</div>
         </div>
         <div class="irow"><span class="ik">Семейный банк</span><span style="color:var(--gold);font-weight:700">${fmt(m.family_balance)} 🪙</span></div>
         <div style="display:flex;gap:7px;margin-top:10px">
@@ -2348,50 +2364,47 @@ function loadMarriage() {
           <button class="btn btn-sm btn-gold" onclick="familyBank('deposit')">📥 Вложить</button>
           <button class="btn btn-sm btn-ghost" onclick="familyBank('withdraw')">📤 Забрать</button>
         </div>
+        ${pets.length?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🐾 Питомцы семьи (${pets.length})</div>
+          ${pets.map(p=>`<div class="irow"><span class="ik">${p.name||p.species_id} ${rc(p.rarity)}</span><span class="iv">Lv${p.pet_level} · ${PL[p.placement]||p.placement}</span></div>`).join('')}
+        </div>`:''}
         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
-          <button class="btn btn-sm" style="background:var(--red);color:#fff;width:100%" onclick="confirmDivorce()">💔 Развестись</button>
+          <button class="btn btn-red btn-full" style="margin:0" onclick="confirmDivorce()">💔 Развестись</button>
         </div>
-      </div>
-      ${pets.length?`<div class="card"><div class="card-title">🐾 Питомцы семьи (${pets.length})</div>
-        ${pets.map(p=>`<div class="pcard"><div class="pcol">
-          <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
-          <div class="ps">Lv${p.pet_level} · ${PL[p.placement]||p.placement}</div>
-          <div class="fat-bar"><div class="fat-fill" style="width:${p.fatigue}%;background:${fatC(p.fatigue)}"></div></div>
-        </div></div>`).join('')}
-      </div>`:''}`;
-    el('pro-marriage')._mid=m.marriage_id;
-  }).catch(e=>{el('pro-marriage').innerHTML=`<div class="err">${e}</div>`;});
+      </div>`;
+    host._mid=m.marriage_id;
+  }).catch(e=>{host.innerHTML=`<div class="card"><div class="err">${e}</div></div>`;});
 }
 function familyBank(action) {
   const v=parseFloat(el('bank-amt')?.value||0);
   if(!v||v<=0){toast('Введите сумму.',false);return;}
-  const mid=el('pro-marriage')?._mid;
+  const mid=el('pro-marriage-card')?._mid;
   if(!mid){toast('Нет данных о браке.',false);return;}
   api('/marriage/bank',{method:'POST',body:JSON.stringify({marriage_id:mid,amount:v,action})})
-    .then(r=>{toast(`✅ ${r.message}`);loadMarriage();})
+    .then(r=>{toast(`✅ ${r.message}`);refreshCurrBar();loadMarriageCard();})
     .catch(e=>toast(e,false));
 }
 function confirmDivorce() {
-  OM('💔 Развод','<div style="text-align:center;padding:12px 0;color:var(--muted)">Вы уверены? Брак будет расторгнут безвозвратно.</div>',[
+  OM('💔 Развод','<div style="text-align:center;padding:12px 0;color:var(--muted)">Вы уверены? Брак будет расторгнут <b style="color:var(--red)">безвозвратно</b>. Семейный банк будет разделён.</div>',[
     {l:'Да, развестись',c:'btn-red',f:'doDivorce()'},
     {l:'Отмена',c:'btn-ghost',f:'CM()'},
   ]);
 }
 function doDivorce() {
   api('/marriage/divorce',{method:'POST'})
-    .then(()=>{toast('💔 Развод оформлен.');CM();loadMarriage();})
+    .then(()=>{toast('💔 Развод оформлен.');CM();loadMarriageCard();})
     .catch(e=>toast(e,false));
 }
 function acceptProposal(id,btn) {
   btn.disabled=true;
   api('/marriage/proposals/accept',{method:'POST',body:JSON.stringify({proposal_id:id})})
-    .then(()=>{toast('💍 Брак заключён!');loadMarriage();})
+    .then(()=>{toast('💍 Брак заключён!');loadMarriageCard();})
     .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 function declineProposal(id,btn) {
   btn.disabled=true;
   api('/marriage/proposals/decline',{method:'POST',body:JSON.stringify({proposal_id:id})})
-    .then(()=>{toast('Предложение отклонено.');loadMarriage();})
+    .then(()=>{toast('Предложение отклонено.');loadMarriageCard();})
     .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
@@ -2478,23 +2491,21 @@ function buyDeal(dealId,btn) {
     .catch(e=>{toast(e,false);btn.disabled=false;btn.textContent='Купить';});
 }
 
-// ── Promo code ────────────────────────────────────────────────────────────────
-function loadPromo() {
-  el('mkt-promo').innerHTML=`
-    <div class="card card-gold">
-      <div class="card-title">🎫 Активировать промокод</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
-        Введите промокод и нажмите «Активировать». Каждый промокод — одноразовый.<br>
-        <span style="color:var(--gold);font-size:11px">💡 Промокоды публикуются в официальных чатах и анонсах бота.</span>
-      </div>
-      <input id="promo-input" type="text" class="num-input"
-             placeholder="ПРОМОКОД" style="text-transform:uppercase"
-             oninput="this.value=this.value.toUpperCase()"/>
-      <button class="btn btn-gold btn-full" style="margin-top:8px" onclick="redeemPromo(this)">
-        🎫 Активировать
-      </button>
-      <div id="promo-result" style="margin-top:8px"></div>
-    </div>`;
+// ── Promo code (модалка из шапки Магазина) ────────────────────────────────────
+function openPromoModal() {
+  OM('🎫 Промокод', `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
+      Введите промокод. Каждый код — одноразовый.<br>
+      <span style="color:var(--gold);font-size:11px">💡 Коды публикуются в официальных чатах и анонсах бота.</span>
+    </div>
+    <input id="promo-input" type="text" class="num-input"
+           placeholder="ПРОМОКОД" style="text-transform:uppercase;margin:0"
+           oninput="this.value=this.value.toUpperCase()"/>
+    <div id="promo-result" style="margin-top:8px"></div>
+  `, [
+    {l:'🎫 Активировать', c:'btn-gold', f:'redeemPromo(this)'},
+    {l:'Закрыть', c:'btn-ghost', f:'CM()'},
+  ]);
 }
 function redeemPromo(btn) {
   const code=el('promo-input')?.value?.trim();
@@ -2521,6 +2532,7 @@ function redeemPromo(btn) {
           ${desc}
           <div style="font-size:10px;color:var(--dim);margin-top:8px">Код: <code>${rw.code||code}</code></div>
         </div>`;
+      refreshCurrBar();
     })
     .catch(e=>{
       el('promo-result').innerHTML=`<div class="err">${e}</div>`;
@@ -2528,29 +2540,30 @@ function redeemPromo(btn) {
     .finally(()=>{btn.disabled=false;});
 }
 
-// ── switchPro update for new profile tabs ─────────────────────────────────────
+// ── switchPro — Профиль: Обзор(дашборд) / Стрик / Ачивки / Кошелёк ─────────────
+// Брак и Ник теперь карточки внутри Обзора (loadMarriageCard / loadNickCard).
 function switchPro(tab, btn) {
   _proTab = tab;
   document.querySelectorAll('#pg-profile .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['main','streak','ach','marriage','wallet','settings'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
-  if(tab==='streak') loadStreak();
+  ['main','streak','ach','wallet'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
+  if(tab==='main') loadProfile();
+  else if(tab==='streak') loadStreak();
   else if(tab==='ach') loadAch();
-  else if(tab==='marriage') loadMarriage();
   else if(tab==='wallet') loadWallet();
-  else if(tab==='settings') loadProfileSettings();
 }
 
-// swMkt: add deal and promo
+// ── swMkt — Рынок: Аукцион / Магазин / Инвентарь / Обмен / Акция ───────────────
+// Промокод теперь модалка (кнопка в шапке Магазина) — см. openPromoModal().
 function swMkt(tab, _btn) {
   const btn = _btn || document.querySelector('#pg-market .tb');
   _mktTab = tab;
   document.querySelectorAll('#pg-market .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   const bd = el('balrow'); bd.style.display = tab === 'shop' ? 'flex' : 'none';
-  ['auc','shop','inv','exch','deal','promo'].forEach(t=>el('mkt-'+t).style.display=t===tab?'':'none');
+  ['auc','shop','inv','exch','deal'].forEach(t=>el('mkt-'+t).style.display=t===tab?'':'none');
   ({auc:loadAuction, shop:loadShopCatalog, inv:loadInventory,
-    exch:loadExchange, deal:loadDeal, promo:loadPromo}[tab]||loadAuction)();
+    exch:loadExchange, deal:loadDeal}[tab]||loadAuction)();
 }
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
@@ -2590,16 +2603,15 @@ function doApplyDustFromPetModal(did,pid,btn) {
 }
 
 // ── Profile Settings ──────────────────────────────────────────────────────────
-function loadProfileSettings() {
-  const c=el('pro-settings');
+// ── Nickname card (в дашборде Обзор) ──────────────────────────────────────────
+// Рендерит в #pro-nick-card. Без активного чата карточка просто не показывается.
+function loadNickCard() {
+  const c=el('pro-nick-card');
+  if(!c) return;
   const chatId=_cid||0;
-  if(!chatId){
-    c.innerHTML='<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет активного чата.<br>Напишите боту в группу.</div>';
-    return;
-  }
-  c.innerHTML='<div class="loader">Загрузка...</div>';
+  if(!chatId){ c.innerHTML=''; return; }
   api(`/profile/nickname?chat_id=${chatId}`).then(r=>{
-    const nick=r.nickname||'';
+    const nick=(r.nickname||'').replace(/"/g,'&quot;');
     c.innerHTML=`<div class="card">
       <div class="card-title">🏷 Ник в чате</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Отображается вместо @username в статистике чата</div>
@@ -2610,7 +2622,7 @@ function loadProfileSettings() {
       </div>
       <div id="nick-status" style="font-size:11px;margin-top:6px;color:var(--muted)">1–32 символа, буквы/цифры/пробел/- .</div>
     </div>`;
-  }).catch(()=>{c.innerHTML='<div class="err">Ошибка загрузки</div>';});
+  }).catch(()=>{c.innerHTML='';});
 }
 function saveNick() {
   const v=(el('nick-inp')?.value||'').trim();
@@ -2644,7 +2656,7 @@ function loadEvents() {
         <div class="irow"><span class="ik">Курс</span><span>${fmt(ev.exchange_rate)} 🪙 = 1 💎</span></div>
         <div class="irow"><span class="ik">Лимит</span><span>${fmt(ev.exchange_cap)} 💎/день</span></div>
         ${msLeft>0?`<div class="irow"><span class="ik">До конца</span><span style="color:var(--gold)">${fmtTime(msLeft)}</span></div>`:''}
-        <button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%" onclick="_navToExch()">Перейти к обмену</button>
+        <button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%" onclick="goTo('market','exch')">Перейти к обмену</button>
       </div>`;
     } else if(ev.exchange_next) {
       const en=ev.exchange_next;
@@ -2672,7 +2684,7 @@ function loadEvents() {
             ${d.original&&d.original>d.price?`<s style="color:var(--muted);font-size:10px;margin-left:4px">${fmt(d.original)}</s>`:''}
           </span>
         </div>`).join('')}
-        <button class="btn btn-sm btn-teal" style="margin-top:8px;width:100%" onclick="_navToDeal()">К акции дня</button>
+        <button class="btn btn-sm btn-teal" style="margin-top:8px;width:100%" onclick="goTo('market','deal')">К акции дня</button>
       </div>`;
     }
 
@@ -2688,7 +2700,7 @@ function loadEvents() {
               ${Object.entries(g.rates).map(([r,v])=>`<span class="${RC[r]||'rc-common'}" style="font-size:10px;padding:1px 5px">${r} ${v}%</span>`).join('')}
             </div>
           </div>`).join('')}
-          <button class="btn btn-sm btn-gold" style="margin-top:4px;width:100%" onclick="_navToGacha()">К крутке</button>
+          <button class="btn btn-sm btn-gold" style="margin-top:4px;width:100%" onclick="goTo('arena','gacha')">К крутке</button>
         </div>`;
       }
     }
@@ -2697,51 +2709,17 @@ function loadEvents() {
   }).catch(e=>{el('evc').innerHTML=`<div class="err">${e}</div>`;});
 }
 // Nav helpers for events page (avoids complex inline onclick in template literals)
-function _navToExch() { switchPage('market',document.querySelector('.nb[onclick*=market]')); setTimeout(()=>swMkt('exch',document.querySelectorAll('#pg-market .tb')[3]),50); }
-function _navToDeal() { switchPage('market',document.querySelector('.nb[onclick*=market]')); setTimeout(()=>swMkt('deal',document.querySelectorAll('#pg-market .tb')[4]),50); }
-function _navToGacha() { switchPage('arena',document.querySelector('.nb[onclick*=arena]')); setTimeout(()=>swArena('gacha',document.querySelectorAll('#pg-arena .tb')[1]),50); }
+// nav-хелперы заменены на единый goTo()
 function fmtTime(ms) {
   const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60);
   if(h>24) return `${Math.floor(h/24)}д ${h%24}ч`;
   return `${h}ч ${m}м`;
 }
 
-// ── Pet Showcase ──────────────────────────────────────────────────────────────
-let _showcaseFilter='all';
+// ── Species data (общий кэш для Бестиария) ────────────────────────────────────
+// Витрина переехала в Зоопарк → Бестиарий (_renderBestiary). Здесь только кэш
+// видов и модалка деталей вида, которую вызывает Бестиарий.
 let _showcaseData=null;
-const _RC_ORDER={common:0,uncommon:1,rare:2,epic:3,legendary:4,mythic:5};
-function loadPetsShowcase() {
-  el('petsc').innerHTML='<div class="loader">Загрузка...</div>';
-  if(_showcaseData){renderShowcase();return;}
-  api('/zoo/species').then(d=>{_showcaseData=d;renderShowcase();}).catch(e=>{el('petsc').innerHTML=`<div class="err">${e}</div>`;});
-}
-function renderShowcase() {
-  const rarities=['all','common','uncommon','rare','epic','legendary','mythic'];
-  const d=_showcaseData||[];
-  const filtered=_showcaseFilter==='all'?d:d.filter(p=>p.rarity===_showcaseFilter);
-  const sorted=[...filtered].sort((a,b)=>(_RC_ORDER[a.rarity]||0)-(_RC_ORDER[b.rarity]||0));
-  el('petsc').innerHTML=`
-    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">
-      ${rarities.map(r=>`<button class="btn btn-sm ${_showcaseFilter===r?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setShowcaseFilter('${r}')">${r==='all'?'Все':r}</button>`).join('')}
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      ${sorted.map(p=>`<div class="card" style="cursor:pointer;padding:12px;margin-bottom:0" onclick="showSpeciesDetail('${p.species_id}')">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div style="font-size:22px">${p.name.split(' ')[0]||'🐾'}</div>
-          <div>
-            <div style="font-weight:700;font-size:13px">${p.name.replace(/^[^\s]+\s/,'')}</div>
-            <span class="${RC[p.rarity]||'rc-common'}" style="font-size:10px">${p.rarity}</span>
-          </div>
-        </div>
-        <div style="font-size:10px;color:var(--muted)">${p.role==='active'?'⚔️ Активный':'🛡 Пассивный'}</div>
-        <div style="font-size:10px;color:var(--text);margin-top:4px;line-height:1.4">${p.desc?.slice(0,60)||''}</div>
-      </div>`).join('')}
-    </div>`;
-}
-function setShowcaseFilter(r) {
-  _showcaseFilter=r;
-  renderShowcase();
-}
 function showSpeciesDetail(sid) {
   const p=(_showcaseData||[]).find(x=>x.species_id===sid);
   if(!p) return;
@@ -2902,9 +2880,23 @@ function openAdminAction(userId, userName, perms) {
   `,[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
   el('modal')._adminTarget=userId;
 }
+let _admPendingAction=null, _admPendingUser=0, _admPendingReason='';
 function doAdminAction(userId, action) {
   if(action==='mute') { openMuteDuration(userId); return; }
   const reason=el('adm-reason')?.value||'';
+  // Опасные действия (Бан/Кик) — подтверждение через модалку (заповедь 3).
+  if(action==='ban'||action==='kick'){
+    _admPendingAction=action; _admPendingUser=userId; _admPendingReason=reason;
+    const labels={ban:'🚫 Бан',kick:'🥾 Кик'};
+    OM(`${labels[action]} — подтверждение`,
+      `<div style="text-align:center;padding:12px 0;color:var(--muted)">Подтвердите <b style="color:var(--red)">${labels[action]}</b> для этого пользователя.${reason?`<div style="font-size:11px;margin-top:6px">Причина: ${reason.replace(/</g,'&lt;')}</div>`:''}</div>`,
+      [{l:'Да, выполнить',c:'btn-red',f:'_execAdminConfirmed()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    return;
+  }
+  _execAdminAction(userId, action, reason);
+}
+function _execAdminConfirmed(){ _execAdminAction(_admPendingUser,_admPendingAction,_admPendingReason); }
+function _execAdminAction(userId, action, reason) {
   api(`/admin/${_adminChatId}/action`,{method:'POST',body:JSON.stringify({user_id:userId,action,reason:reason||null})})
     .then(r=>{toast(`✅ ${action} выполнено`+(r.new_warnings!=null?` (варнов: ${r.new_warnings})`:''));CM();loadAdminUsers();})
     .catch(e=>toast(e,false));
