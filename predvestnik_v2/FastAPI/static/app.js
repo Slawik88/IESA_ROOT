@@ -17,7 +17,7 @@ const _tgChat = tg?.initDataUnsafe?.chat || null;
 const _initChatId = _tgChat?.id || 0;   // primary chat_id for local top
 const _initChatTitle = _tgChat?.title || '';
 
-let _cid = 0, _uid = 0, _actTab='quests', _zooTab='nursery', _arenaTab='quests';
+let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='duels';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='auc';
 let _proTab='main', _profileData=null;
 let _achData=null, _achSort='default', _invSearch='', _themeFilter='all';
@@ -141,7 +141,7 @@ function switchPage(name,btn) {
 // Единая программная навигация — шорткаты в карточках/модалках.
 // goTo('zoo')              → страница Зоопарк
 // goTo('profile','streak') → Профиль, вкладка Стрик
-// goTo('arena','gacha')    → Арена, вкладка Гача
+// goTo('market','gacha')    → Рынок, вкладка Гача
 // Закрывает открытую модалку (CM) — нужно для шорткатов внутри модальных окон.
 function goTo(page, tab) {
   CM();
@@ -200,16 +200,18 @@ function loadProfile() {
         <div class="shortcut-row">
           <span class="shortcut-link" onclick="goTo('zoo')">Управлять питомцами →</span>
         </div>
-      </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Питомцев пока нет</div><div class="es-sub">Открой яйцо в Гаче, чтобы завести первого</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('arena','gacha')">🎲 Открыть Гачу</button></div></div>`}
+      </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Питомцев пока нет</div><div class="es-sub">Открой яйцо в Гаче, чтобы завести первого</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button></div></div>`}
       ${d.chats.length?`<div class="card">
         <div class="card-title">💬 Активность</div>
         ${d.chats.map(c=>`<div class="irow"><span class="ik">${c.chat_title||'Чат'}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}
         <div class="shortcut-row">
           <span class="shortcut-link" onclick="goTo('coll','top')">Посмотреть топ →</span>
         </div>
-      </div>`:''}`;
+      </div>`:''}
+      <div id="wallet-mini"></div>`;
     loadMarriageCard();
     loadNickCard();
+    loadWalletMini();
     if(!_ws && _uid) connectWS();
     updateCurrBar(d);          // populate sticky currency bar from profile data
     if(!_adminChats) checkAdminAccess();
@@ -966,13 +968,14 @@ function _renderBestiary() {
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
 
 // ── Arena ─────────────────────────────────────────────────────────────────────
+// ── Arena — только Дуэли + Ивенты. Гача/Крафт/Тёмная/Квесты перенесены в Рынок/Профиль.
 function loadArena(){swArena(_arenaTab,document.querySelector('#pg-arena .tb'));}
 function swArena(tab,btn) {
   _arenaTab=tab;
   document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['quests','gacha','craft','duels','dark','events'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
-  ({quests:loadQuests,gacha:loadGacha,craft:loadCraft,duels:loadDuels,dark:loadDarkMora,events:loadEvents}[tab]||loadQuests)();
+  ['duels','events'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
+  ({duels:loadDuels,events:loadEvents}[tab]||loadDuels)();
 }
 const QUEST_NAMES = {
   msg_15:     {n:'💬 Болтун',         d:'Напиши 15 сообщений в чате'},
@@ -990,6 +993,7 @@ const QUEST_NAMES = {
   level_pet:  {n:'⬆️ Тренер',         d:'Повысь питомца до нового уровня'},
 };
 function loadQuests() {
+  el('qc').innerHTML='<div class="loader">Загрузка...</div>';
   if(!_cid){el('qc').innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">Нужен Профиль с чатом.</div>';return;}
   api(`/quests/${_cid}`).then(qs=>{
     el('qc').innerHTML=qs.length?'<div class="card">'+qs.map(q=>{
@@ -1024,6 +1028,7 @@ function _topRarity(dups) {
 }
 
 function loadGacha() {
+  el('gc').innerHTML='<div class="loader">Загрузка...</div>';
   api('/gacha/').then(d=>{
     const disc = d.multi_discount_pct||10;
     el('gc').innerHTML=`
@@ -1183,6 +1188,7 @@ function doMultiSpin(st, btn) {
   }).catch(e=>{toast(e,false);btn.disabled=false;el('spin-res').innerHTML='';});
 }
 function loadCraft() {
+  el('cc').innerHTML='<div class="loader">Загрузка...</div>';
   api('/craft/').then(recipes => {
     if (!recipes.length) { el('cc').innerHTML='<div class="empty-state"><div class="es-icon">⚗️</div><div class="es-title">Рецептов пока нет</div><div class="es-sub">Рецепты крафта появятся в следующих обновлениях</div></div>'; return; }
     el('cc').innerHTML = recipes.map(rc => `
@@ -1349,7 +1355,7 @@ function submitDuelChallenge(btn) {
 }
 
 // ── Market ────────────────────────────────────────────────────────────────────
-function loadMarket(){swMkt('auc',document.querySelector('#pg-market .tb'));}
+function loadMarket(){swMkt(_mktTab,document.querySelector('#pg-market .tb'));}
 // swMkt() defined later with deal + promo tabs
 let _aucPage = 0, _aucTotal = 0, _aucPerPage = 20;
 
@@ -1636,7 +1642,7 @@ function openItemModal(iid) {
     body+=`<div class="irow"><span class="ik">Ускорение</span><span style="color:var(--teal)">−${boost_hours}ч</span></div>`;
     if(quantity>0)btns.unshift({l:'⏩ К экспедиции',c:'btn-teal',f:`openBoostSelModal('${item_id}')`});
   } else if(category==='spin_token'){
-    if(quantity>0)btns.unshift({l:'🎲 В Гачу',c:'btn-gold',f:`goTo('arena','gacha')`});
+    if(quantity>0)btns.unshift({l:'🎲 В Гачу',c:'btn-gold',f:`goTo('market','gacha')`});
   } else if(item_id.startsWith('star_dust')){
     body+=`<div class="irow"><span class="ik">Даёт дубликатов</span><span style="color:var(--gold)">+${item_id.includes('_l')?5:1}</span></div>`;
     if(quantity>0)btns.unshift({l:'✨ Применить',c:'btn-gold',f:`openDustModal('${item_id}')`});
@@ -1704,12 +1710,12 @@ const SRC = {
   start:          {label:'Стартовая',     desc:'Есть у всех игроков с самого начала. Бесплатно!', action:null},
   shop_mora:      {label:'Магазин 🪙',    desc:'Купите напрямую в Магазине за Мору.', action:null},
   shop_diamond:   {label:'Магазин 💎',    desc:'Купите в Магазине за Алмазы.', action:null},
-  dark:           {label:'Чёрный Рынок 🌑', desc:'Покупается за Тёмную Мору на Чёрном Рынке. Зарабатывайте Тёмную Мору через Контрабанду и Ритуал Культа Бездны.', action:{l:'🌑 Открыть Тёмную Мору', f:"goTo('arena','dark')"}},
+  dark:           {label:'Чёрный Рынок 🌑', desc:'Покупается за Тёмную Мору на Чёрном Рынке. Зарабатывайте Тёмную Мору через Контрабанду и Ритуал Культа Бездны.', action:{l:'🌑 Открыть Тёмную Мору', f:"goTo('market','dark')"}},
   zarniki:        {label:'Зарники ✨',     desc:'Приобретается за донат-валюту Зарники (Telegram Stars). 1 Звезда = 10 Зарников.', action:null},
-  gacha_novice:   {label:'Гача 🎲',       desc:'Может выпасть из Ученической крутки гачи. Шанс — случайный.', action:{l:'🎲 Открыть Гачу', f:"goTo('arena','gacha')"}},
-  gacha_standard: {label:'Гача 🎲',       desc:'Может выпасть из Стандартной крутки гачи (1000 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('arena','gacha')"}},
-  gacha_premium:  {label:'Гача 🎲',       desc:'Может выпасть из Премиум крутки гачи (2800 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('arena','gacha')"}},
-  gacha_diamond:  {label:'Гача 💎',       desc:'Выпадает из Алмазной крутки гачи (5 💎 / спин). Самые редкие темы.', action:{l:'🎲 Открыть Гачу', f:"goTo('arena','gacha')"}},
+  gacha_novice:   {label:'Гача 🎲',       desc:'Может выпасть из Ученической крутки гачи. Шанс — случайный.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
+  gacha_standard: {label:'Гача 🎲',       desc:'Может выпасть из Стандартной крутки гачи (1000 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
+  gacha_premium:  {label:'Гача 🎲',       desc:'Может выпасть из Премиум крутки гачи (2800 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
+  gacha_diamond:  {label:'Гача 💎',       desc:'Выпадает из Алмазной крутки гачи (5 💎 / спин). Самые редкие темы.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
   event:          {label:'Ивент 🎪',      desc:'Выдаётся за участие в особых мировых событиях. Следите за объявлениями в чате.', action:null},
   auction:        {label:'Аукцион 🏛',    desc:'Можно купить у других игроков на Аукционе.', action:{l:'🏛 Открыть Аукцион', f:"goTo('market','auc')"}},
 };
@@ -2408,25 +2414,42 @@ function declineProposal(id,btn) {
     .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
-// ── Wallet history ────────────────────────────────────────────────────────────
-function loadWallet() {
-  el('pro-wallet').innerHTML='<div class="loader">Загрузка...</div>';
+// ── Wallet mini — свёрнутая история транзакций внизу дашборда Профиля ────────────
+let _walletMiniExpanded = false;
+let _walletMiniTxs = [];
+function loadWalletMini() {
+  const host = el('wallet-mini');
+  if(!host) return;
+  host.innerHTML='<div class="sk" style="height:44px;border-radius:var(--r)"></div>';
   api('/wallet/history').then(txs=>{
-    if(!txs.length){el('pro-wallet').innerHTML='<div class="empty-state"><div class="es-icon">💳</div><div class="es-title">Транзакций нет</div><div class="es-sub">Здесь будет история операций с Морой и алмазами</div></div>';return;}
-    el('pro-wallet').innerHTML='<div class="card"><div class="card-title">История транзакций</div>'+
-      txs.map(t=>{
-        const mora=t.delta_mora?`<span style="color:${t.delta_mora>0?'var(--green)':'var(--red)'};font-weight:600">${t.delta_mora>0?'+':''}${fmt(t.delta_mora)} 🪙</span>`:'';
-        const dia=t.delta_diamonds?`<span style="color:${t.delta_diamonds>0?'var(--blue)':'var(--red)'};font-weight:600">${t.delta_diamonds>0?'+':''}${t.delta_diamonds} 💎</span>`:'';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border2)">
-          <div style="flex:1">
-            <div style="font-size:12px;font-weight:600;color:var(--bright)">${t.label}</div>
-            ${t.note?`<div style="font-size:10px;color:var(--muted)">${t.note}</div>`:''}
-            <div style="font-size:10px;color:var(--muted)">${t.created_at}</div>
-          </div>
-          <div style="text-align:right">${mora} ${dia}</div>
-        </div>`;
-      }).join('')+'</div>';
-  }).catch(e=>{el('pro-wallet').innerHTML=`<div class="err">${e}</div>`;});
+    _walletMiniTxs = txs;
+    _walletMiniExpanded = false;
+    _renderWalletMini();
+  }).catch(()=>{ if(el('wallet-mini')) el('wallet-mini').innerHTML=''; });
+}
+function toggleWalletMini() { _walletMiniExpanded=!_walletMiniExpanded; _renderWalletMini(); }
+function _renderWalletMini() {
+  const host = el('wallet-mini');
+  if(!host) return;
+  if(!_walletMiniTxs.length){ host.innerHTML=''; return; }
+  const show = _walletMiniExpanded ? _walletMiniTxs : _walletMiniTxs.slice(0,4);
+  const fmtTx = t => {
+    const mora = t.delta_mora?`<span style="color:${t.delta_mora>0?'var(--green)':'var(--red)'};font-weight:600">${t.delta_mora>0?'+':''}${fmt(t.delta_mora)} 🪙</span>`:'';
+    const dia  = t.delta_diamonds?`<span style="color:${t.delta_diamonds>0?'var(--blue)':'var(--red)'};font-weight:600">${t.delta_diamonds>0?'+':''}${t.delta_diamonds} 💎</span>`:'';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.label}</div>
+        ${t.note?`<div style="font-size:10px;color:var(--muted)">${t.note}</div>`:''}
+        <div style="font-size:10px;color:var(--muted)">${(t.created_at||'').slice(0,16)}</div>
+      </div>
+      <div style="text-align:right;white-space:nowrap;flex-shrink:0">${[mora,dia].filter(Boolean).join(' ')}</div>
+    </div>`;
+  };
+  host.innerHTML=`<div class="card">
+    <div class="card-title">💳 История операций</div>
+    ${show.map(fmtTx).join('')}
+    ${_walletMiniTxs.length>4?`<button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="toggleWalletMini()">${_walletMiniExpanded?'▲ Свернуть':'▼ Показать все ('+_walletMiniTxs.length+')'}</button>`:''}
+  </div>`;
 }
 
 // ── Daily Deal ────────────────────────────────────────────────────────────────
@@ -2540,30 +2563,30 @@ function redeemPromo(btn) {
     .finally(()=>{btn.disabled=false;});
 }
 
-// ── switchPro — Профиль: Обзор(дашборд) / Стрик / Ачивки / Кошелёк ─────────────
-// Брак и Ник теперь карточки внутри Обзора (loadMarriageCard / loadNickCard).
+// ── switchPro — Профиль: Обзор(дашборд+кошелёк) / Квесты / Стрик / Ачивки ───────
+// Брак и Ник — карточки в Обзоре. История кошелька — свёрнутая секция внизу Обзора.
 function switchPro(tab, btn) {
   _proTab = tab;
   document.querySelectorAll('#pg-profile .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['main','streak','ach','wallet'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
+  ['main','quests','streak','ach'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
   if(tab==='main') loadProfile();
+  else if(tab==='quests') loadQuests();
   else if(tab==='streak') loadStreak();
   else if(tab==='ach') loadAch();
-  else if(tab==='wallet') loadWallet();
 }
 
-// ── swMkt — Рынок: Аукцион / Магазин / Инвентарь / Обмен / Акция ───────────────
-// Промокод теперь модалка (кнопка в шапке Магазина) — см. openPromoModal().
+// ── swMkt — Рынок: вся экономика включая Гачу, Крафт, Тёмную ────────────────────
+// Промокод — модалка (кнопка в шапке Магазина). Гача/Крафт/Тёмная перенесены из Арены.
 function swMkt(tab, _btn) {
-  const btn = _btn || document.querySelector('#pg-market .tb');
+  const btn = _btn || document.querySelector(`#pg-market .tb[onclick*="'${tab}'"]`) || document.querySelector('#pg-market .tb');
   _mktTab = tab;
   document.querySelectorAll('#pg-market .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   const bd = el('balrow'); bd.style.display = tab === 'shop' ? 'flex' : 'none';
-  ['auc','shop','inv','exch','deal'].forEach(t=>el('mkt-'+t).style.display=t===tab?'':'none');
-  ({auc:loadAuction, shop:loadShopCatalog, inv:loadInventory,
-    exch:loadExchange, deal:loadDeal}[tab]||loadAuction)();
+  ['auc','shop','gacha','craft','inv','exch','deal','dark'].forEach(t=>el('mkt-'+t).style.display=t===tab?'':'none');
+  ({auc:loadAuction, shop:loadShopCatalog, gacha:loadGacha, craft:loadCraft,
+    inv:loadInventory, exch:loadExchange, deal:loadDeal, dark:loadDarkMora}[tab]||loadAuction)();
 }
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
@@ -2700,7 +2723,7 @@ function loadEvents() {
               ${Object.entries(g.rates).map(([r,v])=>`<span class="${RC[r]||'rc-common'}" style="font-size:10px;padding:1px 5px">${r} ${v}%</span>`).join('')}
             </div>
           </div>`).join('')}
-          <button class="btn btn-sm btn-gold" style="margin-top:4px;width:100%" onclick="goTo('arena','gacha')">К крутке</button>
+          <button class="btn btn-sm btn-gold" style="margin-top:4px;width:100%" onclick="goTo('market','gacha')">К крутке</button>
         </div>`;
       }
     }
@@ -2772,12 +2795,16 @@ function swAdmin(tab, btn) {
   _adminTab=tab;
   document.querySelectorAll('#pg-admin .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  ['dash','users','settings','logs'].forEach(t=>el('adm-'+t).style.display=t===tab?'':'none');
+  ['dash','users','mod','settings','logs'].forEach(t=>el('adm-'+t).style.display=t===tab?'':'none');
   if(!_adminChatId) return;
   if(tab==='dash') loadAdminDash();
   else if(tab==='users') { _adminPage=1; loadAdminUsers(); }
+  else if(tab==='mod') loadAdminMod();
   else if(tab==='settings') loadAdminSettings();
   else if(tab==='logs') { _adminPage=1; loadAdminLogs(); }
+}
+function swAdminByName(tab) {
+  swAdmin(tab, document.querySelector(`#pg-admin .tb[onclick*="'${tab}'"]`));
 }
 function loadAdminDash() {
   if(!_adminChatId) return;
@@ -3016,6 +3043,64 @@ function loadAdminLogs() {
   }).catch(e=>{el('adm-logs').innerHTML=`<div class="err">${e}</div>`;});
 }
 function admLogPage(p) { _adminPage=p; loadAdminLogs(); }
+
+// ── Admin Moderation tab — активные муты, предупреждения, свежие действия ────────
+function loadAdminMod() {
+  if(!_adminChatId) return;
+  el('adm-mod').innerHTML='<div class="loader">Загрузка...</div>';
+  Promise.all([
+    api(`/admin/${_adminChatId}/users?sort=warns&page=1`),
+    api(`/admin/${_adminChatId}/logs?page=1`),
+  ]).then(([ud, ld])=>{
+    const now = Date.now();
+    const users = ud.users||[];
+    const muted = users.filter(u=>{
+      if(!u.muted_until) return false;
+      const ts = new Date(u.muted_until.replace(' ','T')+'Z').getTime();
+      return ts > now;
+    });
+    const warned = users.filter(u=>(u.warnings||0)>0);
+    const logs = (ld.logs||[]).slice(0,8);
+    const ACTION_COL = {ban:'var(--red)',kick:'var(--red)',mute:'var(--gold)',
+      unmute:'var(--green)',warn:'var(--gold)',unwarn:'var(--green)',unban:'var(--green)',immune:'var(--blue)'};
+    const userRow = (u,badge) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2)">
+      <span style="font-size:12px;color:var(--bright)">@${u.user_tg_username||'ID'+u.user_tg_id}</span>
+      <span style="font-size:11px">${badge}</span>
+    </div>`;
+    el('adm-mod').innerHTML=`
+      ${muted.length?`<div class="card">
+        <div class="card-title" style="color:var(--red)">🔇 Активные муты (${muted.length})</div>
+        ${muted.map(u=>userRow(u,`<span style="color:var(--muted);font-size:10px">до ${u.muted_until?.slice(0,16)||'?'}</span>
+          <button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="openAdminAction(${u.user_tg_id},'@${u.user_tg_username||u.user_tg_id}',{can_mute:true,can_warn:false,can_kick:false,can_ban:false})">⚡</button>`)).join('')}
+      </div>`:''}
+      ${warned.length?`<div class="card">
+        <div class="card-title" style="color:var(--gold)">⚠️ Предупреждения</div>
+        ${warned.slice(0,10).map(u=>userRow(u,`<span style="color:var(--red);font-weight:700">${u.warnings}× ⚠️</span>
+          <button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="openAdminAction(${u.user_tg_id},'@${u.user_tg_username||u.user_tg_id}',{can_warn:true,can_mute:false,can_kick:false,can_ban:false})">⚡</button>`)).join('')}
+      </div>`:''}
+      ${!muted.length&&!warned.length?`<div class="card" style="text-align:center;padding:20px">
+        <div style="font-size:28px;margin-bottom:8px">✅</div>
+        <div style="font-size:13px;font-weight:700;color:var(--green)">Всё спокойно</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Нет активных мутов и предупреждений</div>
+      </div>`:''}
+      <div class="card">
+        <div class="card-title">📋 Последние действия</div>
+        ${logs.length?logs.map(l=>{
+          const base = (l.action||'').split('_')[0];
+          const col = ACTION_COL[base]||'var(--muted)';
+          return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border2)">
+            <div>
+              <span style="font-size:11px;font-weight:700;color:${col}">${l.action}</span>
+              <span style="font-size:11px;color:var(--text)"> @${l.target_name||l.user_id}</span>
+              ${l.reason?`<span style="font-size:10px;color:var(--muted)"> — ${l.reason}</span>`:''}
+            </div>
+            <span style="font-size:10px;color:var(--muted);white-space:nowrap;margin-left:8px">${(l.created_at||'').slice(0,16)}</span>
+          </div>`;
+        }).join(''):'<div style="font-size:12px;color:var(--muted)">Нет записей</div>'}
+        <button class="btn btn-ghost btn-sm btn-full" style="margin-top:8px" onclick="swAdminByName('logs')">Полный журнал →</button>
+      </div>`;
+  }).catch(e=>{el('adm-mod').innerHTML=`<div class="err">${e}</div>`;});
+}
 
 // ── Init admin check after login ──────────────────────────────────────────────
 function checkAdminAccess() {
