@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.zoo import get_user_pets as _get_pets
-from services.duel import decline_duel, create_challenge
+from services.duel import decline_duel, create_challenge, accept_duel
 
 router = APIRouter(prefix="/duels", tags=["duels"])
 

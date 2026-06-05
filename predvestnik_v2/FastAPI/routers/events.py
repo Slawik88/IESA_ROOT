@@ -12,8 +12,12 @@ router = APIRouter(prefix="/events", tags=["events"])
 @router.get("/")
 async def active_events(db=Depends(get_db), user=Depends(require_tg_user)):
     """Все активные и ближайшие события."""
-    exchange_active = await get_active_event(db)
-    exchange_next = await get_scheduled_event(db) if not exchange_active else None
+    try:
+        exchange_active = await get_active_event(db)
+        exchange_next = await get_scheduled_event(db) if not exchange_active else None
+    except Exception:
+        exchange_active = None
+        exchange_next = None
 
     # Daily deal items
     deals = []
@@ -36,11 +40,16 @@ async def active_events(db=Depends(get_db), user=Depends(require_tg_user)):
     except Exception:
         pass
 
-    # Gacha spin types with rates overview
+    _egg_labels = {
+        "egg_basic": "🥚 Обычное яйцо", "egg_summon": "🥚 Яйцо призыва",
+        "egg_silver": "🥚 Серебряное яйцо", "egg_gold": "🥚 Золотое яйцо",
+        "egg_mythic": "🥚 Мифическое яйцо", "egg_unity": "🥚 Яйцо единства",
+        "egg_crystal": "🥚 Кристальное яйцо", "egg_daily": "🥚 Ежедневное яйцо",
+    }
     gacha = [
         {
             "spin_type": stype,
-            "label": stype.capitalize(),
+            "label": _egg_labels.get(stype, stype.replace("_", " ").title()),
             "rates": {rarity: pct for rarity, pct in rates.items() if pct > 0},
         }
         for stype, rates in GACHA_RATES.items()

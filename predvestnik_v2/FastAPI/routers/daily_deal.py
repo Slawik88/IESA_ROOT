@@ -22,10 +22,18 @@ def _next_midnight_utc() -> str:
 @router.get("/")
 async def get_deals(db=Depends(get_db), user=Depends(require_tg_user)):
     """Актуальные предметы акции дня + время до обновления."""
+    from infrastructure.repositories.daily_deal import already_purchased as _ap
     raw_deals = await ensure_deals_fresh(db)
     bal = await get_balance(db, user["id"])
 
-    # Enrich each deal with display name and description from ITEMS_REGISTRY
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # Fetch which slots the current user has already bought today
+    async with db.execute(
+        "SELECT slot FROM daily_deal_purchases WHERE user_id = ? AND purchase_date = ?",
+        (user["id"], today),
+    ) as c:
+        purchased_slots = {row[0] for row in await c.fetchall()}
+
     deals = []
     for deal in raw_deals:
         item = ITEMS_REGISTRY.get(deal.get("item_id", ""), {})
@@ -33,6 +41,7 @@ async def get_deals(db=Depends(get_db), user=Depends(require_tg_user)):
             **deal,
             "item_name": item.get("name", deal.get("item_id", "?")),
             "item_description": item.get("description", ""),
+            "purchased": deal["slot"] in purchased_slots,
         })
 
     return {

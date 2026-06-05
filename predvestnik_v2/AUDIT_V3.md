@@ -7,11 +7,22 @@
 - [x] **BUG**: `renderLots` тернарный хвост → SyntaxError → белый экран (КРИТИЧНО, в prod)
 - [x] **BUG**: `PET_PLACEMENT_FATIGUE_RESTORE` — Python-константа в JS → ReferenceError
 - [x] **BUG**: `remove_item` not imported in `auction.py` → NameError при создании лота
-- [x] **BUG**: `dark_mora_events` table not found → try/except обёртка
+- [x] **BUG**: `dark_mora_events` table not found → query переписан на `shadow_merchant_events` (TD-4)
 - [x] **BUG**: `al.min_bid` GROUP BY в `/auction/reserved`
 - [x] **QUEST**: сырые ID квестов → карта `QUEST_NAMES` с понятными именами и описаниями
 - [x] **REFACTOR**: main.py 2397→169 строк, статика в `FastAPI/static/`
 - [x] **BUG**: 3 дублированные функции JS (connectWS/switchPro/swMkt)
+- [x] **BUG**: Events tab JSON crash → `api()` + `events.py` try/except обёртки
+- [x] **BUG**: Admin settings upsert — UPDATE без строки → тихий no-op (moderation.py)
+- [x] **BUG**: Mute reason injection через `onclick` — глобальные переменные `_admMuteUserId/_admMuteReason`
+- [x] **BUG**: Username injection в admin table — `JSON.stringify()`
+- [x] **BUG**: `doSpin` species emoji — `dups[0].species` → `dups[0].species_id`
+- [x] **BUG**: `startDealTimer` setInterval утечка памяти → `_dealTimerInterval` + clearInterval
+- [x] **BUG**: Deal purchase status не показывался — API не возвращал `purchased`
+- [x] **BUG**: Exchange broken slider при нулевой квоте/море → `maxCanBuy < 1` guard
+- [x] **BUG**: `accept_duel` не импортирован в `FastAPI/routers/duels.py` → NameError
+- [x] **BUG**: `doOpenEgg` показывает пустое название — `res.species` → `res.species_name`
+- [x] **BUG**: TD-4 `dark_mora_events` → `shadow_merchant_events` с корректной логикой active/expires
 
 ---
 

@@ -99,6 +99,11 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
 async def update_chat_settings(db: aiosqlite.Connection, chat_id: int, **kwargs):
     if not kwargs:
         return
+    # Ensure row exists so UPDATE below isn't silently a no-op for new chats
+    await db.execute(
+        "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
+        (chat_id,),
+    )
     set_clause = ", ".join(f"{k} = ?" for k in kwargs)
     await db.execute(
         f"UPDATE chat_settings SET {set_clause} WHERE chat_id = ?",
