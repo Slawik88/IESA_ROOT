@@ -8,6 +8,7 @@ from core.constants import (
     PET_ACTIVE_FATIGUE_PER_DAY, PET_PASSIVE_FATIGUE_PER_DAY, PET_MAX_FATIGUE_LAG_DAYS,
     WOLF_BONUSES, WOLF_REDUCTION_CAP,
     UNICORN_BONUSES, UNICORN_REDUCTION_CAP,
+    FOX_BONUSES, TURTLE_BONUSES,
     HAMSTER_BONUSES,
     MAX_PET_COPIES,
     DUPLICATE_OVERFLOW_MORA, DUPLICATE_OVERFLOW_STARDUST,
@@ -276,7 +277,7 @@ async def apply_fatigue_decay(db: aiosqlite.Connection, user_id: int):
     """Lazily apply accumulated daily fatigue to all of the user's nursery pets."""
     now = datetime.now()
 
-    # Wolf reduction from the level-curve, picks active/passive based on slot.
+    # Wolf reduction
     wolf_reduction = 0.0
     async with db.execute(
         "SELECT placement, COALESCE(pet_level, 1) FROM pets WHERE owner_id = ? "
@@ -291,20 +292,35 @@ async def apply_fatigue_decay(db: aiosqlite.Connection, user_id: int):
                 WOLF_REDUCTION_CAP,
             )
 
-    # Unicorn reduction from the level-curve.
+    # Unicorn: reduction + Lv8 active recovery + Lv10 auto-recover
     unicorn_reduction = 0.0
+    unicorn_auto_recover = False
+    unicorn_active_recovery_ph = 0  # fatigue/hour healed for unicorn itself if in active slot
+    unicorn_active_pet_id = None
     async with db.execute(
-        "SELECT COALESCE(pet_level, 1) FROM pets WHERE owner_id = ? "
+        "SELECT id, placement, COALESCE(pet_level, 1) FROM pets WHERE owner_id = ? "
         "AND species_id = 'unicorn' AND placement IN ('active', 'passive') AND fatigue < 100 LIMIT 1",
         (user_id,)
     ) as c:
         row = await c.fetchone()
         if row:
-            uni_bonus = UNICORN_BONUSES.get(max(1, min(10, row[0])), {})
-            unicorn_reduction = min(
-                uni_bonus.get("daily_fatigue_reduction", 0.0),
-                UNICORN_REDUCTION_CAP,
-            )
+            uni_lv = max(1, min(10, row[2]))
+            uni_bonus = UNICORN_BONUSES.get(uni_lv, {})
+            unicorn_reduction = min(uni_bonus.get("daily_fatigue_reduction", 0.0), UNICORN_REDUCTION_CAP)
+            unicorn_auto_recover = uni_bonus.get("auto_recover", False)
+            if row[1] == "active":
+                unicorn_active_recovery_ph = uni_bonus.get("active_recovery_per_hour", 0)
+                unicorn_active_pet_id = row[0]
+
+    # Unicorn Lv4+ immunity: check player_buffs
+    unicorn_immune = False
+    async with db.execute(
+        "SELECT 1 FROM player_buffs WHERE user_id = ? AND buff_type = 'unicorn_immunity' "
+        "AND expires_at > NOW() LIMIT 1",
+        (user_id,)
+    ) as c:
+        if await c.fetchone():
+            unicorn_immune = True
 
     # Fetch all nursery pets
     async with db.execute(
@@ -319,25 +335,41 @@ async def apply_fatigue_decay(db: aiosqlite.Connection, user_id: int):
     for pet in pets:
         last_upd = pet.get("last_fatigue_update")
         if not last_upd:
-            await db.execute(
-                "UPDATE pets SET last_fatigue_update = ? WHERE id = ?",
-                (now_str, pet["id"])
-            )
+            await db.execute("UPDATE pets SET last_fatigue_update = ? WHERE id = ?", (now_str, pet["id"]))
             continue
 
         try:
             last_dt = parse_dt(last_upd)
         except ValueError:
-            await db.execute(
-                "UPDATE pets SET last_fatigue_update = ? WHERE id = ?",
-                (now_str, pet["id"])
-            )
+            await db.execute("UPDATE pets SET last_fatigue_update = ? WHERE id = ?", (now_str, pet["id"]))
             continue
 
-        # Cap elapsed time to prevent huge spikes for long-inactive users
         max_lag = timedelta(days=PET_MAX_FATIGUE_LAG_DAYS)
         if now - last_dt > max_lag:
             last_dt = now - max_lag
+
+        elapsed_seconds = (now - last_dt).total_seconds()
+
+        # Unicorn Lv8+ in active slot: the unicorn itself HEALS instead of gaining fatigue
+        if pet["id"] == unicorn_active_pet_id and unicorn_active_recovery_ph > 0:
+            heal_per_second = unicorn_active_recovery_ph / 3600.0
+            heal_int = int(elapsed_seconds * heal_per_second)
+            if heal_int > 0 and pet["fatigue"] > 0:
+                new_fatigue = max(0, pet["fatigue"] - heal_int)
+                consumed = heal_int / heal_per_second
+                new_last_dt = last_dt + timedelta(seconds=consumed)
+                await db.execute(
+                    "UPDATE pets SET fatigue = ?, last_fatigue_update = ? WHERE id = ?",
+                    (new_fatigue, new_last_dt.strftime("%Y-%m-%d %H:%M:%S"), pet["id"])
+                )
+            else:
+                await db.execute("UPDATE pets SET last_fatigue_update = ? WHERE id = ?", (now_str, pet["id"]))
+            continue
+
+        # Unicorn immunity active: skip fatigue gain, just advance timestamp
+        if unicorn_immune:
+            await db.execute("UPDATE pets SET last_fatigue_update = ? WHERE id = ?", (now_str, pet["id"]))
+            continue
 
         base_rate = (
             PET_ACTIVE_FATIGUE_PER_DAY if pet["placement"] == "active"
@@ -350,14 +382,14 @@ async def apply_fatigue_decay(db: aiosqlite.Connection, user_id: int):
         if effective_rate <= 0:
             continue
 
-        # How many fatigue points have accumulated since last update?
         seconds_per_point = 86400.0 / effective_rate
-        elapsed_seconds = (now - last_dt).total_seconds()
         gain_int = int(elapsed_seconds / seconds_per_point)
 
         if gain_int > 0:
             new_fatigue = min(100, pet["fatigue"] + gain_int)
-            # Advance the timer by exactly the seconds consumed (preserves fractional remainder)
+            # Unicorn Lv10: auto-recover when pet would hit 100 fatigue
+            if unicorn_auto_recover and new_fatigue >= 100:
+                new_fatigue = max(0, new_fatigue - 30)
             consumed_seconds = gain_int * seconds_per_point
             new_last_dt = last_dt + timedelta(seconds=consumed_seconds)
             await db.execute(
@@ -455,33 +487,53 @@ async def open_eggs_batch(
                 (user_id,),
             )
 
-        for i in range(count):
+        # Fox Lv4+: common_dup_bonus — chance to reroll non-common result to common
+        fox_level = await get_active_species_level(db, user_id, "fox")
+        fox_common_bonus = (
+            FOX_BONUSES.get(max(1, min(10, fox_level)), {}).get("common_dup_bonus", 0.0)
+            if fox_level >= 4 else 0.0
+        )
+
+        # Turtle Lv10: double_egg_chance — 5% chance for a bonus free pet per egg
+        turtle_level = await get_active_species_level(db, user_id, "turtle")
+        double_egg_chance = (
+            TURTLE_BONUSES.get(max(1, min(10, turtle_level)), {}).get("double_egg_chance", 0.0)
+            if turtle_level > 0 else 0.0
+        )
+
+        def _roll_one(boost_rand: bool = False) -> str:
             rand = random.randint(1, 100)
-            # lucky_charm boosts rarity on first egg only: shift thresholds by 15 pts upward
-            if lucky_charm_active and i == 0:
+            if boost_rand:
                 rand = max(1, rand - 15)
             cumulative = 0
-            selected_rarity = "common"
+            selected = "common"
             for rarity, chance in rates.items():
                 cumulative += chance
                 if rand <= cumulative:
-                    selected_rarity = rarity
+                    selected = rarity
                     break
-            species_id = random.choice(
-                [s_id for s_id, s in PET_SPECIES.items() if s["rarity"] == selected_rarity]
-            )
+            # Fox: reroll non-common to common
+            if fox_common_bonus > 0 and selected != "common" and random.random() < fox_common_bonus:
+                selected = "common"
+            return random.choice([s for s, d in PET_SPECIES.items() if d["rarity"] == selected])
 
+        for i in range(count):
+            species_id = _roll_one(boost_rand=(lucky_charm_active and i == 0))
             result = await grant_duplicate(db, user_id, species_id)
-
-            # Apply is_summoned flag to newly created copies only
             if is_summoned and result["outcome"] in ("first_copy_created", "new_copy_created"):
-                await db.execute(
-                    "UPDATE pets SET is_summoned = TRUE WHERE id = ?", (result["pet_id"],)
-                )
-
+                await db.execute("UPDATE pets SET is_summoned = TRUE WHERE id = ?", (result["pet_id"],))
             result["species_id"] = species_id
             result["species_name"] = PET_SPECIES[species_id]["name"]
             results.append(result)
+
+            # Turtle Lv10: bonus free pet from same egg
+            if double_egg_chance > 0 and random.random() < double_egg_chance:
+                bonus_species = _roll_one()
+                bonus_result = await grant_duplicate(db, user_id, bonus_species)
+                bonus_result["species_id"] = bonus_species
+                bonus_result["species_name"] = PET_SPECIES[bonus_species]["name"]
+                bonus_result["bonus_egg"] = True
+                results.append(bonus_result)
 
         await db.execute(
             "UPDATE inventory SET quantity = quantity - ? WHERE user_id = ? AND item_id = ?",

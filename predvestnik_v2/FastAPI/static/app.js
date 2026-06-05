@@ -591,7 +591,34 @@ function renderZoo(tab) {
         <div style="font-size:16px;font-weight:700;color:var(--gold)">${pendingMora>0?fmt(pendingMora)+' 🪙':'Копит...'}</div>
       </div>
       <button class="btn btn-gold btn-sm" onclick="collectHamster(this)" ${pendingMora<1?'disabled':''}>Собрать</button>
-    </div>`:''}`;
+    </div>`:''}
+    ${(()=>{
+      const wr=_zooData.wolf_restore;
+      if(!wr||wr.uses_left<=0) return '';
+      return `<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">🐺 Волк — восстановление усталости</div>
+          <div style="font-size:13px;font-weight:600">Осталось: ${wr.uses_left}/${wr.max_uses} · −${wr.restore_amount}% усталости</div>
+        </div>
+        <button class="btn btn-sm" style="background:var(--purple,#7c3aed);color:#fff" onclick="doWolfRestorePick()">Использовать</button>
+      </div>`;
+    })()}
+    ${(()=>{
+      const ua=_zooData.unicorn_ability;
+      if(!ua) return '';
+      if(ua.active) return `<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--muted)">🦄 Иммунитет усталости: <b style="color:var(--green)">АКТИВЕН</b></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px">Истекает: ${ua.expires_at?ua.expires_at.slice(0,16).replace('T',' '):''}</div>
+      </div>`;
+      if(!ua.available) return '';
+      return `<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">🦄 Единорог — иммунитет усталости</div>
+          <div style="font-size:13px;font-weight:600">Защита на ${ua.immunity_hours} ч. для всех питомцев</div>
+        </div>
+        <button class="btn btn-sm" style="background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff" onclick="doUnicornImmunity(this)">Активировать</button>
+      </div>`;
+    })()}`;
     if(active.length) html+=`<div class="card-title" style="margin:8px 0 4px">⚔️ Активные (${active.length})</div>${active.map(petCard).join('')}`;
     if(passive.length) html+=`<div class="card-title" style="margin:12px 0 4px">🛡 Пассивные (${passive.length})</div>${passive.map(petCard).join('')}`;
     el('zoo-c').innerHTML=html;
@@ -775,6 +802,36 @@ function collectHamster(btn) {
       refreshCurrBar();
       _zooData=null;loadZoo();
     })
+    .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+
+function doWolfRestorePick() {
+  if(!_zooData) return;
+  const targets=_zooData.pets.filter(p=>p.placement!=='storage'&&p.species_id!=='wolf');
+  if(!targets.length){toast('Нет питомцев для восстановления.',false);return;}
+  const wr=_zooData.wolf_restore;
+  const rows=targets.map(p=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div>
+        <span style="font-weight:600">${p.name||p.species_id}</span>
+        <span style="font-size:11px;color:var(--muted);margin-left:6px">Усталость: ${Math.round(p.fatigue||0)}%</span>
+      </div>
+      <button class="btn btn-sm" onclick="doWolfRestore(${p.id},this)" ${(p.fatigue||0)<=0?'disabled':''}>−${wr.restore_amount}%</button>
+    </div>`).join('');
+  OM('🐺 Восстановить усталость',`<div>${rows}</div>`,[]);
+}
+
+function doWolfRestore(petId,btn) {
+  btn.disabled=true;
+  api('/zoo/wolf-restore',{method:'POST',body:JSON.stringify({pet_id:petId})})
+    .then(r=>{toast(`✅ Усталость: ${r.fatigue_before}% → ${r.fatigue_after}%`);CM();_zooData=null;loadZoo();})
+    .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+
+function doUnicornImmunity(btn) {
+  btn.disabled=true;
+  api('/zoo/unicorn-immunity',{method:'POST'})
+    .then(r=>{toast(`🦄 Иммунитет активирован на ${r.immunity_hours} ч.!`);_zooData=null;loadZoo();})
     .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 

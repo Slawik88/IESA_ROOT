@@ -4,9 +4,11 @@ from aiogram import Bot
 
 from infrastructure.repositories import streak as streak_repo
 from infrastructure.repositories import economy as eco_repo
+from infrastructure.repositories.zoo import get_active_species_level
 from services.streak import get_today_in_tz, process_daily_login
 from services.achievements import increment_metric as _ach_incr
 from services.utils import format_currency
+from core.constants import OWL_BONUSES
 
 
 def _build_streak_notification(result: dict, user_name: str, chat_id: int) -> str:
@@ -100,6 +102,32 @@ async def streak_middleware(
                             "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + 1",
                             (user.id, "spin_token_novice"),
                         )
+
+                    # Owl Lv10: daily free spin token
+                    try:
+                        owl_sentinel = f"owl_spin_{today}"
+                        async with db.execute(
+                            "SELECT 1 FROM player_buffs WHERE user_id = ? AND buff_type = ? LIMIT 1",
+                            (user.id, owl_sentinel),
+                        ) as _oc:
+                            _owl_done = await _oc.fetchone()
+                        if not _owl_done:
+                            owl_level = await get_active_species_level(db, user.id, "owl")
+                            owl_bonus = OWL_BONUSES.get(max(1, min(10, owl_level)), {})
+                            if owl_bonus.get("daily_free_spin_token", False):
+                                await db.execute(
+                                    "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, 'spin_token_novice', 1) "
+                                    "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + 1",
+                                    (user.id,),
+                                )
+                                await db.execute(
+                                    "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
+                                    "VALUES (?, ?, 1, NOW() + INTERVAL '2 days') "
+                                    "ON CONFLICT (user_id, buff_type) DO UPDATE SET expires_at = NOW() + INTERVAL '2 days'",
+                                    (user.id, owl_sentinel),
+                                )
+                    except Exception:
+                        pass
 
                     await streak_repo.upsert_streak(
                         db, user.id, chat_obj.id,

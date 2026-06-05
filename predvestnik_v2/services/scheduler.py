@@ -22,6 +22,7 @@ from core.constants import (
     CHEST_DURATION_SECONDS, CHEST_MIN_ACTIVE_USERS_24H,
     CHEST_SPAWN_MIN_HOURS, CHEST_SPAWN_MAX_HOURS, CHEST_MAX_CLAIMANTS,
     CHEST_REWARDS_BY_POSITION,
+    DRAGON_BONUSES, FOX_BONUSES,
 )
 from infrastructure.repositories.chest_events import (
     get_qualifying_chats, create_chest, close_chest,
@@ -343,6 +344,54 @@ async def duel_and_auction_task(bot: Bot):
                                 if _top and _top[0]:
                                     await _incr_ach(db, _top[0], "weekly_top1_count", delta=1.0)
                             await db.commit()
+
+                            # Dragon Lv10: weekly bank grant (500 mora)
+                            try:
+                                async with db.execute(
+                                    "SELECT DISTINCT owner_id, pet_level FROM pets "
+                                    "WHERE species_id = 'dragon' AND slot_type = 'nursery' "
+                                    "AND pet_level >= 10 AND fatigue_level < 100 AND owner_id IS NOT NULL"
+                                ) as _dc:
+                                    _dragon_owners = await _dc.fetchall()
+                                for _drow in _dragon_owners:
+                                    _uid = _drow[0]
+                                    _lvl = min(10, max(1, int(_drow[1])))
+                                    _grant = DRAGON_BONUSES.get(_lvl, {}).get("weekly_bank_grant", 0.0)
+                                    if _grant > 0:
+                                        await db.execute(
+                                            "UPDATE users SET user_balance_mora = user_balance_mora + ? "
+                                            "WHERE user_tg_id = ?",
+                                            (_grant, _uid),
+                                        )
+                                        await _lw(db, _uid, delta_mora=_grant,
+                                                  source="dragon_weekly", note="dragon_lv10_bank")
+                                await db.commit()
+                            except Exception as _de:
+                                logger.warning(f"dragon weekly grant error: {_de}")
+
+                            # Fox Lv8+: weekly guaranteed diamond
+                            try:
+                                async with db.execute(
+                                    "SELECT DISTINCT owner_id, pet_level FROM pets "
+                                    "WHERE species_id = 'fox' AND slot_type = 'nursery' "
+                                    "AND pet_level >= 8 AND fatigue_level < 100 AND owner_id IS NOT NULL"
+                                ) as _fc:
+                                    _fox_owners = await _fc.fetchall()
+                                for _frow in _fox_owners:
+                                    _uid = _frow[0]
+                                    _lvl = min(10, max(1, int(_frow[1])))
+                                    if FOX_BONUSES.get(_lvl, {}).get("weekly_guaranteed_diamond", False):
+                                        await db.execute(
+                                            "UPDATE users SET user_balance_diamonds = user_balance_diamonds + 1 "
+                                            "WHERE user_tg_id = ?",
+                                            (_uid,),
+                                        )
+                                        await _lw(db, _uid, delta_diamonds=1,
+                                                  source="fox_weekly", note="fox_lv8_diamond")
+                                await db.commit()
+                            except Exception as _fe:
+                                logger.warning(f"fox weekly diamond error: {_fe}")
+
                     except Exception as _e:
                         logger.warning(f"weekly_top1 tracking error: {_e}")
 
