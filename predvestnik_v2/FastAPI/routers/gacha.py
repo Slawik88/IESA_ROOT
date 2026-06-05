@@ -1,29 +1,62 @@
 """FastAPI/routers/gacha.py — крутки гачи."""
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from core.constants import SPIN_COSTS, SPIN_TYPE_LABELS, SPIN_TOKEN_IDS
+from core.constants import (SPIN_COSTS, SPIN_TYPE_LABELS, SPIN_TOKEN_IDS,
+                             PITY_HARD, SPIN_MULTI_COUNT, SPIN_MULTI_DISCOUNT)
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_balance, get_item_quantity
-from services.gacha import roll_single
+from infrastructure.repositories.gacha import get_pity
+from core.registry import GACHA_TABLES
+from services.gacha import roll_single, roll_multi
 
 router = APIRouter(prefix="/gacha", tags=["gacha"])
 
 
+def _compute_rates(spin_type: str) -> dict:
+    """Compute pet rarity drop rates (%) from GACHA_TABLES for display."""
+    table = GACHA_TABLES.get(spin_type, [])
+    total = sum(e.get("weight", 0) for e in table)
+    if not total:
+        return {}
+    rw: dict = {}
+    for e in table:
+        if e.get("type") in ("pet_dup", "pet_dup_multi"):
+            r = e.get("rarity", "common")
+            rw[r] = rw.get(r, 0) + e.get("weight", 0)
+    order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"]
+    return {r: round(rw[r] / total * 100, 1) for r in order if rw.get(r, 0) > 0}
+
+
 @router.get("/")
 async def gacha_info(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Типы круток, стоимость и наличие жетонов у пользователя."""
+    """Типы круток, стоимость, ставки редкости и пити у пользователя."""
     bal = await get_balance(db, user["id"])
     types = []
     for spin_type, cost in SPIN_COSTS.items():
         token_qty = await get_item_quantity(db, user["id"], SPIN_TOKEN_IDS.get(spin_type, ""))
+        pity = await get_pity(db, user["id"], spin_type)
+        hard = PITY_HARD.get(spin_type, 60)
+        disc_cost_mora = round(cost["mora"] * SPIN_MULTI_COUNT * (1 - SPIN_MULTI_DISCOUNT))
+        disc_cost_dia  = round(cost["diamonds"] * SPIN_MULTI_COUNT * (1 - SPIN_MULTI_DISCOUNT), 1)
         types.append({
-            "spin_type":  spin_type,
-            "label":      SPIN_TYPE_LABELS.get(spin_type, spin_type),
-            "cost_mora":  cost["mora"],
-            "cost_dia":   cost["diamonds"],
-            "token_qty":  token_qty,
+            "spin_type":      spin_type,
+            "label":          SPIN_TYPE_LABELS.get(spin_type, spin_type),
+            "cost_mora":      cost["mora"],
+            "cost_dia":       cost["diamonds"],
+            "token_qty":      token_qty,
+            "rates":          _compute_rates(spin_type),
+            "pity":           pity,
+            "pity_hard":      hard,
+            "multi_cost_mora": disc_cost_mora,
+            "multi_cost_dia":  disc_cost_dia,
         })
-    return {"mora": float(bal["user_balance_mora"] or 0), "spin_types": types}
+    return {
+        "mora":      float(bal["user_balance_mora"] or 0),
+        "diamonds":  float(bal["user_balance_diamonds"] or 0),
+        "spin_types": types,
+        "multi_count": SPIN_MULTI_COUNT,
+        "multi_discount_pct": int(SPIN_MULTI_DISCOUNT * 100),
+    }
 
 
 class SpinRequest(BaseModel):
@@ -83,3 +116,36 @@ async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_us
             pass
 
     return result
+
+
+@router.post("/multi-spin")
+async def multi_spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """10× мультикрутка со скидкой."""
+    ok, results = await roll_multi(db, user["id"], body.spin_type, count=SPIN_MULTI_COUNT)
+    if not ok:
+        raise HTTPException(400, results)
+    await db.commit()
+
+    if body.chat_id:
+        try:
+            from services.quests import increment_metric as _q_incr
+            await _q_incr(db, user["id"], body.chat_id, "gacha_spins_today", delta=float(SPIN_MULTI_COUNT))
+            await db.commit()
+        except Exception:
+            pass
+
+    # Aggregate results for frontend
+    total_mora = sum(r.get("mora", 0) for r in results)
+    total_dia  = sum(r.get("diamonds", 0) for r in results)
+    all_dups   = [d for r in results for d in (r.get("dup_outcomes") or [])]
+    all_items  = [i for r in results for i in (r.get("items") or [])]
+    return {
+        "results":    results,
+        "summary":    {
+            "mora":     total_mora,
+            "diamonds": total_dia,
+            "dup_outcomes": all_dups,
+            "items":    all_items,
+            "count":    len(results),
+        },
+    }
