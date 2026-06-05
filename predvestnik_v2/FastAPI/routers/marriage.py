@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.marriages import (
-    get_user_marriage, family_bank_transaction,
+    get_user_marriage, family_bank_transaction, delete_marriage,
 )
 from infrastructure.repositories.zoo import get_user_pets
 from services.achievements import increment_metric as ach_incr
@@ -90,3 +90,89 @@ async def family_bank(body: BankRequest, db=Depends(get_db), user=Depends(requir
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}
+
+
+@router.post("/divorce")
+async def divorce(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Развод — удаляет брак текущего пользователя."""
+    m = await _get_any_marriage(db, user["id"])
+    if not m:
+        raise HTTPException(404, "Вы не состоите в браке.")
+    await delete_marriage(db, m["chat_id"], user["id"])
+    return {"ok": True}
+
+
+@router.get("/proposals")
+async def get_proposals(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Входящие предложения о браке для текущего пользователя."""
+    async with db.execute(
+        "SELECT mp.id, mp.chat_id, mp.proposer_id, mp.proposed_at, mp.expires_at, "
+        "u.user_tg_username AS proposer_name "
+        "FROM marriage_proposals mp "
+        "LEFT JOIN users u ON mp.proposer_id = u.user_tg_id "
+        "WHERE mp.target_id = ? AND mp.status = 'pending' AND mp.expires_at > NOW() "
+        "ORDER BY mp.proposed_at DESC",
+        (user["id"],),
+    ) as c:
+        rows = [dict(r) for r in await c.fetchall()]
+    return {"proposals": rows}
+
+
+class ProposalActionRequest(BaseModel):
+    proposal_id: int
+
+
+@router.post("/proposals/accept")
+async def accept_proposal(body: ProposalActionRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Принять предложение о браке."""
+    async with db.execute(
+        "SELECT * FROM marriage_proposals WHERE id = ? AND target_id = ? AND status = 'pending' AND expires_at > NOW()",
+        (body.proposal_id, user["id"]),
+    ) as c:
+        prop = await c.fetchone()
+    if not prop:
+        raise HTTPException(404, "Предложение не найдено или уже истекло.")
+    prop = dict(prop)
+
+    existing = await _get_any_marriage(db, user["id"])
+    if existing:
+        raise HTTPException(400, "Вы уже состоите в браке.")
+
+    async with db.execute(
+        "SELECT user_tg_username FROM users WHERE user_tg_id = ?", (user["id"],)
+    ) as c:
+        my_row = await c.fetchone()
+    my_name = my_row[0] if my_row and my_row[0] else f"ID{user['id']}"
+
+    async with db.execute(
+        "SELECT user_tg_username FROM users WHERE user_tg_id = ?", (prop["proposer_id"],)
+    ) as c:
+        pr_row = await c.fetchone()
+    proposer_name = pr_row[0] if pr_row and pr_row[0] else f"ID{prop['proposer_id']}"
+
+    await db.execute(
+        "INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name) VALUES (?,?,?,?,?)",
+        (prop["chat_id"], prop["proposer_id"], proposer_name, user["id"], my_name),
+    )
+    await db.execute(
+        "UPDATE marriage_proposals SET status = 'accepted' WHERE id = ?", (body.proposal_id,)
+    )
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/proposals/decline")
+async def decline_proposal(body: ProposalActionRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Отклонить предложение о браке."""
+    async with db.execute(
+        "SELECT id FROM marriage_proposals WHERE id = ? AND target_id = ? AND status = 'pending'",
+        (body.proposal_id, user["id"]),
+    ) as c:
+        prop = await c.fetchone()
+    if not prop:
+        raise HTTPException(404, "Предложение не найдено.")
+    await db.execute(
+        "UPDATE marriage_proposals SET status = 'declined' WHERE id = ?", (body.proposal_id,)
+    )
+    await db.commit()
+    return {"ok": True}

@@ -122,7 +122,7 @@ function switchPage(name,btn) {
   showCurrBar(name !== 'profile');
   if(!_loaded.has(name)){
     _loaded.add(name);
-    ({zoo:loadZoo,arena:loadArena,market:loadMarket,coll:loadColl}[name]||(() => {}))();
+    ({zoo:loadZoo,arena:loadArena,market:loadMarket,coll:loadColl,admin:loadAdmin}[name]||(() => {}))();
   }
 }
 
@@ -158,6 +158,7 @@ function loadProfile() {
       ${d.chats.length?`<div class="card"><div class="card-title">💬 Активность</div>${d.chats.map(c=>`<div class="irow"><span class="ik">${c.chat_title||'Чат'}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}</div>`:''}`;
     if(!_ws && _uid) connectWS();
     updateCurrBar(d);          // populate sticky currency bar from profile data
+    if(!_adminChats) checkAdminAccess();
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
 if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');}
@@ -748,6 +749,8 @@ function openPetModal(petId) {
       <div class="card-title">🍖 Покормить (снизить усталость)</div>
       <div style="margin-bottom:8px">${foodHtml}</div>
 
+      ${renderPetItems(petId, p)}
+
       <div class="card-title">↔ Переместить</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${['active','passive','storage'].filter(pl=>pl!==p.placement).map(pl=>{
@@ -879,8 +882,8 @@ function swArena(tab,btn) {
   _arenaTab=tab;
   document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['quests','gacha','craft','duels','dark'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
-  ({quests:loadQuests,gacha:loadGacha,craft:loadCraft,duels:loadDuels,dark:loadDarkMora}[tab]||loadQuests)();
+  ['quests','gacha','craft','duels','dark','events'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
+  ({quests:loadQuests,gacha:loadGacha,craft:loadCraft,duels:loadDuels,dark:loadDarkMora,events:loadEvents}[tab]||loadQuests)();
 }
 const QUEST_NAMES = {
   msg_15:     {n:'💬 Болтун',         d:'Напиши 15 сообщений в чате'},
@@ -1515,10 +1518,11 @@ function doBoostFromInv(pid,bid,row) {
     .then(r=>{toast(`⏩ −${r.boosted_hours}ч!`);CM();_loaded.delete('zoo');loadZoo();loadInventory();})
     .catch(e=>{toast(e,false);row.style.opacity='1';});
 }
-function openDustModal(did) {
-  if(!_zooData){toast('Зайдите в Зоопарк.',false);return;}
-  OM('✨ Выберите питомца',_zooData.pets.map(p=>`<div class="fopt" onclick="doApplyDust('${did}',${p.id},this)">
-    <span class="fn">${p.name||p.species_id}</span><span style="font-size:11px">${rc(p.rarity)} Lv${p.pet_level}</span></div>`).join(''),[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+function openDustModal(did) { _showDustModal_or_load(did); }
+function _showDustModal_or_load(did) {
+  if(!_zooData) {
+    api('/zoo/').then(d=>{_zooData=d;_showDustModal(did);}).catch(e=>toast(e,false));
+  } else { _showDustModal(did); }
 }
 function doApplyDust(did,pid,row) {
   row.style.opacity='.4';
@@ -1564,10 +1568,10 @@ function loadColl(){swColl('themes',document.querySelector('#pg-coll .tb'));}
 function swColl(tab,btn) {
   document.querySelectorAll('#pg-coll .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  el('col-themes').style.display=tab==='themes'?'':'none';
-  el('col-top').style.display=tab==='top'?'':'none';
+  ['themes','top','pets'].forEach(t=>el('col-'+t).style.display=t===tab?'':'none');
   if(tab==='themes') loadThemes();
   else if(tab==='top') loadTop();
+  else if(tab==='pets') loadPetsShowcase();
 }
 
 function themeStatusBadge(t) {
@@ -2129,9 +2133,26 @@ function addRefreshBtn(containerId, reloadFn) {
 // ── Marriage ──────────────────────────────────────────────────────────────────
 function loadMarriage() {
   el('pro-marriage').innerHTML='<div class="loader">Загрузка...</div>';
-  api('/marriage/').then(m=>{
+  Promise.all([api('/marriage/'), api('/marriage/proposals')]).then(([m, pr])=>{
+    const proposals = pr.proposals || [];
+    let propHtml = '';
+    if(proposals.length) {
+      propHtml = `<div class="card" style="border-color:var(--gold)">
+        <div class="card-title">💌 Предложения о браке (${proposals.length})</div>
+        ${proposals.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+          <div>
+            <span style="font-weight:600">@${p.proposer_name||'ID'+p.proposer_id}</span>
+            <span style="font-size:10px;color:var(--muted);margin-left:6px">${new Date(p.proposed_at).toLocaleDateString('ru')}</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-sm btn-gold" onclick="acceptProposal(${p.id},this)">✅</button>
+            <button class="btn btn-sm btn-ghost" onclick="declineProposal(${p.id},this)">❌</button>
+          </div>
+        </div>`).join('')}
+      </div>`;
+    }
     if(!m.married){
-      el('pro-marriage').innerHTML=`<div class="card" style="text-align:center;padding:20px">
+      el('pro-marriage').innerHTML=propHtml+`<div class="card" style="text-align:center;padding:20px">
         <div style="font-size:32px;margin-bottom:8px">💔</div>
         <div style="font-size:14px;font-weight:600;color:var(--bright)">Вы не состоите в браке</div>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">Команда в боте: <code>бот брак, @username</code></div>
@@ -2139,7 +2160,7 @@ function loadMarriage() {
       return;
     }
     const pets=m.family_pets||[];
-    el('pro-marriage').innerHTML=`
+    el('pro-marriage').innerHTML=propHtml+`
       <div class="card card-gold">
         <div style="text-align:center;padding:10px 0 14px">
           <div style="font-size:28px;margin-bottom:6px">💍</div>
@@ -2151,6 +2172,9 @@ function loadMarriage() {
           <input id="bank-amt" type="number" class="num-input" style="margin:0;flex:1" placeholder="Сумма 🪙" min="1"/>
           <button class="btn btn-sm btn-gold" onclick="familyBank('deposit')">📥 Вложить</button>
           <button class="btn btn-sm btn-ghost" onclick="familyBank('withdraw')">📤 Забрать</button>
+        </div>
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
+          <button class="btn btn-sm" style="background:var(--red);color:#fff;width:100%" onclick="confirmDivorce()">💔 Развестись</button>
         </div>
       </div>
       ${pets.length?`<div class="card"><div class="card-title">🐾 Питомцы семьи (${pets.length})</div>
@@ -2171,6 +2195,29 @@ function familyBank(action) {
   api('/marriage/bank',{method:'POST',body:JSON.stringify({marriage_id:mid,amount:v,action})})
     .then(r=>{toast(`✅ ${r.message}`);loadMarriage();})
     .catch(e=>toast(e,false));
+}
+function confirmDivorce() {
+  OM('💔 Развод','<div style="text-align:center;padding:12px 0;color:var(--muted)">Вы уверены? Брак будет расторгнут безвозвратно.</div>',[
+    {l:'Да, развестись',c:'btn-red',f:'doDivorce()'},
+    {l:'Отмена',c:'btn-ghost',f:'CM()'},
+  ]);
+}
+function doDivorce() {
+  api('/marriage/divorce',{method:'POST'})
+    .then(()=>{toast('💔 Развод оформлен.');CM();loadMarriage();})
+    .catch(e=>toast(e,false));
+}
+function acceptProposal(id,btn) {
+  btn.disabled=true;
+  api('/marriage/proposals/accept',{method:'POST',body:JSON.stringify({proposal_id:id})})
+    .then(()=>{toast('💍 Брак заключён!');loadMarriage();})
+    .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+function declineProposal(id,btn) {
+  btn.disabled=true;
+  api('/marriage/proposals/decline',{method:'POST',body:JSON.stringify({proposal_id:id})})
+    .then(()=>{toast('Предложение отклонено.');loadMarriage();})
+    .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
 // ── Wallet history ────────────────────────────────────────────────────────────
@@ -2311,11 +2358,12 @@ function switchPro(tab, btn) {
   _proTab = tab;
   document.querySelectorAll('#pg-profile .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['main','streak','ach','marriage','wallet'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
+  ['main','streak','ach','marriage','wallet','settings'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
   if(tab==='streak') loadStreak();
   else if(tab==='ach') loadAch();
   else if(tab==='marriage') loadMarriage();
   else if(tab==='wallet') loadWallet();
+  else if(tab==='settings') loadProfileSettings();
 }
 
 // swMkt: add deal and promo
@@ -2334,10 +2382,474 @@ function swMkt(tab, _btn) {
 setInterval(()=>{if(_loaded.has('profile'))loadProfile();},300000);
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
 
+// ── Dust modal ────────────────────────────────────────────────────────────────
+function _showDustModal(did) {
+  if(!_zooData?.pets?.length){toast('У вас нет питомцев.',false);return;}
+  const dusts={'star_dust_s':'+1 дубл.','star_dust_l':'+5 дубл.'};
+  OM('✨ Применить '+dusts[did],
+    _zooData.pets.map(p=>`<div class="fopt" onclick="doApplyDust('${did}',${p.id},this)">
+      <span class="fn">${p.name||p.species_id}</span>
+      <span style="font-size:11px;color:var(--muted)">${rc(p.rarity)} Lv${p.pet_level||1} · ${p.placement==='storage'?'📦':p.placement==='active'?'⚔️':'🛡'}</span>
+    </div>`).join(''),
+    [{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+
+// ── Pet modal: applicable items section ───────────────────────────────────────
+function renderPetItems(petId, petData) {
+  const dustItems = (_invData||[]).filter(i=>i.item_id.startsWith('star_dust') && i.quantity>0);
+  if(!dustItems.length) return '';
+  return `<div class="card-title" style="margin-top:14px">📦 Применить предмет</div>
+    ${dustItems.map(i=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div>
+        <span style="font-size:13px;font-weight:600">${i.name}</span>
+        <span style="font-size:10px;color:var(--muted);margin-left:6px">×${i.quantity}</span>
+      </div>
+      <button class="btn btn-sm btn-gold" onclick="doApplyDustFromPetModal('${i.item_id}',${petId},this)">Применить</button>
+    </div>`).join('')}`;
+}
+function doApplyDustFromPetModal(did,pid,btn) {
+  btn.disabled=true;
+  api('/inventory/apply-dust',{method:'POST',body:JSON.stringify({dust_id:did,pet_id:pid})})
+    .then(r=>{toast(`✅ +${r.duplicates_added} дубл. добавлено!`);CM();_zooData=null;loadInventory();})
+    .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+
+// ── Profile Settings ──────────────────────────────────────────────────────────
+function loadProfileSettings() {
+  const c=el('pro-settings');
+  const chatId=_cid||0;
+  if(!chatId){
+    c.innerHTML='<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет активного чата.<br>Напишите боту в группу.</div>';
+    return;
+  }
+  c.innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/profile/nickname?chat_id=${chatId}`).then(r=>{
+    const nick=r.nickname||'';
+    c.innerHTML=`<div class="card">
+      <div class="card-title">🏷 Ник в чате</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Отображается вместо @username в статистике чата</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="nick-inp" type="text" class="num-input" style="flex:1;margin:0"
+               value="${nick}" placeholder="Ваш ник" maxlength="32"/>
+        <button class="btn btn-sm btn-gold" onclick="saveNick()">Сохранить</button>
+      </div>
+      <div id="nick-status" style="font-size:11px;margin-top:6px;color:var(--muted)">1–32 символа, буквы/цифры/пробел/- .</div>
+    </div>`;
+  }).catch(()=>{c.innerHTML='<div class="err">Ошибка загрузки</div>';});
+}
+function saveNick() {
+  const v=(el('nick-inp')?.value||'').trim();
+  if(!v){toast('Введите ник.',false);return;}
+  if(v.length>32){toast('Ник слишком длинный.',false);return;}
+  el('nick-status').textContent='Сохраняем...';
+  api('/profile/set-nickname',{method:'POST',body:JSON.stringify({chat_id:_cid,nickname:v})})
+    .then(r=>{
+      el('nick-status').textContent=`✅ Ник установлен: ${r.nickname}`;
+      el('nick-status').style.color='var(--green)';
+    })
+    .catch(e=>{
+      el('nick-status').textContent='❌ '+e;
+      el('nick-status').style.color='var(--red)';
+    });
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+function loadEvents() {
+  el('evc').innerHTML='<div class="loader">Загрузка...</div>';
+  api('/events/').then(ev=>{
+    let html='';
+
+    // Exchange event
+    if(ev.exchange_active) {
+      const ea=ev.exchange_active;
+      const ends=ea.ends_at?new Date(ea.ends_at):null;
+      const msLeft=ends?Math.max(0,ends-Date.now()):0;
+      html+=`<div class="card card-gold">
+        <div class="card-title">💱 Обмен Мора → Алмазы <span style="color:var(--green);text-transform:none">АКТИВЕН</span></div>
+        <div class="irow"><span class="ik">Курс</span><span>${fmt(ev.exchange_rate)} 🪙 = 1 💎</span></div>
+        <div class="irow"><span class="ik">Лимит</span><span>${fmt(ev.exchange_cap)} 💎/день</span></div>
+        ${msLeft>0?`<div class="irow"><span class="ik">До конца</span><span style="color:var(--gold)">${fmtTime(msLeft)}</span></div>`:''}
+        <button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%"
+          onclick="CM();document.querySelector('.nb[onclick*=market]')?.click();swMkt('exch',document.querySelector('#pg-market .tb:nth-child(4))'))">Перейти к обмену</button>
+      </div>`;
+    } else if(ev.exchange_next) {
+      const en=ev.exchange_next;
+      const starts=en.starts_at?new Date(en.starts_at):null;
+      html+=`<div class="card">
+        <div class="card-title">💱 Следующий обмен</div>
+        <div class="irow"><span class="ik">Начало</span><span>${starts?starts.toLocaleString('ru','de'):'-'}</span></div>
+        <div class="irow"><span class="ik">Курс</span><span>${fmt(ev.exchange_rate)} 🪙 = 1 💎</span></div>
+      </div>`;
+    } else {
+      html+=`<div class="card"><div class="card-title">💱 Обмен</div>
+        <div style="color:var(--muted);font-size:12px">Ивент скоро будет запланирован. Заходите позже!</div>
+      </div>`;
+    }
+
+    // Daily deals
+    if(ev.daily_deals?.length) {
+      html+=`<div class="card">
+        <div class="card-title">🏷 Акция дня</div>
+        ${ev.daily_deals.map(d=>`<div class="irow">
+          <span class="ik">${d.name}</span>
+          <span>${d.qty?`×${d.qty} · `:''}
+          <span style="color:var(--gold);font-weight:700">${fmt(d.price)} 🪙</span>
+          ${d.original&&d.original>d.price?`<s style="color:var(--muted);font-size:10px;margin-left:3px">${fmt(d.original)}</s>`:''}
+          </span>
+        </div>`).join('')}
+        <button class="btn btn-sm btn-teal" style="margin-top:8px;width:100%" onclick="CM();document.querySelector('.nb[onclick*=market]')?.click();swMkt('deal',document.querySelector('#pg-market .tb:nth-child(5))'))">К акции дня</button>
+      </div>`;
+    }
+
+    // Gacha overview
+    if(ev.gacha_types?.length) {
+      html+=`<div class="card">
+        <div class="card-title">🎲 Гача — доступные крутки</div>
+        ${ev.gacha_types.slice(0,4).map(g=>`<div style="margin-bottom:8px">
+          <div style="font-size:12px;font-weight:600;margin-bottom:3px">${g.label}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            ${Object.entries(g.rates).map(([r,v])=>`<span class="${RC[r]||'rc-common'}" style="font-size:10px;padding:1px 6px">${r} ${v}%</span>`).join('')}
+          </div>
+        </div>`).join('')}
+        <button class="btn btn-sm btn-gold" style="margin-top:4px;width:100%" onclick="swArena('gacha',document.querySelector('#pg-arena .tb:nth-child(2))'))">К гаче</button>
+      </div>`;
+    }
+
+    el('evc').innerHTML=html||'<div class="loader">Нет активных ивентов.</div>';
+  }).catch(e=>{el('evc').innerHTML=`<div class="err">${e}</div>`;});
+}
+function fmtTime(ms) {
+  const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60);
+  if(h>24) return `${Math.floor(h/24)}д ${h%24}ч`;
+  return `${h}ч ${m}м`;
+}
+
+// ── Pet Showcase ──────────────────────────────────────────────────────────────
+let _showcaseFilter='all';
+let _showcaseData=null;
+const _RC_ORDER={common:0,uncommon:1,rare:2,epic:3,legendary:4,mythic:5};
+function loadPetsShowcase() {
+  el('petsc').innerHTML='<div class="loader">Загрузка...</div>';
+  if(_showcaseData){renderShowcase();return;}
+  api('/zoo/species').then(d=>{_showcaseData=d;renderShowcase();}).catch(e=>{el('petsc').innerHTML=`<div class="err">${e}</div>`;});
+}
+function renderShowcase() {
+  const rarities=['all','common','uncommon','rare','epic','legendary'];
+  const d=_showcaseData||[];
+  const filtered=_showcaseFilter==='all'?d:d.filter(p=>p.rarity===_showcaseFilter);
+  const sorted=[...filtered].sort((a,b)=>(_RC_ORDER[a.rarity]||0)-(_RC_ORDER[b.rarity]||0));
+  el('petsc').innerHTML=`
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">
+      ${rarities.map(r=>`<button class="btn btn-sm ${_showcaseFilter===r?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setShowcaseFilter('${r}')">${r==='all'?'Все':r}</button>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${sorted.map(p=>`<div class="card" style="cursor:pointer;padding:12px;margin-bottom:0" onclick="showSpeciesDetail('${p.species_id}')">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:22px">${p.name.split(' ')[0]||'🐾'}</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">${p.name.replace(/^[^\s]+\s/,'')}</div>
+            <span class="${RC[p.rarity]||'rc-common'}" style="font-size:10px">${p.rarity}</span>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">${p.role==='active'?'⚔️ Активный':'🛡 Пассивный'}</div>
+        <div style="font-size:10px;color:var(--text);margin-top:4px;line-height:1.4">${p.desc?.slice(0,60)||''}</div>
+      </div>`).join('')}
+    </div>`;
+}
+function setShowcaseFilter(r) {
+  _showcaseFilter=r;
+  renderShowcase();
+}
+function showSpeciesDetail(sid) {
+  const p=(_showcaseData||[]).find(x=>x.species_id===sid);
+  if(!p) return;
+  const tiers=p.bonus_tiers||{};
+  let bonusHtml='';
+  for(const [lv,b] of Object.entries(tiers)){
+    const lines=bonusLines(sid,b);
+    if(lines.length) bonusHtml+=`<div style="margin-bottom:8px"><div style="font-size:10px;color:var(--gold);font-weight:600;margin-bottom:3px">Уровень ${lv}</div>${lines.map(l=>`<div style="font-size:11px;color:var(--text)">• ${l}</div>`).join('')}</div>`;
+  }
+  OM(p.name,`<div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${p.desc||''}</div>
+    <div class="irow"><span class="ik">Редкость</span><span class="${RC[p.rarity]}">${p.rarity}</span></div>
+    <div class="irow"><span class="ik">Роль</span><span>${p.role==='active'?'⚔️ Активный':'🛡 Пассивный'}</span></div>
+    <div style="margin-top:10px">${bonusHtml||'<div style="color:var(--muted);font-size:11px">Нет данных о бонусах</div>'}</div>
+  </div>`,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+}
+
+// ── Admin Panel ───────────────────────────────────────────────────────────────
+let _adminChats=null, _adminChatId=0, _adminTab='dash';
+let _adminPage=1, _adminSearch='', _adminSort='messages', _adminSearchTimer=null;
+const _RANK_NAMES={0:'👤',1:'👁 Мод.',2:'👮 Мл.Адм',3:'👮 Адм',4:'🕵️ Ст.Адм',5:'👑 Совл.',6:'👑 Влад.'};
+
+function loadAdmin() {
+  if(_adminChats) { renderAdminChatSel(); return; }
+  el('adm-dash').innerHTML='<div class="loader">Загрузка...</div>';
+  api('/admin/my-chats').then(d=>{
+    _adminChats=d.chats||[];
+    if(!_adminChats.length){
+      el('adm-dash').innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--muted)">У вас нет прав модератора ни в одном чате.<br>Обратитесь к администратору чата.</div>';
+      return;
+    }
+    el('nb-admin').style.display='';
+    _adminChatId=_adminChats[0].chat_tg_id;
+    renderAdminChatSel();
+    loadAdminDash();
+  }).catch(e=>{el('adm-dash').innerHTML=`<div class="err">${e}</div>`;});
+}
+function renderAdminChatSel() {
+  if(!_adminChats?.length) return;
+  el('adm-chat-sel').innerHTML=`<select id="adm-sel" class="num-input" style="width:100%;margin:0 0 4px" onchange="onAdminChatChange(this.value)">
+    ${_adminChats.map(c=>`<option value="${c.chat_tg_id}" ${c.chat_tg_id==_adminChatId?'selected':''}>${c.chat_title} (${_RANK_NAMES[c.local_rank]||c.local_rank})</option>`).join('')}
+  </select>`;
+}
+function onAdminChatChange(cid) {
+  _adminChatId=parseInt(cid);
+  _loaded.delete('admin');
+  swAdmin(_adminTab, document.querySelector('#pg-admin .tb.active'));
+}
+function swAdmin(tab, btn) {
+  _adminTab=tab;
+  document.querySelectorAll('#pg-admin .tb').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  ['dash','users','settings','logs'].forEach(t=>el('adm-'+t).style.display=t===tab?'':'none');
+  if(!_adminChatId) return;
+  if(tab==='dash') loadAdminDash();
+  else if(tab==='users') { _adminPage=1; loadAdminUsers(); }
+  else if(tab==='settings') loadAdminSettings();
+  else if(tab==='logs') { _adminPage=1; loadAdminLogs(); }
+}
+function loadAdminDash() {
+  if(!_adminChatId) return;
+  el('adm-dash').innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/admin/${_adminChatId}/dashboard`).then(d=>{
+    el('adm-dash').innerHTML=`
+      <div class="card">
+        <div class="card-title">📊 Сводка</div>
+        <div class="irow"><span class="ik">Ваш ранг</span><span style="color:var(--gold)">${d.my_rank_name}</span></div>
+        <div class="irow"><span class="ik">Участников</span><span>${d.member_count}</span></div>
+        <div class="irow"><span class="ik">Активны сегодня</span><span>${d.active_today}</span></div>
+        <div class="irow"><span class="ik">С предупреждениями</span><span style="color:${d.warned_count>0?'var(--gold)':'var(--muted)'}">${d.warned_count}</span></div>
+        <div class="irow"><span class="ik">Заблокированных</span><span style="color:${d.ban_count>0?'var(--red)':'var(--muted)'}">${d.ban_count}</span></div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ Ваши права</div>
+        ${[['Варн',d.can_warn],['Мут',d.can_mute],['Кик',d.can_kick],['Бан',d.can_ban]].map(([n,v])=>
+          `<span class="badge" style="background:${v?'var(--green)':'var(--dim)'};color:${v?'#fff':'var(--muted)'};padding:3px 8px;border-radius:4px;font-size:11px;margin:2px">${n}</span>`
+        ).join('')}
+      </div>`;
+  }).catch(e=>{el('adm-dash').innerHTML=`<div class="err">${e}</div>`;});
+}
+function loadAdminUsers() {
+  if(!_adminChatId) return;
+  el('adm-users').innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/admin/${_adminChatId}/users?page=${_adminPage}&search=${encodeURIComponent(_adminSearch)}&sort=${_adminSort}`)
+    .then(d=>renderAdminUserTable(d))
+    .catch(e=>{el('adm-users').innerHTML=`<div class="err">${e}</div>`;});
+}
+function renderAdminUserTable(d) {
+  const total=d.total||0, pages=Math.ceil(total/(d.page_size||20));
+  el('adm-users').innerHTML=`
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input id="adm-search" type="text" class="num-input" style="flex:1;margin:0" placeholder="Поиск по нику/ID" value="${_adminSearch}" oninput="onAdminSearch(this.value)"/>
+      <select class="num-input" style="width:120px;margin:0" onchange="onAdminSort(this.value)">
+        <option value="messages" ${_adminSort==='messages'?'selected':''}>По сообщ.</option>
+        <option value="level" ${_adminSort==='level'?'selected':''}>По уровню</option>
+        <option value="rank" ${_adminSort==='rank'?'selected':''}>По рангу</option>
+        <option value="warns" ${_adminSort==='warns'?'selected':''}>По варнам</option>
+      </select>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="adm-table">
+        <thead><tr><th>Пользователь</th><th>Ур.</th><th>Ранг</th><th>Варны</th><th>Статус</th><th>Действия</th></tr></thead>
+        <tbody>
+          ${d.users.map(u=>`<tr>
+            <td>
+              <div style="font-weight:600;font-size:12px">@${u.user_tg_username||'ID'+u.user_tg_id}</div>
+              <div style="font-size:10px;color:var(--muted)">ID: ${u.user_tg_id} · ${u.user_messages_count_all_time||0} сообщ.</div>
+            </td>
+            <td style="text-align:center">${u.user_level||1}</td>
+            <td style="font-size:10px">${_RANK_NAMES[u.local_rank||0]||'?'}</td>
+            <td style="text-align:center;color:${u.warnings>0?'var(--gold)':'var(--muted)'}">${u.warnings||0}</td>
+            <td style="font-size:10px">
+              ${u.muted_until?`<span style="color:var(--gold)">🔇 до ${u.muted_until.slice(0,16)}</span>`:
+                u.is_immune?'🛡 Иммун':u.is_left?'👋 Ушёл':'✅'}
+            </td>
+            <td>
+              ${u.can_act?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openAdminAction(${u.user_tg_id},"${u.user_tg_username||''}",${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban})})'>⚡</button>`:`<span style="font-size:10px;color:var(--dim)">—</span>`}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
+      <span>Всего: ${total}</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-ghost" ${_adminPage<=1?'disabled':''} onclick="admPage(${_adminPage-1})">◀</button>
+        <span>${_adminPage}/${pages||1}</span>
+        <button class="btn btn-sm btn-ghost" ${_adminPage>=pages?'disabled':''} onclick="admPage(${_adminPage+1})">▶</button>
+      </div>
+    </div>`;
+}
+function admPage(p) { _adminPage=p; loadAdminUsers(); }
+function onAdminSearch(v) {
+  clearTimeout(_adminSearchTimer);
+  _adminSearchTimer=setTimeout(()=>{ _adminSearch=v; _adminPage=1; loadAdminUsers(); },400);
+}
+function onAdminSort(v) { _adminSort=v; _adminPage=1; loadAdminUsers(); }
+
+function openAdminAction(userId, userName, perms) {
+  const _btn=(action,label,cls,extra='')=>{
+    const ok=perms[action[0]]!==false;
+    return `<button class="btn btn-sm ${cls}" style="flex:1;position:relative" onclick="${ok?`doAdminAction(${userId},'${action}')`:''}" ${ok?'':'disabled'} title="${ok?'':'Недостаточно прав'}">${label}${!ok?'<span class="perm-tip">Нет прав</span>':''}</button>`;
+  };
+  OM(`⚡ ${userName||'ID'+userId}`,`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 0">
+      ${_btn('warn','⚠️ Варн','btn-ghost')}
+      ${_btn('unwarn','✅ Снять варн','btn-ghost')}
+      ${_btn('mute','🔇 Мут','btn-ghost')}
+      ${_btn('unmute','🔊 Снять мут','btn-ghost')}
+      ${_btn('kick','🥾 Кик','btn-ghost')}
+      ${_btn('ban','🚫 Бан','btn-red')}
+    </div>
+    <div style="margin-top:8px">
+      <input id="adm-reason" type="text" class="num-input" style="margin:0" placeholder="Причина (необязательно)" maxlength="200"/>
+    </div>
+  `,[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+  el('modal')._adminTarget=userId;
+}
+function doAdminAction(userId, action) {
+  if(action==='mute') { openMuteDuration(userId); return; }
+  const reason=el('adm-reason')?.value||'';
+  api(`/admin/${_adminChatId}/action`,{method:'POST',body:JSON.stringify({user_id:userId,action,reason:reason||null})})
+    .then(r=>{toast(`✅ ${action} выполнено`+(r.new_warnings!=null?` (варнов: ${r.new_warnings})`:''));CM();loadAdminUsers();})
+    .catch(e=>toast(e,false));
+}
+function openMuteDuration(userId) {
+  const reason=el('adm-reason')?.value||'';
+  const opts=[[5,'5 мин'],[30,'30 мин'],[60,'1 ч'],[360,'6 ч'],[1440,'1 д'],[10080,'7 д']];
+  OM('🔇 Длительность мута',
+    `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:8px 0">
+      ${opts.map(([m,l])=>`<button class="btn btn-sm btn-ghost" onclick="doMute(${userId},${m},'${reason}')">${l}</button>`).join('')}
+    </div>`,[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function doMute(userId, minutes, reason) {
+  api(`/admin/${_adminChatId}/action`,{method:'POST',body:JSON.stringify({user_id:userId,action:'mute',duration_minutes:minutes,reason:reason||null})})
+    .then(r=>{toast(`🔇 Мут ${minutes} мин.`+(r.telegram_ok?'':' (Telegram недоступен)'));CM();loadAdminUsers();})
+    .catch(e=>toast(e,false));
+}
+
+function loadAdminSettings() {
+  if(!_adminChatId) return;
+  el('adm-settings').innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/admin/${_adminChatId}/settings`).then(s=>{
+    const tog=(key,label,val)=>`<div class="irow" style="cursor:pointer" onclick="toggleAdmSetting('${key}')">
+      <span class="ik">${label}</span>
+      <span id="aset-${key}" style="color:${val?'var(--green)':'var(--red)'}">${val?'ВКЛ':'ВЫКЛ'}</span>
+    </div>`;
+    const rank=(key,label,val)=>`<div class="irow">
+      <span class="ik">${label}</span>
+      <select id="aset-${key}" class="num-input" style="width:auto;margin:0;font-size:11px" onchange="queueAdmSave()">
+        ${[1,2,3,4,5,6].map(r=>`<option value="${r}" ${val===r?'selected':''}>${_RANK_NAMES[r]}</option>`).join('')}
+      </select>
+    </div>`;
+    el('adm-settings').innerHTML=`
+      <div class="card">
+        <div class="card-title">🔧 Модули</div>
+        ${tog('module_shop','🛒 Магазин',s.module_shop)}
+        ${tog('module_gacha','🎲 Гача',s.module_gacha)}
+        ${tog('module_zoo','🐾 Зоопарк',s.module_zoo)}
+        ${tog('module_expeditions','🗺 Экспедиции',s.module_expeditions)}
+        ${tog('module_auction','🏛 Аукцион',s.module_auction)}
+        ${tog('module_games','🎮 Игры',s.module_games)}
+        ${tog('module_exchange','💱 Обмен',s.module_exchange)}
+        ${tog('module_quests','📋 Квесты',s.module_quests)}
+        ${tog('module_daily_deal','🏷 Акция дня',s.module_daily_deal)}
+        ${tog('events_enabled','🎪 Ивенты',s.events_enabled)}
+        ${tog('nsfw_warps_allowed','🔞 NSFW варпы',s.nsfw_warps_allowed)}
+      </div>
+      <div class="card">
+        <div class="card-title">⚖️ Минимальный ранг для действий</div>
+        ${rank('rank_warn','⚠️ Варн',s.rank_warn)}
+        ${rank('rank_mute','🔇 Мут',s.rank_mute)}
+        ${rank('rank_kick','🥾 Кик',s.rank_kick)}
+        ${rank('rank_ban','🚫 Бан',s.rank_ban)}
+      </div>
+      <div id="adm-save-status" style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px"></div>`;
+    el('adm-settings')._settings=s;
+  }).catch(e=>{el('adm-settings').innerHTML=`<div class="err">${e}</div>`;});
+}
+let _admSaveTimer=null;
+function toggleAdmSetting(key) {
+  const el2=el('aset-'+key); if(!el2) return;
+  const cur=el2.textContent==='ВКЛ';
+  el2.textContent=cur?'ВЫКЛ':'ВКЛ';
+  el2.style.color=cur?'var(--red)':'var(--green)';
+  queueAdmSave();
+}
+function queueAdmSave() {
+  clearTimeout(_admSaveTimer);
+  if(el('adm-save-status')) el('adm-save-status').textContent='...';
+  _admSaveTimer=setTimeout(saveAdmSettings, 1000);
+}
+function saveAdmSettings() {
+  const keys=['module_shop','module_gacha','module_zoo','module_expeditions','module_auction',
+              'module_games','module_exchange','module_quests','module_daily_deal',
+              'events_enabled','nsfw_warps_allowed','rank_warn','rank_mute','rank_kick','rank_ban'];
+  const body={};
+  for(const k of keys) {
+    const e2=el('aset-'+k); if(!e2) continue;
+    if(e2.tagName==='SELECT') body[k]=parseInt(e2.value);
+    else body[k]=e2.textContent==='ВКЛ'?1:0;
+  }
+  api(`/admin/${_adminChatId}/settings`,{method:'POST',body:JSON.stringify(body)})
+    .then(()=>{ if(el('adm-save-status')) { el('adm-save-status').textContent='✅ Сохранено'; setTimeout(()=>{const s=el('adm-save-status');if(s)s.textContent='';},2000); } })
+    .catch(e=>{ if(el('adm-save-status')) el('adm-save-status').textContent='❌ '+e; });
+}
+function loadAdminLogs() {
+  if(!_adminChatId) return;
+  el('adm-logs').innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/admin/${_adminChatId}/logs?page=${_adminPage}`).then(d=>{
+    const total=d.total||0, pages=Math.ceil(total/(d.page_size||25));
+    el('adm-logs').innerHTML=`
+      <div style="overflow-x:auto">
+        <table class="adm-table">
+          <thead><tr><th>Время</th><th>Действие</th><th>Цель</th><th>Модератор</th><th>Причина</th></tr></thead>
+          <tbody>
+            ${d.logs.map(l=>`<tr>
+              <td style="font-size:10px;white-space:nowrap">${l.created_at?.slice(0,16)||'?'}</td>
+              <td><span style="font-size:11px;font-weight:600">${l.action}</span></td>
+              <td style="font-size:11px">@${l.target_name||'ID'+l.user_id}</td>
+              <td style="font-size:11px">@${l.admin_name||'ID'+l.admin_id}</td>
+              <td style="font-size:10px;color:var(--muted)">${l.reason||'—'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
+        <span>Всего: ${total}</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-ghost" ${_adminPage<=1?'disabled':''} onclick="admLogPage(${_adminPage-1})">◀</button>
+          <span>${_adminPage}/${pages||1}</span>
+          <button class="btn btn-sm btn-ghost" ${_adminPage>=pages?'disabled':''} onclick="admLogPage(${_adminPage+1})">▶</button>
+        </div>
+      </div>`;
+  }).catch(e=>{el('adm-logs').innerHTML=`<div class="err">${e}</div>`;});
+}
+function admLogPage(p) { _adminPage=p; loadAdminLogs(); }
+
+// ── Init admin check after login ──────────────────────────────────────────────
+function checkAdminAccess() {
+  if(!_uid) return;
+  api('/admin/my-chats').then(d=>{
+    _adminChats=d.chats||[];
+    if(_adminChats.length) el('nb-admin').style.display='';
+  }).catch(()=>{});
+}
 // Refresh current page data
 function refreshPage() {
   const page = document.querySelector('.nb.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1];
   const loaders = {profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();},
-                   arena:loadArena, market:loadMarket, coll:loadColl};
+                   arena:loadArena, market:loadMarket, coll:loadColl, admin:()=>{_adminChats=null;loadAdmin();}};
   if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('🔄 Обновлено!'); }
 }

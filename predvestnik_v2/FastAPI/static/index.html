@@ -51,12 +51,14 @@
     <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
     <button class="tb" onclick="switchPro('marriage',this)">💍 Брак</button>
     <button class="tb" onclick="switchPro('wallet',this)">💰 Кошелёк</button>
+    <button class="tb" onclick="switchPro('settings',this)">⚙️ Настройки</button>
   </div>
   <div id="pro-main"><div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div></div>
   <div id="pro-streak" style="display:none"></div>
   <div id="pro-ach" style="display:none"></div>
   <div id="pro-marriage" style="display:none"></div>
   <div id="pro-wallet" style="display:none"></div>
+  <div id="pro-settings" style="display:none"></div>
 </div>
 
 <!-- 2. Зоопарк -->
@@ -72,18 +74,20 @@
 
 <!-- 3. Арена -->
 <div id="pg-arena" class="page">
-  <div class="tabs">
+  <div class="tabs" style="flex-wrap:wrap;gap:4px">
     <button class="tb active" onclick="swArena('quests',this)">📋 Квесты</button>
     <button class="tb" onclick="swArena('gacha',this)">🎲 Гача</button>
     <button class="tb" onclick="swArena('craft',this)">⚗️ Крафт</button>
     <button class="tb" onclick="swArena('duels',this)">⚔️ Дуэли</button>
     <button class="tb" onclick="swArena('dark',this)">🌑 Тёмная</button>
+    <button class="tb" onclick="swArena('events',this)">🎪 Ивенты</button>
   </div>
   <div id="ar-quests"><div id="qc" class="loader">Загрузка...</div></div>
   <div id="ar-gacha" style="display:none"><div id="gc" class="loader">Загрузка...</div></div>
   <div id="ar-craft" style="display:none"><div id="cc" class="loader">Загрузка...</div></div>
   <div id="ar-duels" style="display:none"><div id="dc" class="loader">Загрузка...</div></div>
   <div id="ar-dark" style="display:none"><div id="dkc"></div></div>
+  <div id="ar-events" style="display:none"><div id="evc" class="loader">Загрузка...</div></div>
 </div>
 
 <!-- 4. Рынок -->
@@ -107,9 +111,10 @@
 
 <!-- 5. Коллекция -->
 <div id="pg-coll" class="page">
-  <div class="tabs">
+  <div class="tabs" style="flex-wrap:wrap;gap:4px">
     <button class="tb active" onclick="swColl('themes',this)">🎨 Темы</button>
     <button class="tb" onclick="swColl('top',this)">🏆 Топ</button>
+    <button class="tb" onclick="swColl('pets',this)">🐾 Питомцы</button>
   </div>
   <div id="col-themes"><div class="loader">Загрузка...</div></div>
   <div id="col-top" style="display:none">
@@ -119,6 +124,22 @@
     </div>
     <div id="top-c" class="loader">Загрузка...</div>
   </div>
+  <div id="col-pets" style="display:none"><div id="petsc" class="loader">Загрузка...</div></div>
+</div>
+
+<!-- 6. Админка (скрыта пока не загружены чаты) -->
+<div id="pg-admin" class="page" style="display:none">
+  <div id="adm-chat-sel" style="margin-bottom:10px"></div>
+  <div class="tabs" style="flex-wrap:wrap;gap:4px">
+    <button class="tb active" onclick="swAdmin('dash',this)">📊 Дашборд</button>
+    <button class="tb" onclick="swAdmin('users',this)">👥 Участники</button>
+    <button class="tb" onclick="swAdmin('settings',this)">⚙️ Настройки</button>
+    <button class="tb" onclick="swAdmin('logs',this)">📋 Журнал</button>
+  </div>
+  <div id="adm-dash"></div>
+  <div id="adm-users" style="display:none"></div>
+  <div id="adm-settings" style="display:none"></div>
+  <div id="adm-logs" style="display:none"></div>
 </div>
 
 <nav class="nav">
@@ -127,6 +148,7 @@
   <div class="nb" onclick="switchPage('arena',this)"><span class="ni">⚔️</span>Арена</div>
   <div class="nb" onclick="switchPage('market',this)"><span class="ni">🏛</span>Рынок</div>
   <div class="nb" onclick="switchPage('coll',this)"><span class="ni">🎨</span>Коллекция</div>
+  <div class="nb" id="nb-admin" style="display:none" onclick="switchPage('admin',this)"><span class="ni">🛡</span>Адм.</div>
   <div class="nb" onclick="refreshPage()" style="max-width:40px"><span class="ni">🔄</span></div>
 </nav>
 
