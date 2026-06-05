@@ -13,11 +13,12 @@ async def set_user_left_status(
 
 
 async def log_moderation_action(
-    db: aiosqlite.Connection, chat_id: int, user_id: int, admin_id: int, action: str
+    db: aiosqlite.Connection, chat_id: int, user_id: int, admin_id: int, action: str,
+    reason: str | None = None,
 ):
     await db.execute(
-        "INSERT INTO moderation_logs (chat_id, user_id, admin_id, action) VALUES (?, ?, ?, ?)",
-        (chat_id, user_id, admin_id, action),
+        "INSERT INTO moderation_logs (chat_id, user_id, admin_id, action, reason) VALUES (?, ?, ?, ?, ?)",
+        (chat_id, user_id, admin_id, action, reason),
     )
     await db.commit()
 

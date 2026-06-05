@@ -1059,11 +1059,14 @@ function doMultiSpin(st, btn) {
     const cards=[];
     if(s.mora) cards.push({text:`🪙 ${fmt(s.mora)} Мора`,cls:''});
     if(s.diamonds) cards.push({text:`💎 ${s.diamonds} Алмазов`,cls:''});
+    // Aggregate items by item_id to avoid duplicate entries
+    const itemMap={};
     (s.items||[]).forEach(i=>{
-      const existing=cards.find(c=>c.text.includes(i.name));
-      if(existing) existing.text=existing.text.replace(/×\d+/,`×${(parseInt(existing.text.match(/×(\d+)/)?.[1]||0)+i.qty)}`);
-      else cards.push({text:`${i.name}${i.qty>1?' ×'+i.qty:''}`,cls:''});
+      const k=i.id||i.item_id||i.name||'?';
+      if(itemMap[k]) itemMap[k].qty+=i.qty||1;
+      else itemMap[k]={name:i.name||k,qty:i.qty||1};
     });
+    Object.values(itemMap).forEach(i=>cards.push({text:`📦 ${i.name} ×${i.qty}`,cls:''}));
     // Summarize pet dups by species
     const petMap={};
     dups.forEach(d=>{
@@ -2534,15 +2537,15 @@ function loadEvents() {
         <div class="irow"><span class="ik">Курс</span><span>${fmt(ev.exchange_rate)} 🪙 = 1 💎</span></div>
         <div class="irow"><span class="ik">Лимит</span><span>${fmt(ev.exchange_cap)} 💎/день</span></div>
         ${msLeft>0?`<div class="irow"><span class="ik">До конца</span><span style="color:var(--gold)">${fmtTime(msLeft)}</span></div>`:''}
-        <button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%"
-          onclick="CM();document.querySelector('.nb[onclick*=market]')?.click();swMkt('exch',document.querySelector('#pg-market .tb:nth-child(4))'))">Перейти к обмену</button>
+        <button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%" onclick="_navToExch()">Перейти к обмену</button>
       </div>`;
     } else if(ev.exchange_next) {
       const en=ev.exchange_next;
       const starts=en.starts_at?new Date(en.starts_at):null;
+      const startsStr=starts?starts.toLocaleString('ru-RU'):'-';
       html+=`<div class="card">
         <div class="card-title">💱 Следующий обмен</div>
-        <div class="irow"><span class="ik">Начало</span><span>${starts?starts.toLocaleString('ru','de'):'-'}</span></div>
+        <div class="irow"><span class="ik">Начало</span><span>${startsStr}</span></div>
         <div class="irow"><span class="ik">Курс</span><span>${fmt(ev.exchange_rate)} 🪙 = 1 💎</span></div>
       </div>`;
     } else {
@@ -2556,33 +2559,40 @@ function loadEvents() {
       html+=`<div class="card">
         <div class="card-title">🏷 Акция дня</div>
         ${ev.daily_deals.map(d=>`<div class="irow">
-          <span class="ik">${d.name}</span>
-          <span>${d.qty?`×${d.qty} · `:''}
-          <span style="color:var(--gold);font-weight:700">${fmt(d.price)} 🪙</span>
-          ${d.original&&d.original>d.price?`<s style="color:var(--muted);font-size:10px;margin-left:3px">${fmt(d.original)}</s>`:''}
+          <span class="ik">${d.name}${d.qty>1?` ×${d.qty}`:''}</span>
+          <span>
+            <span style="color:var(--gold);font-weight:700">${fmt(d.price)} 🪙</span>
+            ${d.original&&d.original>d.price?`<s style="color:var(--muted);font-size:10px;margin-left:4px">${fmt(d.original)}</s>`:''}
           </span>
         </div>`).join('')}
-        <button class="btn btn-sm btn-teal" style="margin-top:8px;width:100%" onclick="CM();document.querySelector('.nb[onclick*=market]')?.click();swMkt('deal',document.querySelector('#pg-market .tb:nth-child(5))'))">К акции дня</button>
+        <button class="btn btn-sm btn-teal" style="margin-top:8px;width:100%" onclick="_navToDeal()">К акции дня</button>
       </div>`;
     }
 
-    // Gacha overview
+    // Gacha overview — show egg types with rates
     if(ev.gacha_types?.length) {
-      html+=`<div class="card">
-        <div class="card-title">🎲 Гача — доступные крутки</div>
-        ${ev.gacha_types.slice(0,4).map(g=>`<div style="margin-bottom:8px">
-          <div style="font-size:12px;font-weight:600;margin-bottom:3px">${g.label}</div>
-          <div style="display:flex;flex-wrap:wrap;gap:4px">
-            ${Object.entries(g.rates).map(([r,v])=>`<span class="${RC[r]||'rc-common'}" style="font-size:10px;padding:1px 6px">${r} ${v}%</span>`).join('')}
-          </div>
-        </div>`).join('')}
-        <button class="btn btn-sm btn-gold" style="margin-top:4px;width:100%" onclick="swArena('gacha',document.querySelector('#pg-arena .tb:nth-child(2))'))">К гаче</button>
-      </div>`;
+      const withRates=ev.gacha_types.filter(g=>g.rates&&Object.keys(g.rates).length>0);
+      if(withRates.length) {
+        html+=`<div class="card">
+          <div class="card-title">🥚 Яйца — шансы редкостей</div>
+          ${withRates.slice(0,5).map(g=>`<div style="margin-bottom:8px">
+            <div style="font-size:11px;font-weight:600;margin-bottom:3px;color:var(--muted)">${g.label}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:3px">
+              ${Object.entries(g.rates).map(([r,v])=>`<span class="${RC[r]||'rc-common'}" style="font-size:10px;padding:1px 5px">${r} ${v}%</span>`).join('')}
+            </div>
+          </div>`).join('')}
+          <button class="btn btn-sm btn-gold" style="margin-top:4px;width:100%" onclick="_navToGacha()">К крутке</button>
+        </div>`;
+      }
     }
 
-    el('evc').innerHTML=html||'<div class="loader">Нет активных ивентов.</div>';
+    el('evc').innerHTML=html||'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет активных ивентов.</div>';
   }).catch(e=>{el('evc').innerHTML=`<div class="err">${e}</div>`;});
 }
+// Nav helpers for events page (avoids complex inline onclick in template literals)
+function _navToExch() { switchPage('market',document.querySelector('.nb[onclick*=market]')); setTimeout(()=>swMkt('exch',document.querySelectorAll('#pg-market .tb')[3]),50); }
+function _navToDeal() { switchPage('market',document.querySelector('.nb[onclick*=market]')); setTimeout(()=>swMkt('deal',document.querySelectorAll('#pg-market .tb')[4]),50); }
+function _navToGacha() { switchPage('arena',document.querySelector('.nb[onclick*=arena]')); setTimeout(()=>swArena('gacha',document.querySelectorAll('#pg-arena .tb')[1]),50); }
 function fmtTime(ms) {
   const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60);
   if(h>24) return `${Math.floor(h/24)}д ${h%24}ч`;
@@ -2764,8 +2774,10 @@ function onAdminSearch(v) {
 function onAdminSort(v) { _adminSort=v; _adminPage=1; loadAdminUsers(); }
 
 function openAdminAction(userId, userName, perms) {
-  const _btn=(action,label,cls,extra='')=>{
-    const ok=perms[action[0]]!==false;
+  // Map each action to its permission flag (unwarn shares warn perm, unmute shares mute perm)
+  const _perm = {warn:perms.w, unwarn:perms.w, mute:perms.m, unmute:perms.m, kick:perms.k, ban:perms.b};
+  const _btn=(action,label,cls)=>{
+    const ok=_perm[action]===true;
     return `<button class="btn btn-sm ${cls}" style="flex:1;position:relative" onclick="${ok?`doAdminAction(${userId},'${action}')`:''}" ${ok?'':'disabled'} title="${ok?'':'Недостаточно прав'}">${label}${!ok?'<span class="perm-tip">Нет прав</span>':''}</button>`;
   };
   OM(`⚡ ${userName||'ID'+userId}`,`

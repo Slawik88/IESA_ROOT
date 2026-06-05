@@ -16,21 +16,25 @@ async def active_events(db=Depends(get_db), user=Depends(require_tg_user)):
     exchange_next = await get_scheduled_event(db) if not exchange_active else None
 
     # Daily deal items
-    async with db.execute(
-        "SELECT item_id, price_mora, original_price_mora, quantity_remaining "
-        "FROM daily_deals WHERE date = CURRENT_DATE LIMIT 5"
-    ) as c:
-        deal_rows = await c.fetchall()
     deals = []
-    for r in (deal_rows or []):
-        item = ITEMS_REGISTRY.get(r[0], {})
-        deals.append({
-            "item_id": r[0],
-            "name": item.get("name", r[0]),
-            "price": float(r[1] or 0),
-            "original": float(r[2] or 0),
-            "qty": r[3],
-        })
+    try:
+        async with db.execute(
+            "SELECT item_id, quantity, price_mora, price_diamonds FROM daily_deal_current LIMIT 5"
+        ) as c:
+            deal_rows = await c.fetchall()
+        for r in (deal_rows or []):
+            item = ITEMS_REGISTRY.get(r[0], {})
+            base_price = item.get("price_mora", 0) or 0
+            deals.append({
+                "item_id": r[0],
+                "name": item.get("name", r[0]),
+                "price": float(r[2] or 0),
+                "price_dia": float(r[3] or 0),
+                "original": float(base_price),
+                "qty": r[1],
+            })
+    except Exception:
+        pass
 
     # Gacha spin types with rates overview
     gacha = [
