@@ -21,6 +21,7 @@ body{background:var(--bg);color:var(--text);
 @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 @keyframes glow{0%,100%{box-shadow:0 0 8px rgba(201,168,76,.25)}50%{box-shadow:0 0 18px rgba(201,168,76,.5)}}
 @keyframes popIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 
 .card{background:var(--card);border:1px solid var(--border2);border-radius:var(--r);
       padding:14px;margin-bottom:10px;position:relative;animation:fadeUp .2s ease}
@@ -46,8 +47,14 @@ body{background:var(--bg);color:var(--text);
 .nb .ni{font-size:19px;display:block;margin-bottom:2px;transition:.2s}
 .nb.active .ni{filter:drop-shadow(0 0 5px rgba(201,168,76,.4))}
 
-.page{display:none;padding:12px;animation:fadeIn .15s ease}
-.page.active{display:block}
+.page{display:none;padding:12px}
+.page.active{display:block;animation:fadeUp .2s ease}
+/* Stagger cards within a newly shown page */
+.page.active .card{animation:fadeUp .25s ease both}
+.page.active .card:nth-child(2){animation-delay:.04s}
+.page.active .card:nth-child(3){animation-delay:.08s}
+.page.active .card:nth-child(4){animation-delay:.12s}
+.page.active .card:nth-child(5){animation-delay:.16s}
 
 .tabs{display:flex;gap:5px;margin-bottom:12px}
 .tb{flex:1;padding:7px 4px;border-radius:var(--r);border:1px solid var(--border2);cursor:pointer;
@@ -93,12 +100,25 @@ body{background:var(--bg);color:var(--text);
           border-bottom:1px solid var(--border2);
           display:flex;align-items:center;justify-content:center;
           gap:16px;height:36px;padding:0 12px;
-          transform:translateY(-100%);transition:transform .25s ease}
+          transform:translateY(-100%);transition:transform .25s ease;
+          cursor:pointer;user-select:none}
+#curr-bar:hover{background:rgba(13,16,25,.98);border-bottom-color:var(--border)}
+#curr-bar:active{opacity:.85}
 #curr-bar.visible{transform:translateY(0)}
 #curr-bar .cb-item{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600}
 #curr-bar .cb-val{color:var(--bright)}
 #curr-bar .cb-sep{color:var(--border2);font-size:14px}
 body.has-curr-bar{padding-top:36px}
+
+/* Currency info modal */
+.curr-modal{display:flex;flex-direction:column;gap:8px}
+.cm-block{display:flex;gap:10px;align-items:flex-start;padding:10px;
+          background:var(--card);border-radius:var(--r);border:1px solid var(--border2);
+          animation:fadeUp .2s ease both}
+.cm-icon{font-size:22px;width:30px;text-align:center;flex-shrink:0;padding-top:1px}
+.cm-name{font-size:13px;font-weight:700;color:var(--bright);margin-bottom:3px}
+.cm-val{font-size:12px;color:var(--gold);font-variant-numeric:tabular-nums;margin-left:6px}
+.cm-desc{font-size:11px;color:var(--muted);line-height:1.45}
 
 /* Achievements */
 .ach-item{padding:10px 0;border-bottom:1px solid var(--border2)}
@@ -288,6 +308,7 @@ body.has-curr-bar{padding-top:36px}
 /* Buttons */
 .btn{padding:8px 14px;border-radius:var(--r);border:none;cursor:pointer;font-family:inherit;
      font-size:12px;font-weight:600;transition:.15s;display:inline-flex;align-items:center;gap:5px}
+.btn:active:not(:disabled){transform:scale(.96);opacity:.85}
 .btn-gold{background:var(--gold-dim);color:var(--gold2);border:1px solid var(--border)}
 .btn-gold:hover{background:rgba(201,168,76,.22)}
 .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border2)}
@@ -308,9 +329,13 @@ body.has-curr-bar{padding-top:36px}
 dialog{background:var(--s);border:1px solid var(--border);border-radius:var(--r-lg);
        padding:0;max-width:360px;width:calc(100% - 24px);color:var(--text);
        animation:slideUp .18s ease;
-       position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);margin:0}
+       position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);margin:0;
+       overscroll-behavior:contain}
 dialog::backdrop{background:rgba(0,0,0,.85);backdrop-filter:blur(6px)}
-.mbody{padding:13px 15px;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.mbody{padding:13px 15px;max-height:55vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+       overscroll-behavior:contain}
+/* Prevent page scroll while modal is open */
+body.modal-open{overflow:hidden;touch-action:none}
 .mhead{display:flex;align-items:center;justify-content:space-between;
        padding:13px 15px;border-bottom:1px solid var(--border2)}
 .mtitle{font-size:14px;font-weight:700;color:var(--bright)}

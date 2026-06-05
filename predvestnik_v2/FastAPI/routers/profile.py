@@ -21,7 +21,9 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
 
     async with db.execute(
         "SELECT user_tg_id, user_tg_username, global_rank, "
-        "user_balance_mora, user_balance_diamonds "
+        "user_balance_mora, user_balance_diamonds, "
+        "COALESCE(user_balance_dark_mora, 0) AS user_balance_dark_mora, "
+        "COALESCE(user_balance_zarniki, 0) AS user_balance_zarniki "
         "FROM users WHERE user_tg_id = ?",
         (user_id,),
     ) as c:
@@ -72,6 +74,8 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "rank":         _RANK_NAMES.get(row["global_rank"] or 0, "👤 Пользователь"),
         "mora":         float(row["user_balance_mora"] or 0),
         "diamonds":     float(row["user_balance_diamonds"] or 0),
+        "dark_mora":    float(row["user_balance_dark_mora"] or 0),
+        "zarniki":      float(row["user_balance_zarniki"] or 0),
         "streak":       (dict(streak_row)["streak"] or 0) if streak_row else 0,
         "achievements": ach_count,
         "chats":        chats,
