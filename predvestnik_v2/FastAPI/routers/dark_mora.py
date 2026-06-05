@@ -132,26 +132,36 @@ async def ritual(db=Depends(get_db), user=Depends(require_tg_user)):
 async def merchant_status(db=Depends(get_db), user=Depends(require_tg_user)):
     """Статус Теневого Торговца: когда последний/следующий ивент."""
     # Check last merchant event from DB (stored in a global event log)
-    try:
-        async with db.execute(
-            "SELECT last_value FROM dark_mora_events WHERE event_type = 'shadow_merchant' LIMIT 1"
-        ) as c:
-            row = await c.fetchone()
-    except Exception:
-        row = None
-
     now = datetime.now(timezone.utc)
     last_event = None
     next_event = None
     active = False
 
-    if row and row[0]:
-        try:
-            last_event = datetime.fromisoformat(str(row[0]).replace(" ", "T")).replace(tzinfo=timezone.utc)
-            next_event = last_event + timedelta(days=DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS)
-            active = (now - last_event).total_seconds() < 7200  # active for 2h
-        except Exception:
-            pass
+    try:
+        async with db.execute(
+            "SELECT posted_at, expires_at FROM shadow_merchant_events "
+            "ORDER BY posted_at DESC LIMIT 1"
+        ) as c:
+            row = await c.fetchone()
+        if row and row[0]:
+            posted = row[0]
+            expires = row[1]
+            if isinstance(posted, str):
+                posted = datetime.fromisoformat(posted.replace(" ", "T"))
+            if posted.tzinfo is None:
+                posted = posted.replace(tzinfo=timezone.utc)
+            if expires is not None:
+                if isinstance(expires, str):
+                    expires = datetime.fromisoformat(expires.replace(" ", "T"))
+                if expires.tzinfo is None:
+                    expires = expires.replace(tzinfo=timezone.utc)
+                active = expires > now
+            else:
+                active = (now - posted).total_seconds() < 7200
+            last_event = posted
+            next_event = posted + timedelta(days=DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS)
+    except Exception:
+        pass
 
     # If no event data, show info about the mechanic
     return {

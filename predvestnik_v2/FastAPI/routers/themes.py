@@ -110,7 +110,6 @@ async def theme_preview_text(theme_id: str, db=Depends(get_db), user=Depends(req
         raise HTTPException(404, "Тема не найдена.")
 
     # Find the user's primary chat for stats context
-    from infrastructure.pg_adapter import PGAdapter as _PGA
     async with db.execute(
         "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
         "ORDER BY user_messages_count_all_time DESC LIMIT 1",
