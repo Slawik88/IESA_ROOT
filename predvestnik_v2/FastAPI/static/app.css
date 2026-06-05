@@ -429,3 +429,24 @@ button:disabled:hover .perm-tip{display:block}
 .spin-block .spin-row{border:none;margin:0;border-radius:0}
 .pity-bar{height:3px;background:var(--s);border-radius:2px;margin-top:3px;overflow:hidden}
 .pity-fill{height:100%;background:linear-gradient(90deg,var(--border2),var(--gold));border-radius:2px;transition:width .4s}
+
+/* ── Missing utility classes ─────────────────────────────────────────── */
+.err{color:var(--red);font-size:12px;padding:10px;line-height:1.4}
+
+/* Toast — push below sticky currency bar when it's visible */
+body.has-curr-bar .toast{top:50px}
+
+/* Mythic / zarniki / seasonal rarity badges */
+.rc-mythic{background:rgba(255,107,107,.18);color:#ff6b6b}
+.rc-zarniki{background:rgba(232,200,102,.22);color:var(--gold2);font-weight:700}
+.rc-seasonal{background:rgba(63,184,175,.15);color:var(--teal)}
+
+/* Achievement progress fill: low (red) / default (gold) / high (green) */
+.ach-fill.low{background:var(--red)}
+.ach-fill.high{background:var(--green)}
+
+/* ── Empty state component ───────────────────────────────────────────── */
+.empty-state{text-align:center;padding:24px 16px;color:var(--muted)}
+.empty-state .es-icon{font-size:36px;margin-bottom:8px}
+.empty-state .es-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.empty-state .es-sub{font-size:11px;line-height:1.5}

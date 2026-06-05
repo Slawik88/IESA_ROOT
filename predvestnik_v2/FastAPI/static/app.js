@@ -10,7 +10,7 @@ const SK = 'pv_sess';
 const MEDALS = ['🥇','🥈','🥉'];
 const PL = {active:'Активный',passive:'Пассивный',storage:'Склад'};
 const RC = {common:'rc-common',uncommon:'rc-uncommon',rare:'rc-rare',
-            epic:'rc-epic',legendary:'rc-legendary',shadow:'rc-shadow'};
+            epic:'rc-epic',legendary:'rc-legendary',shadow:'rc-shadow',mythic:'rc-mythic'};
 
 // Chat where the mini app was opened from (from Telegram WebApp context)
 const _tgChat = tg?.initDataUnsafe?.chat || null;
@@ -20,6 +20,7 @@ const _initChatTitle = _tgChat?.title || '';
 let _cid = 0, _uid = 0, _actTab='quests', _zooTab='nursery', _arenaTab='quests';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='auc';
 let _proTab='main', _profileData=null;
+let _achData=null, _achSort='default', _invSearch='', _themeFilter='all';
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const sess = () => localStorage.getItem(SK)||'';
@@ -33,10 +34,15 @@ function api(path, opts={}) {
   return fetch(BASE+path,{...opts,headers:{...hdrs(),...(opts.headers||{})}})
     .then(r=>{
       if(r.status===401){localStorage.removeItem(SK);el('login-ov').classList.remove('hidden');return Promise.reject('Войдите снова.');}
-      return r.ok?r.json():r.json().then(e=>{
-        const d=e.detail;
-        const msg=typeof d==='string'?d:Array.isArray(d)?d.map(x=>x.msg||x).join('; '):(d?JSON.stringify(d):'Ошибка');
-        return Promise.reject(msg);
+      return r.ok?r.json():r.text().then(t=>{
+        try{
+          const e=JSON.parse(t);
+          const d=e.detail;
+          const msg=typeof d==='string'?d:Array.isArray(d)?d.map(x=>x.msg||x).join('; '):(d?JSON.stringify(d):'Ошибка');
+          return Promise.reject(msg);
+        }catch{
+          return Promise.reject(t.slice(0,120)||'Ошибка сервера');
+        }
       });
     });
 }
@@ -90,6 +96,12 @@ function toast(msg,ok=true) {
   setTimeout(()=>t.classList.remove('show'),2500);
 }
 
+function copyUid(uid) {
+  navigator.clipboard?.writeText(String(uid))
+    .then(()=>toast('🆔 ID скопирован!'))
+    .catch(()=>toast('Буфер обмена недоступен',false));
+}
+
 function countdown(endsAt) {
   const ends=new Date((endsAt+'').includes('T')?endsAt:endsAt+'Z');
   const diff=Math.max(0,Math.floor((ends-Date.now())/1000));
@@ -136,6 +148,7 @@ function loadProfile() {
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
     const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,6);
+    const uid = d.user_id || _uid;
     el('pro-main').innerHTML=`
       <div class="card card-gold">
         <div class="phead">
@@ -147,6 +160,14 @@ function loadProfile() {
           <div class="stat"><div>💎</div><div class="sv">${d.diamonds.toFixed(1)}</div><div class="sl">Алмазы</div></div>
           <div class="stat"><div>🔥</div><div class="sv">${d.streak}</div><div class="sl">Стрик</div></div>
           <div class="stat"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки</div></div>
+        </div>
+        ${(d.dark_mora||0)>0||(d.zarniki||0)>0?`<div class="stats" style="margin-top:7px">
+          ${(d.dark_mora||0)>0?`<div class="stat"><div>🌑</div><div class="sv">${fmt(Math.floor(d.dark_mora||0))}</div><div class="sl">Тёмная</div></div>`:''}
+          ${(d.zarniki||0)>0?`<div class="stat"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">Зарники</div></div>`:''}
+        </div>`:''}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 0;border-top:1px solid var(--border2);margin-top:6px">
+          <span style="font-size:11px;color:var(--muted)">🆔 <code style="background:var(--dim);padding:1px 4px;border-radius:3px;font-size:11px">${uid}</code></span>
+          <button class="btn btn-ghost" style="padding:2px 8px;font-size:10px" onclick="copyUid(${uid})">📋 Копировать ID</button>
         </div>
       </div>
       ${pets.length?`<div class="card"><div class="card-title">🐾 Питомники</div>${pets.map(p=>`
@@ -397,9 +418,29 @@ const ACH_HOW = {
 function loadAch() {
   el('pro-ach').innerHTML='<div class="loader">Загрузка...</div>';
   api('/achievements/').then(achs=>{
-    el('pro-ach').innerHTML='<div class="card"><div class="card-title">Достижения (нажмите для деталей)</div>'+
-      achs.map(a=>{
+    _achData=achs;
+    renderAch();
+  }).catch(e=>{el('pro-ach').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
+}
+function setAchSort(s){_achSort=s;renderAch();}
+function renderAch() {
+  if(!_achData) return;
+  let achs=[..._achData];
+  if(_achSort==='progress') achs.sort((a,b)=>b.pct-a.pct);
+  else if(_achSort==='todo') achs.sort((a,b)=>(a.completed?1:0)-(b.completed?1:0)||b.pct-a.pct);
+  const done=achs.filter(a=>a.completed).length;
+  el('pro-ach').innerHTML=`
+    <div style="display:flex;gap:4px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:10px;color:var(--muted);margin-right:2px">Сорт:</span>
+      <button class="btn btn-sm ${_achSort==='default'?'btn-gold':'btn-ghost'}" style="padding:3px 7px;font-size:9px" onclick="setAchSort('default')">По умолч.</button>
+      <button class="btn btn-sm ${_achSort==='progress'?'btn-gold':'btn-ghost'}" style="padding:3px 7px;font-size:9px" onclick="setAchSort('progress')">% прогресса</button>
+      <button class="btn btn-sm ${_achSort==='todo'?'btn-gold':'btn-ghost'}" style="padding:3px 7px;font-size:9px" onclick="setAchSort('todo')">Сначала активные</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Достижения <span style="font-size:9px;font-weight:400;color:${done===achs.length?'var(--green)':'var(--muted)'}">${done} / ${achs.length} ✅</span></div>
+      ${achs.map(a=>{
         const hw=ACH_HOW[a.id]||{};
+        const fc=a.completed?'high':a.pct>=60?'high':a.pct>=25?'':'low';
         return `<div class="ach-item" style="cursor:pointer" onclick="openAchModal(${JSON.stringify(a).replace(/"/g,"'")})">
           <div class="ach-head">
             <div class="ach-icon">${a.icon}</div>
@@ -409,11 +450,11 @@ function loadAch() {
             </div>
           </div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${hw.how||''}</div>
-          <div class="ach-bar"><div class="ach-fill" style="width:${a.pct}%"></div></div>
+          <div class="ach-bar"><div class="ach-fill ${fc}" style="width:${a.pct}%"></div></div>
           <div class="ach-prog">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}${a.completed?' ✅':''}</div>
         </div>`;
-      }).join('')+'</div>';
-  }).catch(e=>{el('pro-ach').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
+      }).join('')}
+    </div>`;
 }
 
 function openAchModal(a) {
@@ -1010,7 +1051,7 @@ function doSpin(st, row) {
     const glowCls = topRarity ? 'glow-'+topRarity : '';
 
     // Determine display emoji for animation ball
-    const ballEmoji = dups.length ? (PET_SPECIES_EMOJI[dups[0].species]||'🐾') : (r.mora ? '🪙' : '💎');
+    const ballEmoji = dups.length ? (PET_SPECIES_EMOJI[dups[0].species_id]||'🐾') : (r.mora ? '🪙' : '💎');
 
     // Build result cards
     const cards=[];
@@ -1097,7 +1138,7 @@ function doMultiSpin(st, btn) {
 }
 function loadCraft() {
   api('/craft/').then(recipes => {
-    if (!recipes.length) { el('cc').innerHTML='<div class="loader">Рецептов пока нет.</div>'; return; }
+    if (!recipes.length) { el('cc').innerHTML='<div class="empty-state"><div class="es-icon">⚗️</div><div class="es-title">Рецептов пока нет</div><div class="es-sub">Рецепты крафта появятся в следующих обновлениях</div></div>'; return; }
     el('cc').innerHTML = recipes.map(rc => `
       <div class="card card-gold">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -1509,15 +1550,27 @@ function loadInventory() {
   el('mkt-inv').innerHTML='<div class="loader">Загрузка...</div>';
   api('/inventory/').then(items=>{
     _invData=items;
-    el('mkt-inv').innerHTML=items.length
-      ?'<div class="inv-grid">'+items.map(it=>`<div class="icard" onclick="openItemModal('${it.item_id}')">
-          <div class="icat">${it.category}</div>
-          <div class="iname">${it.name}</div>
-          <div class="iqty">×${it.quantity}</div>
-          <div class="idesc">${it.description||''}</div>
-        </div>`).join('')+'</div>'
-      :'<div class="loader">Инвентарь пуст.</div>';
+    _invSearch='';
+    _renderInventory();
   }).catch(e=>{el('mkt-inv').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
+}
+function filterInv(q){_invSearch=q;_renderInventory();}
+function _renderInventory() {
+  const items=_invSearch?_invData.filter(i=>(i.name||'').toLowerCase().includes(_invSearch.toLowerCase())):_invData;
+  const grid=items.length
+    ?'<div class="inv-grid">'+items.map(it=>`<div class="icard" onclick="openItemModal('${it.item_id}')">
+        <div class="icat">${it.category}</div>
+        <div class="iname">${it.name}</div>
+        <div class="iqty">×${it.quantity}</div>
+        <div class="idesc">${it.description||''}</div>
+      </div>`).join('')+'</div>'
+    :_invData.length
+      ?`<div class="empty-state"><div class="es-icon">🔍</div><div class="es-title">Ничего не найдено</div><div class="es-sub">По запросу «${_invSearch}»</div></div>`
+      :`<div class="empty-state"><div class="es-icon">🎒</div><div class="es-title">Инвентарь пуст</div><div class="es-sub">Купите предметы в Магазине или получите через Гачу</div></div>`;
+  el('mkt-inv').innerHTML=`<div style="position:relative;margin-bottom:8px">
+    <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;z-index:1">🔍</span>
+    <input type="text" class="num-input" style="margin:0;padding-left:32px" placeholder="Поиск в инвентаре..." value="${_invSearch.replace(/"/g,'&quot;')}" oninput="filterInv(this.value)"/>
+  </div>${grid}`;
 }
 function openItemModal(iid) {
   const it=_invData.find(i=>i.item_id===iid);if(!it)return;
@@ -1553,7 +1606,7 @@ function doOpenEgg(eid,cnt) {
       results.map(res=>{
         const oc=ocMap[res.outcome]||res.outcome;
         return `<div style="background:var(--s);border-radius:var(--r);padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;font-weight:600">${res.species||''}</span>
+          <span style="font-size:12px;font-weight:600">${res.species_name||res.species||''}</span>
           <span style="font-size:11px;color:var(--gold)">${oc}${res.new_level?' Lv'+res.new_level:''}</span>
         </div>`;
       }).join('')||'<div style="color:var(--green);font-size:12px;text-align:center">Готово!</div>',
@@ -1656,24 +1709,44 @@ function themeStatusBadge(t) {
 function loadThemes() {
   api('/themes/').then(themes => {
     _themeData = themes;
-    const groups = {};
-    themes.forEach(t => (groups[t.rarity] = groups[t.rarity]||[]).push(t));
-    const ORDER = ['common','uncommon','rare','epic','legendary','mythic','shadow','zarniki','seasonal'];
-    el('col-themes').innerHTML = ORDER.filter(r => groups[r]).map(r => {
-      const label = `${groups[r][0]?.badge||''} ${groups[r][0]?.rarity_label||r}`;
-      return `<div class="card">
-        <div class="card-title">${label}</div>
-        <div class="theme-grid">${groups[r].map(t => `
-          <div class="theme-card${t.owned?' owned':''}${t.active?' active-theme':''}" onclick="openThemeModal('${t.theme_id}')">
-            <div class="theme-deco">${t.top||'━━━━━━━━'}</div>
-            <div class="theme-name">${t.name}</div>
-            <div class="theme-deco" style="margin-top:3px">${t.bot_line||'━━━━━━━━'}</div>
-            <div style="margin-top:6px">${themeStatusBadge(t)}</div>
-          </div>`).join('')}
-        </div>
-      </div>`;
-    }).join('');
+    _themeFilter='all';
+    _renderThemes();
   }).catch(e => { el('col-themes').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
+}
+function setThemeFilter(f){_themeFilter=f;_renderThemes();}
+function _renderThemes() {
+  if(!_themeData) return;
+  const ownedCount=_themeData.filter(t=>t.owned||t.active).length;
+  const shopCount=_themeData.filter(t=>!t.owned&&t.source&&(t.source==='shop_mora'||t.source==='shop_diamond')).length;
+  const filtered=_themeFilter==='owned'?_themeData.filter(t=>t.owned||t.active)
+    :_themeFilter==='shop'?_themeData.filter(t=>!t.owned&&(t.source==='shop_mora'||t.source==='shop_diamond'))
+    :_themeData;
+  const groups={};
+  filtered.forEach(t=>(groups[t.rarity]=groups[t.rarity]||[]).push(t));
+  const ORDER=['common','uncommon','rare','epic','legendary','mythic','shadow','zarniki','seasonal'];
+  el('col-themes').innerHTML=`
+    <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="btn btn-sm ${_themeFilter==='all'?'btn-gold':'btn-ghost'}" style="padding:3px 8px;font-size:10px" onclick="setThemeFilter('all')">Все</button>
+      <button class="btn btn-sm ${_themeFilter==='owned'?'btn-gold':'btn-ghost'}" style="padding:3px 8px;font-size:10px" onclick="setThemeFilter('owned')">Мои (${ownedCount})</button>
+      <button class="btn btn-sm ${_themeFilter==='shop'?'btn-gold':'btn-ghost'}" style="padding:3px 8px;font-size:10px" onclick="setThemeFilter('shop')">В магазине (${shopCount})</button>
+    </div>
+    ${Object.keys(groups).length
+      ?ORDER.filter(r=>groups[r]).map(r=>{
+          const label=`${groups[r][0]?.badge||''} ${groups[r][0]?.rarity_label||r}`;
+          return `<div class="card">
+            <div class="card-title">${label}</div>
+            <div class="theme-grid">${groups[r].map(t=>`
+              <div class="theme-card${t.owned?' owned':''}${t.active?' active-theme':''}" onclick="openThemeModal('${t.theme_id}')">
+                <div class="theme-deco">${t.top||'━━━━━━━━'}</div>
+                <div class="theme-name">${t.name}</div>
+                <div class="theme-deco" style="margin-top:3px">${t.bot_line||'━━━━━━━━'}</div>
+                <div style="margin-top:6px">${themeStatusBadge(t)}</div>
+              </div>`).join('')}
+            </div>
+          </div>`;
+        }).join('')
+      :`<div class="empty-state"><div class="es-icon">🎨</div><div class="es-title">Ничего не найдено</div><div class="es-sub">В этой категории нет тем</div></div>`
+    }`;
 }
 
 function _premBar(pct, len=7) {
@@ -1918,7 +1991,7 @@ function switchTop(mode, btn) {
             <div class="tname">${r.username}</div>
             <div class="tcnt">${fmt(r.count)} 💬</div>
           </div>`).join('') + '</div>'
-        : '<div class="loader">Данных пока нет.</div>';
+        : '<div class="empty-state"><div class="es-icon">🏆</div><div class="es-title">Пока нет данных</div><div class="es-sub">Топ появится после первых сообщений</div></div>';
     })
     .catch(e => { el('top-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
@@ -1949,22 +2022,31 @@ function loadExchange() {
       </div>`;
       return;
     }
-    el('mkt-exch').innerHTML=`
-      <div class="exch-rate">
-        <div class="er">1 💎 = ${fmt(d.rate)} 🪙</div>
-        <div class="el">Осталось квоты: ${d.remaining.toFixed(1)} / ${d.daily_cap} 💎</div>
-      </div>
+    const maxCanBuy = Math.floor(Math.min(d.remaining, d.mora / d.rate));
+    const rateHtml = `<div class="exch-rate">
+      <div class="er">1 💎 = ${fmt(d.rate)} 🪙</div>
+      <div class="el">Квота: ${d.remaining.toFixed(1)} / ${d.daily_cap} 💎 осталось</div>
+    </div>`;
+    if(maxCanBuy < 1) {
+      const reason = d.remaining <= 0 ? 'Дневной лимит исчерпан — возвращайтесь завтра.' : `Нужно минимум ${fmt(d.rate)} 🪙 для обмена (у вас ${fmt(d.mora)} 🪙).`;
+      el('mkt-exch').innerHTML=`${rateHtml}<div class="card" style="text-align:center;padding:20px">
+        <div style="font-size:28px;margin-bottom:8px">${d.remaining<=0?'✅':'💸'}</div>
+        <div style="font-size:13px;color:var(--muted)">${reason}</div>
+      </div>`;
+      return;
+    }
+    el('mkt-exch').innerHTML=`${rateHtml}
       <div class="card">
         <div class="card-title">Сколько Алмазов получить?</div>
         <div class="irow"><span class="ik">У вас</span><span>${fmt(d.mora)} 🪙</span></div>
         <div class="irow"><span class="ik">Стоимость</span><span id="exch-cost" style="color:var(--gold)">—</span></div>
         <div class="range-wrap">
-          <input type="range" id="exch-dia" min="1" max="${Math.floor(Math.min(d.remaining, d.mora/d.rate))}" value="1" step="1"
+          <input type="range" id="exch-dia" min="1" max="${maxCanBuy}" value="1" step="1"
                  oninput="updExch(${d.rate},${d.mora})"/>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <input type="number" id="exch-num" class="num-input" style="max-width:120px"
-                 min="1" max="${Math.floor(Math.min(d.remaining, d.mora/d.rate))}" value="1"
+                 min="1" max="${maxCanBuy}" value="1"
                  oninput="syncExchRange(${d.rate},${d.mora})"/>
           <span style="font-size:14px">💎</span>
         </div>
@@ -2292,7 +2374,7 @@ function declineProposal(id,btn) {
 function loadWallet() {
   el('pro-wallet').innerHTML='<div class="loader">Загрузка...</div>';
   api('/wallet/history').then(txs=>{
-    if(!txs.length){el('pro-wallet').innerHTML='<div class="loader">Транзакций нет.</div>';return;}
+    if(!txs.length){el('pro-wallet').innerHTML='<div class="empty-state"><div class="es-icon">💳</div><div class="es-title">Транзакций нет</div><div class="es-sub">Здесь будет история операций с Морой и алмазами</div></div>';return;}
     el('pro-wallet').innerHTML='<div class="card"><div class="card-title">История транзакций</div>'+
       txs.map(t=>{
         const mora=t.delta_mora?`<span style="color:${t.delta_mora>0?'var(--green)':'var(--red)'};font-weight:600">${t.delta_mora>0?'+':''}${fmt(t.delta_mora)} 🪙</span>`:'';
@@ -2310,7 +2392,7 @@ function loadWallet() {
 }
 
 // ── Daily Deal ────────────────────────────────────────────────────────────────
-let _dealRefreshAt = null;
+let _dealRefreshAt = null, _dealTimerInterval = null;
 function loadDeal() {
   el('mkt-deal').innerHTML='<div class="loader">Загрузка...</div>';
   api('/daily-deal/').then(d=>{
@@ -2328,7 +2410,7 @@ function loadDeal() {
       ${deals.length?'<div class="card"><div class="card-title">🏷 Предложения сегодня</div>'+
         deals.map(deal=>{
           const price=deal.price_mora?`${fmt(deal.price_mora)} 🪙`:deal.price_diamonds?`${deal.price_diamonds} 💎`:'—';
-          const purchased=deal.user_purchased>=deal.max_per_user;
+          const purchased=deal.purchased===true;
           return `<div class="shop-row">
             <div class="shop-icon">${(deal.item_name||'?').split(' ')[0]}</div>
             <div class="shop-info">
@@ -2346,17 +2428,17 @@ function loadDeal() {
   }).catch(e=>{el('mkt-deal').innerHTML=`<div class="err">${e}</div>`;});
 }
 function startDealTimer() {
-  if(_dealRefreshAt) {
-    const tick=()=>{
-      const t=el('deal-timer');if(!t)return;
-      const diff=Math.max(0,Math.floor((new Date(_dealRefreshAt)-Date.now())/1000));
-      if(diff<=0){t.textContent='Скоро обновится...';return;}
-      const h=Math.floor(diff/3600),m=Math.floor((diff%3600)/60),s=diff%60;
-      t.textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-    };
-    tick();
-    setInterval(tick,1000);
-  }
+  if(_dealTimerInterval) clearInterval(_dealTimerInterval);
+  if(!_dealRefreshAt) return;
+  const tick=()=>{
+    const t=el('deal-timer');if(!t){clearInterval(_dealTimerInterval);return;}
+    const diff=Math.max(0,Math.floor((new Date(_dealRefreshAt)-Date.now())/1000));
+    if(diff<=0){t.textContent='Скоро обновится...';clearInterval(_dealTimerInterval);return;}
+    const h=Math.floor(diff/3600),m=Math.floor((diff%3600)/60),s=diff%60;
+    t.textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  };
+  tick();
+  _dealTimerInterval=setInterval(tick,1000);
 }
 function buyDeal(dealId,btn) {
   btn.disabled=true;
@@ -2609,7 +2691,7 @@ function loadPetsShowcase() {
   api('/zoo/species').then(d=>{_showcaseData=d;renderShowcase();}).catch(e=>{el('petsc').innerHTML=`<div class="err">${e}</div>`;});
 }
 function renderShowcase() {
-  const rarities=['all','common','uncommon','rare','epic','legendary'];
+  const rarities=['all','common','uncommon','rare','epic','legendary','mythic'];
   const d=_showcaseData||[];
   const filtered=_showcaseFilter==='all'?d:d.filter(p=>p.rarity===_showcaseFilter);
   const sorted=[...filtered].sort((a,b)=>(_RC_ORDER[a.rarity]||0)-(_RC_ORDER[b.rarity]||0));
@@ -2751,7 +2833,7 @@ function renderAdminUserTable(d) {
                 u.is_immune?'🛡 Иммун':u.is_left?'👋 Ушёл':'✅'}
             </td>
             <td>
-              ${u.can_act?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openAdminAction(${u.user_tg_id},"${u.user_tg_username||''}",${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban})})'>⚡</button>`:`<span style="font-size:10px;color:var(--dim)">—</span>`}
+              ${u.can_act?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban})})'>⚡</button>`:`<span style="font-size:10px;color:var(--dim)">—</span>`}
             </td>
           </tr>`).join('')}
         </tbody>
@@ -2802,15 +2884,18 @@ function doAdminAction(userId, action) {
     .then(r=>{toast(`✅ ${action} выполнено`+(r.new_warnings!=null?` (варнов: ${r.new_warnings})`:''));CM();loadAdminUsers();})
     .catch(e=>toast(e,false));
 }
+let _admMuteUserId=0, _admMuteReason='';
 function openMuteDuration(userId) {
-  const reason=el('adm-reason')?.value||'';
+  _admMuteUserId=userId;
+  _admMuteReason=el('adm-reason')?.value||'';
   const opts=[[5,'5 мин'],[30,'30 мин'],[60,'1 ч'],[360,'6 ч'],[1440,'1 д'],[10080,'7 д']];
   OM('🔇 Длительность мута',
     `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:8px 0">
-      ${opts.map(([m,l])=>`<button class="btn btn-sm btn-ghost" onclick="doMute(${userId},${m},'${reason}')">${l}</button>`).join('')}
+      ${opts.map(([m,l])=>`<button class="btn btn-sm btn-ghost" onclick="doMute(${m})">${l}</button>`).join('')}
     </div>`,[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
 }
-function doMute(userId, minutes, reason) {
+function doMute(minutes) {
+  const userId=_admMuteUserId, reason=_admMuteReason;
   api(`/admin/${_adminChatId}/action`,{method:'POST',body:JSON.stringify({user_id:userId,action:'mute',duration_minutes:minutes,reason:reason||null})})
     .then(r=>{toast(`🔇 Мут ${minutes} мин.`+(r.telegram_ok?'':' (Telegram недоступен)'));CM();loadAdminUsers();})
     .catch(e=>toast(e,false));
