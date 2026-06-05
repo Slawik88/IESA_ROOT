@@ -349,8 +349,8 @@ async def duel_and_auction_task(bot: Bot):
                             try:
                                 async with db.execute(
                                     "SELECT DISTINCT owner_id, pet_level FROM pets "
-                                    "WHERE species_id = 'dragon' AND slot_type = 'nursery' "
-                                    "AND pet_level >= 10 AND fatigue_level < 100 AND owner_id IS NOT NULL"
+                                    "WHERE species_id = 'dragon' AND placement IN ('active', 'passive') "
+                                    "AND pet_level >= 10 AND fatigue < 100 AND owner_id IS NOT NULL"
                                 ) as _dc:
                                     _dragon_owners = await _dc.fetchall()
                                 for _drow in _dragon_owners:
@@ -373,8 +373,8 @@ async def duel_and_auction_task(bot: Bot):
                             try:
                                 async with db.execute(
                                     "SELECT DISTINCT owner_id, pet_level FROM pets "
-                                    "WHERE species_id = 'fox' AND slot_type = 'nursery' "
-                                    "AND pet_level >= 8 AND fatigue_level < 100 AND owner_id IS NOT NULL"
+                                    "WHERE species_id = 'fox' AND placement IN ('active', 'passive') "
+                                    "AND pet_level >= 8 AND fatigue < 100 AND owner_id IS NOT NULL"
                                 ) as _fc:
                                     _fox_owners = await _fc.fetchall()
                                 for _frow in _fox_owners:

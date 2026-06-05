@@ -1,7 +1,9 @@
 """FastAPI/routers/profile.py — профиль игрока.
 Тонкий адаптер: только вызовы infrastructure/, только JSON.
 """
+import re
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 
 router = APIRouter(prefix="/profile", tags=["profile"])
@@ -81,3 +83,60 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "chats":        chats,
         "pets":         pets,
     }
+
+
+_NICK_RE = re.compile(r"^[\w\s\-\.]{1,32}$", re.UNICODE)
+
+
+class NicknameRequest(BaseModel):
+    chat_id: int
+    nickname: str
+
+
+@router.post("/set-nickname")
+async def set_nickname_endpoint(body: NicknameRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Установить ник в чате (1–32 символа, буквы/цифры/пробел/дефис/точка)."""
+    nick = body.nickname.strip()
+    if not nick or len(nick) > 32:
+        raise HTTPException(400, "Ник: 1–32 символа.")
+    if not _NICK_RE.match(nick):
+        raise HTTPException(400, "Ник содержит недопустимые символы.")
+    if body.chat_id == 0:
+        raise HTTPException(400, "Нужен ID чата.")
+
+    async with db.execute(
+        "SELECT 1 FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ?",
+        (user["id"], body.chat_id),
+    ) as c:
+        if not await c.fetchone():
+            raise HTTPException(400, "Вы не состоите в этом чате.")
+
+    # Uniqueness check (case-insensitive, per chat)
+    async with db.execute(
+        "SELECT user_id FROM user_nicknames WHERE chat_id = ? AND LOWER(nickname) = LOWER(?)",
+        (body.chat_id, nick),
+    ) as c:
+        existing = await c.fetchone()
+    if existing and existing[0] != user["id"]:
+        raise HTTPException(400, "Этот ник уже занят в данном чате.")
+
+    await db.execute(
+        "INSERT INTO user_nicknames (user_id, chat_id, nickname) VALUES (?, ?, ?) "
+        "ON CONFLICT(user_id, chat_id) DO UPDATE SET nickname = EXCLUDED.nickname, set_at = NOW()",
+        (user["id"], body.chat_id, nick),
+    )
+    await db.commit()
+    return {"ok": True, "nickname": nick}
+
+
+@router.get("/nickname")
+async def get_nickname_endpoint(chat_id: int = 0, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Текущий ник пользователя в чате."""
+    if chat_id == 0:
+        return {"nickname": None}
+    async with db.execute(
+        "SELECT nickname FROM user_nicknames WHERE user_id = ? AND chat_id = ?",
+        (user["id"], chat_id),
+    ) as c:
+        row = await c.fetchone()
+    return {"nickname": row[0] if row else None}

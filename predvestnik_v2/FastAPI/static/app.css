@@ -409,3 +409,16 @@ body.modal-open{overflow:hidden;touch-action:none}
            border-radius:var(--r);padding:9px 12px;color:var(--bright);
            font-size:15px;font-family:inherit;margin:8px 0}
 .num-input:focus{border-color:var(--border);outline:none}
+
+/* ── Admin panel ── */
+.adm-table{width:100%;border-collapse:collapse;font-size:11px}
+.adm-table th{background:var(--s);color:var(--muted);font-weight:600;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border2)}
+.adm-table td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.adm-table tr:hover td{background:rgba(255,255,255,.02)}
+.btn-red{background:rgba(220,60,60,.15);color:#e05555;border:1px solid rgba(220,60,60,.3)}
+.btn-red:hover{background:rgba(220,60,60,.28)}
+.btn-red:disabled{opacity:.4;cursor:not-allowed}
+.perm-tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+          background:#1a1a2e;color:#ccc;font-size:9px;white-space:nowrap;padding:3px 6px;
+          border-radius:4px;border:1px solid var(--border2);pointer-events:none;z-index:9}
+button:disabled:hover .perm-tip{display:block}

@@ -718,6 +718,29 @@ async def init_db():
             except Exception:
                 pass
 
+        # Marriage proposals
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS marriage_proposals (
+                id          SERIAL PRIMARY KEY,
+                chat_id     BIGINT,
+                proposer_id BIGINT,
+                target_id   BIGINT,
+                proposed_at TIMESTAMP DEFAULT NOW(),
+                expires_at  TIMESTAMP,
+                status      TEXT DEFAULT 'pending'
+            )
+        """)
+
+        # Migrations: admin panel + moderation extras
+        for _stmt in [
+            "ALTER TABLE moderation_logs ADD COLUMN IF NOT EXISTS reason TEXT",
+            "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS muted_until TIMESTAMP DEFAULT NULL",
+        ]:
+            try:
+                await db.execute(_stmt)
+            except Exception:
+                pass
+
         # ── Indexes ────────────────────────────────────────────────────────────
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_users_username ON users(user_tg_username)",
