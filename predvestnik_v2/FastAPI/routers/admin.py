@@ -238,7 +238,7 @@ async def admin_action(
     _required = {"warn": "rank_warn", "unwarn": "rank_warn",
                  "mute": "rank_mute", "unmute": "rank_mute",
                  "kick": "rank_kick", "ban": "rank_ban", "unban": "rank_ban",
-                 "immune": "rank_immune"}
+                 "immune": "rank_mute"}   # immune uses same threshold as mute
     req_key = _required.get(action)
     if req_key and actor_rank < settings.get(req_key, 99):
         raise HTTPException(403, f"Недостаточно прав для действия '{action}'.")
@@ -248,22 +248,12 @@ async def admin_action(
 
     if action == "warn":
         new_warnings = await add_warn(db, chat_id, body.user_id, user["id"], body.reason)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "warn")
-        try:
-            await db.execute(
-                "UPDATE moderation_logs SET reason = ? WHERE chat_id = ? AND user_id = ? "
-                "AND admin_id = ? AND action = 'warn' AND created_at > NOW() - INTERVAL '5 seconds'",
-                (body.reason, chat_id, body.user_id, user["id"]),
-            )
-            await db.commit()
-        except Exception:
-            pass
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], "warn", body.reason)
         return {"ok": True, "new_warnings": new_warnings}
 
     elif action == "unwarn":
         new_warnings = await remove_warn(db, chat_id, body.user_id)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unwarn")
-        await db.commit()
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unwarn", body.reason)
         return {"ok": True, "new_warnings": new_warnings}
 
     elif action == "mute":
@@ -288,8 +278,7 @@ async def admin_action(
             await db.commit()
         except Exception:
             pass
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], f"mute_{duration}m")
-        await db.commit()
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], f"mute_{duration}m", body.reason)
 
     elif action == "unmute":
         tg_result = await _tg_call(
@@ -306,35 +295,28 @@ async def admin_action(
                 "UPDATE user_chat_stats SET muted_until = NULL WHERE user_tg_id = ? AND chat_tg_id = ?",
                 (body.user_id, chat_id),
             )
-            await db.commit()
         except Exception:
             pass
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unmute")
-        await db.commit()
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unmute", body.reason)
 
     elif action == "kick":
         tg_result = await _tg_call("banChatMember", chat_id=chat_id, user_id=body.user_id)
-        # unban immediately to allow rejoining
         await _tg_call("unbanChatMember", chat_id=chat_id, user_id=body.user_id, only_if_banned=True)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "kick")
-        await db.commit()
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], "kick", body.reason)
 
     elif action == "ban":
         tg_result = await _tg_call("banChatMember", chat_id=chat_id, user_id=body.user_id)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "ban")
-        await db.commit()
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], "ban", body.reason)
 
     elif action == "unban":
         tg_result = await _tg_call("unbanChatMember", chat_id=chat_id, user_id=body.user_id, only_if_banned=True)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unban")
-        await db.commit()
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unban", body.reason)
 
     elif action == "immune":
         duration = body.duration_minutes or 1440
         until = (now + timedelta(minutes=duration)).strftime("%Y-%m-%d %H:%M:%S")
         await set_immunity(db, chat_id, body.user_id, 1, until)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], f"immune_{duration}m")
-        await db.commit()
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], f"immune_{duration}m", body.reason)
 
     else:
         raise HTTPException(400, f"Неизвестное действие: {action}")

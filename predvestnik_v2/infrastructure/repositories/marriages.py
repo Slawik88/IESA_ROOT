@@ -106,7 +106,13 @@ async def get_all_marriages(db: aiosqlite.Connection, chat_id: int) -> list[dict
 # ── Marriage proposals ─────────────────────────────────────────────────────────
 
 async def create_proposal(db, chat_id: int, proposer_id: int, target_id: int) -> int:
-    """Insert a pending proposal, expiring in 24 hours. Returns proposal id."""
+    """Insert a pending proposal (24h TTL). Expires any existing pending proposal first."""
+    # Expire stale pending proposals between same pair in same chat
+    await db.execute(
+        "UPDATE marriage_proposals SET status = 'expired' "
+        "WHERE chat_id = ? AND proposer_id = ? AND target_id = ? AND status = 'pending'",
+        (chat_id, proposer_id, target_id),
+    )
     async with db.execute(
         "INSERT INTO marriage_proposals (chat_id, proposer_id, target_id, expires_at) "
         "VALUES (?, ?, ?, NOW() + INTERVAL '24 hours') RETURNING id",
