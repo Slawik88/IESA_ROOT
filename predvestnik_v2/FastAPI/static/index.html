@@ -42,18 +42,18 @@
   <div id="mf" class="mfoot"></div>
 </dialog>
 
-<!-- 1. Профиль — «Мой Персонаж» (Обзор = дашборд: сводка + брак + ник) -->
+<!-- 1. Профиль — «Мой Персонаж» (Обзор = дашборд + история кошелька внизу) -->
 <div id="pg-profile" class="page active">
   <div class="tabs">
     <button class="tb active" onclick="switchPro('main',this)">👤 Обзор</button>
+    <button class="tb" onclick="switchPro('quests',this)">📋 Квесты</button>
     <button class="tb" onclick="switchPro('streak',this)">🔥 Стрик</button>
     <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
-    <button class="tb" onclick="switchPro('wallet',this)">💳 Кошелёк</button>
   </div>
   <div id="pro-main"><div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div></div>
+  <div id="pro-quests" style="display:none"><div id="qc"></div></div>
   <div id="pro-streak" style="display:none"></div>
   <div id="pro-ach" style="display:none"></div>
-  <div id="pro-wallet" style="display:none"></div>
 </div>
 
 <!-- 2. Зоопарк -->
@@ -67,39 +67,37 @@
   <div id="zoo-c" class="loader">Загрузка...</div>
 </div>
 
-<!-- 3. Арена -->
+<!-- 3. Арена — только бои: Дуэли + Ивенты -->
 <div id="pg-arena" class="page">
   <div class="tabs">
-    <button class="tb active" onclick="swArena('quests',this)">📋 Квесты</button>
-    <button class="tb" onclick="swArena('gacha',this)">🎲 Гача</button>
-    <button class="tb" onclick="swArena('craft',this)">⚗️ Крафт</button>
-    <button class="tb" onclick="swArena('duels',this)">⚔️ Дуэли</button>
-    <button class="tb" onclick="swArena('dark',this)">🌑 Тёмная</button>
+    <button class="tb active" onclick="swArena('duels',this)">⚔️ Дуэли</button>
     <button class="tb" onclick="swArena('events',this)">🎪 Ивенты</button>
   </div>
-  <div id="ar-quests"><div id="qc" class="loader">Загрузка...</div></div>
-  <div id="ar-gacha"  style="display:none"><div id="gc" class="loader">Загрузка...</div></div>
-  <div id="ar-craft"  style="display:none"><div id="cc" class="loader">Загрузка...</div></div>
-  <div id="ar-duels"  style="display:none"><div id="dc" class="loader">Загрузка...</div></div>
-  <div id="ar-dark"   style="display:none"><div id="dkc"></div></div>
-  <div id="ar-events" style="display:none"><div id="evc" class="loader">Загрузка...</div></div>
+  <div id="ar-duels"><div id="dc"></div></div>
+  <div id="ar-events" style="display:none"><div id="evc"></div></div>
 </div>
 
-<!-- 4. Рынок -->
+<!-- 4. Рынок — вся экономика: + Гача + Крафт + Тёмная -->
 <div id="pg-market" class="page">
   <div class="tabs">
     <button class="tb active" onclick="swMkt('auc',this)">🏛 Аукцион</button>
     <button class="tb" onclick="swMkt('shop',this)">🛒 Магазин</button>
+    <button class="tb" onclick="swMkt('gacha',this)">🎲 Гача</button>
+    <button class="tb" onclick="swMkt('craft',this)">⚗️ Крафт</button>
     <button class="tb" onclick="swMkt('inv',this)">🎒 Инвентарь</button>
     <button class="tb" onclick="swMkt('exch',this)">💱 Обмен</button>
     <button class="tb" onclick="swMkt('deal',this)">🏷 Акция</button>
+    <button class="tb" onclick="swMkt('dark',this)">🌑 Тёмная</button>
   </div>
   <div id="balrow" class="balrow" style="display:none"></div>
   <div id="mkt-auc"><div class="loader">Загрузка...</div></div>
   <div id="mkt-shop"  style="display:none"></div>
+  <div id="mkt-gacha" style="display:none"><div id="gc"></div></div>
+  <div id="mkt-craft" style="display:none"><div id="cc"></div></div>
   <div id="mkt-inv"   style="display:none"></div>
   <div id="mkt-exch"  style="display:none"><div class="loader">Загрузка...</div></div>
   <div id="mkt-deal"  style="display:none"><div class="loader">Загрузка...</div></div>
+  <div id="mkt-dark"  style="display:none"><div id="dkc"></div></div>
 </div>
 
 <!-- 5. Коллекция -->
@@ -124,11 +122,13 @@
   <div class="tabs">
     <button class="tb active" onclick="swAdmin('dash',this)">📊 Дашборд</button>
     <button class="tb" onclick="swAdmin('users',this)">👥 Участники</button>
+    <button class="tb" onclick="swAdmin('mod',this)">⚡ Модерация</button>
     <button class="tb" onclick="swAdmin('settings',this)">⚙️ Настройки</button>
     <button class="tb" onclick="swAdmin('logs',this)">📋 Журнал</button>
   </div>
   <div id="adm-dash"></div>
   <div id="adm-users"    style="display:none"></div>
+  <div id="adm-mod"      style="display:none"></div>
   <div id="adm-settings" style="display:none"></div>
   <div id="adm-logs"     style="display:none"></div>
 </div>
