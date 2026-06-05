@@ -42,22 +42,18 @@
   <div id="mf" class="mfoot"></div>
 </dialog>
 
-<!-- 1. Профиль -->
+<!-- 1. Профиль — «Мой Персонаж» (Обзор = дашборд: сводка + брак + ник) -->
 <div id="pg-profile" class="page active">
   <div class="tabs">
-    <button class="tb active" onclick="switchPro('main',this)">👤 Профиль</button>
+    <button class="tb active" onclick="switchPro('main',this)">👤 Обзор</button>
     <button class="tb" onclick="switchPro('streak',this)">🔥 Стрик</button>
     <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
-    <button class="tb" onclick="switchPro('marriage',this)">💍 Брак</button>
     <button class="tb" onclick="switchPro('wallet',this)">💳 Кошелёк</button>
-    <button class="tb" onclick="switchPro('settings',this)">⚙️ Настройки</button>
   </div>
   <div id="pro-main"><div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div></div>
   <div id="pro-streak" style="display:none"></div>
   <div id="pro-ach" style="display:none"></div>
-  <div id="pro-marriage" style="display:none"></div>
   <div id="pro-wallet" style="display:none"></div>
-  <div id="pro-settings" style="display:none"></div>
 </div>
 
 <!-- 2. Зоопарк -->
@@ -66,7 +62,7 @@
   <div class="tabs">
     <button class="tb active" onclick="swZoo('nursery',this)">🐾 Питомник</button>
     <button class="tb" onclick="swZoo('storage',this)">📦 Склад</button>
-    <button class="tb" onclick="swZoo('guide',this)">📖 Справка</button>
+    <button class="tb" onclick="swZoo('guide',this)">📖 Бестиарий</button>
   </div>
   <div id="zoo-c" class="loader">Загрузка...</div>
 </div>
@@ -97,7 +93,6 @@
     <button class="tb" onclick="swMkt('inv',this)">🎒 Инвентарь</button>
     <button class="tb" onclick="swMkt('exch',this)">💱 Обмен</button>
     <button class="tb" onclick="swMkt('deal',this)">🏷 Акция</button>
-    <button class="tb" onclick="swMkt('promo',this)">🎫 Промо</button>
   </div>
   <div id="balrow" class="balrow" style="display:none"></div>
   <div id="mkt-auc"><div class="loader">Загрузка...</div></div>
@@ -105,7 +100,6 @@
   <div id="mkt-inv"   style="display:none"></div>
   <div id="mkt-exch"  style="display:none"><div class="loader">Загрузка...</div></div>
   <div id="mkt-deal"  style="display:none"><div class="loader">Загрузка...</div></div>
-  <div id="mkt-promo" style="display:none"></div>
 </div>
 
 <!-- 5. Коллекция -->
@@ -113,7 +107,6 @@
   <div class="tabs">
     <button class="tb active" onclick="swColl('themes',this)">🎨 Темы</button>
     <button class="tb" onclick="swColl('top',this)">🏆 Топ</button>
-    <button class="tb" onclick="swColl('pets',this)">🐾 Питомцы</button>
   </div>
   <div id="col-themes"><div class="loader">Загрузка...</div></div>
   <div id="col-top" style="display:none">
@@ -123,7 +116,6 @@
     </div>
     <div id="top-c" class="loader">Загрузка...</div>
   </div>
-  <div id="col-pets" style="display:none"><div id="petsc" class="loader">Загрузка...</div></div>
 </div>
 
 <!-- 6. Админка -->
