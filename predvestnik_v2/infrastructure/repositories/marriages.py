@@ -101,3 +101,27 @@ async def get_all_marriages(db: aiosqlite.Connection, chat_id: int) -> list[dict
         (chat_id,),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
+
+
+# ── Marriage proposals ─────────────────────────────────────────────────────────
+
+async def create_proposal(db, chat_id: int, proposer_id: int, target_id: int) -> int:
+    """Insert a pending proposal, expiring in 24 hours. Returns proposal id."""
+    async with db.execute(
+        "INSERT INTO marriage_proposals (chat_id, proposer_id, target_id, expires_at) "
+        "VALUES (?, ?, ?, NOW() + INTERVAL '24 hours') RETURNING id",
+        (chat_id, proposer_id, target_id),
+    ) as c:
+        row = await c.fetchone()
+    return row[0] if row else 0
+
+
+async def update_proposal_status(
+    db, chat_id: int, proposer_id: int, target_id: int, status: str
+) -> None:
+    """Update the most recent pending proposal between two users in a chat."""
+    await db.execute(
+        "UPDATE marriage_proposals SET status = ? "
+        "WHERE chat_id = ? AND proposer_id = ? AND target_id = ? AND status = 'pending'",
+        (status, chat_id, proposer_id, target_id),
+    )

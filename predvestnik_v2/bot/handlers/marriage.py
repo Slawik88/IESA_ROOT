@@ -5,6 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
 from infrastructure.repositories import marriages, users
+from infrastructure.repositories.marriages import create_proposal, update_proposal_status
 from infrastructure.repositories.moderation import get_chat_settings
 from infrastructure.repositories.chat import get_chat_stats
 from services import marriage as marriage_service
@@ -88,6 +89,13 @@ async def cmd_marriage(message: types.Message, db, text_args: str = None):
     )
     await message.answer(text, reply_markup=builder.as_markup(), parse_mode="HTML")
 
+    # Sync to DB so web panel can show incoming proposals
+    try:
+        await create_proposal(db, message.chat.id, initiator_id, target_id)
+        await db.commit()
+    except Exception:
+        pass  # non-critical, bot inline flow still works without DB row
+
 # ==========================================
 # ОБРАБОТЧИК КНОПОК ПРЕДЛОЖЕНИЯ
 # ==========================================
@@ -102,6 +110,11 @@ async def process_marriage_action(callback: types.CallbackQuery, callback_data: 
     )
 
     if callback_data.action == "decline":
+        try:
+            await update_proposal_status(db, callback.message.chat.id, callback_data.initiator_id, callback_data.target_id, "declined")
+            await db.commit()
+        except Exception:
+            pass
         await callback.message.edit_text(
             f"💔 <b>ОТКАЗ</b>\n\n"
             f'Пользователь <a href="tg://user?id={callback_data.target_id}">{target_name}</a> отклонил предложение.',
@@ -117,10 +130,14 @@ async def process_marriage_action(callback: types.CallbackQuery, callback_data: 
     initiator_name = await users.get_user_name(db, callback_data.initiator_id)
     
     await marriages.create_marriage(
-        db, callback.message.chat.id, 
+        db, callback.message.chat.id,
         callback_data.initiator_id, initiator_name,
         callback_data.target_id, target_name
     )
+    try:
+        await update_proposal_status(db, callback.message.chat.id, callback_data.initiator_id, callback_data.target_id, "accepted")
+    except Exception:
+        pass
 
     initiator_link = f'<a href="tg://user?id={callback_data.initiator_id}">{initiator_name}</a>'
     target_link = f'<a href="tg://user?id={callback_data.target_id}">{target_name}</a>'

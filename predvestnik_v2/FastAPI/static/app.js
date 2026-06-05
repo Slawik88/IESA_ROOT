@@ -631,6 +631,8 @@ function renderZoo(tab) {
 // Full pet modal — redesigned with all-level progression and active/passive split
 function openPetModal(petId) {
   OM('🐾 Питомец', '<div class="loader">Загрузка...</div>', []);
+  // Background-fetch inventory if not loaded so "Apply items" block populates
+  if(!_invData||!_invData.length) api('/inventory/').then(d=>{_invData=d;}).catch(()=>{});
   api(`/zoo/pet/${petId}`).then(p=>{
     const fatPct = p.fatigue||0;
     const lvl = p.pet_level||1;
@@ -936,6 +938,7 @@ function _topRarity(dups) {
 
 function loadGacha() {
   api('/gacha/').then(d=>{
+    const disc = d.multi_discount_pct||10;
     el('gc').innerHTML=`
     <div class="gacha-header">
       <div class="gh-title">✨ ГАЧА</div>
@@ -951,15 +954,32 @@ function loadGacha() {
       ${d.spin_types.map(s=>{
         const icon = SPIN_ICONS[s.spin_type] || '🎲';
         const cost = s.cost_mora ? `${fmt(s.cost_mora)} 🪙` : `${s.cost_dia} 💎`;
-        const rDesc = {novice:'Обычные и Редкие питомцы',standard:'Редкие и Эпические',premium:'Эпические и Легендарные',diamond:'Легендарные. Гарант на 50+'}[s.spin_type]||'';
-        return `<div class="spin-row" onclick="doSpin('${s.spin_type}',this)">
-          <div class="sr-icon">${icon}</div>
-          <div class="sr-info">
-            <div class="sr-name">${s.label}</div>
-            ${rDesc?`<div class="sr-desc">${rDesc}</div>`:''}
+        const multiCost = s.cost_mora ? `${fmt(s.multi_cost_mora)} 🪙` : `${s.multi_cost_dia} 💎`;
+        const pityPct = s.pity_hard > 0 ? Math.round(s.pity/s.pity_hard*100) : 0;
+        const rates = s.rates||{};
+        const ratesBadges = Object.entries(rates).map(([r,v])=>
+          `<span class="${RC[r]||'rc-common'}" style="font-size:9px;padding:1px 4px">${r[0].toUpperCase()+r.slice(1)} ${v}%</span>`
+        ).join(' ');
+        return `<div class="spin-block">
+          <div class="spin-row" onclick="doSpin('${s.spin_type}',this)">
+            <div class="sr-icon">${icon}</div>
+            <div class="sr-info">
+              <div class="sr-name">${s.label}</div>
+              ${ratesBadges?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${ratesBadges}</div>`:''}
+            </div>
+            ${s.token_qty?`<span style="font-size:11px;color:var(--green);margin-right:6px">🎟 ×${s.token_qty}</span>`:''}
+            <div class="sr-cost">${cost}</div>
           </div>
-          ${s.token_qty?`<span style="font-size:11px;color:var(--green);margin-right:6px">🎟 ×${s.token_qty}</span>`:''}
-          <div class="sr-cost">${cost}</div>
+          <div style="display:flex;gap:6px;padding:0 4px 10px">
+            <div style="flex:1;font-size:10px;color:var(--muted)">
+              ${s.pity>0?`Пити: <span style="color:var(--gold)">${s.pity}/${s.pity_hard}</span>
+              <div class="pity-bar"><div class="pity-fill" style="width:${pityPct}%"></div></div>`:'Гарант не накоплен'}
+            </div>
+            <button class="btn btn-sm btn-ghost" style="font-size:10px;white-space:nowrap" onclick="doMultiSpin('${s.spin_type}',this)">
+              ×${d.multi_count||10} <span style="color:var(--green)">−${disc}%</span><br>
+              <span style="color:var(--gold)">${multiCost}</span>
+            </button>
+          </div>
         </div>`;
       }).join('')}
     </div>
@@ -1027,6 +1047,51 @@ function doSpin(st, row) {
 // Minimal species→emoji map (expand as needed)
 const PET_SPECIES_EMOJI={hamster:'🐹',owl:'🦉',dog:'🐕',turtle:'🐢',falcon:'🦅',wolf:'🐺',fox:'🦊',dragon:'🐉',unicorn:'🦄'};
 function closeSpinResult(){const s=el('spin-res');if(s)s.innerHTML='';loadGacha();}
+
+function doMultiSpin(st, btn) {
+  btn.disabled=true;
+  el('spin-res').innerHTML=`<div class="spin-anim-wrap"><div class="spin-anim-ball" style="animation-duration:2s">🎲</div><div style="font-size:12px;color:var(--gold2);margin-top:8px">×10 крутка...</div></div>`;
+  api('/gacha/multi-spin',{method:'POST',body:JSON.stringify({spin_type:st,chat_id:_cid||0})}).then(r=>{
+    const s=r.summary||{};
+    const dups=s.dup_outcomes||[];
+    const topRarity=_topRarity(dups);
+    const glowCls=topRarity?'glow-'+topRarity:'';
+    const cards=[];
+    if(s.mora) cards.push({text:`🪙 ${fmt(s.mora)} Мора`,cls:''});
+    if(s.diamonds) cards.push({text:`💎 ${s.diamonds} Алмазов`,cls:''});
+    (s.items||[]).forEach(i=>{
+      const existing=cards.find(c=>c.text.includes(i.name));
+      if(existing) existing.text=existing.text.replace(/×\d+/,`×${(parseInt(existing.text.match(/×(\d+)/)?.[1]||0)+i.qty)}`);
+      else cards.push({text:`${i.name}${i.qty>1?' ×'+i.qty:''}`,cls:''});
+    });
+    // Summarize pet dups by species
+    const petMap={};
+    dups.forEach(d=>{
+      const k=d.species_id||d.species||'?';
+      if(!petMap[k]) petMap[k]={name:d.species_name||k,rarity:d.rarity,count:0,newLevel:null};
+      petMap[k].count++;
+      if(d.new_level) petMap[k].newLevel=d.new_level;
+    });
+    Object.values(petMap).forEach(p=>cards.push({text:`🐾 ${p.name} ${rc(p.rarity)} ×${p.count}${p.newLevel?' → Lv'+p.newLevel:''}`,cls:p.rarity||''}));
+
+    el('spin-res').innerHTML=`
+      <div class="spin-anim-wrap ${glowCls}">
+        <div style="font-size:40px;font-weight:800;color:var(--gold2)">×${s.count||10}</div>
+        <div style="font-size:11px;color:var(--gold2);margin-top:4px;font-weight:700">
+          ${topRarity?('⚡ '+topRarity.toUpperCase()):'Результат мультикрутки'}
+        </div>
+      </div>
+      <div class="spin-results">
+        ${cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${(i*0.06+0.5).toFixed(2)}s">${c.text}</div>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btn-gold" style="flex:2" onclick="loadGacha()">🔄 Крутить ещё</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="closeSpinResult()">↩ Назад</button>
+      </div>`;
+    refreshCurrBar();
+    btn.disabled=false;
+  }).catch(e=>{toast(e,false);btn.disabled=false;el('spin-res').innerHTML='';});
+}
 function loadCraft() {
   api('/craft/').then(recipes => {
     if (!recipes.length) { el('cc').innerHTML='<div class="loader">Рецептов пока нет.</div>'; return; }
