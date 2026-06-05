@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from core.constants import (
     PET_PLACEMENT_FATIGUE_RESTORE,
     get_pet_bonus, get_level_for_duplicates, get_total_duplicates_for_level,
-    PET_LEVEL_MILESTONE_REWARDS, HAMSTER_BONUSES,
+    PET_LEVEL_MILESTONE_REWARDS, HAMSTER_BONUSES, WOLF_BONUSES, UNICORN_BONUSES,
 )
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 from FastAPI.deps import get_db, require_tg_user
@@ -37,12 +37,55 @@ async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
         if (qty := await get_item_quantity(db, user["id"], fid)) > 0
     }
     pending_mora = await get_pending_hamster_income(db, user["id"])
+
+    today_key = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # Wolf Lv8+ restore ability status
+    wolf_restore_info = None
+    wolf_lv = await get_active_species_level(db, user["id"], "wolf")
+    if wolf_lv >= 8:
+        w_b = WOLF_BONUSES.get(max(1, min(10, wolf_lv)), {})
+        max_uses = w_b.get("daily_restore_uses", 0)
+        async with db.execute(
+            "SELECT uses_left FROM player_buffs WHERE user_id = ? AND buff_type = ?",
+            (user["id"], f"wolf_restore_{today_key}"),
+        ) as c:
+            row = await c.fetchone()
+        uses_left = row["uses_left"] if row else max_uses
+        wolf_restore_info = {"uses_left": uses_left, "max_uses": max_uses,
+                             "restore_amount": w_b.get("daily_restore_amount", 30)}
+
+    # Unicorn Lv4+ immunity ability status
+    unicorn_ability_info = None
+    uni_lv = await get_active_species_level(db, user["id"], "unicorn")
+    if uni_lv >= 4:
+        u_b = UNICORN_BONUSES.get(max(1, min(10, uni_lv)), {})
+        async with db.execute(
+            "SELECT 1 FROM player_buffs WHERE user_id = ? AND buff_type = ?",
+            (user["id"], f"unicorn_immunity_{today_key}"),
+        ) as c:
+            used_today = await c.fetchone() is not None
+        async with db.execute(
+            "SELECT expires_at FROM player_buffs WHERE user_id = ? "
+            "AND buff_type = 'unicorn_immunity' AND expires_at > NOW()",
+            (user["id"],),
+        ) as c:
+            immune_row = await c.fetchone()
+        unicorn_ability_info = {
+            "available": not used_today,
+            "immunity_hours": u_b.get("immunity_hours", 0),
+            "active": immune_row is not None,
+            "expires_at": str(immune_row[0]) if immune_row else None,
+        }
+
     return {
         "pets": pets,
         "available_food": food,
         "max_slots": stats["max_slots"],
         "slot_expander_qty": slot_expander_qty,
         "pending_hamster_mora": round(pending_mora),
+        "wolf_restore": wolf_restore_info,
+        "unicorn_ability": unicorn_ability_info,
     }
 
 
@@ -283,17 +326,29 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
 
     if entering_nursery:
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        await db.execute(
-            "UPDATE pets SET placement = ?, "
-            "fatigue = LEAST(100, fatigue + ?), "
-            "last_fatigue_update = ? WHERE id = ?",
-            (body.placement, PET_PLACEMENT_FATIGUE_RESTORE, now_str, body.pet_id),
+        # Wolf Lv10: movement_immunity — no fatigue penalty on placement
+        w_lv = await get_active_species_level(db, user["id"], "wolf")
+        wolf_immune = (
+            WOLF_BONUSES.get(max(1, min(10, w_lv)), {}).get("movement_immunity", False)
+            if w_lv > 0 else False
         )
+        if wolf_immune:
+            await db.execute(
+                "UPDATE pets SET placement = ?, last_fatigue_update = ? WHERE id = ?",
+                (body.placement, now_str, body.pet_id),
+            )
+        else:
+            await db.execute(
+                "UPDATE pets SET placement = ?, "
+                "fatigue = LEAST(100, fatigue + ?), "
+                "last_fatigue_update = ? WHERE id = ?",
+                (body.placement, PET_PLACEMENT_FATIGUE_RESTORE, now_str, body.pet_id),
+            )
     else:
         await db.execute("UPDATE pets SET placement = ? WHERE id = ?",
                          (body.placement, body.pet_id))
     await db.commit()
-    return {"ok": True, "placement": body.placement}
+    return {"ok": True, "placement": body.placement, "wolf_immunity_applied": entering_nursery and w_lv > 0 and WOLF_BONUSES.get(max(1,min(10,w_lv)),{}).get("movement_immunity",False) if entering_nursery else False}
 
 
 @router.post("/expand-slot")
@@ -313,6 +368,108 @@ async def expand_slot(db=Depends(get_db), user=Depends(require_tg_user)):
 
     await db.commit()
     return {"ok": True, "max_slots": new_slots}
+
+
+class WolfRestoreRequest(BaseModel):
+    pet_id: int
+
+
+@router.post("/wolf-restore")
+async def wolf_restore(body: WolfRestoreRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Восстановить усталость питомца силой Волка Lv8+ (1-2 раза в день)."""
+    from datetime import datetime as _dt
+
+    wolf_lv = await get_active_species_level(db, user["id"], "wolf")
+    if wolf_lv == 0:
+        raise HTTPException(400, "Нет активного Волка в питомнике.")
+
+    w_b = WOLF_BONUSES.get(max(1, min(10, wolf_lv)), {})
+    max_uses = w_b.get("daily_restore_uses", 0)
+    restore_amount = w_b.get("daily_restore_amount", 0)
+    if max_uses == 0:
+        raise HTTPException(400, "Волк должен быть Lv8+ для этой способности.")
+
+    today_key = f"wolf_restore_{_dt.now().strftime('%Y-%m-%d')}"
+    async with db.execute(
+        "SELECT uses_left FROM player_buffs WHERE user_id = ? AND buff_type = ?",
+        (user["id"], today_key),
+    ) as c:
+        row = await c.fetchone()
+    uses_left = row["uses_left"] if row else max_uses
+    if uses_left <= 0:
+        raise HTTPException(400, f"Лимит восстановлений на сегодня исчерпан ({max_uses}/{max_uses}).")
+
+    async with db.execute(
+        "SELECT id, fatigue FROM pets WHERE id = ? AND owner_id = ?",
+        (body.pet_id, user["id"]),
+    ) as c:
+        pet = await c.fetchone()
+    if not pet:
+        raise HTTPException(404, "Питомец не найден.")
+    if pet["fatigue"] == 0:
+        raise HTTPException(400, "Питомец не устал.")
+
+    new_fatigue = max(0, pet["fatigue"] - restore_amount)
+    await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_fatigue, body.pet_id))
+
+    await db.execute(
+        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
+        "VALUES (?, ?, ?, NOW() + INTERVAL '2 days') "
+        "ON CONFLICT (user_id, buff_type) DO UPDATE SET uses_left = player_buffs.uses_left - 1",
+        (user["id"], today_key, max_uses - 1),
+    )
+    await db.commit()
+
+    return {
+        "ok": True,
+        "fatigue_before": pet["fatigue"],
+        "fatigue_after": new_fatigue,
+        "restored": restore_amount,
+        "uses_left": uses_left - 1,
+        "max_uses": max_uses,
+    }
+
+
+@router.post("/unicorn-immunity")
+async def unicorn_immunity(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Активировать иммунитет усталости Единорога Lv4+ (1 раз в день)."""
+    from datetime import datetime as _dt, timedelta as _td
+
+    uni_lv = await get_active_species_level(db, user["id"], "unicorn")
+    if uni_lv == 0:
+        raise HTTPException(400, "Нет активного Единорога в питомнике.")
+
+    u_b = UNICORN_BONUSES.get(max(1, min(10, uni_lv)), {})
+    immunity_uses = u_b.get("immunity_uses", 0)
+    immunity_hours = u_b.get("immunity_hours", 0)
+    if immunity_uses == 0:
+        raise HTTPException(400, "Единорог должен быть Lv4+ для этой способности.")
+
+    today_key = f"unicorn_immunity_{_dt.now().strftime('%Y-%m-%d')}"
+    async with db.execute(
+        "SELECT 1 FROM player_buffs WHERE user_id = ? AND buff_type = ?",
+        (user["id"], today_key),
+    ) as c:
+        if await c.fetchone():
+            raise HTTPException(400, "Иммунитет уже использован сегодня.")
+
+    expires_str = (_dt.now() + _td(hours=immunity_hours)).strftime("%Y-%m-%d %H:%M:%S")
+
+    await db.execute(
+        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
+        "VALUES (?, ?, 1, NOW() + INTERVAL '2 days') "
+        "ON CONFLICT (user_id, buff_type) DO UPDATE SET expires_at = NOW() + INTERVAL '2 days'",
+        (user["id"], today_key),
+    )
+    await db.execute(
+        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
+        "VALUES (?, 'unicorn_immunity', 1, ?) "
+        "ON CONFLICT (user_id, buff_type) DO UPDATE SET expires_at = ?, uses_left = 1",
+        (user["id"], expires_str, expires_str),
+    )
+    await db.commit()
+
+    return {"ok": True, "immunity_hours": immunity_hours, "expires_at": expires_str}
 
 
 @router.post("/collect")
