@@ -138,6 +138,19 @@ function switchPage(name,btn) {
   }
 }
 
+// Programmatic navigation — use as shortcut links in profile cards etc.
+// goTo('zoo')              → переходит на страницу Зоопарк
+// goTo('profile','streak') → переходит на Профиль, открывает вкладку Стрик
+// goTo('arena','gacha')    → переходит на Арена, открывает вкладку Гача
+function goTo(page, tab) {
+  const navBtn = [...document.querySelectorAll('.nb')].find(b => (b.getAttribute('onclick')||'').includes(`'${page}'`));
+  if (navBtn) switchPage(page, navBtn);
+  if (tab) setTimeout(() => {
+    const tabBtn = document.querySelector(`#pg-${page} .tb[onclick*="'${tab}'"]`);
+    if (tabBtn) tabBtn.click();
+  }, 80);
+}
+
 // ── Profile ───────────────────────────────────────────────────────────────────
 // switchPro() defined later with marriage + wallet tabs
 function loadProfile() {
@@ -158,8 +171,8 @@ function loadProfile() {
         <div class="stats">
           <div class="stat"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора</div></div>
           <div class="stat"><div>💎</div><div class="sv">${d.diamonds.toFixed(1)}</div><div class="sl">Алмазы</div></div>
-          <div class="stat"><div>🔥</div><div class="sv">${d.streak}</div><div class="sl">Стрик</div></div>
-          <div class="stat"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки</div></div>
+          <div class="stat clickable" onclick="goTo('profile','streak')" title="Открыть стрик"><div>🔥</div><div class="sv">${d.streak}</div><div class="sl">Стрик ›</div></div>
+          <div class="stat clickable" onclick="goTo('profile','ach')" title="Открыть ачивки"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
         </div>
         ${(d.dark_mora||0)>0||(d.zarniki||0)>0?`<div class="stats" style="margin-top:7px">
           ${(d.dark_mora||0)>0?`<div class="stat"><div>🌑</div><div class="sv">${fmt(Math.floor(d.dark_mora||0))}</div><div class="sl">Тёмная</div></div>`:''}
@@ -170,13 +183,25 @@ function loadProfile() {
           <button class="btn btn-ghost" style="padding:2px 8px;font-size:10px" onclick="copyUid(${uid})">📋 Копировать ID</button>
         </div>
       </div>
-      ${pets.length?`<div class="card"><div class="card-title">🐾 Питомники</div>${pets.map(p=>`
+      ${pets.length?`<div class="card">
+        <div class="card-title">🐾 Питомники</div>
+        ${pets.map(p=>`
         <div class="pcard"><div class="pcol">
           <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
           <div class="ps">Lv${p.pet_level} · ${PL[p.placement]}</div>
           <div class="fat-bar"><div class="fat-fill" style="width:${p.fatigue}%;background:${fatC(p.fatigue)}"></div></div>
-        </div></div>`).join('')}</div>`:''}
-      ${d.chats.length?`<div class="card"><div class="card-title">💬 Активность</div>${d.chats.map(c=>`<div class="irow"><span class="ik">${c.chat_title||'Чат'}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}</div>`:''}`;
+        </div></div>`).join('')}
+        <div class="shortcut-row">
+          <span class="shortcut-link" onclick="goTo('zoo')">Управлять питомцами →</span>
+        </div>
+      </div>`:''}
+      ${d.chats.length?`<div class="card">
+        <div class="card-title">💬 Активность</div>
+        ${d.chats.map(c=>`<div class="irow"><span class="ik">${c.chat_title||'Чат'}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}
+        <div class="shortcut-row">
+          <span class="shortcut-link" onclick="goTo('coll','top')">Посмотреть топ →</span>
+        </div>
+      </div>`:''}`;
     if(!_ws && _uid) connectWS();
     updateCurrBar(d);          // populate sticky currency bar from profile data
     if(!_adminChats) checkAdminAccess();
