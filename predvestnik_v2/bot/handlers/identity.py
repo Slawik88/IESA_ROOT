@@ -240,12 +240,14 @@ def _pets_block(pets: list, prefix: str = "") -> str:
         dups = p.get("duplicates_collected", 0) or 0
         fat  = p.get("fatigue", 0)
         sym  = "└" if i == len(slots) - 1 else "├"
-        # Show species in parentheses only when custom name differs from species name
         pet_name = p['name']
         sp_part  = f" ({sp})" if sp and sp != pet_name else ""
+        is_last  = (i == len(slots) - 1)
+        cont     = "   " if is_last else "│  "
+        # Two-line format: name on line 1, stats on line 2 — prevents mobile wrap
         lines.append(
-            f"{prefix}{sym} {icon} {role}: <b>{pet_name}</b>{sp_part}"
-            f" · Lv{lvl} · {_fatigue_icon(fat)} · 📦×{dups}"
+            f"{prefix}{sym} {icon} <b>{pet_name}</b>{sp_part}\n"
+            f"{prefix}{cont}Lv{lvl}  {_fatigue_icon(fat)} {fat}/100  📦×{dups}"
         )
     return "\n".join(lines) + "\n"
 
@@ -349,12 +351,12 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
     dark_v = float(dark_mora)
     ham_note = f" +{_compact(hamster_inc)}🐹" if hamster_inc > 0 else ""
 
-    bal_parts = [f"{_compact(mora_v)} 🪙", f"💎 {_compact(dia_v)}"]
-    if zar_v > 0:
-        bal_parts.append(f"✨ {_compact(zar_v)}")
-    if dark_v > 0:
-        bal_parts.append(f"🌑 {_compact(dark_v)}")
-    bal_line = " | ".join(bal_parts) + ham_note
+    # Exact numbers — no compact abbreviation. Two lines for all 4 currencies.
+    def _fmt_exact(n: float) -> str:
+        return f"{int(n):,}".replace(",", " ")  # 47330 → "47 330"
+    ham = ham_note
+    _bal1 = f"💰 {_fmt_exact(mora_v)} 🪙  |  💎 {dia_v:.1f}{ham}"
+    _bal2 = f"🌑 {_fmt_exact(dark_v)} Тёмная  |  ✨ {zar_v:.0f} Зарники"
 
     # ── social ────────────────────────────────────────────────────────────────
     streak = streak_row.get("streak", 0)
@@ -417,8 +419,9 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
             + f"{t_sep}\n"
             + f"\n"
             + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
-            + f"{P}💰 {bal_line}  |  🏆 {ach_count} ачив.\n"
-            + f"{P}⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
+            + f"{P}{_bal1}\n"
+            + f"{P}{_bal2}\n"
+            + f"{P}🏆 {ach_count} ачив.  |  ⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
             + (f"{P}🔥 Стрик: <b>{streak}</b> дн.\n" if streak else "")
             + f"\n"
             + f"{t_sep}\n"
@@ -441,8 +444,9 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
             + f"{t_sep}\n"
             + f"\n"
             + f"🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
-            + f"⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
-            + f"💰 {bal_line}  |  🏆 {ach_count} ачив.\n"
+            + f"{_bal1}\n"
+            + f"{_bal2}\n"
+            + f"🏆 {ach_count} ачив.  |  ⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
             + f"🔥 Стрик: <b>{streak}</b> дн.\n"
             + f"\n"
             + f"{t_sep}\n"

@@ -251,10 +251,11 @@ async def build_profile_text(
     dark_v = float(dark_mora)
     ham_note = f" +{_compact(hamster_inc)}🐹" if hamster_inc > 0 else ""
 
-    bal_parts = [f"{_compact(mora_v)} 🪙", f"💎 {_compact(dia_v)}"]
-    if zar_v > 0: bal_parts.append(f"✨ {_compact(zar_v)}")
-    if dark_v > 0: bal_parts.append(f"🌑 {_compact(dark_v)}")
-    bal_line = " | ".join(bal_parts) + ham_note
+    def _fmt_exact(n: float) -> str:
+        return f"{int(n):,}".replace(",", " ")
+
+    _bal1 = f"💰 {_fmt_exact(mora_v)} 🪙  |  💎 {dia_v:.1f}{ham_note}"
+    _bal2 = f"🌑 {_fmt_exact(dark_v)} Тёмная  |  ✨ {zar_v:.0f} Зарники"
 
     streak = streak_row.get("streak", 0)
     d_msgs = stats.get("user_messages_count_per_day", 0)
@@ -323,8 +324,9 @@ async def build_profile_text(
             + name_block + f"\n"
             + f"{t_sep}\n\n"
             + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
-            + f"{P}💰 {bal_line}  |  🏆 {ach_count} ачив.\n"
-            + f"{P}⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
+            + f"{P}{_bal1}\n"
+            + f"{P}{_bal2}\n"
+            + f"{P}🏆 {ach_count} ачив.  |  ⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
             + (f"{P}🔥 Стрик: <b>{streak}</b> дн.\n" if streak else "")
             + f"\n{t_sep}\n\n"
             + f"{P}{partner_line}\n"
@@ -340,8 +342,9 @@ async def build_profile_text(
             + name_block + f"\n"
             + f"{t_sep}\n\n"
             + f"🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
-            + f"⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
-            + f"💰 {bal_line}  |  🏆 {ach_count} ачив.\n"
+            + f"{_bal1}\n"
+            + f"{_bal2}\n"
+            + f"🏆 {ach_count} ачив.  |  ⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
             + f"🔥 Стрик: <b>{streak}</b> дн.\n\n"
             + f"{t_sep}\n\n"
             + f"💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"

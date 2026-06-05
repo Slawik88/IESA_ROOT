@@ -105,9 +105,11 @@ function OM(title,body,btns=[]) {
   el('mb').innerHTML=body;
   el('mf').innerHTML=btns.map(b=>`<button class="btn btn-sm ${b.c||'btn-ghost'}" onclick="${b.f}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
   el('modal').showModal();
+  document.body.classList.add('modal-open');
 }
-const CM=()=>el('modal').close();
+const CM=()=>{el('modal').close();document.body.classList.remove('modal-open');};
 el('modal').addEventListener('click',e=>{if(e.target===el('modal'))CM();});
+el('modal').addEventListener('cancel',()=>document.body.classList.remove('modal-open'));
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _loaded=new Set();
@@ -165,13 +167,48 @@ if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');}
 let _currBarVisible = false;
 
 function updateCurrBar(data) {
-  // data can be profile data or a partial balance object
   const bar = el('curr-bar');
   if (!bar) return;
-  if (data?.mora !== undefined)     { const v=el('cb-mora'); if(v) v.textContent=fmt(Math.floor(data.mora)); }
-  if (data?.diamonds !== undefined) { const v=el('cb-dia');  if(v) v.textContent=parseFloat(data.diamonds||0).toFixed(1); }
-  if (data?.dark_mora !== undefined){ const v=el('cb-dark'); if(v) v.textContent=fmt(Math.floor(data.dark_mora||0)); }
-  if (data?.zarniki !== undefined)  { const v=el('cb-zar');  if(v) v.textContent=parseFloat(data.zarniki||0).toFixed(0); }
+  const set = (id, val, fmt2) => { const v=el(id); if(v) v.textContent=fmt2(val); };
+  set('cb-mora', Math.floor(data?.mora ?? 0), fmt);
+  set('cb-dia',  data?.diamonds ?? 0, n => parseFloat(n).toFixed(1));
+  set('cb-dark', Math.floor(data?.dark_mora ?? 0), fmt);
+  set('cb-zar',  data?.zarniki ?? 0, n => Math.floor(n).toString());
+}
+
+function showCurrModal() {
+  const d = _profileData || {};
+  const mora = d.mora ?? 0, dia = d.diamonds ?? 0, dark = d.dark_mora ?? 0, zar = d.zarniki ?? 0;
+  OM('💰 Валюты', `<div class="curr-modal">
+    <div class="cm-block">
+      <div class="cm-icon">🪙</div>
+      <div class="cm-info">
+        <div class="cm-name">Мора <span class="cm-val">${fmt(Math.floor(mora))}</span></div>
+        <div class="cm-desc">Основная валюта. Зарабатывай в чатах, дуэлях, квестах и на аукционе.</div>
+      </div>
+    </div>
+    <div class="cm-block">
+      <div class="cm-icon">💎</div>
+      <div class="cm-info">
+        <div class="cm-name">Алмазы <span class="cm-val">${parseFloat(dia).toFixed(1)}</span></div>
+        <div class="cm-desc">Премиум валюта. Покупай в Магазине или получай за достижения и ивенты.</div>
+      </div>
+    </div>
+    <div class="cm-block">
+      <div class="cm-icon">🌑</div>
+      <div class="cm-info">
+        <div class="cm-name">Тёмная Мора <span class="cm-val">${fmt(Math.floor(dark))}</span></div>
+        <div class="cm-desc">Редкая валюта тёмного рынка. Получай через Контрабанду (раз в 4 дня).</div>
+      </div>
+    </div>
+    <div class="cm-block">
+      <div class="cm-icon">✨</div>
+      <div class="cm-info">
+        <div class="cm-name">Зарники <span class="cm-val">${Math.floor(zar)}</span></div>
+        <div class="cm-desc">Донат-валюта — нельзя заработать в игре. Открывает эксклюзивные темы и предметы.</div>
+      </div>
+    </div>
+  </div>`, [{l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
 }
 
 function showCurrBar(show) {
@@ -187,6 +224,8 @@ function showCurrBar(show) {
     _currBarVisible = false;
   }
 }
+
+el('curr-bar')?.addEventListener('click', showCurrModal);
 
 // Refresh bar data from server (called on a slow timer)
 function refreshCurrBar() {
@@ -875,7 +914,7 @@ function doSpin(st, row) {
     if(r.diamonds) cards.push({text:`💎 ${r.diamonds} Алмазов`, cls:'', icon:'💎'});
     (r.items||[]).forEach(i=>cards.push({text:`${i.name}${i.qty>1?' ×'+i.qty:''}`, cls:'', icon:'📦'}));
     dups.forEach(d=>cards.push({
-      text:`🐾 ${d.species||''} ${rc(d.rarity||'common')} ${d.outcome==='first_copy_created'?'— НОВЫЙ!':d.new_level?'→ Lv'+d.new_level:''}`,
+      text:`🐾 ${d.species_name||d.species_id||''} ${rc(d.rarity||'common')} ${d.outcome==='first_copy_created'?'🆕 Новый!':d.new_level?'→ Lv'+d.new_level:''}`,
       cls:d.rarity||'', icon:'🐾'
     }));
 
