@@ -517,6 +517,7 @@ function openAchModal(a) {
 
 // ── Zoo ───────────────────────────────────────────────────────────────────────
 function loadZoo() {
+  el('zoo-c').innerHTML='<div class="loader">Загрузка...</div>';
   Promise.all([api('/zoo/'),api('/zoo/expeditions')]).then(([data,expData])=>{
     _zooData=data;
     renderExps(expData);
