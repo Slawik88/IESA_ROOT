@@ -34,7 +34,7 @@ async def create_pool() -> asyncpg.Pool:
                 min_size=1,
                 max_size=15,
                 statement_cache_size=0,   # required for DO managed PG / pgbouncer
-                timeout=15,
+                timeout=30,
                 # server_settings are sent as PostgreSQL startup parameters;
                 # they survive RESET ALL (which asyncpg issues on pool release).
                 server_settings={"search_path": f"{_SCHEMA},public"},
@@ -44,7 +44,7 @@ async def create_pool() -> asyncpg.Pool:
             return _pool
         except Exception as exc:
             last_exc = exc
-            logger.warning(f"⚠️  Попытка {attempt}/3 подключения к PostgreSQL: {exc}")
+            logger.warning(f"⚠️  Попытка {attempt}/3 подключения к PostgreSQL: {type(exc).__name__}: {exc!r}")
             if attempt < 3:
                 await asyncio.sleep(5)
     raise last_exc  # type: ignore[misc]
