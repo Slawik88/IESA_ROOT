@@ -65,25 +65,7 @@ async def create_pool() -> asyncpg.Pool:
     if _pool is not None:
         return _pool
 
-    # Prefer DATABASE_POOL_URL (DO auto-provided pgBouncer URL with VPC routing)
-    # over manually-set DATABASE_URL.
-    _pool_url_raw = os.environ.get("DATABASE_POOL_URL", "").strip()
-    _db_url_raw   = os.environ.get("DATABASE_URL", "").strip()
-
-    logger.info(f"🔑 DATABASE_POOL_URL present: {bool(_pool_url_raw)} | DATABASE_URL present: {bool(_db_url_raw)}")
-
-    if _pool_url_raw and not _pool_url_raw.startswith("EV["):
-        url = _pool_url_raw
-        logger.info("🔑 Используем DATABASE_POOL_URL (DO auto-provided pgBouncer)")
-    elif _pool_url_raw.startswith("EV["):
-        # DO encrypted variable — runtime should decrypt it, but log raw start for debug
-        url = _pool_url_raw
-        logger.warning("⚠️  DATABASE_POOL_URL начинается с EV[ — убедись что DO расшифровал переменную")
-    elif _db_url_raw:
-        url = _db_url_raw
-        logger.info("🔑 DATABASE_POOL_URL пуст — используем DATABASE_URL")
-    else:
-        raise RuntimeError("Ни DATABASE_POOL_URL, ни DATABASE_URL не заданы!")
+    url = os.environ["DATABASE_URL"].strip()
 
     masked = _mask_url(url)
     logger.info(f"🔌 URL (masked) = {masked}")
