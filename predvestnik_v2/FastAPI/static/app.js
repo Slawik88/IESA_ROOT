@@ -95,10 +95,15 @@ function rc(r) { return `<span class="rc ${RC[r]||'rc-common'}">${r}</span>`; }
 
 function toast(msg,ok=true) {
   const t=el('toast');
+  // showModal() puts dialog in the browser top-layer above all z-indexes.
+  // Moving the toast node inside the open dialog keeps it visible above the overlay.
+  const dlg=el('modal');
+  if(dlg&&dlg.open){if(t.parentElement!==dlg)dlg.appendChild(t);}
+  else{if(t.parentElement!==document.body)document.body.appendChild(t);}
   t.textContent=msg;
   t.style.cssText=`background:${ok?'rgba(82,179,96,.9)':'rgba(224,82,82,.9)'};color:#fff;border:1px solid ${ok?'rgba(82,179,96,.5)':'rgba(224,82,82,.5)'}`;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2500);
+  clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500);
 }
 
 function copyUid(uid) {
@@ -124,9 +129,13 @@ function OM(title,body,btns=[]) {
   el('modal').showModal();
   document.body.classList.add('modal-open');
 }
-const CM=()=>{el('modal').close();document.body.classList.remove('modal-open');};
+const CM=()=>{
+  el('modal').close();document.body.classList.remove('modal-open');
+  // Move toast back to body in case it was reparented inside the dialog for z-order
+  const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);
+};
 el('modal').addEventListener('click',e=>{if(e.target===el('modal'))CM();});
-el('modal').addEventListener('cancel',()=>document.body.classList.remove('modal-open'));
+el('modal').addEventListener('cancel',()=>{document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);});
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _loaded=new Set();
@@ -661,7 +670,7 @@ function renderZoo(tab) {
         <span style="font-size:14px;font-weight:700;color:${occupied>=maxSlots?'var(--red)':'var(--green)'}">${occupied}/${maxSlots}</span>
       </div>
       ${occupied>=maxSlots&&expandQty===0&&maxSlots<6?`
-        <div style="margin-top:6px;font-size:10px;color:var(--muted)">🔒 Слоты заполнены. <span style="color:var(--gold);cursor:pointer" onclick="CM();swMkt('shop',document.querySelector('#pg-market .tb'))">Купи 🏡 Расширитель в Магазине</span></div>`:''}
+        <div style="margin-top:6px;font-size:10px;color:var(--muted)">🔒 Слоты заполнены. <span style="color:var(--gold);cursor:pointer" onclick="goTo('market','shop')">Купи 🏡 Расширитель в Магазине</span></div>`:''}
       ${expandQty>0&&maxSlots<6?`
         <div style="margin-top:8px;border-top:1px solid var(--border2);padding-top:8px">
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px">В инвентаре: 🏡 Расширитель слота ×${expandQty}</div>
@@ -1439,7 +1448,7 @@ function openCreateLotModal() {
       </div>`;
       el('mf').innerHTML = `
         <button class="btn btn-ghost btn-sm" onclick="CM()">Закрыть</button>
-        <button class="btn btn-gold btn-sm" onclick="CM();swMkt('shop',document.querySelector('#pg-market .tb'))">🛒 В Магазин</button>`;
+        <button class="btn btn-gold btn-sm" onclick="goTo('market','shop')">🛒 В Магазин</button>`;
       return;
     }
     _invForAuction = tradable;
@@ -1550,9 +1559,11 @@ function doBid(lotId, btn, fixedAmount) {
 }
 
 function loadShopCatalog() {
-  // Load inventory first so we can show "already have" badges
-  if(!_invData.length) api('/inventory/').then(items=>{_invData=items;}).catch(()=>{});
-  api('/shop/').then(d=>{
+  // Always fetch inventory fresh so "в инвентаре" badges reflect purchases/promos
+  Promise.all([
+    api('/inventory/').then(items=>{_invData=items;}).catch(()=>{}),
+    api('/shop/'),
+  ]).then(([,d])=>{
     el('balrow').style.display='flex';
     el('balrow').innerHTML=`<div class="bal"><div class="bv">🪙 ${fmt(d.mora)}</div><div class="bl">Мора</div></div>
       <div class="bal"><div class="bv">💎 ${d.diamonds.toFixed(1)}</div><div class="bl">Алмазы</div></div>`;
@@ -2637,7 +2648,8 @@ function doApplyDustFromPetModal(did,pid,btn) {
 function loadNickCard() {
   const c=el('pro-nick-card');
   if(!c) return;
-  const chatId=_cid||0;
+  // Prefer the chat mini-app was opened from (_initChatId); fall back to first chat from API
+  const chatId=_initChatId||_cid||0;
   if(!chatId){ c.innerHTML=''; return; }
   api(`/profile/nickname?chat_id=${chatId}`).then(r=>{
     const nick=(r.nickname||'').replace(/"/g,'&quot;');
@@ -2658,7 +2670,7 @@ function saveNick() {
   if(!v){toast('Введите ник.',false);return;}
   if(v.length>32){toast('Ник слишком длинный.',false);return;}
   el('nick-status').textContent='Сохраняем...';
-  api('/profile/set-nickname',{method:'POST',body:JSON.stringify({chat_id:_cid,nickname:v})})
+  api('/profile/set-nickname',{method:'POST',body:JSON.stringify({chat_id:_initChatId||_cid,nickname:v})})
     .then(r=>{
       el('nick-status').textContent=`✅ Ник установлен: ${r.nickname}`;
       el('nick-status').style.color='var(--green)';
