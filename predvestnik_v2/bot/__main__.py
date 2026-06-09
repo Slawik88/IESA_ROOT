@@ -34,17 +34,10 @@ async def main():
     logger.info("═" * 50)
     logger.info("📊 Архитектура: PostgreSQL + asyncpg")
 
-    logger.info("🐘 Подключение к PostgreSQL...")
-    pool = await create_pool()
-
-    logger.info("🗄️  Инициализация схемы БД...")
-    await init_db()
-    logger.info("✅ База данных готова!")
-
-    # ── FastAPI starts BEFORE advisory lock so health checks pass immediately ──
-    # DigitalOcean health checks port immediately after container start.
-    # Advisory lock can block for ~90s during rolling redeploy — if FastAPI
-    # starts after the lock, health checks time out and the deploy fails.
+    # ── FastAPI starts FIRST so health checks pass immediately ────────────────
+    # DigitalOcean probes the PORT immediately after container start.
+    # create_pool() can block for up to ~3 min on a transient DB issue, so
+    # FastAPI must be listening before we attempt any DB work.
     _api_port = int(os.getenv("PORT", "0"))
     if _api_port:
         try:
@@ -68,6 +61,14 @@ async def main():
             logger.info(f"🌐 FastAPI мини-апп запущен на порту {_api_port} (prefix='{_root_path}')")
         except Exception as _e:
             logger.warning(f"FastAPI не запущен: {_e}")
+    # ─────────────────────────────────────────────────────────────────────────
+
+    logger.info("🐘 Подключение к PostgreSQL...")
+    pool = await create_pool()
+
+    logger.info("🗄️  Инициализация схемы БД...")
+    await init_db()
+    logger.info("✅ База данных готова!")
 
     # ── Advisory lock: only one bot instance polls at a time ──────────────────
     # Acquires a session-level PostgreSQL advisory lock. If another instance
