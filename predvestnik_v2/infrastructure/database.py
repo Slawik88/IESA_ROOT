@@ -29,8 +29,24 @@ def _mask_url(url: str) -> str:
         return "<unparseable>"
 
 
+async def _tcp_test(host: str, port: int, timeout: float = 8.0) -> str:
+    try:
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(host, port), timeout=timeout
+        )
+        writer.close()
+        await writer.wait_closed()
+        return "OK"
+    except asyncio.TimeoutError:
+        return f"TIMEOUT {timeout}s"
+    except ConnectionRefusedError:
+        return "REFUSED"
+    except OSError as exc:
+        return f"OSError: {exc}"
+
+
 async def _diagnose(host: str, port: int) -> None:
-    """DNS lookup + raw TCP connect test — runs before asyncpg to pinpoint failures."""
+    """DNS lookup + multi-port TCP scan — pinpoints whether it's routing or port-specific."""
     loop = asyncio.get_running_loop()
 
     # ── DNS ──────────────────────────────────────────────────────────────────
@@ -42,20 +58,16 @@ async def _diagnose(host: str, port: int) -> None:
         logger.error(f"❌ DNS  FAIL {host}: {type(exc).__name__}: {exc}")
         return
 
-    # ── Raw TCP (no SSL, no PostgreSQL protocol) ──────────────────────────────
-    try:
-        _, writer = await asyncio.wait_for(
-            asyncio.open_connection(host, port), timeout=10
-        )
-        writer.close()
-        await writer.wait_closed()
-        logger.info(f"✅ TCP  {host}:{port} → соединение установлено (raw)")
-    except asyncio.TimeoutError:
-        logger.error(f"❌ TCP  {host}:{port} → TIMEOUT 10s — хост недоступен (firewall/VPC?)")
-    except ConnectionRefusedError:
-        logger.error(f"❌ TCP  {host}:{port} → CONNECTION REFUSED — порт закрыт")
-    except OSError as exc:
-        logger.error(f"❌ TCP  {host}:{port} → OSError: {exc}")
+    # ── TCP scan: test multiple ports in parallel ─────────────────────────────
+    test_ports = sorted({port, 25060, 25061, 5432})
+    results = await asyncio.gather(*[_tcp_test(host, p) for p in test_ports])
+    for p, r in zip(test_ports, results):
+        marker = "✅" if r == "OK" else "❌"
+        logger.info(f"{marker} TCP  {host}:{p} → {r}")
+
+    # ── Outbound internet sanity check (Google DNS) ───────────────────────────
+    inet = await _tcp_test("8.8.8.8", 53, timeout=5.0)
+    logger.info(f"{'✅' if inet == 'OK' else '❌'} Internet  8.8.8.8:53 → {inet}")
 
 
 async def create_pool() -> asyncpg.Pool:
