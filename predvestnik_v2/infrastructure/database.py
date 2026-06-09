@@ -65,10 +65,21 @@ async def create_pool() -> asyncpg.Pool:
     if _pool is not None:
         return _pool
 
-    url = os.environ["DATABASE_URL"].strip()
+    # PREDVESTNIK_DATABASE_URL overrides DATABASE_URL.
+    # DO auto-injects DATABASE_URL=${db.connection_string} (public IP) and we cannot
+    # override it via shared env vars — it always wins at the component level.
+    # PREDVESTNIK_DATABASE_URL is a plain env var the user sets to the VPC private URL.
+    _raw = (
+        os.environ.get("PREDVESTNIK_DATABASE_URL", "").strip()
+        or os.environ.get("DATABASE_URL", "").strip()
+    )
+    if not _raw:
+        raise RuntimeError("Нет DATABASE_URL и PREDVESTNIK_DATABASE_URL!")
+    url = _raw
 
+    _src = "PREDVESTNIK_DATABASE_URL" if os.environ.get("PREDVESTNIK_DATABASE_URL", "").strip() else "DATABASE_URL"
     masked = _mask_url(url)
-    logger.info(f"🔌 URL (masked) = {masked}")
+    logger.info(f"🔌 [{_src}] URL (masked) = {masked}")
 
     # Log asyncpg version for debugging
     logger.info(f"📦 asyncpg version: {asyncpg.__version__}")
