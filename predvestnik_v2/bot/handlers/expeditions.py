@@ -67,7 +67,10 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
     pet_id, pet_name, species_id, fatigue = pet
 
     async with db.execute(
-        "SELECT ends_at FROM active_expeditions WHERE pet_id = ?", (pet_id,)
+        "SELECT ae.ends_at FROM active_expeditions ae "
+        "JOIN pets p ON ae.pet_id = p.id "
+        "WHERE p.owner_id = ? AND ae.ends_at > NOW() LIMIT 1",
+        (user_id,)
     ) as cursor:
         active_row = await cursor.fetchone()
     if active_row:

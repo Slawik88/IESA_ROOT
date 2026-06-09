@@ -10,6 +10,7 @@ _SOURCE_LABELS = {
     "quest_reward":     "📋 Квест",
     "achievement_reward": "🏆 Достижение",
     "level_up":         "⬆️ Уровень",
+    "pet_milestone":    "🐾 Питомец Ур.",
     "shop":             "🛒 Магазин",
     "daily_deal":       "🏷 Акция дня",
     "transfer_out":     "📤 Перевод (отправлен)",

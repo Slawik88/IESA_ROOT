@@ -91,10 +91,10 @@ class EconomyService:
             return False, "Предмет не найден."
 
         has_discount = await self.has_turtle_discount(user_id)
-        mora_cost = self.apply_discount(item.get("price_mora", 0), has_discount) * quantity
-        diamonds_cost = self.apply_discount(item.get("price_diamonds", 0), has_discount) * quantity
+        mora_unit = self.apply_discount(item.get("price_mora", 0), has_discount)
+        dia_unit = self.apply_discount(item.get("price_diamonds", 0), has_discount)
 
-        if mora_cost <= 0 and diamonds_cost <= 0:
+        if mora_unit <= 0 and dia_unit <= 0:
             return False, "Этот предмет нельзя купить."
 
-        return await _repo_buy_item(self._db, user_id, item_id, mora_cost, diamonds_cost, quantity)
+        return await _repo_buy_item(self._db, user_id, item_id, mora_unit, dia_unit, quantity)

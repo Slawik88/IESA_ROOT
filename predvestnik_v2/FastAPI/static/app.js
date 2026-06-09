@@ -85,6 +85,11 @@ function showWsNotif(event) {
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 const fmt = n => Number(n).toLocaleString('ru');
+function fmtUTC(s) {
+  if (!s) return '';
+  const d = new Date(s.includes('T') ? s : s.replace(' ', 'T') + 'Z');
+  return isNaN(d) ? s.slice(0,16) : d.toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
 const fatC = f => f<40?'var(--green)':f<70?'var(--gold)':'var(--red)';
 function rc(r) { return `<span class="rc ${RC[r]||'rc-common'}">${r}</span>`; }
 
@@ -2441,7 +2446,7 @@ function _renderWalletMini() {
       <div style="flex:1;min-width:0">
         <div style="font-size:12px;font-weight:600;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.label}</div>
         ${t.note?`<div style="font-size:10px;color:var(--muted)">${t.note}</div>`:''}
-        <div style="font-size:10px;color:var(--muted)">${(t.created_at||'').slice(0,16)}</div>
+        <div style="font-size:10px;color:var(--muted)">${fmtUTC(t.created_at)}</div>
       </div>
       <div style="text-align:right;white-space:nowrap;flex-shrink:0">${[mora,dia].filter(Boolean).join(' ')}</div>
     </div>`;
@@ -3024,7 +3029,7 @@ function loadAdminLogs() {
           <thead><tr><th>Время</th><th>Действие</th><th>Цель</th><th>Модератор</th><th>Причина</th></tr></thead>
           <tbody>
             ${d.logs.map(l=>`<tr>
-              <td style="font-size:10px;white-space:nowrap">${l.created_at?.slice(0,16)||'?'}</td>
+              <td style="font-size:10px;white-space:nowrap">${fmtUTC(l.created_at)||'?'}</td>
               <td><span style="font-size:11px;font-weight:600">${l.action}</span></td>
               <td style="font-size:11px">@${l.target_name||'ID'+l.user_id}</td>
               <td style="font-size:11px">@${l.admin_name||'ID'+l.admin_id}</td>
@@ -3095,7 +3100,7 @@ function loadAdminMod() {
               <span style="font-size:11px;color:var(--text)"> @${l.target_name||l.user_id}</span>
               ${l.reason?`<span style="font-size:10px;color:var(--muted)"> — ${l.reason}</span>`:''}
             </div>
-            <span style="font-size:10px;color:var(--muted);white-space:nowrap;margin-left:8px">${(l.created_at||'').slice(0,16)}</span>
+            <span style="font-size:10px;color:var(--muted);white-space:nowrap;margin-left:8px">${fmtUTC(l.created_at)}</span>
           </div>`;
         }).join(''):'<div style="font-size:12px;color:var(--muted)">Нет записей</div>'}
         <button class="btn btn-ghost btn-sm btn-full" style="margin-top:8px" onclick="swAdminByName('logs')">Полный журнал →</button>

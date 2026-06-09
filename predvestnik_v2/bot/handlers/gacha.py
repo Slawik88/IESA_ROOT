@@ -570,6 +570,7 @@ async def cb_gacha_pity(query: types.CallbackQuery, callback_data: GachaCB, db):
 async def cb_gacha_history(query: types.CallbackQuery, callback_data: GachaCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
+    await query.answer()
     history = await get_recent_history(db, query.from_user.id, limit=20)
     if not history:
         text = "📜 <b>ИСТОРИЯ КРУТКИ</b>\n\n<i>Вы ещё ничего не крутили.</i>"
@@ -597,7 +598,6 @@ async def cb_gacha_history(query: types.CallbackQuery, callback_data: GachaCB, d
         text = "\n".join(lines)
 
     await query.message.edit_text(text, reply_markup=_back_kb(user_id=callback_data.user_id), parse_mode="HTML")
-    await query.answer()
 
 
 @router.callback_query(GachaCB.filter(F.action == "chances"))

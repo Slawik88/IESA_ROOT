@@ -214,7 +214,7 @@ async def roll_single(
                                            source=gacha_source)
 
         # ── Pity check ────────────────────────────────────────────────────────
-        pity_before = await gacha_repo.get_pity(db, user_id, spin_type)
+        pity_before = await gacha_repo.get_pity_locked(db, user_id, spin_type)
         hard_pity_triggered = False
         chosen: dict
 
@@ -318,9 +318,10 @@ async def roll_multi(
         if total_dias > 0:
             await eco_repo.add_balance(db, user_id, diamonds=-total_dias, commit=False)
 
+        pity_current = await gacha_repo.get_pity_locked(db, user_id, spin_type)
         results = []
         for _ in range(count):
-            pity_before = await gacha_repo.get_pity(db, user_id, spin_type)
+            pity_before = pity_current
             hard_pity_triggered = False
 
             if pity_before + 1 >= PITY_HARD[spin_type]:
@@ -339,8 +340,10 @@ async def roll_multi(
             if hard_pity_triggered or is_valuable:
                 await gacha_repo.reset_pity(db, user_id, spin_type)
                 pity_after = 0
+                pity_current = 0
             else:
                 pity_after = await gacha_repo.incr_pity(db, user_id, spin_type)
+                pity_current = pity_after
 
             await gacha_repo.log_history(db, user_id, spin_type, {
                 "type": summary["type"],

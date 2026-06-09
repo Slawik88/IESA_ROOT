@@ -108,6 +108,9 @@ async def accept_duel(
         bal_mora = row[0] if row else 0.0
         reserved = await _get_reserved(db, challenged_id)
         if bal_mora - reserved < stake:
+            # Properly close the duel so it doesn't stay stuck in 'processing'
+            await set_duel_status(db, duel_id, "declined")
+            await _remove_reserve(db, challenger_id, stake)
             return False, f"Недостаточно Моры для принятия ставки ({stake:.0f} 🪙)."
         await _add_reserve(db, challenged_id, stake)
 
