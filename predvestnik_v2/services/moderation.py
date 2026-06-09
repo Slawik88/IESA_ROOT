@@ -43,6 +43,7 @@ async def check_admin_rights(
     user_id: int,
     min_rank: int = 1,
     developer_id: int = 0,
+    bot_id: int = 0,
 ) -> tuple[bool, str]:
     """Check that user has at least min_rank (no target comparison)."""
     if developer_id and user_id == developer_id:
