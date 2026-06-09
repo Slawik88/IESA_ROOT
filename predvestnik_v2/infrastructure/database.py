@@ -55,6 +55,9 @@ async def create_pool() -> asyncpg.Pool:
                 min_size=1,
                 max_size=15,
                 statement_cache_size=0,   # required for DO managed PG / pgbouncer
+                # Fail fast per-connection so the retry loop stays within the
+                # DO App Platform health-check window (~90s total).
+                timeout=15,
                 # server_settings are sent as PostgreSQL startup parameters;
                 # they survive RESET ALL (which asyncpg issues on pool release).
                 server_settings={"search_path": f"{_SCHEMA},public"},
