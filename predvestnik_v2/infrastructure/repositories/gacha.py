@@ -11,15 +11,28 @@ async def get_pity(db: aiosqlite.Connection, user_id: int, spin_type: str) -> in
     return row[0] if row else 0
 
 
-async def incr_pity(db: aiosqlite.Connection, user_id: int, spin_type: str) -> int:
-    """Increment pity counter by 1 and return the new value. No commit."""
+async def get_pity_locked(db: aiosqlite.Connection, user_id: int, spin_type: str) -> int:
+    """Get pity count and hold a row-level lock for the current transaction.
+    Ensures the row exists first so FOR UPDATE always locks something."""
     await db.execute(
-        """INSERT INTO gacha_pity (user_id, spin_type, count) VALUES (?, ?, 1)
-           ON CONFLICT(user_id, spin_type) DO UPDATE SET count = gacha_pity.count + 1""",
+        "INSERT INTO gacha_pity (user_id, spin_type, count) VALUES (?, ?, 0) "
+        "ON CONFLICT(user_id, spin_type) DO NOTHING",
         (user_id, spin_type),
     )
     async with db.execute(
-        "SELECT count FROM gacha_pity WHERE user_id = ? AND spin_type = ?",
+        "SELECT count FROM gacha_pity WHERE user_id = ? AND spin_type = ? FOR UPDATE",
+        (user_id, spin_type),
+    ) as c:
+        row = await c.fetchone()
+    return row[0] if row else 0
+
+
+async def incr_pity(db: aiosqlite.Connection, user_id: int, spin_type: str) -> int:
+    """Increment pity counter by 1 and return the new value. No commit."""
+    async with db.execute(
+        """INSERT INTO gacha_pity (user_id, spin_type, count) VALUES (?, ?, 1)
+           ON CONFLICT(user_id, spin_type) DO UPDATE SET count = gacha_pity.count + 1
+           RETURNING count""",
         (user_id, spin_type),
     ) as c:
         row = await c.fetchone()

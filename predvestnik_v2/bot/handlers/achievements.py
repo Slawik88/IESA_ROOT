@@ -41,10 +41,11 @@ async def cmd_achievements(message: types.Message, db):
     user_id = message.from_user.id
     user_data = await get_all_achievements(db, user_id)
 
+    from infrastructure.repositories.achievements import upsert_achievement
+
     # Sync "talker" with real message count
     global_msgs = await users_repo.get_messages_global(db, user_id)
     if global_msgs["all_time"] > 0:
-        from infrastructure.repositories.achievements import upsert_achievement
         talker = user_data.get("talker", {"level": 0, "progress": 0})
         new_prog = max(talker["progress"], float(global_msgs["all_time"]))
         thresholds = ACHIEVEMENTS["talker"]["thresholds"]
@@ -55,6 +56,24 @@ async def cmd_achievements(message: types.Message, db):
             await upsert_achievement(db, user_id, "talker", new_level, new_prog)
             await db.commit()
             user_data["talker"] = {"level": new_level, "progress": new_prog}
+
+    # Sync "persistent" with real MAX streak across all chats
+    async with db.execute(
+        "SELECT MAX(streak) FROM daily_login WHERE user_id = ?", (user_id,)
+    ) as _sc:
+        _srow = await _sc.fetchone()
+    real_max_streak = float(_srow[0]) if _srow and _srow[0] else 0.0
+    if real_max_streak > 0:
+        persistent = user_data.get("persistent", {"level": 0, "progress": 0.0})
+        new_prog = max(persistent["progress"], real_max_streak)
+        thresholds = ACHIEVEMENTS["persistent"]["thresholds"]
+        new_level = persistent["level"]
+        while new_level < 10 and new_prog >= thresholds[new_level]:
+            new_level += 1
+        if new_prog != persistent["progress"] or new_level != persistent["level"]:
+            await upsert_achievement(db, user_id, "persistent", new_level, new_prog)
+            await db.commit()
+            user_data["persistent"] = {"level": new_level, "progress": new_prog}
 
     total_unlocked = sum(1 for d in user_data.values() if d["level"] > 0)
     total_max = sum(1 for d in user_data.values() if d["level"] >= 10)

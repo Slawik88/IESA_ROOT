@@ -176,9 +176,9 @@ async def apply_pet_milestones(
             continue
 
         if reward["mora"] > 0:
-            await add_balance(db, user_id, mora=reward["mora"], commit=False)
+            await add_balance(db, user_id, mora=reward["mora"], source="pet_milestone", commit=False)
         if reward["diamonds"] > 0:
-            await add_balance(db, user_id, diamonds=reward["diamonds"], commit=False)
+            await add_balance(db, user_id, diamonds=reward["diamonds"], source="pet_milestone", commit=False)
         for item_id, qty in reward.get("items", ()):
             await db.execute(
                 "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "

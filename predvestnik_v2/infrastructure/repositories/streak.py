@@ -24,16 +24,17 @@ async def get_streak(db: aiosqlite.Connection, user_id: int, chat_id: int) -> di
 
 
 async def upsert_streak(
-    db: aiosqlite.Connection,
+    db,
     user_id: int,
     chat_id: int,
     streak: int,
     today: datetime,
     recovery_streak: int = 0,
     recovery_missed_days: int = 0,
-    recovery_expires: Optional[datetime] = None,
-) -> None:
-    await db.execute(
+    recovery_expires=None,
+) -> bool:
+    """Atomically claim the daily notification. Returns True only on first call for this day."""
+    async with db.execute(
         """INSERT INTO daily_login
             (user_id, chat_id, streak, last_login, last_notified,
              recovery_streak, recovery_missed_days, recovery_expires)
@@ -44,10 +45,15 @@ async def upsert_streak(
                last_notified = excluded.last_notified,
                recovery_streak = excluded.recovery_streak,
                recovery_missed_days = excluded.recovery_missed_days,
-               recovery_expires = excluded.recovery_expires""",
+               recovery_expires = excluded.recovery_expires
+           WHERE daily_login.last_notified IS NULL
+              OR daily_login.last_notified::date < excluded.last_notified::date
+           RETURNING last_notified""",
         (user_id, chat_id, streak, today, today,
          recovery_streak, recovery_missed_days, recovery_expires),
-    )
+    ) as c:
+        row = await c.fetchone()
+    return row is not None
 
 
 async def update_streak_after_recovery(

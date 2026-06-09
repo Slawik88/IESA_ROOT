@@ -84,6 +84,18 @@ async def streak_middleware(
                     recovery_cost = calc_recovery_cost(result["recovery_missed_days"])
                     result["_recovery_cost"] = recovery_cost
 
+                    # Atomically claim the day; prevents double reward on concurrent messages
+                    claimed = await streak_repo.upsert_streak(
+                        db, user.id, chat_obj.id,
+                        streak=result["new_streak"],
+                        today=today,
+                        recovery_streak=result["recovery_streak"],
+                        recovery_missed_days=result["recovery_missed_days"],
+                        recovery_expires=result["recovery_expires"],
+                    )
+                    if not claimed:
+                        return await handler(event, data)
+
                     streak_source = "streak_block_end" if reward.get("is_block_end") else "streak_daily"
                     await eco_repo.add_balance(
                         db, user.id,
@@ -129,14 +141,6 @@ async def streak_middleware(
                     except Exception:
                         pass
 
-                    await streak_repo.upsert_streak(
-                        db, user.id, chat_obj.id,
-                        streak=result["new_streak"],
-                        today=today,
-                        recovery_streak=result["recovery_streak"],
-                        recovery_missed_days=result["recovery_missed_days"],
-                        recovery_expires=result["recovery_expires"],
-                    )
                     await db.commit()
 
                     # Achievement: marriage_days_total (vow_keeper) — daily increment
@@ -153,13 +157,18 @@ async def streak_middleware(
                         pass
 
                     # Achievement: max_streak_ever (set-max semantics: only track growth)
+                    # Read MAX across ALL chats so multi-chat users don't get stuck.
                     try:
                         from infrastructure.repositories.achievements import get_achievement  # noqa: PLC0415
                         ach = await get_achievement(db, user.id, "persistent")
                         prev_max = ach["progress"] if ach else 0.0
-                        new_streak_val = float(result["new_streak"])
+                        async with db.execute(
+                            "SELECT MAX(streak) FROM daily_login WHERE user_id = ?",
+                            (user.id,),
+                        ) as _sc:
+                            _srow = await _sc.fetchone()
+                        new_streak_val = float(_srow[0]) if _srow and _srow[0] else float(result["new_streak"])
                         if new_streak_val > prev_max:
-                            # increment_metric uses metric name, not achievement key
                             delta = new_streak_val - prev_max
                             await _incr_ach(db, user.id, "max_streak_ever", delta=delta)
                             await db.commit()

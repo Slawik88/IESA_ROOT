@@ -408,13 +408,22 @@ async def get_pending_hamster_income(db: aiosqlite.Connection, user_id: int) -> 
         "SELECT last_income_collection FROM user_zoo_stats WHERE user_id = ?", (user_id,)
     ) as c:
         row = await c.fetchone()
-    if not row or not row[0]:
-        return 0.0
 
-    try:
-        last_dt = parse_dt(row[0])
-    except ValueError:
-        return 0.0
+    if not row or not row[0]:
+        # Never collected — treat as if last collection was 24h ago so income is visible.
+        # Also initialize the timestamp so subsequent calls have a reference point.
+        fallback = datetime.now() - timedelta(hours=24)
+        await db.execute(
+            "INSERT INTO user_zoo_stats (user_id, max_slots, last_income_collection) VALUES (?, 3, ?) "
+            "ON CONFLICT(user_id) DO UPDATE SET last_income_collection = COALESCE(user_zoo_stats.last_income_collection, EXCLUDED.last_income_collection)",
+            (user_id, fallback.strftime("%Y-%m-%d %H:%M:%S")),
+        )
+        last_dt = fallback
+    else:
+        try:
+            last_dt = parse_dt(row[0])
+        except ValueError:
+            return 0.0
 
     hours = (datetime.now() - last_dt).total_seconds() / 3600.0
 
