@@ -45,17 +45,18 @@ async def _tcp_test(host: str, port: int, timeout: float = 8.0) -> str:
         return f"OSError: {exc}"
 
 
-async def _diagnose(host: str, port: int) -> None:
+async def _diagnose(host: str, port: int, label: str = "") -> None:
     """DNS lookup + multi-port TCP scan — pinpoints whether it's routing or port-specific."""
     loop = asyncio.get_running_loop()
+    prefix = f"[{label}] " if label else ""
 
     # ── DNS ──────────────────────────────────────────────────────────────────
     try:
         infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
         ips = [i[4][0] for i in infos]
-        logger.info(f"🔍 DNS  {host} → {ips}")
+        logger.info(f"🔍 {prefix}DNS  {host} → {ips}")
     except Exception as exc:
-        logger.error(f"❌ DNS  FAIL {host}: {type(exc).__name__}: {exc}")
+        logger.error(f"❌ {prefix}DNS  FAIL {host}: {type(exc).__name__}: {exc}")
         return
 
     # ── TCP scan: test multiple ports in parallel ─────────────────────────────
@@ -63,79 +64,85 @@ async def _diagnose(host: str, port: int) -> None:
     results = await asyncio.gather(*[_tcp_test(host, p) for p in test_ports])
     for p, r in zip(test_ports, results):
         marker = "✅" if r == "OK" else "❌"
-        logger.info(f"{marker} TCP  {host}:{p} → {r}")
-
-    # ── Outbound internet sanity check (Google DNS) ───────────────────────────
-    inet = await _tcp_test("8.8.8.8", 53, timeout=5.0)
-    logger.info(f"{'✅' if inet == 'OK' else '❌'} Internet  8.8.8.8:53 → {inet}")
+        logger.info(f"{marker} {prefix}TCP  {host}:{p} → {r}")
 
 
 async def create_pool() -> asyncpg.Pool:
     """Idempotent — returns the existing pool if already initialised.
-    Retries up to 3 times with 5 s backoff for transient network hiccups."""
+
+    Tries every available connection-string source in order:
+      1. DATABASE_URL              — DO-managed binding (${db.connection_string}),
+                                       refreshed whenever the database is (re)attached
+                                       to this component via the App Platform UI.
+      2. PREDVESTNIK_DATABASE_URL  — manually-set fallback (private VPC URL).
+
+    For each source we run DNS+TCP diagnostics first, then attempt asyncpg
+    connection (2 tries, 5 s backoff). The first source that connects wins.
+    """
     global _pool
     if _pool is not None:
         return _pool
 
-    # PREDVESTNIK_DATABASE_URL overrides DATABASE_URL.
-    # DO auto-injects DATABASE_URL=${db.connection_string} (public IP) and we cannot
-    # override it via shared env vars — it always wins at the component level.
-    # PREDVESTNIK_DATABASE_URL is a plain env var the user sets to the VPC private URL.
-    _raw = (
-        os.environ.get("PREDVESTNIK_DATABASE_URL", "").strip()
-        or os.environ.get("DATABASE_URL", "").strip()
-    )
-    if not _raw:
+    _candidates: list[tuple[str, str]] = []
+    for _name in ("DATABASE_URL", "PREDVESTNIK_DATABASE_URL"):
+        _val = os.environ.get(_name, "").strip()
+        if _val:
+            _candidates.append((_name, _val))
+
+    if not _candidates:
         raise RuntimeError("Нет DATABASE_URL и PREDVESTNIK_DATABASE_URL!")
-    url = _raw
 
-    _src = "PREDVESTNIK_DATABASE_URL" if os.environ.get("PREDVESTNIK_DATABASE_URL", "").strip() else "DATABASE_URL"
-    masked = _mask_url(url)
-    logger.info(f"🔌 [{_src}] URL (masked) = {masked}")
-
-    # Log asyncpg version for debugging
     logger.info(f"📦 asyncpg version: {asyncpg.__version__}")
+    logger.info(
+        f"🔬 Источники подключения ({len(_candidates)}): "
+        + ", ".join(n for n, _ in _candidates)
+    )
 
-    # Parse host/port for diagnostics
-    try:
-        _p = urlparse(url)
-        _host = _p.hostname or "unknown"
-        _port = _p.port or 5432
-        logger.info(f"🌐 Цель: {_host}:{_port} (db={_p.path.lstrip('/')})")
-    except Exception as exc:
-        logger.warning(f"⚠️  Не удалось распарсить URL: {exc}")
-        _host, _port = "unknown", 5432
+    # ── Log + diagnose every candidate up front ────────────────────────────
+    for _name, _url in _candidates:
+        logger.info(f"🔌 [{_name}] URL (masked) = {_mask_url(_url)}")
+        try:
+            _p = urlparse(_url)
+            _host = _p.hostname or "unknown"
+            _port = _p.port or 5432
+            logger.info(f"🌐 [{_name}] Цель: {_host}:{_port} (db={_p.path.lstrip('/')})")
+            await _diagnose(_host, _port, label=_name)
+        except Exception as exc:
+            logger.warning(f"⚠️  [{_name}] диагностика провалена: {exc!r}")
 
-    # DNS + TCP diagnostic before attempting asyncpg
-    logger.info("🔬 Диагностика сети...")
-    await _diagnose(_host, _port)
+    inet = await _tcp_test("8.8.8.8", 53, timeout=5.0)
+    logger.info(f"{'✅' if inet == 'OK' else '❌'} Internet  8.8.8.8:53 → {inet}")
     logger.info("🔬 Диагностика завершена, пробуем asyncpg...")
 
+    # ── Try connecting with each candidate in order ────────────────────────
     last_exc: Exception | None = None
-    for attempt in range(1, 4):
-        logger.info(f"🐘 asyncpg create_pool — попытка {attempt}/3 (timeout=30s)...")
-        try:
-            _pool = await asyncpg.create_pool(
-                url,
-                min_size=1,
-                max_size=15,
-                statement_cache_size=0,   # required for DO managed PG / pgbouncer
-                timeout=30,
-                server_settings={"search_path": f"{_SCHEMA},public"},
-                init=_set_schema,
-            )
-            logger.info(f"✅ PostgreSQL pool готов (min=1 max=15, schema={_SCHEMA})")
-            return _pool
-        except Exception as exc:
-            last_exc = exc
-            logger.warning(
-                f"⚠️  Попытка {attempt}/3 ПРОВАЛЕНА: {type(exc).__name__}: {exc!r}"
-            )
-            if attempt < 3:
-                logger.info(f"⏳ Ждём 5с перед попыткой {attempt + 1}...")
-                await asyncio.sleep(5)
+    for _name, _url in _candidates:
+        logger.info(f"🐘 Пробуем подключиться через [{_name}]...")
+        for attempt in range(1, 3):
+            logger.info(f"🐘 [{_name}] asyncpg create_pool — попытка {attempt}/2 (timeout=30s)...")
+            try:
+                _pool = await asyncpg.create_pool(
+                    _url,
+                    min_size=1,
+                    max_size=15,
+                    statement_cache_size=0,   # required for DO managed PG / pgbouncer
+                    timeout=30,
+                    server_settings={"search_path": f"{_SCHEMA},public"},
+                    init=_set_schema,
+                )
+                logger.info(f"✅ PostgreSQL pool готов через [{_name}] (min=1 max=15, schema={_SCHEMA})")
+                return _pool
+            except Exception as exc:
+                last_exc = exc
+                logger.warning(
+                    f"⚠️  [{_name}] попытка {attempt}/2 ПРОВАЛЕНА: {type(exc).__name__}: {exc!r}"
+                )
+                if attempt < 2:
+                    logger.info(f"⏳ Ждём 5с перед попыткой {attempt + 1}...")
+                    await asyncio.sleep(5)
+        logger.warning(f"💀 [{_name}] провален, переходим к следующему источнику...")
 
-    logger.error(f"💀 Все 3 попытки подключения провалились. Последняя ошибка: {last_exc!r}")
+    logger.error(f"💀 Все источники подключения провалились. Последняя ошибка: {last_exc!r}")
     raise last_exc  # type: ignore[misc]
 
 
