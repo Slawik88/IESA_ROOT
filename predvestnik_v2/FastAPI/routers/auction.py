@@ -26,12 +26,14 @@ async def active_lots(
         "al.buyout, al.ends_at, al.status, "
         "COALESCE(MAX(ab.amount), al.min_bid) AS current_bid, "
         "COUNT(ab.id) AS bid_count, "
-        "u.user_tg_username AS seller_name "
+        "u.user_tg_username AS seller_name, "
+        "(v.user_id IS NOT NULL) AS seller_is_vip "
         "FROM auction_lots al "
         "LEFT JOIN auction_bids ab ON ab.lot_id = al.id AND ab.is_active = 1 "
         "LEFT JOIN users u ON u.user_tg_id = al.seller_id "
+        "LEFT JOIN vip_subscriptions v ON v.user_id = al.seller_id AND v.expires_at > NOW() "
         "WHERE al.status = 'active' "
-        "GROUP BY al.id, u.user_tg_username "
+        "GROUP BY al.id, u.user_tg_username, v.user_id "
         "ORDER BY al.ends_at ASC LIMIT ? OFFSET ?",
         (per_page, offset),
     ) as c:

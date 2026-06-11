@@ -731,6 +731,18 @@ async def init_db():
             )
         """)
 
+        # VIP subscriptions (Implementation Block 2.1)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS vip_subscriptions (
+                user_id          BIGINT PRIMARY KEY REFERENCES users(user_tg_id),
+                tier             TEXT NOT NULL,
+                started_at       TIMESTAMP DEFAULT NOW(),
+                expires_at       TIMESTAMP NOT NULL,
+                last_probnik_at  TIMESTAMP DEFAULT NULL,
+                expiry_notified  BOOLEAN DEFAULT FALSE
+            )
+        """)
+
         # Migrations: admin panel + moderation extras
         for _stmt in [
             "ALTER TABLE moderation_logs ADD COLUMN IF NOT EXISTS reason TEXT",

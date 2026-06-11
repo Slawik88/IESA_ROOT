@@ -11,9 +11,11 @@ async def get_top_messages(
     """all_time top — reads from the cumulative counter column."""
     async with db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, "
-        "s.user_messages_count_all_time AS msg_count "
+        "s.user_messages_count_all_time AS msg_count, "
+        "(v.user_id IS NOT NULL) AS is_vip "
         "FROM user_chat_stats s "
         "LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
+        "LEFT JOIN vip_subscriptions v ON v.user_id = s.user_tg_id AND v.expires_at > NOW() "
         "WHERE s.chat_tg_id = ? AND s.is_left = FALSE "
         "AND s.user_messages_count_all_time > 0 "
         "ORDER BY s.user_messages_count_all_time DESC LIMIT ?",
@@ -32,14 +34,16 @@ async def get_top_messages_for_dates(
     """Period-based top using daily_user_stats — accurate even for inactive days."""
     async with db.execute(
         "SELECT d.user_id AS user_tg_id, u.user_tg_username, "
-        "SUM(d.message_count) AS msg_count "
+        "SUM(d.message_count) AS msg_count, "
+        "(v.user_id IS NOT NULL) AS is_vip "
         "FROM daily_user_stats d "
         "LEFT JOIN users u ON d.user_id = u.user_tg_id "
         "LEFT JOIN user_chat_stats s "
         "  ON s.user_tg_id = d.user_id AND s.chat_tg_id = d.chat_id "
+        "LEFT JOIN vip_subscriptions v ON v.user_id = d.user_id AND v.expires_at > NOW() "
         "WHERE d.chat_id = ? AND d.date >= ? AND d.date <= ? "
         "AND NOT (s.is_left = TRUE) "
-        "GROUP BY d.user_id, u.user_tg_username "
+        "GROUP BY d.user_id, u.user_tg_username, v.user_id "
         "HAVING SUM(d.message_count) > 0 "
         "ORDER BY msg_count DESC LIMIT ?",
         (chat_id, date_start, date_end, limit),
@@ -132,9 +136,11 @@ async def get_top_messages_global(db: aiosqlite.Connection, limit: int = 10) -> 
     # PostgreSQL requires all non-aggregated columns in GROUP BY.
     async with db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, "
-        "SUM(s.user_messages_count_all_time) AS value "
+        "SUM(s.user_messages_count_all_time) AS value, "
+        "(v.user_id IS NOT NULL) AS is_vip "
         "FROM user_chat_stats s LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
-        f"GROUP BY s.user_tg_id, u.user_tg_username "
+        "LEFT JOIN vip_subscriptions v ON v.user_id = s.user_tg_id AND v.expires_at > NOW() "
+        f"GROUP BY s.user_tg_id, u.user_tg_username, v.user_id "
         f"HAVING SUM(s.user_messages_count_all_time) >= {_MIN_GLOBAL_MSGS} "
         "ORDER BY value DESC LIMIT ?",
         (limit,),

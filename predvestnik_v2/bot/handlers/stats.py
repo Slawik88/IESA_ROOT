@@ -7,6 +7,7 @@ from aiogram.exceptions import TelegramBadRequest
 from infrastructure.repositories import stats
 from infrastructure.repositories.streak import get_chat_timezone
 from services.utils import safe_html, format_currency, check_callback_owner
+from services.profile_render import format_display_name
 from bot.filters.text_commands import TextCmd
 from core.constants import INACTIVE_THRESHOLD_DAYS
 
@@ -113,7 +114,7 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
     for local_idx, user in enumerate(page_users, 1):
         global_idx = slice_start + local_idx
         medal = "🥇" if global_idx == 1 else "🥈" if global_idx == 2 else "🥉" if global_idx == 3 else "🏅" if global_idx <= 10 else f"{global_idx}."
-        name = safe_html(user["user_tg_username"] or f"Пользователь {user['user_tg_id']}")
+        name = format_display_name(safe_html(user["user_tg_username"] or f"Пользователь {user['user_tg_id']}"), user["is_vip"])
         link = f'<a href="tg://user?id={user["user_tg_id"]}">{name}</a>'
         lines.append(f"{medal} {link} — <code>{user['msg_count']}</code>")
 

@@ -8,7 +8,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
-from services.utils import resolve_target, safe_html
+from services.utils import resolve_target, safe_html, resolve_display_name
 from services import moderation as mod_service
 from services import roles
 from infrastructure.repositories import moderation as mod_db
@@ -97,6 +97,7 @@ async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, 
     max_warns = settings["max_warnings"]
 
     # 5. Формируем и отправляем ответ
+    target_name = await resolve_display_name(db, target_id, message.chat.id, target_name)
     target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
     reason_text = f"\n📝 <b>Причина:</b> {safe_html(reason)}" if reason else ""
     

@@ -6,11 +6,10 @@ from bot.filters.text_commands import TextCmd
 from core.constants import DUEL_MIN_BET, DUEL_MAX_BET
 from core.registry import PET_SPECIES
 from infrastructure.repositories import zoo as zoo_db
-from infrastructure.repositories.users import get_nickname
 from infrastructure.repositories.moderation import get_chat_settings
 from infrastructure.repositories.chat import get_chat_stats
 from services.duel import create_challenge, accept_duel, decline_duel, calculate_power
-from services.utils import safe_html, resolve_target
+from services.utils import safe_html, resolve_target, resolve_display_name
 from services.achievements import increment_metric
 
 router = Router(name="duel_router")
@@ -19,11 +18,6 @@ router = Router(name="duel_router")
 class DuelCB(CallbackData, prefix="duel"):
     action: str   # "accept" | "decline"
     duel_id: int
-
-
-async def _get_name(db, user_id: int, chat_id: int, fallback: str) -> str:
-    nick = await get_nickname(db, user_id, chat_id)
-    return safe_html(nick if nick else fallback)
 
 
 @router.message(TextCmd(["дуэль", "дuel", "pvp"]))
@@ -120,8 +114,8 @@ async def cmd_duel(message: types.Message, db, text_args: str = None):
         return await message.answer(f"❌ {result}", parse_mode="HTML")
 
     duel_id = result["duel_id"]
-    challenger_name = await _get_name(db, challenger_id, chat_id, message.from_user.first_name)
-    target_disp = await _get_name(db, target_id, chat_id, target_name)
+    challenger_name = await resolve_display_name(db, challenger_id, chat_id, message.from_user.first_name)
+    target_disp = await resolve_display_name(db, target_id, chat_id, target_name)
 
     pet_sp = PET_SPECIES.get(challenger_pet.get("species_id", ""), {})
     pet_name_str = f"{pet_sp.get('name', '?')} Lv{challenger_pet.get('pet_level') or 1}"
@@ -172,13 +166,13 @@ async def cb_duel_accept(query: types.CallbackQuery, callback_data: DuelCB, db):
         return await query.message.edit_text(f"❌ {result}", parse_mode="HTML")
 
     chat_id = duel["chat_id"]
-    w_name = await _get_name(db, result["winner_id"], chat_id, f"ID{result['winner_id']}")
-    l_name = await _get_name(db, result["loser_id"], chat_id, f"ID{result['loser_id']}")
+    w_name = await resolve_display_name(db, result["winner_id"], chat_id, f"ID{result['winner_id']}")
+    l_name = await resolve_display_name(db, result["loser_id"], chat_id, f"ID{result['loser_id']}")
 
     ch_id = duel["challenger_id"]
     cd_id = duel["challenged_id"]
-    ch_name = await _get_name(db, ch_id, chat_id, f"ID{ch_id}")
-    cd_name = await _get_name(db, cd_id, chat_id, f"ID{cd_id}")
+    ch_name = await resolve_display_name(db, ch_id, chat_id, f"ID{ch_id}")
+    cd_name = await resolve_display_name(db, cd_id, chat_id, f"ID{cd_id}")
 
     async def _pet_str(pet_rows, user_id):
         pets = await zoo_db.get_user_pets(db, user_id, placement="active")
@@ -222,7 +216,7 @@ async def cb_duel_decline(query: types.CallbackQuery, callback_data: DuelCB, db)
         return
 
     await decline_duel(db, callback_data.duel_id)
-    decliner_name = await _get_name(db, user_id, duel["chat_id"], f"ID{user_id}")
+    decliner_name = await resolve_display_name(db, user_id, duel["chat_id"], f"ID{user_id}")
     await query.message.edit_text(
         f"❌ <b>{decliner_name}</b> отказался(ась) от дуэли. Ставки возвращены.",
         parse_mode="HTML",

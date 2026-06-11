@@ -12,7 +12,14 @@ from core.constants import XP_PER_LEVEL
 from core.registry import PET_SPECIES
 from services import roles
 from services.formatting import parse_dt
-from services.utils import safe_html
+from services.utils import safe_html, resolve_display_name
+
+
+# ── VIP badge (Implementation Block 3.1) ────────────────────────────────────────
+
+def format_display_name(name: str, is_vip: bool) -> str:
+    """Единственное место, определяющее как выглядит VIP-бейдж."""
+    return f"👑 {name}" if is_vip else name
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -95,7 +102,8 @@ def _pets_block(pets: list, prefix: str = "") -> str:
 def _render_premium(template_id: str, user_id: int, name: str,
                     g_rank: str, l_rank: str, lvl: int, pct: int,
                     mora_v, dia_v, d_msgs, w_msgs, a_msgs,
-                    streak, ach_count, warns, marriage, nursery_pets) -> str | None:
+                    streak, ach_count, warns, marriage, nursery_pets,
+                    partner_display: str | None = None) -> str | None:
     bar  = _premium_bar(pct)
     mora = _compact(mora_v)
     dia  = _compact(dia_v)
@@ -103,9 +111,8 @@ def _render_premium(template_id: str, user_id: int, name: str,
     name_upper = name.upper()
 
     if marriage:
-        p_nm = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
         dur  = _marriage_duration(marriage.get("marriage_date"))
-        partner_raw = f"{safe_html(p_nm)} ({dur})"
+        partner_raw = f"{partner_display} ({dur})"
     else:
         partner_raw = None
 
@@ -209,8 +216,7 @@ async def build_profile_text(
     from infrastructure.repositories.themes import get_active_theme
 
     # Fetch data
-    nickname       = await users_repo.get_nickname(db, user_id, chat_id)
-    name           = safe_html(nickname or f"user_{user_id}")
+    name           = await resolve_display_name(db, user_id, chat_id, f"user_{user_id}")
     bal            = await eco_repo.get_balance(db, user_id)
     dark_mora      = await dark_mora_repo.get_dark_mora_balance(db, user_id)
     stats          = await chat_repo.get_chat_stats(db, user_id, chat_id)
@@ -273,10 +279,13 @@ async def build_profile_text(
     else:
         shield_line = ""
 
+    partner_display = None
     if marriage:
+        partner_id = marriage["user2_id"] if marriage["user1_id"] == user_id else marriage["user1_id"]
         p_nm = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
+        partner_display = await resolve_display_name(db, partner_id, chat_id, p_nm)
         dur  = _marriage_duration(marriage.get("marriage_date"))
-        partner_line = f"💍 Брак: {safe_html(p_nm)} ({dur})"
+        partner_line = f"💍 Брак: {partner_display} ({dur})"
     else:
         partner_line = "💍 Не в браке"
 
@@ -293,6 +302,7 @@ async def build_profile_text(
             premium_tpl, user_id, name, g_rank, l_rank, lvl, pct,
             mora_v, dia_v, d_msgs, w_msgs, a_msgs,
             streak, ach_count, warns, marriage, nursery_pets,
+            partner_display,
         )
         if result:
             return result

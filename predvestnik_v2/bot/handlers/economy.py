@@ -10,6 +10,7 @@ from infrastructure.repositories.dark_mora import get_dark_mora_balance
 from services.admin_service import give_resource, set_resource
 from services.utils import resolve_target, safe_html, format_currency
 from core.registry import ITEMS_REGISTRY
+from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
 
 router = Router(name="eco_router")
 
@@ -49,6 +50,45 @@ async def cmd_balance(message: types.Message, db):
             )
 
     await message.answer(text, parse_mode="HTML")
+
+
+@router.message(TextCmd(["обмен зарников", "обменять зарники", "обмен ✨", "обменять ✨"]))
+async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None):
+    user_id = message.from_user.id
+
+    if not text_args:
+        return await message.answer(
+            "💱 <b>ОБМЕН ЗАРНИКОВ</b>\n\n"
+            "Формат: «бот обмен зарников, &lt;сумма&gt; мора» или "
+            "«бот обмен зарников, &lt;сумма&gt; алмазы»\n"
+            f"Курс: 1✨ = {ZARNIKI_TO_MORA_RATE:g}🪙 · 1✨ = {ZARNIKI_TO_DIAMONDS_RATE:g}💎\n"
+            "<i>Обмен необратим и без лимита.</i>",
+            parse_mode="HTML",
+        )
+
+    parts = text_args.split()
+    if len(parts) != 2:
+        return await message.answer(
+            "⚠️ Формат: «бот обмен зарников, &lt;сумма&gt; мора» или "
+            "«бот обмен зарников, &lt;сумма&gt; алмазы»",
+            parse_mode="HTML",
+        )
+
+    amount_str, target = parts[0], parts[1].lower()
+    try:
+        amount = float(amount_str.replace(",", "."))
+    except ValueError:
+        return await message.answer("⚠️ Сумма должна быть числом.")
+
+    if target in ("мора", "моры", "мору", "mora"):
+        to = "mora"
+    elif target in ("алмазы", "алмаз", "алмазов", "diamonds"):
+        to = "diamonds"
+    else:
+        return await message.answer("⚠️ Укажи «мора» или «алмазы».")
+
+    ok, msg = await eco_db.exchange_zarniki(db, user_id, amount, to, chat_id=message.chat.id)
+    await message.answer(msg)
 
 
 @router.message(TextCmd(["перевод", "перевести", "дать", "скинуть"]))

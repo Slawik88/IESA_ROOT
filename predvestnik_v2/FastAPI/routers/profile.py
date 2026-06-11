@@ -22,11 +22,14 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
     user_id = user["id"]
 
     async with db.execute(
-        "SELECT user_tg_id, user_tg_username, global_rank, "
-        "user_balance_mora, user_balance_diamonds, "
-        "COALESCE(user_balance_dark_mora, 0) AS user_balance_dark_mora, "
-        "COALESCE(user_balance_zarniki, 0) AS user_balance_zarniki "
-        "FROM users WHERE user_tg_id = ?",
+        "SELECT u.user_tg_id, u.user_tg_username, u.global_rank, "
+        "u.user_balance_mora, u.user_balance_diamonds, "
+        "COALESCE(u.user_balance_dark_mora, 0) AS user_balance_dark_mora, "
+        "COALESCE(u.user_balance_zarniki, 0) AS user_balance_zarniki, "
+        "(v.user_id IS NOT NULL) AS is_vip "
+        "FROM users u "
+        "LEFT JOIN vip_subscriptions v ON v.user_id = u.user_tg_id AND v.expires_at > NOW() "
+        "WHERE u.user_tg_id = ?",
         (user_id,),
     ) as c:
         row = await c.fetchone()
@@ -82,6 +85,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "achievements": ach_count,
         "chats":        chats,
         "pets":         pets,
+        "is_vip":       bool(row["is_vip"]),
     }
 
 

@@ -87,6 +87,7 @@ function showWsNotif(event) {
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 const fmt = n => Number(n).toLocaleString('ru');
+function vipName(name, isVip) { return isVip ? `👑 ${name}` : name; }
 function fmtUTC(s) {
   if (!s) return '';
   const d = new Date(s.includes('T') ? s : s.replace(' ', 'T') + 'Z');
@@ -184,7 +185,7 @@ function loadProfile() {
       <div class="card card-gold">
         <div class="phead">
           <div class="ava">🔮</div>
-          <div><div class="pname">@${d.username||'Игрок'}</div><div class="prank">${d.rank}</div></div>
+          <div><div class="pname">@${vipName(d.username||'Игрок', d.is_vip)}</div><div class="prank">${d.rank}</div></div>
         </div>
         <div class="stats">
           <div class="stat"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора</div></div>
@@ -194,7 +195,7 @@ function loadProfile() {
         </div>
         ${(d.dark_mora||0)>0||(d.zarniki||0)>0?`<div class="stats" style="margin-top:7px">
           ${(d.dark_mora||0)>0?`<div class="stat"><div>🌑</div><div class="sv">${fmt(Math.floor(d.dark_mora||0))}</div><div class="sl">Тёмная</div></div>`:''}
-          ${(d.zarniki||0)>0?`<div class="stat"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">Зарники</div></div>`:''}
+          ${(d.zarniki||0)>0?`<div class="stat clickable" onclick="openExchangeZarnikiModal()" title="Обменять Зарники"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">Зарники 🔄</div></div>`:''}
         </div>`:''}
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 0;border-top:1px solid var(--border2);margin-top:6px">
           <span style="font-size:11px;color:var(--muted)">🆔 <code style="background:var(--dim);padding:1px 4px;border-radius:3px;font-size:11px">${uid}</code></span>
@@ -1256,7 +1257,7 @@ function loadDuels() {
     if(incoming.length) {
       html += `<div class="card"><div class="card-title">⏳ Входящие вызовы (${incoming.length})</div>
         ${incoming.map(d=>`<div class="duel-card">
-          <div class="duel-vs">${d.challenger_name||'Игрок'} вызывает вас</div>
+          <div class="duel-vs">${vipName(d.challenger_name||'Игрок', d.challenger_is_vip)} вызывает вас</div>
           <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
           <div style="display:flex;gap:6px;margin-top:8px">
             <button class="btn btn-sm btn-teal" style="flex:1" onclick="acceptDuel(${d.id},this)">⚔️ Принять</button>
@@ -1271,7 +1272,7 @@ function loadDuels() {
     if(outgoing.length) {
       html += `<div class="card"><div class="card-title">📤 Мои вызовы</div>
         ${outgoing.map(d=>`<div class="duel-card">
-          <div class="duel-vs">→ ${d.challenged_name||'Игрок'}</div>
+          <div class="duel-vs">→ ${vipName(d.challenged_name||'Игрок', d.challenged_is_vip)}</div>
           <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
           <div style="font-size:10px;color:var(--muted)">Ожидание ответа...</div>
         </div>`).join('')}
@@ -1285,10 +1286,11 @@ function loadDuels() {
           const won = d.winner_id == _uid;
           const isDone = d.status === 'finished';
           const vs = d.challenger_id == _uid ? d.challenged_name : d.challenger_name;
+          const vsIsVip = d.challenger_id == _uid ? d.challenged_is_vip : d.challenger_is_vip;
           const statusMap = {pending:'⏳ Ожидание', timeout:'⏰ Истёк', declined:'❌ Отклонён', finished:''};
           return `<div class="duel-card">
             <div style="display:flex;align-items:center;justify-content:space-between">
-              <div class="duel-vs">vs ${vs||'Игрок'}</div>
+              <div class="duel-vs">vs ${vipName(vs||'Игрок', vsIsVip)}</div>
               <div class="duel-result${isDone?(won?' win':' lose'):''}">
                 ${isDone?(won?'✓ Победа':'✗ Поражение'):statusMap[d.status]||d.status}
               </div>
@@ -1569,7 +1571,7 @@ function loadShopCatalog() {
     el('balrow').style.display='flex';
     el('balrow').innerHTML=`<div class="bal"><div class="bv">🪙 ${fmt(d.mora)}</div><div class="bl">Мора</div></div>
       <div class="bal"><div class="bv">💎 ${d.diamonds.toFixed(1)}</div><div class="bl">Алмазы</div></div>`;
-    const cats={food:'🥩 Еда',egg:'🥚 Яйца',utility:'🛠 Утилиты',booster:'⚗️ Зелья'};
+    const cats={food:'🥩 Еда',egg:'🥚 Яйца',utility:'🛠 Утилиты',booster:'⚗️ Зелья',donate:'✨ Донат'};
     const grps={};d.items.forEach(it=>(grps[it.category]=grps[it.category]||[]).push(it));
     const promoBtn=`<button class="btn btn-ghost btn-full" style="margin-bottom:10px" onclick="openPromoModal()">🎫 У меня есть промокод</button>`;
     el('mkt-shop').innerHTML=promoBtn+Object.entries(grps).map(([cat,list])=>
@@ -1577,7 +1579,7 @@ function loadShopCatalog() {
         <span style="font-size:22px;width:32px;text-align:center">${it.name.split(' ')[0]}</span>
         <div style="flex:1">
           <div style="font-size:13px;font-weight:600;color:var(--bright)">${it.name}</div>
-          <div style="font-size:11px;color:var(--gold)">${it.price_mora?fmt(it.price_mora)+' 🪙':it.price_diamonds+' 💎'}${it.discount_active?' 🐢':''}</div>
+          <div style="font-size:11px;color:var(--gold)">${it.price_mora?fmt(it.price_mora)+' 🪙':it.price_diamonds?it.price_diamonds+' 💎':fmt(it.price_zarniki)+' ✨'}${it.discount_active?' 🐢':''}</div>
           <div style="font-size:10px;color:var(--muted)">${it.description||''}</div>
           ${_invData.find(i=>i.item_id===it.item_id)
             ? `<div style="font-size:10px;color:var(--green);margin-top:2px">✓ В инвентаре: ×${_invData.find(i=>i.item_id===it.item_id).quantity}</div>`
@@ -1730,7 +1732,8 @@ const SRC = {
   shop_mora:      {label:'Магазин 🪙',    desc:'Купите напрямую в Магазине за Мору.', action:null},
   shop_diamond:   {label:'Магазин 💎',    desc:'Купите в Магазине за Алмазы.', action:null},
   dark:           {label:'Чёрный Рынок 🌑', desc:'Покупается за Тёмную Мору на Чёрном Рынке. Зарабатывайте Тёмную Мору через Контрабанду и Ритуал Культа Бездны.', action:{l:'🌑 Открыть Тёмную Мору', f:"goTo('market','dark')"}},
-  zarniki:        {label:'Зарники ✨',     desc:'Приобретается за донат-валюту Зарники (Telegram Stars). 1 Звезда = 10 Зарников.', action:null},
+  zarniki:        {label:'Зарники ✨',     desc:'Приобретается за донат-валюту Зарники (Telegram Stars). 1 Звезда = 10 Зарников.',
+                   action:{l:'✨ Купить Зарники', f:"openTelegramLink('https://t.me/IIIPredvestnikIIIBot?start=buyzarniki')"}},
   gacha_novice:   {label:'Гача 🎲',       desc:'Может выпасть из Ученической крутки гачи. Шанс — случайный.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
   gacha_standard: {label:'Гача 🎲',       desc:'Может выпасть из Стандартной крутки гачи (1000 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
   gacha_premium:  {label:'Гача 🎲',       desc:'Может выпасть из Премиум крутки гачи (2800 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
@@ -2047,7 +2050,7 @@ function switchTop(mode, btn) {
       el('top-c').innerHTML = rows.length
         ? '<div class="card">' + header + rows.slice(0,30).map((r,i)=>`<div class="trow">
             <div class="tpos">${MEDALS[i]||(i+1)+'.'}</div>
-            <div class="tname">${r.username}</div>
+            <div class="tname">${vipName(r.username, r.is_vip)}</div>
             <div class="tcnt">${fmt(r.count)} 💬</div>
           </div>`).join('') + '</div>'
         : '<div class="empty-state"><div class="es-icon">🏆</div><div class="es-title">Пока нет данных</div><div class="es-sub">Топ появится после первых сообщений</div></div>';
@@ -2211,6 +2214,55 @@ function doRitual(btn) {
   api('/dark-mora/ritual',{method:'POST'}).then(r=>toast(r.message||'✅',true)).catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
+// ── VIP-подписка (Implementation Block 2.5) ─────────────────────────────────────
+function loadVip() {
+  el('mkt-vip').innerHTML = '<div class="loader">Загрузка...</div>';
+  api('/vip/status').then(d=>{
+    const statusHtml = d.active
+      ? `<div class="card card-gold">
+          <div class="card-title">👑 ${d.tier_label}</div>
+          <div style="font-size:12px;color:var(--muted)">Истекает: ${new Date(d.expires_at).toLocaleDateString('ru-RU')} · осталось ${d.days_left} дн.</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">Можно купить ещё тариф — срок сложится, тариф сменится сразу.</div>
+        </div>`
+      : `<div class="card">
+          <div class="card-title">👑 VIP-подписка</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5">Косметика, удобство и еженедельные бонусы — без преимущества в силе.</div>
+        </div>`;
+
+    const tiersHtml = d.tiers.map(t=>{
+      const giftParts=[];
+      if(t.gift_mora>0) giftParts.push(`${fmt(t.gift_mora)} 🪙`);
+      if(t.gift_diamonds>0) giftParts.push(`${fmt(t.gift_diamonds)} 💎`);
+      t.gift_items.forEach(i=>giftParts.push(`${i.qty}× ${i.name}`));
+      const weeklyParts = t.weekly.map(i=>`${i.qty}× ${i.name}`);
+      return `<div class="card" style="margin-top:8px">
+        <div class="card-title">${t.label} — ${fmt(t.price_zarniki)} ✨ / ${t.duration_days} дн.</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6">
+          🎁 Подарок: ${giftParts.join(', ')}<br>
+          📅 Еженедельно: ${weeklyParts.join(', ')}
+          ${t.extra_slot?'<br>✅ +1 слот питомника':''}
+        </div>
+        <button class="btn btn-gold btn-full" style="margin-top:8px" onclick="doBuyVip('${t.tier}','${t.label}',${t.price_zarniki})">Купить за ${fmt(t.price_zarniki)} ✨</button>
+      </div>`;
+    }).join('');
+
+    el('mkt-vip').innerHTML = statusHtml + tiersHtml;
+  }).catch(e=>{el('mkt-vip').innerHTML = `<div class="err">${e}</div>`;});
+}
+function doBuyVip(tier, label, price) {
+  OM(`👑 ${label}`,
+    `<div style="font-size:12px;color:var(--muted);line-height:1.5">Списать <b style="color:var(--gold)">${fmt(price)} ✨</b> и оформить <b>${label}</b>?</div>`,
+    [{l:'✅ Купить', c:'btn-gold', f:`confirmBuyVip('${tier}')`}, {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
+}
+function confirmBuyVip(tier) {
+  api('/vip/purchase', {method:'POST', body:JSON.stringify({tier})})
+    .then(r=>{
+      el('mb').innerHTML = `<div style="font-size:13px;line-height:1.7">${r.message.replace(/\n/g,'<br>')}</div>`;
+      el('mf').innerHTML = `<button class="btn btn-gold btn-sm" onclick="CM();loadVip();loadProfile();">Отлично!</button>`;
+    })
+    .catch(e=>toast(e,false));
+}
+
 // swArena and swMkt are defined above with correct dark/exch handling
 
 // ── Auction search ────────────────────────────────────────────────────────────
@@ -2271,7 +2323,7 @@ function renderLots(lots, searchQuery) {
           <div class="lot-name">${displayName}${qty}</div>
           ${desc?`<div class="lot-desc">${desc}</div>`:''}
           <div class="lot-badges">
-            <span class="lot-badge seller">👤 ${l.seller_name||'Игрок'}</span>
+            <span class="lot-badge seller">👤 ${vipName(l.seller_name||'Игрок', l.seller_is_vip)}</span>
             <span class="lot-badge timer${isUrgent?' hot':''}">⏳ ${tl}</span>
             ${hasBids
               ? '<span class="lot-badge hot">🔥 Есть ставки</span>'
@@ -2353,7 +2405,7 @@ function loadMarriageCard() {
         <div class="card-title">💌 Предложения руки и сердца (${proposals.length})</div>
         ${proposals.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
           <div>
-            <span style="font-weight:600">@${p.proposer_name||'ID'+p.proposer_id}</span>
+            <span style="font-weight:600">@${vipName(p.proposer_name||'ID'+p.proposer_id, p.proposer_is_vip)}</span>
             <span style="font-size:10px;color:var(--muted);margin-left:6px">${new Date(p.proposed_at).toLocaleDateString('ru')}</span>
           </div>
           <div style="display:flex;gap:6px">
@@ -2380,7 +2432,7 @@ function loadMarriageCard() {
         <div class="card-title">💍 Брак</div>
         <div style="text-align:center;padding:4px 0 12px">
           <div style="font-size:28px;margin-bottom:6px">💍</div>
-          <div style="font-size:15px;font-weight:700;color:var(--bright)">${m.partner_name||'Партнёр'}</div>
+          <div style="font-size:15px;font-weight:700;color:var(--bright)">${vipName(m.partner_name||'Партнёр', m.partner_is_vip)}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:3px">Вместе ${m.days} дней</div>
         </div>
         <div class="irow"><span class="ik">Семейный банк</span><span style="color:var(--gold);font-weight:700">${fmt(m.family_balance)} 🪙</span></div>
@@ -2582,6 +2634,39 @@ function redeemPromo(btn) {
     .finally(()=>{btn.disabled=false;});
 }
 
+// ── Exchange Zarniki → Mora/Diamonds (Implementation Block 1.3) ───────────────
+function openExchangeZarnikiModal() {
+  const zar = Math.floor(_profileData?.zarniki || 0);
+  OM('🔄 Обмен Зарников', `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
+      Баланс: <b style="color:var(--bright)">${zar} ✨</b><br>
+      Курс: 1✨ = 3 🪙  ·  1✨ = 0.05 💎 (20✨ = 1💎)<br>
+      <span style="color:var(--gold);font-size:11px">⚠️ Обмен необратим.</span>
+    </div>
+    <input id="exch-zar-amount" type="number" class="num-input" min="1" max="${zar}" step="1"
+           placeholder="Сколько ✨ обменять" style="margin:0"/>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-sm btn-gold" style="flex:1" onclick="doExchangeZarniki('mora')">→ 🪙 Мора</button>
+      <button class="btn btn-sm btn-gold" style="flex:1" onclick="doExchangeZarniki('diamonds')">→ 💎 Алмазы</button>
+    </div>
+    <div id="exch-zar-result" style="margin-top:8px"></div>
+  `, [
+    {l:'Закрыть', c:'btn-ghost', f:'CM()'},
+  ]);
+}
+function doExchangeZarniki(to) {
+  const amount = parseFloat(el('exch-zar-amount')?.value);
+  if(!amount || amount<=0){ toast('Укажи количество ✨', false); return; }
+  api('/wallet/exchange-zarniki', {method:'POST', body:JSON.stringify({amount, to})})
+    .then(r=>{
+      el('exch-zar-result').innerHTML = `<div style="color:var(--green);font-size:12px">${r.message}</div>`;
+      loadProfile();
+    })
+    .catch(e=>{
+      el('exch-zar-result').innerHTML = `<div class="err">${e}</div>`;
+    });
+}
+
 // ── switchPro — Профиль: Обзор(дашборд+кошелёк) / Квесты / Стрик / Ачивки ───────
 // Брак и Ник — карточки в Обзоре. История кошелька — свёрнутая секция внизу Обзора.
 function switchPro(tab, btn) {
@@ -2603,9 +2688,9 @@ function swMkt(tab, _btn) {
   document.querySelectorAll('#pg-market .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   const bd = el('balrow'); bd.style.display = tab === 'shop' ? 'flex' : 'none';
-  ['auc','shop','gacha','craft','inv','exch','deal','dark'].forEach(t=>el('mkt-'+t).style.display=t===tab?'':'none');
+  ['auc','shop','gacha','craft','inv','exch','deal','dark','vip'].forEach(t=>el('mkt-'+t).style.display=t===tab?'':'none');
   ({auc:loadAuction, shop:loadShopCatalog, gacha:loadGacha, craft:loadCraft,
-    inv:loadInventory, exch:loadExchange, deal:loadDeal, dark:loadDarkMora}[tab]||loadAuction)();
+    inv:loadInventory, exch:loadExchange, deal:loadDeal, dark:loadDarkMora, vip:loadVip}[tab]||loadAuction)();
 }
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
@@ -2872,7 +2957,7 @@ function renderAdminUserTable(d) {
         <tbody>
           ${d.users.map(u=>`<tr>
             <td>
-              <div style="font-weight:600;font-size:12px">@${u.user_tg_username||'ID'+u.user_tg_id}</div>
+              <div style="font-weight:600;font-size:12px">@${vipName(u.user_tg_username||'ID'+u.user_tg_id, u.is_vip)}</div>
               <div style="font-size:10px;color:var(--muted)">ID: ${u.user_tg_id} · ${u.user_messages_count_all_time||0} сообщ.</div>
             </td>
             <td style="text-align:center">${u.user_level||1}</td>
@@ -3045,8 +3130,8 @@ function loadAdminLogs() {
             ${d.logs.map(l=>`<tr>
               <td style="font-size:10px;white-space:nowrap">${fmtUTC(l.created_at)||'?'}</td>
               <td><span style="font-size:11px;font-weight:600">${l.action}</span></td>
-              <td style="font-size:11px">@${l.target_name||'ID'+l.user_id}</td>
-              <td style="font-size:11px">@${l.admin_name||'ID'+l.admin_id}</td>
+              <td style="font-size:11px">@${vipName(l.target_name||'ID'+l.user_id, l.target_is_vip)}</td>
+              <td style="font-size:11px">@${vipName(l.admin_name||'ID'+l.admin_id, l.admin_is_vip)}</td>
               <td style="font-size:10px;color:var(--muted)">${l.reason||'—'}</td>
             </tr>`).join('')}
           </tbody>
@@ -3084,7 +3169,7 @@ function loadAdminMod() {
     const ACTION_COL = {ban:'var(--red)',kick:'var(--red)',mute:'var(--gold)',
       unmute:'var(--green)',warn:'var(--gold)',unwarn:'var(--green)',unban:'var(--green)',immune:'var(--blue)'};
     const userRow = (u,badge) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2)">
-      <span style="font-size:12px;color:var(--bright)">@${u.user_tg_username||'ID'+u.user_tg_id}</span>
+      <span style="font-size:12px;color:var(--bright)">@${vipName(u.user_tg_username||'ID'+u.user_tg_id, u.is_vip)}</span>
       <span style="font-size:11px">${badge}</span>
     </div>`;
     el('adm-mod').innerHTML=`
@@ -3111,7 +3196,7 @@ function loadAdminMod() {
           return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border2)">
             <div>
               <span style="font-size:11px;font-weight:700;color:${col}">${l.action}</span>
-              <span style="font-size:11px;color:var(--text)"> @${l.target_name||l.user_id}</span>
+              <span style="font-size:11px;color:var(--text)"> @${vipName(l.target_name||l.user_id, l.target_is_vip)}</span>
               ${l.reason?`<span style="font-size:10px;color:var(--muted)"> — ${l.reason}</span>`:''}
             </div>
             <span style="font-size:10px;color:var(--muted);white-space:nowrap;margin-left:8px">${fmtUTC(l.created_at)}</span>

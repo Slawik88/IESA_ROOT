@@ -9,18 +9,12 @@ from aiogram import Router, types
 from bot.filters.text_commands import TextCmd
 from core.warp_responses import ALL_WARP_COMMANDS, NSFW_TYPES, resolve_warp
 from infrastructure.repositories import moderation as mod_db
-from infrastructure.repositories.users import get_nickname
 from services.quests import increment_metric as quest_increment
-from services.utils import safe_html, resolve_target
+from services.utils import safe_html, resolve_target, resolve_display_name
 
 router = Router(name="warps_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
 router.message.middleware(ModuleCheckMiddleware("module_warps"))
-
-
-async def _get_display(db, user_id: int, chat_id: int, fallback: str) -> str:
-    nick = await get_nickname(db, user_id, chat_id)
-    return safe_html(nick if nick else fallback)
 
 
 def _extract_quote(message: types.Message) -> str:
@@ -87,7 +81,7 @@ async def cmd_warp(message: types.Message, db, text_args: str = None):
     # Self-warp
     if target_id == actor_id:
         self_resp = warp_data.get("self_response", f"{{actor}} использует {warp_name} на себе 🤷")
-        actor_name = await _get_display(db, actor_id, chat_id, message.from_user.first_name)
+        actor_name = await resolve_display_name(db, actor_id, chat_id, message.from_user.first_name)
         text = self_resp.replace("{actor}", f"<b>{actor_name}</b>").replace("{target}", f"<b>{actor_name}</b>")
         return await message.answer(text, parse_mode="HTML")
 
@@ -97,8 +91,8 @@ async def cmd_warp(message: types.Message, db, text_args: str = None):
         return
     template = random.choice(responses)
 
-    actor_name = await _get_display(db, actor_id, chat_id, message.from_user.first_name)
-    target_disp = await _get_display(db, target_id, chat_id, target_name)
+    actor_name = await resolve_display_name(db, actor_id, chat_id, message.from_user.first_name)
+    target_disp = await resolve_display_name(db, target_id, chat_id, target_name)
 
     text = template.replace("{actor}", f"<b>{actor_name}</b>").replace("{target}", f"<b>{target_disp}</b>")
     quote = _extract_quote(message)

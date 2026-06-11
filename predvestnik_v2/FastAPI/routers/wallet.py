@@ -1,7 +1,9 @@
 """FastAPI/routers/wallet.py — история транзакций кошелька."""
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.wallet_log import get_recent
+from infrastructure.repositories.economy import exchange_zarniki
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
 
@@ -49,3 +51,26 @@ async def wallet_history(
             "note":           r.get("note", ""),
         })
     return result
+
+
+class ExchangeZarnikiRequest(BaseModel):
+    amount: float = Field(gt=0)
+    to: str
+
+
+@router.post("/exchange-zarniki")
+async def exchange_zarniki_endpoint(
+    body: ExchangeZarnikiRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+):
+    """Обменять ✨ Зарники на 🪙 Мору или 💎 Алмазы (необратимо, без лимита)."""
+    if body.to not in ("mora", "diamonds"):
+        raise HTTPException(status_code=400, detail="Некорректное направление обмена.")
+
+    ok, message = await exchange_zarniki(db, user["id"], body.amount, body.to)
+    if not ok:
+        raise HTTPException(status_code=400, detail=message)
+
+    await db.commit()
+    return {"ok": True, "message": message}

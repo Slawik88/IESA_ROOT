@@ -5,6 +5,7 @@ to prevent race conditions with concurrent users.
 """
 from infrastructure.repositories.wallet_log import log_wallet
 from infrastructure.pg_adapter import PGAdapter
+from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
 
 
 async def get_balance(db: PGAdapter, user_id: int) -> dict:
@@ -55,6 +56,42 @@ async def add_balance(
 
 
 add_reward = add_balance  # alias
+
+
+async def exchange_zarniki(
+    db: PGAdapter, user_id: int, amount: float, to: str,
+    chat_id: int | None = None,
+) -> tuple[bool, str]:
+    """✨ → 🪙 (×ZARNIKI_TO_MORA_RATE) или ✨ → 💎 (×ZARNIKI_TO_DIAMONDS_RATE).
+    Одностороннее, без лимита."""
+    if amount <= 0 or to not in ("mora", "diamonds"):
+        return False, "Некорректные параметры обмена."
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT COALESCE(user_balance_zarniki, 0) FROM users "
+                "WHERE user_tg_id = ? FOR UPDATE",
+                (user_id,),
+            ) as c:
+                row = await c.fetchone()
+            current = float(row[0]) if row else 0.0
+            if current < amount:
+                return False, f"Недостаточно ✨ (есть {current:.0f})."
+
+            if to == "mora":
+                gained = amount * ZARNIKI_TO_MORA_RATE
+                await add_balance(db, user_id, mora=gained, zarniki=-amount,
+                                   source="zarniki_exchange", chat_id=chat_id,
+                                   note=f"✨{amount:.0f}→🪙{gained:.0f}")
+                return True, f"✅ Обменяно ✨{amount:.0f} → 🪙{gained:.0f}"
+
+            gained = amount * ZARNIKI_TO_DIAMONDS_RATE
+            await add_balance(db, user_id, diamonds=gained, zarniki=-amount,
+                               source="zarniki_exchange", chat_id=chat_id,
+                               note=f"✨{amount:.0f}→💎{gained:.2f}")
+            return True, f"✅ Обменяно ✨{amount:.0f} → 💎{gained:.2f}"
+    except Exception as e:
+        return False, f"Ошибка: {e}"
 
 
 async def transfer_mora(
@@ -229,24 +266,29 @@ async def buy_item(
     p_dia: float,
     qty: int,
     chat_id: int | None = None,
+    p_zarniki: float = 0,
 ) -> tuple[bool, str]:
     total_m = p_mora * qty
     total_d = p_dia * qty
+    total_z = p_zarniki * qty
     try:
         async with db.connection.transaction():
             async with db.execute(
-                "SELECT user_balance_mora, user_balance_diamonds FROM users "
+                "SELECT user_balance_mora, user_balance_diamonds, "
+                "COALESCE(user_balance_zarniki, 0) FROM users "
                 "WHERE user_tg_id = ? FOR UPDATE",
                 (user_id,),
             ) as c:
                 bal = await c.fetchone()
-            if not bal or bal[0] < total_m or bal[1] < total_d:
+            if not bal or bal[0] < total_m or bal[1] < total_d or bal[2] < total_z:
                 return False, "Недостаточно средств."
 
             await db.execute(
                 "UPDATE users SET user_balance_mora = user_balance_mora - ?, "
-                "user_balance_diamonds = user_balance_diamonds - ? WHERE user_tg_id = ?",
-                (total_m, total_d, user_id),
+                "user_balance_diamonds = user_balance_diamonds - ?, "
+                "user_balance_zarniki = COALESCE(user_balance_zarniki, 0) - ? "
+                "WHERE user_tg_id = ?",
+                (total_m, total_d, total_z, user_id),
             )
             await db.execute(
                 "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
@@ -258,6 +300,9 @@ async def buy_item(
                                  chat_id=chat_id, note=f"{item_id}×{qty}")
             if total_d > 0:
                 await log_wallet(db, user_id, delta_diamonds=-total_d, source="shop_purchase",
+                                 chat_id=chat_id, note=f"{item_id}×{qty}")
+            if total_z > 0:
+                await log_wallet(db, user_id, delta_zarniki=-total_z, source="shop_purchase",
                                  chat_id=chat_id, note=f"{item_id}×{qty}")
         return True, "Покупка успешна."
     except Exception as e:

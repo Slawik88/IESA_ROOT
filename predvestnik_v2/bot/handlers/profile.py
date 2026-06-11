@@ -5,7 +5,7 @@ import aiosqlite
 from infrastructure.repositories import economy, chat, users, marriages
 from infrastructure.repositories import zoo as zoo_db
 from services import roles
-from services.utils import format_currency, safe_html, resolve_target, parse_dt
+from services.utils import format_currency, safe_html, resolve_target, parse_dt, resolve_display_name
 from services.zoo import format_pet_bonus_short
 from services import ui
 from bot.filters.text_commands import TextCmd
@@ -54,8 +54,10 @@ async def _build_profile_text(
     # Marriage
     marriage = await marriages.get_user_marriage(db, user_id)
     if marriage:
+        partner_id = marriage['user2_id'] if marriage['user1_id'] == user_id else marriage['user1_id']
         p_name = marriage['user2_name'] if marriage['user1_id'] == user_id else marriage['user1_name']
-        marriage_text = f"💍 в браке с <b>{safe_html(p_name)}</b>"
+        p_name = await resolve_display_name(db, partner_id, chat_id, p_name)
+        marriage_text = f"💍 в браке с <b>{p_name}</b>"
     else:
         marriage_text = "💔 <i>Одинок(а)</i>"
 

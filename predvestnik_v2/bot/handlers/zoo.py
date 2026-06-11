@@ -841,6 +841,8 @@ _FOOD_ITEMS = [
     "food_energy",
     "food_super",
     "food_diamond",
+    "zarniki_fatigue_reset",
+    "zarniki_cooldown_skip",
 ]
 
 
@@ -879,7 +881,7 @@ async def cb_zoo_feed_menu(query: types.CallbackQuery, callback_data: ZooCB, db)
         new_fat = max(0, fatigue - restore)
         gain = fatigue - new_fat
         extras = ""
-        if food_id == "food_energy":
+        if food_id in ("food_energy", "zarniki_cooldown_skip"):
             extras = " + сброс КД похода"
         elif food_id == "food_super":
             extras = " + −5 всем в питомнике"
@@ -964,8 +966,8 @@ async def cb_zoo_feed_one(query: types.CallbackQuery, callback_data: ZooCB, db):
                     await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_f, op["id"]))
 
         # food_diamond: efficiency buff (placeholder — buff system not fully implemented)
-        # food_energy: expedition CD reset
-        if food_id == "food_energy":
+        # food_energy / zarniki_cooldown_skip: expedition CD reset
+        if food_id in ("food_energy", "zarniki_cooldown_skip"):
             await db.execute(
                 "UPDATE active_expeditions SET ends_at = CURRENT_TIMESTAMP WHERE pet_id = ?",
                 (pet_id,),
@@ -986,7 +988,7 @@ async def cb_zoo_feed_one(query: types.CallbackQuery, callback_data: ZooCB, db):
 
     dragon_note = " (🐉 Дракон сэкономил корм!)" if free_food else ""
     wolf_note = f" (🐺 Волк +{restore - item.get('fatigue_restore', 0)})" if food_id == "food_basic" and restore > item.get("fatigue_restore", 0) else ""
-    energy_note = " · Поход завершён досрочно!" if food_id == "food_energy" else ""
+    energy_note = " · Поход завершён досрочно!" if food_id in ("food_energy", "zarniki_cooldown_skip") else ""
     super_note = " · −5 всем питомцам в питомнике" if food_id == "food_super" else ""
 
     msg = (
