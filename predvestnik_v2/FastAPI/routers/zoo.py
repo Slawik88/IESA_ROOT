@@ -16,6 +16,7 @@ from infrastructure.repositories.zoo import (
     get_user_pets, get_nursery_count, get_zoo_stats, expand_max_slots, get_active_count,
     get_pending_hamster_income, get_active_species_level,
 )
+from services.formatting import parse_dt
 from services.zoo import get_active_wolf_food_extra
 
 router = APIRouter(prefix="/zoo", tags=["zoo"])
@@ -503,7 +504,8 @@ async def collect_hamster(db=Depends(get_db), user=Depends(require_tg_user)):
     double_mora_bonus = 0
     diamond_bonus = 0.0
     today_str = _dt.now().strftime("%Y-%m-%d")
-    last_collect_day = (stats.get("last_income_collection") or "")[:10]
+    last_collect_dt = parse_dt(stats.get("last_income_collection"))
+    last_collect_day = last_collect_dt.strftime("%Y-%m-%d") if last_collect_dt else ""
 
     for h in productive:
         b = HAMSTER_BONUSES.get(max(1, min(10, h["pet_level"])), {})
