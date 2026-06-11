@@ -82,6 +82,31 @@ async def increment_metric(
     return granted
 
 
+async def backfill_metric(
+    db,
+    user_id: int,
+    metric_name: str,
+    true_value: float,
+    chat_id: int | None = None,
+) -> list[dict]:
+    """Catch up `metric_name`'s progress to `true_value` if it's behind.
+
+    For metrics whose true cumulative/peak value can be recomputed from current
+    DB state (pets owned, balances, message counts, etc.), this lets players
+    with pre-existing history get retroactive progress + rewards for thresholds
+    they already qualify for. Idempotent — a no-op once progress has caught up,
+    safe to call on every page view. No commit — caller must commit.
+    """
+    ach_id = next((aid for aid, a in ACHIEVEMENTS.items() if a["metric"] == metric_name), None)
+    if ach_id is None:
+        return []
+    record = await get_achievement(db, user_id, ach_id)
+    current = record["progress"] if record else 0.0
+    if true_value <= current:
+        return []
+    return await increment_metric(db, user_id, metric_name, delta=true_value - current, chat_id=chat_id)
+
+
 def format_achievement_notification(grants: list[dict]) -> str:
     """Format granted achievements into a compact notification string."""
     if not grants:

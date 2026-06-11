@@ -514,7 +514,12 @@ async def cmd_web(message: types.Message):
             web_app=types.WebAppInfo(url=_MINIAPP_URL),
         )
     else:
-        builder.button(text="🔮 Открыть мини-апп", url=_MINIAPP_URL)
+        # Encode chat_id so the mini-app knows which chat it was opened from
+        # (used to scope quests/duels/local-top to that chat).
+        builder.button(
+            text="🔮 Открыть мини-апп",
+            url=f"{_MINIAPP_URL}?chat_id={message.chat.id}",
+        )
 
     await message.answer(
         "🔮 <b>ПРЕДВЕСТНИК — МИНИ-АПП</b>\n\n"

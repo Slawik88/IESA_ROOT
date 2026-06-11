@@ -52,7 +52,7 @@ async def _build_profile_text(
     local_rank_name = roles.get_local_rank_name(user_id, stats.get('local_rank', 0), developer_id=developer_id)
 
     # Marriage
-    marriage = await marriages.get_user_marriage(db, chat_id, user_id)
+    marriage = await marriages.get_user_marriage(db, user_id)
     if marriage:
         p_name = marriage['user2_name'] if marriage['user1_id'] == user_id else marriage['user1_name']
         marriage_text = f"💍 в браке с <b>{safe_html(p_name)}</b>"

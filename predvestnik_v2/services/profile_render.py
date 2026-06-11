@@ -218,7 +218,7 @@ async def build_profile_text(
     first_seen_raw = await users_repo.get_first_seen(db, user_id)
     nursery_pets   = await zoo_db.get_user_pets(db, user_id, placement="nursery")
     streak_row     = await get_streak(db, user_id, chat_id)
-    marriage       = await marriage_repo.get_user_marriage(db, chat_id, user_id)
+    marriage       = await marriage_repo.get_user_marriage(db, user_id)
     hamster_inc    = await zoo_db.get_pending_hamster_income(db, user_id)
     ach_count      = await ach_repo.get_user_achievements_count(db, user_id)
 

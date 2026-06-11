@@ -70,7 +70,7 @@ async def cmd_marriage(message: types.Message, db, text_args: str = None):
     elif target_id == message.bot.id:
         is_bot = True 
 
-    can_marry, error_msg = await marriage_service.check_marriage_proposal(db, message.chat.id, initiator_id, target_id, is_bot)
+    can_marry, error_msg = await marriage_service.check_marriage_proposal(db, initiator_id, target_id, is_bot)
     if not can_marry:
         return await message.answer(error_msg, parse_mode="HTML")
 
@@ -122,7 +122,7 @@ async def process_marriage_action(callback: types.CallbackQuery, callback_data: 
         )
         return await callback.answer()
 
-    can_marry, _ = await marriage_service.check_marriage_proposal(db, callback.message.chat.id, callback_data.initiator_id, callback_data.target_id, False)
+    can_marry, _ = await marriage_service.check_marriage_proposal(db, callback_data.initiator_id, callback_data.target_id, False)
     if not can_marry:
         await callback.message.edit_text("❌ К сожалению, предложение больше недействительно.", parse_mode="HTML")
         return await callback.answer()
@@ -157,7 +157,7 @@ async def process_marriage_action(callback: types.CallbackQuery, callback_data: 
 # ==========================================
 @router.message(TextCmd(["развод", "расстаться"]))
 async def cmd_divorce(message: types.Message, db):
-    marriage = await marriages.get_user_marriage(db, message.chat.id, message.from_user.id)
+    marriage = await marriages.get_user_marriage(db, message.from_user.id)
     if not marriage:
         return await message.answer("💔 Вы и так свободны как ветер.", parse_mode="HTML")
 
@@ -187,12 +187,12 @@ async def process_divorce_confirm(callback: types.CallbackQuery, callback_data: 
         await callback.message.edit_text("💍 <b>Развод отменён.</b> Семья сохранена.", parse_mode="HTML")
         return await callback.answer()
 
-    marriage = await marriages.get_user_marriage(db, callback.message.chat.id, callback.from_user.id)
+    marriage = await marriages.get_user_marriage(db, callback.from_user.id)
     if not marriage:
         await callback.message.edit_text("💔 Брак уже был расторгнут.", parse_mode="HTML")
         return await callback.answer()
 
-    await marriages.delete_marriage(db, callback.message.chat.id, callback.from_user.id)
+    await marriages.delete_marriage(db, callback.from_user.id)
     await callback.message.edit_text("💔 <b>Брак расторгнут.</b> Вы снова свободны.", parse_mode="HTML")
     await callback.answer()
 
@@ -201,10 +201,10 @@ async def process_divorce_confirm(callback: types.CallbackQuery, callback_data: 
 # ==========================================
 @router.message(TextCmd(["пара", "моя пара", "мой брак"]))
 async def cmd_couple(message: types.Message, db):
-    marriage = await marriages.get_user_marriage(db, message.chat.id, message.from_user.id)
+    marriage = await marriages.get_user_marriage(db, message.from_user.id)
     
     if not marriage:
-        return await message.answer("💔 Вы еще не состоите в браке в этом чате. Время найти свою половинку!", parse_mode="HTML")
+        return await message.answer("💔 Вы ещё не состоите в браке. Время найти свою половинку!", parse_mode="HTML")
 
     partner_id = marriage['user2_id'] if marriage['user1_id'] == message.from_user.id else marriage['user1_id']
     partner_name = marriage['user2_name'] if marriage['user1_id'] == message.from_user.id else marriage['user1_name']
@@ -274,8 +274,8 @@ async def cmd_family_deposit(message: types.Message, db, text_args: str = None):
     except ValueError:
         return await message.answer("❌ Укажите сумму числом.")
     
-    marriage = await marriages.get_user_marriage(db, message.chat.id, message.from_user.id)
-    if not marriage: return await message.answer("❌ Вы не состоите в браке в этом чате.")
+    marriage = await marriages.get_user_marriage(db, message.from_user.id)
+    if not marriage: return await message.answer("❌ Вы не состоите в браке.")
     
     success, msg = await marriages.family_bank_transaction(db, marriage['id'], message.from_user.id, amount, "deposit")
     if success:
@@ -288,9 +288,9 @@ async def cmd_family_info(message: types.Message, db):
     if message.chat.type == "private":
         return
 
-    marriage = await marriages.get_user_marriage(db, message.chat.id, message.from_user.id)
+    marriage = await marriages.get_user_marriage(db, message.from_user.id)
     if not marriage:
-        return await message.answer("💔 Вы не состоите в браке в этом чате.", parse_mode="HTML")
+        return await message.answer("💔 Вы не состоите в браке.", parse_mode="HTML")
 
     partner_id = marriage['user2_id'] if marriage['user1_id'] == message.from_user.id else marriage['user1_id']
     partner_name = marriage['user2_name'] if marriage['user1_id'] == message.from_user.id else marriage['user1_name']
@@ -333,8 +333,8 @@ async def cmd_family_withdraw(message: types.Message, db, text_args: str = None)
     except ValueError:
         return await message.answer("❌ Укажите сумму числом.")
     
-    marriage = await marriages.get_user_marriage(db, message.chat.id, message.from_user.id)
-    if not marriage: return await message.answer("❌ Вы не состоите в браке в этом чате.")
+    marriage = await marriages.get_user_marriage(db, message.from_user.id)
+    if not marriage: return await message.answer("❌ Вы не состоите в браке.")
     
     success, msg = await marriages.family_bank_transaction(db, marriage['id'], message.from_user.id, amount, "withdraw")
     if success:

@@ -80,7 +80,7 @@ def _lot_line(lot: dict, show_timer: bool = True) -> str:
 # ── Callbacks ──────────────────────────────────────────────────────────────────
 
 class AucCB(CallbackData, prefix="auc"):
-    action: str   # menu | browse | cat | lot | bid_prompt | bid_confirm | cancel_lot
+    action: str   # list | lot | bid_confirm | cancel_lot
                   # create_start | create_cat | create_item | create_qty | create_bid
                   # create_buyout | create_confirm | my_lots | my_bids | cancel_create
     v: str = ""   # flexible value
@@ -101,59 +101,62 @@ async def _build_menu_text(db, user_id: int) -> str:
     )
 
 
-def _menu_kb() -> types.InlineKeyboardMarkup:
+_LOTS_PER_PAGE = 8
+
+
+async def _render_lot_list(db, user_id: int, page: int) -> tuple[str, types.InlineKeyboardMarkup]:
+    lots = await get_active_lots(db, limit=_LOTS_PER_PAGE, offset=page * _LOTS_PER_PAGE)
+    header = await _build_menu_text(db, user_id)
+
     b = InlineKeyboardBuilder()
-    for cat_id, (icon, label) in _CATEGORIES.items():
-        b.button(text=f"{icon} {label}", callback_data=AucCB(action="cat", v=cat_id))
-    b.button(text="➕ Выставить лот", callback_data=AucCB(action="create_start"))
-    b.button(text="📋 Мои лоты",     callback_data=AucCB(action="my_lots"))
-    b.button(text="🎯 Мои ставки",   callback_data=AucCB(action="my_bids"))
-    b.adjust(2, 2, 1, 1, 1, 1)
-    return b.as_markup()
+    sizes: list[int] = []
+    if not lots:
+        text = header + "\n\n<i>Лотов пока нет.</i>"
+    else:
+        lines = [header, "", f"📜 <b>ЛОТЫ</b> ({len(lots)})\n"]
+        for lot in lots:
+            lines.append(f"├ #{lot['id']} {_lot_line(lot)}")
+            b.button(
+                text=f"🔍 Лот #{lot['id']}: {lot.get('item_name','?')}",
+                callback_data=AucCB(action="lot", v=str(lot["id"]), page=page),
+            )
+            sizes.append(1)
+        lines[-1] = "└" + lines[-1][1:]
+        text = "\n".join(lines)
+
+    nav = 0
+    if page > 0:
+        b.button(text="⬅️ Пред.", callback_data=AucCB(action="list", page=page - 1))
+        nav += 1
+    if len(lots) == _LOTS_PER_PAGE:
+        b.button(text="След. ➡️", callback_data=AucCB(action="list", page=page + 1))
+        nav += 1
+    if nav:
+        sizes.append(nav)
+
+    b.button(text="➕ Выставить", callback_data=AucCB(action="create_start"))
+    b.button(text="📋 Мои лоты", callback_data=AucCB(action="my_lots"))
+    b.button(text="🎯 Мои ставки", callback_data=AucCB(action="my_bids"))
+    sizes.append(3)
+
+    b.adjust(*sizes)
+    return text, b.as_markup()
 
 
 @router.message(TextCmd(["аукцион"]))
 async def cmd_auction(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
         return
-    text = await _build_menu_text(db, message.from_user.id)
-    await message.answer(text, reply_markup=_menu_kb(), parse_mode="HTML")
+    text, markup = await _render_lot_list(db, message.from_user.id, page=0)
+    await message.answer(text, reply_markup=markup, parse_mode="HTML")
 
 
-@router.callback_query(AucCB.filter(F.action == "menu"))
-async def cb_auc_menu(query: types.CallbackQuery, db):
-    text = await _build_menu_text(db, query.from_user.id)
-    await query.message.edit_text(text, reply_markup=_menu_kb(), parse_mode="HTML")
-    await query.answer()
+# ── Browse all lots (плоский список, без категорий) ──────────────────────────────
 
-
-# ── Browse by category ─────────────────────────────────────────────────────────
-
-@router.callback_query(AucCB.filter(F.action == "cat"))
-async def cb_auc_category(query: types.CallbackQuery, callback_data: AucCB, db):
-    cat_id = callback_data.v
-    page = callback_data.page
-    lots = await get_active_lots(db, category=cat_id, limit=8, offset=page * 8)
-    icon, label = _CATEGORIES.get(cat_id, ("🏛", cat_id))
-
-    b = InlineKeyboardBuilder()
-    if not lots:
-        text = f"{icon} <b>{label}</b>\n\n<i>Лотов пока нет.</i>"
-    else:
-        lines = [f"{icon} <b>{label}</b> ({len(lots)} лотов)\n"]
-        for lot in lots:
-            lines.append(f"├ {_lot_line(lot)}")
-            b.button(
-                text=f"🔍 Лот #{lot['id']}: {lot.get('item_name','?')}",
-                callback_data=AucCB(action="lot", v=str(lot["id"])),
-            )
-        if lines[-1].startswith("├"):
-            lines[-1] = "└" + lines[-1][1:]
-        text = "\n".join(lines)
-
-    b.button(text="⬅️ Меню", callback_data=AucCB(action="menu"))
-    b.adjust(1)
-    await query.message.edit_text(text, reply_markup=b.as_markup(), parse_mode="HTML")
+@router.callback_query(AucCB.filter(F.action == "list"))
+async def cb_auc_list(query: types.CallbackQuery, callback_data: AucCB, db):
+    text, markup = await _render_lot_list(db, query.from_user.id, callback_data.page)
+    await query.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
     await query.answer()
 
 
@@ -182,8 +185,7 @@ async def cb_auc_lot(query: types.CallbackQuery, callback_data: AucCB, db):
     else:
         b.button(text="❌ Отменить лот", callback_data=AucCB(action="cancel_lot", v=str(lot_id)))
 
-    cat_id = lot["category"]
-    b.button(text="⬅️ К категории", callback_data=AucCB(action="cat", v=cat_id))
+    b.button(text="⬅️ К списку", callback_data=AucCB(action="list", page=callback_data.page))
     b.adjust(1)
 
     qty_str = f" ×{lot['quantity']}" if lot["quantity"] > 1 else ""
@@ -252,7 +254,7 @@ async def cb_cancel_lot(query: types.CallbackQuery, callback_data: AucCB, db):
     ok, msg = await cancel_lot(db, lot_id, query.from_user.id)
     await query.answer(f"{'✅' if ok else '❌'} {msg}", show_alert=True)
     if ok:
-        await cb_auc_menu(query, db)
+        await cb_auc_list(query, AucCB(action="list", page=0), db)
 
 
 # ── My lots / My bids ──────────────────────────────────────────────────────────
@@ -273,7 +275,7 @@ async def cb_my_lots(query: types.CallbackQuery, db):
                      callback_data=AucCB(action="lot", v=str(lot["id"])))
         lines[-1] = "└" + lines[-1][1:]
         text = "\n".join(lines)
-    b.button(text="⬅️ Меню", callback_data=AucCB(action="menu"))
+    b.button(text="⬅️ К списку", callback_data=AucCB(action="list", page=0))
     b.adjust(1)
     await query.message.edit_text(text, reply_markup=b.as_markup(), parse_mode="HTML")
     await query.answer()
@@ -294,7 +296,7 @@ async def cb_my_bids(query: types.CallbackQuery, db):
             )
         lines[-1] = "└" + lines[-1][1:]
         text = "\n".join(lines)
-    b.button(text="⬅️ Меню", callback_data=AucCB(action="menu"))
+    b.button(text="⬅️ К списку", callback_data=AucCB(action="list", page=0))
     b.adjust(1)
     await query.message.edit_text(text, reply_markup=b.as_markup(), parse_mode="HTML")
     await query.answer()
@@ -573,7 +575,7 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
 async def cb_cancel_create(query: types.CallbackQuery, db):
     _pending.pop(query.from_user.id, None)
     await query.answer("❌ Создание лота отменено.")
-    await cb_auc_menu(query, db)
+    await cb_auc_list(query, AucCB(action="list", page=0), db)
 
 
 # ── бот аукцион [sub] text commands ───────────────────────────────────────────
