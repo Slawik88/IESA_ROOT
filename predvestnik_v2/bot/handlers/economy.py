@@ -7,6 +7,7 @@ from infrastructure.repositories import marriages as marriages_db
 from infrastructure.repositories.moderation import get_chat_settings
 from infrastructure.repositories.chat import get_chat_stats
 from infrastructure.repositories.dark_mora import get_dark_mora_balance
+from services import global_moderation
 from services.admin_service import give_resource, set_resource
 from services.utils import resolve_target, safe_html, format_currency
 from core.registry import ITEMS_REGISTRY
@@ -53,8 +54,13 @@ async def cmd_balance(message: types.Message, db):
 
 
 @router.message(TextCmd(["обмен зарников", "обменять зарники", "обмен ✨", "обменять ✨"]))
-async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None):
+async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None,
+                                user_restricted: dict | None = None, chat_restricted: dict | None = None):
     user_id = message.from_user.id
+
+    restriction = user_restricted or chat_restricted
+    if restriction:
+        return await message.answer(global_moderation.restriction_message(restriction))
 
     if not text_args:
         return await message.answer(
@@ -92,9 +98,15 @@ async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None
 
 
 @router.message(TextCmd(["перевод", "перевести", "дать", "скинуть"]))
-async def cmd_pay(message: types.Message, db, text_args: str = None):
+async def cmd_pay(message: types.Message, db, text_args: str = None,
+                   user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
         return
+
+    restriction = user_restricted or chat_restricted
+    if restriction:
+        return await message.answer(global_moderation.restriction_message(restriction))
+
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
 
     if not target_id or not extra_args:

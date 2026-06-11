@@ -86,6 +86,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "chats":        chats,
         "pets":         pets,
         "is_vip":       bool(row["is_vip"]),
+        "global_rank":  row["global_rank"] or 0,
     }
 
 

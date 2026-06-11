@@ -11,6 +11,7 @@ from core.warp_responses import ALL_WARP_COMMANDS, NSFW_TYPES, resolve_warp
 from infrastructure.repositories import moderation as mod_db
 from services.quests import increment_metric as quest_increment
 from services.utils import safe_html, resolve_target, resolve_display_name
+from services.vip import is_vip_active
 
 router = Router(name="warps_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -85,11 +86,14 @@ async def cmd_warp(message: types.Message, db, text_args: str = None):
         text = self_resp.replace("{actor}", f"<b>{actor_name}</b>").replace("{target}", f"<b>{actor_name}</b>")
         return await message.answer(text, parse_mode="HTML")
 
-    # Pick response
+    # Pick response (VIP gets extra phrases added to the pool — больше разнообразия)
     responses = warp_data.get("responses", [])
     if not responses:
         return
-    template = random.choice(responses)
+    pool = responses
+    if warp_data.get("responses_vip") and await is_vip_active(db, actor_id):
+        pool = responses + warp_data["responses_vip"]
+    template = random.choice(pool)
 
     actor_name = await resolve_display_name(db, actor_id, chat_id, message.from_user.first_name)
     target_disp = await resolve_display_name(db, target_id, chat_id, target_name)

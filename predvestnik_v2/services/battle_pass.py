@@ -1,0 +1,175 @@
+"""
+services/battle_pass.py
+B5: Боевой пропуск — сезонная прогрессия с бесплатным и платным (VIP) треками.
+No bot.*/FastAPI.* imports.
+"""
+from datetime import date
+
+from core.constants import (
+    BATTLE_PASS_MAX_LEVEL,
+    BATTLE_PASS_XP_PER_LEVEL,
+    BATTLE_PASS_XP_WEIGHTS,
+)
+from core.registry import BATTLE_PASS_REWARDS, BATTLE_PASS_SEASONS, ITEMS_REGISTRY
+from infrastructure.repositories.economy import add_balance
+from services.vip import is_vip_active
+
+
+def get_active_season() -> dict | None:
+    """Текущий сезон по дате (BATTLE_PASS_SEASONS), либо None между сезонами."""
+    today = date.today().isoformat()
+    for season_id, season in BATTLE_PASS_SEASONS.items():
+        if season["starts_at"] <= today <= season["ends_at"]:
+            return {**season, "id": season_id}
+    return None
+
+
+async def _get_or_create_progress(db, user_id: int, season_id: str) -> dict:
+    async with db.execute(
+        "SELECT xp, level, claimed_free_levels, claimed_paid_levels "
+        "FROM battle_pass_progress WHERE user_id = ? AND season_id = ?",
+        (user_id, season_id),
+    ) as c:
+        row = await c.fetchone()
+    if row:
+        return dict(row)
+
+    await db.execute(
+        "INSERT INTO battle_pass_progress (user_id, season_id) VALUES (?, ?) "
+        "ON CONFLICT (user_id, season_id) DO NOTHING",
+        (user_id, season_id),
+    )
+    return {"xp": 0, "level": 1, "claimed_free_levels": [], "claimed_paid_levels": []}
+
+
+async def add_xp(db, user_id: int, metric_name: str, delta: float = 1.0) -> None:
+    """Начислить XP Боевого пропуска за игровое действие. No commit — caller handles commit."""
+    weight = BATTLE_PASS_XP_WEIGHTS.get(metric_name)
+    if not weight:
+        return
+    season = get_active_season()
+    if not season:
+        return
+
+    xp_gain = int(weight * delta)
+    if xp_gain <= 0:
+        return
+
+    await _get_or_create_progress(db, user_id, season["id"])
+    await db.execute(
+        "UPDATE battle_pass_progress SET xp = xp + ? WHERE user_id = ? AND season_id = ?",
+        (xp_gain, user_id, season["id"]),
+    )
+
+    async with db.execute(
+        "SELECT xp FROM battle_pass_progress WHERE user_id = ? AND season_id = ?",
+        (user_id, season["id"]),
+    ) as c:
+        row = await c.fetchone()
+    new_xp = row["xp"] if row else xp_gain
+    new_level = min(BATTLE_PASS_MAX_LEVEL, 1 + new_xp // BATTLE_PASS_XP_PER_LEVEL)
+
+    await db.execute(
+        "UPDATE battle_pass_progress SET level = ? "
+        "WHERE user_id = ? AND season_id = ? AND level < ?",
+        (new_level, user_id, season["id"], new_level),
+    )
+
+
+async def get_progress(db, user_id: int) -> dict | None:
+    """None если сейчас нет активного сезона. Иначе — снимок прогресса игрока."""
+    season = get_active_season()
+    if not season:
+        return None
+
+    progress = await _get_or_create_progress(db, user_id, season["id"])
+    xp = progress["xp"]
+    level = progress["level"]
+    xp_in_level = xp % BATTLE_PASS_XP_PER_LEVEL
+    xp_to_next = 0 if level >= BATTLE_PASS_MAX_LEVEL else BATTLE_PASS_XP_PER_LEVEL - xp_in_level
+
+    return {
+        "season": season,
+        "level": level,
+        "xp": xp,
+        "xp_in_level": xp_in_level,
+        "xp_to_next": xp_to_next,
+        "max_level": BATTLE_PASS_MAX_LEVEL,
+        "claimed_free": list(progress["claimed_free_levels"] or []),
+        "claimed_paid": list(progress["claimed_paid_levels"] or []),
+        "paid_track_open": await is_vip_active(db, user_id),
+    }
+
+
+def level_status(level: int, track: str, progress: dict) -> str:
+    """claimed | available | locked_vip | locked_level — для рендера списка наград."""
+    claimed = progress["claimed_free"] if track == "free" else progress["claimed_paid"]
+    if level in claimed:
+        return "claimed"
+    if level > progress["level"]:
+        return "locked_level"
+    if track == "paid" and not progress["paid_track_open"]:
+        return "locked_vip"
+    return "available"
+
+
+async def claim_reward(db, user_id: int, level: int, track: str) -> tuple[bool, str]:
+    """Забрать награду уровня `level` из трека `track` ('free' | 'paid')."""
+    if track not in ("free", "paid"):
+        return False, "❌ Некорректный трек."
+    if level < 1 or level > BATTLE_PASS_MAX_LEVEL:
+        return False, "❌ Некорректный уровень."
+
+    season = get_active_season()
+    if not season:
+        return False, "Сейчас нет активного сезона Боевого пропуска."
+
+    progress = await _get_or_create_progress(db, user_id, season["id"])
+    if level > progress["level"]:
+        return False, f"🔒 Уровень {level} ещё не достигнут (сейчас {progress['level']})."
+
+    claimed_col = "claimed_free_levels" if track == "free" else "claimed_paid_levels"
+    claimed = progress[claimed_col] or []
+    if level in claimed:
+        return False, "Эта награда уже получена."
+
+    if track == "paid" and not await is_vip_active(db, user_id):
+        return False, "🔒 Нужен активный VIP, чтобы забрать награду платного трека."
+
+    reward = BATTLE_PASS_REWARDS.get(level, {}).get(track, {})
+    mora = reward.get("mora", 0)
+    diamonds = reward.get("diamonds", 0)
+    items = reward.get("items", ())
+
+    if mora or diamonds:
+        await add_balance(
+            db, user_id, mora=mora, diamonds=diamonds, commit=False,
+            source="battle_pass_reward", note=f"{season['id']}_lv{level}_{track}",
+        )
+
+    for item_id, qty in items:
+        await db.execute(
+            "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+            (user_id, item_id, qty, qty),
+        )
+
+    await db.execute(
+        f"UPDATE battle_pass_progress SET {claimed_col} = array_append({claimed_col}, ?) "
+        "WHERE user_id = ? AND season_id = ?",
+        (level, user_id, season["id"]),
+    )
+    await db.commit()
+
+    parts = []
+    if mora:
+        parts.append(f"+{int(mora)} 🪙")
+    if diamonds:
+        parts.append(f"+{int(diamonds)} 💎")
+    for item_id, qty in items:
+        name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
+        parts.append(f"+{qty} {name}")
+    reward_text = ", ".join(parts) if parts else "—"
+
+    track_label = "Бесплатный" if track == "free" else "VIP"
+    return True, f"🎫 Уровень {level} ({track_label}): получено {reward_text}"

@@ -18,6 +18,7 @@ from infrastructure.repositories.auction import (
     get_active_lots, get_lot, get_seller_active_lots, get_highest_bid,
     get_user_active_bids, get_reserve,
 )
+from services import global_moderation
 from services.auction import create_auction_lot, place_bid, cancel_lot
 from services.quests import increment_metric as quest_increment
 from math import ceil as _ceil
@@ -581,9 +582,15 @@ async def cb_cancel_create(query: types.CallbackQuery, db):
 # ── бот аукцион [sub] text commands ───────────────────────────────────────────
 
 @router.message(TextCmd(["аукцион выставить", "аукцион создать"]))
-async def cmd_auction_create(message: types.Message, db):
+async def cmd_auction_create(message: types.Message, db,
+                              user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
         return
+
+    restriction = user_restricted or chat_restricted
+    if restriction:
+        return await message.answer(global_moderation.restriction_message(restriction))
+
     _pending[message.from_user.id] = {}
     b = InlineKeyboardBuilder()
     for cat_id, (icon, label) in _CATEGORIES.items():
@@ -612,9 +619,15 @@ async def cmd_auction_my(message: types.Message, db):
 
 
 @router.message(TextCmd(["аукцион ставка"]))
-async def cmd_auction_bid(message: types.Message, db, text_args: str = None):
+async def cmd_auction_bid(message: types.Message, db, text_args: str = None,
+                           user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
         return
+
+    restriction = user_restricted or chat_restricted
+    if restriction:
+        return await message.answer(global_moderation.restriction_message(restriction))
+
     raw = (text_args or "").strip()
     parts = [p.strip() for p in raw.split(",")]
     if len(parts) < 2:

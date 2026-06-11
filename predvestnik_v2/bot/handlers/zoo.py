@@ -20,6 +20,7 @@ from core.constants import (
     get_pet_bonus,
     get_total_duplicates_for_level,
 )
+from services.vip import get_extra_pet_slots
 from services.zoo import (
     get_wolf_fatigue_reduction,
     is_wolf_active_slot,
@@ -445,10 +446,11 @@ async def cb_pet_move(query: types.CallbackQuery, callback_data: ZooCB, db):
         if new_placement != "storage":
             nursery_count = await zoo_db.get_nursery_count(db, user_id)
             stats = await zoo_db.get_zoo_stats(db, user_id)
-            if nursery_count >= stats["max_slots"]:
+            extra = await get_extra_pet_slots(db, user_id)
+            if nursery_count >= stats["max_slots"] + extra:
                 await db.rollback()
                 return await query.answer(
-                    f"❌ Питомник: {nursery_count}/{stats['max_slots']} слотов занято. Уберите кого-то на склад.",
+                    f"❌ Питомник: {nursery_count}/{stats['max_slots'] + extra} слотов занято. Уберите кого-то на склад.",
                     show_alert=True,
                 )
 

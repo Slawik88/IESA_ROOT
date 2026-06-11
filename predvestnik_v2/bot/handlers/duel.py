@@ -8,6 +8,7 @@ from core.registry import PET_SPECIES
 from infrastructure.repositories import zoo as zoo_db
 from infrastructure.repositories.moderation import get_chat_settings
 from infrastructure.repositories.chat import get_chat_stats
+from services import global_moderation
 from services.duel import create_challenge, accept_duel, decline_duel, calculate_power
 from services.utils import safe_html, resolve_target, resolve_display_name
 from services.achievements import increment_metric
@@ -21,9 +22,14 @@ class DuelCB(CallbackData, prefix="duel"):
 
 
 @router.message(TextCmd(["дуэль", "дuel", "pvp"]))
-async def cmd_duel(message: types.Message, db, text_args: str = None):
+async def cmd_duel(message: types.Message, db, text_args: str = None,
+                    user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
         return
+
+    restriction = user_restricted or chat_restricted
+    if restriction:
+        return await message.answer(global_moderation.restriction_message(restriction))
 
     challenger_id = message.from_user.id
     chat_id = message.chat.id

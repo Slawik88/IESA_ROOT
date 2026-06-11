@@ -19,7 +19,7 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               craft, quests, auction, duels, achievements,
                               themes, streak, exchange, dark_mora,
                               marriage, daily_deal, promocodes, wallet,
-                              events, admin, vip)
+                              events, admin, vip, battle_pass, global_admin)
 
 
 @asynccontextmanager
@@ -36,7 +36,8 @@ for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           gacha.router, craft.router, quests.router, auction.router, duels.router,
           achievements.router, themes.router, streak.router, exchange.router,
           dark_mora.router, marriage.router, daily_deal.router,
-          promocodes.router, wallet.router, events.router, admin.router, vip.router]:
+          promocodes.router, wallet.router, events.router, admin.router, vip.router,
+          battle_pass.router, global_admin.router]:
     app.include_router(r)
 
 

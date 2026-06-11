@@ -7,6 +7,7 @@ from aiogram.exceptions import TelegramBadRequest
 from bot.filters.text_commands import TextCmd
 from core.registry import CRAFT_RECIPES, ITEMS_REGISTRY
 from infrastructure.repositories.economy import get_item_quantity
+from services import global_moderation
 from services.craft import get_craftable_list, craft
 from services.utils import check_callback_owner
 
@@ -67,7 +68,12 @@ def _confirm_keyboard(recipe_id: str, user_id: int) -> types.InlineKeyboardMarku
 
 
 @router.message(TextCmd(["крафт", "craft", "скрафтить", "создать предмет"]))
-async def cmd_craft(message: types.Message, db, text_args: str = None):
+async def cmd_craft(message: types.Message, db, text_args: str = None,
+                     user_restricted: dict | None = None, chat_restricted: dict | None = None):
+    restriction = user_restricted or chat_restricted
+    if restriction:
+        return await message.answer(global_moderation.restriction_message(restriction))
+
     recipes = await get_craftable_list(db, message.from_user.id)
     if not recipes:
         return await message.answer("⚗️ <b>КРАФТ</b>\n\n<i>Рецептов пока нет.</i>", parse_mode="HTML")

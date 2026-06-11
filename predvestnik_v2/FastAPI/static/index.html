@@ -49,11 +49,13 @@
     <button class="tb" onclick="switchPro('quests',this)">📋 Квесты</button>
     <button class="tb" onclick="switchPro('streak',this)">🔥 Стрик</button>
     <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
+    <button class="tb" onclick="switchPro('bp',this)">🎫 БП</button>
   </div>
   <div id="pro-main"><div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div></div>
   <div id="pro-quests" style="display:none"><div id="qc"></div></div>
   <div id="pro-streak" style="display:none"></div>
   <div id="pro-ach" style="display:none"></div>
+  <div id="pro-bp" style="display:none"></div>
 </div>
 
 <!-- 2. Зоопарк -->
@@ -135,6 +137,22 @@
   <div id="adm-logs"     style="display:none"></div>
 </div>
 
+<!-- 7. Глобальная модерация -->
+<div id="pg-global" class="page">
+  <div class="tabs">
+    <button class="tb active" onclick="swGlobal('chats',this)">💬 Все чаты</button>
+    <button class="tb" onclick="swGlobal('sanctions',this)">🚫 Ограничения</button>
+    <button class="tb" onclick="swGlobal('log',this)">📋 Журнал</button>
+    <button class="tb" onclick="swGlobal('appeals',this)">📨 Апелляции</button>
+    <button class="tb" id="glb-tab-ranks" style="display:none" onclick="swGlobal('ranks',this)">👮 Штат</button>
+  </div>
+  <div id="glb-chats"></div>
+  <div id="glb-sanctions" style="display:none"></div>
+  <div id="glb-log"       style="display:none"></div>
+  <div id="glb-appeals"   style="display:none"></div>
+  <div id="glb-ranks"     style="display:none"></div>
+</div>
+
 <nav class="nav">
   <div class="nb active" onclick="switchPage('profile',this)"><span class="ni">👤</span>Профиль</div>
   <div class="nb" onclick="switchPage('zoo',this)"><span class="ni">🐾</span>Зоопарк</div>
@@ -142,6 +160,7 @@
   <div class="nb" onclick="switchPage('market',this)"><span class="ni">🏛</span>Рынок</div>
   <div class="nb" onclick="switchPage('coll',this)"><span class="ni">🎨</span>Коллекция</div>
   <div class="nb" id="nb-admin" style="display:none" onclick="switchPage('admin',this)"><span class="ni">🛡</span>Адм.</div>
+  <div class="nb" id="nb-global" style="display:none" onclick="switchPage('global',this)"><span class="ni">🌍</span>Модер.</div>
   <div class="nb" onclick="refreshPage()" style="max-width:42px"><span class="ni">🔄</span></div>
 </nav>
 

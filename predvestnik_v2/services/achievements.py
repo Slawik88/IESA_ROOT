@@ -3,6 +3,7 @@ services/achievements.py
 Achievement increment, threshold checking, and reward granting.
 No bot/django imports.
 """
+from core.constants import BATTLE_PASS_XP_WEIGHTS
 from core.registry import ACHIEVEMENTS, ACHIEVEMENT_LEVEL_REWARDS
 from infrastructure.repositories.achievements import get_achievement, upsert_achievement
 from infrastructure.repositories.economy import add_balance
@@ -78,6 +79,12 @@ async def increment_metric(
                 break
 
         await upsert_achievement(db, user_id, ach_id, current_level, new_progress)
+
+    # Боевой пропуск (Implementation Block 5.5) — единая точка интеграции:
+    # любой increment_metric с метрикой из BATTLE_PASS_XP_WEIGHTS даёт XP БП.
+    if metric_name in BATTLE_PASS_XP_WEIGHTS:
+        from services.battle_pass import add_xp
+        await add_xp(db, user_id, metric_name, delta)
 
     return granted
 
