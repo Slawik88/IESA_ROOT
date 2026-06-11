@@ -13,6 +13,7 @@ def _fmt(rows: list[dict], count_key: str = "msg_count") -> list[dict]:
             "user_id":  r["user_tg_id"],
             "username": r.get("user_tg_username") or f"ID{r['user_tg_id']}",
             "count":    r[count_key],
+            "is_vip":   bool(r.get("is_vip", False)),
         }
         for i, r in enumerate(rows)
     ]

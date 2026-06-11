@@ -10,7 +10,7 @@ from services.economy import EconomyService
 
 router = APIRouter(prefix="/shop", tags=["shop"])
 
-_BUYABLE_CATEGORIES = {"food", "egg", "utility", "booster"}
+_BUYABLE_CATEGORIES = {"food", "egg", "utility", "booster", "donate"}
 
 
 def _build_catalog(discount: float) -> list[dict]:
@@ -20,7 +20,8 @@ def _build_catalog(discount: float) -> list[dict]:
             continue
         price_mora = item.get("price_mora", 0)
         price_dia = item.get("price_diamonds", 0)
-        if not price_mora and not price_dia:
+        price_zar = item.get("price_zarniki", 0)
+        if not price_mora and not price_dia and not price_zar:
             continue  # крафт или гача — не продаётся
 
         result.append({
@@ -30,6 +31,7 @@ def _build_catalog(discount: float) -> list[dict]:
             "description":     item.get("description", ""),
             "price_mora":      int(price_mora * (1 - discount)) if price_mora else 0,
             "price_diamonds":  int(price_dia * (1 - discount)) if price_dia else 0,
+            "price_zarniki":   price_zar,
             "discount_active": discount > 0,
         })
     return result

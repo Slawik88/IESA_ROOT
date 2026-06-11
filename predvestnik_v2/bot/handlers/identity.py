@@ -38,7 +38,7 @@ from infrastructure.repositories import zoo as zoo_db
 from infrastructure.repositories.streak import get_streak
 from services import roles
 from services.formatting import parse_dt
-from services.utils import safe_html, resolve_target
+from services.utils import safe_html, resolve_target, resolve_display_name
 
 router = Router(name="identity_router")
 
@@ -112,6 +112,7 @@ def _render_premium_profile(
     d_msgs: int, w_msgs: int, a_msgs: int,
     streak: int, ach_count: int, warns: int,
     marriage, nursery_pets: list,
+    partner_display: str | None = None,
 ) -> str:
     """Render a premium zarniki profile with tematicheskaya terminologiya."""
     bar  = _premium_bar(pct)
@@ -123,9 +124,8 @@ def _render_premium_profile(
 
     # Partner line
     if marriage:
-        p_nm = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
         dur  = _marriage_duration(marriage.get("marriage_date"))
-        partner_raw = f"{safe_html(p_nm)} ({dur})"
+        partner_raw = f"{partner_display} ({dur})"
     else:
         partner_raw = None
 
@@ -467,8 +467,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    nickname       = await users_repo.get_nickname(db, user_id, chat_id)
-    name           = safe_html(nickname or message.from_user.first_name)
+    name           = await resolve_display_name(db, user_id, chat_id, message.from_user.first_name)
     bal            = await eco_repo.get_balance(db, user_id)
     dark_mora      = await dark_mora_repo.get_dark_mora_balance(db, user_id)
     stats          = await chat_repo.get_chat_stats(db, user_id, chat_id)
@@ -531,10 +530,13 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
     else:
         shield_line = ""
 
+    partner_display = None
     if marriage:
+        partner_id = marriage["user2_id"] if marriage["user1_id"] == user_id else marriage["user1_id"]
         p_nm = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
+        partner_display = await resolve_display_name(db, partner_id, chat_id, p_nm)
         dur  = _marriage_duration(marriage.get("marriage_date"))
-        partner_line = f"💍 Брак: {safe_html(p_nm)} ({dur})"
+        partner_line = f"💍 Брак: {partner_display} ({dur})"
     else:
         partner_line = "💍 Не в браке"
 
@@ -556,6 +558,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
             d_msgs, w_msgs, a_msgs,
             streak, ach_count, warns,
             marriage, nursery_pets,
+            partner_display,
         )
         if premium_text:
             await message.answer(premium_text, parse_mode="HTML")
@@ -643,8 +646,7 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
 
     chat_id = message.chat.id
 
-    nickname   = await users_repo.get_nickname(db, target_id, chat_id)
-    name       = safe_html(nickname or target_name)
+    name       = await resolve_display_name(db, target_id, chat_id, target_name)
     stats      = await chat_repo.get_chat_stats(db, target_id, chat_id)
     g_rank_id  = await users_repo.get_global_rank(db, target_id)
     pets       = await zoo_db.get_user_pets(db, target_id, placement="nursery")
@@ -670,9 +672,11 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
     streak    = streak_row.get("streak", 0)
 
     if marriage:
+        partner_id = marriage["user2_id"] if marriage["user1_id"] == target_id else marriage["user1_id"]
         p_nm = marriage["user2_name"] if marriage["user1_id"] == target_id else marriage["user1_name"]
+        partner_display = await resolve_display_name(db, partner_id, chat_id, p_nm)
         dur  = _marriage_duration(marriage.get("marriage_date"))
-        partner_line = f"💍 Брак: {safe_html(p_nm)} ({dur})"
+        partner_line = f"💍 Брак: {partner_display} ({dur})"
     else:
         partner_line = "💍 Не в браке"
 
@@ -712,8 +716,7 @@ async def cmd_anketa(message: types.Message, db, developer_id: int = 0):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    nickname    = await users_repo.get_nickname(db, user_id, chat_id)
-    display_name = safe_html(nickname or message.from_user.first_name)
+    display_name = await resolve_display_name(db, user_id, chat_id, message.from_user.first_name)
     self_link   = f'<a href="tg://user?id={user_id}">{display_name}</a>'
 
     stats        = await chat_repo.get_chat_stats(db, user_id, chat_id)
@@ -743,9 +746,11 @@ async def cmd_anketa(message: types.Message, db, developer_id: int = 0):
     dia_v  = float(bal["user_balance_diamonds"])
 
     if marriage:
+        partner_id = marriage["user2_id"] if marriage["user1_id"] == user_id else marriage["user1_id"]
         p_nm = marriage["user2_name"] if marriage["user1_id"] == user_id else marriage["user1_name"]
+        partner_display = await resolve_display_name(db, partner_id, chat_id, p_nm)
         dur  = _marriage_duration(marriage.get("marriage_date"))
-        partner_line = f"💍 {safe_html(p_nm)} ({dur})"
+        partner_line = f"💍 {partner_display} ({dur})"
     else:
         partner_line = "💍 Не в браке"
 

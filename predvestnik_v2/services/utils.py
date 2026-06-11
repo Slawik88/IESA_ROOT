@@ -39,10 +39,14 @@ async def resolve_display_name(
     fallback: str,
 ) -> str:
     """Return the user's local nickname if set, otherwise `fallback` (first_name/username).
-    Always pass through safe_html so callers can embed the result in HTML directly."""
+    Always pass through safe_html so callers can embed the result in HTML directly.
+    Prefixes with 👑 if the user has an active VIP subscription (Implementation Block 3.2)."""
     from infrastructure.repositories.users import get_nickname
+    from services.vip import is_vip_active
+    from services.profile_render import format_display_name
     nick = await get_nickname(db, user_id, chat_id)
-    return safe_html(nick if nick else fallback)
+    name = safe_html(nick if nick else fallback)
+    return format_display_name(name, await is_vip_active(db, user_id))
 
 
 async def resolve_target(message: types.Message, db: aiosqlite.Connection, args: str = None):

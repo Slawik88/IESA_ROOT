@@ -8,6 +8,7 @@ from infrastructure.repositories.marriages import (
 )
 from infrastructure.repositories.zoo import get_user_pets
 from services.achievements import backfill_metric
+from services.vip import is_vip_active
 
 router = APIRouter(prefix="/marriage", tags=["marriage"])
 
@@ -21,6 +22,7 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
 
     partner_id = m["user2_id"] if m["user1_id"] == user["id"] else m["user1_id"]
     partner_name = m["user2_name"] if m["user1_id"] == user["id"] else m["user1_name"]
+    partner_is_vip = await is_vip_active(db, partner_id)
 
     # Family pets (marriage_id set on pets)
     async with db.execute(
@@ -52,6 +54,7 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
         "marriage_id": m["id"],
         "partner_id": partner_id,
         "partner_name": partner_name,
+        "partner_is_vip": partner_is_vip,
         "family_balance": float(m["family_balance"] or 0),
         "days": days,
         "family_pets": family_pets,
@@ -91,9 +94,11 @@ async def get_proposals(db=Depends(get_db), user=Depends(require_tg_user)):
     """Входящие предложения о браке для текущего пользователя."""
     async with db.execute(
         "SELECT mp.id, mp.chat_id, mp.proposer_id, mp.proposed_at, mp.expires_at, "
-        "u.user_tg_username AS proposer_name "
+        "u.user_tg_username AS proposer_name, "
+        "(v.user_id IS NOT NULL) AS proposer_is_vip "
         "FROM marriage_proposals mp "
         "LEFT JOIN users u ON mp.proposer_id = u.user_tg_id "
+        "LEFT JOIN vip_subscriptions v ON v.user_id = mp.proposer_id AND v.expires_at > NOW() "
         "WHERE mp.target_id = ? AND mp.status = 'pending' AND mp.expires_at > NOW() "
         "ORDER BY mp.proposed_at DESC",
         (user["id"],),

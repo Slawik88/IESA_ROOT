@@ -14,10 +14,13 @@ async def active_duels(db=Depends(get_db), user=Depends(require_tg_user)):
     """Входящие вызовы на дуэль (где я — challenged) + исходящие."""
     async with db.execute(
         "SELECT d.id, d.challenger_id, d.challenged_id, d.stake, d.status, d.created_at, "
-        "uc.user_tg_username AS challenger_name, ud.user_tg_username AS challenged_name "
+        "uc.user_tg_username AS challenger_name, ud.user_tg_username AS challenged_name, "
+        "(vc.user_id IS NOT NULL) AS challenger_is_vip, (vd.user_id IS NOT NULL) AS challenged_is_vip "
         "FROM duels d "
         "LEFT JOIN users uc ON uc.user_tg_id = d.challenger_id "
         "LEFT JOIN users ud ON ud.user_tg_id = d.challenged_id "
+        "LEFT JOIN vip_subscriptions vc ON vc.user_id = d.challenger_id AND vc.expires_at > NOW() "
+        "LEFT JOIN vip_subscriptions vd ON vd.user_id = d.challenged_id AND vd.expires_at > NOW() "
         "WHERE (d.challenger_id = ? OR d.challenged_id = ?) AND d.status = 'pending' "
         "ORDER BY d.created_at DESC",
         (user["id"], user["id"]),
@@ -31,10 +34,13 @@ async def duel_history(db=Depends(get_db), user=Depends(require_tg_user)):
     async with db.execute(
         "SELECT d.id, d.challenger_id, d.challenged_id, d.stake, d.status, "
         "d.winner_id, d.created_at, d.resolved_at, "
-        "uc.user_tg_username AS challenger_name, ud.user_tg_username AS challenged_name "
+        "uc.user_tg_username AS challenger_name, ud.user_tg_username AS challenged_name, "
+        "(vc.user_id IS NOT NULL) AS challenger_is_vip, (vd.user_id IS NOT NULL) AS challenged_is_vip "
         "FROM duels d "
         "LEFT JOIN users uc ON uc.user_tg_id = d.challenger_id "
         "LEFT JOIN users ud ON ud.user_tg_id = d.challenged_id "
+        "LEFT JOIN vip_subscriptions vc ON vc.user_id = d.challenger_id AND vc.expires_at > NOW() "
+        "LEFT JOIN vip_subscriptions vd ON vd.user_id = d.challenged_id AND vd.expires_at > NOW() "
         "WHERE d.challenger_id = ? OR d.challenged_id = ? "
         "ORDER BY d.created_at DESC LIMIT 20",
         (user["id"], user["id"]),

@@ -139,9 +139,11 @@ async def admin_users(
     query = (
         f"SELECT ucs.user_tg_id, u.user_tg_username, ucs.user_level, ucs.user_xp, "
         f"ucs.local_rank, ucs.warnings, ucs.is_immune, ucs.immune_until, ucs.is_left, "
-        f"ucs.user_messages_count_all_time, ucs.last_message_at, ucs.muted_until "
+        f"ucs.user_messages_count_all_time, ucs.last_message_at, ucs.muted_until, "
+        f"(v.user_id IS NOT NULL) AS is_vip "
         f"FROM user_chat_stats ucs "
         f"LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
+        f"LEFT JOIN vip_subscriptions v ON v.user_id = ucs.user_tg_id AND v.expires_at > NOW() "
         f"WHERE ucs.chat_tg_id = ? {search_clause} "
         f"ORDER BY {sort_col} LIMIT {page_size} OFFSET {offset}"
     )
@@ -337,10 +339,13 @@ async def admin_logs(
 
     async with db.execute(
         "SELECT ml.id, ml.user_id, ml.admin_id, ml.action, ml.reason, ml.created_at, "
-        "u.user_tg_username AS target_name, a.user_tg_username AS admin_name "
+        "u.user_tg_username AS target_name, a.user_tg_username AS admin_name, "
+        "(vu.user_id IS NOT NULL) AS target_is_vip, (va.user_id IS NOT NULL) AS admin_is_vip "
         "FROM moderation_logs ml "
         "LEFT JOIN users u ON ml.user_id = u.user_tg_id "
         "LEFT JOIN users a ON ml.admin_id = a.user_tg_id "
+        "LEFT JOIN vip_subscriptions vu ON vu.user_id = ml.user_id AND vu.expires_at > NOW() "
+        "LEFT JOIN vip_subscriptions va ON va.user_id = ml.admin_id AND va.expires_at > NOW() "
         "WHERE ml.chat_id = ? "
         "ORDER BY ml.created_at DESC LIMIT ? OFFSET ?",
         (chat_id, page_size, offset),

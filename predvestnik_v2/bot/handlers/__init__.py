@@ -1,6 +1,7 @@
 from aiogram import Router
 from .common import router as common_router, fallback_router, unknown_cmd_router
 from .economy import router as eco_router
+from .payments import router as payments_router
 from .inventory import router as inventory_router
 from .profile import router as profile_router
 from .admin import router as admin_router
@@ -34,6 +35,7 @@ from .dark_mora import router as dark_mora_router
 from .themes import router as themes_router
 from .events_info import router as events_info_router
 from .craft import router as craft_router
+from .vip import router as vip_router
 from . import dev
 
 
@@ -43,6 +45,7 @@ main_router.include_routers(
     common_router,
     admin_router,      # до eco: "дать ранг" перехватывается раньше чем "дать"
     eco_router,
+    payments_router,   # B-Donate-1: покупка ✨ за Stars, /start?buyzarniki
     inventory_router,
     identity_router,       # я/профиль/кто/анкета — до profile_router чтобы перехватить "профиль"
     profile_router,        # только "кто я" + инфо/досье
@@ -75,6 +78,7 @@ main_router.include_routers(
     themes_router,         # темы профиля
     events_info_router,    # бот ивент: расписание + dev force-команды
     craft_router,          # бот крафт: создание предметов из ингредиентов
+    vip_router,            # B2: VIP-подписка
     dev.router,
     unknown_cmd_router,    # B6: подсказки опечаток — перед fallback, после всех команд
     fallback_router,       # должен быть последним — ловит неверный синтаксис

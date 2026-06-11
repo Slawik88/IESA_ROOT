@@ -74,6 +74,8 @@ async def cmd_marriage(message: types.Message, db, text_args: str = None):
     if not can_marry:
         return await message.answer(error_msg, parse_mode="HTML")
 
+    target_name = await resolve_display_name(db, target_id, message.chat.id, target_name)
+
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Согласиться", callback_data=MarriageAction(action="accept", target_id=target_id, initiator_id=initiator_id))
     builder.button(text="❌ Отказаться", callback_data=MarriageAction(action="decline", target_id=target_id, initiator_id=initiator_id))

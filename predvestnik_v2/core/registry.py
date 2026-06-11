@@ -121,6 +121,23 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
         "description": "Сокращает текущую активную экспедицию на 4 часа.",
         "is_tradable": False, "boost_hours": 4,
     },
+
+    # Donate shop (Implementation Block 1.4) — за Зарники ✨
+    "zarniki_fatigue_reset": {
+        "name": "✨ Эликсир бодрости", "category": "donate", "price_zarniki": 30,
+        "fatigue_restore": 100, "is_tradable": False,
+        "description": "Мгновенно снимает всю усталость питомца.",
+    },
+    "zarniki_cooldown_skip": {
+        "name": "✨ Кристалл времени", "category": "donate", "price_zarniki": 50,
+        "fatigue_restore": 50, "buff": "expedition_cd_reset", "is_tradable": False,
+        "description": "Снижает 50 усталости + сброс КД экспедиции.",
+    },
+    "zarniki_nickname_token": {
+        "name": "✨ Жетон смены ника", "category": "donate", "price_zarniki": 20,
+        "is_tradable": False,
+        "description": "+1 к месячному лимиту смены ника.",
+    },
 }
 
 
@@ -415,6 +432,41 @@ ACHIEVEMENT_LEVEL_REWARDS: Dict[int, Dict] = {
     8:  {"mora": 12000.0, "diamonds": 5.0, "items": (("spin_token_premium", 1),)},
     9:  {"mora": 25000.0, "diamonds": 10.0, "items": (("egg_mythic", 1),)},
     10: {"mora": 50000.0, "diamonds": 25.0, "items": (("spin_token_diamond", 3), ("egg_crystal", 1))},
+}
+
+
+# ── VIP Tiers (Implementation Block 2.2) ────────────────────────────────────
+VIP_TIERS: dict[str, dict] = {
+    "1m": {
+        "label": "VIP-1М", "duration_days": 30, "price_zarniki": 150,
+        "gift": {"mora": 200, "diamonds": 1,
+                 "items": (("spin_token_novice", 2), ("food_basic", 1))},
+        "weekly": (("spin_token_novice", 1),),
+        "extra_slot": False,
+    },
+    "3m": {
+        "label": "VIP-3М", "duration_days": 90, "price_zarniki": 400,
+        "gift": {"mora": 300, "diamonds": 2,
+                 "items": (("spin_token_novice", 1), ("spin_token_standard", 1), ("food_basic", 5))},
+        "weekly": (("spin_token_novice", 2),),
+        "extra_slot": True,
+    },
+    "8m": {
+        "label": "VIP-8М", "duration_days": 240, "price_zarniki": 1000,
+        "gift": {"mora": 500, "diamonds": 5,
+                 "items": (("spin_token_premium", 2), ("spin_token_diamond", 1), ("food_basic", 5))},
+        "weekly": (("spin_token_novice", 1), ("spin_token_standard", 1)),
+        "extra_slot": True,
+    },
+    "12m": {
+        "label": "VIP-12М", "duration_days": 365, "price_zarniki": 1600,
+        "gift": {"mora": 500, "diamonds": 10,
+                 "items": (("spin_token_diamond", 3), ("spin_token_premium", 3),
+                           ("spin_token_standard", 3), ("spin_token_novice", 5),
+                           ("food_basic", 15), ("soul_shard", 5), ("exp_boost_2h", 4))},
+        "weekly": (("spin_token_novice", 1),),
+        "extra_slot": True,
+    },
 }
 
 

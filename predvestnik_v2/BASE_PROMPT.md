@@ -28,6 +28,7 @@ FastAPI/        ← Web-адаптер
 | `services/scheduler.py` | Фоновые задачи |
 | `NOT_IMPLEMENTED.md` | Что доделать (пиши "делаем пункт N") |
 | `FUTURE_IDEAS.md` | Идеи на потом — после NOT_IMPLEMENTED.md |
+| `IMPLEMENTATION_BLOCKS.md` | Готовые планы фич из FUTURE_IDEAS.md (пиши "делаем блок N") |
 
 ## КРИТИЧЕСКИЕ ПРАВИЛА
 - `services/` не импортирует `bot.*` / `FastAPI.*`
@@ -48,4 +49,4 @@ FastAPI/        ← Web-адаптер
   - дубли/противоречия после новых указаний пользователя
 - Цель — экономия токенов: `MEMORY.md` грузится целиком в каждую сессию.
 
-*Обновлено: 2026-06-10 | Доделки: NOT_IMPLEMENTED.md | Идеи: FUTURE_IDEAS.md*
+*Обновлено: 2026-06-11 | Доделки: NOT_IMPLEMENTED.md | Идеи: FUTURE_IDEAS.md | Планы фич: IMPLEMENTATION_BLOCKS.md*

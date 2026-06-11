@@ -20,7 +20,7 @@ from infrastructure.repositories.blacklist import is_in_chat_blacklist
 from infrastructure.repositories.chest_events import (
     get_active_chest, close_chest, update_last_chest_at,
 )
-from services.utils import safe_html
+from services.utils import resolve_display_name
 
 router = Router(name="events_router")
 
@@ -167,7 +167,7 @@ async def on_user_status_changed(event: ChatMemberUpdated, db, bot: Bot):
             await users_repo.update_user(db, user_id, username)
 
         # C1-B: отправить сообщение с кнопками "Добавить в ЧС" / "Закрыть"
-        display_name = safe_html(leave_user.first_name or f"ID{user_id}")
+        display_name = await resolve_display_name(db, user_id, chat_id, leave_user.first_name or f"ID{user_id}")
         username_part = f" (@{username})" if username else f" [ID: {user_id}]"
         kicked_note = " <i>(кикнут)</i>" if new_status == "kicked" else ""
 
@@ -207,7 +207,7 @@ async def on_user_status_changed(event: ChatMemberUpdated, db, bot: Bot):
                 await bot.ban_chat_member(chat_id, user_id)
                 await asyncio.sleep(1)
                 await bot.unban_chat_member(chat_id, user_id)
-                user_name = safe_html(event.new_chat_member.user.first_name or f"ID{user_id}")
+                user_name = await resolve_display_name(db, user_id, chat_id, event.new_chat_member.user.first_name or f"ID{user_id}")
                 await bot.send_message(
                     chat_id,
                     f"🚫 <b>{user_name}</b> находится в чёрном списке и был(а) исключён(а).",
@@ -235,8 +235,8 @@ async def on_user_status_changed(event: ChatMemberUpdated, db, bot: Bot):
 
         # Welcome message for new user (skip if it's the bot itself)
         if user_id != bot.id:
-            user_name = safe_html(
-                event.new_chat_member.user.first_name or f"ID{user_id}"
+            user_name = await resolve_display_name(
+                db, user_id, chat_id, event.new_chat_member.user.first_name or f"ID{user_id}"
             )
             welcome_text = random.choice(_USER_WELCOME_MESSAGES).format(name=user_name)
             try:
@@ -286,7 +286,7 @@ async def cb_leave_action(
         await add_to_chat_blacklist(db, chat_id, callback_data.user_id, None, actor_id)
         await db.commit()
 
-        admin_name = safe_html(query.from_user.first_name)
+        admin_name = await resolve_display_name(db, actor_id, chat_id, query.from_user.first_name)
         try:
             await query.message.edit_text(
                 query.message.text + f"\n\n🚫 Добавлен(а) в ЧС ({admin_name}).",
