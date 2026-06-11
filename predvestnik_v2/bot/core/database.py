@@ -743,10 +743,54 @@ async def init_db():
             )
         """)
 
+        # Battle Pass progress (Implementation Block 5.1)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS battle_pass_progress (
+                user_id              BIGINT NOT NULL REFERENCES users(user_tg_id),
+                season_id            TEXT NOT NULL,
+                xp                   INTEGER DEFAULT 0,
+                level                INTEGER DEFAULT 1,
+                claimed_free_levels  INTEGER[] DEFAULT '{}',
+                claimed_paid_levels  INTEGER[] DEFAULT '{}',
+                season_end_notified  BOOLEAN NOT NULL DEFAULT FALSE,
+                PRIMARY KEY (user_id, season_id)
+            )
+        """)
+
+        # Global moderation: sanctions + appeals (Implementation Block 6.1)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS global_sanctions (
+                id            SERIAL PRIMARY KEY,
+                target_type   TEXT NOT NULL,        -- 'user' | 'chat'
+                target_id     BIGINT NOT NULL,
+                sanction_type TEXT NOT NULL,        -- 'warn' | 'restrict' | 'ban'
+                reason        TEXT,
+                issued_by     BIGINT NOT NULL,
+                created_at    TIMESTAMP DEFAULT NOW(),
+                expires_at    TIMESTAMP NULL,       -- NULL = бессрочно
+                revoked_at    TIMESTAMP NULL,
+                revoked_by    BIGINT NULL
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS sanction_appeals (
+                id            SERIAL PRIMARY KEY,
+                user_id       BIGINT NOT NULL,
+                sanction_id   INTEGER NOT NULL REFERENCES global_sanctions(id),
+                text          TEXT NOT NULL,
+                created_at    TIMESTAMP DEFAULT NOW(),
+                status        TEXT DEFAULT 'pending',  -- pending | accepted | rejected
+                resolved_by   BIGINT NULL,
+                resolved_at   TIMESTAMP NULL
+            )
+        """)
+
         # Migrations: admin panel + moderation extras
         for _stmt in [
             "ALTER TABLE moderation_logs ADD COLUMN IF NOT EXISTS reason TEXT",
             "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS muted_until TIMESTAMP DEFAULT NULL",
+            "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS nickname_changes_count INTEGER DEFAULT 0",
+            "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS nickname_changes_reset_at TIMESTAMP DEFAULT NOW()",
         ]:
             try:
                 await db.execute(_stmt)
@@ -777,6 +821,8 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS idx_user_themes ON user_themes(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_shadow_events ON shadow_merchant_events(status, expires_at)",
             "CREATE INDEX IF NOT EXISTS idx_player_buffs ON player_buffs(user_id, buff_type)",
+            "CREATE INDEX IF NOT EXISTS idx_global_sanctions_target ON global_sanctions(target_type, target_id)",
+            "CREATE INDEX IF NOT EXISTS idx_sanction_appeals_status ON sanction_appeals(status)",
         ]
         for idx_sql in indexes:
             await db.execute(idx_sql)

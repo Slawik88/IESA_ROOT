@@ -2,13 +2,18 @@
 bot/handlers/nicknames.py
 B8: бот мой ник — set/view/reset local per-chat pseudonym.
 """
+from datetime import datetime, timezone
+
 from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
+from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
+from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import get_nickname, set_nickname, delete_nickname
 from services.utils import safe_html
+from services.vip import is_vip_active
 
 router = Router(name="nicknames_router")
 
@@ -70,8 +75,52 @@ async def cmd_my_nick(message: types.Message, db, text_args: str = None):
             parse_mode="HTML",
         )
 
+    # Monthly nickname-change limit (Block 4.1) — VIP = безлимит
+    is_vip = await is_vip_active(db, user_id)
+    use_token = False
+    count = 0
+    reset_at = None
+    if not is_vip:
+        async with db.execute(
+            "SELECT nickname_changes_count, nickname_changes_reset_at "
+            "FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        now = datetime.now(timezone.utc)
+        count = row[0] if row else 0
+        reset_at = row[1] if row else now
+        if reset_at.tzinfo is None:
+            reset_at = reset_at.replace(tzinfo=timezone.utc)
+        if (now.year, now.month) != (reset_at.year, reset_at.month):
+            count = 0
+            reset_at = now
+        if count >= NICKNAME_FREE_CHANGES_PER_MONTH:
+            if await get_item_quantity(db, user_id, "zarniki_nickname_token") > 0:
+                use_token = True
+            else:
+                return await message.answer(
+                    f"❌ Лимит смены ника исчерпан ({NICKNAME_FREE_CHANGES_PER_MONTH}/мес в этом чате). "
+                    "Сброс в начале следующего месяца.\n"
+                    "Хочешь менять ник без ограничений? Оформи VIP ✨ — «бот вип», "
+                    "либо используй ✨ Жетон смены ника из инвентаря.",
+                    parse_mode="HTML",
+                )
+
     try:
         await set_nickname(db, user_id, chat_id, raw)
+        if not is_vip:
+            if use_token:
+                await remove_item(db, user_id, "zarniki_nickname_token", 1)
+            else:
+                await db.execute(
+                    "INSERT INTO user_chat_stats "
+                    "(user_tg_id, chat_tg_id, nickname_changes_count, nickname_changes_reset_at) "
+                    "VALUES (?, ?, ?, ?) ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE "
+                    "SET nickname_changes_count = ?, nickname_changes_reset_at = ?",
+                    (user_id, chat_id, count + 1, reset_at, count + 1, reset_at),
+                )
+            await db.commit()
         await message.answer(
             f"✅ <b>Псевдоним установлен:</b> <code>{safe_html(raw)}</code>\n"
             f"<i>Теперь бот будет обращаться к вам так в этом чате.</i>",

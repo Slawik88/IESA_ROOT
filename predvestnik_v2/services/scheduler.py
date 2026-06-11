@@ -28,7 +28,7 @@ from infrastructure.repositories.chest_events import (
     get_qualifying_chats, create_chest, close_chest,
     get_expired_active, get_claims, update_last_chest_at,
 )
-from infrastructure.repositories.economy import add_balance as _ab
+from infrastructure.repositories.economy import add_balance as _ab, add_item as _add_item
 from services.achievements import increment_metric as _incr_ach
 from services.quests import increment_metric as _incr_quest
 from infrastructure.repositories.auction import get_expired_active_lots
@@ -36,7 +36,9 @@ from infrastructure.repositories.wallet_log import log_wallet as _lw
 from services.auction import resolve_lot
 from infrastructure.repositories.duel import get_expired_pending
 from services.duel import decline_duel
-from core.constants import DUEL_TIMEOUT_SECONDS
+from core.constants import DUEL_TIMEOUT_SECONDS, VIP_EXPIRY_REMINDER_DAYS, BATTLE_PASS_SEASON_END_REMINDER_DAYS
+from core.registry import VIP_TIERS
+from services.battle_pass import get_active_season
 
 
 async def expedition_background_task(bot: Bot):
@@ -303,6 +305,72 @@ async def duel_and_auction_task(bot: Bot):
                     except Exception as e:
                         logger.error(f"Auction resolve error lot {lot['id']}: {e}")
 
+                # ── VIP: expiry reminders (Block 4.5) ───────────────────────────
+                # Runs every minute; expiry_notified flag guards against re-sending.
+                try:
+                    async with db.execute(
+                        "SELECT user_id, tier, expires_at FROM vip_subscriptions "
+                        "WHERE expires_at BETWEEN NOW() AND NOW() + make_interval(days => ?) "
+                        "AND expiry_notified = FALSE",
+                        (VIP_EXPIRY_REMINDER_DAYS,),
+                    ) as _ec:
+                        _expiring = await _ec.fetchall()
+                    for _erow in _expiring:
+                        _euid, _etier, _eexp = _erow[0], _erow[1], _erow[2]
+                        _elabel = VIP_TIERS.get(_etier, {}).get("label", _etier)
+                        try:
+                            await bot.send_message(
+                                _euid,
+                                f"⏳ Твой <b>{_elabel}</b> истекает {_eexp:%d.%m}. "
+                                f"Продлить — «бот вип».",
+                                parse_mode="HTML",
+                            )
+                        except Exception:
+                            pass
+                        await db.execute(
+                            "UPDATE vip_subscriptions SET expiry_notified = TRUE WHERE user_id = ?",
+                            (_euid,),
+                        )
+                    if _expiring:
+                        await db.commit()
+                except Exception as _ee:
+                    logger.warning(f"VIP expiry reminder error: {_ee}")
+
+                # ── Battle Pass: season ending soon reminder (Block 5.8) ────────
+                # Notifies active players (level > 1) once per season, when
+                # ends_at - today <= BATTLE_PASS_SEASON_END_REMINDER_DAYS.
+                try:
+                    _bp_season = get_active_season()
+                    if _bp_season:
+                        _bp_ends = datetime.strptime(_bp_season["ends_at"], "%Y-%m-%d").date()
+                        _bp_days_left = (_bp_ends - datetime.now(timezone.utc).date()).days
+                        if 0 <= _bp_days_left <= BATTLE_PASS_SEASON_END_REMINDER_DAYS:
+                            async with db.execute(
+                                "SELECT user_id FROM battle_pass_progress "
+                                "WHERE season_id = ? AND level > 1 AND NOT season_end_notified",
+                                (_bp_season["id"],),
+                            ) as _bc:
+                                _bp_users = await _bc.fetchall()
+                            for _brow in _bp_users:
+                                try:
+                                    await bot.send_message(
+                                        _brow[0],
+                                        f"🎫 Сезон «{_bp_season['label']}» Боевого пропуска заканчивается "
+                                        f"через {_bp_days_left} дн.! Не забудь забрать награды — «бот бп».",
+                                        parse_mode="HTML",
+                                    )
+                                except Exception:
+                                    pass
+                            if _bp_users:
+                                await db.execute(
+                                    "UPDATE battle_pass_progress SET season_end_notified = TRUE "
+                                    "WHERE season_id = ? AND level > 1 AND NOT season_end_notified",
+                                    (_bp_season["id"],),
+                                )
+                                await db.commit()
+                except Exception as _bpe:
+                    logger.warning(f"Battle Pass season-end reminder error: {_bpe}")
+
                 # ── Weekly: achievement "star" (weekly_top1_count) ─────────────
                 # Run once per Monday: check that this Monday hasn't been processed yet
                 # using a sentinel row in player_buffs (buff_type='weekly_top1_done').
@@ -391,6 +459,30 @@ async def duel_and_auction_task(bot: Bot):
                                 await db.commit()
                             except Exception as _fe:
                                 logger.warning(f"fox weekly diamond error: {_fe}")
+
+                            # VIP: еженедельные пробники по тарифу (Block 4.4)
+                            try:
+                                async with db.execute(
+                                    "SELECT user_id, tier FROM vip_subscriptions WHERE expires_at > NOW()"
+                                ) as _vc:
+                                    _vip_rows = await _vc.fetchall()
+                                for _vrow in _vip_rows:
+                                    _vuid, _vtier = _vrow[0], _vrow[1]
+                                    _weekly_items = VIP_TIERS.get(_vtier, {}).get("weekly", ())
+                                    for _item_id, _qty in _weekly_items:
+                                        await _add_item(db, _vuid, _item_id, _qty)
+                                    if _weekly_items:
+                                        await db.commit()
+                                        try:
+                                            await bot.send_message(
+                                                _vuid,
+                                                "🎁 <b>Еженедельный VIP-бонус начислен!</b> Загляни в инвентарь.",
+                                                parse_mode="HTML",
+                                            )
+                                        except Exception:
+                                            pass
+                            except Exception as _ve:
+                                logger.warning(f"VIP weekly probniki error: {_ve}")
 
                     except Exception as _e:
                         logger.warning(f"weekly_top1 tracking error: {_e}")

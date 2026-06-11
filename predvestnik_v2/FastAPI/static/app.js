@@ -23,6 +23,7 @@ let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='duels';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='auc';
 let _proTab='main', _profileData=null;
 let _achData=null, _achSort='default', _invSearch='', _themeFilter='all';
+let _bpData=null;
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const sess = () => localStorage.getItem(SK)||'';
@@ -151,7 +152,7 @@ function switchPage(name,btn) {
   showCurrBar(name !== 'profile');
   if(!_loaded.has(name)){
     _loaded.add(name);
-    ({zoo:loadZoo,arena:loadArena,market:loadMarket,coll:loadColl,admin:loadAdmin}[name]||(() => {}))();
+    ({zoo:loadZoo,arena:loadArena,market:loadMarket,coll:loadColl,admin:loadAdmin,global:loadGlobal}[name]||(() => {}))();
   }
 }
 
@@ -232,6 +233,7 @@ function loadProfile() {
     if(!_ws && _uid) connectWS();
     updateCurrBar(d);          // populate sticky currency bar from profile data
     if(!_adminChats) checkAdminAccess();
+    checkGlobalAccess();
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
 if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');}
@@ -530,6 +532,72 @@ function openAchModal(a) {
     ${!a.completed&&rwParts?`<div class="irow" style="margin-top:8px"><span class="ik">Награда Lv${a.level+1}</span><span style="color:var(--gold)">${rwParts}</span></div>`:''}
     ${a.completed?`<div style="text-align:center;padding:10px;color:var(--gold);font-size:13px;font-weight:600">🏆 Выполнено полностью!</div>`:''}
   `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+}
+
+// ── Battle Pass (B5) ─────────────────────────────────────────────────────────
+const BP_CELL_STYLE = {
+  claimed:      {opacity:'.55', border:'var(--green)'},
+  available:    {opacity:'1',   border:'var(--gold)'},
+  locked_vip:   {opacity:'.45', border:'var(--border2)'},
+  locked_level: {opacity:'.45', border:'var(--border2)'},
+};
+function loadBattlePass() {
+  el('pro-bp').innerHTML='<div class="loader">Загрузка...</div>';
+  api('/battle_pass/status').then(d=>{
+    _bpData=d;
+    renderBattlePass();
+  }).catch(e=>{el('pro-bp').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
+}
+function renderBattlePass() {
+  const d=_bpData;
+  if(!d) return;
+  if(!d.active) {
+    el('pro-bp').innerHTML=`<div class="card" style="text-align:center;padding:24px;color:var(--muted);font-size:12px">🎫 Сезон Боевого пропуска скоро начнётся, следи за анонсами!</div>`;
+    return;
+  }
+  const pct=Math.round(d.xp_in_level/d.xp_per_level*100);
+  el('pro-bp').innerHTML=`
+    <div class="card card-gold" style="margin-bottom:8px">
+      <div class="card-title">🎫 ${d.season_label} — Уровень ${d.level}/${d.max_level}</div>
+      <div class="ach-bar" style="height:8px"><div class="ach-fill" style="width:${pct}%"></div></div>
+      <div class="ach-prog">${d.level>=d.max_level?'★ MAX уровень':`${fmt(d.xp_in_level)} / ${fmt(d.xp_per_level)} XP`}</div>
+      ${!d.paid_track_open?'<div style="margin-top:8px;font-size:11px;color:var(--gold2)">👑 VIP-трек закрыт — оформи VIP («бот vip»), чтобы забирать платные награды.</div>':''}
+    </div>
+    <div class="card">
+      <div class="card-title">Награды по уровням</div>
+      <div style="display:grid;grid-template-columns:28px 1fr 1fr;gap:6px;font-size:9px;color:var(--muted);margin-bottom:4px">
+        <div></div><div>🆓 Бесплатный</div><div>👑 VIP</div>
+      </div>
+      ${d.rewards.map(_bpLevelRow).join('')}
+    </div>`;
+}
+function _bpLevelRow(r) {
+  const cur=r.level===_bpData.level;
+  return `<div style="display:grid;grid-template-columns:28px 1fr 1fr;gap:6px;align-items:stretch;padding:4px 0;${cur?'background:var(--gold-dim);border-radius:6px':'border-bottom:1px solid var(--border2)'}">
+    <div style="display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${cur?'var(--gold)':'var(--muted)'}">${r.level}</div>
+    ${_bpRewardCell(r.level,'free',r.free)}
+    ${_bpRewardCell(r.level,'paid',r.paid)}
+  </div>`;
+}
+function _bpRewardCell(level,track,reward) {
+  const parts=[];
+  if(reward.mora) parts.push(`+${fmt(reward.mora)} 🪙`);
+  if(reward.diamonds) parts.push(`+${reward.diamonds} 💎`);
+  (reward.items||[]).forEach(it=>parts.push(`+${it.qty} ${it.name}`));
+  const text=parts.join(', ')||'—';
+  const st=reward.status;
+  const sty=BP_CELL_STYLE[st]||BP_CELL_STYLE.locked_level;
+  const mark=st==='claimed'?'✅ ':st==='locked_vip'?'🔒 ':'';
+  const btn=st==='available'
+    ?`<button class="btn btn-sm btn-gold" style="margin-top:3px;width:100%;padding:2px 0;font-size:9px" onclick="doBpClaim(${level},'${track}',this)">Забрать</button>`
+    :'';
+  return `<div style="font-size:10px;padding:4px 6px;border:1px solid ${sty.border};border-radius:6px;opacity:${sty.opacity}">${mark}${text}${btn}</div>`;
+}
+function doBpClaim(level,track,btn) {
+  btn.disabled=true;
+  api('/battle_pass/claim',{method:'POST',body:JSON.stringify({level,track})})
+    .then(r=>{toast(r.message);loadBattlePass();})
+    .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
 // ── Zoo ───────────────────────────────────────────────────────────────────────
@@ -2673,11 +2741,12 @@ function switchPro(tab, btn) {
   _proTab = tab;
   document.querySelectorAll('#pg-profile .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['main','quests','streak','ach'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
+  ['main','quests','streak','ach','bp'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
   if(tab==='main') loadProfile();
   else if(tab==='quests') loadQuests();
   else if(tab==='streak') loadStreak();
   else if(tab==='ach') loadAch();
+  else if(tab==='bp') loadBattlePass();
 }
 
 // ── swMkt — Рынок: вся экономика включая Гачу, Крафт, Тёмную ────────────────────
@@ -3219,6 +3288,299 @@ function checkAdminAccess() {
 function refreshPage() {
   const page = document.querySelector('.nb.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1];
   const loaders = {profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();},
-                   arena:loadArena, market:loadMarket, coll:loadColl, admin:()=>{_adminChats=null;loadAdmin();}};
+                   arena:loadArena, market:loadMarket, coll:loadColl, admin:()=>{_adminChats=null;loadAdmin();},
+                   global:loadGlobal};
   if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('🔄 Обновлено!'); }
+}
+
+// ── Global Moderation (Block 7) ──────────────────────────────────────────────────
+let _glbTab='chats', _glbChatsList=null, _glbChatId=0, _glbChatTitle='';
+let _glbMembersPage=1, _glbMembersSearch='', _glbMembersSort='messages', _glbSearchTimer=null;
+let _glbSanctionsType='', _glbLogPage=1, _glbAppealsStatus='pending', _glbSanctionTarget=null;
+const _SANCTION_LABELS={warn:'⚠️ Варн', restrict:'🔇 Ограничение', ban:'🚫 Бан'};
+
+function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _actorSanctionPerms() {
+  const r=_profileData?.global_rank||0;
+  return {warn:r>=1, restrict:r>=2, ban:r>=3};
+}
+
+function loadGlobal() {
+  swGlobal(_glbTab, document.querySelector(`#pg-global .tb[onclick*="'${_glbTab}'"]`));
+}
+function swGlobal(tab, btn) {
+  _glbTab=tab;
+  document.querySelectorAll('#pg-global .tb').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  ['chats','sanctions','log','appeals','ranks'].forEach(t=>el('glb-'+t).style.display=t===tab?'':'none');
+  if(tab==='chats') loadGlobalChats();
+  else if(tab==='sanctions') loadGlobalSanctions();
+  else if(tab==='log') { _glbLogPage=1; loadGlobalLog(); }
+  else if(tab==='appeals') loadGlobalAppeals();
+  else if(tab==='ranks') loadGlobalRanksTab();
+}
+
+// 1. Все чаты ─────────────────────────────────────────────────────────────────────
+function loadGlobalChats() {
+  el('glb-chats').innerHTML='<div class="loader">Загрузка...</div>';
+  api('/admin/global/chats').then(d=>{
+    _glbChatsList=d.chats||[];
+    const perms=_actorSanctionPerms();
+    el('glb-chats').innerHTML=`
+      <div class="card">
+        <div class="card-title">💬 Все чаты (${_glbChatsList.length})</div>
+        ${_glbChatsList.map(c=>`<div class="irow">
+          <span class="ik" style="cursor:pointer" onclick="openGlobalChatMembers(${c.chat_id})">${esc(c.chat_title)}</span>
+          <span class="iv" style="display:flex;align-items:center;gap:6px">
+            <span style="cursor:pointer" onclick="openGlobalChatMembers(${c.chat_id})">${c.member_count} 👤 ›</span>
+            ${(perms.restrict||perms.ban)?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openGlobalChatSanction(${c.chat_id})">⚡</button>`:''}
+          </span>
+        </div>`).join('')}
+      </div>`;
+  }).catch(e=>{el('glb-chats').innerHTML=`<div class="err">${e}</div>`;});
+}
+function openGlobalChatSanction(chatId) {
+  const chat=(_glbChatsList||[]).find(c=>c.chat_id===chatId);
+  openGlobalSanctionForm('chat', chatId, chat?.chat_title, _actorSanctionPerms());
+}
+function openGlobalChatMembers(chatId) {
+  const chat=(_glbChatsList||[]).find(c=>c.chat_id===chatId);
+  _glbChatId=chatId; _glbChatTitle=chat?.chat_title||('Chat '+chatId);
+  _glbMembersPage=1; _glbMembersSearch=''; _glbMembersSort='messages';
+  loadGlobalChatMembers();
+}
+function loadGlobalChatMembers() {
+  el('glb-chats').innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/admin/global/chats/${_glbChatId}/members?page=${_glbMembersPage}&search=${encodeURIComponent(_glbMembersSearch)}&sort=${_glbMembersSort}`)
+    .then(renderGlobalMembers)
+    .catch(e=>{el('glb-chats').innerHTML=`<div class="err">${e}</div>`;});
+}
+function renderGlobalMembers(d) {
+  const total=d.total||0, pages=Math.ceil(total/(d.page_size||20));
+  el('glb-chats').innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <button class="btn btn-sm btn-ghost" onclick="loadGlobalChats()">← Назад</button>
+      <span style="font-size:13px;font-weight:700">${esc(_glbChatTitle)}</span>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input id="glb-search" type="text" class="num-input" style="flex:1;margin:0" placeholder="Поиск по нику/ID" value="${esc(_glbMembersSearch)}" oninput="onGlobalMemberSearch(this.value)"/>
+      <select class="num-input" style="width:120px;margin:0" onchange="onGlobalMemberSort(this.value)">
+        <option value="messages" ${_glbMembersSort==='messages'?'selected':''}>По сообщ.</option>
+        <option value="level" ${_glbMembersSort==='level'?'selected':''}>По уровню</option>
+        <option value="rank" ${_glbMembersSort==='rank'?'selected':''}>По рангу</option>
+        <option value="warns" ${_glbMembersSort==='warns'?'selected':''}>По варнам</option>
+      </select>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="adm-table">
+        <thead><tr><th>Пользователь</th><th>Ур.</th><th>Глоб.ранг</th><th>Действия</th></tr></thead>
+        <tbody>
+          ${d.members.map(m=>`<tr>
+            <td>
+              <div style="font-weight:600;font-size:12px">@${vipName(m.user_tg_username||'ID'+m.user_tg_id, m.is_vip)}</div>
+              <div style="font-size:10px;color:var(--muted)">ID: ${m.user_tg_id} · ${m.user_messages_count_all_time||0} сообщ.</div>
+            </td>
+            <td style="text-align:center">${m.user_level||1}</td>
+            <td style="font-size:10px">${m.global_rank_name}</td>
+            <td>
+              ${(m.can_warn||m.can_restrict||m.can_ban)?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openGlobalSanctionForm("user",${m.user_tg_id},${JSON.stringify(m.user_tg_username||'ID'+m.user_tg_id)},${JSON.stringify({warn:m.can_warn,restrict:m.can_restrict,ban:m.can_ban})})'>⚡</button>`:`<span style="font-size:10px;color:var(--dim)">—</span>`}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
+      <span>Всего: ${total}</span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-ghost" ${_glbMembersPage<=1?'disabled':''} onclick="glbMemberPage(${_glbMembersPage-1})">◀</button>
+        <span>${_glbMembersPage}/${pages||1}</span>
+        <button class="btn btn-sm btn-ghost" ${_glbMembersPage>=pages?'disabled':''} onclick="glbMemberPage(${_glbMembersPage+1})">▶</button>
+      </div>
+    </div>`;
+}
+function glbMemberPage(p) { _glbMembersPage=p; loadGlobalChatMembers(); }
+function onGlobalMemberSearch(v) {
+  clearTimeout(_glbSearchTimer);
+  _glbSearchTimer=setTimeout(()=>{ _glbMembersSearch=v; _glbMembersPage=1; loadGlobalChatMembers(); },400);
+}
+function onGlobalMemberSort(v) { _glbMembersSort=v; _glbMembersPage=1; loadGlobalChatMembers(); }
+
+// Форма выдачи санкции — используется из «Все чаты» и для «изменить срок» ─────────
+function openGlobalSanctionForm(targetType, targetId, targetName, perms) {
+  perms = perms || _actorSanctionPerms();
+  if(!targetName) targetName = (targetType==='chat'?'Чат ID':'ID')+targetId;
+  _glbSanctionTarget={type:targetType, id:targetId};
+  const durations=[[0,'Бессрочно'],[1,'1 день'],[3,'3 дня'],[7,'7 дней'],[30,'30 дней']];
+  OM(`⚡ ${targetName}`,`
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="btn btn-sm ${perms.warn?'btn-ghost':''}" ${perms.warn?'':'disabled'} onclick="selectGlobalSanctionType('warn')" id="gst-warn">⚠️ Варн</button>
+      <button class="btn btn-sm ${perms.restrict?'btn-ghost':''}" ${perms.restrict?'':'disabled'} onclick="selectGlobalSanctionType('restrict')" id="gst-restrict">🔇 Огранич.</button>
+      <button class="btn btn-sm ${perms.ban?'btn-red':''}" ${perms.ban?'':'disabled'} onclick="selectGlobalSanctionType('ban')" id="gst-ban">🚫 Бан</button>
+    </div>
+    <div id="gst-duration" style="display:none;margin-bottom:8px">
+      <select id="gst-dur-sel" class="num-input" style="margin:0">
+        ${durations.map(([dd,l])=>`<option value="${dd}">${l}</option>`).join('')}
+      </select>
+    </div>
+    <input id="gst-reason" type="text" class="num-input" style="margin:0" placeholder="Причина" maxlength="200"/>
+  `,[{l:'Выдать',c:'btn-gold',f:'doIssueGlobalSanction()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+  el('modal')._sanctionType=null;
+}
+function selectGlobalSanctionType(type) {
+  el('modal')._sanctionType=type;
+  ['warn','restrict','ban'].forEach(t=>{const b=el('gst-'+t); if(b) b.style.outline=t===type?'2px solid var(--gold)':'';});
+  el('gst-duration').style.display=(type==='restrict'||type==='ban')?'':'none';
+}
+function doIssueGlobalSanction() {
+  const type=el('modal')._sanctionType;
+  if(!type) return toast('Выберите тип санкции',false);
+  const reason=el('gst-reason')?.value.trim()||null;
+  const durSel=el('gst-dur-sel');
+  const days=durSel&&durSel.value!=='0'?parseInt(durSel.value):null;
+  api('/admin/global/sanctions',{method:'POST',body:JSON.stringify({
+    target_type:_glbSanctionTarget.type, target_id:_glbSanctionTarget.id,
+    sanction_type:type, reason, duration_days:days,
+  })}).then(r=>{
+    toast(r.message||'✅ Готово'); CM();
+    if(_glbTab==='chats'&&_glbChatId) loadGlobalChatMembers();
+    else if(_glbTab==='sanctions') loadGlobalSanctions();
+  }).catch(e=>toast(e,false));
+}
+
+// 2. Активные ограничения ─────────────────────────────────────────────────────────
+function loadGlobalSanctions() {
+  el('glb-sanctions').innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/admin/global/sanctions?active_only=true${_glbSanctionsType?'&type='+_glbSanctionsType:''}`).then(d=>{
+    el('glb-sanctions').innerHTML=`
+      <div class="tabs" style="margin-bottom:8px">
+        <button class="tb ${!_glbSanctionsType?'active':''}" onclick="filterGlobalSanctions('')">Все</button>
+        <button class="tb ${_glbSanctionsType==='warn'?'active':''}" onclick="filterGlobalSanctions('warn')">⚠️ Варны</button>
+        <button class="tb ${_glbSanctionsType==='restrict'?'active':''}" onclick="filterGlobalSanctions('restrict')">🔇 Огранич.</button>
+        <button class="tb ${_glbSanctionsType==='ban'?'active':''}" onclick="filterGlobalSanctions('ban')">🚫 Баны</button>
+      </div>
+      ${d.sanctions.length?d.sanctions.map(s=>`<div class="card">
+        <div class="irow"><span class="ik">${_SANCTION_LABELS[s.sanction_type]||s.sanction_type}</span><span class="iv">${s.target_type==='chat'?'💬 ':'👤 '}${esc(s.target_name)}</span></div>
+        <div class="irow"><span class="ik">Причина</span><span style="font-size:11px">${esc(s.reason||'—')}</span></div>
+        <div class="irow"><span class="ik">Выдал</span><span style="font-size:11px">${s.issued_by_name}</span></div>
+        <div class="irow"><span class="ik">До</span><span style="font-size:11px">${s.expires_at?fmtUTC(s.expires_at):'Бессрочно'}</span></div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doRevokeGlobalSanction(${s.id})">✅ Снять</button>
+          ${s.sanction_type!=='warn'?`<button class="btn btn-sm btn-ghost" style="flex:1" onclick='openGlobalSanctionForm(${JSON.stringify(s.target_type)},${s.target_id},null,${JSON.stringify(_actorSanctionPerms())})'>✏️ Изменить срок</button>`:''}
+        </div>
+      </div>`).join(''):'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет активных ограничений</div>'}`;
+  }).catch(e=>{el('glb-sanctions').innerHTML=`<div class="err">${e}</div>`;});
+}
+function filterGlobalSanctions(type) { _glbSanctionsType=type; loadGlobalSanctions(); }
+function doRevokeGlobalSanction(id) {
+  OM('✅ Снять ограничение?','<div style="text-align:center;padding:12px 0;color:var(--muted)">Санкция будет немедленно снята.</div>',
+    [{l:'Да, снять',c:'btn-gold',f:`_execRevokeGlobalSanction(${id})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _execRevokeGlobalSanction(id) {
+  api(`/admin/global/sanctions/${id}/revoke`,{method:'POST'})
+    .then(r=>{toast(r.message||'✅ Снято');CM();loadGlobalSanctions();})
+    .catch(e=>toast(e,false));
+}
+
+// 3. Журнал ───────────────────────────────────────────────────────────────────────
+function loadGlobalLog() {
+  el('glb-log').innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/admin/global/log?page=${_glbLogPage}`).then(d=>{
+    const total=d.total||0, pages=Math.ceil(total/(d.page_size||25));
+    el('glb-log').innerHTML=`
+      <div style="overflow-x:auto">
+        <table class="adm-table">
+          <thead><tr><th>Время</th><th>Тип</th><th>Цель</th><th>Модератор</th><th>Причина</th><th>Статус</th></tr></thead>
+          <tbody>
+            ${d.logs.map(s=>`<tr>
+              <td style="font-size:10px;white-space:nowrap">${fmtUTC(s.created_at)||'?'}</td>
+              <td style="font-size:11px;font-weight:600">${_SANCTION_LABELS[s.sanction_type]||s.sanction_type}</td>
+              <td style="font-size:11px">${s.target_type==='chat'?'💬':'👤'} ${esc(s.target_name)}</td>
+              <td style="font-size:11px">${s.issued_by_name}</td>
+              <td style="font-size:10px;color:var(--muted)">${esc(s.reason||'—')}</td>
+              <td style="font-size:10px">${s.is_active?'<span style="color:var(--green)">Активна</span>':s.revoked_by_name?`<span style="color:var(--muted)">Снята: ${s.revoked_by_name}</span>`:'<span style="color:var(--muted)">Истекла</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
+        <span>Всего: ${total}</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-ghost" ${_glbLogPage<=1?'disabled':''} onclick="glbLogPage(${_glbLogPage-1})">◀</button>
+          <span>${_glbLogPage}/${pages||1}</span>
+          <button class="btn btn-sm btn-ghost" ${_glbLogPage>=pages?'disabled':''} onclick="glbLogPage(${_glbLogPage+1})">▶</button>
+        </div>
+      </div>`;
+  }).catch(e=>{el('glb-log').innerHTML=`<div class="err">${e}</div>`;});
+}
+function glbLogPage(p) { _glbLogPage=p; loadGlobalLog(); }
+
+// 4. Апелляции ──────────────────────────────────────────────────────────────────────
+function loadGlobalAppeals() {
+  el('glb-appeals').innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/admin/global/appeals?status=${_glbAppealsStatus}`).then(d=>{
+    el('glb-appeals').innerHTML=`
+      <div class="tabs" style="margin-bottom:8px">
+        <button class="tb ${_glbAppealsStatus==='pending'?'active':''}" onclick="filterGlobalAppeals('pending')">⏳ Новые</button>
+        <button class="tb ${_glbAppealsStatus==='accepted'?'active':''}" onclick="filterGlobalAppeals('accepted')">✅ Принятые</button>
+        <button class="tb ${_glbAppealsStatus==='rejected'?'active':''}" onclick="filterGlobalAppeals('rejected')">❌ Отклонённые</button>
+      </div>
+      ${d.appeals.length?d.appeals.map(a=>`<div class="card">
+        <div class="irow"><span class="ik">От</span><span class="iv">${a.user_name}</span></div>
+        <div class="irow"><span class="ik">Санкция</span><span style="font-size:11px">${_SANCTION_LABELS[a.sanction_type]||'?'}${a.sanction_active===false?' (уже снята)':''}</span></div>
+        <div class="irow"><span class="ik">Причина санкции</span><span style="font-size:11px">${esc(a.sanction_reason||'—')}</span></div>
+        <div style="margin:6px 0;padding:8px;background:var(--dim);border-radius:6px;font-size:12px">${esc(a.text)}</div>
+        <div class="irow"><span class="ik">Когда</span><span style="font-size:11px">${fmtUTC(a.created_at)}</span></div>
+        ${a.status==='pending'?`<div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn btn-sm btn-gold" style="flex:1" onclick="doResolveAppeal(${a.id},'accept')">✅ Снять санкцию</button>
+          <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doResolveAppeal(${a.id},'reject')">❌ Отклонить</button>
+        </div>`:`<div class="irow"><span class="ik">Решение</span><span style="font-size:11px">${a.status==='accepted'?'✅ Принята':'❌ Отклонена'}${a.resolved_by_name?' · '+a.resolved_by_name:''}</span></div>`}
+      </div>`).join(''):'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет апелляций</div>'}`;
+  }).catch(e=>{el('glb-appeals').innerHTML=`<div class="err">${e}</div>`;});
+}
+function filterGlobalAppeals(status) { _glbAppealsStatus=status; loadGlobalAppeals(); }
+function doResolveAppeal(id, action) {
+  if(action==='reject'){
+    OM('❌ Отклонить апелляцию?','<div style="text-align:center;padding:12px 0;color:var(--muted)">Апелляция будет отклонена, санкция останется в силе.</div>',
+      [{l:'Да, отклонить',c:'btn-red',f:`_execResolveAppeal(${id},'reject')`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    return;
+  }
+  OM('✅ Снять санкцию?','<div style="text-align:center;padding:12px 0;color:var(--muted)">Санкция будет снята, апелляция помечена как принятая.</div>',
+    [{l:'Да, снять',c:'btn-gold',f:`_execResolveAppeal(${id},'accept')`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _execResolveAppeal(id, action) {
+  api(`/admin/global/appeals/${id}/resolve`,{method:'POST',body:JSON.stringify({action})})
+    .then(r=>{toast(r.message||'✅ Готово');CM();loadGlobalAppeals();})
+    .catch(e=>toast(e,false));
+}
+
+// 5. Управление штатом ────────────────────────────────────────────────────────────────
+function loadGlobalRanksTab() {
+  el('glb-ranks').innerHTML=`
+    <div class="card">
+      <div class="card-title">👮 Назначить ранг</div>
+      <input id="glb-rank-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя"/>
+      <select id="glb-rank-sel" class="num-input" style="margin-bottom:6px">
+        <option value="0">👤 Снять (Пользователь)</option>
+        <option value="1">🛡 Хелпер</option>
+        <option value="2">⚔️ Старший хелпер</option>
+      </select>
+      <button class="btn btn-gold btn-full" onclick="doSetGlobalRank()">Сохранить</button>
+    </div>`;
+}
+function doSetGlobalRank() {
+  const uid=parseInt(el('glb-rank-uid')?.value||'0');
+  const rank=parseInt(el('glb-rank-sel')?.value||'0');
+  if(!uid) return toast('Укажите ID пользователя',false);
+  api('/admin/global/ranks',{method:'POST',body:JSON.stringify({user_id:uid,global_rank:rank})})
+    .then(r=>toast(`✅ Назначено: ${r.rank_name}`))
+    .catch(e=>toast(e,false));
+}
+
+// ── Init global moderation check after login ──────────────────────────────────────
+function checkGlobalAccess() {
+  const rank=_profileData?.global_rank||0;
+  if(rank>=1) {
+    el('nb-global').style.display='';
+    el('glb-tab-ranks').style.display=rank>=3?'':'none';
+  }
 }

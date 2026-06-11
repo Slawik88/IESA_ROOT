@@ -8,6 +8,7 @@ from .admin import router as admin_router
 from .marriage import router as marriage_router
 from .stats import router as stats_router
 from .moderation import router as mod_router
+from .global_moderation import router as global_mod_router
 from .events import router as events_router
 from .routing import router as routing_router
 from .purge import router as purge_router
@@ -36,6 +37,7 @@ from .themes import router as themes_router
 from .events_info import router as events_info_router
 from .craft import router as craft_router
 from .vip import router as vip_router
+from .battle_pass import router as battle_pass_router
 from . import dev
 
 
@@ -51,6 +53,7 @@ main_router.include_routers(
     profile_router,        # только "кто я" + инфо/досье
     stats_router,
     mod_router,        # до marriage: "снять варн/мут/защиту" перехватывается раньше чем "снять"
+    global_mod_router, # B6: глобальная модерация (глоб варн/ограничить/бан, апелляция)
     marriage_router,
     events_router,
     routing_router,
@@ -79,6 +82,7 @@ main_router.include_routers(
     events_info_router,    # бот ивент: расписание + dev force-команды
     craft_router,          # бот крафт: создание предметов из ингредиентов
     vip_router,            # B2: VIP-подписка
+    battle_pass_router,    # B5: Боевой пропуск
     dev.router,
     unknown_cmd_router,    # B6: подсказки опечаток — перед fallback, после всех команд
     fallback_router,       # должен быть последним — ловит неверный синтаксис

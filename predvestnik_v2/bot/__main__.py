@@ -10,6 +10,7 @@ from bot.config import config
 from bot.core.database import init_db
 from bot.middlewares.db import db_middleware
 from bot.middlewares.config_mw import config_middleware
+from bot.middlewares.global_sanctions_mw import global_sanctions_middleware
 from bot.middlewares.pet_bonuses_mw import pet_bonuses_middleware
 from bot.middlewares.streak_mw import streak_middleware
 from bot.handlers import main_router
@@ -88,6 +89,7 @@ async def main():
     logger.info("🔌 Подключение Middleware...")
     dp.update.middleware(config_middleware)
     dp.update.middleware(db_middleware)
+    dp.update.middleware(global_sanctions_middleware)
     dp.update.middleware(pet_bonuses_middleware)
     dp.update.middleware(streak_middleware)
 

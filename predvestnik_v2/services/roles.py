@@ -54,6 +54,24 @@ def can_confirm_rank(admin_id: int, admin_local_rank: int, developer_id: int = 0
     return admin_local_rank >= 5
 
 
+# ── Глобальная модерация (Implementation Block 6.7) ─────────────────────────────
+RANK_ALLOWED: dict[int, dict[str, set[str]]] = {
+    1: {"user": {"warn"}},
+    2: {"user": {"warn", "restrict"}, "chat": {"warn", "restrict"}},
+    3: {"user": {"warn", "restrict", "ban"}, "chat": {"warn", "restrict", "ban"}},
+}
+
+
+def can_issue_global_sanction(
+    actor_rank: int, target_type: str, sanction_type: str, target_global_rank: int = 0
+) -> bool:
+    if target_type == "user" and target_global_rank >= actor_rank:
+        # Антипир: нельзя тронуть равного/старшего штата. Побочный эффект (ЖЕЛАЕМЫЙ):
+        # Разработчик (3) >= Разработчик (3) → блок — иммунен даже к самому себе.
+        return False
+    return sanction_type in RANK_ALLOWED.get(actor_rank, {}).get(target_type, set())
+
+
 def get_global_ranks_list_text() -> str:
     lines = [f"├ <code>{rid}</code> — {name}" for rid, name in GLOBAL_RANKS_MAP.items()]
     if lines:

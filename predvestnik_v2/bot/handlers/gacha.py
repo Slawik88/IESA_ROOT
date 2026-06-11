@@ -14,6 +14,7 @@ from core.constants import (
 from core.registry import GACHA_TABLES, PITY_HARD_REWARD, PET_SPECIES, ITEMS_REGISTRY
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.gacha import get_all_pity, get_recent_history
+from services import global_moderation
 from services.gacha import roll_single, roll_multi, get_token_count
 from services.quests import increment_metric as quest_increment
 from services.utils import format_currency, safe_html, check_callback_owner
@@ -374,9 +375,14 @@ async def cmd_pity(message: types.Message, db):
 
 
 @router.message(TextCmd(["крутка", "гача", "гаша", "лутбокс"]))
-async def cmd_gacha(message: types.Message, db, text_args: str = None):
+async def cmd_gacha(message: types.Message, db, text_args: str = None,
+                     user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
         return
+
+    restriction = user_restricted or chat_restricted
+    if restriction:
+        return await message.answer(global_moderation.restriction_message(restriction))
 
     args = (text_args or "").strip().lower()
     if args in ("novice", "standard", "premium", "diamond"):

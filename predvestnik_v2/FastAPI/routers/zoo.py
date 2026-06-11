@@ -17,6 +17,7 @@ from infrastructure.repositories.zoo import (
     get_pending_hamster_income, get_active_species_level,
 )
 from services.formatting import parse_dt
+from services.vip import get_extra_pet_slots
 from services.zoo import get_active_wolf_food_extra
 
 router = APIRouter(prefix="/zoo", tags=["zoo"])
@@ -306,13 +307,14 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
     currently_in_nursery = pet["placement"] in ("active", "passive")
 
     if entering_nursery and not currently_in_nursery:
-        # Проверяем лимит общих слотов питомника
+        # Проверяем лимит общих слотов питомника (+1 для VIP-тарифов с extra_slot)
         stats = await get_zoo_stats(db, user["id"])
         occupied = await get_nursery_count(db, user["id"])
-        if occupied >= stats["max_slots"]:
+        extra = await get_extra_pet_slots(db, user["id"])
+        if occupied >= stats["max_slots"] + extra:
             raise HTTPException(
                 400,
-                f"Питомник заполнен ({occupied}/{stats['max_slots']} слотов). "
+                f"Питомник заполнен ({occupied}/{stats['max_slots'] + extra} слотов). "
                 f"Используй 🏡 Расширитель слота, чтобы добавить слот."
             )
 

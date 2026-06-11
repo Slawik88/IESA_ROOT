@@ -14,6 +14,7 @@ from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.exchange import (
     get_active_event, get_user_quota, add_quota,
 )
+from services import global_moderation
 from services.utils import format_currency, parse_dt, check_callback_owner
 
 router = Router(name="exchange_router")
@@ -57,9 +58,14 @@ async def _find_next_event_info(db) -> str:
 
 
 @router.message(TextCmd(["обмен", "конвертация", "обменять"]))
-async def cmd_exchange(message: types.Message, db, text_args: str = None):
+async def cmd_exchange(message: types.Message, db, text_args: str = None,
+                        user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
         return
+
+    restriction = user_restricted or chat_restricted
+    if restriction:
+        return await message.answer(global_moderation.restriction_message(restriction))
 
     event = await get_active_event(db)
     if not event:

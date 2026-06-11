@@ -390,3 +390,25 @@ ARTIFACT_TOP_MONTH_COUNT: int = 5
 RELIC_TOP_GLOBAL_MIN_MESSAGES: int = 4000
 RELIC_TOP_GLOBAL_CHAT_COUNT: int = 3
 RELIC_TOP_GLOBAL_USERS_PER_CHAT: int = 5
+
+# ── VIP perks (Implementation Block 4) ─────────────────────────────────────────
+NICKNAME_FREE_CHANGES_PER_MONTH: int = 5  # non-VIP nickname changes per chat per calendar month
+VIP_EXPIRY_REMINDER_DAYS: int = 3         # send "VIP expiring soon" reminder this many days before expiry
+
+# ── Battle Pass (Implementation Block 5) ───────────────────────────────────────
+BATTLE_PASS_XP_PER_LEVEL: int = 100  # линейная шкала; подбирается при балансировке
+BATTLE_PASS_MAX_LEVEL: int = 50
+BATTLE_PASS_SEASON_END_REMINDER_DAYS: int = 3  # напомнить активным игрокам о скором конце сезона
+
+# metric_name (как в вызовах services.achievements.increment_metric) -> XP за единицу delta
+BATTLE_PASS_XP_WEIGHTS: dict[str, int] = {
+    "duel_wins": 10,
+    "eggs_opened": 5,
+    "expeditions_done": 8,
+    "gacha_spins": 3,
+    "auction_sales": 12,
+    "gamble_wins": 4,
+    "marriage_days_total": 2,
+    "legendary_gacha_drops": 50,
+    "weekly_top1_count": 100,
+}
