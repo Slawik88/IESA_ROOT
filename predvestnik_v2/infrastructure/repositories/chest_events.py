@@ -53,7 +53,7 @@ async def get_qualifying_chats(db: PGAdapter, min_users: int) -> list[int]:
            LEFT JOIN chat_settings cs ON cs.chat_id = s.chat_tg_id
            WHERE active_counts.cnt >= ?
              AND COALESCE(cs.is_purging, FALSE) = FALSE
-             AND COALESCE(cs.events_enabled, TRUE) = TRUE
+             AND COALESCE(cs.events_enabled, 1) = 1
              AND NOT EXISTS (
                  SELECT 1 FROM chest_events ce
                  WHERE ce.chat_id = s.chat_tg_id AND ce.status = 'active'
