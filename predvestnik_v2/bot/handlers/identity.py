@@ -219,6 +219,162 @@ def _render_premium_profile(
             f"<i>«У роскоши нет предела, есть только цена…»</i> 💸"
         )
 
+    # ── ЗВЁЗДНЫЙ СВЕТ ───────────────────────────────────────────────────────────
+    elif template_id == "starlight":
+        pet_lines = ""
+        if marriage:
+            pet_lines += f"💞 Пара: {partner_raw}\n"
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"⭐ {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"✦ ≪ 🌟 ЗВЁЗДНЫЙ СВЕТ 🌟 ≫ ✦\n\n"
+            f"👤 <b>{name}</b>\n"
+            f"🌍 {g_rank}\n"
+            f"🏠 {l_rank}\n"
+            f"✨ Сияние {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ 💫 ЗАПАСЫ ┄┄\n"
+            f"✨ Пыль: {mora} ⋅ 💎 {dia}\n"
+            f"🌠 Аура: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ ☄️ МЕРЦАНИЯ ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n\n"
+            f"┄┄ 🌌 НЕБОСВОД ┄┄\n"
+            f"{pet_lines or '☁️ Тишина…' + chr(10)}"
+            f"\n🌟 ID: <code>{user_id}</code>\n"
+            f"<i>🌟 Каждая звезда — чья-то мечта…</i>"
+        )
+
+    # ── БАРХАТ ──────────────────────────────────────────────────────────────────
+    elif template_id == "velvet":
+        pet_lines = ""
+        if marriage:
+            pet_lines += f"💜 Узы: {partner_raw}\n"
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🥀 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"🟪 ═【 🌹 БАРХАТ 🌹 】═ 🟪\n\n"
+            f"👤 <b>{name}</b>\n"
+            f"🌍 {g_rank}\n"
+            f"🏠 {l_rank}\n"
+            f"🕯️ Покров {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ 🧵 ЛАРЕЦ ┄┄\n"
+            f"🧵 Нити: {mora} ⋅ 🌹 {dia}\n"
+            f"🎭 Грация: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ 🤫 ШЁПОТЫ ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n\n"
+            f"┄┄ 🌑 ТЕНИ ┄┄\n"
+            f"{pet_lines or '🕸️ Пустота…' + chr(10)}"
+            f"\n🟪 ID: <code>{user_id}</code>\n"
+            f"<i>🟪 Бархат скрывает истинный характер…</i>"
+        )
+
+    # ── ПРИЗМА ──────────────────────────────────────────────────────────────────
+    elif template_id == "prism":
+        pet_lines = ""
+        if marriage:
+            pet_lines += f"💞 Связь: {partner_raw}\n"
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🔹 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"✧ ═【 💎 ПРИЗМА 💎 】═ ✧\n\n"
+            f"👤 <b>{name}</b>\n"
+            f"🌍 {g_rank}\n"
+            f"🏠 {l_rank}\n"
+            f"🔆 Спектр {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ 🌈 ГРАНИ ┄┄\n"
+            f"🌈 Лучи: {mora} ⋅ 💎 {dia}\n"
+            f"🔅 Блеск: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ ✨ ОТРАЖЕНИЯ ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n\n"
+            f"┄┄ 🔮 СПУТНИКИ ┄┄\n"
+            f"{pet_lines or '◇ Пусто…' + chr(10)}"
+            f"\n✧ ID: <code>{user_id}</code>\n"
+            f"<i>💎 Свет находит путь сквозь кристалл…</i>"
+        )
+
+    # ── НЕБЕСНЫЙ ────────────────────────────────────────────────────────────────
+    elif template_id == "celestial":
+        pet_lines = ""
+        if marriage:
+            pet_lines += f"💞 Союз: {partner_raw}\n"
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🕊️ {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"꧁ ━━ ☀️ НЕБЕСНЫЙ ☀️ ━━ ꧂\n\n"
+            f"👤 <b>{name}</b>\n"
+            f"🌍 {g_rank}\n"
+            f"🏠 {l_rank}\n"
+            f"🕊️ Полёт {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ ☀️ НЕБЕСА ┄┄\n"
+            f"☀️ Свет: {mora} ⋅ 🌙 {dia}\n"
+            f"😇 Святость: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ 🎶 ГИМНЫ ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n\n"
+            f"┄┄ 👼 ХРАНИТЕЛИ ┄┄\n"
+            f"{pet_lines or '☁️ Тихо…' + chr(10)}"
+            f"\n☀️ ID: <code>{user_id}</code>\n"
+            f"<i>☀️ Небо для тех, кто смотрит ввысь…</i>"
+        )
+
+    # ── ВИТРАЖ ──────────────────────────────────────────────────────────────────
+    elif template_id == "glass":
+        pet_lines = ""
+        if marriage:
+            pet_lines += f"💞 Узор: {partner_raw}\n"
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🧩 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"💠 ═【 🕊️ ВИТРАЖ 🕊️ 】═ 💠\n\n"
+            f"👤 <b>{name}</b>\n"
+            f"🌍 {g_rank}\n"
+            f"🏠 {l_rank}\n"
+            f"🖼️ Картина {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ 💠 ОСКОЛКИ ┄┄\n"
+            f"💠 Осколки: {mora} ⋅ 🔷 {dia}\n"
+            f"🌈 Грань: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ 🪞 БЛИКИ ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n\n"
+            f"┄┄ 🧩 ФРАГМЕНТЫ ┄┄\n"
+            f"{pet_lines or '⬜ Пусто…' + chr(10)}"
+            f"\n💠 ID: <code>{user_id}</code>\n"
+            f"<i>💠 Каждый осколок — часть картины…</i>"
+        )
+
+    # ── АУРУМ ───────────────────────────────────────────────────────────────────
+    elif template_id == "gold":
+        pet_lines = ""
+        if marriage:
+            pet_lines += f"💞 Альянс: {partner_raw}\n"
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🦁 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"⚜️ ═【 🪙 АУРУМ 🪙 】═ ⚜️\n\n"
+            f"👤 <b>{name}</b>\n"
+            f"🌍 {g_rank}\n"
+            f"🏠 {l_rank}\n"
+            f"👑 Проба {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ 🪙 ХРАНИЛИЩЕ ┄┄\n"
+            f"🪙 Слитки: {mora} ⋅ 💛 {dia}\n"
+            f"⚖️ Вес: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ 🔔 ЭХО ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n\n"
+            f"┄┄ 🦁 СОКРОВИЩА ┄┄\n"
+            f"{pet_lines or '🕳️ Пусто…' + chr(10)}"
+            f"\n⚜️ ID: <code>{user_id}</code>\n"
+            f"<i>💛 Золото молчит, но его слышат все…</i>"
+        )
+
     return None  # unknown template → use standard renderer
 
 
@@ -320,7 +476,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
     first_seen_raw = await users_repo.get_first_seen(db, user_id)
     nursery_pets   = await zoo_db.get_user_pets(db, user_id, placement="nursery")
     streak_row     = await get_streak(db, user_id, chat_id)
-    marriage       = await marriage_repo.get_user_marriage(db, chat_id, user_id)
+    marriage       = await marriage_repo.get_user_marriage(db, user_id)
     hamster_inc    = await zoo_db.get_pending_hamster_income(db, user_id)
     ach_count      = await ach_repo.get_user_achievements_count(db, user_id)
 
@@ -492,7 +648,7 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
     stats      = await chat_repo.get_chat_stats(db, target_id, chat_id)
     g_rank_id  = await users_repo.get_global_rank(db, target_id)
     pets       = await zoo_db.get_user_pets(db, target_id, placement="nursery")
-    marriage   = await marriage_repo.get_user_marriage(db, chat_id, target_id)
+    marriage   = await marriage_repo.get_user_marriage(db, target_id)
     streak_row = await get_streak(db, target_id, chat_id)
 
     from infrastructure.repositories.themes import get_active_theme
@@ -563,7 +719,7 @@ async def cmd_anketa(message: types.Message, db, developer_id: int = 0):
     stats        = await chat_repo.get_chat_stats(db, user_id, chat_id)
     g_rank_id    = await users_repo.get_global_rank(db, user_id)
     pets         = await zoo_db.get_user_pets(db, user_id, placement="nursery")
-    marriage     = await marriage_repo.get_user_marriage(db, chat_id, user_id)
+    marriage     = await marriage_repo.get_user_marriage(db, user_id)
     streak_row   = await get_streak(db, user_id, chat_id)
     global_msgs  = await users_repo.get_messages_global(db, user_id)
     first_seen   = await users_repo.get_first_seen(db, user_id)
