@@ -38,7 +38,7 @@ async def cmd_balance(message: types.Message, db):
     )
 
     if message.chat.type != "private":
-        marriage = await marriages_db.get_user_marriage(db, message.chat.id, user_id)
+        marriage = await marriages_db.get_user_marriage(db, user_id)
         if marriage:
             family_mora = format_currency(marriage['family_balance'])
             partner_name = marriage['user2_name'] if marriage['user1_id'] == user_id else marriage['user1_name']

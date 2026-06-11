@@ -7,27 +7,15 @@ from infrastructure.repositories.marriages import (
     get_user_marriage, family_bank_transaction, delete_marriage,
 )
 from infrastructure.repositories.zoo import get_user_pets
-from services.achievements import increment_metric as ach_incr
+from services.achievements import backfill_metric
 
 router = APIRouter(prefix="/marriage", tags=["marriage"])
-
-
-async def _get_any_marriage(db, user_id: int) -> dict | None:
-    """Find marriage in any chat for this user."""
-    async with db.execute(
-        "SELECT id, chat_id, user1_id, user1_name, user2_id, user2_name, "
-        "marriage_date, family_balance FROM marriages "
-        "WHERE user1_id = ? OR user2_id = ?",
-        (user_id, user_id),
-    ) as c:
-        row = await c.fetchone()
-    return dict(row) if row else None
 
 
 @router.get("/")
 async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
     """Брак текущего пользователя + питомцы семьи + стаж."""
-    m = await _get_any_marriage(db, user["id"])
+    m = await get_user_marriage(db, user["id"])
     if not m:
         return {"married": False}
 
@@ -52,14 +40,10 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
     except Exception:
         days = 0
 
-    # Backfill vow_keeper achievement if days > 0 and progress is 0
+    # Backfill vow_keeper achievement from marriage duration (catch-up if days > progress)
     try:
-        from infrastructure.repositories.achievements import get_achievement, upsert_achievement
-        rec = await get_achievement(db, user["id"], "vow_keeper")
-        if (rec is None or rec["progress"] == 0) and days > 0:
-            grants = await ach_incr(db, user["id"], "marriage_days_total", delta=float(days))
-            if grants:
-                await db.commit()
+        await backfill_metric(db, user["id"], "marriage_days_total", float(days))
+        await db.commit()
     except Exception:
         pass
 
@@ -95,10 +79,10 @@ async def family_bank(body: BankRequest, db=Depends(get_db), user=Depends(requir
 @router.post("/divorce")
 async def divorce(db=Depends(get_db), user=Depends(require_tg_user)):
     """Развод — удаляет брак текущего пользователя."""
-    m = await _get_any_marriage(db, user["id"])
+    m = await get_user_marriage(db, user["id"])
     if not m:
         raise HTTPException(404, "Вы не состоите в браке.")
-    await delete_marriage(db, m["chat_id"], user["id"])
+    await delete_marriage(db, user["id"])
     return {"ok": True}
 
 
@@ -134,7 +118,7 @@ async def accept_proposal(body: ProposalActionRequest, db=Depends(get_db), user=
         raise HTTPException(404, "Предложение не найдено или уже истекло.")
     prop = dict(prop)
 
-    existing = await _get_any_marriage(db, user["id"])
+    existing = await get_user_marriage(db, user["id"])
     if existing:
         raise HTTPException(400, "Вы уже состоите в браке.")
 

@@ -4,13 +4,15 @@ from infrastructure.repositories.economy import get_balance
 
 
 async def get_user_marriage(
-    db: aiosqlite.Connection, chat_id: int, user_id: int
+    db: aiosqlite.Connection, user_id: int
 ) -> dict | None:
+    """Брак — глобальный (один на пользователя, не зависит от чата)."""
     async with db.execute(
         "SELECT id, chat_id, user1_id, user1_name, user2_id, user2_name, "
         "marriage_date, family_balance FROM marriages "
-        "WHERE chat_id = ? AND (user1_id = ? OR user2_id = ?)",
-        (chat_id, user_id, user_id),
+        "WHERE user1_id = ? OR user2_id = ? "
+        "ORDER BY marriage_date DESC LIMIT 1",
+        (user_id, user_id),
     ) as cursor:
         row = await cursor.fetchone()
         return dict(row) if row else None
@@ -87,10 +89,10 @@ async def create_marriage(
     await db.commit()
 
 
-async def delete_marriage(db: aiosqlite.Connection, chat_id: int, user_id: int):
+async def delete_marriage(db: aiosqlite.Connection, user_id: int):
     await db.execute(
-        "DELETE FROM marriages WHERE chat_id = ? AND (user1_id = ? OR user2_id = ?)",
-        (chat_id, user_id, user_id),
+        "DELETE FROM marriages WHERE user1_id = ? OR user2_id = ?",
+        (user_id, user_id),
     )
     await db.commit()
 

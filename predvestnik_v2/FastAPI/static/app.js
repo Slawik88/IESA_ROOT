@@ -12,9 +12,11 @@ const PL = {active:'Активный',passive:'Пассивный',storage:'Ск
 const RC = {common:'rc-common',uncommon:'rc-uncommon',rare:'rc-rare',
             epic:'rc-epic',legendary:'rc-legendary',shadow:'rc-shadow',mythic:'rc-mythic'};
 
-// Chat where the mini app was opened from (from Telegram WebApp context)
+// Chat where the mini app was opened from: bot encodes ?chat_id= for group
+// launches (Telegram WebApp context alone isn't reliable for group buttons).
 const _tgChat = tg?.initDataUnsafe?.chat || null;
-const _initChatId = _tgChat?.id || 0;   // primary chat_id for local top
+const _urlChatId = parseInt(new URLSearchParams(location.search).get('chat_id') || '0', 10) || 0;
+const _initChatId = _urlChatId || _tgChat?.id || 0;   // primary chat_id for local data
 const _initChatTitle = _tgChat?.title || '';
 
 let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='duels';
@@ -173,7 +175,7 @@ function loadProfile() {
   el('pro-main').innerHTML='<div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div>';
   api('/profile/me').then(d=>{
     if(!d || typeof d !== 'object') throw new Error('Неверный формат ответа сервера');
-    _cid = d.chats?.[0]?.chat_tg_id || 0;
+    _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
     const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,6);

@@ -26,7 +26,8 @@ FastAPI/        ← Web-адаптер
 | `core/themes.py` | THEMES (top/sep/bot/accent) |
 | `FastAPI/static/app.js` | JS ~1825 строк — ТОЛЬКО grep+offset Read |
 | `services/scheduler.py` | Фоновые задачи |
-| `AUDIT_V3.md` | Рабочий план по блокам (пиши "делаем блок N") |
+| `NOT_IMPLEMENTED.md` | Что доделать (пиши "делаем пункт N") |
+| `FUTURE_IDEAS.md` | Идеи на потом — после NOT_IMPLEMENTED.md |
 
 ## КРИТИЧЕСКИЕ ПРАВИЛА
 - `services/` не импортирует `bot.*` / `FastAPI.*`
@@ -34,9 +35,17 @@ FastAPI/        ← Web-адаптер
 - `${...}` только в backtick-строках
 - PostgreSQL ON CONFLICT: `table.column + $N`
 - Дублированные JS-функции — проверять `node --check`
-- Не трогать `g:\IESA_ROOT\` корень (IESA Django)
+- Не трогать `g:\IESA_ROOT\` корень (IESA Django) и `g:\IESA_ROOT\frontend\` (старый React-мини-апп "predvestnik-miniapp", без коммитов с апреля — мёртвый параллельный трек, не наш код)
 
 ## ENV (DigitalOcean)
 `BOT_TOKEN`, `DATABASE_URL`, `DEVELOPER_ID=1460945748`, `ROOT_PATH=/predvestnik`, `PORT=8000`, `BOT_USERNAME=IIIPredvestnikIIIBot`
 
-*Обновлено: 2026-06-04 | Полный план: AUDIT_V3.md*
+## ПАМЯТЬ (C:\Users\makss\.claude\projects\g--IESA-ROOT\memory\)
+- НЕ чистить каждую сессию.
+- Раз в несколько сессий — или когда видно, что инфо устарела/тема закрыта — пройтись по `MEMORY.md` и убрать:
+  - записи про баги/задачи, которые решены и больше не всплывают
+  - project-память про темы, с которых команда явно переключилась
+  - дубли/противоречия после новых указаний пользователя
+- Цель — экономия токенов: `MEMORY.md` грузится целиком в каждую сессию.
+
+*Обновлено: 2026-06-10 | Доделки: NOT_IMPLEMENTED.md | Идеи: FUTURE_IDEAS.md*

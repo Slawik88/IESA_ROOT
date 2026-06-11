@@ -6,39 +6,11 @@ from core.registry import ITEMS_REGISTRY, GACHA_RATES
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_inventory, remove_item
 from infrastructure.repositories.zoo import open_eggs_batch, grant_duplicate
+from services.inventory_resolve import resolve_and_migrate_item_id, item_display_name
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
 _CATEGORY_ORDER = {"egg": 0, "food": 1, "spin_token": 2, "booster": 3, "material": 4}
-
-# NOTE: Python hash() for strings is randomized per process (PYTHONHASHSEED),
-# so a static _HASH_TO_ITEM dict built at startup won't match hashes stored in
-# the DB that were computed during a different process. The reliable source is
-# auction_lots.item_name which contains "DisplayName||real_item_id".
-# _resolve_item_id_via_db() uses that as the primary resolution path.
-
-def _looks_numeric(s: str) -> bool:
-    return s.isdigit()
-
-
-async def _resolve_via_auction_lots(db, numeric_id: str) -> str | None:
-    """Try to find real item_id by looking up auction_lots for this hash."""
-    try:
-        async with db.execute(
-            "SELECT item_name FROM auction_lots "
-            "WHERE item_id_or_pet_id = ? AND item_type = 'inventory' LIMIT 1",
-            (int(numeric_id),),
-        ) as c:
-            row = await c.fetchone()
-        if row and row[0]:
-            parts = row[0].split("||", 1)
-            if len(parts) > 1:
-                real_id = parts[1].strip()
-                if real_id in ITEMS_REGISTRY:
-                    return real_id
-    except Exception:
-        pass
-    return None
 
 
 @router.get("/")
@@ -46,34 +18,12 @@ async def my_inventory(db=Depends(get_db), user=Depends(require_tg_user)):
     rows = await get_inventory(db, user["id"])
     result = []
     for row in rows:
-        raw_id = row["item_id"]
-        real_id = raw_id
-
-        if raw_id not in ITEMS_REGISTRY and _looks_numeric(raw_id):
-            # Primary: look up auction_lots history (reliable — stores "Name||real_id")
-            resolved = await _resolve_via_auction_lots(db, raw_id)
-            if resolved:
-                real_id = resolved
-                # Migrate: merge numeric row into real item_id (UPSERT to handle duplicates)
-                try:
-                    await db.execute(
-                        "INSERT INTO inventory (user_id, item_id, quantity) "
-                        "SELECT user_id, ?, quantity FROM inventory WHERE user_id = ? AND item_id = ? "
-                        "ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = inventory.quantity + EXCLUDED.quantity",
-                        (real_id, user["id"], raw_id),
-                    )
-                    await db.execute(
-                        "DELETE FROM inventory WHERE user_id = ? AND item_id = ?",
-                        (user["id"], raw_id),
-                    )
-                    await db.commit()
-                except Exception:
-                    pass
+        real_id = await resolve_and_migrate_item_id(db, user["id"], row["item_id"])
 
         item = ITEMS_REGISTRY.get(real_id, {})
         result.append({
             "item_id":        real_id,
-            "name":           item.get("name", f"❓ Предмет #{real_id}"),
+            "name":           item_display_name(real_id),
             "quantity":       row["quantity"],
             "category":       item.get("category", "unknown"),
             "description":    item.get("description", ""),
