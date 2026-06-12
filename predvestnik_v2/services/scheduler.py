@@ -38,7 +38,7 @@ from infrastructure.repositories.duel import get_expired_pending
 from services.duel import decline_duel
 from core.constants import DUEL_TIMEOUT_SECONDS, VIP_EXPIRY_REMINDER_DAYS, BATTLE_PASS_SEASON_END_REMINDER_DAYS
 from core.registry import VIP_TIERS
-from services.battle_pass import get_active_season
+from services.battle_pass import get_active_season, refresh_seasons_cache as refresh_bp_seasons
 
 
 async def expedition_background_task(bot: Bot):
@@ -304,6 +304,12 @@ async def duel_and_auction_task(bot: Bot):
                                 pass
                     except Exception as e:
                         logger.error(f"Auction resolve error lot {lot['id']}: {e}")
+
+                # ── Battle Pass: подхват сезонов, созданных через Консоль на сайте ──
+                try:
+                    await refresh_bp_seasons(db)
+                except Exception as _se:
+                    logger.warning(f"BP seasons cache refresh error: {_se}")
 
                 # ── VIP: expiry reminders (Block 4.5) ───────────────────────────
                 # Runs every minute; expiry_notified flag guards against re-sending.
