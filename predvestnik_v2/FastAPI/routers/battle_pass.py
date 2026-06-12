@@ -5,7 +5,10 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.constants import BATTLE_PASS_XP_PER_LEVEL
 from core.registry import BATTLE_PASS_REWARDS, ITEMS_REGISTRY
-from services.battle_pass import claim_reward, get_active_season, get_progress, level_status
+from core.themes import THEMES
+from services.battle_pass import (
+    claim_reward, get_active_season, get_progress, level_status, refresh_seasons_cache,
+)
 
 router = APIRouter(prefix="/battle_pass", tags=["battle_pass"])
 
@@ -18,16 +21,22 @@ def _resolve_items(items: tuple) -> list[dict]:
 
 
 def _reward_payload(reward: dict, level: int, track: str, progress: dict) -> dict:
-    return {
+    payload = {
         "mora": reward.get("mora", 0),
         "diamonds": reward.get("diamonds", 0),
         "items": _resolve_items(reward.get("items", ())),
         "status": level_status(level, track, progress),
     }
+    theme_id = reward.get("theme")
+    if theme_id:
+        payload["theme"] = THEMES.get(theme_id, {}).get("name", theme_id)
+    return payload
 
 
 @router.get("/status")
 async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
+    # Подхватываем сезоны, созданные через Консоль разработчика (БД-кэш процесса)
+    await refresh_seasons_cache(db)
     season = get_active_season()
     if not season:
         return {"active": False}

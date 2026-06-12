@@ -50,11 +50,25 @@ async def get_extra_pet_slots(db, user_id: int) -> int:
     return 0
 
 
-async def purchase_vip(db, user_id: int, tier: str, chat_id: int | None = None) -> tuple[bool, str]:
+async def get_vip_seniority_days(db, user_id: int) -> int:
+    """«Стаж VIP» — суммарно оплаченных дней за всё время (включая истёкшие подписки)."""
+    async with db.execute(
+        "SELECT COALESCE(total_days, 0) FROM vip_subscriptions WHERE user_id = ?",
+        (user_id,),
+    ) as c:
+        row = await c.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def purchase_vip(db, user_id: int, tier: str, chat_id: int | None = None,
+                       target_user_id: int | None = None) -> tuple[bool, str]:
     """Покупка/продление/апгрейд VIP-подписки за ✨ Зарники.
 
     Длительность стекуется поверх остатка активной подписки, тариф меняется
     сразу, разовый подарок выдаётся при каждой покупке любого тарифа.
+
+    target_user_id — «подарить вип»: платит user_id, подписку и подарок
+    получает target_user_id. total_days (стаж) копится у получателя.
     """
     info = VIP_TIERS.get(tier)
     if not info:
@@ -62,6 +76,7 @@ async def purchase_vip(db, user_id: int, tier: str, chat_id: int | None = None) 
 
     price = info["price_zarniki"]
     days = info["duration_days"]
+    recipient = target_user_id or user_id
 
     try:
         async with db.connection.transaction():
@@ -75,11 +90,11 @@ async def purchase_vip(db, user_id: int, tier: str, chat_id: int | None = None) 
                 return False, f"❌ Недостаточно ✨ (нужно {price:.0f}, есть {current:.0f})."
 
             await add_balance(db, user_id, zarniki=-price, source="vip_purchase",
-                               chat_id=chat_id, note=tier)
+                               chat_id=chat_id, note=tier if recipient == user_id else f"{tier}_gift_to_{recipient}")
 
             await db.execute(
-                "INSERT INTO vip_subscriptions (user_id, tier, started_at, expires_at, expiry_notified) "
-                "VALUES (?, ?, NOW(), NOW() + make_interval(days => ?), FALSE) "
+                "INSERT INTO vip_subscriptions (user_id, tier, started_at, expires_at, expiry_notified, total_days) "
+                "VALUES (?, ?, NOW(), NOW() + make_interval(days => ?), FALSE, ?) "
                 "ON CONFLICT (user_id) DO UPDATE SET "
                 "tier = EXCLUDED.tier, "
                 "started_at = CASE WHEN vip_subscriptions.expires_at > NOW() "
@@ -87,26 +102,32 @@ async def purchase_vip(db, user_id: int, tier: str, chat_id: int | None = None) 
                 "expires_at = CASE WHEN vip_subscriptions.expires_at > NOW() "
                 "THEN vip_subscriptions.expires_at + make_interval(days => ?) "
                 "ELSE NOW() + make_interval(days => ?) END, "
-                "expiry_notified = FALSE",
-                (user_id, tier, days, days, days),
+                "expiry_notified = FALSE, "
+                "total_days = COALESCE(vip_subscriptions.total_days, 0) + ?",
+                (recipient, tier, days, days, days, days, days),
             )
 
             gift = info["gift"]
             granted = []
             if gift.get("mora", 0) > 0:
-                await add_balance(db, user_id, mora=gift["mora"], source="vip_gift",
+                await add_balance(db, recipient, mora=gift["mora"], source="vip_gift",
                                    chat_id=chat_id, note=tier)
                 granted.append(f"+{gift['mora']:.0f} 🪙")
             if gift.get("diamonds", 0) > 0:
-                await add_balance(db, user_id, diamonds=gift["diamonds"], source="vip_gift",
+                await add_balance(db, recipient, diamonds=gift["diamonds"], source="vip_gift",
                                    chat_id=chat_id, note=tier)
                 granted.append(f"+{gift['diamonds']:.0f} 💎")
             for item_id, qty in gift.get("items", ()):
-                await add_item(db, user_id, item_id, qty)
+                await add_item(db, recipient, item_id, qty)
                 item_name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
                 granted.append(f"+{qty}× {item_name}")
 
         gift_text = ", ".join(granted) if granted else "—"
+        if recipient != user_id:
+            return True, (
+                f"🎁 Подарен <b>{info['label']}</b> на {days} дн.!\n"
+                f"🎁 Бонус получателю: {gift_text}"
+            )
         return True, (
             f"✅ Оформлен <b>{info['label']}</b> на {days} дн.!\n"
             f"🎁 Подарок: {gift_text}"

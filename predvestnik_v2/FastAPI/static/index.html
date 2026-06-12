@@ -5,60 +5,81 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
 <title>Предвестник</title>
 <link rel="manifest" href="./manifest.json"/>
-<meta name="theme-color" content="#c9a84c"/>
+<meta name="theme-color" content="#07080f"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="{{BASE}}/static/app.css?v={{ASSET_VER}}"/>
 </head>
 <body>
-<div id="curr-bar" aria-label="Ваши валюты — нажмите для подробностей">
-  <span class="cb-item"><span>🪙</span><span class="cb-val" id="cb-mora">0</span></span>
-  <span class="cb-sep">│</span>
-  <span class="cb-item"><span>💎</span><span class="cb-val" id="cb-dia">0.0</span></span>
-  <span class="cb-sep">│</span>
-  <span class="cb-item"><span>🌑</span><span class="cb-val" id="cb-dark">0</span></span>
-  <span class="cb-sep">│</span>
-  <span class="cb-item"><span>✨</span><span class="cb-val" id="cb-zar">0</span></span>
-</div>
+
+<!-- ═══ ХЕДЕР: игрок + валюты (✨ с кнопкой пополнения — всегда на виду) ═══ -->
+<header id="app-header">
+  <div class="hdr-user" onclick="goTo('profile')">
+    <div class="hdr-ava" id="hdr-ava">🔮</div>
+    <div class="hdr-id">
+      <div class="hdr-name" id="hdr-name">Игрок</div>
+      <div class="hdr-sub" id="hdr-sub">…</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:5px">
+    <div id="curr-bar" aria-label="Ваши валюты — нажмите для подробностей">
+      <span class="cb-item"><span>🪙</span><span class="cb-val" id="cb-mora">0</span></span>
+      <span class="cb-item"><span>💎</span><span class="cb-val" id="cb-dia">0.0</span></span>
+      <span class="cb-item cb-zar"><span>✨</span><span class="cb-val" id="cb-zar">0</span>
+        <button class="cb-plus" onclick="event.stopPropagation();goTo('market','vip')" aria-label="Пополнить">+</button>
+      </span>
+      <span class="cb-item" style="display:none"><span>🌑</span><span class="cb-val" id="cb-dark">0</span></span>
+    </div>
+    <button class="hdr-refresh" onclick="refreshPage()" aria-label="Обновить">🔄</button>
+  </div>
+</header>
 
 <div id="toast" class="toast"></div>
 
+<!-- ═══ ЛОГИН ═══ -->
 <div id="login-ov" class="login-ov hidden">
-  <div style="font-size:52px;animation:glow 2s infinite">🔮</div>
+  <div class="login-orb">🔮</div>
   <h1>Предвестник</h1>
-  <p>Войдите через Telegram для доступа к игровому профилю.</p>
+  <p>Войдите через Telegram, чтобы открыть свой игровой профиль, питомцев и магазин.</p>
   <div id="tg-login-widget">
     <script src="https://telegram.org/js/telegram-widget.js?22"
-            data-telegram-login="{{BOT_USERNAME}}" data-size="large" data-radius="8"
+            data-telegram-login="{{BOT_USERNAME}}" data-size="large" data-radius="14"
             data-onauth="onTelegramWidgetAuth(user)" data-request-access="write"></script>
   </div>
   <p style="font-size:10px;color:var(--dim)">Данные защищены подписью Telegram.</p>
 </div>
 
+<!-- ═══ МОДАЛКА → BOTTOM SHEET ═══ -->
 <dialog id="modal">
-  <div class="mhead"><span id="mt" class="mtitle"></span><button class="mclose" onclick="CM()">✕</button></div>
-  <div id="mb" class="mbody"></div>
-  <div id="mf" class="mfoot"></div>
+  <div class="sheet">
+    <div class="sheet-grip"></div>
+    <div class="mhead"><span id="mt" class="mtitle"></span><button class="mclose" onclick="CM()">✕</button></div>
+    <div id="mb" class="mbody"></div>
+    <div id="mf" class="mfoot"></div>
+  </div>
 </dialog>
 
-<!-- 1. Профиль — «Мой Персонаж» (Обзор = дашборд + история кошелька внизу) -->
+<!-- ═══ 1. ПРОФИЛЬ ═══ -->
 <div id="pg-profile" class="page active">
   <div class="tabs">
     <button class="tb active" onclick="switchPro('main',this)">👤 Обзор</button>
     <button class="tb" onclick="switchPro('quests',this)">📋 Квесты</button>
     <button class="tb" onclick="switchPro('streak',this)">🔥 Стрик</button>
     <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
-    <button class="tb" onclick="switchPro('bp',this)">🎫 БП</button>
+    <button class="tb" onclick="switchPro('bp',this)">🎫 Пропуск</button>
   </div>
-  <div id="pro-main"><div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div></div>
+  <div id="pro-main">
+    <div class="sk" style="height:140px;border-radius:22px;margin-bottom:12px"></div>
+    <div class="sk" style="height:70px;border-radius:16px"></div>
+  </div>
   <div id="pro-quests" style="display:none"><div id="qc"></div></div>
   <div id="pro-streak" style="display:none"></div>
   <div id="pro-ach" style="display:none"></div>
   <div id="pro-bp" style="display:none"></div>
 </div>
 
-<!-- 2. Зоопарк -->
+<!-- ═══ 2. ПИТОМЦЫ ═══ -->
 <div id="pg-zoo" class="page">
   <div id="zoo-exp-wrap"></div>
   <div class="tabs">
@@ -69,7 +90,7 @@
   <div id="zoo-c"></div>
 </div>
 
-<!-- 3. Арена — только бои: Дуэли + Ивенты -->
+<!-- ═══ 3. АРЕНА ═══ -->
 <div id="pg-arena" class="page">
   <div class="tabs">
     <button class="tb active" onclick="swArena('duels',this)">⚔️ Дуэли</button>
@@ -79,10 +100,11 @@
   <div id="ar-events" style="display:none"><div id="evc"></div></div>
 </div>
 
-<!-- 4. Рынок — вся экономика: + Гача + Крафт + Тёмная -->
+<!-- ═══ 4. МАГАЗИН: премиум-витрина сразу после аукциона ═══ -->
 <div id="pg-market" class="page">
   <div class="tabs">
     <button class="tb active" onclick="swMkt('auc',this)">🏛 Аукцион</button>
+    <button class="tb" onclick="swMkt('vip',this)">✨ Премиум</button>
     <button class="tb" onclick="swMkt('shop',this)">🛒 Магазин</button>
     <button class="tb" onclick="swMkt('gacha',this)">🎲 Гача</button>
     <button class="tb" onclick="swMkt('craft',this)">⚗️ Крафт</button>
@@ -90,7 +112,6 @@
     <button class="tb" onclick="swMkt('exch',this)">💱 Обмен</button>
     <button class="tb" onclick="swMkt('deal',this)">🏷 Акция</button>
     <button class="tb" onclick="swMkt('dark',this)">🌑 Тёмная</button>
-    <button class="tb" onclick="swMkt('vip',this)">👑 VIP</button>
   </div>
   <div id="balrow" class="balrow" style="display:none"></div>
   <div id="mkt-auc"><div class="loader">Загрузка...</div></div>
@@ -104,7 +125,7 @@
   <div id="mkt-vip"   style="display:none"><div class="loader">Загрузка...</div></div>
 </div>
 
-<!-- 5. Коллекция -->
+<!-- ═══ 5. КОЛЛЕКЦИЯ ═══ -->
 <div id="pg-coll" class="page">
   <div class="tabs">
     <button class="tb active" onclick="swColl('themes',this)">🎨 Темы</button>
@@ -112,7 +133,7 @@
   </div>
   <div id="col-themes"><div class="loader">Загрузка...</div></div>
   <div id="col-top" style="display:none">
-    <div class="tabs" style="margin-top:4px">
+    <div class="tabs">
       <button class="tb active" onclick="switchTop('local',this)">🏘 Чат</button>
       <button class="tb" onclick="switchTop('global',this)">🌍 Глобально</button>
     </div>
@@ -120,24 +141,26 @@
   </div>
 </div>
 
-<!-- 6. Админка -->
+<!-- ═══ 6. АДМИНКА ═══ -->
 <div id="pg-admin" class="page">
   <div id="adm-chat-sel" style="margin-bottom:10px"></div>
   <div class="tabs">
     <button class="tb active" onclick="swAdmin('dash',this)">📊 Дашборд</button>
     <button class="tb" onclick="swAdmin('users',this)">👥 Участники</button>
+    <button class="tb" onclick="swAdmin('bl',this)">🚫 ЧС</button>
     <button class="tb" onclick="swAdmin('mod',this)">⚡ Модерация</button>
     <button class="tb" onclick="swAdmin('settings',this)">⚙️ Настройки</button>
     <button class="tb" onclick="swAdmin('logs',this)">📋 Журнал</button>
   </div>
   <div id="adm-dash"></div>
   <div id="adm-users"    style="display:none"></div>
+  <div id="adm-bl"       style="display:none"></div>
   <div id="adm-mod"      style="display:none"></div>
   <div id="adm-settings" style="display:none"></div>
   <div id="adm-logs"     style="display:none"></div>
 </div>
 
-<!-- 7. Глобальная модерация -->
+<!-- ═══ 7. ГЛОБАЛЬНАЯ МОДЕРАЦИЯ ═══ -->
 <div id="pg-global" class="page">
   <div class="tabs">
     <button class="tb active" onclick="swGlobal('chats',this)">💬 Все чаты</button>
@@ -145,23 +168,25 @@
     <button class="tb" onclick="swGlobal('log',this)">📋 Журнал</button>
     <button class="tb" onclick="swGlobal('appeals',this)">📨 Апелляции</button>
     <button class="tb" id="glb-tab-ranks" style="display:none" onclick="swGlobal('ranks',this)">👮 Штат</button>
+    <button class="tb" id="glb-tab-dev" style="display:none" onclick="swGlobal('dev',this)">🛠 Консоль</button>
   </div>
   <div id="glb-chats"></div>
   <div id="glb-sanctions" style="display:none"></div>
   <div id="glb-log"       style="display:none"></div>
   <div id="glb-appeals"   style="display:none"></div>
   <div id="glb-ranks"     style="display:none"></div>
+  <div id="glb-dev"       style="display:none"></div>
 </div>
 
+<!-- ═══ НИЖНИЙ ДОК ═══ -->
 <nav class="nav">
   <div class="nb active" onclick="switchPage('profile',this)"><span class="ni">👤</span>Профиль</div>
-  <div class="nb" onclick="switchPage('zoo',this)"><span class="ni">🐾</span>Зоопарк</div>
+  <div class="nb" onclick="switchPage('zoo',this)"><span class="ni">🐾</span>Питомцы</div>
   <div class="nb" onclick="switchPage('arena',this)"><span class="ni">⚔️</span>Арена</div>
-  <div class="nb" onclick="switchPage('market',this)"><span class="ni">🏛</span>Рынок</div>
+  <div class="nb" onclick="switchPage('market',this)"><span class="ni">🛍</span>Магазин</div>
   <div class="nb" onclick="switchPage('coll',this)"><span class="ni">🎨</span>Коллекция</div>
   <div class="nb" id="nb-admin" style="display:none" onclick="switchPage('admin',this)"><span class="ni">🛡</span>Адм.</div>
   <div class="nb" id="nb-global" style="display:none" onclick="switchPage('global',this)"><span class="ni">🌍</span>Модер.</div>
-  <div class="nb" onclick="refreshPage()" style="max-width:42px"><span class="ni">🔄</span></div>
 </nav>
 
 <script src="{{BASE}}/static/app.js?v={{ASSET_VER}}"></script>

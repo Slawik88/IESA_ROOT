@@ -552,7 +552,10 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
     49: {"free": {"mora": 490, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 5, "items": ()}},
     50: {"free": {"mora": 500, "diamonds": 0, "items": (("spin_token_standard", 2),)},
-         "paid": {"mora": 0,   "diamonds": 10, "items": (("spin_token_diamond", 1),)}},
+         # theme — сезонная тема из core/themes.py (rarity "seasonal"), выдаётся
+         # grant_theme'ом в services/battle_pass.claim_reward. Топ платного трека.
+         "paid": {"mora": 0,   "diamonds": 10, "items": (("spin_token_diamond", 1),),
+                  "theme": "theme_bp_s1"}},
 }
 
 

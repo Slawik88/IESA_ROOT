@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from core.registry import VIP_TIERS, ITEMS_REGISTRY
-from services.vip import get_vip_info, purchase_vip
+from services.vip import get_vip_info, get_vip_seniority_days, purchase_vip
 
 router = APIRouter(prefix="/vip", tags=["vip"])
 
@@ -36,6 +36,7 @@ def _tiers_payload() -> list[dict]:
 @router.get("/status")
 async def vip_status(db=Depends(get_db), user=Depends(require_tg_user)):
     info = await get_vip_info(db, user["id"])
+    seniority = await get_vip_seniority_days(db, user["id"])
     if info:
         return {
             "active": True,
@@ -43,6 +44,8 @@ async def vip_status(db=Depends(get_db), user=Depends(require_tg_user)):
             "tier_label": info["tier_label"],
             "expires_at": info["expires_at"].isoformat(),
             "days_left": info["days_left"],
+            "seniority_days": seniority,
+            "seniority_months": seniority // 30,
             "tiers": _tiers_payload(),
         }
     return {
@@ -51,6 +54,8 @@ async def vip_status(db=Depends(get_db), user=Depends(require_tg_user)):
         "tier_label": None,
         "expires_at": None,
         "days_left": 0,
+        "seniority_days": seniority,
+        "seniority_months": seniority // 30,
         "tiers": _tiers_payload(),
     }
 

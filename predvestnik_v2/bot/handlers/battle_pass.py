@@ -7,6 +7,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.filters.text_commands import TextCmd
 from core.constants import BATTLE_PASS_XP_PER_LEVEL
 from core.registry import BATTLE_PASS_REWARDS, ITEMS_REGISTRY
+from core.themes import THEMES
 from services.battle_pass import claim_reward, get_active_season, get_progress, level_status
 from services.formatting import format_progress_bar
 
@@ -35,6 +36,9 @@ def _reward_line(reward: dict) -> str:
     for item_id, qty in reward.get("items", ()):
         name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
         parts.append(f"+{qty} {name}")
+    if reward.get("theme"):
+        theme_name = THEMES.get(reward["theme"], {}).get("name", reward["theme"])
+        parts.append(f"🎨 Тема «{theme_name}»")
     return ", ".join(parts) if parts else "—"
 
 

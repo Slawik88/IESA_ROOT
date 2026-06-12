@@ -11,14 +11,40 @@ from core.constants import (
     BATTLE_PASS_XP_WEIGHTS,
 )
 from core.registry import BATTLE_PASS_REWARDS, BATTLE_PASS_SEASONS, ITEMS_REGISTRY
+from core.themes import THEMES
 from infrastructure.repositories.economy import add_balance
+from infrastructure.repositories.themes import grant_theme
 from services.vip import is_vip_active
+
+# Сезоны из БД (создаются через Консоль разработчика на сайте). Кэш на процесс:
+# бот обновляет его раз в минуту в scheduler, FastAPI — при GET /battle_pass/status
+# и при правках сезонов в консоли. DB перекрывает registry по совпадающему id.
+_db_seasons_cache: dict[str, dict] = {}
+
+
+async def refresh_seasons_cache(db) -> None:
+    global _db_seasons_cache
+    async with db.execute(
+        "SELECT id, label, starts_at, ends_at, COALESCE(max_level, 50) AS max_level "
+        "FROM battle_pass_seasons"
+    ) as c:
+        rows = await c.fetchall()
+    _db_seasons_cache = {
+        row["id"]: {"label": row["label"], "starts_at": row["starts_at"],
+                    "ends_at": row["ends_at"], "max_level": row["max_level"]}
+        for row in rows
+    }
+
+
+def all_seasons() -> dict[str, dict]:
+    """registry + БД (БД перекрывает registry по id)."""
+    return {**BATTLE_PASS_SEASONS, **_db_seasons_cache}
 
 
 def get_active_season() -> dict | None:
-    """Текущий сезон по дате (BATTLE_PASS_SEASONS), либо None между сезонами."""
+    """Текущий сезон по дате (registry + БД-кэш), либо None между сезонами."""
     today = date.today().isoformat()
-    for season_id, season in BATTLE_PASS_SEASONS.items():
+    for season_id, season in all_seasons().items():
         if season["starts_at"] <= today <= season["ends_at"]:
             return {**season, "id": season_id}
     return None
@@ -140,6 +166,7 @@ async def claim_reward(db, user_id: int, level: int, track: str) -> tuple[bool, 
     mora = reward.get("mora", 0)
     diamonds = reward.get("diamonds", 0)
     items = reward.get("items", ())
+    theme_id = reward.get("theme")  # сезонная тема (топ платного трека)
 
     if mora or diamonds:
         await add_balance(
@@ -153,6 +180,9 @@ async def claim_reward(db, user_id: int, level: int, track: str) -> tuple[bool, 
             "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
             (user_id, item_id, qty, qty),
         )
+
+    if theme_id:
+        await grant_theme(db, user_id, theme_id)
 
     await db.execute(
         f"UPDATE battle_pass_progress SET {claimed_col} = array_append({claimed_col}, ?) "
@@ -169,6 +199,9 @@ async def claim_reward(db, user_id: int, level: int, track: str) -> tuple[bool, 
     for item_id, qty in items:
         name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
         parts.append(f"+{qty} {name}")
+    if theme_id:
+        theme_name = THEMES.get(theme_id, {}).get("name", theme_id)
+        parts.append(f"🎨 Тема «{theme_name}»")
     reward_text = ", ".join(parts) if parts else "—"
 
     track_label = "Бесплатный" if track == "free" else "VIP"

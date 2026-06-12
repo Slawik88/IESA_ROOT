@@ -182,27 +182,48 @@ function loadProfile() {
     _profileData = d;
     const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,6);
     const uid = d.user_id || _uid;
+    const lvl = d.chats?.[0]?.user_level || 1;
+    const xp = d.chats?.[0]?.user_xp || 0;
+    const xpInLvl = xp % 3000, xpPct = Math.min(100, Math.round(xpInLvl/3000*100));
     el('pro-main').innerHTML=`
-      <div class="card card-gold">
-        <div class="phead">
-          <div class="ava">🔮</div>
-          <div><div class="pname">@${vipName(d.username||'Игрок', d.is_vip)}</div><div class="prank">${d.rank}</div></div>
+      <div class="hero">
+        <div class="hero-head">
+          <div class="ava">${d.is_vip?'👑':'🔮'}</div>
+          <div style="min-width:0">
+            <div class="pname">@${vipName(d.username||'Игрок', d.is_vip)}</div>
+            <div class="prank">${d.rank}</div>
+          </div>
+        </div>
+        <div class="hero-xp">
+          <div class="xp-bar"><div class="xp-fill" style="width:${xpPct}%"></div></div>
+          <div class="xp-lbl"><span>Уровень ${lvl}</span><span>${fmt(xpInLvl)} / 3 000 XP</span></div>
         </div>
         <div class="stats">
           <div class="stat"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора</div></div>
           <div class="stat"><div>💎</div><div class="sv">${d.diamonds.toFixed(1)}</div><div class="sl">Алмазы</div></div>
-          <div class="stat clickable" onclick="goTo('profile','streak')" title="Открыть стрик"><div>🔥</div><div class="sv">${d.streak}</div><div class="sl">Стрик ›</div></div>
-          <div class="stat clickable" onclick="goTo('profile','ach')" title="Открыть ачивки"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
+          <div class="stat clickable" onclick="${(d.zarniki||0)>0?'openExchangeZarnikiModal()':"goTo('market','vip')"}"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">${(d.zarniki||0)>0?'Зарники 🔄':'Зарники +'}</div></div>
+          <div class="stat clickable" onclick="goTo('profile','ach')"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
         </div>
-        ${(d.dark_mora||0)>0||(d.zarniki||0)>0?`<div class="stats" style="margin-top:7px">
-          ${(d.dark_mora||0)>0?`<div class="stat"><div>🌑</div><div class="sv">${fmt(Math.floor(d.dark_mora||0))}</div><div class="sl">Тёмная</div></div>`:''}
-          ${(d.zarniki||0)>0?`<div class="stat clickable" onclick="openExchangeZarnikiModal()" title="Обменять Зарники"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">Зарники 🔄</div></div>`:''}
-        </div>`:''}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 0;border-top:1px solid var(--border2);margin-top:6px">
-          <span style="font-size:11px;color:var(--muted)">🆔 <code style="background:var(--dim);padding:1px 4px;border-radius:3px;font-size:11px">${uid}</code></span>
-          <button class="btn btn-ghost" style="padding:2px 8px;font-size:10px" onclick="copyUid(${uid})">📋 Копировать ID</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0 0;margin-top:11px;border-top:1px solid var(--border2)">
+          <span style="font-size:10.5px;color:var(--muted)">🆔 <code>${uid}</code></span>
+          <button class="btn btn-ghost btn-sm" style="padding:3px 9px;font-size:10px" onclick="copyUid(${uid})">📋 Копировать</button>
         </div>
       </div>
+
+      <!-- Быстрые действия: всё важное в 1 клик -->
+      <div class="qa-row">
+        <div class="qa qa-hot" onclick="goTo('profile','streak')"><span>🔥</span>Стрик ${d.streak}</div>
+        <div class="qa" onclick="goTo('profile','quests')"><span>📋</span>Квесты</div>
+        <div class="qa" onclick="goTo('profile','bp')"><span>🎫</span>Пропуск</div>
+        <div class="qa" onclick="goTo('zoo')"><span>🍖</span>Питомцы</div>
+      </div>
+
+      ${d.is_vip?'':`<div class="vip-banner" onclick="goTo('market','vip')">
+        <span class="vb-crown">👑</span>
+        <div><div class="vb-title">Стань VIP</div><div class="vb-sub">Еженедельные подарки, +слот питомника, безлимит ника</div></div>
+        <span class="vb-cta">›</span>
+      </div>`}
+
       <!-- Карточка брака (заполняется loadMarriageCard) -->
       <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
       <!-- Карточка ника (заполняется loadNickCard) -->
@@ -250,6 +271,13 @@ function updateCurrBar(data) {
   set('cb-dia',  data?.diamonds ?? 0, n => parseFloat(n).toFixed(1));
   set('cb-dark', Math.floor(data?.dark_mora ?? 0), fmt);
   set('cb-zar',  data?.zarniki ?? 0, n => Math.floor(n).toString());
+  // Хедер: имя + уровень/ранг игрока
+  if (data?.username !== undefined) {
+    const nm=el('hdr-name'); if(nm) nm.textContent=(data.is_vip?'👑 ':'')+(data.username||'Игрок');
+    const sub=el('hdr-sub');
+    if(sub) sub.textContent=`Lv${data.chats?.[0]?.user_level||1} · 🔥${data.streak||0}`;
+    const av=el('hdr-ava'); if(av && data.is_vip) av.textContent='👑';
+  }
 }
 
 function showCurrModal() {
@@ -288,17 +316,8 @@ function showCurrModal() {
 }
 
 function showCurrBar(show) {
-  const bar = el('curr-bar');
-  if (!bar) return;
-  if (show) {
-    bar.classList.add('visible');
-    document.body.classList.add('has-curr-bar');
-    _currBarVisible = true;
-  } else {
-    bar.classList.remove('visible');
-    document.body.classList.remove('has-curr-bar');
-    _currBarVisible = false;
-  }
+  // Редизайн v5: хедер с валютами и кнопкой пополнения виден ВСЕГДА (донат на виду).
+  _currBarVisible = true;
 }
 
 el('curr-bar')?.addEventListener('click', showCurrModal);
@@ -584,6 +603,7 @@ function _bpRewardCell(level,track,reward) {
   if(reward.mora) parts.push(`+${fmt(reward.mora)} 🪙`);
   if(reward.diamonds) parts.push(`+${reward.diamonds} 💎`);
   (reward.items||[]).forEach(it=>parts.push(`+${it.qty} ${it.name}`));
+  if(reward.theme) parts.push(`🎨 Тема «${reward.theme}»`);
   const text=parts.join(', ')||'—';
   const st=reward.status;
   const sty=BP_CELL_STYLE[st]||BP_CELL_STYLE.locked_level;
@@ -2286,15 +2306,19 @@ function doRitual(btn) {
 function loadVip() {
   el('mkt-vip').innerHTML = '<div class="loader">Загрузка...</div>';
   api('/vip/status').then(d=>{
+    const seniorityLine = d.seniority_days>0
+      ? `<div style="font-size:11px;color:var(--gold);margin-top:4px">🏅 Стаж VIP: ${d.seniority_months} мес. (${d.seniority_days} дн.)</div>` : '';
     const statusHtml = d.active
       ? `<div class="card card-gold">
           <div class="card-title">👑 ${d.tier_label}</div>
           <div style="font-size:12px;color:var(--muted)">Истекает: ${new Date(d.expires_at).toLocaleDateString('ru-RU')} · осталось ${d.days_left} дн.</div>
+          ${seniorityLine}
           <div style="font-size:11px;color:var(--muted);margin-top:6px">Можно купить ещё тариф — срок сложится, тариф сменится сразу.</div>
         </div>`
       : `<div class="card">
           <div class="card-title">👑 VIP-подписка</div>
           <div style="font-size:12px;color:var(--muted);line-height:1.5">Косметика, удобство и еженедельные бонусы — без преимущества в силе.</div>
+          ${seniorityLine}
         </div>`;
 
     const tiersHtml = d.tiers.map(t=>{
@@ -2969,13 +2993,14 @@ function swAdmin(tab, btn) {
   _adminTab=tab;
   document.querySelectorAll('#pg-admin .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  ['dash','users','mod','settings','logs'].forEach(t=>el('adm-'+t).style.display=t===tab?'':'none');
+  ['dash','users','bl','mod','settings','logs'].forEach(t=>el('adm-'+t).style.display=t===tab?'':'none');
   if(!_adminChatId) return;
   if(tab==='dash') loadAdminDash();
   else if(tab==='users') { _adminPage=1; loadAdminUsers(); }
+  else if(tab==='bl') loadAdminBlacklist();
   else if(tab==='mod') loadAdminMod();
   else if(tab==='settings') loadAdminSettings();
-  else if(tab==='logs') { _adminPage=1; loadAdminLogs(); }
+  else if(tab==='logs') { _adminPage=1; _admLogFilter=''; loadAdminLogs(); }
 }
 function swAdminByName(tab) {
   swAdmin(tab, document.querySelector(`#pg-admin .tb[onclick*="'${tab}'"]`));
@@ -3010,6 +3035,7 @@ function loadAdminUsers() {
 }
 function renderAdminUserTable(d) {
   const total=d.total||0, pages=Math.ceil(total/(d.page_size||20));
+  _admMaxRank=d.max_assignable_rank??0;
   el('adm-users').innerHTML=`
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <input id="adm-search" type="text" class="num-input" style="flex:1;margin:0" placeholder="Поиск по нику/ID" value="${_adminSearch}" oninput="onAdminSearch(this.value)"/>
@@ -3036,8 +3062,9 @@ function renderAdminUserTable(d) {
               ${u.muted_until?`<span style="color:var(--gold)">🔇 до ${u.muted_until.slice(0,16)}</span>`:
                 u.is_immune?'🛡 Иммун':u.is_left?'👋 Ушёл':'✅'}
             </td>
-            <td>
-              ${u.can_act?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban})})'>⚡</button>`:`<span style="font-size:10px;color:var(--dim)">—</span>`}
+            <td style="white-space:nowrap">
+              ${u.can_act?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban,s:u.can_shield,i:u.can_immune})})'>⚡</button>`:`<span style="font-size:10px;color:var(--dim)">—</span>`}
+              ${u.can_set_rank?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" title="Сменить ранг" onclick='openRankModal(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${u.local_rank||0})'>🎖</button>`:''}
             </td>
           </tr>`).join('')}
         </tbody>
@@ -3060,8 +3087,10 @@ function onAdminSearch(v) {
 function onAdminSort(v) { _adminSort=v; _adminPage=1; loadAdminUsers(); }
 
 function openAdminAction(userId, userName, perms) {
-  // Map each action to its permission flag (unwarn shares warn perm, unmute shares mute perm)
-  const _perm = {warn:perms.w, unwarn:perms.w, mute:perms.m, unmute:perms.m, kick:perms.k, ban:perms.b};
+  // Map each action to its permission flag (unwarn shares warn perm, unmute shares mute perm,
+  // shield/unshield share rank_shield, set_immune/unset_immune share rank_immune)
+  const _perm = {warn:perms.w, unwarn:perms.w, mute:perms.m, unmute:perms.m, kick:perms.k, ban:perms.b,
+                 shield:perms.s, unshield:perms.s, set_immune:perms.i, unset_immune:perms.i};
   const _btn=(action,label,cls)=>{
     const ok=_perm[action]===true;
     return `<button class="btn btn-sm ${cls}" style="flex:1;position:relative" onclick="${ok?`doAdminAction(${userId},'${action}')`:''}" ${ok?'':'disabled'} title="${ok?'':'Недостаточно прав'}">${label}${!ok?'<span class="perm-tip">Нет прав</span>':''}</button>`;
@@ -3074,6 +3103,10 @@ function openAdminAction(userId, userName, perms) {
       ${_btn('unmute','🔊 Снять мут','btn-ghost')}
       ${_btn('kick','🥾 Кик','btn-ghost')}
       ${_btn('ban','🚫 Бан','btn-red')}
+      ${_btn('shield','🛡 Щит (24ч)','btn-ghost')}
+      ${_btn('unshield','🛡❌ Снять щит','btn-ghost')}
+      ${_btn('set_immune','🔰 Иммунитет','btn-ghost')}
+      ${_btn('unset_immune','🔰❌ Снять имм.','btn-ghost')}
     </div>
     <div style="margin-top:8px">
       <input id="adm-reason" type="text" class="num-input" style="margin:0" placeholder="Причина (необязательно)" maxlength="200"/>
@@ -3127,10 +3160,10 @@ function loadAdminSettings() {
       <span class="ik">${label}</span>
       <span id="aset-${key}" style="color:${val?'var(--green)':'var(--red)'}">${val?'ВКЛ':'ВЫКЛ'}</span>
     </div>`;
-    const rank=(key,label,val)=>`<div class="irow">
+    const rank=(key,label,val,fromZero)=>`<div class="irow">
       <span class="ik">${label}</span>
       <select id="aset-${key}" class="num-input" style="width:auto;margin:0;font-size:11px" onchange="queueAdmSave()">
-        ${[1,2,3,4,5,6].map(r=>`<option value="${r}" ${val===r?'selected':''}>${_RANK_NAMES[r]}</option>`).join('')}
+        ${(fromZero?[0,1,2,3,4,5,6]:[1,2,3,4,5,6]).map(r=>`<option value="${r}" ${val===r?'selected':''}>${_RANK_NAMES[r]}</option>`).join('')}
       </select>
     </div>`;
     el('adm-settings').innerHTML=`
@@ -3150,14 +3183,54 @@ function loadAdminSettings() {
       </div>
       <div class="card">
         <div class="card-title">⚖️ Минимальный ранг для действий</div>
-        ${rank('rank_warn','⚠️ Варн',s.rank_warn)}
-        ${rank('rank_mute','🔇 Мут',s.rank_mute)}
-        ${rank('rank_kick','🥾 Кик',s.rank_kick)}
-        ${rank('rank_ban','🚫 Бан',s.rank_ban)}
+        ${rank('rank_warn','⚠️ Выдавать варны',s.rank_warn)}
+        ${rank('rank_mute','🔇 Ставить мут',s.rank_mute)}
+        ${rank('rank_kick','👢 Кикнуть из чата',s.rank_kick)}
+        ${rank('rank_ban','🔨 Забанить навсегда',s.rank_ban)}
+        ${rank('rank_shield','🛡 Выдавать щит',s.rank_shield)}
+        ${rank('rank_immune','🔰 Давать иммунитет',s.rank_immune)}
+        ${rank('rank_duel','⚔️ Начинать дуэли',s.rank_duel,true)}
+        ${rank('rank_marriage','💍 Предлагать брак',s.rank_marriage,true)}
+        ${rank('rank_give','💸 Переводить мору/алмазы',s.rank_give,true)}
+        ${rank('purge_min_rank','🧹 Не проверяется чисткой',s.purge_min_rank)}
+      </div>
+      <div class="card">
+        <div class="card-title">🧹 Чистка активности</div>
+        <div class="irow"><span class="ik">Статус</span>
+          <span style="color:${s.is_purging?'var(--red)':'var(--muted)'}">${s.is_purging?'🔴 Идёт — чат закрыт':'⚪ Не активна'}</span>
+        </div>
+        ${s.is_purging?`
+          <button class="btn btn-gold btn-full" style="margin-top:8px" onclick="doPurgeStop()">⏹ Завершить чистку (открыть чат)</button>
+        `:`
+          <div style="display:flex;gap:6px;margin:8px 0 6px">
+            <input id="purge-start" type="date" class="num-input" style="flex:1;margin:0" title="Начало периода"/>
+            <input id="purge-end" type="date" class="num-input" style="flex:1;margin:0" title="Конец периода"/>
+            <input id="purge-norm" type="number" class="num-input" style="width:80px;margin:0" placeholder="Норма" value="50" min="1"/>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Пусто = последние 7 дней, норма 50. Отчёт уйдёт в чат; досье с кнопками — через бот-команду «чистка».</div>
+          <button class="btn btn-red btn-full" onclick="doPurgeStart()">▶️ Начать чистку (закроет чат!)</button>
+        `}
       </div>
       <div id="adm-save-status" style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px"></div>`;
     el('adm-settings')._settings=s;
   }).catch(e=>{el('adm-settings').innerHTML=`<div class="err">${e}</div>`;});
+}
+function doPurgeStart() {
+  const sd=el('purge-start')?.value||null, ed=el('purge-end')?.value||null;
+  const norm=parseInt(el('purge-norm')?.value||'50')||50;
+  OM('🧹 Начать чистку?',
+    `<div style="text-align:center;padding:12px 0;color:var(--muted)">Чат будет <b style="color:var(--red)">закрыт для сообщений</b>, в него уйдёт отчёт по активности.<div style="font-size:11px;margin-top:6px">Период: ${sd||'−7 дней'} — ${ed||'сегодня'} · Норма: ${norm}</div></div>`,
+    [{l:'Да, начать',c:'btn-red',f:`_execPurgeStart(${JSON.stringify(sd)},${JSON.stringify(ed)},${norm})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _execPurgeStart(sd, ed, norm) {
+  api(`/admin/${_adminChatId}/purge/start`,{method:'POST',body:JSON.stringify({start_date:sd,end_date:ed,norm})})
+    .then(r=>{toast(`🧹 Чистка запущена: ✅${r.passed} ❌${r.failed} 🛡${r.protected}`);CM();loadAdminSettings();})
+    .catch(e=>toast(e,false));
+}
+function doPurgeStop() {
+  api(`/admin/${_adminChatId}/purge/stop`,{method:'POST'})
+    .then(()=>{toast('✅ Чистка завершена, чат открыт');loadAdminSettings();})
+    .catch(e=>toast(e,false));
 }
 let _admSaveTimer=null;
 function toggleAdmSetting(key) {
@@ -3175,7 +3248,8 @@ function queueAdmSave() {
 function saveAdmSettings() {
   const keys=['module_shop','module_gacha','module_zoo','module_expeditions','module_auction',
               'module_games','module_exchange','module_quests','module_daily_deal',
-              'events_enabled','nsfw_warps_allowed','rank_warn','rank_mute','rank_kick','rank_ban'];
+              'events_enabled','nsfw_warps_allowed','rank_warn','rank_mute','rank_kick','rank_ban',
+              'rank_shield','rank_immune','rank_duel','rank_marriage','rank_give','purge_min_rank'];
   const body={};
   for(const k of keys) {
     const e2=el('aset-'+k); if(!e2) continue;
@@ -3189,9 +3263,25 @@ function saveAdmSettings() {
 function loadAdminLogs() {
   if(!_adminChatId) return;
   el('adm-logs').innerHTML='<div class="loader">Загрузка...</div>';
-  api(`/admin/${_adminChatId}/logs?page=${_adminPage}`).then(d=>{
+  const filterBar=`<div class="tabs" style="margin-bottom:8px">
+    <button class="tb ${!_admLogFilter?'active':''}" onclick="admLogFilter('')">Все</button>
+    <button class="tb ${_admLogFilter==='ban'?'active':''}" onclick="admLogFilter('ban')">🚫 Баны</button>
+    <button class="tb ${_admLogFilter==='kick'?'active':''}" onclick="admLogFilter('kick')">🥾 Кики</button>
+    <button class="tb ${_admLogFilter==='left'?'active':''}" onclick="admLogFilter('left')">👋 Вышедшие</button>
+  </div>`;
+  if(_admLogFilter==='left'){
+    api(`/admin/${_adminChatId}/left`).then(d=>{
+      const rows=d.left||[];
+      el('adm-logs').innerHTML=filterBar+(rows.length?`<div class="card">
+        <div class="card-title">👋 Вышедшие из чата (${rows.length})</div>
+        ${rows.map(u=>`<div class="irow"><span class="ik">@${u.user_tg_username||'ID'+u.user_tg_id}</span><span class="iv" style="font-size:10px;color:var(--muted)">ID: ${u.user_tg_id}</span></div>`).join('')}
+      </div>`:'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Никто не выходил</div>');
+    }).catch(e=>{el('adm-logs').innerHTML=filterBar+`<div class="err">${e}</div>`;});
+    return;
+  }
+  api(`/admin/${_adminChatId}/logs?page=${_adminPage}${_admLogFilter?'&action='+_admLogFilter:''}`).then(d=>{
     const total=d.total||0, pages=Math.ceil(total/(d.page_size||25));
-    el('adm-logs').innerHTML=`
+    el('adm-logs').innerHTML=filterBar+`
       <div style="overflow-x:auto">
         <table class="adm-table">
           <thead><tr><th>Время</th><th>Действие</th><th>Цель</th><th>Модератор</th><th>Причина</th></tr></thead>
@@ -3214,9 +3304,10 @@ function loadAdminLogs() {
           <button class="btn btn-sm btn-ghost" ${_adminPage>=pages?'disabled':''} onclick="admLogPage(${_adminPage+1})">▶</button>
         </div>
       </div>`;
-  }).catch(e=>{el('adm-logs').innerHTML=`<div class="err">${e}</div>`;});
+  }).catch(e=>{el('adm-logs').innerHTML=filterBar+`<div class="err">${e}</div>`;});
 }
 function admLogPage(p) { _adminPage=p; loadAdminLogs(); }
+function admLogFilter(f) { _admLogFilter=f; _adminPage=1; loadAdminLogs(); }
 
 // ── Admin Moderation tab — активные муты, предупреждения, свежие действия ────────
 function loadAdminMod() {
@@ -3245,12 +3336,12 @@ function loadAdminMod() {
       ${muted.length?`<div class="card">
         <div class="card-title" style="color:var(--red)">🔇 Активные муты (${muted.length})</div>
         ${muted.map(u=>userRow(u,`<span style="color:var(--muted);font-size:10px">до ${u.muted_until?.slice(0,16)||'?'}</span>
-          <button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="openAdminAction(${u.user_tg_id},'@${u.user_tg_username||u.user_tg_id}',{can_mute:true,can_warn:false,can_kick:false,can_ban:false})">⚡</button>`)).join('')}
+          <button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="openAdminAction(${u.user_tg_id},'@${u.user_tg_username||u.user_tg_id}',{w:${!!u.can_warn},m:${!!u.can_mute},k:${!!u.can_kick},b:${!!u.can_ban},s:${!!u.can_shield},i:${!!u.can_immune}})">⚡</button>`)).join('')}
       </div>`:''}
       ${warned.length?`<div class="card">
         <div class="card-title" style="color:var(--gold)">⚠️ Предупреждения</div>
         ${warned.slice(0,10).map(u=>userRow(u,`<span style="color:var(--red);font-weight:700">${u.warnings}× ⚠️</span>
-          <button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="openAdminAction(${u.user_tg_id},'@${u.user_tg_username||u.user_tg_id}',{can_warn:true,can_mute:false,can_kick:false,can_ban:false})">⚡</button>`)).join('')}
+          <button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="openAdminAction(${u.user_tg_id},'@${u.user_tg_username||u.user_tg_id}',{w:${!!u.can_warn},m:${!!u.can_mute},k:${!!u.can_kick},b:${!!u.can_ban},s:${!!u.can_shield},i:${!!u.can_immune}})">⚡</button>`)).join('')}
       </div>`:''}
       ${!muted.length&&!warned.length?`<div class="card" style="text-align:center;padding:20px">
         <div style="font-size:28px;margin-bottom:8px">✅</div>
@@ -3274,6 +3365,66 @@ function loadAdminMod() {
         <button class="btn btn-ghost btn-sm btn-full" style="margin-top:8px" onclick="swAdminByName('logs')">Полный журнал →</button>
       </div>`;
   }).catch(e=>{el('adm-mod').innerHTML=`<div class="err">${e}</div>`;});
+}
+
+// ── 8.1: Чёрный список чата ──────────────────────────────────────────────────────
+let _admLogFilter='', _admMaxRank=0;
+function loadAdminBlacklist() {
+  if(!_adminChatId) return;
+  el('adm-bl').innerHTML='<div class="loader">Загрузка...</div>';
+  api(`/admin/${_adminChatId}/blacklist`).then(d=>{
+    const rows=d.blacklist||[];
+    el('adm-bl').innerHTML=`
+      <div class="card">
+        <div class="card-title">➕ Добавить в ЧС</div>
+        <div style="display:flex;gap:6px">
+          <input id="bl-uid" type="number" class="num-input" style="flex:1;margin:0" placeholder="ID пользователя"/>
+          <input id="bl-reason" type="text" class="num-input" style="flex:1.4;margin:0" placeholder="Причина" maxlength="200"/>
+        </div>
+        <button class="btn btn-red btn-full" style="margin-top:8px" onclick="doBlacklistAdd()">🚫 В чёрный список</button>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Игрок из ЧС не сможет вернуться в чат — бот забанит его при входе.</div>
+      </div>
+      ${rows.length?`<div class="card">
+        <div class="card-title">🚫 Чёрный список (${rows.length})</div>
+        ${rows.map(b=>`<div style="padding:6px 0;border-bottom:1px solid var(--border2)">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;font-weight:600">@${b.username||'ID'+b.user_id}</span>
+            <button class="btn btn-sm btn-ghost" onclick="doBlacklistRemove(${b.user_id})">✅ Убрать</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted)">ID: ${b.user_id} · ${b.reason?esc(b.reason)+' · ':''}добавил @${b.added_by_name||'ID'+b.added_by}${b.added_at?' · '+fmtUTC(b.added_at):''}</div>
+        </div>`).join('')}
+      </div>`:'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Чёрный список пуст</div>'}`;
+  }).catch(e=>{el('adm-bl').innerHTML=`<div class="err">${e}</div>`;});
+}
+function doBlacklistAdd() {
+  const uid=parseInt(el('bl-uid')?.value||'0');
+  const reason=el('bl-reason')?.value.trim()||null;
+  if(!uid) return toast('Укажите ID пользователя',false);
+  api(`/admin/${_adminChatId}/blacklist`,{method:'POST',body:JSON.stringify({user_id:uid,reason})})
+    .then(()=>{toast('🚫 Добавлен в ЧС');loadAdminBlacklist();})
+    .catch(e=>toast(e,false));
+}
+function doBlacklistRemove(uid) {
+  api(`/admin/${_adminChatId}/blacklist/${uid}`,{method:'DELETE'})
+    .then(()=>{toast('✅ Убран из ЧС');loadAdminBlacklist();})
+    .catch(e=>toast(e,false));
+}
+
+// ── 8.2: Смена локального ранга ──────────────────────────────────────────────────
+function openRankModal(userId, userName, currentRank) {
+  const maxR=Math.max(0,_admMaxRank);
+  const opts=[];
+  for(let r=0;r<=maxR;r++) opts.push(`<option value="${r}" ${r===currentRank?'selected':''}>${_RANK_NAMES[r]||r}</option>`);
+  OM(`🎖 Ранг — ${userName||'ID'+userId}`,`
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Текущий: ${_RANK_NAMES[currentRank]||currentRank}. Можно выдать до ранга ниже вашего.</div>
+    <select id="rank-sel" class="num-input" style="margin:0">${opts.join('')}</select>
+  `,[{l:'Сохранить',c:'btn-gold',f:`doSetLocalRank(${userId})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function doSetLocalRank(userId) {
+  const newRank=parseInt(el('rank-sel')?.value||'0');
+  api(`/admin/${_adminChatId}/users/${userId}/rank`,{method:'POST',body:JSON.stringify({new_rank:newRank})})
+    .then(r=>{toast(`🎖 Назначено: ${r.rank_name}`);CM();loadAdminUsers();})
+    .catch(e=>toast(e,false));
 }
 
 // ── Init admin check after login ──────────────────────────────────────────────
@@ -3312,12 +3463,13 @@ function swGlobal(tab, btn) {
   _glbTab=tab;
   document.querySelectorAll('#pg-global .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  ['chats','sanctions','log','appeals','ranks'].forEach(t=>el('glb-'+t).style.display=t===tab?'':'none');
+  ['chats','sanctions','log','appeals','ranks','dev'].forEach(t=>el('glb-'+t).style.display=t===tab?'':'none');
   if(tab==='chats') loadGlobalChats();
   else if(tab==='sanctions') loadGlobalSanctions();
   else if(tab==='log') { _glbLogPage=1; loadGlobalLog(); }
   else if(tab==='appeals') loadGlobalAppeals();
   else if(tab==='ranks') loadGlobalRanksTab();
+  else if(tab==='dev') loadGlobalDev();
 }
 
 // 1. Все чаты ─────────────────────────────────────────────────────────────────────
@@ -3576,11 +3728,246 @@ function doSetGlobalRank() {
     .catch(e=>toast(e,false));
 }
 
+// ── 🛠 Консоль разработчика (только DEVELOPER_ID, global_rank=3) ──────────────────
+let _devItems=null;
+function loadGlobalDev() {
+  el('glb-dev').innerHTML=`
+    <div id="dev-overview"><div class="loader">Загрузка...</div></div>
+    <div class="card">
+      <div class="card-title">🔎 Досье на игрока</div>
+      <div style="display:flex;gap:6px">
+        <input id="dev-q" type="text" class="num-input" style="flex:1;margin:0" placeholder="ID или @username"/>
+        <button class="btn btn-gold" onclick="devLookupUser()">Найти</button>
+      </div>
+      <div id="dev-user-result"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">💰 Баланс (+/−)</div>
+      <input id="dev-bal-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя"/>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <select id="dev-bal-cur" class="num-input" style="flex:1;margin:0">
+          <option value="mora">🪙 Мора</option>
+          <option value="diamonds">💎 Алмазы</option>
+          <option value="dark_mora">🌑 Тёмная мора</option>
+          <option value="zarniki">✨ Зарники</option>
+        </select>
+        <input id="dev-bal-amt" type="number" step="any" class="num-input" style="flex:1;margin:0" placeholder="Сумма (− забрать)"/>
+      </div>
+      <button class="btn btn-gold btn-full" onclick="devAdjustBalance()">Применить</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🎁 Выдать предмет (− забрать)</div>
+      <input id="dev-item-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя"/>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-item-id" list="dev-items-dl" class="num-input" style="flex:1.6;margin:0" placeholder="item_id"/>
+        <datalist id="dev-items-dl"></datalist>
+        <input id="dev-item-qty" type="number" class="num-input" style="flex:1;margin:0" placeholder="Кол-во" value="1"/>
+      </div>
+      <button class="btn btn-gold btn-full" onclick="devGiveItem()">Применить</button>
+    </div>
+    <div class="card">
+      <div class="card-title">👑 Выдать VIP (бесплатно)</div>
+      <input id="dev-vip-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя"/>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <select id="dev-vip-tier" class="num-input" style="flex:1;margin:0">
+          <option value="1m">VIP-1М</option><option value="3m">VIP-3М</option>
+          <option value="8m">VIP-8М</option><option value="12m">VIP-12М</option>
+        </select>
+        <input id="dev-vip-days" type="number" class="num-input" style="flex:1;margin:0" placeholder="Дней" value="30"/>
+      </div>
+      <button class="btn btn-gold btn-full" onclick="devGiveVip()">Выдать</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🎫 Боевой пропуск — сезоны</div>
+      <div id="dev-seasons"><div class="loader">Загрузка...</div></div>
+      <div style="display:flex;gap:6px;margin:8px 0 6px">
+        <input id="dev-s-id" type="text" class="num-input" style="flex:1;margin:0" placeholder="id (s2)"/>
+        <input id="dev-s-label" type="text" class="num-input" style="flex:1.4;margin:0" placeholder="Название"/>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-s-start" type="date" class="num-input" style="flex:1;margin:0"/>
+        <input id="dev-s-end" type="date" class="num-input" style="flex:1;margin:0"/>
+      </div>
+      <button class="btn btn-gold btn-full" onclick="devSaveSeason()">💾 Создать/обновить сезон</button>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">id из registry (s1) можно перекрыть, создав БД-сезон с тем же id. Награды уровней общие для всех сезонов.</div>
+      <div class="divider"></div>
+      <div class="card-title" style="margin-top:4px">⚡ Начислить BP XP</div>
+      <div style="display:flex;gap:6px">
+        <input id="dev-bp-uid" type="number" class="num-input" style="flex:1.4;margin:0" placeholder="ID пользователя"/>
+        <input id="dev-bp-xp" type="number" class="num-input" style="flex:1;margin:0" placeholder="XP (− снять)"/>
+        <button class="btn btn-gold" onclick="devBpXp()">OK</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📢 Рассылка по всем чатам</div>
+      <textarea id="dev-bc-text" class="num-input" style="margin:0 0 6px;min-height:70px;resize:vertical" placeholder="Текст (HTML разрешён)"></textarea>
+      <button class="btn btn-red btn-full" onclick="devBroadcast()">📢 Отправить во ВСЕ чаты</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🖥 SQL-консоль</div>
+      <textarea id="dev-sql" class="num-input" style="margin:0 0 6px;min-height:70px;resize:vertical;font-family:monospace;font-size:11px" placeholder="SELECT * FROM users LIMIT 5"></textarea>
+      <button class="btn btn-red btn-full" onclick="devRunSql()">▶ Выполнить</button>
+      <div id="dev-sql-result" style="overflow-x:auto;margin-top:6px"></div>
+    </div>`;
+  devLoadOverview();
+  devLoadSeasons();
+  if(!_devItems) api('/admin/dev/items').then(d=>{
+    _devItems=d.items||[];
+    const dl=el('dev-items-dl');
+    if(dl) dl.innerHTML=_devItems.map(i=>`<option value="${i.item_id}">${esc(i.name)}</option>`).join('');
+  }).catch(()=>{});
+  else { const dl=el('dev-items-dl'); if(dl) dl.innerHTML=_devItems.map(i=>`<option value="${i.item_id}">${esc(i.name)}</option>`).join(''); }
+}
+function devLoadOverview() {
+  api('/admin/dev/overview').then(d=>{
+    el('dev-overview').innerHTML=`<div class="card">
+      <div class="card-title">📊 Система <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="devLoadOverview()">🔄</button></div>
+      <div class="irow"><span class="ik">Игроков / Чатов</span><span class="iv">${d.users_total} / ${d.chats_total}</span></div>
+      <div class="irow"><span class="ik">Сообщений сегодня</span><span class="iv">${d.messages_today}</span></div>
+      <div class="irow"><span class="ik">Активных VIP</span><span class="iv">👑 ${d.vips_active}</span></div>
+      <div class="irow"><span class="ik">Санкции / Апелляции</span><span class="iv">${d.sanctions_active} / ⏳${d.appeals_pending}</span></div>
+      <div class="irow"><span class="ik">Всего 🪙/💎/✨ в экономике</span><span class="iv" style="font-size:10px">${fmt(Math.round(d.mora_total))} / ${fmt(Math.round(d.diamonds_total))} / ${fmt(Math.round(d.zarniki_total))}</span></div>
+      <div class="irow"><span class="ik">Сезон БП</span><span class="iv">${d.bp_season?esc(d.bp_season.label)+' (до '+d.bp_season.ends_at+')':'— нет активного'}</span></div>
+    </div>`;
+  }).catch(e=>{el('dev-overview').innerHTML=`<div class="err">${e}</div>`;});
+}
+function devLookupUser() {
+  const q=el('dev-q')?.value.trim();
+  if(!q) return toast('Введите ID или @username',false);
+  el('dev-user-result').innerHTML='<div class="loader">Поиск...</div>';
+  api(`/admin/dev/user?q=${encodeURIComponent(q)}`).then(d=>{
+    el('dev-user-result').innerHTML=`
+      <div class="divider"></div>
+      <div class="irow"><span class="ik">@${esc(d.user_tg_username||'—')}</span><span class="iv">ID: ${d.user_tg_id}</span></div>
+      <div class="irow"><span class="ik">Глоб. ранг</span><span class="iv">${d.global_rank_name}</span></div>
+      <div class="irow"><span class="ik">Балансы</span><span class="iv" style="font-size:10px">🪙${fmt(Math.round(d.mora))} 💎${d.diamonds.toFixed(1)} 🌑${Math.round(d.dark_mora)} ✨${Math.round(d.zarniki)}</span></div>
+      <div class="irow"><span class="ik">VIP</span><span class="iv" style="font-size:10px">${d.vip?(d.vip.active?'👑 ':'(истёк) ')+d.vip.tier+' до '+d.vip.expires_at.slice(0,10)+' · стаж '+d.vip.total_days+' дн.':'—'}</span></div>
+      <div class="irow"><span class="ik">Боевой пропуск</span><span class="iv">${d.battle_pass?`Ур.${d.battle_pass.level} (${d.battle_pass.xp} XP)`:'—'}</span></div>
+      ${d.sanctions.length?`<div class="irow"><span class="ik" style="color:var(--red)">Санкции</span><span class="iv" style="font-size:10px">${d.sanctions.map(s=>s.sanction_type+(s.expires_at?' до '+s.expires_at.slice(0,10):'')).join(', ')}</span></div>`:''}
+      <div style="font-size:11px;font-weight:700;margin:6px 0 2px">Чаты (${d.chats.length}):</div>
+      ${d.chats.slice(0,10).map(c=>`<div class="irow"><span class="ik" style="font-size:10px">${esc(c.chat_title)}</span><span class="iv" style="font-size:10px">${c.rank_name} · ур.${c.user_level||1} · ${c.user_messages_count_all_time||0} сообщ.${c.is_left?' · 👋':''}</span></div>`).join('')}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btn-sm btn-ghost" style="flex:1" onclick="devPrefill(${d.user_tg_id})">⚙️ Подставить ID в формы</button>
+      </div>`;
+  }).catch(e=>{el('dev-user-result').innerHTML=`<div class="err">${e}</div>`;});
+}
+function devPrefill(uid) {
+  ['dev-bal-uid','dev-item-uid','dev-vip-uid','dev-bp-uid'].forEach(id=>{const e2=el(id);if(e2)e2.value=uid;});
+  toast('ID подставлен в формы');
+}
+function devAdjustBalance() {
+  const uid=parseInt(el('dev-bal-uid')?.value||'0');
+  const cur=el('dev-bal-cur')?.value;
+  const amt=parseFloat(el('dev-bal-amt')?.value||'0');
+  if(!uid||!amt) return toast('Заполните ID и сумму',false);
+  const body={user_id:uid,mora:0,diamonds:0,dark_mora:0,zarniki:0};
+  body[cur]=amt;
+  api('/admin/dev/balance',{method:'POST',body:JSON.stringify(body)})
+    .then(()=>toast(`✅ ${amt>0?'+':''}${amt} ${cur} → ID${uid}`))
+    .catch(e=>toast(e,false));
+}
+function devGiveItem() {
+  const uid=parseInt(el('dev-item-uid')?.value||'0');
+  const item=el('dev-item-id')?.value.trim();
+  const qty=parseInt(el('dev-item-qty')?.value||'0');
+  if(!uid||!item||!qty) return toast('Заполните все поля',false);
+  api('/admin/dev/give-item',{method:'POST',body:JSON.stringify({user_id:uid,item_id:item,qty})})
+    .then(r=>toast(`✅ ${qty>0?'+':''}${qty}× ${r.item_name}`))
+    .catch(e=>toast(e,false));
+}
+function devGiveVip() {
+  const uid=parseInt(el('dev-vip-uid')?.value||'0');
+  const tier=el('dev-vip-tier')?.value;
+  const days=parseInt(el('dev-vip-days')?.value||'0');
+  if(!uid||!days) return toast('Заполните ID и дни',false);
+  api('/admin/dev/give-vip',{method:'POST',body:JSON.stringify({user_id:uid,tier,days})})
+    .then(r=>toast(`👑 ${r.label} на ${days} дн. → ID${uid}`))
+    .catch(e=>toast(e,false));
+}
+function devBpXp() {
+  const uid=parseInt(el('dev-bp-uid')?.value||'0');
+  const xp=parseInt(el('dev-bp-xp')?.value||'0');
+  if(!uid||!xp) return toast('Заполните ID и XP',false);
+  api('/admin/dev/bp/xp',{method:'POST',body:JSON.stringify({user_id:uid,xp})})
+    .then(r=>toast(`🎫 Теперь: Ур.${r.level} (${r.xp} XP)`))
+    .catch(e=>toast(e,false));
+}
+function devLoadSeasons() {
+  api('/admin/dev/bp/seasons').then(d=>{
+    const rows=d.seasons||[];
+    el('dev-seasons').innerHTML=rows.length?rows.map(s=>`
+      <div class="irow">
+        <span class="ik">${s.active?'🟢 ':''}${esc(s.label)} <span style="color:var(--dim)">(${s.id}, ${s.source})</span></span>
+        <span class="iv" style="font-size:10px;display:flex;align-items:center;gap:6px">${s.starts_at} → ${s.ends_at}
+          <button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick='devEditSeason(${JSON.stringify(s.id)},${JSON.stringify(s.label)},${JSON.stringify(s.starts_at)},${JSON.stringify(s.ends_at)})'>✏️</button>
+          ${s.source==='db'?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick='devDeleteSeason(${JSON.stringify(s.id)})'>🗑</button>`:''}
+        </span>
+      </div>`).join(''):'<div style="font-size:11px;color:var(--muted)">Сезонов нет</div>';
+  }).catch(e=>{el('dev-seasons').innerHTML=`<div class="err">${e}</div>`;});
+}
+function devEditSeason(id,label,starts,ends) {
+  el('dev-s-id').value=id; el('dev-s-label').value=label;
+  el('dev-s-start').value=starts; el('dev-s-end').value=ends;
+  toast('Сезон подставлен в форму — правьте и сохраняйте');
+}
+function devSaveSeason() {
+  const id=el('dev-s-id')?.value.trim(), label=el('dev-s-label')?.value.trim();
+  const starts=el('dev-s-start')?.value, ends=el('dev-s-end')?.value;
+  if(!id||!label||!starts||!ends) return toast('Заполните все поля сезона',false);
+  api('/admin/dev/bp/seasons',{method:'POST',body:JSON.stringify({id,label,starts_at:starts,ends_at:ends})})
+    .then(()=>{toast('💾 Сезон сохранён');devLoadSeasons();})
+    .catch(e=>toast(e,false));
+}
+function devDeleteSeason(id) {
+  OM('🗑 Удалить сезон?',`<div style="text-align:center;padding:12px 0;color:var(--muted)">Сезон <b>${id}</b> будет удалён из БД. Прогресс игроков сохранится в battle_pass_progress.</div>`,
+    [{l:'Удалить',c:'btn-red',f:`_execDevDeleteSeason(${JSON.stringify(id)})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _execDevDeleteSeason(id) {
+  api(`/admin/dev/bp/seasons/${encodeURIComponent(id)}`,{method:'DELETE'})
+    .then(()=>{toast('🗑 Удалён');CM();devLoadSeasons();})
+    .catch(e=>toast(e,false));
+}
+function devBroadcast() {
+  const text=el('dev-bc-text')?.value.trim();
+  if(!text) return toast('Введите текст',false);
+  OM('📢 Рассылка во ВСЕ чаты?','<div style="text-align:center;padding:12px 0;color:var(--muted)">Сообщение уйдёт в каждый чат, где есть бот. Отменить нельзя.</div>',
+    [{l:'Да, отправить',c:'btn-red',f:'_execDevBroadcast()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _execDevBroadcast() {
+  const text=el('dev-bc-text')?.value.trim();
+  CM(); toast('📢 Отправляю...');
+  api('/admin/dev/broadcast',{method:'POST',body:JSON.stringify({text})})
+    .then(r=>toast(`📢 Отправлено: ${r.sent}/${r.total}${r.failed?' (ошибок: '+r.failed+')':''}`))
+    .catch(e=>toast(e,false));
+}
+function devRunSql() {
+  const q=el('dev-sql')?.value.trim();
+  if(!q) return toast('Введите запрос',false);
+  OM('🖥 Выполнить SQL?',`<div style="font-family:monospace;font-size:11px;padding:8px;background:var(--dim);border-radius:6px;word-break:break-all">${esc(q.slice(0,300))}</div>`,
+    [{l:'Выполнить',c:'btn-red',f:'_execDevSql()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _execDevSql() {
+  const q=el('dev-sql')?.value.trim();
+  CM();
+  api('/admin/dev/sql',{method:'POST',body:JSON.stringify({query:q})}).then(r=>{
+    if(!r.rows||!r.rows.length){
+      el('dev-sql-result').innerHTML=`<div style="font-size:11px;color:var(--green)">✅ OK${r.count?` (строк: ${r.count})`:''}</div>`;
+      return;
+    }
+    const cols=Object.keys(r.rows[0]);
+    el('dev-sql-result').innerHTML=`
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Строк: ${r.count}${r.truncated?' (показаны первые 200)':''}</div>
+      <table class="adm-table"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
+      <tbody>${r.rows.map(row=>`<tr>${cols.map(c=>`<td style="font-size:10px">${esc(row[c]??'∅')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  }).catch(e=>{el('dev-sql-result').innerHTML=`<div class="err">${e}</div>`;});
+}
+
 // ── Init global moderation check after login ──────────────────────────────────────
 function checkGlobalAccess() {
   const rank=_profileData?.global_rank||0;
   if(rank>=1) {
     el('nb-global').style.display='';
     el('glb-tab-ranks').style.display=rank>=3?'':'none';
+    el('glb-tab-dev').style.display=rank>=3?'':'none';
   }
 }

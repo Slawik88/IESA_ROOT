@@ -1,4 +1,5 @@
 """FastAPI/routers/admin.py — панель модератора."""
+import asyncio
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -10,10 +11,17 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.moderation import (
     get_chat_settings, update_chat_settings, add_warn, remove_warn,
-    log_moderation_action, set_immunity,
+    log_moderation_action, set_immunity, get_left_users,
 )
+from infrastructure.repositories.blacklist import (
+    get_chat_blacklist, add_to_chat_blacklist, remove_from_chat_blacklist,
+)
+from infrastructure.repositories.chat import set_local_rank
+from services import roles
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+DEVELOPER_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 
 _LOCAL_RANK_NAMES = {
     0: "👤 Пользователь", 1: "👁 Модератор", 2: "👮 Мл.Админ",
@@ -22,6 +30,9 @@ _LOCAL_RANK_NAMES = {
 
 
 async def _get_actor_rank(db, user_id: int, chat_id: int) -> int:
+    # 8.0: Developer bypass — панель работает в ЛЮБОМ чате даже без строки user_chat_stats
+    if DEVELOPER_ID and user_id == DEVELOPER_ID:
+        return 6  # Владелец в любом чате
     async with db.execute(
         "SELECT local_rank FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ?",
         (user_id, chat_id),
@@ -52,6 +63,19 @@ async def _tg_call(method: str, **kwargs) -> dict:
 @router.get("/my-chats")
 async def my_admin_chats(db=Depends(get_db), user=Depends(require_tg_user)):
     """Чаты где у пользователя есть права модератора (local_rank >= 1)."""
+    # 8.0: Developer видит ВСЕ чаты бота (даже без вступления/строки ucs)
+    if DEVELOPER_ID and user["id"] == DEVELOPER_ID:
+        async with db.execute(
+            "SELECT cs.chat_id AS chat_tg_id, "
+            "COALESCE(cs.chat_title, CAST(cs.chat_id AS TEXT)) AS chat_title "
+            "FROM chat_settings cs ORDER BY cs.chat_title"
+        ) as c:
+            rows = [dict(r) for r in await c.fetchall()]
+        for r in rows:
+            r["local_rank"] = 6
+            r["rank_name"] = _LOCAL_RANK_NAMES[6]
+        return {"chats": rows}
+
     async with db.execute(
         "SELECT ucs.chat_tg_id, COALESCE(cs.chat_title, CAST(ucs.chat_tg_id AS TEXT)) AS chat_title, "
         "ucs.local_rank "
@@ -161,11 +185,17 @@ async def admin_users(
         r["can_mute"] = r["can_act"] and actor_rank >= settings.get("rank_mute", 3)
         r["can_kick"] = r["can_act"] and actor_rank >= settings.get("rank_kick", 4)
         r["can_ban"]  = r["can_act"] and actor_rank >= settings.get("rank_ban",  5)
+        # 8.4: щит/иммунитет — отдельные пороги
+        r["can_shield"] = r["can_act"] and actor_rank >= settings.get("rank_shield", 4)
+        r["can_immune"] = r["can_act"] and actor_rank >= settings.get("rank_immune", 5)
+        # 8.2: смена ранга
+        r["can_set_rank"] = r["can_act"]
         r["muted_until"] = str(r["muted_until"]) if r.get("muted_until") else None
         r["immune_until"] = str(r["immune_until"]) if r.get("immune_until") else None
         r["last_message_at"] = str(r["last_message_at"]) if r.get("last_message_at") else None
 
-    return {"users": rows, "total": total, "page": page, "page_size": page_size}
+    return {"users": rows, "total": total, "page": page, "page_size": page_size,
+            "max_assignable_rank": actor_rank - 1}
 
 
 @router.get("/{chat_id}/settings")
@@ -181,6 +211,13 @@ class SettingsUpdateRequest(BaseModel):
     rank_mute: Optional[int] = None
     rank_kick: Optional[int] = None
     rank_ban: Optional[int] = None
+    # 8.3: недостающие пороги рангов (бот их уже читает/пишет в той же chat_settings)
+    rank_shield: Optional[int] = None
+    rank_immune: Optional[int] = None
+    rank_duel: Optional[int] = None
+    rank_marriage: Optional[int] = None
+    rank_give: Optional[int] = None
+    purge_min_rank: Optional[int] = None
     events_enabled: Optional[int] = None
     module_shop: Optional[int] = None
     module_gacha: Optional[int] = None
@@ -237,10 +274,14 @@ async def admin_action(
         raise HTTPException(403, "Нельзя применить действие к пользователю с таким же или более высоким рангом.")
 
     action = body.action
+    if action == "immune":
+        action = "shield"  # 8.4: старое имя action — алиас щита (так фронт не ломается)
     _required = {"warn": "rank_warn", "unwarn": "rank_warn",
                  "mute": "rank_mute", "unmute": "rank_mute",
                  "kick": "rank_kick", "ban": "rank_ban", "unban": "rank_ban",
-                 "immune": "rank_mute"}   # immune uses same threshold as mute
+                 # 8.4: щит (временный) и иммунитет (постоянный) — разные пороги
+                 "shield": "rank_shield", "unshield": "rank_shield",
+                 "set_immune": "rank_immune", "unset_immune": "rank_immune"}
     req_key = _required.get(action)
     if req_key and actor_rank < settings.get(req_key, 99):
         raise HTTPException(403, f"Недостаточно прав для действия '{action}'.")
@@ -314,11 +355,25 @@ async def admin_action(
         tg_result = await _tg_call("unbanChatMember", chat_id=chat_id, user_id=body.user_id, only_if_banned=True)
         await log_moderation_action(db, chat_id, body.user_id, user["id"], "unban", body.reason)
 
-    elif action == "immune":
+    elif action == "shield":
+        # Щит (временный): immune_until = дата, is_immune не трогаем — как бот «защита» (moderation.py:307)
         duration = body.duration_minutes or 1440
         until = (now + timedelta(minutes=duration)).strftime("%Y-%m-%d %H:%M:%S")
-        await set_immunity(db, chat_id, body.user_id, 1, until)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], f"immune_{duration}m", body.reason)
+        await set_immunity(db, chat_id, body.user_id, 0, until)
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], f"shield_{duration}m", body.reason)
+
+    elif action == "unshield":
+        await set_immunity(db, chat_id, body.user_id, 0, None)
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unshield", body.reason)
+
+    elif action == "set_immune":
+        # Иммунитет (постоянный): is_immune=1, immune_until=NULL — как бот «иммунитет» (moderation.py:268)
+        await set_immunity(db, chat_id, body.user_id, 1, None)
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], "immune_on", body.reason)
+
+    elif action == "unset_immune":
+        await set_immunity(db, chat_id, body.user_id, 0, None)
+        await log_moderation_action(db, chat_id, body.user_id, user["id"], "immune_off", body.reason)
 
     else:
         raise HTTPException(400, f"Неизвестное действие: {action}")
@@ -330,12 +385,25 @@ async def admin_action(
 async def admin_logs(
     chat_id: int,
     page: int = Query(1, ge=1),
+    action: str = Query("", max_length=16),
     db=Depends(get_db),
     user=Depends(require_tg_user),
 ):
     await _require_admin(db, user["id"], chat_id)
     page_size = 25
     offset = (page - 1) * page_size
+
+    # 8.6: фильтр ?action=ban / ?action=kick — те же данные, что бот-команды «баны»/«кики»
+    action_clause = ""
+    params: list = [chat_id]
+    if action:
+        if action not in ("ban", "kick", "warn", "unwarn", "unban", "mute", "unmute"):
+            raise HTTPException(400, "Недопустимый фильтр action.")
+        if action == "mute":
+            action_clause = " AND ml.action LIKE 'mute_%'"
+        else:
+            action_clause = " AND ml.action = ?"
+            params.append(action)
 
     async with db.execute(
         "SELECT ml.id, ml.user_id, ml.admin_id, ml.action, ml.reason, ml.created_at, "
@@ -346,14 +414,14 @@ async def admin_logs(
         "LEFT JOIN users a ON ml.admin_id = a.user_tg_id "
         "LEFT JOIN vip_subscriptions vu ON vu.user_id = ml.user_id AND vu.expires_at > NOW() "
         "LEFT JOIN vip_subscriptions va ON va.user_id = ml.admin_id AND va.expires_at > NOW() "
-        "WHERE ml.chat_id = ? "
+        f"WHERE ml.chat_id = ?{action_clause} "
         "ORDER BY ml.created_at DESC LIMIT ? OFFSET ?",
-        (chat_id, page_size, offset),
+        (*params, page_size, offset),
     ) as c:
         rows = [dict(r) for r in await c.fetchall()]
 
     async with db.execute(
-        "SELECT COUNT(*) FROM moderation_logs WHERE chat_id = ?", (chat_id,)
+        f"SELECT COUNT(*) FROM moderation_logs ml WHERE ml.chat_id = ?{action_clause}", params
     ) as c:
         total = (await c.fetchone())[0]
 
@@ -361,3 +429,243 @@ async def admin_logs(
         r["created_at"] = str(r["created_at"])
 
     return {"logs": rows, "total": total, "page": page, "page_size": page_size}
+
+
+# ── 8.6: Вышедшие из чата ───────────────────────────────────────────────────────
+@router.get("/{chat_id}/left")
+async def admin_left_users(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _require_admin(db, user["id"], chat_id)
+    rows = await get_left_users(db, chat_id)
+    return {"left": rows}
+
+
+# ── 8.1: Чёрный список чата ─────────────────────────────────────────────────────
+class BlacklistAddRequest(BaseModel):
+    user_id: int
+    reason: Optional[str] = None
+
+
+async def _require_blacklist_rank(db, user_id: int, chat_id: int) -> int:
+    """ЧС по тяжести близок к бану — порог rank_ban."""
+    actor_rank = await _require_admin(db, user_id, chat_id)
+    settings = await get_chat_settings(db, chat_id)
+    if actor_rank < settings.get("rank_ban", 5):
+        raise HTTPException(403, "Требуется ранг для бана (rank_ban), чтобы управлять ЧС.")
+    return actor_rank
+
+
+@router.get("/{chat_id}/blacklist")
+async def admin_blacklist(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _require_blacklist_rank(db, user["id"], chat_id)
+    entries = await get_chat_blacklist(db, chat_id)
+    # Обогащаем юзернеймами одним запросом
+    ids = {e["user_id"] for e in entries} | {e["added_by"] for e in entries if e["added_by"]}
+    names: dict = {}
+    if ids:
+        ph = ",".join("?" * len(ids))
+        async with db.execute(
+            f"SELECT user_tg_id, user_tg_username FROM users WHERE user_tg_id IN ({ph})",
+            tuple(ids),
+        ) as c:
+            names = {r["user_tg_id"]: r["user_tg_username"] for r in await c.fetchall()}
+    for e in entries:
+        e["username"] = names.get(e["user_id"])
+        e["added_by_name"] = names.get(e["added_by"])
+        e["added_at"] = str(e["added_at"]) if e.get("added_at") else None
+    return {"blacklist": entries}
+
+
+@router.post("/{chat_id}/blacklist")
+async def admin_blacklist_add(
+    chat_id: int, body: BlacklistAddRequest,
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    actor_rank = await _require_blacklist_rank(db, user["id"], chat_id)
+    # anti-peer как в /action
+    async with db.execute(
+        "SELECT local_rank FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ?",
+        (body.user_id, chat_id),
+    ) as c:
+        trow = await c.fetchone()
+    target_rank = trow[0] if trow else 0
+    if actor_rank <= target_rank:
+        raise HTTPException(403, "Нельзя внести в ЧС пользователя с таким же или более высоким рангом.")
+
+    await add_to_chat_blacklist(db, chat_id, body.user_id, body.reason, user["id"])
+    await log_moderation_action(db, chat_id, body.user_id, user["id"], "blacklist_add", body.reason)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/{chat_id}/blacklist/{user_id}")
+async def admin_blacklist_remove(
+    chat_id: int, user_id: int,
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    await _require_blacklist_rank(db, user["id"], chat_id)
+    removed = await remove_from_chat_blacklist(db, chat_id, user_id)
+    if removed:
+        await log_moderation_action(db, chat_id, user_id, user["id"], "blacklist_remove", None)
+    await db.commit()
+    return {"ok": True, "removed": removed}
+
+
+# ── 8.2: Управление рангами ─────────────────────────────────────────────────────
+class SetRankRequest(BaseModel):
+    new_rank: int
+
+
+@router.post("/{chat_id}/users/{user_id}/rank")
+async def admin_set_rank(
+    chat_id: int, user_id: int, body: SetRankRequest,
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    actor_rank = await _require_admin(db, user["id"], chat_id)
+    if body.new_rank not in roles.LOCAL_RANKS_MAP:
+        raise HTTPException(400, "Недопустимый ранг.")
+
+    async with db.execute(
+        "SELECT local_rank FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ?",
+        (user_id, chat_id),
+    ) as c:
+        trow = await c.fetchone()
+    if not trow:
+        raise HTTPException(404, "Пользователь не найден в этом чате.")
+    target_rank = trow[0] or 0
+
+    ok, err = roles.can_assign_local_rank(
+        user["id"], actor_rank, target_rank, body.new_rank, DEVELOPER_ID)
+    if not ok:
+        raise HTTPException(403, err)
+
+    await set_local_rank(db, user_id, chat_id, body.new_rank)
+    await log_moderation_action(db, chat_id, user_id, user["id"], f"rank_{body.new_rank}", None)
+    await db.commit()
+    return {"ok": True, "new_rank": body.new_rank,
+            "rank_name": _LOCAL_RANK_NAMES.get(body.new_rank, "?")}
+
+
+# ── 8.5: Чистка (purge) — сайт запускает/останавливает, досье остаются в Telegram ──
+class PurgeStartRequest(BaseModel):
+    start_date: Optional[str] = None   # YYYY-MM-DD
+    end_date: Optional[str] = None
+    norm: Optional[int] = None
+
+
+@router.get("/{chat_id}/purge/status")
+async def admin_purge_status(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _require_admin(db, user["id"], chat_id)
+    settings = await get_chat_settings(db, chat_id)
+    return {"is_purging": bool(settings.get("is_purging")),
+            "purge_min_rank": settings.get("purge_min_rank", 4)}
+
+
+_WRITE_PERMS = {"can_send_messages": True, "can_send_audios": True,
+                "can_send_documents": True, "can_send_photos": True,
+                "can_send_videos": True, "can_send_video_notes": True,
+                "can_send_voice_notes": True, "can_send_polls": True,
+                "can_send_other_messages": True}
+
+
+@router.post("/{chat_id}/purge/start")
+async def admin_purge_start(
+    chat_id: int, body: PurgeStartRequest,
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    actor_rank = await _require_admin(db, user["id"], chat_id)
+    settings = await get_chat_settings(db, chat_id)
+    if actor_rank < settings.get("rank_kick", 4):
+        raise HTTPException(403, "Чистка требует ранга для кика (rank_kick).")
+    if settings.get("is_purging"):
+        raise HTTPException(400, "Чистка уже идёт. Сначала завершите текущую.")
+
+    # Параметры: по умолчанию последние 7 дней, норма 50 (как parse_purge_args в purge.py)
+    now = datetime.now(timezone.utc)
+    try:
+        end_d = datetime.strptime(body.end_date, "%Y-%m-%d") if body.end_date else now
+        start_d = datetime.strptime(body.start_date, "%Y-%m-%d") if body.start_date \
+            else end_d - timedelta(days=7)
+    except ValueError:
+        raise HTTPException(400, "Даты — в формате YYYY-MM-DD.")
+    norm = body.norm if body.norm and body.norm > 0 else 50
+    start_date, end_date = start_d.strftime("%Y-%m-%d"), end_d.strftime("%Y-%m-%d")
+    purge_min_rank = settings.get("purge_min_rank", 4)
+
+    # 1. Заблокировать чат + флаг is_purging (как purge.py:79-86)
+    await update_chat_settings(db, chat_id, is_purging=True)
+    await _tg_call("setChatPermissions", chat_id=chat_id,
+                   permissions={"can_send_messages": False})
+
+    # 2. Сбор статистики — тот же SQL, что purge.py:99-111
+    async with db.execute(
+        """SELECT u.user_tg_id as id, u.user_tg_username as username,
+               s.local_rank, s.is_immune, s.immune_until,
+               COALESCE(SUM(d.message_count), 0) as msg_sum
+           FROM user_chat_stats s
+           LEFT JOIN users u ON s.user_tg_id = u.user_tg_id
+           LEFT JOIN daily_user_stats d ON s.user_tg_id = d.user_id
+                AND d.chat_id = s.chat_tg_id AND d.date BETWEEN ? AND ?
+           WHERE s.chat_tg_id = ? AND s.is_left = FALSE
+           GROUP BY u.user_tg_id""",
+        (start_date, end_date, chat_id),
+    ) as c:
+        rows = [dict(r) for r in await c.fetchall()]
+
+    passed, failed, protected, admins, exempt_ids = [], [], [], [], []
+    for u in rows:
+        uname = u["username"] or f"ID {u['id']}"
+        shielded = False
+        if u["immune_until"]:
+            iu = u["immune_until"]
+            if iu.tzinfo is None:
+                iu = iu.replace(tzinfo=timezone.utc)
+            shielded = iu > now
+        if (u["local_rank"] or 0) >= purge_min_rank:
+            admins.append(f"├ 👑 {uname} ({u['msg_sum']} msg)")
+            exempt_ids.append(u["id"])
+        elif u["is_immune"] == 1 or shielded:
+            protected.append(f"├ 🛡 {uname} ({u['msg_sum']} msg)")
+        elif u["msg_sum"] >= norm:
+            passed.append(f"├ ✅ {uname} ({u['msg_sum']} msg)")
+        else:
+            failed.append(f"├ ❌ {uname} ({u['msg_sum']} msg)")
+
+    # 2б. Вернуть права модераторам (purge_min_rank и выше)
+    for uid in exempt_ids:
+        await _tg_call("restrictChatMember", chat_id=chat_id, user_id=uid,
+                       permissions=_WRITE_PERMS)
+        await asyncio.sleep(0.05)
+
+    # 3. Отчёт в чат (досье с кнопками — остаются за бот-командой «чистка»)
+    report = (f"🧹 <b>ЧИСТКА ЗАПУЩЕНА С САЙТА</b>\n"
+              f"📅 Период: <code>{start_date} — {end_date}</code>\n"
+              f"🎯 Норма: <code>{norm} сообщений</code>\n\n")
+    for title, lst in ((f"👑 Администрация (ранг ≥ {purge_min_rank})", admins),
+                       (f"Прошли норму ({len(passed)})", passed),
+                       (f"Под защитой ({len(protected)})", protected),
+                       (f"❌ НЕ ПРОШЛИ ({len(failed)})", failed)):
+        if lst:
+            lst[-1] = lst[-1].replace("├", "└")
+            report += f"<b>{title}:</b>\n" + "\n".join(lst) + "\n\n"
+    if not failed:
+        report += "<b>❌ НЕ ПРОШЛИ:</b>\n└ <i>Таких нет, все молодцы!</i>"
+    if len(report) > 4000:
+        report = report[:4000] + "\n... [Список обрезан]"
+    await _tg_call("sendMessage", chat_id=chat_id, text=report, parse_mode="HTML")
+
+    return {"ok": True, "passed": len(passed), "failed": len(failed),
+            "protected": len(protected), "admins": len(admins)}
+
+
+@router.post("/{chat_id}/purge/stop")
+async def admin_purge_stop(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    actor_rank = await _require_admin(db, user["id"], chat_id)
+    settings = await get_chat_settings(db, chat_id)
+    if actor_rank < settings.get("rank_kick", 4):
+        raise HTTPException(403, "Чистка требует ранга для кика (rank_kick).")
+
+    await update_chat_settings(db, chat_id, is_purging=False)
+    await _tg_call("setChatPermissions", chat_id=chat_id, permissions=_WRITE_PERMS)
+    await _tg_call("sendMessage", chat_id=chat_id, parse_mode="HTML",
+                   text="✅ <b>Чистка завершена!</b> Чат снова открыт для общения.")
+    return {"ok": True}

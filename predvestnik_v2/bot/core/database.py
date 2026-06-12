@@ -785,12 +785,27 @@ async def init_db():
             )
         """)
 
+        # Battle Pass seasons, управляемые с сайта (Консоль разработчика).
+        # Мерджатся с registry.BATTLE_PASS_SEASONS — DB перекрывает registry по id.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS battle_pass_seasons (
+                id         TEXT PRIMARY KEY,
+                label      TEXT NOT NULL,
+                starts_at  TEXT NOT NULL,   -- YYYY-MM-DD (как в registry)
+                ends_at    TEXT NOT NULL,
+                max_level  INTEGER DEFAULT 50,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+
         # Migrations: admin panel + moderation extras
         for _stmt in [
             "ALTER TABLE moderation_logs ADD COLUMN IF NOT EXISTS reason TEXT",
             "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS muted_until TIMESTAMP DEFAULT NULL",
             "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS nickname_changes_count INTEGER DEFAULT 0",
             "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS nickname_changes_reset_at TIMESTAMP DEFAULT NOW()",
+            # «Стаж VIP» — суммарно оплаченных дней за всё время
+            "ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS total_days INTEGER DEFAULT 0",
         ]:
             try:
                 await db.execute(_stmt)
