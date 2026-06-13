@@ -41,6 +41,8 @@ async def all_themes(db=Depends(get_db), user=Depends(require_tg_user)):
             "owned":   theme_id in owned,
             "active":  theme_id == active,
             "gacha":   t.get("gacha"),
+            "it":      t.get("it", False),       # IT-стиль (подкатегория в Зарниковой)
+            "premium": rarity == "zarniki",      # донат-тема за ✨
         })
 
     order = {r: i for i, r in enumerate(RARITY_ORDER)}
@@ -64,22 +66,31 @@ async def buy_theme(body: BuyThemeRequest, db=Depends(get_db), user=Depends(requ
     source = theme.get("source", "")
     price_mora     = theme.get("price_mora")
     price_diamonds = theme.get("price_diamonds")
+    price_zarniki  = theme.get("price_zarniki")
 
-    if source not in ("shop_mora", "shop_diamond") or (not price_mora and not price_diamonds):
-        raise HTTPException(400, "Эта тема не продаётся в магазине. Получите через гачу или ивент.")
-
+    # Покупаемые в вебе: магазинные (🪙/💎) и донатные (✨). Зарники замыкают
+    # донат-петлю: купил Зарники за Stars → тратишь их на премиум-тему здесь же.
     bal = await get_balance(db, user["id"])
 
-    if price_mora:
-        if bal["user_balance_mora"] < price_mora:
-            raise HTTPException(400, f"Нужно {price_mora} 🪙, есть {bal['user_balance_mora']:.0f}.")
-        await eco_repo.add_balance(db, user["id"], mora=-price_mora, commit=False,
+    if source in ("shop_mora", "shop_diamond") and (price_mora or price_diamonds):
+        if price_mora:
+            if bal["user_balance_mora"] < price_mora:
+                raise HTTPException(400, f"Нужно {price_mora} 🪙, есть {bal['user_balance_mora']:.0f}.")
+            await eco_repo.add_balance(db, user["id"], mora=-price_mora, commit=False,
+                                       source="theme_shop", note=body.theme_id)
+        else:
+            if bal["user_balance_diamonds"] < price_diamonds:
+                raise HTTPException(400, f"Нужно {price_diamonds} 💎, есть {bal['user_balance_diamonds']:.1f}.")
+            await eco_repo.add_balance(db, user["id"], diamonds=-price_diamonds, commit=False,
+                                       source="theme_shop", note=body.theme_id)
+    elif source == "zarniki" and price_zarniki:
+        if bal.get("user_balance_zarniki", 0) < price_zarniki:
+            raise HTTPException(400, f"Нужно {int(price_zarniki)} ✨, есть {bal.get('user_balance_zarniki', 0):.0f}. "
+                                     "Пополни Зарники в разделе ✨ Премиум.")
+        await eco_repo.add_balance(db, user["id"], zarniki=-price_zarniki, commit=False,
                                    source="theme_shop", note=body.theme_id)
     else:
-        if bal["user_balance_diamonds"] < price_diamonds:
-            raise HTTPException(400, f"Нужно {price_diamonds} 💎, есть {bal['user_balance_diamonds']:.1f}.")
-        await eco_repo.add_balance(db, user["id"], diamonds=-price_diamonds, commit=False,
-                                   source="theme_shop", note=body.theme_id)
+        raise HTTPException(400, "Эта тема не продаётся напрямую. Получите её через гачу, ивент или Тёмный рынок.")
 
     await grant_theme(db, user["id"], body.theme_id)
     await db.commit()

@@ -50,3 +50,4 @@ FastAPI/        ← Web-адаптер
 - Цель — экономия токенов: `MEMORY.md` грузится целиком в каждую сессию.
 
 *Обновлено: 2026-06-11 | Доделки: NOT_IMPLEMENTED.md | Идеи: FUTURE_IDEAS.md | Планы фич: IMPLEMENTATION_BLOCKS.md*
+

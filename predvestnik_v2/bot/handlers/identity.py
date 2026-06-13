@@ -113,8 +113,19 @@ def _render_premium_profile(
     streak: int, ach_count: int, warns: int,
     marriage, nursery_pets: list,
     partner_display: str | None = None,
-) -> str:
-    """Render a premium zarniki profile with tematicheskaya terminologiya."""
+    dark_v: float = 0, zar_v: float = 0, is_vip: bool = False,
+    first_seen: str = "—", last_seen: str = "—",
+) -> str | None:
+    """Премиум-рендер профиля — ЕДИНЫЙ источник правды в services.profile_render
+    (бот и веб-превью рендерят одинаково). Делегируем туда; ветки ниже —
+    устаревшие, оставлены неисполняемыми после return ради минимального диффа."""
+    from services.profile_render import _render_premium as _shared_premium
+    return _shared_premium(
+        template_id, user_id, name, g_rank, l_rank, lvl, pct,
+        mora_v, dia_v, d_msgs, w_msgs, a_msgs,
+        streak, ach_count, warns, marriage, nursery_pets,
+        partner_display, dark_v, zar_v, is_vip, first_seen, last_seen,
+    )
     bar  = _premium_bar(pct)
     mora = _compact(mora_v)
     dia  = _compact(dia_v)
@@ -540,16 +551,24 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
     else:
         partner_line = "💍 Не в браке"
 
-    # ── join date ─────────────────────────────────────────────────────────────
+    # ── join date / last seen ─────────────────────────────────────────────────
     join_str = "—"
     if first_seen_raw:
         dt = parse_dt(first_seen_raw)
         if dt:
             join_str = dt.strftime("%d.%m.%Y")
+    last_str = "—"
+    _last_raw = stats.get("last_message_at")
+    if _last_raw:
+        dt = parse_dt(_last_raw)
+        if dt:
+            last_str = dt.strftime("%d.%m %H:%M")
 
     # ── premium template override ─────────────────────────────────────────────
     premium_tpl = theme.get("premium_template")
     if premium_tpl:
+        from services.vip import is_vip_active
+        is_vip = await is_vip_active(db, user_id)
         premium_text = _render_premium_profile(
             premium_tpl, user_id, name,
             g_rank, l_rank,
@@ -558,7 +577,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
             d_msgs, w_msgs, a_msgs,
             streak, ach_count, warns,
             marriage, nursery_pets,
-            partner_display,
+            partner_display, dark_v, zar_v, is_vip, join_str, last_str,
         )
         if premium_text:
             await message.answer(premium_text, parse_mode="HTML")
@@ -589,6 +608,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
             + (f"{P}{shield_line}\n" if shield_line else "")
             + f"{P}🎨 Тема: {t_name}\n"
             + f"{P}💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
+            + f"{P}🕓 Последнее появление: {last_str}\n"
             + f"\n"
             + f"{P}🐾 <b>Питомцы:</b>\n"
             + pets_str
@@ -611,6 +631,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
             + f"{t_sep}\n"
             + f"\n"
             + f"💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
+            + f"🕓 Последнее появление: {last_str}\n"
             + f"{partner_line}\n"
             + (f"{shield_line}\n" if shield_line else "")
             + f"🎨 Тема: {t_name}\n"
@@ -680,6 +701,20 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
     else:
         partner_line = "💍 Не в браке"
 
+    # Первое / последнее появление
+    first_seen_raw = await users_repo.get_first_seen(db, target_id)
+    join_str = "—"
+    if first_seen_raw:
+        _dt = parse_dt(first_seen_raw)
+        if _dt:
+            join_str = _dt.strftime("%d.%m.%Y")
+    last_str = "—"
+    _lr = stats.get("last_message_at")
+    if _lr:
+        _dt = parse_dt(_lr)
+        if _dt:
+            last_str = _dt.strftime("%d.%m %H:%M")
+
     if t_side:
         name_line = f"{P}{t_side} {t_accent} <b>{name}</b> {t_accent}\n"
         rank_line = f"{P}{t_side} 🌍 {g_rank}  |  🏘 {l_rank}\n"
@@ -696,6 +731,7 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
         + f"{t_sep}\n"
         + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}%\n"
         + f"{P}💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
+        + f"{P}📅 Первое: {join_str}  |  🕓 Был(а): {last_str}\n"
         + f"{P}🔥 Стрик: <b>{streak}</b> дн.\n"
         + f"{t_sep}\n"
         + f"{P}{partner_line}\n"

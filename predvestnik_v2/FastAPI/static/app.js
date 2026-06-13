@@ -1821,7 +1821,7 @@ const SRC = {
   shop_diamond:   {label:'Магазин 💎',    desc:'Купите в Магазине за Алмазы.', action:null},
   dark:           {label:'Чёрный Рынок 🌑', desc:'Покупается за Тёмную Мору на Чёрном Рынке. Зарабатывайте Тёмную Мору через Контрабанду и Ритуал Культа Бездны.', action:{l:'🌑 Открыть Тёмную Мору', f:"goTo('market','dark')"}},
   zarniki:        {label:'Зарники ✨',     desc:'Приобретается за донат-валюту Зарники (Telegram Stars). 1 Звезда = 10 Зарников.',
-                   action:{l:'✨ Купить Зарники', f:"openTelegramLink('https://t.me/IIIPredvestnikIIIBot?start=buyzarniki')"}},
+                   action:{l:'✨ Пополнить Зарники', f:"goTo('market','vip')"}},
   gacha_novice:   {label:'Гача 🎲',       desc:'Может выпасть из Ученической крутки гачи. Шанс — случайный.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
   gacha_standard: {label:'Гача 🎲',       desc:'Может выпасть из Стандартной крутки гачи (1000 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
   gacha_premium:  {label:'Гача 🎲',       desc:'Может выпасть из Премиум крутки гачи (2800 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
@@ -1848,9 +1848,10 @@ function swColl(tab,btn) {
 function themeStatusBadge(t) {
   if(t.active)   return '<span class="theme-status ts-active">✓ Активна</span>';
   if(t.owned)    return '<span class="theme-status ts-owned">В коллекции</span>';
+  if(t.premium)       return `<div class="theme-price">🔒 ${fmt(t.price_zarniki)} ✨</div>`;
   if(t.source && t.source.startsWith('gacha')) return '<span class="theme-status ts-gacha">Гача 🎲</span>';
   if(t.source === 'event')   return '<span class="theme-status ts-event">Ивент 🎪</span>';
-  if(t.source === 'dark')    return '<span class="theme-status ts-dark">🌑</span>';
+  if(t.source === 'dark')    return '<span class="theme-status ts-dark">🔒 ' + (t.price_dark||'') + ' 🌑</span>';
   if(t.price_mora)    return `<div class="theme-price">${fmt(t.price_mora)} 🪙</div>`;
   if(t.price_diamonds)return `<div class="theme-price">${t.price_diamonds} 💎</div>`;
   return '';
@@ -1864,39 +1865,60 @@ function loadThemes() {
   }).catch(e => { el('col-themes').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
 function setThemeFilter(f){_themeFilter=f;_renderThemes();}
+
+// Карточка темы: для непринадлежащих премиум-тем — эффект витрины (🔒 + блюр)
+function _themeCardHTML(t) {
+  const locked = t.premium && !t.owned;          // донат-тема, ещё не куплена → upsell
+  const cls = `theme-card${t.owned?' owned':''}${t.active?' active-theme':''}${locked?' premium-locked':''}`;
+  return `<div class="${cls}" onclick="openThemeModal('${t.theme_id}')">
+    ${locked?'<div class="lock-ic" style="position:absolute;top:7px;right:8px;font-size:13px;z-index:2">🔒</div>':''}
+    <div class="theme-deco">${t.top||'━━━━━━━━'}</div>
+    <div class="theme-name">${t.name}</div>
+    <div class="theme-deco" style="margin-top:3px">${t.bot_line||'━━━━━━━━'}</div>
+    <div style="margin-top:6px">${themeStatusBadge(t)}</div>
+  </div>`;
+}
+
 function _renderThemes() {
   if(!_themeData) return;
   const ownedCount=_themeData.filter(t=>t.owned||t.active).length;
-  const shopCount=_themeData.filter(t=>!t.owned&&t.source&&(t.source==='shop_mora'||t.source==='shop_diamond')).length;
+  const premiumCount=_themeData.filter(t=>t.premium&&!t.owned).length;
   const filtered=_themeFilter==='owned'?_themeData.filter(t=>t.owned||t.active)
-    :_themeFilter==='shop'?_themeData.filter(t=>!t.owned&&(t.source==='shop_mora'||t.source==='shop_diamond'))
+    :_themeFilter==='premium'?_themeData.filter(t=>t.premium)
     :_themeData;
   const groups={};
   filtered.forEach(t=>(groups[t.rarity]=groups[t.rarity]||[]).push(t));
   const ORDER=['common','uncommon','rare','epic','legendary','mythic','shadow','zarniki','seasonal'];
-  el('col-themes').innerHTML=`
-    <div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap">
-      <button class="btn btn-sm ${_themeFilter==='all'?'btn-gold':'btn-ghost'}" style="padding:3px 8px;font-size:10px" onclick="setThemeFilter('all')">Все</button>
-      <button class="btn btn-sm ${_themeFilter==='owned'?'btn-gold':'btn-ghost'}" style="padding:3px 8px;font-size:10px" onclick="setThemeFilter('owned')">Мои (${ownedCount})</button>
-      <button class="btn btn-sm ${_themeFilter==='shop'?'btn-gold':'btn-ghost'}" style="padding:3px 8px;font-size:10px" onclick="setThemeFilter('shop')">В магазине (${shopCount})</button>
-    </div>
-    ${Object.keys(groups).length
-      ?ORDER.filter(r=>groups[r]).map(r=>{
-          const label=`${groups[r][0]?.badge||''} ${groups[r][0]?.rarity_label||r}`;
-          return `<div class="card">
-            <div class="card-title">${label}</div>
-            <div class="theme-grid">${groups[r].map(t=>`
-              <div class="theme-card${t.owned?' owned':''}${t.active?' active-theme':''}" onclick="openThemeModal('${t.theme_id}')">
-                <div class="theme-deco">${t.top||'━━━━━━━━'}</div>
-                <div class="theme-name">${t.name}</div>
-                <div class="theme-deco" style="margin-top:3px">${t.bot_line||'━━━━━━━━'}</div>
-                <div style="margin-top:6px">${themeStatusBadge(t)}</div>
-              </div>`).join('')}
-            </div>
-          </div>`;
-        }).join('')
-      :`<div class="empty-state"><div class="es-icon">🎨</div><div class="es-title">Ничего не найдено</div><div class="es-sub">В этой категории нет тем</div></div>`
-    }`;
+
+  const filterBar=`<div style="display:flex;gap:5px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-sm ${_themeFilter==='all'?'btn-gold':'btn-ghost'}" onclick="setThemeFilter('all')">Все</button>
+      <button class="btn btn-sm ${_themeFilter==='owned'?'btn-gold':'btn-ghost'}" onclick="setThemeFilter('owned')">Мои (${ownedCount})</button>
+      <button class="btn btn-sm ${_themeFilter==='premium'?'btn-gold':'btn-ghost'}" onclick="setThemeFilter('premium')">✨ Премиум (${premiumCount})</button>
+    </div>`;
+
+  if(!Object.keys(groups).length){
+    el('col-themes').innerHTML=filterBar+`<div class="empty-state"><div class="es-icon">🎨</div><div class="es-title">Ничего не найдено</div><div class="es-sub">В этой категории нет тем</div></div>`;
+    return;
+  }
+
+  el('col-themes').innerHTML=filterBar+ORDER.filter(r=>groups[r]).map(r=>{
+    const items=groups[r];
+    const label=`${items[0]?.badge||''} ${items[0]?.rarity_label||r}`;
+    // Зарниковая → подкатегории: 💻 IT-стиль и ✨ Премиум
+    if(r==='zarniki'){
+      const it=items.filter(t=>t.it), rest=items.filter(t=>!t.it);
+      const sub=(ttl,arr)=>arr.length?`<div style="font-size:11px;font-weight:700;color:var(--gold2);margin:6px 2px 8px">${ttl}</div><div class="theme-grid" style="margin-bottom:10px">${arr.map(_themeCardHTML).join('')}</div>`:'';
+      return `<div class="card">
+        <div class="card-title">✨ Зарниковая <span style="font-size:9px;color:var(--muted);font-weight:600">— премиум за донат</span></div>
+        ${sub('💻 IT-стиль', it)}
+        ${sub('🌌 Премиум', rest)}
+      </div>`;
+    }
+    return `<div class="card">
+      <div class="card-title">${label}</div>
+      <div class="theme-grid">${items.map(_themeCardHTML).join('')}</div>
+    </div>`;
+  }).join('');
 }
 
 function _premBar(pct, len=7) {
@@ -2060,9 +2082,11 @@ function openThemeModal(tid) {
   const t = _themeData.find(x => x.theme_id === tid);
   if(!t) return;
 
-  const price = t.price_mora ? `${fmt(t.price_mora)} 🪙` : t.price_diamonds ? `${t.price_diamonds} 💎` : null;
+  const price = t.price_mora ? `${fmt(t.price_mora)} 🪙` : t.price_diamonds ? `${t.price_diamonds} 💎`
+    : t.price_zarniki ? `${fmt(t.price_zarniki)} ✨` : t.price_dark ? `${t.price_dark} 🌑` : null;
   const src = SRC[t.source] || SRC[t.source?.split('_')[0]+'_'+t.source?.split('_').slice(1).join('_')] || {label:t.source, desc:'', action:null};
-  const buyable = price && (t.source === 'shop_mora' || t.source === 'shop_diamond');
+  // Покупаемо в вебе: магазинные (🪙/💎) и донатные (✨). Тёмные (🌑) — через бота.
+  const buyable = price && (t.source === 'shop_mora' || t.source === 'shop_diamond' || t.source === 'zarniki');
 
   const body = `
     <div style="margin-bottom:12px">
@@ -2106,7 +2130,7 @@ function openThemeModal(tid) {
 
 function doBuyTheme(tid) {
   api('/themes/buy', {method:'POST', body:JSON.stringify({theme_id:tid})})
-    .then(r => { toast(`✅ ${r.theme_name} куплена!`); CM(); loadThemes(); })
+    .then(r => { toast(`✅ ${r.theme_name} куплена!`); CM(); loadThemes(); loadProfile(); })
     .catch(e => toast(e, false));
 }
 function doEquipTheme(tid) {
@@ -2133,17 +2157,32 @@ function switchTop(mode, btn) {
   api(mode==='global' ? '/top/global' : `/top/local/${localChatId}`)
     .then(rows => {
       const header = mode === 'local'
-        ? `<div style="font-size:11px;color:var(--muted);padding:0 0 8px">📍 Чат: ${localChatName}</div>`
-        : `<div style="font-size:11px;color:var(--muted);padding:0 0 8px">🌍 Все чаты · за всё время</div>`;
-      el('top-c').innerHTML = rows.length
-        ? '<div class="card">' + header + rows.slice(0,30).map((r,i)=>`<div class="trow">
-            <div class="tpos">${MEDALS[i]||(i+1)+'.'}</div>
-            <div class="tname">${vipName(r.username, r.is_vip)}</div>
-            <div class="tcnt">${fmt(r.count)} 💬</div>
-          </div>`).join('') + '</div>'
-        : '<div class="empty-state"><div class="es-icon">🏆</div><div class="es-title">Пока нет данных</div><div class="es-sub">Топ появится после первых сообщений</div></div>';
+        ? `<div style="font-size:11px;color:var(--muted);padding:0 2px 10px">📍 Чат: ${localChatName}</div>`
+        : `<div style="font-size:11px;color:var(--muted);padding:0 2px 10px">🌍 Все чаты · за всё время</div>`;
+      if(!rows.length){
+        el('top-c').innerHTML='<div class="empty-state"><div class="es-icon">🏆</div><div class="es-title">Пока нет данных</div><div class="es-sub">Топ появится после первых сообщений</div></div>';
+        return;
+      }
+      // Подиум для топ-3 + список остальных
+      const top3=rows.slice(0,3), rest=rows.slice(3,30);
+      const podium = top3.length>=2 ? '<div class="podium">'+top3.map((r,i)=>`
+        <div class="pd pd-${i+1}">
+          <div class="pd-medal">${MEDALS[i]}</div>
+          <div class="pd-name">${vipName(r.username, r.is_vip)}</div>
+          <div class="pd-cnt">${fmt(r.count)} 💬</div>
+        </div>`).join('')+'</div>' : '';
+      const restHtml = rest.length ? '<div class="card">'+rest.map((r,i)=>`<div class="trow">
+          <div class="tpos">${i+4}</div>
+          <div class="tname">${vipName(r.username, r.is_vip)}</div>
+          <div class="tcnt">${fmt(r.count)} 💬</div>
+        </div>`).join('')+'</div>' : '';
+      // если меньше 2 игроков — просто список
+      const single = (top3.length<2) ? '<div class="card">'+top3.map((r,i)=>`<div class="trow">
+          <div class="tpos">${MEDALS[i]||(i+1)}</div><div class="tname">${vipName(r.username, r.is_vip)}</div>
+          <div class="tcnt">${fmt(r.count)} 💬</div></div>`).join('')+'</div>' : '';
+      el('top-c').innerHTML = header + podium + single + restHtml;
     })
-    .catch(e => { el('top-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
+    .catch(e => { el('top-c').innerHTML=`<div class="err">${e}</div>`; });
 }
 
 // ── Exchange ──────────────────────────────────────────────────────────────────
@@ -2303,44 +2342,131 @@ function doRitual(btn) {
 }
 
 // ── VIP-подписка (Implementation Block 2.5) ─────────────────────────────────────
+// ── ✨ Премиум-хаб: донат-магазин Зарников (Stars) + VIP ──────────────────────
+let _zarPkgs=null;
+// Еженедельная VIP-крутка выдаётся в понедельник (scheduler). Считаем до ближайшего
+// понедельника 00:00 МСК (UTC+3) — единый тайм-зон проекта.
+function _vipCrateText() {
+  const nowMs = Date.now();
+  const mskMs = nowMs + 3*3600000;                 // wall-clock МСК как если бы это был UTC
+  const d = new Date(mskMs);
+  let daysToMon = (8 - d.getUTCDay()) % 7;         // пн=1 → 0; иначе дни до пн
+  if(daysToMon===0) daysToMon = 7;                 // сегодня пн → ждём следующий
+  const target = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()+daysToMon, 0,0,0);
+  let mins = Math.max(0, Math.round((target - mskMs)/60000));
+  const dd = Math.floor(mins/1440); mins -= dd*1440;
+  const hh = Math.floor(mins/60);   mins -= hh*60;
+  return dd>0 ? `${dd}д ${hh}ч` : hh>0 ? `${hh}ч ${mins}м` : `${mins}м`;
+}
 function loadVip() {
   el('mkt-vip').innerHTML = '<div class="loader">Загрузка...</div>';
-  api('/vip/status').then(d=>{
-    const seniorityLine = d.seniority_days>0
-      ? `<div style="font-size:11px;color:var(--gold);margin-top:4px">🏅 Стаж VIP: ${d.seniority_months} мес. (${d.seniority_days} дн.)</div>` : '';
-    const statusHtml = d.active
-      ? `<div class="card card-gold">
-          <div class="card-title">👑 ${d.tier_label}</div>
-          <div style="font-size:12px;color:var(--muted)">Истекает: ${new Date(d.expires_at).toLocaleDateString('ru-RU')} · осталось ${d.days_left} дн.</div>
-          ${seniorityLine}
-          <div style="font-size:11px;color:var(--muted);margin-top:6px">Можно купить ещё тариф — срок сложится, тариф сменится сразу.</div>
-        </div>`
-      : `<div class="card">
-          <div class="card-title">👑 VIP-подписка</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.5">Косметика, удобство и еженедельные бонусы — без преимущества в силе.</div>
-          ${seniorityLine}
-        </div>`;
-
-    const tiersHtml = d.tiers.map(t=>{
-      const giftParts=[];
-      if(t.gift_mora>0) giftParts.push(`${fmt(t.gift_mora)} 🪙`);
-      if(t.gift_diamonds>0) giftParts.push(`${fmt(t.gift_diamonds)} 💎`);
-      t.gift_items.forEach(i=>giftParts.push(`${i.qty}× ${i.name}`));
-      const weeklyParts = t.weekly.map(i=>`${i.qty}× ${i.name}`);
-      return `<div class="card" style="margin-top:8px">
-        <div class="card-title">${t.label} — ${fmt(t.price_zarniki)} ✨ / ${t.duration_days} дн.</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.6">
-          🎁 Подарок: ${giftParts.join(', ')}<br>
-          📅 Еженедельно: ${weeklyParts.join(', ')}
-          ${t.extra_slot?'<br>✅ +1 слот питомника':''}
-        </div>
-        <button class="btn btn-gold btn-full" style="margin-top:8px" onclick="doBuyVip('${t.tier}','${t.label}',${t.price_zarniki})">Купить за ${fmt(t.price_zarniki)} ✨</button>
-      </div>`;
-    }).join('');
-
-    el('mkt-vip').innerHTML = statusHtml + tiersHtml;
-  }).catch(e=>{el('mkt-vip').innerHTML = `<div class="err">${e}</div>`;});
+  Promise.all([
+    api('/payments/zarniki/packages').catch(()=>null),
+    api('/vip/status'),
+  ]).then(([pk, d])=>_renderPremiumHub(pk, d))
+    .catch(e=>{el('mkt-vip').innerHTML = `<div class="err">${e}</div>`;});
 }
+
+function _renderPremiumHub(pk, d) {
+  _zarPkgs = pk;
+  const bal = Math.floor(_profileData?.zarniki || 0);
+  const perStar = pk?.per_star || 10;
+
+  // 1. Донат-витрина Зарников за Telegram Stars
+  const pkgCards = (pk?.packages || []).map((p,i)=>{
+    const best = i===(pk.packages.length-1);
+    return `<div class="zar-pack${best?' zar-best':''}" onclick="buyZarniki(${p.stars})">
+      ${best?'<span class="zar-best-tag">ВЫГОДНО</span>':''}
+      <div class="zar-amt">${fmt(p.zarniki)} ✨</div>
+      <div class="zar-stars">${p.stars} ⭐</div>
+    </div>`;
+  }).join('');
+
+  const donateCard = `
+    <div class="prem-card" style="text-align:center">
+      <div style="font-size:34px;animation:floaty 3.5s infinite">✨</div>
+      <div class="prem-title">Зарники</div>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 2px">Донат-валюта: премиум-темы, VIP, обмен на 🪙/💎</div>
+      <div style="font-size:13px;color:var(--gold2);font-weight:800;margin-bottom:10px">Баланс: ${fmt(bal)} ✨</div>
+      <div class="zar-grid">${pkgCards}</div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        <input id="zar-custom" type="number" min="1" class="num-input" style="flex:1;margin:0" placeholder="Своя сумма ⭐"/>
+        <button class="btn btn-gold" onclick="buyZarnikiCustom()">Купить</button>
+      </div>
+      <div style="font-size:9.5px;color:var(--muted);margin-top:6px">1 ⭐ = ${perStar} ✨ · оплата звёздами Telegram</div>
+    </div>`;
+
+  // 2. VIP
+  const seniorityLine = d.seniority_days>0
+    ? `<div style="font-size:11px;color:var(--gold2);margin-top:4px">🏅 Стаж VIP: ${d.seniority_months} мес. (${d.seniority_days} дн.)</div>` : '';
+  const vipStatus = d.active
+    ? `<div class="prem-card">
+        <div class="prem-tag">VIP</div>
+        <div class="prem-title">👑 ${d.tier_label}</div>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:3px">Истекает ${new Date(d.expires_at).toLocaleDateString('ru-RU')} · осталось ${d.days_left} дн.</div>
+        ${seniorityLine}
+        <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:7px 10px;background:rgba(232,181,77,.1);border:1px solid var(--border);border-radius:12px">
+          <span style="font-size:16px">🎁</span>
+          <span style="font-size:11px;color:var(--text)">Бесплатная крутка через <b style="color:var(--gold2)">${_vipCrateText()}</b></span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Можно продлить — срок сложится, тариф сменится сразу.</div>
+      </div>`
+    : `<div class="card card-gold">
+        <div class="card-title">👑 VIP-подписка</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5">Косметика, удобство и еженедельные подарки — без преимущества в силе.</div>
+        ${seniorityLine}
+      </div>`;
+
+  const tiers = d.tiers.map(t=>{
+    const gift=[];
+    if(t.gift_mora>0) gift.push(`${fmt(t.gift_mora)} 🪙`);
+    if(t.gift_diamonds>0) gift.push(`${fmt(t.gift_diamonds)} 💎`);
+    t.gift_items.forEach(i=>gift.push(`${i.qty}× ${i.name}`));
+    const weekly = t.weekly.map(i=>`${i.qty}× ${i.name}`);
+    const afford = bal >= t.price_zarniki;
+    return `<div class="prem-card">
+      <div class="prem-title">${t.label}</div>
+      <div class="prem-price">${fmt(t.price_zarniki)} ✨ <span style="font-size:10px;color:var(--muted);font-weight:600">/ ${t.duration_days} дн.</span></div>
+      <div class="prem-list">🎁 ${gift.join(', ')}<br>📅 Еженедельно: ${weekly.join(', ')}${t.extra_slot?'<br>🐾 +1 слот питомника':''}</div>
+      <button class="btn ${afford?'btn-gold':'btn-ghost'} btn-full" style="margin-top:4px" onclick="${afford?`doBuyVip('${t.tier}','${t.label}',${t.price_zarniki})`:`goToZarTop()`}">${afford?`Оформить за ${fmt(t.price_zarniki)} ✨`:`Нужно ${fmt(t.price_zarniki)} ✨ — пополнить`}</button>
+    </div>`;
+  }).join('');
+
+  el('mkt-vip').innerHTML = donateCard
+    + `<div class="card-title" style="margin:14px 2px 8px;font-size:14px">👑 VIP-подписка</div>`
+    + vipStatus + tiers;
+}
+
+function goToZarTop() {
+  el('mkt-vip')?.scrollIntoView({behavior:'smooth', block:'start'});
+  toast('Пополни Зарники сверху ☝️');
+}
+
+function buyZarniki(stars) {
+  api('/payments/zarniki/invoice',{method:'POST',body:JSON.stringify({stars})})
+    .then(r=>{
+      if(tg && typeof tg.openInvoice === 'function'){
+        tg.openInvoice(r.link, status=>{
+          if(status==='paid'){
+            toast('✨ Зарники зачислены! Спасибо за поддержку 💜');
+            CM();
+            setTimeout(()=>{ loadProfile(); if(_mktTab==='vip') loadVip(); }, 1600);
+          } else if(status==='failed'){ toast('Платёж не прошёл',false); }
+        });
+      } else {
+        // Браузер (Login Widget): ссылка откроется в Telegram
+        window.open(r.link, '_blank');
+        toast('Счёт открыт в Telegram — оплати звёздами там');
+      }
+    })
+    .catch(e=>toast(e,false));
+}
+function buyZarnikiCustom() {
+  const v=parseInt(el('zar-custom')?.value||'0');
+  if(!v || v<1) return toast('Введите количество звёзд (от 1)',false);
+  buyZarniki(v);
+}
+
 function doBuyVip(tier, label, price) {
   OM(`👑 ${label}`,
     `<div style="font-size:12px;color:var(--muted);line-height:1.5">Списать <b style="color:var(--gold)">${fmt(price)} ✨</b> и оформить <b>${label}</b>?</div>`,
@@ -2980,9 +3106,13 @@ function loadAdmin() {
 }
 function renderAdminChatSel() {
   if(!_adminChats?.length) return;
-  el('adm-chat-sel').innerHTML=`<select id="adm-sel" class="num-input" style="width:100%;margin:0 0 4px" onchange="onAdminChatChange(this.value)">
-    ${_adminChats.map(c=>`<option value="${c.chat_tg_id}" ${c.chat_tg_id==_adminChatId?'selected':''}>${c.chat_title} (${_RANK_NAMES[c.local_rank]||c.local_rank})</option>`).join('')}
-  </select>`;
+  const roleIcon = c => c.role==='admin' ? '🛡' : c.role==='main' ? '🏠' : '💬';
+  const cur = _adminChats.find(c=>c.chat_tg_id==_adminChatId) || _adminChats[0];
+  el('adm-chat-sel').innerHTML=`
+    <select id="adm-sel" class="num-input" style="width:100%;margin:0 0 6px" onchange="onAdminChatChange(this.value)">
+      ${_adminChats.map(c=>`<option value="${c.chat_tg_id}" ${c.chat_tg_id==_adminChatId?'selected':''}>${roleIcon(c)} ${c.chat_title} · ${_RANK_NAMES[c.local_rank]||c.local_rank}</option>`).join('')}
+    </select>
+    ${cur && cur.linked_title ? `<div style="font-size:10.5px;color:var(--muted);padding:0 2px 4px">${cur.role==='admin'?`🛡 Это админ-чат группы «${cur.linked_title}»`:`🏠 Основная группа · 🛡 админ-чат: «${cur.linked_title}»`}</div>` : ''}`;
 }
 function onAdminChatChange(cid) {
   _adminChatId=parseInt(cid);
@@ -3023,8 +3153,21 @@ function loadAdminDash() {
         ${[['Варн',d.can_warn],['Мут',d.can_mute],['Кик',d.can_kick],['Бан',d.can_ban]].map(([n,v])=>
           `<span class="badge" style="background:${v?'var(--green)':'var(--dim)'};color:${v?'#fff':'var(--muted)'};padding:3px 8px;border-radius:4px;font-size:11px;margin:2px">${n}</span>`
         ).join('')}
+      </div>
+      <div class="card">
+        <div class="card-title">🔒 Управление чатом</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Закрыть чат — писать смогут только админы. То же, что «бот -чат» / «бот +чат».</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-red" style="flex:1" onclick="doChatLock(false)">🔒 Закрыть</button>
+          <button class="btn btn-gold" style="flex:1" onclick="doChatLock(true)">🔓 Открыть</button>
+        </div>
       </div>`;
   }).catch(e=>{el('adm-dash').innerHTML=`<div class="err">${e}</div>`;});
+}
+function doChatLock(open) {
+  api(`/admin/${_adminChatId}/chat-lock`,{method:'POST',body:JSON.stringify({open})})
+    .then(()=>toast(open?'🔓 Чат открыт':'🔒 Чат закрыт'))
+    .catch(e=>toast(e,false));
 }
 function loadAdminUsers() {
   if(!_adminChatId) return;
@@ -3054,6 +3197,7 @@ function renderAdminUserTable(d) {
             <td>
               <div style="font-weight:600;font-size:12px">@${vipName(u.user_tg_username||'ID'+u.user_tg_id, u.is_vip)}</div>
               <div style="font-size:10px;color:var(--muted)">ID: ${u.user_tg_id} · ${u.user_messages_count_all_time||0} сообщ.</div>
+              <div style="font-size:9.5px;color:var(--dim)">📅 ${u.joined_at?fmtUTC(u.joined_at):'—'} · 🕓 ${u.last_message_at?fmtUTC(u.last_message_at):'—'}</div>
             </td>
             <td style="text-align:center">${u.user_level||1}</td>
             <td style="font-size:10px">${_RANK_NAMES[u.local_rank||0]||'?'}</td>
@@ -3193,23 +3337,22 @@ function loadAdminSettings() {
         ${rank('rank_marriage','💍 Предлагать брак',s.rank_marriage,true)}
         ${rank('rank_give','💸 Переводить мору/алмазы',s.rank_give,true)}
         ${rank('purge_min_rank','🧹 Не проверяется чисткой',s.purge_min_rank)}
+        ${rank('purge_action_rank','⚖️ Кнопки вердикта в сводке',s.purge_action_rank)}
+        ${rank('rank_chat_lock','🔒 Открывать/закрывать чат',s.rank_chat_lock)}
       </div>
       <div class="card">
-        <div class="card-title">🧹 Чистка активности</div>
-        <div class="irow"><span class="ik">Статус</span>
-          <span style="color:${s.is_purging?'var(--red)':'var(--muted)'}">${s.is_purging?'🔴 Идёт — чат закрыт':'⚪ Не активна'}</span>
+        <div class="card-title">🧹 Чистка активности — сводка</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">
+          Бот соберёт сводку активности и пришлёт <b>досье с кнопками</b> (Варн/Кик/Бан) в <b>админ-чат</b> (если привязан), иначе в основной чат.
+          Чат <b>не блокируется</b>, никакие действия над людьми не выполняются автоматически — решение по каждому принимаешь ты.
         </div>
-        ${s.is_purging?`
-          <button class="btn btn-gold btn-full" style="margin-top:8px" onclick="doPurgeStop()">⏹ Завершить чистку (открыть чат)</button>
-        `:`
-          <div style="display:flex;gap:6px;margin:8px 0 6px">
-            <input id="purge-start" type="date" class="num-input" style="flex:1;margin:0" title="Начало периода"/>
-            <input id="purge-end" type="date" class="num-input" style="flex:1;margin:0" title="Конец периода"/>
-            <input id="purge-norm" type="number" class="num-input" style="width:80px;margin:0" placeholder="Норма" value="50" min="1"/>
-          </div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Пусто = последние 7 дней, норма 50. Отчёт уйдёт в чат; досье с кнопками — через бот-команду «чистка».</div>
-          <button class="btn btn-red btn-full" onclick="doPurgeStart()">▶️ Начать чистку (закроет чат!)</button>
-        `}
+        <div style="display:flex;gap:6px;margin:0 0 6px">
+          <input id="purge-start" type="date" class="num-input" style="flex:1;margin:0" title="Начало периода"/>
+          <input id="purge-end" type="date" class="num-input" style="flex:1;margin:0" title="Конец периода"/>
+          <input id="purge-norm" type="number" class="num-input" style="width:80px;margin:0" placeholder="Норма" value="50" min="1"/>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Пусто = последние 7 дней, норма 50.</div>
+        <button class="btn btn-gold btn-full" onclick="doPurgeStart()">📋 Сформировать сводку</button>
       </div>
       <div id="adm-save-status" style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px"></div>`;
     el('adm-settings')._settings=s;
@@ -3218,18 +3361,13 @@ function loadAdminSettings() {
 function doPurgeStart() {
   const sd=el('purge-start')?.value||null, ed=el('purge-end')?.value||null;
   const norm=parseInt(el('purge-norm')?.value||'50')||50;
-  OM('🧹 Начать чистку?',
-    `<div style="text-align:center;padding:12px 0;color:var(--muted)">Чат будет <b style="color:var(--red)">закрыт для сообщений</b>, в него уйдёт отчёт по активности.<div style="font-size:11px;margin-top:6px">Период: ${sd||'−7 дней'} — ${ed||'сегодня'} · Норма: ${norm}</div></div>`,
-    [{l:'Да, начать',c:'btn-red',f:`_execPurgeStart(${JSON.stringify(sd)},${JSON.stringify(ed)},${norm})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+  OM('🧹 Сформировать сводку чистки?',
+    `<div style="text-align:center;padding:12px 0;color:var(--muted)">Бот соберёт активность и пришлёт сводку + досье с кнопками. Чат <b>не блокируется</b>.<div style="font-size:11px;margin-top:6px">Период: ${sd||'−7 дней'} — ${ed||'сегодня'} · Норма: ${norm}</div></div>`,
+    [{l:'Да, собрать',c:'btn-gold',f:`_execPurgeStart(${JSON.stringify(sd)},${JSON.stringify(ed)},${norm})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
 }
 function _execPurgeStart(sd, ed, norm) {
   api(`/admin/${_adminChatId}/purge/start`,{method:'POST',body:JSON.stringify({start_date:sd,end_date:ed,norm})})
-    .then(r=>{toast(`🧹 Чистка запущена: ✅${r.passed} ❌${r.failed} 🛡${r.protected}`);CM();loadAdminSettings();})
-    .catch(e=>toast(e,false));
-}
-function doPurgeStop() {
-  api(`/admin/${_adminChatId}/purge/stop`,{method:'POST'})
-    .then(()=>{toast('✅ Чистка завершена, чат открыт');loadAdminSettings();})
+    .then(r=>{toast(`📋 Сводка готова: ✅${r.passed} ❌${r.failed} 🛡${r.protected}${r.routed_to_admin_chat?' · в админ-чат':''}`);CM();})
     .catch(e=>toast(e,false));
 }
 let _admSaveTimer=null;
@@ -3249,7 +3387,8 @@ function saveAdmSettings() {
   const keys=['module_shop','module_gacha','module_zoo','module_expeditions','module_auction',
               'module_games','module_exchange','module_quests','module_daily_deal',
               'events_enabled','nsfw_warps_allowed','rank_warn','rank_mute','rank_kick','rank_ban',
-              'rank_shield','rank_immune','rank_duel','rank_marriage','rank_give','purge_min_rank'];
+              'rank_shield','rank_immune','rank_duel','rank_marriage','rank_give','purge_min_rank',
+              'purge_action_rank','rank_chat_lock'];
   const body={};
   for(const k of keys) {
     const e2=el('aset-'+k); if(!e2) continue;
@@ -3478,15 +3617,23 @@ function loadGlobalChats() {
   api('/admin/global/chats').then(d=>{
     _glbChatsList=d.chats||[];
     const perms=_actorSanctionPerms();
+    if(!_glbChatsList.length){
+      el('glb-chats').innerHTML='<div class="empty-state"><div class="es-icon">💬</div><div class="es-title">Нет групп</div><div class="es-sub">Показываются только группы, в которых вы состоите</div></div>';
+      return;
+    }
+    const roleIcon = c => c.role==='admin' ? '🛡' : c.role==='main' ? '🏠' : '💬';
     el('glb-chats').innerHTML=`
       <div class="card">
-        <div class="card-title">💬 Все чаты (${_glbChatsList.length})</div>
-        ${_glbChatsList.map(c=>`<div class="irow">
-          <span class="ik" style="cursor:pointer" onclick="openGlobalChatMembers(${c.chat_id})">${esc(c.chat_title)}</span>
-          <span class="iv" style="display:flex;align-items:center;gap:6px">
-            <span style="cursor:pointer" onclick="openGlobalChatMembers(${c.chat_id})">${c.member_count} 👤 ›</span>
-            ${(perms.restrict||perms.ban)?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openGlobalChatSanction(${c.chat_id})">⚡</button>`:''}
-          </span>
+        <div class="card-title">💬 Мои группы (${_glbChatsList.length})</div>
+        ${_glbChatsList.map(c=>`<div style="padding:8px 0;border-bottom:1px solid var(--border2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span style="cursor:pointer;font-weight:600;color:var(--bright);font-size:12.5px" onclick="openGlobalChatMembers(${c.chat_id})">${roleIcon(c)} ${esc(c.chat_title)}</span>
+            <span style="display:flex;align-items:center;gap:6px;flex:none">
+              <span style="cursor:pointer;font-size:11px;color:var(--muted)" onclick="openGlobalChatMembers(${c.chat_id})">${c.member_count} 👤 ›</span>
+              ${(perms.restrict||perms.ban)?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openGlobalChatSanction(${c.chat_id})">⚡</button>`:''}
+            </span>
+          </div>
+          ${c.linked_title?`<div style="font-size:9.5px;color:var(--dim);margin-top:2px">${c.role==='admin'?`🛡 админ-чат для «${esc(c.linked_title)}»`:`🛡 админ-чат: «${esc(c.linked_title)}»`}</div>`:''}
         </div>`).join('')}
       </div>`;
   }).catch(e=>{el('glb-chats').innerHTML=`<div class="err">${e}</div>`;});
@@ -3531,6 +3678,7 @@ function renderGlobalMembers(d) {
             <td>
               <div style="font-weight:600;font-size:12px">@${vipName(m.user_tg_username||'ID'+m.user_tg_id, m.is_vip)}</div>
               <div style="font-size:10px;color:var(--muted)">ID: ${m.user_tg_id} · ${m.user_messages_count_all_time||0} сообщ.</div>
+              <div style="font-size:9.5px;color:var(--dim)">📅 ${m.joined_at?fmtUTC(m.joined_at):'—'} · 🕓 ${m.last_message_at?fmtUTC(m.last_message_at):'—'}</div>
             </td>
             <td style="text-align:center">${m.user_level||1}</td>
             <td style="font-size:10px">${m.global_rank_name}</td>

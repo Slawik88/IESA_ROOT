@@ -410,6 +410,27 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .prem-price { font-size: 13px; font-weight: 800; color: var(--bright); }
 .prem-list { font-size: 11px; color: var(--muted); line-height: 1.75; margin: 8px 0 4px; }
 
+/* Витрина Зарников за Telegram Stars */
+.zar-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+.zar-pack {
+  position: relative; overflow: hidden; cursor: pointer;
+  background: linear-gradient(180deg, var(--bg3), var(--bg2));
+  border: 1px solid var(--border2); border-radius: 14px;
+  padding: 12px 4px 10px; text-align: center;
+  transition: transform .14s, border-color .2s, box-shadow .2s;
+}
+.zar-pack:active { transform: scale(.93); }
+.zar-pack:hover { border-color: var(--border); }
+.zar-best { border-color: var(--border); box-shadow: var(--glow-gold);
+  background: linear-gradient(180deg, rgba(232,181,77,.14), var(--bg2)); }
+.zar-best-tag {
+  position: absolute; top: 0; left: 0; right: 0; font-size: 7.5px; font-weight: 900;
+  letter-spacing: 1px; color: #211803; background: linear-gradient(90deg, var(--gold), #d9952b);
+  padding: 2px 0;
+}
+.zar-amt { font-size: 14px; font-weight: 800; color: var(--gold2); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.zar-stars { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+
 /* Заблокированный премиум — «хочу купить» */
 .locked { position: relative; }
 .locked .lock-blur { filter: blur(2.5px) saturate(.7); opacity: .65; pointer-events: none; }

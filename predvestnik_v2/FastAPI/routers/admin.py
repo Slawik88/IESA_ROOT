@@ -17,6 +17,7 @@ from infrastructure.repositories.blacklist import (
     get_chat_blacklist, add_to_chat_blacklist, remove_from_chat_blacklist,
 )
 from infrastructure.repositories.chat import set_local_rank
+from infrastructure.repositories.routing import get_admin_chat
 from services import roles
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -62,32 +63,57 @@ async def _tg_call(method: str, **kwargs) -> dict:
 
 @router.get("/my-chats")
 async def my_admin_chats(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Чаты где у пользователя есть права модератора (local_rank >= 1)."""
-    # 8.0: Developer видит ВСЕ чаты бота (даже без вступления/строки ucs)
-    if DEVELOPER_ID and user["id"] == DEVELOPER_ID:
-        async with db.execute(
-            "SELECT cs.chat_id AS chat_tg_id, "
-            "COALESCE(cs.chat_title, CAST(cs.chat_id AS TEXT)) AS chat_title "
-            "FROM chat_settings cs ORDER BY cs.chat_title"
-        ) as c:
-            rows = [dict(r) for r in await c.fetchall()]
-        for r in rows:
-            r["local_rank"] = 6
-            r["rank_name"] = _LOCAL_RANK_NAMES[6]
-        return {"chats": rows}
-
+    """Только РЕАЛЬНЫЕ группы (chat_id < 0, есть название), где пользователь
+    состоит (is_left=FALSE) и имеет права модератора (local_rank >= 1).
+    Без «фантомных чатов-цифр» и без показа всех чатов бота.
+    Размечает связь Основная↔Админская группа (chat_links)."""
     async with db.execute(
         "SELECT ucs.chat_tg_id, COALESCE(cs.chat_title, CAST(ucs.chat_tg_id AS TEXT)) AS chat_title, "
-        "ucs.local_rank "
+        "ucs.local_rank, lk.admin_chat_id "
         "FROM user_chat_stats ucs "
         "LEFT JOIN chat_settings cs ON cs.chat_id = ucs.chat_tg_id "
+        "LEFT JOIN chat_links lk ON lk.main_chat_id = ucs.chat_tg_id "
         "WHERE ucs.user_tg_id = ? AND ucs.local_rank >= 1 AND ucs.is_left = FALSE "
+        "AND ucs.chat_tg_id < 0 AND cs.chat_title IS NOT NULL "
         "ORDER BY ucs.local_rank DESC",
         (user["id"],),
     ) as c:
         rows = [dict(r) for r in await c.fetchall()]
+
+    chat_ids = [r["chat_tg_id"] for r in rows]
+    # Какие из этих чатов сами являются админ-чатами для какой-то основной группы
+    serves: dict = {}
+    if chat_ids:
+        ph = ",".join("?" * len(chat_ids))
+        async with db.execute(
+            f"SELECT main_chat_id, admin_chat_id FROM chat_links WHERE admin_chat_id IN ({ph})",
+            tuple(chat_ids),
+        ) as c:
+            for lk in await c.fetchall():
+                serves[lk["admin_chat_id"]] = lk["main_chat_id"]
+
+    # Заголовки связанных чатов (основных и админских)
+    linked_ids = {r["admin_chat_id"] for r in rows if r["admin_chat_id"]} | set(serves.values())
+    titles: dict = {}
+    if linked_ids:
+        ph = ",".join("?" * len(linked_ids))
+        async with db.execute(
+            f"SELECT chat_id, chat_title FROM chat_settings WHERE chat_id IN ({ph})",
+            tuple(linked_ids),
+        ) as c:
+            titles = {x["chat_id"]: (x["chat_title"] or str(x["chat_id"])) for x in await c.fetchall()}
+
     for r in rows:
         r["rank_name"] = _LOCAL_RANK_NAMES.get(r["local_rank"], "?")
+        if r["chat_tg_id"] in serves:               # это админ-чат для основной группы
+            r["role"] = "admin"
+            r["linked_title"] = titles.get(serves[r["chat_tg_id"]])
+        elif r["admin_chat_id"]:                     # это основная группа с привязанным админ-чатом
+            r["role"] = "main"
+            r["linked_title"] = titles.get(r["admin_chat_id"])
+        else:
+            r["role"] = "plain"
+            r["linked_title"] = None
     return {"chats": rows}
 
 
@@ -163,7 +189,7 @@ async def admin_users(
     query = (
         f"SELECT ucs.user_tg_id, u.user_tg_username, ucs.user_level, ucs.user_xp, "
         f"ucs.local_rank, ucs.warnings, ucs.is_immune, ucs.immune_until, ucs.is_left, "
-        f"ucs.user_messages_count_all_time, ucs.last_message_at, ucs.muted_until, "
+        f"ucs.user_messages_count_all_time, ucs.last_message_at, ucs.muted_until, ucs.joined_at, "
         f"(v.user_id IS NOT NULL) AS is_vip "
         f"FROM user_chat_stats ucs "
         f"LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
@@ -193,6 +219,7 @@ async def admin_users(
         r["muted_until"] = str(r["muted_until"]) if r.get("muted_until") else None
         r["immune_until"] = str(r["immune_until"]) if r.get("immune_until") else None
         r["last_message_at"] = str(r["last_message_at"]) if r.get("last_message_at") else None
+        r["joined_at"] = str(r["joined_at"]) if r.get("joined_at") else None
 
     return {"users": rows, "total": total, "page": page, "page_size": page_size,
             "max_assignable_rank": actor_rank - 1}
@@ -218,6 +245,8 @@ class SettingsUpdateRequest(BaseModel):
     rank_marriage: Optional[int] = None
     rank_give: Optional[int] = None
     purge_min_rank: Optional[int] = None
+    purge_action_rank: Optional[int] = None
+    rank_chat_lock: Optional[int] = None
     events_enabled: Optional[int] = None
     module_shop: Optional[int] = None
     module_gacha: Optional[int] = None
@@ -431,6 +460,33 @@ async def admin_logs(
     return {"logs": rows, "total": total, "page": page, "page_size": page_size}
 
 
+# ── Открыть / закрыть чат целиком (с сайта) ─────────────────────────────────────
+_OPEN_PERMS_WEB = {"can_send_messages": True, "can_send_audios": True,
+                   "can_send_documents": True, "can_send_photos": True,
+                   "can_send_videos": True, "can_send_video_notes": True,
+                   "can_send_voice_notes": True, "can_send_polls": True,
+                   "can_send_other_messages": True, "can_add_web_page_previews": True}
+
+
+class ChatLockRequest(BaseModel):
+    open: bool
+
+
+@router.post("/{chat_id}/chat-lock")
+async def admin_chat_lock(chat_id: int, body: ChatLockRequest,
+                          db=Depends(get_db), user=Depends(require_tg_user)):
+    """Открыть/закрыть чат целиком. Порог — rank_chat_lock (как у бот +чат/-чат)."""
+    actor_rank = await _require_admin(db, user["id"], chat_id)
+    settings = await get_chat_settings(db, chat_id)
+    if actor_rank < settings.get("rank_chat_lock", 4):
+        raise HTTPException(403, "Недостаточно прав для открытия/закрытия чата.")
+    perms = _OPEN_PERMS_WEB if body.open else {"can_send_messages": False}
+    res = await _tg_call("setChatPermissions", chat_id=chat_id, permissions=perms)
+    if not res.get("ok"):
+        raise HTTPException(502, "Не удалось изменить права чата (бот не админ?).")
+    return {"ok": True, "open": body.open}
+
+
 # ── 8.6: Вышедшие из чата ───────────────────────────────────────────────────────
 @router.get("/{chat_id}/left")
 async def admin_left_users(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
@@ -556,15 +612,16 @@ class PurgeStartRequest(BaseModel):
 async def admin_purge_status(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
     await _require_admin(db, user["id"], chat_id)
     settings = await get_chat_settings(db, chat_id)
-    return {"is_purging": bool(settings.get("is_purging")),
-            "purge_min_rank": settings.get("purge_min_rank", 4)}
+    admin_chat_id = await get_admin_chat(db, chat_id)
+    return {"purge_min_rank": settings.get("purge_min_rank", 4),
+            "purge_action_rank": settings.get("purge_action_rank", 2),
+            "has_admin_chat": bool(admin_chat_id)}
 
 
-_WRITE_PERMS = {"can_send_messages": True, "can_send_audios": True,
-                "can_send_documents": True, "can_send_photos": True,
-                "can_send_videos": True, "can_send_video_notes": True,
-                "can_send_voice_notes": True, "can_send_polls": True,
-                "can_send_other_messages": True}
+def _warn_cb(action: str, target_id: int, chat_id: int) -> str:
+    """Совпадает с упаковкой aiogram CallbackData(prefix='warn_act') полей
+    action/target_id/chat_id — кнопки вердикта обрабатывает process_warn_action в боте."""
+    return f"warn_act:{action}:{target_id}:{chat_id}"
 
 
 @router.post("/{chat_id}/purge/start")
@@ -572,14 +629,14 @@ async def admin_purge_start(
     chat_id: int, body: PurgeStartRequest,
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
+    """Чистка с сайта = ТОЛЬКО сводка + досье с кнопками. Чат НЕ блокируется,
+    бот НЕ выполняет действий над юзерами автоматически. Сводка и досье уходят
+    в админ-чат (если привязан), иначе в основной чат."""
     actor_rank = await _require_admin(db, user["id"], chat_id)
     settings = await get_chat_settings(db, chat_id)
     if actor_rank < settings.get("rank_kick", 4):
         raise HTTPException(403, "Чистка требует ранга для кика (rank_kick).")
-    if settings.get("is_purging"):
-        raise HTTPException(400, "Чистка уже идёт. Сначала завершите текущую.")
 
-    # Параметры: по умолчанию последние 7 дней, норма 50 (как parse_purge_args в purge.py)
     now = datetime.now(timezone.utc)
     try:
         end_d = datetime.strptime(body.end_date, "%Y-%m-%d") if body.end_date else now
@@ -590,16 +647,13 @@ async def admin_purge_start(
     norm = body.norm if body.norm and body.norm > 0 else 50
     start_date, end_date = start_d.strftime("%Y-%m-%d"), end_d.strftime("%Y-%m-%d")
     purge_min_rank = settings.get("purge_min_rank", 4)
+    admin_chat_id = await get_admin_chat(db, chat_id)
+    dest = admin_chat_id or chat_id
 
-    # 1. Заблокировать чат + флаг is_purging (как purge.py:79-86)
-    await update_chat_settings(db, chat_id, is_purging=True)
-    await _tg_call("setChatPermissions", chat_id=chat_id,
-                   permissions={"can_send_messages": False})
-
-    # 2. Сбор статистики — тот же SQL, что purge.py:99-111
+    # Сбор статистики (без блокировки чата и без действий над юзерами)
     async with db.execute(
         """SELECT u.user_tg_id as id, u.user_tg_username as username,
-               s.local_rank, s.is_immune, s.immune_until,
+               s.local_rank, s.is_immune, s.immune_until, s.warnings, s.joined_at,
                COALESCE(SUM(d.message_count), 0) as msg_sum
            FROM user_chat_stats s
            LEFT JOIN users u ON s.user_tg_id = u.user_tg_id
@@ -611,7 +665,7 @@ async def admin_purge_start(
     ) as c:
         rows = [dict(r) for r in await c.fetchall()]
 
-    passed, failed, protected, admins, exempt_ids = [], [], [], [], []
+    passed, failed_users, protected, admins = [], [], [], []
     for u in rows:
         uname = u["username"] or f"ID {u['id']}"
         shielded = False
@@ -622,50 +676,52 @@ async def admin_purge_start(
             shielded = iu > now
         if (u["local_rank"] or 0) >= purge_min_rank:
             admins.append(f"├ 👑 {uname} ({u['msg_sum']} msg)")
-            exempt_ids.append(u["id"])
         elif u["is_immune"] == 1 or shielded:
             protected.append(f"├ 🛡 {uname} ({u['msg_sum']} msg)")
         elif u["msg_sum"] >= norm:
             passed.append(f"├ ✅ {uname} ({u['msg_sum']} msg)")
         else:
-            failed.append(f"├ ❌ {uname} ({u['msg_sum']} msg)")
+            failed_users.append(u)
 
-    # 2б. Вернуть права модераторам (purge_min_rank и выше)
-    for uid in exempt_ids:
-        await _tg_call("restrictChatMember", chat_id=chat_id, user_id=uid,
-                       permissions=_WRITE_PERMS)
-        await asyncio.sleep(0.05)
-
-    # 3. Отчёт в чат (досье с кнопками — остаются за бот-командой «чистка»)
-    report = (f"🧹 <b>ЧИСТКА ЗАПУЩЕНА С САЙТА</b>\n"
+    report = (f"🧹 <b>СВОДКА ЧИСТКИ</b> <i>(с сайта)</i>\n"
               f"📅 Период: <code>{start_date} — {end_date}</code>\n"
               f"🎯 Норма: <code>{norm} сообщений</code>\n\n")
+    failed_lines = [f"├ ❌ {u['username'] or ('ID '+str(u['id']))} ({u['msg_sum']} msg)" for u in failed_users]
     for title, lst in ((f"👑 Администрация (ранг ≥ {purge_min_rank})", admins),
                        (f"Прошли норму ({len(passed)})", passed),
                        (f"Под защитой ({len(protected)})", protected),
-                       (f"❌ НЕ ПРОШЛИ ({len(failed)})", failed)):
+                       (f"❌ НЕ ПРОШЛИ ({len(failed_lines)})", failed_lines)):
         if lst:
             lst[-1] = lst[-1].replace("├", "└")
             report += f"<b>{title}:</b>\n" + "\n".join(lst) + "\n\n"
-    if not failed:
+    if not failed_users:
         report += "<b>❌ НЕ ПРОШЛИ:</b>\n└ <i>Таких нет, все молодцы!</i>"
     if len(report) > 4000:
         report = report[:4000] + "\n... [Список обрезан]"
-    await _tg_call("sendMessage", chat_id=chat_id, text=report, parse_mode="HTML")
+    await _tg_call("sendMessage", chat_id=dest, text=report, parse_mode="HTML")
 
-    return {"ok": True, "passed": len(passed), "failed": len(failed),
-            "protected": len(protected), "admins": len(admins)}
+    # Досье на не прошедших норму — с кнопками вердикта (обрабатывает бот, гейт по purge_action_rank).
+    for u in failed_users[:50]:
+        joined = ""
+        if u.get("joined_at"):
+            joined = f" · с {str(u['joined_at'])[:10]}"
+        dossier = (
+            f"🗂 <b>ДОСЬЕ:</b> <a href=\"tg://user?id={u['id']}\">"
+            f"{u['username'] or ('ID '+str(u['id']))}</a>\n"
+            f"├ Сообщений за период: <b>{u['msg_sum']}</b> из {norm}\n"
+            f"└ Текущие варны: <b>{u.get('warnings', 0)}</b>{joined}\n\n"
+            f"<i>Выберите меру (нажать может ранг ≥ {settings.get('purge_action_rank', 2)}):</i>"
+        )
+        kb = {"inline_keyboard": [
+            [{"text": "⚠️ Варн", "callback_data": _warn_cb("warn_only", u["id"], chat_id)},
+             {"text": "👢 Кик", "callback_data": _warn_cb("kick", u["id"], chat_id)}],
+            [{"text": "🔨 Бан", "callback_data": _warn_cb("ban", u["id"], chat_id)},
+             {"text": "🕊 Пропустить", "callback_data": "delete_dossier"}],
+        ]}
+        await _tg_call("sendMessage", chat_id=dest, text=dossier,
+                       reply_markup=kb, parse_mode="HTML")
+        await asyncio.sleep(0.1)
 
-
-@router.post("/{chat_id}/purge/stop")
-async def admin_purge_stop(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
-    actor_rank = await _require_admin(db, user["id"], chat_id)
-    settings = await get_chat_settings(db, chat_id)
-    if actor_rank < settings.get("rank_kick", 4):
-        raise HTTPException(403, "Чистка требует ранга для кика (rank_kick).")
-
-    await update_chat_settings(db, chat_id, is_purging=False)
-    await _tg_call("setChatPermissions", chat_id=chat_id, permissions=_WRITE_PERMS)
-    await _tg_call("sendMessage", chat_id=chat_id, parse_mode="HTML",
-                   text="✅ <b>Чистка завершена!</b> Чат снова открыт для общения.")
-    return {"ok": True}
+    return {"ok": True, "passed": len(passed), "failed": len(failed_users),
+            "protected": len(protected), "admins": len(admins),
+            "routed_to_admin_chat": bool(admin_chat_id)}

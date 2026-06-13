@@ -77,6 +77,8 @@ async def init_db():
                 max_warnings         INTEGER DEFAULT 3,
                 is_purging           BOOLEAN DEFAULT FALSE,
                 purge_min_rank       INTEGER DEFAULT 4,
+                purge_action_rank    INTEGER DEFAULT 2,
+                rank_chat_lock       INTEGER DEFAULT 4,
                 chat_title           TEXT DEFAULT NULL,
                 timezone_offset      INTEGER DEFAULT 0,
                 last_chest_at        TIMESTAMP DEFAULT NULL,
@@ -107,6 +109,7 @@ async def init_db():
         # Migrations: add new columns to existing chat_settings rows
         for _col, _default in [
             ("rank_duel", 0), ("rank_marriage", 0), ("rank_give", 0),
+            ("purge_action_rank", 2), ("rank_chat_lock", 4),
         ]:
             try:
                 await db.execute(

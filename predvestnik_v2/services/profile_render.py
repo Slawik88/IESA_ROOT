@@ -103,21 +103,297 @@ def _render_premium(template_id: str, user_id: int, name: str,
                     g_rank: str, l_rank: str, lvl: int, pct: int,
                     mora_v, dia_v, d_msgs, w_msgs, a_msgs,
                     streak, ach_count, warns, marriage, nursery_pets,
-                    partner_display: str | None = None) -> str | None:
+                    partner_display: str | None = None,
+                    dark_v=0, zar_v=0, is_vip: bool = False,
+                    first_seen: str = "—", last_seen: str = "—") -> str | None:
     bar  = _premium_bar(pct)
     mora = _compact(mora_v)
     dia  = _compact(dia_v)
+    dark = _compact(dark_v)
+    zar  = _compact(zar_v)
     d, w, a = _compact(d_msgs), _compact(w_msgs), _compact(a_msgs)
     name_upper = name.upper()
+    nm = safe_html(name)   # имя экранируется — иначе спецсимволы (< > &) ломают весь профиль
 
     if marriage:
         dur  = _marriage_duration(marriage.get("marriage_date"))
         partner_raw = f"{partner_display} ({dur})"
     else:
         partner_raw = None
+    marr = partner_raw if partner_raw else None
 
     pets_active  = [p for p in nursery_pets if p.get("placement") == "active"]
     pets_passive = [p for p in nursery_pets if p.get("placement") == "passive"]
+
+    # ── Хелперы вывода питомца для новых премиум-тем (активный=🦅, пассивный=🐢) ──
+    _pa = pets_active[0] if pets_active else None
+    _pp = pets_passive[0] if pets_passive else None
+    def _pnm(p): return safe_html(p["name"]) if p else "—"
+    def _plv(p): return (p.get("pet_level", 1) or 1) if p else 0
+    def _pdup(p): return (p.get("duplicates_collected", 0) or 0) if p else 0
+    def _pfat(p): return _fatigue_icon(p.get("fatigue", 0)) if p else "⚪"
+
+    # 1. 🐧 LINUX (Kernel Shell)
+    if template_id == "linux":
+        vip_line = "[💎 VIP: АКТИВЕН]" if is_vip else "[VIP: неактивен]"
+        pet1 = f"🦅 {_pnm(_pa)} [L{_plv(_pa)},{_pfat(_pa)},{_pdup(_pa)}дуб]" if _pa else "🦅 —"
+        pet2 = f"🐢 {_pnm(_pp)} [L{_plv(_pp)},{_pfat(_pp)},{_pdup(_pp)}дуб]" if _pp else "🐢 —"
+        return (
+            f"predvestnik@root:~/user/data#\n"
+            f"{vip_line}\n"
+            f"👤 Юзер: <b>{nm}</b>\n"
+            f"🌍 Глобал: {g_rank}\n"
+            f"🏘 Локал: {l_rank}\n"
+            f"🔋 Ядро: Ур.<b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
+            f"&gt;_ [FS_RESOURCES]\n"
+            f"🪙 Мора: {mora} | 💎 Алм: {dia}\n"
+            f"🌑 ТМ: {dark} | ✨ Зар: {zar}\n"
+            f"⚖️ Реп: 0 | 🏆 Ачив: {ach_count} | ⚠️: {warns}\n\n"
+            f"&gt;_ [LOG_ACTIVITY]\n"
+            f"💬 {d}д | {w}н | {a}всего\n"
+            f"📅 init: {first_seen} | 🕓 last: {last_seen}\n"
+            f"💍 Узы: {marr or 'нет'}\n\n"
+            f"&gt;_ [ENTITIES_LOADER]\n"
+            f"{pet1}\n{pet2}\n\n"
+            f"[ID: <code>{user_id}</code>]\n"
+            f"predvestnik@root:~/exit$ _"
+        )
+
+    # 2. 🖥️ HARDCORE SHELL (Bash Profile)
+    if template_id == "hardcore_shell":
+        _f = round(pct / 10)
+        hb = "#" * _f + "." * (10 - _f)
+        vip_line = "[💎 VIP: ACTIVATED]" if is_vip else "[VIP: OFFLINE]"
+        l1 = f"PET_01: {_pnm(_pa)} | L:{_plv(_pa)}" if _pa else "PET_01: —"
+        l2 = f"PET_02: {_pnm(_pp)} | L:{_plv(_pp)}" if _pp else "PET_02: —"
+        return (
+            f"┌──(<b>{nm}</b> ㉿ predvestnik)\n"
+            f"└─$ cat profile.conf\n"
+            f"{vip_line}\n"
+            f"ID: <code>{user_id}</code>\n"
+            f"LEVEL: {lvl} [{hb}] {pct}%\n"
+            f"REP: 0 | ACHV: {ach_count}\n"
+            f"---------------------------\n"
+            f"CASH: {mora} 🪙 | CRYPT: {dia} 💎\n"
+            f"DARK_M: {dark} 🌑 | ZARN: {zar} ✨\n"
+            f"FIRST_SEEN: {first_seen} | LAST_SEEN: {last_seen}\n"
+            f"---------------------------\n"
+            f"LINK: {marr or '—'}\n"
+            f"{l1}\n{l2}\n"
+            f"---------------------------\n"
+            f"$ ./run_predvestnik.sh\n"
+            f"<i># \"Система работает. Идеально.\"</i>"
+        )
+
+    # 3. 🌌 STARLIGHT
+    if template_id == "starlight":
+        p1 = f"{_pnm(_pa)} (v{_plv(_pa)})" if _pa else "—"
+        p2 = f"{_pnm(_pp)} (v{_plv(_pp)})" if _pp else "—"
+        return (
+            f"⋆ ˚｡ 🌌 S T A R L I G H T ｡˚ ⋆\n\n"
+            f"┊ 🛸 Пилот: <b>{nm}</b>\n"
+            f"┊ 🪐 Сектор: {g_rank}\n"
+            f"┊ 🛰 Узел: {l_rank}\n"
+            f"┊ 🌟 Фаза: <b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
+            f"╰┈➤ ☄️ БОРТОВЫЕ ДАННЫЕ\n"
+            f"  ⌑ 💫 Пыль: {mora} | ☄️ Ядра: {dia}\n"
+            f"  ⌑ ⚖️ Карма: +0 | 🏆 Ачив: {ach_count}\n"
+            f"  ⌑ 📡 Пинг: {d}д|{w}н|{a}вс\n"
+            f"  ⌑ 🛰 Старт: {first_seen} | Сигнал: {last_seen}\n\n"
+            f"╰┈➤ 🛸 ЭКИПАЖ\n"
+            f"  ⌑ 💞 Связь: {marr or 'нет'}\n"
+            f"  ⌑ 🦅 Дрон I: {p1}\n"
+            f"  ⌑ 🐢 Дрон II: {p2}\n\n"
+            f"⋆ ˚｡ 🆔 <code>{user_id}</code> ｡˚ ⋆\n"
+            f"🌟 Каждая звезда — чья-то мечта…"
+        )
+
+    # 4. 🎭 Закрытый Орден (Ложа)
+    if template_id == "order":
+        p1 = f"{_pnm(_pa)} (L{_plv(_pa)})" if _pa else "—"
+        p2 = f"{_pnm(_pp)} (L{_plv(_pp)})" if _pp else "—"
+        return (
+            f"🍷 ✧ ── 🎭 Л О Ж А 🎭 ── ✧ 🍷\n\n"
+            f"◈ Мастер: <b>{nm}</b>\n"
+            f"◈ Совет: {g_rank}\n"
+            f"◈ Ранг: {l_rank}\n"
+            f"◈ Ранг <b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
+            f"♱ 🪙 ФОНД ОРДЕНА\n"
+            f" ▫️ 🪙: {mora} | 💎: {dia} | 🌑: {dark} | ✨: {zar}\n"
+            f" ▫️ ⚖️: 0 | 🏆: {ach_count} | ⚠️: {warns}\n\n"
+            f"♱ 💬 СЛУХИ\n"
+            f" ▫️ {d}д | {w}н | {a}всего\n"
+            f" ▫️ Вступил: {first_seen} | Замечен: {last_seen}\n\n"
+            f"♱ 💍 СОЮЗЫ\n"
+            f" ▫️ Связь: {marr or 'нет'}\n"
+            f" ▫️ Агент I: {p1}\n"
+            f" ▫️ Агент II: {p2}\n\n"
+            f"🍷 ✧ ── 🆔 <code>{user_id}</code>\n"
+            f"🟪 Мы видим то, что скрыто…"
+        )
+
+    # 5. 💠 PRISM OS
+    if template_id == "prism_os":
+        _f2 = round(pct / 100 * 8)
+        pb = "▒" * _f2 + "░" * (8 - _f2)
+        p1 = f"{_pnm(_pa)} &lt;v{_plv(_pa)}&gt;" if _pa else "—"
+        p2 = f"{_pnm(_pp)} &lt;v{_plv(_pp)}&gt;" if _pp else "—"
+        return (
+            f"[ 🪞 P R I S M _ O S 🪞 ]\n\n"
+            f"≼ 💠 ID: <b>{nm}</b>\n"
+            f"≼ 🌐 Сеть: {g_rank}\n"
+            f"≼ 🪩 Хост: {l_rank}\n"
+            f"≼ 🔋 Заряд: Ур.<b>{lvl}</b> {pb} <b>{pct}%</b>\n\n"
+            f"░░░ [ ДАМП ПАМЯТИ ]\n"
+            f"~&gt; ☀️ Фотоны: {mora}\n"
+            f"~&gt; 💠 Осколки: {dia}\n"
+            f"~&gt; 🌈 Резонанс: 0 | 🏆: {ach_count}\n"
+            f"~&gt; 🔊 Сеанс: {d}д/{w}н/{a}вс\n"
+            f"~&gt; 🕓 Аптайм: {first_seen} → {last_seen}\n\n"
+            f"░░░ [ ПЕРИФЕРИЯ ]\n"
+            f"~&gt; 🔗 Линк: {marr or 'нет'}\n"
+            f"~&gt; ⚡ Юнит 1: {p1}\n"
+            f"~&gt; 🌟 Юнит 2: {p2}\n\n"
+            f"[ 🆔 <code>{user_id}</code> ]\n"
+            f"💎 Свет находит путь сквозь кристалл…"
+        )
+
+    # 6. 🕊️ Астральный свет (Авангард)
+    if template_id == "avangard":
+        p1 = f"🦅 {_pnm(_pa)} [L{_plv(_pa)}, {_pfat(_pa)}, {_pdup(_pa)}дуб]" if _pa else "🦅 —"
+        p2 = f"🐢 {_pnm(_pp)} [L{_plv(_pp)}, {_pfat(_pp)}, {_pdup(_pp)}дуб]" if _pp else "🐢 —"
+        return (
+            f"✧ ━━ 🕊️ АВАНГАРД 🕊️ ━━ ✧\n\n"
+            f"✦ <b>{nm}</b>\n"
+            f"✦ {g_rank} / {l_rank}\n"
+            f"✦ Ур.<b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
+            f"✧ ЭКОНОМИКА\n"
+            f" 🪙: {mora} | 💎: {dia} | 🌑: {dark} | ✨: {zar}\n\n"
+            f"✧ ДОСТИЖЕНИЯ\n"
+            f" ⚖️ Реп: 0 | 🏆 Ачив: {ach_count} | ⚠️: {warns}\n"
+            f" 💬 {d}д | {w}н | {a}всего\n"
+            f" 📅 С нами: {first_seen} | Был: {last_seen}\n\n"
+            f"✧ СВИТА\n"
+            f" 💍 Узы: {marr or 'нет'}\n"
+            f" {p1}\n {p2}\n\n"
+            f"✧ ━━ 🆔 <code>{user_id}</code>\n"
+            f"☀️ Сияй, пока можешь…"
+        )
+
+    # ── Декоративные премиум-темы (перенесены из bot/handlers/identity.py —
+    #    единый источник правды для бота и веб-превью) ──────────────────────────
+    if template_id == "starlight_classic":  # старый стиль больше не используется
+        return None
+
+    if template_id == "velvet":
+        pet_lines = (f"💜 Узы: {partner_raw}\n" if marriage else "")
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🥀 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"🟪 ═【 🌹 БАРХАТ 🌹 】═ 🟪\n\n"
+            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+            f"🕯️ Покров {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ 🧵 ЛАРЕЦ ┄┄\n"
+            f"🧵 Нити: {mora} ⋅ 🌹 {dia}\n"
+            f"🎭 Грация: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ 🤫 ШЁПОТЫ ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+            f"┄┄ 🌑 ТЕНИ ┄┄\n"
+            f"{pet_lines or '🕸️ Пустота…' + chr(10)}"
+            f"\n🟪 ID: <code>{user_id}</code>\n"
+            f"<i>🟪 Бархат скрывает истинный характер…</i>"
+        )
+
+    if template_id == "prism":
+        pet_lines = (f"💞 Связь: {partner_raw}\n" if marriage else "")
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🔹 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"✧ ═【 💎 ПРИЗМА 💎 】═ ✧\n\n"
+            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+            f"🔆 Спектр {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ 🌈 ГРАНИ ┄┄\n"
+            f"🌈 Лучи: {mora} ⋅ 💎 {dia}\n"
+            f"🔅 Блеск: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ ✨ ОТРАЖЕНИЯ ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+            f"┄┄ 🔮 СПУТНИКИ ┄┄\n"
+            f"{pet_lines or '◇ Пусто…' + chr(10)}"
+            f"\n✧ ID: <code>{user_id}</code>\n"
+            f"<i>💎 Свет находит путь сквозь кристалл…</i>"
+        )
+
+    if template_id == "celestial":
+        pet_lines = (f"💞 Союз: {partner_raw}\n" if marriage else "")
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🕊️ {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"꧁ ━━ ☀️ НЕБЕСНЫЙ ☀️ ━━ ꧂\n\n"
+            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+            f"🕊️ Полёт {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ ☀️ НЕБЕСА ┄┄\n"
+            f"☀️ Свет: {mora} ⋅ 🌙 {dia}\n"
+            f"😇 Святость: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ 🎶 ГИМНЫ ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+            f"┄┄ 👼 ХРАНИТЕЛИ ┄┄\n"
+            f"{pet_lines or '☁️ Тихо…' + chr(10)}"
+            f"\n☀️ ID: <code>{user_id}</code>\n"
+            f"<i>☀️ Небо для тех, кто смотрит ввысь…</i>"
+        )
+
+    if template_id == "glass":
+        pet_lines = (f"💞 Узор: {partner_raw}\n" if marriage else "")
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🧩 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"💠 ═【 🕊️ ВИТРАЖ 🕊️ 】═ 💠\n\n"
+            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+            f"🖼️ Картина {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ 💠 ОСКОЛКИ ┄┄\n"
+            f"💠 Осколки: {mora} ⋅ 🔷 {dia}\n"
+            f"🌈 Грань: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ 🪞 БЛИКИ ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+            f"┄┄ 🧩 ФРАГМЕНТЫ ┄┄\n"
+            f"{pet_lines or '⬜ Пусто…' + chr(10)}"
+            f"\n💠 ID: <code>{user_id}</code>\n"
+            f"<i>💠 Каждый осколок — часть картины…</i>"
+        )
+
+    if template_id == "gold":
+        pet_lines = (f"💞 Альянс: {partner_raw}\n" if marriage else "")
+        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            pet_lines += f"🦁 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return (
+            f"⚜️ ═【 🪙 АУРУМ 🪙 】═ ⚜️\n\n"
+            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+            f"👑 Проба {lvl} [{bar}] {pct}%\n\n"
+            f"┄┄ 🪙 ХРАНИЛИЩЕ ┄┄\n"
+            f"🪙 Слитки: {mora} ⋅ 💛 {dia}\n"
+            f"⚖️ Вес: +0 ⋅ 🏆 {ach_count}\n\n"
+            f"┄┄ 🔔 ЭХО ┄┄\n"
+            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+            f"┄┄ 🦁 СОКРОВИЩА ┄┄\n"
+            f"{pet_lines or '🕳️ Пусто…' + chr(10)}"
+            f"\n⚜️ ID: <code>{user_id}</code>\n"
+            f"<i>💛 Золото молчит, но его слышат все…</i>"
+        )
 
     if template_id == "system_override":
         pet_lines = (f"[+] 🔗 LINK: {partner_raw} 💟\n" if marriage
@@ -136,7 +412,8 @@ def _render_premium(template_id: str, user_id: int, name: str,
             f"/// 🪙 CRDT: <b>{mora}</b> 🔌 /// 💎 CRYPT: <b>{dia}</b> 🌐\n\n"
             f"► [ 📡 ROOT / DATA ] ────────────────\n"
             f"/// ⚖️ REP: +0 ⚙️  /// 🏆 ACHV: <b>{ach_count}</b> 🔓\n"
-            f"/// 💬 LOG: <b>{d}</b>/d 📝 | <b>{w}</b>/w 📊 | <b>{a}</b>/all 🕹️\n\n"
+            f"/// 💬 LOG: <b>{d}</b>/d 📝 | <b>{w}</b>/w 📊 | <b>{a}</b>/all 🕹️\n"
+            f"/// 🕓 SEEN: init {first_seen} | last {last_seen}\n\n"
             f"► [ 🔌 ROOT / ENTITIES ] ────────────\n"
             f"{pet_lines}"
             f"\n▲ 🕹️ ID: <code>{user_id}</code> ▲\n"
@@ -158,7 +435,8 @@ def _render_premium(template_id: str, user_id: int, name: str,
             f"[ 🪙 {mora} Монет ] ✧ [ 💎 {dia} Кристаллов ]\n"
             f"[ ⚖️ Кармы: +0 🪷 ] ✧ [ 🏆 Ачивок: {ach_count} 📜 ]\n\n"
             f"▽ 【 🕊️ АКТИВНОСТЬ В МИРЕ 】\n"
-            f"💬 Связь: <b>{d}</b>/дн 🍃 | <b>{w}</b>/нед ✉️ | <b>{a}</b>/вс 🌐\n\n"
+            f"💬 Связь: <b>{d}</b>/дн 🍃 | <b>{w}</b>/нед ✉️ | <b>{a}</b>/вс 🌐\n"
+            f"📅 С нами: {first_seen} 🍃 | Был: {last_seen}\n\n"
             f"▽ 【 ⚔️ СПУТНИКИ И ОТРЯД 】\n"
             f"{pet_lines or '🐾 Питомников нет…' + chr(10)}"
             f"\n【 🎐 ID: <code>{user_id}</code> 】\n"
@@ -181,7 +459,8 @@ def _render_premium(template_id: str, user_id: int, name: str,
             f"💳 Наличные: {mora} 🪙 | 💎 Брюллики: {dia} 💠\n"
             f"⚖️ Влияние: +0 🍷 | 🏆 Награды: {ach_count} 🏵️\n\n"
             f"▼ 【 🪩 СВЕТСКАЯ АКТИВНОСТЬ 】\n"
-            f"💌 Чат: <b>{d}</b>/дн 🍾 | <b>{w}</b>/нед 🥂 | <b>{a}</b>/вс 🎭\n\n"
+            f"💌 Чат: <b>{d}</b>/дн 🍾 | <b>{w}</b>/нед 🥂 | <b>{a}</b>/вс 🎭\n"
+            f"📅 При дворе с: {first_seen} 🍷 | Замечен: {last_seen}\n\n"
             f"▼ 【 ⚜️ ПРИВИЛЕГИИ И СВИТА 】\n"
             f"{pet_lines or '🐾 Свита пуста…' + chr(10)}"
             f"\n🥂 ✧ ━━ 💳 ID: <code>{user_id}</code> ━━ ✧ 🥂\n"
@@ -214,6 +493,7 @@ async def build_profile_text(
     from infrastructure.repositories import achievements as ach_repo
     from infrastructure.repositories.streak import get_streak
     from infrastructure.repositories.themes import get_active_theme
+    from services.vip import is_vip_active
 
     # Fetch data
     name           = await resolve_display_name(db, user_id, chat_id, f"user_{user_id}")
@@ -227,6 +507,7 @@ async def build_profile_text(
     marriage       = await marriage_repo.get_user_marriage(db, user_id)
     hamster_inc    = await zoo_db.get_pending_hamster_income(db, user_id)
     ach_count      = await ach_repo.get_user_achievements_count(db, user_id)
+    is_vip         = await is_vip_active(db, user_id)
 
     theme_id = theme_id_override or await get_active_theme(db, user_id)
     theme    = _load_theme(theme_id)
@@ -295,6 +576,14 @@ async def build_profile_text(
         if dt:
             join_str = dt.strftime("%d.%m.%Y")
 
+    # Последнее появление — последняя активность в этом чате
+    last_str = "—"
+    last_seen_raw = stats.get("last_message_at")
+    if last_seen_raw:
+        dt = parse_dt(last_seen_raw)
+        if dt:
+            last_str = dt.strftime("%d.%m %H:%M")
+
     # Premium template
     premium_tpl = theme.get("premium_template")
     if premium_tpl:
@@ -302,7 +591,7 @@ async def build_profile_text(
             premium_tpl, user_id, name, g_rank, l_rank, lvl, pct,
             mora_v, dia_v, d_msgs, w_msgs, a_msgs,
             streak, ach_count, warns, marriage, nursery_pets,
-            partner_display,
+            partner_display, dark_v, zar_v, is_vip, join_str, last_str,
         )
         if result:
             return result
@@ -343,6 +632,7 @@ async def build_profile_text(
             + (f"{P}{shield_line}\n" if shield_line else "")
             + f"{P}🎨 Тема: {t_name}\n"
             + f"{P}💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
+            + f"{P}🕓 Последнее появление: {last_str}\n"
             + f"\n{P}🐾 <b>Питомцы:</b>\n"
             + pets_str + tail
         )
@@ -358,6 +648,7 @@ async def build_profile_text(
             + f"🔥 Стрик: <b>{streak}</b> дн.\n\n"
             + f"{t_sep}\n\n"
             + f"💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
+            + f"🕓 Последнее появление: {last_str}\n"
             + f"{partner_line}\n"
             + (f"{shield_line}\n" if shield_line else "")
             + f"🎨 Тема: {t_name}\n\n"

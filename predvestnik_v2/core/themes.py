@@ -329,14 +329,14 @@ THEMES: Dict[str, Dict[str, Any]] = {
 
     # ── ✨ ZARNIKI ─────────────────────────────────────────────────────────────
     "theme_starlight": {
-        "name": "🌟 Звёздный Свет", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 100,
+        "name": "🌌 Starlight", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 100,
         "premium_template": "starlight",
         # Минимальные поля для совместимости (рендер идёт через premium_template)
-        "top": "✦ ≪ 🌟 ЗВЁЗДНЫЙ СВЕТ 🌟 ≫ ✦",
-        "sep": "┄┄ ✧ ┄┄ ✧ ┄┄",
+        "top": "⋆ ˚｡ 🌌 S T A R L I G H T ｡˚ ⋆",
+        "sep": "╰┈➤ ☄️ ┄┄ ☄️ ┄┄",
         "bot": "🌟 Каждая звезда — чья-то мечта…",
-        "accent": "🌟",
-        "desc": "Золотые звёзды, мягкое сияние.",
+        "accent": "🌌",
+        "desc": "Космический дашборд: бортовые данные, экипаж-дроны, звёздная пыль.",
     },
     "theme_velvet": {
         "name": "🟪 Бархат", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 150,
@@ -533,7 +533,7 @@ THEMES: Dict[str, Dict[str, Any]] = {
 
     "theme_system_override": {
         "name": "💻 System Override", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 400,
-        "premium_template": "system_override",
+        "premium_template": "system_override", "it": True,
         # Минимальные поля для совместимости (рендер идёт через premium_template)
         "top": "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼",
         "sep": "► ─────────────────",
@@ -559,6 +559,53 @@ THEMES: Dict[str, Dict[str, Any]] = {
         "accent": "👑",
         "id_in_bot": True,
         "desc": "Имперская роскошь. Тематическая терминология элиты.",
+    },
+
+    # ══ Премиум-донат темы с кастомным рендером (Часть 3) ════════════════════
+    "theme_linux": {
+        "name": "🐧 Linux", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 350,
+        "premium_template": "linux", "it": True,
+        "top": "predvestnik@root:~/user/data#",
+        "sep": ">_ ──────────────",
+        "bot": "predvestnik@root:~/exit$ _",
+        "accent": "🐧",
+        "desc": "Kernel Shell — профиль как root-терминал Linux.",
+    },
+    "theme_hardcore": {
+        "name": "🖥️ Hardcore Shell", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 350,
+        "premium_template": "hardcore_shell", "it": True,
+        "top": "┌──(user ㉿ predvestnik)",
+        "sep": "---------------------------",
+        "bot": "# «Система работает. Идеально.»",
+        "accent": "🖥️",
+        "desc": "Bash Profile — хардкорный шелл в стиле pentest-консоли.",
+    },
+    "theme_order": {
+        "name": "🎭 Закрытый Орден", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 320,
+        "premium_template": "order",
+        "top": "🍷 ✧ ── 🎭 Л О Ж А 🎭 ── ✧ 🍷",
+        "sep": "♱ ──────────────",
+        "bot": "🟪 Мы видим то, что скрыто…",
+        "accent": "🎭",
+        "desc": "Мистический орден — тайные союзы и фонд ложи.",
+    },
+    "theme_prism_os": {
+        "name": "💠 Prism OS", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 380,
+        "premium_template": "prism_os", "it": True,
+        "top": "[ 🪞 P R I S M _ O S 🪞 ]",
+        "sep": "░░░ ──────────────",
+        "bot": "💎 Свет находит путь сквозь кристалл…",
+        "accent": "💠",
+        "desc": "Призматическая ОС — дамп памяти и периферия в свете кристалла.",
+    },
+    "theme_avangard": {
+        "name": "🕊️ Авангард", "rarity": "zarniki", "source": "zarniki", "price_zarniki": 300,
+        "premium_template": "avangard",
+        "top": "✧ ━━ 🕊️ АВАНГАРД 🕊️ ━━ ✧",
+        "sep": "✧ ──────────────",
+        "bot": "☀️ Сияй, пока можешь…",
+        "accent": "🕊️",
+        "desc": "Астральный свет — воздух, лёгкость и пространство.",
     },
 
     # ── 🗓 BATTLE PASS — эксклюзив платного трека сезона ──────────────────────
