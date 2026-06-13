@@ -2445,19 +2445,26 @@ function goToZarTop() {
 function buyZarniki(stars) {
   api('/payments/zarniki/invoice',{method:'POST',body:JSON.stringify({stars})})
     .then(r=>{
-      if(tg && typeof tg.openInvoice === 'function'){
-        tg.openInvoice(r.link, status=>{
-          if(status==='paid'){
-            toast('✨ Зарники зачислены! Спасибо за поддержку 💜');
-            CM();
-            setTimeout(()=>{ loadProfile(); if(_mktTab==='vip') loadVip(); }, 1600);
-          } else if(status==='failed'){ toast('Платёж не прошёл',false); }
-        });
-      } else {
-        // Браузер (Login Widget): ссылка откроется в Telegram
-        window.open(r.link, '_blank');
-        toast('Счёт открыт в Telegram — оплати звёздами там');
+      const link = r.link;
+      const onStatus = status=>{
+        if(status==='paid'){
+          toast('✨ Зарники зачислены! Спасибо за поддержку 💜');
+          CM();
+          setTimeout(()=>{ loadProfile(); if(_mktTab==='vip') loadVip(); }, 1600);
+        } else if(status==='failed'){ toast('Платёж не прошёл',false); }
+      };
+      // openInvoice есть в telegram-web-app.js, но клиент может НЕ поддерживать метод
+      // (старая версия / запуск по обычной ссылке из группы) → WebAppMethodUnsupported.
+      // Гейтим по версии + try/catch, иначе открываем счёт ссылкой в Telegram.
+      const verOk = tg && (!tg.isVersionAtLeast || tg.isVersionAtLeast('6.1'));
+      if(tg && typeof tg.openInvoice === 'function' && verOk){
+        try { tg.openInvoice(link, onStatus); return; } catch(e) { /* fallback ниже */ }
       }
+      if(tg && typeof tg.openTelegramLink === 'function' && verOk){
+        try { tg.openTelegramLink(link); toast('Счёт открыт в Telegram — оплати звёздами там'); return; } catch(e) {}
+      }
+      window.open(link, '_blank');
+      toast('Счёт открыт — оплати звёздами в Telegram');
     })
     .catch(e=>toast(e,false));
 }

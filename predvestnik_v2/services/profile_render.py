@@ -444,27 +444,40 @@ def _render_premium(template_id: str, user_id: int, name: str,
         )
 
     elif template_id == "empire":
-        pet_lines = (f"💍 Узы крови: {partner_raw} 🌹\n" if marriage else "")
-        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
-            sp   = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-            lv   = p.get("pet_level", 1) or 1
-            role = "Телохранитель" if i == 1 else "Резерв"
-            bird = "🦅" if i == 1 else "🐉"
-            pet_lines += f"🐾 {role}: <b>{safe_html(p['name'])}</b> ({sp}) ✦ Ранг {lv} {bird}\n"
+        passive_n = len(pets_passive)
+        active_pet = f"<b>{_pnm(_pa)}</b> · Lv{_plv(_pa)}" if _pa else "—"
         return (
-            f"🥂 ✧ ━━ ⚜️ ИМПЕРИЯ ⚜️ ━━ ✧ 🥂\n\n"
-            f"👑 ВЛАДЕЛЕЦ: <b>{name}</b> ✦ 🌍 {g_rank}\n"
-            f"╰┈➤ 💠 Ур. <b>{lvl}</b> [{bar}] <b>{pct}%</b> ✨\n\n"
-            f"▼ 【 🏦 ФИНАНСОВЫЙ КАПИТАЛ 】\n"
-            f"💳 Наличные: {mora} 🪙 | 💎 Брюллики: {dia} 💠\n"
-            f"⚖️ Влияние: +0 🍷 | 🏆 Награды: {ach_count} 🏵️\n\n"
-            f"▼ 【 🪩 СВЕТСКАЯ АКТИВНОСТЬ 】\n"
-            f"💌 Чат: <b>{d}</b>/дн 🍾 | <b>{w}</b>/нед 🥂 | <b>{a}</b>/вс 🎭\n"
-            f"📅 При дворе с: {first_seen} 🍷 | Замечен: {last_seen}\n\n"
-            f"▼ 【 ⚜️ ПРИВИЛЕГИИ И СВИТА 】\n"
-            f"{pet_lines or '🐾 Свита пуста…' + chr(10)}"
-            f"\n🥂 ✧ ━━ 💳 ID: <code>{user_id}</code> ━━ ✧ 🥂\n"
-            f"<i>«У роскоши нет предела, есть только цена…»</i> 💸"
+            f"꧁ ⋆ ❦ ⋆ ꧂\n"
+            f"┃　Э Л И Т А　┃\n"
+            f"❦ ⋆˚ ⟡ ˚⋆ ❦\n"
+            f"　┊　┊　┊\n"
+            f"　　↓　↓\n\n"
+            f"❦°⌒⌒⌒⌒⌒⌒⌒⌒╮\n"
+            f"👤 <b>{nm}</b>\n"
+            f"🌐 Звание: {g_rank}\n"
+            f"🎏 Чин: {l_rank}\n"
+            f"🔱 Ур.<b>{lvl}</b> {bar}\n"
+            f"⌒⌒⌒⌒⌒⌒°❦\n\n"
+            f"❦°⌒⌒⌒⌒⌒⌒⌒⌒╮\n"
+            f"↳ ⋆☆⋆  АКТИВЫ  ⋆☆⋆\n"
+            f" ■ 🪙 {mora}  |  💎 {dia}\n"
+            f" ■ 🌑 {dark}  |  ✨ {zar}\n"
+            f" ■ ⚖️ +0  |  🏆 {ach_count}\n"
+            f"⌒⌒⌒⌒⌒⌒°❦\n\n"
+            f"❦°⌒⌒⌒⌒⌒⌒⌒⌒╮\n"
+            f"↳ ⋆☆⋆ [ ПРИЁМЫ ] ⋆☆⋆\n"
+            f" ■ 💬 {d}д | {w}н | {a}вс\n"
+            f" ■ 💍 Династия: {marr or 'нет'}\n"
+            f" ■ 🗓 При дворе с: {first_seen}\n"
+            f" ■ 🕓 Послед. визит: {last_seen}\n"
+            f"⌒⌒⌒⌒⌒⌒°❦\n\n"
+            f"❦° ••• 《 СВИТА 》 •••\n"
+            f" 🦅 Актив: {active_pet}\n"
+            f" 🐾 В пассиве: {passive_n}\n"
+            f"⌒⌒⌒⌒⌒⌒°❦\n\n"
+            f"·✦▫️▫️◇· <code>{user_id}</code> ·◇▫️▫️✦·\n\n"
+            f"❄═•═❄═•═❄═•═❄\n"
+            f"<i>«У роскоши нет предела, есть только цена…»</i> ✨"
         )
 
     return None
