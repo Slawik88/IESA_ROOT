@@ -178,15 +178,13 @@
   <div id="glb-dev"       style="display:none"></div>
 </div>
 
-<!-- ═══ НИЖНИЙ ДОК ═══ -->
+<!-- ═══ НИЖНИЙ ДОК (5 слотов под большой палец) ═══ -->
 <nav class="nav">
-  <div class="nb active" onclick="switchPage('profile',this)"><span class="ni">👤</span>Профиль</div>
-  <div class="nb" onclick="switchPage('zoo',this)"><span class="ni">🐾</span>Питомцы</div>
-  <div class="nb" onclick="switchPage('arena',this)"><span class="ni">⚔️</span>Арена</div>
-  <div class="nb" onclick="switchPage('market',this)"><span class="ni">🛍</span>Магазин</div>
-  <div class="nb" onclick="switchPage('coll',this)"><span class="ni">🎨</span>Коллекция</div>
-  <div class="nb" id="nb-admin" style="display:none" onclick="switchPage('admin',this)"><span class="ni">🛡</span>Адм.</div>
-  <div class="nb" id="nb-global" style="display:none" onclick="switchPage('global',this)"><span class="ni">🌍</span>Модер.</div>
+  <div class="nb active" data-page="profile" onclick="switchPage('profile')"><span class="ni">👤</span>Профиль</div>
+  <div class="nb" data-page="zoo" onclick="switchPage('zoo')"><span class="ni">🐾</span>Питомцы</div>
+  <div class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni">⚔️</span>Арена</div>
+  <div class="nb nb-shop" data-page="market" onclick="switchPage('market')"><span class="ni">✨</span>Магазин</div>
+  <div class="nb" id="nb-more" onclick="openMoreMenu()"><span class="ni">☰</span>Ещё</div>
 </nav>
 
 <script src="{{BASE}}/static/app.js?v={{ASSET_VER}}"></script>

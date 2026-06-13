@@ -143,32 +143,62 @@ el('modal').addEventListener('cancel',()=>{document.body.classList.remove('modal
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _loaded=new Set();
-function switchPage(name,btn) {
+// Единая маршрутизация по ИМЕНИ страницы. Подсветка нижнего дока — по data-page;
+// вторичные разделы (coll/admin/global) подсвечивают «Ещё».
+let _activePage = 'profile';
+const _PAGE_LOADERS = {zoo:loadZoo, arena:loadArena, market:loadMarket,
+                       coll:loadColl, admin:loadAdmin, global:loadGlobal};
+function switchPage(name, _btn) {
+  if(!el('pg-'+name)) return;
+  _activePage = name;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
   el('pg-'+name).classList.add('active');
-  btn.classList.add('active');
-  // Currency bar: visible on all tabs except Profile
+  const prim = document.querySelector(`.nb[data-page="${name}"]`);
+  (prim || el('nb-more'))?.classList.add('active');
   showCurrBar(name !== 'profile');
+  try { window.scrollTo(0, 0); } catch(e) {}
   if(!_loaded.has(name)){
     _loaded.add(name);
-    ({zoo:loadZoo,arena:loadArena,market:loadMarket,coll:loadColl,admin:loadAdmin,global:loadGlobal}[name]||(() => {}))();
+    (_PAGE_LOADERS[name] || (() => {}))();
   }
 }
 
 // Единая программная навигация — шорткаты в карточках/модалках.
-// goTo('zoo')              → страница Зоопарк
-// goTo('profile','streak') → Профиль, вкладка Стрик
-// goTo('market','gacha')    → Рынок, вкладка Гача
-// Закрывает открытую модалку (CM) — нужно для шорткатов внутри модальных окон.
+// goTo('zoo') · goTo('profile','streak') · goTo('market','gacha')
+// Закрывает открытую модалку/меню (CM) — нужно для шорткатов внутри окон.
 function goTo(page, tab) {
   CM();
-  const navBtn = [...document.querySelectorAll('.nb')].find(b => (b.getAttribute('onclick')||'').includes(`'${page}'`));
-  if (navBtn) switchPage(page, navBtn);
+  switchPage(page);
   if (tab) setTimeout(() => {
     const tabBtn = document.querySelector(`#pg-${page} .tb[onclick*="'${tab}'"]`);
     if (tabBtn) tabBtn.click();
   }, 80);
+}
+
+// ── «Ещё» — bottom-sheet с grid-карточками вторичных разделов ──────────────────
+function openMoreMenu() {
+  const isAdmin = !!(_adminChats && _adminChats.length);
+  const gRank = _profileData?.global_rank || 0;
+  const cards = [
+    {ic:'🎨', t:'Коллекция', s:'Темы профиля', f:"goTo('coll')"},
+    {ic:'🏆', t:'Топы', s:'Рейтинги', f:"goTo('coll','top')"},
+  ];
+  if(isAdmin) cards.push({ic:'🛡', t:'Админка', s:'Управление чатом', f:"goTo('admin')"});
+  if(gRank>=1) cards.push({ic:'🌍', t:'Модерация', s:'Глобальная', f:"goTo('global')"});
+  cards.push({ic:'🔄', t:'Обновить', s:'Перезагрузить', f:"CM();refreshPage()"});
+  const grid = `<div class="more-grid">${cards.map(c=>`
+    <div class="more-card" onclick="${c.f}">
+      <span class="mc-ic">${c.ic}</span>
+      <span class="mc-t">${c.t}</span>
+      <span class="mc-s">${c.s}</span>
+    </div>`).join('')}</div>`;
+  OM('Меню', grid, []);
+}
+function _updateMoreBadge() {
+  const staff = (_adminChats && _adminChats.length) || (_profileData?.global_rank||0) >= 1;
+  const more = el('nb-more');
+  if(more) more.classList.toggle('has-badge', !!staff);
 }
 
 // ── Profile ───────────────────────────────────────────────────────────────────
@@ -3105,7 +3135,7 @@ function loadAdmin() {
       el('adm-dash').innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--muted)">У вас нет прав модератора ни в одном чате.<br>Обратитесь к администратору чата.</div>';
       return;
     }
-    el('nb-admin').style.display='';
+    _updateMoreBadge();
     _adminChatId=_adminChats[0].chat_tg_id;
     renderAdminChatSel();
     loadAdminDash();
@@ -3578,12 +3608,12 @@ function checkAdminAccess() {
   if(!_uid) return;
   api('/admin/my-chats').then(d=>{
     _adminChats=d.chats||[];
-    if(_adminChats.length) el('nb-admin').style.display='';
+    _updateMoreBadge();
   }).catch(()=>{});
 }
 // Refresh current page data
 function refreshPage() {
-  const page = document.querySelector('.nb.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1];
+  const page = _activePage;
   const loaders = {profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();},
                    arena:loadArena, market:loadMarket, coll:loadColl, admin:()=>{_adminChats=null;loadAdmin();},
                    global:loadGlobal};
@@ -4121,8 +4151,8 @@ function _execDevSql() {
 function checkGlobalAccess() {
   const rank=_profileData?.global_rank||0;
   if(rank>=1) {
-    el('nb-global').style.display='';
-    el('glb-tab-ranks').style.display=rank>=3?'':'none';
-    el('glb-tab-dev').style.display=rank>=3?'':'none';
+    const tr=el('glb-tab-ranks'); if(tr) tr.style.display=rank>=3?'':'none';
+    const td=el('glb-tab-dev'); if(td) td.style.display=rank>=3?'':'none';
   }
+  _updateMoreBadge();
 }
