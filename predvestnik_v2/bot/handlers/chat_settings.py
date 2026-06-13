@@ -31,6 +31,8 @@ _RANK_SETTINGS: dict = {
     "rank_duel":     ("⚔️",  "Начинать дуэли",        "rank_duel"),
     "rank_marriage": ("💍",  "Предлагать брак",        "rank_marriage"),
     "rank_give":     ("💸",  "Переводить мору/алмазы","rank_give"),
+    "purge_action_rank": ("⚖️", "Кнопки вердикта в досье/чистке", "purge_action_rank"),
+    "rank_chat_lock": ("🔒", "Открывать/закрывать чат (+чат/-чат)", "rank_chat_lock"),
 }
 
 _TOGGLE_SETTINGS: dict = {

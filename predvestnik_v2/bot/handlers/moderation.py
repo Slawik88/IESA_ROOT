@@ -194,8 +194,12 @@ async def process_warn_action(
     chat_id = callback_data.chat_id
     action = callback_data.action
 
+    # Порог «кто может нажимать кнопки вердикта под досье/сводкой» настраивается:
+    # бот «настройки чата» → ⚖️ Кнопки вердикта (досье), и на сайте. По умолчанию 2.
+    _settings = await mod_db.get_chat_settings(db, chat_id)
+    _req_rank = _settings.get("purge_action_rank", 2)
     can_mod, err = await mod_service.check_mod_rights(
-        db, chat_id, callback.from_user.id, target_id, 2, developer_id=developer_id, bot_id=bot.id)
+        db, chat_id, callback.from_user.id, target_id, _req_rank, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await callback.answer(
             "У вас нет прав для этого вердикта!", show_alert=True
@@ -682,6 +686,64 @@ async def cmd_unmute(
         await message.answer(
             "❌ <b>Ошибка API:</b> Не удалось восстановить права.", parse_mode="HTML"
         )
+
+
+# ==========================================
+# ОТКРЫТЬ / ЗАКРЫТЬ ЧАТ ЦЕЛИКОМ (бот +чат / бот -чат)
+# ==========================================
+_OPEN_PERMS = ChatPermissions(
+    can_send_messages=True, can_send_audios=True, can_send_documents=True,
+    can_send_photos=True, can_send_videos=True, can_send_video_notes=True,
+    can_send_voice_notes=True, can_send_polls=True, can_send_other_messages=True,
+    can_add_web_page_previews=True,
+)
+
+
+@router.message(TextCmd(["-чат", "закрыть чат", "чат закрыть"]))
+async def cmd_close_chat(message: types.Message, db, bot: Bot, developer_id: int = 0):
+    """Закрывает чат: писать смогут только админы Telegram. Порог — rank_chat_lock."""
+    if message.chat.type == "private":
+        return
+    settings = await mod_db.get_chat_settings(db, message.chat.id)
+    req_rank = settings.get("rank_chat_lock", 4)
+    can_mod, err = await mod_service.check_admin_rights(
+        db, message.chat.id, message.from_user.id, req_rank, developer_id=developer_id)
+    if not can_mod:
+        return await message.answer(err, parse_mode="HTML")
+    try:
+        await bot.set_chat_permissions(message.chat.id, ChatPermissions(can_send_messages=False))
+    except Exception:
+        return await message.answer(
+            "❌ Не удалось закрыть чат. Проверьте, что бот — администратор с правом «Изменение профиля чата».",
+            parse_mode="HTML")
+    actor = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
+    await message.answer(
+        f"🔒 <b>Чат закрыт</b> ({actor}).\nПисать могут только администраторы.\n"
+        f"Открыть обратно: <code>бот +чат</code>",
+        parse_mode="HTML")
+
+
+@router.message(TextCmd(["+чат", "открыть чат", "чат открыть"]))
+async def cmd_open_chat(message: types.Message, db, bot: Bot, developer_id: int = 0):
+    """Открывает чат: возвращает всем право писать. Порог — rank_chat_lock."""
+    if message.chat.type == "private":
+        return
+    settings = await mod_db.get_chat_settings(db, message.chat.id)
+    req_rank = settings.get("rank_chat_lock", 4)
+    can_mod, err = await mod_service.check_admin_rights(
+        db, message.chat.id, message.from_user.id, req_rank, developer_id=developer_id)
+    if not can_mod:
+        return await message.answer(err, parse_mode="HTML")
+    try:
+        await bot.set_chat_permissions(message.chat.id, _OPEN_PERMS)
+    except Exception:
+        return await message.answer(
+            "❌ Не удалось открыть чат. Проверьте, что бот — администратор с правом «Изменение профиля чата».",
+            parse_mode="HTML")
+    actor = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
+    await message.answer(
+        f"🔓 <b>Чат открыт</b> ({actor})! Все снова могут писать. 🎉",
+        parse_mode="HTML")
 
 
 async def build_mod_list(

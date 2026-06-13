@@ -104,7 +104,12 @@ async def db_middleware(
                         (user.id,),
                     )
 
-            if user and chat_obj and event.message:
+            # Только групповые чаты порождают chat_settings/статистику. Личка с ботом
+            # (type='private', положительный chat_id, title=None) НЕ должна создавать
+            # строк chat_settings — иначе в админ-панелях появляются «фантомные чаты-цифры».
+            _is_group = getattr(chat_obj, "type", None) in ("group", "supergroup") if chat_obj else False
+
+            if user and chat_obj and event.message and _is_group:
                 async with db.execute(
                     "SELECT is_purging, purge_min_rank FROM chat_settings WHERE chat_id = ?",
                     (chat_obj.id,),

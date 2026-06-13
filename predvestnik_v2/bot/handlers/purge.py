@@ -76,23 +76,20 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
         f"({total_days} дн., {_WEEKDAYS_RU[start_dt_obj.weekday()]}–{_WEEKDAYS_RU[end_dt_obj.weekday()]})"
     )
 
-    # 1. ЗАБЛОКИРОВАТЬ ЧАТ (Глобальный мут для юзеров)
+    # Чистка — ТОЛЬКО сводка активности. Чат НЕ блокируется, бот НЕ выполняет
+    # никаких действий над пользователями автоматически: модератор сам решает
+    # судьбу каждого через кнопки в досье (Варн/Кик/Бан/Пропустить).
     settings = await mod_db.get_chat_settings(db, message.chat.id)
     purge_min_rank = settings.get("purge_min_rank", 4)
-    await mod_db.update_chat_settings(db, message.chat.id, is_purging = True)
-    try:
-        await bot.set_chat_permissions(message.chat.id, ChatPermissions(can_send_messages=False))
-    except Exception:
-        pass # Бот может не быть админом
+    admin_chat_id = await routing.get_admin_chat(db, message.chat.id)
 
     await message.answer(
-        f"🧹 <b>СИСТЕМА ЧИСТКИ АКТИВИРОВАНА</b>\n\n"
-        f"⏳ Чат временно закрыт для сбора статистики...\n"
+        f"🧹 <b>ЧИСТКА: СБОР СВОДКИ</b>\n\n"
         f"📅 Период: <code>{period_display}</code>\n"
         f"🎯 Норма: <code>{norm} сообщений</code>\n\n"
-        f"<i>Генерирую отчет, ожидайте...</i>\n"
-        f"<i>⚠️ Завершить чистку: <code>бот конец чистки</code></i>",
-        parse_mode="HTML"
+        f"<i>Считаю активность, ожидайте…</i>"
+        + ("\n<i>📋 Сводка и досье придут в админ-чат.</i>" if admin_chat_id else ""),
+        parse_mode="HTML",
     )
 
     # 2. SQL-ДВИЖОК: Сбор статистики
@@ -144,20 +141,9 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
             else:
                 failed_users.append(user_data)  # Сохраняем весь словарь для досье
 
-    # 2б. ВЕРНУТЬ ПРАВА МОДЕРАТОРАМ (purge_min_rank и выше)
-    write_perms = ChatPermissions(
-        can_send_messages=True, can_send_audios=True, can_send_documents=True,
-        can_send_photos=True, can_send_videos=True, can_send_video_notes=True,
-        can_send_voice_notes=True, can_send_polls=True, can_send_other_messages=True
-    )
-    for uid in exempt_user_ids:
-        try:
-            await bot.restrict_chat_member(message.chat.id, uid, permissions=write_perms)
-            await asyncio.sleep(0.05)
-        except Exception:
-            pass
+    # (Чат не блокировался — возвращать права не нужно.)
 
-    # 3. ГЕНЕРАЦИЯ ДАШБОРДА В ОСНОВНОЙ ЧАТ
+    # 3. ГЕНЕРАЦИЯ ДАШБОРДА
     report = (
         f"📊 <b>ИТОГИ ЧИСТКИ АКТИВНОСТИ</b>\n"
         f"📅 Период: <code>{period_display}</code>\n"
@@ -182,12 +168,20 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
 
     # Экранируем слишком длинные списки для ТГ (макс 4096 симв.)
     if len(report) > 4000: report = report[:4000] + "\n... [Список обрезан из-за лимитов Telegram]"
-    await message.answer(report, parse_mode="HTML")
 
-    # 4. РАССЫЛКА "ДОСЬЕ" В АДМИН-ЧАТ (С АНТИ-СПАМ ЗАДЕРЖКОЙ)
-    admin_chat_id = await routing.get_admin_chat(db, message.chat.id)
+    # Сводка + досье → в админ-чат, если он привязан; иначе в основной чат.
+    # Если бот не смог написать в админ-чат (кикнут/нет прав) — откат в основной чат.
     target_chat_to_send_dossier = admin_chat_id if admin_chat_id else message.chat.id
+    try:
+        await bot.send_message(target_chat_to_send_dossier, report, parse_mode="HTML")
+    except Exception:
+        target_chat_to_send_dossier = message.chat.id
+        try:
+            await bot.send_message(target_chat_to_send_dossier, report, parse_mode="HTML")
+        except Exception:
+            pass
 
+    # 4. РАССЫЛКА "ДОСЬЕ" (С АНТИ-СПАМ ЗАДЕРЖКОЙ)
     if failed_users:
         await bot.send_message(target_chat_to_send_dossier, "📁 <b>Начинаю выгрузку личных дел нарушителей...</b>", parse_mode="HTML")
         

@@ -177,13 +177,49 @@ async def _enrich_appeals(db, rows: list[dict]) -> list[dict]:
 @router.get("/chats")
 async def global_chats(db=Depends(get_db), user=Depends(require_tg_user)):
     actor_rank = await _require_global(db, user["id"])
+    # Только реальные группы (chat_id<0, есть название), где сам модератор СОСТОИТ —
+    # чтобы не вываливать сотни чужих чатов и не показывать «фантомные чаты-цифры».
     async with db.execute(
         "SELECT cs.chat_id, COALESCE(cs.chat_title, CAST(cs.chat_id AS TEXT)) AS chat_title, "
-        "(SELECT COUNT(*) FROM user_chat_stats ucs WHERE ucs.chat_tg_id = cs.chat_id "
-        "AND ucs.local_rank = 0 AND ucs.is_left = FALSE) AS member_count "
-        "FROM chat_settings cs ORDER BY cs.chat_title"
+        "lk.admin_chat_id, "
+        "(SELECT COUNT(*) FROM user_chat_stats u2 WHERE u2.chat_tg_id = cs.chat_id "
+        "AND u2.local_rank = 0 AND u2.is_left = FALSE) AS member_count "
+        "FROM chat_settings cs "
+        "JOIN user_chat_stats ucs ON ucs.chat_tg_id = cs.chat_id "
+        "  AND ucs.user_tg_id = ? AND ucs.is_left = FALSE "
+        "LEFT JOIN chat_links lk ON lk.main_chat_id = cs.chat_id "
+        "WHERE cs.chat_id < 0 AND cs.chat_title IS NOT NULL "
+        "ORDER BY cs.chat_title",
+        (user["id"],),
     ) as c:
         rows = [dict(r) for r in await c.fetchall()]
+
+    chat_ids = [r["chat_id"] for r in rows]
+    serves: dict = {}
+    if chat_ids:
+        ph = ",".join("?" * len(chat_ids))
+        async with db.execute(
+            f"SELECT main_chat_id, admin_chat_id FROM chat_links WHERE admin_chat_id IN ({ph})",
+            tuple(chat_ids),
+        ) as c:
+            for lk in await c.fetchall():
+                serves[lk["admin_chat_id"]] = lk["main_chat_id"]
+    linked_ids = {r["admin_chat_id"] for r in rows if r["admin_chat_id"]} | set(serves.values())
+    titles: dict = {}
+    if linked_ids:
+        ph = ",".join("?" * len(linked_ids))
+        async with db.execute(
+            f"SELECT chat_id, chat_title FROM chat_settings WHERE chat_id IN ({ph})",
+            tuple(linked_ids),
+        ) as c:
+            titles = {x["chat_id"]: (x["chat_title"] or str(x["chat_id"])) for x in await c.fetchall()}
+    for r in rows:
+        if r["chat_id"] in serves:
+            r["role"] = "admin"; r["linked_title"] = titles.get(serves[r["chat_id"]])
+        elif r["admin_chat_id"]:
+            r["role"] = "main"; r["linked_title"] = titles.get(r["admin_chat_id"])
+        else:
+            r["role"] = "plain"; r["linked_title"] = None
     return {"chats": rows, **_global_flags(actor_rank)}
 
 
@@ -216,7 +252,7 @@ async def global_chat_members(
     query = (
         f"SELECT ucs.user_tg_id, u.user_tg_username, ucs.user_level, ucs.user_xp, "
         f"ucs.local_rank, ucs.warnings, ucs.is_immune, ucs.immune_until, ucs.is_left, "
-        f"ucs.user_messages_count_all_time, ucs.last_message_at, ucs.muted_until, "
+        f"ucs.user_messages_count_all_time, ucs.last_message_at, ucs.muted_until, ucs.joined_at, "
         f"COALESCE(u.global_rank, 0) AS global_rank, (v.user_id IS NOT NULL) AS is_vip "
         f"FROM user_chat_stats ucs "
         f"LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
@@ -243,6 +279,7 @@ async def global_chat_members(
         r["muted_until"] = str(r["muted_until"]) if r.get("muted_until") else None
         r["immune_until"] = str(r["immune_until"]) if r.get("immune_until") else None
         r["last_message_at"] = str(r["last_message_at"]) if r.get("last_message_at") else None
+        r["joined_at"] = str(r["joined_at"]) if r.get("joined_at") else None
 
     return {"members": rows, "total": total, "page": page, "page_size": page_size, **flags}
 

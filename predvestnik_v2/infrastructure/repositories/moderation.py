@@ -56,6 +56,8 @@ async def get_left_users(db: aiosqlite.Connection, chat_id: int) -> list[dict]:
 async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
     async with db.execute(
         "SELECT shield_duration_days, max_warnings, is_purging, purge_min_rank, "
+        "COALESCE(purge_action_rank, 2) AS purge_action_rank, "
+        "COALESCE(rank_chat_lock, 4) AS rank_chat_lock, "
         "COALESCE(rank_warn, 2) AS rank_warn, "
         "COALESCE(rank_mute, 3) AS rank_mute, "
         "COALESCE(rank_kick, 4) AS rank_kick, "
@@ -86,6 +88,7 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
             return dict(row)
         return {
             "shield_duration_days": 0, "max_warnings": 3, "is_purging": 0, "purge_min_rank": 4,
+            "purge_action_rank": 2, "rank_chat_lock": 4,
             "rank_warn": 2, "rank_mute": 3, "rank_kick": 4, "rank_ban": 5,
             "rank_shield": 4, "rank_immune": 5,
             "events_enabled": 1, "nsfw_warps_allowed": 1, "auction_min_rank": 0,
