@@ -105,7 +105,12 @@ def _pets_block(pets: list, prefix: str = "") -> str:
 # _DEFAULT_RAW_TEMPLATES — стартовый текст для textarea в дев-консоли
 # (используется ТОЛЬКО для UI, не подставляется в рендер напрямую).
 
-_PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
+# Раньше матчились только латинские {var}. Theme Lab — текстовое поле, и
+# пользователи интуитивно пишут русские имена ({ник}, {мора}, {дата и т.п.}) —
+# расширяем до "что угодно без { } и переноса строк", чтобы такие плейсхолдеры
+# тоже подставлялись (см. русские алиасы в _build_template_ctx), а не уходили
+# в чат как «сырой» {var}.
+_PLACEHOLDER_RE = re.compile(r"\{([^{}\n]+)\}")
 
 
 def _safe_format(template: str, ctx: dict) -> str:
@@ -203,6 +208,16 @@ def _build_template_ctx(*, user_id, name, nm, name_upper, g_rank, l_rank, lvl, p
         "empire_bar_el": "▆" * _8_f + "▃" * (8 - _8_f),
         "empire_active_pet": _pnm(_pa) if _pa else "—",
         "empire_passive_n": len(pets_passive),
+
+        # ── русские алиасы для Theme Lab (те же значения, что и выше) ───────────
+        "ник": nm, "глобал_ранг": g_rank, "локал_ранг": l_rank, "уровень": lvl,
+        "мора": mora, "алмазы": dia, "темная_мора": dark, "зарники": zar,
+        "ачивки": ach_count, "дни": d, "недели": w, "всего": a,
+        "брак_инфо": marr or "нет", "дата": first_seen, "id": user_id,
+        "репутация": "+0",
+        "питомец_актив": _pnm(_pa) if _pa else "—",
+        "кол-во питомцев": len(pets_passive),
+        "кол-во питомцев в пасиве": len(pets_passive),
     }
 
 
