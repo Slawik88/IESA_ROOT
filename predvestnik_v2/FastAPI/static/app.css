@@ -604,6 +604,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   font-size: 10px; line-height: 1.55; color: var(--text);
   white-space: pre-wrap; word-break: break-word;
 }
+.profile-preview pre { margin: 0; font-family: inherit; font-size: inherit; white-space: pre-wrap; }
 .pp-line { color: var(--text); }
 .pp-header-line { color: var(--gold2); font-weight: 700; }
 .pp-sep-line { color: var(--muted); }
