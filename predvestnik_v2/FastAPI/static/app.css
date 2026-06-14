@@ -605,14 +605,25 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .ts-dark   { background: rgba(120,120,140,.2); color: #9b9bb5; }
 .ts-zarniki { background: linear-gradient(90deg, rgba(232,181,77,.2), rgba(139,108,240,.2)); color: var(--gold2); }
 
-/* превью профиля */
+/* превью профиля — те же правила шрифтов, что у Telegram: обычный текст —
+   системный пропорциональный шрифт (как у .body), моноширинный — только
+   внутри <pre>/<code>, как в реальном сообщении */
 .profile-preview {
   background: #0a0c14; border: 1px solid var(--border2); border-radius: 13px;
-  padding: 12px; font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  padding: 12px; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   font-size: 10px; line-height: 1.55; color: var(--text);
-  white-space: pre-wrap; word-break: break-word;
+  white-space: pre-line; word-break: break-word;
 }
-.profile-preview pre { margin: 0; font-family: inherit; font-size: inherit; white-space: pre-wrap; }
+.profile-preview pre, .profile-preview code {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+.profile-preview pre {
+  margin: 0; font-size: inherit; white-space: pre-wrap;
+  background: rgba(255,255,255,.04); border-radius: 6px; padding: 4px 6px;
+}
+.profile-preview code {
+  background: rgba(255,255,255,.06); border-radius: 4px; padding: 0 3px;
+}
 .pp-line { color: var(--text); }
 .pp-header-line { color: var(--gold2); font-weight: 700; }
 .pp-sep-line { color: var(--muted); }
