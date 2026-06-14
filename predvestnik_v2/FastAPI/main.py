@@ -13,6 +13,7 @@ load_dotenv()
 
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
+from infrastructure.repositories import theme_templates
 from FastAPI.auth import verify_login_widget, create_session_token
 from FastAPI import notifications
 from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
@@ -26,6 +27,11 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_pool()
+    # Theme Lab нужна эта таблица, а init_db() (со всеми миграциями) гоняется
+    # только в процессе бота — без этого веб-процесс падает на "relation
+    # profile_theme_overrides does not exist" без рестарта бота.
+    async with get_pool().acquire() as conn:
+        await theme_templates.ensure_table(PGAdapter(conn))
     yield
 
 

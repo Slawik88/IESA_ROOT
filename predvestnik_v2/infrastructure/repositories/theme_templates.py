@@ -5,6 +5,24 @@ Theme Lab: кастомные raw-шаблоны премиум-тем проф�
 """
 
 
+async def ensure_table(db) -> None:
+    """Idempotent — создаёт profile_theme_overrides, если её ещё нет.
+
+    bot/core/database.py:init_db() создаёт эту таблицу, но init_db()
+    запускается только в процессе бота. FastAPI-процесс (где живёт Theme
+    Lab) вызывает это при старте, чтобы работать без деплоя/рестарта бота.
+    """
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS profile_theme_overrides (
+            template_id TEXT PRIMARY KEY,
+            raw_text    TEXT NOT NULL,
+            updated_at  TIMESTAMP DEFAULT NOW(),
+            updated_by  BIGINT
+        )
+    """)
+    await db.commit()
+
+
 async def get_override(db, template_id: str) -> str | None:
     async with db.execute(
         "SELECT raw_text FROM profile_theme_overrides WHERE template_id = ?",
