@@ -114,6 +114,18 @@ def _safe_format(template: str, ctx: dict) -> str:
     return _PLACEHOLDER_RE.sub(lambda m: str(ctx.get(m.group(1), m.group(0))), template)
 
 
+_MULTI_SPACE_RE = re.compile(r" {2,}")
+
+
+def _protect_spacing(text: str) -> str:
+    """И Telegram (обычный HTML-текст), и CSS `white-space: pre-line` схлопывают
+    подряд идущие пробелы в один — выравнивание ASCII-арта/рамок в премиум-темах
+    ломается. Меняем каждый пробел в run из 2+ на NBSP ( ): он не
+    схлопывается ни там, ни там, поэтому Theme Lab превью и реальное сообщение
+    в Telegram совпадают 1:1."""
+    return _MULTI_SPACE_RE.sub(lambda m: " " * len(m.group()), text)
+
+
 def _build_template_ctx(*, user_id, name, nm, name_upper, g_rank, l_rank, lvl, pct, bar,
                          mora, dia, dark, zar, d, w, a, ach_count, warns, marr,
                          first_seen, last_seen, is_vip, marriage, partner_raw,
@@ -469,6 +481,24 @@ def get_template_variables(template_id: str) -> list[str]:
 
 
 def _render_premium(template_id: str, user_id: int, name: str,
+                    g_rank: str, l_rank: str, lvl: int, pct: int,
+                    mora_v, dia_v, d_msgs, w_msgs, a_msgs,
+                    streak, ach_count, warns, marriage, nursery_pets,
+                    partner_display: str | None = None,
+                    dark_v=0, zar_v=0, is_vip: bool = False,
+                    first_seen: str = "—", last_seen: str = "—",
+                    override_raw_text: str | None = None) -> str | None:
+    text = _render_premium_impl(
+        template_id, user_id, name, g_rank, l_rank, lvl, pct,
+        mora_v, dia_v, d_msgs, w_msgs, a_msgs,
+        streak, ach_count, warns, marriage, nursery_pets,
+        partner_display, dark_v, zar_v, is_vip, first_seen, last_seen,
+        override_raw_text=override_raw_text,
+    )
+    return _protect_spacing(text) if text else text
+
+
+def _render_premium_impl(template_id: str, user_id: int, name: str,
                     g_rank: str, l_rank: str, lvl: int, pct: int,
                     mora_v, dia_v, d_msgs, w_msgs, a_msgs,
                     streak, ach_count, warns, marriage, nursery_pets,
