@@ -133,31 +133,9 @@ def _protect_spacing(text: str) -> str:
 
 def _build_template_ctx(*, user_id, name, nm, name_upper, g_rank, l_rank, lvl, pct, bar,
                          mora, dia, dark, zar, d, w, a, ach_count, warns, marr,
-                         first_seen, last_seen, is_vip, marriage, partner_raw,
-                         pets_active, pets_passive, _pa, _pp, _pnm, _plv, _pfat, _pdup) -> dict:
+                         first_seen, last_seen, is_vip,
+                         pets_passive, _pa, _pp, _pnm, _plv, _pfat, _pdup) -> dict:
     """Полный набор переменных, доступных в кастомных raw-шаблонах (все 14 премиум-тем)."""
-
-    def _simple_pet_lines(icon: str, marr_label: str, empty_text: str) -> str:
-        lines = f"{marr_label}: {partner_raw}\n" if marriage else ""
-        for p in pets_active[:1] + pets_passive[:1]:
-            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-            lv = p.get("pet_level", 1) or 1
-            lines += f"{icon} {safe_html(p['name'])} ({sp}) ур.{lv}\n"
-        return lines or empty_text + "\n"
-
-    system_override_pet_lines = (
-        f"[+] 🔗 LINK: {partner_raw} 💟\n" if marriage else "[+] 🔗 LINK: <i>null</i> 💔\n"
-    )
-    wind_free_pet_lines = f"💍 Узы: {partner_raw} 💞\n" if marriage else ""
-    for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
-        sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-        lv = p.get("pet_level", 1) or 1
-        system_override_pet_lines += f"[*] 🤖 PORT_0{i}: {safe_html(p['name'])} ({sp}) [v{lv}.0]\n"
-        wind_free_pet_lines += (
-            f"🐾 Слот {['I', 'II'][i - 1]}: <b>{safe_html(p['name'])}</b> ({sp}) "
-            f"⟡ Ранг {lv} {'🔥' if i == 1 else '🌙'}\n"
-        )
-    wind_free_pet_lines = wind_free_pet_lines or "🐾 Питомников нет…\n"
 
     _hb_f = round(pct / 10)
     _8_f  = round(pct / 100 * 8)
@@ -191,23 +169,8 @@ def _build_template_ctx(*, user_id, name, nm, name_upper, g_rank, l_rank, lvl, p
         "order_p2": (f"{_pnm(_pp)} (L{_plv(_pp)})" if _pp else "—"),
 
         "prism_os_pb": "▒" * _8_f + "░" * (8 - _8_f),
-        "prism_os_p1": (f"{_pnm(_pa)} &lt;v{_plv(_pa)}&gt;" if _pa else "—"),
-        "prism_os_p2": (f"{_pnm(_pp)} &lt;v{_plv(_pp)}&gt;" if _pp else "—"),
-
-        "avangard_p1": (f"🦅 {_pnm(_pa)} [L{_plv(_pa)}, {_pfat(_pa)}, {_pdup(_pa)}дуб]" if _pa else "🦅 —"),
-        "avangard_p2": (f"🐢 {_pnm(_pp)} [L{_plv(_pp)}, {_pfat(_pp)}, {_pdup(_pp)}дуб]" if _pp else "🐢 —"),
-
-        "velvet_pet_lines":    _simple_pet_lines("🥀", "💜 Узы", "🕸️ Пустота…"),
-        "prism_pet_lines":     _simple_pet_lines("🔹", "💞 Связь", "◇ Пусто…"),
-        "celestial_pet_lines": _simple_pet_lines("🕊️", "💞 Союз", "☁️ Тихо…"),
-        "glass_pet_lines":     _simple_pet_lines("🧩", "💞 Узор", "⬜ Пусто…"),
-        "gold_pet_lines":      _simple_pet_lines("🦁", "💞 Альянс", "🕳️ Пусто…"),
-        "system_override_pet_lines": system_override_pet_lines,
-        "wind_free_pet_lines": wind_free_pet_lines,
 
         "empire_bar_el": "▆" * _8_f + "▃" * (8 - _8_f),
-        "empire_active_pet": _pnm(_pa) if _pa else "—",
-        "empire_passive_n": len(pets_passive),
 
         # ── русские алиасы для Theme Lab (те же значения, что и выше) ───────────
         "ник": nm, "глобал_ранг": g_rank, "локал_ранг": l_rank, "уровень": lvl,
@@ -221,227 +184,399 @@ def _build_template_ctx(*, user_id, name, nm, name_upper, g_rank, l_rank, lvl, p
     }
 
 
-# Стартовый текст для Theme Lab — «как выглядел бы шаблон в виде редактируемого текста».
-# НЕ используется в обычном рендере (см. 14 веток ниже) — только подсказка/сброс в UI.
+# Дефолтные шаблоны премиум-тем — единый источник для обычного рендера И для
+# стартового/сбрасываемого текста в Theme Lab (см. _render_premium_impl).
 _DEFAULT_RAW_TEMPLATES: dict[str, str] = {
     "linux": (
-        "predvestnik@root:~/user/data#\n"
+        "predvestnik@root:~/data#\n"
         "{linux_vip_line}\n"
-        "👤 Юзер: <b>{nm}</b>\n"
-        "🌍 Глобал: {g_rank}\n"
-        "🏘 Локал: {l_rank}\n"
-        "🔋 Ядро: Ур.<b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
-        "&gt;_ [FS_RESOURCES]\n"
-        "🪙 Мора: {mora} | 💎 Алм: {dia}\n"
-        "🌑 ТМ: {dark} | ✨ Зар: {zar}\n"
-        "⚖️ Реп: 0 | 🏆 Ачив: {ach_count} | ⚠️: {warns}\n\n"
-        "&gt;_ [LOG_ACTIVITY]\n"
-        "💬 {d}д | {w}н | {a}всего\n"
-        "📅 init: {first_seen} | 🕓 last: {last_seen}\n"
-        "💍 Узы: {marr}\n\n"
-        "&gt;_ [ENTITIES_LOADER]\n"
-        "{linux_pet1}\n{linux_pet2}\n\n"
-        "[ID: <code>{user_id}</code>]\n"
-        "predvestnik@root:~/exit$ _"
+        "👤 user: {ник}\n"
+        "🌍 glob: {глобал_ранг}\n"
+        "🏘 loc:  {локал_ранг}\n"
+        "🔋 lvl: {уровень}\n"
+        "  ↳ {bar} {pct}%\n\n"
+        "&gt;_ [WALLET]\n"
+        "🪙 mora: {мора}\n"
+        "💎 dia:  {алмазы}\n"
+        "🌑 dark: {темная_мора}\n"
+        "✨ zar:  {зарники}\n\n"
+        "&gt;_ [STATS]\n"
+        "⚖️ rep: {репутация}\n"
+        "🏆 ach: {ачивки}\n"
+        "⚠️ warn: {warns}\n\n"
+        "&gt;_ [ACTIVITY]\n"
+        "💬 {дни}д/{недели}н\n"
+        "  ↳ всего: {всего}\n"
+        "📅 in: {дата}\n"
+        "  ↳ out: {last_seen}\n"
+        "💍 link: {брак_инфо}\n\n"
+        "&gt;_ [PETS]\n"
+        "{linux_pet1}\n"
+        "{linux_pet2}\n"
+        "  ↳ резерв: {кол-во питомцев}\n\n"
+        "[ID: {id}]\n"
+        "predvestnik@root:~$ _"
     ),
     "hardcore_shell": (
-        "┌──(<b>{nm}</b> ㉿ predvestnik)\n"
-        "└─$ cat profile.conf\n"
+        "┌──({ник} ㉿ pv2)\n"
+        "└─$ whoami\n"
         "{hardcore_shell_vip_line}\n"
-        "ID: <code>{user_id}</code>\n"
-        "LEVEL: {lvl} [{hardcore_shell_hb}] {pct}%\n"
-        "REP: 0 | ACHV: {ach_count}\n"
-        "---------------------------\n"
-        "CASH: {mora} 🪙 | CRYPT: {dia} 💎\n"
-        "DARK_M: {dark} 🌑 | ZARN: {zar} ✨\n"
-        "FIRST_SEEN: {first_seen} | LAST_SEEN: {last_seen}\n"
-        "---------------------------\n"
+        "ID: {id}\n"
+        "-----------------\n"
+        "GRANK: {глобал_ранг}\n"
+        "LRANK: {локал_ранг}\n"
+        "LVL: {уровень} {pct}%\n"
+        " ↳ [{hardcore_shell_hb}]\n"
+        "-----------------\n"
+        "CASH: {мора} 🪙\n"
+        "CRYPT: {алмазы} 💎\n"
+        "DARK: {темная_мора} 🌑\n"
+        "ZARN: {зарники} ✨\n"
+        "-----------------\n"
+        "REP: {репутация}\n"
+        "ACHV: {ачивки} 🏆\n"
+        "WARN: {warns} ⚠️\n"
+        "MSG: {дни}д/{недели}н\n"
+        " ↳ TOTAL: {всего}\n"
+        "-----------------\n"
+        "SEEN: {дата}\n"
+        " ↳ LAST: {last_seen}\n"
         "LINK: {marr_dash}\n"
-        "{hardcore_shell_l1}\n{hardcore_shell_l2}\n"
-        "---------------------------\n"
-        "$ ./run_predvestnik.sh\n"
-        "<i># \"Система работает. Идеально.\"</i>"
+        "-----------------\n"
+        "{hardcore_shell_l1}\n"
+        "{hardcore_shell_l2}\n"
+        " ↳ RESERVE: {кол-во питомцев}\n"
+        "-----------------\n"
+        "$ ./run.sh --status\n"
+        "# Система в норме."
     ),
     "starlight": (
         "⋆ ˚｡ 🌌 S T A R L I G H T ｡˚ ⋆\n\n"
-        "┊ 🛸 Пилот: <b>{nm}</b>\n"
-        "┊ 🪐 Сектор: {g_rank}\n"
-        "┊ 🛰 Узел: {l_rank}\n"
-        "┊ 🌟 Фаза: <b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
-        "╰┈➤ ☄️ БОРТОВЫЕ ДАННЫЕ\n"
-        "  ⌑ 💫 Пыль: {mora} | ☄️ Ядра: {dia}\n"
-        "  ⌑ ⚖️ Карма: +0 | 🏆 Ачив: {ach_count}\n"
-        "  ⌑ 📡 Пинг: {d}д|{w}н|{a}вс\n"
-        "  ⌑ 🛰 Старт: {first_seen} | Сигнал: {last_seen}\n\n"
+        "┊ 🛸 Пилот: {ник}\n"
+        "┊ 🪐 Сектор: {глобал_ранг}\n"
+        "┊ 🛰 Узел: {локал_ранг}\n"
+        "┊ 🌟 Фаза: {уровень}\n"
+        "┊   ↳ {bar} {pct}%\n\n"
+        "╰┈➤ ☄️ ГРУЗ\n"
+        "  ⌑ 💫 Пыль: {мора}\n"
+        "  ⌑ ☄️ Ядра: {алмазы}\n"
+        "  ⌑ 🌑 Тьма: {темная_мора}\n"
+        "  ⌑ ✨ Зар: {зарники}\n\n"
+        "╰┈➤ 📊 РЕЙТИНГ\n"
+        "  ⌑ ⚖️ Карма: {репутация}\n"
+        "  ⌑ 🏆 Ачив: {ачивки}\n"
+        "  ⌑ ⚠️ Тревог: {warns}\n\n"
+        "╰┈➤ 📡 ЖУРНАЛ\n"
+        "  ⌑ 📡 {дни}д|{недели}н\n"
+        "    ↳ всего: {всего}\n"
+        "  ⌑ 🛰 Старт: {дата}\n"
+        "    ↳ Сигнал: {last_seen}\n\n"
         "╰┈➤ 🛸 ЭКИПАЖ\n"
-        "  ⌑ 💞 Связь: {marr}\n"
+        "  ⌑ 💞 Связь: {брак_инфо}\n"
         "  ⌑ 🦅 Дрон I: {starlight_p1}\n"
-        "  ⌑ 🐢 Дрон II: {starlight_p2}\n\n"
-        "⋆ ˚｡ 🆔 <code>{user_id}</code> ｡˚ ⋆\n"
-        "🌟 Каждая звезда — чья-то мечта…"
+        "  ⌑ 🐢 Дрон II: {starlight_p2}\n"
+        "    ↳ резерв: {кол-во питомцев}\n\n"
+        "⋆ ˚｡ 🆔 {id} ｡˚ ⋆\n"
+        "🌟 Каждая звезда — мечта…"
     ),
     "order": (
-        "🍷 ✧ ── 🎭 Л О Ж А 🎭 ── ✧ 🍷\n\n"
-        "◈ Мастер: <b>{nm}</b>\n"
-        "◈ Совет: {g_rank}\n"
-        "◈ Ранг: {l_rank}\n"
-        "◈ Ранг <b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
-        "♱ 🪙 ФОНД ОРДЕНА\n"
-        " ▫️ 🪙: {mora} | 💎: {dia} | 🌑: {dark} | ✨: {zar}\n"
-        " ▫️ ⚖️: 0 | 🏆: {ach_count} | ⚠️: {warns}\n\n"
+        "🍷 ✧ ── 🎭 ЛОЖА 🎭 ── ✧ 🍷\n\n"
+        "◈ Мастер: {ник}\n"
+        "◈ Совет: {глобал_ранг}\n"
+        "◈ Ранг: {локал_ранг}\n"
+        "◈ Степень {уровень}\n"
+        " ↳ {bar} {pct}%\n\n"
+        "♱ 🪙 ФОНД\n"
+        " ▫️ 🪙: {мора}\n"
+        " ▫️ 💎: {алмазы}\n"
+        " ▫️ 🌑: {темная_мора}\n"
+        " ▫️ ✨: {зарники}\n\n"
+        "♱ ⚖️ РЕПУТАЦИЯ\n"
+        " ▫️ Вес: {репутация}\n"
+        " ▫️ 🏆: {ачивки}\n"
+        " ▫️ ⚠️: {warns}\n\n"
         "♱ 💬 СЛУХИ\n"
-        " ▫️ {d}д | {w}н | {a}всего\n"
-        " ▫️ Вступил: {first_seen} | Замечен: {last_seen}\n\n"
+        " ▫️ {дни}д|{недели}н\n"
+        "  ↳ всего: {всего}\n"
+        " ▫️ Вступил: {дата}\n"
+        "  ↳ Замечен: {last_seen}\n\n"
         "♱ 💍 СОЮЗЫ\n"
-        " ▫️ Связь: {marr}\n"
+        " ▫️ Связь: {брак_инфо}\n"
         " ▫️ Агент I: {order_p1}\n"
-        " ▫️ Агент II: {order_p2}\n\n"
-        "🍷 ✧ ── 🆔 <code>{user_id}</code>\n"
-        "🟪 Мы видим то, что скрыто…"
+        " ▫️ Агент II: {order_p2}\n"
+        "  ↳ резерв: {кол-во питомцев}\n\n"
+        "🍷 ✧ ── 🆔 {id}\n"
+        "🟪 Видим то, что скрыто…"
     ),
     "prism_os": (
         "[ 🪞 P R I S M _ O S 🪞 ]\n\n"
-        "≼ 💠 ID: <b>{nm}</b>\n"
-        "≼ 🌐 Сеть: {g_rank}\n"
-        "≼ 🪩 Хост: {l_rank}\n"
-        "≼ 🔋 Заряд: Ур.<b>{lvl}</b> {prism_os_pb} <b>{pct}%</b>\n\n"
-        "░░░ [ ДАМП ПАМЯТИ ]\n"
-        "~&gt; ☀️ Фотоны: {mora}\n"
-        "~&gt; 💠 Осколки: {dia}\n"
-        "~&gt; 🌈 Резонанс: 0 | 🏆: {ach_count}\n"
-        "~&gt; 🔊 Сеанс: {d}д/{w}н/{a}вс\n"
-        "~&gt; 🕓 Аптайм: {first_seen} → {last_seen}\n\n"
-        "░░░ [ ПЕРИФЕРИЯ ]\n"
-        "~&gt; 🔗 Линк: {marr}\n"
-        "~&gt; ⚡ Юнит 1: {prism_os_p1}\n"
-        "~&gt; 🌟 Юнит 2: {prism_os_p2}\n\n"
-        "[ 🆔 <code>{user_id}</code> ]\n"
+        "≼ ID: {ник}\n"
+        "≼ Сеть: {глобал_ранг}\n"
+        "≼ Хост: {локал_ранг}\n"
+        "≼ Заряд: {уровень}\n"
+        "  ↳ {prism_os_pb} {pct}%\n\n"
+        "░░░ [ДАМП ПАМЯТИ]\n"
+        "~&gt; Фотоны: {мора}\n"
+        "~&gt; Осколки: {алмазы}\n"
+        "~&gt; Тень: {темная_мора}\n"
+        "~&gt; Искры: {зарники}\n\n"
+        "░░░ [РЕГИСТРЫ]\n"
+        "~&gt; Резонанс: {репутация}\n"
+        "~&gt; Ачив: {ачивки}\n"
+        "~&gt; Ошибки: {warns}\n\n"
+        "░░░ [ЛОГИ]\n"
+        "~&gt; Сеанс: {дни}д/{недели}н\n"
+        "  ↳ всего: {всего}\n"
+        "~&gt; Аптайм: {дата}\n"
+        "  ↳ выход: {last_seen}\n"
+        "~&gt; Линк: {брак_инфо}\n\n"
+        "░░░ [ПЕРИФЕРИЯ]\n"
+        "~&gt; Юнит1: {pet_a_name}\n"
+        "  ↳ &lt;v{pet_a_level}&gt; {pet_a_fatigue}\n"
+        "~&gt; Юнит2: {pet_p_name}\n"
+        "  ↳ &lt;v{pet_p_level}&gt; {pet_p_fatigue}\n"
+        "  ↳ резерв: {кол-во питомцев}\n\n"
+        "[ 🆔 {id} ]\n"
         "💎 Свет находит путь сквозь кристалл…"
     ),
     "avangard": (
         "✧ ━━ 🕊️ АВАНГАРД 🕊️ ━━ ✧\n\n"
-        "✦ <b>{nm}</b>\n"
-        "✦ {g_rank} / {l_rank}\n"
-        "✦ Ур.<b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
+        "✦ {ник}\n"
+        "✦ {глобал_ранг} / {локал_ранг}\n"
+        "✦ Ранг {уровень}\n"
+        "  ↳ {bar} {pct}%\n\n"
         "✧ ЭКОНОМИКА\n"
-        " 🪙: {mora} | 💎: {dia} | 🌑: {dark} | ✨: {zar}\n\n"
+        " 🪙: {мора}\n"
+        " 💎: {алмазы}\n"
+        " 🌑: {темная_мора}\n"
+        " ✨: {зарники}\n\n"
         "✧ ДОСТИЖЕНИЯ\n"
-        " ⚖️ Реп: 0 | 🏆 Ачив: {ach_count} | ⚠️: {warns}\n"
-        " 💬 {d}д | {w}н | {a}всего\n"
-        " 📅 С нами: {first_seen} | Был: {last_seen}\n\n"
+        " ⚖️ Реп: {репутация}\n"
+        " 🏆 Ачив: {ачивки}\n"
+        " ⚠️ Пред: {warns}\n"
+        " 💬 {дни}д|{недели}н\n"
+        "  ↳ всего: {всего}\n"
+        " 📅 С нами: {дата}\n"
+        "  ↳ Был: {last_seen}\n\n"
         "✧ СВИТА\n"
-        " 💍 Узы: {marr}\n"
-        " {avangard_p1}\n {avangard_p2}\n\n"
-        "✧ ━━ 🆔 <code>{user_id}</code>\n"
+        " 💍 Узы: {брак_инфо}\n"
+        " 🦅 {pet_a_name}\n"
+        "  ↳ ур.{pet_a_level} {pet_a_fatigue}\n"
+        " 🐢 {pet_p_name}\n"
+        "  ↳ ур.{pet_p_level} {pet_p_fatigue}\n"
+        "  ↳ резерв: {кол-во питомцев}\n\n"
+        "✧ ━━ 🆔 {id}\n"
         "☀️ Сияй, пока можешь…"
     ),
     "velvet": (
         "🟪 ═【 🌹 БАРХАТ 🌹 】═ 🟪\n\n"
-        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-        "🕯️ Покров {lvl} [{bar}] {pct}%\n\n"
+        "👤 {ник}\n"
+        "🌍 {глобал_ранг}\n"
+        "🏠 {локал_ранг}\n"
+        "🕯️ Покров {уровень}\n"
+        "  ↳ {bar} {pct}%\n\n"
         "┄┄ 🧵 ЛАРЕЦ ┄┄\n"
-        "🧵 Нити: {mora} ⋅ 🌹 {dia}\n"
-        "🎭 Грация: +0 ⋅ 🏆 {ach_count}\n\n"
+        "🧵 Нити: {мора}\n"
+        "🌹 Шёлк: {алмазы}\n"
+        "🌑 Тень: {темная_мора}\n"
+        "🔔 Звон: {зарники}\n"
+        "🎭 Грация: {репутация}\n"
+        "🏆 Слава: {ачивки}\n"
+        "⚠️ Пятна: {warns}\n\n"
         "┄┄ 🤫 ШЁПОТЫ ┄┄\n"
-        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "{дни}д ⋅ {недели}н\n"
+        "  ↳ всего: {всего}\n"
+        "📅 {дата}\n"
+        "  ↳ 🕓 {last_seen}\n"
+        "💜 Узы: {брак_инфо}\n\n"
         "┄┄ 🌑 ТЕНИ ┄┄\n"
-        "{velvet_pet_lines}"
-        "\n🟪 ID: <code>{user_id}</code>\n"
-        "<i>🟪 Бархат скрывает истинный характер…</i>"
+        "🥀 {pet_a_name}\n"
+        "  ↳ ур.{pet_a_level} {pet_a_fatigue}\n"
+        "🥀 {pet_p_name}\n"
+        "  ↳ ур.{pet_p_level} {pet_p_fatigue}\n"
+        "  ↳ резерв: {кол-во питомцев}\n\n"
+        "🟪 ID: {id}\n"
+        "🟪 Бархат скрывает истинный характер…"
     ),
     "prism": (
         "✧ ═【 💎 ПРИЗМА 💎 】═ ✧\n\n"
-        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-        "🔆 Спектр {lvl} [{bar}] {pct}%\n\n"
+        "👤 {ник}\n"
+        "🌍 {глобал_ранг}\n"
+        "🏠 {локал_ранг}\n"
+        "🔆 Спектр {уровень}\n"
+        "  ↳ {bar} {pct}%\n\n"
         "┄┄ 🌈 ГРАНИ ┄┄\n"
-        "🌈 Лучи: {mora} ⋅ 💎 {dia}\n"
-        "🔅 Блеск: +0 ⋅ 🏆 {ach_count}\n\n"
+        "🌈 Лучи: {мора}\n"
+        "💎 Грань: {алмазы}\n"
+        "🌑 Тень: {темная_мора}\n"
+        "✨ Искры: {зарники}\n"
+        "🔅 Блеск: {репутация}\n"
+        "🏆 Ачив: {ачивки}\n"
+        "⚠️ Трещ: {warns}\n\n"
         "┄┄ ✨ ОТРАЖЕНИЯ ┄┄\n"
-        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "{дни}д ⋅ {недели}н\n"
+        "  ↳ всего: {всего}\n"
+        "📅 {дата}\n"
+        "  ↳ 🕓 {last_seen}\n"
+        "💞 Связь: {брак_инфо}\n\n"
         "┄┄ 🔮 СПУТНИКИ ┄┄\n"
-        "{prism_pet_lines}"
-        "\n✧ ID: <code>{user_id}</code>\n"
-        "<i>💎 Свет находит путь сквозь кристалл…</i>"
+        "🔹 {pet_a_name}\n"
+        "  ↳ ур.{pet_a_level} {pet_a_fatigue}\n"
+        "🔹 {pet_p_name}\n"
+        "  ↳ ур.{pet_p_level} {pet_p_fatigue}\n"
+        "  ↳ резерв: {кол-во питомцев}\n\n"
+        "✧ ID: {id}\n"
+        "💎 Каждая грань — новый свет…"
     ),
     "celestial": (
         "꧁ ━━ ☀️ НЕБЕСНЫЙ ☀️ ━━ ꧂\n\n"
-        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-        "🕊️ Полёт {lvl} [{bar}] {pct}%\n\n"
+        "👤 {ник}\n"
+        "🌍 {глобал_ранг}\n"
+        "🏠 {локал_ранг}\n"
+        "🕊️ Полёт {уровень}\n"
+        "  ↳ {bar} {pct}%\n\n"
         "┄┄ ☀️ НЕБЕСА ┄┄\n"
-        "☀️ Свет: {mora} ⋅ 🌙 {dia}\n"
-        "😇 Святость: +0 ⋅ 🏆 {ach_count}\n\n"
+        "☀️ Свет: {мора}\n"
+        "🌙 Луна: {алмазы}\n"
+        "🌑 Тень: {темная_мора}\n"
+        "⭐ Звёзды: {зарники}\n"
+        "😇 Святость: {репутация}\n"
+        "🏆 Ачив: {ачивки}\n"
+        "⚠️ Грех: {warns}\n\n"
         "┄┄ 🎶 ГИМНЫ ┄┄\n"
-        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "{дни}д ⋅ {недели}н\n"
+        "  ↳ всего: {всего}\n"
+        "📅 {дата}\n"
+        "  ↳ 🕓 {last_seen}\n"
+        "💞 Союз: {брак_инфо}\n\n"
         "┄┄ 👼 ХРАНИТЕЛИ ┄┄\n"
-        "{celestial_pet_lines}"
-        "\n☀️ ID: <code>{user_id}</code>\n"
-        "<i>☀️ Небо для тех, кто смотрит ввысь…</i>"
+        "🕊️ {pet_a_name}\n"
+        "  ↳ ур.{pet_a_level} {pet_a_fatigue}\n"
+        "🕊️ {pet_p_name}\n"
+        "  ↳ ур.{pet_p_level} {pet_p_fatigue}\n"
+        "  ↳ резерв: {кол-во питомцев}\n\n"
+        "☀️ ID: {id}\n"
+        "☀️ Небо для тех, кто смотрит ввысь…"
     ),
     "glass": (
         "💠 ═【 🕊️ ВИТРАЖ 🕊️ 】═ 💠\n\n"
-        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-        "🖼️ Картина {lvl} [{bar}] {pct}%\n\n"
+        "👤 {ник}\n"
+        "🌍 {глобал_ранг}\n"
+        "🏠 {локал_ранг}\n"
+        "🖼️ Картина {уровень}\n"
+        "  ↳ {bar} {pct}%\n\n"
         "┄┄ 💠 ОСКОЛКИ ┄┄\n"
-        "💠 Осколки: {mora} ⋅ 🔷 {dia}\n"
-        "🌈 Грань: +0 ⋅ 🏆 {ach_count}\n\n"
-        "┄┄ 🪞 БЛИКИ ┄┄\n"
-        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "💠 Осколки: {мора}\n"
+        "🔷 Грани: {алмазы}\n"
+        "🌑 Тень: {темная_мора}\n"
+        "✨ Блики: {зарники}\n"
+        "🌈 Свет: {репутация}\n"
+        "🏆 Ачив: {ачивки}\n"
+        "⚠️ Трещ: {warns}\n\n"
+        "┄┄ 🪞 ОТРАЖЕНИЯ ┄┄\n"
+        "{дни}д ⋅ {недели}н\n"
+        "  ↳ всего: {всего}\n"
+        "📅 {дата}\n"
+        "  ↳ 🕓 {last_seen}\n"
+        "💞 Узор: {брак_инфо}\n\n"
         "┄┄ 🧩 ФРАГМЕНТЫ ┄┄\n"
-        "{glass_pet_lines}"
-        "\n💠 ID: <code>{user_id}</code>\n"
-        "<i>💠 Каждый осколок — часть картины…</i>"
+        "🧩 {pet_a_name}\n"
+        "  ↳ ур.{pet_a_level} {pet_a_fatigue}\n"
+        "🧩 {pet_p_name}\n"
+        "  ↳ ур.{pet_p_level} {pet_p_fatigue}\n"
+        "  ↳ резерв: {кол-во питомцев}\n\n"
+        "💠 ID: {id}\n"
+        "💠 Каждый осколок — часть картины…"
     ),
     "gold": (
         "⚜️ ═【 🪙 АУРУМ 🪙 】═ ⚜️\n\n"
-        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-        "👑 Проба {lvl} [{bar}] {pct}%\n\n"
+        "👤 {ник}\n"
+        "🌍 {глобал_ранг}\n"
+        "🏠 {локал_ранг}\n"
+        "👑 Проба {уровень}\n"
+        "  ↳ {bar} {pct}%\n\n"
         "┄┄ 🪙 ХРАНИЛИЩЕ ┄┄\n"
-        "🪙 Слитки: {mora} ⋅ 💛 {dia}\n"
-        "⚖️ Вес: +0 ⋅ 🏆 {ach_count}\n\n"
+        "🪙 Слитки: {мора}\n"
+        "💛 Самоцветы: {алмазы}\n"
+        "🌑 Тень: {темная_мора}\n"
+        "✨ Искры: {зарники}\n"
+        "⚖️ Вес: {репутация}\n"
+        "🏆 Ачив: {ачивки}\n"
+        "⚠️ Скол: {warns}\n\n"
         "┄┄ 🔔 ЭХО ┄┄\n"
-        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "{дни}д ⋅ {недели}н\n"
+        "  ↳ всего: {всего}\n"
+        "📅 {дата}\n"
+        "  ↳ 🕓 {last_seen}\n"
+        "💞 Альянс: {брак_инфо}\n\n"
         "┄┄ 🦁 СОКРОВИЩА ┄┄\n"
-        "{gold_pet_lines}"
-        "\n⚜️ ID: <code>{user_id}</code>\n"
-        "<i>💛 Золото молчит, но его слышат все…</i>"
+        "🦁 {pet_a_name}\n"
+        "  ↳ ур.{pet_a_level} {pet_a_fatigue}\n"
+        "🦁 {pet_p_name}\n"
+        "  ↳ ур.{pet_p_level} {pet_p_fatigue}\n"
+        "  ↳ в кладовой: {кол-во питомцев}\n\n"
+        "⚜️ ID: {id}\n"
+        "💛 Золото молчит, но его слышат все…"
     ),
     "system_override": (
         "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼\n\n"
-        ">_ 👤 USER_ID: <b>{name_raw}</b> 📟\n"
-        ">_ 🛡️ AUTH: <b>{g_rank}</b>\n"
-        ">_ 🏘️ NODE: <b>{l_rank}</b>\n"
-        ">_ 🔋 SYNC: Ур.<b>{lvl}</b> [{bar}] <b>{pct}%</b> ⚡\n\n"
-        "► [ 💾 ROOT / ASSETS ] ──────────────\n"
-        "/// 🪙 CRDT: <b>{mora}</b> 🔌 /// 💎 CRYPT: <b>{dia}</b> 🌐\n\n"
-        "► [ 📡 ROOT / DATA ] ────────────────\n"
-        "/// ⚖️ REP: +0 ⚙️  /// 🏆 ACHV: <b>{ach_count}</b> 🔓\n"
-        "/// 💬 LOG: <b>{d}</b>/d 📝 | <b>{w}</b>/w 📊 | <b>{a}</b>/all 🕹️\n"
-        "/// 🕓 SEEN: init {first_seen} | last {last_seen}\n\n"
-        "► [ 🔌 ROOT / ENTITIES ] ────────────\n"
-        "{system_override_pet_lines}"
-        "\n▲ 🕹️ ID: <code>{user_id}</code> ▲\n"
-        "<i>*&gt;_ Проснись, Нео. Ты всё ещё в чате… ▮*</i> 🟢"
+        ">_ USER: {ник} 📟\n"
+        ">_ AUTH: {глобал_ранг}\n"
+        ">_ NODE: {локал_ранг}\n"
+        ">_ SYNC: {уровень}\n"
+        "  ↳ [{bar}] {pct}% ⚡\n\n"
+        "► [ROOT/ASSETS]\n"
+        "/// CRDT: {мора} 🔌\n"
+        "/// CRYPT: {алмазы} 🌐\n"
+        "/// DARK: {темная_мора} 🌑\n"
+        "/// ZARN: {зарники} ⚡\n\n"
+        "► [ROOT/STATUS]\n"
+        "/// REP: {репутация} ⚙️\n"
+        "/// ACHV: {ачивки} 🔓\n"
+        "/// ERR: {warns} ⚠️\n\n"
+        "► [ROOT/LOG]\n"
+        "/// MSG: {дни}д|{недели}н 📊\n"
+        "  ↳ all: {всего} 🕹️\n"
+        "/// SEEN: init {дата}\n"
+        "  ↳ last {last_seen}\n"
+        "/// LINK: {брак_инфо} 💟\n\n"
+        "► [ROOT/ENTITIES]\n"
+        "[*] PORT_01: {pet_a_name}\n"
+        "  ↳ [v{pet_a_level}.0] {pet_a_fatigue}\n"
+        "[*] PORT_02: {pet_p_name}\n"
+        "  ↳ [v{pet_p_level}.0] {pet_p_fatigue}\n"
+        "  ↳ standby: {кол-во питомцев}\n\n"
+        "▲ ID: {id} ▲\n"
+        "«Проснись, Нео. Ты всё ещё в чате…» ▮ 🟢"
     ),
     "wind_free": (
         "【 🎐 ‧̍̊˙· ВЕТЕР СВОБОДЫ ·˙‧̍̊ 🎐 】\n\n"
-        "👤 <b>{name_upper}</b> ✦ 🌍 {g_rank} 🪽\n"
-        "[ 🗺️ Ранг: 🏘 {l_rank} ]\n"
-        "╰┈➤ 🌬️ Ур. <b>{lvl}</b> [{bar}] <b>{pct}%</b> ✨\n\n"
-        "▽ 【 🎒 ИНВЕНТАРЬ И ЗАСЛУГИ 】\n"
-        "[ 🪙 {mora} Монет ] ✧ [ 💎 {dia} Кристаллов ]\n"
-        "[ ⚖️ Кармы: +0 🪷 ] ✧ [ 🏆 Ачивок: {ach_count} 📜 ]\n\n"
-        "▽ 【 🕊️ АКТИВНОСТЬ В МИРЕ 】\n"
-        "💬 Связь: <b>{d}</b>/дн 🍃 | <b>{w}</b>/нед ✉️ | <b>{a}</b>/вс 🌐\n"
-        "📅 С нами: {first_seen} 🍃 | Был: {last_seen}\n\n"
-        "▽ 【 ⚔️ СПУТНИКИ И ОТРЯД 】\n"
-        "{wind_free_pet_lines}"
-        "\n【 🎐 ID: <code>{user_id}</code> 】\n"
-        "<i>«Разве не прекрасно, когда ветер сам выбирает путь?»</i> 🍃"
+        "👤 {name_upper} 🪽\n"
+        "🌍 {глобал_ранг}\n"
+        "🏘 {локал_ранг}\n"
+        "╰┈➤ 🌬️ Ур.{уровень} [{bar}] {pct}% ✨\n\n"
+        "▽ 【 ЗАСЛУГИ 】\n"
+        "🪙 Монет: {мора}\n"
+        "💎 Кристаллов: {алмазы}\n"
+        "🌑 Тьмы: {темная_мора}\n"
+        "✨ Звёзд: {зарники}\n"
+        "🪷 Кармы: {репутация}\n"
+        "📜 Ачивок: {ачивки}\n"
+        "⚠️ Штрафов: {warns}\n\n"
+        "▽ 【 АКТИВНОСТЬ 】\n"
+        "🍃 {дни}д | ✉️ {недели}н\n"
+        "╰┈➤ всего: {всего} 🌐\n"
+        "📅 С нами: {дата} 🍃\n"
+        "╰┈➤ Был: {last_seen}\n"
+        "💞 Узы: {брак_инфо}\n\n"
+        "▽ 【 СПУТНИКИ И ОТРЯД 】\n"
+        "🐾 Слот I: {pet_a_name}\n"
+        "╰┈➤ Ранг {pet_a_level} {pet_a_fatigue} 🔥\n"
+        "🐾 Слот II: {pet_p_name}\n"
+        "╰┈➤ Ранг {pet_p_level} {pet_p_fatigue} 🌙\n"
+        "╰┈➤ в отряде: {кол-во питомцев}\n\n"
+        "【 🎐 ID: {id} 】\n"
+        "«Разве не прекрасно, когда ветер сам выбирает путь?» 🍃"
     ),
     "empire": (
         "<pre>  ღ꧁ღ╭⊱ꕥꕥ⊱╮ღ꧂ღ\n"
@@ -450,36 +585,44 @@ _DEFAULT_RAW_TEMPLATES: dict[str, str] = {
         "           𝆺𝅥 \n"
         "           𝆺𝅥\n"
         "           𝆺𝅥</pre>\n"
-        "❀° ┄────────────────────────╮\n"
-        "👤 Имя, <b>{nm}</b>\n"
-        "🌍 Звание: {g_rank}\n"
-        "🏘  Чин: {l_rank}\n"
-        "⚜️ Ур.<b>{lvl}</b> {empire_bar_el}\n"
-        "╰────────────────────────┄ °❀\n\n"
-        "❀° ┄────────────────────────╮\n"
-        "╰► ⋆⋅☆⋅⋆ 《 АКТИВЫ 》 ⋆⋅☆⋅⋆ ──\n"
-        "▫️ 🪙: {mora} | 💎: {dia}\n"
-        "▫️ 🌑: {dark} | ✨: {zar}\n"
-        "▫️ ⚖️: +0 | 🏆: {ach_count}\n"
-        "╰───────────────────────── °❀\n\n"
-        "❀° ┄────────────────────────╮\n"
-        "╰► ⋆⋅☆⋅⋆ 《 ПРИЁМЫ 》 ⋆⋅☆⋅⋆ ──\n"
-        "▫️ В замке с:\n"
-        "▫️ {d}д | {w}н | {a}вс\n"
-        "▫️ Династия: {marr}\n"
-        "▫️ При дворе с: {first_seen}\n"
-        "▫️ Послед. визит: {last_seen}\n"
-        "╰───────────────────────── °❀\n\n"
-        "❀° ┄────────────────────────╮\n"
-        "╰► ⊹⊱•••《 СВИТА 》•••⊰⊹ ──\n"
-        "▫️ 🦊 Актив: {empire_active_pet}\n"
-        "▫️ 🐺 Пассив: {empire_passive_n}\n"
-        "╰───────────────────────── °❀\n\n"
-        "・✦▭▭▭✧◦<code>{user_id}</code>◦✧▭▭▭✦ ・\n\n\n"
-        "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉❉⊱•═•⊰\n"
-        "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉❉⊱•═•⊰\n"
-        "<i>У роскоши нет предела, есть только цена…» ✨</i>\n"
-        "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉❉⊱•═•⊰"
+        "❀° ┄────────────────╮\n"
+        "👤 Имя: {ник}\n"
+        "🌍 Звание: {глобал_ранг}\n"
+        "🏘 Чин: {локал_ранг}\n"
+        "⚜️ Ур.{уровень}\n"
+        "╰┈➤ {empire_bar_el} {pct}%\n"
+        "╰────────────────┄ °❀\n\n"
+        "❀° ┄────────────────╮\n"
+        "╰► ⋆⋅☆⋅⋆ 《 АКТИВЫ 》 ⋆⋅☆⋅⋆\n"
+        "▫️ 🪙: {мора}\n"
+        "▫️ 💎: {алмазы}\n"
+        "▫️ 🌑: {темная_мора}\n"
+        "▫️ ✨: {зарники}\n"
+        "▫️ ⚖️: {репутация}\n"
+        "▫️ 🏆: {ачивки}\n"
+        "▫️ ⚠️: {warns}\n"
+        "╰────────────────── °❀\n\n"
+        "❀° ┄────────────────╮\n"
+        "╰► ⋆⋅☆⋅⋆ 《 ХРОНИКИ 》 ⋆⋅☆⋅⋆\n"
+        "▫️ {дни}д | {недели}н\n"
+        "╰┈➤ всего: {всего}\n"
+        "▫️ При дворе с: {дата}\n"
+        "╰┈➤ Визит: {last_seen}\n"
+        "▫️ Династия: {брак_инфо}\n"
+        "╰────────────────── °❀\n\n"
+        "❀° ┄────────────────╮\n"
+        "╰► ⊹⊱•••《 СВИТА 》•••⊰⊹\n"
+        "▫️ 🦊 {pet_a_name}\n"
+        "╰┈➤ ур.{pet_a_level} {pet_a_fatigue}\n"
+        "▫️ 🐺 {pet_p_name}\n"
+        "╰┈➤ ур.{pet_p_level} {pet_p_fatigue}\n"
+        "╰┈➤ в свите: {кол-во питомцев}\n"
+        "╰────────────────── °❀\n\n"
+        "・✦▭▭▭✧◦{id}◦✧▭▭▭✦・\n\n"
+        "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉\n"
+        "«У роскоши нет предела,\n"
+        "есть только цена…» ✨\n"
+        "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉"
     ),
 }
 
@@ -597,374 +740,19 @@ def _render_premium_impl(template_id: str, user_id: int, name: str,
     def _pdup(p): return (p.get("duplicates_collected", 0) or 0) if p else 0
     def _pfat(p): return _fatigue_icon(p.get("fatigue", 0)) if p else "⚪"
 
-    # ── Theme Lab: кастомный raw-шаблон из БД (правки без деплоя) ────────────
-    if override_raw_text:
-        ctx = _build_template_ctx(
-            user_id=user_id, name=name, nm=nm, name_upper=name_upper, g_rank=g_rank, l_rank=l_rank,
-            lvl=lvl, pct=pct, bar=bar, mora=mora, dia=dia, dark=dark, zar=zar,
-            d=d, w=w, a=a, ach_count=ach_count, warns=warns, marr=marr,
-            first_seen=first_seen, last_seen=last_seen, is_vip=is_vip,
-            marriage=marriage, partner_raw=partner_raw,
-            pets_active=pets_active, pets_passive=pets_passive,
-            _pa=_pa, _pp=_pp, _pnm=_pnm, _plv=_plv, _pfat=_pfat, _pdup=_pdup,
-        )
-        return _safe_format(override_raw_text, ctx)
-
-    # 1. 🐧 LINUX (Kernel Shell)
-    if template_id == "linux":
-        vip_line = "[💎 VIP: АКТИВЕН]" if is_vip else "[VIP: неактивен]"
-        pet1 = f"🦅 {_pnm(_pa)} [L{_plv(_pa)},{_pfat(_pa)},{_pdup(_pa)}дуб]" if _pa else "🦅 —"
-        pet2 = f"🐢 {_pnm(_pp)} [L{_plv(_pp)},{_pfat(_pp)},{_pdup(_pp)}дуб]" if _pp else "🐢 —"
-        return (
-            f"predvestnik@root:~/user/data#\n"
-            f"{vip_line}\n"
-            f"👤 Юзер: <b>{nm}</b>\n"
-            f"🌍 Глобал: {g_rank}\n"
-            f"🏘 Локал: {l_rank}\n"
-            f"🔋 Ядро: Ур.<b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
-            f"&gt;_ [FS_RESOURCES]\n"
-            f"🪙 Мора: {mora} | 💎 Алм: {dia}\n"
-            f"🌑 ТМ: {dark} | ✨ Зар: {zar}\n"
-            f"⚖️ Реп: 0 | 🏆 Ачив: {ach_count} | ⚠️: {warns}\n\n"
-            f"&gt;_ [LOG_ACTIVITY]\n"
-            f"💬 {d}д | {w}н | {a}всего\n"
-            f"📅 init: {first_seen} | 🕓 last: {last_seen}\n"
-            f"💍 Узы: {marr or 'нет'}\n\n"
-            f"&gt;_ [ENTITIES_LOADER]\n"
-            f"{pet1}\n{pet2}\n\n"
-            f"[ID: <code>{user_id}</code>]\n"
-            f"predvestnik@root:~/exit$ _"
-        )
-
-    # 2. 🖥️ HARDCORE SHELL (Bash Profile)
-    if template_id == "hardcore_shell":
-        _f = round(pct / 10)
-        hb = "#" * _f + "." * (10 - _f)
-        vip_line = "[💎 VIP: ACTIVATED]" if is_vip else "[VIP: OFFLINE]"
-        l1 = f"PET_01: {_pnm(_pa)} | L:{_plv(_pa)}" if _pa else "PET_01: —"
-        l2 = f"PET_02: {_pnm(_pp)} | L:{_plv(_pp)}" if _pp else "PET_02: —"
-        return (
-            f"┌──(<b>{nm}</b> ㉿ predvestnik)\n"
-            f"└─$ cat profile.conf\n"
-            f"{vip_line}\n"
-            f"ID: <code>{user_id}</code>\n"
-            f"LEVEL: {lvl} [{hb}] {pct}%\n"
-            f"REP: 0 | ACHV: {ach_count}\n"
-            f"---------------------------\n"
-            f"CASH: {mora} 🪙 | CRYPT: {dia} 💎\n"
-            f"DARK_M: {dark} 🌑 | ZARN: {zar} ✨\n"
-            f"FIRST_SEEN: {first_seen} | LAST_SEEN: {last_seen}\n"
-            f"---------------------------\n"
-            f"LINK: {marr or '—'}\n"
-            f"{l1}\n{l2}\n"
-            f"---------------------------\n"
-            f"$ ./run_predvestnik.sh\n"
-            f"<i># \"Система работает. Идеально.\"</i>"
-        )
-
-    # 3. 🌌 STARLIGHT
-    if template_id == "starlight":
-        p1 = f"{_pnm(_pa)} (v{_plv(_pa)})" if _pa else "—"
-        p2 = f"{_pnm(_pp)} (v{_plv(_pp)})" if _pp else "—"
-        return (
-            f"⋆ ˚｡ 🌌 S T A R L I G H T ｡˚ ⋆\n\n"
-            f"┊ 🛸 Пилот: <b>{nm}</b>\n"
-            f"┊ 🪐 Сектор: {g_rank}\n"
-            f"┊ 🛰 Узел: {l_rank}\n"
-            f"┊ 🌟 Фаза: <b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
-            f"╰┈➤ ☄️ БОРТОВЫЕ ДАННЫЕ\n"
-            f"  ⌑ 💫 Пыль: {mora} | ☄️ Ядра: {dia}\n"
-            f"  ⌑ ⚖️ Карма: +0 | 🏆 Ачив: {ach_count}\n"
-            f"  ⌑ 📡 Пинг: {d}д|{w}н|{a}вс\n"
-            f"  ⌑ 🛰 Старт: {first_seen} | Сигнал: {last_seen}\n\n"
-            f"╰┈➤ 🛸 ЭКИПАЖ\n"
-            f"  ⌑ 💞 Связь: {marr or 'нет'}\n"
-            f"  ⌑ 🦅 Дрон I: {p1}\n"
-            f"  ⌑ 🐢 Дрон II: {p2}\n\n"
-            f"⋆ ˚｡ 🆔 <code>{user_id}</code> ｡˚ ⋆\n"
-            f"🌟 Каждая звезда — чья-то мечта…"
-        )
-
-    # 4. 🎭 Закрытый Орден (Ложа)
-    if template_id == "order":
-        p1 = f"{_pnm(_pa)} (L{_plv(_pa)})" if _pa else "—"
-        p2 = f"{_pnm(_pp)} (L{_plv(_pp)})" if _pp else "—"
-        return (
-            f"🍷 ✧ ── 🎭 Л О Ж А 🎭 ── ✧ 🍷\n\n"
-            f"◈ Мастер: <b>{nm}</b>\n"
-            f"◈ Совет: {g_rank}\n"
-            f"◈ Ранг: {l_rank}\n"
-            f"◈ Ранг <b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
-            f"♱ 🪙 ФОНД ОРДЕНА\n"
-            f" ▫️ 🪙: {mora} | 💎: {dia} | 🌑: {dark} | ✨: {zar}\n"
-            f" ▫️ ⚖️: 0 | 🏆: {ach_count} | ⚠️: {warns}\n\n"
-            f"♱ 💬 СЛУХИ\n"
-            f" ▫️ {d}д | {w}н | {a}всего\n"
-            f" ▫️ Вступил: {first_seen} | Замечен: {last_seen}\n\n"
-            f"♱ 💍 СОЮЗЫ\n"
-            f" ▫️ Связь: {marr or 'нет'}\n"
-            f" ▫️ Агент I: {p1}\n"
-            f" ▫️ Агент II: {p2}\n\n"
-            f"🍷 ✧ ── 🆔 <code>{user_id}</code>\n"
-            f"🟪 Мы видим то, что скрыто…"
-        )
-
-    # 5. 💠 PRISM OS
-    if template_id == "prism_os":
-        _f2 = round(pct / 100 * 8)
-        pb = "▒" * _f2 + "░" * (8 - _f2)
-        p1 = f"{_pnm(_pa)} &lt;v{_plv(_pa)}&gt;" if _pa else "—"
-        p2 = f"{_pnm(_pp)} &lt;v{_plv(_pp)}&gt;" if _pp else "—"
-        return (
-            f"[ 🪞 P R I S M _ O S 🪞 ]\n\n"
-            f"≼ 💠 ID: <b>{nm}</b>\n"
-            f"≼ 🌐 Сеть: {g_rank}\n"
-            f"≼ 🪩 Хост: {l_rank}\n"
-            f"≼ 🔋 Заряд: Ур.<b>{lvl}</b> {pb} <b>{pct}%</b>\n\n"
-            f"░░░ [ ДАМП ПАМЯТИ ]\n"
-            f"~&gt; ☀️ Фотоны: {mora}\n"
-            f"~&gt; 💠 Осколки: {dia}\n"
-            f"~&gt; 🌈 Резонанс: 0 | 🏆: {ach_count}\n"
-            f"~&gt; 🔊 Сеанс: {d}д/{w}н/{a}вс\n"
-            f"~&gt; 🕓 Аптайм: {first_seen} → {last_seen}\n\n"
-            f"░░░ [ ПЕРИФЕРИЯ ]\n"
-            f"~&gt; 🔗 Линк: {marr or 'нет'}\n"
-            f"~&gt; ⚡ Юнит 1: {p1}\n"
-            f"~&gt; 🌟 Юнит 2: {p2}\n\n"
-            f"[ 🆔 <code>{user_id}</code> ]\n"
-            f"💎 Свет находит путь сквозь кристалл…"
-        )
-
-    # 6. 🕊️ Астральный свет (Авангард)
-    if template_id == "avangard":
-        p1 = f"🦅 {_pnm(_pa)} [L{_plv(_pa)}, {_pfat(_pa)}, {_pdup(_pa)}дуб]" if _pa else "🦅 —"
-        p2 = f"🐢 {_pnm(_pp)} [L{_plv(_pp)}, {_pfat(_pp)}, {_pdup(_pp)}дуб]" if _pp else "🐢 —"
-        return (
-            f"✧ ━━ 🕊️ АВАНГАРД 🕊️ ━━ ✧\n\n"
-            f"✦ <b>{nm}</b>\n"
-            f"✦ {g_rank} / {l_rank}\n"
-            f"✦ Ур.<b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
-            f"✧ ЭКОНОМИКА\n"
-            f" 🪙: {mora} | 💎: {dia} | 🌑: {dark} | ✨: {zar}\n\n"
-            f"✧ ДОСТИЖЕНИЯ\n"
-            f" ⚖️ Реп: 0 | 🏆 Ачив: {ach_count} | ⚠️: {warns}\n"
-            f" 💬 {d}д | {w}н | {a}всего\n"
-            f" 📅 С нами: {first_seen} | Был: {last_seen}\n\n"
-            f"✧ СВИТА\n"
-            f" 💍 Узы: {marr or 'нет'}\n"
-            f" {p1}\n {p2}\n\n"
-            f"✧ ━━ 🆔 <code>{user_id}</code>\n"
-            f"☀️ Сияй, пока можешь…"
-        )
-
-    # ── Декоративные премиум-темы (перенесены из bot/handlers/identity.py —
-    #    единый источник правды для бота и веб-превью) ──────────────────────────
-    if template_id == "starlight_classic":  # старый стиль больше не используется
+    # ── Единый шаблонный движок: override из Theme Lab или дефолт темы ───────
+    ctx = _build_template_ctx(
+        user_id=user_id, name=name, nm=nm, name_upper=name_upper, g_rank=g_rank, l_rank=l_rank,
+        lvl=lvl, pct=pct, bar=bar, mora=mora, dia=dia, dark=dark, zar=zar,
+        d=d, w=w, a=a, ach_count=ach_count, warns=warns, marr=marr,
+        first_seen=first_seen, last_seen=last_seen, is_vip=is_vip,
+        pets_passive=pets_passive,
+        _pa=_pa, _pp=_pp, _pnm=_pnm, _plv=_plv, _pfat=_pfat, _pdup=_pdup,
+    )
+    tpl = override_raw_text or _DEFAULT_RAW_TEMPLATES.get(template_id)
+    if tpl is None:
         return None
-
-    if template_id == "velvet":
-        pet_lines = (f"💜 Узы: {partner_raw}\n" if marriage else "")
-        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
-            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-            lv = p.get("pet_level", 1) or 1
-            pet_lines += f"🥀 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
-        return (
-            f"🟪 ═【 🌹 БАРХАТ 🌹 】═ 🟪\n\n"
-            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-            f"🕯️ Покров {lvl} [{bar}] {pct}%\n\n"
-            f"┄┄ 🧵 ЛАРЕЦ ┄┄\n"
-            f"🧵 Нити: {mora} ⋅ 🌹 {dia}\n"
-            f"🎭 Грация: +0 ⋅ 🏆 {ach_count}\n\n"
-            f"┄┄ 🤫 ШЁПОТЫ ┄┄\n"
-            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
-            f"┄┄ 🌑 ТЕНИ ┄┄\n"
-            f"{pet_lines or '🕸️ Пустота…' + chr(10)}"
-            f"\n🟪 ID: <code>{user_id}</code>\n"
-            f"<i>🟪 Бархат скрывает истинный характер…</i>"
-        )
-
-    if template_id == "prism":
-        pet_lines = (f"💞 Связь: {partner_raw}\n" if marriage else "")
-        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
-            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-            lv = p.get("pet_level", 1) or 1
-            pet_lines += f"🔹 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
-        return (
-            f"✧ ═【 💎 ПРИЗМА 💎 】═ ✧\n\n"
-            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-            f"🔆 Спектр {lvl} [{bar}] {pct}%\n\n"
-            f"┄┄ 🌈 ГРАНИ ┄┄\n"
-            f"🌈 Лучи: {mora} ⋅ 💎 {dia}\n"
-            f"🔅 Блеск: +0 ⋅ 🏆 {ach_count}\n\n"
-            f"┄┄ ✨ ОТРАЖЕНИЯ ┄┄\n"
-            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
-            f"┄┄ 🔮 СПУТНИКИ ┄┄\n"
-            f"{pet_lines or '◇ Пусто…' + chr(10)}"
-            f"\n✧ ID: <code>{user_id}</code>\n"
-            f"<i>💎 Свет находит путь сквозь кристалл…</i>"
-        )
-
-    if template_id == "celestial":
-        pet_lines = (f"💞 Союз: {partner_raw}\n" if marriage else "")
-        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
-            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-            lv = p.get("pet_level", 1) or 1
-            pet_lines += f"🕊️ {safe_html(p['name'])} ({sp}) ур.{lv}\n"
-        return (
-            f"꧁ ━━ ☀️ НЕБЕСНЫЙ ☀️ ━━ ꧂\n\n"
-            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-            f"🕊️ Полёт {lvl} [{bar}] {pct}%\n\n"
-            f"┄┄ ☀️ НЕБЕСА ┄┄\n"
-            f"☀️ Свет: {mora} ⋅ 🌙 {dia}\n"
-            f"😇 Святость: +0 ⋅ 🏆 {ach_count}\n\n"
-            f"┄┄ 🎶 ГИМНЫ ┄┄\n"
-            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
-            f"┄┄ 👼 ХРАНИТЕЛИ ┄┄\n"
-            f"{pet_lines or '☁️ Тихо…' + chr(10)}"
-            f"\n☀️ ID: <code>{user_id}</code>\n"
-            f"<i>☀️ Небо для тех, кто смотрит ввысь…</i>"
-        )
-
-    if template_id == "glass":
-        pet_lines = (f"💞 Узор: {partner_raw}\n" if marriage else "")
-        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
-            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-            lv = p.get("pet_level", 1) or 1
-            pet_lines += f"🧩 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
-        return (
-            f"💠 ═【 🕊️ ВИТРАЖ 🕊️ 】═ 💠\n\n"
-            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-            f"🖼️ Картина {lvl} [{bar}] {pct}%\n\n"
-            f"┄┄ 💠 ОСКОЛКИ ┄┄\n"
-            f"💠 Осколки: {mora} ⋅ 🔷 {dia}\n"
-            f"🌈 Грань: +0 ⋅ 🏆 {ach_count}\n\n"
-            f"┄┄ 🪞 БЛИКИ ┄┄\n"
-            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
-            f"┄┄ 🧩 ФРАГМЕНТЫ ┄┄\n"
-            f"{pet_lines or '⬜ Пусто…' + chr(10)}"
-            f"\n💠 ID: <code>{user_id}</code>\n"
-            f"<i>💠 Каждый осколок — часть картины…</i>"
-        )
-
-    if template_id == "gold":
-        pet_lines = (f"💞 Альянс: {partner_raw}\n" if marriage else "")
-        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
-            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-            lv = p.get("pet_level", 1) or 1
-            pet_lines += f"🦁 {safe_html(p['name'])} ({sp}) ур.{lv}\n"
-        return (
-            f"⚜️ ═【 🪙 АУРУМ 🪙 】═ ⚜️\n\n"
-            f"👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
-            f"👑 Проба {lvl} [{bar}] {pct}%\n\n"
-            f"┄┄ 🪙 ХРАНИЛИЩЕ ┄┄\n"
-            f"🪙 Слитки: {mora} ⋅ 💛 {dia}\n"
-            f"⚖️ Вес: +0 ⋅ 🏆 {ach_count}\n\n"
-            f"┄┄ 🔔 ЭХО ┄┄\n"
-            f"{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
-            f"📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
-            f"┄┄ 🦁 СОКРОВИЩА ┄┄\n"
-            f"{pet_lines or '🕳️ Пусто…' + chr(10)}"
-            f"\n⚜️ ID: <code>{user_id}</code>\n"
-            f"<i>💛 Золото молчит, но его слышат все…</i>"
-        )
-
-    if template_id == "system_override":
-        pet_lines = (f"[+] 🔗 LINK: {partner_raw} 💟\n" if marriage
-                     else "[+] 🔗 LINK: <i>null</i> 💔\n")
-        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
-            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-            lv = p.get("pet_level", 1) or 1
-            pet_lines += f"[*] 🤖 PORT_0{i}: {safe_html(p['name'])} ({sp}) [v{lv}.0]\n"
-        return (
-            f"▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼\n\n"
-            f">_ 👤 USER_ID: <b>{name}</b> 📟\n"
-            f">_ 🛡️ AUTH: <b>{g_rank}</b>\n"
-            f">_ 🏘️ NODE: <b>{l_rank}</b>\n"
-            f">_ 🔋 SYNC: Ур.<b>{lvl}</b> [{bar}] <b>{pct}%</b> ⚡\n\n"
-            f"► [ 💾 ROOT / ASSETS ] ──────────────\n"
-            f"/// 🪙 CRDT: <b>{mora}</b> 🔌 /// 💎 CRYPT: <b>{dia}</b> 🌐\n\n"
-            f"► [ 📡 ROOT / DATA ] ────────────────\n"
-            f"/// ⚖️ REP: +0 ⚙️  /// 🏆 ACHV: <b>{ach_count}</b> 🔓\n"
-            f"/// 💬 LOG: <b>{d}</b>/d 📝 | <b>{w}</b>/w 📊 | <b>{a}</b>/all 🕹️\n"
-            f"/// 🕓 SEEN: init {first_seen} | last {last_seen}\n\n"
-            f"► [ 🔌 ROOT / ENTITIES ] ────────────\n"
-            f"{pet_lines}"
-            f"\n▲ 🕹️ ID: <code>{user_id}</code> ▲\n"
-            f"<i>*&gt;_ Проснись, Нео. Ты всё ещё в чате… ▮*</i> 🟢"
-        )
-
-    elif template_id == "wind_free":
-        pet_lines = (f"💍 Узы: {partner_raw} 💞\n" if marriage else "")
-        for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
-            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
-            lv = p.get("pet_level", 1) or 1
-            pet_lines += f"🐾 Слот {['I','II'][i-1]}: <b>{safe_html(p['name'])}</b> ({sp}) ⟡ Ранг {lv} {'🔥' if i==1 else '🌙'}\n"
-        return (
-            f"【 🎐 ‧̍̊˙· ВЕТЕР СВОБОДЫ ·˙‧̍̊ 🎐 】\n\n"
-            f"👤 <b>{name_upper}</b> ✦ 🌍 {g_rank} 🪽\n"
-            f"[ 🗺️ Ранг: 🏘 {l_rank} ]\n"
-            f"╰┈➤ 🌬️ Ур. <b>{lvl}</b> [{bar}] <b>{pct}%</b> ✨\n\n"
-            f"▽ 【 🎒 ИНВЕНТАРЬ И ЗАСЛУГИ 】\n"
-            f"[ 🪙 {mora} Монет ] ✧ [ 💎 {dia} Кристаллов ]\n"
-            f"[ ⚖️ Кармы: +0 🪷 ] ✧ [ 🏆 Ачивок: {ach_count} 📜 ]\n\n"
-            f"▽ 【 🕊️ АКТИВНОСТЬ В МИРЕ 】\n"
-            f"💬 Связь: <b>{d}</b>/дн 🍃 | <b>{w}</b>/нед ✉️ | <b>{a}</b>/вс 🌐\n"
-            f"📅 С нами: {first_seen} 🍃 | Был: {last_seen}\n\n"
-            f"▽ 【 ⚔️ СПУТНИКИ И ОТРЯД 】\n"
-            f"{pet_lines or '🐾 Питомников нет…' + chr(10)}"
-            f"\n【 🎐 ID: <code>{user_id}</code> 】\n"
-            f"<i>«Разве не прекрасно, когда ветер сам выбирает путь?»</i> 🍃"
-        )
-
-    elif template_id == "empire":
-        passive_n = len(pets_passive)
-        active_pet = _pnm(_pa) if _pa else "—"
-        _ef = round(pct / 100 * 8)
-        bar_el = "▆" * _ef + "▃" * (8 - _ef)
-        return (
-            "<pre>  ღ꧁ღ╭⊱ꕥꕥ⊱╮ღ꧂ღ\n"
-            "  |    Э Л И Т А    |\n"
-            "  ╰⊱♥⊱╮ღ꧁꧂ღ╭⊱♥≺╯\n"
-            "           𝆺𝅥 \n"
-            "           𝆺𝅥\n"
-            "           𝆺𝅥</pre>\n"
-            "❀° ┄────────────────────────╮\n"
-            f"👤 Имя, <b>{nm}</b>\n"
-            f"🌍 Звание: {g_rank}\n"
-            f"🏘  Чин: {l_rank}\n"
-            f"⚜️ Ур.<b>{lvl}</b> {bar_el}\n"
-            "╰────────────────────────┄ °❀\n\n"
-            "❀° ┄────────────────────────╮\n"
-            "╰► ⋆⋅☆⋅⋆ 《 АКТИВЫ 》 ⋆⋅☆⋅⋆ ──\n"
-            f"▫️ 🪙: {mora} | 💎: {dia}\n"
-            f"▫️ 🌑: {dark} | ✨: {zar}\n"
-            f"▫️ ⚖️: +0 | 🏆: {ach_count}\n"
-            "╰───────────────────────── °❀\n\n"
-            "❀° ┄────────────────────────╮\n"
-            "╰► ⋆⋅☆⋅⋆ 《 ПРИЁМЫ 》 ⋆⋅☆⋅⋆ ──\n"
-            "▫️ В замке с:\n"
-            f"▫️ {d}д | {w}н | {a}вс\n"
-            f"▫️ Династия: {marr or 'нет'}\n"
-            f"▫️ При дворе с: {first_seen}\n"
-            f"▫️ Послед. визит: {last_seen}\n"
-            "╰───────────────────────── °❀\n\n"
-            "❀° ┄────────────────────────╮\n"
-            "╰► ⊹⊱•••《 СВИТА 》•••⊰⊹ ──\n"
-            f"▫️ 🦊 Актив: {active_pet}\n"
-            f"▫️ 🐺 Пассив: {passive_n}\n"
-            "╰───────────────────────── °❀\n\n"
-            f"・✦▭▭▭✧◦<code>{user_id}</code>◦✧▭▭▭✦ ・\n\n\n"
-            "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉❉⊱•═•⊰\n"
-            "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉❉⊱•═•⊰\n"
-            "<i>У роскоши нет предела, есть только цена…» ✨</i>\n"
-            "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉❉⊱•═•⊰"
-        )
-
-    return None
+    return _safe_format(tpl, ctx)
 
 
 # ── main render function ───────────────────────────────────────────────────────
