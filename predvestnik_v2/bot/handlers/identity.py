@@ -115,6 +115,7 @@ def _render_premium_profile(
     partner_display: str | None = None,
     dark_v: float = 0, zar_v: float = 0, is_vip: bool = False,
     first_seen: str = "—", last_seen: str = "—",
+    override_raw_text: str | None = None,
 ) -> str | None:
     """Премиум-рендер профиля — ЕДИНЫЙ источник правды в services.profile_render
     (бот и веб-превью рендерят одинаково). Делегируем туда; ветки ниже —
@@ -125,6 +126,7 @@ def _render_premium_profile(
         mora_v, dia_v, d_msgs, w_msgs, a_msgs,
         streak, ach_count, warns, marriage, nursery_pets,
         partner_display, dark_v, zar_v, is_vip, first_seen, last_seen,
+        override_raw_text=override_raw_text,
     )
     bar  = _premium_bar(pct)
     mora = _compact(mora_v)
@@ -568,7 +570,9 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
     premium_tpl = theme.get("premium_template")
     if premium_tpl:
         from services.vip import is_vip_active
+        from infrastructure.repositories import theme_templates as theme_tpl_repo
         is_vip = await is_vip_active(db, user_id)
+        override_raw = await theme_tpl_repo.get_override(db, premium_tpl)
         premium_text = _render_premium_profile(
             premium_tpl, user_id, name,
             g_rank, l_rank,
@@ -578,6 +582,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
             streak, ach_count, warns,
             marriage, nursery_pets,
             partner_display, dark_v, zar_v, is_vip, join_str, last_str,
+            override_raw_text=override_raw,
         )
         if premium_text:
             await message.answer(premium_text, parse_mode="HTML")
