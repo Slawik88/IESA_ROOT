@@ -20,7 +20,7 @@ const _initChatId = _urlChatId || _tgChat?.id || 0;   // primary chat_id for loc
 const _initChatTitle = _tgChat?.title || '';
 
 let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='duels';
-let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='auc';
+let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='vip';
 let _proTab='main', _profileData=null;
 let _achData=null, _achSort='default', _invSearch='', _themeFilter='all';
 let _bpData=null;
@@ -144,10 +144,14 @@ el('modal').addEventListener('cancel',()=>{document.body.classList.remove('modal
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _loaded=new Set();
 // Единая маршрутизация по ИМЕНИ страницы. Подсветка нижнего дока — по data-page;
-// вторичные разделы (coll/admin/global) подсвечивают «Ещё».
+// вторичные разделы (открытые через «Ещё») подсвечивают «Ещё».
 let _activePage = 'profile';
-const _PAGE_LOADERS = {zoo:loadZoo, arena:loadArena, market:loadMarket,
-                       coll:loadColl, admin:loadAdmin, global:loadGlobal};
+const _PAGE_LOADERS = {
+  zoo:loadZoo, arena:loadArena, market:loadMarket,
+  quests:loadQuestsPage, bp:loadBattlePass, ach:loadAch, bestiary:renderZooGuide,
+  craft:loadCraft, auction:loadAuctionPage, hof:loadTop,
+  admin:loadAdmin, global:loadGlobal, help:()=>{}
+};
 function switchPage(name, _btn) {
   if(!el('pg-'+name)) return;
   _activePage = name;
@@ -165,7 +169,7 @@ function switchPage(name, _btn) {
 }
 
 // Единая программная навигация — шорткаты в карточках/модалках.
-// goTo('zoo') · goTo('profile','streak') · goTo('market','gacha')
+// goTo('zoo') · goTo('quests','streak') · goTo('market','gacha')
 // Закрывает открытую модалку/меню (CM) — нужно для шорткатов внутри окон.
 function goTo(page, tab) {
   CM();
@@ -176,29 +180,24 @@ function goTo(page, tab) {
   }, 80);
 }
 
-// ── «Ещё» — bottom-sheet с grid-карточками вторичных разделов ──────────────────
-function openMoreMenu() {
+// ── «Ещё» — Control Center: карточка «Управление» ведёт в Админку/Модерацию ────
+function openManageMenu() {
   const isAdmin = !!(_adminChats && _adminChats.length);
   const gRank = _profileData?.global_rank || 0;
-  const cards = [
-    {ic:'🎨', t:'Коллекция', s:'Темы профиля', f:"goTo('coll')"},
-    {ic:'🏆', t:'Топы', s:'Рейтинги', f:"goTo('coll','top')"},
-  ];
-  if(isAdmin) cards.push({ic:'🛡', t:'Админка', s:'Управление чатом', f:"goTo('admin')"});
-  if(gRank>=1) cards.push({ic:'🌍', t:'Модерация', s:'Глобальная', f:"goTo('global')"});
-  cards.push({ic:'🔄', t:'Обновить', s:'Перезагрузить', f:"CM();refreshPage()"});
-  const grid = `<div class="more-grid">${cards.map(c=>`
-    <div class="more-card" onclick="${c.f}">
-      <span class="mc-ic">${c.ic}</span>
-      <span class="mc-t">${c.t}</span>
-      <span class="mc-s">${c.s}</span>
-    </div>`).join('')}</div>`;
-  OM('Меню', grid, []);
+  if (isAdmin && gRank>=1) {
+    OM('⚙️ Управление', `<div class="more-grid">
+      <div class="more-card" onclick="goTo('admin')"><span class="mc-ic">🛡</span><span class="mc-t">Админка чата</span><span class="mc-s">Модерация</span></div>
+      <div class="more-card" onclick="goTo('global')"><span class="mc-ic">🌍</span><span class="mc-t">Глобальная</span><span class="mc-s">Сеть чатов</span></div>
+    </div>`, []);
+  } else if (isAdmin) goTo('admin');
+  else if (gRank>=1) goTo('global');
 }
-function _updateMoreBadge() {
+function _updateMoreCard() {
   const staff = (_adminChats && _adminChats.length) || (_profileData?.global_rank||0) >= 1;
-  const more = el('nb-more');
-  if(more) more.classList.toggle('has-badge', !!staff);
+  const c = el('cc-manage');
+  if(c) c.style.display = staff ? '' : 'none';
+  const hs = el('help-staff');
+  if(hs) hs.style.display = staff ? '' : 'none';
 }
 
 // ── Profile ───────────────────────────────────────────────────────────────────
@@ -232,7 +231,7 @@ function loadProfile() {
           <div class="stat"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора</div></div>
           <div class="stat"><div>💎</div><div class="sv">${d.diamonds.toFixed(1)}</div><div class="sl">Алмазы</div></div>
           <div class="stat clickable" onclick="${(d.zarniki||0)>0?'openExchangeZarnikiModal()':"goTo('market','vip')"}"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">${(d.zarniki||0)>0?'Зарники 🔄':'Зарники +'}</div></div>
-          <div class="stat clickable" onclick="goTo('profile','ach')"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
+          <div class="stat clickable" onclick="goTo('ach')"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0 0;margin-top:11px;border-top:1px solid var(--border2)">
           <span style="font-size:10.5px;color:var(--muted)">🆔 <code>${uid}</code></span>
@@ -242,9 +241,9 @@ function loadProfile() {
 
       <!-- Быстрые действия: всё важное в 1 клик -->
       <div class="qa-row">
-        <div class="qa qa-hot" onclick="goTo('profile','streak')"><span>🔥</span>Стрик ${d.streak}</div>
-        <div class="qa" onclick="goTo('profile','quests')"><span>📋</span>Квесты</div>
-        <div class="qa" onclick="goTo('profile','bp')"><span>🎫</span>Пропуск</div>
+        <div class="qa qa-hot" onclick="goTo('quests','streak')"><span>🔥</span>Стрик ${d.streak}</div>
+        <div class="qa" onclick="goTo('quests')"><span>📋</span>Квесты</div>
+        <div class="qa" onclick="goTo('bp')"><span>🎫</span>Пропуск</div>
         <div class="qa" onclick="goTo('zoo')"><span>🍖</span>Питомцы</div>
       </div>
 
@@ -274,7 +273,7 @@ function loadProfile() {
         <div class="card-title">💬 Активность</div>
         ${d.chats.map(c=>`<div class="irow"><span class="ik">${c.chat_title||'Чат'}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}
         <div class="shortcut-row">
-          <span class="shortcut-link" onclick="goTo('coll','top')">Посмотреть топ →</span>
+          <span class="shortcut-link" onclick="goTo('hof')">Посмотреть топ →</span>
         </div>
       </div>`:''}
       <div id="wallet-mini"></div>`;
@@ -756,7 +755,6 @@ function swZoo(tab,btn) {
 }
 
 function renderZoo(tab) {
-  if(tab==='guide'){renderZooGuide();return;}
   if(!_zooData)return;
   let pets;
   if(tab==='nursery') pets=_zooData.pets.filter(p=>p.placement!=='storage');
@@ -791,7 +789,7 @@ function renderZoo(tab) {
         <span style="font-size:14px;font-weight:700;color:${occupied>=maxSlots?'var(--red)':'var(--green)'}">${occupied}/${maxSlots}</span>
       </div>
       ${occupied>=maxSlots&&expandQty===0&&maxSlots<6?`
-        <div style="margin-top:6px;font-size:10px;color:var(--muted)">🔒 Слоты заполнены. <span style="color:var(--gold);cursor:pointer" onclick="goTo('market','shop')">Купи 🏡 Расширитель в Магазине</span></div>`:''}
+        <div style="margin-top:6px;font-size:10px;color:var(--muted)">🔒 Слоты заполнены. <span style="color:var(--gold);cursor:pointer" onclick="goTo('market','goods')">Купи 🏡 Расширитель в Магазине</span></div>`:''}
       ${expandQty>0&&maxSlots<6?`
         <div style="margin-top:8px;border-top:1px solid var(--border2);padding-top:8px">
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px">В инвентаре: 🏡 Расширитель слота ×${expandQty}</div>
@@ -1064,9 +1062,9 @@ function boostExp(pid,bid,row) {
 let _bestiaryFilter='all';
 function renderZooGuide() {
   if(_showcaseData){_renderBestiary();return;}
-  el('zoo-c').innerHTML='<div class="loader">Загрузка...</div>';
+  el('best-c').innerHTML='<div class="loader">Загрузка...</div>';
   api('/zoo/species').then(list=>{_showcaseData=list;_renderBestiary();})
-    .catch(e=>{el('zoo-c').innerHTML=`<div class="err">${e}</div>`;});
+    .catch(e=>{el('best-c').innerHTML=`<div class="err">${e}</div>`;});
 }
 function setBestiaryFilter(r){_bestiaryFilter=r;_renderBestiary();}
 function _renderBestiary() {
@@ -1099,7 +1097,7 @@ function _renderBestiary() {
         </div>`;
       }).join('')}
     </div>`).join('');
-  el('zoo-c').innerHTML=filterRow+(body||`<div class="empty-state"><div class="es-icon">🔍</div><div class="es-title">Пусто</div><div class="es-sub">Нет видов этой редкости</div></div>`);
+  el('best-c').innerHTML=filterRow+(body||`<div class="empty-state"><div class="es-icon">🔍</div><div class="es-title">Пусто</div><div class="es-sub">Нет видов этой редкости</div></div>`);
 }
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
 
@@ -1570,7 +1568,7 @@ function openCreateLotModal() {
       </div>`;
       el('mf').innerHTML = `
         <button class="btn btn-ghost btn-sm" onclick="CM()">Закрыть</button>
-        <button class="btn btn-gold btn-sm" onclick="goTo('market','shop')">🛒 В Магазин</button>`;
+        <button class="btn btn-gold btn-sm" onclick="goTo('market','goods')">🛒 В Магазин</button>`;
       return;
     }
     _invForAuction = tradable;
@@ -1849,7 +1847,7 @@ const SRC = {
   start:          {label:'Стартовая',     desc:'Есть у всех игроков с самого начала. Бесплатно!', action:null},
   shop_mora:      {label:'Магазин 🪙',    desc:'Купите напрямую в Магазине за Мору.', action:null},
   shop_diamond:   {label:'Магазин 💎',    desc:'Купите в Магазине за Алмазы.', action:null},
-  dark:           {label:'Чёрный Рынок 🌑', desc:'Покупается за Тёмную Мору на Чёрном Рынке. Зарабатывайте Тёмную Мору через Контрабанду и Ритуал Культа Бездны.', action:{l:'🌑 Открыть Тёмную Мору', f:"goTo('market','dark')"}},
+  dark:           {label:'Чёрный Рынок 🌑', desc:'Покупается за Тёмную Мору на Чёрном Рынке. Зарабатывайте Тёмную Мору через Контрабанду и Ритуал Культа Бездны.', action:{l:'🌑 Открыть Тёмную Мору', f:"goToDarkMora()"}},
   zarniki:        {label:'Зарники ✨',     desc:'Приобретается за донат-валюту Зарники (Telegram Stars). 1 Звезда = 10 Зарников.',
                    action:{l:'✨ Пополнить Зарники', f:"goTo('market','vip')"}},
   gacha_novice:   {label:'Гача 🎲',       desc:'Может выпасть из Ученической крутки гачи. Шанс — случайный.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
@@ -1857,23 +1855,14 @@ const SRC = {
   gacha_premium:  {label:'Гача 🎲',       desc:'Может выпасть из Премиум крутки гачи (2800 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
   gacha_diamond:  {label:'Гача 💎',       desc:'Выпадает из Алмазной крутки гачи (5 💎 / спин). Самые редкие темы.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
   event:          {label:'Ивент 🎪',      desc:'Выдаётся за участие в особых мировых событиях. Следите за объявлениями в чате.', action:null},
-  auction:        {label:'Аукцион 🏛',    desc:'Можно купить у других игроков на Аукционе.', action:{l:'🏛 Открыть Аукцион', f:"goTo('market','auc')"}},
+  auction:        {label:'Аукцион 🏛',    desc:'Можно купить у других игроков на Аукционе.', action:{l:'🏛 Открыть Аукцион', f:"goTo('auction')"}},
 };
 
 // goTo() — единая реализация определена выше (с CM + switchPage).
 
 // ── Collection ────────────────────────────────────────────────────────────────
 // _profileData declared in globals above
-
-function loadColl(){swColl('themes',document.querySelector('#pg-coll .tb'));}
-function swColl(tab,btn) {
-  document.querySelectorAll('#pg-coll .tb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  // Витрина питомцев переехала в Зоопарк → Бестиарий
-  ['themes','top'].forEach(t=>el('col-'+t).style.display=t===tab?'':'none');
-  if(tab==='themes') loadThemes();
-  else if(tab==='top') loadTop();
-}
+// Темы → pg-profile (#col-themes), Топы → pg-hof (#top-c, loadTop)
 
 function themeStatusBadge(t) {
   if(t.active)   return '<span class="theme-status ts-active">✓ Активна</span>';
@@ -2171,9 +2160,9 @@ function doEquipTheme(tid) {
 
 // ── Top ───────────────────────────────────────────────────────────────────────
 // Priority: chat where mini app was opened (_initChatId) → profile chat (_cid)
-function loadTop(){switchTop('local',document.querySelector('#col-top .tb'));}
+function loadTop(){switchTop('local',document.querySelector('#pg-hof .tb'));}
 function switchTop(mode, btn) {
-  document.querySelectorAll('#col-top .tb').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#pg-hof .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
 
   const localChatId = _initChatId || _cid;
@@ -2922,32 +2911,70 @@ function doExchangeZarniki(to) {
     });
 }
 
-// ── switchPro — Профиль: Обзор(дашборд+кошелёк) / Квесты / Стрик / Ачивки ───────
+// ── switchPro — Профиль: Обзор(дашборд+кошелёк) / Инвентарь / Темы ──────────────
 // Брак и Ник — карточки в Обзоре. История кошелька — свёрнутая секция внизу Обзора.
 function switchPro(tab, btn) {
   _proTab = tab;
   document.querySelectorAll('#pg-profile .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['main','quests','streak','ach','bp'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
+  ['main','inv','themes'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
   if(tab==='main') loadProfile();
-  else if(tab==='quests') loadQuests();
-  else if(tab==='streak') loadStreak();
-  else if(tab==='ach') loadAch();
-  else if(tab==='bp') loadBattlePass();
+  else if(tab==='inv') loadInventory();
+  else if(tab==='themes') loadThemes();
 }
 
-// ── swMkt — Рынок: вся экономика включая Гачу, Крафт, Тёмную ────────────────────
-// Промокод — модалка (кнопка в шапке Магазина). Гача/Крафт/Тёмная перенесены из Арены.
+// ── swMkt — Магазин: Премиум / Гача / Расходники / Акции дня ────────────────────
+// Промокод — модалка (кнопка в шапке Магазина). Аукцион/Обмен → pg-auction, Крафт → pg-craft.
 function swMkt(tab, _btn) {
   const btn = _btn || document.querySelector(`#pg-market .tb[onclick*="'${tab}'"]`) || document.querySelector('#pg-market .tb');
   _mktTab = tab;
   document.querySelectorAll('#pg-market .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  const bd = el('balrow'); bd.style.display = tab === 'shop' ? 'flex' : 'none';
-  ['auc','shop','gacha','craft','inv','exch','deal','dark','vip'].forEach(t=>el('mkt-'+t).style.display=t===tab?'':'none');
-  ({auc:loadAuction, shop:loadShopCatalog, gacha:loadGacha, craft:loadCraft,
-    inv:loadInventory, exch:loadExchange, deal:loadDeal, dark:loadDarkMora, vip:loadVip}[tab]||loadAuction)();
+  const bd = el('balrow'); bd.style.display = tab === 'goods' ? 'flex' : 'none';
+  ['vip','gacha','goods','deal'].forEach(t=>el(t==='goods'?'mkt-goods':'mkt-'+t).style.display=t===tab?'':'none');
+  ({vip:loadVip, gacha:loadGacha, goods:loadMarketGoods, deal:loadDeal}[tab]||loadVip)();
 }
+
+// ── swGoods — Расходники: 🛒 Обычный (Магазин) / 🌑 Тёмный (Чёрный Рынок) ────────
+let _goodsTab='shop';
+function swGoods(sub, btn) {
+  _goodsTab = sub;
+  document.querySelectorAll('#mkt-goods .tabs .tb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  el('mkt-shop').style.display = sub==='shop' ? '' : 'none';
+  el('mkt-dark').style.display = sub==='dark' ? '' : 'none';
+  el('balrow').style.display='flex';
+  if(sub==='shop') loadShopCatalog(); else loadDarkMora();
+}
+function loadMarketGoods() {
+  swGoods(_goodsTab, document.querySelector(`#mkt-goods .tabs .tb[onclick*="'${_goodsTab}'"]`));
+}
+// Шорткат "Чёрный Рынок" из карточек предметов — открыть Расходники сразу на Тёмном
+function goToDarkMora() { _goodsTab='dark'; goTo('market','goods'); }
+
+// ── swAuction — Аукцион & Обменник ──────────────────────────────────────────────
+let _aucTab='auc';
+function swAuction(tab, btn) {
+  _aucTab = tab;
+  document.querySelectorAll('#pg-auction .tb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  el('mkt-auc').style.display = tab==='auc' ? '' : 'none';
+  el('mkt-exch').style.display = tab==='exch' ? '' : 'none';
+  if(tab==='auc') loadAuction(1); else loadExchange();
+}
+function loadAuctionPage() { swAuction(_aucTab, document.querySelector(`#pg-auction .tb[onclick*="'${_aucTab}'"]`)); }
+
+// ── swQuests — Квесты & Стрик ───────────────────────────────────────────────────
+let _questsTab='quests';
+function swQuests(tab, btn) {
+  _questsTab = tab;
+  document.querySelectorAll('#pg-quests .tb').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  el('pro-quests').style.display = tab==='quests' ? '' : 'none';
+  el('pro-streak').style.display = tab==='streak' ? '' : 'none';
+  if(tab==='quests') loadQuests(); else loadStreak();
+}
+function loadQuestsPage() { swQuests(_questsTab, document.querySelector(`#pg-quests .tb[onclick*="'${_questsTab}'"]`)); }
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
 setInterval(()=>{if(_loaded.has('profile'))loadProfile();},300000);
@@ -3040,7 +3067,7 @@ function loadEvents() {
         <div class="irow"><span class="ik">Курс</span><span>${fmt(ev.exchange_rate)} 🪙 = 1 💎</span></div>
         <div class="irow"><span class="ik">Лимит</span><span>${fmt(ev.exchange_cap)} 💎/день</span></div>
         ${msLeft>0?`<div class="irow"><span class="ik">До конца</span><span style="color:var(--gold)">${fmtTime(msLeft)}</span></div>`:''}
-        <button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%" onclick="goTo('market','exch')">Перейти к обмену</button>
+        <button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%" onclick="goTo('auction','exch')">Перейти к обмену</button>
       </div>`;
     } else if(ev.exchange_next) {
       const en=ev.exchange_next;
@@ -3135,7 +3162,7 @@ function loadAdmin() {
       el('adm-dash').innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--muted)">У вас нет прав модератора ни в одном чате.<br>Обратитесь к администратору чата.</div>';
       return;
     }
-    _updateMoreBadge();
+    _updateMoreCard();
     _adminChatId=_adminChats[0].chat_tg_id;
     renderAdminChatSel();
     loadAdminDash();
@@ -3608,15 +3635,18 @@ function checkAdminAccess() {
   if(!_uid) return;
   api('/admin/my-chats').then(d=>{
     _adminChats=d.chats||[];
-    _updateMoreBadge();
+    _updateMoreCard();
   }).catch(()=>{});
 }
 // Refresh current page data
 function refreshPage() {
   const page = _activePage;
-  const loaders = {profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();},
-                   arena:loadArena, market:loadMarket, coll:loadColl, admin:()=>{_adminChats=null;loadAdmin();},
-                   global:loadGlobal};
+  const loaders = {
+    profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();}, arena:loadArena, market:loadMarket,
+    quests:loadQuestsPage, bp:loadBattlePass, ach:loadAch, bestiary:renderZooGuide,
+    craft:loadCraft, auction:loadAuctionPage, hof:loadTop,
+    admin:()=>{_adminChats=null;loadAdmin();}, global:loadGlobal
+  };
   if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('🔄 Обновлено!'); }
 }
 
@@ -4235,5 +4265,5 @@ function checkGlobalAccess() {
     const tr=el('glb-tab-ranks'); if(tr) tr.style.display=rank>=3?'':'none';
     const td=el('glb-tab-dev'); if(td) td.style.display=rank>=3?'':'none';
   }
-  _updateMoreBadge();
+  _updateMoreCard();
 }
