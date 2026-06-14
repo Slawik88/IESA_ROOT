@@ -4028,6 +4028,7 @@ function loadGlobalDev() {
         <button class="btn btn-gold" style="flex:1" onclick="devTLSave()">💾 Сохранить</button>
         <button class="btn btn-red" style="flex:1" onclick="devTLReset()">↩️ Сброс</button>
       </div>
+      <button class="btn btn-ghost btn-full" style="margin-bottom:6px" onclick="devTLSendTest()">📤 Тест в Telegram (себе в ЛС)</button>
       <div id="dev-tl-status" style="font-size:10px;margin-bottom:6px"></div>
       <div id="dev-tl-preview"></div>
     </div>
@@ -4244,6 +4245,15 @@ function devTLSave() {
       _devTLRefreshBadges();
       devTLPreview();
     })
+    .catch(e=>toast(e,false));
+}
+function devTLSendTest() {
+  const tid=el('dev-tl-template')?.value;
+  const text=el('dev-tl-text')?.value??'';
+  if(!tid||!text.trim()) return toast('Пустой шаблон',false);
+  toast('📤 Отправляю...');
+  api(`/admin/dev/theme-templates/${tid}/send-test`,{method:'POST',body:JSON.stringify({raw_text:text})})
+    .then(()=>toast('✅ Отправлено себе в Telegram — проверь чат с ботом'))
     .catch(e=>toast(e,false));
 }
 function devTLReset() {

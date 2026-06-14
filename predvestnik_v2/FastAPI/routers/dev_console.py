@@ -484,27 +484,51 @@ class ThemeTemplateRequest(BaseModel):
     raw_text: str
 
 
+def _theme_id_for_template(template_id: str) -> str | None:
+    return next((tid for tid, t in THEMES.items() if t.get("premium_template") == template_id), None)
+
+
+async def _render_theme_preview(db, user_id: int, theme_id: str, raw_text: str) -> str:
+    async with db.execute(
+        "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
+        "ORDER BY user_messages_count_all_time DESC LIMIT 1",
+        (user_id,),
+    ) as c:
+        _cr = await c.fetchone()
+    chat_id = _cr[0] if _cr else 0
+    return await build_profile_text(db, user_id, chat_id, theme_id_override=theme_id,
+                                     raw_template_override=raw_text)
+
+
 @router.post("/theme-templates/{template_id}/preview")
 async def dev_theme_template_preview(template_id: str, body: ThemeTemplateRequest,
                                       db=Depends(get_db), user=Depends(require_tg_user)):
     _require_dev(user)
     if get_default_raw_template(template_id) is None:
         raise HTTPException(404, "Неизвестный шаблон.")
-    theme_id = next((tid for tid, t in THEMES.items() if t.get("premium_template") == template_id), None)
+    theme_id = _theme_id_for_template(template_id)
     if not theme_id:
         raise HTTPException(404, "Тема не найдена.")
-
-    async with db.execute(
-        "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
-        "ORDER BY user_messages_count_all_time DESC LIMIT 1",
-        (user["id"],),
-    ) as c:
-        _cr = await c.fetchone()
-    chat_id = _cr[0] if _cr else 0
-
-    text = await build_profile_text(db, user["id"], chat_id, theme_id_override=theme_id,
-                                     raw_template_override=body.raw_text)
+    text = await _render_theme_preview(db, user["id"], theme_id, body.raw_text)
     return {"text": text}
+
+
+@router.post("/theme-templates/{template_id}/send-test")
+async def dev_theme_template_send_test(template_id: str, body: ThemeTemplateRequest,
+                                        db=Depends(get_db), user=Depends(require_tg_user)):
+    """Шлёт разработчику в личку с ботом РЕАЛЬНОЕ сообщение с этим шаблоном —
+    100% то же, что увидит игрок (рендер Telegram-клиента, не браузера)."""
+    _require_dev(user)
+    if get_default_raw_template(template_id) is None:
+        raise HTTPException(404, "Неизвестный шаблон.")
+    theme_id = _theme_id_for_template(template_id)
+    if not theme_id:
+        raise HTTPException(404, "Тема не найдена.")
+    text = await _render_theme_preview(db, user["id"], theme_id, body.raw_text)
+    r = await _tg_call("sendMessage", chat_id=user["id"], text=text, parse_mode="HTML")
+    if not r.get("ok"):
+        raise HTTPException(400, f"Telegram отклонил сообщение: {r.get('description') or r.get('error') or '?'}")
+    return {"ok": True}
 
 
 @router.post("/theme-templates/{template_id}")
