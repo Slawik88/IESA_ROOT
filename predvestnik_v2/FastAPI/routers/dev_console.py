@@ -20,8 +20,15 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.constants import BATTLE_PASS_MAX_LEVEL, BATTLE_PASS_XP_PER_LEVEL
 from core.registry import BATTLE_PASS_SEASONS, ITEMS_REGISTRY, VIP_TIERS
+from core.themes import THEMES
+from infrastructure.repositories import theme_templates as theme_tpl_repo
 from infrastructure.repositories.economy import add_balance, add_item, remove_item
 from services.battle_pass import get_active_season, refresh_seasons_cache
+from services.profile_render import (
+    build_profile_text,
+    get_default_raw_template,
+    get_template_variables,
+)
 from services.roles import GLOBAL_RANKS_MAP, LOCAL_RANKS_MAP
 
 router = APIRouter(prefix="/admin/dev", tags=["dev_console"])
@@ -430,3 +437,90 @@ async def dev_sql(body: SqlRequest, db=Depends(get_db), user=Depends(require_tg_
     for r in rows[:200]:
         out.append({k: (str(v) if v is not None else None) for k, v in dict(r).items()})
     return {"ok": True, "rows": out, "count": len(rows), "truncated": len(rows) > 200}
+
+
+# ── 9. Theme Lab — кастомные raw-шаблоны премиум-тем (правки без деплоя) ──────────
+def _premium_template_list() -> list[dict]:
+    out = []
+    for theme_id, t in THEMES.items():
+        tpl = t.get("premium_template")
+        if tpl:
+            out.append({"template_id": tpl, "theme_id": theme_id, "name": t.get("name", tpl)})
+    return out
+
+
+@router.get("/theme-templates")
+async def dev_theme_templates(db=Depends(get_db), user=Depends(require_tg_user)):
+    _require_dev(user)
+    overrides = await theme_tpl_repo.get_all_overrides(db)
+    out = []
+    for t in _premium_template_list():
+        ov = overrides.get(t["template_id"])
+        out.append({
+            **t,
+            "has_override": ov is not None,
+            "updated_at": str(ov["updated_at"]) if ov else None,
+        })
+    return {"templates": out}
+
+
+@router.get("/theme-templates/{template_id}")
+async def dev_theme_template_get(template_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    _require_dev(user)
+    default_text = get_default_raw_template(template_id)
+    if default_text is None:
+        raise HTTPException(404, "Неизвестный шаблон.")
+    override = await theme_tpl_repo.get_override(db, template_id)
+    return {
+        "template_id": template_id,
+        "raw_text": override if override is not None else default_text,
+        "default_text": default_text,
+        "has_override": override is not None,
+        "variables": get_template_variables(template_id),
+    }
+
+
+class ThemeTemplateRequest(BaseModel):
+    raw_text: str
+
+
+@router.post("/theme-templates/{template_id}/preview")
+async def dev_theme_template_preview(template_id: str, body: ThemeTemplateRequest,
+                                      db=Depends(get_db), user=Depends(require_tg_user)):
+    _require_dev(user)
+    if get_default_raw_template(template_id) is None:
+        raise HTTPException(404, "Неизвестный шаблон.")
+    theme_id = next((tid for tid, t in THEMES.items() if t.get("premium_template") == template_id), None)
+    if not theme_id:
+        raise HTTPException(404, "Тема не найдена.")
+
+    async with db.execute(
+        "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
+        "ORDER BY user_messages_count_all_time DESC LIMIT 1",
+        (user["id"],),
+    ) as c:
+        _cr = await c.fetchone()
+    chat_id = _cr[0] if _cr else 0
+
+    text = await build_profile_text(db, user["id"], chat_id, theme_id_override=theme_id,
+                                     raw_template_override=body.raw_text)
+    return {"text": text}
+
+
+@router.post("/theme-templates/{template_id}")
+async def dev_theme_template_save(template_id: str, body: ThemeTemplateRequest,
+                                   db=Depends(get_db), user=Depends(require_tg_user)):
+    _require_dev(user)
+    if get_default_raw_template(template_id) is None:
+        raise HTTPException(404, "Неизвестный шаблон.")
+    if not body.raw_text.strip():
+        raise HTTPException(400, "Пустой шаблон.")
+    await theme_tpl_repo.set_override(db, template_id, body.raw_text, user["id"])
+    return {"ok": True}
+
+
+@router.delete("/theme-templates/{template_id}")
+async def dev_theme_template_reset(template_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    _require_dev(user)
+    await theme_tpl_repo.delete_override(db, template_id)
+    return {"ok": True}

@@ -6,6 +6,7 @@ Used by both bot/handlers/identity.py and FastAPI/routers/themes.py.
 Returns HTML string compatible with both Telegram's HTML parse_mode
 AND browser innerHTML (same tag subset: <b>, <i>, <code>, <a>).
 """
+import re
 from datetime import datetime
 
 from core.constants import XP_PER_LEVEL
@@ -99,13 +100,382 @@ def _pets_block(pets: list, prefix: str = "") -> str:
     return "\n".join(lines) + "\n"
 
 
+# ── Theme Lab: кастомные raw-шаблоны премиум-тем (правки без деплоя) ───────────
+# _build_template_ctx даёт полный словарь переменных для _safe_format.
+# _DEFAULT_RAW_TEMPLATES — стартовый текст для textarea в дев-консоли
+# (используется ТОЛЬКО для UI, не подставляется в рендер напрямую).
+
+_PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z_][a-zA-Z0-9_]*)\}")
+
+
+def _safe_format(template: str, ctx: dict) -> str:
+    """.format()-подобная подстановка, но не падает на «голых» { } в украшениях —
+    заменяет только известные ключи {var}, остальное оставляет как есть."""
+    return _PLACEHOLDER_RE.sub(lambda m: str(ctx.get(m.group(1), m.group(0))), template)
+
+
+def _build_template_ctx(*, user_id, name, nm, name_upper, g_rank, l_rank, lvl, pct, bar,
+                         mora, dia, dark, zar, d, w, a, ach_count, warns, marr,
+                         first_seen, last_seen, is_vip, marriage, partner_raw,
+                         pets_active, pets_passive, _pa, _pp, _pnm, _plv, _pfat, _pdup) -> dict:
+    """Полный набор переменных, доступных в кастомных raw-шаблонах (все 14 премиум-тем)."""
+
+    def _simple_pet_lines(icon: str, marr_label: str, empty_text: str) -> str:
+        lines = f"{marr_label}: {partner_raw}\n" if marriage else ""
+        for p in pets_active[:1] + pets_passive[:1]:
+            sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+            lv = p.get("pet_level", 1) or 1
+            lines += f"{icon} {safe_html(p['name'])} ({sp}) ур.{lv}\n"
+        return lines or empty_text + "\n"
+
+    system_override_pet_lines = (
+        f"[+] 🔗 LINK: {partner_raw} 💟\n" if marriage else "[+] 🔗 LINK: <i>null</i> 💔\n"
+    )
+    wind_free_pet_lines = f"💍 Узы: {partner_raw} 💞\n" if marriage else ""
+    for i, p in enumerate(pets_active[:1] + pets_passive[:1], 1):
+        sp = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
+        lv = p.get("pet_level", 1) or 1
+        system_override_pet_lines += f"[*] 🤖 PORT_0{i}: {safe_html(p['name'])} ({sp}) [v{lv}.0]\n"
+        wind_free_pet_lines += (
+            f"🐾 Слот {['I', 'II'][i - 1]}: <b>{safe_html(p['name'])}</b> ({sp}) "
+            f"⟡ Ранг {lv} {'🔥' if i == 1 else '🌙'}\n"
+        )
+    wind_free_pet_lines = wind_free_pet_lines or "🐾 Питомников нет…\n"
+
+    _hb_f = round(pct / 10)
+    _8_f  = round(pct / 100 * 8)
+
+    return {
+        "user_id": user_id, "name_raw": name, "nm": nm, "name_upper": name_upper,
+        "g_rank": g_rank, "l_rank": l_rank, "lvl": lvl, "pct": pct, "bar": bar,
+        "mora": mora, "dia": dia, "dark": dark, "zar": zar,
+        "d": d, "w": w, "a": a, "ach_count": ach_count, "warns": warns,
+        "marr": marr or "нет", "marr_dash": marr or "—",
+        "first_seen": first_seen, "last_seen": last_seen,
+
+        "pet_a_name": _pnm(_pa), "pet_a_level": _plv(_pa),
+        "pet_a_fatigue": _pfat(_pa), "pet_a_dups": _pdup(_pa),
+        "pet_p_name": _pnm(_pp), "pet_p_level": _plv(_pp),
+        "pet_p_fatigue": _pfat(_pp), "pet_p_dups": _pdup(_pp),
+
+        "linux_vip_line": "[💎 VIP: АКТИВЕН]" if is_vip else "[VIP: неактивен]",
+        "linux_pet1": (f"🦅 {_pnm(_pa)} [L{_plv(_pa)},{_pfat(_pa)},{_pdup(_pa)}дуб]" if _pa else "🦅 —"),
+        "linux_pet2": (f"🐢 {_pnm(_pp)} [L{_plv(_pp)},{_pfat(_pp)},{_pdup(_pp)}дуб]" if _pp else "🐢 —"),
+
+        "hardcore_shell_vip_line": "[💎 VIP: ACTIVATED]" if is_vip else "[VIP: OFFLINE]",
+        "hardcore_shell_hb": "#" * _hb_f + "." * (10 - _hb_f),
+        "hardcore_shell_l1": (f"PET_01: {_pnm(_pa)} | L:{_plv(_pa)}" if _pa else "PET_01: —"),
+        "hardcore_shell_l2": (f"PET_02: {_pnm(_pp)} | L:{_plv(_pp)}" if _pp else "PET_02: —"),
+
+        "starlight_p1": (f"{_pnm(_pa)} (v{_plv(_pa)})" if _pa else "—"),
+        "starlight_p2": (f"{_pnm(_pp)} (v{_plv(_pp)})" if _pp else "—"),
+
+        "order_p1": (f"{_pnm(_pa)} (L{_plv(_pa)})" if _pa else "—"),
+        "order_p2": (f"{_pnm(_pp)} (L{_plv(_pp)})" if _pp else "—"),
+
+        "prism_os_pb": "▒" * _8_f + "░" * (8 - _8_f),
+        "prism_os_p1": (f"{_pnm(_pa)} &lt;v{_plv(_pa)}&gt;" if _pa else "—"),
+        "prism_os_p2": (f"{_pnm(_pp)} &lt;v{_plv(_pp)}&gt;" if _pp else "—"),
+
+        "avangard_p1": (f"🦅 {_pnm(_pa)} [L{_plv(_pa)}, {_pfat(_pa)}, {_pdup(_pa)}дуб]" if _pa else "🦅 —"),
+        "avangard_p2": (f"🐢 {_pnm(_pp)} [L{_plv(_pp)}, {_pfat(_pp)}, {_pdup(_pp)}дуб]" if _pp else "🐢 —"),
+
+        "velvet_pet_lines":    _simple_pet_lines("🥀", "💜 Узы", "🕸️ Пустота…"),
+        "prism_pet_lines":     _simple_pet_lines("🔹", "💞 Связь", "◇ Пусто…"),
+        "celestial_pet_lines": _simple_pet_lines("🕊️", "💞 Союз", "☁️ Тихо…"),
+        "glass_pet_lines":     _simple_pet_lines("🧩", "💞 Узор", "⬜ Пусто…"),
+        "gold_pet_lines":      _simple_pet_lines("🦁", "💞 Альянс", "🕳️ Пусто…"),
+        "system_override_pet_lines": system_override_pet_lines,
+        "wind_free_pet_lines": wind_free_pet_lines,
+
+        "empire_bar_el": "▆" * _8_f + "▃" * (8 - _8_f),
+        "empire_active_pet": _pnm(_pa) if _pa else "—",
+        "empire_passive_n": len(pets_passive),
+    }
+
+
+# Стартовый текст для Theme Lab — «как выглядел бы шаблон в виде редактируемого текста».
+# НЕ используется в обычном рендере (см. 14 веток ниже) — только подсказка/сброс в UI.
+_DEFAULT_RAW_TEMPLATES: dict[str, str] = {
+    "linux": (
+        "predvestnik@root:~/user/data#\n"
+        "{linux_vip_line}\n"
+        "👤 Юзер: <b>{nm}</b>\n"
+        "🌍 Глобал: {g_rank}\n"
+        "🏘 Локал: {l_rank}\n"
+        "🔋 Ядро: Ур.<b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
+        "&gt;_ [FS_RESOURCES]\n"
+        "🪙 Мора: {mora} | 💎 Алм: {dia}\n"
+        "🌑 ТМ: {dark} | ✨ Зар: {zar}\n"
+        "⚖️ Реп: 0 | 🏆 Ачив: {ach_count} | ⚠️: {warns}\n\n"
+        "&gt;_ [LOG_ACTIVITY]\n"
+        "💬 {d}д | {w}н | {a}всего\n"
+        "📅 init: {first_seen} | 🕓 last: {last_seen}\n"
+        "💍 Узы: {marr}\n\n"
+        "&gt;_ [ENTITIES_LOADER]\n"
+        "{linux_pet1}\n{linux_pet2}\n\n"
+        "[ID: <code>{user_id}</code>]\n"
+        "predvestnik@root:~/exit$ _"
+    ),
+    "hardcore_shell": (
+        "┌──(<b>{nm}</b> ㉿ predvestnik)\n"
+        "└─$ cat profile.conf\n"
+        "{hardcore_shell_vip_line}\n"
+        "ID: <code>{user_id}</code>\n"
+        "LEVEL: {lvl} [{hardcore_shell_hb}] {pct}%\n"
+        "REP: 0 | ACHV: {ach_count}\n"
+        "---------------------------\n"
+        "CASH: {mora} 🪙 | CRYPT: {dia} 💎\n"
+        "DARK_M: {dark} 🌑 | ZARN: {zar} ✨\n"
+        "FIRST_SEEN: {first_seen} | LAST_SEEN: {last_seen}\n"
+        "---------------------------\n"
+        "LINK: {marr_dash}\n"
+        "{hardcore_shell_l1}\n{hardcore_shell_l2}\n"
+        "---------------------------\n"
+        "$ ./run_predvestnik.sh\n"
+        "<i># \"Система работает. Идеально.\"</i>"
+    ),
+    "starlight": (
+        "⋆ ˚｡ 🌌 S T A R L I G H T ｡˚ ⋆\n\n"
+        "┊ 🛸 Пилот: <b>{nm}</b>\n"
+        "┊ 🪐 Сектор: {g_rank}\n"
+        "┊ 🛰 Узел: {l_rank}\n"
+        "┊ 🌟 Фаза: <b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
+        "╰┈➤ ☄️ БОРТОВЫЕ ДАННЫЕ\n"
+        "  ⌑ 💫 Пыль: {mora} | ☄️ Ядра: {dia}\n"
+        "  ⌑ ⚖️ Карма: +0 | 🏆 Ачив: {ach_count}\n"
+        "  ⌑ 📡 Пинг: {d}д|{w}н|{a}вс\n"
+        "  ⌑ 🛰 Старт: {first_seen} | Сигнал: {last_seen}\n\n"
+        "╰┈➤ 🛸 ЭКИПАЖ\n"
+        "  ⌑ 💞 Связь: {marr}\n"
+        "  ⌑ 🦅 Дрон I: {starlight_p1}\n"
+        "  ⌑ 🐢 Дрон II: {starlight_p2}\n\n"
+        "⋆ ˚｡ 🆔 <code>{user_id}</code> ｡˚ ⋆\n"
+        "🌟 Каждая звезда — чья-то мечта…"
+    ),
+    "order": (
+        "🍷 ✧ ── 🎭 Л О Ж А 🎭 ── ✧ 🍷\n\n"
+        "◈ Мастер: <b>{nm}</b>\n"
+        "◈ Совет: {g_rank}\n"
+        "◈ Ранг: {l_rank}\n"
+        "◈ Ранг <b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
+        "♱ 🪙 ФОНД ОРДЕНА\n"
+        " ▫️ 🪙: {mora} | 💎: {dia} | 🌑: {dark} | ✨: {zar}\n"
+        " ▫️ ⚖️: 0 | 🏆: {ach_count} | ⚠️: {warns}\n\n"
+        "♱ 💬 СЛУХИ\n"
+        " ▫️ {d}д | {w}н | {a}всего\n"
+        " ▫️ Вступил: {first_seen} | Замечен: {last_seen}\n\n"
+        "♱ 💍 СОЮЗЫ\n"
+        " ▫️ Связь: {marr}\n"
+        " ▫️ Агент I: {order_p1}\n"
+        " ▫️ Агент II: {order_p2}\n\n"
+        "🍷 ✧ ── 🆔 <code>{user_id}</code>\n"
+        "🟪 Мы видим то, что скрыто…"
+    ),
+    "prism_os": (
+        "[ 🪞 P R I S M _ O S 🪞 ]\n\n"
+        "≼ 💠 ID: <b>{nm}</b>\n"
+        "≼ 🌐 Сеть: {g_rank}\n"
+        "≼ 🪩 Хост: {l_rank}\n"
+        "≼ 🔋 Заряд: Ур.<b>{lvl}</b> {prism_os_pb} <b>{pct}%</b>\n\n"
+        "░░░ [ ДАМП ПАМЯТИ ]\n"
+        "~&gt; ☀️ Фотоны: {mora}\n"
+        "~&gt; 💠 Осколки: {dia}\n"
+        "~&gt; 🌈 Резонанс: 0 | 🏆: {ach_count}\n"
+        "~&gt; 🔊 Сеанс: {d}д/{w}н/{a}вс\n"
+        "~&gt; 🕓 Аптайм: {first_seen} → {last_seen}\n\n"
+        "░░░ [ ПЕРИФЕРИЯ ]\n"
+        "~&gt; 🔗 Линк: {marr}\n"
+        "~&gt; ⚡ Юнит 1: {prism_os_p1}\n"
+        "~&gt; 🌟 Юнит 2: {prism_os_p2}\n\n"
+        "[ 🆔 <code>{user_id}</code> ]\n"
+        "💎 Свет находит путь сквозь кристалл…"
+    ),
+    "avangard": (
+        "✧ ━━ 🕊️ АВАНГАРД 🕊️ ━━ ✧\n\n"
+        "✦ <b>{nm}</b>\n"
+        "✦ {g_rank} / {l_rank}\n"
+        "✦ Ур.<b>{lvl}</b> {bar} <b>{pct}%</b>\n\n"
+        "✧ ЭКОНОМИКА\n"
+        " 🪙: {mora} | 💎: {dia} | 🌑: {dark} | ✨: {zar}\n\n"
+        "✧ ДОСТИЖЕНИЯ\n"
+        " ⚖️ Реп: 0 | 🏆 Ачив: {ach_count} | ⚠️: {warns}\n"
+        " 💬 {d}д | {w}н | {a}всего\n"
+        " 📅 С нами: {first_seen} | Был: {last_seen}\n\n"
+        "✧ СВИТА\n"
+        " 💍 Узы: {marr}\n"
+        " {avangard_p1}\n {avangard_p2}\n\n"
+        "✧ ━━ 🆔 <code>{user_id}</code>\n"
+        "☀️ Сияй, пока можешь…"
+    ),
+    "velvet": (
+        "🟪 ═【 🌹 БАРХАТ 🌹 】═ 🟪\n\n"
+        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+        "🕯️ Покров {lvl} [{bar}] {pct}%\n\n"
+        "┄┄ 🧵 ЛАРЕЦ ┄┄\n"
+        "🧵 Нити: {mora} ⋅ 🌹 {dia}\n"
+        "🎭 Грация: +0 ⋅ 🏆 {ach_count}\n\n"
+        "┄┄ 🤫 ШЁПОТЫ ┄┄\n"
+        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "┄┄ 🌑 ТЕНИ ┄┄\n"
+        "{velvet_pet_lines}"
+        "\n🟪 ID: <code>{user_id}</code>\n"
+        "<i>🟪 Бархат скрывает истинный характер…</i>"
+    ),
+    "prism": (
+        "✧ ═【 💎 ПРИЗМА 💎 】═ ✧\n\n"
+        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+        "🔆 Спектр {lvl} [{bar}] {pct}%\n\n"
+        "┄┄ 🌈 ГРАНИ ┄┄\n"
+        "🌈 Лучи: {mora} ⋅ 💎 {dia}\n"
+        "🔅 Блеск: +0 ⋅ 🏆 {ach_count}\n\n"
+        "┄┄ ✨ ОТРАЖЕНИЯ ┄┄\n"
+        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "┄┄ 🔮 СПУТНИКИ ┄┄\n"
+        "{prism_pet_lines}"
+        "\n✧ ID: <code>{user_id}</code>\n"
+        "<i>💎 Свет находит путь сквозь кристалл…</i>"
+    ),
+    "celestial": (
+        "꧁ ━━ ☀️ НЕБЕСНЫЙ ☀️ ━━ ꧂\n\n"
+        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+        "🕊️ Полёт {lvl} [{bar}] {pct}%\n\n"
+        "┄┄ ☀️ НЕБЕСА ┄┄\n"
+        "☀️ Свет: {mora} ⋅ 🌙 {dia}\n"
+        "😇 Святость: +0 ⋅ 🏆 {ach_count}\n\n"
+        "┄┄ 🎶 ГИМНЫ ┄┄\n"
+        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "┄┄ 👼 ХРАНИТЕЛИ ┄┄\n"
+        "{celestial_pet_lines}"
+        "\n☀️ ID: <code>{user_id}</code>\n"
+        "<i>☀️ Небо для тех, кто смотрит ввысь…</i>"
+    ),
+    "glass": (
+        "💠 ═【 🕊️ ВИТРАЖ 🕊️ 】═ 💠\n\n"
+        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+        "🖼️ Картина {lvl} [{bar}] {pct}%\n\n"
+        "┄┄ 💠 ОСКОЛКИ ┄┄\n"
+        "💠 Осколки: {mora} ⋅ 🔷 {dia}\n"
+        "🌈 Грань: +0 ⋅ 🏆 {ach_count}\n\n"
+        "┄┄ 🪞 БЛИКИ ┄┄\n"
+        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "┄┄ 🧩 ФРАГМЕНТЫ ┄┄\n"
+        "{glass_pet_lines}"
+        "\n💠 ID: <code>{user_id}</code>\n"
+        "<i>💠 Каждый осколок — часть картины…</i>"
+    ),
+    "gold": (
+        "⚜️ ═【 🪙 АУРУМ 🪙 】═ ⚜️\n\n"
+        "👤 <b>{nm}</b>\n🌍 {g_rank}\n🏠 {l_rank}\n"
+        "👑 Проба {lvl} [{bar}] {pct}%\n\n"
+        "┄┄ 🪙 ХРАНИЛИЩЕ ┄┄\n"
+        "🪙 Слитки: {mora} ⋅ 💛 {dia}\n"
+        "⚖️ Вес: +0 ⋅ 🏆 {ach_count}\n\n"
+        "┄┄ 🔔 ЭХО ┄┄\n"
+        "{d}/д ⋅ {w}/н ⋅ {a}/всё\n"
+        "📅 {first_seen} ⋅ 🕓 {last_seen}\n\n"
+        "┄┄ 🦁 СОКРОВИЩА ┄┄\n"
+        "{gold_pet_lines}"
+        "\n⚜️ ID: <code>{user_id}</code>\n"
+        "<i>💛 Золото молчит, но его слышат все…</i>"
+    ),
+    "system_override": (
+        "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼\n\n"
+        ">_ 👤 USER_ID: <b>{name_raw}</b> 📟\n"
+        ">_ 🛡️ AUTH: <b>{g_rank}</b>\n"
+        ">_ 🏘️ NODE: <b>{l_rank}</b>\n"
+        ">_ 🔋 SYNC: Ур.<b>{lvl}</b> [{bar}] <b>{pct}%</b> ⚡\n\n"
+        "► [ 💾 ROOT / ASSETS ] ──────────────\n"
+        "/// 🪙 CRDT: <b>{mora}</b> 🔌 /// 💎 CRYPT: <b>{dia}</b> 🌐\n\n"
+        "► [ 📡 ROOT / DATA ] ────────────────\n"
+        "/// ⚖️ REP: +0 ⚙️  /// 🏆 ACHV: <b>{ach_count}</b> 🔓\n"
+        "/// 💬 LOG: <b>{d}</b>/d 📝 | <b>{w}</b>/w 📊 | <b>{a}</b>/all 🕹️\n"
+        "/// 🕓 SEEN: init {first_seen} | last {last_seen}\n\n"
+        "► [ 🔌 ROOT / ENTITIES ] ────────────\n"
+        "{system_override_pet_lines}"
+        "\n▲ 🕹️ ID: <code>{user_id}</code> ▲\n"
+        "<i>*&gt;_ Проснись, Нео. Ты всё ещё в чате… ▮*</i> 🟢"
+    ),
+    "wind_free": (
+        "【 🎐 ‧̍̊˙· ВЕТЕР СВОБОДЫ ·˙‧̍̊ 🎐 】\n\n"
+        "👤 <b>{name_upper}</b> ✦ 🌍 {g_rank} 🪽\n"
+        "[ 🗺️ Ранг: 🏘 {l_rank} ]\n"
+        "╰┈➤ 🌬️ Ур. <b>{lvl}</b> [{bar}] <b>{pct}%</b> ✨\n\n"
+        "▽ 【 🎒 ИНВЕНТАРЬ И ЗАСЛУГИ 】\n"
+        "[ 🪙 {mora} Монет ] ✧ [ 💎 {dia} Кристаллов ]\n"
+        "[ ⚖️ Кармы: +0 🪷 ] ✧ [ 🏆 Ачивок: {ach_count} 📜 ]\n\n"
+        "▽ 【 🕊️ АКТИВНОСТЬ В МИРЕ 】\n"
+        "💬 Связь: <b>{d}</b>/дн 🍃 | <b>{w}</b>/нед ✉️ | <b>{a}</b>/вс 🌐\n"
+        "📅 С нами: {first_seen} 🍃 | Был: {last_seen}\n\n"
+        "▽ 【 ⚔️ СПУТНИКИ И ОТРЯД 】\n"
+        "{wind_free_pet_lines}"
+        "\n【 🎐 ID: <code>{user_id}</code> 】\n"
+        "<i>«Разве не прекрасно, когда ветер сам выбирает путь?»</i> 🍃"
+    ),
+    "empire": (
+        "<pre>  ღ꧁ღ╭⊱ꕥꕥ⊱╮ღ꧂ღ\n"
+        "  |    Э Л И Т А    |\n"
+        "  ╰⊱♥⊱╮ღ꧁꧂ღ╭⊱♥≺╯\n"
+        "           𝆺𝅥 \n"
+        "           𝆺𝅥\n"
+        "           𝆺𝅥</pre>\n"
+        "❀° ┄────────────────────────╮\n"
+        "👤 Имя, <b>{nm}</b>\n"
+        "🌍 Звание: {g_rank}\n"
+        "🏘  Чин: {l_rank}\n"
+        "⚜️ Ур.<b>{lvl}</b> {empire_bar_el}\n"
+        "╰────────────────────────┄ °❀\n\n"
+        "❀° ┄────────────────────────╮\n"
+        "╰► ⋆⋅☆⋅⋆ 《 АКТИВЫ 》 ⋆⋅☆⋅⋆ ──\n"
+        "▫️ 🪙: {mora} | 💎: {dia}\n"
+        "▫️ 🌑: {dark} | ✨: {zar}\n"
+        "▫️ ⚖️: +0 | 🏆: {ach_count}\n"
+        "╰───────────────────────── °❀\n\n"
+        "❀° ┄────────────────────────╮\n"
+        "╰► ⋆⋅☆⋅⋆ 《 ПРИЁМЫ 》 ⋆⋅☆⋅⋆ ──\n"
+        "▫️ В замке с:\n"
+        "▫️ {d}д | {w}н | {a}вс\n"
+        "▫️ Династия: {marr}\n"
+        "▫️ При дворе с: {first_seen}\n"
+        "▫️ Послед. визит: {last_seen}\n"
+        "╰───────────────────────── °❀\n\n"
+        "❀° ┄────────────────────────╮\n"
+        "╰► ⊹⊱•••《 СВИТА 》•••⊰⊹ ──\n"
+        "▫️ 🦊 Актив: {empire_active_pet}\n"
+        "▫️ 🐺 Пассив: {empire_passive_n}\n"
+        "╰───────────────────────── °❀\n\n"
+        "・✦▭▭▭✧◦<code>{user_id}</code>◦✧▭▭▭✦ ・\n\n\n"
+        "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉❉⊱•═•⊰\n"
+        "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉❉⊱•═•⊰\n"
+        "<i>У роскоши нет предела, есть только цена…» ✨</i>\n"
+        "❉⊱•═•⊰❉⊱•═•⊰❉⊱•═•⊰❉❉⊱•═•⊰"
+    ),
+}
+
+
+def get_default_raw_template(template_id: str) -> str | None:
+    """Стартовый raw-текст для Theme Lab (или None, если шаблон неизвестен)."""
+    return _DEFAULT_RAW_TEMPLATES.get(template_id)
+
+
+def get_template_variables(template_id: str) -> list[str]:
+    """Список переменных {var}, доступных в этом шаблоне (подсказка в Theme Lab)."""
+    default = _DEFAULT_RAW_TEMPLATES.get(template_id, "")
+    return sorted(set(_PLACEHOLDER_RE.findall(default)))
+
+
 def _render_premium(template_id: str, user_id: int, name: str,
                     g_rank: str, l_rank: str, lvl: int, pct: int,
                     mora_v, dia_v, d_msgs, w_msgs, a_msgs,
                     streak, ach_count, warns, marriage, nursery_pets,
                     partner_display: str | None = None,
                     dark_v=0, zar_v=0, is_vip: bool = False,
-                    first_seen: str = "—", last_seen: str = "—") -> str | None:
+                    first_seen: str = "—", last_seen: str = "—",
+                    override_raw_text: str | None = None) -> str | None:
     bar  = _premium_bar(pct)
     mora = _compact(mora_v)
     dia  = _compact(dia_v)
@@ -132,6 +502,19 @@ def _render_premium(template_id: str, user_id: int, name: str,
     def _plv(p): return (p.get("pet_level", 1) or 1) if p else 0
     def _pdup(p): return (p.get("duplicates_collected", 0) or 0) if p else 0
     def _pfat(p): return _fatigue_icon(p.get("fatigue", 0)) if p else "⚪"
+
+    # ── Theme Lab: кастомный raw-шаблон из БД (правки без деплоя) ────────────
+    if override_raw_text:
+        ctx = _build_template_ctx(
+            user_id=user_id, name=name, nm=nm, name_upper=name_upper, g_rank=g_rank, l_rank=l_rank,
+            lvl=lvl, pct=pct, bar=bar, mora=mora, dia=dia, dark=dark, zar=zar,
+            d=d, w=w, a=a, ach_count=ach_count, warns=warns, marr=marr,
+            first_seen=first_seen, last_seen=last_seen, is_vip=is_vip,
+            marriage=marriage, partner_raw=partner_raw,
+            pets_active=pets_active, pets_passive=pets_passive,
+            _pa=_pa, _pp=_pp, _pnm=_pnm, _plv=_plv, _pfat=_pfat, _pdup=_pdup,
+        )
+        return _safe_format(override_raw_text, ctx)
 
     # 1. 🐧 LINUX (Kernel Shell)
     if template_id == "linux":
@@ -498,11 +881,15 @@ async def build_profile_text(
     chat_id: int,
     theme_id_override: str | None = None,
     developer_id: int = 0,
+    raw_template_override: str | None = None,
 ) -> str:
     """
     Generate the exact same HTML string that the bot sends to Telegram.
     Works for both standard and premium themes.
     The result is valid for Telegram HTML parse_mode AND browser innerHTML.
+
+    raw_template_override: Theme Lab dry-run — render with this raw text
+    instead of the saved DB override (not persisted, used for /preview).
     """
     from infrastructure.repositories import economy as eco_repo
     from infrastructure.repositories import dark_mora as dark_mora_repo
@@ -513,6 +900,7 @@ async def build_profile_text(
     from infrastructure.repositories import achievements as ach_repo
     from infrastructure.repositories.streak import get_streak
     from infrastructure.repositories.themes import get_active_theme
+    from infrastructure.repositories import theme_templates as theme_tpl_repo
     from services.vip import is_vip_active
 
     # Fetch data
@@ -607,11 +995,16 @@ async def build_profile_text(
     # Premium template
     premium_tpl = theme.get("premium_template")
     if premium_tpl:
+        if raw_template_override is not None:
+            override_raw = raw_template_override
+        else:
+            override_raw = await theme_tpl_repo.get_override(db, premium_tpl)
         result = _render_premium(
             premium_tpl, user_id, name, g_rank, l_rank, lvl, pct,
             mora_v, dia_v, d_msgs, w_msgs, a_msgs,
             streak, ach_count, warns, marriage, nursery_pets,
             partner_display, dark_v, zar_v, is_vip, join_str, last_str,
+            override_raw_text=override_raw,
         )
         if result:
             return result
