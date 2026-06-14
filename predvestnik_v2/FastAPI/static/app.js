@@ -4242,6 +4242,7 @@ function devTLSave() {
       toast('💾 Сохранено — применяется сразу, без деплоя');
       el('dev-tl-status').innerHTML='<span style="color:var(--gold)">✏️ Сохранён кастомный вариант</span>';
       _devTLRefreshBadges();
+      devTLPreview();
     })
     .catch(e=>toast(e,false));
 }
