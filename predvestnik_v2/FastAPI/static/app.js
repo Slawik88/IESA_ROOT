@@ -3989,6 +3989,19 @@ function loadGlobalDev() {
       <button class="btn btn-red btn-full" onclick="devBroadcast()">📢 Отправить во ВСЕ чаты</button>
     </div>
     <div class="card">
+      <div class="card-title">🎨 Theme Lab — редактор премиум-тем</div>
+      <select id="dev-tl-template" class="num-input" style="margin-bottom:6px" onchange="devTLLoad()"></select>
+      <div id="dev-tl-vars" style="font-size:10px;color:var(--muted);margin-bottom:6px"></div>
+      <textarea id="dev-tl-text" class="num-input" style="margin:0 0 6px;min-height:180px;resize:vertical;font-family:monospace;font-size:11px;white-space:pre"></textarea>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <button class="btn btn-ghost" style="flex:1" onclick="devTLPreview()">👁 Превью</button>
+        <button class="btn btn-gold" style="flex:1" onclick="devTLSave()">💾 Сохранить</button>
+        <button class="btn btn-red" style="flex:1" onclick="devTLReset()">↩️ Сброс</button>
+      </div>
+      <div id="dev-tl-status" style="font-size:10px;margin-bottom:6px"></div>
+      <div id="dev-tl-preview"></div>
+    </div>
+    <div class="card">
       <div class="card-title">🖥 SQL-консоль</div>
       <textarea id="dev-sql" class="num-input" style="margin:0 0 6px;min-height:70px;resize:vertical;font-family:monospace;font-size:11px" placeholder="SELECT * FROM users LIMIT 5"></textarea>
       <button class="btn btn-red btn-full" onclick="devRunSql()">▶ Выполнить</button>
@@ -3996,6 +4009,7 @@ function loadGlobalDev() {
     </div>`;
   devLoadOverview();
   devLoadSeasons();
+  devTLInit();
   if(!_devItems) api('/admin/dev/items').then(d=>{
     _devItems=d.items||[];
     const dl=el('dev-items-dl');
@@ -4145,6 +4159,73 @@ function _execDevSql() {
       <table class="adm-table"><thead><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
       <tbody>${r.rows.map(row=>`<tr>${cols.map(c=>`<td style="font-size:10px">${esc(row[c]??'∅')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   }).catch(e=>{el('dev-sql-result').innerHTML=`<div class="err">${e}</div>`;});
+}
+
+// ── 🎨 Theme Lab — кастомные raw-шаблоны премиум-тем (правки без деплоя) ──────────
+let _devThemeTemplates=null;
+function devTLInit() {
+  api('/admin/dev/theme-templates').then(d=>{
+    _devThemeTemplates=d.templates||[];
+    const sel=el('dev-tl-template');
+    if(!sel) return;
+    sel.innerHTML=_devThemeTemplates.map(t=>`<option value="${t.template_id}">${esc(t.name)}${t.has_override?' ✏️':''}</option>`).join('');
+    if(_devThemeTemplates.length) devTLLoad();
+  }).catch(e=>{el('dev-tl-status').innerHTML=`<div class="err">${e}</div>`;});
+}
+function _devTLRefreshBadges() {
+  const sel=el('dev-tl-template'); const cur=sel?.value;
+  api('/admin/dev/theme-templates').then(d=>{
+    _devThemeTemplates=d.templates||[];
+    if(!sel) return;
+    sel.innerHTML=_devThemeTemplates.map(t=>`<option value="${t.template_id}">${esc(t.name)}${t.has_override?' ✏️':''}</option>`).join('');
+    sel.value=cur;
+  }).catch(()=>{});
+}
+function devTLLoad() {
+  const tid=el('dev-tl-template')?.value;
+  if(!tid) return;
+  el('dev-tl-status').textContent='Загрузка...';
+  el('dev-tl-preview').innerHTML='';
+  api(`/admin/dev/theme-templates/${tid}`).then(d=>{
+    el('dev-tl-text').value=d.raw_text;
+    el('dev-tl-vars').innerHTML='Переменные: '+d.variables.map(v=>`<code>{${v}}</code>`).join(' ');
+    el('dev-tl-status').innerHTML=d.has_override
+      ?'<span style="color:var(--gold)">✏️ Сохранён кастомный вариант</span>'
+      :'<span style="color:var(--muted)">Дефолтный шаблон (из кода)</span>';
+  }).catch(e=>{el('dev-tl-status').innerHTML=`<div class="err">${e}</div>`;});
+}
+function devTLPreview() {
+  const tid=el('dev-tl-template')?.value;
+  const text=el('dev-tl-text')?.value??'';
+  if(!tid) return;
+  el('dev-tl-preview').innerHTML='<div class="loader">Рендерю...</div>';
+  api(`/admin/dev/theme-templates/${tid}/preview`,{method:'POST',body:JSON.stringify({raw_text:text})})
+    .then(r=>{ el('dev-tl-preview').innerHTML=`<div class="profile-preview">${r.text}</div>`; })
+    .catch(e=>{ el('dev-tl-preview').innerHTML=`<div class="err">${e}</div>`; });
+}
+function devTLSave() {
+  const tid=el('dev-tl-template')?.value;
+  const text=el('dev-tl-text')?.value??'';
+  if(!tid||!text.trim()) return toast('Пустой шаблон',false);
+  api(`/admin/dev/theme-templates/${tid}`,{method:'POST',body:JSON.stringify({raw_text:text})})
+    .then(()=>{
+      toast('💾 Сохранено — применяется сразу, без деплоя');
+      el('dev-tl-status').innerHTML='<span style="color:var(--gold)">✏️ Сохранён кастомный вариант</span>';
+      _devTLRefreshBadges();
+    })
+    .catch(e=>toast(e,false));
+}
+function devTLReset() {
+  const tid=el('dev-tl-template')?.value;
+  if(!tid) return;
+  OM('↩️ Сбросить шаблон?','<div style="text-align:center;padding:12px 0;color:var(--muted)">Кастомный вариант будет удалён, тема вернётся к версии из кода.</div>',
+    [{l:'Сбросить',c:'btn-red',f:`_execDevTLReset(${JSON.stringify(tid)})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _execDevTLReset(tid) {
+  CM();
+  api(`/admin/dev/theme-templates/${tid}`,{method:'DELETE'})
+    .then(()=>{toast('↩️ Сброшено');devTLLoad();_devTLRefreshBadges();})
+    .catch(e=>toast(e,false));
 }
 
 // ── Init global moderation check after login ──────────────────────────────────────

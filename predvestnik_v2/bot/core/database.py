@@ -801,6 +801,16 @@ async def init_db():
             )
         """)
 
+        # Theme Lab — кастомные raw-шаблоны премиум-тем профиля (правки без деплоя)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS profile_theme_overrides (
+                template_id TEXT PRIMARY KEY,
+                raw_text    TEXT NOT NULL,
+                updated_at  TIMESTAMP DEFAULT NOW(),
+                updated_by  BIGINT
+            )
+        """)
+
         # Migrations: admin panel + moderation extras
         for _stmt in [
             "ALTER TABLE moderation_logs ADD COLUMN IF NOT EXISTS reason TEXT",
