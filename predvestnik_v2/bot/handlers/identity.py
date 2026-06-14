@@ -472,15 +472,13 @@ def _build_tail(t_bot: str, t_sep: str, t_id_in_bot: bool, user_id: int, t_prefi
 
 # ── бот я / бот профиль ──────────────────────────────────────────────────────
 
-@router.message(TextCmd(["я", "профиль", "стата", "стат", "мой профиль"]))
-async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0):
-    if message.chat.type == "private":
-        return await message.answer("❌ Эта команда доступна только в группах.")
-
-    user_id = message.from_user.id
-    chat_id = message.chat.id
-
-    name           = await resolve_display_name(db, user_id, chat_id, message.from_user.first_name)
+async def _render_full_profile(
+    db, user_id: int, chat_id: int, default_name: str, developer_id: int = 0,
+) -> tuple[str, str]:
+    """Полный текст профиля (премиум-шаблон с оверрайдом ИЛИ обычная тема) для
+    произвольного user_id — ЕДИНЫЙ источник для «я» и «кто», чтобы чужой профиль
+    выглядел ТОЧНО так же, как свой."""
+    name           = await resolve_display_name(db, user_id, chat_id, default_name)
     bal            = await eco_repo.get_balance(db, user_id)
     dark_mora      = await dark_mora_repo.get_dark_mora_balance(db, user_id)
     stats          = await chat_repo.get_chat_stats(db, user_id, chat_id)
@@ -566,15 +564,16 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
         if dt:
             last_str = dt.strftime("%d.%m %H:%M")
 
-    # ── premium template override ─────────────────────────────────────────────
+    # ── premium-шаблон ИЛИ Theme Lab raw_text-оверрайд для обычной темы ─────────
+    from infrastructure.repositories import theme_templates as theme_tpl_repo
     premium_tpl = theme.get("premium_template")
-    if premium_tpl:
+    tpl_key = premium_tpl or theme_id
+    override_raw = await theme_tpl_repo.get_override(db, tpl_key)
+    if premium_tpl or override_raw:
         from services.vip import is_vip_active
-        from infrastructure.repositories import theme_templates as theme_tpl_repo
         is_vip = await is_vip_active(db, user_id)
-        override_raw = await theme_tpl_repo.get_override(db, premium_tpl)
         premium_text = _render_premium_profile(
-            premium_tpl, user_id, name,
+            tpl_key, user_id, name,
             g_rank, l_rank,
             lvl, pct,
             mora_v, dia_v,
@@ -585,8 +584,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
             override_raw_text=override_raw,
         )
         if premium_text:
-            await message.answer(premium_text, parse_mode="HTML")
-            return
+            return premium_text, "HTML"
 
     name_block = _build_name_lines(name, g_rank, l_rank, join_str, t_accent, t_side, P)
     pets_str   = _pets_block(nursery_pets, P)
@@ -648,7 +646,18 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
             + tail
         )
 
-    await message.answer(text, parse_mode="HTML")
+    return text, "HTML"
+
+
+@router.message(TextCmd(["я", "профиль", "стата", "стат", "мой профиль"]))
+async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0):
+    if message.chat.type == "private":
+        return await message.answer("❌ Эта команда доступна только в группах.")
+
+    text, parse_mode = await _render_full_profile(
+        db, message.from_user.id, message.chat.id, message.from_user.first_name, developer_id,
+    )
+    await message.answer(text, parse_mode=parse_mode)
 
 
 # ── бот кто ───────────────────────────────────────────────────────────────────
@@ -670,81 +679,10 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
             parse_mode="HTML",
         )
 
-    chat_id = message.chat.id
-
-    name       = await resolve_display_name(db, target_id, chat_id, target_name)
-    stats      = await chat_repo.get_chat_stats(db, target_id, chat_id)
-    g_rank_id  = await users_repo.get_global_rank(db, target_id)
-    pets       = await zoo_db.get_user_pets(db, target_id, placement="nursery")
-    marriage   = await marriage_repo.get_user_marriage(db, target_id)
-    streak_row = await get_streak(db, target_id, chat_id)
-
-    from infrastructure.repositories.themes import get_active_theme
-    theme_id = await get_active_theme(db, target_id)
-    theme    = _load_theme(theme_id)
-    t_top, t_sep, t_bot, t_accent, t_side, t_prefix, t_id_in_bot, _ = _theme_fields(theme)
-    P = t_prefix
-
-    g_rank = roles.get_global_rank_name(target_id, g_rank_id, developer_id=developer_id)
-    l_rank = roles.get_local_rank_name(target_id, stats.get("local_rank", 0), developer_id=developer_id)
-
-    lvl       = stats.get("user_level", 1)
-    xp_in_lvl = stats.get("user_xp", 0) % XP_PER_LEVEL
-    bar       = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
-    pct       = _xp_pct(xp_in_lvl, XP_PER_LEVEL)
-    d_msgs    = stats.get("user_messages_count_per_day", 0)
-    w_msgs    = stats.get("user_messages_count_per_week", 0)
-    a_msgs    = stats.get("user_messages_count_all_time", 0)
-    streak    = streak_row.get("streak", 0)
-
-    if marriage:
-        partner_id = marriage["user2_id"] if marriage["user1_id"] == target_id else marriage["user1_id"]
-        p_nm = marriage["user2_name"] if marriage["user1_id"] == target_id else marriage["user1_name"]
-        partner_display = await resolve_display_name(db, partner_id, chat_id, p_nm)
-        dur  = _marriage_duration(marriage.get("marriage_date"))
-        partner_line = f"💍 Брак: {partner_display} ({dur})"
-    else:
-        partner_line = "💍 Не в браке"
-
-    # Первое / последнее появление
-    first_seen_raw = await users_repo.get_first_seen(db, target_id)
-    join_str = "—"
-    if first_seen_raw:
-        _dt = parse_dt(first_seen_raw)
-        if _dt:
-            join_str = _dt.strftime("%d.%m.%Y")
-    last_str = "—"
-    _lr = stats.get("last_message_at")
-    if _lr:
-        _dt = parse_dt(_lr)
-        if _dt:
-            last_str = _dt.strftime("%d.%m %H:%M")
-
-    if t_side:
-        name_line = f"{P}{t_side} {t_accent} <b>{name}</b> {t_accent}\n"
-        rank_line = f"{P}{t_side} 🌍 {g_rank}  |  🏘 {l_rank}\n"
-    else:
-        name_line = f"{P}{t_accent} <b>{name}</b>\n"
-        rank_line = f"{P}🌍 {g_rank}  |  🏘 {l_rank}\n"
-
-    tail = _build_tail(t_bot, t_sep, t_id_in_bot, target_id, P)
-
-    text = (
-        f"{t_top}\n"
-        + name_line
-        + rank_line
-        + f"{t_sep}\n"
-        + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}%\n"
-        + f"{P}💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
-        + f"{P}📅 Первое: {join_str}  |  🕓 Был(а): {last_str}\n"
-        + f"{P}🔥 Стрик: <b>{streak}</b> дн.\n"
-        + f"{t_sep}\n"
-        + f"{P}{partner_line}\n"
-        + f"{P}🐾 Активный: {_active_pet_str(pets)}\n"
-        + tail
+    text, parse_mode = await _render_full_profile(
+        db, target_id, message.chat.id, target_name, developer_id,
     )
-
-    await message.answer(text, parse_mode="HTML")
+    await message.answer(text, parse_mode=parse_mode)
 
 
 # ── бот анкета ────────────────────────────────────────────────────────────────

@@ -484,14 +484,63 @@ _DEFAULT_RAW_TEMPLATES: dict[str, str] = {
 }
 
 
+def _default_raw_text_for_basic_theme(theme: dict) -> str:
+    """Стартовый raw-текст для ОБЫЧНОЙ (не премиум) темы — собран из её
+    top/sep/bot/accent/side/prefix + переменных _build_template_ctx, чтобы
+    редактирование в Theme Lab начиналось с вида, максимально близкого
+    к текущему стандартному профилю."""
+    top    = theme.get("top", "")
+    sep    = theme.get("sep", "─" * 8)
+    bot    = theme.get("bot", "")
+    accent = theme.get("accent", "")
+    side   = theme.get("side", "")
+    P      = theme.get("prefix", "")
+
+    if side:
+        name_block = (
+            f"{P}{side} {accent} <b>{{ник}}</b> {accent}\n"
+            f"{P}{side} 🌍 {{глобал_ранг}}  |  🏘 {{локал_ранг}}\n"
+        )
+    else:
+        name_block = (
+            f"{P}{accent} <b>{{ник}}</b>\n"
+            f"{P}🌍 {{глобал_ранг}}  |  🏘 {{локал_ранг}}\n"
+        )
+
+    return (
+        (f"{top}\n" if top else "")
+        + name_block
+        + f"{P}📅 В чате с: {{дата}}\n"
+        + f"\n{P}{sep}\n\n"
+        + f"{P}🌟 Ур.<b>{{уровень}}</b>  [{{bar}}] {{pct}}%\n"
+        + f"{P}🪙 {{мора}}  |  💎 {{алмазы}}  |  🌑 {{темная_мора}}  |  ✨ {{зарники}}\n"
+        + f"{P}🏆 {{ачивки}} ачив.  |  ⚖️ Реп: {{репутация}}  |  ⚠️ Варны: {{warns}}\n"
+        + f"\n{P}{sep}\n\n"
+        + f"{P}💬 {{дни}}д | {{недели}}н | {{всего}}всего\n"
+        + f"{P}🕓 Последнее появление: {{last_seen}}\n"
+        + f"{P}💍 Брак: {{брак_инфо}}\n"
+        + f"\n{P}{sep}\n\n"
+        + f"{P}🐾 Актив: {{pet_a_name}} (ур.{{pet_a_level}})\n"
+        + f"{P}💤 Пассив: {{pet_p_name}} (ур.{{pet_p_level}})\n"
+        + f"\n{P}🆔 <code>{{id}}</code>\n"
+        + (bot if bot else "")
+    )
+
+
 def get_default_raw_template(template_id: str) -> str | None:
     """Стартовый raw-текст для Theme Lab (или None, если шаблон неизвестен)."""
-    return _DEFAULT_RAW_TEMPLATES.get(template_id)
+    if template_id in _DEFAULT_RAW_TEMPLATES:
+        return _DEFAULT_RAW_TEMPLATES[template_id]
+    from core.themes import THEMES
+    theme = THEMES.get(template_id)
+    if theme and not theme.get("premium_template"):
+        return _default_raw_text_for_basic_theme(theme)
+    return None
 
 
 def get_template_variables(template_id: str) -> list[str]:
     """Список переменных {var}, доступных в этом шаблоне (подсказка в Theme Lab)."""
-    default = _DEFAULT_RAW_TEMPLATES.get(template_id, "")
+    default = get_default_raw_template(template_id) or ""
     return sorted(set(_PLACEHOLDER_RE.findall(default)))
 
 
@@ -1037,15 +1086,16 @@ async def build_profile_text(
         if dt:
             last_str = dt.strftime("%d.%m %H:%M")
 
-    # Premium template
+    # Premium-шаблон ИЛИ Theme Lab raw_text-оверрайд для обычной темы (ключ — theme_id)
     premium_tpl = theme.get("premium_template")
-    if premium_tpl:
-        if raw_template_override is not None:
-            override_raw = raw_template_override
-        else:
-            override_raw = await theme_tpl_repo.get_override(db, premium_tpl)
+    tpl_key = premium_tpl or theme_id
+    if raw_template_override is not None:
+        override_raw = raw_template_override
+    else:
+        override_raw = await theme_tpl_repo.get_override(db, tpl_key)
+    if premium_tpl or override_raw:
         result = _render_premium(
-            premium_tpl, user_id, name, g_rank, l_rank, lvl, pct,
+            tpl_key, user_id, name, g_rank, l_rank, lvl, pct,
             mora_v, dia_v, d_msgs, w_msgs, a_msgs,
             streak, ach_count, warns, marriage, nursery_pets,
             partner_display, dark_v, zar_v, is_vip, join_str, last_str,

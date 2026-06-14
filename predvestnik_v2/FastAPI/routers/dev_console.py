@@ -445,7 +445,9 @@ def _premium_template_list() -> list[dict]:
     for theme_id, t in THEMES.items():
         tpl = t.get("premium_template")
         if tpl:
-            out.append({"template_id": tpl, "theme_id": theme_id, "name": t.get("name", tpl)})
+            out.append({"template_id": tpl, "theme_id": theme_id, "name": t.get("name", tpl), "kind": "premium"})
+        else:
+            out.append({"template_id": theme_id, "theme_id": theme_id, "name": t.get("name", theme_id), "kind": "basic"})
     return out
 
 
@@ -485,7 +487,10 @@ class ThemeTemplateRequest(BaseModel):
 
 
 def _theme_id_for_template(template_id: str) -> str | None:
-    return next((tid for tid, t in THEMES.items() if t.get("premium_template") == template_id), None)
+    theme_id = next((tid for tid, t in THEMES.items() if t.get("premium_template") == template_id), None)
+    if theme_id:
+        return theme_id
+    return template_id if template_id in THEMES else None
 
 
 async def _render_theme_preview(db, user_id: int, theme_id: str, raw_text: str) -> str:
