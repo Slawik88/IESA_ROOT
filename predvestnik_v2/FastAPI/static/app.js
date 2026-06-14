@@ -4194,12 +4194,21 @@ function _execDevSql() {
 
 // ── 🎨 Theme Lab — кастомные raw-шаблоны премиум-тем (правки без деплоя) ──────────
 let _devThemeTemplates=null;
+function _devTLOptionsHTML(templates) {
+  const groups={premium:[],basic:[]};
+  templates.forEach(t=>(groups[t.kind||'basic']||groups.basic).push(t));
+  const opt=t=>`<option value="${t.template_id}">${esc(t.name)}${t.has_override?' ✏️':''}</option>`;
+  let html='';
+  if(groups.premium.length) html+=`<optgroup label="✨ Премиум">${groups.premium.map(opt).join('')}</optgroup>`;
+  if(groups.basic.length) html+=`<optgroup label="🎨 Обычные">${groups.basic.map(opt).join('')}</optgroup>`;
+  return html;
+}
 function devTLInit() {
   api('/admin/dev/theme-templates').then(d=>{
     _devThemeTemplates=d.templates||[];
     const sel=el('dev-tl-template');
     if(!sel) return;
-    sel.innerHTML=_devThemeTemplates.map(t=>`<option value="${t.template_id}">${esc(t.name)}${t.has_override?' ✏️':''}</option>`).join('');
+    sel.innerHTML=_devTLOptionsHTML(_devThemeTemplates);
     if(_devThemeTemplates.length) devTLLoad();
   }).catch(e=>{el('dev-tl-status').innerHTML=`<div class="err">${e}</div>`;});
 }
@@ -4208,7 +4217,7 @@ function _devTLRefreshBadges() {
   api('/admin/dev/theme-templates').then(d=>{
     _devThemeTemplates=d.templates||[];
     if(!sel) return;
-    sel.innerHTML=_devThemeTemplates.map(t=>`<option value="${t.template_id}">${esc(t.name)}${t.has_override?' ✏️':''}</option>`).join('');
+    sel.innerHTML=_devTLOptionsHTML(_devThemeTemplates);
     sel.value=cur;
   }).catch(()=>{});
 }
