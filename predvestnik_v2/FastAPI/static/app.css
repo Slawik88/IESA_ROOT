@@ -153,18 +153,12 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   content: ''; position: absolute; bottom: 1px; width: 14px; height: 2.5px;
   border-radius: 2px; background: linear-gradient(90deg, var(--gold), var(--violet));
 }
-/* Магазин/Донат — всегда заметен */
-.nb-shop .ni { filter: none; color: var(--gold2); }
+/* Магазин/Донат — всегда заметен, лёгкая пульсация иконки */
+@keyframes shop-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+.nb-shop .ni { filter: none; color: var(--gold2); animation: shop-pulse 2.6s ease-in-out infinite; }
 .nb-shop:not(.active) { color: var(--gold2); }
-/* «Ещё» с бейджем-точкой когда есть доступ к Адм/Модер */
-.nb.has-badge { position: relative; }
-.nb.has-badge::before {
-  content: ''; position: absolute; top: 4px; right: calc(50% - 16px);
-  width: 7px; height: 7px; border-radius: 50%;
-  background: var(--gold); box-shadow: 0 0 6px var(--gold);
-}
 
-/* ── «Ещё» — grid-карточки разделов в bottom-sheet ── */
+/* ── «Ещё» — grid-карточки разделов в bottom-sheet (используется openManageMenu) ── */
 .more-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 4px 0 6px; }
 .more-card {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -177,6 +171,20 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .mc-ic { font-size: 26px; line-height: 1; }
 .mc-t { font-size: 12.5px; font-weight: 800; color: var(--bright); }
 .mc-s { font-size: 9.5px; color: var(--muted); }
+
+/* ── «Ещё» — Control Center: 3×3 grid карточек-страниц ── */
+.cc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 4px 0 16px; }
+.cc-card {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  background: linear-gradient(180deg, var(--bg2), var(--bg1));
+  border: 1px solid var(--border2); border-radius: 18px;
+  padding: 18px 6px; cursor: pointer; text-align: center;
+  transition: transform .14s, border-color .2s; user-select: none;
+}
+.cc-card:active { transform: scale(.93); border-color: var(--border); }
+.cc-ic { font-size: 28px; line-height: 1; }
+.cc-t { font-size: 11.5px; font-weight: 800; color: var(--bright); }
+.cc-s { font-size: 9px; color: var(--muted); }
 
 /* ═══ СТРАНИЦЫ ══════════════════════════════════════════════════════════════ */
 .page { display: none; }
