@@ -15,7 +15,7 @@ from core.registry import GACHA_TABLES, PITY_HARD_REWARD, PET_SPECIES, ITEMS_REG
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.gacha import get_all_pity, get_recent_history
 from services import global_moderation
-from services.gacha import roll_single, roll_multi, get_token_count
+from services.gacha import roll_single, roll_multi, get_token_count, maybe_grant_theme_drop
 from services.quests import increment_metric as quest_increment
 from services.utils import format_currency, safe_html, check_callback_owner
 
@@ -45,28 +45,16 @@ class GachaCB(CallbackData, prefix="gacha"):
 
 async def _maybe_theme_drop(db, user_id: int, spin_type: str) -> str:
     """Small chance to unlock a profile theme from this spin tier's pool.
-    Returns a notice string to append, or '' if nothing dropped."""
-    import random as _r
-    from core.themes import THEME_GACHA_DROPS, THEMES
-    from infrastructure.repositories.themes import list_owned, grant_theme
-    pool = THEME_GACHA_DROPS.get(spin_type, [])
-    if not pool:
-        return ""
-    chance = {"novice": 0.02, "standard": 0.03, "premium": 0.05, "diamond": 0.08}.get(spin_type, 0.02)
-    if _r.random() >= chance:
+    Returns a notice string to append, or '' if nothing dropped.
+    Delegates to services.gacha so bot and site grant the same drops."""
+    drop = await maybe_grant_theme_drop(db, user_id, spin_type)
+    if not drop:
         return ""
     try:
-        owned = await list_owned(db, user_id)
-        available = [t for t in pool if t not in owned]
-        if not available:
-            return ""
-        tid = _r.choice(available)
-        await grant_theme(db, user_id, tid)
         await db.commit()
-        name = THEMES.get(tid, {}).get("name", tid)
-        return f"\n\n🎨 <b>РЕДКИЙ ДРОП — ТЕМА ПРОФИЛЯ!</b>\n└ {name} <i>(надеть: «бот темы»)</i>"
     except Exception:
-        return ""
+        pass
+    return f"\n\n🎨 <b>РЕДКИЙ ДРОП — ТЕМА ПРОФИЛЯ!</b>\n└ {drop['theme_name']} <i>(надеть: «бот темы»)</i>"
 
 
 async def _safe_edit(msg: types.Message, text: str, **kwargs) -> types.Message:

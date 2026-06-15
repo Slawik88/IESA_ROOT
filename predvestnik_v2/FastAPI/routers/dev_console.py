@@ -246,6 +246,10 @@ async def dev_give_vip(body: GiveVipRequest, db=Depends(get_db), user=Depends(re
         raise HTTPException(400, "Неизвестный тариф.")
     if not 1 <= body.days <= 3650:
         raise HTTPException(400, "days: 1..3650.")
+    # vip_subscriptions.user_id REFERENCES users(user_tg_id) — гарантируем строку,
+    # иначе FK-violation на юзере, который ещё не писал боту (как в dev_balance).
+    await db.execute(
+        "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (body.user_id,))
     await db.execute(
         "INSERT INTO vip_subscriptions (user_id, tier, started_at, expires_at, expiry_notified, total_days) "
         "VALUES (?, ?, NOW(), NOW() + make_interval(days => ?), FALSE, ?) "
@@ -283,6 +287,10 @@ async def dev_bp_xp(body: BpXpRequest, db=Depends(get_db), user=Depends(require_
     if body.xp == 0:
         raise HTTPException(400, "xp не может быть 0.")
 
+    # battle_pass_progress.user_id REFERENCES users(user_tg_id) — гарантируем строку,
+    # иначе FK-violation на юзере, который ещё не писал боту (как в dev_balance).
+    await db.execute(
+        "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (body.user_id,))
     await db.execute(
         "INSERT INTO battle_pass_progress (user_id, season_id) VALUES (?, ?) "
         "ON CONFLICT (user_id, season_id) DO NOTHING",

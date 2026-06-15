@@ -7,13 +7,18 @@ from FastAPI.deps import get_db, require_tg_user
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories.economy import get_balance
 from services.economy import EconomyService
+from services.achievements import increment_metric as ach_incr
 
 router = APIRouter(prefix="/shop", tags=["shop"])
 
 _BUYABLE_CATEGORIES = {"food", "egg", "utility", "booster", "donate"}
 
+# Per-category bulk-buy caps — same limits as bot/handlers/shop.py::QTY_MAX_CAP,
+# so the website can't bulk-buy past what the bot allows in one click.
+_QTY_MAX_CAP = {"egg": 50, "food": 99, "utility": 5}
 
-def _build_catalog(discount: float) -> list[dict]:
+
+def _build_catalog(eco: EconomyService, has_discount: bool) -> list[dict]:
     result = []
     for item_id, item in ITEMS_REGISTRY.items():
         if item.get("category") not in _BUYABLE_CATEGORIES:
@@ -29,10 +34,12 @@ def _build_catalog(discount: float) -> list[dict]:
             "name":            item["name"],
             "category":        item.get("category", ""),
             "description":     item.get("description", ""),
-            "price_mora":      int(price_mora * (1 - discount)) if price_mora else 0,
-            "price_diamonds":  int(price_dia * (1 - discount)) if price_dia else 0,
+            # apply_discount() is the same helper purchase_item() uses, so the
+            # displayed price always matches what actually gets charged.
+            "price_mora":      eco.apply_discount(price_mora, has_discount) if price_mora else 0,
+            "price_diamonds":  eco.apply_discount(price_dia, has_discount) if price_dia else 0,
             "price_zarniki":   price_zar,
-            "discount_active": discount > 0,
+            "discount_active": has_discount,
         })
     return result
 
@@ -41,12 +48,12 @@ def _build_catalog(discount: float) -> list[dict]:
 async def get_shop(db=Depends(get_db), user=Depends(require_tg_user)):
     """Каталог магазина с ценами (учитывает скидку черепахи)."""
     eco = EconomyService(db)
-    discount = await eco.get_turtle_discount(user["id"])
+    has_discount = await eco.has_turtle_discount(user["id"])
     bal = await get_balance(db, user["id"])
     return {
         "mora":     float(bal["user_balance_mora"] or 0),
         "diamonds": float(bal["user_balance_diamonds"] or 0),
-        "items":    _build_catalog(discount),
+        "items":    _build_catalog(eco, has_discount),
     }
 
 
@@ -62,15 +69,28 @@ async def buy_item(
     user=Depends(require_tg_user),
 ):
     """Купить предмет. Использует EconomyService.purchase_item() — та же логика что в боте."""
+    item = ITEMS_REGISTRY.get(body.item_id, {})
+    cap = _QTY_MAX_CAP.get(item.get("category", ""), 99)
+    if body.quantity > cap:
+        raise HTTPException(status_code=400, detail=f"Максимум: {cap} шт.")
+
     eco = EconomyService(db)
     ok, message = await eco.purchase_item(user["id"], body.item_id, body.quantity)
 
     if not ok:
         raise HTTPException(status_code=400, detail=message)
 
+    # Track patron achievement (mora spent in shop) — same as bot's cb_shop_do_buy.
+    prices = await eco.get_item_prices(body.item_id, user["id"])
+    mora_spent = prices["mora"] * body.quantity
+    if mora_spent > 0:
+        try:
+            await ach_incr(db, user["id"], "total_mora_spent_shop", delta=mora_spent)
+        except Exception:
+            pass
+
     await db.commit()
 
-    item = ITEMS_REGISTRY.get(body.item_id, {})
     return {
         "ok":       True,
         "message":  message,

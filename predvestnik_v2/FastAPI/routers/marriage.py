@@ -127,6 +127,14 @@ async def accept_proposal(body: ProposalActionRequest, db=Depends(get_db), user=
     if existing:
         raise HTTPException(400, "Вы уже состоите в браке.")
 
+    # The bot's flow re-checks BOTH parties via check_marriage_proposal before
+    # creating the marriage — mirror that here. Without it, accepting a stale
+    # proposal whose proposer got married in the meantime would create a
+    # second marriage row for an already-married user.
+    proposer_existing = await get_user_marriage(db, prop["proposer_id"])
+    if proposer_existing:
+        raise HTTPException(400, "Этот пользователь уже состоит в браке.")
+
     async with db.execute(
         "SELECT user_tg_username FROM users WHERE user_tg_id = ?", (user["id"],)
     ) as c:
@@ -139,14 +147,17 @@ async def accept_proposal(body: ProposalActionRequest, db=Depends(get_db), user=
         pr_row = await c.fetchone()
     proposer_name = pr_row[0] if pr_row and pr_row[0] else f"ID{prop['proposer_id']}"
 
-    await db.execute(
-        "INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name) VALUES (?,?,?,?,?)",
-        (prop["chat_id"], prop["proposer_id"], proposer_name, user["id"], my_name),
-    )
-    await db.execute(
-        "UPDATE marriage_proposals SET status = 'accepted' WHERE id = ?", (body.proposal_id,)
-    )
-    await db.commit()
+    # Wrap creation + proposal-status update atomically — otherwise a failure
+    # after INSERT could leave the proposal "pending" and acceptable again,
+    # producing a duplicate marriage row.
+    async with db.connection.transaction():
+        await db.execute(
+            "INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name) VALUES (?,?,?,?,?)",
+            (prop["chat_id"], prop["proposer_id"], proposer_name, user["id"], my_name),
+        )
+        await db.execute(
+            "UPDATE marriage_proposals SET status = 'accepted' WHERE id = ?", (body.proposal_id,)
+        )
     return {"ok": True}
 
 

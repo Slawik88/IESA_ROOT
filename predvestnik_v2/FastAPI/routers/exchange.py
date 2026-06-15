@@ -2,7 +2,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core.constants import EXCHANGE_RATE_MORA_PER_DIAMOND, EXCHANGE_DAILY_CAP_DIAMONDS
+from core.constants import (
+    EXCHANGE_RATE_MORA_PER_DIAMOND, EXCHANGE_DAILY_CAP_DIAMONDS,
+    EXCHANGE_MIN_DIAMONDS_PER_REQUEST,
+)
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.exchange import (
@@ -48,8 +51,8 @@ async def convert(body: ConvertRequest, db=Depends(get_db), user=Depends(require
 
     event = dict(active)
     diamonds = round(body.diamonds, 2)
-    if diamonds < 1:
-        raise HTTPException(400, f"Минимум 1 💎.")
+    if diamonds < EXCHANGE_MIN_DIAMONDS_PER_REQUEST:
+        raise HTTPException(400, f"Минимум {int(EXCHANGE_MIN_DIAMONDS_PER_REQUEST)} 💎.")
 
     used = await get_user_quota(db, user["id"], event["id"])
     remaining = EXCHANGE_DAILY_CAP_DIAMONDS - used
@@ -61,9 +64,11 @@ async def convert(body: ConvertRequest, db=Depends(get_db), user=Depends(require
     if bal["user_balance_mora"] < mora_needed:
         raise HTTPException(400, f"Нужно {mora_needed:,.0f} 🪙, есть {bal['user_balance_mora']:,.0f}.")
 
-    await eco_repo.add_balance(db, user["id"], mora=-mora_needed, diamonds=diamonds,
-                               commit=False, source="exchange", note=str(event["id"]))
-    await add_quota(db, user["id"], event["id"], diamonds)
-    await db.commit()
+    # Atomic: balance debit/credit + quota update must succeed or fail together,
+    # otherwise a mid-way failure leaves mora spent but quota/diamonds unchanged.
+    async with db.connection.transaction():
+        await eco_repo.add_balance(db, user["id"], mora=-mora_needed, diamonds=diamonds,
+                                   source="exchange_mora_to_dia", note=str(event["id"]))
+        await add_quota(db, user["id"], event["id"], diamonds)
 
     return {"ok": True, "mora_spent": mora_needed, "diamonds_gained": diamonds}

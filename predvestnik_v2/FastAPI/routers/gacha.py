@@ -7,7 +7,7 @@ from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_balance, get_item_quantity
 from infrastructure.repositories.gacha import get_pity
 from core.registry import GACHA_TABLES
-from services.gacha import roll_single, roll_multi
+from services.gacha import roll_single, roll_multi, maybe_grant_theme_drop
 
 router = APIRouter(prefix="/gacha", tags=["gacha"])
 
@@ -118,6 +118,16 @@ async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_us
         except Exception:
             pass
 
+    # Theme drop (rare cosmetic bonus) — same chance as the bot's gacha,
+    # otherwise website spins never grant profile themes.
+    theme_drop = await maybe_grant_theme_drop(db, user["id"], body.spin_type)
+    if theme_drop:
+        try:
+            await db.commit()
+        except Exception:
+            pass
+        result["theme_drop"] = theme_drop
+
     # Send bot notification to chat (best-effort)
     if body.chat_id:
         await _notify_chat_spin(db, user["id"], body.chat_id, body.spin_type, result)
@@ -153,6 +163,19 @@ async def multi_spin(body: SpinRequest, db=Depends(get_db), user=Depends(require
         "items":    all_items,
         "count":    len(results),
     }
+
+    # Theme drop — 10x spins roll the chance 10 times (slightly better odds),
+    # same as the bot's multi-spin. Otherwise website multi-spins never
+    # grant profile themes.
+    for _ in range(SPIN_MULTI_COUNT):
+        theme_drop = await maybe_grant_theme_drop(db, user["id"], body.spin_type)
+        if theme_drop:
+            try:
+                await db.commit()
+            except Exception:
+                pass
+            summary["theme_drop"] = theme_drop
+            break
 
     if body.chat_id:
         await _notify_chat_spin(db, user["id"], body.chat_id, body.spin_type, summary, multi_count=SPIN_MULTI_COUNT)

@@ -544,7 +544,7 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
         if not removed:
             # Lot was created but item is gone — cancel the lot
             from services.auction import cancel_lot
-            await cancel_lot(db, result)
+            await cancel_lot(db, result, user_id)
             return await query.answer("❌ Недостаточно предметов в инвентаре.", show_alert=True)
 
         await db.commit()

@@ -48,10 +48,21 @@ async def open_egg(body: OpenEggRequest, db=Depends(get_db), user=Depends(requir
     if body.egg_id not in GACHA_RATES:
         raise HTTPException(400, "Неизвестный тип яйца.")
 
-    results = await open_eggs_batch(db, user["id"], body.egg_id, count, is_summoned=False)
+    is_summoned = (body.egg_id == "egg_summon")
+    results = await open_eggs_batch(db, user["id"], body.egg_id, count, is_summoned=is_summoned)
     if results is None:
         raise HTTPException(400, "Нет яиц в инвентаре.")
     await db.commit()
+
+    # Grant one-time milestone rewards (mora/diamonds/items) for pets that
+    # crossed level thresholds (3/5/7/10) — same as bot's _process_milestones.
+    from services.zoo import apply_pet_milestones
+    milestones = []
+    for r in results:
+        if r.get("pet_id") and r.get("milestones_unlocked"):
+            milestones.extend(await apply_pet_milestones(db, user["id"], r["pet_id"], r["milestones_unlocked"]))
+    if milestones:
+        await db.commit()
 
     # Track achievements + quest
     try:
@@ -82,7 +93,7 @@ async def open_egg(body: OpenEggRequest, db=Depends(get_db), user=Depends(requir
     except Exception:
         pass
 
-    return {"ok": True, "results": results}
+    return {"ok": True, "results": results, "milestones": milestones}
 
 
 class ApplyDustRequest(BaseModel):
@@ -99,17 +110,29 @@ async def apply_dust(body: ApplyDustRequest, db=Depends(get_db), user=Depends(re
         raise HTTPException(400, "Не является звёздной пылью.")
 
     async with db.execute(
-        "SELECT species_id, rarity FROM pets WHERE id = ? AND owner_id = ?",
+        "SELECT species_id, rarity, COALESCE(pet_level, 1) AS pet_level "
+        "FROM pets WHERE id = ? AND owner_id = ?",
         (body.pet_id, user["id"]),
     ) as c:
         pet = await c.fetchone()
     if not pet:
         raise HTTPException(404, "Питомец не найден.")
+    if (pet["pet_level"] or 1) >= 10:
+        raise HTTPException(400, "Питомец уже на максимальном уровне!")
 
     ok = await remove_item(db, user["id"], body.dust_id, 1, commit=False)
     if not ok:
         raise HTTPException(400, "Нет пыли в инвентаре.")
 
     outcomes = [await grant_duplicate(db, user["id"], pet["species_id"]) for _ in range(amount)]
+
+    # Grant one-time milestone rewards (mora/diamonds/items) for any level
+    # thresholds (3/5/7/10) crossed — same as bot's cb_use_stardust.
+    from services.zoo import apply_pet_milestones
+    milestones = []
+    for r in outcomes:
+        if r.get("pet_id") and r.get("milestones_unlocked"):
+            milestones.extend(await apply_pet_milestones(db, user["id"], r["pet_id"], r["milestones_unlocked"]))
+
     await db.commit()
-    return {"ok": True, "duplicates_added": amount, "outcomes": outcomes}
+    return {"ok": True, "duplicates_added": amount, "outcomes": outcomes, "milestones": milestones}

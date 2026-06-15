@@ -167,8 +167,11 @@ async def resolve_lot(db, lot_id: int) -> dict:
     highest = await get_highest_bid(db, lot_id)
 
     if highest:
-        await _finalize_lot(db, lot, highest["bidder_id"], highest["amount"])
-        await db.commit()
+        # Wrap all balance/item transfers + status update in one transaction
+        # so a partial failure can't leave the lot "active" while funds/items
+        # have already moved (or vice versa).
+        async with db.connection.transaction():
+            await _finalize_lot(db, lot, highest["bidder_id"], highest["amount"])
         return {
             "status": "sold",
             "lot": lot,
@@ -177,7 +180,6 @@ async def resolve_lot(db, lot_id: int) -> dict:
         }
     else:
         await update_lot_status(db, lot_id, "expired")
-        await db.commit()
         return {"status": "expired", "lot": lot, "winner_id": None}
 
 
@@ -190,13 +192,16 @@ async def cancel_lot(db, lot_id: int, user_id: int) -> tuple[bool, str]:
     if lot["status"] != "active":
         return False, "Лот уже закрыт."
 
-    highest = await get_highest_bid(db, lot_id)
-    if highest:
-        await deactivate_bid(db, highest["id"])
-        await remove_reserve(db, highest["bidder_id"], highest["amount"])
+    # Wrap bid-deactivation + reserve-release + status update atomically so a
+    # partial failure can't leave a bidder's mora reserved forever while the
+    # lot is already marked cancelled (or vice versa).
+    async with db.connection.transaction():
+        highest = await get_highest_bid(db, lot_id)
+        if highest:
+            await deactivate_bid(db, highest["id"])
+            await remove_reserve(db, highest["bidder_id"], highest["amount"])
 
-    await update_lot_status(db, lot_id, "cancelled")
-    await db.commit()
+        await update_lot_status(db, lot_id, "cancelled")
     return True, "Лот отменён."
 
 

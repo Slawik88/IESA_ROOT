@@ -168,28 +168,42 @@ async def claim_reward(db, user_id: int, level: int, track: str) -> tuple[bool, 
     items = reward.get("items", ())
     theme_id = reward.get("theme")  # сезонная тема (топ платного трека)
 
-    if mora or diamonds:
-        await add_balance(
-            db, user_id, mora=mora, diamonds=diamonds, commit=False,
-            source="battle_pass_reward", note=f"{season['id']}_lv{level}_{track}",
-        )
+    # ATOMIC GUARD: lock the progress row and re-check `claimed` inside the
+    # transaction before granting anything. Without this, two concurrent
+    # claims (double-click / bot+site race) can both pass the check above
+    # and both grant the reward, appending the level twice.
+    async with db.connection.transaction():
+        async with db.execute(
+            f"SELECT {claimed_col} FROM battle_pass_progress "
+            "WHERE user_id = ? AND season_id = ? FOR UPDATE",
+            (user_id, season["id"]),
+        ) as c:
+            row = await c.fetchone()
+        locked_claimed = (row[0] if row else None) or []
+        if level in locked_claimed:
+            return False, "Эта награда уже получена."
 
-    for item_id, qty in items:
+        if mora or diamonds:
+            await add_balance(
+                db, user_id, mora=mora, diamonds=diamonds, commit=False,
+                source="battle_pass_reward", note=f"{season['id']}_lv{level}_{track}",
+            )
+
+        for item_id, qty in items:
+            await db.execute(
+                "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+                (user_id, item_id, qty, qty),
+            )
+
+        if theme_id:
+            await grant_theme(db, user_id, theme_id)
+
         await db.execute(
-            "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
-            (user_id, item_id, qty, qty),
+            f"UPDATE battle_pass_progress SET {claimed_col} = array_append({claimed_col}, ?) "
+            "WHERE user_id = ? AND season_id = ?",
+            (level, user_id, season["id"]),
         )
-
-    if theme_id:
-        await grant_theme(db, user_id, theme_id)
-
-    await db.execute(
-        f"UPDATE battle_pass_progress SET {claimed_col} = array_append({claimed_col}, ?) "
-        "WHERE user_id = ? AND season_id = ?",
-        (level, user_id, season["id"]),
-    )
-    await db.commit()
 
     parts = []
     if mora:

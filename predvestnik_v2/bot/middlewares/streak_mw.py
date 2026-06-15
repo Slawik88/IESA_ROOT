@@ -170,7 +170,7 @@ async def streak_middleware(
                         new_streak_val = float(_srow[0]) if _srow and _srow[0] else float(result["new_streak"])
                         if new_streak_val > prev_max:
                             delta = new_streak_val - prev_max
-                            await _incr_ach(db, user.id, "max_streak_ever", delta=delta)
+                            await _ach_incr(db, user.id, "max_streak_ever", delta=delta)
                             await db.commit()
                     except Exception:
                         pass

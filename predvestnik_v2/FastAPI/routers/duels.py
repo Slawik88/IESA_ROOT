@@ -68,9 +68,12 @@ async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(req
     if target[0] == user["id"]:
         raise HTTPException(400, "Нельзя вызвать самого себя.")
 
-    my_pets = await _get_pets(db, user["id"], placement="nursery")
+    # Must match the bot's selection (placement="active") — otherwise a duel
+    # started from the site could fight with the player's *passive* pet
+    # instead of the battle pet shown as "active" on their profile.
+    my_pets = await _get_pets(db, user["id"], placement="active")
     if not my_pets:
-        raise HTTPException(400, "Нужен хотя бы один питомец в питомнике.")
+        raise HTTPException(400, "Нет активного питомца! Назначьте его в Зоопарке.")
 
     # Fetch challenger's own username for notifications
     async with db.execute(
@@ -147,15 +150,27 @@ async def accept(body: AcceptRequest, db=Depends(get_db), user=Depends(require_t
     if not duel or duel["challenged_id"] != user["id"]:
         raise HTTPException(404, "Вызов не найден или уже недоступен.")
 
-    my_pets = await _get_pets(db, user["id"], placement="nursery")
+    # Must match the bot's selection (placement="active") — otherwise a duel
+    # accepted from the site could fight with the player's *passive* pet
+    # instead of the battle pet shown as "active" on their profile.
+    my_pets = await _get_pets(db, user["id"], placement="active")
     if not my_pets:
-        raise HTTPException(400, "Нужен хотя бы один питомец в питомнике.")
+        raise HTTPException(400, "Нет активного питомца! Назначьте его в Зоопарке.")
 
     challenged_pet = my_pets[0]
     ok, result = await accept_duel(db, body.duel_id, challenged_pet)
     if not ok:
         raise HTTPException(400, str(result))
     await db.commit()
+
+    # Wire achievements (same as bot's cb_duel_accept) — otherwise duels
+    # accepted via the site never advance the winner's duel_wins achievement.
+    try:
+        from services.achievements import increment_metric as _incr_ach
+        await _incr_ach(db, result["winner_id"], "duel_wins", delta=1.0)
+        await db.commit()
+    except Exception:
+        pass
 
     # Notify via bot if possible
     try:
