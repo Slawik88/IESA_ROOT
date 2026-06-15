@@ -5,15 +5,13 @@ import re
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
+from services.roles import GLOBAL_RANKS_MAP
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
-_RANK_NAMES = {
-    0: "👤 Пользователь",
-    1: "⭐ Почётный участник",
-    2: "🛡 Модератор",
-    3: "🌌 Разработчик",
-}
+# Единый источник правды для названий глобальных рангов — services/roles.py
+# (та же таблица, что использует бот через get_global_rank_name).
+_RANK_NAMES = GLOBAL_RANKS_MAP
 
 
 @router.get("/me")

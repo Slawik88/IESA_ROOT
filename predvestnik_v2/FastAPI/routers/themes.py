@@ -9,6 +9,7 @@ from infrastructure.repositories.themes import (
 )
 from infrastructure.repositories.economy import get_balance
 from infrastructure.repositories import economy as eco_repo
+from infrastructure.repositories.dark_mora import spend_dark_mora
 
 router = APIRouter(prefix="/themes", tags=["themes"])
 
@@ -67,9 +68,11 @@ async def buy_theme(body: BuyThemeRequest, db=Depends(get_db), user=Depends(requ
     price_mora     = theme.get("price_mora")
     price_diamonds = theme.get("price_diamonds")
     price_zarniki  = theme.get("price_zarniki")
+    price_dark     = theme.get("price_dark")
 
-    # Покупаемые в вебе: магазинные (🪙/💎) и донатные (✨). Зарники замыкают
-    # донат-петлю: купил Зарники за Stars → тратишь их на премиум-тему здесь же.
+    # Покупаемые в вебе: магазинные (🪙/💎), донатные (✨) и Тёмный рынок (🌑).
+    # Зарники замыкают донат-петлю: купил Зарники за Stars → тратишь их на
+    # премиум-тему здесь же.
     bal = await get_balance(db, user["id"])
 
     if source in ("shop_mora", "shop_diamond") and (price_mora or price_diamonds):
@@ -89,6 +92,11 @@ async def buy_theme(body: BuyThemeRequest, db=Depends(get_db), user=Depends(requ
                                      "Пополни Зарники в разделе ✨ Премиум.")
         await eco_repo.add_balance(db, user["id"], zarniki=-price_zarniki, commit=False,
                                    source="theme_shop", note=body.theme_id)
+    elif source == "dark" and price_dark:
+        ok, err = await spend_dark_mora(db, user["id"], float(price_dark),
+                                         source="theme_purchase", note=body.theme_id)
+        if not ok:
+            raise HTTPException(400, err or "Недостаточно Тёмной Моры.")
     else:
         raise HTTPException(400, "Эта тема не продаётся напрямую. Получите её через гачу, ивент или Тёмный рынок.")
 

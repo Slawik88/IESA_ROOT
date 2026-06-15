@@ -363,8 +363,58 @@ async def roll_multi(
             })
 
         await db.commit()
+
+        # Achievements: same tracking as roll_single, aggregated across all spins
+        # in this multi-spin. Without this, 10x spins never advanced
+        # gacha_spins / legendary_gacha_drops on either bot or site.
+        try:
+            await _incr_ach(db, user_id, "gacha_spins", delta=float(count))
+            legendary_count = sum(
+                1 for r in results for dup in r.get("dup_outcomes", [])
+                if dup.get("rarity") in ("legendary", "mythic")
+            )
+            if legendary_count:
+                await _incr_ach(db, user_id, "legendary_gacha_drops", delta=float(legendary_count))
+            await db.commit()
+        except Exception:
+            pass
+
         return True, results
 
     except Exception as e:
         await db.rollback()
         return False, f"Ошибка: {e}"
+
+
+# ── Cosmetic theme drops ───────────────────────────────────────────────────────
+
+# Per-spin chance of an additional rare profile-theme drop, by spin tier.
+THEME_DROP_CHANCES = {"novice": 0.02, "standard": 0.03, "premium": 0.05, "diamond": 0.08}
+
+
+async def maybe_grant_theme_drop(db, user_id: int, spin_type: str) -> dict | None:
+    """Small chance to unlock a profile theme from this spin tier's pool.
+
+    Shared by bot and FastAPI gacha handlers so the website grants the same
+    cosmetic theme drops as the Telegram bot. No commit — caller must commit.
+    Returns {"theme_id": str, "theme_name": str} if a theme was granted, else None.
+    """
+    from core.themes import THEME_GACHA_DROPS, THEMES
+    from infrastructure.repositories.themes import list_owned, grant_theme
+
+    pool = THEME_GACHA_DROPS.get(spin_type, [])
+    if not pool:
+        return None
+    chance = THEME_DROP_CHANCES.get(spin_type, 0.02)
+    if random.random() >= chance:
+        return None
+    try:
+        owned = await list_owned(db, user_id)
+        available = [t for t in pool if t not in owned]
+        if not available:
+            return None
+        tid = random.choice(available)
+        await grant_theme(db, user_id, tid)
+        return {"theme_id": tid, "theme_name": THEMES.get(tid, {}).get("name", tid)}
+    except Exception:
+        return None

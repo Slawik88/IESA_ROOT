@@ -45,7 +45,9 @@ _bot = _BotShim()
 async def _require_global(db, user_id: int) -> int:
     """Возвращает global_rank или 403, если < 1.
     DEVELOPER_ID не требует особого случая — db_middleware уже выставляет ему global_rank=3."""
-    rank = await users_repo.get_global_rank(db, user_id)
+    # `or 0`: у старых строк users.global_rank может быть NULL — без этого
+    # `rank < 1` на None кидает TypeError → 500 (см. admin.py::_get_actor_rank).
+    rank = await users_repo.get_global_rank(db, user_id) or 0
     if rank < 1:
         raise HTTPException(403, "Нет прав глобальной модерации.")
     return rank

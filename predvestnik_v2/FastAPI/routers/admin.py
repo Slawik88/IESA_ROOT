@@ -39,7 +39,9 @@ async def _get_actor_rank(db, user_id: int, chat_id: int) -> int:
         (user_id, chat_id),
     ) as c:
         row = await c.fetchone()
-    return row[0] if row else 0
+    # row[0] может быть NULL у старых строк (как и ucs.local_rank в admin_users) —
+    # без `or 0` `_require_admin` сравнивает None < 1 → TypeError → 500.
+    return (row[0] or 0) if row else 0
 
 
 async def _require_admin(db, user_id: int, chat_id: int) -> int:
@@ -297,7 +299,9 @@ async def admin_action(
         (body.user_id, chat_id),
     ) as c:
         trow = await c.fetchone()
-    target_rank = trow[0] if trow else 0
+    # `or 0`: local_rank может быть NULL у старых строк (как в admin_set_rank) —
+    # иначе actor_rank <= target_rank ниже кидает TypeError на int <= None.
+    target_rank = (trow[0] or 0) if trow else 0
 
     if actor_rank <= target_rank:
         raise HTTPException(403, "Нельзя применить действие к пользователю с таким же или более высоким рангом.")
@@ -543,7 +547,9 @@ async def admin_blacklist_add(
         (body.user_id, chat_id),
     ) as c:
         trow = await c.fetchone()
-    target_rank = trow[0] if trow else 0
+    # `or 0`: local_rank может быть NULL у старых строк (как в admin_set_rank) —
+    # иначе actor_rank <= target_rank ниже кидает TypeError на int <= None.
+    target_rank = (trow[0] or 0) if trow else 0
     if actor_rank <= target_rank:
         raise HTTPException(403, "Нельзя внести в ЧС пользователя с таким же или более высоким рангом.")
 

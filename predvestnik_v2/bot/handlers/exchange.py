@@ -170,12 +170,14 @@ async def cb_exchange_confirm(query: types.CallbackQuery, callback_data: ExchCB,
         await query.answer("❌ Недостаточно Моры.", show_alert=True)
         return
 
-    await eco_repo.add_balance(db, user_id, mora=-mora_cost, diamonds=diamonds,
-                               source="exchange_mora_to_dia",
-                               chat_id=query.message.chat.id,
-                               note=f"{int(diamonds)}dia")
-    await add_quota(db, user_id, event_id, diamonds)
-    await db.commit()
+    # Atomic: balance debit/credit + quota update must succeed or fail together,
+    # otherwise a mid-way failure leaves mora spent but quota/diamonds unchanged.
+    async with db.connection.transaction():
+        await eco_repo.add_balance(db, user_id, mora=-mora_cost, diamonds=diamonds,
+                                   source="exchange_mora_to_dia",
+                                   chat_id=query.message.chat.id,
+                                   note=f"{int(diamonds)}dia")
+        await add_quota(db, user_id, event_id, diamonds)
 
     await query.answer(f"✅ +{int(diamonds)} 💎 (−{format_currency(mora_cost)} 🪙)", show_alert=False)
     await query.message.edit_text(

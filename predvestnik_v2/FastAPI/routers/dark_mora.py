@@ -18,8 +18,28 @@ from core.constants import (
 )
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories import economy as eco_repo
+from infrastructure.repositories.dark_mora import (
+    get_cooldown, set_cooldown, add_dark_mora, get_dark_mora_balance,
+)
 
 router = APIRouter(prefix="/dark-mora", tags=["dark-mora"])
+
+
+def _format_cooldown(dt: datetime) -> str:
+    now = datetime.now(timezone.utc)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    diff = dt - now
+    if diff.total_seconds() <= 0:
+        return "уже доступно"
+    days = diff.days
+    hours, rem = divmod(diff.seconds, 3600)
+    mins = rem // 60
+    if days > 0:
+        return f"{days}д {hours}ч"
+    if hours > 0:
+        return f"{hours}ч {mins}м"
+    return f"{mins}м"
 
 
 class ContrabandaRequest(BaseModel):
@@ -28,65 +48,43 @@ class ContrabandaRequest(BaseModel):
 
 @router.post("/contrabanda")
 async def contrabanda(body: ContrabandaRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    stake = body.stake
+    stake = round(body.stake)
     if not (DARK_MORA_CONTRABANDA_MIN_STAKE <= stake <= DARK_MORA_CONTRABANDA_MAX_STAKE):
         raise HTTPException(400, f"Ставка: {int(DARK_MORA_CONTRABANDA_MIN_STAKE)}–{int(DARK_MORA_CONTRABANDA_MAX_STAKE)} 🪙.")
 
-    # Check cooldown
+    # Check cooldown — shared with the bot via dark_mora_cooldowns
     now = datetime.now(timezone.utc)
-    async with db.execute(
-        "SELECT contrabanda_banned_until, contrabanda_last_at FROM users WHERE user_tg_id = ?",
-        (user["id"],),
-    ) as c:
-        row = await c.fetchone()
+    cd = await get_cooldown(db, user["id"], "contrabanda")
+    if cd:
+        if cd.tzinfo is None:
+            cd = cd.replace(tzinfo=timezone.utc)
+        if cd > now:
+            raise HTTPException(400, f"⏳ Следующая попытка через: {_format_cooldown(cd)}")
 
-    if row:
-        if row["contrabanda_banned_until"]:
-            ban_dt = row["contrabanda_banned_until"]
-            if isinstance(ban_dt, str):
-                ban_dt = datetime.fromisoformat(ban_dt).replace(tzinfo=timezone.utc)
-            elif ban_dt.tzinfo is None:
-                ban_dt = ban_dt.replace(tzinfo=timezone.utc)
-            if ban_dt > now:
-                diff = ban_dt - now
-                hours = int(diff.total_seconds() // 3600)
-                days = diff.days
-                time_str = f"{days}д. {hours % 24}ч." if days > 0 else f"{hours}ч."
-                raise HTTPException(400, f"🚔 Вы под следствием! До снятия штрафа: {time_str}")
-        if row["contrabanda_last_at"]:
-            cd_end = datetime.fromisoformat(str(row["contrabanda_last_at"])) + timedelta(days=DARK_MORA_CONTRABANDA_COOLDOWN_DAYS)
-            if cd_end.replace(tzinfo=timezone.utc) > now:
-                days_left = (cd_end.replace(tzinfo=timezone.utc) - now).days + 1
-                raise HTTPException(400, f"Кулдаун: ещё {days_left} д.")
-
-    bal = await eco_repo.get_balance(db, user["id"])
-    if bal["user_balance_mora"] < stake:
-        raise HTTPException(400, "Недостаточно Моры.")
+    # Deduct full stake upfront (atomic, prevents negative balance)
+    ok, err = await eco_repo.spend_mora(db, user["id"], stake, source="contrabanda_stake", note="контрабанда")
+    if not ok:
+        raise HTTPException(400, err)
 
     r = random.random()
-    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
     if r < DARK_MORA_CONTRABANDA_SUCCESS_CHANCE:
-        dark_earned = int(stake / DARK_MORA_CONTRABANDA_MORA_PER_DARK)
-        await eco_repo.add_balance(db, user["id"], mora=-stake, commit=False, source="contrabanda")
-        await db.execute("UPDATE users SET dark_mora = COALESCE(dark_mora,0) + ?, contrabanda_last_at = ? WHERE user_tg_id = ?",
-                         (dark_earned, now_str, user["id"]))
-        await db.commit()
+        dark_earned = max(1, int(stake / DARK_MORA_CONTRABANDA_MORA_PER_DARK))
+        cooldown_until = now + timedelta(days=DARK_MORA_CONTRABANDA_COOLDOWN_DAYS)
+        await set_cooldown(db, user["id"], "contrabanda", cooldown_until)
+        await add_dark_mora(db, user["id"], dark_earned, source="contrabanda", note=f"ставка {stake:.0f}")
         return {"success": True, "result_text": f"✅ Успех! +{dark_earned} 🌑 Тёмной Моры"}
 
     elif r < DARK_MORA_CONTRABANDA_SUCCESS_CHANCE + DARK_MORA_CONTRABANDA_FAIL_CHANCE:
-        lost = stake / 2
-        await eco_repo.add_balance(db, user["id"], mora=-lost, commit=False, source="contrabanda_fail")
-        await db.execute("UPDATE users SET contrabanda_last_at = ? WHERE user_tg_id = ?", (now_str, user["id"]))
-        await db.commit()
-        return {"success": False, "result_text": f"❌ Провал. Потеряно {int(lost)} 🪙"}
+        cooldown_until = now + timedelta(days=DARK_MORA_CONTRABANDA_COOLDOWN_DAYS)
+        await set_cooldown(db, user["id"], "contrabanda", cooldown_until)
+        refund = round(stake * 0.5)
+        await eco_repo.add_balance(db, user["id"], mora=refund, source="contrabanda_refund", note="провал, возврат 50%")
+        return {"success": False, "result_text": f"❌ Провал. Потеряно {int(stake - refund)} 🪙"}
 
     else:
-        ban_until = (now + timedelta(days=DARK_MORA_CONTRABANDA_CATCH_PENALTY_DAYS)).strftime("%Y-%m-%d %H:%M:%S")
-        await eco_repo.add_balance(db, user["id"], mora=-stake, commit=False, source="contrabanda_caught")
-        await db.execute("UPDATE users SET contrabanda_banned_until = ?, contrabanda_last_at = ? WHERE user_tg_id = ?",
-                         (ban_until, now_str, user["id"]))
-        await db.commit()
+        cooldown_until = now + timedelta(days=DARK_MORA_CONTRABANDA_CATCH_PENALTY_DAYS)
+        await set_cooldown(db, user["id"], "contrabanda", cooldown_until)
         return {"success": False, "result_text": f"🚔 Поймали! Штраф {DARK_MORA_CONTRABANDA_CATCH_PENALTY_DAYS} дней. Потеряно {int(stake)} 🪙"}
 
 
@@ -98,34 +96,37 @@ async def ritual(db=Depends(get_db), user=Depends(require_tg_user)):
     if hour not in valid_hours:
         raise HTTPException(400, f"Ритуал доступен только с {DARK_MORA_CULT_HOUR_START}:00 до {DARK_MORA_CULT_HOUR_END}:00 UTC.")
 
-    async with db.execute("SELECT user_level FROM user_chat_stats WHERE user_tg_id = ? ORDER BY user_level DESC LIMIT 1", (user["id"],)) as c:
-        lvl_row = await c.fetchone()
-    if not lvl_row or lvl_row[0] < DARK_MORA_CULT_LEVEL_MIN:
-        raise HTTPException(400, f"Нужен уровень {DARK_MORA_CULT_LEVEL_MIN}+.")
+    # Cooldown — shared with the bot via dark_mora_cooldowns
+    cd = await get_cooldown(db, user["id"], "ritual")
+    if cd:
+        if cd.tzinfo is None:
+            cd = cd.replace(tzinfo=timezone.utc)
+        if cd > now:
+            raise HTTPException(400, f"Ритуал уже проводился. Следующий через: {_format_cooldown(cd)}")
 
     async with db.execute("SELECT MAX(streak) FROM daily_login WHERE user_id = ?", (user["id"],)) as c:
         s = await c.fetchone()
     if not s or (s[0] or 0) < DARK_MORA_CULT_STREAK_MIN:
         raise HTTPException(400, f"Нужен стрик {DARK_MORA_CULT_STREAK_MIN}+.")
 
-    async with db.execute("SELECT COUNT(*) FROM pets WHERE owner_id = ? AND placement IN ('active','passive')", (user["id"],)) as c:
+    async with db.execute("SELECT MAX(user_level) FROM user_chat_stats WHERE user_tg_id = ?", (user["id"],)) as c:
+        lvl_row = await c.fetchone()
+    max_level = int(lvl_row[0]) if lvl_row and lvl_row[0] else 1
+    if max_level < DARK_MORA_CULT_LEVEL_MIN:
+        raise HTTPException(400, f"Нужен уровень {DARK_MORA_CULT_LEVEL_MIN}+.")
+
+    async with db.execute("SELECT COUNT(*) FROM pets WHERE owner_id = ?", (user["id"],)) as c:
         pets = (await c.fetchone())[0]
     if pets < DARK_MORA_CULT_PETS_MIN:
         raise HTTPException(400, f"Нужно {DARK_MORA_CULT_PETS_MIN}+ питомца в питомнике.")
 
-    async with db.execute("SELECT ritual_last_at FROM users WHERE user_tg_id = ?", (user["id"],)) as c:
-        r = await c.fetchone()
-    if r and r[0]:
-        cd = datetime.fromisoformat(str(r[0])) + timedelta(days=DARK_MORA_CULT_COOLDOWN_DAYS)
-        if cd.replace(tzinfo=timezone.utc) > now:
-            raise HTTPException(400, f"Кулдаун: {(cd.replace(tzinfo=timezone.utc)-now).days}д. осталось.")
-
     reward = random.randint(DARK_MORA_CULT_REWARD_MIN, DARK_MORA_CULT_REWARD_MAX)
-    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
-    await db.execute("UPDATE users SET dark_mora = COALESCE(dark_mora,0) + ?, ritual_last_at = ? WHERE user_tg_id = ?",
-                     (reward, now_str, user["id"]))
-    await db.commit()
-    return {"ok": True, "message": f"🌑 Ритуал совершён! +{reward} Тёмной Моры"}
+    cooldown_until = now + timedelta(days=DARK_MORA_CULT_COOLDOWN_DAYS)
+    await set_cooldown(db, user["id"], "ritual", cooldown_until)
+    await add_dark_mora(db, user["id"], reward, source="cult_ritual", note="Культ Бездны")
+
+    new_balance = await get_dark_mora_balance(db, user["id"])
+    return {"ok": True, "message": f"🌑 Ритуал совершён! +{reward} Тёмной Моры", "balance": new_balance}
 
 
 @router.get("/merchant-status")

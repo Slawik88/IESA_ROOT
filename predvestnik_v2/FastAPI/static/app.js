@@ -106,7 +106,7 @@ function toast(msg,ok=true) {
   else{if(t.parentElement!==document.body)document.body.appendChild(t);}
   t.textContent=msg;
   t.style.cssText=`background:${ok?'rgba(82,179,96,.9)':'rgba(224,82,82,.9)'};color:#fff;border:1px solid ${ok?'rgba(82,179,96,.5)':'rgba(224,82,82,.5)'}`;
-  t.classList.add('show');
+  t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
   clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500);
 }
 
@@ -161,6 +161,7 @@ function switchPage(name, _btn) {
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   (prim || el('nb-more'))?.classList.add('active');
   showCurrBar(name !== 'profile');
+  document.body.classList.toggle('pg-wide', name === 'global');
   try { window.scrollTo(0, 0); } catch(e) {}
   if(!_loaded.has(name)){
     _loaded.add(name);
@@ -291,15 +292,24 @@ if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');}
 // ── Sticky currency bar ───────────────────────────────────────────────────────
 // Shows 🪙💎🌑✨ at top of screen (hidden on Profile tab)
 let _currBarVisible = false;
+let _currInited = false;
 
 function updateCurrBar(data) {
   const bar = el('curr-bar');
   if (!bar) return;
-  const set = (id, val, fmt2) => { const v=el(id); if(v) v.textContent=fmt2(val); };
+  const set = (id, val, fmt2) => {
+    const v=el(id); if(!v) return;
+    const next = fmt2(val);
+    if (_currInited && v.textContent !== next) {
+      v.classList.remove('cb-pulse'); void v.offsetWidth; v.classList.add('cb-pulse');
+    }
+    v.textContent = next;
+  };
   set('cb-mora', Math.floor(data?.mora ?? 0), fmt);
   set('cb-dia',  data?.diamonds ?? 0, n => parseFloat(n).toFixed(1));
   set('cb-dark', Math.floor(data?.dark_mora ?? 0), fmt);
   set('cb-zar',  data?.zarniki ?? 0, n => Math.floor(n).toString());
+  _currInited = true;
   // Хедер: имя + уровень/ранг игрока
   if (data?.username !== undefined) {
     const nm=el('hdr-name'); if(nm) nm.textContent=(data.is_vip?'👑 ':'')+(data.username||'Игрок');
@@ -3641,6 +3651,8 @@ function checkAdminAccess() {
 // Refresh current page data
 function refreshPage() {
   const page = _activePage;
+  const rb = document.querySelector('.hdr-refresh');
+  if (rb) { rb.classList.remove('spinning'); void rb.offsetWidth; rb.classList.add('spinning'); }
   const loaders = {
     profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();}, arena:loadArena, market:loadMarket,
     quests:loadQuestsPage, bp:loadBattlePass, ach:loadAch, bestiary:renderZooGuide,
@@ -4018,19 +4030,47 @@ function loadGlobalDev() {
       <textarea id="dev-bc-text" class="num-input" style="margin:0 0 6px;min-height:70px;resize:vertical" placeholder="Текст (HTML разрешён)"></textarea>
       <button class="btn btn-red btn-full" onclick="devBroadcast()">📢 Отправить во ВСЕ чаты</button>
     </div>
-    <div class="card">
+    <div class="card" id="tl-card">
       <div class="card-title">🎨 Theme Lab — редактор премиум-тем</div>
       <select id="dev-tl-template" class="num-input" style="margin-bottom:6px" onchange="devTLLoad()"></select>
-      <div id="dev-tl-vars" style="font-size:10px;color:var(--muted);margin-bottom:6px"></div>
-      <textarea id="dev-tl-text" class="num-input" style="margin:0 0 6px;min-height:180px;resize:vertical;font-family:monospace;font-size:11px;white-space:pre"></textarea>
-      <div style="display:flex;gap:6px;margin-bottom:6px">
-        <button class="btn btn-ghost" style="flex:1" onclick="devTLPreview()">👁 Превью</button>
-        <button class="btn btn-gold" style="flex:1" onclick="devTLSave()">💾 Сохранить</button>
-        <button class="btn btn-red" style="flex:1" onclick="devTLReset()">↩️ Сброс</button>
+      <div id="dev-tl-vars" class="tl-chips" style="margin-bottom:6px"></div>
+      <div class="tl-grid">
+        <div class="tl-editor">
+          <textarea id="dev-tl-text" class="num-input tl-textarea" style="margin:0 0 4px" oninput="_devTLStats()"></textarea>
+          <div id="dev-tl-stats" style="font-size:10px;color:var(--muted);margin-bottom:6px"></div>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <button class="btn btn-ghost" style="flex:1" onclick="devTLPreview()">👁 Превью</button>
+            <button class="btn btn-ghost" style="flex:1" onclick="_devTLCopy()">📋 Копия</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <button class="btn btn-gold" style="flex:1" onclick="devTLSave()">💾 Сохранить</button>
+            <button class="btn btn-red" style="flex:1" onclick="devTLReset()">↩️ Сброс</button>
+          </div>
+          <button class="btn btn-ghost btn-full" style="margin-bottom:6px" onclick="devTLSendTest()">📤 Тест в Telegram (себе в ЛС)</button>
+          <div id="dev-tl-status" style="font-size:10px;margin-bottom:6px"></div>
+        </div>
+        <div class="tl-preview-col">
+          <select id="dev-tl-device" class="num-input" style="margin:0 0 6px" onchange="_devTLApplyFrame()">
+            <option value="360">📱 Android compact (360px)</option>
+            <option value="375">📱 iPhone SE (375px)</option>
+            <option value="390" selected>📱 iPhone 14/15 (390px)</option>
+            <option value="412">📱 Android (412px)</option>
+            <option value="430">📱 iPhone Pro Max (430px)</option>
+            <option value="500">🖥 Telegram Desktop (500px)</option>
+          </select>
+          <div class="tl-fontsize-row">
+            <span>Aa</span>
+            <input id="dev-tl-fontsize" type="range" min="12" max="20" step="0.5" value="16" oninput="_devTLApplyFrame()"/>
+            <span id="dev-tl-fontsize-val">16px</span>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:6px">Сверь со своим Telegram: Настройки → Внешний вид → Размер текста</div>
+          <div class="tl-frame-wrap">
+            <div id="dev-tl-frame" class="tl-frame">
+              <div id="dev-tl-preview"></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <button class="btn btn-ghost btn-full" style="margin-bottom:6px" onclick="devTLSendTest()">📤 Тест в Telegram (себе в ЛС)</button>
-      <div id="dev-tl-status" style="font-size:10px;margin-bottom:6px"></div>
-      <div id="dev-tl-preview"></div>
     </div>
     <div class="card">
       <div class="card-title">🖥 SQL-консоль</div>
@@ -4194,6 +4234,7 @@ function _execDevSql() {
 
 // ── 🎨 Theme Lab — кастомные raw-шаблоны премиум-тем (правки без деплоя) ──────────
 let _devThemeTemplates=null;
+let _devTLVars=[];
 function _devTLOptionsHTML(templates) {
   const groups={premium:[],basic:[]};
   templates.forEach(t=>(groups[t.kind||'basic']||groups.basic).push(t));
@@ -4211,6 +4252,10 @@ function devTLInit() {
     sel.innerHTML=_devTLOptionsHTML(_devThemeTemplates);
     if(_devThemeTemplates.length) devTLLoad();
   }).catch(e=>{el('dev-tl-status').innerHTML=`<div class="err">${e}</div>`;});
+  el('dev-tl-vars')?.addEventListener('click', e=>{
+    const chip=e.target.closest('.tl-chip');
+    if(chip) _devTLInsertVar(chip.dataset.v);
+  });
 }
 function _devTLRefreshBadges() {
   const sel=el('dev-tl-template'); const cur=sel?.value;
@@ -4228,11 +4273,63 @@ function devTLLoad() {
   el('dev-tl-preview').innerHTML='';
   api(`/admin/dev/theme-templates/${tid}`).then(d=>{
     el('dev-tl-text').value=d.raw_text;
-    el('dev-tl-vars').innerHTML='Переменные: '+d.variables.map(v=>`<code>{${v}}</code>`).join(' ');
+    _devTLVars=d.variables||[];
+    el('dev-tl-vars').innerHTML=_devTLVars.length
+      ?'Переменные (клик — вставить): '+_devTLVars.map(v=>`<span class="tl-chip" data-v="${esc(v)}">{${esc(v)}}</span>`).join('')
+      :'<span style="color:var(--muted);font-size:10px">Нет переменных</span>';
     el('dev-tl-status').innerHTML=d.has_override
       ?'<span style="color:var(--gold)">✏️ Сохранён кастомный вариант</span>'
       :'<span style="color:var(--muted)">Дефолтный шаблон (из кода)</span>';
+    _devTLStats();
   }).catch(e=>{el('dev-tl-status').innerHTML=`<div class="err">${e}</div>`;});
+}
+function _devTLInsertVar(name) {
+  const ta=el('dev-tl-text'); if(!ta) return;
+  const token=`{${name}}`;
+  const start=ta.selectionStart??ta.value.length;
+  const end=ta.selectionEnd??start;
+  ta.value=ta.value.slice(0,start)+token+ta.value.slice(end);
+  const pos=start+token.length;
+  ta.focus(); ta.setSelectionRange(pos,pos);
+  _devTLStats();
+}
+function _devTLStats() {
+  const text=el('dev-tl-text')?.value??'';
+  const lines=text.split('\n');
+  const deviceW=parseInt(el('dev-tl-device')?.value||'390',10);
+  const fontPx=parseFloat(el('dev-tl-fontsize')?.value||'16');
+  const innerW=deviceW-48;
+  const maxChars=Math.max(8,Math.floor(innerW/(fontPx*0.6)));
+  let longest=0, longestLine=0, overCount=0;
+  lines.forEach((line,i)=>{
+    const len=[...line].length;
+    if(len>longest){longest=len;longestLine=i+1;}
+    if(len>maxChars) overCount++;
+  });
+  const overHtml=overCount
+    ?`<span style="color:var(--red)">⚠ ${overCount} стр. длиннее ≈${maxChars} симв. — могут не влезть</span>`
+    :`<span style="color:var(--green)">✓ влезает (≈${maxChars} симв./стр.)</span>`;
+  const used=new Set();
+  text.replace(/\{([^{}\n]+)\}/g,(_,name)=>{used.add(name);return '';});
+  const unknown=[...used].filter(v=>!_devTLVars.includes(v));
+  const typoHtml=unknown.length
+    ?`<br><span style="color:var(--red)">❓ неизвестные плейсхолдеры: ${unknown.map(v=>`{${esc(v)}}`).join(', ')}</span>`
+    :'';
+  el('dev-tl-stats').innerHTML=`Макс. длина строки: ${longest} (стр. ${longestLine}). ${overHtml}${typoHtml}`;
+}
+function _devTLCopy() {
+  const text=el('dev-tl-text')?.value??'';
+  navigator.clipboard?.writeText(text)
+    .then(()=>toast('📋 Скопировано!'))
+    .catch(()=>toast('Буфер обмена недоступен',false));
+}
+function _devTLApplyFrame() {
+  const w=el('dev-tl-device')?.value||'390';
+  const fontPx=parseFloat(el('dev-tl-fontsize')?.value||'16');
+  const frame=el('dev-tl-frame');
+  if(frame){ frame.style.width=w+'px'; frame.style.setProperty('--tl-fs',fontPx+'px'); }
+  const lbl=el('dev-tl-fontsize-val'); if(lbl) lbl.textContent=fontPx+'px';
+  _devTLStats();
 }
 function devTLPreview() {
   const tid=el('dev-tl-template')?.value;

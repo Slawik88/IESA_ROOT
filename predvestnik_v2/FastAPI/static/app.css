@@ -108,6 +108,12 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 }
 .cb-item:active { transform: scale(.93); }
 .cb-val { font-variant-numeric: tabular-nums; }
+@keyframes currencyPop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.25); color: var(--gold2); }
+  100% { transform: scale(1); }
+}
+.cb-val.cb-pulse { display: inline-block; animation: currencyPop .5s ease-out; }
 .cb-zar {
   background: linear-gradient(135deg, rgba(232,181,77,.22), rgba(139,108,240,.18));
   border-color: var(--border);
@@ -127,6 +133,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   transition: transform .3s;
 }
 .hdr-refresh:active { transform: rotate(180deg) scale(.9); }
+.hdr-refresh.spinning { animation: spinBall .5s linear; }
 .cb-sep { display: none; }
 
 /* ═══ НИЖНЯЯ НАВИГАЦИЯ: плавающий док ═══════════════════════════════════════ */
@@ -149,9 +156,11 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .ni { font-size: 19px; line-height: 1; transition: transform .25s cubic-bezier(.34,1.56,.64,1); filter: grayscale(.5) opacity(.75); }
 .nb.active { color: var(--gold2); background: var(--gold-dim); }
 .nb.active .ni { transform: translateY(-2px) scale(1.12); filter: none; }
+@keyframes navIndicator { 0% { transform: scaleX(0); opacity: 0; } 100% { transform: scaleX(1); opacity: 1; } }
 .nb.active::after {
   content: ''; position: absolute; bottom: 1px; width: 14px; height: 2.5px;
   border-radius: 2px; background: linear-gradient(90deg, var(--gold), var(--violet));
+  animation: navIndicator .3s ease both;
 }
 /* Магазин/Донат — всегда заметен, лёгкая пульсация иконки */
 @keyframes shop-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
@@ -629,6 +638,28 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .pp-sep-line { color: var(--muted); }
 .pp-bot-line { color: var(--violet); font-style: italic; }
 
+/* ═══ THEME LAB — редактор премиум-тем (dev-консоль) ════════════════════════ */
+.tl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tl-chip {
+  display: inline-flex; align-items: center;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 10.5px; background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 2px 6px; cursor: pointer; color: var(--gold2);
+  transition: transform .1s, border-color .15s;
+}
+.tl-chip:active { transform: scale(.93); border-color: var(--border); }
+.tl-textarea {
+  min-height: 220px; font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 12px; line-height: 1.5; white-space: pre; resize: vertical;
+}
+.tl-device-row, .tl-fontsize-row { display: flex; align-items: center; gap: 6px; }
+.tl-fontsize-row { margin-bottom: 6px; }
+.tl-fontsize-row span { font-size: 10px; color: var(--muted); flex: none; }
+.tl-fontsize-row input[type=range] { flex: 1; }
+.tl-frame-wrap { overflow-x: auto; background: var(--bg2); border-radius: var(--r-sm); padding: 6px; }
+.tl-frame { margin: 0 auto; width: 390px; transition: width .15s ease; }
+.tl-frame .profile-preview { font-size: var(--tl-fs, 16px); width: 100%; }
+
 /* ═══ ОБМЕН ═════════════════════════════════════════════════════════════════ */
 .exch-rate {
   text-align: center; background: linear-gradient(135deg, var(--gold-dim), var(--violet-dim));
@@ -696,13 +727,18 @@ body.modal-open { overflow: hidden; }
 .cm-info { flex: 1; }
 
 /* ═══ TOAST / УВЕДОМЛЕНИЯ ═══════════════════════════════════════════════════ */
+@keyframes toastIn {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(.94); }
+  55%  { opacity: 1; transform: translateX(-50%) translateY(2px) scale(1.015); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+}
 .toast {
-  position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-12px);
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-14px) scale(.94);
   z-index: 200; padding: 10px 18px; border-radius: 999px;
   font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none;
-  transition: opacity .25s, transform .25s; box-shadow: var(--shadow); max-width: 88vw;
+  transition: opacity .2s ease-out; box-shadow: var(--shadow); max-width: 88vw;
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.show { opacity: 1; animation: toastIn .4s cubic-bezier(.34,1.56,.64,1) both; }
 .ws-notif {
   position: fixed; top: 64px; left: 12px; right: 12px; z-index: 150;
   background: linear-gradient(135deg, var(--bg3), var(--bg2));
@@ -748,4 +784,11 @@ body.modal-open { overflow: hidden; }
   body { max-width: 480px; margin: 0 auto; }
   #app-header { left: 50%; right: auto; transform: translateX(-50%); width: 100%; max-width: 480px; }
   .nav { left: 50%; right: auto; transform: translateX(-50%); width: 460px; }
+}
+
+/* ═══ THEME LAB — широкая раскладка на десктопе (только страница «Глобальная») ═ */
+@media (min-width: 900px) {
+  body.pg-wide { max-width: 1080px; }
+  #tl-card .tl-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; align-items: start; }
+  #tl-card .tl-textarea { min-height: 420px; }
 }

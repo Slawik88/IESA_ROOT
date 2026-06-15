@@ -1,7 +1,7 @@
 from services.utils import check_callback_owner
 # bot/handlers/zoo.py
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from services.formatting import parse_dt
 
 from aiogram import Router, types, F
@@ -51,13 +51,19 @@ def _calc_hamster_income(
     hamsters: list[dict],
 ) -> tuple[int, str]:
     """Returns (accumulated_mora, human_time_str). `hamsters` is the list of
-    {pet_level, fatigue} dicts. Lv4+ hamsters keep earning at fatigue == 100."""
-    if not last_collection or not hamsters:
+    {pet_level, fatigue} dicts. Lv4+ hamsters keep earning at fatigue == 100.
+    No prior collection ⇒ treated as 24h ago, matching get_pending_hamster_income
+    (otherwise a new user's profile shows pending income but Collect reports 0)."""
+    if not hamsters:
         return 0, "—"
-    try:
-        last_dt = parse_dt(last_collection)
-    except ValueError:
-        return 0, "—"
+    last_dt = None
+    if last_collection:
+        try:
+            last_dt = parse_dt(last_collection)
+        except ValueError:
+            last_dt = None
+    if last_dt is None:
+        last_dt = datetime.now() - timedelta(hours=24)
     hours = (datetime.now() - last_dt).total_seconds() / 3600.0
 
     total = 0.0
@@ -672,7 +678,8 @@ async def cb_zoo_collect(query: types.CallbackQuery, callback_data: ZooCB, db):
     double_mora_bonus = 0
     diamond_bonus = 0.0
     today_str = datetime.now().strftime("%Y-%m-%d")
-    last_collect_day = (stats.get("last_income_collection") or "")[:10]
+    _last_dt = parse_dt(stats.get("last_income_collection"))
+    last_collect_day = _last_dt.strftime("%Y-%m-%d") if _last_dt else ""
     for h in productive_hamsters:
         b = HAMSTER_BONUSES.get(max(1, min(10, h.get("pet_level") or 1)), {})
         if b.get("double_chance", 0.0) > 0 and random.random() < b["double_chance"]:

@@ -15,7 +15,7 @@ async def update_user(db: aiosqlite.Connection, user_id: int, username: str | No
 async def get_user_id_by_username(db: aiosqlite.Connection, username: str) -> int | None:
     clean = username.lstrip("@")
     async with db.execute(
-        "SELECT user_tg_id FROM users WHERE user_tg_username = ? COLLATE NOCASE",
+        "SELECT user_tg_id FROM users WHERE LOWER(user_tg_username) = LOWER(?)",
         (clean,),
     ) as cursor:
         row = await cursor.fetchone()

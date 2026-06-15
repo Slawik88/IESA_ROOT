@@ -59,35 +59,20 @@ class BuyDealRequest(BaseModel):
 @router.post("/buy")
 async def buy_deal(body: BuyDealRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Купить предмет из акции дня. deal_id = slot (1–7)."""
-    from infrastructure.repositories.daily_deal import (
-        get_current_deals, already_purchased, record_purchase,
-    )
-    from infrastructure.repositories.economy import add_balance, add_item
+    from infrastructure.repositories.daily_deal import get_current_deals
+    from services.daily_deal import purchase_slot
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     deals = await get_current_deals(db)
     deal = next((d for d in deals if d["slot"] == body.deal_id), None)
     if not deal:
         raise HTTPException(400, "Этот лот акции недоступен.")
 
-    if await already_purchased(db, user["id"], body.deal_id, today):
-        raise HTTPException(400, "Вы уже купили этот лот сегодня.")
+    # Delegate to the shared, atomic purchase routine (same as the bot uses) —
+    # it wraps the balance check + balance/inventory update + purchase record
+    # in a single BEGIN IMMEDIATE transaction and re-checks already_purchased
+    # inside it to prevent double-buy races.
+    ok, msg = await purchase_slot(db, user["id"], body.deal_id)
+    if not ok:
+        raise HTTPException(400, msg)
 
-    bal = await get_balance(db, user["id"])
-    if deal.get("price_mora", 0) > 0:
-        if bal["user_balance_mora"] < deal["price_mora"]:
-            raise HTTPException(400, f"Нужно {deal['price_mora']:.0f} 🪙.")
-        await add_balance(db, user["id"], mora=-deal["price_mora"], commit=False,
-                          source="daily_deal", note=deal.get("item_id",""))
-    elif deal.get("price_diamonds", 0) > 0:
-        if bal["user_balance_diamonds"] < deal["price_diamonds"]:
-            raise HTTPException(400, f"Нужно {deal['price_diamonds']} 💎.")
-        await add_balance(db, user["id"], diamonds=-deal["price_diamonds"], commit=False,
-                          source="daily_deal", note=deal.get("item_id",""))
-    else:
-        raise HTTPException(400, "Нет цены у этого предмета.")
-
-    await add_item(db, user["id"], deal["item_id"], deal.get("quantity", 1))
-    await record_purchase(db, user["id"], body.deal_id, today)
-    await db.commit()
     return {"ok": True, "item_id": deal["item_id"], "qty": deal.get("quantity", 1)}
