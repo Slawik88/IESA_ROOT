@@ -1,4 +1,5 @@
 """FastAPI/routers/zoo.py — питомцы: просмотр, кормление, экспедиции, управление."""
+import random
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,16 +10,16 @@ from core.constants import (
     get_pet_bonus, get_level_for_duplicates, get_total_duplicates_for_level,
     PET_LEVEL_MILESTONE_REWARDS, HAMSTER_BONUSES, WOLF_BONUSES, UNICORN_BONUSES,
 )
-from core.registry import ITEMS_REGISTRY, PET_SPECIES
+from core.registry import ITEMS_REGISTRY, PET_SPECIES, EXPEDITIONS_DATA
 from FastAPI.deps import get_db, require_tg_user
-from infrastructure.repositories.economy import get_item_quantity, remove_item, add_balance
+from infrastructure.repositories.economy import get_item_quantity, remove_item, add_balance, spend_mora
 from infrastructure.repositories.zoo import (
     get_user_pets, get_nursery_count, get_zoo_stats, expand_max_slots, get_active_count,
     get_pending_hamster_income, get_active_species_level, apply_fatigue_decay,
 )
 from services.formatting import parse_dt
 from services.vip import get_extra_pet_slots
-from services.zoo import get_active_wolf_food_extra
+from services.zoo import get_active_wolf_food_extra, get_wolf_fatigue_reduction
 
 router = APIRouter(prefix="/zoo", tags=["zoo"])
 
@@ -272,18 +273,139 @@ async def boost_expedition(body: BoostRequest, db=Depends(get_db), user=Depends(
         if not await c.fetchone():
             raise HTTPException(404, "Экспедиция не найдена.")
 
-    ok = await remove_item(db, user["id"], body.booster_id, 1, commit=False)
-    if not ok:
-        raise HTTPException(400, "Ускоритель не найден в инвентаре.")
-
-    await db.execute(
-        f"UPDATE active_expeditions "
-        f"SET ends_at = GREATEST(NOW(), ends_at - ({boost_hours} * INTERVAL '1 hour')) "
-        f"WHERE pet_id = ?",
-        (body.pet_id,),
-    )
-    await db.commit()
+    # Atomic: remove item + update expedition time to prevent double-boost race
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? FOR UPDATE",
+                (user["id"], body.booster_id),
+            ) as c:
+                inv_row = await c.fetchone()
+            if not inv_row or inv_row[0] < 1:
+                raise HTTPException(400, "Ускоритель не найден в инвентаре.")
+            await db.execute(
+                "UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = ?",
+                (user["id"], body.booster_id),
+            )
+            await db.execute(
+                "DELETE FROM inventory WHERE user_id = ? AND item_id = ? AND quantity <= 0",
+                (user["id"], body.booster_id),
+            )
+            await db.execute(
+                f"UPDATE active_expeditions "
+                f"SET ends_at = GREATEST(NOW() + INTERVAL '30 seconds', ends_at - ({boost_hours} * INTERVAL '1 hour')) "
+                f"WHERE pet_id = ?",
+                (body.pet_id,),
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(500, "Ошибка применения ускорителя.")
     return {"ok": True, "boosted_hours": boost_hours}
+
+
+class StartExpeditionRequest(BaseModel):
+    hours: int
+
+
+@router.post("/start-expedition")
+async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Отправить активного питомца в поход. Синхронизировано с bot/handlers/expeditions.py."""
+    if body.hours not in EXPEDITIONS_DATA:
+        raise HTTPException(400, "Доступная длительность: 2, 4, 6 или 8 часов.")
+
+    exp_data = EXPEDITIONS_DATA[body.hours]
+    user_id = user["id"]
+
+    async with db.execute(
+        "SELECT id, name, species_id, fatigue FROM pets WHERE owner_id = ? AND placement = 'active'",
+        (user_id,),
+    ) as c:
+        pet = await c.fetchone()
+    if not pet:
+        raise HTTPException(400, "Нет активного питомца. Переведите питомца в статус Активный.")
+
+    pet_id, pet_name, species_id, fatigue = pet["id"], pet["name"], pet["species_id"], pet["fatigue"]
+
+    async with db.execute(
+        "SELECT ae.ends_at FROM active_expeditions ae "
+        "JOIN pets p ON ae.pet_id = p.id "
+        "WHERE p.owner_id = ? AND ae.ends_at > NOW() LIMIT 1",
+        (user_id,),
+    ) as c:
+        active_row = await c.fetchone()
+    if active_row:
+        raise HTTPException(400, f"Питомец уже в походе (вернётся {str(active_row[0])[:16]}).")
+
+    # Wolf reduces expedition fatigue
+    wolf_reduction = await get_wolf_fatigue_reduction(db, user_id)
+    base_fatigue = exp_data["fatigue"] * (1.0 - wolf_reduction)
+
+    # Dog bonuses: speed, cost reduction, zero fatigue chance, self fatigue reduction
+    dog_level = await get_active_species_level(db, user_id, "dog")
+    speed_reduction = 0.0
+    expedition_cost_reduction = 0.0
+    zero_fatigue_chance = 0.0
+    if dog_level > 0:
+        dog = get_pet_bonus("dog", dog_level)
+        speed_reduction = dog.get("speed_reduction", 0.0)
+        expedition_cost_reduction = dog.get("expedition_cost_reduction", 0.0)
+        zero_fatigue_chance = dog.get("zero_fatigue_chance", 0.0)
+        if species_id == "dog":
+            self_fatigue_reduction = dog.get("self_fatigue_reduction", 0.0)
+            base_fatigue *= (1.0 - self_fatigue_reduction)
+
+    expedition_fatigue = int(base_fatigue)
+    if zero_fatigue_chance > 0 and random.random() < zero_fatigue_chance:
+        expedition_fatigue = 0
+
+    if fatigue + expedition_fatigue > 100:
+        raise HTTPException(400, f"Питомец слишком устал ({fatigue}/100). Покормите его.")
+
+    # Turtle + dog cost discounts
+    actual_cost = exp_data["cost"]
+    if actual_cost > 0:
+        turtle_level = await get_active_species_level(db, user_id, "turtle")
+        combined_mult = 1.0
+        if turtle_level > 0:
+            combined_mult *= (1.0 - get_pet_bonus("turtle", turtle_level).get("expedition_discount", 0.0))
+        if expedition_cost_reduction > 0:
+            combined_mult *= (1.0 - expedition_cost_reduction)
+        actual_cost = max(0, int(exp_data["cost"] * combined_mult))
+
+    if actual_cost > 0:
+        ok, err = await spend_mora(db, user_id, actual_cost, source="expedition",
+                                   note=f"expedition_{body.hours}h")
+        if not ok:
+            raise HTTPException(400, f"Недостаточно Моры (нужно {actual_cost} 🪙).")
+
+    duration_hours = body.hours * (1.0 - speed_reduction)
+
+    try:
+        async with db.connection.transaction():
+            await db.execute(
+                "INSERT INTO active_expeditions (pet_id, chat_id, duration_hours, cost_mora, ends_at) "
+                "VALUES (?, ?, ?, ?, NOW() + (? * INTERVAL '1 hour'))",
+                (pet_id, 0, body.hours, actual_cost, duration_hours),
+            )
+            await db.execute(
+                "UPDATE pets SET fatigue = fatigue + ? WHERE id = ?",
+                (expedition_fatigue, pet_id),
+            )
+    except Exception:
+        if actual_cost > 0:
+            await add_balance(db, user_id, mora=actual_cost)
+        raise HTTPException(500, "Не удалось запустить экспедицию. Мора возвращена.")
+
+    return {
+        "ok": True,
+        "pet_name": pet_name,
+        "hours": body.hours,
+        "duration_hours": round(duration_hours, 2),
+        "fatigue_before": fatigue,
+        "fatigue_after": min(100, fatigue + expedition_fatigue),
+        "cost": actual_cost,
+    }
 
 
 class MoveRequest(BaseModel):

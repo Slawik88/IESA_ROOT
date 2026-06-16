@@ -79,6 +79,18 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
     ) as c:
         ach_count = (await c.fetchone())[0]
 
+    # Партнёр по браку (как в боте: бот я показывает имя партнёра)
+    async with db.execute(
+        "SELECT p2.user_tg_username "
+        "FROM marriages m "
+        "JOIN users p2 ON p2.user_tg_id = CASE "
+        "  WHEN m.user1_id = ? THEN m.user2_id ELSE m.user1_id END "
+        "WHERE (m.user1_id = ? OR m.user2_id = ?) AND m.status = 'married' LIMIT 1",
+        (user_id, user_id, user_id),
+    ) as c:
+        partner_row = await c.fetchone()
+    partner = partner_row[0] if partner_row else None
+
     return {
         "user_id":      user_id,
         "username":     row["user_tg_username"],
@@ -93,6 +105,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "pets":         pets,
         "is_vip":       bool(row["is_vip"]),
         "global_rank":  row["global_rank"] or 0,
+        "partner":      partner,
     }
 
 
