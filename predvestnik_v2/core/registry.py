@@ -563,27 +563,39 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
 VIP_TIERS: dict[str, dict] = {
     "1m": {
         "label": "VIP-1М", "duration_days": 30, "price_zarniki": 150,
+        "base_price_zarniki": 200,  # для отображения экономии
         "gift": {"mora": 200, "diamonds": 1,
                  "items": (("spin_token_novice", 2), ("food_basic", 1))},
         "weekly": (("spin_token_novice", 1),),
         "extra_slot": False,
     },
+    "2m": {
+        "label": "VIP-2М", "duration_days": 60, "price_zarniki": 250,
+        "base_price_zarniki": 400,  # экономия 150
+        "gift": {"mora": 250, "diamonds": 2,
+                 "items": (("spin_token_novice", 3), ("food_basic", 3))},
+        "weekly": (("spin_token_novice", 1),),
+        "extra_slot": False,
+    },
     "3m": {
         "label": "VIP-3М", "duration_days": 90, "price_zarniki": 400,
+        "base_price_zarniki": 600,  # экономия 200
         "gift": {"mora": 300, "diamonds": 2,
                  "items": (("spin_token_novice", 1), ("spin_token_standard", 1), ("food_basic", 5))},
         "weekly": (("spin_token_novice", 2),),
         "extra_slot": True,
     },
     "8m": {
-        "label": "VIP-8М", "duration_days": 240, "price_zarniki": 1000,
+        "label": "VIP-8М", "duration_days": 240, "price_zarniki": 1200,
+        "base_price_zarniki": 1600,  # экономия 400
         "gift": {"mora": 500, "diamonds": 5,
                  "items": (("spin_token_premium", 2), ("spin_token_diamond", 1), ("food_basic", 5))},
         "weekly": (("spin_token_novice", 1), ("spin_token_standard", 1)),
         "extra_slot": True,
     },
     "12m": {
-        "label": "VIP-12М", "duration_days": 365, "price_zarniki": 1600,
+        "label": "VIP-12М", "duration_days": 365, "price_zarniki": 1700,
+        "base_price_zarniki": 2400,  # экономия 700
         "gift": {"mora": 500, "diamonds": 10,
                  "items": (("spin_token_diamond", 3), ("spin_token_premium", 3),
                            ("spin_token_standard", 3), ("spin_token_novice", 5),

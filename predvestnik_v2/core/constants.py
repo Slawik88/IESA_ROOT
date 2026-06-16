@@ -332,10 +332,16 @@ EXCHANGE_MIN_DIAMONDS_PER_REQUEST: float = 5.0
 # ── Зарники: донат-экономика (Implementation Block 1) ─────────────────────────
 ZARNIKI_PER_STAR: int = 10              # 1⭐ = 10✨
 
-STARS_PACKAGES: list[tuple[int, int]] = [
-    (20, 200), (50, 500), (100, 1000),
-    (200, 2000), (300, 3000), (400, 4000),
-]  # (stars, zarniki); произвольная сумма = stars × ZARNIKI_PER_STAR
+# (stars, base_zarniki, bonus_zarniki) — итого = base + bonus
+STARS_PACKAGES: list[tuple[int, int, int]] = [
+    (20,  200,  15),
+    (50,  500,  50),
+    (100, 1000, 100),   # MOST POPULAR
+    (200, 2000, 200),
+    (300, 3000, 300),
+    (400, 4000, 400),
+]
+STARS_MOST_POPULAR: int = 100           # пакет со звёздочкой "самое популярное"
 
 ZARNIKI_TO_MORA_RATE: float = 3.0       # 1✨ = 3🪙
 ZARNIKI_TO_DIAMONDS_RATE: float = 0.05  # 1✨ = 0.05💎 (20✨ = 1💎)

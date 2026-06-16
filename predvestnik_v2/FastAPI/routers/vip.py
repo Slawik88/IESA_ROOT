@@ -23,6 +23,8 @@ def _tiers_payload() -> list[dict]:
             "label": info["label"],
             "duration_days": info["duration_days"],
             "price_zarniki": info["price_zarniki"],
+            "base_price_zarniki": info.get("base_price_zarniki", info["price_zarniki"]),
+            "savings_zarniki": info.get("base_price_zarniki", info["price_zarniki"]) - info["price_zarniki"],
             "gift_mora": info["gift"].get("mora", 0),
             "gift_diamonds": info["gift"].get("diamonds", 0),
             "gift_items": _resolve_items(info["gift"].get("items", ())),

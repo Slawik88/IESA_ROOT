@@ -801,6 +801,21 @@ async def init_db():
             )
         """)
 
+        # Battle Pass rewards — DB-переопределения registry.BATTLE_PASS_REWARDS
+        # Формат items: JSON-массив [["item_id", qty], ...] (как в registry)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS battle_pass_reward_overrides (
+                season_id  TEXT NOT NULL,
+                level      INTEGER NOT NULL,
+                track      TEXT NOT NULL,
+                mora       INTEGER DEFAULT 0,
+                diamonds   INTEGER DEFAULT 0,
+                items      TEXT DEFAULT '[]',
+                theme_id   TEXT DEFAULT NULL,
+                PRIMARY KEY (season_id, level, track)
+            )
+        """)
+
         # Theme Lab — кастомные raw-шаблоны премиум-тем профиля (правки без деплоя)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS profile_theme_overrides (

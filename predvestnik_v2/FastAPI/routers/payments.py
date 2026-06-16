@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import require_tg_user
-from core.constants import ZARNIKI_PER_STAR, STARS_PACKAGES
+from core.constants import ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -38,7 +38,16 @@ async def zarniki_packages(user=Depends(require_tg_user)):
     """Пакеты Stars→Зарники + параметры произвольной суммы (для донат-витрины)."""
     return {
         "per_star": ZARNIKI_PER_STAR,
-        "packages": [{"stars": s, "zarniki": z} for s, z in STARS_PACKAGES],
+        "packages": [
+            {
+                "stars": s,
+                "zarniki": base,
+                "bonus": bonus,
+                "total": base + bonus,
+                "popular": s == STARS_MOST_POPULAR,
+            }
+            for s, base, bonus in STARS_PACKAGES
+        ],
         "custom_min": 1,
         "custom_max": _MAX_STARS,
     }
@@ -55,7 +64,9 @@ async def zarniki_invoice(body: InvoiceRequest, user=Depends(require_tg_user)):
     if not (1 <= stars <= _MAX_STARS):
         raise HTTPException(400, f"Количество звёзд: от 1 до {_MAX_STARS}.")
 
-    zarniki = stars * ZARNIKI_PER_STAR
+    # Пакетные покупки получают бонус; кастомная сумма — по тарифу без бонуса
+    pkg = next((p for p in STARS_PACKAGES if p[0] == stars), None)
+    zarniki = (pkg[1] + pkg[2]) if pkg else (stars * ZARNIKI_PER_STAR)
     res = await _tg_call(
         "createInvoiceLink",
         title="Зарники ✨",
