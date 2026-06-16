@@ -806,7 +806,7 @@ async def dev_theme_meta_get(theme_id: str, db=Depends(get_db), user=Depends(req
         raise HTTPException(404, "Тема не найдена.")
     base = THEMES[theme_id]
     async with db.execute(
-        "SELECT name, rarity, source, price_mora, price_diamonds, price_zarniki, price_dark_mora, obtainable_bp, desc "
+        "SELECT name, rarity, source, price_mora, price_diamonds, price_zarniki, price_dark_mora, obtainable_bp, description "
         "FROM theme_metadata_overrides WHERE theme_id = ?",
         (theme_id,),
     ) as c:
@@ -840,13 +840,13 @@ async def dev_theme_meta_save(theme_id: str, body: ThemeMetaRequest,
         raise HTTPException(400, f"Неверный источник. Допустимо: {', '.join(_VALID_SOURCES)}")
     await db.execute(
         "INSERT INTO theme_metadata_overrides "
-        "(theme_id, name, rarity, source, price_mora, price_diamonds, price_zarniki, price_dark_mora, obtainable_bp, desc) "
+        "(theme_id, name, rarity, source, price_mora, price_diamonds, price_zarniki, price_dark_mora, obtainable_bp, description) "
         "VALUES (?,?,?,?,?,?,?,?,?,?) "
         "ON CONFLICT (theme_id) DO UPDATE SET "
         "name=EXCLUDED.name, rarity=EXCLUDED.rarity, source=EXCLUDED.source, "
         "price_mora=EXCLUDED.price_mora, price_diamonds=EXCLUDED.price_diamonds, "
         "price_zarniki=EXCLUDED.price_zarniki, price_dark_mora=EXCLUDED.price_dark_mora, "
-        "obtainable_bp=EXCLUDED.obtainable_bp, desc=EXCLUDED.desc",
+        "obtainable_bp=EXCLUDED.obtainable_bp, description=EXCLUDED.description",
         (theme_id, body.name, body.rarity, body.source, body.price_mora,
          body.price_diamonds, body.price_zarniki, body.price_dark_mora,
          1 if body.obtainable_bp else 0, body.desc),
