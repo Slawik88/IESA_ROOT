@@ -79,13 +79,15 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
     ) as c:
         ach_count = (await c.fetchone())[0]
 
-    # Партнёр по браку (как в боте: бот я показывает имя партнёра)
+    # Партнёр по браку (как в боте: существование строки в marriages = в браке,
+    # нет отдельной колонки status — см. infrastructure/repositories/marriages.get_user_marriage)
     async with db.execute(
         "SELECT p2.user_tg_username "
         "FROM marriages m "
         "JOIN users p2 ON p2.user_tg_id = CASE "
         "  WHEN m.user1_id = ? THEN m.user2_id ELSE m.user1_id END "
-        "WHERE (m.user1_id = ? OR m.user2_id = ?) AND m.status = 'married' LIMIT 1",
+        "WHERE m.user1_id = ? OR m.user2_id = ? "
+        "ORDER BY m.marriage_date DESC LIMIT 1",
         (user_id, user_id, user_id),
     ) as c:
         partner_row = await c.fetchone()
