@@ -836,7 +836,7 @@ async def init_db():
                 price_zarniki  INTEGER,
                 price_dark_mora INTEGER,
                 obtainable_bp  INTEGER DEFAULT 0,
-                desc           TEXT
+                description    TEXT
             )
         """)
 
