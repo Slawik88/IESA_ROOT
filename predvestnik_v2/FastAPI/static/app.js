@@ -20,7 +20,7 @@ const _initChatId = _urlChatId || _tgChat?.id || 0;   // primary chat_id for loc
 const _initChatTitle = _tgChat?.title || '';
 
 let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='duels';
-let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='vip';
+let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='gacha';
 let _proTab='main', _profileData=null;
 let _achData=null, _achSort='default', _invSearch='', _themeFilter='all';
 let _bpData=null;
@@ -148,8 +148,7 @@ const _loaded=new Set();
 let _activePage = 'profile';
 const _PAGE_LOADERS = {
   zoo:loadZoo, arena:loadArena, market:loadMarket,
-  quests:loadQuestsPage, bp:loadBattlePass, ach:loadAch, bestiary:renderZooGuide,
-  craft:loadCraft, auction:loadAuctionPage, hof:loadTop,
+  bp:loadBattlePass, auction:loadAuctionPage,
   admin:loadAdmin, global:loadGlobal, help:()=>{}
 };
 function switchPage(name, _btn) {
@@ -174,6 +173,33 @@ function switchPage(name, _btn) {
 // Закрывает открытую модалку/меню (CM) — нужно для шорткатов внутри окон.
 function goTo(page, tab) {
   CM();
+  // Редиректы: страницы, которые переехали в подвкладки других разделов
+  if (page==='quests'||page==='ach'||page==='hof') {
+    const proTab = page==='hof'?'hof':page==='ach'?'ach':'quests';
+    switchPage('profile');
+    setTimeout(()=>{
+      const btn = document.querySelector(`#pg-profile > .tabs > .tb[onclick*="'${proTab}'"]`);
+      if(btn) btn.click();
+      if(tab) setTimeout(()=>{
+        const sub = document.querySelector(`#pro-${proTab} .tab-inner .tb[onclick*="'${tab}'"]`);
+        if(sub) sub.click();
+      },80);
+    },80);
+    return;
+  }
+  if (page==='bestiary') {
+    switchPage('zoo');
+    setTimeout(()=>{ const b=document.querySelector('#pg-zoo > .tabs > .tb[onclick*="bestiary"]'); if(b) b.click(); },80);
+    return;
+  }
+  if (page==='craft') {
+    switchPage('profile');
+    setTimeout(()=>{
+      const b=document.querySelector("#pg-profile > .tabs > .tb[onclick*=\"'inv'\"]"); if(b) b.click();
+      setTimeout(()=>{ const c=document.querySelector("#pro-inv .tab-inner .tb[onclick*=\"'craft'\"]"); if(c) c.click(); },80);
+    },80);
+    return;
+  }
   switchPage(page);
   if (tab) setTimeout(() => {
     const tabBtn = document.querySelector(`#pg-${page} .tb[onclick*="'${tab}'"]`);
@@ -758,8 +784,12 @@ function petCard(p) {
 
 function swZoo(tab,btn) {
   _zooTab=tab;
-  document.querySelectorAll('#pg-zoo .tb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+  document.querySelectorAll('#pg-zoo > .tabs > .tb').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const zooC = el('zoo-c'), zooBest = el('zoo-bestiary');
+  if(zooC) zooC.style.display = tab==='bestiary' ? 'none' : '';
+  if(zooBest) zooBest.style.display = tab==='bestiary' ? '' : 'none';
+  if(tab==='bestiary') { renderZooGuide(); return; }
   if(!_zooData){loadZoo();return;}
   renderZoo(tab);
 }
@@ -789,22 +819,35 @@ function renderZoo(tab) {
     const active=pets.filter(p=>p.placement==='active');
     const passive=pets.filter(p=>p.placement==='passive');
     const maxSlots=_zooData.max_slots||3;
+    const baseSlots=_zooData.base_slots||3;
+    const expandedSlots=_zooData.expanded_slots||0;
+    const vipExtra=_zooData.vip_extra_slot||0;
+    const atCap=!!_zooData.at_slot_cap;
+    const totalSlots=maxSlots+vipExtra;
     const expandQty=_zooData.slot_expander_qty||0;
     const occupied=active.length+passive.length;
     const pendingMora=_zooData.pending_hamster_mora||0;
     const hasHamsters=pets.some(p=>p.species_id==='hamster');
     let html=`<div style="background:var(--s);border-radius:var(--r);border:1px solid var(--border2);padding:8px 12px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <span style="font-size:12px;color:var(--muted)">🐾 Слоты питомника</span>
-        <span style="font-size:14px;font-weight:700;color:${occupied>=maxSlots?'var(--red)':'var(--green)'}">${occupied}/${maxSlots}</span>
+        <span style="font-size:15px;font-weight:700;color:${occupied>=totalSlots?'var(--red)':'var(--green)'}">${occupied}/${totalSlots}</span>
       </div>
-      ${occupied>=maxSlots&&expandQty===0&&maxSlots<6?`
-        <div style="margin-top:6px;font-size:10px;color:var(--muted)">🔒 Слоты заполнены. <span style="color:var(--gold);cursor:pointer" onclick="goTo('market','goods')">Купи 🏡 Расширитель в Магазине</span></div>`:''}
-      ${expandQty>0&&maxSlots<6?`
+      <div style="font-size:10px;color:var(--muted);line-height:1.8">
+        <span>📦 Базовых: <b style="color:var(--bright)">${baseSlots}</b></span>
+        ${expandedSlots>0?`&nbsp;· 🏡 Расширено: <b style="color:var(--bright)">+${expandedSlots}</b>`:''}
+        ${vipExtra>0?`&nbsp;· 👑 VIP: <b style="color:var(--gold)">+${vipExtra}</b>`:''}
+        ${atCap&&!vipExtra?`<br><span style="color:var(--muted)">Макс. расширений (${maxSlots}/6) достигнуто</span>`:''}
+      </div>
+      ${expandQty>0?`
         <div style="margin-top:8px;border-top:1px solid var(--border2);padding-top:8px">
           <div style="font-size:10px;color:var(--muted);margin-bottom:5px">В инвентаре: 🏡 Расширитель слота ×${expandQty}</div>
-          <button class="btn btn-full btn-sm" onclick="doExpandSlot()" style="font-size:11px">🏡 Применить расширитель (+1 слот)</button>
-        </div>`:''}
+          ${atCap
+            ?`<button class="btn btn-full btn-sm" disabled style="font-size:11px;opacity:.45;cursor:not-allowed">🔒 Макс. кол-во слотов за расширители (6/6)</button>`
+            :`<button class="btn btn-full btn-sm" onclick="doExpandSlot()" style="font-size:11px">🏡 Применить расширитель (+1 слот)</button>`
+          }
+        </div>`
+      :occupied>=maxSlots&&!atCap?`<div style="margin-top:6px;font-size:10px;color:var(--muted)">🔒 Слоты заполнены. <span style="color:var(--gold);cursor:pointer" onclick="goTo('profile','inv')">Купи 🏡 Расширитель</span></div>`:''}
     </div>
     ${hasHamsters?`<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
       <div>
@@ -1500,7 +1543,7 @@ function submitDuelChallenge(btn) {
 }
 
 // ── Market ────────────────────────────────────────────────────────────────────
-function loadMarket(){swMkt(_mktTab,document.querySelector('#pg-market .tb'));}
+function loadMarket(){swMkt(_mktTab,document.querySelector(`#pg-market > .tabs > .tb[onclick*="'${_mktTab}'"]`)||document.querySelector('#pg-market > .tabs > .tb'));}
 // swMkt() defined later with deal + promo tabs
 let _aucPage = 0, _aucTotal = 0, _aucPerPage = 20;
 
@@ -2170,9 +2213,9 @@ function doEquipTheme(tid) {
 
 // ── Top ───────────────────────────────────────────────────────────────────────
 // Priority: chat where mini app was opened (_initChatId) → profile chat (_cid)
-function loadTop(){switchTop('local',document.querySelector('#pg-hof .tb'));}
+function loadTop(){switchTop('local',document.querySelector('#pro-hof .tab-inner .tb'));}
 function switchTop(mode, btn) {
-  document.querySelectorAll('#pg-hof .tb').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#pro-hof .tab-inner .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
 
   const localChatId = _initChatId || _cid;
@@ -2200,7 +2243,7 @@ function switchTop(mode, btn) {
           <div class="pd-name">${vipName(r.username, r.is_vip)}</div>
           <div class="pd-cnt">${fmt(r.count)} 💬</div>
         </div>`).join('')+'</div>' : '';
-      const restHtml = rest.length ? '<div class="card">'+rest.map((r,i)=>`<div class="trow">
+      const restHtml = rest.length ? '<div class="card">'+rest.map((r,i)=>`<div class="trow${r.is_vip?' trow-vip':''}">
           <div class="tpos">${i+4}</div>
           <div class="tname">${vipName(r.username, r.is_vip)}</div>
           <div class="tcnt">${fmt(r.count)} 💬</div>
@@ -2921,28 +2964,41 @@ function doExchangeZarniki(to) {
     });
 }
 
-// ── switchPro — Профиль: Обзор(дашборд+кошелёк) / Инвентарь / Темы ──────────────
+// ── switchPro — Профиль: Обзор / Инвентарь / Темы / Квесты / Ачивки / Топ ───────
 // Брак и Ник — карточки в Обзоре. История кошелька — свёрнутая секция внизу Обзора.
+let _invSubTab = 'items';
 function switchPro(tab, btn) {
   _proTab = tab;
-  document.querySelectorAll('#pg-profile .tb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  ['main','inv','themes'].forEach(t=>el('pro-'+t).style.display=t===tab?'':'none');
+  document.querySelectorAll('#pg-profile > .tabs > .tb').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  ['main','inv','themes','quests','ach','hof'].forEach(t=>{ const d=el('pro-'+t); if(d) d.style.display=t===tab?'':'none'; });
   if(tab==='main') loadProfile();
-  else if(tab==='inv') loadInventory();
+  else if(tab==='inv') swInv(_invSubTab, document.querySelector('#pro-inv .tab-inner .tb'));
   else if(tab==='themes') loadThemes();
+  else if(tab==='quests') swQuests(_questsTab, document.querySelector(`#pro-quests .tab-inner .tb[onclick*="'${_questsTab}'"]`) || document.querySelector('#pro-quests .tab-inner .tb'));
+  else if(tab==='ach') loadAch();
+  else if(tab==='hof') switchTop('local', document.querySelector('#pro-hof .tab-inner .tb'));
+}
+function swInv(sub, btn) {
+  _invSubTab = sub;
+  document.querySelectorAll('#pro-inv .tab-inner .tb').forEach(b=>b.classList.remove('active'));
+  const safeBtn = btn || document.querySelector(`#pro-inv .tab-inner .tb[onclick*="'${sub}'"]`) || document.querySelector('#pro-inv .tab-inner .tb');
+  if(safeBtn) safeBtn.classList.add('active');
+  el('inv-items').style.display = sub==='items' ? '' : 'none';
+  el('inv-craft').style.display = sub==='craft' ? '' : 'none';
+  if(sub==='items') loadInventory(); else loadCraft();
 }
 
-// ── swMkt — Магазин: Премиум / Гача / Расходники / Акции дня ────────────────────
-// Промокод — модалка (кнопка в шапке Магазина). Аукцион/Обмен → pg-auction, Крафт → pg-craft.
+// ── swMkt — Магазин: Гача / Премиум / Расходники / Акции дня ─────────────────────
+// Промокод — модалка (кнопка в шапке Магазина). Аукцион/Обмен → pg-auction.
 function swMkt(tab, _btn) {
-  const btn = _btn || document.querySelector(`#pg-market .tb[onclick*="'${tab}'"]`) || document.querySelector('#pg-market .tb');
+  const btn = _btn || document.querySelector(`#pg-market > .tabs > .tb[onclick*="'${tab}'"]`) || document.querySelector('#pg-market > .tabs > .tb');
   _mktTab = tab;
-  document.querySelectorAll('#pg-market .tb').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#pg-market > .tabs > .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  const bd = el('balrow'); bd.style.display = tab === 'goods' ? 'flex' : 'none';
-  ['vip','gacha','goods','deal'].forEach(t=>el(t==='goods'?'mkt-goods':'mkt-'+t).style.display=t===tab?'':'none');
-  ({vip:loadVip, gacha:loadGacha, goods:loadMarketGoods, deal:loadDeal}[tab]||loadVip)();
+  const bd = el('balrow'); if(bd) bd.style.display = tab === 'goods' ? 'flex' : 'none';
+  ['vip','gacha','goods','deal'].forEach(t=>{ const d=el(t==='goods'?'mkt-goods':'mkt-'+t); if(d) d.style.display=t===tab?'':'none'; });
+  ({vip:loadVip, gacha:loadGacha, goods:loadMarketGoods, deal:loadDeal}[tab]||loadGacha)();
 }
 
 // ── swGoods — Расходники: 🛒 Обычный (Магазин) / 🌑 Тёмный (Чёрный Рынок) ────────
@@ -2974,17 +3030,18 @@ function swAuction(tab, btn) {
 }
 function loadAuctionPage() { swAuction(_aucTab, document.querySelector(`#pg-auction .tb[onclick*="'${_aucTab}'"]`)); }
 
-// ── swQuests — Квесты & Стрик ───────────────────────────────────────────────────
+// ── swQuests — Квесты & Стрик (под-вкладки внутри про-квесты в Профиле) ─────────
 let _questsTab='quests';
 function swQuests(tab, btn) {
   _questsTab = tab;
-  document.querySelectorAll('#pg-quests .tb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  el('pro-quests').style.display = tab==='quests' ? '' : 'none';
+  document.querySelectorAll('#pro-quests .tab-inner .tb').forEach(b=>b.classList.remove('active'));
+  const safeBtn = btn || document.querySelector(`#pro-quests .tab-inner .tb[onclick*="'${tab}'"]`) || document.querySelector('#pro-quests .tab-inner .tb');
+  if(safeBtn) safeBtn.classList.add('active');
+  el('quests-content').style.display = tab==='quests' ? '' : 'none';
   el('pro-streak').style.display = tab==='streak' ? '' : 'none';
   if(tab==='quests') loadQuests(); else loadStreak();
 }
-function loadQuestsPage() { swQuests(_questsTab, document.querySelector(`#pg-quests .tb[onclick*="'${_questsTab}'"]`)); }
+function loadQuestsPage() { swQuests(_questsTab, document.querySelector(`#pro-quests .tab-inner .tb[onclick*="'${_questsTab}'"]`)); }
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
 setInterval(()=>{if(_loaded.has('profile'))loadProfile();},300000);
@@ -3655,8 +3712,7 @@ function refreshPage() {
   if (rb) { rb.classList.remove('spinning'); void rb.offsetWidth; rb.classList.add('spinning'); }
   const loaders = {
     profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();}, arena:loadArena, market:loadMarket,
-    quests:loadQuestsPage, bp:loadBattlePass, ach:loadAch, bestiary:renderZooGuide,
-    craft:loadCraft, auction:loadAuctionPage, hof:loadTop,
+    bp:loadBattlePass, auction:loadAuctionPage,
     admin:()=>{_adminChats=null;loadAdmin();}, global:loadGlobal
   };
   if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('🔄 Обновлено!'); }
@@ -4075,6 +4131,71 @@ function loadGlobalDev() {
         </div>
       </div>
     </div>
+    <div class="card" id="tl-meta-card">
+      <div class="card-title">🔧 Метаданные темы (цены, редкость, описание)</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Выберите тему в Theme Lab выше → нажмите «Загрузить метаданные»</div>
+      <button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="devTLMetaLoad()">⬇ Загрузить метаданные</button>
+      <div id="dev-tl-meta-form" style="display:none">
+        <input type="hidden" id="dev-tl-meta-tid"/>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Имя</div>
+            <input id="dev-tl-meta-name" type="text" class="num-input" style="margin:0" placeholder="Название темы"/>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Редкость</div>
+            <select id="dev-tl-meta-rarity" class="num-input" style="margin:0">
+              <option value="common">⬜ Обычная</option><option value="uncommon">🟩 Необычная</option>
+              <option value="rare">🟦 Редкая</option><option value="epic">🟣 Эпическая</option>
+              <option value="legendary">🟡 Легендарная</option><option value="mythic">🔴 Мифическая</option>
+              <option value="shadow">🌑 Теневая</option><option value="zarniki">✨ Зарниковая</option>
+              <option value="seasonal">🗓 Сезонная</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Источник</div>
+            <select id="dev-tl-meta-source" class="num-input" style="margin:0">
+              <option value="">— не указан —</option>
+              <option value="start">🎁 Стартовая</option><option value="shop_mora">🪙 Магазин (мора)</option>
+              <option value="shop_diamond">💎 Магазин (алмазы)</option><option value="gacha_novice">🎲 Гача ученик</option>
+              <option value="gacha_standard">🎲 Гача стандарт</option><option value="gacha_premium">🎲 Гача премиум</option>
+              <option value="gacha_diamond">💎 Гача алмазная</option><option value="dark">🌑 Чёрный рынок</option>
+              <option value="zarniki">✨ Зарники</option><option value="event">🎪 Ивент</option>
+              <option value="auction">⚖️ Аукцион</option><option value="bp">🎫 Боевой пропуск</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Цена Мора 🪙</div>
+            <input id="dev-tl-meta-pmora" type="number" class="num-input" style="margin:0" placeholder="0"/>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Цена Алмазы 💎</div>
+            <input id="dev-tl-meta-pdia" type="number" step="0.1" class="num-input" style="margin:0" placeholder="0"/>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Цена Зарники ✨</div>
+            <input id="dev-tl-meta-pzar" type="number" class="num-input" style="margin:0" placeholder="0"/>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Цена Тёмная мора 🌑</div>
+            <input id="dev-tl-meta-pdark" type="number" class="num-input" style="margin:0" placeholder="0"/>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding-top:14px">
+            <input id="dev-tl-meta-bp" type="checkbox" style="width:16px;height:16px"/>
+            <label for="dev-tl-meta-bp" style="font-size:11px;color:var(--muted)">🎫 Получаема в БП</label>
+          </div>
+        </div>
+        <div style="margin-bottom:6px">
+          <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Описание</div>
+          <textarea id="dev-tl-meta-desc" class="num-input" style="margin:0;min-height:50px;resize:vertical" placeholder="Описание темы для магазина"></textarea>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-gold" style="flex:1" onclick="devTLMetaSave()">💾 Сохранить</button>
+          <button class="btn btn-red" style="flex:none" onclick="devTLMetaDelete()">🗑 Сбросить</button>
+        </div>
+        <div id="dev-tl-meta-status" style="font-size:10px;margin-top:4px"></div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-title">🖥 SQL-консоль</div>
       <textarea id="dev-sql" class="num-input" style="margin:0 0 6px;min-height:70px;resize:vertical;font-family:monospace;font-size:11px" placeholder="SELECT * FROM users LIMIT 5"></textarea>
@@ -4401,6 +4522,48 @@ function _execDevTLReset(tid) {
   CM();
   api(`/admin/dev/theme-templates/${tid}`,{method:'DELETE'})
     .then(()=>{toast('↩️ Сброшено');devTLLoad();_devTLRefreshBadges();})
+    .catch(e=>toast(e,false));
+}
+
+// ── Theme Lab: Редактор метаданных темы ──────────────────────────────────────
+function devTLMetaLoad() {
+  const tid=el('dev-tl-template')?.value; if(!tid){toast('Выберите тему',false);return;}
+  api(`/admin/dev/theme-meta/${tid}`).then(d=>{
+    el('dev-tl-meta-tid').value=tid;
+    el('dev-tl-meta-name').value=d.name||'';
+    el('dev-tl-meta-rarity').value=d.rarity||'common';
+    el('dev-tl-meta-source').value=d.source||'';
+    el('dev-tl-meta-pmora').value=d.price_mora||'';
+    el('dev-tl-meta-pdia').value=d.price_diamonds||'';
+    el('dev-tl-meta-pzar').value=d.price_zarniki||'';
+    el('dev-tl-meta-pdark').value=d.price_dark_mora||'';
+    el('dev-tl-meta-bp').checked=!!d.obtainable_bp;
+    el('dev-tl-meta-desc').value=d.desc||'';
+    el('dev-tl-meta-form').style.display='';
+    el('dev-tl-meta-status').textContent=d.has_override?'📝 Оверрайд в БД активен':'💡 Значения из кода (themes.py)';
+  }).catch(e=>toast(e,false));
+}
+function devTLMetaSave() {
+  const tid=el('dev-tl-meta-tid')?.value; if(!tid) return;
+  const body={
+    name:el('dev-tl-meta-name').value||null,
+    rarity:el('dev-tl-meta-rarity').value||null,
+    source:el('dev-tl-meta-source').value||null,
+    price_mora:parseInt(el('dev-tl-meta-pmora').value)||null,
+    price_diamonds:parseFloat(el('dev-tl-meta-pdia').value)||null,
+    price_zarniki:parseInt(el('dev-tl-meta-pzar').value)||null,
+    price_dark_mora:parseInt(el('dev-tl-meta-pdark').value)||null,
+    obtainable_bp:el('dev-tl-meta-bp').checked,
+    desc:el('dev-tl-meta-desc').value||null,
+  };
+  api(`/admin/dev/theme-meta/${tid}`,{method:'POST',body:JSON.stringify(body)})
+    .then(()=>{toast('💾 Метаданные сохранены');el('dev-tl-meta-status').textContent='✅ Сохранено в БД';})
+    .catch(e=>toast(e,false));
+}
+function devTLMetaDelete() {
+  const tid=el('dev-tl-meta-tid')?.value; if(!tid) return;
+  api(`/admin/dev/theme-meta/${tid}`,{method:'DELETE'})
+    .then(()=>{toast('🗑 Метаданные сброшены');el('dev-tl-meta-status').textContent='💡 Сброшено к themes.py';})
     .catch(e=>toast(e,false));
 }
 

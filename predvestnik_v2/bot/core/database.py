@@ -825,6 +825,20 @@ async def init_db():
                 updated_by  BIGINT
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS theme_metadata_overrides (
+                theme_id       TEXT PRIMARY KEY,
+                name           TEXT,
+                rarity         TEXT,
+                source         TEXT,
+                price_mora     INTEGER,
+                price_diamonds NUMERIC,
+                price_zarniki  INTEGER,
+                price_dark_mora INTEGER,
+                obtainable_bp  INTEGER DEFAULT 0,
+                desc           TEXT
+            )
+        """)
 
         # Migrations: admin panel + moderation extras
         for _stmt in [
