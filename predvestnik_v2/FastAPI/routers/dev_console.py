@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from core.constants import BATTLE_PASS_MAX_LEVEL, BATTLE_PASS_XP_PER_LEVEL
-from core.registry import BATTLE_PASS_SEASONS, ITEMS_REGISTRY, VIP_TIERS
+from core.registry import BATTLE_PASS_SEASONS, BATTLE_PASS_REWARDS, ITEMS_REGISTRY, VIP_TIERS
 from core.themes import THEMES
 from infrastructure.repositories import theme_templates as theme_tpl_repo
 from infrastructure.repositories.economy import add_balance, add_item, remove_item
@@ -271,6 +271,130 @@ async def dev_give_vip(body: GiveVipRequest, db=Depends(get_db), user=Depends(re
     return {"ok": True, "label": label}
 
 
+@router.post("/revoke-vip")
+async def dev_revoke_vip(body: dict, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Отозвать VIP у пользователя (expires_at = NOW(), он сразу теряет статус)."""
+    _require_dev(user)
+    uid = int(body.get("user_id", 0))
+    if not uid:
+        raise HTTPException(400, "user_id обязателен.")
+    async with db.execute(
+        "UPDATE vip_subscriptions SET expires_at = NOW(), expiry_notified = TRUE "
+        "WHERE user_id = ? AND expires_at > NOW() RETURNING tier",
+        (uid,),
+    ) as c:
+        row = await c.fetchone()
+    if not row:
+        raise HTTPException(400, "Активного VIP не найдено.")
+    await db.commit()
+    await _tg_call("sendMessage", chat_id=uid, parse_mode="HTML",
+                   text="⚠️ Ваш VIP-статус был отозван администратором.")
+    return {"ok": True, "revoked_tier": row[0]}
+
+
+class SetVipRequest(BaseModel):
+    user_id: int
+    tier: str
+    days: int
+
+
+@router.post("/set-vip")
+async def dev_set_vip(body: SetVipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Принудительно заменить текущий VIP на новый тариф и срок.
+    Предыдущий VIP (бонусы, срок) сгорают; начисляется gift нового тарифа."""
+    _require_dev(user)
+    if body.tier not in VIP_TIERS:
+        raise HTTPException(400, "Неизвестный тариф.")
+    if not 1 <= body.days <= 3650:
+        raise HTTPException(400, "days: 1..3650.")
+
+    await db.execute(
+        "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (body.user_id,))
+    # Полностью заменяем — сбрасываем started_at и expires_at
+    await db.execute(
+        "INSERT INTO vip_subscriptions (user_id, tier, started_at, expires_at, expiry_notified, total_days) "
+        "VALUES (?, ?, NOW(), NOW() + make_interval(days => ?), FALSE, ?) "
+        "ON CONFLICT (user_id) DO UPDATE SET "
+        "tier = EXCLUDED.tier, "
+        "started_at = NOW(), "
+        "expires_at = NOW() + make_interval(days => ?), "
+        "expiry_notified = FALSE, "
+        "total_days = COALESCE(vip_subscriptions.total_days, 0) + ?",
+        (body.user_id, body.tier, body.days, body.days, body.days, body.days),
+    )
+    # Начисляем gift нового тарифа
+    info = VIP_TIERS[body.tier]
+    gift = info["gift"]
+    if gift.get("mora"):
+        await db.execute(
+            "UPDATE users SET user_balance_mora = user_balance_mora + ? WHERE user_tg_id = ?",
+            (gift["mora"], body.user_id),
+        )
+    if gift.get("diamonds"):
+        await db.execute(
+            "UPDATE users SET user_balance_diamonds = user_balance_diamonds + ? WHERE user_tg_id = ?",
+            (gift["diamonds"], body.user_id),
+        )
+    for item_id, qty in gift.get("items", ()):
+        await db.execute(
+            "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+            (body.user_id, item_id, qty, qty),
+        )
+    await db.commit()
+    label = info["label"]
+    await _tg_call("sendMessage", chat_id=body.user_id, parse_mode="HTML",
+                   text=f"🔄 Ваш VIP переключён на <b>{label}</b> на {body.days} дн. + бонус пакета!")
+    return {"ok": True, "label": label}
+
+
+# ── 5б. Системные ресурсы (исключая девелопера) ─────────────────────────────────
+@router.get("/system-resources")
+async def dev_system_resources(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Суммарное количество ресурсов в игре, без учёта аккаунта разработчика."""
+    _require_dev(user)
+    dev_id = user["id"]
+
+    async def _sum(col: str) -> float:
+        async with db.execute(
+            f"SELECT COALESCE(SUM({col}), 0) FROM users WHERE user_tg_id != ?", (dev_id,)
+        ) as c:
+            return float((await c.fetchone())[0])
+
+    async def _inv_sum(item_id: str) -> int:
+        async with db.execute(
+            "SELECT COALESCE(SUM(quantity), 0) FROM inventory "
+            "WHERE item_id = ? AND user_id != ?", (item_id, dev_id)
+        ) as c:
+            return int((await c.fetchone())[0])
+
+    mora = await _sum("user_balance_mora")
+    diamonds = await _sum("user_balance_diamonds")
+    dark_mora = await _sum("COALESCE(user_balance_dark_mora, 0)")
+    zarniki = await _sum("COALESCE(user_balance_zarniki, 0)")
+
+    # Топ предметов по количеству
+    async with db.execute(
+        "SELECT item_id, SUM(quantity) AS total FROM inventory WHERE user_id != ? "
+        "GROUP BY item_id ORDER BY total DESC LIMIT 20", (dev_id,)
+    ) as c:
+        top_items = [{"item_id": r[0], "total": r[1]} for r in await c.fetchall()]
+
+    async with db.execute(
+        "SELECT COUNT(*) FROM users WHERE user_tg_id != ?", (dev_id,)
+    ) as c:
+        player_count = (await c.fetchone())[0]
+
+    return {
+        "player_count": player_count,
+        "mora": mora,
+        "diamonds": diamonds,
+        "dark_mora": dark_mora,
+        "zarniki": zarniki,
+        "top_items": top_items,
+    }
+
+
 # ── 6. Battle Pass: XP и сезоны ──────────────────────────────────────────────────
 class BpXpRequest(BaseModel):
     user_id: int
@@ -391,6 +515,99 @@ async def dev_bp_season_delete(season_id: str, db=Depends(get_db), user=Depends(
     await refresh_seasons_cache(db)
     if not row:
         raise HTTPException(404, "Сезон не найден в БД (registry-сезоны удалить нельзя — только перекрыть).")
+    return {"ok": True}
+
+
+# ── 6б. Управление наградами Боевого пропуска ────────────────────────────────────
+
+@router.get("/bp/rewards")
+async def dev_bp_rewards(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Все награды БП (registry + DB-переопределения). DB побеждает при совпадении."""
+    import json as _json
+    _require_dev(user)
+    await refresh_seasons_cache(db)
+    season = get_active_season()
+    season_id = season["id"] if season else None
+
+    # DB overrides for active season
+    db_overrides: dict[tuple, dict] = {}
+    if season_id:
+        async with db.execute(
+            "SELECT level, track, mora, diamonds, items, theme_id "
+            "FROM battle_pass_reward_overrides WHERE season_id = ?",
+            (season_id,),
+        ) as c:
+            for row in await c.fetchall():
+                db_overrides[(row[0], row[1])] = {
+                    "mora": row[2] or 0,
+                    "diamonds": row[3] or 0,
+                    "items": _json.loads(row[4] or "[]"),
+                    "theme": row[5],
+                }
+
+    rewards = []
+    for lv in range(1, BATTLE_PASS_MAX_LEVEL + 1):
+        reg = BATTLE_PASS_REWARDS.get(lv, {})
+        for track in ("free", "paid"):
+            key = (lv, track)
+            if key in db_overrides:
+                r = {**db_overrides[key], "source": "db"}
+            else:
+                r = {**reg.get(track, {}), "source": "registry"}
+                if "items" in r:
+                    r["items"] = list(list(x) for x in r["items"])
+            rewards.append({"level": lv, "track": track, **r})
+
+    return {"season_id": season_id, "rewards": rewards, "items_registry": list(ITEMS_REGISTRY.keys())}
+
+
+class BpRewardRequest(BaseModel):
+    season_id: str
+    level: int
+    track: str
+    mora: int = 0
+    diamonds: int = 0
+    items: list = []   # [[item_id, qty], ...]
+    theme_id: str | None = None
+
+
+@router.post("/bp/rewards")
+async def dev_bp_reward_set(body: BpRewardRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Установить награду для конкретного уровня+трека. Перезаписывает registry."""
+    import json as _json
+    _require_dev(user)
+    if body.track not in ("free", "paid"):
+        raise HTTPException(400, "track: 'free' или 'paid'.")
+    if not 1 <= body.level <= BATTLE_PASS_MAX_LEVEL:
+        raise HTTPException(400, f"level: 1..{BATTLE_PASS_MAX_LEVEL}.")
+
+    items_json = _json.dumps(body.items)
+    await db.execute(
+        "INSERT INTO battle_pass_reward_overrides (season_id, level, track, mora, diamonds, items, theme_id) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT (season_id, level, track) DO UPDATE SET "
+        "mora=EXCLUDED.mora, diamonds=EXCLUDED.diamonds, items=EXCLUDED.items, theme_id=EXCLUDED.theme_id",
+        (body.season_id, body.level, body.track, body.mora, body.diamonds, items_json, body.theme_id),
+    )
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/bp/rewards/{season_id}/{level}/{track}")
+async def dev_bp_reward_reset(
+    season_id: str, level: int, track: str,
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    """Сбросить награду к значению из registry (удалить DB-переопределение)."""
+    _require_dev(user)
+    async with db.execute(
+        "DELETE FROM battle_pass_reward_overrides WHERE season_id=? AND level=? AND track=? RETURNING level",
+        (season_id, level, track),
+    ) as c:
+        row = await c.fetchone()
+    await db.commit()
+    if not row:
+        raise HTTPException(404, "Переопределения не было.")
     return {"ok": True}
 
 

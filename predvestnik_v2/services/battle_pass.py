@@ -162,7 +162,24 @@ async def claim_reward(db, user_id: int, level: int, track: str) -> tuple[bool, 
     if track == "paid" and not await is_vip_active(db, user_id):
         return False, "🔒 Нужен активный VIP, чтобы забрать награду платного трека."
 
-    reward = BATTLE_PASS_REWARDS.get(level, {}).get(track, {})
+    # DB-переопределения перекрывают registry (управляются из dev-консоли)
+    import json as _json
+    db_reward = None
+    async with db.execute(
+        "SELECT mora, diamonds, items, theme_id FROM battle_pass_reward_overrides "
+        "WHERE season_id = ? AND level = ? AND track = ?",
+        (season["id"], level, track),
+    ) as _c:
+        _row = await _c.fetchone()
+    if _row:
+        db_reward = {
+            "mora": _row[0] or 0,
+            "diamonds": _row[1] or 0,
+            "items": tuple(tuple(x) for x in _json.loads(_row[2] or "[]")),
+            "theme": _row[3],
+        }
+
+    reward = db_reward if db_reward is not None else BATTLE_PASS_REWARDS.get(level, {}).get(track, {})
     mora = reward.get("mora", 0)
     diamonds = reward.get("diamonds", 0)
     items = reward.get("items", ())

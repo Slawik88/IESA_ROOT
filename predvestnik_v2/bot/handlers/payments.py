@@ -8,7 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import economy as eco_db
-from core.constants import ZARNIKI_PER_STAR, STARS_PACKAGES
+from core.constants import ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR
 
 router = Router(name="payments_router")
 
@@ -22,20 +22,26 @@ class BuyZarnikiCB(CallbackData, prefix="buyzar"):
 
 def _packages_keyboard() -> InlineKeyboardBuilder:
     builder = InlineKeyboardBuilder()
-    for stars, zarniki in STARS_PACKAGES:
-        builder.button(text=f"{stars}⭐ → {zarniki}✨", callback_data=BuyZarnikiCB(stars=stars))
+    for stars, base, bonus in STARS_PACKAGES:
+        total = base + bonus
+        popular_mark = " 🔥" if stars == STARS_MOST_POPULAR else ""
+        builder.button(
+            text=f"{stars}⭐ → {total}✨{popular_mark}",
+            callback_data=BuyZarnikiCB(stars=stars),
+        )
     builder.button(text="✏️ Своя сумма", callback_data=BuyZarnikiCB(stars=0))
     builder.adjust(2)
     return builder
 
 
 async def _send_packages_menu(message: types.Message):
-    text = (
-        "✨ <b>ЗАРНИКИ</b> — донат-валюта Предвестника\n\n"
-        f"1⭐ = {ZARNIKI_PER_STAR}✨. Зарники тратятся на премиум-темы профиля, "
-        "донат-магазин и обмен на 🪙 Мору / 💎 Алмазы.\n\n"
-        "Выбери пакет или укажи свою сумму звёзд:"
-    )
+    lines = ["✨ <b>ЗАРНИКИ</b> — донат-валюта Предвестника\n"]
+    for stars, base, bonus in STARS_PACKAGES:
+        total = base + bonus
+        popular = " — <b>самое популярное!</b> 🔥" if stars == STARS_MOST_POPULAR else ""
+        lines.append(f"├ {stars}⭐ = {base} + {bonus} бонус = <b>{total}✨</b>{popular}")
+    lines.append("\n💡 Своя сумма: 1⭐ = 10✨ (без бонуса)")
+    text = "\n".join(lines)
     await message.answer(text, reply_markup=_packages_keyboard().as_markup(), parse_mode="HTML")
 
 
@@ -67,7 +73,12 @@ async def cb_buy_package(query: types.CallbackQuery, callback_data: BuyZarnikiCB
         )
         return await query.answer()
 
-    zarniki = stars * ZARNIKI_PER_STAR
+    # Ищем пакет — если нашли, начисляем base + bonus; иначе расчёт по тарифу
+    pkg = next((p for p in STARS_PACKAGES if p[0] == stars), None)
+    if pkg:
+        zarniki = pkg[1] + pkg[2]  # base + bonus
+    else:
+        zarniki = stars * ZARNIKI_PER_STAR
     await bot.send_invoice(
         chat_id=query.from_user.id,
         title="Зарники ✨",

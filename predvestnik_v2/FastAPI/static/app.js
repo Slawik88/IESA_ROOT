@@ -4036,8 +4036,11 @@ function loadGlobalDev() {
       <div id="dev-tl-vars" class="tl-chips" style="margin-bottom:6px"></div>
       <div class="tl-grid">
         <div class="tl-editor">
-          <textarea id="dev-tl-text" class="num-input tl-textarea" style="margin:0 0 4px" oninput="_devTLStats()"></textarea>
-          <div id="dev-tl-stats" style="font-size:10px;color:var(--muted);margin-bottom:6px"></div>
+          <div class="tl-editor-wrap">
+            <div id="dev-tl-linenos" class="tl-linenos">1</div>
+            <textarea id="dev-tl-text" class="num-input tl-textarea" oninput="_devTLUpdateLinenos();_devTLStats()" onscroll="_devTLSyncScroll()"></textarea>
+          </div>
+          <div id="dev-tl-stats" style="font-size:11px;color:var(--muted);margin-bottom:6px"></div>
           <div style="display:flex;gap:6px;margin-bottom:6px">
             <button class="btn btn-ghost" style="flex:1" onclick="devTLPreview()">👁 Превью</button>
             <button class="btn btn-ghost" style="flex:1" onclick="_devTLCopy()">📋 Копия</button>
@@ -4275,11 +4278,12 @@ function devTLLoad() {
     el('dev-tl-text').value=d.raw_text;
     _devTLVars=d.variables||[];
     el('dev-tl-vars').innerHTML=_devTLVars.length
-      ?'Переменные (клик — вставить): '+_devTLVars.map(v=>`<span class="tl-chip" data-v="${esc(v)}">{${esc(v)}}</span>`).join('')
-      :'<span style="color:var(--muted);font-size:10px">Нет переменных</span>';
+      ?'<span class="tl-chips-label">Переменные (клик — вставить):</span> '+_devTLVars.map(v=>`<span class="tl-chip" data-v="${esc(v)}">{${esc(v)}}</span>`).join('')
+      :'<span style="color:var(--muted);font-size:11px">Нет переменных</span>';
     el('dev-tl-status').innerHTML=d.has_override
       ?'<span style="color:var(--gold)">✏️ Сохранён кастомный вариант</span>'
       :'<span style="color:var(--muted)">Дефолтный шаблон (из кода)</span>';
+    _devTLUpdateLinenos();
     _devTLStats();
   }).catch(e=>{el('dev-tl-status').innerHTML=`<div class="err">${e}</div>`;});
 }
@@ -4293,6 +4297,28 @@ function _devTLInsertVar(name) {
   ta.focus(); ta.setSelectionRange(pos,pos);
   _devTLStats();
 }
+function _devTLUpdateLinenos() {
+  const ta=el('dev-tl-text');
+  const ln=el('dev-tl-linenos');
+  if(!ta||!ln) return;
+  const count=(ta.value.match(/\n/g)||[]).length+1;
+  // Build line numbers — overLines will be filled by _devTLStats
+  if(!_devTLOverLines) {
+    ln.textContent=Array.from({length:count},(_,i)=>i+1).join('\n');
+  } else {
+    ln.innerHTML=Array.from({length:count},(_,i)=>{
+      const n=i+1;
+      return _devTLOverLines.has(n)?`<span class="tl-ln-over">${n}</span>`:n;
+    }).join('\n');
+  }
+  _devTLSyncScroll();
+}
+function _devTLSyncScroll() {
+  const ta=el('dev-tl-text');
+  const ln=el('dev-tl-linenos');
+  if(ta&&ln) ln.scrollTop=ta.scrollTop;
+}
+let _devTLOverLines=null;
 function _devTLStats() {
   const text=el('dev-tl-text')?.value??'';
   const lines=text.split('\n');
@@ -4300,14 +4326,17 @@ function _devTLStats() {
   const fontPx=parseFloat(el('dev-tl-fontsize')?.value||'16');
   const innerW=deviceW-48;
   const maxChars=Math.max(8,Math.floor(innerW/(fontPx*0.6)));
-  let longest=0, longestLine=0, overCount=0;
+  let longest=0, longestLine=0;
+  const overNums=[];
   lines.forEach((line,i)=>{
     const len=[...line].length;
     if(len>longest){longest=len;longestLine=i+1;}
-    if(len>maxChars) overCount++;
+    if(len>maxChars) overNums.push(i+1);
   });
-  const overHtml=overCount
-    ?`<span style="color:var(--red)">⚠ ${overCount} стр. длиннее ≈${maxChars} симв. — могут не влезть</span>`
+  _devTLOverLines=overNums.length?new Set(overNums):null;
+  _devTLUpdateLinenos();
+  const overHtml=overNums.length
+    ?`<span style="color:var(--red)">⚠ стр. ${overNums.join(', ')} длиннее ≈${maxChars} симв. — могут не влезть</span>`
     :`<span style="color:var(--green)">✓ влезает (≈${maxChars} симв./стр.)</span>`;
   const used=new Set();
   text.replace(/\{([^{}\n]+)\}/g,(_,name)=>{used.add(name);return '';});
@@ -4315,7 +4344,7 @@ function _devTLStats() {
   const typoHtml=unknown.length
     ?`<br><span style="color:var(--red)">❓ неизвестные плейсхолдеры: ${unknown.map(v=>`{${esc(v)}}`).join(', ')}</span>`
     :'';
-  el('dev-tl-stats').innerHTML=`Макс. длина строки: ${longest} (стр. ${longestLine}). ${overHtml}${typoHtml}`;
+  el('dev-tl-stats').innerHTML=`Макс. длина: ${longest} симв. (стр. ${longestLine}). ${overHtml}${typoHtml}`;
 }
 function _devTLCopy() {
   const text=el('dev-tl-text')?.value??'';

@@ -236,8 +236,8 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(232,181,77,.12);
 }
 .card-title {
-  font-size: 13px; font-weight: 800; color: var(--bright);
-  margin-bottom: 10px; letter-spacing: .2px;
+  font-size: 14px; font-weight: 700; color: var(--bright);
+  margin-bottom: 10px; letter-spacing: .1px;
 }
 .divider { height: 1px; background: var(--border2); margin: 11px 0; }
 .clickable { cursor: pointer; transition: transform .15s; }
@@ -639,18 +639,34 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .pp-bot-line { color: var(--violet); font-style: italic; }
 
 /* ═══ THEME LAB — редактор премиум-тем (dev-консоль) ════════════════════════ */
-.tl-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tl-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12px; }
+.tl-chips-label { font-size: 12px; color: var(--muted); flex: none; }
 .tl-chip {
   display: inline-flex; align-items: center;
   font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  font-size: 10.5px; background: var(--bg2); border: 1px solid var(--border2);
-  border-radius: 6px; padding: 2px 6px; cursor: pointer; color: var(--gold2);
+  font-size: 11px; background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 2px 7px; cursor: pointer; color: var(--gold2);
   transition: transform .1s, border-color .15s;
 }
 .tl-chip:active { transform: scale(.93); border-color: var(--border); }
+/* Нумерованный редактор — обёртка с боковой колонкой номеров строк */
+.tl-editor-wrap {
+  display: flex; border: 1px solid var(--border2); border-radius: var(--r-sm);
+  overflow: hidden; background: var(--bg2); margin: 0 0 4px;
+}
+.tl-linenos {
+  min-width: 34px; padding: 6px 6px 6px 4px; text-align: right;
+  font: 12px/1.5 ui-monospace, "SF Mono", Consolas, monospace;
+  color: var(--muted); background: var(--bg3, var(--bg2));
+  border-right: 1px solid var(--border2); overflow: hidden;
+  user-select: none; flex-shrink: 0; white-space: pre;
+}
+.tl-linenos .tl-ln-over { color: var(--red); font-weight: 700; }
 .tl-textarea {
   min-height: 220px; font-family: ui-monospace, "SF Mono", Consolas, monospace;
   font-size: 12px; line-height: 1.5; white-space: pre; resize: vertical;
+  flex: 1; border: none; border-radius: 0; background: transparent; padding: 6px;
+  overflow-y: auto;
 }
 .tl-device-row, .tl-fontsize-row { display: flex; align-items: center; gap: 6px; }
 .tl-fontsize-row { margin-bottom: 6px; }
