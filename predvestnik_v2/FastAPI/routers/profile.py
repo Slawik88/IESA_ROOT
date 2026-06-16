@@ -1,17 +1,25 @@
 """FastAPI/routers/profile.py — профиль игрока.
 Тонкий адаптер: только вызовы infrastructure/, только JSON.
 """
-import re
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from services.roles import GLOBAL_RANKS_MAP
+from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
+from services.formatting import safe_html
+from services.vip import is_vip_active
+from infrastructure.repositories.economy import get_item_quantity, remove_item
+from infrastructure.repositories.users import set_nickname
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
 # Единый источник правды для названий глобальных рангов — services/roles.py
 # (та же таблица, что использует бот через get_global_rank_name).
 _RANK_NAMES = GLOBAL_RANKS_MAP
+
+_MIN_NICK_LEN = 2
+_MAX_NICK_LEN = 20
 
 
 @router.get("/me")
@@ -88,9 +96,6 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
     }
 
 
-_NICK_RE = re.compile(r"^[\w\s\-\.]{1,32}$", re.UNICODE)
-
-
 class NicknameRequest(BaseModel):
     chat_id: int
     nickname: str
@@ -98,18 +103,23 @@ class NicknameRequest(BaseModel):
 
 @router.post("/set-nickname")
 async def set_nickname_endpoint(body: NicknameRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Установить ник в чате (1–32 символа, буквы/цифры/пробел/дефис/точка)."""
+    """Установить ник в чате (2–20 символов, без HTML-тегов)."""
     nick = body.nickname.strip()
-    if not nick or len(nick) > 32:
-        raise HTTPException(400, "Ник: 1–32 символа.")
-    if not _NICK_RE.match(nick):
-        raise HTTPException(400, "Ник содержит недопустимые символы.")
-    if body.chat_id == 0:
+    user_id = user["id"]
+    chat_id = body.chat_id
+
+    if len(nick) < _MIN_NICK_LEN:
+        raise HTTPException(400, f"Ник слишком короткий. Минимум {_MIN_NICK_LEN} символа.")
+    if len(nick) > _MAX_NICK_LEN:
+        raise HTTPException(400, f"Ник слишком длинный. Максимум {_MAX_NICK_LEN} символов.")
+    if safe_html(nick) != nick:
+        raise HTTPException(400, "Ник содержит недопустимые символы (< > & \").")
+    if chat_id == 0:
         raise HTTPException(400, "Нужен ID чата.")
 
     async with db.execute(
         "SELECT 1 FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ?",
-        (user["id"], body.chat_id),
+        (user_id, chat_id),
     ) as c:
         if not await c.fetchone():
             raise HTTPException(400, "Вы не состоите в этом чате.")
@@ -117,18 +127,56 @@ async def set_nickname_endpoint(body: NicknameRequest, db=Depends(get_db), user=
     # Uniqueness check (case-insensitive, per chat)
     async with db.execute(
         "SELECT user_id FROM user_nicknames WHERE chat_id = ? AND LOWER(nickname) = LOWER(?)",
-        (body.chat_id, nick),
+        (chat_id, nick),
     ) as c:
         existing = await c.fetchone()
-    if existing and existing[0] != user["id"]:
+    if existing and existing[0] != user_id:
         raise HTTPException(400, "Этот ник уже занят в данном чате.")
 
-    await db.execute(
-        "INSERT INTO user_nicknames (user_id, chat_id, nickname) VALUES (?, ?, ?) "
-        "ON CONFLICT(user_id, chat_id) DO UPDATE SET nickname = EXCLUDED.nickname, set_at = NOW()",
-        (user["id"], body.chat_id, nick),
-    )
-    await db.commit()
+    # Monthly change limit — VIP = unlimited, zarniki_nickname_token = bypass
+    is_vip = await is_vip_active(db, user_id)
+    use_token = False
+    count = 0
+    reset_at = None
+    if not is_vip:
+        async with db.execute(
+            "SELECT nickname_changes_count, nickname_changes_reset_at "
+            "FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ?",
+            (user_id, chat_id),
+        ) as c:
+            row = await c.fetchone()
+        now = datetime.now(timezone.utc)
+        count = row[0] if row else 0
+        reset_at = row[1] if row else now
+        if reset_at is not None and reset_at.tzinfo is None:
+            reset_at = reset_at.replace(tzinfo=timezone.utc)
+        if not reset_at or (now.year, now.month) != (reset_at.year, reset_at.month):
+            count = 0
+            reset_at = now
+        if count >= NICKNAME_FREE_CHANGES_PER_MONTH:
+            if await get_item_quantity(db, user_id, "zarniki_nickname_token") > 0:
+                use_token = True
+            else:
+                raise HTTPException(
+                    400,
+                    f"Лимит смены ника исчерпан ({NICKNAME_FREE_CHANGES_PER_MONTH}/мес в этом чате). "
+                    "Сброс в начале следующего месяца. "
+                    "Оформи VIP или используй Жетон смены ника.",
+                )
+
+    await set_nickname(db, user_id, chat_id, nick)
+    if not is_vip:
+        if use_token:
+            await remove_item(db, user_id, "zarniki_nickname_token", 1)
+        else:
+            await db.execute(
+                "INSERT INTO user_chat_stats "
+                "(user_tg_id, chat_tg_id, nickname_changes_count, nickname_changes_reset_at) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE "
+                "SET nickname_changes_count = ?, nickname_changes_reset_at = ?",
+                (user_id, chat_id, count + 1, reset_at, count + 1, reset_at),
+            )
+            await db.commit()
     return {"ok": True, "nickname": nick}
 
 
