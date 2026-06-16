@@ -82,10 +82,17 @@ async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
             "expires_at": str(immune_row[0]) if immune_row else None,
         }
 
+    base_slots = 3
+    expanded_slots = max(0, stats["max_slots"] - base_slots)  # slots bought via slot_expander
+    vip_extra = await get_extra_pet_slots(db, user["id"])
     return {
         "pets": pets,
         "available_food": food,
         "max_slots": stats["max_slots"],
+        "base_slots": base_slots,
+        "expanded_slots": expanded_slots,
+        "vip_extra_slot": vip_extra,
+        "at_slot_cap": stats["max_slots"] >= 6,
         "slot_expander_qty": slot_expander_qty,
         "pending_hamster_mora": round(pending_mora),
         "wolf_restore": wolf_restore_info,

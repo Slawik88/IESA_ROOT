@@ -62,17 +62,43 @@
 
 <!-- ═══ 1. ПРОФИЛЬ ═══ -->
 <div id="pg-profile" class="page active">
-  <div class="tabs">
+  <div class="tabs tabs-scroll">
     <button class="tb active" onclick="switchPro('main',this)">👤 Обзор</button>
     <button class="tb" onclick="switchPro('inv',this)">🎒 Инвентарь</button>
     <button class="tb" onclick="switchPro('themes',this)">🎨 Темы</button>
+    <button class="tb" onclick="switchPro('quests',this)">📜 Квесты</button>
+    <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
+    <button class="tb" onclick="switchPro('hof',this)">👑 Топ</button>
   </div>
   <div id="pro-main">
     <div class="sk" style="height:140px;border-radius:22px;margin-bottom:12px"></div>
     <div class="sk" style="height:70px;border-radius:16px"></div>
   </div>
-  <div id="pro-inv" style="display:none"><div id="mkt-inv"></div></div>
+  <div id="pro-inv" style="display:none">
+    <div class="tabs tab-inner">
+      <button class="tb active" onclick="swInv('items',this)">🎒 Предметы</button>
+      <button class="tb" onclick="swInv('craft',this)">🔨 Крафт</button>
+    </div>
+    <div id="inv-items"><div id="mkt-inv"></div></div>
+    <div id="inv-craft" style="display:none"><div id="cc"></div></div>
+  </div>
   <div id="pro-themes" style="display:none"><div id="col-themes"><div class="loader">Загрузка...</div></div></div>
+  <div id="pro-quests" style="display:none">
+    <div class="tabs tab-inner">
+      <button class="tb active" onclick="swQuests('quests',this)">📋 Квесты</button>
+      <button class="tb" onclick="swQuests('streak',this)">🔥 Стрик</button>
+    </div>
+    <div id="quests-content"><div id="qc"></div></div>
+    <div id="pro-streak" style="display:none"></div>
+  </div>
+  <div id="pro-ach" style="display:none"></div>
+  <div id="pro-hof" style="display:none">
+    <div class="tabs tab-inner">
+      <button class="tb active" onclick="switchTop('local',this)">🏘 Чат</button>
+      <button class="tb" onclick="switchTop('global',this)">🌍 Глобально</button>
+    </div>
+    <div id="top-c"></div>
+  </div>
 </div>
 
 <!-- ═══ 2. ПИТОМЦЫ ═══ -->
@@ -81,8 +107,10 @@
   <div class="tabs">
     <button class="tb active" onclick="swZoo('nursery',this)">🐾 Мои питомцы</button>
     <button class="tb" onclick="swZoo('storage',this)">📦 Склад</button>
+    <button class="tb" onclick="swZoo('bestiary',this)">📖 Бестиарий</button>
   </div>
   <div id="zoo-c"></div>
+  <div id="zoo-bestiary" style="display:none"><div id="best-c"></div></div>
 </div>
 
 <!-- ═══ 3. АРЕНА ═══ -->
@@ -95,17 +123,17 @@
   <div id="ar-events" style="display:none"><div id="evc"></div></div>
 </div>
 
-<!-- ═══ 4. МАГАЗИН: Премиум / Гача / Расходники / Акции дня ═══ -->
+<!-- ═══ 4. МАГАЗИН: Гача / Премиум / Расходники / Акции дня ═══ -->
 <div id="pg-market" class="page">
   <div class="tabs">
-    <button class="tb active" onclick="swMkt('vip',this)">✨ Премиум</button>
-    <button class="tb" onclick="swMkt('gacha',this)">🎲 Гача</button>
+    <button class="tb active" onclick="swMkt('gacha',this)">🎲 Гача</button>
+    <button class="tb" onclick="swMkt('vip',this)">✨ Премиум</button>
     <button class="tb" onclick="swMkt('goods',this)">🛍 Расходники</button>
     <button class="tb" onclick="swMkt('deal',this)">🏷 Акции дня</button>
   </div>
   <div id="balrow" class="balrow" style="display:none"></div>
-  <div id="mkt-vip"><div class="loader">Загрузка...</div></div>
-  <div id="mkt-gacha" style="display:none"><div id="gc"></div></div>
+  <div id="mkt-gacha"><div id="gc"><div class="loader">Загрузка...</div></div></div>
+  <div id="mkt-vip" style="display:none"><div class="loader">Загрузка...</div></div>
   <div id="mkt-goods" style="display:none">
     <div class="tabs">
       <button class="tb active" onclick="swGoods('shop',this)">🛒 Обычный</button>
@@ -117,17 +145,9 @@
   <div id="mkt-deal" style="display:none"><div class="loader">Загрузка...</div></div>
 </div>
 
-<!-- ═══ 5. БЕСТИАРИЙ ═══ -->
-<div id="pg-bestiary" class="page">
-  <div class="card-title" style="margin-bottom:10px">📖 Бестиарий</div>
-  <div id="best-c"></div>
-</div>
-
-<!-- ═══ 6. КРАФТ ═══ -->
-<div id="pg-craft" class="page">
-  <div class="card-title" style="margin-bottom:10px">🔨 Крафт</div>
-  <div id="cc"></div>
-</div>
+<!-- ═══ 5+6. БЕСТИАРИЙ и КРАФТ → перенесены в Питомцы/Инвентарь ═══ -->
+<div id="pg-bestiary" class="page" style="display:none!important"></div>
+<div id="pg-craft" class="page" style="display:none!important"></div>
 
 <!-- ═══ 7. АУКЦИОН & ОБМЕННИК ═══ -->
 <div id="pg-auction" class="page">
@@ -140,37 +160,15 @@
   <div id="mkt-exch" style="display:none"><div class="loader">Загрузка...</div></div>
 </div>
 
-<!-- ═══ 8. КВЕСТЫ & СТРИК ═══ -->
-<div id="pg-quests" class="page">
-  <div class="card-title" style="margin-bottom:10px">📜 Квесты &amp; Стрик</div>
-  <div class="tabs">
-    <button class="tb active" onclick="swQuests('quests',this)">📋 Квесты</button>
-    <button class="tb" onclick="swQuests('streak',this)">🔥 Стрик</button>
-  </div>
-  <div id="pro-quests"><div id="qc"></div></div>
-  <div id="pro-streak" style="display:none"></div>
-</div>
+<!-- ═══ 8+10+11. КВЕСТЫ / АЧИВКИ / ЗАЛ СЛАВЫ → перенесены в Профиль ═══ -->
+<div id="pg-quests" class="page" style="display:none!important"></div>
+<div id="pg-ach"    class="page" style="display:none!important"></div>
+<div id="pg-hof"   class="page" style="display:none!important"></div>
 
 <!-- ═══ 9. БОЕВОЙ ПРОПУСК ═══ -->
 <div id="pg-bp" class="page">
   <div class="card-title" style="margin-bottom:10px">🎫 Боевой пропуск</div>
   <div id="pro-bp"></div>
-</div>
-
-<!-- ═══ 10. АЧИВКИ & КОЛЛЕКЦИИ ═══ -->
-<div id="pg-ach" class="page">
-  <div class="card-title" style="margin-bottom:10px">🏆 Ачивки &amp; Коллекции</div>
-  <div id="pro-ach"></div>
-</div>
-
-<!-- ═══ 11. ЗАЛ СЛАВЫ ═══ -->
-<div id="pg-hof" class="page">
-  <div class="card-title" style="margin-bottom:10px">👑 Зал Славы</div>
-  <div class="tabs">
-    <button class="tb active" onclick="switchTop('local',this)">🏘 Чат</button>
-    <button class="tb" onclick="switchTop('global',this)">🌍 Глобально</button>
-  </div>
-  <div id="top-c"></div>
 </div>
 
 <!-- ═══ 12. АДМИНКА ═══ -->
@@ -298,23 +296,18 @@
 <!-- ═══ 15. ЕЩЁ — Control Center ═══ -->
 <div id="pg-more" class="page">
   <div class="cc-grid">
-    <div class="cc-card" onclick="goTo('quests')"><span class="cc-ic">📜</span><span class="cc-t">Квесты</span><span class="cc-s">и Стрик</span></div>
-    <div class="cc-card" onclick="goTo('bp')"><span class="cc-ic">🎫</span><span class="cc-t">Пропуск</span><span class="cc-s">Боевой пропуск</span></div>
-    <div class="cc-card" onclick="goTo('ach')"><span class="cc-ic">🏆</span><span class="cc-t">Ачивки</span><span class="cc-s">Коллекции</span></div>
-    <div class="cc-card" onclick="goTo('bestiary')"><span class="cc-ic">📖</span><span class="cc-t">Бестиарий</span><span class="cc-s">Все питомцы</span></div>
-    <div class="cc-card" onclick="goTo('craft')"><span class="cc-ic">🔨</span><span class="cc-t">Крафт</span><span class="cc-s">Создание вещей</span></div>
     <div class="cc-card" onclick="goTo('auction')"><span class="cc-ic">⚖️</span><span class="cc-t">Аукцион</span><span class="cc-s">и Обменник</span></div>
-    <div class="cc-card" onclick="goTo('hof')"><span class="cc-ic">👑</span><span class="cc-t">Зал Славы</span><span class="cc-s">Топы чатов</span></div>
     <div class="cc-card" id="cc-manage" style="display:none" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление</span><span class="cc-s">Админка</span></div>
     <div class="cc-card" onclick="goTo('help')"><span class="cc-ic">🆘</span><span class="cc-t">Помощь</span><span class="cc-s">Гайды</span></div>
   </div>
 </div>
 
-<!-- ═══ НИЖНИЙ ДОК (5 слотов под большой палец) ═══ -->
+<!-- ═══ НИЖНИЙ ДОК (6 слотов под большой палец) ═══ -->
 <nav class="nav">
   <div class="nb active" data-page="profile" onclick="switchPage('profile')"><span class="ni">👤</span>Профиль</div>
   <div class="nb" data-page="zoo" onclick="switchPage('zoo')"><span class="ni">🐾</span>Питомцы</div>
   <div class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni">⚔️</span>Арена</div>
+  <div class="nb nb-bp" data-page="bp" onclick="switchPage('bp')"><span class="ni">🎫</span>Пропуск</div>
   <div class="nb nb-shop" data-page="market" onclick="switchPage('market')"><span class="ni">💎</span>Магазин</div>
   <div class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><span class="ni">🎛</span>Ещё</div>
 </nav>

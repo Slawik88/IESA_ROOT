@@ -21,6 +21,7 @@ html { color-scheme: dark only; }
   --gold:  #e8b54d;
   --gold2: #f5d488;
   --gold-dim: rgba(232,181,77,.12);
+  --gold-rgb: 232,181,77;
   --violet: #8b6cf0;
   --violet-dim: rgba(139,108,240,.14);
   --red:   #ef6363;
@@ -146,9 +147,9 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   padding: 6px 4px; box-shadow: var(--shadow);
 }
 .nb {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 5px 2px 4px; border-radius: 15px; cursor: pointer;
-  font-size: 9px; font-weight: 600; color: var(--muted);
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 5px 1px 4px; border-radius: 15px; cursor: pointer;
+  font-size: 8px; font-weight: 600; color: var(--muted);
   transition: color .2s, background .2s, transform .15s;
   position: relative; user-select: none;
 }
@@ -166,6 +167,10 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 @keyframes shop-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.18); } }
 .nb-shop .ni { filter: none; color: var(--gold2); animation: shop-pulse 2.6s ease-in-out infinite; }
 .nb-shop:not(.active) { color: var(--gold2); }
+/* Боевой Пропуск — фиолетово-золотой акцент */
+.nb-bp .ni { filter: none; color: var(--violet); }
+.nb-bp.active { background: var(--violet-dim); }
+.nb-bp.active::after { background: linear-gradient(90deg, var(--violet), var(--gold)); }
 
 /* ── «Ещё» — grid-карточки разделов в bottom-sheet (используется openManageMenu) ── */
 .more-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 4px 0 6px; }
@@ -207,6 +212,13 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   scrollbar-width: none;
 }
 .tabs::-webkit-scrollbar { display: none; }
+/* Вложенные вкладки (внутри под-секции) — меньше отступ */
+.tab-inner {
+  margin: 0 0 8px; border-radius: 10px; padding: 2px; gap: 3px;
+}
+.tab-inner .tb { font-size: 10.5px; padding: 5px 9px; border-radius: 8px; }
+/* Скроллируемые вкладки — показывает полосу при переполнении */
+.tabs-scroll { flex-wrap: nowrap; }
 .tb {
   flex: none; border: none; cursor: pointer;
   background: transparent; color: var(--muted);
@@ -374,11 +386,24 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .trow {
   display: flex; align-items: center; gap: 10px; padding: 9px 0;
   border-bottom: 1px solid var(--border2); font-size: 12px;
+  position: relative; overflow: hidden; transition: background .2s;
 }
 .trow:last-child { border: none; }
 .tpos { width: 30px; text-align: center; font-weight: 800; color: var(--muted); flex: none; }
 .tname { flex: 1; color: var(--bright); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tcnt { color: var(--muted); font-variant-numeric: tabular-nums; }
+/* VIP строка в Зале Славы — переливающийся золотой градиент */
+@keyframes vipShimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.trow-vip {
+  background: linear-gradient(90deg, transparent, rgba(var(--gold-rgb,212,175,55),.12), transparent);
+  background-size: 200% 100%;
+  animation: vipShimmer 2.8s linear infinite;
+  border-radius: 8px; margin: 0 -4px; padding: 9px 4px;
+}
+.trow-vip .tname { color: var(--gold2); }
 
 /* ═══ ПИТОМЦЫ ═══════════════════════════════════════════════════════════════ */
 .pcard {

@@ -778,3 +778,87 @@ async def dev_theme_template_reset(template_id: str, db=Depends(get_db), user=De
     _require_dev(user)
     await theme_tpl_repo.delete_override(db, template_id)
     return {"ok": True}
+
+
+# ── Theme metadata editor ──────────────────────────────────────────────────────
+class ThemeMetaRequest(BaseModel):
+    name: str | None = None
+    rarity: str | None = None
+    source: str | None = None
+    price_mora: int | None = None
+    price_diamonds: float | None = None
+    price_zarniki: int | None = None
+    price_dark_mora: int | None = None
+    obtainable_bp: bool | None = None
+    desc: str | None = None
+
+
+_VALID_RARITIES = {"common", "uncommon", "rare", "epic", "legendary", "mythic", "shadow", "zarniki", "seasonal"}
+_VALID_SOURCES  = {"start", "shop_mora", "shop_diamond", "gacha_novice", "gacha_standard",
+                   "gacha_premium", "gacha_diamond", "dark", "zarniki", "event", "auction", "bp"}
+
+
+@router.get("/theme-meta/{theme_id}")
+async def dev_theme_meta_get(theme_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Вернуть текущие метаданные темы (база из themes.py + DB-оверрайды)."""
+    _require_dev(user)
+    if theme_id not in THEMES:
+        raise HTTPException(404, "Тема не найдена.")
+    base = THEMES[theme_id]
+    async with db.execute(
+        "SELECT name, rarity, source, price_mora, price_diamonds, price_zarniki, price_dark_mora, obtainable_bp, desc "
+        "FROM theme_metadata_overrides WHERE theme_id = ?",
+        (theme_id,),
+    ) as c:
+        row = await c.fetchone()
+    meta = {
+        "theme_id": theme_id,
+        "name": (row[0] if row and row[0] else None) or base.get("name", theme_id),
+        "rarity": (row[1] if row and row[1] else None) or base.get("rarity", "common"),
+        "source": (row[2] if row and row[2] else None) or base.get("source", ""),
+        "price_mora": (row[3] if row and row[3] is not None else None) or base.get("price_mora"),
+        "price_diamonds": (row[4] if row and row[4] is not None else None) or base.get("price_diamonds"),
+        "price_zarniki": (row[5] if row and row[5] is not None else None) or base.get("price_zarniki"),
+        "price_dark_mora": (row[6] if row and row[6] is not None else None) or base.get("price_dark_mora"),
+        "obtainable_bp": bool(row[7]) if row and row[7] is not None else base.get("obtainable_bp", False),
+        "desc": (row[8] if row and row[8] else None) or base.get("desc", ""),
+        "has_override": row is not None,
+    }
+    return meta
+
+
+@router.post("/theme-meta/{theme_id}")
+async def dev_theme_meta_save(theme_id: str, body: ThemeMetaRequest,
+                               db=Depends(get_db), user=Depends(require_tg_user)):
+    """Сохранить метаданные темы (цены, редкость, описание) в DB."""
+    _require_dev(user)
+    if theme_id not in THEMES:
+        raise HTTPException(404, "Тема не найдена.")
+    if body.rarity and body.rarity not in _VALID_RARITIES:
+        raise HTTPException(400, f"Неверная редкость. Допустимо: {', '.join(_VALID_RARITIES)}")
+    if body.source and body.source not in _VALID_SOURCES:
+        raise HTTPException(400, f"Неверный источник. Допустимо: {', '.join(_VALID_SOURCES)}")
+    await db.execute(
+        "INSERT INTO theme_metadata_overrides "
+        "(theme_id, name, rarity, source, price_mora, price_diamonds, price_zarniki, price_dark_mora, obtainable_bp, desc) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?) "
+        "ON CONFLICT (theme_id) DO UPDATE SET "
+        "name=EXCLUDED.name, rarity=EXCLUDED.rarity, source=EXCLUDED.source, "
+        "price_mora=EXCLUDED.price_mora, price_diamonds=EXCLUDED.price_diamonds, "
+        "price_zarniki=EXCLUDED.price_zarniki, price_dark_mora=EXCLUDED.price_dark_mora, "
+        "obtainable_bp=EXCLUDED.obtainable_bp, desc=EXCLUDED.desc",
+        (theme_id, body.name, body.rarity, body.source, body.price_mora,
+         body.price_diamonds, body.price_zarniki, body.price_dark_mora,
+         1 if body.obtainable_bp else 0, body.desc),
+    )
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/theme-meta/{theme_id}")
+async def dev_theme_meta_delete(theme_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Удалить DB-оверрайд метаданных (вернуть к значениям из themes.py)."""
+    _require_dev(user)
+    await db.execute("DELETE FROM theme_metadata_overrides WHERE theme_id = ?", (theme_id,))
+    await db.commit()
+    return {"ok": True}
