@@ -14,7 +14,7 @@ from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_item_quantity, remove_item, add_balance
 from infrastructure.repositories.zoo import (
     get_user_pets, get_nursery_count, get_zoo_stats, expand_max_slots, get_active_count,
-    get_pending_hamster_income, get_active_species_level,
+    get_pending_hamster_income, get_active_species_level, apply_fatigue_decay,
 )
 from services.formatting import parse_dt
 from services.vip import get_extra_pet_slots
@@ -29,6 +29,7 @@ _PLACEMENTS = ("active", "passive", "storage")
 @router.get("/")
 async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
     """Все питомцы + доступная еда + статистика слотов."""
+    await apply_fatigue_decay(db, user["id"])
     pets = await get_user_pets(db, user["id"])
     stats = await get_zoo_stats(db, user["id"])
     slot_expander_qty = await get_item_quantity(db, user["id"], "slot_expander")
@@ -481,6 +482,7 @@ async def collect_hamster(db=Depends(get_db), user=Depends(require_tg_user)):
     import random
     from datetime import datetime as _dt
 
+    await apply_fatigue_decay(db, user["id"])
     stats = await get_zoo_stats(db, user["id"])
 
     async with db.execute(
