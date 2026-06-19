@@ -10,6 +10,7 @@ from infrastructure.repositories.themes import (
 from infrastructure.repositories.economy import get_balance
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.dark_mora import spend_dark_mora
+from services.themes import get_all_effective_themes, get_effective_theme
 
 router = APIRouter(prefix="/themes", tags=["themes"])
 
@@ -19,9 +20,10 @@ async def all_themes(db=Depends(get_db), user=Depends(require_tg_user)):
     """Все темы с флагом владения и активной темой."""
     owned = await list_owned(db, user["id"])
     active = await get_active_theme(db, user["id"])
+    effective = await get_all_effective_themes(db)
 
     result = []
-    for theme_id, t in THEMES.items():
+    for theme_id, t in effective.items():
         rarity = t.get("rarity", "common")
         meta = THEME_RARITY_META.get(rarity, {})
         result.append({
@@ -57,7 +59,7 @@ class BuyThemeRequest(BaseModel):
 
 @router.post("/buy")
 async def buy_theme(body: BuyThemeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    theme = THEMES.get(body.theme_id)
+    theme = await get_effective_theme(db, body.theme_id)
     if not theme:
         raise HTTPException(404, "Тема не найдена.")
 

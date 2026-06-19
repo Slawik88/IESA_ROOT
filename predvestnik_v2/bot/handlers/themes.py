@@ -13,6 +13,7 @@ from core.themes import THEMES, THEME_RARITY_META, RARITY_ORDER, DEFAULT_THEME
 from infrastructure.repositories import themes as themes_repo
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.dark_mora import get_dark_mora_balance, spend_dark_mora
+from services.themes import get_all_effective_themes, get_effective_theme
 from services.utils import check_callback_owner, safe_html, format_currency
 
 router = Router(name="themes_router")
@@ -52,9 +53,10 @@ def _price_and_currency(theme: dict):
 async def _render_menu(db, user_id: int, target, is_edit: bool):
     active = await themes_repo.get_active_theme(db, user_id)
     owned = await themes_repo.list_owned(db, user_id)
-    atheme = THEMES.get(active, THEMES[DEFAULT_THEME])
+    effective = await get_all_effective_themes(db)
+    atheme = effective.get(active, effective[DEFAULT_THEME])
 
-    total = len(THEMES)
+    total = len(effective)
     lines = [
         "🎨 <b>ТЕМЫ ПРОФИЛЯ</b>",
         f"<i>Открыто: {len(owned)}/{total}</i>\n",
@@ -65,10 +67,10 @@ async def _render_menu(db, user_id: int, target, is_edit: bool):
     ]
 
     b = InlineKeyboardBuilder()
-    # Rarity tabs — show count owned/total per rarity
+    # Rarity tabs — show count owned/total per rarity (редкость может быть переопределена в БД)
     for rar in RARITY_ORDER:
         meta = THEME_RARITY_META[rar]
-        in_rar = [t for t, d in THEMES.items() if d["rarity"] == rar]
+        in_rar = [t for t, d in effective.items() if d["rarity"] == rar]
         if not in_rar:
             continue
         owned_cnt = sum(1 for t in in_rar if t in owned)
@@ -115,8 +117,9 @@ async def cb_rarity(query: types.CallbackQuery, callback_data: ThemeCB, db):
     meta = THEME_RARITY_META.get(rar, {"badge": "", "name": rar})
     owned = await themes_repo.list_owned(db, user_id)
     active = await themes_repo.get_active_theme(db, user_id)
+    effective = await get_all_effective_themes(db)
 
-    in_rar = [(t, d) for t, d in THEMES.items() if d["rarity"] == rar]
+    in_rar = [(t, d) for t, d in effective.items() if d["rarity"] == rar]
     lines = [f"{meta['badge']} <b>{meta['name'].upper()} ТЕМЫ</b>\n"]
 
     b = InlineKeyboardBuilder()
@@ -149,7 +152,7 @@ async def cb_view(query: types.CallbackQuery, callback_data: ThemeCB, db):
         return
     user_id = query.from_user.id
     tid = callback_data.theme_id
-    theme = THEMES.get(tid)
+    theme = await get_effective_theme(db, tid)
     if not theme:
         return await query.answer("❌ Тема не найдена.", show_alert=True)
 
@@ -201,7 +204,7 @@ async def cb_buy(query: types.CallbackQuery, callback_data: ThemeCB, db):
         return
     user_id = query.from_user.id
     tid = callback_data.theme_id
-    theme = THEMES.get(tid)
+    theme = await get_effective_theme(db, tid)
     if not theme:
         return await query.answer("❌ Тема не найдена.", show_alert=True)
 
