@@ -13,7 +13,7 @@ load_dotenv()
 
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
-from infrastructure.repositories import theme_templates
+from infrastructure.repositories import theme_templates, theme_meta
 from FastAPI.auth import verify_login_widget, create_session_token
 from FastAPI import notifications
 from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
@@ -32,6 +32,7 @@ async def lifespan(app: FastAPI):
     # profile_theme_overrides does not exist" без рестарта бота.
     async with get_pool().acquire() as conn:
         await theme_templates.ensure_table(PGAdapter(conn))
+        await theme_meta.ensure_table(PGAdapter(conn))
     yield
 
 

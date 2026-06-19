@@ -834,7 +834,7 @@ async def init_db():
                 price_mora     INTEGER,
                 price_diamonds NUMERIC,
                 price_zarniki  INTEGER,
-                price_dark_mora INTEGER,
+                price_dark     INTEGER,
                 obtainable_bp  INTEGER DEFAULT 0,
                 description    TEXT
             )
@@ -848,6 +848,8 @@ async def init_db():
             "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS nickname_changes_reset_at TIMESTAMP DEFAULT NOW()",
             # «Стаж VIP» — суммарно оплаченных дней за всё время
             "ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS total_days INTEGER DEFAULT 0",
+            # Прошлый деплой мог уже создать theme_metadata_overrides со старым именем колонки
+            "ALTER TABLE theme_metadata_overrides RENAME COLUMN price_dark_mora TO price_dark",
         ]:
             try:
                 await db.execute(_stmt)

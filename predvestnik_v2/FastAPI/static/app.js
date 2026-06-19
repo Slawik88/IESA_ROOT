@@ -4133,7 +4133,7 @@ function loadGlobalDev() {
     </div>
     <div class="card" id="tl-meta-card">
       <div class="card-title">🔧 Метаданные темы (цены, редкость, описание)</div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Выберите тему в Theme Lab выше → нажмите «Загрузить метаданные»</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Выберите тему в Theme Lab выше → нажмите «Загрузить метаданные». Цена/редкость реально применяются при покупке (и в боте, и на сайте). Чтобы сменить валюту цены — занулите старое поле явно (0), иначе сработает старая валюта.</div>
       <button class="btn btn-ghost btn-full" style="margin-bottom:8px" onclick="devTLMetaLoad()">⬇ Загрузить метаданные</button>
       <div id="dev-tl-meta-form" style="display:none">
         <input type="hidden" id="dev-tl-meta-tid"/>
@@ -4536,7 +4536,7 @@ function devTLMetaLoad() {
     el('dev-tl-meta-pmora').value=d.price_mora||'';
     el('dev-tl-meta-pdia').value=d.price_diamonds||'';
     el('dev-tl-meta-pzar').value=d.price_zarniki||'';
-    el('dev-tl-meta-pdark').value=d.price_dark_mora||'';
+    el('dev-tl-meta-pdark').value=d.price_dark||'';
     el('dev-tl-meta-bp').checked=!!d.obtainable_bp;
     el('dev-tl-meta-desc').value=d.desc||'';
     el('dev-tl-meta-form').style.display='';
@@ -4552,7 +4552,7 @@ function devTLMetaSave() {
     price_mora:parseInt(el('dev-tl-meta-pmora').value)||null,
     price_diamonds:parseFloat(el('dev-tl-meta-pdia').value)||null,
     price_zarniki:parseInt(el('dev-tl-meta-pzar').value)||null,
-    price_dark_mora:parseInt(el('dev-tl-meta-pdark').value)||null,
+    price_dark:parseInt(el('dev-tl-meta-pdark').value)||null,
     obtainable_bp:el('dev-tl-meta-bp').checked,
     desc:el('dev-tl-meta-desc').value||null,
   };
