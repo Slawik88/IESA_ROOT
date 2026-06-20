@@ -620,6 +620,29 @@ VIP_TIERS: dict[str, dict] = {
 }
 
 
+# ── Partner gifts (Implementation Block 5.4) ────────────────────────────────
+# Подарки партнёру: дешёвые косметические (флавор, видны в карточке брака) +
+# средние/дорогие бафф-подарки (накладывают study_xp на ПАРТНЁРА — реальный
+# баф, потребляется в services/leveling.py). Оплата — с личного баланса дарителя.
+PARTNER_GIFTS: dict[str, dict] = {
+    "rose":    {"name": "🌹 Роза",            "price_mora": 300,     "kind": "cosmetic",
+                "msg": "подарил(а) розу 🌹"},
+    "teddy":   {"name": "🧸 Плюшевый мишка",  "price_mora": 800,     "kind": "cosmetic",
+                "msg": "подарил(а) плюшевого мишку 🧸"},
+    "choco":   {"name": "🍫 Коробка конфет",  "price_diamonds": 15,  "kind": "cosmetic",
+                "msg": "подарил(а) коробку конфет 🍫"},
+    "inspire": {"name": "📚 Вдохновение",     "price_mora": 2000,    "kind": "buff",
+                "buff_value": 0.25, "buff_hours": 6,
+                "msg": "вдохновил(а) партнёра 📚 — +25% XP на 6ч"},
+    "ring":    {"name": "💍 Кольцо Музы",     "price_diamonds": 40,  "kind": "buff",
+                "buff_value": 0.5,  "buff_hours": 12,
+                "msg": "подарил(а) Кольцо Музы 💍 — +50% XP на 12ч"},
+    "crown":   {"name": "👑 Корона Любви",    "price_zarniki": 150,  "kind": "buff",
+                "buff_value": 0.5,  "buff_hours": 24,
+                "msg": "короновал(а) партнёра 👑 — +50% XP на 24ч"},
+}
+
+
 # ── Craft Recipes ─────────────────────────────────────────────────────────────
 # Single source of truth for all craftable items. Ingredient quantities from constants.
 CRAFT_RECIPES: Dict[str, Dict[str, Any]] = {

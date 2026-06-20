@@ -5,7 +5,9 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.marriages import (
     get_user_marriage, family_bank_transaction, delete_marriage, FAMILY_CURRENCIES,
+    get_received_gifts,
 )
+from core.registry import PARTNER_GIFTS
 from infrastructure.repositories.zoo import get_user_pets
 from services.achievements import backfill_metric
 from services.vip import is_vip_active
@@ -61,6 +63,11 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
         "family_balance_zarniki": float(m.get("family_balance_zarniki", 0) or 0),
         "days": days,
         "family_pets": family_pets,
+        "received_gifts": [
+            {"name": PARTNER_GIFTS.get(g["gift_id"], {}).get("name", g["gift_id"]),
+             "sent_at": str(g["sent_at"])}
+            for g in await get_received_gifts(db, user["id"], 5)
+        ],
     }
 
 
@@ -80,6 +87,30 @@ async def family_bank(body: BankRequest, db=Depends(get_db), user=Depends(requir
         raise HTTPException(400, "Неизвестная валюта.")
     ok, msg = await family_bank_transaction(db, body.marriage_id, user["id"],
                                             body.amount, body.action, body.currency)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}
+
+
+class FundRequest(BaseModel):
+    currency: str = "mora"
+    amount: float
+
+
+@router.post("/fund")
+async def fund_from_family(body: FundRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Block 5.2 (авто-перевод): перенести сумму из семейного кошелька на личный
+    счёт перед покупкой. marriage_id резолвится сервером. Излишек (если была
+    скидка) просто останется на личном — деньги не теряются."""
+    if body.currency not in FAMILY_CURRENCIES:
+        raise HTTPException(400, "Неизвестная валюта.")
+    if body.amount <= 0:
+        raise HTTPException(400, "Сумма должна быть больше нуля.")
+    m = await get_user_marriage(db, user["id"])
+    if not m:
+        raise HTTPException(400, "Вы не состоите в браке.")
+    ok, msg = await family_bank_transaction(db, m["id"], user["id"],
+                                            body.amount, "withdraw", body.currency)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}

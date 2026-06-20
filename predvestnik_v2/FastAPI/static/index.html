@@ -296,18 +296,18 @@
 <!-- ═══ 15. ЕЩЁ — Control Center ═══ -->
 <div id="pg-more" class="page">
   <div class="cc-grid">
+    <div class="cc-card cc-bp" onclick="goTo('bp')"><span class="cc-ic">🎫</span><span class="cc-t">Пропуск</span><span class="cc-s">Боевой пропуск</span></div>
     <div class="cc-card" onclick="goTo('auction')"><span class="cc-ic">⚖️</span><span class="cc-t">Аукцион</span><span class="cc-s">и Обменник</span></div>
     <div class="cc-card" id="cc-manage" style="display:none" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление</span><span class="cc-s">Админка</span></div>
     <div class="cc-card" onclick="goTo('help')"><span class="cc-ic">🆘</span><span class="cc-t">Помощь</span><span class="cc-s">Гайды</span></div>
   </div>
 </div>
 
-<!-- ═══ НИЖНИЙ ДОК (6 слотов под большой палец) ═══ -->
+<!-- ═══ НИЖНИЙ ДОК (5 слотов под большой палец — UX-лимит 3-5) ═══ -->
 <nav class="nav">
   <div class="nb active" data-page="profile" onclick="switchPage('profile')"><span class="ni">👤</span>Профиль</div>
   <div class="nb" data-page="zoo" onclick="switchPage('zoo')"><span class="ni">🐾</span>Питомцы</div>
   <div class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni">⚔️</span>Арена</div>
-  <div class="nb nb-bp" data-page="bp" onclick="switchPage('bp')"><span class="ni">🎫</span>Пропуск</div>
   <div class="nb nb-shop" data-page="market" onclick="switchPage('market')"><span class="ni">💎</span>Магазин</div>
   <div class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><span class="ni">🎛</span>Ещё</div>
 </nav>
