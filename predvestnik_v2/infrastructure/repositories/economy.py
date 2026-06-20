@@ -94,30 +94,64 @@ async def exchange_zarniki(
         return False, f"Ошибка: {e}"
 
 
-async def transfer_mora(
+# Мультивалютные переводы (Implementation Block 4). Колонки whitelisted —
+# currency проверяется по ключам этого словаря, поэтому интерполяция имени
+# колонки в SQL безопасна (не пользовательский ввод).
+TRANSFER_CURRENCIES: dict[str, dict] = {
+    "mora":      {"col": "user_balance_mora",      "delta": "delta_mora",      "icon": "🪙", "label": "Мора"},
+    "diamonds":  {"col": "user_balance_diamonds",  "delta": "delta_diamonds",  "icon": "💎", "label": "Алмазы"},
+    "dark_mora": {"col": "user_balance_dark_mora", "delta": "delta_dark_mora", "icon": "🌑", "label": "Тёмная Мора"},
+    "zarniki":   {"col": "user_balance_zarniki",   "delta": "delta_zarniki",   "icon": "✨", "label": "Зарники"},
+}
+
+
+async def _log_transfer_side(db, user_id: int, currency: str, delta: float,
+                             source: str, chat_id, target_id, note) -> None:
+    """Запись одной стороны перевода в wallet_log с актуальными балансами всех валют."""
+    meta = TRANSFER_CURRENCIES[currency]
+    async with db.execute(
+        "SELECT COALESCE(user_balance_mora,0), COALESCE(user_balance_diamonds,0), "
+        "COALESCE(user_balance_dark_mora,0), COALESCE(user_balance_zarniki,0) "
+        "FROM users WHERE user_tg_id = ?",
+        (user_id,),
+    ) as c:
+        r = await c.fetchone()
+    m, d, dk, z = (float(r[0]), float(r[1]), float(r[2]), float(r[3])) if r else (0.0, 0.0, 0.0, 0.0)
+    await db.execute(
+        f"INSERT INTO wallet_log (user_id, {meta['delta']}, "
+        "balance_mora_after, balance_diamonds_after, balance_dark_mora_after, balance_zarniki_after, "
+        "source, target_id, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (user_id, delta, m, d, dk, z, source, target_id, note),
+    )
+
+
+async def transfer_currency(
     db: PGAdapter,
     sender_id: int,
     receiver_id: int,
+    currency: str,
     amount: float,
     chat_id: int | None = None,
 ) -> tuple[bool, str]:
-    """Atomic mora transfer. Uses explicit transaction to prevent double-spend."""
+    """Атомарный перевод ЛЮБОЙ из 4 валют между игроками. FOR UPDATE на отправителе
+    в одной транзакции — защита от двойной траты. Без комиссии, без лимита."""
+    meta = TRANSFER_CURRENCIES.get(currency)
+    if not meta:
+        return False, "Неизвестная валюта."
     if amount <= 0:
-        return False, "Сумма <= 0"
+        return False, "Сумма должна быть больше нуля."
+    col = meta["col"]
     try:
         async with db.connection.transaction():
-            # Re-read balance inside the transaction (prevents TOCTOU race)
             async with db.execute(
-                "SELECT user_balance_mora FROM users WHERE user_tg_id = ? FOR UPDATE",
+                f"SELECT COALESCE({col}, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
                 (sender_id,),
             ) as c:
                 row = await c.fetchone()
-            if not row or row[0] < amount:
-                return False, "Недостаточно Моры."
-
+            if not row or float(row[0]) < amount:
+                return False, f"Недостаточно: {meta['icon']} {meta['label']}."
             await db.execute(
-                "UPDATE users SET user_balance_mora = user_balance_mora - ? "
-                "WHERE user_tg_id = ?",
+                f"UPDATE users SET {col} = COALESCE({col}, 0) - ? WHERE user_tg_id = ?",
                 (amount, sender_id),
             )
             await db.execute(
@@ -125,21 +159,27 @@ async def transfer_mora(
                 (receiver_id,),
             )
             await db.execute(
-                "UPDATE users SET user_balance_mora = user_balance_mora + ? "
-                "WHERE user_tg_id = ?",
+                f"UPDATE users SET {col} = COALESCE({col}, 0) + ? WHERE user_tg_id = ?",
                 (amount, receiver_id),
             )
-            await log_wallet(
-                db, sender_id, delta_mora=-amount, source="transfer_out",
-                chat_id=chat_id, target_id=receiver_id, note=f"→{receiver_id}",
-            )
-            await log_wallet(
-                db, receiver_id, delta_mora=amount, source="transfer_in",
-                chat_id=chat_id, target_id=sender_id, note=f"←{sender_id}",
-            )
+            await _log_transfer_side(db, sender_id, currency, -amount, "transfer_out",
+                                     chat_id, receiver_id, f"→{receiver_id}")
+            await _log_transfer_side(db, receiver_id, currency, amount, "transfer_in",
+                                     chat_id, sender_id, f"←{sender_id}")
         return True, "Перевод успешен."
     except Exception as e:
         return False, f"Ошибка: {e}"
+
+
+async def transfer_mora(
+    db: PGAdapter,
+    sender_id: int,
+    receiver_id: int,
+    amount: float,
+    chat_id: int | None = None,
+) -> tuple[bool, str]:
+    """Обратная совместимость: перевод Моры = transfer_currency(..., 'mora')."""
+    return await transfer_currency(db, sender_id, receiver_id, "mora", amount, chat_id)
 
 
 async def get_inventory(db: PGAdapter, user_id: int) -> list[dict]:
