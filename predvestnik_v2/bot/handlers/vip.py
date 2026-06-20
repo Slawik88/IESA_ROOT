@@ -6,7 +6,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
-from core.registry import VIP_TIERS, ITEMS_REGISTRY
+from core.registry import VIP_TIERS, VIP_PERKS_PITCH, ITEMS_REGISTRY
 from services.utils import resolve_target, safe_html
 from services.vip import get_vip_info, get_vip_seniority_days, purchase_vip
 
@@ -51,14 +51,18 @@ def _tier_description(info: dict) -> str:
         f"{qty}× {ITEMS_REGISTRY.get(item_id, {}).get('name', item_id)}"
         for item_id, qty in info["weekly"]
     )
-    lines = [
-        f"<b>{info['label']}</b> — {info['price_zarniki']}✨ / {info['duration_days']} дн.",
-        f"🎁 Подарок: {_gift_text(info['gift'])}",
-        f"📅 Еженедельно: {weekly}",
-    ]
+    savings = info.get("base_price_zarniki", info["price_zarniki"]) - info["price_zarniki"]
+    price_line = f"<b>{info['label']}</b> — {info['price_zarniki']}✨ / {info['duration_days']} дн."
+    if savings > 0:
+        price_line += f"  <s>{info['base_price_zarniki']}✨</s> <i>(−{savings}✨)</i>"
+    lines = [price_line]
+    if info.get("tagline"):
+        lines.append(f"<i>{info['tagline']}</i>")
+    lines.append(f"🎁 Сразу: {_gift_text(info['gift'])}")
+    lines.append(f"📅 Каждую неделю: {weekly}")
     extra = info.get("extra_slots", 0)
     if extra:
-        lines.append(f"✅ +{extra} слот{'а' if extra > 1 else ''} питомника")
+        lines.append(f"🐾 +{extra} слот{'а' if extra > 1 else ''} питомника")
     return "\n".join(lines)
 
 
@@ -80,11 +84,14 @@ async def cmd_vip(message: types.Message, db):
             "Можно купить ещё тариф — срок сложится, тариф сменится сразу:\n"
         )
     else:
+        perks = "\n".join(VIP_PERKS_PITCH)
         header = (
             "👑 <b>VIP-ПОДПИСКА</b>\n\n"
             f"{seniority_line}"
-            "Косметика, удобство и еженедельные бонусы — без преимущества в силе.\n\n"
-            "Доступные тарифы:\n"
+            "Только косметика, удобство и бонусы — <b>без преимущества в силе</b>. "
+            "Что получаешь:\n\n"
+            f"{perks}\n\n"
+            "Выбери тариф:\n"
         )
 
     body = "\n\n".join(_tier_description(i) for i in VIP_TIERS.values())

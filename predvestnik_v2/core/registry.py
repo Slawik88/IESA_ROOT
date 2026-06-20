@@ -556,9 +556,23 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
 
 
 # ── VIP Tiers (Implementation Block 2.2) ────────────────────────────────────
+# Универсальные перки VIP (одинаковы для всех тарифов) — продающая подача
+# (Implementation Block 3). Формат-нейтральные строки: бот оборачивает в HTML,
+# сайт рендерит как список. Без разметки внутри.
+VIP_PERKS_PITCH: list[str] = [
+    "👑 Корона рядом с именем — во всех чатах, топах, на аукционе и в профиле",
+    "🖼 Живая аватарка из Telegram на сайте вместо обычной заглушки",
+    "🎰 Еженедельные жетоны на крутки — новые питомцы каждую неделю, бесплатно",
+    "🎫 Платный трек Боевого пропуска — заметно больше наград за весь сезон",
+    "✏️ Смена ника без месячного лимита — меняй хоть каждый день",
+    "💬 Особые VIP-реакции у варп-команд — ярче, чем у всех остальных",
+    "🎁 Разовый подарок сразу при оформлении — остаётся у тебя навсегда",
+]
+
 VIP_TIERS: dict[str, dict] = {
     "1m": {
         "label": "VIP-1М", "duration_days": 30, "price_zarniki": 150,
+        "tagline": "Знакомство с VIP — попробовать вкус привилегий",
         "base_price_zarniki": 200,  # для отображения экономии
         "gift": {"mora": 200, "diamonds": 1,
                  "items": (("spin_token_novice", 2), ("food_basic", 1))},
@@ -567,6 +581,7 @@ VIP_TIERS: dict[str, dict] = {
     },
     "2m": {
         "label": "VIP-2М", "duration_days": 60, "price_zarniki": 250,
+        "tagline": "Вдвое дольше и заметно выгоднее старта",
         "base_price_zarniki": 400,  # экономия 150
         "gift": {"mora": 250, "diamonds": 2,
                  "items": (("spin_token_novice", 3), ("food_basic", 3))},
@@ -575,6 +590,7 @@ VIP_TIERS: dict[str, dict] = {
     },
     "3m": {
         "label": "VIP-3М", "duration_days": 90, "price_zarniki": 400,
+        "tagline": "Появляется +1 слот питомника и сильный старт сезона",
         "base_price_zarniki": 600,  # экономия 200
         "gift": {"mora": 300, "diamonds": 2,
                  "items": (("spin_token_novice", 1), ("spin_token_standard", 1), ("food_basic", 5))},
@@ -583,6 +599,7 @@ VIP_TIERS: dict[str, dict] = {
     },
     "8m": {
         "label": "VIP-8М", "duration_days": 240, "price_zarniki": 1200,
+        "tagline": "Длинная дистанция — максимум еженедельных бонусов",
         "base_price_zarniki": 1600,  # экономия 400
         "gift": {"mora": 500, "diamonds": 5,
                  "items": (("spin_token_premium", 2), ("spin_token_diamond", 1), ("food_basic", 5))},
@@ -591,6 +608,7 @@ VIP_TIERS: dict[str, dict] = {
     },
     "12m": {
         "label": "VIP-12М", "duration_days": 365, "price_zarniki": 1700,
+        "tagline": "Год привилегий: всё по максимуму и +2 слота питомника",
         "base_price_zarniki": 2400,  # экономия 700
         "gift": {"mora": 500, "diamonds": 10,
                  "items": (("spin_token_diamond", 3), ("spin_token_premium", 3),
