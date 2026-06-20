@@ -3,14 +3,27 @@ import aiosqlite
 from infrastructure.repositories.economy import get_balance
 
 
+# Семейный кошелёк на 4 валюты (Implementation Block 5). Колонки whitelisted —
+# currency проверяется по ключам словаря, интерполяция имён колонок безопасна.
+FAMILY_CURRENCIES: dict[str, dict] = {
+    "mora":      {"user_col": "user_balance_mora",      "fam_col": "family_balance",             "icon": "🪙", "label": "Мора"},
+    "diamonds":  {"user_col": "user_balance_diamonds",  "fam_col": "family_balance_diamonds",    "icon": "💎", "label": "Алмазы"},
+    "dark_mora": {"user_col": "user_balance_dark_mora", "fam_col": "family_balance_dark_mora",   "icon": "🌑", "label": "Тёмная Мора"},
+    "zarniki":   {"user_col": "user_balance_zarniki",   "fam_col": "family_balance_zarniki",     "icon": "✨", "label": "Зарники"},
+}
+
+
 async def get_user_marriage(
     db: aiosqlite.Connection, user_id: int
 ) -> dict | None:
     """Брак — глобальный (один на пользователя, не зависит от чата)."""
     async with db.execute(
-        "SELECT id, chat_id, user1_id, user1_name, user2_id, user2_name, "
-        "marriage_date, family_balance FROM marriages "
-        "WHERE user1_id = ? OR user2_id = ? "
+        "SELECT id, chat_id, user1_id, user1_name, user2_id, user2_name, marriage_date, "
+        "family_balance, "
+        "COALESCE(family_balance_diamonds, 0)  AS family_balance_diamonds, "
+        "COALESCE(family_balance_dark_mora, 0) AS family_balance_dark_mora, "
+        "COALESCE(family_balance_zarniki, 0)   AS family_balance_zarniki "
+        "FROM marriages WHERE user1_id = ? OR user2_id = ? "
         "ORDER BY marriage_date DESC LIMIT 1",
         (user_id, user_id),
     ) as cursor:
@@ -24,15 +37,23 @@ async def family_bank_transaction(
     user_id: int,
     amount: float,
     action: str,
+    currency: str = "mora",
 ) -> tuple[bool, str]:
+    """Депозит/вывод любой из 4 валют между личным балансом и семейным кошельком.
+    Любой супруг может тратить ВСЮ сумму семейного кошелька (общий пул)."""
+    meta = FAMILY_CURRENCIES.get(currency)
+    if not meta:
+        return False, "Неизвестная валюта."
     if amount <= 0:
         return False, "Сумма должна быть больше нуля."
+    user_col, fam_col = meta["user_col"], meta["fam_col"]
 
     try:
         async with db.connection.transaction():
-            # FOR UPDATE locks both rows to prevent race conditions on parallel operations
+            # FOR UPDATE на строке брака — защита от гонки двух супругов
             async with db.execute(
-                "SELECT family_balance FROM marriages WHERE id = ? FOR UPDATE", (marriage_id,)
+                f"SELECT COALESCE({fam_col}, 0) FROM marriages WHERE id = ? FOR UPDATE",
+                (marriage_id,),
             ) as cursor:
                 m_row = await cursor.fetchone()
                 if not m_row:
@@ -41,32 +62,38 @@ async def family_bank_transaction(
 
             if action == "deposit":
                 async with db.execute(
-                    "SELECT user_balance_mora FROM users WHERE user_tg_id = ? FOR UPDATE",
+                    f"SELECT COALESCE({user_col}, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
                     (user_id,),
                 ) as c:
                     u_row = await c.fetchone()
-                user_mora = float(u_row[0]) if u_row else 0.0
-                if user_mora < amount:
-                    return False, "Недостаточно личной Моры."
+                user_bal = float(u_row[0]) if u_row else 0.0
+                if user_bal < amount:
+                    return False, f"Недостаточно личной валюты: {meta['icon']} {meta['label']}."
                 await db.execute(
-                    "UPDATE users SET user_balance_mora = user_balance_mora - ? WHERE user_tg_id = ?",
+                    f"UPDATE users SET {user_col} = COALESCE({user_col}, 0) - ? WHERE user_tg_id = ?",
                     (amount, user_id),
                 )
                 await db.execute(
-                    "UPDATE marriages SET family_balance = family_balance + ? WHERE id = ?",
+                    f"UPDATE marriages SET {fam_col} = COALESCE({fam_col}, 0) + ? WHERE id = ?",
                     (amount, marriage_id),
                 )
             elif action == "withdraw":
                 if family_balance < amount:
-                    return False, "Недостаточно Моры в семейном бюджете."
+                    return False, f"Недостаточно в семейном кошельке: {meta['icon']} {meta['label']}."
                 await db.execute(
-                    "UPDATE marriages SET family_balance = family_balance - ? WHERE id = ?",
+                    f"UPDATE marriages SET {fam_col} = COALESCE({fam_col}, 0) - ? WHERE id = ?",
                     (amount, marriage_id),
                 )
                 await db.execute(
-                    "UPDATE users SET user_balance_mora = user_balance_mora + ? WHERE user_tg_id = ?",
+                    "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING",
+                    (user_id,),
+                )
+                await db.execute(
+                    f"UPDATE users SET {user_col} = COALESCE({user_col}, 0) + ? WHERE user_tg_id = ?",
                     (amount, user_id),
                 )
+            else:
+                return False, "Неизвестное действие."
 
         return True, "Успешно."
     except Exception as e:

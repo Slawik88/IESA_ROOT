@@ -1,16 +1,19 @@
-from aiogram import Router, types
+from aiogram import Router, types, F
 from services.utils import resolve_target, safe_html, parse_dt, check_callback_owner
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
 from infrastructure.repositories import marriages, users
-from infrastructure.repositories.marriages import create_proposal, update_proposal_status
+from infrastructure.repositories.marriages import (
+    create_proposal, update_proposal_status, FAMILY_CURRENCIES,
+)
 from infrastructure.repositories.moderation import get_chat_settings
 from infrastructure.repositories.chat import get_chat_stats
 from services import marriage as marriage_service
 from bot.filters.text_commands import TextCmd
-from services.utils import format_currency
+from services.utils import format_currency, resolve_display_name
+from bot.handlers.economy import PayCB  # переиспользуем выбор валюты для «подарка» партнёру
 
 router = Router(name="marriage_router")
 
@@ -22,6 +25,24 @@ class MarriageAction(CallbackData, prefix="marry"):
 class DivorceConfirm(CallbackData, prefix="divorce"):
     action: str  # "confirm" | "cancel"
     user_id: int = 0
+
+class FamilyBankCB(CallbackData, prefix="fbank"):
+    action: str       # deposit / withdraw
+    cur: str          # mora / diamonds / dark_mora / zarniki
+    amount: float
+    user_id: int
+    marriage_id: int
+
+
+def _family_currency_kb(action: str, amount: float, user_id: int, marriage_id: int):
+    """Клавиатура выбора валюты для вложить/снять (2×2)."""
+    b = InlineKeyboardBuilder()
+    for cur, meta in FAMILY_CURRENCIES.items():
+        b.button(text=f"{meta['icon']} {meta['label']}",
+                 callback_data=FamilyBankCB(action=action, cur=cur, amount=amount,
+                                            user_id=user_id, marriage_id=marriage_id))
+    b.adjust(2, 2)
+    return b
 
 # ==========================================
 # КОМАНДА 1: Предложение (/marriage)
@@ -260,30 +281,78 @@ async def cmd_all_couples(message: types.Message, db):
     await message.answer(text, parse_mode="HTML")
 
 
+def _parse_bank_amount(text_args: str | None):
+    if not text_args:
+        return None
+    try:
+        return float(text_args.split()[0].replace(",", "."))
+    except ValueError:
+        return None
+
+
 @router.message(TextCmd(["вложить", "в общак"]))
 async def cmd_family_deposit(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
         return
-
-    if not text_args:
+    amount = _parse_bank_amount(text_args)
+    if amount is None:
         return await message.answer(
-            "ℹ️ <b>Использование:</b> <code>бот вложить, [сумма]</code>\nПеревод вашей Моры в семейный бюджет.",
-            parse_mode="HTML"
-        )
-
-    try:
-        amount = float(text_args.split()[0].replace(",", "."))
-    except ValueError:
-        return await message.answer("❌ Укажите сумму числом.")
-    
+            "ℹ️ <b>Использование:</b> <code>бот вложить, [сумма]</code>\nПеревод вашей валюты в семейный кошелёк.",
+            parse_mode="HTML")
+    if amount <= 0:
+        return await message.answer("❌ Сумма должна быть больше нуля.")
     marriage = await marriages.get_user_marriage(db, message.from_user.id)
-    if not marriage: return await message.answer("❌ Вы не состоите в браке.")
-    
-    success, msg = await marriages.family_bank_transaction(db, marriage['id'], message.from_user.id, amount, "deposit")
-    if success:
-        await message.answer(f"🏦 Вы вложили <code>{format_currency(amount)}</code> Моры в семейный бюджет.\nНовый баланс семьи: <code>{format_currency(marriage['family_balance'] + amount)}</code>", parse_mode="HTML")
+    if not marriage:
+        return await message.answer("❌ Вы не состоите в браке.")
+    kb = _family_currency_kb("deposit", amount, message.from_user.id, marriage["id"])
+    await message.answer(
+        f"📥 Вложить <b>{format_currency(amount)}</b> в семейный кошелёк — какой валютой?",
+        reply_markup=kb.as_markup(), parse_mode="HTML")
+
+
+@router.message(TextCmd(["снять", "из общака"]))
+async def cmd_family_withdraw(message: types.Message, db, text_args: str = None):
+    if message.chat.type == "private":
+        return
+    amount = _parse_bank_amount(text_args)
+    if amount is None:
+        return await message.answer(
+            "ℹ️ <b>Использование:</b> <code>бот снять, [сумма]</code>\nСнятие валюты из семейного кошелька.",
+            parse_mode="HTML")
+    if amount <= 0:
+        return await message.answer("❌ Сумма должна быть больше нуля.")
+    marriage = await marriages.get_user_marriage(db, message.from_user.id)
+    if not marriage:
+        return await message.answer("❌ Вы не состоите в браке.")
+    kb = _family_currency_kb("withdraw", amount, message.from_user.id, marriage["id"])
+    await message.answer(
+        f"📤 Снять <b>{format_currency(amount)}</b> из семейного кошелька — какой валютой?",
+        reply_markup=kb.as_markup(), parse_mode="HTML")
+
+
+@router.callback_query(FamilyBankCB.filter())
+async def cb_family_bank(query: types.CallbackQuery, callback_data: FamilyBankCB, db):
+    if query.from_user.id != callback_data.user_id:
+        return await query.answer("Это не ваша операция.", show_alert=True)
+    meta = FAMILY_CURRENCIES.get(callback_data.cur)
+    if not meta:
+        return await query.answer("Неизвестная валюта.", show_alert=True)
+    ok, msg = await marriages.family_bank_transaction(
+        db, callback_data.marriage_id, callback_data.user_id,
+        callback_data.amount, callback_data.action, callback_data.cur,
+    )
+    verb = "вложили в" if callback_data.action == "deposit" else "сняли из"
+    if ok:
+        text = (f"🏦 Вы {verb} семейн{'ый' if callback_data.action=='deposit' else 'ого'} кошель{'ёк' if callback_data.action=='deposit' else 'ка'} "
+                f"<code>{format_currency(callback_data.amount)}</code> {meta['icon']} {meta['label']}.")
     else:
-        await message.answer(f"❌ <b>Отказ:</b> {msg}", parse_mode="HTML")
+        text = f"❌ <b>Отказ:</b> {msg}"
+    try:
+        await query.message.edit_text(text, parse_mode="HTML")
+    except Exception:
+        await query.message.answer(text, parse_mode="HTML")
+    await query.answer()
+
 
 @router.message(TextCmd(["общак", "семейный баланс", "семья"]))
 async def cmd_family_info(message: types.Message, db):
@@ -303,43 +372,55 @@ async def cmd_family_info(message: types.Message, db):
     date_obj = parse_dt(marriage['marriage_date'])
     date_str = date_obj.strftime("%d.%m.%Y")
     days_together = (datetime.now() - date_obj).days
-    family_balance = marriage.get('family_balance', 0)
+
+    # Все 4 валюты семейного кошелька (показываем только ненулевые + Мору всегда)
+    wallet_lines = []
+    for cur, meta in FAMILY_CURRENCIES.items():
+        bal = float(marriage.get(meta["fam_col"], 0) or 0)
+        if bal > 0 or cur == "mora":
+            wallet_lines.append(f"{meta['icon']} {format_currency(bal)} {meta['label']}")
+    wallet_str = " · ".join(wallet_lines)
 
     text = (
-        f"🏦 <b>СЕМЕЙНЫЙ БЮДЖЕТ</b>\n\n"
+        f"🏦 <b>СЕМЕЙНЫЙ КОШЕЛЁК</b>\n\n"
         f"💑 <b>ПАРА</b>\n"
         f"├ 💫 {my_link}\n"
         f"└ 💫 {partner_link}\n\n"
         f"📅 <b>ИСТОРИЯ</b>\n"
         f"├ ⏳ В браке с: <code>{date_str}</code>\n"
-        f"├ ❤️ Вместе: <code>{days_together} дн.</code>\n"
-        f"└ 🏦 Общак: <code>{format_currency(family_balance)}</code> 🪙\n\n"
-        f"<i>💡 Пополнить: «бот вложить, [сумма]» · Снять: «бот снять, [сумма]»</i>"
+        f"└ ❤️ Вместе: <code>{days_together} дн.</code>\n\n"
+        f"💰 <b>КОШЕЛЁК:</b> {wallet_str}\n\n"
+        f"<i>💡 Пополнить: «бот вложить, [сумма]» · Снять: «бот снять, [сумма]»\n"
+        f"🎁 Подарок партнёру: «бот подарок, [сумма]»</i>"
     )
     await message.answer(text, parse_mode="HTML")
 
 
-@router.message(TextCmd(["снять", "из общака"]))
-async def cmd_family_withdraw(message: types.Message, db, text_args: str = None):
+@router.message(TextCmd(["подарок", "подарить партнёру", "подарить партнеру", "подарок партнёру"]))
+async def cmd_gift_partner(message: types.Message, db, text_args: str = None):
+    """Подарить партнёру любую валюту (Block 5.3). Авто-цель — супруг.
+    Переиспользует PayCB / cb_pay_currency из economy.py."""
     if message.chat.type == "private":
         return
-
-    if not text_args:
+    amount = _parse_bank_amount(text_args)
+    if amount is None:
         return await message.answer(
-            "ℹ️ <b>Использование:</b> <code>бот снять, [сумма]</code>\nСнятие Моры из семейного бюджета.",
-            parse_mode="HTML"
-        )
-
-    try:
-        amount = float(text_args.split()[0].replace(",", "."))
-    except ValueError:
-        return await message.answer("❌ Укажите сумму числом.")
-    
+            "ℹ️ <b>Использование:</b> <code>бот подарок, [сумма]</code>\nПодарок валютой вашему партнёру.",
+            parse_mode="HTML")
+    if amount <= 0:
+        return await message.answer("❌ Сумма должна быть больше нуля.")
     marriage = await marriages.get_user_marriage(db, message.from_user.id)
-    if not marriage: return await message.answer("❌ Вы не состоите в браке.")
-    
-    success, msg = await marriages.family_bank_transaction(db, marriage['id'], message.from_user.id, amount, "withdraw")
-    if success:
-        await message.answer(f"🏦 Вы сняли <code>{format_currency(amount)}</code> Моры из семейного бюджета.\nОстаток семьи: <code>{format_currency(marriage['family_balance'] - amount)}</code>", parse_mode="HTML")
-    else:
-        await message.answer(f"❌ <b>Отказ:</b> {msg}", parse_mode="HTML")
+    if not marriage:
+        return await message.answer("💔 Вы не состоите в браке.")
+    partner_id = marriage['user2_id'] if marriage['user1_id'] == message.from_user.id else marriage['user1_id']
+    partner_name = await resolve_display_name(db, partner_id, message.chat.id,
+                                              marriage['user2_name'] if marriage['user1_id'] == message.from_user.id else marriage['user1_name'])
+    b = InlineKeyboardBuilder()
+    for cur, meta in FAMILY_CURRENCIES.items():
+        b.button(text=f"{meta['icon']} {meta['label']}",
+                 callback_data=PayCB(cur=cur, target_id=partner_id, amount=amount,
+                                     sender_id=message.from_user.id))
+    b.adjust(2, 2)
+    await message.answer(
+        f"🎁 Подарить <b>{format_currency(amount)}</b> партнёру <b>{partner_name}</b> — какой валютой?",
+        reply_markup=b.as_markup(), parse_mode="HTML")

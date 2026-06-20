@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.marriages import (
-    get_user_marriage, family_bank_transaction, delete_marriage,
+    get_user_marriage, family_bank_transaction, delete_marriage, FAMILY_CURRENCIES,
 )
 from infrastructure.repositories.zoo import get_user_pets
 from services.achievements import backfill_metric
@@ -56,6 +56,9 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
         "partner_name": partner_name,
         "partner_is_vip": partner_is_vip,
         "family_balance": float(m["family_balance"] or 0),
+        "family_balance_diamonds": float(m.get("family_balance_diamonds", 0) or 0),
+        "family_balance_dark_mora": float(m.get("family_balance_dark_mora", 0) or 0),
+        "family_balance_zarniki": float(m.get("family_balance_zarniki", 0) or 0),
         "days": days,
         "family_pets": family_pets,
     }
@@ -64,16 +67,19 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
 class BankRequest(BaseModel):
     marriage_id: int
     amount: float
-    action: str   # "deposit" | "withdraw"
+    action: str            # "deposit" | "withdraw"
+    currency: str = "mora"  # mora | diamonds | dark_mora | zarniki
 
 
 @router.post("/bank")
 async def family_bank(body: BankRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Депозит или вывод из семейного банка."""
+    """Депозит или вывод любой из 4 валют семейного кошелька."""
     if body.action not in ("deposit", "withdraw"):
         raise HTTPException(400, "action: 'deposit' или 'withdraw'")
+    if body.currency not in FAMILY_CURRENCIES:
+        raise HTTPException(400, "Неизвестная валюта.")
     ok, msg = await family_bank_transaction(db, body.marriage_id, user["id"],
-                                            body.amount, body.action)
+                                            body.amount, body.action, body.currency)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}

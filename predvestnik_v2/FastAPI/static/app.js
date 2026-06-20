@@ -2755,11 +2755,21 @@ function loadMarriageCard() {
           <div style="font-size:15px;font-weight:700;color:var(--bright)">${vipName(m.partner_name||'Партнёр', m.partner_is_vip)}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:3px">Вместе ${m.days} дней</div>
         </div>
-        <div class="irow"><span class="ik">Семейный банк</span><span style="color:var(--gold);font-weight:700">${fmt(m.family_balance)} 🪙</span></div>
-        <div style="display:flex;gap:7px;margin-top:10px">
-          <input id="bank-amt" type="number" class="num-input" style="margin:0;flex:1" placeholder="Сумма 🪙" min="1"/>
-          <button class="btn btn-sm btn-gold" onclick="familyBank('deposit')">📥 Вложить</button>
-          <button class="btn btn-sm btn-ghost" onclick="familyBank('withdraw')">📤 Забрать</button>
+        ${(()=>{
+          const fb=[['🪙',m.family_balance,'mora'],['💎',m.family_balance_diamonds,'diamonds'],['🌑',m.family_balance_dark_mora,'dark_mora'],['✨',m.family_balance_zarniki,'zarniki']];
+          const shown=fb.filter(([ic,v,cur])=>(v||0)>0||cur==='mora').map(([ic,v])=>`${ic} ${fmt(v||0)}`).join(' · ');
+          return `<div class="irow"><span class="ik">Семейный кошелёк</span><span style="color:var(--gold);font-weight:700">${shown}</span></div>`;
+        })()}
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <input id="bank-amt" type="number" class="num-input" style="margin:0;flex:1" placeholder="Сумма" min="1"/>
+          <select id="bank-cur" class="num-input" style="margin:0;flex:none;width:64px">
+            <option value="mora">🪙</option><option value="diamonds">💎</option>
+            <option value="dark_mora">🌑</option><option value="zarniki">✨</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:7px;margin-top:6px">
+          <button class="btn btn-sm btn-gold" style="flex:1" onclick="familyBank('deposit')">📥 Вложить</button>
+          <button class="btn btn-sm btn-ghost" style="flex:1" onclick="familyBank('withdraw')">📤 Забрать</button>
         </div>
         ${pets.length?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🐾 Питомцы семьи (${pets.length})</div>
@@ -2775,9 +2785,10 @@ function loadMarriageCard() {
 function familyBank(action) {
   const v=parseFloat(el('bank-amt')?.value||0);
   if(!v||v<=0){toast('Введите сумму.',false);return;}
+  const cur=el('bank-cur')?.value||'mora';
   const mid=el('pro-marriage-card')?._mid;
   if(!mid){toast('Нет данных о браке.',false);return;}
-  api('/marriage/bank',{method:'POST',body:JSON.stringify({marriage_id:mid,amount:v,action})})
+  api('/marriage/bank',{method:'POST',body:JSON.stringify({marriage_id:mid,amount:v,action,currency:cur})})
     .then(r=>{toast(`✅ ${r.message}`);refreshCurrBar();loadMarriageCard();})
     .catch(e=>toast(e,false));
 }
