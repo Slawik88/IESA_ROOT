@@ -163,7 +163,10 @@ async def init_db():
                 user1_name      TEXT,
                 user2_id        BIGINT,
                 user2_name      TEXT,
-                family_balance  FLOAT8 DEFAULT 0.0,
+                family_balance           FLOAT8 DEFAULT 0.0,
+                family_balance_diamonds  FLOAT8 DEFAULT 0.0,
+                family_balance_dark_mora FLOAT8 DEFAULT 0.0,
+                family_balance_zarniki   FLOAT8 DEFAULT 0.0,
                 marriage_date   TIMESTAMP DEFAULT NOW()
             )
         """)
@@ -850,6 +853,10 @@ async def init_db():
             "ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS total_days INTEGER DEFAULT 0",
             # Прошлый деплой мог уже создать theme_metadata_overrides со старым именем колонки
             "ALTER TABLE theme_metadata_overrides RENAME COLUMN price_dark_mora TO price_dark",
+            # Block 5: семейный кошелёк на все 4 валюты (family_balance = Мора, уже была)
+            "ALTER TABLE marriages ADD COLUMN IF NOT EXISTS family_balance_diamonds FLOAT8 DEFAULT 0",
+            "ALTER TABLE marriages ADD COLUMN IF NOT EXISTS family_balance_dark_mora FLOAT8 DEFAULT 0",
+            "ALTER TABLE marriages ADD COLUMN IF NOT EXISTS family_balance_zarniki FLOAT8 DEFAULT 0",
         ]:
             try:
                 await db.execute(_stmt)
