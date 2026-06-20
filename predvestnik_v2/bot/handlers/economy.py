@@ -1,5 +1,7 @@
 # bot/handlers/economy.py
-from aiogram import Router, types
+from aiogram import Router, types, F
+from aiogram.filters.callback_data import CallbackData
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import economy as eco_db
@@ -9,11 +11,18 @@ from infrastructure.repositories.chat import get_chat_stats
 from infrastructure.repositories.dark_mora import get_dark_mora_balance
 from services import global_moderation
 from services.admin_service import give_resource, set_resource
-from services.utils import resolve_target, safe_html, format_currency
+from services.utils import resolve_target, resolve_display_name, safe_html, format_currency
 from core.registry import ITEMS_REGISTRY
 from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
 
 router = Router(name="eco_router")
+
+
+class PayCB(CallbackData, prefix="pay"):
+    cur: str          # mora / diamonds / dark_mora / zarniki
+    target_id: int
+    amount: float
+    sender_id: int
 
 
 @router.message(TextCmd(["баланс", "кошелек", "счет", "деньги", "кошелёк"]))
@@ -129,23 +138,60 @@ async def cmd_pay(message: types.Message, db, text_args: str = None,
             )
 
     if target_id == message.from_user.id:
-        return await message.answer("❌ Вы не можете перевести мору самому себе.")
+        return await message.answer("❌ Нельзя перевести самому себе.")
 
     try:
         amount = float(extra_args.split()[0].replace(",", "."))
     except ValueError:
         return await message.answer("❌ Укажите корректную сумму числом.")
+    if amount <= 0:
+        return await message.answer("❌ Сумма должна быть больше нуля.")
 
-    success, msg = await eco_db.transfer_mora(db, message.from_user.id, target_id, amount)
+    # Выбор валюты — инлайн-кнопками (Implementation Block 4): одна команда на все 4 валюты
+    builder = InlineKeyboardBuilder()
+    for cur, meta in eco_db.TRANSFER_CURRENCIES.items():
+        builder.button(
+            text=f"{meta['icon']} {meta['label']}",
+            callback_data=PayCB(cur=cur, target_id=target_id, amount=amount,
+                                sender_id=message.from_user.id),
+        )
+    builder.adjust(2, 2)
+    await message.answer(
+        f"💸 Перевести <b>{format_currency(amount)}</b> для <b>{safe_html(target_name)}</b> — "
+        f"какой валютой?",
+        reply_markup=builder.as_markup(), parse_mode="HTML",
+    )
 
+
+@router.callback_query(PayCB.filter())
+async def cb_pay_currency(query: types.CallbackQuery, callback_data: PayCB, db):
+    if query.from_user.id != callback_data.sender_id:
+        return await query.answer("Это не ваш перевод.", show_alert=True)
+
+    meta = eco_db.TRANSFER_CURRENCIES.get(callback_data.cur)
+    if not meta:
+        return await query.answer("Неизвестная валюта.", show_alert=True)
+
+    chat_id = query.message.chat.id if query.message else None
+    success, msg = await eco_db.transfer_currency(
+        db, callback_data.sender_id, callback_data.target_id,
+        callback_data.cur, callback_data.amount, chat_id=chat_id,
+    )
+    # resolve_display_name уже возвращает HTML-safe имя (+👑 для VIP) — не экранируем повторно
+    target_name = await resolve_display_name(db, callback_data.target_id, chat_id, "игроку")
     if success:
-        await message.answer(
+        text = (
             f"💸 <b>Успешный перевод!</b>\n"
-            f"Вы перевели <code>{format_currency(amount)}</code> Моры пользователю <b>{safe_html(target_name)}</b>.",
-            parse_mode="HTML"
+            f"Вы перевели <code>{format_currency(callback_data.amount)}</code> "
+            f"{meta['icon']} {meta['label']} пользователю <b>{target_name}</b>."
         )
     else:
-        await message.answer(f"❌ <b>Отказ:</b> {msg}", parse_mode="HTML")
+        text = f"❌ <b>Отказ:</b> {msg}"
+    try:
+        await query.message.edit_text(text, parse_mode="HTML")
+    except Exception:
+        await query.message.answer(text, parse_mode="HTML")
+    await query.answer()
 
 
 # ==========================================
