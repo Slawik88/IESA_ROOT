@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
-from core.registry import VIP_TIERS, ITEMS_REGISTRY
+from core.registry import VIP_TIERS, VIP_PERKS_PITCH, ITEMS_REGISTRY
 from services.vip import get_vip_info, get_vip_seniority_days, purchase_vip
 
 router = APIRouter(prefix="/vip", tags=["vip"])
@@ -21,6 +21,7 @@ def _tiers_payload() -> list[dict]:
         {
             "tier": tier,
             "label": info["label"],
+            "tagline": info.get("tagline", ""),
             "duration_days": info["duration_days"],
             "price_zarniki": info["price_zarniki"],
             "base_price_zarniki": info.get("base_price_zarniki", info["price_zarniki"]),
@@ -48,6 +49,7 @@ async def vip_status(db=Depends(get_db), user=Depends(require_tg_user)):
             "days_left": info["days_left"],
             "seniority_days": seniority,
             "seniority_months": seniority // 30,
+            "perks": VIP_PERKS_PITCH,
             "tiers": _tiers_payload(),
         }
     return {
@@ -58,6 +60,7 @@ async def vip_status(db=Depends(get_db), user=Depends(require_tg_user)):
         "days_left": 0,
         "seniority_days": seniority,
         "seniority_months": seniority // 30,
+        "perks": VIP_PERKS_PITCH,
         "tiers": _tiers_payload(),
     }
 

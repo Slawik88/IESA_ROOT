@@ -244,7 +244,7 @@ function loadProfile() {
     el('pro-main').innerHTML=`
       <div class="hero">
         <div class="hero-head">
-          <div class="ava">${d.is_vip?'👑':'🔮'}</div>
+          <div class="ava" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
           <div style="min-width:0">
             <div class="pname">@${vipName(d.username||'Игрок', d.is_vip)}</div>
             <div class="prank">${d.rank}</div>
@@ -341,8 +341,26 @@ function updateCurrBar(data) {
     const nm=el('hdr-name'); if(nm) nm.textContent=(data.is_vip?'👑 ':'')+(data.username||'Игрок');
     const sub=el('hdr-sub');
     if(sub) sub.textContent=`Lv${data.chats?.[0]?.user_level||1} · 🔥${data.streak||0}`;
-    const av=el('hdr-ava'); if(av && data.is_vip) av.textContent='👑';
+    const av=el('hdr-ava'); if(av && data.is_vip){ av.textContent='👑'; _ensureVipAvatar(); }
   }
+}
+
+// ── VIP Telegram avatar (Block 3) ──────────────────────────────────────────────
+// Грузим один раз за сессию, кэшируем, применяем к хедеру и карточке профиля.
+let _vipAvatar = null, _vipAvatarTried = false;
+function _applyVipAvatar() {
+  if (!_vipAvatar) return;
+  const img = `<img src="${_vipAvatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`;
+  const h = el('hdr-ava'); if (h) h.innerHTML = img;
+  const p = el('pro-ava'); if (p) p.innerHTML = img;
+}
+function _ensureVipAvatar() {
+  if (_vipAvatar) { _applyVipAvatar(); return; }
+  if (_vipAvatarTried) return;
+  _vipAvatarTried = true;
+  api('/profile/avatar').then(r => {
+    if (r && r.avatar) { _vipAvatar = r.avatar; _applyVipAvatar(); }
+  }).catch(()=>{});
 }
 
 function showCurrModal() {
@@ -2467,6 +2485,14 @@ function _renderPremiumHub(pk, d) {
   // 2. VIP
   const seniorityLine = d.seniority_days>0
     ? `<div style="font-size:11px;color:var(--gold2);margin-top:4px">🏅 Стаж VIP: ${d.seniority_months} мес. (${d.seniority_days} дн.)</div>` : '';
+  // Перки VIP — продающий список (из бэкенда, единый с ботом)
+  const perksBlock = (d.perks && d.perks.length)
+    ? `<div class="card card-gold" style="margin-bottom:4px">
+        <div class="card-title">✨ Что даёт VIP</div>
+        <div style="font-size:11.5px;color:var(--text);line-height:1.85">${d.perks.map(p=>esc(p)).join('<br>')}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">Всё это — косметика, удобство и бонусы. Без преимущества в силе.</div>
+      </div>` : '';
+
   const vipStatus = d.active
     ? `<div class="prem-card">
         <div class="prem-tag">VIP</div>
@@ -2479,11 +2505,7 @@ function _renderPremiumHub(pk, d) {
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">Можно продлить — срок сложится, тариф сменится сразу.</div>
       </div>`
-    : `<div class="card card-gold">
-        <div class="card-title">👑 VIP-подписка</div>
-        <div style="font-size:12px;color:var(--muted);line-height:1.5">Косметика, удобство и еженедельные подарки — без преимущества в силе.</div>
-        ${seniorityLine}
-      </div>`;
+    : '';
 
   const tiers = d.tiers.map(t=>{
     const gift=[];
@@ -2492,9 +2514,12 @@ function _renderPremiumHub(pk, d) {
     t.gift_items.forEach(i=>gift.push(`${i.qty}× ${i.name}`));
     const weekly = t.weekly.map(i=>`${i.qty}× ${i.name}`);
     const afford = bal >= t.price_zarniki;
+    const savings = t.savings_zarniki>0
+      ? `<span style="font-size:10px;color:var(--muted);text-decoration:line-through;margin-left:4px">${fmt(t.base_price_zarniki)}✨</span> <span style="font-size:10px;color:var(--green);font-weight:700">−${fmt(t.savings_zarniki)}✨</span>` : '';
     return `<div class="prem-card">
       <div class="prem-title">${t.label}</div>
-      <div class="prem-price">${fmt(t.price_zarniki)} ✨ <span style="font-size:10px;color:var(--muted);font-weight:600">/ ${t.duration_days} дн.</span></div>
+      ${t.tagline?`<div style="font-size:10.5px;color:var(--gold2);margin:2px 0 4px">${esc(t.tagline)}</div>`:''}
+      <div class="prem-price">${fmt(t.price_zarniki)} ✨ <span style="font-size:10px;color:var(--muted);font-weight:600">/ ${t.duration_days} дн.</span>${savings}</div>
       <div class="prem-list">🎁 ${gift.join(', ')}<br>📅 Еженедельно: ${weekly.join(', ')}${t.extra_slots>0?`<br>🐾 +${t.extra_slots} слот${t.extra_slots>1?'а':''} питомника`:''}</div>
       <button class="btn ${afford?'btn-gold':'btn-ghost'} btn-full" style="margin-top:4px" onclick="${afford?`doBuyVip('${t.tier}','${t.label}',${t.price_zarniki})`:`goToZarTop()`}">${afford?`Оформить за ${fmt(t.price_zarniki)} ✨`:`Нужно ${fmt(t.price_zarniki)} ✨ — пополнить`}</button>
     </div>`;
@@ -2502,7 +2527,9 @@ function _renderPremiumHub(pk, d) {
 
   el('mkt-vip').innerHTML = donateCard
     + `<div class="card-title" style="margin:14px 2px 8px;font-size:14px">👑 VIP-подписка</div>`
-    + vipStatus + tiers;
+    + (vipStatus ? vipStatus : perksBlock)
+    + (d.active ? perksBlock : '')
+    + tiers;
 }
 
 function goToZarTop() {

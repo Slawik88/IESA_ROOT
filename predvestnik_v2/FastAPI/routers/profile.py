@@ -1,7 +1,11 @@
 """FastAPI/routers/profile.py — профиль игрока.
 Тонкий адаптер: только вызовы infrastructure/, только JSON.
 """
+import os
+import base64
+import time
 from datetime import datetime, timezone
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
@@ -13,6 +17,58 @@ from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import set_nickname
 
 router = APIRouter(prefix="/profile", tags=["profile"])
+
+# Кэш аватарок Telegram на процесс (Implementation Block 3): фото меняется редко,
+# дёргать Bot API на каждый рендер профиля незачем. Значение — (data_uri|None, ts).
+_AVATAR_CACHE: dict[int, tuple[str | None, float]] = {}
+_AVATAR_TTL = 6 * 3600  # 6 часов
+
+
+async def _fetch_tg_avatar(user_id: int) -> str | None:
+    """getUserProfilePhotos → getFile → скачать → data URI (jpeg).
+    None, если нет токена/фото/приватность скрыла. Токен бота наружу не отдаём —
+    картинку проксируем через свой эндпоинт."""
+    token = os.getenv("BOT_TOKEN", "")
+    if not token:
+        return None
+    api = f"https://api.telegram.org/bot{token}"
+    try:
+        async with httpx.AsyncClient(timeout=6) as c:
+            r = await c.get(f"{api}/getUserProfilePhotos",
+                            params={"user_id": user_id, "limit": 1})
+            data = r.json()
+            if not data.get("ok") or data["result"].get("total_count", 0) == 0:
+                return None
+            # photos[0] — самый свежий снимок (список размеров); берём наименьший
+            file_id = data["result"]["photos"][0][0]["file_id"]
+            r2 = await c.get(f"{api}/getFile", params={"file_id": file_id})
+            fdata = r2.json()
+            if not fdata.get("ok"):
+                return None
+            file_path = fdata["result"]["file_path"]
+            r3 = await c.get(f"https://api.telegram.org/file/bot{token}/{file_path}")
+            if r3.status_code != 200 or not r3.content:
+                return None
+            b64 = base64.b64encode(r3.content).decode()
+            return f"data:image/jpeg;base64,{b64}"
+    except Exception:
+        return None
+
+
+@router.get("/avatar")
+async def my_avatar(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Аватарка из Telegram (data URI) — перк активного VIP. Иначе avatar=null.
+    Кэш на процесс (6ч). Картинка проксируется, токен бота на фронт не уходит."""
+    user_id = user["id"]
+    if not await is_vip_active(db, user_id):
+        return {"avatar": None, "vip": False}
+    now = time.time()
+    cached = _AVATAR_CACHE.get(user_id)
+    if cached and now - cached[1] < _AVATAR_TTL:
+        return {"avatar": cached[0], "vip": True}
+    avatar = await _fetch_tg_avatar(user_id)
+    _AVATAR_CACHE[user_id] = (avatar, now)
+    return {"avatar": avatar, "vip": True}
 
 # Единый источник правды для названий глобальных рангов — services/roles.py
 # (та же таблица, что использует бот через get_global_rank_name).
