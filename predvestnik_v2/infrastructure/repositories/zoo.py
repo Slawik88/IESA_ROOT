@@ -13,8 +13,10 @@ from core.constants import (
     MAX_PET_COPIES,
     DUPLICATE_OVERFLOW_MORA, DUPLICATE_OVERFLOW_STARDUST,
     PET_LEVEL_MILESTONE_REWARDS,
+    ZOO_BASE_SLOTS, ZOO_SLOT_PRICES_DIAMONDS,
     get_level_for_duplicates,
 )
+from infrastructure.repositories.wallet_log import log_wallet
 
 
 async def init_user_zoo(db: aiosqlite.Connection, user_id: int):
@@ -55,26 +57,64 @@ async def get_zoo_stats(db: aiosqlite.Connection, user_id: int):
         return dict(row) if row else {"user_id": user_id, "max_slots": 3}
 
 
-async def expand_max_slots(db, user_id: int) -> int:
-    """Увеличивает max_slots на 1 (макс 6). Возвращает новое значение или 0 если уже максимум."""
+def get_slot_purchase_state(max_slots: int) -> dict:
+    """Состояние докупки слотов из текущего max_slots (без БД) — для отображения цены/кнопки."""
+    bought = max(0, max_slots - ZOO_BASE_SLOTS)
+    at_cap = bought >= len(ZOO_SLOT_PRICES_DIAMONDS)
+    return {
+        "base_slots": ZOO_BASE_SLOTS,
+        "bought_slots": bought,
+        "max_purchasable": len(ZOO_SLOT_PRICES_DIAMONDS),
+        "at_cap": at_cap,
+        "next_price": None if at_cap else ZOO_SLOT_PRICES_DIAMONDS[bought],
+    }
+
+
+async def buy_pet_slot(db, user_id: int) -> tuple[bool, str, int, int]:
+    """Купить следующий слот питомника за алмазы по прогрессивной цене.
+    Атомарно: блокирует user_zoo_stats и users в одной транзакции (защита от
+    параллельной двойной покупки). Returns (ok, message, new_max_slots, price_paid)."""
     await db.execute(
-        "INSERT INTO user_zoo_stats (user_id, max_slots) VALUES (?, 3) "
+        "INSERT INTO user_zoo_stats (user_id, max_slots) VALUES (?, ?) "
         "ON CONFLICT (user_id) DO NOTHING",
-        (user_id,),
+        (user_id, ZOO_BASE_SLOTS),
     )
-    async with db.execute(
-        "SELECT max_slots FROM user_zoo_stats WHERE user_id = ?", (user_id,)
-    ) as c:
-        row = await c.fetchone()
-    current = row[0] if row else 3
-    if current >= 6:
-        return 0
-    new_val = current + 1
-    await db.execute(
-        "UPDATE user_zoo_stats SET max_slots = ? WHERE user_id = ?",
-        (new_val, user_id),
-    )
-    return new_val
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT max_slots FROM user_zoo_stats WHERE user_id = ? FOR UPDATE",
+                (user_id,),
+            ) as c:
+                row = await c.fetchone()
+            current = row[0] if row else ZOO_BASE_SLOTS
+            bought = max(0, current - ZOO_BASE_SLOTS)
+            if bought >= len(ZOO_SLOT_PRICES_DIAMONDS):
+                return False, "🔒 Куплено максимум слотов за алмазы.", current, 0
+            price = ZOO_SLOT_PRICES_DIAMONDS[bought]
+
+            async with db.execute(
+                "SELECT user_balance_diamonds FROM users WHERE user_tg_id = ? FOR UPDATE",
+                (user_id,),
+            ) as c:
+                drow = await c.fetchone()
+            if not drow or drow[0] < price:
+                return False, f"Недостаточно Алмазов. Нужно {price} 💎.", current, price
+
+            await db.execute(
+                "UPDATE users SET user_balance_diamonds = user_balance_diamonds - ? "
+                "WHERE user_tg_id = ?",
+                (price, user_id),
+            )
+            await db.execute(
+                "UPDATE user_zoo_stats SET max_slots = max_slots + 1 WHERE user_id = ?",
+                (user_id,),
+            )
+            await log_wallet(db, user_id, delta_diamonds=-price,
+                             source="zoo_slot_purchase", note=f"slot_{bought + 1}")
+            new_max = current + 1
+        return True, f"✅ Слот #{bought + 1} куплен за {price} 💎!", new_max, price
+    except Exception as e:
+        return False, f"Ошибка покупки слота: {e}", 0, 0
 
 
 async def get_nursery_count(db: aiosqlite.Connection, user_id: int) -> int:

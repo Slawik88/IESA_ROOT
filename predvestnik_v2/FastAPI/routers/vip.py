@@ -29,7 +29,7 @@ def _tiers_payload() -> list[dict]:
             "gift_diamonds": info["gift"].get("diamonds", 0),
             "gift_items": _resolve_items(info["gift"].get("items", ())),
             "weekly": _resolve_items(info["weekly"]),
-            "extra_slot": info["extra_slot"],
+            "extra_slots": info.get("extra_slots", 0),
         }
         for tier, info in VIP_TIERS.items()
     ]

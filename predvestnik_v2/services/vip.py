@@ -43,10 +43,10 @@ async def get_vip_info(db, user_id: int) -> dict | None:
 
 
 async def get_extra_pet_slots(db, user_id: int) -> int:
-    """0 или 1 — дополнительный слот питомника для тарифов с extra_slot=True (Блок 4)."""
+    """Доп. слоты питомника от активного VIP (read-time): 0 для 1м/2м, +1 для 3м/8м, +2 для 12м."""
     info = await get_vip_info(db, user_id)
-    if info and VIP_TIERS.get(info["tier"], {}).get("extra_slot"):
-        return 1
+    if info:
+        return VIP_TIERS.get(info["tier"], {}).get("extra_slots", 0)
     return 0
 
 

@@ -19,6 +19,13 @@ PET_ACTIVE_FATIGUE_PER_DAY: int = 2      # daily fatigue gain for active-slot pe
 PET_PASSIVE_FATIGUE_PER_DAY: int = 1     # daily fatigue gain for passive-slot pets
 PET_MAX_FATIGUE_LAG_DAYS: int = 7        # max catch-up window for lazy decay
 
+# ── Nursery slots (Implementation Block 2) ────────────────────────────────────
+# 3 базовых (всем) + до 4 докупаемых за алмазы по прогрессивной цене.
+# Хранимый max_slots = ZOO_BASE_SLOTS + (сколько докуплено). Потолок = 3+4 = 7.
+# Сверху read-time бонус VIP (+1 для 3м/8м, +2 для 12м) — НЕ меняет хранимый max_slots.
+ZOO_BASE_SLOTS: int = 3
+ZOO_SLOT_PRICES_DIAMONDS: list[int] = [5, 15, 30, 50]  # цена 1-го/2-го/3-го/4-го докупаемого слота
+
 # ── Pet level system (B1: duplicates-based) ──────────────────────────────────
 PET_LEVEL_DUPLICATES: dict = {
     "common":    {2: 10, 3: 15, 4: 20, 5: 25, 6: 30, 7: 35, 8: 40, 9: 45, 10: 50},

@@ -102,9 +102,22 @@ async def render_main_zoo(message: types.Message, db, user_id: int, is_edit: boo
 
     stats = await zoo_db.get_zoo_stats(db, user_id)
     nursery_pets = await zoo_db.get_user_pets(db, user_id, placement="nursery")
+    vip_extra = await get_extra_pet_slots(db, user_id)
+    slot_state = zoo_db.get_slot_purchase_state(stats["max_slots"])
+    total_slots = stats["max_slots"] + vip_extra
 
     lines = [f"🐾 <b>ПИТОМНИК:</b> {message.from_user.first_name}"]
-    lines.append(f"📦 Слоты: <b>{len(nursery_pets)}/{stats['max_slots']}</b>\n")
+    _slot_detail = f"📦 Базовых: {slot_state['base_slots']}"
+    if slot_state["bought_slots"]:
+        _slot_detail += f" · 💎 Докуплено: +{slot_state['bought_slots']}"
+    if vip_extra:
+        _slot_detail += f" · 👑 VIP: +{vip_extra}"
+    lines.append(f"📦 Слоты: <b>{len(nursery_pets)}/{total_slots}</b>")
+    lines.append(f"<i>{_slot_detail}</i>")
+    if slot_state["at_cap"]:
+        lines.append("<i>🔒 Слоты за алмазы куплены полностью</i>\n")
+    else:
+        lines.append(f"<i>🛒 Следующий слот: {slot_state['next_price']} 💎</i>\n")
 
     exhausted_names = []
 
@@ -168,11 +181,21 @@ async def render_main_zoo(message: types.Message, db, user_id: int, is_edit: boo
                         callback_data=ZooCB(action="feed_super", page=1, user_id=user_id))
     builder.button(text="💰 Собрать доход", callback_data=ZooCB(action="collect", page=1, user_id=user_id))
     builder.button(text="📦 Склад", callback_data=ZooCB(action="storage", page=1, user_id=user_id))
+    # Покупка слота за алмазы (если не достигнут максимум докупаемых)
+    extra_btn = 0
+    if not slot_state["at_cap"]:
+        builder.button(
+            text=f"🛒 Купить слот ({slot_state['next_price']} 💎)",
+            callback_data=ZooCB(action="buy_slot", page=1, user_id=user_id),
+        )
+        extra_btn = 1
 
     pet_count = len(nursery_pets)
     widths = [1] * pet_count + [1, 1, 1]
     if super_qty > 0:
-        widths = [1] * pet_count + [1, 1, 1, 1]
+        widths.append(1)
+    if extra_btn:
+        widths.append(1)
     builder.adjust(*widths)
 
     text = "\n".join(lines)
@@ -260,6 +283,16 @@ async def cb_zoo_main(query: types.CallbackQuery, callback_data: ZooCB, db):
         return
     await render_main_zoo(query.message, db, query.from_user.id, is_edit=True)
     await query.answer()
+
+
+@router.callback_query(ZooCB.filter(F.action == "buy_slot"))
+async def cb_zoo_buy_slot(query: types.CallbackQuery, callback_data: ZooCB, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
+    ok, msg, _new_max, _price = await zoo_db.buy_pet_slot(db, query.from_user.id)
+    await query.answer(msg, show_alert=True)
+    if ok:
+        await render_main_zoo(query.message, db, query.from_user.id, is_edit=True)
 
 
 @router.callback_query(ZooCB.filter(F.action == "storage"))

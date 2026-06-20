@@ -56,8 +56,9 @@ def _tier_description(info: dict) -> str:
         f"🎁 Подарок: {_gift_text(info['gift'])}",
         f"📅 Еженедельно: {weekly}",
     ]
-    if info["extra_slot"]:
-        lines.append("✅ +1 слот питомника")
+    extra = info.get("extra_slots", 0)
+    if extra:
+        lines.append(f"✅ +{extra} слот{'а' if extra > 1 else ''} питомника")
     return "\n".join(lines)
 
 
