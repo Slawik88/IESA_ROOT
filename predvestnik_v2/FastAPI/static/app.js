@@ -820,11 +820,11 @@ function renderZoo(tab) {
     const passive=pets.filter(p=>p.placement==='passive');
     const maxSlots=_zooData.max_slots||3;
     const baseSlots=_zooData.base_slots||3;
-    const expandedSlots=_zooData.expanded_slots||0;
+    const boughtSlots=_zooData.bought_slots||0;
     const vipExtra=_zooData.vip_extra_slot||0;
     const atCap=!!_zooData.at_slot_cap;
+    const nextPrice=_zooData.slot_next_price;   // null если докуплено максимум
     const totalSlots=maxSlots+vipExtra;
-    const expandQty=_zooData.slot_expander_qty||0;
     const occupied=active.length+passive.length;
     const pendingMora=_zooData.pending_hamster_mora||0;
     const hasHamsters=pets.some(p=>p.species_id==='hamster');
@@ -835,19 +835,15 @@ function renderZoo(tab) {
       </div>
       <div style="font-size:10px;color:var(--muted);line-height:1.8">
         <span>📦 Базовых: <b style="color:var(--bright)">${baseSlots}</b></span>
-        ${expandedSlots>0?`&nbsp;· 🏡 Расширено: <b style="color:var(--bright)">+${expandedSlots}</b>`:''}
+        ${boughtSlots>0?`&nbsp;· 💎 Докуплено: <b style="color:var(--bright)">+${boughtSlots}</b>`:''}
         ${vipExtra>0?`&nbsp;· 👑 VIP: <b style="color:var(--gold)">+${vipExtra}</b>`:''}
-        ${atCap&&!vipExtra?`<br><span style="color:var(--muted)">Макс. расширений (${maxSlots}/6) достигнуто</span>`:''}
       </div>
-      ${expandQty>0?`
-        <div style="margin-top:8px;border-top:1px solid var(--border2);padding-top:8px">
-          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">В инвентаре: 🏡 Расширитель слота ×${expandQty}</div>
-          ${atCap
-            ?`<button class="btn btn-full btn-sm" disabled style="font-size:11px;opacity:.45;cursor:not-allowed">🔒 Макс. кол-во слотов за расширители (6/6)</button>`
-            :`<button class="btn btn-full btn-sm" onclick="doExpandSlot()" style="font-size:11px">🏡 Применить расширитель (+1 слот)</button>`
-          }
-        </div>`
-      :occupied>=maxSlots&&!atCap?`<div style="margin-top:6px;font-size:10px;color:var(--muted)">🔒 Слоты заполнены. <span style="color:var(--gold);cursor:pointer" onclick="goTo('profile','inv')">Купи 🏡 Расширитель</span></div>`:''}
+      <div style="margin-top:8px;border-top:1px solid var(--border2);padding-top:8px">
+        ${atCap
+          ?`<button class="btn btn-full btn-sm" disabled style="font-size:11px;opacity:.45;cursor:not-allowed">🔒 Слоты за алмазы куплены (${boughtSlots}/${_zooData.max_purchasable||4})</button>`
+          :`<button class="btn btn-full btn-sm btn-gold" onclick="doBuySlot()" style="font-size:11px">🛒 Купить слот за ${nextPrice} 💎</button>`
+        }
+      </div>
     </div>
     ${hasHamsters?`<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
       <div>
@@ -1052,9 +1048,9 @@ function doMove(pid,pl,btn) {
     .catch(e=>{toast(e,false);btn.disabled=false;});
 }
 
-function doExpandSlot() {
-  api('/zoo/expand-slot',{method:'POST'})
-    .then(r=>{toast(`✅ Слот добавлен! Теперь ${r.max_slots} слотов.`);_zooData=null;loadZoo();})
+function doBuySlot() {
+  api('/zoo/buy-slot',{method:'POST'})
+    .then(r=>{toast(r.message||`✅ Слот куплен за ${r.price_paid} 💎!`);_zooData=null;loadZoo();refreshCurrBar();})
     .catch(e=>toast(e,false));
 }
 
@@ -2499,7 +2495,7 @@ function _renderPremiumHub(pk, d) {
     return `<div class="prem-card">
       <div class="prem-title">${t.label}</div>
       <div class="prem-price">${fmt(t.price_zarniki)} ✨ <span style="font-size:10px;color:var(--muted);font-weight:600">/ ${t.duration_days} дн.</span></div>
-      <div class="prem-list">🎁 ${gift.join(', ')}<br>📅 Еженедельно: ${weekly.join(', ')}${t.extra_slot?'<br>🐾 +1 слот питомника':''}</div>
+      <div class="prem-list">🎁 ${gift.join(', ')}<br>📅 Еженедельно: ${weekly.join(', ')}${t.extra_slots>0?`<br>🐾 +${t.extra_slots} слот${t.extra_slots>1?'а':''} питомника`:''}</div>
       <button class="btn ${afford?'btn-gold':'btn-ghost'} btn-full" style="margin-top:4px" onclick="${afford?`doBuyVip('${t.tier}','${t.label}',${t.price_zarniki})`:`goToZarTop()`}">${afford?`Оформить за ${fmt(t.price_zarniki)} ✨`:`Нужно ${fmt(t.price_zarniki)} ✨ — пополнить`}</button>
     </div>`;
   }).join('');

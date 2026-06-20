@@ -856,6 +856,29 @@ async def init_db():
             except Exception:
                 pass
 
+        # Block 2: slot_expander снят с продажи — рефанд оставшихся в инвентарях
+        # по 15💎/шт + удаление. Идемпотентно: после DELETE строк не остаётся,
+        # повторный прогон ничего не делает. Уже КУПЛЕННЫЕ слоты (max_slots) не трогаем.
+        try:
+            await db.execute(
+                "UPDATE users u SET user_balance_diamonds = user_balance_diamonds + agg.refund "
+                "FROM (SELECT user_id, SUM(quantity) * 15 AS refund FROM inventory "
+                "      WHERE item_id = 'slot_expander' GROUP BY user_id) agg "
+                "WHERE u.user_tg_id = agg.user_id"
+            )
+            await db.execute(
+                "INSERT INTO wallet_log (user_id, delta_diamonds, balance_mora_after, "
+                "       balance_diamonds_after, source, note) "
+                "SELECT agg.user_id, agg.refund, u.user_balance_mora, u.user_balance_diamonds, "
+                "       'slot_expander_refund', 'Block 2: расширитель снят с продажи' "
+                "FROM (SELECT user_id, SUM(quantity) * 15 AS refund FROM inventory "
+                "      WHERE item_id = 'slot_expander' GROUP BY user_id) agg "
+                "JOIN users u ON u.user_tg_id = agg.user_id"
+            )
+            await db.execute("DELETE FROM inventory WHERE item_id = 'slot_expander'")
+        except Exception:
+            pass
+
         # ── Indexes ────────────────────────────────────────────────────────────
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_users_username ON users(user_tg_username)",

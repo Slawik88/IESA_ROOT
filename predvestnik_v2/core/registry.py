@@ -84,11 +84,8 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
         "fatigue_restore": 100,           "buff": "efficiency_20", "duration_hours": 24,
         "description": "Полностью снимает усталость + 20% к эффективности на 24ч.",
     },
-    # Utility (shop + deal)
-    "slot_expander": {
-        "name": "🏡 Расширитель слота", "category": "utility", "price_diamonds": 15,
-        "description": "Постоянно +1 слот в питомнике (макс 6).", "is_tradable": False,
-    },
+    # NB: slot_expander удалён в Блоке 2 — слоты питомника теперь покупаются
+    # напрямую за алмазы (прогрессивная цена), см. core/constants ZOO_SLOT_PRICES_DIAMONDS.
     # Player buffs (for player, not pet)
     "potion_luck_s": {
         "name": "🧪 Зелье Удачи (М)", "category": "booster", "price_mora": 400,
@@ -295,7 +292,6 @@ DAILY_DEAL_POOL_DIAMOND: list = [
     {"item_id": "food_diamond",       "qty_range": (1, 3), "base_price_dia": 12},
     {"item_id": "spin_token_diamond", "qty_range": (1, 2), "base_price_dia": 5},
     {"item_id": "egg_mythic",         "qty_range": (1, 1), "base_price_dia": 500},
-    {"item_id": "slot_expander",      "qty_range": (1, 1), "base_price_dia": 15},
     {"item_id": "egg_crystal",        "qty_range": (1, 1), "base_price_dia": 35},
 ]
 
@@ -567,7 +563,7 @@ VIP_TIERS: dict[str, dict] = {
         "gift": {"mora": 200, "diamonds": 1,
                  "items": (("spin_token_novice", 2), ("food_basic", 1))},
         "weekly": (("spin_token_novice", 1),),
-        "extra_slot": False,
+        "extra_slots": 0,
     },
     "2m": {
         "label": "VIP-2М", "duration_days": 60, "price_zarniki": 250,
@@ -575,7 +571,7 @@ VIP_TIERS: dict[str, dict] = {
         "gift": {"mora": 250, "diamonds": 2,
                  "items": (("spin_token_novice", 3), ("food_basic", 3))},
         "weekly": (("spin_token_novice", 1),),
-        "extra_slot": False,
+        "extra_slots": 0,
     },
     "3m": {
         "label": "VIP-3М", "duration_days": 90, "price_zarniki": 400,
@@ -583,7 +579,7 @@ VIP_TIERS: dict[str, dict] = {
         "gift": {"mora": 300, "diamonds": 2,
                  "items": (("spin_token_novice", 1), ("spin_token_standard", 1), ("food_basic", 5))},
         "weekly": (("spin_token_novice", 2),),
-        "extra_slot": True,
+        "extra_slots": 1,
     },
     "8m": {
         "label": "VIP-8М", "duration_days": 240, "price_zarniki": 1200,
@@ -591,7 +587,7 @@ VIP_TIERS: dict[str, dict] = {
         "gift": {"mora": 500, "diamonds": 5,
                  "items": (("spin_token_premium", 2), ("spin_token_diamond", 1), ("food_basic", 5))},
         "weekly": (("spin_token_novice", 1), ("spin_token_standard", 1)),
-        "extra_slot": True,
+        "extra_slots": 1,
     },
     "12m": {
         "label": "VIP-12М", "duration_days": 365, "price_zarniki": 1700,
@@ -601,7 +597,7 @@ VIP_TIERS: dict[str, dict] = {
                            ("spin_token_standard", 3), ("spin_token_novice", 5),
                            ("food_basic", 15), ("soul_shard", 5), ("exp_boost_2h", 4))},
         "weekly": (("spin_token_novice", 1),),
-        "extra_slot": True,
+        "extra_slots": 2,
     },
 }
 

@@ -14,8 +14,8 @@ from core.registry import ITEMS_REGISTRY, PET_SPECIES, EXPEDITIONS_DATA
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_item_quantity, remove_item, add_balance, spend_mora
 from infrastructure.repositories.zoo import (
-    get_user_pets, get_nursery_count, get_zoo_stats, expand_max_slots, get_active_count,
-    get_pending_hamster_income, get_active_species_level, apply_fatigue_decay,
+    get_user_pets, get_nursery_count, get_zoo_stats, buy_pet_slot, get_slot_purchase_state,
+    get_active_count, get_pending_hamster_income, get_active_species_level, apply_fatigue_decay,
 )
 from services.formatting import parse_dt
 from services.vip import get_extra_pet_slots
@@ -33,7 +33,6 @@ async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
     await apply_fatigue_decay(db, user["id"])
     pets = await get_user_pets(db, user["id"])
     stats = await get_zoo_stats(db, user["id"])
-    slot_expander_qty = await get_item_quantity(db, user["id"], "slot_expander")
     food = {
         fid: {"name": ITEMS_REGISTRY[fid]["name"], "qty": qty,
               "restore": ITEMS_REGISTRY[fid]["fatigue_restore"]}
@@ -82,18 +81,18 @@ async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
             "expires_at": str(immune_row[0]) if immune_row else None,
         }
 
-    base_slots = 3
-    expanded_slots = max(0, stats["max_slots"] - base_slots)  # slots bought via slot_expander
+    slot_state = get_slot_purchase_state(stats["max_slots"])
     vip_extra = await get_extra_pet_slots(db, user["id"])
     return {
         "pets": pets,
         "available_food": food,
         "max_slots": stats["max_slots"],
-        "base_slots": base_slots,
-        "expanded_slots": expanded_slots,
+        "base_slots": slot_state["base_slots"],
+        "bought_slots": slot_state["bought_slots"],
+        "max_purchasable": slot_state["max_purchasable"],
+        "slot_next_price": slot_state["next_price"],   # None если докуплено максимум
+        "at_slot_cap": slot_state["at_cap"],
         "vip_extra_slot": vip_extra,
-        "at_slot_cap": stats["max_slots"] >= 6,
-        "slot_expander_qty": slot_expander_qty,
         "pending_hamster_mora": round(pending_mora),
         "wolf_restore": wolf_restore_info,
         "unicorn_ability": unicorn_ability_info,
@@ -437,7 +436,7 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
     currently_in_nursery = pet["placement"] in ("active", "passive")
 
     if entering_nursery and not currently_in_nursery:
-        # Проверяем лимит общих слотов питомника (+1 для VIP-тарифов с extra_slot)
+        # Проверяем лимит общих слотов питомника (+ read-time VIP-бонус extra_slots)
         stats = await get_zoo_stats(db, user["id"])
         occupied = await get_nursery_count(db, user["id"])
         extra = await get_extra_pet_slots(db, user["id"])
@@ -484,23 +483,13 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
     return {"ok": True, "placement": body.placement, "wolf_immunity_applied": entering_nursery and w_lv > 0 and WOLF_BONUSES.get(max(1,min(10,w_lv)),{}).get("movement_immunity",False) if entering_nursery else False}
 
 
-@router.post("/expand-slot")
-async def expand_slot(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Применить 🏡 Расширитель слота из инвентаря → +1 слот питомника (макс 6)."""
-    qty = await get_item_quantity(db, user["id"], "slot_expander")
-    if qty < 1:
-        raise HTTPException(400, "🏡 Расширитель слота не найден в инвентаре.")
-
-    new_slots = await expand_max_slots(db, user["id"])
-    if new_slots == 0:
-        raise HTTPException(400, "Питомник уже расширен до максимума (6 слотов).")
-
-    ok = await remove_item(db, user["id"], "slot_expander", 1, commit=False)
+@router.post("/buy-slot")
+async def buy_slot(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Купить следующий слот питомника за алмазы (прогрессивная цена 5/15/30/50 💎)."""
+    ok, msg, new_slots, price = await buy_pet_slot(db, user["id"])
     if not ok:
-        raise HTTPException(400, "Не удалось списать расширитель.")
-
-    await db.commit()
-    return {"ok": True, "max_slots": new_slots}
+        raise HTTPException(400, msg)
+    return {"ok": True, "max_slots": new_slots, "price_paid": price, "message": msg}
 
 
 class WolfRestoreRequest(BaseModel):
