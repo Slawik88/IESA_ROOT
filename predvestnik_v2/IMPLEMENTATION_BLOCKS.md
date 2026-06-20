@@ -1,1167 +1,691 @@
-# IMPLEMENTATION BLOCKS — донат / VIP / БП / глобальная модерация
+# IMPLEMENTATION BLOCKS — масштабный ребаланс баланса и механик
 
-> Источник: `FUTURE_IDEAS.md` (340 строк, всё «РЕШЕНО» уже зафиксировано там).
-> Каждый блок ниже — самодостаточный план реализации, привязанный к
-> КОНКРЕТНЫМ файлам/функциям/таблицам ТЕКУЩЕГО проекта (после ресёрча
-> кодовой базы), плюс учёт того, как блок стыкуется с ОСТАЛЬНЫМИ блоками.
+> Предыдущая итерация (донат/VIP/БП/глобальная модерация) — **завершена**,
+> подтверждено аудитом (коммит `4c178d71`, `FUTURE_IDEAS.md` закрыт).
+> Этот файл — НОВАЯ инициатива: полный ребаланс экономики/механик.
+> Текущее состояние всех систем — `BOT_AUDIT.md`.
 >
-> **Как работаем**: пишешь "делаем блок N" — начинаю реализацию именно
-> этого блока. Если блок на практике лёгкий — могу слить с соседним по
-> ходу работы (предложу, прежде чем менять объём).
+> **Как работаем**: пишешь "делаем блок N" → начинаю именно его.
+> Стратегия — **по одному блоку за раз** (решили в чате).
 
 ---
 
-## Порядок и зависимости
+## Карта блоков
 
-```
-Блок 1 (Зарники: Stars-покупка + обмен + донат-магазин)  ← фундамент
-   │
-   └──▶ Блок 2 (VIP: ядро подписки — таблица/тарифы/сервис)
-            │
-            ├──▶ Блок 3 (VIP-бейдж: централизованный хелпер + роллаут ~45 мест)
-            ├──▶ Блок 4 (VIP-плюшки: варпы / лимит ника / +1 слот / пробники / напоминание)
-            └──▶ Блок 5 (Боевой пропуск — платный трек = активный VIP)
-
-Блок 6 (Глобальная модерация: ядро — таблицы/сервис/middleware/команды)
-   │       независим от 1-5, можно делать параллельно
-   └──▶ Блок 7 (Глобальная модерация: сайт /admin/global)
-
-Блок 8 (доделки веб-панели чата) — независим от всего, можно в любой момент.
-```
-
-Рекомендованный порядок: **1 → 2 → 3 → 4 → 5**, отдельно **6 → 7**, **8** — когда удобно.
-
----
-
-## Принципы (из «Стратегии монетизации» — НЕ отдельный блок)
-
-Это не код, а рамки, которые уже учтены в тарифах VIP (Блок 2) и наградах
-БП (Блок 5) — отдельной реализации не требует, но держим в голове при
-любых правках 1/2/5:
-- Косметика и удобство — да; прямое преимущество "сильнее" — нет.
-- Эксклюзивных питомцев/контента за донат не вводим (закрыто).
-- Гача/крафт/зоопарк/дуэли/аукцион/браки/ачивки/кланы — бесплатны и не
-  блокируются отсутствием доната.
-
----
-
-## БЛОК 1 — Зарники: покупка за Stars + обмен + донат-магазин
-
-**Зависимости:** нет (фундамент). От него зависят Блок 2 и Блок 5 (тратят ✨).
-**Текущее состояние**: валюта/баланс/аудит/отображение/трата на 9 тем — готовы
-(`users.user_balance_zarniki`, `wallet_log.delta_zarniki`). Не хватает: покупки,
-обмена, доп. предметов магазина.
-
-### 1.1 Константы — `core/constants.py`
-Новая секция после блока "Exchange Event" (~строка 330, рядом с
-`EXCHANGE_RATE_MORA_PER_DIAMOND`):
-```python
-# ── Зарники: донат-экономика ─────────────────────────────────────
-ZARNIKI_PER_STAR: int = 10              # 1⭐ = 10✨
-
-STARS_PACKAGES: list[tuple[int, int]] = [
-    (20, 200), (50, 500), (100, 1000),
-    (200, 2000), (300, 3000), (400, 4000),
-]  # (stars, zarniki); произвольная сумма = stars × ZARNIKI_PER_STAR
-
-ZARNIKI_TO_MORA_RATE: float = 3.0       # 1✨ = 3🪙
-ZARNIKI_TO_DIAMONDS_RATE: float = 0.05  # 1✨ = 0.05💎 (20✨ = 1💎)
-```
-
-### 1.2 Покупка ✨ за Telegram Stars (XTR)
-**Новый файл `bot/handlers/payments.py`**, регистрируется в `bot/__main__.py`
-рядом с остальными роутерами (как `economy.py`).
-
-- `cmd_buy_zarniki` (`"бот купить зарники"` / `"бот донат"`) — инлайн-клавиатура:
-  6 кнопок пакетов (`"20⭐ → 200✨"` … `"400⭐ → 4000✨"`) + кнопка `"✏️ Своя сумма"`.
-- `cb_buy_package(callback)` — на нажатие пакета:
-  ```python
-  await bot.send_invoice(
-      chat_id=callback.from_user.id,
-      title="Зарники ✨",
-      description=f"{zarniki}✨ Зарников",
-      payload=f"zarniki:{zarniki}",
-      currency="XTR",
-      prices=[LabeledPrice(label=f"{zarniki}✨", amount=stars)],
-  )
-  ```
-  Для `XTR` `amount` = целое число звёзд напрямую (не ×100, в отличие от фиатных валют).
-- `"✏️ Своя сумма"` — research подтвердил: FSM (aiogram States) в проекте НЕ
-  встречен → без FSM. Бот отвечает `"Ответьте на это сообщение количеством ⭐
-  (1-100000)"`; новый хэндлер с фильтром `F.reply_to_message`, сверяет текст
-  родительского сообщения с маркером → парсит число → `send_invoice` с
-  `payload=f"zarniki:{stars*ZARNIKI_PER_STAR}"`, `amount=stars`.
-  *(Если при реализации найдётся FSM в другом хэндлере — использовать его
-  вместо reply-маркера.)*
-- `@router.pre_checkout_query()` — обязателен, ответ `ok=True` за <10с
-  (внешних проверок нет, отказ только при невалидном payload).
-- `@router.message(F.successful_payment)`:
-  ```python
-  payload = message.successful_payment.invoice_payload  # "zarniki:N"
-  amount = int(payload.split(":")[1])
-  await economy.add_balance(db, user_id, zarniki=amount, source="stars_purchase",
-                             note=f"{message.successful_payment.total_amount}⭐")
-  await message.answer(f"✅ Начислено {amount}✨ Зарников!")
-  ```
-  Без возвратов — `refundStarPayment` не реализуем (зафиксировано в FUTURE_IDEAS).
-
-### 1.3 Обмен ✨ → 🪙/💎
-**Новая функция `infrastructure/repositories/economy.py`** (рядом с `add_balance`,
-переиспользует тот же `log_wallet`):
-```python
-async def exchange_zarniki(
-    db: PGAdapter, user_id: int, amount: float, to: str,
-    chat_id: int | None = None,
-) -> tuple[bool, str]:
-    """✨ → 🪙 (×ZARNIKI_TO_MORA_RATE) или ✨ → 💎 (×ZARNIKI_TO_DIAMONDS_RATE).
-    Одностороннее, без лимита (РЕШЕНО в FUTURE_IDEAS)."""
-    if amount <= 0 or to not in ("mora", "diamonds"):
-        return False, "Некорректные параметры обмена."
-    row = await db.fetchrow(
-        "SELECT user_balance_zarniki FROM users WHERE user_tg_id = $1", user_id)
-    current = float((row and row["user_balance_zarniki"]) or 0)
-    if current < amount:
-        return False, f"Недостаточно ✨ (есть {current:.0f})."
-    if to == "mora":
-        gained = amount * ZARNIKI_TO_MORA_RATE
-        await add_balance(db, user_id, mora=gained, zarniki=-amount,
-                           source="zarniki_exchange", chat_id=chat_id,
-                           note=f"✨{amount:.0f}→🪙{gained:.0f}")
-        return True, f"✅ Обменяно ✨{amount:.0f} → 🪙{gained:.0f}"
-    gained = amount * ZARNIKI_TO_DIAMONDS_RATE
-    await add_balance(db, user_id, diamonds=gained, zarniki=-amount,
-                       source="zarniki_exchange", chat_id=chat_id,
-                       note=f"✨{amount:.0f}→💎{gained:.2f}")
-    return True, f"✅ Обменяно ✨{amount:.0f} → 💎{gained:.2f}"
-```
-Одна запись в `wallet_log` с обеими дельтами сразу — `add_balance`/`log_wallet`
-это уже умеют (`delta_zarniki` + `delta_mora`/`delta_diamonds` в одной строке).
-
-**Бот**: команда `"бот обмен <сумма> мора"` / `"бот обмен <сумма> алмазы"` в
-`bot/handlers/economy.py`, рядом с местом, где уже читается
-`zarniki = float(balance.get('user_balance_zarniki', 0))`.
-
-**Сайт**: новый эндпоинт `POST /wallet/exchange-zarniki {amount, to}` в
-`FastAPI/routers/wallet.py` → вызывает `exchange_zarniki`. UI — кнопка
-"🔄 Обменять" рядом с отображением ✨ на карточке профиля (`app.js` около
-строки 197, где сейчас `${Math.floor(d.zarniki||0)}`), открывает мини-форму
-(число + переключатель 🪙/💎).
-
-### 1.4 Донат-магазин (новая категория предметов)
-**`core/registry.py`** — добавить в `ITEMS_REGISTRY` записи с
-`category: "donate"` и полем `price_zarniki`. По принципам "Стратегии
-монетизации" (удобство, не P2W) — кандидаты на базе УЖЕ существующих
-механик:
-
-| id | Название | Эффект | price_zarniki |
+| # | Блок | Риск | Зависит от |
 |---|---|---|---|
-| `zarniki_fatigue_reset` | ✨ Эликсир бодрости | мгновенно `fatigue → 0` у одного питомца | 30 |
-| `zarniki_cooldown_skip` | ✨ Кристалл времени | обнуляет `wolf_cooldown_until` (зоопарк) | 50 |
-| `zarniki_nickname_token` | ✨ Жетон смены ника | +1 к месячному лимиту смены ника (Блок 4) | 20 |
+| 1 | ✅ **ВЫПОЛНЕНО** Варпы без префикса «бот» | 🟢 нулевой | — |
+| 2 | Слоты питомника: фикс бага + цены за алмазы | 🟢 низкий | — |
+| 3 | VIP: продающее описание + Telegram-аватарка | 🟢 низкий | — |
+| 4 | Мультивалютные переводы между игроками | 🟡 средний | — |
+| 5 | Браки 2.0: family wallet, модалка оплаты, подарки | 🟡 средний | Блок 4 |
+| 6 | БП-админка: гибкая настройка наград | 🟡 средний | — |
+| 7 | Акции дня: новая ротация и гибкие слоты | 🟡 средний | — |
+| 8 | Гача: снос 4 типов на 1 унифицированный | 🔴 **высокий** | — (но делать последним из «ядра») |
+| 9 | Магазин: S/M/L/XL + расширенный каталог новых предметов | 🟡 средний | Блок 8 |
+| 10 | Онбординг новичка | 🟢 низкий | Блок 8 |
+| 12 | Питомцы: гибридная роль активный/пассивный | 🟡 средний | — |
+| 13 | Ивенты и Реликвии (новый смысл Тёмной Моры) | 🟡 средний | — |
+| 14 | Годовщины брака | 🟢 низкий | — |
+| 15 | Настройки уведомлений | 🟡 средний (широкий охват) | — |
+| 11 | *(не подтверждён)* Находки: клан/трейд/разведение/недельный топ | — | — |
 
-> **Уточнить при реализации блока**: финальный список/эффекты — опционально
-> добавить ещё 1-2 позиции. `zarniki_cooldown_skip` пока нацелен на
-> `wolf_cooldown_until` (единственный явный таймер в `user_zoo_stats`) —
-> расширение на крафт/вылупление можно добавить позже без изменения схемы.
+**Рекомендованный порядок:** 1 → 2 → 3 → 4 → 5 → 6 → 7 → 12 → 14 → 15 → 13 → 8 → 9 → 10.
+Блок 11 — не в очереди, только список находок для решения.
 
-Покупка — расширить `infrastructure/repositories/economy.py::buy_item()`
-опциональным параметром `p_zarniki: float = 0` (по аналогии с `p_mora`/`p_dia`),
-списывающим `zarniki` через тот же `add_balance`. Витрина — новая под-вкладка
-"✨ Донат" в существующем разделе "Магазин" (`app.js`, рядом с
-`gacha`/`dark`-вкладками, которые уже строятся из `SRC`/`ITEMS_REGISTRY`).
-
-### 1.5 `app.js:1733` — активация `SRC.zarniki`
-Сейчас: `zarniki: {label:'Зарники ✨', desc:'...', action:null}`.
-По образцу `dark` (line 1732, `action:{l:'🌑 Открыть Тёмную Мору',
-f:"goTo('market','dark')"}`):
-```javascript
-zarniki: {label:'Зарники ✨', desc:'Приобретается за донат-валюту Зарники (Telegram Stars). 1 Звезда = 10 Зарников.',
-          action:{l:'✨ Купить Зарники', f:"openTelegramLink('https://t.me/IIIPredvestnikIIIBot?start=buyzarniki')"}}
 ```
-`openTelegramLink` — стандартный метод Telegram WebApp API (открывает чат с
-ботом). Глубокая ссылка `?start=buyzarniki` → существующий `/start`-хэндлер
-(`bot/handlers/common.py`) получает новую ветку: при `start_param ==
-"buyzarniki"` сразу вызывать `cmd_buy_zarniki` (показать пакеты) — без
-дополнительного клика "напишите /купить_зарники".
+1 ─ 2 ─ 3 ─ 4 ─┬─ 5
+               │
+               6 ─ 7 ─ 12 ─ 14 ─ 15 ─ 13 ─ 8 ─┬─ 9
+                                              └─ 10
+```
 
 ---
 
-## БЛОК 2 — VIP-подписка: ядро
+## Блок 1 — Варпы без префикса «бот» ✅ ВЫПОЛНЕНО
 
-**Зависимости:** Блок 1 (тратит ✨). От Блока 2 зависят 3, 4, 5.
+**Файлы:** `bot/handlers/warps.py`, `bot/filters/text_commands.py`
 
-### 2.1 Таблица `vip_subscriptions`
-В `bot/core/database.py::init_db()`, рядом с другими `CREATE TABLE IF NOT
-EXISTS` (тот же идемпотентный приём, что и для существующих таблиц):
-```sql
-CREATE TABLE IF NOT EXISTS predvestnik.vip_subscriptions (
-    user_id          BIGINT PRIMARY KEY REFERENCES predvestnik.users(user_tg_id),
-    tier             TEXT NOT NULL,              -- '1m' | '3m' | '8m' | '12m'
-    started_at       TIMESTAMP DEFAULT NOW(),
-    expires_at       TIMESTAMP NOT NULL,
-    last_probnik_at  TIMESTAMP DEFAULT NULL,
-    expiry_notified  BOOLEAN DEFAULT FALSE
-);
-```
-Один пользователь — одна строка (продление/смена тарифа = `UPDATE`; история
-покупок не требуется по ТЗ — при необходимости видна через `wallet_log`,
-`source='vip_purchase'`).
+**Что сделано**
+Новый фильтр `WarpCmd` (рядом с `TextCmd`). Варпы теперь активируются без
+префикса «бот»:
+- `обнять, @юзер` — алиас + запятая + аргументы (префикс «бот» опционален)
+- reply + `обнять` — голый алиас как ответ на сообщение (явная цель)
+- `бот обнять, @юзер` / reply + `бот обнять` — старый синтаксис сохранён 1:1
 
-### 2.2 Тарифы — `core/registry.py`
-Рядом с `ACHIEVEMENT_LEVEL_REWARDS` (тот же стиль "id → параметры/награды",
-все значения — из таблицы тарифов FUTURE_IDEAS.md, раздел "Тарифы — РЕШЕНО"):
-```python
-VIP_TIERS: dict[str, dict] = {
-    "1m": {
-        "label": "VIP-1М", "duration_days": 30, "price_zarniki": 150,
-        "gift": {"mora": 200, "diamonds": 1,
-                 "items": (("spin_token_novice", 2), ("food_basic", 1))},
-        "weekly": (("spin_token_novice", 1),),
-        "extra_slot": False,
-    },
-    "3m": {
-        "label": "VIP-3М", "duration_days": 90, "price_zarniki": 400,
-        "gift": {"mora": 300, "diamonds": 2,
-                 "items": (("spin_token_novice", 1), ("spin_token_standard", 1), ("food_basic", 5))},
-        "weekly": (("spin_token_novice", 2),),
-        "extra_slot": True,
-    },
-    "8m": {
-        "label": "VIP-8М", "duration_days": 240, "price_zarniki": 1000,
-        "gift": {"mora": 500, "diamonds": 5,
-                 "items": (("spin_token_premium", 2), ("spin_token_diamond", 1), ("food_basic", 5))},
-        "weekly": (("spin_token_novice", 1), ("spin_token_standard", 1)),
-        "extra_slot": True,
-    },
-    "12m": {
-        "label": "VIP-12М", "duration_days": 365, "price_zarniki": 1600,
-        "gift": {"mora": 500, "diamonds": 10,
-                 "items": (("spin_token_diamond", 3), ("spin_token_premium", 3),
-                           ("spin_token_standard", 3), ("spin_token_novice", 5),
-                           ("food_basic", 15), ("soul_shard", 5), ("exp_boost_2h", 4))},
-        "weekly": (("spin_token_novice", 1),),
-        "extra_slot": True,
-    },
-}
-```
+**Как решён риск ложных срабатываний** (выбран reply-gating, без «строгого якоря»):
+- голый алиас без reply и без префикса (`обнять` отдельным сообщением в
+  разговоре) — НЕ срабатывает → нет спама подсказками на «обнять»/«укусить»/«язык»
+- «хочу обнять кота», «укусить бы сейчас» — НЕ срабатывают (не в начале как
+  команда, нет запятой, нет reply)
+- XP/квесты/ачивки не теряются: счёт сообщений в middleware (`bot/middlewares/db.py`),
+  выполняется ДО обработчиков — варп, «съедающий» сообщение, на счётчики не влияет
 
-### 2.3 `services/vip.py` (новый, без `bot.*`/`FastAPI.*`)
-```python
-async def is_vip_active(db, user_id: int) -> bool: ...
-
-async def get_vip_info(db, user_id: int) -> dict | None:
-    """{'tier','tier_label','expires_at','days_left'} либо None."""
-
-async def purchase_vip(db, user_id: int, tier: str, chat_id=None) -> tuple[bool, str]:
-    """
-    1. Проверка ✨-баланса (price_zarniki тарифа).
-    2. add_balance(db, user_id, zarniki=-price, source="vip_purchase", note=tier)
-    3. UPSERT vip_subscriptions:
-       - новой подписки нет / истекла → started_at=NOW(), expires_at=NOW()+duration
-       - активна → expires_at += duration (стек поверх остатка — "докупил")
-       - tier обновляется на новый В ЛЮБОМ случае (апгрейд действует сразу),
-         expiry_notified сбрасывается в FALSE
-    4. Разовый подарок (gift) — НАВСЕГДА, при КАЖДОЙ покупке любого тарифа:
-       mora/diamonds через add_balance(source="vip_gift"),
-       items — тем же путём, что и награды ачивок (инвентарный репозиторий).
-    """
-
-async def get_extra_pet_slots(db, user_id: int) -> int:
-    """0 или 1 — для Блока 4 (+1 слот питомника, тарифы с extra_slot=True)."""
-```
-`purchase_vip` переиспользует ровно те примитивы, что уже использует выдача
-наград ачивок (`ACHIEVEMENT_LEVEL_REWARDS` → `add_balance` + инвентарь) —
-никакой новой инфраструктуры начисления не требуется.
-
-> **Решение по апгрейду/стеку зафиксировано здесь** (в FUTURE_IDEAS не было
-> явного пункта про "купил VIP, имея активный VIP") — стек длительности +
-> мгновенная смена тарифа + повторная выдача gift при каждой покупке
-> логично следует из пункта 6 ("при оформлении ЛЮБОГО тарифа") и
-> отсутствия отдельного "апгрейда". Если при реализации захочется иначе —
-> меняется только шаг 3 в `purchase_vip`.
-
-### 2.4 Бот: `bot/handlers/vip.py` (новый)
-- `"бот vip"` / `"бот вип"` — статус: если активна — тариф + дата истечения
-  + дней осталось; если нет — список тарифов с ценами и кратким описанием
-  плюшек, инлайн-кнопки "Купить VIP-1М" … "VIP-12М".
-- `cb_vip_buy(callback)` — вызывает `purchase_vip`, показывает результат
-  (включая список выданных предметов из `gift`).
-
-### 2.5 Сайт: `FastAPI/routers/vip.py` (новый) + вкладка "👑 VIP"
-- `GET /vip/status` → `{active, tier, tier_label, expires_at, days_left,
-  tiers: [...]}` (список тарифов из `VIP_TIERS` для отображения, даже если
-  не активен).
-- `POST /vip/purchase {tier}` → вызывает тот же `purchase_vip` (общая логика
-  бот/сайт — единая точка истины).
-- `app.js` — новая вкладка по аналогии с существующими разделами магазина:
-  4 карточки тарифов (цена/подарок/пробники/доп.слот), кнопка "Купить" →
-  `POST /vip/purchase`.
-
-## БЛОК 3 — VIP-бейдж везде (~45 точек)
-
-**Зависимости:** Блок 2 (`is_vip_active()`).
-**Принцип**: бейдж = `👑 ` перед именем. Источник истины для самой "формулы"
-бейджа — `services/profile_render.py::format_display_name()`. Бот получает
-бейдж АВТОМАТИЧЕСКИ через уже существующий `resolve_display_name()` (одна
-точка правки, ~0 новых call-sites); сайт — через новое поле `is_vip` в JSON +
-JS-хелпер `vipName()`.
-
-### 3.1 `services/profile_render.py` (новый файл, без `bot.*`/`FastAPI.*`)
-```python
-def format_display_name(name: str, is_vip: bool) -> str:
-    """Единственное место, определяющее как выглядит VIP-бейдж."""
-    return f"👑 {name}" if is_vip else name
-```
-
-### 3.2 Бот — расширение `resolve_display_name()` (`services/utils.py:35`)
-```python
-async def resolve_display_name(db, user_id, chat_id, fallback) -> str:
-    from infrastructure.repositories.users import get_nickname
-    from services.vip import is_vip_active
-    from services.profile_render import format_display_name
-    nick = await get_nickname(db, user_id, chat_id)
-    name = safe_html(nick if nick else fallback)
-    return format_display_name(name, await is_vip_active(db, user_id))
-```
-Эффект: КАЖДЫЙ существующий вызов `resolve_display_name(...)` в проекте
-автоматически начинает показывать бейдж — без правки самих call-sites.
-Подтверждённый автоматический бенефициар: `marriage.py:36` (`initiator_name`).
-
-#### 3.2.1 Дедуп `duel.py::_get_name` (строки 24-26)
-Тело `_get_name` дословно повторяет `resolve_display_name`. Удалить функцию,
-заменить 4 вызова (строки 123, 124, 175, 176) на прямой
-`resolve_display_name(db, ...)`. Результат: `duel.py:136,205` (вызов и
-объявление победителя) получают бейдж бесплатно, плюс минус один дублирующий
-хелпер (DRY).
-
-### 3.3 Бот — места, где имя приходит МИМО `resolve_display_name`
-`resolve_target()` (`services/utils.py:48`) возвращает СЫРОЕ имя
-(`first_name`/`username`, без nickname-резолва и без `safe_html`!) — там, где
-это сырое имя идёт прямо в `target_link`, нужно явно обернуть:
-
-| Файл:строка | Сейчас | Стало |
-|---|---|---|
-| `marriage.py:50,82` | `target_name` из `resolve_target()` → прямо в `target_link` | `target_name = await resolve_display_name(db, target_id, chat_id, target_name)` перед сборкой `target_link` — заодно чинит отсутствующий `safe_html` |
-| `moderation.py:80,100` | то же (`target_name` сырой) | то же оборачивание перед `target_link` |
-| `bot/handlers/profile.py:58` | `p_name = marriage["user1_name"/"user2_name"]` (сырой username из SQL) | `p_name = await resolve_display_name(db, partner_id, message.chat.id, p_name)` |
-
-### 3.4 Бот — `stats.py` лидерборд: без N+1
-`stats.py:116-118` строит имя инлайн (`safe_html(user["user_tg_username"] or
-...)`), БЕЗ вызова `resolve_display_name` — и это правильно, потому что
-леадерборд рендерит до ~20 строк за раз, а `resolve_display_name` делает 2
-запроса (nickname + VIP) НА КАЖДОЕ имя. Вместо этого — один `LEFT JOIN` на всю
-выборку:
-```sql
-LEFT JOIN predvestnik.vip_subscriptions v
-  ON v.user_id = u.user_tg_id AND v.expires_at > NOW()
--- SELECT ... , (v.user_id IS NOT NULL) AS is_vip
-```
-```python
-name = format_display_name(
-    safe_html(user["user_tg_username"] or f"Пользователь {user['user_tg_id']}"),
-    user["is_vip"],
-)
-```
-Этот же "VIP-JOIN" паттерн (`LEFT JOIN ... vip_subscriptions ... expires_at >
-NOW()` → булево `is_vip`) переиспользуется ниже для сайта (3.6) — таким
-образом `format_display_name()` вызывается ДВУМЯ способами: (а) через
-`resolve_display_name` (одиночные имена, есть лишний запрос — не страшно),
-(б) напрямую с `is_vip` из JOIN (списки, без лишних запросов).
-
-### 3.5 Бот — оставшиеся точки из FUTURE_IDEAS (рефактор "найти имя → обернуть/завести на `resolve_display_name`")
-Не покрыты текущим ресёрчем построчно — единообразный паттерн, применяется
-по аналогии с 3.2/3.3:
-- `bot/handlers/identity.py` — собственный/чужой профиль, шаринг-анкета.
-- `bot/handlers/warps.py` — упоминания актора/цели в варп-ответах (не путать
-  с Блоком 4.2 — там доп. ФРАЗЫ для VIP, здесь — бейдж к ИМЕНИ в любом варпе).
-- `bot/handlers/events.py` — вход/выход/приветствие участника чата.
-
-### 3.6 Сайт — backend: VIP-JOIN в JSON-эндпоинтах
-Тот же паттерн, что в 3.4 (`LEFT JOIN predvestnik.vip_subscriptions v ON
-v.user_id = <id> AND v.expires_at > NOW()` → `(v.user_id IS NOT NULL) AS
-is_vip`):
-
-| Роутер:строка | id для JOIN | Новое поле в JSON |
-|---|---|---|
-| `profile.py:25,75` (свой профиль) | `user_id` | `"is_vip"` в return dict (~строка 85) |
-| `duels.py:17,34` (`/active` и `/history`, ×2 джойна) | `uc.user_tg_id` / `ud.user_tg_id` | `challenger_is_vip`, `challenged_is_vip` |
-| `auction.py:29` (`/lots`) | `u.user_tg_id` (seller) | `seller_is_vip` |
-| `marriage.py:94` (`/proposals`) | proposer id | `proposer_is_vip` |
-| `marriage.py:23,54` (`/`) | partner id | `partner_is_vip` |
-| `top.py:14` (`/local`, `/global`) | `r["user_tg_id"]` | `is_vip` |
-| `admin.py` (список участников + журнал модерации → `app.js:2875,3087,3114`) | соответствующий `user_tg_id` | `is_vip` — конкретные SELECT'ы найти при реализации (не покрыты ресёрчем) |
-
-### 3.7 Сайт — `app.js`: хелпер + точки рендера
-Хелпер — рядом с другими общими функциями (после `let/const`-блока — TDZ):
-```javascript
-function vipName(name, isVip) {
-  return isVip ? `👑 ${name}` : name;
-}
-```
-
-| Строка | Было | Стало |
-|---|---|---|
-| 187 | `` @${d.username\|\|'Игрок'} `` | `` @${vipName(d.username\|\|'Игрок', d.is_vip)} `` |
-| 1259 | `` ${d.challenger_name\|\|'Игрок'} `` | `` ${vipName(d.challenger_name\|\|'Игрок', d.challenger_is_vip)} `` |
-| 1274 | `` ${d.challenged_name\|\|'Игрок'} `` | `` ${vipName(d.challenged_name\|\|'Игрок', d.challenged_is_vip)} `` |
-| ~1287/1292 | `` vs ${vs\|\|'Игрок'} `` (история дуэлей) | то же через `vipName`; источник `is_vip` для `vs` — уточнить при реализации (вероятно тот же `challenger/challenged_is_vip`, в зависимости от того, кто `vs`) |
-| 2050 | `` ${r.username} `` | `` ${vipName(r.username, r.is_vip)} `` |
-| 2274 | `` 👤 ${l.seller_name\|\|'Игрок'} `` | `` 👤 ${vipName(l.seller_name\|\|'Игрок', l.seller_is_vip)} `` |
-| 2356 | `` @${p.proposer_name\|\|'ID'+p.proposer_id} `` | `` @${vipName(p.proposer_name\|\|'ID'+p.proposer_id, p.proposer_is_vip)} `` |
-| 2383 | `` ${m.partner_name\|\|'Партнёр'} `` | `` ${vipName(m.partner_name\|\|'Партнёр', m.partner_is_vip)} `` |
-| 2875, 3087, 3114 | `` @${u.user_tg_username\|\|...} `` / `` @${l.target_name\|\|...} `` | то же через `vipName(..., u.is_vip / l.is_vip)` — поле `is_vip` из 3.6 (`admin.py`) |
-
-> После правки — обязательно `node --check FastAPI/static/app.js` (правило проекта).
+**Проверка:** `py_compile` обоих файлов + изолированный прогон фильтра на
+12 кейсах (все MATCH/no-match верны, включая reply, мультистрочную цитату,
+длинные алиасы «поцеловать страстно», nsfw-алиасы «выебать»).
 
 ---
 
-## БЛОК 4 — VIP-плюшки (4 независимые подсистемы)
+## Блок 2 — Слоты питомника: фикс бага + новая система цен
 
-**Зависимости:** Блок 2. Каждая из 4.1-4.5 самодостаточна — можно делать по
-одной или все разом.
+**Зависимости:** нет.
+**Файлы:** `infrastructure/repositories/zoo.py` (`expand_max_slots`, `user_zoo_stats`),
+`FastAPI/routers/zoo.py` (`/zoo/expand-slot`), `bot/handlers/zoo.py`,
+`services/vip.py` (`get_extra_pet_slots`), `core/registry.py` (`VIP_TIERS.extra_slot`),
+`core/constants.py` (новые цены).
 
-### 4.1 Лимит смены ника — 5/мес/чат, VIP = безлимит
-Новые колонки в `user_chat_stats` (PK уже `(user_tg_id, chat_tg_id)` — ровно
-та гранулярность, что нужна для "локально на чат"):
-```sql
-ALTER TABLE predvestnik.user_chat_stats
-  ADD COLUMN IF NOT EXISTS nickname_changes_count INTEGER DEFAULT 0,
-  ADD COLUMN IF NOT EXISTS nickname_changes_reset_at TIMESTAMP DEFAULT NOW();
-```
-(`bot/core/database.py::init_db()`, рядом с `CREATE TABLE user_chat_stats`;
-`ADD COLUMN IF NOT EXISTS` идемпотентно и безопасно для существующих строк).
+**🐛 Текущий баг**
+Покупка `slot_expander` в магазине не проверяет, есть ли уже максимум слотов —
+деньги/алмазы можно потратить впустую.
 
-`bot/handlers/nicknames.py`, перед вызовом `set_nickname()`:
-```python
-from services.vip import is_vip_active
-from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
+**Новая система слотов**
 
-if not await is_vip_active(db, user_id):
-    row = await db.fetchrow(
-        "SELECT nickname_changes_count, nickname_changes_reset_at "
-        "FROM user_chat_stats WHERE user_tg_id=$1 AND chat_tg_id=$2",
-        user_id, chat_id)
-    count = row["nickname_changes_count"] if row else 0
-    reset_at = row["nickname_changes_reset_at"] if row else now
-    if (now.year, now.month) != (reset_at.year, reset_at.month):
-        count = 0  # новый календарный месяц — сброс
-    if count >= NICKNAME_FREE_CHANGES_PER_MONTH:
-        await message.answer(
-            "❌ Лимит смены ника исчерпан (5/мес в этом чате). "
-            "Сброс в начале следующего месяца.\n"
-            "Хочешь менять ник без ограничений? Оформи VIP ✨ — «бот вип»")
-        return
-    await db.execute(
-        "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, nickname_changes_count, nickname_changes_reset_at) "
-        "VALUES ($1,$2,$3,$4) ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE "
-        "SET nickname_changes_count=$3, nickname_changes_reset_at=$4",
-        user_id, chat_id, count + 1, now)
-```
-Сброс по календарному месяцу — выбран как "проще в реализации" вариант из
-двух, предложенных в FUTURE_IDEAS. Новая константа:
-```python
-# core/constants.py
-NICKNAME_FREE_CHANGES_PER_MONTH: int = 5
-```
-`zarniki_nickname_token` (Блок 1.4): при `count >= LIMIT` и наличии токена в
-инвентаре — списать 1 токен, пропустить отказ БЕЗ инкремента `count` (токен
-даёт ровно одну "внеплановую" смену, не сдвигает лимит на будущее).
-
-### 4.2 Варпы — `responses_vip` (доп. фразы, не новые команды)
-`core/warp_responses.py`: добавить опциональный ключ `responses_vip:
-list[str]` в записи `ALL_WARP_COMMANDS` — точечно, не для всех варпов сразу
-(можно начать с нескольких популярных и расширять).
-
-`bot/handlers/warps.py:98`:
-```python
-# было:
-template = random.choice(responses)
-# стало:
-pool = responses
-if warp_data.get("responses_vip") and await is_vip_active(db, user_id):
-    pool = responses + warp_data["responses_vip"]
-template = random.choice(pool)
-```
-VIP-фразы ДОБАВЛЯЮТСЯ к общему пулу (больше разнообразия для VIP), не
-заменяют обычные — соответствует принципу "косметика, не P2W". Точные имена
-переменных в области видимости строки 98 (`warp_data`/`responses`/`db`/
-`user_id`) — свериться при реализации.
-
-> Не путать с Блоком 3.5 (`warps.py`) — там бейдж 👑 к ИМЕНИ актора/цели в
-> варп-ответе, здесь — доп. варианты ТЕКСТА самого ответа.
-
-### 4.3 +1 слот питомника (тарифы ≥3 мес, read-time бонус)
-`get_extra_pet_slots()` уже спроектирован в Блоке 2.3:
-```python
-async def get_extra_pet_slots(db, user_id: int) -> int:
-    info = await get_vip_info(db, user_id)
-    if info and VIP_TIERS[info["tier"]]["extra_slot"]:
-        return 1
-    return 0
-```
-Применяется ТОЛЬКО в проверках вместимости (НЕ меняет хранимый `max_slots` —
-`expand_max_slots()`/cap=6 остаются отдельной независимой механикой
-"Расширителя слота"):
-- `FastAPI/routers/zoo.py:312`: `if occupied >= stats["max_slots"] +
-  await get_extra_pet_slots(db, user["id"]):`
-- `bot/handlers/zoo.py:448`: аналогично.
-
-Сообщения об ошибке (`zoo.py:315-317`, `bot/zoo.py:451`) — обновить
-отображаемое число слотов на `stats['max_slots'] + extra`, чтобы игрок видел
-реальный текущий лимит (с учётом VIP).
-
-### 4.4 Еженедельные пробники (`VIP_TIERS[tier]["weekly"]`)
-`services/scheduler.py` — новая ветка по образцу существующей еженедельной
-(Mon 00:00, ~строка 311 в `duel_and_auction_task`):
-```python
-if now.weekday() == 0 and now.hour == 0 and now.minute == 0:
-    rows = await db.fetch(
-        "SELECT user_id, tier FROM predvestnik.vip_subscriptions WHERE expires_at > NOW()")
-    for r in rows:
-        for item_id, qty in VIP_TIERS[r["tier"]]["weekly"]:
-            # тем же способом, что выдача gift.items в Блоке 2.3
-            await <инвентарный репозиторий>.add_item(db, r["user_id"], item_id, qty)
-        await bot.send_message(r["user_id"], "🎁 Еженедельный VIP-бонус начислен! Загляни в инвентарь.")
-```
-Размещение — либо новый `asyncio.create_task(...)` в `bot/__main__.py` рядом
-со строкой 144 (как `duel_and_auction_task`), либо (предпочтительнее, чтобы
-не плодить лишний `while True: sleep(60)`) — добавить веткой в УЖЕ
-существующую еженедельную проверку `duel_and_auction_task` на строке ~311.
-Решить при реализации.
-
-### 4.5 Напоминание об истечении подписки
-В той же еженедельной/минутной задаче — проверка `expiry_notified=FALSE`
-(защита от повторной отправки):
-```python
-soon = await db.fetch(
-    "SELECT user_id, tier, expires_at FROM predvestnik.vip_subscriptions "
-    "WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '3 days' AND expiry_notified = FALSE")
-for r in soon:
-    await bot.send_message(r["user_id"],
-        f"⏳ Твой VIP-{VIP_TIERS[r['tier']]['label']} истекает "
-        f"{r['expires_at']:%d.%m}. Продлить — «бот вип».")
-    await db.execute(
-        "UPDATE predvestnik.vip_subscriptions SET expiry_notified=TRUE WHERE user_id=$1",
-        r["user_id"])
-```
-Окно "3 дня" — новая константа `VIP_EXPIRY_REMINDER_DAYS: int = 3`
-(`core/constants.py`), легко поменять. При продлении/покупке (`purchase_vip`,
-Блок 2.3) `expiry_notified` уже сбрасывается в `FALSE` — следующее истечение
-снова даст уведомление.
-
-## БЛОК 5 — Боевой пропуск (Battle Pass)
-
-**Зависимости:** Блок 2 (платный трек = `is_vip_active()`).
-
-### 5.1 Таблица `battle_pass_progress`
-```sql
-CREATE TABLE IF NOT EXISTS predvestnik.battle_pass_progress (
-    user_id              BIGINT NOT NULL REFERENCES predvestnik.users(user_tg_id),
-    season_id            TEXT NOT NULL,
-    xp                   INTEGER DEFAULT 0,
-    level                INTEGER DEFAULT 1,
-    claimed_free_levels  INTEGER[] DEFAULT '{}',
-    claimed_paid_levels  INTEGER[] DEFAULT '{}',
-    PRIMARY KEY (user_id, season_id)
-);
-```
-`INTEGER[]` — нативный тип Postgres/asyncpg: `claimed_free_levels @>
-ARRAY[N]` для проверки, `array_append(...)` для добавления. Если при
-реализации `?`→`$N`-обёртка PGAdapter окажется неудобной с массивами —
-fallback: `TEXT` c CSV (`"1,2,5"`) и парсинг в Python; деталь хранения, не
-меняет остальной дизайн.
-
-### 5.2 Сезоны и награды — `core/registry.py`
-По аналогии с `ACHIEVEMENT_LEVEL_REWARDS` (`Dict[int, {"mora","diamonds","items"}]`),
-но с разделением на бесплатный/платный трек:
-```python
-BATTLE_PASS_SEASONS: dict[str, dict] = {
-    "s1": {
-        "label": "Сезон 1",
-        "starts_at": "2026-07-01",
-        "ends_at": "2026-08-10",   # +40 дней
-        "max_level": 50,
-    },
-}
-
-BATTLE_PASS_REWARDS: dict[int, dict] = {
-    1:  {"free": {"mora": 50,  "diamonds": 0,  "items": ()},
-         "paid": {"mora": 0,   "diamonds": 1,  "items": (("spin_token_novice", 1),)}},
-    2:  {"free": {"mora": 0,   "diamonds": 0,  "items": (("food_basic", 1),)},
-         "paid": {"mora": 0,   "diamonds": 1,  "items": ()}},
-    # ... 3-49 — числа подбираются при балансировке (FUTURE_IDEAS: "невысокие,
-    # но не слишком низкие" XP-веса и награды)
-    50: {"free": {"mora": 500, "diamonds": 0,  "items": (("spin_token_standard", 2),)},
-         "paid": {"mora": 0,   "diamonds": 10, "items": (("spin_token_diamond", 1),)}},
-}
-```
-> Полная таблица 1-50 — вне рамок планирования (явно отмечено в FUTURE_IDEAS
-> как "подбирается при балансировке"). Формат записи финален — заполняется
-> построчно при реализации по образцу выше.
-
-> **Идея на будущее** (FUTURE_IDEAS п.4): сезонные темы (`core/themes.py`,
-> `rarity:"seasonal"`) как награда верхних уровней платного трека — ЕСЛИ
-> владение темой хранится в общей инвентарной таблице по id `theme_*` (как
-> остальные 9 Zarniki-тем, см. коммит "тематический рендер для всех 9 Premium
-> Zarniki-тем") — это просто ещё один элемент в `"items"`, отдельной механики
-> не требуется. Проверить механизм владения темами при реализации.
-
-### 5.3 Константы — `core/constants.py`
-```python
-BATTLE_PASS_XP_PER_LEVEL: int = 100   # линейная шкала; подбирается при балансировке
-BATTLE_PASS_MAX_LEVEL: int = 50
-
-BATTLE_PASS_XP_WEIGHTS: dict[str, int] = {
-    # metric_name (как в ACHIEVEMENTS registry) -> XP за единицу
-    "duels_won": 10,
-    "eggs_hatched": 5,
-    "expeditions_completed": 8,
-    "crafts_completed": 5,
-    "daily_quests_completed": 15,
-    # ... остальные релевантные метрики — свериться со списком в registry при реализации
-}
-```
-
-### 5.4 `services/battle_pass.py` (новый, без `bot.*`/`FastAPI.*`)
-```python
-def get_active_season() -> dict | None:
-    """Текущий сезон по дате (BATTLE_PASS_SEASONS), либо None между сезонами."""
-
-async def add_xp(db, user_id: int, metric_name: str, delta: float = 1.0) -> None:
-    """
-    weight = BATTLE_PASS_XP_WEIGHTS.get(metric_name)
-    if not weight or not get_active_season(): return
-    UPSERT battle_pass_progress: xp += weight*delta,
-    level = min(MAX_LEVEL, 1 + xp // XP_PER_LEVEL)
-    """
-
-async def get_progress(db, user_id: int) -> dict | None:
-    """
-    None если сейчас нет активного сезона. Иначе:
-    {'season','level','xp','xp_to_next','max_level',
-     'claimed_free','claimed_paid','paid_track_open': await is_vip_active(db,user_id)}
-    """
-
-async def claim_reward(db, user_id: int, level: int, track: str) -> tuple[bool, str]:
-    """
-    track: 'free' | 'paid'.
-    - level <= progress.level (достигнут) и level <= max_level
-    - level not in claimed_<track>_levels
-    - track == 'paid' -> require is_vip_active(db, user_id); иначе
-      "🔒 Нужен активный VIP, чтобы забрать награду платного трека."
-    - выдать BATTLE_PASS_REWARDS[level][track] (mora/diamonds через add_balance,
-      items — тем же путём, что gift в Блоке 2.3/награды ачивок)
-    - append level в claimed_<track>_levels (array_append)
-    """
-```
-
-**Важно (РЕШЕНО в FUTURE_IDEAS)**: при истечении VIP посреди сезона —
-`claimed_paid_levels`/`level`/`xp` НЕ откатываются и НЕ сбрасываются. Просто
-`paid_track_open=False` → `claim_reward(track='paid')` отказывает для НОВЫХ
-запросов, а уже полученные награды остаются полученными. При новой
-покупке/продлении VIP — `paid_track_open` снова `True`, и все уровни
-`<= progress.level`, которых нет в `claimed_paid_levels` (включая
-достигнутые ВО ВРЕМЯ паузы VIP), становятся доступны для `claim`. Отдельной
-логики "разморозки" не требуется — это естественное следствие независимости
-`claimed_paid_levels`/`level` от `is_vip_active()`.
-
-### 5.5 XP-хук — ОДНА точка интеграции
-`services/achievements.py::increment_metric()` — добавить в конец тела:
-```python
-async def increment_metric(db, user_id, metric_name, delta=1.0, chat_id=None):
-    ... существующая логика ачивок ...
-    if metric_name in BATTLE_PASS_XP_WEIGHTS:
-        from services.battle_pass import add_xp
-        await add_xp(db, user_id, metric_name, delta)
-    return ...
-```
-Эффект: КАЖДЫЙ существующий вызов `achievements.increment_metric(db, uid,
-METRIC_NAME)` по всему проекту (десятки точек — дуэли/экспедиции/гача/крафт и
-т.д.) автоматически начисляет XP БП без правки самих call-sites — тот же
-паттерн, что Блок 3.2 (`resolve_display_name`).
-
-> **Важно**: хук добавляется ТОЛЬКО в `achievements.increment_metric`, НЕ в
-> `services/quests.py::increment_metric` (другая функция с тем же именем,
-> другая сигнатура) — иначе одно игровое действие, трекаемое и в ачивках, и
-> в квестах под одинаковым `metric_name`, начислит XP ДВАЖДЫ. Если для
-> какого-то действия из `BATTLE_PASS_XP_WEIGHTS` нет соответствующей ачивки
-> (метрика существует только в `quests.py`) — варианты: (а) завести
-> минимальную ачивку-трекер под эту метрику (даже без видимых наград), либо
-> (б) точечный отдельный вызов `add_xp()` прямо в этом хэндлере. Свериться
-> со списком метрик в `core/registry.py` (ACHIEVEMENTS) и `quests.py` при
-> реализации.
-
-### 5.6 Бот: `bot/handlers/battle_pass.py` (новый)
-- `"бот бп"` / `"бот боевой пропуск"`:
-  - Если `get_active_season() is None` — "Сезон скоро начнётся, следи за анонсами!"
-  - Иначе: `🎫 {season.label} | Уровень {level} | {format_progress_bar(xp % XP_PER_LEVEL, XP_PER_LEVEL)}`
-    — переиспользует `format_progress_bar()` из `services/formatting.py`
-    (тот же хелпер, что и другие прогресс-бары проекта).
-  - Список наград для уровней `level-2 .. level+3` (окно вокруг текущего, не
-    все 50 сразу) с пометками: "✅ получено" / "🎁 доступно — забрать" /
-    "🔒 нужен VIP" (paid, !paid_track_open) / "⏳ ещё не достигнут".
-  - Инлайн-кнопки "Забрать" на доступные позиции.
-- `cb_bp_claim(callback)` → `claim_reward(db, user_id, level, track)`.
-
-### 5.7 Сайт: `FastAPI/routers/battle_pass.py` (новый) + вкладка "🎫 БП"
-- `GET /battle_pass/status` → `{active: bool, season_label, level, xp,
-  xp_to_next, max_level, paid_track_open, rewards: [{level, free:{...,status},
-  paid:{...,status}}]}` — `status ∈ {claimed, available, locked_vip,
-  locked_level}`, посчитан на бэкенде (фронту не нужно знать правила —
-  только рендерить).
-- `POST /battle_pass/claim {level, track}` → `claim_reward` (общая логика
-  бот/сайт — единая точка истины, как и `purchase_vip` в Блоке 2).
-- `app.js` — новая вкладка: прогресс-бар + список уровней в две колонки
-  (Бесплатный/VIP), кнопка "Забрать" на каждой доступной ячейке.
-
-### 5.8 Ротация сезонов
-`get_active_season()` (5.4) уже ВЫЧИСЛЯЕТСЯ по датам из `BATTLE_PASS_SEASONS`
-— смена сезона происходит АВТОМАТИЧЕСКИ, без участия `scheduler.py`: новая
-запись в `battle_pass_progress` для нового `season_id` создаётся лениво при
-первом `add_xp()` (старые записи прошлых сезонов остаются как история).
-Добавление нового сезона = добавление записи в `BATTLE_PASS_SEASONS` +
-`BATTLE_PASS_REWARDS` (конфигурация, без миграций).
-
-Уведомление "сезон скоро закончится" (упомянуто в FUTURE_IDEAS как "ротация —
-scheduler.py") — опционально, не блокирует основной функционал: в
-существующей ежедневной задаче (`daily_deal_task`, `services/scheduler.py`)
-добавить проверку — если до `ends_at` текущего сезона осталось ≤3 дня,
-разослать активным игрокам (`level > 1`) одно сообщение "Сезон
-заканчивается, успей забрать награды!". Строгая защита от повтора (как
-`expiry_notified` в 4.5) — по желанию, не критична (1 admin-сообщение/день в
-последние 3 дня — приемлемо).
-
-## БЛОК 6 — Глобальная модерация: ядро
-
-**Зависимости:** нет (независим от 1-5). Источник — раздел "Глобальная
-система варнов и банов экосистемы бота" в FUTURE_IDEAS, почти всё там РЕШЕНО.
-
-### 6.1 Таблицы
-```sql
-CREATE TABLE IF NOT EXISTS predvestnik.global_sanctions (
-    id            SERIAL PRIMARY KEY,
-    target_type   TEXT NOT NULL,        -- 'user' | 'chat'
-    target_id     BIGINT NOT NULL,
-    sanction_type TEXT NOT NULL,        -- 'warn' | 'restrict' | 'ban'
-    reason        TEXT,
-    issued_by     BIGINT NOT NULL,
-    created_at    TIMESTAMP DEFAULT NOW(),
-    expires_at    TIMESTAMP NULL,       -- NULL = бессрочно
-    revoked_at    TIMESTAMP NULL,
-    revoked_by    BIGINT NULL
-);
-
-CREATE TABLE IF NOT EXISTS predvestnik.sanction_appeals (
-    id            SERIAL PRIMARY KEY,
-    user_id       BIGINT NOT NULL,
-    sanction_id   INTEGER NOT NULL REFERENCES predvestnik.global_sanctions(id),
-    text          TEXT NOT NULL,
-    created_at    TIMESTAMP DEFAULT NOW(),
-    status        TEXT DEFAULT 'pending',  -- pending | accepted | rejected
-    resolved_by   BIGINT NULL,
-    resolved_at   TIMESTAMP NULL
-);
-```
-Активна санкция, если `revoked_at IS NULL AND (expires_at IS NULL OR
-expires_at > NOW())`. **Решение по "не более одной активной restrict/ban"**
-(FUTURE_IDEAS оставляла открытым): при выдаче новой `restrict`/`ban` на ту же
-цель — СНАЧАЛА авто-`revoke` существующей активной `restrict`/`ban`
-(`revoked_by = issued_by` новой, отдельной пометки не нужно — видно по
-времени), ПОТОМ `INSERT` новой. `warn` — без этого ограничения, копится
-сколько угодно. Это сохраняет `global_sanctions` чисто append-only
-(полный аудит) при соблюдении правила "≤1 активная restrict/ban".
-
-### 6.2 `infrastructure/repositories/global_moderation.py` (новый)
-```python
-async def get_active_restriction(db, target_type: str, target_id: int) -> dict | None:
-    """Активная restrict ИЛИ ban для цели (их не более одной — см. 6.1)."""
-
-async def issue_sanction(db, target_type, target_id, sanction_type, reason,
-                          issued_by, expires_at=None) -> int:
-    """revoke текущей активной restrict/ban той же цели (если sanction_type
-    in ('restrict','ban')), затем INSERT новой. Возвращает id."""
-
-async def revoke_sanction(db, sanction_id: int, revoked_by: int) -> bool: ...
-
-async def list_sanctions(db, target_type, target_id, active_only=False) -> list[dict]: ...
-async def list_active(db, sanction_type: str | None = None) -> list[dict]:
-    """Для сайта — 'список активных ограничений' (7.x)."""
-
-async def get_user_chat_ids(db, user_id: int) -> list[int]:
-    """SELECT DISTINCT chat_tg_id FROM user_chat_stats WHERE user_tg_id=$1 — для рассылки уведомлений."""
-
-async def create_appeal(db, user_id, sanction_id, text) -> int: ...
-async def get_active_sanction_for_user(db, user_id) -> dict | None:
-    """Для 'бот апелляция' — есть ли вообще что оспаривать."""
-async def list_appeals(db, status: str | None = None) -> list[dict]: ...
-async def resolve_appeal(db, appeal_id, status, resolved_by) -> None: ...
-```
-
-### 6.3 `services/global_moderation.py` (новый, без `bot.*`/`FastAPI.*`)
-```python
-RANK_ALLOWED: dict[int, dict[str, set[str]]] = {
-    1: {"user": {"warn"}},
-    2: {"user": {"warn", "restrict"}, "chat": {"warn", "restrict"}},
-    3: {"user": {"warn", "restrict", "ban"}, "chat": {"warn", "restrict", "ban"}},
-}
-
-def can_issue_global_sanction(actor_rank: int, target_type: str,
-                               sanction_type: str, target_global_rank: int = 0) -> bool:
-    if target_type == "user" and target_global_rank >= actor_rank:
-        return False  # антипир: нельзя тронуть равного/старшего штата.
-                       # Побочный эффект (ЖЕЛАЕМЫЙ): Разработчик (3) >= Разработчик (3)
-                       # → True>=True → блок — Разработчик иммунен даже к самому себе,
-                       # без отдельного спецслучая.
-    return sanction_type in RANK_ALLOWED.get(actor_rank, {}).get(target_type, set())
-
-async def is_user_banned(db, user_id) -> bool: ...
-async def is_chat_banned(db, chat_id) -> bool: ...
-async def get_user_restriction(db, user_id) -> dict | None:
-    """Активная restrict для юзера (не ban — ban проверяется отдельно/раньше)."""
-async def get_chat_restriction(db, chat_id) -> dict | None: ...
-
-def restriction_message(restriction: dict) -> str:
-    until = "навсегда" if not restriction["expires_at"] else f"до {restriction['expires_at']:%d.%m.%Y}"
-    return (f"🚫 Экономические команды недоступны ({restriction['reason']}) — {until}.\n"
-            f"Оспорить: «бот апелляция <текст>»")
-
-async def issue_global_sanction(db, bot, actor_id, actor_rank, target_type, target_id,
-                                 sanction_type, reason, expires_at=None) -> tuple[bool, str]:
-    """can_issue_global_sanction → repo.issue_sanction → notify_sanction(action='issued')."""
-
-async def revoke_global_sanction(db, bot, actor_id, actor_rank, sanction_id) -> tuple[bool, str]:
-    """проверка прав по sanction.sanction_type/target → repo.revoke_sanction → notify(action='revoked')."""
-
-async def notify_sanction(db, bot, target_type, target_id, sanction_type, reason, action) -> None:
-    """
-    action: 'issued' | 'revoked'.
-    target_type=='user' → for chat_id in get_user_chat_ids(db, target_id): bot.send_message(chat_id, text)
-                           (рассылка ВО ВСЕ чаты юзера — решает проблему заблокированных ЛС)
-    target_type=='chat' → bot.send_message(target_id, text)
-    Каждая отправка — try/except TelegramForbiddenError/TelegramBadRequest
-    (бот мог быть удалён из части чатов с тех пор) — проверить при реализации,
-    есть ли уже общий safe-send хелпер (например рядом с уведомлениями в
-    duel_and_auction_task, scheduler.py:240-300) — переиспользовать вместо нового.
-    """
-```
-
-### 6.4 Middleware `bot/middlewares/global_sanctions_mw.py` (новый)
-Регистрируется В `bot/__main__.py` СРАЗУ ПОСЛЕ `db_middleware` (строки 88-92,
-нужен `data["db"]`), ДО `pet_bonuses_middleware`/`streak_middleware` —
-глобальный бан должен останавливать обработку раньше всего остального.
-```python
-class GlobalSanctionsMiddleware(BaseMiddleware):
-    async def __call__(self, handler, event, data):
-        db = data["db"]
-        user_id = event.from_user.id if event.from_user else None
-        chat_id = getattr(event, "chat", None) and event.chat.id
-
-        actor_rank = data.get("global_rank", 0)  # уточнить: db_middleware уже
-        # пишет global_rank в data при авто-выставлении DEVELOPER_ID=3 — если
-        # нет, один SELECT users.global_rank здесь.
-        if actor_rank >= 3:
-            return await handler(event, data)  # Разработчик — иммунитет (302)
-
-        if chat_id and await global_moderation.is_chat_banned(db, chat_id):
-            return  # бот молчит (264) — апдейт не идёт дальше
-        if user_id and await global_moderation.is_user_banned(db, user_id):
-            return  # бот молчит везде (264)
-
-        if chat_id:
-            data["chat_restricted"] = await global_moderation.get_chat_restriction(db, chat_id)
-        if user_id:
-            data["user_restricted"] = await global_moderation.get_user_restriction(db, user_id)
-        return await handler(event, data)
-```
-
-### 6.5 Экономические хэндлеры — проверка `restricted`-флагов
-"Экономическая часть" по таблице FUTURE_IDEAS: гача / аукцион / дуэли / обмен
-/ переводы / крафт. В начале каждого такого хэндлера:
-```python
-restriction = data.get("user_restricted") or data.get("chat_restricted")
-if restriction:
-    return await message.answer(global_moderation.restriction_message(restriction))
-```
-Точный список файлов/функций — открытый вопрос FUTURE_IDEAS ("нужен точный
-список команд/категорий"), составить при реализации; ориентир по названиям
-хэндлеров: gacha-команды, `bot/handlers/economy.py` (обмен/переводы),
-`bot/handlers/auction.py`, `bot/handlers/duel.py`, крафт (вероятно в
-`bot/handlers/zoo.py` или отдельном craft-хэндлере). Профиль/помощь/модерация
-— БЕЗ проверки (продолжают работать при `restrict`, как решено).
-
-### 6.6 `bot/handlers/global_moderation.py` (новый) — команды РАБОТАЮТ в любом чате И в ЛС
-```
-бот глоб варн @user <причина>          / бот глоб снять варн <id>
-бот глоб ограничить @user <причина> [срок]  / бот глоб снять ограничение @user
-бот глоб бан @user <причина> [срок]    / бот глоб разбан @user      — только Разработчик
-бот глоб бан чат <chat_id> <причина>   / бот глоб разбан чат <chat_id> — только Разработчик
-бот глоб санкции @user                 / бот глоб санкции чат <chat_id>
-бот апелляция <текст>
-```
-- Целеуказание — **`resolve_target(message, db, args)` уже умеет** резолвить
-  `@username`/числовой ID БЕЗ привязки к чату/`reply_to_message`
-  (`services/utils.py:69-89`, прямой запрос к `users`) — отдельная
-  `resolve_global_target()` НЕ нужна (YAGNI), используем существующую функцию
-  напрямую (она же работает и в ЛС).
-- `[срок]` — переиспользовать парсер длительности из `cmd_mute`/`cmd_ban`
-  (`bot/handlers/moderation.py`, формат `Nм/Nч/Nд`) — найти и применить тот же
-  парсер, не писать новый.
-- Каждая команда: `actor_rank = users.global_rank` юзера → если `< 1`, тихо
-  игнорировать (не глобальная команда для обычных игроков) → резолв цели →
-  `target_rank = users.global_rank` цели (для `target_type='chat'` — 0) →
-  `can_issue_global_sanction(...)` → `issue_global_sanction`/`revoke_global_sanction`
-  → ответ пользователю.
-- `бот апелляция <текст>`:
-  ```python
-  sanction = await get_active_sanction_for_user(db, user_id)
-  if not sanction:
-      return await message.answer("У тебя нет активных глобальных санкций.")
-  await create_appeal(db, user_id, sanction["id"], text)
-  await bot.send_message(DEVELOPER_ID,
-      f"📨 Апелляция от {user_id} на санкцию #{sanction['id']}:\n{text}")
-  await message.answer("✅ Апелляция отправлена. Ответ придёт уведомлением.")
-  ```
-
-### 6.7 `services/roles.py` — расширение
-Согласно ресёрчу `global_rank`/`GLOBAL_RANKS_MAP` УЖЕ существуют как
-"косметический лейбл" — проверить при реализации, что там есть, и ДОПОЛНИТЬ
-(не дублировать):
-- `GLOBAL_RANKS_MAP` — подтвердить значения `{1:"Хелпер", 2:"Ст.хелпер",
-  3:"Разработчик"}` соответствуют текущему реестру.
-- Добавить `can_issue_global_sanction()` (6.3) — по аналогии с уже
-  существующей `can_assign_local_rank()` (то же место в файле, тот же стиль).
-
----
-
-## БЛОК 7 — Глобальная модерация: сайт
-
-**Зависимости:** Блок 6.
-
-### 7.1 `FastAPI/routers/global_admin.py` (новый), префикс `/admin/global`
-Гейт по `global_rank ≥ 1` — НЕ по `local_rank` (в отличие от
-`/admin/{chat_id}/...`). По аналогии с `_require_admin` в `admin.py`:
-```python
-async def _require_global(db, user_id: int) -> int:
-    """Возвращает global_rank или 403, если < 1. DEVELOPER_ID — особый случай
-    (см. 229: разработчик уже имеет global_rank=3 через db_middleware)."""
-```
-
-| Эндпоинт | Доступ | Назначение |
+| Источник | Кол-во | Цена |
 |---|---|---|
-| `GET /admin/global/chats` | ≥1 | "Все чаты" — список ВСЕХ чатов с ботом (315) |
-| `GET /admin/global/chats/{chat_id}/members` | ≥1 | участники ЛЮБОГО чата — переиспользовать список из `admin.py` (участники текущего чата), но БЕЗ требования `local_rank` к этому чату |
-| `GET /admin/global/sanctions?type=&active_only=` | ≥1 | список активных ограничений (316), по чатам и по юзерам |
-| `POST /admin/global/sanctions` `{target_type,target_id,sanction_type,reason,duration_days}` | по `can_issue_global_sanction` | выдать санкцию (issue_global_sanction) |
-| `POST /admin/global/sanctions/{id}/revoke` | по `can_issue_global_sanction` цели | снять/изменить срок |
-| `GET /admin/global/sanctions/search?target_type=&target_id=` | ≥1 | история цели: активные + снятые/истёкшие, `issued_by`/`revoked_by` (317) |
-| `GET /admin/global/log?page=` | ≥1 | общий журнал всех `global_sanctions` (319) |
-| `GET /admin/global/appeals?status=` | ≥1 | список апелляций (311) |
-| `POST /admin/global/appeals/{id}/resolve` `{action: accept\|reject}` | accept→revoke санкции, `ban`-санкции — только Разработчик (≥3) |
-| `POST /admin/global/ranks` `{user_id, global_rank}` | только Разработчик (≥3) | назначить/снять Хелпера/Ст.хелпера (321) |
+| База | 3 | бесплатно, всем |
+| За алмазы (прогрессивно) | +4 | 1-й 5💎 · 2-й 15💎 · 3-й 30💎 · 4-й 50💎 |
+| VIP-3М / VIP-8М | +1 | входит в тариф |
+| VIP-12М | +2 | входит в тариф |
 
-Каждый ответ — флаги прав по аналогии с `admin.py` (`"can_warn":
-actor_rank>=1, "can_restrict": actor_rank>=2, "can_ban": actor_rank>=3,
-"can_manage_ranks": actor_rank>=3`), фронт показывает/скрывает кнопки по ним
-— тот же принцип, что уже работает в `/admin/{chat_id}`.
+**Изменения логики**
+- Слот за алмазы — прямая покупка (как сейчас `/zoo/expand-slot`), а не
+  предмет `slot_expander` из магазина
+- Когда все 4 платных слота куплены — кнопка/эндпоинт покупки следующего
+  становится недоступна (серая на сайте, явный отказ в боте), а не тихо игнорируется
+- VIP-12М сейчас имеет тот же булевый `extra_slot=True`, что и 3М/8М (даёт
+  одинаковый +1) — нужно завести `extra_slots: int` вместо булевого флага,
+  чтобы 12М давал +2
 
-### 7.2 `/profile/me` — добавить `global_rank`
-В тот же return dict, что Блок 3.6 добавляет `is_vip` (`profile.py:73-85`):
-```python
-"global_rank": row["global_rank"] or 0,
-```
-(сырое число, а не отформатированная строка `"rank"`, которая там уже есть)
-— фронт использует его, чтобы показать/скрыть пункт меню "Глобальная
-модерация".
-
-### 7.3 `app.js` — раздел "🛡 Глобальная модерация"
-Виден если `profile.global_rank >= 1` (из 7.2). Вкладки:
-- **Все чаты** — список чатов → клик → список участников (как в обычной
-  панели чата) → клик по участнику → форма "выдать санкцию" (тип зависит от
-  `can_warn`/`can_restrict`/`can_ban`).
-- **Активные ограничения** — единый список restrict/ban (юзеры + чаты),
-  кнопки снять/изменить срок.
-- **Журнал** — лог всех `global_sanctions` (кто/кого/когда/тип/причина).
-- **Апелляции** — список + "снять санкцию"/"отклонить".
-- **Управление штатом** (только при `global_rank>=3`) — назначить/снять
-  Хелпера/Ст.хелпера по ID.
-
-> После правки — `node --check FastAPI/static/app.js`.
-
-## БЛОК 8 — Доработки веб-панели администрирования чата
-
-**Зависимости:** нет (независим от 1-7). Источник — раздел "Веб-панель
-администрирования чата" в FUTURE_IDEAS: бот и сайт уже синхронизированы
-напрямую через общие таблицы Postgres (без кэша), часть бот-команд просто
-не имеет зеркала на сайте — "5-6 точечных доработок без архитектурных
-изменений".
-
-### 8.0 Предпосылка — Developer bypass в `_get_actor_rank`/`_require_admin`
-`FastAPI/routers/admin.py:24-40`: `_get_actor_rank(db, user_id, chat_id)`
-читает `user_chat_stats.local_rank` (0, если строки нет). Для
-`DEVELOPER_ID` (`global_rank=3`) панель должна работать в ЛЮБОМ чате даже
-БЕЗ строки `user_chat_stats` — единственный bypass в начале функции:
-```python
-async def _get_actor_rank(db, user_id: int, chat_id: int) -> int:
-    if user_id == DEVELOPER_ID:
-        return 6  # Владелец в любом чате
-    ...
-```
-`_require_admin` менять не нужно — она просто вызывает `_get_actor_rank`.
-`DEVELOPER_ID` — импорт из `core.constants` (уже задан через ENV).
-
-`/my-chats` (admin.py:52-68) фильтрует `WHERE ucs.user_tg_id = ? AND
-ucs.local_rank >= 1 AND ucs.is_left = FALSE` — для Developer этот список
-будет пуст для чатов без вступления. Добавить ветку: `if user_id ==
-DEVELOPER_ID:` → список ВСЕХ чатов бота (`SELECT DISTINCT chat_tg_id, ...`),
-без фильтра по рангу/участию.
-
-> Не путать с Блок 7.1 `/admin/global/chats`: та вкладка — для
-> `global_rank≥1` (Хелперы/Ст.хелперы тоже) и ведёт к ГЛОБАЛЬНЫМ санкциям.
-> Этот bypass — для Developer'а в ОБЫЧНОЙ локальной панели конкретного чата
-> (участники/настройки/ЧС/чистка/журнал).
-
-### 8.1 Чёрный список чата (новая вкладка)
-`infrastructure/repositories/blacklist.py` уже содержит ПОЛНОЕ CRUD —
-`get_chat_blacklist`, `add_to_chat_blacklist`, `remove_from_chat_blacklist`
-над готовой таблицей `chat_blacklist(chat_id, user_id, reason, added_by,
-added_at)`. Нужны только 3 новых эндпоинта в `admin.py`:
-```python
-@router.get("/{chat_id}/blacklist")        # _require_admin >= rank_ban, get_chat_blacklist
-@router.post("/{chat_id}/blacklist")       # body: {user_id, reason}, anti-peer как в /action
-@router.delete("/{chat_id}/blacklist/{user_id}")
-```
-Порог — `rank_ban` (ЧС по тяжести близок к бану). На фронте — вкладка
-"Чёрный список" рядом с "Участники".
-
-### 8.2 Управление рангами (сайт сейчас read-only)
-Бот: `TextCmd(["выдать ранг","дать ранг","сет ранг","ранг"])`
-(`bot/handlers/admin.py:78`) → `roles.can_assign_local_rank(...)`
-(`services/roles.py:34-49`) → `chat.set_local_rank(db, target_id, chat_id,
-new_rank_id)` (`bot/handlers/admin.py:158`). Те же примитивы переиспользуем:
-```python
-@router.post("/{chat_id}/users/{user_id}/rank")
-async def admin_set_rank(chat_id, user_id, body: SetRankRequest,
-                          db=Depends(get_db), user=Depends(require_tg_user)):
-    actor_rank = await _require_admin(db, user["id"], chat_id)
-    target_rank = ...  # как в /action, admin.py:227-232
-    ok, err = roles.can_assign_local_rank(
-        user["id"], actor_rank, target_rank, body.new_rank, DEVELOPER_ID)
-    if not ok:
-        raise HTTPException(403, err)
-    await chat.set_local_rank(db, user_id, chat_id, body.new_rank)
-    await log_moderation_action(db, chat_id, user_id, user["id"], f"rank_{body.new_rank}", None)
-```
-В `/users` (admin.py:112-165) у каждой строки уже есть `can_act = actor_rank
-> local_rank` (строка 157) — добавить `"can_set_rank": r["can_act"]` и
-`"max_assignable_rank": actor_rank - 1`. Фронт — выпадающий список рангов
-`0..max_assignable_rank` рядом с именем участника (подписи —
-`roles.LOCAL_RANKS_MAP`, продублировать в app.js как остальные статичные
-тексты).
-
-### 8.3 5 недостающих rank_*-настроек
-`bot/handlers/chat_settings.py:24-34` — полный `_RANK_SETTINGS` (9 ключей):
-`rank_warn/mute/kick/ban` на сайте уже есть (`Settings`-модель,
-admin.py:178-181) + **`rank_shield/immune/duel/marriage/give`**
-отсутствуют. Они уже хранятся в той же `chat_settings`-таблице (раз бот их
-читает/пишет) — просто добавить 5 полей в `Settings` и прокинуть в
-GET/POST `/{chat_id}/settings` (169-217). Заодно добавить `purge_min_rank`
-(использует `bot/handlers/purge.py:81`, задаётся командой `настройка
-чистки`/`ранг чистки` — `moderation.py:373`) — десятая настройка той же
-группы "пороги рангов", нужна для 8.5.
-
-Фронт: вместо текущих 4 rank_*-полей — все 10, с подписями из
-`_RANK_SETTINGS` (+ "Норма для чистки" для `purge_min_rank`). Источник
-подписей — либо бэк отдаёт `{key, emoji, label}` в GET `/settings` (по
-образцу `_rank_label`/`_RANK_SETTINGS`), либо продублировать в app.js
-(проще, раз он classic-script без общих импортов).
-
-### 8.4 Щит vs Иммунитет — развести механики и поправить порог
-**Две РАЗНЫЕ, уже существующие в БД механики**
-(`user_chat_stats.is_immune` + `.immune_until`, видно из
-`purge.py:128-135`):
-- **Щит** (временный) — бот: `защита`/`защитить` (`moderation.py:280`) /
-  `снять защиту`/`убрать щит` (315). Ставит `immune_until` (дату), `is_immune`
-  не трогает. Свой порог — `rank_shield`.
-- **Иммунитет** (постоянный) — бот: `иммунитет`/`абсолют`
-  (`moderation.py:242`). Ставит `is_immune=1, immune_until=NULL`. Свой порог
-  — `rank_immune`.
-
-На сайте (`admin.py:218-324`, `/action`) сейчас есть ТОЛЬКО action
-`"immune"` (315-319) — фактически это реализация ЩИТА
-(`set_immunity(db, chat_id, user_id, 1, until)`, `until` = +24ч по
-умолчанию), но ошибочно гейтится порогом `rank_mute` (строка 241:
-`"immune": "rank_mute"` — баг из FUTURE_IDEAS). Снять-щит и постоянный
-иммунитет на сайте отсутствуют вовсе. Исправление — 4 action вместо 1:
-```python
-_required = {
-    ...,
-    "shield":       "rank_shield",  # = старый "immune": set_immunity(db,...,1, until=+24ч)
-    "unshield":     "rank_shield",  # set_immunity(db,...,0, None)  (если is_immune не permanent)
-    "set_immune":   "rank_immune",  # set_immunity(db,...,1, None)  — навсегда
-    "unset_immune": "rank_immune",  # set_immunity(db,...,0, None)
-}
-```
-(точные аргументы `set_immunity()` для permanent-варианта — сверить с
-`moderation.py:242` при реализации; переименование `"immune"`→`"shield"` —
-проверить, не дёргает ли фронт старое имя где-то ещё, иначе оставить
-`"immune"` как алиас вместо чистки всех вызовов). На фронте — две отдельные
-кнопки "🛡 Щит (24ч)" / "🔰 Иммунитет (навсегда)" + парные "Снять".
-
-### 8.5 UI чистки (purge)
-`bot/handlers/purge.py`: `чистка <DD.MM-DD.MM> <норма>` / `конец чистки`
-ставят/снимают `chat_settings.is_purging`
-(`mod_db.update_chat_settings(db, chat_id, is_purging=True/False)`, строки
-82/231) + блокируют чат `set_chat_permissions`, затем снимают мут
-участникам с `local_rank >= purge_min_rank`. Новые эндпоинты:
-```python
-@router.post("/{chat_id}/purge/start")   # body: {start_date, end_date, norm}
-@router.post("/{chat_id}/purge/stop")
-@router.get("/{chat_id}/purge/status")   # is_purging + текущие параметры
-```
-Логика — та же последовательность, что в `purge.py:60-219` (сбор
-статистики, отчёт, "досье" нарушителей с inline-кнопками варн/кик/бан — это
-ОСТАЁТСЯ в Telegram; сайт только ЗАПУСКАЕТ/ОСТАНАВЛИВАЕТ и показывает
-`is_purging`). Порог — `rank_kick` (`purge.py:65` уже требует
-`check_admin_rights(..., 4, ...)`, т.е. порог кика). На фронте — в
-"Настройки" (или отдельный блок) "Чистка": период+норма, кнопка
-Старт/Стоп + индикатор `is_purging`.
-
-### 8.6 История банов/киков/вышедших
-Бот: `баны`/`черный список`/`кто в бане` и `кики`/`выгнанные`
-(`moderation.py:701-722`, оба через общий `build_mod_list(db, chat_id,
-action_type, title, empty_msg)` — `moderation_logs WHERE action_type IN
-('ban','kick')`); `ушли`/`вышли` (725) → `mod_db.get_left_users(db,
-chat_id)` (`user_chat_stats WHERE is_left=TRUE`, не входит в обычный
-`/users`).
-
-Сайт уже имеет `/{chat_id}/logs` (admin.py:327+, постраничный журнал
-`moderation_logs`) — для "Баны"/"Кики" хватит query-параметра `?action=ban`
-/ `?action=kick` к ТОМУ ЖЕ эндпоинту (переиспользование, без новой
-таблицы). Для "Вышедшие" — отдельный лёгкий `GET /{chat_id}/left`
-(`mod_db.get_left_users`, уже готов). На фронте — 2-3 фильтра/под-вкладки
-рядом с "Журнал", не новый раздел.
-
-### Структура сайта после Блока 8 (для `local_rank>=1`)
-"Мои чаты" → дашборд чата → вкладки: **Участники** (+смена ранга, 8.2) /
-**Чёрный список** (новая, 8.1) / **Настройки** (10 rank_*-порогов вместо 4,
-8.3 + щит/иммунитет, 8.4 + чистка, 8.5) / **Журнал** (+фильтры
-баны/кики/вышедшие, 8.6).
+**✅ Решено: миграция не должна отнимать уже купленные слоты**
+Игрок, у которого сейчас `max_slots > 3` (купил 1-3 расширителя), при переходе
+на новую систему НЕ должен потерять эти слоты. Подход:
+1. На миграции снимок текущего `max_slots` каждого игрока (например `max_slots=5`
+   → у игрока было 2 расширителя).
+2. Эти «старые» слоты засчитываются как уже купленные диамантовые слоты по
+   ПОРЯДКУ цены (1-й 5💎, 2-й 15💎...) — БЕСПЛАТНО, retroactively. В примере
+   выше игрок зачисляется как «купил слот 1 и слот 2», дальше при покупке
+   нового слота с него возьмут цену слота 3 (30💎).
+3. Игроки, у которых уже было 3 расширителя (старый максимум, `max_slots=6`),
+   засчитываются как купившие все 3 первых диамантовых слота — доступен только
+   слот 4 (50💎).
+4. Невыданные/неприменённые `slot_expander` в инвентаре на момент миграции —
+   конвертировать в мору или алмазы (курс решить при реализации), так как
+   предмета `slot_expander` в новой системе не будет.
+5. Подтверждено аудитом: расширители физически не входят ни в одну `GACHA_TABLES`
+   → уже не выпадают из гачи, тут менять ничего не нужно.
 
 ---
 
-## Идеи на будущее (не блоки — фиксация для последующих сессий)
+## Блок 3 — VIP: продающее описание + Telegram-аватарка на сайте
 
-Явно отмечены в FUTURE_IDEAS как "на будущее", не реализуются сейчас, но
-логически продолжают Блоки 1-8 — имена/таблицы выше намеренно с ними не
-конфликтуют:
+**Зависимости:** нет.
+**Файлы:** `bot/handlers/vip.py` / `FastAPI/routers/vip.py` (текст тарифов),
+`core/registry.py` (`VIP_TIERS` — можно добавить поле `pitch`/`tagline`).
+Аватарка: `FastAPI/static/app.js` (`hdr-ava` и карточки профиля — сейчас
+плейсхолдер 🔮), новый эндпоинт через Bot API.
 
-1. **«подарить вип @user 1 месяц»** — виральная раздача VIP другому игроку
-   (за ✨ дарителя, доп. монетизация Блока 2) — новая команда в
-   `bot/handlers/vip.py` (Блок 2.4) + `purchase_vip(..., target_user_id=...)`.
-2. **«Стаж VIP»** — счётчик суммарных месяцев VIP в профиле (косметика,
-   титул/достижение) — поле-аккумулятор у `vip_subscriptions`/
-   `user_chat_stats`, инкремент при истечении/продлении (Блок 2/4).
-3. **Сезонные темы Battle Pass** — топовые награды платного трека сезона =
-   эксклюзивная тема из `core/themes.py` с новым `rarity:"seasonal"` (Блок
-   5.2, `BATTLE_PASS_REWARDS`) — требует добавить поле `rarity` в `THEMES`
-   (сейчас структура только `top/sep/bot/accent`, без rarity).
+**Что делаем**
+
+1. **Описание VIP** — переписать с акцентом на эмоции/ценность каждого пункта
+   вместо сухого списка «+1 слот, +2💎». Цифры тарифов не менять — берутся
+   из `BOT_AUDIT.md` разд. 4.
+2. **Аватарка** — при активном VIP показывать реальное фото профиля Telegram
+   вместо эмодзи-плейсхолдера, везде на сайте.
+   - Технически: `getUserProfilePhotos(user_id)` → `getFile` → URL
+   - Кэшировать (фото не меняется часто)
+   - Отдавать через свой эндпоинт — токен бота на фронт не светим
+
+---
+
+## Блок 4 — Мультивалютные переводы между игроками
+
+**Зависимости:** нет, но Блок 5 (браки) переиспользует эту инфраструктуру.
+**Файлы:** `bot/handlers/economy.py` (команда «перевод»),
+`infrastructure/repositories/economy.py` (новая `transfer_currency`),
+`FastAPI/routers/wallet.py` (если перевод доступен с сайта).
+
+**Что делаем**
+Сейчас: только Мора, без комиссии, без лимита.
+Нужно: тот же перевод для Алмазов, Тёмной Моры, Зарников — без комиссии,
+без лимита (как сейчас), просто на 4 валюты вместо 1.
+
+**✅ Решено**: единая команда `бот перевод` (без указания валюты в тексте) →
+бот предлагает выбор валюты инлайн-кнопками (🪙/💎/🌑/✨), дальше как сейчас
+(получатель + сумма). Не вводим 4 отдельных текстовых синтаксиса.
+
+---
+
+## Блок 5 — Браки 2.0: family wallet на все валюты, модалка оплаты, подарки
+
+**Зависимости:** Блок 4 (мультивалютные транзакции).
+**Файлы:** `infrastructure/repositories/marriages.py` (`family_bank_transaction`,
+схема `marriages.family_balance`), `bot/handlers/marriage.py`,
+`FastAPI/static/app.js` (модалка оплаты — встраивается в ЛЮБУЮ покупку:
+магазин/гача/темы/VIP/аукцион), новая таблица каталога подарков.
+
+**Сабблоки** (порядок реализации внутри блока — решить при старте)
+
+1. `family_balance` → 4 поля (мора/алмазы/тёмная мора/зарники) вместо одного
+2. Модалка «откуда платить» (личный счёт / семейный кошелёк) — общий
+   компонент, переиспользуемый ВСЕМИ точками покупки. **Это самая широкая
+   по охвату правка блока** — пересекает почти все покупки на сайте и в боте
+3. Быстрый перевод-подарок партнёру (любая валюта, мгновенно, прямой
+   личный→партнёр перевод без модалки выбора источника)
+4. Каталог подарков партнёру — новый реестр:
+   - дешёвые — чисто косметика/визуал в профиле
+   - средние/дорогие — временный баф (конкретный список бафов и
+     длительностей — решить при реализации)
+
+---
+
+## Блок 6 — БП-админка: гибкая настройка наград
+
+**Зависимости:** нет (расширяет уже существующий DB-оверрайд `battle_pass_reward_overrides`).
+**Файлы:** `FastAPI/routers/dev_console.py` (`/bp/rewards`), `services/battle_pass.py`
+(`claim_reward`), `bot/core/database.py` (миграция схемы), `FastAPI/static/app.js`.
+
+**Функции**
+
+1. ✅ Выбор ЛЮБОЙ награды бесплатного/платного трека — уже есть, без изменений
+2. 🆕 **Две награды на одном уровне = выбор игрока** —
+   - новое поле `reward_options` в `battle_pass_reward_overrides` (или новая
+     таблица `battle_pass_level_choices`)
+   - `claim_reward(db, user_id, level, track, choice_index=None)`
+   - UI выбора при клейме уровня (сайт + бот)
+3. 🆕 **Доп. функции админки** (предложение, подтвердить при реализации):
+   - превью всего трека сезона целиком (таблица уровень×трек) — проверка баланса перед запуском
+   - копирование наград прошлого сезона как шаблон для нового
+   - массовое автозаполнение диапазона уровней по формуле (вместо ручного ввода по одному)
+   - подсветка уровней без награды вообще (пропущенные по ошибке)
+   - сводная «ценность сезона» — сумма мора/алмазы/предметы по обоим трекам одним взглядом
+
+---
+
+## Блок 7 — Акции дня: новая ротация и гибкие слоты
+
+**Зависимости:** нет напрямую, но проще после Блока 8 — один из новых типов
+лота («жетоны фри-круток») зависит от финальной модели гачи. Можно начать
+раньше, оставив место под этот тип лота как TODO.
+**Файлы:** `core/constants.py` (`DAILY_DEAL_*`), `services/daily_deal.py`,
+`core/registry.py` (пулы предметов).
+
+**Было → станет**
+
+| Параметр | Сейчас | Новое |
+|---|---|---|
+| Ротация | раз в сутки | **раз в 12 часов** |
+| Скидка | 20-40% на весь слот | **5-50% индивидуально на товар** |
+| Кол-во товара в слоте | фикс. по предмету | **1-4 шт** |
+| Кол-во слотов | 6 мора + 1 алмаз (жёстко) | **3-7** |
+| Новый тип лота | — | жетоны на бесплатные крутки гачи |
+
+Одинаковые акции у всех игроков — без изменений (уже так работает).
+
+---
+
+## Блок 8 — Гача: снос 4 типов на 1 унифицированный
+
+### ⚠️ САМЫЙ РИСКОВАННЫЙ БЛОК — делать когда всё остальное стабильно
+
+**Зависимости:** формально нет, но широчайший охват по файлам.
+**Файлы:** `core/registry.py` (`GACHA_TABLES`, `GACHA_RATES` — снос 4 секций
+в одну), `core/constants.py` (`SPIN_COSTS`), `bot/handlers/gacha.py`,
+`FastAPI/routers/gacha.py`, плюс ВСЕ места, ссылающиеся на
+`spin_token_novice/standard/premium/diamond`:
+- VIP-подарки (`VIP_TIERS`, все 5 тарифов)
+- награды БП (`BATTLE_PASS_REWARDS`, десятки уровней)
+- ачивки (4 уровня)
+- daily deal пулы (2 позиции)
+- вехи питомцев (2 позиции)
+
+См. полный список зависимостей в `BOT_AUDIT.md` разд. 2.
+
+**Новая модель**
+- Один тип крутки вместо четырёх
+- Крутить **1-10 раз** за раз (мульти технически уже есть —
+  `SPIN_MULTI_COUNT`/`SPIN_MULTI_DISCOUNT`, адаптировать)
+- Режим **«за алмазы»**: выше шанс редкого лута + шире диапазон лута, чем в
+  обычном (мора) режиме
+
+### ✅ Решено: миграция жетонов
+
+- Один новый предмет `spin_token` (рабочее имя) — жетон на 1 бесплатную
+  крутку в **мора-режиме**. Отдельного жетона на алмазный режим нет — крутка
+  за алмазы оплачивается алмазами напрямую, жетоном не покрывается.
+- На миграции **все** существующие `spin_token_novice/standard/premium/diamond`
+  у всех игроков конвертируются в новый `spin_token` 1:1 (4 старых жетона
+  любого вида → 4 новых, без потерь и без доплаты).
+- Старые 4 item_id физически **удаляются** из `ITEMS_REGISTRY` и из БД
+  (инвентари очищены миграцией) — это полный хардкат, легаси-режима не остаётся.
+- Все места, что сейчас ВЫДАЮТ `spin_token_premium/diamond/standard` как
+  награду (VIP-подарки, БП-награды, ачивки, daily deal) — переключаются на
+  выдачу нового единого `spin_token` (то же количество штук, что и раньше,
+  просто другой item_id).
+
+### ✅ Черновик новых лут-таблиц (вес = относительная частота; считать в момент
+реализации — числа ниже предложение, не закон)
+
+**🎲 Мора-режим** — цена за крутку: **~600🪙** (предложение; заменяет три
+старых тира 350/1000/2800, подбирается при балансировке).
+
+| Вес | Лут |
+|---|---|
+| 22 | Мора (диапазон, подобрать) |
+| 14 | Мора (больший диапазон) |
+| 12 | food_basic ×1 |
+| 10 | star_dust_s ×1 |
+| 8 | soul_shard ×1 |
+| 10 | ⭐ дубль common |
+| 8 | combo (мелкие предметы) |
+| 6 | ⭐ дубль rare |
+| 3 | ⭐ exp_boost_1h ×1 |
+| 3 | ⭐ egg_basic ×1 |
+| 2 | ⭐ дубль epic |
+| 1.5 | ⭐ 1💎 |
+| 0.5 | ⭐ дубль legendary (жёсткий пити гарантирует) |
+
+**💎 Алмазный режим** — цена за крутку: **~8💎** (предложение, выше старых
+5💎 — компенсирует ощутимо лучшие шансы).
+
+| Вес | Лут |
+|---|---|
+| 20 | ⭐ egg_gold ×1 |
+| 18 | ⭐ дубль epic |
+| 16 | ⭐ egg_mythic ×1 |
+| 10 | ⭐ egg_crystal ×1 |
+| 8 | ⭐ combo: treasure_map×3 |
+| 8 | ⭐ 4💎 |
+| 6 | ⭐ дубль legendary (вероятность в разы выше старой Алмазной 0.1%) |
+| 5 | ⭐ exp_boost_4h ×1 |
+| 5 | ⭐ дубль rare |
+| 3 | ⭐ egg_unity ×1 |
+| 1 | ⭐ 2× дубль legendary (`pet_dup_multi`) |
+
+Идея режимов: мора-режим остаётся «бытовым» гриндом с редким джекпотом,
+алмазный режим — концентрат из лучшего лута старых Premium+Diamond таблиц,
+без мусорных позиций (мелкой моры, базового корма и т.п.).
+
+---
+
+## Блок 9 — Магазин: S/M/L/XL переработка утилит + новые предметы
+
+**Зависимости:** Блок 8 (часть новых предметов выпадает «из гачи и акции дня»
+— проще привязывать к финальной модели гачи).
+**Файлы:** `core/registry.py` (`ITEMS_REGISTRY`), `bot/handlers/shop.py`,
+`FastAPI/routers/shop.py`, `FastAPI/static/app.js` (модалка выбора размера
+S/M/L/XL по нажатию на один предмет вместо отдельных строк).
+
+### ⚖️ Баланс-ревью (числа из ТЗ — проверка математикой, не просто перенос)
+
+Базовая мера сравнения — «мора за 1 единицу усталости» на существующих
+кормах: food_basic 120/15=**8.0**, food_elite 450/50=**9.0**, food_super
+1100/~70=**15.7** (но даёт мгновенный комфорт сразу 2 питомцам), food_diamond
+12💎/100=**0.12💎/ед.** (≈360🪙/ед. по курсу ивента обмена 3000🪙=1💎, дорого
+из-за доп. баффа +20% эффективности на 24ч). Кривая **8-16 мора/ед.**, дороже
+с размером порции — это нормальный паттерн «премия за удобство», не баг.
+
+**🐾 Корм «4 лапы» (75🪙, 75%×(-100 ед.) / 25%×12ч простоя) — НАШЁЛ ПРОБЛЕМУ.**
+Чистая мора/ед. в случае успеха = 75/100 = **0.75** — это в 8-12 раз дешевле
+всего остального ряда, даже с учётом риска. Ожидаемая выгода настолько
+перекрывает риск, что предмет становится строго доминирующей стратегией —
+никто не будет покупать что-либо ещё. **Рекомендация**: поднять цену до
+**~300🪙** (75% успеха × 100 ед. при цене 300 даёт эффективную ставку
+≈4 мора/ед. с учётом риска — ближе к кривой, но всё ещё дешевле прямого
+аналога за счёт настоящего риска простоя). Механику (75%/100 ед. vs 25%/12ч)
+не трогать — менять только цену.
+
+**📚 Конспект / 🧧 Конверт / 📖 Том / 🧪 Зелье Удачи** (цены/эффекты из ТЗ
+пользователя) — наблюдение по Конспекту: цена за «% XP × час» падает с 30
+(S) до 8.3 (XL) — в ~3.6 раза щедрее в пересчёте на крупный размер. Это
+осознанный паттерн «апсейла» (S/M — для новичков по карману, XL — для тех,
+кто играет вдолго) и распространён в играх с такой сеткой размеров —
+оставляю цифры пользователя без изменений, но фиксирую наблюдение, чтобы
+осознанно подтвердить, что это нормально, а не недосмотр.
+Конверт/Том/Зелье — без прямой цены (дроп с гачи+акций), их «баланс» — это
+вес выпадения в новых лут-таблицах гачи (Блок 8): чем сильнее размер (XL/VI),
+тем ниже вес, по аналогии с уже расписанными `valuable`-весами 0.1-2 у
+легендарных дублей.
+
+### Новые 16 предметов — назначение цен (раньше были без цены, теперь добавлены)
+
+| Предмет | Цена | Обоснование |
+|---|---|---|
+| 🧭 Компас Удачи | 450🪙 | сопоставимо с диапазоном usable-бустеров, гарантия (не %) — дороже зелья удачи |
+| 🎒 Вместительный Рюкзак | — (только дроп с гачи) | удваивает предметный лут похода — слишком сильно для прямой покупки за мору, иначе обесценивает экспедиционный гринд |
+| 🕰 Песочные Часы | 500🪙 | дешевле food_energy (750🪙), т.к. НЕ лечит усталость, только сбрасывает КД |
+| 🛡 Страховка Похода | **отложено** | зависит от ещё не существующей механики «провала экспедиции» — экспедиции сейчас не проваливаются, только выдают диапазон лута. Не вводить без отдельного решения о risk-механике походов |
+| 📜 Страховой Полис Дуэли | 5% от ставки (не флэт-цена) | флэт-цена давала бы абуз на крупных ставках (15000🪙 max) — цена-в-% от ставки держит риск симметричным |
+| 🎗 Лента Гарантии | 80💎 ИЛИ редкий дроп diamond-режима | гарантия rare+ дубликата — это скип части RNG прогрессии, должно быть дорогим/редким, не мора-доступным |
+| 🍀 Счастливая Монета | ⚠️ **требует ограничения** | гарантированный выигрыш мини-игры — НЕЛЬЗЯ применять к игре «Число» (мультипликатор ×8.0, см. `GAMES`) — даёт бесконечный принтер валюты (купи за X → выиграй 8X → повтори). Применимо только к Костям/Монетке/Рулетке (×1.9-2.0) |
+| 🧬 Сыворотка Роста | ⚠️ **не продавать за мору/алмазы** | мгновенный +1 уровень без дублей — обходит всю прогрессию коллекционирования. Только сверхредкий дроп diamond-режима (вес ≤0.05), не магазинная позиция |
+| 💉 Стимулятор Линьки | 1500🪙 или 10💎 | сопоставимо с food_super, но масштабируется с размером питомника (выгоднее при заполненном) |
+| 📈 Вкладной Сертификат | ⚠️ **исходный дизайн был неверным** — см. ниже | |
+| 🔑 Ключ от Сундука | 200🪙 / 3💎 | нишевая QoL-покупка, недорогая |
+| 🌙 Лунный Камень | 50🌑 (Тёмная Мора) | пропуск КД Культа Бездны должен стоить именно Тёмной Морой — иначе моро-богатые игроки покупают доступ к дефицитной валюте в обход её дефицита |
+
+**⚠️ Самофикс: Вкладной Сертификат был спроектирован с ошибкой.**
+В прошлой версии: «заморозь N🪙 на 24ч → +5% по истечении» — это НЕ
+анти-инфляционный синк, а наоборот источник +5% мора из ничего (инфляционно,
+противоположность заявленной цели). Исправление: сертификат берёт **комиссию**,
+а не платит проценты — заморозь N🪙 на 24ч → получи обратно **95%** (потеря
+5% — настоящий синк), а взамен — небольшой нематериальный бонус (например
+гарантированный «средний» ролл следующей мини-игры вместо рандома). Если
+нематериальный бонус не нужен — этот предмет можно вообще не вводить, его
+ценность сомнительна без него.
+
+### Утилиты → размерная сетка (цифры из ТЗ, без изменений)
+
+**📚 Конспект** (+XP от сообщений)
+| Размер | Цена | Эффект |
+|---|---|---|
+| S | 150🪙 | +5% XP на 1ч |
+| M | 230🪙 | +10% XP на 1ч |
+| L | 375🪙 | +25% XP на 1ч |
+| XL | 499🪙 | +30% XP на 2ч |
+
+**🧪 Зелье Удачи** (из гачи + акции дня; авто-активация при завершении
+экспедиции; если есть несколько — приоритет XL>S)
+| Размер | Эффект (разовый, следующая экспедиция) |
+|---|---|
+| S | +5% к луту |
+| M | +9% к луту |
+| L | +13% к луту |
+| XL | +18% к луту |
+
+**📖 Том** (из гачи + акции дня; мгновенно даёт XP аккаунта при получении)
+| Уровень | XP аккаунта |
+|---|---|
+| I | 50-120 |
+| II | 116-186 |
+| III | 182-252 |
+| V | 259-329 |
+| VI | 336-406 |
+| VI ⚠️ | 413-483 (дубль номера в ТЗ — переименовать при реализации) |
+
+**🧧 Красный конверт** (из гачи + акции дня; даёт мору при открытии)
+| Размер | Мора |
+|---|---|
+| S | 66-99🪙 |
+| M | 196-229🪙 |
+| L | 326-359🪙 |
+| XL | 456-489🪙 |
+
+### Новые предметы — расширенный каталог (по запросу: «сейчас их мало, нужно больше»)
+
+Группировка по механике, не только по категории — каждый предмет должен
+делать что-то РЕАЛЬНО другое, не просто перекрашенный дубль существующего
+эффекта. Цифры — предложение для обсуждения при реализации, не финал.
+
+**🥩 Еда для питомцев** (база из ТЗ + добавки)
+| Предмет | Цена | Эффект |
+|---|---|---|
+| 🥩 Сырое мясо | 100🪙 | −15 усталости (= текущий food_basic, переименован) |
+| 🍗 Жаренное мясо | 255🪙 | −30 усталости |
+| 🐾 Корм «4 лапы» | 75🪙 | 75% шанс −100 усталости, 25% шанс «отравления»: питомец не работает и не ходит в экспедиции 12ч |
+| 🍖 Тушёная Грудка | 333🪙 | −45 усталости |
+| 🍱 Праздничный паёк | 865🪙 | −90 усталости |
+| 💎 Звёздное печенье | 550🪙 | −50 усталости, 5% шанс «найти» 1💎 на дне миски |
+| ☕ Кофеиновый экстракт | 666🪙 | −66 усталости; единственная еда, способная увести усталость в отрицательное значение (запас на следующий поход) |
+
+**🧭 Экспедиционные предметы** (новая механика — не бафф «до следующего похода», а влияет на САМ процесс похода)
+| Предмет | Эффект |
+|---|---|
+| 🧭 Компас Удачи | Гарантирует, что следующая экспедиция выпадет НЕ ниже среднего ролла лута (защита от минимального результата, не бонус сверху) |
+| 🎒 Вместительный Рюкзак | Следующая экспедиция возвращает 2 предмета вместо 1 (если предусмотрен предметный лут) |
+| 🕰 Песочные Часы | Полностью обнуляет КД текущей активной экспедиции (отличие от Энергетика: не лечит усталость, только время) |
+| 🛡 Страховка Похода | Если экспедиция «провалится» (если такая механика появится в ребалансе) — полный возврат стоимости запуска |
+
+**⚔️ PvP/экономические страховки** (новая механика — снижение риска, не прямой баф)
+| Предмет | Эффект |
+|---|---|
+| 📜 Страховой Полис Дуэли | Если дуэль проиграна — возврат 50% ставки (разовый, расходуется автоматически при поражении) |
+| 🎗 Лента Гарантии | Следующий полученный дубликат из гачи/яйца — не ниже rare (страховка от чисто common-лута) |
+| 🍀 Счастливая Монета | Следующая мини-игра (кости/монетка/число/рулетка) — фиксированный выигрыш независимо от исхода (разовая, антипот) |
+
+**🖼 Косметика профиля** (НЕ влияет на баланс — чистый визуал, несколько ценовых уровней)
+| Предмет | Цена | Эффект |
+|---|---|---|
+| 🖼 Рамка профиля (обычная/редкая/эпическая) | 200✨ / 500✨ / 1000✨ | Декоративная рамка вокруг аватарки на сайте, чисто косметика |
+| 🎭 Маска Инкогнито | 80✨ | Скрывает игрока из публичных топов на 24ч (приватность, не экономика) |
+
+**🧬 Питомцевые редкие** (дорогие, целенаправленно ограниченный доступ — НЕ pay-to-win, ускоряют то, что можно получить и так)
+| Предмет | Эффект |
+|---|---|
+| 🧬 Сыворотка Роста | Мгновенно +1 уровень питомцу БЕЗ расхода дублей (дорогой, редкий дроп — не покупка за реал, чтобы не нарушать принцип «без эксклюзивной силы за донат») |
+| 💉 Стимулятор Линьки | Сбрасывает 50% накопленной усталости ВСЕМ питомцам в питомнике одновременно (отличие от food_super: не +5 каждому, а %, выгоднее при высокой усталости) |
+
+**🏦 Анти-инфляционные синки** (новая механика — временная блокировка валюты с отложенной выгодой, противодействует инфляции без прямого «налога»)
+| Предмет | Эффект |
+|---|---|
+| 📈 Вкладной Сертификат | Заморозить N🪙 на 24ч → по истечении +5% к сумме (мора временно недоступна, итоговый прирост невелик — это sink с отложенной мини-выгодой, не чистый доход) |
+
+**🔑 Ивентовые/коллекционные**
+| Предмет | Эффект |
+|---|---|
+| 🔑 Ключ от Сундука | При следующем спавне Сундука чата — гарантированное место среди забравших, даже если не успел нажать кнопку вовремя |
+| 🌙 Лунный Камень | Разовый пропуск КД ритуала Культа Бездны (без него — 30 дней КД) |
+
+**🏡 Расширитель слота** — больше не предмет магазина, переехал в систему слотов
+питомника (Блок 2), убран отсюда совсем.
+
+Итого новых позиций (не считая косметики и переименованной еды): **~16 штук**
+с явно различной механикой (страховки, % от усталости, влияние на сам процесс
+экспедиции/дуэли, анти-инфляционный sink, коллекционные ивентовые) — не просто
+вариации «съешь/выпей и получи +N».
+
+---
+
+## Блок 10 — Онбординг новичка
+
+**Зависимости:** Блок 8 (крутки выдаются уже в унифицированной гаче —
+делать после, чтобы не раздавать крутки системы, которая будет снесена).
+**Файлы:** `bot/handlers/events.py` (создание `users`-записи нового игрока),
+`infrastructure/repositories/users.py` (`create_user`).
+
+**Стартовый набор нового игрока** (решено в чате)
+
+| Что | Сколько |
+|---|---|
+| 🐾 Питомец | 1, гарантированный, выдаётся напрямую (не из крутки) |
+| 🪙 Мора | 1000 |
+| 🎲 Крутка гачи (мора-режим) | 1 бесплатная |
+| 💎 Крутка гачи (алмазный режим) | 1 бесплатная |
+
+Делается сразу после Блока 8, чтобы крутки были в финальной модели гачи.
+
+---
+
+---
+
+## Блок 12 — Питомцы: гибридная роль активный/пассивный
+
+**Зависимости:** нет.
+**Файлы:** `core/constants.py` (бонус-таблицы всех 9 видов), `infrastructure/repositories/zoo.py`
+(`get_active_species_level` и любая функция, читающая `placement` для применения бонуса).
+
+**📋 Важное уточнение по факту, найденное при разборе кода (это НЕ баг, а текущее устройство)**
+Сейчас бонусы пород УЖЕ применяются одинаково в `active` И `passive` слоте —
+запрос `placement IN ('active', 'passive')` не делает разницы. Единственные
+текущие различия:
+1. Скорость накопления усталости: `active`=2/день, `passive`=1/день
+2. На экспедицию можно отправить ТОЛЬКО питомца из слота `active`
+3. `default_role` у вида (passive/active) сейчас — просто иконка ⚔️/💤 в UI,
+   не ограничение размещения
+
+Значит запрошенная «переделка, чтобы все были и активными и пассивными» —
+это НЕ снятие существующего ограничения (которого фактически нет), а
+**новая механика урезания бонуса в пассивном слоте**, которой сейчас тоже нет.
+
+**Новое правило**
+- Питомец в `active` — полный бонус породы, без урезания (как сейчас)
+- Питомец в `passive` — **числовые/процентные бонусы ×0.5** (предложение,
+  обсудить на балансировке), **булевые capstone-способности отключены**
+  (например `movement_immunity`, `auto_recover`, `weekend_double`,
+  `daily_free_spin_token` — их нельзя «урезать наполовину», поэтому просто
+  не работают в пассиве)
+- Скорость усталости active/passive (2/1 в день) — оставить как есть, это
+  уже работающий балансирующий рычаг «активный лучше, но устаёт быстрее»
+
+**Зачем это вообще нужно (контекст для решения при реализации)**
+Для dog/falcon/fox бонус целиком привязан к самому факту экспедиции (а
+экспедиция требует `active`) — для них пассив и так не даёт ничего, тут
+ничего не меняется. Урезание реально влияет на 6 «домашних» видов
+(hamster/owl/turtle/wolf/dragon/unicorn) — теперь у игрока появляется
+настоящий выбор: держать лучшего «домашнего» питомца в active (полный бонус,
+но быстрее устаёт + занимает слот, который мог бы пойти на экспедицию) или в
+passive (вдвое слабее, но не мешает экспедиционному питомцу и устаёт медленнее).
+
+---
+
+## Блок 13 — Ивенты и Реликвии: новый смысл для Тёмной Моры
+
+**Зависимости:** нет напрямую, но пересекается с Блоком 8 по общей экономике
+валют — делать после основных «ядровых» блоков, до Блока 8 (гача).
+**Файлы:** новая таблица `relics` + `user_relics`, новый `core/registry.py`
+(`RELICS` реестр по аналогии с `THEMES`), новый `services/relics.py`,
+новый `bot/handlers/relics.py` + сайт-вкладка, `bot/handlers/dark_mora.py`
+(новые/починенные ивенты), `core/constants.py` (новые ивент-константы).
+
+### Зачем
+Тёмная Мора сейчас имеет ровно 2 источника (Контрабанда, Культ Бездны) и
+ровно 1 сток (4 теневые темы профиля, 100-350🌑) — после покупки всех 4 тем
+валюта становится бесполезной балластом. Нужен новый постоянный сток +
+эксклюзивный «вишенка на торте» сток.
+
+### Реликвии — новая коллекционная категория (3-я ось прогрессии помимо тем и питомцев)
+
+**Обычные реликвии** — продаются в магазине, цена МОЖЕТ комбинировать
+несколько валют сразу (мора + алмазы + тёмная мора одновременно на одну
+позицию):
+
+| Редкость | Пример цены | Бонус (предложение) |
+|---|---|---|
+| Обычная | 500🪙 + 30🌑 | +2% к одному виду пассивного дохода (выбор при покупке) |
+| Редкая | 100💎 + 150🌑 | заметный бонус, лимит покупки 1/неделю на аккаунт |
+| Эпическая | 300💎 + 400🌑 | сильный бонус, лимит 1/месяц на аккаунт |
+
+Лимиты покупки нужны, чтобы реликвии не стали мгновенным дампом всей
+накопленной Тёмной Моры в день релиза — это новый ПОСТОЯННЫЙ сток, не
+одноразовый.
+
+**Теневые реликвии** — НЕ в магазине. Получить только через ивент «Теневой
+Торговец» (см. ниже), оплата ИСКЛЮЧИТЕЛЬНО Тёмной Морой (500-2000🌑).
+
+**⚠️ Важный баланс-чек перед ценами теневых реликвий**: максимальный темп
+набора Тёмной Моры — примерно 1 ритуал Культа/30 дней (10-20🌑) плюс
+Контрабанда раз в 7 дней с реальным риском провала/поимки. Реликвия за
+2000🌑 потребует МЕСЯЦЫ безошибочного фарма. Это либо осознанный
+далёкий endgame-чейз (нормально для эксклюзивной коллекционки), либо
+слишком жестоко для большинства игроков — **решить осознанно при
+реализации**, не цена «на глаз».
+
+### Аудит существующих ивентов — что нашёл
+
+| Ивент | Статус | Недочёт/находка |
+|---|---|---|
+| Контрабанда | работает | Неясно по коду: 4-дневный бан при «поимке» — складывается с обычным 7-дневным КД или заменяет его? Проверить при реализации, сейчас неоднозначно |
+| Контрабанда | работает | У Тёмной Моры нет обменного курса НИ В ОДНУ сторону назад в Мору/Алмазы (в отличие от Зарников) — нет объективного рыночного ориентира «сколько стоит 1🌑». Решить осознанно: оставить намеренно неконвертируемой (коллекционная валюта) или ввести один заведомо невыгодный обратный курс для ликвидности |
+| Культ Бездны | работает | 3 одновременных требования (стрик≥7 + ур.≥6 + питомцев≥3) почти полностью отрезают новых/казуальных игроков от ОДНОГО из двух источников валюты |
+| Ивент обмена Мора→Алмазы | работает | «случайный день недели» без анонса заранее — преимущество получают только игроки, проверяющие бот 24/7. Рекомендация: анонсировать хотя бы за несколько часов |
+| Сундуки чата | работает | Минимальный порог 2 активных юзера/24ч — нормально, без находок |
+| 🕴 Теневой Торговец | **мёртвый код** | константы есть (`DARK_MORA_SHADOW_MERCHANT_*`), хендлера нет. Тема `theme_dark_trade` явно создавалась под этот ивент |
+| Предательство | **мёртвый код, рекомендация — закрыть** | механика «награда за топ-3 две недели подряд → потом 3 дня штрафа» концептуально странная (награда ведёт к наказанию) — не реанимировать, формально вычеркнуть константы при реализации |
+| Артефакты месяца / Глобальные Реликвии | **мёртвый код, переиспользовать** | см. ниже — встроить в новую систему реликвий вместо отдельной системы |
+| Лунные ивенты (затмение/кровавая луна) | **похоже на недостроенное** | темы `theme_eclipsed`/`theme_void`/`theme_bloodmoon` описывают «Топ-1 чат мирового события» / «Лунное затмение (5%)» — явно подразумевают серию мировых ивентов, для которых не нашёл хендлера. Уточнить у пользователя: реализовывать ли наконец, или эти темы выдаются другим способом (аукцион/промокод вручную) |
+
+### Новые/реанимированные ивенты
+
+1. **🕴 Теневой Торговец** (реанимация мёртвого кода) — раз в
+   `DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS=3` дня появляется в случайном
+   активном чате, окно ответа 120 минут (константа уже есть), 3 первых
+   правильно отвечающих — победители. **Главное изменение смысла**: приз
+   победителям теперь — не прямая Тёмная Мора, а **разовый доступ купить
+   1 Теневую реликвию** за Тёмную Мору (это единственный вход в Теневые
+   реликвии).
+2. **🔥 Зов Бездны** (новый, облегчённая версия Культа) — еженедельно,
+   мягкие требования (стрик≥3, уровень≥3, без требования по питомцам),
+   награда 2-5🌑 — даёт новичкам/мидгейму доступ к Тёмной Море без полного
+   грайнда Культа.
+3. **🃏 Аукцион Теней** (новый) — раз в месяц спец-аукцион, ставки только
+   Тёмной Морой, лоты — редкие предметы/темы, выставленные другими игроками
+   за Тёмную Мору. Доп. P2P-сток валюты помимо прямой покупки у бота.
+4. **Артефакты месяца / Глобальные Реликвии — переиспользовать как доп. путь
+   получения Обычных/Эпических реликвий**: топ-5 по сообщениям в чате за
+   месяц (≥3000 сообщ., готовая константа `ARTIFACT_TOP_MONTH_*`) получают
+   гарантированную Обычную реликвию; топ-3 глобальных чатов → топ-5 в каждом
+   (`RELIC_TOP_GLOBAL_*`) получают гарантированную Эпическую реликвию. Это
+   оживляет старые мёртвые константы с понятной целью вместо отдельной
+   несвязанной системы.
+
+---
+
+## Блок 14 — Годовщины брака
+
+**Зависимости:** нет.
+**Файлы:** `infrastructure/repositories/marriages.py` (уже считает
+`marriage_days_total` для ачивки «Хранитель уз»), `services/scheduler.py`
+(новая фоновая проверка дат), `bot/handlers/marriage.py`.
+
+**Что делаем**
+На круглых датах (100 дней, 365 дней/1 год, далее по решению — например
+каждые следующие 365) — автоматическая разовая награда ОБОИМ супругам
+(небольшая валюта + косметический подарок) + объявление в чате. Независимо
+от уже существующих порогов ачивки «Хранитель уз» — это разовые «именные»
+праздники, не замена накопительной ачивке.
+
+---
+
+## Блок 15 — Настройки уведомлений
+
+**Зависимости:** нет.
+**Файлы:** новая таблица/колонки `user_notification_prefs` (или поля в
+`users`), команда в боте (`бот настройки уведомлений`), точки рассылки —
+`services/scheduler.py` (БП-напоминания, истечение VIP, сундуки), события
+Тёмной Моры, годовщины брака (Блок 14).
+
+**Что делаем**
+Переключатели вкл/выкл по категориям, например: БП-напоминания · истечение
+VIP · сундуки чата · ивенты Тёмной Моры · годовщины брака. Все рассылки
+сейчас безусловны — это первая настройка вообще. Широкий охват по файлам
+(нужно проверить каждую точку отправки), но логика самого переключателя
+простая — риск в полноте охвата, не в сложности.
+
+---
+
+## Блок 11 (НЕ ПОДТВЕРЖДЁН) — Находки: чего в боте вообще нет
+
+По запросу «найди что ещё можно сделать» — обход кодовой базы на предмет
+отсутствующих механик. Это НЕ согласованный план, а сырые находки для
+обсуждения — реализовывать только после явного решения, как
+`FUTURE_IDEAS.md`. Ничего здесь не трогать без отдельного «делаем блок 11.N».
+
+1. **Прямой обмен предметами между игроками** — сейчас единственный способ
+   передать предмет другому игроку — Аукцион (с комиссией 5%, ожиданием 24ч).
+   Прямого трейда «ты мне яйцо — я тебе осколки» нет вообще.
+2. **Кланы/гильдии** — нет ни одной таблицы/хендлера. `FUTURE_IDEAS.md` в
+   принципах монетизации упоминает «кланы» как то, что должно остаться
+   бесплатным — подразумевая, что фича планировалась, но кода нет совсем.
+3. **Разведение/слияние питомцев** — прогрессия питомца сейчас только через
+   дубликаты до Lv10. Скрещивания/фьюжена двух питомцев в третьего — нет.
+4. **Недельный топ-1 без прямой награды** — `weekly_top1_count` сейчас только
+   инкрементирует достижение «Звезда чата» (`services/scheduler.py:380-419`).
+   Само попадание на 1-е место чата за неделю не даёт ни валюты, ни предмета
+   сразу — только прогресс ачивки. Не покрыто Блоком 13 (там месячный и
+   глобальный топ, не еженедельный) — остаётся открытым отдельно.
+
+✅ Пункты, которые БЫЛИ здесь и теперь переехали в подтверждённые блоки (не
+дублирую): мёртвые `ARTIFACT_TOP_MONTH_*`/`RELIC_TOP_GLOBAL_*` и
+`DARK_MORA_SHADOW_MERCHANT_*`/`BETRAYAL_*` — реанимированы/закрыты в Блоке 13;
+годовщины брака — Блок 14; настройки уведомлений — Блок 15.
+
+**Рекомендация по оставшимся 1-4**: пункты 1-3 — полноценные новые фичи,
+требуют отдельного дизайна экономики (особенно клановая система — легко
+скатывается в pay-to-win/токсичную иерархию, если не продумать рамки
+заранее). Пункт 4 — дешёвый, можно прицепить к Блоку 13 как ещё один источник
+Обычной реликвии, если пользователь захочет.
+
+---
+
+*Конец плана. Текущее состояние всех систем — `BOT_AUDIT.md`.
+Начинаем с любого блока по команде "делаем блок N".*

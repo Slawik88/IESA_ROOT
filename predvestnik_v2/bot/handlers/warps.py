@@ -6,7 +6,7 @@ import random
 
 from aiogram import Router, types
 
-from bot.filters.text_commands import TextCmd
+from bot.filters.text_commands import WarpCmd
 from core.warp_responses import ALL_WARP_COMMANDS, NSFW_TYPES, resolve_warp
 from infrastructure.repositories import moderation as mod_db
 from services.quests import increment_metric as quest_increment
@@ -42,13 +42,15 @@ def _all_aliases() -> list[str]:
 ALL_WARP_ALIASES = _all_aliases()
 
 
-@router.message(TextCmd(ALL_WARP_ALIASES))
+@router.message(WarpCmd(ALL_WARP_ALIASES))
 async def cmd_warp(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
         return
 
-    # Which warp command?
-    raw_cmd = message.text.lower().split(",")[0].replace("бот", "").strip()
+    # Команда — первая строка, без запятых-аргументов и опционального префикса «бот»
+    raw_cmd = message.text.lower().split("\n", 1)[0].split(",")[0].strip()
+    if raw_cmd.startswith("бот"):
+        raw_cmd = raw_cmd[3:].strip()
     warp_name = resolve_warp(raw_cmd)
     if not warp_name:
         return
@@ -75,7 +77,7 @@ async def cmd_warp(message: types.Message, db, text_args: str = None):
     target_id, target_name, _ = await resolve_target(message, db, text_args)
     if not target_id:
         return await message.answer(
-            f"ℹ️ <code>бот {warp_name}, @юзер</code> — укажите цель или ответьте на сообщение.",
+            f"ℹ️ <code>{warp_name}, @юзер</code> — укажите цель или ответьте на сообщение.",
             parse_mode="HTML",
         )
 

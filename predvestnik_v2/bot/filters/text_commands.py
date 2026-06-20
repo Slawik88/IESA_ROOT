@@ -159,3 +159,53 @@ class TextCmd(BaseFilter):
                 return {"text_args": args}
 
         return False
+
+
+class WarpCmd(BaseFilter):
+    """
+    Варп-команды БЕЗ обязательного префикса «бот» (Implementation Block 1).
+
+    Срабатывает на:
+      «обнять, @юзер»     — алиас + запятая + аргументы (префикс «бот» опционален)
+      «обнять» (реплай)   — голый алиас как ВЕСЬ текст, только если это ответ
+                            на чьё-то сообщение (явная цель)
+      «бот обнять» (...)  — старый синтаксис с префиксом полностью сохранён
+
+    НЕ срабатывает на голый алиас в обычной речи без реплая и без префикса
+    («обнять» отдельным сообщением, не в ответ) — чтобы не спамить подсказками
+    на разговорные «обнять»/«укусить»/«язык».
+
+    Инъекция: text_args (str) — аргументы после запятой, "" если их нет.
+    """
+    def __init__(self, aliases: list[str]):
+        # От длинных к коротким: «поцеловать страстно» раньше «поцеловать»
+        self.aliases = sorted(aliases, key=len, reverse=True)
+
+    async def __call__(self, message: Message) -> dict | bool:
+        if not message.text:
+            return False
+
+        text = message.text.lower().strip()
+
+        # «бот» — опциональный префикс (обратная совместимость со старым синтаксисом)
+        had_prefix = False
+        if text.startswith("бот"):
+            had_prefix = True
+            text = text[3:].lstrip(" ,.").strip()
+
+        # Команда — только первая строка (вторая строка = реплика-цитата)
+        first_line = text.split("\n", 1)[0]
+        first_line = re.sub(r'\s*,\s*', ', ', first_line)
+        is_reply = message.reply_to_message is not None
+
+        for alias in self.aliases:
+            # Форма с аргументами «алиас, ...» — всегда явная команда
+            if first_line.startswith(alias + ","):
+                # аргументы берём из ПОЛНОГО текста (с учётом возможной цитаты)
+                norm = re.sub(r'\s*,\s*', ', ', text)
+                return {"text_args": norm[len(alias) + 1:].strip()}
+            # Голый алиас: только реплай (явная цель) или явный префикс «бот»
+            if first_line == alias and (is_reply or had_prefix):
+                return {"text_args": ""}
+
+        return False
