@@ -8,6 +8,7 @@ from infrastructure.repositories import marriages, users
 from infrastructure.repositories.marriages import (
     create_proposal, update_proposal_status, FAMILY_CURRENCIES,
 )
+from core.registry import PARTNER_GIFTS
 from infrastructure.repositories.moderation import get_chat_settings
 from infrastructure.repositories.chat import get_chat_stats
 from services import marriage as marriage_service
@@ -32,6 +33,18 @@ class FamilyBankCB(CallbackData, prefix="fbank"):
     amount: float
     user_id: int
     marriage_id: int
+
+class GiftBuyCB(CallbackData, prefix="gbuy"):
+    gift_id: str
+    buyer_id: int
+    partner_id: int
+
+
+def _gift_price_str(gift: dict) -> str:
+    if gift.get("price_mora"):     return f"{gift['price_mora']} 🪙"
+    if gift.get("price_diamonds"): return f"{gift['price_diamonds']} 💎"
+    if gift.get("price_zarniki"):  return f"{gift['price_zarniki']} ✨"
+    return "—"
 
 
 def _family_currency_kb(action: str, amount: float, user_id: int, marriage_id: int):
@@ -424,3 +437,47 @@ async def cmd_gift_partner(message: types.Message, db, text_args: str = None):
     await message.answer(
         f"🎁 Подарить <b>{format_currency(amount)}</b> партнёру <b>{partner_name}</b> — какой валютой?",
         reply_markup=b.as_markup(), parse_mode="HTML")
+
+
+# ── Каталог подарков партнёру (Block 5.4) ────────────────────────────────────
+@router.message(TextCmd(["подарки", "подарки партнёру", "витрина подарков", "магазин подарков"]))
+async def cmd_gift_catalog(message: types.Message, db):
+    if message.chat.type == "private":
+        return
+    marriage = await marriages.get_user_marriage(db, message.from_user.id)
+    if not marriage:
+        return await message.answer("💔 Сначала найдите свою половинку — подарки дарятся партнёру.")
+    partner_id = marriage['user2_id'] if marriage['user1_id'] == message.from_user.id else marriage['user1_id']
+    partner_name = await resolve_display_name(db, partner_id, message.chat.id,
+                                              marriage['user2_name'] if marriage['user1_id'] == message.from_user.id else marriage['user1_name'])
+    lines = ["🎁 <b>ПОДАРКИ ПАРТНЁРУ</b>", f"Для: <b>{partner_name}</b>\n"]
+    b = InlineKeyboardBuilder()
+    for gid, g in PARTNER_GIFTS.items():
+        tag = "🎀" if g["kind"] == "cosmetic" else "✨баф"
+        lines.append(f"{g['name']} — {_gift_price_str(g)} <i>({tag})</i>")
+        b.button(text=f"{g['name']} · {_gift_price_str(g)}",
+                 callback_data=GiftBuyCB(gift_id=gid, buyer_id=message.from_user.id, partner_id=partner_id))
+    b.adjust(1)
+    lines.append("\n<i>Косметика — приятный знак внимания. Баф-подарки дают партнёру +XP на время.</i>")
+    await message.answer("\n".join(lines), reply_markup=b.as_markup(), parse_mode="HTML")
+
+
+@router.callback_query(GiftBuyCB.filter())
+async def cb_gift_buy(query: types.CallbackQuery, callback_data: GiftBuyCB, db):
+    if query.from_user.id != callback_data.buyer_id:
+        return await query.answer("Это не ваш подарок.", show_alert=True)
+    ok, msg, gift = await marriages.purchase_partner_gift(
+        db, callback_data.buyer_id, callback_data.partner_id, callback_data.gift_id)
+    if not ok:
+        return await query.answer(msg, show_alert=True)
+    partner_name = await resolve_display_name(db, callback_data.partner_id,
+                                              query.message.chat.id, "партнёру")
+    buyer_name = await resolve_display_name(db, callback_data.buyer_id,
+                                            query.message.chat.id, query.from_user.first_name)
+    try:
+        await query.message.edit_text(
+            f"🎁 <b>{buyer_name}</b> {msg} — <b>{partner_name}</b> 💖",
+            parse_mode="HTML")
+    except Exception:
+        await query.message.answer(f"🎁 {msg}", parse_mode="HTML")
+    await query.answer("Подарок вручён! 💖")

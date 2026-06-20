@@ -1,6 +1,15 @@
 # infrastructure/repositories/marriages.py
+from datetime import datetime, timedelta
 import aiosqlite
 from infrastructure.repositories.economy import get_balance
+from infrastructure.repositories.wallet_log import log_wallet
+
+# item-цена → (колонка баланса, дельта-поле wallet_log, иконка)
+_GIFT_PRICE_FIELDS = {
+    "price_mora":     ("user_balance_mora",     "delta_mora",     "🪙"),
+    "price_diamonds": ("user_balance_diamonds", "delta_diamonds", "💎"),
+    "price_zarniki":  ("user_balance_zarniki",  "delta_zarniki",  "✨"),
+}
 
 
 # Семейный кошелёк на 4 валюты (Implementation Block 5). Колонки whitelisted —
@@ -98,6 +107,73 @@ async def family_bank_transaction(
         return True, "Успешно."
     except Exception as e:
         return False, f"Ошибка: {e}"
+
+
+async def purchase_partner_gift(db, buyer_id: int, partner_id: int, gift_id: str):
+    """Купить подарок партнёру (Block 5.4). Оплата с личного баланса дарителя,
+    бафф-подарки накладывают study_xp на ПАРТНЁРА. Returns (ok, msg, gift)."""
+    from core.registry import PARTNER_GIFTS
+    gift = PARTNER_GIFTS.get(gift_id)
+    if not gift:
+        return False, "Неизвестный подарок.", None
+
+    col = delta_field = icon = None
+    amount = 0.0
+    for price_key, (c, d, ic) in _GIFT_PRICE_FIELDS.items():
+        if gift.get(price_key):
+            col, delta_field, icon, amount = c, d, ic, float(gift[price_key])
+            break
+    if not col:
+        return False, "У подарка не задана цена.", None
+
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                f"SELECT COALESCE({col}, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
+                (buyer_id,),
+            ) as c:
+                row = await c.fetchone()
+            if not row or float(row[0]) < amount:
+                return False, f"Недостаточно средств ({icon}).", None
+            await db.execute(
+                f"UPDATE users SET {col} = COALESCE({col}, 0) - ? WHERE user_tg_id = ?",
+                (amount, buyer_id),
+            )
+            await log_wallet(db, buyer_id, **{delta_field: -amount},
+                             source="partner_gift", target_id=partner_id, note=gift_id)
+
+            if gift.get("kind") == "buff":
+                expires = (datetime.utcnow() + timedelta(hours=gift["buff_hours"])).strftime("%Y-%m-%d %H:%M:%S")
+                await db.execute(
+                    "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING",
+                    (partner_id,),
+                )
+                await db.execute(
+                    "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at, value) "
+                    "VALUES (?, 'study_xp', 1, ?, ?) "
+                    "ON CONFLICT(user_id, buff_type) DO UPDATE SET "
+                    "expires_at = GREATEST(player_buffs.expires_at, EXCLUDED.expires_at), "
+                    "value = GREATEST(player_buffs.value, EXCLUDED.value)",
+                    (partner_id, expires, gift["buff_value"]),
+                )
+
+            await db.execute(
+                "INSERT INTO partner_gifts_log (sender_id, receiver_id, gift_id) VALUES (?, ?, ?)",
+                (buyer_id, partner_id, gift_id),
+            )
+        return True, gift["msg"], gift
+    except Exception as e:
+        return False, f"Ошибка: {e}", None
+
+
+async def get_received_gifts(db, user_id: int, limit: int = 5) -> list[dict]:
+    """Последние полученные подарки (для отображения в карточке брака)."""
+    async with db.execute(
+        "SELECT gift_id, sender_id, sent_at FROM partner_gifts_log "
+        "WHERE receiver_id = ? ORDER BY sent_at DESC LIMIT ?",
+        (user_id, limit),
+    ) as c:
+        return [dict(r) for r in await c.fetchall()]
 
 
 async def create_marriage(

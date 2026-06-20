@@ -829,6 +829,15 @@ async def init_db():
             )
         """)
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS partner_gifts_log (
+                id          SERIAL PRIMARY KEY,
+                sender_id   BIGINT,
+                receiver_id BIGINT,
+                gift_id     TEXT,
+                sent_at     TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS theme_metadata_overrides (
                 theme_id       TEXT PRIMARY KEY,
                 name           TEXT,

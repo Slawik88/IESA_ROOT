@@ -1067,9 +1067,36 @@ function doMove(pid,pl,btn) {
 }
 
 function doBuySlot() {
+  const price = _zooData && _zooData.slot_next_price;
+  if (!price) return _execBuySlot();
+  withPaymentSource('diamonds', price, _execBuySlot);
+}
+function _execBuySlot() {
   api('/zoo/buy-slot',{method:'POST'})
     .then(r=>{toast(r.message||`✅ Слот куплен за ${r.price_paid} 💎!`);_zooData=null;loadZoo();refreshCurrBar();})
     .catch(e=>toast(e,false));
+}
+
+// ── Block 5.2: выбор источника оплаты (личный / семейный кошелёк) ───────────────
+// Авто-перевод: если выбран семейный — нужная сумма переносится family→личный,
+// затем обычная покупка. Не женат → сразу личный, без модалки.
+let _pendingPay = null;  // {currency, amount, proceed}
+function withPaymentSource(currency, amount, proceed) {
+  if (!_profileData || !_profileData.partner) { proceed(); return; }
+  _pendingPay = { currency, amount, proceed };
+  const icon = {mora:'🪙',diamonds:'💎',dark_mora:'🌑',zarniki:'✨'}[currency] || '';
+  OM('💳 Чем оплатить?',
+    `<div style="text-align:center;padding:8px 0;color:var(--muted);font-size:12px">К оплате: <b style="color:var(--gold2)">${fmt(amount)} ${icon}</b></div>`,
+    [{l:'👤 Личный счёт', c:'btn-gold', f:'paySrc(0)'},
+     {l:'💑 Семейный кошелёк', c:'btn-ghost', f:'paySrc(1)'}]);
+}
+function paySrc(useFamily) {
+  const p = _pendingPay; _pendingPay = null; CM();
+  if (!p) return;
+  if (!useFamily) { p.proceed(); return; }
+  api('/marriage/fund', {method:'POST', body:JSON.stringify({currency:p.currency, amount:p.amount})})
+    .then(()=>{ toast('💑 Переведено из семейного кошелька'); p.proceed(); })
+    .catch(e=>toast(e, false));
 }
 
 function collectHamster(btn) {
@@ -2771,6 +2798,10 @@ function loadMarriageCard() {
           <button class="btn btn-sm btn-gold" style="flex:1" onclick="familyBank('deposit')">📥 Вложить</button>
           <button class="btn btn-sm btn-ghost" style="flex:1" onclick="familyBank('withdraw')">📤 Забрать</button>
         </div>
+        ${(m.received_gifts&&m.received_gifts.length)?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🎁 Подарки от партнёра</div>
+          ${m.received_gifts.map(g=>`<div class="irow"><span class="ik">${esc(g.name)}</span><span class="iv" style="font-size:10px">${(g.sent_at||'').slice(0,10)}</span></div>`).join('')}
+        </div>`:''}
         ${pets.length?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🐾 Питомцы семьи (${pets.length})</div>
           ${pets.map(p=>`<div class="irow"><span class="ik">${p.name||p.species_id} ${rc(p.rarity)}</span><span class="iv">Lv${p.pet_level} · ${PL[p.placement]||p.placement}</span></div>`).join('')}
