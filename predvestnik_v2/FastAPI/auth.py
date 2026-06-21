@@ -47,6 +47,13 @@ def verify_webapp_data(init_data: str) -> dict | None:
         if not hmac.compare_digest(computed, check_hash):
             return None
 
+        # M14: отвергаем устаревший initData (replay-защита) — как у Login Widget.
+        try:
+            if time.time() - int(params.get("auth_date", 0)) > 86400:
+                return None
+        except (ValueError, TypeError):
+            return None
+
         user_str = params.get("user", "")
         return json.loads(user_str) if user_str else None
     except Exception:
