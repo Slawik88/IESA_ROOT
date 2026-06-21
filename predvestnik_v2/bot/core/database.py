@@ -922,6 +922,7 @@ async def init_db():
             pass
 
         # ── Indexes ────────────────────────────────────────────────────────────
+        # ── Indexes ────────────────────────────────────────────────────────────
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_users_username ON users(user_tg_username)",
             "CREATE INDEX IF NOT EXISTS idx_stats_chat_xp ON user_chat_stats(chat_tg_id, user_xp DESC)",
@@ -939,9 +940,6 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS idx_daily_quests ON daily_quests(user_id, chat_id, date)",
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_nickname_unique ON user_nicknames(chat_id, LOWER(nickname))",
             "CREATE INDEX IF NOT EXISTS idx_promo_redemptions ON promocode_redemptions(user_id)",
-            "CREATE INDEX IF NOT EXISTS idx_artifact_owner ON artifact_instances(owner_id)",
-            "CREATE INDEX IF NOT EXISTS idx_artifact_art ON artifact_instances(art_id)",
-            "CREATE INDEX IF NOT EXISTS idx_relic_owner ON relic_instances(owner_id)",
             "CREATE INDEX IF NOT EXISTS idx_user_themes ON user_themes(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_shadow_events ON shadow_merchant_events(status, expires_at)",
             "CREATE INDEX IF NOT EXISTS idx_player_buffs ON player_buffs(user_id, buff_type)",
