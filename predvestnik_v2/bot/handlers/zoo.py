@@ -870,8 +870,11 @@ async def cb_use_stardust(query: types.CallbackQuery, callback_data: ZooCB, db):
 
 _FOOD_ITEMS = [
     "food_basic",
+    "food_fried",
     "food_elite",
+    "food_stew",
     "food_energy",
+    "food_feast",
     "food_super",
     "food_diamond",
     "zarniki_fatigue_reset",

@@ -24,7 +24,7 @@ from services.zoo import get_active_wolf_food_extra, get_wolf_fatigue_reduction
 
 router = APIRouter(prefix="/zoo", tags=["zoo"])
 
-_FOOD_IDS = ["food_basic", "food_elite", "food_energy", "food_super", "food_diamond"]
+_FOOD_IDS = ["food_basic", "food_fried", "food_elite", "food_stew", "food_energy", "food_feast", "food_super", "food_diamond"]
 _PLACEMENTS = ("active", "passive", "storage")
 
 

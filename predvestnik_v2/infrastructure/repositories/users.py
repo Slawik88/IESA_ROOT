@@ -3,9 +3,14 @@ import aiosqlite
 
 
 async def update_user(db: aiosqlite.Connection, user_id: int, username: str | None):
-    """Upsert: register user or refresh username if it changed."""
+    """Upsert: register user or refresh username if it changed.
+
+    Block 10: новые игроки вставляются с onboarded=FALSE (колонка иначе DEFAULT
+    TRUE — существующие игроки набор не получают). Флаг переключает только
+    services.onboarding.grant_starter_kit.
+    """
     await db.execute(
-        "INSERT INTO users (user_tg_id, user_tg_username) VALUES (?, ?) "
+        "INSERT INTO users (user_tg_id, user_tg_username, onboarded) VALUES (?, ?, FALSE) "
         "ON CONFLICT(user_tg_id) DO UPDATE SET user_tg_username = ?",
         (user_id, username, username),
     )
