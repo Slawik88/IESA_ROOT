@@ -831,6 +831,14 @@ async def init_db():
             )
         """)
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_relics (
+                user_id    BIGINT NOT NULL,
+                relic_id   TEXT NOT NULL,
+                acquired_at TIMESTAMP DEFAULT NOW(),
+                PRIMARY KEY (user_id, relic_id)
+            )
+        """)
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS user_notification_prefs (
                 user_id  BIGINT NOT NULL,
                 category TEXT NOT NULL,

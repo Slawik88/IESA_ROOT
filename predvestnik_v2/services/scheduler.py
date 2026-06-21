@@ -9,6 +9,7 @@ from services.expedition import calculate_reward
 from services.daily_deal import ensure_deals_fresh
 from infrastructure.repositories.zoo import get_active_species_level, get_species_level_placement
 from infrastructure.repositories.notifications import is_enabled as _notif_enabled
+from infrastructure.repositories.relics import get_expedition_mora_bonus as _relic_exp_bonus
 from infrastructure.repositories.exchange import (
     get_active_event as _get_active_exchange,
     get_scheduled_event as _get_scheduled_exchange,
@@ -84,11 +85,13 @@ async def expedition_background_task(bot: Bot):
                         species_levels[species_id] = species_level
                         species_placements[species_id] = "active"
 
+                    relic_mora_pct = await _relic_exp_bonus(db, owner_id) if owner_id else 0.0
                     reward = calculate_reward(
                         hours,
                         species_id=species_id,
                         species_levels=species_levels,
                         species_placements=species_placements,
+                        relic_mora_pct=relic_mora_pct,
                     )
 
                     if reward["mora"] == 0 and reward["xp"] == 0:
