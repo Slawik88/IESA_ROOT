@@ -13,10 +13,15 @@ import asyncio
 _queues: dict[int, asyncio.Queue] = {}
 
 
-async def notify(user_id: int, event: dict) -> None:
+async def notify(user_id: int, event: dict) -> bool:
+    """Доставить событие подключённому WS-клиенту. Возвращает True, если клиент
+    онлайн (событие отправлено), иначе False — вызывающий может сохранить его в
+    web_notifications для показа при следующем входе (Welcome Back)."""
     q = _queues.get(user_id)
     if q:
         await q.put(event)
+        return True
+    return False
 
 
 def register(user_id: int, q: asyncio.Queue) -> None:

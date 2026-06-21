@@ -14,7 +14,8 @@ from core.constants import (
     CHEST_DURATION_SECONDS,
     CHEST_SPAWN_MIN_HOURS, CHEST_SPAWN_MAX_HOURS, CHEST_MAX_CLAIMANTS,
     CHEST_REWARDS_BY_POSITION,
-    EXCHANGE_RATE_MORA_PER_DIAMOND, EXCHANGE_DAILY_CAP_DIAMONDS,
+    EXCHANGE_RATE_MORA_PER_DIAMOND, EXCHANGE_RATE_MORA_PER_DIAMOND_SELL,
+    EXCHANGE_DAILY_CAP_DIAMONDS,
     DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS,
     DARK_MORA_CONTRABANDA_COOLDOWN_DAYS,
     DARK_MORA_CULT_COOLDOWN_DAYS,
@@ -73,28 +74,14 @@ async def cmd_events_info(message: types.Message, db):
 
     tz_offset = await get_chat_timezone(db, message.chat.id)
 
-    # ── Exchange event ────────────────────────────────────────────────────────
-    active_ex = await _get_active_exchange(db)
-    sched_ex = await _get_scheduled_exchange(db)
-
-    if active_ex:
-        ex_status = (
-            f"✅ <b>ИДЁТ СЕЙЧАС</b>\n"
-            f"   └ Заканчивается: <code>{_fmt_dt(active_ex.get('ends_at'), tz_offset)}</code> "
-            f"(через {_time_until(active_ex.get('ends_at'))})\n"
-            f"   └ Курс: <code>{int(EXCHANGE_RATE_MORA_PER_DIAMOND)} 🪙 = 1 💎</code>\n"
-            f"   └ Лимит: <code>{int(EXCHANGE_DAILY_CAP_DIAMONDS)} 💎/день</code>\n"
-            f"   └ Команда: <code>бот обмен, [алмазов]</code>"
-        )
-    elif sched_ex:
-        ex_status = (
-            f"⏳ Запланирован\n"
-            f"   ├ Начало: <code>{_fmt_dt(sched_ex.get('starts_at'), tz_offset)}</code> "
-            f"(через {_time_until(sched_ex.get('starts_at'))})\n"
-            f"   └ Конец: <code>{_fmt_dt(sched_ex.get('ends_at'), tz_offset)}</code>"
-        )
-    else:
-        ex_status = "⏰ Следующий — в случайный день недели (8–20 ч. UTC)"
+    # ── Currency exchanger (постоянный, БЛОК 2.2) ─────────────────────────────
+    ex_status = (
+        f"✅ <b>ДОСТУПЕН ВСЕГДА</b>\n"
+        f"   ├ 🛒 Покупка: <code>{int(EXCHANGE_RATE_MORA_PER_DIAMOND)} 🪙 = 1 💎</code>\n"
+        f"   ├ 💸 Продажа: <code>1 💎 = {int(EXCHANGE_RATE_MORA_PER_DIAMOND_SELL)} 🪙</code>\n"
+        f"   ├ Лимит: <code>{int(EXCHANGE_DAILY_CAP_DIAMONDS)} 💎/день</code> в каждую сторону\n"
+        f"   └ Команда: <code>бот обмен</code> или клик на 🪙/💎 в профиле"
+    )
 
     # ── Chest event ───────────────────────────────────────────────────────────
     top3_reward = CHEST_REWARDS_BY_POSITION.get(1, 300)
@@ -119,7 +106,7 @@ async def cmd_events_info(message: types.Message, db):
 
     text = (
         "🗓 <b>ИВЕНТЫ ПРЕДВЕСТНИКА</b>\n\n"
-        "💱 <b>ОБМЕН МОРЫ → АЛМАЗЫ</b>\n"
+        "💱 <b>ОБМЕННИК ВАЛЮТ</b>\n"
         f"{ex_status}\n\n"
         "📦 <b>СУНДУКИ</b>\n"
         f"{chest_status}\n\n"

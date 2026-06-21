@@ -6,11 +6,14 @@ import random
 from datetime import datetime, timezone, timedelta
 
 from core.registry import DAILY_QUESTS
+from core.constants import DAILY_QUEST_COMPLETE_ID, DAILY_QUEST_COMPLETE_BONUS
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.quests import (
-    get_user_quests, upsert_quest, increment_quest_progress, mark_completed,
+    get_user_quests, upsert_quest, increment_quest_progress, mark_completed, claim_once,
 )
 from infrastructure.repositories.streak import get_chat_timezone
+
+_DAILY_IDS = {q["id"] for q in DAILY_QUESTS}
 
 
 def _today_for_tz(tz_offset: int = 0) -> str:
@@ -157,4 +160,49 @@ async def increment_metric(
                 )
             completed_now.append({**q, "progress": new_progress})
 
+    # БЛОК 5: если этим вызовом что-то закрылось — проверить, не закрылись ли ВСЕ
+    # дневные квесты → супер-награда (один раз в день, атомарно через claim_once).
+    if completed_now:
+        bonus = await _maybe_grant_daily_bonus(db, user_id, chat_id, today)
+        if bonus:
+            completed_now.append(bonus)
+
     return completed_now
+
+
+async def _maybe_grant_daily_bonus(db, user_id: int, chat_id: int, today: str) -> dict | None:
+    """Выдать супер-награду, если ВСЕ дневные квесты закрыты (и ещё не выдавали).
+    Возвращает dict-уведомление или None. No commit — caller коммитит."""
+    rows = await get_user_quests(db, user_id, chat_id, today)
+    real = [r for r in rows if r["quest_id"] in _DAILY_IDS]
+    if len(real) < 3 or not all(r["completed"] for r in real):
+        return None
+    if not await claim_once(db, user_id, chat_id, today, DAILY_QUEST_COMPLETE_ID):
+        return None  # уже выдавали сегодня
+
+    reward = DAILY_QUEST_COMPLETE_BONUS
+    if reward.get("mora", 0) > 0:
+        await eco_repo.add_balance(db, user_id, mora=reward["mora"], commit=False,
+                                   source="quest_complete_bonus")
+    if reward.get("diamonds", 0) > 0:
+        await eco_repo.add_balance(db, user_id, diamonds=reward["diamonds"], commit=False,
+                                   source="quest_complete_bonus")
+    for item_id, qty in reward.get("items", []):
+        await db.execute(
+            "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+            (user_id, item_id, qty, qty),
+        )
+    return {"id": DAILY_QUEST_COMPLETE_ID, "name": "🏆 Все задания дня закрыты!",
+            "reward": reward, "is_completion_bonus": True}
+
+
+async def daily_bonus_status(db, user_id: int, chat_id: int, tz_offset: int | None = None) -> dict:
+    """Статус супер-награды дня для UI: {reward, all_done, claimed}."""
+    tz_offset = await _resolve_tz(db, chat_id, tz_offset)
+    today = _today_for_tz(tz_offset)
+    rows = await get_user_quests(db, user_id, chat_id, today)
+    real = [r for r in rows if r["quest_id"] in _DAILY_IDS]
+    all_done = len(real) >= 3 and all(r["completed"] for r in real)
+    claimed = any(r["quest_id"] == DAILY_QUEST_COMPLETE_ID and r["completed"] for r in rows)
+    return {"reward": DAILY_QUEST_COMPLETE_BONUS, "all_done": all_done, "claimed": claimed}

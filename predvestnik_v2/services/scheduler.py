@@ -203,18 +203,31 @@ async def expedition_background_task(bot: Bot):
                     except Exception as e:
                         logger.error(f"Не удалось отправить уведомление в чат {chat_id}: {e}")
 
-                    # Notify WebSocket clients (same process — no-op if user not connected)
+                    # Notify WebSocket clients (same process). Если игрок офлайн —
+                    # сохраняем чек в web_notifications для показа при входе (Welcome Back).
                     if owner_id:
+                        ws_payload = {
+                            "type": "expedition_done",
+                            "pet": pet_name,
+                            "mora": reward["mora"],
+                            "xp": reward["xp"],
+                            "diamonds": reward.get("diamonds", 0),
+                            "base_mora": reward.get("base_mora", reward["mora"]),
+                            "base_xp": reward.get("base_xp", reward["xp"]),
+                            "breakdown": reward.get("breakdown", []),
+                        }
                         try:
                             from FastAPI.notifications import notify as _ws_notify
-                            await _ws_notify(owner_id, {
-                                "type": "expedition_done",
-                                "pet": pet_name,
-                                "mora": reward["mora"],
-                                "xp": reward["xp"],
-                            })
+                            delivered = await _ws_notify(owner_id, ws_payload)
                         except Exception:
-                            pass
+                            delivered = False
+                        if not delivered:
+                            try:
+                                from infrastructure.repositories import web_notifications as _wn
+                                await _wn.add(db, owner_id, ws_payload)
+                                await db.commit()
+                            except Exception:
+                                pass
 
         except Exception as e:
             logger.error(f"Ошибка в фоновом процессе экспедиций: {e}")
@@ -578,9 +591,13 @@ async def chest_spawn_task(bot: Bot):
 
 
 async def exchange_scheduler_task(bot: Bot):
-    """Every 30 min: schedule/activate/finish exchange events.
-    One random day per week has a 24h exchange window."""
-    logger.info("Фоновая задача ивента обмена запущена.")
+    """БЛОК 2.2: обмен Моры↔Алмазов теперь ПОСТОЯННЫЙ (модалка в профиле,
+    FastAPI/routers/exchange.py). Событийный планировщик отключён, чтобы бот
+    не анонсил «ИВЕНТ ОБМЕНА» — обменник доступен всегда. Тело оставлено как
+    исторический референс/возможный быстрый откат; задача сразу выходит."""
+    logger.info("Событийный обмен отключён (обмен постоянный). Задача не активна.")
+    return
+    # --- legacy event-loop ниже не выполняется (return выше) ---
     while True:
         await asyncio.sleep(1800)
         try:

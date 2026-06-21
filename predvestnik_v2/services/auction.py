@@ -29,6 +29,17 @@ def _ends_at_str() -> str:
     return ends.strftime("%Y-%m-%d %H:%M:%S")
 
 
+async def _restore_pet_escrow(db, lot: dict) -> None:
+    """Вернуть питомца из эскроу (placement='auction') на склад продавца.
+    Вызывается при отмене/истечении лота-питомца — иначе питомец застревает в
+    'auction' и теряется у владельца (баг: лот закрылся, а питомец «исчез»)."""
+    if lot.get("item_type") == "pet":
+        await db.execute(
+            "UPDATE pets SET placement = 'storage' WHERE id = ? AND owner_id = ?",
+            (lot["item_id_or_pet_id"], lot["seller_id"]),
+        )
+
+
 async def create_auction_lot(
     db,
     seller_id: int,
@@ -183,7 +194,10 @@ async def resolve_lot(db, lot_id: int) -> dict:
             "final_price": highest["amount"],
         }
     else:
-        await update_lot_status(db, lot_id, "expired")
+        # Лот без ставок истёк — вернуть питомца из эскроу (если лот был на питомца)
+        async with db.connection.transaction():
+            await _restore_pet_escrow(db, lot)
+            await update_lot_status(db, lot_id, "expired")
         return {"status": "expired", "lot": lot, "winner_id": None}
 
 
@@ -205,6 +219,7 @@ async def cancel_lot(db, lot_id: int, user_id: int) -> tuple[bool, str]:
             await deactivate_bid(db, highest["id"])
             await remove_reserve(db, highest["bidder_id"], highest["amount"])
 
+        await _restore_pet_escrow(db, lot)
         await update_lot_status(db, lot_id, "cancelled")
     return True, "Лот отменён."
 

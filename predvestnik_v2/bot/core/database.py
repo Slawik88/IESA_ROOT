@@ -828,6 +828,17 @@ async def init_db():
                 PRIMARY KEY (user_id, category)
             )
         """)
+        # Отложенные веб-уведомления (Welcome Back, БЛОК 3.3): если игрок был
+        # офлайн при событии (поход завершился) — сохраняем чек до входа на сайт.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS web_notifications (
+                id          SERIAL PRIMARY KEY,
+                user_id     BIGINT,
+                payload     TEXT,
+                seen        INTEGER DEFAULT 0,
+                created_at  TIMESTAMP DEFAULT NOW()
+            )
+        """)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS partner_gifts_log (
                 id          SERIAL PRIMARY KEY,
@@ -945,6 +956,7 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS idx_player_buffs ON player_buffs(user_id, buff_type)",
             "CREATE INDEX IF NOT EXISTS idx_global_sanctions_target ON global_sanctions(target_type, target_id)",
             "CREATE INDEX IF NOT EXISTS idx_sanction_appeals_status ON sanction_appeals(status)",
+            "CREATE INDEX IF NOT EXISTS idx_web_notif_unseen ON web_notifications(user_id, seen)",
         ]
         for idx_sql in indexes:
             await db.execute(idx_sql)

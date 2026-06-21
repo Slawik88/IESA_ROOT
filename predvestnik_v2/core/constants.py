@@ -360,9 +360,19 @@ CHAT_EVENTS_ENABLED: int = 1      # chests/events on by default
 CHAT_NSFW_WARPS_ALLOWED: int = 1  # 18+ warps on by default
 CHAT_AUCTION_MIN_RANK: int = 0    # any user can post to auction
 
-# ── Exchange Event (B15) ──────────────────────────────────────────────────────
-EXCHANGE_RATE_MORA_PER_DIAMOND: float = 3000.0
-EXCHANGE_DAILY_CAP_DIAMONDS: float = 300.0
+# ── Currency Exchanger (постоянный обменник Моры ↔ Алмазов; заменил ивент B15) ──
+# БЛОК 2.2: ивентовый обмен отменён, теперь обменник постоянный и двусторонний
+# (доступен по клику на 🪙/💎 в профиле). Баланс курсов:
+#   • Покупка 💎 за 🪙: 3000🪙 → 1💎.
+#   • Продажа 💎 за 🪙: 1💎 → 2000🪙 (спред 33%). Спред нужен, чтобы не было
+#     бесплатного round-trip-арбитража (купил→продал в ноль) и 💎 оставались
+#     премиум-валютой — продажа всегда дешевле покупки.
+#   • Кап покупки 300💎/день сдерживает инфляцию: Мора гриндится, без капа её
+#     можно было бы безлимитно «печатать» в Алмазы. Кап продажи — симметрично.
+EXCHANGE_RATE_MORA_PER_DIAMOND: float = 3000.0       # покупка: 3000🪙 → 1💎
+EXCHANGE_RATE_MORA_PER_DIAMOND_SELL: float = 2000.0  # продажа: 1💎 → 2000🪙 (спред 33%)
+EXCHANGE_DAILY_CAP_DIAMONDS: float = 300.0           # лимит покупки 💎/день
+EXCHANGE_SELL_DAILY_CAP_DIAMONDS: float = 300.0      # лимит продажи 💎/день
 EXCHANGE_MIN_DIAMONDS_PER_REQUEST: float = 5.0
 
 # ── Зарники: донат-экономика (Implementation Block 1) ─────────────────────────
@@ -385,6 +395,16 @@ STARS_MOST_POPULAR: int = 100           # пакет со звёздочкой "
 # (не гриндится), инфляции нет.
 ZARNIKI_TO_MORA_RATE: float = 150.0     # 1✨ = 150🪙 (= 0.05💎 × 3000🪙/💎)
 ZARNIKI_TO_DIAMONDS_RATE: float = 0.05  # 1✨ = 0.05💎 (20✨ = 1💎)
+
+# ── Квесты: супер-награда за закрытие ВСЕХ дневных заданий (БЛОК 5) ────────────
+# Выдаётся один раз в день, СВЕРХ наград за каждый квест. Гейт — реальная
+# активность (нужно закрыть все 3). 💎 — премиальный бонус, жетон = бесплатный спин.
+DAILY_QUEST_COMPLETE_ID: str = "__all_daily__"   # синтетический quest_id-гард
+DAILY_QUEST_COMPLETE_BONUS: dict = {
+    "mora": 1000.0,
+    "diamonds": 3.0,
+    "items": [("spin_token", 1)],
+}
 
 # ── Mini-games (B16) ─────────────────────────────────────────────────────────
 GAMES: dict = {
