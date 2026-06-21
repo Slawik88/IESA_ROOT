@@ -73,6 +73,26 @@ async def increment_quest_progress(
     return float(row[0]) if row else None
 
 
+async def claim_once(
+    db: aiosqlite.Connection,
+    user_id: int,
+    chat_id: int,
+    date: str,
+    quest_id: str,
+) -> bool:
+    """Атомарно «застолбить» одноразовое событие дня (напр. бонус за все квесты).
+    Создаёт строку только при ПЕРВОМ вызове → возвращает True; при повторе строка
+    уже есть (ON CONFLICT DO NOTHING) → False. Гард от двойной выдачи (БЛОК 5)."""
+    async with db.execute(
+        "INSERT INTO daily_quests (user_id, chat_id, date, quest_id, progress, completed) "
+        "VALUES (?, ?, ?, ?, 1, 1) "
+        "ON CONFLICT(user_id, chat_id, date, quest_id) DO NOTHING "
+        "RETURNING quest_id",
+        (user_id, chat_id, date, quest_id),
+    ) as c:
+        return (await c.fetchone()) is not None
+
+
 async def mark_completed(
     db: aiosqlite.Connection,
     user_id: int,

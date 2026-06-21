@@ -563,6 +563,13 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
     )
 
     if not ok:
+        # Лот не создан, а питомец уже в эскроу (placement='auction') — вернуть на
+        # склад, иначе он застрянет и пропадёт у владельца.
+        if v.startswith("PET|"):
+            await db.execute(
+                "UPDATE pets SET placement = 'storage' WHERE id = ? AND owner_id = ?",
+                (item_id_or_pet_id, user_id),
+            )
         await query.answer(f"❌ {result}", show_alert=True)
     else:
         await query.answer("✅ Лот выставлен!", show_alert=False)

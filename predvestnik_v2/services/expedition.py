@@ -38,9 +38,12 @@ def calculate_reward(
 
     mora = random.randint(exp_data["min_m"], exp_data["max_m"])
     xp = random.randint(exp_data["min_xp"], exp_data["max_xp"])
+    base_mora = mora      # «база» до бонусов — для чека награды (БЛОК 3)
+    base_xp = xp
     diamonds = 0
     extras: list[tuple[str, int]] = []
     buff_message = ""
+    breakdown: list[dict] = []   # структурный чек: [{"label","mora","xp","diamonds","extra"}]
 
     # Falcon (any nursery slot): +mora_bonus, +xp_bonus, possibly double-loot chance,
     # plus a guaranteed Treasure Map on 8h trips at capstone Lv10.
@@ -61,10 +64,12 @@ def calculate_reward(
         xp += x_gain
         if m_gain or x_gain:
             buff_message += f"\n🦅 <i>Сокол (Ур.{falcon_level}): +{m_gain} Моры, +{x_gain} XP</i>"
+            breakdown.append({"label": f"🦅 Сокол Ур.{falcon_level}", "mora": m_gain, "xp": x_gain})
 
         if hours == 8 and f.get("capstone_8h_treasure_map", False):
             extras.append(("treasure_map", 1))
             buff_message += "\n🦅 <i>Сокол нашёл Карту Сокровищ!</i>"
+            breakdown.append({"label": "🦅 Сокол", "extra": "🗺 Карта Сокровищ"})
 
     # Fox on expedition: diamond rolls scale with duration (2h=1, 4h=2, 6h=3, 8h=4).
     # Per-roll chance depends on fox level. Capstone Lv10 adds chance of crystal egg.
@@ -79,11 +84,13 @@ def calculate_reward(
         if diamonds > 0:
             plural = "Алмаз" if diamonds == 1 else "Алмаза" if diamonds <= 4 else "Алмазов"
             buff_message += f"\n🦊 <i>Лиса нашла: <b>+{diamonds} {plural}!</b> 💎</i>"
+            breakdown.append({"label": "🦊 Лиса", "diamonds": diamonds})
 
         crystal_chance = f.get("crystal_egg_chance", 0.0)
         if crystal_chance > 0 and random.random() < crystal_chance:
             extras.append(("egg_crystal", 1))
             buff_message += "\n🦊 <i>Лиса принесла Кристальное яйцо!</i>"
+            breakdown.append({"label": "🦊 Лиса", "extra": "🥚 Кристальное яйцо"})
 
     # Owl (any nursery slot): +xp_bonus to expedition XP, scales with level.
     owl_level = species_levels.get("owl", 0)
@@ -93,6 +100,7 @@ def calculate_reward(
         if bonus_xp > 0:
             xp += bonus_xp
             buff_message += f"\n🦉 <i>Сова (Ур.{owl_level}): +{bonus_xp} XP</i>"
+            breakdown.append({"label": f"🦉 Сова Ур.{owl_level}", "xp": bonus_xp})
 
     # Block 13: суммарный бонус реликвий к моро-награде похода.
     if relic_mora_pct > 0:
@@ -100,6 +108,7 @@ def calculate_reward(
         if relic_gain > 0:
             mora += relic_gain
             buff_message += f"\n🏛 <i>Реликвии: +{relic_gain} Моры (+{int(relic_mora_pct * 100)}%)</i>"
+            breakdown.append({"label": f"🏛 Реликвии +{int(relic_mora_pct * 100)}%", "mora": relic_gain})
 
     return {
         "mora": mora,
@@ -107,4 +116,7 @@ def calculate_reward(
         "diamonds": diamonds,
         "extras": extras,
         "buff_message": buff_message,
+        "base_mora": base_mora,   # для чека награды (БЛОК 3)
+        "base_xp": base_xp,
+        "breakdown": breakdown,
     }

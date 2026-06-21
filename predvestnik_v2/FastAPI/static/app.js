@@ -8,7 +8,7 @@ const el = id => document.getElementById(id);
 const INIT_DATA = tg?.initData || '';
 const SK = 'pv_sess';
 const MEDALS = ['🥇','🥈','🥉'];
-const PL = {active:'Активный',passive:'Пассивный',storage:'Склад'};
+const PL = {active:'Активный',passive:'Пассивный',storage:'Склад',auction:'🏛 На аукционе'};
 const RC = {common:'rc-common',uncommon:'rc-uncommon',rare:'rc-rare',
             epic:'rc-epic',legendary:'rc-legendary',shadow:'rc-shadow',mythic:'rc-mythic'};
 
@@ -77,13 +77,131 @@ function showWsNotif(event) {
     // Auto-reload duels if on arena page
     if(_loaded.has('arena') && _arenaTab === 'duels') loadDuels();
   }
+  // Подарок от администрации → коробка-сюрприз (БЛОК 3.4)
+  if (event.type === 'admin_gift') { showGiftBox([event]); return; }
+  // Возврат питомца из похода → «чек награды» (БЛОК 3) вместо углового уведомления
+  if (event.type === 'expedition_done') {
+    showExpeditionReceipt(event);
+    if (_loaded.has('zoo')) { _zooData = null; loadZoo(); }
+    return;
+  }
   const div = document.createElement('div');
   div.className = 'ws-notif';
   div.innerHTML = `<div class="wn-title">${titles[event.type]||'🔮 Уведомление'}</div>
                    <div class="wn-body">${(bodies[event.type]||(() => ''))(event)}</div>`;
   document.body.appendChild(div);
   setTimeout(() => div.remove(), 5000);
-  if (_loaded.has('zoo') && event.type === 'expedition_done') { _zooData=null; loadZoo(); }
+}
+
+// Чек награды экспедиции: база + бонусы (питомцы/реликвии) + итого. Данные —
+// из WS-payload expedition_done (services/scheduler.py → expedition.calculate_reward).
+function showExpeditionReceipt(e) {
+  const bd = e.breakdown || [];
+  const baseM = (e.base_mora != null) ? e.base_mora : e.mora;
+  const baseX = (e.base_xp != null) ? e.base_xp : e.xp;
+  const rs = 'display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px';
+  let rows = `<div style="${rs}"><span style="color:var(--muted)">🎒 Базовая добыча</span><span>+${fmt(baseM)} 🪙 · +${fmt(baseX)} XP</span></div>`;
+  bd.forEach(b => {
+    const parts = [];
+    if (b.mora)     parts.push(`+${fmt(b.mora)} 🪙`);
+    if (b.xp)       parts.push(`+${fmt(b.xp)} XP`);
+    if (b.diamonds) parts.push(`+${b.diamonds} 💎`);
+    if (b.extra)    parts.push(b.extra);
+    rows += `<div style="${rs};color:var(--gold)"><span>${esc(b.label || 'Бонус')}</span><span>${parts.join(' · ') || '—'}</span></div>`;
+  });
+  const tp = [`+${fmt(e.mora)} 🪙`, `+${fmt(e.xp)} XP`];
+  if (e.diamonds) tp.push(`+${e.diamonds} 💎`);
+  OM(`🎉 ${esc(e.pet || 'Питомец')} вернулся!`,
+    `<div style="margin-bottom:6px">${rows}
+       <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
+     </div>
+     <div style="font-size:10px;color:var(--green);text-align:center">✓ Награда уже зачислена</div>`,
+    [{l:'🎁 Забрать', c:'btn-gold', f:'CM();_nextModal()'}]);
+}
+
+// Очередь модалок: если при входе ждут и подарки, и чеки походов — показываем
+// по очереди (кнопка каждой модалки зовёт _nextModal), а не клобберим друг друга.
+let _modalQueue = [];
+function _runModalQueue(queue) { _modalQueue = queue || []; _nextModal(); }
+function _nextModal() { const fn = _modalQueue.shift(); if (fn) fn(); }
+
+// Welcome Back (БЛОК 3.3) + админ-подарки (БЛОК 3.4): то, что накопилось офлайн.
+// Бэкенд копит в web_notifications (если WS не доставил онлайн).
+function loadPendingNotifications() {
+  api('/notifications/pending').then(r => {
+    const list = r.notifications || [];
+    if (!list.length) return;
+    const ids = list.map(n => n.id);
+    api('/notifications/seen', {method:'POST', body: JSON.stringify({ids})}).catch(() => {});
+    const payloads = list.map(n => n.payload || {});
+    const gifts = payloads.filter(p => p.type === 'admin_gift');
+    const exped = payloads.filter(p => p.type === 'expedition_done');
+    const queue = [];
+    if (gifts.length) queue.push(() => showGiftBox(gifts));        // подарки — приоритет
+    if (exped.length) queue.push(() => showWelcomeBack(exped));
+    _runModalQueue(queue);
+  }).catch(() => {});
+}
+// Коробка-подарок от Администрации (БЛОК 3.4). payloads: [{reason, gifts:[{label,amount}]}]
+function showGiftBox(payloads) {
+  const rs = 'display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border2);font-size:13px';
+  let body = '';
+  (payloads || []).forEach(p => {
+    const items = (p.gifts || []).map(g =>
+      `<div style="${rs}"><span>${esc(g.label || 'Награда')}</span><span style="color:var(--gold2);font-weight:700">+${fmt(g.amount)}</span></div>`
+    ).join('');
+    const reason = (p.reason || '').trim();
+    body += `<div style="margin-bottom:10px">${items}
+      ${reason ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">📝 Причина: <span style="color:var(--bright)">${esc(reason)}</span></div>` : ''}</div>`;
+  });
+  OM('🎁 Награда от Администрации!',
+    `<div style="text-align:center;font-size:46px;margin:2px 0 10px;animation:floaty 1.6s ease-in-out infinite">🎁</div>
+     ${body}
+     <div style="font-size:10px;color:var(--green);text-align:center;margin-top:2px">✓ Уже у тебя в профиле</div>`,
+    [{l:'🎉 Забрать!', c:'btn-gold', f:'CM();_nextModal()'}]);
+}
+function showWelcomeBack(items) {
+  if (items.length === 1) { showExpeditionReceipt(items[0]); return; }
+  let totM = 0, totX = 0, totD = 0;
+  const rs = 'display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px';
+  const rows = items.map(e => {
+    totM += e.mora || 0; totX += e.xp || 0; totD += e.diamonds || 0;
+    const parts = [`+${fmt(e.mora || 0)} 🪙`, `+${fmt(e.xp || 0)} XP`];
+    if (e.diamonds) parts.push(`+${e.diamonds} 💎`);
+    return `<div style="${rs}"><span>🐾 ${esc(e.pet || 'Питомец')}</span><span style="color:var(--gold)">${parts.join(' · ')}</span></div>`;
+  }).join('');
+  const tp = [`+${fmt(totM)} 🪙`, `+${fmt(totX)} XP`];
+  if (totD) tp.push(`+${totD} 💎`);
+  OM('🎉 С возвращением!',
+    `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Пока тебя не было, питомцев вернулось: <b style="color:var(--bright)">${items.length}</b></div>
+     <div style="margin-bottom:6px">${rows}
+       <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
+     </div>
+     <div style="font-size:10px;color:var(--green);text-align:center">✓ Всё уже зачислено</div>`,
+    [{l:'🎁 Отлично!', c:'btn-gold', f:'CM();_nextModal()'}]);
+}
+
+// Левел-ап игрока (БЛОК 3): детект между загрузками профиля + торжественная модалка.
+// Триггера в реальном времени нет (уровень растёт от чата на стороне бота), поэтому
+// сравниваем уровень с прошлой загрузкой (localStorage). _xpAnimated — флаг анимации
+// заливки XP-шкалы (один раз за сессию), объявлен здесь до первого вызова loadProfile.
+let _xpAnimated = false;
+function _checkLevelUp(lvl) {
+  try {
+    const prev = parseInt(localStorage.getItem('pv_last_level') || '0');
+    localStorage.setItem('pv_last_level', String(lvl));
+    if (prev && lvl > prev) showLevelUp(lvl);
+  } catch (e) {}
+}
+function showLevelUp(lvl) {
+  if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
+  OM('🎉 Новый уровень!',
+    `<div style="text-align:center;padding:6px 0">
+       <div style="font-size:54px;animation:floaty 1.6s ease-in-out infinite">⭐</div>
+       <div style="font-size:30px;font-weight:800;color:var(--gold2);margin:6px 0">Уровень ${lvl}</div>
+       <div style="font-size:12px;color:var(--muted)">Так держать! Общайся в чате, чтобы расти дальше.</div>
+     </div>`,
+    [{l:'🔥 Дальше!', c:'btn-gold', f:'CM()'}]);
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
@@ -241,6 +359,14 @@ function loadProfile() {
     const lvl = d.chats?.[0]?.user_level || 1;
     const xp = d.chats?.[0]?.user_xp || 0;
     const xpInLvl = xp % 3000, xpPct = Math.min(100, Math.round(xpInLvl/3000*100));
+    // БЛОК 3: торжественный левел-ап (детект между загрузками) + анимация заливки
+    // XP-шкалы один раз за сессию (чтобы авто-релоад каждые 5 мин её не дёргал).
+    _checkLevelUp(lvl);
+    const animateXp = !_xpAnimated; _xpAnimated = true;
+    if (animateXp) setTimeout(() => {
+      const f = el('pro-main')?.querySelector('.xp-fill');
+      if (f) f.style.width = (f.dataset.pct || 0) + '%';
+    }, 40);
     el('pro-main').innerHTML=`
       <div class="hero">
         <div class="hero-head">
@@ -251,12 +377,12 @@ function loadProfile() {
           </div>
         </div>
         <div class="hero-xp">
-          <div class="xp-bar"><div class="xp-fill" style="width:${xpPct}%"></div></div>
+          <div class="xp-bar"><div class="xp-fill" data-pct="${xpPct}" style="width:${animateXp?0:xpPct}%"></div></div>
           <div class="xp-lbl"><span>Уровень ${lvl}</span><span>${fmt(xpInLvl)} / 3 000 XP</span></div>
         </div>
         <div class="stats">
-          <div class="stat"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора</div></div>
-          <div class="stat"><div>💎</div><div class="sv">${d.diamonds.toFixed(1)}</div><div class="sl">Алмазы</div></div>
+          <div class="stat clickable" onclick="openExchangeCurrencyModal('buy')"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора 🔄</div></div>
+          <div class="stat clickable" onclick="openExchangeCurrencyModal('sell')"><div>💎</div><div class="sv">${d.diamonds.toFixed(1)}</div><div class="sl">Алмазы 🔄</div></div>
           <div class="stat clickable" onclick="${(d.zarniki||0)>0?'openExchangeZarnikiModal()':"goTo('market','vip')"}"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">${(d.zarniki||0)>0?'Зарники 🔄':'Зарники +'}</div></div>
           <div class="stat clickable" onclick="goTo('ach')"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
         </div>
@@ -313,7 +439,7 @@ function loadProfile() {
     checkGlobalAccess();
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
-if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');}
+if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);}
 
 // ── Sticky currency bar ───────────────────────────────────────────────────────
 // Shows 🪙💎🌑✨ at top of screen (hidden on Profile tab)
@@ -1242,20 +1368,46 @@ const QUEST_NAMES = {
   rare_dup:   {n:'🌟 Редкий дубликат',d:'Получи дубликат редкого+ питомца'},
   level_pet:  {n:'⬆️ Тренер',         d:'Повысь питомца до нового уровня'},
 };
+const _QI_REWARD={'star_dust_s':'🌟 Звёздная пыль','star_dust_l':'✨ Небесная пыль',
+                  'soul_shard':'💠 Осколок','spin_token':'🎟 Жетон Гачи'};
+function _fmtQuestReward(rw){
+  return [
+    rw?.mora?`+${fmt(rw.mora)} 🪙`:'',
+    rw?.diamonds?`+${rw.diamonds} 💎`:'',
+    ...(rw?.items||[]).map(([id,n])=>`+${n>1?n+'× ':''}${_QI_REWARD[id]||id}`),
+  ].filter(Boolean).join(' · ');
+}
 function loadQuests() {
   el('qc').innerHTML='<div class="loader">Загрузка...</div>';
   if(!_cid){el('qc').innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">Нужен Профиль с чатом.</div>';return;}
-  api(`/quests/${_cid}`).then(qs=>{
-    el('qc').innerHTML=qs.length?'<div class="card">'+qs.map(q=>{
+  api(`/quests/${_cid}`).then(r=>{
+    const qs = r.quests || r;     // backward-compat если вернётся массив
+    const bonus = r.bonus;
+    if(!qs.length){
+      el('qc').innerHTML='<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:28px;margin-bottom:6px">📋</div><div style="font-size:12px">Нет квестов — напиши <code>бот задания</code> в чате</div></div>';
+      return;
+    }
+    const doneCount = qs.filter(q=>q.completed).length;
+    // Карточка супер-награды за все задания дня (БЛОК 5)
+    let bonusHtml = '';
+    if(bonus){
+      const rw = _fmtQuestReward(bonus.reward);
+      const bpct = Math.round(doneCount/qs.length*100);
+      const status = bonus.claimed ? '✅ Получено сегодня!'
+                   : `Закрой все задания: ${doneCount} / ${qs.length}`;
+      bonusHtml = `<div class="card" style="border:1px solid ${bonus.claimed?'var(--green)':'var(--border)'};background:var(--gold-dim);margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+          <div style="font-size:13px;font-weight:700;color:var(--gold2)">🏆 Бонус за все задания</div>
+          <div style="font-size:11px;color:var(--gold);white-space:nowrap">${rw}</div>
+        </div>
+        <div class="qbar" style="margin-top:6px"><div class="qfill" style="width:${bpct}%"></div></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">${status}</div>
+      </div>`;
+    }
+    el('qc').innerHTML = bonusHtml + '<div class="card">'+qs.map(q=>{
       const pct=Math.min(100,Math.round((q.progress||0)/(q.target||1)*100));
       const qi=QUEST_NAMES[q.id]||{n:q.id,d:''};
-      const _QI={'star_dust_s':'🌟 Звёздная пыль','star_dust_l':'✨ Небесная пыль',
-                 'soul_shard':'💠 Осколок','spin_token':'🎟 Жетон Гачи'};
-      const rw=[
-        q.reward?.mora?`+${fmt(q.reward.mora)} 🪙`:'',
-        q.reward?.diamonds?`+${q.reward.diamonds} 💎`:'',
-        ...(q.reward?.items||[]).map(([id,n])=>`+${n>1?n+'× ':''}${_QI[id]||id}`),
-      ].filter(Boolean).join(' · ');
+      const rw=_fmtQuestReward(q.reward);
       return `<div class="qitem">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
           <div style="font-size:13px;font-weight:600;color:var(--bright)">${q.completed?'✅':'🔲'} ${qi.n}</div>
@@ -1265,7 +1417,7 @@ function loadQuests() {
         <div class="qbar"><div class="qfill" style="width:${pct}%"></div></div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px">${Math.round(q.progress||0)} / ${q.target}</div>
       </div>`;
-    }).join('')+'</div>':'<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:28px;margin-bottom:6px">📋</div><div style="font-size:12px">Нет квестов — напиши <code>бот задания</code> в чате</div></div>';
+    }).join('')+'</div>';
   }).catch(e=>{el('qc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 const SPIN_ICONS = {mora:'🪙',diamond:'💎'};
@@ -1373,11 +1525,13 @@ function doSpin(st, row) {
       <div class="spin-results">
         ${cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${(i*0.08+3.1).toFixed(2)}s">${c.text}</div>`).join('')}
       </div>
+      ${_petActionsHtml(dups)}
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn btn-gold" style="flex:2" onclick="spinAgain()">🔄 Крутить ещё</button>
         <button class="btn btn-ghost" style="flex:1" onclick="closeSpinResult()">↩ Выбрать</button>
       </div>`;
 
+    _spinJuice(topRarity);
     // Update balance displays
     refreshCurrBar();
     const balEl=el('gacha-bal-mora');
@@ -1388,6 +1542,41 @@ function doSpin(st, row) {
 // Minimal species→emoji map (expand as needed)
 const PET_SPECIES_EMOJI={hamster:'🐹',owl:'🦉',dog:'🐕',turtle:'🐢',falcon:'🦅',wolf:'🐺',fox:'🦊',dragon:'🐉',unicorn:'🦄'};
 function closeSpinResult(){const s=el('spin-res');if(s)s.innerHTML='';loadGacha();}
+
+// Screen-shake на топ-дропах (epic и выше) — «восторг» от редкой крутки (БЛОК 3).
+function _spinJuice(topRarity) {
+  if(!['epic','legendary','mythic','shadow'].includes(topRarity)) return;
+  const box = el('spin-res');
+  if(!box) return;
+  box.classList.remove('shake-fx');
+  void box.offsetWidth;        // форсим reflow → анимация перезапускается каждый раз
+  box.classList.add('shake-fx');
+}
+
+// Retention CTA после крутки (БЛОК 3): выпал питомец — окно не тупик, а действие.
+// 1 питомец → прямая экипировка; несколько → переход в питомник.
+function _petActionsHtml(dups) {
+  const pets = (dups||[]).filter(d=>d.pet_id && d.outcome!=='overflow');
+  if(!pets.length) return '';
+  if(pets.length===1){
+    const p = pets[0];
+    return `<div id="spin-pet-cta" style="display:flex;gap:6px;margin-top:10px">
+      <button class="btn btn-teal btn-sm" style="flex:1" onclick="equipFromSpin(${p.pet_id},'active',this)">⚔️ В активные</button>
+      <button class="btn btn-green btn-sm" style="flex:1" onclick="equipFromSpin(${p.pet_id},'passive',this)">🛡 В пассивные</button>
+    </div>`;
+  }
+  return `<button class="btn btn-ghost btn-sm btn-full" style="margin-top:10px" onclick="goTo('zoo')">🐾 Пристроить питомцев в питомнике</button>`;
+}
+function equipFromSpin(petId, placement, btn) {
+  btn.disabled = true;
+  api('/zoo/move',{method:'POST',body:JSON.stringify({pet_id:petId,placement})})
+    .then(()=>{
+      toast(placement==='active'?'⚔️ Питомец в активном слоте!':'🛡 Питомец в пассивном слоте!');
+      const row = el('spin-pet-cta');
+      if(row) row.innerHTML = `<div style="flex:1;text-align:center;font-size:11px;color:var(--green);padding:6px">✅ Пристроен · <span style="cursor:pointer;text-decoration:underline;color:var(--gold2)" onclick="goTo('zoo')">в питомник ›</span></div>`;
+    })
+    .catch(e=>{ toast(e,false); btn.disabled=false; });  // напр. слоты заняты — игрок видит причину
+}
 
 function doMultiSpin(st, btn) {
   btn.disabled=true;
@@ -1428,10 +1617,12 @@ function doMultiSpin(st, btn) {
       <div class="spin-results">
         ${cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${(i*0.06+0.5).toFixed(2)}s">${c.text}</div>`).join('')}
       </div>
+      ${_petActionsHtml(dups)}
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn btn-gold" style="flex:2" onclick="loadGacha()">🔄 Крутить ещё</button>
         <button class="btn btn-ghost" style="flex:1" onclick="closeSpinResult()">↩ Назад</button>
       </div>`;
+    _spinJuice(topRarity);
     refreshCurrBar();
     btn.disabled=false;
   }).catch(e=>{toast(e,false);btn.disabled=false;el('spin-res').innerHTML='';});
@@ -1624,6 +1815,8 @@ function loadAuction(page) {
       </div>
       <!-- Reserved mora -->
       <div id="auc-reserve" style="margin-bottom:8px"></div>
+      <!-- My active lots (with cancel) -->
+      <div id="auc-mylots" style="margin-bottom:8px"></div>
       <div id="lot-list"></div>
       <!-- Pagination -->
       ${totalPages > 1 ? `<div style="display:flex;gap:6px;justify-content:center;margin-top:10px">
@@ -1634,7 +1827,48 @@ function loadAuction(page) {
 
     renderLots(_allLots);
     loadAucReserve();
+    loadMyLots();
   }).catch(e=>{el('mkt-auc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;_allLots=[];});
+}
+
+// Мои активные лоты + снятие с торгов (web-паритет с ботом).
+function loadMyLots() {
+  if(!_uid && !sess()) return;
+  api('/auction/my-lots').then(lots=>{
+    const div = el('auc-mylots'); if(!div) return;
+    const active = (lots||[]).filter(l=>l.status==='active');
+    if(!active.length){ div.innerHTML=''; return; }
+    const rows = active.map(l=>{
+      const name = (l.item_name||'Лот').split('||')[0].trim();
+      const ends = new Date((l.ends_at+'').includes('T')?l.ends_at:l.ends_at+'Z');
+      const diff = Math.max(0,Math.floor((ends-Date.now())/1000));
+      const tl = diff>3600?Math.floor(diff/3600)+'ч':Math.floor(diff/60)+'м';
+      const bidTxt = (l.current_bid>0)?`${fmt(l.current_bid)} 🪙`:'нет ставок';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border2)">
+        <div style="flex:1;min-width:0">
+          <span style="font-size:11px;color:var(--bright)">${esc(name)}</span>
+          <span style="font-size:10px;color:var(--muted)"> · ⏳${tl} · ${bidTxt}</span>
+        </div>
+        <button class="btn btn-red btn-sm" style="padding:2px 9px;font-size:10px;white-space:nowrap" onclick="cancelMyLot(${l.id})">Снять</button>
+      </div>`;
+    }).join('');
+    div.innerHTML=`<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px">
+      <div style="font-size:11px;font-weight:600;color:var(--gold2);margin-bottom:4px">📋 Мои лоты (${active.length})</div>
+      ${rows}
+    </div>`;
+  }).catch(()=>{});
+}
+function cancelMyLot(lotId) {
+  OM('Снять лот с торгов?',
+    '<div style="font-size:12px;color:var(--muted);line-height:1.5">Лот закроется, активные ставки отменятся, а резерв вернётся участникам. Питомец (если лот на питомца) вернётся на склад.</div>',
+    [{l:'Отмена', c:'btn-ghost', f:'CM()'},
+     {l:'🗑 Снять', c:'btn-red', f:`_doCancelLot(${lotId})`}]);
+}
+function _doCancelLot(lotId) {
+  CM();
+  api('/auction/cancel',{method:'POST',body:JSON.stringify({lot_id:lotId})})
+    .then(()=>{toast('✅ Лот снят с торгов');loadAuction();})
+    .catch(e=>toast(e,false));
 }
 
 function loadAucReserve() {
@@ -1673,7 +1907,7 @@ function openCreateLotModal() {
     _invData = items;
     // ALL items with quantity > 0 (server validates tradability)
     const tradable = items.filter(it => it.quantity > 0);
-    const pets = (zooData.pets||[]).filter(p=>p.placement !== 'storage');
+    const pets = (zooData.pets||[]).filter(p=>p.placement === 'storage');
 
     if(!tradable.length && !pets.length) {
       el('mb').innerHTML = `<div style="text-align:center;padding:20px">
@@ -1705,18 +1939,19 @@ function openCreateLotModal() {
     }
 
     if(pets.length) {
-      html += `<div class="card-title" style="margin-top:12px;margin-bottom:6px">🐾 Питомцы</div>`;
-      html += `<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:8px;margin-bottom:6px;font-size:10px;color:var(--gold)">
-        💡 Питомцев можно выставить через бота: <code>бот аукцион</code>
-      </div>`;
+      html += `<div class="card-title" style="margin-top:12px;margin-bottom:6px">🐾 Питомцы со склада</div>`;
       html += pets.map(pt=>`
-        <div class="fopt" style="opacity:.6;cursor:default">
+        <div class="fopt" onclick="selectLotPet(${pt.id},'${(pt.name||pt.species_id||'Питомец').replace(/'/g,"\\'")}','${pt.rarity||'common'}',${pt.pet_level||1})">
           <div style="flex:1">
-            <div class="fn">${pt.name} ${rc(pt.rarity)}</div>
-            <div style="font-size:10px;color:var(--muted)">Lv${pt.pet_level||1} · ${pt.placement==='active'?'⚔️ Активный':'🛡 Пассивный'}</div>
+            <div class="fn">${pt.name||pt.species_id} ${rc(pt.rarity)}</div>
+            <div style="font-size:10px;color:var(--muted)">Lv${pt.pet_level||1} · 🏬 Склад</div>
           </div>
-          <span style="font-size:10px;color:var(--muted)">через бота</span>
+          <span style="font-size:10px;color:var(--gold)">Выставить ›</span>
         </div>`).join('');
+    } else {
+      html += `<div style="font-size:10px;color:var(--muted);margin-top:10px">
+        🐾 Чтобы выставить питомца — перенеси его в склад питомника (из активных слотов).
+      </div>`;
     }
     el('mb').innerHTML = html;
     el('mf').innerHTML = `<button class="btn btn-ghost btn-sm" onclick="CM()">Отмена</button>`;
@@ -1757,6 +1992,39 @@ function submitLot(itemId) {
   if(btn) btn.disabled=true;
   api('/auction/create',{method:'POST',body:JSON.stringify({item_id:itemId,quantity:qty,min_bid:minBid,buyout})})
     .then(r=>{toast(`✅ Лот #${r.lot_id} создан! (24ч)`);CM();loadAuction();refreshCurrBar();})
+    .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
+}
+// Питомец → лот (web-паритет с ботом). Эскроу на бэкенде: питомец уходит из
+// склада в placement='auction' и вернётся, если лот не продастся/отменён.
+function selectLotPet(petId, petName, rarity, level) {
+  el('mt').textContent = '🏛 Выставить питомца';
+  el('mb').innerHTML = `
+    <div style="background:var(--s);border-radius:var(--r);padding:10px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:var(--bright);margin-bottom:4px">🐾 ${petName} ${rc(rarity)}</div>
+      <div style="font-size:11px;color:var(--muted)">Уровень ${level} · со склада питомника</div>
+    </div>
+    <div style="background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.3);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;font-size:10px;color:var(--red)">
+      ⚠️ На время аукциона питомец уйдёт в эскроу — пользоваться им нельзя. Вернётся, если лот не продастся или ты его отменишь.
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Минимальная ставка 🪙</div>
+    <input id="lot-bid" type="number" class="num-input" min="50" value="1000" placeholder="Мин. ставка (от 50 🪙)"/>
+    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Цена выкупа 🪙 <span style="color:var(--dim)">(необязательно)</span></div>
+    <input id="lot-buyout" type="number" class="num-input" placeholder="Оставь пустым если без выкупа"/>
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;padding:6px 8px;background:var(--s);border-radius:var(--r)">
+      ⏳ Лот активен 24 часа.
+    </div>`;
+  el('mf').innerHTML = `
+    <button class="btn btn-ghost btn-sm" onclick="openCreateLotModal()">← Назад</button>
+    <button class="btn btn-gold btn-sm" onclick="submitPetLot(${petId})">✅ Выставить</button>`;
+}
+function submitPetLot(petId) {
+  const minBid = parseFloat(el('lot-bid')?.value||0);
+  const buyout = parseFloat(el('lot-buyout')?.value||0)||null;
+  if(!minBid||minBid<50){toast('Мин. ставка от 50 🪙',false);return;}
+  const btn = document.querySelector('#mf .btn-gold');
+  if(btn) btn.disabled=true;
+  api('/auction/create-pet',{method:'POST',body:JSON.stringify({pet_id:petId,min_bid:minBid,buyout})})
+    .then(r=>{toast(`✅ Питомец выставлен! Лот #${r.lot_id} (24ч)`);CM();loadAuction();})
     .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
 
@@ -2320,84 +2588,76 @@ function switchTop(mode, btn) {
     .catch(e => { el('top-c').innerHTML=`<div class="err">${e}</div>`; });
 }
 
-// ── Exchange ──────────────────────────────────────────────────────────────────
+// ── Обмен Моры ↔ Алмазов (постоянный обменник, БЛОК 2.2) ─────────────────────
+let _exchData = null;
+// Вкладка «Обмен» в pg-auction — постоянная инфо-панель + кнопка открытия модалки.
 function loadExchange() {
   el('mkt-exch').innerHTML='<div class="loader">Загрузка...</div>';
   api('/exchange/').then(d=>{
-    if(!d.active){
-      const when=d.scheduled?`<div class="irow" style="margin-top:10px"><span class="ik">Следующий ивент</span><span style="color:var(--teal)">${d.scheduled.starts_at||'—'}</span></div>`:'';
-      el('mkt-exch').innerHTML=`<div class="card card-gold">
-        <div style="text-align:center;padding:16px 0 12px">
-          <div style="font-size:36px;margin-bottom:8px">💱</div>
-          <div style="font-size:15px;font-weight:700;color:var(--bright);margin-bottom:6px">Ивент обмена Мора → Алмазы</div>
-          <div style="font-size:11px;color:var(--muted)">Сейчас неактивен</div>
-        </div>
-        <div class="divider"></div>
-        <div style="font-size:13px;font-weight:600;color:var(--bright);margin-bottom:8px">Что такое ивент обмена?</div>
-        <div style="font-size:12px;color:var(--muted);line-height:1.6">
-          Один раз в неделю (случайный день) открывается возможность
-          обменять Мору на Алмазы по фиксированному курсу.<br><br>
-          💡 <b>Курс обмена:</b> 3 000 🪙 = 1 💎<br>
-          📊 <b>Дневной лимит:</b> 300 💎<br>
-          ⏱ <b>Длительность:</b> 24 часа<br><br>
-          Когда ивент начнётся — бот объявит в чатах!
-        </div>
-        ${when}
-      </div>`;
-      return;
-    }
-    const maxCanBuy = Math.floor(Math.min(d.remaining, d.mora / d.rate));
-    const rateHtml = `<div class="exch-rate">
-      <div class="er">1 💎 = ${fmt(d.rate)} 🪙</div>
-      <div class="el">Квота: ${d.remaining.toFixed(1)} / ${d.daily_cap} 💎 осталось</div>
+    _exchData = d;
+    el('mkt-exch').innerHTML=`<div class="card card-gold">
+      <div style="text-align:center;padding:12px 0 8px">
+        <div style="font-size:34px;margin-bottom:6px">💱</div>
+        <div style="font-size:15px;font-weight:700;color:var(--bright)">Обменник валют</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Доступен всегда</div>
+      </div>
+      <div class="divider"></div>
+      <div class="irow"><span class="ik">Ваш баланс</span><span>${fmt(d.mora)} 🪙 · ${d.diamonds.toFixed(1)} 💎</span></div>
+      <div class="irow"><span class="ik">🛒 Покупка 💎</span><span style="color:var(--gold)">${fmt(d.rate)} 🪙 = 1 💎</span></div>
+      <div class="irow"><span class="ik">💸 Продажа 💎</span><span style="color:var(--teal)">1 💎 = ${fmt(d.sell_rate)} 🪙</span></div>
+      <div class="irow"><span class="ik">Лимит покупки</span><span>${d.remaining.toFixed(0)} / ${d.daily_cap.toFixed(0)} 💎</span></div>
+      <div class="irow"><span class="ik">Лимит продажи</span><span>${d.sell_remaining.toFixed(0)} / ${d.sell_daily_cap.toFixed(0)} 💎</span></div>
+      <button class="btn btn-gold btn-full" style="margin-top:12px" onclick="openExchangeCurrencyModal('buy')">💱 Обменять</button>
+      <div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:8px">Продажа дешевле покупки (спред) — 💎 остаётся премиум-валютой.</div>
     </div>`;
-    if(maxCanBuy < 1) {
-      const reason = d.remaining <= 0 ? 'Дневной лимит исчерпан — возвращайтесь завтра.' : `Нужно минимум ${fmt(d.rate)} 🪙 для обмена (у вас ${fmt(d.mora)} 🪙).`;
-      el('mkt-exch').innerHTML=`${rateHtml}<div class="card" style="text-align:center;padding:20px">
-        <div style="font-size:28px;margin-bottom:8px">${d.remaining<=0?'✅':'💸'}</div>
-        <div style="font-size:13px;color:var(--muted)">${reason}</div>
-      </div>`;
-      return;
-    }
-    el('mkt-exch').innerHTML=`${rateHtml}
-      <div class="card">
-        <div class="card-title">Сколько Алмазов получить?</div>
-        <div class="irow"><span class="ik">У вас</span><span>${fmt(d.mora)} 🪙</span></div>
-        <div class="irow"><span class="ik">Стоимость</span><span id="exch-cost" style="color:var(--gold)">—</span></div>
-        <div class="range-wrap">
-          <input type="range" id="exch-dia" min="1" max="${maxCanBuy}" value="1" step="1"
-                 oninput="updExch(${d.rate},${d.mora})"/>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <input type="number" id="exch-num" class="num-input" style="max-width:120px"
-                 min="1" max="${maxCanBuy}" value="1"
-                 oninput="syncExchRange(${d.rate},${d.mora})"/>
-          <span style="font-size:14px">💎</span>
-        </div>
-        <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="doExchange(this)">💱 Обменять</button>
-      </div>`;
-    updExch(d.rate, d.mora);
   }).catch(e=>{el('mkt-exch').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
-function updExch(rate, mora) {
-  const v=parseInt(el('exch-dia')?.value||1);
-  if(el('exch-num'))el('exch-num').value=v;
-  const cost=v*rate;
-  const c=el('exch-cost');
-  if(c)c.textContent=`${fmt(cost)} 🪙${cost>mora?' ❌ недостаточно':''}`;
+// Модалка обмена — открывается по клику на 🪙/💎 в профиле и из вкладки «Обмен».
+function openExchangeCurrencyModal(dir) {
+  OM('💱 Обмен валют', '<div class="loader">Загрузка...</div>', [{l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
+  api('/exchange/').then(d=>{
+    _exchData = d;
+    el('mb').innerHTML = `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.6">
+        Баланс: <b style="color:var(--gold2)">${fmt(d.mora)} 🪙</b> · <b style="color:var(--bright)">${d.diamonds.toFixed(1)} 💎</b><br>
+        🛒 Покупка: <b>${fmt(d.rate)} 🪙 = 1 💎</b> · лимит ${d.remaining.toFixed(0)}/${d.daily_cap.toFixed(0)} 💎<br>
+        💸 Продажа: <b>1 💎 = ${fmt(d.sell_rate)} 🪙</b> · лимит ${d.sell_remaining.toFixed(0)}/${d.sell_daily_cap.toFixed(0)} 💎<br>
+        <span style="color:var(--gold);font-size:11px">Минимум ${d.min_diamonds} 💎 за операцию. Продажа дешевле покупки (спред).</span>
+      </div>
+      <input id="exch-cur-amount" type="number" class="num-input" min="${d.min_diamonds}" step="1"
+             placeholder="Сколько 💎" style="margin:0" oninput="updExchCur()"/>
+      <div id="exch-cur-calc" style="font-size:11px;color:var(--muted);margin:6px 0;min-height:30px"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm btn-gold" style="flex:1" onclick="doExchangeCurrency('buy',this)">🛒 Купить 💎</button>
+        <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doExchangeCurrency('sell',this)">💸 Продать 💎</button>
+      </div>
+      <div id="exch-cur-result" style="margin-top:8px"></div>`;
+    updExchCur();
+  }).catch(e=>{ el('mb').innerHTML = `<div class="err">${e}</div>`; });
 }
-function syncExchRange(rate, mora) {
-  const v=parseInt(el('exch-num')?.value||1);
-  if(el('exch-dia'))el('exch-dia').value=v;
-  updExch(rate, mora);
+function updExchCur() {
+  const d = _exchData; if(!d) return;
+  const c = el('exch-cur-calc'); if(!c) return;
+  const v = parseFloat(el('exch-cur-amount')?.value) || 0;
+  if(v<=0){ c.textContent=''; return; }
+  c.innerHTML = `🛒 Купить ${v} 💎 → <span style="color:var(--gold)">−${fmt(v*d.rate)} 🪙</span><br>`
+              + `💸 Продать ${v} 💎 → <span style="color:var(--teal)">+${fmt(v*d.sell_rate)} 🪙</span>`;
 }
-function doExchange(btn) {
-  const v=parseInt(el('exch-num')?.value||0);
-  if(!v){toast('Введите количество.',false);return;}
-  btn.disabled=true;
-  api('/exchange/convert',{method:'POST',body:JSON.stringify({diamonds:v})})
-    .then(r=>{toast(`✅ +${r.diamonds_gained} 💎  −${fmt(r.mora_spent)} 🪙`);loadExchange();refreshCurrBar();})
-    .catch(e=>{toast(e,false);btn.disabled=false;});
+function doExchangeCurrency(dir, btn) {
+  const v = parseFloat(el('exch-cur-amount')?.value);
+  if(!v || v<=0){ toast('Укажи количество 💎', false); return; }
+  btn.disabled = true;
+  const path = dir==='buy' ? '/exchange/convert' : '/exchange/sell';
+  api(path, {method:'POST', body:JSON.stringify({diamonds:v})})
+    .then(r=>{
+      const msg = dir==='buy'
+        ? `✅ +${r.diamonds_gained} 💎  −${fmt(r.mora_spent)} 🪙`
+        : `✅ +${fmt(r.mora_gained)} 🪙  −${r.diamonds_spent} 💎`;
+      toast(msg);
+      refreshCurrBar();
+      openExchangeCurrencyModal(dir); // перерисовать с обновлёнными балансами/квотой
+    })
+    .catch(e=>{ el('exch-cur-result').innerHTML = `<div class="err">${e}</div>`; btn.disabled=false; });
 }
 
 // ── Dark Mora ─────────────────────────────────────────────────────────────────
@@ -3031,7 +3291,7 @@ function openExchangeZarnikiModal() {
   OM('🔄 Обмен Зарников', `
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
       Баланс: <b style="color:var(--bright)">${zar} ✨</b><br>
-      Курс: 1✨ = 3 🪙  ·  1✨ = 0.05 💎 (20✨ = 1💎)<br>
+      Курс: 1✨ = 150 🪙  ·  1✨ = 0.05 💎 (20✨ = 1💎)<br>
       <span style="color:var(--gold);font-size:11px">⚠️ Обмен необратим.</span>
     </div>
     <input id="exch-zar-amount" type="number" class="num-input" min="1" max="${zar}" step="1"
@@ -4130,6 +4390,7 @@ function loadGlobalDev() {
         </select>
         <input id="dev-bal-amt" type="number" step="any" class="num-input" style="flex:1;margin:0" placeholder="Сумма (− забрать)"/>
       </div>
+      <input id="dev-bal-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (покажется игроку в коробке)"/>
       <button class="btn btn-gold btn-full" onclick="devAdjustBalance()">Применить</button>
     </div>
     <div class="card">
@@ -4140,6 +4401,7 @@ function loadGlobalDev() {
         <datalist id="dev-items-dl"></datalist>
         <input id="dev-item-qty" type="number" class="num-input" style="flex:1;margin:0" placeholder="Кол-во" value="1"/>
       </div>
+      <input id="dev-item-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (покажется игроку в коробке)"/>
       <button class="btn btn-gold btn-full" onclick="devGiveItem()">Применить</button>
     </div>
     <div class="card">
@@ -4398,7 +4660,7 @@ function devAdjustBalance() {
   const cur=el('dev-bal-cur')?.value;
   const amt=parseFloat(el('dev-bal-amt')?.value||'0');
   if(!uid||!amt) return toast('Заполните ID и сумму',false);
-  const body={user_id:uid,mora:0,diamonds:0,dark_mora:0,zarniki:0};
+  const body={user_id:uid,mora:0,diamonds:0,dark_mora:0,zarniki:0,reason:el('dev-bal-reason')?.value||''};
   body[cur]=amt;
   api('/admin/dev/balance',{method:'POST',body:JSON.stringify(body)})
     .then(()=>toast(`✅ ${amt>0?'+':''}${amt} ${cur} → ID${uid}`))
@@ -4409,7 +4671,7 @@ function devGiveItem() {
   const item=el('dev-item-id')?.value.trim();
   const qty=parseInt(el('dev-item-qty')?.value||'0');
   if(!uid||!item||!qty) return toast('Заполните все поля',false);
-  api('/admin/dev/give-item',{method:'POST',body:JSON.stringify({user_id:uid,item_id:item,qty})})
+  api('/admin/dev/give-item',{method:'POST',body:JSON.stringify({user_id:uid,item_id:item,qty,reason:el('dev-item-reason')?.value||''})})
     .then(r=>toast(`✅ ${qty>0?'+':''}${qty}× ${r.item_name}`))
     .catch(e=>toast(e,false));
 }

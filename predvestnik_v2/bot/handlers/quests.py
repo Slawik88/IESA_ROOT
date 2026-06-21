@@ -2,7 +2,8 @@ from aiogram import Router, types
 
 from bot.filters.text_commands import TextCmd
 from core.registry import DAILY_QUESTS
-from services.quests import get_or_assign_quests
+from core.constants import DAILY_QUEST_COMPLETE_BONUS
+from services.quests import get_or_assign_quests, daily_bonus_status
 from services.utils import format_currency
 
 router = Router(name="quests_router")
@@ -74,6 +75,15 @@ async def cmd_quests(message: types.Message, db):
             f"{status} <b>{label}</b> — {prog_str}\n"
             f"   [{bar}]  Награда: {_reward_str(reward)}"
         )
+
+    # БЛОК 5: супер-награда за закрытие ВСЕХ заданий дня
+    done = sum(1 for q in quests if q.get("completed"))
+    bonus = await daily_bonus_status(db, user_id, chat_id)
+    bstatus = "✅ Получено!" if bonus["claimed"] else f"{done}/{len(quests)} закрыто"
+    lines.append(
+        f"🏆 <b>Бонус за ВСЕ задания</b> — {bstatus}\n"
+        f"   Награда: {_reward_str(DAILY_QUEST_COMPLETE_BONUS)}"
+    )
 
     lines.append("\n<i>Задания обновляются каждый день. Выполняйте действия в боте.</i>")
     await message.answer("\n\n".join(lines) if len(quests) > 1 else "\n".join(lines),

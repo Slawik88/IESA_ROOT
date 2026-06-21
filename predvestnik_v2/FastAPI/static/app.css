@@ -533,6 +533,41 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .pity-bar { height: 6px; border-radius: 4px; background: var(--dim); overflow: hidden; margin-top: 6px; }
 .pity-fill { height: 100%; background: linear-gradient(90deg, var(--violet), var(--gold)); border-radius: 4px; transition: width .5s; }
 
+/* ── Rarity juice результата крутки (БЛОК 3) ─────────────────────────────────
+   JS вешает на .spin-anim-wrap класс glow-{rarity}. Раньше эти классы были
+   пустыми (свечения по редкости не было). Теперь — цветной пульсирующий ореол
+   позади шара (--rg = R,G,B цвета редкости, дефолт золотой). */
+.spin-anim-wrap { position: relative; --rg: 232,181,77; }
+.spin-anim-wrap.glow-uncommon  { --rg: 86,196,106; }
+.spin-anim-wrap.glow-rare      { --rg: 94,155,240; }
+.spin-anim-wrap.glow-epic      { --rg: 139,108,240; }
+.spin-anim-wrap.glow-legendary { --rg: 232,181,77; }
+.spin-anim-wrap.glow-mythic    { --rg: 239,99,99; }
+.spin-anim-wrap.glow-shadow    { --rg: 120,120,140; }
+.spin-anim-wrap::before {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  width: 120px; height: 120px; transform: translate(-50%,-50%);
+  border-radius: 50%; pointer-events: none; z-index: 0;
+  background: radial-gradient(circle, rgba(var(--rg),.42) 0%, rgba(var(--rg),0) 70%);
+  animation: rarityHalo 1.1s ease-in-out infinite;
+}
+.spin-anim-ball { position: relative; z-index: 1; }
+@keyframes rarityHalo {
+  0%,100% { opacity:.4; transform: translate(-50%,-50%) scale(.85); }
+  50%     { opacity:.85; transform: translate(-50%,-50%) scale(1.15); }
+}
+/* Screen-shake на топ-дропах (epic и выше) — добавляется на #spin-res из JS */
+@keyframes screenShake {
+  0%,100% { transform: translate(0,0); }
+  15% { transform: translate(-5px,3px); }  30% { transform: translate(5px,-3px); }
+  45% { transform: translate(-4px,-3px); } 60% { transform: translate(4px,3px); }
+  75% { transform: translate(-2px,2px); }  90% { transform: translate(2px,-2px); }
+}
+.shake-fx { animation: screenShake .5s cubic-bezier(.36,.07,.19,.97) both; }
+@media (prefers-reduced-motion: reduce) {
+  .shake-fx, .spin-anim-wrap::before { animation: none; }
+}
+
 /* ═══ АУКЦИОН ═══════════════════════════════════════════════════════════════ */
 .lot-card-top { display: flex; gap: 10px; align-items: flex-start; }
 .lot-icon { font-size: 27px; flex: none; }

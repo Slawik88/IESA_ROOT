@@ -174,6 +174,26 @@ async def dev_user_lookup(q: str = Query(..., max_length=64),
     return d
 
 
+async def _send_admin_gift(db, user_id: int, gifts: list[dict], reason: str = "") -> None:
+    """Доставить «подарок от Администрации» (БЛОК 3.4): WS если игрок онлайн, иначе
+    сохранить в web_notifications — коробка покажется при входе на сайт.
+    gifts: [{"label": str, "amount": number}]. Только положительные начисления."""
+    if not gifts:
+        return
+    payload = {"type": "admin_gift", "reason": (reason or "").strip(), "gifts": gifts}
+    try:
+        from FastAPI.notifications import notify as _ws_notify
+        delivered = await _ws_notify(user_id, payload)
+    except Exception:
+        delivered = False
+    if not delivered:
+        try:
+            from infrastructure.repositories import web_notifications as _wn
+            await _wn.add(db, user_id, payload)
+        except Exception:
+            pass
+
+
 # ── 3. Правка баланса ────────────────────────────────────────────────────────────
 class BalanceRequest(BaseModel):
     user_id: int
@@ -181,6 +201,7 @@ class BalanceRequest(BaseModel):
     diamonds: float = 0
     dark_mora: float = 0
     zarniki: float = 0
+    reason: Optional[str] = None   # текст для коробки-подарка (БЛОК 3.4)
 
 
 @router.post("/balance")
@@ -198,6 +219,14 @@ async def dev_balance(body: BalanceRequest, db=Depends(get_db), user=Depends(req
         await db.execute(
             "UPDATE users SET user_balance_dark_mora = COALESCE(user_balance_dark_mora,0) + ? "
             "WHERE user_tg_id = ?", (body.dark_mora, body.user_id))
+    # Коробка-подарок только за положительные начисления (списание не «дарим»).
+    gifts = []
+    if body.mora > 0:      gifts.append({"label": "🪙 Мора",        "amount": body.mora})
+    if body.diamonds > 0:  gifts.append({"label": "💎 Алмазы",      "amount": body.diamonds})
+    if body.dark_mora > 0: gifts.append({"label": "🌑 Тёмная Мора", "amount": body.dark_mora})
+    if body.zarniki > 0:   gifts.append({"label": "✨ Зарники",      "amount": body.zarniki})
+    if gifts:
+        await _send_admin_gift(db, body.user_id, gifts, body.reason or "")
     await db.commit()
     return {"ok": True}
 
@@ -207,6 +236,7 @@ class GiveItemRequest(BaseModel):
     user_id: int
     item_id: str
     qty: int = 1
+    reason: Optional[str] = None   # текст для коробки-подарка (БЛОК 3.4)
 
 
 @router.post("/give-item")
@@ -216,14 +246,16 @@ async def dev_give_item(body: GiveItemRequest, db=Depends(get_db), user=Depends(
         raise HTTPException(400, f"Неизвестный item_id: {body.item_id}")
     if body.qty == 0:
         raise HTTPException(400, "qty не может быть 0.")
+    name = ITEMS_REGISTRY[body.item_id].get("name", body.item_id)
     if body.qty > 0:
         await add_item(db, body.user_id, body.item_id, body.qty)
+        await _send_admin_gift(db, body.user_id,
+                               [{"label": f"📦 {name}", "amount": body.qty}], body.reason or "")
     else:
         ok = await remove_item(db, body.user_id, body.item_id, -body.qty, commit=False)
         if not ok:
             raise HTTPException(400, "У игрока меньше предметов, чем вы забираете.")
     await db.commit()
-    name = ITEMS_REGISTRY[body.item_id].get("name", body.item_id)
     return {"ok": True, "item_name": name}
 
 

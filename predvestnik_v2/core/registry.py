@@ -12,119 +12,121 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "soul_shard": {
         "name": "💠 Осколок Души",
         "category": "material",
-        "description": "Используется для крафта Яйца Призыва. Добывается при распылении питомцев.",
+        "description": "Застывшая искра распылённого питомца. Накопи 5 штук и собери из них 🔮 Яйцо Призыва во вкладке «Крафт». Где взять: падает, когда распыляешь лишних питомцев.",
         "is_tradable": False,
     },
     "star_dust_s": {
         "name": "🌟 Звёздная пыль",
         "category": "material",
-        "description": "+1 дубликат к выбранному питомцу. Используйте через «бот зоопарк».",
+        "description": "Концентрат опыта питомцев: +1 дубликат любому питомцу (приближает его уровень). Применить: Зоопарк → карточка питомца → «Звёздная пыль».",
         "is_tradable": False,
     },
     "star_dust_l": {
         "name": "✨ Небесная пыль",
         "category": "material",
-        "description": "+5 дубликатов к выбранному питомцу. Используйте через «бот зоопарк».",
+        "description": "Щедрая горсть звёздной пыли — сразу +5 дубликатов выбранному питомцу. Применить: Зоопарк → карточка питомца → «Небесная пыль».",
         "is_tradable": False,
     },
     # Gacha-exclusive items (не продаются в магазине)
     "treasure_map": {
         "name": "🗺 Карта Сокровищ",
         "category": "booster",
-        "description": "Следующая экспедиция: +50% к максимуму лута. Разовый предмет.",
+        "description": "Отметка богатого тайника. Сработает сама на следующей экспедиции: +50% к луту (разово). Где взять: гача и 8-часовые походы с Соколом Lv10.",
         "is_tradable": False,
     },
     "study_notes": {
         "name": "📚 Конспект",
         "category": "utility",
         "price_mora": 600,
-        "description": "+50% XP от сообщений на 4 часа.",
+        "description": "Шпаргалка для быстрой прокачки. Активируй командой «бот использовать, study_notes»: +50% XP от сообщений на 4 часа.",
         "is_tradable": False,
     },
     "lucky_charm": {
         "name": "🍀 Подкова Удачи",
         "category": "booster",
-        "description": "+15% к шансу редкости в следующем открытом яйце.",
+        "description": "Талисман везения. Сработает автоматически на следующем открытом яйце: +15% к шансу редкости. Где взять: гача и ивенты.",
         "is_tradable": False,
     },
     # Spin tokens (bесплатные спины из гачи)
-    "spin_token":          {"name": "🎟 Жетон Гачи",          "category": "spin_token", "spin_type": "mora",     "is_tradable": False, "description": "Один бесплатный спин крутки за Мору."},
+    "spin_token":          {"name": "🎟 Жетон Гачи",          "category": "spin_token", "spin_type": "mora",     "is_tradable": False, "description": "Один бесплатный спин гача-режима «Мора». Потратить: вкладка Гача. Где взять: круток, наград и квестов."},
     # Eggs (gacha)
-    "egg_basic":   {"name": "🥚 Базовое Яйцо",      "category": "egg", "price_mora": 8000,      "description": "80% Common / 19% Rare / 1% Epic"},
-    "egg_summon":  {"name": "🔮 Яйцо Призыва",      "category": "egg",                          "description": "Крафтится из 5 Осколков. Не даёт осколков при распылении."},
-    "egg_silver":  {"name": "🥈 Серебряное Яйцо",   "category": "egg", "price_mora": 28000,     "description": "50% Common / 40% Rare / 10% Epic"},
-    "egg_gold":    {"name": "🪙 Золотое Яйцо",      "category": "egg", "price_diamonds": 250, "price_mora": 120000, "description": "75% Rare / 25% Epic"},
-    "egg_mythic":  {"name": "💎 Мифическое Яйцо",   "category": "egg", "price_diamonds": 500,   "description": "40% Rare / 60% Epic"},
-    "egg_unity":   {"name": "💖 Яйцо Единства",     "category": "egg",                          "description": "100% Legendary. Только для Семей."},
-    "egg_crystal": {"name": "🔷 Кристальное Яйцо",  "category": "egg",                          "description": "30% Epic / 70% Legendary. Только из гачи."},
-    "egg_daily":   {"name": "🎁 Яйцо Дня",          "category": "egg",                          "description": "70% Common / 29% Rare / 1% Epic. Бесплатно 1 раз в день."},
+    "egg_basic":   {"name": "🥚 Базовое Яйцо",      "category": "egg", "price_mora": 8000,      "description": "Самый доступный выводок: 80% Common / 19% Rare / 1% Epic. Открыть: Инвентарь → яйцо → «Открыть»."},
+    "egg_summon":  {"name": "🔮 Яйцо Призыва",      "category": "egg",                          "description": "Собирается из 5 Осколков Души во вкладке «Крафт» (при распылении осколков не даёт). Открыть: Инвентарь → яйцо."},
+    "egg_silver":  {"name": "🥈 Серебряное Яйцо",   "category": "egg", "price_mora": 28000,     "description": "Кладка получше: 50% Common / 40% Rare / 10% Epic. Открыть: Инвентарь → яйцо."},
+    "egg_gold":    {"name": "🪙 Золотое Яйцо",      "category": "egg", "price_diamonds": 250, "price_mora": 120000, "description": "Премиум-кладка: 75% Rare / 25% Epic. Открыть: Инвентарь → яйцо."},
+    "egg_mythic":  {"name": "💎 Мифическое Яйцо",   "category": "egg", "price_diamonds": 500,   "description": "Редчайшая кладка: 40% Rare / 60% Epic. Открыть: Инвентарь → яйцо."},
+    "egg_unity":   {"name": "💖 Яйцо Единства",     "category": "egg",                          "description": "Семейная реликвия: 100% Legendary. Только для Семей. Открыть: Инвентарь → яйцо."},
+    "egg_crystal": {"name": "🔷 Кристальное Яйцо",  "category": "egg",                          "description": "Кристальная кладка: 30% Epic / 70% Legendary. Только из гачи (Лиса Lv10). Открыть: Инвентарь → яйцо."},
+    "egg_daily":   {"name": "🎁 Яйцо Дня",          "category": "egg",                          "description": "Бесплатный подарок раз в день: 70% Common / 29% Rare / 1% Epic. Открыть: Инвентарь → яйцо."},
     # Food / consumables
+    # Усталость растёт от экспедиций; корм её снимает, чтобы снова слать питомца в
+    # поход. Везде кормить одинаково: Зоопарк → карточка питомца → «🍖 Покормить».
     "food_basic":   {
         "name": "🥩 Базовый корм",        "category": "food", "price_mora": 120,
-        "fatigue_restore": 15,            "description": "Снижает 15 усталости.",
+        "fatigue_restore": 15,            "description": "Простая пайка: −15 усталости питомцу. Покормить: Зоопарк → карточка питомца.",
     },
     "food_elite":   {
         "name": "🍗 Элитный корм",        "category": "food", "price_mora": 450,
-        "fatigue_restore": 50,            "description": "Снижает 50 усталости.",
+        "fatigue_restore": 50,            "description": "Сытный паёк: −50 усталости (втрое сильнее базового). Покормить: Зоопарк → карточка питомца.",
     },
     "food_energy":  {
         "name": "⚡️ Энергетик",          "category": "food", "price_mora": 750,
         "fatigue_restore": 20,            "buff": "expedition_cd_reset",
-        "description": "Снижает 20 усталости + сброс КД экспедиции.",
+        "description": "Бодрящий энергетик: −20 усталости и сбрасывает кулдаун экспедиции — питомца можно сразу снова в поход. Покормить: Зоопарк → карточка питомца.",
     },
     "food_fried": {
         "name": "🍗 Жаренное мясо",       "category": "food", "price_mora": 255,
-        "fatigue_restore": 30,            "description": "Снижает 30 усталости.",
+        "fatigue_restore": 30,            "description": "Жареное мясо: −30 усталости питомцу. Покормить: Зоопарк → карточка питомца.",
     },
     "food_stew": {
         "name": "🍖 Тушёная Грудка",      "category": "food", "price_mora": 333,
-        "fatigue_restore": 45,            "description": "Снижает 45 усталости.",
+        "fatigue_restore": 45,            "description": "Тушёная грудка: −45 усталости питомцу. Покормить: Зоопарк → карточка питомца.",
     },
     "food_super": {
         "name": "💊 Суперкорм",           "category": "food", "price_mora": 1100,
-        "fatigue_restore": 60,            "description": "Снижает 60 усталости активному питомцу + 5 всем питомцам в питомнике.",
+        "fatigue_restore": 60,            "description": "Суперкорм: −60 усталости активному питомцу и −5 всем в питомнике сразу. Покормить: Зоопарк → карточка активного питомца.",
     },
     "food_feast": {
         "name": "🍱 Праздничный паёк",    "category": "food", "price_mora": 865,
-        "fatigue_restore": 90,            "description": "Снижает 90 усталости активному питомцу.",
+        "fatigue_restore": 90,            "description": "Праздничный паёк: −90 усталости активному питомцу. Покормить: Зоопарк → карточка питомца.",
     },
     "food_diamond": {
         "name": "💎 Алмазное лакомство",  "category": "food", "price_diamonds": 12,
         "fatigue_restore": 100,           "buff": "efficiency_20", "duration_hours": 24,
-        "description": "Полностью снимает усталость + 20% к эффективности на 24ч.",
+        "description": "Деликатес за алмазы: полностью снимает усталость и даёт +20% к эффективности на 24ч. Покормить: Зоопарк → карточка питомца.",
     },
     # NB: slot_expander удалён в Блоке 2 — слоты питомника теперь покупаются
     # напрямую за алмазы (прогрессивная цена), см. core/constants ZOO_SLOT_PRICES_DIAMONDS.
     # Player buffs (for player, not pet)
     "potion_luck_s": {
         "name": "🧪 Зелье Удачи (М)", "category": "booster", "price_mora": 400,
-        "description": "Следующий спин гачи: +15% к шансу ред.+ (разовый).",
+        "description": "Глоток везения. Применяется сам на следующей крутке гачи: +15% к шансу редких+ дропов. Купить: Магазин.",
         "is_tradable": False, "buff_type": "gacha_luck", "buff_value": 0.15, "buff_uses": 1,
     },
     "potion_luck_m": {
         "name": "🔮 Зелье Удачи (Б)", "category": "booster",
-        "description": "Следующие 3 спина гачи: +15% к шансу ред.+ (разовый).",
+        "description": "Большой эликсир везения: +15% к шансу редких+ на следующие 3 крутки гачи (применяется сам).",
         "is_tradable": False, "buff_type": "gacha_luck", "buff_value": 0.15, "buff_uses": 3,
     },
     "potion_sprint": {
         "name": "⚡ Зелье Рывка", "category": "booster",
-        "description": "Следующая экспедиция: +30% к луту (разовый).",
+        "description": "Заряд бодрости для похода: +30% к луту следующей экспедиции (применяется сам). Где взять: гача.",
         "is_tradable": False, "buff_type": "expedition_loot", "buff_value": 0.30, "buff_uses": 1,
     },
     # Expedition time boosters (gacha-only)
     "exp_boost_1h": {
         "name": "⏩ Ускоритель (1ч)", "category": "booster",
-        "description": "Сокращает текущую активную экспедицию на 1 час.",
+        "description": "Подгоняет питомца домой: −1 час текущей экспедиции. Применить: Зоопарк → активная экспедиция → «Ускорить». Где взять: гача.",
         "is_tradable": False, "boost_hours": 1,
     },
     "exp_boost_2h": {
         "name": "⏩⏩ Ускоритель (2ч)", "category": "booster",
-        "description": "Сокращает текущую активную экспедицию на 2 часа.",
+        "description": "−2 часа текущей активной экспедиции. Применить: Зоопарк → активная экспедиция → «Ускорить». Где взять: гача.",
         "is_tradable": False, "boost_hours": 2,
     },
     "exp_boost_4h": {
         "name": "🚀 Ускоритель (4ч)", "category": "booster",
-        "description": "Сокращает текущую активную экспедицию на 4 часа.",
+        "description": "−4 часа текущей активной экспедиции. Применить: Зоопарк → активная экспедиция → «Ускорить». Где взять: гача.",
         "is_tradable": False, "boost_hours": 4,
     },
 
@@ -132,17 +134,17 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "zarniki_fatigue_reset": {
         "name": "✨ Эликсир бодрости", "category": "donate", "price_zarniki": 30,
         "fatigue_restore": 100, "is_tradable": False,
-        "description": "Мгновенно снимает всю усталость питомца.",
+        "description": "Донат-эликсир за ✨: мгновенно снимает ВСЮ усталость питомца. Применить: Зоопарк → карточка питомца.",
     },
     "zarniki_cooldown_skip": {
         "name": "✨ Кристалл времени", "category": "donate", "price_zarniki": 50,
         "fatigue_restore": 50, "buff": "expedition_cd_reset", "is_tradable": False,
-        "description": "Снижает 50 усталости + сброс КД экспедиции.",
+        "description": "Донат за ✨: −50 усталости и сброс кулдауна экспедиции (питомца сразу снова в поход). Применить: Зоопарк → карточка питомца.",
     },
     "zarniki_nickname_token": {
         "name": "✨ Жетон смены ника", "category": "donate", "price_zarniki": 20,
         "is_tradable": False,
-        "description": "+1 к месячному лимиту смены ника.",
+        "description": "Донат за ✨: +1 к месячному лимиту смены ника. Срабатывает при следующей смене ника.",
     },
 }
 

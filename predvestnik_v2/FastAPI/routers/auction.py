@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from core.constants import AUCTION_COMMISSION, AUCTION_MIN_BID
-from core.registry import ITEMS_REGISTRY
+from core.registry import ITEMS_REGISTRY, PET_SPECIES
 # ITEMS_REGISTRY used both here and inside loops for item metadata
 from infrastructure.repositories.economy import get_balance, get_item_quantity, remove_item
 from infrastructure.repositories.auction import get_reserve
@@ -150,6 +150,82 @@ async def create_lot(body: CreateLotRequest, db=Depends(get_db), user=Depends(re
 
     await db.commit()
     return {"ok": True, "lot_id": result}
+
+
+class CreatePetLotRequest(BaseModel):
+    pet_id:  int
+    min_bid: float
+    buyout:  float | None = None
+
+
+@router.post("/create-pet")
+async def create_pet_lot(body: CreatePetLotRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Выставить питомца со склада на аукцион (web-паритет с ботом).
+
+    Эскроу-first: питомец атомарно переводится из placement='storage' в
+    'auction' (RETURNING-guard от гонки/двойного листинга), и только потом
+    создаётся лот. Если лот не создался — эскроу откатывается.
+    """
+    if body.min_bid < AUCTION_MIN_BID:
+        raise HTTPException(400, f"Минимальная ставка: {AUCTION_MIN_BID} 🪙.")
+
+    async with db.execute(
+        "SELECT species_id, COALESCE(pet_level, 1), placement "
+        "FROM pets WHERE id = ? AND owner_id = ?",
+        (body.pet_id, user["id"]),
+    ) as c:
+        row = await c.fetchone()
+    if not row:
+        raise HTTPException(400, "Питомец не найден.")
+    if row[2] != "storage":
+        raise HTTPException(400, "Выставить можно только питомца со склада — убери его из слотов питомника.")
+
+    sp = PET_SPECIES.get(row[0], {})
+    item_name = f"{sp.get('name', row[0])} Lv{row[1]}"
+
+    # Эскроу-first: атомарно «забираем» питомца со склада. RETURNING-guard
+    # гарантирует, что списали именно storage-питомца (защита от двойного
+    # листинга/гонки с переносом в слот или другим лотом).
+    async with db.execute(
+        "UPDATE pets SET placement = 'auction' "
+        "WHERE id = ? AND owner_id = ? AND placement = 'storage' RETURNING id",
+        (body.pet_id, user["id"]),
+    ) as c:
+        claimed = await c.fetchone()
+    if not claimed:
+        raise HTTPException(400, "Питомец недоступен (уже на аукционе, в слоте или передан).")
+
+    ok, result = await create_auction_lot(
+        db, user["id"], "pets", "pet", body.pet_id, 1, item_name,
+        body.min_bid, body.buyout,
+    )
+    if not ok:
+        # Откат эскроу — вернуть питомца на склад
+        await db.execute(
+            "UPDATE pets SET placement = 'storage' WHERE id = ? AND owner_id = ?",
+            (body.pet_id, user["id"]),
+        )
+        raise HTTPException(400, str(result))
+
+    await db.commit()
+    return {"ok": True, "lot_id": result}
+
+
+class CancelLotRequest(BaseModel):
+    lot_id: int
+
+
+@router.post("/cancel")
+async def cancel_lot_endpoint(body: CancelLotRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Снять свой лот с торгов. Резерв ставивших освобождается, а питомец (если
+    лот был на питомца) возвращается на склад продавца. Та же бизнес-логика, что
+    и у бота — единый `services.auction.cancel_lot`."""
+    from services.auction import cancel_lot
+    ok, msg = await cancel_lot(db, body.lot_id, user["id"])
+    if not ok:
+        raise HTTPException(400, msg)
+    await db.commit()
+    return {"ok": True, "message": msg}
 
 
 class BidRequest(BaseModel):
