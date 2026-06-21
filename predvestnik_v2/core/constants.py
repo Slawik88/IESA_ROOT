@@ -439,6 +439,14 @@ RELIC_TOP_GLOBAL_USERS_PER_CHAT: int = 5
 NICKNAME_FREE_CHANGES_PER_MONTH: int = 5  # non-VIP nickname changes per chat per calendar month
 VIP_EXPIRY_REMINDER_DAYS: int = 3         # send "VIP expiring soon" reminder this many days before expiry
 
+# ── Notification preferences (Implementation Block 15) ─────────────────────────
+# Персональные DM-уведомления, которые игрок может отключить. Групповые сообщения
+# в чат (сундуки, годовщины) — не пер-юзерные, здесь не управляются.
+NOTIFICATION_CATEGORIES: dict[str, str] = {
+    "vip_expiry":  "⏳ Напоминание об истечении VIP",
+    "bp_reminder": "🎫 Напоминание о конце сезона БП",
+}
+
 # ── Battle Pass (Implementation Block 5) ───────────────────────────────────────
 BATTLE_PASS_XP_PER_LEVEL: int = 100  # линейная шкала; подбирается при балансировке
 BATTLE_PASS_MAX_LEVEL: int = 50

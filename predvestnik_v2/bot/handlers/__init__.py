@@ -38,6 +38,7 @@ from .events_info import router as events_info_router
 from .craft import router as craft_router
 from .vip import router as vip_router
 from .battle_pass import router as battle_pass_router
+from .notifications import router as notifications_router
 from . import dev
 
 
@@ -83,6 +84,7 @@ main_router.include_routers(
     craft_router,          # бот крафт: создание предметов из ингредиентов
     vip_router,            # B2: VIP-подписка
     battle_pass_router,    # B5: Боевой пропуск
+    notifications_router,  # Block 15: настройки уведомлений
     dev.router,
     unknown_cmd_router,    # B6: подсказки опечаток — перед fallback, после всех команд
     fallback_router,       # должен быть последним — ловит неверный синтаксис

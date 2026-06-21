@@ -8,6 +8,7 @@ import random as _random
 from services.expedition import calculate_reward
 from services.daily_deal import ensure_deals_fresh
 from infrastructure.repositories.zoo import get_active_species_level, get_species_level_placement
+from infrastructure.repositories.notifications import is_enabled as _notif_enabled
 from infrastructure.repositories.exchange import (
     get_active_event as _get_active_exchange,
     get_scheduled_event as _get_scheduled_exchange,
@@ -330,15 +331,17 @@ async def duel_and_auction_task(bot: Bot):
                     for _erow in _expiring:
                         _euid, _etier, _eexp = _erow[0], _erow[1], _erow[2]
                         _elabel = VIP_TIERS.get(_etier, {}).get("label", _etier)
-                        try:
-                            await bot.send_message(
-                                _euid,
-                                f"⏳ Твой <b>{_elabel}</b> истекает {_eexp:%d.%m}. "
-                                f"Продлить — «бот вип».",
-                                parse_mode="HTML",
-                            )
-                        except Exception:
-                            pass
+                        # Block 15: уважаем настройку уведомлений (флаг ставим всё равно)
+                        if await _notif_enabled(db, _euid, "vip_expiry"):
+                            try:
+                                await bot.send_message(
+                                    _euid,
+                                    f"⏳ Твой <b>{_elabel}</b> истекает {_eexp:%d.%m}. "
+                                    f"Продлить — «бот вип».",
+                                    parse_mode="HTML",
+                                )
+                            except Exception:
+                                pass
                         await db.execute(
                             "UPDATE vip_subscriptions SET expiry_notified = TRUE WHERE user_id = ?",
                             (_euid,),
@@ -364,6 +367,9 @@ async def duel_and_auction_task(bot: Bot):
                             ) as _bc:
                                 _bp_users = await _bc.fetchall()
                             for _brow in _bp_users:
+                                # Block 15: уважаем настройку (флаг ставим всё равно ниже)
+                                if not await _notif_enabled(db, _brow[0], "bp_reminder"):
+                                    continue
                                 try:
                                     await bot.send_message(
                                         _brow[0],

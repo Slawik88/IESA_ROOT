@@ -831,6 +831,14 @@ async def init_db():
             )
         """)
         await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_notification_prefs (
+                user_id  BIGINT NOT NULL,
+                category TEXT NOT NULL,
+                enabled  BOOLEAN DEFAULT TRUE,
+                PRIMARY KEY (user_id, category)
+            )
+        """)
+        await db.execute("""
             CREATE TABLE IF NOT EXISTS partner_gifts_log (
                 id          SERIAL PRIMARY KEY,
                 sender_id   BIGINT,
