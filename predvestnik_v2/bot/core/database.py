@@ -167,6 +167,7 @@ async def init_db():
                 family_balance_diamonds  FLOAT8 DEFAULT 0.0,
                 family_balance_dark_mora FLOAT8 DEFAULT 0.0,
                 family_balance_zarniki   FLOAT8 DEFAULT 0.0,
+                last_anniversary INTEGER DEFAULT 0,
                 marriage_date   TIMESTAMP DEFAULT NOW()
             )
         """)
@@ -869,6 +870,8 @@ async def init_db():
             "ALTER TABLE marriages ADD COLUMN IF NOT EXISTS family_balance_zarniki FLOAT8 DEFAULT 0",
             # Block 6: выбор между 2 наградами на уровне БП (JSON массив вариантов)
             "ALTER TABLE battle_pass_reward_overrides ADD COLUMN IF NOT EXISTS reward_options TEXT DEFAULT NULL",
+            # Block 14: маркер последней отпразднованной годовщины брака (в днях)
+            "ALTER TABLE marriages ADD COLUMN IF NOT EXISTS last_anniversary INTEGER DEFAULT 0",
         ]:
             try:
                 await db.execute(_stmt)

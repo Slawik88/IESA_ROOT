@@ -639,3 +639,53 @@ async def exchange_scheduler_task(bot: Bot):
         except Exception as e:
             logger.error(f"Ошибка в задаче обмена: {e}")
             await asyncio.sleep(30)
+
+
+async def anniversary_task(bot: Bot):
+    """Раз в час: празднуем годовщины браков (Implementation Block 14).
+    Веха (100 дней / каждый год) даётся ОБОИМ супругам один раз + анонс в чате."""
+    from services.marriage import anniversary_due, anniversary_reward
+    logger.info("Фоновая задача годовщин брака запущена.")
+    while True:
+        await asyncio.sleep(3600)
+        try:
+            async with get_pool().acquire() as _conn:
+                db = PGAdapter(_conn)
+                async with db.execute(
+                    "SELECT id, user1_id, user1_name, user2_id, user2_name, chat_id, "
+                    "(NOW()::date - marriage_date::date) AS days, "
+                    "COALESCE(last_anniversary, 0) AS last_anni FROM marriages"
+                ) as c:
+                    rows = [dict(r) for r in await c.fetchall()]
+
+                for m in rows:
+                    days = int(m["days"] or 0)
+                    milestone = anniversary_due(days, int(m["last_anni"] or 0))
+                    if milestone is None:
+                        continue
+                    mora, dia, label = anniversary_reward(milestone)
+                    for uid in (m["user1_id"], m["user2_id"]):
+                        if uid:
+                            await _ab(db, uid, mora=mora, diamonds=dia, commit=False,
+                                      source="marriage_anniversary", note=f"{milestone}d")
+                    await db.execute(
+                        "UPDATE marriages SET last_anniversary = ? WHERE id = ?",
+                        (milestone, m["id"]),
+                    )
+                    await db.commit()
+
+                    if m["chat_id"]:
+                        try:
+                            u1 = f'<a href="tg://user?id={m["user1_id"]}">{m["user1_name"] or "?"}</a>'
+                            u2 = f'<a href="tg://user?id={m["user2_id"]}">{m["user2_name"] or "?"}</a>'
+                            await bot.send_message(
+                                m["chat_id"],
+                                f"💞 <b>ГОДОВЩИНА!</b>\n\n{u1} ❤️ {u2} — <b>{label}</b>!\n"
+                                f"🎁 Каждому: +{mora} 🪙 +{dia} 💎\n\n<i>Совет да любовь! 🥂</i>",
+                                parse_mode="HTML",
+                            )
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.error(f"Ошибка в задаче годовщин: {e}")
+            await asyncio.sleep(30)
