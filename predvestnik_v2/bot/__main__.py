@@ -18,7 +18,7 @@ from infrastructure.database import create_pool, get_pool
 from services.scheduler import (
     expedition_background_task, daily_deal_task,
     duel_and_auction_task, chest_spawn_task,
-    exchange_scheduler_task,
+    exchange_scheduler_task, anniversary_task,
 )
 
 # Unique advisory lock key for this bot (arbitrary fixed integer).
@@ -146,6 +146,7 @@ async def main():
         asyncio.create_task(duel_and_auction_task(bot))
         asyncio.create_task(chest_spawn_task(bot))
         asyncio.create_task(exchange_scheduler_task(bot))
+        asyncio.create_task(anniversary_task(bot))
 
         await dp.start_polling(bot)
     finally:
