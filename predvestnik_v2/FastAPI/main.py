@@ -14,7 +14,7 @@ load_dotenv()
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import theme_templates, theme_meta
-from FastAPI.auth import verify_login_widget, create_session_token
+from FastAPI.auth import verify_login_widget, create_session_token, verify_session_token, verify_webapp_data
 from FastAPI import notifications
 from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               craft, quests, auction, duels, achievements,
@@ -71,7 +71,18 @@ async def telegram_login(payload: _LoginWidgetPayload):
 # ── WebSocket notifications ────────────────────────────────────────────────────
 
 @app.websocket("/ws/{user_id}")
-async def ws_endpoint(websocket: WebSocket, user_id: int):
+async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init: str = ""):
+    # H6: верифицируем, что подключающийся — это и есть user_id (WebApp шлёт initData,
+    # браузер — session-token). Иначе можно было слушать чужой поток уведомлений.
+    authed = False
+    if init:
+        _u = verify_webapp_data(init)
+        authed = bool(_u and int(_u.get("id", 0)) == user_id)
+    elif token:
+        authed = verify_session_token(token) == user_id
+    if not authed:
+        await websocket.close(code=1008)  # policy violation
+        return
     await websocket.accept()
     q: asyncio.Queue = asyncio.Queue()
     notifications.register(user_id, q)

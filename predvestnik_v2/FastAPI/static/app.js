@@ -298,7 +298,7 @@ function loadProfile() {
       </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Питомцев пока нет</div><div class="es-sub">Открой яйцо в Гаче, чтобы завести первого</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button></div></div>`}
       ${d.chats.length?`<div class="card">
         <div class="card-title">💬 Активность</div>
-        ${d.chats.map(c=>`<div class="irow"><span class="ik">${c.chat_title||'Чат'}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}
+        ${d.chats.map(c=>`<div class="irow"><span class="ik">${esc(c.chat_title||'Чат')}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}
         <div class="shortcut-row">
           <span class="shortcut-link" onclick="goTo('hof')">Посмотреть топ →</span>
         </div>
@@ -2739,7 +2739,10 @@ function browserNotif(title, body) {
 function connectWS() {
   if (!_uid) return;
   requestBrowserNotif();
-  const wsUrl = BASE.replace('https://','wss://').replace('http://','ws://') + '/ws/'+_uid;
+  // H6: WS требует аутентификации — WebApp шлёт initData, браузер — session-token
+  const auth = INIT_DATA ? ('init='+encodeURIComponent(INIT_DATA))
+                         : ('token='+encodeURIComponent(sess()||''));
+  const wsUrl = BASE.replace('https://','wss://').replace('http://','ws://') + '/ws/'+_uid+'?'+auth;
   _ws = new WebSocket(wsUrl);
   _ws.onmessage = e => {
     const ev = JSON.parse(e.data);
@@ -3332,7 +3335,7 @@ function renderAdminChatSel() {
   const cur = _adminChats.find(c=>c.chat_tg_id==_adminChatId) || _adminChats[0];
   el('adm-chat-sel').innerHTML=`
     <select id="adm-sel" class="num-input" style="width:100%;margin:0 0 6px" onchange="onAdminChatChange(this.value)">
-      ${_adminChats.map(c=>`<option value="${c.chat_tg_id}" ${c.chat_tg_id==_adminChatId?'selected':''}>${roleIcon(c)} ${c.chat_title} · ${_RANK_NAMES[c.local_rank]||c.local_rank}</option>`).join('')}
+      ${_adminChats.map(c=>`<option value="${c.chat_tg_id}" ${c.chat_tg_id==_adminChatId?'selected':''}>${roleIcon(c)} ${esc(c.chat_title)} · ${_RANK_NAMES[c.local_rank]||c.local_rank}</option>`).join('')}
     </select>
     ${cur && cur.linked_title ? `<div style="font-size:10.5px;color:var(--muted);padding:0 2px 4px">${cur.role==='admin'?`🛡 Это админ-чат группы «${cur.linked_title}»`:`🏠 Основная группа · 🛡 админ-чат: «${cur.linked_title}»`}</div>` : ''}`;
 }
