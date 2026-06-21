@@ -58,14 +58,19 @@ async def craft(db, user_id: int, recipe_id: str) -> dict:
                 "reason": f"Недостаточно {item_name}: нужно {needed}, есть {have}.",
             }
 
-    # Consume ingredients
-    for item_id, needed in recipe["ingredients"]:
-        removed = await remove_item(db, user_id, item_id, needed, commit=False)
-        if not removed:
-            return {"ok": False, "reason": "Ошибка списания ингредиентов. Попробуй ещё раз."}
-
-    # Add result
-    await add_item(db, user_id, recipe["result_item"], recipe["result_qty"])
+    # M8: списание ингредиентов + выдача результата — атомарно. Раньше при
+    # нехватке 2-го ингредиента (параллельный крафт) 1-й уже был безвозвратно
+    # списан. Теперь нехватка вызывает rollback всей операции.
+    class _Insufficient(Exception):
+        pass
+    try:
+        async with db.connection.transaction():
+            for item_id, needed in recipe["ingredients"]:
+                if not await remove_item(db, user_id, item_id, needed, commit=False):
+                    raise _Insufficient()
+            await add_item(db, user_id, recipe["result_item"], recipe["result_qty"])
+    except _Insufficient:
+        return {"ok": False, "reason": "Ошибка списания ингредиентов. Попробуй ещё раз."}
 
     return {
         "ok": True,

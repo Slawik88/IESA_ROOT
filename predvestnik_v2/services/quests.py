@@ -29,8 +29,13 @@ async def _resolve_tz(db, chat_id: int, tz_offset: int | None) -> int:
         return 0
 
 
-def _select_quests(n: int = 3) -> list[dict]:
-    """Pick n weighted-random quests ensuring no duplicate metrics."""
+def _select_quests(n: int = 3, seed: str | None = None) -> list[dict]:
+    """Pick n weighted-random quests ensuring no duplicate metrics.
+
+    Аудит M10: при seed выбор детерминирован → параллельные первые вызовы
+    (бот+сайт) выбирают ОДИН набор, `upsert_quest` (ON CONFLICT) дедуплицирует →
+    ровно n квестов на день, без гонки двойного назначения."""
+    rng = random.Random(seed) if seed is not None else random
     pool = list(DAILY_QUESTS)
     chosen: list[dict] = []
     used_metrics: set[str] = set()
@@ -41,7 +46,7 @@ def _select_quests(n: int = 3) -> list[dict]:
             break
         weights = [q["weight"] for q in candidates]
         total = sum(weights)
-        r = random.uniform(0, total)
+        r = rng.uniform(0, total)
         cumulative = 0.0
         for q, w in zip(candidates, weights):
             cumulative += w
@@ -74,7 +79,7 @@ async def get_or_assign_quests(
         return result[:3]
 
     # Assign fresh quests
-    chosen = _select_quests(3)
+    chosen = _select_quests(3, seed=f"{user_id}:{chat_id}:{today}")
     for q in chosen:
         await upsert_quest(db, user_id, chat_id, today, q["id"], progress=0.0, completed=0)
     await db.commit()
@@ -104,7 +109,7 @@ async def increment_metric(
     if not existing:
         # Auto-assign so quests track 24/7 without needing «бот задания»
         try:
-            chosen = _select_quests(3)
+            chosen = _select_quests(3, seed=f"{user_id}:{chat_id}:{today}")
             for q in chosen:
                 await upsert_quest(db, user_id, chat_id, today, q["id"], progress=0.0, completed=0)
             await db.commit()
@@ -129,9 +134,12 @@ async def increment_metric(
         new_progress = await increment_quest_progress(
             db, user_id, chat_id, today, q["id"], delta
         )
+        if new_progress is None:
+            continue  # квест уже завершён или отсутствует
 
-        if new_progress >= q["target"]:
-            await mark_completed(db, user_id, chat_id, today, q["id"])
+        # H5: грантим ТОЛЬКО если этот вызов реально пометил выполненным
+        # (mark_completed атомарно переключает 0→1 → защита от двойной выдачи).
+        if new_progress >= q["target"] and await mark_completed(db, user_id, chat_id, today, q["id"]):
             # Grant reward
             reward = q.get("reward", {})
             if reward.get("mora", 0) > 0:

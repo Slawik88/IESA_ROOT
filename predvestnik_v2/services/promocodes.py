@@ -85,59 +85,66 @@ async def activate_promocode(
                 "<i>Попробуй активировать его в нужном чате.</i>"
             )
 
-    # Quick pre-check (avoids the PK violation path for normal "already redeemed" case)
+    # Quick pre-check (UX fast-fail; настоящий guard — PK + транзакция ниже)
     if await promo_repo.has_user_redeemed(db, code, user_id):
         raise PromoError("⚠️ Вы уже активировали этот промокод ранее.")
 
-    # ATOMIC GUARD: INSERT redemption record FIRST — before any rewards.
-    # If two bot instances process the same update simultaneously, only one
-    # INSERT will succeed; the other gets a PRIMARY KEY violation here,
-    # before any balance/inventory changes are made.
+    mora      = float(promo["reward_mora"] or 0)
+    diamonds  = float(promo["reward_diamonds"] or 0)
+    dark_mora = float(promo.get("reward_dark_mora") or 0)
+    zarniki   = float(promo.get("reward_zarniki") or 0)
     try:
-        await db.execute(
-            "INSERT INTO promocode_redemptions (code, user_id, chat_id) VALUES (?, ?, ?)",
-            (code, user_id, chat_id),
-        )
+        items: dict[str, int] = json.loads(promo["reward_items_json"] or "{}")
+    except (json.JSONDecodeError, TypeError):
+        items = {}
+
+    # M9: лимит активаций + redemption-guard + ВСЯ выдача — в одной транзакции.
+    # Раньше redemption коммитился до наград (сбой → «активировал, но без награды»),
+    # а max_activations читался отдельно от инкремента (гонка → превышение лимита).
+    try:
+        async with db.connection.transaction():
+            # Атомарный лимит: инкремент проходит ТОЛЬКО если лимит не исчерпан.
+            async with db.execute(
+                "UPDATE promocodes SET activations_count = activations_count + 1 "
+                "WHERE code = ? AND (max_activations = 0 OR activations_count < max_activations) "
+                "RETURNING activations_count",
+                (code,),
+            ) as _c:
+                if not await _c.fetchone():
+                    raise PromoError("❌ Лимит активаций исчерпан. Промокод больше не действует.")
+
+            # Redemption-guard: PK (code, user_id) не даст активировать дважды.
+            await db.execute(
+                "INSERT INTO promocode_redemptions (code, user_id, chat_id) VALUES (?, ?, ?)",
+                (code, user_id, chat_id),
+            )
+
+            if mora > 0 or diamonds > 0 or zarniki > 0:
+                await add_balance(
+                    db, user_id, mora, diamonds, zarniki=zarniki,
+                    commit=False, source="promocode", chat_id=chat_id, note=f"Promo:{code}"
+                )
+            if dark_mora > 0:
+                from infrastructure.repositories.dark_mora import add_dark_mora
+                await add_dark_mora(db, user_id, dark_mora, source="promocode", note=f"Promo:{code}")
+
+            for item_id, qty in items.items():
+                if qty > 0 and item_id in ITEMS_REGISTRY:  # валидация: не плодим «призраков»
+                    await db.execute(
+                        "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+                        "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+                        (user_id, item_id, qty, qty),
+                    )
+    except PromoError:
+        raise
     except Exception as exc:
         err = str(exc).lower()
         if "unique" in err or "duplicate" in err or "primary" in err:
             raise PromoError("⚠️ Вы уже активировали этот промокод ранее.")
         raise PromoError("❌ Ошибка при активации промокода. Попробуй ещё раз.")
 
-    # Increment activation counter
-    await db.execute(
-        "UPDATE promocodes SET activations_count = activations_count + 1 WHERE code = ?",
-        (code,),
-    )
-
-    mora      = float(promo["reward_mora"] or 0)
-    diamonds  = float(promo["reward_diamonds"] or 0)
-    dark_mora = float(promo.get("reward_dark_mora") or 0)
-    zarniki  = float(promo.get("reward_zarniki") or 0)
-
-    try:
-        items: dict[str, int] = json.loads(promo["reward_items_json"] or "{}")
-    except (json.JSONDecodeError, TypeError):
-        items = {}
-
-    # Apply all rewards
-    if mora > 0 or diamonds > 0 or zarniki > 0:
-        await add_balance(
-            db, user_id, mora, diamonds, zarniki=zarniki,
-            commit=False, source="promocode", chat_id=chat_id, note=f"Promo:{code}"
-        )
-
-    if dark_mora > 0:
-        from infrastructure.repositories.dark_mora import add_dark_mora
-        await add_dark_mora(db, user_id, dark_mora, source="promocode", note=f"Promo:{code}")
-
-    for item_id, qty in items.items():
-        if qty > 0:
-            await db.execute(
-                "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
-                (user_id, item_id, qty, qty),
-            )
+    # отфильтрованные предметы для ответа (без неизвестных)
+    items = {iid: q for iid, q in items.items() if q > 0 and iid in ITEMS_REGISTRY}
 
     return {
         "code": code,

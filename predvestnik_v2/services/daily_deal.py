@@ -132,6 +132,10 @@ async def purchase_slot(
 
     try:
         await db.execute("BEGIN IMMEDIATE")
+        # M7: лочим строку игрока — параллельные покупки разных слотов не уйдут в минус
+        await db.execute("INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,))
+        async with db.execute("SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)) as _lk:
+            await _lk.fetchone()
 
         # Check inside transaction to prevent double-purchase race condition
         if await repo.already_purchased(db, user_id, slot, today):
