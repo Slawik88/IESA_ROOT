@@ -24,7 +24,7 @@ FastAPI/        ← Web-адаптер
 | `core/constants.py` | Все числа (цены, лимиты) |
 | `core/registry.py` | ITEMS_REGISTRY, ACHIEVEMENTS, CRAFT_RECIPES |
 | `core/themes.py` | THEMES (top/sep/bot/accent) |
-| `FastAPI/static/app.js` | JS ~1825 строк — ТОЛЬКО grep+offset Read |
+| `FastAPI/static/app.js` | JS ~4800 строк — ТОЛЬКО grep+offset Read |
 | `services/scheduler.py` | Фоновые задачи |
 | `NOT_IMPLEMENTED.md` | Что доделать (пиши "делаем пункт N") |
 | `FUTURE_IDEAS.md` | Идеи на потом — после NOT_IMPLEMENTED.md |
@@ -49,5 +49,5 @@ FastAPI/        ← Web-адаптер
   - дубли/противоречия после новых указаний пользователя
 - Цель — экономия токенов: `MEMORY.md` грузится целиком в каждую сессию.
 
-*Обновлено: 2026-06-11 | Доделки: NOT_IMPLEMENTED.md | Идеи: FUTURE_IDEAS.md | Планы фич: IMPLEMENTATION_BLOCKS.md*
+*Обновлено: 2026-06-21 | Доделки: NOT_IMPLEMENTED.md | Идеи: FUTURE_IDEAS.md | Планы фич: IMPLEMENTATION_BLOCKS.md | Аудит+фиксы: global_audit_report.md*
 
