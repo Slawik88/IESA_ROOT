@@ -26,12 +26,23 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 user_tg_id      BIGINT PRIMARY KEY,
                 user_tg_username TEXT,
-                user_balance_mora     FLOAT8 DEFAULT 0.0,
-                user_balance_diamonds FLOAT8 DEFAULT 0.0,
+                user_balance_mora      FLOAT8 DEFAULT 0.0,
+                user_balance_diamonds  FLOAT8 DEFAULT 0.0,
+                user_balance_dark_mora FLOAT8 DEFAULT 0.0,
+                user_balance_zarniki   FLOAT8 DEFAULT 0.0,
                 global_rank     INTEGER DEFAULT 0,
-                user_is_active  BOOLEAN DEFAULT TRUE
+                user_is_active  BOOLEAN DEFAULT TRUE,
+                onboarded       BOOLEAN DEFAULT TRUE,
+                active_theme    TEXT DEFAULT NULL,
+                dark_mora       INTEGER DEFAULT 0,
+                contrabanda_last_at      TIMESTAMP DEFAULT NULL,
+                contrabanda_banned_until TIMESTAMP DEFAULT NULL,
+                ritual_last_at           TIMESTAMP DEFAULT NULL
             )
         """)
+        # NB: колонки ниже продублированы ALTER-ами для апгрейда СТАРЫХ БД
+        # (созданных до того, как они попали в CREATE). На свежей БД ALTER —
+        # no-op (IF NOT EXISTS). Не удалять ALTER, пока живы старые инсталляции.
 
         # 2. Chat stats
         await db.execute("""
@@ -640,48 +651,16 @@ async def init_db():
         """)
 
         # 35. Artifact instances (limited-print)
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS artifact_instances (
-                id          SERIAL PRIMARY KEY,
-                art_id      TEXT NOT NULL,
-                owner_id    BIGINT NOT NULL,
-                source      TEXT,
-                acquired_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS artifact_award_log (
-                id          SERIAL PRIMARY KEY,
-                art_id      TEXT NOT NULL,
-                user_id     BIGINT NOT NULL,
-                chat_id     BIGINT,
-                award_type  TEXT,
-                award_month TEXT NOT NULL,
-                UNIQUE (user_id, art_id, award_month)
-            )
-        """)
-
-        # 36. Relic instances (very limited-print)
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS relic_instances (
-                id          SERIAL PRIMARY KEY,
-                rel_id      TEXT NOT NULL,
-                owner_id    BIGINT NOT NULL,
-                source      TEXT,
-                acquired_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS relic_award_log (
-                id          SERIAL PRIMARY KEY,
-                rel_id      TEXT NOT NULL,
-                user_id     BIGINT NOT NULL,
-                chat_id     BIGINT,
-                award_type  TEXT,
-                award_period TEXT NOT NULL,
-                UNIQUE (user_id, rel_id, award_period)
-            )
-        """)
+        # M1 (аудит): artifact_instances/artifact_award_log/relic_instances/
+        # relic_award_log — мёртвые таблицы (нигде в коде не используются; реликвии
+        # Блока 13 живут в user_relics). Удаляем идемпотентно. Если когда-нибудь
+        # понадобятся теневые реликвии/артефакты — заводить заново осознанно.
+        for _dead in ("artifact_instances", "artifact_award_log",
+                      "relic_instances", "relic_award_log"):
+            try:
+                await db.execute(f"DROP TABLE IF EXISTS {_dead}")
+            except Exception:
+                pass
 
         # 37. Shadow Merchant events (Теневой Торговец)
         await db.execute("""
