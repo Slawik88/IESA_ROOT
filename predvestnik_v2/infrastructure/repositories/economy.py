@@ -1,11 +1,49 @@
 """
 infrastructure/repositories/economy.py
-All balance-changing functions use explicit asyncpg transactions
-to prevent race conditions with concurrent users.
+
+ВАЖНО про атомарность (аудит H1/H2):
+PGAdapter работает в autocommit — каждый execute фиксируется сразу, а
+`db.commit()` без явного BEGIN/transaction() это NO-OP. Поэтому:
+  • Чистый КРЕДИТ безопасен: `add_balance` делает `UPDATE … = balance + ?`
+    (атомарный инкремент строки, без потери при гонке).
+  • ДЕБЕТ С ПРЕДВАРИТЕЛЬНЫМ ЧТЕНИЕМ баланса (прочитал → проверил → списал)
+    безопасен ТОЛЬКО внутри `async with eco.atomic(db, user_id):` — он
+    открывает транзакцию и берёт `SELECT … FOR UPDATE` на строке игрока.
+Параметр `commit=` у add_balance — НЕ управляет транзакцией (в autocommit это
+no-op); оставлен для совместимости вызовов. Реальную атомарность даёт ТОЛЬКО
+внешний `atomic()`/`db.connection.transaction()`.
 """
+from contextlib import asynccontextmanager
 from infrastructure.repositories.wallet_log import log_wallet
 from infrastructure.pg_adapter import PGAdapter
 from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
+
+
+@asynccontextmanager
+async def atomic(db: PGAdapter, *user_ids: int):
+    """Транзакция + блокировка строк указанных игроков (FOR UPDATE).
+
+    Единый образец для всех «прочитал баланс → списал» операций (аудит H1).
+    Использование:
+
+        async with eco.atomic(db, user_id):
+            bal = await get_balance(db, user_id)   # уже под локом строки
+            if bal["user_balance_mora"] < cost: ...
+            await add_balance(db, user_id, mora=-cost)
+
+    Блокирует строки в порядке возрастания id (профилактика дедлоков при
+    нескольких игроках, напр. перевод/дуэль).
+    """
+    async with db.connection.transaction():
+        for uid in sorted(set(user_ids)):
+            await db.execute(
+                "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (uid,)
+            )
+            async with db.execute(
+                "SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (uid,)
+            ) as _c:
+                await _c.fetchone()
+        yield
 
 
 async def get_balance(db: PGAdapter, user_id: int) -> dict:

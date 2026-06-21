@@ -47,6 +47,9 @@ def _coerce_args(args: list) -> list:
 
 _PLACEHOLDER_RE = re.compile(r'\?')
 _INSERT_OR_IGNORE_RE = re.compile(r'INSERT\s+OR\s+IGNORE\s+INTO', re.IGNORECASE)
+# M4: детект RETURNING по границе слова (а не по подстроке — иначе ложные
+# срабатывания на словах/литералах, содержащих 'returning').
+_RETURNING_RE = re.compile(r'\bRETURNING\b', re.IGNORECASE)
 
 # datetime('now') → NOW()
 _DATETIME_NOW_RE = re.compile(r"datetime\('now'\)", re.IGNORECASE)
@@ -213,7 +216,7 @@ class _Execute:
         try:
             is_select = (
                 pg_sql.strip().upper().startswith(('SELECT', 'WITH')) or
-                'RETURNING' in pg_sql.upper()
+                _RETURNING_RE.search(pg_sql) is not None
             )
             if is_select:
                 rows = await self._conn.fetch(pg_sql, *args)
