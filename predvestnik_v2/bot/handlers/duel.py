@@ -145,18 +145,21 @@ async def cmd_duel(message: types.Message, db, text_args: str = None,
 
 @router.callback_query(DuelCB.filter(F.action == "accept"))
 async def cb_duel_accept(query: types.CallbackQuery, callback_data: DuelCB, db):
-    await query.answer()
     user_id = query.from_user.id
     duel_id = callback_data.duel_id
 
     from infrastructure.repositories.duel import get_duel
     duel = await get_duel(db, duel_id)
     if not duel:
+        await query.answer()
         return await query.message.edit_text("❌ Вызов не найден или истёк.", parse_mode="HTML")
     if duel["status"] != "pending":
+        await query.answer()
         return await query.message.edit_text("❌ Вызов уже завершён.", parse_mode="HTML")
     if duel["challenged_id"] != user_id:
-        return
+        # L7: фидбэк вместо «мёртвой кнопки» при клике не тем игроком
+        return await query.answer("❌ Этот вызов адресован не вам.", show_alert=True)
+    await query.answer()
 
     # Check active pet for challenged
     challenged_pet_rows = await zoo_db.get_user_pets(db, user_id, placement="active")
@@ -210,16 +213,18 @@ async def cb_duel_accept(query: types.CallbackQuery, callback_data: DuelCB, db):
 
 @router.callback_query(DuelCB.filter(F.action == "decline"))
 async def cb_duel_decline(query: types.CallbackQuery, callback_data: DuelCB, db):
-    await query.answer()
     user_id = query.from_user.id
 
     from infrastructure.repositories.duel import get_duel
     duel = await get_duel(db, callback_data.duel_id)
     if not duel or duel["status"] != "pending":
+        await query.answer()
         return await query.message.edit_text("❌ Вызов уже завершён.", parse_mode="HTML")
 
     if duel["challenged_id"] != user_id and duel["challenger_id"] != user_id:
-        return
+        # L7: фидбэк вместо «мёртвой кнопки»
+        return await query.answer("❌ Это не ваша дуэль.", show_alert=True)
+    await query.answer()
 
     await decline_duel(db, callback_data.duel_id)
     decliner_name = await resolve_display_name(db, user_id, duel["chat_id"], f"ID{user_id}")
