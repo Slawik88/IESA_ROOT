@@ -2,7 +2,7 @@
 # Pure expedition reward calculation. No DB, no platform — only math and randomness.
 import random
 
-from core.constants import get_pet_bonus
+from core.constants import get_pet_bonus, scale_pet_bonus
 from core.registry import EXPEDITIONS_DATA
 
 
@@ -10,6 +10,7 @@ def calculate_reward(
     hours: int,
     species_id: str | None = None,
     species_levels: dict | None = None,
+    species_placements: dict | None = None,
 ) -> dict:
     """
     Calculate expedition outcome.
@@ -24,6 +25,12 @@ def calculate_reward(
         mora, xp, diamonds, extras (list of free items, e.g. treasure_map), buff_message
     """
     species_levels = species_levels or {}
+    species_placements = species_placements or {}
+
+    def _bonus(sp: str, lvl: int) -> dict:
+        # Block 12: бонус с учётом слота (passive ×0.5, capstone off)
+        return scale_pet_bonus(get_pet_bonus(sp, lvl), species_placements.get(sp))
+
     exp_data = EXPEDITIONS_DATA.get(hours)
     if not exp_data:
         return {"mora": 0, "xp": 0, "diamonds": 0, "extras": [], "buff_message": ""}
@@ -38,7 +45,7 @@ def calculate_reward(
     # plus a guaranteed Treasure Map on 8h trips at capstone Lv10.
     falcon_level = species_levels.get("falcon", 0)
     if falcon_level > 0:
-        f = get_pet_bonus("falcon", falcon_level)
+        f = _bonus("falcon", falcon_level)
         m_bonus = f.get("mora_bonus", 0.0)
         x_bonus = f.get("xp_bonus", 0.0)
         m_gain = int(mora * m_bonus)
@@ -62,7 +69,7 @@ def calculate_reward(
     # Per-roll chance depends on fox level. Capstone Lv10 adds chance of crystal egg.
     if species_id == "fox":
         fox_level = species_levels.get("fox", 1) or 1
-        f = get_pet_bonus("fox", fox_level)
+        f = _bonus("fox", fox_level)
         chance = f.get("diamond_chance_per_2h", 0.0)
         rolls = max(1, hours // 2)
         for _ in range(rolls):
@@ -80,7 +87,7 @@ def calculate_reward(
     # Owl (any nursery slot): +xp_bonus to expedition XP, scales with level.
     owl_level = species_levels.get("owl", 0)
     if owl_level > 0:
-        o = get_pet_bonus("owl", owl_level)
+        o = _bonus("owl", owl_level)
         bonus_xp = int(xp * o.get("expedition_xp_bonus", 0.0))
         if bonus_xp > 0:
             xp += bonus_xp

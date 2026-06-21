@@ -68,8 +68,7 @@ def _calc_hamster_income(
 
     total = 0.0
     for h in hamsters:
-        level = h.get("pet_level") or 1
-        bonus = HAMSTER_BONUSES.get(max(1, min(10, level)), {})
+        bonus = zoo_db.hamster_bonus(h)  # Block 12: с учётом слота
         if h.get("fatigue", 0) >= 100 and not bonus.get("ignore_exhaustion", False):
             continue
         rate = bonus.get("mora_per_hour", 0.0)
@@ -155,7 +154,7 @@ async def render_main_zoo(message: types.Message, db, user_id: int, is_edit: boo
     for p in nursery_pets:
         if p["species_id"] != "hamster":
             continue
-        bonus = HAMSTER_BONUSES.get(max(1, min(10, p.get("pet_level") or 1)), {})
+        bonus = zoo_db.hamster_bonus(p)  # Block 12: с учётом слота
         if p["fatigue"] < 100 or bonus.get("ignore_exhaustion", False):
             productive_hamsters.append(p)
     if productive_hamsters:
@@ -633,12 +632,8 @@ async def cb_zoo_feed_all(query: types.CallbackQuery, callback_data: ZooCB, db):
     wolf_food_extra = await get_active_wolf_food_extra(db, user_id) if wolf_active else 0
     restore_per_food = 15 + wolf_food_extra
 
-    # Dragon free-food chance from level curve.
-    dragon_level = await zoo_db.get_active_species_level(db, user_id, "dragon")
-    dragon_free_chance = (
-        get_pet_bonus("dragon", dragon_level).get("free_food_chance", 0.0)
-        if dragon_level > 0 else 0.0
-    )
+    # Dragon free-food chance (Block 12: с учётом слота).
+    dragon_free_chance = (await zoo_db.get_species_bonus(db, user_id, "dragon")).get("free_food_chance", 0.0)
 
     actions_taken = 0
     food_used = 0
@@ -689,7 +684,7 @@ async def cb_zoo_collect(query: types.CallbackQuery, callback_data: ZooCB, db):
     for p in pets:
         if p["species_id"] != "hamster":
             continue
-        bonus = HAMSTER_BONUSES.get(max(1, min(10, p.get("pet_level") or 1)), {})
+        bonus = zoo_db.hamster_bonus(p)  # Block 12: с учётом слота
         if p["fatigue"] < 100 or bonus.get("ignore_exhaustion", False):
             productive_hamsters.append(p)
 
@@ -714,19 +709,15 @@ async def cb_zoo_collect(query: types.CallbackQuery, callback_data: ZooCB, db):
     _last_dt = parse_dt(stats.get("last_income_collection"))
     last_collect_day = _last_dt.strftime("%Y-%m-%d") if _last_dt else ""
     for h in productive_hamsters:
-        b = HAMSTER_BONUSES.get(max(1, min(10, h.get("pet_level") or 1)), {})
+        b = zoo_db.hamster_bonus(h)  # Block 12: double_chance/daily_diamond с учётом слота
         if b.get("double_chance", 0.0) > 0 and random.random() < b["double_chance"]:
             double_mora_bonus += int(accumulated / max(1, len(productive_hamsters)))
         # daily_diamond is "per real day": grant only if last_collection was a previous day.
         if b.get("daily_diamond", 0.0) > 0 and last_collect_day != today_str:
             diamond_bonus = max(diamond_bonus, b["daily_diamond"])
 
-    # Dragon flat bonus on collection (level-curve).
-    dragon_level = await zoo_db.get_active_species_level(db, user_id, "dragon")
-    dragon_bonus_mora = (
-        int(get_pet_bonus("dragon", dragon_level).get("hamster_collect_bonus", 0.0))
-        if dragon_level > 0 else 0
-    )
+    # Dragon flat bonus on collection (Block 12: с учётом слота).
+    dragon_bonus_mora = int((await zoo_db.get_species_bonus(db, user_id, "dragon")).get("hamster_collect_bonus", 0.0))
 
     total_mora = accumulated + double_mora_bonus + dragon_bonus_mora
 
@@ -978,12 +969,8 @@ async def cb_zoo_feed_one(query: types.CallbackQuery, callback_data: ZooCB, db):
     if qty <= 0:
         return await query.answer("❌ Этого корма больше нет в инвентаре.", show_alert=True)
 
-    # Dragon free-food chance
-    dragon_level = await zoo_db.get_active_species_level(db, user_id, "dragon")
-    dragon_free_chance = (
-        get_pet_bonus("dragon", dragon_level).get("free_food_chance", 0.0)
-        if dragon_level > 0 else 0.0
-    )
+    # Dragon free-food chance (Block 12: с учётом слота)
+    dragon_free_chance = (await zoo_db.get_species_bonus(db, user_id, "dragon")).get("free_food_chance", 0.0)
     free_food = dragon_free_chance > 0 and random.random() < dragon_free_chance
 
     restore = item.get("fatigue_restore", 0)

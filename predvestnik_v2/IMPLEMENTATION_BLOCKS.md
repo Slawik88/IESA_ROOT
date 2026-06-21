@@ -25,7 +25,7 @@
 | 8 | Гача: снос 4 типов на 1 унифицированный | 🔴 **высокий** | — (но делать последним из «ядра») |
 | 9 | Магазин: S/M/L/XL + расширенный каталог новых предметов | 🟡 средний | Блок 8 |
 | 10 | Онбординг новичка | 🟢 низкий | Блок 8 |
-| 12 | 🟦 **ЧАСТИЧНО** Питомцы active/passive (фундамент + owl/unicorn ✅; hamster/turtle/dragon/exp ⏳) | 🟡 средний | — |
+| 12 | ✅ **ВЫПОЛНЕНО** Питомцы active/passive (owl/unicorn/hamster/turtle/dragon/dog/falcon/fox; wolf исключён) | 🟡 средний | — |
 | 13 | Ивенты и Реликвии (новый смысл Тёмной Моры) | 🟡 средний | — |
 | 14 | Годовщины брака | 🟢 низкий | — |
 | 15 | Настройки уведомлений | 🟡 средний (широкий охват) | — |
@@ -560,17 +560,21 @@ S/M/L/XL по нажатию на один предмет вместо отде�
 - Подключено: **owl** (XP в `services/leveling.py`), **unicorn**
   (`daily_fatigue_reduction`/`auto_recover` в `apply_fatigue_decay`).
 
-**⏳ Осталось (отдельный аккуратный проход + тест на БД):**
-- hamster (доход — 3+ места: repo `get_pending_hamster_income`, bot/FastAPI
-  превью — нужна синхронность display/actual), turtle (скидка магазина), dragon
-  (банк/корм/сбор), экспедиционные dog/falcon/fox/turtle.
-- **ВАЖНО:** wolf уже slot-aware (`active_reduction` vs `passive_reduction` —
-  отдельные поля) → его generic-скейлить НЕЛЬЗЯ (двойной нерф). Unicorn
-  `active_recovery_per_hour` тоже уже active-only — учтено.
+**✅ Доделано (полный охват):**
+- **hamster** — централизованный `zoo.hamster_bonus(pet)` (scaled по слоту),
+  применён во ВСЕХ местах дохода консистентно: repo `get_pending_hamster_income`
+  (= источник правды для бота и FastAPI), bot `_calc_hamster_income` +
+  фильтры продуктивности + double_chance/daily_diamond в сборе, FastAPI /collect.
+- **turtle** (скидка экспедиции — бот+FastAPI), **dragon** (free_food/collect
+  bonus — бот+FastAPI) — через `get_species_bonus`.
+- **экспедиции** dog/turtle (старт, бот+FastAPI) + falcon/fox/owl (награда в
+  `calculate_reward` — добавлен `species_placements`, scheduler передаёт слоты;
+  экспедиционный питомец всегда active).
+- **wolf исключён** — уже slot-aware (`active_reduction`≠`passive_reduction`),
+  generic-скейл дал бы двойной нерф. Unicorn `active_recovery` уже active-only.
 
-**Почему не всё сразу:** самая чувствительная система (экономика питомцев),
-теста на БД с dev-машины нет; несколько видов уже частично slot-aware →
-блансовый рефактор требует выверенного по-видового прохода, а не слепого ×0.5.
+**Проверка:** py_compile 6 файлов + статистический тест falcon (passive avg mora
+603 < active 682) + scale_pet_bonus unit-проверки (owl-landmine обезврежен).
 
 ---
 
