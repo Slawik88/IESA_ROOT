@@ -58,16 +58,19 @@ async def increment_quest_progress(
     quest_id: str,
     delta: float,
 ) -> float:
-    """Increment progress (no-op if already completed). Returns new progress. No commit."""
-    existing = await get_quest(db, user_id, chat_id, date, quest_id)
-    if not existing or existing["completed"]:
-        return existing["progress"] if existing else 0.0
-    new_progress = existing["progress"] + delta
-    await db.execute(
-        "UPDATE daily_quests SET progress = ? WHERE user_id = ? AND chat_id = ? AND date = ? AND quest_id = ?",
-        (new_progress, user_id, chat_id, date, quest_id),
-    )
-    return new_progress
+    """Атомарно увеличить прогресс (no-op если уже завершён). Возвращает новый
+    прогресс или None, если квеста нет/он уже завершён. No commit.
+
+    Аудит H5: атомарный инкремент `progress = progress + ?` (раньше был
+    read-modify-write → потеря дельт при гонке бот+сайт)."""
+    async with db.execute(
+        "UPDATE daily_quests SET progress = progress + ? "
+        "WHERE user_id = ? AND chat_id = ? AND date = ? AND quest_id = ? AND completed = 0 "
+        "RETURNING progress",
+        (delta, user_id, chat_id, date, quest_id),
+    ) as c:
+        row = await c.fetchone()
+    return float(row[0]) if row else None
 
 
 async def mark_completed(
@@ -76,8 +79,13 @@ async def mark_completed(
     chat_id: int,
     date: str,
     quest_id: str,
-) -> None:
-    await db.execute(
-        "UPDATE daily_quests SET completed = 1 WHERE user_id = ? AND chat_id = ? AND date = ? AND quest_id = ?",
+) -> bool:
+    """Атомарно пометить выполненным. Возвращает True ТОЛЬКО если этот вызов
+    реально переключил 0→1 (аудит H5 — защита от двойной выдачи награды)."""
+    async with db.execute(
+        "UPDATE daily_quests SET completed = 1 "
+        "WHERE user_id = ? AND chat_id = ? AND date = ? AND quest_id = ? AND completed = 0 "
+        "RETURNING quest_id",
         (user_id, chat_id, date, quest_id),
-    )
+    ) as c:
+        return (await c.fetchone()) is not None

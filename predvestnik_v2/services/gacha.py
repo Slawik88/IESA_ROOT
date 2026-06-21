@@ -180,6 +180,10 @@ async def roll_single(
 
     try:
         await db.execute("BEGIN IMMEDIATE")
+        # H3: лочим строку игрока на весь спин — параллельные крутки не уйдут в минус
+        await db.execute("INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,))
+        async with db.execute("SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)) as _lk:
+            await _lk.fetchone()
 
         # ── Deduct cost: tokens have ABSOLUTE PRIORITY ────────────────────────
         used_token = False
@@ -304,6 +308,10 @@ async def roll_multi(
 
     try:
         await db.execute("BEGIN IMMEDIATE")
+        # H3: лочим строку игрока на весь мульти-спин (защита от овердрафта)
+        await db.execute("INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,))
+        async with db.execute("SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)) as _lk:
+            await _lk.fetchone()
 
         bal = await eco_repo.get_balance(db, user_id)
         if total_mora > 0 and bal["user_balance_mora"] < total_mora:

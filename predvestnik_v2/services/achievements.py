@@ -28,57 +28,61 @@ async def increment_metric(
         if ach["metric"] != metric_name:
             continue
 
-        record = await get_achievement(db, user_id, ach_id)
-        if record is None:
-            record = {"level": 0, "progress": 0.0}
+        # H4: каждое достижение обновляем атомарно — транзакция + FOR UPDATE на
+        # строке. Раньше read-modify-write терял прогресс при гонке (бот+сайт по
+        # одной метрике) и мог выдать награду уровня дважды. Под локом строки
+        # параллельные инкременты сериализуются.
+        async with db.connection.transaction():
+            await db.execute(
+                "INSERT INTO achievements (user_id, achievement_id, level, progress) "
+                "VALUES (?, ?, 0, 0) ON CONFLICT (user_id, achievement_id) DO NOTHING",
+                (user_id, ach_id),
+            )
+            async with db.execute(
+                "SELECT level, progress FROM achievements "
+                "WHERE user_id = ? AND achievement_id = ? FOR UPDATE",
+                (user_id, ach_id),
+            ) as _c:
+                _row = await _c.fetchone()
+            current_level = int(_row[0]) if _row else 0
+            if current_level >= 10:
+                continue  # already maxed — выходит из transaction (коммит лока) и идёт дальше
 
-        current_level = record["level"]
-        if current_level >= 10:
-            continue  # already maxed
+            new_progress = (float(_row[1]) if _row else 0.0) + delta
+            thresholds = ach["thresholds"]
 
-        new_progress = record["progress"] + delta
-        thresholds = ach["thresholds"]
+            while current_level < 10:
+                if new_progress >= thresholds[current_level]:
+                    current_level += 1
+                    reward = ACHIEVEMENT_LEVEL_REWARDS.get(current_level, {})
 
-        # Check if any new levels are unlocked
-        while current_level < 10:
-            threshold = thresholds[current_level]
-            if new_progress >= threshold:
-                current_level += 1
-                reward = ACHIEVEMENT_LEVEL_REWARDS.get(current_level, {})
+                    # Grant mora (add_balance уже пишет в wallet_log — без дубля!)
+                    if reward.get("mora", 0) > 0:
+                        await add_balance(db, user_id, mora=reward["mora"], commit=False,
+                                          source="achievement_reward", chat_id=chat_id,
+                                          note=f"{ach_id}_lv{current_level}")
+                    if reward.get("diamonds", 0) > 0:
+                        await add_balance(db, user_id, diamonds=reward["diamonds"], commit=False,
+                                          source="achievement_reward", chat_id=chat_id,
+                                          note=f"{ach_id}_lv{current_level}")
+                    for item_id, qty in reward.get("items", ()):
+                        await db.execute(
+                            "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+                            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+                            (user_id, item_id, qty, qty),
+                        )
 
-                # Grant mora
-                if reward.get("mora", 0) > 0:
-                    await add_balance(db, user_id, mora=reward["mora"], commit=False,
-                                      source="achievement_reward",
-                                      note=f"{ach_id}_lv{current_level}")
-                    await log_wallet(db, user_id, delta_mora=reward["mora"],
-                                     source="achievement_reward", chat_id=chat_id,
-                                     note=f"{ach_id}_lv{current_level}")
+                    granted.append({
+                        "achievement_id": ach_id,
+                        "icon": ach["icon"],
+                        "name": ach["name"],
+                        "level": current_level,
+                        "reward": reward,
+                    })
+                else:
+                    break
 
-                # Grant diamonds
-                if reward.get("diamonds", 0) > 0:
-                    await add_balance(db, user_id, diamonds=reward["diamonds"], commit=False,
-                                      source="achievement_reward")
-
-                # Grant items
-                for item_id, qty in reward.get("items", ()):
-                    await db.execute(
-                        "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-                        "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
-                        (user_id, item_id, qty, qty),
-                    )
-
-                granted.append({
-                    "achievement_id": ach_id,
-                    "icon": ach["icon"],
-                    "name": ach["name"],
-                    "level": current_level,
-                    "reward": reward,
-                })
-            else:
-                break
-
-        await upsert_achievement(db, user_id, ach_id, current_level, new_progress)
+            await upsert_achievement(db, user_id, ach_id, current_level, new_progress)
 
     # Боевой пропуск (Implementation Block 5.5) — единая точка интеграции:
     # любой increment_metric с метрикой из BATTLE_PASS_XP_WEIGHTS даёт XP БП.
