@@ -14,7 +14,7 @@ from core.constants import (
     DUPLICATE_OVERFLOW_MORA, DUPLICATE_OVERFLOW_STARDUST,
     PET_LEVEL_MILESTONE_REWARDS,
     ZOO_BASE_SLOTS, ZOO_SLOT_PRICES_DIAMONDS,
-    get_level_for_duplicates,
+    get_level_for_duplicates, scale_pet_bonus,
 )
 from infrastructure.repositories.wallet_log import log_wallet
 
@@ -160,6 +160,29 @@ async def get_active_species_level(db: aiosqlite.Connection, user_id: int, speci
     ) as cursor:
         row = await cursor.fetchone()
     return row[0] if row else 0
+
+
+async def get_species_level_placement(db, user_id: int, species_id: str) -> tuple[int, str | None]:
+    """Уровень + слот непустого питомца этого вида (приоритет ACTIVE над passive).
+    (0, None) если нет. Block 12: нужен для масштабирования бонуса по слоту."""
+    async with db.execute(
+        "SELECT COALESCE(pet_level, 1), placement FROM pets WHERE owner_id = ? AND species_id = ? "
+        "AND placement IN ('active', 'passive') AND fatigue < 100 "
+        "ORDER BY (placement = 'active') DESC LIMIT 1",
+        (user_id, species_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return (row[0], row[1]) if row else (0, None)
+
+
+async def get_species_bonus(db, user_id: int, species_id: str) -> dict:
+    """Готовый бонус вида с учётом слота (active=полный, passive=×0.5, capstone off).
+    {} если активного/пассивного питомца этого вида нет. Block 12."""
+    from core.constants import get_pet_bonus, scale_pet_bonus
+    level, placement = await get_species_level_placement(db, user_id, species_id)
+    if level <= 0:
+        return {}
+    return scale_pet_bonus(get_pet_bonus(species_id, level), placement)
 
 
 async def _list_species_pets_for_owner(db, user_id: int, species_id: str) -> list[dict]:
@@ -345,7 +368,8 @@ async def apply_fatigue_decay(db: aiosqlite.Connection, user_id: int):
         row = await c.fetchone()
         if row:
             uni_lv = max(1, min(10, row[2]))
-            uni_bonus = UNICORN_BONUSES.get(uni_lv, {})
+            # Block 12: в passive — числовые ×0.5, auto_recover off (active → без изменений)
+            uni_bonus = scale_pet_bonus(UNICORN_BONUSES.get(uni_lv, {}), row[1])
             unicorn_reduction = min(uni_bonus.get("daily_fatigue_reduction", 0.0), UNICORN_REDUCTION_CAP)
             unicorn_auto_recover = uni_bonus.get("auto_recover", False)
             if row[1] == "active":

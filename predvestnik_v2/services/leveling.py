@@ -60,9 +60,10 @@ async def process_message_xp(
     except Exception:
         pass
 
-    owl_level = await zoo_repo.get_active_species_level(db, user_id, "owl")
-    if owl_level > 0:
-        owl = get_pet_bonus("owl", owl_level)
+    # Block 12: бонус Совы масштабируется по слоту (passive → bonus_xp ×0.5,
+    # weekend_double off; trigger_every_n_msg структурное — не масштабируется)
+    owl = await zoo_repo.get_species_bonus(db, user_id, "owl")
+    if owl:
         every_n = owl.get("trigger_every_n_msg", 1)
         if every_n > 0 and msg_count % every_n == 0:
             bonus = owl.get("bonus_xp", 0.0)

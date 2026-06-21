@@ -235,6 +235,32 @@ def get_pet_bonus(species_id: str, level: int) -> dict:
     return table.get(max(1, min(10, level)), {})
 
 
+# ── Active/Passive scaling (Implementation Block 12) ──────────────────────────
+# Питомец в ACTIVE — полный бонус. В PASSIVE — числовые поля ×0.5, булевы
+# capstone-способности отключены. trigger_every_n_msg — структурное (инверсное)
+# поле, НЕ масштабируется (иначе делитель уйдёт в 0).
+PET_PASSIVE_SCALE: float = 0.5
+_PET_BONUS_NO_SCALE: frozenset = frozenset({"trigger_every_n_msg"})
+
+
+def scale_pet_bonus(bonus: dict, placement: str | None) -> dict:
+    """Масштабировать бонус под слот. active/None → без изменений; passive → ×0.5
+    числовым полям, булевы → False. Сохраняет тип (int остаётся int)."""
+    if not bonus or placement != "passive":
+        return bonus
+    out: dict = {}
+    for k, v in bonus.items():
+        if isinstance(v, bool):            # bool раньше int (bool — подкласс int)
+            out[k] = False
+        elif k in _PET_BONUS_NO_SCALE:
+            out[k] = v
+        elif isinstance(v, (int, float)):
+            out[k] = type(v)(v * PET_PASSIVE_SCALE)
+        else:
+            out[k] = v
+    return out
+
+
 # ── Daily Deal (B5 → Implementation Block 7: ротация 12ч, гибкие слоты) ───────
 DAILY_DEAL_DISCOUNT_RANGE: tuple = (0.05, 0.50)   # 5-50% off, индивидуально на товар
 DAILY_DEAL_MIN_SLOTS: int = 3                      # минимум слотов за ротацию
