@@ -48,10 +48,7 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
         "is_tradable": False,
     },
     # Spin tokens (bесплатные спины из гачи)
-    "spin_token_novice":   {"name": "🎟 Жетон Ученической",   "category": "spin_token", "spin_type": "novice",   "is_tradable": False, "description": "Один бесплатный спин Ученической крутки."},
-    "spin_token_standard": {"name": "🎟 Жетон Стандартной",   "category": "spin_token", "spin_type": "standard", "is_tradable": False, "description": "Один бесплатный спин Стандартной крутки."},
-    "spin_token_premium":  {"name": "🎟 Жетон Премиум",       "category": "spin_token", "spin_type": "premium",  "is_tradable": False, "description": "Один бесплатный спин Премиум крутки."},
-    "spin_token_diamond":  {"name": "🎟 Жетон Алмазной",      "category": "spin_token", "spin_type": "diamond",  "is_tradable": False, "description": "Один бесплатный спин Алмазной крутки."},
+    "spin_token":          {"name": "🎟 Жетон Гачи",          "category": "spin_token", "spin_type": "mora",     "is_tradable": False, "description": "Один бесплатный спин крутки за Мору."},
     # Eggs (gacha)
     "egg_basic":   {"name": "🥚 Базовое Яйцо",      "category": "egg", "price_mora": 8000,      "description": "80% Common / 19% Rare / 1% Epic"},
     "egg_summon":  {"name": "🔮 Яйцо Призыва",      "category": "egg",                          "description": "Крафтится из 5 Осколков. Не даёт осколков при распылении."},
@@ -180,66 +177,39 @@ GACHA_RATES: Dict[str, Dict[str, int]] = {
 #   pet_dup      – random pet dup of `rarity`
 # "valuable": True  → weight doubled on soft pity
 
+# Block 8: единая гача — 2 режима. "mora" (~600🪙) объединяет бывшие
+# novice/standard/premium (common→epic питомцы, мора, расходники, малый шанс 💎).
+# "diamond" (~8💎) — выше шанс редкого лута + шире диапазон (epic→legendary,
+# золотые/мифические/кристальные яйца, гарантии алмазов).
 GACHA_TABLES: Dict[str, list] = {
-    "novice": [
-        {"weight": 26, "type": "mora",    "min": 20,  "max": 50},
-        {"weight": 16, "type": "item",    "id": "food_basic",    "qty": 1},
-        {"weight": 12, "type": "item",    "id": "star_dust_s",   "qty": 1},
-        {"weight": 10, "type": "item",    "id": "soul_shard",    "qty": 1},
-        {"weight": 8,  "type": "mora",    "min": 60,  "max": 90},
-        {"weight": 8,  "type": "pet_dup", "rarity": "common",    "valuable": True},
-        {"weight": 7,  "type": "combo",   "items": [{"id": "food_basic", "qty": 2}, {"id": "star_dust_s", "qty": 1}]},
-        {"weight": 4,  "type": "item",    "id": "food_energy",   "qty": 1},
-        {"weight": 4,  "type": "item",    "id": "potion_luck_s", "qty": 1},
-        {"weight": 2,  "type": "item",    "id": "exp_boost_1h",  "qty": 1, "valuable": True},
-        {"weight": 2,  "type": "item",    "id": "egg_basic",     "qty": 1, "valuable": True},
-        {"weight": 0.8,"type": "pet_dup", "rarity": "common",    "valuable": True},
-        {"weight": 0.2,"type": "diamond", "qty": 1,              "valuable": True},
-    ],
-    "standard": [
-        {"weight": 20, "type": "mora",    "min": 60,  "max": 150},
-        {"weight": 13, "type": "item",    "id": "food_elite",    "qty": 1},
-        {"weight": 12, "type": "pet_dup", "rarity": "rare",      "valuable": True},
-        {"weight": 10, "type": "combo",   "items": [{"id": "soul_shard", "qty": 2}, {"id": "star_dust_s", "qty": 1}]},
-        {"weight": 10, "type": "pet_dup", "rarity": "common"},
-        {"weight": 8,  "type": "mora",    "min": 200, "max": 280},
-        {"weight": 7,  "type": "item",    "id": "star_dust_l",   "qty": 1},
-        {"weight": 5,  "type": "combo",   "items": [{"id": "egg_basic", "qty": 1}, {"id": "study_notes", "qty": 1}]},
-        {"weight": 4,  "type": "item",    "id": "egg_silver",    "qty": 1, "valuable": True},
-        {"weight": 3,  "type": "item",    "id": "treasure_map",  "qty": 1},
+    "mora": [
+        {"weight": 22, "type": "mora",    "min": 40,  "max": 120},
+        {"weight": 14, "type": "item",    "id": "food_basic",    "qty": 2},
+        {"weight": 11, "type": "item",    "id": "star_dust_s",   "qty": 1},
+        {"weight": 10, "type": "item",    "id": "soul_shard",    "qty": 2},
+        {"weight": 9,  "type": "pet_dup", "rarity": "common",    "valuable": True},
+        {"weight": 8,  "type": "mora",    "min": 200, "max": 320},
+        {"weight": 7,  "type": "combo",   "items": [{"id": "soul_shard", "qty": 2}, {"id": "star_dust_s", "qty": 1}]},
+        {"weight": 6,  "type": "item",    "id": "food_elite",    "qty": 1},
+        {"weight": 5,  "type": "pet_dup", "rarity": "rare",      "valuable": True},
+        {"weight": 4,  "type": "item",    "id": "star_dust_l",   "qty": 1},
+        {"weight": 3,  "type": "item",    "id": "potion_luck_s", "qty": 1},
         {"weight": 3,  "type": "item",    "id": "exp_boost_1h",  "qty": 1, "valuable": True},
+        {"weight": 2,  "type": "item",    "id": "egg_basic",     "qty": 1, "valuable": True},
         {"weight": 2,  "type": "item",    "id": "exp_boost_2h",  "qty": 1, "valuable": True},
-        {"weight": 2,  "type": "item",    "id": "potion_luck_s", "qty": 1},
+        {"weight": 1.5,"type": "item",    "id": "egg_silver",    "qty": 1, "valuable": True},
         {"weight": 0.8,"type": "diamond", "qty": 2,              "valuable": True},
+        {"weight": 0.4,"type": "pet_dup", "rarity": "epic",      "valuable": True},
         {"weight": 0.2,"type": "item",    "id": "egg_mythic",    "qty": 1, "valuable": True},
     ],
-    "premium": [
-        {"weight": 16, "type": "mora",    "min": 150, "max": 400},
-        {"weight": 13, "type": "item",    "id": "egg_silver",    "qty": 1},
-        {"weight": 12, "type": "pet_dup", "rarity": "epic",      "valuable": True},
-        {"weight": 10, "type": "combo",   "items": [{"id": "soul_shard", "qty": 3}, {"id": "star_dust_l", "qty": 2}]},
-        {"weight": 9,  "type": "pet_dup", "rarity": "rare"},
-        {"weight": 8,  "type": "mora",    "min": 500, "max": 750},
-        {"weight": 8,  "type": "item",    "id": "egg_gold",      "qty": 1, "valuable": True},
-        {"weight": 6,  "type": "combo",   "items": [{"id": "treasure_map", "qty": 1}, {"id": "lucky_charm", "qty": 1}]},
-        {"weight": 5,  "type": "combo",   "items": [{"id": "egg_basic", "qty": 1}], "diamond_bonus": 2, "valuable": True},
-        {"weight": 4,  "type": "item",    "id": "egg_mythic",    "qty": 1, "valuable": True},
-        {"weight": 3,  "type": "item",    "id": "exp_boost_2h",  "qty": 1, "valuable": True},
-        {"weight": 2,  "type": "item",    "id": "exp_boost_4h",  "qty": 1, "valuable": True},
-        {"weight": 2,  "type": "item",    "id": "potion_luck_m", "qty": 1},
-        {"weight": 2,  "type": "pet_dup", "rarity": "epic",      "valuable": True},
-        {"weight": 1.5,"type": "diamond", "qty": 4,              "valuable": True},
-        {"weight": 0.4,"type": "item",    "id": "egg_crystal",   "qty": 1, "valuable": True},
-        {"weight": 0.1,"type": "pet_dup", "rarity": "legendary", "valuable": True},
-    ],
     "diamond": [
-        {"weight": 23, "type": "item",    "id": "egg_gold",      "qty": 1, "valuable": True},
-        {"weight": 16, "type": "item",    "id": "egg_mythic",    "qty": 1, "valuable": True},
-        {"weight": 14, "type": "combo",   "items": [{"id": "egg_silver", "qty": 1}], "diamond_bonus": 2, "valuable": True},
+        {"weight": 22, "type": "item",    "id": "egg_gold",      "qty": 1, "valuable": True},
+        {"weight": 15, "type": "item",    "id": "egg_mythic",    "qty": 1, "valuable": True},
+        {"weight": 13, "type": "combo",   "items": [{"id": "egg_silver", "qty": 1}], "diamond_bonus": 2, "valuable": True},
         {"weight": 12, "type": "pet_dup", "rarity": "epic",      "valuable": True},
-        {"weight": 10, "type": "combo",   "items": [{"id": "treasure_map", "qty": 3}], "valuable": True},
+        {"weight": 9,  "type": "combo",   "items": [{"id": "treasure_map", "qty": 3}], "valuable": True},
         {"weight": 8,  "type": "item",    "id": "egg_crystal",   "qty": 1, "valuable": True},
-        {"weight": 6,  "type": "diamond", "qty": 4,              "valuable": True},
+        {"weight": 6,  "type": "diamond", "qty": 5,              "valuable": True},
         {"weight": 4,  "type": "item",    "id": "exp_boost_4h",  "qty": 1, "valuable": True},
         {"weight": 3,  "type": "combo",   "items": [{"id": "exp_boost_2h", "qty": 1}, {"id": "potion_sprint", "qty": 1}], "valuable": True},
         {"weight": 3,  "type": "pet_dup", "rarity": "legendary", "valuable": True},
@@ -249,10 +219,8 @@ GACHA_TABLES: Dict[str, list] = {
 }
 
 PITY_HARD_REWARD: Dict[str, dict] = {
-    "novice":   {"type": "pet_dup", "rarity": "common"},
-    "standard": {"type": "pet_dup", "rarity": "rare"},
-    "premium":  {"type": "pet_dup", "rarity": "epic"},
-    "diamond":  {"type": "pet_dup", "rarity": "legendary"},
+    "mora":    {"type": "pet_dup", "rarity": "epic"},
+    "diamond": {"type": "pet_dup", "rarity": "legendary"},
 }
 
 
@@ -275,9 +243,7 @@ DAILY_DEAL_POOL_MORA: list = [
     {"item_id": "food_elite",          "qty_range": (1, 3), "base_price_mora": 450},
     {"item_id": "food_energy",         "qty_range": (1, 3), "base_price_mora": 750},
     {"item_id": "food_super",          "qty_range": (1, 2), "base_price_mora": 1100},
-    {"item_id": "spin_token_novice",   "qty_range": (1, 3), "base_price_mora": 350},
-    {"item_id": "spin_token_standard", "qty_range": (1, 2), "base_price_mora": 1000},
-    {"item_id": "spin_token_premium",  "qty_range": (1, 1), "base_price_mora": 2800},
+    {"item_id": "spin_token",          "qty_range": (1, 3), "base_price_mora": 600},
     {"item_id": "egg_basic",           "qty_range": (1, 2), "base_price_mora": 8000},
     {"item_id": "egg_silver",          "qty_range": (1, 1), "base_price_mora": 28000},
     {"item_id": "treasure_map",        "qty_range": (1, 2), "base_price_mora": 900},
@@ -290,7 +256,7 @@ DAILY_DEAL_POOL_MORA: list = [
 
 DAILY_DEAL_POOL_DIAMOND: list = [
     {"item_id": "food_diamond",       "qty_range": (1, 3), "base_price_dia": 12},
-    {"item_id": "spin_token_diamond", "qty_range": (1, 2), "base_price_dia": 5},
+    {"item_id": "spin_token",         "qty_range": (1, 2), "base_price_dia": 5},
     {"item_id": "egg_mythic",         "qty_range": (1, 1), "base_price_dia": 500},
     {"item_id": "egg_crystal",        "qty_range": (1, 1), "base_price_dia": 35},
 ]
@@ -319,7 +285,7 @@ DAILY_QUESTS: list = [
     {"id": "auction_bid","metric": "auction_bids_today",            "target": 1,  "reward": {"mora": 200.0},                                  "weight": 2},
     # Hard
     {"id": "exped_4",    "metric": "expeditions_today",             "target": 4,  "reward": {"mora": 1000.0},                                 "weight": 2},
-    {"id": "gacha_10",   "metric": "gacha_spins_today",             "target": 10, "reward": {"mora": 600.0, "items": [("spin_token_novice", 1)]}, "weight": 2},
+    {"id": "gacha_10",   "metric": "gacha_spins_today",             "target": 10, "reward": {"mora": 600.0, "items": [("spin_token", 1)]}, "weight": 2},
     {"id": "hug_5",      "metric": "warps_hug_distinct_today",      "target": 5,  "reward": {"mora": 300.0},                                  "weight": 2},
     {"id": "rare_dup",   "metric": "rare_or_better_pet_dups_today", "target": 1,  "reward": {"mora": 800.0},                                  "weight": 1},
     {"id": "level_pet",  "metric": "pet_level_ups_today",           "target": 1,  "reward": {"mora": 500.0},                                  "weight": 1},
@@ -420,14 +386,14 @@ ACHIEVEMENTS: Dict[str, Dict] = {
 ACHIEVEMENT_LEVEL_REWARDS: Dict[int, Dict] = {
     1:  {"mora": 100.0,   "diamonds": 0.0, "items": ()},
     2:  {"mora": 200.0,   "diamonds": 0.0, "items": ()},
-    3:  {"mora": 400.0,   "diamonds": 0.0, "items": (("spin_token_novice", 1),)},
-    4:  {"mora": 800.0,   "diamonds": 0.0, "items": (("spin_token_novice", 1),)},
-    5:  {"mora": 1500.0,  "diamonds": 0.0, "items": (("spin_token_standard", 1),)},
+    3:  {"mora": 400.0,   "diamonds": 0.0, "items": (("spin_token", 1),)},
+    4:  {"mora": 800.0,   "diamonds": 0.0, "items": (("spin_token", 1),)},
+    5:  {"mora": 1500.0,  "diamonds": 0.0, "items": (("spin_token", 1),)},
     6:  {"mora": 3000.0,  "diamonds": 1.0, "items": ()},
-    7:  {"mora": 6000.0,  "diamonds": 2.0, "items": (("spin_token_premium", 1),)},
-    8:  {"mora": 12000.0, "diamonds": 5.0, "items": (("spin_token_premium", 1),)},
+    7:  {"mora": 6000.0,  "diamonds": 2.0, "items": (("spin_token", 1),)},
+    8:  {"mora": 12000.0, "diamonds": 5.0, "items": (("spin_token", 1),)},
     9:  {"mora": 25000.0, "diamonds": 10.0, "items": (("egg_mythic", 1),)},
-    10: {"mora": 50000.0, "diamonds": 25.0, "items": (("spin_token_diamond", 3), ("egg_crystal", 1))},
+    10: {"mora": 50000.0, "diamonds": 25.0, "items": (("spin_token", 3), ("egg_crystal", 1))},
 }
 
 
@@ -446,14 +412,14 @@ BATTLE_PASS_SEASONS: dict[str, dict] = {
 # items — той же вставкой в inventory, что и награды ачивок.
 BATTLE_PASS_REWARDS: Dict[int, Dict] = {
     1:  {"free": {"mora": 50,  "diamonds": 0, "items": ()},
-         "paid": {"mora": 0,   "diamonds": 1, "items": (("spin_token_novice", 1),)}},
+         "paid": {"mora": 0,   "diamonds": 1, "items": (("spin_token", 1),)}},
     2:  {"free": {"mora": 0,   "diamonds": 0, "items": (("food_basic", 1),)},
          "paid": {"mora": 0,   "diamonds": 1, "items": ()}},
     3:  {"free": {"mora": 60,  "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 1, "items": ()}},
     4:  {"free": {"mora": 70,  "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 1, "items": (("potion_luck_s", 1),)}},
-    5:  {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token_novice", 1),)},
+    5:  {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token", 1),)},
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
     6:  {"free": {"mora": 90,  "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 1, "items": ()}},
@@ -463,8 +429,8 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
     9:  {"free": {"mora": 120, "diamonds": 0, "items": (("food_basic", 2),)},
          "paid": {"mora": 0,   "diamonds": 1, "items": ()}},
-    10: {"free": {"mora": 200, "diamonds": 1, "items": (("spin_token_standard", 1),)},
-         "paid": {"mora": 0,   "diamonds": 5, "items": (("spin_token_premium", 1),)}},
+    10: {"free": {"mora": 200, "diamonds": 1, "items": (("spin_token", 1),)},
+         "paid": {"mora": 0,   "diamonds": 5, "items": (("spin_token", 1),)}},
 
     11: {"free": {"mora": 140, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 1, "items": ()}},
@@ -474,7 +440,7 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
          "paid": {"mora": 0,   "diamonds": 1, "items": (("potion_sprint", 1),)}},
     14: {"free": {"mora": 160, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 1, "items": ()}},
-    15: {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token_standard", 1),)},
+    15: {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token", 1),)},
          "paid": {"mora": 0,   "diamonds": 2, "items": (("exp_boost_1h", 1),)}},
     16: {"free": {"mora": 170, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 1, "items": ()}},
@@ -485,7 +451,7 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
     19: {"free": {"mora": 200, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 1, "items": (("food_diamond", 1),)}},
     20: {"free": {"mora": 300, "diamonds": 2, "items": (("food_super", 1),)},
-         "paid": {"mora": 0,   "diamonds": 7, "items": (("spin_token_premium", 1), ("exp_boost_2h", 1))}},
+         "paid": {"mora": 0,   "diamonds": 7, "items": (("spin_token", 1), ("exp_boost_2h", 1))}},
 
     21: {"free": {"mora": 220, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
@@ -495,7 +461,7 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
     24: {"free": {"mora": 240, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 1, "items": (("exp_boost_2h", 1),)}},
-    25: {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token_standard", 1), ("food_basic", 2))},
+    25: {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token", 1), ("food_basic", 2))},
          "paid": {"mora": 0,   "diamonds": 3, "items": (("potion_luck_m", 1),)}},
     26: {"free": {"mora": 250, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
@@ -516,7 +482,7 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
          "paid": {"mora": 0,   "diamonds": 2, "items": (("exp_boost_4h", 1),)}},
     34: {"free": {"mora": 320, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
-    35: {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token_premium", 1),)},
+    35: {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token", 1),)},
          "paid": {"mora": 0,   "diamonds": 4, "items": (("food_diamond", 1),)}},
     36: {"free": {"mora": 330, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
@@ -526,7 +492,7 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
          "paid": {"mora": 0,   "diamonds": 3, "items": (("potion_luck_m", 1),)}},
     39: {"free": {"mora": 360, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
-    40: {"free": {"mora": 500, "diamonds": 4, "items": (("spin_token_standard", 2),)},
+    40: {"free": {"mora": 500, "diamonds": 4, "items": (("spin_token", 2),)},
          "paid": {"mora": 0,   "diamonds": 12, "items": (("egg_crystal", 1),)}},
 
     41: {"free": {"mora": 400, "diamonds": 0, "items": ()},
@@ -537,7 +503,7 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
          "paid": {"mora": 0,   "diamonds": 3, "items": (("exp_boost_4h", 1),)}},
     44: {"free": {"mora": 440, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
-    45: {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token_premium", 2),)},
+    45: {"free": {"mora": 0,   "diamonds": 0, "items": (("spin_token", 2),)},
          "paid": {"mora": 0,   "diamonds": 5, "items": (("food_diamond", 2),)}},
     46: {"free": {"mora": 460, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 3, "items": ()}},
@@ -547,10 +513,10 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
          "paid": {"mora": 0,   "diamonds": 4, "items": (("potion_luck_m", 1),)}},
     49: {"free": {"mora": 490, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 5, "items": ()}},
-    50: {"free": {"mora": 500, "diamonds": 0, "items": (("spin_token_standard", 2),)},
+    50: {"free": {"mora": 500, "diamonds": 0, "items": (("spin_token", 2),)},
          # theme — сезонная тема из core/themes.py (rarity "seasonal"), выдаётся
          # grant_theme'ом в services/battle_pass.claim_reward. Топ платного трека.
-         "paid": {"mora": 0,   "diamonds": 10, "items": (("spin_token_diamond", 1),),
+         "paid": {"mora": 0,   "diamonds": 10, "items": (("spin_token", 1),),
                   "theme": "theme_bp_s1"}},
 }
 
@@ -575,8 +541,8 @@ VIP_TIERS: dict[str, dict] = {
         "tagline": "Знакомство с VIP — попробовать вкус привилегий",
         "base_price_zarniki": 200,  # для отображения экономии
         "gift": {"mora": 200, "diamonds": 1,
-                 "items": (("spin_token_novice", 2), ("food_basic", 1))},
-        "weekly": (("spin_token_novice", 1),),
+                 "items": (("spin_token", 2), ("food_basic", 1))},
+        "weekly": (("spin_token", 1),),
         "extra_slots": 0,
     },
     "2m": {
@@ -584,8 +550,8 @@ VIP_TIERS: dict[str, dict] = {
         "tagline": "Вдвое дольше и заметно выгоднее старта",
         "base_price_zarniki": 400,  # экономия 150
         "gift": {"mora": 250, "diamonds": 2,
-                 "items": (("spin_token_novice", 3), ("food_basic", 3))},
-        "weekly": (("spin_token_novice", 1),),
+                 "items": (("spin_token", 3), ("food_basic", 3))},
+        "weekly": (("spin_token", 1),),
         "extra_slots": 0,
     },
     "3m": {
@@ -593,8 +559,8 @@ VIP_TIERS: dict[str, dict] = {
         "tagline": "Появляется +1 слот питомника и сильный старт сезона",
         "base_price_zarniki": 600,  # экономия 200
         "gift": {"mora": 300, "diamonds": 2,
-                 "items": (("spin_token_novice", 1), ("spin_token_standard", 1), ("food_basic", 5))},
-        "weekly": (("spin_token_novice", 2),),
+                 "items": (("spin_token", 1), ("spin_token", 1), ("food_basic", 5))},
+        "weekly": (("spin_token", 2),),
         "extra_slots": 1,
     },
     "8m": {
@@ -602,8 +568,8 @@ VIP_TIERS: dict[str, dict] = {
         "tagline": "Длинная дистанция — максимум еженедельных бонусов",
         "base_price_zarniki": 1600,  # экономия 400
         "gift": {"mora": 500, "diamonds": 5,
-                 "items": (("spin_token_premium", 2), ("spin_token_diamond", 1), ("food_basic", 5))},
-        "weekly": (("spin_token_novice", 1), ("spin_token_standard", 1)),
+                 "items": (("spin_token", 2), ("spin_token", 1), ("food_basic", 5))},
+        "weekly": (("spin_token", 1), ("spin_token", 1)),
         "extra_slots": 1,
     },
     "12m": {
@@ -611,10 +577,10 @@ VIP_TIERS: dict[str, dict] = {
         "tagline": "Год привилегий: всё по максимуму и +2 слота питомника",
         "base_price_zarniki": 2400,  # экономия 700
         "gift": {"mora": 500, "diamonds": 10,
-                 "items": (("spin_token_diamond", 3), ("spin_token_premium", 3),
-                           ("spin_token_standard", 3), ("spin_token_novice", 5),
+                 "items": (("spin_token", 3), ("spin_token", 3),
+                           ("spin_token", 3), ("spin_token", 5),
                            ("food_basic", 15), ("soul_shard", 5), ("exp_boost_2h", 4))},
-        "weekly": (("spin_token_novice", 1),),
+        "weekly": (("spin_token", 1),),
         "extra_slots": 2,
     },
 }

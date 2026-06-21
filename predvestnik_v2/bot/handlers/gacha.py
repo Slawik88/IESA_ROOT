@@ -23,7 +23,7 @@ router = Router(name="gacha_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
 router.message.middleware(ModuleCheckMiddleware("module_gacha"))
 
-_SPIN_ORDER = ["novice", "standard", "premium", "diamond"]
+_SPIN_ORDER = ["mora", "diamond"]  # Block 8: единая гача, 2 режима
 
 _RARITY_EMOJI = {"common": "⚪", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
 _OUTCOME_EMOJI = {
@@ -293,7 +293,7 @@ async def _build_main_text(db, user_id: int) -> str:
         lines.append("└ 🎟 Жетоны: " + " | ".join(token_lines))
 
     pity_str = " · ".join(
-        f"{SPIN_TYPE_LABELS[st].split()[1]}: {pity_all[st]}/{PITY_HARD[st]}"
+        f"{SPIN_TYPE_LABELS[st]}: {pity_all[st]}/{PITY_HARD[st]}"
         for st in _SPIN_ORDER
     )
     lines.append(f"\n<i>Пити: {pity_str}</i>")
@@ -373,15 +373,11 @@ async def cmd_gacha(message: types.Message, db, text_args: str = None,
         return await message.answer(global_moderation.restriction_message(restriction))
 
     args = (text_args or "").strip().lower()
-    if args in ("novice", "standard", "premium", "diamond"):
+    if args in ("mora", "diamond"):
         spin_type = args
-    elif args in ("ученическая", "учен"):
-        spin_type = "novice"
-    elif args in ("стандартная", "стандарт"):
-        spin_type = "standard"
-    elif args in ("премиум", "прем"):
-        spin_type = "premium"
-    elif args in ("алмазная", "алмаз"):
+    elif args in ("мора", "за мору", "мору"):
+        spin_type = "mora"
+    elif args in ("алмазная", "алмаз", "алмазы"):
         spin_type = "diamond"
     else:
         spin_type = None

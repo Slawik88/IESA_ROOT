@@ -389,7 +389,7 @@ async def roll_multi(
 # ── Cosmetic theme drops ───────────────────────────────────────────────────────
 
 # Per-spin chance of an additional rare profile-theme drop, by spin tier.
-THEME_DROP_CHANCES = {"novice": 0.02, "standard": 0.03, "premium": 0.05, "diamond": 0.08}
+THEME_DROP_CHANCES = {"mora": 0.03, "diamond": 0.08}
 
 
 async def maybe_grant_theme_drop(db, user_id: int, spin_type: str) -> dict | None:

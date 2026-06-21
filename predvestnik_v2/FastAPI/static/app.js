@@ -1250,8 +1250,7 @@ function loadQuests() {
       const pct=Math.min(100,Math.round((q.progress||0)/(q.target||1)*100));
       const qi=QUEST_NAMES[q.id]||{n:q.id,d:''};
       const _QI={'star_dust_s':'🌟 Звёздная пыль','star_dust_l':'✨ Небесная пыль',
-                 'soul_shard':'💠 Осколок','spin_token_novice':'🎟 Жетон',
-                 'spin_token_standard':'🎟 Ст. жетон','spin_token_premium':'🎟 Пр. жетон'};
+                 'soul_shard':'💠 Осколок','spin_token':'🎟 Жетон Гачи'};
       const rw=[
         q.reward?.mora?`+${fmt(q.reward.mora)} 🪙`:'',
         q.reward?.diamonds?`+${q.reward.diamonds} 💎`:'',
@@ -1269,7 +1268,7 @@ function loadQuests() {
     }).join('')+'</div>':'<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:28px;margin-bottom:6px">📋</div><div style="font-size:12px">Нет квестов — напиши <code>бот задания</code> в чате</div></div>';
   }).catch(e=>{el('qc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
-const SPIN_ICONS = {novice:'🎟',standard:'🎲',premium:'💎',diamond:'💠'};
+const SPIN_ICONS = {mora:'🪙',diamond:'💎'};
 const SPIN_RARITY_ORDER = ['mythic','legendary','epic','rare','uncommon','common'];
 
 function _topRarity(dups) {
@@ -1966,10 +1965,11 @@ const SRC = {
   dark:           {label:'Чёрный Рынок 🌑', desc:'Покупается за Тёмную Мору на Чёрном Рынке. Зарабатывайте Тёмную Мору через Контрабанду и Ритуал Культа Бездны.', action:{l:'🌑 Открыть Тёмную Мору', f:"goToDarkMora()"}},
   zarniki:        {label:'Зарники ✨',     desc:'Приобретается за донат-валюту Зарники (Telegram Stars). 1 Звезда = 10 Зарников.',
                    action:{l:'✨ Пополнить Зарники', f:"goTo('market','vip')"}},
-  gacha_novice:   {label:'Гача 🎲',       desc:'Может выпасть из Ученической крутки гачи. Шанс — случайный.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
-  gacha_standard: {label:'Гача 🎲',       desc:'Может выпасть из Стандартной крутки гачи (1000 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
-  gacha_premium:  {label:'Гача 🎲',       desc:'Может выпасть из Премиум крутки гачи (2800 🪙 / спин).', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
-  gacha_diamond:  {label:'Гача 💎',       desc:'Выпадает из Алмазной крутки гачи (5 💎 / спин). Самые редкие темы.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
+  gacha_novice:   {label:'Гача 🪙',       desc:'Может выпасть из крутки за Мору.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
+  gacha_standard: {label:'Гача 🪙',       desc:'Может выпасть из крутки за Мору.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
+  gacha_premium:  {label:'Гача 🪙',       desc:'Может выпасть из крутки за Мору.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
+  gacha_mora:     {label:'Гача 🪙',       desc:'Может выпасть из крутки за Мору.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
+  gacha_diamond:  {label:'Гача 💎',       desc:'Выпадает из Алмазной крутки гачи (8 💎 / спин). Самые редкие темы.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
   event:          {label:'Ивент 🎪',      desc:'Выдаётся за участие в особых мировых событиях. Следите за объявлениями в чате.', action:null},
   auction:        {label:'Аукцион 🏛',    desc:'Можно купить у других игроков на Аукционе.', action:{l:'🏛 Открыть Аукцион', f:"goTo('auction')"}},
 };
