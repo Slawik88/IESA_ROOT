@@ -6,8 +6,9 @@ from datetime import datetime, timezone, timedelta
 from bot.filters.text_commands import TextCmd
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories.daily_deal import already_purchased
-from services.daily_deal import ensure_deals_fresh, purchase_slot, _get_today_utc
+from services.daily_deal import ensure_deals_fresh, purchase_slot, period_key
 from services.utils import format_currency, check_callback_owner
+from core.constants import DAILY_DEAL_ROTATION_HOURS
 
 router = Router(name="daily_deal_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -22,10 +23,11 @@ class DealCB(CallbackData, prefix="deal"):
 
 def _time_until_reset() -> str:
     now = datetime.now(timezone.utc)
-    next_midnight = (now + timedelta(days=1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-    delta = next_midnight - now
+    if now.hour < DAILY_DEAL_ROTATION_HOURS:
+        nxt = now.replace(hour=DAILY_DEAL_ROTATION_HOURS, minute=0, second=0, microsecond=0)
+    else:
+        nxt = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    delta = nxt - now
     h, rem = divmod(int(delta.total_seconds()), 3600)
     m = rem // 60
     return f"{h}ч {m}мин" if h > 0 else f"{m}мин"
@@ -37,7 +39,7 @@ def _item_display(item_id: str) -> str:
 
 async def _build_deal_menu(db, user_id: int) -> tuple[str, types.InlineKeyboardMarkup]:
     deals = await ensure_deals_fresh(db)
-    today = _get_today_utc()
+    today = period_key()
     reset_in = _time_until_reset()
 
     lines = [
