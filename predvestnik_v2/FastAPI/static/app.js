@@ -2621,7 +2621,11 @@ function buyZarnikiCustom() {
 function doBuyVip(tier, label, price) {
   OM(`👑 ${label}`,
     `<div style="font-size:12px;color:var(--muted);line-height:1.5">Списать <b style="color:var(--gold)">${fmt(price)} ✨</b> и оформить <b>${label}</b>?</div>`,
-    [{l:'✅ Купить', c:'btn-gold', f:`confirmBuyVip('${tier}')`}, {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
+    [{l:'✅ Купить', c:'btn-gold', f:`_vipPay('${tier}',${price})`}, {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
+}
+function _vipPay(tier, price) {
+  CM();  // Block 5.2-rollout: для женатых — выбор личный/семейный кошелёк (✨)
+  withPaymentSource('zarniki', price, () => confirmBuyVip(tier));
 }
 function confirmBuyVip(tier) {
   api('/vip/purchase', {method:'POST', body:JSON.stringify({tier})})
