@@ -16,6 +16,7 @@ from infrastructure.repositories.economy import get_item_quantity, remove_item, 
 from infrastructure.repositories.zoo import (
     get_user_pets, get_nursery_count, get_zoo_stats, buy_pet_slot, get_slot_purchase_state,
     get_active_count, get_pending_hamster_income, get_active_species_level, apply_fatigue_decay,
+    get_species_bonus, hamster_bonus,
 )
 from services.formatting import parse_dt
 from services.vip import get_extra_pet_slots
@@ -348,12 +349,12 @@ async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), use
     base_fatigue = exp_data["fatigue"] * (1.0 - wolf_reduction)
 
     # Dog bonuses: speed, cost reduction, zero fatigue chance, self fatigue reduction
-    dog_level = await get_active_species_level(db, user_id, "dog")
+    # Block 12: бонус с учётом слота (passive ×0.5)
+    dog = await get_species_bonus(db, user_id, "dog")
     speed_reduction = 0.0
     expedition_cost_reduction = 0.0
     zero_fatigue_chance = 0.0
-    if dog_level > 0:
-        dog = get_pet_bonus("dog", dog_level)
+    if dog:
         speed_reduction = dog.get("speed_reduction", 0.0)
         expedition_cost_reduction = dog.get("expedition_cost_reduction", 0.0)
         zero_fatigue_chance = dog.get("zero_fatigue_chance", 0.0)
@@ -371,10 +372,10 @@ async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), use
     # Turtle + dog cost discounts
     actual_cost = exp_data["cost"]
     if actual_cost > 0:
-        turtle_level = await get_active_species_level(db, user_id, "turtle")
+        turtle_b = await get_species_bonus(db, user_id, "turtle")  # Block 12: с учётом слота
         combined_mult = 1.0
-        if turtle_level > 0:
-            combined_mult *= (1.0 - get_pet_bonus("turtle", turtle_level).get("expedition_discount", 0.0))
+        if turtle_b:
+            combined_mult *= (1.0 - turtle_b.get("expedition_discount", 0.0))
         if expedition_cost_reduction > 0:
             combined_mult *= (1.0 - expedition_cost_reduction)
         actual_cost = max(0, int(exp_data["cost"] * combined_mult))
@@ -604,16 +605,16 @@ async def collect_hamster(db=Depends(get_db), user=Depends(require_tg_user)):
     stats = await get_zoo_stats(db, user["id"])
 
     async with db.execute(
-        "SELECT COALESCE(pet_level,1) AS pet_level, fatigue FROM pets "
+        "SELECT COALESCE(pet_level,1) AS pet_level, fatigue, placement FROM pets "
         "WHERE owner_id = ? AND species_id = 'hamster' AND placement IN ('active','passive')",
         (user["id"],),
     ) as c:
         hamster_rows = [dict(r) for r in await c.fetchall()]
 
+    # Block 12: бонус хомяка с учётом слота (passive ×0.5, ignore_exhaustion off)
     productive = [
         h for h in hamster_rows
-        if h["fatigue"] < 100
-        or HAMSTER_BONUSES.get(max(1, min(10, h["pet_level"])), {}).get("ignore_exhaustion", False)
+        if h["fatigue"] < 100 or hamster_bonus(h).get("ignore_exhaustion", False)
     ]
 
     if not productive:
@@ -630,17 +631,13 @@ async def collect_hamster(db=Depends(get_db), user=Depends(require_tg_user)):
     last_collect_day = last_collect_dt.strftime("%Y-%m-%d") if last_collect_dt else ""
 
     for h in productive:
-        b = HAMSTER_BONUSES.get(max(1, min(10, h["pet_level"])), {})
+        b = hamster_bonus(h)
         if b.get("double_chance", 0.0) > 0 and random.random() < b["double_chance"]:
             double_mora_bonus += int(accumulated / max(1, len(productive)))
         if b.get("daily_diamond", 0.0) > 0 and last_collect_day != today_str:
             diamond_bonus = max(diamond_bonus, b["daily_diamond"])
 
-    dragon_level = await get_active_species_level(db, user["id"], "dragon")
-    dragon_bonus_mora = (
-        int(get_pet_bonus("dragon", dragon_level).get("hamster_collect_bonus", 0.0))
-        if dragon_level > 0 else 0
-    )
+    dragon_bonus_mora = int((await get_species_bonus(db, user["id"], "dragon")).get("hamster_collect_bonus", 0.0))
 
     total_mora = int(accumulated) + double_mora_bonus + dragon_bonus_mora
 

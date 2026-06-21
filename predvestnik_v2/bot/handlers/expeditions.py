@@ -7,9 +7,9 @@ from datetime import datetime, timedelta
 from bot.filters.text_commands import TextCmd
 from services.utils import check_callback_owner, safe_html
 from core.registry import EXPEDITIONS_DATA, PET_SPECIES
-from core.constants import get_pet_bonus
+from core.constants import get_pet_bonus, scale_pet_bonus
 from infrastructure.repositories import economy as eco_db
-from infrastructure.repositories.zoo import get_active_species_level
+from infrastructure.repositories.zoo import get_active_species_level, get_species_level_placement
 from services.zoo import get_wolf_fatigue_reduction
 
 router = Router(name="expeditions_router")
@@ -98,14 +98,14 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
     # If active pet IS the dog: self_fatigue_reduction applies on top.
     # Lv8+ dog: zero_fatigue_chance for the whole expedition.
     # Lv10 dog: capstone -5% expedition cost.
-    dog_level = await get_active_species_level(db, user_id, "dog")
+    dog_level, dog_plc = await get_species_level_placement(db, user_id, "dog")
     dog_extra_lines = []
     expedition_cost_reduction = 0.0
     self_fatigue_reduction = 0.0
     zero_fatigue_chance = 0.0
     speed_reduction = 0.0
     if dog_level > 0:
-        dog = get_pet_bonus("dog", dog_level)
+        dog = scale_pet_bonus(get_pet_bonus("dog", dog_level), dog_plc)  # Block 12
         speed_reduction = dog.get("speed_reduction", 0.0)
         expedition_cost_reduction = dog.get("expedition_cost_reduction", 0.0)
         zero_fatigue_chance = dog.get("zero_fatigue_chance", 0.0)
@@ -135,10 +135,10 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
         )
 
     # Turtle (any nursery slot): expedition cost discount from the level curve.
-    turtle_level = await get_active_species_level(db, user_id, "turtle")
+    turtle_level, turtle_plc = await get_species_level_placement(db, user_id, "turtle")
     turtle_bonus_line = ""
     if turtle_level > 0 and exp_data["cost"] > 0:
-        turtle = get_pet_bonus("turtle", turtle_level)
+        turtle = scale_pet_bonus(get_pet_bonus("turtle", turtle_level), turtle_plc)  # Block 12
         turtle_discount = turtle.get("expedition_discount", 0.0)
         combined = 1.0 - turtle_discount
         if expedition_cost_reduction > 0:

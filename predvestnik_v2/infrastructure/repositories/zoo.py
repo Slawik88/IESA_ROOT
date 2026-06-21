@@ -185,6 +185,13 @@ async def get_species_bonus(db, user_id: int, species_id: str) -> dict:
     return scale_pet_bonus(get_pet_bonus(species_id, level), placement)
 
 
+def hamster_bonus(pet: dict) -> dict:
+    """Бонус хомяка с учётом его слота (Block 12): active — полный, passive — ×0.5,
+    ignore_exhaustion в passive отключён. `pet` — dict с pet_level и placement."""
+    lvl = max(1, min(10, pet.get("pet_level") or 1))
+    return scale_pet_bonus(HAMSTER_BONUSES.get(lvl, {}), pet.get("placement"))
+
+
 async def _list_species_pets_for_owner(db, user_id: int, species_id: str) -> list[dict]:
     """All pets of this species owned by user, sorted by copy_index ASC."""
     async with db.execute(
@@ -492,16 +499,17 @@ async def get_pending_hamster_income(db: aiosqlite.Connection, user_id: int) -> 
     hours = (datetime.now() - last_dt).total_seconds() / 3600.0
 
     # Pull every hamster the user has in the nursery. Lv4+ also keeps earning at fatigue 100.
+    # Block 12: бонус масштабируется по слоту (passive — вдвое слабее).
     async with db.execute(
-        "SELECT COALESCE(pet_level, 1), fatigue FROM pets WHERE owner_id = ? "
+        "SELECT COALESCE(pet_level, 1), fatigue, placement FROM pets WHERE owner_id = ? "
         "AND species_id = 'hamster' AND placement IN ('active', 'passive')",
         (user_id,),
     ) as c:
         hamsters = await c.fetchall()
 
     total = 0.0
-    for level, fatigue in hamsters:
-        bonus = HAMSTER_BONUSES.get(max(1, min(10, level)), {})
+    for level, fatigue, placement in hamsters:
+        bonus = hamster_bonus({"pet_level": level, "placement": placement})
         if fatigue >= 100 and not bonus.get("ignore_exhaustion", False):
             continue
         rate = bonus.get("mora_per_hour", 0.0)

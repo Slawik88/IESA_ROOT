@@ -7,7 +7,7 @@ from aiogram import Bot
 import random as _random
 from services.expedition import calculate_reward
 from services.daily_deal import ensure_deals_fresh
-from infrastructure.repositories.zoo import get_active_species_level
+from infrastructure.repositories.zoo import get_active_species_level, get_species_level_placement
 from infrastructure.repositories.exchange import (
     get_active_event as _get_active_exchange,
     get_scheduled_event as _get_scheduled_exchange,
@@ -71,17 +71,23 @@ async def expedition_background_task(bot: Bot):
                     species_level = row["pet_level"]
                     owner_username = row.get("owner_username") or None
 
-                    # Collect levels of all non-exhausted nursery pets for bonus lookup.
+                    # Collect levels + placements of nursery pets for bonus lookup.
+                    # Block 12: passive-питомцы дают вдвое слабее (экспедиционный — active).
                     species_levels: dict[str, int] = {}
+                    species_placements: dict[str, str | None] = {}
                     if owner_id:
-                        species_levels["owl"] = await get_active_species_level(db, owner_id, "owl")
-                        species_levels["falcon"] = await get_active_species_level(db, owner_id, "falcon")
+                        for _sp in ("owl", "falcon"):
+                            _lv, _plc = await get_species_level_placement(db, owner_id, _sp)
+                            species_levels[_sp] = _lv
+                            species_placements[_sp] = _plc
                         species_levels[species_id] = species_level
+                        species_placements[species_id] = "active"
 
                     reward = calculate_reward(
                         hours,
                         species_id=species_id,
                         species_levels=species_levels,
+                        species_placements=species_placements,
                     )
 
                     if reward["mora"] == 0 and reward["xp"] == 0:
