@@ -95,10 +95,14 @@ async def place_bid(
     if bidder_id == lot["seller_id"]:
         return {"ok": False, "error": "Нельзя ставить на свой лот."}
 
-    # Minimum raise
+    # Minimum bid: первая ставка = ровно min_bid лота; шаг +5% применяется ТОЛЬКО
+    # когда уже есть активная ставка (раньше +5% ошибочно накручивался и на
+    # первую ставку — лот с min_bid=100 требовал 105).
     highest = await get_highest_bid(db, lot_id)
-    current_high = highest["amount"] if highest else (lot["min_bid"] - 0.01)
-    min_required = max(lot["min_bid"], current_high * (1 + AUCTION_MIN_BID_RAISE))
+    if highest:
+        min_required = max(lot["min_bid"], highest["amount"] * (1 + AUCTION_MIN_BID_RAISE))
+    else:
+        min_required = lot["min_bid"]
     if amount < min_required:
         return {"ok": False, "error": f"Ставка должна быть ≥ {min_required:.0f} 🪙."}
     if amount > AUCTION_MAX_BID:
