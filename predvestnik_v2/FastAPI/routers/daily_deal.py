@@ -6,17 +6,21 @@ from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_balance
-from services.daily_deal import ensure_deals_fresh
+from services.daily_deal import ensure_deals_fresh, period_key
+from core.constants import DAILY_DEAL_ROTATION_HOURS
 from core.registry import ITEMS_REGISTRY
 
 router = APIRouter(prefix="/daily-deal", tags=["daily-deal"])
 
 
-def _next_midnight_utc() -> str:
-    """ISO timestamp of next UTC midnight (when deals refresh)."""
+def _next_reset_utc() -> str:
+    """ISO-время следующей ротации (ближайшая граница 00:00 или 12:00 UTC)."""
     now = datetime.now(timezone.utc)
-    midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    return midnight.isoformat()
+    if now.hour < DAILY_DEAL_ROTATION_HOURS:
+        nxt = now.replace(hour=DAILY_DEAL_ROTATION_HOURS, minute=0, second=0, microsecond=0)
+    else:
+        nxt = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return nxt.isoformat()
 
 
 @router.get("/")
@@ -26,8 +30,8 @@ async def get_deals(db=Depends(get_db), user=Depends(require_tg_user)):
     raw_deals = await ensure_deals_fresh(db)
     bal = await get_balance(db, user["id"])
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    # Fetch which slots the current user has already bought today
+    today = period_key()
+    # Какие слоты юзер уже купил в текущем 12-часовом периоде
     async with db.execute(
         "SELECT slot FROM daily_deal_purchases WHERE user_id = ? AND purchase_date = ?",
         (user["id"], today),
@@ -46,7 +50,7 @@ async def get_deals(db=Depends(get_db), user=Depends(require_tg_user)):
 
     return {
         "deals": deals,
-        "refreshes_at": _next_midnight_utc(),
+        "refreshes_at": _next_reset_utc(),
         "mora": float(bal["user_balance_mora"] or 0),
         "diamonds": float(bal["user_balance_diamonds"] or 0),
     }

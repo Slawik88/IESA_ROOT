@@ -235,10 +235,15 @@ def get_pet_bonus(species_id: str, level: int) -> dict:
     return table.get(max(1, min(10, level)), {})
 
 
-# ── Daily Deal (B5) ──────────────────────────────────────────────────────────
-DAILY_DEAL_DISCOUNT_RANGE: tuple = (0.20, 0.40)   # 20-40% off base price
-DAILY_DEAL_MORA_SLOTS: int = 6                      # mora slots per day
-DAILY_DEAL_DIAMOND_SLOTS: int = 1                   # diamond slot per day
+# ── Daily Deal (B5 → Implementation Block 7: ротация 12ч, гибкие слоты) ───────
+DAILY_DEAL_DISCOUNT_RANGE: tuple = (0.05, 0.50)   # 5-50% off, индивидуально на товар
+DAILY_DEAL_MIN_SLOTS: int = 3                      # минимум слотов за ротацию
+DAILY_DEAL_MAX_SLOTS: int = 7                      # максимум слотов за ротацию
+DAILY_DEAL_MAX_QTY: int = 4                        # макс. кол-во товара в одном слоте
+DAILY_DEAL_ROTATION_HOURS: int = 12               # обновление каждые 12 часов
+# (устаревшие, оставлены для совместимости импортов)
+DAILY_DEAL_MORA_SLOTS: int = 6
+DAILY_DEAL_DIAMOND_SLOTS: int = 1
 
 # ── Gacha (B3) ───────────────────────────────────────────────────────────────
 SPIN_COSTS: dict = {

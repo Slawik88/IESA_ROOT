@@ -6,7 +6,10 @@ No bot/django imports.
 import random
 from datetime import datetime, timezone, timedelta
 
-from core.constants import DAILY_DEAL_DISCOUNT_RANGE, DAILY_DEAL_MORA_SLOTS
+from core.constants import (
+    DAILY_DEAL_DISCOUNT_RANGE, DAILY_DEAL_MIN_SLOTS, DAILY_DEAL_MAX_SLOTS,
+    DAILY_DEAL_MAX_QTY, DAILY_DEAL_ROTATION_HOURS,
+)
 from core.registry import DAILY_DEAL_POOL_MORA, DAILY_DEAL_POOL_DIAMOND
 from infrastructure.repositories import daily_deal as repo
 from infrastructure.repositories import economy as eco_repo
@@ -17,17 +20,23 @@ def _get_today_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
-def _get_reset_timestamp() -> str:
-    """Return 'YYYY-MM-DD' for today UTC.
-    Date-only format avoids pg_adapter coercing the string to datetime
-    when inserting into daily_deal_current.generated_at TEXT column."""
-    return _get_today_utc()
-
-
-def _seconds_until_midnight_utc() -> int:
+def period_key() -> str:
+    """Ключ текущего 12-часового периода: 'YYYY-MM-DD-A' (00-12 UTC) / '-B' (12-24).
+    Используется и для свежести акций, и для дедупликации покупок (сброс каждые 12ч).
+    Не валидная дата → pg_adapter не коэрсит в datetime, хранится как TEXT."""
     now = datetime.now(timezone.utc)
-    next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    return int((next_midnight - now).total_seconds())
+    half = "A" if now.hour < DAILY_DEAL_ROTATION_HOURS else "B"
+    return f"{now.strftime('%Y-%m-%d')}-{half}"
+
+
+def _seconds_until_reset() -> int:
+    """Секунд до следующей ротации (ближайшая граница 00:00 или 12:00 UTC)."""
+    now = datetime.now(timezone.utc)
+    if now.hour < DAILY_DEAL_ROTATION_HOURS:
+        nxt = now.replace(hour=DAILY_DEAL_ROTATION_HOURS, minute=0, second=0, microsecond=0)
+    else:
+        nxt = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return int((nxt - now).total_seconds())
 
 
 def _pick_unique_slots(pool: list, n: int) -> list[dict]:
@@ -52,55 +61,52 @@ def _pick_unique_slots(pool: list, n: int) -> list[dict]:
     return result[:n]
 
 
+def _clamped_qty(entry: dict) -> int:
+    """Кол-во товара в слоте, зажатое в [1, DAILY_DEAL_MAX_QTY]."""
+    qmin, qmax = entry["qty_range"]
+    lo = max(1, min(qmin, DAILY_DEAL_MAX_QTY))
+    hi = max(lo, min(qmax, DAILY_DEAL_MAX_QTY))
+    return random.randint(lo, hi)
+
+
 def generate_deal_slots() -> list[dict]:
-    """Generate a fresh set of 7 deal slots (6 mora + 1 diamond).
-    Returns list of dicts: {slot, item_id, quantity, price_mora, price_diamonds}.
-    """
-    now_str = _get_reset_timestamp()
+    """Сгенерировать ротацию: 3-7 слотов, скидка 5-50% индивидуально на товар,
+    кол-во 1-4 в слоте, смесь Мора/Алмазы. Returns list of slot dicts."""
+    n = random.randint(DAILY_DEAL_MIN_SLOTS, DAILY_DEAL_MAX_SLOTS)
+    n_dia = random.randint(0, min(len(DAILY_DEAL_POOL_DIAMOND), max(1, n // 3)))
+    n_mora = n - n_dia
     slots: list[dict] = []
+    slot_no = 1
 
-    mora_picks = _pick_unique_slots(DAILY_DEAL_POOL_MORA, DAILY_DEAL_MORA_SLOTS)
-    for i, entry in enumerate(mora_picks, start=1):
-        qty_min, qty_max = entry["qty_range"]
-        qty = random.randint(qty_min, qty_max)
-        base = entry.get("base_price_mora", 0)
+    for entry in _pick_unique_slots(DAILY_DEAL_POOL_MORA, n_mora):
+        qty = _clamped_qty(entry)
         discount = random.uniform(*DAILY_DEAL_DISCOUNT_RANGE)
-        price = round(base * qty * (1.0 - discount))
-        slots.append({
-            "slot": i,
-            "item_id": entry["item_id"],
-            "quantity": qty,
-            "price_mora": float(max(1, price)),
-            "price_diamonds": 0.0,
-        })
+        price = round(entry.get("base_price_mora", 0) * qty * (1.0 - discount))
+        slots.append({"slot": slot_no, "item_id": entry["item_id"], "quantity": qty,
+                      "price_mora": float(max(1, price)), "price_diamonds": 0.0})
+        slot_no += 1
 
-    dia_pick = random.choice(DAILY_DEAL_POOL_DIAMOND)
-    qty_min, qty_max = dia_pick["qty_range"]
-    qty = random.randint(qty_min, qty_max)
-    base_dia = dia_pick.get("base_price_dia", 0)
-    discount = random.uniform(*DAILY_DEAL_DISCOUNT_RANGE)
-    price_dia = round(base_dia * qty * (1.0 - discount), 1)
-    slots.append({
-        "slot": 7,
-        "item_id": dia_pick["item_id"],
-        "quantity": qty,
-        "price_mora": 0.0,
-        "price_diamonds": max(0.1, price_dia),
-    })
+    for entry in _pick_unique_slots(DAILY_DEAL_POOL_DIAMOND, n_dia):
+        qty = _clamped_qty(entry)
+        discount = random.uniform(*DAILY_DEAL_DISCOUNT_RANGE)
+        price = round(entry.get("base_price_dia", 0) * qty * (1.0 - discount), 1)
+        slots.append({"slot": slot_no, "item_id": entry["item_id"], "quantity": qty,
+                      "price_mora": 0.0, "price_diamonds": max(0.1, price)})
+        slot_no += 1
 
     return slots
 
 
 async def ensure_deals_fresh(db) -> list[dict]:
-    """Return current deals, regenerating if they're stale (different UTC date)."""
-    today = _get_today_utc()
+    """Вернуть текущие акции, перегенерировав при смене 12-часового периода."""
+    key = period_key()
     gen_at = await repo.get_generated_at(db)
 
-    if gen_at and gen_at.startswith(today):
+    if gen_at == key:
         return await repo.get_current_deals(db)
 
     slots = generate_deal_slots()
-    await repo.save_deals(db, slots, _get_reset_timestamp())
+    await repo.save_deals(db, slots, key)
     return slots
 
 
@@ -112,7 +118,7 @@ async def purchase_slot(
     """Attempt to purchase deal slot for the user today.
     Returns (True, success_msg) or (False, error_msg).
     """
-    today = _get_today_utc()
+    today = period_key()
     deals = await repo.get_current_deals(db)
     deal = next((d for d in deals if d["slot"] == slot), None)
 
