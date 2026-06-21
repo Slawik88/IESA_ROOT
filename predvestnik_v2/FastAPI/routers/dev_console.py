@@ -945,8 +945,9 @@ class ThemeMetaRequest(BaseModel):
 
 
 _VALID_RARITIES = {"common", "uncommon", "rare", "epic", "legendary", "mythic", "shadow", "zarniki", "seasonal"}
-_VALID_SOURCES  = {"start", "shop_mora", "shop_diamond", "gacha_novice", "gacha_standard",
-                   "gacha_premium", "gacha_diamond", "dark", "zarniki", "event", "auction", "bp"}
+_VALID_SOURCES  = {"start", "shop_mora", "shop_diamond", "gacha_mora", "gacha_novice",
+                   "gacha_standard", "gacha_premium", "gacha_diamond", "dark", "zarniki",
+                   "event", "auction", "bp"}
 
 
 @router.get("/theme-meta/{theme_id}")

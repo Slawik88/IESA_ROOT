@@ -72,9 +72,21 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
         "fatigue_restore": 20,            "buff": "expedition_cd_reset",
         "description": "Снижает 20 усталости + сброс КД экспедиции.",
     },
+    "food_fried": {
+        "name": "🍗 Жаренное мясо",       "category": "food", "price_mora": 255,
+        "fatigue_restore": 30,            "description": "Снижает 30 усталости.",
+    },
+    "food_stew": {
+        "name": "🍖 Тушёная Грудка",      "category": "food", "price_mora": 333,
+        "fatigue_restore": 45,            "description": "Снижает 45 усталости.",
+    },
     "food_super": {
         "name": "💊 Суперкорм",           "category": "food", "price_mora": 1100,
         "fatigue_restore": 60,            "description": "Снижает 60 усталости активному питомцу + 5 всем питомцам в питомнике.",
+    },
+    "food_feast": {
+        "name": "🍱 Праздничный паёк",    "category": "food", "price_mora": 865,
+        "fatigue_restore": 90,            "description": "Снижает 90 усталости активному питомцу.",
     },
     "food_diamond": {
         "name": "💎 Алмазное лакомство",  "category": "food", "price_diamonds": 12,

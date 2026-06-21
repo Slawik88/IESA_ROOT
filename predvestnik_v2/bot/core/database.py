@@ -121,6 +121,9 @@ async def init_db():
         # Migrations: add dark mora columns to users
         for _stmt in [
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS dark_mora INTEGER DEFAULT 0",
+            # Block 10: DEFAULT TRUE → существующие игроки уже «онбордингованы»
+            # (стартовый набор не получат); новые вставляются с FALSE (update_user).
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN DEFAULT TRUE",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS contrabanda_last_at TIMESTAMP DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS contrabanda_banned_until TIMESTAMP DEFAULT NULL",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS ritual_last_at TIMESTAMP DEFAULT NULL",
