@@ -39,8 +39,8 @@ DUPLICATE_OVERFLOW_STARDUST: dict = {"common": 0, "rare": 1, "epic": 1, "legenda
 
 PET_LEVEL_MILESTONE_REWARDS: dict = {
     3:  {"mora": 800.0,  "diamonds": 0.0, "items": (),                                            "announce_chat": False},
-    5:  {"mora": 2000.0, "diamonds": 0.0, "items": (("egg_silver", 1), ("spin_token_novice", 1)), "announce_chat": False},
-    7:  {"mora": 4500.0, "diamonds": 0.0, "items": (("egg_gold", 1), ("spin_token_standard", 1)), "announce_chat": False},
+    5:  {"mora": 2000.0, "diamonds": 0.0, "items": (("egg_silver", 1), ("spin_token", 1)), "announce_chat": False},
+    7:  {"mora": 4500.0, "diamonds": 0.0, "items": (("egg_gold", 1), ("spin_token", 1)), "announce_chat": False},
     10: {"mora": 8000.0, "diamonds": 5.0, "items": (),                                            "announce_chat": True},
 }
 
@@ -89,7 +89,7 @@ HAMSTER_BONUSES: dict = {
 
 # Owl: rate = how many messages between bonus-XP triggers (1 = every msg, 2 = every 2nd, 4 = every 4th).
 # expedition_xp_bonus is the +% to expedition XP. weekend_double = true → ×2 XP on Sat/Sun.
-# daily_free_spin_token = whether capstone grants 1 spin_token_novice per day.
+# daily_free_spin_token = whether capstone grants 1 spin_token per day.
 OWL_BONUS_XP: float = 1.0   # Base extra XP per triggered message (used by leveling)
 OWL_HALF_BONUS_XP: float = 0.5  # Used when value is 1.5 (i.e. +1 every msg and +0.5 alternating)
 
@@ -272,28 +272,26 @@ DAILY_DEAL_MORA_SLOTS: int = 6
 DAILY_DEAL_DIAMOND_SLOTS: int = 1
 
 # ── Gacha (B3) ───────────────────────────────────────────────────────────────
+# Block 8: единая гача — 2 режима (за Мору / за Алмазы). Алмазный = выше шанс
+# редкого лута + шире диапазон. Бывшие 4 тира (novice/standard/premium/diamond)
+# снесены; их жетоны мигрируют в единый spin_token (бесплатный спин мора-режима).
 SPIN_COSTS: dict = {
-    "novice":   {"mora": 350.0,  "diamonds": 0.0},
-    "standard": {"mora": 1000.0, "diamonds": 0.0},
-    "premium":  {"mora": 2800.0, "diamonds": 0.0},
-    "diamond":  {"mora": 0.0,    "diamonds": 5.0},
+    "mora":    {"mora": 600.0, "diamonds": 0.0},
+    "diamond": {"mora": 0.0,   "diamonds": 8.0},
 }
 SPIN_MULTI_DISCOUNT: float = 0.10  # 10% off for 10× multi-pull
 SPIN_MULTI_COUNT: int = 10
-PITY_SOFT: dict = {"novice": 30, "standard": 25, "premium": 20, "diamond": 15}
-PITY_HARD: dict = {"novice": 60, "standard": 50, "premium": 40, "diamond": 30}
+PITY_SOFT: dict = {"mora": 30, "diamond": 18}
+PITY_HARD: dict = {"mora": 60, "diamond": 35}
 
 SPIN_TYPE_LABELS: dict = {
-    "novice":   "🎲 Ученическая",
-    "standard": "💫 Стандартная",
-    "premium":  "🌟 Премиум",
-    "diamond":  "💎 Алмазная",
+    "mora":    "🪙 Крутка за Мору",
+    "diamond": "💎 Алмазная крутка",
 }
+# Жетон даёт бесплатный спин ТОЛЬКО мора-режима; алмазный режим — за 💎.
 SPIN_TOKEN_IDS: dict = {
-    "novice": "spin_token_novice",
-    "standard": "spin_token_standard",
-    "premium": "spin_token_premium",
-    "diamond": "spin_token_diamond",
+    "mora": "spin_token",
+    "diamond": "",
 }
 
 # ── Moderation ────────────────────────────────────────────────────────────────
@@ -335,7 +333,7 @@ CHEST_REWARDS_BY_POSITION: dict = {
     6: 130.0, 7: 110.0, 8:  90.0, 9:  70.0, 10: 55.0,
     11: 40.0, 12: 35.0, 13: 30.0, 14:  30.0, 15: 30.0,
 }
-CHEST_TOP3_BONUS_ITEM: str = "spin_token_novice"
+CHEST_TOP3_BONUS_ITEM: str = "spin_token"
 CHEST_DURATION_SECONDS: int = 90
 CHEST_MIN_ACTIVE_USERS_24H: int = 2
 CHEST_MAX_CLAIMANTS: int = 15

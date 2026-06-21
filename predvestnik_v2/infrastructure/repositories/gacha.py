@@ -49,12 +49,13 @@ async def reset_pity(db: aiosqlite.Connection, user_id: int, spin_type: str) -> 
 
 
 async def get_all_pity(db: aiosqlite.Connection, user_id: int) -> dict:
-    """Return {spin_type: count} for all types. Missing types default to 0."""
+    """Return {spin_type: count} for all active spin types. Missing default to 0."""
+    from core.constants import SPIN_TYPE_LABELS
     async with db.execute(
         "SELECT spin_type, count FROM gacha_pity WHERE user_id = ?", (user_id,)
     ) as c:
         rows = await c.fetchall()
-    result = {"novice": 0, "standard": 0, "premium": 0, "diamond": 0}
+    result = {st: 0 for st in SPIN_TYPE_LABELS}  # Block 8: mora/diamond
     for spin_type, count in rows:
         if spin_type in result:
             result[spin_type] = count

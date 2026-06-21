@@ -112,7 +112,7 @@ async def streak_middleware(
                         await db.execute(
                             "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, 1) "
                             "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + 1",
-                            (user.id, "spin_token_novice"),
+                            (user.id, "spin_token"),
                         )
 
                     # Owl Lv10: daily free spin token
@@ -128,7 +128,7 @@ async def streak_middleware(
                             owl_bonus = OWL_BONUSES.get(max(1, min(10, owl_level)), {})
                             if owl_bonus.get("daily_free_spin_token", False):
                                 await db.execute(
-                                    "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, 'spin_token_novice', 1) "
+                                    "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, 'spin_token', 1) "
                                     "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + 1",
                                     (user.id,),
                                 )

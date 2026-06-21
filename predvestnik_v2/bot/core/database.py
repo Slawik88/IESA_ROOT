@@ -917,6 +917,28 @@ async def init_db():
         except Exception:
             pass
 
+        # Block 8: единая гача. 4 старых жетона (novice/standard/premium/diamond)
+        # сливаются 1:1 в единый spin_token (бесплатный спин мора-режима).
+        # Идемпотентно: после DELETE старых строк не остаётся, повторный прогон
+        # ничего не суммирует. Старые pity-строки гачи безвредны (новые ключи —
+        # mora/diamond), их не трогаем.
+        try:
+            await db.execute(
+                "INSERT INTO inventory (user_id, item_id, quantity) "
+                "SELECT user_id, 'spin_token', SUM(quantity) FROM inventory "
+                "WHERE item_id IN ('spin_token_novice','spin_token_standard',"
+                "                  'spin_token_premium','spin_token_diamond') AND quantity > 0 "
+                "GROUP BY user_id "
+                "ON CONFLICT (user_id, item_id) DO UPDATE SET "
+                "  quantity = inventory.quantity + EXCLUDED.quantity"
+            )
+            await db.execute(
+                "DELETE FROM inventory WHERE item_id IN "
+                "('spin_token_novice','spin_token_standard','spin_token_premium','spin_token_diamond')"
+            )
+        except Exception:
+            pass
+
         # ── Indexes ────────────────────────────────────────────────────────────
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_users_username ON users(user_tg_username)",

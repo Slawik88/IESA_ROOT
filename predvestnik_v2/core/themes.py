@@ -622,10 +622,9 @@ THEMES: Dict[str, Dict[str, Any]] = {
 
 # Какие темы могут выпасть в гаче (по типу крутки)
 THEME_GACHA_DROPS: Dict[str, list] = {
-    "novice":   [t for t, d in THEMES.items() if d.get("gacha") == "novice"],
-    "standard": [t for t, d in THEMES.items() if d.get("gacha") == "standard"],
-    "premium":  [t for t, d in THEMES.items() if d.get("gacha") == "premium"],
-    "diamond":  [t for t, d in THEMES.items() if d.get("gacha") == "diamond"],
+    # Block 8: mora-режим объединяет старые тиры novice/standard/premium.
+    "mora":    [t for t, d in THEMES.items() if d.get("gacha") in ("novice", "standard", "premium", "mora")],
+    "diamond": [t for t, d in THEMES.items() if d.get("gacha") == "diamond"],
 }
 
 DEFAULT_THEME = "theme_shadow"
