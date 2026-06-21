@@ -535,17 +535,25 @@ async def dev_bp_rewards(db=Depends(get_db), user=Depends(require_tg_user)):
     db_overrides: dict[tuple, dict] = {}
     if season_id:
         async with db.execute(
-            "SELECT level, track, mora, diamonds, items, theme_id "
+            "SELECT level, track, mora, diamonds, items, theme_id, reward_options "
             "FROM battle_pass_reward_overrides WHERE season_id = ?",
             (season_id,),
         ) as c:
             for row in await c.fetchall():
-                db_overrides[(row[0], row[1])] = {
+                entry = {
                     "mora": row[2] or 0,
                     "diamonds": row[3] or 0,
                     "items": _json.loads(row[4] or "[]"),
                     "theme": row[5],
                 }
+                if row[6]:
+                    try:
+                        opts = _json.loads(row[6])
+                        if isinstance(opts, list) and len(opts) >= 2:
+                            entry["options"] = opts
+                    except Exception:
+                        pass
+                db_overrides[(row[0], row[1])] = entry
 
     rewards = []
     for lv in range(1, BATTLE_PASS_MAX_LEVEL + 1):
@@ -571,11 +579,15 @@ class BpRewardRequest(BaseModel):
     diamonds: int = 0
     items: list = []   # [[item_id, qty], ...]
     theme_id: str | None = None
+    # Если задан массив из ≥2 вариантов — уровень становится ВЫБОРОМ игрока.
+    # Каждый вариант: {"mora":N,"diamonds":N,"items":[[id,qty]],"theme":id|null}
+    reward_options: list | None = None
 
 
 @router.post("/bp/rewards")
 async def dev_bp_reward_set(body: BpRewardRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Установить награду для конкретного уровня+трека. Перезаписывает registry."""
+    """Установить награду уровня+трека. Перезаписывает registry. Если задан
+    reward_options (≥2 варианта) — уровень становится выбором игрока."""
     import json as _json
     _require_dev(user)
     if body.track not in ("free", "paid"):
@@ -583,16 +595,153 @@ async def dev_bp_reward_set(body: BpRewardRequest, db=Depends(get_db), user=Depe
     if not 1 <= body.level <= BATTLE_PASS_MAX_LEVEL:
         raise HTTPException(400, f"level: 1..{BATTLE_PASS_MAX_LEVEL}.")
 
+    opts_json = None
+    if body.reward_options:
+        if not isinstance(body.reward_options, list) or len(body.reward_options) < 2:
+            raise HTTPException(400, "reward_options: нужно ≥2 вариантов (или null).")
+        opts_json = _json.dumps(body.reward_options)
+
     items_json = _json.dumps(body.items)
     await db.execute(
-        "INSERT INTO battle_pass_reward_overrides (season_id, level, track, mora, diamonds, items, theme_id) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?) "
+        "INSERT INTO battle_pass_reward_overrides "
+        "(season_id, level, track, mora, diamonds, items, theme_id, reward_options) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
         "ON CONFLICT (season_id, level, track) DO UPDATE SET "
-        "mora=EXCLUDED.mora, diamonds=EXCLUDED.diamonds, items=EXCLUDED.items, theme_id=EXCLUDED.theme_id",
-        (body.season_id, body.level, body.track, body.mora, body.diamonds, items_json, body.theme_id),
+        "mora=EXCLUDED.mora, diamonds=EXCLUDED.diamonds, items=EXCLUDED.items, "
+        "theme_id=EXCLUDED.theme_id, reward_options=EXCLUDED.reward_options",
+        (body.season_id, body.level, body.track, body.mora, body.diamonds,
+         items_json, body.theme_id, opts_json),
     )
     await db.commit()
     return {"ok": True}
+
+
+class BpBulkRequest(BaseModel):
+    season_id: str
+    track: str
+    level_from: int
+    level_to: int
+    mora_base: int = 0
+    mora_step: int = 0      # +mora_step за каждый уровень выше level_from
+    diamonds_base: int = 0
+    diamonds_step: int = 0
+
+
+@router.post("/bp/rewards/bulk")
+async def dev_bp_reward_bulk(body: BpBulkRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Массовое автозаполнение диапазона уровней по формуле base+step×(lv-from)."""
+    _require_dev(user)
+    if body.track not in ("free", "paid"):
+        raise HTTPException(400, "track: 'free' или 'paid'.")
+    lo, hi = body.level_from, body.level_to
+    if not (1 <= lo <= hi <= BATTLE_PASS_MAX_LEVEL):
+        raise HTTPException(400, f"Диапазон 1..{BATTLE_PASS_MAX_LEVEL}, from ≤ to.")
+    count = 0
+    for lv in range(lo, hi + 1):
+        mora = body.mora_base + body.mora_step * (lv - lo)
+        dia = body.diamonds_base + body.diamonds_step * (lv - lo)
+        await db.execute(
+            "INSERT INTO battle_pass_reward_overrides "
+            "(season_id, level, track, mora, diamonds, items, theme_id, reward_options) "
+            "VALUES (?, ?, ?, ?, ?, '[]', NULL, NULL) "
+            "ON CONFLICT (season_id, level, track) DO UPDATE SET "
+            "mora=EXCLUDED.mora, diamonds=EXCLUDED.diamonds, items='[]', "
+            "theme_id=NULL, reward_options=NULL",
+            (body.season_id, lv, body.track, mora, dia),
+        )
+        count += 1
+    await db.commit()
+    return {"ok": True, "updated": count}
+
+
+class BpCopyRequest(BaseModel):
+    from_season: str
+    to_season: str
+
+
+@router.post("/bp/rewards/copy")
+async def dev_bp_reward_copy(body: BpCopyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Скопировать ВСЕ переопределения наград из одного сезона в другой
+    (стартовый шаблон для нового сезона). Существующие в to_season перезаписываются."""
+    _require_dev(user)
+    if body.from_season == body.to_season:
+        raise HTTPException(400, "Сезоны должны различаться.")
+    async with db.execute(
+        "SELECT level, track, mora, diamonds, items, theme_id, reward_options "
+        "FROM battle_pass_reward_overrides WHERE season_id = ?",
+        (body.from_season,),
+    ) as c:
+        rows = await c.fetchall()
+    for r in rows:
+        await db.execute(
+            "INSERT INTO battle_pass_reward_overrides "
+            "(season_id, level, track, mora, diamonds, items, theme_id, reward_options) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT (season_id, level, track) DO UPDATE SET "
+            "mora=EXCLUDED.mora, diamonds=EXCLUDED.diamonds, items=EXCLUDED.items, "
+            "theme_id=EXCLUDED.theme_id, reward_options=EXCLUDED.reward_options",
+            (body.to_season, r[0], r[1], r[2], r[3], r[4], r[5], r[6]),
+        )
+    await db.commit()
+    return {"ok": True, "copied": len(rows)}
+
+
+@router.get("/bp/season-summary")
+async def dev_bp_season_summary(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Сводная «ценность сезона»: сумма мора/алмазов/предметов по трекам
+    (registry + DB-переопределения, DB побеждает). Плюс список пустых уровней."""
+    import json as _json
+    _require_dev(user)
+    await refresh_seasons_cache(db)
+    season = get_active_season()
+    season_id = season["id"] if season else None
+
+    overrides: dict[tuple, dict] = {}
+    if season_id:
+        async with db.execute(
+            "SELECT level, track, mora, diamonds, items, theme_id, reward_options "
+            "FROM battle_pass_reward_overrides WHERE season_id = ?",
+            (season_id,),
+        ) as c:
+            for row in await c.fetchall():
+                overrides[(row[0], row[1])] = row
+
+    summary = {"free": {"mora": 0, "diamonds": 0, "items": 0},
+               "paid": {"mora": 0, "diamonds": 0, "items": 0}}
+    empty_levels = []
+    for lv in range(1, BATTLE_PASS_MAX_LEVEL + 1):
+        lv_has_any = False
+        for track in ("free", "paid"):
+            if (lv, track) in overrides:
+                row = overrides[(lv, track)]
+                if row[6]:  # reward_options — берём максимум по варианту как «потолок ценности»
+                    try:
+                        opts = _json.loads(row[6])
+                        best = max(opts, key=lambda o: (o.get("mora", 0) + o.get("diamonds", 0) * 60))
+                        summary[track]["mora"] += best.get("mora", 0)
+                        summary[track]["diamonds"] += best.get("diamonds", 0)
+                        summary[track]["items"] += len(best.get("items", []))
+                        lv_has_any = True
+                        continue
+                    except Exception:
+                        pass
+                summary[track]["mora"] += row[2] or 0
+                summary[track]["diamonds"] += row[3] or 0
+                summary[track]["items"] += len(_json.loads(row[4] or "[]"))
+                if (row[2] or row[3] or row[4] not in (None, "[]") or row[5]):
+                    lv_has_any = True
+            else:
+                reg = BATTLE_PASS_REWARDS.get(lv, {}).get(track, {})
+                summary[track]["mora"] += reg.get("mora", 0)
+                summary[track]["diamonds"] += reg.get("diamonds", 0)
+                summary[track]["items"] += len(reg.get("items", ()))
+                if reg.get("mora") or reg.get("diamonds") or reg.get("items") or reg.get("theme"):
+                    lv_has_any = True
+        if not lv_has_any:
+            empty_levels.append(lv)
+
+    return {"season_id": season_id, "summary": summary, "empty_levels": empty_levels,
+            "max_level": BATTLE_PASS_MAX_LEVEL}
 
 
 @router.delete("/bp/rewards/{season_id}/{level}/{track}")

@@ -8,7 +8,9 @@ from bot.filters.text_commands import TextCmd
 from core.constants import BATTLE_PASS_XP_PER_LEVEL
 from core.registry import BATTLE_PASS_REWARDS, ITEMS_REGISTRY
 from core.themes import THEMES
-from services.battle_pass import claim_reward, get_active_season, get_progress, level_status
+from services.battle_pass import (
+    claim_reward, get_active_season, get_progress, level_status, get_level_options,
+)
 from services.formatting import format_progress_bar
 
 router = Router(name="battle_pass_router")
@@ -17,6 +19,11 @@ router = Router(name="battle_pass_router")
 class BpClaimCB(CallbackData, prefix="bpclaim"):
     level: int
     track: str
+
+class BpChoiceCB(CallbackData, prefix="bpchoice"):
+    level: int
+    track: str
+    idx: int
 
 
 _STATUS_MARKERS = {
@@ -87,9 +94,35 @@ async def cmd_battle_pass(message: types.Message, db):
 
 @router.callback_query(BpClaimCB.filter())
 async def cb_bp_claim(query: types.CallbackQuery, callback_data: BpClaimCB, db):
-    ok, msg = await claim_reward(db, query.from_user.id, callback_data.level, callback_data.track)
+    lv, track = callback_data.level, callback_data.track
+    # Уровень-выбор: показываем варианты наград кнопками
+    options = await get_level_options(db, lv, track)
+    if options:
+        builder = InlineKeyboardBuilder()
+        for i, opt in enumerate(options):
+            builder.button(text=f"🎁 {opt['text']}", callback_data=BpChoiceCB(level=lv, track=track, idx=i))
+        builder.adjust(1)
+        await query.message.answer(
+            f"🎫 Уровень {lv}: выберите ОДНУ награду:",
+            reply_markup=builder.as_markup(), parse_mode="HTML")
+        return await query.answer()
+    ok, msg = await claim_reward(db, query.from_user.id, lv, track)
     if ok:
         await query.message.answer(msg, parse_mode="HTML")
+        await query.answer()
+    else:
+        await query.answer(msg, show_alert=True)
+
+
+@router.callback_query(BpChoiceCB.filter())
+async def cb_bp_choice(query: types.CallbackQuery, callback_data: BpChoiceCB, db):
+    ok, msg = await claim_reward(db, query.from_user.id, callback_data.level,
+                                 callback_data.track, choice_index=callback_data.idx)
+    if ok:
+        try:
+            await query.message.edit_text(msg, parse_mode="HTML")
+        except Exception:
+            await query.message.answer(msg, parse_mode="HTML")
         await query.answer()
     else:
         await query.answer(msg, show_alert=True)

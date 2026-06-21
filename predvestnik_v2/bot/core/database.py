@@ -815,6 +815,7 @@ async def init_db():
                 diamonds   INTEGER DEFAULT 0,
                 items      TEXT DEFAULT '[]',
                 theme_id   TEXT DEFAULT NULL,
+                reward_options TEXT DEFAULT NULL,
                 PRIMARY KEY (season_id, level, track)
             )
         """)
@@ -866,6 +867,8 @@ async def init_db():
             "ALTER TABLE marriages ADD COLUMN IF NOT EXISTS family_balance_diamonds FLOAT8 DEFAULT 0",
             "ALTER TABLE marriages ADD COLUMN IF NOT EXISTS family_balance_dark_mora FLOAT8 DEFAULT 0",
             "ALTER TABLE marriages ADD COLUMN IF NOT EXISTS family_balance_zarniki FLOAT8 DEFAULT 0",
+            # Block 6: выбор между 2 наградами на уровне БП (JSON массив вариантов)
+            "ALTER TABLE battle_pass_reward_overrides ADD COLUMN IF NOT EXISTS reward_options TEXT DEFAULT NULL",
         ]:
             try:
                 await db.execute(_stmt)

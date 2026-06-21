@@ -139,8 +139,64 @@ def level_status(level: int, track: str, progress: dict) -> str:
     return "available"
 
 
-async def claim_reward(db, user_id: int, level: int, track: str) -> tuple[bool, str]:
-    """Забрать награду уровня `level` из трека `track` ('free' | 'paid')."""
+def _opt_to_reward(opt: dict) -> dict:
+    """Один вариант reward_options → стандартный reward-dict."""
+    return {
+        "mora": opt.get("mora", 0) or 0,
+        "diamonds": opt.get("diamonds", 0) or 0,
+        "items": tuple(tuple(x) for x in (opt.get("items") or [])),
+        "theme": opt.get("theme"),
+    }
+
+
+def reward_short_text(reward: dict) -> str:
+    """Краткое текстовое описание награды (для кнопок выбора)."""
+    parts = []
+    if reward.get("mora"):
+        parts.append(f"+{int(reward['mora'])}🪙")
+    if reward.get("diamonds"):
+        parts.append(f"+{int(reward['diamonds'])}💎")
+    for item_id, qty in reward.get("items", ()):
+        name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
+        parts.append(f"+{qty} {name}")
+    if reward.get("theme"):
+        parts.append(f"🎨 {THEMES.get(reward['theme'], {}).get('name', reward['theme'])}")
+    return ", ".join(parts) if parts else "—"
+
+
+async def get_level_options(db, level: int, track: str) -> list[dict] | None:
+    """Если уровень/трек — это ВЫБОР между ≥2 наградами (reward_options в DB),
+    вернуть список reward-dict'ов (с полем 'text' для кнопки). Иначе None."""
+    import json as _json
+    season = get_active_season()
+    if not season:
+        return None
+    async with db.execute(
+        "SELECT reward_options FROM battle_pass_reward_overrides "
+        "WHERE season_id = ? AND level = ? AND track = ?",
+        (season["id"], level, track),
+    ) as _c:
+        _row = await _c.fetchone()
+    if not _row or not _row[0]:
+        return None
+    try:
+        opts = _json.loads(_row[0])
+    except Exception:
+        return None
+    if not isinstance(opts, list) or len(opts) < 2:
+        return None
+    result = []
+    for opt in opts:
+        rw = _opt_to_reward(opt)
+        rw["text"] = reward_short_text(rw)
+        result.append(rw)
+    return result
+
+
+async def claim_reward(db, user_id: int, level: int, track: str,
+                       choice_index: int | None = None) -> tuple[bool, str]:
+    """Забрать награду уровня `level` из трека `track` ('free' | 'paid').
+    Если уровень — выбор между вариантами (reward_options), нужен choice_index."""
     if track not in ("free", "paid"):
         return False, "❌ Некорректный трек."
     if level < 1 or level > BATTLE_PASS_MAX_LEVEL:
@@ -165,21 +221,37 @@ async def claim_reward(db, user_id: int, level: int, track: str) -> tuple[bool, 
     # DB-переопределения перекрывают registry (управляются из dev-консоли)
     import json as _json
     db_reward = None
+    db_options = None
     async with db.execute(
-        "SELECT mora, diamonds, items, theme_id FROM battle_pass_reward_overrides "
+        "SELECT mora, diamonds, items, theme_id, reward_options FROM battle_pass_reward_overrides "
         "WHERE season_id = ? AND level = ? AND track = ?",
         (season["id"], level, track),
     ) as _c:
         _row = await _c.fetchone()
     if _row:
-        db_reward = {
-            "mora": _row[0] or 0,
-            "diamonds": _row[1] or 0,
-            "items": tuple(tuple(x) for x in _json.loads(_row[2] or "[]")),
-            "theme": _row[3],
-        }
+        raw_opts = _row[4]
+        if raw_opts:
+            try:
+                parsed = _json.loads(raw_opts)
+                if isinstance(parsed, list) and len(parsed) >= 2:
+                    db_options = parsed
+            except Exception:
+                db_options = None
+        if db_options is None:
+            db_reward = {
+                "mora": _row[0] or 0,
+                "diamonds": _row[1] or 0,
+                "items": tuple(tuple(x) for x in _json.loads(_row[2] or "[]")),
+                "theme": _row[3],
+            }
 
-    reward = db_reward if db_reward is not None else BATTLE_PASS_REWARDS.get(level, {}).get(track, {})
+    # Уровень-выбор: нужен валидный choice_index
+    if db_options is not None:
+        if choice_index is None or not (0 <= choice_index < len(db_options)):
+            return False, "Выберите один из вариантов награды."
+        reward = _opt_to_reward(db_options[choice_index])
+    else:
+        reward = db_reward if db_reward is not None else BATTLE_PASS_REWARDS.get(level, {}).get(track, {})
     mora = reward.get("mora", 0)
     diamonds = reward.get("diamonds", 0)
     items = reward.get("items", ())
