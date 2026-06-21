@@ -3117,7 +3117,7 @@ function swAuction(tab, btn) {
   btn.classList.add('active');
   el('mkt-auc').style.display = tab==='auc' ? '' : 'none';
   el('mkt-exch').style.display = tab==='exch' ? '' : 'none';
-  if(tab==='auc') loadAuction(1); else loadExchange();
+  if(tab==='auc') loadAuction(0); else loadExchange();
 }
 function loadAuctionPage() { swAuction(_aucTab, document.querySelector(`#pg-auction .tb[onclick*="'${_aucTab}'"]`)); }
 
