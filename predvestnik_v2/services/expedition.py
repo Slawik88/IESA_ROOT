@@ -11,6 +11,7 @@ def calculate_reward(
     species_id: str | None = None,
     species_levels: dict | None = None,
     species_placements: dict | None = None,
+    relic_mora_pct: float = 0.0,
 ) -> dict:
     """
     Calculate expedition outcome.
@@ -92,6 +93,13 @@ def calculate_reward(
         if bonus_xp > 0:
             xp += bonus_xp
             buff_message += f"\n🦉 <i>Сова (Ур.{owl_level}): +{bonus_xp} XP</i>"
+
+    # Block 13: суммарный бонус реликвий к моро-награде похода.
+    if relic_mora_pct > 0:
+        relic_gain = int(mora * relic_mora_pct)
+        if relic_gain > 0:
+            mora += relic_gain
+            buff_message += f"\n🏛 <i>Реликвии: +{relic_gain} Моры (+{int(relic_mora_pct * 100)}%)</i>"
 
     return {
         "mora": mora,

@@ -620,6 +620,50 @@ VIP_TIERS: dict[str, dict] = {
 }
 
 
+# ── Relics (Implementation Block 13) — сток для Тёмной Моры ──────────────────
+# Уникальные коллекционные предметы (владеешь раз). Цена комбинирует валюты,
+# обязательно включает 🌑 Тёмную Мору. Эффект: суммарный +% к моро-награде
+# экспедиций (интегрируется в services/expedition.calculate_reward — одна точка).
+RELIC_RARITY_META: dict[str, dict] = {
+    "common": {"badge": "🟫", "name": "Обычная", "power": 1},
+    "rare":   {"badge": "🟪", "name": "Редкая",   "power": 3},
+    "epic":   {"badge": "🟧", "name": "Эпическая","power": 7},
+}
+
+RELICS: dict[str, dict] = {
+    "relic_coin": {
+        "name": "🪙 Древняя Монета", "rarity": "common",
+        "price": {"mora": 500, "dark_mora": 30}, "exp_mora_pct": 0.03,
+        "desc": "Монета забытой империи. Чуть щедрее делает походы.",
+    },
+    "relic_compass": {
+        "name": "🧭 Ржавый Компас", "rarity": "common",
+        "price": {"mora": 800, "dark_mora": 45}, "exp_mora_pct": 0.04,
+        "desc": "Стрелка всё ещё чует поживу.",
+    },
+    "relic_idol": {
+        "name": "🗿 Идол Торговца", "rarity": "common",
+        "price": {"mora": 1200, "dark_mora": 60}, "exp_mora_pct": 0.05,
+        "desc": "Покровитель сделок и тёмной наживы.",
+    },
+    "relic_chalice": {
+        "name": "🏆 Кубок Бездны", "rarity": "rare",
+        "price": {"diamonds": 100, "dark_mora": 150}, "exp_mora_pct": 0.10,
+        "desc": "Из него пьют те, кто вернулся с того берега.",
+    },
+    "relic_crown": {
+        "name": "👑 Корона Падших", "rarity": "rare",
+        "price": {"diamonds": 150, "dark_mora": 220}, "exp_mora_pct": 0.12,
+        "desc": "Венец, что носили владыки руин.",
+    },
+    "relic_heart": {
+        "name": "💟 Сердце Тьмы", "rarity": "epic",
+        "price": {"mora": 5000, "diamonds": 300, "dark_mora": 400}, "exp_mora_pct": 0.20,
+        "desc": "Пульсирует в такт твоей жадности. Лучшая реликвия.",
+    },
+}
+
+
 # ── Partner gifts (Implementation Block 5.4) ────────────────────────────────
 # Подарки партнёру: дешёвые косметические (флавор, видны в карточке брака) +
 # средние/дорогие бафф-подарки (накладывают study_xp на ПАРТНЁРА — реальный
