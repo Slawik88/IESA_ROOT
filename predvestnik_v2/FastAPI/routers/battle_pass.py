@@ -8,6 +8,7 @@ from core.registry import BATTLE_PASS_REWARDS, ITEMS_REGISTRY
 from core.themes import THEMES
 from services.battle_pass import (
     claim_reward, get_active_season, get_progress, level_status, refresh_seasons_cache,
+    _opt_to_reward, reward_short_text,
 )
 
 router = APIRouter(prefix="/battle_pass", tags=["battle_pass"])
@@ -42,14 +43,37 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
         return {"active": False}
 
     progress = await get_progress(db, user["id"])
+
+    # DB-уровни-выбор (reward_options) активного сезона → {(level,track): [opts]}
+    import json as _json
+    choice_levels: dict[tuple, list] = {}
+    async with db.execute(
+        "SELECT level, track, reward_options FROM battle_pass_reward_overrides "
+        "WHERE season_id = ? AND reward_options IS NOT NULL",
+        (season["id"],),
+    ) as _c:
+        for _r in await _c.fetchall():
+            try:
+                opts = _json.loads(_r[2])
+            except Exception:
+                continue
+            if isinstance(opts, list) and len(opts) >= 2:
+                choice_levels[(_r[0], _r[1])] = [
+                    {**_reward_payload(_opt_to_reward(o), _r[0], _r[1], progress),
+                     "text": reward_short_text(_opt_to_reward(o))}
+                    for o in opts
+                ]
+
     rewards = []
     for lv in range(1, progress["max_level"] + 1):
         r = BATTLE_PASS_REWARDS.get(lv, {})
-        rewards.append({
-            "level": lv,
-            "free": _reward_payload(r.get("free", {}), lv, "free", progress),
-            "paid": _reward_payload(r.get("paid", {}), lv, "paid", progress),
-        })
+        free_p = _reward_payload(r.get("free", {}), lv, "free", progress)
+        paid_p = _reward_payload(r.get("paid", {}), lv, "paid", progress)
+        if (lv, "free") in choice_levels:
+            free_p["options"] = choice_levels[(lv, "free")]
+        if (lv, "paid") in choice_levels:
+            paid_p["options"] = choice_levels[(lv, "paid")]
+        rewards.append({"level": lv, "free": free_p, "paid": paid_p})
 
     return {
         "active": True,
@@ -68,11 +92,12 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
 class ClaimRequest(BaseModel):
     level: int
     track: str
+    choice_index: int | None = None
 
 
 @router.post("/claim")
 async def battle_pass_claim(body: ClaimRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, message = await claim_reward(db, user["id"], body.level, body.track)
+    ok, message = await claim_reward(db, user["id"], body.level, body.track, body.choice_index)
     if not ok:
         raise HTTPException(status_code=400, detail=message)
     await db.commit()

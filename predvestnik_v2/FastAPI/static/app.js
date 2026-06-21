@@ -682,17 +682,25 @@ function _bpLevelRow(r) {
   </div>`;
 }
 function _bpRewardCell(level,track,reward) {
-  const parts=[];
-  if(reward.mora) parts.push(`+${fmt(reward.mora)} 🪙`);
-  if(reward.diamonds) parts.push(`+${reward.diamonds} 💎`);
-  (reward.items||[]).forEach(it=>parts.push(`+${it.qty} ${it.name}`));
-  if(reward.theme) parts.push(`🎨 Тема «${reward.theme}»`);
-  const text=parts.join(', ')||'—';
+  const hasChoice = reward.options && reward.options.length>=2;
+  let text;
+  if(hasChoice){
+    text = `🎁 Выбор: ${reward.options.map(o=>o.text).join(' / ')}`;
+  } else {
+    const parts=[];
+    if(reward.mora) parts.push(`+${fmt(reward.mora)} 🪙`);
+    if(reward.diamonds) parts.push(`+${reward.diamonds} 💎`);
+    (reward.items||[]).forEach(it=>parts.push(`+${it.qty} ${it.name}`));
+    if(reward.theme) parts.push(`🎨 Тема «${reward.theme}»`);
+    text=parts.join(', ')||'—';
+  }
   const st=reward.status;
   const sty=BP_CELL_STYLE[st]||BP_CELL_STYLE.locked_level;
   const mark=st==='claimed'?'✅ ':st==='locked_vip'?'🔒 ':'';
   const btn=st==='available'
-    ?`<button class="btn btn-sm btn-gold" style="margin-top:3px;width:100%;padding:2px 0;font-size:9px" onclick="doBpClaim(${level},'${track}',this)">Забрать</button>`
+    ?(hasChoice
+      ?`<button class="btn btn-sm btn-gold" style="margin-top:3px;width:100%;padding:2px 0;font-size:9px" onclick="bpChoose(${level},'${track}')">Выбрать</button>`
+      :`<button class="btn btn-sm btn-gold" style="margin-top:3px;width:100%;padding:2px 0;font-size:9px" onclick="doBpClaim(${level},'${track}',this)">Забрать</button>`)
     :'';
   return `<div style="font-size:10px;padding:4px 6px;border:1px solid ${sty.border};border-radius:6px;opacity:${sty.opacity}">${mark}${text}${btn}</div>`;
 }
@@ -701,6 +709,20 @@ function doBpClaim(level,track,btn) {
   api('/battle_pass/claim',{method:'POST',body:JSON.stringify({level,track})})
     .then(r=>{toast(r.message);loadBattlePass();})
     .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+function bpChoose(level,track) {
+  const lvl=(_bpData.rewards||[]).find(r=>r.level===level);
+  const opts=(lvl&&lvl[track]&&lvl[track].options)||[];
+  if(opts.length<2) return;
+  OM(`🎫 Уровень ${level} — выбор награды`,
+    `<div style="font-size:12px;color:var(--muted);padding:6px 0">Можно забрать только ОДИН вариант:</div>`,
+    opts.map((o,i)=>({l:`🎁 ${o.text}`, c:'btn-gold', f:`doBpClaimChoice(${level},'${track}',${i})`})));
+}
+function doBpClaimChoice(level,track,idx) {
+  CM();
+  api('/battle_pass/claim',{method:'POST',body:JSON.stringify({level,track,choice_index:idx})})
+    .then(r=>{toast(r.message);loadBattlePass();})
+    .catch(e=>toast(e,false));
 }
 
 // ── Zoo ───────────────────────────────────────────────────────────────────────
@@ -4147,6 +4169,56 @@ function loadGlobalDev() {
       </div>
     </div>
     <div class="card">
+      <div class="card-title">🎁 БП — награды уровней</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-br-season" type="text" class="num-input" style="flex:1;margin:0" placeholder="сезон (s1)" value="s1"/>
+        <input id="dev-br-level" type="number" class="num-input" style="flex:1;margin:0" placeholder="уровень"/>
+        <select id="dev-br-track" class="num-input" style="flex:1;margin:0">
+          <option value="free">🆓 Free</option><option value="paid">👑 VIP</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-br-mora" type="number" class="num-input" style="flex:1;margin:0" placeholder="🪙 мора"/>
+        <input id="dev-br-dia" type="number" class="num-input" style="flex:1;margin:0" placeholder="💎 алмазы"/>
+      </div>
+      <input id="dev-br-items" type="text" class="num-input" style="margin-bottom:6px" placeholder='предметы: food_basic:2, egg_silver:1'/>
+      <input id="dev-br-theme" type="text" class="num-input" style="margin-bottom:6px" placeholder="theme_id (необяз.)"/>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-bottom:6px">
+        <input id="dev-br-choice" type="checkbox" onchange="el('dev-br-opt2').style.display=this.checked?'':'none'"/>
+        🔀 Сделать ВЫБОРОМ из 2 наград (поля выше = вариант 1)
+      </label>
+      <input id="dev-br-opt2" type="text" class="num-input" style="margin-bottom:6px;display:none" placeholder='вариант 2: мора;алмазы;предметы;тема — напр. 0;5;;'/>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-gold" style="flex:2" onclick="devBpRewardSet()">💾 Сохранить</button>
+        <button class="btn btn-red" style="flex:1" onclick="devBpRewardReset()">↩ Сброс</button>
+      </div>
+      <div class="divider"></div>
+      <div class="card-title" style="margin-top:4px">⚙️ Массовое заполнение</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-bk-from" type="number" class="num-input" style="flex:1;margin:0" placeholder="с ур."/>
+        <input id="dev-bk-to" type="number" class="num-input" style="flex:1;margin:0" placeholder="по ур."/>
+        <select id="dev-bk-track" class="num-input" style="flex:1;margin:0">
+          <option value="free">🆓 Free</option><option value="paid">👑 VIP</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-bk-mora" type="number" class="num-input" style="flex:1;margin:0" placeholder="🪙 база"/>
+        <input id="dev-bk-mstep" type="number" class="num-input" style="flex:1;margin:0" placeholder="🪙 +шаг"/>
+        <input id="dev-bk-dia" type="number" class="num-input" style="flex:1;margin:0" placeholder="💎 база"/>
+      </div>
+      <button class="btn btn-ghost btn-full" onclick="devBpBulk()">⚙️ Заполнить диапазон</button>
+      <div class="divider"></div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <button class="btn btn-ghost" style="flex:1" onclick="devBpSummary()">📊 Ценность сезона</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <input id="dev-cp-from" type="text" class="num-input" style="flex:1;margin:0" placeholder="из сезона"/>
+        <input id="dev-cp-to" type="text" class="num-input" style="flex:1;margin:0" placeholder="в сезон"/>
+        <button class="btn btn-ghost" onclick="devBpCopy()">📋 Копир.</button>
+      </div>
+      <div id="dev-bp-out" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+    </div>
+    <div class="card">
       <div class="card-title">📢 Рассылка по всем чатам</div>
       <textarea id="dev-bc-text" class="num-input" style="margin:0 0 6px;min-height:70px;resize:vertical" placeholder="Текст (HTML разрешён)"></textarea>
       <button class="btn btn-red btn-full" onclick="devBroadcast()">📢 Отправить во ВСЕ чаты</button>
@@ -4349,6 +4421,78 @@ function devBpXp() {
   if(!uid||!xp) return toast('Заполните ID и XP',false);
   api('/admin/dev/bp/xp',{method:'POST',body:JSON.stringify({user_id:uid,xp})})
     .then(r=>toast(`🎫 Теперь: Ур.${r.level} (${r.xp} XP)`))
+    .catch(e=>toast(e,false));
+}
+// ── БП: редактор наград (Block 6) ──────────────────────────────────────────────
+function _parseBpItems(s) {
+  // "food_basic:2, egg_silver:1" → [["food_basic",2],["egg_silver",1]]
+  return (s||'').split(',').map(p=>p.trim()).filter(Boolean).map(p=>{
+    const [id,q]=p.split(':').map(x=>x.trim());
+    return [id, parseInt(q||'1')||1];
+  });
+}
+function _parseBpOption(s) {
+  // "мора;алмазы;предметы;тема" → {mora,diamonds,items,theme}
+  const [m,d,it,th]=(s||'').split(';');
+  return {mora:parseInt(m||'0')||0, diamonds:parseInt(d||'0')||0,
+          items:_parseBpItems(it), theme:(th||'').trim()||null};
+}
+function devBpRewardSet() {
+  const season=el('dev-br-season')?.value.trim()||'s1';
+  const level=parseInt(el('dev-br-level')?.value||'0');
+  const track=el('dev-br-track')?.value;
+  if(!level) return toast('Укажите уровень',false);
+  const body={season_id:season, level, track,
+    mora:parseInt(el('dev-br-mora')?.value||'0')||0,
+    diamonds:parseInt(el('dev-br-dia')?.value||'0')||0,
+    items:_parseBpItems(el('dev-br-items')?.value),
+    theme_id:(el('dev-br-theme')?.value||'').trim()||null};
+  if(el('dev-br-choice')?.checked){
+    const opt1={mora:body.mora,diamonds:body.diamonds,items:body.items,theme:body.theme_id};
+    const opt2=_parseBpOption(el('dev-br-opt2')?.value);
+    body.reward_options=[opt1,opt2];
+  }
+  api('/admin/dev/bp/rewards',{method:'POST',body:JSON.stringify(body)})
+    .then(()=>toast(`💾 Ур.${level} (${track}) сохранён`))
+    .catch(e=>toast(e,false));
+}
+function devBpRewardReset() {
+  const season=el('dev-br-season')?.value.trim()||'s1';
+  const level=parseInt(el('dev-br-level')?.value||'0');
+  const track=el('dev-br-track')?.value;
+  if(!level) return toast('Укажите уровень',false);
+  api(`/admin/dev/bp/rewards/${season}/${level}/${track}`,{method:'DELETE'})
+    .then(()=>toast('↩ Сброшено к registry'))
+    .catch(e=>toast(e,false));
+}
+function devBpBulk() {
+  const body={season_id:el('dev-br-season')?.value.trim()||'s1',
+    track:el('dev-bk-track')?.value,
+    level_from:parseInt(el('dev-bk-from')?.value||'0'),
+    level_to:parseInt(el('dev-bk-to')?.value||'0'),
+    mora_base:parseInt(el('dev-bk-mora')?.value||'0')||0,
+    mora_step:parseInt(el('dev-bk-mstep')?.value||'0')||0,
+    diamonds_base:parseInt(el('dev-bk-dia')?.value||'0')||0, diamonds_step:0};
+  if(!body.level_from||!body.level_to) return toast('Укажите диапазон',false);
+  api('/admin/dev/bp/rewards/bulk',{method:'POST',body:JSON.stringify(body)})
+    .then(r=>toast(`⚙️ Заполнено уровней: ${r.updated}`))
+    .catch(e=>toast(e,false));
+}
+function devBpSummary() {
+  api('/admin/dev/bp/season-summary').then(d=>{
+    const f=d.summary.free, p=d.summary.paid;
+    el('dev-bp-out').innerHTML=
+      `📊 Сезон <b>${d.season_id||'—'}</b><br>`+
+      `🆓 ${fmt(f.mora)}🪙 · ${f.diamonds}💎 · ${f.items} предм.<br>`+
+      `👑 ${fmt(p.mora)}🪙 · ${p.diamonds}💎 · ${p.items} предм.<br>`+
+      (d.empty_levels.length?`⚠️ Пустые уровни: ${d.empty_levels.join(', ')}`:'✅ Все уровни заполнены');
+  }).catch(e=>toast(e,false));
+}
+function devBpCopy() {
+  const from=el('dev-cp-from')?.value.trim(), to=el('dev-cp-to')?.value.trim();
+  if(!from||!to) return toast('Укажите оба сезона',false);
+  api('/admin/dev/bp/rewards/copy',{method:'POST',body:JSON.stringify({from_season:from,to_season:to})})
+    .then(r=>toast(`📋 Скопировано наград: ${r.copied}`))
     .catch(e=>toast(e,false));
 }
 function devLoadSeasons() {
