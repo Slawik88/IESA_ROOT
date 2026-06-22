@@ -831,16 +831,23 @@ function renderBattlePass() {
     el('pro-bp').innerHTML=`<div class="card" style="text-align:center;padding:24px;color:var(--muted);font-size:12px">🎫 Сезон Боевого пропуска скоро начнётся, следи за анонсами!</div>`;
     return;
   }
+  _bpCheckLevelUp(d.level);
   const pct=Math.round(d.xp_in_level/d.xp_per_level*100);
+  const isMax=d.level>=d.max_level;
+  const tinfo=_bpSeasonTimer(d);
   el('pro-bp').innerHTML=`
     <div class="card card-gold" style="margin-bottom:8px">
-      <div class="card-title">🎫 ${d.season_label} — Уровень ${d.level}/${d.max_level}</div>
-      <div class="ach-bar" style="height:8px"><div class="ach-fill" style="width:${pct}%"></div></div>
-      <div class="ach-prog">${d.level>=d.max_level?'★ MAX уровень':`${fmt(d.xp_in_level)} / ${fmt(d.xp_per_level)} XP`}</div>
+      <div class="card-title">🎫 ${d.season_label} — Уровень ${d.level}/${d.max_level}<button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="bpXpGuide()">ℹ️ За что XP</button></div>
+      ${d.weekend_boost&&d.weekend_boost.active?`<div style="margin:4px 0 8px;padding:5px 8px;border-radius:8px;background:linear-gradient(90deg,rgba(201,168,76,.18),rgba(201,168,76,.04));font-size:11px;color:var(--gold)">⚡ Выходные: <b>+${d.weekend_boost.pct}% XP</b> ко всему Боевому пропуску!</div>`:''}
+      <div class="ach-bar bp-xpbar" style="height:10px"><div class="ach-fill" style="width:${isMax?100:pct}%"></div></div>
+      <div class="ach-prog">${isMax?'★ MAX уровень достигнут':`${fmt(d.xp_in_level)} / ${fmt(d.xp_per_level)} XP · осталось ${fmt(d.xp_to_next)} XP до ур. ${d.level+1}`}</div>
+      ${tinfo.html}
+      ${d.buy_next?`<button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%" onclick="bpBuyLevel(this)">💎 Открыть уровень ${d.buy_next.level} за ${d.buy_next.price}💎</button>`:''}
       ${!d.paid_track_open?'<div style="margin-top:8px;font-size:11px;color:var(--gold2)">👑 VIP-трек закрыт — оформи VIP («бот vip»), чтобы забирать платные награды.</div>':''}
     </div>
+    ${_bpNextRewardCard(d)}
     <div class="card">
-      <div class="card-title">Награды по уровням</div>
+      <div class="card-title">Награды по уровням${_bpHasClaimable(d)?' <button class="btn btn-sm btn-gold" style="float:right;padding:2px 10px" onclick="bpClaimAll(this)">🎁 Забрать всё</button>':''}</div>
       <div style="display:grid;grid-template-columns:28px 1fr 1fr;gap:6px;font-size:9px;color:var(--muted);margin-bottom:4px">
         <div></div><div>🆓 Бесплатный</div><div>👑 VIP</div>
       </div>
@@ -877,6 +884,112 @@ function _bpRewardCell(level,track,reward) {
       :`<button class="btn btn-sm btn-gold" style="margin-top:3px;width:100%;padding:2px 0;font-size:9px" onclick="doBpClaim(${level},'${track}',this)">Забрать</button>`)
     :'';
   return `<div style="font-size:10px;padding:4px 6px;border:1px solid ${sty.border};border-radius:6px;opacity:${sty.opacity}">${mark}${text}${btn}</div>`;
+}
+// C4: таймер сезона + % прошедшего времени + прогноз домакса по текущему темпу.
+function _bpSeasonTimer(d){
+  if(!d.season_ends) return {html:''};
+  const msDay=86400000;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const end=new Date(d.season_ends+'T23:59:59');
+  const start=d.season_starts?new Date(d.season_starts+'T00:00:00'):null;
+  const daysLeft=Math.max(0,Math.ceil((end-today)/msDay));
+  let elapsedPct=0, projHtml='';
+  if(start){
+    const total=Math.max(1,(end-start)/msDay);
+    const passed=Math.min(total,Math.max(0,(today-start)/msDay));
+    elapsedPct=Math.round(passed/total*100);
+    if(d.level<d.max_level && passed>=1){
+      const rate=d.xp/passed;                                  // XP/день текущий темп
+      const need=(d.max_level-1)*d.xp_per_level - d.xp;        // XP до MAX
+      const daysNeed=rate>0?need/rate:Infinity;
+      projHtml = daysNeed<=daysLeft
+        ? `<span style="color:var(--green)">✓ при текущем темпе домакаешься за ~${Math.ceil(daysNeed)} дн.</span>`
+        : `<span style="color:var(--gold2)">⚠ при текущем темпе MAX не успеть — нужно активнее</span>`;
+    }
+  }
+  const daysHtml = daysLeft>0?`⏳ До конца сезона: <b>${daysLeft}</b> дн.`:'⏳ Сезон завершается сегодня';
+  return {html:`<div style="margin-top:8px;font-size:11px;color:var(--muted)">
+      ${daysHtml}
+      <div class="ach-bar" style="height:5px;margin-top:4px;opacity:.7"><div class="ach-fill" style="width:${elapsedPct}%;background:var(--teal)"></div></div>
+      ${projHtml?`<div style="margin-top:4px">${projHtml}</div>`:''}
+    </div>`};
+}
+// C1: справка «за что сколько XP» (данные из status.xp_guide → весов конструктора).
+function bpXpGuide(){
+  const g=(_bpData&&_bpData.xp_guide)||[];
+  const wb=_bpData&&_bpData.weekend_boost;
+  const boost=wb&&wb.active?`<div style="margin-bottom:8px;padding:6px 8px;border-radius:8px;background:rgba(201,168,76,.12);font-size:11px;color:var(--gold)">⚡ Сейчас выходные: весь XP <b>+${wb.pct}%</b>!</div>`:'';
+  const body = boost+(g.length
+    ? `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">100 XP = 1 уровень. Опыт Боевого пропуска начисляется за:</div>`+
+      g.map(a=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:12px">
+        <span>${esc(a.label)}</span>
+        <span style="white-space:nowrap;color:var(--gold)">+${a.xp} XP${a.daily_cap?`<span style="color:var(--muted);font-size:10px"> · до ${a.daily_cap}/день</span>`:''}</span>
+      </div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px">Список действий пока пуст.</div>');
+  OM('ℹ️ За что даётся опыт БП', body, [{l:'Понятно', c:'btn-gold', f:'CM()'}]);
+}
+// C2: лёгкий «сочный» левел-ап — вспышка карточки + тост при росте уровня с прошлого визита.
+function _bpCheckLevelUp(level){
+  let prev=null;
+  try{ prev=parseInt(localStorage.getItem('bp_seen_level')||''); }catch(e){}
+  if(prev && level>prev){ toast(`🎉 Боевой пропуск: уровень ${level}!`); _bpFlash(); }
+  try{ localStorage.setItem('bp_seen_level', String(level)); }catch(e){}
+}
+function _bpFlash(){
+  const c=el('pro-bp'); if(!c) return;
+  c.classList.remove('bp-levelup'); void c.offsetWidth; c.classList.add('bp-levelup');
+}
+// C3: превью следующей награды (уровень L+1).
+function _bpNextRewardCard(d){
+  if(d.level>=d.max_level) return '';
+  const r=(d.rewards||[]).find(x=>x.level===d.level+1);
+  if(!r) return '';
+  const cell=(rw,label)=>{
+    let txt;
+    if(rw.options&&rw.options.length>=2) txt='🎁 Выбор: '+rw.options.map(o=>o.text).join(' / ');
+    else{ const p=[];
+      if(rw.mora)p.push(`+${fmt(rw.mora)} 🪙`);
+      if(rw.diamonds)p.push(`+${rw.diamonds} 💎`);
+      (rw.items||[]).forEach(it=>p.push(`+${it.qty} ${it.name}`));
+      if(rw.theme)p.push(`🎨 Тема «${rw.theme}»`);
+      txt=p.join(', ')||'—';
+    }
+    return `<div style="flex:1;min-width:0"><div style="font-size:9px;color:var(--muted);margin-bottom:2px">${label}</div><div style="font-size:11px">${txt}</div></div>`;
+  };
+  return `<div class="card" style="margin-bottom:8px">
+    <div class="card-title" style="font-size:12px">🎯 Следующая награда — уровень ${d.level+1}</div>
+    <div style="display:flex;gap:12px">${cell(r.free,'🆓 Бесплатный')}${cell(r.paid,d.paid_track_open?'👑 VIP':'🔒 VIP')}</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:6px">⚡ Ещё ${fmt(d.xp_to_next)} XP до открытия</div>
+  </div>`;
+}
+function _bpHasClaimable(d){
+  const ok=rw=>rw.status==='available' && !(rw.options&&rw.options.length>=2);
+  return (d.rewards||[]).some(r=>ok(r.free)||ok(r.paid));
+}
+// C5: открыть следующий уровень за 💎 (подтверждение → покупка).
+function bpBuyLevel(){
+  const bn=_bpData&&_bpData.buy_next; if(!bn) return;
+  OM('💎 Открыть уровень',
+    `<div style="font-size:12px;color:var(--muted);padding:6px 0">Мгновенно открыть <b>уровень ${bn.level}</b> Боевого пропуска за <b>${bn.price}💎</b>?<br>Награду уровня нужно будет забрать.</div>`,
+    [{l:`💎 Открыть за ${bn.price}`, c:'btn-gold', f:'_bpDoBuyLevel()'},
+     {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
+}
+function _bpDoBuyLevel(){
+  CM();
+  api('/battle_pass/buy-level',{method:'POST'})
+    .then(r=>{toast(r.message); refreshCurrBar(); loadBattlePass();})
+    .catch(e=>toast(e,false));
+}
+// C6: забрать все доступные награды одним тапом.
+function bpClaimAll(btn){
+  if(btn) btn.disabled=true;
+  api('/battle_pass/claim-all',{method:'POST'})
+    .then(r=>{
+      toast(r.claimed?`🎁 Забрано наград: ${r.claimed}`:'Нет наград для сбора');
+      if(r.pending_choices) setTimeout(()=>toast('🔀 Награды с выбором забери вручную'),500);
+      loadBattlePass();
+    })
+    .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
 }
 function doBpClaim(level,track,btn) {
   btn.disabled=true;
@@ -4773,6 +4886,27 @@ function loadGlobalDev() {
       <button class="btn btn-gold btn-full" onclick="devBpImport()">📥 Импортировать JSON</button>
       <div id="dev-bp-import-out" style="font-size:10px;margin-top:4px"></div>
     </div>
+    <div class="card" id="bp-xp-card">
+      <div class="card-title">⚙️ Конструктор XP БП <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadBpXpActions()">🔄</button></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Сколько XP даёт каждое действие, дневной потолок (анти-абуз) и вкл/выкл. 🔧 = оверрайд в БД. <b>100 XP = 1 уровень.</b></div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:6px;background:var(--bg2,var(--s));border-radius:8px">
+        <span style="font-size:11px;white-space:nowrap">⚡ Weekend boost</span>
+        <input id="dev-bpxp-weekend" type="number" class="num-input" style="width:60px;margin:0;padding:3px 5px" placeholder="%"/>
+        <span style="font-size:10px;color:var(--muted)">% XP (0=выкл · сб/вс)</span>
+        <button class="btn btn-sm btn-gold" style="margin-left:auto" onclick="devBpWeekendSet()">💾</button>
+      </div>
+      <div id="dev-bpxp-list"><div class="loader">Загрузка...</div></div>
+      <div class="divider"></div>
+      <div class="card-title" style="margin-top:4px">➕ Кастомное действие</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">metric — точка инкремента из кода (a-z, 0-9, _).</div>
+      <input id="dev-bpxp-metric" type="text" class="num-input" style="margin-bottom:6px" placeholder="metric (напр. duel_wins)"/>
+      <input id="dev-bpxp-label" type="text" class="num-input" style="margin-bottom:6px" placeholder="ярлык (для справки игроку)"/>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-bpxp-weight" type="number" class="num-input" style="flex:1;margin:0" placeholder="вес XP"/>
+        <input id="dev-bpxp-cap" type="number" class="num-input" style="flex:1;margin:0" placeholder="потолок/д (0=∞)"/>
+      </div>
+      <button class="btn btn-gold btn-full" onclick="devBpXpSet()">💾 Сохранить действие</button>
+    </div>
     <div class="card">
       <div class="card-title">📢 Рассылка по всем чатам</div>
       <textarea id="dev-bc-text" class="num-input" style="margin:0 0 6px;min-height:70px;resize:vertical" placeholder="Текст (HTML разрешён)"></textarea>
@@ -4900,6 +5034,7 @@ function loadGlobalDev() {
   loadDevLog();
   devLoadChats();
   loadBpSeasons();
+  loadBpXpActions();
   if(!_devItems) api('/admin/dev/items').then(d=>{
     _devItems=d.items||[];
     const dl=el('dev-items-dl');
@@ -5205,6 +5340,65 @@ function devBpBulk() {
   if(!body.level_from||!body.level_to) return toast('Укажите диапазон',false);
   api('/admin/dev/bp/rewards/bulk',{method:'POST',body:JSON.stringify(body)})
     .then(r=>{toast(`⚙️ Заполнено уровней: ${r.updated}`);loadBpTable();})
+    .catch(e=>toast(e,false));
+}
+// XP-конструктор БП (B+A): вес/дневной потолок/вкл-выкл за каждое действие.
+let _bpXpLabels={};
+function loadBpXpActions() {
+  const box=el('dev-bpxp-list'); if(!box) return;
+  box.innerHTML='<div class="loader">Загрузка...</div>';
+  api('/admin/dev/bp/xp-actions').then(d=>{
+    const acts=d.actions||[]; const per=d.xp_per_level||100;
+    _bpXpLabels={}; acts.forEach(a=>{ _bpXpLabels[a.metric]=a.label; });
+    const wbi=el('dev-bpxp-weekend'); if(wbi) wbi.value=d.weekend_boost_pct||0;
+    if(!acts.length){ box.innerHTML='<div style="font-size:11px;color:var(--muted)">Нет действий.</div>'; return; }
+    box.innerHTML=acts.map(a=>{
+      const cap=a.daily_cap||0;
+      const note=cap>0?`потолок ${cap} XP/день (≈${(cap/per).toFixed(1)} ур./д)`:'без дневного лимита';
+      return `<div class="bpxp-row" style="${a.enabled?'':'opacity:.5'}">
+        <div class="bpxp-head"><b>${esc(a.label)}</b> ${a.is_override?'🔧':''}<span class="bpxp-metric">${esc(a.metric)}</span></div>
+        <div class="bpxp-ctrls">
+          <label>XP<input type="number" id="bpxp-w-${a.metric}" class="num-input bpxp-in" value="${a.weight}"/></label>
+          <label>лимит/д<input type="number" id="bpxp-c-${a.metric}" class="num-input bpxp-in" value="${cap}" title="0 = без лимита"/></label>
+          <label class="bpxp-tog"><input type="checkbox" id="bpxp-e-${a.metric}" ${a.enabled?'checked':''}/>вкл</label>
+          <button class="btn btn-sm btn-gold" onclick="devBpXpRowSave('${a.metric}')">💾</button>
+          ${a.is_override?`<button class="btn btn-sm btn-red" onclick="devBpXpReset('${a.metric}')">↩</button>`:''}
+        </div>
+        <div class="bpxp-note">${note}</div>
+      </div>`;
+    }).join('');
+  }).catch(e=>{ box.innerHTML=`<div class="err">${e}</div>`; });
+}
+function devBpXpRowSave(metric) {
+  const weight=parseInt(el('bpxp-w-'+metric)?.value||'0')||0;
+  const cap=parseInt(el('bpxp-c-'+metric)?.value||'0')||0;
+  const enabled=!!el('bpxp-e-'+metric)?.checked;
+  const label=_bpXpLabels[metric]||null;
+  api('/admin/dev/bp/xp-weight',{method:'POST',body:JSON.stringify({metric,weight,enabled,daily_cap:cap,label})})
+    .then(()=>{toast(`💾 ${metric}: ${weight} XP${cap?(' · ≤'+cap+'/д'):''}${enabled?'':' · ВЫКЛ'}`);loadBpXpActions();})
+    .catch(e=>toast(e,false));
+}
+function devBpXpReset(metric) {
+  api('/admin/dev/bp/xp-weight/reset',{method:'POST',body:JSON.stringify({metric})})
+    .then(()=>{toast('↩ '+metric+' → дефолт');loadBpXpActions();})
+    .catch(e=>toast(e,false));
+}
+function devBpXpSet() {
+  const metric=(el('dev-bpxp-metric')?.value||'').trim().toLowerCase();
+  if(!/^[a-z0-9_]{1,40}$/.test(metric)) return toast('metric: a-z, 0-9, _ (до 40)',false);
+  const weight=parseInt(el('dev-bpxp-weight')?.value||'0')||0;
+  const cap=parseInt(el('dev-bpxp-cap')?.value||'0')||0;
+  const label=(el('dev-bpxp-label')?.value||'').trim()||null;
+  api('/admin/dev/bp/xp-weight',{method:'POST',body:JSON.stringify({metric,weight,enabled:true,daily_cap:cap,label})})
+    .then(()=>{toast('💾 Действие сохранено: '+metric);
+      ['dev-bpxp-metric','dev-bpxp-label','dev-bpxp-weight','dev-bpxp-cap'].forEach(id=>{const e2=el(id);if(e2)e2.value='';});
+      loadBpXpActions();})
+    .catch(e=>toast(e,false));
+}
+function devBpWeekendSet(){
+  const pct=parseInt(el('dev-bpxp-weekend')?.value||'0')||0;
+  api('/admin/dev/bp/weekend-boost',{method:'POST',body:JSON.stringify({pct})})
+    .then(()=>toast(pct>0?`⚡ Weekend boost: +${pct}% XP по выходным`:'⚡ Weekend boost выключен'))
     .catch(e=>toast(e,false));
 }
 function devBpShowExample() {

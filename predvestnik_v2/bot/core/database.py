@@ -805,6 +805,38 @@ async def init_db():
             )
         """)
 
+        # Battle Pass XP-конструктор (B): оверрайды веса XP за действие.
+        # БД перекрывает constants.BATTLE_PASS_XP_WEIGHTS / _DAILY_CAPS.
+        # enabled=FALSE → действие не даёт XP. daily_cap=0 → без лимита.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS bp_xp_weight_overrides (
+                metric     TEXT PRIMARY KEY,
+                weight     INTEGER NOT NULL DEFAULT 0,
+                enabled    BOOLEAN NOT NULL DEFAULT TRUE,
+                daily_cap  INTEGER NOT NULL DEFAULT 0,
+                label      TEXT DEFAULT NULL,
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        # Battle Pass дневной счётчик XP на действие (A, анти-абуз): сколько XP
+        # игрок уже набрал сегодня по каждой метрике — для усечения по daily_cap.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS bp_xp_daily (
+                user_id  BIGINT NOT NULL,
+                day      TEXT NOT NULL,
+                metric   TEXT NOT NULL,
+                xp_today INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (user_id, day, metric)
+            )
+        """)
+        # Battle Pass глобальные настройки (key-value): weekend_boost_pct и т.п.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS bp_settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+
         # Theme Lab — кастомные raw-шаблоны премиум-тем профиля (правки без деплоя)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS profile_theme_overrides (
