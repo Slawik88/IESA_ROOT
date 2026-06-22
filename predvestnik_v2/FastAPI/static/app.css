@@ -338,7 +338,57 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .qa span:first-child { font-size: 21px; }
 .qa.qa-hot { border-color: var(--border); background: linear-gradient(180deg, rgba(232,181,77,.10), var(--bg1)); }
 
+/* БЛОК 9.3: лёгкое свечение при наведении (только hover-устройства — на мобиле
+   не залипает и не конфликтует с tap-scale в :active). Без transform — чтобы не
+   перебивать существующий :active. В меру. */
+@media (hover: hover) {
+  .stat, .qa, .pcard { transition: transform .15s, border-color .2s, box-shadow .2s; }
+  .stat:hover, .qa:hover, .pcard:hover {
+    border-color: var(--border);
+    box-shadow: 0 2px 12px rgba(0,0,0,.22), 0 0 10px rgba(232,181,77,.09);
+  }
+}
+
 /* VIP upsell-баннер */
+/* ═══ PRELOADER — эффектный холодный старт (БЛОК 9.2) ═══ */
+#preloader {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: radial-gradient(circle at 50% 38%, #16120a, var(--bg1) 72%);
+  transition: opacity .55s ease;
+}
+#preloader.pl-done { opacity: 0; pointer-events: none; }
+.pl-core { position: relative; width: 88px; height: 88px; display: flex; align-items: center; justify-content: center; }
+.pl-orb { font-size: 46px; animation: glow 1.6s infinite, floaty 2.4s ease-in-out infinite; z-index: 1; }
+.pl-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 2px solid transparent; border-top-color: var(--gold2); border-right-color: var(--gold2);
+  animation: spinBall 1.05s linear infinite; opacity: .85;
+}
+.pl-lines {
+  font-family: ui-monospace,"SF Mono",Consolas,monospace; font-size: 11.5px;
+  color: var(--gold); min-height: 64px; text-align: center; line-height: 1.75;
+}
+.pl-lines .pl-line { opacity: 0; animation: plLineIn .4s ease forwards; }
+@keyframes plLineIn { from { opacity: 0; transform: translateY(5px); } to { opacity: .82; transform: none; } }
+.pl-welcome { font-size: 20px; font-weight: 800; color: var(--bright); opacity: 0; text-align: center; padding: 0 24px; }
+.pl-welcome.show { animation: plWelcome .7s cubic-bezier(.34,1.56,.64,1) forwards; }
+@keyframes plWelcome { from { opacity: 0; transform: scale(.85); filter: blur(5px); } to { opacity: 1; transform: none; filter: none; } }
+.pl-skip { position: fixed; bottom: 22px; font-size: 9.5px; color: var(--dim); letter-spacing: .3px; }
+@media (prefers-reduced-motion: reduce) {
+  .pl-orb, .pl-ring { animation: none; }
+  .pl-lines .pl-line, .pl-welcome.show { animation: none; opacity: 1; }
+}
+
+/* Кнопка-CTA «У меня есть промокод» в профиле (БЛОК 9.1) */
+.promo-cta {
+  background: linear-gradient(135deg, rgba(232,181,77,.16), var(--bg2));
+  border: 1px solid var(--border); color: var(--gold2); font-weight: 700;
+  letter-spacing: .2px; transition: transform .12s, border-color .15s;
+}
+.promo-cta:active { transform: scale(.98); }
+.promo-cta:hover { border-color: var(--gold2); }
+
 .vip-banner {
   position: relative; overflow: hidden; cursor: pointer;
   display: flex; align-items: center; gap: 12px;
@@ -521,8 +571,20 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   display: flex; align-items: center; gap: 11px;
   background: linear-gradient(180deg, var(--bg2), var(--bg1));
   border: 1px solid var(--border2); border-radius: 16px; padding: 12px; margin-bottom: 9px;
+  position: relative; overflow: hidden; cursor: pointer;
+  transition: transform .12s ease, border-color .25s;
 }
-.sr-icon { font-size: 26px; animation: floaty 4s infinite; }
+.spin-row:active { transform: scale(.985); border-color: var(--border); }
+/* БЛОК 9.4: лёгкий блик-проблеск раз в ~6с — «живой» баннер, но в меру (не пульс) */
+.spin-row::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 38%; left: -55%;
+  background: linear-gradient(90deg, transparent, rgba(232,181,77,.10), transparent);
+  transform: skewX(-18deg); pointer-events: none;
+  animation: srSheen 6s ease-in-out infinite;
+}
+@keyframes srSheen { 0%, 72% { left: -55%; } 100% { left: 155%; } }
+@media (prefers-reduced-motion: reduce) { .spin-row::after { animation: none; } }
+.sr-icon { font-size: 26px; animation: floaty 4s infinite; position: relative; z-index: 1; }
 .sr-info { flex: 1; }
 .sr-name { font-size: 12.5px; font-weight: 700; color: var(--bright); }
 .sr-cost { font-size: 10px; color: var(--gold2); margin-top: 2px; }

@@ -34,25 +34,6 @@ QTY_PRESETS = {
 }
 QTY_MAX_CAP = {"egg": 50, "food": 99, "utility": 5}
 
-# Short item descriptions shown on ℹ️ press
-_ITEM_INFO: dict[str, str] = {
-    "food_basic":   "Снимает 15 усталости. Базовое питание.",
-    "food_elite":   "Снимает 50 усталости. В 3× эффективнее базового.",
-    "food_energy":  "−20 усталости + сбрасывает кулдаун экспедиции.",
-    "food_super":   "−60 активному + −5 всем питомцам в питомнике.",
-    "food_diamond": "Снимает усталость полностью + +20% эффективность на 24ч. Лучший корм.",
-    "egg_basic":    "80% Обычный / 19% Редкий / 1% Эпический. Купить → «бот инвентарь» → Открыть.",
-    "egg_summon":   "Крафтится из 5 💠 Осколков в магазине. Не даёт осколков при распылении.",
-    "egg_silver":   "50% Обычный / 40% Редкий / 10% Эпический.",
-    "egg_gold":     "75% Редкий / 25% Эпический. Только сильные питомцы.",
-    "egg_mythic":   "40% Редкий / 60% Эпический. Только за алмазы.",
-    "egg_unity":    "100% Легендарный. Только для семейных пар (общак).",
-    "egg_crystal":  "30% Эпический / 70% Легендарный. Только из гачи.",
-    "egg_daily":    "70% / 29% / 1%. Бесплатно из ежедневных заданий.",
-    "study_notes":  "+50% XP от сообщений на 4 часа. Отлично для прокачки уровня.",
-}
-
-
 def _price_str(prices: dict) -> str:
     parts = []
     if prices["mora"] > 0:
@@ -116,7 +97,7 @@ async def render_shop(
     # Item description block if selected
     if selected_item and selected_item in ITEMS_REGISTRY:
         item = ITEMS_REGISTRY[selected_item]
-        desc = _ITEM_INFO.get(selected_item) or item.get("description", "")
+        desc = item.get("description", "")
         lines.append(
             f"\n{'─' * 18}\n"
             f"📦 <b>{safe_html(item['name'])}</b>\n"
@@ -203,7 +184,7 @@ async def cb_shop_qty(query: types.CallbackQuery, callback_data: ShopCB, db):
         price_parts.append(f"{prices['diamonds']} 💎/шт.")
     price_str = " · ".join(price_parts)
 
-    desc = _ITEM_INFO.get(item_id) or item.get("description", "")
+    desc = item.get("description", "")
     text = (
         f"🛒 <b>ПОКУПКА: {item['name']}</b>\n\n"
         f"💬 <i>{safe_html(desc)}</i>\n\n"

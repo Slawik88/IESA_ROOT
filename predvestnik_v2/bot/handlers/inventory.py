@@ -49,19 +49,19 @@ _ITEM_DETAILS: dict[str, dict] = {
     },
     "exp_boost_1h": {
         "use":    "Используй через «бот ускорить поход» пока питомец в активной экспедиции",
-        "get":    "Выпадает из гачи (Ученическая+)",
+        "get":    "Выпадает из гачи",
         "tip":    "Сокращает время текущей экспедиции на 1 час",
         "cmds":   ["бот ускорить поход", "бот поход"],
     },
     "exp_boost_2h": {
         "use":    "Используй через «бот ускорить поход» пока питомец в активной экспедиции",
-        "get":    "Выпадает из гачи (Стандартная+)",
+        "get":    "Выпадает из гачи",
         "tip":    "Сокращает время текущей экспедиции на 2 часа",
         "cmds":   ["бот ускорить поход", "бот поход"],
     },
     "exp_boost_4h": {
         "use":    "Используй через «бот ускорить поход» пока питомец в активной экспедиции",
-        "get":    "Выпадает из гачи (Премиум+), квесты, ивенты",
+        "get":    "Выпадает из гачи, квесты, ивенты",
         "tip":    "Самый мощный ускоритель — сокращает на 4 часа",
         "cmds":   ["бот ускорить поход", "бот поход"],
     },
@@ -228,6 +228,16 @@ _CATEGORY_LABELS = {
 
 # ── Item description builder ──────────────────────────────────────────────────
 
+def _shop_price_str(item: dict) -> str:
+    """Реальная цена покупки из registry (единый источник — убирает стейл-цены
+    из хардкод-строк _ITEM_DETAILS['get'])."""
+    parts = []
+    if item.get("price_mora", 0) > 0:     parts.append(f"{int(item['price_mora'])} 🪙")
+    if item.get("price_diamonds", 0) > 0: parts.append(f"{int(item['price_diamonds'])} 💎")
+    if item.get("price_zarniki", 0) > 0:  parts.append(f"{int(item['price_zarniki'])} ✨")
+    return " / ".join(parts)
+
+
 def _build_item_description(item_id: str, qty: int = 0) -> str:
     item = ITEMS_REGISTRY.get(item_id, {})
     name = item.get("name", item_id)
@@ -246,8 +256,13 @@ def _build_item_description(item_id: str, qty: int = 0) -> str:
     if details.get("use"):
         lines.append(f"\n🔧 <b>Как использовать:</b>\n└ {safe_html(details['use'])}")
 
-    if details.get("get"):
-        lines.append(f"\n📍 <b>Где получить:</b>\n└ {safe_html(details['get'])}")
+    # Цену для покупаемых предметов берём из registry (актуальную), а не из
+    # хардкод-строки details['get'] (там копились стейл-цены). Непокупаемые
+    # (гача/крафт) — оставляем их описание источника.
+    price = _shop_price_str(item)
+    get_info = f"Магазин за {price}" if price else details.get("get")
+    if get_info:
+        lines.append(f"\n📍 <b>Где получить:</b>\n└ {safe_html(get_info)}")
 
     if details.get("tip"):
         lines.append(f"\n💡 <b>Подсказка:</b> <i>{safe_html(details['tip'])}</i>")

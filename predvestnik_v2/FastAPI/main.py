@@ -13,7 +13,7 @@ load_dotenv()
 
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
-from infrastructure.repositories import theme_templates, theme_meta, web_notifications
+from infrastructure.repositories import theme_templates, theme_meta, web_notifications, admin_log
 from FastAPI.auth import verify_login_widget, create_session_token, verify_session_token, verify_webapp_data
 from FastAPI import notifications
 from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
@@ -35,6 +35,7 @@ async def lifespan(app: FastAPI):
         await theme_templates.ensure_table(PGAdapter(conn))
         await theme_meta.ensure_table(PGAdapter(conn))
         await web_notifications.ensure_table(PGAdapter(conn))
+        await admin_log.ensure_table(PGAdapter(conn))
     yield
 
 
