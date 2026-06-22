@@ -1,9 +1,12 @@
 from aiogram import Router, types
 
 from bot.filters.text_commands import TextCmd
-from core.registry import DAILY_QUESTS
-from core.constants import DAILY_QUEST_COMPLETE_BONUS
-from services.quests import get_or_assign_quests, daily_bonus_status
+from core.registry import DAILY_QUESTS, WEEKLY_QUESTS
+from core.constants import DAILY_QUEST_COMPLETE_BONUS, WEEKLY_QUEST_COMPLETE_BONUS
+from services.quests import (
+    get_or_assign_quests, daily_bonus_status,
+    get_or_assign_weekly_quests, weekly_bonus_status,
+)
 from services.utils import format_currency
 
 router = Router(name="quests_router")
@@ -81,10 +84,31 @@ async def cmd_quests(message: types.Message, db):
     bonus = await daily_bonus_status(db, user_id, chat_id)
     bstatus = "✅ Получено!" if bonus["claimed"] else f"{done}/{len(quests)} закрыто"
     lines.append(
-        f"🏆 <b>Бонус за ВСЕ задания</b> — {bstatus}\n"
+        f"🏆 <b>Бонус за ВСЕ дневные</b> — {bstatus}\n"
         f"   Награда: {_reward_str(DAILY_QUEST_COMPLETE_BONUS)}"
     )
 
-    lines.append("\n<i>Задания обновляются каждый день. Выполняйте действия в боте.</i>")
-    await message.answer("\n\n".join(lines) if len(quests) > 1 else "\n".join(lines),
-                         parse_mode="HTML")
+    # БЛОК 5: недельные квесты (фиксированный набор, прогресс копится всю неделю)
+    weekly = await get_or_assign_weekly_quests(db, user_id, chat_id)
+    if weekly:
+        lines.append("🗓 <b>НЕДЕЛЬНЫЕ ЗАДАНИЯ</b>")
+        for q in weekly:
+            progress = q.get("progress", 0.0)
+            target = q.get("target", 1)
+            bar = _progress_bar(progress, target)
+            status = "✅" if q.get("completed") else "🔲"
+            lines.append(
+                f"{status} <b>{q.get('name', q.get('quest_id', '?'))}</b> — {int(progress)}/{target}\n"
+                f"   [{bar}]  Награда: {_reward_str(q.get('reward', {}))}"
+            )
+        wdone = sum(1 for q in weekly if q.get("completed"))
+        wbonus = await weekly_bonus_status(db, user_id, chat_id)
+        wbstatus = "✅ Получено!" if wbonus["claimed"] else f"{wdone}/{len(weekly)} закрыто"
+        lines.append(
+            f"🏆 <b>Бонус за ВСЕ недельные</b> — {wbstatus}\n"
+            f"   Награда: {_reward_str(WEEKLY_QUEST_COMPLETE_BONUS)}"
+        )
+
+    lines.append("\n<i>Дневные обновляются каждый день, недельные — раз в неделю. "
+                 "Прогресс идёт и в чате, и на сайте.</i>")
+    await message.answer("\n\n".join(lines), parse_mode="HTML")

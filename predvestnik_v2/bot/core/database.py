@@ -34,7 +34,6 @@ async def init_db():
                 user_is_active  BOOLEAN DEFAULT TRUE,
                 onboarded       BOOLEAN DEFAULT TRUE,
                 active_theme    TEXT DEFAULT NULL,
-                dark_mora       INTEGER DEFAULT 0,
                 contrabanda_last_at      TIMESTAMP DEFAULT NULL,
                 contrabanda_banned_until TIMESTAMP DEFAULT NULL,
                 ritual_last_at           TIMESTAMP DEFAULT NULL
@@ -131,7 +130,10 @@ async def init_db():
 
         # Migrations: add dark mora columns to users
         for _stmt in [
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS dark_mora INTEGER DEFAULT 0",
+            # Аудит «потерянных механик» п.4: legacy-дубль. Баланс Тёмной Моры живёт
+            # в user_balance_dark_mora (FLOAT8); INTEGER-колонка dark_mora никогда не
+            # читалась/писалась — убираем дубль (IF EXISTS — данные не теряются).
+            "ALTER TABLE users DROP COLUMN IF EXISTS dark_mora",
             # Block 10: DEFAULT TRUE → существующие игроки уже «онбордингованы»
             # (стартовый набор не получат); новые вставляются с FALSE (update_user).
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN DEFAULT TRUE",

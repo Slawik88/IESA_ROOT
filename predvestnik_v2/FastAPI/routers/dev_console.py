@@ -632,13 +632,17 @@ async def dev_bp_season_delete(season_id: str, db=Depends(get_db), user=Depends(
 # ── 6б. Управление наградами Боевого пропуска ────────────────────────────────────
 
 @router.get("/bp/rewards")
-async def dev_bp_rewards(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Все награды БП (registry + DB-переопределения). DB побеждает при совпадении."""
+async def dev_bp_rewards(season_id: str | None = None, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Все награды БП ВЫБРАННОГО сезона (registry + DB-переопределения). DB побеждает.
+    season_id необязателен: если не задан/неизвестен — берётся активный сезон. Так
+    таблица и операции записи (save/bulk/import) всегда работают с одним сезоном."""
     import json as _json
     _require_dev(user)
     await refresh_seasons_cache(db)
-    season = get_active_season()
-    season_id = season["id"] if season else None
+    from services.battle_pass import all_seasons as _all_seasons
+    if not season_id or season_id not in _all_seasons():
+        season = get_active_season()
+        season_id = season["id"] if season else None
 
     # DB overrides for active season
     db_overrides: dict[tuple, dict] = {}

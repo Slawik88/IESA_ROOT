@@ -505,6 +505,13 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .fat-bar { height: 5px; border-radius: 4px; background: var(--dim); overflow: hidden; }
 .fat-fill { height: 100%; border-radius: 4px; transition: width .5s; }
 .exp-card { border-color: rgba(70,200,192,.3); }
+/* Опции запуска похода (лаунчер на сайте) */
+.exp-opt { background: var(--s); border: 1px solid var(--border2); border-radius: var(--r-sm);
+  padding: 8px 11px; margin-bottom: 6px; cursor: pointer;
+  transition: border-color .15s, transform .1s, background .15s; }
+.exp-opt:active { transform: scale(.99); }
+@media (hover: hover) { .exp-opt:hover { border-color: var(--gold); background: var(--gold-dim, rgba(201,168,76,.08)); } }
+.exp-opt-warn { opacity: .82; }
 .exp-timer { color: var(--teal); font-weight: 700; font-variant-numeric: tabular-nums; }
 .exp-timer.urgent { color: var(--gold); animation: pulseDot 1.2s infinite; border-radius: 4px; }
 

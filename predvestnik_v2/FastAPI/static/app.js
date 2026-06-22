@@ -410,6 +410,9 @@ function loadProfile() {
 
       <button class="btn btn-full promo-cta" style="margin-top:10px" onclick="openPromoModal()">🎟 У меня есть промокод</button>
 
+      <!-- Активные баффы (заполняется loadActiveBuffs) -->
+      <div id="pro-buffs"></div>
+
       ${d.is_vip?'':`<div class="vip-banner" onclick="goTo('market','vip')">
         <span class="vb-crown">👑</span>
         <div><div class="vb-title">Стань VIP</div><div class="vb-sub">Еженедельные подарки, +слот питомника, безлимит ника</div></div>
@@ -442,6 +445,7 @@ function loadProfile() {
       <div id="wallet-mini"></div>`;
     loadMarriageCard();
     loadNickCard();
+    loadActiveBuffs();
     loadWalletMini();
     if(!_ws && _uid) connectWS();
     updateCurrBar(d);          // populate sticky currency bar from profile data
@@ -896,10 +900,12 @@ function doBpClaimChoice(level,track,idx) {
 }
 
 // ── Zoo ───────────────────────────────────────────────────────────────────────
+let _expOpts=null;   // данные лаунчера похода (GET /zoo/expedition-options)
 function loadZoo() {
   el('zoo-c').innerHTML='<div class="loader">Загрузка...</div>';
-  Promise.all([api('/zoo/'),api('/zoo/expeditions')]).then(([data,expData])=>{
+  Promise.all([api('/zoo/'),api('/zoo/expeditions'),api('/zoo/expedition-options').catch(()=>null)]).then(([data,expData,expOpts])=>{
     _zooData=data;
+    _expOpts=expOpts;
     renderExps(expData);
     renderZoo(_zooTab);
   }).catch(e=>{el('zoo-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
@@ -924,10 +930,76 @@ function renderExps(d) {
   </div>`).join('');
   _expTimer=setInterval(()=>d.expeditions.forEach(e=>{const t=el('tm-'+e.pet_id);if(t)t.innerHTML=countdown(e.ends_at);}),1000);
 }
+// ── 🗺 Лаунчер похода (отправка активного питомца прямо с сайта) ───────────────
+function expLauncherHtml() {
+  const o=_expOpts;
+  if(!o) return '';
+  if(o.busy) {
+    return `<div class="card" style="margin-bottom:10px">
+      <div class="card-title">🗺 Поход идёт</div>
+      <div class="irow"><span class="ik">${esc(o.busy_pet||'Питомец')} в походе</span><span style="color:var(--teal)">до ${esc(o.busy_until||'')}</span></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">За раз можно отправить одного питомца. Ускорить возвращение — бустером (см. блок похода выше).</div>
+    </div>`;
+  }
+  if(!o.active_pet) {
+    return `<div class="card" style="margin-bottom:10px">
+      <div class="card-title">🗺 Отправить в поход</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">Нет активного питомца. Нажми на питомца ниже → «⚔️ Сделать активным», и сможешь отправить его в поход за Морой и опытом.</div>
+    </div>`;
+  }
+  const p=o.active_pet, fat=p.fatigue||0;
+  const rows=o.options.map(op=>{
+    const free=op.cost<=0;
+    const enoughMora=free||o.mora>=op.cost;
+    const tooTired=(fat+op.fatigue)>100;
+    const ret=new Date(Date.now()+op.hours*3600000);
+    const rt=String(ret.getHours()).padStart(2,'0')+':'+String(ret.getMinutes()).padStart(2,'0');
+    const warn=[];
+    if(!enoughMora) warn.push('💰 может не хватить Моры');
+    if(tooTired) warn.push('😴 сильно устанет');
+    const xp=op.max_xp!==op.min_xp?`${op.min_xp}–${op.max_xp}`:`${op.min_xp}`;
+    return `<div class="exp-opt${tooTired?' exp-opt-warn':''}" onclick="confirmExpedition(${op.hours})">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:700">${op.hours}ч <span style="font-size:10px;color:var(--muted);font-weight:400">→ ~${rt}</span></span>
+        <span style="font-size:11px;font-weight:600;color:${free?'var(--green)':'var(--gold)'}">${free?'бесплатно':fmt(op.cost)+' 🪙'}</span>
+      </div>
+      <div style="font-size:11px;color:var(--gold2);margin-top:3px">🪙 ${fmt(op.min_m)}–${fmt(op.max_m)} · 📚 ${xp} XP · 😴 +${op.fatigue}%</div>
+      ${warn.length?`<div style="font-size:10px;color:var(--red);margin-top:3px">${warn.join(' · ')}</div>`:''}
+    </div>`;
+  }).join('');
+  return `<div class="card card-gold" style="margin-bottom:10px">
+    <div class="card-title">🗺 Отправить в поход</div>
+    <div class="irow"><span class="ik">Питомец</span><span style="font-weight:700">${esc(p.name||p.species_id)} ${rc(p.rarity)} · Lv${p.pet_level}</span></div>
+    <div class="fat-bar" style="margin:5px 0 3px"><div class="fat-fill${fat>=80?' critical':''}" style="width:${fat}%;background:${fatC(fat)}"></div></div>
+    <div style="font-size:10px;color:${fatC(fat)};margin-bottom:8px">${fat}% усталости · в кошельке ${fmt(o.mora)} 🪙</div>
+    ${rows}
+    <div style="font-size:10px;color:var(--muted);margin-top:6px">Награда и усталость зависят от вида и уровня питомца — точный итог при возвращении. Отправится активный питомец.</div>
+  </div>`;
+}
+function confirmExpedition(hours) {
+  const o=_expOpts; if(!o) return;
+  const op=(o.options||[]).find(x=>x.hours===hours); if(!op) return;
+  const free=op.cost<=0;
+  const xp=op.max_xp!==op.min_xp?`${op.min_xp}–${op.max_xp}`:`${op.min_xp}`;
+  OM('🗺 Отправить в поход?',
+    `<div class="irow"><span class="ik">Длительность</span><span>${hours}ч (вернётся ~${String(new Date(Date.now()+hours*3600000).getHours()).padStart(2,'0')}:${String(new Date(Date.now()+hours*3600000).getMinutes()).padStart(2,'0')})</span></div>
+     <div class="irow"><span class="ik">Стоимость</span><span style="color:${free?'var(--green)':'var(--gold)'}">${free?'бесплатно':fmt(op.cost)+' 🪙'}</span></div>
+     <div class="irow"><span class="ik">Награда</span><span style="color:var(--gold2)">🪙 ${fmt(op.min_m)}–${fmt(op.max_m)} · 📚 ${xp} XP</span></div>
+     <div class="irow"><span class="ik">Усталость</span><span>+${op.fatigue}%</span></div>
+     <div style="font-size:10px;color:var(--muted);margin-top:6px">Отправится твой активный питомец. Точная награда — при возвращении.</div>`,
+    [{l:'🗺 Отправить',c:'btn-gold',f:`doStartExpedition(${hours})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function doStartExpedition(hours) {
+  api('/zoo/start-expedition',{method:'POST',body:JSON.stringify({hours})})
+    .then(r=>{toast(`🗺 ${r.pet_name} отправлен в поход на ${r.hours}ч!`);refreshCurrBar();CM();loadZoo();})
+    .catch(e=>toast(e,false));
+}
+
 // ── Zoo helpers ───────────────────────────────────────────────────────────────
 function bonusLines(sid, b) {
   const p = v => `${(v*100).toFixed(0)}%`, ln = [];
   ({
+    squirrel: b => { ln.push(`📋 +${p(b.quest_mora_bonus)} Моры за квесты`); },
     hamster: b => { ln.push(`🪙 ${b.mora_per_hour}/ч · Кап ${b.cap}`);
       if(b.ignore_exhaustion) ln.push('✅ Копит при 100% усталости');
       if(b.double_chance>0) ln.push(`🎲 Шанс ×2: ${p(b.double_chance)}`);
@@ -1089,6 +1161,7 @@ function renderZoo(tab) {
         <button class="btn btn-sm" style="background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff" onclick="doUnicornImmunity(this)">Активировать</button>
       </div>`;
     })()}`;
+    html+=expLauncherHtml();
     if(active.length) html+=`<div class="card-title" style="margin:8px 0 4px">⚔️ Активные (${active.length})</div>${active.map(petCard).join('')}`;
     if(passive.length) html+=`<div class="card-title" style="margin:12px 0 4px">🛡 Пассивные (${passive.length})</div>${passive.map(petCard).join('')}`;
     el('zoo-c').innerHTML=html;
@@ -1411,6 +1484,12 @@ const QUEST_NAMES = {
   hug_5:      {n:'🤗 Душа компании',  d:'Обними 5 разных игроков'},
   rare_dup:   {n:'🌟 Редкий дубликат',d:'Получи дубликат редкого+ питомца'},
   level_pet:  {n:'⬆️ Тренер',         d:'Повысь питомца до нового уровня'},
+  // Недельные (БЛОК 5)
+  w_gourmet:    {n:'🥗 Гурман',                d:'Покорми питомцев 20 раз за неделю'},
+  w_patron:     {n:'🤑 Безумный меценат',      d:'Покрути гачу 40 раз за неделю'},
+  w_rescuer:    {n:'🚑 Спасатель пустошей',    d:'Заверши 15 экспедиций за неделю'},
+  w_geneticist: {n:'🧬 Генетический эксперимент',d:'Открой 12 яиц за неделю'},
+  w_cardinal:   {n:'⚖️ Серый Кардинал',        d:'Сделай 6 ставок на аукционе за неделю'},
 };
 const _QI_REWARD={'star_dust_s':'🌟 Звёздная пыль','star_dust_l':'✨ Небесная пыль',
                   'soul_shard':'💠 Осколок','spin_token':'🎟 Жетон Гачи'};
@@ -1421,47 +1500,53 @@ function _fmtQuestReward(rw){
     ...(rw?.items||[]).map(([id,n])=>`+${n>1?n+'× ':''}${_QI_REWARD[id]||id}`),
   ].filter(Boolean).join(' · ');
 }
+function _questSectionHtml(title, qs, bonus, bonusLabel) {
+  if(!qs || !qs.length) return '';
+  const doneCount = qs.filter(q=>q.completed).length;
+  let bonusHtml = '';
+  if(bonus){
+    const rw = _fmtQuestReward(bonus.reward);
+    const bpct = Math.round(doneCount/qs.length*100);
+    const status = bonus.claimed ? '✅ Получено!' : `Закрой все: ${doneCount} / ${qs.length}`;
+    bonusHtml = `<div class="card" style="border:1px solid ${bonus.claimed?'var(--green)':'var(--border)'};background:var(--gold-dim);margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="font-size:13px;font-weight:700;color:var(--gold2)">🏆 ${bonusLabel||'Бонус за все задания'}</div>
+        <div style="font-size:11px;color:var(--gold);white-space:nowrap">${rw}</div>
+      </div>
+      <div class="qbar" style="margin-top:6px"><div class="qfill" style="width:${bpct}%"></div></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">${status}</div>
+    </div>`;
+  }
+  const items = '<div class="card">'+qs.map(q=>{
+    const pct=Math.min(100,Math.round((q.progress||0)/(q.target||1)*100));
+    const qi=QUEST_NAMES[q.id]||{n:q.id,d:''};
+    const rw=_fmtQuestReward(q.reward);
+    return `<div class="qitem">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
+        <div style="font-size:13px;font-weight:600;color:var(--bright)">${q.completed?'✅':'🔲'} ${qi.n}</div>
+        ${rw?`<div style="font-size:11px;color:var(--gold);white-space:nowrap;margin-left:8px">${rw}</div>`:''}
+      </div>
+      ${qi.d?`<div style="font-size:10px;color:var(--muted);margin-bottom:4px">${qi.d}</div>`:''}
+      <div class="qbar"><div class="qfill" style="width:${pct}%"></div></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${Math.round(q.progress||0)} / ${q.target}</div>
+    </div>`;
+  }).join('')+'</div>';
+  const header = title ? `<div class="card-title" style="margin:4px 2px 8px;font-size:14px">${title}</div>` : '';
+  return header + bonusHtml + items;
+}
 function loadQuests() {
   el('qc').innerHTML='<div class="loader">Загрузка...</div>';
   if(!_cid){el('qc').innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">Нужен Профиль с чатом.</div>';return;}
   api(`/quests/${_cid}`).then(r=>{
     const qs = r.quests || r;     // backward-compat если вернётся массив
-    const bonus = r.bonus;
-    if(!qs.length){
+    const weekly = r.weekly || [];
+    if(!qs.length && !weekly.length){
       el('qc').innerHTML='<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:28px;margin-bottom:6px">📋</div><div style="font-size:12px">Нет квестов — напиши <code>бот задания</code> в чате</div></div>';
       return;
     }
-    const doneCount = qs.filter(q=>q.completed).length;
-    // Карточка супер-награды за все задания дня (БЛОК 5)
-    let bonusHtml = '';
-    if(bonus){
-      const rw = _fmtQuestReward(bonus.reward);
-      const bpct = Math.round(doneCount/qs.length*100);
-      const status = bonus.claimed ? '✅ Получено сегодня!'
-                   : `Закрой все задания: ${doneCount} / ${qs.length}`;
-      bonusHtml = `<div class="card" style="border:1px solid ${bonus.claimed?'var(--green)':'var(--border)'};background:var(--gold-dim);margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-          <div style="font-size:13px;font-weight:700;color:var(--gold2)">🏆 Бонус за все задания</div>
-          <div style="font-size:11px;color:var(--gold);white-space:nowrap">${rw}</div>
-        </div>
-        <div class="qbar" style="margin-top:6px"><div class="qfill" style="width:${bpct}%"></div></div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">${status}</div>
-      </div>`;
-    }
-    el('qc').innerHTML = bonusHtml + '<div class="card">'+qs.map(q=>{
-      const pct=Math.min(100,Math.round((q.progress||0)/(q.target||1)*100));
-      const qi=QUEST_NAMES[q.id]||{n:q.id,d:''};
-      const rw=_fmtQuestReward(q.reward);
-      return `<div class="qitem">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px">
-          <div style="font-size:13px;font-weight:600;color:var(--bright)">${q.completed?'✅':'🔲'} ${qi.n}</div>
-          ${rw?`<div style="font-size:11px;color:var(--gold);white-space:nowrap;margin-left:8px">${rw}</div>`:''}
-        </div>
-        ${qi.d?`<div style="font-size:10px;color:var(--muted);margin-bottom:4px">${qi.d}</div>`:''}
-        <div class="qbar"><div class="qfill" style="width:${pct}%"></div></div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px">${Math.round(q.progress||0)} / ${q.target}</div>
-      </div>`;
-    }).join('')+'</div>';
+    const daily = _questSectionHtml('📅 Ежедневные', qs, r.bonus, 'Бонус за все дневные');
+    const wk = weekly.length ? _questSectionHtml('🗓 Недельные', weekly, r.weekly_bonus, 'Бонус за все недельные') : '';
+    el('qc').innerHTML = daily + (wk ? `<div style="height:8px"></div>${wk}` : '');
   }).catch(e=>{el('qc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 const SPIN_ICONS = {mora:'🪙',diamond:'💎'};
@@ -1487,7 +1572,10 @@ function loadGacha() {
       <span class="gb-item" id="gacha-bal-dia">💎 ${(d.diamonds||0).toFixed(1)}</span>
     </div>
     <div class="card">
-      <div class="card-title" style="margin-bottom:10px">Выберите крутку</div>
+      <div class="card-title" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+        <span>Выберите крутку</span>
+        <button class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:10px" onclick="openGachaOdds()">ℹ️ Шансы</button>
+      </div>
       ${d.spin_types.map(s=>{
         const icon = SPIN_ICONS[s.spin_type] || '🎲';
         const cost = s.cost_mora ? `${fmt(s.cost_mora)} 🪙` : `${s.cost_dia} 💎`;
@@ -1522,6 +1610,25 @@ function loadGacha() {
     </div>
     <div id="spin-res"></div>`;
   }).catch(e=>{el('gc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
+}
+
+// ── ℹ️ Честные шансы гачи (полная таблица дропа с процентами) ─────────────────
+function openGachaOdds() {
+  OM('🎲 Шансы выпадения','<div style="text-align:center;padding:16px;color:var(--muted)">Загрузка…</div>',
+     [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  api('/gacha/odds').then(r=>{
+    const tables=r.tables||{};
+    let html='';
+    Object.keys(tables).forEach(st=>{
+      const t=tables[st];
+      html+=`<div class="card-title" style="margin:8px 0 4px;font-size:13px">${SPIN_ICONS[st]||'🎲'} ${esc(t.label)}</div>`;
+      html+=(t.entries||[]).map(e=>`<div class="irow">
+        <span class="ik" style="${e.valuable?'color:var(--gold2);font-weight:600':''}">${esc(e.label)}</span>
+        <span class="iv" style="font-variant-numeric:tabular-nums">${e.pct}%</span>
+      </div>`).join('');
+    });
+    el('mb').innerHTML=`<div style="font-size:10px;color:var(--muted);margin-bottom:8px">Честные шансы за одну крутку. Дубликаты повышают уровень питомца; гарант (пити) усиливает шанс редкого с каждой пустой круткой.</div>${html}`;
+  }).catch(e=>{el('mb').innerHTML=`<div class="err">${e}</div>`;});
 }
 
 // doSpin — preserves result; no loadGacha() call
@@ -2210,8 +2317,39 @@ function openItemModal(iid) {
   } else if(item_id.startsWith('star_dust')){
     body+=`<div class="irow"><span class="ik">Даёт дубликатов</span><span style="color:var(--gold)">+${item_id.includes('_l')?5:1}</span></div>`;
     if(quantity>0)btns.unshift({l:'✨ Применить',c:'btn-gold',f:`openDustModal('${item_id}')`});
+  } else if(item_id==='study_notes'){
+    body+=`<div class="irow"><span class="ik">Эффект</span><span style="color:var(--gold)">+50% XP · 4ч</span></div>`;
+    if(quantity>0)btns.unshift({l:'📚 Активировать',c:'btn-gold',f:`useConsumable('${item_id}')`});
   }
   OM(name,body,btns);
+}
+function useConsumable(iid) {
+  api('/inventory/use',{method:'POST',body:JSON.stringify({item_id:iid})})
+    .then(r=>{toast(r.message||'✅ Применено!');CM();loadInventory();if(_loaded.has('profile'))loadActiveBuffs();})
+    .catch(e=>toast(e,false));
+}
+// ── ✨ Активные баффы игрока (player_buffs) — «что действует сейчас» в профиле ──
+function loadActiveBuffs() {
+  const host=el('pro-buffs');
+  if(!host) return;
+  api('/inventory/buffs').then(r=>{
+    const buffs=r.buffs||[];
+    if(!buffs.length){host.innerHTML='';return;}
+    const rows=buffs.map(b=>{
+      let right;
+      if(b.mode==='time'&&b.expires_at){
+        const t=new Date(b.expires_at.replace(' ','T').split('.')[0]+'Z').getTime();
+        const mins=isNaN(t)?null:Math.max(0,Math.round((t-Date.now())/60000));
+        right=(mins==null)?`<span style="color:var(--teal)">активно</span>`
+          :`<span style="color:var(--teal)">${Math.floor(mins/60)?Math.floor(mins/60)+'ч ':''}${mins%60}м</span>`;
+      } else {
+        right=`<span style="color:var(--teal)">×${b.uses_left||1}</span>`;
+      }
+      const val=b.value?` <span style="color:var(--gold);font-size:10px">+${Math.round(b.value*100)}%</span>`:'';
+      return `<div class="irow"><span class="ik">${b.icon} ${esc(b.label)}${val}</span>${right}</div>`;
+    }).join('');
+    host.innerHTML=`<div class="card"><div class="card-title">✨ Активные баффы</div>${rows}</div>`;
+  }).catch(()=>{host.innerHTML='';});
 }
 function doOpenEgg(eid,cnt) {
   CM();
@@ -2743,7 +2881,7 @@ function loadDarkMora() {
     <div class="card-title">🌑 Тёмная Мора</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">
       Нелегальная валюта. Нельзя купить — только заработать нечестным путём.<br>
-      Тратится на Реликвии и Теневые темы.
+      Тратится на 🏛 Реликвии (ниже) и теневые темы профиля (Профиль → Темы).
     </div>
     <div class="divider"></div>
     <div style="font-size:12px;font-weight:600;color:var(--bright);margin:10px 0 6px">🎲 Контрабанда</div>
@@ -2760,7 +2898,45 @@ function loadDarkMora() {
       Награда: 10–20 🌑 раз в 30 дней.
     </div>
     <button class="btn btn-ghost btn-full" onclick="doRitual(this)">🌑 Провести ритуал</button>
-  </div>`;
+  </div>
+  <div id="relics-card" style="margin-top:10px"></div>`;
+  loadRelics();
+}
+
+// ── 🏛 Реликвии (Block 13 на вебе — паритет с ботом «бот реликвии») ───────────
+function loadRelics() {
+  const host = el('relics-card');
+  if(!host) return;
+  api('/relics/').then(d=>{
+    const PCI = {mora:'🪙', diamonds:'💎', dark_mora:'🌑'};
+    const priceStr = p => Object.entries(p||{}).map(([k,v])=>`${Math.round(v)} ${PCI[k]||k}`).join(' + ');
+    const rows = (d.relics||[]).map(r=>{
+      const right = r.owned
+        ? `<span style="color:var(--green);font-weight:700;flex:none;font-size:11px">✅ В коллекции</span>`
+        : `<button class="btn btn-sm btn-gold" style="flex:none" onclick="buyRelic('${r.id}',this)">${priceStr(r.price)}</button>`;
+      return `<div style="padding:9px 0;border-bottom:1px solid var(--border2)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div style="min-width:0">
+            <div style="font-weight:600">${r.owned?'':esc(r.badge)+' '}${esc(r.name)} <span style="color:var(--gold);font-size:11px">+${Math.round(r.exp_mora_pct*100)}% поход</span></div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(r.desc)}</div>
+          </div>
+          ${right}
+        </div>
+      </div>`;
+    }).join('');
+    host.innerHTML = `<div class="card card-gold">
+      <div class="card-title">🏛 Реликвии</div>
+      <div class="irow"><span class="ik">Коллекция</span><span style="color:var(--gold);font-weight:700">${d.owned_count}/${d.total} · Сила ${d.power} · +${d.bonus_pct}% 🪙 походам</span></div>
+      <div style="font-size:11px;color:var(--muted);margin:8px 0">Уникальные коллекционные предметы за 🌑 Тёмную Мору (+ др. валюты). Каждая навсегда повышает моро-награду экспедиций.</div>
+      ${rows}
+    </div>`;
+  }).catch(e=>{host.innerHTML=`<div class="card"><div class="err">${e}</div></div>`;});
+}
+function buyRelic(id,btn) {
+  if(btn) btn.disabled=true;
+  api('/relics/buy',{method:'POST',body:JSON.stringify({relic_id:id})})
+    .then(r=>{toast(r.message||'🏛 Реликвия получена!');refreshCurrBar();loadRelics();})
+    .catch(e=>{toast(e,false);if(btn) btn.disabled=false;});
 }
 function doContrabanda(btn) {
   const v=parseInt(el('contra-stake')?.value||0);
@@ -4533,14 +4709,18 @@ function loadGlobalDev() {
       </div>
     </div>
     <div class="card">
-      <div class="card-title">📋 Таблица наград БП (Free / VIP) <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadBpTable()">🔄</button></div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Клик по ячейке → подставить в форму ниже. 🔧 = переопределено в БД.</div>
+      <div class="card-title">📋 Таблица наград БП (Free / VIP) <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadBpSeasons()">🔄</button></div>
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <span style="font-size:11px;color:var(--muted);white-space:nowrap">Сезон:</span>
+        <select id="dev-bp-season-sel" class="num-input" style="margin:0;flex:1" onchange="onBpSeasonChange()"></select>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Клик по ячейке → подставить в форму ниже. 🔧 = в БД. <b>Все правки/импорт идут в ВЫБРАННЫЙ сезон.</b></div>
       <div id="dev-bp-table" style="overflow-x:auto"><div class="loader">Загрузка...</div></div>
     </div>
     <div class="card">
       <div class="card-title">🎁 БП — награды уровней</div>
       <div style="display:flex;gap:6px;margin-bottom:6px">
-        <input id="dev-br-season" type="text" class="num-input" style="flex:1;margin:0" placeholder="сезон (s1)" value="s1"/>
+        <input id="dev-br-season" type="text" class="num-input" style="flex:1;margin:0" placeholder="сезон" readonly title="Сезон выбирается селектором над таблицей"/>
         <input id="dev-br-level" type="number" class="num-input" style="flex:1;margin:0" placeholder="уровень"/>
         <select id="dev-br-track" class="num-input" style="flex:1;margin:0">
           <option value="free">🆓 Free</option><option value="paid">👑 VIP</option>
@@ -4719,7 +4899,7 @@ function loadGlobalDev() {
   devTLInit();
   loadDevLog();
   devLoadChats();
-  loadBpTable();
+  loadBpSeasons();
   if(!_devItems) api('/admin/dev/items').then(d=>{
     _devItems=d.items||[];
     const dl=el('dev-items-dl');
@@ -4749,6 +4929,27 @@ function loadDevLog() {
 }
 // Конструктор БП (БЛОК 4.4): визуальная таблица наград Free/VIP по уровням.
 let _bpTableData=null;
+let _bpSeason=null;   // ЕДИНЫЙ источник сезона: таблица + save + bulk + import
+function loadBpSeasons() {
+  const sel=el('dev-bp-season-sel'); if(!sel) return;
+  api('/admin/dev/bp/seasons').then(d=>{
+    const seasons=d.seasons||[];
+    if(!seasons.length){
+      sel.innerHTML='<option value="">— нет сезонов —</option>';
+      _bpSeason=null; loadBpTable(); return;
+    }
+    const active=seasons.find(s=>s.active);
+    if(!_bpSeason || !seasons.some(s=>s.id===_bpSeason)) _bpSeason=(active||seasons[0]).id;
+    sel.innerHTML=seasons.map(s=>`<option value="${esc(s.id)}" ${s.id===_bpSeason?'selected':''}>${esc(s.label||s.id)}${s.active?' · 🟢 активный':''}</option>`).join('');
+    const f=el('dev-br-season'); if(f) f.value=_bpSeason;
+    loadBpTable();
+  }).catch(e=>{el('dev-bp-table').innerHTML=`<div class="err">${e}</div>`;});
+}
+function onBpSeasonChange() {
+  _bpSeason=el('dev-bp-season-sel')?.value||null;
+  const f=el('dev-br-season'); if(f) f.value=_bpSeason||'';
+  loadBpTable();
+}
 function _bpRewardFmt(r) {
   if(!r) return '—';
   if(r.options) return '🔀 выбор ×'+r.options.length;
@@ -4761,8 +4962,14 @@ function _bpRewardFmt(r) {
 }
 function loadBpTable() {
   const box=el('dev-bp-table'); if(!box) return;
-  api('/admin/dev/bp/rewards').then(d=>{
+  const q=_bpSeason?`?season_id=${encodeURIComponent(_bpSeason)}`:'';
+  api('/admin/dev/bp/rewards'+q).then(d=>{
     _bpTableData=d;
+    if(d.season_id){ _bpSeason=d.season_id; const f=el('dev-br-season'); if(f) f.value=d.season_id; }
+    if(!d.season_id){
+      box.innerHTML='<div style="color:var(--gold2);font-size:11px;padding:6px 0">⚠ Нет активного сезона и сезон не выбран. Создай/активируй сезон в разделе сезонов — без сезона награды некуда сохранять.</div>';
+      return;
+    }
     const byLvl={};
     (d.rewards||[]).forEach(r=>{ (byLvl[r.level]=byLvl[r.level]||{})[r.track]=r; });
     const td='padding:3px 5px;border:1px solid var(--border2);font-size:10px';
@@ -4959,7 +5166,7 @@ function _parseBpOption(s) {
           items:_parseBpItems(it), theme:(th||'').trim()||null};
 }
 function devBpRewardSet() {
-  const season=el('dev-br-season')?.value.trim()||'s1';
+  const season=_bpSeason; if(!season) return toast('Выбери сезон над таблицей',false);
   const level=parseInt(el('dev-br-level')?.value||'0');
   const track=el('dev-br-track')?.value;
   if(!level) return toast('Укажите уровень',false);
@@ -4978,7 +5185,7 @@ function devBpRewardSet() {
     .catch(e=>toast(e,false));
 }
 function devBpRewardReset() {
-  const season=el('dev-br-season')?.value.trim()||'s1';
+  const season=_bpSeason; if(!season) return toast('Выбери сезон над таблицей',false);
   const level=parseInt(el('dev-br-level')?.value||'0');
   const track=el('dev-br-track')?.value;
   if(!level) return toast('Укажите уровень',false);
@@ -4987,7 +5194,8 @@ function devBpRewardReset() {
     .catch(e=>toast(e,false));
 }
 function devBpBulk() {
-  const body={season_id:el('dev-br-season')?.value.trim()||'s1',
+  if(!_bpSeason) return toast('Выбери сезон над таблицей',false);
+  const body={season_id:_bpSeason,
     track:el('dev-bk-track')?.value,
     level_from:parseInt(el('dev-bk-from')?.value||'0'),
     level_to:parseInt(el('dev-bk-to')?.value||'0'),
@@ -5001,7 +5209,7 @@ function devBpBulk() {
 }
 function devBpShowExample() {
   const example = {
-    season_id: el('dev-br-season')?.value.trim() || 's1',
+    season_id: _bpSeason || 's1',
     rewards: [
       {level:1, track:"free", mora:500},
       {level:1, track:"paid", diamonds:5, items:[["egg_silver",1]]},
@@ -5012,7 +5220,7 @@ function devBpShowExample() {
   };
   const ta=el('dev-bp-json');
   if(ta && !ta.value.trim()) ta.value=JSON.stringify(example, null, 2);
-  el('dev-bp-import-out').innerHTML='<div style="color:var(--muted)">Поля каждого элемента: <code>level</code>, <code>track</code> (free/paid), и любые из: <code>mora</code>, <code>diamonds</code>, <code>items</code>:[[id,кол-во]], <code>theme_id</code>, <code>reward_options</code>:[{...},{...}] (выбор из вариантов). Можно вставить голый массив — сезон возьмётся из поля выше.</div>';
+  el('dev-bp-import-out').innerHTML='<div style="color:var(--muted)">Поля каждого элемента: <code>level</code>, <code>track</code> (free/paid), и любые из: <code>mora</code>, <code>diamonds</code>, <code>items</code>:[[id,кол-во]], <code>theme_id</code>, <code>reward_options</code>:[{...},{...}] (выбор из вариантов). <b>Сезон берётся из селектора над таблицей</b> (season_id в JSON игнорируется).</div>';
 }
 function devBpImport() {
   const raw=(el('dev-bp-json')?.value||'').trim();
@@ -5020,16 +5228,18 @@ function devBpImport() {
   let data;
   try { data=JSON.parse(raw); }
   catch(e){ el('dev-bp-import-out').innerHTML='<div class="err">Невалидный JSON: '+esc(''+e)+'</div>'; return; }
-  const season = el('dev-br-season')?.value.trim() || 's1';
-  const body = Array.isArray(data)
-    ? {season_id: season, rewards: data}
-    : {season_id: data.season_id || season, rewards: data.rewards || []};
-  if(!Array.isArray(body.rewards) || !body.rewards.length) return toast('rewards пуст', false);
+  if(!_bpSeason){ el('dev-bp-import-out').innerHTML='<div class="err">Сначала выбери сезон над таблицей.</div>'; return; }
+  // Импорт ВСЕГДА в выбранный сезон (season_id из JSON игнорируем) — чтобы таблица
+  // сразу показала результат, а не «ничего не произошло».
+  const rewards = Array.isArray(data) ? data : (data.rewards || []);
+  if(!Array.isArray(rewards) || !rewards.length) return toast('rewards пуст или не массив', false);
+  const body = {season_id: _bpSeason, rewards};
+  el('dev-bp-import-out').innerHTML='<div style="color:var(--muted)">Импортирую…</div>';
   api('/admin/dev/bp/rewards/import',{method:'POST',body:JSON.stringify(body)})
     .then(r=>{
       const errs=(r.errors||[]);
       el('dev-bp-import-out').innerHTML=
-        `<div style="color:var(--green)">✅ Импортировано: ${r.imported}${errs.length?' · ⚠ пропущено: '+errs.length:''}</div>`+
+        `<div style="color:var(--green)">✅ В сезон «${esc(_bpSeason)}» импортировано: ${r.imported}${errs.length?' · ⚠ пропущено: '+errs.length:''}</div>`+
         (errs.length?`<div style="color:var(--red);font-size:9px;margin-top:2px">${errs.map(esc).join('<br>')}</div>`:'');
       loadBpTable();
     })

@@ -214,6 +214,23 @@ UNICORN_BONUSES: dict = {
 UNICORN_REDUCTION_CAP: float = 0.80  # safety cap on combined unicorn reduction
 
 
+# Squirrel (Block 12, архетип «Квесты»): +% Моры к награде за квесты. Только soft-
+# валюта, консервативно (макс +20% в active, ×0.5 → +10% в passive). Питомец занимает
+# слот питомника = цена возможности. Не P2W, не ломает экономику (квест-мора ~3к/день).
+SQUIRREL_BONUSES: dict = {
+    1:  {"quest_mora_bonus": 0.05},
+    2:  {"quest_mora_bonus": 0.06},
+    3:  {"quest_mora_bonus": 0.07},
+    4:  {"quest_mora_bonus": 0.10},
+    5:  {"quest_mora_bonus": 0.11},
+    6:  {"quest_mora_bonus": 0.12},
+    7:  {"quest_mora_bonus": 0.13},
+    8:  {"quest_mora_bonus": 0.15},
+    9:  {"quest_mora_bonus": 0.17},
+    10: {"quest_mora_bonus": 0.20},
+}
+
+
 _PET_BONUS_TABLES: dict = {
     "hamster": HAMSTER_BONUSES,
     "owl":     OWL_BONUSES,
@@ -224,6 +241,7 @@ _PET_BONUS_TABLES: dict = {
     "fox":     FOX_BONUSES,
     "dragon":  DRAGON_BONUSES,
     "unicorn": UNICORN_BONUSES,
+    "squirrel": SQUIRREL_BONUSES,
 }
 
 
@@ -404,6 +422,15 @@ DAILY_QUEST_COMPLETE_BONUS: dict = {
     "mora": 1000.0,
     "diamonds": 3.0,
     "items": [("spin_token", 1)],
+}
+
+# Недельные квесты (БЛОК 5): фиксированный набор, прогресс копится всю неделю.
+# Супер-награда за закрытие ВСЕХ недельных — крупнее дневной (горизонт — неделя).
+WEEKLY_QUEST_COMPLETE_ID: str = "__all_weekly__"
+WEEKLY_QUEST_COMPLETE_BONUS: dict = {
+    "mora": 5000.0,
+    "diamonds": 15.0,
+    "items": [("spin_token", 3)],
 }
 
 # ── Mini-games (B16) ─────────────────────────────────────────────────────────

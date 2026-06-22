@@ -157,6 +157,7 @@ PET_SPECIES: Dict[str, Dict[str, Any]] = {
     "hamster": {"name": "🐹 Хомяк-банкир",        "rarity": "common",    "default_role": "passive", "desc": "Накапливает Мору со временем. Lv4 — работает при 100 усталости, Lv8 — шанс ×2 при сборе, Lv10 — +💎/сутки."},
     "owl":     {"name": "🦉 Сова-студент",        "rarity": "common",    "default_role": "passive", "desc": "Бонус XP за сообщения. Lv4 — XP в экспедиции, Lv8 — ×2 в выходные, Lv10 — Жетон Крутки/сутки."},
     "dog":     {"name": "🐕 Дворовая Собака",     "rarity": "common",    "default_role": "active",  "desc": "Ускоряет экспедиции. Lv4 — собаке меньше усталости, Lv8 — шанс 0 усталости, Lv10 — −5% стоимость похода."},
+    "squirrel":{"name": "🐿 Запасливая Белка",    "rarity": "common",    "default_role": "passive", "desc": "Грызун-бухгалтер: +% Моры к награде за КВЕСТЫ (держи в питомнике). Lv1 +5% → Lv10 +20%. В пассивном слоте — половина бонуса."},
     # Rare
     "turtle":  {"name": "🐢 Черепаха-торговец",   "rarity": "rare",      "default_role": "passive", "desc": "Скидка в магазине. Lv4 — скидка на экспедиции, Lv8 — скидка на крутку, Lv10 — шанс ×2 яйца."},
     "falcon":  {"name": "🦅 Охотничий Сокол",     "rarity": "rare",      "default_role": "active",  "desc": "+Мора из похода. Lv4 — +XP похода, Lv8 — шанс двойной добычи, Lv10 — гарант. Карта Сокровищ в 8ч поход."},
@@ -303,6 +304,20 @@ DAILY_QUESTS: list = [
     {"id": "hug_5",      "metric": "warps_hug_distinct_today",      "target": 5,  "reward": {"mora": 300.0},                                  "weight": 2},
     {"id": "rare_dup",   "metric": "rare_or_better_pet_dups_today", "target": 1,  "reward": {"mora": 800.0},                                  "weight": 1},
     {"id": "level_pet",  "metric": "pet_level_ups_today",           "target": 1,  "reward": {"mora": 500.0},                                  "weight": 1},
+]
+
+# ── Недельные квесты (БЛОК 5) ─────────────────────────────────────────────────
+# Фиксированный набор на неделю. Прогресс копится всю неделю (та же таблица
+# daily_quests, ключ date = "WYYYY-NN"). Метрики — КРОСС-ПЛАТФОРМЕННЫЕ (и бот, и
+# сайт инкрементят их в одних и тех же местах), поэтому весь набор и супер-бонус
+# закрываются с обеих сторон. Метрики переиспользуют дневные (суффикс «_today» —
+# это идентификатор действия, не «за сегодня»: недельная строка живёт всю неделю).
+WEEKLY_QUESTS: list = [
+    {"id": "w_gourmet",    "metric": "pet_feeds_today",    "target": 20, "reward": {"mora": 2500.0},                                 "name": "🥗 Гурман"},
+    {"id": "w_patron",     "metric": "gacha_spins_today",  "target": 40, "reward": {"mora": 3000.0, "items": [("spin_token", 1)]},   "name": "🤑 Безумный меценат"},
+    {"id": "w_rescuer",    "metric": "expeditions_today",  "target": 15, "reward": {"mora": 4000.0},                                 "name": "🚑 Спасатель пустошей"},
+    {"id": "w_geneticist", "metric": "eggs_opened_today",  "target": 12, "reward": {"diamonds": 12.0},                               "name": "🧬 Генетический эксперимент"},
+    {"id": "w_cardinal",   "metric": "auction_bids_today", "target": 6,  "reward": {"mora": 2500.0},                                 "name": "⚖️ Серый Кардинал"},
 ]
 
 # ── Achievements (B11) ────────────────────────────────────────────────────────
