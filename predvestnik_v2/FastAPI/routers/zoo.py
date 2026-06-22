@@ -311,6 +311,45 @@ async def boost_expedition(body: BoostRequest, db=Depends(get_db), user=Depends(
     return {"ok": True, "boosted_hours": boost_hours}
 
 
+@router.get("/expedition-options")
+async def expedition_options(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Данные для лаунчера похода на сайте: длительности (базовые цена/награда/
+    усталость), активный питомец (тот же, кого отправит /start-expedition),
+    занятость (1 поход на игрока за раз) и баланс Моры. Точные значения (скидки
+    вида, снижение усталости) считаются при старте/возвращении."""
+    uid = user["id"]
+    options = [
+        {"hours": h, "cost": d["cost"], "min_m": d["min_m"], "max_m": d["max_m"],
+         "min_xp": d["min_xp"], "max_xp": d["max_xp"], "fatigue": d["fatigue"]}
+        for h, d in sorted(EXPEDITIONS_DATA.items())
+    ]
+    async with db.execute(
+        "SELECT id, name, species_id, rarity, COALESCE(pet_level,1) AS pet_level, fatigue "
+        "FROM pets WHERE owner_id = ? AND placement = 'active' ORDER BY id LIMIT 1",
+        (uid,),
+    ) as c:
+        row = await c.fetchone()
+    active_pet = dict(row) if row else None
+    async with db.execute(
+        "SELECT ae.ends_at, p.name FROM active_expeditions ae JOIN pets p ON ae.pet_id = p.id "
+        "WHERE p.owner_id = ? AND ae.ends_at > NOW() ORDER BY ae.ends_at DESC LIMIT 1",
+        (uid,),
+    ) as c:
+        busy_row = await c.fetchone()
+    async with db.execute(
+        "SELECT COALESCE(user_balance_mora, 0) FROM users WHERE user_tg_id = ?", (uid,),
+    ) as c:
+        m = await c.fetchone()
+    return {
+        "options": options,
+        "active_pet": active_pet,
+        "busy": busy_row is not None,
+        "busy_until": str(busy_row[0])[:16] if busy_row else None,
+        "busy_pet": busy_row[1] if busy_row else None,
+        "mora": float(m[0]) if m else 0.0,
+    }
+
+
 class StartExpeditionRequest(BaseModel):
     hours: int
 
@@ -325,7 +364,8 @@ async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), use
     user_id = user["id"]
 
     async with db.execute(
-        "SELECT id, name, species_id, fatigue FROM pets WHERE owner_id = ? AND placement = 'active'",
+        "SELECT id, name, species_id, fatigue FROM pets "
+        "WHERE owner_id = ? AND placement = 'active' ORDER BY id LIMIT 1",
         (user_id,),
     ) as c:
         pet = await c.fetchone()

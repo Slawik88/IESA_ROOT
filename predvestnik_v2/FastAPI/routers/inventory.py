@@ -87,13 +87,86 @@ async def open_egg(body: OpenEggRequest, db=Depends(get_db), user=Depends(requir
             rare_dups = sum(1 for r in results if r.get("rarity") in ("rare","epic","legendary","mythic"))
             if rare_dups:
                 await _q_incr(db, user["id"], _cr[0], "rare_or_better_pet_dups_today", delta=float(rare_dups))
-            if new_lv10:
-                await _q_incr(db, user["id"], _cr[0], "pet_level_ups_today", delta=float(new_lv10))
+            # Квест level_pet: считаем РЕАЛЬНЫЕ ап-левелы (как бот), а не только
+            # достижение 10 ур. — иначе квест на сайте почти невыполним.
+            level_ups = sum(1 for r in results
+                            if r.get("outcome") == "leveled_up" and r.get("milestones_unlocked"))
+            if level_ups:
+                await _q_incr(db, user["id"], _cr[0], "pet_level_ups_today", delta=float(level_ups))
         await db.commit()
     except Exception:
         pass
 
     return {"ok": True, "results": results, "milestones": milestones}
+
+
+class UseRequest(BaseModel):
+    item_id: str
+
+
+@router.post("/use")
+async def use_item(body: UseRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Применить активируемый расходник (паритет с ботом `бот использовать`).
+    Вручную активируется только study_notes (+50% XP 4ч). Зелья удачи/рывка —
+    `gacha_luck`/`expedition_loot` — применяются автоматически на следующем
+    действии (гача/экспедиция), активировать их вручную не нужно."""
+    from datetime import datetime, timedelta
+    item_id = body.item_id.strip().lower()
+    if item_id != "study_notes":
+        raise HTTPException(400, "Этот предмет нельзя активировать вручную.")
+    async with db.execute(
+        "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? AND quantity > 0",
+        (user["id"], item_id),
+    ) as c:
+        if not await c.fetchone():
+            raise HTTPException(400, "Нет предмета в инвентаре.")
+    # Зеркалит bot/handlers/inventory.py: study_xp на 4ч, ON CONFLICT обновляет срок.
+    expires = (datetime.utcnow() + timedelta(hours=4)).strftime("%Y-%m-%d %H:%M:%S")
+    await db.execute(
+        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at, value) "
+        "VALUES (?, ?, 1, ?, 0.5) "
+        "ON CONFLICT(user_id, buff_type) DO UPDATE SET expires_at = EXCLUDED.expires_at",
+        (user["id"], "study_xp", expires),
+    )
+    await db.execute(
+        "UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = 'study_notes'",
+        (user["id"],),
+    )
+    await db.commit()
+    return {"ok": True, "message": "📚 Конспект применён! +50% XP от сообщений на 4 часа."}
+
+
+# buff_type → как показать в «активно сейчас» (mode: time = до HH:MM, uses = N круток)
+_BUFF_META = {
+    "study_xp":         {"icon": "📚", "label": "Конспект: +XP от сообщений", "mode": "time"},
+    "gacha_luck":       {"icon": "🧪", "label": "Удача гачи: +шанс редких",   "mode": "uses"},
+    "expedition_loot":  {"icon": "⚡", "label": "Рывок: +лут экспедиции",      "mode": "uses"},
+    "unicorn_immunity": {"icon": "🦄", "label": "Иммунитет питомца",           "mode": "time"},
+}
+
+
+@router.get("/buffs")
+async def active_buffs(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Активные баффы игрока (player_buffs) — что действует прямо сейчас.
+    Зелья применяются автоматически, поэтому игрок иначе их не видит."""
+    async with db.execute(
+        "SELECT buff_type, uses_left, value, expires_at FROM player_buffs "
+        "WHERE user_id = ? AND (expires_at IS NULL OR expires_at > NOW()) "
+        "AND (uses_left IS NULL OR uses_left > 0)",
+        (user["id"],),
+    ) as c:
+        rows = [dict(r) for r in await c.fetchall()]
+    out = []
+    for r in rows:
+        meta = _BUFF_META.get(r["buff_type"],
+                              {"icon": "✨", "label": r["buff_type"], "mode": "uses"})
+        out.append({
+            "type": r["buff_type"], "icon": meta["icon"], "label": meta["label"],
+            "mode": meta["mode"], "value": float(r["value"] or 0),
+            "uses_left": r["uses_left"],
+            "expires_at": str(r["expires_at"]) if r["expires_at"] else None,
+        })
+    return {"buffs": out}
 
 
 class ApplyDustRequest(BaseModel):

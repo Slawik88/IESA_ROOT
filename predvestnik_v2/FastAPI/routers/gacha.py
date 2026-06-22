@@ -27,6 +27,50 @@ def _compute_rates(spin_type: str) -> dict:
     return {r: round(rw[r] / total * 100, 1) for r in order if rw.get(r, 0) > 0}
 
 
+def _odds_label(e: dict, reg: dict) -> str:
+    """Человеко-читаемая подпись записи таблицы дропа."""
+    t = e.get("type")
+    if t == "mora":
+        return f"🪙 Мора {int(e.get('min', 0))}–{int(e.get('max', 0))}"
+    if t == "diamond":
+        return f"💎 Алмазы ×{e.get('qty', 0)}"
+    if t == "pet_dup":
+        return f"🐾 Дубликат питомца ({e.get('rarity', 'common')})"
+    if t == "pet_dup_multi":
+        return f"🐾 ×{e.get('count', 2)} дубликата ({e.get('rarity', 'common')})"
+    if t == "item":
+        nm = reg.get(e.get("id", ""), {}).get("name", e.get("id", ""))
+        return f"{nm} ×{e.get('qty', 1)}"
+    if t == "combo":
+        parts = []
+        for it in e.get("items", []):
+            nm = reg.get(it.get("id", ""), {}).get("name", it.get("id", ""))
+            parts.append(f"{nm}×{it.get('qty', 1)}")
+        if e.get("diamond_bonus"):
+            parts.append(f"💎×{e['diamond_bonus']}")
+        return " + ".join(parts)
+    return "—"
+
+
+@router.get("/odds")
+async def gacha_odds():
+    """Честные шансы каждой крутки: полная таблица дропа с процентами (прозрачность).
+    Публичная игровая инфа — без авторизации."""
+    from core.registry import ITEMS_REGISTRY
+    out = {}
+    for spin_type, table in GACHA_TABLES.items():
+        total = sum(e.get("weight", 0) for e in table) or 1
+        entries = [
+            {"label": _odds_label(e, ITEMS_REGISTRY),
+             "pct": round(e.get("weight", 0) / total * 100, 1),
+             "valuable": bool(e.get("valuable"))}
+            for e in table
+        ]
+        entries.sort(key=lambda x: -x["pct"])
+        out[spin_type] = {"label": SPIN_TYPE_LABELS.get(spin_type, spin_type), "entries": entries}
+    return {"tables": out}
+
+
 @router.get("/")
 async def gacha_info(db=Depends(get_db), user=Depends(require_tg_user)):
     """Типы круток, стоимость, ставки редкости и пити у пользователя."""

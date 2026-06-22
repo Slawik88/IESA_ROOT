@@ -678,7 +678,7 @@ async def cmd_open_eggs(message: types.Message, db, text_args: str = None):
         ach_grants += await increment_metric(db, message.from_user.id, "pets_at_level_10", delta=float(new_lv10))
 
     for r in dropped:
-        if r.get("rarity") in ("rare", "epic", "legendary"):
+        if r.get("rarity") in ("rare", "epic", "legendary", "mythic"):
             await quest_increment(db, message.from_user.id, message.chat.id,
                                   "rare_or_better_pet_dups_today", delta=1.0)
         if r.get("outcome") == "leveled_up" and r.get("milestones_unlocked"):

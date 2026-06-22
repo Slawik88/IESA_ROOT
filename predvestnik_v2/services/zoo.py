@@ -60,6 +60,9 @@ def format_pet_bonus_short(species_id: str, level: int) -> str:
             parts.append(f"+{b['daily_diamond']} 💎/сутки")
         return " · ".join(parts)
 
+    if species_id == "squirrel":
+        return f"🐿 +{int(b.get('quest_mora_bonus', 0) * 100)}% Моры за квесты"
+
     if species_id == "owl":
         every = b.get("trigger_every_n_msg", 1)
         xp = b.get("bonus_xp", 0)
