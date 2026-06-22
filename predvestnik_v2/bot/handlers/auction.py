@@ -4,6 +4,7 @@ B13: Global auction — create lots, browse, bid, cancel.
 Uses in-memory pending_lots dict for multi-step creation (no FSM needed).
 """
 import asyncio
+import os
 from datetime import datetime, timezone, timedelta
 
 from aiogram import Router, types, F
@@ -18,8 +19,9 @@ from infrastructure.repositories.auction import (
     get_active_lots, get_lot, get_seller_active_lots, get_highest_bid,
     get_user_active_bids, get_reserve,
 )
+from infrastructure.repositories.routing import get_announce_chats
 from services import global_moderation
-from services.auction import create_auction_lot, place_bid, cancel_lot
+from services.auction import create_auction_lot, place_bid, cancel_lot, build_lot_announcement
 from services.quests import increment_metric as quest_increment
 from math import ceil as _ceil
 from services.utils import safe_html, format_currency, parse_dt
@@ -27,6 +29,34 @@ from services.utils import safe_html, format_currency, parse_dt
 router = Router(name="auction_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
 router.message.middleware(ModuleCheckMiddleware("module_auction"))
+
+
+async def _announce_new_lot(bot, db, lot_id) -> None:
+    """Анонс нового лота во все основные чаты с кнопкой быстрого перехода.
+    Тихий (не ломает создание лота при ошибках доставки), с лёгким троттлингом."""
+    try:
+        lot = await get_lot(db, lot_id)
+        if not lot:
+            return
+        chats = await get_announce_chats(db)
+        if not chats:
+            return
+        text, _ = build_lot_announcement(lot)
+        kb = None
+        bu = os.getenv("BOT_USERNAME", "")
+        if bu:
+            b = InlineKeyboardBuilder()
+            b.button(text="🔨 Открыть аукцион", url=f"https://t.me/{bu}?startapp=auction_{lot_id}")
+            kb = b.as_markup()
+        for cid in chats:
+            try:
+                await bot.send_message(cid, text, parse_mode="HTML",
+                                       disable_web_page_preview=True, reply_markup=kb)
+            except Exception:
+                pass
+            await asyncio.sleep(0.05)
+    except Exception:
+        pass
 
 # ── In-memory pending lot creation state ─────────────────────────────────────
 _pending: dict[int, dict] = {}  # {user_id: {...creation state...}}
@@ -556,6 +586,7 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
             )
         except Exception:
             pass
+        await _announce_new_lot(query.bot, db, result)
         return
 
     ok, result = await create_auction_lot(
@@ -577,6 +608,7 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
             f"✅ <b>Лот #{result} создан!</b>\n<i>Аукцион длится 24 часа.</i>",
             parse_mode="HTML",
         )
+        await _announce_new_lot(query.bot, db, result)
 
 
 @router.callback_query(AucCB.filter(F.action == "cancel_create"))

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
-from services.cosmetics import buy, equip, get_catalog, unequip
+from services.cosmetics import buy, equip, get_catalog, set_welcome, unequip
 
 router = APIRouter(prefix="/cosmetics", tags=["cosmetics"])
 
@@ -50,6 +50,18 @@ class UnequipRequest(BaseModel):
 @router.post("/unequip")
 async def cosmetics_unequip(body: UnequipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     ok, msg = await unequip(db, user["id"], body.slot)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}
+
+
+class WelcomeRequest(BaseModel):
+    animation_id: str
+
+
+@router.post("/welcome")
+async def cosmetics_welcome(body: WelcomeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await set_welcome(db, user["id"], body.animation_id)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}

@@ -214,6 +214,8 @@ function showLevelUp(lvl) {
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 const fmt = n => Number(n).toLocaleString('ru');
+// Float-формат валют/цен: разделители тысяч + до 2 знаков после запятой (без хвостовых нулей).
+const fmtF = n => (Number(n)||0).toLocaleString('ru',{maximumFractionDigits:2});
 function vipName(name, isVip) { return isVip ? `👑 ${name}` : name; }
 function fmtUTC(s) {
   if (!s) return '';
@@ -391,7 +393,7 @@ function loadProfile() {
         </div>
         <div class="stats">
           <div class="stat clickable" onclick="openExchangeCurrencyModal('buy')"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора 🔄</div></div>
-          <div class="stat clickable" onclick="openExchangeCurrencyModal('sell')"><div>💎</div><div class="sv">${d.diamonds.toFixed(1)}</div><div class="sl">Алмазы 🔄</div></div>
+          <div class="stat clickable" onclick="openExchangeCurrencyModal('sell')"><div>💎</div><div class="sv">${fmtF(d.diamonds)}</div><div class="sl">Алмазы 🔄</div></div>
           <div class="stat clickable" onclick="${(d.zarniki||0)>0?'openExchangeZarnikiModal()':"goTo('market','vip')"}"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">${(d.zarniki||0)>0?'Зарники 🔄':'Зарники +'}</div></div>
           <div class="stat clickable" onclick="goTo('ach')"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
         </div>
@@ -477,7 +479,11 @@ function _srcLabel(s){return {vip:'🎁 даётся с VIP',bp:'🎫 платн
 function _looksPriceTxt(opt){ return Object.entries(opt).map(([cur,amt])=>`${amt}${(_looksData.currency_icons||{})[cur]||cur}`).join('+'); }
 function renderLooks(){
   const b=el('mb'); if(!b||!_looksData) return;
-  b.innerHTML=_looksPreviewHtml()+_LOOKS_SLOTS.map(_looksSlotHtml).join('');
+  const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
+    <span>👑 Смотреть и листать превью можно всё. Покупать косметику и выбирать приветствие — с VIP.</span>
+    <button class="btn btn-sm btn-gold" onclick="CM();goTo('market','vip')">Перейти к VIP</button></div>`;
+  b.innerHTML=_looksPreviewHtml()+vipBar+_LOOKS_SLOTS.map(_looksSlotHtml).join('')+_looksWelcomeHtml();
+  _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
 }
 function _looksPreviewHtml(){
   const d=_looksData;
@@ -503,9 +509,15 @@ function _looksCard(slot,it){
     </div>`;
   }
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
+  const bal=_looksData.balances||{};
   let foot;
-  if(it.price&&it.price.length){
-    foot=`<div class="lc-buys">${it.price.map((opt,i)=>`<button class="btn btn-sm btn-gold lc-buy" onclick="_looksBuy('${it.id}',${i})">${_looksPriceTxt(opt)}</button>`).join('')}</div>`;
+  if(it.vip_required && !_looksData.vip){
+    foot=`<div class="lc-tag">🔒 Только для VIP</div>`;
+  } else if(it.price&&it.price.length){
+    foot=`<div class="lc-buys">${it.price.map((opt,i)=>{
+      const can=Object.entries(opt).every(([cur,amt])=>(bal[cur]||0)>=amt);
+      return `<button class="btn btn-sm btn-gold lc-buy${can?'':' lc-buy--no'}" onclick="_looksBuy('${it.id}',${i})">${_looksPriceTxt(opt)}</button>`;
+    }).join('')}</div>`;
   } else {
     foot=`<div class="lc-tag">${_srcLabel(it.source)}</div>`;
   }
@@ -530,6 +542,50 @@ function _looksBuy(id,opt){
     .then(()=>openLooksModal())
     .catch(e=>toast(e,false));
 }
+// ── Приветственная анимация (выбор режима прелоадера; премиум — за VIP) ─────────
+let _wpMode=null;
+function _looksWelcomeHtml(){
+  const w=_looksData.welcome; if(!w) return '';
+  const cards=(w.options||[]).map(o=>{
+    const cls=['looks-card','r-'+o.rarity]; if(o.current)cls.push('sel'); if(o.locked)cls.push('locked');
+    const vip=o.vip_required?' <span class="lc-vip">VIP</span>':'';
+    return `<div class="${cls.join(' ')}" onclick="_welcomePick('${o.id}')">
+      <div class="lc-name">${o.locked?'🔒 ':''}${esc(o.name)}${vip}</div>
+      <div class="lc-tag">${o.current?'✓ выбрано':esc(o.desc)}</div></div>`;
+  }).join('');
+  const hint=_looksData.vip?'':'<div class="looks-hint">👆 Жми на любой режим — увидишь превью. Выбрать приветствие можно с VIP.</div>';
+  return `<div class="looks-slot"><div class="looks-slot-t">🎬 Приветствие при входе</div>
+    <div id="wpreview" class="wpreview"></div>${hint}
+    <div class="looks-cards">${cards}</div></div>`;
+}
+function _playWelcomePreview(mode){
+  const box=el('wpreview'); if(!box) return;
+  mode=mode||'scanner';
+  if(_wpMode===mode && box.childNodes.length) return;   // не перезапускаем при правках др. слотов
+  _wpMode=mode;
+  const nick=(_profileData&&_profileData.username)||'Игрок';
+  box.className='wpreview plm-'+mode;
+  box.innerHTML=`<div class="wp-orb">🔮</div><div class="plw-nick wp-name">@${esc(nick)}</div>`;
+}
+// Клик по режиму приветствия: превью видят ВСЕ; применяет только тот, кому доступно.
+function _welcomePick(id){
+  if(!_looksData||!_looksData.welcome) return;
+  const o=(_looksData.welcome.options||[]).find(x=>x.id===id); if(!o) return;
+  _playWelcomePreview(id);                       // превью — доступно всем
+  if(o.locked){ toast('🔒 Это приветствие доступно с VIP',false); return; }
+  _setWelcome(id);                               // применить — только разрешённое
+}
+function _setWelcome(id){
+  if(!_looksData||!_looksData.welcome) return;
+  const w=_looksData.welcome, prev=w.current;
+  if(id===prev) return;
+  w.current=id; (w.options||[]).forEach(o=>o.current=(o.id===id));
+  renderLooks(); _looksDirty=true;
+  api('/cosmetics/welcome',{method:'POST',body:JSON.stringify({animation_id:id})})
+    .then(r=>toast(r.message))
+    .catch(e=>{toast(e,false); w.current=prev;
+      (w.options||[]).forEach(o=>o.current=(o.id===prev)); renderLooks();});
+}
 // ── Preloader: эффектный холодный старт (БЛОК 9.2) ──────────────────────────────
 function _plSkip() {
   const pl = el('preloader');
@@ -553,6 +609,8 @@ function _runPreloader() {
   const tm = setInterval(()=>{ if(i>=lines.length){ clearInterval(tm); return; } add(); }, step);
   setTimeout(()=>{
     const ln = el('pl-lines'); if(ln) ln.classList.add('pl-fade');   // убираем строки — чистая сцена под приветствие
+    const mode = (_profileData && _profileData.cosmetics && _profileData.cosmetics.welcome) || 'scanner';
+    pl.classList.add('plm-' + mode);                                 // режим приветствия (VIP-выбор, дефолт — scanner)
     const w = el('pl-welcome'); if(!w) return;
     const nick = (_profileData && _profileData.username) ? _profileData.username : '';
     w.innerHTML = nick
@@ -582,10 +640,10 @@ function updateCurrBar(data) {
     }
     v.textContent = next;
   };
-  set('cb-mora', Math.floor(data?.mora ?? 0), fmt);
-  set('cb-dia',  data?.diamonds ?? 0, n => parseFloat(n).toFixed(1));
-  set('cb-dark', Math.floor(data?.dark_mora ?? 0), fmt);
-  set('cb-zar',  data?.zarniki ?? 0, n => Math.floor(n).toString());
+  set('cb-mora', data?.mora ?? 0, fmtF);
+  set('cb-dia',  data?.diamonds ?? 0, fmtF);
+  set('cb-dark', data?.dark_mora ?? 0, fmtF);
+  set('cb-zar',  data?.zarniki ?? 0, fmtF);
   _currInited = true;
   // Хедер: имя + уровень/ранг игрока
   if (data?.username !== undefined) {
@@ -621,28 +679,28 @@ function showCurrModal() {
     <div class="cm-block">
       <div class="cm-icon">🪙</div>
       <div class="cm-info">
-        <div class="cm-name">Мора <span class="cm-val">${fmt(Math.floor(mora))}</span></div>
+        <div class="cm-name">Мора <span class="cm-val">${fmtF(mora)}</span></div>
         <div class="cm-desc">Основная валюта. Зарабатывай в чатах, дуэлях, квестах и на аукционе.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">💎</div>
       <div class="cm-info">
-        <div class="cm-name">Алмазы <span class="cm-val">${parseFloat(dia).toFixed(1)}</span></div>
+        <div class="cm-name">Алмазы <span class="cm-val">${fmtF(dia)}</span></div>
         <div class="cm-desc">Премиум валюта. Покупай в Магазине или получай за достижения и ивенты.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">🌑</div>
       <div class="cm-info">
-        <div class="cm-name">Тёмная Мора <span class="cm-val">${fmt(Math.floor(dark))}</span></div>
+        <div class="cm-name">Тёмная Мора <span class="cm-val">${fmtF(dark)}</span></div>
         <div class="cm-desc">Редкая валюта тёмного рынка. Получай через Контрабанду (раз в 4 дня).</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">✨</div>
       <div class="cm-info">
-        <div class="cm-name">Зарники <span class="cm-val">${Math.floor(zar)}</span></div>
+        <div class="cm-name">Зарники <span class="cm-val">${fmtF(zar)}</span></div>
         <div class="cm-desc">Донат-валюта — нельзя заработать в игре. Открывает эксклюзивные темы и предметы.</div>
       </div>
     </div>
@@ -682,65 +740,67 @@ function calcStreakReward(streak) {
   };
 }
 
+function plDays(n){n=Math.abs(n)%100;const d=n%10;if(n>10&&n<20)return'дней';if(d===1)return'день';if(d>=2&&d<=4)return'дня';return'дней';}
 function loadStreak() {
   el('pro-streak').innerHTML='<div class="loader">Загрузка...</div>';
   api('/streak/calendar').then(d=>{
     const today=new Date().toISOString().slice(0,10);
     const streak=d.streak||0;
-
-    // Current cycle position
     const cur=calcStreakReward(streak||1);
-    const doneInBlock=cur.dayInBlock;   // days completed in current block (1-based = current day)
-    const cycleStart=cur.cycle*7;       // streak number of day 1 of current block
+    const dayInBlock=cur.dayInBlock;            // позиция дня в текущем блоке (1..7)
+    const cycleStart=cur.cycle*7;               // номер стрика дня 1 текущего блока
+    const blockPct=Math.round(dayInBlock/7*100);
+    const toBonus=7-dayInBlock;
+    const nextRw=calcStreakReward(streak+1);
 
-    // Build 7-day cycle display
-    const cycleHtml=Array.from({length:7},(_,i)=>{
-      const dayNum=cycleStart+i+1;      // streak day number (1-indexed)
-      const rw=calcStreakReward(dayNum);
-      const isDone=(i+1)<doneInBlock;
-      const isCurrent=(i+1)===doneInBlock;
-      const isBonus=rw.isEnd;
-      let cls='sday';
-      if(isDone) cls+=' done';
-      if(isCurrent) cls+=' current';
-      if(isBonus&&!isDone) cls+=' bonus';
+    // 7-дневный трек блока: завершён / текущий / бонус / будущий
+    const track=Array.from({length:7},(_,i)=>{
+      const pos=i+1, rw=calcStreakReward(cycleStart+pos);
+      const done=streak>0 && pos<dayInBlock;
+      const isCur=streak>0 && pos===dayInBlock;
+      let cls='st-day'; if(done)cls+=' done'; if(isCur)cls+=' cur'; if(rw.isEnd)cls+=' bonus';
       return `<div class="${cls}">
-        <div class="sd-num">День ${i+1}</div>
-        <div class="sd-mora">${fmt(Math.round(rw.mora))} 🪙</div>
-        ${rw.dia>0?`<div class="sd-dia">${rw.dia.toFixed(2)} 💎</div>`:''}
-        ${isBonus?'<div class="sd-bonus">★ БОНУС ×4</div>':''}
-        ${isDone?'<span class="sd-done">✓</span>':''}
-      </div>`;
+        <div class="st-day-n">${pos}${rw.isEnd?' ★':''}</div>
+        <div class="st-day-r">${fmt(Math.round(rw.mora))}🪙</div>
+        ${rw.dia>0?`<div class="st-day-d">${fmtF(rw.dia)}💎</div>`:''}
+        ${done?'<div class="st-day-chk">✓</div>':''}</div>`;
     }).join('');
 
-    // Next reward (tomorrow's streak)
-    const nextRw=calcStreakReward(streak+1);
-    const nextIsBonus=nextRw.isEnd;
+    // Хитмап активности (интенсивность по числу сообщений)
+    const cells=d.calendar.map(day=>{
+      const c=day.count||0; let lvl=0;
+      if(c>0)lvl=1; if(c>=5)lvl=2; if(c>=20)lvl=3; if(c>=50)lvl=4;
+      return `<div class="st-cell l${lvl}${day.date===today?' today':''}" title="${day.date}: ${c} сообщ."></div>`;
+    }).join('');
 
     el('pro-streak').innerHTML=`
-    <div class="card card-gold">
-      <div style="text-align:center">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Текущий стрик</div>
-        <div class="streak-num">${streak} 🔥</div>
-        <div style="font-size:11px;color:var(--muted)">дней подряд</div>
-      </div>
-
-      <div class="divider"></div>
-      <div class="card-title">Награды — цикл ${cur.cycle+1} (дни ${cycleStart+1}–${cycleStart+7})</div>
-      <div class="streak-cycle">${cycleHtml}</div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">
-        Завтра за день ${streak+1}: <b style="color:var(--gold)">${fmt(Math.round(nextRw.mora))} 🪙${nextRw.dia>0?' + '+nextRw.dia.toFixed(2)+' 💎':''}${nextIsBonus?' ⭐ БОНУС ×4':''}</b>
-      </div>
+    <div class="st-hero">
+      <div class="st-flame">🔥</div>
+      <div class="st-big">${streak}</div>
+      <div class="st-sub">${plDays(streak)} подряд · единый на все чаты</div>
+      <div class="st-blockbar"><div class="st-blockfill" style="width:${blockPct}%"></div></div>
+      <div class="st-blocklabel">Блок #${cur.cycle+1} · день ${dayInBlock}/7 ${toBonus>0?'· до бонуса '+toBonus+' '+plDays(toBonus):'· 🎉 бонусный день!'}</div>
     </div>
 
-    <div class="card" style="margin-top:8px">
-      <div class="card-title">Активность — последние 60 дней</div>
-      <div class="cal">${d.calendar.map(day=>`<div class="cal-day${day.active?' on':''}${day.date===today?' today':''}" title="${day.active?'✓ '+day.count+' сообщ.':'Нет активности'} (${day.date})"></div>`).join('')}</div>
-      <div style="display:flex;gap:12px;margin-top:6px;font-size:10px;color:var(--muted)">
-        <span>⬜ Нет</span><span style="color:var(--green)">■ Активен</span><span style="border:1px solid var(--gold);display:inline-block;width:10px;height:10px;vertical-align:middle"></span> Сегодня
+    <div class="card" style="margin-top:10px">
+      <div class="card-title">🎁 Завтра — день ${streak+1}</div>
+      <div class="st-next">
+        <span class="st-next-m">+${fmt(Math.round(nextRw.mora))} 🪙</span>
+        ${nextRw.dia>0?`<span class="st-next-d">+${fmtF(nextRw.dia)} 💎</span>`:''}
+        ${nextRw.isEnd?'<span class="st-next-b">★ БОНУС ×4</span>':''}
       </div>
+      <div class="st-track">${track}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:7px">Пиши хотя бы одно сообщение в день в любом чате — стрик растёт. Пропуск дня сбрасывает блок (можно восстановить: «бот стрик восстановить»).</div>
+    </div>
+
+    <div class="card" style="margin-top:10px">
+      <div class="card-title">📅 Активность · 60 дней</div>
+      <div class="st-heat">${cells}</div>
+      <div class="st-legend"><span>меньше</span>
+        <i class="st-cell l0"></i><i class="st-cell l1"></i><i class="st-cell l2"></i><i class="st-cell l3"></i><i class="st-cell l4"></i>
+        <span>больше</span></div>
     </div>`;
-  }).catch(e=>{el('pro-streak').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
+  }).catch(e=>{el('pro-streak').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${typeof e==='string'?esc(e):'Ошибка загрузки'}</div>`;});
 }
 
 // What each achievement tracks and how to earn it
@@ -3099,7 +3159,7 @@ function loadRelics() {
   if(!host) return;
   api('/relics/').then(d=>{
     const PCI = {mora:'🪙', diamonds:'💎', dark_mora:'🌑'};
-    const priceStr = p => Object.entries(p||{}).map(([k,v])=>`${Math.round(v)} ${PCI[k]||k}`).join(' + ');
+    const priceStr = p => Object.entries(p||{}).map(([k,v])=>`${fmtF(v)} ${PCI[k]||k}`).join(' + ');
     const rows = (d.relics||[]).map(r=>{
       const right = r.owned
         ? `<span style="color:var(--green);font-weight:700;flex:none;font-size:11px">✅ В коллекции</span>`
@@ -4854,10 +4914,11 @@ function loadGlobalDev() {
       <div class="card-title">🎁 Выдать предмет (− забрать)</div>
       <input id="dev-item-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя"/>
       <div style="display:flex;gap:6px;margin-bottom:6px">
-        <input id="dev-item-id" list="dev-items-dl" class="num-input" style="flex:1.6;margin:0" placeholder="item_id"/>
+        <input id="dev-item-id" list="dev-items-dl" class="num-input" style="flex:1.6;margin:0" placeholder="item_id (или 📋 каталог)"/>
         <datalist id="dev-items-dl"></datalist>
         <input id="dev-item-qty" type="number" class="num-input" style="flex:1;margin:0" placeholder="Кол-во" value="1"/>
       </div>
+      <button class="btn btn-ghost btn-sm btn-full" style="margin-bottom:6px" onclick="devItemCatalog()">📋 Каталог предметов (полный список)</button>
       <input id="dev-item-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (обязательно · покажется игроку)"/>
       <button class="btn btn-gold btn-full" onclick="devGiveItem()">Применить</button>
     </div>
@@ -4866,16 +4927,31 @@ function loadGlobalDev() {
       <div id="dev-log"><div class="loader">Загрузка...</div></div>
     </div>
     <div class="card">
-      <div class="card-title">👑 Выдать VIP (бесплатно)</div>
-      <input id="dev-vip-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя"/>
+      <div class="card-title">👑 VIP — управление</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-vip-uid" type="number" class="num-input" style="flex:2;margin:0" placeholder="ID пользователя"/>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="devVipStatus()">🔍 Статус</button>
+      </div>
+      <div id="dev-vip-status" style="font-size:10px;color:var(--muted);margin-bottom:6px"></div>
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <select id="dev-vip-tier" class="num-input" style="flex:1;margin:0">
           <option value="1m">VIP-1М</option><option value="3m">VIP-3М</option>
           <option value="8m">VIP-8М</option><option value="12m">VIP-12М</option>
         </select>
-        <input id="dev-vip-days" type="number" class="num-input" style="flex:1;margin:0" placeholder="Дней" value="30"/>
+        <input id="dev-vip-days" type="number" step="1" class="num-input" style="flex:1;margin:0" placeholder="Дней" value="30"/>
       </div>
-      <button class="btn btn-gold btn-full" onclick="devGiveVip()">Выдать</button>
+      <div style="display:flex;gap:4px;margin-bottom:6px">
+        ${[7,30,90,180,365].map(n=>`<button class="btn btn-ghost btn-sm" style="flex:1;padding:3px 0" onclick="el('dev-vip-days').value=${n}">${n}д</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <button class="btn btn-gold" style="flex:1" onclick="devGiveVip()">➕ Выдать/продлить</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="devVipAdjust()">➖ Убавить дни</button>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost" style="flex:1" onclick="devVipReplace()">🔄 Заменить тариф</button>
+        <button class="btn btn-red" style="flex:1" onclick="devVipRevoke()">🚫 Отозвать</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">«Заменить» сбрасывает старый VIP и начисляет бонус-пакет нового тарифа. «Убавить» сокращает срок на N дней (тариф не меняется).</div>
     </div>
     <div class="card">
       <div class="card-title">🎫 Боевой пропуск — сезоны</div>
@@ -5217,7 +5293,7 @@ function devLoadOverview() {
       <div class="irow"><span class="ik">Сообщений сегодня</span><span class="iv">${d.messages_today}</span></div>
       <div class="irow"><span class="ik">Активных VIP</span><span class="iv">👑 ${d.vips_active}</span></div>
       <div class="irow"><span class="ik">Санкции / Апелляции</span><span class="iv">${d.sanctions_active} / ⏳${d.appeals_pending}</span></div>
-      <div class="irow"><span class="ik">Всего 🪙/💎/✨ в экономике</span><span class="iv" style="font-size:10px">${fmt(Math.round(d.mora_total))} / ${fmt(Math.round(d.diamonds_total))} / ${fmt(Math.round(d.zarniki_total))}</span></div>
+      <div class="irow"><span class="ik">Всего 🪙/💎/✨ в экономике</span><span class="iv" style="font-size:10px">${fmtF(d.mora_total)} / ${fmtF(d.diamonds_total)} / ${fmtF(d.zarniki_total)}</span></div>
       <div class="irow"><span class="ik">Сезон БП</span><span class="iv">${d.bp_season?esc(d.bp_season.label)+' (до '+d.bp_season.ends_at+')':'— нет активного'}</span></div>
     </div>`;
   }).catch(e=>{el('dev-overview').innerHTML=`<div class="err">${e}</div>`;});
@@ -5227,7 +5303,12 @@ function devLoadChats() {
   const sel = el('dev-chat-sel'); if(!sel) return;
   api('/admin/dev/chats').then(d=>{
     sel.innerHTML = '<option value="">— выбрать чат —</option>' +
-      (d.chats||[]).map(c=>`<option value="${c.chat_id}">${esc(c.title)}</option>`).join('');
+      (d.chats||[]).map(c=>{
+        const mark=c.role==='admin'?'🛡 ':(c.role==='main'?'🏠 ':'');
+        const suff=c.role==='admin'&&c.linked_title?` (админка · ${c.linked_title})`
+                  :(c.role==='main'&&c.linked_title?' (+админка)':'');
+        return `<option value="${c.chat_id}">${mark}${esc(c.title)}${esc(suff)}</option>`;
+      }).join('');
   }).catch(()=>{});
 }
 function devLoadMembers() {
@@ -5246,6 +5327,38 @@ function devPickMember() {
   const q = el('dev-q'); if(q) q.value = uid;
   devLookupUser();
 }
+// VIP-строка досье: статус + осталось дней / на сколько в целом / стаж (БЛОК 1)
+function _devVipLine(v){
+  if(!v) return '<div class="irow"><span class="ik">VIP</span><span class="iv">—</span></div>';
+  const exp=v.expires_at?v.expires_at.slice(0,10):'—';
+  const head=(v.active?'👑 ':'(истёк) ')+esc(v.tier);
+  const sub=v.active
+    ? `осталось <b style="color:var(--gold2)">${v.days_left}</b> дн. из ${v.span_days} · до ${exp} · стаж ${v.total_days} дн.`
+    : `истёк ${exp} · стаж ${v.total_days} дн.`;
+  return `<div class="irow"><span class="ik">VIP</span><span class="iv" style="font-size:10px">${head}</span></div>
+    <div style="font-size:10px;color:var(--muted);margin:-3px 0 3px;text-align:right">${sub}</div>`;
+}
+// Одна строка чата в досье (с меткой роли: основной / админка)
+function _devChatRow(c){
+  const mark=c.role==='admin'?'🛡 ':(c.role==='main'?'🏠 ':'');
+  const role=c.role==='admin'?'админка':(c.role==='main'?'основной':'');
+  return `<div class="irow"><span class="ik" style="font-size:10px">${mark}${esc(c.chat_title)}${role?` <span style="color:var(--muted)">· ${role}</span>`:''}</span>`
+    +`<span class="iv" style="font-size:10px">${esc(c.rank_name)} · ур.${c.user_level||1} · ${fmt(c.user_messages_count_all_time||0)} сообщ.${c.is_left?' · 👋':''}</span></div>`;
+}
+// Чаты досье: «основной + админка» одной группой в выделенной рамке (БЛОК 1)
+function _devChatsHtml(chats){
+  if(!chats||!chats.length) return '<div style="font-size:10px;color:var(--muted)">— нет групп —</div>';
+  const shown=chats.slice(0,20); let html=''; let i=0;
+  while(i<shown.length){
+    const c=shown[i];
+    if(c.role==='main'||c.role==='admin'){
+      const gk=c.group_key, grp=[];
+      while(i<shown.length && shown[i].group_key===gk && (shown[i].role==='main'||shown[i].role==='admin')){ grp.push(shown[i]); i++; }
+      html+=`<div class="dev-chat-grp">${grp.map(_devChatRow).join('')}</div>`;
+    } else { html+=_devChatRow(c); i++; }
+  }
+  return html;
+}
 function devLookupUser() {
   const q=el('dev-q')?.value.trim();
   if(!q) return toast('Введите ID или @username',false);
@@ -5257,16 +5370,16 @@ function devLookupUser() {
       <div class="irow"><span class="ik">@${esc(d.user_tg_username||'—')}</span><span class="iv">ID: ${d.user_tg_id}</span></div>
       <div class="irow"><span class="ik">Глоб. ранг</span><span class="iv">${d.global_rank_name}</span></div>
       <div class="irow"><span class="ik">Балансы <span style="color:var(--muted);font-size:9px">(клик = ±)</span></span><span class="iv" style="font-size:11px">${[
-        ['mora','🪙 Мора','🪙'+fmt(Math.round(d.mora))],
-        ['diamonds','💎 Алмазы','💎'+d.diamonds.toFixed(1)],
-        ['dark_mora','🌑 Тёмная Мора','🌑'+Math.round(d.dark_mora)],
-        ['zarniki','✨ Зарники','✨'+Math.round(d.zarniki)],
+        ['mora','🪙 Мора','🪙'+fmtF(d.mora)],
+        ['diamonds','💎 Алмазы','💎'+fmtF(d.diamonds)],
+        ['dark_mora','🌑 Тёмная Мора','🌑'+fmtF(d.dark_mora)],
+        ['zarniki','✨ Зарники','✨'+fmtF(d.zarniki)],
       ].map(([cur,lbl,txt])=>`<span style="cursor:pointer;text-decoration:underline;margin-left:6px" onclick="devBalanceAction('${cur}','${lbl}')">${txt}</span>`).join('')}</span></div>
-      <div class="irow"><span class="ik">VIP</span><span class="iv" style="font-size:10px">${d.vip?(d.vip.active?'👑 ':'(истёк) ')+d.vip.tier+' до '+d.vip.expires_at.slice(0,10)+' · стаж '+d.vip.total_days+' дн.':'—'}</span></div>
-      <div class="irow"><span class="ik">Боевой пропуск</span><span class="iv">${d.battle_pass?`Ур.${d.battle_pass.level} (${d.battle_pass.xp} XP)`:'—'}</span></div>
-      ${d.sanctions.length?`<div class="irow"><span class="ik" style="color:var(--red)">Санкции</span><span class="iv" style="font-size:10px">${d.sanctions.map(s=>s.sanction_type+(s.expires_at?' до '+s.expires_at.slice(0,10):'')).join(', ')}</span></div>`:''}
+      ${_devVipLine(d.vip)}
+      <div class="irow"><span class="ik">Боевой пропуск</span><span class="iv">${d.battle_pass?`Ур.${d.battle_pass.level} (${fmtF(d.battle_pass.xp)} XP)`:'—'}</span></div>
+      ${d.sanctions.length?`<div class="irow"><span class="ik" style="color:var(--red)">Санкции</span><span class="iv" style="font-size:10px">${d.sanctions.map(s=>esc(s.sanction_type)+(s.expires_at?' до '+s.expires_at.slice(0,10):'')).join(', ')}</span></div>`:''}
       <div style="font-size:11px;font-weight:700;margin:6px 0 2px">Чаты (${d.chats.length}):</div>
-      ${d.chats.slice(0,10).map(c=>`<div class="irow"><span class="ik" style="font-size:10px">${esc(c.chat_title)}</span><span class="iv" style="font-size:10px">${c.rank_name} · ур.${c.user_level||1} · ${c.user_messages_count_all_time||0} сообщ.${c.is_left?' · 👋':''}</span></div>`).join('')}
+      ${_devChatsHtml(d.chats)}
       ${d.inventory&&d.inventory.length?`<div style="font-size:11px;font-weight:700;margin:8px 0 4px">🎒 Инвентарь (${d.inventory.length}) — клик = выдать/забрать:</div>
       <div style="display:flex;flex-wrap:wrap;gap:5px">${d.inventory.map(it=>`<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px" onclick="devItemAction('${it.item_id}',${it.quantity})">${esc(it.name)} ×${it.quantity}</button>`).join('')}</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:6px">🎒 Инвентарь пуст</div>'}
       <div style="display:flex;gap:6px;margin-top:8px">
@@ -5335,6 +5448,35 @@ function devAdjustBalance() {
     .then(()=>{toast(`✅ ${amt>0?'+':''}${amt} ${cur} → ID${uid}`);loadDevLog();})
     .catch(e=>toast(e,false));
 }
+// Полный каталог предметов с поиском (БЛОК 1): клик = подставить item_id в форму.
+function devItemCatalog(){
+  if(!_devItems||!_devItems.length){ toast('Список предметов ещё грузится…',false); return; }
+  OM('📋 Каталог предметов',
+    `<input id="dev-cat-q" class="num-input" style="margin:0 0 8px" placeholder="🔎 поиск: название / id / категория" oninput="_devItemCatalogRender(this.value)"/>
+     <div id="dev-cat-list" style="max-height:52vh;overflow-y:auto"></div>`,
+    [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  _devItemCatalogRender('');
+}
+function _devItemCatalogRender(q){
+  const box=el('dev-cat-list'); if(!box) return;
+  q=(q||'').trim().toLowerCase();
+  const items=_devItems.filter(it=>!q||(it.name||'').toLowerCase().includes(q)
+    ||(it.item_id||'').toLowerCase().includes(q)||(it.category||'').toLowerCase().includes(q));
+  if(!items.length){ box.innerHTML='<div style="font-size:11px;color:var(--muted);padding:8px">Ничего не найдено.</div>'; return; }
+  const byCat={};
+  items.forEach(it=>{(byCat[it.category||'—']=byCat[it.category||'—']||[]).push(it);});
+  box.innerHTML=Object.keys(byCat).sort().map(cat=>
+    `<div style="font-size:10px;font-weight:700;color:var(--gold2);margin:8px 0 3px;text-transform:uppercase">${esc(cat)} (${byCat[cat].length})</div>`
+    +byCat[cat].map(it=>`<div class="dev-cat-item" onclick="_devPickItem('${it.item_id}')" title="${esc(it.description||'')}">
+        <span>${esc(it.name)}</span>
+        <span style="color:var(--muted);font-size:9px;font-family:monospace">${esc(it.item_id)}</span></div>`).join('')
+  ).join('');
+}
+function _devPickItem(iid){
+  const f=el('dev-item-id'); if(f) f.value=iid;
+  CM(); toast('Предмет выбран: '+iid);
+  el('dev-item-id')?.scrollIntoView({behavior:'smooth',block:'center'});
+}
 function devGiveItem() {
   const uid=parseInt(el('dev-item-uid')?.value||'0');
   const item=el('dev-item-id')?.value.trim();
@@ -5350,10 +5492,59 @@ function devGiveVip() {
   const uid=parseInt(el('dev-vip-uid')?.value||'0');
   const tier=el('dev-vip-tier')?.value;
   const days=parseInt(el('dev-vip-days')?.value||'0');
-  if(!uid||!days) return toast('Заполните ID и дни',false);
+  if(!uid||!days||days<0) return toast('Укажите ID и положительные дни',false);
   api('/admin/dev/give-vip',{method:'POST',body:JSON.stringify({user_id:uid,tier,days})})
-    .then(r=>toast(`👑 ${r.label} на ${days} дн. → ID${uid}`))
+    .then(r=>{toast(`👑 ${r.label} на ${days} дн. → ID${uid}`); devVipStatus();})
     .catch(e=>toast(e,false));
+}
+// ➖ Убавить срок VIP на N дней (тариф не трогаем). БЛОК 1.
+function devVipAdjust() {
+  const uid=parseInt(el('dev-vip-uid')?.value||'0');
+  const n=Math.abs(parseInt(el('dev-vip-days')?.value||'0'));
+  if(!uid||!n) return toast('Укажите ID и дни',false);
+  api('/admin/dev/adjust-vip-days',{method:'POST',body:JSON.stringify({user_id:uid,days:-n})})
+    .then(r=>{toast(`➖ −${n} дн. VIP → осталось ${r.days_left} дн.`); devVipStatus();})
+    .catch(e=>toast(e,false));
+}
+// 🔄 Заменить тариф (со сбросом старого VIP + бонус-пакет). Подтверждение через модалку.
+function devVipReplace() {
+  const uid=parseInt(el('dev-vip-uid')?.value||'0');
+  const tier=el('dev-vip-tier')?.value;
+  const days=parseInt(el('dev-vip-days')?.value||'0');
+  if(!uid||!days||days<0) return toast('Укажите ID и положительные дни',false);
+  OM('🔄 Заменить VIP', `<div style="font-size:12px;line-height:1.5">Заменить текущий VIP у <b>ID${uid}</b> на <b>${esc(tier)}</b> (${days} дн.)?<br><span style="color:var(--muted)">Старый срок и бонусы сгорают, начисляется бонус-пакет нового тарифа.</span></div>`,
+    [{l:'Заменить',c:'btn-gold',f:`_devVipReplaceDo(${uid},'${tier}',${days})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _devVipReplaceDo(uid,tier,days){
+  api('/admin/dev/set-vip',{method:'POST',body:JSON.stringify({user_id:uid,tier,days})})
+    .then(r=>{CM();toast(`🔄 VIP заменён: ${r.label} на ${days} дн.`); devVipStatus();})
+    .catch(e=>toast(e,false));
+}
+// 🚫 Отозвать VIP (мгновенно). Подтверждение через модалку.
+function devVipRevoke() {
+  const uid=parseInt(el('dev-vip-uid')?.value||'0');
+  if(!uid) return toast('Укажите ID',false);
+  OM('🚫 Отозвать VIP', `<div style="font-size:12px">Отозвать VIP у <b>ID${uid}</b>? Он сразу потеряет статус.</div>`,
+    [{l:'Отозвать',c:'btn-red',f:`_devVipRevokeDo(${uid})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _devVipRevokeDo(uid){
+  api('/admin/dev/revoke-vip',{method:'POST',body:JSON.stringify({user_id:uid})})
+    .then(r=>{CM();toast(`🚫 VIP отозван (${esc(r.revoked_tier)})`); devVipStatus();})
+    .catch(e=>toast(e,false));
+}
+// 🔍 Текущий статус VIP игрока (осталось / срок / стаж) — переиспользует /user.
+function devVipStatus() {
+  const uid=parseInt(el('dev-vip-uid')?.value||'0');
+  const box=el('dev-vip-status'); if(!box) return;
+  if(!uid){ box.innerHTML=''; return; }
+  box.innerHTML='<span style="color:var(--muted)">проверка…</span>';
+  api('/admin/dev/user?q='+uid).then(d=>{
+    const v=d.vip;
+    if(!v){ box.innerHTML='VIP: <b>нет</b>'; return; }
+    box.innerHTML=v.active
+      ? `VIP: <b style="color:var(--gold2)">${esc(v.tier)}</b> · осталось <b>${v.days_left}</b> дн. из ${v.span_days} · до ${v.expires_at.slice(0,10)} · стаж ${v.total_days} дн.`
+      : `VIP: <b>(истёк)</b> ${esc(v.tier)} · стаж ${v.total_days} дн.`;
+  }).catch(e=>{box.innerHTML=`<span class="err">${typeof e==='string'?esc(e):'ошибка'}</span>`;});
 }
 function devBpXp() {
   const uid=parseInt(el('dev-bp-uid')?.value||'0');

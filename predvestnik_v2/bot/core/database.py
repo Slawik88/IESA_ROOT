@@ -284,6 +284,23 @@ async def init_db():
                 )
             except Exception:
                 pass  # already TIMESTAMP or migration failed (non-fatal)
+        # Migration: ЕДИНЫЙ (глобальный) стрик на все чаты — засеять строку
+        # chat_id=0 максимальным стриком пользователя из старых по-чатных строк.
+        # Идемпотентно (ON CONFLICT DO NOTHING): после создания глобальной строки
+        # её ведёт middleware, повторный засев ничего не делает.
+        try:
+            await db.execute("""
+                INSERT INTO daily_login
+                    (user_id, chat_id, streak, last_login, last_notified,
+                     recovery_streak, recovery_missed_days, recovery_expires)
+                SELECT user_id, 0, MAX(streak), MAX(last_login), MAX(last_notified), 0, 0, NULL
+                FROM daily_login
+                WHERE chat_id <> 0
+                GROUP BY user_id
+                ON CONFLICT (user_id, chat_id) DO NOTHING
+            """)
+        except Exception:
+            pass  # non-fatal: глобальная строка будет создана при первом сообщении
 
         # 15. Pet milestones
         await db.execute("""

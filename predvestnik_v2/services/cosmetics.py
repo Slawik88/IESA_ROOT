@@ -3,8 +3,14 @@
 Бизнес-логика косметики: каталог, покупка (мульти/альт-валюта), экипировка, выдача.
 No bot.*/FastAPI.* imports. Только косметика — без игрового преимущества.
 """
-from core.cosmetics import COSMETICS, COSMETIC_SLOTS
+from core.cosmetics import (
+    COSMETICS, COSMETIC_SLOTS, WELCOME_ANIMATIONS, WELCOME_DEFAULT,
+)
 from services.vip import is_vip_active
+
+# Слот приветственной анимации в user_cosmetic_loadout (отдельно от носимой косметики;
+# без записи владения — гейт по VIP, а не по обладанию).
+_WELCOME_SLOT = "welcome"
 
 # Валюты косметики → колонка баланса в users (whitelist: имя колонки НЕ из ввода).
 _CUR_COL = {
@@ -108,19 +114,58 @@ async def sync_auto_grants(db, user_id: int) -> None:
         await db.commit()
 
 
+# ── Приветственные анимации (вход / прелоадер) ──────────────────────────────────
+def _effective_welcome(loadout: dict[str, str], vip: bool) -> str:
+    """Действующий id анимации с учётом VIP-гейта (не-VIP → дефолт). Без запросов в БД."""
+    chosen = loadout.get(_WELCOME_SLOT)
+    anim = WELCOME_ANIMATIONS.get(chosen) if chosen else None
+    if not anim:
+        return WELCOME_DEFAULT
+    if anim.get("vip_required") and not vip:
+        return WELCOME_DEFAULT
+    return chosen
+
+
+def _welcome_options(current: str, vip: bool) -> list[dict]:
+    return [{
+        "id": aid, "name": a["name"], "rarity": a.get("rarity", "common"),
+        "desc": a.get("desc", ""), "vip_required": bool(a.get("vip_required")),
+        "locked": bool(a.get("vip_required")) and not vip,
+        "current": aid == current,
+    } for aid, a in WELCOME_ANIMATIONS.items()]
+
+
+async def set_welcome(db, user_id: int, anim_id: str) -> tuple[bool, str]:
+    """Выбрать приветственную анимацию (VIP-гейт для премиум-вариантов). Commits."""
+    anim = WELCOME_ANIMATIONS.get(anim_id)
+    if not anim:
+        return False, "Нет такой анимации."
+    if anim.get("vip_required") and not await is_vip_active(db, user_id):
+        return False, "🔒 Выбор приветствия доступен только при активной VIP."
+    await db.execute(
+        "INSERT INTO user_cosmetic_loadout (user_id, slot, cosmetic_id) VALUES (?, ?, ?) "
+        "ON CONFLICT (user_id, slot) DO UPDATE SET cosmetic_id = ?",
+        (user_id, _WELCOME_SLOT, anim_id, anim_id))
+    await db.commit()
+    return True, f"🎬 Приветствие: {anim['name']}"
+
+
 async def get_catalog(db, user_id: int) -> dict:
-    """Каталог по слотам + балансы + статус VIP (для конструктора на сайте)."""
+    """Каталог по слотам + балансы + статус VIP + приветствия (для конструктора на сайте)."""
     await sync_auto_grants(db, user_id)
     owned = await _owned(db, user_id)
     loadout = await _loadout(db, user_id)
+    vip = await is_vip_active(db, user_id)
     slots: dict[str, list] = {s: [] for s in COSMETIC_SLOTS}
     for cid, cos in COSMETICS.items():
         slots.setdefault(cos["slot"], []).append(_public(cid, cos, owned, loadout))
+    welcome_cur = _effective_welcome(loadout, vip)
     return {
-        "vip": await is_vip_active(db, user_id),
+        "vip": vip,
         "balances": await _balances(db, user_id),
         "slots": slots,
         "currency_icons": _CUR_ICON,
+        "welcome": {"current": welcome_cur, "options": _welcome_options(welcome_cur, vip)},
     }
 
 
@@ -211,6 +256,8 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
     loadout = await _loadout(db, user_id)
     out: dict = {}
     for slot, cid in loadout.items():
+        if slot == _WELCOME_SLOT:
+            continue
         cos = COSMETICS.get(cid)
         if not cos:
             continue
@@ -218,4 +265,11 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
             out["title"] = cos.get("text") or cos["name"]
         else:
             out[slot] = {"css": cos.get("css"), "name": cos["name"]}
+    # Приветственная анимация (VIP-гейт; is_vip спрашиваем только если выбран премиум-вариант).
+    chosen = loadout.get(_WELCOME_SLOT)
+    anim = WELCOME_ANIMATIONS.get(chosen) if chosen else None
+    if anim and anim.get("vip_required"):
+        out["welcome"] = chosen if await is_vip_active(db, user_id) else WELCOME_DEFAULT
+    else:
+        out["welcome"] = chosen if anim else WELCOME_DEFAULT
     return out

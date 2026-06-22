@@ -101,3 +101,38 @@ COSMETICS: dict[str, dict] = {
 def cosmetics_by_slot(slot: str) -> dict[str, dict]:
     """Все косметики данного слота (id → entry)."""
     return {cid: c for cid, c in COSMETICS.items() if c["slot"] == slot}
+
+
+# ── Приветственные анимации (вход / прелоадер) ──────────────────────────────────
+# Выбор «режима» холодного старта. Каждый id → CSS-класс `plm-<id>` на #preloader.
+# Дефолт (`scanner`) виден всем; остальные — только при активной VIP (vip_required).
+# Чистая косметика, не P2W. Хранится в user_cosmetic_loadout (slot="welcome").
+WELCOME_DEFAULT = "scanner"
+
+WELCOME_ANIMATIONS: dict[str, dict] = {
+    "scanner": {
+        "name": "Сканер сигнатур", "rarity": "common", "vip_required": False,
+        "desc": "Бегущие строки синхронизации и золотое проявление ника. Классика.",
+    },
+    "neon": {
+        "name": "Неоновое проявление", "rarity": "rare", "vip_required": True,
+        "desc": "Имя вспыхивает неоновым сиянием сквозь дымку.",
+    },
+    "ripple": {
+        "name": "Водяная рябь", "rarity": "rare", "vip_required": True,
+        "desc": "Круги расходятся по воде, имя всплывает из глубины.",
+    },
+    "glitch": {
+        "name": "Глитч-портал", "rarity": "epic", "vip_required": True,
+        "desc": "RGB-сбой и помехи: имя собирается из цифрового шума.",
+    },
+    "stardust": {
+        "name": "Звёздная пыль", "rarity": "epic", "vip_required": True,
+        "desc": "Мерцающая пыль оседает, складываясь в твоё имя.",
+    },
+}
+
+
+def welcome_animation(anim_id: str) -> dict | None:
+    """Запись приветственной анимации по id (или None)."""
+    return WELCOME_ANIMATIONS.get(anim_id)

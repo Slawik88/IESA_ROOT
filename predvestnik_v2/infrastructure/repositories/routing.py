@@ -49,3 +49,15 @@ async def get_admin_chat(db: aiosqlite.Connection, main_chat_id: int) -> int | N
     ) as cursor:
         row = await cursor.fetchone()
         return row[0] if row else None
+
+
+async def get_announce_chats(db: aiosqlite.Connection) -> list[int]:
+    """Основные группы для публичных анонсов (новый лот аукциона и т.п.):
+    реальные группы (chat_id < 0), исключая привязанные админ-чаты и ЛС."""
+    async with db.execute(
+        "SELECT cs.chat_id FROM chat_settings cs "
+        "WHERE cs.chat_id < 0 "
+        "AND cs.chat_id NOT IN "
+        "(SELECT admin_chat_id FROM chat_links WHERE admin_chat_id IS NOT NULL)"
+    ) as cursor:
+        return [r[0] for r in await cursor.fetchall()]

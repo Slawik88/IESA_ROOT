@@ -416,6 +416,106 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   .pg-enter #pro-main > * { animation: none; }
 }
 
+/* ═══ Приветственные анимации (режимы прелоадера, VIP-выбор) ═══════════════════ */
+/* Режим = класс plm-<id> на #preloader и на мини-превью #wpreview. Базовый
+   «scanner» = золотое проявление (.plw-nick без переопределений). Остальные ниже. */
+.plw-nick { position: relative; }
+
+/* — Неоновое проявление — */
+.plm-neon .plw-nick {
+  background: linear-gradient(90deg, #67e8f9, #c084fc, #67e8f9);
+  background-size: 220% 100%;
+  animation: plwReveal .7s cubic-bezier(.34,1.56,.64,1) .18s forwards,
+             plwShine 2.4s ease-in-out .8s infinite,
+             plmNeon 1.7s ease-in-out .9s infinite;
+}
+@keyframes plmNeon {
+  0%,100% { filter: drop-shadow(0 0 5px rgba(103,232,249,.5)); }
+  50%     { filter: drop-shadow(0 0 16px rgba(192,132,252,.8)); }
+}
+
+/* — Водяная рябь — */
+.plm-ripple .plw-nick {
+  background: linear-gradient(90deg, #7dd3fc, #e0f2fe, #7dd3fc);
+  background-size: 220% 100%;
+  animation: plwReveal .8s ease .25s forwards, plwShine 2.6s ease-in-out .8s infinite;
+}
+.plm-ripple .plw-nick::after {
+  content: ''; position: absolute; left: 50%; top: 50%; width: 26px; height: 26px;
+  border: 2px solid rgba(125,211,252,.55); border-radius: 50%;
+  transform: translate(-50%,-50%); pointer-events: none;
+  animation: plmRipple 1.9s ease-out .3s infinite;
+}
+@keyframes plmRipple {
+  0%   { opacity: .7; width: 22px; height: 22px; }
+  100% { opacity: 0; width: 230px; height: 230px; }
+}
+
+/* — Глитч-портал — */
+.plm-glitch .plw-nick {
+  background: none; -webkit-text-fill-color: #e3ebff; color: #e3ebff;
+  animation: plwReveal .45s ease .15s forwards, plmGlitch 2.2s steps(1,end) 1s infinite;
+}
+@keyframes plmGlitch {
+  0%,90%,100% { transform: none; text-shadow: none; }
+  91% { transform: translateX(-2px); text-shadow: 2px 0 #ff3b5c, -2px 0 #36e0ff; }
+  93% { transform: translateX(2px);  text-shadow: -2px 0 #ff3b5c, 2px 0 #36e0ff; }
+  95% { transform: translateX(-1px); text-shadow: 1px 0 #ff3b5c, -1px 0 #36e0ff; }
+  97% { transform: none; text-shadow: none; }
+}
+
+/* — Звёздная пыль — */
+.plm-stardust .plw-nick {
+  background: linear-gradient(90deg, #ffe08a, #fff6d6, #ffd76a);
+  background-size: 220% 100%;
+  animation: plwReveal .8s ease .2s forwards, plwShine 2.4s ease-in-out .8s infinite;
+}
+.plm-stardust .plw-nick::before {
+  content: ''; position: absolute; inset: -26px -16px; pointer-events: none;
+  background:
+    radial-gradient(2px 2px at 18% 28%, #fff, transparent),
+    radial-gradient(2px 2px at 72% 62%, #ffe9a8, transparent),
+    radial-gradient(1.5px 1.5px at 44% 82%, #fff, transparent),
+    radial-gradient(2px 2px at 86% 24%, #fff3c4, transparent),
+    radial-gradient(1.5px 1.5px at 8% 68%, #fff, transparent);
+  animation: plmStar 2.4s ease-in-out .4s infinite;
+}
+@keyframes plmStar {
+  0%,100% { opacity: .25; transform: translateY(2px); }
+  50%     { opacity: .9;  transform: translateY(-3px); }
+}
+
+/* Мини-превью приветствия в конструкторе «Внешний вид» */
+.wpreview {
+  position: relative; height: 96px; border-radius: 14px; margin: 4px 0 10px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: radial-gradient(circle at 50% 40%, #16120a, #0b0c14 75%);
+  border: 1px solid var(--border); overflow: hidden;
+}
+.wpreview .wp-orb { font-size: 26px; animation: floaty 2.4s ease-in-out infinite; }
+.wpreview .plw-nick { font-size: 20px; }
+.looks-hint {
+  font-size: 10px; color: var(--muted); background: var(--s);
+  border-radius: 8px; padding: 6px 8px; margin-bottom: 8px;
+}
+/* Баннер-апселл VIP в конструкторе «Внешний вид» (не-VIP: смотреть всё, покупать с VIP) */
+.looks-vipbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 11px; line-height: 1.4; color: var(--gold2);
+  background: linear-gradient(120deg, rgba(232,181,77,.14), rgba(139,108,240,.12));
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 8px 10px; margin: 2px 0 12px;
+}
+.looks-vipbar .btn { margin-left: auto; white-space: nowrap; }
+
+/* Доступность: без анимаций — мгновенно показываем имя в любом режиме */
+@media (prefers-reduced-motion: reduce) {
+  .plm-neon .plw-nick, .plm-ripple .plw-nick,
+  .plm-glitch .plw-nick, .plm-stardust .plw-nick { animation: none; opacity: 1; transform: none; filter: none; }
+  .plm-ripple .plw-nick::after, .plm-stardust .plw-nick::before { animation: none; opacity: 0; }
+  .wpreview .wp-orb { animation: none; }
+}
+
 /* Кнопка-CTA «У меня есть промокод» в профиле (БЛОК 9.1) */
 .promo-cta {
   background: linear-gradient(135deg, rgba(232,181,77,.16), var(--bg2));
@@ -572,6 +672,56 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .lc-tag { font-size: 9px; color: var(--muted); }
 .lc-buys { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .lc-buy { padding: 2px 6px !important; font-size: 9px !important; }
+.lc-buy--no { opacity: .45; }   /* не хватает валюты — подсказка (клик → сервер вернёт «недостаточно») */
+
+/* Группа «основной чат + админка» в досье игрока (дев-консоль, БЛОК 1) */
+.dev-chat-grp { border: 1px solid var(--border2); border-left: 3px solid var(--gold); border-radius: 8px; padding: 0 8px; margin: 5px 0; background: rgba(232,181,77,.05); }
+.dev-chat-grp .irow { border-bottom: 0; }
+
+/* Каталог предметов в дев-консоли (БЛОК 1) */
+.dev-cat-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: 11px; border: 1px solid transparent; }
+.dev-cat-item:hover { background: var(--s); border-color: var(--border2); }
+.dev-cat-item:active { transform: scale(.99); }
+
+/* ═══ Стрик — редизайн вкладки (единый стрик на все чаты) ═══════════════════════ */
+.st-hero { position: relative; text-align: center; padding: 18px 14px 15px; border-radius: 18px; overflow: hidden;
+  background: radial-gradient(circle at 50% 0%, rgba(232,181,77,.22), var(--bg2) 70%); border: 1px solid var(--border); }
+.st-flame { font-size: 40px; line-height: 1; animation: stFlame 1.8s ease-in-out infinite; filter: drop-shadow(0 0 10px rgba(255,140,0,.5)); }
+@keyframes stFlame { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-4px) scale(1.08); } }
+.st-big { font-size: 54px; font-weight: 900; line-height: 1; margin-top: 2px;
+  background: linear-gradient(180deg, #ffe9a8, var(--gold2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.st-sub { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 3px; }
+.st-blockbar { height: 8px; border-radius: 6px; background: var(--s); overflow: hidden; margin: 13px 6px 6px; }
+.st-blockfill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--gold), var(--gold2));
+  transition: width .6s cubic-bezier(.22,1,.36,1); box-shadow: 0 0 8px rgba(232,181,77,.6); }
+.st-blocklabel { font-size: 10px; color: var(--muted); }
+
+.st-next { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+.st-next-m { color: var(--gold2); }
+.st-next-d { color: var(--bright, #7ec8ff); }
+.st-next-b { font-size: 10px; background: var(--gold); color: #1a1a1a; border-radius: 5px; padding: 1px 6px; }
+
+.st-track { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.st-day { position: relative; text-align: center; padding: 7px 2px; border-radius: 9px; background: var(--s); border: 1px solid var(--border2); opacity: .55; }
+.st-day-n { font-size: 10px; font-weight: 700; color: var(--muted); }
+.st-day-r { font-size: 9px; margin-top: 2px; }
+.st-day-d { font-size: 9px; color: var(--bright, #7ec8ff); }
+.st-day.done { opacity: 1; border-color: var(--green); background: rgba(70,200,120,.10); }
+.st-day.cur  { opacity: 1; border-color: var(--gold); background: rgba(232,181,77,.14); animation: stPulse 1.6s ease-in-out infinite; }
+@keyframes stPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(232,181,77,.45); } 50% { box-shadow: 0 0 0 4px rgba(232,181,77,0); } }
+.st-day.bonus { border-color: var(--gold2); opacity: 1; }
+.st-day.bonus .st-day-n { color: var(--gold2); }
+.st-day-chk { position: absolute; top: -5px; right: -5px; font-size: 10px; background: var(--green); color: #fff; border-radius: 50%; width: 16px; height: 16px; line-height: 16px; }
+
+.st-heat { display: grid; grid-template-columns: repeat(15, 1fr); gap: 3px; }
+.st-cell { height: 14px; border-radius: 3px; background: var(--s); }
+.st-cell.l1 { background: rgba(70,200,120,.32); }
+.st-cell.l2 { background: rgba(70,200,120,.55); }
+.st-cell.l3 { background: rgba(70,200,120,.8); }
+.st-cell.l4 { background: #46c878; }
+.st-cell.today { outline: 2px solid var(--gold); outline-offset: 1px; }
+.st-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 9px; color: var(--muted); }
+.st-legend .st-cell { width: 11px; height: 11px; }
 .lc-vip { font-size: 8px; background: var(--gold); color: #1a1a1a; border-radius: 4px; padding: 0 4px; vertical-align: middle; }
 .r-rare .lc-name { color: #5b9bd5; }
 .r-epic .lc-name { color: #b07ad6; }

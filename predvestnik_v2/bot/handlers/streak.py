@@ -85,7 +85,7 @@ def _recovery_keyboard(user_id: int) -> types.InlineKeyboardMarkup:
 async def cmd_streak(message: types.Message, db):
     if message.chat.type == "private":
         return
-    streak_row = await streak_repo.get_streak(db, message.from_user.id, message.chat.id)
+    streak_row = await streak_repo.get_global_streak(db, message.from_user.id)
     await message.answer(_streak_view_text(streak_row), parse_mode="HTML")
 
 
@@ -95,7 +95,7 @@ async def cmd_streak_recover(message: types.Message, db):
         return
 
     user_id = message.from_user.id
-    streak_row = await streak_repo.get_streak(db, user_id, message.chat.id)
+    streak_row = await streak_repo.get_global_streak(db, user_id)
 
     if streak_row.get("recovery_streak", 0) == 0:
         return await message.answer(
@@ -140,8 +140,7 @@ async def cb_streak_recover(query: types.CallbackQuery, callback_data: StreakRec
         return
 
     user_id = callback_data.user_id
-    chat_id = query.message.chat.id
-    streak_row = await streak_repo.get_streak(db, user_id, chat_id)
+    streak_row = await streak_repo.get_global_streak(db, user_id)
 
     if streak_row.get("recovery_streak", 0) == 0:
         await query.message.edit_text("ℹ️ Нечего восстанавливать — штраф не применялся.")
@@ -184,7 +183,7 @@ async def cb_streak_recover(query: types.CallbackQuery, callback_data: StreakRec
         return
 
     restored = old_streak + 1
-    await streak_repo.update_streak_after_recovery(db, user_id, chat_id, restored)
+    await streak_repo.update_global_streak_after_recovery(db, user_id, restored)
     await db.commit()
 
     currency_icon = "💎" if callback_data.currency == "diamonds" else "🪙"
