@@ -21,8 +21,9 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               themes, streak, exchange, dark_mora,
                               marriage, daily_deal, promocodes, wallet,
                               events, admin, vip, battle_pass, global_admin,
-                              dev_console, payments, games, relics)
+                              dev_console, payments, games, relics, cosmetics)
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
+from services.cosmetics import ensure_tables as ensure_cosmetics
 
 
 @asynccontextmanager
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI):
         await theme_meta.ensure_table(PGAdapter(conn))
         await web_notifications.ensure_table(PGAdapter(conn))
         await admin_log.ensure_table(PGAdapter(conn))
+        await ensure_cosmetics(PGAdapter(conn))
     yield
 
 
@@ -49,7 +51,8 @@ for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           dark_mora.router, marriage.router, daily_deal.router,
           promocodes.router, wallet.router, events.router, admin.router, vip.router,
           battle_pass.router, global_admin.router, dev_console.router,
-          payments.router, games.router, relics.router, notif_router.router]:
+          payments.router, games.router, relics.router, cosmetics.router,
+          notif_router.router]:
     app.include_router(r)
 
 

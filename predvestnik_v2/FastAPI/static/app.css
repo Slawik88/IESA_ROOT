@@ -539,6 +539,43 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); }
 }
 .bp-levelup { animation: bpLevelUp 1.1s ease-out; }
+/* ── Косметика профиля: ореолы имени (CSS, веб) ── */
+.glow-silver { text-shadow: 0 0 6px rgba(200,210,225,.85), 0 0 12px rgba(200,210,225,.45); }
+.glow-gold { text-shadow: 0 0 6px rgba(201,168,76,.9), 0 0 14px rgba(201,168,76,.5); }
+.glow-crimson { text-shadow: 0 0 6px rgba(214,68,68,.9), 0 0 14px rgba(214,68,68,.5); }
+.glow-prism { animation: glowPrism 4s linear infinite; }
+@keyframes glowPrism {
+  0% { text-shadow: 0 0 8px #dd6644, 0 0 14px #dd6644; }
+  33% { text-shadow: 0 0 8px #44dd88, 0 0 14px #44dd88; }
+  66% { text-shadow: 0 0 8px #4488dd, 0 0 14px #4488dd; }
+  100% { text-shadow: 0 0 8px #dd6644, 0 0 14px #dd6644; }
+}
+/* Косметика: рамки аватара */
+.frame-bronze { box-shadow: 0 0 0 2px #8a5a2b, 0 0 0 3px rgba(138,90,43,.4); }
+.frame-neon { box-shadow: 0 0 0 2px #2bd4c0, 0 0 10px rgba(43,212,192,.6); }
+.frame-abyss { box-shadow: 0 0 0 2px #7a3bd6, 0 0 12px rgba(122,59,214,.6); }
+.frame-celestial { box-shadow: 0 0 0 2px #c9a84c, 0 0 14px rgba(201,168,76,.7); }
+/* Титул под ником */
+.ptitle { font-size: 10.5px; color: var(--gold2); margin-top: 2px; font-style: italic; }
+/* Конструктор «Внешний вид» */
+.looks-preview { text-align: center; padding: 14px 0; margin-bottom: 10px; border-bottom: 1px solid var(--border2); }
+.looks-preview .ava { width: 64px; height: 64px; font-size: 32px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--s); }
+.looks-preview .pname { font-size: 16px; font-weight: 700; }
+.looks-slot { margin-bottom: 12px; }
+.looks-slot-t { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.looks-cards { display: flex; flex-wrap: wrap; gap: 6px; }
+.looks-card { border: 1px solid var(--border2); border-radius: 8px; padding: 6px 8px; font-size: 11px; cursor: pointer; min-width: 78px; transition: border-color .15s, transform .1s; }
+.looks-card:active { transform: scale(.97); }
+.looks-card.sel { border-color: var(--gold); background: var(--gold-dim, rgba(201,168,76,.1)); }
+.looks-card.locked { cursor: default; opacity: .92; }
+.lc-name { font-weight: 600; margin-bottom: 2px; }
+.lc-tag { font-size: 9px; color: var(--muted); }
+.lc-buys { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.lc-buy { padding: 2px 6px !important; font-size: 9px !important; }
+.lc-vip { font-size: 8px; background: var(--gold); color: #1a1a1a; border-radius: 4px; padding: 0 4px; vertical-align: middle; }
+.r-rare .lc-name { color: #5b9bd5; }
+.r-epic .lc-name { color: #b07ad6; }
+.r-legendary .lc-name { color: var(--gold2); }
 
 /* рарность */
 .rc { font-size: 8.5px; font-weight: 800; padding: 2px 6px; border-radius: 6px; letter-spacing: .4px; text-transform: uppercase; }
