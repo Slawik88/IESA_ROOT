@@ -29,6 +29,37 @@ def _ends_at_str() -> str:
     return ends.strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _fmt_mora(v) -> str:
+    """Float-формат моры для анонсов: разделители тысяч + до 2 знаков без хвостовых нулей."""
+    s = f"{float(v or 0):,.2f}".replace(",", " ")
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return s
+
+
+def build_lot_announcement(lot: dict, bot_username: str = "") -> tuple[str, dict | None]:
+    """Текст + inline-клавиатура анонса нового лота для основных чатов.
+    Чистое форматирование (без доставки/bot-импортов). reply_markup=None без bot_username."""
+    name = (lot.get("item_name") or "Лот").split("||")[0]
+    qty = lot.get("quantity") or 1
+    is_pet = lot.get("item_type") == "pet"
+    icon = "🐾" if is_pet else "📦"
+    lines = [
+        "🔨 <b>Новый лот на аукционе!</b>",
+        f"{icon} <b>{name}</b>" + (f" ×{qty}" if (qty and qty > 1 and not is_pet) else ""),
+        f"💰 Старт: <b>{_fmt_mora(lot.get('min_bid'))}</b> 🪙",
+    ]
+    if lot.get("buyout"):
+        lines.append(f"⚡ Мгновенный выкуп: <b>{_fmt_mora(lot.get('buyout'))}</b> 🪙")
+    lines.append(f"⏳ Идёт {AUCTION_DURATION_HOURS} ч · успей сделать ставку во вкладке «Аукцион»!")
+    text = "\n".join(lines)
+    markup = None
+    if bot_username:
+        url = f"https://t.me/{bot_username}?startapp=auction_{lot.get('id', '')}"
+        markup = {"inline_keyboard": [[{"text": "🔨 Открыть аукцион", "url": url}]]}
+    return text, markup
+
+
 async def _restore_pet_escrow(db, lot: dict) -> None:
     """Вернуть питомца из эскроу (placement='auction') на склад продавца.
     Вызывается при отмене/истечении лота-питомца — иначе питомец застревает в

@@ -325,6 +325,9 @@ CHAT_TIMEZONE_MIN: int = -12
 CHAT_TIMEZONE_MAX: int = 14
 
 # ── Daily Streak (§21) ────────────────────────────────────────────────────────
+# Стрик ЕДИНЫЙ на все чаты (глобальный). Граница «дня» считается в одной таймзоне
+# (МСК, UTC+3) — единый день для всех чатов, чтобы стрик не дробился по часовым поясам.
+STREAK_TIMEZONE_OFFSET: int = 3
 STREAK_BLOCK_SIZE: int = 7
 STREAK_RECOVERY_DIAMONDS: float = 1.5
 STREAK_RECOVERY_MORA: float = 100.0

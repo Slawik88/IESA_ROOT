@@ -8,7 +8,7 @@ from infrastructure.repositories.zoo import get_active_species_level
 from services.streak import get_today_in_tz, process_daily_login
 from services.achievements import increment_metric as _ach_incr
 from services.utils import format_currency
-from core.constants import OWL_BONUSES
+from core.constants import OWL_BONUSES, STREAK_TIMEZONE_OFFSET
 
 
 def _build_streak_notification(result: dict, user_name: str, chat_id: int) -> str:
@@ -72,10 +72,12 @@ async def streak_middleware(
     if is_message_event:
         if event.message.chat.type != "private":
             try:
-                tz_offset = await streak_repo.get_chat_timezone(db, chat_obj.id)
-                today = get_today_in_tz(tz_offset)
+                # Стрик ЕДИНЫЙ на все чаты: единая таймзона (граница «дня» одна для всех)
+                # и одна глобальная строка (chat_id=0). Первое сообщение дня в ЛЮБОМ чате
+                # забирает день атомарно → одна награда в день независимо от числа чатов.
+                today = get_today_in_tz(STREAK_TIMEZONE_OFFSET)
 
-                streak_row = await streak_repo.get_streak(db, user.id, chat_obj.id)
+                streak_row = await streak_repo.get_global_streak(db, user.id)
                 result = process_daily_login(streak_row, today)
 
                 if result["is_new_day"] and not result["already_notified"]:
@@ -84,9 +86,10 @@ async def streak_middleware(
                     recovery_cost = calc_recovery_cost(result["recovery_missed_days"])
                     result["_recovery_cost"] = recovery_cost
 
-                    # Atomically claim the day; prevents double reward on concurrent messages
-                    claimed = await streak_repo.upsert_streak(
-                        db, user.id, chat_obj.id,
+                    # Atomically claim the day (на глобальной строке chat_id=0): защищает
+                    # от двойной награды при сообщениях в разных чатах в один день.
+                    claimed = await streak_repo.upsert_global_streak(
+                        db, user.id,
                         streak=result["new_streak"],
                         today=today,
                         recovery_streak=result["recovery_streak"],

@@ -68,6 +68,43 @@ async def _tg_call(method: str, **kwargs) -> dict:
         return {"ok": False, "error": str(e)}
 
 
+async def _classify_chat_links(db, items: list[dict], id_key: str) -> None:
+    """In-place разметка чатов по chat_links (Основная↔Админ группа):
+    проставляет role (main/admin/plain), group_key (id основного чата группы),
+    linked_title (название связанного чата). items[i] должен иметь items[i][id_key]
+    (chat id) и items[i]['admin_chat_id'] (из LEFT JOIN chat_links по main_chat_id)."""
+    ids = [it[id_key] for it in items]
+    serves: dict = {}   # admin_chat_id -> main_chat_id (чаты, которые сами являются админками)
+    if ids:
+        ph = ",".join("?" * len(ids))
+        async with db.execute(
+            f"SELECT main_chat_id, admin_chat_id FROM chat_links WHERE admin_chat_id IN ({ph})",
+            tuple(ids),
+        ) as c:
+            for lk in await c.fetchall():
+                serves[lk["admin_chat_id"]] = lk["main_chat_id"]
+    linked = {it["admin_chat_id"] for it in items if it.get("admin_chat_id")} | set(serves.values())
+    titles: dict = {}
+    if linked:
+        ph = ",".join("?" * len(linked))
+        async with db.execute(
+            f"SELECT chat_id, chat_title FROM chat_settings WHERE chat_id IN ({ph})",
+            tuple(linked),
+        ) as c:
+            titles = {x["chat_id"]: (x["chat_title"] or str(x["chat_id"])) for x in await c.fetchall()}
+    for it in items:
+        cid = it[id_key]
+        if cid in serves:                       # это админ-чат для основной группы
+            it["role"] = "admin"; it["group_key"] = serves[cid]
+            it["linked_title"] = titles.get(serves[cid])
+        elif it.get("admin_chat_id"):           # это основная группа с привязанным админ-чатом
+            it["role"] = "main"; it["group_key"] = cid
+            it["linked_title"] = titles.get(it["admin_chat_id"])
+        else:
+            it["role"] = "plain"; it["group_key"] = cid
+            it["linked_title"] = None
+
+
 # ── 1. Обзор системы ─────────────────────────────────────────────────────────────
 @router.get("/overview")
 async def dev_overview(db=Depends(get_db), user=Depends(require_tg_user)):
@@ -134,14 +171,21 @@ async def dev_user_lookup(q: str = Query(..., max_length=64),
     uid = d["user_tg_id"]
     d["global_rank_name"] = GLOBAL_RANKS_MAP.get(d["global_rank"], "?")
 
-    # VIP
+    # VIP — со сроком: сколько дней осталось (days_left) и на сколько в целом текущая
+    # подписка (span_days = started_at→expires_at), плюс накопленный стаж (total_days).
     async with db.execute(
-        "SELECT tier, expires_at, COALESCE(total_days,0) AS total_days, "
-        "(expires_at > NOW()) AS active FROM vip_subscriptions WHERE user_id = ?", (uid,)
+        "SELECT tier, started_at, expires_at, COALESCE(total_days,0) AS total_days, "
+        "(expires_at > NOW()) AS active, "
+        "GREATEST(0, CEIL(EXTRACT(EPOCH FROM (expires_at - NOW())) / 86400.0))::int AS days_left, "
+        "GREATEST(0, CEIL(EXTRACT(EPOCH FROM (expires_at - started_at)) / 86400.0))::int AS span_days "
+        "FROM vip_subscriptions WHERE user_id = ?", (uid,)
     ) as c:
         vrow = await c.fetchone()
     d["vip"] = ({"tier": vrow["tier"], "active": bool(vrow["active"]),
-                 "expires_at": str(vrow["expires_at"]), "total_days": vrow["total_days"]}
+                 "expires_at": str(vrow["expires_at"]),
+                 "started_at": str(vrow["started_at"]) if vrow["started_at"] else None,
+                 "days_left": vrow["days_left"], "span_days": vrow["span_days"],
+                 "total_days": vrow["total_days"]}
                 if vrow else None)
 
     # Battle Pass (активный сезон)
@@ -157,16 +201,30 @@ async def dev_user_lookup(q: str = Query(..., max_length=64),
         if bp:
             d["battle_pass"] = {"season": season["id"], "xp": bp["xp"], "level": bp["level"]}
 
-    # Чаты
+    # Чаты — только реальные группы (chat_tg_id < 0, без ЛС с ботом). Размечаем
+    # связь Основная↔Админ (chat_links) и переупорядочиваем, чтобы чаты одной
+    # группы (основной + его админ-чат) шли рядом.
     async with db.execute(
         "SELECT ucs.chat_tg_id, COALESCE(cs.chat_title, CAST(ucs.chat_tg_id AS TEXT)) AS chat_title, "
-        "ucs.local_rank, ucs.user_level, ucs.user_messages_count_all_time, ucs.warnings, ucs.is_left "
-        "FROM user_chat_stats ucs LEFT JOIN chat_settings cs ON cs.chat_id = ucs.chat_tg_id "
-        "WHERE ucs.user_tg_id = ? ORDER BY ucs.user_messages_count_all_time DESC", (uid,)
+        "ucs.local_rank, ucs.user_level, ucs.user_messages_count_all_time, ucs.warnings, ucs.is_left, "
+        "lk.admin_chat_id "
+        "FROM user_chat_stats ucs "
+        "LEFT JOIN chat_settings cs ON cs.chat_id = ucs.chat_tg_id "
+        "LEFT JOIN chat_links lk ON lk.main_chat_id = ucs.chat_tg_id "
+        "WHERE ucs.user_tg_id = ? AND ucs.chat_tg_id < 0 "
+        "ORDER BY ucs.user_messages_count_all_time DESC", (uid,)
     ) as c:
         chats = [dict(r) for r in await c.fetchall()]
     for ch in chats:
         ch["rank_name"] = LOCAL_RANKS_MAP.get(ch["local_rank"] or 0, "?")
+    await _classify_chat_links(db, chats, "chat_tg_id")
+    # Порядок: группы рядом, активные группы выше; внутри группы main → admin.
+    gmax: dict = {}
+    for ch in chats:
+        gk = ch["group_key"]; m = ch.get("user_messages_count_all_time") or 0
+        gmax[gk] = max(gmax.get(gk, 0), m)
+    _role_ord = {"main": 0, "admin": 1, "plain": 0}
+    chats.sort(key=lambda c: (-gmax[c["group_key"]], c["group_key"], _role_ord.get(c["role"], 0)))
     d["chats"] = chats
 
     # Активные глобальные санкции
@@ -312,9 +370,14 @@ async def dev_give_item(body: GiveItemRequest, db=Depends(get_db), user=Depends(
 
 @router.get("/items")
 async def dev_items(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Полный список предметов (ITEMS_REGISTRY) для каталога-пикера в дев-консоли."""
     _require_dev(user)
-    return {"items": [{"item_id": iid, "name": info.get("name", iid)}
-                      for iid, info in ITEMS_REGISTRY.items()]}
+    items = [{"item_id": iid, "name": info.get("name", iid),
+              "category": info.get("category", "—"),
+              "description": info.get("description", "")}
+             for iid, info in ITEMS_REGISTRY.items()]
+    items.sort(key=lambda x: (x["category"], x["name"]))
+    return {"items": items}
 
 
 @router.get("/admin-log")
@@ -326,13 +389,26 @@ async def dev_admin_log(db=Depends(get_db), user=Depends(require_tg_user)):
 
 @router.get("/chats")
 async def dev_chats(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Список чатов для дропдауна «чат → юзер» в карточке игрока (БЛОК 4.1)."""
+    """Список чатов для дропдауна «чат → юзер» в карточке игрока (БЛОК 4.1).
+    Только реальные группы (chat_id < 0, без ЛС с ботом), с разметкой Основная↔Админ
+    и упорядочиванием так, чтобы админ-чат шёл сразу за своей основной группой."""
     _require_dev(user)
     async with db.execute(
-        "SELECT chat_id, COALESCE(chat_title, CAST(chat_id AS TEXT)) AS title "
-        "FROM chat_settings ORDER BY chat_title LIMIT 200"
+        "SELECT cs.chat_id, COALESCE(cs.chat_title, CAST(cs.chat_id AS TEXT)) AS title, "
+        "lk.admin_chat_id "
+        "FROM chat_settings cs LEFT JOIN chat_links lk ON lk.main_chat_id = cs.chat_id "
+        "WHERE cs.chat_id < 0 ORDER BY cs.chat_title LIMIT 300"
     ) as c:
-        return {"chats": [dict(r) for r in await c.fetchall()]}
+        rows = [dict(r) for r in await c.fetchall()]
+    await _classify_chat_links(db, rows, "chat_id")
+    _role_ord = {"main": 0, "admin": 1, "plain": 2}
+
+    def _grp(r: dict) -> str:
+        base = r["linked_title"] if r["role"] == "admin" else r["title"]
+        return (base or "").lower()
+
+    rows.sort(key=lambda r: (_grp(r), _role_ord.get(r["role"], 2), (r["title"] or "").lower()))
+    return {"chats": rows}
 
 
 @router.get("/chat-members")
@@ -465,6 +541,44 @@ async def dev_set_vip(body: SetVipRequest, db=Depends(get_db), user=Depends(requ
     await _tg_call("sendMessage", chat_id=body.user_id, parse_mode="HTML",
                    text=f"🔄 Ваш VIP переключён на <b>{label}</b> на {body.days} дн. + бонус пакета!")
     return {"ok": True, "label": label}
+
+
+class AdjustVipRequest(BaseModel):
+    user_id: int
+    days: int
+
+
+@router.post("/adjust-vip-days")
+async def dev_adjust_vip_days(body: AdjustVipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """± дней к ТЕКУЩЕМУ VIP, не меняя тариф. days<0 — убавить срок (не уходит в прошлое
+    дальше NOW); days>0 — продлить (и +стаж). Требуется активный VIP."""
+    _require_dev(user)
+    if not body.days or not (-3650 <= body.days <= 3650):
+        raise HTTPException(400, "days: ненулевое значение в пределах ±3650.")
+    async with db.execute(
+        "SELECT (expires_at > NOW()) AS active FROM vip_subscriptions WHERE user_id = ?",
+        (body.user_id,),
+    ) as c:
+        row = await c.fetchone()
+    if not row or not row["active"]:
+        raise HTTPException(400, "Нет активного VIP. Используйте «Выдать / продлить».")
+    async with db.execute(
+        "UPDATE vip_subscriptions SET "
+        "expires_at = GREATEST(NOW(), expires_at + make_interval(days => ?)), "
+        "expiry_notified = FALSE, "
+        "total_days = CASE WHEN ? > 0 THEN COALESCE(total_days,0) + ? ELSE total_days END "
+        "WHERE user_id = ? "
+        "RETURNING GREATEST(0, CEIL(EXTRACT(EPOCH FROM (expires_at - NOW())) / 86400.0))::int AS days_left",
+        (body.days, body.days, body.days, body.user_id),
+    ) as c:
+        res = await c.fetchone()
+    await db.commit()
+    if body.days > 0:
+        msg = f"👑 Ваш VIP продлён на {body.days} дн. администратором."
+    else:
+        msg = f"⏳ Срок вашего VIP сокращён на {abs(body.days)} дн. администратором."
+    await _tg_call("sendMessage", chat_id=body.user_id, parse_mode="HTML", text=msg)
+    return {"ok": True, "days": body.days, "days_left": res["days_left"] if res else None}
 
 
 # ── 5б. Системные ресурсы (исключая девелопера) ─────────────────────────────────

@@ -2,6 +2,10 @@ import aiosqlite
 from datetime import datetime, timedelta
 from typing import Optional
 
+# Стрик ЕДИНЫЙ на все чаты: храним в одной строке daily_login с sentinel chat_id = 0.
+# Любое сообщение в любом чате обновляет именно её (один стрик, одна награда в день).
+GLOBAL_STREAK_CHAT_ID = 0
+
 
 async def get_streak(db: aiosqlite.Connection, user_id: int, chat_id: int) -> dict:
     async with db.execute(
@@ -71,6 +75,25 @@ async def update_streak_after_recovery(
            WHERE user_id = ? AND chat_id = ?""",
         (restored_streak, user_id, chat_id),
     )
+
+
+# ── Глобальный стрик (один на все чаты, sentinel chat_id = 0) ────────────────────
+async def get_global_streak(db, user_id: int) -> dict:
+    return await get_streak(db, user_id, GLOBAL_STREAK_CHAT_ID)
+
+
+async def upsert_global_streak(
+    db, user_id: int, streak: int, today: datetime,
+    recovery_streak: int = 0, recovery_missed_days: int = 0, recovery_expires=None,
+) -> bool:
+    return await upsert_streak(
+        db, user_id, GLOBAL_STREAK_CHAT_ID, streak, today,
+        recovery_streak, recovery_missed_days, recovery_expires,
+    )
+
+
+async def update_global_streak_after_recovery(db, user_id: int, restored_streak: int) -> None:
+    await update_streak_after_recovery(db, user_id, GLOBAL_STREAK_CHAT_ID, restored_streak)
 
 
 async def get_chat_timezone(db: aiosqlite.Connection, chat_id: int) -> int:
