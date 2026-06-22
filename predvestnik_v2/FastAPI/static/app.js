@@ -378,10 +378,11 @@ function loadProfile() {
     el('pro-main').innerHTML=`
       <div class="hero">
         <div class="hero-head">
-          <div class="ava" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
+          <div class="ava ${d.cosmetics&&d.cosmetics.avatar_frame?d.cosmetics.avatar_frame.css:''}" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
           <div style="min-width:0">
-            <div class="pname">@${vipName(d.username||'Игрок', d.is_vip)}</div>
+            <div class="pname ${d.cosmetics&&d.cosmetics.name_glow?d.cosmetics.name_glow.css:''}">@${vipName(d.username||'Игрок', d.is_vip)}</div>
             <div class="prank">${d.rank}</div>
+            ${d.cosmetics&&d.cosmetics.title?`<div class="ptitle">${esc(d.cosmetics.title)}</div>`:''}
           </div>
         </div>
         <div class="hero-xp">
@@ -409,6 +410,7 @@ function loadProfile() {
       </div>
 
       <button class="btn btn-full promo-cta" style="margin-top:10px" onclick="openPromoModal()">🎟 У меня есть промокод</button>
+      <button class="btn btn-full btn-ghost" style="margin-top:8px" onclick="openLooksModal()">🎨 Внешний вид</button>
 
       <!-- Активные баффы (заполняется loadActiveBuffs) -->
       <div id="pro-buffs"></div>
@@ -452,6 +454,81 @@ function loadProfile() {
     if(!_adminChats) checkAdminAccess();
     checkGlobalAccess();
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
+}
+// ── Конструктор «Внешний вид» (косметика профиля) ──────────────────────────────
+const _LOOKS_SLOTS=['name_glow','avatar_frame','title'];
+const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',title:'🏷 Титул'};
+let _looksData=null, _looksSel={}, _looksDirty=false;
+function openLooksModal(){
+  _looksDirty=false;
+  OM('🎨 Внешний вид','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-gold',f:'_looksClose()'}]);
+  api('/cosmetics/').then(d=>{_looksData=d;_looksSel=_looksEquipped(d);renderLooks();})
+    .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;});
+}
+function _looksClose(){ CM(); if(_looksDirty) loadProfile(); }
+function _looksEquipped(d){
+  const sel={};
+  _LOOKS_SLOTS.forEach(s=>{const eq=(d.slots[s]||[]).find(it=>it.equipped); sel[s]=eq?eq.id:null;});
+  return sel;
+}
+function _looksCos(id){ if(!id)return null; for(const s of _LOOKS_SLOTS){const f=(_looksData.slots[s]||[]).find(it=>it.id===id); if(f)return f;} return null; }
+function _rarLabel(r){return {common:'Обычный',rare:'Редкий',epic:'Эпический',legendary:'Легендарный',mythic:'Мифический'}[r]||r;}
+function _srcLabel(s){return {vip:'🎁 даётся с VIP',bp:'🎫 платный БП',reward:'🏅 за достижение',shop:''}[s]||'';}
+function _looksPriceTxt(opt){ return Object.entries(opt).map(([cur,amt])=>`${amt}${(_looksData.currency_icons||{})[cur]||cur}`).join('+'); }
+function renderLooks(){
+  const b=el('mb'); if(!b||!_looksData) return;
+  b.innerHTML=_looksPreviewHtml()+_LOOKS_SLOTS.map(_looksSlotHtml).join('');
+}
+function _looksPreviewHtml(){
+  const d=_looksData;
+  const glow=_looksCos(_looksSel.name_glow), frame=_looksCos(_looksSel.avatar_frame), title=_looksCos(_looksSel.title);
+  return `<div class="looks-preview">
+    <div class="ava ${frame?frame.css:''}">${d.vip?'👑':'🔮'}</div>
+    <div class="pname ${glow?glow.css:''}">@${esc((_profileData&&_profileData.username)||'Игрок')}</div>
+    ${title?`<div class="ptitle">${esc(title.text||title.name)}</div>`:''}
+  </div>`;
+}
+function _looksSlotHtml(slot){
+  const items=_looksData.slots[slot]||[];
+  const none=`<div class="looks-card ${_looksSel[slot]?'':'sel'}" onclick="_looksUnequip('${slot}')">✖ Без</div>`;
+  return `<div class="looks-slot"><div class="looks-slot-t">${_LOOKS_SLOT_LABEL[slot]}</div>
+    <div class="looks-cards">${none}${items.map(it=>_looksCard(slot,it)).join('')}</div></div>`;
+}
+function _looksCard(slot,it){
+  const sel=_looksSel[slot]===it.id;
+  if(it.owned){
+    return `<div class="looks-card r-${it.rarity} ${sel?'sel':''}" onclick="_looksEquip('${slot}','${it.id}')">
+      <div class="lc-name">${esc(it.name)}</div>
+      <div class="lc-tag">${_rarLabel(it.rarity)}${it.equipped?' · надето':''}</div>
+    </div>`;
+  }
+  const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
+  let foot;
+  if(it.price&&it.price.length){
+    foot=`<div class="lc-buys">${it.price.map((opt,i)=>`<button class="btn btn-sm btn-gold lc-buy" onclick="_looksBuy('${it.id}',${i})">${_looksPriceTxt(opt)}</button>`).join('')}</div>`;
+  } else {
+    foot=`<div class="lc-tag">${_srcLabel(it.source)}</div>`;
+  }
+  return `<div class="looks-card r-${it.rarity} locked"><div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>${foot}</div>`;
+}
+function _looksEquip(slot,id){
+  _looksSel[slot]=id;
+  (_looksData.slots[slot]||[]).forEach(it=>it.equipped=(it.id===id));
+  renderLooks(); _looksDirty=true;
+  api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})}).catch(e=>toast(e,false));
+}
+function _looksUnequip(slot){
+  _looksSel[slot]=null;
+  (_looksData.slots[slot]||[]).forEach(it=>it.equipped=false);
+  renderLooks(); _looksDirty=true;
+  api('/cosmetics/unequip',{method:'POST',body:JSON.stringify({slot})}).catch(e=>toast(e,false));
+}
+function _looksBuy(id,opt){
+  api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})
+    .then(r=>{toast(r.message); refreshCurrBar(); _looksDirty=true;
+      return api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})});})
+    .then(()=>openLooksModal())
+    .catch(e=>toast(e,false));
 }
 // ── Preloader: эффектный холодный старт (БЛОК 9.2) ──────────────────────────────
 function _plSkip() {

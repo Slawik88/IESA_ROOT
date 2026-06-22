@@ -13,6 +13,7 @@ from services.roles import GLOBAL_RANKS_MAP
 from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
 from services.formatting import safe_html
 from services.vip import is_vip_active
+from services.cosmetics import get_active_cosmetics
 from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import set_nickname
 
@@ -164,6 +165,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "is_vip":       bool(row["is_vip"]),
         "global_rank":  row["global_rank"] or 0,
         "partner":      partner,
+        "cosmetics":    await get_active_cosmetics(db, user_id),
     }
 
 

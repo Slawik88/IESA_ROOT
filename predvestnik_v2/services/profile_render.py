@@ -682,13 +682,14 @@ def _render_premium(template_id: str, user_id: int, name: str,
                     partner_display: str | None = None,
                     dark_v=0, zar_v=0, is_vip: bool = False,
                     first_seen: str = "—", last_seen: str = "—",
-                    override_raw_text: str | None = None) -> str | None:
+                    override_raw_text: str | None = None,
+                    title: str | None = None) -> str | None:
     text = _render_premium_impl(
         template_id, user_id, name, g_rank, l_rank, lvl, pct,
         mora_v, dia_v, d_msgs, w_msgs, a_msgs,
         streak, ach_count, warns, marriage, nursery_pets,
         partner_display, dark_v, zar_v, is_vip, first_seen, last_seen,
-        override_raw_text=override_raw_text,
+        override_raw_text=override_raw_text, title=title,
     )
     return _protect_spacing(text) if text else text
 
@@ -700,7 +701,8 @@ def _render_premium_impl(template_id: str, user_id: int, name: str,
                     partner_display: str | None = None,
                     dark_v=0, zar_v=0, is_vip: bool = False,
                     first_seen: str = "—", last_seen: str = "—",
-                    override_raw_text: str | None = None) -> str | None:
+                    override_raw_text: str | None = None,
+                    title: str | None = None) -> str | None:
     bar  = _premium_bar(pct)
     mora = _compact(mora_v)
     dia  = _compact(dia_v)
@@ -737,6 +739,8 @@ def _render_premium_impl(template_id: str, user_id: int, name: str,
         pets_passive=pets_passive,
         _pa=_pa, _pp=_pp, _pnm=_pnm, _plv=_plv, _pfat=_pfat, _pdup=_pdup,
     )
+    ctx["титул"] = title or ""   # косметический титул (опц., для премиум/Theme Lab)
+    ctx["title"] = title or ""
     tpl = override_raw_text or _DEFAULT_RAW_TEMPLATES.get(template_id)
     if tpl is None:
         return None
@@ -786,6 +790,9 @@ async def build_profile_text(
     hamster_inc    = await zoo_db.get_pending_hamster_income(db, user_id)
     ach_count      = await ach_repo.get_user_achievements_count(db, user_id)
     is_vip         = await is_vip_active(db, user_id)
+
+    from services.cosmetics import get_active_cosmetics
+    title = (await get_active_cosmetics(db, user_id)).get("title")
 
     theme_id = theme_id_override or await get_active_theme(db, user_id)
     theme    = _load_theme(theme_id)
@@ -875,7 +882,7 @@ async def build_profile_text(
             mora_v, dia_v, d_msgs, w_msgs, a_msgs,
             streak, ach_count, warns, marriage, nursery_pets,
             partner_display, dark_v, zar_v, is_vip, join_str, last_str,
-            override_raw_text=override_raw,
+            override_raw_text=override_raw, title=title,
         )
         if result:
             return result
@@ -904,7 +911,9 @@ async def build_profile_text(
     if t_prefix:
         return (
             f"{t_top}\n"
-            + name_block + f"\n"
+            + name_block
+            + (f"{P}🏷 <i>{safe_html(title)}</i>\n" if title else "")
+            + f"\n"
             + f"{t_sep}\n\n"
             + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
             + f"{P}{_bal1}\n"
@@ -923,7 +932,9 @@ async def build_profile_text(
     else:
         return (
             f"{t_top}\n"
-            + name_block + f"\n"
+            + name_block
+            + (f"🏷 <i>{safe_html(title)}</i>\n" if title else "")
+            + f"\n"
             + f"{t_sep}\n\n"
             + f"🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
             + f"{_bal1}\n"

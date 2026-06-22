@@ -836,6 +836,23 @@ async def init_db():
                 value TEXT
             )
         """)
+        # Косметика профиля (конструктор внешнего вида): владение + надетый сет.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_cosmetics (
+                user_id     BIGINT NOT NULL,
+                cosmetic_id TEXT NOT NULL,
+                acquired_at TIMESTAMP DEFAULT NOW(),
+                PRIMARY KEY (user_id, cosmetic_id)
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_cosmetic_loadout (
+                user_id     BIGINT NOT NULL,
+                slot        TEXT NOT NULL,
+                cosmetic_id TEXT NOT NULL,
+                PRIMARY KEY (user_id, slot)
+            )
+        """)
 
         # Theme Lab — кастомные raw-шаблоны премиум-тем профиля (правки без деплоя)
         await db.execute("""
