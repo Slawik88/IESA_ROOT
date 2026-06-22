@@ -27,7 +27,15 @@ from infrastructure.repositories.economy import (
     add_balance, add_item, remove_item, get_item_quantity, get_balance,
 )
 from infrastructure.repositories import admin_log
-from services.battle_pass import get_active_season, refresh_seasons_cache
+from services.battle_pass import (
+    all_xp_actions,
+    get_active_season,
+    get_weekend_boost_pct,
+    refresh_seasons_cache,
+    reset_xp_weight_override,
+    set_weekend_boost_pct,
+    set_xp_weight_override,
+)
 from services.themes import get_effective_theme
 from services.profile_render import (
     build_profile_text,
@@ -549,6 +557,79 @@ async def dev_bp_xp(body: BpXpRequest, db=Depends(get_db), user=Depends(require_
     )
     await db.commit()
     return {"ok": True, "xp": new_xp, "level": new_level}
+
+
+# ── XP-конструктор: вес/вкл-выкл/дневной потолок за каждое действие ──────────────
+_METRIC_RE = re.compile(r"^[a-z0-9_]{1,40}$")
+
+
+class BpXpWeightRequest(BaseModel):
+    metric: str
+    weight: int
+    enabled: bool = True
+    daily_cap: int = 0
+    label: Optional[str] = None
+
+
+class BpMetricRequest(BaseModel):
+    metric: str
+
+
+@router.get("/bp/xp-actions")
+async def dev_bp_xp_actions(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Список всех действий, дающих XP БП (дефолты ⊕ БД-оверрайды) — для конструктора."""
+    _require_dev(user)
+    actions = await all_xp_actions(db)
+    return {
+        "actions": actions,
+        "xp_per_level": BATTLE_PASS_XP_PER_LEVEL,
+        "max_level": BATTLE_PASS_MAX_LEVEL,
+        "weekend_boost_pct": await get_weekend_boost_pct(db),
+    }
+
+
+@router.post("/bp/xp-weight")
+async def dev_bp_xp_weight_set(body: BpXpWeightRequest, db=Depends(get_db),
+                               user=Depends(require_tg_user)):
+    """Создать/обновить оверрайд: вес XP, вкл/выкл, дневной потолок, ярлык."""
+    _require_dev(user)
+    metric = (body.metric or "").strip().lower()
+    if not _METRIC_RE.match(metric):
+        raise HTTPException(400, "metric: только a-z, 0-9, _ (до 40 символов).")
+    if not (0 <= body.weight <= 100000):
+        raise HTTPException(400, "weight вне диапазона 0..100000.")
+    if not (0 <= body.daily_cap <= 1000000):
+        raise HTTPException(400, "daily_cap вне диапазона 0..1000000.")
+    label = (body.label or "").strip()[:64] or None
+    await set_xp_weight_override(db, metric, body.weight, body.enabled, body.daily_cap, label)
+    return {"ok": True}
+
+
+@router.post("/bp/xp-weight/reset")
+async def dev_bp_xp_weight_reset(body: BpMetricRequest, db=Depends(get_db),
+                                 user=Depends(require_tg_user)):
+    """Удалить оверрайд → действие вернётся к дефолтам constants."""
+    _require_dev(user)
+    metric = (body.metric or "").strip().lower()
+    if not _METRIC_RE.match(metric):
+        raise HTTPException(400, "metric некорректен.")
+    await reset_xp_weight_override(db, metric)
+    return {"ok": True}
+
+
+class BpWeekendRequest(BaseModel):
+    pct: int
+
+
+@router.post("/bp/weekend-boost")
+async def dev_bp_weekend_boost(body: BpWeekendRequest, db=Depends(get_db),
+                               user=Depends(require_tg_user)):
+    """C7: % бонуса XP по выходным (0 = выключить)."""
+    _require_dev(user)
+    if not (0 <= body.pct <= 500):
+        raise HTTPException(400, "pct вне диапазона 0..500.")
+    await set_weekend_boost_pct(db, body.pct)
+    return {"ok": True, "pct": body.pct}
 
 
 @router.get("/bp/seasons")

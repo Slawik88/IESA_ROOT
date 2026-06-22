@@ -6,7 +6,12 @@ No bot.*/FastAPI.* imports.
 from datetime import date
 
 from core.constants import (
+    BATTLE_PASS_BUY_LEVEL_BASE,
+    BATTLE_PASS_BUY_LEVEL_MARGIN,
+    BATTLE_PASS_BUY_LEVEL_STEP,
     BATTLE_PASS_MAX_LEVEL,
+    BATTLE_PASS_XP_ACTION_LABELS,
+    BATTLE_PASS_XP_DAILY_CAPS,
     BATTLE_PASS_XP_PER_LEVEL,
     BATTLE_PASS_XP_WEIGHTS,
 )
@@ -68,10 +73,32 @@ async def _get_or_create_progress(db, user_id: int, season_id: str) -> dict:
     return {"xp": 0, "level": 1, "claimed_free_levels": [], "claimed_paid_levels": []}
 
 
+async def _effective_xp_config(db, metric_name: str) -> tuple[int, bool, int]:
+    """(weight, enabled, daily_cap) для метрики с учётом БД-оверрайдов.
+    Строка в bp_xp_weight_overrides перекрывает дефолты constants (единый
+    источник → паритет бот↔сайт). daily_cap: 0 = без лимита."""
+    async with db.execute(
+        "SELECT weight, enabled, daily_cap FROM bp_xp_weight_overrides WHERE metric = ?",
+        (metric_name,),
+    ) as c:
+        row = await c.fetchone()
+    if row is not None:
+        return int(row["weight"] or 0), bool(row["enabled"]), int(row["daily_cap"] or 0)
+    return (
+        int(BATTLE_PASS_XP_WEIGHTS.get(metric_name, 0)),
+        True,
+        int(BATTLE_PASS_XP_DAILY_CAPS.get(metric_name, 0)),
+    )
+
+
 async def add_xp(db, user_id: int, metric_name: str, delta: float = 1.0) -> None:
-    """Начислить XP Боевого пропуска за игровое действие. No commit — caller handles commit."""
-    weight = BATTLE_PASS_XP_WEIGHTS.get(metric_name)
-    if not weight:
+    """Начислить XP Боевого пропуска за игровое действие. No commit — caller handles commit.
+
+    B (конструктор): вес и вкл/выкл берутся из bp_xp_weight_overrides (БД > constants).
+    A (анти-абуз): дневной потолок XP на это действие усекает прибавку до остатка.
+    """
+    weight, enabled, daily_cap = await _effective_xp_config(db, metric_name)
+    if not enabled or weight <= 0:
         return
     season = get_active_season()
     if not season:
@@ -80,6 +107,33 @@ async def add_xp(db, user_id: int, metric_name: str, delta: float = 1.0) -> None
     xp_gain = int(weight * delta)
     if xp_gain <= 0:
         return
+
+    # C7. Бонус выходного дня (+X% XP), если включён в конструкторе.
+    boost_on, boost_pct = await weekend_boost_active(db)
+    if boost_on:
+        xp_gain = int(xp_gain * (100 + boost_pct) / 100)
+
+    # A. Дневной потолок XP на это действие (0 = без лимита). Усекаем прибавку до
+    # остатка лимита; счётчик инкрементим в той же транзакции, что и начисление XP.
+    if daily_cap > 0:
+        today = date.today().isoformat()
+        async with db.execute(
+            "SELECT xp_today FROM bp_xp_daily WHERE user_id = ? AND day = ? AND metric = ?",
+            (user_id, today, metric_name),
+        ) as c:
+            drow = await c.fetchone()
+        used = int(drow["xp_today"]) if drow else 0
+        remaining = daily_cap - used
+        if remaining <= 0:
+            return
+        if xp_gain > remaining:
+            xp_gain = remaining
+        await db.execute(
+            "INSERT INTO bp_xp_daily (user_id, day, metric, xp_today) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT (user_id, day, metric) "
+            "DO UPDATE SET xp_today = bp_xp_daily.xp_today + ?",
+            (user_id, today, metric_name, xp_gain, xp_gain),
+        )
 
     await _get_or_create_progress(db, user_id, season["id"])
     await db.execute(
@@ -309,3 +363,187 @@ async def claim_reward(db, user_id: int, level: int, track: str,
 
     track_label = "Бесплатный" if track == "free" else "VIP"
     return True, f"🎫 Уровень {level} ({track_label}): получено {reward_text}"
+
+
+# ── XP-конструктор (дев-консоль) ─────────────────────────────────────────────
+
+async def all_xp_actions(db) -> list[dict]:
+    """Полный список действий, дающих XP БП: дефолты constants ⊕ БД-оверрайды.
+    Для дев-конструктора и игровой справки «за что сколько XP»."""
+    overrides: dict[str, dict] = {}
+    async with db.execute(
+        "SELECT metric, weight, enabled, daily_cap, label FROM bp_xp_weight_overrides"
+    ) as c:
+        for row in await c.fetchall():
+            overrides[row["metric"]] = dict(row)
+    metrics = set(BATTLE_PASS_XP_WEIGHTS) | set(BATTLE_PASS_XP_DAILY_CAPS) | set(overrides)
+    out = []
+    for m in sorted(metrics):
+        ov = overrides.get(m)
+        if ov is not None:
+            weight = int(ov["weight"] or 0)
+            enabled = bool(ov["enabled"])
+            cap = int(ov["daily_cap"] or 0)
+            label = ov["label"]
+        else:
+            weight = int(BATTLE_PASS_XP_WEIGHTS.get(m, 0))
+            enabled = True
+            cap = int(BATTLE_PASS_XP_DAILY_CAPS.get(m, 0))
+            label = None
+        out.append({
+            "metric": m,
+            "weight": weight,
+            "enabled": enabled,
+            "daily_cap": cap,
+            "label": label or BATTLE_PASS_XP_ACTION_LABELS.get(m, m),
+            "is_override": ov is not None,
+            "is_custom": m not in BATTLE_PASS_XP_WEIGHTS and m not in BATTLE_PASS_XP_DAILY_CAPS,
+        })
+    return out
+
+
+async def set_xp_weight_override(db, metric: str, weight: int, enabled: bool = True,
+                                 daily_cap: int = 0, label: str | None = None) -> None:
+    """Создать/обновить оверрайд веса XP для действия (дев-конструктор). Commits."""
+    await db.execute(
+        "INSERT INTO bp_xp_weight_overrides (metric, weight, enabled, daily_cap, label, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, NOW()) "
+        "ON CONFLICT (metric) DO UPDATE SET "
+        "weight = ?, enabled = ?, daily_cap = ?, label = ?, updated_at = NOW()",
+        (metric, int(weight), bool(enabled), int(daily_cap), label,
+         int(weight), bool(enabled), int(daily_cap), label),
+    )
+    await db.commit()
+
+
+async def reset_xp_weight_override(db, metric: str) -> None:
+    """Удалить оверрайд → действие вернётся к дефолтам constants. Commits."""
+    await db.execute("DELETE FROM bp_xp_weight_overrides WHERE metric = ?", (metric,))
+    await db.commit()
+
+
+# ── C5: 💎-открытие следующего уровня ────────────────────────────────────────
+
+async def _level_diamond_value(db, season_id: str, level: int) -> int:
+    """Максимум алмазов, которые игрок получит на этом уровне (free+paid; выбор → max
+    варианта). Для анти-цикл-floor цены 💎-открытия."""
+    import json as _json
+    total = 0
+    for track in ("free", "paid"):
+        async with db.execute(
+            "SELECT diamonds, reward_options FROM battle_pass_reward_overrides "
+            "WHERE season_id = ? AND level = ? AND track = ?",
+            (season_id, level, track),
+        ) as c:
+            row = await c.fetchone()
+        if row:
+            raw_opts = row[1]
+            if raw_opts:
+                try:
+                    opts = _json.loads(raw_opts)
+                    if isinstance(opts, list) and opts:
+                        total += max(int(o.get("diamonds", 0) or 0) for o in opts)
+                        continue
+                except Exception:
+                    pass
+            total += int(row[0] or 0)
+        else:
+            total += int(BATTLE_PASS_REWARDS.get(level, {}).get(track, {}).get("diamonds", 0) or 0)
+    return total
+
+
+def next_level_price(target_level: int, diamond_value: int) -> int:
+    """Цена открыть уровень target_level за 💎: BASE + STEP*(L-2), не ниже алмазов+MARGIN."""
+    base = BATTLE_PASS_BUY_LEVEL_BASE + BATTLE_PASS_BUY_LEVEL_STEP * (target_level - 2)
+    return max(base, diamond_value + BATTLE_PASS_BUY_LEVEL_MARGIN)
+
+
+async def buy_next_level(db, user_id: int) -> tuple[bool, str, dict]:
+    """C5: открыть следующий уровень БП за 💎 (только +1, последовательно).
+    Атомарно: проверяем баланс, списываем 💎, поднимаем уровень. Награду игрок
+    забирает отдельно. Транзакция коммитит сама."""
+    season = get_active_season()
+    if not season:
+        return False, "Сейчас нет активного сезона.", {}
+    progress = await _get_or_create_progress(db, user_id, season["id"])
+    cur = int(progress["level"])
+    if cur >= BATTLE_PASS_MAX_LEVEL:
+        return False, "Достигнут максимальный уровень.", {}
+    target = cur + 1
+    dval = await _level_diamond_value(db, season["id"], target)
+    price = next_level_price(target, dval)
+    new_xp = (target - 1) * BATTLE_PASS_XP_PER_LEVEL
+
+    async with db.connection.transaction():
+        async with db.execute(
+            "SELECT COALESCE(user_balance_diamonds, 0) FROM users "
+            "WHERE user_tg_id = ? FOR UPDATE",
+            (user_id,),
+        ) as c:
+            row = await c.fetchone()
+        bal = float(row[0]) if row else 0.0
+        if bal < price:
+            return False, f"Недостаточно 💎: нужно {price}, есть {int(bal)}.", {"price": price}
+
+        # Лочим прогресс и перечитываем уровень — защита от гонки (не перескочить >1).
+        async with db.execute(
+            "SELECT level FROM battle_pass_progress "
+            "WHERE user_id = ? AND season_id = ? FOR UPDATE",
+            (user_id, season["id"]),
+        ) as c:
+            prow = await c.fetchone()
+        locked = int(prow[0]) if prow else cur
+        if locked != cur:
+            return False, "Уровень изменился, попробуйте ещё раз.", {}
+        if locked >= BATTLE_PASS_MAX_LEVEL:
+            return False, "Достигнут максимальный уровень.", {}
+
+        await add_balance(db, user_id, diamonds=-price, commit=False,
+                          source="battle_pass_buy_level",
+                          note=f"{season['id']}_open_lv{target}")
+        await db.execute(
+            "UPDATE battle_pass_progress SET xp = GREATEST(xp, ?), level = ? "
+            "WHERE user_id = ? AND season_id = ?",
+            (new_xp, target, user_id, season["id"]),
+        )
+
+    return True, f"🎫 Открыт уровень {target} за {price}💎! Не забудь забрать награду.", {
+        "level": target, "price": price,
+    }
+
+
+# ── C7: бонус XP выходного дня (флаг конструктора) ───────────────────────────
+
+def _is_weekend() -> bool:
+    return date.today().weekday() >= 5   # 5=Sb, 6=Vs (по времени сервера)
+
+
+async def get_weekend_boost_pct(db) -> int:
+    """% бонуса XP по выходным (0 = выключен)."""
+    async with db.execute(
+        "SELECT value FROM bp_settings WHERE key = 'weekend_boost_pct'"
+    ) as c:
+        row = await c.fetchone()
+    if row and row[0]:
+        try:
+            return max(0, min(500, int(row[0])))
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
+
+async def set_weekend_boost_pct(db, pct: int) -> None:
+    """Установить % бонуса выходного дня (0 = выключить). Commits."""
+    pct = max(0, min(500, int(pct)))
+    await db.execute(
+        "INSERT INTO bp_settings (key, value) VALUES ('weekend_boost_pct', ?) "
+        "ON CONFLICT (key) DO UPDATE SET value = ?",
+        (str(pct), str(pct)),
+    )
+    await db.commit()
+
+
+async def weekend_boost_active(db) -> tuple[bool, int]:
+    """(активен_ли_сейчас, процент). Активен = выходной И процент > 0."""
+    pct = await get_weekend_boost_pct(db)
+    return (_is_weekend() and pct > 0), pct

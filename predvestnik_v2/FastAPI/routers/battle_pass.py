@@ -8,7 +8,9 @@ from core.registry import BATTLE_PASS_REWARDS, ITEMS_REGISTRY
 from core.themes import THEMES
 from services.battle_pass import (
     claim_reward, get_active_season, get_progress, level_status, refresh_seasons_cache,
-    _opt_to_reward, reward_short_text,
+    _opt_to_reward, reward_short_text, all_xp_actions,
+    buy_next_level, _level_diamond_value, next_level_price,
+    weekend_boost_active,
 )
 
 router = APIRouter(prefix="/battle_pass", tags=["battle_pass"])
@@ -75,9 +77,30 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
             paid_p["options"] = choice_levels[(lv, "paid")]
         rewards.append({"level": lv, "free": free_p, "paid": paid_p})
 
+    # Справка «за что сколько XP» (C1): только включённые действия с весом > 0.
+    _actions = await all_xp_actions(db)
+    xp_guide = sorted(
+        [{"label": a["label"], "xp": a["weight"], "daily_cap": a["daily_cap"]}
+         for a in _actions if a["enabled"] and a["weight"] > 0],
+        key=lambda x: -x["xp"],
+    )
+
+    _wb_on, _wb_pct = await weekend_boost_active(db)
+
+    # C5: предложение «открыть следующий уровень за 💎» (если не MAX).
+    buy_next = None
+    if progress["level"] < progress["max_level"]:
+        _t = progress["level"] + 1
+        _dv = await _level_diamond_value(db, season["id"], _t)
+        buy_next = {"level": _t, "price": next_level_price(_t, _dv)}
+
     return {
         "active": True,
         "season_label": season["label"],
+        "season_starts": season.get("starts_at"),
+        "season_ends": season.get("ends_at"),
+        "buy_next": buy_next,
+        "weekend_boost": {"active": _wb_on, "pct": _wb_pct},
         "level": progress["level"],
         "xp": progress["xp"],
         "xp_in_level": progress["xp_in_level"],
@@ -86,6 +109,7 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
         "max_level": progress["max_level"],
         "paid_track_open": progress["paid_track_open"],
         "rewards": rewards,
+        "xp_guide": xp_guide,
     }
 
 
@@ -102,3 +126,59 @@ async def battle_pass_claim(body: ClaimRequest, db=Depends(get_db), user=Depends
         raise HTTPException(status_code=400, detail=message)
     await db.commit()
     return {"ok": True, "message": message}
+
+
+@router.post("/claim-all")
+async def battle_pass_claim_all(db=Depends(get_db), user=Depends(require_tg_user)):
+    """C6: забрать все доступные награды одним запросом. Уровни-выбор (reward_options)
+    пропускаются — их игрок забирает вручную (нужен выбор варианта)."""
+    await refresh_seasons_cache(db)
+    season = get_active_season()
+    if not season:
+        raise HTTPException(status_code=400, detail="Сейчас нет активного сезона.")
+    progress = await get_progress(db, user["id"])
+    if not progress:
+        raise HTTPException(status_code=400, detail="Сейчас нет активного сезона.")
+
+    import json as _json
+    choice_set: set[tuple] = set()
+    async with db.execute(
+        "SELECT level, track, reward_options FROM battle_pass_reward_overrides "
+        "WHERE season_id = ? AND reward_options IS NOT NULL",
+        (season["id"],),
+    ) as _c:
+        for _r in await _c.fetchall():
+            try:
+                _o = _json.loads(_r[2])
+            except Exception:
+                continue
+            if isinstance(_o, list) and len(_o) >= 2:
+                choice_set.add((_r[0], _r[1]))
+
+    tracks = ["free"] + (["paid"] if progress["paid_track_open"] else [])
+    claimed = 0
+    pending_choices = 0
+    for lv in range(1, progress["level"] + 1):
+        for track in tracks:
+            already = progress["claimed_free"] if track == "free" else progress["claimed_paid"]
+            if lv in already:
+                continue
+            if (lv, track) in choice_set:
+                pending_choices += 1
+                continue
+            ok, _msg = await claim_reward(db, user["id"], lv, track)
+            if ok:
+                claimed += 1
+    await db.commit()
+    return {"ok": True, "claimed": claimed, "pending_choices": pending_choices}
+
+
+@router.post("/buy-level")
+async def battle_pass_buy_level(db=Depends(get_db), user=Depends(require_tg_user)):
+    """C5: открыть следующий уровень БП за 💎 (только +1, последовательно)."""
+    await refresh_seasons_cache(db)
+    ok, message, data = await buy_next_level(db, user["id"])
+    if not ok:
+        raise HTTPException(status_code=400, detail=message)
+    await db.commit()
+    return {"ok": True, "message": message, **data}

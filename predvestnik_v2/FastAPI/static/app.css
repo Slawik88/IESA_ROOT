@@ -512,8 +512,33 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .exp-opt:active { transform: scale(.99); }
 @media (hover: hover) { .exp-opt:hover { border-color: var(--gold); background: var(--gold-dim, rgba(201,168,76,.08)); } }
 .exp-opt-warn { opacity: .82; }
+/* Дев: конструктор XP БП */
+.bpxp-row { padding: 7px 0; border-bottom: 1px solid var(--border2); }
+.bpxp-head { font-size: 12px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.bpxp-metric { font-family: ui-monospace, Consolas, monospace; font-size: 9.5px; color: var(--muted);
+  background: var(--bg2, var(--s)); border-radius: 5px; padding: 1px 5px; }
+.bpxp-ctrls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.bpxp-ctrls label { font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 3px; }
+.bpxp-tog { cursor: pointer; }
+.bpxp-in { width: 60px !important; margin: 0 !important; padding: 3px 5px !important; font-size: 11px !important; }
+.bpxp-note { font-size: 9.5px; color: var(--muted); margin-top: 3px; }
 .exp-timer { color: var(--teal); font-weight: 700; font-variant-numeric: tabular-nums; }
 .exp-timer.urgent { color: var(--gold); animation: pulseDot 1.2s infinite; border-radius: 4px; }
+/* Battle Pass — живой прогресс-бар + вспышка левел-апа */
+.bp-xpbar { position: relative; overflow: hidden; }
+.bp-xpbar .ach-fill { position: relative; overflow: hidden; }
+.bp-xpbar .ach-fill::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+  transform: translateX(-100%); animation: bpShimmer 2.4s ease-in-out infinite;
+}
+@keyframes bpShimmer { 0% { transform: translateX(-100%); } 60%, 100% { transform: translateX(260%); } }
+@keyframes bpLevelUp {
+  0% { box-shadow: 0 0 0 0 rgba(201,168,76,0); }
+  30% { box-shadow: 0 0 22px 4px rgba(201,168,76,.55); }
+  100% { box-shadow: 0 0 0 0 rgba(201,168,76,0); }
+}
+.bp-levelup { animation: bpLevelUp 1.1s ease-out; }
 
 /* рарность */
 .rc { font-size: 8.5px; font-weight: 800; padding: 2px 6px; border-radius: 6px; letter-spacing: .4px; text-transform: uppercase; }
