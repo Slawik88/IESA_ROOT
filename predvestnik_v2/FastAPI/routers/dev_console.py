@@ -763,6 +763,58 @@ async def dev_bp_reward_bulk(body: BpBulkRequest, db=Depends(get_db), user=Depen
     return {"ok": True, "updated": count}
 
 
+class BpImportRequest(BaseModel):
+    season_id: str
+    rewards: list   # [{level, track, mora?, diamonds?, items?:[[id,qty]], theme_id?, reward_options?}]
+
+
+@router.post("/bp/rewards/import")
+async def dev_bp_reward_import(body: BpImportRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Импорт наград БП пачкой из JSON (чтобы не вбивать каждый уровень вручную).
+    Каждый элемент: {level, track:'free'|'paid', mora?, diamonds?, items?:[[id,qty]],
+    theme_id?, reward_options?}. Невалидные предметы/уровни → в errors, остальные применяются."""
+    import json as _json
+    _require_dev(user)
+    if not isinstance(body.rewards, list) or not body.rewards:
+        raise HTTPException(400, "rewards: непустой список наград.")
+    count = 0
+    errors: list[str] = []
+    for idx, r in enumerate(body.rewards):
+        try:
+            lv = int(r["level"])
+            track = r["track"]
+            if track not in ("free", "paid"):
+                raise ValueError("track должен быть free/paid")
+            if not (1 <= lv <= BATTLE_PASS_MAX_LEVEL):
+                raise ValueError(f"level вне 1..{BATTLE_PASS_MAX_LEVEL}")
+            mora = int(r.get("mora", 0) or 0)
+            dia = int(r.get("diamonds", 0) or 0)
+            clean_items = []
+            for it in (r.get("items") or []):
+                iid = it[0]
+                if iid not in ITEMS_REGISTRY:
+                    raise ValueError(f"неизвестный item '{iid}'")
+                clean_items.append([iid, int(it[1])])
+            theme_id = r.get("theme_id") or None
+            opts = r.get("reward_options")
+            opts_json = _json.dumps(opts, ensure_ascii=False) if opts else None
+            await db.execute(
+                "INSERT INTO battle_pass_reward_overrides "
+                "(season_id, level, track, mora, diamonds, items, theme_id, reward_options) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT (season_id, level, track) DO UPDATE SET "
+                "mora=EXCLUDED.mora, diamonds=EXCLUDED.diamonds, items=EXCLUDED.items, "
+                "theme_id=EXCLUDED.theme_id, reward_options=EXCLUDED.reward_options",
+                (body.season_id, lv, track, mora, dia,
+                 _json.dumps(clean_items, ensure_ascii=False), theme_id, opts_json),
+            )
+            count += 1
+        except Exception as e:
+            errors.append(f"#{idx}: {e}")
+    await db.commit()
+    return {"ok": True, "imported": count, "errors": errors}
+
+
 class BpCopyRequest(BaseModel):
     from_season: str
     to_season: str
