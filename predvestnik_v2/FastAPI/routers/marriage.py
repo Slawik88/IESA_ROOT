@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.marriages import (
     get_user_marriage, family_bank_transaction, delete_marriage, FAMILY_CURRENCIES,
-    get_received_gifts,
+    get_received_gifts, purchase_partner_gift,
 )
 from core.registry import PARTNER_GIFTS
 from infrastructure.repositories.zoo import get_user_pets
@@ -114,6 +114,79 @@ async def fund_from_family(body: FundRequest, db=Depends(get_db), user=Depends(r
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}
+
+
+# ── Подарки партнёру (Block 5.4 — паритет с ботом `бот подарки`) ──────────────
+def _gift_currency(g: dict) -> tuple[str | None, float]:
+    """(currency, price) из полей реестра подарка."""
+    if g.get("price_mora"):     return "mora", float(g["price_mora"])
+    if g.get("price_diamonds"): return "diamonds", float(g["price_diamonds"])
+    if g.get("price_zarniki"):  return "zarniki", float(g["price_zarniki"])
+    return None, 0.0
+
+
+async def _notify_partner_gift(db, sender_id: int, partner_id: int, gift: dict) -> None:
+    """Коробка «подарок от супруга»: WS если партнёр онлайн, иначе web_notifications
+    (покажется при следующем входе). Тот же паттерн, что админ-подарки."""
+    async with db.execute(
+        "SELECT user_tg_username FROM users WHERE user_tg_id = ?", (sender_id,)
+    ) as c:
+        row = await c.fetchone()
+    from_name = row[0] if row and row[0] else f"ID{sender_id}"
+    payload = {
+        "type": "partner_gift",
+        "from": from_name,
+        "gift_name": gift.get("name", "подарок"),
+        "msg": gift.get("msg", ""),
+    }
+    try:
+        from FastAPI.notifications import notify as _ws_notify
+        delivered = await _ws_notify(partner_id, payload)
+    except Exception:
+        delivered = False
+    if not delivered:
+        try:
+            from infrastructure.repositories import web_notifications as _wn
+            await _wn.add(db, partner_id, payload)
+            await db.commit()
+        except Exception:
+            pass
+
+
+@router.get("/gifts")
+async def gift_catalog(user=Depends(require_tg_user)):
+    """Каталог подарков партнёру — тот же PARTNER_GIFTS, что в боте."""
+    out = []
+    for gid, g in PARTNER_GIFTS.items():
+        cur, price = _gift_currency(g)
+        out.append({
+            "id": gid, "name": g["name"], "kind": g["kind"],
+            "currency": cur, "price": price,
+            "buff_value": g.get("buff_value"), "buff_hours": g.get("buff_hours"),
+        })
+    return {"gifts": out}
+
+
+class GiftRequest(BaseModel):
+    gift_id: str
+
+
+@router.post("/gift")
+async def send_partner_gift(body: GiftRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Купить и вручить подарок супругу. Списывает с личного баланса дарителя,
+    бафф-подарки дают +XP партнёру, лог в partner_gifts_log (см. бот `бот подарки`)."""
+    if body.gift_id not in PARTNER_GIFTS:
+        raise HTTPException(400, "Неизвестный подарок.")
+    m = await get_user_marriage(db, user["id"])
+    if not m:
+        raise HTTPException(400, "Вы не состоите в браке.")
+    partner_id = m["user2_id"] if m["user1_id"] == user["id"] else m["user1_id"]
+    ok, msg, gift = await purchase_partner_gift(db, user["id"], partner_id, body.gift_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    # purchase_partner_gift коммитит сам (db.connection.transaction()).
+    await _notify_partner_gift(db, user["id"], partner_id, gift)
+    return {"ok": True, "message": msg, "gift_name": gift.get("name")}
 
 
 @router.post("/divorce")

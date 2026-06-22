@@ -358,26 +358,62 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   transition: opacity .55s ease;
 }
 #preloader.pl-done { opacity: 0; pointer-events: none; }
-.pl-core { position: relative; width: 88px; height: 88px; display: flex; align-items: center; justify-content: center; }
-.pl-orb { font-size: 46px; animation: glow 1.6s infinite, floaty 2.4s ease-in-out infinite; z-index: 1; }
+.pl-core { position: relative; width: 92px; height: 92px; display: flex; align-items: center; justify-content: center; }
+/* Мягкое «дышащее» сияние за орбом — добавляет глубины */
+.pl-core::before {
+  content: ''; position: absolute; width: 132px; height: 132px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(232,181,77,.22), transparent 68%);
+  animation: plGlow 2.2s ease-in-out infinite; pointer-events: none;
+}
+@keyframes plGlow { 0%,100% { opacity: .45; transform: scale(.9); } 50% { opacity: .95; transform: scale(1.12); } }
+.pl-orb { font-size: 46px; animation: glow 1.6s infinite, floaty 2.4s ease-in-out infinite; position: relative; z-index: 1; }
 .pl-ring {
-  position: absolute; inset: 0; border-radius: 50%;
-  border: 2px solid transparent; border-top-color: var(--gold2); border-right-color: var(--gold2);
-  animation: spinBall 1.05s linear infinite; opacity: .85;
+  position: absolute; inset: 2px; border-radius: 50%;
+  border: 2px solid transparent; border-top-color: var(--gold2); border-right-color: rgba(232,181,77,.5);
+  animation: spinBall 1.05s linear infinite;
 }
 .pl-lines {
   font-family: ui-monospace,"SF Mono",Consolas,monospace; font-size: 11.5px;
   color: var(--gold); min-height: 64px; text-align: center; line-height: 1.75;
+  transition: opacity .4s ease, transform .4s ease;
 }
+.pl-lines.pl-fade { opacity: 0; transform: translateY(-6px); }   /* чистим сцену под приветствие */
 .pl-lines .pl-line { opacity: 0; animation: plLineIn .4s ease forwards; }
 @keyframes plLineIn { from { opacity: 0; transform: translateY(5px); } to { opacity: .82; transform: none; } }
-.pl-welcome { font-size: 20px; font-weight: 800; color: var(--bright); opacity: 0; text-align: center; padding: 0 24px; }
-.pl-welcome.show { animation: plWelcome .7s cubic-bezier(.34,1.56,.64,1) forwards; }
-@keyframes plWelcome { from { opacity: 0; transform: scale(.85); filter: blur(5px); } to { opacity: 1; transform: none; filter: none; } }
+/* Кульминация: «Добро пожаловать,» + крупный сияющий @ник */
+.pl-welcome { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; padding: 0 24px; opacity: 0; }
+.pl-welcome.show { opacity: 1; }
+.plw-hi {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  letter-spacing: 2px; text-transform: uppercase;
+  opacity: 0; animation: plwHi .5s ease .05s forwards;
+}
+.plw-nick {
+  font-size: 27px; font-weight: 800; letter-spacing: .3px; line-height: 1.15;
+  background: linear-gradient(90deg, var(--gold2) 0%, #fff3cf 50%, var(--gold2) 100%);
+  background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  opacity: 0; transform: scale(.82); filter: blur(6px);
+  animation: plwReveal .7s cubic-bezier(.34,1.56,.64,1) .18s forwards,
+             plwShine 2.6s ease-in-out .8s infinite;
+}
+@keyframes plwHi { to { opacity: 1; } }
+@keyframes plwReveal { to { opacity: 1; transform: none; filter: none; } }
+@keyframes plwShine { 0%,100% { background-position: 0 0; } 50% { background-position: 100% 0; } }
 .pl-skip { position: fixed; bottom: 22px; font-size: 9.5px; color: var(--dim); letter-spacing: .3px; }
+/* Вход → вкладка = одно целое: контент профиля «всплывает» каскадом, пока
+   прелоадер растворяется (триггерится в _plSkip). */
+.pg-enter #pro-main > * { animation: pgRise .55s cubic-bezier(.22,1,.36,1) both; }
+.pg-enter #pro-main > *:nth-child(2) { animation-delay: .07s; }
+.pg-enter #pro-main > *:nth-child(3) { animation-delay: .14s; }
+.pg-enter #pro-main > *:nth-child(4) { animation-delay: .21s; }
+.pg-enter #pro-main > *:nth-child(n+5) { animation-delay: .28s; }
+@keyframes pgRise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .pl-orb, .pl-ring { animation: none; }
-  .pl-lines .pl-line, .pl-welcome.show { animation: none; opacity: 1; }
+  .pl-orb, .pl-ring, .pl-core::before { animation: none; }
+  .pl-lines .pl-line, .pl-welcome.show, .plw-hi { animation: none; opacity: 1; }
+  .plw-nick { animation: none; opacity: 1; transform: none; filter: none; }
+  .pg-enter #pro-main > * { animation: none; }
 }
 
 /* Кнопка-CTA «У меня есть промокод» в профиле (БЛОК 9.1) */

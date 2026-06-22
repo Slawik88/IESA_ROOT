@@ -79,6 +79,12 @@ function showWsNotif(event) {
   }
   // Подарок от администрации → коробка-сюрприз (БЛОК 3.4)
   if (event.type === 'admin_gift') { showGiftBox([event]); return; }
+  // Подарок от супруга (Block 5.4) → романтическая коробка
+  if (event.type === 'partner_gift') {
+    showPartnerGift([event]);
+    if (_loaded.has('profile')) loadMarriageCard();
+    return;
+  }
   // Возврат питомца из похода → «чек награды» (БЛОК 3) вместо углового уведомления
   if (event.type === 'expedition_done') {
     showExpeditionReceipt(event);
@@ -135,9 +141,11 @@ function loadPendingNotifications() {
     api('/notifications/seen', {method:'POST', body: JSON.stringify({ids})}).catch(() => {});
     const payloads = list.map(n => n.payload || {});
     const gifts = payloads.filter(p => p.type === 'admin_gift');
+    const pgifts = payloads.filter(p => p.type === 'partner_gift');
     const exped = payloads.filter(p => p.type === 'expedition_done');
     const queue = [];
     if (gifts.length) queue.push(() => showGiftBox(gifts));        // подарки — приоритет
+    pgifts.forEach(p => queue.push(() => showPartnerGift([p])));    // подарки от супруга
     if (exped.length) queue.push(() => showWelcomeBack(exped));
     _runModalQueue(queue);
   }).catch(() => {});
@@ -446,6 +454,10 @@ function _plSkip() {
   const pl = el('preloader');
   if(!pl || pl.classList.contains('pl-done')) return;
   pl.classList.add('pl-done');
+  // Вход → вкладка = одно целое: активная страница «всплывает» каскадом,
+  // пока прелоадер растворяется.
+  const pg = document.querySelector('.page.active');
+  if(pg){ pg.classList.add('pg-enter'); setTimeout(()=>pg.classList.remove('pg-enter'), 1000); }
   setTimeout(()=>{ const p=el('preloader'); if(p) p.remove(); }, 600);
 }
 function _runPreloader() {
@@ -456,15 +468,18 @@ function _runPreloader() {
   let i = 0;
   const add = () => { if(!box || i>=lines.length) return; const d=document.createElement('div'); d.className='pl-line'; d.textContent=lines[i++]; box.appendChild(d); };
   add();
-  const step = reduce ? 90 : 480;
+  const step = reduce ? 90 : 440;
   const tm = setInterval(()=>{ if(i>=lines.length){ clearInterval(tm); return; } add(); }, step);
   setTimeout(()=>{
+    const ln = el('pl-lines'); if(ln) ln.classList.add('pl-fade');   // убираем строки — чистая сцена под приветствие
     const w = el('pl-welcome'); if(!w) return;
-    const nick = (_profileData && _profileData.username) ? ('@'+_profileData.username) : '';
-    w.textContent = nick ? ('Добро пожаловать, '+nick) : 'Добро пожаловать!';
+    const nick = (_profileData && _profileData.username) ? _profileData.username : '';
+    w.innerHTML = nick
+      ? `<span class="plw-hi">Добро пожаловать,</span><span class="plw-nick">@${esc(nick)}</span>`
+      : `<span class="plw-nick" style="font-size:23px">Добро пожаловать!</span>`;
     w.classList.add('show');
-  }, reduce ? 220 : 1700);
-  setTimeout(_plSkip, reduce ? 650 : 2700);
+  }, reduce ? 220 : 1500);
+  setTimeout(_plSkip, reduce ? 650 : 3200);
 }
 _runPreloader();
 
@@ -3116,6 +3131,7 @@ function loadMarriageCard() {
           <button class="btn btn-sm btn-gold" style="flex:1" onclick="familyBank('deposit')">📥 Вложить</button>
           <button class="btn btn-sm btn-ghost" style="flex:1" onclick="familyBank('withdraw')">📤 Забрать</button>
         </div>
+        <button class="btn btn-sm btn-ghost btn-full" style="margin-top:8px" onclick="openPartnerGifts()">🎁 Подарить партнёру</button>
         ${(m.received_gifts&&m.received_gifts.length)?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🎁 Подарки от партнёра</div>
           ${m.received_gifts.map(g=>`<div class="irow"><span class="ik">${esc(g.name)}</span><span class="iv" style="font-size:10px">${(g.sent_at||'').slice(0,10)}</span></div>`).join('')}
@@ -3163,6 +3179,47 @@ function declineProposal(id,btn) {
   api('/marriage/proposals/decline',{method:'POST',body:JSON.stringify({proposal_id:id})})
     .then(()=>{toast('Предложение отклонено.');loadMarriageCard();})
     .catch(e=>{toast(e,false);btn.disabled=false;});
+}
+
+// ── Подарки партнёру (Block 5.4 на вебе — паритет с ботом «бот подарки») ───────
+const _GIFT_CUR_ICON = {mora:'🪙', diamonds:'💎', zarniki:'✨'};
+function openPartnerGifts() {
+  OM('🎁 Подарок партнёру','<div style="text-align:center;padding:16px 0;color:var(--muted)">Загрузка…</div>',
+     [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  api('/marriage/gifts').then(r=>{
+    const gifts=r.gifts||[];
+    if(!gifts.length){el('mb').innerHTML='<div style="text-align:center;padding:14px 0;color:var(--muted)">Подарков нет.</div>';return;}
+    const rows=gifts.map(g=>{
+      const ic=_GIFT_CUR_ICON[g.currency]||'';
+      const tag=g.kind==='buff'
+        ? `<span style="color:var(--gold2)">✨ +${Math.round((g.buff_value||0)*100)}% XP · ${g.buff_hours}ч партнёру</span>`
+        : `<span style="color:var(--muted)">🎀 знак внимания</span>`;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border2)">
+        <div style="min-width:0">
+          <div style="font-weight:600">${esc(g.name)}</div>
+          <div style="font-size:10px;margin-top:2px">${tag}</div>
+        </div>
+        <button class="btn btn-sm btn-gold" style="flex:none" onclick="buyPartnerGift('${g.id}',this)">${fmt(g.price)} ${ic}</button>
+      </div>`;
+    }).join('');
+    el('mb').innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Подарок вручается вашему супругу. Баф-подарки дают партнёру +XP на время.</div>${rows}`;
+  }).catch(e=>{el('mb').innerHTML=`<div class="err">${e}</div>`;});
+}
+function buyPartnerGift(id,btn) {
+  if(btn) btn.disabled=true;
+  api('/marriage/gift',{method:'POST',body:JSON.stringify({gift_id:id})})
+    .then(r=>{toast(`🎁 ${r.gift_name} вручён партнёру! 💖`);refreshCurrBar();CM();loadMarriageCard();})
+    .catch(e=>{toast(e,false);if(btn) btn.disabled=false;});
+}
+// Коробка «подарок от супруга» — получателю (WS онлайн / web_notifications офлайн)
+function showPartnerGift(payloads) {
+  const p=(payloads&&payloads[0])||{};
+  const who=p.from?('@'+esc(p.from)):'Ваш супруг';
+  OM('💖 Подарок от супруга!',
+    `<div style="text-align:center;font-size:46px;margin:2px 0 10px;animation:floaty 1.6s ease-in-out infinite">${esc(p.gift_name||'🎁')}</div>
+     <div style="text-align:center;font-size:14px;font-weight:700;color:var(--bright)">${who}</div>
+     <div style="text-align:center;font-size:12px;color:var(--gold2);margin-top:4px">${esc(p.msg||'подарил(а) вам подарок')}</div>`,
+    [{l:'💖 Спасибо!', c:'btn-gold', f:'CM();_nextModal()'}]);
 }
 
 // ── Wallet mini — свёрнутая история транзакций внизу дашборда Профиля ────────────
@@ -4529,6 +4586,12 @@ function loadGlobalDev() {
         <button class="btn btn-ghost" onclick="devBpCopy()">📋 Копир.</button>
       </div>
       <div id="dev-bp-out" style="font-size:11px;color:var(--muted);margin-top:6px"></div>
+      <div class="divider"></div>
+      <div class="card-title" style="margin-top:4px">📥 Импорт наград из JSON</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Вставь JSON и импортируй пачкой — не вбивая вручную. <span onclick="devBpShowExample()" style="color:var(--gold2);cursor:pointer;text-decoration:underline">Показать пример формата</span></div>
+      <textarea id="dev-bp-json" class="num-input" style="margin:0 0 6px;min-height:84px;resize:vertical;font-family:monospace;font-size:10px" placeholder='{"season_id":"s1","rewards":[{"level":1,"track":"free","mora":500}, ...]}'></textarea>
+      <button class="btn btn-gold btn-full" onclick="devBpImport()">📥 Импортировать JSON</button>
+      <div id="dev-bp-import-out" style="font-size:10px;margin-top:4px"></div>
     </div>
     <div class="card">
       <div class="card-title">📢 Рассылка по всем чатам</div>
@@ -4935,6 +4998,42 @@ function devBpBulk() {
   api('/admin/dev/bp/rewards/bulk',{method:'POST',body:JSON.stringify(body)})
     .then(r=>{toast(`⚙️ Заполнено уровней: ${r.updated}`);loadBpTable();})
     .catch(e=>toast(e,false));
+}
+function devBpShowExample() {
+  const example = {
+    season_id: el('dev-br-season')?.value.trim() || 's1',
+    rewards: [
+      {level:1, track:"free", mora:500},
+      {level:1, track:"paid", diamonds:5, items:[["egg_silver",1]]},
+      {level:2, track:"free", items:[["food_basic",3]]},
+      {level:2, track:"paid", mora:0, diamonds:0, theme_id:"theme_id_необяз"},
+      {level:3, track:"paid", reward_options:[{mora:1000},{diamonds:5,items:[["spin_token",1]]}]}
+    ]
+  };
+  const ta=el('dev-bp-json');
+  if(ta && !ta.value.trim()) ta.value=JSON.stringify(example, null, 2);
+  el('dev-bp-import-out').innerHTML='<div style="color:var(--muted)">Поля каждого элемента: <code>level</code>, <code>track</code> (free/paid), и любые из: <code>mora</code>, <code>diamonds</code>, <code>items</code>:[[id,кол-во]], <code>theme_id</code>, <code>reward_options</code>:[{...},{...}] (выбор из вариантов). Можно вставить голый массив — сезон возьмётся из поля выше.</div>';
+}
+function devBpImport() {
+  const raw=(el('dev-bp-json')?.value||'').trim();
+  if(!raw) return toast('Вставьте JSON', false);
+  let data;
+  try { data=JSON.parse(raw); }
+  catch(e){ el('dev-bp-import-out').innerHTML='<div class="err">Невалидный JSON: '+esc(''+e)+'</div>'; return; }
+  const season = el('dev-br-season')?.value.trim() || 's1';
+  const body = Array.isArray(data)
+    ? {season_id: season, rewards: data}
+    : {season_id: data.season_id || season, rewards: data.rewards || []};
+  if(!Array.isArray(body.rewards) || !body.rewards.length) return toast('rewards пуст', false);
+  api('/admin/dev/bp/rewards/import',{method:'POST',body:JSON.stringify(body)})
+    .then(r=>{
+      const errs=(r.errors||[]);
+      el('dev-bp-import-out').innerHTML=
+        `<div style="color:var(--green)">✅ Импортировано: ${r.imported}${errs.length?' · ⚠ пропущено: '+errs.length:''}</div>`+
+        (errs.length?`<div style="color:var(--red);font-size:9px;margin-top:2px">${errs.map(esc).join('<br>')}</div>`:'');
+      loadBpTable();
+    })
+    .catch(e=>{el('dev-bp-import-out').innerHTML=`<div class="err">${e}</div>`;});
 }
 function devBpSummary() {
   api('/admin/dev/bp/season-summary').then(d=>{
