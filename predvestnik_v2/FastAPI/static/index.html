@@ -13,6 +13,14 @@
 </head>
 <body>
 
+<!-- ═══ PRELOADER — эффектный холодный старт (БЛОК 9.2). Клик = пропустить ═══ -->
+<div id="preloader" onclick="_plSkip()" style="cursor:pointer">
+  <div class="pl-core"><div class="pl-orb">🔮</div><div class="pl-ring"></div></div>
+  <div id="pl-lines" class="pl-lines"></div>
+  <div id="pl-welcome" class="pl-welcome"></div>
+  <div class="pl-skip">нажми, чтобы пропустить</div>
+</div>
+
 <!-- ═══ ХЕДЕР: игрок + валюты (✨ с кнопкой пополнения — всегда на виду) ═══ -->
 <header id="app-header">
   <div class="hdr-user" onclick="goTo('profile')">

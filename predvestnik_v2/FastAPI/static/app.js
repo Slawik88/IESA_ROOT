@@ -400,6 +400,8 @@ function loadProfile() {
         <div class="qa" onclick="goTo('zoo')"><span>🍖</span>Питомцы</div>
       </div>
 
+      <button class="btn btn-full promo-cta" style="margin-top:10px" onclick="openPromoModal()">🎟 У меня есть промокод</button>
+
       ${d.is_vip?'':`<div class="vip-banner" onclick="goTo('market','vip')">
         <span class="vb-crown">👑</span>
         <div><div class="vb-title">Стань VIP</div><div class="vb-sub">Еженедельные подарки, +слот питомника, безлимит ника</div></div>
@@ -439,6 +441,33 @@ function loadProfile() {
     checkGlobalAccess();
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
+// ── Preloader: эффектный холодный старт (БЛОК 9.2) ──────────────────────────────
+function _plSkip() {
+  const pl = el('preloader');
+  if(!pl || pl.classList.contains('pl-done')) return;
+  pl.classList.add('pl-done');
+  setTimeout(()=>{ const p=el('preloader'); if(p) p.remove(); }, 600);
+}
+function _runPreloader() {
+  const pl = el('preloader'); if(!pl) return;
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const box = el('pl-lines');
+  const lines = ['🔌 Синхронизация с сервером…','🔍 Проверка сигнатур…','📦 Загрузка данных…'];
+  let i = 0;
+  const add = () => { if(!box || i>=lines.length) return; const d=document.createElement('div'); d.className='pl-line'; d.textContent=lines[i++]; box.appendChild(d); };
+  add();
+  const step = reduce ? 90 : 480;
+  const tm = setInterval(()=>{ if(i>=lines.length){ clearInterval(tm); return; } add(); }, step);
+  setTimeout(()=>{
+    const w = el('pl-welcome'); if(!w) return;
+    const nick = (_profileData && _profileData.username) ? ('@'+_profileData.username) : '';
+    w.textContent = nick ? ('Добро пожаловать, '+nick) : 'Добро пожаловать!';
+    w.classList.add('show');
+  }, reduce ? 220 : 1700);
+  setTimeout(_plSkip, reduce ? 650 : 2700);
+}
+_runPreloader();
+
 if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);}
 
 // ── Sticky currency bar ───────────────────────────────────────────────────────
@@ -4367,13 +4396,18 @@ function doSetGlobalRank() {
 
 // ── 🛠 Консоль разработчика (только DEVELOPER_ID, global_rank=3) ──────────────────
 let _devItems=null;
+let _devUserId=0;   // ID игрока из последнего «Досье» — для визуального инвентаря (БЛОК 4.1)
 function loadGlobalDev() {
   el('glb-dev').innerHTML=`
     <div id="dev-overview"><div class="loader">Загрузка...</div></div>
     <div class="card">
       <div class="card-title">🔎 Досье на игрока</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <select id="dev-chat-sel" class="num-input" style="flex:1;margin:0" onchange="devLoadMembers()"><option value="">— выбрать чат —</option></select>
+        <select id="dev-member-sel" class="num-input" style="flex:1;margin:0" onchange="devPickMember()"><option value="">— участник —</option></select>
+      </div>
       <div style="display:flex;gap:6px">
-        <input id="dev-q" type="text" class="num-input" style="flex:1;margin:0" placeholder="ID или @username"/>
+        <input id="dev-q" type="text" class="num-input" style="flex:1;margin:0" placeholder="или ID / @username"/>
         <button class="btn btn-gold" onclick="devLookupUser()">Найти</button>
       </div>
       <div id="dev-user-result"></div>
@@ -4390,7 +4424,7 @@ function loadGlobalDev() {
         </select>
         <input id="dev-bal-amt" type="number" step="any" class="num-input" style="flex:1;margin:0" placeholder="Сумма (− забрать)"/>
       </div>
-      <input id="dev-bal-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (покажется игроку в коробке)"/>
+      <input id="dev-bal-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (обязательно · покажется игроку)"/>
       <button class="btn btn-gold btn-full" onclick="devAdjustBalance()">Применить</button>
     </div>
     <div class="card">
@@ -4401,8 +4435,12 @@ function loadGlobalDev() {
         <datalist id="dev-items-dl"></datalist>
         <input id="dev-item-qty" type="number" class="num-input" style="flex:1;margin:0" placeholder="Кол-во" value="1"/>
       </div>
-      <input id="dev-item-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (покажется игроку в коробке)"/>
+      <input id="dev-item-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (обязательно · покажется игроку)"/>
       <button class="btn btn-gold btn-full" onclick="devGiveItem()">Применить</button>
+    </div>
+    <div class="card">
+      <div class="card-title">📜 Журнал выдач <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevLog()">🔄</button></div>
+      <div id="dev-log"><div class="loader">Загрузка...</div></div>
     </div>
     <div class="card">
       <div class="card-title">👑 Выдать VIP (бесплатно)</div>
@@ -4436,6 +4474,11 @@ function loadGlobalDev() {
         <input id="dev-bp-xp" type="number" class="num-input" style="flex:1;margin:0" placeholder="XP (− снять)"/>
         <button class="btn btn-gold" onclick="devBpXp()">OK</button>
       </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 Таблица наград БП (Free / VIP) <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadBpTable()">🔄</button></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Клик по ячейке → подставить в форму ниже. 🔧 = переопределено в БД.</div>
+      <div id="dev-bp-table" style="overflow-x:auto"><div class="loader">Загрузка...</div></div>
     </div>
     <div class="card">
       <div class="card-title">🎁 БП — награды уровней</div>
@@ -4611,12 +4654,78 @@ function loadGlobalDev() {
   devLoadOverview();
   devLoadSeasons();
   devTLInit();
+  loadDevLog();
+  devLoadChats();
+  loadBpTable();
   if(!_devItems) api('/admin/dev/items').then(d=>{
     _devItems=d.items||[];
     const dl=el('dev-items-dl');
     if(dl) dl.innerHTML=_devItems.map(i=>`<option value="${i.item_id}">${esc(i.name)}</option>`).join('');
   }).catch(()=>{});
   else { const dl=el('dev-items-dl'); if(dl) dl.innerHTML=_devItems.map(i=>`<option value="${i.item_id}">${esc(i.name)}</option>`).join(''); }
+}
+function loadDevLog() {
+  const box = el('dev-log'); if(!box) return;
+  api('/admin/dev/admin-log').then(d=>{
+    const log = d.log || [];
+    if(!log.length){ box.innerHTML='<div style="font-size:11px;color:var(--muted)">Журнал пуст.</div>'; return; }
+    box.innerHTML = log.map(e=>{
+      const when = e.created_at ? fmtUTC(e.created_at) : '';
+      const admin = esc(e.admin_name || ('ID'+e.admin_id));
+      const target = esc(e.target_name || ('ID'+e.target_id));
+      const amt = e.amount || 0;
+      const sign = amt>0?'+':'';
+      const reason = (e.reason||'').trim();
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--border2);font-size:11px">
+        <div><span style="color:var(--muted)">${when}</span> · <b>${admin}</b> → ${target}</div>
+        <div style="color:var(--gold)">${esc(e.detail||'')}: <b>${sign}${fmt(amt)}</b> · было ${fmt(e.before_val)} → стало ${fmt(e.after_val)}</div>
+        ${reason?`<div style="color:var(--muted)">📝 ${esc(reason)}</div>`:'<div style="color:var(--red);font-size:10px">⚠ без причины</div>'}
+      </div>`;
+    }).join('');
+  }).catch(e=>{ box.innerHTML=`<div class="err">${e}</div>`; });
+}
+// Конструктор БП (БЛОК 4.4): визуальная таблица наград Free/VIP по уровням.
+let _bpTableData=null;
+function _bpRewardFmt(r) {
+  if(!r) return '—';
+  if(r.options) return '🔀 выбор ×'+r.options.length;
+  const p=[];
+  if(r.mora) p.push('🪙'+fmt(r.mora));
+  if(r.diamonds) p.push('💎'+r.diamonds);
+  (r.items||[]).forEach(it=>p.push('📦'+esc(it[0])+(it[1]>1?'×'+it[1]:'')));
+  if(r.theme||r.theme_id) p.push('🎨'+esc(r.theme||r.theme_id));
+  return p.length?p.join(' '):'—';
+}
+function loadBpTable() {
+  const box=el('dev-bp-table'); if(!box) return;
+  api('/admin/dev/bp/rewards').then(d=>{
+    _bpTableData=d;
+    const byLvl={};
+    (d.rewards||[]).forEach(r=>{ (byLvl[r.level]=byLvl[r.level]||{})[r.track]=r; });
+    const td='padding:3px 5px;border:1px solid var(--border2);font-size:10px';
+    const cell=(r,lv,track)=>`<td style="${td};cursor:pointer${r&&r.source==='db'?';color:var(--gold)':''}" onclick="devBpRewardPrefill(${lv},'${track}')">${r&&r.source==='db'?'🔧 ':''}${_bpRewardFmt(r)}</td>`;
+    const rows=Object.keys(byLvl).map(n=>parseInt(n)).sort((a,b)=>a-b).map(lv=>
+      `<tr><td style="${td};font-weight:700">${lv}</td>${cell(byLvl[lv].free,lv,'free')}${cell(byLvl[lv].paid,lv,'paid')}</tr>`
+    ).join('');
+    box.innerHTML=`<div style="font-size:10px;color:var(--muted);margin-bottom:4px">Сезон: <b>${esc(d.season_id||'—')}</b></div>
+      <table style="border-collapse:collapse;width:100%"><thead><tr>
+        <th style="${td}">Ур.</th><th style="${td}">🆓 Free</th><th style="${td}">👑 VIP</th>
+      </tr></thead><tbody>${rows}</tbody></table>`;
+  }).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
+}
+function devBpRewardPrefill(lv, track) {
+  if(!_bpTableData) return;
+  const r=(_bpTableData.rewards||[]).find(x=>x.level===lv&&x.track===track)||{};
+  const set=(id,v)=>{const e2=el(id);if(e2)e2.value=v;};
+  set('dev-br-season', _bpTableData.season_id||'s1');
+  set('dev-br-level', lv);
+  const tsel=el('dev-br-track'); if(tsel) tsel.value=track;
+  set('dev-br-mora', r.mora||'');
+  set('dev-br-dia', r.diamonds||'');
+  set('dev-br-items', (r.items||[]).map(it=>it[0]+':'+it[1]).join(', '));
+  set('dev-br-theme', r.theme||r.theme_id||'');
+  toast(`Ур.${lv} ${track==='free'?'🆓':'👑'} → форма ниже`);
+  el('dev-br-level')?.scrollIntoView({behavior:'smooth',block:'center'});
 }
 function devLoadOverview() {
   api('/admin/dev/overview').then(d=>{
@@ -4631,25 +4740,101 @@ function devLoadOverview() {
     </div>`;
   }).catch(e=>{el('dev-overview').innerHTML=`<div class="err">${e}</div>`;});
 }
+// Дропдаун «чат → юзер» в карточке игрока (БЛОК 4.1): выбор без знания ID.
+function devLoadChats() {
+  const sel = el('dev-chat-sel'); if(!sel) return;
+  api('/admin/dev/chats').then(d=>{
+    sel.innerHTML = '<option value="">— выбрать чат —</option>' +
+      (d.chats||[]).map(c=>`<option value="${c.chat_id}">${esc(c.title)}</option>`).join('');
+  }).catch(()=>{});
+}
+function devLoadMembers() {
+  const cid = el('dev-chat-sel')?.value;
+  const msel = el('dev-member-sel'); if(!msel) return;
+  if(!cid){ msel.innerHTML='<option value="">— участник —</option>'; return; }
+  msel.innerHTML='<option value="">загрузка…</option>';
+  api('/admin/dev/chat-members?chat_id='+encodeURIComponent(cid)).then(d=>{
+    msel.innerHTML = '<option value="">— участник —</option>' +
+      (d.members||[]).map(u=>`<option value="${u.user_tg_id}">@${esc(u.username)} · ур.${u.user_level||1} · ${u.msgs||0} сообщ.</option>`).join('');
+  }).catch(()=>{ msel.innerHTML='<option value="">— участник —</option>'; });
+}
+function devPickMember() {
+  const uid = el('dev-member-sel')?.value;
+  if(!uid) return;
+  const q = el('dev-q'); if(q) q.value = uid;
+  devLookupUser();
+}
 function devLookupUser() {
   const q=el('dev-q')?.value.trim();
   if(!q) return toast('Введите ID или @username',false);
   el('dev-user-result').innerHTML='<div class="loader">Поиск...</div>';
   api(`/admin/dev/user?q=${encodeURIComponent(q)}`).then(d=>{
+    _devUserId = d.user_tg_id;
     el('dev-user-result').innerHTML=`
       <div class="divider"></div>
       <div class="irow"><span class="ik">@${esc(d.user_tg_username||'—')}</span><span class="iv">ID: ${d.user_tg_id}</span></div>
       <div class="irow"><span class="ik">Глоб. ранг</span><span class="iv">${d.global_rank_name}</span></div>
-      <div class="irow"><span class="ik">Балансы</span><span class="iv" style="font-size:10px">🪙${fmt(Math.round(d.mora))} 💎${d.diamonds.toFixed(1)} 🌑${Math.round(d.dark_mora)} ✨${Math.round(d.zarniki)}</span></div>
+      <div class="irow"><span class="ik">Балансы <span style="color:var(--muted);font-size:9px">(клик = ±)</span></span><span class="iv" style="font-size:11px">${[
+        ['mora','🪙 Мора','🪙'+fmt(Math.round(d.mora))],
+        ['diamonds','💎 Алмазы','💎'+d.diamonds.toFixed(1)],
+        ['dark_mora','🌑 Тёмная Мора','🌑'+Math.round(d.dark_mora)],
+        ['zarniki','✨ Зарники','✨'+Math.round(d.zarniki)],
+      ].map(([cur,lbl,txt])=>`<span style="cursor:pointer;text-decoration:underline;margin-left:6px" onclick="devBalanceAction('${cur}','${lbl}')">${txt}</span>`).join('')}</span></div>
       <div class="irow"><span class="ik">VIP</span><span class="iv" style="font-size:10px">${d.vip?(d.vip.active?'👑 ':'(истёк) ')+d.vip.tier+' до '+d.vip.expires_at.slice(0,10)+' · стаж '+d.vip.total_days+' дн.':'—'}</span></div>
       <div class="irow"><span class="ik">Боевой пропуск</span><span class="iv">${d.battle_pass?`Ур.${d.battle_pass.level} (${d.battle_pass.xp} XP)`:'—'}</span></div>
       ${d.sanctions.length?`<div class="irow"><span class="ik" style="color:var(--red)">Санкции</span><span class="iv" style="font-size:10px">${d.sanctions.map(s=>s.sanction_type+(s.expires_at?' до '+s.expires_at.slice(0,10):'')).join(', ')}</span></div>`:''}
       <div style="font-size:11px;font-weight:700;margin:6px 0 2px">Чаты (${d.chats.length}):</div>
       ${d.chats.slice(0,10).map(c=>`<div class="irow"><span class="ik" style="font-size:10px">${esc(c.chat_title)}</span><span class="iv" style="font-size:10px">${c.rank_name} · ур.${c.user_level||1} · ${c.user_messages_count_all_time||0} сообщ.${c.is_left?' · 👋':''}</span></div>`).join('')}
+      ${d.inventory&&d.inventory.length?`<div style="font-size:11px;font-weight:700;margin:8px 0 4px">🎒 Инвентарь (${d.inventory.length}) — клик = выдать/забрать:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">${d.inventory.map(it=>`<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px" onclick="devItemAction('${it.item_id}',${it.quantity})">${esc(it.name)} ×${it.quantity}</button>`).join('')}</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:6px">🎒 Инвентарь пуст</div>'}
       <div style="display:flex;gap:6px;margin-top:8px">
         <button class="btn btn-sm btn-ghost" style="flex:1" onclick="devPrefill(${d.user_tg_id})">⚙️ Подставить ID в формы</button>
       </div>`;
   }).catch(e=>{el('dev-user-result').innerHTML=`<div class="err">${e}</div>`;});
+}
+// Клик по валюте в карточке игрока → ±баланс с причиной (БЛОК 4.1)
+function devBalanceAction(cur, label) {
+  if(!_devUserId){ toast('Сначала найди игрока в Досье', false); return; }
+  OM('💰 ' + label, `
+    <input id="dev-ba-amt" type="number" step="any" class="num-input" style="margin:0 0 6px" placeholder="Сумма (− забрать)"/>
+    <input id="dev-ba-reason" class="num-input" style="margin:0 0 8px" placeholder="Причина (обязательно)"/>
+    <button class="btn btn-gold btn-full" onclick="devBalanceActionDo('${cur}')">Применить</button>
+    <div id="dev-ba-result" style="margin-top:8px"></div>`,
+    [{l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
+}
+function devBalanceActionDo(cur) {
+  const amt = parseFloat(el('dev-ba-amt')?.value || '0');
+  if(!amt){ el('dev-ba-result').innerHTML = '<div class="err">Укажите сумму</div>'; return; }
+  const reason = (el('dev-ba-reason')?.value || '').trim();
+  if(!reason){ el('dev-ba-result').innerHTML = '<div class="err">Укажите причину (обязательно)</div>'; return; }
+  const body = {user_id:_devUserId, mora:0, diamonds:0, dark_mora:0, zarniki:0, reason};
+  body[cur] = amt;
+  api('/admin/dev/balance', {method:'POST', body: JSON.stringify(body)})
+    .then(()=>{ toast(`✅ ${amt>0?'+':''}${amt} ${cur}`); CM(); loadDevLog(); devLookupUser(); })
+    .catch(e=>{ el('dev-ba-result').innerHTML = `<div class="err">${e}</div>`; });
+}
+// Клик по предмету в карточке игрока → выдать/забрать с причиной (БЛОК 4.1)
+function devItemAction(itemId, ownedQty) {
+  OM('🎒 ' + itemId, `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">У игрока сейчас: <b>${ownedQty}</b> шт.</div>
+    <input id="dev-ia-qty" type="number" class="num-input" value="1" min="1" style="margin:0 0 6px" placeholder="Количество"/>
+    <input id="dev-ia-reason" class="num-input" style="margin:0 0 8px" placeholder="Причина (обязательно)"/>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-sm btn-gold" style="flex:1" onclick="devItemActionDo('${itemId}',1)">➕ Выдать</button>
+      <button class="btn btn-sm btn-red" style="flex:1" onclick="devItemActionDo('${itemId}',-1)">➖ Забрать</button>
+    </div>
+    <div id="dev-ia-result" style="margin-top:8px"></div>`,
+    [{l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
+}
+function devItemActionDo(itemId, sign) {
+  const qty = (parseInt(el('dev-ia-qty')?.value || '0') || 0) * sign;
+  if(!qty) return toast('Укажите количество', false);
+  const reason = (el('dev-ia-reason')?.value || '').trim();
+  if(!reason){ el('dev-ia-result').innerHTML = '<div class="err">Укажите причину (обязательно)</div>'; return; }
+  if(!_devUserId){ el('dev-ia-result').innerHTML = '<div class="err">Сначала найди игрока в Досье</div>'; return; }
+  api('/admin/dev/give-item', {method:'POST', body: JSON.stringify({user_id:_devUserId, item_id:itemId, qty, reason})})
+    .then(r=>{ toast(`✅ ${qty>0?'+':''}${qty}× ${r.item_name}`); CM(); loadDevLog(); devLookupUser(); })
+    .catch(e=>{ el('dev-ia-result').innerHTML = `<div class="err">${e}</div>`; });
 }
 function devPrefill(uid) {
   ['dev-bal-uid','dev-item-uid','dev-vip-uid','dev-bp-uid'].forEach(id=>{const e2=el(id);if(e2)e2.value=uid;});
@@ -4660,10 +4845,12 @@ function devAdjustBalance() {
   const cur=el('dev-bal-cur')?.value;
   const amt=parseFloat(el('dev-bal-amt')?.value||'0');
   if(!uid||!amt) return toast('Заполните ID и сумму',false);
-  const body={user_id:uid,mora:0,diamonds:0,dark_mora:0,zarniki:0,reason:el('dev-bal-reason')?.value||''};
+  const reason=(el('dev-bal-reason')?.value||'').trim();
+  if(!reason) return toast('Укажите причину (обязательно для журнала)',false);
+  const body={user_id:uid,mora:0,diamonds:0,dark_mora:0,zarniki:0,reason};
   body[cur]=amt;
   api('/admin/dev/balance',{method:'POST',body:JSON.stringify(body)})
-    .then(()=>toast(`✅ ${amt>0?'+':''}${amt} ${cur} → ID${uid}`))
+    .then(()=>{toast(`✅ ${amt>0?'+':''}${amt} ${cur} → ID${uid}`);loadDevLog();})
     .catch(e=>toast(e,false));
 }
 function devGiveItem() {
@@ -4671,8 +4858,10 @@ function devGiveItem() {
   const item=el('dev-item-id')?.value.trim();
   const qty=parseInt(el('dev-item-qty')?.value||'0');
   if(!uid||!item||!qty) return toast('Заполните все поля',false);
-  api('/admin/dev/give-item',{method:'POST',body:JSON.stringify({user_id:uid,item_id:item,qty,reason:el('dev-item-reason')?.value||''})})
-    .then(r=>toast(`✅ ${qty>0?'+':''}${qty}× ${r.item_name}`))
+  const reason=(el('dev-item-reason')?.value||'').trim();
+  if(!reason) return toast('Укажите причину (обязательно для журнала)',false);
+  api('/admin/dev/give-item',{method:'POST',body:JSON.stringify({user_id:uid,item_id:item,qty,reason})})
+    .then(r=>{toast(`✅ ${qty>0?'+':''}${qty}× ${r.item_name}`);loadDevLog();})
     .catch(e=>toast(e,false));
 }
 function devGiveVip() {
@@ -4722,7 +4911,7 @@ function devBpRewardSet() {
     body.reward_options=[opt1,opt2];
   }
   api('/admin/dev/bp/rewards',{method:'POST',body:JSON.stringify(body)})
-    .then(()=>toast(`💾 Ур.${level} (${track}) сохранён`))
+    .then(()=>{toast(`💾 Ур.${level} (${track}) сохранён`);loadBpTable();})
     .catch(e=>toast(e,false));
 }
 function devBpRewardReset() {
@@ -4731,7 +4920,7 @@ function devBpRewardReset() {
   const track=el('dev-br-track')?.value;
   if(!level) return toast('Укажите уровень',false);
   api(`/admin/dev/bp/rewards/${season}/${level}/${track}`,{method:'DELETE'})
-    .then(()=>toast('↩ Сброшено к registry'))
+    .then(()=>{toast('↩ Сброшено к registry');loadBpTable();})
     .catch(e=>toast(e,false));
 }
 function devBpBulk() {
@@ -4744,7 +4933,7 @@ function devBpBulk() {
     diamonds_base:parseInt(el('dev-bk-dia')?.value||'0')||0, diamonds_step:0};
   if(!body.level_from||!body.level_to) return toast('Укажите диапазон',false);
   api('/admin/dev/bp/rewards/bulk',{method:'POST',body:JSON.stringify(body)})
-    .then(r=>toast(`⚙️ Заполнено уровней: ${r.updated}`))
+    .then(r=>{toast(`⚙️ Заполнено уровней: ${r.updated}`);loadBpTable();})
     .catch(e=>toast(e,false));
 }
 function devBpSummary() {

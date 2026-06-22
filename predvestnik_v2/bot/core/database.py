@@ -839,6 +839,22 @@ async def init_db():
                 created_at  TIMESTAMP DEFAULT NOW()
             )
         """)
+        # Журнал действий разработчика (БЛОК 4.2): кто, кому, что выдал/забрал,
+        # причина и баланс «до/после» — для подотчётности дев-консоли.
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS admin_grant_log (
+                id          SERIAL PRIMARY KEY,
+                admin_id    BIGINT,
+                target_id   BIGINT,
+                action      TEXT,
+                detail      TEXT,
+                amount      FLOAT8,
+                reason      TEXT,
+                before_val  FLOAT8,
+                after_val   FLOAT8,
+                created_at  TIMESTAMP DEFAULT NOW()
+            )
+        """)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS partner_gifts_log (
                 id          SERIAL PRIMARY KEY,

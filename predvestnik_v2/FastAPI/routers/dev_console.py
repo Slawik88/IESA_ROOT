@@ -23,7 +23,10 @@ from core.registry import BATTLE_PASS_SEASONS, BATTLE_PASS_REWARDS, ITEMS_REGIST
 from core.themes import THEMES
 from infrastructure.repositories import theme_templates as theme_tpl_repo
 from infrastructure.repositories import theme_meta as theme_meta_repo
-from infrastructure.repositories.economy import add_balance, add_item, remove_item
+from infrastructure.repositories.economy import (
+    add_balance, add_item, remove_item, get_item_quantity, get_balance,
+)
+from infrastructure.repositories import admin_log
 from services.battle_pass import get_active_season, refresh_seasons_cache
 from services.themes import get_effective_theme
 from services.profile_render import (
@@ -169,6 +172,16 @@ async def dev_user_lookup(q: str = Query(..., max_length=64),
         s["expires_at"] = str(s["expires_at"]) if s["expires_at"] else None
     d["sanctions"] = sanctions
 
+    # Инвентарь — для визуального инвентаря в карточке игрока (БЛОК 4.1)
+    async with db.execute(
+        "SELECT item_id, quantity FROM inventory WHERE user_id = ? AND quantity > 0 "
+        "ORDER BY item_id", (uid,)
+    ) as c:
+        inv = [dict(r) for r in await c.fetchall()]
+    for it in inv:
+        it["name"] = ITEMS_REGISTRY.get(it["item_id"], {}).get("name", it["item_id"])
+    d["inventory"] = inv
+
     d["mora"] = float(d["mora"]); d["diamonds"] = float(d["diamonds"])
     d["dark_mora"] = float(d["dark_mora"]); d["zarniki"] = float(d["zarniki"])
     return d
@@ -209,6 +222,21 @@ async def dev_balance(body: BalanceRequest, db=Depends(get_db), user=Depends(req
     _require_dev(user)
     if not any((body.mora, body.diamonds, body.dark_mora, body.zarniki)):
         raise HTTPException(400, "Все суммы нулевые.")
+
+    # Баланс «до» — для журнала (БЛОК 4.2)
+    bal = await get_balance(db, body.user_id)
+    before = {
+        "mora":     float(bal["user_balance_mora"] or 0),
+        "diamonds": float(bal["user_balance_diamonds"] or 0),
+        "zarniki":  float(bal["user_balance_zarniki"] or 0),
+    }
+    async with db.execute(
+        "SELECT COALESCE(user_balance_dark_mora, 0) FROM users WHERE user_tg_id = ?",
+        (body.user_id,),
+    ) as c:
+        _dk = await c.fetchone()
+    before["dark_mora"] = float(_dk[0]) if _dk else 0.0
+
     if body.mora or body.diamonds or body.zarniki:
         await add_balance(db, body.user_id, mora=body.mora, diamonds=body.diamonds,
                           zarniki=body.zarniki, source="dev_console", note=f"by_{user['id']}")
@@ -219,6 +247,17 @@ async def dev_balance(body: BalanceRequest, db=Depends(get_db), user=Depends(req
         await db.execute(
             "UPDATE users SET user_balance_dark_mora = COALESCE(user_balance_dark_mora,0) + ? "
             "WHERE user_tg_id = ?", (body.dark_mora, body.user_id))
+
+    # Журнал: по записи на каждую затронутую валюту (баланс до/после)
+    _labels = {"mora": "🪙 Мора", "diamonds": "💎 Алмазы",
+               "dark_mora": "🌑 Тёмная Мора", "zarniki": "✨ Зарники"}
+    for cur in ("mora", "diamonds", "dark_mora", "zarniki"):
+        delta = getattr(body, cur)
+        if delta:
+            await admin_log.add(db, user["id"], body.user_id, "balance", _labels[cur],
+                                float(delta), body.reason or "",
+                                before[cur], before[cur] + float(delta))
+
     # Коробка-подарок только за положительные начисления (списание не «дарим»).
     gifts = []
     if body.mora > 0:      gifts.append({"label": "🪙 Мора",        "amount": body.mora})
@@ -247,6 +286,7 @@ async def dev_give_item(body: GiveItemRequest, db=Depends(get_db), user=Depends(
     if body.qty == 0:
         raise HTTPException(400, "qty не может быть 0.")
     name = ITEMS_REGISTRY[body.item_id].get("name", body.item_id)
+    qty_before = await get_item_quantity(db, body.user_id, body.item_id)
     if body.qty > 0:
         await add_item(db, body.user_id, body.item_id, body.qty)
         await _send_admin_gift(db, body.user_id,
@@ -255,6 +295,9 @@ async def dev_give_item(body: GiveItemRequest, db=Depends(get_db), user=Depends(
         ok = await remove_item(db, body.user_id, body.item_id, -body.qty, commit=False)
         if not ok:
             raise HTTPException(400, "У игрока меньше предметов, чем вы забираете.")
+    # Журнал (БЛОК 4.2): что выдал/забрал, причина, кол-во до/после
+    await admin_log.add(db, user["id"], body.user_id, "item", name, float(body.qty),
+                        body.reason or "", float(qty_before), float(qty_before + body.qty))
     await db.commit()
     return {"ok": True, "item_name": name}
 
@@ -264,6 +307,40 @@ async def dev_items(db=Depends(get_db), user=Depends(require_tg_user)):
     _require_dev(user)
     return {"items": [{"item_id": iid, "name": info.get("name", iid)}
                       for iid, info in ITEMS_REGISTRY.items()]}
+
+
+@router.get("/admin-log")
+async def dev_admin_log(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Журнал выдач/изъятий дев-консоли (БЛОК 4.2): кто, кому, что, причина, до/после."""
+    _require_dev(user)
+    return {"log": await admin_log.recent(db, 50)}
+
+
+@router.get("/chats")
+async def dev_chats(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Список чатов для дропдауна «чат → юзер» в карточке игрока (БЛОК 4.1)."""
+    _require_dev(user)
+    async with db.execute(
+        "SELECT chat_id, COALESCE(chat_title, CAST(chat_id AS TEXT)) AS title "
+        "FROM chat_settings ORDER BY chat_title LIMIT 200"
+    ) as c:
+        return {"chats": [dict(r) for r in await c.fetchall()]}
+
+
+@router.get("/chat-members")
+async def dev_chat_members(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Участники чата (для дропдауна «чат → юзер»), активные первыми."""
+    _require_dev(user)
+    async with db.execute(
+        "SELECT ucs.user_tg_id, "
+        "COALESCE(u.user_tg_username, CAST(ucs.user_tg_id AS TEXT)) AS username, "
+        "ucs.user_level, ucs.user_messages_count_all_time AS msgs "
+        "FROM user_chat_stats ucs LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
+        "WHERE ucs.chat_tg_id = ? AND COALESCE(ucs.is_left, 0) = 0 "
+        "ORDER BY ucs.user_messages_count_all_time DESC LIMIT 200",
+        (chat_id,),
+    ) as c:
+        return {"members": [dict(r) for r in await c.fetchall()]}
 
 
 # ── 5. Выдать VIP (бесплатно, без списания зарников) ─────────────────────────────
