@@ -531,7 +531,7 @@ function submitDuelChallenge(btn) {
 // ── Market ────────────────────────────────────────────────────────────────────
 function loadMarket(){swMkt(_mktTab,document.querySelector(`#pg-market > .tabs > .tb[onclick*="'${_mktTab}'"]`)||document.querySelector('#pg-market > .tabs > .tb'));}
 // swMkt() defined later with deal + promo tabs
-let _aucPage = 0, _aucTotal = 0, _aucPerPage = 20;
+let _aucPage = 0, _aucTotal = 0, _aucPerPage = 48;
 
 function loadAuction(page) {
   if(page !== undefined) _aucPage = page;
@@ -541,10 +541,20 @@ function loadAuction(page) {
     const totalPages = Math.ceil(_aucTotal / _aucPerPage);
 
     el('mkt-auc').innerHTML=`
-      <div style="display:flex;gap:7px;margin-bottom:8px">
-        <input type="text" class="num-input" style="margin:0;flex:1;font-size:12px"
-               placeholder="🔍 Поиск..." oninput="filterAuction(this.value)"/>
+      <div class="auc-bar">
+        <input type="text" class="num-input auc-search" placeholder="🔍 Поиск по названию..." value="${_aucSearch?esc(_aucSearch):''}" oninput="filterAuction(this.value)"/>
         <button class="btn btn-gold btn-sm" onclick="openCreateLotModal()">+ Выставить</button>
+      </div>
+      <div class="auc-bar auc-bar2">
+        <select class="num-input auc-sel" onchange="setAucFilter('sort',this.value)">
+          ${_aucOpt('sort',[['ending','⏱ Скоро конец'],['new','🆕 Новые'],['cheap','⬇️ Дешевле'],['expensive','⬆️ Дороже']])}
+        </select>
+        <select class="num-input auc-sel" onchange="setAucFilter('rarity',this.value)">
+          ${_aucOpt('rarity',[['','✦ Все редкости'],['common','Обычные'],['rare','Редкие'],['epic','Эпические'],['legendary','Легендарные'],['mythic','Мифические']])}
+        </select>
+        <select class="num-input auc-sel" onchange="setAucFilter('cat',this.value)">
+          ${_aucOpt('cat',[['','📦 Все типы'],['egg','🥚 Яйца'],['food','🍖 Еда'],['booster','⚡ Бустеры'],['material','💠 Материалы'],['utility','🏡 Утилиты'],['theme','🎨 Темы'],['pet','🐾 Питомцы'],['other','📦 Прочее']])}
+        </select>
       </div>
       <!-- Reserved mora -->
       <div id="auc-reserve" style="margin-bottom:8px"></div>
@@ -558,7 +568,7 @@ function loadAuction(page) {
         ${data.has_more ? `<button class="btn btn-ghost btn-sm" onclick="loadAuction(${_aucPage+1})">След. →</button>` : ''}
       </div>` : `<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px">${_aucTotal} лотов</div>`}`;
 
-    renderLots(_allLots);
+    _applyAucFilters();
     loadAucReserve();
     loadMyLots();
   }).catch(e=>{el('mkt-auc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;_allLots=[];});

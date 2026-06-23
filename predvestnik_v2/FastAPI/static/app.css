@@ -667,6 +667,11 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .wtx-delta { font-weight: 700; }
 .wtx-now { color: var(--bright); font-weight: 600; }
 .wtx-note { font-size: 10px; color: var(--muted); margin-top: 2px; font-style: italic; }
+/* ШАГ2: панель аукциона — поиск + фильтры + сортировка */
+.auc-bar { display: flex; gap: 7px; margin-bottom: 8px; }
+.auc-bar .auc-search { margin: 0; flex: 1; font-size: 12px; }
+.auc-bar2 { margin-bottom: 10px; }
+.auc-sel { margin: 0; flex: 1; min-width: 0; font-size: 11px; padding: 7px 6px; cursor: pointer; }
 /* ── Косметика профиля: ореолы имени (CSS, веб) ── */
 /* Каждый ореол — СВОЙ характер, а не один и тот же glow разного цвета. */
 /* common — ровное холодное серебро (статичное свечение) */

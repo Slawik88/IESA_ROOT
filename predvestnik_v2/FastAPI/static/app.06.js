@@ -1,15 +1,29 @@
-// ── Auction search ────────────────────────────────────────────────────────────
+// ── Auction: поиск + фильтры + сортировка (ШАГ2, клиентская сторона) ───────────
 let _allLots=[];
-function filterAuction(q) {
-  const f = q.toLowerCase();
-  const lots = f ? _allLots.filter(l => {
-    const name = (l.item_name_display || l.item_name || '').split('||')[0].toLowerCase();
-    return name.includes(f);
-  }) : _allLots;
-  renderLots(lots, f);
+let _aucSearch='', _aucRarity='', _aucCat='', _aucSort='ending';
+const _AUC_KNOWN_CATS=['egg','food','booster','material','utility','theme','spin_token','pet'];
+function filterAuction(q){ _aucSearch=(q||'').toLowerCase(); _applyAucFilters(); }
+function setAucFilter(kind,val){ if(kind==='rarity')_aucRarity=val; else if(kind==='cat')_aucCat=val; else if(kind==='sort')_aucSort=val; _applyAucFilters(); }
+function _aucOpt(kind,opts){ const cur=kind==='sort'?_aucSort:kind==='rarity'?_aucRarity:_aucCat;
+  return opts.map(([v,l])=>`<option value="${v}"${v===cur?' selected':''}>${l}</option>`).join(''); }
+function _lotPrice(l){ return l.current_bid || l.min_bid || 0; }
+function _lotEnds(l){ return new Date((l.ends_at+'').includes('T')?l.ends_at:l.ends_at+'Z').getTime(); }
+function _lotCat(l){ const c=l.item_category||''; return c || (l.item_id_ref?'other':'pet'); }
+function _applyAucFilters(){
+  let lots=_allLots.slice();
+  if(_aucSearch) lots=lots.filter(l=>((l.item_name_display||l.item_name||'').split('||')[0].toLowerCase()).includes(_aucSearch));
+  if(_aucRarity) lots=lots.filter(l=>(l.item_rarity||'')===_aucRarity);
+  if(_aucCat){ lots=lots.filter(l=>{ const c=_lotCat(l); return _aucCat==='other' ? !_AUC_KNOWN_CATS.includes(c) : c===_aucCat; }); }
+  if(_aucSort==='cheap')          lots.sort((a,b)=>_lotPrice(a)-_lotPrice(b));
+  else if(_aucSort==='expensive') lots.sort((a,b)=>_lotPrice(b)-_lotPrice(a));
+  else if(_aucSort==='new')       lots.sort((a,b)=>(b.id||0)-(a.id||0));
+  else                            lots.sort((a,b)=>_lotEnds(a)-_lotEnds(b)); // ending soon
+  renderLots(lots, _aucSearch);
 }
 // Category → icon emoji for auction lot cards
 const LOT_CAT_ICON={egg:'🥚',food:'🍖',spin_token:'🎟',booster:'⚡',material:'💠',utility:'🏡',theme:'🎨',pet:'🐾'};
+const _AUC_RARITY_COL={common:'#9aa7b8',rare:'#5b9bd5',epic:'#b07ad6',legendary:'#e8b54d',mythic:'#e0556b'};
+const _AUC_RARITY_LBL={common:'Обычный',rare:'Редкий',epic:'Эпический',legendary:'Легендарный',mythic:'Мифический'};
 
 function renderLots(lots, searchQuery) {
   if (!el('lot-list')) return;
@@ -43,8 +57,10 @@ function renderLots(lots, searchQuery) {
 
     const hotCls     = hasBids ? ' hot' : '';
     const buyoutCls  = buyout ? ' buyout-avail' : '';
+    const rar        = l.item_rarity || '';
+    const rarCol     = _AUC_RARITY_COL[rar] || '';
 
-    return `<div class="lot-card${hotCls}${buyoutCls}">
+    return `<div class="lot-card${hotCls}${buyoutCls}"${rarCol?` style="border-left:3px solid ${rarCol}"`:''}>
       <!-- Timer bar -->
       <div class="lot-timer-bar">
         <div class="lot-timer-fill" style="width:${pctLeft}%;${isUrgent?'background:var(--red)':''}"></div>
@@ -56,6 +72,7 @@ function renderLots(lots, searchQuery) {
           <div class="lot-name">${displayName}${qty}</div>
           ${desc?`<div class="lot-desc">${desc}</div>`:''}
           <div class="lot-badges">
+            ${rar?`<span class="lot-badge" style="color:${rarCol};border-color:${rarCol}">${_AUC_RARITY_LBL[rar]||rar}</span>`:''}
             <span class="lot-badge seller">👤 ${vipName(l.seller_name||'Игрок', l.seller_is_vip)}</span>
             <span class="lot-badge timer${isUrgent?' hot':''}">⏳ ${tl}</span>
             ${hasBids
