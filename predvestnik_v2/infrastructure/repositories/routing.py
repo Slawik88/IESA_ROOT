@@ -51,6 +51,39 @@ async def get_admin_chat(db: aiosqlite.Connection, main_chat_id: int) -> int | N
         return row[0] if row else None
 
 
+async def get_broadcast_targets(db: aiosqlite.Connection, audience: str = "all") -> list[int]:
+    """Чаты-получатели рассылки по фильтру аудитории.
+    audience: all | main | admin | main_admin | dm | dm_admin.
+    main  = основные группы (chat_id<0, НЕ привязанные админки);
+    admin = привязанные админ-чаты; dm = личные чаты (chat_id>0)."""
+    async with db.execute("SELECT chat_id FROM chat_settings") as cur:
+        all_ids = [r[0] for r in await cur.fetchall()]
+    async with db.execute(
+        "SELECT admin_chat_id FROM chat_links WHERE admin_chat_id IS NOT NULL"
+    ) as cur:
+        admin_ids = {r[0] for r in await cur.fetchall()}
+
+    main_ids  = [c for c in all_ids if c < 0 and c not in admin_ids]
+    admins    = [c for c in all_ids if c in admin_ids]
+    dm_ids    = [c for c in all_ids if c > 0]
+
+    sel = {
+        "all":        all_ids,
+        "main":       main_ids,
+        "admin":      admins,
+        "main_admin": [c for c in all_ids if c < 0],
+        "dm":         dm_ids,
+        "dm_admin":   dm_ids + admins,
+    }.get(audience, all_ids)
+    # дедуп с сохранением порядка
+    seen, out = set(), []
+    for c in sel:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
 async def get_announce_chats(db: aiosqlite.Connection) -> list[int]:
     """Основные группы для публичных анонсов (новый лот аукциона и т.п.):
     реальные группы (chat_id < 0), исключая привязанные админ-чаты и ЛС."""

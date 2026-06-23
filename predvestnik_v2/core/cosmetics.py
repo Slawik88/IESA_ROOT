@@ -8,13 +8,18 @@
     price=None → в магазине не продаётся (выдаётся источником: VIP/БП/ачивка).
   vip_required: покупка в магазине доступна только при активной VIP.
   source: "shop" | "vip" (даётся с покупкой VIP) | "bp" (платный трек БП) | "reward" (ачивка/ивент).
-  slot: "name_glow" (ореол ника, CSS) | "avatar_frame" (рамка аватара, CSS) | "title" (титул, ТЕКСТ — работает и в боте).
+  slot: "name_glow" (ореол ника, CSS) | "avatar_frame" (рамка аватара, CSS) | "title" (титул, ТЕКСТ — работает и в боте)
+        | "avatar_halo" (гало/свечение вокруг аватара, CSS) | "profile_bg" (фон/баннер карточки, CSS)
+        | "card_fx" (анимированные частицы поверх карточки, CSS).
 
-Визуальные слоты (name_glow/avatar_frame) рендерятся только на сайте (CSS).
-Титул — текст, поэтому показывается и на сайте, и в карточке профиля бота.
+Визуальные слоты (name_glow/avatar_frame/avatar_halo/profile_bg/card_fx) рендерятся
+только на сайте (CSS). Титул — текст, поэтому показывается и на сайте, и в карточке профиля бота.
 """
 
-COSMETIC_SLOTS = ("name_glow", "avatar_frame", "title")
+COSMETIC_SLOTS = (
+    "name_glow", "avatar_frame", "title",
+    "avatar_halo", "profile_bg", "card_fx",
+)
 
 # Порядок редкостей для сортировки/цвета в UI
 RARITY_ORDER = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4}
@@ -94,6 +99,114 @@ COSMETICS: dict[str, dict] = {
         "text": "Легенда Сезона", "vip_required": False, "source": "bp", "price": None,
         "bp_level": 50,
         "desc": "Эксклюзивный титул платного трека БП (макс. уровень).",
+    },
+
+    # ── Гало вокруг аватара (CSS, веб) ───────────────────────────────────────
+    "halo_glow": {
+        "name": "Тёплое гало", "slot": "avatar_halo", "rarity": "common",
+        "css": "halo-glow", "vip_required": False, "source": "shop",
+        "price": [{"mora": 22000}, {"diamonds": 12}],
+        "desc": "Мягкое тёплое свечение по контуру аватара. Доступно всем.",
+    },
+    "halo_pulse": {
+        "name": "Пульсирующий ореол", "slot": "avatar_halo", "rarity": "rare",
+        "css": "halo-pulse", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 140}, {"mora": 65000}],
+        "desc": "Ритмично пульсирующее кольцо света вокруг аватара.",
+    },
+    "halo_runic": {
+        "name": "Рунический круг", "slot": "avatar_halo", "rarity": "epic",
+        "css": "halo-runic", "vip_required": True, "source": "shop",
+        "price": [{"dark_mora": 1100, "diamonds": 10}],
+        "desc": "Вращающийся круг древних рун. Стоит 🌑 и 💎 одновременно.",
+    },
+    "halo_aurora": {
+        "name": "Аврора", "slot": "avatar_halo", "rarity": "epic",
+        "css": "halo-aurora", "vip_required": False, "source": "vip", "price": None,
+        "desc": "Переливы северного сияния вокруг аватара. Даётся с покупкой VIP.",
+    },
+    "halo_celestial": {
+        "name": "Небесный нимб", "slot": "avatar_halo", "rarity": "legendary",
+        "css": "halo-celestial", "vip_required": False, "source": "bp", "price": None,
+        "bp_level": 30,
+        "desc": "Золотой нимб с лучами. Награда платного трека БП (с 30 уровня).",
+    },
+    "halo_void": {
+        "name": "Кольцо Бездны", "slot": "avatar_halo", "rarity": "mythic",
+        "css": "halo-void", "vip_required": False, "source": "reward", "price": None,
+        "desc": "Тёмное кольцо с багровыми всполохами. Награда за достижения.",
+    },
+
+    # ── Фон / баннер карточки профиля (CSS, веб) ─────────────────────────────
+    "pbg_carbon": {
+        "name": "Карбон", "slot": "profile_bg", "rarity": "common",
+        "css": "pbg-carbon", "vip_required": False, "source": "shop",
+        "price": [{"mora": 24000}],
+        "desc": "Строгий карбоновый фон карточки профиля.",
+    },
+    "pbg_nebula": {
+        "name": "Туманность", "slot": "profile_bg", "rarity": "rare",
+        "css": "pbg-nebula", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 160}, {"mora": 72000}],
+        "desc": "Космическая туманность фоном за твоей карточкой.",
+    },
+    "pbg_abyss": {
+        "name": "Бездна", "slot": "profile_bg", "rarity": "epic",
+        "css": "pbg-abyss", "vip_required": True, "source": "shop",
+        "price": [{"dark_mora": 1300, "diamonds": 14}],
+        "desc": "Глубокий фон Бездны с тёмным градиентом. 🌑 + 💎.",
+    },
+    "pbg_royal": {
+        "name": "Королевский бархат", "slot": "profile_bg", "rarity": "epic",
+        "css": "pbg-royal", "vip_required": False, "source": "vip", "price": None,
+        "desc": "Тёмно-пурпурный бархат с золотой каймой. Даётся с покупкой VIP.",
+    },
+    "pbg_sunrise": {
+        "name": "Рассвет", "slot": "profile_bg", "rarity": "legendary",
+        "css": "pbg-sunrise", "vip_required": False, "source": "bp", "price": None,
+        "bp_level": 40,
+        "desc": "Тёплый градиент рассвета. Награда платного трека БП (с 40 уровня).",
+    },
+    "pbg_legend": {
+        "name": "Холст Легенды", "slot": "profile_bg", "rarity": "mythic",
+        "css": "pbg-legend", "vip_required": False, "source": "reward", "price": None,
+        "desc": "Живой золотисто-чёрный холст. Награда за достижения.",
+    },
+
+    # ── Частицы поверх карточки (CSS-анимация, веб) ───────────────────────────
+    "cfx_sparks": {
+        "name": "Искры", "slot": "card_fx", "rarity": "common",
+        "css": "cfx-sparks", "vip_required": False, "source": "shop",
+        "price": [{"mora": 26000}, {"diamonds": 14}],
+        "desc": "Лёгкие золотые искры, плавающие над карточкой.",
+    },
+    "cfx_snow": {
+        "name": "Снегопад", "slot": "card_fx", "rarity": "rare",
+        "css": "cfx-snow", "vip_required": False, "source": "shop",
+        "price": [{"mora": 60000}, {"zarniki": 130}],
+        "desc": "Тихо падающие снежинки поверх профиля.",
+    },
+    "cfx_embers": {
+        "name": "Угольки", "slot": "card_fx", "rarity": "rare",
+        "css": "cfx-embers", "vip_required": False, "source": "vip", "price": None,
+        "desc": "Поднимающиеся тлеющие угольки. Даётся с покупкой VIP.",
+    },
+    "cfx_stars": {
+        "name": "Звездопад", "slot": "card_fx", "rarity": "epic",
+        "css": "cfx-stars", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 190}, {"diamonds": 30}],
+        "desc": "Мерцающие падающие звёзды над карточкой.",
+    },
+    "cfx_fireflies": {
+        "name": "Светлячки", "slot": "card_fx", "rarity": "legendary",
+        "css": "cfx-fireflies", "vip_required": False, "source": "bp", "price": None,
+        "bp_level": 25,
+        "desc": "Тёплые светлячки кружат над профилем. Награда БП (с 25 уровня).",
+    },
+    "cfx_void_storm": {
+        "name": "Шторм Бездны", "slot": "card_fx", "rarity": "mythic",
+        "css": "cfx-void-storm", "vip_required": False, "source": "reward", "price": None,
+        "desc": "Багровые частицы Бездны в вихре. Награда за достижения.",
     },
 }
 

@@ -23,6 +23,7 @@ from core.registry import BATTLE_PASS_SEASONS, BATTLE_PASS_REWARDS, ITEMS_REGIST
 from core.themes import THEMES
 from infrastructure.repositories import theme_templates as theme_tpl_repo
 from infrastructure.repositories import theme_meta as theme_meta_repo
+from infrastructure.repositories import routing as routing_repo
 from infrastructure.repositories.economy import (
     add_balance, add_item, remove_item, get_item_quantity, get_balance,
 )
@@ -41,6 +42,7 @@ from services.profile_render import (
     build_profile_text,
     get_default_raw_template,
     get_template_variables,
+    get_template_var_help,
 )
 from services.roles import GLOBAL_RANKS_MAP, LOCAL_RANKS_MAP
 
@@ -962,6 +964,62 @@ async def dev_bp_reward_bulk(body: BpBulkRequest, db=Depends(get_db), user=Depen
     return {"ok": True, "updated": count}
 
 
+class BpDistributeRequest(BaseModel):
+    season_id: str
+    track: str
+    level_from: int
+    level_to: int
+    total_mora: int = 0
+    total_diamonds: int = 0
+    curve: str = "linear"   # flat | linear | progressive
+
+
+@router.post("/bp/rewards/distribute")
+async def dev_bp_reward_distribute(body: BpDistributeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """«Раскидать» суммарный пул ресурсов по диапазону уровней автоматически.
+    curve: flat (поровну) / linear (растёт линейно) / progressive (растёт круче).
+    Сумма по уровням точно равна заданному пулу (остаток от округления → последнему уровню)."""
+    _require_dev(user)
+    if body.track not in ("free", "paid"):
+        raise HTTPException(400, "track: 'free' или 'paid'.")
+    lo, hi = body.level_from, body.level_to
+    if not (1 <= lo <= hi <= BATTLE_PASS_MAX_LEVEL):
+        raise HTTPException(400, f"Диапазон 1..{BATTLE_PASS_MAX_LEVEL}, from ≤ to.")
+    if body.total_mora < 0 or body.total_diamonds < 0:
+        raise HTTPException(400, "Суммы не могут быть отрицательными.")
+    n = hi - lo + 1
+    if body.curve == "flat":
+        weights = [1.0] * n
+    elif body.curve == "progressive":
+        weights = [(i + 1) ** 2 for i in range(n)]
+    else:  # linear
+        weights = [float(i + 1) for i in range(n)]
+    wsum = sum(weights) or 1.0
+
+    def _split(total: int) -> list[int]:
+        if total <= 0:
+            return [0] * n
+        parts = [int(total * w / wsum) for w in weights]
+        parts[-1] += total - sum(parts)   # остаток округления — последнему уровню
+        return parts
+
+    moras = _split(body.total_mora)
+    dias = _split(body.total_diamonds)
+    for idx, lv in enumerate(range(lo, hi + 1)):
+        await db.execute(
+            "INSERT INTO battle_pass_reward_overrides "
+            "(season_id, level, track, mora, diamonds, items, theme_id, reward_options) "
+            "VALUES (?, ?, ?, ?, ?, '[]', NULL, NULL) "
+            "ON CONFLICT (season_id, level, track) DO UPDATE SET "
+            "mora=EXCLUDED.mora, diamonds=EXCLUDED.diamonds, items='[]', "
+            "theme_id=NULL, reward_options=NULL",
+            (body.season_id, lv, body.track, moras[idx], dias[idx]),
+        )
+    await db.commit()
+    return {"ok": True, "updated": n,
+            "mora_per_level": moras, "diamonds_per_level": dias}
+
+
 class BpImportRequest(BaseModel):
     season_id: str
     rewards: list   # [{level, track, mora?, diamonds?, items?:[[id,qty]], theme_id?, reward_options?}]
@@ -1122,9 +1180,21 @@ async def dev_bp_reward_reset(
     return {"ok": True}
 
 
-# ── 7. Рассылка по всем чатам ────────────────────────────────────────────────────
+# ── 7. Рассылка по чатам (с фильтром аудитории) ──────────────────────────────────
+_BROADCAST_AUDIENCES = {"all", "main", "admin", "main_admin", "dm", "dm_admin"}
+
+
 class BroadcastRequest(BaseModel):
     text: str
+    audience: str = "all"   # all | main | admin | main_admin | dm | dm_admin
+
+
+@router.get("/broadcast/audience-counts")
+async def dev_broadcast_counts(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Сколько чатов получит рассылку по каждому фильтру — для превью перед отправкой."""
+    _require_dev(user)
+    return {a: len(await routing_repo.get_broadcast_targets(db, a))
+            for a in _BROADCAST_AUDIENCES}
 
 
 @router.post("/broadcast")
@@ -1133,8 +1203,8 @@ async def dev_broadcast(body: BroadcastRequest, db=Depends(get_db), user=Depends
     text = body.text.strip()
     if not text:
         raise HTTPException(400, "Пустой текст.")
-    async with db.execute("SELECT chat_id FROM chat_settings") as c:
-        chat_ids = [r[0] for r in await c.fetchall()]
+    audience = body.audience if body.audience in _BROADCAST_AUDIENCES else "all"
+    chat_ids = await routing_repo.get_broadcast_targets(db, audience)
     sent = failed = 0
     for cid in chat_ids:
         r = await _tg_call("sendMessage", chat_id=cid, text=text, parse_mode="HTML")
@@ -1143,7 +1213,8 @@ async def dev_broadcast(body: BroadcastRequest, db=Depends(get_db), user=Depends
         else:
             failed += 1
         await asyncio.sleep(0.05)
-    return {"ok": True, "sent": sent, "failed": failed, "total": len(chat_ids)}
+    return {"ok": True, "sent": sent, "failed": failed,
+            "total": len(chat_ids), "audience": audience}
 
 
 # ── 8. Сырой SQL (escape hatch) ──────────────────────────────────────────────────
@@ -1215,6 +1286,7 @@ async def dev_theme_template_get(template_id: str, db=Depends(get_db), user=Depe
         "default_text": default_text,
         "has_override": override is not None,
         "variables": get_template_variables(template_id),
+        "var_help": get_template_var_help(template_id),
     }
 
 

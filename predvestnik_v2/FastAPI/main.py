@@ -164,9 +164,15 @@ def _read_static(name: str) -> str:
         return f.read()
 
 
+# app.js разбит на части (рефакторинг §5: меньше файлы → проще grep/Read/правки).
+# КРИТИЧНО: части СКЛЕИВАЮТСЯ в ОДИН скрипт и отдаются одним <script>, а НЕ N тегами —
+# top-level let/const классического скрипта живут в ОДНОЙ лексической области, и
+# раздача отдельными тегами сломала бы cross-file ссылки. Порядок = порядок в исходнике.
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in range(1, 10)]  # app.01.js … app.09.js
+
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(
-    os.path.getmtime(os.path.join(_STATIC_DIR, "app.js")),
+    *[os.path.getmtime(os.path.join(_STATIC_DIR, p)) for p in _APP_JS_PARTS],
     os.path.getmtime(os.path.join(_STATIC_DIR, "app.css")),
 )))
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
@@ -179,7 +185,7 @@ _INDEX_HTML = (
     .replace("{{BASE}}", _ASSET_BASE)
 )
 _APP_CSS = _read_static("app.css")
-_APP_JS = _read_static("app.js")
+_APP_JS = "".join(_read_static(p) for p in _APP_JS_PARTS)
 
 
 @app.get("/", response_class=HTMLResponse)
