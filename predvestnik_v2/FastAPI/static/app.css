@@ -672,6 +672,33 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .auc-bar .auc-search { margin: 0; flex: 1; font-size: 12px; }
 .auc-bar2 { margin-bottom: 10px; }
 .auc-sel { margin: 0; flex: 1; min-width: 0; font-size: 11px; padding: 7px 6px; cursor: pointer; }
+/* ШАГ4: Крипто-Биржа */
+.cx-head { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; margin-bottom: 10px; border-radius: 11px; background: linear-gradient(120deg, rgba(95,211,138,.12), rgba(139,108,240,.08)); border: 1px solid var(--border2); }
+.cx-h-l { font-size: 10px; color: var(--muted); }
+.cx-h-v { font-size: 15px; font-weight: 800; color: var(--bright); }
+.cx-list { display: flex; flex-direction: column; gap: 6px; }
+.cx-row { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border2); background: var(--s); cursor: pointer; transition: border-color .12s, transform .1s; }
+.cx-row:active { transform: scale(.99); }
+.cx-ico { font-size: 22px; flex: none; }
+.cx-rinfo { flex: 1; min-width: 0; }
+.cx-rname { font-size: 13px; font-weight: 700; color: var(--bright); }
+.cx-rhold { font-size: 10px; color: var(--gold2); }
+.cx-dim { color: var(--muted); }
+.cx-spark { flex: none; }
+.cx-rprice { text-align: right; flex: none; }
+.cx-rp { font-size: 13px; font-weight: 700; color: var(--bright); }
+.cx-rchg { font-size: 10.5px; font-weight: 700; }
+.cx-rchg.up { color: #5fd38a; } .cx-rchg.down { color: #e0556b; }
+.cx-det-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cx-chart { display: block; height: 110px; background: #0a0c12; border: 1px solid var(--border2); border-radius: 10px; margin-bottom: 8px; }
+.cx-hold { font-size: 11.5px; color: var(--bright); margin-bottom: 8px; }
+.cx-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.cx-tab { flex: 1; padding: 8px; border-radius: 9px; border: 1px solid var(--border2); background: var(--s); color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; }
+.cx-tab.on { border-color: var(--gold); color: var(--gold); background: var(--gold-dim, rgba(201,168,76,.1)); }
+.cx-slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.cx-slider-row input[type=range] { flex: 1; }
+.cx-pct { font-size: 13px; font-weight: 800; color: var(--gold2); min-width: 42px; text-align: right; }
+.cx-quote { display: flex; justify-content: space-between; font-size: 12px; color: var(--bright); padding: 8px 10px; border-radius: 9px; background: var(--s); border: 1px solid var(--border2); margin-bottom: 10px; }
 /* ── Косметика профиля: ореолы имени (CSS, веб) ── */
 /* Каждый ореол — СВОЙ характер, а не один и тот же glow разного цвета. */
 /* common — ровное холодное серебро (статичное свечение) */

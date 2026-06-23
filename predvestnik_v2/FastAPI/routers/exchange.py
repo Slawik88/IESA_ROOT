@@ -22,6 +22,8 @@ from core.constants import (
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.exchange import get_user_quota, add_quota
+from infrastructure.repositories import crypto as crypto_repo
+from services import crypto_exchange as cx
 
 router = APIRouter(prefix="/exchange", tags=["exchange"])
 
@@ -113,3 +115,52 @@ async def sell(body: ConvertRequest, db=Depends(get_db), user=Depends(require_tg
         await add_quota(db, user["id"], key, diamonds)
 
     return {"ok": True, "mora_gained": mora_gained, "diamonds_spent": diamonds}
+
+
+# ── Крипто-Биржа (ШАГ4) ─────────────────────────────────────────────────────────
+
+@router.get("/crypto")
+async def crypto_market(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Рынок: монеты (цена/изменение/свечи) + портфель игрока + баланс Моры."""
+    holds = await crypto_repo.get_holdings(db, user["id"])
+    bal = await eco_repo.get_balance(db, user["id"])
+    coins = []
+    portfolio_value = 0.0
+    for c in cx.COINS:
+        p = cx.price_now(c)
+        amt = holds.get(c["id"], 0.0)
+        value = round(amt * p, 2)
+        portfolio_value += value
+        coins.append({
+            "id": c["id"], "name": c["name"], "emoji": c["emoji"],
+            "price": p, "change_24h": cx.change_pct(c),
+            "candles": cx.candles(c), "holding": amt, "value": value,
+        })
+    return {
+        "coins": coins,
+        "mora": float(bal["user_balance_mora"] or 0),
+        "portfolio_value": round(portfolio_value, 2),
+    }
+
+
+class CryptoTradeRequest(BaseModel):
+    coin_id: str
+    action: str          # "buy" | "sell"
+    amount: float
+
+
+@router.post("/crypto/trade")
+async def crypto_trade(body: CryptoTradeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Купить/продать монету. Цена считается СЕРВЕРОМ в момент сделки (no client trust)."""
+    coin = cx.get_coin(body.coin_id)
+    if not coin:
+        raise HTTPException(404, "Монета не найдена.")
+    if body.action not in ("buy", "sell"):
+        raise HTTPException(400, "action: buy | sell.")
+    if body.amount <= 0:
+        raise HTTPException(400, "Количество должно быть больше нуля.")
+    price = cx.price_now(coin)
+    ok, msg = await crypto_repo.trade(db, user["id"], coin["id"], body.action, body.amount, price)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg, "price": price}

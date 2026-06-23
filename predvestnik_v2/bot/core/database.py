@@ -1066,6 +1066,18 @@ async def _init_clans(db):
     await db.execute("CREATE INDEX IF NOT EXISTS idx_clan_members_clan ON clan_members(clan_id)")
 
 
+async def _init_crypto(db):
+    # Крипто-Биржа (ШАГ4): портфель лорных валют. Цены — функция времени (без истории).
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS crypto_holdings (
+            user_id BIGINT NOT NULL,
+            coin_id TEXT   NOT NULL,
+            amount  FLOAT8 DEFAULT 0,
+            PRIMARY KEY (user_id, coin_id)
+        )
+    """)
+
+
 async def init_db():
     logger.info("Проверка и создание таблиц PostgreSQL...")
     pool = get_pool()
@@ -1087,5 +1099,6 @@ async def init_db():
         await _init_events_and_moderation(db)
         await _init_features_extra(db)
         await _init_clans(db)
+        await _init_crypto(db)
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")

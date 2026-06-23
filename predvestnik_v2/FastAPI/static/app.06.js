@@ -96,6 +96,87 @@ function renderLots(lots, searchQuery) {
   }).join('');
 }
 
+// ── Крипто-Биржа (ШАГ4): лорные монеты, свечи, купить/продать с ползунком % ──────
+let _cxData=null, _cxSel=null, _cxAction='buy', _cxPct=50;
+function openCryptoExchange(){
+  _cxSel=null; _cxAction='buy'; _cxPct=50;
+  OM('📈 Крипто-Биржа','<div class="loader">Загрузка рынка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]);
+  _cxLoad();
+}
+function _cxLoad(){ api('/exchange/crypto').then(d=>{_cxData=d; renderCrypto();})
+  .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;}); }
+function _cxCur(){ return (_cxData&&_cxData.coins||[]).find(c=>c.id===_cxSel); }
+function _cxAmt(a){ return (Number(a)||0).toLocaleString('ru',{maximumFractionDigits:4}); }
+function renderCrypto(){
+  const b=el('mb'); if(!b||!_cxData) return;
+  if(_cxSel){ b.innerHTML=_cxDetailHtml(); return; }
+  const head=`<div class="cx-head">
+    <div><div class="cx-h-l">💼 Портфель</div><div class="cx-h-v">${fmt(_cxData.portfolio_value)} 🪙</div></div>
+    <div style="text-align:right"><div class="cx-h-l">Баланс</div><div class="cx-h-v">${fmt(_cxData.mora)} 🪙</div></div></div>`;
+  b.innerHTML=head+`<div class="cx-list">${_cxData.coins.map(_cxRow).join('')}</div>`;
+}
+function _cxRow(c){
+  const up=c.change_24h>=0;
+  return `<div class="cx-row" onclick="_cxOpen('${c.id}')">
+    <div class="cx-ico">${c.emoji}</div>
+    <div class="cx-rinfo"><div class="cx-rname">${c.name}</div>
+      ${c.holding>0?`<div class="cx-rhold">${_cxAmt(c.holding)} · ${fmt(c.value)}🪙</div>`:'<div class="cx-rhold cx-dim">—</div>'}</div>
+    ${_cxSpark(c.candles,up)}
+    <div class="cx-rprice"><div class="cx-rp">${fmt(c.price)}🪙</div>
+      <div class="cx-rchg ${up?'up':'down'}">${up?'▲':'▼'}${Math.abs(c.change_24h)}%</div></div></div>`;
+}
+function _cxSpark(cd,up){
+  const cl=cd.map(x=>x.c), mn=Math.min(...cl), mx=Math.max(...cl), rng=(mx-mn)||1, W=52,H=24;
+  const pts=cl.map((v,i)=>`${(i/(cl.length-1)*W).toFixed(1)},${(H-(v-mn)/rng*H).toFixed(1)}`).join(' ');
+  return `<svg class="cx-spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polyline points="${pts}" fill="none" stroke="${up?'#5fd38a':'#e0556b'}" stroke-width="1.5"/></svg>`;
+}
+function _cxOpen(id){ _cxSel=id; _cxAction='buy'; _cxPct=50; renderCrypto(); }
+function _cxBack(){ _cxSel=null; renderCrypto(); }
+function _cxSetAction(a){ _cxAction=a; _cxPct=50; renderCrypto(); }
+function _cxDetailHtml(){
+  const c=_cxCur(); if(!c) return '';
+  const up=c.change_24h>=0, price=c.price;
+  const maxAmt=_cxAction==='buy'?(price>0?_cxData.mora/price:0):c.holding;
+  const amt=maxAmt*_cxPct/100, cost=amt*price;
+  return `<button class="btn btn-sm btn-ghost" style="margin-bottom:8px" onclick="_cxBack()">← Все монеты</button>
+    <div class="cx-det-head"><span class="cx-ico" style="font-size:26px">${c.emoji}</span>
+      <div><div class="cx-rname" style="font-size:16px">${c.name}</div>
+      <div class="cx-rchg ${up?'up':'down'}">${fmt(price)} 🪙 · ${up?'▲':'▼'} ${Math.abs(c.change_24h)}% (24ч)</div></div></div>
+    ${_cxChart(c.candles)}
+    <div class="cx-hold">В портфеле: <b>${_cxAmt(c.holding)}</b> ${c.emoji} <span class="cx-dim">(${fmt(c.value)} 🪙)</span></div>
+    <div class="cx-tabs"><button class="cx-tab ${_cxAction==='buy'?'on':''}" onclick="_cxSetAction('buy')">Купить</button>
+      <button class="cx-tab ${_cxAction==='sell'?'on':''}" onclick="_cxSetAction('sell')">Продать</button></div>
+    <div class="cx-slider-row"><input id="cx-slider" type="range" min="0" max="100" value="${_cxPct}" oninput="_cxSlide(this.value)"/>
+      <span id="cx-pct" class="cx-pct">${_cxPct}%</span></div>
+    <div class="cx-quote"><div>Кол-во: <b id="cx-amt">${_cxAmt(amt)}</b> ${c.emoji}</div>
+      <div>${_cxAction==='buy'?'Потратишь':'Получишь'}: <b id="cx-cost">${fmt(Math.round(cost))}</b> 🪙</div></div>
+    <button class="btn btn-full ${_cxAction==='buy'?'btn-gold':'btn-ghost'}" onclick="_cxTrade()">${_cxAction==='buy'?'📈 Купить':'📉 Продать'} ${c.name}</button>`;
+}
+function _cxChart(cd){
+  const W=300,H=110,pad=5, lo=Math.min(...cd.map(x=>x.l)), hi=Math.max(...cd.map(x=>x.h)), rng=(hi-lo)||1, cw=W/cd.length;
+  const y=v=>pad+(H-2*pad)*(1-(v-lo)/rng);
+  const bars=cd.map((k,i)=>{const x=i*cw+cw/2, up=k.c>=k.o, col=up?'#5fd38a':'#e0556b';
+    const bt=y(Math.max(k.o,k.c)), bb=y(Math.min(k.o,k.c)), bh=Math.max(1,bb-bt), bw=Math.max(2,cw*0.6);
+    return `<line x1="${x}" y1="${y(k.h)}" x2="${x}" y2="${y(k.l)}" stroke="${col}" stroke-width="1"/><rect x="${(x-bw/2).toFixed(1)}" y="${bt.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}"/>`;
+  }).join('');
+  return `<svg class="cx-chart" width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg>`;
+}
+function _cxSlide(v){
+  _cxPct=parseInt(v)||0; const c=_cxCur(); if(!c) return;
+  const price=c.price, maxAmt=_cxAction==='buy'?(price>0?_cxData.mora/price:0):c.holding;
+  const amt=maxAmt*_cxPct/100, cost=amt*price;
+  const e1=el('cx-pct'),e2=el('cx-amt'),e3=el('cx-cost');
+  if(e1)e1.textContent=_cxPct+'%'; if(e2)e2.textContent=_cxAmt(amt); if(e3)e3.textContent=fmt(Math.round(cost));
+}
+function _cxTrade(){
+  const c=_cxCur(); if(!c) return;
+  const price=c.price, maxAmt=_cxAction==='buy'?(price>0?_cxData.mora/price:0):c.holding;
+  const amt=maxAmt*_cxPct/100;
+  if(amt<=0){ toast('Выбери количество ползунком',false); return; }
+  api('/exchange/crypto/trade',{method:'POST',body:JSON.stringify({coin_id:c.id,action:_cxAction,amount:amt})})
+    .then(r=>{toast('✅ '+r.message); refreshCurrBar(); _cxLoad();})
+    .catch(e=>toast(e,false));
+}
 // openDuelChallenge / submitDuelChallenge — defined above in the loadDuels section
 
 // doSpin and closeSpinResult defined above (no loadGacha to avoid overwriting result)
