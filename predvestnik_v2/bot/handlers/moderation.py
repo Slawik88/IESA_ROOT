@@ -284,7 +284,7 @@ async def cmd_immune(
 
 @router.message(TextCmd(["защита", "защитить"]))
 async def cmd_protect(
-    message: types.Message, db, text_args: str = None, developer_id: int = 0
+    message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
         return
@@ -319,7 +319,7 @@ async def cmd_protect(
 
 @router.message(TextCmd(["снять защиту", "убрать щит"]))
 async def cmd_unprotect(
-    message: types.Message, db, text_args: str = None, developer_id: int = 0
+    message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
         return
@@ -347,7 +347,7 @@ async def cmd_unprotect(
 # ==========================================
 @router.message(TextCmd(["настройка щита", "щит новичка"]))
 async def cmd_setshield(
-    message: types.Message, db, text_args: str = None, developer_id: int = 0
+    message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
         return
@@ -377,7 +377,7 @@ async def cmd_setshield(
 
 @router.message(TextCmd(["настройка чистки", "ранг чистки"]))
 async def cmd_set_purge_rank(
-    message: types.Message, db, text_args: str = None, developer_id: int = 0
+    message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
         return
@@ -421,7 +421,7 @@ async def cmd_set_purge_rank(
 
 @router.message(TextCmd(["лимит варнов", "макс варнов"]))
 async def cmd_setwarns(
-    message: types.Message, db, text_args: str = None, developer_id: int = 0
+    message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
         return
