@@ -53,6 +53,11 @@ async def wallet_history(
             "delta_mora":     float(r.get("delta_mora") or 0),
             "delta_diamonds": float(r.get("delta_diamonds") or 0),
             "delta_zarniki":  float(r.get("delta_zarniki") or 0),
+            # «Стало» (баланс после операции) — зафиксирован в момент записи лога.
+            # «Было» фронт считает как (Стало − Изменение). ШАГ1.
+            "mora_after":     float(r.get("balance_mora_after") or 0),
+            "diamonds_after": float(r.get("balance_diamonds_after") or 0),
+            "zarniki_after":  float(r.get("balance_zarniki_after") or 0),
             "created_at":     str(r.get("created_at", ""))[:16],
             "note":           r.get("note", ""),
         })

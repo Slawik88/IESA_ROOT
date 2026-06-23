@@ -297,16 +297,24 @@ function _renderWalletMini() {
   if(!host) return;
   if(!_walletMiniTxs.length){ host.innerHTML=''; return; }
   const show = _walletMiniExpanded ? _walletMiniTxs : _walletMiniTxs.slice(0,4);
+  // ШАГ1: формат «Было → Изменение → Стало (причина)». Было = Стало − Изменение.
   const fmtTx = t => {
-    const mora = t.delta_mora?`<span style="color:${t.delta_mora>0?'var(--green)':'var(--red)'};font-weight:600">${t.delta_mora>0?'+':''}${fmt(t.delta_mora)} 🪙</span>`:'';
-    const dia  = t.delta_diamonds?`<span style="color:${t.delta_diamonds>0?'var(--blue)':'var(--red)'};font-weight:600">${t.delta_diamonds>0?'+':''}${t.delta_diamonds} 💎</span>`:'';
-    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2)">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.label}</div>
-        ${t.note?`<div style="font-size:10px;color:var(--muted)">${t.note}</div>`:''}
-        <div style="font-size:10px;color:var(--muted)">${fmtUTC(t.created_at)}</div>
-      </div>
-      <div style="text-align:right;white-space:nowrap;flex-shrink:0">${[mora,dia].filter(Boolean).join(' ')}</div>
+    const line = (delta, after, icon) => {
+      if(!delta) return '';
+      const before = after - delta, sign = delta>0?'+':'';
+      const col = delta>0?'var(--green)':'var(--red)';
+      return `<div class="wtx-line">
+        <span class="wtx-was">${fmtF(before)} ${icon}</span><span class="wtx-arrow">→</span>
+        <span class="wtx-delta" style="color:${col}">${sign}${fmtF(delta)} ${icon}</span><span class="wtx-arrow">→</span>
+        <span class="wtx-now">Итог ${fmtF(after)} ${icon}</span></div>`;
+    };
+    const lines = [line(t.delta_mora,t.mora_after,'🪙'),
+                   line(t.delta_diamonds,t.diamonds_after,'💎'),
+                   line(t.delta_zarniki,t.zarniki_after,'✨')].filter(Boolean).join('');
+    return `<div class="wtx">
+      <div class="wtx-head"><span class="wtx-label">${t.label}</span><span class="wtx-time">${fmtUTC(t.created_at)}</span></div>
+      ${lines}
+      ${t.note?`<div class="wtx-note">${esc(t.note)}</div>`:''}
     </div>`;
   };
   host.innerHTML=`<div class="card">

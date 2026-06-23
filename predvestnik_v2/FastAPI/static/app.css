@@ -656,6 +656,17 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .bp-bar-frozen .ach-fill { background: linear-gradient(90deg, #5a6678, #7a8698) !important; filter: grayscale(.6); opacity: .7; }
 .dev-freeze-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; margin-bottom: 8px; border-radius: 9px; font-size: 11px; background: var(--s); border: 1px solid var(--border2); }
 .dev-freeze-bar.on { background: linear-gradient(90deg, rgba(120,180,255,.14), rgba(120,180,255,.03)); border-color: rgba(120,180,255,.4); color: #bcd8ff; }
+/* ШАГ1: история кошелька «Было → Изменение → Стало (причина)» */
+.wtx { padding: 8px 0; border-bottom: 1px solid var(--border2); }
+.wtx-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.wtx-label { font-size: 12px; font-weight: 600; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wtx-time { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.wtx-line { display: flex; align-items: center; gap: 5px; font-size: 11px; flex-wrap: wrap; line-height: 1.7; }
+.wtx-was { color: var(--muted); }
+.wtx-arrow { color: var(--dim); font-weight: 700; }
+.wtx-delta { font-weight: 700; }
+.wtx-now { color: var(--bright); font-weight: 600; }
+.wtx-note { font-size: 10px; color: var(--muted); margin-top: 2px; font-style: italic; }
 /* ── Косметика профиля: ореолы имени (CSS, веб) ── */
 /* Каждый ореол — СВОЙ характер, а не один и тот же glow разного цвета. */
 /* common — ровное холодное серебро (статичное свечение) */
