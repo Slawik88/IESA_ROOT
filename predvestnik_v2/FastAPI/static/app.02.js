@@ -142,17 +142,33 @@ function _looksPreviewHtml(){
 }
 function _looksSlotHtml(slot){
   const items=_looksData.slots[slot]||[];
-  const none=`<div class="looks-card ${_looksSel[slot]?'':'sel'}" onclick="_looksUnequip('${slot}')">✖ Без</div>`;
+  const none=`<div class="looks-card ${_looksSel[slot]?'':'sel'}" onclick="_looksUnequip('${slot}')">
+    <div class="lc-sw lc-sw--none">✖</div><div class="lc-name">Без</div></div>`;
   return `<div class="looks-slot"><div class="looks-slot-t">${_LOOKS_SLOT_LABEL[slot]}</div>
     <div class="looks-cards">${none}${items.map(it=>_looksCard(slot,it)).join('')}</div></div>`;
 }
+// Мини-превью реального эффекта в карточке (а не просто текст).
+function _looksSwatch(slot,it){
+  const c=it.css||'';
+  const face=(_looksData&&_looksData.vip)?'👑':'🔮';
+  switch(slot){
+    case 'name_glow':    return `<div class="lc-sw"><span class="lc-nick ${c}">@Ник</span></div>`;
+    case 'title':        return `<div class="lc-sw"><span class="lc-title">${esc(it.text||it.name)}</span></div>`;
+    case 'avatar_frame':
+    case 'avatar_halo':  return `<div class="lc-sw"><span class="lc-ava ${c}">${face}</span></div>`;
+    case 'profile_bg':   return `<div class="lc-sw lc-bg ${c}"></div>`;
+    case 'card_fx':      return `<div class="lc-sw"><div class="card-fx ${c}"></div></div>`;
+    default:             return `<div class="lc-sw"></div>`;
+  }
+}
 function _looksCard(slot,it){
   const sel=_looksSel[slot]===it.id;
+  const sw=_looksSwatch(slot,it);
+  const rar=`<span class="lc-rar">${_rarLabel(it.rarity)}</span>`;
   if(it.owned){
     return `<div class="looks-card r-${it.rarity} ${sel?'sel':''}" onclick="_looksEquip('${slot}','${it.id}')">
-      <div class="lc-name">${esc(it.name)}</div>
-      <div class="lc-tag">${_rarLabel(it.rarity)}${it.equipped?' · надето':''}</div>
-    </div>`;
+      ${sw}<div class="lc-name">${esc(it.name)}</div>
+      <div class="lc-foot">${rar}${it.equipped?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
   }
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
   const bal=_looksData.balances||{};
@@ -167,7 +183,9 @@ function _looksCard(slot,it){
   } else {
     foot=`<div class="lc-tag">${_srcLabel(it.source)}</div>`;
   }
-  return `<div class="looks-card r-${it.rarity} locked"><div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>${foot}</div>`;
+  return `<div class="looks-card r-${it.rarity} locked">
+    ${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
+    <div class="lc-foot">${rar}</div>${foot}</div>`;
 }
 function _looksEquip(slot,id){
   _looksSel[slot]=id;
@@ -193,7 +211,7 @@ let _wpMode=null;
 function _looksWelcomeHtml(){
   const w=_looksData.welcome; if(!w) return '';
   const cards=(w.options||[]).map(o=>{
-    const cls=['looks-card','r-'+o.rarity]; if(o.current)cls.push('sel'); if(o.locked)cls.push('locked');
+    const cls=['looks-card','lc-wide','r-'+o.rarity]; if(o.current)cls.push('sel'); if(o.locked)cls.push('locked');
     const vip=o.vip_required?' <span class="lc-vip">VIP</span>':'';
     return `<div class="${cls.join(' ')}" onclick="_welcomePick('${o.id}')">
       <div class="lc-name">${o.locked?'🔒 ':''}${esc(o.name)}${vip}</div>

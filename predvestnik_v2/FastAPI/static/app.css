@@ -451,10 +451,21 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   100% { opacity: 0; width: 230px; height: 230px; }
 }
 
-/* — Глитч-портал — */
+/* — Глитч-портал — имя ВИДИМО собирается из цифрового сбоя в первую ~1с
+   (раньше эффект был лишь кратким фликом на 91-97% цикла → за 3.2с показа
+   прелоадера его почти не было видно). Дальше — редкие фоновые сбои. */
 .plm-glitch .plw-nick {
   background: none; -webkit-text-fill-color: #e3ebff; color: #e3ebff;
-  animation: plwReveal .45s ease .15s forwards, plmGlitch 2.2s steps(1,end) 1s infinite;
+  animation: plmGlitchIn 1s steps(2,end) .1s both, plmGlitch 2.4s steps(1,end) 1.6s infinite;
+}
+@keyframes plmGlitchIn {
+  0%   { opacity: 0; clip-path: inset(0 0 92% 0); transform: translateX(-7px); text-shadow: 3px 0 #ff3b5c, -3px 0 #36e0ff; }
+  18%  { opacity: 1; clip-path: inset(42% 0 28% 0); transform: translateX(6px); }
+  36%  { clip-path: inset(8% 0 62% 0);  transform: translateX(-5px); text-shadow: -3px 0 #ff3b5c, 3px 0 #36e0ff; }
+  54%  { clip-path: inset(60% 0 8% 0);  transform: translateX(4px);  text-shadow: 2px 0 #ff3b5c, -2px 0 #36e0ff; }
+  72%  { clip-path: inset(20% 0 40% 0); transform: translateX(-3px); }
+  86%  { clip-path: inset(0 0 0 0);     transform: translateX(2px);  text-shadow: 1px 0 #ff3b5c, -1px 0 #36e0ff; }
+  100% { opacity: 1; clip-path: inset(0 0 0 0); transform: none; text-shadow: none; }
 }
 @keyframes plmGlitch {
   0%,90%,100% { transform: none; text-shadow: none; }
@@ -640,55 +651,104 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 }
 .bp-levelup { animation: bpLevelUp 1.1s ease-out; }
 /* ── Косметика профиля: ореолы имени (CSS, веб) ── */
-.glow-silver { text-shadow: 0 0 6px rgba(200,210,225,.85), 0 0 12px rgba(200,210,225,.45); }
-.glow-gold { text-shadow: 0 0 6px rgba(201,168,76,.9), 0 0 14px rgba(201,168,76,.5); }
-.glow-crimson { text-shadow: 0 0 6px rgba(214,68,68,.9), 0 0 14px rgba(214,68,68,.5); }
-.glow-prism { animation: glowPrism 4s linear infinite; }
-@keyframes glowPrism {
-  0% { text-shadow: 0 0 8px #dd6644, 0 0 14px #dd6644; }
-  33% { text-shadow: 0 0 8px #44dd88, 0 0 14px #44dd88; }
-  66% { text-shadow: 0 0 8px #4488dd, 0 0 14px #4488dd; }
-  100% { text-shadow: 0 0 8px #dd6644, 0 0 14px #dd6644; }
+/* Каждый ореол — СВОЙ характер, а не один и тот же glow разного цвета. */
+/* common — ровное холодное серебро (статичное свечение) */
+.glow-silver { color:#eef2f8; text-shadow: 0 0 5px rgba(205,214,228,.9), 0 0 11px rgba(205,214,228,.45); }
+/* rare — по золотым буквам бежит металлический блик (заливка текста + свип) */
+.glow-gold {
+  color: transparent; -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(100deg,#9c7b2e 0%,#e8c45a 38%,#fff3c0 50%,#e8c45a 62%,#9c7b2e 100%);
+  background-size: 250% 100%; animation: glowGold 3.2s linear infinite;
+  text-shadow: 0 0 9px rgba(201,168,76,.4);
 }
-/* Косметика: рамки аватара */
-.frame-bronze { box-shadow: 0 0 0 2px #8a5a2b, 0 0 0 3px rgba(138,90,43,.4); }
-.frame-neon { box-shadow: 0 0 0 2px #2bd4c0, 0 0 10px rgba(43,212,192,.6); }
-.frame-abyss { box-shadow: 0 0 0 2px #7a3bd6, 0 0 12px rgba(122,59,214,.6); }
-.frame-celestial { box-shadow: 0 0 0 2px #c9a84c, 0 0 14px rgba(201,168,76,.7); }
+@keyframes glowGold { 0% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
+/* epic — багровое пламя: нервный неровный флик (а не ровный ореол) */
+.glow-crimson { color:#ffdada; animation: glowFlame 2.1s ease-in-out infinite; }
+@keyframes glowFlame {
+  0%,100% { text-shadow: 0 0 6px rgba(214,68,68,.9), 0 0 12px rgba(214,68,68,.45); }
+  25% { text-shadow: 0 0 10px rgba(255,96,64,1), 0 0 20px rgba(214,40,40,.6); }
+  45% { text-shadow: 0 0 5px rgba(200,52,52,.8), 0 0 10px rgba(214,68,68,.4); }
+  72% { text-shadow: 0 0 12px rgba(255,112,72,1), 0 0 24px rgba(230,50,40,.7); }
+}
+/* legendary — призма: радужная заливка текста, спектр плавно течёт */
+.glow-prism {
+  color: transparent; -webkit-text-fill-color: transparent;
+  -webkit-background-clip: text; background-clip: text;
+  background-image: linear-gradient(90deg,#ff6b6b,#ffd93b,#6bffb3,#5bc8ff,#c08bff,#ff6b6b);
+  background-size: 300% 100%; animation: glowPrism 4s linear infinite;
+  text-shadow: 0 0 11px rgba(180,140,255,.35);
+}
+@keyframes glowPrism { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
+/* Косметика: рамки аватара — разный характер (металл / неон-дыхание / энергия / золото) */
+/* common — статичная гравированная металлическая оправа (3D-кант, без анимации) */
+.frame-bronze { box-shadow: inset 0 0 0 1px rgba(255,222,170,.3), 0 0 0 2px #8a5a2b, 0 0 0 4px #5e3c1c, 0 0 6px rgba(138,90,43,.5); }
+/* rare — неоновая трубка «дышит» */
+.frame-neon { animation: frameNeon 1.8s ease-in-out infinite; }
+@keyframes frameNeon {
+  0%,100% { box-shadow: 0 0 0 2px #2bd4c0, 0 0 7px 1px rgba(43,212,192,.55); }
+  50%     { box-shadow: 0 0 0 2px #5cffe9, 0 0 16px 4px rgba(43,212,192,.95); }
+}
+/* epic — нестабильная энергия Бездны: цвет «течёт» фиолет→магента→индиго */
+.frame-abyss { animation: frameAbyss 3s ease-in-out infinite; }
+@keyframes frameAbyss {
+  0%,100% { box-shadow: 0 0 0 2px #7a3bd6, 0 0 10px 2px rgba(122,59,214,.55); }
+  35%     { box-shadow: 0 0 0 2px #b23bd6, 0 0 18px 5px rgba(180,59,214,.85); }
+  65%     { box-shadow: 0 0 0 2px #5a2bff, 0 0 14px 3px rgba(90,59,255,.7); }
+}
+/* legendary — лучистое золото с бегущим бликом */
+.frame-celestial { animation: frameCeles 2.6s ease-in-out infinite; }
+@keyframes frameCeles {
+  0%,100% { box-shadow: 0 0 0 2px #e8c45a, 0 0 12px 2px rgba(232,196,90,.55); }
+  50%     { box-shadow: 0 0 0 2px #fff0b8, 0 0 22px 6px rgba(255,224,140,.9); }
+}
 
 /* ── Косметика: гало вокруг аватара (box-shadow, не клипуется overflow) ──── */
-.halo-glow    { box-shadow: 0 0 16px 4px rgba(255,200,120,.6); }
-.halo-pulse   { animation: haloPulse 2s ease-in-out infinite; }
+/* common — ровное тёплое гало (статичное) */
+.halo-glow    { box-shadow: 0 0 16px 4px rgba(255,200,120,.55); }
+/* rare — плавное «дыхание» */
+.halo-pulse   { animation: haloPulse 2.2s ease-in-out infinite; }
 @keyframes haloPulse {
   0%,100% { box-shadow: 0 0 10px 2px rgba(120,200,255,.5); }
-  50%     { box-shadow: 0 0 20px 7px rgba(120,200,255,.85); }
+  50%     { box-shadow: 0 0 22px 8px rgba(120,200,255,.9); }
 }
-.halo-runic   { box-shadow: 0 0 0 2px rgba(160,90,240,.85), 0 0 18px 5px rgba(122,59,214,.55); animation: haloRunic 3s ease-in-out infinite; }
+/* epic — рунический круг: «тикающее» ступенчатое мерцание (магия/механика) */
+.halo-runic   { box-shadow: 0 0 0 2px rgba(160,90,240,.85), 0 0 16px 4px rgba(122,59,214,.5); animation: haloRunic 2.4s steps(8,end) infinite; }
 @keyframes haloRunic {
-  0%,100% { box-shadow: 0 0 0 2px rgba(160,90,240,.85), 0 0 14px 3px rgba(122,59,214,.5); }
-  50%     { box-shadow: 0 0 0 2px rgba(190,120,255,.95), 0 0 22px 6px rgba(150,90,240,.7); }
+  0%   { box-shadow: 0 0 0 2px rgba(160,90,240,.9), 0 0 12px 3px rgba(122,59,214,.5); }
+  50%  { box-shadow: 0 0 0 2px rgba(202,132,255,.95), 0 0 20px 6px rgba(150,90,240,.78); }
+  100% { box-shadow: 0 0 0 2px rgba(160,90,240,.9), 0 0 12px 3px rgba(122,59,214,.5); }
 }
+/* epic — аврора: переливы цветов */
 .halo-aurora  { animation: haloAurora 5s linear infinite; }
 @keyframes haloAurora {
-  0%   { box-shadow: 0 0 18px 5px rgba(80,220,180,.7); }
-  33%  { box-shadow: 0 0 18px 5px rgba(120,140,255,.7); }
-  66%  { box-shadow: 0 0 18px 5px rgba(220,120,220,.7); }
-  100% { box-shadow: 0 0 18px 5px rgba(80,220,180,.7); }
+  0%   { box-shadow: 0 0 18px 6px rgba(80,220,180,.7); }
+  33%  { box-shadow: 0 0 18px 6px rgba(120,140,255,.7); }
+  66%  { box-shadow: 0 0 18px 6px rgba(220,120,220,.7); }
+  100% { box-shadow: 0 0 18px 6px rgba(80,220,180,.7); }
 }
-.halo-celestial { box-shadow: 0 0 0 2px rgba(255,224,140,.9), 0 0 22px 6px rgba(255,210,110,.7); animation: haloPulse 2.6s ease-in-out infinite; }
-.halo-void    { animation: haloVoid 2.4s ease-in-out infinite; }
+/* legendary — небесный нимб: золото + двойной пульс лучей (тройной box-shadow) */
+.halo-celestial { animation: haloCeles 3s ease-in-out infinite; }
+@keyframes haloCeles {
+  0%,100% { box-shadow: 0 0 0 2px rgba(255,224,140,.9), 0 0 16px 4px rgba(255,210,110,.55), 0 0 30px 8px rgba(255,200,90,.22); }
+  50%     { box-shadow: 0 0 0 2px rgba(255,242,194,1), 0 0 24px 7px rgba(255,220,130,.85), 0 0 46px 14px rgba(255,200,90,.4); }
+}
+/* mythic — Кольцо Бездны: зловещий рваный багровый всполох */
+.halo-void    { animation: haloVoid 1.9s ease-in-out infinite; }
 @keyframes haloVoid {
-  0%,100% { box-shadow: 0 0 0 2px rgba(40,10,30,.95), 0 0 14px 3px rgba(180,40,60,.5); }
-  50%     { box-shadow: 0 0 0 2px rgba(70,15,45,.95), 0 0 24px 7px rgba(220,50,80,.8); }
+  0%,100% { box-shadow: 0 0 0 2px rgba(40,10,30,.95), 0 0 12px 3px rgba(180,40,60,.45); }
+  30%     { box-shadow: 0 0 0 2px rgba(80,15,50,.95), 0 0 26px 8px rgba(230,50,80,.85); }
+  45%     { box-shadow: 0 0 0 2px rgba(50,10,35,.95), 0 0 14px 3px rgba(180,40,60,.5); }
+  70%     { box-shadow: 0 0 0 2px rgba(92,18,56,.95), 0 0 30px 10px rgba(255,60,90,.9); }
 }
 
 /* ── Косметика: фон / баннер карточки профиля ───────────────────────────── */
-.hero.pbg-carbon,  .looks-preview.pbg-carbon  { background: repeating-linear-gradient(45deg, #181b26, #181b26 7px, #1f232f 7px, #1f232f 14px); }
-.hero.pbg-nebula,  .looks-preview.pbg-nebula  { background: radial-gradient(120% 90% at 80% 10%, rgba(139,108,240,.5), transparent 55%), radial-gradient(120% 90% at 10% 100%, rgba(94,155,240,.4), transparent 55%), linear-gradient(160deg, #161a2c, #0f1119); }
-.hero.pbg-abyss,   .looks-preview.pbg-abyss   { background: radial-gradient(130% 100% at 50% 0%, rgba(122,59,214,.4), transparent 60%), linear-gradient(180deg, #14101f, #07060c); }
-.hero.pbg-royal,   .looks-preview.pbg-royal   { background: radial-gradient(120% 90% at 50% -10%, rgba(170,120,255,.35), transparent 60%), linear-gradient(165deg, #2a1840, #1a0f28); border-color: rgba(201,168,76,.6); }
-.hero.pbg-sunrise, .looks-preview.pbg-sunrise { background: linear-gradient(165deg, #3a2418 0%, #5a341f 45%, #2a1c2e 100%); }
-.hero.pbg-legend,  .looks-preview.pbg-legend  { background: linear-gradient(135deg, #1a1407, #2a1d08, #07060c); background-size: 200% 200%; animation: pbgLegend 8s ease infinite; border-color: rgba(232,181,77,.55); }
+.hero.pbg-carbon,  .looks-preview.pbg-carbon,  .lc-bg.pbg-carbon  { background: repeating-linear-gradient(45deg, #181b26, #181b26 7px, #1f232f 7px, #1f232f 14px); }
+.hero.pbg-nebula,  .looks-preview.pbg-nebula,  .lc-bg.pbg-nebula  { background: radial-gradient(120% 90% at 80% 10%, rgba(139,108,240,.5), transparent 55%), radial-gradient(120% 90% at 10% 100%, rgba(94,155,240,.4), transparent 55%), linear-gradient(160deg, #161a2c, #0f1119); }
+.hero.pbg-abyss,   .looks-preview.pbg-abyss,   .lc-bg.pbg-abyss   { background: radial-gradient(130% 100% at 50% 0%, rgba(122,59,214,.4), transparent 60%), linear-gradient(180deg, #14101f, #07060c); }
+.hero.pbg-royal,   .looks-preview.pbg-royal,   .lc-bg.pbg-royal   { background: radial-gradient(120% 90% at 50% -10%, rgba(170,120,255,.35), transparent 60%), linear-gradient(165deg, #2a1840, #1a0f28); border-color: rgba(201,168,76,.6); }
+.hero.pbg-sunrise, .looks-preview.pbg-sunrise, .lc-bg.pbg-sunrise { background: linear-gradient(165deg, #3a2418 0%, #5a341f 45%, #2a1c2e 100%); }
+.hero.pbg-legend,  .looks-preview.pbg-legend,  .lc-bg.pbg-legend  { background: linear-gradient(135deg, #1a1407, #2a1d08, #07060c); background-size: 200% 200%; animation: pbgLegend 8s ease infinite; border-color: rgba(232,181,77,.55); }
 @keyframes pbgLegend { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 
 /* ── Косметика: частицы поверх карточки (overlay, pointer-events:none) ───── */
@@ -728,8 +788,10 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
     radial-gradient(2.5px 2.5px at 22% 60%, rgba(255,236,140,.95), transparent),
     radial-gradient(2px 2px at 58% 40%, rgba(255,224,110,.8), transparent),
     radial-gradient(2.5px 2.5px at 80% 70%, rgba(255,240,150,.9), transparent);
-  animation: cfxTwinkle 2.4s ease-in-out infinite;
+  background-size: 150% 150%;
+  animation: cfxDrift 7s ease-in-out infinite, cfxTwinkle 2.4s ease-in-out infinite;
 }
+@keyframes cfxDrift { 0%,100% { background-position: 0% 100%; } 50% { background-position: 100% 0%; } }
 .cfx-void-storm {
   background-image:
     radial-gradient(2px 2px at 20% 30%, rgba(230,50,80,.9), transparent),
@@ -750,14 +812,37 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .looks-preview .pname { font-size: 16px; font-weight: 700; }
 .looks-slot { margin-bottom: 12px; }
 .looks-slot-t { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
-.looks-cards { display: flex; flex-wrap: wrap; gap: 6px; }
-.looks-card { border: 1px solid var(--border2); border-radius: 8px; padding: 6px 8px; font-size: 11px; cursor: pointer; min-width: 78px; transition: border-color .15s, transform .1s; }
+.looks-cards { display: flex; flex-wrap: wrap; gap: 7px; }
+.looks-card {
+  position: relative; box-sizing: border-box; width: calc(33.333% - 5px);
+  border: 1px solid var(--border2); border-radius: 11px; padding: 7px;
+  cursor: pointer; display: flex; flex-direction: column; gap: 5px; background: var(--s);
+  transition: border-color .15s, transform .1s, box-shadow .2s;
+}
+.looks-card.lc-wide { width: calc(50% - 4px); }   /* приветствия — шире (текст-описание) */
 .looks-card:active { transform: scale(.97); }
-.looks-card.sel { border-color: var(--gold); background: var(--gold-dim, rgba(201,168,76,.1)); }
-.looks-card.locked { cursor: default; opacity: .92; }
-.lc-name { font-weight: 600; margin-bottom: 2px; }
+.looks-card.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 14px rgba(201,168,76,.18); background: var(--gold-dim, rgba(201,168,76,.1)); }
+.looks-card.locked { cursor: default; }
+/* Свотч — живое превью самого эффекта (а не текст) */
+.lc-sw {
+  width: 100%; height: 54px; border-radius: 8px; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 38%, #13151f, #0a0b12); border: 1px solid var(--border);
+}
+.lc-sw .lc-ava { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; background: linear-gradient(135deg, var(--violet-dim), var(--gold-dim)); }
+.lc-sw .lc-nick { font-size: 13px; font-weight: 800; color: var(--bright); }
+.lc-sw .lc-title { font-size: 11px; font-style: italic; color: var(--gold2); padding: 0 4px; text-align: center; }
+.lc-sw--none { color: var(--muted); font-size: 18px; }
+.lc-name { font-weight: 600; font-size: 11px; line-height: 1.2; }
+.lc-foot { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.lc-rar { font-size: 8.5px; padding: 1px 5px; border-radius: 5px; border: 1px solid currentColor; color: #9aa7b8; }
+.r-rare .lc-rar { color: #5b9bd5; } .r-epic .lc-rar { color: #b07ad6; }
+.r-legendary .lc-rar { color: var(--gold2); } .r-mythic .lc-rar { color: #e0556b; }
+.r-mythic .lc-name { color: #e0556b; }
+.lc-on { color: #6ed08a; font-size: 9px; font-weight: 600; }
 .lc-tag { font-size: 9px; color: var(--muted); }
-.lc-buys { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.lc-vip { font-size: 8px; background: var(--gold); color: #1a1407; border-radius: 4px; padding: 0 4px; font-weight: 700; vertical-align: middle; }
+.lc-buys { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .lc-buy { padding: 2px 6px !important; font-size: 9px !important; }
 .lc-buy--no { opacity: .45; }   /* не хватает валюты — подсказка (клик → сервер вернёт «недостаточно») */
 
@@ -809,7 +894,6 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .st-cell.today { outline: 2px solid var(--gold); outline-offset: 1px; }
 .st-legend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 9px; color: var(--muted); }
 .st-legend .st-cell { width: 11px; height: 11px; }
-.lc-vip { font-size: 8px; background: var(--gold); color: #1a1a1a; border-radius: 4px; padding: 0 4px; vertical-align: middle; }
 .r-rare .lc-name { color: #5b9bd5; }
 .r-epic .lc-name { color: #b07ad6; }
 .r-legendary .lc-name { color: var(--gold2); }
