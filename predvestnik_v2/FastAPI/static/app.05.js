@@ -461,7 +461,8 @@ function loadExchange() {
       <div class="irow"><span class="ik">Лимит продажи</span><span>${d.sell_remaining.toFixed(0)} / ${d.sell_daily_cap.toFixed(0)} 💎</span></div>
       <button class="btn btn-gold btn-full" style="margin-top:12px" onclick="openExchangeCurrencyModal('buy')">💱 Обменять</button>
       <div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:8px">Продажа дешевле покупки (спред) — 💎 остаётся премиум-валютой.</div>
-    </div>`;
+    </div>
+    <button class="btn btn-full btn-ghost" style="margin-top:10px" onclick="openCryptoExchange()">📈 Крипто-Биржа — лорные монеты</button>`;
   }).catch(e=>{el('mkt-exch').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 // Модалка обмена — открывается по клику на 🪙/💎 в профиле и из вкладки «Обмен».

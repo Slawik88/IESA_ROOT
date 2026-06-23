@@ -25,6 +25,7 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
+from infrastructure.repositories.crypto import ensure_tables as ensure_crypto
 
 
 @asynccontextmanager
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
         await admin_log.ensure_table(PGAdapter(conn))
         await ensure_cosmetics(PGAdapter(conn))
         await ensure_clans(PGAdapter(conn))
+        await ensure_crypto(PGAdapter(conn))
     yield
 
 

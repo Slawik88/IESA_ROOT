@@ -31,6 +31,8 @@ _SOURCE_LABELS = {
     "contrabanda_refund": "🌑 Контрабанда (возврат)",
     "cult_ritual":      "🌑 Ритуал",
     "achievement":      "🏆 Достижение",
+    "crypto_buy":       "📈 Биржа (покупка)",
+    "crypto_sell":      "📉 Биржа (продажа)",
 }
 
 
