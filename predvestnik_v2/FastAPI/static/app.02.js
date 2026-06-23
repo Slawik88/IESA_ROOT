@@ -56,7 +56,10 @@ function loadProfile() {
       </div>
 
       <button class="btn btn-full promo-cta" style="margin-top:10px" onclick="openPromoModal()">🎟 У меня есть промокод</button>
-      <button class="btn btn-full btn-ghost" style="margin-top:8px" onclick="openLooksModal()">🎨 Внешний вид</button>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost" style="flex:1" onclick="openLooksModal()">🎨 Внешний вид</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="openClansModal()">🛡 Клан</button>
+      </div>
 
       <!-- Активные баффы (заполняется loadActiveBuffs) -->
       <div id="pro-buffs"></div>
@@ -249,6 +252,80 @@ function _setWelcome(id){
     .then(r=>toast(r.message))
     .catch(e=>{toast(e,false); w.current=prev;
       (w.options||[]).forEach(o=>o.current=(o.id===prev)); renderLooks();});
+}
+// ── Кланы / Гильдии ─────────────────────────────────────────────────────────────
+let _clansData=null, _clanEmblemSel='🛡';
+function openClansModal(){
+  OM('🛡 Кланы','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-gold',f:'CM()'}]);
+  api('/clans/').then(d=>{_clansData=d; _clanEmblemSel=(d.emblems&&d.emblems[0])||'🛡'; renderClans();})
+    .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;});
+}
+function renderClans(){
+  const b=el('mb'); if(!b||!_clansData) return;
+  b.innerHTML=(_clansData.my_clan?_clanMyHtml():_clanCreateHtml())+_clanTopHtml();
+}
+function _clanMyHtml(){
+  const c=_clansData.my_clan;
+  const members=(c.members||[]).map(m=>{
+    const lead=m.role==='leader';
+    return `<div class="clan-mrow"><span class="clan-mname">${lead?'👑 ':''}@${esc(m.username||('id'+m.user_id))}</span>
+      <span class="clan-mrole">${lead?'Лидер':'Участник'}</span></div>`;
+  }).join('');
+  return `<div class="clan-card">
+      <div class="clan-emblem">${c.emblem||'🛡'}</div>
+      <div class="clan-name">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></div>
+      ${c.description?`<div class="clan-desc">${esc(c.description)}</div>`:''}
+      <div class="clan-stats"><div><b>${(c.members||[]).length}</b>/${_clansData.max_members} участников</div>
+        <div><b>${fmtF(c.total_xp||0)}</b> XP клана</div></div>
+    </div>
+    <div class="looks-slot-t" style="margin-top:10px">Состав</div>
+    <div class="clan-members">${members}</div>
+    <button class="btn btn-full btn-ghost" style="margin-top:12px" onclick="_clanLeave()">🚪 Покинуть клан</button>`;
+}
+function _clanCreateHtml(){
+  const emblems=(_clansData.emblems||[]).map(e=>`<span class="clan-emb-opt ${e===_clanEmblemSel?'sel':''}" onclick="_clanPickEmblem('${e}')">${e}</span>`).join('');
+  return `<div class="looks-hint">Создай свой клан или вступи в существующий ниже. Один клан на игрока.</div>
+    <div class="clan-form">
+      <div class="looks-slot-t">Эмблема</div>
+      <div class="clan-emblems">${emblems}</div>
+      <input id="clan-name" type="text" class="num-input" maxlength="${_clansData.name_max||24}" placeholder="Название клана"/>
+      <input id="clan-tag" type="text" class="num-input" maxlength="${_clansData.tag_max||5}" placeholder="Тег (2–5, напр. WOLF)" style="text-transform:uppercase"/>
+      <input id="clan-desc" type="text" class="num-input" maxlength="120" placeholder="Девиз (необязательно)"/>
+      <button class="btn btn-full btn-gold" onclick="_clanCreate()">🛡 Основать за ${fmtF(_clansData.create_cost||0)} 🪙</button>
+    </div>`;
+}
+function _clanTopHtml(){
+  const top=_clansData.top||[]; if(!top.length) return '';
+  const inClan=!!_clansData.my_clan;
+  const rows=top.map((c,i)=>{
+    const mine=_clansData.my_clan&&_clansData.my_clan.clan_id===c.clan_id;
+    const join=(!inClan)?`<button class="btn btn-sm btn-gold" onclick="_clanJoin(${c.clan_id})">Вступить</button>`:(mine?'<span class="clan-you">ты тут</span>':'');
+    return `<div class="clan-trow${mine?' clan-mine':''}"><span class="clan-trank">${i+1}</span>
+      <span class="clan-temblem">${c.emblem||'🛡'}</span>
+      <span class="clan-tname">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></span>
+      <span class="clan-txp">${fmtF(c.total_xp||0)} XP · ${c.member_count}/${_clansData.max_members}</span>
+      ${join}</div>`;
+  }).join('');
+  return `<div class="looks-slot-t" style="margin-top:14px">🏆 Топ кланов</div><div class="clan-top">${rows}</div>`;
+}
+function _clanPickEmblem(e){ _clanEmblemSel=e; renderClans(); }
+function _clanCreate(){
+  const name=(el('clan-name')||{}).value||'', tag=(el('clan-tag')||{}).value||'', desc=(el('clan-desc')||{}).value||'';
+  api('/clans/create',{method:'POST',body:JSON.stringify({name,tag,description:desc,emblem:_clanEmblemSel})})
+    .then(r=>{toast(r.message); refreshCurrBar(); openClansModal();})
+    .catch(e=>toast(e,false));
+}
+function _clanJoin(id){
+  api('/clans/join',{method:'POST',body:JSON.stringify({clan_id:id})})
+    .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
+}
+function _clanLeave(){
+  OM('🚪 Покинуть клан','<div style="padding:6px 2px;font-size:13px">Точно выйти? Если ты лидер — лидерство перейдёт старейшему участнику, а без участников клан распустится.</div>',
+    [{l:'Отмена',c:'btn-ghost',f:'openClansModal()'},{l:'Выйти',c:'btn-gold',f:'_clanLeaveDo()'}]);
+}
+function _clanLeaveDo(){
+  api('/clans/leave',{method:'POST',body:JSON.stringify({})})
+    .then(r=>{toast(r.message); openClansModal();}).catch(e=>{toast(e,false); openClansModal();});
 }
 // ── Preloader: эффектный холодный старт (БЛОК 9.2) ──────────────────────────────
 function _plSkip() {

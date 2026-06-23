@@ -548,3 +548,13 @@ BATTLE_PASS_XP_ACTION_LABELS: dict[str, str] = {
 BATTLE_PASS_BUY_LEVEL_BASE: int = 4    # цена открыть ур.2
 BATTLE_PASS_BUY_LEVEL_STEP: int = 2    # +шаг за каждый следующий уровень
 BATTLE_PASS_BUY_LEVEL_MARGIN: int = 5  # запас цены над алмазами уровня
+
+# ── Кланы / Гильдии (социальная прогрессия, НЕ pay-to-win) ──────────────────────
+CLAN_CREATE_COST_MORA: int = 100000    # цена основания клана (🪙)
+CLAN_MAX_MEMBERS: int = 20             # лимит участников в клане
+CLAN_NAME_MIN: int = 3
+CLAN_NAME_MAX: int = 24                # длина названия
+CLAN_TAG_MIN: int = 2
+CLAN_TAG_MAX: int = 5                  # короткий тег [TAG] рядом с ником
+CLAN_DESC_MAX: int = 120               # девиз/описание
+CLAN_EMBLEMS: tuple = ("🛡", "⚔️", "🐺", "🦅", "🔥", "🌑", "👑", "🐉", "⚡", "🦂")

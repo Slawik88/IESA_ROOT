@@ -1041,6 +1041,31 @@ async def _init_indexes(db):
         await db.execute(idx_sql)
 
 
+async def _init_clans(db):
+    # Кланы / гильдии (социальная прогрессия, не P2W). Один клан на игрока.
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS clans (
+            clan_id     SERIAL PRIMARY KEY,
+            name        TEXT UNIQUE NOT NULL,
+            tag         TEXT NOT NULL,
+            leader_id   BIGINT NOT NULL,
+            description TEXT DEFAULT '',
+            emblem      TEXT DEFAULT '🛡',
+            total_xp    BIGINT DEFAULT 0,
+            created_at  TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS clan_members (
+            user_id   BIGINT PRIMARY KEY,
+            clan_id   INTEGER NOT NULL REFERENCES clans(clan_id) ON DELETE CASCADE,
+            role      TEXT DEFAULT 'member',
+            joined_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_clan_members_clan ON clan_members(clan_id)")
+
+
 async def init_db():
     logger.info("Проверка и создание таблиц PostgreSQL...")
     pool = get_pool()
@@ -1061,5 +1086,6 @@ async def init_db():
         await _init_progression_and_economy(db)
         await _init_events_and_moderation(db)
         await _init_features_extra(db)
+        await _init_clans(db)
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")
