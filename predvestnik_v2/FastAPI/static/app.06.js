@@ -135,9 +135,10 @@ function _cxBack(){ _cxSel=null; renderCrypto(); }
 function _cxSetAction(a){ _cxAction=a; _cxPct=50; renderCrypto(); }
 function _cxDetailHtml(){
   const c=_cxCur(); if(!c) return '';
-  const up=c.change_24h>=0, price=c.price;
+  const up=c.change_24h>=0, price=c.price, fee=_cxData.fee||0;
   const maxAmt=_cxAction==='buy'?(price>0?_cxData.mora/price:0):c.holding;
-  const amt=maxAmt*_cxPct/100, cost=amt*price;
+  const amt=maxAmt*_cxPct/100;
+  const cost=_cxAction==='sell'?amt*price*(1-fee):amt*price;
   return `<button class="btn btn-sm btn-ghost" style="margin-bottom:8px" onclick="_cxBack()">← Все монеты</button>
     <div class="cx-det-head"><span class="cx-ico" style="font-size:26px">${c.emoji}</span>
       <div><div class="cx-rname" style="font-size:16px">${c.name}</div>
@@ -150,6 +151,7 @@ function _cxDetailHtml(){
       <span id="cx-pct" class="cx-pct">${_cxPct}%</span></div>
     <div class="cx-quote"><div>Кол-во: <b id="cx-amt">${_cxAmt(amt)}</b> ${c.emoji}</div>
       <div>${_cxAction==='buy'?'Потратишь':'Получишь'}: <b id="cx-cost">${fmt(Math.round(cost))}</b> 🪙</div></div>
+    ${_cxAction==='sell'&&fee?`<div class="cx-dim" style="font-size:10px;margin:-4px 0 8px">↳ при продаже удерживается спред биржи −${Math.round(fee*100)}%</div>`:''}
     <button class="btn btn-full ${_cxAction==='buy'?'btn-gold':'btn-ghost'}" onclick="_cxTrade()">${_cxAction==='buy'?'📈 Купить':'📉 Продать'} ${c.name}</button>`;
 }
 function _cxChart(cd){
@@ -163,8 +165,8 @@ function _cxChart(cd){
 }
 function _cxSlide(v){
   _cxPct=parseInt(v)||0; const c=_cxCur(); if(!c) return;
-  const price=c.price, maxAmt=_cxAction==='buy'?(price>0?_cxData.mora/price:0):c.holding;
-  const amt=maxAmt*_cxPct/100, cost=amt*price;
+  const price=c.price, fee=_cxData.fee||0, maxAmt=_cxAction==='buy'?(price>0?_cxData.mora/price:0):c.holding;
+  const amt=maxAmt*_cxPct/100, cost=_cxAction==='sell'?amt*price*(1-fee):amt*price;
   const e1=el('cx-pct'),e2=el('cx-amt'),e3=el('cx-cost');
   if(e1)e1.textContent=_cxPct+'%'; if(e2)e2.textContent=_cxAmt(amt); if(e3)e3.textContent=fmt(Math.round(cost));
 }

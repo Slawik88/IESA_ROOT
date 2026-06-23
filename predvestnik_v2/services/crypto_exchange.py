@@ -1,44 +1,61 @@
 """services/crypto_exchange.py — Крипто-Биржа (ШАГ4): лорные валюты, волатильность, свечи.
 
-Цена монеты — ДЕТЕРМИНИРОВАННАЯ функция времени (наложение синусоид с
-индивидуальной частотой/фазой). Поэтому:
-  • не нужен планировщик/таблица истории цен — график считается на лету;
-  • цена сервер-сайд и одинакова для всех в один момент → честно (no client trust);
-  • сделки используют price_now() в момент запроса.
+БЕЗОПАСНОСТЬ (после аудита): цена — НЕ предсказуемая функция (раньше были синусы,
+которые игрок мог экстраполировать и печатать Мору без риска). Теперь цена —
+гладкое СЛУЧАЙНОЕ БЛУЖДАНИЕ по узлам, где каждый узел = keyed-hash(SECRET, coin, idx).
+  • Будущие узлы зависят от СЕКРЕТА (env CRYPTO_SEED / BOT_TOKEN) → игрок НЕ может
+    предсказать будущую цену по прошлым свечам → нет risk-free тайминга.
+  • Детерминирована для всех в один момент (честно, no client trust), без планировщика
+    и без таблицы истории — график считается на лету.
+  • Дополнительно: спред на продаже (CRYPTO_TRADE_FEE) = край казино → биржа это СТОК,
+    а не источник Моры. Лимиты — в repositories/crypto.py.
 Базовая валюта торговли — Мора 🪙. Портфель игрока — в crypto_holdings.
 """
+import hashlib
 import math
+import os
 import time
 
-# 8 лорных валют. base — цена в Море, vol — амплитуда колебаний, seed — фаза.
+# 8 лорных валют. base — цена в Море (центр блуждания), vol — амплитуда колебаний.
 COINS: list[dict] = [
-    {"id": "abyssite", "name": "Абиссит",  "emoji": "🌑", "base": 1200.0, "vol": 0.28, "seed": 1.3},
-    {"id": "luminar",  "name": "Луминар",  "emoji": "✨", "base": 800.0,  "vol": 0.18, "seed": 2.7},
-    {"id": "verdane",  "name": "Вердан",   "emoji": "🌿", "base": 350.0,  "vol": 0.22, "seed": 0.9},
-    {"id": "pyron",    "name": "Пирон",    "emoji": "🔥", "base": 2100.0, "vol": 0.35, "seed": 3.4},
-    {"id": "aquilon",  "name": "Аквилон",  "emoji": "💧", "base": 620.0,  "vol": 0.20, "seed": 1.9},
-    {"id": "zephyr",   "name": "Зефир",    "emoji": "🌪", "base": 480.0,  "vol": 0.30, "seed": 4.1},
-    {"id": "cryon",    "name": "Крион",    "emoji": "❄️", "base": 1500.0, "vol": 0.25, "seed": 2.2},
-    {"id": "solmar",   "name": "Солмар",   "emoji": "☀️", "base": 3000.0, "vol": 0.32, "seed": 0.5},
+    {"id": "abyssite", "name": "Абиссит",  "emoji": "🌑", "base": 1200.0, "vol": 0.28},
+    {"id": "luminar",  "name": "Луминар",  "emoji": "✨", "base": 800.0,  "vol": 0.18},
+    {"id": "verdane",  "name": "Вердан",   "emoji": "🌿", "base": 350.0,  "vol": 0.22},
+    {"id": "pyron",    "name": "Пирон",    "emoji": "🔥", "base": 2100.0, "vol": 0.35},
+    {"id": "aquilon",  "name": "Аквилон",  "emoji": "💧", "base": 620.0,  "vol": 0.20},
+    {"id": "zephyr",   "name": "Зефир",    "emoji": "🌪", "base": 480.0,  "vol": 0.30},
+    {"id": "cryon",    "name": "Крион",    "emoji": "❄️", "base": 1500.0, "vol": 0.25},
+    {"id": "solmar",   "name": "Солмар",   "emoji": "☀️", "base": 3000.0, "vol": 0.32},
 ]
 _BY_ID = {c["id"]: c for c in COINS}
+
+# Секрет для непредсказуемости будущих цен. В ПРОДЕ обязателен (CRYPTO_SEED или BOT_TOKEN
+# всегда есть в env). Фолбэк-константа — только для локали; если репо публичный и сид не
+# задан, цены станут предсказуемыми → ВСЕГДА задавай CRYPTO_SEED/BOT_TOKEN на проде.
+_PRICE_SECRET = os.getenv("CRYPTO_SEED") or os.getenv("BOT_TOKEN") or "predvestnik-cx-dev-seed"
+_BUCKET_SEC = 1800  # узлы блуждания каждые 30 минут (между ними — гладко)
 
 
 def get_coin(coin_id: str) -> dict | None:
     return _BY_ID.get(coin_id)
 
 
-def _factor(seed: float, vol: float, t_hours: float) -> float:
-    osc = (math.sin(t_hours * 0.70 + seed) * 0.55
-           + math.sin(t_hours * 0.21 + seed * 1.7) * 0.30
-           + math.sin(t_hours * 2.90 + seed * 0.4) * 0.15)
-    return 1.0 + osc * vol
+def _node(coin_id: str, idx: int) -> float:
+    """Псевдослучайный множитель узла [0,1) — НЕпредсказуем без секрета (sha256)."""
+    h = hashlib.sha256(f"{_PRICE_SECRET}|{coin_id}|{idx}".encode()).digest()
+    return int.from_bytes(h[:6], "big") / float(1 << 48)
 
 
 def price_at(coin: dict, t: float) -> float:
-    """Цена монеты в момент t (unix-секунды). Ограничена снизу 15% базы."""
-    f = _factor(coin["seed"], coin["vol"], t / 3600.0)
-    return round(max(coin["base"] * 0.15, coin["base"] * f), 2)
+    """Цена монеты в момент t (unix-секунды): гладкое случайное блуждание вокруг base,
+    ограничено снизу 20% базы. Будущее непредсказуемо (узлы на секрете)."""
+    b = t / _BUCKET_SEC
+    i = math.floor(b)
+    frac = b - i
+    w = frac * frac * (3 - 2 * frac)  # smoothstep → непрерывная гладкая цена
+    noise = (_node(coin["id"], i) * (1 - w) + _node(coin["id"], i + 1) * w) * 2 - 1  # [-1,1]
+    f = 1.0 + noise * coin["vol"]
+    return round(max(coin["base"] * 0.20, coin["base"] * f), 2)
 
 
 def price_now(coin: dict) -> float:
