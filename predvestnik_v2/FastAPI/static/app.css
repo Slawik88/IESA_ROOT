@@ -846,6 +846,35 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .lc-buy { padding: 2px 6px !important; font-size: 9px !important; }
 .lc-buy--no { opacity: .45; }   /* не хватает валюты — подсказка (клик → сервер вернёт «недостаточно») */
 
+/* ── Кланы / Гильдии ─────────────────────────────────────────────────────────── */
+.clan-card {
+  text-align: center; padding: 16px 14px; border-radius: 14px; border: 1px solid var(--border2);
+  background: radial-gradient(120% 90% at 50% -10%, rgba(139,108,240,.16), transparent 60%), var(--s);
+}
+.clan-emblem { font-size: 42px; line-height: 1; }
+.clan-name { font-size: 17px; font-weight: 800; color: var(--bright); margin-top: 6px; }
+.clan-tag { color: var(--gold2); font-weight: 700; }
+.clan-desc { font-size: 11.5px; color: var(--muted); font-style: italic; margin-top: 4px; }
+.clan-stats { display: flex; justify-content: center; gap: 18px; margin-top: 10px; font-size: 11px; color: var(--muted); }
+.clan-stats b { color: var(--bright); font-size: 14px; }
+.clan-members { display: flex; flex-direction: column; gap: 4px; }
+.clan-mrow { display: flex; justify-content: space-between; align-items: center; padding: 6px 9px; border-radius: 8px; background: var(--s); font-size: 12px; }
+.clan-mname { font-weight: 600; color: var(--bright); }
+.clan-mrole { font-size: 9.5px; color: var(--muted); }
+.clan-form { display: flex; flex-direction: column; gap: 8px; }
+.clan-emblems { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 2px; }
+.clan-emb-opt { font-size: 22px; padding: 4px 7px; border-radius: 9px; border: 1px solid var(--border2); cursor: pointer; transition: border-color .12s, transform .1s; }
+.clan-emb-opt:active { transform: scale(.92); }
+.clan-emb-opt.sel { border-color: var(--gold); background: var(--gold-dim, rgba(201,168,76,.12)); }
+.clan-top { display: flex; flex-direction: column; gap: 5px; }
+.clan-trow { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--border2); background: var(--s); font-size: 12px; }
+.clan-trow.clan-mine { border-color: var(--gold); }
+.clan-trank { width: 18px; text-align: center; font-weight: 800; color: var(--gold2); }
+.clan-temblem { font-size: 18px; }
+.clan-tname { flex: 1; font-weight: 600; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clan-txp { font-size: 9.5px; color: var(--muted); white-space: nowrap; }
+.clan-you { font-size: 9.5px; color: var(--gold2); }
+
 /* Группа «основной чат + админка» в досье игрока (дев-консоль, БЛОК 1) */
 .dev-chat-grp { border: 1px solid var(--border2); border-left: 3px solid var(--gold); border-radius: 8px; padding: 0 8px; margin: 5px 0; background: rgba(232,181,77,.05); }
 .dev-chat-grp .irow { border-bottom: 0; }
