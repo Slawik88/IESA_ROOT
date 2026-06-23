@@ -654,13 +654,17 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 /* Каждый ореол — СВОЙ характер, а не один и тот же glow разного цвета. */
 /* common — ровное холодное серебро (статичное свечение) */
 .glow-silver { color:#eef2f8; text-shadow: 0 0 5px rgba(205,214,228,.9), 0 0 11px rgba(205,214,228,.45); }
-/* rare — по золотым буквам бежит металлический блик (заливка текста + свип) */
-.glow-gold {
-  color: transparent; -webkit-text-fill-color: transparent;
-  -webkit-background-clip: text; background-clip: text;
-  background-image: linear-gradient(100deg,#9c7b2e 0%,#e8c45a 38%,#fff3c0 50%,#e8c45a 62%,#9c7b2e 100%);
-  background-size: 250% 100%; animation: glowGold 3.2s linear infinite;
-  text-shadow: 0 0 9px rgba(201,168,76,.4);
+/* rare — по золотым буквам бежит металлический блик (заливка текста + свип).
+   База — СПЛОШНОЕ золото (ник виден ВСЕГДА); прозрачная заливка-градиент только
+   там, где браузер реально умеет background-clip:text → ник никогда не «пустой». */
+.glow-gold { color: #f0d27a; text-shadow: 0 0 9px rgba(201,168,76,.45); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .glow-gold {
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(100deg,#9c7b2e 0%,#e8c45a 38%,#fff3c0 50%,#e8c45a 62%,#9c7b2e 100%);
+    background-size: 250% 100%; animation: glowGold 3.2s linear infinite;
+  }
 }
 @keyframes glowGold { 0% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
 /* epic — багровое пламя: нервный неровный флик (а не ровный ореол) */
@@ -671,13 +675,16 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   45% { text-shadow: 0 0 5px rgba(200,52,52,.8), 0 0 10px rgba(214,68,68,.4); }
   72% { text-shadow: 0 0 12px rgba(255,112,72,1), 0 0 24px rgba(230,50,40,.7); }
 }
-/* legendary — призма: радужная заливка текста, спектр плавно течёт */
-.glow-prism {
-  color: transparent; -webkit-text-fill-color: transparent;
-  -webkit-background-clip: text; background-clip: text;
-  background-image: linear-gradient(90deg,#ff6b6b,#ffd93b,#6bffb3,#5bc8ff,#c08bff,#ff6b6b);
-  background-size: 300% 100%; animation: glowPrism 4s linear infinite;
-  text-shadow: 0 0 11px rgba(180,140,255,.35);
+/* legendary — призма: радужная заливка текста, спектр плавно течёт.
+   База — светлый сиренево-белый (виден всегда), градиент — в @supports. */
+.glow-prism { color: #d9c8ff; text-shadow: 0 0 11px rgba(180,140,255,.4); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .glow-prism {
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg,#ff6b6b,#ffd93b,#6bffb3,#5bc8ff,#c08bff,#ff6b6b);
+    background-size: 300% 100%; animation: glowPrism 4s linear infinite;
+  }
 }
 @keyframes glowPrism { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
 /* Косметика: рамки аватара — разный характер (металл / неон-дыхание / энергия / золото) */
@@ -833,6 +840,12 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .lc-sw .lc-nick { font-size: 13px; font-weight: 800; color: var(--bright); }
 .lc-sw .lc-title { font-size: 11px; font-style: italic; color: var(--gold2); padding: 0 4px; text-align: center; }
 .lc-sw--none { color: var(--muted); font-size: 18px; }
+/* Перф (ШАГ 5): в свотчах вкладки НЕ гоняем анимации — их там десятки одновременно
+   (box-shadow/частицы) → лаг/нагрев. Показываем статичный кадр эффекта; движение
+   видно в большом живом превью сверху и на самом профиле (там по 1 экземпляру). */
+.lc-sw .lc-ava, .lc-sw .lc-nick, .lc-sw .card-fx, .lc-sw.lc-bg { animation: none !important; }
+/* GPU-хинт только для реально анимирующихся косметик на профиле/в большом превью. */
+.hero .ava, .hero .pname, .looks-preview .ava, .looks-preview .pname, .looks-preview .card-fx { will-change: box-shadow, background-position, opacity; }
 .lc-name { font-weight: 600; font-size: 11px; line-height: 1.2; }
 .lc-foot { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .lc-rar { font-size: 8.5px; padding: 1px 5px; border-radius: 5px; border: 1px solid currentColor; color: #9aa7b8; }
