@@ -26,11 +26,12 @@ function renderBattlePass() {
   el('pro-bp').innerHTML=`
     <div class="card card-gold" style="margin-bottom:8px">
       <div class="card-title">🎫 ${d.season_label} — Уровень ${d.level}/${d.max_level}<button class="xpg-btn" onclick="bpXpGuide()">⚡ За что XP?</button></div>
-      ${d.weekend_boost&&d.weekend_boost.active?`<div style="margin:4px 0 8px;padding:5px 8px;border-radius:8px;background:linear-gradient(90deg,rgba(201,168,76,.18),rgba(201,168,76,.04));font-size:11px;color:var(--gold)">⚡ Выходные: <b>+${d.weekend_boost.pct}% XP</b> ко всему Боевому пропуску!</div>`:''}
-      <div class="ach-bar bp-xpbar" style="height:10px"><div class="ach-fill" style="width:${isMax?100:pct}%"></div></div>
+      ${d.frozen?`<div class="bp-frozen-banner">❄️ <b>Сезон временно заморожен.</b> Начисление XP и выдача наград приостановлены.</div>`:''}
+      ${!d.frozen&&d.weekend_boost&&d.weekend_boost.active?`<div style="margin:4px 0 8px;padding:5px 8px;border-radius:8px;background:linear-gradient(90deg,rgba(201,168,76,.18),rgba(201,168,76,.04));font-size:11px;color:var(--gold)">⚡ Выходные: <b>+${d.weekend_boost.pct}% XP</b> ко всему Боевому пропуску!</div>`:''}
+      <div class="ach-bar bp-xpbar ${d.frozen?'bp-bar-frozen':''}" style="height:10px"><div class="ach-fill" style="width:${isMax?100:pct}%"></div></div>
       <div class="ach-prog">${isMax?'★ MAX уровень достигнут':`${fmt(d.xp_in_level)} / ${fmt(d.xp_per_level)} XP · осталось ${fmt(d.xp_to_next)} XP до ур. ${d.level+1}`}</div>
       ${tinfo.html}
-      ${d.buy_next?`<button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%" onclick="bpBuyLevel(this)">💎 Открыть уровень ${d.buy_next.level} за ${d.buy_next.price}💎</button>`:''}
+      ${d.buy_next&&!d.frozen?`<button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%" onclick="bpBuyLevel(this)">💎 Открыть уровень ${d.buy_next.level} за ${d.buy_next.price}💎</button>`:''}
       ${!d.paid_track_open?'<div style="margin-top:8px;font-size:11px;color:var(--gold2)">👑 VIP-трек закрыт — оформи VIP («бот vip»), чтобы забирать платные награды.</div>':''}
     </div>
     ${_bpNextRewardCard(d)}
