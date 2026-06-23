@@ -80,10 +80,12 @@ class EconomyService:
     # ── Purchase ──────────────────────────────────────────────────────────────
 
     async def purchase_item(
-        self, user_id: int, item_id: str, quantity: int = 1
+        self, user_id: int, item_id: str, quantity: int = 1,
+        cover_with_zarniki: bool = False,
     ) -> tuple[bool, str]:
         """
         Complete purchase flow: resolve discount → check balance → deduct → add to inventory.
+        cover_with_zarniki (ШАГ6): покрыть нехватку базовой валюты Зарниками.
         Returns (success, message).
         """
         item = ITEMS_REGISTRY.get(item_id)
@@ -99,5 +101,6 @@ class EconomyService:
             return False, "Этот предмет нельзя купить."
 
         return await _repo_buy_item(
-            self._db, user_id, item_id, mora_unit, dia_unit, quantity, p_zarniki=zar_unit
+            self._db, user_id, item_id, mora_unit, dia_unit, quantity,
+            p_zarniki=zar_unit, cover_with_zarniki=cover_with_zarniki,
         )

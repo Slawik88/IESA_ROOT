@@ -345,7 +345,13 @@ async def buy_item(
     qty: int,
     chat_id: int | None = None,
     p_zarniki: float = 0,
+    cover_with_zarniki: bool = False,
 ) -> tuple[bool, str]:
+    """Купить предмет. cover_with_zarniki (ШАГ6 Smart Checkout): если базовой валюты
+    не хватает, дефицит покрывается Зарниками по ZARNIKI_EXCHANGE_RATES (ceil, в
+    пользу казино). Списание базы + ✨ + выдача — в ОДНОЙ транзакции (или полный rollback)."""
+    import math
+    from core.constants import ZARNIKI_EXCHANGE_RATES
     total_m = p_mora * qty
     total_d = p_dia * qty
     total_z = p_zarniki * qty
@@ -358,7 +364,29 @@ async def buy_item(
                 (user_id,),
             ) as c:
                 bal = await c.fetchone()
-            if not bal or bal[0] < total_m or bal[1] < total_d or bal[2] < total_z:
+            if not bal:
+                return False, "Недостаточно средств."
+            bal_m, bal_d, bal_z = float(bal[0]), float(bal[1]), float(bal[2])
+
+            # Сколько реально списываем с каждой валюты + добор Зарниками.
+            pay_m, pay_d, pay_z = total_m, total_d, total_z
+            extra_z = 0  # ✨ на покрытие дефицита базовой валюты
+            base_ok = bal_m >= total_m and bal_d >= total_d
+            if not base_ok:
+                if not cover_with_zarniki:
+                    return False, "Недостаточно средств."
+                def_m = max(0.0, total_m - bal_m)
+                def_d = max(0.0, total_d - bal_d)
+                rate_m = ZARNIKI_EXCHANGE_RATES.get("mora") or 0
+                rate_d = ZARNIKI_EXCHANGE_RATES.get("diamonds") or 0
+                if (def_m > 0 and not rate_m) or (def_d > 0 and not rate_d):
+                    return False, "Недостаточно средств."
+                extra_z = (math.ceil(def_m / rate_m) if def_m > 0 else 0) \
+                        + (math.ceil(def_d / rate_d) if def_d > 0 else 0)
+                pay_m = min(total_m, bal_m)   # списываем всю имеющуюся базу
+                pay_d = min(total_d, bal_d)
+                pay_z = total_z + extra_z
+            if bal_z < pay_z:
                 return False, "Недостаточно средств."
 
             await db.execute(
@@ -366,23 +394,27 @@ async def buy_item(
                 "user_balance_diamonds = user_balance_diamonds - ?, "
                 "user_balance_zarniki = COALESCE(user_balance_zarniki, 0) - ? "
                 "WHERE user_tg_id = ?",
-                (total_m, total_d, total_z, user_id),
+                (pay_m, pay_d, pay_z, user_id),
             )
             await db.execute(
                 "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
                 "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
                 (user_id, item_id, qty, qty),
             )
-            if total_m > 0:
-                await log_wallet(db, user_id, delta_mora=-total_m, source="shop_purchase",
+            if pay_m > 0:
+                await log_wallet(db, user_id, delta_mora=-pay_m, source="shop_purchase",
                                  chat_id=chat_id, note=f"{item_id}×{qty}")
-            if total_d > 0:
-                await log_wallet(db, user_id, delta_diamonds=-total_d, source="shop_purchase",
+            if pay_d > 0:
+                await log_wallet(db, user_id, delta_diamonds=-pay_d, source="shop_purchase",
                                  chat_id=chat_id, note=f"{item_id}×{qty}")
-            if total_z > 0:
-                await log_wallet(db, user_id, delta_zarniki=-total_z, source="shop_purchase",
-                                 chat_id=chat_id, note=f"{item_id}×{qty}")
-        return True, "Покупка успешна."
+            if pay_z > 0:
+                _note = f"{item_id}×{qty}" + (f" (+{extra_z}✨ добор)" if extra_z else "")
+                await log_wallet(db, user_id, delta_zarniki=-pay_z, source="shop_purchase",
+                                 chat_id=chat_id, note=_note)
+        msg = "Покупка успешна."
+        if extra_z:
+            msg = f"Покупка успешна (доплата {extra_z}✨ за недостаток базовой валюты)."
+        return True, msg
     except Exception as e:
         return False, f"Ошибка: {e}"
 
