@@ -8,6 +8,7 @@ from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories.economy import get_balance
 from services.economy import EconomyService
 from services.achievements import increment_metric as ach_incr
+from services.smart_checkout import calculate_missing_resources_cost
 
 router = APIRouter(prefix="/shop", tags=["shop"])
 
@@ -60,6 +61,12 @@ async def get_shop(db=Depends(get_db), user=Depends(require_tg_user)):
 class BuyRequest(BaseModel):
     item_id:  str
     quantity: int = Field(default=1, ge=1, le=99)
+    cover_with_zarniki: bool = False   # ШАГ6: добрать нехватку базовой валюты ✨
+
+
+class CheckoutQuoteRequest(BaseModel):
+    item_id:  str
+    quantity: int = Field(default=1, ge=1, le=99)
 
 
 @router.post("/buy")
@@ -75,7 +82,10 @@ async def buy_item(
         raise HTTPException(status_code=400, detail=f"Максимум: {cap} шт.")
 
     eco = EconomyService(db)
-    ok, message = await eco.purchase_item(user["id"], body.item_id, body.quantity)
+    ok, message = await eco.purchase_item(
+        user["id"], body.item_id, body.quantity,
+        cover_with_zarniki=body.cover_with_zarniki,
+    )
 
     if not ok:
         raise HTTPException(status_code=400, detail=message)
@@ -97,3 +107,27 @@ async def buy_item(
         "item_name": item.get("name", body.item_id),
         "quantity": body.quantity,
     }
+
+
+@router.post("/checkout-quote")
+async def checkout_quote(body: CheckoutQuoteRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """ШАГ6 Smart Checkout: расчёт недостающих ресурсов для покупки (для модалок A/B).
+    Не списывает ничего — только считает дефицит и ✨ на его покрытие."""
+    item = ITEMS_REGISTRY.get(body.item_id)
+    if not item:
+        raise HTTPException(404, "Предмет не найден.")
+    qty = body.quantity
+    eco = EconomyService(db)
+    prices = await eco.get_item_prices(body.item_id, user["id"])
+    cost = {"mora": prices.get("mora", 0) * qty, "diamonds": prices.get("diamonds", 0) * qty}
+    z_unit = item.get("price_zarniki", 0)
+    if z_unit:
+        cost["zarniki"] = z_unit * qty
+    bal = await get_balance(db, user["id"])
+    balances = {
+        "mora": bal["user_balance_mora"],
+        "diamonds": bal["user_balance_diamonds"],
+        "zarniki": bal["user_balance_zarniki"],
+    }
+    quote = calculate_missing_resources_cost(balances, cost)
+    return {"item_name": item.get("name", body.item_id), "quantity": qty, "cost": cost, **quote}
