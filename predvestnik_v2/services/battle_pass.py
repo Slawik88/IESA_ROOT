@@ -103,6 +103,8 @@ async def add_xp(db, user_id: int, metric_name: str, delta: float = 1.0) -> None
     season = get_active_season()
     if not season:
         return
+    if await is_bp_frozen(db):   # ШАГ3: заморозка — XP не начисляется
+        return
 
     xp_gain = int(weight * delta)
     if xp_gain <= 0:
@@ -259,6 +261,8 @@ async def claim_reward(db, user_id: int, level: int, track: str,
     season = get_active_season()
     if not season:
         return False, "Сейчас нет активного сезона Боевого пропуска."
+    if await is_bp_frozen(db):   # ШАГ3: заморозка — награды не выдаются
+        return False, "❄️ Сезон временно заморожен — награды недоступны."
 
     progress = await _get_or_create_progress(db, user_id, season["id"])
     if level > progress["level"]:
@@ -547,3 +551,23 @@ async def weekend_boost_active(db) -> tuple[bool, int]:
     """(активен_ли_сейчас, процент). Активен = выходной И процент > 0."""
     pct = await get_weekend_boost_pct(db)
     return (_is_weekend() and pct > 0), pct
+
+
+async def is_bp_frozen(db) -> bool:
+    """БП заморожен админом (ШАГ3): не начисляем XP и не выдаём награды всем юзерам.
+    Глобальный флаг в bp_settings — применяется к активному сезону (XP/награды всегда
+    идут в активный сезон, поэтому глобальный = заморозка текущего БП)."""
+    async with db.execute("SELECT value FROM bp_settings WHERE key = 'frozen'") as c:
+        row = await c.fetchone()
+    return bool(row and str(row[0]) == "1")
+
+
+async def set_bp_frozen(db, frozen: bool) -> None:
+    """Заморозить/разморозить БП. Commits."""
+    val = "1" if frozen else "0"
+    await db.execute(
+        "INSERT INTO bp_settings (key, value) VALUES ('frozen', ?) "
+        "ON CONFLICT (key) DO UPDATE SET value = ?",
+        (val, val),
+    )
+    await db.commit()

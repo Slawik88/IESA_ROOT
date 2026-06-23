@@ -10,7 +10,7 @@ from services.battle_pass import (
     claim_reward, get_active_season, get_progress, level_status, refresh_seasons_cache,
     _opt_to_reward, reward_short_text, all_xp_actions,
     buy_next_level, _level_diamond_value, next_level_price,
-    weekend_boost_active,
+    weekend_boost_active, is_bp_frozen,
 )
 
 router = APIRouter(prefix="/battle_pass", tags=["battle_pass"])
@@ -86,6 +86,7 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
     )
 
     _wb_on, _wb_pct = await weekend_boost_active(db)
+    _frozen = await is_bp_frozen(db)   # ШАГ3: заморозка сезона
 
     # C5: предложение «открыть следующий уровень за 💎» (если не MAX).
     buy_next = None
@@ -96,6 +97,7 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
 
     return {
         "active": True,
+        "frozen": _frozen,
         "season_label": season["label"],
         "season_starts": season.get("starts_at"),
         "season_ends": season.get("ends_at"),

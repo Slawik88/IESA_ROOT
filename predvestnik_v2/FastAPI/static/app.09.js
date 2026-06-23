@@ -186,15 +186,25 @@ function devBpCopy() {
 function devLoadSeasons() {
   api('/admin/dev/bp/seasons').then(d=>{
     const rows=d.seasons||[];
-    el('dev-seasons').innerHTML=rows.length?rows.map(s=>`
+    const frozen=!!d.frozen;
+    const freezeBar=`<div class="dev-freeze-bar${frozen?' on':''}">
+      <span>${frozen?'❄️ <b>БП ЗАМОРОЖЕН</b> — XP и награды приостановлены у всех':'🟢 БП активен'}</span>
+      <button class="btn btn-sm ${frozen?'btn-gold':'btn-ghost'}" onclick="devToggleBpFreeze(${frozen?'false':'true'})">${frozen?'Разморозить':'❄️ Заморозить'}</button>
+    </div>`;
+    el('dev-seasons').innerHTML=freezeBar+(rows.length?rows.map(s=>`
       <div class="irow">
         <span class="ik">${s.active?'🟢 ':''}${esc(s.label)} <span style="color:var(--dim)">(${s.id}, ${s.source})</span></span>
         <span class="iv" style="font-size:10px;display:flex;align-items:center;gap:6px">${s.starts_at} → ${s.ends_at}
           <button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick='devEditSeason(${JSON.stringify(s.id)},${JSON.stringify(s.label)},${JSON.stringify(s.starts_at)},${JSON.stringify(s.ends_at)})'>✏️</button>
           ${s.source==='db'?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick='devDeleteSeason(${JSON.stringify(s.id)})'>🗑</button>`:''}
         </span>
-      </div>`).join(''):'<div style="font-size:11px;color:var(--muted)">Сезонов нет</div>';
+      </div>`).join(''):'<div style="font-size:11px;color:var(--muted)">Сезонов нет</div>');
   }).catch(e=>{el('dev-seasons').innerHTML=`<div class="err">${e}</div>`;});
+}
+function devToggleBpFreeze(frozen) {
+  api('/admin/dev/bp/freeze',{method:'POST',body:JSON.stringify({frozen})})
+    .then(r=>{toast(r.frozen?'❄️ БП заморожен':'🟢 БП разморожен');devLoadSeasons();})
+    .catch(e=>toast(e,false));
 }
 function devEditSeason(id,label,starts,ends) {
   el('dev-s-id').value=id; el('dev-s-label').value=label;
@@ -210,7 +220,7 @@ function devSaveSeason() {
     .catch(e=>toast(e,false));
 }
 function devDeleteSeason(id) {
-  OM('🗑 Удалить сезон?',`<div style="text-align:center;padding:12px 0;color:var(--muted)">Сезон <b>${id}</b> будет удалён из БД. Прогресс игроков сохранится в battle_pass_progress.</div>`,
+  OM('🗑 Удалить сезон?',`<div style="text-align:center;padding:12px 0;color:var(--muted)">Сезон <b>${id}</b> будет удалён из БД <b>вместе с</b> его переопределениями наград и прогрессом игроков этого сезона (каскад — без сирот).</div>`,
     [{l:'Удалить',c:'btn-red',f:`_execDevDeleteSeason(${JSON.stringify(id)})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
 }
 function _execDevDeleteSeason(id) {

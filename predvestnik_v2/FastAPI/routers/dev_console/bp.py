@@ -11,8 +11,10 @@ from services.battle_pass import (
     all_xp_actions,
     get_active_season,
     get_weekend_boost_pct,
+    is_bp_frozen,
     refresh_seasons_cache,
     reset_xp_weight_override,
+    set_bp_frozen,
     set_weekend_boost_pct,
     set_xp_weight_override,
 )
@@ -165,7 +167,20 @@ async def dev_bp_seasons(db=Depends(get_db), user=Depends(require_tg_user)):
     for sid, s in db_rows.items():
         out.append({**s, "source": "db", "active": sid == active_id})
     out.sort(key=lambda x: x["starts_at"])
-    return {"seasons": out}
+    return {"seasons": out, "frozen": await is_bp_frozen(db)}
+
+
+class BpFreezeRequest(BaseModel):
+    frozen: bool
+
+
+@router.post("/bp/freeze")
+async def dev_bp_freeze(body: BpFreezeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Заморозить/разморозить БП (ШАГ3): при заморозке middleware/сервис не начисляют
+    XP и не выдают награды; у игроков на странице БП висит плашка ❄️."""
+    _require_dev(user)
+    await set_bp_frozen(db, body.frozen)
+    return {"ok": True, "frozen": body.frozen}
 
 
 class SeasonRequest(BaseModel):
@@ -213,6 +228,11 @@ async def dev_bp_season_delete(season_id: str, db=Depends(get_db), user=Depends(
         "DELETE FROM battle_pass_seasons WHERE id = ? RETURNING id", (season_id,)
     ) as c:
         row = await c.fetchone()
+    if row:
+        # КАСКАД (ШАГ3-багфикс): у battle_pass_reward_overrides/progress нет FK на
+        # сезон → удаляли только строку сезона, оставляя «сирот». Чистим вручную.
+        await db.execute("DELETE FROM battle_pass_reward_overrides WHERE season_id = ?", (season_id,))
+        await db.execute("DELETE FROM battle_pass_progress WHERE season_id = ?", (season_id,))
     await db.commit()
     await refresh_seasons_cache(db)
     if not row:
