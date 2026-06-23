@@ -9,6 +9,7 @@
 Новый день = новый ключ ⇒ авто-сброс лимита в полночь. Старые event-строки
 (с настоящими event_id из exchange_events) сосуществуют безвредно.
 """
+import math
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,7 +18,7 @@ from pydantic import BaseModel
 from core.constants import (
     EXCHANGE_RATE_MORA_PER_DIAMOND, EXCHANGE_RATE_MORA_PER_DIAMOND_SELL,
     EXCHANGE_DAILY_CAP_DIAMONDS, EXCHANGE_SELL_DAILY_CAP_DIAMONDS,
-    EXCHANGE_MIN_DIAMONDS_PER_REQUEST,
+    EXCHANGE_MIN_DIAMONDS_PER_REQUEST, CRYPTO_TRADE_FEE, CRYPTO_MIN_TRADE_MORA,
 )
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories import economy as eco_repo
@@ -140,6 +141,8 @@ async def crypto_market(db=Depends(get_db), user=Depends(require_tg_user)):
         "coins": coins,
         "mora": float(bal["user_balance_mora"] or 0),
         "portfolio_value": round(portfolio_value, 2),
+        "fee": CRYPTO_TRADE_FEE,            # спред на продаже (для корректного показа выплаты)
+        "min_trade": CRYPTO_MIN_TRADE_MORA,
     }
 
 
@@ -157,8 +160,8 @@ async def crypto_trade(body: CryptoTradeRequest, db=Depends(get_db), user=Depend
         raise HTTPException(404, "Монета не найдена.")
     if body.action not in ("buy", "sell"):
         raise HTTPException(400, "action: buy | sell.")
-    if body.amount <= 0:
-        raise HTTPException(400, "Количество должно быть больше нуля.")
+    if not math.isfinite(body.amount) or body.amount <= 0:   # анти-NaN/Inf/отрицательное
+        raise HTTPException(400, "Некорректное количество.")
     price = cx.price_now(coin)
     ok, msg = await crypto_repo.trade(db, user["id"], coin["id"], body.action, body.amount, price)
     if not ok:
