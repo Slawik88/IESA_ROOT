@@ -90,6 +90,7 @@ async def active_lots(
             item_data = ITEMS_REGISTRY.get(r["item_id_ref"], {})
             r["item_description"] = item_data.get("description", "")
             r["item_category"] = item_data.get("category", "")
+            r["item_rarity"] = item_data.get("rarity", "")   # ШАГ2: для фильтра по редкости
 
     return {"lots": rows, "total": total, "page": page, "per_page": per_page,
             "has_more": (offset + per_page) < total}
