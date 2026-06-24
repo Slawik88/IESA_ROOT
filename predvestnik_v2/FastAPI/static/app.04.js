@@ -49,8 +49,8 @@ function swArena(tab,btn) {
   _arenaTab=tab;
   document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['duels','events'].forEach(t=>el('ar-'+t).style.display=t===tab?'':'none');
-  ({duels:loadDuels,events:loadEvents}[tab]||loadDuels)();
+  ['raids','events'].forEach(t=>{const e=el('ar-'+t); if(e)e.style.display=t===tab?'':'none';});
+  ({raids:loadRaid,events:loadEvents}[tab]||loadRaid)();
 }
 const QUEST_NAMES = {
   msg_15:     {n:'💬 Болтун',         d:'Напиши 15 сообщений в чате'},
