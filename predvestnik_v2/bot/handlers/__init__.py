@@ -2,7 +2,6 @@ from aiogram import Router
 from .common import router as common_router, fallback_router, unknown_cmd_router
 from .economy import router as eco_router
 from .payments import router as payments_router
-from .inventory import router as inventory_router
 from .profile import router as profile_router
 from .admin import router as admin_router
 from .marriage import router as marriage_router
@@ -12,36 +11,29 @@ from .global_moderation import router as global_mod_router
 from .events import router as events_router
 from .routing import router as routing_router
 from .purge import router as purge_router
-from .shop import router as shop_router
-from .zoo import router as zoo_router
 from .expeditions import router as expeditions_router
 from .streak import router as streak_router
-from .pet_showcase import router as pet_showcase_router
-from .gacha import router as gacha_router
-from .daily_deal import router as daily_deal_router
 from .identity import router as identity_router
 from .nicknames import router as nicknames_router
 from .wallet_history import router as wallet_history_router
 from .warps import router as warps_router
-from .achievements import router as achievements_router
-from .duel import router as duel_router
-from .auction import router as auction_router
-from .exchange import router as exchange_router
 from .games import router as games_router
 from .chat_settings import router as chat_settings_router
-from .quests import router as quests_router
 from .blacklist import router as blacklist_router
 from .promocodes import router as promo_router
 from .dark_mora import router as dark_mora_router
-from .themes import router as themes_router
 from .events_info import router as events_info_router
-from .craft import router as craft_router
 from .vip import router as vip_router
-from .battle_pass import router as battle_pass_router
-from .notifications import router as notifications_router
-from .relics import router as relics_router
-from .clans import router as clans_router
+from .web_redirect import router as web_redirect_router
 from . import dev
+
+# БЛОК19 Часть1 «Web First»: тяжёлые механики вырезаны из чата и переехали в мини-апп.
+# Их старые алиасы ловит web_redirect_router (тонкая кнопка-редирект, без мёртвых команд).
+# Удалены из чата: shop, daily_deal, gacha, auction, themes, craft, relics, exchange,
+#   duel, battle_pass, quests, inventory, achievements, pet_showcase, zoo, notifications, clans.
+# Оставлены: лёгкие/соц (поход/стрик/ник/варпы/брак/контрабанда/промо/вип/я/профиль/топ),
+#   мини-игры (нет веб-UI), god-логи (dev), вся админка. XP/прогресс/выдача наград работают
+#   в бэке через increment_metric/services — это НЕ чат-роутеры.
 
 
 main_router = Router(name="main_router")
@@ -51,44 +43,28 @@ main_router.include_routers(
     admin_router,      # до eco: "дать ранг" перехватывается раньше чем "дать"
     eco_router,
     payments_router,   # B-Donate-1: покупка ✨ за Stars, /start?buyzarniki
-    inventory_router,
     identity_router,       # я/профиль/кто/анкета — до profile_router чтобы перехватить "профиль"
     profile_router,        # только "кто я" + инфо/досье
     stats_router,
     mod_router,        # до marriage: "снять варн/мут/защиту" перехватывается раньше чем "снять"
     global_mod_router, # B6: глобальная модерация (глоб варн/ограничить/бан, апелляция)
-    marriage_router,
+    marriage_router,   # брак @user + просмотр браков чата + семейный банк/подарки (соц, оставлен)
     events_router,
     routing_router,
     purge_router,
-    shop_router,
-    zoo_router,
-    expeditions_router,
+    expeditions_router,    # бот поход (оставлен)
     streak_router,
-    pet_showcase_router,
-    gacha_router,
-    daily_deal_router,
     nicknames_router,      # бот мой ник
-    wallet_history_router, # история кошелька
-    warps_router,          # варп-команды
-    achievements_router,   # достижения
-    duel_router,           # B12 PvP дуэли
-    auction_router,        # B13 аукцион
-    exchange_router,       # B15 конвертер
-    games_router,          # B16 мини-игры
-    chat_settings_router,  # B19 настройки чата
-    quests_router,         # B20 ежедневные квесты
-    blacklist_router,      # C1-A чёрный список чата
-    promo_router,          # промокоды
-    dark_mora_router,      # Тёмная Мора: контрабанда, ритуал
-    themes_router,         # темы профиля
+    wallet_history_router, # god-логи кошелька (dev)
+    warps_router,          # варп-команды (соц)
+    games_router,          # мини-игры (нет веб-UI → оставлены в чате)
+    chat_settings_router,  # настройки чата (админ)
+    blacklist_router,      # чёрный список чата (админ)
+    promo_router,          # промокоды (лёгкий ввод)
+    dark_mora_router,      # Тёмная Мора: контрабанда, ритуал (чат-ивенты, оставлены)
     events_info_router,    # бот ивент: расписание + dev force-команды
-    craft_router,          # бот крафт: создание предметов из ингредиентов
-    vip_router,            # B2: VIP-подписка
-    battle_pass_router,    # B5: Боевой пропуск
-    notifications_router,  # Block 15: настройки уведомлений
-    relics_router,         # Block 13: реликвии (сток Тёмной Моры)
-    clans_router,          # Кланы/гильдии (бот клан / кланы / клан создать / клан выйти)
+    vip_router,            # B2: VIP-подписка (Stars)
+    web_redirect_router,   # БЛОК19: редиректы вырезанных тяжёлых команд → мини-апп
     dev.router,
     unknown_cmd_router,    # B6: подсказки опечаток — перед fallback, после всех команд
     fallback_router,       # должен быть последним — ловит неверный синтаксис
