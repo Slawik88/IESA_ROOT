@@ -254,6 +254,41 @@ function renderGates(){
 function _gatesEnter(id){ api('/combat/gates/enter',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message);_gatesLoad();}).catch(e=>toast(e,false)); }
 function _gatesCollect(id){ api('/combat/gates/collect',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message,r.ok);refreshCurrBar();_gatesLoad();}).catch(e=>toast(e,false)); }
 function _gatesHeal(id){ api('/combat/gates/heal',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message);refreshCurrBar();_gatesLoad();}).catch(e=>toast(e,false)); }
+// ── Клановые Рейды (БЛОК19 Ч.6, замена PvP) ─────────────────────────────────────
+let _raidData=null;
+function loadRaid(){
+  const host=el('rc'); if(host)host.innerHTML='<div class="loader">Загрузка...</div>';
+  api('/combat/raid').then(d=>{_raidData=d;renderRaid();}).catch(e=>{if(el('rc'))el('rc').innerHTML=`<div class="err">${e}</div>`;});
+}
+function renderRaid(){
+  const host=el('rc'); if(!host||!_raidData) return;
+  if(!_raidData.in_clan){ host.innerHTML=`<div class="empty-state"><div class="es-icon">🛡</div><div class="es-title">Рейды — для кланов</div><div class="es-sub">Вступи в клан, чтобы бить боссов вместе.</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="openClansModal()">🛡 К кланам</button></div>`; return; }
+  const raid=_raidData.raid;
+  if(!raid){
+    host.innerHTML=`<div class="card"><div class="card-title">👹 Клановый рейд</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Сейчас рейда нет. Босс масштабируется по числу участников; награды — по вкладу урона.</div>
+      ${_raidData.is_leader?`<button class="btn btn-gold btn-full" onclick="_raidStart()">👹 Запустить рейд</button>`:'<div class="cx-dim" style="font-size:11px">Рейд запускает лидер клана.</div>'}</div>`;
+    return;
+  }
+  const pct=Math.max(0,Math.min(100,raid.hp_max?raid.hp/raid.hp_max*100:0));
+  const pets=_raidData.pets||[];
+  const petOpts=pets.map(p=>`<option value="${p.pet_id}">${esc(p.name||p.species_id)} · Ур.${p.level} · HP ${p.hp.toFixed(0)} · ⚔️${p.attack}</option>`).join('');
+  const contribs=(_raidData.contribs||[]).map((c,i)=>`<div class="rd-crow"><span>${i+1}. ${unameLink(c.user_id,c.username,false)}</span><span class="rd-dmg">${fmt(Math.round(c.damage))} dmg</span></div>`).join('')||'<div class="cx-dim" style="font-size:11px">Пока никто не бил.</div>';
+  const h=Math.floor((_raidData.ends_in||0)/3600), m=Math.floor(((_raidData.ends_in||0)%3600)/60);
+  host.innerHTML=`<div class="rd-boss">
+      <div class="rd-emoji">${raid.boss_emoji||'👹'}</div>
+      <div class="rd-name">${esc(raid.boss_name)}</div>
+      <div class="rd-hpbar"><div class="rd-hpfill" style="width:${pct.toFixed(1)}%"></div></div>
+      <div class="rd-hplbl">${fmt(Math.round(raid.hp))} / ${fmt(Math.round(raid.hp_max))} HP · ${pct.toFixed(0)}% · ⏳ ${h}ч ${m}м</div>
+    </div>
+    ${pets.length?`<div class="rd-attack">
+      <select id="raid-pet" class="num-input" style="margin:0;flex:1">${petOpts}</select>
+      <button class="btn btn-gold btn-sm" onclick="_raidAttack()">⚔️ Атаковать</button>
+    </div><div class="cx-dim" style="font-size:10px;margin:4px 0 8px">Питомец бьёт боссом и получает контр-урон (теряет HP). HP восстанавливается регеном/во Вратах.</div>`:'<div class="cx-dim" style="font-size:11px;padding:6px">Нет свободных боевых питомцев (заняты/0 HP).</div>'}
+    <div class="looks-slot-t">🏅 Вклад клана</div><div class="rd-contribs">${contribs}</div>`;
+}
+function _raidStart(){ api('/combat/raid/start',{method:'POST',body:JSON.stringify({})}).then(r=>{toast(r.message);loadRaid();}).catch(e=>toast(e,false)); }
+function _raidAttack(){ const id=parseInt((el('raid-pet')||{}).value)||0; if(!id){toast('Выбери питомца',false);return;} api('/combat/raid/attack',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message);refreshCurrBar();loadRaid();}).catch(e=>toast(e,false)); }
 // openDuelChallenge / submitDuelChallenge — defined above in the loadDuels section
 
 // doSpin and closeSpinResult defined above (no loadGacha to avoid overwriting result)

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories import pet_combat as combat_repo
 from infrastructure.repositories import shadow_gates as gates_repo
+from infrastructure.repositories import raids as raids_repo
 
 router = APIRouter(prefix="/combat", tags=["combat"])
 
@@ -13,27 +14,31 @@ class PetReq(BaseModel):
     pet_id: int
 
 
-# ── Теневые Врата (Ч.7) ─────────────────────────────────────────────────────────
-
-@router.get("/gates")
-async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Активные забеги + питомцы, которых можно отправить во Врата."""
-    uid = user["id"]
-    runs = await gates_repo.status(db, uid)
+async def _combat_pets(db, uid: int) -> list[dict]:
+    """Боевые питомцы игрока, свободные (не во Вратах/экспедиции)."""
     async with db.execute(
         "SELECT id FROM pets WHERE owner_id = ? AND COALESCE(placement,'') != 'gates' "
         "AND id NOT IN (SELECT pet_id FROM active_expeditions)",
         (uid,),
     ) as c:
         pet_ids = [r[0] for r in await c.fetchall()]
-    pets = []
+    out = []
     for pid in pet_ids:
         st = await combat_repo.get_state(db, pid, owner_id=uid)
         if st:
-            pets.append({"pet_id": st["pet_id"], "name": st["name"], "species_id": st["species_id"],
-                         "rarity": st["rarity"], "level": st["level"], "hp": st["hp"],
-                         "hp_max": st["hp_max"], "stamina": st["stamina"], "stamina_max": st["stamina_max"]})
-    return {"runs": runs, "pets": pets}
+            out.append({"pet_id": st["pet_id"], "name": st["name"], "species_id": st["species_id"],
+                        "rarity": st["rarity"], "level": st["level"], "hp": st["hp"],
+                        "hp_max": st["hp_max"], "attack": st["attack"], "defense": st["defense"]})
+    return out
+
+
+# ── Теневые Врата (Ч.7) ─────────────────────────────────────────────────────────
+
+@router.get("/gates")
+async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Активные забеги + питомцы, которых можно отправить во Врата."""
+    uid = user["id"]
+    return {"runs": await gates_repo.status(db, uid), "pets": await _combat_pets(db, uid)}
 
 
 @router.post("/gates/enter")
@@ -53,6 +58,33 @@ async def gates_collect(body: PetReq, db=Depends(get_db), user=Depends(require_t
 @router.post("/gates/heal")
 async def gates_heal(body: PetReq, db=Depends(get_db), user=Depends(require_tg_user)):
     ok, msg = await gates_repo.heal(db, user["id"], body.pet_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}
+
+
+# ── Клановые Рейды (Ч.6, замена PvP) ────────────────────────────────────────────
+
+@router.get("/raid")
+async def raid_overview(db=Depends(get_db), user=Depends(require_tg_user)):
+    uid = user["id"]
+    info = await raids_repo.get_active(db, uid)
+    if info is None:
+        return {"in_clan": False}
+    return {"in_clan": True, **info, "pets": await _combat_pets(db, uid)}
+
+
+@router.post("/raid/start")
+async def raid_start(db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await raids_repo.start(db, user["id"])
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}
+
+
+@router.post("/raid/attack")
+async def raid_attack(body: PetReq, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await raids_repo.attack(db, user["id"], body.pet_id)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}
