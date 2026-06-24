@@ -573,3 +573,29 @@ CLAN_TAG_MIN: int = 2
 CLAN_TAG_MAX: int = 5                  # короткий тег [TAG] рядом с ником
 CLAN_DESC_MAX: int = 120               # девиз/описание
 CLAN_EMBLEMS: tuple = ("🛡", "⚔️", "🐺", "🦅", "🔥", "🌑", "👑", "🐉", "⚡", "🦂")
+
+# ── БЛОК19 Ч.4/6/7: Боевые питомцы (HP/Stamina), Теневые Врата, Рейды ────────────
+# Базовые статы по редкости (масштабируются уровнем питомца).
+COMBAT_BASE_HP: dict = {"common": 100, "rare": 180, "epic": 320, "legendary": 600, "mythic": 1000}
+COMBAT_BASE_STAMINA: dict = {"common": 200, "rare": 300, "epic": 450, "legendary": 700, "mythic": 1000}
+COMBAT_BASE_ATK: dict = {"common": 10, "rare": 22, "epic": 45, "legendary": 90, "mythic": 160}
+COMBAT_BASE_DEF: dict = {"common": 5, "rare": 12, "epic": 26, "legendary": 55, "mythic": 100}
+COMBAT_LEVEL_SCALE: float = 0.08          # +8% к статам за уровень питомца (level-1)
+# Реген (time-based, считается на лету): Stamina пассивно копится, HP регенится ИЗ Stamina.
+COMBAT_STAMINA_REGEN_PER_HOUR: float = 0.10   # доля stamina_max в час (пассивно)
+COMBAT_HP_REGEN_PER_HOUR: float = 0.20        # доля hp_max в час (если есть Stamina)
+COMBAT_STAMINA_PER_HP: float = 1.5            # сколько Stamina тратится на 1 HP регена
+COMBAT_MEDKIT_ITEM: str = "medkit"            # предмет: мгновенно +HP (сток валюты)
+COMBAT_MEDKIT_HEAL_FRAC: float = 0.6          # 1 медикамент = +60% hp_max
+
+# Теневые Врата (24/7, High Risk): дрейн HP + добыча Тёмной Моры по времени.
+SHADOW_GATE_HP_DRAIN_PER_HOUR: float = 0.30   # доля hp_max в час
+SHADOW_GATE_DARK_MORA_PER_HOUR: dict = {"common": 4, "rare": 7, "epic": 12, "legendary": 20, "mythic": 35}
+SHADOW_GATE_MAX_HOURS: int = 12               # дольше держать смысла нет (накопление режется)
+
+# Рейды клана (замена PvP): босс с HP, пороги наград, контр-урон питомцу.
+RAID_BOSS_HP_PER_MEMBER: int = 1500           # запас HP босса на участника клана
+RAID_BOSS_COUNTER_FRAC: float = 0.12          # контр-урон питомцу = доля его атаки по боссу
+RAID_THRESHOLDS: tuple = (75, 50, 25, 0)      # пороги % HP босса для наград
+RAID_DURATION_HOURS: int = 48                 # окно рейда
+RAID_ATTACK_COOLDOWN_MIN: int = 30            # КД атаки одним питомцем (анти-спам)

@@ -26,6 +26,7 @@ from FastAPI.routers import notifications as notif_router  # алиас: FastAPI
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
 from infrastructure.repositories.crypto import ensure_tables as ensure_crypto
+from infrastructure.repositories.pet_combat import ensure_tables as ensure_combat
 
 
 @asynccontextmanager
@@ -42,6 +43,7 @@ async def lifespan(app: FastAPI):
         await ensure_cosmetics(PGAdapter(conn))
         await ensure_clans(PGAdapter(conn))
         await ensure_crypto(PGAdapter(conn))
+        await ensure_combat(PGAdapter(conn))
     yield
 
 
