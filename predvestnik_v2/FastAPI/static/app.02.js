@@ -268,7 +268,7 @@ function _clanMyHtml(){
   const c=_clansData.my_clan;
   const members=(c.members||[]).map(m=>{
     const lead=m.role==='leader';
-    return `<div class="clan-mrow"><span class="clan-mname">${lead?'👑 ':''}@${esc(m.username||('id'+m.user_id))}</span>
+    return `<div class="clan-mrow"><span class="clan-mname">${lead?'👑 ':''}${unameLink(m.user_id, m.username, false)}</span>
       <span class="clan-mrole">${lead?'Лидер':'Участник'}</span></div>`;
   }).join('');
   return `<div class="clan-card">

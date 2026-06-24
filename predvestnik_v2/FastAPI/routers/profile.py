@@ -169,6 +169,65 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
     }
 
 
+@router.get("/u/{target_id}")
+async def public_profile(target_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Глобальный публичный профиль игрока (БЛОК19 Часть3, GlobalUserProfile).
+    БЕЗ балансов (приватны) — только публичная витрина: ранг, уровень, стрик, ачивки,
+    клан, питомцы, надетая косметика."""
+    async with db.execute(
+        "SELECT u.user_tg_id, u.user_tg_username, u.global_rank, "
+        "(v.user_id IS NOT NULL) AS is_vip "
+        "FROM users u "
+        "LEFT JOIN vip_subscriptions v ON v.user_id = u.user_tg_id AND v.expires_at > NOW() "
+        "WHERE u.user_tg_id = ?",
+        (target_id,),
+    ) as c:
+        row = await c.fetchone()
+    if not row:
+        raise HTTPException(404, "Игрок не найден.")
+
+    async with db.execute(
+        "SELECT COALESCE(MAX(user_level), 1) AS lvl, "
+        "COALESCE(SUM(user_messages_count_all_time), 0) AS msgs "
+        "FROM user_chat_stats WHERE user_tg_id = ?",
+        (target_id,),
+    ) as c:
+        agg = dict(await c.fetchone())
+
+    async with db.execute(
+        "SELECT name, species_id, rarity, placement, COALESCE(pet_level, 1) AS pet_level "
+        "FROM pets WHERE owner_id = ? "
+        "ORDER BY (placement = 'active') DESC, COALESCE(pet_level,1) DESC LIMIT 12",
+        (target_id,),
+    ) as c:
+        pets = [dict(r) for r in await c.fetchall()]
+
+    async with db.execute("SELECT MAX(streak) FROM daily_login WHERE user_id = ?", (target_id,)) as c:
+        streak = (await c.fetchone())[0] or 0
+    async with db.execute(
+        "SELECT COUNT(*) FROM achievements WHERE user_id = ? AND level > 0", (target_id,)
+    ) as c:
+        ach = (await c.fetchone())[0]
+
+    from infrastructure.repositories import clans as clans_repo
+    clan = await clans_repo.get_user_clan(db, target_id)
+    return {
+        "user_id":      target_id,
+        "username":     row["user_tg_username"] or f"id{target_id}",
+        "rank":         _RANK_NAMES.get(row["global_rank"] or 0, "👤 Пользователь"),
+        "global_rank":  row["global_rank"] or 0,
+        "level":        agg["lvl"],
+        "messages":     int(agg["msgs"] or 0),
+        "streak":       streak,
+        "achievements": ach,
+        "is_vip":       bool(row["is_vip"]),
+        "pets":         pets,
+        "clan":         ({"name": clan["name"], "tag": clan["tag"],
+                          "emblem": clan["emblem"], "role": clan["role"]} if clan else None),
+        "cosmetics":    await get_active_cosmetics(db, target_id),
+    }
+
+
 class NicknameRequest(BaseModel):
     chat_id: int
     nickname: str

@@ -73,7 +73,7 @@ function renderLots(lots, searchQuery) {
           ${desc?`<div class="lot-desc">${desc}</div>`:''}
           <div class="lot-badges">
             ${rar?`<span class="lot-badge" style="color:${rarCol};border-color:${rarCol}">${_AUC_RARITY_LBL[rar]||rar}</span>`:''}
-            <span class="lot-badge seller">👤 ${vipName(l.seller_name||'Игрок', l.seller_is_vip)}</span>
+            <span class="lot-badge seller" onclick="openGlobalProfile(${l.seller_id})" style="cursor:pointer">👤 ${vipName(l.seller_name||'Игрок', l.seller_is_vip)}</span>
             <span class="lot-badge timer${isUrgent?' hot':''}">⏳ ${tl}</span>
             ${hasBids
               ? '<span class="lot-badge hot">🔥 Есть ставки</span>'
@@ -185,6 +185,43 @@ function _cxTrade(){
   api('/exchange/crypto/trade',{method:'POST',body:JSON.stringify({coin_id:c.id,action:_cxAction,amount:amt})})
     .then(r=>{toast('✅ '+r.message); refreshCurrBar(); _cxLoad();})
     .catch(e=>toast(e,false));
+}
+// ── Глобальный профиль (БЛОК19 Часть3): клик по нику → витрина игрока ────────────
+function unameLink(userId,name,vip){ if(!userId) return esc('@'+(name||'?')); return `<span class="uname-link" onclick="openGlobalProfile(${userId})">${vip?'👑':''}@${esc(name||('id'+userId))}</span>`; }
+function openGlobalProfile(userId){
+  if(!userId) return;
+  OM('👤 Профиль игрока','<div class="loader">Загрузка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]);
+  api('/profile/u/'+userId).then(renderGlobalProfile).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
+}
+function renderGlobalProfile(d){
+  const b=el('mb'); if(!b) return;
+  const co=d.cosmetics||{}, cls=s=>(co[s]&&co[s].css)||'';
+  const emap=(typeof PET_SPECIES_EMOJI!=='undefined')?PET_SPECIES_EMOJI:{};
+  const pets=(d.pets||[]).map(p=>`<div class="gp-pet"><span class="gp-pe">${emap[p.species_id]||'🐾'}</span>
+    <span class="gp-pn">${esc(p.name||p.species_id)}</span>
+    <span class="gp-pl">Ур.${p.pet_level}${p.placement==='active'?' ·⚔️':''}</span></div>`).join('')
+    ||'<div class="cx-dim" style="font-size:11px;padding:4px">Питомцев нет</div>';
+  const clan=d.clan?`<div class="gp-clan">${d.clan.emblem||'🛡'} <b>${esc(d.clan.name)}</b> <span class="clan-tag">[${esc(d.clan.tag)}]</span> · ${d.clan.role==='leader'?'👑 Лидер':'Участник'}</div>`:'';
+  b.innerHTML=`<div class="looks-preview ${cls('profile_bg')}" style="text-align:left;padding:14px">
+      ${cls('card_fx')?`<div class="card-fx ${cls('card_fx')}"></div>`:''}
+      <div style="display:flex;align-items:center;gap:12px;position:relative;z-index:3">
+        <div class="ava ${cls('avatar_frame')} ${cls('avatar_halo')}" style="width:58px;height:58px;font-size:30px;flex:none">${d.is_vip?'👑':'🔮'}</div>
+        <div style="min-width:0">
+          <div class="pname ${cls('name_glow')}" style="font-size:18px">@${esc(d.username)}</div>
+          <div class="prank">${d.rank}</div>
+          ${co.title?`<div class="ptitle">${esc(co.title)}</div>`:''}
+        </div>
+      </div>
+    </div>
+    ${clan}
+    <div class="gp-stats">
+      <div class="gp-st"><div class="gp-sv">${d.level}</div><div class="gp-sl">Уровень</div></div>
+      <div class="gp-st"><div class="gp-sv">🔥${d.streak}</div><div class="gp-sl">Стрик</div></div>
+      <div class="gp-st"><div class="gp-sv">🏆${d.achievements}</div><div class="gp-sl">Ачивки</div></div>
+      <div class="gp-st"><div class="gp-sv">${fmt(d.messages)}</div><div class="gp-sl">Сообщений</div></div>
+    </div>
+    <div class="looks-slot-t" style="margin-top:12px">🐾 Питомцы (${(d.pets||[]).length})</div>
+    <div class="gp-pets">${pets}</div>`;
 }
 // openDuelChallenge / submitDuelChallenge — defined above in the loadDuels section
 
