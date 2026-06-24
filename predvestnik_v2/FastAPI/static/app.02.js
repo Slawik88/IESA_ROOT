@@ -363,7 +363,23 @@ function _runPreloader() {
 }
 _runPreloader();
 
-if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);}
+// БЛОК19 Web-First: бот-редиректы открывают мини-апп через ?startapp=<section> →
+// доводим юзера до нужного раздела (раньше start_param игнорировался).
+function _handleStartParam(){
+  let p=''; try{ p=String((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||''); }catch(e){}
+  if(!p) return;
+  const base=p.split('_')[0];
+  const run=fn=>setTimeout(()=>{ try{ fn(); }catch(e){} }, 380);
+  if(base==='clans'){ run(()=>openClansModal()); return; }
+  if(base==='exchange'||base==='exch'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('exch')}catch(e){}},220); }); return; }
+  if(base==='crypto'||base==='birzha'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('crypto')}catch(e){}},220); }); return; }
+  const M={ shop:['market','goods'],goods:['market','goods'],gacha:['market','gacha'],deal:['market','deal'],
+    vip:['market','vip'],themes:['profile','themes'],craft:['craft'],inventory:['profile','inv'],inv:['profile','inv'],
+    quests:['quests'],ach:['ach'],achievements:['ach'],zoo:['zoo'],pets:['zoo'],bp:['bp'],auction:['auction'],
+    arena:['arena'],relics:['market'],notifications:['profile'] };
+  const t=M[base]; if(t) run(()=>goTo(t[0],t[1]));
+}
+if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
 
 // ── Sticky currency bar ───────────────────────────────────────────────────────
 // Shows 🪙💎🌑✨ at top of screen (hidden on Profile tab)
