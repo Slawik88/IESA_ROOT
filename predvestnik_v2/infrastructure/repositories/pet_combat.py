@@ -21,7 +21,9 @@ async def ensure_tables(db) -> None:
         CREATE TABLE IF NOT EXISTS shadow_gate_runs (
             pet_id INTEGER PRIMARY KEY, user_id BIGINT NOT NULL,
             started_at TIMESTAMP DEFAULT NOW(), last_tick_at TIMESTAMP DEFAULT NOW(),
-            dark_mora FLOAT8 DEFAULT 0, status TEXT DEFAULT 'active'
+            dark_mora FLOAT8 DEFAULT 0, hp FLOAT8 NOT NULL DEFAULT 0,
+            hp_max FLOAT8 NOT NULL DEFAULT 0, rarity TEXT DEFAULT 'common',
+            status TEXT DEFAULT 'active'
         )
     """)
     await db.execute("""
