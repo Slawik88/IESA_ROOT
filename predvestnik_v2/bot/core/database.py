@@ -1097,6 +1097,9 @@ async def _init_combat(db):
             started_at   TIMESTAMP DEFAULT NOW(),
             last_tick_at TIMESTAMP DEFAULT NOW(),
             dark_mora    FLOAT8 DEFAULT 0,
+            hp           FLOAT8 NOT NULL DEFAULT 0,
+            hp_max       FLOAT8 NOT NULL DEFAULT 0,
+            rarity       TEXT DEFAULT 'common',
             status       TEXT DEFAULT 'active'
         )
     """)

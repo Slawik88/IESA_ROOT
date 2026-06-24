@@ -712,6 +712,22 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .gp-pe { font-size: 16px; flex: none; }
 .gp-pn { flex: 1; font-weight: 600; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gp-pl { font-size: 10px; color: var(--gold2); white-space: nowrap; flex: none; }
+/* БЛОК19 Ч.7: Теневые Врата */
+.gates-cta { background: linear-gradient(120deg, #3a1430, #1a0a1f) !important; border: 1px solid rgba(200,50,80,.45) !important; color: #ffb3c8 !important; font-weight: 700; }
+.gt-runs, .gt-pets { display: flex; flex-direction: column; gap: 6px; }
+.gt-run { padding: 9px 10px; border-radius: 10px; border: 1px solid rgba(200,50,80,.3); background: linear-gradient(120deg, rgba(58,20,48,.4), var(--s)); }
+.gt-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.gt-pe { font-size: 18px; flex: none; }
+.gt-pn { flex: 1; font-weight: 700; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gt-dm { font-size: 12px; font-weight: 700; color: #c98bff; white-space: nowrap; }
+.gt-hpbar { height: 8px; border-radius: 5px; background: #2a1018; overflow: hidden; }
+.gt-hpfill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, #e0556b, #ff7a8f); transition: width .3s; }
+.gt-hpfill.low { background: linear-gradient(90deg, #b8202f, #e0556b); animation: gtPulse 1s ease-in-out infinite; }
+@keyframes gtPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+.gt-hplbl { font-size: 10px; color: var(--muted); margin: 4px 0 7px; }
+.gt-acts { display: flex; gap: 6px; }
+.gt-pet { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 9px; border: 1px solid var(--border2); background: var(--s); }
+.gt-php { font-size: 10px; color: var(--gold2); white-space: nowrap; }
 /* ── Косметика профиля: ореолы имени (CSS, веб) ── */
 /* Каждый ореол — СВОЙ характер, а не один и тот же glow разного цвета. */
 /* common — ровное холодное серебро (статичное свечение) */

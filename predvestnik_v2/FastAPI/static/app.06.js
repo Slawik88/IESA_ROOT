@@ -223,6 +223,37 @@ function renderGlobalProfile(d){
     <div class="looks-slot-t" style="margin-top:12px">🐾 Питомцы (${(d.pets||[]).length})</div>
     <div class="gp-pets">${pets}</div>`;
 }
+// ── Теневые Врата (БЛОК19 Ч.7): боевой питомец фармит Тёмную Мору, теряя HP ──────
+let _gatesData=null;
+function openShadowGates(){ OM('🌑 Теневые Врата','<div class="loader">Загрузка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]); _gatesLoad(); }
+function _gatesLoad(){ api('/combat/gates').then(d=>{_gatesData=d;renderGates();}).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;}); }
+function renderGates(){
+  const b=el('mb'); if(!b||!_gatesData) return;
+  const emap=(typeof PET_SPECIES_EMOJI!=='undefined')?PET_SPECIES_EMOJI:{};
+  const hpBar=(hp,max)=>{const pct=Math.max(0,Math.min(100,max?hp/max*100:0)); return `<div class="gt-hpbar"><div class="gt-hpfill${pct<30?' low':''}" style="width:${pct.toFixed(0)}%"></div></div>`;};
+  const runs=(_gatesData.runs||[]).map(r=>`<div class="gt-run">
+      <div class="gt-row"><span class="gt-pe">${emap[r.species_id]||'🐾'}</span>
+        <span class="gt-pn">${esc(r.name||r.species_id)}</span>
+        <span class="gt-dm">+${fmtF(r.dark_mora)} 🌑</span></div>
+      ${hpBar(r.hp,r.hp_max)}
+      <div class="gt-hplbl">HP ${r.hp.toFixed(0)}/${r.hp_max.toFixed(0)}${r.hp<=0?' · 💀 пал':''}</div>
+      <div class="gt-acts">
+        <button class="btn btn-sm btn-gold" style="flex:1" onclick="_gatesCollect(${r.pet_id})">📥 Забрать</button>
+        ${r.hp>0?`<button class="btn btn-sm btn-ghost" style="flex:1" onclick="_gatesHeal(${r.pet_id})">💉 Лечить 🪙</button>`:''}
+      </div></div>`).join('')||'<div class="cx-dim" style="font-size:11px;padding:6px">Сейчас никого нет во Вратах.</div>';
+  const pets=(_gatesData.pets||[]).map(p=>`<div class="gt-pet">
+      <span class="gt-pe">${emap[p.species_id]||'🐾'}</span>
+      <span class="gt-pn">${esc(p.name||p.species_id)} <span class="cx-dim">Ур.${p.level}</span></span>
+      <span class="gt-php">HP ${p.hp.toFixed(0)}/${p.hp_max.toFixed(0)}</span>
+      <button class="btn btn-sm btn-gold" onclick="_gatesEnter(${p.pet_id})" ${p.hp<=0?'disabled':''}>Отправить</button></div>`).join('')
+      ||'<div class="cx-dim" style="font-size:11px;padding:6px">Нет свободных питомцев.</div>';
+  b.innerHTML=`<div class="looks-hint">⚠️ Питомец теряет HP во Вратах и фармит 🌑. Забери ДО того, как HP упадёт в 0 — иначе лут сгорит. HP можно лечить за 🪙.</div>
+    <div class="looks-slot-t">🌀 Во Вратах</div><div class="gt-runs">${runs}</div>
+    <div class="looks-slot-t" style="margin-top:12px">🐾 Отправить питомца</div><div class="gt-pets">${pets}</div>`;
+}
+function _gatesEnter(id){ api('/combat/gates/enter',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message);_gatesLoad();}).catch(e=>toast(e,false)); }
+function _gatesCollect(id){ api('/combat/gates/collect',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message,r.ok);refreshCurrBar();_gatesLoad();}).catch(e=>toast(e,false)); }
+function _gatesHeal(id){ api('/combat/gates/heal',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message);refreshCurrBar();_gatesLoad();}).catch(e=>toast(e,false)); }
 // openDuelChallenge / submitDuelChallenge — defined above in the loadDuels section
 
 // doSpin and closeSpinResult defined above (no loadGacha to avoid overwriting result)
