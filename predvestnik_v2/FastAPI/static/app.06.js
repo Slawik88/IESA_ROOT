@@ -97,18 +97,25 @@ function renderLots(lots, searchQuery) {
 }
 
 // ── Крипто-Биржа (ШАГ4): лорные монеты, свечи, купить/продать с ползунком % ──────
-let _cxData=null, _cxSel=null, _cxAction='buy', _cxPct=50;
+let _cxData=null, _cxSel=null, _cxAction='buy', _cxPct=50, _cxHost='mb';
+// Инлайн-вкладка «📈 Биржа» (под-вкладка страницы Аукцион·Обменник·Биржа).
+function loadCrypto(){
+  _cxHost='mkt-crypto'; _cxSel=null; _cxAction='buy'; _cxPct=50;
+  const h=el('mkt-crypto'); if(h) h.innerHTML='<div class="loader">Загрузка рынка...</div>';
+  _cxLoad();
+}
+// Модальный вход (оставлен для прямого вызова, напр. из карточки обменника).
 function openCryptoExchange(){
-  _cxSel=null; _cxAction='buy'; _cxPct=50;
+  _cxHost='mb'; _cxSel=null; _cxAction='buy'; _cxPct=50;
   OM('📈 Крипто-Биржа','<div class="loader">Загрузка рынка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]);
   _cxLoad();
 }
 function _cxLoad(){ api('/exchange/crypto').then(d=>{_cxData=d; renderCrypto();})
-  .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;}); }
+  .catch(e=>{const b=el(_cxHost); if(b)b.innerHTML=`<div class="err">${e}</div>`;}); }
 function _cxCur(){ return (_cxData&&_cxData.coins||[]).find(c=>c.id===_cxSel); }
 function _cxAmt(a){ return (Number(a)||0).toLocaleString('ru',{maximumFractionDigits:4}); }
 function renderCrypto(){
-  const b=el('mb'); if(!b||!_cxData) return;
+  const b=el(_cxHost); if(!b||!_cxData) return;
   if(_cxSel){ b.innerHTML=_cxDetailHtml(); return; }
   const head=`<div class="cx-head">
     <div><div class="cx-h-l">💼 Портфель</div><div class="cx-h-v">${fmt(_cxData.portfolio_value)} 🪙</div></div>
@@ -627,10 +634,12 @@ let _aucTab='auc';
 function swAuction(tab, btn) {
   _aucTab = tab;
   document.querySelectorAll('#pg-auction .tb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
+  btn = btn || document.querySelector(`#pg-auction .tb[onclick*="'${tab}'"]`);
+  if(btn) btn.classList.add('active');
   el('mkt-auc').style.display = tab==='auc' ? '' : 'none';
   el('mkt-exch').style.display = tab==='exch' ? '' : 'none';
-  if(tab==='auc') loadAuction(0); else loadExchange();
+  const cx=el('mkt-crypto'); if(cx) cx.style.display = tab==='crypto' ? '' : 'none';
+  if(tab==='auc') loadAuction(0); else if(tab==='exch') loadExchange(); else loadCrypto();
 }
 function loadAuctionPage() { swAuction(_aucTab, document.querySelector(`#pg-auction .tb[onclick*="'${_aucTab}'"]`)); }
 
