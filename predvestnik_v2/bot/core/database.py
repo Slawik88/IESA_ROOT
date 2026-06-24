@@ -1078,6 +1078,54 @@ async def _init_crypto(db):
     """)
 
 
+async def _init_combat(db):
+    # БЛОК19 Ч.4/6/7: боевые поля питомцев (HP/Stamina) + Теневые Врата + Рейды.
+    for _stmt in [
+        "ALTER TABLE pets ADD COLUMN IF NOT EXISTS hp FLOAT8",
+        "ALTER TABLE pets ADD COLUMN IF NOT EXISTS hp_max FLOAT8",
+        "ALTER TABLE pets ADD COLUMN IF NOT EXISTS stamina FLOAT8",
+        "ALTER TABLE pets ADD COLUMN IF NOT EXISTS stamina_max FLOAT8",
+        "ALTER TABLE pets ADD COLUMN IF NOT EXISTS attack INTEGER DEFAULT 0",
+        "ALTER TABLE pets ADD COLUMN IF NOT EXISTS defense INTEGER DEFAULT 0",
+        "ALTER TABLE pets ADD COLUMN IF NOT EXISTS combat_regen_at TIMESTAMP",
+    ]:
+        await db.execute(_stmt)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS shadow_gate_runs (
+            pet_id       INTEGER PRIMARY KEY,
+            user_id      BIGINT NOT NULL,
+            started_at   TIMESTAMP DEFAULT NOW(),
+            last_tick_at TIMESTAMP DEFAULT NOW(),
+            dark_mora    FLOAT8 DEFAULT 0,
+            status       TEXT DEFAULT 'active'
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS clan_raids (
+            raid_id        SERIAL PRIMARY KEY,
+            clan_id        INTEGER NOT NULL,
+            boss_name      TEXT NOT NULL,
+            boss_emoji     TEXT DEFAULT '👹',
+            hp             FLOAT8 NOT NULL,
+            hp_max         FLOAT8 NOT NULL,
+            status         TEXT DEFAULT 'active',
+            started_at     TIMESTAMP DEFAULT NOW(),
+            ends_at        TIMESTAMP NOT NULL,
+            last_threshold INTEGER DEFAULT 100
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS raid_contributions (
+            raid_id        INTEGER NOT NULL,
+            user_id        BIGINT NOT NULL,
+            damage         FLOAT8 DEFAULT 0,
+            last_attack_at TIMESTAMP,
+            PRIMARY KEY (raid_id, user_id)
+        )
+    """)
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_clan_raids_clan ON clan_raids(clan_id, status)")
+
+
 async def init_db():
     logger.info("Проверка и создание таблиц PostgreSQL...")
     pool = get_pool()
@@ -1100,5 +1148,6 @@ async def init_db():
         await _init_features_extra(db)
         await _init_clans(db)
         await _init_crypto(db)
+        await _init_combat(db)
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")
