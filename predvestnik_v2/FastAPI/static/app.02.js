@@ -285,6 +285,7 @@ function _clanMyHtml(){
         <div><b>${fmtF(c.total_xp||0)}</b> XP · 🎖 <b>${fmtF(c.clan_coins||0)}</b></div></div>
     </div>
     ${_clanBoardHtml()}
+    ${_clanShopHtml()}
     ${_clanBuildingsHtml()}
     <div class="looks-slot-t" style="margin-top:12px">Состав <span class="clan-coin-note">· вклад 🎖</span></div>
     <div class="clan-members">${members}</div>
@@ -410,6 +411,32 @@ function _clanReqFillDo(rid){
 function _clanReqCancel(rid){
   api('/clans/request/cancel',{method:'POST',body:JSON.stringify({request_id:rid})})
     .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
+}
+// ── Клан-лавка (сток clan_coins) ────────────────────────────────────────────────
+function _clanShopHtml(){
+  const c=_clansData.my_clan;
+  const shop=(c&&c.shop)||[];
+  if(!shop.length) return '';
+  const coins=c.clan_coins||0;
+  const rows=shop.map(s=>{
+    const afford=coins+1e-9>=s.cost;
+    const btn=afford
+      ?`<button class="btn btn-sm btn-gold" onclick="_clanShopBuy('${s.id}')">${fmtF(s.cost)} 🎖</button>`
+      :`<button class="btn btn-sm btn-ghost" disabled style="opacity:.5">${fmtF(s.cost)} 🎖</button>`;
+    return `<div class="clan-req">
+      <div class="clan-req-top"><span class="clan-req-name">${s.emoji||'🎖'} ${esc(s.name)}</span>
+        <span class="clan-req-act">${btn}</span></div>
+      <div class="clan-board-hint" style="margin:2px 0 0">${esc(s.desc||'')}</div>
+    </div>`;
+  }).join('');
+  return `<div class="clan-board-head"><span class="looks-slot-t" style="margin:0">🎖 Клан-лавка</span>
+      <span class="clan-coin-note">у тебя ${fmtF(coins)} 🎖</span></div>
+    <div class="clan-board-hint">Трать клан-монеты, заработанные помощью по Доске.</div>
+    <div class="clan-board">${rows}</div>`;
+}
+function _clanShopBuy(id){
+  api('/clans/shop/buy',{method:'POST',body:JSON.stringify({shop_id:id})})
+    .then(r=>{toast(r.message); refreshCurrBar(); openClansModal();}).catch(e=>toast(e,false));
 }
 // ── Preloader: эффектный холодный старт (БЛОК 9.2) ──────────────────────────────
 function _plSkip() {
