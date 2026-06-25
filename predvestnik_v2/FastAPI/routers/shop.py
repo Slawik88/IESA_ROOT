@@ -12,11 +12,11 @@ from services.smart_checkout import calculate_missing_resources_cost
 
 router = APIRouter(prefix="/shop", tags=["shop"])
 
-_BUYABLE_CATEGORIES = {"food", "egg", "utility", "booster", "donate"}
+_BUYABLE_CATEGORIES = {"food", "utility", "booster", "donate"}
 
 # Per-category bulk-buy caps — same limits as bot/handlers/shop.py::QTY_MAX_CAP,
 # so the website can't bulk-buy past what the bot allows in one click.
-_QTY_MAX_CAP = {"egg": 50, "food": 99, "utility": 5}
+_QTY_MAX_CAP = {"food": 99, "utility": 5}
 
 
 def _build_catalog(eco: EconomyService, has_discount: bool) -> list[dict]:

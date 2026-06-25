@@ -3,7 +3,7 @@
 # Used by both the Bot and the Web panel. Never import platform-specific code here.
 from typing import Dict, Any
 
-from core.constants import SOUL_SHARDS_FOR_SUMMON_EGG
+from core.constants import SOUL_SHARDS_FOR_SUMMON_TOKEN
 
 
 # ── Items (inventory, shop, consumables) ──────────────────────────────────────
@@ -12,7 +12,7 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "soul_shard": {
         "name": "💠 Осколок Души",
         "category": "material",
-        "description": "Застывшая искра распылённого питомца. Накопи 5 штук и собери из них 🔮 Яйцо Призыва во вкладке «Крафт». Где взять: падает, когда распыляешь лишних питомцев.",
+        "description": "Застывшая искра распылённого питомца. Накопи 5 штук и собери из них 🎟 Жетон Призыва во вкладке «Крафт». Где взять: падает, когда распыляешь лишних питомцев.",
         "is_tradable": False,
     },
     "star_dust_s": {
@@ -44,20 +44,12 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "lucky_charm": {
         "name": "🍀 Подкова Удачи",
         "category": "booster",
-        "description": "Талисман везения. Сработает автоматически на следующем открытом яйце: +15% к шансу редкости. Где взять: гача и ивенты.",
+        "description": "Талисман везения. Сработает автоматически на следующей крутке гачи: +15% к шансу редкости. Где взять: гача и ивенты.",
         "is_tradable": False,
     },
-    # Spin tokens (bесплатные спины из гачи)
+    # Spin tokens (бесплатные спины из гачи) — единственный источник питомцев (яйца удалены, БЛОК19 Ч.2)
     "spin_token":          {"name": "🎟 Жетон Гачи",          "category": "spin_token", "spin_type": "mora",     "is_tradable": False, "description": "Один бесплатный спин гача-режима «Мора». Потратить: вкладка Гача. Где взять: круток, наград и квестов."},
-    # Eggs (gacha)
-    "egg_basic":   {"name": "🥚 Базовое Яйцо",      "category": "egg", "price_mora": 8000,      "description": "Самый доступный выводок: 80% Common / 19% Rare / 1% Epic. Открыть: Инвентарь → яйцо → «Открыть»."},
-    "egg_summon":  {"name": "🔮 Яйцо Призыва",      "category": "egg",                          "description": "Собирается из 5 Осколков Души во вкладке «Крафт» (при распылении осколков не даёт). Открыть: Инвентарь → яйцо."},
-    "egg_silver":  {"name": "🥈 Серебряное Яйцо",   "category": "egg", "price_mora": 28000,     "description": "Кладка получше: 50% Common / 40% Rare / 10% Epic. Открыть: Инвентарь → яйцо."},
-    "egg_gold":    {"name": "🪙 Золотое Яйцо",      "category": "egg", "price_diamonds": 250, "price_mora": 120000, "description": "Премиум-кладка: 75% Rare / 25% Epic. Открыть: Инвентарь → яйцо."},
-    "egg_mythic":  {"name": "💎 Мифическое Яйцо",   "category": "egg", "price_diamonds": 500,   "description": "Редчайшая кладка: 40% Rare / 60% Epic. Открыть: Инвентарь → яйцо."},
-    "egg_unity":   {"name": "💖 Яйцо Единства",     "category": "egg",                          "description": "Семейная реликвия: 100% Legendary. Только для Семей. Открыть: Инвентарь → яйцо."},
-    "egg_crystal": {"name": "🔷 Кристальное Яйцо",  "category": "egg",                          "description": "Кристальная кладка: 30% Epic / 70% Legendary. Только из гачи (Лиса Lv10). Открыть: Инвентарь → яйцо."},
-    "egg_daily":   {"name": "🎁 Яйцо Дня",          "category": "egg",                          "description": "Бесплатный подарок раз в день: 70% Common / 29% Rare / 1% Epic. Открыть: Инвентарь → яйцо."},
+    "spin_token_diamond":  {"name": "🎟 Алмазный Жетон",      "category": "spin_token", "spin_type": "diamond",  "is_tradable": False, "description": "Один бесплатный спин гача-режима «Алмаз» (выше шанс редких и легендарных питомцев). Потратить: вкладка Гача. Где взять: премиум-наград, квестов и лута."},
     # Food / consumables
     # Усталость растёт от экспедиций; корм её снимает, чтобы снова слать питомца в
     # поход. Везде кормить одинаково: Зоопарк → карточка питомца → «🍖 Покормить».
@@ -159,28 +151,20 @@ PET_SPECIES: Dict[str, Dict[str, Any]] = {
     "dog":     {"name": "🐕 Дворовая Собака",     "rarity": "common",    "default_role": "active",  "desc": "Ускоряет экспедиции. Lv4 — собаке меньше усталости, Lv8 — шанс 0 усталости, Lv10 — −5% стоимость похода."},
     "squirrel":{"name": "🐿 Запасливая Белка",    "rarity": "common",    "default_role": "passive", "desc": "Грызун-бухгалтер: +% Моры к награде за КВЕСТЫ (держи в питомнике). Lv1 +5% → Lv10 +20%. В пассивном слоте — половина бонуса."},
     # Rare
-    "turtle":  {"name": "🐢 Черепаха-торговец",   "rarity": "rare",      "default_role": "passive", "desc": "Скидка в магазине. Lv4 — скидка на экспедиции, Lv8 — скидка на крутку, Lv10 — шанс ×2 яйца."},
+    "turtle":  {"name": "🐢 Черепаха-торговец",   "rarity": "rare",      "default_role": "passive", "desc": "Скидка в магазине. Lv4 — скидка на экспедиции, Lv8 — скидка на крутку гачи, Lv10 — максимальные скидки."},
     "falcon":  {"name": "🦅 Охотничий Сокол",     "rarity": "rare",      "default_role": "active",  "desc": "+Мора из похода. Lv4 — +XP похода, Lv8 — шанс двойной добычи, Lv10 — гарант. Карта Сокровищ в 8ч поход."},
     # Epic
     "wolf":    {"name": "🐺 Снежный Волк",        "rarity": "epic",      "default_role": "passive", "desc": "Снижает усталость питомнику. Lv4 — корм +5 ед. в актив, Lv8 — раз в день восстанавливает 30, Lv10 — иммунитет перемещений."},
-    "fox":     {"name": "🦊 Огненная Лиса",       "rarity": "epic",      "default_role": "active",  "desc": "Шанс 💎 в походе. Lv4 — +Common-дубликаты из гачи, Lv8 — гарант. 💎/нед, Lv10 — шанс Кристального яйца."},
+    "fox":     {"name": "🦊 Огненная Лиса",       "rarity": "epic",      "default_role": "active",  "desc": "Шанс 💎 в походе. Lv4 — +Common-дубликаты из гачи, Lv8 — гарант. 💎/нед, Lv10 — шанс 🎟 Алмазного Жетона из похода."},
     # Legendary
     "dragon":  {"name": "🐉 Дракон Хранитель",    "rarity": "legendary", "default_role": "passive", "desc": "Поднимает кап семейного банка. Lv4 — бесплатный корм, Lv8 — Мора при сборе хомяков, Lv10 — +500/нед в банк."},
     "unicorn": {"name": "🦄 Астральный Единорог", "rarity": "legendary", "default_role": "passive", "desc": "−% к суточной усталости всех. Lv4 — раз в день иммунитет, Lv8 — актив восстанавливается, Lv10 — авто-восст. при 100."},
 }
 
 
-# ── Gacha rates (egg opening) ────────────────────────────────────────────────
-GACHA_RATES: Dict[str, Dict[str, int]] = {
-    "egg_basic":   {"common": 80, "rare": 19, "epic": 1,   "legendary": 0},
-    "egg_summon":  {"common": 80, "rare": 19, "epic": 1,   "legendary": 0},
-    "egg_silver":  {"common": 50, "rare": 40, "epic": 10,  "legendary": 0},
-    "egg_gold":    {"common": 0,  "rare": 75, "epic": 25,  "legendary": 0},
-    "egg_mythic":  {"common": 0,  "rare": 40, "epic": 60,  "legendary": 0},
-    "egg_unity":   {"common": 0,  "rare": 0,  "epic": 0,   "legendary": 100},
-    "egg_crystal": {"common": 0,  "rare": 0,  "epic": 30,  "legendary": 70},
-    "egg_daily":   {"common": 70, "rare": 29, "epic": 1,   "legendary": 0},
-}
+# ── Gacha rates ───────────────────────────────────────────────────────────────
+# УДАЛЕНО (БЛОК19 Ч.2): яйца вырезаны, питомцы добываются ТОЛЬКО через Гачу.
+# Честные шансы крутки берутся из GACHA_TABLES (см. /gacha/odds).
 
 
 # ── Gacha spin tables (B3) ────────────────────────────────────────────────────
@@ -195,7 +179,7 @@ GACHA_RATES: Dict[str, Dict[str, int]] = {
 # Block 8: единая гача — 2 режима. "mora" (~600🪙) объединяет бывшие
 # novice/standard/premium (common→epic питомцы, мора, расходники, малый шанс 💎).
 # "diamond" (~8💎) — выше шанс редкого лута + шире диапазон (epic→legendary,
-# золотые/мифические/кристальные яйца, гарантии алмазов).
+# редкие жетоны (🎟 Алмазный Жетон), легендарные питомцы, гарантии алмазов).
 GACHA_TABLES: Dict[str, list] = {
     "mora": [
         {"weight": 22, "type": "mora",    "min": 40,  "max": 120},
@@ -210,25 +194,25 @@ GACHA_TABLES: Dict[str, list] = {
         {"weight": 4,  "type": "item",    "id": "star_dust_l",   "qty": 1},
         {"weight": 3,  "type": "item",    "id": "potion_luck_s", "qty": 1},
         {"weight": 3,  "type": "item",    "id": "exp_boost_1h",  "qty": 1, "valuable": True},
-        {"weight": 2,  "type": "item",    "id": "egg_basic",     "qty": 1, "valuable": True},
+        {"weight": 2,  "type": "item",    "id": "spin_token",    "qty": 1, "valuable": True},
         {"weight": 2,  "type": "item",    "id": "exp_boost_2h",  "qty": 1, "valuable": True},
-        {"weight": 1.5,"type": "item",    "id": "egg_silver",    "qty": 1, "valuable": True},
+        {"weight": 1.5,"type": "item",    "id": "spin_token",    "qty": 1, "valuable": True},
         {"weight": 0.8,"type": "diamond", "qty": 2,              "valuable": True},
         {"weight": 0.4,"type": "pet_dup", "rarity": "epic",      "valuable": True},
-        {"weight": 0.2,"type": "item",    "id": "egg_mythic",    "qty": 1, "valuable": True},
+        {"weight": 0.2,"type": "item",    "id": "spin_token_diamond", "qty": 1, "valuable": True},
     ],
     "diamond": [
-        {"weight": 22, "type": "item",    "id": "egg_gold",      "qty": 1, "valuable": True},
-        {"weight": 15, "type": "item",    "id": "egg_mythic",    "qty": 1, "valuable": True},
-        {"weight": 13, "type": "combo",   "items": [{"id": "egg_silver", "qty": 1}], "diamond_bonus": 2, "valuable": True},
+        {"weight": 22, "type": "item",    "id": "spin_token_diamond", "qty": 1, "valuable": True},
+        {"weight": 15, "type": "item",    "id": "spin_token_diamond", "qty": 1, "valuable": True},
+        {"weight": 13, "type": "combo",   "items": [{"id": "spin_token", "qty": 1}], "diamond_bonus": 2, "valuable": True},
         {"weight": 12, "type": "pet_dup", "rarity": "epic",      "valuable": True},
         {"weight": 9,  "type": "combo",   "items": [{"id": "treasure_map", "qty": 3}], "valuable": True},
-        {"weight": 8,  "type": "item",    "id": "egg_crystal",   "qty": 1, "valuable": True},
+        {"weight": 8,  "type": "item",    "id": "spin_token_diamond", "qty": 1, "valuable": True},
         {"weight": 6,  "type": "diamond", "qty": 5,              "valuable": True},
         {"weight": 4,  "type": "item",    "id": "exp_boost_4h",  "qty": 1, "valuable": True},
         {"weight": 3,  "type": "combo",   "items": [{"id": "exp_boost_2h", "qty": 1}, {"id": "potion_sprint", "qty": 1}], "valuable": True},
         {"weight": 3,  "type": "pet_dup", "rarity": "legendary", "valuable": True},
-        {"weight": 2,  "type": "item",    "id": "egg_unity",     "qty": 1, "valuable": True},
+        {"weight": 2,  "type": "item",    "id": "spin_token_diamond", "qty": 2, "valuable": True},
         {"weight": 1,  "type": "pet_dup_multi", "rarity": "legendary", "count": 2, "valuable": True},
     ],
 }
@@ -259,8 +243,6 @@ DAILY_DEAL_POOL_MORA: list = [
     {"item_id": "food_energy",         "qty_range": (1, 3), "base_price_mora": 750},
     {"item_id": "food_super",          "qty_range": (1, 2), "base_price_mora": 1100},
     {"item_id": "spin_token",          "qty_range": (1, 3), "base_price_mora": 600},
-    {"item_id": "egg_basic",           "qty_range": (1, 2), "base_price_mora": 8000},
-    {"item_id": "egg_silver",          "qty_range": (1, 1), "base_price_mora": 28000},
     {"item_id": "treasure_map",        "qty_range": (1, 2), "base_price_mora": 900},
     {"item_id": "lucky_charm",         "qty_range": (1, 2), "base_price_mora": 900},
     {"item_id": "study_notes",         "qty_range": (1, 2), "base_price_mora": 600},
@@ -272,8 +254,7 @@ DAILY_DEAL_POOL_MORA: list = [
 DAILY_DEAL_POOL_DIAMOND: list = [
     {"item_id": "food_diamond",       "qty_range": (1, 3), "base_price_dia": 12},
     {"item_id": "spin_token",         "qty_range": (1, 2), "base_price_dia": 5},
-    {"item_id": "egg_mythic",         "qty_range": (1, 1), "base_price_dia": 500},
-    {"item_id": "egg_crystal",        "qty_range": (1, 1), "base_price_dia": 35},
+    {"item_id": "spin_token_diamond", "qty_range": (1, 2), "base_price_dia": 8},
 ]
 
 
@@ -295,7 +276,6 @@ DAILY_QUESTS: list = [
     {"id": "gacha_3",    "metric": "gacha_spins_today",             "target": 3,  "reward": {"items": [("star_dust_s", 1)]},                  "weight": 4},
     # Medium
     {"id": "exped_2",    "metric": "expeditions_today",             "target": 2,  "reward": {"mora": 500.0},                                  "weight": 3},
-    {"id": "open_egg",   "metric": "eggs_opened_today",             "target": 1,  "reward": {"items": [("soul_shard", 1)]},                   "weight": 3},
     {"id": "warp_3",     "metric": "warps_to_distinct_users_today", "target": 3,  "reward": {"mora": 200.0},                                  "weight": 3},
     {"id": "auction_bid","metric": "auction_bids_today",            "target": 1,  "reward": {"mora": 200.0},                                  "weight": 2},
     # Hard
@@ -316,17 +296,12 @@ WEEKLY_QUESTS: list = [
     {"id": "w_gourmet",    "metric": "pet_feeds_today",    "target": 20, "reward": {"mora": 2500.0},                                 "name": "🥗 Гурман"},
     {"id": "w_patron",     "metric": "gacha_spins_today",  "target": 40, "reward": {"mora": 3000.0, "items": [("spin_token", 1)]},   "name": "🤑 Безумный меценат"},
     {"id": "w_rescuer",    "metric": "expeditions_today",  "target": 15, "reward": {"mora": 4000.0},                                 "name": "🚑 Спасатель пустошей"},
-    {"id": "w_geneticist", "metric": "eggs_opened_today",  "target": 12, "reward": {"diamonds": 12.0},                               "name": "🧬 Генетический эксперимент"},
+    {"id": "w_geneticist", "metric": "gacha_spins_today",  "target": 12, "reward": {"diamonds": 12.0},                               "name": "🧬 Генетический эксперимент"},
     {"id": "w_cardinal",   "metric": "auction_bids_today", "target": 6,  "reward": {"mora": 2500.0},                                 "name": "⚖️ Серый Кардинал"},
 ]
 
 # ── Achievements (B11) ────────────────────────────────────────────────────────
 ACHIEVEMENTS: Dict[str, Dict] = {
-    "egg_opener": {
-        "icon": "🥚", "name": "Яйцелов",
-        "metric": "eggs_opened",
-        "thresholds": [10, 30, 75, 150, 300, 600, 1200, 2500, 5000, 10000],
-    },
     "gacha_addict": {
         "icon": "🎰", "name": "Завсегдатай Гачи",
         "metric": "gacha_spins",
@@ -358,7 +333,7 @@ ACHIEVEMENTS: Dict[str, Dict] = {
         "icon": "🐾", "name": "Коллекционер",
         "metric": "distinct_species_owned",
         "thresholds": [3, 5, 7, 9, 11, 13, 15, 17, 19, 21],
-        "desc": "Получите N уникальных видов питомцев. Каждый новый вид из яйца засчитывается.",
+        "desc": "Получите N уникальных видов питомцев. Каждый новый вид из гачи засчитывается.",
     },
     "patron": {
         "icon": "🛒", "name": "Меценат",
@@ -421,8 +396,8 @@ ACHIEVEMENT_LEVEL_REWARDS: Dict[int, Dict] = {
     6:  {"mora": 3000.0,  "diamonds": 1.0, "items": ()},
     7:  {"mora": 6000.0,  "diamonds": 2.0, "items": (("spin_token", 1),)},
     8:  {"mora": 12000.0, "diamonds": 5.0, "items": (("spin_token", 1),)},
-    9:  {"mora": 25000.0, "diamonds": 10.0, "items": (("egg_mythic", 1),)},
-    10: {"mora": 50000.0, "diamonds": 25.0, "items": (("spin_token", 3), ("egg_crystal", 1))},
+    9:  {"mora": 25000.0, "diamonds": 10.0, "items": (("spin_token_diamond", 1),)},
+    10: {"mora": 50000.0, "diamonds": 25.0, "items": (("spin_token", 3), ("spin_token_diamond", 1))},
 }
 
 
@@ -500,8 +475,8 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
          "paid": {"mora": 0,   "diamonds": 2, "items": (("food_diamond", 1),)}},
     29: {"free": {"mora": 280, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 1, "items": ()}},
-    30: {"free": {"mora": 400, "diamonds": 3, "items": (("egg_silver", 1),)},
-         "paid": {"mora": 0,   "diamonds": 10, "items": (("egg_mythic", 1),)}},
+    30: {"free": {"mora": 400, "diamonds": 3, "items": (("spin_token", 2),)},
+         "paid": {"mora": 0,   "diamonds": 10, "items": (("spin_token_diamond", 1),)}},
 
     31: {"free": {"mora": 300, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
@@ -522,7 +497,7 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
     39: {"free": {"mora": 360, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 2, "items": ()}},
     40: {"free": {"mora": 500, "diamonds": 4, "items": (("spin_token", 2),)},
-         "paid": {"mora": 0,   "diamonds": 12, "items": (("egg_crystal", 1),)}},
+         "paid": {"mora": 0,   "diamonds": 12, "items": (("spin_token_diamond", 1),)}},
 
     41: {"free": {"mora": 400, "diamonds": 0, "items": ()},
          "paid": {"mora": 0,   "diamonds": 3, "items": ()}},
@@ -685,19 +660,18 @@ PARTNER_GIFTS: dict[str, dict] = {
 # ── Craft Recipes ─────────────────────────────────────────────────────────────
 # Single source of truth for all craftable items. Ingredient quantities from constants.
 CRAFT_RECIPES: Dict[str, Dict[str, Any]] = {
-    "egg_summon": {
-        "result_item": "egg_summon",
+    "summon_token": {
+        "result_item": "spin_token",
         "result_qty": 1,
-        "ingredients": [("soul_shard", SOUL_SHARDS_FOR_SUMMON_EGG)],
-        "name": "🔮 Яйцо Призыва",
-        "category": "egg",
+        "ingredients": [("soul_shard", SOUL_SHARDS_FOR_SUMMON_TOKEN)],
+        "name": "🎟 Жетон Призыва",
+        "category": "spin_token",
         # How to get soul_shards
         "ingredient_tip": "💠 Осколки Души — выпадают когда распыляете лишних питомцев в Зоопарке",
         # What the result does
-        "what_is": "Особое яйцо, которое нельзя купить — только скрафтить из Осколков.",
-        "gacha_rates": "80% Обычный · 19% Редкий · 1% Эпический",
-        "how_use": "Перейдите в Инвентарь и нажмите на яйцо → «Открыть»",
-        "special_note": "⚠️ Питомцы из этого яйца при распылении НЕ дают Осколок обратно",
-        "how_to_get_ingredients": f"1 Осколок = 1 распылённый питомец. Нужно {SOUL_SHARDS_FOR_SUMMON_EGG} Осколков.",
+        "what_is": "Жетон гачи, который нельзя купить — только скрафтить из Осколков. Даёт бесплатную крутку мора-режима.",
+        "gacha_rates": "Крутка мора-режима: 80% Обычный · 19% Редкий · 1% Эпический",
+        "how_use": "Перейдите во вкладку Гача и потратьте жетон на бесплатную крутку.",
+        "how_to_get_ingredients": f"1 Осколок = 1 распылённый питомец. Нужно {SOUL_SHARDS_FOR_SUMMON_TOKEN} Осколков.",
     },
 }

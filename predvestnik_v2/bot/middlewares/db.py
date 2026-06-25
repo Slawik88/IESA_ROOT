@@ -21,7 +21,6 @@ _QUEST_METRIC_LABELS: dict[str, str] = {
     "pet_feeds_today":               "Накормить питомца",
     "gacha_spins_today":             "Крутить гачу",
     "expeditions_today":             "Экспедиций",
-    "eggs_opened_today":             "Открыть яйцо",
     "warps_to_distinct_users_today": "Варп разным игрокам",
     "auction_bids_today":            "Ставка на аукцион",
     "warps_hug_distinct_today":      "Обнять разных игроков",

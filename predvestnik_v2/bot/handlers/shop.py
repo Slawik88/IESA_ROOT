@@ -23,16 +23,14 @@ class ShopCB(CallbackData, prefix="shop"):
 
 CATEGORIES = {
     "food":    ("🥩", "ЕДА И КОРМ"),
-    "egg":     ("🥚", "ЯЙЦА ПИТОМЦЕВ"),
     "utility": ("🛠", "УТИЛИТЫ"),
 }
 
 QTY_PRESETS = {
-    "egg":     [1, 3, 5, 10],
     "food":    [1, 5, 10, 25],
     "utility": [1],
 }
-QTY_MAX_CAP = {"egg": 50, "food": 99, "utility": 5}
+QTY_MAX_CAP = {"food": 99, "utility": 5}
 
 def _price_str(prices: dict) -> str:
     parts = []

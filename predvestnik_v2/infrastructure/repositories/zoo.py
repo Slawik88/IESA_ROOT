@@ -3,12 +3,11 @@ import random
 from datetime import datetime, timedelta
 from services.formatting import parse_dt
 
-from core.registry import GACHA_RATES, PET_SPECIES
+from core.registry import PET_SPECIES
 from core.constants import (
     PET_ACTIVE_FATIGUE_PER_DAY, PET_PASSIVE_FATIGUE_PER_DAY, PET_MAX_FATIGUE_LAG_DAYS,
     WOLF_BONUSES, WOLF_REDUCTION_CAP,
     UNICORN_BONUSES, UNICORN_REDUCTION_CAP,
-    FOX_BONUSES, TURTLE_BONUSES,
     HAMSTER_BONUSES,
     MAX_PET_COPIES,
     DUPLICATE_OVERFLOW_MORA, DUPLICATE_OVERFLOW_STARDUST,
@@ -519,109 +518,6 @@ async def get_pending_hamster_income(db: aiosqlite.Connection, user_id: int) -> 
     return round(total, 2)
 
 
-async def open_egg(db: aiosqlite.Connection, user_id: int, egg_id: str, is_summoned: bool = False):
-    results = await open_eggs_batch(db, user_id, egg_id, 1, is_summoned=is_summoned)
-    return (True, results[0]) if results else (False, "Ошибка при открытии")
-
-
-async def open_eggs_batch(
-    db: aiosqlite.Connection, user_id: int, egg_id: str, count: int, is_summoned: bool = False
-) -> list[dict]:
-    """Open `count` eggs. Each roll goes through grant_duplicate so that:
-      - first time getting a species → creates copy #1 at Lv1
-      - subsequent times → adds duplicate to first non-Lv10 copy (auto level-up)
-      - after all MAX_PET_COPIES at Lv10 → overflow compensation
-
-    `is_summoned` is forwarded as a hint on the FIRST creation of any new copy.
-    Returns a list of result dicts (see grant_duplicate signature) enriched with
-    species_name and species_id for the caller.
-    """
-    rates = GACHA_RATES.get(egg_id)
-    if not rates:
-        return []
-    results: list[dict] = []
-    try:
-        await db.execute("BEGIN IMMEDIATE")
-
-        # Lock inventory row with FOR UPDATE before processing to prevent
-        # concurrent requests from both opening the same eggs (negative inventory)
-        async with db.execute(
-            "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? FOR UPDATE",
-            (user_id, egg_id),
-        ) as _c:
-            _inv_row = await _c.fetchone()
-        if not _inv_row or _inv_row[0] < count:
-            await db.rollback()
-            return []
-
-        # Check lucky_charm: +15% rarity boost on first egg of the batch
-        lucky_charm_active = False
-        async with db.execute(
-            "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = 'lucky_charm' AND quantity > 0",
-            (user_id,),
-        ) as _lc:
-            _lc_row = await _lc.fetchone()
-        if _lc_row:
-            lucky_charm_active = True
-            await db.execute(
-                "UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = 'lucky_charm'",
-                (user_id,),
-            )
-
-        # Fox Lv4+: common_dup_bonus — chance to reroll non-common result to common
-        fox_level = await get_active_species_level(db, user_id, "fox")
-        fox_common_bonus = (
-            FOX_BONUSES.get(max(1, min(10, fox_level)), {}).get("common_dup_bonus", 0.0)
-            if fox_level >= 4 else 0.0
-        )
-
-        # Turtle Lv10: double_egg_chance — 5% chance for a bonus free pet per egg
-        turtle_level = await get_active_species_level(db, user_id, "turtle")
-        double_egg_chance = (
-            TURTLE_BONUSES.get(max(1, min(10, turtle_level)), {}).get("double_egg_chance", 0.0)
-            if turtle_level > 0 else 0.0
-        )
-
-        def _roll_one(boost_rand: bool = False) -> str:
-            rand = random.randint(1, 100)
-            if boost_rand:
-                rand = max(1, rand - 15)
-            cumulative = 0
-            selected = "common"
-            for rarity, chance in rates.items():
-                cumulative += chance
-                if rand <= cumulative:
-                    selected = rarity
-                    break
-            # Fox: reroll non-common to common
-            if fox_common_bonus > 0 and selected != "common" and random.random() < fox_common_bonus:
-                selected = "common"
-            return random.choice([s for s, d in PET_SPECIES.items() if d["rarity"] == selected])
-
-        for i in range(count):
-            species_id = _roll_one(boost_rand=(lucky_charm_active and i == 0))
-            result = await grant_duplicate(db, user_id, species_id)
-            if is_summoned and result["outcome"] in ("first_copy_created", "new_copy_created"):
-                await db.execute("UPDATE pets SET is_summoned = TRUE WHERE id = ?", (result["pet_id"],))
-            result["species_id"] = species_id
-            result["species_name"] = PET_SPECIES[species_id]["name"]
-            results.append(result)
-
-            # Turtle Lv10: bonus free pet from same egg
-            if double_egg_chance > 0 and random.random() < double_egg_chance:
-                bonus_species = _roll_one()
-                bonus_result = await grant_duplicate(db, user_id, bonus_species)
-                bonus_result["species_id"] = bonus_species
-                bonus_result["species_name"] = PET_SPECIES[bonus_species]["name"]
-                bonus_result["bonus_egg"] = True
-                results.append(bonus_result)
-
-        await db.execute(
-            "UPDATE inventory SET quantity = quantity - ? WHERE user_id = ? AND item_id = ?",
-            (count, user_id, egg_id)
-        )
-        await db.commit()
-        return results
-    except Exception:
-        await db.rollback()
-        raise
+# open_egg / open_eggs_batch УДАЛЕНЫ (БЛОК19 Ч.2): яйца вырезаны, питомцы добываются
+# ТОЛЬКО через Гачу (services/gacha.py → grant_duplicate). Удача lucky_charm переехала
+# в гача-крутку (_consume_luck_potions); turtle double_egg_chance ретайрнут.

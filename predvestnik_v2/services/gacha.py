@@ -41,8 +41,9 @@ def _apply_luck_bonus(table: list, bonus: float) -> list:
 
 
 async def _consume_luck_potions(db, user_id: int) -> float:
-    """Check inventory for gacha luck potions. Consume one and return total bonus, or 0."""
-    for item_id in ("potion_luck_s", "potion_luck_m"):
+    """Check inventory for gacha luck items. Consume one and return total bonus, or 0.
+    lucky_charm переехал сюда из открытия яиц (БЛОК19 Ч.2): теперь это +15% удача на крутку."""
+    for item_id in ("potion_luck_s", "potion_luck_m", "lucky_charm"):
         async with db.execute(
             "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? AND quantity > 0",
             (user_id, item_id),

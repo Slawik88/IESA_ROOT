@@ -64,7 +64,6 @@ async def cmd_quests(message: types.Message, db):
             "pet_feeds_today": "Накормить питомца",
             "gacha_spins_today": "Крутить гачу",
             "expeditions_today": "Экспедиций",
-            "eggs_opened_today": "Открыть яйцо",
             "warps_to_distinct_users_today": "Варпы разным игрокам",
             "auction_bids_today": "Ставка на аукцион",
             "warps_hug_distinct_today": "Обнять разных игроков",

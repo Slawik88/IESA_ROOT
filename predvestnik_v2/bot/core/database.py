@@ -987,27 +987,64 @@ async def _init_features_extra(db):
     except Exception:
         pass
 
-    # Block 8: единая гача. 4 старых жетона (novice/standard/premium/diamond)
-    # сливаются 1:1 в единый spin_token (бесплатный спин мора-режима).
-    # Идемпотентно: после DELETE старых строк не остаётся, повторный прогон
-    # ничего не суммирует. Старые pity-строки гачи безвредны (новые ключи —
-    # mora/diamond), их не трогаем.
+    # Block 8: единая гача. 3 старых жетона (novice/standard/premium) сливаются 1:1
+    # в единый spin_token (бесплатный спин мора-режима).
+    # ⚠️ spin_token_diamond УБРАН из списка слияния: в БЛОК19 Ч.2 этот id переиспользован
+    # как НОВЫЙ предмет (🎟 Алмазный Жетон гачи) — его НЕЛЬЗЯ сливать в spin_token, иначе
+    # конвертированные из яиц алмазные жетоны затрутся на следующем старте.
+    # Идемпотентно: после DELETE старых строк не остаётся, повторный прогон ничего не
+    # суммирует. Старые pity-строки гачи безвредны (новые ключи — mora/diamond).
     try:
         await db.execute(
             "INSERT INTO inventory (user_id, item_id, quantity) "
             "SELECT user_id, 'spin_token', SUM(quantity) FROM inventory "
             "WHERE item_id IN ('spin_token_novice','spin_token_standard',"
-            "                  'spin_token_premium','spin_token_diamond') AND quantity > 0 "
+            "                  'spin_token_premium') AND quantity > 0 "
             "GROUP BY user_id "
             "ON CONFLICT (user_id, item_id) DO UPDATE SET "
             "  quantity = inventory.quantity + EXCLUDED.quantity"
         )
         await db.execute(
             "DELETE FROM inventory WHERE item_id IN "
-            "('spin_token_novice','spin_token_standard','spin_token_premium','spin_token_diamond')"
+            "('spin_token_novice','spin_token_standard','spin_token_premium')"
         )
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.warning(f"Block 8 token-merge migration failed: {_e!r}")
+
+    # БЛОК19 Ч.2: ЯЙЦА УДАЛЕНЫ → конвертируем все яйца в инвентарях игроков в Жетоны
+    # Гачи БЕЗ ПОТЕРЬ. Низкий тир → spin_token; премиум → spin_token_diamond.
+    # Множители: egg_silver = 2× spin_token; egg_unity = 2× spin_token_diamond; остальные 1×.
+    # Атомарно (convert+delete в ОДНОЙ транзакции) + идемпотентно (после DELETE яиц не
+    # остаётся → повторный прогон ничего не конвертирует; дублирования валюты нет).
+    try:
+        async with db.transaction():
+            await db.execute(
+                "INSERT INTO inventory (user_id, item_id, quantity) "
+                "SELECT user_id, 'spin_token', "
+                "       SUM(quantity * CASE item_id WHEN 'egg_silver' THEN 2 ELSE 1 END) "
+                "FROM inventory "
+                "WHERE item_id IN ('egg_basic','egg_summon','egg_daily','egg_silver') AND quantity > 0 "
+                "GROUP BY user_id "
+                "ON CONFLICT (user_id, item_id) DO UPDATE SET "
+                "  quantity = inventory.quantity + EXCLUDED.quantity"
+            )
+            await db.execute(
+                "INSERT INTO inventory (user_id, item_id, quantity) "
+                "SELECT user_id, 'spin_token_diamond', "
+                "       SUM(quantity * CASE item_id WHEN 'egg_unity' THEN 2 ELSE 1 END) "
+                "FROM inventory "
+                "WHERE item_id IN ('egg_gold','egg_mythic','egg_crystal','egg_unity') AND quantity > 0 "
+                "GROUP BY user_id "
+                "ON CONFLICT (user_id, item_id) DO UPDATE SET "
+                "  quantity = inventory.quantity + EXCLUDED.quantity"
+            )
+            await db.execute(
+                "DELETE FROM inventory WHERE item_id IN "
+                "('egg_basic','egg_summon','egg_silver','egg_gold','egg_mythic',"
+                " 'egg_unity','egg_crystal','egg_daily')"
+            )
+    except Exception as _e:
+        logger.warning(f"БЛОК19 Ч.2 egg→token migration failed (откат, повтор на след. старте): {_e!r}")
 
 
 async def _init_indexes(db):

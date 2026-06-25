@@ -14,7 +14,7 @@ FAMILY_BANK_DEFAULT_CAP: float = 50_000.0
 # ── Pet system base ──────────────────────────────────────────────────────────
 PET_FATIGUE_WARN_THRESHOLD: int = 80     # fatigue level shown as warning in UI
 PET_PLACEMENT_FATIGUE_RESTORE: int = 20  # fatigue cost when moving a pet
-SOUL_SHARDS_FOR_SUMMON_EGG: int = 5      # shards required to craft egg_summon
+SOUL_SHARDS_FOR_SUMMON_TOKEN: int = 5    # shards required to craft 🎟 Жетон Призыва (summon_token)
 PET_ACTIVE_FATIGUE_PER_DAY: int = 2      # daily fatigue gain for active-slot pets
 PET_PASSIVE_FATIGUE_PER_DAY: int = 1     # daily fatigue gain for passive-slot pets
 PET_MAX_FATIGUE_LAG_DAYS: int = 7        # max catch-up window for lazy decay
@@ -39,8 +39,8 @@ DUPLICATE_OVERFLOW_STARDUST: dict = {"common": 0, "rare": 1, "epic": 1, "legenda
 
 PET_LEVEL_MILESTONE_REWARDS: dict = {
     3:  {"mora": 800.0,  "diamonds": 0.0, "items": (),                                            "announce_chat": False},
-    5:  {"mora": 2000.0, "diamonds": 0.0, "items": (("egg_silver", 1), ("spin_token", 1)), "announce_chat": False},
-    7:  {"mora": 4500.0, "diamonds": 0.0, "items": (("egg_gold", 1), ("spin_token", 1)), "announce_chat": False},
+    5:  {"mora": 2000.0, "diamonds": 0.0, "items": (("spin_token", 3),), "announce_chat": False},
+    7:  {"mora": 4500.0, "diamonds": 0.0, "items": (("spin_token", 1), ("spin_token_diamond", 1)), "announce_chat": False},
     10: {"mora": 8000.0, "diamonds": 5.0, "items": (),                                            "announce_chat": True},
 }
 
@@ -121,7 +121,8 @@ DOG_BONUSES: dict = {
     10: {"speed_reduction": 0.15, "self_fatigue_reduction": 0.25, "zero_fatigue_chance": 0.05, "expedition_cost_reduction": 0.05},
 }
 
-# Turtle: shop_discount, expedition_discount, gacha_daily_discount, double_egg_chance.
+# Turtle: shop_discount, expedition_discount, gacha_daily_discount.
+# double_egg_chance — РЕТАЙРНУТ (БЛОК19 Ч.2: яйца удалены, открытия больше нет; поле не читается).
 TURTLE_BONUSES: dict = {
     1:  {"shop_discount": 0.02, "expedition_discount": 0.0,  "gacha_daily_discount": 0.0,  "double_egg_chance": 0.0},
     2:  {"shop_discount": 0.03, "expedition_discount": 0.0,  "gacha_daily_discount": 0.0,  "double_egg_chance": 0.0},
@@ -169,7 +170,8 @@ WOLF_REDUCTION_CAP: float = 0.50  # safety cap on combined wolf reductions
 
 # Fox: diamond_chance_per_2h,
 # common_dup_bonus (T2 Lv4: +% common duplicates from gacha — handled in gacha service),
-# weekly_guaranteed_diamond (T3 Lv8), crystal_egg_chance (capstone Lv10: % chance of crystal egg from expedition).
+# weekly_guaranteed_diamond (T3 Lv8), crystal_egg_chance (capstone Lv10: % шанс выдать 🎟 Алмазный
+# Жетон из похода; БЛОК19 Ч.2 — раньше было Кристальное яйцо, ключ оставлен ради совместимости).
 FOX_BONUSES: dict = {
     1:  {"diamond_chance_per_2h": 0.02, "common_dup_bonus": 0.0, "weekly_guaranteed_diamond": False, "crystal_egg_chance": 0.0},
     2:  {"diamond_chance_per_2h": 0.03, "common_dup_bonus": 0.0, "weekly_guaranteed_diamond": False, "crystal_egg_chance": 0.0},
@@ -309,7 +311,7 @@ SPIN_TYPE_LABELS: dict = {
 # Жетон даёт бесплатный спин ТОЛЬКО мора-режима; алмазный режим — за 💎.
 SPIN_TOKEN_IDS: dict = {
     "mora": "spin_token",
-    "diamond": "",
+    "diamond": "spin_token_diamond",
 }
 
 # ── Moderation ────────────────────────────────────────────────────────────────
@@ -526,7 +528,6 @@ BATTLE_PASS_SEASON_END_REMINDER_DAYS: int = 3  # напомнить активн
 # metric_name (как в вызовах services.achievements.increment_metric) -> XP за единицу delta
 BATTLE_PASS_XP_WEIGHTS: dict[str, int] = {
     "duel_wins": 10,
-    "eggs_opened": 5,
     "expeditions_done": 8,
     "gacha_spins": 3,
     "auction_sales": 12,
@@ -542,7 +543,6 @@ BATTLE_PASS_XP_WEIGHTS: dict[str, int] = {
 BATTLE_PASS_XP_DAILY_CAPS: dict[str, int] = {
     "gacha_spins": 60,       # вес 3  → ~20 круток/день засчитываются
     "auction_sales": 36,     # вес 12 → ~3 продажи/день (закрывает вош-трейд)
-    "eggs_opened": 40,       # вес 5  → ~8 яиц/день
     "expeditions_done": 48,  # вес 8  → ~6 экспедиций/день
     "duel_wins": 50,         # вес 10 → ~5 побед/день
     "gamble_wins": 24,       # вес 4  → ~6 побед/день
@@ -551,7 +551,6 @@ BATTLE_PASS_XP_DAILY_CAPS: dict[str, int] = {
 # Человекочитаемые ярлыки действий — для дев-конструктора и игровой справки.
 BATTLE_PASS_XP_ACTION_LABELS: dict[str, str] = {
     "duel_wins": "Победа в дуэли",
-    "eggs_opened": "Открытие яйца (Сферы)",
     "expeditions_done": "Завершённая экспедиция",
     "gacha_spins": "Крутка гачи",
     "auction_sales": "Продажа на аукционе",
@@ -598,7 +597,7 @@ CLAN_REQUEST_QTY_BASE: int = 5         # базовый потолок qty в з
 CLAN_REQUEST_QTY_PER_LEVEL: int = 1    # +потолок qty за уровень Доски
 CLAN_REQUEST_ACTIVE_BASE: int = 1      # активных запросов на участника (уровень 1)
 CLAN_REQUEST_ACTIVE_PER_3LVL: int = 1  # +1 активный запрос за каждые 3 уровня Доски
-# Просить можно только дешёвые фармибельные расходники (не яйца/питомцев/донат) —
+# Просить можно только дешёвые фармибельные расходники (не питомцев/донат/жетоны) —
 # смысл «помощь ресурсами» + защита от вывода ценностей через сговор твинков.
 CLAN_REQUEST_ITEM_CATEGORIES: tuple = ("food", "material")
 CLAN_REQUEST_COIN_PER_ITEM: float = 1.0   # клан-монет донору за 1 переданную единицу (× Казна)

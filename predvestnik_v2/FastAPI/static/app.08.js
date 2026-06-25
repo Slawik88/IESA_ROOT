@@ -118,7 +118,7 @@ function loadGlobalDev() {
         <input id="dev-br-mora" type="number" class="num-input" style="flex:1;margin:0" placeholder="🪙 мора"/>
         <input id="dev-br-dia" type="number" class="num-input" style="flex:1;margin:0" placeholder="💎 алмазы"/>
       </div>
-      <input id="dev-br-items" type="text" class="num-input" style="margin-bottom:6px" placeholder='предметы: food_basic:2, egg_silver:1'/>
+      <input id="dev-br-items" type="text" class="num-input" style="margin-bottom:6px" placeholder='предметы: food_basic:2, spin_token:1'/>
       <input id="dev-br-theme" type="text" class="num-input" style="margin-bottom:6px" placeholder="theme_id (необяз.)"/>
       <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-bottom:6px">
         <input id="dev-br-choice" type="checkbox" onchange="el('dev-br-opt2').style.display=this.checked?'':'none'"/>

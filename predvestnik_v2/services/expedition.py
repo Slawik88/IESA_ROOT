@@ -72,7 +72,8 @@ def calculate_reward(
             breakdown.append({"label": "🦅 Сокол", "extra": "🗺 Карта Сокровищ"})
 
     # Fox on expedition: diamond rolls scale with duration (2h=1, 4h=2, 6h=3, 8h=4).
-    # Per-roll chance depends on fox level. Capstone Lv10 adds chance of crystal egg.
+    # Per-roll chance depends on fox level. Capstone Lv10 adds chance of 🎟 Алмазный Жетон
+    # (БЛОК19 Ч.2 — раньше Кристальное яйцо; ключ crystal_egg_chance оставлен ради совместимости).
     if species_id == "fox":
         fox_level = species_levels.get("fox", 1) or 1
         f = _bonus("fox", fox_level)
@@ -88,9 +89,9 @@ def calculate_reward(
 
         crystal_chance = f.get("crystal_egg_chance", 0.0)
         if crystal_chance > 0 and random.random() < crystal_chance:
-            extras.append(("egg_crystal", 1))
-            buff_message += "\n🦊 <i>Лиса принесла Кристальное яйцо!</i>"
-            breakdown.append({"label": "🦊 Лиса", "extra": "🥚 Кристальное яйцо"})
+            extras.append(("spin_token_diamond", 1))
+            buff_message += "\n🦊 <i>Лиса принесла 🎟 Алмазный Жетон!</i>"
+            breakdown.append({"label": "🦊 Лиса", "extra": "🎟 Алмазный Жетон"})
 
     # Owl (any nursery slot): +xp_bonus to expedition XP, scales with level.
     owl_level = species_levels.get("owl", 0)

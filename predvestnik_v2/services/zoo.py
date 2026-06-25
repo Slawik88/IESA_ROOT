@@ -92,8 +92,6 @@ def format_pet_bonus_short(species_id: str, level: int) -> str:
             parts.append(f"−{int(b['expedition_discount'] * 100)}% поход")
         if b.get("gacha_daily_discount", 0) > 0:
             parts.append(f"−{int(b['gacha_daily_discount'] * 100)}% крутка/день")
-        if b.get("double_egg_chance", 0) > 0:
-            parts.append(f"{int(b['double_egg_chance'] * 100)}% ×2 яйца")
         return " · ".join(parts)
 
     if species_id == "falcon":
@@ -125,7 +123,7 @@ def format_pet_bonus_short(species_id: str, level: int) -> str:
         if b.get("weekly_guaranteed_diamond"):
             parts.append("гарант. 💎/нед.")
         if b.get("crystal_egg_chance", 0) > 0:
-            parts.append(f"{int(b['crystal_egg_chance'] * 100)}% Кристальное яйцо")
+            parts.append(f"{int(b['crystal_egg_chance'] * 100)}% 🎟 Алмазный Жетон")
         return " · ".join(parts)
 
     if species_id == "dragon":
