@@ -1064,6 +1064,21 @@ async def _init_clans(db):
         )
     """)
     await db.execute("CREATE INDEX IF NOT EXISTS idx_clan_members_clan ON clan_members(clan_id)")
+    # Ч.5: Штаб клана — клановые монеты у участника + Доска Запросов (анти-твинк, без склада).
+    await db.execute("ALTER TABLE clan_members ADD COLUMN IF NOT EXISTS clan_coins FLOAT8 DEFAULT 0")
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS clan_requests (
+            request_id SERIAL PRIMARY KEY,
+            clan_id    INTEGER NOT NULL,
+            author_id  BIGINT NOT NULL,
+            item_id    TEXT NOT NULL,
+            qty_need   INTEGER NOT NULL,
+            qty_filled INTEGER DEFAULT 0,
+            status     TEXT DEFAULT 'open',
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_clan_requests ON clan_requests(clan_id, status)")
 
 
 async def _init_crypto(db):

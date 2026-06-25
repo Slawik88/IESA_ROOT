@@ -884,6 +884,8 @@ function _smartCheckout(id, qty, origErr) {
     .catch(() => toast(origErr, false));
 }
 function _smartConfirm(id, qty) { CM(); _shopBuy(id, qty, true, null); }
+// Русские названия категорий для бейджа инвентаря (магазин локализует свои отдельно).
+const CAT_RU={food:'Корм',egg:'Яйцо',material:'Материал',booster:'Зелье',utility:'Утилита',spin_token:'Жетон',donate:'Донат'};
 function loadInventory() {
   el('mkt-inv').innerHTML='<div class="loader">Загрузка...</div>';
   api('/inventory/').then(items=>{
@@ -897,7 +899,7 @@ function _renderInventory() {
   const items=_invSearch?_invData.filter(i=>(i.name||'').toLowerCase().includes(_invSearch.toLowerCase())):_invData;
   const grid=items.length
     ?'<div class="inv-grid">'+items.map(it=>`<div class="icard" onclick="openItemModal('${it.item_id}')">
-        <div class="icat">${it.category}</div>
+        <div class="icat">${CAT_RU[it.category]||it.category}</div>
         <div class="iname">${it.name}</div>
         <div class="iqty">×${it.quantity}</div>
         <div class="idesc">${it.description||''}</div>

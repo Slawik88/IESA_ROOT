@@ -49,6 +49,15 @@ function api(path, opts={}) {
       });
     });
 }
+// L10 (аудит): пропущенный .catch у api() больше не «молчит» — показываем тост,
+// чтобы действие без обработки ошибки не выглядело как «ничего не произошло».
+window.addEventListener('unhandledrejection', e => {
+  const r = e.reason;
+  const msg = typeof r === 'string' ? r : (r && r.message) || '';
+  if (!msg) return;
+  e.preventDefault();
+  try { toast(msg, false); } catch (_) {}
+});
 window.onTelegramWidgetAuth = u => {
   api('/auth/telegram-login',{method:'POST',body:JSON.stringify(u)})
     .then(d=>{localStorage.setItem(SK,d.session_token);_uid=d.user_id||0;el('login-ov').classList.add('hidden');loadProfile();connectWS();})

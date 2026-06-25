@@ -266,21 +266,64 @@ function renderClans(){
 }
 function _clanMyHtml(){
   const c=_clansData.my_clan;
+  const lp=c.level_progress||{level:c.level||1,xp_into:0,xp_needed:0,is_max:false};
+  const pct=lp.is_max?100:(lp.xp_needed?Math.min(100,Math.round(lp.xp_into/lp.xp_needed*100)):0);
+  const emax=c.effective_max||_clansData.max_members;
   const members=(c.members||[]).map(m=>{
     const lead=m.role==='leader';
     return `<div class="clan-mrow"><span class="clan-mname">${lead?'👑 ':''}${unameLink(m.user_id, m.username, false)}</span>
-      <span class="clan-mrole">${lead?'Лидер':'Участник'}</span></div>`;
+      <span class="clan-mrole">🎖 ${fmtF(m.clan_coins||0)}</span></div>`;
   }).join('');
   return `<div class="clan-card">
       <div class="clan-emblem">${c.emblem||'🛡'}</div>
       <div class="clan-name">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></div>
       ${c.description?`<div class="clan-desc">${esc(c.description)}</div>`:''}
-      <div class="clan-stats"><div><b>${(c.members||[]).length}</b>/${_clansData.max_members} участников</div>
-        <div><b>${fmtF(c.total_xp||0)}</b> XP клана</div></div>
+      <div class="clan-lvlrow"><span class="clan-lvlbadge">🏛 Уровень ${lp.level}</span>
+        <span class="clan-lvlxp">${lp.is_max?'МАКС':fmtF(lp.xp_into)+' / '+fmtF(lp.xp_needed)+' XP'}</span></div>
+      <div class="clan-lvlbar"><div class="clan-lvlfill" style="width:${pct}%"></div></div>
+      <div class="clan-stats"><div><b>${(c.members||[]).length}</b>/${emax} участников</div>
+        <div><b>${fmtF(c.total_xp||0)}</b> XP · 🎖 <b>${fmtF(c.clan_coins||0)}</b></div></div>
     </div>
-    <div class="looks-slot-t" style="margin-top:10px">Состав</div>
+    ${_clanBoardHtml()}
+    ${_clanBuildingsHtml()}
+    <div class="looks-slot-t" style="margin-top:12px">Состав <span class="clan-coin-note">· вклад 🎖</span></div>
     <div class="clan-members">${members}</div>
     <button class="btn btn-full btn-ghost" style="margin-top:12px" onclick="_clanLeave()">🚪 Покинуть клан</button>`;
+}
+function _clanBuildingsHtml(){
+  const c=_clansData.my_clan;
+  const bs=(c&&c.buildings)||[];
+  if(!bs.length) return '';
+  const lvl=(c.level)||1;
+  const cards=bs.map(b=>`<div class="clan-bld">
+    <div class="clan-bld-ico">${b.emoji||'🏛'}</div>
+    <div class="clan-bld-body">
+      <div class="clan-bld-name">${esc(b.name)}</div>
+      <div class="clan-bld-eff">${esc(b.effect||'')}</div>
+      ${b.next_effect?`<div class="clan-bld-next">↑ ур.${lvl+1}: ${esc(b.next_effect)}</div>`:`<div class="clan-bld-next clan-bld-max">★ максимум</div>`}
+    </div></div>`).join('');
+  return `<div class="looks-slot-t" style="margin-top:12px">🏛 Штаб клана · ур.${lvl}</div>
+    <div class="clan-blds">${cards}</div>`;
+}
+function _clanBoardHtml(){
+  const c=_clansData.my_clan;
+  const reqs=(c.requests||[]);
+  const rows=reqs.length?reqs.map(r=>{
+    const pct=r.qty_need?Math.min(100,Math.round(r.qty_filled/r.qty_need*100)):0;
+    const help=(!r.mine)?`<button class="btn btn-sm btn-gold" onclick="_clanReqFill(${r.request_id},${r.remaining})">🤝 Помочь</button>`:'';
+    const cancel=(r.can_cancel)?`<button class="btn btn-sm btn-ghost" onclick="_clanReqCancel(${r.request_id})">✕</button>`:'';
+    return `<div class="clan-req">
+      <div class="clan-req-top"><span class="clan-req-name">${esc(r.item_name||r.item_id)}</span>
+        <span class="clan-req-qty">${r.qty_filled}/${r.qty_need}</span></div>
+      <div class="clan-req-bar"><div class="clan-req-fill" style="width:${pct}%"></div></div>
+      <div class="clan-req-bot"><span class="clan-req-author">для ${unameLink(r.author_id, r.author_name, false)}${r.mine?' <span class="clan-you">ты</span>':''}</span>
+        <span class="clan-req-act">${help}${cancel}</span></div>
+    </div>`;
+  }).join(''):'<div class="clan-empty">Пока пусто. Жми «➕ Запрос» — попроси у клана нужный ресурс.</div>';
+  return `<div class="clan-board-head"><span class="looks-slot-t" style="margin:0">📋 Доска Запросов</span>
+      <button class="btn btn-sm btn-gold" onclick="_clanReqCreate()">➕ Запрос</button></div>
+    <div class="clan-board-hint">Проси корм и материалы — согильдиец передаёт их тебе лично, получая 🎖 и XP клану.</div>
+    <div class="clan-board">${rows}</div>`;
 }
 function _clanCreateHtml(){
   const emblems=(_clansData.emblems||[]).map(e=>`<span class="clan-emb-opt ${e===_clanEmblemSel?'sel':''}" onclick="_clanPickEmblem('${e}')">${e}</span>`).join('');
@@ -303,7 +346,7 @@ function _clanTopHtml(){
     return `<div class="clan-trow${mine?' clan-mine':''}"><span class="clan-trank">${i+1}</span>
       <span class="clan-temblem">${c.emblem||'🛡'}</span>
       <span class="clan-tname">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></span>
-      <span class="clan-txp">${fmtF(c.total_xp||0)} XP · ${c.member_count}/${_clansData.max_members}</span>
+      <span class="clan-txp">ур.${c.level||1} · ${fmtF(c.total_xp||0)} XP · ${c.member_count}/${c.effective_max||_clansData.max_members}</span>
       ${join}</div>`;
   }).join('');
   return `<div class="looks-slot-t" style="margin-top:14px">🏆 Топ кланов</div><div class="clan-top">${rows}</div>`;
@@ -326,6 +369,47 @@ function _clanLeave(){
 function _clanLeaveDo(){
   api('/clans/leave',{method:'POST',body:JSON.stringify({})})
     .then(r=>{toast(r.message); openClansModal();}).catch(e=>{toast(e,false); openClansModal();});
+}
+// ── Доска Запросов: создать / помочь / снять ────────────────────────────────────
+function _clanReqCreate(){
+  const items=(_clansData&&_clansData.request_items)||[];
+  if(!items.length){ toast('Нет предметов, доступных для запроса.',false); return; }
+  const cap=(_clansData.my_clan&&_clansData.my_clan.request_qty_cap)||5;
+  const opts=items.map(it=>`<option value="${esc(it.item_id)}">${esc(it.name)}</option>`).join('');
+  OM('➕ Запрос на Доску',
+    `<div class="clan-reqform">
+       <div class="looks-slot-t">Что нужно</div>
+       <select id="creq-item" class="num-input">${opts}</select>
+       <div class="looks-slot-t" style="margin-top:8px">Количество (макс ${cap})</div>
+       <input id="creq-qty" type="number" class="num-input" min="1" max="${cap}" value="1"/>
+       <div class="looks-hint" style="margin-top:6px">Можно просить только корм и материалы. Согильдийцы скидывают предмет тебе лично.</div>
+     </div>`,
+    [{l:'Отмена',c:'btn-ghost',f:'openClansModal()'},{l:'Опубликовать',c:'btn-gold',f:'_clanReqCreateDo()'}]);
+}
+function _clanReqCreateDo(){
+  const item=(el('creq-item')||{}).value||'';
+  const qty=parseInt((el('creq-qty')||{}).value||'1',10)||1;
+  api('/clans/request/create',{method:'POST',body:JSON.stringify({item_id:item,qty:qty})})
+    .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
+}
+function _clanReqFill(rid,remaining){
+  const def=remaining>0?remaining:1;
+  OM('🤝 Помочь по запросу',
+    `<div class="clan-reqform">
+       <div style="font-size:13px;margin-bottom:6px">Сколько передать? (нужно ещё ${remaining})</div>
+       <input id="cfill-qty" type="number" class="num-input" min="1" value="${def}"/>
+       <div class="looks-hint" style="margin-top:6px">Отдашь не больше, чем нужно и чем есть у тебя. Награда — 🎖 клан-монеты и XP клану.</div>
+     </div>`,
+    [{l:'Отмена',c:'btn-ghost',f:'openClansModal()'},{l:'Передать',c:'btn-gold',f:'_clanReqFillDo('+rid+')'}]);
+}
+function _clanReqFillDo(rid){
+  const qty=parseInt((el('cfill-qty')||{}).value||'1',10)||1;
+  api('/clans/request/fill',{method:'POST',body:JSON.stringify({request_id:rid,qty:qty})})
+    .then(r=>{toast(r.message); refreshCurrBar(); openClansModal();}).catch(e=>toast(e,false));
+}
+function _clanReqCancel(rid){
+  api('/clans/request/cancel',{method:'POST',body:JSON.stringify({request_id:rid})})
+    .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
 }
 // ── Preloader: эффектный холодный старт (БЛОК 9.2) ──────────────────────────────
 function _plSkip() {

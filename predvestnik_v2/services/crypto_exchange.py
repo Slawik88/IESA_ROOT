@@ -17,15 +17,19 @@ import os
 import time
 
 # 8 лорных валют. base — цена в Море (центр блуждания), vol — амплитуда колебаний.
+# БАЛАНС-РЕБАЛАНС: vol резко снижена (было 0.18–0.35) — гигантские размахи ±18–35%
+# легко перекрывали спред и при mean-reversion к известному base печатали Мору. Теперь
+# амплитуда ±4–8% сопоставима с round-trip-комиссией 10% (CRYPTO_TRADE_FEE×2) ⇒ покупка
+# ниже base и продажа у base убыточна. Разнообразие сохранено (Луминар тихий, Пирон/Солмар бойкие).
 COINS: list[dict] = [
-    {"id": "abyssite", "name": "Абиссит",  "emoji": "🌑", "base": 1200.0, "vol": 0.28},
-    {"id": "luminar",  "name": "Луминар",  "emoji": "✨", "base": 800.0,  "vol": 0.18},
-    {"id": "verdane",  "name": "Вердан",   "emoji": "🌿", "base": 350.0,  "vol": 0.22},
-    {"id": "pyron",    "name": "Пирон",    "emoji": "🔥", "base": 2100.0, "vol": 0.35},
-    {"id": "aquilon",  "name": "Аквилон",  "emoji": "💧", "base": 620.0,  "vol": 0.20},
-    {"id": "zephyr",   "name": "Зефир",    "emoji": "🌪", "base": 480.0,  "vol": 0.30},
-    {"id": "cryon",    "name": "Крион",    "emoji": "❄️", "base": 1500.0, "vol": 0.25},
-    {"id": "solmar",   "name": "Солмар",   "emoji": "☀️", "base": 3000.0, "vol": 0.32},
+    {"id": "abyssite", "name": "Абиссит",  "emoji": "🌑", "base": 1200.0, "vol": 0.07},
+    {"id": "luminar",  "name": "Луминар",  "emoji": "✨", "base": 800.0,  "vol": 0.04},
+    {"id": "verdane",  "name": "Вердан",   "emoji": "🌿", "base": 350.0,  "vol": 0.05},
+    {"id": "pyron",    "name": "Пирон",    "emoji": "🔥", "base": 2100.0, "vol": 0.08},
+    {"id": "aquilon",  "name": "Аквилон",  "emoji": "💧", "base": 620.0,  "vol": 0.05},
+    {"id": "zephyr",   "name": "Зефир",    "emoji": "🌪", "base": 480.0,  "vol": 0.07},
+    {"id": "cryon",    "name": "Крион",    "emoji": "❄️", "base": 1500.0, "vol": 0.06},
+    {"id": "solmar",   "name": "Солмар",   "emoji": "☀️", "base": 3000.0, "vol": 0.08},
 ]
 _BY_ID = {c["id"]: c for c in COINS}
 

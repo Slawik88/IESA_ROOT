@@ -133,19 +133,26 @@ function _cxRow(c){
       <div class="cx-rchg ${up?'up':'down'}">${up?'▲':'▼'}${Math.abs(c.change_24h)}%</div></div></div>`;
 }
 function _cxSpark(cd,up){
-  const cl=cd.map(x=>x.c), mn=Math.min(...cl), mx=Math.max(...cl), rng=(mx-mn)||1, W=52,H=24;
+  const cl=(cd||[]).map(x=>x.c), W=52,H=24;
+  if(cl.length<2) return `<svg class="cx-spark" width="${W}" height="${H}"></svg>`;
+  const mn=Math.min(...cl), mx=Math.max(...cl), rng=(mx-mn)||1;
   const pts=cl.map((v,i)=>`${(i/(cl.length-1)*W).toFixed(1)},${(H-(v-mn)/rng*H).toFixed(1)}`).join(' ');
   return `<svg class="cx-spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polyline points="${pts}" fill="none" stroke="${up?'#5fd38a':'#e0556b'}" stroke-width="1.5"/></svg>`;
 }
 function _cxOpen(id){ _cxSel=id; _cxAction='buy'; _cxPct=50; renderCrypto(); }
 function _cxBack(){ _cxSel=null; renderCrypto(); }
 function _cxSetAction(a){ _cxAction=a; _cxPct=50; renderCrypto(); }
+// Комиссия CRYPTO_TRADE_FEE берётся на ОБЕ стороны → учитываем и в maxAmt (на покупке
+// 1 монета стоит price×(1+fee), иначе ползунок 100% ушёл бы за баланс), и в сумме сделки.
+function _cxMaxAmt(c){ const fee=_cxData.fee||0; if(_cxAction==='buy'){ const u=c.price*(1+fee); return u>0?_cxData.mora/u:0; } return c.holding; }
+function _cxCost(c,amt){ const fee=_cxData.fee||0; return _cxAction==='buy'?amt*c.price*(1+fee):amt*c.price*(1-fee); }
 function _cxDetailHtml(){
   const c=_cxCur(); if(!c) return '';
   const up=c.change_24h>=0, price=c.price, fee=_cxData.fee||0;
-  const maxAmt=_cxAction==='buy'?(price>0?_cxData.mora/price:0):c.holding;
+  const maxAmt=_cxMaxAmt(c);
   const amt=maxAmt*_cxPct/100;
-  const cost=_cxAction==='sell'?amt*price*(1-fee):amt*price;
+  const cost=_cxCost(c,amt);
+  const noFunds=maxAmt<=0;
   return `<button class="btn btn-sm btn-ghost" style="margin-bottom:8px" onclick="_cxBack()">← Все монеты</button>
     <div class="cx-det-head"><span class="cx-ico" style="font-size:26px">${c.emoji}</span>
       <div><div class="cx-rname" style="font-size:16px">${c.name}</div>
@@ -158,10 +165,12 @@ function _cxDetailHtml(){
       <span id="cx-pct" class="cx-pct">${_cxPct}%</span></div>
     <div class="cx-quote"><div>Кол-во: <b id="cx-amt">${_cxAmt(amt)}</b> ${c.emoji}</div>
       <div>${_cxAction==='buy'?'Потратишь':'Получишь'}: <b id="cx-cost">${fmt(Math.round(cost))}</b> 🪙</div></div>
-    ${_cxAction==='sell'&&fee?`<div class="cx-dim" style="font-size:10px;margin:-4px 0 8px">↳ при продаже удерживается спред биржи −${Math.round(fee*100)}%</div>`:''}
-    <button class="btn btn-full ${_cxAction==='buy'?'btn-gold':'btn-ghost'}" onclick="_cxTrade()">${_cxAction==='buy'?'📈 Купить':'📉 Продать'} ${c.name}</button>`;
+    ${fee?`<div class="cx-dim" style="font-size:10px;margin:-4px 0 8px">↳ комиссия биржи −${Math.round(fee*100)}% (и при покупке, и при продаже)</div>`:''}
+    ${noFunds?`<div class="cx-dim" style="font-size:11px;text-align:center;margin-bottom:6px">${_cxAction==='buy'?'Недостаточно 🪙 для покупки':'Нет '+esc(c.name)+' в портфеле'}</div>`:''}
+    <button class="btn btn-full ${_cxAction==='buy'?'btn-gold':'btn-ghost'}" ${noFunds?'disabled':''} onclick="_cxTrade()">${_cxAction==='buy'?'📈 Купить':'📉 Продать'} ${esc(c.name)}</button>`;
 }
 function _cxChart(cd){
+  if(!cd||!cd.length) return '';
   const W=300,H=110,pad=5, lo=Math.min(...cd.map(x=>x.l)), hi=Math.max(...cd.map(x=>x.h)), rng=(hi-lo)||1, cw=W/cd.length;
   const y=v=>pad+(H-2*pad)*(1-(v-lo)/rng);
   const bars=cd.map((k,i)=>{const x=i*cw+cw/2, up=k.c>=k.o, col=up?'#5fd38a':'#e0556b';
@@ -172,14 +181,14 @@ function _cxChart(cd){
 }
 function _cxSlide(v){
   _cxPct=parseInt(v)||0; const c=_cxCur(); if(!c) return;
-  const price=c.price, fee=_cxData.fee||0, maxAmt=_cxAction==='buy'?(price>0?_cxData.mora/price:0):c.holding;
-  const amt=maxAmt*_cxPct/100, cost=_cxAction==='sell'?amt*price*(1-fee):amt*price;
+  const maxAmt=_cxMaxAmt(c);
+  const amt=maxAmt*_cxPct/100, cost=_cxCost(c,amt);
   const e1=el('cx-pct'),e2=el('cx-amt'),e3=el('cx-cost');
   if(e1)e1.textContent=_cxPct+'%'; if(e2)e2.textContent=_cxAmt(amt); if(e3)e3.textContent=fmt(Math.round(cost));
 }
 function _cxTrade(){
   const c=_cxCur(); if(!c) return;
-  const price=c.price, maxAmt=_cxAction==='buy'?(price>0?_cxData.mora/price:0):c.holding;
+  const maxAmt=_cxMaxAmt(c);
   const amt=maxAmt*_cxPct/100;
   if(amt<=0){ toast('Выбери количество ползунком',false); return; }
   api('/exchange/crypto/trade',{method:'POST',body:JSON.stringify({coin_id:c.id,action:_cxAction,amount:amt})})

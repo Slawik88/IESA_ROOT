@@ -32,8 +32,9 @@ async def trade(db, user_id: int, coin_id: str, action: str,
     """Купить/продать монету за Мору по серверной цене unit_price. Атомарно + защита экономики.
 
     Защита (после аудита): отвергаем NaN/Inf/неположительное; точность количества режется;
-    минимальная стоимость сделки (анти round-to-zero); потолок позиции; на ПРОДАЖЕ —
-    спред CRYPTO_TRADE_FEE (биржа = сток). Остаток монет клампится ≥ 0.
+    минимальная стоимость сделки (анти round-to-zero); потолок позиции; комиссия
+    CRYPTO_TRADE_FEE на ОБЕИХ сторонах (buy: ×(1+fee), sell: ×(1−fee)) → биржа = сток,
+    а не источник Моры. Остаток монет клампится ≥ 0.
     """
     # ── Валидация входа ──
     if not math.isfinite(amount) or amount <= 0:
@@ -65,7 +66,9 @@ async def trade(db, user_id: int, coin_id: str, action: str,
             have = float(hr[0]) if hr else 0.0
 
             if action == "buy":
-                cost = round(gross, 2)
+                # Комиссия и на ПОКУПКЕ (раньше брали только на продаже → принтер через
+                # mean-reversion). cost = стоимость монет + спред биржи.
+                cost = round(gross * (1 + CRYPTO_TRADE_FEE), 2)
                 if bal < cost:
                     return False, "Недостаточно Моры для покупки."
                 if have + amount > CRYPTO_MAX_HOLDING:
@@ -81,7 +84,7 @@ async def trade(db, user_id: int, coin_id: str, action: str,
                 )
                 await log_wallet(db, user_id, delta_mora=-cost, source="crypto_buy",
                                  note=f"{coin_id} ×{amt_txt}")
-                return True, f"Куплено {amt_txt} {coin_id} за {cost:.0f} 🪙."
+                return True, f"Куплено {amt_txt} {coin_id} за {cost:.0f} 🪙 (комиссия {int(CRYPTO_TRADE_FEE * 100)}%)."
 
             if action == "sell":
                 if have + 1e-9 < amount:
