@@ -977,6 +977,37 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .clan-txp { font-size: 9.5px; color: var(--muted); white-space: nowrap; }
 .clan-you { font-size: 9.5px; color: var(--gold2); }
 
+/* Ч.5: Штаб (уровень+здания) + Доска Запросов */
+.clan-lvlrow { display: flex; justify-content: space-between; align-items: center; margin-top: 11px; }
+.clan-lvlbadge { font-size: 11px; font-weight: 800; color: var(--gold2); }
+.clan-lvlxp { font-size: 9.5px; color: var(--muted); }
+.clan-lvlbar { height: 6px; border-radius: 5px; background: var(--s); overflow: hidden; margin-top: 4px; border: 1px solid var(--border2); }
+.clan-lvlfill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--gold), var(--gold2));
+  transition: width .6s cubic-bezier(.22,1,.36,1); box-shadow: 0 0 6px rgba(232,181,77,.5); }
+.clan-blds { display: flex; flex-direction: column; gap: 6px; }
+.clan-bld { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border2); background: var(--s); }
+.clan-bld-ico { font-size: 22px; line-height: 1; }
+.clan-bld-body { flex: 1; min-width: 0; }
+.clan-bld-name { font-size: 12.5px; font-weight: 700; color: var(--bright); }
+.clan-bld-eff { font-size: 10.5px; color: var(--bright); opacity: .9; margin-top: 2px; }
+.clan-bld-next { font-size: 9.5px; color: var(--gold2); opacity: .82; margin-top: 2px; }
+.clan-bld-max { color: var(--muted); opacity: .75; }
+.clan-coin-note { font-size: 9.5px; font-weight: 400; color: var(--muted); }
+.clan-board-head { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; margin-bottom: 4px; }
+.clan-board-hint { font-size: 10px; color: var(--muted); line-height: 1.35; margin-bottom: 7px; }
+.clan-board { display: flex; flex-direction: column; gap: 7px; }
+.clan-req { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border2); background: var(--s); }
+.clan-req-top { display: flex; justify-content: space-between; align-items: center; }
+.clan-req-name { font-size: 12.5px; font-weight: 700; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clan-req-qty { font-size: 10.5px; font-weight: 700; color: var(--gold2); white-space: nowrap; margin-left: 8px; }
+.clan-req-bar { height: 5px; border-radius: 4px; background: var(--bg2); overflow: hidden; margin: 5px 0; }
+.clan-req-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--gold), var(--gold2)); transition: width .5s ease; }
+.clan-req-bot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.clan-req-author { font-size: 10px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.clan-req-act { display: flex; gap: 5px; flex-shrink: 0; }
+.clan-empty { font-size: 11px; color: var(--muted); font-style: italic; text-align: center; padding: 10px; }
+.clan-reqform { display: flex; flex-direction: column; }
+
 /* Группа «основной чат + админка» в досье игрока (дев-консоль, БЛОК 1) */
 .dev-chat-grp { border: 1px solid var(--border2); border-left: 3px solid var(--gold); border-radius: 8px; padding: 0 8px; margin: 5px 0; background: rgba(232,181,77,.05); }
 .dev-chat-grp .irow { border-bottom: 0; }
