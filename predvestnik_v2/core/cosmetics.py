@@ -50,6 +50,11 @@ COSMETICS: dict[str, dict] = {
         "bp_level": 20,
         "desc": "Переливающийся спектр. Награда платного трека БП (с 20 уровня).",
     },
+    "glow_rift": {
+        "name": "Разлом Бездны", "slot": "name_glow", "rarity": "mythic",
+        "css": "glow-rift", "vip_required": False, "source": "reward", "price": None,
+        "desc": "Имя пылает разломом: фиолет–багрянец–золото в вечном течении. Награда за достижения.",
+    },
 
     # ── Рамка аватара (CSS, веб) ─────────────────────────────────────────────
     "frame_bronze": {
@@ -75,6 +80,11 @@ COSMETICS: dict[str, dict] = {
         "css": "frame-celestial", "vip_required": False, "source": "vip", "price": None,
         "desc": "Светящаяся небесная рамка. Выдаётся с покупкой VIP.",
     },
+    "frame_omen": {
+        "name": "Оправа Предвестника", "slot": "avatar_frame", "rarity": "mythic",
+        "css": "frame-omen", "vip_required": False, "source": "reward", "price": None,
+        "desc": "Вращающийся ореол разлома вокруг аватара. Награда за достижения.",
+    },
 
     # ── Титул (текст, бот + веб) ─────────────────────────────────────────────
     "title_wanderer": {
@@ -99,6 +109,11 @@ COSMETICS: dict[str, dict] = {
         "text": "Легенда Сезона", "vip_required": False, "source": "bp", "price": None,
         "bp_level": 50,
         "desc": "Эксклюзивный титул платного трека БП (макс. уровень).",
+    },
+    "title_omen": {
+        "name": "Предвестник", "slot": "title", "rarity": "mythic",
+        "text": "Предвестник", "vip_required": False, "source": "reward", "price": None,
+        "desc": "Мифический титул для тех, кто прошёл весь путь. Награда за достижения.",
     },
 
     # ── Гало вокруг аватара (CSS, веб) ───────────────────────────────────────

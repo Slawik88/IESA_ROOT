@@ -390,12 +390,18 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 }
 .plw-nick {
   font-size: 27px; font-weight: 800; letter-spacing: .3px; line-height: 1.15;
-  background: linear-gradient(90deg, var(--gold2) 0%, #fff3cf 50%, var(--gold2) 100%);
-  background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #fff3cf;                /* СПЛОШНОЙ фолбэк — ник виден ВСЕГДА (фикс «прямоугольник» в вебвью без background-clip:text) */
   opacity: 0; transform: scale(.82); filter: blur(6px);
-  animation: plwReveal .7s cubic-bezier(.34,1.56,.64,1) .18s forwards,
-             plwShine 2.6s ease-in-out .8s infinite;
+  animation: plwReveal .7s cubic-bezier(.34,1.56,.64,1) .18s forwards;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .plw-nick {
+    color: transparent; -webkit-text-fill-color: transparent;
+    background: linear-gradient(90deg, var(--gold2) 0%, #fff3cf 50%, var(--gold2) 100%);
+    background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
+    animation: plwReveal .7s cubic-bezier(.34,1.56,.64,1) .18s forwards,
+               plwShine 2.6s ease-in-out .8s infinite;
+  }
 }
 @keyframes plwHi { to { opacity: 1; } }
 @keyframes plwReveal { to { opacity: 1; transform: none; filter: none; } }
@@ -423,11 +429,19 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 
 /* — Неоновое проявление — */
 .plm-neon .plw-nick {
-  background: linear-gradient(90deg, #67e8f9, #c084fc, #67e8f9);
-  background-size: 220% 100%;
+  color: #a5e8ff; -webkit-text-fill-color: #a5e8ff;
   animation: plwReveal .7s cubic-bezier(.34,1.56,.64,1) .18s forwards,
-             plwShine 2.4s ease-in-out .8s infinite,
              plmNeon 1.7s ease-in-out .9s infinite;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .plm-neon .plw-nick {
+    -webkit-text-fill-color: transparent;
+    background: linear-gradient(90deg, #67e8f9, #c084fc, #67e8f9);
+    background-size: 220% 100%;
+    animation: plwReveal .7s cubic-bezier(.34,1.56,.64,1) .18s forwards,
+               plwShine 2.4s ease-in-out .8s infinite,
+               plmNeon 1.7s ease-in-out .9s infinite;
+  }
 }
 @keyframes plmNeon {
   0%,100% { filter: drop-shadow(0 0 5px rgba(103,232,249,.5)); }
@@ -436,9 +450,16 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 
 /* — Водяная рябь — */
 .plm-ripple .plw-nick {
-  background: linear-gradient(90deg, #7dd3fc, #e0f2fe, #7dd3fc);
-  background-size: 220% 100%;
-  animation: plwReveal .8s ease .25s forwards, plwShine 2.6s ease-in-out .8s infinite;
+  color: #bae6fd; -webkit-text-fill-color: #bae6fd;
+  animation: plwReveal .8s ease .25s forwards;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .plm-ripple .plw-nick {
+    -webkit-text-fill-color: transparent;
+    background: linear-gradient(90deg, #7dd3fc, #e0f2fe, #7dd3fc);
+    background-size: 220% 100%;
+    animation: plwReveal .8s ease .25s forwards, plwShine 2.6s ease-in-out .8s infinite;
+  }
 }
 .plm-ripple .plw-nick::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: 26px; height: 26px;
@@ -477,9 +498,16 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 
 /* — Звёздная пыль — */
 .plm-stardust .plw-nick {
-  background: linear-gradient(90deg, #ffe08a, #fff6d6, #ffd76a);
-  background-size: 220% 100%;
-  animation: plwReveal .8s ease .2s forwards, plwShine 2.4s ease-in-out .8s infinite;
+  color: #ffe9a8; -webkit-text-fill-color: #ffe9a8;
+  animation: plwReveal .8s ease .2s forwards;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .plm-stardust .plw-nick {
+    -webkit-text-fill-color: transparent;
+    background: linear-gradient(90deg, #ffe08a, #fff6d6, #ffd76a);
+    background-size: 220% 100%;
+    animation: plwReveal .8s ease .2s forwards, plwShine 2.4s ease-in-out .8s infinite;
+  }
 }
 .plm-stardust .plw-nick::before {
   content: ''; position: absolute; inset: -26px -16px; pointer-events: none;
@@ -776,6 +804,17 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   }
 }
 @keyframes glowPrism { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
+/* mythic — Разлом Бездны: фиолет→багрянец→золото течёт. База — светлый розово-сиреневый. */
+.glow-rift { color: #ffd9f0; text-shadow: 0 0 10px rgba(196,98,255,.6), 0 0 18px rgba(255,70,120,.35); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .glow-rift {
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(100deg,#7a3bd6,#ff4d8d,#ffd36a,#ff4d8d,#7a3bd6);
+    background-size: 300% 100%; animation: glowRift 4.5s linear infinite;
+  }
+}
+@keyframes glowRift { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
 /* Косметика: рамки аватара — разный характер (металл / неон-дыхание / энергия / золото) */
 /* common — статичная гравированная металлическая оправа (3D-кант, без анимации) */
 .frame-bronze { box-shadow: inset 0 0 0 1px rgba(255,222,170,.3), 0 0 0 2px #8a5a2b, 0 0 0 4px #5e3c1c, 0 0 6px rgba(138,90,43,.5); }
@@ -797,6 +836,14 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 @keyframes frameCeles {
   0%,100% { box-shadow: 0 0 0 2px #e8c45a, 0 0 12px 2px rgba(232,196,90,.55); }
   50%     { box-shadow: 0 0 0 2px #fff0b8, 0 0 22px 6px rgba(255,224,140,.9); }
+}
+/* mythic — Оправа Предвестника: разлом цикл фиолет→магента→золото→багрянец, мощное свечение */
+.frame-omen { animation: frameOmen 3.4s ease-in-out infinite; }
+@keyframes frameOmen {
+  0%,100% { box-shadow: 0 0 0 2px #7a3bd6, 0 0 14px 3px rgba(122,59,214,.7); }
+  30%     { box-shadow: 0 0 0 2px #ff4d8d, 0 0 22px 6px rgba(255,77,141,.9); }
+  60%     { box-shadow: 0 0 0 2px #ffd36a, 0 0 20px 5px rgba(255,211,106,.85); }
+  80%     { box-shadow: 0 0 0 2px #d63b6e, 0 0 18px 4px rgba(214,59,110,.8); }
 }
 
 /* ── Косметика: гало вокруг аватара (box-shadow, не клипуется overflow) ──── */
@@ -906,6 +953,19 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .looks-preview { position: relative; overflow: hidden; text-align: center; padding: 16px 0; margin-bottom: 10px; border-radius: 14px; border: 1px solid var(--border2); }
 .looks-preview .ava { width: 64px; height: 64px; font-size: 32px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--s); }
 .looks-preview .pname { font-size: 16px; font-weight: 700; }
+/* Превью «Сейчас → Станет» (сравнение до/после применения косметики) */
+.looks-ba { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.looks-ba-col { flex: 1; min-width: 0; }
+.looks-ba-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); text-align: center; margin-bottom: 3px; }
+.looks-ba-lbl--new { color: var(--gold2); }
+.looks-ba-arrow { font-size: 16px; color: var(--gold2); flex: 0 0 auto; }
+.looks-preview--mini { padding: 12px 0; margin-bottom: 0; }
+.looks-preview--mini .ava { width: 46px; height: 46px; font-size: 24px; margin-bottom: 6px; }
+.looks-preview--mini .pname { font-size: 13px; }
+.looks-preview--mini .ptitle { font-size: 10px; }
+.looks-ba-act { display: flex; gap: 8px; margin: 2px 0 12px; }
+.looks-ba-act .btn { flex: 1; }
+.looks-ba-hint { font-size: 10px; color: var(--muted); text-align: center; margin: 2px 0 12px; line-height: 1.4; }
 .looks-slot { margin-bottom: 12px; }
 .looks-slot-t { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
 .looks-cards { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -1022,8 +1082,10 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   background: radial-gradient(circle at 50% 0%, rgba(232,181,77,.22), var(--bg2) 70%); border: 1px solid var(--border); }
 .st-flame { font-size: 40px; line-height: 1; animation: stFlame 1.8s ease-in-out infinite; filter: drop-shadow(0 0 10px rgba(255,140,0,.5)); }
 @keyframes stFlame { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(-4px) scale(1.08); } }
-.st-big { font-size: 54px; font-weight: 900; line-height: 1; margin-top: 2px;
-  background: linear-gradient(180deg, #ffe9a8, var(--gold2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.st-big { font-size: 54px; font-weight: 900; line-height: 1; margin-top: 2px; color: var(--gold2); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .st-big { color: transparent; -webkit-text-fill-color: transparent;
+    background: linear-gradient(180deg, #ffe9a8, var(--gold2)); -webkit-background-clip: text; background-clip: text; } }
 .st-sub { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 3px; }
 .st-blockbar { height: 8px; border-radius: 6px; background: var(--s); overflow: hidden; margin: 13px 6px 6px; }
 .st-blockfill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--gold), var(--gold2));
@@ -1583,9 +1645,10 @@ body.modal-open { overflow: hidden; }
 }
 .login-ov.hidden { display: none; }
 .login-orb { font-size: 56px; animation: glow 2.2s infinite, floaty 4s infinite; }
-.login-ov h1 { margin: 0; font-size: 24px; font-weight: 900;
-  background: linear-gradient(90deg, var(--gold2), var(--violet)); -webkit-background-clip: text;
-  background-clip: text; -webkit-text-fill-color: transparent; }
+.login-ov h1 { margin: 0; font-size: 24px; font-weight: 900; color: var(--gold2); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .login-ov h1 { color: transparent; -webkit-text-fill-color: transparent;
+    background: linear-gradient(90deg, var(--gold2), var(--violet)); -webkit-background-clip: text; background-clip: text; } }
 .login-ov p { margin: 0; font-size: 12px; color: var(--muted); max-width: 270px; line-height: 1.6; }
 
 /* ═══ УТИЛИТЫ / ДЕСКТОП ═════════════════════════════════════════════════════ */

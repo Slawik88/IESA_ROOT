@@ -107,14 +107,17 @@ function loadProfile() {
 // ── Конструктор «Внешний вид» (косметика профиля) ──────────────────────────────
 const _LOOKS_SLOTS=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx'];
 const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки'};
-let _looksData=null, _looksSel={}, _looksDirty=false;
+let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false;
 function openLooksModal(){
   _looksDirty=false;
   OM('🎨 Внешний вид','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-gold',f:'_looksClose()'}]);
-  api('/cosmetics/').then(d=>{_looksData=d;_looksSel=_looksEquipped(d);renderLooks();})
+  api('/cosmetics/').then(d=>{_looksData=d;_looksSaved=_looksEquipped(d);_looksSel={..._looksSaved};renderLooks();})
     .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
-function _looksClose(){ CM(); if(_looksDirty) loadProfile(); }
+function _looksClose(){
+  if(_looksChanged()){ _looksApply().then(()=>{ CM(); loadProfile(); }); }   // «Готово» = применить незакоммиченное
+  else { CM(); if(_looksDirty) loadProfile(); }
+}
 function _looksEquipped(d){
   const sel={};
   _LOOKS_SLOTS.forEach(s=>{const eq=(d.slots[s]||[]).find(it=>it.equipped); sel[s]=eq?eq.id:null;});
@@ -132,16 +135,32 @@ function renderLooks(){
   b.innerHTML=_looksPreviewHtml()+vipBar+_LOOKS_SLOTS.map(_looksSlotHtml).join('')+_looksWelcomeHtml();
   _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
 }
-function _looksPreviewHtml(){
+// Мини-карточка профиля из набора слотов sel — для сравнения «Сейчас → Станет».
+function _looksRenderCard(sel){
   const d=_looksData;
-  const glow=_looksCos(_looksSel.name_glow), frame=_looksCos(_looksSel.avatar_frame), title=_looksCos(_looksSel.title);
-  const halo=_looksCos(_looksSel.avatar_halo), bg=_looksCos(_looksSel.profile_bg), fx=_looksCos(_looksSel.card_fx);
-  return `<div class="looks-preview ${bg?bg.css:''}">
+  const glow=_looksCos(sel.name_glow), frame=_looksCos(sel.avatar_frame), title=_looksCos(sel.title);
+  const halo=_looksCos(sel.avatar_halo), bg=_looksCos(sel.profile_bg), fx=_looksCos(sel.card_fx);
+  return `<div class="looks-preview looks-preview--mini ${bg?bg.css:''}">
     ${fx?`<div class="card-fx ${fx.css}"></div>`:''}
     <div class="ava ${frame?frame.css:''} ${halo?halo.css:''}">${d.vip?'👑':'🔮'}</div>
     <div class="pname ${glow?glow.css:''}">@${esc((_profileData&&_profileData.username)||'Игрок')}</div>
     ${title?`<div class="ptitle">${esc(title.text||title.name)}</div>`:''}
   </div>`;
+}
+function _looksChanged(){ return _LOOKS_SLOTS.some(s=>(_looksSel[s]||null)!==(_looksSaved[s]||null)); }
+// Превью «Сейчас → Станет»: левая карточка = применённое, правая = выбранное (ещё не сохранено).
+function _looksPreviewHtml(){
+  const changed=_looksChanged();
+  const actions=changed
+    ?`<div class="looks-ba-act">
+        <button class="btn btn-sm btn-gold" onclick="_looksApply()">✓ Применить</button>
+        <button class="btn btn-sm btn-ghost" onclick="_looksReset()">Сбросить</button></div>`
+    :`<div class="looks-ba-hint">👇 Жми предмет — увидишь, как изменится профиль, затем «Применить».</div>`;
+  return `<div class="looks-ba">
+      <div class="looks-ba-col"><div class="looks-ba-lbl">Сейчас</div>${_looksRenderCard(_looksSaved)}</div>
+      <div class="looks-ba-arrow">${changed?'➜':'='}</div>
+      <div class="looks-ba-col"><div class="looks-ba-lbl ${changed?'looks-ba-lbl--new':''}">Станет</div>${_looksRenderCard(_looksSel)}</div>
+    </div>${actions}`;
 }
 function _looksSlotHtml(slot){
   const items=_looksData.slots[slot]||[];
@@ -171,7 +190,7 @@ function _looksCard(slot,it){
   if(it.owned){
     return `<div class="looks-card r-${it.rarity} ${sel?'sel':''}" onclick="_looksEquip('${slot}','${it.id}')">
       ${sw}<div class="lc-name">${esc(it.name)}</div>
-      <div class="lc-foot">${rar}${it.equipped?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
+      <div class="lc-foot">${rar}${_looksSaved[slot]===it.id?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
   }
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
   const bal=_looksData.balances||{};
@@ -190,17 +209,24 @@ function _looksCard(slot,it){
     ${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
     <div class="lc-foot">${rar}</div>${foot}</div>`;
 }
-function _looksEquip(slot,id){
-  _looksSel[slot]=id;
-  (_looksData.slots[slot]||[]).forEach(it=>it.equipped=(it.id===id));
-  renderLooks(); _looksDirty=true;
-  api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})}).catch(e=>toast(e,false));
-}
-function _looksUnequip(slot){
-  _looksSel[slot]=null;
-  (_looksData.slots[slot]||[]).forEach(it=>it.equipped=false);
-  renderLooks(); _looksDirty=true;
-  api('/cosmetics/unequip',{method:'POST',body:JSON.stringify({slot})}).catch(e=>toast(e,false));
+function _looksEquip(slot,id){ _looksSel[slot]=id; renderLooks(); }   // pending — применяется по «Применить»
+function _looksUnequip(slot){ _looksSel[slot]=null; renderLooks(); }
+function _looksReset(){ _looksSel={..._looksSaved}; renderLooks(); }
+function _looksApply(){
+  const ops=[];
+  _LOOKS_SLOTS.forEach(s=>{
+    const sel=_looksSel[s]||null, sav=_looksSaved[s]||null;
+    if(sel===sav) return;
+    ops.push(sel
+      ? api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:sel})})
+      : api('/cosmetics/unequip',{method:'POST',body:JSON.stringify({slot:s})}));
+  });
+  if(!ops.length) return Promise.resolve();
+  return Promise.all(ops).then(()=>{
+    _looksSaved={..._looksSel};
+    _LOOKS_SLOTS.forEach(s=>(_looksData.slots[s]||[]).forEach(it=>it.equipped=(_looksSaved[s]===it.id)));
+    _looksDirty=true; toast('✅ Внешний вид применён!'); renderLooks();
+  }).catch(e=>toast(e,false));
 }
 function _looksBuy(id,opt){
   api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})
