@@ -21,24 +21,7 @@ function loadActiveBuffs() {
     host.innerHTML=`<div class="card"><div class="card-title">✨ Активные баффы</div>${rows}</div>`;
   }).catch(()=>{host.innerHTML='';});
 }
-function doOpenEgg(eid,cnt) {
-  CM();
-  api('/inventory/open-egg',{method:'POST',body:JSON.stringify({egg_id:eid,count:cnt})}).then(r=>{
-    const results=r.results||[];
-    const ocMap={first_copy_created:'🆕 Новый питомец!',leveled_up:'⬆️ Уровень вырос',added:'📦 Дубликат',overflow:'💫 Переполнение'};
-    OM('🎉 Яйцо открыто!',
-      `<div style="text-align:center;padding:4px 0 12px"><div style="font-size:32px;margin-bottom:4px">🐾</div><div style="font-size:13px;font-weight:700">Получено:</div></div>`+
-      results.map(res=>{
-        const oc=ocMap[res.outcome]||res.outcome;
-        return `<div style="background:var(--s);border-radius:var(--r);padding:8px 10px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:12px;font-weight:600">${res.species_name||res.species||''}</span>
-          <span style="font-size:11px;color:var(--gold)">${oc}${res.new_level?' Lv'+res.new_level:''}</span>
-        </div>`;
-      }).join('')||'<div style="color:var(--green);font-size:12px;text-align:center">Готово!</div>',
-      [{l:'🐾 В Зоопарк',c:'btn-teal',f:"CM();document.querySelector('.nb[onclick*=zoo]')?.click();loadZoo();"},{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
-    loadInventory();
-  }).catch(e=>toast(e,false));
-}
+// doOpenEgg УДАЛЁН (БЛОК19 Ч.2): открытие яиц вырезано, питомцы — только через Гачу.
 function openFeedSelModal(fid) {
   if(!_zooData){toast('Зайдите в Зоопарк.',false);return;}
   const pets=_zooData.pets.filter(p=>p.placement!=='storage');

@@ -1,7 +1,7 @@
 // ── Auction: поиск + фильтры + сортировка (ШАГ2, клиентская сторона) ───────────
 let _allLots=[];
 let _aucSearch='', _aucRarity='', _aucCat='', _aucSort='ending';
-const _AUC_KNOWN_CATS=['egg','food','booster','material','utility','theme','spin_token','pet'];
+const _AUC_KNOWN_CATS=['food','booster','material','utility','theme','spin_token','pet'];
 function filterAuction(q){ _aucSearch=(q||'').toLowerCase(); _applyAucFilters(); }
 function setAucFilter(kind,val){ if(kind==='rarity')_aucRarity=val; else if(kind==='cat')_aucCat=val; else if(kind==='sort')_aucSort=val; _applyAucFilters(); }
 function _aucOpt(kind,opts){ const cur=kind==='sort'?_aucSort:kind==='rarity'?_aucRarity:_aucCat;
@@ -21,7 +21,7 @@ function _applyAucFilters(){
   renderLots(lots, _aucSearch);
 }
 // Category → icon emoji for auction lot cards
-const LOT_CAT_ICON={egg:'🥚',food:'🍖',spin_token:'🎟',booster:'⚡',material:'💠',utility:'🏡',theme:'🎨',pet:'🐾'};
+const LOT_CAT_ICON={food:'🍖',spin_token:'🎟',booster:'⚡',material:'💠',utility:'🏡',theme:'🎨',pet:'🐾'};
 const _AUC_RARITY_COL={common:'#9aa7b8',rare:'#5b9bd5',epic:'#b07ad6',legendary:'#e8b54d',mythic:'#e0556b'};
 const _AUC_RARITY_LBL={common:'Обычный',rare:'Редкий',epic:'Эпический',legendary:'Легендарный',mythic:'Мифический'};
 
@@ -891,22 +891,7 @@ function loadEvents() {
       </div>`;
     }
 
-    // Gacha overview — show egg types with rates
-    if(ev.gacha_types?.length) {
-      const withRates=ev.gacha_types.filter(g=>g.rates&&Object.keys(g.rates).length>0);
-      if(withRates.length) {
-        html+=`<div class="card">
-          <div class="card-title">🥚 Яйца — шансы редкостей</div>
-          ${withRates.slice(0,5).map(g=>`<div style="margin-bottom:8px">
-            <div style="font-size:11px;font-weight:600;margin-bottom:3px;color:var(--muted)">${g.label}</div>
-            <div style="display:flex;flex-wrap:wrap;gap:3px">
-              ${Object.entries(g.rates).map(([r,v])=>`<span class="${RC[r]||'rc-common'}" style="font-size:10px;padding:1px 5px">${r} ${v}%</span>`).join('')}
-            </div>
-          </div>`).join('')}
-          <button class="btn btn-sm btn-gold" style="margin-top:4px;width:100%" onclick="goTo('market','gacha')">К крутке</button>
-        </div>`;
-      }
-    }
+    // Gacha overview УДАЛЁН (БЛОК19 Ч.2): честные шансы крутки — во вкладке Гача (ℹ️ Шансы).
 
     el('evc').innerHTML=html||'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет активных ивентов.</div>';
   }).catch(e=>{el('evc').innerHTML=`<div class="err">${e}</div>`;});

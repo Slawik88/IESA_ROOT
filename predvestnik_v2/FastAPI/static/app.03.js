@@ -324,8 +324,7 @@ function bonusLines(sid, b) {
       if(b.expedition_cost_reduction>0) ln.push(`💰 −${p(b.expedition_cost_reduction)} стоимость`); },
     turtle: b => { if(b.shop_discount>0) ln.push(`🛒 −${p(b.shop_discount)} магазин`);
       if(b.expedition_discount>0) ln.push(`🗺 −${p(b.expedition_discount)} поход`);
-      if(b.gacha_daily_discount>0) ln.push(`🏷 −${p(b.gacha_daily_discount)} акция дня`);
-      if(b.double_egg_chance>0) ln.push(`🥚 ×2 яйцо: ${p(b.double_egg_chance)}`); },
+      if(b.gacha_daily_discount>0) ln.push(`🏷 −${p(b.gacha_daily_discount)} акция дня`); },
     falcon: b => { ln.push(`💰 +${p(b.mora_bonus)} Мора похода`);
       if(b.xp_bonus>0) ln.push(`📚 +${p(b.xp_bonus)} XP`);
       if(b.double_loot_chance>0) ln.push(`🎁 Двойной лут: ${p(b.double_loot_chance)}`);
@@ -338,7 +337,7 @@ function bonusLines(sid, b) {
     fox: b => { if(b.diamond_chance_per_2h>0) ln.push(`💎 Алмаз каждые 2ч: ${p(b.diamond_chance_per_2h)}`);
       if(b.common_dup_bonus>0) ln.push(`🐾 +${p(b.common_dup_bonus)} Common дубли`);
       if(b.weekly_guaranteed_diamond) ln.push('✅ Гарант. 💎/неделю');
-      if(b.crystal_egg_chance>0) ln.push(`🔷 Кристальное яйцо: ${p(b.crystal_egg_chance)}`); },
+      if(b.crystal_egg_chance>0) ln.push(`🎟 Алмазный Жетон: ${p(b.crystal_egg_chance)}`); },
     dragon: b => { ln.push(`🏦 Кап банка: +${fmt(b.bank_bonus)} 🪙`);
       if(b.free_food_chance>0) ln.push(`🍖 Бесплатный корм: ${p(b.free_food_chance)}`);
       if(b.hamster_collect_bonus>0) ln.push(`🐹 Хомяк +${b.hamster_collect_bonus}`);
@@ -402,7 +401,7 @@ function renderZoo(tab) {
       :`<div style="text-align:center;padding:32px 16px;color:var(--muted)">
           <div style="font-size:32px;margin-bottom:8px">📦</div>
           <div style="font-size:13px;font-weight:600;margin-bottom:4px">Склад пуст</div>
-          <div style="font-size:11px">Открой яйцо в Арене → Гача, чтобы получить питомца</div>
+          <div style="font-size:11px">Крутни Гачу в Арене, чтобы получить питомца</div>
         </div>`;
     return;
   }

@@ -85,7 +85,7 @@ function loadProfile() {
         <div class="shortcut-row">
           <span class="shortcut-link" onclick="goTo('zoo')">Управлять питомцами →</span>
         </div>
-      </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Питомцев пока нет</div><div class="es-sub">Открой яйцо в Гаче, чтобы завести первого</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button></div></div>`}
+      </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Питомцев пока нет</div><div class="es-sub">Крутни Гачу, чтобы завести первого</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button></div></div>`}
       ${d.chats.length?`<div class="card">
         <div class="card-title">💬 Активность</div>
         ${d.chats.map(c=>`<div class="irow"><span class="ik">${esc(c.chat_title||'Чат')}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}
@@ -646,11 +646,6 @@ function loadStreak() {
 
 // What each achievement tracks and how to earn it
 const ACH_HOW = {
-  egg_opener:  {
-    how:   'Открывайте яйца питомцев',
-    where: 'Инвентарь → нажмите на яйцо → «Открыть»',
-    note:  'Засчитывается каждое открытое яйцо любого типа',
-  },
   gacha_addict:{
     how:   'Крутите гачу',
     where: 'Арена → Гача → выберите тип крутки',
@@ -658,12 +653,12 @@ const ACH_HOW = {
   },
   collector:   {
     how:   'Получите новые виды питомцев',
-    where: 'Открывайте яйца — каждый новый вид засчитывается',
+    where: 'Крутите Гачу — каждый новый вид засчитывается',
     note:  'Важен именно НОВЫЙ вид, не дубликаты существующего',
   },
   trainer:     {
     how:   'Прокачайте питомца до максимального Lv10',
-    where: 'Открывайте дубликаты одного вида — уровень растёт',
+    where: 'Получайте дубликаты из Гачи — уровень растёт',
     note:  'Нужны дубликаты: Common ×10→Lv10, Epic ×4→Lv10 и т.д.',
   },
   wanderer:    {

@@ -224,7 +224,7 @@ async def render_storage(message: types.Message, db, user_id: int, page: int):
     _rarity_badge = {"common": "⚪️", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
 
     if not storage_pets:
-        lines.append("Склад пуст. Откройте яйцо в магазине!")
+        lines.append("Склад пуст. Крутите Гачу, чтобы получить питомца!")
     else:
         for idx, p in enumerate(pets_on_page, start=start_idx + 1):
             species_data = PET_SPECIES.get(p["species_id"], {})

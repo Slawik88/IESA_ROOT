@@ -2,15 +2,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from core.registry import ITEMS_REGISTRY, GACHA_RATES
+from core.registry import ITEMS_REGISTRY
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.economy import get_inventory, remove_item
-from infrastructure.repositories.zoo import open_eggs_batch, grant_duplicate
+from infrastructure.repositories.zoo import grant_duplicate
 from services.inventory_resolve import resolve_and_migrate_item_id, item_display_name
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 
-_CATEGORY_ORDER = {"egg": 0, "food": 1, "spin_token": 2, "booster": 3, "material": 4}
+_CATEGORY_ORDER = {"food": 0, "spin_token": 1, "booster": 2, "material": 3}
 
 
 @router.get("/")
@@ -30,74 +30,12 @@ async def my_inventory(db=Depends(get_db), user=Depends(require_tg_user)):
             "spin_type":      item.get("spin_type"),
             "boost_hours":    item.get("boost_hours"),
             "fatigue_restore": item.get("fatigue_restore"),
-            "gacha_rates":    GACHA_RATES.get(real_id),
         })
     result.sort(key=lambda x: (_CATEGORY_ORDER.get(x["category"], 9), x["item_id"]))
     return result
 
 
-class OpenEggRequest(BaseModel):
-    egg_id: str
-    count: int = 1
-
-
-@router.post("/open-egg")
-async def open_egg(body: OpenEggRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Открыть яйцо из инвентаря."""
-    count = max(1, min(body.count, 10))
-    if body.egg_id not in GACHA_RATES:
-        raise HTTPException(400, "Неизвестный тип яйца.")
-
-    is_summoned = (body.egg_id == "egg_summon")
-    results = await open_eggs_batch(db, user["id"], body.egg_id, count, is_summoned=is_summoned)
-    if results is None:
-        raise HTTPException(400, "Нет яиц в инвентаре.")
-    await db.commit()
-
-    # Grant one-time milestone rewards (mora/diamonds/items) for pets that
-    # crossed level thresholds (3/5/7/10) — same as bot's _process_milestones.
-    from services.zoo import apply_pet_milestones
-    milestones = []
-    for r in results:
-        if r.get("pet_id") and r.get("milestones_unlocked"):
-            milestones.extend(await apply_pet_milestones(db, user["id"], r["pet_id"], r["milestones_unlocked"]))
-    if milestones:
-        await db.commit()
-
-    # Track achievements + quest
-    try:
-        from services.achievements import increment_metric as _ach
-        from services.quests import increment_metric as _q_incr
-        await _ach(db, user["id"], "eggs_opened", delta=float(count))
-        new_species = sum(1 for r in results if r.get("outcome") == "first_copy_created")
-        if new_species:
-            await _ach(db, user["id"], "distinct_species_owned", delta=float(new_species))
-        new_lv10 = sum(1 for r in results if r.get("new_level") == 10)
-        if new_lv10:
-            await _ach(db, user["id"], "pets_at_level_10", delta=float(new_lv10))
-        # Quest: eggs_opened_today — use user's primary chat
-        async with db.execute(
-            "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
-            "ORDER BY user_messages_count_all_time DESC LIMIT 1",
-            (user["id"],),
-        ) as _cc:
-            _cr = await _cc.fetchone()
-        if _cr:
-            await _q_incr(db, user["id"], _cr[0], "eggs_opened_today", delta=float(count))
-            rare_dups = sum(1 for r in results if r.get("rarity") in ("rare","epic","legendary","mythic"))
-            if rare_dups:
-                await _q_incr(db, user["id"], _cr[0], "rare_or_better_pet_dups_today", delta=float(rare_dups))
-            # Квест level_pet: считаем РЕАЛЬНЫЕ ап-левелы (как бот), а не только
-            # достижение 10 ур. — иначе квест на сайте почти невыполним.
-            level_ups = sum(1 for r in results
-                            if r.get("outcome") == "leveled_up" and r.get("milestones_unlocked"))
-            if level_ups:
-                await _q_incr(db, user["id"], _cr[0], "pet_level_ups_today", delta=float(level_ups))
-        await db.commit()
-    except Exception:
-        pass
-
-    return {"ok": True, "results": results, "milestones": milestones}
+# /open-egg УДАЛЁН (БЛОК19 Ч.2): открытие яиц вырезано, питомцы — только через /gacha.
 
 
 class UseRequest(BaseModel):

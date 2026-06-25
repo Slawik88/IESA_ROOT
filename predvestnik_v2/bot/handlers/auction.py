@@ -64,14 +64,12 @@ _pending: dict[int, dict] = {}  # {user_id: {...creation state...}}
 _CATEGORIES = {
     "pets":         ("🐾", "Питомцы"),
     "consumables":  ("🍗", "Расходники"),
-    "eggs":         ("🥚", "Яйца"),
     "materials":    ("🪨", "Материалы"),
     "boosters":     ("⚡", "Бусты"),
 }
 
 _ITEM_CATEGORIES = {
     "food":       "consumables",
-    "egg":        "eggs",
     "material":   "materials",
     "booster":    "boosters",
     "spin_token": "boosters",

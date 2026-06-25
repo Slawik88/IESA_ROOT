@@ -1,6 +1,6 @@
 // ── БП: редактор наград (Block 6) ──────────────────────────────────────────────
 function _parseBpItems(s) {
-  // "food_basic:2, egg_silver:1" → [["food_basic",2],["egg_silver",1]]
+  // "food_basic:2, spin_token:1" → [["food_basic",2],["spin_token",1]]
   return (s||'').split(',').map(p=>p.trim()).filter(Boolean).map(p=>{
     const [id,q]=p.split(':').map(x=>x.trim());
     return [id, parseInt(q||'1')||1];
@@ -133,7 +133,7 @@ function devBpShowExample() {
     season_id: _bpSeason || 's1',
     rewards: [
       {level:1, track:"free", mora:500},
-      {level:1, track:"paid", diamonds:5, items:[["egg_silver",1]]},
+      {level:1, track:"paid", diamonds:5, items:[["spin_token",2]]},
       {level:2, track:"free", items:[["food_basic",3]]},
       {level:2, track:"paid", mora:0, diamonds:0, theme_id:"theme_id_необяз"},
       {level:3, track:"paid", reward_options:[{mora:1000},{diamonds:5,items:[["spin_token",1]]}]}

@@ -59,7 +59,6 @@ const QUEST_NAMES = {
   gacha_3:    {n:'🎲 Удача в крутке', d:'Покрути гачу 3 раза'},
   exped_2:    {n:'🗺 Путешественник',  d:'Отправь питомца в 2 экспедиции'},
   exped_4:    {n:'🗺 Искатель приключений',d:'Отправь питомца в 4 экспедиции'},
-  open_egg:   {n:'🥚 Яйцелов',        d:'Открой 1 яйцо в инвентаре'},
   warp_3:     {n:'🌀 Варп-мастер',    d:'Отправь 3 варпа разным игрокам'},
   auction_bid:{n:'🏛 Аукционист',     d:'Поставь 1 ставку на аукционе'},
   gacha_10:   {n:'🎰 Одержимый гачей',d:'Покрути гачу 10 раз'},
@@ -146,7 +145,7 @@ function loadGacha() {
     el('gc').innerHTML=`
     <div class="gacha-header">
       <div class="gh-title">✨ ГАЧА</div>
-      <div class="gh-sub">Крути яйца, получай питомцев и ресурсы</div>
+      <div class="gh-sub">Крути Гачу, получай питомцев и ресурсы</div>
     </div>
     <div class="gacha-balance">
       <span class="gb-item" id="gacha-bal-mora">🪙 ${fmt(d.mora)}</span>
@@ -553,7 +552,7 @@ function loadAuction(page) {
           ${_aucOpt('rarity',[['','✦ Все редкости'],['common','Обычные'],['rare','Редкие'],['epic','Эпические'],['legendary','Легендарные'],['mythic','Мифические']])}
         </select>
         <select class="num-input auc-sel" onchange="setAucFilter('cat',this.value)">
-          ${_aucOpt('cat',[['','📦 Все типы'],['egg','🥚 Яйца'],['food','🍖 Еда'],['booster','⚡ Бустеры'],['material','💠 Материалы'],['utility','🏡 Утилиты'],['theme','🎨 Темы'],['pet','🐾 Питомцы'],['other','📦 Прочее']])}
+          ${_aucOpt('cat',[['','📦 Все типы'],['food','🍖 Еда'],['booster','⚡ Бустеры'],['material','💠 Материалы'],['utility','🏡 Утилиты'],['theme','🎨 Темы'],['pet','🐾 Питомцы'],['other','📦 Прочее']])}
         </select>
       </div>
       <!-- Reserved mora -->
@@ -813,7 +812,7 @@ function loadShopCatalog() {
     el('balrow').style.display='flex';
     el('balrow').innerHTML=`<div class="bal"><div class="bv">🪙 ${fmt(d.mora)}</div><div class="bl">Мора</div></div>
       <div class="bal"><div class="bv">💎 ${d.diamonds.toFixed(1)}</div><div class="bl">Алмазы</div></div>`;
-    const cats={food:'🥩 Еда',egg:'🥚 Яйца',utility:'🛠 Утилиты',booster:'⚗️ Зелья',donate:'✨ Донат'};
+    const cats={food:'🥩 Еда',utility:'🛠 Утилиты',booster:'⚗️ Зелья',donate:'✨ Донат'};
     const grps={};d.items.forEach(it=>(grps[it.category]=grps[it.category]||[]).push(it));
     const promoBtn=`<button class="btn btn-ghost btn-full" style="margin-bottom:10px" onclick="openPromoModal()">🎫 У меня есть промокод</button>`;
     el('mkt-shop').innerHTML=promoBtn+Object.entries(grps).map(([cat,list])=>
@@ -885,7 +884,7 @@ function _smartCheckout(id, qty, origErr) {
 }
 function _smartConfirm(id, qty) { CM(); _shopBuy(id, qty, true, null); }
 // Русские названия категорий для бейджа инвентаря (магазин локализует свои отдельно).
-const CAT_RU={food:'Корм',egg:'Яйцо',material:'Материал',booster:'Зелье',utility:'Утилита',spin_token:'Жетон',donate:'Донат'};
+const CAT_RU={food:'Корм',material:'Материал',booster:'Зелье',utility:'Утилита',spin_token:'Жетон',donate:'Донат'};
 function loadInventory() {
   el('mkt-inv').innerHTML='<div class="loader">Загрузка...</div>';
   api('/inventory/').then(items=>{
@@ -914,15 +913,12 @@ function _renderInventory() {
 }
 function openItemModal(iid) {
   const it=_invData.find(i=>i.item_id===iid);if(!it)return;
-  const {item_id,name,quantity,category,description,spin_type,boost_hours,fatigue_restore,gacha_rates}=it;
+  const {item_id,name,quantity,category,description,spin_type,boost_hours,fatigue_restore}=it;
   let body=`<div class="irow"><span class="ik">В инвентаре</span><span>×${quantity}</span></div>`;
   if(description)body+=`<div style="font-size:11px;color:var(--muted);margin-top:7px;line-height:1.4">${description}</div>`;
   body+='<div class="divider"></div>';
   const btns=[{l:'Закрыть',c:'btn-ghost',f:'CM()'}];
-  if(category==='egg'&&gacha_rates){
-    body+=Object.entries(gacha_rates).filter(([,v])=>v>0).map(([r,v])=>`<div class="irow"><span class="${RC[r]||'rc-common'}" style="font-size:11px">${r}</span><span>${v}%</span></div>`).join('');
-    if(quantity>0)btns.unshift({l:'🥚 Открыть',c:'btn-gold',f:`doOpenEgg('${item_id}',1)`});
-  } else if(category==='food'&&fatigue_restore){
+  if(category==='food'&&fatigue_restore){
     body+=`<div class="irow"><span class="ik">Восстанавливает</span><span style="color:var(--green)">−${fatigue_restore} уст.</span></div>`;
     if(quantity>0)btns.unshift({l:'🍖 Покормить питомца',c:'btn-gold',f:`openFeedSelModal('${item_id}')`});
   } else if(boost_hours){

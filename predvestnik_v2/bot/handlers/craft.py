@@ -78,7 +78,7 @@ async def cmd_craft(message: types.Message, db, text_args: str = None,
     if not recipes:
         return await message.answer("⚗️ <b>КРАФТ</b>\n\n<i>Рецептов пока нет.</i>", parse_mode="HTML")
 
-    # Direct craft shortcut: бот крафт, яйцо / бот крафт, egg_summon
+    # Direct craft shortcut: бот крафт, жетон / бот крафт, summon_token
     if text_args:
         arg = text_args.strip().lower()
         matched = next(
