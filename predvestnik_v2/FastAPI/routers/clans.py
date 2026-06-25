@@ -87,3 +87,18 @@ async def clans_request_cancel(body: BoardCancelRequest, db=Depends(get_db), use
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}
+
+
+# ── Клан-лавка (сток clan_coins) ─────────────────────────────────────────────
+
+
+class ShopBuyRequest(BaseModel):
+    shop_id: str
+
+
+@router.post("/shop/buy")
+async def clans_shop_buy(body: ShopBuyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await svc.shop_buy(db, user["id"], body.shop_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}

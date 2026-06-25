@@ -9,6 +9,7 @@ from core.constants import (
     CLAN_CREATE_COST_MORA, CLAN_MAX_MEMBERS,
     CLAN_NAME_MIN, CLAN_NAME_MAX, CLAN_TAG_MIN, CLAN_TAG_MAX,
     CLAN_DESC_MAX, CLAN_EMBLEMS, CLAN_REQUEST_ITEM_CATEGORIES,
+    CLAN_SHOP,
 )
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories import clans as repo
@@ -24,6 +25,20 @@ def allowed_request_items() -> list[dict]:
 def _is_requestable(item_id: str) -> bool:
     d = ITEMS_REGISTRY.get(item_id)
     return bool(d) and d.get("category") in CLAN_REQUEST_ITEM_CATEGORIES
+
+
+def shop_catalog() -> list[dict]:
+    """Каталог Клан-лавки для UI (публичные поля; сток clan_coins)."""
+    return [
+        {"id": s["id"], "emoji": s["emoji"], "name": s["name"],
+         "cost": s["cost"], "desc": s["desc"], "kind": s["kind"]}
+        for s in CLAN_SHOP
+    ]
+
+
+async def shop_buy(db, user_id: int, shop_id) -> tuple[bool, str]:
+    """Покупка в Клан-лавке за clan_coins (атомарно в репозитории)."""
+    return await repo.clan_shop_buy(db, user_id, str(shop_id or "").strip())
 
 # Буквы/цифры/пробел и базовая пунктуация (рус/лат). Защита от мусора/инъекций в UI.
 _NAME_RE = re.compile(r"^[\w \-!?'«»\".,]+$", re.UNICODE)
@@ -50,6 +65,7 @@ async def get_overview(db, user_id: int) -> dict:
         my["requests"] = reqs
         my["request_qty_cap"] = repo.board_qty_cap(my["level"])
         my["request_active_cap"] = repo.board_active_cap(my["level"])
+        my["shop"] = shop_catalog()
     top = await repo.list_top_clans(db)
     for t in top:
         t["level"] = repo.clan_level(t.get("total_xp", 0))

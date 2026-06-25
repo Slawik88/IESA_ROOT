@@ -7,6 +7,7 @@ from core.constants import (
     CLAN_REQUEST_QTY_BASE, CLAN_REQUEST_QTY_PER_LEVEL,
     CLAN_REQUEST_ACTIVE_BASE, CLAN_REQUEST_ACTIVE_PER_3LVL,
     CLAN_REQUEST_COIN_PER_ITEM, CLAN_REQUEST_XP_PER_ITEM,
+    CLAN_SHOP,
 )
 
 # ── БЛОК19 Ч.5: уровень клана и здания — чистая проекция от total_xp ─────────────
@@ -437,5 +438,51 @@ async def cancel_request(db, user_id: int, request_id: int) -> tuple[bool, str]:
                 (request_id,),
             )
         return True, "Запрос снят с Доски."
+    except Exception as e:
+        return False, f"Ошибка: {e}"
+
+
+async def clan_shop_buy(db, user_id: int, shop_id: str) -> tuple[bool, str]:
+    """Купить в Клан-лавке за clan_coins. Атомарно: лок участника → списать монеты → выдать
+    эффект. Non-P2W: только Clan XP (прогресс клана) или мягкие расходники."""
+    item = next((s for s in CLAN_SHOP if s["id"] == shop_id), None)
+    if not item:
+        return False, "Товар не найден."
+    cost = float(item["cost"])
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT clan_id, COALESCE(clan_coins, 0) FROM clan_members WHERE user_id = ? FOR UPDATE",
+                (user_id,),
+            ) as c:
+                row = await c.fetchone()
+            if not row:
+                return False, "Ты не состоишь в клане."
+            clan_id = row[0]
+            coins = float(row[1])
+            if coins + 1e-9 < cost:
+                return False, f"Недостаточно клан-монет: нужно {cost:g} 🎖, у тебя {coins:g} 🎖."
+            await db.execute(
+                "UPDATE clan_members SET clan_coins = COALESCE(clan_coins, 0) - ? WHERE user_id = ?",
+                (cost, user_id),
+            )
+            if item["kind"] == "clan_xp":
+                await db.execute(
+                    "UPDATE clans SET total_xp = total_xp + ? WHERE clan_id = ?",
+                    (int(item["amount"]), clan_id),
+                )
+                msg = f"🏛 +{int(item['amount'])} Clan XP клану! (−{cost:g} 🎖)"
+            elif item["kind"] == "item":
+                iid = item["item"]
+                qty = int(item["qty"])
+                await db.execute(
+                    "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+                    "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+                    (user_id, iid, qty, qty),
+                )
+                msg = f"{item['emoji']} Куплено: {item['name']} (−{cost:g} 🎖)"
+            else:
+                return False, "Неизвестный тип товара."
+        return True, msg
     except Exception as e:
         return False, f"Ошибка: {e}"
