@@ -3,9 +3,12 @@
 Бизнес-логика косметики: каталог, покупка (мульти/альт-валюта), экипировка, выдача.
 No bot.*/FastAPI.* imports. Только косметика — без игрового преимущества.
 """
+import math
+
 from core.cosmetics import (
     COSMETICS, COSMETIC_SLOTS, WELCOME_ANIMATIONS, WELCOME_DEFAULT,
 )
+from core.constants import ZARNIKI_PER_STAR
 from services.vip import is_vip_active
 
 # Слот приветственной анимации в user_cosmetic_loadout (отдельно от носимой косметики;
@@ -300,4 +303,31 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
             d["title"] = cos.get("text") or cos["name"]
         elif slot == "name_glow":
             d["glow"] = cos.get("css")
+    return out
+
+
+def _gift_stars(cos: dict) -> int | None:
+    """Цена подарка в ⭐ из зарникового варианта косметики (1⭐ = ZARNIKI_PER_STAR✨).
+    None — косметику нельзя подарить (нет зарниковой цены: VIP/БП/ачивка)."""
+    for opt in cos.get("price") or []:
+        if "zarniki" in opt:
+            return max(1, math.ceil(opt["zarniki"] / ZARNIKI_PER_STAR))
+    return None
+
+
+async def giftable_cosmetics(db, recipient_id: int) -> list[dict]:
+    """БЛОК21: косметика, которую можно подарить за ⭐ (есть зарниковая цена),
+    + флаг owned получателем (чтобы не дарить дубликат). Драйвер виральности."""
+    owned = await _owned(db, recipient_id)
+    out = []
+    for cid, cos in COSMETICS.items():
+        stars = _gift_stars(cos)
+        if stars is None:
+            continue
+        out.append({
+            "id": cid, "name": cos["name"], "slot": cos["slot"], "rarity": cos["rarity"],
+            "css": cos.get("css"), "text": cos.get("text"),
+            "stars": stars, "owned": cid in owned,
+        })
+    out.sort(key=lambda x: (x["owned"], x["stars"]))
     return out

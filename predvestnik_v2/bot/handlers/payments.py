@@ -120,7 +120,8 @@ async def msg_custom_zarniki_amount(message: types.Message, bot: Bot):
 
 @router.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
-    if pre_checkout_query.invoice_payload.startswith("zarniki:"):
+    pl = pre_checkout_query.invoice_payload
+    if pl.startswith("zarniki:") or pl.startswith("gift:"):
         await pre_checkout_query.answer(ok=True)
     else:
         await pre_checkout_query.answer(ok=False, error_message="Неизвестный платёж.")
@@ -129,6 +130,35 @@ async def process_pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
 @router.message(F.successful_payment)
 async def on_successful_payment(message: types.Message, db):
     payload = message.successful_payment.invoice_payload
+
+    # БЛОК21: подарок косметики — начисляем ПОЛУЧАТЕЛЮ, уведомляем обоих (виральность).
+    if payload.startswith("gift:"):
+        from services import cosmetics as cos_svc
+        from core.cosmetics import COSMETICS
+        try:
+            _, rid_s, cid = payload.split(":", 2)
+            rid = int(rid_s)
+        except ValueError:
+            return
+        await cos_svc.grant_cosmetic(db, rid, cid)
+        cname = COSMETICS.get(cid, {}).get("name", "косметику")
+        u = message.from_user
+        sender = u.first_name or (("@" + u.username) if u.username else "Друг")
+        try:
+            await message.bot.send_message(
+                rid,
+                f"🎁 <b>{sender}</b> подарил тебе <b>{cname}</b>!\n"
+                f"Надень в мини-аппе → 🎨 Внешний вид.",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass  # получатель не запускал бота — подарок всё равно выдан
+        await message.answer(
+            f"✅ Подарок отправлен! <b>{cname}</b> уже у получателя 💜",
+            parse_mode="HTML",
+        )
+        return
+
     if not payload.startswith("zarniki:"):
         return
     amount = int(payload.split(":")[1])
