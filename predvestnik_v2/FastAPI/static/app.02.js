@@ -316,8 +316,22 @@ function _buyChest(id){
 function _openChest(id,btn){
   if(btn) btn.disabled=true;
   api('/cosmetics/chest/open',{method:'POST',body:JSON.stringify({chest_id:id})})
-    .then(r=>{ const d=r.drop||{}; toast('🎉 '+(d.name||'Открыто!'), true); _looksDirty=true; _openSurprisesModal(); })
+    .then(r=>{ _looksDirty=true; _chestReveal(r.drop||{}); })
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
+}
+function _chestReveal(d){
+  let inner;
+  if(d.kind==='cosmetic'){
+    const sw = d.slot ? _looksSwatch(d.slot, d) : '';
+    inner = `<div class="chest-reveal r-${d.rarity}">
+      <div class="chest-reveal-sw">${sw}</div>
+      <div class="lc-name" style="font-size:14px;margin-top:10px">${esc(d.name)}</div>
+      <span class="lc-rar" style="margin-top:6px">${_rarLabel(d.rarity)}</span></div>`;
+  } else {
+    inner = `<div class="chest-reveal"><div style="font-size:40px">${d.kind==='shards'?'🔹':'🎁'}</div>
+      <div class="lc-name" style="font-size:14px;margin-top:8px">${esc(d.name||'Награда')}</div></div>`;
+  }
+  OM('🎉 Из сундука выпало!', inner, [{l:'Класс! 🎉',c:'btn-gold',f:'_openSurprisesModal()'}]);
 }
 function _craftCosmetic(id,btn){
   if(btn) btn.disabled=true;

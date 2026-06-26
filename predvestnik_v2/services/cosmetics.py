@@ -438,7 +438,8 @@ async def open_chest(db, user_id: int, chest_id: str) -> tuple[bool, str, dict |
                         (user_id, cid))
                     cos = COSMETICS[cid]
                     drop = {"kind": "cosmetic", "cosmetic_id": cid, "name": cos["name"],
-                            "rarity": rarity, "css": cos.get("css"), "text": cos.get("text")}
+                            "rarity": rarity, "css": cos.get("css"), "text": cos.get("text"),
+                            "slot": cos["slot"]}
                 else:
                     n = COSMETIC_DUPE_SHARDS.get(rarity, 5)
                     await _add_item(db, user_id, "cosmetic_shard", n)
