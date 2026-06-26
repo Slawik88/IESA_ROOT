@@ -291,18 +291,17 @@ function _openSurprisesModal(){
         <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}')">${c.zarniki} ✨</button>
       </div></div>`).join('');
     const craftItems=(cr.items||[]).map(it=>{
-      const sw=it.text?`<span class="lc-title">${esc(it.text)}</span>`:`<span class="lc-nick ${it.css||''}">@Ник</span>`;
-      const btn=it.owned?`<span class="gp-owned">✓ есть</span>`
+      const foot=it.owned?'<span class="lc-on">✓ есть</span>'
         :`<button class="btn btn-sm ${it.can?'btn-gold':'btn-ghost'}" ${it.can?'':'disabled'} onclick="_craftCosmetic('${it.id}',this)">${it.cost} 🔹</button>`;
-      return `<div class="gift-card${it.owned?' gift-owned':''}"><div class="gift-sw">${sw}</div>
-        <div class="gift-name">${esc(it.name)}</div>
-        <div class="gift-foot"><span class="lc-rar">${_rarLabel(it.rarity)}</span>${btn}</div></div>`;
+      return `<div class="looks-card r-${it.rarity}${it.owned?' lc-dim':''}">
+        ${_looksSwatch(it.slot, it)}<div class="lc-name">${esc(it.name)}</div>
+        <div class="lc-foot"><span class="lc-rar">${_rarLabel(it.rarity)}</span>${foot}</div></div>`;
     }).join('');
-    b.innerHTML=`<div class="looks-hint">🎁 Сундуки за ⭐ дают случайную косметику/расходники; дубль косметики → 🔹 осколки. Из осколков собирай конкретную косметику в Крафте.</div>
+    b.innerHTML=`<div class="looks-hint">🎁 Сундуки за ✨ дают случайную косметику/расходники; дубль косметики → 🔹 осколки. Из осколков собирай конкретную косметику в Крафте.</div>
       <div class="looks-slot-t">🎁 Сундуки-сюрпризы</div>
       <div class="gift-grid">${chests}</div>
       <div class="looks-slot-t" style="margin-top:14px">🔹 Крафт <span class="clan-coin-note">· осколков: ${cr.shards}</span></div>
-      <div class="gift-grid">${craftItems}</div>`;
+      <div class="looks-cards">${craftItems}</div>`;
   }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
 function _buyChest(id){
