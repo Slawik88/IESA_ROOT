@@ -7,7 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
-from services.cosmetics import buy, equip, get_catalog, set_welcome, unequip
+from services.cosmetics import (
+    buy, equip, get_catalog, set_welcome, unequip,
+    chest_catalog, open_chest, craft_catalog, craft_cosmetic,
+)
 
 router = APIRouter(prefix="/cosmetics", tags=["cosmetics"])
 
@@ -62,6 +65,42 @@ class WelcomeRequest(BaseModel):
 @router.post("/welcome")
 async def cosmetics_welcome(body: WelcomeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     ok, msg = await set_welcome(db, user["id"], body.animation_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}
+
+
+# ── БЛОК21 #3: сундуки-сюрпризы + крафт косметики из осколков ────────────────────
+
+@router.get("/chests")
+async def cosmetics_chests(db=Depends(get_db), user=Depends(require_tg_user)):
+    return {"chests": await chest_catalog(db, user["id"])}
+
+
+class ChestOpenRequest(BaseModel):
+    chest_id: str
+
+
+@router.post("/chest/open")
+async def cosmetics_chest_open(body: ChestOpenRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg, drop = await open_chest(db, user["id"], body.chest_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg, "drop": drop}
+
+
+@router.get("/craft")
+async def cosmetics_craft_catalog(db=Depends(get_db), user=Depends(require_tg_user)):
+    return await craft_catalog(db, user["id"])
+
+
+class CraftRequest(BaseModel):
+    cosmetic_id: str
+
+
+@router.post("/craft")
+async def cosmetics_craft(body: CraftRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await craft_cosmetic(db, user["id"], body.cosmetic_id)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}

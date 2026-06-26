@@ -884,7 +884,7 @@ function _smartCheckout(id, qty, origErr) {
 }
 function _smartConfirm(id, qty) { CM(); _shopBuy(id, qty, true, null); }
 // Русские названия категорий для бейджа инвентаря (магазин локализует свои отдельно).
-const CAT_RU={food:'Корм',material:'Материал',booster:'Зелье',utility:'Утилита',spin_token:'Жетон',donate:'Донат'};
+const CAT_RU={food:'Корм',material:'Материал',booster:'Зелье',utility:'Утилита',spin_token:'Жетон',chest:'Сундук',donate:'Донат'};
 function loadInventory() {
   el('mkt-inv').innerHTML='<div class="loader">Загрузка...</div>';
   api('/inventory/').then(items=>{
@@ -926,6 +926,8 @@ function openItemModal(iid) {
     if(quantity>0)btns.unshift({l:'⏩ К экспедиции',c:'btn-teal',f:`openBoostSelModal('${item_id}')`});
   } else if(category==='spin_token'){
     if(quantity>0)btns.unshift({l:'🎲 В Гачу',c:'btn-gold',f:`goTo('market','gacha')`});
+  } else if(category==='chest'){
+    if(quantity>0)btns.unshift({l:'🎁 Открыть',c:'btn-gold',f:`CM();_openSurprisesModal()`});
   } else if(item_id.startsWith('star_dust')){
     body+=`<div class="irow"><span class="ik">Даёт дубликатов</span><span style="color:var(--gold)">+${item_id.includes('_l')?5:1}</span></div>`;
     if(quantity>0)btns.unshift({l:'✨ Применить',c:'btn-gold',f:`openDustModal('${item_id}')`});

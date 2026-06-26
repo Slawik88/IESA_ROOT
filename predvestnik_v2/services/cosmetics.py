@@ -4,11 +4,15 @@
 No bot.*/FastAPI.* imports. Только косметика — без игрового преимущества.
 """
 import math
+import random
 
 from core.cosmetics import (
     COSMETICS, COSMETIC_SLOTS, WELCOME_ANIMATIONS, WELCOME_DEFAULT,
 )
-from core.constants import ZARNIKI_PER_STAR
+from core.constants import (
+    ZARNIKI_PER_STAR, COSMETIC_CHESTS, COSMETIC_DUPE_SHARDS, COSMETIC_CRAFT_SHARDS,
+)
+from core.registry import ITEMS_REGISTRY
 from services.vip import is_vip_active
 
 # Слот приветственной анимации в user_cosmetic_loadout (отдельно от носимой косметики;
@@ -331,3 +335,143 @@ async def giftable_cosmetics(db, recipient_id: int) -> list[dict]:
         })
     out.sort(key=lambda x: (x["owned"], x["stars"]))
     return out
+
+
+# ── БЛОК21 #3: сундуки-сюрпризы + осколки + крафт косметики ───────────────────────
+async def _add_item(db, user_id: int, item_id: str, qty: int) -> None:
+    await db.execute(
+        "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+        "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+        (user_id, item_id, qty, qty))
+
+
+async def _shard_balance(db, user_id: int) -> int:
+    async with db.execute(
+        "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = 'cosmetic_shard'", (user_id,)
+    ) as c:
+        row = await c.fetchone()
+    return int(row[0]) if row else 0
+
+
+def _shop_cosmetics(rarity: str) -> list[str]:
+    """Косметика source=="shop" нужной редкости — пул для сундуков/крафта (эксклюзивы не входят)."""
+    return [cid for cid, c in COSMETICS.items()
+            if c.get("source") == "shop" and c.get("rarity") == rarity]
+
+
+async def chest_catalog(db, user_id: int) -> list[dict]:
+    """Сундуки: цена в ⭐ + сколько уже у игрока готово к открытию."""
+    out = []
+    for cid, ch in COSMETIC_CHESTS.items():
+        async with db.execute(
+            "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?", (user_id, cid)
+        ) as c:
+            row = await c.fetchone()
+        out.append({"id": cid, "name": ch["name"], "stars": ch["stars"],
+                    "owned": int(row[0]) if row else 0})
+    return out
+
+
+async def open_chest(db, user_id: int, chest_id: str) -> tuple[bool, str, dict | None]:
+    """Открыть сундук: списать токен, прокрутить лут, выдать (дубль косметики → осколки).
+    Атомарно (FOR UPDATE). Возвращает (ok, msg, drop) — drop для реветь-анимации в UI."""
+    chest = COSMETIC_CHESTS.get(chest_id)
+    if not chest:
+        return False, "Сундук не найден.", None
+    drop: dict | None = None
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? AND quantity > 0 FOR UPDATE",
+                (user_id, chest_id),
+            ) as c:
+                if not await c.fetchone():
+                    return False, "У тебя нет этого сундука.", None
+            await db.execute("UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = ?", (user_id, chest_id))
+            await db.execute("DELETE FROM inventory WHERE user_id = ? AND item_id = ? AND quantity <= 0", (user_id, chest_id))
+
+            loot = chest["loot"]
+            total = sum(e[-1] for e in loot)
+            r = random.uniform(0, total); acc = 0.0; pick = loot[-1]
+            for e in loot:
+                acc += e[-1]
+                if r <= acc:
+                    pick = e; break
+
+            if pick[0] == "shards":
+                n = int(pick[1])
+                await _add_item(db, user_id, "cosmetic_shard", n)
+                drop = {"kind": "shards", "shards": n, "name": f"🔹 {n} осколков"}
+            elif pick[0] == "item":
+                iid = pick[1]
+                await _add_item(db, user_id, iid, 1)
+                drop = {"kind": "item", "item_id": iid,
+                        "name": ITEMS_REGISTRY.get(iid, {}).get("name", iid)}
+            else:  # cosmetic
+                rarity = pick[1]
+                owned = await _owned(db, user_id)
+                pool = [cid for cid in _shop_cosmetics(rarity) if cid not in owned]
+                if pool:
+                    cid = random.choice(pool)
+                    await db.execute(
+                        "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                        (user_id, cid))
+                    cos = COSMETICS[cid]
+                    drop = {"kind": "cosmetic", "cosmetic_id": cid, "name": cos["name"],
+                            "rarity": rarity, "css": cos.get("css"), "text": cos.get("text")}
+                else:
+                    n = COSMETIC_DUPE_SHARDS.get(rarity, 5)
+                    await _add_item(db, user_id, "cosmetic_shard", n)
+                    drop = {"kind": "shards", "shards": n, "dupe": True,
+                            "name": f"🔹 {n} осколков (всё собрано — компенсация)"}
+    except Exception as e:
+        return False, f"Ошибка: {e}", None
+    return True, "Сундук открыт!", drop
+
+
+async def craft_catalog(db, user_id: int) -> dict:
+    """Каталог крафта косметики из осколков (только source=="shop")."""
+    owned = await _owned(db, user_id)
+    shards = await _shard_balance(db, user_id)
+    items = []
+    for cid, cos in COSMETICS.items():
+        if cos.get("source") != "shop":
+            continue
+        cost = COSMETIC_CRAFT_SHARDS.get(cos["rarity"], 9999)
+        items.append({"id": cid, "name": cos["name"], "slot": cos["slot"], "rarity": cos["rarity"],
+                      "css": cos.get("css"), "text": cos.get("text"), "cost": cost,
+                      "owned": cid in owned, "can": (shards >= cost and cid not in owned)})
+    items.sort(key=lambda x: (x["owned"], x["cost"]))
+    return {"shards": shards, "items": items}
+
+
+async def craft_cosmetic(db, user_id: int, cosmetic_id: str) -> tuple[bool, str]:
+    """Скрафтить косметику из осколков. Атомарно (списание + выдача под FOR UPDATE)."""
+    cos = COSMETICS.get(cosmetic_id)
+    if not cos or cos.get("source") != "shop":
+        return False, "Эту косметику нельзя скрафтить."
+    if cosmetic_id in await _owned(db, user_id):
+        return False, "Косметика уже у тебя."
+    cost = COSMETIC_CRAFT_SHARDS.get(cos["rarity"], 9999)
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = 'cosmetic_shard' FOR UPDATE",
+                (user_id,),
+            ) as c:
+                row = await c.fetchone()
+            have = int(row[0]) if row else 0
+            if have < cost:
+                return False, f"Нужно {cost} 🔹, у тебя {have}."
+            await db.execute(
+                "UPDATE inventory SET quantity = quantity - ? WHERE user_id = ? AND item_id = 'cosmetic_shard'",
+                (cost, user_id))
+            await db.execute(
+                "DELETE FROM inventory WHERE user_id = ? AND item_id = 'cosmetic_shard' AND quantity <= 0",
+                (user_id,))
+            await db.execute(
+                "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                (user_id, cosmetic_id))
+        return True, f"✨ Скрафчено: {cos['name']}! Надень в конструкторе."
+    except Exception as e:
+        return False, f"Ошибка: {e}"

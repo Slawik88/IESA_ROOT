@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
-from core.constants import ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR
+from core.constants import ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR, COSMETIC_CHESTS
 from core.cosmetics import COSMETICS
 from services import cosmetics as cos_svc
 
@@ -115,6 +115,32 @@ async def gift_invoice(body: GiftInvoiceRequest, user=Depends(require_tg_user)):
         payload=f"gift:{int(body.recipient_id)}:{body.cosmetic_id}",
         provider_token="", currency="XTR",
         prices=[{"label": f"🎁 {cos['name']}", "amount": stars}],
+    )
+    if not res.get("ok") or not res.get("result"):
+        raise HTTPException(502, "Не удалось создать счёт. Попробуйте позже.")
+    return {"link": res["result"], "stars": stars}
+
+
+# ── Сундуки-сюрпризы за Stars (БЛОК21 #3) ───────────────────────────────────────
+
+class ChestInvoiceRequest(BaseModel):
+    chest_id: str
+
+
+@router.post("/chest/invoice")
+async def chest_invoice(body: ChestInvoiceRequest, user=Depends(require_tg_user)):
+    """Stars-invoice на сундук. Бот выдаёт ТОКЕН-сундук (payload chest:), открытие — в мини-аппе."""
+    ch = COSMETIC_CHESTS.get(body.chest_id)
+    if not ch:
+        raise HTTPException(404, "Сундук не найден.")
+    stars = int(ch["stars"])
+    res = await _tg_call(
+        "createInvoiceLink",
+        title=ch["name"],
+        description=f"Сундук-сюрприз «{ch['name']}» в Предвестнике",
+        payload=f"chest:{body.chest_id}",
+        provider_token="", currency="XTR",
+        prices=[{"label": ch["name"], "amount": stars}],
     )
     if not res.get("ok") or not res.get("result"):
         raise HTTPException(502, "Не удалось создать счёт. Попробуйте позже.")
