@@ -53,39 +53,43 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     # Food / consumables
     # Усталость растёт от экспедиций; корм её снимает, чтобы снова слать питомца в
     # поход. Везде кормить одинаково: Зоопарк → карточка питомца → «🍖 Покормить».
+    # ── Корм (РЕБАЛАНС): чистая лестница −15/30/50/75/100, цена за очко плавно
+    # падает 9.0→7.0 (эконом-масштаб: крупная пайка чуть выгоднее, имбы нет). ──
     "food_basic":   {
-        "name": "🥩 Базовый корм",        "category": "food", "price_mora": 120,
+        "name": "🥩 Базовый корм",        "category": "food", "price_mora": 135,
         "fatigue_restore": 15,            "description": "Простая пайка: −15 усталости питомцу. Покормить: Зоопарк → карточка питомца.",
-    },
-    "food_elite":   {
-        "name": "🍗 Элитный корм",        "category": "food", "price_mora": 450,
-        "fatigue_restore": 50,            "description": "Сытный паёк: −50 усталости (втрое сильнее базового). Покормить: Зоопарк → карточка питомца.",
-    },
-    "food_energy":  {
-        "name": "⚡️ Энергетик",          "category": "food", "price_mora": 750,
-        "fatigue_restore": 20,            "buff": "expedition_cd_reset",
-        "description": "Бодрящий энергетик: −20 усталости и сбрасывает кулдаун экспедиции — питомца можно сразу снова в поход. Покормить: Зоопарк → карточка питомца.",
     },
     "food_fried": {
         "name": "🍗 Жаренное мясо",       "category": "food", "price_mora": 255,
         "fatigue_restore": 30,            "description": "Жареное мясо: −30 усталости питомцу. Покормить: Зоопарк → карточка питомца.",
     },
     "food_stew": {
-        "name": "🍖 Тушёная Грудка",      "category": "food", "price_mora": 333,
-        "fatigue_restore": 45,            "description": "Тушёная грудка: −45 усталости питомцу. Покормить: Зоопарк → карточка питомца.",
+        "name": "🍖 Тушёная Грудка",      "category": "food", "price_mora": 400,
+        "fatigue_restore": 50,            "description": "Тушёная грудка: −50 усталости питомцу. Покормить: Зоопарк → карточка питомца.",
     },
-    "food_super": {
-        "name": "💊 Суперкорм",           "category": "food", "price_mora": 1100,
-        "fatigue_restore": 60,            "description": "Суперкорм: −60 усталости активному питомцу и −5 всем в питомнике сразу. Покормить: Зоопарк → карточка активного питомца.",
+    "food_elite":   {
+        "name": "🍗 Элитный корм",        "category": "food", "price_mora": 560,
+        "fatigue_restore": 75,            "description": "Сытный паёк: −75 усталости питомцу — выгоднее за очко. Покормить: Зоопарк → карточка питомца.",
     },
     "food_feast": {
-        "name": "🍱 Праздничный паёк",    "category": "food", "price_mora": 865,
-        "fatigue_restore": 90,            "description": "Праздничный паёк: −90 усталости активному питомцу. Покормить: Зоопарк → карточка питомца.",
+        "name": "🍱 Праздничный паёк",    "category": "food", "price_mora": 700,
+        "fatigue_restore": 100,           "description": "Праздничный паёк: −100 усталости — полностью снимает усталость одному питомцу. Покормить: Зоопарк → карточка питомца.",
+    },
+    # ── Спец-корм (утилита / AoE / премиум) ──
+    "food_energy":  {
+        "name": "⚡️ Энергетик",          "category": "food", "price_mora": 600,
+        "fatigue_restore": 20,            "buff": "expedition_cd_reset",
+        "description": "Бодрящий энергетик: −20 усталости и МГНОВЕННО завершает текущий поход — питомец сразу возвращается с лутом. Покормить: Зоопарк → карточка питомца.",
+    },
+    "food_super": {
+        "name": "💊 Суперкорм",           "category": "food", "price_mora": 850,
+        "fatigue_restore": 60,            "buff": "nursery_aoe_10",
+        "description": "Суперкорм: −60 усталости активному питомцу и −10 ВСЕМ в питомнике сразу. Покормить: Зоопарк → карточка активного питомца.",
     },
     "food_diamond": {
         "name": "💎 Алмазное лакомство",  "category": "food", "price_diamonds": 12,
-        "fatigue_restore": 100,           "buff": "efficiency_20", "duration_hours": 24,
-        "description": "Деликатес за алмазы: полностью снимает усталость и даёт +20% к эффективности на 24ч. Покормить: Зоопарк → карточка питомца.",
+        "fatigue_restore": 100,           "buff": "nursery_full_rest",
+        "description": "Деликатес за алмазы: ПОЛНОСТЬЮ снимает усталость активному питомцу И ВСЕМ в питомнике. Покормить: Зоопарк → карточка питомца.",
     },
     # NB: slot_expander удалён в Блоке 2 — слоты питомника теперь покупаются
     # напрямую за алмазы (прогрессивная цена), см. core/constants ZOO_SLOT_PRICES_DIAMONDS.
@@ -238,10 +242,10 @@ EXPEDITIONS_DATA: Dict[int, Dict[str, int]] = {
 # The actual slot price = round(qty × base_price × (1 - discount)).
 
 DAILY_DEAL_POOL_MORA: list = [
-    {"item_id": "food_basic",          "qty_range": (1, 5), "base_price_mora": 120},
-    {"item_id": "food_elite",          "qty_range": (1, 3), "base_price_mora": 450},
-    {"item_id": "food_energy",         "qty_range": (1, 3), "base_price_mora": 750},
-    {"item_id": "food_super",          "qty_range": (1, 2), "base_price_mora": 1100},
+    {"item_id": "food_basic",          "qty_range": (1, 5), "base_price_mora": 135},
+    {"item_id": "food_elite",          "qty_range": (1, 3), "base_price_mora": 560},
+    {"item_id": "food_energy",         "qty_range": (1, 3), "base_price_mora": 600},
+    {"item_id": "food_super",          "qty_range": (1, 2), "base_price_mora": 850},
     {"item_id": "spin_token",          "qty_range": (1, 3), "base_price_mora": 600},
     {"item_id": "treasure_map",        "qty_range": (1, 2), "base_price_mora": 900},
     {"item_id": "lucky_charm",         "qty_range": (1, 2), "base_price_mora": 900},

@@ -230,12 +230,23 @@ async def feed_pet(body: FeedRequest, db=Depends(get_db), user=Depends(require_t
     new_fatigue = max(0, pet["fatigue"] - restore)
     await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_fatigue, body.pet_id))
 
-    # food_super: restore −5 fatigue to all other nursery pets
+    # food_super: −10 усталости всем остальным питомцам в питомнике (AoE)
     if body.food_id == "food_super":
         await db.execute(
-            "UPDATE pets SET fatigue = GREATEST(0, fatigue - 5) "
+            "UPDATE pets SET fatigue = GREATEST(0, fatigue - 10) "
             "WHERE owner_id = ? AND placement IN ('active', 'passive') AND id != ?",
             (user["id"], body.pet_id),
+        )
+    # food_diamond: ПОЛНЫЙ сброс усталости активному И ВСЕМ питомцам (премиум AoE)
+    elif body.food_id == "food_diamond":
+        await db.execute("UPDATE pets SET fatigue = 0 WHERE owner_id = ?", (user["id"],))
+        new_fatigue = 0
+    # food_energy: мгновенно завершить текущий поход (вернуть питомца с лутом сразу).
+    # Раньше веб этого НЕ делал — эффект работал только в боте (рассинхрон).
+    if body.food_id == "food_energy":
+        await db.execute(
+            "UPDATE active_expeditions SET ends_at = CURRENT_TIMESTAMP WHERE pet_id = ?",
+            (body.pet_id,),
         )
 
     await db.commit()
