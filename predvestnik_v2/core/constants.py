@@ -428,6 +428,34 @@ ZARNIKI_EXCHANGE_RATES: dict = {
     "diamonds": ZARNIKI_TO_DIAMONDS_RATE,   # 1✨ = 0.05💎 → 1💎 дефицита = 20✨
 }
 
+# ── БЛОК21 #3: сундуки-сюрпризы, осколки косметик-крафта ─────────────────────────
+# Сундуки покупаются за ⭐ (payload chest:{token}, выдаётся ТОКЕН-предмет), открываются
+# в мини-аппе (момент реветь/дофамин). Лут: запись ("kind", value, weight):
+#   ("shards", N, w)  → N осколков · ("item", item_id, w) → расходник · ("cosmetic", rarity, w)
+# Косметика берётся ТОЛЬКО из source=="shop" нужной редкости (эксклюзивы VIP/БП/ачивок
+# из сундуков НЕ падают → не обесцениваются). Дубликат → осколки (COSMETIC_DUPE_SHARDS).
+COSMETIC_CHESTS: dict = {
+    "chest_mini": {
+        "name": "🎁 Мини-сюрприз", "stars": 5,
+        "loot": [
+            ("shards", 3, 30), ("shards", 6, 16),
+            ("item", "food_elite", 22), ("item", "potion_luck_s", 14),
+            ("item", "exp_boost_2h", 8), ("cosmetic", "common", 10),
+        ],
+    },
+    "chest_style": {
+        "name": "🎁 Сундук Стиля", "stars": 25,
+        "loot": [
+            ("cosmetic", "common", 30), ("cosmetic", "rare", 38),
+            ("cosmetic", "epic", 24), ("shards", 30, 8),
+        ],
+    },
+}
+# Осколки за дубликат косметики из сундука (выпала, но уже есть) — по редкости:
+COSMETIC_DUPE_SHARDS: dict = {"common": 3, "rare": 6, "epic": 12, "legendary": 25, "mythic": 50}
+# Крафт косметики из осколков — стоимость по редкости (только source=="shop"):
+COSMETIC_CRAFT_SHARDS: dict = {"common": 10, "rare": 25, "epic": 60, "legendary": 150, "mythic": 400}
+
 # ── Крипто-Биржа (ШАГ4): защита экономики ───────────────────────────────────────
 # Баланс-ребаланс: комиссия теперь на ОБЕИХ сторонах (buy И sell) — раньше спред был
 # только на продаже, и игрок покупал дёшево даром → продавал у среднего → принтер

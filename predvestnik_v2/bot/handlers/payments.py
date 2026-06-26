@@ -121,7 +121,7 @@ async def msg_custom_zarniki_amount(message: types.Message, bot: Bot):
 @router.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
     pl = pre_checkout_query.invoice_payload
-    if pl.startswith("zarniki:") or pl.startswith("gift:"):
+    if pl.startswith("zarniki:") or pl.startswith("gift:") or pl.startswith("chest:"):
         await pre_checkout_query.answer(ok=True)
     else:
         await pre_checkout_query.answer(ok=False, error_message="Неизвестный платёж.")
@@ -157,6 +157,21 @@ async def on_successful_payment(message: types.Message, db):
             f"✅ Подарок отправлен! <b>{cname}</b> уже у получателя 💜",
             parse_mode="HTML",
         )
+        return
+
+    # БЛОК21 #3: покупка сундука — выдаём ТОКЕН-сундук в инвентарь (открыть в мини-аппе).
+    if payload.startswith("chest:"):
+        from core.constants import COSMETIC_CHESTS
+        chest_id = payload.split(":", 1)[1]
+        if chest_id in COSMETIC_CHESTS:
+            await db.execute(
+                "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, 1) "
+                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + 1",
+                (message.from_user.id, chest_id))
+            await db.commit()
+            await message.answer(
+                f"✅ <b>{COSMETIC_CHESTS[chest_id]['name']}</b> куплен! Открой в мини-аппе → 🎨 Внешний вид → 🎁 Сюрпризы.",
+                parse_mode="HTML")
         return
 
     if not payload.startswith("zarniki:"):

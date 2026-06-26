@@ -132,7 +132,7 @@ function renderLooks(){
   const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
     <span>👑 Смотреть и листать превью можно всё. Покупать косметику и выбирать приветствие — с VIP.</span>
     <button class="btn btn-sm btn-gold" onclick="CM();goTo('market','vip')">Перейти к VIP</button></div>`;
-  b.innerHTML=_looksPreviewHtml()+vipBar+_LOOKS_SLOTS.map(_looksSlotHtml).join('')+_looksWelcomeHtml();
+  b.innerHTML=_looksPreviewHtml()+vipBar+'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'+_LOOKS_SLOTS.map(_looksSlotHtml).join('')+_looksWelcomeHtml();
   _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
 }
 // Мини-карточка профиля из набора слотов sel — для сравнения «Сейчас → Станет».
@@ -278,6 +278,49 @@ function _setWelcome(id){
     .then(r=>toast(r.message))
     .catch(e=>{toast(e,false); w.current=prev;
       (w.options||[]).forEach(o=>o.current=(o.id===prev)); renderLooks();});
+}
+// ── БЛОК21 #3: сундуки-сюрпризы + крафт косметики из осколков ────────────────────
+function _openSurprisesModal(){
+  OM('🎁 Сюрпризы и Крафт','<div class="loader">Загрузка...</div>',[{l:'← К внешнему виду',c:'btn-ghost',f:'openLooksModal()'}]);
+  Promise.all([api('/cosmetics/chests'),api('/cosmetics/craft')]).then(([ch,cr])=>{
+    const b=el('mb'); if(!b) return;
+    const chests=(ch.chests||[]).map(c=>`<div class="gift-card">
+      <div class="gift-name" style="min-height:auto;margin-bottom:8px">${esc(c.name)}</div>
+      <div class="gift-foot">
+        ${c.owned>0?`<button class="btn btn-sm btn-gold" onclick="_openChest('${c.id}',this)">Открыть (${c.owned})</button>`:''}
+        <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}')">${c.stars}⭐</button>
+      </div></div>`).join('');
+    const craftItems=(cr.items||[]).map(it=>{
+      const sw=it.text?`<span class="lc-title">${esc(it.text)}</span>`:`<span class="lc-nick ${it.css||''}">@Ник</span>`;
+      const btn=it.owned?`<span class="gp-owned">✓ есть</span>`
+        :`<button class="btn btn-sm ${it.can?'btn-gold':'btn-ghost'}" ${it.can?'':'disabled'} onclick="_craftCosmetic('${it.id}',this)">${it.cost} 🔹</button>`;
+      return `<div class="gift-card${it.owned?' gift-owned':''}"><div class="gift-sw">${sw}</div>
+        <div class="gift-name">${esc(it.name)}</div>
+        <div class="gift-foot"><span class="lc-rar">${_rarLabel(it.rarity)}</span>${btn}</div></div>`;
+    }).join('');
+    b.innerHTML=`<div class="looks-hint">🎁 Сундуки за ⭐ дают случайную косметику/расходники; дубль косметики → 🔹 осколки. Из осколков собирай конкретную косметику в Крафте.</div>
+      <div class="looks-slot-t">🎁 Сундуки-сюрпризы</div>
+      <div class="gift-grid">${chests}</div>
+      <div class="looks-slot-t" style="margin-top:14px">🔹 Крафт <span class="clan-coin-note">· осколков: ${cr.shards}</span></div>
+      <div class="gift-grid">${craftItems}</div>`;
+  }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
+}
+function _buyChest(id){
+  api('/payments/chest/invoice',{method:'POST',body:JSON.stringify({chest_id:id})})
+    .then(r=>_openInvoiceLink(r.link, ()=>{ toast('🎁 Сундук куплен! Открой его ниже 💜'); _openSurprisesModal(); }))
+    .catch(e=>toast(e,false));
+}
+function _openChest(id,btn){
+  if(btn) btn.disabled=true;
+  api('/cosmetics/chest/open',{method:'POST',body:JSON.stringify({chest_id:id})})
+    .then(r=>{ const d=r.drop||{}; toast('🎉 '+(d.name||'Открыто!'), true); _looksDirty=true; _openSurprisesModal(); })
+    .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
+}
+function _craftCosmetic(id,btn){
+  if(btn) btn.disabled=true;
+  api('/cosmetics/craft',{method:'POST',body:JSON.stringify({cosmetic_id:id})})
+    .then(r=>{ toast(r.message); _looksDirty=true; _openSurprisesModal(); })
+    .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
 // ── Кланы / Гильдии ─────────────────────────────────────────────────────────────
 let _clansData=null, _clanEmblemSel='🛡';
