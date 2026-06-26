@@ -357,8 +357,30 @@ def _shop_cosmetics(rarity: str) -> list[str]:
             if c.get("source") == "shop" and c.get("rarity") == rarity]
 
 
+_RARITY_RU = {"common": "Обычная", "rare": "Редкая", "epic": "Эпическая",
+              "legendary": "Легендарная", "mythic": "Мифическая"}
+
+
+def _chest_odds(ch: dict) -> list[dict]:
+    """«Что внутри» — честные шансы дропа сундука (витрина, как gacha-odds → доверие + FOMO)."""
+    loot = ch["loot"]
+    total = sum(e[-1] for e in loot) or 1
+    out = []
+    for kind, val, w in loot:
+        pct = round(w / total * 100)
+        if kind == "shards":
+            label, rar = f"🔹 {val} осколков", None
+        elif kind == "item":
+            label, rar = ITEMS_REGISTRY.get(val, {}).get("name", val), None
+        else:  # cosmetic
+            label, rar = f"Косметика · {_RARITY_RU.get(val, val)}", val
+        out.append({"label": label, "pct": pct, "rarity": rar})
+    out.sort(key=lambda x: -x["pct"])
+    return out
+
+
 async def chest_catalog(db, user_id: int) -> list[dict]:
-    """Сундуки: цена в ✨ Зарники + сколько уже у игрока готово к открытию."""
+    """Сундуки: цена в ✨ Зарники + готовые к открытию + честные шансы дропа («что внутри»)."""
     out = []
     for cid, ch in COSMETIC_CHESTS.items():
         async with db.execute(
@@ -366,7 +388,7 @@ async def chest_catalog(db, user_id: int) -> list[dict]:
         ) as c:
             row = await c.fetchone()
         out.append({"id": cid, "name": ch["name"], "zarniki": ch["zarniki"],
-                    "owned": int(row[0]) if row else 0})
+                    "owned": int(row[0]) if row else 0, "odds": _chest_odds(ch)})
     return out
 
 
