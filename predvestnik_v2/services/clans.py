@@ -13,6 +13,7 @@ from core.constants import (
 )
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories import clans as repo
+from services import cosmetics as cos_svc
 
 
 def allowed_request_items() -> list[dict]:
@@ -51,6 +52,12 @@ async def get_overview(db, user_id: int) -> dict:
     if my:
         txp = my.get("total_xp", 0)
         my["members"] = await repo.get_members(db, my["clan_id"])
+        # БЛОК21 «видимый статус»: ник-глоу + титул каждого участника (флекс в клане).
+        _flex = await cos_svc.get_flex_cosmetics_batch(db, [m["user_id"] for m in my["members"]])
+        for m in my["members"]:
+            _f = _flex.get(m["user_id"], {})
+            m["glow"] = _f.get("glow")
+            m["title"] = _f.get("title")
         my["level"] = repo.clan_level(txp)
         my["level_progress"] = repo.clan_level_progress(txp)
         my["buildings"] = repo.building_levels(txp)

@@ -297,7 +297,8 @@ function _clanMyHtml(){
   const emax=c.effective_max||_clansData.max_members;
   const members=(c.members||[]).map(m=>{
     const lead=m.role==='leader';
-    return `<div class="clan-mrow"><span class="clan-mname">${lead?'👑 ':''}${unameLink(m.user_id, m.username, false)}</span>
+    const title=m.title?`<div class="top-title">${esc(m.title)}</div>`:'';
+    return `<div class="clan-mrow"><span class="clan-mname">${lead?'👑 ':''}${unameLink(m.user_id, m.username, false, m.glow)}${title}</span>
       <span class="clan-mrole">🎖 ${fmtF(m.clan_coins||0)}</span></div>`;
   }).join('');
   return `<div class="clan-card">

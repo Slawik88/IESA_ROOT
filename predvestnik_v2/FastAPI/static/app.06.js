@@ -196,7 +196,7 @@ function _cxTrade(){
     .catch(e=>toast(e,false));
 }
 // ── Глобальный профиль (БЛОК19 Часть3): клик по нику → витрина игрока ────────────
-function unameLink(userId,name,vip){ if(!userId) return esc('@'+(name||'?')); return `<span class="uname-link" onclick="openGlobalProfile(${userId})">${vip?'👑':''}@${esc(name||('id'+userId))}</span>`; }
+function unameLink(userId,name,vip,glow){ if(!userId) return esc('@'+(name||'?')); return `<span class="uname-link${glow?' '+glow:''}" onclick="openGlobalProfile(${userId})">${vip?'👑':''}@${esc(name||('id'+userId))}</span>`; }
 function openGlobalProfile(userId){
   if(!userId) return;
   OM('👤 Профиль игрока','<div class="loader">Загрузка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]);

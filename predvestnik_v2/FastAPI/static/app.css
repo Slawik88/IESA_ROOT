@@ -618,6 +618,8 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .tpos { width: 30px; text-align: center; font-weight: 800; color: var(--muted); flex: none; }
 .tname { flex: 1; color: var(--bright); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tcnt { color: var(--muted); font-variant-numeric: tabular-nums; }
+/* БЛОК21: титул-косметика под ником в топах/клане (флекс статуса) */
+.top-title { font-size: 9px; color: var(--gold2); font-weight: 600; line-height: 1.1; margin-top: 1px; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* VIP строка в Зале Славы — переливающийся золотой градиент */
 @keyframes vipShimmer {
   0%   { background-position: -200% center; }
