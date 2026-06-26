@@ -628,6 +628,9 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .gift-name { font-size: 11px; font-weight: 600; color: var(--bright); margin-bottom: 6px; min-height: 26px; }
 .gift-foot { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .gp-owned { font-size: 10px; color: var(--green); }
+/* БЛОК21 #3: «что внутри» сундука — честные шансы дропа (доверие + FOMO) */
+.chest-odds { display: flex; flex-wrap: wrap; gap: 3px; }
+.chest-odd { font-size: 8.5px; padding: 1px 5px; border-radius: 5px; background: rgba(255,255,255,.045); color: var(--muted); white-space: nowrap; }
 /* БЛОК21 #4/#5: FOMO-плашка эксклюзива сезона на БП */
 .bp-exclusive { margin-top: 6px; padding: 6px 8px; border-radius: 8px; font-size: 10px; line-height: 1.4; color: var(--gold2); background: linear-gradient(90deg, rgba(214,68,68,.13), rgba(201,168,76,.08)); border: 1px solid rgba(201,168,76,.3); }
 .bp-exc-tag { font-size: 8px; color: var(--gold2); white-space: nowrap; }

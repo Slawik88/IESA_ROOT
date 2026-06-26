@@ -284,12 +284,16 @@ function _openSurprisesModal(){
   OM('🎁 Сюрпризы и Крафт','<div class="loader">Загрузка...</div>',[{l:'← К внешнему виду',c:'btn-ghost',f:'openLooksModal()'}]);
   Promise.all([api('/cosmetics/chests'),api('/cosmetics/craft')]).then(([ch,cr])=>{
     const b=el('mb'); if(!b) return;
-    const chests=(ch.chests||[]).map(c=>`<div class="gift-card">
-      <div class="gift-name" style="min-height:auto;margin-bottom:8px">${esc(c.name)}</div>
-      <div class="gift-foot">
-        ${c.owned>0?`<button class="btn btn-sm btn-gold" onclick="_openChest('${c.id}',this)">Открыть (${c.owned})</button>`:''}
-        <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}')">${c.zarniki} ✨</button>
-      </div></div>`).join('');
+    const chests=(ch.chests||[]).map(c=>{
+      const odds=(c.odds||[]).map(o=>`<span class="chest-odd ${o.rarity?(RC[o.rarity]||''):''}">${esc(o.label)} · ${o.pct}%</span>`).join('');
+      return `<div class="gift-card">
+        <div class="gift-name" style="min-height:auto;margin-bottom:6px">${esc(c.name)}</div>
+        <div class="chest-odds">${odds}</div>
+        <div class="gift-foot" style="margin-top:8px">
+          ${c.owned>0?`<button class="btn btn-sm btn-gold" onclick="_openChest('${c.id}',this)">Открыть (${c.owned})</button>`:''}
+          <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}')">${c.zarniki} ✨</button>
+        </div></div>`;
+    }).join('');
     const craftItems=(cr.items||[]).map(it=>{
       const foot=it.owned?'<span class="lc-on">✓ есть</span>'
         :`<button class="btn btn-sm ${it.can?'btn-gold':'btn-ghost'}" ${it.can?'':'disabled'} onclick="_craftCosmetic('${it.id}',this)">${it.cost} 🔹</button>`;
