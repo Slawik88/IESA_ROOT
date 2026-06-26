@@ -133,6 +133,7 @@ async def cosmetics_gift_catalog(recipient_id: int, db=Depends(get_db), user=Dep
 class GiftRequest(BaseModel):
     recipient_id: int
     cosmetic_id: str
+    chat_id: int = 0   # чат, откуда открыт мини-апп — для публичного «X подарил Y» (виральность)
 
 
 @router.post("/gift")
@@ -140,9 +141,18 @@ async def cosmetics_gift(body: GiftRequest, db=Depends(get_db), user=Depends(req
     ok, msg, cname = await gift_cosmetic(db, user["id"], body.recipient_id, body.cosmetic_id)
     if not ok:
         raise HTTPException(400, msg)
-    sender = user.get("username") or "Друг"
+    from infrastructure.repositories import users as users_repo
+    sn = await users_repo.get_user_name(db, user["id"])
+    sender = f"@{sn}" if sn and sn != str(user["id"]) else "Друг"
+    # DM получателю.
     await _tg_dm(body.recipient_id,
-                 f"🎁 <b>@{sender}</b> подарил тебе <b>{cname}</b>! Надень в мини-аппе → 🎨 Внешний вид.")
+                 f"🎁 <b>{sender}</b> подарил тебе <b>{cname}</b>! Надень в мини-аппе → 🎨 Внешний вид.")
+    # Публичное признание в чате (БЛОК21 #3.2: виральность) — только в текущий чат, не спам.
+    if body.chat_id:
+        rn = await users_repo.get_user_name(db, body.recipient_id)
+        rdisp = f"@{rn}" if rn and rn != str(body.recipient_id) else "другу"
+        await _tg_dm(body.chat_id,
+                     f"🎁 <b>{sender}</b> подарил {rdisp} <b>{cname}</b>! Щедрость 💜")
     return {"ok": True, "message": msg}
 
 
