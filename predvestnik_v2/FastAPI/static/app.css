@@ -437,7 +437,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   .plm-neon .plw-nick {
     -webkit-text-fill-color: transparent;
     background: linear-gradient(90deg, #67e8f9, #c084fc, #67e8f9);
-    background-size: 220% 100%;
+    background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
     animation: plwReveal .7s cubic-bezier(.34,1.56,.64,1) .18s forwards,
                plwShine 2.4s ease-in-out .8s infinite,
                plmNeon 1.7s ease-in-out .9s infinite;
@@ -457,7 +457,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   .plm-ripple .plw-nick {
     -webkit-text-fill-color: transparent;
     background: linear-gradient(90deg, #7dd3fc, #e0f2fe, #7dd3fc);
-    background-size: 220% 100%;
+    background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
     animation: plwReveal .8s ease .25s forwards, plwShine 2.6s ease-in-out .8s infinite;
   }
 }
@@ -505,7 +505,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   .plm-stardust .plw-nick {
     -webkit-text-fill-color: transparent;
     background: linear-gradient(90deg, #ffe08a, #fff6d6, #ffd76a);
-    background-size: 220% 100%;
+    background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
     animation: plwReveal .8s ease .2s forwards, plwShine 2.4s ease-in-out .8s infinite;
   }
 }
