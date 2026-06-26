@@ -436,7 +436,7 @@ ZARNIKI_EXCHANGE_RATES: dict = {
 # из сундуков НЕ падают → не обесцениваются). Дубликат → осколки (COSMETIC_DUPE_SHARDS).
 COSMETIC_CHESTS: dict = {
     "chest_mini": {
-        "name": "🎁 Мини-сюрприз", "stars": 5,
+        "name": "🎁 Мини-сюрприз", "zarniki": 50,
         "loot": [
             ("shards", 3, 30), ("shards", 6, 16),
             ("item", "food_elite", 22), ("item", "potion_luck_s", 14),
@@ -444,7 +444,7 @@ COSMETIC_CHESTS: dict = {
         ],
     },
     "chest_style": {
-        "name": "🎁 Сундук Стиля", "stars": 25,
+        "name": "🎁 Сундук Стиля", "zarniki": 250,
         "loot": [
             ("cosmetic", "common", 30), ("cosmetic", "rare", 38),
             ("cosmetic", "epic", 24), ("shards", 30, 8),

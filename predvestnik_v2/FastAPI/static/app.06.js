@@ -236,25 +236,25 @@ function renderGlobalProfile(d, recipientId){
 // ── БЛОК21: подарок косметики за Stars (виральность) ─────────────────────────────
 function _openGiftModal(rid){
   OM('🎁 Подарить косметику','<div class="loader">Загрузка...</div>',[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
-  api('/payments/gift/catalog?recipient_id='+rid).then(d=>{
+  api('/cosmetics/gift/catalog?recipient_id='+rid).then(d=>{
     const items=(d.items||[]); const b=el('mb'); if(!b) return;
     if(!items.length){ b.innerHTML='<div class="cx-dim" style="padding:12px;text-align:center">Нет косметики для подарка.</div>'; return; }
     const cards=items.map(it=>{
       const sw = it.text ? `<span class="lc-title">${esc(it.text)}</span>` : `<span class="lc-nick ${it.css||''}">@Ник</span>`;
       const btn = it.owned ? `<span class="gp-owned">✓ уже есть</span>`
-        : `<button class="btn btn-sm btn-gold" onclick="_giftBuy(${rid},'${it.id}',this)">${it.stars}⭐</button>`;
+        : `<button class="btn btn-sm btn-gold" onclick="_giftBuy(${rid},'${it.id}',this)">${it.zarniki} ✨</button>`;
       return `<div class="gift-card${it.owned?' gift-owned':''}">
         <div class="gift-sw">${sw}</div><div class="gift-name">${esc(it.name)}</div>
         <div class="gift-foot"><span class="lc-rar">${_rarLabel(it.rarity)}</span>${btn}</div></div>`;
     }).join('');
-    b.innerHTML=`<div class="looks-hint">🎁 Списываются твои ⭐ — подарок прилетит игроку, а в его профиле/топах засветится статус. Серые — у него уже есть.</div>
+    b.innerHTML=`<div class="looks-hint">🎁 Списываются твои ✨ Зарники — подарок прилетит игроку, а в его профиле/топах засветится статус. Серые — у него уже есть.</div>
       <div class="gift-grid">${cards}</div>`;
   }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
 function _giftBuy(rid, cid, btn){
   if(btn) btn.disabled=true;
-  api('/payments/gift/invoice',{method:'POST',body:JSON.stringify({recipient_id:rid,cosmetic_id:cid})})
-    .then(r=>_openInvoiceLink(r.link, ()=>{ toast('🎁 Подарок отправлен! 💜'); CM(); }))
+  api('/cosmetics/gift',{method:'POST',body:JSON.stringify({recipient_id:rid,cosmetic_id:cid})})
+    .then(r=>{ toast(r.message||'🎁 Подарок отправлен! 💜'); refreshCurrBar(); CM(); })
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
 // ── Теневые Врата (БЛОК19 Ч.7): боевой питомец фармит Тёмную Мору, теряя HP ──────
