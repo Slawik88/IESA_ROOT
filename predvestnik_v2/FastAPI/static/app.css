@@ -620,6 +620,14 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .tcnt { color: var(--muted); font-variant-numeric: tabular-nums; }
 /* БЛОК21: титул-косметика под ником в топах/клане (флекс статуса) */
 .top-title { font-size: 9px; color: var(--gold2); font-weight: 600; line-height: 1.1; margin-top: 1px; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* БЛОК21: карточки подарка косметики (модалка «Подарить») */
+.gift-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.gift-card { background: var(--s); border: 1px solid var(--border2); border-radius: 12px; padding: 10px; text-align: center; }
+.gift-card.gift-owned { opacity: .5; }
+.gift-sw { height: 26px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; font-size: 13px; }
+.gift-name { font-size: 11px; font-weight: 600; color: var(--bright); margin-bottom: 6px; min-height: 26px; }
+.gift-foot { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.gp-owned { font-size: 10px; color: var(--green); }
 /* VIP строка в Зале Славы — переливающийся золотой градиент */
 @keyframes vipShimmer {
   0%   { background-position: -200% center; }

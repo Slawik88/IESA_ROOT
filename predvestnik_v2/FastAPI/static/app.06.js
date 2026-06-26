@@ -200,9 +200,9 @@ function unameLink(userId,name,vip,glow){ if(!userId) return esc('@'+(name||'?')
 function openGlobalProfile(userId){
   if(!userId) return;
   OM('👤 Профиль игрока','<div class="loader">Загрузка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]);
-  api('/profile/u/'+userId).then(renderGlobalProfile).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
+  api('/profile/u/'+userId).then(d=>renderGlobalProfile(d, userId)).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
-function renderGlobalProfile(d){
+function renderGlobalProfile(d, recipientId){
   const b=el('mb'); if(!b) return;
   const co=d.cosmetics||{}, cls=s=>(co[s]&&co[s].css)||'';
   const emap=(typeof PET_SPECIES_EMOJI!=='undefined')?PET_SPECIES_EMOJI:{};
@@ -230,7 +230,32 @@ function renderGlobalProfile(d){
       <div class="gp-st"><div class="gp-sv">${fmt(d.messages)}</div><div class="gp-sl">Сообщений</div></div>
     </div>
     <div class="looks-slot-t" style="margin-top:12px">🐾 Питомцы (${(d.pets||[]).length})</div>
-    <div class="gp-pets">${pets}</div>`;
+    <div class="gp-pets">${pets}</div>
+    ${(recipientId && String(recipientId)!==String(typeof _uid!=='undefined'?_uid:''))?`<button class="btn btn-gold btn-full" style="margin-top:12px" onclick="_openGiftModal(${recipientId})">🎁 Подарить косметику</button>`:''}`;
+}
+// ── БЛОК21: подарок косметики за Stars (виральность) ─────────────────────────────
+function _openGiftModal(rid){
+  OM('🎁 Подарить косметику','<div class="loader">Загрузка...</div>',[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  api('/payments/gift/catalog?recipient_id='+rid).then(d=>{
+    const items=(d.items||[]); const b=el('mb'); if(!b) return;
+    if(!items.length){ b.innerHTML='<div class="cx-dim" style="padding:12px;text-align:center">Нет косметики для подарка.</div>'; return; }
+    const cards=items.map(it=>{
+      const sw = it.text ? `<span class="lc-title">${esc(it.text)}</span>` : `<span class="lc-nick ${it.css||''}">@Ник</span>`;
+      const btn = it.owned ? `<span class="gp-owned">✓ уже есть</span>`
+        : `<button class="btn btn-sm btn-gold" onclick="_giftBuy(${rid},'${it.id}',this)">${it.stars}⭐</button>`;
+      return `<div class="gift-card${it.owned?' gift-owned':''}">
+        <div class="gift-sw">${sw}</div><div class="gift-name">${esc(it.name)}</div>
+        <div class="gift-foot"><span class="lc-rar">${_rarLabel(it.rarity)}</span>${btn}</div></div>`;
+    }).join('');
+    b.innerHTML=`<div class="looks-hint">🎁 Списываются твои ⭐ — подарок прилетит игроку, а в его профиле/топах засветится статус. Серые — у него уже есть.</div>
+      <div class="gift-grid">${cards}</div>`;
+  }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
+}
+function _giftBuy(rid, cid, btn){
+  if(btn) btn.disabled=true;
+  api('/payments/gift/invoice',{method:'POST',body:JSON.stringify({recipient_id:rid,cosmetic_id:cid})})
+    .then(r=>_openInvoiceLink(r.link, ()=>{ toast('🎁 Подарок отправлен! 💜'); CM(); }))
+    .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
 // ── Теневые Врата (БЛОК19 Ч.7): боевой питомец фармит Тёмную Мору, теряя HP ──────
 let _gatesData=null;

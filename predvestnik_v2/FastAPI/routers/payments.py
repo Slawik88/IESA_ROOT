@@ -13,8 +13,10 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from FastAPI.deps import require_tg_user
+from FastAPI.deps import get_db, require_tg_user
 from core.constants import ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR
+from core.cosmetics import COSMETICS
+from services import cosmetics as cos_svc
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -79,3 +81,41 @@ async def zarniki_invoice(body: InvoiceRequest, user=Depends(require_tg_user)):
     if not res.get("ok") or not res.get("result"):
         raise HTTPException(502, "Не удалось создать счёт. Попробуйте позже.")
     return {"link": res["result"], "stars": stars, "zarniki": zarniki}
+
+
+# ── Подарки косметики за Stars (БЛОК21: виральность) ─────────────────────────────
+
+@router.get("/gift/catalog")
+async def gift_catalog(recipient_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Косметика, которую можно подарить игроку recipient_id (с ценой в ⭐ + флаг owned)."""
+    items = await cos_svc.giftable_cosmetics(db, recipient_id)
+    return {"recipient_id": recipient_id, "items": items}
+
+
+class GiftInvoiceRequest(BaseModel):
+    recipient_id: int
+    cosmetic_id: str
+
+
+@router.post("/gift/invoice")
+async def gift_invoice(body: GiftInvoiceRequest, user=Depends(require_tg_user)):
+    """Stars-invoice на подарок косметики. Начисление получателю — в боте (payload gift:)."""
+    cos = COSMETICS.get(body.cosmetic_id)
+    if not cos:
+        raise HTTPException(404, "Косметика не найдена.")
+    if int(body.recipient_id) == int(user["id"]):
+        raise HTTPException(400, "Нельзя подарить самому себе 🙂")
+    stars = cos_svc._gift_stars(cos)
+    if not stars:
+        raise HTTPException(400, "Эту косметику нельзя подарить.")
+    res = await _tg_call(
+        "createInvoiceLink",
+        title=f"🎁 {cos['name']}",
+        description=f"Подарок косметики «{cos['name']}» другу в Предвестнике",
+        payload=f"gift:{int(body.recipient_id)}:{body.cosmetic_id}",
+        provider_token="", currency="XTR",
+        prices=[{"label": f"🎁 {cos['name']}", "amount": stars}],
+    )
+    if not res.get("ok") or not res.get("result"):
+        raise HTTPException(502, "Не удалось создать счёт. Попробуйте позже.")
+    return {"link": res["result"], "stars": stars}

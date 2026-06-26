@@ -586,30 +586,22 @@ function goToZarTop() {
   toast('Пополни Зарники сверху ☝️');
 }
 
+// Открыть Stars-invoice с фолбэками (openInvoice → openTelegramLink → window.open).
+// openInvoice есть в telegram-web-app.js, но старый клиент / запуск по ссылке из группы
+// может НЕ поддерживать метод (WebAppMethodUnsupported) → гейтим по версии + try/catch.
+function _openInvoiceLink(link, onPaid){
+  const verOk = tg && (!tg.isVersionAtLeast || tg.isVersionAtLeast('6.1'));
+  const onStatus = status=>{ if(status==='paid'){ if(onPaid) onPaid(); } else if(status==='failed'){ toast('Платёж не прошёл',false); } };
+  if(tg && typeof tg.openInvoice === 'function' && verOk){ try { tg.openInvoice(link, onStatus); return; } catch(e) {} }
+  if(tg && typeof tg.openTelegramLink === 'function' && verOk){ try { tg.openTelegramLink(link); toast('Счёт открыт в Telegram — оплати звёздами'); return; } catch(e) {} }
+  window.open(link, '_blank'); toast('Счёт открыт — оплати звёздами в Telegram');
+}
 function buyZarniki(stars) {
   api('/payments/zarniki/invoice',{method:'POST',body:JSON.stringify({stars})})
-    .then(r=>{
-      const link = r.link;
-      const onStatus = status=>{
-        if(status==='paid'){
-          toast('✨ Зарники зачислены! Спасибо за поддержку 💜');
-          CM();
-          setTimeout(()=>{ loadProfile(); if(_mktTab==='vip') loadVip(); }, 1600);
-        } else if(status==='failed'){ toast('Платёж не прошёл',false); }
-      };
-      // openInvoice есть в telegram-web-app.js, но клиент может НЕ поддерживать метод
-      // (старая версия / запуск по обычной ссылке из группы) → WebAppMethodUnsupported.
-      // Гейтим по версии + try/catch, иначе открываем счёт ссылкой в Telegram.
-      const verOk = tg && (!tg.isVersionAtLeast || tg.isVersionAtLeast('6.1'));
-      if(tg && typeof tg.openInvoice === 'function' && verOk){
-        try { tg.openInvoice(link, onStatus); return; } catch(e) { /* fallback ниже */ }
-      }
-      if(tg && typeof tg.openTelegramLink === 'function' && verOk){
-        try { tg.openTelegramLink(link); toast('Счёт открыт в Telegram — оплати звёздами там'); return; } catch(e) {}
-      }
-      window.open(link, '_blank');
-      toast('Счёт открыт — оплати звёздами в Telegram');
-    })
+    .then(r=>_openInvoiceLink(r.link, ()=>{
+      toast('✨ Зарники зачислены! Спасибо за поддержку 💜'); CM();
+      setTimeout(()=>{ loadProfile(); if(_mktTab==='vip') loadVip(); }, 1600);
+    }))
     .catch(e=>toast(e,false));
 }
 function buyZarnikiCustom() {
