@@ -239,6 +239,12 @@ function doEquipTheme(tid) {
 // ── Top ───────────────────────────────────────────────────────────────────────
 // Priority: chat where mini app was opened (_initChatId) → profile chat (_cid)
 function loadTop(){switchTop('local',document.querySelector('#pro-hof .tab-inner .tb'));}
+// БЛОК21 «видимый статус»: имя в топе с флексом — ник-глоу (косметика) + титул под ником.
+function _topName(r){
+  const g = r.glow ? ' '+r.glow : '';
+  const t = r.title ? `<div class="top-title">${esc(r.title)}</div>` : '';
+  return `<span class="uname-link${g}" onclick="openGlobalProfile(${r.user_id})">${vipName(r.username, r.is_vip)}</span>${t}`;
+}
 function switchTop(mode, btn) {
   document.querySelectorAll('#pro-hof .tab-inner .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
@@ -265,17 +271,17 @@ function switchTop(mode, btn) {
       const podium = top3.length>=2 ? '<div class="podium">'+top3.map((r,i)=>`
         <div class="pd pd-${i+1}">
           <div class="pd-medal">${MEDALS[i]}</div>
-          <div class="pd-name"><span class="uname-link" onclick="openGlobalProfile(${r.user_id})">${vipName(r.username, r.is_vip)}</span></div>
+          <div class="pd-name">${_topName(r)}</div>
           <div class="pd-cnt">${fmt(r.count)} 💬</div>
         </div>`).join('')+'</div>' : '';
       const restHtml = rest.length ? '<div class="card">'+rest.map((r,i)=>`<div class="trow${r.is_vip?' trow-vip':''}">
           <div class="tpos">${i+4}</div>
-          <div class="tname"><span class="uname-link" onclick="openGlobalProfile(${r.user_id})">${vipName(r.username, r.is_vip)}</span></div>
+          <div class="tname">${_topName(r)}</div>
           <div class="tcnt">${fmt(r.count)} 💬</div>
         </div>`).join('')+'</div>' : '';
       // если меньше 2 игроков — просто список
       const single = (top3.length<2) ? '<div class="card">'+top3.map((r,i)=>`<div class="trow">
-          <div class="tpos">${MEDALS[i]||(i+1)}</div><div class="tname"><span class="uname-link" onclick="openGlobalProfile(${r.user_id})">${vipName(r.username, r.is_vip)}</span></div>
+          <div class="tpos">${MEDALS[i]||(i+1)}</div><div class="tname">${_topName(r)}</div>
           <div class="tcnt">${fmt(r.count)} 💬</div></div>`).join('')+'</div>' : '';
       el('top-c').innerHTML = header + podium + single + restHtml;
     })

@@ -273,3 +273,31 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
     else:
         out["welcome"] = chosen if anim else WELCOME_DEFAULT
     return out
+
+
+async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
+    """БЛОК21: лёгкая косметика для «флекса» в топах/списках — ник-глоу (css) + титул,
+    ОДНИМ запросом на всех. → {user_id: {"glow": css|None, "title": str|None}}.
+    Виден статус везде, где есть зрители → главный драйвер конверсии (зависть)."""
+    ids = [int(u) for u in (user_ids or [])]
+    if not ids:
+        return {}
+    out: dict[int, dict] = {}
+    ph = ",".join(["?"] * len(ids))
+    async with db.execute(
+        f"SELECT user_id, slot, cosmetic_id FROM user_cosmetic_loadout "
+        f"WHERE user_id IN ({ph}) AND slot IN ('name_glow', 'title')",
+        tuple(ids),
+    ) as c:
+        rows = await c.fetchall()
+    for r in rows:
+        uid, slot, cid = int(r[0]), r[1], r[2]
+        cos = COSMETICS.get(cid)
+        if not cos:
+            continue
+        d = out.setdefault(uid, {})
+        if slot == "title":
+            d["title"] = cos.get("text") or cos["name"]
+        elif slot == "name_glow":
+            d["glow"] = cos.get("css")
+    return out
