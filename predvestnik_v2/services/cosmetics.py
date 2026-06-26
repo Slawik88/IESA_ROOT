@@ -3,14 +3,13 @@
 Бизнес-логика косметики: каталог, покупка (мульти/альт-валюта), экипировка, выдача.
 No bot.*/FastAPI.* imports. Только косметика — без игрового преимущества.
 """
-import math
 import random
 
 from core.cosmetics import (
     COSMETICS, COSMETIC_SLOTS, WELCOME_ANIMATIONS, WELCOME_DEFAULT,
 )
 from core.constants import (
-    ZARNIKI_PER_STAR, COSMETIC_CHESTS, COSMETIC_DUPE_SHARDS, COSMETIC_CRAFT_SHARDS,
+    COSMETIC_CHESTS, COSMETIC_DUPE_SHARDS, COSMETIC_CRAFT_SHARDS,
 )
 from core.registry import ITEMS_REGISTRY
 from services.vip import is_vip_active
@@ -310,30 +309,29 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
     return out
 
 
-def _gift_stars(cos: dict) -> int | None:
-    """Цена подарка в ⭐ из зарникового варианта косметики (1⭐ = ZARNIKI_PER_STAR✨).
-    None — косметику нельзя подарить (нет зарниковой цены: VIP/БП/ачивка)."""
+def _gift_zarniki(cos: dict) -> int | None:
+    """Цена подарка в ✨ Зарниках = зарниковая цена косметики. None — нельзя подарить
+    (нет зарниковой цены: VIP/БП/ачивка). В мини-аппе всё покупается за ✨, не за ⭐."""
     for opt in cos.get("price") or []:
         if "zarniki" in opt:
-            return max(1, math.ceil(opt["zarniki"] / ZARNIKI_PER_STAR))
+            return int(opt["zarniki"])
     return None
 
 
 async def giftable_cosmetics(db, recipient_id: int) -> list[dict]:
-    """БЛОК21: косметика, которую можно подарить за ⭐ (есть зарниковая цена),
-    + флаг owned получателем (чтобы не дарить дубликат). Драйвер виральности."""
+    """БЛОК21: косметика для подарка за ✨ Зарники + флаг owned получателем (анти-дубль)."""
     owned = await _owned(db, recipient_id)
     out = []
     for cid, cos in COSMETICS.items():
-        stars = _gift_stars(cos)
-        if stars is None:
+        zar = _gift_zarniki(cos)
+        if zar is None:
             continue
         out.append({
             "id": cid, "name": cos["name"], "slot": cos["slot"], "rarity": cos["rarity"],
             "css": cos.get("css"), "text": cos.get("text"),
-            "stars": stars, "owned": cid in owned,
+            "zarniki": zar, "owned": cid in owned,
         })
-    out.sort(key=lambda x: (x["owned"], x["stars"]))
+    out.sort(key=lambda x: (x["owned"], x["zarniki"]))
     return out
 
 
@@ -360,14 +358,14 @@ def _shop_cosmetics(rarity: str) -> list[str]:
 
 
 async def chest_catalog(db, user_id: int) -> list[dict]:
-    """Сундуки: цена в ⭐ + сколько уже у игрока готово к открытию."""
+    """Сундуки: цена в ✨ Зарники + сколько уже у игрока готово к открытию."""
     out = []
     for cid, ch in COSMETIC_CHESTS.items():
         async with db.execute(
             "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?", (user_id, cid)
         ) as c:
             row = await c.fetchone()
-        out.append({"id": cid, "name": ch["name"], "stars": ch["stars"],
+        out.append({"id": cid, "name": ch["name"], "zarniki": ch["zarniki"],
                     "owned": int(row[0]) if row else 0})
     return out
 
@@ -473,5 +471,65 @@ async def craft_cosmetic(db, user_id: int, cosmetic_id: str) -> tuple[bool, str]
                 "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
                 (user_id, cosmetic_id))
         return True, f"✨ Скрафчено: {cos['name']}! Надень в конструкторе."
+    except Exception as e:
+        return False, f"Ошибка: {e}"
+
+
+# ── БЛОК21: покупки за ✨ Зарники (всё в мини-аппе — за ✨, а ✨ — за ⭐) ───────────
+async def _charge_zarniki(db, user_id: int, amount: int) -> tuple[bool, str]:
+    """Списать ✨ Зарники атомарно (вызывать ВНУТРИ транзакции с FOR UPDATE на users)."""
+    async with db.execute(
+        "SELECT COALESCE(user_balance_zarniki, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
+        (user_id,),
+    ) as c:
+        row = await c.fetchone()
+    have = float(row[0]) if row else 0.0
+    if have < amount:
+        return False, f"Недостаточно ✨ Зарников: нужно {amount}, есть {int(have)}."
+    await db.execute(
+        "UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?",
+        (amount, user_id))
+    return True, "ok"
+
+
+async def gift_cosmetic(db, sender_id: int, recipient_id: int, cosmetic_id: str) -> tuple[bool, str, str]:
+    """Подарить косметику за ✨ Зарники: списать у дарителя → выдать получателю.
+    Возвращает (ok, msg, cosmetic_name) — имя для уведомления получателя в Telegram."""
+    cos = COSMETICS.get(cosmetic_id)
+    if not cos:
+        return False, "Косметика не найдена.", ""
+    if int(sender_id) == int(recipient_id):
+        return False, "Нельзя подарить самому себе 🙂", ""
+    zar = _gift_zarniki(cos)
+    if zar is None:
+        return False, "Эту косметику нельзя подарить.", ""
+    try:
+        async with db.connection.transaction():
+            if cosmetic_id in await _owned(db, recipient_id):
+                return False, "У игрока уже есть эта косметика.", ""
+            ok, msg = await _charge_zarniki(db, sender_id, zar)
+            if not ok:
+                return False, msg, ""
+            await db.execute(
+                "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
+                (recipient_id, cosmetic_id))
+        return True, f"🎁 Подарок отправлен! −{zar}✨", cos["name"]
+    except Exception as e:
+        return False, f"Ошибка: {e}", ""
+
+
+async def buy_chest(db, user_id: int, chest_id: str) -> tuple[bool, str]:
+    """Купить сундук за ✨ Зарники → выдать ТОКЕН-сундук (открыть отдельно для реветь-момента)."""
+    ch = COSMETIC_CHESTS.get(chest_id)
+    if not ch:
+        return False, "Сундук не найден."
+    zar = int(ch["zarniki"])
+    try:
+        async with db.connection.transaction():
+            ok, msg = await _charge_zarniki(db, user_id, zar)
+            if not ok:
+                return False, msg
+            await _add_item(db, user_id, chest_id, 1)
+        return True, f"🎁 {ch['name']} куплен за {zar}✨! Открой его ниже."
     except Exception as e:
         return False, f"Ошибка: {e}"

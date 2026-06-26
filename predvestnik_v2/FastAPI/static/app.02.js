@@ -288,7 +288,7 @@ function _openSurprisesModal(){
       <div class="gift-name" style="min-height:auto;margin-bottom:8px">${esc(c.name)}</div>
       <div class="gift-foot">
         ${c.owned>0?`<button class="btn btn-sm btn-gold" onclick="_openChest('${c.id}',this)">Открыть (${c.owned})</button>`:''}
-        <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}')">${c.stars}⭐</button>
+        <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}')">${c.zarniki} ✨</button>
       </div></div>`).join('');
     const craftItems=(cr.items||[]).map(it=>{
       const sw=it.text?`<span class="lc-title">${esc(it.text)}</span>`:`<span class="lc-nick ${it.css||''}">@Ник</span>`;
@@ -306,8 +306,8 @@ function _openSurprisesModal(){
   }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
 function _buyChest(id){
-  api('/payments/chest/invoice',{method:'POST',body:JSON.stringify({chest_id:id})})
-    .then(r=>_openInvoiceLink(r.link, ()=>{ toast('🎁 Сундук куплен! Открой его ниже 💜'); _openSurprisesModal(); }))
+  api('/cosmetics/chest/buy',{method:'POST',body:JSON.stringify({chest_id:id})})
+    .then(r=>{ toast(r.message||'🎁 Куплено!'); refreshCurrBar(); _openSurprisesModal(); })
     .catch(e=>toast(e,false));
 }
 function _openChest(id,btn){

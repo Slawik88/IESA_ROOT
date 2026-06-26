@@ -3,6 +3,9 @@
 Каталог косметики, покупка (мульти/альт-валюта), экипировка слотов. Только
 косметика, без игрового преимущества. Логика — в services/cosmetics.py.
 """
+import os
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
@@ -10,9 +13,23 @@ from FastAPI.deps import get_db, require_tg_user
 from services.cosmetics import (
     buy, equip, get_catalog, set_welcome, unequip,
     chest_catalog, open_chest, craft_catalog, craft_cosmetic,
+    giftable_cosmetics, gift_cosmetic, buy_chest,
 )
 
 router = APIRouter(prefix="/cosmetics", tags=["cosmetics"])
+
+
+async def _tg_dm(user_id: int, text: str) -> None:
+    """Тихий DM получателю подарка через Bot API. Ошибки глушим (мог не /start-нуть бота)."""
+    token = os.getenv("BOT_TOKEN", "")
+    if not token:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=6) as c:
+            await c.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                         json={"chat_id": user_id, "text": text, "parse_mode": "HTML"})
+    except Exception:
+        pass
 
 
 @router.get("/")
@@ -101,6 +118,41 @@ class CraftRequest(BaseModel):
 @router.post("/craft")
 async def cosmetics_craft(body: CraftRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     ok, msg = await craft_cosmetic(db, user["id"], body.cosmetic_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}
+
+
+# ── БЛОК21: подарки и сундуки за ✨ Зарники (Stars покупают ТОЛЬКО зарники) ───────
+
+@router.get("/gift/catalog")
+async def cosmetics_gift_catalog(recipient_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    return {"recipient_id": recipient_id, "items": await giftable_cosmetics(db, recipient_id)}
+
+
+class GiftRequest(BaseModel):
+    recipient_id: int
+    cosmetic_id: str
+
+
+@router.post("/gift")
+async def cosmetics_gift(body: GiftRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg, cname = await gift_cosmetic(db, user["id"], body.recipient_id, body.cosmetic_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    sender = user.get("username") or "Друг"
+    await _tg_dm(body.recipient_id,
+                 f"🎁 <b>@{sender}</b> подарил тебе <b>{cname}</b>! Надень в мини-аппе → 🎨 Внешний вид.")
+    return {"ok": True, "message": msg}
+
+
+class ChestBuyRequest(BaseModel):
+    chest_id: str
+
+
+@router.post("/chest/buy")
+async def cosmetics_chest_buy(body: ChestBuyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await buy_chest(db, user["id"], body.chest_id)
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}
