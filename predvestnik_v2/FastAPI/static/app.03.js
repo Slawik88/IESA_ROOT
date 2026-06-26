@@ -61,7 +61,7 @@ function _bpRewardCell(level,track,reward) {
     if(reward.mora) parts.push(`+${fmt(reward.mora)} 🪙`);
     if(reward.diamonds) parts.push(`+${reward.diamonds} 💎`);
     (reward.items||[]).forEach(it=>parts.push(`+${it.qty} ${it.name}`));
-    if(reward.theme) parts.push(`🎨 Тема «${reward.theme}»`);
+    if(reward.theme) parts.push(`🎨 Тема «${reward.theme}» <span class="bp-exc-tag">🗓 эксклюзив</span>`);
     text=parts.join(', ')||'—';
   }
   const st=reward.status;
@@ -96,11 +96,16 @@ function _bpSeasonTimer(d){
         : `<span style="color:var(--gold2)">⚠ при текущем темпе MAX не успеть — нужно активнее</span>`;
     }
   }
-  const daysHtml = daysLeft>0?`⏳ До конца сезона: <b>${daysLeft}</b> дн.`:'⏳ Сезон завершается сегодня';
+  const urgent = daysLeft>0 && daysLeft<=7;
+  const daysHtml = daysLeft>0
+    ? `${urgent?'🔥':'⏳'} До конца сезона: <b style="${urgent?'color:var(--red)':''}">${daysLeft}</b> дн.${urgent?' — успей!':''}`
+    : '🔥 Сезон завершается СЕГОДНЯ!';
+  const endStr = (d.season_ends||'').split('-').reverse().slice(0,2).join('.');
   return {html:`<div style="margin-top:8px;font-size:11px;color:var(--muted)">
       ${daysHtml}
       <div class="ach-bar" style="height:5px;margin-top:4px;opacity:.7"><div class="ach-fill" style="width:${elapsedPct}%;background:var(--teal)"></div></div>
       ${projHtml?`<div style="margin-top:4px">${projHtml}</div>`:''}
+      <div class="bp-exclusive">🔒 Косметика и темы сезона — <b>эксклюзив</b>. После ${endStr} их не получить никогда — кто прошёл, флексит навсегда.</div>
     </div>`};
 }
 // C1: справка «за что сколько XP» (данные из status.xp_guide → весов конструктора).
