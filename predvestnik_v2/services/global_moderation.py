@@ -55,15 +55,20 @@ async def notify_sanction(db, bot, target_type: str, target_id: int, sanction_ty
                            reason: str | None, action: str) -> None:
     """action: 'issued' | 'revoked'."""
     label = SANCTION_LABELS.get(sanction_type, sanction_type)
+    # Имя цели — чтобы в групповом чате было видно, КОМУ санкция (а не безличное «вам»).
+    who = ""
+    if target_type == "user":
+        uname = await users_repo.get_user_name(db, target_id)  # username ИЛИ строка-id (фолбэк)
+        who = f"@{uname}" if uname and uname != str(target_id) else f"ID{target_id}"
     if action == "issued":
         reason_part = f"\nПричина: {reason}" if reason else ""
         if target_type == "user":
-            text = f"⚠️ Глобальная модерация: вам выдана санкция «{label}».{reason_part}"
+            text = f"⚠️ Глобальная модерация: игроку {who} выдана санкция «{label}».{reason_part}"
         else:
             text = f"⚠️ Глобальная модерация: этому чату выдана санкция «{label}».{reason_part}"
     else:
         if target_type == "user":
-            text = f"✅ Глобальная модерация: с вас снята санкция «{label}»."
+            text = f"✅ Глобальная модерация: с игрока {who} снята санкция «{label}»."
         else:
             text = f"✅ Глобальная модерация: с этого чата снята санкция «{label}»."
 
