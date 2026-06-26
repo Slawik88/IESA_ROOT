@@ -252,7 +252,7 @@ function _openGiftModal(rid){
 }
 function _giftBuy(rid, cid, btn){
   if(btn) btn.disabled=true;
-  api('/cosmetics/gift',{method:'POST',body:JSON.stringify({recipient_id:rid,cosmetic_id:cid})})
+  api('/cosmetics/gift',{method:'POST',body:JSON.stringify({recipient_id:rid,cosmetic_id:cid,chat_id:(_initChatId||_cid||0)})})
     .then(r=>{ toast(r.message||'🎁 Подарок отправлен! 💜'); refreshCurrBar(); CM(); })
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
