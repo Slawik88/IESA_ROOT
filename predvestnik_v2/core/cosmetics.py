@@ -29,19 +29,19 @@ COSMETICS: dict[str, dict] = {
     "glow_silver": {
         "name": "Серебряный ореол", "slot": "name_glow", "rarity": "common",
         "css": "glow-silver", "vip_required": False, "source": "shop",
-        "price": [{"mora": 20000}, {"diamonds": 10}],
+        "price": [{"zarniki": 50, "mora": 4000}],
         "desc": "Мягкое серебристое свечение вокруг ника. Доступно всем.",
     },
     "glow_gold": {
         "name": "Золотое сияние", "slot": "name_glow", "rarity": "rare",
         "css": "glow-gold", "vip_required": True, "source": "shop",
-        "price": [{"zarniki": 120}, {"mora": 60000}],
+        "price": [{"zarniki": 140, "diamonds": 6}],
         "desc": "Тёплый золотой ореол. Знак статуса.",
     },
     "glow_crimson": {
         "name": "Багровое пламя", "slot": "name_glow", "rarity": "epic",
         "css": "glow-crimson", "vip_required": True, "source": "shop",
-        "price": [{"zarniki": 180}, {"dark_mora": 900}],
+        "price": [{"zarniki": 280, "diamonds": 9}],
         "desc": "Зловещее багровое свечение из глубин Бездны.",
     },
     "glow_prism": {
@@ -60,20 +60,20 @@ COSMETICS: dict[str, dict] = {
     "frame_bronze": {
         "name": "Бронзовая оправа", "slot": "avatar_frame", "rarity": "common",
         "css": "frame-bronze", "vip_required": False, "source": "shop",
-        "price": [{"mora": 25000}],
+        "price": [{"zarniki": 50, "mora": 4000}],
         "desc": "Простая бронзовая рамка вокруг аватара.",
     },
     "frame_neon": {
         "name": "Неоновый контур", "slot": "avatar_frame", "rarity": "rare",
         "css": "frame-neon", "vip_required": True, "source": "shop",
-        "price": [{"zarniki": 150}, {"mora": 70000}],
+        "price": [{"zarniki": 140, "diamonds": 6}],
         "desc": "Пульсирующая неоновая обводка аватара.",
     },
     "frame_abyss": {
         "name": "Оправа Бездны", "slot": "avatar_frame", "rarity": "epic",
         "css": "frame-abyss", "vip_required": True, "source": "shop",
-        "price": [{"dark_mora": 1200, "diamonds": 12}],
-        "desc": "Рамка из застывшей Тёмной Моры. Стоит 🌑 и 💎 одновременно.",
+        "price": [{"zarniki": 280, "diamonds": 9}],
+        "desc": "Рамка из застывшей Тёмной Моры — нестабильная энергия Бездны.",
     },
     "frame_celestial": {
         "name": "Небесная оправа", "slot": "avatar_frame", "rarity": "legendary",
@@ -90,13 +90,13 @@ COSMETICS: dict[str, dict] = {
     "title_wanderer": {
         "name": "Странник Пустошей", "slot": "title", "rarity": "common",
         "text": "Странник Пустошей", "vip_required": False, "source": "shop",
-        "price": [{"mora": 15000}],
+        "price": [{"zarniki": 40, "mora": 3000}],
         "desc": "Текстовый титул под ником. Виден и в чате, и на сайте.",
     },
     "title_patron": {
         "name": "Меценат", "slot": "title", "rarity": "rare",
         "text": "Меценат", "vip_required": True, "source": "shop",
-        "price": [{"zarniki": 100}, {"mora": 40000}],
+        "price": [{"zarniki": 110, "diamonds": 5}],
         "desc": "Титул для щедрых покровителей.",
     },
     "title_abysswalker": {
@@ -120,20 +120,20 @@ COSMETICS: dict[str, dict] = {
     "halo_glow": {
         "name": "Тёплое гало", "slot": "avatar_halo", "rarity": "common",
         "css": "halo-glow", "vip_required": False, "source": "shop",
-        "price": [{"mora": 22000}, {"diamonds": 12}],
+        "price": [{"zarniki": 50, "mora": 4000}],
         "desc": "Мягкое тёплое свечение по контуру аватара. Доступно всем.",
     },
     "halo_pulse": {
         "name": "Пульсирующий ореол", "slot": "avatar_halo", "rarity": "rare",
         "css": "halo-pulse", "vip_required": True, "source": "shop",
-        "price": [{"zarniki": 140}, {"mora": 65000}],
+        "price": [{"zarniki": 140, "diamonds": 6}],
         "desc": "Ритмично пульсирующее кольцо света вокруг аватара.",
     },
     "halo_runic": {
         "name": "Рунический круг", "slot": "avatar_halo", "rarity": "epic",
         "css": "halo-runic", "vip_required": True, "source": "shop",
-        "price": [{"dark_mora": 1100, "diamonds": 10}],
-        "desc": "Вращающийся круг древних рун. Стоит 🌑 и 💎 одновременно.",
+        "price": [{"zarniki": 280, "diamonds": 9}],
+        "desc": "Вращающийся круг древних рун вокруг аватара.",
     },
     "halo_aurora": {
         "name": "Аврора", "slot": "avatar_halo", "rarity": "epic",
@@ -156,20 +156,44 @@ COSMETICS: dict[str, dict] = {
     "pbg_carbon": {
         "name": "Карбон", "slot": "profile_bg", "rarity": "common",
         "css": "pbg-carbon", "vip_required": False, "source": "shop",
-        "price": [{"mora": 24000}],
+        "price": [{"zarniki": 50, "mora": 4000}],
         "desc": "Строгий карбоновый фон карточки профиля.",
     },
     "pbg_nebula": {
         "name": "Туманность", "slot": "profile_bg", "rarity": "rare",
         "css": "pbg-nebula", "vip_required": True, "source": "shop",
-        "price": [{"zarniki": 160}, {"mora": 72000}],
+        "price": [{"zarniki": 140, "diamonds": 6}],
         "desc": "Космическая туманность фоном за твоей карточкой.",
     },
     "pbg_abyss": {
         "name": "Бездна", "slot": "profile_bg", "rarity": "epic",
         "css": "pbg-abyss", "vip_required": True, "source": "shop",
-        "price": [{"dark_mora": 1300, "diamonds": 14}],
-        "desc": "Глубокий фон Бездны с тёмным градиентом. 🌑 + 💎.",
+        "price": [{"zarniki": 280, "diamonds": 9}],
+        "desc": "Глубокий фон Бездны с тёмным градиентом.",
+    },
+    "pbg_forest": {
+        "name": "Изумрудный лес", "slot": "profile_bg", "rarity": "common",
+        "css": "pbg-forest", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 50, "mora": 4000}],
+        "desc": "Глубокий изумрудный лес туманным фоном карточки.",
+    },
+    "pbg_ocean": {
+        "name": "Морская бездна", "slot": "profile_bg", "rarity": "common",
+        "css": "pbg-ocean", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 50, "mora": 4000}],
+        "desc": "Холодные глубины океана за твоей карточкой.",
+    },
+    "pbg_ember": {
+        "name": "Тлеющий вулкан", "slot": "profile_bg", "rarity": "rare",
+        "css": "pbg-ember", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 140, "diamonds": 6}],
+        "desc": "Раскалённые угли вулкана тлеют снизу карточки.",
+    },
+    "pbg_galaxy": {
+        "name": "Спираль галактики", "slot": "profile_bg", "rarity": "rare",
+        "css": "pbg-galaxy", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 140, "diamonds": 6}],
+        "desc": "Фиолетово-синий рукав галактики со звёздной пылью.",
     },
     "pbg_royal": {
         "name": "Королевский бархат", "slot": "profile_bg", "rarity": "epic",
@@ -192,13 +216,13 @@ COSMETICS: dict[str, dict] = {
     "cfx_sparks": {
         "name": "Искры", "slot": "card_fx", "rarity": "common",
         "css": "cfx-sparks", "vip_required": False, "source": "shop",
-        "price": [{"mora": 26000}, {"diamonds": 14}],
+        "price": [{"zarniki": 50, "mora": 4000}],
         "desc": "Лёгкие золотые искры, плавающие над карточкой.",
     },
     "cfx_snow": {
         "name": "Снегопад", "slot": "card_fx", "rarity": "rare",
         "css": "cfx-snow", "vip_required": False, "source": "shop",
-        "price": [{"mora": 60000}, {"zarniki": 130}],
+        "price": [{"zarniki": 140, "diamonds": 6}],
         "desc": "Тихо падающие снежинки поверх профиля.",
     },
     "cfx_embers": {
@@ -209,7 +233,7 @@ COSMETICS: dict[str, dict] = {
     "cfx_stars": {
         "name": "Звездопад", "slot": "card_fx", "rarity": "epic",
         "css": "cfx-stars", "vip_required": True, "source": "shop",
-        "price": [{"zarniki": 190}, {"diamonds": 30}],
+        "price": [{"zarniki": 280, "diamonds": 9}],
         "desc": "Мерцающие падающие звёзды над карточкой.",
     },
     "cfx_fireflies": {
