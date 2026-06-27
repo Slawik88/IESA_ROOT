@@ -58,6 +58,29 @@ async def get_global_rank(db: aiosqlite.Connection, user_id: int) -> int:
         return row[0] if row else 0
 
 
+async def is_tos_accepted(db: aiosqlite.Connection, user_id: int) -> bool:
+    """БЛОК22: True если игрок принял ToS/Privacy (tos_accepted_at != NULL)."""
+    async with db.execute(
+        "SELECT tos_accepted_at FROM users WHERE user_tg_id = ?", (user_id,)
+    ) as cursor:
+        row = await cursor.fetchone()
+    return bool(row and row[0] is not None)
+
+
+async def accept_tos(db: aiosqlite.Connection, user_id: int,
+                     username: str | None = None) -> None:
+    """БЛОК22: зафиксировать принятие документов. Idempotent — повторное принятие
+    не перезаписывает время первого согласия. Создаёт строку при отсутствии."""
+    await db.execute(
+        "INSERT INTO users (user_tg_id, user_tg_username, tos_accepted_at) "
+        "VALUES (?, ?, NOW()) "
+        "ON CONFLICT(user_tg_id) DO UPDATE SET "
+        "tos_accepted_at = COALESCE(users.tos_accepted_at, NOW())",
+        (user_id, username),
+    )
+    await db.commit()
+
+
 async def get_first_seen(db: aiosqlite.Connection, user_id: int) -> str | None:
     """Return ISO date string of the earliest joined_at across all chats, or None."""
     async with db.execute(

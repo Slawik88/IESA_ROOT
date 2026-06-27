@@ -125,6 +125,9 @@ async def _init_users_and_chats(db):
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS contrabanda_last_at TIMESTAMP DEFAULT NULL",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS contrabanda_banned_until TIMESTAMP DEFAULT NULL",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS ritual_last_at TIMESTAMP DEFAULT NULL",
+        # БЛОК22 (compliance): принятие ToS/Privacy. DEFAULT NULL → текущие игроки
+        # «не приняли» → их ловит легаси-гард (бот-middleware + блок-модалка сайта).
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMP DEFAULT NULL",
     ]:
         try:
             await db.execute(_stmt)
