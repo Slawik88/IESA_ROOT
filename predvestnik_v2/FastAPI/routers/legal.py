@@ -11,7 +11,7 @@ slug ∈ {"tos", "privacy"}. Источник текста — core/legal.py.
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from core.legal import get_doc, doc_to_html, LEGAL_DOCS, LEGAL_VERSION
+from core.legal import get_doc, doc_to_html, LEGAL_VERSION
 from infrastructure.repositories import users as users_repo
 from FastAPI.deps import get_db, require_tg_user
 
