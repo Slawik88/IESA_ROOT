@@ -6,8 +6,12 @@
   price = список ВАРИАНТОВ оплаты (OR). Каждый вариант — dict валюта→сумма (AND внутри).
     Валюты: "mora" 🪙 | "diamonds" 💎 | "dark_mora" 🌑 | "zarniki" ✨.
     price=None → в магазине не продаётся (выдаётся источником: VIP/БП/ачивка).
-  vip_required: покупка в магазине доступна только при активной VIP.
-  source: "shop" | "vip" (даётся с покупкой VIP) | "bp" (платный трек БП) | "reward" (ачивка/ивент).
+  vip_required: покупка доступна только при активной VIP; ПОСЛЕ покупки эффект
+    продолжает требовать активную VIP для отображения (см. is_vip_locked) — если
+    подписка истекла, косметика «спит» (владение и выбор слота сохраняются),
+    и автоматически возвращается при следующей покупке VIP — без переэкипировки.
+  source: "shop" | "vip" (даётся с покупкой VIP, тоже под VIP-гейтом показа) |
+    "bp" (платный трек БП) | "reward" (ачивка/ивент).
   slot: "name_glow" (ореол ника, CSS) | "avatar_frame" (рамка аватара, CSS) | "title" (титул, ТЕКСТ — работает и в боте)
         | "avatar_halo" (гало/свечение вокруг аватара, CSS) | "profile_bg" (фон/баннер карточки, CSS)
         | "card_fx" (анимированные частицы поверх карточки, CSS).
@@ -44,6 +48,12 @@ COSMETICS: dict[str, dict] = {
         "price": [{"zarniki": 280, "diamonds": 9}],
         "desc": "Зловещее багровое свечение из глубин Бездны.",
     },
+    "glow_ember": {
+        "name": "Тлеющий уголь", "slot": "name_glow", "rarity": "epic",
+        "css": "glow-ember", "vip_required": False, "source": "shop",
+        "price": [{"mora": 32000, "diamonds": 30}],
+        "desc": "Спокойное тёплое тление букв. Доступно без VIP — за мору и алмазы.",
+    },
     "glow_prism": {
         "name": "Призматический ореол", "slot": "name_glow", "rarity": "legendary",
         "css": "glow-prism", "vip_required": False, "source": "bp", "price": None,
@@ -74,6 +84,12 @@ COSMETICS: dict[str, dict] = {
         "css": "frame-abyss", "vip_required": True, "source": "shop",
         "price": [{"zarniki": 280, "diamonds": 9}],
         "desc": "Рамка из застывшей Тёмной Моры — нестабильная энергия Бездны.",
+    },
+    "frame_iron": {
+        "name": "Железная оправа", "slot": "avatar_frame", "rarity": "rare",
+        "css": "frame-iron", "vip_required": False, "source": "shop",
+        "price": [{"mora": 15000, "diamonds": 15}],
+        "desc": "Прочная стальная окантовка. Доступна без VIP — за мору и алмазы.",
     },
     "frame_celestial": {
         "name": "Небесная оправа", "slot": "avatar_frame", "rarity": "legendary",
@@ -185,15 +201,21 @@ COSMETICS: dict[str, dict] = {
     },
     "pbg_ember": {
         "name": "Тлеющий вулкан", "slot": "profile_bg", "rarity": "rare",
-        "css": "pbg-ember", "vip_required": False, "source": "shop",
+        "css": "pbg-ember", "vip_required": True, "source": "shop",
         "price": [{"zarniki": 140, "diamonds": 6}],
         "desc": "Раскалённые угли вулкана тлеют снизу карточки.",
     },
     "pbg_galaxy": {
         "name": "Спираль галактики", "slot": "profile_bg", "rarity": "rare",
-        "css": "pbg-galaxy", "vip_required": False, "source": "shop",
+        "css": "pbg-galaxy", "vip_required": True, "source": "shop",
         "price": [{"zarniki": 140, "diamonds": 6}],
         "desc": "Фиолетово-синий рукав галактики со звёздной пылью.",
+    },
+    "pbg_dusk": {
+        "name": "Сумерки", "slot": "profile_bg", "rarity": "epic",
+        "css": "pbg-dusk", "vip_required": False, "source": "shop",
+        "price": [{"mora": 32000, "diamonds": 30}],
+        "desc": "Спокойный сумеречный градиент. Доступно без VIP — за мору и алмазы.",
     },
     "pbg_royal": {
         "name": "Королевский бархат", "slot": "profile_bg", "rarity": "epic",
@@ -221,9 +243,15 @@ COSMETICS: dict[str, dict] = {
     },
     "cfx_snow": {
         "name": "Снегопад", "slot": "card_fx", "rarity": "rare",
-        "css": "cfx-snow", "vip_required": False, "source": "shop",
+        "css": "cfx-snow", "vip_required": True, "source": "shop",
         "price": [{"zarniki": 140, "diamonds": 6}],
         "desc": "Тихо падающие снежинки поверх профиля.",
+    },
+    "cfx_petals": {
+        "name": "Лепестки", "slot": "card_fx", "rarity": "rare",
+        "css": "cfx-petals", "vip_required": False, "source": "shop",
+        "price": [{"mora": 15000, "diamonds": 15}],
+        "desc": "Тихо падающие лепестки сакуры. Доступно без VIP — за мору и алмазы.",
     },
     "cfx_embers": {
         "name": "Угольки", "slot": "card_fx", "rarity": "rare",
@@ -253,6 +281,14 @@ COSMETICS: dict[str, dict] = {
 def cosmetics_by_slot(slot: str) -> dict[str, dict]:
     """Все косметики данного слота (id → entry)."""
     return {cid: c for cid, c in COSMETICS.items() if c["slot"] == slot}
+
+
+def is_vip_locked(cos: dict) -> bool:
+    """True если показ этой косметики требует активную VIP ПРЯМО СЕЙЧАС
+    (не только на момент покупки): сама требовала VIP для покупки, либо
+    выдаётся как бонус VIP-подписки (source="vip"). Владение/выбор слота
+    при этом не теряются — гейт чисто на отображение (см. docstring модуля)."""
+    return bool(cos.get("vip_required") or cos.get("source") == "vip")
 
 
 # ── Приветственные анимации (вход / прелоадер) ──────────────────────────────────

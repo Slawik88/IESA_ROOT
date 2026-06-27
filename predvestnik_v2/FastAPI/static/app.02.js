@@ -239,9 +239,10 @@ function _looksCard(slot,it){
   const sw=_looksSwatch(slot,it);
   const rar=`<span class="lc-rar">${_rarLabel(it.rarity)}</span>`;
   if(it.owned){
-    return `<div class="looks-card r-${it.rarity} ${sel?'sel':''}" onclick="_looksEquip('${slot}','${it.id}')">
+    const offBadge=it.vip_locked_inactive?'<span class="lc-vip-off">⏸ нужна VIP</span>':'';
+    return `<div class="looks-card r-${it.rarity} ${sel?'sel':''} ${it.vip_locked_inactive?'lc-dim':''}" onclick="_looksEquip('${slot}','${it.id}')">
       ${sw}<div class="lc-name">${esc(it.name)}</div>
-      <div class="lc-foot">${rar}${_looksSaved[slot]===it.id?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
+      <div class="lc-foot">${rar}${offBadge}${(!it.vip_locked_inactive&&_looksSaved[slot]===it.id)?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
   }
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
   const bal=_looksData.balances||{};

@@ -22,6 +22,22 @@ async def is_vip_active(db, user_id: int) -> bool:
     return row is not None
 
 
+async def is_vip_active_batch(db, user_ids: list[int]) -> set[int]:
+    """Множество user_id с активной VIP из списка — один запрос вместо N
+    (используется при гейте VIP-косметики в массовых выборках: топы/клан)."""
+    ids = [int(u) for u in (user_ids or [])]
+    if not ids:
+        return set()
+    ph = ",".join(["?"] * len(ids))
+    async with db.execute(
+        f"SELECT user_id FROM vip_subscriptions "
+        f"WHERE user_id IN ({ph}) AND expires_at > NOW()",
+        tuple(ids),
+    ) as c:
+        rows = await c.fetchall()
+    return {int(r[0]) for r in rows}
+
+
 async def get_vip_info(db, user_id: int) -> dict | None:
     """Возвращает {'tier','tier_label','expires_at','days_left'} либо None, если VIP не активен."""
     async with db.execute(

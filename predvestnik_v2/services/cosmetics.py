@@ -6,13 +6,13 @@ No bot.*/FastAPI.* imports. Только косметика — без игро�
 import random
 
 from core.cosmetics import (
-    COSMETICS, COSMETIC_SLOTS, WELCOME_ANIMATIONS, WELCOME_DEFAULT,
+    COSMETICS, COSMETIC_SLOTS, WELCOME_ANIMATIONS, WELCOME_DEFAULT, is_vip_locked,
 )
 from core.constants import (
     COSMETIC_CHESTS, COSMETIC_DUPE_SHARDS, COSMETIC_CRAFT_SHARDS,
 )
 from core.registry import ITEMS_REGISTRY
-from services.vip import is_vip_active
+from services.vip import is_vip_active, is_vip_active_batch
 
 # Слот приветственной анимации в user_cosmetic_loadout (отдельно от носимой косметики;
 # без записи владения — гейт по VIP, а не по обладанию).
@@ -69,8 +69,9 @@ async def _balances(db, user_id: int) -> dict[str, float]:
             "dark_mora": float(row[2]), "zarniki": float(row[3])}
 
 
-def _public(cid: str, cos: dict, owned: set[str], loadout: dict[str, str]) -> dict:
+def _public(cid: str, cos: dict, owned: set[str], loadout: dict[str, str], vip: bool) -> dict:
     """Публичная карточка косметики для каталога."""
+    is_owned = cid in owned
     return {
         "id": cid,
         "name": cos["name"],
@@ -82,8 +83,10 @@ def _public(cid: str, cos: dict, owned: set[str], loadout: dict[str, str]) -> di
         "vip_required": bool(cos.get("vip_required")),
         "source": cos.get("source", "shop"),
         "price": cos.get("price"),                       # список вариантов оплаты | None
-        "owned": cid in owned,
+        "owned": is_owned,
         "equipped": loadout.get(cos["slot"]) == cid,
+        # БЛОК: «спит» без активной VIP — есть в инвентаре, но эффект не показывается.
+        "vip_locked_inactive": is_owned and is_vip_locked(cos) and not vip,
     }
 
 
@@ -164,7 +167,7 @@ async def get_catalog(db, user_id: int) -> dict:
     vip = await is_vip_active(db, user_id)
     slots: dict[str, list] = {s: [] for s in COSMETIC_SLOTS}
     for cid, cos in COSMETICS.items():
-        slots.setdefault(cos["slot"], []).append(_public(cid, cos, owned, loadout))
+        slots.setdefault(cos["slot"], []).append(_public(cid, cos, owned, loadout, vip))
     welcome_cur = _effective_welcome(loadout, vip)
     return {
         "vip": vip,
@@ -258,9 +261,13 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0) -> tupl
 
 async def get_active_cosmetics(db, user_id: int) -> dict:
     """Надетая косметика для рендера профиля (веб + титул в боте).
-    → {"name_glow": {"css","name"}, "avatar_frame": {...}, "title": "текст"}"""
+    → {"name_glow": {"css","name"}, "avatar_frame": {...}, "title": "текст"}
+    VIP-гейт: косметика с is_vip_locked() показывается только при активной VIP —
+    без неё «спит» (выбор слота в БД не трогаем, чтобы при продлении VIP она
+    вернулась сама, без переэкипировки)."""
     loadout = await _loadout(db, user_id)
     out: dict = {}
+    locked: dict[str, bool] = {}
     for slot, cid in loadout.items():
         if slot == _WELCOME_SLOT:
             continue
@@ -271,13 +278,18 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
             out["title"] = cos.get("text") or cos["name"]
         else:
             out[slot] = {"css": cos.get("css"), "name": cos["name"]}
-    # Приветственная анимация (VIP-гейт; is_vip спрашиваем только если выбран премиум-вариант).
+        locked[slot] = is_vip_locked(cos)
+
     chosen = loadout.get(_WELCOME_SLOT)
     anim = WELCOME_ANIMATIONS.get(chosen) if chosen else None
-    if anim and anim.get("vip_required"):
-        out["welcome"] = chosen if await is_vip_active(db, user_id) else WELCOME_DEFAULT
-    else:
-        out["welcome"] = chosen if anim else WELCOME_DEFAULT
+    welcome_vip_locked = bool(anim and anim.get("vip_required"))
+
+    vip = await is_vip_active(db, user_id) if (any(locked.values()) or welcome_vip_locked) else False
+    out["welcome"] = (chosen if vip else WELCOME_DEFAULT) if welcome_vip_locked else (chosen if anim else WELCOME_DEFAULT)
+
+    for slot, is_locked in locked.items():
+        if is_locked and not vip:
+            out.pop(slot, None)
     return out
 
 
@@ -289,6 +301,7 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
     if not ids:
         return {}
     out: dict[int, dict] = {}
+    pending_vip_check: set[int] = set()  # юзеры с хотя бы 1 VIP-locked косметикой в выборке
     ph = ",".join(["?"] * len(ids))
     async with db.execute(
         f"SELECT user_id, slot, cosmetic_id FROM user_cosmetic_loadout "
@@ -306,6 +319,22 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
             d["title"] = cos.get("text") or cos["name"]
         elif slot == "name_glow":
             d["glow"] = cos.get("css")
+        if is_vip_locked(cos):
+            pending_vip_check.add(uid)
+    if pending_vip_check:
+        vip_ids = await is_vip_active_batch(db, list(pending_vip_check))
+        for uid in pending_vip_check - vip_ids:
+            d = out.get(uid)
+            if not d:
+                continue
+            cid_glow = next((r[2] for r in rows if int(r[0]) == uid and r[1] == "name_glow"), None)
+            cid_title = next((r[2] for r in rows if int(r[0]) == uid and r[1] == "title"), None)
+            if cid_glow and is_vip_locked(COSMETICS.get(cid_glow, {})):
+                d.pop("glow", None)
+            if cid_title and is_vip_locked(COSMETICS.get(cid_title, {})):
+                d.pop("title", None)
+            if not d:
+                out.pop(uid, None)
     return out
 
 
