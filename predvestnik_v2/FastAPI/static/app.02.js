@@ -7,6 +7,7 @@ function loadProfile() {
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
+    _tosGate(d);   // БЛОК22: блок-экран принятия ToS/Privacy для не принявших
     const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,6);
     const uid = d.user_id || _uid;
     const lvl = d.chats?.[0]?.user_level || 1;
@@ -59,6 +60,7 @@ function loadProfile() {
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-ghost" style="flex:1" onclick="openLooksModal()">🎨 Внешний вид</button>
         <button class="btn btn-ghost" style="flex:1" onclick="openClansModal()">🛡 Клан</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="openSettingsModal()">⚙️ Настройки</button>
       </div>
 
       <!-- Активные баффы (заполняется loadActiveBuffs) -->
@@ -104,6 +106,54 @@ function loadProfile() {
     checkGlobalAccess();
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
+// ── БЛОК22: Настройки + юридические документы ──────────────────────────────────
+function _legalUrl(slug){ return BASE+'/legal/'+slug; }   // прямая публичная ссылка
+function openLegalDoc(slug){
+  const t={tos:'📖 Пользовательское соглашение',privacy:'🔒 Политика конфиденциальности'};
+  OM(t[slug]||'Документ','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  api('/legal/'+slug+'/text').then(d=>{
+    el('mb').innerHTML=`<div class="legal-doc">${d.html}</div>
+      <div class="legal-link">Прямая ссылка: <a href="${_legalUrl(slug)}" target="_blank" rel="noopener">${_legalUrl(slug)}</a></div>`;
+  }).catch(e=>{ el('mb').innerHTML=`<div class="err">${e}</div>`; });
+}
+function openSettingsModal(){
+  OM('⚙️ Настройки',`
+    <div class="set-sec-t">Юридические документы</div>
+    <button class="btn btn-ghost btn-full" onclick="openLegalDoc('tos')">📖 Пользовательское соглашение</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:7px" onclick="openLegalDoc('privacy')">🔒 Политика конфиденциальности</button>
+    <div class="set-hint">Документы также доступны по прямой ссылке и в боте.</div>`,
+    [{l:'Готово',c:'btn-gold',f:'CM()'}]);
+}
+// Блок-экран принятия документов (неубираемый оверлей) — для не принявших.
+function _tosGate(d){
+  const ex=el('tos-gate');
+  if(d&&d.tos_accepted){ if(ex) ex.remove(); return; }
+  if(ex) return;
+  const g=document.createElement('div');
+  g.id='tos-gate'; g.className='tos-gate';
+  g.innerHTML=`<div class="tos-gate-box">
+    <div class="tos-gate-emoji">📋</div>
+    <div class="tos-gate-title">Добро пожаловать в PREDVESTNIK</div>
+    <div class="tos-gate-sub">Чтобы продолжить, ознакомьтесь и примите наши документы.</div>
+    <div class="tos-gate-links">
+      <button class="btn btn-ghost" onclick="openLegalDoc('tos')">📖 Правила (ToS)</button>
+      <button class="btn btn-ghost" onclick="openLegalDoc('privacy')">🔒 Конфиденциальность</button>
+    </div>
+    <button class="btn btn-gold btn-full" onclick="_tosAccept(this)">✅ Принять и играть</button>
+    <div class="tos-gate-hint">Нажимая «Принять», вы соглашаетесь с Пользовательским соглашением и Политикой конфиденциальности.</div>
+  </div>`;
+  document.body.appendChild(g);
+}
+function _tosAccept(btn){
+  if(btn){ btn.disabled=true; btn.textContent='Сохраняем…'; }
+  api('/legal/accept',{method:'POST'}).then(()=>{
+    const g=el('tos-gate'); if(g) g.remove();
+    toast('✅ Спасибо! Приятной игры.',true);
+    if(_profileData) _profileData.tos_accepted=true;
+    loadProfile();
+  }).catch(e=>{ toast(e,false); if(btn){ btn.disabled=false; btn.textContent='✅ Принять и играть'; } });
+}
+
 // ── Конструктор «Внешний вид» (косметика профиля) ──────────────────────────────
 const _LOOKS_SLOTS=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx'];
 const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки'};
@@ -132,7 +182,8 @@ function renderLooks(){
   const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
     <span>👑 Смотреть и листать превью можно всё. Покупать косметику и выбирать приветствие — с VIP.</span>
     <button class="btn btn-sm btn-gold" onclick="CM();goTo('market','vip')">Перейти к VIP</button></div>`;
-  b.innerHTML=_looksPreviewHtml()+vipBar+'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'+_LOOKS_SLOTS.map(_looksSlotHtml).join('')+_looksWelcomeHtml();
+  b.innerHTML=_looksPreviewHtml()+vipBar+'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'+_LOOKS_SLOTS.map(_looksSlotHtml).join('')+_looksWelcomeHtml()
+    +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
   _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
 }
 // Мини-карточка профиля из набора слотов sel — для сравнения «Сейчас → Станет».

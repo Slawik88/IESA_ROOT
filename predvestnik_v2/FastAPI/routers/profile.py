@@ -89,6 +89,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "u.user_balance_mora, u.user_balance_diamonds, "
         "COALESCE(u.user_balance_dark_mora, 0) AS user_balance_dark_mora, "
         "COALESCE(u.user_balance_zarniki, 0) AS user_balance_zarniki, "
+        "(u.tos_accepted_at IS NOT NULL) AS tos_accepted, "
         "(v.user_id IS NOT NULL) AS is_vip "
         "FROM users u "
         "LEFT JOIN vip_subscriptions v ON v.user_id = u.user_tg_id AND v.expires_at > NOW() "
@@ -163,6 +164,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "chats":        chats,
         "pets":         pets,
         "is_vip":       bool(row["is_vip"]),
+        "tos_accepted": bool(row["tos_accepted"]),
         "global_rank":  row["global_rank"] or 0,
         "partner":      partner,
         "cosmetics":    await get_active_cosmetics(db, user_id),
