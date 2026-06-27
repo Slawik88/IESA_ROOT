@@ -790,6 +790,8 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 /* Каждый ореол — СВОЙ характер, а не один и тот же glow разного цвета. */
 /* common — ровное холодное серебро (статичное свечение) */
 .glow-silver { color:#eef2f8; text-shadow: 0 0 5px rgba(205,214,228,.9), 0 0 11px rgba(205,214,228,.45); }
+/* epic, без VIP (за мору+алмазы) — спокойное тление, без флика (в отличие от crimson) */
+.glow-ember { color:#ffd9b8; text-shadow: 0 0 7px rgba(230,120,40,.85), 0 0 14px rgba(214,90,30,.4); }
 /* rare — по золотым буквам бежит металлический блик (заливка текста + свип).
    База — СПЛОШНОЕ золото (ник виден ВСЕГДА); прозрачная заливка-градиент только
    там, где браузер реально умеет background-clip:text → ник никогда не «пустой». */
@@ -837,6 +839,8 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 /* Косметика: рамки аватара — разный характер (металл / неон-дыхание / энергия / золото) */
 /* common — статичная гравированная металлическая оправа (3D-кант, без анимации) */
 .frame-bronze { box-shadow: inset 0 0 0 1px rgba(255,222,170,.3), 0 0 0 2px #8a5a2b, 0 0 0 4px #5e3c1c, 0 0 6px rgba(138,90,43,.5); }
+/* rare, без VIP (за мору+алмазы) — статичная стальная окантовка, без анимации */
+.frame-iron { box-shadow: inset 0 0 0 1px rgba(220,225,232,.35), 0 0 0 2px #8a929e, 0 0 0 4px #4a5260, 0 0 7px rgba(138,148,160,.5); }
 /* rare — неоновая трубка «дышит» */
 .frame-neon { box-shadow: 0 0 0 2px #2bd4c0, 0 0 8px 2px rgba(43,212,192,.6); animation: frameNeon 1.8s ease-in-out infinite; }
 @keyframes frameNeon {
@@ -915,6 +919,8 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .hero.pbg-ocean,   .looks-preview.pbg-ocean,   .lc-bg.pbg-ocean   { background: radial-gradient(130% 100% at 70% 0%, rgba(40,140,190,.45), transparent 60%), linear-gradient(180deg, #0c1a24, #050c11); }
 .hero.pbg-ember,   .looks-preview.pbg-ember,   .lc-bg.pbg-ember   { background: radial-gradient(120% 95% at 50% 115%, rgba(255,120,50,.5), transparent 55%), radial-gradient(90% 70% at 50% 120%, rgba(255,60,30,.4), transparent 60%), linear-gradient(0deg, #2a1207, #140805); }
 .hero.pbg-galaxy,  .looks-preview.pbg-galaxy,  .lc-bg.pbg-galaxy  { background: radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.85), transparent), radial-gradient(1.5px 1.5px at 70% 60%, rgba(220,230,255,.7), transparent), radial-gradient(2px 2px at 45% 82%, rgba(255,255,255,.6), transparent), radial-gradient(70% 55% at 30% 25%, rgba(150,90,230,.5), transparent 60%), radial-gradient(65% 50% at 82% 72%, rgba(80,120,240,.45), transparent 60%), linear-gradient(160deg, #160f28, #07060f); }
+/* epic, без VIP (за мору+алмазы) — спокойные сумерки, без анимации */
+.hero.pbg-dusk,    .looks-preview.pbg-dusk,    .lc-bg.pbg-dusk    { background: radial-gradient(120% 90% at 20% 100%, rgba(120,80,160,.4), transparent 60%), linear-gradient(160deg, #2a2440 0%, #3a2a3a 50%, #1a1424 100%); }
 @keyframes pbgLegend { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
 
 /* ── Косметика: частицы поверх карточки (overlay, pointer-events:none) ───── */
@@ -933,6 +939,15 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
     radial-gradient(2px 2px at 80% 55%, rgba(255,255,255,.75), transparent),
     radial-gradient(1.5px 1.5px at 38% 70%, rgba(255,255,255,.55), transparent);
   background-size: 100% 200%; animation: cfxFall 9s linear infinite;
+}
+/* rare, без VIP (за мору+алмазы) — розовые лепестки, отличить от снега цветом */
+.cfx-petals {
+  background-image:
+    radial-gradient(2.5px 2.5px at 22% 15%, rgba(255,180,200,.9), transparent),
+    radial-gradient(2px 2px at 62% 35%, rgba(255,200,215,.7), transparent),
+    radial-gradient(2.5px 2.5px at 82% 60%, rgba(255,170,195,.8), transparent),
+    radial-gradient(2px 2px at 40% 75%, rgba(255,190,210,.6), transparent);
+  background-size: 100% 200%; animation: cfxFall 8s linear infinite;
 }
 .cfx-embers {
   background-image:
@@ -1033,6 +1048,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .lc-on { color: #6ed08a; font-size: 9px; font-weight: 600; }
 .lc-tag { font-size: 9px; color: var(--muted); }
 .lc-vip { font-size: 8px; background: var(--gold); color: #1a1407; border-radius: 4px; padding: 0 4px; font-weight: 700; vertical-align: middle; }
+.lc-vip-off { font-size: 8.5px; color: #e0a85b; font-weight: 600; }
 .lc-buys { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .lc-buy { padding: 2px 6px !important; font-size: 9px !important; }
 .lc-buy--no { opacity: .45; }   /* не хватает валюты — подсказка (клик → сервер вернёт «недостаточно») */
