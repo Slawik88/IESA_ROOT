@@ -529,6 +529,7 @@ function _renderPremiumHub(pk, d) {
         <button class="btn btn-gold" onclick="buyZarnikiCustom()">Купить</button>
       </div>
       <div style="font-size:9.5px;color:var(--muted);margin-top:6px">1 ⭐ = ${perStar} ✨ · оплата звёздами Telegram</div>
+      <div class="pay-terms">Покупая, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>
     </div>`;
 
   // 2. VIP
@@ -578,7 +579,8 @@ function _renderPremiumHub(pk, d) {
     + `<div class="card-title" style="margin:14px 2px 8px;font-size:14px">👑 VIP-подписка</div>`
     + (vipStatus ? vipStatus : perksBlock)
     + (d.active ? perksBlock : '')
-    + tiers;
+    + tiers
+    + `<div class="pay-terms">Оформляя покупку, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
 }
 
 function goToZarTop() {
