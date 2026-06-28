@@ -833,6 +833,21 @@ async def cb_use_stardust(query: types.CallbackQuery, callback_data: ZooCB, db):
             granted = await apply_pet_milestones(db, user_id, r["pet_id"], r["milestones_unlocked"])
             all_milestones.extend(granted)
 
+    # Quest: пыль тоже левелит питомца / даёт rare+ дубль — тот же эффект, что и гача
+    try:
+        level_ups = sum(1 for r in all_results if r.get("outcome") == "leveled_up")
+        if level_ups:
+            await quest_increment(db, user_id, query.message.chat.id,
+                                  "pet_level_ups_today", delta=float(level_ups))
+        rare_dups = sum(1 for r in all_results if r.get("outcome") in ("added", "leveled_up")
+                       and r.get("rarity") in ("rare", "epic", "legendary"))
+        if rare_dups:
+            await quest_increment(db, user_id, query.message.chat.id,
+                                  "rare_or_better_pet_dups_today", delta=float(rare_dups))
+        await db.commit()
+    except Exception:
+        pass
+
     # Build response
     last = all_results[-1]
     new_level = last.get("new_level", 1)

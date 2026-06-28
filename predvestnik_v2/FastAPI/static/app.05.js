@@ -55,7 +55,7 @@ function _showDustModal_or_load(did) {
 }
 function doApplyDust(did,pid,row) {
   row.style.opacity='.4';
-  api('/inventory/apply-dust',{method:'POST',body:JSON.stringify({dust_id:did,pet_id:pid})})
+  api('/inventory/apply-dust',{method:'POST',body:JSON.stringify({dust_id:did,pet_id:pid,chat_id:_cid})})
     .then(r=>{toast(`✅ +${r.duplicates_added} дубл.`);CM();_zooData=null;loadInventory();})
     .catch(e=>{toast(e,false);row.style.opacity='1';});
 }

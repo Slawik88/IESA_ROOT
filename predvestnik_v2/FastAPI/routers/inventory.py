@@ -110,6 +110,7 @@ async def active_buffs(db=Depends(get_db), user=Depends(require_tg_user)):
 class ApplyDustRequest(BaseModel):
     dust_id: str
     pet_id: int
+    chat_id: int = 0
 
 
 @router.post("/apply-dust")
@@ -146,4 +147,21 @@ async def apply_dust(body: ApplyDustRequest, db=Depends(get_db), user=Depends(re
             milestones.extend(await apply_pet_milestones(db, user["id"], r["pet_id"], r["milestones_unlocked"]))
 
     await db.commit()
+
+    # Quest: пыль тоже левелит питомца / даёт rare+ дубль — тот же эффект, что и гача
+    if body.chat_id:
+        try:
+            from services.quests import increment_metric as _q_incr
+            level_ups = sum(1 for r in outcomes if r.get("outcome") == "leveled_up")
+            if level_ups:
+                await _q_incr(db, user["id"], body.chat_id,
+                              "pet_level_ups_today", delta=float(level_ups))
+            rare_dups = sum(1 for r in outcomes if r.get("outcome") in ("added", "leveled_up")
+                           and r.get("rarity") in ("rare", "epic", "legendary"))
+            if rare_dups:
+                await _q_incr(db, user["id"], body.chat_id,
+                              "rare_or_better_pet_dups_today", delta=float(rare_dups))
+            await db.commit()
+        except Exception:
+            pass
     return {"ok": True, "duplicates_added": amount, "outcomes": outcomes, "milestones": milestones}

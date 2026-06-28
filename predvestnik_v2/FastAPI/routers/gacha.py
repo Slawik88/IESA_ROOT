@@ -153,11 +153,21 @@ async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_us
         raise HTTPException(400, result)
     await db.commit()
 
-    # Track quest metric: gacha_spins_today
+    # Track quest metric: gacha_spins_today + дериваты дублей
     if body.chat_id:
         try:
             from services.quests import increment_metric as _q_incr
             await _q_incr(db, user["id"], body.chat_id, "gacha_spins_today", delta=1.0)
+            dups = result.get("dup_outcomes", [])
+            level_ups = sum(1 for d in dups if d.get("outcome") == "leveled_up")
+            if level_ups:
+                await _q_incr(db, user["id"], body.chat_id,
+                              "pet_level_ups_today", delta=float(level_ups))
+            rare_dups = sum(1 for d in dups if d.get("outcome") in ("added", "leveled_up")
+                           and d.get("rarity") in ("rare", "epic", "legendary"))
+            if rare_dups:
+                await _q_incr(db, user["id"], body.chat_id,
+                              "rare_or_better_pet_dups_today", delta=float(rare_dups))
             await db.commit()
         except Exception:
             pass
@@ -191,6 +201,16 @@ async def multi_spin(body: SpinRequest, db=Depends(get_db), user=Depends(require
         try:
             from services.quests import increment_metric as _q_incr
             await _q_incr(db, user["id"], body.chat_id, "gacha_spins_today", delta=float(SPIN_MULTI_COUNT))
+            all_dups = [d for r in results for d in r.get("dup_outcomes", [])]
+            level_ups = sum(1 for d in all_dups if d.get("outcome") == "leveled_up")
+            if level_ups:
+                await _q_incr(db, user["id"], body.chat_id,
+                              "pet_level_ups_today", delta=float(level_ups))
+            rare_dups = sum(1 for d in all_dups if d.get("outcome") in ("added", "leveled_up")
+                           and d.get("rarity") in ("rare", "epic", "legendary"))
+            if rare_dups:
+                await _q_incr(db, user["id"], body.chat_id,
+                              "rare_or_better_pet_dups_today", delta=float(rare_dups))
             await db.commit()
         except Exception:
             pass

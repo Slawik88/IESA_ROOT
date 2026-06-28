@@ -464,9 +464,19 @@ async def cb_gacha_spin1(query: types.CallbackQuery, callback_data: GachaCB, db)
     if theme_note:
         text += theme_note
 
-    # Quest: gacha_spins_today
+    # Quest: gacha_spins_today + дериваты дублей (уровень питомца / rare+ дубль)
     try:
         await quest_increment(db, query.from_user.id, query.message.chat.id, "gacha_spins_today", delta=1.0)
+        dups = result.get("dup_outcomes", [])
+        level_ups = sum(1 for d in dups if d.get("outcome") == "leveled_up")
+        if level_ups:
+            await quest_increment(db, query.from_user.id, query.message.chat.id,
+                                  "pet_level_ups_today", delta=float(level_ups))
+        rare_dups = sum(1 for d in dups if d.get("outcome") in ("added", "leveled_up")
+                       and d.get("rarity") in ("rare", "epic", "legendary"))
+        if rare_dups:
+            await quest_increment(db, query.from_user.id, query.message.chat.id,
+                                  "rare_or_better_pet_dups_today", delta=float(rare_dups))
         await db.commit()
     except Exception:
         pass
@@ -514,6 +524,25 @@ async def cb_gacha_spin10(query: types.CallbackQuery, callback_data: GachaCB, db
     pity_final = results[-1]["pity_after"]
     hard = PITY_HARD[spin_type]
     text += f"\n\n<i>Пити после: {pity_final}/{hard}</i>"
+
+    # Quest: gacha_spins_today + дериваты дублей (раньше мульти-крутка в боте
+    # вообще не засчитывала квест — веб (/gacha/multi-spin) делал это корректно).
+    try:
+        await quest_increment(db, query.from_user.id, query.message.chat.id,
+                              "gacha_spins_today", delta=float(SPIN_MULTI_COUNT))
+        all_dups = [d for r in results for d in r.get("dup_outcomes", [])]
+        level_ups = sum(1 for d in all_dups if d.get("outcome") == "leveled_up")
+        if level_ups:
+            await quest_increment(db, query.from_user.id, query.message.chat.id,
+                                  "pet_level_ups_today", delta=float(level_ups))
+        rare_dups = sum(1 for d in all_dups if d.get("outcome") in ("added", "leveled_up")
+                       and d.get("rarity") in ("rare", "epic", "legendary"))
+        if rare_dups:
+            await quest_increment(db, query.from_user.id, query.message.chat.id,
+                                  "rare_or_better_pet_dups_today", delta=float(rare_dups))
+        await db.commit()
+    except Exception:
+        pass
 
     # Theme drop — 10× spins roll the chance 10 times (slightly better odds)
     for _ in range(SPIN_MULTI_COUNT):

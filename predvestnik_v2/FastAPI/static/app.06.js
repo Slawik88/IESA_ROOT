@@ -823,7 +823,7 @@ function renderPetItems(petId, petData) {
 }
 function doApplyDustFromPetModal(did,pid,btn) {
   btn.disabled=true;
-  api('/inventory/apply-dust',{method:'POST',body:JSON.stringify({dust_id:did,pet_id:pid})})
+  api('/inventory/apply-dust',{method:'POST',body:JSON.stringify({dust_id:did,pet_id:pid,chat_id:_cid})})
     .then(r=>{toast(`✅ +${r.duplicates_added} дубл. добавлено!`);CM();_zooData=null;loadInventory();})
     .catch(e=>{toast(e,false);btn.disabled=false;});
 }
