@@ -237,7 +237,12 @@ async def dev_bp_season_delete(season_id: str, db=Depends(get_db), user=Depends(
     await refresh_seasons_cache(db)
     if not row:
         raise HTTPException(404, "Сезон не найден в БД (registry-сезоны удалить нельзя — только перекрыть).")
-    return {"ok": True}
+    # all_seasons() = {**registry, **db_cache} — если season_id ТАКЖЕ зашит в
+    # core.registry.BATTLE_PASS_SEASONS, удаление DB-override не убирает сезон
+    # из списка: он «откатывается» к версии из кода (другие даты!). Раньше это
+    # выглядело как «кнопка не работает» — теперь явно говорим, что произошло.
+    reverted = season_id in BATTLE_PASS_SEASONS
+    return {"ok": True, "reverted_to_registry": reverted}
 
 
 @router.get("/bp/rewards")

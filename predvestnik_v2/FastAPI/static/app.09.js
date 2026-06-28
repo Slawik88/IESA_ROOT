@@ -225,7 +225,12 @@ function devDeleteSeason(id) {
 }
 function _execDevDeleteSeason(id) {
   api(`/admin/dev/bp/seasons/${encodeURIComponent(id)}`,{method:'DELETE'})
-    .then(()=>{toast('🗑 Удалён');CM();devLoadSeasons();})
+    .then(r=>{
+      toast(r.reverted_to_registry
+        ? `⚠️ Оверрайд удалён — «${id}» зашит в коде (registry), сезон откатился к дефолтным датам из кода, а не исчез`
+        : '🗑 Удалён');
+      CM();devLoadSeasons();
+    })
     .catch(e=>toast(e,false));
 }
 let _bcCounts=null;
