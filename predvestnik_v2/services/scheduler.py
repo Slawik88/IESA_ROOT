@@ -35,7 +35,7 @@ from services.achievements import increment_metric as _incr_ach
 from services.quests import increment_metric as _incr_quest
 from infrastructure.repositories.auction import get_expired_active_lots
 from infrastructure.repositories.wallet_log import log_wallet as _lw
-from services.auction import resolve_lot
+from services.auction import resolve_lot, flush_pending_announcements
 from infrastructure.repositories.duel import get_expired_pending
 from services.duel import decline_duel
 from core.constants import DUEL_TIMEOUT_SECONDS, VIP_EXPIRY_REMINDER_DAYS, BATTLE_PASS_SEASON_END_REMINDER_DAYS
@@ -269,6 +269,12 @@ async def duel_and_auction_task(bot: Bot):
                         )
                     except Exception as e:
                         logger.error(f"Duel timeout error {duel['id']}: {e}")
+
+                # ── Дайджест новых лотов (накопленных за последнюю минуту) ─────
+                try:
+                    await flush_pending_announcements(bot, db)
+                except Exception as e:
+                    logger.error(f"Auction digest flush error: {e}")
 
                 # ── Resolve expired auction lots ──────────────────────────────
                 expired_lots = await get_expired_active_lots(db)

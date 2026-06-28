@@ -1,8 +1,4 @@
 """FastAPI/routers/auction.py — просмотр лотов, ставки, создание, резерв."""
-import asyncio
-import os
-
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
@@ -11,40 +7,10 @@ from core.constants import AUCTION_COMMISSION, AUCTION_MIN_BID
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 # ITEMS_REGISTRY used both here and inside loops for item metadata
 from infrastructure.repositories.economy import get_balance, get_item_quantity, remove_item
-from infrastructure.repositories.auction import get_lot, get_reserve
-from infrastructure.repositories.routing import get_announce_chats
-from services.auction import place_bid, create_auction_lot, build_lot_announcement
+from infrastructure.repositories.auction import get_reserve
+from services.auction import place_bid, create_auction_lot, queue_lot_announcement
 
 router = APIRouter(prefix="/auction", tags=["auction"])
-
-
-async def _announce_lot(db, lot_id) -> None:
-    """Анонс нового лота во все основные чаты (без падения создания при ошибке Telegram).
-    Доставка — raw Telegram HTTP API; параллельно, с коротким таймаутом."""
-    token = os.getenv("BOT_TOKEN", "")
-    if not token:
-        return
-    try:
-        lot = await get_lot(db, lot_id)
-        if not lot:
-            return
-        chats = await get_announce_chats(db)
-        if not chats:
-            return
-        text, markup = build_lot_announcement(lot, os.getenv("BOT_USERNAME", ""))
-        async with httpx.AsyncClient(timeout=4) as client:
-            async def _send(cid):
-                payload = {"chat_id": cid, "text": text, "parse_mode": "HTML",
-                           "disable_web_page_preview": True}
-                if markup:
-                    payload["reply_markup"] = markup
-                try:
-                    await client.post(f"https://api.telegram.org/bot{token}/sendMessage", json=payload)
-                except Exception:
-                    pass
-            await asyncio.gather(*[_send(c) for c in chats])
-    except Exception:
-        pass
 
 
 @router.get("/lots")
@@ -184,7 +150,7 @@ async def create_lot(body: CreateLotRequest, db=Depends(get_db), user=Depends(re
         raise HTTPException(400, f"Недостаточно предметов: {item['name']} ×{body.quantity}.")
 
     await db.commit()
-    await _announce_lot(db, result)
+    queue_lot_announcement(result)
     return {"ok": True, "lot_id": result}
 
 
@@ -244,7 +210,7 @@ async def create_pet_lot(body: CreatePetLotRequest, db=Depends(get_db), user=Dep
         raise HTTPException(400, str(result))
 
     await db.commit()
-    await _announce_lot(db, result)
+    queue_lot_announcement(result)
     return {"ok": True, "lot_id": result}
 
 
