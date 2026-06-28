@@ -4,12 +4,23 @@
 # с ПРЯМЫМИ ссылками. Принявшие проходят за один SELECT. Девелопер — иммунитет.
 
 import os
+import time
 from typing import Callable, Awaitable, Dict, Any
 from aiogram.types import (TelegramObject, InlineKeyboardMarkup,
                            InlineKeyboardButton)
 
 from infrastructure.repositories.users import is_tos_accepted, get_global_rank
 from services.roles import DEVELOPER_GLOBAL_RANK
+
+# Большинство игровых команд в этом боте — НЕ слэш-команды (TextCmd/WarpCmd:
+# "обнять", "варп", "баланс", "бот поход"...), поэтому раньше промпт показывался
+# только на /command, а все обычные игровые сообщения тихо блокировались без
+# единого намёка почему — для не принявшего ToS игрока бот выглядел полностью
+# мёртвым (кроме /start). Теперь промпт показываем на ЛЮБОМ блокированном
+# сообщении, но с троттлингом на юзера, чтобы не заспамить группу повтором
+# на каждую следующую фразу.
+_PROMPT_COOLDOWN_SEC = 120
+_last_prompted: dict[int, float] = {}
 
 
 def _legal_urls() -> tuple[str | None, str | None]:
@@ -78,21 +89,25 @@ async def tos_middleware(
         return await handler(event, data)
 
     is_start = bool(msg and (msg.text or "").startswith("/start"))
-    is_command = bool(msg and (msg.text or "").startswith("/"))
     chat = data.get("event_chat")
-    is_private = bool(chat and getattr(chat, "type", "") == "private")
 
-    # Промпт показываем на осмысленных взаимодействиях (или в личке), чтобы не
-    # спамить группу на каждое обычное сообщение (XP-трекинг просто блокируется).
-    if is_private or is_command or cq is not None:
+    # Промпт — на любом блокированном сообщении/колбэке, но не чаще раза в
+    # _PROMPT_COOLDOWN_SEC на юзера (иначе группа получает напоминание на
+    # КАЖДОЕ его сообщение, пока он не среагирует на первое).
+    now = time.monotonic()
+    if now - _last_prompted.get(user.id, 0.0) >= _PROMPT_COOLDOWN_SEC:
+        _last_prompted[user.id] = now
         try:
             bot = data["bot"]
             target = chat.id if chat else user.id
             await bot.send_message(target, consent_text(is_new=is_start),
                                    reply_markup=build_consent_kb(),
                                    parse_mode="HTML")
-            if cq is not None:
-                await cq.answer("Сначала примите документы 📋")
+        except Exception:
+            pass
+    if cq is not None:
+        try:
+            await cq.answer("Сначала примите документы 📋", show_alert=True)
         except Exception:
             pass
     return  # блокируем действие до принятия
