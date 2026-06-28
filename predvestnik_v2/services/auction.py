@@ -1,8 +1,13 @@
 """
 services/auction.py
 Business logic for the global auction system.
-No bot imports — callers handle notifications.
+Чистые функции без bot/FastAPI-импортов на верхнем уровне. Единственное
+исключение — flush_pending_announcements(bot, db): шлёт дайджест новых лотов,
+поэтому ленивый import aiogram.types только внутри неё (та же граница, что
+уже допускает services/scheduler.py для проактивных уведомлений).
 """
+import asyncio
+import os
 from datetime import datetime, timezone, timedelta
 
 from core.constants import (
@@ -16,6 +21,7 @@ from infrastructure.repositories.auction import (
     deactivate_bid, insert_bid, count_seller_active, get_weekly_count,
     incr_weekly_count, add_reserve, remove_reserve, get_reserve,
 )
+from infrastructure.repositories.routing import get_announce_chats
 
 
 def _week_start() -> str:
@@ -35,6 +41,94 @@ def _fmt_mora(v) -> str:
     if "." in s:
         s = s.rstrip("0").rstrip(".")
     return s
+
+
+# ── Анонс новых лотов: дайджест вместо спама ────────────────────────────────
+# Раньше каждый созданный лот сразу же летел отдельным сообщением во ВСЕ основные
+# чаты — если 10 продавцов за минуту выставляли по 5 предметов, чаты получали
+# 50 сообщений подряд. Теперь лоты копятся в памяти процесса (single-process —
+# бот и веб делят один event loop) и раз в минуту (тик duel_and_auction_task)
+# улетают ОДНИМ сообщением: 1 лот — подробная карточка как раньше, 2+ — компактный
+# дайджест-список. queue_lot_announcement() — неблокирующий, без БД/IO.
+_pending_lot_ids: list[int] = []
+
+
+def queue_lot_announcement(lot_id: int) -> None:
+    """Поставить лот в очередь анонса (разгрузка — реальная отправка батчем, см. flush_pending_announcements)."""
+    _pending_lot_ids.append(lot_id)
+
+
+def _take_pending_lot_ids() -> list[int]:
+    ids = _pending_lot_ids[:]
+    _pending_lot_ids.clear()
+    return ids
+
+
+def build_lots_digest(lots: list[dict], bot_username: str = "") -> tuple[str, dict | None]:
+    """Компактный дайджест 2+ лотов одним сообщением (вместо отдельного на каждый)."""
+    _MAX_LINES = 10
+    lines = [f"🔨 <b>{len(lots)} новых лотов на аукционе!</b>"]
+    for lot in lots[:_MAX_LINES]:
+        name = (lot.get("item_name") or "Лот").split("||")[0]
+        qty = lot.get("quantity") or 1
+        is_pet = lot.get("item_type") == "pet"
+        icon = "🐾" if is_pet else "📦"
+        qty_part = f" ×{qty}" if (qty and qty > 1 and not is_pet) else ""
+        buyout_part = f" · выкуп {_fmt_mora(lot.get('buyout'))}🪙" if lot.get("buyout") else ""
+        lines.append(f"{icon} {name}{qty_part} — от {_fmt_mora(lot.get('min_bid'))}🪙{buyout_part}")
+    if len(lots) > _MAX_LINES:
+        lines.append(f"…и ещё {len(lots) - _MAX_LINES}.")
+    lines.append("⏳ Загляни во вкладку «Аукцион», чтобы сделать ставку!")
+    text = "\n".join(lines)
+    markup = None
+    if bot_username:
+        url = f"https://t.me/{bot_username}?startapp=auction"
+        markup = {"inline_keyboard": [[{"text": "🔨 Открыть аукцион", "url": url}]]}
+    return text, markup
+
+
+async def flush_pending_announcements(bot, db) -> None:
+    """Вызывается раз в минуту (duel_and_auction_task) — отправляет ОДНО сообщение
+    на все основные чаты со всеми лотами, накопленными за последнюю минуту."""
+    ids = _take_pending_lot_ids()
+    if not ids:
+        return
+    bot_username = os.getenv("BOT_USERNAME", "")
+    lots = []
+    seen = set()
+    for lid in ids:
+        if lid in seen:
+            continue
+        seen.add(lid)
+        lot = await get_lot(db, lid)
+        if lot:
+            lots.append(lot)
+    if not lots:
+        return
+    chats = await get_announce_chats(db)
+    if not chats:
+        return
+    if len(lots) == 1:
+        text, markup = build_lot_announcement(lots[0], bot_username)
+    else:
+        text, markup = build_lots_digest(lots, bot_username)
+    # build_lot*() отдают чистый dict (без bot-импортов, см. их docstring) —
+    # aiogram Bot.send_message() ждёт типизированный объект, конвертируем здесь,
+    # на единственной границе, где services/ реально говорит с aiogram.
+    reply_markup = None
+    if markup:
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        reply_markup = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=b["text"], url=b["url"]) for b in row]
+            for row in markup["inline_keyboard"]
+        ])
+    for cid in chats:
+        try:
+            await bot.send_message(cid, text, parse_mode="HTML",
+                                   disable_web_page_preview=True, reply_markup=reply_markup)
+        except Exception:
+            pass
+        await asyncio.sleep(0.05)
 
 
 def build_lot_announcement(lot: dict, bot_username: str = "") -> tuple[str, dict | None]:
