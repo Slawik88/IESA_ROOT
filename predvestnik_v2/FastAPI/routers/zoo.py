@@ -363,6 +363,7 @@ async def expedition_options(db=Depends(get_db), user=Depends(require_tg_user)):
 
 class StartExpeditionRequest(BaseModel):
     hours: int
+    chat_id: int = 0
 
 
 @router.post("/start-expedition")
@@ -441,18 +442,27 @@ async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), use
 
     try:
         async with db.connection.transaction():
+            # chat_id здесь — не просто для уведомления: expedition_background_task
+            # инкрементирует квест/ачивку "expeditions_today" С ЭТИМ chat_id при
+            # завершении похода (квесты скоуплены per-chat). chat_id=0 раньше слал
+            # прогресс в несуществующий чат — квест с веба никогда не засчитывался.
             await db.execute(
                 "INSERT INTO active_expeditions (pet_id, chat_id, duration_hours, cost_mora, ends_at) "
                 "VALUES (?, ?, ?, ?, NOW() + (? * INTERVAL '1 hour'))",
-                (pet_id, 0, body.hours, actual_cost, duration_hours),
+                (pet_id, body.chat_id, body.hours, actual_cost, duration_hours),
             )
             await db.execute(
                 "UPDATE pets SET fatigue = fatigue + ? WHERE id = ?",
                 (expedition_fatigue, pet_id),
             )
-    except Exception:
+    except Exception as e:
         if actual_cost > 0:
             await add_balance(db, user_id, mora=actual_cost)
+        # Двойной тап «Отправить» — гонка между предварительной проверкой (выше) и
+        # INSERT: PK(pet_id) корректно не даёт второй активной экспедиции на того
+        # же питомца. Дружелюбное 400 вместо общего 500 — поведение ожидаемое.
+        if "active_expeditions_pkey" in str(e) or "duplicate key" in str(e).lower():
+            raise HTTPException(400, "Питомец уже в походе. Мора возвращена.")
         raise HTTPException(500, "Не удалось запустить экспедицию. Мора возвращена.")
 
     return {

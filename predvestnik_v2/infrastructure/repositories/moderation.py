@@ -7,7 +7,7 @@ async def set_user_left_status(
 ):
     await db.execute(
         "UPDATE user_chat_stats SET is_left = ? WHERE user_tg_id = ? AND chat_tg_id = ?",
-        (int(is_left), user_id, chat_id),
+        (is_left, user_id, chat_id),
     )
     await db.commit()
 

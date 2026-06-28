@@ -87,11 +87,15 @@ async def cmd_my_nick(message: types.Message, db, text_args: str = None):
             (user_id, chat_id),
         ) as c:
             row = await c.fetchone()
-        now = datetime.now(timezone.utc)
+        # nickname_changes_reset_at — TIMESTAMP без зоны (naive); asyncpg падает
+        # с "can't subtract offset-naive and offset-aware datetimes" при записи
+        # aware-значения в naive-колонку. now/reset_at держим naive — сравниваем
+        # только .year/.month (это просто int-атрибуты, awareness не важна).
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         count = row[0] if row else 0
         reset_at = row[1] if row else now
-        if reset_at.tzinfo is None:
-            reset_at = reset_at.replace(tzinfo=timezone.utc)
+        if reset_at.tzinfo is not None:
+            reset_at = reset_at.replace(tzinfo=None)
         if (now.year, now.month) != (reset_at.year, reset_at.month):
             count = 0
             reset_at = now

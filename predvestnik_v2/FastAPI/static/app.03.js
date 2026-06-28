@@ -305,7 +305,7 @@ function confirmExpedition(hours) {
     [{l:'🗺 Отправить',c:'btn-gold',f:`doStartExpedition(${hours})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
 }
 function doStartExpedition(hours) {
-  api('/zoo/start-expedition',{method:'POST',body:JSON.stringify({hours})})
+  api('/zoo/start-expedition',{method:'POST',body:JSON.stringify({hours,chat_id:_cid})})
     .then(r=>{toast(`🗺 ${r.pet_name} отправлен в поход на ${r.hours}ч!`);refreshCurrBar();CM();loadZoo();})
     .catch(e=>toast(e,false));
 }

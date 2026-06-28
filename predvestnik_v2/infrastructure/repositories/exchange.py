@@ -50,6 +50,7 @@ async def get_user_quota(db: aiosqlite.Connection, user_id: int, event_id: int) 
 async def add_quota(db: aiosqlite.Connection, user_id: int, event_id: int, amount: float) -> None:
     await db.execute(
         "INSERT INTO user_exchange_quota (user_id, event_id, diamonds_converted) VALUES (?, ?, ?) "
-        "ON CONFLICT(user_id, event_id) DO UPDATE SET diamonds_converted = diamonds_converted + ?",
+        "ON CONFLICT(user_id, event_id) DO UPDATE "
+        "SET diamonds_converted = user_exchange_quota.diamonds_converted + ?",
         (user_id, event_id, amount, amount),
     )
