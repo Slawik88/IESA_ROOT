@@ -58,15 +58,6 @@ async def get_global_rank(db: aiosqlite.Connection, user_id: int) -> int:
         return row[0] if row else 0
 
 
-async def is_tos_accepted(db: aiosqlite.Connection, user_id: int) -> bool:
-    """БЛОК22: True если игрок принял ToS/Privacy (tos_accepted_at != NULL)."""
-    async with db.execute(
-        "SELECT tos_accepted_at FROM users WHERE user_tg_id = ?", (user_id,)
-    ) as cursor:
-        row = await cursor.fetchone()
-    return bool(row and row[0] is not None)
-
-
 async def accept_tos(db: aiosqlite.Connection, user_id: int,
                      username: str | None = None) -> None:
     """БЛОК22: зафиксировать принятие документов. Idempotent — повторное принятие
