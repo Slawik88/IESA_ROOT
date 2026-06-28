@@ -1,6 +1,5 @@
 from aiogram import Router
 from .common import router as common_router, fallback_router, unknown_cmd_router
-from .consent import router as consent_router  # БЛОК22: приём ToS/Privacy
 from .economy import router as eco_router
 from .payments import router as payments_router
 from .profile import router as profile_router
@@ -40,7 +39,6 @@ from . import dev
 main_router = Router(name="main_router")
 
 main_router.include_routers(
-    consent_router,    # БЛОК22: «✅ Принять» — ловим раньше прочих
     common_router,
     admin_router,      # до eco: "дать ранг" перехватывается раньше чем "дать"
     eco_router,
