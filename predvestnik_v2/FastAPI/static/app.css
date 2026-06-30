@@ -869,43 +869,45 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   80%     { box-shadow: 0 0 0 2px #d63b6e, 0 0 18px 4px rgba(214,59,110,.8); }
 }
 
-/* ── Косметика: гало вокруг аватара (box-shadow, не клипуется overflow) ──── */
+/* ── Косметика: гало вокруг аватара ─────────────────────────────────────── */
+/* filter:drop-shadow вместо box-shadow — не клипуется родительским overflow:hidden */
+/* (hero, looks-preview, lc-sw — все три имеют overflow:hidden) */
 /* common — ровное тёплое гало (статичное) */
-.halo-glow    { box-shadow: 0 0 16px 4px rgba(255,200,120,.55); }
+.halo-glow    { filter: drop-shadow(0 0 8px rgba(255,200,120,.75)); }
 /* rare — плавное «дыхание» */
-.halo-pulse   { box-shadow: 0 0 12px 3px rgba(120,200,255,.6); animation: haloPulse 2.2s ease-in-out infinite; }
+.halo-pulse   { filter: drop-shadow(0 0 6px rgba(120,200,255,.7)); animation: haloPulse 2.2s ease-in-out infinite; }
 @keyframes haloPulse {
-  0%,100% { box-shadow: 0 0 10px 2px rgba(120,200,255,.5); }
-  50%     { box-shadow: 0 0 22px 8px rgba(120,200,255,.9); }
+  0%,100% { filter: drop-shadow(0 0 5px rgba(120,200,255,.55)); }
+  50%     { filter: drop-shadow(0 0 14px rgba(120,200,255,.95)); }
 }
-/* epic — рунический круг: «тикающее» ступенчатое мерцание (магия/механика) */
-.halo-runic   { box-shadow: 0 0 0 2px rgba(160,90,240,.85), 0 0 16px 4px rgba(122,59,214,.5); animation: haloRunic 2.4s steps(8,end) infinite; }
+/* epic — рунический круг: «тикающее» ступенчатое мерцание */
+.halo-runic   { filter: drop-shadow(0 0 1px rgba(160,90,240,1)) drop-shadow(0 0 8px rgba(122,59,214,.65)); animation: haloRunic 2.4s steps(8,end) infinite; }
 @keyframes haloRunic {
-  0%   { box-shadow: 0 0 0 2px rgba(160,90,240,.9), 0 0 12px 3px rgba(122,59,214,.5); }
-  50%  { box-shadow: 0 0 0 2px rgba(202,132,255,.95), 0 0 20px 6px rgba(150,90,240,.78); }
-  100% { box-shadow: 0 0 0 2px rgba(160,90,240,.9), 0 0 12px 3px rgba(122,59,214,.5); }
+  0%   { filter: drop-shadow(0 0 1px rgba(160,90,240,.95)) drop-shadow(0 0 6px rgba(122,59,214,.55)); }
+  50%  { filter: drop-shadow(0 0 1px rgba(202,132,255,1)) drop-shadow(0 0 12px rgba(150,90,240,.85)); }
+  100% { filter: drop-shadow(0 0 1px rgba(160,90,240,.95)) drop-shadow(0 0 6px rgba(122,59,214,.55)); }
 }
 /* epic — аврора: переливы цветов */
-.halo-aurora  { box-shadow: 0 0 18px 6px rgba(80,220,180,.7); animation: haloAurora 5s linear infinite; }
+.halo-aurora  { filter: drop-shadow(0 0 10px rgba(80,220,180,.7)); animation: haloAurora 5s linear infinite; }
 @keyframes haloAurora {
-  0%   { box-shadow: 0 0 18px 6px rgba(80,220,180,.7); }
-  33%  { box-shadow: 0 0 18px 6px rgba(120,140,255,.7); }
-  66%  { box-shadow: 0 0 18px 6px rgba(220,120,220,.7); }
-  100% { box-shadow: 0 0 18px 6px rgba(80,220,180,.7); }
+  0%   { filter: drop-shadow(0 0 10px rgba(80,220,180,.7)); }
+  33%  { filter: drop-shadow(0 0 10px rgba(120,140,255,.7)); }
+  66%  { filter: drop-shadow(0 0 10px rgba(220,120,220,.7)); }
+  100% { filter: drop-shadow(0 0 10px rgba(80,220,180,.7)); }
 }
-/* legendary — небесный нимб: золото + двойной пульс лучей (тройной box-shadow) */
-.halo-celestial { box-shadow: 0 0 0 2px rgba(255,224,140,.9), 0 0 16px 4px rgba(255,210,110,.55), 0 0 30px 8px rgba(255,200,90,.22); animation: haloCeles 3s ease-in-out infinite; }
+/* legendary — небесный нимб: золото + двойной пульс */
+.halo-celestial { filter: drop-shadow(0 0 1px rgba(255,224,140,1)) drop-shadow(0 0 10px rgba(255,210,110,.7)) drop-shadow(0 0 18px rgba(255,200,90,.3)); animation: haloCeles 3s ease-in-out infinite; }
 @keyframes haloCeles {
-  0%,100% { box-shadow: 0 0 0 2px rgba(255,224,140,.9), 0 0 16px 4px rgba(255,210,110,.55), 0 0 30px 8px rgba(255,200,90,.22); }
-  50%     { box-shadow: 0 0 0 2px rgba(255,242,194,1), 0 0 24px 7px rgba(255,220,130,.85), 0 0 46px 14px rgba(255,200,90,.4); }
+  0%,100% { filter: drop-shadow(0 0 1px rgba(255,224,140,1)) drop-shadow(0 0 10px rgba(255,210,110,.65)) drop-shadow(0 0 18px rgba(255,200,90,.28)); }
+  50%     { filter: drop-shadow(0 0 1px rgba(255,242,194,1)) drop-shadow(0 0 16px rgba(255,220,130,.9)) drop-shadow(0 0 28px rgba(255,200,90,.5)); }
 }
 /* mythic — Кольцо Бездны: зловещий рваный багровый всполох */
-.halo-void    { animation: haloVoid 1.9s ease-in-out infinite; }
+.halo-void    { filter: drop-shadow(0 0 1px rgba(40,10,30,.95)) drop-shadow(0 0 6px rgba(180,40,60,.45)); animation: haloVoid 1.9s ease-in-out infinite; }
 @keyframes haloVoid {
-  0%,100% { box-shadow: 0 0 0 2px rgba(40,10,30,.95), 0 0 12px 3px rgba(180,40,60,.45); }
-  30%     { box-shadow: 0 0 0 2px rgba(80,15,50,.95), 0 0 26px 8px rgba(230,50,80,.85); }
-  45%     { box-shadow: 0 0 0 2px rgba(50,10,35,.95), 0 0 14px 3px rgba(180,40,60,.5); }
-  70%     { box-shadow: 0 0 0 2px rgba(92,18,56,.95), 0 0 30px 10px rgba(255,60,90,.9); }
+  0%,100% { filter: drop-shadow(0 0 1px rgba(40,10,30,.95)) drop-shadow(0 0 6px rgba(180,40,60,.45)); }
+  30%     { filter: drop-shadow(0 0 1px rgba(80,15,50,.95)) drop-shadow(0 0 16px rgba(230,50,80,.9)); }
+  45%     { filter: drop-shadow(0 0 1px rgba(50,10,35,.95)) drop-shadow(0 0 7px rgba(180,40,60,.5)); }
+  70%     { filter: drop-shadow(0 0 1px rgba(92,18,56,.95)) drop-shadow(0 0 18px rgba(255,60,90,.95)); }
 }
 
 /* ── Косметика: фон / баннер карточки профиля ───────────────────────────── */
@@ -1038,7 +1040,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
    видно в большом живом превью сверху и на самом профиле (там по 1 экземпляру). */
 .lc-sw .lc-ava, .lc-sw .lc-nick, .lc-sw .card-fx, .lc-sw.lc-bg { animation: none !important; }
 /* GPU-хинт только для реально анимирующихся косметик на профиле/в большом превью. */
-.hero .ava, .hero .pname, .looks-preview .ava, .looks-preview .pname, .looks-preview .card-fx { will-change: box-shadow, background-position, opacity; }
+.hero .ava, .hero .pname, .looks-preview .ava, .looks-preview .pname, .looks-preview .card-fx { will-change: filter, box-shadow, background-position, opacity; }
 .lc-name { font-weight: 600; font-size: 11px; line-height: 1.2; }
 .lc-foot { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .lc-rar { font-size: 8.5px; padding: 1px 5px; border-radius: 5px; border: 1px solid currentColor; color: #9aa7b8; }
