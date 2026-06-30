@@ -183,7 +183,7 @@ function _looksPriceTxt(opt){ return Object.entries(opt).map(([cur,amt])=>`${amt
 function renderLooks(){
   const b=el('mb'); if(!b||!_looksData) return;
   const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
-    <span>👑 Смотреть и листать превью можно всё. Покупать косметику и выбирать приветствие — с VIP.</span>
+    <span>👑 Купить можно любую косметику. Редкая и выше (🟣+) <b>отображается на профиле только с VIP</b>.</span>
     <button class="btn btn-sm btn-gold" onclick="CM();goTo('market','vip')">Перейти к VIP</button></div>`;
   b.innerHTML=_looksPreviewHtml()+vipBar+'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'+_looksPresetsHtml()+_LOOKS_SLOTS.map(_looksSlotHtml).join('')+_looksWelcomeHtml()
     +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
@@ -284,16 +284,16 @@ function _showCosmeticPreview(slot,id){
   const bal=_looksData.balances||{};
 
   let priceHtml='';
-  if(it.vip_required&&!_looksData.vip){
-    priceHtml=`<div class="cos-prev-lock">🔒 Только для VIP
-      <button class="btn btn-gold btn-sm" style="margin-top:8px;display:block;width:100%" onclick="CM();goTo('market','vip')">Получить VIP ›</button></div>`;
-  } else if(it.price&&it.price.length){
+  if(it.price&&it.price.length){
     const opt=it.price[0];
     const can=Object.entries(opt).every(([cur,amt])=>(bal[cur]||0)>=amt);
     const lbl=_looksPriceTxt(opt)+' ✨';
     const zarBtn=`<button class="btn btn-gold cos-prev-buy${can?'':' lc-buy--no'}" onclick="_looksBuyFromPreview('${id}',0,'${slot}')">${can?'✨ Купить за':'🚫 Нужно'} ${lbl}</button>`;
     const nomoney=!can?`<div class="cos-prev-nomoney">Нет зарников? Пополни через раздел VIP/Зарники ✨</div>`:'';
-    priceHtml=`<div class="cos-prev-price">${zarBtn}${nomoney}</div>`;
+    const vipWarn=(!_looksData.vip&&it.rarity&&it.rarity!=='common')
+      ?`<div class="cos-prev-vipwarn">⚠️ Без VIP-подписки косметика сохранится в инвентаре, но не будет отображаться на профиле.
+        <button class="btn btn-xs btn-gold" onclick="CM();goTo('market','vip')">Получить VIP ›</button></div>` : '';
+    priceHtml=`<div class="cos-prev-price">${zarBtn}${nomoney}${vipWarn}</div>`;
   } else {
     priceHtml=`<div class="cos-prev-lock">${_srcLabel(it.source)||'Не продаётся'}</div>`;
   }

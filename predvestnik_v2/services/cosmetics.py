@@ -224,8 +224,6 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0) -> tupl
         return False, "Эта косметика не продаётся — выдаётся за VIP / БП / достижения."
     if cosmetic_id in await _owned(db, user_id):
         return False, "Эта косметика у тебя уже есть."
-    if cos.get("vip_required") and not await is_vip_active(db, user_id):
-        return False, "🔒 Покупка доступна только при активной VIP."
     if not (0 <= option_index < len(price)):
         return False, "Некорректный вариант оплаты."
     chosen = price[option_index]
@@ -258,7 +256,10 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0) -> tupl
             "ON CONFLICT DO NOTHING", (user_id, cosmetic_id))
 
     paid = ", ".join(f"{int(amt)}{_CUR_ICON[cur]}" for cur, amt in chosen.items())
-    return True, f"🎨 Куплено: {cos['name']} ({paid})"
+    msg = f"🎨 Куплено: {cos['name']} ({paid})"
+    if cos.get("rarity", "common") != "common" and not await is_vip_active(db, user_id):
+        msg += "\n\n⚠️ Эта косметика отображается только при активной VIP-подписке. Без VIP она сохранена в инвентаре, но не будет видна на профиле."
+    return True, msg
 
 
 async def get_active_cosmetics(db, user_id: int) -> dict:
