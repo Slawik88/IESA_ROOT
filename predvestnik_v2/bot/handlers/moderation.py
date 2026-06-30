@@ -9,6 +9,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from services.utils import resolve_target, safe_html, resolve_display_name
+from services.formatting import parse_dt
 from services import moderation as mod_service
 from services import roles
 from infrastructure.repositories import moderation as mod_db
@@ -254,7 +255,14 @@ async def cmd_immune(
 ):
     if message.chat.type == "private":
         return
-    target_id, target_name, _ = await resolve_target(message, db, text_args)
+    target_id, target_name, resolve_extra = await resolve_target(message, db, text_args)
+    if resolve_extra == "error_user_not_found":
+        uname = (text_args or "").split()[0]
+        return await message.answer(
+            f"❌ Пользователь <code>{safe_html(uname)}</code> не найден. "
+            "Он должен написать хоть одно сообщение в этом чате.",
+            parse_mode="HTML",
+        )
     if not target_id:
         return await message.answer(
             "ℹ️ <b>Использование:</b> <code>бот иммунитет, @юзер</code>\n"
@@ -282,16 +290,24 @@ async def cmd_immune(
         )
 
 
-@router.message(TextCmd(["защита", "защитить", "рест", "отдых"]))
+@router.message(TextCmd(["рест", "отдых", "защита", "защитить"]))
 async def cmd_protect(
     message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
         return
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
+    if extra_args == "error_user_not_found":
+        uname = (text_args or "").split()[0]
+        return await message.answer(
+            f"❌ Пользователь <code>{safe_html(uname)}</code> не найден. "
+            "Он должен написать хоть одно сообщение в этом чате.",
+            parse_mode="HTML",
+        )
     if not target_id or not extra_args:
         return await message.answer(
-            "ℹ️ <b>Использование:</b> <code>бот защита, @юзер [5д/1ч]</code>\n"
+            "ℹ️ <b>Использование:</b> <code>бот рест, @юзер [5д/1ч]</code>\n"
+            "Например: <code>бот рест, @username 14д</code>\n"
             "Или ответьте на сообщение пользователя.",
             parse_mode="HTML",
         )
@@ -321,16 +337,22 @@ async def cmd_protect(
     )
 
 
-@router.message(TextCmd(["снять защиту", "убрать щит", "снять рест", "убрать рест", "конец реста"]))
+@router.message(TextCmd(["снять рест", "снять защиту", "убрать щит", "убрать рест", "конец реста"]))
 async def cmd_unprotect(
     message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
         return
-    target_id, target_name, _ = await resolve_target(message, db, text_args)
+    target_id, target_name, resolve_extra = await resolve_target(message, db, text_args)
+    if resolve_extra == "error_user_not_found":
+        uname = (text_args or "").split()[0]
+        return await message.answer(
+            f"❌ Пользователь <code>{safe_html(uname)}</code> не найден.",
+            parse_mode="HTML",
+        )
     if not target_id:
         return await message.answer(
-            "ℹ️ <b>Использование:</b> <code>бот снять защиту, @юзер</code>\n"
+            "ℹ️ <b>Использование:</b> <code>бот снять рест, @юзер</code>\n"
             "Или ответьте на сообщение пользователя.",
             parse_mode="HTML",
         )
@@ -343,6 +365,46 @@ async def cmd_unprotect(
     await mod_db.set_immunity(db, message.chat.id, target_id, 0, None)
     await message.answer(
         f"❌ Защитный щит с <b>{target_name}</b> снят.", parse_mode="HTML"
+    )
+
+
+@router.message(TextCmd(["кто рест", "ресты", "кто в ресте", "список ресты"]))
+async def cmd_who_rested(message: types.Message, db):
+    if message.chat.type == "private":
+        return
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    async with db.execute(
+        "SELECT s.user_tg_id, u.user_tg_username, s.is_immune, s.immune_until "
+        "FROM user_chat_stats s "
+        "LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
+        "WHERE s.chat_tg_id = ? AND s.is_left = FALSE "
+        "AND (s.is_immune = 1 OR (s.immune_until IS NOT NULL AND s.immune_until > ?))",
+        (message.chat.id, now_str),
+    ) as cursor:
+        rows = [dict(r) for r in await cursor.fetchall()]
+
+    if not rows:
+        return await message.answer("✅ Никто не в ресте и без иммунитета.", parse_mode="HTML")
+
+    immune_lines, rested_lines = [], []
+    for r in rows:
+        uid = r["user_tg_id"]
+        uname = safe_html(r["user_tg_username"] or f"ID {uid}")
+        link = f'<a href="tg://user?id={uid}">{uname}</a>'
+        if r["is_immune"]:
+            immune_lines.append(f"├ 🛡 {link} — иммунитет ∞")
+        else:
+            dt = parse_dt(r["immune_until"])
+            until_str = dt.strftime("%d.%m %H:%M") if dt else "?"
+            rested_lines.append(f"├ 🕐 {link} — рест до {until_str}")
+
+    lines = immune_lines + rested_lines
+    if lines:
+        lines[-1] = lines[-1].replace("├", "└")
+
+    await message.answer(
+        f"🛡 <b>Защита от чистки ({len(rows)}):</b>\n" + "\n".join(lines),
+        parse_mode="HTML",
     )
 
 

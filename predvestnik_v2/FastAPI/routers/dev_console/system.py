@@ -1,9 +1,31 @@
-"""dev_console/system.py — Системные ресурсы сервера."""
-from fastapi import APIRouter, Depends
+"""dev_console/system.py — Системные ресурсы и глобальные флаги фич."""
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from ._common import _require_dev
+from infrastructure.repositories import system_flags as _flags_repo
 
 router = APIRouter()
+
+
+class FlagBody(BaseModel):
+    enabled: bool
+
+
+@router.get("/flags")
+async def dev_get_flags(db=Depends(get_db), user=Depends(require_tg_user)):
+    _require_dev(user)
+    flags = await _flags_repo.get_all(db)
+    return {"flags": flags}
+
+
+@router.post("/flags/{key}")
+async def dev_set_flag(key: str, body: FlagBody, db=Depends(get_db), user=Depends(require_tg_user)):
+    _require_dev(user)
+    ok = await _flags_repo.set_flag(db, key, body.enabled)
+    if not ok:
+        raise HTTPException(404, f"Флаг '{key}' не найден.")
+    return {"ok": True, "key": key, "enabled": body.enabled}
 
 
 # ── 5б. Системные ресурсы (исключая девелопера) ─────────────────────────────────

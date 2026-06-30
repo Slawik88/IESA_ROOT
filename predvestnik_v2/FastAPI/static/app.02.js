@@ -7,6 +7,7 @@ function loadProfile() {
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
+    _applySysFlags(d.system_flags);
     _tosGate(d);   // БЛОК22: блок-экран принятия ToS/Privacy для не принявших
     const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,6);
     const uid = d.user_id || _uid;
