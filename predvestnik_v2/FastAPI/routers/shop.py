@@ -3,14 +3,14 @@ purchase_item() из services.economy — та же функция что и у 
 """
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_module
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories.economy import get_balance
 from services.economy import EconomyService
 from services.achievements import increment_metric as ach_incr
 from services.smart_checkout import calculate_missing_resources_cost
 
-router = APIRouter(prefix="/shop", tags=["shop"])
+router = APIRouter(prefix="/shop", tags=["shop"], dependencies=[Depends(require_module("module_shop"))])
 
 _BUYABLE_CATEGORIES = {"food", "utility", "booster", "donate"}
 

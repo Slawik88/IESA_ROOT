@@ -4,13 +4,13 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_module
 from infrastructure.repositories.economy import get_balance
 from services.daily_deal import ensure_deals_fresh, period_key
 from core.constants import DAILY_DEAL_ROTATION_HOURS
 from core.registry import ITEMS_REGISTRY
 
-router = APIRouter(prefix="/daily-deal", tags=["daily-deal"])
+router = APIRouter(prefix="/daily-deal", tags=["daily-deal"], dependencies=[Depends(require_module("module_daily_deal"))])
 
 
 def _next_reset_utc() -> str:

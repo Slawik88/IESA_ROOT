@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_module
 from core.constants import AUCTION_COMMISSION, AUCTION_MIN_BID
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 # ITEMS_REGISTRY used both here and inside loops for item metadata
@@ -10,7 +10,7 @@ from infrastructure.repositories.economy import get_balance, get_item_quantity, 
 from infrastructure.repositories.auction import get_reserve
 from services.auction import place_bid, create_auction_lot, queue_lot_announcement
 
-router = APIRouter(prefix="/auction", tags=["auction"])
+router = APIRouter(prefix="/auction", tags=["auction"], dependencies=[Depends(require_module("module_auction"))])
 
 
 @router.get("/lots")

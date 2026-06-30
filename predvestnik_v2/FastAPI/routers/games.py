@@ -4,7 +4,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_module
 from core.constants import GAMES, GAMBLE_DAILY_CAP
 from infrastructure.repositories.games import get_cooldown, get_daily_winnings
 from services.games import play_dice, play_coin, play_number, play_roulette
@@ -12,7 +12,7 @@ from services.formatting import parse_dt
 
 from datetime import datetime
 
-router = APIRouter(prefix="/games", tags=["games"])
+router = APIRouter(prefix="/games", tags=["games"], dependencies=[Depends(require_module("module_games"))])
 
 
 @router.get("/status")

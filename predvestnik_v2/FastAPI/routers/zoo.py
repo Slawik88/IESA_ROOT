@@ -11,7 +11,7 @@ from core.constants import (
     PET_LEVEL_MILESTONE_REWARDS, HAMSTER_BONUSES, WOLF_BONUSES, UNICORN_BONUSES,
 )
 from core.registry import ITEMS_REGISTRY, PET_SPECIES, EXPEDITIONS_DATA
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_module
 from infrastructure.repositories.economy import get_item_quantity, remove_item, add_balance, spend_mora
 from infrastructure.repositories.zoo import (
     get_user_pets, get_nursery_count, get_zoo_stats, buy_pet_slot, get_slot_purchase_state,
@@ -22,7 +22,7 @@ from services.formatting import parse_dt
 from services.vip import get_extra_pet_slots
 from services.zoo import get_active_wolf_food_extra, get_wolf_fatigue_reduction
 
-router = APIRouter(prefix="/zoo", tags=["zoo"])
+router = APIRouter(prefix="/zoo", tags=["zoo"], dependencies=[Depends(require_module("module_zoo"))])
 
 _FOOD_IDS = ["food_basic", "food_fried", "food_elite", "food_stew", "food_energy", "food_feast", "food_super", "food_diamond"]
 _PLACEMENTS = ("active", "passive", "storage")

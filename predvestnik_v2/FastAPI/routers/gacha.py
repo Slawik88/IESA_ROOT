@@ -3,13 +3,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from core.constants import (SPIN_COSTS, SPIN_TYPE_LABELS, SPIN_TOKEN_IDS,
                              PITY_HARD, SPIN_MULTI_COUNT, SPIN_MULTI_DISCOUNT)
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_module
 from infrastructure.repositories.economy import get_balance, get_item_quantity
 from infrastructure.repositories.gacha import get_pity
 from core.registry import GACHA_TABLES
 from services.gacha import roll_single, roll_multi, maybe_grant_theme_drop
 
-router = APIRouter(prefix="/gacha", tags=["gacha"])
+router = APIRouter(prefix="/gacha", tags=["gacha"], dependencies=[Depends(require_module("module_gacha"))])
 
 
 def _compute_rates(spin_type: str) -> dict:
