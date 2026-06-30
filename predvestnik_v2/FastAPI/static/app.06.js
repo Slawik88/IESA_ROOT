@@ -743,9 +743,9 @@ function swMkt(tab, _btn) {
   _mktTab = tab;
   document.querySelectorAll('#pg-market > .tabs > .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  const bd = el('balrow'); if(bd) bd.style.display = tab === 'goods' ? 'flex' : 'none';
-  ['vip','gacha','goods','deal'].forEach(t=>{ const d=el(t==='goods'?'mkt-goods':'mkt-'+t); if(d) d.style.display=t===tab?'':'none'; });
-  ({vip:loadVip, gacha:loadGacha, goods:loadMarketGoods, deal:loadDeal}[tab]||loadGacha)();
+  const bd = el('balrow'); if(bd) bd.style.display = (tab === 'goods' || tab === 'cosmetics') ? 'flex' : 'none';
+  ['vip','gacha','goods','deal','cosmetics'].forEach(t=>{ const d=el(t==='goods'?'mkt-goods':'mkt-'+t); if(d) d.style.display=t===tab?'':'none'; });
+  ({vip:loadVip, gacha:loadGacha, goods:loadMarketGoods, deal:loadDeal, cosmetics:loadMarketCosmetics}[tab]||loadGacha)();
 }
 
 // ── swGoods — Расходники: 🛒 Обычный (Магазин) / 🌑 Тёмный (Чёрный Рынок) ────────

@@ -322,9 +322,9 @@ function _looksBuyFromPreview(id,opt,slot){
     .catch(e=>toast(e,false));
 }
 
-function _looksEquip(slot,id){ _looksSel[slot]=id; renderLooks(); }   // pending — применяется по «Применить»
-function _looksUnequip(slot){ _looksSel[slot]=null; renderLooks(); }
-function _looksReset(){ _looksSel={..._looksSaved}; renderLooks(); }
+function _looksEquip(slot,id){ _looksSel[slot]=id; renderLooks(); _looksRefreshMkt(); }
+function _looksUnequip(slot){ _looksSel[slot]=null; renderLooks(); _looksRefreshMkt(); }
+function _looksReset(){ _looksSel={..._looksSaved}; renderLooks(); _looksRefreshMkt(); }
 
 // ── Пресеты образов ────────────────────────────────────────────────────────────
 function _looksPresetsHtml(){
@@ -480,6 +480,27 @@ function _craftCosmetic(id,btn){
     .then(r=>{ toast(r.message); _looksDirty=true; _openSurprisesModal(); })
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
+// ── Косметика во вкладке Маркета (БЛОК33) ────────────────────────────────────────
+function loadMarketCosmetics() {
+  const b=el('mkt-cosmetics'); if(!b) return;
+  b.innerHTML='<div class="loader">Загрузка...</div>';
+  Promise.all([api('/cosmetics/'),api('/cosmetics/presets')])
+    .then(([d,pr])=>{ _looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved}; _looksPresets=pr.presets||[]; _renderMarketCos(b); })
+    .catch(e=>{ b.innerHTML=`<div class="err">${e}</div>`; });
+}
+function _renderMarketCos(b) {
+  if(!b||!_looksData) return;
+  const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
+    <span>👑 Редкая косметика и выше <b>отображается только с VIP</b>.</span>
+    <button class="btn btn-sm btn-gold" onclick="swMkt('vip')">✨ Получить VIP</button></div>`;
+  b.innerHTML=vipBar
+    +'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'
+    +_LOOKS_SLOTS.map(_looksSlotHtml).join('')
+    +`<div class="looks-hint" style="margin-top:12px">🎨 Для экипировки — <button class="btn btn-xs btn-ghost" onclick="goTo('profile','looks')">Внешний вид</button> в Профиле.</div>`
+    +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
+}
+function _looksRefreshMkt(){ const b=el('mkt-cosmetics'); if(b&&b.style.display!=='none') _renderMarketCos(b); }
+
 // ── Кланы / Гильдии ─────────────────────────────────────────────────────────────
 let _clansData=null, _clanEmblemSel='🛡';
 function openClansModal(){
@@ -715,7 +736,7 @@ function _handleStartParam(){
   const M={ shop:['market','goods'],goods:['market','goods'],gacha:['market','gacha'],deal:['market','deal'],
     vip:['market','vip'],themes:['profile','themes'],craft:['craft'],inventory:['profile','inv'],inv:['profile','inv'],
     quests:['quests'],ach:['ach'],achievements:['ach'],zoo:['zoo'],pets:['zoo'],bp:['bp'],auction:['auction'],
-    arena:['arena'],relics:['market'],notifications:['profile'] };
+    arena:['arena'],relics:['market'],notifications:['profile'],cosmetics:['market','cosmetics'],looks:['market','cosmetics'] };
   const t=M[base]; if(t) run(()=>goTo(t[0],t[1]));
 }
 if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
