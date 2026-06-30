@@ -1016,7 +1016,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .looks-card.lc-wide { width: calc(50% - 4px); }   /* приветствия — шире (текст-описание) */
 .looks-card:active { transform: scale(.97); }
 .looks-card.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 14px rgba(201,168,76,.18); background: var(--gold-dim, rgba(201,168,76,.1)); }
-.looks-card.locked { cursor: default; }
+.looks-card.locked { cursor: pointer; }
 /* БЛОК21: редкостная окраска рамки карточки — косметика выглядит дороже и сочетается по тирам */
 .looks-card.r-rare      { border-color: rgba(91,155,213,.4); }
 .looks-card.r-epic      { border-color: rgba(176,122,214,.45); }
@@ -1052,6 +1052,26 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .lc-buys { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .lc-buy { padding: 2px 6px !important; font-size: 9px !important; }
 .lc-buy--no { opacity: .45; }   /* не хватает валюты — подсказка (клик → сервер вернёт «недостаточно») */
+.lc-buyable { cursor: pointer; }
+.lc-prev-hint { font-size: 11px; color: var(--gold2); margin-left: auto; }
+.lc-price-hint { font-size: 8.5px; color: var(--muted); }
+
+/* ── Превью-модалка косметики (примерочная) ─────────────────────────────────── */
+.cos-prev-modal { text-align: center; }
+.cos-prev-header { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
+.cos-prev-rar { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.cos-prev-name { font-size: 18px; font-weight: 800; color: var(--bright); }
+.cos-prev-desc { font-size: 12.5px; color: var(--muted); margin: 4px 0 14px; line-height: 1.5; }
+.cos-prev-cards { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 16px; }
+.cos-prev-col { flex: 1; min-width: 0; }
+.cos-prev-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); text-align: center; margin-bottom: 4px; }
+.cos-prev-lbl--new { color: var(--gold2); font-weight: 700; }
+.cos-prev-arrow { font-size: 20px; color: var(--gold2); flex: 0 0 auto; align-self: center; }
+.cos-prev-price { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.cos-prev-buy { font-size: 15px !important; padding: 11px 28px !important; width: 100%; }
+.cos-prev-lock { font-size: 13px; color: var(--muted); margin: 10px 0; }
+.cos-prev-nomoney { font-size: 11px; color: var(--muted); }
+.cos-prev-cards .looks-preview { margin-bottom: 0; }
 
 /* ── Кланы / Гильдии ─────────────────────────────────────────────────────────── */
 .clan-card {
