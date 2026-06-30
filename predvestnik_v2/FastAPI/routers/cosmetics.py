@@ -15,6 +15,7 @@ from services.cosmetics import (
     buy, equip, get_catalog, set_welcome, unequip,
     chest_catalog, open_chest, craft_catalog, craft_cosmetic,
     giftable_cosmetics, gift_cosmetic, buy_chest, _RARITY_STARS,
+    list_presets, save_preset, apply_preset, delete_preset,
 )
 
 router = APIRouter(prefix="/cosmetics", tags=["cosmetics"])
@@ -221,3 +222,38 @@ async def cosmetics_stars_invoice(
     if not res.get("ok") or not res.get("result"):
         raise HTTPException(502, "Не удалось создать счёт. Попробуйте позже.")
     return {"link": res["result"], "stars": stars_price, "cosmetic_id": body.cosmetic_id}
+
+
+# ── Пресеты косметики (БЛОК 20.B) ─────────────────────────────────────────────
+
+@router.get("/presets")
+async def cosmetics_list_presets(db=Depends(get_db), user=Depends(require_tg_user)):
+    return {"presets": await list_presets(db, user["id"])}
+
+
+class PresetSaveRequest(BaseModel):
+    name: str
+
+
+@router.post("/presets")
+async def cosmetics_save_preset(body: PresetSaveRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg, preset = await save_preset(db, user["id"], body.name)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg, "preset": preset}
+
+
+@router.post("/presets/{preset_id}/apply")
+async def cosmetics_apply_preset(preset_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await apply_preset(db, user["id"], preset_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}
+
+
+@router.delete("/presets/{preset_id}")
+async def cosmetics_delete_preset(preset_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await delete_preset(db, user["id"], preset_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}

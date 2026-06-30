@@ -1082,6 +1082,16 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 }
 .cos-prev-buy-stars:active { opacity: .8; }
 
+/* Пресеты образов */
+.looks-presets { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; padding: 8px 10px; background: var(--surface2); border-radius: 10px; }
+.looks-presets-hint { font-size: 12px; color: var(--muted); flex: 1; }
+.looks-preset-save { margin-left: auto; flex-shrink: 0; }
+.looks-preset-chip { display: flex; align-items: center; gap: 2px; background: var(--surface3); border-radius: 20px; padding: 4px 8px 4px 10px; }
+.btn-plain { background: none; border: none; padding: 0; cursor: pointer; color: inherit; font-family: inherit; }
+.looks-preset-name { font-size: 12px; color: var(--bright); }
+.looks-preset-del { font-size: 10px; color: var(--muted); line-height: 1; padding: 0 2px; }
+.looks-preset-del:hover { color: var(--danger); }
+
 /* ── Кланы / Гильдии ─────────────────────────────────────────────────────────── */
 .clan-card {
   text-align: center; padding: 16px 14px; border-radius: 14px; border: 1px solid var(--border2);

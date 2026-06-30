@@ -158,10 +158,12 @@ function _tosAccept(btn){
 const _LOOKS_SLOTS=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx'];
 const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки'};
 let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false;
+let _looksPresets=[];  // кэш пресетов текущей сессии
 function openLooksModal(){
   _looksDirty=false;
   OM('🎨 Внешний вид','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-gold',f:'_looksClose()'}]);
-  api('/cosmetics/').then(d=>{_looksData=d;_looksSaved=_looksEquipped(d);_looksSel={..._looksSaved};renderLooks();})
+  Promise.all([api('/cosmetics/'),api('/cosmetics/presets')])
+    .then(([d,pr])=>{_looksData=d;_looksSaved=_looksEquipped(d);_looksSel={..._looksSaved};_looksPresets=pr.presets||[];renderLooks();})
     .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
 function _looksClose(){
@@ -182,7 +184,7 @@ function renderLooks(){
   const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
     <span>👑 Смотреть и листать превью можно всё. Покупать косметику и выбирать приветствие — с VIP.</span>
     <button class="btn btn-sm btn-gold" onclick="CM();goTo('market','vip')">Перейти к VIP</button></div>`;
-  b.innerHTML=_looksPreviewHtml()+vipBar+'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'+_LOOKS_SLOTS.map(_looksSlotHtml).join('')+_looksWelcomeHtml()
+  b.innerHTML=_looksPreviewHtml()+vipBar+'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'+_looksPresetsHtml()+_LOOKS_SLOTS.map(_looksSlotHtml).join('')+_looksWelcomeHtml()
     +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
   _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
 }
@@ -331,6 +333,34 @@ function _buyCosmeticStars(id,slot){
 function _looksEquip(slot,id){ _looksSel[slot]=id; renderLooks(); }   // pending — применяется по «Применить»
 function _looksUnequip(slot){ _looksSel[slot]=null; renderLooks(); }
 function _looksReset(){ _looksSel={..._looksSaved}; renderLooks(); }
+
+// ── Пресеты образов ────────────────────────────────────────────────────────────
+function _looksPresetsHtml(){
+  const chips=_looksPresets.map(p=>`<span class="looks-preset-chip">
+    <button class="btn-plain looks-preset-name" onclick="_applyPreset(${p.id})" title="Применить образ">${esc(p.name)}</button>
+    <button class="btn-plain looks-preset-del" onclick="_deletePreset(${p.id})" title="Удалить">✕</button>
+  </span>`).join('');
+  const saveBtn=`<button class="btn btn-sm btn-ghost looks-preset-save" onclick="_savePreset()">💾 Сохранить образ</button>`;
+  if(!_looksPresets.length) return `<div class="looks-presets"><div class="looks-presets-hint">Нет сохранённых образов</div>${saveBtn}</div>`;
+  return `<div class="looks-presets">${chips}${saveBtn}</div>`;
+}
+function _savePreset(){
+  const name=(prompt('Название образа (макс. 30 символов):','')||'').trim().slice(0,30)||'Образ';
+  if(!name) return;
+  api('/cosmetics/presets',{method:'POST',body:JSON.stringify({name})})
+    .then(r=>{toast(r.message); if(r.preset){_looksPresets.push(r.preset);} renderLooks();})
+    .catch(e=>toast(e,false));
+}
+function _applyPreset(id){
+  api(`/cosmetics/presets/${id}/apply`,{method:'POST'})
+    .then(r=>{toast(r.message); _looksDirty=true; openLooksModal();})
+    .catch(e=>toast(e,false));
+}
+function _deletePreset(id){
+  api(`/cosmetics/presets/${id}`,{method:'DELETE'})
+    .then(r=>{toast(r.message); _looksPresets=_looksPresets.filter(p=>p.id!==id); renderLooks();})
+    .catch(e=>toast(e,false));
+}
 function _looksApply(){
   const ops=[];
   _LOOKS_SLOTS.forEach(s=>{
