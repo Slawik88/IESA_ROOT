@@ -867,6 +867,17 @@ async def _init_features_extra(db):
         )
     """)
 
+    # Пресеты косметики — сохранённые образы (slot→cosmetic_id JSON)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS cosmetic_presets (
+            id          SERIAL PRIMARY KEY,
+            user_id     BIGINT NOT NULL,
+            name        TEXT NOT NULL,
+            loadout     TEXT NOT NULL,
+            created_at  TIMESTAMP DEFAULT NOW()
+        )
+    """)
+
     # Theme Lab — кастомные raw-шаблоны премиум-тем профиля (правки без деплоя)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS profile_theme_overrides (

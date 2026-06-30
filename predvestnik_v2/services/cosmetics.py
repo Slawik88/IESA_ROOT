@@ -3,6 +3,7 @@
 Бизнес-логика косметики: каталог, покупка (мульти/альт-валюта), экипировка, выдача.
 No bot.*/FastAPI.* imports. Только косметика — без игрового преимущества.
 """
+import json
 import random
 
 from core.cosmetics import (
@@ -593,3 +594,94 @@ async def buy_chest(db, user_id: int, chest_id: str) -> tuple[bool, str]:
         return True, f"🎁 {ch['name']} куплен за {zar}✨! Открой его ниже."
     except Exception as e:
         return False, f"Ошибка: {e}"
+
+
+# ── Пресеты косметики (БЛОК 20.B) ─────────────────────────────────────────────
+
+_MAX_PRESETS = 5
+_MAX_NAME_LEN = 30
+
+
+async def _loadout_snapshot(db, user_id: int) -> dict[str, str]:
+    """Текущий экипированный образ — {slot: cosmetic_id} (пустые слоты опускаем)."""
+    async with db.execute(
+        "SELECT slot, cosmetic_id FROM user_cosmetic_loadout WHERE user_id = ?",
+        (user_id,),
+    ) as c:
+        rows = await c.fetchall()
+    return {r[0]: r[1] for r in rows if r[1]}
+
+
+async def list_presets(db, user_id: int) -> list[dict]:
+    """Список пресетов пользователя (не более _MAX_PRESETS)."""
+    async with db.execute(
+        "SELECT id, name, loadout, created_at FROM cosmetic_presets "
+        "WHERE user_id = ? ORDER BY id",
+        (user_id,),
+    ) as c:
+        rows = await c.fetchall()
+    return [
+        {"id": r[0], "name": r[1], "loadout": json.loads(r[2]), "created_at": str(r[3])}
+        for r in rows
+    ]
+
+
+async def save_preset(db, user_id: int, name: str) -> tuple[bool, str, dict | None]:
+    """Сохранить текущий образ как новый пресет."""
+    name = name.strip()[:_MAX_NAME_LEN] or "Образ"
+    async with db.execute(
+        "SELECT COUNT(*) FROM cosmetic_presets WHERE user_id = ?", (user_id,)
+    ) as c:
+        (count,) = await c.fetchone()
+    if count >= _MAX_PRESETS:
+        return False, f"Максимум {_MAX_PRESETS} пресетов. Удали один из старых.", None
+    loadout = await _loadout_snapshot(db, user_id)
+    await db.execute(
+        "INSERT INTO cosmetic_presets (user_id, name, loadout) VALUES (?, ?, ?)",
+        (user_id, name, json.dumps(loadout)),
+    )
+    await db.commit()
+    preset_id = None
+    async with db.execute(
+        "SELECT id FROM cosmetic_presets WHERE user_id = ? ORDER BY id DESC LIMIT 1",
+        (user_id,),
+    ) as c:
+        row = await c.fetchone()
+        if row:
+            preset_id = row[0]
+    return True, f"💾 Образ «{name}» сохранён!", {"id": preset_id, "name": name, "loadout": loadout}
+
+
+async def apply_preset(db, user_id: int, preset_id: int) -> tuple[bool, str]:
+    """Применить пресет: заменяет текущий loadout слотами из пресета."""
+    async with db.execute(
+        "SELECT name, loadout FROM cosmetic_presets WHERE id = ? AND user_id = ?",
+        (preset_id, user_id),
+    ) as c:
+        row = await c.fetchone()
+    if not row:
+        return False, "Пресет не найден."
+    name, loadout_json = row
+    loadout: dict[str, str] = json.loads(loadout_json)
+    owned = await _owned(db, user_id)
+    for slot, cid in loadout.items():
+        cos = COSMETICS.get(cid)
+        if not cos or cid not in owned:
+            continue
+        await db.execute(
+            "INSERT INTO user_cosmetic_loadout (user_id, slot, cosmetic_id) VALUES (?, ?, ?) "
+            "ON CONFLICT (user_id, slot) DO UPDATE SET cosmetic_id = EXCLUDED.cosmetic_id",
+            (user_id, slot, cid),
+        )
+    await db.commit()
+    return True, f"✅ Образ «{name}» применён!"
+
+
+async def delete_preset(db, user_id: int, preset_id: int) -> tuple[bool, str]:
+    """Удалить пресет пользователя."""
+    await db.execute(
+        "DELETE FROM cosmetic_presets WHERE id = ? AND user_id = ?",
+        (preset_id, user_id),
+    )
+    await db.commit()
+    return True, "🗑 Пресет удалён."
