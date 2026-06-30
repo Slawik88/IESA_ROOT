@@ -27,6 +27,9 @@ _CUR_COL = {
 }
 _CUR_ICON = {"mora": "🪙", "diamonds": "💎", "dark_mora": "🌑", "zarniki": "✨"}
 
+# Прямая покупка за Telegram Stars (реальные деньги): только shop-предметы с price.
+_RARITY_STARS: dict[str, int] = {"common": 20, "rare": 50, "epic": 120}
+
 
 async def ensure_tables(db) -> None:
     """Создать таблицы косметики (для веб-процесса — init бота не всегда прогнан)."""
@@ -83,6 +86,11 @@ def _public(cid: str, cos: dict, owned: set[str], loadout: dict[str, str], vip: 
         "vip_required": bool(cos.get("vip_required")),
         "source": cos.get("source", "shop"),
         "price": cos.get("price"),                       # список вариантов оплаты | None
+        "stars_price": (
+            _RARITY_STARS.get(cos["rarity"])
+            if cos.get("source") == "shop" and cos.get("price")
+            else None
+        ),
         "owned": is_owned,
         "equipped": loadout.get(cos["slot"]) == cid,
         # БЛОК: «спит» без активной VIP — есть в инвентаре, но эффект не показывается.

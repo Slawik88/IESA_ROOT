@@ -121,7 +121,7 @@ async def msg_custom_zarniki_amount(message: types.Message, bot: Bot):
 @router.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
     pl = pre_checkout_query.invoice_payload
-    if pl.startswith("zarniki:"):
+    if pl.startswith(("zarniki:", "cosmetic:")):
         await pre_checkout_query.answer(ok=True)
     else:
         await pre_checkout_query.answer(ok=False, error_message="Неизвестный платёж.")
@@ -130,16 +130,32 @@ async def process_pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
 @router.message(F.successful_payment)
 async def on_successful_payment(message: types.Message, db):
     payload = message.successful_payment.invoice_payload
-    # В боте за Stars покупаются ТОЛЬКО Зарники. Всё остальное (подарки/сундуки/
-    # косметика) — за ✨ внутри мини-аппа (см. FastAPI/routers/cosmetics.py).
-    if not payload.startswith("zarniki:"):
-        return
-    amount = int(payload.split(":")[1])
-    await eco_db.add_balance(
-        db, message.from_user.id, zarniki=amount, source="stars_purchase",
-        note=f"{message.successful_payment.total_amount}⭐",
-    )
-    await message.answer(
-        f"✅ Начислено <b>{amount}✨</b> Зарников! Спасибо за поддержку проекта 💜",
-        parse_mode="HTML",
-    )
+
+    if payload.startswith("zarniki:"):
+        amount = int(payload.split(":")[1])
+        await eco_db.add_balance(
+            db, message.from_user.id, zarniki=amount, source="stars_purchase",
+            note=f"{message.successful_payment.total_amount}⭐",
+        )
+        await message.answer(
+            f"✅ Начислено <b>{amount}✨</b> Зарников! Спасибо за поддержку проекта 💜",
+            parse_mode="HTML",
+        )
+
+    elif payload.startswith("cosmetic:"):
+        cosmetic_id = payload.split(":", 1)[1]
+        from core.cosmetics import COSMETICS
+        cos = COSMETICS.get(cosmetic_id)
+        if not cos:
+            return
+        await db.execute(
+            "INSERT INTO user_cosmetics (user_id, cosmetic_id) "
+            "VALUES (?, ?) ON CONFLICT (user_id, cosmetic_id) DO NOTHING",
+            (message.from_user.id, cosmetic_id),
+        )
+        await db.commit()
+        await message.answer(
+            f"🎨 <b>{cos['name']}</b> — получено за ⭐!\n"
+            f"Открой мини-апп → 🎨 <b>Внешний вид</b>, чтобы надеть.",
+            parse_mode="HTML",
+        )
