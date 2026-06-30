@@ -1072,6 +1072,15 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .cos-prev-lock { font-size: 13px; color: var(--muted); margin: 10px 0; }
 .cos-prev-nomoney { font-size: 11px; color: var(--muted); }
 .cos-prev-cards .looks-preview { margin-bottom: 0; }
+.cos-prev-buy-stars {
+  background: linear-gradient(135deg, #3a2060 0%, #6b39c8 100%);
+  border: 1px solid rgba(180,130,255,.5);
+  color: #e8d4ff;
+  font-size: 14px !important;
+  padding: 10px 24px !important;
+  width: 100%;
+}
+.cos-prev-buy-stars:active { opacity: .8; }
 
 /* ── Кланы / Гильдии ─────────────────────────────────────────────────────────── */
 .clan-card {
