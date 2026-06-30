@@ -128,8 +128,10 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
             if user_data['immune_until']:
                 try:
                     dt = parse_dt(user_data['immune_until'])
-                    if dt > datetime.now(): has_temp_shield = True
-                except: pass
+                    if dt and dt > datetime.now():
+                        has_temp_shield = True
+                except Exception:
+                    pass
 
             if is_exempt:
                 admin_users.append(f"├ 👑 {link} ({msg_sum} msg)")

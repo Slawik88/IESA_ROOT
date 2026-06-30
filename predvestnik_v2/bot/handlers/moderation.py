@@ -244,7 +244,7 @@ async def process_warn_action(
 # ==========================================
 # ИММУНИТЕТ (ЩИТЫ)
 # ==========================================
-@router.message(TextCmd(["иммунитет", "абсолют"]))
+@router.message(TextCmd(["иммунитет", "абсолют", "рест", "отдых"]))
 async def cmd_immune(
     message: types.Message,
     db,
@@ -307,17 +307,21 @@ async def cmd_protect(
             "❌ Неверный формат времени! Используйте: 10м, 5ч, 3д.", parse_mode="HTML"
         )
 
+    # Сохраняем текущий is_immune — нельзя временным щитом перебить постоянный иммунитет.
+    stats = await chat_repo.get_chat_stats(db, target_id, message.chat.id)
+    keep_immune = int(bool(stats.get("is_immune", 0)))
+
     until_dt = datetime.now() + td
     await mod_db.set_immunity(
-        db, message.chat.id, target_id, 0, until_dt.strftime("%Y-%m-%d %H:%M:%S")
+        db, message.chat.id, target_id, keep_immune, until_dt.strftime("%Y-%m-%d %H:%M:%S")
     )
     await message.answer(
-        f"🔰 <b>{target_name}</b> защищен от чистки на <b>{extra_args.split()[0]}</b>.",
+        f"🔰 <b>{target_name}</b> защищён от чистки на <b>{extra_args.split()[0]}</b>.",
         parse_mode="HTML",
     )
 
 
-@router.message(TextCmd(["снять защиту", "убрать щит"]))
+@router.message(TextCmd(["снять защиту", "убрать щит", "снять рест", "убрать рест", "конец реста"]))
 async def cmd_unprotect(
     message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
