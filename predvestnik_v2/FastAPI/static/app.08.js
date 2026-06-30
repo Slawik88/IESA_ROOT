@@ -357,6 +357,14 @@ function loadDevLog() {
     box.innerHTML = log.map(e=>{
       const when = e.created_at ? fmtUTC(e.created_at) : '';
       const admin = esc(e.admin_name || ('ID'+e.admin_id));
+      const isSys = !e.target_id || e.target_id===0;
+      if(isSys){
+        // Системное действие (season_upsert/delete, bp_freeze, ...)
+        return `<div style="padding:6px 0;border-bottom:1px solid var(--border2);font-size:11px">
+          <div><span style="color:var(--muted)">${when}</span> · <b>${admin}</b> · <span style="color:var(--dim)">${esc(e.action||'')}</span></div>
+          <div style="color:var(--bright)">${esc(e.detail||'—')}</div>
+        </div>`;
+      }
       const target = esc(e.target_name || ('ID'+e.target_id));
       const amt = e.amount || 0;
       const sign = amt>0?'+':'';
