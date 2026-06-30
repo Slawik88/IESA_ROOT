@@ -292,9 +292,8 @@ function _showCosmeticPreview(slot,id){
     const can=Object.entries(opt).every(([cur,amt])=>(bal[cur]||0)>=amt);
     const lbl=_looksPriceTxt(opt)+' ✨';
     const zarBtn=`<button class="btn btn-gold cos-prev-buy${can?'':' lc-buy--no'}" onclick="_looksBuyFromPreview('${id}',0,'${slot}')">${can?'✨ Купить за':'🚫 Нужно'} ${lbl}</button>`;
-    const starsBtn=it.stars_price?`<button class="btn cos-prev-buy cos-prev-buy-stars" onclick="_buyCosmeticStars('${id}','${slot}')">⭐ Купить за ${it.stars_price} Stars</button>`:'';
-    const nomoney=!can?`<div class="cos-prev-nomoney">Нет зарников? Можно купить за ⭐ Stars или пополнить ✨</div>`:'';
-    priceHtml=`<div class="cos-prev-price">${zarBtn}${starsBtn}${nomoney}</div>`;
+    const nomoney=!can?`<div class="cos-prev-nomoney">Нет зарников? Пополни через раздел VIP/Зарники ✨</div>`:'';
+    priceHtml=`<div class="cos-prev-price">${zarBtn}${nomoney}</div>`;
   } else {
     priceHtml=`<div class="cos-prev-lock">${_srcLabel(it.source)||'Не продаётся'}</div>`;
   }
@@ -322,15 +321,7 @@ function _looksBuyFromPreview(id,opt,slot){
     .then(()=>{toast('✅ Надето!'); openLooksModal();})
     .catch(e=>toast(e,false));
 }
-function _buyCosmeticStars(id,slot){
-  api('/cosmetics/stars-invoice',{method:'POST',body:JSON.stringify({cosmetic_id:id})})
-    .then(r=>_openInvoiceLink(r.link,()=>{
-      toast('🎨 Косметика получена! Теперь надень её.',true);
-      _looksDirty=true;
-      setTimeout(()=>openLooksModal(),1800);
-    }))
-    .catch(e=>toast(e,false));
-}
+
 function _looksEquip(slot,id){ _looksSel[slot]=id; renderLooks(); }   // pending — применяется по «Применить»
 function _looksUnequip(slot){ _looksSel[slot]=null; renderLooks(); }
 function _looksReset(){ _looksSel={..._looksSaved}; renderLooks(); }
