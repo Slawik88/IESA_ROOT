@@ -198,6 +198,18 @@ function _looksRenderCard(sel){
     ${title?`<div class="ptitle">${esc(title.text||title.name)}</div>`:''}
   </div>`;
 }
+// Полноразмерная карточка профиля (без --mini) — для превью-модалки.
+function _looksRenderCardFull(sel){
+  const d=_looksData;
+  const glow=_looksCos(sel.name_glow), frame=_looksCos(sel.avatar_frame), title=_looksCos(sel.title);
+  const halo=_looksCos(sel.avatar_halo), bg=_looksCos(sel.profile_bg), fx=_looksCos(sel.card_fx);
+  return `<div class="looks-preview ${bg?bg.css:''}">
+    ${fx?`<div class="card-fx ${fx.css}"></div>`:''}
+    <div class="ava ${frame?frame.css:''} ${halo?halo.css:''}">${d.vip?'👑':'🔮'}</div>
+    <div class="pname ${glow?glow.css:''}">@${esc((_profileData&&_profileData.username)||'Игрок')}</div>
+    ${title?`<div class="ptitle">${esc(title.text||title.name)}</div>`:''}
+  </div>`;
+}
 function _looksChanged(){ return _LOOKS_SLOTS.some(s=>(_looksSel[s]||null)!==(_looksSaved[s]||null)); }
 // Превью «Сейчас → Станет»: левая карточка = применённое, правая = выбранное (ещё не сохранено).
 function _looksPreviewHtml(){
@@ -244,22 +256,68 @@ function _looksCard(slot,it){
       ${sw}<div class="lc-name">${esc(it.name)}</div>
       <div class="lc-foot">${rar}${offBadge}${(!it.vip_locked_inactive&&_looksSaved[slot]===it.id)?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
   }
+  // Непокупленный предмет — кнопка «Примерить» открывает превью-модалку
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
-  const bal=_looksData.balances||{};
-  let foot;
-  if(it.vip_required && !_looksData.vip){
-    foot=`<div class="lc-tag">🔒 Только для VIP</div>`;
-  } else if(it.price&&it.price.length){
-    foot=`<div class="lc-buys">${it.price.map((opt,i)=>{
-      const can=Object.entries(opt).every(([cur,amt])=>(bal[cur]||0)>=amt);
-      return `<button class="btn btn-sm btn-gold lc-buy${can?'':' lc-buy--no'}" onclick="_looksBuy('${it.id}',${i})">${_looksPriceTxt(opt)}</button>`;
-    }).join('')}</div>`;
-  } else {
-    foot=`<div class="lc-tag">${_srcLabel(it.source)}</div>`;
-  }
-  return `<div class="looks-card r-${it.rarity} locked">
+  const priceTxt=it.price&&it.price.length?`<span class="lc-price-hint">${_looksPriceTxt(it.price[0])} ✨</span>`:'';
+  return `<div class="looks-card r-${it.rarity} locked lc-buyable" onclick="_showCosmeticPreview('${slot}','${it.id}')">
     ${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
-    <div class="lc-foot">${rar}</div>${foot}</div>`;
+    <div class="lc-foot">${rar}${priceTxt}<span class="lc-prev-hint">👁</span></div></div>`;
+}
+// Превью-модалка: полноэкранный показ косметики до покупки.
+function _showCosmeticPreview(slot,id){
+  if(!_looksData) return;
+  const items=_looksData.slots[slot]||[];
+  let it=null; for(let i=0;i<items.length;i++){if(items[i].id===id){it=items[i];break;}}
+  if(!it) return;
+
+  // «После» — показываем только выбранный слот поверх текущего набора
+  const afterSel=Object.assign({},_looksSaved); afterSel[slot]=id;
+  const beforeCard=_looksRenderCardFull(_looksSaved);
+  const afterCard=_looksRenderCardFull(afterSel);
+
+  const rarColors={common:'#9aa7b8',rare:'#5b9bd5',epic:'#b07ad6',legendary:'#e8c45a',mythic:'#e0556b'};
+  const rarColor=rarColors[it.rarity]||'#9aa7b8';
+  const rarLabel=_rarLabel(it.rarity);
+  const bal=_looksData.balances||{};
+
+  let priceHtml='';
+  if(it.vip_required&&!_looksData.vip){
+    priceHtml=`<div class="cos-prev-lock">🔒 Только для VIP
+      <button class="btn btn-gold btn-sm" style="margin-top:8px;display:block;width:100%" onclick="CM();goTo('market','vip')">Получить VIP ›</button></div>`;
+  } else if(it.price&&it.price.length){
+    const opt=it.price[0];
+    const can=Object.entries(opt).every(([cur,amt])=>(bal[cur]||0)>=amt);
+    const lbl=_looksPriceTxt(opt)+' ✨';
+    priceHtml=`<div class="cos-prev-price">
+      <button class="btn btn-gold cos-prev-buy${can?'':' lc-buy--no'}" onclick="_looksBuyFromPreview('${id}',0,'${slot}')">${can?'✨ Купить за':'🚫 Нужно'} ${lbl}</button>
+      ${!can?`<div class="cos-prev-nomoney">Нужно больше зарников ✨</div>`:''}
+    </div>`;
+  } else {
+    priceHtml=`<div class="cos-prev-lock">${_srcLabel(it.source)||'Не продаётся'}</div>`;
+  }
+
+  const body=`<div class="cos-prev-modal">
+    <div class="cos-prev-header">
+      <span class="cos-prev-rar" style="color:${rarColor}">${rarLabel}</span>
+      <span class="cos-prev-name">${esc(it.name)}</span>
+    </div>
+    <div class="cos-prev-desc">${esc(it.desc||'')}</div>
+    <div class="cos-prev-cards">
+      <div class="cos-prev-col"><div class="cos-prev-lbl">Сейчас</div>${beforeCard}</div>
+      <div class="cos-prev-arrow">✨</div>
+      <div class="cos-prev-col"><div class="cos-prev-lbl cos-prev-lbl--new">Станет</div>${afterCard}</div>
+    </div>
+    ${priceHtml}
+  </div>`;
+
+  OM('👁 Примерка',body,[{l:'← Назад',c:'btn-ghost',f:'openLooksModal()'}]);
+}
+function _looksBuyFromPreview(id,opt,slot){
+  api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})
+    .then(r=>{toast(r.message); refreshCurrBar(); _looksDirty=true;
+      return api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})});})
+    .then(()=>{toast('✅ Надето!'); openLooksModal();})
+    .catch(e=>toast(e,false));
 }
 function _looksEquip(slot,id){ _looksSel[slot]=id; renderLooks(); }   // pending — применяется по «Применить»
 function _looksUnequip(slot){ _looksSel[slot]=null; renderLooks(); }
