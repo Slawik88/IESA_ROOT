@@ -7,7 +7,7 @@ from core.registry import ITEMS_REGISTRY
 from services.economy import EconomyService
 from services.achievements import increment_metric as ach_incr
 from infrastructure.repositories.economy import get_inventory, get_balance
-from services.utils import format_currency, check_callback_owner, safe_html
+from services.utils import format_currency, check_callback_owner, safe_html, feature_guard
 
 router = Router(name="shop_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -127,6 +127,8 @@ async def render_shop(
 @router.message(TextCmd(["магазин", "лавка", "шоп"]))
 async def cmd_shop(message: types.Message, db):
     if message.chat.type == "private":
+        return
+    if not await feature_guard(message, db, "tab_market", "Рынок"):
         return
     await render_shop(message, db, message.from_user.id, is_edit=False)
 

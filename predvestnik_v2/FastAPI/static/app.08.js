@@ -5,6 +5,11 @@ function loadGlobalDev() {
   el('glb-dev').innerHTML=`
     <div id="dev-overview"><div class="loader">Загрузка...</div></div>
     <div class="card">
+      <div class="card-title">🔌 Модули системы <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevFlags()">🔄</button></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Отключение блокирует и бот-команды, и вкладку на сайте.</div>
+      <div id="dev-flags"><div class="loader">Загрузка...</div></div>
+    </div>
+    <div class="card">
       <div class="card-title">🔎 Досье на игрока</div>
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <select id="dev-chat-sel" class="num-input" style="flex:1;margin:0" onchange="devLoadMembers()"><option value="">— выбрать чат —</option></select>
@@ -338,6 +343,7 @@ function loadGlobalDev() {
   devLoadSeasons();
   devTLInit();
   loadDevLog();
+  loadDevFlags();
   devLoadChats();
   loadBpSeasons();
   loadBpXpActions();
@@ -734,4 +740,27 @@ function devBpXp() {
   api('/admin/dev/bp/xp',{method:'POST',body:JSON.stringify({user_id:uid,xp})})
     .then(r=>toast(`🎫 Теперь: Ур.${r.level} (${r.xp} XP)`))
     .catch(e=>toast(e,false));
+}
+
+// ── 🔌 Флаги модулей ─────────────────────────────────────────────────────────
+function loadDevFlags() {
+  const box=el('dev-flags'); if(!box) return;
+  box.innerHTML='<div class="loader">Загрузка...</div>';
+  api('/admin/dev/flags').then(d=>{
+    const flags=d.flags||[];
+    if(!flags.length){box.innerHTML='<div class="empty-state">Нет флагов</div>';return;}
+    box.innerHTML=flags.map(f=>`
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border2)">
+        <span style="font-size:12.5px">${esc(f.label||f.key)}</span>
+        <label class="dev-flag-toggle" title="${esc(f.key)}">
+          <input type="checkbox" ${f.enabled?'checked':''} onchange="devSetFlag('${esc(f.key)}',this.checked)"/>
+          <span class="dev-flag-slider"></span>
+        </label>
+      </div>`).join('');
+  }).catch(e=>{box.innerHTML=`<div class="err">${esc(String(e))}</div>`;});
+}
+function devSetFlag(key,enabled){
+  api('/admin/dev/flags/'+key,{method:'POST',body:JSON.stringify({enabled})})
+    .then(()=>toast(enabled?`✅ ${key} включён`:`🔴 ${key} выключен`))
+    .catch(e=>{toast(e,false);loadDevFlags();});
 }

@@ -1061,6 +1061,33 @@ async def _init_features_extra(db):
         logger.warning(f"БЛОК19 Ч.2 egg→token migration failed (откат, повтор на след. старте): {_e!r}")
 
 
+async def _init_system_flags(db):
+    """Глобальные переключатели фич (dev-консоль → ползунки). Неизменяемые ключи — только enabled меняется."""
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS system_flags (
+            key     TEXT PRIMARY KEY,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            label   TEXT DEFAULT NULL
+        )
+    """)
+    _defaults = [
+        ("tab_bp",        "🎫 Боевой пропуск"),
+        ("tab_zoo",       "🐾 Зоопарк"),
+        ("tab_market",    "🛒 Рынок (магазин + гача)"),
+        ("tab_auction",   "🔨 Аукцион"),
+        ("tab_economy",   "💰 Экономика (переводы)"),
+        ("tab_purge",     "🧹 Чистки"),
+        ("tab_cosmetics", "🎨 Косметика / Образы"),
+        ("tab_quests",    "📋 Квесты"),
+    ]
+    for key, label in _defaults:
+        await db.execute(
+            "INSERT INTO system_flags (key, enabled, label) VALUES (?, 1, ?) "
+            "ON CONFLICT (key) DO NOTHING",
+            (key, label),
+        )
+
+
 async def _init_indexes(db):
     # ── Indexes ────────────────────────────────────────────────────────────
     # ── Indexes ────────────────────────────────────────────────────────────
@@ -1218,5 +1245,6 @@ async def init_db():
         await _init_clans(db)
         await _init_crypto(db)
         await _init_combat(db)
+        await _init_system_flags(db)
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")

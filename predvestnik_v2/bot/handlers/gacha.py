@@ -17,7 +17,7 @@ from infrastructure.repositories.gacha import get_all_pity, get_recent_history
 from services import global_moderation
 from services.gacha import roll_single, roll_multi, get_token_count, maybe_grant_theme_drop
 from services.quests import increment_metric as quest_increment
-from services.utils import format_currency, safe_html, check_callback_owner
+from services.utils import format_currency, safe_html, check_callback_owner, feature_guard
 
 router = Router(name="gacha_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -366,6 +366,8 @@ async def cmd_pity(message: types.Message, db):
 async def cmd_gacha(message: types.Message, db, text_args: str = None,
                      user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
+        return
+    if not await feature_guard(message, db, "tab_market", "Рынок"):
         return
 
     restriction = user_restricted or chat_restricted

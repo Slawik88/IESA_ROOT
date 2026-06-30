@@ -21,7 +21,7 @@ from services import global_moderation
 from services.auction import create_auction_lot, place_bid, cancel_lot, queue_lot_announcement
 from services.quests import increment_metric as quest_increment
 from math import ceil as _ceil
-from services.utils import safe_html, format_currency, parse_dt
+from services.utils import safe_html, format_currency, parse_dt, feature_guard
 
 router = Router(name="auction_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -144,6 +144,8 @@ async def _render_lot_list(db, user_id: int, page: int) -> tuple[str, types.Inli
 @router.message(TextCmd(["аукцион"]))
 async def cmd_auction(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
+        return
+    if not await feature_guard(message, db, "tab_auction", "Аукцион"):
         return
     text, markup = await _render_lot_list(db, message.from_user.id, page=0)
     await message.answer(text, reply_markup=markup, parse_mode="HTML")

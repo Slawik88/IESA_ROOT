@@ -93,3 +93,17 @@ async def resolve_target(message: types.Message, db: aiosqlite.Connection, args:
         return None, None, "error_user_not_found"
 
     return None, None, args
+
+
+async def feature_guard(message: types.Message, db, key: str, label: str) -> bool:
+    """Глобальный ползунок фичи (dev-консоль). True = можно работать дальше.
+    Если выключено — сама шлёт сообщение игроку и возвращает False."""
+    from infrastructure.repositories import system_flags
+
+    if await system_flags.is_enabled(db, key):
+        return True
+    await message.answer(
+        f"🚧 «{label}» временно отключено разработчиком. Попробуйте позже.",
+        parse_mode="HTML",
+    )
+    return False

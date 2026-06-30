@@ -17,6 +17,7 @@ from services.vip import is_vip_active
 from services.cosmetics import get_active_cosmetics
 from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import set_nickname
+from infrastructure.repositories import system_flags as _system_flags
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -169,6 +170,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "global_rank":  row["global_rank"] or 0,
         "partner":      partner,
         "cosmetics":    await get_active_cosmetics(db, user_id),
+        "system_flags": await _system_flags.get_all(db),
     }
 
 

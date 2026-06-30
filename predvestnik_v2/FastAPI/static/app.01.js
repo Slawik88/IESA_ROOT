@@ -288,6 +288,27 @@ const _PAGE_LOADERS = {
   bp:loadBattlePass, auction:loadAuctionPage,
   admin:loadAdmin, global:loadGlobal, help:()=>{}
 };
+
+// Карта page→flag_key: только те страницы, которые управляются ползунком в dev-консоли.
+const _PAGE_FLAG = {zoo:'tab_zoo', market:'tab_market', bp:'tab_bp', auction:'tab_auction'};
+let _sysFlags = {};  // заполняется из /profile/me (system_flags) при loadProfile()
+function _applySysFlags(flagsList) {
+  _sysFlags = Object.fromEntries((flagsList||[]).map(f=>[f.key,!!f.enabled]));
+}
+function _isPageEnabled(name) {
+  const key = _PAGE_FLAG[name];
+  if(!key) return true;
+  return _sysFlags[key] !== false;  // undefined = ещё не загружено → разрешаем
+}
+function _showMaintenance(pg) {
+  const box = el('pg-'+pg); if(!box) return;
+  box.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:40vh;gap:12px;padding:32px 16px">
+    <div style="font-size:40px">🚧</div>
+    <div style="font-size:17px;font-weight:700;color:var(--bright)">Временно недоступно</div>
+    <div style="font-size:12px;color:var(--muted);text-align:center">Этот раздел отключён разработчиком.<br>Попробуйте позже.</div>
+  </div>`;
+}
+
 function switchPage(name, _btn) {
   if(!el('pg-'+name)) return;
   _activePage = name;
@@ -301,6 +322,7 @@ function switchPage(name, _btn) {
   try { window.scrollTo(0, 0); } catch(e) {}
   if(!_loaded.has(name)){
     _loaded.add(name);
+    if(!_isPageEnabled(name)){ _showMaintenance(name); return; }
     (_PAGE_LOADERS[name] || (() => {}))();
   }
 }

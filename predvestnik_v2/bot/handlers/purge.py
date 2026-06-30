@@ -10,7 +10,7 @@ from bot.filters.text_commands import TextCmd
 from services import moderation as mod_service
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import routing
-from services.utils import safe_html, parse_dt
+from services.utils import safe_html, parse_dt, feature_guard
 from bot.handlers.moderation import WarnAction
 
 router = Router(name="purge_router")
@@ -60,6 +60,8 @@ _WEEKDAYS_RU = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
 @router.message(TextCmd(["чистка", "начать чистку"]))
 async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0):
     if message.chat.type == "private":
+        return
+    if not await feature_guard(message, db, "tab_purge", "Чистки"):
         return
 
     can_mod, err = await mod_service.check_admin_rights(db, message.chat.id, message.from_user.id, 4, developer_id=developer_id)
@@ -136,8 +138,12 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
             if is_exempt:
                 admin_users.append(f"├ 👑 {link} ({msg_sum} msg)")
                 exempt_user_ids.append(uid)
-            elif has_absolute_immunity or has_temp_shield:
-                protected_users.append(f"├ 🛡 {link} ({msg_sum} msg)")
+            elif has_absolute_immunity:
+                protected_users.append(f"├ 🛡 {link} ({msg_sum} msg) [иммунитет ∞]")
+            elif has_temp_shield:
+                shield_until = parse_dt(user_data['immune_until'])
+                until_label = shield_until.strftime("%d.%m") if shield_until else "?"
+                protected_users.append(f"├ 🕐 {link} ({msg_sum} msg) [рест до {until_label}]")
             elif msg_sum >= norm:
                 passed_users.append(f"├ ✅ {link} ({msg_sum} msg)")
             else:

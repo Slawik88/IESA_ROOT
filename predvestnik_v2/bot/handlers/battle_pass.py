@@ -12,6 +12,7 @@ from services.battle_pass import (
     claim_reward, get_active_season, get_progress, level_status, get_level_options,
 )
 from services.formatting import format_progress_bar
+from services.utils import feature_guard
 
 router = Router(name="battle_pass_router")
 
@@ -51,6 +52,8 @@ def _reward_line(reward: dict) -> str:
 
 @router.message(TextCmd(["бп", "боевой пропуск"]))
 async def cmd_battle_pass(message: types.Message, db):
+    if not await feature_guard(message, db, "tab_bp", "Боевой пропуск"):
+        return
     season = get_active_season()
     if not season:
         return await message.answer("🎫 Сезон Боевого пропуска скоро начнётся, следи за анонсами!")

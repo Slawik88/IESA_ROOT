@@ -11,7 +11,7 @@ from infrastructure.repositories.chat import get_chat_stats
 from infrastructure.repositories.dark_mora import get_dark_mora_balance
 from services import global_moderation
 from services.admin_service import give_resource, set_resource
-from services.utils import resolve_target, resolve_display_name, safe_html, format_currency
+from services.utils import resolve_target, resolve_display_name, safe_html, format_currency, feature_guard
 from core.registry import ITEMS_REGISTRY
 from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
 
@@ -110,6 +110,8 @@ async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None
 async def cmd_pay(message: types.Message, db, text_args: str = None,
                    user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
+        return
+    if not await feature_guard(message, db, "tab_economy", "Переводы"):
         return
 
     restriction = user_restricted or chat_restricted
