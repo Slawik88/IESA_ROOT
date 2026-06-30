@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.constants import BATTLE_PASS_MAX_LEVEL, BATTLE_PASS_XP_PER_LEVEL
 from core.registry import BATTLE_PASS_SEASONS, BATTLE_PASS_REWARDS, ITEMS_REGISTRY
+from infrastructure.repositories import admin_log as _admin_log
 from services.battle_pass import (
     all_xp_actions,
     get_active_season,
@@ -180,6 +181,9 @@ async def dev_bp_freeze(body: BpFreezeRequest, db=Depends(get_db), user=Depends(
     XP и не выдают награды; у игроков на странице БП висит плашка ❄️."""
     _require_dev(user)
     await set_bp_frozen(db, body.frozen)
+    action = "bp_freeze" if body.frozen else "bp_unfreeze"
+    await _admin_log.add_sys(db, user["id"], action, "❄️ БП заморожен" if body.frozen else "🟢 БП разморожен")
+    await db.commit()
     return {"ok": True, "frozen": body.frozen}
 
 
@@ -216,6 +220,8 @@ async def dev_bp_season_upsert(body: SeasonRequest, db=Depends(get_db), user=Dep
         "max_level = EXCLUDED.max_level",
         (body.id, body.label.strip(), body.starts_at, body.ends_at, body.max_level),
     )
+    await _admin_log.add_sys(db, user["id"], "season_upsert",
+                             f"Сезон «{body.id}» ({body.label.strip()}) {body.starts_at}–{body.ends_at}")
     await db.commit()
     await refresh_seasons_cache(db)
     return {"ok": True}
@@ -233,6 +239,8 @@ async def dev_bp_season_delete(season_id: str, db=Depends(get_db), user=Depends(
         # сезон → удаляли только строку сезона, оставляя «сирот». Чистим вручную.
         await db.execute("DELETE FROM battle_pass_reward_overrides WHERE season_id = ?", (season_id,))
         await db.execute("DELETE FROM battle_pass_progress WHERE season_id = ?", (season_id,))
+        await _admin_log.add_sys(db, user["id"], "season_delete",
+                                 f"Сезон «{season_id}» удалён из БД (каскад: оверрайды+прогресс)")
     await db.commit()
     await refresh_seasons_cache(db)
     if not row:

@@ -36,6 +36,18 @@ async def add(db, admin_id: int, target_id: int, action: str, detail: str,
     )
 
 
+async def add_sys(db, admin_id: int, action: str, detail: str) -> None:
+    """Записать системное admin-действие без конкретного target_id (target_id=0).
+    Используется для: удаление/создание сезона, freeze/unfreeze БП, правка тем и т.д.
+    No commit — вызывающий коммитит вместе с основной операцией."""
+    await db.execute(
+        "INSERT INTO admin_grant_log "
+        "(admin_id, target_id, action, detail, amount, reason, before_val, after_val) "
+        "VALUES (?, 0, ?, ?, 0, '', 0, 0)",
+        (admin_id, action, detail),
+    )
+
+
 async def recent(db, limit: int = 50) -> list[dict]:
     """Последние записи журнала с никами админа и цели."""
     async with db.execute(
