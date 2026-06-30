@@ -20,13 +20,13 @@ from core.constants import (
     EXCHANGE_DAILY_CAP_DIAMONDS, EXCHANGE_SELL_DAILY_CAP_DIAMONDS,
     EXCHANGE_MIN_DIAMONDS_PER_REQUEST, CRYPTO_TRADE_FEE, CRYPTO_MIN_TRADE_MORA,
 )
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_module
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.exchange import get_user_quota, add_quota
 from infrastructure.repositories import crypto as crypto_repo
 from services import crypto_exchange as cx
 
-router = APIRouter(prefix="/exchange", tags=["exchange"])
+router = APIRouter(prefix="/exchange", tags=["exchange"], dependencies=[Depends(require_module("module_exchange"))])
 
 
 def _buy_key() -> int:

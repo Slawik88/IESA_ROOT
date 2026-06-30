@@ -16,13 +16,13 @@ from core.constants import (
     DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS, DARK_MORA_SHADOW_MERCHANT_REWARD_MIN,
     DARK_MORA_SHADOW_MERCHANT_REWARD_MAX, DARK_MORA_SHADOW_MERCHANT_WINNERS,
 )
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_module
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.dark_mora import (
     get_cooldown, set_cooldown, add_dark_mora, get_dark_mora_balance,
 )
 
-router = APIRouter(prefix="/dark-mora", tags=["dark-mora"])
+router = APIRouter(prefix="/dark-mora", tags=["dark-mora"], dependencies=[Depends(require_module("module_warps"))])
 
 
 def _format_cooldown(dt: datetime) -> str:

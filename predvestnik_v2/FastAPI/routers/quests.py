@@ -1,12 +1,12 @@
 """FastAPI/routers/quests.py — ежедневные задания."""
 from fastapi import APIRouter, Depends
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_module
 from services.quests import (
     get_or_assign_quests, daily_bonus_status,
     get_or_assign_weekly_quests, weekly_bonus_status,
 )
 
-router = APIRouter(prefix="/quests", tags=["quests"])
+router = APIRouter(prefix="/quests", tags=["quests"], dependencies=[Depends(require_module("module_quests"))])
 
 
 @router.get("/{chat_id}")

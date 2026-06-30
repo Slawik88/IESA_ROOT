@@ -232,7 +232,7 @@ async def cb_toggle_setting(query: types.CallbackQuery, callback_data: ChatSetti
         icon, name = _MODULE_SETTINGS.get(key, ("🧩", key))
         desc = f"Модуль «{name}»"
     status = "включено" if new_val else "выключено"
-    await query.answer(f"{icon} {desc} — {status}!", show_alert=False)
+    await query.answer(f"{icon} {desc} — {status}!", show_alert=not new_val)
     text = await _build_menu_text(db, chat_id)
     await query.message.edit_text(text, reply_markup=_settings_kb(user_id=uid), parse_mode="HTML")
 
