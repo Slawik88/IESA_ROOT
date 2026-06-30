@@ -1082,9 +1082,9 @@ async def _init_system_flags(db):
     ]
     for key, label in _defaults:
         await db.execute(
-            "INSERT INTO system_flags (key, enabled, label) VALUES (?, 1, ?) "
+            "INSERT INTO system_flags (key, enabled, label) VALUES ($1, 1, $2) "
             "ON CONFLICT (key) DO NOTHING",
-            (key, label),
+            key, label,
         )
 
 
