@@ -524,11 +524,6 @@ DARK_MORA_SHADOW_MERCHANT_REWARD_MIN: int = 5
 DARK_MORA_SHADOW_MERCHANT_REWARD_MAX: int = 15
 DARK_MORA_SHADOW_MERCHANT_ACTIVE_MINUTES: int = 120  # окно ответа 2 часа
 
-# Предательство
-DARK_MORA_BETRAYAL_REWARD: int = 3
-DARK_MORA_BETRAYAL_TOP_STREAK: int = 2    # недель в топ-3 подряд
-DARK_MORA_BETRAYAL_SILENCE_DAYS: int = 3  # дней молчания после
-
 # ── Artifacts & Relics ────────────────────────────────────────────────────────
 ARTIFACT_TOP_MONTH_MIN_MESSAGES: int = 3000
 ARTIFACT_TOP_MONTH_COUNT: int = 5
