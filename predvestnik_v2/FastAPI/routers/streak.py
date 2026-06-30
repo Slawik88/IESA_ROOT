@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends
 
 from FastAPI.deps import get_db, require_tg_user
+from infrastructure.repositories.streak import get_global_streak
 
 router = APIRouter(prefix="/streak", tags=["streak"])
 
@@ -25,15 +26,11 @@ async def streak_calendar(db=Depends(get_db), user=Depends(require_tg_user)):
     ) as c:
         rows = {r["date"]: r["cnt"] for r in await c.fetchall()}
 
-    # Current streak from daily_login
-    async with db.execute(
-        "SELECT streak, last_login FROM daily_login WHERE user_id = ? ORDER BY streak DESC LIMIT 1",
-        (user["id"],),
-    ) as c:
-        streak_row = await c.fetchone()
+    # Глобальный стрик (chat_id = 0) — единый источник правды, то же что бот
+    streak_row = await get_global_streak(db, user["id"])
 
     return {
-        "streak": dict(streak_row)["streak"] if streak_row else 0,
+        "streak": streak_row["streak"],
         "calendar": [
             {"date": d, "active": d in rows, "count": rows.get(d, 0)}
             for d in days

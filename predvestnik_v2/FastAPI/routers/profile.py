@@ -9,6 +9,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
+from infrastructure.repositories.streak import get_global_streak
 from services.roles import GLOBAL_RANKS_MAP
 from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
 from services.formatting import safe_html
@@ -204,8 +205,8 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
     ) as c:
         pets = [dict(r) for r in await c.fetchall()]
 
-    async with db.execute("SELECT MAX(streak) FROM daily_login WHERE user_id = ?", (target_id,)) as c:
-        streak = (await c.fetchone())[0] or 0
+    streak_row = await get_global_streak(db, target_id)
+    streak = streak_row["streak"]
     async with db.execute(
         "SELECT COUNT(*) FROM achievements WHERE user_id = ? AND level > 0", (target_id,)
     ) as c:
