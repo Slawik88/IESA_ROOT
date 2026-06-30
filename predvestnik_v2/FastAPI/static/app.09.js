@@ -125,7 +125,7 @@ function devBpXpSet() {
 function devBpWeekendSet(){
   const pct=parseInt(el('dev-bpxp-weekend')?.value||'0')||0;
   api('/admin/dev/bp/weekend-boost',{method:'POST',body:JSON.stringify({pct})})
-    .then(()=>toast(pct>0?`⚡ Weekend boost: +${pct}% XP по выходным`:'⚡ Weekend boost выключен'))
+    .then(()=>{toast(pct>0?`⚡ Weekend boost: +${pct}% XP по выходным`:'⚡ Weekend boost выключен');loadBpXpActions();})
     .catch(e=>toast(e,false));
 }
 function devBpShowExample() {
@@ -180,7 +180,13 @@ function devBpCopy() {
   const from=el('dev-cp-from')?.value.trim(), to=el('dev-cp-to')?.value.trim();
   if(!from||!to) return toast('Укажите оба сезона',false);
   api('/admin/dev/bp/rewards/copy',{method:'POST',body:JSON.stringify({from_season:from,to_season:to})})
-    .then(r=>toast(`📋 Скопировано наград: ${r.copied}`))
+    .then(r=>{
+      toast(`📋 Скопировано наград: ${r.copied} → «${to}»`);
+      _bpSeason=to;
+      const sel=el('dev-bp-season-sel'); if(sel) sel.value=to;
+      const sf=el('dev-br-season'); if(sf) sf.value=to;
+      loadBpTable();
+    })
     .catch(e=>toast(e,false));
 }
 function devLoadSeasons() {
