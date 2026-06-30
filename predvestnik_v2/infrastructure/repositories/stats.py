@@ -67,7 +67,7 @@ async def _local_user_ids(db: aiosqlite.Connection, chat_id: int) -> list[int]:
 async def _global_user_ids(db: aiosqlite.Connection) -> list[int]:
     async with db.execute(
         "SELECT DISTINCT user_tg_id FROM user_chat_stats "
-        f"WHERE user_messages_count_all_time >= {_MIN_GLOBAL_MSGS}"
+        f"WHERE user_messages_count_all_time >= {_MIN_GLOBAL_MSGS} AND is_left = FALSE"
     ) as c:
         return [r[0] for r in await c.fetchall()]
 
@@ -140,6 +140,7 @@ async def get_top_messages_global(db: aiosqlite.Connection, limit: int = 10) -> 
         "(v.user_id IS NOT NULL) AS is_vip "
         "FROM user_chat_stats s LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
         "LEFT JOIN vip_subscriptions v ON v.user_id = s.user_tg_id AND v.expires_at > NOW() "
+        "WHERE s.is_left = FALSE "
         f"GROUP BY s.user_tg_id, u.user_tg_username, v.user_id "
         f"HAVING SUM(s.user_messages_count_all_time) >= {_MIN_GLOBAL_MSGS} "
         "ORDER BY value DESC LIMIT ?",
