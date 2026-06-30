@@ -276,7 +276,7 @@ async def cmd_immune(
         return await message.answer(err, parse_mode="HTML")
 
     stats = await chat_repo.get_chat_stats(db, target_id, message.chat.id)
-    new_status = 0 if stats.get("is_immune", 0) else 1
+    new_status = not bool(stats.get("is_immune", False))
     await mod_db.set_immunity(db, message.chat.id, target_id, new_status, None)
 
     if new_status:
@@ -325,7 +325,7 @@ async def cmd_protect(
 
     # Сохраняем текущий is_immune — нельзя временным щитом перебить постоянный иммунитет.
     stats = await chat_repo.get_chat_stats(db, target_id, message.chat.id)
-    keep_immune = int(bool(stats.get("is_immune", 0)))
+    keep_immune = bool(stats.get("is_immune", False))
 
     until_dt = datetime.now() + td
     await mod_db.set_immunity(
@@ -378,7 +378,7 @@ async def cmd_who_rested(message: types.Message, db):
         "FROM user_chat_stats s "
         "LEFT JOIN users u ON s.user_tg_id = u.user_tg_id "
         "WHERE s.chat_tg_id = ? AND s.is_left = FALSE "
-        "AND (s.is_immune = 1 OR (s.immune_until IS NOT NULL AND s.immune_until > ?))",
+        "AND (s.is_immune IS TRUE OR (s.immune_until IS NOT NULL AND s.immune_until > ?))",
         (message.chat.id, now_str),
     ) as cursor:
         rows = [dict(r) for r in await cursor.fetchall()]

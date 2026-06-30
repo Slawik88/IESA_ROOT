@@ -126,7 +126,7 @@ async def set_immunity(
     await db.execute(
         "UPDATE user_chat_stats SET is_immune = ?, immune_until = ? "
         "WHERE user_tg_id = ? AND chat_tg_id = ?",
-        (is_immune, immune_until, user_id, chat_id),
+        (bool(is_immune), immune_until, user_id, chat_id),
     )
     await db.commit()
 
