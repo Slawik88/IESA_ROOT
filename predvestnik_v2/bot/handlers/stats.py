@@ -11,7 +11,7 @@ from services.profile_render import format_display_name
 from bot.filters.text_commands import TextCmd
 from core.constants import INACTIVE_THRESHOLD_DAYS
 
-_TOP_PAGE_SIZE = 15
+_TOP_PAGE_SIZE = 30
 
 router = Router(name="stats_router")
 
@@ -85,12 +85,16 @@ async def _get_period_users(db, chat_id: int, period: str) -> list[dict]:
         yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
         return await stats.get_top_messages_for_dates(db, chat_id, yesterday, yesterday)
     elif period == "week":
-        week_start = (now - timedelta(days=6)).strftime("%Y-%m-%d")
+        week_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
         return await stats.get_top_messages_for_dates(db, chat_id, week_start, today)
     elif period == "last_week":
-        last_week_end = (now - timedelta(days=7)).strftime("%Y-%m-%d")
-        last_week_start = (now - timedelta(days=13)).strftime("%Y-%m-%d")
-        return await stats.get_top_messages_for_dates(db, chat_id, last_week_start, last_week_end)
+        last_week_start = now - timedelta(days=now.weekday() + 7)
+        last_week_end = last_week_start + timedelta(days=6)
+        return await stats.get_top_messages_for_dates(
+            db, chat_id,
+            last_week_start.strftime("%Y-%m-%d"),
+            last_week_end.strftime("%Y-%m-%d"),
+        )
     return await stats.get_top_messages(db, chat_id, "all_time")
 
 

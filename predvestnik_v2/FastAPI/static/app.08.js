@@ -553,7 +553,9 @@ function devLookupUser() {
       ${_devChatsHtml(d.chats)}
       ${d.inventory&&d.inventory.length?`<div style="font-size:11px;font-weight:700;margin:8px 0 4px">🎒 Инвентарь (${d.inventory.length}) — клик = выдать/забрать:</div>
       <div style="display:flex;flex-wrap:wrap;gap:5px">${d.inventory.map(it=>`<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px" onclick="devItemAction('${it.item_id}',${it.quantity})">${esc(it.name)} ×${it.quantity}</button>`).join('')}</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:6px">🎒 Инвентарь пуст</div>'}
-      <div style="display:flex;gap:6px;margin-top:8px">
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <a class="btn btn-sm btn-ghost" style="flex:1;text-decoration:none;text-align:center" href="tg://user?id=${d.user_tg_id}">🔗 Открыть в TG</a>
+        ${d.user_tg_username?`<a class="btn btn-sm btn-ghost" style="flex:1;text-decoration:none;text-align:center" href="https://t.me/${esc(d.user_tg_username)}" target="_blank">@${esc(d.user_tg_username)}</a>`:''}
         <button class="btn btn-sm btn-ghost" style="flex:1" onclick="devPrefill(${d.user_tg_id})">⚙️ Подставить ID в формы</button>
       </div>`;
   }).catch(e=>{el('dev-user-result').innerHTML=`<div class="err">${e}</div>`;});
