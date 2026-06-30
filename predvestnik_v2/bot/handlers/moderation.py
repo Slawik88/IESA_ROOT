@@ -244,7 +244,7 @@ async def process_warn_action(
 # ==========================================
 # ИММУНИТЕТ (ЩИТЫ)
 # ==========================================
-@router.message(TextCmd(["иммунитет", "абсолют", "рест", "отдых"]))
+@router.message(TextCmd(["иммунитет"]))
 async def cmd_immune(
     message: types.Message,
     db,
@@ -282,7 +282,7 @@ async def cmd_immune(
         )
 
 
-@router.message(TextCmd(["защита", "защитить"]))
+@router.message(TextCmd(["защита", "защитить", "рест", "отдых"]))
 async def cmd_protect(
     message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
