@@ -226,8 +226,8 @@ function devSaveSeason() {
     .catch(e=>toast(e,false));
 }
 function devDeleteSeason(id) {
-  OM('🗑 Удалить сезон?',`<div style="text-align:center;padding:12px 0;color:var(--muted)">Сезон <b>${id}</b> будет удалён из БД <b>вместе с</b> его переопределениями наград и прогрессом игроков этого сезона (каскад — без сирот).</div>`,
-    [{l:'Удалить',c:'btn-red',f:`_execDevDeleteSeason(${JSON.stringify(id)})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+  OM('🗑 Удалить сезон?',`<div style="text-align:center;padding:12px 0;color:var(--muted)">Сезон <b>${esc(id)}</b> будет удалён из БД <b>вместе с</b> его переопределениями наград и прогрессом игроков этого сезона (каскад — без сирот).</div>`,
+    [{l:'Удалить',c:'btn-red',f:`_execDevDeleteSeason('${id}')`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
 }
 function _execDevDeleteSeason(id) {
   api(`/admin/dev/bp/seasons/${encodeURIComponent(id)}`,{method:'DELETE'})
