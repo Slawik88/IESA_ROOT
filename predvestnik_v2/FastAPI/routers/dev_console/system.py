@@ -7,8 +7,19 @@ from infrastructure.repositories import system_flags as _flags_repo
 
 router = APIRouter()
 
+_CHAT_MODULES = [
+    "module_shop", "module_gacha", "module_expeditions", "module_auction",
+    "module_games", "module_exchange", "module_quests", "module_zoo",
+    "module_warps", "module_daily_deal",
+]
+
 
 class FlagBody(BaseModel):
+    enabled: bool
+
+
+class _ModuleBody(BaseModel):
+    module_key: str
     enabled: bool
 
 
@@ -26,6 +37,39 @@ async def dev_set_flag(key: str, body: FlagBody, db=Depends(get_db), user=Depend
     if not ok:
         raise HTTPException(404, f"Флаг '{key}' не найден.")
     return {"ok": True, "key": key, "enabled": body.enabled}
+
+
+@router.get("/chat-modules/{chat_id}")
+async def dev_get_chat_modules(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    _require_dev(user)
+    cols = ", ".join(f"COALESCE({m}, 1)" for m in _CHAT_MODULES)
+    async with db.execute(
+        f"SELECT {cols} FROM chat_settings WHERE chat_id = ?", (chat_id,)
+    ) as c:
+        row = await c.fetchone()
+    if not row:
+        return {"modules": {m: 1 for m in _CHAT_MODULES}}
+    return {"modules": {m: row[i] for i, m in enumerate(_CHAT_MODULES)}}
+
+
+@router.post("/chat-modules/{chat_id}")
+async def dev_set_chat_module(
+    chat_id: int, body: _ModuleBody, db=Depends(get_db), user=Depends(require_tg_user)
+):
+    _require_dev(user)
+    if body.module_key not in _CHAT_MODULES:
+        raise HTTPException(400, "Неизвестный модуль")
+    val = 1 if body.enabled else 0
+    await db.execute(
+        "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
+        (chat_id,),
+    )
+    await db.execute(
+        f"UPDATE chat_settings SET {body.module_key} = ? WHERE chat_id = ?",
+        (val, chat_id),
+    )
+    await db.commit()
+    return {"ok": True}
 
 
 # ── 5б. Системные ресурсы (исключая девелопера) ─────────────────────────────────
