@@ -256,12 +256,14 @@ function loadGlobalDev() {
   </div>
   <div id="dev-t-metrics" style="display:none">
     <div class="card">
-      <div class="card-title">📊 Метрики посещаемости <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevMetrics()">🔄</button></div>
-      <div id="dev-metrics-kpi" style="display:flex;gap:8px;margin-bottom:12px"><div class="loader">Загрузка...</div></div>
-      <div class="card-title" style="margin:8px 0 4px">📅 По дням (30 дней)</div>
-      <div id="dev-metrics-daily" style="overflow-x:auto;max-height:220px;overflow-y:auto"></div>
-      <div class="card-title" style="margin:8px 0 4px">🔝 Популярность вкладок</div>
+      <div class="card-title">📊 Аудитория <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevMetrics()">🔄</button></div>
+      <div id="dev-metrics-kpi" style="display:flex;gap:6px;margin-bottom:14px"><div class="loader">Загрузка...</div></div>
+      <div class="card-title" style="margin:12px 0 6px">🔝 Страницы <span style="font-size:10px;font-weight:400;color:var(--muted)">(30 дн)</span></div>
       <div id="dev-metrics-tabs"></div>
+      <div class="card-title" style="margin:14px 0 6px">📂 Под-вкладки <span style="font-size:10px;font-weight:400;color:var(--muted)">(7 дн)</span></div>
+      <div id="dev-metrics-subtabs"></div>
+      <div class="card-title" style="margin:14px 0 6px">📅 По дням <span style="font-size:10px;font-weight:400;color:var(--muted)">(30 дн)</span></div>
+      <div id="dev-metrics-daily" style="overflow-x:auto;max-height:220px;overflow-y:auto"></div>
     </div>
   </div>
   <div id="dev-t-themes" style="display:none">
@@ -782,53 +784,60 @@ function devBpXp() {
 }
 
 // ── 📊 Метрики посещаемости (БЛОК 35) ───────────────────────────────────────
+var _PAGE_LABELS={'profile':'👤 Профиль','zoo':'🐾 Питомцы','arena':'⚔️ Арена',
+  'market':'🛍 Магазин','auction':'🏛 Аукцион','bp':'🎫 Боевой пропуск',
+  'help':'❓ Помощь','global':'🌍 Глобал','admin':'🛡 Админка'};
+function _metricsBar(rows,emptyText){
+  if(!rows||!rows.length) return '<div style="color:var(--muted);font-size:11px;text-align:center;padding:8px">'+emptyText+'</div>';
+  var max=0; for(var i=0;i<rows.length;i++){if(rows[i].views>max)max=rows[i].views;}
+  return rows.map(function(r){
+    var pct=max?Math.round(r.views/max*100):0;
+    var label=_PAGE_LABELS[r.tab]||esc(r.tab||'');
+    return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
+      +'<div style="min-width:110px;max-width:110px;font-size:10px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'
+      +'<div style="flex:1;background:var(--bg2);border-radius:3px;height:14px;overflow:hidden">'
+      +'<div style="width:'+pct+'%;height:14px;background:var(--gold2);border-radius:3px;transition:width .3s"></div></div>'
+      +'<div style="min-width:28px;text-align:right;font-size:10px;font-weight:700;color:var(--gold2)">'+r.views+'</div>'
+      +'<div style="min-width:34px;text-align:right;font-size:10px;color:var(--muted)">👤 '+r.users+'</div>'
+      +'</div>';
+  }).join('');
+}
 function loadDevMetrics() {
-  var kpi=el('dev-metrics-kpi'),daily=el('dev-metrics-daily'),tabs=el('dev-metrics-tabs');
+  var kpi=el('dev-metrics-kpi'),daily=el('dev-metrics-daily'),tabs=el('dev-metrics-tabs'),subtabs=el('dev-metrics-subtabs');
   if(!kpi) return;
   kpi.innerHTML='<div class="loader">Загрузка...</div>';
   api('/admin/dev/analytics').then(function(d){
     kpi.innerHTML=
-      '<div style="flex:1;text-align:center;background:var(--bg2);border-radius:8px;padding:8px">'
-        +'<div style="font-size:20px;font-weight:700;color:var(--gold2)">'+d.dau+'</div>'
-        +'<div style="font-size:10px;color:var(--muted)">DAU (24ч)</div></div>'
-      +'<div style="flex:1;text-align:center;background:var(--bg2);border-radius:8px;padding:8px">'
-        +'<div style="font-size:20px;font-weight:700;color:var(--gold2)">'+d.wau+'</div>'
-        +'<div style="font-size:10px;color:var(--muted)">WAU (7дн)</div></div>'
-      +'<div style="flex:1;text-align:center;background:var(--bg2);border-radius:8px;padding:8px">'
-        +'<div style="font-size:20px;font-weight:700;color:var(--gold2)">'+d.mau+'</div>'
-        +'<div style="font-size:10px;color:var(--muted)">MAU (30дн)</div></div>';
+      '<div style="flex:1;text-align:center;background:var(--bg2);border-radius:10px;padding:10px 6px">'
+        +'<div style="font-size:22px;font-weight:800;color:var(--gold2)">'+d.dau+'</div>'
+        +'<div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:2px">DAU · 24ч</div></div>'
+      +'<div style="flex:1;text-align:center;background:var(--bg2);border-radius:10px;padding:10px 6px">'
+        +'<div style="font-size:22px;font-weight:800;color:var(--gold2)">'+d.wau+'</div>'
+        +'<div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:2px">WAU · 7 дн</div></div>'
+      +'<div style="flex:1;text-align:center;background:var(--bg2);border-radius:10px;padding:10px 6px">'
+        +'<div style="font-size:22px;font-weight:800;color:var(--gold2)">'+d.mau+'</div>'
+        +'<div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:2px">MAU · 30 дн</div></div>';
+    if(tabs) tabs.innerHTML=_metricsBar(d.top_tabs,'Нет данных за 30 дней');
+    if(subtabs) subtabs.innerHTML=_metricsBar(d.top_subtabs,'Пока нет данных по под-вкладкам');
     var TH='style="padding:3px 6px;border-bottom:1px solid var(--border2)"';
     var TDL='style="padding:3px 6px;border-bottom:1px solid var(--border2)"';
     var TDR='style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)"';
-    if(d.daily&&d.daily.length){
-      daily.innerHTML='<table style="width:100%;font-size:11px;border-collapse:collapse">'
-        +'<thead><tr>'
-        +'<th '+TH+' style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border2)">Дата</th>'
-        +'<th '+TH+' style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)">Сессии</th>'
-        +'<th '+TH+' style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)">Юзеры</th>'
-        +'</tr></thead><tbody>'
-        +d.daily.slice().reverse().map(function(r){
-          return '<tr><td '+TDL+'>'+esc(r.date||'')+'</td>'
-                +'<td '+TDR+'>'+r.sessions+'</td>'
-                +'<td '+TDR+'>'+r.users+'</td></tr>';
-        }).join('')+'</tbody></table>';
-    } else {
-      daily.innerHTML='<div style="color:var(--muted);font-size:11px;text-align:center;padding:12px">Нет данных за 30 дней</div>';
-    }
-    if(d.top_tabs&&d.top_tabs.length){
-      tabs.innerHTML='<table style="width:100%;font-size:11px;border-collapse:collapse">'
-        +'<thead><tr>'
-        +'<th '+TH+' style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border2)">Вкладка</th>'
-        +'<th '+TH+' style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)">Открытий</th>'
-        +'<th '+TH+' style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)">Юзеры</th>'
-        +'</tr></thead><tbody>'
-        +d.top_tabs.map(function(r){
-          return '<tr><td '+TDL+'>'+esc(r.tab||'')+'</td>'
-                +'<td '+TDR+'>'+r.views+'</td>'
-                +'<td '+TDR+'>'+r.users+'</td></tr>';
-        }).join('')+'</tbody></table>';
-    } else {
-      tabs.innerHTML='<div style="color:var(--muted);font-size:11px;text-align:center;padding:12px">Нет данных</div>';
+    if(daily){
+      if(d.daily&&d.daily.length){
+        daily.innerHTML='<table style="width:100%;font-size:11px;border-collapse:collapse">'
+          +'<thead><tr>'
+          +'<th '+TH+' style="text-align:left">Дата</th>'
+          +'<th '+TH+' style="text-align:right">Сессии</th>'
+          +'<th '+TH+' style="text-align:right">Юзеры</th>'
+          +'</tr></thead><tbody>'
+          +d.daily.slice().reverse().map(function(r){
+            return '<tr><td '+TDL+'>'+esc(r.date||'')+'</td>'
+                  +'<td '+TDR+'>'+r.sessions+'</td>'
+                  +'<td '+TDR+'>'+r.users+'</td></tr>';
+          }).join('')+'</tbody></table>';
+      } else {
+        daily.innerHTML='<div style="color:var(--muted);font-size:11px;text-align:center;padding:8px">Нет данных</div>';
+      }
     }
   }).catch(function(e){if(kpi)kpi.innerHTML='<div class="err">'+esc(String(e))+'</div>';});
 }

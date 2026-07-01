@@ -50,6 +50,7 @@ function swArena(tab,btn) {
   document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   ['raids','events'].forEach(t=>{const e=el('ar-'+t); if(e)e.style.display=t===tab?'':'none';});
+  _trackSubtab('arena/'+tab);
   ({raids:loadRaid,events:loadEvents}[tab]||loadRaid)();
 }
 const QUEST_NAMES = {

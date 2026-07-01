@@ -70,14 +70,29 @@ async def _get_dashboard_inner(db) -> dict:
             for r in await c.fetchall()
         ]
 
+    # top-level pages (tab без '/')
     async with db.execute(
         "SELECT tab, COUNT(*) AS views, COUNT(DISTINCT user_id) AS users "
-        "FROM site_analytics WHERE visited_at >= ? "
-        "GROUP BY tab ORDER BY views DESC LIMIT 10",
+        "FROM site_analytics WHERE visited_at >= ? AND tab NOT LIKE '%/%' "
+        "GROUP BY tab ORDER BY views DESC LIMIT 15",
         (day30,),
     ) as c:
         top_tabs = [
             {"tab": r[0], "views": r[1], "users": r[2]} for r in await c.fetchall()
         ]
 
-    return {"dau": dau, "wau": wau, "mau": mau, "daily": daily, "top_tabs": top_tabs}
+    # под-вкладки (tab содержит '/'), за 7 дней чтобы видеть актуальное
+    async with db.execute(
+        "SELECT tab, COUNT(*) AS views, COUNT(DISTINCT user_id) AS users "
+        "FROM site_analytics WHERE visited_at >= ? AND tab LIKE '%/%' "
+        "GROUP BY tab ORDER BY views DESC LIMIT 30",
+        (day7,),
+    ) as c:
+        top_subtabs = [
+            {"tab": r[0], "views": r[1], "users": r[2]} for r in await c.fetchall()
+        ]
+
+    return {
+        "dau": dau, "wau": wau, "mau": mau,
+        "daily": daily, "top_tabs": top_tabs, "top_subtabs": top_subtabs,
+    }

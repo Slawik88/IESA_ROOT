@@ -385,6 +385,7 @@ function swZoo(tab,btn) {
   const zooC = el('zoo-c'), zooBest = el('zoo-bestiary');
   if(zooC) zooC.style.display = tab==='bestiary' ? 'none' : '';
   if(zooBest) zooBest.style.display = tab==='bestiary' ? '' : 'none';
+  _trackSubtab('zoo/'+tab);
   if(tab==='bestiary') { renderZooGuide(); return; }
   if(!_zooData){loadZoo();return;}
   renderZoo(tab);

@@ -248,7 +248,7 @@ function _topName(r){
 function switchTop(mode, btn) {
   document.querySelectorAll('#pro-hof .tab-inner .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-
+  _trackSubtab('profile/hof/'+mode);
   const localChatId = _initChatId || _cid;
   const localChatName = _initChatTitle || '(из профиля)';
 

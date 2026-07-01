@@ -782,6 +782,7 @@ function switchPro(tab, btn) {
   document.querySelectorAll('#pg-profile > .tabs > .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   ['main','inv','themes','quests','ach','hof'].forEach(t=>{ const d=el('pro-'+t); if(d) d.style.display=t===tab?'':'none'; });
+  _trackSubtab('profile/'+tab);
   if(tab==='main') loadProfile();
   else if(tab==='inv') swInv(_invSubTab, document.querySelector('#pro-inv .tab-inner .tb'));
   else if(tab==='themes') loadThemes();
@@ -796,6 +797,7 @@ function swInv(sub, btn) {
   if(safeBtn) safeBtn.classList.add('active');
   el('inv-items').style.display = sub==='items' ? '' : 'none';
   el('inv-craft').style.display = sub==='craft' ? '' : 'none';
+  _trackSubtab('profile/inv/'+sub);
   if(sub==='items') loadInventory(); else loadCraft();
 }
 
@@ -808,6 +810,7 @@ function swMkt(tab, _btn) {
   if(btn) btn.classList.add('active');
   const bd = el('balrow'); if(bd) bd.style.display = (tab === 'goods' || tab === 'cosmetics') ? 'flex' : 'none';
   ['vip','gacha','goods','deal','cosmetics'].forEach(t=>{ const d=el(t==='goods'?'mkt-goods':'mkt-'+t); if(d) d.style.display=t===tab?'':'none'; });
+  _trackSubtab('market/'+tab);
   ({vip:loadVip, gacha:loadGacha, goods:loadMarketGoods, deal:loadDeal, cosmetics:loadMarketCosmetics}[tab]||loadGacha)();
 }
 
@@ -820,6 +823,7 @@ function swGoods(sub, btn) {
   el('mkt-shop').style.display = sub==='shop' ? '' : 'none';
   el('mkt-dark').style.display = sub==='dark' ? '' : 'none';
   el('balrow').style.display='flex';
+  _trackSubtab('market/goods/'+sub);
   if(sub==='shop') loadShopCatalog(); else loadDarkMora();
 }
 function loadMarketGoods() {
@@ -838,6 +842,7 @@ function swAuction(tab, btn) {
   el('mkt-auc').style.display = tab==='auc' ? '' : 'none';
   el('mkt-exch').style.display = tab==='exch' ? '' : 'none';
   const cx=el('mkt-crypto'); if(cx) cx.style.display = tab==='crypto' ? '' : 'none';
+  _trackSubtab('auction/'+tab);
   if(tab==='auc') loadAuction(0); else if(tab==='exch') loadExchange(); else loadCrypto();
 }
 function loadAuctionPage() { swAuction(_aucTab, document.querySelector(`#pg-auction .tb[onclick*="'${_aucTab}'"]`)); }
@@ -851,6 +856,7 @@ function swQuests(tab, btn) {
   if(safeBtn) safeBtn.classList.add('active');
   el('quests-content').style.display = tab==='quests' ? '' : 'none';
   el('pro-streak').style.display = tab==='streak' ? '' : 'none';
+  _trackSubtab('profile/quests/'+tab);
   if(tab==='quests') loadQuests(); else loadStreak();
 }
 function loadQuestsPage() { swQuests(_questsTab, document.querySelector(`#pro-quests .tab-inner .tb[onclick*="'${_questsTab}'"]`)); }

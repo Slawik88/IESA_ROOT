@@ -328,6 +328,7 @@ function switchPage(name, _btn) {
     (_PAGE_LOADERS[name] || (() => {}))();
   }
 }
+function _trackSubtab(path){api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:path,session_id:_analyticsSession})}).catch(()=>{});}
 
 // Единая программная навигация — шорткаты в карточках/модалках.
 // goTo('zoo') · goTo('quests','streak') · goTo('market','gacha')
