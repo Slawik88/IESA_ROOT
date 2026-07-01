@@ -26,6 +26,13 @@ async def ensure_tables(db) -> None:
             status TEXT DEFAULT 'active'
         )
     """)
+    # Миграция: добавить колонки, которых не было в старых версиях таблицы
+    for _col in (
+        "ALTER TABLE shadow_gate_runs ADD COLUMN IF NOT EXISTS hp FLOAT8 NOT NULL DEFAULT 0",
+        "ALTER TABLE shadow_gate_runs ADD COLUMN IF NOT EXISTS hp_max FLOAT8 NOT NULL DEFAULT 0",
+        "ALTER TABLE shadow_gate_runs ADD COLUMN IF NOT EXISTS rarity TEXT DEFAULT 'common'",
+    ):
+        await db.execute(_col)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS clan_raids (
             raid_id SERIAL PRIMARY KEY, clan_id INTEGER NOT NULL, boss_name TEXT NOT NULL,
