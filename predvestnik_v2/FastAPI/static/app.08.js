@@ -3,12 +3,30 @@ let _devItems=null;
 let _devUserId=0;   // ID игрока из последнего «Досье» — для визуального инвентаря (БЛОК 4.1)
 function loadGlobalDev() {
   el('glb-dev').innerHTML=`
+  <div class="dev-tabs tab-inner" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:2px">
+    <button class="tb active" onclick="swDev('sys',this)">🖥 Система</button>
+    <button class="tb" onclick="swDev('players',this)">👥 Игроки</button>
+    <button class="tb" onclick="swDev('content',this)">🎫 Контент</button>
+    <button class="tb" onclick="swDev('bc',this)">📢 Вещание</button>
+    <button class="tb" onclick="swDev('sql',this)">🖥 SQL</button>
+    <button class="tb" onclick="swDev('metrics',this)">📊 Метрики</button>
+    <button class="tb" onclick="swDev('themes',this)">🎨 Темы</button>
+  </div>
+  <div id="dev-t-sys">
     <div id="dev-overview"><div class="loader">Загрузка...</div></div>
     <div class="card">
-      <div class="card-title">🔌 Модули системы <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevFlags()">🔄</button></div>
+      <div class="card-title">🔌 Глобальные модули <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevFlags()">🔄</button></div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Отключение блокирует и бот-команды, и вкладку на сайте.</div>
       <div id="dev-flags"><div class="loader">Загрузка...</div></div>
     </div>
+    <div class="card">
+      <div class="card-title">🧩 Модули чата <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="devLoadChatMods(el('dev-mod-chat-sel')?.value)">🔄</button></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Включить/выключить модуль для конкретного чата.</div>
+      <select id="dev-mod-chat-sel" class="num-input" style="margin-bottom:8px" onchange="devLoadChatMods(this.value)"><option value="">— выбрать чат —</option></select>
+      <div id="dev-mod-modules"></div>
+    </div>
+  </div>
+  <div id="dev-t-players" style="display:none">
     <div class="card">
       <div class="card-title">🔎 Досье на игрока</div>
       <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -79,6 +97,8 @@ function loadGlobalDev() {
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:6px">«Заменить» сбрасывает старый VIP и начисляет бонус-пакет нового тарифа. «Убавить» сокращает срок на N дней (тариф не меняется).</div>
     </div>
+  </div>
+  <div id="dev-t-content" style="display:none">
     <div class="card">
       <div class="card-title">🎫 БП · Шаг 1 — Сезоны</div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Порядок работы: 1️⃣ сезон → 2️⃣ выбрать его в таблице → 3️⃣ править награды → 4️⃣ настроить XP за действия.</div>
@@ -206,6 +226,8 @@ function loadGlobalDev() {
       </div>
       <button class="btn btn-gold btn-full" onclick="devBpXpSet()">💾 Сохранить действие</button>
     </div>
+  </div>
+  <div id="dev-t-bc" style="display:none">
     <div class="card">
       <div class="card-title">📢 Рассылка</div>
       <textarea id="dev-bc-text" class="num-input" style="margin:0 0 6px;min-height:110px;resize:vertical;line-height:1.4" placeholder="Текст (HTML: <b>, <i>, <u>, <a href>, <code>…)" oninput="_bcPreview()"></textarea>
@@ -223,6 +245,22 @@ function loadGlobalDev() {
       <div id="dev-bc-preview" class="bc-preview">—</div>
       <button class="btn btn-red btn-full" onclick="devBroadcast()">📢 Отправить рассылку</button>
     </div>
+  </div>
+  <div id="dev-t-sql" style="display:none">
+    <div class="card">
+      <div class="card-title">🖥 SQL-консоль</div>
+      <textarea id="dev-sql" class="num-input" style="margin:0 0 6px;min-height:70px;resize:vertical;font-family:monospace;font-size:11px" placeholder="SELECT * FROM users LIMIT 5"></textarea>
+      <button class="btn btn-red btn-full" onclick="devRunSql()">▶ Выполнить</button>
+      <div id="dev-sql-result" style="overflow-x:auto;margin-top:6px"></div>
+    </div>
+  </div>
+  <div id="dev-t-metrics" style="display:none">
+    <div class="card">
+      <div class="card-title">📊 Метрики посещаемости</div>
+      <div style="color:var(--muted);font-size:12px;text-align:center;padding:24px 0">БЛОК 35: DAU/WAU/MAU, посещаемость по вкладкам — будет реализовано.</div>
+    </div>
+  </div>
+  <div id="dev-t-themes" style="display:none">
     <div class="card" id="tl-card">
       <div class="card-title">🎨 Theme Lab — редактор премиум-тем</div>
       <select id="dev-tl-template" class="num-input" style="margin-bottom:6px" onchange="devTLLoad()"></select>
@@ -333,18 +371,14 @@ function loadGlobalDev() {
         <div id="dev-tl-meta-status" style="font-size:10px;margin-top:4px"></div>
       </div>
     </div>
-    <div class="card">
-      <div class="card-title">🖥 SQL-консоль</div>
-      <textarea id="dev-sql" class="num-input" style="margin:0 0 6px;min-height:70px;resize:vertical;font-family:monospace;font-size:11px" placeholder="SELECT * FROM users LIMIT 5"></textarea>
-      <button class="btn btn-red btn-full" onclick="devRunSql()">▶ Выполнить</button>
-      <div id="dev-sql-result" style="overflow-x:auto;margin-top:6px"></div>
-    </div>`;
+  </div>`;
   devLoadOverview();
   devLoadSeasons();
   devTLInit();
   loadDevLog();
   loadDevFlags();
   devLoadChats();
+  devLoadChatsMod();
   loadBpSeasons();
   loadBpXpActions();
   _bcLoadCounts();
@@ -742,6 +776,48 @@ function devBpXp() {
     .catch(e=>toast(e,false));
 }
 
+// ── 🗂 Dev-подвкладки ────────────────────────────────────────────────────────
+function swDev(tab, btn) {
+  if(btn) btn.closest('.dev-tabs').querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  ['sys','players','content','bc','sql','metrics','themes'].forEach(t=>{
+    const d=el('dev-t-'+t); if(d) d.style.display=t===tab?'':'none';
+  });
+}
+function devLoadChatsMod() {
+  const sel=el('dev-mod-chat-sel'); if(!sel) return;
+  api('/admin/dev/chats').then(d=>{
+    sel.innerHTML='<option value="">— выбрать чат —</option>'+(d.chats||[]).map(c=>{
+      const mark=c.role==='admin'?'🛡 ':(c.role==='main'?'🏠 ':'');
+      return `<option value="${c.chat_id}">${mark}${esc(c.title)}</option>`;
+    }).join('');
+  }).catch(()=>{});
+}
+function devLoadChatMods(chatId) {
+  const box=el('dev-mod-modules'); if(!box) return;
+  if(!chatId){box.innerHTML='<div style="color:var(--muted);font-size:11px">Выберите чат.</div>';return;}
+  box.innerHTML='<div class="loader">Загрузка...</div>';
+  api('/admin/dev/chat-modules/'+encodeURIComponent(chatId)).then(d=>{
+    const mods=[
+      ['module_shop','🛒','Магазин'],['module_gacha','🎰','Гача'],
+      ['module_expeditions','🗺','Экспедиции'],['module_auction','🏛','Аукцион'],
+      ['module_games','🎲','Мини-игры'],['module_exchange','💱','Конвертер'],
+      ['module_quests','📋','Квесты'],['module_zoo','🐾','Зоопарк'],
+      ['module_warps','🤝','Варп-команды'],['module_daily_deal','🏷','Акция дня'],
+    ];
+    box.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:4px">'+mods.map(function(m){
+      const key=m[0],icon=m[1],name=m[2];
+      const on=(d.modules[key]!==undefined?d.modules[key]:1)===1;
+      return '<button class="btn '+(on?'btn-gold':'btn-ghost')+'" style="font-size:11px;padding:4px 8px" onclick="devSetChatMod('+chatId+',\''+key+'\','+(on?0:1)+')">'+icon+' '+name+': '+(on?'✅':'❌')+'</button>';
+    }).join('')+'</div>';
+  }).catch(function(e){box.innerHTML='<div class="err">'+esc(String(e))+'</div>';});
+}
+function devSetChatMod(chatId, key, val) {
+  api('/admin/dev/chat-modules/'+encodeURIComponent(chatId),{
+    method:'POST',body:JSON.stringify({module_key:key,enabled:val===1})
+  }).then(function(){toast(val?'✅ '+key+' включён':'🔴 '+key+' выключен');devLoadChatMods(chatId);})
+  .catch(function(e){toast(e,false);});
+}
 // ── 🔌 Флаги модулей ─────────────────────────────────────────────────────────
 function loadDevFlags() {
   const box=el('dev-flags'); if(!box) return;
