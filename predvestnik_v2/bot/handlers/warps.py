@@ -45,7 +45,7 @@ ALL_WARP_ALIASES = _all_aliases()
 @router.message(WarpCmd(ALL_WARP_ALIASES))
 async def cmd_warp(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return
+        return await message.answer("🌀 Варп-команды работают только в групповых чатах.")
 
     # Команда — первая строка, без запятых-аргументов и опционального префикса «бот»
     raw_cmd = message.text.lower().split("\n", 1)[0].split(",")[0].strip()
@@ -74,10 +74,16 @@ async def cmd_warp(message: types.Message, db, text_args: str = None):
             )
 
     # Resolve target
-    target_id, target_name, _ = await resolve_target(message, db, text_args)
+    target_id, target_name, _rest = await resolve_target(message, db, text_args)
     if not target_id:
+        if _rest == "error_user_not_found":
+            return await message.answer(
+                "❌ Пользователь не найден — может, ещё не писал в чате?",
+                parse_mode="HTML",
+            )
         return await message.answer(
-            f"ℹ️ <code>{warp_name}, @юзер</code> — укажите цель или ответьте на сообщение.",
+            f"ℹ️ Укажи цель: ответь на сообщение или добавь через запятую — "
+            f"<code>{safe_html(warp_name)}, @юзер</code>.",
             parse_mode="HTML",
         )
 
