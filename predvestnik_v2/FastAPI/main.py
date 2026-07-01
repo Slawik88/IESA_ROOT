@@ -28,6 +28,7 @@ from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
 from infrastructure.repositories.crypto import ensure_tables as ensure_crypto
 from infrastructure.repositories.pet_combat import ensure_tables as ensure_combat
+from loguru import logger as _log
 
 
 @asynccontextmanager
@@ -36,17 +37,24 @@ async def lifespan(app: FastAPI):
     # Theme Lab нужна эта таблица, а init_db() (со всеми миграциями) гоняется
     # только в процессе бота — без этого веб-процесс падает на "relation
     # profile_theme_overrides does not exist" без рестарта бота.
+    # Каждый ensure независим: падение одного не должно блокировать остальные.
     async with get_pool().acquire() as conn:
-        await theme_templates.ensure_table(PGAdapter(conn))
-        await theme_meta.ensure_table(PGAdapter(conn))
-        await web_notifications.ensure_table(PGAdapter(conn))
-        await admin_log.ensure_table(PGAdapter(conn))
-        await system_flags.ensure_table(PGAdapter(conn))
-        await analytics_repo.ensure_table(PGAdapter(conn))
-        await ensure_cosmetics(PGAdapter(conn))
-        await ensure_clans(PGAdapter(conn))
-        await ensure_crypto(PGAdapter(conn))
-        await ensure_combat(PGAdapter(conn))
+        for _fn, _label in [
+            (theme_templates.ensure_table,   "theme_templates"),
+            (theme_meta.ensure_table,        "theme_meta"),
+            (web_notifications.ensure_table, "web_notifications"),
+            (admin_log.ensure_table,         "admin_log"),
+            (system_flags.ensure_table,      "system_flags"),
+            (analytics_repo.ensure_table,    "analytics"),
+            (ensure_cosmetics,               "cosmetics"),
+            (ensure_clans,                   "clans"),
+            (ensure_crypto,                  "crypto"),
+            (ensure_combat,                  "combat"),
+        ]:
+            try:
+                await _fn(PGAdapter(conn))
+            except Exception as _e:
+                _log.error(f"[lifespan] {_label}.ensure_table failed: {_e}")
     yield
 
 

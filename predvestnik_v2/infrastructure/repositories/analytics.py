@@ -22,11 +22,14 @@ async def ensure_table(db) -> None:
 
 
 async def record_visit(db, user_id: int, tab: str, session_id: str) -> None:
-    await db.execute(
-        "INSERT INTO site_analytics (user_id, tab, session_id) VALUES (?, ?, ?)",
-        (user_id, tab, session_id),
-    )
-    await db.commit()
+    try:
+        await db.execute(
+            "INSERT INTO site_analytics (user_id, tab, session_id) VALUES (?, ?, ?)",
+            (user_id, tab, session_id),
+        )
+        await db.commit()
+    except Exception:
+        pass  # некритично; PGAdapter уже залогировал ошибку
 
 
 async def get_dashboard(db) -> dict:
