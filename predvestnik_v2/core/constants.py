@@ -122,18 +122,17 @@ DOG_BONUSES: dict = {
 }
 
 # Turtle: shop_discount, expedition_discount, gacha_daily_discount.
-# double_egg_chance — РЕТАЙРНУТ (БЛОК19 Ч.2: яйца удалены, открытия больше нет; поле не читается).
 TURTLE_BONUSES: dict = {
-    1:  {"shop_discount": 0.02, "expedition_discount": 0.0,  "gacha_daily_discount": 0.0,  "double_egg_chance": 0.0},
-    2:  {"shop_discount": 0.03, "expedition_discount": 0.0,  "gacha_daily_discount": 0.0,  "double_egg_chance": 0.0},
-    3:  {"shop_discount": 0.03, "expedition_discount": 0.0,  "gacha_daily_discount": 0.0,  "double_egg_chance": 0.0},
-    4:  {"shop_discount": 0.04, "expedition_discount": 0.05, "gacha_daily_discount": 0.0,  "double_egg_chance": 0.0},
-    5:  {"shop_discount": 0.05, "expedition_discount": 0.05, "gacha_daily_discount": 0.0,  "double_egg_chance": 0.0},
-    6:  {"shop_discount": 0.06, "expedition_discount": 0.07, "gacha_daily_discount": 0.0,  "double_egg_chance": 0.0},
-    7:  {"shop_discount": 0.07, "expedition_discount": 0.08, "gacha_daily_discount": 0.0,  "double_egg_chance": 0.0},
-    8:  {"shop_discount": 0.07, "expedition_discount": 0.10, "gacha_daily_discount": 0.10, "double_egg_chance": 0.0},
-    9:  {"shop_discount": 0.09, "expedition_discount": 0.12, "gacha_daily_discount": 0.10, "double_egg_chance": 0.0},
-    10: {"shop_discount": 0.10, "expedition_discount": 0.15, "gacha_daily_discount": 0.10, "double_egg_chance": 0.05},
+    1:  {"shop_discount": 0.02, "expedition_discount": 0.0,  "gacha_daily_discount": 0.0},
+    2:  {"shop_discount": 0.03, "expedition_discount": 0.0,  "gacha_daily_discount": 0.0},
+    3:  {"shop_discount": 0.03, "expedition_discount": 0.0,  "gacha_daily_discount": 0.0},
+    4:  {"shop_discount": 0.04, "expedition_discount": 0.05, "gacha_daily_discount": 0.0},
+    5:  {"shop_discount": 0.05, "expedition_discount": 0.05, "gacha_daily_discount": 0.0},
+    6:  {"shop_discount": 0.06, "expedition_discount": 0.07, "gacha_daily_discount": 0.0},
+    7:  {"shop_discount": 0.07, "expedition_discount": 0.08, "gacha_daily_discount": 0.0},
+    8:  {"shop_discount": 0.07, "expedition_discount": 0.10, "gacha_daily_discount": 0.10},
+    9:  {"shop_discount": 0.09, "expedition_discount": 0.12, "gacha_daily_discount": 0.10},
+    10: {"shop_discount": 0.10, "expedition_discount": 0.15, "gacha_daily_discount": 0.10},
 }
 
 # Falcon: mora_bonus, xp_bonus (+% expedition reward), double_loot_chance, capstone_8h_treasure_map (guaranteed map on 8h trip)
