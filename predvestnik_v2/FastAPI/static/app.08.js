@@ -256,8 +256,12 @@ function loadGlobalDev() {
   </div>
   <div id="dev-t-metrics" style="display:none">
     <div class="card">
-      <div class="card-title">📊 Метрики посещаемости</div>
-      <div style="color:var(--muted);font-size:12px;text-align:center;padding:24px 0">БЛОК 35: DAU/WAU/MAU, посещаемость по вкладкам — будет реализовано.</div>
+      <div class="card-title">📊 Метрики посещаемости <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevMetrics()">🔄</button></div>
+      <div id="dev-metrics-kpi" style="display:flex;gap:8px;margin-bottom:12px"><div class="loader">Загрузка...</div></div>
+      <div class="card-title" style="margin:8px 0 4px">📅 По дням (30 дней)</div>
+      <div id="dev-metrics-daily" style="overflow-x:auto;max-height:220px;overflow-y:auto"></div>
+      <div class="card-title" style="margin:8px 0 4px">🔝 Популярность вкладок</div>
+      <div id="dev-metrics-tabs"></div>
     </div>
   </div>
   <div id="dev-t-themes" style="display:none">
@@ -379,6 +383,7 @@ function loadGlobalDev() {
   loadDevFlags();
   devLoadChats();
   devLoadChatsMod();
+  loadDevMetrics();
   loadBpSeasons();
   loadBpXpActions();
   _bcLoadCounts();
@@ -776,6 +781,57 @@ function devBpXp() {
     .catch(e=>toast(e,false));
 }
 
+// ── 📊 Метрики посещаемости (БЛОК 35) ───────────────────────────────────────
+function loadDevMetrics() {
+  var kpi=el('dev-metrics-kpi'),daily=el('dev-metrics-daily'),tabs=el('dev-metrics-tabs');
+  if(!kpi) return;
+  kpi.innerHTML='<div class="loader">Загрузка...</div>';
+  api('/admin/dev/analytics').then(function(d){
+    kpi.innerHTML=
+      '<div style="flex:1;text-align:center;background:var(--bg2);border-radius:8px;padding:8px">'
+        +'<div style="font-size:20px;font-weight:700;color:var(--gold2)">'+d.dau+'</div>'
+        +'<div style="font-size:10px;color:var(--muted)">DAU (24ч)</div></div>'
+      +'<div style="flex:1;text-align:center;background:var(--bg2);border-radius:8px;padding:8px">'
+        +'<div style="font-size:20px;font-weight:700;color:var(--gold2)">'+d.wau+'</div>'
+        +'<div style="font-size:10px;color:var(--muted)">WAU (7дн)</div></div>'
+      +'<div style="flex:1;text-align:center;background:var(--bg2);border-radius:8px;padding:8px">'
+        +'<div style="font-size:20px;font-weight:700;color:var(--gold2)">'+d.mau+'</div>'
+        +'<div style="font-size:10px;color:var(--muted)">MAU (30дн)</div></div>';
+    var TH='style="padding:3px 6px;border-bottom:1px solid var(--border2)"';
+    var TDL='style="padding:3px 6px;border-bottom:1px solid var(--border2)"';
+    var TDR='style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)"';
+    if(d.daily&&d.daily.length){
+      daily.innerHTML='<table style="width:100%;font-size:11px;border-collapse:collapse">'
+        +'<thead><tr>'
+        +'<th '+TH+' style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border2)">Дата</th>'
+        +'<th '+TH+' style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)">Сессии</th>'
+        +'<th '+TH+' style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)">Юзеры</th>'
+        +'</tr></thead><tbody>'
+        +d.daily.slice().reverse().map(function(r){
+          return '<tr><td '+TDL+'>'+esc(r.date||'')+'</td>'
+                +'<td '+TDR+'>'+r.sessions+'</td>'
+                +'<td '+TDR+'>'+r.users+'</td></tr>';
+        }).join('')+'</tbody></table>';
+    } else {
+      daily.innerHTML='<div style="color:var(--muted);font-size:11px;text-align:center;padding:12px">Нет данных за 30 дней</div>';
+    }
+    if(d.top_tabs&&d.top_tabs.length){
+      tabs.innerHTML='<table style="width:100%;font-size:11px;border-collapse:collapse">'
+        +'<thead><tr>'
+        +'<th '+TH+' style="text-align:left;padding:3px 6px;border-bottom:1px solid var(--border2)">Вкладка</th>'
+        +'<th '+TH+' style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)">Открытий</th>'
+        +'<th '+TH+' style="text-align:right;padding:3px 6px;border-bottom:1px solid var(--border2)">Юзеры</th>'
+        +'</tr></thead><tbody>'
+        +d.top_tabs.map(function(r){
+          return '<tr><td '+TDL+'>'+esc(r.tab||'')+'</td>'
+                +'<td '+TDR+'>'+r.views+'</td>'
+                +'<td '+TDR+'>'+r.users+'</td></tr>';
+        }).join('')+'</tbody></table>';
+    } else {
+      tabs.innerHTML='<div style="color:var(--muted);font-size:11px;text-align:center;padding:12px">Нет данных</div>';
+    }
+  }).catch(function(e){if(kpi)kpi.innerHTML='<div class="err">'+esc(String(e))+'</div>';});
+}
 // ── 🗂 Dev-подвкладки ────────────────────────────────────────────────────────
 function swDev(tab, btn) {
   if(btn) btn.closest('.dev-tabs').querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));

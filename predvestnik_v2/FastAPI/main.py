@@ -13,7 +13,7 @@ load_dotenv()
 
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
-from infrastructure.repositories import theme_templates, theme_meta, web_notifications, admin_log, system_flags
+from infrastructure.repositories import theme_templates, theme_meta, web_notifications, admin_log, system_flags, analytics as analytics_repo
 from FastAPI.auth import verify_login_widget, create_session_token, verify_session_token, verify_webapp_data
 from FastAPI import notifications
 from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
@@ -22,7 +22,7 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               marriage, daily_deal, promocodes, wallet,
                               events, admin, vip, battle_pass, global_admin,
                               dev_console, payments, games, relics, cosmetics, clans,
-                              combat, legal)
+                              combat, legal, analytics as analytics_router)
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -42,6 +42,7 @@ async def lifespan(app: FastAPI):
         await web_notifications.ensure_table(PGAdapter(conn))
         await admin_log.ensure_table(PGAdapter(conn))
         await system_flags.ensure_table(PGAdapter(conn))
+        await analytics_repo.ensure_table(PGAdapter(conn))
         await ensure_cosmetics(PGAdapter(conn))
         await ensure_clans(PGAdapter(conn))
         await ensure_crypto(PGAdapter(conn))
@@ -60,7 +61,8 @@ for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           promocodes.router, wallet.router, events.router, admin.router, vip.router,
           battle_pass.router, global_admin.router, dev_console.router,
           payments.router, games.router, relics.router, cosmetics.router,
-          clans.router, combat.router, legal.router, notif_router.router]:
+          clans.router, combat.router, legal.router, notif_router.router,
+          analytics_router.router]:
     app.include_router(r)
 
 
