@@ -33,6 +33,13 @@ async def record_visit(db, user_id: int, tab: str, session_id: str) -> None:
 
 
 async def get_dashboard(db) -> dict:
+    try:
+        return await _get_dashboard_inner(db)
+    except Exception:
+        return {"dau": 0, "wau": 0, "mau": 0, "daily": [], "top_tabs": [], "error": "таблица ещё не создана"}
+
+
+async def _get_dashboard_inner(db) -> dict:
     now = datetime.now(timezone.utc)
 
     def _since(days: int) -> str:
