@@ -39,6 +39,9 @@ async def lifespan(app: FastAPI):
     # profile_theme_overrides does not exist" без рестарта бота.
     # Каждый ensure независим: падение одного не должно блокировать остальные.
     async with get_pool().acquire() as conn:
+        # RESET ALL (asyncpg pool cleanup) сбрасывает search_path к дефолту.
+        # Явно устанавливаем перед ensure-вызовами чтобы DDL шёл в нужную схему.
+        await conn.execute("SET search_path TO predvestnik, public")
         for _fn, _label in [
             (theme_templates.ensure_table,   "theme_templates"),
             (theme_meta.ensure_table,        "theme_meta"),
