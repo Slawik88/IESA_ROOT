@@ -3,8 +3,8 @@
 main.py импортирует `dev_console.router` как раньше — пакет реэкспортирует его.
 """
 from fastapi import APIRouter
-from . import player, vip, system, bp, broadcast, sql, themes
+from . import player, vip, system, bp, broadcast, sql, themes, metrics
 
 router = APIRouter(prefix="/admin/dev", tags=["dev_console"])
-for _m in (player, vip, system, bp, broadcast, sql, themes):
+for _m in (player, vip, system, bp, broadcast, sql, themes, metrics):
     router.include_router(_m.router)

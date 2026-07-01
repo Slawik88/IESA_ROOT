@@ -332,31 +332,12 @@ bp, магазин, гача, аукцион, переводы, чистки.
 
 ---
 
-## БЛОК 35: МЕТРИКИ ПОСЕЩАЕМОСТИ ДЛЯ РАЗРАБОТЧИКА
+## ✅ БЛОК 35: МЕТРИКИ ПОСЕЩАЕМОСТИ — ЗАКРЫТО 2026-07-01
 
-> Источник: запрос 2026-06-30.
-
-### 35.1 — Уникальные посетители и сессии
-Таблица `site_analytics` (или аналог):
-- `user_id` — кто посетил
-- `tab` — какую вкладку открыл (profile, zoo, market, bp, auction, admin, global, help + sub-tabs)
-- `session_id` — уникальный ID сессии
-- `visited_at` — timestamp
-
-Запросы для dev-консоли:
-- Уникальные посетители за 1 день / неделю / месяц / всё время
-- Количество сессий за те же периоды
-- Популярность каждой вкладки (топ по количеству открытий)
-
-### 35.2 — Инструментация фронта
-В `switchPage(name, _btn)` — отправлять событие `POST /api/analytics/tab` с `{tab: name}`.
-На стороне бэкенда: записывать в `site_analytics`.
-
-### 35.3 — Дашборд в dev-консоли
-Карточка «📊 Аналитика» с:
-- Графиком/таблицей по дням (последние 30 дней)
-- Топ-5 вкладок
-- DAU / WAU / MAU (daily/weekly/monthly active users)
+**Что сделано:**
+- 35.1: Таблица `site_analytics` (user_id, tab, session_id, visited_at). `ensure_table` в lifespan main.py.
+- 35.2: `switchPage()` в `app.01.js` — `POST /analytics/tab` (fire-and-forget). `_analyticsSession` — UUID per page load.
+- 35.3: Дашборд в подвкладке «Метрики» дев-консоли: DAU/WAU/MAU + таблица по дням + топ-10 вкладок. `GET /admin/dev/analytics` в `dev_console/metrics.py`. `loadDevMetrics()` в `app.08.js`.
 
 ---
 

@@ -24,6 +24,7 @@ let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='gacha'
 let _proTab='main', _profileData=null;
 let _achData=null, _achSort='default', _invSearch='', _themeFilter='all';
 let _bpData=null;
+let _analyticsSession=(Date.now().toString(36)+Math.random().toString(36).slice(2)).slice(0,16);
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const sess = () => localStorage.getItem(SK)||'';
@@ -320,6 +321,7 @@ function switchPage(name, _btn) {
   showCurrBar(name !== 'profile');
   document.body.classList.toggle('pg-wide', name === 'global');
   try { window.scrollTo(0, 0); } catch(e) {}
+  api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:name,session_id:_analyticsSession})}).catch(()=>{});
   if(!_loaded.has(name)){
     _loaded.add(name);
     if(!_isPageEnabled(name)){ _showMaintenance(name); return; }
