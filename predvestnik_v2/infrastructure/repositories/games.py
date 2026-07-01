@@ -34,6 +34,6 @@ async def add_daily_winnings(
 ) -> None:
     await db.execute(
         "INSERT INTO gamble_daily_winnings (user_id, date, total_won) VALUES (?, ?, ?) "
-        "ON CONFLICT(user_id, date) DO UPDATE SET total_won = total_won + ?",
+        "ON CONFLICT(user_id, date) DO UPDATE SET total_won = gamble_daily_winnings.total_won + ?",
         (user_id, date, amount, amount),
     )
