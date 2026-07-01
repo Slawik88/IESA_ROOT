@@ -782,7 +782,8 @@ function switchPro(tab, btn) {
   document.querySelectorAll('#pg-profile > .tabs > .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   ['main','inv','themes','quests','ach','hof'].forEach(t=>{ const d=el('pro-'+t); if(d) d.style.display=t===tab?'':'none'; });
-  _trackSubtab('profile/'+tab);
+  // inv/quests/hof делегируют трекинг своим дочерним функциям (swInv/swQuests/switchTop)
+  if(tab==='main'||tab==='themes'||tab==='ach') _trackSubtab('profile/'+tab);
   if(tab==='main') loadProfile();
   else if(tab==='inv') swInv(_invSubTab, document.querySelector('#pro-inv .tab-inner .tb'));
   else if(tab==='themes') loadThemes();
