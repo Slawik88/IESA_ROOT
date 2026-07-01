@@ -97,16 +97,15 @@ function renderLots(lots, searchQuery) {
 }
 
 // ── Крипто-Биржа (ШАГ4): лорные монеты, свечи, купить/продать с ползунком % ──────
-let _cxData=null, _cxSel=null, _cxAction='buy', _cxPct=50, _cxHost='mb';
+let _cxData=null, _cxSel=null, _cxAction='buy', _cxPct=50, _cxHost='mb', _cxView='list';
 // Инлайн-вкладка «📈 Биржа» (под-вкладка страницы Аукцион·Обменник·Биржа).
 function loadCrypto(){
-  _cxHost='mkt-crypto'; _cxSel=null; _cxAction='buy'; _cxPct=50;
+  _cxHost='mkt-crypto'; _cxSel=null; _cxAction='buy'; _cxPct=50; _cxView='list';
   const h=el('mkt-crypto'); if(h) h.innerHTML='<div class="loader">Загрузка рынка...</div>';
   _cxLoad();
 }
-// Модальный вход (оставлен для прямого вызова, напр. из карточки обменника).
 function openCryptoExchange(){
-  _cxHost='mb'; _cxSel=null; _cxAction='buy'; _cxPct=50;
+  _cxHost='mb'; _cxSel=null; _cxAction='buy'; _cxPct=50; _cxView='list';
   OM('📈 Крипто-Биржа','<div class="loader">Загрузка рынка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]);
   _cxLoad();
 }
@@ -116,21 +115,35 @@ function _cxCur(){ return (_cxData&&_cxData.coins||[]).find(c=>c.id===_cxSel); }
 function _cxAmt(a){ return (Number(a)||0).toLocaleString('ru',{maximumFractionDigits:4}); }
 function renderCrypto(){
   const b=el(_cxHost); if(!b||!_cxData) return;
+  if(_cxView==='top'){ b.innerHTML='<div class="loader">Загрузка...</div>'; _cxTopLoad(); return; }
   if(_cxSel){ b.innerHTML=_cxDetailHtml(); return; }
-  const head=`<div class="cx-head">
-    <div><div class="cx-h-l">💼 Портфель</div><div class="cx-h-v">${fmt(_cxData.portfolio_value)} 🪙</div></div>
-    <div style="text-align:right"><div class="cx-h-l">Баланс</div><div class="cx-h-v">${fmt(_cxData.mora)} 🪙</div></div></div>`;
-  b.innerHTML=head+`<div class="cx-list">${_cxData.coins.map(_cxRow).join('')}</div>`;
+  var pnl=_cxData.portfolio_pnl||0, pnlCls=pnl>=0?'cx-pnl-up':'cx-pnl-dn', pnlSign=pnl>=0?'+':'';
+  var pnlTxt=_cxData.portfolio_value>0?' <span class="'+pnlCls+'">'+pnlSign+fmt(Math.round(pnl))+' P&L</span>':'';
+  var head='<div class="cx-head">'
+    +'<div><div class="cx-h-l">💼 Портфель</div><div class="cx-h-v">'+fmt(_cxData.portfolio_value)+' 🪙'+pnlTxt+'</div></div>'
+    +'<div style="text-align:right"><div class="cx-h-l">Баланс · <button class="cx-star" onclick="_cxView=\'top\';renderCrypto()" title="Топ трейдеров">🏆</button></div>'
+    +'<div class="cx-h-v">'+fmt(_cxData.mora)+' 🪙</div></div></div>';
+  b.innerHTML=head+'<div class="cx-list">'+_cxData.coins.map(_cxRow).join('')+'</div>';
 }
 function _cxRow(c){
-  const up=c.change_24h>=0;
-  return `<div class="cx-row" onclick="_cxOpen('${c.id}')">
-    <div class="cx-ico">${c.emoji}</div>
-    <div class="cx-rinfo"><div class="cx-rname">${c.name}</div>
-      ${c.holding>0?`<div class="cx-rhold">${_cxAmt(c.holding)} · ${fmt(c.value)}🪙</div>`:'<div class="cx-rhold cx-dim">—</div>'}</div>
-    ${_cxSpark(c.candles,up)}
-    <div class="cx-rprice"><div class="cx-rp">${fmt(c.price)}🪙</div>
-      <div class="cx-rchg ${up?'up':'down'}">${up?'▲':'▼'}${Math.abs(c.change_24h)}%</div></div></div>`;
+  var up=c.change_24h>=0;
+  var pnlBadge='';
+  if(c.holding>0 && c.avg_buy){
+    var pCls=c.pnl_abs>=0?'cx-pnl-up':'cx-pnl-dn', pSign=c.pnl_abs>=0?'+':'';
+    pnlBadge=' <span class="'+pCls+'">'+pSign+fmt(Math.round(c.pnl_abs))+'</span>';
+  }
+  var holdLine=c.holding>0
+    ?'<div class="cx-rhold">'+_cxAmt(c.holding)+' · '+fmt(c.value)+'🪙'+pnlBadge+'</div>'
+    :'<div class="cx-rhold cx-dim">—</div>';
+  var starCls='cx-star'+(c.starred?' on':'');
+  return '<div class="cx-row" onclick="_cxOpen(\''+c.id+'\')">'
+    +'<div class="cx-ico">'+c.emoji+'</div>'
+    +'<div class="cx-rinfo"><div class="cx-rname">'+esc(c.name)
+    +' <button class="'+starCls+'" onclick="event.stopPropagation();_cxWatch(\''+c.id+'\')" title="Избранное">'+( c.starred?'★':'☆')+'</button></div>'
+    +holdLine+'</div>'
+    +_cxSpark(c.candles,up)
+    +'<div class="cx-rprice"><div class="cx-rp">'+fmt(c.price)+'🪙</div>'
+    +'<div class="cx-rchg '+(up?'up':'down')+'">'+(up?'▲':'▼')+Math.abs(c.change_24h)+'%</div></div></div>';
 }
 function _cxSpark(cd,up){
   const cl=(cd||[]).map(x=>x.c), W=52,H=24;
@@ -159,6 +172,7 @@ function _cxDetailHtml(){
       <div class="cx-rchg ${up?'up':'down'}">${fmt(price)} 🪙 · ${up?'▲':'▼'} ${Math.abs(c.change_24h)}% (24ч)</div></div></div>
     ${_cxChart(c.candles)}
     <div class="cx-hold">В портфеле: <b>${_cxAmt(c.holding)}</b> ${c.emoji} <span class="cx-dim">(${fmt(c.value)} 🪙)</span></div>
+    ${c.holding&&c.avg_buy?`<div class="cx-pnl ${c.pnl_abs>=0?'up':'down'}">P&L: ${c.pnl_abs>=0?'+':''}${fmt(Math.round(c.pnl_abs))} 🪙 (${c.pnl_pct>=0?'+':''}${c.pnl_pct}%) · ср. цена ${fmt(Math.round(c.avg_buy))} 🪙</div>`:''}
     <div class="cx-tabs"><button class="cx-tab ${_cxAction==='buy'?'on':''}" onclick="_cxSetAction('buy')">Купить</button>
       <button class="cx-tab ${_cxAction==='sell'?'on':''}" onclick="_cxSetAction('sell')">Продать</button></div>
     <div class="cx-slider-row"><input id="cx-slider" type="range" min="0" max="100" value="${_cxPct}" oninput="_cxSlide(this.value)"/>
@@ -167,7 +181,9 @@ function _cxDetailHtml(){
       <div>${_cxAction==='buy'?'Потратишь':'Получишь'}: <b id="cx-cost">${fmt(Math.round(cost))}</b> 🪙</div></div>
     ${fee?`<div class="cx-dim" style="font-size:10px;margin:-4px 0 8px">↳ комиссия биржи −${Math.round(fee*100)}% (и при покупке, и при продаже)</div>`:''}
     ${noFunds?`<div class="cx-dim" style="font-size:11px;text-align:center;margin-bottom:6px">${_cxAction==='buy'?'Недостаточно 🪙 для покупки':'Нет '+esc(c.name)+' в портфеле'}</div>`:''}
-    <button class="btn btn-full ${_cxAction==='buy'?'btn-gold':'btn-ghost'}" ${noFunds?'disabled':''} onclick="_cxTrade()">${_cxAction==='buy'?'📈 Купить':'📉 Продать'} ${esc(c.name)}</button>`;
+    <button class="btn btn-full ${_cxAction==='buy'?'btn-gold':'btn-ghost'}" ${noFunds?'disabled':''} onclick="_cxTrade()">${_cxAction==='buy'?'📈 Купить':'📉 Продать'} ${esc(c.name)}</button>
+    <button class="btn btn-sm btn-ghost" style="margin-top:8px;width:100%" onclick="_cxHistLoad('${c.id}')">📋 История сделок</button>
+    <div id="cx-hist-box" style="margin-top:6px"></div>`;
 }
 function _cxChart(cd){
   if(!cd||!cd.length) return '';
@@ -194,6 +210,53 @@ function _cxTrade(){
   api('/exchange/crypto/trade',{method:'POST',body:JSON.stringify({coin_id:c.id,action:_cxAction,amount:amt})})
     .then(r=>{toast('✅ '+r.message); refreshCurrBar(); _cxLoad();})
     .catch(e=>toast(e,false));
+}
+// ── БЛОК22: Вотчлист / история / топ трейдеров ───────────────────────────────────
+function _cxWatch(coinId){
+  api('/exchange/crypto/watchlist/'+coinId,{method:'POST'})
+    .then(function(r){
+      var c=(_cxData&&_cxData.coins||[]).find(function(x){return x.id===coinId;});
+      if(c) c.starred=r.starred;
+      renderCrypto();
+    }).catch(function(e){toast(e,false);});
+}
+function _cxHistLoad(coinId){
+  var box=el('cx-hist-box'); if(!box) return;
+  box.innerHTML='<div class="cx-dim" style="font-size:11px;text-align:center;padding:4px">Загрузка...</div>';
+  api('/exchange/crypto/history?coin_id='+coinId)
+    .then(function(rows){
+      if(!rows||!rows.length){box.innerHTML='<div class="cx-dim" style="font-size:11px;text-align:center;padding:4px">Сделок нет</div>'; return;}
+      var coin=(_cxData&&_cxData.coins||[]).find(function(x){return x.id===coinId;});
+      var emoji=coin?coin.emoji:'';
+      box.innerHTML=rows.map(function(r){
+        var isBuy=r.action==='buy';
+        var amtFmt=(Number(r.amount)||0).toLocaleString('ru',{maximumFractionDigits:4});
+        return '<div class="cx-hist-row">'
+          +'<span class="cx-hist-act '+(isBuy?'buy':'sell')+'">'+(isBuy?'▲ Куп':'▼ Прод')+'</span>'
+          +' '+emoji+' '+amtFmt
+          +'<span class="cx-dim" style="margin:0 auto 0 6px">'+fmt(Math.round(r.price))+'🪙</span>'
+          +'<span style="font-weight:700;color:var(--gold2)">'+fmt(Math.round(r.total_mora))+'🪙</span>'
+          +'<span class="cx-dim" style="font-size:10px;margin-left:6px">'+r.traded_at+'</span>'
+          +'</div>';
+      }).join('');
+    }).catch(function(e){if(box)box.innerHTML='<div class="err">'+e+'</div>';});
+}
+function _cxTopLoad(){
+  var b=el(_cxHost); if(!b) return;
+  api('/exchange/crypto/top')
+    .then(function(rows){
+      var html='<button class="btn btn-sm btn-ghost" style="margin-bottom:10px" onclick="_cxView=\'list\';renderCrypto()">← Биржа</button>'
+        +'<div style="font-size:14px;font-weight:800;color:var(--bright);margin-bottom:8px">🏆 Топ трейдеров</div>';
+      if(!rows||!rows.length){html+='<div class="cx-dim" style="font-size:12px;text-align:center;padding:12px">Ещё никто не торговал</div>'; b.innerHTML=html; return;}
+      html+=rows.map(function(r){
+        return '<div class="cx-top-row">'
+          +'<span class="cx-top-rank">#'+r.rank+'</span>'
+          +'<span>@'+esc(r.username||('id'+r.user_id))+'</span>'
+          +'<span class="cx-top-val">'+fmt(Math.round(r.value))+' 🪙</span>'
+          +'</div>';
+      }).join('');
+      b.innerHTML=html;
+    }).catch(function(e){var b2=el(_cxHost); if(b2)b2.innerHTML='<div class="err">'+e+'</div>';});
 }
 // ── Глобальный профиль (БЛОК19 Часть3): клик по нику → витрина игрока ────────────
 function unameLink(userId,name,vip,glow){ if(!userId) return esc('@'+(name||'?')); return `<span class="uname-link${glow?' '+glow:''}" onclick="openGlobalProfile(${userId})">${vip?'👑':''}@${esc(name||('id'+userId))}</span>`; }

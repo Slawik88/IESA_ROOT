@@ -746,6 +746,19 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .cx-slider-row input[type=range] { flex: 1; }
 .cx-pct { font-size: 13px; font-weight: 800; color: var(--gold2); min-width: 42px; text-align: right; }
 .cx-quote { display: flex; justify-content: space-between; font-size: 12px; color: var(--bright); padding: 8px 10px; border-radius: 9px; background: var(--s); border: 1px solid var(--border2); margin-bottom: 10px; }
+/* БЛОК22: P&L / watchlist / history / top */
+.cx-pnl { font-size: 10.5px; font-weight: 700; margin-bottom: 8px; }
+.cx-pnl.up { color: #5fd38a; } .cx-pnl.down { color: #e0556b; }
+.cx-pnl-up { color: #5fd38a; font-weight: 700; } .cx-pnl-dn { color: #e0556b; font-weight: 700; }
+.cx-star { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--muted); padding: 0 2px; line-height: 1; vertical-align: middle; }
+.cx-star.on { color: var(--gold); }
+.cx-hist-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border2); font-size: 11px; color: var(--bright); }
+.cx-hist-row:last-child { border-bottom: none; }
+.cx-hist-act { font-weight: 700; } .cx-hist-act.buy { color: #5fd38a; } .cx-hist-act.sell { color: #e0556b; }
+.cx-top-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border2); font-size: 12px; color: var(--bright); }
+.cx-top-row:last-child { border-bottom: none; }
+.cx-top-rank { font-weight: 800; color: var(--muted); min-width: 20px; }
+.cx-top-val { font-weight: 700; color: var(--gold2); margin-left: auto; }
 /* БЛОК19 Часть3: Глобальный профиль (клик по нику) */
 .uname-link { color: var(--gold2); cursor: pointer; font-weight: 600; }
 .uname-link:active { opacity: .65; }
