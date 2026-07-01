@@ -66,48 +66,57 @@ async def get_holdings(db, user_id: int) -> dict[str, dict]:
 
 
 async def get_trade_history(db, user_id: int, coin_id: str | None = None, limit: int = 50) -> list[dict]:
-    if coin_id:
-        q = ("SELECT coin_id, action, amount, price, total_mora, traded_at "
-             "FROM crypto_trades WHERE user_id = ? AND coin_id = ? "
-             "ORDER BY traded_at DESC LIMIT ?")
-        args: tuple = (user_id, coin_id, limit)
-    else:
-        q = ("SELECT coin_id, action, amount, price, total_mora, traded_at "
-             "FROM crypto_trades WHERE user_id = ? ORDER BY traded_at DESC LIMIT ?")
-        args = (user_id, limit)
-    async with db.execute(q, args) as c:
-        rows = await c.fetchall()
-    return [
-        {"coin_id": r[0], "action": r[1], "amount": float(r[2]),
-         "price": float(r[3]), "total_mora": float(r[4]), "traded_at": str(r[5])[:16]}
-        for r in rows
-    ]
+    try:
+        if coin_id:
+            q = ("SELECT coin_id, action, amount, price, total_mora, traded_at "
+                 "FROM crypto_trades WHERE user_id = ? AND coin_id = ? "
+                 "ORDER BY traded_at DESC LIMIT ?")
+            args: tuple = (user_id, coin_id, limit)
+        else:
+            q = ("SELECT coin_id, action, amount, price, total_mora, traded_at "
+                 "FROM crypto_trades WHERE user_id = ? ORDER BY traded_at DESC LIMIT ?")
+            args = (user_id, limit)
+        async with db.execute(q, args) as c:
+            rows = await c.fetchall()
+        return [
+            {"coin_id": r[0], "action": r[1], "amount": float(r[2]),
+             "price": float(r[3]), "total_mora": float(r[4]), "traded_at": str(r[5])[:16]}
+            for r in rows
+        ]
+    except Exception:
+        return []
 
 
 async def get_watchlist(db, user_id: int) -> set[str]:
-    async with db.execute(
-        "SELECT coin_id FROM crypto_watchlist WHERE user_id = ?", (user_id,)
-    ) as c:
-        return {r[0] for r in await c.fetchall()}
+    try:
+        async with db.execute(
+            "SELECT coin_id FROM crypto_watchlist WHERE user_id = ?", (user_id,)
+        ) as c:
+            return {r[0] for r in await c.fetchall()}
+    except Exception:
+        return set()
 
 
 async def toggle_watchlist(db, user_id: int, coin_id: str) -> bool:
     """Добавляет/убирает монету из избранного. Возвращает True если добавлена."""
-    async with db.execute(
-        "SELECT 1 FROM crypto_watchlist WHERE user_id = ? AND coin_id = ?", (user_id, coin_id)
-    ) as c:
-        exists = await c.fetchone()
-    if exists:
+    try:
+        async with db.execute(
+            "SELECT 1 FROM crypto_watchlist WHERE user_id = ? AND coin_id = ?", (user_id, coin_id)
+        ) as c:
+            exists = await c.fetchone()
+        if exists:
+            await db.execute(
+                "DELETE FROM crypto_watchlist WHERE user_id = ? AND coin_id = ?", (user_id, coin_id)
+            )
+            await db.commit()
+            return False
         await db.execute(
-            "DELETE FROM crypto_watchlist WHERE user_id = ? AND coin_id = ?", (user_id, coin_id)
+            "INSERT INTO crypto_watchlist (user_id, coin_id) VALUES (?, ?)", (user_id, coin_id)
         )
         await db.commit()
+        return True
+    except Exception:
         return False
-    await db.execute(
-        "INSERT INTO crypto_watchlist (user_id, coin_id) VALUES (?, ?)", (user_id, coin_id)
-    )
-    await db.commit()
-    return True
 
 
 async def trade(db, user_id: int, coin_id: str, action: str,

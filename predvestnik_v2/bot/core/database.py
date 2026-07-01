@@ -1160,12 +1160,38 @@ async def _init_clans(db):
 
 
 async def _init_crypto(db):
-    # Крипто-Биржа (ШАГ4): портфель лорных валют. Цены — функция времени (без истории).
+    # Крипто-Биржа (БЛОК 22): портфель + история сделок + избранное.
     await db.execute("""
         CREATE TABLE IF NOT EXISTS crypto_holdings (
+            user_id       BIGINT NOT NULL,
+            coin_id       TEXT   NOT NULL,
+            amount        FLOAT8 DEFAULT 0,
+            avg_buy_price FLOAT8 DEFAULT 0,
+            PRIMARY KEY (user_id, coin_id)
+        )
+    """)
+    await db.execute(
+        "ALTER TABLE crypto_holdings ADD COLUMN IF NOT EXISTS avg_buy_price FLOAT8 DEFAULT 0"
+    )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS crypto_trades (
+            id         SERIAL PRIMARY KEY,
+            user_id    BIGINT NOT NULL,
+            coin_id    TEXT   NOT NULL,
+            action     TEXT   NOT NULL,
+            amount     FLOAT8 NOT NULL,
+            price      FLOAT8 NOT NULL,
+            total_mora FLOAT8 NOT NULL,
+            traded_at  TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_ct_user_coin ON crypto_trades(user_id, coin_id, traded_at DESC)"
+    )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS crypto_watchlist (
             user_id BIGINT NOT NULL,
             coin_id TEXT   NOT NULL,
-            amount  FLOAT8 DEFAULT 0,
             PRIMARY KEY (user_id, coin_id)
         )
     """)
@@ -1222,6 +1248,25 @@ async def _init_combat(db):
     await db.execute("CREATE INDEX IF NOT EXISTS idx_clan_raids_clan ON clan_raids(clan_id, status)")
 
 
+async def _init_analytics(db):
+    # БЛОК 35: посещаемость мини-апп.
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS site_analytics (
+            id         SERIAL PRIMARY KEY,
+            user_id    INTEGER NOT NULL,
+            tab        TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            visited_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sa_visited_at ON site_analytics(visited_at)"
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sa_tab ON site_analytics(tab, visited_at)"
+    )
+
+
 async def init_db():
     logger.info("Проверка и создание таблиц PostgreSQL...")
     pool = get_pool()
@@ -1246,5 +1291,6 @@ async def init_db():
         await _init_crypto(db)
         await _init_combat(db)
         await _init_system_flags(db)
+        await _init_analytics(db)
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")
