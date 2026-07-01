@@ -49,12 +49,20 @@ async def ensure_tables(db) -> None:
 
 async def get_holdings(db, user_id: int) -> dict[str, dict]:
     """Возвращает {coin_id: {amount, avg_buy}} для позиций > 0."""
-    async with db.execute(
-        "SELECT coin_id, amount, COALESCE(avg_buy_price, 0) FROM crypto_holdings "
-        "WHERE user_id = ? AND amount > 0",
-        (user_id,),
-    ) as c:
-        return {r[0]: {"amount": float(r[1]), "avg_buy": float(r[2])} for r in await c.fetchall()}
+    try:
+        async with db.execute(
+            "SELECT coin_id, amount, COALESCE(avg_buy_price, 0) FROM crypto_holdings "
+            "WHERE user_id = ? AND amount > 0",
+            (user_id,),
+        ) as c:
+            return {r[0]: {"amount": float(r[1]), "avg_buy": float(r[2])} for r in await c.fetchall()}
+    except Exception:
+        # avg_buy_price ещё не мигрирован — fallback без P&L
+        async with db.execute(
+            "SELECT coin_id, amount FROM crypto_holdings WHERE user_id = ? AND amount > 0",
+            (user_id,),
+        ) as c:
+            return {r[0]: {"amount": float(r[1]), "avg_buy": 0.0} for r in await c.fetchall()}
 
 
 async def get_trade_history(db, user_id: int, coin_id: str | None = None, limit: int = 50) -> list[dict]:
