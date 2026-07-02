@@ -812,6 +812,12 @@ function devBpXp() {
 var _PAGE_LABELS={'profile':'👤 Профиль','zoo':'🐾 Питомцы','arena':'⚔️ Арена',
   'market':'🛍 Магазин','auction':'🏛 Аукцион','bp':'🎫 Боевой пропуск',
   'help':'❓ Помощь','global':'🌍 Глобал','admin':'🛡 Админка'};
+function _fmtDwell(sec){
+  sec = Math.round(sec||0);
+  if(sec<60) return sec+'с';
+  var m=Math.floor(sec/60), s=sec%60;
+  return m+'м'+(s?' '+s+'с':'');
+}
 function _metricsBar(rows,emptyText){
   if(!rows||!rows.length) return '<div style="color:var(--muted);font-size:11px;text-align:center;padding:8px">'+emptyText+'</div>';
   var max=0; for(var i=0;i<rows.length;i++){if(rows[i].views>max)max=rows[i].views;}
@@ -824,6 +830,7 @@ function _metricsBar(rows,emptyText){
       +'<div style="width:'+pct+'%;height:14px;background:var(--gold2);border-radius:3px;transition:width .3s"></div></div>'
       +'<div style="min-width:28px;text-align:right;font-size:10px;font-weight:700;color:var(--gold2)">'+r.views+'</div>'
       +'<div style="min-width:34px;text-align:right;font-size:10px;color:var(--muted)">👤 '+r.users+'</div>'
+      +'<div style="min-width:46px;text-align:right;font-size:10px;color:var(--muted)" title="Среднее время на вкладке за визит">⏱ '+_fmtDwell(r.avg_dwell_sec)+'</div>'
       +'</div>';
   }).join('');
 }

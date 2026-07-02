@@ -16,6 +16,12 @@ class _TabEvent(BaseModel):
     session_id: str
 
 
+class _TabDurationEvent(BaseModel):
+    tab: str
+    session_id: str
+    delta_sec: int = 15
+
+
 @router.post("/tab")
 async def track_tab(body: _TabEvent, db=Depends(get_db), user=Depends(require_tg_user)):
     if _DEVELOPER_ID and user["id"] == _DEVELOPER_ID:
@@ -24,4 +30,16 @@ async def track_tab(body: _TabEvent, db=Depends(get_db), user=Depends(require_tg
     sid = (body.session_id or "")[:64]
     if tab and sid:
         await analytics_repo.record_visit(db, user["id"], tab, sid)
+    return {"ok": True}
+
+
+@router.post("/tab-duration")
+async def track_tab_duration(body: _TabDurationEvent, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Хартбит удержания — шлётся с фронта раз в 15с, пока вкладка видима (БЛОК 36)."""
+    if _DEVELOPER_ID and user["id"] == _DEVELOPER_ID:
+        return {"ok": True}
+    tab = (body.tab or "")[:64]
+    sid = (body.session_id or "")[:64]
+    if tab and sid:
+        await analytics_repo.record_tab_duration(db, user["id"], tab, sid, body.delta_sec)
     return {"ok": True}

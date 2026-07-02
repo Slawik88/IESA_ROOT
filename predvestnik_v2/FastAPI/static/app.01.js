@@ -345,6 +345,13 @@ function switchPage(name, _btn) {
 }
 function _trackSubtab(path){api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:path,session_id:_analyticsSession})}).catch(()=>{});}
 
+// Хартбит времени удержания — раз в 15с, ТОЛЬКО пока вкладка реально видима на экране
+// (не в фоне/свёрнут Telegram) — копится на бэке в ту же строку визита, что завёл switchPage.
+setInterval(()=>{
+  if(document.visibilityState!=='visible' || !_activePage) return;
+  api('/analytics/tab-duration',{method:'POST',body:JSON.stringify({tab:_activePage,session_id:_analyticsSession,delta_sec:15})}).catch(()=>{});
+},15000);
+
 // Единая программная навигация — шорткаты в карточках/модалках.
 // goTo('zoo') · goTo('quests','streak') · goTo('market','gacha')
 // Закрывает открытую модалку/меню (CM) — нужно для шорткатов внутри окон.
