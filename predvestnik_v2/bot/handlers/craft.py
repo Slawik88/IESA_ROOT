@@ -88,7 +88,7 @@ async def cmd_craft(message: types.Message, db, text_args: str = None,
         if matched:
             if not matched["can_craft"]:
                 missing = [i for i in matched["ingredients_status"] if not i["ok"]]
-                lines = [f"❌ <b>Отказ:</b> не хватает ингредиентов:"]
+                lines = ["❌ <b>Отказ:</b> не хватает ингредиентов:"]
                 for m in missing:
                     lines.append(f"  · {m['item_name']}: нужно {m['needed']}, есть {m['have']}")
                 return await message.answer("\n".join(lines), parse_mode="HTML")

@@ -438,7 +438,7 @@ async def cmd_setshield(
             parse_mode="HTML",
         )
     else:
-        await message.answer(f"❌ <b>Щит новичка выключен.</b>", parse_mode="HTML")
+        await message.answer("❌ <b>Щит новичка выключен.</b>", parse_mode="HTML")
 
 
 @router.message(TextCmd(["настройка чистки", "ранг чистки"]))
@@ -858,7 +858,7 @@ async def cmd_left_list(message: types.Message, db):
         return await message.answer(
             "✅ В этом чате никто не покидал ряды!", parse_mode="HTML"
         )
-    lines = [f"🚶‍♂️ <b>ТЕ, КТО ПОКИНУЛ НАС</b>\n"]
+    lines = ["🚶‍♂️ <b>ТЕ, КТО ПОКИНУЛ НАС</b>\n"]
     for u in left_users:
         name = safe_html(u["user_tg_username"] or f"ID {u['user_tg_id']}")
         lines.append(f"""├ <a href="tg://user?id={u['user_tg_id']}">{name}</a>""")

@@ -3,14 +3,14 @@ bot/handlers/auction.py
 B13: Global auction — create lots, browse, bid, cancel.
 Uses in-memory pending_lots dict for multi-step creation (no FSM needed).
 """
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
-from core.constants import AUCTION_MIN_BID, AUCTION_COMMISSION, AUCTION_MAX_BID
+from core.constants import AUCTION_MIN_BID, AUCTION_MAX_BID
 from core.registry import ITEMS_REGISTRY, PET_SPECIES
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.auction import (
@@ -21,7 +21,7 @@ from services import global_moderation
 from services.auction import create_auction_lot, place_bid, cancel_lot, queue_lot_announcement
 from services.quests import increment_metric as quest_increment
 from math import ceil as _ceil
-from services.utils import safe_html, format_currency, parse_dt, feature_guard
+from services.utils import format_currency, parse_dt, feature_guard
 
 router = Router(name="auction_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -463,7 +463,6 @@ async def cb_create_buyout(query: types.CallbackQuery, callback_data: AucCB, db)
     qty = pending.get("quantity", 1)
     min_bid = pending.get("min_bid", AUCTION_MIN_BID)
     buyout_val = pending.get("buyout")
-    cat = pending.get("category", "consumables")
 
     # Resolve item name
     if v.startswith("PET|"):

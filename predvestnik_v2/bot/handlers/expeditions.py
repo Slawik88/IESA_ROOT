@@ -1,5 +1,5 @@
 import random
-from aiogram import Router, types, F
+from aiogram import Router, types
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime, timedelta
@@ -9,7 +9,10 @@ from services.utils import check_callback_owner, safe_html
 from core.registry import EXPEDITIONS_DATA, PET_SPECIES
 from core.constants import get_pet_bonus, scale_pet_bonus
 from infrastructure.repositories import economy as eco_db
-from infrastructure.repositories.zoo import get_active_species_level, get_species_level_placement
+from infrastructure.repositories.zoo import (
+    get_species_level_placement, get_active_pet, get_busy_expedition,
+    create_expedition, add_pet_fatigue,
+)
 from services.zoo import get_wolf_fatigue_reduction
 
 router = Router(name="expeditions_router")
@@ -53,28 +56,18 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
     hours = int(parts[0])
     exp_data = EXPEDITIONS_DATA[hours]
 
-    async with db.execute(
-        "SELECT id, name, species_id, fatigue FROM pets WHERE owner_id = ? AND placement = 'active'", (user_id,)
-    ) as cursor:
-        pet = await cursor.fetchone()
-
+    pet = await get_active_pet(db, user_id)
     if not pet:
         return await message.answer(
             "❌ <b>Нет активного питомца!</b>\n<i>Откройте «бот зоопарк» и сделайте кого-то Активным.</i>",
             parse_mode="HTML"
         )
 
-    pet_id, pet_name, species_id, fatigue = pet
+    pet_id, pet_name, species_id, fatigue = pet["id"], pet["name"], pet["species_id"], pet["fatigue"]
 
-    async with db.execute(
-        "SELECT ae.ends_at FROM active_expeditions ae "
-        "JOIN pets p ON ae.pet_id = p.id "
-        "WHERE p.owner_id = ? AND ae.ends_at > NOW() LIMIT 1",
-        (user_id,)
-    ) as cursor:
-        active_row = await cursor.fetchone()
-    if active_row:
-        raw_ends = active_row[0]
+    busy = await get_busy_expedition(db, user_id)
+    if busy:
+        raw_ends = busy["ends_at"]
         if hasattr(raw_ends, "strftime"):
             now = datetime.now()
             if raw_ends.date() == now.date():
@@ -165,15 +158,13 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
             )
 
     duration = hours * (1.0 - speed_reduction)
-    ends_at = datetime.now() + timedelta(hours=duration)
+    ends_at = datetime.now() + timedelta(hours=duration)   # для текста ответа; в БД — NOW() + interval
 
     try:
         await db.execute("BEGIN")
-        await db.execute(
-            "INSERT INTO active_expeditions (pet_id, chat_id, duration_hours, cost_mora, ends_at) VALUES (?, ?, ?, ?, ?)",
-            (pet_id, message.chat.id, hours, actual_cost, ends_at.strftime("%Y-%m-%d %H:%M:%S"))
-        )
-        await db.execute("UPDATE pets SET fatigue = fatigue + ? WHERE id = ?", (expedition_fatigue, pet_id))
+        # Те же repository-функции, что и на сайте (FastAPI/routers/zoo.py) — единая логика.
+        await create_expedition(db, pet_id, message.chat.id, hours, actual_cost, duration)
+        await add_pet_fatigue(db, pet_id, expedition_fatigue)
         await db.commit()
     except Exception:
         await db.rollback()
@@ -235,37 +226,24 @@ async def cmd_exp_boost_menu(message: types.Message, db):
         return
     user_id = message.from_user.id
 
-    # Find active pet and its expedition
-    async with db.execute(
-        "SELECT ae.pet_id, ae.ends_at, p.name "
-        "FROM active_expeditions ae "
-        "JOIN pets p ON ae.pet_id = p.id "
-        "WHERE p.owner_id = ? AND ae.ends_at > NOW() "
-        "ORDER BY ae.ends_at ASC LIMIT 1",
-        (user_id,),
-    ) as c:
-        exp_row = await c.fetchone()
-
-    if not exp_row:
+    # Активная экспедиция — та же repository-функция, что и на сайте
+    busy = await get_busy_expedition(db, user_id)
+    if not busy:
         return await message.answer(
             "❌ <b>Нет активной экспедиции.</b>\n<i>Сначала отправьте питомца в поход.</i>",
             parse_mode="HTML",
         )
 
-    pet_name = safe_html(exp_row[2] or "?")
-    ends_at = exp_row[1]
+    pet_name = safe_html(busy["name"] or "?")
+    ends_at = busy["ends_at"]
     ends_str = ends_at.strftime("%H:%M") if hasattr(ends_at, "strftime") else str(ends_at)[:16]
 
     # Check which boost items user has
     available = []
     for item_id, info in _BOOST_ITEMS.items():
-        async with db.execute(
-            "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? AND quantity > 0",
-            (user_id, item_id),
-        ) as c:
-            row = await c.fetchone()
-        if row:
-            available.append((item_id, info["label"], info["hours"], row[0]))
+        qty = await eco_db.get_item_quantity(db, user_id, item_id)
+        if qty > 0:
+            available.append((item_id, info["label"], info["hours"], qty))
 
     if not available:
         return await message.answer(
@@ -304,21 +282,13 @@ async def cb_exp_boost_apply(query: types.CallbackQuery, callback_data: ExpBoost
 
     boost_hours = boost_info["hours"]
 
-    # Find active pet's expedition (for update)
-    async with db.execute(
-        "SELECT ae.pet_id, ae.ends_at FROM active_expeditions ae "
-        "JOIN pets p ON ae.pet_id = p.id "
-        "WHERE p.owner_id = ? AND ae.ends_at > NOW() "
-        "ORDER BY ae.ends_at ASC LIMIT 1",
-        (user_id,),
-    ) as c:
-        exp_row = await c.fetchone()
-
-    if not exp_row:
+    # Активная экспедиция — та же repository-функция, что и на сайте
+    busy = await get_busy_expedition(db, user_id)
+    if not busy:
         return await query.answer("❌ Экспедиция уже завершилась!", show_alert=True)
 
-    pet_id = exp_row[0]
-    current_ends = exp_row[1]
+    pet_id = busy["pet_id"]
+    current_ends = busy["ends_at"]
     if not hasattr(current_ends, "tzinfo"):
         current_ends = datetime.strptime(str(current_ends)[:19], "%Y-%m-%d %H:%M:%S")
 

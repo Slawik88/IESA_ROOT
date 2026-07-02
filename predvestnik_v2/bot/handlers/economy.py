@@ -1,5 +1,5 @@
 # bot/handlers/economy.py
-from aiogram import Router, types, F
+from aiogram import Router, types
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -37,7 +37,7 @@ async def cmd_balance(message: types.Message, db):
     zarniki  = float(balance.get('user_balance_zarniki', 0) or 0)
 
     dark_line = f"\n├ 🌑 Тёмная Мора: <code>{dark_mora:.0f}</code>" if dark_mora > 0 else \
-                f"\n├ 🌑 Тёмная Мора: <code>0</code> <i>(добыть: «бот контрабанда»)</i>"
+                "\n├ 🌑 Тёмная Мора: <code>0</code> <i>(добыть: «бот контрабанда»)</i>"
     zarniki_line = f"\n└ ✨ Зарники: <code>{zarniki:.0f}</code>" if zarniki > 0 else ""
 
     text = (

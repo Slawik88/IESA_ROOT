@@ -269,7 +269,7 @@ async def cmd_dev_module_off(message: types.Message, db, text_args: str = None):
     key = parts[0].lower()
     reason = parts[1] if len(parts) > 1 else None
     if key not in _MODULE_KEYS:
-        return await message.answer(f"❌ Неизвестный ключ.", parse_mode="HTML")
+        return await message.answer("❌ Неизвестный ключ.", parse_mode="HTML")
     await db.execute(
         "INSERT INTO global_module_toggles (module_key, enabled, disabled_reason, updated_at) "
         "VALUES (?, 0, ?, CURRENT_TIMESTAMP) "
@@ -665,7 +665,7 @@ async def cmd_dev_chat_info(message: types.Message, db, text_args: str = None):
     top_lines = []
     medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
     for i, row in enumerate(top5):
-        uname = safe_html(row[0] or f"ID неизвестен")
+        uname = safe_html(row[0] or "ID неизвестен")
         msgs = int(row[1] or 0)
         lvl = int(row[2] or 1)
         prefix = "└" if i == len(top5) - 1 else "├"

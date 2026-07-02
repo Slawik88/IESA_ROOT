@@ -7,7 +7,7 @@ from bot.filters.text_commands import TextCmd
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories.daily_deal import already_purchased
 from services.daily_deal import ensure_deals_fresh, purchase_slot, period_key
-from services.utils import format_currency, check_callback_owner
+from services.utils import check_callback_owner
 from core.constants import DAILY_DEAL_ROTATION_HOURS
 
 router = Router(name="daily_deal_router")

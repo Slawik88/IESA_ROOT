@@ -57,8 +57,6 @@ class ChallengeRequest(BaseModel):
 @router.post("/challenge")
 async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Вызвать игрока на дуэль по username."""
-    from infrastructure.repositories.zoo import get_user_pets as _get_pets
-
     async with db.execute(
         "SELECT user_tg_id FROM users WHERE user_tg_username = ?", (body.username,)
     ) as c:
@@ -141,7 +139,6 @@ class AcceptRequest(BaseModel):
 @router.post("/accept")
 async def accept(body: AcceptRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Принять входящий вызов на дуэль. Выбирает первого активного питомца."""
-    from infrastructure.repositories.zoo import get_user_pets as _get_pets
     async with db.execute(
         "SELECT id, challenger_id, challenged_id, stake FROM duels WHERE id = ? AND status = 'pending'",
         (body.duel_id,),

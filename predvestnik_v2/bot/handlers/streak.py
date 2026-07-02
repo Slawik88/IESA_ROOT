@@ -6,7 +6,6 @@ from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import streak as streak_repo
 from infrastructure.repositories import economy as eco_repo
 from services.streak import (
-    get_today_in_tz,
     calc_streak_reward,
     calc_recovery_cost,
     is_recovery_valid,
@@ -35,7 +34,6 @@ def _streak_view_text(streak_row: dict) -> str:
     day_in_block = ((streak - 1) % STREAK_BLOCK_SIZE) + 1
     cycle = (streak - 1) // STREAK_BLOCK_SIZE
     next_reward = calc_streak_reward(streak + 1)
-    current_reward = calc_streak_reward(streak)
 
     filled = "🔥" * day_in_block + "⬜" * (STREAK_BLOCK_SIZE - day_in_block)
     days_to_block_end = STREAK_BLOCK_SIZE - day_in_block

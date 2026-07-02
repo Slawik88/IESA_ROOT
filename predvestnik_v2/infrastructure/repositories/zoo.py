@@ -1,5 +1,4 @@
 import aiosqlite
-import random
 from datetime import datetime, timedelta
 from services.formatting import parse_dt
 
@@ -549,9 +548,9 @@ async def get_active_pet(db, owner_id: int) -> dict | None:
 
 
 async def get_busy_expedition(db, owner_id: int) -> dict | None:
-    """Активная (незавершённая) экспедиция игрока — {ends_at, name} или None."""
+    """Активная (незавершённая) экспедиция игрока — {pet_id, ends_at, name} или None."""
     async with db.execute(
-        "SELECT ae.ends_at, p.name FROM active_expeditions ae JOIN pets p ON ae.pet_id = p.id "
+        "SELECT ae.pet_id, ae.ends_at, p.name FROM active_expeditions ae JOIN pets p ON ae.pet_id = p.id "
         "WHERE p.owner_id = ? AND ae.ends_at > NOW() ORDER BY ae.ends_at DESC LIMIT 1",
         (owner_id,),
     ) as c:
@@ -615,29 +614,6 @@ async def apply_food_aoe(db, owner_id: int, food_id: str, exclude_pet_id: int) -
         )
     elif food_id == "food_diamond":
         await db.execute("UPDATE pets SET fatigue = 0 WHERE owner_id = ?", (owner_id,))
-
-
-async def set_pet_placement(db, pet_id: int, placement: str, *,
-                             restore_fatigue: int = 0, now_str: str | None = None) -> None:
-    """Переместить питомца в новый слот. Если `now_str` задан — это вход в питомник
-    (active/passive): обновляем last_fatigue_update, опционально доначисляем
-    `restore_fatigue` (0 при Волк Lv10 movement_immunity). Иначе — уход в storage,
-    без изменения усталости."""
-    if now_str is not None:
-        if restore_fatigue:
-            await db.execute(
-                "UPDATE pets SET placement = ?, "
-                "fatigue = LEAST(100, fatigue + ?), "
-                "last_fatigue_update = ? WHERE id = ?",
-                (placement, restore_fatigue, now_str, pet_id),
-            )
-        else:
-            await db.execute(
-                "UPDATE pets SET placement = ?, last_fatigue_update = ? WHERE id = ?",
-                (placement, now_str, pet_id),
-            )
-    else:
-        await db.execute("UPDATE pets SET placement = ? WHERE id = ?", (placement, pet_id))
 
 
 async def get_buff_uses_left(db, user_id: int, buff_type: str, default: int) -> int:
@@ -721,16 +697,11 @@ async def apply_expedition_boost_time(db, pet_id: int, boost_hours: float) -> No
 
 
 async def apply_pet_move(db, pet_id: int, placement: str, fatigue_cost: int, now_str: str) -> None:
-    """Перемещение питомца — ВЕРСИЯ БОТА (bot/handlers/zoo.py).
-
-    ВНИМАНИЕ — расхождение с сайтом (CODE_STRUCTURE_AUDIT.md, найдено при выносе SQL
-    2026-07-02, НЕ унифицировано, решение за пользователем): бот начисляет
-    fatigue_cost (уменьшенный бонусом Волка через get_wolf_fatigue_reduction, любая
-    непрерывная скидка) ПРИ ЛЮБОМ перемещении, включая уход на склад. Сайт
-    (services/zoo.set_pet_placement) начисляет фиксированный PET_PLACEMENT_FATIGUE_RESTORE
-    только при входе в питомник, ноль при уходе на склад, и даёт Волку Lv10 полный
-    иммунитет (0 усталости) вместо непрерывной скидки. Сохранено «как было» при
-    рефакторинге — это НЕ исправление поведения, а перенос SQL как есть."""
+    """Переместить питомца в новый слот — ЕДИНАЯ точка для бота и сайта
+    (расхождение унифицировано 2026-07-02, см. services/zoo.movement_fatigue_cost —
+    там вся формула цены: базовая цена за любое перемещение, скидка Волка по уровню,
+    Lv10 movement_immunity → 0). При входе в питомник дополнительно сбрасывается
+    таймер деградации усталости (last_fatigue_update)."""
     if placement != "storage":
         await db.execute(
             "UPDATE pets SET placement = ?, fatigue = LEAST(100, fatigue + ?), "

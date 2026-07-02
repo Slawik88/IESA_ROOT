@@ -12,9 +12,9 @@ from bot.filters.text_commands import TextCmd
 from core.themes import THEMES, THEME_RARITY_META, RARITY_ORDER, DEFAULT_THEME
 from infrastructure.repositories import themes as themes_repo
 from infrastructure.repositories import economy as eco_repo
-from infrastructure.repositories.dark_mora import get_dark_mora_balance, spend_dark_mora
+from infrastructure.repositories.dark_mora import spend_dark_mora
 from services.themes import get_all_effective_themes, get_effective_theme
-from services.utils import check_callback_owner, safe_html, format_currency
+from services.utils import check_callback_owner, safe_html
 
 router = Router(name="themes_router")
 

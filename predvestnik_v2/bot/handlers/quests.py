@@ -1,7 +1,7 @@
 from aiogram import Router, types
 
 from bot.filters.text_commands import TextCmd
-from core.registry import DAILY_QUESTS, WEEKLY_QUESTS
+from core.registry import DAILY_QUESTS
 from core.constants import DAILY_QUEST_COMPLETE_BONUS, WEEKLY_QUEST_COMPLETE_BONUS
 from services.quests import (
     get_or_assign_quests, daily_bonus_status,
@@ -56,7 +56,6 @@ async def cmd_quests(message: types.Message, db):
         bar = _progress_bar(progress, target)
         status = "✅" if completed else "🔲"
         prog_str = f"{int(progress)}/{target}"
-        name = quest_def.get("id", "?")
 
         # Human-readable metric name
         metric_labels = {

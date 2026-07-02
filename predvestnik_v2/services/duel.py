@@ -6,13 +6,12 @@ import random
 
 from core.constants import (
     RARITY_POWER, DUEL_COMMISSION, DUEL_PET_FATIGUE_COST,
-    DUEL_COOLDOWN_HOURS, DUEL_TIMEOUT_SECONDS,
+    DUEL_COOLDOWN_HOURS,
 )
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.duel import (
     create_duel, set_duel_status, set_cooldown, get_cooldown, get_duel,
 )
-from infrastructure.repositories.wallet_log import log_wallet
 from services.formatting import parse_dt
 
 

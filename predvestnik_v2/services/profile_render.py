@@ -571,7 +571,7 @@ async def build_profile_text(
             f"{t_top}\n"
             + name_block
             + (f"{P}🏷 <i>{safe_html(title)}</i>\n" if title else "")
-            + f"\n"
+            + "\n"
             + f"{t_sep}\n\n"
             + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
             + f"{P}{_bal1}\n"
@@ -592,7 +592,7 @@ async def build_profile_text(
             f"{t_top}\n"
             + name_block
             + (f"🏷 <i>{safe_html(title)}</i>\n" if title else "")
-            + f"\n"
+            + "\n"
             + f"{t_sep}\n\n"
             + f"🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
             + f"{_bal1}\n"
@@ -606,6 +606,6 @@ async def build_profile_text(
             + (f"{shield_line}\n" if shield_line else "")
             + f"🎨 Тема: {t_name}\n\n"
             + f"{t_sep}\n\n"
-            + f"🐾 <b>Питомцы:</b>\n"
+            + "🐾 <b>Питомцы:</b>\n"
             + pets_str + tail
         )

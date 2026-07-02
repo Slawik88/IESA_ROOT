@@ -6,7 +6,7 @@ import time
 
 from core.constants import (
     RAID_BOSS_HP_PER_MEMBER, RAID_BOSS_COUNTER_FRAC, RAID_DURATION_HOURS,
-    RAID_ATTACK_COOLDOWN_MIN, RAID_THRESHOLDS,
+    RAID_ATTACK_COOLDOWN_MIN,
 )
 from infrastructure.repositories import pet_combat as combat_repo
 from infrastructure.repositories import clans as clans_repo

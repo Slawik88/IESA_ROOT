@@ -1,4 +1,36 @@
-from core.constants import WOLF_BONUSES, WOLF_REDUCTION_CAP, get_pet_bonus, PET_LEVEL_MILESTONE_REWARDS
+from core.constants import (
+    WOLF_BONUSES, WOLF_REDUCTION_CAP, PET_PLACEMENT_FATIGUE_RESTORE,
+    get_pet_bonus, PET_LEVEL_MILESTONE_REWARDS,
+)
+
+
+async def movement_fatigue_cost(db, user_id: int) -> int:
+    """Цена усталости за перемещение питомца между слотами — ЕДИНАЯ формула
+    для бота и сайта (раньше расходились: бот применял только скидку Волка,
+    сайт — только Lv10-иммунитет и не брал цену за уход на склад).
+
+    Правила (ровно как в описании вида Волк в registry):
+      • базовая цена PET_PLACEMENT_FATIGUE_RESTORE за ЛЮБОЕ перемещение;
+      • неистощённый Волк в питомнике даёт скидку по уровню (active/passive);
+      • Волк Lv10 — «иммунитет перемещений»: цена 0."""
+    async with db.execute(
+        "SELECT placement, COALESCE(pet_level, 1) FROM pets "
+        "WHERE owner_id = ? AND species_id = 'wolf' "
+        "AND placement IN ('active', 'passive') AND fatigue < 100 LIMIT 1",
+        (user_id,)
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        return PET_PLACEMENT_FATIGUE_RESTORE
+    placement, level = row[0], max(1, min(10, row[1]))
+    bonus = WOLF_BONUSES.get(level, {})
+    if bonus.get("movement_immunity"):
+        return 0
+    reduction = min(
+        bonus.get("active_reduction" if placement == "active" else "passive_reduction", 0.0),
+        WOLF_REDUCTION_CAP,
+    )
+    return int(PET_PLACEMENT_FATIGUE_RESTORE * (1.0 - reduction))
 
 
 async def get_wolf_fatigue_reduction(db, user_id: int) -> float:

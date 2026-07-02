@@ -8,7 +8,7 @@ Pure gambling logic. No bot imports.
 нельзя спамом параллельных запросов обойти кулдаун/кэп или уйти в минус.
 """
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 from services.formatting import parse_dt
 
 from core.constants import GAMES, GAMBLE_DAILY_CAP, ROULETTE_RED_NUMBERS

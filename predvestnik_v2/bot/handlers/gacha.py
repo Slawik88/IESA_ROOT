@@ -17,7 +17,7 @@ from infrastructure.repositories.gacha import get_all_pity, get_recent_history
 from services import global_moderation
 from services.gacha import roll_single, roll_multi, get_token_count, maybe_grant_theme_drop
 from services.quests import increment_metric as quest_increment
-from services.utils import format_currency, safe_html, check_callback_owner, feature_guard
+from services.utils import format_currency, check_callback_owner, feature_guard
 
 router = Router(name="gacha_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
@@ -333,7 +333,7 @@ async def _build_spin_type_text(db, user_id: int, spin_type: str) -> tuple[str, 
         f"├ Пити: <code>{pity}/{hard}</code> [{bar}]\n"
         f"│  ├ Мягкий ({soft}+): ×2 шанс ⭐-дропов\n"
         f"│  └ Гарантия ({hard}): {hard_rw_desc}\n"
-        + (f"⚠️ <i>Недостаточно средств для крутки.</i>\n" if not can_afford else "")
+        + ("⚠️ <i>Недостаточно средств для крутки.</i>\n" if not can_afford else "")
     )
     return text, token_count
 

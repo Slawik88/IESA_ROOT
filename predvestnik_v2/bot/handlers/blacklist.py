@@ -7,11 +7,9 @@ C1-A: Per-chat blacklist commands.
 """
 from aiogram import Router, types
 from aiogram.filters.callback_data import CallbackData
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import moderation as mod_db
-from infrastructure.repositories import users as users_repo
 from infrastructure.repositories.blacklist import (
     add_to_chat_blacklist, remove_from_chat_blacklist, get_chat_blacklist,
 )

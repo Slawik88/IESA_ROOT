@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
-from core.cosmetics import COSMETICS
 from services.cosmetics import (
     buy, equip, get_catalog, set_welcome, unequip,
     chest_catalog, open_chest, craft_catalog, craft_cosmetic,

@@ -103,11 +103,6 @@ function loadCrypto(){
   const h=el('mkt-crypto'); if(h) h.innerHTML='<div class="loader">Загрузка рынка...</div>';
   _cxLoad();
 }
-function openCryptoExchange(){
-  _cxHost='mb'; _cxSel=null; _cxAction='buy'; _cxPct=50; _cxView='list';
-  OM('📈 Крипто-Биржа','<div class="loader">Загрузка рынка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]);
-  _cxLoad();
-}
 function _cxLoad(){ api('/exchange/crypto').then(d=>{_cxData=d; renderCrypto();})
   .catch(e=>{const b=el(_cxHost); if(b)b.innerHTML=`<div class="err">${e}</div>`;}); }
 function _cxCur(){ return (_cxData&&_cxData.coins||[]).find(c=>c.id===_cxSel); }
@@ -419,18 +414,6 @@ function connectWS() {
 
 // ── WS ping/pong — prevents Cloudflare 100s idle timeout ─────────────────────
 setInterval(() => { if (_ws?.readyState === WebSocket.OPEN) _ws.send('ping'); }, 25000);
-
-// ── Refresh button helper ─────────────────────────────────────────────────────
-function addRefreshBtn(containerId, reloadFn) {
-  const c = el(containerId);
-  if(!c) return;
-  const ts = new Date().toLocaleTimeString('ru', {hour:'2-digit',minute:'2-digit'});
-  const btn = `<div style="text-align:right;padding:0 0 8px">
-    <button class="btn btn-ghost" style="font-size:10px;padding:3px 8px"
-            onclick="${reloadFn}">🔄 Обновить · ${ts}</button>
-  </div>`;
-  if(!c.querySelector('[onclick*="Обновить"]')) c.insertAdjacentHTML('afterbegin', btn);
-}
 
 // ── Marriage card (в дашборде Обзор) ──────────────────────────────────────────
 // Рендерит в #pro-marriage-card. Развод/банк/предложения — прямо внутри карточки
@@ -859,7 +842,6 @@ function swQuests(tab, btn) {
   _trackSubtab('profile/quests/'+tab);
   if(tab==='quests') loadQuests(); else loadStreak();
 }
-function loadQuestsPage() { swQuests(_questsTab, document.querySelector(`#pro-quests .tab-inner .tb[onclick*="'${_questsTab}'"]`)); }
 
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
 setInterval(()=>{if(_loaded.has('profile'))loadProfile();},300000);

@@ -278,13 +278,6 @@ function _looksApply(){
     _looksDirty=true; toast('✅ Внешний вид применён!'); renderLooks();
   }).catch(e=>toast(e,false));
 }
-function _looksBuy(id,opt){
-  api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})
-    .then(r=>{toast(r.message); refreshCurrBar(); _looksDirty=true;
-      return api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})});})
-    .then(()=>openLooksModal())
-    .catch(e=>toast(e,false));
-}
 // ── Приветственная анимация (выбор режима прелоадера; премиум — за VIP) ─────────
 let _wpMode=null;
 function _looksWelcomeHtml(){

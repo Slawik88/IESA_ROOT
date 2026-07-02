@@ -596,23 +596,23 @@ async def _render_full_profile(
         text = (
             f"{t_top}\n"
             + name_block
-            + f"\n"
+            + "\n"
             + f"{t_sep}\n"
-            + f"\n"
+            + "\n"
             + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
             + f"{P}{_bal1}\n"
             + f"{P}{_bal2}\n"
             + f"{P}🏆 {ach_count} ачив.  |  ⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
             + (f"{P}🔥 Стрик: <b>{streak}</b> дн.\n" if streak else "")
-            + f"\n"
+            + "\n"
             + f"{t_sep}\n"
-            + f"\n"
+            + "\n"
             + f"{P}{partner_line}\n"
             + (f"{P}{shield_line}\n" if shield_line else "")
             + f"{P}🎨 Тема: {t_name}\n"
             + f"{P}💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
             + f"{P}🕓 Последнее появление: {last_str}\n"
-            + f"\n"
+            + "\n"
             + f"{P}🐾 <b>Питомцы:</b>\n"
             + pets_str
             + tail
@@ -622,26 +622,26 @@ async def _render_full_profile(
         text = (
             f"{t_top}\n"
             + name_block
-            + f"\n"
+            + "\n"
             + f"{t_sep}\n"
-            + f"\n"
+            + "\n"
             + f"🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
             + f"{_bal1}\n"
             + f"{_bal2}\n"
             + f"🏆 {ach_count} ачив.  |  ⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
             + f"🔥 Стрик: <b>{streak}</b> дн.\n"
-            + f"\n"
+            + "\n"
             + f"{t_sep}\n"
-            + f"\n"
+            + "\n"
             + f"💬 {d_msgs} д  |  {w_msgs} н  |  {a_msgs} всего\n"
             + f"🕓 Последнее появление: {last_str}\n"
             + f"{partner_line}\n"
             + (f"{shield_line}\n" if shield_line else "")
             + f"🎨 Тема: {t_name}\n"
-            + f"\n"
+            + "\n"
             + f"{t_sep}\n"
-            + f"\n"
-            + f"🐾 <b>Питомцы:</b>\n"
+            + "\n"
+            + "🐾 <b>Питомцы:</b>\n"
             + pets_str
             + tail
         )

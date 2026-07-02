@@ -159,11 +159,6 @@ function _renderThemes() {
   }).join('');
 }
 
-function _premBar(pct, len=7) {
-  const f=Math.round(pct/100*len);
-  return '▰'.repeat(f)+'▱'.repeat(len-f);
-}
-
 // ── Profile preview — Render Raw String approach ─────────────────────────────
 // Backend generates the EXACT same HTML string as sent to Telegram.
 // Frontend just sets innerHTML + white-space:pre-wrap. No parsing.

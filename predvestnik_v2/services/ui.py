@@ -10,7 +10,7 @@ Design language:
   • Inline:  combine related stats on one line with " · " separator
   • Dividers: thin "─" line between logical blocks (use DIVIDER)
 """
-from services.formatting import format_currency, format_number, safe_html
+from services.formatting import format_currency
 
 
 DIVIDER = "━━━━━━━━━━━━━━"
