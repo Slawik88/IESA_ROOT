@@ -26,7 +26,6 @@ def _next_reset_utc() -> str:
 @router.get("/")
 async def get_deals(db=Depends(get_db), user=Depends(require_tg_user)):
     """Актуальные предметы акции дня + время до обновления."""
-    from infrastructure.repositories.daily_deal import already_purchased as _ap
     raw_deals = await ensure_deals_fresh(db)
     bal = await get_balance(db, user["id"])
 

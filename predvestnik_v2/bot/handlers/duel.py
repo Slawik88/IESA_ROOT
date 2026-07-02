@@ -9,7 +9,7 @@ from infrastructure.repositories import zoo as zoo_db
 from infrastructure.repositories.moderation import get_chat_settings
 from infrastructure.repositories.chat import get_chat_stats
 from services import global_moderation
-from services.duel import create_challenge, accept_duel, decline_duel, calculate_power
+from services.duel import create_challenge, accept_duel, decline_duel
 from services.utils import safe_html, resolve_target, resolve_display_name
 from services.achievements import increment_metric
 
@@ -176,7 +176,6 @@ async def cb_duel_accept(query: types.CallbackQuery, callback_data: DuelCB, db):
 
     chat_id = duel["chat_id"]
     w_name = await resolve_display_name(db, result["winner_id"], chat_id, f"ID{result['winner_id']}")
-    l_name = await resolve_display_name(db, result["loser_id"], chat_id, f"ID{result['loser_id']}")
 
     ch_id = duel["challenger_id"]
     cd_id = duel["challenged_id"]

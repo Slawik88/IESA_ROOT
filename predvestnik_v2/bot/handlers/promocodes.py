@@ -9,7 +9,7 @@ import json
 import re
 from datetime import datetime
 
-from aiogram import Router, types, F
+from aiogram import Router, types
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -278,12 +278,12 @@ async def cmd_dev_promo_info(message: types.Message, db, text_args: str = None):
         f"├ Конец: <code>{promo['valid_until'] or 'бессрочно'}</code>",
         f"├ Создан: <code>{created_str}</code>",
         f"├ Описание: <i>{safe_html(promo.get('description', '') or 'нет')}</i>\n",
-        f"💰 <b>Награды:</b>",
+        "💰 <b>Награды:</b>",
         f"├ 🪙 Мора: <code>{float(promo['reward_mora'] or 0):,.0f}</code>",
         f"├ 💎 Алмазы: <code>{float(promo['reward_diamonds'] or 0):,.1f}</code>",
         f"├ 🌑 Тёмная Мора: <code>{dark_mora:,.0f}</code>",
         f"└ 📦 Предметы:\n{items_str}\n",
-        f"🔒 <b>Ограничения:</b>",
+        "🔒 <b>Ограничения:</b>",
         f"├ 👤 Пользователи: <code>{users_str}</code>",
         f"└ 💬 Чаты: <code>{chats_str}</code>",
     ]
@@ -318,7 +318,6 @@ async def handle_promo_cb(
         return await query.answer("🔒 Только для разработчика.", show_alert=True)
 
     action = callback_data.action
-    extra = callback_data.data
 
     if action == "cancel":
         await state.clear()
@@ -630,7 +629,7 @@ async def fsm_receive_items(message: types.Message, state: FSMContext):
 
         if errors:
             return await message.answer(
-                f"❌ Ошибки:\n" + "\n".join(f"├ {e}" for e in errors) +
+                "❌ Ошибки:\n" + "\n".join(f"├ {e}" for e in errors) +
                 "\nПопробуй ещё раз или «-»:",
                 reply_markup=_cancel_keyboard(),
                 parse_mode="HTML",

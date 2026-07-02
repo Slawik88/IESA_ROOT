@@ -3,13 +3,10 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
-from core.registry import ITEMS_REGISTRY, PET_SPECIES
-from infrastructure.repositories.economy import get_inventory
+from core.registry import ITEMS_REGISTRY
 from services.inventory_resolve import resolve_and_migrate_item_id, item_display_name
 from services.utils import safe_html, check_callback_owner
 from services.zoo import apply_pet_milestones
-from services.achievements import increment_metric, format_achievement_notification
-from services.quests import increment_metric as quest_increment
 
 router = Router(name="inventory_router")
 
@@ -445,7 +442,7 @@ async def cb_inv_filter(query: types.CallbackQuery, callback_data: InvCB, db):
         )
     else:
         # All game items grouped by category
-        lines = [f"📦 <b>ВСЕ ПРЕДМЕТЫ ИГРЫ</b>\n"]
+        lines = ["📦 <b>ВСЕ ПРЕДМЕТЫ ИГРЫ</b>\n"]
         cat_order = ["food", "booster", "spin_token", "material", "utility"]
         by_cat: dict[str, list] = {}
         for iid, item in ITEMS_REGISTRY.items():

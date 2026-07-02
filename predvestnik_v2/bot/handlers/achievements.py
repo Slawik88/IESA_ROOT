@@ -3,7 +3,6 @@ from bot.filters.text_commands import TextCmd
 from core.registry import ACHIEVEMENTS, ACHIEVEMENT_LEVEL_REWARDS
 from infrastructure.repositories.achievements import get_all_achievements
 from infrastructure.repositories import users as users_repo
-from services.utils import format_currency
 
 router = Router(name="achievements_router")
 

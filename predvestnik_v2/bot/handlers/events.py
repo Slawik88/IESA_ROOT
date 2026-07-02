@@ -3,7 +3,7 @@ import random
 import time
 from datetime import datetime, timedelta
 
-from aiogram import Router, types, F, Bot
+from aiogram import Router, types, Bot
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import ChatMemberUpdated
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -15,7 +15,6 @@ from core.constants import (
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import users as users_repo
-from infrastructure.repositories import chat as chat_repo
 from infrastructure.repositories.blacklist import is_in_chat_blacklist
 from infrastructure.repositories.chest_events import (
     get_active_chest, close_chest, update_last_chest_at,
@@ -258,7 +257,6 @@ async def cb_leave_action(
 ):
     import time as _time
     from infrastructure.repositories.blacklist import add_to_chat_blacklist
-    from infrastructure.repositories import moderation as _mod_db
     from infrastructure.repositories import chat as _chat_repo
 
     chat_id = query.message.chat.id

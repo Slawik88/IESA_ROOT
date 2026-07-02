@@ -1,5 +1,4 @@
 import aiosqlite
-from datetime import datetime
 
 
 async def create_lot(

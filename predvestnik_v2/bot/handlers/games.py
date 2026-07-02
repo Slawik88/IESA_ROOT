@@ -126,7 +126,7 @@ async def cmd_dice(message: types.Message, db, text_args: str = None):
 async def cb_dice_stake(query: types.CallbackQuery, callback_data: GameCB, db):
     if not callback_data.v:
         await query.message.edit_text(
-            f"🎲 <b>КОСТИ</b> — Выберите ставку:",
+            "🎲 <b>КОСТИ</b> — Выберите ставку:",
             reply_markup=_stake_kb("dice"),
             parse_mode="HTML",
         )
@@ -257,7 +257,7 @@ async def cb_number_pick(query: types.CallbackQuery, callback_data: GameCB, db):
             b.button(text="⬅️ Назад", callback_data=GameCB(action="menu"))
             b.adjust(5, 5, 1)
             await query.message.edit_text(
-                f"🔢 <b>УГАДАЙ ЧИСЛО</b> 1–10\nВыберите число:",
+                "🔢 <b>УГАДАЙ ЧИСЛО</b> 1–10\nВыберите число:",
                 reply_markup=b.as_markup(),
                 parse_mode="HTML",
             )

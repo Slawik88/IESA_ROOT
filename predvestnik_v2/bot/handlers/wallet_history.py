@@ -1,7 +1,6 @@
 from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from datetime import datetime
 
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import economy as eco_repo
@@ -42,7 +41,6 @@ _SOURCE_LABELS: dict[str, str] = {
     "auction_buy": "🏛 Аукцион (покупка)",
     "system": "⚙️ Система",
     "spend": "💸 Списание",
-    "gacha_drop": "🎁 Гача (дроп)",
     "contrabanda_stake": "🌑 Контрабанда (ставка)",
     "contrabanda_refund": "🌑 Контрабанда (возврат)",
     "cult_ritual": "🌑 Ритуал",
@@ -101,7 +99,7 @@ async def _build_text(db, user_id: int, n: int = 20, filter_src: str = "") -> st
     filter_label = _FILTER_LABELS.get(filter_src.lower(), filter_src) if filter_src else "Все"
 
     lines = [
-        f"📜 <b>ИСТОРИЯ КОШЕЛЬКА</b>",
+        "📜 <b>ИСТОРИЯ КОШЕЛЬКА</b>",
         f"├ Баланс: <code>{format_currency(bal['user_balance_mora'])} 🪙 · {format_currency(bal['user_balance_diamonds'])} 💎</code>",
         f"└ Фильтр: <b>{filter_label}</b>\n",
     ]

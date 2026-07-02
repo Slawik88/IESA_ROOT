@@ -4,7 +4,6 @@ from datetime import datetime, timedelta, timezone
 
 from core.constants import (
     XP_PER_MESSAGE, XP_PER_LEVEL, MORA_PER_LEVEL, DIAMONDS_PER_LEVEL,
-    get_pet_bonus,
 )
 from infrastructure.repositories import chat as chat_repo
 from infrastructure.repositories import economy as eco_repo

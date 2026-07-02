@@ -23,11 +23,9 @@ from core.constants import (
 from infrastructure.repositories.chest_events import create_chest
 from infrastructure.repositories.exchange import (
     get_active_event as _get_active_exchange,
-    get_scheduled_event as _get_scheduled_exchange,
     create_event as _create_exchange_event,
     activate_event as _activate_exchange_event,
 )
-from infrastructure.repositories.streak import get_chat_timezone
 
 router = Router(name="events_info_router")
 
@@ -71,8 +69,6 @@ def _time_until(dt_str: str | None) -> str:
 async def cmd_events_info(message: types.Message, db):
     if message.chat.type == "private":
         return
-
-    tz_offset = await get_chat_timezone(db, message.chat.id)
 
     # ── Currency exchanger (постоянный, БЛОК 2.2) ─────────────────────────────
     ex_status = (

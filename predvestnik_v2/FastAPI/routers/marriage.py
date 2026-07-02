@@ -8,7 +8,6 @@ from infrastructure.repositories.marriages import (
     get_received_gifts, purchase_partner_gift,
 )
 from core.registry import PARTNER_GIFTS
-from infrastructure.repositories.zoo import get_user_pets
 from services.achievements import backfill_metric
 from services.vip import is_vip_active
 

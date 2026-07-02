@@ -13,8 +13,6 @@ from infrastructure.repositories import zoo as zoo_db
 from infrastructure.repositories.economy import add_item, remove_item, add_balance, get_item_quantity
 from core.registry import PET_SPECIES, ITEMS_REGISTRY
 from core.constants import (
-    PET_PLACEMENT_FATIGUE_RESTORE,
-    HAMSTER_BONUSES,
     PET_LEVEL_DUPLICATES,
     MAX_PET_COPIES,
     get_pet_bonus,
@@ -22,7 +20,7 @@ from core.constants import (
 )
 from services.vip import get_extra_pet_slots
 from services.zoo import (
-    get_wolf_fatigue_reduction,
+    movement_fatigue_cost,
     is_wolf_active_slot,
     get_active_wolf_food_extra,
     apply_pet_milestones,
@@ -388,7 +386,9 @@ async def cb_pet_view(query: types.CallbackQuery, callback_data: ZooCB, db):
         lines.append("\n<i>✨ Призван из Осколков — при распылении не даст осколок</i>")
 
     builder = InlineKeyboardBuilder()
-    move_note = f"(+{PET_PLACEMENT_FATIGUE_RESTORE} уст.)"
+    # Реальная цена перемещения с учётом Волка (Lv10 — бесплатно), а не голая константа
+    _move_cost = await movement_fatigue_cost(db, query.from_user.id)
+    move_note = "(бесплатно 🐺)" if _move_cost == 0 else f"(+{_move_cost} уст.)"
     if pet["placement"] == "storage":
         builder.button(
             text=f"⚔️ Сделать Активным {move_note}",
@@ -510,9 +510,8 @@ async def cb_pet_move(query: types.CallbackQuery, callback_data: ZooCB, db):
                     show_alert=True,
                 )
 
-        # Apply wolf reduction to movement fatigue cost
-        wolf_reduction = await get_wolf_fatigue_reduction(db, user_id)
-        fatigue_cost = int(PET_PLACEMENT_FATIGUE_RESTORE * (1.0 - wolf_reduction))
+        # Единая формула цены перемещения (скидка Волка + Lv10-иммунитет) — как на сайте
+        fatigue_cost = await movement_fatigue_cost(db, user_id)
 
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # Сброс таймера деградации усталости при входе в питомник — внутри apply_pet_move

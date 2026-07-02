@@ -259,7 +259,6 @@ async def bid(body: BidRequest, db=Depends(get_db), user=Depends(require_tg_user
     # Quest & achievement tracking (same as bot handler does)
     try:
         from services.quests import increment_metric as _q_incr
-        from services.achievements import increment_metric as _a_incr
         # Get user's primary chat_id for quest context (use any active chat)
         async with db.execute(
             "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "

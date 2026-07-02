@@ -6,9 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from core.constants import (
-    PET_PLACEMENT_FATIGUE_RESTORE,
-    get_pet_bonus, get_level_for_duplicates, get_total_duplicates_for_level,
-    PET_LEVEL_MILESTONE_REWARDS, HAMSTER_BONUSES, WOLF_BONUSES, UNICORN_BONUSES,
+    get_pet_bonus, get_total_duplicates_for_level, PET_LEVEL_MILESTONE_REWARDS,
+    WOLF_BONUSES, UNICORN_BONUSES,
 )
 from core.registry import ITEMS_REGISTRY, PET_SPECIES, EXPEDITIONS_DATA
 from FastAPI.deps import get_db, require_tg_user, require_module
@@ -19,13 +18,13 @@ from infrastructure.repositories.zoo import (
     get_species_bonus, hamster_bonus,
     get_pet_owned, get_active_pet, get_busy_expedition, get_active_expeditions_detailed,
     pet_has_active_expedition, create_expedition, add_pet_fatigue, set_pet_fatigue,
-    end_expedition_now, apply_food_aoe, set_pet_placement, get_buff_uses_left,
+    end_expedition_now, apply_food_aoe, apply_pet_move, get_buff_uses_left,
     buff_used_today, get_active_buff_expiry, consume_wolf_restore, grant_unicorn_immunity,
     get_productive_hamsters, set_last_income_collection, apply_expedition_boost_time,
 )
 from services.formatting import parse_dt
 from services.vip import get_extra_pet_slots
-from services.zoo import get_active_wolf_food_extra, get_wolf_fatigue_reduction
+from services.zoo import get_active_wolf_food_extra, get_wolf_fatigue_reduction, movement_fatigue_cost
 
 router = APIRouter(prefix="/zoo", tags=["zoo"], dependencies=[Depends(require_module("module_zoo"))])
 
@@ -439,23 +438,14 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
                 "У тебя уже есть активный питомец. Сначала переведи его в пассивный или склад."
             )
 
-    if entering_nursery:
-        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-        # Wolf Lv10: movement_immunity — no fatigue penalty on placement
-        w_lv = await get_active_species_level(db, user["id"], "wolf")
-        wolf_immune = (
-            WOLF_BONUSES.get(max(1, min(10, w_lv)), {}).get("movement_immunity", False)
-            if w_lv > 0 else False
-        )
-        if wolf_immune:
-            await set_pet_placement(db, body.pet_id, body.placement, now_str=now_str)
-        else:
-            await set_pet_placement(db, body.pet_id, body.placement,
-                                    restore_fatigue=PET_PLACEMENT_FATIGUE_RESTORE, now_str=now_str)
-    else:
-        await set_pet_placement(db, body.pet_id, body.placement)
+    # Единая формула цены перемещения (скидка Волка + Lv10-иммунитет) — как в боте.
+    # Цена берётся при ЛЮБОМ перемещении, включая уход на склад (бот всегда так делал
+    # и показывает это в кнопках) — раньше сайт молча не брал её за склад.
+    fatigue_cost = await movement_fatigue_cost(db, user["id"])
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    await apply_pet_move(db, body.pet_id, body.placement, fatigue_cost, now_str)
     await db.commit()
-    return {"ok": True, "placement": body.placement, "wolf_immunity_applied": entering_nursery and w_lv > 0 and WOLF_BONUSES.get(max(1,min(10,w_lv)),{}).get("movement_immunity",False) if entering_nursery else False}
+    return {"ok": True, "placement": body.placement, "fatigue_cost": fatigue_cost}
 
 
 @router.post("/buy-slot")

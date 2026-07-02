@@ -1,7 +1,6 @@
 # infrastructure/repositories/marriages.py
 from datetime import datetime, timedelta
 import aiosqlite
-from infrastructure.repositories.economy import get_balance
 from infrastructure.repositories.wallet_log import log_wallet
 
 # item-цена → (колонка баланса, дельта-поле wallet_log, иконка)

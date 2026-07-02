@@ -1,4 +1,4 @@
-from aiogram import Router, types, F
+from aiogram import Router, types
 from services.utils import resolve_target, safe_html, parse_dt, check_callback_owner
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -93,8 +93,8 @@ async def cmd_marriage(message: types.Message, db, text_args: str = None):
 
     if not target_id:
         return await message.answer(
-            f"ℹ️ <b>Как сделать предложение:</b>\n"
-            f"└ Ответьте на сообщение или введите: <code>бот брак, @юзер</code>",
+            "ℹ️ <b>Как сделать предложение:</b>\n"
+            "└ Ответьте на сообщение или введите: <code>бот брак, @юзер</code>",
             parse_mode="HTML"
         )
 
@@ -275,7 +275,7 @@ async def cmd_all_couples(message: types.Message, db):
     if not all_m:
         return await message.answer("🕸 <b>В этом чате пока нет ни одной пары.</b>", parse_mode="HTML")
 
-    text = f"💒 <b>БРАКИ ЭТОГО ЧАТА</b>\n\n"
+    text = "💒 <b>БРАКИ ЭТОГО ЧАТА</b>\n\n"
     
     for idx, m in enumerate(all_m, 1):
         u1_link = f"""<a href="tg://user?id={m['user1_id']}">{safe_html(m['user1_name'])}</a>"""

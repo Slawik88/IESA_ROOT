@@ -1,6 +1,5 @@
 import aiosqlite
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 
 # Стрик ЕДИНЫЙ на все чаты: храним в одной строке daily_login с sentinel chat_id = 0.
 # Любое сообщение в любом чате обновляет именно её (один стрик, одна награда в день).

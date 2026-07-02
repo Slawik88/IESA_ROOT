@@ -7,7 +7,6 @@ from core.constants import BATTLE_PASS_XP_WEIGHTS
 from core.registry import ACHIEVEMENTS, ACHIEVEMENT_LEVEL_REWARDS
 from infrastructure.repositories.achievements import get_achievement, upsert_achievement
 from infrastructure.repositories.economy import add_balance
-from infrastructure.repositories.wallet_log import log_wallet
 
 
 async def increment_metric(
