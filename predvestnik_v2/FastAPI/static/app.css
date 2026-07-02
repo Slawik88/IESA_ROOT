@@ -1278,6 +1278,30 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   0%,100% { color: #f472b6; text-shadow: 0 0 4px rgba(244,114,182,.5); }
   50%     { color: #e879f9; text-shadow: 0 0 8px rgba(232,121,249,.8); }
 }
+/* ── Доступность/перф: заморозка анимаций косметики ──────────────────────────
+   Общий вход и для системного prefers-reduced-motion, и для тумблера «Отключить
+   анимации» (body.no-fx, см. openSettingsModal в app.02.js). Селекторы заякорены
+   на БАЗОВЫЙ класс элемента (.pname/.ava/.hero/.card-fx/.ptitle), а не голый
+   [class*=], иначе [class*="frame-"] задел бы несвязанный .tl-frame-wrap
+   (админ-таймлайн, app.08.js) — там нет класса .ava, так что с якорем это
+   исключено. Свотчи в сетке (.lc-sw ...) уже заморожены отдельным правилом выше
+   (ШАГ 5) — эту зону не трогаем, здесь только «живые» контексты (хиро/превью). */
+.no-fx .pname[class*="glow-"],
+.no-fx .ava[class*="frame-"],
+.no-fx .ava[class*="halo-"],
+.no-fx .hero[class*="pbg-"], .no-fx .looks-preview[class*="pbg-"], .no-fx .lc-bg[class*="pbg-"],
+.no-fx .card-fx[class*="cfx-"],
+.no-fx .ptitle[class*="title-"], .no-fx .top-title[class*="title-"], .no-fx .lc-title[class*="title-"]
+{ animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .pname[class*="glow-"],
+  .ava[class*="frame-"],
+  .ava[class*="halo-"],
+  .hero[class*="pbg-"], .looks-preview[class*="pbg-"], .lc-bg[class*="pbg-"],
+  .card-fx[class*="cfx-"],
+  .ptitle[class*="title-"], .top-title[class*="title-"], .lc-title[class*="title-"]
+  { animation: none !important; }
+}
 /* Конструктор «Внешний вид» */
 .looks-preview { position: relative; overflow: hidden; text-align: center; padding: 16px 0; margin-bottom: 10px; border-radius: 14px; border: 1px solid var(--border2); }
 .looks-preview .ava { width: 64px; height: 64px; font-size: 32px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--s); }
@@ -1292,19 +1316,45 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .looks-preview--mini .ava { width: 46px; height: 46px; font-size: 24px; margin-bottom: 6px; }
 .looks-preview--mini .pname { font-size: 13px; }
 .looks-preview--mini .ptitle { font-size: 10px; }
+/* Витрина примерки — «После»-карточка крупнее и в фокусе (примерочная, БЛОК 20.A) */
+.looks-preview--hero { padding: 22px 0; }
+.looks-preview--hero .ava { width: 88px; height: 88px; font-size: 42px; margin-bottom: 10px; }
+.looks-preview--hero .pname { font-size: 20px; }
+.looks-preview--hero .ptitle { font-size: 12px; }
+.cos-prev-col--hero { flex: 1.4; }
 .looks-ba-act { display: flex; gap: 8px; margin: 2px 0 12px; }
 .looks-ba-act .btn { flex: 1; }
 .looks-ba-hint { font-size: 10px; color: var(--muted); text-align: center; margin: 2px 0 12px; line-height: 1.4; }
 .looks-slot { margin-bottom: 12px; }
 .looks-slot-t { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
-.looks-cards { display: flex; flex-wrap: wrap; gap: 7px; }
+.looks-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .looks-card {
-  position: relative; box-sizing: border-box; width: calc(33.333% - 5px);
+  position: relative; box-sizing: border-box;
   border: 1px solid var(--border2); border-radius: 11px; padding: 7px;
   cursor: pointer; display: flex; flex-direction: column; gap: 5px; background: var(--s);
   transition: border-color .15s, transform .1s, box-shadow .2s;
 }
-.looks-card.lc-wide { width: calc(50% - 4px); }   /* приветствия — шире (текст-описание) */
+.looks-card.lc-wide { grid-column: span 2; }   /* приветствия — шире (текст-описание) */
+.looks-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 11px; padding: 14px 0; }
+/* Панель вкладок слотов «Внешнего вида» — переиспользует .tabs/.tb, id только для JS */
+#looks-tabs { margin-bottom: 10px; }
+/* Фильтр по редкости — компактные чипы над сеткой (не такие крупные, как .tb) */
+.looks-filter { display: flex; gap: 5px; overflow-x: auto; margin-bottom: 8px; scrollbar-width: none; }
+.looks-filter::-webkit-scrollbar { display: none; }
+.looks-chip {
+  flex: none; border: 1px solid var(--border2); background: var(--s); color: var(--muted);
+  font-size: 10px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+  white-space: nowrap; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.looks-chip:active { transform: scale(.94); }
+.looks-chip.active { color: #1a1405; font-weight: 800; background: var(--gold); border-color: var(--gold); }
+/* Спотлайт — витрина топ-редкости слота (некупленный), не дублируется в сетке ниже.
+   Та же вертикальная карточка, что и в сетке, просто крупнее и во всю ширину. */
+.looks-spotlight { margin-bottom: 8px; }
+.looks-spotlight .looks-card { width: 100%; padding: 10px; }
+.looks-spotlight .lc-sw { height: 84px; }
+.looks-spotlight .lc-name { font-size: 13px; }
+.lc-spot-badge { font-size: 9px; font-weight: 700; color: var(--gold2); letter-spacing: .3px; }
 .looks-card:active { transform: scale(.97); }
 .looks-card.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 14px rgba(201,168,76,.18); background: var(--gold-dim, rgba(201,168,76,.1)); }
 .looks-card.locked { cursor: pointer; }
@@ -1348,7 +1398,8 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .lc-price-hint { font-size: 8.5px; color: var(--muted); }
 
 /* ── Превью-модалка косметики (примерочная) ─────────────────────────────────── */
-.cos-prev-modal { text-align: center; }
+/* Тот же reveal, что и у открытия сундука (chestPop) — не отдельная анимационная система. */
+.cos-prev-modal { text-align: center; animation: chestPop .3s cubic-bezier(.34,1.56,.64,1); }
 .cos-prev-header { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
 .cos-prev-rar { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
 .cos-prev-name { font-size: 18px; font-weight: 800; color: var(--bright); }

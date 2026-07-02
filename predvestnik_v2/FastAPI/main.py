@@ -189,7 +189,7 @@ def _read_static(name: str) -> str:
 # КРИТИЧНО: части СКЛЕИВАЮТСЯ в ОДИН скрипт и отдаются одним <script>, а НЕ N тегами —
 # top-level let/const классического скрипта живут в ОДНОЙ лексической области, и
 # раздача отдельными тегами сломала бы cross-file ссылки. Порядок = порядок в исходнике.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in range(1, 10)]  # app.01.js … app.09.js
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in range(1, 11)]  # app.01.js … app.10.js
 
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(
