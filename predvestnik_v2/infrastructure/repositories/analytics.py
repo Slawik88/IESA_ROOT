@@ -18,6 +18,11 @@ async def ensure_table(db) -> None:
         await db.execute("ALTER TABLE site_analytics ALTER COLUMN user_id TYPE BIGINT")
     except Exception:
         pass  # уже BIGINT или миграция не нужна (non-fatal)
+    # Время удержания на вкладке — копится хартбитом с фронта (раз в 15с, только пока
+    # вкладка реально видима) поверх той же строки визита.
+    await db.execute(
+        "ALTER TABLE site_analytics ADD COLUMN IF NOT EXISTS duration_sec INTEGER NOT NULL DEFAULT 0"
+    )
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_sa_visited_at ON site_analytics(visited_at)"
     )
@@ -32,6 +37,30 @@ async def record_visit(db, user_id: int, tab: str, session_id: str) -> None:
         await db.execute(
             "INSERT INTO site_analytics (user_id, tab, session_id) VALUES (?, ?, ?)",
             (user_id, tab, session_id),
+        )
+        await db.commit()
+    except Exception:
+        pass  # некритично; PGAdapter уже залогировал ошибку
+
+
+_HEARTBEAT_MAX_DELTA = 120  # защита от накрученных/испорченных тиков с клиента
+
+
+async def record_tab_duration(db, user_id: int, tab: str, session_id: str, delta_sec: int) -> None:
+    """Хартбит с фронта: добавляет delta_sec к duration_sec последней строки визита
+    этого (user_id, tab, session_id) — той самой, что вставил record_visit при входе."""
+    delta = max(0, min(int(delta_sec or 0), _HEARTBEAT_MAX_DELTA))
+    if not delta:
+        return
+    try:
+        await db.execute(
+            "UPDATE site_analytics SET duration_sec = duration_sec + ? "
+            "WHERE id = ("
+            "  SELECT id FROM site_analytics "
+            "  WHERE user_id = ? AND tab = ? AND session_id = ? "
+            "  ORDER BY visited_at DESC LIMIT 1"
+            ")",
+            (delta, user_id, tab, session_id),
         )
         await db.commit()
     except Exception:
@@ -78,24 +107,28 @@ async def _get_dashboard_inner(db) -> dict:
 
     # top-level pages (tab без '/')
     async with db.execute(
-        "SELECT tab, COUNT(*) AS views, COUNT(DISTINCT user_id) AS users "
+        "SELECT tab, COUNT(*) AS views, COUNT(DISTINCT user_id) AS users, "
+        "AVG(duration_sec) AS avg_dwell "
         "FROM site_analytics WHERE visited_at >= ? AND tab NOT LIKE '%/%' "
         "GROUP BY tab ORDER BY views DESC LIMIT 15",
         (day30,),
     ) as c:
         top_tabs = [
-            {"tab": r[0], "views": r[1], "users": r[2]} for r in await c.fetchall()
+            {"tab": r[0], "views": r[1], "users": r[2], "avg_dwell_sec": round(float(r[3] or 0), 1)}
+            for r in await c.fetchall()
         ]
 
     # под-вкладки (tab содержит '/'), за 7 дней чтобы видеть актуальное
     async with db.execute(
-        "SELECT tab, COUNT(*) AS views, COUNT(DISTINCT user_id) AS users "
+        "SELECT tab, COUNT(*) AS views, COUNT(DISTINCT user_id) AS users, "
+        "AVG(duration_sec) AS avg_dwell "
         "FROM site_analytics WHERE visited_at >= ? AND tab LIKE '%/%' "
         "GROUP BY tab ORDER BY views DESC LIMIT 30",
         (day7,),
     ) as c:
         top_subtabs = [
-            {"tab": r[0], "views": r[1], "users": r[2]} for r in await c.fetchall()
+            {"tab": r[0], "views": r[1], "users": r[2], "avg_dwell_sec": round(float(r[3] or 0), 1)}
+            for r in await c.fetchall()
         ]
 
     return {
