@@ -6,12 +6,18 @@ async def ensure_table(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS site_analytics (
             id         SERIAL PRIMARY KEY,
-            user_id    INTEGER NOT NULL,
+            user_id    BIGINT NOT NULL,
             tab        TEXT NOT NULL,
             session_id TEXT NOT NULL,
             visited_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
     """)
+    # Migration: INTEGER → BIGINT (safe, idempotent) — новые Telegram ID (5+ млрд)
+    # не влезали в int32, каждая запись аналитики для таких юзеров падала с ошибкой.
+    try:
+        await db.execute("ALTER TABLE site_analytics ALTER COLUMN user_id TYPE BIGINT")
+    except Exception:
+        pass  # уже BIGINT или миграция не нужна (non-fatal)
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_sa_visited_at ON site_analytics(visited_at)"
     )
