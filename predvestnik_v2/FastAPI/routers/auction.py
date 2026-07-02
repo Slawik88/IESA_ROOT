@@ -59,7 +59,7 @@ async def active_lots(
             r["item_rarity"] = item_data.get("rarity", "")   # ШАГ2: для фильтра по редкости
 
     return {"lots": rows, "total": total, "page": page, "per_page": per_page,
-            "has_more": (offset + per_page) < total}
+            "has_more": (offset + per_page) < total, "min_bid_floor": AUCTION_MIN_BID}
 
 
 @router.get("/reserved")

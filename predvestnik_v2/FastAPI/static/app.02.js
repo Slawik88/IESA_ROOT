@@ -13,7 +13,8 @@ function loadProfile() {
     const uid = d.user_id || _uid;
     const lvl = d.chats?.[0]?.user_level || 1;
     const xp = d.chats?.[0]?.user_xp || 0;
-    const xpInLvl = xp % 3000, xpPct = Math.min(100, Math.round(xpInLvl/3000*100));
+    const xpPerLvl = d.xp_per_level || 3000;
+    const xpInLvl = xp % xpPerLvl, xpPct = Math.min(100, Math.round(xpInLvl/xpPerLvl*100));
     // БЛОК 3: торжественный левел-ап (детект между загрузками) + анимация заливки
     // XP-шкалы один раз за сессию (чтобы авто-релоад каждые 5 мин её не дёргал).
     _checkLevelUp(lvl);
@@ -30,12 +31,12 @@ function loadProfile() {
           <div style="min-width:0">
             <div class="pname ${d.cosmetics&&d.cosmetics.name_glow?d.cosmetics.name_glow.css:''}">@${vipName(d.username||'Игрок', d.is_vip)}</div>
             <div class="prank">${d.rank}</div>
-            ${d.cosmetics&&d.cosmetics.title?`<div class="ptitle">${esc(d.cosmetics.title)}</div>`:''}
+            ${d.cosmetics&&d.cosmetics.title?`<div class="ptitle${d.cosmetics.title_css?' '+d.cosmetics.title_css:''}">${esc(d.cosmetics.title)}</div>`:''}
           </div>
         </div>
         <div class="hero-xp">
           <div class="xp-bar"><div class="xp-fill" data-pct="${xpPct}" style="width:${animateXp?0:xpPct}%"></div></div>
-          <div class="xp-lbl"><span>Уровень ${lvl}</span><span>${fmt(xpInLvl)} / 3 000 XP</span></div>
+          <div class="xp-lbl"><span>Уровень ${lvl}</span><span>${fmt(xpInLvl)} / ${fmt(xpPerLvl)} XP</span></div>
         </div>
         <div class="stats">
           <div class="stat clickable" onclick="openExchangeCurrencyModal('buy')"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора 🔄</div></div>
@@ -177,7 +178,7 @@ function _looksEquipped(d){
   return sel;
 }
 function _looksCos(id){ if(!id)return null; for(const s of _LOOKS_SLOTS){const f=(_looksData.slots[s]||[]).find(it=>it.id===id); if(f)return f;} return null; }
-function _rarLabel(r){return {common:'Обычный',rare:'Редкий',epic:'Эпический',legendary:'Легендарный',mythic:'Мифический'}[r]||r;}
+function _rarLabel(r){return rarLabel(r);}
 function _srcLabel(s){return {vip:'🎁 даётся с VIP',bp:'🎫 платный БП',reward:'🏅 за достижение',shop:''}[s]||'';}
 function _looksPriceTxt(opt){ return Object.entries(opt).map(([cur,amt])=>`${amt}${(_looksData.currency_icons||{})[cur]||cur}`).join('+'); }
 function renderLooks(){
@@ -198,7 +199,7 @@ function _looksRenderCard(sel){
     ${fx?`<div class="card-fx ${fx.css}"></div>`:''}
     <div class="ava ${frame?frame.css:''} ${halo?halo.css:''}">${d.vip?'👑':'🔮'}</div>
     <div class="pname ${glow?glow.css:''}">@${esc((_profileData&&_profileData.username)||'Игрок')}</div>
-    ${title?`<div class="ptitle">${esc(title.text||title.name)}</div>`:''}
+    ${title?`<div class="ptitle${title.css?' '+title.css:''}">${esc(title.text||title.name)}</div>`:''}
   </div>`;
 }
 // Полноразмерная карточка профиля (без --mini) — для превью-модалки.
@@ -210,7 +211,7 @@ function _looksRenderCardFull(sel){
     ${fx?`<div class="card-fx ${fx.css}"></div>`:''}
     <div class="ava ${frame?frame.css:''} ${halo?halo.css:''}">${d.vip?'👑':'🔮'}</div>
     <div class="pname ${glow?glow.css:''}">@${esc((_profileData&&_profileData.username)||'Игрок')}</div>
-    ${title?`<div class="ptitle">${esc(title.text||title.name)}</div>`:''}
+    ${title?`<div class="ptitle${title.css?' '+title.css:''}">${esc(title.text||title.name)}</div>`:''}
   </div>`;
 }
 function _looksChanged(){ return _LOOKS_SLOTS.some(s=>(_looksSel[s]||null)!==(_looksSaved[s]||null)); }
@@ -241,7 +242,7 @@ function _looksSwatch(slot,it){
   const face=(_looksData&&_looksData.vip)?'👑':'🔮';
   switch(slot){
     case 'name_glow':    return `<div class="lc-sw"><span class="lc-nick ${c}">@Ник</span></div>`;
-    case 'title':        return `<div class="lc-sw"><span class="lc-title">${esc(it.text||it.name)}</span></div>`;
+    case 'title':        return `<div class="lc-sw"><span class="lc-title${it.css?' '+it.css:''}">${esc(it.text||it.name)}</span></div>`;
     case 'avatar_frame':
     case 'avatar_halo':  return `<div class="lc-sw"><span class="lc-ava ${c}">${face}</span></div>`;
     case 'profile_bg':   return `<div class="lc-sw lc-bg ${c}"></div>`;
@@ -278,9 +279,7 @@ function _showCosmeticPreview(slot,id){
   const beforeCard=_looksRenderCardFull(_looksSaved);
   const afterCard=_looksRenderCardFull(afterSel);
 
-  const rarColors={common:'#9aa7b8',rare:'#5b9bd5',epic:'#b07ad6',legendary:'#e8c45a',mythic:'#e0556b'};
-  const rarColor=rarColors[it.rarity]||'#9aa7b8';
-  const rarLabel=_rarLabel(it.rarity);
+  const rc_=rarColor(it.rarity), rl_=rarLabel(it.rarity);
   const bal=_looksData.balances||{};
 
   let priceHtml='';
@@ -300,7 +299,7 @@ function _showCosmeticPreview(slot,id){
 
   const body=`<div class="cos-prev-modal">
     <div class="cos-prev-header">
-      <span class="cos-prev-rar" style="color:${rarColor}">${rarLabel}</span>
+      <span class="cos-prev-rar" style="color:${rc_}">${rl_}</span>
       <span class="cos-prev-name">${esc(it.name)}</span>
     </div>
     <div class="cos-prev-desc">${esc(it.desc||'')}</div>

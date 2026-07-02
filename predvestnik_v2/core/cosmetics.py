@@ -296,6 +296,256 @@ COSMETICS: dict[str, dict] = {
         "price": [{"zarniki": 1000}],
         "desc": "Багровые частицы Бездны в вихре. Особая награда или за зарники.",
     },
+
+    # ── Новые: ореол имени ───────────────────────────────────────────────────
+    "glow_frost": {
+        "name": "Ледяная вязь", "slot": "name_glow", "rarity": "rare",
+        "css": "glow-frost", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 440}],
+        "desc": "Хрустальное ледяное свечение вокруг ника. Отображается при активной VIP.",
+    },
+    "glow_thunder": {
+        "name": "Молния", "slot": "name_glow", "rarity": "epic",
+        "css": "glow-thunder", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Нестабильные электрические разряды мерцают вокруг ника. Отображается при активной VIP.",
+    },
+    "glow_solar": {
+        "name": "Солнечная корона", "slot": "name_glow", "rarity": "legendary",
+        "css": "glow-solar", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 820}],
+        "desc": "Раскалённая золотисто-белая корона звезды. Медленно пульсирует теплом.",
+    },
+
+    # ── Новые: рамка аватара ─────────────────────────────────────────────────
+    "frame_crystal": {
+        "name": "Кристальная грань", "slot": "avatar_frame", "rarity": "rare",
+        "css": "frame-crystal", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 440}],
+        "desc": "Чёткая ледяная кромка с ребристым блеском. Отображается при активной VIP.",
+    },
+    "frame_arcane": {
+        "name": "Аркана", "slot": "avatar_frame", "rarity": "epic",
+        "css": "frame-arcane", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Мистическое кольцо аркан-энергии медленно меняет цвет. Отображается при активной VIP.",
+    },
+    "frame_inferno": {
+        "name": "Инферно", "slot": "avatar_frame", "rarity": "legendary",
+        "css": "frame-inferno", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 820}],
+        "desc": "Живое пламя Инферно лижет края аватара — жар поднимается вверх.",
+    },
+
+    # ── Новые: гало аватара ──────────────────────────────────────────────────
+    "halo_ice": {
+        "name": "Ледяной сполох", "slot": "avatar_halo", "rarity": "rare",
+        "css": "halo-ice", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 440}],
+        "desc": "Хрустальный ледяной ореол. Чистый и резкий. Отображается при активной VIP.",
+    },
+    "halo_corona": {
+        "name": "Солнечная корона", "slot": "avatar_halo", "rarity": "legendary",
+        "css": "halo-corona", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 820}],
+        "desc": "Четырёхслойная солнечная корона бьёт светом. Пульсирующая звезда за спиной.",
+    },
+
+    # ── Новые: фон профиля ───────────────────────────────────────────────────
+    "pbg_midnight": {
+        "name": "Полночь", "slot": "profile_bg", "rarity": "common",
+        "css": "pbg-midnight", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 250}],
+        "desc": "Глубокий полночный синий. Спокойный и элегантный.",
+    },
+    "pbg_crimson": {
+        "name": "Багровый горизонт", "slot": "profile_bg", "rarity": "rare",
+        "css": "pbg-crimson", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 440}],
+        "desc": "Тёмно-красные тона закатного неба. Отображается при активной VIP.",
+    },
+    "pbg_void_dark": {
+        "name": "Тёмная Пустота", "slot": "profile_bg", "rarity": "epic",
+        "css": "pbg-void-dark", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Медленно дышащие фиолетовые потоки в абсолютной тьме. Отображается при активной VIP.",
+    },
+    "pbg_aurora": {
+        "name": "Полярное сияние", "slot": "profile_bg", "rarity": "legendary",
+        "css": "pbg-aurora", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 820}],
+        "desc": "Живое северное сияние: зелёные и синие волны медленно плывут по тёмному небу.",
+    },
+
+    # ── Новые: частицы карточки ──────────────────────────────────────────────
+    "cfx_dust": {
+        "name": "Пыль Странника", "slot": "card_fx", "rarity": "common",
+        "css": "cfx-dust", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 250}],
+        "desc": "Нежные золотисто-серые пылинки медленно дрейфуют по карточке.",
+    },
+    "cfx_nova": {
+        "name": "Вспышка Новой", "slot": "card_fx", "rarity": "legendary",
+        "css": "cfx-nova", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 820}],
+        "desc": "Взрыв света из центра карточки — расширяется и гаснет. Повторяется снова.",
+    },
+
+    # ── Новые: титулы (с CSS-эффектами) ─────────────────────────────────────
+    "title_sentinel": {
+        "name": "Часовой Пустоши", "slot": "title", "rarity": "rare",
+        "text": "Часовой Пустоши", "css": "title-sentinel",
+        "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 440}],
+        "desc": "Хладнокровный страж. Стальной акцент. Отображается при активной VIP.",
+    },
+    "title_rift_walker": {
+        "name": "Странник Разломов", "slot": "title", "rarity": "epic",
+        "text": "Странник Разломов", "css": "title-rift-walker",
+        "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Бродит между мирами. Фиолетовый пульс. Отображается при активной VIP.",
+    },
+    "title_apex": {
+        "name": "Вершина Бездны", "slot": "title", "rarity": "legendary",
+        "text": "Вершина Бездны", "css": "title-apex",
+        "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 820}],
+        "desc": "Золотой градиент-блик. Виден тем, кто добился вершины.",
+    },
+    "title_harbinger": {
+        "name": "Предвестник Конца", "slot": "title", "rarity": "mythic",
+        "text": "Предвестник Конца", "css": "title-harbinger",
+        "vip_required": False, "source": "reward",
+        "price": [{"zarniki": 1000}],
+        "desc": "Мифический титул. Пурпурный шёпот. Особая награда или за зарники.",
+    },
+
+    # ── Расширение слотов (запрос 2026-07-02): закрываем пробелы common/mythic,
+    # добавляем разнообразия в середине. Каждый эффект — свой характер, не клон
+    # уже существующего (проверено визуально через cosmetics_preview.html). ──────
+
+    # ── Ореол имени: +common, +rare, +mythic ────────────────────────────────
+    "glow_moon": {
+        "name": "Лунный свет", "slot": "name_glow", "rarity": "common",
+        "css": "glow-moon", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 250}],
+        "desc": "Бледное холодное сияние ночного светила. Спокойная альтернатива серебру.",
+    },
+    "glow_verdant": {
+        "name": "Изумрудный шёпот", "slot": "name_glow", "rarity": "rare",
+        "css": "glow-verdant", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 440}],
+        "desc": "Живая зелень леса в буквах имени. Отображается при активной VIP.",
+    },
+    "glow_void": {
+        "name": "Голос Пустоты", "slot": "name_glow", "rarity": "mythic",
+        "css": "glow-void", "vip_required": False, "source": "reward",
+        "price": [{"zarniki": 1000}],
+        "desc": "Тёмно-фиолетовый шёпот с редкими вспышками на границах букв. Особая награда или за зарники.",
+    },
+
+    # ── Рамка аватара: +common, +epic, +mythic ──────────────────────────────
+    "frame_oak": {
+        "name": "Дубовая оправа", "slot": "avatar_frame", "rarity": "common",
+        "css": "frame-oak", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 250}],
+        "desc": "Тёплый деревянный кант вокруг аватара. Простая альтернатива бронзе.",
+    },
+    "frame_tidal": {
+        "name": "Приливная волна", "slot": "avatar_frame", "rarity": "epic",
+        "css": "frame-tidal", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Бирюзовая волна перекатывается по кромке аватара. Отображается при активной VIP.",
+    },
+    "frame_void": {
+        "name": "Разлом Пустоты", "slot": "avatar_frame", "rarity": "mythic",
+        "css": "frame-void", "vip_required": False, "source": "reward",
+        "price": [{"zarniki": 1000}],
+        "desc": "Чёрная кромка с редкими фиолетовыми разрядами. Особая награда или за зарники.",
+    },
+
+    # ── Титул: +common, +rare, +epic ────────────────────────────────────────
+    "title_novice": {
+        "name": "Новичок Бездны", "slot": "title", "rarity": "common",
+        "text": "Новичок Бездны", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 250}],
+        "desc": "Простой стартовый титул. Виден и в чате, и на сайте.",
+    },
+    "title_keeper": {
+        "name": "Хранитель Порога", "slot": "title", "rarity": "rare",
+        "text": "Хранитель Порога", "css": "title-keeper",
+        "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 440}],
+        "desc": "Спокойная уверенность стража границы. Отображается при активной VIP.",
+    },
+    "title_ember_born": {
+        "name": "Рождённый Пеплом", "slot": "title", "rarity": "epic",
+        "text": "Рождённый Пеплом", "css": "title-ember-born",
+        "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Тлеющий оранжевый акцент. Отображается при активной VIP.",
+    },
+
+    # ── Гало аватара: +common, +epic, +mythic ───────────────────────────────
+    "halo_dust": {
+        "name": "Пыльный нимб", "slot": "avatar_halo", "rarity": "common",
+        "css": "halo-dust", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 250}],
+        "desc": "Тёплая золотистая дымка вокруг аватара. Мягкая альтернатива тёплому гало.",
+    },
+    "halo_thorn": {
+        "name": "Терновый венец", "slot": "avatar_halo", "rarity": "epic",
+        "css": "halo-thorn", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Тёмно-изумрудные шипы вспыхивают по контуру. Отображается при активной VIP.",
+    },
+    "halo_eclipse": {
+        "name": "Затмение", "slot": "avatar_halo", "rarity": "mythic",
+        "css": "halo-eclipse", "vip_required": False, "source": "reward",
+        "price": [{"zarniki": 1000}],
+        "desc": "Тёмный диск с тонкой пылающей короной по кромке. Особая награда или за зарники.",
+    },
+
+    # ── Фон профиля: +rare, +legendary, +mythic ─────────────────────────────
+    "pbg_amber": {
+        "name": "Янтарь", "slot": "profile_bg", "rarity": "rare",
+        "css": "pbg-amber", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 440}],
+        "desc": "Тёплый застывший янтарный свет. Отображается при активной VIP.",
+    },
+    "pbg_phoenix": {
+        "name": "Феникс", "slot": "profile_bg", "rarity": "legendary",
+        "css": "pbg-phoenix", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 820}],
+        "desc": "Огненные перья восходят снизу карточки, живое пламенное дыхание.",
+    },
+    "pbg_starfall": {
+        "name": "Звездопад Богов", "slot": "profile_bg", "rarity": "mythic",
+        "css": "pbg-starfall", "vip_required": False, "source": "reward",
+        "price": [{"zarniki": 1000}],
+        "desc": "Глубокий космос с падающими звёздами. Особая награда или за зарники.",
+    },
+
+    # ── Частицы карточки: +common, +epic, +mythic ───────────────────────────
+    "cfx_leaves": {
+        "name": "Листопад", "slot": "card_fx", "rarity": "common",
+        "css": "cfx-leaves", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 250}],
+        "desc": "Осенние листья медленно кружат над карточкой.",
+    },
+    "cfx_moths": {
+        "name": "Мотыльки", "slot": "card_fx", "rarity": "epic",
+        "css": "cfx-moths", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Тёплые мотыльки плавно порхают над профилем. Отображается при активной VIP.",
+    },
+    "cfx_eclipse_ash": {
+        "name": "Пепел Затмения", "slot": "card_fx", "rarity": "mythic",
+        "css": "cfx-eclipse-ash", "vip_required": False, "source": "reward",
+        "price": [{"zarniki": 1000}],
+        "desc": "Тёмный пепел медленно оседает с редкими багровыми всполохами. Особая награда или за зарники.",
+    },
 }
 
 

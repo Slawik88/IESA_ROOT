@@ -22,8 +22,7 @@ function _applyAucFilters(){
 }
 // Category → icon emoji for auction lot cards
 const LOT_CAT_ICON={food:'🍖',spin_token:'🎟',booster:'⚡',material:'💠',utility:'🏡',theme:'🎨',pet:'🐾'};
-const _AUC_RARITY_COL={common:'#9aa7b8',rare:'#5b9bd5',epic:'#b07ad6',legendary:'#e8b54d',mythic:'#e0556b'};
-const _AUC_RARITY_LBL={common:'Обычный',rare:'Редкий',epic:'Эпический',legendary:'Легендарный',mythic:'Мифический'};
+// Цвет/название редкости — общая таблица RARITY_META (app.01.js), не дублируем здесь.
 
 function renderLots(lots, searchQuery) {
   if (!el('lot-list')) return;
@@ -58,7 +57,7 @@ function renderLots(lots, searchQuery) {
     const hotCls     = hasBids ? ' hot' : '';
     const buyoutCls  = buyout ? ' buyout-avail' : '';
     const rar        = l.item_rarity || '';
-    const rarCol     = _AUC_RARITY_COL[rar] || '';
+    const rarCol     = rar ? rarColor(rar) : '';
 
     return `<div class="lot-card${hotCls}${buyoutCls}"${rarCol?` style="border-left:3px solid ${rarCol}"`:''}>
       <!-- Timer bar -->
@@ -72,7 +71,7 @@ function renderLots(lots, searchQuery) {
           <div class="lot-name">${displayName}${qty}</div>
           ${desc?`<div class="lot-desc">${desc}</div>`:''}
           <div class="lot-badges">
-            ${rar?`<span class="lot-badge" style="color:${rarCol};border-color:${rarCol}">${_AUC_RARITY_LBL[rar]||rar}</span>`:''}
+            ${rar?`<span class="lot-badge" style="color:${rarCol};border-color:${rarCol}">${rarLabel(rar)}</span>`:''}
             <span class="lot-badge seller" onclick="openGlobalProfile(${l.seller_id})" style="cursor:pointer">👤 ${vipName(l.seller_name||'Игрок', l.seller_is_vip)}</span>
             <span class="lot-badge timer${isUrgent?' hot':''}">⏳ ${tl}</span>
             ${hasBids
@@ -281,7 +280,7 @@ function renderGlobalProfile(d, recipientId){
         <div style="min-width:0">
           <div class="pname ${cls('name_glow')}" style="font-size:18px">@${esc(d.username)}</div>
           <div class="prank">${d.rank}</div>
-          ${co.title?`<div class="ptitle">${esc(co.title)}</div>`:''}
+          ${co.title?`<div class="ptitle${co.title_css?' '+co.title_css:''}">${esc(co.title)}</div>`:''}
         </div>
       </div>
     </div>

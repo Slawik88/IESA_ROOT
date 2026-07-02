@@ -242,7 +242,7 @@ function loadTop(){switchTop('local',document.querySelector('#pro-hof .tab-inner
 // БЛОК21 «видимый статус»: имя в топе с флексом — ник-глоу (косметика) + титул под ником.
 function _topName(r){
   const g = r.glow ? ' '+r.glow : '';
-  const t = r.title ? `<div class="top-title">${esc(r.title)}</div>` : '';
+  const t = r.title ? `<div class="top-title${r.title_css?' '+r.title_css:''}">${esc(r.title)}</div>` : '';
   return `<span class="uname-link${g}" onclick="openGlobalProfile(${r.user_id})">${vipName(r.username, r.is_vip)}</span>${t}`;
 }
 function switchTop(mode, btn) {

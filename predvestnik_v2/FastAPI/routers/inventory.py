@@ -30,6 +30,7 @@ async def my_inventory(db=Depends(get_db), user=Depends(require_tg_user)):
             "spin_type":      item.get("spin_type"),
             "boost_hours":    item.get("boost_hours"),
             "fatigue_restore": item.get("fatigue_restore"),
+            "dup_count":      item.get("dup_count"),
         })
     result.sort(key=lambda x: (_CATEGORY_ORDER.get(x["category"], 9), x["item_id"]))
     return result
@@ -116,8 +117,7 @@ class ApplyDustRequest(BaseModel):
 @router.post("/apply-dust")
 async def apply_dust(body: ApplyDustRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Применить Звёздную пыль к питомцу (добавить дубликаты)."""
-    dust_amounts = {"star_dust_s": 1, "star_dust_l": 5}
-    amount = dust_amounts.get(body.dust_id)
+    amount = ITEMS_REGISTRY.get(body.dust_id, {}).get("dup_count")
     if not amount:
         raise HTTPException(400, "Не является звёздной пылью.")
 

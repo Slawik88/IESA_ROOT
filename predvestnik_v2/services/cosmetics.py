@@ -279,6 +279,8 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
             continue
         if slot == "title":
             out["title"] = cos.get("text") or cos["name"]
+            if cos.get("css"):
+                out["title_css"] = cos["css"]
         else:
             out[slot] = {"css": cos.get("css"), "name": cos["name"]}
         locked[slot] = is_vip_locked(cos)
@@ -293,6 +295,8 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
     for slot, is_locked in locked.items():
         if is_locked and not vip:
             out.pop(slot, None)
+            if slot == "title":
+                out.pop("title_css", None)
     return out
 
 
@@ -320,6 +324,8 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
         d = out.setdefault(uid, {})
         if slot == "title":
             d["title"] = cos.get("text") or cos["name"]
+            if cos.get("css"):
+                d["title_css"] = cos["css"]
         elif slot == "name_glow":
             d["glow"] = cos.get("css")
         if is_vip_locked(cos):
@@ -336,6 +342,7 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
                 d.pop("glow", None)
             if cid_title and is_vip_locked(COSMETICS.get(cid_title, {})):
                 d.pop("title", None)
+                d.pop("title_css", None)
             if not d:
                 out.pop(uid, None)
     return out

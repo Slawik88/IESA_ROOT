@@ -531,13 +531,14 @@ function submitDuelChallenge(btn) {
 // ── Market ────────────────────────────────────────────────────────────────────
 function loadMarket(){swMkt(_mktTab,document.querySelector(`#pg-market > .tabs > .tb[onclick*="'${_mktTab}'"]`)||document.querySelector('#pg-market > .tabs > .tb'));}
 // swMkt() defined later with deal + promo tabs
-let _aucPage = 0, _aucTotal = 0, _aucPerPage = 48;
+let _aucPage = 0, _aucTotal = 0, _aucPerPage = 48, _aucMinBidFloor = 1;
 
 function loadAuction(page) {
   if(page !== undefined) _aucPage = page;
   api(`/auction/lots?page=${_aucPage}&per_page=${_aucPerPage}`).then(data=>{
     _allLots = data.lots || data;  // backward compat
     _aucTotal = data.total || _allLots.length;
+    _aucMinBidFloor = data.min_bid_floor || 1;
     const totalPages = Math.ceil(_aucTotal / _aucPerPage);
 
     el('mkt-auc').innerHTML=`
@@ -702,7 +703,7 @@ function openCreateLotModal() {
 }
 function selectLotItem(itemId, itemName, maxQty, _unused, itemDesc) {
   el('mt').textContent = `🏛 Выставить лот`;
-  const maxQ = Math.min(maxQty, 10);
+  const floor = _aucMinBidFloor;
   el('mb').innerHTML = `
     <div style="background:var(--s);border-radius:var(--r);padding:10px;margin-bottom:12px">
       <div style="font-size:13px;font-weight:700;color:var(--bright);margin-bottom:4px">${itemName}</div>
@@ -710,11 +711,10 @@ function selectLotItem(itemId, itemName, maxQty, _unused, itemDesc) {
       <div style="font-size:10px;color:var(--muted);margin-top:4px">В наличии: ×${maxQty}</div>
     </div>
     <div class="divider"></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Количество (1–${maxQ})</div>
-    <input id="lot-qty" type="number" class="num-input" min="1" max="${maxQ}" value="1"/>
-    <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Максимум 10 ед. за один лот</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Количество (1–${maxQty})</div>
+    <input id="lot-qty" type="number" class="num-input" min="1" max="${maxQty}" value="1"/>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Минимальная ставка 🪙</div>
-    <input id="lot-bid" type="number" class="num-input" min="50" value="500" placeholder="Мин. ставка (от 50 🪙)"/>
+    <input id="lot-bid" type="number" class="num-input" min="${floor}" value="500" placeholder="Мин. ставка (от ${floor} 🪙)"/>
     <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Цена выкупа 🪙 <span style="color:var(--dim)">(необязательно)</span></div>
     <input id="lot-buyout" type="number" class="num-input" placeholder="Оставь пустым если без выкупа"/>
     <div style="font-size:10px;color:var(--muted);margin-top:8px;padding:6px 8px;background:var(--s);border-radius:var(--r)">
@@ -730,7 +730,7 @@ function submitLot(itemId) {
   const qty = parseInt(el('lot-qty')?.value||1);
   const minBid = parseFloat(el('lot-bid')?.value||0);
   const buyout = parseFloat(el('lot-buyout')?.value||0)||null;
-  if(!minBid||minBid<50){toast('Мин. ставка от 50 🪙',false);return;}
+  if(!minBid||minBid<_aucMinBidFloor){toast(`Мин. ставка от ${_aucMinBidFloor} 🪙`,false);return;}
   const btn = document.querySelector('#mf .btn-gold');
   if(btn) btn.disabled=true;
   api('/auction/create',{method:'POST',body:JSON.stringify({item_id:itemId,quantity:qty,min_bid:minBid,buyout})})
@@ -750,7 +750,7 @@ function selectLotPet(petId, petName, rarity, level) {
       ⚠️ На время аукциона питомец уйдёт в эскроу — пользоваться им нельзя. Вернётся, если лот не продастся или ты его отменишь.
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Минимальная ставка 🪙</div>
-    <input id="lot-bid" type="number" class="num-input" min="50" value="1000" placeholder="Мин. ставка (от 50 🪙)"/>
+    <input id="lot-bid" type="number" class="num-input" min="${_aucMinBidFloor}" value="1000" placeholder="Мин. ставка (от ${_aucMinBidFloor} 🪙)"/>
     <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Цена выкупа 🪙 <span style="color:var(--dim)">(необязательно)</span></div>
     <input id="lot-buyout" type="number" class="num-input" placeholder="Оставь пустым если без выкупа"/>
     <div style="font-size:10px;color:var(--muted);margin-top:8px;padding:6px 8px;background:var(--s);border-radius:var(--r)">
@@ -763,7 +763,7 @@ function selectLotPet(petId, petName, rarity, level) {
 function submitPetLot(petId) {
   const minBid = parseFloat(el('lot-bid')?.value||0);
   const buyout = parseFloat(el('lot-buyout')?.value||0)||null;
-  if(!minBid||minBid<50){toast('Мин. ставка от 50 🪙',false);return;}
+  if(!minBid||minBid<_aucMinBidFloor){toast(`Мин. ставка от ${_aucMinBidFloor} 🪙`,false);return;}
   const btn = document.querySelector('#mf .btn-gold');
   if(btn) btn.disabled=true;
   api('/auction/create-pet',{method:'POST',body:JSON.stringify({pet_id:petId,min_bid:minBid,buyout})})
@@ -914,7 +914,7 @@ function _renderInventory() {
 }
 function openItemModal(iid) {
   const it=_invData.find(i=>i.item_id===iid);if(!it)return;
-  const {item_id,name,quantity,category,description,spin_type,boost_hours,fatigue_restore}=it;
+  const {item_id,name,quantity,category,description,spin_type,boost_hours,fatigue_restore,dup_count}=it;
   let body=`<div class="irow"><span class="ik">В инвентаре</span><span>×${quantity}</span></div>`;
   if(description)body+=`<div style="font-size:11px;color:var(--muted);margin-top:7px;line-height:1.4">${description}</div>`;
   body+='<div class="divider"></div>';
@@ -930,10 +930,9 @@ function openItemModal(iid) {
   } else if(category==='chest'){
     if(quantity>0)btns.unshift({l:'🎁 Открыть',c:'btn-gold',f:`CM();_openSurprisesModal()`});
   } else if(item_id.startsWith('star_dust')){
-    body+=`<div class="irow"><span class="ik">Даёт дубликатов</span><span style="color:var(--gold)">+${item_id.includes('_l')?5:1}</span></div>`;
+    body+=`<div class="irow"><span class="ik">Даёт дубликатов</span><span style="color:var(--gold)">+${dup_count||1}</span></div>`;
     if(quantity>0)btns.unshift({l:'✨ Применить',c:'btn-gold',f:`openDustModal('${item_id}')`});
   } else if(item_id==='study_notes'){
-    body+=`<div class="irow"><span class="ik">Эффект</span><span style="color:var(--gold)">+50% XP · 4ч</span></div>`;
     if(quantity>0)btns.unshift({l:'📚 Активировать',c:'btn-gold',f:`useConsumable('${item_id}')`});
   }
   OM(name,body,btns);

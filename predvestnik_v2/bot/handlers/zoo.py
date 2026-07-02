@@ -515,17 +515,8 @@ async def cb_pet_move(query: types.CallbackQuery, callback_data: ZooCB, db):
         fatigue_cost = int(PET_PLACEMENT_FATIGUE_RESTORE * (1.0 - wolf_reduction))
 
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if new_placement != "storage":
-            # Reset fatigue decay timer when entering nursery
-            await db.execute(
-                "UPDATE pets SET placement = ?, fatigue = LEAST(100, fatigue + ?), last_fatigue_update = ? WHERE id = ?",
-                (new_placement, fatigue_cost, now_str, pet["id"]),
-            )
-        else:
-            await db.execute(
-                "UPDATE pets SET placement = ?, fatigue = LEAST(100, fatigue + ?) WHERE id = ?",
-                (new_placement, fatigue_cost, pet["id"]),
-            )
+        # Сброс таймера деградации усталости при входе в питомник — внутри apply_pet_move
+        await zoo_db.apply_pet_move(db, pet["id"], new_placement, fatigue_cost, now_str)
 
         await db.commit()
 
@@ -596,7 +587,7 @@ async def cb_pet_release(query: types.CallbackQuery, callback_data: ZooCB, db):
 
     try:
         await db.execute("BEGIN TRANSACTION")
-        await db.execute("DELETE FROM pets WHERE id = ?", (pet["id"],))
+        await zoo_db.delete_pet(db, pet["id"])
         msg = "🔥 Питомец отпущен на волю."
         if not pet["is_summoned"]:
             await add_item(db, query.from_user.id, "soul_shard", 1)
@@ -647,7 +638,7 @@ async def cb_zoo_feed_all(query: types.CallbackQuery, callback_data: ZooCB, db):
 
     try:
         for p in hungry_pets:
-            await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (p["fatigue"], p["id"]))
+            await zoo_db.set_pet_fatigue(db, p["id"], p["fatigue"])
 
         if food_used > 0:
             await remove_item(db, user_id, "food_basic", food_used, commit=False)
@@ -726,10 +717,7 @@ async def cb_zoo_collect(query: types.CallbackQuery, callback_data: ZooCB, db):
         await add_balance(db, user_id, mora=total_mora, diamonds=diamond_bonus, commit=False,
                           source="hamster_collect")
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        await db.execute(
-            "UPDATE user_zoo_stats SET last_income_collection = ? WHERE user_id = ?",
-            (now_str, user_id),
-        )
+        await zoo_db.set_last_income_collection(db, user_id, now_str)
         await db.commit()
 
         msg = f"💸 Вы собрали {accumulated} Моры со своих Хомяков!"
@@ -764,12 +752,9 @@ async def cb_zoo_feed_super(query: types.CallbackQuery, callback_data: ZooCB, db
 
     try:
         new_active_fatigue = max(0, active_pet["fatigue"] - 60)
-        await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?",
-                         (new_active_fatigue, active_pet["id"]))
-        for p in pets:
-            if p["placement"] == "passive":
-                new_f = max(0, p["fatigue"] - 10)
-                await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_f, p["id"]))
+        await zoo_db.set_pet_fatigue(db, active_pet["id"], new_active_fatigue)
+        # Тот же repository-хелпер, что и на сайте (FastAPI/routers/zoo.py) — единая логика AoE.
+        await zoo_db.apply_food_aoe(db, user_id, "food_super", active_pet["id"])
         await remove_item(db, user_id, "food_super", 1, commit=False)
         await db.commit()
         msg = (f"💊 Суперкорм использован!\n"
@@ -1003,28 +988,18 @@ async def cb_zoo_feed_one(query: types.CallbackQuery, callback_data: ZooCB, db):
     gained = old_fatigue - new_fatigue
 
     try:
-        await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_fatigue, pet_id))
+        await zoo_db.set_pet_fatigue(db, pet_id, new_fatigue)
 
         # food_super: −10 усталости всем остальным питомцам в питомнике (AoE)
-        if food_id == "food_super":
-            other_pets = await zoo_db.get_user_pets(db, user_id, placement="nursery")
-            for op in other_pets:
-                if op["id"] != pet_id:
-                    new_f = max(0, op["fatigue"] - 10)
-                    await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_f, op["id"]))
-
         # food_diamond: ПОЛНЫЙ сброс усталости активному И ВСЕМ питомцам (премиум AoE).
-        # Раньше тут был мёртвый placeholder «efficiency buff» — еда не давала ничего.
+        # Тот же repository-хелпер, что и на сайте (FastAPI/routers/zoo.py).
+        await zoo_db.apply_food_aoe(db, user_id, food_id, pet_id)
         if food_id == "food_diamond":
-            await db.execute("UPDATE pets SET fatigue = 0 WHERE owner_id = ?", (user_id,))
             new_fatigue = 0
 
         # food_energy / zarniki_cooldown_skip: мгновенно завершить текущий поход
         if food_id in ("food_energy", "zarniki_cooldown_skip"):
-            await db.execute(
-                "UPDATE active_expeditions SET ends_at = CURRENT_TIMESTAMP WHERE pet_id = ?",
-                (pet_id,),
-            )
+            await zoo_db.end_expedition_now(db, pet_id)
 
         if not free_food:
             await remove_item(db, user_id, food_id, 1, commit=False)

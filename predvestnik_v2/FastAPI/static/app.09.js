@@ -78,6 +78,7 @@ function loadBpXpActions() {
     const acts=d.actions||[]; const per=d.xp_per_level||100;
     _bpXpLabels={}; acts.forEach(a=>{ _bpXpLabels[a.metric]=a.label; });
     const wbi=el('dev-bpxp-weekend'); if(wbi) wbi.value=d.weekend_boost_pct||0;
+    const perLvlEl=el('dev-bpxp-perlevel'); if(perLvlEl) perLvlEl.textContent=`${per} XP = 1 уровень.`;
     if(!acts.length){ box.innerHTML='<div style="font-size:11px;color:var(--muted)">Нет действий.</div>'; return; }
     box.innerHTML=acts.map(a=>{
       const cap=a.daily_cap||0;
