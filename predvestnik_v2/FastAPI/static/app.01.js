@@ -5,6 +5,10 @@ const BASE = (location.origin + location.pathname).replace(/[/]$/, '');
 
 // el() defined here — BEFORE any usage to avoid TDZ ReferenceError
 const el = id => document.getElementById(id);
+// Тумблер «Отключить анимации косметики» (Настройки) — до первой отрисовки, чтобы
+// не было вспышки анимации перед заморозкой. Сам класс гасит анимацию через
+// правило .no-fx в app.css (тот же вход, что и системный prefers-reduced-motion).
+try{ if(localStorage.getItem('pv_no_fx')==='1') document.body.classList.add('no-fx'); }catch(e){}
 const INIT_DATA = tg?.initData || '';
 const SK = 'pv_sess';
 const MEDALS = ['🥇','🥈','🥉'];
