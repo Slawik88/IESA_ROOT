@@ -521,3 +521,228 @@ async def get_pending_hamster_income(db: aiosqlite.Connection, user_id: int) -> 
 # open_egg / open_eggs_batch УДАЛЕНЫ (БЛОК19 Ч.2): яйца вырезаны, питомцы добываются
 # ТОЛЬКО через Гачу (services/gacha.py → grant_duplicate). Удача lucky_charm переехала
 # в гача-крутку (_consume_luck_potions); turtle double_egg_chance ретайрнут.
+
+
+# ── Пилот CODE_STRUCTURE_AUDIT.md: SQL из FastAPI/routers/zoo.py, вынесенный сюда ──────
+
+async def get_pet_owned(db, pet_id: int, owner_id: int) -> dict | None:
+    """Питомец по id, только если принадлежит owner_id (иначе None)."""
+    async with db.execute(
+        "SELECT * FROM pets WHERE id = ? AND owner_id = ?",
+        (pet_id, owner_id),
+    ) as c:
+        row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def get_active_pet(db, owner_id: int) -> dict | None:
+    """Единственный активный питомец игрока (или None). Полный набор колонок —
+    вызывающий код берёт только нужные (expedition_options использует rarity/pet_level,
+    start_expedition — только species_id/fatigue)."""
+    async with db.execute(
+        "SELECT id, name, species_id, rarity, COALESCE(pet_level,1) AS pet_level, fatigue "
+        "FROM pets WHERE owner_id = ? AND placement = 'active' ORDER BY id LIMIT 1",
+        (owner_id,),
+    ) as c:
+        row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def get_busy_expedition(db, owner_id: int) -> dict | None:
+    """Активная (незавершённая) экспедиция игрока — {ends_at, name} или None."""
+    async with db.execute(
+        "SELECT ae.ends_at, p.name FROM active_expeditions ae JOIN pets p ON ae.pet_id = p.id "
+        "WHERE p.owner_id = ? AND ae.ends_at > NOW() ORDER BY ae.ends_at DESC LIMIT 1",
+        (owner_id,),
+    ) as c:
+        row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def get_active_expeditions_detailed(db, owner_id: int) -> list[dict]:
+    """Все активные экспедиции игрока с именем/видом питомца (для UI списка)."""
+    async with db.execute(
+        "SELECT e.pet_id, e.duration_hours, e.ends_at, p.name, p.species_id "
+        "FROM active_expeditions e JOIN pets p ON e.pet_id = p.id "
+        "WHERE p.owner_id = ?",
+        (owner_id,),
+    ) as c:
+        return [dict(r) for r in await c.fetchall()]
+
+
+async def pet_has_active_expedition(db, pet_id: int, owner_id: int) -> bool:
+    async with db.execute(
+        "SELECT e.pet_id FROM active_expeditions e "
+        "JOIN pets p ON e.pet_id = p.id "
+        "WHERE e.pet_id = ? AND p.owner_id = ?",
+        (pet_id, owner_id),
+    ) as c:
+        return await c.fetchone() is not None
+
+
+async def create_expedition(db, pet_id: int, chat_id: int, hours: int,
+                             cost_mora: float, duration_hours: float) -> None:
+    await db.execute(
+        "INSERT INTO active_expeditions (pet_id, chat_id, duration_hours, cost_mora, ends_at) "
+        "VALUES (?, ?, ?, ?, NOW() + (? * INTERVAL '1 hour'))",
+        (pet_id, chat_id, hours, cost_mora, duration_hours),
+    )
+
+
+async def add_pet_fatigue(db, pet_id: int, delta: int) -> None:
+    await db.execute("UPDATE pets SET fatigue = fatigue + ? WHERE id = ?", (delta, pet_id))
+
+
+async def set_pet_fatigue(db, pet_id: int, value: int) -> None:
+    await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (value, pet_id))
+
+
+async def end_expedition_now(db, pet_id: int) -> None:
+    """food_energy: мгновенно завершить текущий поход питомца."""
+    await db.execute(
+        "UPDATE active_expeditions SET ends_at = CURRENT_TIMESTAMP WHERE pet_id = ?",
+        (pet_id,),
+    )
+
+
+async def apply_food_aoe(db, owner_id: int, food_id: str, exclude_pet_id: int) -> None:
+    """AoE-эффекты премиум-корма на весь питомник (кроме уже обработанного питомца)."""
+    if food_id == "food_super":
+        await db.execute(
+            "UPDATE pets SET fatigue = GREATEST(0, fatigue - 10) "
+            "WHERE owner_id = ? AND placement IN ('active', 'passive') AND id != ?",
+            (owner_id, exclude_pet_id),
+        )
+    elif food_id == "food_diamond":
+        await db.execute("UPDATE pets SET fatigue = 0 WHERE owner_id = ?", (owner_id,))
+
+
+async def set_pet_placement(db, pet_id: int, placement: str, *,
+                             restore_fatigue: int = 0, now_str: str | None = None) -> None:
+    """Переместить питомца в новый слот. Если `now_str` задан — это вход в питомник
+    (active/passive): обновляем last_fatigue_update, опционально доначисляем
+    `restore_fatigue` (0 при Волк Lv10 movement_immunity). Иначе — уход в storage,
+    без изменения усталости."""
+    if now_str is not None:
+        if restore_fatigue:
+            await db.execute(
+                "UPDATE pets SET placement = ?, "
+                "fatigue = LEAST(100, fatigue + ?), "
+                "last_fatigue_update = ? WHERE id = ?",
+                (placement, restore_fatigue, now_str, pet_id),
+            )
+        else:
+            await db.execute(
+                "UPDATE pets SET placement = ?, last_fatigue_update = ? WHERE id = ?",
+                (placement, now_str, pet_id),
+            )
+    else:
+        await db.execute("UPDATE pets SET placement = ? WHERE id = ?", (placement, pet_id))
+
+
+async def get_buff_uses_left(db, user_id: int, buff_type: str, default: int) -> int:
+    async with db.execute(
+        "SELECT uses_left FROM player_buffs WHERE user_id = ? AND buff_type = ?",
+        (user_id, buff_type),
+    ) as c:
+        row = await c.fetchone()
+    return row["uses_left"] if row else default
+
+
+async def buff_used_today(db, user_id: int, buff_type: str) -> bool:
+    async with db.execute(
+        "SELECT 1 FROM player_buffs WHERE user_id = ? AND buff_type = ?",
+        (user_id, buff_type),
+    ) as c:
+        return await c.fetchone() is not None
+
+
+async def get_active_buff_expiry(db, user_id: int, buff_type: str):
+    """expires_at активного (ещё не истёкшего) баффа этого типа, или None."""
+    async with db.execute(
+        "SELECT expires_at FROM player_buffs WHERE user_id = ? "
+        "AND buff_type = ? AND expires_at > NOW()",
+        (user_id, buff_type),
+    ) as c:
+        row = await c.fetchone()
+    return row[0] if row else None
+
+
+async def consume_wolf_restore(db, user_id: int, today_key: str, uses_left_after: int) -> None:
+    await db.execute(
+        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
+        "VALUES (?, ?, ?, NOW() + INTERVAL '2 days') "
+        "ON CONFLICT (user_id, buff_type) DO UPDATE SET uses_left = player_buffs.uses_left - 1",
+        (user_id, today_key, uses_left_after),
+    )
+
+
+async def grant_unicorn_immunity(db, user_id: int, today_key: str, expires_str: str) -> None:
+    """Отмечает суточный лимит (today_key) + выставляет реальный баф 'unicorn_immunity'."""
+    await db.execute(
+        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
+        "VALUES (?, ?, 1, NOW() + INTERVAL '2 days') "
+        "ON CONFLICT (user_id, buff_type) DO UPDATE SET expires_at = NOW() + INTERVAL '2 days'",
+        (user_id, today_key),
+    )
+    await db.execute(
+        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
+        "VALUES (?, 'unicorn_immunity', 1, ?) "
+        "ON CONFLICT (user_id, buff_type) DO UPDATE SET expires_at = ?, uses_left = 1",
+        (user_id, expires_str, expires_str),
+    )
+
+
+async def get_productive_hamsters(db, owner_id: int) -> list[dict]:
+    """Хомяки-банкиры в питомнике (active/passive) — сырые строки для расчёта бонусов."""
+    async with db.execute(
+        "SELECT COALESCE(pet_level,1) AS pet_level, fatigue, placement FROM pets "
+        "WHERE owner_id = ? AND species_id = 'hamster' AND placement IN ('active','passive')",
+        (owner_id,),
+    ) as c:
+        return [dict(r) for r in await c.fetchall()]
+
+
+async def set_last_income_collection(db, user_id: int, now_str: str) -> None:
+    await db.execute(
+        "UPDATE user_zoo_stats SET last_income_collection = ? WHERE user_id = ?",
+        (now_str, user_id),
+    )
+
+
+async def apply_expedition_boost_time(db, pet_id: int, boost_hours: float) -> None:
+    """Сократить время похода на boost_hours (не раньше чем через 30с от сейчас)."""
+    await db.execute(
+        f"UPDATE active_expeditions "
+        f"SET ends_at = GREATEST(NOW() + INTERVAL '30 seconds', ends_at - ({boost_hours} * INTERVAL '1 hour')) "
+        f"WHERE pet_id = ?",
+        (pet_id,),
+    )
+
+
+async def apply_pet_move(db, pet_id: int, placement: str, fatigue_cost: int, now_str: str) -> None:
+    """Перемещение питомца — ВЕРСИЯ БОТА (bot/handlers/zoo.py).
+
+    ВНИМАНИЕ — расхождение с сайтом (CODE_STRUCTURE_AUDIT.md, найдено при выносе SQL
+    2026-07-02, НЕ унифицировано, решение за пользователем): бот начисляет
+    fatigue_cost (уменьшенный бонусом Волка через get_wolf_fatigue_reduction, любая
+    непрерывная скидка) ПРИ ЛЮБОМ перемещении, включая уход на склад. Сайт
+    (services/zoo.set_pet_placement) начисляет фиксированный PET_PLACEMENT_FATIGUE_RESTORE
+    только при входе в питомник, ноль при уходе на склад, и даёт Волку Lv10 полный
+    иммунитет (0 усталости) вместо непрерывной скидки. Сохранено «как было» при
+    рефакторинге — это НЕ исправление поведения, а перенос SQL как есть."""
+    if placement != "storage":
+        await db.execute(
+            "UPDATE pets SET placement = ?, fatigue = LEAST(100, fatigue + ?), "
+            "last_fatigue_update = ? WHERE id = ?",
+            (placement, fatigue_cost, now_str, pet_id),
+        )
+    else:
+        await db.execute(
+            "UPDATE pets SET placement = ?, fatigue = LEAST(100, fatigue + ?) WHERE id = ?",
+            (placement, fatigue_cost, pet_id),
+        )
+
+
+async def delete_pet(db, pet_id: int) -> None:
+    await db.execute("DELETE FROM pets WHERE id = ?", (pet_id,))

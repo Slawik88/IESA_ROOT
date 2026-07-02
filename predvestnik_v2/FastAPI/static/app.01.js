@@ -11,6 +11,17 @@ const MEDALS = ['🥇','🥈','🥉'];
 const PL = {active:'Активный',passive:'Пассивный',storage:'Склад',auction:'🏛 На аукционе'};
 const RC = {common:'rc-common',uncommon:'rc-uncommon',rare:'rc-rare',
             epic:'rc-epic',legendary:'rc-legendary',shadow:'rc-shadow',mythic:'rc-mythic'};
+// Единый источник: русское название + акцентный цвет редкости (для бейджей/подписей).
+// Множественные формы для фильтров ("Редкие", с эмодзи) — отдельно в app.04.js, другой контекст.
+const RARITY_META = {
+  common:    {label:'Обычный',    color:'#9aa7b8'},
+  rare:      {label:'Редкий',     color:'#5b9bd5'},
+  epic:      {label:'Эпический',  color:'#b07ad6'},
+  legendary: {label:'Легендарный',color:'#e8c45a'},
+  mythic:    {label:'Мифический', color:'#e0556b'},
+};
+function rarLabel(r){ return (RARITY_META[r]||{}).label || r; }
+function rarColor(r){ return (RARITY_META[r]||{}).color || '#9aa7b8'; }
 
 // Chat where the mini app was opened from: bot encodes ?chat_id= for group
 // launches (Telegram WebApp context alone isn't reliable for group buttons).

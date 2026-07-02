@@ -12,11 +12,16 @@ from core.constants import (
 )
 from core.registry import ITEMS_REGISTRY, PET_SPECIES, EXPEDITIONS_DATA
 from FastAPI.deps import get_db, require_tg_user, require_module
-from infrastructure.repositories.economy import get_item_quantity, remove_item, add_balance, spend_mora
+from infrastructure.repositories.economy import get_item_quantity, remove_item, add_balance, spend_mora, get_balance
 from infrastructure.repositories.zoo import (
     get_user_pets, get_nursery_count, get_zoo_stats, buy_pet_slot, get_slot_purchase_state,
     get_active_count, get_pending_hamster_income, get_active_species_level, apply_fatigue_decay,
     get_species_bonus, hamster_bonus,
+    get_pet_owned, get_active_pet, get_busy_expedition, get_active_expeditions_detailed,
+    pet_has_active_expedition, create_expedition, add_pet_fatigue, set_pet_fatigue,
+    end_expedition_now, apply_food_aoe, set_pet_placement, get_buff_uses_left,
+    buff_used_today, get_active_buff_expiry, consume_wolf_restore, grant_unicorn_immunity,
+    get_productive_hamsters, set_last_income_collection, apply_expedition_boost_time,
 )
 from services.formatting import parse_dt
 from services.vip import get_extra_pet_slots
@@ -50,12 +55,7 @@ async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
     if wolf_lv >= 8:
         w_b = WOLF_BONUSES.get(max(1, min(10, wolf_lv)), {})
         max_uses = w_b.get("daily_restore_uses", 0)
-        async with db.execute(
-            "SELECT uses_left FROM player_buffs WHERE user_id = ? AND buff_type = ?",
-            (user["id"], f"wolf_restore_{today_key}"),
-        ) as c:
-            row = await c.fetchone()
-        uses_left = row["uses_left"] if row else max_uses
+        uses_left = await get_buff_uses_left(db, user["id"], f"wolf_restore_{today_key}", max_uses)
         wolf_restore_info = {"uses_left": uses_left, "max_uses": max_uses,
                              "restore_amount": w_b.get("daily_restore_amount", 30)}
 
@@ -64,22 +64,13 @@ async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
     uni_lv = await get_active_species_level(db, user["id"], "unicorn")
     if uni_lv >= 4:
         u_b = UNICORN_BONUSES.get(max(1, min(10, uni_lv)), {})
-        async with db.execute(
-            "SELECT 1 FROM player_buffs WHERE user_id = ? AND buff_type = ?",
-            (user["id"], f"unicorn_immunity_{today_key}"),
-        ) as c:
-            used_today = await c.fetchone() is not None
-        async with db.execute(
-            "SELECT expires_at FROM player_buffs WHERE user_id = ? "
-            "AND buff_type = 'unicorn_immunity' AND expires_at > NOW()",
-            (user["id"],),
-        ) as c:
-            immune_row = await c.fetchone()
+        used_today = await buff_used_today(db, user["id"], f"unicorn_immunity_{today_key}")
+        expires_at = await get_active_buff_expiry(db, user["id"], "unicorn_immunity")
         unicorn_ability_info = {
             "available": not used_today,
             "immunity_hours": u_b.get("immunity_hours", 0),
-            "active": immune_row is not None,
-            "expires_at": str(immune_row[0]) if immune_row else None,
+            "active": expires_at is not None,
+            "expires_at": str(expires_at) if expires_at else None,
         }
 
     slot_state = get_slot_purchase_state(stats["max_slots"])
@@ -103,15 +94,9 @@ async def my_zoo(db=Depends(get_db), user=Depends(require_tg_user)):
 @router.get("/pet/{pet_id}")
 async def pet_detail(pet_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
     """Полная информация о питомце: бонусы по уровням, дубликаты, прогресс."""
-    async with db.execute(
-        "SELECT * FROM pets WHERE id = ? AND owner_id = ?",
-        (pet_id, user["id"]),
-    ) as c:
-        row = await c.fetchone()
-    if not row:
+    pet = await get_pet_owned(db, pet_id, user["id"])
+    if not pet:
         raise HTTPException(404, "Питомец не найден.")
-
-    pet = dict(row)
     species = PET_SPECIES.get(pet["species_id"], {})
     rarity = pet.get("rarity", "common")
     level = pet.get("pet_level", 1)
@@ -164,13 +149,7 @@ async def pet_detail(pet_id: int, db=Depends(get_db), user=Depends(require_tg_us
 @router.get("/expeditions")
 async def active_expeditions(db=Depends(get_db), user=Depends(require_tg_user)):
     """Активные экспедиции с доступными ускорителями."""
-    async with db.execute(
-        "SELECT e.pet_id, e.duration_hours, e.ends_at, p.name, p.species_id "
-        "FROM active_expeditions e JOIN pets p ON e.pet_id = p.id "
-        "WHERE p.owner_id = ?",
-        (user["id"],),
-    ) as c:
-        rows = [dict(r) for r in await c.fetchall()]
+    rows = await get_active_expeditions_detailed(db, user["id"])
 
     boosters = {
         bid: {"name": ITEMS_REGISTRY[bid]["name"],
@@ -213,11 +192,7 @@ async def feed_pet(body: FeedRequest, db=Depends(get_db), user=Depends(require_t
         raise HTTPException(400, "Неизвестный тип еды.")
     item = ITEMS_REGISTRY[body.food_id]
 
-    async with db.execute(
-        "SELECT id, fatigue FROM pets WHERE id = ? AND owner_id = ?",
-        (body.pet_id, user["id"]),
-    ) as c:
-        pet = await c.fetchone()
+    pet = await get_pet_owned(db, body.pet_id, user["id"])
     if not pet:
         raise HTTPException(404, "Питомец не найден.")
 
@@ -228,26 +203,17 @@ async def feed_pet(body: FeedRequest, db=Depends(get_db), user=Depends(require_t
     wolf_extra = await get_active_wolf_food_extra(db, user["id"])
     restore = item["fatigue_restore"] + wolf_extra
     new_fatigue = max(0, pet["fatigue"] - restore)
-    await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_fatigue, body.pet_id))
+    await set_pet_fatigue(db, body.pet_id, new_fatigue)
 
     # food_super: −10 усталости всем остальным питомцам в питомнике (AoE)
-    if body.food_id == "food_super":
-        await db.execute(
-            "UPDATE pets SET fatigue = GREATEST(0, fatigue - 10) "
-            "WHERE owner_id = ? AND placement IN ('active', 'passive') AND id != ?",
-            (user["id"], body.pet_id),
-        )
     # food_diamond: ПОЛНЫЙ сброс усталости активному И ВСЕМ питомцам (премиум AoE)
-    elif body.food_id == "food_diamond":
-        await db.execute("UPDATE pets SET fatigue = 0 WHERE owner_id = ?", (user["id"],))
+    await apply_food_aoe(db, user["id"], body.food_id, body.pet_id)
+    if body.food_id == "food_diamond":
         new_fatigue = 0
     # food_energy: мгновенно завершить текущий поход (вернуть питомца с лутом сразу).
     # Раньше веб этого НЕ делал — эффект работал только в боте (рассинхрон).
     if body.food_id == "food_energy":
-        await db.execute(
-            "UPDATE active_expeditions SET ends_at = CURRENT_TIMESTAMP WHERE pet_id = ?",
-            (body.pet_id,),
-        )
+        await end_expedition_now(db, body.pet_id)
 
     await db.commit()
 
@@ -282,16 +248,12 @@ async def boost_expedition(body: BoostRequest, db=Depends(get_db), user=Depends(
     if not boost_hours:
         raise HTTPException(400, "Не является ускорителем.")
 
-    async with db.execute(
-        "SELECT e.pet_id FROM active_expeditions e "
-        "JOIN pets p ON e.pet_id = p.id "
-        "WHERE e.pet_id = ? AND p.owner_id = ?",
-        (body.pet_id, user["id"]),
-    ) as c:
-        if not await c.fetchone():
-            raise HTTPException(404, "Экспедиция не найдена.")
+    if not await pet_has_active_expedition(db, body.pet_id, user["id"]):
+        raise HTTPException(404, "Экспедиция не найдена.")
 
-    # Atomic: remove item + update expedition time to prevent double-boost race
+    # Atomic: remove item + update expedition time to prevent double-boost race.
+    # Инвентарный FOR UPDATE намеренно inline (не через remove_item) — он должен быть
+    # частью ОДНОЙ транзакции вместе с обновлением active_expeditions ниже.
     try:
         async with db.connection.transaction():
             async with db.execute(
@@ -309,12 +271,7 @@ async def boost_expedition(body: BoostRequest, db=Depends(get_db), user=Depends(
                 "DELETE FROM inventory WHERE user_id = ? AND item_id = ? AND quantity <= 0",
                 (user["id"], body.booster_id),
             )
-            await db.execute(
-                f"UPDATE active_expeditions "
-                f"SET ends_at = GREATEST(NOW() + INTERVAL '30 seconds', ends_at - ({boost_hours} * INTERVAL '1 hour')) "
-                f"WHERE pet_id = ?",
-                (body.pet_id,),
-            )
+            await apply_expedition_boost_time(db, body.pet_id, boost_hours)
     except HTTPException:
         raise
     except Exception:
@@ -334,30 +291,16 @@ async def expedition_options(db=Depends(get_db), user=Depends(require_tg_user)):
          "min_xp": d["min_xp"], "max_xp": d["max_xp"], "fatigue": d["fatigue"]}
         for h, d in sorted(EXPEDITIONS_DATA.items())
     ]
-    async with db.execute(
-        "SELECT id, name, species_id, rarity, COALESCE(pet_level,1) AS pet_level, fatigue "
-        "FROM pets WHERE owner_id = ? AND placement = 'active' ORDER BY id LIMIT 1",
-        (uid,),
-    ) as c:
-        row = await c.fetchone()
-    active_pet = dict(row) if row else None
-    async with db.execute(
-        "SELECT ae.ends_at, p.name FROM active_expeditions ae JOIN pets p ON ae.pet_id = p.id "
-        "WHERE p.owner_id = ? AND ae.ends_at > NOW() ORDER BY ae.ends_at DESC LIMIT 1",
-        (uid,),
-    ) as c:
-        busy_row = await c.fetchone()
-    async with db.execute(
-        "SELECT COALESCE(user_balance_mora, 0) FROM users WHERE user_tg_id = ?", (uid,),
-    ) as c:
-        m = await c.fetchone()
+    active_pet = await get_active_pet(db, uid)
+    busy = await get_busy_expedition(db, uid)
+    balance = await get_balance(db, uid)
     return {
         "options": options,
         "active_pet": active_pet,
-        "busy": busy_row is not None,
-        "busy_until": str(busy_row[0])[:16] if busy_row else None,
-        "busy_pet": busy_row[1] if busy_row else None,
-        "mora": float(m[0]) if m else 0.0,
+        "busy": busy is not None,
+        "busy_until": str(busy["ends_at"])[:16] if busy else None,
+        "busy_pet": busy["name"] if busy else None,
+        "mora": float(balance["user_balance_mora"] or 0),
     }
 
 
@@ -375,26 +318,15 @@ async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), use
     exp_data = EXPEDITIONS_DATA[body.hours]
     user_id = user["id"]
 
-    async with db.execute(
-        "SELECT id, name, species_id, fatigue FROM pets "
-        "WHERE owner_id = ? AND placement = 'active' ORDER BY id LIMIT 1",
-        (user_id,),
-    ) as c:
-        pet = await c.fetchone()
+    pet = await get_active_pet(db, user_id)
     if not pet:
         raise HTTPException(400, "Нет активного питомца. Переведите питомца в статус Активный.")
 
     pet_id, pet_name, species_id, fatigue = pet["id"], pet["name"], pet["species_id"], pet["fatigue"]
 
-    async with db.execute(
-        "SELECT ae.ends_at FROM active_expeditions ae "
-        "JOIN pets p ON ae.pet_id = p.id "
-        "WHERE p.owner_id = ? AND ae.ends_at > NOW() LIMIT 1",
-        (user_id,),
-    ) as c:
-        active_row = await c.fetchone()
-    if active_row:
-        raise HTTPException(400, f"Питомец уже в походе (вернётся {str(active_row[0])[:16]}).")
+    busy = await get_busy_expedition(db, user_id)
+    if busy:
+        raise HTTPException(400, f"Питомец уже в походе (вернётся {str(busy['ends_at'])[:16]}).")
 
     # Wolf reduces expedition fatigue
     wolf_reduction = await get_wolf_fatigue_reduction(db, user_id)
@@ -446,15 +378,8 @@ async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), use
             # инкрементирует квест/ачивку "expeditions_today" С ЭТИМ chat_id при
             # завершении похода (квесты скоуплены per-chat). chat_id=0 раньше слал
             # прогресс в несуществующий чат — квест с веба никогда не засчитывался.
-            await db.execute(
-                "INSERT INTO active_expeditions (pet_id, chat_id, duration_hours, cost_mora, ends_at) "
-                "VALUES (?, ?, ?, ?, NOW() + (? * INTERVAL '1 hour'))",
-                (pet_id, body.chat_id, body.hours, actual_cost, duration_hours),
-            )
-            await db.execute(
-                "UPDATE pets SET fatigue = fatigue + ? WHERE id = ?",
-                (expedition_fatigue, pet_id),
-            )
+            await create_expedition(db, pet_id, body.chat_id, body.hours, actual_cost, duration_hours)
+            await add_pet_fatigue(db, pet_id, expedition_fatigue)
     except Exception as e:
         if actual_cost > 0:
             await add_balance(db, user_id, mora=actual_cost)
@@ -486,11 +411,7 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
     if body.placement not in _PLACEMENTS:
         raise HTTPException(400, "Допустимые значения: active, passive, storage.")
 
-    async with db.execute(
-        "SELECT id, placement FROM pets WHERE id = ? AND owner_id = ?",
-        (body.pet_id, user["id"]),
-    ) as c:
-        pet = await c.fetchone()
+    pet = await get_pet_owned(db, body.pet_id, user["id"])
     if not pet:
         raise HTTPException(404, "Питомец не найден.")
 
@@ -527,20 +448,12 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
             if w_lv > 0 else False
         )
         if wolf_immune:
-            await db.execute(
-                "UPDATE pets SET placement = ?, last_fatigue_update = ? WHERE id = ?",
-                (body.placement, now_str, body.pet_id),
-            )
+            await set_pet_placement(db, body.pet_id, body.placement, now_str=now_str)
         else:
-            await db.execute(
-                "UPDATE pets SET placement = ?, "
-                "fatigue = LEAST(100, fatigue + ?), "
-                "last_fatigue_update = ? WHERE id = ?",
-                (body.placement, PET_PLACEMENT_FATIGUE_RESTORE, now_str, body.pet_id),
-            )
+            await set_pet_placement(db, body.pet_id, body.placement,
+                                    restore_fatigue=PET_PLACEMENT_FATIGUE_RESTORE, now_str=now_str)
     else:
-        await db.execute("UPDATE pets SET placement = ? WHERE id = ?",
-                         (body.placement, body.pet_id))
+        await set_pet_placement(db, body.pet_id, body.placement)
     await db.commit()
     return {"ok": True, "placement": body.placement, "wolf_immunity_applied": entering_nursery and w_lv > 0 and WOLF_BONUSES.get(max(1,min(10,w_lv)),{}).get("movement_immunity",False) if entering_nursery else False}
 
@@ -574,34 +487,19 @@ async def wolf_restore(body: WolfRestoreRequest, db=Depends(get_db), user=Depend
         raise HTTPException(400, "Волк должен быть Lv8+ для этой способности.")
 
     today_key = f"wolf_restore_{_dt.now().strftime('%Y-%m-%d')}"
-    async with db.execute(
-        "SELECT uses_left FROM player_buffs WHERE user_id = ? AND buff_type = ?",
-        (user["id"], today_key),
-    ) as c:
-        row = await c.fetchone()
-    uses_left = row["uses_left"] if row else max_uses
+    uses_left = await get_buff_uses_left(db, user["id"], today_key, max_uses)
     if uses_left <= 0:
         raise HTTPException(400, f"Лимит восстановлений на сегодня исчерпан ({max_uses}/{max_uses}).")
 
-    async with db.execute(
-        "SELECT id, fatigue FROM pets WHERE id = ? AND owner_id = ?",
-        (body.pet_id, user["id"]),
-    ) as c:
-        pet = await c.fetchone()
+    pet = await get_pet_owned(db, body.pet_id, user["id"])
     if not pet:
         raise HTTPException(404, "Питомец не найден.")
     if pet["fatigue"] == 0:
         raise HTTPException(400, "Питомец не устал.")
 
     new_fatigue = max(0, pet["fatigue"] - restore_amount)
-    await db.execute("UPDATE pets SET fatigue = ? WHERE id = ?", (new_fatigue, body.pet_id))
-
-    await db.execute(
-        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
-        "VALUES (?, ?, ?, NOW() + INTERVAL '2 days') "
-        "ON CONFLICT (user_id, buff_type) DO UPDATE SET uses_left = player_buffs.uses_left - 1",
-        (user["id"], today_key, max_uses - 1),
-    )
+    await set_pet_fatigue(db, body.pet_id, new_fatigue)
+    await consume_wolf_restore(db, user["id"], today_key, max_uses - 1)
     await db.commit()
 
     return {
@@ -630,27 +528,11 @@ async def unicorn_immunity(db=Depends(get_db), user=Depends(require_tg_user)):
         raise HTTPException(400, "Единорог должен быть Lv4+ для этой способности.")
 
     today_key = f"unicorn_immunity_{_dt.now().strftime('%Y-%m-%d')}"
-    async with db.execute(
-        "SELECT 1 FROM player_buffs WHERE user_id = ? AND buff_type = ?",
-        (user["id"], today_key),
-    ) as c:
-        if await c.fetchone():
-            raise HTTPException(400, "Иммунитет уже использован сегодня.")
+    if await buff_used_today(db, user["id"], today_key):
+        raise HTTPException(400, "Иммунитет уже использован сегодня.")
 
     expires_str = (_dt.now() + _td(hours=immunity_hours)).strftime("%Y-%m-%d %H:%M:%S")
-
-    await db.execute(
-        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
-        "VALUES (?, ?, 1, NOW() + INTERVAL '2 days') "
-        "ON CONFLICT (user_id, buff_type) DO UPDATE SET expires_at = NOW() + INTERVAL '2 days'",
-        (user["id"], today_key),
-    )
-    await db.execute(
-        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
-        "VALUES (?, 'unicorn_immunity', 1, ?) "
-        "ON CONFLICT (user_id, buff_type) DO UPDATE SET expires_at = ?, uses_left = 1",
-        (user["id"], expires_str, expires_str),
-    )
+    await grant_unicorn_immunity(db, user["id"], today_key, expires_str)
     await db.commit()
 
     return {"ok": True, "immunity_hours": immunity_hours, "expires_at": expires_str}
@@ -665,12 +547,7 @@ async def collect_hamster(db=Depends(get_db), user=Depends(require_tg_user)):
     await apply_fatigue_decay(db, user["id"])
     stats = await get_zoo_stats(db, user["id"])
 
-    async with db.execute(
-        "SELECT COALESCE(pet_level,1) AS pet_level, fatigue, placement FROM pets "
-        "WHERE owner_id = ? AND species_id = 'hamster' AND placement IN ('active','passive')",
-        (user["id"],),
-    ) as c:
-        hamster_rows = [dict(r) for r in await c.fetchall()]
+    hamster_rows = await get_productive_hamsters(db, user["id"])
 
     # Block 12: бонус хомяка с учётом слота (passive ×0.5, ignore_exhaustion off)
     productive = [
@@ -705,10 +582,7 @@ async def collect_hamster(db=Depends(get_db), user=Depends(require_tg_user)):
     await add_balance(db, user["id"], mora=total_mora, diamonds=diamond_bonus,
                       commit=False, source="hamster_collect")
     now_str = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
-    await db.execute(
-        "UPDATE user_zoo_stats SET last_income_collection = ? WHERE user_id = ?",
-        (now_str, user["id"]),
-    )
+    await set_last_income_collection(db, user["id"], now_str)
     await db.commit()
 
     return {

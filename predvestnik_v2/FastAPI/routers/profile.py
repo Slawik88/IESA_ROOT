@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.streak import get_global_streak
 from services.roles import GLOBAL_RANKS_MAP
-from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
+from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH, XP_PER_LEVEL
 from services.formatting import safe_html
 from services.vip import is_vip_active
 from services.cosmetics import get_active_cosmetics
@@ -163,6 +163,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "zarniki":      float(row["user_balance_zarniki"] or 0),
         "streak":       (dict(streak_row)["streak"] or 0) if streak_row else 0,
         "achievements": ach_count,
+        "xp_per_level": XP_PER_LEVEL,
         "chats":        chats,
         "pets":         pets,
         "is_vip":       bool(row["is_vip"]),

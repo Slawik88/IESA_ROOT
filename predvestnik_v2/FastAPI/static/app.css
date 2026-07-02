@@ -799,56 +799,106 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .rd-contribs { display: flex; flex-direction: column; gap: 4px; }
 .rd-crow { display: flex; justify-content: space-between; align-items: center; padding: 6px 9px; border-radius: 8px; background: var(--s); border: 1px solid var(--border2); font-size: 12px; }
 .rd-dmg { font-size: 11px; color: #ff7a8f; font-weight: 700; }
-/* ── Косметика профиля: ореолы имени (CSS, веб) ── */
-/* Каждый ореол — СВОЙ характер, а не один и тот же glow разного цвета. */
+/* ── Косметика профиля: ореолы имени (CSS, веб) ──────────────────────────────
+   ПРАВИЛО: text-shadow должен читаться как лёгкое свечение КРАЯ буквы, а не как
+   цветной прямоугольник за словом. Бюджет на маленьком/среднем шрифте (12-17px,
+   font-weight 600-800): один тесный слой ~2-3px для яркости кромки + один мягкий
+   слой ~6-8px с низкой непрозрачностью (≤.45) для ambient-свечения. Слои крупнее
+   ~10px на таком шрифте визуально сливаются между буквами в один блок — не используем.
+   На gradient-text вариантах (background-clip) shadow — почти декоративный намёк,
+   не основной эффект (цвет уже несёт сам градиент). */
 /* common — ровное холодное серебро (статичное свечение) */
-.glow-silver { color:#eef2f8; text-shadow: 0 0 5px rgba(205,214,228,.9), 0 0 11px rgba(205,214,228,.45); }
+.glow-silver { color:#eef2f8; text-shadow: 0 0 2px rgba(255,255,255,.7), 0 0 6px rgba(205,214,228,.3); }
 /* epic, без VIP (за мору+алмазы) — спокойное тление, без флика (в отличие от crimson) */
-.glow-ember { color:#ffd9b8; text-shadow: 0 0 7px rgba(230,120,40,.85), 0 0 14px rgba(214,90,30,.4); }
+.glow-ember { color:#ffd0a3; text-shadow: 0 0 2px rgba(255,190,130,.75), 0 0 6px rgba(230,120,40,.35); }
 /* rare — по золотым буквам бежит металлический блик (заливка текста + свип).
    База — СПЛОШНОЕ золото (ник виден ВСЕГДА); прозрачная заливка-градиент только
    там, где браузер реально умеет background-clip:text → ник никогда не «пустой». */
-.glow-gold { color: #f0d27a; text-shadow: 0 0 9px rgba(201,168,76,.45); }
+.glow-gold { color: #f0d27a; text-shadow: 0 0 3px rgba(201,168,76,.4); }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .glow-gold {
     color: transparent; -webkit-text-fill-color: transparent;
     -webkit-background-clip: text; background-clip: text;
     background-image: linear-gradient(100deg,#9c7b2e 0%,#e8c45a 38%,#fff3c0 50%,#e8c45a 62%,#9c7b2e 100%);
     background-size: 250% 100%; animation: glowGold 3.2s linear infinite;
+    text-shadow: none;
   }
 }
 @keyframes glowGold { 0% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
-/* epic — багровое пламя: нервный неровный флик (а не ровный ореол) */
-.glow-crimson { color:#ffdada; text-shadow: 0 0 7px rgba(214,68,68,.95), 0 0 14px rgba(214,68,68,.5); animation: glowFlame 2.1s ease-in-out infinite; }
+/* epic — багровое пламя: нервный неровный флик (а не ровный ореол), но без блюра-блока */
+.glow-crimson { color:#ffb8b8; text-shadow: 0 0 2px rgba(214,68,68,.85), 0 0 6px rgba(214,68,68,.35); animation: glowFlame 2.1s ease-in-out infinite; }
 @keyframes glowFlame {
-  0%,100% { text-shadow: 0 0 6px rgba(214,68,68,.9), 0 0 12px rgba(214,68,68,.45); }
-  25% { text-shadow: 0 0 10px rgba(255,96,64,1), 0 0 20px rgba(214,40,40,.6); }
-  45% { text-shadow: 0 0 5px rgba(200,52,52,.8), 0 0 10px rgba(214,68,68,.4); }
-  72% { text-shadow: 0 0 12px rgba(255,112,72,1), 0 0 24px rgba(230,50,40,.7); }
+  0%,100% { text-shadow: 0 0 2px rgba(214,68,68,.8), 0 0 5px rgba(214,68,68,.3); }
+  25% { text-shadow: 0 0 3px rgba(255,96,64,.95), 0 0 8px rgba(214,40,40,.4); }
+  45% { text-shadow: 0 0 2px rgba(200,52,52,.7), 0 0 4px rgba(214,68,68,.25); }
+  72% { text-shadow: 0 0 3px rgba(255,112,72,.95), 0 0 9px rgba(230,50,40,.45); }
 }
 /* legendary — призма: радужная заливка текста, спектр плавно течёт.
    База — светлый сиренево-белый (виден всегда), градиент — в @supports. */
-.glow-prism { color: #d9c8ff; text-shadow: 0 0 11px rgba(180,140,255,.4); }
+.glow-prism { color: #d9c8ff; text-shadow: 0 0 3px rgba(180,140,255,.35); }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .glow-prism {
     color: transparent; -webkit-text-fill-color: transparent;
     -webkit-background-clip: text; background-clip: text;
     background-image: linear-gradient(90deg,#ff6b6b,#ffd93b,#6bffb3,#5bc8ff,#c08bff,#ff6b6b);
     background-size: 300% 100%; animation: glowPrism 4s linear infinite;
+    text-shadow: none;
   }
 }
 @keyframes glowPrism { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
 /* mythic — Разлом Бездны: фиолет→багрянец→золото течёт. База — светлый розово-сиреневый. */
-.glow-rift { color: #ffd9f0; text-shadow: 0 0 10px rgba(196,98,255,.6), 0 0 18px rgba(255,70,120,.35); }
+.glow-rift { color: #ffd9f0; text-shadow: 0 0 3px rgba(196,98,255,.45); }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   .glow-rift {
     color: transparent; -webkit-text-fill-color: transparent;
     -webkit-background-clip: text; background-clip: text;
     background-image: linear-gradient(100deg,#7a3bd6,#ff4d8d,#ffd36a,#ff4d8d,#7a3bd6);
     background-size: 300% 100%; animation: glowRift 4.5s linear infinite;
+    text-shadow: none;
   }
 }
 @keyframes glowRift { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
+/* rare — ледяная вязь: холодный стеклянный блеск (статичный, чёткий, без блюра-блока) */
+.glow-frost { color: #cde8ff; text-shadow: 0 0 2px rgba(200,235,255,.8), 0 0 5px rgba(100,190,255,.3); }
+/* epic — молния: короткие резкие вспышки на краю букв, без разлитого пятна */
+.glow-thunder { color: #e8f0ff; text-shadow: 0 0 2px rgba(160,200,255,.7), 0 0 5px rgba(100,160,255,.3); animation: glowThunder 1.8s steps(4,end) infinite; }
+@keyframes glowThunder {
+  0%    { text-shadow: 0 0 2px rgba(160,200,255,.7), 0 0 5px rgba(100,160,255,.3); }
+  25%   { text-shadow: 0 0 3px rgba(220,235,255,1), 0 0 8px rgba(150,200,255,.55); }
+  50%   { text-shadow: 0 0 1px rgba(140,180,255,.5), 0 0 3px rgba(100,140,255,.2); }
+  75%   { text-shadow: 0 0 3px rgba(185,220,255,.9), 0 0 7px rgba(130,185,255,.4); }
+}
+/* legendary — солнечная корона: горячий блик + мягкий тёплый пульс, без пятна */
+.glow-solar { color: #ffe9b3; text-shadow: 0 0 3px rgba(255,210,80,.75), 0 0 7px rgba(255,150,40,.3); animation: glowSolarPulse 2.8s ease-in-out infinite; }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .glow-solar {
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg,#c05c00,#ff8800,#ffe066,#fff8cc,#ffe066,#ff8800,#c05c00);
+    background-size: 300% 100%; animation: glowSolar 3.5s ease-in-out infinite;
+    text-shadow: none;
+  }
+}
+@keyframes glowSolarPulse {
+  0%,100% { text-shadow: 0 0 3px rgba(255,200,70,.7), 0 0 6px rgba(255,140,40,.28); }
+  50%     { text-shadow: 0 0 4px rgba(255,235,110,.9), 0 0 9px rgba(255,175,50,.4); }
+}
+@keyframes glowSolar { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
+/* common — лунный свет: бледный холодный, статичный (альтернатива серебру) */
+.glow-moon { color: #dbe6ff; text-shadow: 0 0 2px rgba(200,220,255,.7), 0 0 6px rgba(160,190,255,.25); }
+/* rare — изумрудный шёпот: живая зелень, лёгкое дыхание */
+.glow-verdant { color: #b8f0c8; text-shadow: 0 0 2px rgba(120,230,150,.75), 0 0 6px rgba(60,200,110,.3); animation: glowVerdant 3.4s ease-in-out infinite; }
+@keyframes glowVerdant {
+  0%,100% { text-shadow: 0 0 2px rgba(120,230,150,.7), 0 0 5px rgba(60,200,110,.25); }
+  50%     { text-shadow: 0 0 3px rgba(150,245,175,.85), 0 0 7px rgba(80,220,130,.35); }
+}
+/* mythic — голос пустоты: большую часть времени тихий и тёмный, редкие вспышки-«шёпоты» */
+.glow-void { color: #b8a8d8; text-shadow: 0 0 2px rgba(140,110,190,.5); animation: glowVoid 5s ease-in-out infinite; }
+@keyframes glowVoid {
+  0%, 82%, 100% { color: #b8a8d8; text-shadow: 0 0 2px rgba(140,110,190,.5); }
+  88%           { color: #f0d9ff; text-shadow: 0 0 4px rgba(220,160,255,.95), 0 0 10px rgba(180,100,255,.5); }
+  94%           { color: #b8a8d8; text-shadow: 0 0 2px rgba(140,110,190,.5); }
+}
 /* Косметика: рамки аватара — разный характер (металл / неон-дыхание / энергия / золото) */
 /* common — статичная гравированная металлическая оправа (3D-кант, без анимации) */
 .frame-bronze { box-shadow: inset 0 0 0 1px rgba(255,222,170,.3), 0 0 0 2px #8a5a2b, 0 0 0 4px #5e3c1c, 0 0 6px rgba(138,90,43,.5); }
@@ -880,6 +930,41 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   30%     { box-shadow: 0 0 0 2px #ff4d8d, 0 0 22px 6px rgba(255,77,141,.9); }
   60%     { box-shadow: 0 0 0 2px #ffd36a, 0 0 20px 5px rgba(255,211,106,.85); }
   80%     { box-shadow: 0 0 0 2px #d63b6e, 0 0 18px 4px rgba(214,59,110,.8); }
+}
+/* rare — кристальная грань: ледяная двойная кромка (статичная, чёткая) */
+.frame-crystal { box-shadow: inset 0 0 0 1px rgba(200,240,255,.45), 0 0 0 2px #7ad4ff, 0 0 0 4px rgba(100,200,255,.2), 0 0 10px rgba(130,215,255,.5); }
+/* epic — аркана: медленный цветовой обход (стиль магической печати) */
+.frame-arcane { box-shadow: 0 0 0 1px rgba(220,180,255,.45), 0 0 0 3px #a855f7, 0 0 18px 4px rgba(168,85,247,.4); animation: frameArcane 6s linear infinite; }
+@keyframes frameArcane {
+  0%,100% { box-shadow: 0 0 0 1px rgba(220,180,255,.45), 0 0 0 3px #a855f7, 0 0 18px 4px rgba(168,85,247,.4); }
+  25%     { box-shadow: 0 0 0 1px rgba(180,220,255,.45), 0 0 0 3px #06b6d4, 0 0 18px 4px rgba(6,182,212,.45); }
+  50%     { box-shadow: 0 0 0 1px rgba(255,190,220,.45), 0 0 0 3px #ec4899, 0 0 18px 4px rgba(236,72,153,.4); }
+  75%     { box-shadow: 0 0 0 1px rgba(190,220,255,.45), 0 0 0 3px #6366f1, 0 0 18px 4px rgba(99,102,241,.45); }
+}
+/* legendary — инферно: огонь с тепловым смещением вверх, нерегулярные вспышки */
+.frame-inferno { box-shadow: 0 0 0 2px #ff5500, 0 0 16px 4px rgba(255,85,0,.7), 0 -7px 18px 2px rgba(255,175,50,.5); animation: frameInferno 1.5s ease-in-out infinite; }
+@keyframes frameInferno {
+  0%,100% { box-shadow: 0 0 0 2px #ff5500, 0 0 14px 3px rgba(255,85,0,.65), 0 -5px 14px 2px rgba(255,165,40,.45); }
+  18%     { box-shadow: 0 0 0 2px #ff8800, 0 0 24px 8px rgba(255,136,0,.92), 0 -9px 22px 4px rgba(255,205,60,.82); }
+  36%     { box-shadow: 0 0 0 2px #cc3300, 0 0 9px 1px rgba(204,51,0,.48), 0 -3px 9px 1px rgba(255,120,30,.32); }
+  58%     { box-shadow: 0 0 0 2px #ff6600, 0 0 22px 7px rgba(255,102,0,.88), 0 -8px 20px 3px rgba(255,185,70,.78); }
+  80%     { box-shadow: 0 0 0 2px #e04000, 0 0 11px 2px rgba(224,64,0,.58), 0 -4px 12px 2px rgba(255,140,50,.42); }
+}
+/* common — дубовая оправа: тёплый деревянный кант, статичная (альтернатива бронзе) */
+.frame-oak { box-shadow: inset 0 0 0 1px rgba(220,180,140,.3), 0 0 0 2px #a9793f, 0 0 0 4px #6b4423, 0 0 6px rgba(169,121,63,.45); }
+/* epic — приливная волна: бирюзовый свет то усиливается, то отходит, будто волна */
+.frame-tidal { box-shadow: 0 0 0 2px #1fb8c4, 0 0 10px 2px rgba(31,184,196,.5); animation: frameTidal 3.6s ease-in-out infinite; }
+@keyframes frameTidal {
+  0%,100% { box-shadow: 0 0 0 2px #1fb8c4, 0 0 8px 1px rgba(31,184,196,.4); }
+  45%     { box-shadow: 0 0 0 2px #3ed8e0, 0 0 18px 5px rgba(62,216,224,.8); }
+  70%     { box-shadow: 0 0 0 2px #158a94, 0 0 10px 2px rgba(21,138,148,.5); }
+}
+/* mythic — разлом пустоты: тёмная кромка большую часть времени, редкий фиолетовый разряд */
+.frame-void { box-shadow: 0 0 0 2px #2a1a3a, 0 0 8px 2px rgba(80,40,120,.4); animation: frameVoid 4.5s ease-in-out infinite; }
+@keyframes frameVoid {
+  0%, 80%, 100% { box-shadow: 0 0 0 2px #2a1a3a, 0 0 8px 2px rgba(80,40,120,.4); }
+  86%           { box-shadow: 0 0 0 2px #b23bff, 0 0 22px 6px rgba(178,59,255,.9); }
+  92%           { box-shadow: 0 0 0 2px #2a1a3a, 0 0 8px 2px rgba(80,40,120,.4); }
 }
 
 /* ── Косметика: гало вокруг аватара ─────────────────────────────────────── */
@@ -922,21 +1007,98 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   45%     { filter: drop-shadow(0 0 1px rgba(50,10,35,.95)) drop-shadow(0 0 7px rgba(180,40,60,.5)); }
   70%     { filter: drop-shadow(0 0 1px rgba(92,18,56,.95)) drop-shadow(0 0 18px rgba(255,60,90,.95)); }
 }
+/* rare — ледяной сполох: чёткий кристальный холод (статичный) */
+.halo-ice { filter: drop-shadow(0 0 1px rgba(210,240,255,.95)) drop-shadow(0 0 7px rgba(150,215,255,.8)) drop-shadow(0 0 14px rgba(100,185,255,.4)); }
+/* legendary — солнечная корона: 4-слойный звёздный взрыв, нерегулярный пульс */
+.halo-corona { filter: drop-shadow(0 0 1px rgba(255,255,200,1)) drop-shadow(0 0 9px rgba(255,225,80,.9)) drop-shadow(0 0 20px rgba(255,165,40,.55)) drop-shadow(0 0 34px rgba(255,130,20,.25)); animation: haloCorona 2.2s ease-in-out infinite; }
+@keyframes haloCorona {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(255,255,200,1)) drop-shadow(0 0 8px rgba(255,220,75,.85)) drop-shadow(0 0 18px rgba(255,160,38,.5)) drop-shadow(0 0 30px rgba(255,125,18,.22)); }
+  30%     { filter: drop-shadow(0 0 2px rgba(255,255,220,1)) drop-shadow(0 0 15px rgba(255,245,110,1)) drop-shadow(0 0 30px rgba(255,195,62,.78)) drop-shadow(0 0 50px rgba(255,155,30,.38)); }
+  55%     { filter: drop-shadow(0 0 1px rgba(255,248,185,1)) drop-shadow(0 0 10px rgba(255,215,72,.92)) drop-shadow(0 0 22px rgba(255,165,42,.56)) drop-shadow(0 0 36px rgba(255,130,22,.26)); }
+  78%     { filter: drop-shadow(0 0 2px rgba(255,255,230,1)) drop-shadow(0 0 18px rgba(255,250,125,1)) drop-shadow(0 0 34px rgba(255,205,68,.82)) drop-shadow(0 0 55px rgba(255,160,32,.4)); }
+}
+/* common — пыльный нимб: тёплая золотистая дымка, статичная (мягче тёплого гало) */
+.halo-dust { filter: drop-shadow(0 0 5px rgba(230,200,150,.5)); }
+/* epic — терновый венец: тёмно-изумрудные шипы, резкие короткие вспышки по контуру */
+.halo-thorn { filter: drop-shadow(0 0 1px rgba(20,60,35,.9)) drop-shadow(0 0 5px rgba(30,120,60,.5)); animation: haloThorn 2.6s steps(6,end) infinite; }
+@keyframes haloThorn {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(20,60,35,.9)) drop-shadow(0 0 5px rgba(30,120,60,.5)); }
+  40%     { filter: drop-shadow(0 0 1px rgba(20,80,40,.95)) drop-shadow(0 0 11px rgba(50,180,90,.8)); }
+  70%     { filter: drop-shadow(0 0 1px rgba(15,50,30,.85)) drop-shadow(0 0 4px rgba(25,100,50,.4)); }
+}
+/* mythic — затмение: тёмный диск у самого края + тонкая пылающая корона снаружи */
+.halo-eclipse { filter: drop-shadow(0 0 1px rgba(10,5,15,1)) drop-shadow(0 0 4px rgba(255,140,60,.85)) drop-shadow(0 0 10px rgba(255,90,30,.4)); animation: haloEclipse 3.2s ease-in-out infinite; }
+@keyframes haloEclipse {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(10,5,15,1)) drop-shadow(0 0 4px rgba(255,140,60,.8)) drop-shadow(0 0 10px rgba(255,90,30,.38)); }
+  50%     { filter: drop-shadow(0 0 1px rgba(10,5,15,1)) drop-shadow(0 0 6px rgba(255,170,90,.95)) drop-shadow(0 0 16px rgba(255,110,40,.55)); }
+}
 
 /* ── Косметика: фон / баннер карточки профиля ───────────────────────────── */
 .hero.pbg-carbon,  .looks-preview.pbg-carbon,  .lc-bg.pbg-carbon  { background: repeating-linear-gradient(45deg, #181b26, #181b26 7px, #1f232f 7px, #1f232f 14px); }
 .hero.pbg-nebula,  .looks-preview.pbg-nebula,  .lc-bg.pbg-nebula  { background: radial-gradient(120% 90% at 80% 10%, rgba(139,108,240,.5), transparent 55%), radial-gradient(120% 90% at 10% 100%, rgba(94,155,240,.4), transparent 55%), linear-gradient(160deg, #161a2c, #0f1119); }
 .hero.pbg-abyss,   .looks-preview.pbg-abyss,   .lc-bg.pbg-abyss   { background: radial-gradient(130% 100% at 50% 0%, rgba(122,59,214,.4), transparent 60%), linear-gradient(180deg, #14101f, #07060c); }
 .hero.pbg-royal,   .looks-preview.pbg-royal,   .lc-bg.pbg-royal   { background: radial-gradient(120% 90% at 50% -10%, rgba(170,120,255,.35), transparent 60%), linear-gradient(165deg, #2a1840, #1a0f28); border-color: rgba(201,168,76,.6); }
-.hero.pbg-sunrise, .looks-preview.pbg-sunrise, .lc-bg.pbg-sunrise { background: linear-gradient(165deg, #3a2418 0%, #5a341f 45%, #2a1c2e 100%); }
-.hero.pbg-legend,  .looks-preview.pbg-legend,  .lc-bg.pbg-legend  { background: linear-gradient(135deg, #1a1407, #2a1d08, #07060c); background-size: 200% 200%; animation: pbgLegend 8s ease infinite; border-color: rgba(232,181,77,.55); }
+.hero.pbg-sunrise, .looks-preview.pbg-sunrise, .lc-bg.pbg-sunrise { background: radial-gradient(ellipse 110% 65% at 50% 110%, rgba(255,130,40,.4), transparent 60%), radial-gradient(ellipse 80% 45% at 50% 95%, rgba(255,200,80,.22), transparent 55%), linear-gradient(170deg,#1a0c22,#3a1d10,#5a3418); background-size: 200% 200%, 200% 200%, 100% 100%; animation: pbgSunrise 9s ease-in-out infinite; }
+.hero.pbg-legend,  .looks-preview.pbg-legend,  .lc-bg.pbg-legend  { background: radial-gradient(ellipse 70% 60% at 50% 15%, rgba(255,210,110,.24), transparent 68%), linear-gradient(135deg, #241c09, #362408, #0a0705); background-size: 160% 160%, 200% 200%; animation: pbgLegend 8s ease infinite; border-color: rgba(232,181,77,.55); }
 .hero.pbg-forest,  .looks-preview.pbg-forest,  .lc-bg.pbg-forest  { background: radial-gradient(120% 90% at 30% 0%, rgba(46,170,110,.4), transparent 55%), linear-gradient(165deg, #0e2018, #08120d); }
 .hero.pbg-ocean,   .looks-preview.pbg-ocean,   .lc-bg.pbg-ocean   { background: radial-gradient(130% 100% at 70% 0%, rgba(40,140,190,.45), transparent 60%), linear-gradient(180deg, #0c1a24, #050c11); }
 .hero.pbg-ember,   .looks-preview.pbg-ember,   .lc-bg.pbg-ember   { background: radial-gradient(120% 95% at 50% 115%, rgba(255,120,50,.5), transparent 55%), radial-gradient(90% 70% at 50% 120%, rgba(255,60,30,.4), transparent 60%), linear-gradient(0deg, #2a1207, #140805); }
 .hero.pbg-galaxy,  .looks-preview.pbg-galaxy,  .lc-bg.pbg-galaxy  { background: radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.85), transparent), radial-gradient(1.5px 1.5px at 70% 60%, rgba(220,230,255,.7), transparent), radial-gradient(2px 2px at 45% 82%, rgba(255,255,255,.6), transparent), radial-gradient(70% 55% at 30% 25%, rgba(150,90,230,.5), transparent 60%), radial-gradient(65% 50% at 82% 72%, rgba(80,120,240,.45), transparent 60%), linear-gradient(160deg, #160f28, #07060f); }
 /* epic, без VIP (за мору+алмазы) — спокойные сумерки, без анимации */
 .hero.pbg-dusk,    .looks-preview.pbg-dusk,    .lc-bg.pbg-dusk    { background: radial-gradient(120% 90% at 20% 100%, rgba(120,80,160,.4), transparent 60%), linear-gradient(160deg, #2a2440 0%, #3a2a3a 50%, #1a1424 100%); }
-@keyframes pbgLegend { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes pbgLegend  { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes pbgSunrise { 0%,100% { background-position: 0% 100%, 0% 100%, 0 0; } 50% { background-position: 100% 55%, 100% 55%, 0 0; } }
+/* common — полночь: глубокий синий без деталей */
+.hero.pbg-midnight, .looks-preview.pbg-midnight, .lc-bg.pbg-midnight { background: radial-gradient(circle at 50% 25%, rgba(30,45,90,.55), transparent 65%), linear-gradient(180deg, #06091a, #090d1e); }
+/* rare — багровый горизонт: тёмный красный снизу */
+.hero.pbg-crimson,  .looks-preview.pbg-crimson,  .lc-bg.pbg-crimson  { background: radial-gradient(130% 100% at 50% 110%, rgba(190,28,46,.55), transparent 52%), radial-gradient(100% 80% at 50% 115%, rgba(120,12,22,.4), transparent 58%), linear-gradient(180deg, #130304, #0e0203); }
+/* epic — тёмная пустота: медленно дышащие фиолетовые потоки */
+.hero.pbg-void-dark, .looks-preview.pbg-void-dark, .lc-bg.pbg-void-dark { background: radial-gradient(100% 80% at 30% 50%, rgba(76,38,155,.32), transparent 62%), radial-gradient(90% 70% at 82% 62%, rgba(115,18,75,.28), transparent 62%), linear-gradient(160deg, #090712, #04030a); background-size: 200% 200%, 200% 200%, 100% 100%; animation: pbgVoidDark 14s ease-in-out infinite; }
+@keyframes pbgVoidDark { 0%,100% { background-position: 0% 0%, 100% 100%, 0 0; } 50% { background-position: 100% 100%, 0% 0%, 0 0; } }
+/* legendary — полярное сияние: живые волны зелёного/синего в тёмном небе */
+.hero.pbg-aurora,   .looks-preview.pbg-aurora,   .lc-bg.pbg-aurora   { background: radial-gradient(ellipse 90% 42% at 20% 58%, rgba(0,255,150,.34), transparent 76%), radial-gradient(ellipse 70% 30% at 82% 26%, rgba(20,205,255,.3), transparent 76%), radial-gradient(ellipse 80% 35% at 55% 78%, rgba(110,80,255,.26), transparent 76%), linear-gradient(180deg,#030e0c,#050a10); background-size: 300% 220%, 300% 220%, 300% 220%, 100% 100%; animation: pbgAurora 11s ease-in-out infinite; }
+@keyframes pbgAurora {
+  0%,100% { background-position: 0% 0%, 100% 100%, 50% 50%, 0 0; }
+  25%     { background-position: 80% 35%, 18% 65%, 90% 10%, 0 0; }
+  50%     { background-position: 100% 65%, 0% 38%, 30% 82%, 0 0; }
+  75%     { background-position: 28% 82%, 72% 8%, 80% 42%, 0 0; }
+}
+/* rare — янтарь: тёплый застывший свет, статичный */
+.hero.pbg-amber, .looks-preview.pbg-amber, .lc-bg.pbg-amber { background: radial-gradient(120% 90% at 50% 110%, rgba(214,140,40,.35), transparent 60%), linear-gradient(180deg, #241608, #120a04); }
+/* legendary — феникс: огненные перья снизу карточки, дышащее пламя (brightness-пульс —
+   гарантированно виден в любом кадре, в отличие от анимации через background-position) */
+.hero.pbg-phoenix, .looks-preview.pbg-phoenix, .lc-bg.pbg-phoenix {
+  background:
+    radial-gradient(90% 70% at 30% 115%, rgba(255,140,30,.55), transparent 60%),
+    radial-gradient(80% 65% at 72% 118%, rgba(255,70,20,.5), transparent 58%),
+    radial-gradient(60% 50% at 50% 122%, rgba(255,210,90,.45), transparent 55%),
+    linear-gradient(180deg, #1a0904, #2a1206);
+  animation: pbgPhoenix 4s ease-in-out infinite;
+}
+@keyframes pbgPhoenix {
+  0%,100% { filter: brightness(1) saturate(1); }
+  50%     { filter: brightness(1.2) saturate(1.15); }
+}
+/* mythic — звездопад богов: глубокий космос, звёзды + падающие звёздные росчерки */
+.hero.pbg-starfall, .looks-preview.pbg-starfall, .lc-bg.pbg-starfall {
+  background:
+    linear-gradient(115deg, transparent 45%, rgba(255,255,255,.85) 46.5%, transparent 48%),
+    linear-gradient(115deg, transparent 64%, rgba(255,255,255,.6) 65.3%, transparent 67%),
+    radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 70% 15%, #fff, transparent),
+    radial-gradient(1px 1px at 45% 55%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 85% 60%, #fff, transparent),
+    radial-gradient(1px 1px at 10% 75%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 55% 85%, #fff, transparent),
+    radial-gradient(120% 90% at 50% 100%, rgba(80,50,130,.35), transparent 60%),
+    linear-gradient(180deg, #05040f, #0a0620);
+  background-size: 220% 220%, 220% 220%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%;
+  animation: pbgStarfall 6s linear infinite;
+}
+@keyframes pbgStarfall {
+  0%   { background-position: 130% -30%, 130% -30%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: -30% 130%, -30% 130%, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+}
 
 /* ── Косметика: частицы поверх карточки (overlay, pointer-events:none) ───── */
 .card-fx { position: absolute; inset: 0; pointer-events: none; z-index: 2; border-radius: inherit; overflow: hidden; }
@@ -976,32 +1138,146 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
     radial-gradient(2px 2px at 15% 20%, rgba(255,255,255,.95), transparent),
     radial-gradient(1.5px 1.5px at 70% 15%, rgba(200,220,255,.8), transparent),
     radial-gradient(2px 2px at 45% 50%, rgba(255,255,255,.7), transparent),
-    radial-gradient(1.5px 1.5px at 88% 65%, rgba(220,230,255,.85), transparent);
+    radial-gradient(1.5px 1.5px at 88% 65%, rgba(220,230,255,.85), transparent),
+    radial-gradient(1.5px 1.5px at 30% 82%, rgba(255,255,255,.75), transparent),
+    radial-gradient(1.5px 1.5px at 62% 88%, rgba(210,225,255,.7), transparent),
+    radial-gradient(1px 1px at 8% 55%, rgba(255,255,255,.6), transparent);
   background-size: 100% 100%; animation: cfxTwinkle 3s ease-in-out infinite;
 }
+/* legendary — светлячки: побольше огоньков, дрейф в пределах кадра (не уезжают за край) */
 .cfx-fireflies {
   background-image:
-    radial-gradient(2.5px 2.5px at 22% 60%, rgba(255,236,140,.95), transparent),
-    radial-gradient(2px 2px at 58% 40%, rgba(255,224,110,.8), transparent),
-    radial-gradient(2.5px 2.5px at 80% 70%, rgba(255,240,150,.9), transparent);
-  background-size: 150% 150%;
+    radial-gradient(2.5px 2.5px at 18% 55%, rgba(255,236,140,.95), transparent),
+    radial-gradient(2px 2px at 50% 35%, rgba(255,224,110,.85), transparent),
+    radial-gradient(2.5px 2.5px at 78% 65%, rgba(255,240,150,.9), transparent),
+    radial-gradient(2px 2px at 34% 78%, rgba(255,230,130,.8), transparent),
+    radial-gradient(1.5px 1.5px at 64% 18%, rgba(255,238,160,.75), transparent),
+    radial-gradient(2px 2px at 88% 30%, rgba(255,220,120,.7), transparent);
+  background-size: 118% 118%;
   animation: cfxDrift 7s ease-in-out infinite, cfxTwinkle 2.4s ease-in-out infinite;
 }
-@keyframes cfxDrift { 0%,100% { background-position: 0% 100%; } 50% { background-position: 100% 0%; } }
+@keyframes cfxDrift { 0%,100% { background-position: 0% 8%; } 50% { background-position: 8% 0%; } }
+/* mythic — шторм бездны: два слоя (мягкие вспышки-подложки + резкие искры), гуще и живее */
 .cfx-void-storm {
   background-image:
-    radial-gradient(2px 2px at 20% 30%, rgba(230,50,80,.9), transparent),
-    radial-gradient(2px 2px at 70% 60%, rgba(180,30,90,.8), transparent),
-    radial-gradient(1.5px 1.5px at 45% 85%, rgba(255,70,100,.7), transparent);
-  background-size: 160% 160%; animation: cfxStorm 4s linear infinite;
+    radial-gradient(10px 10px at 25% 35%, rgba(200,30,80,.22), transparent 70%),
+    radial-gradient(12px 12px at 72% 62%, rgba(150,20,90,.2), transparent 70%),
+    radial-gradient(2.5px 2.5px at 20% 30%, rgba(230,50,80,.95), transparent),
+    radial-gradient(2px 2px at 70% 60%, rgba(180,30,90,.85), transparent),
+    radial-gradient(2px 2px at 45% 85%, rgba(255,70,100,.8), transparent),
+    radial-gradient(1.5px 1.5px at 85% 20%, rgba(255,90,110,.75), transparent),
+    radial-gradient(2px 2px at 8% 70%, rgba(220,40,90,.8), transparent),
+    radial-gradient(1.5px 1.5px at 55% 12%, rgba(255,100,120,.7), transparent);
+  background-size: 140% 140%; animation: cfxStorm 5s linear infinite, cfxTwinkle 1.8s ease-in-out infinite;
+}
+/* common — пыль странника: нежный золотисто-серый дрейф */
+.cfx-dust {
+  background-image:
+    radial-gradient(1.5px 1.5px at 26% 58%, rgba(218,212,198,.65), transparent),
+    radial-gradient(1px 1px at 62% 38%, rgba(208,202,188,.5), transparent),
+    radial-gradient(1.5px 1.5px at 80% 72%, rgba(222,218,204,.58), transparent),
+    radial-gradient(1px 1px at 44% 88%, rgba(212,207,193,.5), transparent);
+  background-size: 160% 160%; animation: cfxDrift 18s ease-in-out infinite;
+}
+/* legendary — вспышка новой: взрыв света из центра, расширяется и гаснет */
+.cfx-nova {
+  background: radial-gradient(circle at 50% 50%, rgba(255,248,190,1) 0%, rgba(255,205,80,.6) 22%, rgba(255,145,38,.28) 50%, transparent 70%);
+  transform-origin: center; animation: cfxNova 4.5s ease-out infinite;
+}
+@keyframes cfxNova {
+  0%          { opacity:0; transform:scale(.07); }
+  8%          { opacity:1; transform:scale(.65); }
+  32%         { opacity:.5; transform:scale(1.1); }
+  64%         { opacity:.12; transform:scale(1.5); }
+  82%,100%    { opacity:0; transform:scale(1.65); }
 }
 @keyframes cfxFall   { from { background-position: 0 -100%; } to { background-position: 0 100%; } }
 @keyframes cfxRise   { from { background-position: 0 100%; }  to { background-position: 0 -100%; } }
 @keyframes cfxTwinkle{ 0%,100% { opacity: .35; } 50% { opacity: 1; } }
 @keyframes cfxStorm  { 0% { background-position: 0% 0%; } 100% { background-position: 100% 100%; } }
+/* common — листопад: тёплые осенние листья медленно кружат и опадают */
+.cfx-leaves {
+  background-image:
+    radial-gradient(3px 2.5px at 24% 10%, rgba(214,140,50,.85), transparent),
+    radial-gradient(2.5px 2px at 62% 25%, rgba(190,110,40,.7), transparent),
+    radial-gradient(3px 2.5px at 40% 55%, rgba(224,160,60,.75), transparent);
+  background-size: 100% 220%; animation: cfxFall 11s linear infinite;
+}
+/* epic — мотыльки: тёплые бледные крылья плавно порхают по всей карточке */
+.cfx-moths {
+  background-image:
+    radial-gradient(3px 2px at 20% 50%, rgba(255,245,220,.85), transparent),
+    radial-gradient(2.5px 1.5px at 55% 30%, rgba(255,238,200,.75), transparent),
+    radial-gradient(3px 2px at 78% 60%, rgba(255,248,225,.8), transparent),
+    radial-gradient(2.5px 1.5px at 36% 78%, rgba(255,235,195,.7), transparent);
+  background-size: 130% 130%;
+  animation: cfxMothFlutter 8s ease-in-out infinite, cfxTwinkle 2s ease-in-out infinite;
+}
+@keyframes cfxMothFlutter {
+  0%,100% { background-position: 0% 10%; }
+  25%     { background-position: 10% 0%; }
+  50%     { background-position: 4% 12%; }
+  75%     { background-position: 12% 4%; }
+}
+/* mythic — пепел затмения: тёмный пепел медленно оседает, редкие багровые угольки светятся */
+.cfx-eclipse-ash {
+  background-image:
+    radial-gradient(2px 2px at 22% 15%, rgba(90,85,95,.8), transparent),
+    radial-gradient(1.5px 1.5px at 55% 35%, rgba(70,65,75,.65), transparent),
+    radial-gradient(2px 2px at 80% 55%, rgba(100,95,105,.75), transparent),
+    radial-gradient(1.5px 1.5px at 38% 70%, rgba(75,70,80,.6), transparent),
+    radial-gradient(2px 2px at 65% 85%, rgba(200,50,60,.6), transparent);
+  background-size: 100% 220%; animation: cfxFall 13s linear infinite, cfxTwinkle 3.5s ease-in-out infinite;
+}
 
 /* Титул под ником */
 .ptitle { font-size: 10.5px; color: var(--gold2); margin-top: 2px; font-style: italic; }
+/* rare — часовой пустоши: холодная стальная уверенность */
+.ptitle.title-sentinel, .top-title.title-sentinel, .lc-title.title-sentinel {
+  color: #8fb8d4; font-style: normal; font-weight: 600; letter-spacing: .5px;
+}
+/* rare — хранитель порога: спокойная бирюза, статичная (отличить от stальной sentinel) */
+.ptitle.title-keeper, .top-title.title-keeper, .lc-title.title-keeper {
+  color: #5fc9c0; font-style: normal; font-weight: 600; letter-spacing: .3px;
+}
+/* epic — рождённый пеплом: тлеющий оранжевый, медленное дыхание */
+.ptitle.title-ember-born, .top-title.title-ember-born, .lc-title.title-ember-born {
+  color: #ff9d5c; font-style: italic; animation: titleEmberBorn 3.2s ease-in-out infinite;
+}
+@keyframes titleEmberBorn {
+  0%,100% { color: #ff9d5c; text-shadow: 0 0 3px rgba(255,140,60,.4); }
+  50%     { color: #ffb885; text-shadow: 0 0 6px rgba(255,160,80,.65); }
+}
+/* epic — странник разломов: фиолетовый пульс */
+.ptitle.title-rift-walker, .top-title.title-rift-walker, .lc-title.title-rift-walker {
+  color: #c084fc; font-style: italic; animation: titleRiftPulse 3s ease-in-out infinite;
+}
+@keyframes titleRiftPulse {
+  0%,100% { color: #c084fc; text-shadow: 0 0 5px rgba(192,132,252,.5); }
+  50%     { color: #e879f9; text-shadow: 0 0 9px rgba(232,121,249,.75); }
+}
+/* legendary — вершина бездны: золотой gradient-блик */
+.ptitle.title-apex, .top-title.title-apex, .lc-title.title-apex {
+  font-style: normal; font-weight: 700; letter-spacing: .7px; color: #f0c840;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ptitle.title-apex, .top-title.title-apex, .lc-title.title-apex {
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg,#a06c0a,#f0c840,#fff8cc,#f0c840,#a06c0a);
+    background-size: 220% 100%; animation: titleApex 4s linear infinite;
+  }
+}
+@keyframes titleApex { 0% { background-position: 0 0; } 100% { background-position: 220% 0; } }
+/* mythic — предвестник конца: пурпурно-алый шёпот */
+.ptitle.title-harbinger, .top-title.title-harbinger, .lc-title.title-harbinger {
+  font-style: normal; font-weight: 700; letter-spacing: .9px;
+  color: #f472b6; text-shadow: 0 0 4px rgba(244,114,182,.5); animation: titleHarb 2.2s ease-in-out infinite;
+}
+@keyframes titleHarb {
+  0%,100% { color: #f472b6; text-shadow: 0 0 4px rgba(244,114,182,.5); }
+  50%     { color: #e879f9; text-shadow: 0 0 8px rgba(232,121,249,.8); }
+}
 /* Конструктор «Внешний вид» */
 .looks-preview { position: relative; overflow: hidden; text-align: center; padding: 16px 0; margin-bottom: 10px; border-radius: 14px; border: 1px solid var(--border2); }
 .looks-preview .ava { width: 64px; height: 64px; font-size: 32px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--s); }
@@ -1051,7 +1327,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 /* Перф (ШАГ 5): в свотчах вкладки НЕ гоняем анимации — их там десятки одновременно
    (box-shadow/частицы) → лаг/нагрев. Показываем статичный кадр эффекта; движение
    видно в большом живом превью сверху и на самом профиле (там по 1 экземпляру). */
-.lc-sw .lc-ava, .lc-sw .lc-nick, .lc-sw .card-fx, .lc-sw.lc-bg { animation: none !important; }
+.lc-sw .lc-ava, .lc-sw .lc-nick, .lc-sw .card-fx, .lc-sw.lc-bg, .lc-sw .lc-title { animation: none !important; }
 /* GPU-хинт только для реально анимирующихся косметик на профиле/в большом превью. */
 .hero .ava, .hero .pname, .looks-preview .ava, .looks-preview .pname, .looks-preview .card-fx { will-change: filter, box-shadow, background-position, opacity; }
 .lc-name { font-weight: 600; font-size: 11px; line-height: 1.2; }
