@@ -13,6 +13,7 @@ from bot.middlewares.config_mw import config_middleware
 from bot.middlewares.global_sanctions_mw import global_sanctions_middleware
 from bot.middlewares.pet_bonuses_mw import pet_bonuses_middleware
 from bot.middlewares.streak_mw import streak_middleware
+from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 from bot.handlers import main_router
 from infrastructure.database import create_pool
 from services.scheduler import (
@@ -84,6 +85,9 @@ async def main():
 
     logger.info("⚙️  Инициализация Telegram Bot API...")
     bot = Bot(token=config.bot_token)
+    # Троттлинг ВСЕХ исходящих запросов (не апдейтов!) — предотвращает flood
+    # control Telegram при высокой активности чата (см. bot/middlewares/outbound_throttle.py).
+    bot.session.middleware(OutboundThrottleMiddleware())
     dp = Dispatcher()
 
     logger.info("🔌 Подключение Middleware...")

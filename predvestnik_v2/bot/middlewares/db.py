@@ -29,14 +29,22 @@ _QUEST_METRIC_LABELS: dict[str, str] = {
 }
 
 
+async def _safe_send(bot, chat_id: int, text: str) -> None:
+    """Обёртка для fire-and-forget отправок: без неё исключение в задаче,
+    запущенной через asyncio.ensure_future без await, никогда не забирается —
+    попадает в лог как 'Task exception was never retrieved' и просто теряется."""
+    try:
+        await bot.send_message(chat_id, text, parse_mode="HTML")
+    except Exception as e:
+        logger.warning(f"Fire-and-forget send to {chat_id} failed: {e}")
+
+
 def _notify_achievements(bot, chat_id: int, grants: list) -> None:
     """Fire-and-forget achievement notifications in chat."""
     import asyncio
     text = format_achievement_notification(grants)
     if bot and text:
-        asyncio.ensure_future(
-            bot.send_message(chat_id, text, parse_mode="HTML")
-        )
+        asyncio.ensure_future(_safe_send(bot, chat_id, text))
 
 
 def _notify_starter_kit(bot, chat_id: int, user, kit: dict) -> None:
@@ -54,7 +62,7 @@ def _notify_starter_kit(bot, chat_id: int, user, kit: dict) -> None:
         f"🎟 +{kit['spin_tokens']} Жетон Гачи (бесплатный спин за Мору)\n\n"
         f"Загляни в «бот зоопарк» и «бот крутка» 🎲"
     )
-    asyncio.ensure_future(bot.send_message(chat_id, text, parse_mode="HTML"))
+    asyncio.ensure_future(_safe_send(bot, chat_id, text))
 
 
 def _notify_quest_completions(bot, chat_id: int, user, completed: list) -> None:
@@ -73,15 +81,12 @@ def _notify_quest_completions(bot, chat_id: int, user, completed: list) -> None:
         label = _QUEST_METRIC_LABELS.get(cq.get("metric", ""), "Задание")
         name = safe_html(user.first_name or user.username or str(user.id))
         if bot:
-            asyncio.ensure_future(
-                bot.send_message(
-                    chat_id,
-                    f"✅ <a href='tg://user?id={user.id}'>{name}</a> "
-                    f"выполнил задание <b>«{label}»</b>!\n"
-                    f"Награда: <b>{reward_str}</b>",
-                    parse_mode="HTML",
-                )
-            )
+            asyncio.ensure_future(_safe_send(
+                bot, chat_id,
+                f"✅ <a href='tg://user?id={user.id}'>{name}</a> "
+                f"выполнил задание <b>«{label}»</b>!\n"
+                f"Награда: <b>{reward_str}</b>",
+            ))
 
 
 async def db_middleware(
@@ -91,6 +96,7 @@ async def db_middleware(
 ) -> Any:
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
+        data["db"] = db
 
         user = data.get("event_from_user")
         chat_obj = data.get("event_chat")
@@ -210,12 +216,16 @@ async def db_middleware(
                 except Exception:
                     pass
 
-            data["db"] = db
-            return await handler(event, data)
-
         except Exception as e:
-            logger.error(f"DB middleware error: {e}")
-            # Only forward to handler if db was successfully injected —
-            # calling handler without db causes TypeError in every command.
-            if "db" in data:
-                return await handler(event, data)
+            # Сбой в трекинге (XP/квесты/ачивки/чат-статы) НЕ должен блокировать сам
+            # хендлер команды — логируем и идём дальше без него. ВАЖНО: handler()
+            # вызывается ровно один раз, СНАРУЖИ этого try — раньше он был внутри,
+            # и любое исключение из handler() (например TelegramRetryAfter при
+            # message.answer() под flood control) тоже ловилось здесь и запускало
+            # handler() ПОВТОРНО, задваивая побочные эффекты (квестовые метрики,
+            # начисления) и давая в логе парные traceback'и ("During handling of
+            # the above exception..."), при этом ничего не чиня — вторая попытка
+            # падала с той же ошибкой сразу же.
+            logger.error(f"DB middleware setup error: {e}")
+
+        return await handler(event, data)
