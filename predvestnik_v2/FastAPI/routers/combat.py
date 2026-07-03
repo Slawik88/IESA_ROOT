@@ -4,7 +4,6 @@ from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories import pet_combat as combat_repo
-from infrastructure.repositories import shadow_gates as gates_repo
 from infrastructure.repositories import raids as raids_repo
 
 router = APIRouter(prefix="/combat", tags=["combat"])
@@ -34,33 +33,10 @@ async def _combat_pets(db, uid: int) -> list[dict]:
 
 # ── Теневые Врата (Ч.7) ─────────────────────────────────────────────────────────
 
-@router.get("/gates")
-async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Активные забеги + питомцы, которых можно отправить во Врата."""
-    uid = user["id"]
-    return {"runs": await gates_repo.status(db, uid), "pets": await _combat_pets(db, uid)}
-
-
-@router.post("/gates/enter")
-async def gates_enter(body: PetReq, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg = await gates_repo.enter(db, user["id"], body.pet_id)
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "message": msg}
-
-
-@router.post("/gates/collect")
-async def gates_collect(body: PetReq, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg = await gates_repo.collect(db, user["id"], body.pet_id)
-    return {"ok": ok, "message": msg}
-
-
-@router.post("/gates/heal")
-async def gates_heal(body: PetReq, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg = await gates_repo.heal(db, user["id"], body.pet_id)
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "message": msg}
+# R2: старые Теневые Врата (пассивный дрейн HP) заменены Вратами 2.0 —
+# PvE-лестница с Боем 2.0, роутер FastAPI/routers/battle.py (/combat2/*).
+# Эндпоинты /gates* удалены; shadow_gates.py остаётся только ради
+# одноразовой миграции активных забегов при деплое (см. bot/__main__.py).
 
 
 # ── Клановые Рейды (Ч.6, замена PvP) ────────────────────────────────────────────

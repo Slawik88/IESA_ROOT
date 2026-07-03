@@ -314,37 +314,123 @@ function _giftBuy(rid, cid, btn){
     .then(r=>{ toast(r.message||'🎁 Подарок отправлен! 💜'); refreshCurrBar(); CM(); })
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
-// ── Теневые Врата (БЛОК19 Ч.7): боевой питомец фармит Тёмную Мору, теряя HP ──────
-let _gatesData=null;
-function openShadowGates(){ OM('🌑 Теневые Врата','<div class="loader">Загрузка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]); _gatesLoad(); }
-function _gatesLoad(){ api('/combat/gates').then(d=>{_gatesData=d;renderGates();}).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;}); }
-function renderGates(){
-  const b=el('mb'); if(!b||!_gatesData) return;
-  const emap=(typeof PET_SPECIES_EMOJI!=='undefined')?PET_SPECIES_EMOJI:{};
-  const hpBar=(hp,max)=>{const pct=Math.max(0,Math.min(100,max?hp/max*100:0)); return `<div class="gt-hpbar"><div class="gt-hpfill${pct<30?' low':''}" style="width:${pct.toFixed(0)}%"></div></div>`;};
-  const runs=(_gatesData.runs||[]).map(r=>`<div class="gt-run">
-      <div class="gt-row"><span class="gt-pe">${emap[r.species_id]||'🐾'}</span>
-        <span class="gt-pn">${esc(r.name||r.species_id)}</span>
-        <span class="gt-dm">+${fmtF(r.dark_mora)} 🌑</span></div>
-      ${hpBar(r.hp,r.hp_max)}
-      <div class="gt-hplbl">HP ${r.hp.toFixed(0)}/${r.hp_max.toFixed(0)}${r.hp<=0?' · 💀 пал':''}</div>
-      <div class="gt-acts">
-        <button class="btn btn-sm btn-gold" style="flex:1" onclick="_gatesCollect(${r.pet_id})">📥 Забрать</button>
-        ${r.hp>0?`<button class="btn btn-sm btn-ghost" style="flex:1" onclick="_gatesHeal(${r.pet_id})">💉 Лечить 🪙</button>`:''}
-      </div></div>`).join('')||'<div class="cx-dim" style="font-size:11px;padding:6px">Сейчас никого нет во Вратах.</div>';
-  const pets=(_gatesData.pets||[]).map(p=>`<div class="gt-pet">
-      <span class="gt-pe">${emap[p.species_id]||'🐾'}</span>
-      <span class="gt-pn">${esc(p.name||p.species_id)} <span class="cx-dim">Ур.${p.level}</span></span>
-      <span class="gt-php">HP ${p.hp.toFixed(0)}/${p.hp_max.toFixed(0)}</span>
-      <button class="btn btn-sm btn-gold" onclick="_gatesEnter(${p.pet_id})" ${p.hp<=0?'disabled':''}>Отправить</button></div>`).join('')
-      ||'<div class="cx-dim" style="font-size:11px;padding:6px">Нет свободных питомцев.</div>';
-  b.innerHTML=`<div class="looks-hint">⚠️ Питомец теряет HP во Вратах и фармит 🌑. Забери ДО того, как HP упадёт в 0 — иначе лут сгорит. HP можно лечить за 🪙.</div>
-    <div class="looks-slot-t">🌀 Во Вратах</div><div class="gt-runs">${runs}</div>
-    <div class="looks-slot-t" style="margin-top:12px">🐾 Отправить питомца</div><div class="gt-pets">${pets}</div>`;
+// ── R2 Врата 2.0: PvE-лестница с Боем 2.0 (замена пассивного дрейна) ──────────
+let _g2Data=null, _btState=null, _btQteStart=0, _btLock=false;
+function openShadowGates(){ OM('🌑 Врата 2.0','<div class="loader">Загрузка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]); _g2Load(); }
+function _g2Load(){
+  api('/combat2/gates').then(d=>{
+    _g2Data=d;
+    if(d.active_battle){ _btRender(d.active_battle); return; }
+    _g2RenderLobby();
+  }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
-function _gatesEnter(id){ api('/combat/gates/enter',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message);_gatesLoad();}).catch(e=>toast(e,false)); }
-function _gatesCollect(id){ api('/combat/gates/collect',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message,r.ok);refreshCurrBar();_gatesLoad();}).catch(e=>toast(e,false)); }
-function _gatesHeal(id){ api('/combat/gates/heal',{method:'POST',body:JSON.stringify({pet_id:id})}).then(r=>{toast(r.message);refreshCurrBar();_gatesLoad();}).catch(e=>toast(e,false)); }
+function _g2RenderLobby(){
+  const b=el('mb'); if(!b||!_g2Data) return;
+  const d=_g2Data;
+  const emap=(typeof PET_SPECIES_EMOJI!=='undefined')?PET_SPECIES_EMOJI:{};
+  const floors=(d.floors||[]).map(f=>`<div class="g2-floor${f.open?'':' locked'}">
+      <span class="g2-fn">Этаж ${f.floor} <span class="cx-dim">· волн: ${f.waves}</span></span>
+      <span class="g2-fr">+${f.reward_dark} 🌑</span>
+      ${f.open
+        ? `<button class="btn btn-sm btn-gold" ${d.entries_left<=0?'disabled':''} onclick="_g2PickPet(${f.floor})">Войти</button>`
+        : `<span class="g2-lock">🔒 ⚡${fmt(f.cp_gate)}</span>`}
+    </div>`).join('');
+  const heal=(d.pets||[]).filter(p=>p.hp<p.hp_max).map(p=>`<div class="gt-pet">
+      <span class="gt-pe">${emap[p.species_id]||'🐾'}</span>
+      <span class="gt-pn">${esc(p.name||p.species_id)}</span>
+      <span class="gt-php">HP ${Math.floor(p.hp)}/${p.hp_max}</span>
+      <button class="btn btn-sm btn-ghost" onclick="_g2Heal(${p.id})">💊 ${fmt(Math.ceil((p.hp_max-p.hp)*(d.heal_price_per_hp||2)))} 🪙</button>
+    </div>`).join('');
+  b.innerHTML=`<div class="looks-hint">⚔️ Врата 2.0 — живой бой: выбирай стойку и жми в момент сжатия кольца.
+    Победа: Тёмная Мора + шанс 💠 Осколков Бездны. Входов сегодня: <b>${d.entries_left}</b>. Твоя Сила: ⚡ ${fmt(d.cp)}.</div>
+    <div class="looks-slot-t">🗼 Этажи</div>${floors}
+    ${heal?`<div class="looks-slot-t" style="margin-top:12px">💊 Подлечить (${(d.heal_price_per_hp||2)} 🪙/HP)</div>${heal}`:''}`;
+}
+function _g2PickPet(floor){
+  const b=el('mb'); if(!b||!_g2Data) return;
+  const emap=(typeof PET_SPECIES_EMOJI!=='undefined')?PET_SPECIES_EMOJI:{};
+  const pets=(_g2Data.pets||[]).filter(p=>p.alive).map(p=>`<div class="gt-pet">
+      <span class="gt-pe">${emap[p.species_id]||'🐾'}</span>
+      <span class="gt-pn">${esc(p.name||p.species_id)} <span class="cx-dim">${rarLabel(p.rarity)} Ур.${p.pet_level}</span></span>
+      <span class="gt-php">HP ${Math.floor(p.hp)}/${p.hp_max}</span>
+      <button class="btn btn-sm btn-gold" onclick="_g2Enter(${floor},${p.id},this)">⚔️</button>
+    </div>`).join('')||'<div class="cx-dim" style="padding:8px">Все питомцы без сил — подлечи.</div>';
+  b.innerHTML=`<div class="looks-slot-t">Этаж ${floor} — кем идём?</div>${pets}
+    <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="_g2RenderLobby()">↩ Назад</button>`;
+}
+function _g2Enter(floor, petId, btn){
+  if(btn)btn.disabled=true;
+  api('/combat2/gates/enter',{method:'POST',body:JSON.stringify({floor, pet_id:petId})})
+    .then(st=>{_haptic('medium'); _btRender(st);})
+    .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
+}
+function _g2Heal(petId){
+  api('/combat2/heal',{method:'POST',body:JSON.stringify({pet_id:petId})})
+    .then(r=>{toast(`💊 +${r.healed} HP за ${fmt(r.price)} 🪙`); refreshCurrBar(); _g2Load();})
+    .catch(e=>toast(e,false));
+}
+// ── Экран Боя 2.0 (общий для gates/abyss/war) ─────────────────────────────────
+function _btRender(st, turn, reward){
+  const b=el('mb'); if(!b) return;
+  _btState=st; _btLock=false;
+  const pet=st.pet, en=st.enemy;
+  const bar=(v,m,cls)=>`<div class="bt-bar"><div class="bt-fill ${cls}" style="width:${Math.max(0,Math.min(100,m?v/m*100:0)).toFixed(0)}%"></div></div>`;
+  const finished = st.status==='won'||st.status==='lost';
+  let head='';
+  if(st.status==='won'){
+    const rw = reward ? ` +${reward.dark_mora} 🌑${reward.shards?` +${reward.shards} 💠`:''}` : '';
+    head=`<div class="skg-head skg-won">🏆 ПОБЕДА!${rw}</div>`;
+  } else if(st.status==='lost'){
+    head=`<div class="skg-head skg-lost">☠️ Поражение. Питомца можно подлечить за 🪙.</div>`;
+  }
+  b.innerHTML=`
+    ${head}
+    <div class="bt-arena">
+      <div class="bt-side">
+        <div class="bt-name">${esc(pet.name||'Питомец')}</div>
+        ${bar(pet.hp,pet.hp_max,'hp')}<div class="bt-num">${pet.hp}/${pet.hp_max} HP</div>
+        ${bar(pet.st,pet.st_max,'st')}<div class="bt-num">${pet.st}/${pet.st_max} ⚡</div>
+      </div>
+      <div class="bt-vs">⚔️<div class="bt-wave">волна ${st.wave}/${st.waves_total}</div></div>
+      <div class="bt-side">
+        <div class="bt-name">${en.emoji||'👹'} ${esc(en.name||'Враг')}</div>
+        ${bar(en.hp,en.hp_max,'hp en')}<div class="bt-num">${en.hp}/${en.hp_max} HP</div>
+      </div>
+    </div>
+    ${finished?'':`<div class="bt-qte"><div class="bt-ring" id="bt-ring"></div><div class="bt-ring-core">🎯</div></div>`}
+    <div class="bt-log">${(st.log||[]).slice(-5).map(l=>`<div>${esc(l)}</div>`).join('')}</div>
+    ${finished
+      ? `<button class="btn btn-gold btn-full" onclick="_g2Load()">↩ К Вратам</button>`
+      : `<div class="bt-stances">
+          <button class="btn btn-red"   onclick="_btAct('attack',this)">⚔️ Атака</button>
+          <button class="btn btn-teal"  onclick="_btAct('block',this)">🛡 Блок</button>
+          <button class="btn btn-ghost" onclick="_btAct('focus',this)">🧘 Дух</button>
+        </div>`}`;
+  if(!finished) _btStartQte(st.qte);
+}
+function _btStartQte(q){
+  const ring=el('bt-ring'); if(!ring||!q) return;
+  ring.style.animation='none'; void ring.offsetWidth;
+  ring.style.animation=`btRing ${q.ring_ms}ms linear forwards`;
+  _btQteStart=Date.now();
+  _btState._ringMs=q.ring_ms;
+}
+function _btAct(stance, btn){
+  if(_btLock||!_btState) return;
+  _btLock=true;
+  // Сырой тайминг: |прошло − полное сжатие|; сервер сам грейдит (анти-чит там же)
+  const elapsed=Date.now()-_btQteStart;
+  const off=Math.abs(elapsed-(_btState._ringMs||1400));
+  api('/combat2/battle/action',{method:'POST',body:JSON.stringify({battle_id:_btState.battle_id, stance, tap_offset_ms:off})})
+    .then(r=>{
+      const g=r.turn&&r.turn.grade;
+      _haptic(g==='perfect'?'success':(g==='good'?'medium':'light'));
+      if(r.status==='won'){_haptic('success'); refreshCurrBar();}
+      if(r.status==='lost') _haptic('error');
+      _btRender(r, r.turn, r.reward);
+    })
+    .catch(e=>{toast(e,false); _btLock=false;});
+}
 // ── Клановые Рейды (БЛОК19 Ч.6, замена PvP) ─────────────────────────────────────
 let _raidData=null;
 function loadRaid(){

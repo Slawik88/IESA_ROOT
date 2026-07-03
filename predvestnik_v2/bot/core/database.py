@@ -1304,5 +1304,14 @@ async def init_db():
         from infrastructure.repositories.push import ensure_table as _ensure_push
         from infrastructure.pg_adapter import PGAdapter as _PGAdapter
         await _ensure_push(_PGAdapter(db))
+        # R2: сессии Боя 2.0 + одноразовая миграция старых Теневых Врат
+        # (принудительный collect активных забегов по старым правилам; после
+        # первого прогона строк в shadow_gate_runs нет — no-op).
+        from infrastructure.repositories.battles import ensure_table as _ensure_battles
+        from infrastructure.repositories.shadow_gates import migrate_all_to_gates2 as _mig_gates
+        await _ensure_battles(_PGAdapter(db))
+        _migrated = await _mig_gates(_PGAdapter(db))
+        if _migrated:
+            logger.info(f"R2: закрыто {_migrated} забегов старых Врат (лут начислен)")
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")
