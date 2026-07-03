@@ -65,12 +65,15 @@ async def _finish_expedition(bot: Bot, db, row) -> None:
         species_placements[species_id] = "active"
 
     relic_mora_pct = await _relic_exp_bonus(db, owner_id) if owner_id else 0.0
+    from services.clans2 import academy_pct as _academy_pct
+    _acad = await _academy_pct(db, owner_id) if owner_id else 0.0
     reward = calculate_reward(
         hours,
         species_id=species_id,
         species_levels=species_levels,
         species_placements=species_placements,
         relic_mora_pct=relic_mora_pct,
+        academy_pct=_acad,
     )
 
     if reward["mora"] == 0 and reward["xp"] == 0:
@@ -566,9 +569,35 @@ async def duel_and_auction_task(bot: Bot):
                 except Exception as _pe:
                     logger.warning(f"auction final push enqueue error: {_pe}")
 
+                # R3: войны за узлы — автозакрытие просроченных + суточный доход
+                try:
+                    await _war_daily_jobs(db)
+                except Exception as _we:
+                    logger.warning(f"war daily jobs error: {_we}")
+
         except Exception as e:
             logger.error(f"Ошибка в задаче дуэлей/аукциона: {e}")
             await asyncio.sleep(30)
+
+
+async def _war_daily_jobs(db) -> None:
+    """R3: закрыть войны с истёкшим 24ч-окном (стена выстояла — взнос сгорел)
+    и начислить суточный доход узлов в 🪙-казну кланов-владельцев (заодно
+    закрывает старую дыру «нет автозакрытия по таймеру» из БЛОК 36)."""
+    from infrastructure.repositories import clans2 as c2_repo
+    from core.constants import WAR_NODE_INCOME_MORA_PER_DAY
+    for war in await c2_repo.expired_wars(db):
+        await c2_repo.finish_war(db, war["id"], "lost")
+        await c2_repo.abyss_log(db, war["attacker_clan_id"], 0,
+                                "🕊 Война проиграна — стена выстояла 24ч, взнос сгорел.")
+    for node in await c2_repo.nodes_due_income(db):
+        income = WAR_NODE_INCOME_MORA_PER_DAY
+        # Казна L: +5%/ур к доходу узлов
+        t_lvl = await c2_repo.building_level(db, node["owner_clan_id"], "treasury")
+        income = income * (1.0 + 0.05 * t_lvl)
+        await c2_repo.add_treasury(db, node["owner_clan_id"], mora=income)
+        await c2_repo.mark_income(db, node["id"])
+    await db.commit()
 
 
 async def _enqueue_auction_final_pushes(db) -> None:

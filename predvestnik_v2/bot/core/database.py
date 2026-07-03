@@ -1313,5 +1313,13 @@ async def init_db():
         _migrated = await _mig_gates(_PGAdapter(db))
         if _migrated:
             logger.info(f"R2: закрыто {_migrated} забегов старых Врат (лут начислен)")
+        # R3: Кланы 2.0 — казна/здания/Бездна/войны + конверсия клан-монет
+        from infrastructure.repositories.clans2 import (
+            ensure_tables as _ensure_clans2, migrate_clan_coins_to_shards as _mig_coins)
+        from core.constants import CLAN_COINS_TO_SHARDS
+        await _ensure_clans2(_PGAdapter(db))
+        _conv = await _mig_coins(_PGAdapter(db), CLAN_COINS_TO_SHARDS)
+        if _conv:
+            logger.info(f"R3: клан-монеты сконвертированы в 💠 у {_conv} игроков")
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")

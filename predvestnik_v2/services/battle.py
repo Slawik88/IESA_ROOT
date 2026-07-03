@@ -109,6 +109,7 @@ def resolve_turn(state: dict, stance: str, grade: str) -> dict:
         pet["st"] = max(0, pet["st"] - st_cost)
         dmg_out = max(1, int(pet["atk"] * mult - enemy["def"] * 0.5))
         enemy["hp"] = max(0, enemy["hp"] - dmg_out)
+        state["dmg_total"] = state.get("dmg_total", 0) + dmg_out   # для войн (урон стене)
         events.append(f"⚔️ Удар ({grade}): −{dmg_out} HP врагу")
     elif stance == "block":
         pet["st"] = max(0, pet["st"] - st_cost)

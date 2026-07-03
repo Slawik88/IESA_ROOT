@@ -2237,3 +2237,15 @@ body.modal-open { overflow: hidden; }
   overflow-y: auto; background: var(--dim); border-radius: 8px; padding: 6px 9px; margin-bottom: 8px; }
 .bt-stances { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
 .bt-stances .btn { padding: 11px 0; font-size: 12.5px; }
+
+/* ── R3 Кланы 2.0: Бездна (туман войны 7×7), нав-кнопки ─────────────────────── */
+.clan2-nav { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0; }
+.clan2-nav .btn { padding: 10px 0; font-size: 12px; }
+.ab-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 10px 0; }
+.ab-cell { aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; font-size: 15px; border: 1px solid var(--border2); }
+.ab-cell.fog { background: #0a0d13; border-color: #12161f; }
+.ab-cell.reach { background: linear-gradient(180deg, var(--bg2), var(--bg1));
+  border-color: var(--gold); cursor: pointer; transition: transform .1s; }
+.ab-cell.reach:active { transform: scale(.9); }
+.ab-cell.open { background: rgba(82,179,96,.10); border-color: rgba(82,179,96,.35); }

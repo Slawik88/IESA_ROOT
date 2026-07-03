@@ -360,10 +360,13 @@ function _g2PickPet(floor){
 }
 function _g2Enter(floor, petId, btn){
   if(btn)btn.disabled=true;
+  _btBackFn=_g2Load;
   api('/combat2/gates/enter',{method:'POST',body:JSON.stringify({floor, pet_id:petId})})
     .then(st=>{_haptic('medium'); _btRender(st);})
     .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
 }
+let _btBackFn=null;   // куда возвращаться после боя (Врата/Бездна/Война)
+function _btBack(){ (_btBackFn||_g2Load)(); }
 function _g2Heal(petId){
   api('/combat2/heal',{method:'POST',body:JSON.stringify({pet_id:petId})})
     .then(r=>{toast(`💊 +${r.healed} HP за ${fmt(r.price)} 🪙`); refreshCurrBar(); _g2Load();})
@@ -378,7 +381,12 @@ function _btRender(st, turn, reward){
   const finished = st.status==='won'||st.status==='lost';
   let head='';
   if(st.status==='won'){
-    const rw = reward ? ` +${reward.dark_mora} 🌑${reward.shards?` +${reward.shards} 💠`:''}` : '';
+    let rw='';
+    if(reward){
+      if(reward.dark_mora!==undefined) rw=` +${reward.dark_mora} 🌑${reward.shards?` +${reward.shards} 💠`:''}`;
+      else if(reward.split) rw=` +${reward.shards} 💠 (${reward.split.treasury} в казну${reward.boss_key?' · 🗝 ключ этажа':''})`;
+      else if(reward.damage!==undefined) rw=` урон стене: ${fmt(reward.damage)}${reward.breached?' · 🏰 УЗЕЛ ЗАХВАЧЕН!':` (${fmt(reward.wall_total)}/${fmt(reward.wall_hp_max)})`}`;
+    }
     head=`<div class="skg-head skg-won">🏆 ПОБЕДА!${rw}</div>`;
   } else if(st.status==='lost'){
     head=`<div class="skg-head skg-lost">☠️ Поражение. Питомца можно подлечить за 🪙.</div>`;
@@ -400,7 +408,7 @@ function _btRender(st, turn, reward){
     ${finished?'':`<div class="bt-qte"><div class="bt-ring" id="bt-ring"></div><div class="bt-ring-core">🎯</div></div>`}
     <div class="bt-log">${(st.log||[]).slice(-5).map(l=>`<div>${esc(l)}</div>`).join('')}</div>
     ${finished
-      ? `<button class="btn btn-gold btn-full" onclick="_g2Load()">↩ К Вратам</button>`
+      ? `<button class="btn btn-gold btn-full" onclick="_btBack()">↩ Назад</button>`
       : `<div class="bt-stances">
           <button class="btn btn-red"   onclick="_btAct('attack',this)">⚔️ Атака</button>
           <button class="btn btn-teal"  onclick="_btAct('block',this)">🛡 Блок</button>
