@@ -4,9 +4,15 @@ All wallet_log DB operations. No business logic.
 """
 import aiosqlite
 
+# БЛОК 36.2-фикс: фильтр «гача» матчил только вымершие 4-тирные source (после
+# Block 8 реальные — gacha_mora/gacha_diamond/gacha_drop) и не показывал ни одной
+# современной транзакции. Legacy-ключи оставлены для старых записей в логе.
+_GACHA_SOURCES = ["gacha_mora", "gacha_diamond", "gacha_drop",
+                  "gacha_novice", "gacha_standard", "gacha_premium"]
+_AUCTION_SOURCES = ["auction_sale", "auction_buy", "auction_reserve", "auction_listing_fee"]
 _SOURCE_FILTER_MAP: dict[str, list[str]] = {
-    "гача":    ["gacha_novice", "gacha_standard", "gacha_premium", "gacha_diamond"],
-    "gacha":   ["gacha_novice", "gacha_standard", "gacha_premium", "gacha_diamond"],
+    "гача":    _GACHA_SOURCES,
+    "gacha":   _GACHA_SOURCES,
     "переводы": ["transfer_in", "transfer_out"],
     "transfers": ["transfer_in", "transfer_out"],
     "магазин": ["shop_purchase", "daily_deal_purchase"],
@@ -17,8 +23,8 @@ _SOURCE_FILTER_MAP: dict[str, list[str]] = {
     "games":   ["gamble_win", "gamble_loss"],
     "походы":  ["expedition"],
     "expedition": ["expedition"],
-    "аукцион": ["auction_sale", "auction_buy", "auction_reserve"],
-    "auction": ["auction_sale", "auction_buy", "auction_reserve"],
+    "аукцион": _AUCTION_SOURCES,
+    "auction": _AUCTION_SOURCES,
 }
 
 

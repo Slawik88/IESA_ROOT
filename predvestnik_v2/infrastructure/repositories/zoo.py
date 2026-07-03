@@ -548,9 +548,14 @@ async def get_active_pet(db, owner_id: int) -> dict | None:
 
 
 async def get_busy_expedition(db, owner_id: int) -> dict | None:
-    """Активная (незавершённая) экспедиция игрока — {pet_id, ends_at, name} или None."""
+    """Активная (незавершённая) экспедиция игрока — {pet_id, ends_at, remaining_sec, name} или None.
+
+    remaining_sec — разность внутри БД (одна временная база): клиенты ведут обратный
+    отсчёт от неё и не парсят naive-строку ends_at против часов устройства."""
     async with db.execute(
-        "SELECT ae.pet_id, ae.ends_at, p.name FROM active_expeditions ae JOIN pets p ON ae.pet_id = p.id "
+        "SELECT ae.pet_id, ae.ends_at, p.name, "
+        "CAST(EXTRACT(EPOCH FROM (ae.ends_at - NOW())) AS BIGINT) AS remaining_sec "
+        "FROM active_expeditions ae JOIN pets p ON ae.pet_id = p.id "
         "WHERE p.owner_id = ? AND ae.ends_at > NOW() ORDER BY ae.ends_at DESC LIMIT 1",
         (owner_id,),
     ) as c:
@@ -559,9 +564,11 @@ async def get_busy_expedition(db, owner_id: int) -> dict | None:
 
 
 async def get_active_expeditions_detailed(db, owner_id: int) -> list[dict]:
-    """Все активные экспедиции игрока с именем/видом питомца (для UI списка)."""
+    """Все активные экспедиции игрока с именем/видом питомца (для UI списка).
+    remaining_sec может быть ≤0 — поход завершён и ждёт сборщика (UI покажет «Готово»)."""
     async with db.execute(
-        "SELECT e.pet_id, e.duration_hours, e.ends_at, p.name, p.species_id "
+        "SELECT e.pet_id, e.duration_hours, e.ends_at, p.name, p.species_id, "
+        "CAST(EXTRACT(EPOCH FROM (e.ends_at - NOW())) AS BIGINT) AS remaining_sec "
         "FROM active_expeditions e JOIN pets p ON e.pet_id = p.id "
         "WHERE p.owner_id = ?",
         (owner_id,),

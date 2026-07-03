@@ -11,10 +11,12 @@ function loadProfile() {
     _tosGate(d);   // БЛОК22: блок-экран принятия ToS/Privacy для не принявших
     const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,6);
     const uid = d.user_id || _uid;
-    const lvl = d.chats?.[0]?.user_level || 1;
-    const xp = d.chats?.[0]?.user_xp || 0;
-    const xpPerLvl = d.xp_per_level || 3000;
-    const xpInLvl = xp % xpPerLvl, xpPct = Math.min(100, Math.round(xpInLvl/xpPerLvl*100));
+    // R0: уровень аккаунта (глобальный, экспоненциальная кривая) — с бэка,
+    // per-chat user_level больше не игровой уровень (фолбэк для старого кэша ответа)
+    const lvl = d.account_level || d.chats?.[0]?.user_level || 1;
+    const xpPerLvl = d.xp_to_next || d.xp_per_level || 3000;
+    const xpInLvl = (typeof d.xp_into==='number') ? d.xp_into : ((d.chats?.[0]?.user_xp||0) % xpPerLvl);
+    const xpPct = Math.min(100, Math.round(xpInLvl/xpPerLvl*100));
     // БЛОК 3: торжественный левел-ап (детект между загрузками) + анимация заливки
     // XP-шкалы один раз за сессию (чтобы авто-релоад каждые 5 мин её не дёргал).
     _checkLevelUp(lvl);
@@ -36,7 +38,7 @@ function loadProfile() {
         </div>
         <div class="hero-xp">
           <div class="xp-bar"><div class="xp-fill" data-pct="${xpPct}" style="width:${animateXp?0:xpPct}%"></div></div>
-          <div class="xp-lbl"><span>Уровень ${lvl}</span><span>${fmt(xpInLvl)} / ${fmt(xpPerLvl)} XP</span></div>
+          <div class="xp-lbl"><span>Уровень ${lvl}${typeof d.combat_power==='number'?` · <span style="color:var(--gold2);cursor:pointer" onclick="showCpBreakdown()" title="Индекс Силы">⚡ ${fmt(d.combat_power)}</span>`:''}</span><span>${fmt(xpInLvl)} / ${fmt(xpPerLvl)} XP</span></div>
         </div>
         <div class="stats">
           <div class="stat clickable" onclick="openExchangeCurrencyModal('buy')"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора 🔄</div></div>
@@ -127,11 +129,32 @@ function openSettingsModal(){
       <span style="font-size:12.5px">Отключить анимации косметики</span>
     </label>
     <div class="set-hint">Свечения, рамки и частицы станут статичными — полезно на слабых телефонах.</div>
+    <div class="set-sec-t" style="margin-top:14px">🔔 Уведомления от бота</div>
+    <div id="set-notif-prefs"><div class="loader">Загрузка...</div></div>
+    <div class="set-hint">Личные напоминания в ЛС. Групповые события чата приходят всем и здесь не отключаются.</div>
     <div class="set-sec-t" style="margin-top:14px">Юридические документы</div>
     <button class="btn btn-ghost btn-full" onclick="openLegalDoc('tos')">📖 Пользовательское соглашение</button>
     <button class="btn btn-ghost btn-full" style="margin-top:7px" onclick="openLegalDoc('privacy')">🔒 Политика конфиденциальности</button>
     <div class="set-hint">Документы также доступны по прямой ссылке и в боте.</div>`,
     [{l:'Готово',c:'btn-gold',f:'CM()'}]);
+  _loadNotifPrefs();
+}
+// R6 «Умный Пульс»: тумблеры персональных DM-уведомлений (раньше их нельзя было
+// отключить нигде — БЛОК 36.1)
+function _loadNotifPrefs(){
+  const box=el('set-notif-prefs'); if(!box) return;
+  api('/profile/notification-prefs').then(d=>{
+    box.innerHTML=(d.categories||[]).map(c=>`
+      <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;cursor:pointer">
+        <input type="checkbox" ${c.enabled?'checked':''} onchange="_setNotifPref('${c.key}',this.checked)"/>
+        <span style="font-size:12.5px">${esc(c.label)}</span>
+      </label>`).join('')||'<div class="set-hint">Категорий пока нет.</div>';
+  }).catch(()=>{box.innerHTML='<div class="set-hint" style="color:var(--red)">Не удалось загрузить настройки.</div>';});
+}
+function _setNotifPref(key,on){
+  api('/profile/notification-prefs',{method:'POST',body:JSON.stringify({category:key,enabled:on})})
+    .then(()=>toast(on?'🔔 Включено':'🔕 Выключено'))
+    .catch(e=>{toast(e,false);_loadNotifPrefs();});
 }
 function _toggleNoFx(on){
   document.body.classList.toggle('no-fx',on);
@@ -434,7 +457,7 @@ function updateCurrBar(data) {
   if (data?.username !== undefined) {
     const nm=el('hdr-name'); if(nm) nm.textContent=(data.is_vip?'👑 ':'')+(data.username||'Игрок');
     const sub=el('hdr-sub');
-    if(sub) sub.textContent=`Lv${data.chats?.[0]?.user_level||1} · 🔥${data.streak||0}`;
+    if(sub) sub.textContent=`Lv${data.account_level||data.chats?.[0]?.user_level||1} · 🔥${data.streak||0}`;
     const av=el('hdr-ava'); if(av && data.is_vip){ av.textContent='👑'; _ensureVipAvatar(); }
   }
 }
@@ -727,3 +750,22 @@ function openAchModal(a) {
   `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
 }
 
+
+// ── R1: модалка брейкдауна Индекса Силы (⚡ CP) ────────────────────────────────
+function showCpBreakdown() {
+  const b=_profileData&&_profileData.cp_breakdown;
+  if(!b){toast('Данные CP ещё не загружены',false);return;}
+  const row=(k,v)=>`<div class="irow"><span class="ik">${k}</span><span class="iv" style="color:var(--gold2)">+${fmt(v)}</span></div>`;
+  OM('⚡ Индекс Силы',`
+    <div style="text-align:center;padding:8px 0 12px">
+      <div style="font-size:30px;font-weight:800;color:var(--gold2)">⚡ ${fmt(b.total)}</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">публичный показатель силы аккаунта</div>
+    </div>
+    ${row('⭐ Уровень аккаунта × 100', b.level_part)}
+    ${row('⚔️ Активный питомец', b.active_pet)}
+    ${row('🛡 Пассивные питомцы (×0.5)', b.passive_pets)}
+    ${row('🎨 Полный сет косметики', b.cosmetics_set)}
+    ${row('🏛 Реликвии', b.relics)}
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.4">Питомцы на складе CP не дают. Сет косметики — все 6 слотов надеты, бонус по минимальной редкости.</div>
+  `,[{l:'Понятно',c:'btn-gold',f:'CM()'}]);
+}

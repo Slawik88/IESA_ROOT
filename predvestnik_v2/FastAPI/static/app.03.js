@@ -233,7 +233,7 @@ function renderExps(d) {
   w.innerHTML=d.expeditions.map(e=>`<div class="exp-card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <div style="font-size:13px;font-weight:600;color:var(--bright)">${e.name} <span style="font-size:11px;color:var(--muted)">· ${e.duration_hours}ч</span></div>
-      <div id="tm-${e.pet_id}">${countdown(e.ends_at)}</div>
+      <div id="tm-${e.pet_id}">${countdownMs(expDeadlineMs(e))}</div>
     </div>
     ${Object.keys(boo).length?`<div style="padding-top:8px;border-top:1px solid var(--border2)">
       ${Object.entries(boo).map(([bid,b])=>`<div class="fopt" onclick="boostExp(${e.pet_id},'${bid}',this)">
@@ -243,16 +243,19 @@ function renderExps(d) {
       </div>`).join('')}
     </div>`:''}
   </div>`).join('');
-  _expTimer=setInterval(()=>d.expeditions.forEach(e=>{const t=el('tm-'+e.pet_id);if(t)t.innerHTML=countdown(e.ends_at);}),1000);
+  _expTimer=setInterval(()=>d.expeditions.forEach(e=>{const t=el('tm-'+e.pet_id);if(t)t.innerHTML=countdownMs(expDeadlineMs(e));}),1000);
 }
 // ── 🗺 Лаунчер похода (отправка активного питомца прямо с сайта) ───────────────
 function expLauncherHtml() {
   const o=_expOpts;
   if(!o) return '';
   if(o.busy) {
+    const _left=(typeof o.busy_remaining_sec==='number')
+      ?`вернётся через ${fmtDurShort(o.busy_remaining_sec)}`
+      :`до ${esc(o.busy_until||'')}`;
     return `<div class="card" style="margin-bottom:10px">
       <div class="card-title">🗺 Поход идёт</div>
-      <div class="irow"><span class="ik">${esc(o.busy_pet||'Питомец')} в походе</span><span style="color:var(--teal)">до ${esc(o.busy_until||'')}</span></div>
+      <div class="irow"><span class="ik">${esc(o.busy_pet||'Питомец')} в походе</span><span style="color:var(--teal)">${_left}</span></div>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">За раз можно отправить одного питомца. Ускорить возвращение — бустером (см. блок похода выше).</div>
     </div>`;
   }

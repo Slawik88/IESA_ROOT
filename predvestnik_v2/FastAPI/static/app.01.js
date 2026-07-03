@@ -269,13 +269,30 @@ function copyUid(uid) {
     .catch(()=>toast('Буфер обмена недоступен',false));
 }
 
-function countdown(endsAt) {
-  const ends=new Date((endsAt+'').includes('T')?endsAt:endsAt+'Z');
-  const diff=Math.max(0,Math.floor((ends-Date.now())/1000));
+// Дедлайн экспедиции: строится ОДИН раз из серверного remaining_sec (разность
+// внутри БД — не зависит ни от таймзоны naive-строки ends_at, ни от часов
+// устройства игрока; фикс бага «Готово ✓» при ещё идущем походе). Парсинг
+// абсолютной строки — только фолбэк для старых/кэшированных ответов без поля.
+function expDeadlineMs(e){
+  if(e._dl===undefined){
+    e._dl=(typeof e.remaining_sec==='number')
+      ? Date.now()+e.remaining_sec*1000
+      : new Date((e.ends_at+'').includes('T')?e.ends_at:e.ends_at+'Z').getTime();
+  }
+  return e._dl;
+}
+function countdownMs(deadlineMs) {
+  const diff=Math.max(0,Math.floor((deadlineMs-Date.now())/1000));
   if(diff<=0)return'<span style="color:var(--green)">Готово ✓</span>';
   const h=Math.floor(diff/3600),m=Math.floor((diff%3600)/60),s=diff%60;
   const str=h?`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`;
   return `<span class="exp-timer${diff<300?' urgent':''}">${str}</span>`;
+}
+// Короткая длительность для подписей: «2ч 15м» / «45м»
+function fmtDurShort(sec){
+  sec=Math.max(0,Math.floor(sec||0));
+  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);
+  return h?`${h}ч ${String(m).padStart(2,'0')}м`:`${m}м`;
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────

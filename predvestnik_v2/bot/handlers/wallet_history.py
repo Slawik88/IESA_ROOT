@@ -11,10 +11,13 @@ router = Router(name="wallet_history_router")
 
 _SOURCE_LABELS: dict[str, str] = {
     "expedition": "🗺 Поход",
+    # Актуальные source после Block 8 — gacha_mora/gacha_diamond; novice/standard/
+    # premium — legacy-метки для старых записей лога.
+    "gacha_mora": "🎲 Гача (крутка за Мору)",
+    "gacha_diamond": "💎 Гача (алмазная крутка)",
     "gacha_novice": "🎲 Гача (учен.)",
     "gacha_standard": "💫 Гача (станд.)",
     "gacha_premium": "🌟 Гача (премиум)",
-    "gacha_diamond": "💎 Гача (алмаз.)",
     "gacha_drop": "🎁 Гача-дроп",
     "streak_daily": "🔥 Стрик (день)",
     "streak_block_end": "🔥 Стрик (блок)",
@@ -39,6 +42,7 @@ _SOURCE_LABELS: dict[str, str] = {
     "compensation_overflow": "♻️ Компенсация",
     "auction_sale": "🏛 Аукцион (продажа)",
     "auction_buy": "🏛 Аукцион (покупка)",
+    "auction_listing_fee": "🏛 Аукцион (листинг-сбор)",
     "system": "⚙️ Система",
     "spend": "💸 Списание",
     "contrabanda_stake": "🌑 Контрабанда (ставка)",

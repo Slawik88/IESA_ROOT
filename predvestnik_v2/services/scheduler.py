@@ -1,6 +1,7 @@
 # services/scheduler.py
 # Background task: polls completed expeditions and distributes rewards.
 import asyncio
+import os
 from loguru import logger
 from aiogram import Bot
 
@@ -30,7 +31,11 @@ from infrastructure.repositories.wallet_log import log_wallet as _lw
 from services.auction import resolve_lot, flush_pending_announcements
 from infrastructure.repositories.duel import get_expired_pending
 from services.duel import decline_duel
-from core.constants import DUEL_TIMEOUT_SECONDS, VIP_EXPIRY_REMINDER_DAYS, BATTLE_PASS_SEASON_END_REMINDER_DAYS
+from core.constants import (
+    DUEL_TIMEOUT_SECONDS, VIP_EXPIRY_REMINDER_DAYS, BATTLE_PASS_SEASON_END_REMINDER_DAYS,
+    PUSH_MIN_INTERVAL_SEC, PUSH_PRIORITIES,
+)
+from infrastructure.repositories import push as push_repo
 from core.registry import VIP_TIERS
 from services.battle_pass import get_active_season, refresh_seasons_cache as refresh_bp_seasons
 
@@ -555,9 +560,104 @@ async def duel_and_auction_task(bot: Bot):
                 except Exception as _e:
                     logger.warning(f"weekly_top1 tracking error: {_e}")
 
+                # R5/R6: «перебит, финал через ~10 мин» → в очередь Умного Пульса
+                try:
+                    await _enqueue_auction_final_pushes(db)
+                except Exception as _pe:
+                    logger.warning(f"auction final push enqueue error: {_pe}")
+
         except Exception as e:
             logger.error(f"Ошибка в задаче дуэлей/аукциона: {e}")
             await asyncio.sleep(30)
+
+
+async def _enqueue_auction_final_pushes(db) -> None:
+    """Лоты, входящие в окно «~10 минут до конца»: всем перебитым ставившим —
+    событие bid_outbid_final в push_queue. Окно (9;10] минут при минутном тике
+    ловится ровно один раз на лот; дубли дополнительно гасятся ритмом Пульса."""
+    async with db.execute(
+        "SELECT l.id, l.item_name FROM auction_lots l "
+        "WHERE l.status = 'active' "
+        "AND l.ends_at > NOW() + INTERVAL '9 minutes' "
+        "AND l.ends_at <= NOW() + INTERVAL '10 minutes'",
+    ) as c:
+        lots = [dict(r) for r in await c.fetchall()]
+    for lot in lots:
+        title = (lot["item_name"] or "Лот").split("||")[0]
+        # Перебитые = ставили на лот, но их ставка уже не активна и не топ
+        async with db.execute(
+            "SELECT DISTINCT b.bidder_id FROM auction_bids b "
+            "WHERE b.lot_id = ? AND b.is_active = 0 "
+            "AND b.bidder_id NOT IN ("
+            "  SELECT bidder_id FROM auction_bids WHERE lot_id = ? AND is_active = 1"
+            ")",
+            (lot["id"], lot["id"]),
+        ) as c:
+            outbid = [r[0] for r in await c.fetchall()]
+        for uid in outbid:
+            await push_repo.enqueue(
+                db, uid, "bid_outbid_final",
+                PUSH_PRIORITIES.get("bid_outbid_final", 100),
+                {"lot_id": lot["id"], "title": title},
+            )
+
+
+def _push_text_and_link(category: str, payload: dict) -> tuple[str, str]:
+    """Текст DM + секция мини-аппа (startapp=...) для категории события Пульса."""
+    if category == "bid_outbid_final":
+        title = payload.get("title", "лот")
+        return (
+            f"🔨 <b>Твоя ставка перебита!</b>\n"
+            f"Финал лота «{title}» — примерно через 10 минут. Успей вернуть себе лот!",
+            "auction",
+        )
+    return "🔔 У тебя есть непрочитанные игровые события.", ""
+
+
+async def smart_pulse_task(bot: Bot):
+    """R6 «Умный Пульс»: каждые 5 минут выбирает игроков с несент-событиями,
+    у которых прошло ≥2ч с последнего DM, и шлёт ОДНО самое приоритетное
+    (с учётом персональных настроек уведомлений). Остальная пачка «сгорает» —
+    события видны на сайте при заходе."""
+    logger.info("Фоновая задача «Умный Пульс» запущена.")
+    bot_username = os.getenv("BOT_USERNAME", "")
+    while True:
+        await asyncio.sleep(300)
+        try:
+            async with get_pool().acquire() as _conn:
+                db = PGAdapter(_conn)
+                user_ids = await push_repo.users_ready_for_push(db, PUSH_MIN_INTERVAL_SEC)
+                for uid in user_ids:
+                    try:
+                        pending = await push_repo.pending_for_user(db, uid)
+                        chosen = None
+                        for ev in pending:
+                            if await _notif_enabled(db, uid, ev["category"]):
+                                chosen = ev
+                                break
+                        # Всю пачку помечаем sent в любом случае (выключенные
+                        # категории не должны копиться вечно)
+                        await push_repo.mark_all_sent(db, uid)
+                        if not chosen:
+                            continue
+                        text, section = _push_text_and_link(chosen["category"], chosen["payload"])
+                        kb = None
+                        if section and bot_username:
+                            from aiogram.types import (
+                                InlineKeyboardMarkup, InlineKeyboardButton,
+                            )
+                            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                                InlineKeyboardButton(
+                                    text="🚀 Открыть",
+                                    url=f"https://t.me/{bot_username}?startapp={section}",
+                                )
+                            ]])
+                        await bot.send_message(uid, text, parse_mode="HTML", reply_markup=kb)
+                    except Exception as _ue:
+                        logger.debug(f"pulse: пропуск {uid}: {_ue}")  # ЛС закрыта/бот заблокирован
+        except Exception as e:
+            logger.error(f"Ошибка «Умного Пульса»: {e}")
+            await asyncio.sleep(60)
 
 
 async def chest_spawn_task(bot: Bot):

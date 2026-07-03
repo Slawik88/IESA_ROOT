@@ -38,7 +38,7 @@ function openBoostSelModal(bid) {
   api('/zoo/expeditions').then(d=>{
     if(!d.expeditions.length){toast('Нет активных экспедиций.',false);return;}
     OM('⏩ Выберите экспедицию',d.expeditions.map(e=>`<div class="fopt" onclick="doBoostFromInv(${e.pet_id},'${bid}',this)">
-      <span class="fn">${e.name}</span><span style="font-size:11px;color:var(--teal)">${countdown(e.ends_at)}</span></div>`).join(''),[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+      <span class="fn">${e.name}</span><span style="font-size:11px;color:var(--teal)">${countdownMs(expDeadlineMs(e))}</span></div>`).join(''),[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
   }).catch(e=>toast(e,false));
 }
 function doBoostFromInv(pid,bid,row) {

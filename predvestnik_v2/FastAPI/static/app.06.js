@@ -282,6 +282,7 @@ function renderGlobalProfile(d, recipientId){
     ${clan}
     <div class="gp-stats">
       <div class="gp-st"><div class="gp-sv">${d.level}</div><div class="gp-sl">Уровень</div></div>
+      ${typeof d.combat_power==='number'?`<div class="gp-st"><div class="gp-sv" style="color:var(--gold2)">⚡${fmt(d.combat_power)}</div><div class="gp-sl">Сила</div></div>`:''}
       <div class="gp-st"><div class="gp-sv">🔥${d.streak}</div><div class="gp-sl">Стрик</div></div>
       <div class="gp-st"><div class="gp-sv">🏆${d.achievements}</div><div class="gp-sl">Ачивки</div></div>
       <div class="gp-st"><div class="gp-sv">${fmt(d.messages)}</div><div class="gp-sl">Сообщений</div></div>
@@ -644,9 +645,62 @@ function loadDeal() {
             </button>
           </div>`;
         }).join('')+'</div>'
-      :'<div class="loader">Акций нет.</div>'}`;
+      :'<div class="loader">Акций нет.</div>'}
+      <div id="mkt-showcase"></div>`;
     startDealTimer();
+    loadShowcase();
   }).catch(e=>{el('mkt-deal').innerHTML=`<div class="err">${e}</div>`;});
+}
+// ── R4.2: Витрина недели — 5 тёмных карточек косметики со скидкой 10–30% ───────
+// Тайна до тапа: слот+цвет редкости видны, предмет и цена — после reveal (сервер).
+function loadShowcase(){
+  const box=el('mkt-showcase'); if(!box) return;
+  api('/showcase/').then(d=>{
+    const slots=d.slots||[];
+    if(!slots.length){box.innerHTML='';return;}
+    const days=Math.floor((d.rotates_in_sec||0)/86400), hrs=Math.floor(((d.rotates_in_sec||0)%86400)/3600);
+    box.innerHTML=`<div class="card">
+      <div class="card-title">🃏 Витрина недели <span style="float:right;font-size:10px;font-weight:400;color:var(--muted)">обновится через ${days}д ${hrs}ч</span></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">5 случайных предметов косметики со скидкой 10–30%. Нажми на карту, чтобы узнать, что внутри. Одна покупка каждой карты в неделю.</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${slots.map(s=>_showcaseCard(s)).join('')}
+      </div>
+    </div>`;
+  }).catch(()=>{box.innerHTML='';});
+}
+function _showcaseCard(s){
+  const slotIcons={name_glow:'✨',avatar_frame:'🖼',title:'🏷',avatar_halo:'🌟',profile_bg:'🖌',card_fx:'❄️'};
+  const icon=slotIcons[s.slot]||'🎁';
+  if(!s.revealed){
+    return `<div class="looks-card r-${s.rarity}" onclick="_showcaseReveal(${s.slot_idx},this)"
+      style="cursor:pointer;text-align:center;padding:14px 6px;background:linear-gradient(135deg,var(--bg2),var(--dim))">
+      <div style="font-size:26px;filter:grayscale(1) brightness(.6)">${icon}</div>
+      <div style="font-size:16px;margin:4px 0;color:var(--muted)">❓</div>
+      <div class="lc-rar" style="font-size:9px">${rarLabel(s.rarity)}</div>
+    </div>`;
+  }
+  const bought=s.purchased;
+  return `<div class="looks-card r-${s.rarity}" style="text-align:center;padding:10px 6px">
+    <div style="font-size:20px">${icon}</div>
+    <div style="font-size:10.5px;font-weight:600;margin:3px 0;line-height:1.25">${esc(s.name||'')}</div>
+    <div style="font-size:10px"><s style="color:var(--muted)">${s.price_base}✨</s>
+      <b style="color:var(--gold2)">${s.price}✨</b>
+      <span style="color:var(--green)">−${s.discount_pct}%</span></div>
+    <button class="btn btn-sm ${bought?'btn-ghost':'btn-gold'}" style="margin-top:5px;width:100%" ${bought?'disabled':''}
+      onclick="_showcaseBuy(${s.slot_idx},this)">${bought?'✓':'Купить'}</button>
+  </div>`;
+}
+function _showcaseReveal(idx,card){
+  if(card) card.style.opacity='.5';
+  api('/showcase/reveal',{method:'POST',body:JSON.stringify({slot_idx:idx})})
+    .then(()=>loadShowcase())
+    .catch(e=>{toast(e,false);if(card)card.style.opacity='1';});
+}
+function _showcaseBuy(idx,btn){
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  api('/showcase/buy',{method:'POST',body:JSON.stringify({slot_idx:idx})})
+    .then(r=>{toast(r.message||'🎨 Куплено!');loadShowcase();})
+    .catch(e=>{toast(e,false);loadShowcase();});
 }
 function startDealTimer() {
   if(_dealTimerInterval) clearInterval(_dealTimerInterval);

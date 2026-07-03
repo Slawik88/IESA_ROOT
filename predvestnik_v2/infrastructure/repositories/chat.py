@@ -57,7 +57,8 @@ async def increment_stats_and_get_xp(
             user_messages_count_all_time = user_chat_stats.user_messages_count_all_time + 1,
             user_xp         = user_chat_stats.user_xp + 10,
             last_message_at = NOW()
-        RETURNING user_xp, user_level
+        RETURNING user_xp, user_level,
+                  user_messages_count_all_time, user_messages_count_per_day
     """
     async with db.execute(query, (user_id, chat_id)) as cursor:
         row = await cursor.fetchone()
@@ -72,7 +73,10 @@ async def increment_stats_and_get_xp(
         (user_id, chat_id),
     )
 
-    return dict(row) if row else {"user_xp": 0, "user_level": 1}
+    return dict(row) if row else {
+        "user_xp": 0, "user_level": 1,
+        "user_messages_count_all_time": 0, "user_messages_count_per_day": 1,
+    }
 
 
 async def update_level(db: PGAdapter, user_id: int, chat_id: int, new_level: int):

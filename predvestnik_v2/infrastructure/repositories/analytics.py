@@ -3,32 +3,49 @@ from datetime import datetime, timezone, timedelta
 
 
 async def ensure_table(db) -> None:
-    await db.execute("""
+    """Каждый DDL изолирован и логируется: молчаливый `except: pass` уже приводил
+    к тому, что упавший ALTER (лок на живой таблице при деплое) тихо ронял всю
+    цепочку и колонка duration_sec не появлялась на проде."""
+    from loguru import logger
+
+    async def _try(label: str, sql: str) -> None:
+        try:
+            await db.execute(sql)
+        except Exception as e:
+            logger.warning(f"[analytics.ensure] {label}: {e}")
+
+    await _try("create table", """
         CREATE TABLE IF NOT EXISTS site_analytics (
             id         SERIAL PRIMARY KEY,
             user_id    BIGINT NOT NULL,
             tab        TEXT NOT NULL,
             session_id TEXT NOT NULL,
-            visited_at TIMESTAMP NOT NULL DEFAULT NOW()
+            visited_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            duration_sec INTEGER NOT NULL DEFAULT 0
         )
     """)
-    # Migration: INTEGER → BIGINT (safe, idempotent) — новые Telegram ID (5+ млрд)
-    # не влезали в int32, каждая запись аналитики для таких юзеров падала с ошибкой.
+    # Время удержания на вкладке — копится хартбитом с фронта (раз в 15с, только
+    # пока вкладка реально видима) поверх той же строки визита. ADD COLUMN идёт
+    # ПЕРВЫМ из ALTER'ов — до тяжёлой BIGINT-миграции.
+    await _try("add duration_sec",
+        "ALTER TABLE site_analytics ADD COLUMN IF NOT EXISTS duration_sec INTEGER NOT NULL DEFAULT 0")
+    # Migration: INTEGER → BIGINT — новые Telegram ID (5+ млрд) не влезали в int32.
+    # Гоняем ТОЛЬКО если колонка реально int4: same-type ALTER в PG всё равно
+    # переписывает таблицу под ACCESS EXCLUSIVE — это и был источник лока на старте.
     try:
-        await db.execute("ALTER TABLE site_analytics ALTER COLUMN user_id TYPE BIGINT")
-    except Exception:
-        pass  # уже BIGINT или миграция не нужна (non-fatal)
-    # Время удержания на вкладке — копится хартбитом с фронта (раз в 15с, только пока
-    # вкладка реально видима) поверх той же строки визита.
-    await db.execute(
-        "ALTER TABLE site_analytics ADD COLUMN IF NOT EXISTS duration_sec INTEGER NOT NULL DEFAULT 0"
-    )
-    await db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_sa_visited_at ON site_analytics(visited_at)"
-    )
-    await db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_sa_tab ON site_analytics(tab, visited_at)"
-    )
+        async with db.execute(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name = 'site_analytics' AND column_name = 'user_id'"
+        ) as c:
+            row = await c.fetchone()
+        if row and str(row[0]).lower() in ("integer", "int4"):
+            await db.execute("ALTER TABLE site_analytics ALTER COLUMN user_id TYPE BIGINT")
+    except Exception as e:
+        logger.warning(f"[analytics.ensure] user_id→BIGINT: {e}")
+    await _try("idx visited_at",
+        "CREATE INDEX IF NOT EXISTS idx_sa_visited_at ON site_analytics(visited_at)")
+    await _try("idx tab",
+        "CREATE INDEX IF NOT EXISTS idx_sa_tab ON site_analytics(tab, visited_at)")
     await db.commit()
 
 

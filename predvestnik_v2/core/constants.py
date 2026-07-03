@@ -2,11 +2,34 @@
 # Single source of truth for every game number.
 # Changing a value here automatically affects both Bot and Web.
 
-# ── Leveling ──────────────────────────────────────────────────────────────────
-XP_PER_MESSAGE: int = 10          # base XP awarded per chat message
-XP_PER_LEVEL: int = 3_000         # XP needed for each level step
-MORA_PER_LEVEL: float = 500.0     # Mora reward on level-up
-DIAMONDS_PER_LEVEL: float = 1.0   # Diamond reward on level-up
+# ── Leveling (R0: экспоненциальная кривая аккаунта, GDD_REBUILD_PLAN.md) ──────
+# Уровень аккаунта глобальный (users.account_xp), per-chat user_xp/user_level
+# остаются только как счётчики активности для топов/админки.
+# XP на уровень L→L+1 = ACC_XP_BASE × ACC_XP_GROWTH^(L−1);
+# кумулятив до уровня L = BASE × (GROWTH^(L−1) − 1) / (GROWTH − 1).
+XP_PER_MESSAGE: int = 10               # base XP awarded per chat message
+ACC_XP_BASE: int = 1_000
+ACC_XP_GROWTH: float = 1.2
+ACC_LEVEL_CAP: int = 100               # страховочный потолок (цикл/выплаты)
+ACC_LEVEL_REWARD_MORA_PER_LVL: float = 200.0   # 🪙 за левел-ап = 200 × новый уровень
+ACC_LEVEL_REWARD_DIAMONDS: float = 1.0         # 💎 за каждый левел-ап
+ACC_LEVEL_REWARD_DIAMONDS_MILESTONE: float = 5.0  # доп. 💎 на каждом 5-м уровне
+# Софт-кап XP за сообщения в день (анти-флуд): (порог сообщений включительно, множитель).
+# Первые 100 сообщений дня — полный XP, 101–250 — половина, дальше — ×0.2.
+XP_DAILY_SOFT_STEPS: tuple = ((100, 1.0), (250, 0.5), (10**9, 0.2))
+
+# ── R1: Индекс Силы (⚡ Combat Power) — services/combat_power.py ───────────────
+# CP = уровень×100 + CP актив-питомца + 0.5×Σ CP пассивных + сет косметики + реликвии.
+# Публичный «паспортный» показатель силы аккаунта; усталость питомцев НЕ учитывается.
+CP_PER_ACCOUNT_LEVEL: int = 100
+CP_PASSIVE_PET_SCALE: float = 0.5
+CP_PET_WEIGHTS: dict = {"atk": 4.0, "def": 3.0, "hp": 0.5, "stamina": 0.1}
+CP_PER_RELIC_POWER: int = 20
+# Полный сет косметики (все 6 слотов надеты и видимы) → бонус по МИНИМАЛЬНОЙ
+# редкости из надетых; неполный сет — 0.
+CP_COSMETIC_SET_BONUS: dict = {
+    "common": 60, "rare": 120, "epic": 200, "legendary": 320, "mythic": 500,
+}
 
 # ── Economy ───────────────────────────────────────────────────────────────────
 FAMILY_BANK_DEFAULT_CAP: float = 50_000.0
@@ -370,6 +393,13 @@ AUCTION_MIN_BID: float = 1.0    # пол мин. ставки (продавец 
 AUCTION_MIN_BID_RAISE: float = 0.05
 AUCTION_COMMISSION: float = 0.05
 AUCTION_MAX_BID: float = 1_000_000.0
+# R8: листинг-сбор при выставлении лота (доля от min_bid, минимум 1 🪙, не возвращается)
+AUCTION_LISTING_FEE: float = 0.01
+# R5 «Молот Аукциона»: ставка в последние N секунд продлевает лот на M секунд,
+# суммарное продление капается (иначе война ставок бесконечна).
+AUCTION_ANTISNIPE_WINDOW_SEC: int = 60
+AUCTION_ANTISNIPE_EXTEND_SEC: int = 60
+AUCTION_MAX_EXTENSION_SEC: int = 1800
 
 # ── Chat settings defaults (B19) ─────────────────────────────────────────────
 CHAT_RANK_WARN: int = 2      # minimum local rank to issue a warn
@@ -540,6 +570,17 @@ VIP_EXPIRY_REMINDER_DAYS: int = 3         # send "VIP expiring soon" reminder th
 NOTIFICATION_CATEGORIES: dict[str, str] = {
     "vip_expiry":  "⏳ Напоминание об истечении VIP",
     "bp_reminder": "🎫 Напоминание о конце сезона БП",
+    "bid_outbid_final": "🔨 Перебитая ставка (финал лота)",
+}
+
+# ── R6 «Умный Пульс» (services/scheduler.smart_pulse_task) ─────────────────────
+# Не чаще 1 DM в PUSH_MIN_INTERVAL_SEC на игрока; из накопившихся событий
+# отправляется самое приоритетное, остальные пачки «сгорают» (видны на сайте).
+PUSH_MIN_INTERVAL_SEC: int = 7200
+PUSH_PRIORITIES: dict[str, int] = {
+    "bid_outbid_final": 100,
+    "vip_expiry": 30,
+    "bp_reminder": 20,
 }
 
 # ── Battle Pass (Implementation Block 5) ───────────────────────────────────────

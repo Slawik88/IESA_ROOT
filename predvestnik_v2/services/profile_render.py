@@ -9,7 +9,7 @@ AND browser innerHTML (same tag subset: <b>, <i>, <code>, <a>).
 import re
 from datetime import datetime
 
-from core.constants import XP_PER_LEVEL
+from services.leveling import account_progress
 from core.registry import PET_SPECIES
 from services import roles
 from services.formatting import parse_dt
@@ -448,6 +448,7 @@ async def build_profile_text(
     hamster_inc    = await zoo_db.get_pending_hamster_income(db, user_id)
     ach_count      = await ach_repo.get_user_achievements_count(db, user_id)
     is_vip         = await is_vip_active(db, user_id)
+    account        = await users_repo.get_account_progress(db, user_id)
 
     from services.cosmetics import get_active_cosmetics
     title = (await get_active_cosmetics(db, user_id)).get("title")
@@ -468,12 +469,13 @@ async def build_profile_text(
     g_rank = roles.get_global_rank_name(user_id, global_rank_id, developer_id=developer_id)
     l_rank = roles.get_local_rank_name(user_id, stats.get("local_rank", 0), developer_id=developer_id)
 
-    lvl       = stats.get("user_level", 1)
-    xp        = stats.get("user_xp", 0)
-    xp_in_lvl = xp % XP_PER_LEVEL
-    bar       = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
-    pct       = _xp_pct(xp_in_lvl, XP_PER_LEVEL)
-    xp_str    = f"({_compact(xp_in_lvl)}/{_compact(XP_PER_LEVEL)})"
+    # R0: уровень аккаунта (глобальный, экспоненциальная кривая) вместо per-chat
+    _prog     = account_progress(account.get("account_xp", 0))
+    lvl       = _prog["level"]
+    _need     = _prog["xp_need"] or 1  # кап уровня: бар полный
+    bar       = _xp_bar(_prog["xp_into"], _need)
+    pct       = _xp_pct(_prog["xp_into"], _need)
+    xp_str    = f"({_compact(_prog['xp_into'])}/{_compact(_need)})"
 
     mora_v = float(bal["user_balance_mora"])
     dia_v  = float(bal["user_balance_diamonds"])
