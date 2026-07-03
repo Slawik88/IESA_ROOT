@@ -1,12 +1,18 @@
-# infrastructure/repositories/shadow_gates.py — БЛОК19 Ч.7: Теневые Врата (24/7).
-# Боевой питомец входит во Врата, теряет HP по времени и фармит Тёмную Мору.
-# Вытащил до HP=0 → забрал лут. HP дошёл до 0 → лут сгорел. High Risk.
+# infrastructure/repositories/shadow_gates.py — LEGACY (заменён Вратами 2.0, R2).
+# Оставлен ТОЛЬКО ради migrate_all_to_gates2(): одноразовый принудительный
+# collect активных забегов по старым правилам при деплое R2. После того как
+# прод переживёт один рестарт бота (строки shadow_gate_runs закрыты) — файл
+# можно удалить целиком вместе с константами ниже.
 import time
 
-from core.constants import (
-    SHADOW_GATE_HP_DRAIN_PER_HOUR, SHADOW_GATE_DARK_MORA_PER_HOUR, SHADOW_GATE_MAX_HOURS,
-)
 from infrastructure.repositories import pet_combat as combat_repo
+
+# Старые константы дрейна перенесены сюда из core/constants.py (там их место
+# заняли GATES2_*) — нужны исключительно для честного расчёта лута миграции.
+SHADOW_GATE_HP_DRAIN_PER_HOUR: float = 0.30
+SHADOW_GATE_DARK_MORA_PER_HOUR: dict = {"common": 4, "rare": 7, "epic": 12,
+                                        "legendary": 20, "mythic": 35}
+SHADOW_GATE_MAX_HOURS: int = 12
 
 _HEAL_COST_PER_HP = 4.0   # 🪙 за 1 HP при лечении во Вратах (сток Моры)
 
