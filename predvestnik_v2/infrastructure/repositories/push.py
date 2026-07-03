@@ -60,9 +60,12 @@ async def users_ready_for_push(db, min_interval_sec: int) -> list[int]:
 
 
 async def pending_for_user(db, user_id: int) -> list[dict]:
-    """Несент-события игрока, по убыванию приоритета (свежие раньше при равном)."""
+    """Несент-события игрока, по убыванию приоритета (свежие раньше при равном).
+    age_sec — возраст события (для TTL-фильтра протухших в smart_pulse_task)."""
     async with db.execute(
-        "SELECT id, category, priority, payload_json FROM push_queue "
+        "SELECT id, category, priority, payload_json, "
+        "CAST(EXTRACT(EPOCH FROM (NOW() - created_at)) AS BIGINT) AS age_sec "
+        "FROM push_queue "
         "WHERE user_id = ? AND sent = FALSE ORDER BY priority DESC, id DESC",
         (user_id,),
     ) as c:

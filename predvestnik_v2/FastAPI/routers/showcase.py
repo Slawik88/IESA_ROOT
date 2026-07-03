@@ -29,12 +29,12 @@ def _discounted(base: int, pct: int) -> int:
 
 
 def _seconds_to_next_week() -> int:
+    """Секунды до следующего понедельника 00:00 UTC (смена week_key).
+    (8 − isoweekday) % 7 → Вт=6 … Вс=1; 0 (сам понедельник) → 7."""
     now = datetime.now(timezone.utc)
-    days_ahead = 7 - now.isoweekday() % 7  # до следующего понедельника 00:00 UTC
-    next_monday = (now + timedelta(days=days_ahead or 7)).replace(
+    days_ahead = (8 - now.isoweekday()) % 7 or 7
+    next_monday = (now + timedelta(days=days_ahead)).replace(
         hour=0, minute=0, second=0, microsecond=0)
-    if next_monday <= now:
-        next_monday += timedelta(days=7)
     return int((next_monday - now).total_seconds())
 
 
