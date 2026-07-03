@@ -36,6 +36,12 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
         "description": "Косметическая валюта-крафта. Падает из сундуков и дублей. Накопи и собери нужную косметику: Внешний вид → 🔹 Крафт.",
         "is_tradable": False,
     },
+    "abyss_shard": {
+        "name": "💠 Осколок Бездны",
+        "category": "material",
+        "description": "Клановый строительный ресурс (Rebuild 2.0). Добывается в Бездне клана и Вратах 2.0; на казну из осколков клан строит здания.",
+        "is_tradable": False,
+    },
     "chest_mini": {
         "name": "🎁 Мини-сюрприз",
         "category": "chest",

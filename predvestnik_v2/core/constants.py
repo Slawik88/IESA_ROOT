@@ -714,13 +714,25 @@ COMBAT_LEVEL_SCALE: float = 0.08          # +8% к статам за урове�
 COMBAT_STAMINA_REGEN_PER_HOUR: float = 0.10   # доля stamina_max в час (пассивно)
 COMBAT_HP_REGEN_PER_HOUR: float = 0.20        # доля hp_max в час (если есть Stamina)
 COMBAT_STAMINA_PER_HP: float = 1.5            # сколько Stamina тратится на 1 HP регена
-COMBAT_MEDKIT_ITEM: str = "medkit"            # предмет: мгновенно +HP (сток валюты)
-COMBAT_MEDKIT_HEAL_FRAC: float = 0.6          # 1 медикамент = +60% hp_max
 
-# Теневые Врата (24/7, High Risk): дрейн HP + добыча Тёмной Моры по времени.
-SHADOW_GATE_HP_DRAIN_PER_HOUR: float = 0.30   # доля hp_max в час
-SHADOW_GATE_DARK_MORA_PER_HOUR: dict = {"common": 4, "rare": 7, "epic": 12, "legendary": 20, "mythic": 35}
-SHADOW_GATE_MAX_HOURS: int = 12               # дольше держать смысла нет (накопление режется)
+# ── R2 Боёвка 2.0 (services/battle.py): пошаговый бой со стойками и QTE ────────
+# Сервер сам грейдит тайминг тапа (клиент шлёт сырой offset, не оценку).
+BATTLE_QTE_PERFECT_MS: int = 120
+BATTLE_QTE_GOOD_MS: int = 350
+BATTLE_QTE_MULT: dict = {"perfect": 1.0, "good": 0.7, "miss": 0.3}
+BATTLE_BLOCK_EFF: dict = {"perfect": 1.0, "good": 0.6, "miss": 0.2}   # доля срезанного урона
+BATTLE_STAMINA_COST_FRAC: float = 0.08        # −8% max stamina за ход
+BATTLE_FOCUS_RESTORE_FRAC: float = 0.25       # Концентрация: +25% max stamina
+BATTLE_ACTION_MIN_INTERVAL_SEC: float = 1.5   # rate-limit действий (анти-бот)
+BATTLE_HEAL_MORA_PER_HP: float = 2.0          # лечение после боя (снижено с 4: боёв много)
+
+# Врата 2.0 — PvE-лестница (замена пассивного дрейна SHADOW_GATE_*).
+GATES2_FLOORS: int = 6
+GATES2_CP_GATE: dict = {1: 500, 2: 1200, 3: 2500, 4: 4000, 5: 6000, 6: 8000}
+GATES2_ENTRIES_PER_DAY: int = 3
+GATES2_DARK_MORA_BASE: int = 3                # награда = BASE + PER_FLOOR × этаж
+GATES2_DARK_MORA_PER_FLOOR: int = 2
+GATES2_SHARD_CHANCE: float = 0.20             # шанс 1–3 💠 Осколков Бездны лично
 
 # Рейды клана (замена PvP): босс с HP, пороги наград, контр-урон питомцу.
 RAID_BOSS_HP_PER_MEMBER: int = 1500           # запас HP босса на участника клана

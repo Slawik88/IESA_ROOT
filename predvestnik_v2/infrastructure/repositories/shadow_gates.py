@@ -167,3 +167,24 @@ async def heal(db, user_id: int, pet_id: int) -> tuple[bool, str]:
         return True, f"💉 Питомец вылечен до полного HP за {cost:.0f} 🪙."
     except Exception as e:
         return False, f"Ошибка: {e}"
+
+
+async def migrate_all_to_gates2(db) -> int:
+    """R2-миграция: одноразовый принудительный collect ВСЕХ активных забегов
+    старых Врат при деплое Врат 2.0 (лут по старым правилам начисляется, питомец
+    возвращается на склад). Идемпотентно: после первого прогона строк нет.
+    Возвращает число закрытых забегов."""
+    try:
+        async with db.execute(
+            "SELECT user_id, pet_id FROM shadow_gate_runs"
+        ) as c:
+            runs = [dict(r) for r in await c.fetchall()]
+    except Exception:
+        return 0  # таблицы нет (свежая БД) — мигрировать нечего
+    done = 0
+    for r in runs:
+        ok, _msg = await collect(db, r["user_id"], r["pet_id"])
+        done += 1
+    if done:
+        await db.commit()
+    return done
