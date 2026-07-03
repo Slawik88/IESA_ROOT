@@ -100,6 +100,11 @@ async def db_middleware(
 
         user = data.get("event_from_user")
         chat_obj = data.get("event_chat")
+        # Другие боты в группе (модерация/статистика/т.п.) тоже шлют текстовые
+        # сообщения — без этой проверки они регистрировались как игроки и качали
+        # уровень/XP на общих основаниях (найдено при сверке миграции уровней
+        # 2026-07-03: посторонние ID в списке на выдачу «Пакета Обновления 2.0»).
+        is_bot_sender = bool(user and getattr(user, "is_bot", False))
 
         try:
             if user or chat_obj:
@@ -119,7 +124,7 @@ async def db_middleware(
                 if blocked:
                     return
 
-            if user:
+            if user and not is_bot_sender:
                 await users.update_user(db, user.id, user.username)
                 # Block 10: стартовый набор новичку (ровно один раз; no-op для всех
                 # существующих игроков — у них onboarded=TRUE).
@@ -141,7 +146,7 @@ async def db_middleware(
             # строк chat_settings — иначе в админ-панелях появляются «фантомные чаты-цифры».
             _is_group = getattr(chat_obj, "type", None) in ("group", "supergroup") if chat_obj else False
 
-            if user and chat_obj and event.message and _is_group:
+            if user and not is_bot_sender and chat_obj and event.message and _is_group:
                 async with db.execute(
                     "SELECT is_purging, purge_min_rank FROM chat_settings WHERE chat_id = ?",
                     (chat_obj.id,),
