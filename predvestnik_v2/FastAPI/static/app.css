@@ -2193,3 +2193,14 @@ body.modal-open { overflow: hidden; }
   font-size: 20px; font-weight: 800; color: var(--gold2); font-family: monospace; }
 .safe-pad { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .safe-pad .btn { padding: 10px 0; font-size: 15px; }
+
+/* ── R5: live-комната финала лота (модалка ставки при remaining ≤ 10 мин) ──── */
+.lot-live { background: var(--dim); border: 1px solid var(--gold); border-radius: var(--r);
+  padding: 8px 10px; margin: 8px 0; }
+.lot-live-head { display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; font-weight: 700; color: var(--gold2); margin-bottom: 6px; }
+.lot-live-feed { max-height: 130px; overflow-y: auto; }
+.lot-live-row { font-size: 11px; padding: 3px 0; border-bottom: 1px dashed var(--border2);
+  animation: pop .25s ease both; }
+.lot-live-frog { display: inline-block; animation: frogJump .5s ease; }
+@keyframes frogJump { 0%{transform:translateY(0)} 40%{transform:translateY(-6px) scale(1.25)} 100%{transform:translateY(0)} }

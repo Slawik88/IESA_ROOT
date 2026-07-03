@@ -888,9 +888,11 @@ function submitPetLot(petId) {
     .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
 
-// openBidModal(lotId, name, currentBid, minNextBid, hasBids, buyout)
+// openBidModal(lotId, name, currentBid, minNextBid, hasBids, buyout, remSec)
 // minNextBid comes from server (min_bid if no bids, ceil(cur*1.05) if bids exist)
-function openBidModal(lotId, name, currentBid, minNextBid, hasBids, buyout) {
+// R5: при remSec ≤ 600 модалка входит в live-режим «🔥 Финал» — WS-комната лота
+// (тикающий таймер с анти-снайп-продлениями, лента ставок, зрители, жаба 🐸).
+function openBidModal(lotId, name, currentBid, minNextBid, hasBids, buyout, remSec) {
   const firstBid = !hasBids;
   const minLabel = firstBid
     ? `Первая ставка — не менее <b>${fmt(minNextBid)} 🪙</b>`
@@ -899,9 +901,22 @@ function openBidModal(lotId, name, currentBid, minNextBid, hasBids, buyout) {
     ? `<button class="btn btn-teal btn-full" style="margin-top:8px"
              onclick="doBid(${lotId},this,${buyout})">⚡ Выкупить за ${fmt(buyout)} 🪙</button>`
     : '';
+  const isFinal = typeof remSec==='number' && remSec>0 && remSec<=600;
+  const liveHtml = isFinal ? `
+    <div class="lot-live" id="lot-live">
+      <div class="lot-live-head">
+        <span>🔥 ФИНАЛ · <span id="lot-live-timer">--:--</span></span>
+        <span style="display:flex;align-items:center;gap:8px">
+          <span id="lot-live-viewers">👁 1</span>
+          <button class="btn btn-sm btn-ghost" style="padding:2px 10px;font-size:14px" onclick="lotLiveReact()">🐸</button>
+        </span>
+      </div>
+      <div id="lot-live-feed" class="lot-live-feed"><div class="set-hint">Ставка в последние 60с продлевает лот на +60с. Кто сдастся первым?</div></div>
+    </div>` : '';
   OM(`💰 Ставка: ${name}`, `
-    <div class="irow"><span class="ik">Текущая ставка</span><span style="color:var(--gold);font-weight:700">${fmt(currentBid)} 🪙</span></div>
+    <div class="irow"><span class="ik">Текущая ставка</span><span id="lot-live-cur" style="color:var(--gold);font-weight:700">${fmt(currentBid)} 🪙</span></div>
     <div style="font-size:11px;color:var(--muted);margin:8px 0">${minLabel}</div>
+    ${liveHtml}
     <div class="divider"></div>
     <input id="bid-val" class="num-input" type="number"
            value="${minNextBid}" min="${minNextBid}" step="1"
@@ -911,6 +926,7 @@ function openBidModal(lotId, name, currentBid, minNextBid, hasBids, buyout) {
     </div>
     ${buyoutBtn}
   `, [{l:'💰 Поставить ставку', c:'btn-gold', f:`doBid(${lotId},this,0)`}, {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
+  if(isFinal) lotLiveJoin(lotId, remSec);
 }
 function doBid(lotId, btn, fixedAmount) {
   const v = fixedAmount > 0 ? fixedAmount : parseFloat(el('bid-val')?.value || 0);
