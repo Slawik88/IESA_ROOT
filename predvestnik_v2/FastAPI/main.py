@@ -22,7 +22,8 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               marriage, daily_deal, promocodes, wallet,
                               events, admin, vip, battle_pass, global_admin,
                               dev_console, payments, games, relics, cosmetics, clans,
-                              combat, legal, analytics as analytics_router, showcase)
+                              combat, legal, analytics as analytics_router, showcase,
+                              skill_games)
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -32,6 +33,7 @@ from infrastructure.repositories.users import ensure_account_columns
 from infrastructure.repositories.auction import ensure_columns as ensure_auction_columns
 from infrastructure.repositories.push import ensure_table as ensure_push
 from infrastructure.repositories.showcase import ensure_tables as ensure_showcase
+from infrastructure.repositories.minigames import ensure_table as ensure_minigames
 from loguru import logger as _log
 
 
@@ -61,6 +63,7 @@ async def lifespan(app: FastAPI):
             (ensure_auction_columns,         "auction_columns"),
             (ensure_push,                    "push_queue"),
             (ensure_showcase,                "showcase"),
+            (ensure_minigames,               "minigames"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
@@ -81,7 +84,7 @@ for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           battle_pass.router, global_admin.router, dev_console.router,
           payments.router, games.router, relics.router, cosmetics.router,
           clans.router, combat.router, legal.router, notif_router.router,
-          analytics_router.router, showcase.router]:
+          analytics_router.router, showcase.router, skill_games.router]:
     app.include_router(r)
 
 

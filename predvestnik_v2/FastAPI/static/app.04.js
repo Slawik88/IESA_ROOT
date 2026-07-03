@@ -49,9 +49,9 @@ function swArena(tab,btn) {
   _arenaTab=tab;
   document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  ['raids','events'].forEach(t=>{const e=el('ar-'+t); if(e)e.style.display=t===tab?'':'none';});
+  ['raids','games','events'].forEach(t=>{const e=el('ar-'+t); if(e)e.style.display=t===tab?'':'none';});
   _trackSubtab('arena/'+tab);
-  ({raids:loadRaid,events:loadEvents}[tab]||loadRaid)();
+  ({raids:loadRaid,games:loadSkillGames,events:loadEvents}[tab]||loadRaid)();
 }
 const QUEST_NAMES = {
   msg_15:     {n:'💬 Болтун',         d:'Напиши 15 сообщений в чате'},
@@ -1058,4 +1058,172 @@ function useConsumable(iid) {
   api('/inventory/use',{method:'POST',body:JSON.stringify({item_id:iid})})
     .then(r=>{toast(r.message||'✅ Применено!');CM();loadInventory();if(_loaded.has('profile'))loadActiveBuffs();})
     .catch(e=>toast(e,false));
+}
+
+// ══ R7: Интеллектуальные мини-игры — «Теневой Сапёр» и «Взлом сейфа» ══════════
+// Server-authoritative: раскладка мин/секрет сейфа живут только на бэке
+// (/games2/*), клиент рисует и шлёт действия. Хаптика — через _haptic (app.04).
+let _skg=null;          // кэш /games2/state
+let _safeInput=[];      // текущий ввод кода сейфа
+function loadSkillGames(){
+  el('skg').innerHTML='<div class="loader">Загрузка...</div>';
+  api('/games2/state').then(d=>{
+    _skg=d;
+    if(d.sapper){ _skgRenderSapper(d.sapper); return; }
+    if(d.safe){ _safeInput=[]; _skgRenderSafe(d.safe); return; }
+    _skgRenderLobby();
+  }).catch(e=>{el('skg').innerHTML=`<div class="err">${e}</div>`;});
+}
+function _skgRenderLobby(){
+  const d=_skg, cd=d.cooldown_left_sec||0;
+  const cdHtml=cd>0?`<div class="skg-cd">⏳ Кулдаун: ${Math.floor(cd/60)}м ${String(cd%60).padStart(2,'0')}с до следующей игры</div>`:'';
+  const lim=d.limits||{sapper:[100,2000],safe:[100,2000]};
+  el('skg').innerHTML=`
+    ${cdHtml}
+    <div class="card">
+      <div class="card-title">💣 Теневой Сапёр</div>
+      <div class="skg-desc">Поле 5×5, три мины. Каждая безопасная клетка растит множитель —
+      забрать выигрыш можно в любой момент. Наступил на мину — ставка сгорела.</div>
+      <div class="skg-ladder">${(d.ladder||[]).slice(0,8).map((m,i)=>`<span class="skg-step">${i+1}: ×${m}</span>`).join('')}<span class="skg-step">…</span></div>
+      ${_skgStakeHtml('sapper', lim.sapper)}
+      <button class="btn btn-gold btn-full" ${cd>0?'disabled':''} onclick="skgStart('sapper')">▶ Играть</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🔐 Взлом сейфа</div>
+      <div class="skg-desc">Код — 4 цифры (0–9, могут повторяться). ${d.safe_attempts||6} попыток.
+      После каждой: 🎯 «на месте» и 🔄 «есть, но не там». Взломал — ×${d.safe_win_mult||1.6}.</div>
+      ${_skgStakeHtml('safe', lim.safe)}
+      <button class="btn btn-gold btn-full" ${cd>0?'disabled':''} onclick="skgStart('safe')">▶ Играть</button>
+    </div>
+    <div class="set-hint">Дневной лимит выигрыша общий с казино в чате. Сервер решает всё — шансы честные и фиксированные.</div>`;
+}
+function _skgStakeHtml(game, lim){
+  const chips=[100,250,500,1000,2000].filter(v=>v>=lim[0]&&v<=lim[1]);
+  return `<div class="skg-stakes" id="skg-st-${game}">
+    ${chips.map((v,i)=>`<button class="btn btn-sm ${i===0?'btn-gold':'btn-ghost'}" data-v="${v}"
+      onclick="_skgPickStake('${game}',this)">${fmt(v)}</button>`).join('')}
+  </div>`;
+}
+function _skgPickStake(game, btn){
+  document.querySelectorAll(`#skg-st-${game} .btn`).forEach(b=>b.className='btn btn-sm btn-ghost');
+  btn.className='btn btn-sm btn-gold';
+}
+function _skgStake(game){
+  const b=document.querySelector(`#skg-st-${game} .btn-gold`);
+  return b?parseFloat(b.getAttribute('data-v')):100;
+}
+function skgStart(game){
+  const stake=_skgStake(game);
+  api(`/games2/${game}/start`,{method:'POST',body:JSON.stringify({stake})}).then(r=>{
+    _haptic('light'); refreshCurrBar();
+    if(_skg) _skg[game]=r;   // кэш активной сессии (ставка/прогресс между ходами)
+    if(game==='sapper') _skgRenderSapper(r); else { _safeInput=[]; _skgRenderSafe(r); }
+  }).catch(e=>toast(e,false));
+}
+// ── Сапёр: поле ───────────────────────────────────────────────────────────────
+function _skgRenderSapper(s, final){
+  const opened=new Set(s.opened||[]);
+  const minesSet=new Set(final&&final.mines||[]);
+  const cells=[];
+  for(let i=0;i<(s.grid||25);i++){
+    const isOpen=opened.has(i), isMine=minesSet.has(i);
+    const boomCell = final&&final.boom&&final.cell===i;
+    cells.push(`<button class="skg-cell${isOpen?' open':''}${isMine?' mine':''}${boomCell?' boom':''}"
+      ${(isOpen||final)?'disabled':''} onclick="skgOpen(${i},this)">${boomCell?'💥':isMine?'💣':isOpen?'✅':''}</button>`);
+  }
+  const k=s.k||0;
+  let head, foot;
+  if(final&&final.boom){
+    head=`<div class="skg-head skg-lost">💥 Мина! Ставка ${fmt(final.stake)} 🪙 сгорела</div>`;
+    foot=`<button class="btn btn-gold btn-full" onclick="loadSkillGames()">↩ В лобби</button>`;
+  } else if(final&&final.cashed){
+    head=`<div class="skg-head skg-won">💰 Забрал ×${final.multiplier} — +${fmt(final.payout)} 🪙${final.capped?' (срезано дневным капом)':''}</div>`;
+    foot=`<button class="btn btn-gold btn-full" onclick="loadSkillGames()">↩ В лобби</button>`;
+  } else {
+    head=`<div class="skg-head">Открыто: <b>${k}</b> · множитель <b style="color:var(--gold2)">×${s.multiplier||0}</b> · следующая: ×${s.next_multiplier||''}</div>`;
+    foot=k>0
+      ?`<button class="btn btn-gold btn-full" onclick="skgCashout(this)">💰 Забрать ${fmt(s.cashout_value)} 🪙 (×${s.multiplier})</button>`
+      :`<div class="set-hint" style="text-align:center">Открой первую клетку — и решай: жадность или расчёт</div>`;
+  }
+  el('skg').innerHTML=`
+    <div class="card">
+      <div class="card-title">💣 Теневой Сапёр ${final?'':`<span style="float:right;font-size:11px;color:var(--muted)">ставка ${fmt(s.stake)} 🪙</span>`}</div>
+      ${head}
+      <div class="skg-grid">${cells.join('')}</div>
+      ${foot}
+    </div>`;
+}
+function skgOpen(cell, btn){
+  if(btn){btn.disabled=true;}
+  api('/games2/sapper/open',{method:'POST',body:JSON.stringify({cell})}).then(r=>{
+    if(r.boom){ _haptic('error'); _skgRenderSapper({stake:r.stake, opened:[], grid:25, k:0}, r); refreshCurrBar(); return; }
+    if(r.cashed){ _haptic('success'); _skgRenderSapper({stake:0, opened:[], grid:25, k:r.k}, r); refreshCurrBar(); return; }
+    _haptic('light');
+    // локально дорисовываем без полного refetch
+    const cur=(_skg&&_skg.sapper)?_skg.sapper:{stake:0,opened:[],grid:25};
+    cur.opened=(cur.opened||[]).concat([cell]);
+    cur.k=r.k; cur.multiplier=r.multiplier; cur.next_multiplier=r.next_multiplier; cur.cashout_value=r.cashout_value;
+    if(_skg) _skg.sapper=cur;
+    _skgRenderSapper(cur);
+  }).catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
+}
+function skgCashout(btn){
+  if(btn)btn.disabled=true;
+  api('/games2/sapper/cashout',{method:'POST'}).then(r=>{
+    _haptic('success'); refreshCurrBar();
+    if(_skg) _skg.sapper=null;
+    _skgRenderSapper({stake:0, opened:[], grid:25, k:r.k}, r);
+  }).catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
+}
+// ── Сейф: наборник ────────────────────────────────────────────────────────────
+function _skgRenderSafe(s, final){
+  const guesses=(final&&final.guesses)||s.guesses||[];
+  const rows=guesses.map(g=>`<div class="safe-row">
+    <span class="safe-code">${g.digits.join(' ')}</span>
+    <span class="safe-bc">🎯 ${g.bulls} · 🔄 ${g.cows}</span>
+  </div>`).join('')||'<div class="set-hint">Первая попытка — разведка. 🎯 цифра на месте, 🔄 есть в коде, но не там.</div>';
+  let head, pad='';
+  if(final&&final.cracked){
+    head=`<div class="skg-head skg-won">🔓 ВЗЛОМАН! Код ${final.secret.join(' ')} — +${fmt(final.payout)} 🪙${final.capped?' (срезано капом)':''}</div>`;
+    pad=`<button class="btn btn-gold btn-full" onclick="loadSkillGames()">↩ В лобби</button>`;
+  } else if(final&&final.failed){
+    head=`<div class="skg-head skg-lost">🔒 Не взломан. Код был: <b>${final.secret.join(' ')}</b>. Ставка сгорела.</div>`;
+    pad=`<button class="btn btn-gold btn-full" onclick="loadSkillGames()">↩ В лобби</button>`;
+  } else {
+    const left=(final&&final.attempts_left!==undefined)?final.attempts_left:s.attempts_left;
+    const wm=s.win_mult||(_skg&&_skg.safe_win_mult)||1.6;
+    head=`<div class="skg-head">Попыток осталось: <b>${left}</b> · взлом = ×${wm}</div>`;
+    pad=`
+      <div class="safe-input" id="safe-inp">${[0,1,2,3].map(i=>`<span class="safe-digit">${_safeInput[i]!==undefined?_safeInput[i]:'·'}</span>`).join('')}</div>
+      <div class="safe-pad">
+        ${[1,2,3,4,5,6,7,8,9,0].map(n=>`<button class="btn btn-ghost" onclick="safeKey(${n})">${n}</button>`).join('')}
+        <button class="btn btn-ghost" onclick="safeKey(-1)">⌫</button>
+        <button class="btn btn-gold" onclick="safeSubmit(this)">✓</button>
+      </div>`;
+  }
+  el('skg').innerHTML=`
+    <div class="card">
+      <div class="card-title">🔐 Взлом сейфа ${(final&&(final.cracked||final.failed))?'':`<span style="float:right;font-size:11px;color:var(--muted)">ставка ${fmt(s.stake)} 🪙</span>`}</div>
+      ${head}
+      <div class="safe-history">${rows}</div>
+      ${pad}
+    </div>`;
+}
+function safeKey(n){
+  if(n===-1){ _safeInput.pop(); }
+  else if(_safeInput.length<4){ _safeInput.push(n); _haptic('light'); }
+  const inp=el('safe-inp');
+  if(inp) inp.innerHTML=[0,1,2,3].map(i=>`<span class="safe-digit">${_safeInput[i]!==undefined?_safeInput[i]:'·'}</span>`).join('');
+}
+function safeSubmit(btn){
+  if(_safeInput.length!==4){ toast('Введи 4 цифры', false); return; }
+  if(btn)btn.disabled=true;
+  const digits=_safeInput.slice();
+  api('/games2/safe/guess',{method:'POST',body:JSON.stringify({digits})}).then(r=>{
+    _safeInput=[];
+    if(r.cracked){ _haptic('success'); refreshCurrBar(); _skgRenderSafe({stake:0}, r); return; }
+    if(r.failed){ _haptic('error'); _skgRenderSafe({stake:0}, r); return; }
+    _haptic(r.bulls>0?'medium':'light');
+    _skgRenderSafe({stake:(_skg&&_skg.safe?_skg.safe.stake:0), guesses:r.guesses, attempts_left:r.attempts_left, win_mult:(_skg&&_skg.safe_win_mult)||1.6});
+  }).catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
 }
