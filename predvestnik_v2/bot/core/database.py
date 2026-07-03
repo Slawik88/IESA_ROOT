@@ -1265,8 +1265,13 @@ async def _init_analytics(db):
     # источник схемы теперь infrastructure/repositories/analytics.ensure_table
     # (эта копия уже разошлась один раз: колонка duration_sec была только в repo,
     # и когда lifespan-ensure упал по локу, прод остался без колонки).
+    # ВАЖНО: ensure_table написан под PGAdapter (`?`-плейсхолдеры, async with
+    # db.execute() as c, await db.commit()) — здесь же db это СЫРОЕ соединение
+    # asyncpg (как и во всех остальных _init_* в этом файле), у него нет .commit()
+    # и .execute() не является async context manager'ом. Обязательно оборачивать.
     from infrastructure.repositories.analytics import ensure_table as _ensure_analytics
-    await _ensure_analytics(db)
+    from infrastructure.pg_adapter import PGAdapter
+    await _ensure_analytics(PGAdapter(db))
 
 
 async def init_db():
@@ -1295,7 +1300,9 @@ async def init_db():
         await _init_system_flags(db)
         await _init_analytics(db)
         # R6 «Умный Пульс»: очередь DM-событий (зеркало ensure — FastAPI lifespan)
+        # Та же оговорка про PGAdapter, что и в _init_analytics выше.
         from infrastructure.repositories.push import ensure_table as _ensure_push
-        await _ensure_push(db)
+        from infrastructure.pg_adapter import PGAdapter as _PGAdapter
+        await _ensure_push(_PGAdapter(db))
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")
