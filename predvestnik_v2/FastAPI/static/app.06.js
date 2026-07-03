@@ -52,7 +52,7 @@ function renderLots(lots, searchQuery) {
     const cat    = l.item_category || '';
     const icon   = LOT_CAT_ICON[cat] || (displayName.match(/^\p{Emoji}/u)?.[0] || '📦');
     const qty    = l.quantity > 1 ? ` ×${l.quantity}` : '';
-    const bidArgs = `${l.id},'${displayName.replace(/'/g,"\\'")}',${curBid},${minNext},${hasBids},${buyout}`;
+    const bidArgs = `${l.id},'${displayName.replace(/'/g,"\\'")}',${curBid},${minNext},${hasBids},${buyout},${l.remaining_sec||diffSec}`;
 
     const hotCls     = hasBids ? ' hot' : '';
     const buyoutCls  = buyout ? ' buyout-avail' : '';
@@ -407,6 +407,7 @@ function connectWS() {
   _ws = new WebSocket(wsUrl);
   _ws.onmessage = e => {
     const ev = JSON.parse(e.data);
+    if(ev.type && ev.type.startsWith('lot_')){ _lotLiveOnEvent(ev); return; }  // R5: live-комната
     if(ev.type!=='pong') showWsNotif(ev);
   };
   _ws.onclose = () => { setTimeout(connectWS, 4000); };
@@ -415,6 +416,68 @@ function connectWS() {
 
 // ── WS ping/pong — prevents Cloudflare 100s idle timeout ─────────────────────
 setInterval(() => { if (_ws?.readyState === WebSocket.OPEN) _ws.send('ping'); }, 25000);
+
+// ── R5 «Молот Аукциона»: live-комната финала лота ─────────────────────────────
+// Открывается из openBidModal при remaining ≤ 10 мин: sub_lot по WS, тикающий
+// таймер (дедлайн двигается на анти-снайп-продлениях), лента ставок/жаб, зрители.
+// Ставки из БОТА в комнату не прилетают (WS-хаб в веб-процессе) — «Текущая
+// ставка» в модалке гарантированно свежая только по site-ставкам.
+let _lotLive = null;   // {lotId, deadline, timer}
+function _wsSend(obj){ try{ if(_ws && _ws.readyState===WebSocket.OPEN) _ws.send(JSON.stringify(obj)); }catch(e){} }
+function lotLiveJoin(lotId, remSec){
+  lotLiveLeave();
+  _lotLive = {lotId, deadline: Date.now()+remSec*1000, timer: setInterval(_lotLiveTick, 500)};
+  _wsSend({type:'sub_lot', lot_id: lotId});
+  _lotLiveTick();
+}
+function lotLiveLeave(){
+  if(!_lotLive) return;
+  clearInterval(_lotLive.timer);
+  _wsSend({type:'unsub_lot', lot_id:_lotLive.lotId});
+  _lotLive = null;
+}
+function _lotLiveTick(){
+  if(!_lotLive) return;
+  const t = el('lot-live-timer');
+  if(!t){ lotLiveLeave(); return; }   // модалку закрыли мимо CM — самоочистка
+  const s = Math.max(0, Math.floor((_lotLive.deadline - Date.now())/1000));
+  t.textContent = Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  t.style.color = s<=60 ? 'var(--red)' : '';
+  if(s<=0){ t.textContent='ФИНИШ'; clearInterval(_lotLive.timer); }
+}
+function _lotLiveFeedAdd(html){
+  const f = el('lot-live-feed');
+  if(!f) return;
+  const d = document.createElement('div');
+  d.className = 'lot-live-row';
+  d.innerHTML = html;
+  f.prepend(d);
+  while(f.children.length > 8) f.removeChild(f.lastChild);
+}
+function _lotLiveOnEvent(ev){
+  if(!_lotLive || ev.lot_id !== _lotLive.lotId) return;
+  if(ev.type === 'lot_bid'){
+    if(typeof ev.remaining_sec === 'number') _lotLive.deadline = Date.now()+ev.remaining_sec*1000;
+    const cur = el('lot-live-cur');
+    if(cur) cur.textContent = fmt(ev.amount)+' 🪙';
+    const inp = el('bid-val');
+    if(inp){ const mn = Math.ceil(ev.amount*1.05)+1; inp.min = mn; if(parseFloat(inp.value||0) < mn) inp.value = mn; }
+    _lotLiveFeedAdd(`💰 <b>@${esc(ev.bidder_name||'Игрок')}</b> — ${fmt(ev.amount)} 🪙${ev.extended?' <span style="color:var(--gold2)">+60с ⏱</span>':''}${ev.is_buyout?' <span style="color:var(--red)">⚡ ВЫКУП</span>':''}`);
+    if(typeof ev.viewers === 'number'){ const v = el('lot-live-viewers'); if(v) v.textContent = '👁 '+ev.viewers; }
+    _haptic('medium');
+    _lotLiveTick();
+  } else if(ev.type === 'lot_viewers'){
+    const v = el('lot-live-viewers');
+    if(v) v.textContent = '👁 '+ev.viewers;
+  } else if(ev.type === 'lot_react'){
+    _lotLiveFeedAdd(`<span class="lot-live-frog">${esc(ev.emoji||'🐸')}</span> зритель квакает`);
+  }
+}
+function lotLiveReact(){
+  if(!_lotLive) return;
+  _wsSend({type:'lot_react', lot_id:_lotLive.lotId, emoji:'🐸'});
+  _haptic('light');
+}
 
 // ── Marriage card (в дашборде Обзор) ──────────────────────────────────────────
 // Рендерит в #pro-marriage-card. Развод/банк/предложения — прямо внутри карточки

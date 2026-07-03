@@ -307,6 +307,9 @@ function OM(title,body,btns=[]) {
 }
 const CM=()=>{
   el('modal').close();document.body.classList.remove('modal-open');
+  // R5: закрытие модалки = выход из live-комнаты лота (объявлена в app.06 —
+  // к моменту клика склейка загружена целиком, hoisting function declaration)
+  try{ if(typeof lotLiveLeave==='function') lotLiveLeave(); }catch(e){}
   // Move toast back to body in case it was reparented inside the dialog for z-order
   const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);
 };

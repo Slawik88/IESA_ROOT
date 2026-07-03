@@ -24,6 +24,9 @@ async def active_lots(
     async with db.execute(
         "SELECT al.id, al.seller_id, al.item_name, al.quantity, al.min_bid, "
         "al.buyout, al.ends_at, al.status, "
+        # R5: remaining_sec — разность внутри БД (клиент не парсит naive-строку
+        # ends_at против часов устройства; тот же фикс-класс, что у экспедиций)
+        "CAST(EXTRACT(EPOCH FROM (al.ends_at - NOW())) AS BIGINT) AS remaining_sec, "
         "COALESCE(MAX(ab.amount), al.min_bid) AS current_bid, "
         "COUNT(ab.id) AS bid_count, "
         "u.user_tg_username AS seller_name, "
@@ -255,6 +258,29 @@ async def bid(body: BidRequest, db=Depends(get_db), user=Depends(require_tg_user
         raise HTTPException(400, result.get("error", "Ошибка ставки."))
 
     await db.commit()
+
+    # R5 «Молот Аукциона»: live-событие зрителям комнаты лота. Ставки из БОТА
+    # сюда не попадают (WS-хаб живёт в веб-процессе) — комната дополнительно
+    # опирается на серверный remaining_sec при каждом событии.
+    try:
+        from FastAPI.notifications import broadcast_lot, lot_viewers
+        async with db.execute(
+            "SELECT CAST(EXTRACT(EPOCH FROM (ends_at - NOW())) AS BIGINT) "
+            "FROM auction_lots WHERE id = ?", (body.lot_id,),
+        ) as c:
+            _rem_row = await c.fetchone()
+        await broadcast_lot(body.lot_id, {
+            "type": "lot_bid",
+            "lot_id": body.lot_id,
+            "amount": float(body.amount),
+            "bidder_name": user.get("username") or "Игрок",
+            "remaining_sec": int(_rem_row[0]) if _rem_row and _rem_row[0] is not None else 0,
+            "extended": bool(result.get("extended")),
+            "is_buyout": bool(result.get("is_buyout")),
+            "viewers": lot_viewers(body.lot_id),
+        })
+    except Exception:
+        pass  # live-комната не должна ломать саму ставку
 
     # Quest & achievement tracking (same as bot handler does)
     try:
