@@ -33,7 +33,7 @@ from infrastructure.repositories.duel import get_expired_pending
 from services.duel import decline_duel
 from core.constants import (
     DUEL_TIMEOUT_SECONDS, VIP_EXPIRY_REMINDER_DAYS, BATTLE_PASS_SEASON_END_REMINDER_DAYS,
-    PUSH_MIN_INTERVAL_SEC, PUSH_PRIORITIES,
+    PUSH_MIN_INTERVAL_SEC, PUSH_PRIORITIES, PUSH_EVENT_TTL_SEC,
 )
 from infrastructure.repositories import push as push_repo
 from core.registry import VIP_TIERS
@@ -632,6 +632,11 @@ async def smart_pulse_task(bot: Bot):
                         pending = await push_repo.pending_for_user(db, uid)
                         chosen = None
                         for ev in pending:
+                            # Протухшее событие (игрок был в 2ч-кулдауне, лот уже
+                            # закрыт) — пропускаем, оно пометится sent ниже.
+                            ttl = PUSH_EVENT_TTL_SEC.get(ev["category"], 0)
+                            if ttl and int(ev.get("age_sec") or 0) > ttl:
+                                continue
                             if await _notif_enabled(db, uid, ev["category"]):
                                 chosen = ev
                                 break

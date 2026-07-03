@@ -168,14 +168,19 @@ function loadGacha() {
           `<span class="${RC[r]||'rc-common'}" style="font-size:9px;padding:1px 4px">${r[0].toUpperCase()+r.slice(1)} ${v}%</span>`
         ).join(' ');
         return `<div class="spin-block">
-          <div class="spin-row" onclick="doSpin('${s.spin_type}',this)">
+          <div class="spin-row" onclick="spinRowClick(event,'${s.spin_type}',this)"
+               onpointerdown="spinPressStart(event,'${s.spin_type}',this)"
+               onpointerup="spinPressEnd(event,this)"
+               onpointercancel="spinPressEnd(event,this)"
+               onpointerleave="spinPressEnd(event,this)">
+            <div class="sr-charge"></div>
             <div class="sr-icon">${icon}</div>
             <div class="sr-info">
               <div class="sr-name">${s.label}</div>
               ${ratesBadges?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${ratesBadges}</div>`:''}
             </div>
             ${s.token_qty?`<span style="font-size:11px;color:var(--green);margin-right:6px">🎟 ×${s.token_qty}</span>`:''}
-            <div class="sr-cost">${cost}</div>
+            <div style="text-align:right"><div class="sr-cost">${cost}</div><div class="sr-hold-hint">⏱ удерживай</div></div>
           </div>
           <div style="display:flex;gap:6px;padding:0 4px 10px">
             <div style="flex:1;font-size:10px;color:var(--muted)">
@@ -211,6 +216,60 @@ function openGachaOdds() {
     });
     el('mb').innerHTML=`<div style="font-size:10px;color:var(--muted);margin-bottom:8px">Честные шансы за одну крутку. Дубликаты повышают уровень питомца; гарант (пити) усиливает шанс редкого с каждой пустой круткой.</div>${html}`;
   }).catch(e=>{el('mb').innerHTML=`<div class="err">${e}</div>`;});
+}
+
+// ── R4.1 Ритуал Крутки: long-press с нарастающей вибрацией ────────────────────
+// Удержание ~0.9с заряжает крутку (слой .sr-charge, хаптик light→medium→heavy),
+// на 100% спин запускается сам. Ранний отпуск/скролл (pointercancel) — сброс.
+// Фолбэк: в вебвью без PointerEvent работает обычный клик (spinRowClick).
+function _haptic(kind){
+  try{
+    const h = tg && tg.HapticFeedback;
+    if(!h) return;
+    if(kind==='success'||kind==='error'||kind==='warning') h.notificationOccurred(kind);
+    else h.impactOccurred(kind);
+  }catch(e){}
+}
+const SPIN_HOLD_MS = 900;
+let _press = null;   // {row, st, t0, timer, fired}
+function spinPressStart(ev, st, row){
+  if(!window.PointerEvent) return;              // фолбэк-клик отработает сам
+  if(_press) spinPressEnd(ev, _press.row);      // защитный сброс зависшего состояния
+  if(row.style.pointerEvents==='none') return;  // спин уже в полёте
+  _press = {row, st, t0: Date.now(), fired: false, h1: false, h2: false};
+  row.classList.add('charging');
+  _haptic('light');
+  _press.timer = setInterval(()=>{
+    if(!_press) return;
+    const p = Math.min(1, (Date.now() - _press.t0) / SPIN_HOLD_MS);
+    _press.row.style.setProperty('--chg', p.toFixed(3));
+    if(p >= 0.4 && !_press.h1){ _press.h1 = true; _haptic('medium'); }
+    if(p >= 0.75 && !_press.h2){ _press.h2 = true; _haptic('heavy'); }
+    if(p >= 1 && !_press.fired){
+      _press.fired = true;
+      const {row: r, st: s} = _press;
+      _pressReset();
+      r.classList.add('charged');
+      setTimeout(()=>r.classList.remove('charged'), 700);
+      _haptic('success');
+      doSpin(s, r);
+    }
+  }, 50);
+}
+function _pressReset(){
+  if(!_press) return;
+  clearInterval(_press.timer);
+  _press.row.classList.remove('charging');
+  _press.row.style.setProperty('--chg', 0);
+  _press = null;
+}
+function spinPressEnd(ev, row){
+  // Отпустил раньше 100% (или палец ушёл в скролл) — просто сброс зарядки
+  if(_press && !_press.fired) _pressReset();
+}
+function spinRowClick(ev, st, row){
+  if(window.PointerEvent) return;  // long-press уже обработал (или сбросил) жест
+  doSpin(st, row);
 }
 
 // doSpin — preserves result; no loadGacha() call
@@ -311,54 +370,112 @@ function equipFromSpin(petId, placement, btn) {
     .catch(e=>{ toast(e,false); btn.disabled=false; });  // напр. слоты заняты — игрок видит причину
 }
 
+// ── R4.1: мультикрутка ×10 → скретч-карты (стирание пальцем) ──────────────────
+// Каждая из 10 круток — закрытая «серебряная» карта; редкие отсортированы в
+// конец (эскалация напряжения). Итог и CTA-кнопки питомцев — после полного
+// раскрытия (или по кнопке «Открыть все»).
+const _RAR_RANK = {common:0, uncommon:1, rare:2, epic:3, legendary:4, mythic:5, shadow:5};
+let _scr = null;   // {opened, total, dups, topRarity, tailHtml}
 function doMultiSpin(st, btn) {
   btn.disabled=true;
   el('spin-res').innerHTML=`<div class="spin-anim-wrap"><div class="spin-anim-ball" style="animation-duration:2s">🎲</div><div style="font-size:12px;color:var(--gold2);margin-top:8px">×10 крутка...</div></div>`;
   api('/gacha/multi-spin',{method:'POST',body:JSON.stringify({spin_type:st,chat_id:_cid||0})}).then(r=>{
     const s=r.summary||{};
+    const results=r.results||[];
     const dups=s.dup_outcomes||[];
     const topRarity=_topRarity(dups);
-    const glowCls=topRarity?'glow-'+topRarity:'';
-    const cards=[];
-    if(s.mora) cards.push({text:`🪙 ${fmt(s.mora)} Мора`,cls:''});
-    if(s.diamonds) cards.push({text:`💎 ${s.diamonds} Алмазов`,cls:''});
-    // Aggregate items by item_id to avoid duplicate entries
-    const itemMap={};
-    (s.items||[]).forEach(i=>{
-      const k=i.id||i.item_id||i.name||'?';
-      if(itemMap[k]) itemMap[k].qty+=i.qty||1;
-      else itemMap[k]={name:i.name||k,qty:i.qty||1};
+    if(!results.length){ // страховка на неожиданный формат — старый плоский вывод
+      el('spin-res').innerHTML=`<div class="spin-results"><div class="spin-card">🪙 ${fmt(s.mora||0)} · 💎 ${s.diamonds||0}</div></div>`;
+      btn.disabled=false; return;
+    }
+    // Одна крутка → одна карта: текст + топ-редкость этой крутки
+    const cards = results.map(res=>{
+      const lines=[];
+      if(res.mora) lines.push(`🪙 ${fmt(res.mora)}`);
+      if(res.diamonds) lines.push(`💎 ${res.diamonds}`);
+      (res.items||[]).forEach(i=>lines.push(`📦 ${i.name}${(i.qty||1)>1?' ×'+i.qty:''}`));
+      (res.dup_outcomes||[]).forEach(d=>lines.push(
+        `🐾 ${d.species_name||d.species_id||''} ${rc(d.rarity||'common')}${d.outcome==='first_copy_created'?' 🆕':d.new_level?' → Lv'+d.new_level:''}`));
+      const rar=_topRarity(res.dup_outcomes||[])||'';
+      return {html: lines.join('<br>')||'—', rarity: rar};
     });
-    Object.values(itemMap).forEach(i=>cards.push({text:`📦 ${i.name} ×${i.qty}`,cls:''}));
-    // Summarize pet dups by species
-    const petMap={};
-    dups.forEach(d=>{
-      const k=d.species_id||d.species||'?';
-      if(!petMap[k]) petMap[k]={name:d.species_name||k,rarity:d.rarity,count:0,newLevel:null};
-      petMap[k].count++;
-      if(d.new_level) petMap[k].newLevel=d.new_level;
-    });
-    Object.values(petMap).forEach(p=>cards.push({text:`🐾 ${p.name} ${rc(p.rarity)} ×${p.count}${p.newLevel?' → Lv'+p.newLevel:''}`,cls:p.rarity||''}));
+    cards.sort((a,b)=>(_RAR_RANK[a.rarity]||0)-(_RAR_RANK[b.rarity]||0));  // редкие в конец
 
+    // Хвост (итог + CTA) — прячется до полного раскрытия
+    const themeCard = s.theme_drop?`<div class="spin-card epic" style="margin-top:8px">🎨 Новая тема: <b>${esc(s.theme_drop.name||'')}</b></div>`:'';
+    const tailHtml = `
+      <div class="spin-results" style="margin-top:10px">
+        <div class="spin-card ${topRarity||''}">Итого: 🪙 ${fmt(s.mora||0)}${s.diamonds?` · 💎 ${s.diamonds}`:''} · 🐾 ×${dups.length}</div>
+        ${themeCard}
+      </div>
+      ${_petActionsHtml(dups)}`;
+
+    _scr = {opened:0, total:cards.length, topRarity, tailHtml};
     el('spin-res').innerHTML=`
-      <div class="spin-anim-wrap ${glowCls}">
-        <div style="font-size:40px;font-weight:800;color:var(--gold2)">×${s.count||10}</div>
-        <div style="font-size:11px;color:var(--gold2);margin-top:4px;font-weight:700">
-          ${topRarity?('⚡ '+topRarity.toUpperCase()):'Результат мультикрутки'}
-        </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--gold2)">🃏 ×${cards.length} — сотри карты пальцем</div>
+        <button class="btn btn-sm btn-ghost" style="font-size:10px" onclick="scrRevealAll()">⚡ Открыть все</button>
       </div>
-      <div class="spin-results">
-        ${cards.map((c,i)=>`<div class="spin-card ${c.cls}" style="animation-delay:${(i*0.06+0.5).toFixed(2)}s">${c.text}</div>`).join('')}
+      <div class="scr-grid" id="scr-grid">
+        ${cards.map((c,i)=>`<div class="scr-card ${c.rarity?'r-'+c.rarity:''}" data-rar="${c.rarity}">
+          <div class="scr-body">${c.html}</div>
+          <canvas class="scr-canvas"></canvas>
+        </div>`).join('')}
       </div>
-      ${_petActionsHtml(dups)}
+      <div id="scr-tail"></div>
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn btn-gold" style="flex:2" onclick="loadGacha()">🔄 Крутить ещё</button>
         <button class="btn btn-ghost" style="flex:1" onclick="closeSpinResult()">↩ Назад</button>
       </div>`;
-    _spinJuice(topRarity);
+    document.querySelectorAll('#scr-grid .scr-canvas').forEach(cv=>_scrInitCanvas(cv));
     refreshCurrBar();
     btn.disabled=false;
   }).catch(e=>{toast(e,false);btn.disabled=false;el('spin-res').innerHTML='';});
+}
+// Серебряное покрытие + стирание. Стёртость меряем сеткой 8×5 «затронутых» клеток
+// (getImageData на каждый move слишком дорог для слабых телефонов).
+function _scrInitCanvas(cv){
+  const card=cv.parentElement, r=card.getBoundingClientRect();
+  cv.width=Math.max(2, Math.round(r.width)); cv.height=Math.max(2, Math.round(r.height));
+  const ctx=cv.getContext('2d');
+  const g=ctx.createLinearGradient(0,0,cv.width,cv.height);
+  g.addColorStop(0,'#3a4150'); g.addColorStop(.5,'#535d70'); g.addColorStop(1,'#3a4150');
+  ctx.fillStyle=g; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='rgba(232,181,77,.75)'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('✦ сотри ✦', cv.width/2, cv.height/2+4);
+  const GX=8, GY=5, hit=new Set();
+  let down=false;
+  const erase=(ev)=>{
+    const b=cv.getBoundingClientRect();
+    const x=ev.clientX-b.left, y=ev.clientY-b.top;
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath(); ctx.arc(x,y,18,0,Math.PI*2); ctx.fill();
+    hit.add(Math.min(GX-1,Math.max(0,Math.floor(x/b.width*GX)))+'_'+Math.min(GY-1,Math.max(0,Math.floor(y/b.height*GY))));
+    if(hit.size >= GX*GY*0.55) _scrReveal(card);
+  };
+  cv.onpointerdown=(ev)=>{down=true; try{cv.setPointerCapture(ev.pointerId);}catch(e){} erase(ev);};
+  cv.onpointermove=(ev)=>{if(down) erase(ev);};
+  cv.onpointerup=cv.onpointercancel=()=>{down=false;};
+  // Фолбэк для вебвью без PointerEvent: тап раскрывает карту сразу
+  if(!window.PointerEvent) cv.onclick=()=>_scrReveal(card);
+}
+function _scrReveal(card){
+  if(!card || card.classList.contains('scr-open')) return;
+  card.classList.add('scr-open');
+  const rar=card.getAttribute('data-rar')||'';
+  _haptic(['epic','legendary','mythic','shadow'].includes(rar)?'success':(rar==='rare'?'medium':'light'));
+  if(_scr){
+    _scr.opened++;
+    if(_scr.opened>=_scr.total){
+      const tail=el('scr-tail');
+      if(tail && _scr.tailHtml){ tail.innerHTML=_scr.tailHtml; }
+      _spinJuice(_scr.topRarity);
+      _scr.tailHtml=null;
+    }
+  }
+}
+function scrRevealAll(){
+  document.querySelectorAll('#scr-grid .scr-card:not(.scr-open)').forEach(c=>_scrReveal(c));
 }
 function loadCraft() {
   el('cc').innerHTML='<div class="loader">Загрузка...</div>';

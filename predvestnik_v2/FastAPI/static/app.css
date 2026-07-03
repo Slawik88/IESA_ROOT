@@ -1665,6 +1665,41 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .pity-bar { height: 6px; border-radius: 4px; background: var(--dim); overflow: hidden; margin-top: 6px; }
 .pity-fill { height: 100%; background: linear-gradient(90deg, var(--violet), var(--gold)); border-radius: 4px; transition: width .5s; }
 
+/* ── R4.1 Ритуал Крутки: long-press зарядка одиночного спина ──────────────────
+   JS ведёт CSS-переменную --chg (0→1) на .spin-row.charging; слой .sr-charge —
+   функциональный индикатор прогресса удержания (не гасится .no-fx). */
+.spin-row { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.spin-row .sr-charge {
+  content: ''; position: absolute; inset: 0; width: calc(var(--chg, 0) * 100%);
+  background: linear-gradient(90deg, rgba(232,181,77,.16), rgba(232,181,77,.32));
+  pointer-events: none; border-radius: inherit;
+}
+.spin-row.charging { border-color: var(--gold); }
+.spin-row.charged  { border-color: var(--gold); box-shadow: 0 0 14px rgba(232,181,77,.45); }
+.sr-hold-hint { font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+/* ── R4.1 Скретч-карты мультикрутки ×10 ──────────────────────────────────────
+   Канвас с «серебряным» покрытием поверх карточки результата; стирается пальцем
+   (destination-out), при ~55% стёртости — авто-раскрытие. touch-action:none на
+   канвасе обязателен, иначе вертикальный скролл страницы перехватит стирание. */
+.scr-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+.scr-card {
+  position: relative; min-height: 74px; border-radius: 12px; overflow: hidden;
+  border: 1px solid var(--border2); background: linear-gradient(180deg, var(--bg2), var(--bg1));
+  display: flex; align-items: center; justify-content: center; text-align: center;
+}
+.scr-body { padding: 10px 8px; font-size: 11px; line-height: 1.45; width: 100%; }
+.scr-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  touch-action: none; cursor: pointer; transition: opacity .35s ease;
+}
+.scr-card.scr-open .scr-canvas { opacity: 0; pointer-events: none; }
+.scr-card.scr-open { animation: pop .35s cubic-bezier(.34,1.56,.64,1) both; }
+.scr-card.r-rare      { border-color: rgba(94,155,240,.55); }
+.scr-card.r-epic      { border-color: rgba(176,122,214,.6); box-shadow: 0 0 10px rgba(176,122,214,.25); }
+.scr-card.r-legendary { border-color: rgba(232,196,90,.65); box-shadow: 0 0 12px rgba(232,196,90,.3); }
+.scr-card.r-mythic    { border-color: rgba(224,85,107,.65); box-shadow: 0 0 12px rgba(224,85,107,.3); }
+
 /* ── Rarity juice результата крутки (БЛОК 3) ─────────────────────────────────
    JS вешает на .spin-anim-wrap класс glow-{rarity}. Раньше эти классы были
    пустыми (свечения по редкости не было). Теперь — цветной пульсирующий ореол
