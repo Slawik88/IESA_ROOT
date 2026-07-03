@@ -37,7 +37,10 @@ async def main(dry_run: bool) -> None:
     conn = await asyncpg.connect(url, timeout=20)
     await conn.execute("SET search_path TO predvestnik, public")
 
-    # Колонки/лог-таблица (идемпотентно; колонки также создаёт lifespan/init_db)
+    # Колонки/лог-таблица — ВСЕГДА, даже в --dry-run: CREATE/ADD ... IF NOT EXISTS
+    # идемпотентны и не трогают ничьи данные (тот же паттерн, что и в lifespan/
+    # init_db на каждом старте прод-процессов), а без rebuild_grant_log дальнейший
+    # SELECT ниже не может даже посчитать, кого показывать в превью.
     for stmt in (
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_xp BIGINT DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_level INTEGER DEFAULT 1",
@@ -48,11 +51,10 @@ async def main(dry_run: bool) -> None:
             granted_at TIMESTAMP NOT NULL DEFAULT NOW()
         )""",
     ):
-        if not dry_run:
-            try:
-                await conn.execute(stmt)
-            except Exception as e:
-                print(f"DDL warn: {e}")
+        try:
+            await conn.execute(stmt)
+        except Exception as e:
+            print(f"DDL warn: {e}")
 
     rows = await conn.fetch(
         "SELECT u.user_tg_id, COALESCE(SUM(s.user_xp), 0) AS total_xp "
