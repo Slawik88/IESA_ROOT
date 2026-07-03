@@ -39,6 +39,25 @@ async def get_user_marriage(
         return dict(row) if row else None
 
 
+async def get_family_bank_mora_cap(db, marriage_id: int) -> float:
+    """R8: кап 🪙-части общака = FAMILY_BANK_DEFAULT_CAP + лучший bank_bonus
+    Дракона любого из супругов (Дракон должен стоять в питомнике, не на складе).
+    Раньше константа была объявлена, но нигде не проверялась — общак был
+    безлимитным, а строка Дракона «🏦 +N к банку» — декоративной (БЛОК 36.3)."""
+    from core.constants import FAMILY_BANK_DEFAULT_CAP, DRAGON_BONUSES
+    async with db.execute(
+        "SELECT COALESCE(MAX(p.pet_level), 0) FROM pets p "
+        "JOIN marriages m ON m.id = ? "
+        "AND p.owner_id IN (m.user1_id, m.user2_id) "
+        "WHERE p.species_id = 'dragon' AND p.placement IN ('active', 'passive')",
+        (marriage_id,),
+    ) as c:
+        row = await c.fetchone()
+    lvl = int(row[0] or 0)
+    bonus = DRAGON_BONUSES.get(lvl, {}).get("bank_bonus", 0.0) if lvl > 0 else 0.0
+    return float(FAMILY_BANK_DEFAULT_CAP) + float(bonus)
+
+
 async def family_bank_transaction(
     db: aiosqlite.Connection,
     marriage_id: int,
@@ -48,7 +67,8 @@ async def family_bank_transaction(
     currency: str = "mora",
 ) -> tuple[bool, str]:
     """Депозит/вывод любой из 4 валют между личным балансом и семейным кошельком.
-    Любой супруг может тратить ВСЮ сумму семейного кошелька (общий пул)."""
+    Любой супруг может тратить ВСЮ сумму семейного кошелька (общий пул).
+    R8: 🪙-часть общака ограничена капом (get_family_bank_mora_cap)."""
     meta = FAMILY_CURRENCIES.get(currency)
     if not meta:
         return False, "Неизвестная валюта."
@@ -69,6 +89,16 @@ async def family_bank_transaction(
                 family_balance = float(m_row[0])
 
             if action == "deposit":
+                if currency == "mora":
+                    cap = await get_family_bank_mora_cap(db, marriage_id)
+                    free = max(0.0, cap - family_balance)
+                    if amount > free:
+                        _cap_s = f"{int(cap):,}".replace(",", " ")
+                        _free_s = f"{int(free):,}".replace(",", " ")
+                        return False, (
+                            f"🏦 Кап общака: {_cap_s} 🪙 (свободно {_free_s}). "
+                            f"Кап поднимает Дракон в питомнике."
+                        )
                 async with db.execute(
                     f"SELECT COALESCE({user_col}, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
                     (user_id,),

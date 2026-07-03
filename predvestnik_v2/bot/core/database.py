@@ -128,6 +128,11 @@ async def _init_users_and_chats(db):
         # БЛОК22 (compliance): принятие ToS/Privacy. DEFAULT NULL → текущие игроки
         # «не приняли» → их ловит легаси-гард (бот-middleware + блок-модалка сайта).
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMP DEFAULT NULL",
+        # R0/R1 (GDD_REBUILD_PLAN.md): прогрессия аккаунта — глобальный XP/уровень
+        # (экспоненциальная кривая) и кэш Индекса Силы. Зеркало: users.ensure_account_columns.
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_xp BIGINT DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_level INTEGER DEFAULT 1",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_power INTEGER DEFAULT 0",
     ]:
         try:
             await db.execute(_stmt)
@@ -499,6 +504,13 @@ async def _init_progression_and_economy(db):
             PRIMARY KEY (user_id, week_start)
         )
     """)
+    # R5 «Молот Аукциона»: суммарные секунды анти-снайп-продления лота (кап 30 мин)
+    try:
+        await db.execute(
+            "ALTER TABLE auction_lots ADD COLUMN IF NOT EXISTS extended_sec INTEGER DEFAULT 0"
+        )
+    except Exception:
+        pass
 
 
 async def _init_events_and_moderation(db):
@@ -1249,28 +1261,12 @@ async def _init_combat(db):
 
 
 async def _init_analytics(db):
-    # БЛОК 35: посещаемость мини-апп.
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS site_analytics (
-            id         SERIAL PRIMARY KEY,
-            user_id    BIGINT NOT NULL,
-            tab        TEXT NOT NULL,
-            session_id TEXT NOT NULL,
-            visited_at TIMESTAMP NOT NULL DEFAULT NOW()
-        )
-    """)
-    # Migration: INTEGER → BIGINT (safe, idempotent) — новые Telegram ID (5+ млрд)
-    # не влезали в int32, каждая запись аналитики для таких юзеров падала с ошибкой.
-    try:
-        await db.execute("ALTER TABLE site_analytics ALTER COLUMN user_id TYPE BIGINT")
-    except Exception:
-        pass  # уже BIGINT или миграция не нужна (non-fatal)
-    await db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_sa_visited_at ON site_analytics(visited_at)"
-    )
-    await db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_sa_tab ON site_analytics(tab, visited_at)"
-    )
+    # БЛОК 35: посещаемость мини-апп. Дублирование DDL убрано — единственный
+    # источник схемы теперь infrastructure/repositories/analytics.ensure_table
+    # (эта копия уже разошлась один раз: колонка duration_sec была только в repo,
+    # и когда lifespan-ensure упал по локу, прод остался без колонки).
+    from infrastructure.repositories.analytics import ensure_table as _ensure_analytics
+    await _ensure_analytics(db)
 
 
 async def init_db():
@@ -1298,5 +1294,8 @@ async def init_db():
         await _init_combat(db)
         await _init_system_flags(db)
         await _init_analytics(db)
+        # R6 «Умный Пульс»: очередь DM-событий (зеркало ensure — FastAPI lifespan)
+        from infrastructure.repositories.push import ensure_table as _ensure_push
+        await _ensure_push(db)
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")

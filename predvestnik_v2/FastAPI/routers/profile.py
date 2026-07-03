@@ -11,7 +11,9 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.streak import get_global_streak
 from services.roles import GLOBAL_RANKS_MAP
-from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH, XP_PER_LEVEL
+from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
+from services.leveling import account_progress
+from services.combat_power import calculate_cp
 from services.formatting import safe_html
 from services.vip import is_vip_active
 from services.cosmetics import get_active_cosmetics
@@ -91,6 +93,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "u.user_balance_mora, u.user_balance_diamonds, "
         "COALESCE(u.user_balance_dark_mora, 0) AS user_balance_dark_mora, "
         "COALESCE(u.user_balance_zarniki, 0) AS user_balance_zarniki, "
+        "COALESCE(u.account_xp, 0) AS account_xp, "
         "(u.tos_accepted_at IS NOT NULL) AS tos_accepted, "
         "(v.user_id IS NOT NULL) AS is_vip "
         "FROM users u "
@@ -102,6 +105,14 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
 
     if not row:
         raise HTTPException(404, "Профиль не найден. Напишите боту чтобы зарегистрироваться.")
+
+    _acc_prog = account_progress(int(row["account_xp"] or 0))
+    # R1: Индекс Силы — свежий расчёт + обновление кэша (users.combat_power)
+    _cp = await calculate_cp(db, user_id)
+    await db.execute(
+        "UPDATE users SET combat_power = ? WHERE user_tg_id = ?",
+        (_cp["total"], user_id),
+    )
 
     # Топ-5 чатов по активности
     async with db.execute(
@@ -163,7 +174,15 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "zarniki":      float(row["user_balance_zarniki"] or 0),
         "streak":       (dict(streak_row)["streak"] or 0) if streak_row else 0,
         "achievements": ach_count,
-        "xp_per_level": XP_PER_LEVEL,
+        # R0: уровень аккаунта — глобальный, экспоненциальная кривая.
+        # xp_per_level оставлен для обратной совместимости фронта = цена ТЕКУЩЕГО уровня.
+        "account_level": _acc_prog["level"],
+        "account_xp":    int(row["account_xp"] or 0),
+        "xp_into":       _acc_prog["xp_into"],
+        "xp_to_next":    _acc_prog["xp_need"],
+        "xp_per_level":  _acc_prog["xp_need"] or 1,
+        "combat_power":  _cp["total"],
+        "cp_breakdown":  _cp,
         "chats":        chats,
         "pets":         pets,
         "is_vip":       bool(row["is_vip"]),
@@ -182,6 +201,7 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
     клан, питомцы, надетая косметика."""
     async with db.execute(
         "SELECT u.user_tg_id, u.user_tg_username, u.global_rank, "
+        "COALESCE(u.account_xp, 0) AS account_xp, "
         "(v.user_id IS NOT NULL) AS is_vip "
         "FROM users u "
         "LEFT JOIN vip_subscriptions v ON v.user_id = u.user_tg_id AND v.expires_at > NOW() "
@@ -192,13 +212,14 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
     if not row:
         raise HTTPException(404, "Игрок не найден.")
 
+    # R0: публичный уровень — уровень аккаунта (та же кривая, что в /me и боте)
     async with db.execute(
-        "SELECT COALESCE(MAX(user_level), 1) AS lvl, "
-        "COALESCE(SUM(user_messages_count_all_time), 0) AS msgs "
+        "SELECT COALESCE(SUM(user_messages_count_all_time), 0) AS msgs "
         "FROM user_chat_stats WHERE user_tg_id = ?",
         (target_id,),
     ) as c:
         agg = dict(await c.fetchone())
+    agg["lvl"] = account_progress(int(row["account_xp"] or 0))["level"]
 
     async with db.execute(
         "SELECT name, species_id, rarity, placement, COALESCE(pet_level, 1) AS pet_level "
@@ -223,6 +244,7 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
         "rank":         _RANK_NAMES.get(row["global_rank"] or 0, "👤 Пользователь"),
         "global_rank":  row["global_rank"] or 0,
         "level":        agg["lvl"],
+        "combat_power": (await calculate_cp(db, target_id))["total"],
         "messages":     int(agg["msgs"] or 0),
         "streak":       streak,
         "achievements": ach,
@@ -333,3 +355,35 @@ async def get_nickname_endpoint(chat_id: int = 0, db=Depends(get_db), user=Depen
     ) as c:
         row = await c.fetchone()
     return {"nickname": row[0] if row else None}
+
+
+# ── R6 «Умный Пульс»: настройки персональных DM-уведомлений ────────────────────
+# Закрывает дыру БЛОК 36.1: раньше vip_expiry/bp_reminder нельзя было отключить
+# нигде (бот-хендлер мёртв, веб-UI не существовал).
+
+class NotifPrefRequest(BaseModel):
+    category: str
+    enabled: bool
+
+
+@router.get("/notification-prefs")
+async def get_notification_prefs(db=Depends(get_db), user=Depends(require_tg_user)):
+    from core.constants import NOTIFICATION_CATEGORIES
+    from infrastructure.repositories import notifications as notif_repo
+    prefs = await notif_repo.get_prefs(db, user["id"])
+    return {
+        "categories": [
+            {"key": k, "label": v, "enabled": prefs.get(k, True)}
+            for k, v in NOTIFICATION_CATEGORIES.items()
+        ]
+    }
+
+
+@router.post("/notification-prefs")
+async def set_notification_pref(body: NotifPrefRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    from core.constants import NOTIFICATION_CATEGORIES
+    from infrastructure.repositories import notifications as notif_repo
+    if body.category not in NOTIFICATION_CATEGORIES:
+        raise HTTPException(400, "Неизвестная категория уведомлений.")
+    await notif_repo.set_pref(db, user["id"], body.category, body.enabled)
+    return {"ok": True, "category": body.category, "enabled": body.enabled}

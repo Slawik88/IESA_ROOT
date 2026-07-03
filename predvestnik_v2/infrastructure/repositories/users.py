@@ -124,3 +124,52 @@ async def delete_nickname(db: aiosqlite.Connection, user_id: int, chat_id: int) 
         (user_id, chat_id),
     )
     await db.commit()
+
+
+# ── R0/R1: уровень аккаунта и Индекс Силы (GDD_REBUILD_PLAN.md) ────────────────
+
+async def ensure_account_columns(db) -> None:
+    """Идемпотентные колонки прогрессии аккаунта. Зовётся и из бот-init,
+    и из FastAPI lifespan (веб-процесс может стартовать раньше бота)."""
+    for stmt in (
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_xp BIGINT DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_level INTEGER DEFAULT 1",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_power INTEGER DEFAULT 0",
+    ):
+        try:
+            await db.execute(stmt)
+        except Exception:
+            pass  # колонка уже есть / гонка двух процессов — не фатально
+    await db.commit()
+
+
+async def add_account_xp(db, user_id: int, amount: int) -> dict:
+    """Начислить XP аккаунту, вернуть свежие {account_xp, account_level}.
+    Уровень здесь НЕ пересчитывается — это делает services.leveling
+    (единственный владелец формулы кривой)."""
+    async with db.execute(
+        "UPDATE users SET account_xp = account_xp + ? WHERE user_tg_id = ? "
+        "RETURNING account_xp, account_level",
+        (amount, user_id),
+    ) as c:
+        row = await c.fetchone()
+    return dict(row) if row else {"account_xp": 0, "account_level": 1}
+
+
+async def set_account_level(db, user_id: int, level: int) -> None:
+    await db.execute(
+        "UPDATE users SET account_level = ? WHERE user_tg_id = ?",
+        (level, user_id),
+    )
+
+
+async def get_account_progress(db, user_id: int) -> dict:
+    """{account_xp, account_level} игрока (0/1, если строки users ещё нет)."""
+    async with db.execute(
+        "SELECT COALESCE(account_xp, 0) AS account_xp, "
+        "COALESCE(account_level, 1) AS account_level "
+        "FROM users WHERE user_tg_id = ?",
+        (user_id,),
+    ) as c:
+        row = await c.fetchone()
+    return dict(row) if row else {"account_xp": 0, "account_level": 1}

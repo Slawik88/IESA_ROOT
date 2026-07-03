@@ -298,6 +298,7 @@ async def expedition_options(db=Depends(get_db), user=Depends(require_tg_user)):
         "active_pet": active_pet,
         "busy": busy is not None,
         "busy_until": str(busy["ends_at"])[:16] if busy else None,
+        "busy_remaining_sec": int(busy["remaining_sec"]) if busy else None,
         "busy_pet": busy["name"] if busy else None,
         "mora": float(balance["user_balance_mora"] or 0),
     }
@@ -325,7 +326,8 @@ async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), use
 
     busy = await get_busy_expedition(db, user_id)
     if busy:
-        raise HTTPException(400, f"Питомец уже в походе (вернётся {str(busy['ends_at'])[:16]}).")
+        _rem = max(0, int(busy["remaining_sec"]))
+        raise HTTPException(400, f"Питомец уже в походе (вернётся через ~{_rem // 3600}ч {(_rem % 3600) // 60:02d}м).")
 
     # Wolf reduces expedition fatigue
     wolf_reduction = await get_wolf_fatigue_reduction(db, user_id)

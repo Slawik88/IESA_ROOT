@@ -26,7 +26,7 @@ from datetime import datetime
 
 from aiogram import Router, types
 from bot.filters.text_commands import TextCmd
-from core.constants import XP_PER_LEVEL
+from services.leveling import account_progress
 from core.registry import ACHIEVEMENTS, PET_SPECIES
 from infrastructure.repositories import chat as chat_repo
 from infrastructure.repositories import dark_mora as dark_mora_repo
@@ -502,13 +502,14 @@ async def _render_full_profile(
     g_rank = roles.get_global_rank_name(user_id, global_rank_id, developer_id=developer_id)
     l_rank = roles.get_local_rank_name(user_id, stats.get("local_rank", 0), developer_id=developer_id)
 
-    # ── xp ────────────────────────────────────────────────────────────────────
-    lvl       = stats.get("user_level", 1)
-    xp        = stats.get("user_xp", 0)
-    xp_in_lvl = xp % XP_PER_LEVEL
-    bar       = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
-    pct       = _xp_pct(xp_in_lvl, XP_PER_LEVEL)
-    xp_str    = f"({_compact(xp_in_lvl)}/{_compact(XP_PER_LEVEL)})"
+    # ── xp (R0: уровень аккаунта — глобальный, экспоненциальная кривая) ────────
+    _acc      = await users_repo.get_account_progress(db, user_id)
+    _prog     = account_progress(_acc.get("account_xp", 0))
+    lvl       = _prog["level"]
+    _need     = _prog["xp_need"] or 1
+    bar       = _xp_bar(_prog["xp_into"], _need)
+    pct       = _xp_pct(_prog["xp_into"], _need)
+    xp_str    = f"({_compact(_prog['xp_into'])}/{_compact(_need)})"
 
     # ── balance ───────────────────────────────────────────────────────────────
     mora_v = float(bal["user_balance_mora"])
@@ -716,10 +717,12 @@ async def cmd_anketa(message: types.Message, db, developer_id: int = 0):
     g_rank = roles.get_global_rank_name(user_id, g_rank_id, developer_id=developer_id)
     l_rank = roles.get_local_rank_name(user_id, stats.get("local_rank", 0), developer_id=developer_id)
 
-    lvl       = stats.get("user_level", 1)
-    xp_in_lvl = stats.get("user_xp", 0) % XP_PER_LEVEL
-    bar       = _xp_bar(xp_in_lvl, XP_PER_LEVEL)
-    pct       = _xp_pct(xp_in_lvl, XP_PER_LEVEL)
+    _acc      = await users_repo.get_account_progress(db, user_id)
+    _prog     = account_progress(_acc.get("account_xp", 0))
+    lvl       = _prog["level"]
+    _need     = _prog["xp_need"] or 1
+    bar       = _xp_bar(_prog["xp_into"], _need)
+    pct       = _xp_pct(_prog["xp_into"], _need)
 
     mora_v = float(bal["user_balance_mora"])
     dia_v  = float(bal["user_balance_diamonds"])

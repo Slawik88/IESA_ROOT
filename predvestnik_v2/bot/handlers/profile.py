@@ -9,7 +9,7 @@ from services.utils import format_currency, safe_html, resolve_target, parse_dt,
 from services.zoo import format_pet_bonus_short
 from services import ui
 from bot.filters.text_commands import TextCmd
-from core.constants import XP_PER_LEVEL
+from services.leveling import account_progress
 from core.registry import PET_SPECIES
 
 
@@ -80,12 +80,14 @@ async def _build_profile_text(
     mora = format_currency(balance['user_balance_mora'])
     diamonds = format_currency(balance['user_balance_diamonds'])
 
-    # XP
-    curr_xp = stats.get('user_xp', 0)
-    level = stats.get('user_level', 1)
-    xp_in_level = curr_xp % XP_PER_LEVEL
-    xp_to_next = XP_PER_LEVEL - xp_in_level
-    xp_bar = ui.bar(xp_in_level, XP_PER_LEVEL, length=10)
+    # XP (R0: уровень аккаунта — глобальный, экспоненциальная кривая)
+    _acc = await users.get_account_progress(db, user_id)
+    _prog = account_progress(_acc.get("account_xp", 0))
+    level = _prog["level"]
+    xp_in_level = _prog["xp_into"]
+    _xp_need = _prog["xp_need"] or 1
+    xp_to_next = max(0, _xp_need - xp_in_level)
+    xp_bar = ui.bar(xp_in_level, _xp_need, length=10)
 
     # Bonus extras (balance sub-lines)
     extras = []
@@ -119,7 +121,7 @@ async def _build_profile_text(
 
         f"💰 <b>{mora} 🪙 · {diamonds} 💎</b>{extras_block}\n\n"
 
-        f"⭐ <b>Lv{level}</b>  <code>[{xp_bar}]</code>  {xp_in_level}/{XP_PER_LEVEL}"
+        f"⭐ <b>Lv{level}</b>  <code>[{xp_bar}]</code>  {xp_in_level}/{_xp_need}"
     )
     if level < 999:
         text += f" · +{xp_to_next} XP до Lv{level + 1}"

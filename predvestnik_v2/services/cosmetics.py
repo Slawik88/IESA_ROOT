@@ -214,8 +214,11 @@ async def unequip(db, user_id: int, slot: str) -> tuple[bool, str]:
     return True, "Снято."
 
 
-async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0) -> tuple[bool, str]:
-    """Купить косметику за выбранный вариант оплаты (мульти/альт-валюта). Атомарно."""
+async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0,
+              price_override: dict | None = None) -> tuple[bool, str]:
+    """Купить косметику за выбранный вариант оплаты (мульти/альт-валюта). Атомарно.
+    price_override — СЕРВЕРНАЯ подмена цены (R4.2 Витрина недели: скидка считается
+    на бэке, клиентской цене не доверяем); формат {"zarniki": 200}."""
     cos = COSMETICS.get(cosmetic_id)
     if not cos:
         return False, "Нет такой косметики."
@@ -224,9 +227,12 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0) -> tupl
         return False, "Эта косметика не продаётся — выдаётся за VIP / БП / достижения."
     if cosmetic_id in await _owned(db, user_id):
         return False, "Эта косметика у тебя уже есть."
-    if not (0 <= option_index < len(price)):
-        return False, "Некорректный вариант оплаты."
-    chosen = price[option_index]
+    if price_override is not None:
+        chosen = price_override
+    else:
+        if not (0 <= option_index < len(price)):
+            return False, "Некорректный вариант оплаты."
+        chosen = price[option_index]
 
     async with db.connection.transaction():
         async with db.execute(

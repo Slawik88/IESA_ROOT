@@ -1,6 +1,18 @@
 import aiosqlite
 
 
+async def ensure_columns(db) -> None:
+    """R5: extended_sec — суммарное анти-снайп-продление лота. Идемпотентно;
+    зовётся из бот-init (database.py) и FastAPI lifespan (веб стартует раньше)."""
+    try:
+        await db.execute(
+            "ALTER TABLE auction_lots ADD COLUMN IF NOT EXISTS extended_sec INTEGER DEFAULT 0"
+        )
+        await db.commit()
+    except Exception:
+        pass
+
+
 async def create_lot(
     db: aiosqlite.Connection,
     seller_id: int,

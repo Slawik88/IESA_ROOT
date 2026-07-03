@@ -13,6 +13,8 @@ from datetime import datetime, timezone, timedelta
 from core.constants import (
     AUCTION_DURATION_HOURS, AUCTION_MAX_ACTIVE_LOTS, AUCTION_MAX_LOTS_PER_WEEK,
     AUCTION_MIN_BID, AUCTION_MIN_BID_RAISE, AUCTION_COMMISSION, AUCTION_MAX_BID,
+    AUCTION_LISTING_FEE, AUCTION_ANTISNIPE_WINDOW_SEC, AUCTION_ANTISNIPE_EXTEND_SEC,
+    AUCTION_MAX_EXTENSION_SEC,
 )
 from core.registry import ITEMS_REGISTRY as _ITEMS_REGISTRY
 from infrastructure.repositories import economy as eco_repo
@@ -194,6 +196,19 @@ async def create_auction_lot(
     if buyout is not None and buyout > AUCTION_MAX_BID:
         buyout = AUCTION_MAX_BID
 
+    # R8: листинг-сбор 1% от мин. ставки (минимум 1 🪙), не возвращается при
+    # снятии/невыкупе — дефляционный слив и анти-спам лотами.
+    listing_fee = max(1.0, round(min_bid * AUCTION_LISTING_FEE, 2))
+    bal = await eco_repo.get_balance(db, seller_id)
+    if float(bal["user_balance_mora"] or 0) < listing_fee:
+        _fee_s = f"{listing_fee:,.0f}".replace(",", " ")
+        return False, f"Нужно {_fee_s} 🪙 на листинг-сбор (1% от мин. ставки)."
+    await eco_repo.add_balance(
+        db, seller_id, mora=-listing_fee,
+        source="auction_listing_fee",
+        note=f"Листинг-сбор за лот «{item_name.split('||')[0]}»",
+    )
+
     lot_id = await create_lot(
         db, seller_id, category, item_type, item_id_or_pet_id,
         quantity, item_name, min_bid, buyout, _ends_at_str(),
@@ -287,12 +302,31 @@ async def place_bid(
         if is_buyout:
             await _finalize_lot(db, lot, bidder_id, amount, chat_id)
 
+        # R5 «Молот Аукциона»: анти-снайп — ставка в последние 60с продлевает лот
+        # на +60с (война ставок заканчивается только когда кто-то сдался, а не
+        # «кто последний кликнул»). Суммарное продление капается 30 минутами.
+        extended = False
+        if not is_buyout:
+            _remaining = (ends - datetime.now(timezone.utc)).total_seconds()
+            if 0 < _remaining <= AUCTION_ANTISNIPE_WINDOW_SEC:
+                _already = int(lot.get("extended_sec") or 0)
+                if _already < AUCTION_MAX_EXTENSION_SEC:
+                    await db.execute(
+                        "UPDATE auction_lots SET "
+                        "ends_at = ends_at + INTERVAL '1 second' * ?, "
+                        "extended_sec = COALESCE(extended_sec, 0) + ? "
+                        "WHERE id = ?",
+                        (AUCTION_ANTISNIPE_EXTEND_SEC, AUCTION_ANTISNIPE_EXTEND_SEC, lot_id),
+                    )
+                    extended = True
+
     return {
         "ok": True,
         "error": None,
         "outbid_user_id": outbid_user_id,
         "outbid_amount": outbid_amount,
         "is_buyout": is_buyout,
+        "extended": extended,
         "lot": lot,
     }
 
