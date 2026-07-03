@@ -12,6 +12,7 @@ def calculate_reward(
     species_levels: dict | None = None,
     species_placements: dict | None = None,
     relic_mora_pct: float = 0.0,
+    academy_pct: float = 0.0,
 ) -> dict:
     """
     Calculate expedition outcome.
@@ -104,6 +105,13 @@ def calculate_reward(
             breakdown.append({"label": f"🦉 Сова Ур.{owl_level}", "xp": bonus_xp})
 
     # Block 13: суммарный бонус реликвий к моро-награде похода.
+    # R3: Академия клана (+2%/ур) — та же база, что и реликвии
+    if academy_pct > 0:
+        academy_gain = int(mora * academy_pct)
+        if academy_gain > 0:
+            mora += academy_gain
+            buff_message += f"\n🎓 <i>Академия клана: +{academy_gain} Моры (+{int(academy_pct * 100)}%)</i>"
+
     if relic_mora_pct > 0:
         relic_gain = int(mora * relic_mora_pct)
         if relic_gain > 0:

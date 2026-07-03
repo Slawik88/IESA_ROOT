@@ -118,6 +118,62 @@ async def _persist_pet_after_battle(db, battle_row: dict, state: dict) -> None:
     )
 
 
+async def _abyss_finalize(db, uid: int, user: dict, state: dict, won: bool) -> dict | None:
+    """R3: исход боя за клетку Бездны — при победе клетка открывается, лут
+    сплитится 70/30, босс даёт ключ этажа. При поражении клетка остаётся."""
+    ab_ctx = state.get("abyss") or {}
+    clan_id, wk, cell = ab_ctx.get("clan_id"), ab_ctx.get("week"), ab_ctx.get("cell")
+    if not clan_id:
+        return None
+    from infrastructure.repositories import clans2 as c2_repo
+    from services import clans2 as c2
+    uname = user.get("username") or f"id{uid}"
+    if not won:
+        await c2_repo.abyss_log(db, clan_id, uid, f"☠️ @{uname} пал в бою в Бездне")
+        return None
+    ab = await c2_repo.get_abyss(db, clan_id, wk)
+    if not ab or cell in ab["opened"]:
+        return None
+    ab["opened"].append(cell)
+    is_boss = bool(ab_ctx.get("boss"))
+    shards = c2.roll_boss_loot() if is_boss else c2.roll_monster_loot()
+    split = await c2.split_loot(db, clan_id, uid, shards)
+    await c2_repo.save_abyss(db, clan_id, wk, ab["opened"],
+                             key_found=True if is_boss else None)
+    await c2_repo.abyss_log(
+        db, clan_id, uid,
+        (f"👑 @{uname} сразил БОССА: +{shards}💠 и ключ этажа!" if is_boss
+         else f"⚔️ @{uname} победил монстра: +{shards}💠"))
+    return {"shards": shards, "split": split, "boss_key": is_boss}
+
+
+async def _war_finalize(db, uid: int, state: dict) -> dict | None:
+    """R3: урон рана засчитывается стене; пробитие → узел переходит атакующим."""
+    war_ctx = state.get("war") or {}
+    war_id = war_ctx.get("war_id")
+    if not war_id:
+        return None
+    from infrastructure.repositories import clans2 as c2_repo
+    from core.constants import WAR_NODE_SHIELD_HOURS
+    dmg = float(state.get("dmg_total", 0))
+    if dmg <= 0:
+        return {"damage": 0}
+    total = await c2_repo.add_war_damage(db, war_id, uid, dmg)
+    war = await c2_repo.get_active_war(db)  # перечитаем по id ниже
+    async with db.execute("SELECT * FROM clan_wars2 WHERE id = ?", (war_id,)) as c:
+        war = dict(await c.fetchone())
+    node = await c2_repo.get_node(db, war["node_id"])
+    breached = total >= float(node["wall_hp_max"] or 0)
+    if breached and war["status"] == "active":
+        await c2_repo.finish_war(db, war_id, "won")
+        await c2_repo.transfer_node(db, war["node_id"], war["attacker_clan_id"],
+                                    "[]", 1000.0, WAR_NODE_SHIELD_HOURS)
+        await c2_repo.abyss_log(db, war["attacker_clan_id"], uid,
+                                f"🏰 Узел «{node['name']}» ЗАХВАЧЕН! Щит 48ч.")
+    return {"damage": int(dmg), "wall_total": int(total),
+            "wall_hp_max": int(node["wall_hp_max"] or 0), "breached": breached}
+
+
 async def _gates_reward(db, uid: int, floor: int) -> dict:
     dark = GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * floor
     await db.execute(
@@ -155,9 +211,10 @@ async def battle_action(body: ActionRequest, db=Depends(get_db), user=Depends(re
         await _persist_pet_after_battle(db, row, state)
         if turn["battle_won"] and row["mode"] == "gates":
             reward = await _gates_reward(db, uid, int(row["ref_id"]))
-        elif row["mode"] in ("abyss", "war"):
-            # R3: результат забирает вызывающая система (Бездна/Война) по статусу
-            pass
+        elif row["mode"] == "abyss":
+            reward = await _abyss_finalize(db, uid, user, state, turn["battle_won"])
+        elif row["mode"] == "war":
+            reward = await _war_finalize(db, uid, state)
         await db.commit()
         return {**bt.public_state(state, row["id"], status), "turn": turn, "reward": reward}
 

@@ -223,7 +223,7 @@ function _clanMyHtml(){
       <div class="clan-stats"><div><b>${(c.members||[]).length}</b>/${emax} участников</div>
         <div><b>${fmtF(c.total_xp||0)}</b> XP · 🎖 <b>${fmtF(c.clan_coins||0)}</b></div></div>
     </div>
-    ${_clanBoardHtml()}
+    ${_clan2NavHtml()}
     ${_clanShopHtml()}
     ${_clanBuildingsHtml()}
     <div class="looks-slot-t" style="margin-top:12px">Состав <span class="clan-coin-note">· вклад 🎖</span></div>
@@ -244,26 +244,6 @@ function _clanBuildingsHtml(){
     </div></div>`).join('');
   return `<div class="looks-slot-t" style="margin-top:12px">🏛 Штаб клана · ур.${lvl}</div>
     <div class="clan-blds">${cards}</div>`;
-}
-function _clanBoardHtml(){
-  const c=_clansData.my_clan;
-  const reqs=(c.requests||[]);
-  const rows=reqs.length?reqs.map(r=>{
-    const pct=r.qty_need?Math.min(100,Math.round(r.qty_filled/r.qty_need*100)):0;
-    const help=(!r.mine)?`<button class="btn btn-sm btn-gold" onclick="_clanReqFill(${r.request_id},${r.remaining})">🤝 Помочь</button>`:'';
-    const cancel=(r.can_cancel)?`<button class="btn btn-sm btn-ghost" onclick="_clanReqCancel(${r.request_id})">✕</button>`:'';
-    return `<div class="clan-req">
-      <div class="clan-req-top"><span class="clan-req-name">${esc(r.item_name||r.item_id)}</span>
-        <span class="clan-req-qty">${r.qty_filled}/${r.qty_need}</span></div>
-      <div class="clan-req-bar"><div class="clan-req-fill" style="width:${pct}%"></div></div>
-      <div class="clan-req-bot"><span class="clan-req-author">для ${unameLink(r.author_id, r.author_name, false)}${r.mine?' <span class="clan-you">ты</span>':''}</span>
-        <span class="clan-req-act">${help}${cancel}</span></div>
-    </div>`;
-  }).join(''):'<div class="clan-empty">Пока пусто. Жми «➕ Запрос» — попроси у клана нужный ресурс.</div>';
-  return `<div class="clan-board-head"><span class="looks-slot-t" style="margin:0">📋 Доска Запросов</span>
-      <button class="btn btn-sm btn-gold" onclick="_clanReqCreate()">➕ Запрос</button></div>
-    <div class="clan-board-hint">Проси корм и материалы — согильдиец передаёт их тебе лично, получая 🎖 и XP клану.</div>
-    <div class="clan-board">${rows}</div>`;
 }
 function _clanCreateHtml(){
   const emblems=(_clansData.emblems||[]).map(e=>`<span class="clan-emb-opt ${e===_clanEmblemSel?'sel':''}" onclick="_clanPickEmblem('${e}')">${e}</span>`).join('');
@@ -311,44 +291,10 @@ function _clanLeaveDo(){
     .then(r=>{toast(r.message); openClansModal();}).catch(e=>{toast(e,false); openClansModal();});
 }
 // ── Доска Запросов: создать / помочь / снять ────────────────────────────────────
-function _clanReqCreate(){
-  const items=(_clansData&&_clansData.request_items)||[];
-  if(!items.length){ toast('Нет предметов, доступных для запроса.',false); return; }
-  const cap=(_clansData.my_clan&&_clansData.my_clan.request_qty_cap)||5;
-  const opts=items.map(it=>`<option value="${esc(it.item_id)}">${esc(it.name)}</option>`).join('');
-  OM('➕ Запрос на Доску',
-    `<div class="clan-reqform">
-       <div class="looks-slot-t">Что нужно</div>
-       <select id="creq-item" class="num-input">${opts}</select>
-       <div class="looks-slot-t" style="margin-top:8px">Количество (макс ${cap})</div>
-       <input id="creq-qty" type="number" class="num-input" min="1" max="${cap}" value="1"/>
-       <div class="looks-hint" style="margin-top:6px">Можно просить только корм и материалы. Согильдийцы скидывают предмет тебе лично.</div>
-     </div>`,
-    [{l:'Отмена',c:'btn-ghost',f:'openClansModal()'},{l:'Опубликовать',c:'btn-gold',f:'_clanReqCreateDo()'}]);
-}
 function _clanReqCreateDo(){
   const item=(el('creq-item')||{}).value||'';
   const qty=parseInt((el('creq-qty')||{}).value||'1',10)||1;
   api('/clans/request/create',{method:'POST',body:JSON.stringify({item_id:item,qty:qty})})
-    .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
-}
-function _clanReqFill(rid,remaining){
-  const def=remaining>0?remaining:1;
-  OM('🤝 Помочь по запросу',
-    `<div class="clan-reqform">
-       <div style="font-size:13px;margin-bottom:6px">Сколько передать? (нужно ещё ${remaining})</div>
-       <input id="cfill-qty" type="number" class="num-input" min="1" value="${def}"/>
-       <div class="looks-hint" style="margin-top:6px">Отдашь не больше, чем нужно и чем есть у тебя. Награда — 🎖 клан-монеты и XP клану.</div>
-     </div>`,
-    [{l:'Отмена',c:'btn-ghost',f:'openClansModal()'},{l:'Передать',c:'btn-gold',f:'_clanReqFillDo('+rid+')'}]);
-}
-function _clanReqFillDo(rid){
-  const qty=parseInt((el('cfill-qty')||{}).value||'1',10)||1;
-  api('/clans/request/fill',{method:'POST',body:JSON.stringify({request_id:rid,qty:qty})})
-    .then(r=>{toast(r.message); refreshCurrBar(); openClansModal();}).catch(e=>toast(e,false));
-}
-function _clanReqCancel(rid){
-  api('/clans/request/cancel',{method:'POST',body:JSON.stringify({request_id:rid})})
     .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
 }
 // ── Клан-лавка (сток clan_coins) ────────────────────────────────────────────────
@@ -768,4 +714,133 @@ function showCpBreakdown() {
     ${row('🏛 Реликвии', b.relics)}
     <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.4">Питомцы на складе CP не дают. Сет косметики — все 6 слотов надеты, бонус по минимальной редкости.</div>
   `,[{l:'Понятно',c:'btn-gold',f:'CM()'}]);
+}
+
+// ══ R3 Кланы 2.0: Бездна · Здания · Войны (внутри клан-модалки) ══════════════
+function _clan2NavHtml(){
+  return `<div class="clan2-nav">
+    <button class="btn btn-gold" onclick="c2Abyss()">🌀 Бездна</button>
+    <button class="btn btn-ghost" onclick="c2Buildings()">🏗 Здания</button>
+    <button class="btn btn-ghost" onclick="c2War()">⚔️ Войны</button>
+  </div>`;
+}
+const C2_CELL_ICO={empty:'▫️',chest:'📦',monster:'👹',boss:'👑',exit:'🚪'};
+let _c2Ab=null, _c2PetSel=null;
+function c2Abyss(){
+  const b=el('mb'); if(b)b.innerHTML='<div class="loader">Загрузка Бездны...</div>';
+  api('/clans2/abyss').then(d=>{
+    _c2Ab=d;
+    if(d.active_battle){ _btBackFn=c2Abyss; _btRender(d.active_battle); return; }
+    _c2RenderAbyss();
+  }).catch(e=>{if(b)b.innerHTML=`<div class="err">${e}</div>`;});
+}
+function _c2RenderAbyss(){
+  const b=el('mb'); if(!b||!_c2Ab) return;
+  const d=_c2Ab;
+  if(!_c2PetSel && d.pets && d.pets.length) _c2PetSel=d.pets[0].id;
+  const cells=d.grid.map(c=>{
+    if(c.state==='open') return `<div class="ab-cell open">${C2_CELL_ICO[c.type]||'▫️'}</div>`;
+    if(c.state==='reachable') return `<button class="ab-cell reach" onclick="c2Open(${c.i},this)">${c.type?C2_CELL_ICO[c.type]:'❔'}</button>`;
+    return `<div class="ab-cell fog"></div>`;
+  }).join('');
+  const pets=(d.pets||[]).map(p=>`<button class="btn btn-sm ${p.id===_c2PetSel?'btn-gold':'btn-ghost'}"
+      onclick="_c2PetSel=${p.id};_c2RenderAbyss()">${esc(p.name||p.species_id)} ⚡${p.stamina}</button>`).join('');
+  const gateOk=d.cp>=d.cp_gate;
+  b.innerHTML=`
+    <div class="looks-hint">🌀 Этаж <b>${d.floor}</b> · неделя ${d.week} · открытие клетки: <b>${d.stamina_cost}</b> выносливости.
+      Гейт этажа: ⚡${fmt(d.cp_gate)} ${gateOk?'✅':`❌ (у тебя ${fmt(d.cp)})`}
+      ${d.key_found?' · 🗝 ключ найден':''}</div>
+    <div class="ab-grid">${cells}</div>
+    <div class="looks-slot-t">Кем копаем</div>
+    <div class="skg-stakes">${pets||'<span class="cx-dim">Нет живых питомцев</span>'}</div>
+    ${d.key_found?`<button class="btn btn-gold btn-full" onclick="c2NextFloor()">⬇️ Спуститься на этаж ${d.floor+1}</button>`:''}
+    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="openClansModal()">↩ К клану</button>`;
+}
+function c2Open(cell, btn){
+  if(!_c2PetSel){ toast('Выбери питомца', false); return; }
+  if(btn) btn.disabled=true;
+  _btBackFn=c2Abyss;
+  api('/clans2/abyss/open',{method:'POST',body:JSON.stringify({cell, pet_id:_c2PetSel})})
+    .then(r=>{
+      if(r.battle){ _haptic('medium'); _btRender(r.battle); return; }
+      if(r.type==='chest'){ _haptic('success'); toast(`📦 +${r.shards} 💠 (${r.split.treasury} в казну)`); }
+      else if(r.exit_found){ _haptic('success'); toast('🚪 Найден проход на следующий этаж!'); }
+      else _haptic('light');
+      c2Abyss();
+    })
+    .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
+}
+function c2NextFloor(){
+  api('/clans2/abyss/next-floor',{method:'POST'})
+    .then(r=>{toast(`⬇️ Этаж ${r.floor}!`); c2Abyss();})
+    .catch(e=>toast(e,false));
+}
+function c2Buildings(){
+  const b=el('mb'); if(b)b.innerHTML='<div class="loader">Загрузка...</div>';
+  api('/clans2/overview').then(d=>{
+    const cards=d.buildings.map(x=>`<div class="clan-bld">
+      <div class="clan-bld-ico">${x.emoji}</div>
+      <div class="clan-bld-body">
+        <div class="clan-bld-name">${esc(x.name)} · ур.${x.level}/${x.max}</div>
+        <div class="clan-bld-eff">${esc(x.desc)}</div>
+      </div>
+      ${x.next_cost?`<button class="btn btn-sm btn-gold" onclick="c2Build('${x.key}',this)">↑ ${x.next_cost} 💠</button>`
+                   :'<span class="cx-dim">★ макс</span>'}
+    </div>`).join('');
+    const log=(d.log||[]).map(l=>`<div class="lot-live-row">${esc(l.text)}</div>`).join('');
+    el('mb').innerHTML=`
+      <div class="looks-hint">🏦 Казна: <b>${fmtF(d.treasury_shards)}</b>/${fmt(d.treasury_cap)} 💠 · <b>${fmt(d.treasury_mora)}</b> 🪙 (доход узлов) · твоя роль: <b>${d.role}</b></div>
+      <div class="clan-blds">${cards}</div>
+      ${log?`<div class="looks-slot-t" style="margin-top:10px">📜 Лента клана</div><div class="bt-log">${log}</div>`:''}
+      <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="openClansModal()">↩ К клану</button>`;
+  }).catch(e=>{if(el('mb'))el('mb').innerHTML=`<div class="err">${e}</div>`;});
+}
+function c2Build(key, btn){
+  if(btn)btn.disabled=true;
+  api('/clans2/build',{method:'POST',body:JSON.stringify({key})})
+    .then(r=>{_haptic('success'); toast(`🏗 ур.${r.level} (−${r.paid} 💠)`); c2Buildings();})
+    .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
+}
+function c2War(){
+  const b=el('mb'); if(b)b.innerHTML='<div class="loader">Загрузка узлов...</div>';
+  api('/clans2/war/nodes').then(d=>{
+    const rows=d.nodes.map(n=>{
+      const mine=n.owner&&n.owner.clan_id===d.my_clan_id;
+      const owner=n.owner?`${esc(n.owner.name)} [${esc(n.owner.tag)}]`:'— ничей —';
+      const shield=n.shield_left_sec>0?` · 🛡 ${Math.ceil(n.shield_left_sec/3600)}ч`:'';
+      let act='';
+      if(n.war){
+        const pct=n.wall_hp_max?Math.min(100,Math.round(n.war.damage_total/n.wall_hp_max*100)):0;
+        act=`<div class="bt-bar"><div class="bt-fill hp en" style="width:${pct}%"></div></div>
+          <div class="bt-num">Штурм: ${fmt(n.war.damage_total)}/${fmt(n.wall_hp_max)} · ${Math.ceil(n.war.remaining_sec/3600)}ч</div>
+          ${n.war.attacker_clan_id===d.my_clan_id?`<button class="btn btn-sm btn-red btn-full" onclick="c2WarAttack(${n.war.id})">⚔️ Атаковать стену</button>`:''}`;
+      } else if(!mine && ['owner','warlord'].includes(d.my_role||'') && n.shield_left_sec<=0){
+        act=`<button class="btn btn-sm btn-ghost btn-full" onclick="c2Declare(${n.id},this)">⚔️ Война (${fmt(d.declare_cost)} 🪙 казны)</button>`;
+      }
+      return `<div class="g2-floor"><div style="flex:1">
+          <div class="g2-fn">${esc(n.name)}${mine?' 🏰':''}${shield}</div>
+          <div class="bt-num">Владелец: ${owner} · стена ${fmt(n.wall_hp_max)} HP</div>${act}
+        </div></div>`;
+    }).join('');
+    el('mb').innerHTML=`
+      <div class="looks-hint">🏰 Узлы дают 2 000 🪙/день в казну владельца. Война: 24ч на пробитие стены, ${d.attacks_per_day} атаки/день на бойца.</div>
+      ${rows}
+      <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="openClansModal()">↩ К клану</button>`;
+  }).catch(e=>{if(el('mb'))el('mb').innerHTML=`<div class="err">${e}</div>`;});
+}
+function c2Declare(nodeId, btn){
+  if(btn)btn.disabled=true;
+  api('/clans2/war/declare',{method:'POST',body:JSON.stringify({node_id:nodeId})})
+    .then(()=>{_haptic('heavy'); toast('⚔️ Война объявлена! 24 часа на штурм.'); c2War();})
+    .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
+}
+function c2WarAttack(warId){
+  if(!_c2Ab||!_c2Ab.pets||!_c2Ab.pets.length){
+    api('/clans2/abyss').then(d=>{_c2Ab=d; c2WarAttack(warId);}).catch(e=>toast(e,false));
+    return;
+  }
+  _btBackFn=c2War;
+  api('/clans2/war/attack',{method:'POST',body:JSON.stringify({war_id:warId, pet_id:_c2PetSel||_c2Ab.pets[0].id})})
+    .then(r=>{_haptic('medium'); _btRender(r.battle);})
+    .catch(e=>toast(e,false));
 }

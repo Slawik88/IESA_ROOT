@@ -145,8 +145,22 @@ async def cmd_clan_leave(message: types.Message, db, text_args: str = ""):
 
 @router.message(TextCmd(["клан доска", "доска клана", "клан запросы"]))
 async def cmd_clan_board(message: types.Message, db, text_args: str = ""):
-    text, kb = await _render_board(db, message.from_user.id)
-    await message.answer(text, reply_markup=kb, parse_mode="HTML")
+    # R3: Доска Запросов удалена — кооперация переехала в Бездну клана (мини-апп)
+    import os
+    bot_username = os.getenv("BOT_USERNAME", "")
+    kb = None
+    if bot_username:
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
+            text="🌀 Открыть Бездну клана",
+            url=f"https://t.me/{bot_username}?startapp=clans")]])
+    await message.answer(
+        "🌀 <b>Доска Запросов ушла в историю.</b>\n"
+        "Теперь клан копает <b>Бездну</b>: общая карта 7×7, туман войны, сундуки "
+        "с 💠 Осколками Бездны, монстры и босс этажа. Добыча идёт в казну клана — "
+        "на неё строятся здания с баффами всем соклановцам.\n"
+        "Всё это — в мини-аппе, вкладка Кланы.",
+        reply_markup=kb, parse_mode="HTML")
 
 
 @router.message(TextCmd(["кланы", "клан", "гильдия", "гильдии"]))

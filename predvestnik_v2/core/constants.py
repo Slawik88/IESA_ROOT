@@ -740,3 +740,38 @@ RAID_BOSS_COUNTER_FRAC: float = 0.12          # контр-урон питомц
 RAID_THRESHOLDS: tuple = (75, 50, 25, 0)      # пороги % HP босса для наград
 RAID_DURATION_HOURS: int = 48                 # окно рейда
 RAID_ATTACK_COOLDOWN_MIN: int = 30            # КД атаки одним питомцем (анти-спам)
+
+# ── R3 Кланы 2.0 (services/clans2.py): Бездна, здания, войны за узлы ───────────
+CLAN_ROLES: tuple = ("owner", "warlord", "treasurer", "fighter")
+ABYSS_GRID: int = 7                     # карта 7×7, центр открыт изначально
+ABYSS_OPEN_STAMINA: int = 30            # стамина питомца за открытие клетки
+ABYSS_SPLIT_TREASURY: float = 0.70      # 70% добычи — в казну, 30% — лично
+ABYSS_TREASURY_WEEKLY_CAP: int = 90     # 💠 в казну от ОДНОГО игрока/нед (сверх — лично)
+ABYSS_CHEST_SHARDS: tuple = (2, 6)      # сундук: 2–6 💠
+ABYSS_MONSTER_SHARDS: tuple = (3, 8)    # монстр (Бой 2.0): 3–8 💠
+ABYSS_BOSS_SHARDS: tuple = (15, 25)     # босс: 15–25 💠 + ключ этажа
+ABYSS_FLOOR_CP_BASE: int = 800          # CP-гейт этажа Бездны: BASE × этаж
+# Здания 2.0: цена уровня L = BUILD_BASE × BUILD_GROWTH^(L−1) 💠 из казны
+CLAN_BUILD_BASE: int = 60
+CLAN_BUILD_GROWTH: float = 1.55
+CLAN_BUILD_MAX_LEVEL: int = 10
+CLAN_BUILDINGS2: dict = {
+    "hq":       {"emoji": "🏛", "name": "Штаб",     "desc": "+1 слот участников за уровень"},
+    "academy":  {"emoji": "🎓", "name": "Академия", "desc": "+2%/ур к Море экспедиций соклановцев"},
+    "radar":    {"emoji": "📡", "name": "Радар",    "desc": "−3%/ур стамины в Бездне; L5/L10 — видны типы соседних клеток"},
+    "treasury": {"emoji": "🏦", "name": "Казна",    "desc": "+5%/ур к доходу узлов; кап казны 2000+1000/ур 💠"},
+}
+CLAN_ACADEMY_PCT_PER_LEVEL: float = 0.02
+CLAN_RADAR_STAMINA_PCT_PER_LEVEL: float = 0.03
+CLAN_TREASURY_CAP_BASE: int = 2000
+CLAN_TREASURY_CAP_PER_LEVEL: int = 1000
+CLAN_COINS_TO_SHARDS: tuple = (10, 3)   # конверсия при миграции: 10 🎖 → 3 💠 лично
+# Войны за узлы
+WAR_NODES_COUNT: int = 5
+WAR_NODE_INCOME_MORA_PER_DAY: float = 2000.0   # в 🪙-казну клана-владельца
+WAR_DECLARE_COST_MORA: float = 5000.0          # из 🪙-казны клана (доход узлов)
+WAR_WINDOW_HOURS: int = 24
+WAR_ATTACKS_PER_DAY: int = 2                   # ран Боя 2.0 на игрока в день
+WAR_WALL_MAX_DEFENDERS: int = 10               # снапшот питомцев-защитников
+WAR_WALL_SEGMENT_HP: int = 600                 # один ран бьёт сегмент стены ≤600 HP
+WAR_NODE_SHIELD_HOURS: int = 48                # щит узла после захвата
