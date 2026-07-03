@@ -589,6 +589,21 @@ PUSH_EVENT_TTL_SEC: dict[str, int] = {
     "bid_outbid_final": 900,   # окно финала ~10 мин + запас
 }
 
+# ── R7: интеллектуальные мини-игры (services/skill_games.py) ───────────────────
+# Server-authoritative: раскладка/секрет живут в minigame_sessions.state_json,
+# клиенту не доверяем. Дневной кап выигрыша ОБЩИЙ с казино (GAMBLE_DAILY_CAP,
+# get/add_daily_winnings) — скилл-игры не обходят лимит.
+SKILL_GAME_COOLDOWN_MIN: int = 10      # между стартами сессий любых скилл-игр
+SAPPER_GRID: int = 25                  # поле 5×5
+SAPPER_MINES: int = 3
+SAPPER_MIN_BET: float = 100.0
+SAPPER_MAX_BET: float = 2_000.0
+SAPPER_EDGE: float = 0.96              # множитель = fair-гипергеометрия × эдж 4%
+SAFE_MIN_BET: float = 100.0
+SAFE_MAX_BET: float = 2_000.0
+SAFE_ATTEMPTS: int = 6                 # попыток взлома
+SAFE_WIN_MULT: float = 1.6             # скилловый винрейт ~60% → EV ≈ 0.96
+
 # ── Battle Pass (Implementation Block 5) ───────────────────────────────────────
 BATTLE_PASS_XP_PER_LEVEL: int = 100  # линейная шкала; подбирается при балансировке
 BATTLE_PASS_MAX_LEVEL: int = 50
