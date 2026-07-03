@@ -57,15 +57,31 @@ async def main(dry_run: bool) -> None:
             print(f"DDL warn: {e}")
 
     rows = await conn.fetch(
-        "SELECT u.user_tg_id, COALESCE(SUM(s.user_xp), 0) AS total_xp "
+        "SELECT u.user_tg_id, u.user_tg_username, COALESCE(SUM(s.user_xp), 0) AS total_xp "
         "FROM users u LEFT JOIN user_chat_stats s ON s.user_tg_id = u.user_tg_id "
         "WHERE NOT EXISTS (SELECT 1 FROM rebuild_grant_log g WHERE g.user_id = u.user_tg_id) "
-        "GROUP BY u.user_tg_id ORDER BY total_xp DESC"
+        "GROUP BY u.user_tg_id, u.user_tg_username ORDER BY total_xp DESC"
     )
-    print(f"К миграции: {len(rows)} игроков{' (DRY-RUN)' if dry_run else ''}")
+
+    # Telegram обязывает: username ЛЮБОГО бота оканчивается на "bot" (правило
+    # платформы, не догадка) — до фикса db_middleware (2026-07-03, БЛОК 37/38)
+    # чужие боты в группах качали XP на общих основаниях с игроками. Не выдаём
+    # им «Пакет Обновления 2.0» молча — просто НЕ трогаем (не пишем в
+    # rebuild_grant_log), чтобы решение по спорным случаям осталось за человеком.
+    def _looks_like_bot(username) -> bool:
+        return bool(username) and username.strip().lower().endswith("bot")
+
+    eligible = [r for r in rows if not _looks_like_bot(r["user_tg_username"])]
+    excluded = [r for r in rows if _looks_like_bot(r["user_tg_username"])]
+
+    print(f"К миграции: {len(eligible)} игроков{' (DRY-RUN)' if dry_run else ''}")
+    if excluded:
+        print(f"⚠️  Исключено как похожие на ботов (username оканчивается на 'bot'): {len(excluded)}")
+        for r in excluded:
+            print(f"  🤖 {r['user_tg_id']} (@{r['user_tg_username']}): xp={int(r['total_xp'] or 0)} — пропущен")
 
     done = 0
-    for r in rows:
+    for r in eligible:
         uid, total_xp = r["user_tg_id"], int(r["total_xp"] or 0)
         new_level = calculate_account_level(total_xp)
         if dry_run:
@@ -100,7 +116,7 @@ async def main(dry_run: bool) -> None:
             )
         done += 1
         if done % 25 == 0:
-            print(f"  …{done}/{len(rows)}")
+            print(f"  …{done}/{len(eligible)}")
 
     print(f"Готово: {done} игроков{' (dry-run, БД не тронута)' if dry_run else ''}")
     await conn.close()
