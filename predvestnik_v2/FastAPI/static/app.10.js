@@ -333,12 +333,12 @@ function _openSurprisesModal(){
         <div class="chest-odds">${odds}</div>
         <div class="gift-foot" style="margin-top:8px">
           ${c.owned>0?`<button class="btn btn-sm btn-gold" onclick="_openChest('${c.id}',this)">Открыть (${c.owned})</button>`:''}
-          <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}')">${c.zarniki} ✨</button>
+          <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}')">Купить за ${c.zarniki} ✨</button>
         </div></div>`;
     }).join('');
     const craftItems=(cr.items||[]).map(it=>{
       const foot=it.owned?'<span class="lc-on">✓ есть</span>'
-        :`<button class="btn btn-sm ${it.can?'btn-gold':'btn-ghost'}" ${it.can?'':'disabled'} onclick="_craftCosmetic('${it.id}',this)">${it.cost} 🔹</button>`;
+        :`<button class="btn btn-sm ${it.can?'btn-gold':'btn-ghost'}" ${it.can?'':'disabled'} onclick="_craftCosmetic('${it.id}',this)">${it.can?`Скрафтить за ${it.cost} 🔹`:`Нужно ${it.cost} 🔹`}</button>`;
       return `<div class="looks-card r-${it.rarity}${it.owned?' lc-dim':''}">
         ${_looksSwatch(it.slot, it)}<div class="lc-name">${esc(it.name)}</div>
         <div class="lc-foot"><span class="lc-rar">${_rarLabel(it.rarity)}</span>${foot}</div></div>`;

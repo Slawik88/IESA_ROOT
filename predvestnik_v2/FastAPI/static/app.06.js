@@ -829,8 +829,12 @@ function loadDeal() {
       </div>
       ${deals.length?'<div class="card"><div class="card-title">🏷 Предложения сегодня</div>'+
         deals.map(deal=>{
-          const price=deal.price_mora?`${fmt(deal.price_mora)} 🪙`:deal.price_diamonds?`${deal.price_diamonds} 💎`:'—';
+          const priceVal = deal.price_mora?deal.price_mora:deal.price_diamonds?deal.price_diamonds:0;
+          const priceIcon = deal.price_mora?'🪙':deal.price_diamonds?'💎':'';
+          const price = priceVal?`${fmt(priceVal)} ${priceIcon}`:'—';
           const purchased=deal.purchased===true;
+          const haveVal = deal.price_mora?d.mora:deal.price_diamonds?d.diamonds:0;
+          const afford = purchased || haveVal >= priceVal;
           return `<div class="shop-row">
             <div class="shop-icon">${(deal.item_name||'?').split(' ')[0]}</div>
             <div class="shop-info">
@@ -838,8 +842,8 @@ function loadDeal() {
               <div class="shop-price">${price}</div>
               <div class="shop-desc">${deal.item_description||''}</div>
             </div>
-            <button class="btn btn-sm ${purchased?'btn-ghost':'btn-gold'}" ${purchased?'disabled':''} onclick="buyDeal(${deal.slot},this)">
-              ${purchased?'✓ Куплено':'Купить'}
+            <button class="btn btn-sm ${purchased?'btn-ghost':(afford?'btn-gold':'btn-ghost')}" ${purchased?'disabled':''} onclick="buyDeal(${deal.slot},this)">
+              ${purchased?'✓ Куплено':(afford?`Купить за ${price}`:`Нужно ${price}`)}
             </button>
           </div>`;
         }).join('')+'</div>'
@@ -878,14 +882,15 @@ function _showcaseCard(s){
     </div>`;
   }
   const bought=s.purchased;
+  const afford = bought || (_profileData?.zarniki||0) >= s.price;
   return `<div class="looks-card r-${s.rarity}" style="text-align:center;padding:10px 6px">
     <div style="font-size:20px">${icon}</div>
     <div style="font-size:10.5px;font-weight:600;margin:3px 0;line-height:1.25">${esc(s.name||'')}</div>
     <div style="font-size:10px"><s style="color:var(--muted)">${s.price_base}✨</s>
       <b style="color:var(--gold2)">${s.price}✨</b>
       <span style="color:var(--green)">−${s.discount_pct}%</span></div>
-    <button class="btn btn-sm ${bought?'btn-ghost':'btn-gold'}" style="margin-top:5px;width:100%" ${bought?'disabled':''}
-      onclick="_showcaseBuy(${s.slot_idx},this)">${bought?'✓':'Купить'}</button>
+    <button class="btn btn-sm ${bought?'btn-ghost':(afford?'btn-gold':'btn-ghost')}" style="margin-top:5px;width:100%" ${bought?'disabled':''}
+      onclick="_showcaseBuy(${s.slot_idx},this)">${bought?'✓ Куплено':(afford?`Купить за ${s.price}✨`:`Нужно ${s.price}✨`)}</button>
   </div>`;
 }
 function _showcaseReveal(idx,card){

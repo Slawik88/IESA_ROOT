@@ -54,6 +54,7 @@ async def get_shop(db=Depends(get_db), user=Depends(require_tg_user)):
     return {
         "mora":     float(bal["user_balance_mora"] or 0),
         "diamonds": float(bal["user_balance_diamonds"] or 0),
+        "zarniki":  float(bal["user_balance_zarniki"] or 0),
         "items":    _build_catalog(eco, has_discount),
     }
 

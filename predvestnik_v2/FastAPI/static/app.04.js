@@ -139,10 +139,15 @@ function _topRarity(dups) {
   return '';
 }
 
+let _gachaBal = {mora:0, dia:0};
+let _spinCosts = {};
 function loadGacha() {
   el('gc').innerHTML='<div class="loader">Загрузка...</div>';
   api('/gacha/').then(d=>{
     const disc = d.multi_discount_pct||10;
+    _gachaBal = {mora: d.mora||0, dia: d.diamonds||0};
+    _spinCosts = {};
+    d.spin_types.forEach(s=>{ _spinCosts[s.spin_type] = {mora: s.cost_mora||0, dia: s.cost_dia||0}; });
     el('gc').innerHTML=`
     <div class="gacha-header">
       <div class="gh-title">✨ ГАЧА</div>
@@ -236,6 +241,14 @@ function spinPressStart(ev, st, row){
   if(!window.PointerEvent) return;              // фолбэк-клик отработает сам
   if(_press) spinPressEnd(ev, _press.row);      // защитный сброс зависшего состояния
   if(row.style.pointerEvents==='none') return;  // спин уже в полёте
+  // UX-аудит: не начинать ритуал заряда, если крутка заведомо не по карману —
+  // раньше игрок проходил всю анимацию и узнавал о нехватке денег в конце.
+  const c = _spinCosts[st];
+  if(c && ((c.mora>0 && _gachaBal.mora<c.mora) || (c.dia>0 && _gachaBal.dia<c.dia))){
+    _haptic('error');
+    toast(c.mora>0?`Не хватает Моры (нужно ${fmt(c.mora)} 🪙)`:`Не хватает Алмазов (нужно ${c.dia} 💎)`, false);
+    return;
+  }
   _press = {row, st, t0: Date.now(), fired: false, h1: false, h2: false};
   row.classList.add('charging');
   _haptic('light');
@@ -624,10 +637,20 @@ function openDuelChallenge() {
   // Grab current balance from profile data if available
   const bal = _profileData?.mora || 0;
   const balStr = bal > 0 ? `<div style="background:var(--s);border-radius:var(--r);padding:6px 10px;margin-bottom:10px;font-size:11px;display:flex;justify-content:space-between"><span style="color:var(--muted)">Ваш баланс</span><span style="color:var(--gold);font-weight:600">${fmt(bal)} 🪙</span></div>` : '';
+  // UX-аудит: механика решалки была «чёрным ящиком» — игрок не видел даже
+  // своего питомца перед ставкой. Показываем, кто идёт в бой, и честно
+  // объясняем правило (редкость×уровень±15% случайности), без опоры на
+  // питомца соперника — тот неизвестен, пока он не примет вызов.
+  const myPet = (_profileData?.pets||[]).find(p=>p.placement==='active');
+  const petStr = myPet
+    ? `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">🐾 В бой пойдёт: <b style="color:var(--bright)">${esc(myPet.name||myPet.species_id)}</b> · ${rarLabel(myPet.rarity)} · Ур.${myPet.pet_level}</div>`
+    : `<div style="font-size:11px;color:var(--red);margin-bottom:8px">⚠️ Нет активного питомца — назначьте его в Зоопарке перед вызовом.</div>`;
   OM('⚔️ Вызов на дуэль', `
     ${balStr}
+    ${petStr}
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">
       Соперник получит уведомление в Telegram — он должен ответить <code>бот принять</code> в чате.
+      Побеждает более сильный питомец (редкость × уровень), но исход не гарантирован — есть ±15% случайности.
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">@username соперника</div>
     <input id="duel-user" type="text" class="num-input" placeholder="username (без @)"/>
@@ -976,18 +999,23 @@ function loadShopCatalog() {
     const grps={};d.items.forEach(it=>(grps[it.category]=grps[it.category]||[]).push(it));
     const promoBtn=`<button class="btn btn-ghost btn-full" style="margin-bottom:10px" onclick="openPromoModal()">🎫 У меня есть промокод</button>`;
     el('mkt-shop').innerHTML=promoBtn+Object.entries(grps).map(([cat,list])=>
-      `<div class="card"><div class="card-title">${cats[cat]||cat}</div>${list.map(it=>`<div class="shop-row">
+      `<div class="card"><div class="card-title">${cats[cat]||cat}</div>${list.map(it=>{
+        const priceIcon = it.price_mora?'🪙':it.price_diamonds?'💎':'✨';
+        const priceVal = it.price_mora?it.price_mora:it.price_diamonds?it.price_diamonds:it.price_zarniki;
+        const haveVal = it.price_mora?d.mora:it.price_diamonds?d.diamonds:(d.zarniki||0);
+        const afford = haveVal >= priceVal;
+        return `<div class="shop-row">
         <span style="font-size:22px;width:32px;text-align:center">${it.name.split(' ')[0]}</span>
         <div style="flex:1">
           <div style="font-size:13px;font-weight:600;color:var(--bright)">${it.name}</div>
-          <div style="font-size:11px;color:var(--gold)">${it.price_mora?fmt(it.price_mora)+' 🪙':it.price_diamonds?it.price_diamonds+' 💎':fmt(it.price_zarniki)+' ✨'}${it.discount_active?' 🐢':''}</div>
+          <div style="font-size:11px;color:var(--gold)">${fmt(priceVal)} ${priceIcon}${it.discount_active?' 🐢':''}</div>
           <div style="font-size:10px;color:var(--muted)">${it.description||''}</div>
           ${_invData.find(i=>i.item_id===it.item_id)
             ? `<div style="font-size:10px;color:var(--green);margin-top:2px">✓ В инвентаре: ×${_invData.find(i=>i.item_id===it.item_id).quantity}</div>`
             : ''}
         </div>
-        <button class="btn btn-sm btn-gold" onclick="buyItem('${it.item_id}',this)">Купить</button>
-      </div>`).join('')}</div>`).join('');
+        <button class="btn btn-sm ${afford?'btn-gold':'btn-ghost'}" onclick="buyItem('${it.item_id}',this)">${afford?`Купить за ${fmt(priceVal)} ${priceIcon}`:`Нужно ${fmt(priceVal)} ${priceIcon}`}</button>
+      </div>`;}).join('')}</div>`).join('');
   }).catch(e=>{el('mkt-shop').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 // Block 9: warn before buying if already in inventory
