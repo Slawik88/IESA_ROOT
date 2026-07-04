@@ -268,6 +268,15 @@ function renderGlobalProfile(d, recipientId){
     <span class="gp-pl">Ур.${p.pet_level}${p.placement==='active'?' ·⚔️':''}</span></div>`).join('')
     ||'<div class="cx-dim" style="font-size:11px;padding:4px">Питомцев нет</div>';
   const clan=d.clan?`<div class="gp-clan">${d.clan.emblem||'🛡'} <b>${esc(d.clan.name)}</b> <span class="clan-tag">[${esc(d.clan.tag)}]</span> · ${d.clan.role==='leader'?'👑 Лидер':'Участник'}</div>`:'';
+  const s=d.sanction;
+  const sanctionHtml = s ? `<div class="gp-sanction gp-sanction-${s.type}">
+      ${s.type==='ban'?'🔨 ГЛОБАЛЬНЫЙ БАН':'⚠️ Ограничение'}${s.reason?': '+esc(s.reason):''}
+      ${s.expires_at?`<span class="gp-sanction-exp">до ${new Date(s.expires_at).toLocaleDateString('ru')}</span>`:'<span class="gp-sanction-exp">бессрочно</span>'}
+    </div>` : '';
+  const chatSancBits=[];
+  if(d.chat_warnings>0) chatSancBits.push(`⚠️ ${d.chat_warnings} варн(ов) в чатах`);
+  if(d.muted_until) chatSancBits.push(`🔇 в муте до ${new Date(d.muted_until).toLocaleString('ru')}`);
+  const chatSanctionHtml = chatSancBits.length ? `<div class="gp-sanction gp-sanction-restrict">${chatSancBits.join(' · ')}</div>` : '';
   b.innerHTML=`<div class="looks-preview ${cls('profile_bg')}" style="text-align:left;padding:14px">
       ${cls('card_fx')?`<div class="card-fx ${cls('card_fx')}"></div>`:''}
       <div style="display:flex;align-items:center;gap:12px;position:relative;z-index:3">
@@ -279,6 +288,8 @@ function renderGlobalProfile(d, recipientId){
         </div>
       </div>
     </div>
+    ${sanctionHtml}
+    ${chatSanctionHtml}
     ${clan}
     <div class="gp-stats">
       <div class="gp-st"><div class="gp-sv">${d.level}</div><div class="gp-sl">Уровень</div></div>

@@ -20,6 +20,8 @@ from services.cosmetics import get_active_cosmetics
 from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import set_nickname
 from infrastructure.repositories import system_flags as _system_flags
+from infrastructure.repositories import global_moderation as gmod_repo
+from services.global_moderation import SANCTION_LABELS
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -238,6 +240,31 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
 
     from infrastructure.repositories import clans as clans_repo
     clan = await clans_repo.get_user_clan(db, target_id)
+
+    # Глобальные санкции (варн/ресракт/бан) видны ВСЕМ в публичном профиле —
+    # прозрачность модерации, а не только приватный блок экономических команд.
+    sanction_row = await gmod_repo.get_active_restriction(db, "user", target_id)
+    sanction = None
+    if sanction_row:
+        sanction = {
+            "type":       sanction_row["sanction_type"],   # "restrict" | "ban"
+            "label":      SANCTION_LABELS.get(sanction_row["sanction_type"], sanction_row["sanction_type"]),
+            "reason":     sanction_row.get("reason"),
+            "expires_at": sanction_row["expires_at"].isoformat() if sanction_row.get("expires_at") else None,
+        }
+
+    # Локальные санкции (варны/мут по чатам, где ещё состоит) — суммарно, без
+    # привязки к конкретному чату (профиль глобальный). Более мягкий сигнал,
+    # чем глобальная санкция выше, но тоже должен быть виден всем.
+    async with db.execute(
+        "SELECT COALESCE(SUM(warnings), 0) AS total_warnings, "
+        "MAX(CASE WHEN muted_until > NOW() THEN muted_until END) AS mute_until "
+        "FROM user_chat_stats WHERE user_tg_id = ? AND is_left = FALSE",
+        (target_id,),
+    ) as c:
+        chat_sanc = dict(await c.fetchone())
+    mute_until = chat_sanc.get("mute_until")
+
     return {
         "user_id":      target_id,
         "username":     row["user_tg_username"] or f"id{target_id}",
@@ -253,6 +280,9 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
         "clan":         ({"name": clan["name"], "tag": clan["tag"],
                           "emblem": clan["emblem"], "role": clan["role"]} if clan else None),
         "cosmetics":    await get_active_cosmetics(db, target_id),
+        "sanction":     sanction,
+        "chat_warnings": int(chat_sanc.get("total_warnings") or 0),
+        "muted_until":   mute_until.isoformat() if mute_until else None,
     }
 
 

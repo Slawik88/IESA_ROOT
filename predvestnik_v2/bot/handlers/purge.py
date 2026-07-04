@@ -8,6 +8,7 @@ from loguru import logger
 
 from bot.filters.text_commands import TextCmd
 from services import moderation as mod_service
+from services.membership import prune_ghosts
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import routing
 from services.utils import safe_html, parse_dt, feature_guard
@@ -116,38 +117,46 @@ async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str =
     exempt_user_ids = []  # ID пользователей с рангом >= purge_min_rank для снятия мута
 
     async with db.execute(query, (start_date, end_date, message.chat.id)) as cursor:
-        async for row in cursor:
-            user_data = dict(row)
-            uid = user_data['id']
-            uname = safe_html(user_data['username'] or f"ID {uid}")
-            msg_sum = user_data['msg_sum']
-            link = f'<a href="tg://user?id={uid}">{uname}</a>'
+        candidates = [dict(r) for r in await cursor.fetchall()]
 
-            is_exempt = user_data['local_rank'] >= purge_min_rank
-            has_absolute_immunity = user_data['is_immune'] == 1
-            has_temp_shield = False
+    # Сверка is_left с реальным членством (см. services/membership.py) — чистка
+    # не должна предлагать варн/кик тем, кто уже физически не в чате.
+    if candidates:
+        left_ids = await prune_ghosts(db, message.chat.id, [c['id'] for c in candidates])
+        if left_ids:
+            candidates = [c for c in candidates if c['id'] not in left_ids]
 
-            if user_data['immune_until']:
-                try:
-                    dt = parse_dt(user_data['immune_until'])
-                    if dt and dt > datetime.now():
-                        has_temp_shield = True
-                except Exception:
-                    pass
+    for user_data in candidates:
+        uid = user_data['id']
+        uname = safe_html(user_data['username'] or f"ID {uid}")
+        msg_sum = user_data['msg_sum']
+        link = f'<a href="tg://user?id={uid}">{uname}</a>'
 
-            if is_exempt:
-                admin_users.append(f"├ 👑 {link} ({msg_sum} msg)")
-                exempt_user_ids.append(uid)
-            elif has_absolute_immunity:
-                protected_users.append(f"├ 🛡 {link} ({msg_sum} msg) [иммунитет ∞]")
-            elif has_temp_shield:
-                shield_until = parse_dt(user_data['immune_until'])
-                until_label = shield_until.strftime("%d.%m") if shield_until else "?"
-                protected_users.append(f"├ 🕐 {link} ({msg_sum} msg) [рест до {until_label}]")
-            elif msg_sum >= norm:
-                passed_users.append(f"├ ✅ {link} ({msg_sum} msg)")
-            else:
-                failed_users.append(user_data)  # Сохраняем весь словарь для досье
+        is_exempt = user_data['local_rank'] >= purge_min_rank
+        has_absolute_immunity = user_data['is_immune'] == 1
+        has_temp_shield = False
+
+        if user_data['immune_until']:
+            try:
+                dt = parse_dt(user_data['immune_until'])
+                if dt and dt > datetime.now():
+                    has_temp_shield = True
+            except Exception:
+                pass
+
+        if is_exempt:
+            admin_users.append(f"├ 👑 {link} ({msg_sum} msg)")
+            exempt_user_ids.append(uid)
+        elif has_absolute_immunity:
+            protected_users.append(f"├ 🛡 {link} ({msg_sum} msg) [иммунитет ∞]")
+        elif has_temp_shield:
+            shield_until = parse_dt(user_data['immune_until'])
+            until_label = shield_until.strftime("%d.%m") if shield_until else "?"
+            protected_users.append(f"├ 🕐 {link} ({msg_sum} msg) [рест до {until_label}]")
+        elif msg_sum >= norm:
+            passed_users.append(f"├ ✅ {link} ({msg_sum} msg)")
+        else:
+            failed_users.append(user_data)  # Сохраняем весь словарь для досье
 
     # (Чат не блокировался — возвращать права не нужно.)
 
