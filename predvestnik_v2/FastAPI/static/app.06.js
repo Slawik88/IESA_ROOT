@@ -422,9 +422,9 @@ function _btRender(st, turn, reward){
     ${finished
       ? `<button class="btn btn-gold btn-full" onclick="_btBack()">↩ Назад</button>`
       : `<div class="bt-stances">
-          <button class="btn btn-red"   onclick="_btAct('attack',this)">⚔️ Атака</button>
-          <button class="btn btn-teal"  onclick="_btAct('block',this)">🛡 Блок</button>
-          <button class="btn btn-ghost" onclick="_btAct('focus',this)">🧘 Дух</button>
+          <button class="btn btn-red"   onclick="_btAct('attack',this)">⚔️ Атака<span class="bt-stance-sub">урон, −⚡</span></button>
+          <button class="btn btn-teal"  onclick="_btAct('block',this)">🛡 Блок<span class="bt-stance-sub">−урон себе, −⚡</span></button>
+          <button class="btn btn-ghost" onclick="_btAct('focus',this)">🧘 Дух<span class="bt-stance-sub">+⚡, без удара</span></button>
         </div>`}`;
   if(!finished) _btStartQte(st.qte);
 }
