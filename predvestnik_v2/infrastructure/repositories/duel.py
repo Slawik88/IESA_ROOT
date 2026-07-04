@@ -32,12 +32,16 @@ async def set_duel_status(
     status: str,
     winner_id: int | None = None,
     challenged_pet_id: int | None = None,
+    winner_gain: float | None = None,
+    commission: float | None = None,
 ) -> None:
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     await db.execute(
         "UPDATE duels SET status = ?, winner_id = ?, challenged_pet_id = COALESCE(?, challenged_pet_id), "
+        "winner_gain = COALESCE(?, winner_gain), commission = COALESCE(?, commission), "
         "resolved_at = ? WHERE id = ?",
-        (status, winner_id, challenged_pet_id, now if status in ("finished", "declined", "timeout") else None, duel_id),
+        (status, winner_id, challenged_pet_id, winner_gain, commission,
+         now if status in ("finished", "declined", "timeout") else None, duel_id),
     )
 
 

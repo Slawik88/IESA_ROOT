@@ -777,7 +777,11 @@ function toggleWalletMini() { _walletMiniExpanded=!_walletMiniExpanded; _renderW
 function _renderWalletMini() {
   const host = el('wallet-mini');
   if(!host) return;
-  if(!_walletMiniTxs.length){ host.innerHTML=''; return; }
+  if(!_walletMiniTxs.length){
+    host.innerHTML=`<div class="card"><div class="card-title">💳 История операций</div>
+      <div class="cx-dim" style="font-size:11px;padding:6px 0">Пока пусто — здесь появится история, как только пройдёт первая покупка, поход или обмен.</div></div>`;
+    return;
+  }
   const show = _walletMiniExpanded ? _walletMiniTxs : _walletMiniTxs.slice(0,4);
   // ШАГ1: формат «Было → Изменение → Стало (причина)». Было = Стало − Изменение.
   const fmtTx = t => {
@@ -792,7 +796,8 @@ function _renderWalletMini() {
     };
     const lines = [line(t.delta_mora,t.mora_after,'🪙'),
                    line(t.delta_diamonds,t.diamonds_after,'💎'),
-                   line(t.delta_zarniki,t.zarniki_after,'✨')].filter(Boolean).join('');
+                   line(t.delta_zarniki,t.zarniki_after,'✨'),
+                   line(t.delta_dark_mora,t.dark_mora_after,'🌑')].filter(Boolean).join('');
     return `<div class="wtx">
       <div class="wtx-head"><span class="wtx-label">${t.label}</span><span class="wtx-time">${fmtUTC(t.created_at)}</span></div>
       ${lines}

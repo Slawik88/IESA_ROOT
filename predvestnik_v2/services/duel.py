@@ -150,7 +150,9 @@ async def accept_duel(
         )
         await set_duel_status(db, duel_id, "finished",
                               winner_id=winner_id,
-                              challenged_pet_id=challenged_pet["id"])
+                              challenged_pet_id=challenged_pet["id"],
+                              winner_gain=winner_gain,
+                              commission=commission)
         await set_cooldown(db, challenger_id, challenged_id)
 
     return True, {

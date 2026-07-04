@@ -33,7 +33,7 @@ async def duel_history(db=Depends(get_db), user=Depends(require_tg_user)):
     """История дуэлей: последние 20."""
     async with db.execute(
         "SELECT d.id, d.challenger_id, d.challenged_id, d.stake, d.status, "
-        "d.winner_id, d.created_at, d.resolved_at, "
+        "d.winner_id, d.winner_gain, d.commission, d.created_at, d.resolved_at, "
         "uc.user_tg_username AS challenger_name, ud.user_tg_username AS challenged_name, "
         "(vc.user_id IS NOT NULL) AS challenger_is_vip, (vd.user_id IS NOT NULL) AS challenged_is_vip "
         "FROM duels d "

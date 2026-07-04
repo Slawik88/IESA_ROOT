@@ -409,6 +409,12 @@ function updateCurrBar(data) {
   set('cb-dia',  data?.diamonds ?? 0, fmtF);
   set('cb-dark', data?.dark_mora ?? 0, fmtF);
   set('cb-zar',  data?.zarniki ?? 0, fmtF);
+  // Баг из UX-аудита: слот 🌑 был захардкожен display:none навсегда — значение
+  // обновлялось, но игрок никогда не видел свой баланс Тёмной Моры в шапке.
+  // Показываем, как только она у игрока появилась (не захламляем шапку 5-й
+  // валютой тем, кто вообще не трогал эту механику).
+  const darkItem = el('cb-dark-item');
+  if (darkItem) darkItem.style.display = (data?.dark_mora > 0) ? '' : 'none';
   _currInited = true;
   // Хедер: имя + уровень/ранг игрока
   if (data?.username !== undefined) {
