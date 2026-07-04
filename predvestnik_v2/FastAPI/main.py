@@ -1,4 +1,5 @@
 """FastAPI/main.py — Predvestnik Mini App entry point. Adapter layer only."""
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -130,6 +131,12 @@ async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init:
     try:
         await notifications.ws_session(websocket, user_id)
     except WebSocketDisconnect:
+        pass
+    except asyncio.CancelledError:
+        # Деплой/рестарт (SIGTERM) отменяет все ASGI-таски, включая открытые WS —
+        # это ожидаемое завершение, не ошибка. ws_session уже почистил себя в
+        # своём finally (unregister + выход из комнат) до того, как отмена сюда
+        # долетела. Подавляем, чтобы не шуметь в логах на каждом рестарте.
         pass
 
 
