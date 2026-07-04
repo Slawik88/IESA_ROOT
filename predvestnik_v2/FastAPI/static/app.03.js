@@ -407,10 +407,11 @@ function renderZoo(tab) {
           <div style="font-size:13px;font-weight:600;margin-bottom:4px">Питомник пуст</div>
           <div style="font-size:11px">Переведи питомца со склада в питомник через кнопку «Переместить»</div>
         </div>`
-      :`<div style="text-align:center;padding:32px 16px;color:var(--muted)">
-          <div style="font-size:32px;margin-bottom:8px">📦</div>
-          <div style="font-size:13px;font-weight:600;margin-bottom:4px">Склад пуст</div>
-          <div style="font-size:11px">Крутни Гачу в Арене, чтобы получить питомца</div>
+      :`<div class="empty-state">
+          <div class="es-icon">📦</div>
+          <div class="es-title">Склад пуст</div>
+          <div class="es-sub">Крутни Гачу, чтобы получить питомца</div>
+          <button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button>
         </div>`;
     return;
   }

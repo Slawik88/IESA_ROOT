@@ -280,6 +280,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .btn-ghost:hover { border-color: rgba(255,255,255,.16); }
 .btn-red  { background: rgba(239,99,99,.14); color: var(--red); border: 1px solid rgba(239,99,99,.3); }
 .btn-teal { background: rgba(70,200,192,.13); color: var(--teal); border: 1px solid rgba(70,200,192,.3); }
+.btn-green { background: rgba(86,196,106,.14); color: var(--green); border: 1px solid rgba(86,196,106,.3); }
 .btn-sm   { padding: 6px 11px; font-size: 11px; border-radius: 10px; }
 .btn-full { width: 100%; margin-bottom: 8px; }
 .perm-tip { display: none; }
