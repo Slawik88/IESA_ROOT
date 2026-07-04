@@ -109,6 +109,9 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 }
 .cb-item:active { transform: scale(.93); }
 .cb-val { font-variant-numeric: tabular-nums; }
+/* UX-аудит: подсказка «тапни для подробностей» была видна только через
+   aria-label (незрячим), зрячие не понимали, что валюты кликабельны. */
+.cb-info { font-size: 11px; color: var(--muted); opacity: .6; margin-left: 1px; }
 @keyframes currencyPop {
   0%   { transform: scale(1); }
   35%  { transform: scale(1.25); color: var(--gold2); }

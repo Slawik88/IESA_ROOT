@@ -158,6 +158,10 @@ function loadGacha() {
       <span style="color:var(--border2)">│</span>
       <span class="gb-item" id="gacha-bal-dia">💎 ${(d.diamonds||0).toFixed(1)}</span>
     </div>
+    ${d.spin_types.every(s=>(s.cost_mora&&d.mora<s.cost_mora)||(s.cost_dia&&(d.diamonds||0)<s.cost_dia))
+      ? `<div class="cx-dim" style="font-size:11px;padding:8px 10px;background:var(--dim);border-radius:var(--r);margin-bottom:10px">
+          На крутку пока не хватает — общайся в чате и выполняй <span class="shortcut-link" onclick="goTo('quests')">📋 Задания</span>, там первая Мора.
+        </div>` : ''}
     <div class="card">
       <div class="card-title" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
         <span>Выберите крутку</span>
