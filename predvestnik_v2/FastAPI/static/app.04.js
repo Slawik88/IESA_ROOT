@@ -904,6 +904,7 @@ function openBidModal(lotId, name, currentBid, minNextBid, hasBids, buyout, remS
   const isFinal = typeof remSec==='number' && remSec>0 && remSec<=600;
   const liveHtml = isFinal ? `
     <div class="lot-live" id="lot-live">
+      <div class="lot-live-fly" id="lot-live-fly"></div>
       <div class="lot-live-head">
         <span>🔥 ФИНАЛ · <span id="lot-live-timer">--:--</span></span>
         <span style="display:flex;align-items:center;gap:8px">
