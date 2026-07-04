@@ -17,6 +17,7 @@ from infrastructure.repositories import pet_combat
 from services import clans2 as svc
 from services import battle as bt
 from services.combat_power import calculate_cp
+from services.pet_combat import stamina_recovery_info
 
 router = APIRouter(prefix="/clans2", tags=["clans2"])
 
@@ -128,7 +129,8 @@ async def abyss(db=Depends(get_db), user=Depends(require_tg_user)):
     for p in pet_rows:
         st = await pet_combat.get_state(db, p["id"], user["id"])
         if st and st["alive"]:
-            pets.append({**p, "stamina": int(st["stamina"]), "hp": int(st["hp"])})
+            pets.append({**p, "stamina": int(st["stamina"]), "hp": int(st["hp"]),
+                         **stamina_recovery_info(st["stamina"], st["stamina_max"])})
     active = await bt_repo.get_active(db, user["id"])
     return {
         "week": ab["week_key"], "floor": ab["floor"], "key_found": ab["key_found"],

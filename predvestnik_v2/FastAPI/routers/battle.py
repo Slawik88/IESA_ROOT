@@ -20,6 +20,7 @@ from infrastructure.repositories import pet_combat
 from infrastructure.repositories import economy as eco_repo
 from services import battle as bt
 from services.combat_power import calculate_cp
+from services.pet_combat import stamina_recovery_info
 
 router = APIRouter(prefix="/combat2", tags=["battle2"])
 
@@ -56,7 +57,8 @@ async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
         st = await pet_combat.get_state(db, p["id"], uid)
         if st:
             pets.append({**p, "hp": st["hp"], "hp_max": st["hp_max"],
-                         "stamina": st["stamina"], "alive": st["alive"]})
+                         "stamina": st["stamina"], "alive": st["alive"],
+                         **stamina_recovery_info(st["stamina"], st["stamina_max"])})
     active = await bt_repo.get_active(db, uid)
     return {
         "cp": cp,

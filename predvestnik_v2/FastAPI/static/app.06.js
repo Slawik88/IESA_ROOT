@@ -353,7 +353,8 @@ function _g2RenderLobby(){
       <button class="btn btn-sm btn-ghost" onclick="_g2Heal(${p.id})">💊 ${fmt(Math.ceil((p.hp_max-p.hp)*(d.heal_price_per_hp||2)))} 🪙</button>
     </div>`).join('');
   b.innerHTML=`<div class="looks-hint">⚔️ Врата 2.0 — живой бой: выбирай стойку и жми в момент сжатия кольца.
-    Победа: Тёмная Мора + шанс 💠 Осколков Бездны. Входов сегодня: <b>${d.entries_left}</b>. Твоя Сила: ⚡ ${fmt(d.cp)}.</div>
+    Победа: Тёмная Мора + шанс 💠 Осколков Бездны. Входов сегодня: <b>${d.entries_left}</b>. Твоя Сила: ⚡ ${fmt(d.cp)}.
+    Стамина тратится в бою и сама восстанавливается — 10% от максимума в час (точное время до полной — на карточке питомца).</div>
     <div class="looks-slot-t">🗼 Этажи</div>${floors}
     ${heal?`<div class="looks-slot-t" style="margin-top:12px">💊 Подлечить (${(d.heal_price_per_hp||2)} 🪙/HP)</div>${heal}`:''}`;
 }
@@ -363,8 +364,8 @@ function _g2PickPet(floor){
   const pets=(_g2Data.pets||[]).filter(p=>p.alive).map(p=>`<div class="gt-pet">
       <span class="gt-pe">${emap[p.species_id]||'🐾'}</span>
       <span class="gt-pn">${esc(p.name||p.species_id)} <span class="cx-dim">${rarLabel(p.rarity)} Ур.${p.pet_level}</span></span>
-      <span class="gt-php">HP ${Math.floor(p.hp)}/${p.hp_max}</span>
-      <button class="btn btn-sm btn-gold" onclick="_g2Enter(${floor},${p.id},this)">⚔️</button>
+      <span class="gt-php">HP ${Math.floor(p.hp)}/${p.hp_max} · ⚡${Math.floor(p.stamina)}/${p.stamina_max}</span>
+      <button class="btn btn-sm btn-gold" onclick="_g2Enter(${floor},${p.id},this)">⚔️ Войти</button>
     </div>`).join('')||'<div class="cx-dim" style="padding:8px">Все питомцы без сил — подлечи.</div>';
   b.innerHTML=`<div class="looks-slot-t">Этаж ${floor} — кем идём?</div>${pets}
     <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="_g2RenderLobby()">↩ Назад</button>`;
