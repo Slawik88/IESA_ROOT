@@ -428,7 +428,7 @@ function loadRelics() {
     const rows = (d.relics||[]).map(r=>{
       const right = r.owned
         ? `<span style="color:var(--green);font-weight:700;flex:none;font-size:11px">✅ В коллекции</span>`
-        : `<button class="btn btn-sm btn-gold" style="flex:none" onclick="buyRelic('${r.id}',this)">${priceStr(r.price)}</button>`;
+        : `<button class="btn btn-sm btn-gold" style="flex:none" onclick="buyRelic('${r.id}',this)">Купить за ${priceStr(r.price)}</button>`;
       return `<div style="padding:9px 0;border-bottom:1px solid var(--border2)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
           <div style="min-width:0">
