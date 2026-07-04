@@ -8,6 +8,7 @@ from FastAPI.deps import get_db, require_tg_user, require_module
 from core.constants import (
     SAPPER_MIN_BET, SAPPER_MAX_BET, SAFE_MIN_BET, SAFE_MAX_BET,
     SAFE_ATTEMPTS, SAFE_WIN_MULT, SKILL_GAME_COOLDOWN_MIN,
+    ALCHEMY_MIN_BET, ALCHEMY_MAX_BET,
 )
 from infrastructure.repositories import minigames as mg_repo
 from services import skill_games as sg
@@ -34,15 +35,23 @@ async def skill_state(db=Depends(get_db), user=Depends(require_tg_user)):
     uid = user["id"]
     sapper = await mg_repo.get_active(db, uid, "sapper")
     safe = await mg_repo.get_active(db, uid, "safe")
+    alchemy = await mg_repo.get_active(db, uid, "alchemy")
     since = await mg_repo.seconds_since_last_start(db, uid)
     cd = SKILL_GAME_COOLDOWN_MIN * 60
+    alchemy_out = None
+    if alchemy:
+        alchemy_out = sg._alchemy_public(alchemy)
+        elapsed = await mg_repo.seconds_since_created(db, alchemy["id"])
+        alchemy_out["remaining_sec"] = max(0, alchemy_out["time_limit_sec"] - elapsed)
     return {
         "sapper": sg._sapper_public(sapper) if sapper else None,
         "safe": sg._safe_public(safe) if safe else None,
+        "alchemy": alchemy_out,
         "ladder": sg.sapper_ladder(),
         "limits": {
             "sapper": [SAPPER_MIN_BET, SAPPER_MAX_BET],
             "safe": [SAFE_MIN_BET, SAFE_MAX_BET],
+            "alchemy": [ALCHEMY_MIN_BET, ALCHEMY_MAX_BET],
         },
         "safe_attempts": SAFE_ATTEMPTS,
         "safe_win_mult": SAFE_WIN_MULT,
@@ -85,6 +94,27 @@ async def safe_start(body: StakeRequest, db=Depends(get_db), user=Depends(requir
 @router.post("/safe/guess")
 async def safe_guess(body: GuessRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     r = await sg.safe_guess(db, user["id"], [int(d) for d in body.digits])
+    if not r.get("ok"):
+        raise HTTPException(400, r.get("error", "Ошибка."))
+    return r
+
+
+class AlchemySubmitRequest(BaseModel):
+    session_id: int
+    moves: list[str]
+
+
+@router.post("/alchemy/start")
+async def alchemy_start(body: StakeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    r = await sg.alchemy_start(db, user["id"], float(body.stake))
+    if not r.get("ok"):
+        raise HTTPException(400, r.get("error", "Ошибка."))
+    return r
+
+
+@router.post("/alchemy/submit")
+async def alchemy_submit(body: AlchemySubmitRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    r = await sg.alchemy_submit(db, user["id"], int(body.session_id), list(body.moves))
     if not r.get("ok"):
         raise HTTPException(400, r.get("error", "Ошибка."))
     return r

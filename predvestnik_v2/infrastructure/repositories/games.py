@@ -1,23 +1,8 @@
 import aiosqlite
-from datetime import datetime
 
-
-async def get_cooldown(db: aiosqlite.Connection, user_id: int, game: str) -> str | None:
-    async with db.execute(
-        "SELECT last_played FROM gamble_cooldowns WHERE user_id = ? AND game = ?",
-        (user_id, game),
-    ) as c:
-        row = await c.fetchone()
-    return row[0] if row else None
-
-
-async def set_cooldown(db: aiosqlite.Connection, user_id: int, game: str) -> None:
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    await db.execute(
-        "INSERT INTO gamble_cooldowns (user_id, game, last_played) VALUES (?, ?, ?) "
-        "ON CONFLICT(user_id, game) DO UPDATE SET last_played = excluded.last_played",
-        (user_id, game, now),
-    )
+# R7: старое казино (get/set_cooldown) снесено. Дневной кап выигрыша
+# (get/add_daily_winnings) остался — общий лимит с новыми скилл-играми
+# (services/skill_games.py).
 
 
 async def get_daily_winnings(db: aiosqlite.Connection, user_id: int, date: str) -> float:

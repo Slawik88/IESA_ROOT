@@ -52,6 +52,18 @@ async def seconds_since_last_start(db, user_id: int) -> int | None:
     return int(row[0]) if row and row[0] is not None else None
 
 
+async def seconds_since_created(db, session_id: int) -> int:
+    """Секунд с момента создания КОНКРЕТНОЙ сессии (анти-чит: честный дедлайн
+    таймерных игр вроде Алхимии — не доверяем клиентским часам)."""
+    async with db.execute(
+        "SELECT CAST(EXTRACT(EPOCH FROM (NOW() - created_at)) AS BIGINT) "
+        "FROM minigame_sessions WHERE id = ?",
+        (session_id,),
+    ) as c:
+        row = await c.fetchone()
+    return int(row[0]) if row and row[0] is not None else 0
+
+
 async def create_session(db, user_id: int, game: str, stake: float, state: dict) -> int:
     async with db.execute(
         "INSERT INTO minigame_sessions (user_id, game, stake, state_json) "

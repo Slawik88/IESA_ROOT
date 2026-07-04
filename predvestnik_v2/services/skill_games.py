@@ -14,10 +14,12 @@ from core.constants import (
     SKILL_GAME_COOLDOWN_MIN,
     SAPPER_GRID, SAPPER_MINES, SAPPER_MIN_BET, SAPPER_MAX_BET, SAPPER_EDGE,
     SAFE_MIN_BET, SAFE_MAX_BET, SAFE_ATTEMPTS, SAFE_WIN_MULT,
+    ALCHEMY_MIN_BET, ALCHEMY_MAX_BET,
 )
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories import minigames as mg_repo
 from infrastructure.repositories.games import get_daily_winnings, add_daily_winnings
+from services import alchemy as alch
 
 
 def _today_utc() -> str:
@@ -250,3 +252,66 @@ async def safe_guess(db, user_id: int, digits: list[int]) -> dict:
     return {"ok": True, "cracked": False, "failed": False,
             "bulls": bulls, "cows": cows, "guesses": state["guesses"],
             "attempts_left": SAFE_ATTEMPTS - n}
+
+
+# ── Алхимия (merge-2048, server-authoritative replay) ─────────────────────────
+
+def _alchemy_public(s: dict) -> dict:
+    seed = s["state"]["seed"]
+    return {
+        "session_id": s["id"],
+        "stake": float(s["stake"]),
+        "seed": seed,
+        "time_limit_sec": alch.TIME_LIMIT_SEC,
+    }
+
+
+async def alchemy_start(db, user_id: int, stake: float) -> dict:
+    active = await mg_repo.get_active(db, user_id, "alchemy")
+    if active:
+        return {"ok": True, "resumed": True, **_alchemy_public(active)}
+    err = _validate_stake(stake, ALCHEMY_MIN_BET, ALCHEMY_MAX_BET) or await _check_cooldown(db, user_id)
+    if err:
+        return {"ok": False, "error": err}
+
+    async with eco_repo.atomic(db, user_id):
+        bal = await eco_repo.get_balance(db, user_id)
+        if float(bal["user_balance_mora"] or 0) < stake:
+            return {"ok": False, "error": "Недостаточно Моры."}
+        await eco_repo.add_balance(db, user_id, mora=-stake, commit=False,
+                                   source="gamble_loss", note="Алхимия: ставка")
+        seed = random.randint(1, 2**32 - 1)
+        await mg_repo.create_session(db, user_id, "alchemy", stake, {"seed": seed})
+    session = await mg_repo.get_active(db, user_id, "alchemy")
+    return {"ok": True, "resumed": False, **_alchemy_public(session)}
+
+
+async def alchemy_submit(db, user_id: int, session_id: int, moves: list[str]) -> dict:
+    s = await mg_repo.get_active(db, user_id, "alchemy")
+    if not s or s["id"] != session_id:
+        return {"ok": False, "error": "Нет активной игры — начни новую."}
+
+    elapsed = await mg_repo.seconds_since_created(db, s["id"])
+    if elapsed > alch.TIME_LIMIT_SEC + alch.SUBMIT_GRACE_SEC:
+        await mg_repo.finish(db, s["id"], "lost")
+        await db.commit()
+        return {"ok": False, "error": "Время вышло — сессия закрыта."}
+
+    result = alch.replay(s["state"]["seed"], moves)
+    score = result["score"]
+    mult = alch.payout_mult(score)
+    stake = float(s["stake"])
+    gross = round(stake * mult, 2)
+
+    async with eco_repo.atomic(db, user_id):
+        paid = await _payout_with_cap(db, user_id, gross, "gamble_win")
+        await mg_repo.finish(db, s["id"], "done", paid)
+    if paid > stake:
+        try:
+            from services.achievements import increment_metric as _ach
+            await _ach(db, user_id, "gamble_wins", delta=1.0)
+            await db.commit()
+        except Exception:
+            pass
+    return {"ok": True, "score": score, "mult": mult, "payout": paid,
+            "capped": paid < gross, "board": result["board"]}

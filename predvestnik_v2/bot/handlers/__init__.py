@@ -57,7 +57,7 @@ main_router.include_routers(
     nicknames_router,      # бот мой ник
     wallet_history_router, # god-логи кошелька (dev)
     warps_router,          # варп-команды (соц)
-    games_router,          # мини-игры (нет веб-UI → оставлены в чате)
+    games_router,          # R7: старое казино снесено, редирект в мини-апп Арена→Игры
     chat_settings_router,  # настройки чата (админ)
     blacklist_router,      # чёрный список чата (админ)
     promo_router,          # промокоды (лёгкий ввод)

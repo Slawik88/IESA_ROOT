@@ -377,15 +377,8 @@ async def _init_progression_and_economy(db):
         )
     """)
 
-    # 20. Mini-games
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS gamble_cooldowns (
-            user_id     BIGINT,
-            game        TEXT,
-            last_played TIMESTAMP,
-            PRIMARY KEY (user_id, game)
-        )
-    """)
+    # 20. Mini-games (gamble_cooldowns старого казино снесён вместе с R7 —
+    # gamble_daily_winnings остался, дневной кап общий со скилл-играми)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS gamble_daily_winnings (
             user_id   BIGINT,
