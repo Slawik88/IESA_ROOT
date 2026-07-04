@@ -54,7 +54,7 @@ async def _render(db, user_id: int) -> tuple[str, types.InlineKeyboardMarkup]:
             lines.append(f"📋 Доска: <b>{len(reqs)}</b> откр. запрос(ов) — жми «Доска Запросов».")
         lines.append("<b>Состав:</b>")
         for m in my.get("members", []):
-            crown = "👑 " if m["role"] == "leader" else "• "
+            crown = "👑 " if m["role"] == "owner" else "• "
             nm = m.get("username") or f"id{m['user_id']}"
             lines.append(f"{crown}@{safe_html(nm)}")
         b.button(text="📋 Доска Запросов", callback_data=ClanBoardCB(user_id=user_id))

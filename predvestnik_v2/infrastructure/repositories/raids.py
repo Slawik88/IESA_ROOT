@@ -28,13 +28,13 @@ async def get_active(db, user_id: int) -> dict | None:
         return None
     async with db.execute(
         "SELECT raid_id, boss_name, boss_emoji, hp, hp_max, status, "
-        "EXTRACT(EPOCH FROM ends_at) AS ends_ts FROM clan_raids "
+        "EXTRACT(EPOCH FROM ends_at)::float8 AS ends_ts FROM clan_raids "
         "WHERE clan_id = ? AND status = 'active' ORDER BY raid_id DESC LIMIT 1",
         (cid,),
     ) as c:
         r = await c.fetchone()
     if not r:
-        return {"clan": clan, "raid": None, "is_leader": clan["role"] == "leader"}
+        return {"clan": clan, "raid": None, "is_leader": clan["role"] == "owner"}
     raid = dict(r)
     async with db.execute(
         "SELECT rc.user_id, rc.damage, u.user_tg_username AS username "
@@ -44,7 +44,7 @@ async def get_active(db, user_id: int) -> dict | None:
     ) as c:
         contribs = [dict(x) for x in await c.fetchall()]
     return {"clan": clan, "raid": raid, "contribs": contribs,
-            "is_leader": clan["role"] == "leader",
+            "is_leader": clan["role"] == "owner",
             "ends_in": max(0, int(raid["ends_ts"] - time.time()))}
 
 
@@ -54,7 +54,7 @@ async def start(db, user_id: int) -> tuple[bool, str]:
             cid, clan = await _clan_id(db, user_id)
             if not cid:
                 return False, "Ты не в клане."
-            if clan["role"] != "leader":
+            if clan["role"] != "owner":
                 return False, "Запустить рейд может только лидер клана."
             async with db.execute(
                 "SELECT 1 FROM clan_raids WHERE clan_id = ? AND status = 'active'", (cid,)
