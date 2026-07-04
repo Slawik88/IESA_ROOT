@@ -31,7 +31,7 @@ function renderBattlePass() {
       <div class="ach-bar bp-xpbar ${d.frozen?'bp-bar-frozen':''}" style="height:10px"><div class="ach-fill" style="width:${isMax?100:pct}%"></div></div>
       <div class="ach-prog">${isMax?'★ MAX уровень достигнут':`${fmt(d.xp_in_level)} / ${fmt(d.xp_per_level)} XP · осталось ${fmt(d.xp_to_next)} XP до ур. ${d.level+1}`}</div>
       ${tinfo.html}
-      ${d.buy_next&&!d.frozen?`<button class="btn btn-sm btn-gold" style="margin-top:8px;width:100%" onclick="bpBuyLevel(this)">💎 Открыть уровень ${d.buy_next.level} за ${d.buy_next.price}💎</button>`:''}
+      ${d.buy_next&&!d.frozen?`<button class="btn btn-sm btn-teal" style="margin-top:8px;width:100%" onclick="bpBuyLevel(this)">💎 Открыть уровень ${d.buy_next.level} за ${d.buy_next.price}💎</button>`:''}
       ${!d.paid_track_open?'<div style="margin-top:8px;font-size:11px;color:var(--gold2)">👑 VIP-трек закрыт — оформи VIP («бот vip»), чтобы забирать платные награды.</div>':''}
     </div>
     ${_bpNextRewardCard(d)}

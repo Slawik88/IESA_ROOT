@@ -696,6 +696,10 @@ function renderAch() {
       ${achs.map(a=>{
         const hw=ACH_HOW[a.id]||{};
         const fc=a.completed?'high':a.pct>=60?'high':a.pct>=25?'':'low';
+        // UX-аудит: награда следующего уровня была видна только после
+        // открытия модалки — показываем сразу на карточке в списке.
+        const rw=a.next_reward||{};
+        const rwParts=[rw.mora&&`+${fmt(rw.mora)} 🪙`,rw.diamonds&&`+${rw.diamonds} 💎`].filter(Boolean).join(', ');
         return `<div class="ach-item" style="cursor:pointer" onclick="openAchModal(${JSON.stringify(a).replace(/"/g,"'")})">
           <div class="ach-head">
             <div class="ach-icon">${a.icon}</div>
@@ -704,7 +708,7 @@ function renderAch() {
               ${a.completed?'★ MAX':a.level>0?`Lv${a.level}`:'—'}
             </div>
           </div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${hw.how||''}</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${hw.how||''}${!a.completed&&rwParts?` · <span style="color:var(--gold)">Далее: ${rwParts}</span>`:''}</div>
           <div class="ach-bar"><div class="ach-fill ${fc}" style="width:${a.pct}%"></div></div>
           <div class="ach-prog">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}${a.completed?' ✅':''}</div>
         </div>`;
