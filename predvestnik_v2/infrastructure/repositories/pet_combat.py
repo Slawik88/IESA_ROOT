@@ -53,7 +53,7 @@ async def ensure_tables(db) -> None:
 _SELECT = (
     "SELECT id, owner_id, name, species_id, rarity, COALESCE(pet_level,1) AS lvl, "
     "placement, hp, hp_max, stamina, stamina_max, attack, defense, "
-    "EXTRACT(EPOCH FROM combat_regen_at) AS regen_ts FROM pets WHERE id = ?"
+    "EXTRACT(EPOCH FROM combat_regen_at)::float8 AS regen_ts FROM pets WHERE id = ?"
 )
 
 

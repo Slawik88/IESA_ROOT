@@ -63,7 +63,7 @@ async def get_overview(db, user_id: int) -> dict:
         my["buildings"] = repo.building_levels(txp)
         my["effective_max"] = repo.effective_max_members(txp)
         reqs = await repo.list_requests(db, my["clan_id"])
-        is_leader = my.get("role") == "leader"
+        is_leader = my.get("role") == "owner"
         for r in reqs:
             r["item_name"] = ITEMS_REGISTRY.get(r["item_id"], {}).get("name", r["item_id"])
             r["mine"] = (r["author_id"] == user_id)

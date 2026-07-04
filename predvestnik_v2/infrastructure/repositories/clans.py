@@ -92,7 +92,7 @@ async def ensure_tables(db) -> None:
         CREATE TABLE IF NOT EXISTS clan_members (
             user_id   BIGINT PRIMARY KEY,
             clan_id   INTEGER NOT NULL REFERENCES clans(clan_id) ON DELETE CASCADE,
-            role      TEXT DEFAULT 'member',
+            role      TEXT DEFAULT 'fighter',
             joined_at TIMESTAMP DEFAULT NOW()
         )
     """)
@@ -143,7 +143,7 @@ async def get_members(db, clan_id: int) -> list[dict]:
         "SELECT m.user_id, m.role, m.joined_at, COALESCE(m.clan_coins, 0) AS clan_coins, "
         "u.user_tg_username AS username "
         "FROM clan_members m LEFT JOIN users u ON u.user_tg_id = m.user_id "
-        "WHERE m.clan_id = ? ORDER BY (m.role = 'leader') DESC, m.joined_at ASC",
+        "WHERE m.clan_id = ? ORDER BY (m.role = 'owner') DESC, m.joined_at ASC",
         (clan_id,),
     ) as cur:
         return [dict(r) for r in await cur.fetchall()]
@@ -201,7 +201,7 @@ async def create_clan(db, leader_id: int, name: str, tag: str,
             ) as c:
                 cid = (await c.fetchone())[0]
             await db.execute(
-                "INSERT INTO clan_members (user_id, clan_id, role) VALUES (?, ?, 'leader')",
+                "INSERT INTO clan_members (user_id, clan_id, role) VALUES (?, ?, 'owner')",
                 (leader_id, cid),
             )
         return True, f"Клан «{name}» основан! 🎉", cid
@@ -230,7 +230,7 @@ async def join_clan(db, user_id: int, clan_id: int) -> tuple[bool, str]:
             if cnt >= effective_max_members(cl[1]):
                 return False, "В клане нет свободных мест."
             await db.execute(
-                "INSERT INTO clan_members (user_id, clan_id, role) VALUES (?, ?, 'member')",
+                "INSERT INTO clan_members (user_id, clan_id, role) VALUES (?, ?, 'fighter')",
                 (user_id, clan_id),
             )
             return True, f"Ты вступил в клан «{cl[0]}»!"
@@ -251,7 +251,7 @@ async def leave_clan(db, user_id: int) -> tuple[bool, str]:
                 return False, "Ты не состоишь в клане."
             cid, role = m[0], m[1]
             await db.execute("DELETE FROM clan_members WHERE user_id = ?", (user_id,))
-            if role == "leader":
+            if role == "owner":
                 async with db.execute(
                     "SELECT user_id FROM clan_members WHERE clan_id = ? "
                     "ORDER BY joined_at ASC LIMIT 1",
@@ -260,7 +260,7 @@ async def leave_clan(db, user_id: int) -> tuple[bool, str]:
                     nxt = await c.fetchone()
                 if nxt:
                     await db.execute(
-                        "UPDATE clan_members SET role = 'leader' WHERE user_id = ?", (nxt[0],)
+                        "UPDATE clan_members SET role = 'owner' WHERE user_id = ?", (nxt[0],)
                     )
                     await db.execute(
                         "UPDATE clans SET leader_id = ? WHERE clan_id = ?", (nxt[0], cid)
@@ -431,7 +431,7 @@ async def cancel_request(db, user_id: int, request_id: int) -> tuple[bool, str]:
                     (user_id, cid),
                 ) as c:
                     rr = await c.fetchone()
-                if not rr or rr[0] != "leader":
+                if not rr or rr[0] != "owner":
                     return False, "Снять запрос может только автор или лидер."
             await db.execute(
                 "UPDATE clan_requests SET status = 'cancelled' WHERE request_id = ?",
