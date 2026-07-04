@@ -1087,13 +1087,14 @@ function loadSkillGames(){
     _skg=d;
     if(d.sapper){ _skgRenderSapper(d.sapper); return; }
     if(d.safe){ _safeInput=[]; _skgRenderSafe(d.safe); return; }
+    if(d.alchemy){ _alchResume(d.alchemy); return; }
     _skgRenderLobby();
   }).catch(e=>{el('skg').innerHTML=`<div class="err">${e}</div>`;});
 }
 function _skgRenderLobby(){
   const d=_skg, cd=d.cooldown_left_sec||0;
   const cdHtml=cd>0?`<div class="skg-cd">⏳ Кулдаун: ${Math.floor(cd/60)}м ${String(cd%60).padStart(2,'0')}с до следующей игры</div>`:'';
-  const lim=d.limits||{sapper:[100,2000],safe:[100,2000]};
+  const lim=d.limits||{sapper:[100,2000],safe:[100,2000],alchemy:[100,2000]};
   el('skg').innerHTML=`
     ${cdHtml}
     <div class="card">
@@ -1111,7 +1112,14 @@ function _skgRenderLobby(){
       ${_skgStakeHtml('safe', lim.safe)}
       <button class="btn btn-gold btn-full" ${cd>0?'disabled':''} onclick="skgStart('safe')">▶ Играть</button>
     </div>
-    <div class="set-hint">Дневной лимит выигрыша общий с казино в чате. Сервер решает всё — шансы честные и фиксированные.</div>`;
+    <div class="card">
+      <div class="card-title">⚗️ Алхимия</div>
+      <div class="skg-desc">Merge-2048 на поле 4×4, 60 секунд. Свайпай плитки, объединяй одинаковые —
+      выплата = ставка × (счёт / 1000), максимум ×3.</div>
+      ${_skgStakeHtml('alch', lim.alchemy)}
+      <button class="btn btn-gold btn-full" ${cd>0?'disabled':''} onclick="alchStart()">▶ Играть</button>
+    </div>
+    <div class="set-hint">Дневной лимит выигрыша общий для всех трёх игр. Сервер решает всё — шансы честные и фиксированные.</div>`;
 }
 function _skgStakeHtml(game, lim){
   const chips=[100,250,500,1000,2000].filter(v=>v>=lim[0]&&v<=lim[1]);
@@ -1242,4 +1250,127 @@ function safeSubmit(btn){
     _haptic(r.bulls>0?'medium':'light');
     _skgRenderSafe({stake:(_skg&&_skg.safe?_skg.safe.stake:0), guesses:r.guesses, attempts_left:r.attempts_left, win_mult:(_skg&&_skg.safe_win_mult)||1.6});
   }).catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
+}
+
+// ══ R7.2 «Алхимия»: merge-2048 4×4 на 60 сек ══════════════════════════════════
+// Детерминированная симуляция (двойник services/alchemy.py — xorshift32, тот же
+// порядок операций, кросс-тест node↔python). Сервер выдаёт seed, клиент играет
+// локально и шлёт ЛОГ ХОДОВ; счёт для выплаты считает ТОЛЬКО сервер (реплей).
+function _alchRng(s){ s^=(s<<13); s>>>=0; s^=(s>>>17); s^=(s<<5); s>>>=0; return s; }
+function _alchSim(seed){
+  const S={rng:(seed>>>0)||1, board:new Array(16).fill(0), score:0};
+  S.next=()=>{S.rng=_alchRng(S.rng); return S.rng;};
+  S.spawn=()=>{
+    const empty=[]; S.board.forEach((v,i)=>{if(!v)empty.push(i);});
+    if(!empty.length) return;
+    const pos=empty[S.next()%empty.length];
+    S.board[pos]=(S.next()%10)<9?2:4;
+  };
+  S.move=(d)=>{
+    let changed=false;
+    for(let k=0;k<4;k++){
+      const idx=[];
+      for(let j=0;j<4;j++) idx.push(d==='L'||d==='R' ? k*4+j : j*4+k);
+      let line=idx.map(i=>S.board[i]);
+      if(d==='R'||d==='D') line.reverse();
+      const vals=line.filter(v=>v), out=[];
+      let gained=0;
+      for(let i=0;i<vals.length;i++){
+        if(i+1<vals.length && vals[i]===vals[i+1]){ out.push(vals[i]*2); gained+=vals[i]*2; i++; }
+        else out.push(vals[i]);
+      }
+      while(out.length<4) out.push(0);
+      const ch=out.some((v,i)=>v!==line[i]);
+      if(ch){
+        changed=true; S.score+=gained;
+        const w=out.slice(); if(d==='R'||d==='D') w.reverse();
+        idx.forEach((bi,i)=>{S.board[bi]=w[i];});
+      }
+    }
+    if(changed) S.spawn();
+    return changed;
+  };
+  S.spawn(); S.spawn();
+  return S;
+}
+let _alch=null;   // {sim, moves, deadline, timer, sessionId, stake}
+function _alchResume(a){
+  _alch={sim:_alchSim(a.seed), moves:[], sessionId:a.session_id, stake:a.stake,
+         deadline:Date.now()+(a.remaining_sec||0)*1000, done:false};
+  _alchRender();
+  _alch.timer=setInterval(()=>{
+    const s=Math.max(0,Math.ceil((_alch.deadline-Date.now())/1000));
+    const t=el('alch-timer'); if(t){t.textContent=s+'с'; t.style.color=s<=10?'var(--red)':'';}
+    if(s<=0) alchSubmit();
+  },250);
+}
+function alchStart(){
+  const stake=_skgStake('alch');
+  api('/games2/alchemy/start',{method:'POST',body:JSON.stringify({stake})}).then(r=>{
+    _haptic('medium'); refreshCurrBar();
+    _alch={sim:_alchSim(r.seed), moves:[], sessionId:r.session_id, stake:r.stake,
+           deadline:Date.now()+(r.time_limit_sec||60)*1000, done:false};
+    _alchRender();
+    _alch.timer=setInterval(()=>{
+      const s=Math.max(0,Math.ceil((_alch.deadline-Date.now())/1000));
+      const t=el('alch-timer'); if(t){t.textContent=s+'с'; t.style.color=s<=10?'var(--red)':'';}
+      if(s<=0) alchSubmit();
+    },250);
+  }).catch(e=>toast(e,false));
+}
+function _alchRender(){
+  const host=el('skg'); if(!host||!_alch) return;
+  const tiles=_alch.sim.board.map(v=>`<div class="alch-tile v${v}">${v||''}</div>`).join('');
+  host.innerHTML=`
+    <div class="card">
+      <div class="card-title">⚗️ Алхимия
+        <span style="float:right;font-size:12px">⏱ <span id="alch-timer">60с</span></span></div>
+      <div class="skg-head">Счёт: <b id="alch-score" style="color:var(--gold2)">${_alch.sim.score}</b>
+        · выплата = ставка × min(3, счёт/1000)</div>
+      <div class="alch-grid" id="alch-grid"
+           ontouchstart="_alchTouch(event,1)" ontouchend="_alchTouch(event,0)">${tiles}</div>
+      <div class="bt-stances" style="grid-template-columns:repeat(4,1fr)">
+        <button class="btn btn-ghost" onclick="alchMove('L')">←</button>
+        <button class="btn btn-ghost" onclick="alchMove('U')">↑</button>
+        <button class="btn btn-ghost" onclick="alchMove('D')">↓</button>
+        <button class="btn btn-ghost" onclick="alchMove('R')">→</button>
+      </div>
+      <button class="btn btn-gold btn-full" style="margin-top:8px" onclick="alchSubmit()">✅ Завершить и получить</button>
+    </div>`;
+}
+let _alchT0=null;
+function _alchTouch(ev,down){
+  if(down){ const t=ev.touches[0]; _alchT0={x:t.clientX,y:t.clientY}; return; }
+  if(!_alchT0) return;
+  const t=ev.changedTouches[0], dx=t.clientX-_alchT0.x, dy=t.clientY-_alchT0.y;
+  _alchT0=null;
+  if(Math.max(Math.abs(dx),Math.abs(dy))<24) return;   // не свайп
+  alchMove(Math.abs(dx)>Math.abs(dy) ? (dx>0?'R':'L') : (dy>0?'D':'U'));
+}
+function alchMove(d){
+  if(!_alch||_alch.done) return;
+  if(Date.now()>_alch.deadline) { alchSubmit(); return; }
+  if(_alch.moves.length>=250){ alchSubmit(); return; }
+  if(_alch.sim.move(d)){
+    _alch.moves.push(d);
+    _haptic('light');
+    const g=el('alch-grid');
+    if(g) g.innerHTML=_alch.sim.board.map(v=>`<div class="alch-tile v${v}">${v||''}</div>`).join('');
+    const sc=el('alch-score'); if(sc) sc.textContent=_alch.sim.score;
+  }
+}
+function alchSubmit(){
+  if(!_alch||_alch.done) return;
+  _alch.done=true; clearInterval(_alch.timer);
+  api('/games2/alchemy/submit',{method:'POST',body:JSON.stringify({session_id:_alch.sessionId, moves:_alch.moves})})
+    .then(r=>{
+      _haptic(r.payout>_alch.stake?'success':'light'); refreshCurrBar();
+      el('skg').innerHTML=`<div class="card">
+        <div class="skg-head ${r.payout>0?'skg-won':'skg-lost'}">
+          ⚗️ Счёт ${fmt(r.score)} → ×${r.mult} — ${r.payout>0?`+${fmt(r.payout)} 🪙`:'ставка сгорела'}${r.capped?' (кап)':''}
+        </div>
+        <button class="btn btn-gold btn-full" onclick="loadSkillGames()">↩ В лобби</button></div>`;
+      _alch=null;
+    })
+    .catch(e=>{toast(e,false); el('skg').innerHTML=''; loadSkillGames(); _alch=null;});
 }

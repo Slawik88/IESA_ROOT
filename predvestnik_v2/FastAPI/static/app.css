@@ -2249,3 +2249,21 @@ body.modal-open { overflow: hidden; }
   border-color: var(--gold); cursor: pointer; transition: transform .1s; }
 .ab-cell.reach:active { transform: scale(.9); }
 .ab-cell.open { background: rgba(82,179,96,.10); border-color: rgba(82,179,96,.35); }
+
+/* ── R7.2 Алхимия: merge-2048 4×4 ────────────────────────────────────────────── */
+.alch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 10px 0;
+  touch-action: none; user-select: none; }
+.alch-tile { aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums;
+  background: var(--bg1); border: 1px solid var(--border2); color: var(--muted); }
+.alch-tile.v2    { background: #2a2f3a; color: var(--bright); }
+.alch-tile.v4    { background: #33394a; color: var(--bright); }
+.alch-tile.v8    { background: #4a5a8a; color: #fff; }
+.alch-tile.v16   { background: #5b6fae; color: #fff; }
+.alch-tile.v32   { background: #7b5bae; color: #fff; }
+.alch-tile.v64   { background: #a154b0; color: #fff; }
+.alch-tile.v128  { background: var(--gold); color: #1a1508; font-size: 14px; }
+.alch-tile.v256  { background: var(--gold2); color: #1a1508; font-size: 14px; }
+.alch-tile.v512  { background: #e0a020; color: #1a1508; font-size: 13px; }
+.alch-tile.v1024 { background: #e05252; color: #fff; font-size: 12px; }
+.alch-tile.v2048 { background: linear-gradient(135deg, #f0d060, #e05252); color: #fff; font-size: 12px; }

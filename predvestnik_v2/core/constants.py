@@ -514,17 +514,10 @@ WEEKLY_QUEST_COMPLETE_BONUS: dict = {
     "items": [("spin_token", 3)],
 }
 
-# ── Mini-games (B16) ─────────────────────────────────────────────────────────
-GAMES: dict = {
-    "dice":     {"cooldown_min": 20, "min_bet": 100.0, "max_bet": 3000.0, "multiplier": 2.0},
-    "coin":     {"cooldown_min": 20, "min_bet": 100.0, "max_bet": 3000.0, "multiplier": 1.9},
-    "number":   {"cooldown_min": 30, "min_bet": 100.0, "max_bet": 1500.0, "multiplier": 8.0},
-    "roulette": {"cooldown_min": 60, "min_bet": 200.0, "max_bet": 6000.0, "multiplier": 1.9},
-}
+# ── Mini-games ────────────────────────────────────────────────────────────────
+# R7: старое казино (кости/монетка/число/рулетка, чисто удача) снесено —
+# заменено скилл-играми (Сапёр/Сейф/Алхимия). Дневной кап выигрыша остался общим.
 GAMBLE_DAILY_CAP: float = 15000.0
-ROULETTE_RED_NUMBERS: frozenset = frozenset({
-    1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36
-})
 
 # ── Dark Mora (Тёмная Мора) ───────────────────────────────────────────────────
 # Контрабанда
@@ -602,6 +595,8 @@ SAPPER_EDGE: float = 0.96              # множитель = fair-гиперг�
 SAFE_MIN_BET: float = 100.0
 SAFE_MAX_BET: float = 2_000.0
 SAFE_ATTEMPTS: int = 6                 # попыток взлома
+ALCHEMY_MIN_BET: float = 100.0
+ALCHEMY_MAX_BET: float = 2_000.0       # payout = ставка × min(3.0, счёт/1000) — см. services/alchemy.py
 SAFE_WIN_MULT: float = 1.6             # скилловый винрейт ~60% → EV ≈ 0.96
 
 # ── Battle Pass (Implementation Block 5) ───────────────────────────────────────
