@@ -640,7 +640,8 @@ function loadMarriageCard() {
         <div class="empty-state">
           <div class="es-icon">💔</div>
           <div class="es-title">Вы не в браке</div>
-          <div class="es-sub">Свяжите судьбу с другим игроком — напишите в чате<br><code>бот брак, @username</code></div>
+          <div class="es-sub">Свяжите судьбу с другим игроком: в групповом чате, где есть бот
+          (не здесь, в мини-аппе), напишите текстом<br><code>бот брак, @username</code></div>
         </div>
       </div>`;
       return;
