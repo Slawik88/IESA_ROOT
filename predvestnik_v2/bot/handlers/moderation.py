@@ -12,6 +12,7 @@ from services.utils import resolve_target, safe_html, resolve_display_name
 from services.formatting import parse_dt
 from services import moderation as mod_service
 from services import roles
+from services.membership import prune_ghosts
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import routing
 from infrastructure.repositories import chat as chat_repo
@@ -382,6 +383,11 @@ async def cmd_who_rested(message: types.Message, db):
         (message.chat.id, now_str),
     ) as cursor:
         rows = [dict(r) for r in await cursor.fetchall()]
+
+    if rows:
+        left_ids = await prune_ghosts(db, message.chat.id, [r["user_tg_id"] for r in rows])
+        if left_ids:
+            rows = [r for r in rows if r["user_tg_id"] not in left_ids]
 
     if not rows:
         return await message.answer("✅ Никто не в ресте и без иммунитета.", parse_mode="HTML")

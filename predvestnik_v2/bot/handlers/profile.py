@@ -4,9 +4,11 @@ import aiosqlite
 
 from infrastructure.repositories import economy, chat, users, marriages
 from infrastructure.repositories import zoo as zoo_db
+from infrastructure.repositories import global_moderation as gmod_repo
 from services import roles
 from services.utils import format_currency, safe_html, resolve_target, parse_dt, resolve_display_name
 from services.zoo import format_pet_bonus_short
+from services.global_moderation import SANCTION_LABELS
 from services import ui
 from bot.filters.text_commands import TextCmd
 from services.leveling import account_progress
@@ -76,6 +78,16 @@ async def _build_profile_text(
         except Exception:
             pass
 
+    # Глобальная санкция (варн/ресракт/бан) — видна всем, кто смотрит профиль,
+    # не только в приватном блоке экономических команд.
+    sanction_line = ""
+    sanction = await gmod_repo.get_active_restriction(db, "user", user_id)
+    if sanction:
+        label = SANCTION_LABELS.get(sanction["sanction_type"], sanction["sanction_type"])
+        until = "бессрочно" if not sanction.get("expires_at") else f"до {sanction['expires_at']:%d.%m.%Y}"
+        icon = "🔨" if sanction["sanction_type"] == "ban" else "⚠️"
+        sanction_line = f"{icon} <b>Глобальная санкция:</b> {label} ({until})\n"
+
     # Money
     mora = format_currency(balance['user_balance_mora'])
     diamonds = format_currency(balance['user_balance_diamonds'])
@@ -117,7 +129,8 @@ async def _build_profile_text(
 
         f"🌍 {global_rank_name}  ·  🏘 {local_rank_name}\n"
         f"{marriage_text}\n"
-        f"⚠️ {warns} варн(ов)  ·  🛡 {protection_text}\n\n"
+        f"⚠️ {warns} варн(ов)  ·  🛡 {protection_text}\n"
+        f"{sanction_line}\n"
 
         f"💰 <b>{mora} 🪙 · {diamonds} 💎</b>{extras_block}\n\n"
 

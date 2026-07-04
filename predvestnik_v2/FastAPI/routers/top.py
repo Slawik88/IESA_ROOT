@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from FastAPI.deps import get_db
 from infrastructure.repositories.stats import get_top_messages, get_top_messages_global
 from services.cosmetics import get_flex_cosmetics_batch
+from services.membership import prune_ghosts
 
 router = APIRouter(prefix="/top", tags=["top"])
 
@@ -32,6 +33,13 @@ async def _fmt(db, rows: list[dict], count_key: str = "msg_count") -> list[dict]
 async def local_top(chat_id: int, db=Depends(get_db)):
     """Топ за всё время внутри одного чата."""
     rows = await get_top_messages(db, chat_id, "all_time", limit=50)
+    # Сверка is_left с реальным членством (см. services/membership.py) —
+    # тот же ghost-баг, что и в боте: без push-апдейта (бот не админ чата)
+    # is_left не обновляется, и ушедший игрок годами висит в топе.
+    if rows:
+        left_ids = await prune_ghosts(db, chat_id, [r["user_tg_id"] for r in rows])
+        if left_ids:
+            rows = [r for r in rows if r["user_tg_id"] not in left_ids]
     return await _fmt(db, rows)
 
 

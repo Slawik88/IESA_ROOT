@@ -399,7 +399,10 @@ async def _send_bp_season_end_reminders(bot: Bot, db) -> None:
 
 
 async def _grant_weekly_top1_achievements(db) -> None:
-    """Ачивка weekly_top1_count самому активному игроку недели в каждом чате."""
+    """Ачивка weekly_top1_count самому активному игроку недели в каждом чате.
+    Сверяем реальное членство (см. services/membership.py) — иначе ачивку
+    можно получить, набрав сообщений и уйдя из чата ещё до конца недели."""
+    from services.membership import prune_ghosts
     async with db.execute("SELECT chat_id FROM chat_settings LIMIT 500") as _cc:
         _chats = [r[0] for r in await _cc.fetchall()]
     for _weekly_cid in _chats:
@@ -412,7 +415,9 @@ async def _grant_weekly_top1_achievements(db) -> None:
         ) as _tc:
             _top = await _tc.fetchone()
         if _top and _top[0]:
-            await _incr_ach(db, _top[0], "weekly_top1_count", delta=1.0)
+            _left = await prune_ghosts(db, _weekly_cid, [_top[0]])
+            if _top[0] not in _left:
+                await _incr_ach(db, _top[0], "weekly_top1_count", delta=1.0)
     await db.commit()
 
 
