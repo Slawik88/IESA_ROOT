@@ -221,6 +221,24 @@ function showWelcomeBack(items) {
 // сравниваем уровень с прошлой загрузкой (localStorage). _xpAnimated — флаг анимации
 // заливки XP-шкалы (один раз за сессию), объявлен здесь до первого вызова loadProfile.
 let _xpAnimated = false;
+// EPIC1: набегающий счётчик ⚡ Индекса Силы (rAF, ease-out) — тоже 1 раз за сессию,
+// чтобы фоновый автообновление профиля (каждые 5 мин) не переигрывало анимацию.
+let _cpAnimated = false;
+function _animateCpCount(nodeId, target, dur) {
+  const node = el(nodeId);
+  if (!node) return;
+  target = Number(target) || 0;
+  dur = dur || 900;
+  if (!target) { node.textContent = '0'; return; }
+  const t0 = performance.now();
+  function step(t) {
+    const p = Math.min(1, (t - t0) / dur);
+    const eased = 1 - Math.pow(1 - p, 3);
+    node.textContent = fmt(Math.round(target * eased));
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
 function _checkLevelUp(lvl) {
   try {
     const prev = parseInt(localStorage.getItem('pv_last_level') || '0');
@@ -315,6 +333,16 @@ const CM=()=>{
 };
 el('modal').addEventListener('click',e=>{if(e.target===el('modal'))CM();});
 el('modal').addEventListener('cancel',()=>{document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);});
+
+// EPIC6: базовый haptic на КАЖДОЙ кнопке .btn — один делегированный листенер
+// вместо ручной расстановки _haptic() по сотням onclick по всему приложению.
+// Сжатие scale(.95) уже глобально висит на .btn:active (чистый CSS, см. app.css).
+// Фичи со своей семантикой (success/error/heavy) вызывают _haptic() сами в ответ
+// на результат — этот тап лёгкий и мгновенный, не конфликтует с ними.
+document.addEventListener('click', e => {
+  const b = e.target.closest('.btn');
+  if (b && !b.disabled && typeof _haptic === 'function') _haptic('light');
+}, true);
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _loaded=new Set();

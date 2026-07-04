@@ -405,7 +405,7 @@ function _btRender(st, turn, reward){
         ${bar(en.hp,en.hp_max,'hp en')}<div class="bt-num">${en.hp}/${en.hp_max} HP</div>
       </div>
     </div>
-    ${finished?'':`<div class="bt-qte"><div class="bt-ring" id="bt-ring"></div><div class="bt-ring-core">🎯</div></div>`}
+    ${finished?'':`<div class="bt-qte">${turn&&turn.grade?`<div class="bt-flash bt-flash-${turn.grade}"></div>`:''}<div class="bt-ring" id="bt-ring"></div><div class="bt-ring-core">🎯</div></div>`}
     <div class="bt-log">${(st.log||[]).slice(-5).map(l=>`<div>${esc(l)}</div>`).join('')}</div>
     ${finished
       ? `<button class="btn btn-gold btn-full" onclick="_btBack()">↩ Назад</button>`
@@ -432,7 +432,7 @@ function _btAct(stance, btn){
   api('/combat2/battle/action',{method:'POST',body:JSON.stringify({battle_id:_btState.battle_id, stance, tap_offset_ms:off})})
     .then(r=>{
       const g=r.turn&&r.turn.grade;
-      _haptic(g==='perfect'?'success':(g==='good'?'medium':'light'));
+      _haptic(g==='perfect'?'success':(g==='good'?'medium':'error'));
       if(r.status==='won'){_haptic('success'); refreshCurrBar();}
       if(r.status==='lost') _haptic('error');
       _btRender(r, r.turn, r.reward);
@@ -539,6 +539,28 @@ function _lotLiveTick(){
   t.style.color = s<=60 ? 'var(--red)' : '';
   if(s<=0){ t.textContent='ФИНИШ'; clearInterval(_lotLive.timer); }
 }
+// EPIC3: анти-снайп продлил лот — вспышка на таймере, чтобы это было заметно
+// без необходимости следить за секундами глазами.
+function _lotLiveFlashTimer(){
+  const t = el('lot-live-timer');
+  if(!t) return;
+  t.classList.remove('flash-gold'); void t.offsetWidth;   // рестарт анимации, если уже шла
+  t.classList.add('flash-gold');
+  setTimeout(()=>t.classList.remove('flash-gold'), 650);
+}
+// EPIC3: летящий вверх эмодзи-реакция — своя (оптимистично, сразу по клику) и
+// чужие (по приходу lot_react из WS). Элемент убирается из DOM после анимации.
+function _lotLiveSpawnFly(emoji){
+  const host = el('lot-live-fly');
+  if(!host) return;
+  const s = document.createElement('span');
+  s.className = 'fly-emoji';
+  s.textContent = emoji || '🐸';
+  s.style.left = (10 + Math.random()*70) + '%';
+  host.appendChild(s);
+  s.addEventListener('animationend', () => s.remove());
+  setTimeout(() => s.remove(), 2000);   // страховка, если animationend не пришёл
+}
 function _lotLiveFeedAdd(html){
   const f = el('lot-live-feed');
   if(!f) return;
@@ -558,6 +580,7 @@ function _lotLiveOnEvent(ev){
     if(inp){ const mn = Math.ceil(ev.amount*1.05)+1; inp.min = mn; if(parseFloat(inp.value||0) < mn) inp.value = mn; }
     _lotLiveFeedAdd(`💰 <b>@${esc(ev.bidder_name||'Игрок')}</b> — ${fmt(ev.amount)} 🪙${ev.extended?' <span style="color:var(--gold2)">+60с ⏱</span>':''}${ev.is_buyout?' <span style="color:var(--red)">⚡ ВЫКУП</span>':''}`);
     if(typeof ev.viewers === 'number'){ const v = el('lot-live-viewers'); if(v) v.textContent = '👁 '+ev.viewers; }
+    if(ev.extended) _lotLiveFlashTimer();
     _haptic('medium');
     _lotLiveTick();
   } else if(ev.type === 'lot_viewers'){
@@ -565,11 +588,13 @@ function _lotLiveOnEvent(ev){
     if(v) v.textContent = '👁 '+ev.viewers;
   } else if(ev.type === 'lot_react'){
     _lotLiveFeedAdd(`<span class="lot-live-frog">${esc(ev.emoji||'🐸')}</span> зритель квакает`);
+    if(ev.from !== _uid) _lotLiveSpawnFly(ev.emoji);   // своя уже улетела оптимистично
   }
 }
 function lotLiveReact(){
   if(!_lotLive) return;
   _wsSend({type:'lot_react', lot_id:_lotLive.lotId, emoji:'🐸'});
+  _lotLiveSpawnFly('🐸');
   _haptic('light');
 }
 

@@ -25,6 +25,12 @@ function loadProfile() {
       const f = el('pro-main')?.querySelector('.xp-fill');
       if (f) f.style.width = (f.dataset.pct || 0) + '%';
     }, 40);
+    const animateCp = !_cpAnimated; _cpAnimated = true;
+    const hasCp = typeof d.combat_power === 'number';
+    if (hasCp) setTimeout(() => {
+      if (animateCp) _animateCpCount('cp-hero-val', d.combat_power);
+      else { const n = el('cp-hero-val'); if (n) n.textContent = fmt(d.combat_power); }
+    }, 40);
     el('pro-main').innerHTML=`
       <div class="hero ${d.cosmetics&&d.cosmetics.profile_bg?d.cosmetics.profile_bg.css:''}">
         ${d.cosmetics&&d.cosmetics.card_fx?`<div class="card-fx ${d.cosmetics.card_fx.css}"></div>`:''}
@@ -38,8 +44,13 @@ function loadProfile() {
         </div>
         <div class="hero-xp">
           <div class="xp-bar"><div class="xp-fill" data-pct="${xpPct}" style="width:${animateXp?0:xpPct}%"></div></div>
-          <div class="xp-lbl"><span>Уровень ${lvl}${typeof d.combat_power==='number'?` · <span style="color:var(--gold2);cursor:pointer" onclick="showCpBreakdown()" title="Индекс Силы">⚡ ${fmt(d.combat_power)}</span>`:''}</span><span>${fmt(xpInLvl)} / ${fmt(xpPerLvl)} XP</span></div>
+          <div class="xp-lbl"><span>Уровень ${lvl}</span><span>${fmt(xpInLvl)} / ${fmt(xpPerLvl)} XP</span></div>
         </div>
+        ${typeof d.combat_power==='number'?`
+        <div class="cp-hero" onclick="showCpBreakdown()">
+          <div class="cp-hero-lbl">⚡ ИНДЕКС СИЛЫ</div>
+          <div class="cp-hero-val" id="cp-hero-val">0</div>
+        </div>`:''}
         <div class="stats">
           <div class="stat clickable" onclick="openExchangeCurrencyModal('buy')"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора 🔄</div></div>
           <div class="stat clickable" onclick="openExchangeCurrencyModal('sell')"><div>💎</div><div class="sv">${fmtF(d.diamonds)}</div><div class="sl">Алмазы 🔄</div></div>
@@ -766,7 +777,10 @@ function c2Open(cell, btn){
       if(r.type==='chest'){ _haptic('success'); toast(`📦 +${r.shards} 💠 (${r.split.treasury} в казну)`); }
       else if(r.exit_found){ _haptic('success'); toast('🚪 Найден проход на следующий этаж!'); }
       else _haptic('light');
-      c2Abyss();
+      // EPIC5: рассеивание тумана — сперва проигрываем fade на самой клетке,
+      // и только потом тянем свежую карту (полный ре-рендер иначе обрежет анимацию).
+      if(btn){ btn.classList.add('ab-cell-clearing'); setTimeout(c2Abyss, 480); }
+      else c2Abyss();
     })
     .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
 }
