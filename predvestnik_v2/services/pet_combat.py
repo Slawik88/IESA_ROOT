@@ -28,6 +28,18 @@ def combat_stats(rarity: str, level: int) -> dict:
     }
 
 
+def stamina_recovery_info(stamina: float, stamina_max: float) -> dict:
+    """UX-аудит: стамина тратится в бою, но нигде вне активного боя не было
+    видно ни максимума, ни времени восстановления. Общая для всех эндпоинтов,
+    показывающих боевых питомцев вне боя (Врата 2.0, Бездна)."""
+    per_hour = stamina_max * COMBAT_STAMINA_REGEN_PER_HOUR
+    minutes_to_full = 0
+    if per_hour > 0 and stamina < stamina_max:
+        minutes_to_full = round((stamina_max - stamina) / per_hour * 60)
+    return {"stamina_max": stamina_max, "stamina_regen_per_hour": round(per_hour, 1),
+            "stamina_full_in_min": minutes_to_full}
+
+
 def reconcile(hp: float, hp_max: float, stamina: float, stamina_max: float,
               last_ts: float, now: float | None = None) -> tuple[float, float]:
     """Текущие (hp, stamina) с учётом прошедшего времени. Чистая функция.

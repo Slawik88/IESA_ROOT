@@ -761,7 +761,11 @@ function _c2RenderAbyss(){
     return `<div class="ab-cell fog"></div>`;
   }).join('');
   const pets=(d.pets||[]).map(p=>`<button class="btn btn-sm ${p.id===_c2PetSel?'btn-gold':'btn-ghost'}"
-      onclick="_c2PetSel=${p.id};_c2RenderAbyss()">${esc(p.name||p.species_id)} ⚡${p.stamina}</button>`).join('');
+      onclick="_c2PetSel=${p.id};_c2RenderAbyss()">${esc(p.name||p.species_id)} ⚡${p.stamina}/${p.stamina_max}</button>`).join('');
+  const _selPet=(d.pets||[]).find(p=>p.id===_c2PetSel);
+  const staminaHint=(_selPet && _selPet.stamina<_selPet.stamina_max)
+    ? `<div class="cx-dim" style="font-size:10px;margin-top:4px">⏳ Полная стамина через ${_selPet.stamina_full_in_min<60?_selPet.stamina_full_in_min+' мин':Math.round(_selPet.stamina_full_in_min/60)+' ч'} (восст. ${_selPet.stamina_regen_per_hour}⚡/ч)</div>`
+    : '';
   const gateOk=d.cp>=d.cp_gate;
   b.innerHTML=`
     <div class="looks-hint">🌀 Этаж <b>${d.floor}</b> · неделя ${d.week} · открытие клетки: <b>${d.stamina_cost}</b> выносливости.
@@ -770,6 +774,7 @@ function _c2RenderAbyss(){
     <div class="ab-grid">${cells}</div>
     <div class="looks-slot-t">Кем копаем</div>
     <div class="skg-stakes">${pets||'<span class="cx-dim">Нет живых питомцев</span>'}</div>
+    ${staminaHint}
     ${d.key_found?`<button class="btn btn-gold btn-full" onclick="c2NextFloor()">⬇️ Спуститься на этаж ${d.floor+1}</button>`:''}
     <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="openClansModal()">↩ К клану</button>`;
 }
