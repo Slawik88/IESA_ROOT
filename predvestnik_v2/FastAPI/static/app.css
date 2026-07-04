@@ -2266,11 +2266,14 @@ body.modal-open { overflow: hidden; }
 .bt-log { font-size: 10.5px; color: var(--muted); line-height: 1.55; max-height: 90px;
   overflow-y: auto; background: var(--dim); border-radius: 8px; padding: 6px 9px; margin-bottom: 8px; }
 .bt-stances { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-.bt-stances .btn { padding: 11px 0; font-size: 12.5px; }
+.bt-stances .btn { padding: 9px 0 8px; font-size: 12.5px; line-height: 1.4; }
+.bt-stance-sub { display: block; font-size: 8.5px; font-weight: 500; opacity: .75; margin-top: 1px; }
 
 /* ── R3 Кланы 2.0: Бездна (туман войны 7×7), нав-кнопки ─────────────────────── */
 .clan2-nav { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 10px 0; }
-.clan2-nav .btn { padding: 10px 0; font-size: 12px; }
+.clan2-nav .btn { padding: 8px 0 7px; font-size: 12px; line-height: 1.4; }
+.clan2-nav-sub { display: block; font-size: 8.5px; font-weight: 500; opacity: .75; margin-top: 1px; }
+.ab-legend { font-size: 9.5px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
 .ab-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 10px 0; }
 .ab-cell { aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center;
   justify-content: center; font-size: 15px; border: 1px solid var(--border2); }

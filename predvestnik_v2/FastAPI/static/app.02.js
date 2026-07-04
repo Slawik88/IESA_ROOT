@@ -734,11 +734,17 @@ function showCpBreakdown() {
 }
 
 // ══ R3 Кланы 2.0: Бездна · Здания · Войны (внутри клан-модалки) ══════════════
-function _clan2NavHtml(){
+// UX-аудит: названия вкладок ничего не объясняли новичку + переключение между
+// ними требовало полного возврата в карточку клана. Теперь у каждой кнопки
+// однословная подсказка, а сама панель встроена в шапку всех трёх экранов —
+// прямой переход Бездна↔Здания↔Войны без промежуточного «↩ К клану».
+function _clan2NavHtml(active){
+  const item=(key,icon,label,sub,fn)=>
+    `<button class="btn ${active===key?'btn-gold':'btn-ghost'}" onclick="${fn}">${icon} ${label}<span class="clan2-nav-sub">${sub}</span></button>`;
   return `<div class="clan2-nav">
-    <button class="btn btn-gold" onclick="c2Abyss()">🌀 Бездна</button>
-    <button class="btn btn-ghost" onclick="c2Buildings()">🏗 Здания</button>
-    <button class="btn btn-ghost" onclick="c2War()">⚔️ Войны</button>
+    ${item('abyss','🌀','Бездна','копать клетки','c2Abyss()')}
+    ${item('build','🏗','Здания','тратить 💠','c2Buildings()')}
+    ${item('war','⚔️','Войны','отбить узел','c2War()')}
   </div>`;
 }
 const C2_CELL_ICO={empty:'▫️',chest:'📦',monster:'👹',boss:'👑',exit:'🚪'};
@@ -767,13 +773,24 @@ function _c2RenderAbyss(){
     ? `<div class="cx-dim" style="font-size:10px;margin-top:4px">⏳ Полная стамина через ${_selPet.stamina_full_in_min<60?_selPet.stamina_full_in_min+' мин':Math.round(_selPet.stamina_full_in_min/60)+' ч'} (восст. ${_selPet.stamina_regen_per_hour}⚡/ч)</div>`
     : '';
   const gateOk=d.cp>=d.cp_gate;
+  // UX-аудит: пустое состояние «нет живых питомцев» вело в никуда — теперь
+  // различаем «нет питомцев вообще» (в Гачу) и «все истощены» (лечить в Вратах).
+  const hasAnyPet=(_profileData?.pets||[]).length>0;
+  const noPetsHtml = pets ? '' : (hasAnyPet
+    ? `<div class="cx-dim" style="font-size:11px">Все питомцы истощены (0 HP или стамины).</div>
+       <button class="btn btn-sm btn-ghost" style="margin-top:6px" onclick="goTo('arena','raids')">💊 Подлечить во Вратах</button>`
+    : `<div class="cx-dim" style="font-size:11px">Питомцев пока нет.</div>
+       <button class="btn btn-sm btn-gold" style="margin-top:6px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button>`);
   b.innerHTML=`
+    ${_clan2NavHtml('abyss')}
     <div class="looks-hint">🌀 Этаж <b>${d.floor}</b> · неделя ${d.week} · открытие клетки: <b>${d.stamina_cost}</b> выносливости.
       Гейт этажа: ⚡${fmt(d.cp_gate)} ${gateOk?'✅':`❌ (у тебя ${fmt(d.cp)})`}
       ${d.key_found?' · 🗝 ключ найден':''}</div>
+    <div class="ab-legend">🌫 туман · ❔ доступно (открой, узнаешь что там) · 📦 сундук · 👹 монстр · 👑 босс · 🚪 выход этажа</div>
     <div class="ab-grid">${cells}</div>
     <div class="looks-slot-t">Кем копаем</div>
-    <div class="skg-stakes">${pets||'<span class="cx-dim">Нет живых питомцев</span>'}</div>
+    <div class="skg-stakes">${pets}</div>
+    ${noPetsHtml}
     ${staminaHint}
     ${d.key_found?`<button class="btn btn-gold btn-full" onclick="c2NextFloor()">⬇️ Спуститься на этаж ${d.floor+1}</button>`:''}
     <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="openClansModal()">↩ К клану</button>`;
@@ -814,6 +831,7 @@ function c2Buildings(){
     </div>`).join('');
     const log=(d.log||[]).map(l=>`<div class="lot-live-row">${esc(l.text)}</div>`).join('');
     el('mb').innerHTML=`
+      ${_clan2NavHtml('build')}
       <div class="looks-hint">🏦 Казна: <b>${fmtF(d.treasury_shards)}</b>/${fmt(d.treasury_cap)} 💠 · <b>${fmt(d.treasury_mora)}</b> 🪙 (доход узлов) · твоя роль: <b>${d.role}</b></div>
       <div class="clan-blds">${cards}</div>
       ${log?`<div class="looks-slot-t" style="margin-top:10px">📜 Лента клана</div><div class="bt-log">${log}</div>`:''}
@@ -839,8 +857,12 @@ function c2War(){
         act=`<div class="bt-bar"><div class="bt-fill hp en" style="width:${pct}%"></div></div>
           <div class="bt-num">Штурм: ${fmt(n.war.damage_total)}/${fmt(n.wall_hp_max)} · ${Math.ceil(n.war.remaining_sec/3600)}ч</div>
           ${n.war.attacker_clan_id===d.my_clan_id?`<button class="btn btn-sm btn-red btn-full" onclick="c2WarAttack(${n.war.id})">⚔️ Атаковать стену</button>`:''}`;
-      } else if(!mine && ['owner','warlord'].includes(d.my_role||'') && n.shield_left_sec<=0){
-        act=`<button class="btn btn-sm btn-ghost btn-full" onclick="c2Declare(${n.id},this)">⚔️ Война (${fmt(d.declare_cost)} 🪙 казны)</button>`;
+      } else if(!mine && n.shield_left_sec<=0){
+        // UX-аудит: кнопка объявления войны раньше молча пропадала для
+        // Бойца/Казначея без единого слова объяснения — теперь виден и повод.
+        act=['owner','warlord'].includes(d.my_role||'')
+          ? `<button class="btn btn-sm btn-ghost btn-full" onclick="c2Declare(${n.id},this)">⚔️ Война (${fmt(d.declare_cost)} 🪙 казны)</button>`
+          : `<div class="cx-dim" style="font-size:10px;margin-top:3px">🔒 Войну объявляет только Владыка или Воевода</div>`;
       }
       return `<div class="g2-floor"><div style="flex:1">
           <div class="g2-fn">${esc(n.name)}${mine?' 🏰':''}${shield}</div>
@@ -848,6 +870,7 @@ function c2War(){
         </div></div>`;
     }).join('');
     el('mb').innerHTML=`
+      ${_clan2NavHtml('war')}
       <div class="looks-hint">🏰 Узлы дают 2 000 🪙/день в казну владельца. Война: 24ч на пробитие стены, ${d.attacks_per_day} атаки/день на бойца.</div>
       ${rows}
       <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="openClansModal()">↩ К клану</button>`;
