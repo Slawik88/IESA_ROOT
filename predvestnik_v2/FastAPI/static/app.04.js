@@ -532,7 +532,7 @@ function loadDuels() {
           <div class="duel-vs">${vipName(d.challenger_name||'Игрок', d.challenger_is_vip)} вызывает вас</div>
           <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
           <div style="display:flex;gap:6px;margin-top:8px">
-            <button class="btn btn-sm btn-teal" style="flex:1" onclick="acceptDuel(${d.id},this)">⚔️ Принять</button>
+            <button class="btn btn-sm btn-teal" style="flex:1" onclick="acceptDuel(${d.id},'${esc(d.challenger_name||'Игрок')}',this)">⚔️ Принять</button>
             <button class="btn btn-sm btn-red" style="flex:1" onclick="declineDuel(${d.id},this)">❌ Отклонить</button>
           </div>
         </div>`).join('')}
@@ -560,11 +560,14 @@ function loadDuels() {
           const vs = d.challenger_id == _uid ? d.challenged_name : d.challenger_name;
           const vsIsVip = d.challenger_id == _uid ? d.challenged_is_vip : d.challenger_is_vip;
           const statusMap = {pending:'⏳ Ожидание', timeout:'⏰ Истёк', declined:'❌ Отклонён', finished:''};
+          const amountStr = isDone
+            ? (won ? ` (+${fmt(Math.round(d.winner_gain||0))} 🪙)` : ` (−${fmt(d.stake)} 🪙)`)
+            : '';
           return `<div class="duel-card">
             <div style="display:flex;align-items:center;justify-content:space-between">
               <div class="duel-vs">vs ${vipName(vs||'Игрок', vsIsVip)}</div>
               <div class="duel-result${isDone?(won?' win':' lose'):''}">
-                ${isDone?(won?'✓ Победа':'✗ Поражение'):statusMap[d.status]||d.status}
+                ${isDone?(won?'✓ Победа':'✗ Поражение'):statusMap[d.status]||d.status}${amountStr}
               </div>
             </div>
             <div class="duel-stake">${fmt(d.stake)} 🪙</div>
@@ -582,14 +585,28 @@ function loadDuels() {
   }).catch(e => { el('dc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
 
-function acceptDuel(id, btn) {
+function acceptDuel(id, opponentName, btn) {
   btn.disabled = true;
   btn.textContent = '...';
   api('/duels/accept', {method:'POST', body:JSON.stringify({duel_id:id})})
     .then(r => {
+      const res = r.result || {};
       const won = r.winner_id == _uid;
-      toast(won ? '🏆 Победа!' : (r.winner_id ? '😔 Поражение' : '🤝 Ничья'), won);
-      loadDuels();
+      _haptic(won ? 'success' : 'error');
+      const myPower = (res.challenged_id == _uid) ? res.challenged_power : res.challenger_power;
+      const oppPower = (res.challenged_id == _uid) ? res.challenger_power : res.challenged_power;
+      const powerLine = (typeof myPower==='number' && typeof oppPower==='number')
+        ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">Твоя сила: <b>${myPower.toFixed(1)}</b> · ${esc(opponentName)}: <b>${oppPower.toFixed(1)}</b></div>` : '';
+      const moneyLine = won
+        ? `<div style="font-size:14px;color:var(--green);font-weight:700;margin-top:4px">+${fmt(Math.round(res.winner_gain||0))} 🪙 (комиссия ${fmt(Math.round(res.commission||0))} 🪙)</div>`
+        : (r.winner_id ? `<div style="font-size:14px;color:var(--red);font-weight:700;margin-top:4px">−${fmt(res.stake||0)} 🪙</div>` : '');
+      OM(won?'🏆 Победа!':(r.winner_id?'😔 Поражение':'🤝 Ничья'), `
+        <div style="text-align:center;padding:6px 0">
+          <div style="font-size:36px">${won?'🏆':(r.winner_id?'💥':'🤝')}</div>
+          ${moneyLine}
+          ${powerLine}
+          <div style="font-size:10px;color:var(--muted);margin-top:6px">Оба питомца получили +15 усталости</div>
+        </div>`, [{l:'Закрыть', c:'btn-gold', f:'CM();loadDuels()'}]);
       refreshCurrBar();
     })
     .catch(e => { toast(e, false); btn.disabled = false; btn.textContent = '⚔️ Принять'; });
@@ -615,14 +632,22 @@ function openDuelChallenge() {
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">@username соперника</div>
     <input id="duel-user" type="text" class="num-input" placeholder="username (без @)"/>
     <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Ставка 🪙 (200 – 15 000)</div>
-    <input id="duel-stake" type="number" class="num-input" placeholder="500" min="200" max="15000"/>
+    <input id="duel-stake" type="number" class="num-input" placeholder="500" min="200" max="15000" oninput="_duelUpdateEstimate()"/>
     <div style="font-size:10px;color:var(--gold);margin-top:6px;background:var(--gold-dim);padding:6px 8px;border-radius:var(--r)">
-      🔒 Ставка заморозится до конца дуэли. Победитель забирает обе ставки.
+      🔒 Ставка заморозится до конца дуэли. Победитель получает обе ставки минус 5% комиссии:
+      <span id="duel-est">победитель получит ≈475 🪙 чистыми при ставке 500 🪙 с каждого</span>.
+      Оба питомца получат +15 усталости, независимо от исхода.
     </div>
   `, [
     {l:'⚔️ Вызвать', c:'btn-red', f:'submitDuelChallenge(this)'},
     {l:'Отмена', c:'btn-ghost', f:'CM()'},
   ]);
+}
+function _duelUpdateEstimate(){
+  const stake = parseFloat(el('duel-stake')?.value || 0) || 500;
+  const net = Math.round(stake*2*0.95 - stake);
+  const est = el('duel-est');
+  if(est) est.textContent = `победитель получит ≈${fmt(net)} 🪙 чистыми при ставке ${fmt(stake)} 🪙 с каждого`;
 }
 
 function submitDuelChallenge(btn) {

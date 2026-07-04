@@ -82,8 +82,10 @@ async def get_recent(
     base_cols = (
         "id, delta_mora, delta_diamonds, "
         "COALESCE(delta_zarniki, 0) AS delta_zarniki, "
+        "COALESCE(delta_dark_mora, 0) AS delta_dark_mora, "
         "balance_mora_after, balance_diamonds_after, "
         "COALESCE(balance_zarniki_after, 0) AS balance_zarniki_after, "
+        "COALESCE(balance_dark_mora_after, 0) AS balance_dark_mora_after, "
         "source, target_id, note, created_at"
     )
 

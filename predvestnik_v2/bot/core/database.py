@@ -727,6 +727,14 @@ async def _init_features_extra(db):
         except Exception:
             pass
 
+    # UX-аудит: winner_gain/commission считались на лету и никогда не
+    # сохранялись — история дуэлей не могла показать сумму прошлого выигрыша.
+    for _col in ("winner_gain", "commission"):
+        try:
+            await db.execute(f"ALTER TABLE duels ADD COLUMN IF NOT EXISTS {_col} FLOAT8")
+        except Exception:
+            pass
+
     # Marriage proposals
     await db.execute("""
         CREATE TABLE IF NOT EXISTS marriage_proposals (
