@@ -123,7 +123,9 @@ function loadQuests() {
     const qs = r.quests || r;     // backward-compat если вернётся массив
     const weekly = r.weekly || [];
     if(!qs.length && !weekly.length){
-      el('qc').innerHTML='<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:28px;margin-bottom:6px">📋</div><div style="font-size:12px">Нет квестов — напиши <code>бот задания</code> в чате</div></div>';
+      // Задания назначаются автоматически при первом обращении — если список
+      // всё же пуст (сетевой сбой/гонка), не шлём в несуществующую команду.
+      el('qc').innerHTML='<div class="empty-state"><div class="es-icon">📋</div><div class="es-title">Задания загружаются</div><div class="es-sub">Обычно они уже готовы — если пусто, откройте вкладку ещё раз через минуту</div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="loadQuests()">🔄 Обновить</button></div>';
       return;
     }
     const daily = _questSectionHtml('📅 Ежедневные', qs, r.bonus, 'Бонус за все дневные');
