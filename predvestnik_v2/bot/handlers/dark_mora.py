@@ -245,3 +245,120 @@ async def cmd_ritual(message: types.Message, db):
         f"└ Следующий ритуал через <b>{DARK_MORA_CULT_COOLDOWN_DAYS} дней</b>",
         parse_mode="HTML",
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# БЛОК 13.X/24.A: Теневой Торговец — «бот слово» + Теневые реликвии
+# ═══════════════════════════════════════════════════════════════════════════
+
+from aiogram.filters.callback_data import CallbackData
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+from core.constants import (
+    DARK_MORA_SHADOW_MERCHANT_WINNERS,
+    DARK_MORA_SHADOW_MERCHANT_REWARD_MIN, DARK_MORA_SHADOW_MERCHANT_REWARD_MAX,
+)
+from core.registry import SHADOW_RELICS
+from infrastructure.repositories import shadow_merchant as sm_repo
+from services import shadow_merchant as sm_svc
+
+# Награда 🌑 по месту: 1-е — MAX, 3-е — MIN, 2-е — середина.
+_SM_REWARDS: dict[int, int] = {
+    1: DARK_MORA_SHADOW_MERCHANT_REWARD_MAX,
+    2: (DARK_MORA_SHADOW_MERCHANT_REWARD_MIN + DARK_MORA_SHADOW_MERCHANT_REWARD_MAX) // 2,
+    3: DARK_MORA_SHADOW_MERCHANT_REWARD_MIN,
+}
+_SM_MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+
+@router.message(TextCmd(["слово"]))
+async def cmd_shadow_word(message: types.Message, db, text_args: str = None):
+    """«бот слово, догадка» — ответ на пророчество Теневого Торговца."""
+    if message.chat.type == "private":
+        return await message.answer("🕴 Торговец является только в группах.")
+    guess = (text_args or "").strip()
+    if not guess:
+        return await message.answer(
+            "Формат: <code>бот слово, [догадка]</code>", parse_mode="HTML")
+
+    event = await sm_repo.get_active_event(db, message.chat.id)
+    if not event:
+        return await message.answer(
+            "🕴 <i>Торговца сейчас нет в этом чате. Пророчество появляется само —"
+            " следите за чатом.</i>", parse_mode="HTML")
+
+    if not sm_svc.keywords_match(guess, event["keyword"]):
+        return await message.answer("❌ <i>Не то слово…</i>", parse_mode="HTML")
+
+    result = await sm_repo.add_winner(
+        db, event["id"], message.from_user.id,
+        DARK_MORA_SHADOW_MERCHANT_WINNERS, _SM_REWARDS,
+    )
+    if result is None:
+        return await message.answer(
+            "⏳ Места победителей уже заняты (или вы уже угадали).", parse_mode="HTML")
+
+    position, reward = result
+    if reward > 0:
+        await add_dark_mora(db, message.from_user.id, reward,
+                            source="shadow_merchant", note=f"place_{position}")
+    await db.commit()
+
+    medal = _SM_MEDALS.get(position, "🏅")
+    name = message.from_user.first_name or "Игрок"
+    text = (
+        f"{medal} <b>{name}</b> разгадал пророчество! (место {position})\n"
+        f"🌑 Награда: <b>+{reward:.0f}</b> Тёмной Моры\n"
+        f"🗝 Получено <b>право купить Теневую реликвию</b>: "
+        f"<code>бот теневые реликвии</code>"
+    )
+    if position >= DARK_MORA_SHADOW_MERCHANT_WINNERS:
+        text += "\n\n🕴 <i>Все места заняты — Торговец растворяется во мгле…</i>"
+    await message.answer(text, parse_mode="HTML")
+
+
+class SRelicBuyCB(CallbackData, prefix="srelic"):
+    relic_id: str
+
+
+@router.message(TextCmd(["теневые реликвии", "теневая лавка", "теневая реликвия"]))
+async def cmd_shadow_relics(message: types.Message, db):
+    """Каталог Теневых реликвий: владение, ваучеры, покупка."""
+    uid = message.from_user.id
+    owned = set(await sm_repo.owned_shadow_relics(db, uid))
+    vouchers = await sm_repo.voucher_count(db, uid)
+    bal = await get_dark_mora_balance(db, uid)
+
+    lines = ["🕴 <b>ТЕНЕВАЯ ЛАВКА</b>", ""]
+    for rid, r in SHADOW_RELICS.items():
+        mark = "✅" if rid in owned else f"{r['price_dark']:.0f} 🌑"
+        lines.append(f"{r['name']} — {mark}")
+        lines.append(f"   <i>{r['desc']}</i> (+{r['gates_dark_pct'] * 100:.0f}% 🌑 из Врат)")
+    lines += [
+        "",
+        f"🗝 Ваших прав покупки (побед): <b>{vouchers}</b>",
+        f"🌑 Баланс: <b>{format_currency(bal)}</b>",
+        "",
+        "<i>Право покупки даёт только победа в ивенте «Теневой Торговец».</i>",
+    ]
+
+    kb = InlineKeyboardBuilder()
+    if vouchers > 0:
+        for rid, r in SHADOW_RELICS.items():
+            if rid not in owned:
+                kb.button(text=f"Купить {r['name']}",
+                          callback_data=SRelicBuyCB(relic_id=rid))
+        kb.adjust(1)
+    await message.answer("\n".join(lines), parse_mode="HTML",
+                         reply_markup=kb.as_markup() if vouchers > 0 else None)
+
+
+@router.callback_query(SRelicBuyCB.filter())
+async def cb_shadow_relic_buy(query: types.CallbackQuery, callback_data: SRelicBuyCB, db):
+    ok, msg = await sm_repo.buy_shadow_relic(db, query.from_user.id, callback_data.relic_id)
+    await db.commit()
+    if ok:
+        await query.answer("🗝 Куплено!", show_alert=False)
+        await query.message.answer(f"🕴 {msg}", parse_mode="HTML")
+    else:
+        await query.answer(msg, show_alert=True)

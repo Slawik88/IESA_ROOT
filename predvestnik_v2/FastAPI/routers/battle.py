@@ -60,12 +60,16 @@ async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
                          "stamina": st["stamina"], "alive": st["alive"],
                          **stamina_recovery_info(st["stamina"], st["stamina_max"])})
     active = await bt_repo.get_active(db, uid)
+    # БЛОК 13.X: Теневые реликвии дают +% к 🌑 из Врат — display == actual
+    from infrastructure.repositories.shadow_merchant import get_gates_dark_bonus
+    _sr_bonus = await get_gates_dark_bonus(db, uid)
     return {
         "cp": cp,
         "entries_left": max(0, GATES2_ENTRIES_PER_DAY - used),
         "floors": [{"floor": f, "cp_gate": GATES2_CP_GATE[f], "open": cp >= GATES2_CP_GATE[f],
                     "waves": bt.gates_waves(f),
-                    "reward_dark": GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * f}
+                    "reward_dark": int((GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * f)
+                                       * (1 + _sr_bonus))}
                    for f in range(1, GATES2_FLOORS + 1)],
         "pets": pets,
         "active_battle": bt.public_state(active["state"], active["id"]) if active else None,
@@ -178,6 +182,11 @@ async def _war_finalize(db, uid: int, state: dict) -> dict | None:
 
 async def _gates_reward(db, uid: int, floor: int) -> dict:
     dark = GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * floor
+    # БЛОК 13.X: бонус Теневых реликвий (+2..15% суммарно) — та же формула, что в /gates
+    from infrastructure.repositories.shadow_merchant import get_gates_dark_bonus
+    _sr_bonus = await get_gates_dark_bonus(db, uid)
+    if _sr_bonus > 0:
+        dark = int(dark * (1 + _sr_bonus))
     await db.execute(
         "UPDATE users SET user_balance_dark_mora = COALESCE(user_balance_dark_mora,0) + ? "
         "WHERE user_tg_id = ?", (dark, uid))

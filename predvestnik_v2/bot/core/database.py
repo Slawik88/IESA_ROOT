@@ -703,6 +703,18 @@ async def _init_features_extra(db):
             PRIMARY KEY (event_id, user_id)
         )
     """)
+    # БЛОК 13.X: победная строка = ваучер на покупку Теневой реликвии
+    await db.execute(
+        "ALTER TABLE shadow_merchant_winners ADD COLUMN IF NOT EXISTS redeemed BOOLEAN DEFAULT FALSE"
+    )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS user_shadow_relics (
+            user_id   BIGINT NOT NULL,
+            relic_id  TEXT NOT NULL,
+            bought_at TIMESTAMP DEFAULT NOW(),
+            PRIMARY KEY (user_id, relic_id)
+        )
+    """)
 
     # Migrations: wallet_log dark mora + zarniki columns
     for _col, _def in [
