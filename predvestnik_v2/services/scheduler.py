@@ -547,6 +547,16 @@ async def duel_and_auction_task(bot: Bot):
 
                 await _resolve_expired_auction_lots(bot, db)
 
+                # БЛОК 36.4: авто-закрытие просроченных клановых рейдов (48ч, босс жив) —
+                # раньше висели 'active' навсегда и блокировали запуск нового рейда.
+                try:
+                    from infrastructure.repositories import raids as _raids_repo
+                    _n_exp = await _raids_repo.close_expired(db)
+                    if _n_exp:
+                        logger.info(f"Клановые рейды: закрыто просроченных — {_n_exp}")
+                except Exception as _re:
+                    logger.warning(f"raid expiry error: {_re}")
+
                 # Battle Pass: подхват сезонов, созданных через Консоль на сайте
                 try:
                     await refresh_bp_seasons(db)

@@ -2,12 +2,11 @@ from aiogram import Router, types, Bot
 
 from infrastructure.repositories import routing
 from infrastructure.repositories import chat as chat_db
-from infrastructure.repositories.streak import get_chat_timezone, set_chat_timezone
+from infrastructure.repositories.streak import get_chat_timezone
 from bot.filters.text_commands import TextCmd
 from services import moderation as mod_service
 from services import roles
 from services.utils import safe_html
-from core.constants import CHAT_TIMEZONE_MIN, CHAT_TIMEZONE_MAX
 
 router = Router(name="routing_router")
 
@@ -86,69 +85,11 @@ async def cmd_accept_bind(message: types.Message, db, bot: Bot, text_args: str =
 
 
 # ==========================================
-# ЧАСОВОЙ ПОЯС ЧАТА
+# ЧАСОВОЙ ПОЯС ЧАТА — ПЕРЕЕХАЛ (БЛОК 36.4)
 # ==========================================
-
-_TIMEZONE_LIST_TEXT = (
-    "🕐 <b>ЧАСОВОЙ ПОЯС ЧАТА</b>\n\n"
-    "Допустимые значения (UTC от -12 до +14):\n"
-    "<code>UTC-12  UTC-11  UTC-10  UTC-9   UTC-8\n"
-    "UTC-7   UTC-6   UTC-5   UTC-4   UTC-3\n"
-    "UTC-2   UTC-1   UTC+0   UTC+1   UTC+2\n"
-    "UTC+3   UTC+4   UTC+5   UTC+6   UTC+7\n"
-    "UTC+8   UTC+9   UTC+10  UTC+11  UTC+12\n"
-    "UTC+13  UTC+14</code>\n\n"
-    "Пример: <code>бот часовой пояс чата, UTC+3</code>"
-)
-
-
-def _parse_tz_offset(raw: str) -> int | None:
-    """Parse 'UTC+5', 'UTC-3', '+5', '-3', '0' → integer offset or None."""
-    s = raw.strip().upper().replace("UTC", "").replace(" ", "")
-    try:
-        val = int(s)
-        if CHAT_TIMEZONE_MIN <= val <= CHAT_TIMEZONE_MAX:
-            return val
-        return None
-    except ValueError:
-        return None
-
-
-@router.message(TextCmd(["часовой пояс чата", "timezone чата", "пояс чата"]))
-async def cmd_chat_timezone(message: types.Message, db, text_args: str = None, developer_id: int = 0):
-    if message.chat.type == "private":
-        return
-
-    if not text_args or not text_args.strip():
-        current = await get_chat_timezone(db, message.chat.id)
-        sign = "+" if current >= 0 else ""
-        return await message.answer(
-            f"{_TIMEZONE_LIST_TEXT}\n\n"
-            f"<i>Текущий часовой пояс: <b>UTC{sign}{current}</b></i>",
-            parse_mode="HTML",
-        )
-
-    can_admin, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id
-    )
-    if not can_admin:
-        return await message.answer(err, parse_mode="HTML")
-
-    offset = _parse_tz_offset(text_args)
-    if offset is None:
-        return await message.answer(
-            f"❌ Неверный формат. Укажите UTC от {CHAT_TIMEZONE_MIN} до {CHAT_TIMEZONE_MAX}.\n"
-            f"Пример: <code>бот часовой пояс чата, UTC+3</code>",
-            parse_mode="HTML",
-        )
-
-    await set_chat_timezone(db, message.chat.id, offset)
-    sign = "+" if offset >= 0 else ""
-    await message.answer(
-        f"✅ <b>Часовой пояс чата установлен: UTC{sign}{offset}</b>\n"
-        f"<i>Ежедневные стрики теперь считаются по этому времени.</i>",
-        parse_mode="HTML",
-    )
+# Дубль-хендлер удалён 2026-07-07: команда живёт в bot/handlers/chat_settings.py
+# (cmd_set_timezone), алиасы «часовой пояс чата»/«timezone чата»/«пояс чата»
+# перенесены туда же. Здесь остался только вывод текущего пояса в «инфо чата».
 
 
 # ==========================================

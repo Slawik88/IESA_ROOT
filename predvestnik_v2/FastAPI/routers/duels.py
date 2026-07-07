@@ -115,7 +115,7 @@ async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(req
                             f"⚔️ <b>Вызов на дуэль!</b>\n"
                             f"Игрок <b>@{challenger_name}</b> вызывает вас на дуэль через сайт.\n"
                             f"Ставка: <code>{body.stake:.0f} 🪙</code>\n"
-                            f"Ответьте в чате: <code>бот принять</code>"
+                            f"Принять или отклонить — на сайте: Арена → Дуэли."
                         ),
                         "parse_mode": "HTML",
                     },
