@@ -236,6 +236,28 @@ function _devContentTabHtml(){
       </div>
       <button class="btn btn-gold btn-full" onclick="devBpXpSet()">💾 Сохранить действие</button>
     </div>
+    <div class="card">
+      <div class="card-title">🎟 Промокоды <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="devPromoLoad()">🔄</button></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Управление и здесь, и в чате: <code>бот dev промокод создать/список/инфо</code>. Активация игроками — «бот промокод» или сайт.</div>
+      <div id="dev-promo-list"><div class="loader">Загрузка...</div></div>
+      <div style="border-top:1px solid var(--dim);margin:8px 0;padding-top:8px;font-size:11px;color:var(--gold2)">➕ Новый промокод</div>
+      <input id="dev-promo-code" type="text" class="num-input" style="margin-bottom:6px" placeholder="КОД (3–32, буквы/цифры/-/_)"/>
+      <input id="dev-promo-desc" type="text" class="num-input" style="margin-bottom:6px" placeholder="описание (видно только вам)"/>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-promo-mora" type="number" class="num-input" style="flex:1;margin:0" placeholder="🪙 мора"/>
+        <input id="dev-promo-dia" type="number" class="num-input" style="flex:1;margin:0" placeholder="💎 алмазы"/>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-promo-dark" type="number" class="num-input" style="flex:1;margin:0" placeholder="🌑 тёмная"/>
+        <input id="dev-promo-zar" type="number" class="num-input" style="flex:1;margin:0" placeholder="✨ зарники"/>
+      </div>
+      <input id="dev-promo-items" type="text" class="num-input" style="margin-bottom:6px" placeholder="предметы: spin_token:3, food_elite:1"/>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="dev-promo-max" type="number" class="num-input" style="flex:1;margin:0" placeholder="лимит активаций (0=∞)"/>
+        <input id="dev-promo-until" type="text" class="num-input" style="flex:1;margin:0" placeholder="до: 2026-08-01 00:00"/>
+      </div>
+      <button class="btn btn-gold btn-full" onclick="devPromoCreate()">🎟 Создать промокод</button>
+    </div>
   </div>
 `;
 }
@@ -881,6 +903,7 @@ function swDev(tab, btn) {
   ['sys','players','content','bc','sql','metrics','themes'].forEach(t=>{
     const d=el('dev-t-'+t); if(d) d.style.display=t===tab?'':'none';
   });
+  if(tab==='content'){ try{devPromoLoad();}catch(e){} }
 }
 function devLoadChatsMod() {
   const sel=el('dev-mod-chat-sel'); if(!sel) return;

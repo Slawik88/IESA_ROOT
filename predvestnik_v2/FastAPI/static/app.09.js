@@ -548,3 +548,73 @@ function checkGlobalAccess() {
   }
   _updateMoreCard();
 }
+
+// ── 🎟 Промокоды в дев-консоли (admin_audit B6) ──────────────────────────────
+function devPromoLoad() {
+  const box=el('dev-promo-list'); if(!box) return;
+  api('/admin/dev/promocodes').then(d=>{
+    const rows=d.promocodes||[];
+    if(!rows.length){ box.innerHTML='<div style="font-size:11px;color:var(--muted)">Промокодов пока нет — создайте первый ниже.</div>'; return; }
+    box.innerHTML=rows.map(p=>{
+      const lim=p.max_activations>0?`${p.activations_count}/${p.max_activations}`:`${p.activations_count}/∞`;
+      const on=p.is_active?'🟢':'🔴';
+      const until=p.valid_until?` · до ${esc(p.valid_until)}`:'';
+      return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--dim);font-size:11px">
+        <span style="cursor:pointer" onclick="devPromoInfo('${esc(p.code)}')">${on} <b>${esc(p.code)}</b></span>
+        <span style="color:var(--muted);flex:1">${lim}${until}</span>
+        <button class="btn btn-sm btn-ghost" style="padding:2px 8px" onclick="devPromoToggle('${esc(p.code)}')">${p.is_active?'⏸':'▶'}</button>
+        <button class="btn btn-sm btn-ghost" style="padding:2px 8px;color:var(--red)" onclick="devPromoDelete('${esc(p.code)}')">🗑</button>
+      </div>`;
+    }).join('');
+  }).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
+}
+function devPromoInfo(code) {
+  api('/admin/dev/promocodes/'+encodeURIComponent(code)).then(d=>{
+    const p=d.promocode||{};
+    const rw=[p.reward_mora>0?`${p.reward_mora} 🪙`:'',p.reward_diamonds>0?`${p.reward_diamonds} 💎`:'',
+      p.reward_dark_mora>0?`${p.reward_dark_mora} 🌑`:'',p.reward_zarniki>0?`${p.reward_zarniki} ✨`:'',
+      p.reward_items_json&&p.reward_items_json!=='{}'?esc(p.reward_items_json):''].filter(Boolean).join(' · ')||'—';
+    const acts=(d.activators||[]).map(a=>`<div style="font-size:10px;color:var(--muted)">${esc(a.username||a.user_id)} — ${esc(a.redeemed_at||'')}</div>`).join('')||'<div style="font-size:10px;color:var(--muted)">Активаций нет</div>';
+    OM('🎟 '+esc(code),
+      `<div style="font-size:12px;padding:6px 0">${esc(p.description||'без описания')}</div>
+       <div style="font-size:11px">Награда: ${rw}</div>
+       <div style="font-size:11px;color:var(--muted);margin:4px 0">Активации: ${p.activations_count}${p.max_activations>0?'/'+p.max_activations:'/∞'} · ${p.is_active?'🟢 активен':'🔴 выключен'}</div>
+       <div style="border-top:1px solid var(--dim);margin-top:6px;padding-top:6px;max-height:150px;overflow:auto">${acts}</div>`,
+      [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  }).catch(e=>toast(e,false));
+}
+function devPromoToggle(code) {
+  api('/admin/dev/promocodes/'+encodeURIComponent(code)+'/toggle',{method:'POST'})
+    .then(r=>{toast(r.is_active?'▶ Промокод включён':'⏸ Промокод выключен');devPromoLoad();})
+    .catch(e=>toast(e,false));
+}
+function devPromoDelete(code) {
+  OM('🗑 Удалить промокод?',`<div style="padding:8px 0;color:var(--muted)">Код <b>${esc(code)}</b> будет удалён навсегда (история активаций останется в журнале).</div>`,
+    [{l:'Удалить',c:'btn-red',f:`_devPromoDeleteGo('${esc(code)}')`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _devPromoDeleteGo(code) {
+  CM();
+  api('/admin/dev/promocodes/'+encodeURIComponent(code),{method:'DELETE'})
+    .then(()=>{toast('🗑 Удалён');devPromoLoad();}).catch(e=>toast(e,false));
+}
+function devPromoCreate() {
+  const code=el('dev-promo-code')?.value.trim();
+  if(!code) return toast('Введите код',false);
+  const items={};
+  (el('dev-promo-items')?.value||'').split(',').forEach(pair=>{
+    const m=pair.trim().split(':');
+    if(m.length===2&&m[0].trim()&&parseInt(m[1],10)>0) items[m[0].trim()]=parseInt(m[1],10);
+  });
+  const body={
+    code, description:el('dev-promo-desc')?.value.trim()||'',
+    mora:parseFloat(el('dev-promo-mora')?.value)||0,
+    diamonds:parseFloat(el('dev-promo-dia')?.value)||0,
+    dark_mora:parseFloat(el('dev-promo-dark')?.value)||0,
+    zarniki:parseFloat(el('dev-promo-zar')?.value)||0,
+    items, max_activations:parseInt(el('dev-promo-max')?.value,10)||0,
+    valid_until:el('dev-promo-until')?.value.trim()||null,
+  };
+  api('/admin/dev/promocodes',{method:'POST',body:JSON.stringify(body)})
+    .then(r=>{toast('🎟 Создан: '+r.code);['code','desc','mora','dia','dark','zar','items','max','until'].forEach(s=>{const i=el('dev-promo-'+s);if(i)i.value='';});devPromoLoad();})
+    .catch(e=>toast(e,false));
+}
