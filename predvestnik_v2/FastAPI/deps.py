@@ -42,12 +42,13 @@ async def _is_banned_cached(user_id: int) -> bool:
     return banned
 
 
-async def require_tg_user(
+async def require_tg_user_base(
     x_init_data: str = Header(default=""),
     x_session_token: str = Header(default=""),
 ):
-    """Accept either WebApp initData or a Login-Widget session token.
-    Returns a minimal user dict with at least {id: int}."""
+    """Auth БЕЗ проверки глобального бана — ТОЛЬКО для эндпоинтов, которые обязаны
+    работать у забаненных (апелляции: admin_audit B1 — оспорить можно в любой
+    момент и любым способом). Везде остальное — require_tg_user."""
     user = None
     # 1. Telegram WebApp (in-Telegram button)
     if x_init_data:
@@ -64,12 +65,16 @@ async def require_tg_user(
             status_code=401,
             detail="Требуется авторизация через Telegram.",
         )
+    return user
 
+
+async def require_tg_user(user=Depends(require_tg_user_base)):
+    """Auth + гейт глобального бана (БЛОК 21.4): 403 на весь игровой API."""
     if await _is_banned_cached(int(user["id"])):
         raise HTTPException(
             status_code=403,
-            detail="Доступ закрыт: активный глобальный бан. "
-                   "Оспорить: напишите боту «бот апелляция, текст обращения».",
+            detail="GLOBAL_BAN: доступ закрыт — активный глобальный бан. "
+                   "Оспорить: «бот апелляция, текст» в ЛС бота или прямо здесь.",
         )
     return user
 

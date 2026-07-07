@@ -695,7 +695,13 @@ function openGlobalSanctionForm(targetType, targetId, targetName, perms) {
         ${durations.map(([dd,l])=>`<option value="${dd}">${l}</option>`).join('')}
       </select>
     </div>
-    <input id="gst-reason" type="text" class="num-input" style="margin:0" placeholder="Причина" maxlength="200"/>
+    <textarea id="gst-reason" class="num-input" style="margin:0 0 6px;min-height:90px;resize:vertical;line-height:1.4" placeholder="Причина (до 9999 символов — можно подробно, со ссылками)" maxlength="9999"></textarea>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Кого уведомить о санкции:</div>
+    <select id="gst-notify" class="num-input" style="margin:0 0 4px">
+      <option value="all">📣 Все чаты игрока + ЛС</option>
+      <option value="none">🔕 Только ЛС нарушителю (без чатов)</option>
+    </select>
+    <div style="font-size:10px;color:var(--muted)">Инструкция по апелляции уходит нарушителю в ЛС всегда. Фото-доказательства: в чате — команда ответом на фото.</div>
   `,[{l:'Выдать',c:'btn-gold',f:'doIssueGlobalSanction()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
   el('modal')._sanctionType=null;
 }
@@ -710,11 +716,13 @@ function doIssueGlobalSanction() {
   const reason=el('gst-reason')?.value.trim()||null;
   const durSel=el('gst-dur-sel');
   const days=durSel&&durSel.value!=='0'?parseInt(durSel.value):null;
+  const notify=el('gst-notify')?.value||'all';
   api('/admin/global/sanctions',{method:'POST',body:JSON.stringify({
     target_type:_glbSanctionTarget.type, target_id:_glbSanctionTarget.id,
-    sanction_type:type, reason, duration_days:days,
+    sanction_type:type, reason, duration_days:days, notify,
   })}).then(r=>{
-    toast(r.message||'✅ Готово'); CM();
+    const dm=r.dm_instruction_sent?'📨 инструкция в ЛС доставлена':'⚠️ ЛС закрыты';
+    toast(`${r.message||'✅ Готово'}${r.chats_notified?` · уведомлено чатов: ${r.chats_notified}`:''} · ${dm}`); CM();
     if(_glbTab==='chats'&&_glbChatId) loadGlobalChatMembers();
     else if(_glbTab==='sanctions') loadGlobalSanctions();
   }).catch(e=>toast(e,false));
@@ -738,7 +746,8 @@ function loadGlobalSanctions() {
         <div class="irow"><span class="ik">До</span><span style="font-size:11px">${s.expires_at?fmtUTC(s.expires_at):'Бессрочно'}</span></div>
         <div style="display:flex;gap:6px;margin-top:6px">
           <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doRevokeGlobalSanction(${s.id})">✅ Снять</button>
-          ${s.sanction_type!=='warn'?`<button class="btn btn-sm btn-ghost" style="flex:1" onclick='openGlobalSanctionForm(${JSON.stringify(s.target_type)},${s.target_id},null,${JSON.stringify(_actorSanctionPerms())})'>✏️ Изменить срок</button>`:''}
+          ${s.target_type==='user'?`<button class="btn btn-sm btn-ghost" style="flex:1" onclick="openUserCase(${s.target_id})">📁 История</button>`:''}
+          ${s.sanction_type!=='warn'?`<button class="btn btn-sm btn-ghost" style="flex:1" onclick='openGlobalSanctionForm(${JSON.stringify(s.target_type)},${s.target_id},null,${JSON.stringify(_actorSanctionPerms())})'>✏️ Срок</button>`:''}
         </div>
       </div>`).join(''):'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет активных ограничений</div>'}`;
   }).catch(e=>{el('glb-sanctions').innerHTML=`<div class="err">${e}</div>`;});
@@ -804,9 +813,11 @@ function loadGlobalAppeals() {
         <div style="margin:6px 0;padding:8px;background:var(--dim);border-radius:6px;font-size:12px">${esc(a.text)}</div>
         <div class="irow"><span class="ik">Когда</span><span style="font-size:11px">${fmtUTC(a.created_at)}</span></div>
         ${a.status==='pending'?`<div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn btn-sm btn-teal" style="flex:1" onclick="openAppealThread(${a.id})">💬 Диалог</button>
           <button class="btn btn-sm btn-gold" style="flex:1" onclick="doResolveAppeal(${a.id},'accept')">✅ Снять санкцию</button>
           <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doResolveAppeal(${a.id},'reject')">❌ Отклонить</button>
-        </div>`:`<div class="irow"><span class="ik">Решение</span><span style="font-size:11px">${a.status==='accepted'?'✅ Принята':'❌ Отклонена'}${a.resolved_by_name?' · '+a.resolved_by_name:''}</span></div>`}
+        </div>`:`<div class="irow"><span class="ik">Решение</span><span style="font-size:11px">${a.status==='accepted'?'✅ Принята':a.status==='closed'?'📪 Закрыта':'❌ Отклонена'}${a.resolved_by_name?' · '+a.resolved_by_name:''}</span></div>
+        <button class="btn btn-sm btn-ghost btn-full" style="margin-top:4px" onclick="openAppealThread(${a.id})">💬 Показать диалог</button>`}
       </div>`).join(''):'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет апелляций</div>'}`;
   }).catch(e=>{el('glb-appeals').innerHTML=`<div class="err">${e}</div>`;});
 }
@@ -849,3 +860,71 @@ function doSetGlobalRank() {
     .catch(e=>toast(e,false));
 }
 
+
+// ── admin_audit B1: диалог апелляции и история дел игрока ─────────────────────
+function _appealMsgHtml(m) {
+  const who=m.is_staff?'👮 Модерация':'🙋 Игрок';
+  const photos=(m.photos||[]).map(fid=>
+    `<img src="${BASE}/admin/global/tg-photo/${encodeURIComponent(fid)}" style="max-width:120px;max-height:120px;border-radius:6px;margin:4px 4px 0 0" loading="lazy"/>`).join('');
+  return `<div style="margin:6px 0;padding:7px 9px;border-radius:8px;background:${m.is_staff?'var(--dim)':'rgba(80,140,220,.12)'}">
+    <div style="font-size:10px;color:var(--muted)">${who} · ${fmtUTC(m.created_at)||''}</div>
+    <div style="font-size:12px;white-space:pre-wrap;word-break:break-word">${esc(m.text||'(фото)')}</div>${photos}
+  </div>`;
+}
+function openAppealThread(id) {
+  api(`/admin/global/appeals/${id}/thread`).then(d=>{
+    const a=d.appeal||{}, s=d.sanction||{};
+    const msgs=(d.thread||[]).map(m=>_appealMsgHtml({...m,photos:JSON.parse(m.photos_json||'[]')})).join('')
+      ||'<i style="font-size:11px;color:var(--muted)">Сообщений нет</i>';
+    const open=a.status==='pending';
+    OM(`💬 Апелляция #${id} ${open?'(открыта)':'— '+esc(a.status)}`,
+      `<div style="font-size:11px;color:var(--muted)">Санкция #${a.sanction_id}: ${_SANCTION_LABELS[s.sanction_type]||''} · ${esc((s.reason||'').slice(0,120))}</div>
+       <div style="max-height:38vh;overflow:auto;margin:6px 0">${msgs}</div>
+       ${open?`<textarea id="apl-reply" class="num-input" style="min-height:70px;resize:vertical;margin:0 0 6px" placeholder="Ответ игроку (уйдёт ему в ЛС)…" maxlength="9999"></textarea>`:''}`,
+      open?[{l:'💬 Ответить',c:'btn-gold',f:`_appealReplyGo(${id})`},
+            {l:'📪 Закрыть дело',c:'btn-red',f:`_appealCloseAsk(${id})`},
+            {l:'Выйти',c:'btn-ghost',f:'CM()'}]
+          :[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  }).catch(e=>toast(e,false));
+}
+function _appealReplyGo(id) {
+  const text=el('apl-reply')?.value.trim();
+  if(!text) return toast('Введите текст ответа',false);
+  api(`/admin/global/appeals/${id}/reply`,{method:'POST',body:JSON.stringify({text})})
+    .then(r=>{toast(r.message||'✅ Отправлено');openAppealThread(id);})
+    .catch(e=>toast(e,false));
+}
+function _appealCloseAsk(id) {
+  const resolution=el('apl-reply')?.value.trim()||'';
+  OM('📪 Закрыть дело?',
+    `<div style="padding:8px 0;color:var(--muted);font-size:12px">Диалог закроется, игрок получит финальное сообщение${resolution?' с вашим текстом из поля ответа':''}. Санкция при этом НЕ снимается (для снятия — «✅ Снять санкцию» в списке).</div>`,
+    [{l:'Закрыть дело',c:'btn-red',f:`_appealCloseGo(${id},${JSON.stringify(resolution)})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _appealCloseGo(id, resolution) {
+  api(`/admin/global/appeals/${id}/close`,{method:'POST',body:JSON.stringify({resolution:resolution||null,status:'closed'})})
+    .then(r=>{toast(r.message||'📪 Закрыто');CM();loadGlobalAppeals();})
+    .catch(e=>toast(e,false));
+}
+function openUserCase(uid) {
+  api(`/admin/global/user-case/${uid}`).then(d=>{
+    const sanc=(d.sanctions||[]).map(s=>{
+      const photos=JSON.parse(s.photos_json||'[]').map(fid=>
+        `<img src="${BASE}/admin/global/tg-photo/${encodeURIComponent(fid)}" style="max-width:90px;max-height:90px;border-radius:6px;margin:3px 3px 0 0" loading="lazy"/>`).join('');
+      const active=!s.revoked_at&&(!s.expires_at||new Date(s.expires_at)>new Date());
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--dim)">
+        <b>#${s.id}</b> ${_SANCTION_LABELS[s.sanction_type]||s.sanction_type} ${active?'<span style="color:var(--red)">● активна</span>':'<span style="color:var(--muted)">○</span>'}
+        <div style="font-size:11px;color:var(--muted)">${esc((s.reason||'—').slice(0,200))}</div>${photos}
+      </div>`;
+    }).join('')||'<i style="font-size:11px;color:var(--muted)">Санкций не было</i>';
+    const apls=(d.appeals||[]).map(a=>
+      `<div style="padding:4px 0;font-size:11px">💬 Апелляция #${a.id} — ${esc(a.status)}
+        <button class="btn btn-sm btn-ghost" style="padding:1px 8px;margin-left:6px" onclick="openAppealThread(${a.id})">открыть</button>
+      </div>`).join('')||'<i style="font-size:11px;color:var(--muted)">Апелляций не было</i>';
+    OM(`📁 История дел: ${esc(d.username||uid)}`,
+      `<div style="max-height:50vh;overflow:auto">
+         <div style="font-size:11px;color:var(--gold2);margin:4px 0">Санкции (${(d.sanctions||[]).length})</div>${sanc}
+         <div style="font-size:11px;color:var(--gold2);margin:8px 0 4px">Апелляции (${(d.appeals||[]).length})</div>${apls}
+       </div>`,
+      [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  }).catch(e=>toast(e,false));
+}

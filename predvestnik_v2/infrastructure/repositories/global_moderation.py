@@ -155,3 +155,62 @@ async def get_last_active_warn_id(db, target_id: int) -> int | None:
     ) as c:
         row = await c.fetchone()
     return int(row[0]) if row else None
+
+
+# ── admin_audit B1 «Апелляции 2.0»: диалог, вложения, история дел ─────────────
+
+async def get_open_appeal(db, user_id: int) -> dict | None:
+    """Открытая (pending) апелляция юзера — новые сообщения идут в её нить."""
+    async with db.execute(
+        "SELECT * FROM sanction_appeals WHERE user_id = ? AND status = 'pending' "
+        "ORDER BY id DESC LIMIT 1",
+        (user_id,),
+    ) as c:
+        row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def add_appeal_message(db, appeal_id: int, author_id: int, is_staff: bool,
+                             text: str, photos_json: str = "[]") -> int:
+    async with db.execute(
+        "INSERT INTO appeal_messages (appeal_id, author_id, is_staff, text, photos_json) "
+        "VALUES (?, ?, ?, ?, ?) RETURNING id",
+        (appeal_id, author_id, is_staff, text, photos_json),
+    ) as c:
+        row = await c.fetchone()
+    await db.commit()
+    return int(row[0]) if row else 0
+
+
+async def appeal_thread(db, appeal_id: int) -> list[dict]:
+    async with db.execute(
+        "SELECT * FROM appeal_messages WHERE appeal_id = ? ORDER BY id",
+        (appeal_id,),
+    ) as c:
+        return [dict(r) for r in await c.fetchall()]
+
+
+async def user_case(db, user_id: int) -> dict:
+    """Полная история дел игрока: все санкции (+фото) и все апелляции с нитями.
+    admin_audit B1: «клик по игроку → вся история лично с этим игроком»."""
+    async with db.execute(
+        "SELECT * FROM global_sanctions WHERE target_type = 'user' AND target_id = ? "
+        "ORDER BY id DESC",
+        (user_id,),
+    ) as c:
+        sanctions = [dict(r) for r in await c.fetchall()]
+    async with db.execute(
+        "SELECT * FROM sanction_appeals WHERE user_id = ? ORDER BY id DESC", (user_id,)
+    ) as c:
+        appeals = [dict(r) for r in await c.fetchall()]
+    for a in appeals:
+        a["thread"] = await appeal_thread(db, a["id"])
+    return {"sanctions": sanctions, "appeals": appeals}
+
+
+async def set_sanction_photos(db, sanction_id: int, photos_json: str) -> None:
+    await db.execute(
+        "UPDATE global_sanctions SET photos_json = ? WHERE id = ?",
+        (photos_json, sanction_id),
+    )
+    await db.commit()

@@ -23,7 +23,7 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               events, admin, vip, battle_pass, global_admin,
                               dev_console, payments, relics, cosmetics, clans,
                               combat, legal, analytics as analytics_router, showcase,
-                              skill_games, battle, clans2, dev_overlay)
+                              skill_games, battle, clans2, dev_overlay, appeals)
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -89,7 +89,7 @@ for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           payments.router, relics.router, cosmetics.router,
           clans.router, combat.router, legal.router, notif_router.router,
           analytics_router.router, showcase.router, skill_games.router, battle.router,
-          clans2.router, dev_overlay.router]:
+          clans2.router, dev_overlay.router, appeals.router]:
     app.include_router(r)
 
 
