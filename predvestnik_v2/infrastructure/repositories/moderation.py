@@ -64,6 +64,7 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
         "COALESCE(rank_ban, 2) AS rank_ban, "
         "COALESCE(rank_shield, 4) AS rank_shield, "
         "COALESCE(rank_immune, 5) AS rank_immune, "
+        "COALESCE(purge_write_rank, 0) AS purge_write_rank, "
         "COALESCE(events_enabled, 1) AS events_enabled, "
         "COALESCE(nsfw_warps_allowed, 1) AS nsfw_warps_allowed, "
         "COALESCE(auction_min_rank, 0) AS auction_min_rank, "
@@ -90,7 +91,7 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
             "shield_duration_days": 0, "max_warnings": 3, "is_purging": 0, "purge_min_rank": 4,
             "purge_action_rank": 2, "rank_chat_lock": 4,
             "rank_warn": 2, "rank_mute": 1, "rank_kick": 1, "rank_ban": 2,
-            "rank_shield": 4, "rank_immune": 5,
+            "rank_shield": 4, "rank_immune": 5, "purge_write_rank": 0,
             "events_enabled": 1, "nsfw_warps_allowed": 1, "auction_min_rank": 0,
             "rank_duel": 0, "rank_marriage": 0, "rank_give": 0,
             "module_shop": 1, "module_gacha": 1, "module_expeditions": 1,

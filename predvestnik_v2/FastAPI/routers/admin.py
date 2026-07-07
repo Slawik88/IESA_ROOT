@@ -1,5 +1,4 @@
 """FastAPI/routers/admin.py — панель модератора."""
-import asyncio
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -248,6 +247,7 @@ class SettingsUpdateRequest(BaseModel):
     rank_give: Optional[int] = None
     purge_min_rank: Optional[int] = None
     purge_action_rank: Optional[int] = None
+    purge_write_rank: Optional[int] = None   # admin_audit B5: 0 = пишут все
     rank_chat_lock: Optional[int] = None
     events_enabled: Optional[int] = None
     module_shop: Optional[int] = None
@@ -609,7 +609,12 @@ async def admin_set_rank(
             "rank_name": _LOCAL_RANK_NAMES.get(body.new_rank, "?")}
 
 
-# ── 8.5: Чистка (purge) — сайт запускает/останавливает, досье остаются в Telegram ──
+# ── 8.5: Чистка 2.0 (admin_audit B4) — единый движок services/purge.py ──────────
+# Полный паритет с чатом: сессия в БД, батчевая выдача досье в чат, вердикты и
+# завершение — с сайта производятся РОВНО те же сообщения в чате, что и из чата.
+from services import purge as purge_svc  # noqa: E402
+
+
 class PurgeStartRequest(BaseModel):
     start_date: Optional[str] = None   # YYYY-MM-DD
     end_date: Optional[str] = None
@@ -621,15 +626,29 @@ async def admin_purge_status(chat_id: int, db=Depends(get_db), user=Depends(requ
     await _require_admin(db, user["id"], chat_id)
     settings = await get_chat_settings(db, chat_id)
     admin_chat_id = await get_admin_chat(db, chat_id)
-    return {"purge_min_rank": settings.get("purge_min_rank", 4),
-            "purge_action_rank": settings.get("purge_action_rank", 2),
-            "has_admin_chat": bool(admin_chat_id)}
-
-
-def _warn_cb(action: str, target_id: int, chat_id: int) -> str:
-    """Совпадает с упаковкой aiogram CallbackData(prefix='warn_act') полей
-    action/target_id/chat_id — кнопки вердикта обрабатывает process_warn_action в боте."""
-    return f"warn_act:{action}:{target_id}:{chat_id}"
+    st = await purge_svc.get_status(db, chat_id)
+    out = {"purge_min_rank": settings.get("purge_min_rank", 4),
+           "purge_action_rank": settings.get("purge_action_rank", 2),
+           "purge_write_rank": settings.get("purge_write_rank", 0),
+           "has_admin_chat": bool(admin_chat_id),
+           "active": bool(st)}
+    if st:
+        out["session"] = {
+            "id": st["session"]["id"],
+            "initiator_id": st["session"]["initiator_id"],
+            "norm": st["session"]["norm"],
+            "date_from": st["session"]["date_from"],
+            "date_to": st["session"]["date_to"],
+        }
+        out["counts"] = st["counts"]
+        out["targets"] = [
+            {"user_id": t["user_id"], "username": t["username"],
+             "msg_count": t["msg_count"], "days_in_chat": t["days_in_chat"],
+             "warns": t["warns"], "dossier_sent": bool(t["dossier_sent"]),
+             "verdict": t["verdict"]}
+            for t in st["targets"]
+        ]
+    return out
 
 
 @router.post("/{chat_id}/purge/start")
@@ -637,14 +656,9 @@ async def admin_purge_start(
     chat_id: int, body: PurgeStartRequest,
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
-    """Чистка с сайта = ТОЛЬКО сводка + досье с кнопками. Чат НЕ блокируется,
-    бот НЕ выполняет действий над юзерами автоматически. Сводка и досье уходят
-    в админ-чат (если привязан), иначе в основной чат."""
     actor_rank = await _require_admin(db, user["id"], chat_id)
-    settings = await get_chat_settings(db, chat_id)
-    if actor_rank < settings.get("rank_kick", 1):
-        raise HTTPException(403, "Чистка требует ранга для кика (rank_kick).")
-
+    if actor_rank < 4:
+        raise HTTPException(403, "Чистка требует ранг Ст. Админ (4) — как и в чате.")
     now = datetime.now(timezone.utc)
     try:
         end_d = datetime.strptime(body.end_date, "%Y-%m-%d") if body.end_date else now
@@ -653,83 +667,56 @@ async def admin_purge_start(
     except ValueError:
         raise HTTPException(400, "Даты — в формате YYYY-MM-DD.")
     norm = body.norm if body.norm and body.norm > 0 else 50
-    start_date, end_date = start_d.strftime("%Y-%m-%d"), end_d.strftime("%Y-%m-%d")
-    purge_min_rank = settings.get("purge_min_rank", 4)
-    admin_chat_id = await get_admin_chat(db, chat_id)
-    dest = admin_chat_id or chat_id
+    ok, msg, info = await purge_svc.start_purge(
+        db, chat_id, user["id"],
+        start_d.strftime("%Y-%m-%d"), end_d.strftime("%Y-%m-%d"), norm)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, **info}
 
-    # Сбор статистики (без блокировки чата и без действий над юзерами)
-    async with db.execute(
-        """SELECT u.user_tg_id as id, u.user_tg_username as username,
-               s.local_rank, s.is_immune, s.immune_until, s.warnings, s.joined_at,
-               COALESCE(SUM(d.message_count), 0) as msg_sum
-           FROM user_chat_stats s
-           LEFT JOIN users u ON s.user_tg_id = u.user_tg_id
-           LEFT JOIN daily_user_stats d ON s.user_tg_id = d.user_id
-                AND d.chat_id = s.chat_tg_id AND d.date BETWEEN ? AND ?
-           WHERE s.chat_tg_id = ? AND s.is_left = FALSE
-           GROUP BY u.user_tg_id""",
-        (start_date, end_date, chat_id),
-    ) as c:
-        rows = [dict(r) for r in await c.fetchall()]
 
-    passed, failed_users, protected, admins = [], [], [], []
-    for u in rows:
-        uname = u["username"] or f"ID {u['id']}"
-        shielded = False
-        if u["immune_until"]:
-            iu = u["immune_until"]
-            if iu.tzinfo is None:
-                iu = iu.replace(tzinfo=timezone.utc)
-            shielded = iu > now
-        if (u["local_rank"] or 0) >= purge_min_rank:
-            admins.append(f"├ 👑 {uname} ({u['msg_sum']} msg)")
-        elif u["is_immune"] == 1 or shielded:
-            protected.append(f"├ 🛡 {uname} ({u['msg_sum']} msg)")
-        elif u["msg_sum"] >= norm:
-            passed.append(f"├ ✅ {uname} ({u['msg_sum']} msg)")
-        else:
-            failed_users.append(u)
+@router.post("/{chat_id}/purge/dossiers")
+async def admin_purge_dossiers(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Выслать в чат следующую порцию досье (аналог кнопки «Выслать ещё N»)."""
+    await _require_admin(db, user["id"], chat_id)
+    st = await purge_svc.get_status(db, chat_id)
+    if not st:
+        raise HTTPException(400, "Активной чистки нет.")
+    sent, remaining = await purge_svc.send_next_batch(db, st["session"]["id"], user["id"])
+    if sent == -1:
+        raise HTTPException(403, "Досье высылает только инициатор чистки.")
+    return {"ok": True, "sent": sent, "remaining": remaining}
 
-    report = (f"🧹 <b>СВОДКА ЧИСТКИ</b> <i>(с сайта)</i>\n"
-              f"📅 Период: <code>{start_date} — {end_date}</code>\n"
-              f"🎯 Норма: <code>{norm} сообщений</code>\n\n")
-    failed_lines = [f"├ ❌ {u['username'] or ('ID '+str(u['id']))} ({u['msg_sum']} msg)" for u in failed_users]
-    for title, lst in ((f"👑 Администрация (ранг ≥ {purge_min_rank})", admins),
-                       (f"Прошли норму ({len(passed)})", passed),
-                       (f"Под защитой ({len(protected)})", protected),
-                       (f"❌ НЕ ПРОШЛИ ({len(failed_lines)})", failed_lines)):
-        if lst:
-            lst[-1] = lst[-1].replace("├", "└")
-            report += f"<b>{title}:</b>\n" + "\n".join(lst) + "\n\n"
-    if not failed_users:
-        report += "<b>❌ НЕ ПРОШЛИ:</b>\n└ <i>Таких нет, все молодцы!</i>"
-    if len(report) > 4000:
-        report = report[:4000] + "\n... [Список обрезан]"
-    await _tg_call("sendMessage", chat_id=dest, text=report, parse_mode="HTML")
 
-    # Досье на не прошедших норму — с кнопками вердикта (обрабатывает бот, гейт по purge_action_rank).
-    for u in failed_users[:50]:
-        joined = ""
-        if u.get("joined_at"):
-            joined = f" · с {str(u['joined_at'])[:10]}"
-        dossier = (
-            f"🗂 <b>ДОСЬЕ:</b> <a href=\"tg://user?id={u['id']}\">"
-            f"{u['username'] or ('ID '+str(u['id']))}</a>\n"
-            f"├ Сообщений за период: <b>{u['msg_sum']}</b> из {norm}\n"
-            f"└ Текущие варны: <b>{u.get('warnings', 0)}</b>{joined}\n\n"
-            f"<i>Выберите меру (нажать может ранг ≥ {settings.get('purge_action_rank', 2)}):</i>"
-        )
-        kb = {"inline_keyboard": [
-            [{"text": "⚠️ Варн", "callback_data": _warn_cb("warn_only", u["id"], chat_id)},
-             {"text": "👢 Кик", "callback_data": _warn_cb("kick", u["id"], chat_id)}],
-            [{"text": "🔨 Бан", "callback_data": _warn_cb("ban", u["id"], chat_id)},
-             {"text": "🕊 Пропустить", "callback_data": "delete_dossier"}],
-        ]}
-        await _tg_call("sendMessage", chat_id=dest, text=dossier,
-                       reply_markup=kb, parse_mode="HTML")
-        await asyncio.sleep(0.1)
+class PurgeVerdictRequest(BaseModel):
+    user_id: int
+    action: str   # warn | kick | ban | skip
 
-    return {"ok": True, "passed": len(passed), "failed": len(failed_users),
-            "protected": len(protected), "admins": len(admins),
-            "routed_to_admin_chat": bool(admin_chat_id)}
+
+@router.post("/{chat_id}/purge/verdict")
+async def admin_purge_verdict(
+    chat_id: int, body: PurgeVerdictRequest,
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    await _require_admin(db, user["id"], chat_id)
+    st = await purge_svc.get_status(db, chat_id)
+    if not st:
+        raise HTTPException(400, "Активной чистки нет.")
+    ok, text = await purge_svc.apply_verdict(
+        db, st["session"]["id"], body.user_id, body.action, user["id"],
+        developer_id=DEVELOPER_ID)
+    if not ok:
+        raise HTTPException(403, text)
+    return {"ok": True, "message": text}
+
+
+@router.post("/{chat_id}/purge/finish")
+async def admin_purge_finish(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    actor_rank = await _require_admin(db, user["id"], chat_id)
+    if actor_rank < 4:
+        raise HTTPException(403, "Завершение чистки — ранг 4+.")
+    st = await purge_svc.get_status(db, chat_id)
+    if not st:
+        raise HTTPException(400, "Активной чистки нет.")
+    summary = await purge_svc.finish_purge(db, st["session"]["id"], user["id"])
+    return {"ok": True, "summary": summary}
