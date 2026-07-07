@@ -71,7 +71,8 @@
     panel.id = 'devmode-panel';
     panel.innerHTML =
       '<div class="dm-tabs">' +
-      '  <div class="dm-tab on" data-t="data">Данные</div>' +
+      '  <div class="dm-tab on" data-t="reg">Реестр</div>' +
+      '  <div class="dm-tab" data-t="data">Данные</div>' +
       '  <div class="dm-tab" data-t="api">API</div>' +
       '  <div class="dm-tab" data-t="diff">Расхождения</div>' +
       '</div>' +
@@ -84,7 +85,7 @@
       if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); toggle(); }
     });
 
-    var curTab = 'data';
+    var curTab = 'reg';
     panel.querySelectorAll('.dm-tab').forEach(function (t) {
       t.addEventListener('click', function () {
         panel.querySelectorAll('.dm-tab').forEach(function (x) { x.classList.remove('on'); });
@@ -165,8 +166,87 @@
         .catch(function (e) { body.innerHTML = '<span class="dm-row-bad">' + esc(e) + '</span>'; });
     }
 
+    // ── Реестр всех игровых сущностей (NOT_IMPLEMENTED п.2) ─────────────────
+    // Главный сценарий: собираешь сезон БП/промокод → ищешь предмет → тап по
+    // строке копирует ID в буфер. Поиск в реальном времени по ID и названию.
+    var REG = null, regQuery = '', regCat = '';
+
+    function copyId(id) {
+      var done = function () {
+        var t = document.getElementById('dm-copied');
+        if (t) { t.textContent = '📋 Скопировано: ' + id; t.style.opacity = '1';
+                 setTimeout(function () { t.style.opacity = '.5'; }, 1200); }
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(id).then(done, function () { fallback(); });
+        } else { fallback(); }
+      } catch (e) { fallback(); }
+      function fallback() {
+        try {
+          var ta = document.createElement('textarea');
+          ta.value = id; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); document.body.removeChild(ta); done();
+        } catch (e) { window.prompt('Скопируйте ID вручную:', id); }
+      }
+    }
+    window._dmCopyId = copyId;
+    window._dmRegQ = function (v) { regQuery = (v || '').toLowerCase(); drawRegList(); };
+    window._dmRegCat = function (c) { regCat = c === regCat ? '' : c; renderRegistry(true); };
+
+    function drawRegList() {
+      var listEl = document.getElementById('dm-reg-list');
+      if (!listEl || !REG) return;
+      var q = regQuery, cat = regCat, shown = 0, LIMIT = 120;
+      var html = '';
+      for (var i = 0; i < REG.length; i++) {
+        var e2 = REG[i];
+        if (cat && e2.cat !== cat) continue;
+        if (q && e2.id.toLowerCase().indexOf(q) === -1 &&
+            String(e2.name).toLowerCase().indexOf(q) === -1) continue;
+        if (shown >= LIMIT) { html += '<div style="color:#8fa8c0;padding:4px 0">…уточните запрос (показано ' + LIMIT + ')</div>'; break; }
+        shown++;
+        html += '<div style="display:flex;gap:6px;align-items:center;padding:4px 0;border-bottom:1px solid #1c2733;cursor:pointer" ' +
+                'onclick="_dmCopyId(\'' + esc(e2.id) + '\')" title="Тап — скопировать ID">' +
+                '<code style="color:#ffd166;flex-shrink:0">' + esc(e2.id) + '</code>' +
+                '<span style="flex:1">' + esc(e2.name) + '</span>' +
+                '<i style="color:#8fa8c0;font-size:10px;flex-shrink:0">' + esc(e2.extra || '') + '</i></div>';
+      }
+      listEl.innerHTML = html || '<i style="color:#8fa8c0">Ничего не найдено</i>';
+      var cnt = document.getElementById('dm-reg-count');
+      if (cnt) cnt.textContent = shown + (cat ? ' · ' + cat : '') + (q ? ' · «' + q + '»' : '');
+    }
+
+    function renderRegistry(keepData) {
+      if (!REG && !keepData) {
+        body.innerHTML = '<i>Загружаю реестр…</i>';
+        api('/admin/dev-overlay/registry').then(function (r) {
+          REG = r.entries || []; renderRegistry(true);
+        }).catch(function (e) { body.innerHTML = '<span class="dm-row-bad">' + esc(e) + '</span>'; });
+        if (!REG) return;
+      }
+      var cats = [];
+      for (var i = 0; i < REG.length; i++)
+        if (cats.indexOf(REG[i].cat) === -1) cats.push(REG[i].cat);
+      var chips = cats.map(function (c) {
+        var on = c === regCat;
+        return '<span style="padding:2px 7px;border-radius:8px;cursor:pointer;white-space:nowrap;' +
+               (on ? 'background:#ffd166;color:#12181f' : 'background:#1c2733;color:#8fa8c0') +
+               '" onclick="_dmRegCat(\'' + esc(c) + '\')">' + esc(c) + '</span>';
+      }).join('');
+      body.innerHTML =
+        '<input class="dm-inp" style="width:100%;box-sizing:border-box" placeholder="🔎 Поиск по ID и названию…" ' +
+        'value="' + esc(regQuery) + '" oninput="_dmRegQ(this.value)">' +
+        '<div style="display:flex;gap:4px;overflow-x:auto;padding:6px 0">' + chips + '</div>' +
+        '<div style="display:flex;justify-content:space-between;color:#8fa8c0;font-size:10px;margin-bottom:2px">' +
+        '<span id="dm-reg-count"></span><span id="dm-copied" style="opacity:.5;transition:opacity .3s">тап по строке — копия ID</span></div>' +
+        '<div id="dm-reg-list"></div>';
+      drawRegList();
+    }
+
     function render() {
-      if (curTab === 'data') renderData();
+      if (curTab === 'reg') renderRegistry();
+      else if (curTab === 'data') renderData();
       else if (curTab === 'api') renderApi();
       else renderDiff();
     }

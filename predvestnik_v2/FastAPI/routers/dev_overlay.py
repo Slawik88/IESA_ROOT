@@ -87,3 +87,80 @@ async def raw_user_snapshot(target_id: int, db=Depends(get_db),
         out["global_sanctions_recent"] = [dict(x) for x in await c.fetchall()]
 
     return out
+
+
+@router.get("/registry")
+async def full_registry(user=Depends(require_dev_user)):
+    """NOT_IMPLEMENTED п.2: справочник ВСЕХ игровых сущностей с ID — для быстрого
+    поиска айдишников (конструктор БП, промокоды, выдача предметов, SQL и т.д.).
+    Плоский список {id, name, cat, extra} — фронт группирует и ищет в реальном времени."""
+    from core.registry import (ITEMS_REGISTRY, PET_SPECIES, RELICS, SHADOW_RELICS,
+                               PARTNER_GIFTS, CRAFT_RECIPES)
+    from core.cosmetics import COSMETICS, WELCOME_ANIMATIONS
+    from core.constants import COSMETIC_CHESTS
+    from core.themes import THEMES
+
+    out: list[dict] = []
+
+    _CAT_RU = {"material": "материал", "chest": "сундук-токен", "spin_token": "жетон",
+               "food": "еда", "booster": "бустер", "utility": "утилита", "donate": "донат"}
+    for iid, it in ITEMS_REGISTRY.items():
+        out.append({"id": iid, "name": it.get("name", iid), "cat": "🎒 Предметы",
+                    "extra": _CAT_RU.get(it.get("category", ""), it.get("category", ""))})
+
+    for pid, p in PET_SPECIES.items():
+        out.append({"id": pid, "name": p.get("name", pid), "cat": "🐾 Питомцы",
+                    "extra": p.get("rarity", "")})
+
+    for rid, r in RELICS.items():
+        price = " + ".join(f"{v:g} {k}" for k, v in (r.get("price") or {}).items())
+        out.append({"id": rid, "name": r.get("name", rid), "cat": "🗿 Реликвии",
+                    "extra": f"{r.get('rarity','')} · {price} · +{r.get('exp_mora_pct',0)*100:g}% походы"})
+
+    for rid, r in SHADOW_RELICS.items():
+        out.append({"id": rid, "name": r.get("name", rid), "cat": "🕴 Теневые реликвии",
+                    "extra": f"{r.get('price_dark',0):g} 🌑 · +{r.get('gates_dark_pct',0)*100:g}% Врата"})
+
+    for cid, c in COSMETICS.items():
+        price = (c.get("price") or [{}])[0].get("zarniki", 0)
+        out.append({"id": cid, "name": c.get("name", cid), "cat": "🎨 Косметика",
+                    "extra": f"{c.get('slot','')} · {c.get('rarity','')} · {price}✨"})
+
+    for wid, w in WELCOME_ANIMATIONS.items():
+        out.append({"id": wid, "name": w.get("name", wid) if isinstance(w, dict) else str(w),
+                    "cat": "🎬 Приветствия", "extra": "VIP-прелоадер"})
+
+    for tid, t in THEMES.items():
+        price = (f"{t.get('price_mora'):g}🪙" if t.get("price_mora") else
+                 f"{t.get('price_diamonds'):g}💎" if t.get("price_diamonds") else
+                 f"{t.get('price_zarniki'):g}✨" if t.get("price_zarniki") else
+                 f"{t.get('price_dark'):g}🌑" if t.get("price_dark") else "—")
+        out.append({"id": tid, "name": t.get("name", tid), "cat": "🖼 Темы профиля",
+                    "extra": f"{t.get('rarity','')} · {t.get('source','')} · {price}"})
+
+    for gid, g in PARTNER_GIFTS.items():
+        price = (f"{g.get('price_mora'):g}🪙" if g.get("price_mora") else
+                 f"{g.get('price_diamonds'):g}💎" if g.get("price_diamonds") else
+                 f"{g.get('price_zarniki'):g}✨" if g.get("price_zarniki") else "—")
+        out.append({"id": gid, "name": g.get("name", gid), "cat": "💝 Подарки партнёру",
+                    "extra": f"{g.get('kind','')} · {price}"})
+
+    for chid, ch in COSMETIC_CHESTS.items():
+        out.append({"id": chid, "name": ch.get("name", chid), "cat": "🎁 Сундуки",
+                    "extra": f"{ch.get('zarniki',0)}✨"})
+
+    for rid, r in CRAFT_RECIPES.items():
+        out.append({"id": rid, "name": r.get("name", rid), "cat": "⚗️ Крафт-рецепты",
+                    "extra": f"→ {r.get('result_item','')} ×{r.get('result_qty',1)}"})
+
+    for cur_id, cur_name, col in (
+        ("mora", "🪙 Мора", "users.user_balance_mora"),
+        ("diamonds", "💎 Алмазы", "users.user_balance_diamonds"),
+        ("zarniki", "✨ Зарники", "users.user_balance_zarniki"),
+        ("dark_mora", "🌑 Тёмная Мора", "users.user_balance_dark_mora"),
+        ("clan_coins", "🎖 Клан-монеты (легаси)", "clan_members.clan_coins"),
+        ("treasury_shards", "💠 Казна клана", "clans.treasury_shards"),
+    ):
+        out.append({"id": cur_id, "name": cur_name, "cat": "💰 Валюты", "extra": col})
+
+    return {"entries": out, "total": len(out)}
