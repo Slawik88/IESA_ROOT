@@ -159,6 +159,41 @@ async def _init_users_and_chats(db):
         "ALTER TABLE user_warnings ADD COLUMN IF NOT EXISTS expired_applied BOOLEAN DEFAULT FALSE"
     )
 
+    # admin_audit B4/B5: Чистка 2.0 — персистентные сессии (паритет чат↔сайт,
+    # батчевая выдача досье, вердикты фиксируются) + режим письма во время чистки.
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS purge_sessions (
+            id           SERIAL PRIMARY KEY,
+            chat_id      BIGINT NOT NULL,
+            initiator_id BIGINT NOT NULL,
+            norm         INTEGER NOT NULL,
+            date_from    TEXT,
+            date_to      TEXT,
+            dest_chat_id BIGINT,
+            status       TEXT DEFAULT 'active',
+            created_at   TIMESTAMP DEFAULT NOW(),
+            finished_at  TIMESTAMP
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS purge_targets (
+            session_id   INTEGER NOT NULL,
+            user_id      BIGINT NOT NULL,
+            username     TEXT,
+            msg_count    INTEGER DEFAULT 0,
+            days_in_chat INTEGER DEFAULT 0,
+            warns        INTEGER DEFAULT 0,
+            dossier_sent BOOLEAN DEFAULT FALSE,
+            verdict      TEXT,
+            verdict_by   BIGINT,
+            verdict_at   TIMESTAMP,
+            PRIMARY KEY (session_id, user_id)
+        )
+    """)
+    await db.execute(
+        "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS purge_write_rank INTEGER DEFAULT 0"
+    )
+
     # 6. Moderation logs
     await db.execute("""
         CREATE TABLE IF NOT EXISTS moderation_logs (
@@ -1341,5 +1376,10 @@ async def init_db():
         _conv = await _mig_coins(_PGAdapter(db), CLAN_COINS_TO_SHARDS)
         if _conv:
             logger.info(f"R3: клан-монеты сконвертированы в 💠 у {_conv} игроков")
+        # БЛОК 39 HOTFIX: авто-миграция старых ID косметики (one-shot через
+        # schema_migrations) — возвращает игрокам оплаченную косметику, если
+        # деплой произошёл без ручного прогона scripts/migrate_cosmetics_ids.py
+        from services.cosmetics import migrate_legacy_ids as _mig_cos_ids
+        await _mig_cos_ids(_PGAdapter(db))
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")

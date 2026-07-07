@@ -42,6 +42,90 @@ async def ensure_tables(db) -> None:
         "user_id BIGINT NOT NULL, slot TEXT NOT NULL, cosmetic_id TEXT NOT NULL, "
         "PRIMARY KEY (user_id, slot))"
     )
+    await migrate_legacy_ids(db)
+
+
+async def migrate_legacy_ids(db) -> None:
+    """БЛОК 39 HOTFIX: авто-миграция старых ID косметики → cos_{slot}_{name}.
+
+    Прод-инцидент 2026-07-08: код с новыми ID задеплоился ДО ручного прогона
+    scripts/migrate_cosmetics_ids.py — у игроков «пропала» оплаченная косметика
+    (данные целы, просто старые ID не находились в реестре). Теперь миграция
+    выполняется САМА при каждом старте процесса: идемпотентно, one-shot через
+    маркер в schema_migrations (по образцу migrate_clan_coins_to_shards).
+    """
+    from core.cosmetics import COSMETIC_LEGACY_ID_MAP as _MAP
+
+    await db.execute(
+        "CREATE TABLE IF NOT EXISTS schema_migrations ("
+        "key TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW())"
+    )
+    async with db.execute(
+        "SELECT 1 FROM schema_migrations WHERE key = 'cosmetics_ids_v2'"
+    ) as c:
+        if await c.fetchone():
+            return  # уже мигрировано
+
+    import json as _json
+    from loguru import logger as _log
+    total = 0
+    # 1-2) плоские колонки: инвентарь + экипировка (welcome-слот не задет —
+    #      его ID не входят в маппинг)
+    for old_id, new_id in _MAP.items():
+        async with db.execute(
+            "UPDATE user_cosmetics SET cosmetic_id = ? WHERE cosmetic_id = ? "
+            "AND NOT EXISTS (SELECT 1 FROM user_cosmetics uc2 "
+            "  WHERE uc2.user_id = user_cosmetics.user_id AND uc2.cosmetic_id = ?) "
+            "RETURNING user_id",
+            (new_id, old_id, new_id),
+        ) as c:
+            total += len(await c.fetchall())
+        await db.execute("DELETE FROM user_cosmetics WHERE cosmetic_id = ?", (old_id,))
+        await db.execute(
+            "UPDATE user_cosmetic_loadout SET cosmetic_id = ? WHERE cosmetic_id = ?",
+            (new_id, old_id),
+        )
+    # 3-4) JSON-таблицы: пресеты и витрина недели (построчная замена токенов)
+    for table, pk, col in (("cosmetic_presets", "id", "loadout"),
+                           ("weekly_showcase", "week_key", "slots_json")):
+        try:
+            async with db.execute(f"SELECT {pk} AS pk, {col} AS payload FROM {table}") as c:
+                rows = [dict(r) for r in await c.fetchall()]
+            for r in rows:
+                payload = r["payload"] or ""
+                new_payload = payload
+                for old_id, new_id in _MAP.items():
+                    new_payload = new_payload.replace(f'"{old_id}"', f'"{new_id}"')
+                if new_payload != payload:
+                    _json.loads(new_payload)  # страховка: JSON не сломан
+                    await db.execute(
+                        f"UPDATE {table} SET {col} = ? WHERE {pk} = ?",
+                        (new_payload, r["pk"]),
+                    )
+                    total += 1
+        except Exception:
+            pass  # таблицы может не быть на свежей БД
+    # 5) рефанд-лог (исторический, для консистентности)
+    try:
+        for old_id, new_id in _MAP.items():
+            await db.execute(
+                "UPDATE cosmetic_refund_log SET cosmetic_id = ? WHERE cosmetic_id = ? "
+                "AND NOT EXISTS (SELECT 1 FROM cosmetic_refund_log rl2 "
+                "  WHERE rl2.user_id = cosmetic_refund_log.user_id AND rl2.cosmetic_id = ?)",
+                (new_id, old_id, new_id),
+            )
+            await db.execute(
+                "DELETE FROM cosmetic_refund_log WHERE cosmetic_id = ?", (old_id,))
+    except Exception:
+        pass
+
+    await db.execute(
+        "INSERT INTO schema_migrations (key) VALUES ('cosmetics_ids_v2') "
+        "ON CONFLICT (key) DO NOTHING"
+    )
+    await db.commit()
+    _log.info(f"БЛОК 39: ID косметики мигрированы (затронуто строк: {total}) — "
+              f"оплаченная косметика игроков возвращена")
 
 
 async def _owned(db, user_id: int) -> set[str]:
