@@ -93,7 +93,7 @@ async def cmd_events_info(message: types.Message, db):
     # ── Dark Mora events ──────────────────────────────────────────────────────
     dark_status = (
         f"🕵️ Теневой Торговец — раз в {DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS} дня\n"
-        f"   └ Следите за пророчеством в чате!\n"
+        f"   └ Пророчество в чате → <code>бот слово, [догадка]</code> → 🌑 + реликвия\n"
         f"🎲 Контрабанда — КД {DARK_MORA_CONTRABANDA_COOLDOWN_DAYS} дней\n"
         f"   └ <code>бот контрабанда, [сумма]</code>\n"
         f"🌑 Культ Бездны — раз в {DARK_MORA_CULT_COOLDOWN_DAYS} дней (23:00–01:00 UTC)\n"

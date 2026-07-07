@@ -821,3 +821,65 @@ async def anniversary_task(bot: Bot):
         except Exception as e:
             logger.error(f"Ошибка в задаче годовщин: {e}")
             await asyncio.sleep(30)
+
+
+async def shadow_merchant_task(bot: Bot):
+    """БЛОК 13.X/24.A: ивент «Теневой Торговец» — реанимация мёртвого кода.
+
+    Каждые 10 минут: (1) закрывает истёкшие пророчества (анонс слова в чат);
+    (2) если нигде нет активного ивента и с последнего прошло
+    ≥ DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS — с шансом 25%/тик публикует
+    новое пророчество в случайный активный чат (те же критерии, что у сундуков).
+    Ответы игроков принимает «бот слово, X» (bot/handlers/dark_mora.py)."""
+    from core.constants import (
+        DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS as _SM_CD_DAYS,
+        DARK_MORA_SHADOW_MERCHANT_ACTIVE_MINUTES as _SM_MINUTES,
+        DARK_MORA_SHADOW_MERCHANT_WINNERS as _SM_WINNERS,
+    )
+    from infrastructure.repositories import shadow_merchant as _sm_repo
+    from services import shadow_merchant as _sm
+
+    logger.info("Фоновая задача «Теневой Торговец» запущена.")
+    while True:
+        await asyncio.sleep(600)
+        try:
+            async with get_pool().acquire() as _conn:
+                db = PGAdapter(_conn)
+
+                # 1) закрыть истёкшие
+                for ev in await _sm_repo.get_expired_active(db):
+                    try:
+                        n_win = await _sm_repo.winners_count(db, ev["id"])
+                        await _sm_repo.close_event(db, ev["id"], "expired")
+                        await db.commit()
+                        await bot.send_message(
+                            ev["chat_id"], _sm.expired_text(ev["keyword"], n_win),
+                            parse_mode="HTML",
+                        )
+                    except Exception as e:
+                        logger.warning(f"shadow merchant expire {ev['id']}: {e}")
+
+                # 2) спавн нового
+                if await _sm_repo.any_active(db):
+                    continue
+                last = await _sm_repo.last_posted_at(db)
+                if last and (datetime.now(timezone.utc) - last) < timedelta(days=_SM_CD_DAYS):
+                    continue
+                if _random.random() > 0.25:   # размазываем момент появления
+                    continue
+                qualifying = await get_qualifying_chats(db, CHEST_MIN_ACTIVE_USERS_24H)
+                if not qualifying:
+                    continue
+                chat_id = _random.choice(qualifying)
+                keyword = _sm.pick_keyword()
+                event_id = await _sm_repo.create_event(db, chat_id, keyword, _SM_MINUTES)
+                await db.commit()
+                masked = _sm.mask_keyword(keyword, seed=str(event_id))
+                await bot.send_message(
+                    chat_id, _sm.prophecy_text(masked, _SM_MINUTES, _SM_WINNERS),
+                    parse_mode="HTML",
+                )
+                logger.info(f"Теневой Торговец: пророчество в чате {chat_id} (event {event_id})")
+        except Exception as e:
+            logger.error(f"Ошибка задачи Теневого Торговца: {e}")
+            await asyncio.sleep(60)

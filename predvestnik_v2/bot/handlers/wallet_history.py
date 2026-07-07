@@ -49,6 +49,7 @@ _SOURCE_LABELS: dict[str, str] = {
     "contrabanda_refund": "🌑 Контрабанда (возврат)",
     "cult_ritual": "🌑 Ритуал",
     "shadow_merchant": "🌑 Тенев. торговец",
+    "shadow_relic": "🕴 Теневая реликвия",
 }
 
 _FILTER_LABELS = {

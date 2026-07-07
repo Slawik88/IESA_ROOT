@@ -164,7 +164,13 @@ async def merchant_status(db=Depends(get_db), user=Depends(require_tg_user)):
     except Exception:
         pass
 
-    # If no event data, show info about the mechanic
+    # БЛОК 13.X: ивент реально работает (scheduler публикует пророчество,
+    # «бот слово» принимает ответы) — добавляем к статусу личные ваучеры и
+    # каталог Теневых реликвий текущего игрока.
+    from core.registry import SHADOW_RELICS
+    from infrastructure.repositories import shadow_merchant as sm_repo
+    vouchers = await sm_repo.voucher_count(db, user["id"])
+    owned = set(await sm_repo.owned_shadow_relics(db, user["id"]))
     return {
         "active":       active,
         "last_event":   last_event.isoformat() if last_event else None,
@@ -173,10 +179,18 @@ async def merchant_status(db=Depends(get_db), user=Depends(require_tg_user)):
         "winners":       DARK_MORA_SHADOW_MERCHANT_WINNERS,
         "reward_min":    DARK_MORA_SHADOW_MERCHANT_REWARD_MIN,
         "reward_max":    DARK_MORA_SHADOW_MERCHANT_REWARD_MAX,
+        "vouchers":      vouchers,
+        "shadow_relics": [
+            {"id": rid, "name": r["name"], "price_dark": r["price_dark"],
+             "gates_dark_pct": r["gates_dark_pct"], "desc": r["desc"],
+             "owned": rid in owned}
+            for rid, r in SHADOW_RELICS.items()
+        ],
         "how_it_works": (
-            f"Каждые {DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS} дня бот публикует зашифрованное "
-            f"пророчество в чате. Первые {DARK_MORA_SHADOW_MERCHANT_WINNERS} игрока, "
-            f"угадавшие ключевое слово, получают {DARK_MORA_SHADOW_MERCHANT_REWARD_MIN}–"
-            f"{DARK_MORA_SHADOW_MERCHANT_REWARD_MAX} 🌑 Тёмной Моры."
+            f"Раз в {DARK_MORA_SHADOW_MERCHANT_COOLDOWN_DAYS} дня бот публикует зашифрованное "
+            f"пророчество в случайном активном чате. Первые {DARK_MORA_SHADOW_MERCHANT_WINNERS} "
+            f"игрока, угадавшие слово («бот слово, догадка»), получают "
+            f"{DARK_MORA_SHADOW_MERCHANT_REWARD_MIN}–{DARK_MORA_SHADOW_MERCHANT_REWARD_MAX} 🌑 "
+            f"и право купить Теневую реликвию («бот теневые реликвии»)."
         ),
     }

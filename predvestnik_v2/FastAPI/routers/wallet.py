@@ -39,6 +39,8 @@ _SOURCE_LABELS = {
     "contrabanda_refund": "🌑 Контрабанда (возврат)",
     "cult_ritual":      "🌑 Ритуал",
     "theme_purchase":   "🎨 Тёмная тема",
+    "shadow_merchant":  "🕴 Теневой Торговец",
+    "shadow_relic":     "🕴 Теневая реликвия",
     "achievement":      "🏆 Достижение",
     "crypto_buy":       "📈 Биржа (покупка)",
     "crypto_sell":      "📉 Биржа (продажа)",
