@@ -265,6 +265,11 @@ async def _daily_gc(db) -> None:
             logger.info(f"Срочные варны: сгорело {n}")
     except Exception as e:
         logger.warning(f"warn expiry GC error: {e}")
+    try:
+        from services.account_deletion import daily_tick as _acc_tick
+        await _acc_tick(db)
+    except Exception as e:
+        logger.warning(f"account deletion tick error: {e}")
 
 
 async def daily_deal_task():
