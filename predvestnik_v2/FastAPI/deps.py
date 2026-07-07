@@ -5,6 +5,7 @@ Two auth flows are supported:
   x-session-token  — Login Widget session (opened in a regular browser)
 """
 import json
+import time
 from urllib.parse import unquote
 
 from fastapi import Depends, Header, HTTPException
@@ -19,28 +20,58 @@ async def get_db():
         yield PGAdapter(conn)
 
 
+# БЛОК 21.4: глобальный ban закрывает сайт целиком (403) — ссылку на мини-апп
+# можно получить и в обход бота (переслал друг), поэтому блокируем на уровне auth-deps.
+# TTL-кэш, чтобы не бить БД на каждый API-запрос (их десятки на загрузку страницы);
+# 60с — приемлемая задержка вступления бана/разбана в силу для сайта.
+_BAN_CACHE: dict[int, tuple[bool, float]] = {}
+_BAN_CACHE_TTL = 60.0
+
+
+async def _is_banned_cached(user_id: int) -> bool:
+    now = time.monotonic()
+    hit = _BAN_CACHE.get(user_id)
+    if hit and hit[1] > now:
+        return hit[0]
+    from services.global_moderation import is_user_banned
+    async with get_pool().acquire() as conn:
+        banned = await is_user_banned(PGAdapter(conn), user_id)
+    if len(_BAN_CACHE) > 5000:   # страховка от разрастания
+        _BAN_CACHE.clear()
+    _BAN_CACHE[user_id] = (banned, now + _BAN_CACHE_TTL)
+    return banned
+
+
 async def require_tg_user(
     x_init_data: str = Header(default=""),
     x_session_token: str = Header(default=""),
 ):
     """Accept either WebApp initData or a Login-Widget session token.
     Returns a minimal user dict with at least {id: int}."""
+    user = None
     # 1. Telegram WebApp (in-Telegram button)
     if x_init_data:
         user = verify_webapp_data(x_init_data)
-        if user:
-            return user
 
     # 2. Login Widget session (browser)
-    if x_session_token:
+    if not user and x_session_token:
         user_id = verify_session_token(x_session_token)
         if user_id:
-            return {"id": user_id}
+            user = {"id": user_id}
 
-    raise HTTPException(
-        status_code=401,
-        detail="Требуется авторизация через Telegram.",
-    )
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Требуется авторизация через Telegram.",
+        )
+
+    if await _is_banned_cached(int(user["id"])):
+        raise HTTPException(
+            status_code=403,
+            detail="Доступ закрыт: активный глобальный бан. "
+                   "Оспорить: напишите боту «бот апелляция, текст обращения».",
+        )
+    return user
 
 
 def require_module(module_key: str):
