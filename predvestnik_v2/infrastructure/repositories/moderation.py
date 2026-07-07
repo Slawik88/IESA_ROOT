@@ -147,15 +147,19 @@ async def add_warn(
     user_id: int,
     admin_id: int,
     reason: str | None,
+    expires_at: str | None = None,
 ) -> int:
+    """admin_audit B3: expires_at ('YYYY-MM-DD HH:MM:SS' или None) — срочный варн;
+    None = вечный (как раньше). Истёкшие списывает expire_due_warns()."""
     await _ensure_chat_stats_row(db, chat_id, user_id)
     await db.execute(
         "UPDATE user_chat_stats SET warnings = warnings + 1 WHERE user_tg_id = ? AND chat_tg_id = ?",
         (user_id, chat_id),
     )
     await db.execute(
-        "INSERT INTO user_warnings (chat_id, user_id, admin_id, reason) VALUES (?, ?, ?, ?)",
-        (chat_id, user_id, admin_id, reason),
+        "INSERT INTO user_warnings (chat_id, user_id, admin_id, reason, expires_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (chat_id, user_id, admin_id, reason, expires_at),
     )
     await db.commit()
     async with db.execute(
@@ -164,6 +168,37 @@ async def add_warn(
     ) as cursor:
         row = await cursor.fetchone()
         return row[0] if row else 1
+
+
+async def expire_due_warns(db: aiosqlite.Connection, chat_id: int | None = None) -> int:
+    """admin_audit B3: списывает истёкшие срочные варны — декрементирует
+    user_chat_stats.warnings и помечает строки обработанными (идемпотентно).
+    chat_id=None → все чаты (ежедневная уборка в шедулере); конкретный chat_id →
+    ленивая уборка перед выдачей нового варна/показом счётчика."""
+    where_chat = "AND chat_id = ? " if chat_id is not None else ""
+    params: tuple = (chat_id,) if chat_id is not None else ()
+    async with db.execute(
+        "SELECT id, chat_id, user_id FROM user_warnings "
+        "WHERE expires_at IS NOT NULL AND expires_at <= NOW() "
+        "AND COALESCE(expired_applied, FALSE) = FALSE "
+        + where_chat +
+        "FOR UPDATE SKIP LOCKED",
+        params,
+    ) as c:
+        due = [dict(r) for r in await c.fetchall()]
+    if not due:
+        return 0
+    for w in due:
+        await db.execute(
+            "UPDATE user_warnings SET expired_applied = TRUE WHERE id = ?", (w["id"],)
+        )
+        await db.execute(
+            "UPDATE user_chat_stats SET warnings = GREATEST(0, warnings - 1) "
+            "WHERE user_tg_id = ? AND chat_tg_id = ?",
+            (w["user_id"], w["chat_id"]),
+        )
+    await db.commit()
+    return len(due)
 
 
 async def remove_warn(db: aiosqlite.Connection, chat_id: int, user_id: int, count: int = 1) -> int:

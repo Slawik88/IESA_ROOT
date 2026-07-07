@@ -240,6 +240,33 @@ async def expedition_background_task(bot: Bot):
             await asyncio.sleep(30)  # backoff on error — avoid tight crash loops
 
 
+_daily_gc_day: str | None = None
+
+
+async def _daily_gc(db) -> None:
+    """Ежедневная уборка (admin_audit C1a/B3), раз в календарные сутки UTC:
+    - site_analytics: записи старше 180 дней (таблица росла бесконечно);
+    - истёкшие срочные варны: списать из счётчиков по всем чатам."""
+    global _daily_gc_day
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if _daily_gc_day == today:
+        return
+    _daily_gc_day = today
+    try:
+        await db.execute(
+            "DELETE FROM site_analytics WHERE visited_at < NOW() - INTERVAL '180 days'")
+        await db.commit()
+    except Exception as e:
+        logger.warning(f"analytics GC error: {e}")
+    try:
+        from infrastructure.repositories.moderation import expire_due_warns
+        n = await expire_due_warns(db, None)
+        if n:
+            logger.info(f"Срочные варны: сгорело {n}")
+    except Exception as e:
+        logger.warning(f"warn expiry GC error: {e}")
+
+
 async def daily_deal_task():
     """Regenerate the daily deal at 00:00 UTC."""
     logger.info("Фоновая задача акции дня запущена.")
@@ -248,6 +275,7 @@ async def daily_deal_task():
             async with get_pool().acquire() as _conn:
                 db = PGAdapter(_conn)
                 await ensure_deals_fresh(db)
+                await _daily_gc(db)
         except Exception as e:
             logger.error(f"Ошибка в задаче акции дня: {e}")
             await asyncio.sleep(30)

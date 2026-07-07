@@ -256,6 +256,7 @@ function _devBcTabHtml(){
       <div id="dev-bc-count" style="font-size:11px;color:var(--gold2);margin-bottom:6px">…</div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:2px">Превью (как увидят):</div>
       <div id="dev-bc-preview" class="bc-preview">—</div>
+      <button class="btn btn-teal btn-full" style="margin-bottom:6px" onclick="devBroadcastTest()">🧪 Тест себе (в ЛС)</button>
       <button class="btn btn-red btn-full" onclick="devBroadcast()">📢 Отправить рассылку</button>
     </div>
   </div>

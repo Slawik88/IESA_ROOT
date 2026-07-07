@@ -86,13 +86,38 @@ async def cmd_global_unwarn(message: types.Message, db, bot: Bot, text_args: str
         return
 
     args = (text_args or "").strip()
-    if not args.isdigit():
+    if not args and not (message.reply_to_message and message.reply_to_message.from_user):
         return await message.answer(
-            "ℹ️ <b>Использование:</b> <code>бот глоб снять варн, ID_санкции</code>",
+            "ℹ️ <b>Использование:</b> <code>бот глоб снять варн, @юзер</code>\n"
+            "(также: ID санкции, Telegram ID или ответом на сообщение)\n"
+            "<i>Снимается последний активный варн цели. "
+            "История: <code>бот глоб санкции, @юзер</code></i>",
             parse_mode="HTML",
         )
 
-    ok, msg = await global_moderation.revoke_global_sanction(db, bot, message.from_user.id, actor_rank, int(args))
+    # admin_audit C3: принимаем и числовой ID санкции (легаси), и @username/
+    # Telegram ID/reply — тогда ревокаем ПОСЛЕДНИЙ активный варн цели.
+    sanction_id = None
+    if args.isdigit():
+        # число может быть и ID санкции, и Telegram ID юзера — сначала пробуем
+        # как ID санкции (легаси), при промахе трактуем как юзера
+        _s = await global_mod_repo.get_sanction_by_id(db, int(args))
+        if _s:
+            sanction_id = int(args)
+    if sanction_id is None:
+        target_id, target_name, _rest = await resolve_target(message, db, args)
+        if not target_id:
+            return await message.answer(
+                "❌ Пользователь (или санкция с таким ID) не найден.", parse_mode="HTML")
+        sanction_id = await global_mod_repo.get_last_active_warn_id(db, target_id)
+        if not sanction_id:
+            return await message.answer(
+                f"ℹ️ У <b>{safe_html(target_name)}</b> нет активных глобальных варнов.\n"
+                f"<i>История: <code>бот глоб санкции, @юзер</code></i>",
+                parse_mode="HTML",
+            )
+
+    ok, msg = await global_moderation.revoke_global_sanction(db, bot, message.from_user.id, actor_rank, sanction_id)
     await message.answer(msg, parse_mode="HTML")
 
 

@@ -26,6 +26,23 @@ async def dev_broadcast_counts(db=Depends(get_db), user=Depends(require_tg_user)
             for a in _BROADCAST_AUDIENCES}
 
 
+@router.post("/broadcast/test")
+async def dev_broadcast_test(body: BroadcastRequest, user=Depends(require_tg_user)):
+    """admin_audit C2: тест-отправка рассылки СЕБЕ в ЛС — проверить
+    форматирование/разметку до массовой отправки."""
+    _require_dev(user)
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(400, "Пустой текст.")
+    r = await _tg_call("sendMessage", chat_id=user["id"],
+                       text="🧪 <b>ТЕСТ РАССЫЛКИ</b> (видите только вы)\n\n" + text,
+                       parse_mode="HTML")
+    if not r.get("ok"):
+        raise HTTPException(400, f"Не доставлено: {r.get('description') or r.get('error') or '?'} "
+                                 f"(ЛС с ботом открыты?)")
+    return {"ok": True}
+
+
 @router.post("/broadcast")
 async def dev_broadcast(body: BroadcastRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     _require_dev(user)
