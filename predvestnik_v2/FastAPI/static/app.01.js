@@ -60,6 +60,11 @@ function api(path, opts={}) {
           const e=JSON.parse(t);
           const d=e.detail;
           const msg=typeof d==='string'?d:Array.isArray(d)?d.map(x=>x.msg||x).join('; '):(d?JSON.stringify(d):'Ошибка');
+          // admin_audit B1: глобальный бан — вместо голого 403 открываем форму апелляции
+          if(r.status===403&&typeof msg==='string'&&msg.indexOf('GLOBAL_BAN')===0&&path.indexOf('/appeals')!==0){
+            try{ if(typeof openBanAppealModal==='function') openBanAppealModal(); }catch(e2){}
+            return Promise.reject(msg.replace('GLOBAL_BAN: ',''));
+          }
           return Promise.reject(msg);
         }catch{
           return Promise.reject(t.slice(0,120)||'Ошибка сервера');

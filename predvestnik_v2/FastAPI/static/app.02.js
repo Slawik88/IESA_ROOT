@@ -921,3 +921,46 @@ function c2WarAttack(warId){
     .then(r=>{_haptic('medium'); _btRender(r.battle);})
     .catch(e=>toast(e,false));
 }
+
+// ── admin_audit B1: форма апелляции для забаненного (открывается по 403) ──────
+let _banAppealOpen=false;
+function openBanAppealModal() {
+  if(_banAppealOpen) return;
+  _banAppealOpen=true;
+  api('/appeals/my').then(d=>{
+    const s=d.sanction;
+    const thread=(d.thread||[]).map(m=>
+      `<div style="margin:5px 0;padding:6px 8px;border-radius:8px;background:${m.is_staff?'var(--dim)':'rgba(80,140,220,.12)'};font-size:12px">
+        <div style="font-size:10px;color:var(--muted)">${m.is_staff?'👮 Модерация':'🙋 Вы'}</div>
+        ${esc(m.text||'(фото)')}${(m.photos||[]).length?' 📎':''}
+      </div>`).join('');
+    const until=s&&s.expires_at?new Date(s.expires_at).toLocaleDateString():'бессрочно';
+    OM('⛔ Доступ ограничен — подать апелляцию',
+      `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">
+        ${s?`Санкция: <b>${s.type==='ban'?'глобальный бан':'ограничение'}</b> (${until}).<br>Причина: ${esc(s.reason||'не указана')}`:'Активная санкция не найдена.'}
+       </div>
+       ${thread?`<div style="max-height:30vh;overflow:auto;margin-bottom:6px">${thread}</div>`:''}
+       <textarea id="ban-apl-text" class="num-input" style="min-height:80px;resize:vertical;margin:0 0 6px" placeholder="Почему санкцию стоит пересмотреть…" maxlength="9999"></textarea>
+       <input id="ban-apl-file" type="file" accept="image/*" class="num-input" style="margin:0 0 4px;padding:6px"/>
+       <div style="font-size:10px;color:var(--muted)">Можно и в ЛС бота: <code>бот апелляция, текст</code> (фото — с подписью). Диалог общий.</div>`,
+      [{l:'📨 Отправить',c:'btn-gold',f:'_banAppealSend()'},{l:'Закрыть',c:'btn-ghost',f:'_banAppealClose()'}]);
+  }).catch(()=>{_banAppealOpen=false;});
+}
+function _banAppealClose(){_banAppealOpen=false;CM();}
+function _banAppealSend() {
+  const text=el('ban-apl-text')?.value.trim()||'';
+  const f=el('ban-apl-file')?.files&&el('ban-apl-file').files[0];
+  const send=(photoIds)=>api('/appeals/message',{method:'POST',body:JSON.stringify({text,photo_ids:photoIds||[]})})
+    .then(r=>{toast(r.message||'📨 Отправлено');_banAppealOpen=false;CM();})
+    .catch(e=>toast(e,false));
+  if(!text&&!f) return toast('Напишите текст или приложите фото',false);
+  if(!f) return send([]);
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const b64=String(reader.result).split(',')[1]||'';
+    api('/appeals/photo',{method:'POST',body:JSON.stringify({data_b64:b64,filename:f.name||'photo.jpg'})})
+      .then(r=>send([r.file_id]))
+      .catch(e=>toast(e,false));
+  };
+  reader.readAsDataURL(f);
+}

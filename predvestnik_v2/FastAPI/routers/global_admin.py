@@ -306,8 +306,10 @@ class IssueSanctionRequest(BaseModel):
     target_type: str       # 'user' | 'chat'
     target_id: int
     sanction_type: str     # 'warn' | 'restrict' | 'ban'
-    reason: Optional[str] = None
-    duration_days: Optional[int] = None  # None = бессрочно
+    reason: Optional[str] = None            # admin_audit B1: до 9999 символов
+    duration_days: Optional[int] = None     # None = бессрочно
+    notify: str = "all"                     # 'all' | 'none' | id чата строкой
+    photo_ids: list[str] = []               # file_id фото-доказательств
 
 
 @router.post("/sanctions")
@@ -329,13 +331,105 @@ async def global_sanctions_issue(
     if body.duration_days:
         expires_at = datetime.now(timezone.utc) + timedelta(days=body.duration_days)
 
-    ok, msg = await gmod.issue_global_sanction(
+    import json as _json
+    ok, msg, sanction_id = await gmod.issue_global_sanction(
         db, _bot, user["id"], actor_rank, body.target_type, body.target_id,
         body.sanction_type, body.reason, expires_at, target_global_rank,
+        photos_json=_json.dumps(body.photo_ids or []),
     )
     if not ok:
         raise HTTPException(403, msg)
+
+    dm_ok, notified = False, 0
+    if body.target_type == "user":
+        # admin_audit B1: инструкция нарушителю в ЛС — всегда; чаты — по выбору
+        sanction = await gm_repo.get_sanction_by_id(db, sanction_id)
+        dm_ok = await gmod.send_appeal_instruction(db, body.target_id, sanction or {})
+        if body.notify == "all":
+            notified = await gmod.send_sanction_notices(db, sanction_id, "all")
+        elif body.notify not in ("none", "", None):
+            try:
+                notified = await gmod.send_sanction_notices(db, sanction_id, [int(body.notify)])
+            except (TypeError, ValueError):
+                pass
+    return {"ok": True, "message": msg, "sanction_id": sanction_id,
+            "dm_instruction_sent": dm_ok, "chats_notified": notified}
+
+
+# ── 4.1 admin_audit B1: диалоги апелляций и история дел игрока ────────────────────
+class AppealReplyRequest(BaseModel):
+    text: str
+    photo_ids: list[str] = []
+
+
+@router.get("/appeals/{appeal_id}/thread")
+async def global_appeal_thread(appeal_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _require_global(db, user["id"])
+    appeal = await gm_repo.get_appeal_by_id(db, appeal_id)
+    if not appeal:
+        raise HTTPException(404, "Апелляция не найдена.")
+    thread = await gm_repo.appeal_thread(db, appeal_id)
+    sanction = await gm_repo.get_sanction_by_id(db, appeal["sanction_id"])
+    return {"appeal": appeal, "thread": thread, "sanction": sanction}
+
+
+@router.post("/appeals/{appeal_id}/reply")
+async def global_appeal_reply(appeal_id: int, body: AppealReplyRequest,
+                              db=Depends(get_db), user=Depends(require_tg_user)):
+    await _require_global(db, user["id"])
+    ok, msg = await gmod.staff_reply_appeal(db, appeal_id, user["id"],
+                                            body.text, body.photo_ids or [])
+    if not ok:
+        raise HTTPException(400, msg)
     return {"ok": True, "message": msg}
+
+
+class AppealCloseRequest(BaseModel):
+    resolution: Optional[str] = None
+    status: str = "closed"    # closed | accepted | rejected
+
+
+@router.post("/appeals/{appeal_id}/close")
+async def global_appeal_close(appeal_id: int, body: AppealCloseRequest,
+                              db=Depends(get_db), user=Depends(require_tg_user)):
+    actor_rank = await _require_global(db, user["id"])
+    appeal = await gm_repo.get_appeal_by_id(db, appeal_id)
+    if not appeal:
+        raise HTTPException(404, "Апелляция не найдена.")
+    sanction = await gm_repo.get_sanction_by_id(db, appeal["sanction_id"])
+    if body.status == "accepted" and sanction and sanction["sanction_type"] == "ban" \
+            and actor_rank < DEVELOPER_GLOBAL_RANK:
+        raise HTTPException(403, "Принять апелляцию на бан может только Разработчик.")
+    ok, msg = await gmod.close_appeal(db, appeal_id, user["id"],
+                                      body.resolution, body.status)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}
+
+
+@router.get("/user-case/{target_id}")
+async def global_user_case(target_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    """История дел игрока: все санкции (+фото) и все апелляции с полными нитями —
+    admin_audit B1: «клик по игроку → вся история лично с этим игроком»."""
+    await _require_global(db, user["id"])
+    case = await gm_repo.user_case(db, target_id)
+    uname = await users_repo.get_user_name(db, target_id)
+    return {"user_id": target_id, "username": uname, **case}
+
+
+@router.get("/tg-photo/{file_id}")
+async def global_tg_photo(file_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Прокси фото-вложений (file_id → байты) для просмотра в админке сайта."""
+    await _require_global(db, user["id"])
+    token = os.getenv("BOT_TOKEN", "")
+    info = await _tg_call("getFile", file_id=file_id)
+    path = (info.get("result") or {}).get("file_path")
+    if not path:
+        raise HTTPException(404, "Файл не найден в Telegram.")
+    from fastapi.responses import Response as _Resp
+    async with httpx.AsyncClient(timeout=15) as c:
+        r = await c.get(f"https://api.telegram.org/file/bot{token}/{path}")
+    return _Resp(r.content, media_type="image/jpeg")
 
 
 # ── 5. Снять санкцию ──────────────────────────────────────────────────────────────

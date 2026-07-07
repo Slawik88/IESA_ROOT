@@ -851,11 +851,28 @@ async def _init_features_extra(db):
             sanction_id   INTEGER NOT NULL REFERENCES global_sanctions(id),
             text          TEXT NOT NULL,
             created_at    TIMESTAMP DEFAULT NOW(),
-            status        TEXT DEFAULT 'pending',  -- pending | accepted | rejected
+            status        TEXT DEFAULT 'pending',  -- pending | accepted | rejected | closed
             resolved_by   BIGINT NULL,
             resolved_at   TIMESTAMP NULL
         )
     """)
+    # admin_audit B1 «Апелляции 2.0»: диалог игрок↔модерация (бесконечная нить
+    # до статуса closed), фото-вложения (Telegram file_id) с обеих сторон,
+    # фото-доказательства при выдаче санкции.
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS appeal_messages (
+            id          SERIAL PRIMARY KEY,
+            appeal_id   INTEGER NOT NULL,
+            author_id   BIGINT NOT NULL,
+            is_staff    BOOLEAN DEFAULT FALSE,
+            text        TEXT DEFAULT '',
+            photos_json TEXT DEFAULT '[]',
+            created_at  TIMESTAMP DEFAULT NOW()
+        )
+    """)
+    await db.execute(
+        "ALTER TABLE global_sanctions ADD COLUMN IF NOT EXISTS photos_json TEXT DEFAULT '[]'"
+    )
 
     # Battle Pass seasons, управляемые с сайта (Консоль разработчика).
     # Мерджатся с registry.BATTLE_PASS_SEASONS — DB перекрывает registry по id.
