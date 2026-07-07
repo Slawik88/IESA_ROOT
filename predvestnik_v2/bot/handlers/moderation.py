@@ -106,8 +106,32 @@ async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, 
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
+    # admin_audit B3: ленивая уборка истёкших срочных варнов этого чата —
+    # счётчик к моменту выдачи нового всегда актуален.
+    try:
+        await mod_db.expire_due_warns(db, message.chat.id)
+    except Exception:
+        pass
+
+    # admin_audit B3: необязательный срок в конце причины — «бот варн, @юзер спам 30д».
+    # Последнее слово, похожее на время (10м/2ч/30д), становится сроком; «0» или
+    # отсутствие — вечный варн (как раньше).
+    expires_at_str, ttl_display = None, ""
+    if reason:
+        _words = reason.rsplit(None, 1)
+        _tail = _words[-1] if _words else ""
+        _td = parse_time(_tail)
+        if _td:
+            expires_at_str = (datetime.now() + _td).strftime("%Y-%m-%d %H:%M:%S")
+            ttl_display = f"\n⏳ <b>Срок:</b> {_tail} (после — сгорит сам)"
+            reason = _words[0] if len(_words) > 1 else None
+        elif _tail == "0" and len(_words) > 1:
+            reason = _words[0]  # явное «навсегда»
+
     # 3. Выдача варна в базу
-    warns_count = await mod_db.add_warn(db, message.chat.id, target_id, message.from_user.id, reason)
+    warns_count = await mod_db.add_warn(
+        db, message.chat.id, target_id, message.from_user.id, reason,
+        expires_at=expires_at_str)
     settings = await mod_db.get_chat_settings(db, message.chat.id)
     max_warns = settings["max_warnings"]
 
@@ -115,11 +139,12 @@ async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, 
     target_name = await resolve_display_name(db, target_id, message.chat.id, target_name)
     target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
     reason_text = f"\n📝 <b>Причина:</b> {safe_html(reason)}" if reason else ""
-    
+
     await message.answer(
         f"⚠️ <b>ВЫДАНО ПРЕДУПРЕЖДЕНИЕ</b>\n\n"
-        f"👤 {target_link} получает варн <b>[{warns_count}/{max_warns}]</b>.{reason_text}\n\n"
-        f"<i>Снять: <code>бот снять варн, @юзер</code> · Лимит: <code>бот лимит варнов</code></i>",
+        f"👤 {target_link} получает варн <b>[{warns_count}/{max_warns}]</b>.{reason_text}{ttl_display}\n\n"
+        f"<i>Снять: <code>бот снять варн, @юзер</code> · Лимит: <code>бот лимит варнов</code>"
+        f" · Срочный: <code>бот варн, @юзер причина 30д</code></i>",
         parse_mode="HTML"
     )
 

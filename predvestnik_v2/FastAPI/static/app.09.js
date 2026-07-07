@@ -259,6 +259,14 @@ function _bcPreview() {
     pv.innerHTML=t?t:'<span style="color:var(--muted)">—</span>';
   }
 }
+function devBroadcastTest() {
+  // admin_audit C2: проверка форматирования на себе до массовой отправки
+  const text=el('dev-bc-text')?.value.trim();
+  if(!text) return toast('Введите текст',false);
+  api('/admin/dev/broadcast/test',{method:'POST',body:JSON.stringify({text,audience:'dm'})})
+    .then(()=>toast('🧪 Отправлено вам в ЛС — проверьте разметку'))
+    .catch(e=>toast(e,false));
+}
 function devBroadcast() {
   const text=el('dev-bc-text')?.value.trim();
   if(!text) return toast('Введите текст',false);

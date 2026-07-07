@@ -90,9 +90,23 @@ async def cmd_dev_user(message: types.Message, db, text_args: str = None):
 @router.message(TextCmd(["dev баланс", "dev balance"]))
 async def cmd_dev_balance(message: types.Message, db, text_args: str = None):
     import re as _re
-    usage = "ℹ️ <code>бот dev баланс, @ник, [мора], [алмазы]</code>"
+    usage = ("ℹ️ <code>бот dev баланс сет, @ник, [мора], [алмазы]</code> — ЗАДАТЬ точное значение\n"
+             "<code>бот dev баланс плюс, @ник, [мора], [алмазы]</code> — ПРИБАВИТЬ (минус — со знаком -)")
     if not text_args:
         return await message.answer(usage, parse_mode="HTML")
+
+    # admin_audit B7: режим из первого токена — «сет» (жёстко задать) или
+    # «плюс» (прибавить/отнять). Голое «dev баланс» = сет с явным предупреждением
+    # (историческая семантика; уже приводила к затиранию накоплений).
+    mode = "set"
+    legacy = True
+    _head = text_args.strip().split(",")[0].split()
+    if _head and _head[0].lower() in ("сет", "set"):
+        mode, legacy = "set", False
+        text_args = text_args.strip()[len(_head[0]):].lstrip(" ,")
+    elif _head and _head[0].lower() in ("плюс", "+", "add"):
+        mode, legacy = "add", False
+        text_args = text_args.strip()[len(_head[0]):].lstrip(" ,")
 
     # Support comma-separated: "@ник, 1000, 5"
     # AND space/keyword-separated: "@ник мора 99999999" or "@ник 1000 5"
@@ -118,14 +132,32 @@ async def cmd_dev_balance(message: types.Message, db, text_args: str = None):
         except (ValueError, IndexError):
             return await message.answer(f"❌ Не удалось разобрать числа.\n{usage}", parse_mode="HTML")
 
+    if mode == "add":
+        from infrastructure.repositories.economy import add_balance
+        await add_balance(db, target_id, mora, diamonds)
+        await db.commit()
+        sign_m = "+" if mora >= 0 else ""
+        sign_d = "+" if diamonds >= 0 else ""
+        return await message.answer(
+            f"✅ <b>Баланс изменён</b>\n"
+            f"👤 {safe_html(target_name)}\n"
+            f"├ 🪙 Мора: <code>{sign_m}{format_currency(mora)}</code>\n"
+            f"└ 💎 Алмазы: <code>{sign_d}{format_currency(diamonds)}</code>",
+            parse_mode="HTML",
+        )
+
     from infrastructure.repositories.economy import set_balance
     await set_balance(db, target_id, mora, diamonds, chat_id=message.chat.id)
 
+    legacy_warn = (
+        "\n\n⚠️ <i>«dev баланс» ЖЁСТКО ЗАДАЁТ значение (перезаписывает накопления!). "
+        "Для прибавки: <code>бот dev баланс плюс, @ник, 1000</code></i>"
+    ) if legacy else ""
     await message.answer(
         f"✅ <b>Баланс установлен</b>\n"
         f"👤 {safe_html(target_name)}\n"
         f"├ 🪙 Мора: <code>{format_currency(mora)}</code>\n"
-        f"└ 💎 Алмазы: <code>{format_currency(diamonds)}</code>",
+        f"└ 💎 Алмазы: <code>{format_currency(diamonds)}</code>{legacy_warn}",
         parse_mode="HTML",
     )
 

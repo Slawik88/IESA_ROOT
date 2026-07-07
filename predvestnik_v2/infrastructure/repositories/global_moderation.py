@@ -141,3 +141,17 @@ async def resolve_appeal(db, appeal_id: int, status: str, resolved_by: int) -> N
         (status, resolved_by, appeal_id),
     )
     await db.commit()
+
+
+async def get_last_active_warn_id(db, target_id: int) -> int | None:
+    """admin_audit C3: последний активный глобальный warn юзера — для ревока
+    по @username/ID вместо выискивания числового ID санкции."""
+    async with db.execute(
+        "SELECT id FROM global_sanctions "
+        "WHERE target_type = 'user' AND target_id = ? AND sanction_type = 'warn' "
+        "AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW()) "
+        "ORDER BY id DESC LIMIT 1",
+        (target_id,),
+    ) as c:
+        row = await c.fetchone()
+    return int(row[0]) if row else None

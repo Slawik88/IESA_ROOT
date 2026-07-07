@@ -250,7 +250,7 @@ function loadAdminSettings() {
         ${rank('rank_duel','⚔️ Начинать дуэли',s.rank_duel,true)}
         ${rank('rank_marriage','💍 Предлагать брак',s.rank_marriage,true)}
         ${rank('rank_give','💸 Переводить мору/алмазы',s.rank_give,true)}
-        ${rank('purge_min_rank','🧹 Не проверяется чисткой',s.purge_min_rank)}
+        ${rank('purge_min_rank','🧹 Освобождены от чистки (ранг ≥)',s.purge_min_rank)}
         ${rank('purge_action_rank','⚖️ Кнопки вердикта в сводке',s.purge_action_rank)}
         ${rank('rank_chat_lock','🔒 Открывать/закрывать чат',s.rank_chat_lock)}
       </div>

@@ -150,6 +150,14 @@ async def _init_users_and_chats(db):
             created_at TIMESTAMP DEFAULT NOW()
         )
     """)
+    # admin_audit B3: срочные варны («бот варн, @юзер причина 30д») —
+    # expires_at = когда варн сгорает; expired_applied = счётчик уже уменьшен.
+    await db.execute(
+        "ALTER TABLE user_warnings ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP"
+    )
+    await db.execute(
+        "ALTER TABLE user_warnings ADD COLUMN IF NOT EXISTS expired_applied BOOLEAN DEFAULT FALSE"
+    )
 
     # 6. Moderation logs
     await db.execute("""
