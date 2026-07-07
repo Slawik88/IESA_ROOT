@@ -252,36 +252,91 @@ function loadAdminSettings() {
         ${rank('rank_give','💸 Переводить мору/алмазы',s.rank_give,true)}
         ${rank('purge_min_rank','🧹 Освобождены от чистки (ранг ≥)',s.purge_min_rank)}
         ${rank('purge_action_rank','⚖️ Кнопки вердикта в сводке',s.purge_action_rank)}
+        ${rank('purge_write_rank','✍️ Пишут во время чистки (0=все)',s.purge_write_rank,true)}
         ${rank('rank_chat_lock','🔒 Открывать/закрывать чат',s.rank_chat_lock)}
       </div>
       <div class="card">
-        <div class="card-title">🧹 Чистка активности — сводка</div>
+        <div class="card-title">🧹 Чистка активности <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadPurgePanel()">🔄</button></div>
         <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:8px">
-          Бот соберёт сводку активности и пришлёт <b>досье с кнопками</b> (Варн/Кик/Бан) в <b>админ-чат</b> (если привязан), иначе в основной чат.
-          Чат <b>не блокируется</b>, никакие действия над людьми не выполняются автоматически — решение по каждому принимаешь ты.
+          Досье уходят в чат <b>порциями</b> с кнопками вердикта (жмёт инициатор). Начатую здесь чистку
+          можно вести и из чата — и наоборот. Чат не блокируется; если задан ранг письма при чистке —
+          сообщения ниже ранга бот удаляет сам.
         </div>
+        <div id="purge-panel"><div class="loader">Загрузка...</div></div>
+      </div>
+      <div id="adm-save-status" style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px"></div>`;
+    el('adm-settings')._settings=s;
+    loadPurgePanel();
+  }).catch(e=>{el('adm-settings').innerHTML=`<div class="err">${e}</div>`;});
+}
+// ── Чистка 2.0 (admin_audit B4): сессия видна и управляема с сайта ────────────
+function loadPurgePanel() {
+  const box=el('purge-panel'); if(!box||!_adminChatId) return;
+  api(`/admin/${_adminChatId}/purge/status`).then(st=>{
+    if(!st.active){
+      box.innerHTML=`
         <div style="display:flex;gap:6px;margin:0 0 6px">
           <input id="purge-start" type="date" class="num-input" style="flex:1;margin:0" title="Начало периода"/>
           <input id="purge-end" type="date" class="num-input" style="flex:1;margin:0" title="Конец периода"/>
           <input id="purge-norm" type="number" class="num-input" style="width:80px;margin:0" placeholder="Норма" value="50" min="1"/>
         </div>
         <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Пусто = последние 7 дней, норма 50.</div>
-        <button class="btn btn-gold btn-full" onclick="doPurgeStart()">📋 Сформировать сводку</button>
-      </div>
-      <div id="adm-save-status" style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px"></div>`;
-    el('adm-settings')._settings=s;
-  }).catch(e=>{el('adm-settings').innerHTML=`<div class="err">${e}</div>`;});
+        <button class="btn btn-gold btn-full" onclick="doPurgeStart()">📋 Начать чистку</button>`;
+      return;
+    }
+    const c=st.counts||{}, s=st.session||{};
+    const vLabel={warn:'⚠️',kick:'👢',ban:'🔨',skip:'🕊'};
+    const rows=(st.targets||[]).map(t=>{
+      const name=esc(t.username||('ID '+t.user_id));
+      const done=t.verdict?`<span style="font-size:14px">${vLabel[t.verdict]||t.verdict}</span>`:
+        `<span style="display:flex;gap:3px">
+          <button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick="purgeVerdict(${t.user_id},'warn')">⚠️</button>
+          <button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick="purgeVerdict(${t.user_id},'kick')">👢</button>
+          <button class="btn btn-sm btn-ghost" style="padding:2px 6px;color:var(--red)" onclick="purgeVerdict(${t.user_id},'ban')">🔨</button>
+          <button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick="purgeVerdict(${t.user_id},'skip')">🕊</button>
+        </span>`;
+      return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--dim);font-size:11px">
+        <span style="flex:1">${t.dossier_sent?'📨':'⏳'} ${name} <span style="color:var(--muted)">(${t.msg_count} msg · ${t.warns}⚠️)</span></span>${done}
+      </div>`;
+    }).join('');
+    box.innerHTML=`
+      <div style="font-size:12px;color:var(--gold2);margin-bottom:4px">Сессия #${s.id} · норма ${s.norm} · ${esc(s.date_from)} — ${esc(s.date_to)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Досье: ${c.sent}/${c.total} · Вердиктов: ${c.decided}/${c.total} (⚠️${c.warned} 👢${c.kicked} 🔨${c.banned} 🕊${c.skipped})</div>
+      <div style="max-height:260px;overflow:auto;margin-bottom:8px">${rows||'<i style="font-size:11px;color:var(--muted)">Нарушителей нет</i>'}</div>
+      ${c.sent<c.total?`<button class="btn btn-teal btn-full" style="margin-bottom:6px" onclick="purgeDossiers()">📨 Выслать досье в чат (ещё ${c.total-c.sent})</button>`:''}
+      <button class="btn btn-red btn-full" onclick="purgeFinish()">✅ Завершить чистку</button>`;
+  }).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
 }
 function doPurgeStart() {
   const sd=el('purge-start')?.value||null, ed=el('purge-end')?.value||null;
   const norm=parseInt(el('purge-norm')?.value||'50')||50;
-  OM('🧹 Сформировать сводку чистки?',
-    `<div style="text-align:center;padding:12px 0;color:var(--muted)">Бот соберёт активность и пришлёт сводку + досье с кнопками. Чат <b>не блокируется</b>.<div style="font-size:11px;margin-top:6px">Период: ${sd||'−7 дней'} — ${ed||'сегодня'} · Норма: ${norm}</div></div>`,
-    [{l:'Да, собрать',c:'btn-gold',f:`_execPurgeStart(${JSON.stringify(sd)},${JSON.stringify(ed)},${norm})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+  OM('🧹 Начать чистку?',
+    `<div style="text-align:center;padding:12px 0;color:var(--muted)">Бот соберёт активность, пришлёт сводку в чат и первую порцию досье с кнопками.<div style="font-size:11px;margin-top:6px">Период: ${sd||'−7 дней'} — ${ed||'сегодня'} · Норма: ${norm}</div></div>`,
+    [{l:'Да, начать',c:'btn-gold',f:`_execPurgeStart(${JSON.stringify(sd)},${JSON.stringify(ed)},${norm})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
 }
 function _execPurgeStart(sd, ed, norm) {
   api(`/admin/${_adminChatId}/purge/start`,{method:'POST',body:JSON.stringify({start_date:sd,end_date:ed,norm})})
-    .then(r=>{toast(`📋 Сводка готова: ✅${r.passed} ❌${r.failed} 🛡${r.protected}${r.routed_to_admin_chat?' · в админ-чат':''}`);CM();})
+    .then(r=>{toast(`📋 Чистка #${r.session_id}: ❌${r.failed} нарушителей, досье выслано ${r.sent}`);CM();loadPurgePanel();})
+    .catch(e=>{toast(e,false);CM();});
+}
+function purgeDossiers() {
+  api(`/admin/${_adminChatId}/purge/dossiers`,{method:'POST'})
+    .then(r=>{toast(`📨 Выслано ${r.sent}, осталось ${r.remaining}`);loadPurgePanel();})
+    .catch(e=>toast(e,false));
+}
+function purgeVerdict(uid, action) {
+  api(`/admin/${_adminChatId}/purge/verdict`,{method:'POST',body:JSON.stringify({user_id:uid,action})})
+    .then(()=>{toast('Вердикт записан');loadPurgePanel();})
+    .catch(e=>toast(e,false));
+}
+function purgeFinish() {
+  OM('✅ Завершить чистку?','<div style="padding:10px 0;color:var(--muted)">Сессия закроется, режим чистки снимется. Невынесенные вердикты останутся без действия.</div>',
+    [{l:'Завершить',c:'btn-red',f:'_purgeFinishGo()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _purgeFinishGo() {
+  CM();
+  api(`/admin/${_adminChatId}/purge/finish`,{method:'POST'})
+    .then(()=>{toast('✅ Чистка завершена');loadPurgePanel();})
     .catch(e=>toast(e,false));
 }
 let _admSaveTimer=null;
