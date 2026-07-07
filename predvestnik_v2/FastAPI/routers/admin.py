@@ -155,9 +155,9 @@ async def admin_dashboard(chat_id: int, db=Depends(get_db), user=Depends(require
         "ban_count": ban_count,
         "active_today": active_today,
         "can_warn": actor_rank >= settings.get("rank_warn", 2),
-        "can_mute": actor_rank >= settings.get("rank_mute", 3),
-        "can_kick": actor_rank >= settings.get("rank_kick", 4),
-        "can_ban":  actor_rank >= settings.get("rank_ban",  5),
+        "can_mute": actor_rank >= settings.get("rank_mute", 1),
+        "can_kick": actor_rank >= settings.get("rank_kick", 1),
+        "can_ban":  actor_rank >= settings.get("rank_ban",  2),
     }
 
 
@@ -210,9 +210,9 @@ async def admin_users(
         r["rank_name"] = _LOCAL_RANK_NAMES.get(r["local_rank"] or 0, "?")
         r["can_act"] = actor_rank > (r["local_rank"] or 0)
         r["can_warn"] = r["can_act"] and actor_rank >= settings.get("rank_warn", 2)
-        r["can_mute"] = r["can_act"] and actor_rank >= settings.get("rank_mute", 3)
-        r["can_kick"] = r["can_act"] and actor_rank >= settings.get("rank_kick", 4)
-        r["can_ban"]  = r["can_act"] and actor_rank >= settings.get("rank_ban",  5)
+        r["can_mute"] = r["can_act"] and actor_rank >= settings.get("rank_mute", 1)
+        r["can_kick"] = r["can_act"] and actor_rank >= settings.get("rank_kick", 1)
+        r["can_ban"]  = r["can_act"] and actor_rank >= settings.get("rank_ban",  2)
         # 8.4: щит/иммунитет — отдельные пороги
         r["can_shield"] = r["can_act"] and actor_rank >= settings.get("rank_shield", 4)
         r["can_immune"] = r["can_act"] and actor_rank >= settings.get("rank_immune", 5)
@@ -511,7 +511,7 @@ async def _require_blacklist_rank(db, user_id: int, chat_id: int) -> int:
     """ЧС по тяжести близок к бану — порог rank_ban."""
     actor_rank = await _require_admin(db, user_id, chat_id)
     settings = await get_chat_settings(db, chat_id)
-    if actor_rank < settings.get("rank_ban", 5):
+    if actor_rank < settings.get("rank_ban", 2):
         raise HTTPException(403, "Требуется ранг для бана (rank_ban), чтобы управлять ЧС.")
     return actor_rank
 
@@ -642,7 +642,7 @@ async def admin_purge_start(
     в админ-чат (если привязан), иначе в основной чат."""
     actor_rank = await _require_admin(db, user["id"], chat_id)
     settings = await get_chat_settings(db, chat_id)
-    if actor_rank < settings.get("rank_kick", 4):
+    if actor_rank < settings.get("rank_kick", 1):
         raise HTTPException(403, "Чистка требует ранга для кика (rank_kick).")
 
     now = datetime.now(timezone.utc)

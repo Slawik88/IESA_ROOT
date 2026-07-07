@@ -23,6 +23,19 @@ from infrastructure.repositories import chat as chat_repo
 router = Router(name="moderation_router")
 logger = logging.getLogger(__name__)
 
+async def _check_target_rights(db, chat_id, admin_id, target_id, min_rank,
+                               developer_id, bot_id):
+    """admin_audit B2: анти-пир для действий над целью (нельзя трогать равного/
+    старшего по рангу), но применение к САМОМУ СЕБЕ разрешено при наличии ранга —
+    рест/иммунитет себе были легальны и остаются."""
+    if target_id == admin_id:
+        return await mod_service.check_admin_rights(
+            db, chat_id, admin_id, min_rank, developer_id=developer_id, bot_id=bot_id)
+    return await mod_service.check_mod_rights(
+        db, chat_id, admin_id, target_id, min_rank,
+        developer_id=developer_id, bot_id=bot_id)
+
+
 class WarnAction(CallbackData, prefix="warn_act"):
     action: str
     target_id: int
@@ -105,7 +118,8 @@ async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, 
     
     await message.answer(
         f"⚠️ <b>ВЫДАНО ПРЕДУПРЕЖДЕНИЕ</b>\n\n"
-        f"👤 {target_link} получает варн <b>[{warns_count}/{max_warns}]</b>.{reason_text}",
+        f"👤 {target_link} получает варн <b>[{warns_count}/{max_warns}]</b>.{reason_text}\n\n"
+        f"<i>Снять: <code>бот снять варн, @юзер</code> · Лимит: <code>бот лимит варнов</code></i>",
         parse_mode="HTML"
     )
 
@@ -167,8 +181,10 @@ async def cmd_unwarn(
             parse_mode="HTML",
         )
 
+    _cs = await mod_db.get_chat_settings(db, message.chat.id)
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id, bot_id=bot.id)
+        db, message.chat.id, message.from_user.id, target_id,
+        _cs.get("rank_warn", 2), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -196,10 +212,15 @@ async def process_warn_action(
     chat_id = callback_data.chat_id
     action = callback_data.action
 
-    # Порог «кто может нажимать кнопки вердикта под досье/сводкой» настраивается:
-    # бот «настройки чата» → ⚖️ Кнопки вердикта (досье), и на сайте. По умолчанию 2.
+    # Пороги вердиктов (admin_audit B1): «Бан» = rank_ban, «Кик» = rank_kick,
+    # «Простить»/«Варн» = purge_action_rank — кнопки больше не обходят пороги команд.
     _settings = await mod_db.get_chat_settings(db, chat_id)
-    _req_rank = _settings.get("purge_action_rank", 2)
+    if action == "ban":
+        _req_rank = _settings.get("rank_ban", 2)
+    elif action == "kick":
+        _req_rank = _settings.get("rank_kick", 1)
+    else:
+        _req_rank = _settings.get("purge_action_rank", 2)
     can_mod, err = await mod_service.check_mod_rights(
         db, chat_id, callback.from_user.id, target_id, _req_rank, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
@@ -271,8 +292,10 @@ async def cmd_immune(
             parse_mode="HTML",
         )
 
-    can_mod, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 5, developer_id=developer_id, bot_id=bot.id)
+    _cs = await mod_db.get_chat_settings(db, message.chat.id)
+    can_mod, err = await _check_target_rights(
+        db, message.chat.id, message.from_user.id, target_id,
+        _cs.get("rank_immune", 5), developer_id, bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -282,7 +305,8 @@ async def cmd_immune(
 
     if new_status:
         await message.answer(
-            f"🛡 <b>{target_name}</b> получил абсолютный иммунитет от чистки.",
+            f"🛡 <b>{target_name}</b> получил абсолютный иммунитет от чистки.\n"
+            f"<i>Все защищённые: <code>бот кто рест</code> · Снять: повторите команду</i>",
             parse_mode="HTML",
         )
     else:
@@ -313,8 +337,10 @@ async def cmd_protect(
             parse_mode="HTML",
         )
 
+    _cs = await mod_db.get_chat_settings(db, message.chat.id)
     can_mod, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 4, developer_id=developer_id, bot_id=bot.id)
+        db, message.chat.id, message.from_user.id,
+        _cs.get("rank_shield", 4), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -333,7 +359,8 @@ async def cmd_protect(
         db, message.chat.id, target_id, keep_immune, until_dt.strftime("%Y-%m-%d %H:%M:%S")
     )
     await message.answer(
-        f"🔰 <b>{target_name}</b> защищён от чистки на <b>{extra_args.split()[0]}</b>.",
+        f"🔰 <b>{target_name}</b> защищён от чистки на <b>{extra_args.split()[0]}</b>.\n"
+        f"<i>Все защищённые: <code>бот кто рест</code> · Снять: <code>бот снять рест, @юзер</code></i>",
         parse_mode="HTML",
     )
 
@@ -358,8 +385,10 @@ async def cmd_unprotect(
             parse_mode="HTML",
         )
 
-    can_mod, err = await mod_service.check_admin_rights(
-        db, message.chat.id, message.from_user.id, 4, developer_id=developer_id, bot_id=bot.id)
+    _cs = await mod_db.get_chat_settings(db, message.chat.id)
+    can_mod, err = await _check_target_rights(
+        db, message.chat.id, message.from_user.id, target_id,
+        _cs.get("rank_shield", 4), developer_id, bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -543,8 +572,10 @@ async def cmd_ban(
             "Или ответьте на сообщение пользователя.",
             parse_mode="HTML",
         )
+    _cs = await mod_db.get_chat_settings(db, message.chat.id)
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 2, developer_id=developer_id, bot_id=bot.id)
+        db, message.chat.id, message.from_user.id, target_id,
+        _cs.get("rank_ban", 2), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
     try:
@@ -588,8 +619,10 @@ async def cmd_unban(
             "Или ответьте на сообщение пользователя.",
             parse_mode="HTML",
         )
+    _cs = await mod_db.get_chat_settings(db, message.chat.id)
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 2, developer_id=developer_id, bot_id=bot.id)
+        db, message.chat.id, message.from_user.id, target_id,
+        _cs.get("rank_ban", 2), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
     try:
@@ -628,8 +661,10 @@ async def cmd_kick(
             "Или ответьте на сообщение пользователя.",
             parse_mode="HTML"
         )
+    _cs = await mod_db.get_chat_settings(db, message.chat.id)
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id, bot_id=bot.id)
+        db, message.chat.id, message.from_user.id, target_id,
+        _cs.get("rank_kick", 1), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
     try:
@@ -673,8 +708,10 @@ async def cmd_mute(
             "Или ответьте на сообщение пользователя.",
             parse_mode="HTML",
         )
+    _cs = await mod_db.get_chat_settings(db, message.chat.id)
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id, bot_id=bot.id)
+        db, message.chat.id, message.from_user.id, target_id,
+        _cs.get("rank_mute", 1), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -728,8 +765,10 @@ async def cmd_unmute(
             "Или ответьте на сообщение пользователя.",
             parse_mode="HTML",
         )
+    _cs = await mod_db.get_chat_settings(db, message.chat.id)
     can_mod, err = await mod_service.check_mod_rights(
-        db, message.chat.id, message.from_user.id, target_id, 1, developer_id=developer_id, bot_id=bot.id)
+        db, message.chat.id, message.from_user.id, target_id,
+        _cs.get("rank_mute", 1), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
     try:

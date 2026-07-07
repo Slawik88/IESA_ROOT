@@ -59,9 +59,9 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
         "COALESCE(purge_action_rank, 2) AS purge_action_rank, "
         "COALESCE(rank_chat_lock, 4) AS rank_chat_lock, "
         "COALESCE(rank_warn, 2) AS rank_warn, "
-        "COALESCE(rank_mute, 3) AS rank_mute, "
-        "COALESCE(rank_kick, 4) AS rank_kick, "
-        "COALESCE(rank_ban, 5) AS rank_ban, "
+        "COALESCE(rank_mute, 1) AS rank_mute, "
+        "COALESCE(rank_kick, 1) AS rank_kick, "
+        "COALESCE(rank_ban, 2) AS rank_ban, "
         "COALESCE(rank_shield, 4) AS rank_shield, "
         "COALESCE(rank_immune, 5) AS rank_immune, "
         "COALESCE(events_enabled, 1) AS events_enabled, "
@@ -89,7 +89,7 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
         return {
             "shield_duration_days": 0, "max_warnings": 3, "is_purging": 0, "purge_min_rank": 4,
             "purge_action_rank": 2, "rank_chat_lock": 4,
-            "rank_warn": 2, "rank_mute": 3, "rank_kick": 4, "rank_ban": 5,
+            "rank_warn": 2, "rank_mute": 1, "rank_kick": 1, "rank_ban": 2,
             "rank_shield": 4, "rank_immune": 5,
             "events_enabled": 1, "nsfw_warps_allowed": 1, "auction_min_rank": 0,
             "rank_duel": 0, "rank_marriage": 0, "rank_give": 0,
