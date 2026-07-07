@@ -291,12 +291,20 @@ function devRunSql() {
   OM('🖥 Выполнить SQL?',`<div style="font-family:monospace;font-size:11px;padding:8px;background:var(--dim);border-radius:6px;word-break:break-all">${esc(q.slice(0,300))}</div>`,
     [{l:'Выполнить',c:'btn-red',f:'_execDevSql()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
 }
-function _execDevSql() {
+function _execDevSql(confirmed) {
   const q=el('dev-sql')?.value.trim();
   CM();
-  api('/admin/dev/sql',{method:'POST',body:JSON.stringify({query:q})}).then(r=>{
+  api('/admin/dev/sql',{method:'POST',body:JSON.stringify({query:q,confirm:!!confirmed})}).then(r=>{
+    // admin_audit A1: мутация требует второго подтверждения + журналируется
+    if(r.needs_confirm){
+      OM('⚠️ Запрос ИЗМЕНЯЕТ данные',
+        `<div style="padding:8px 0;color:var(--muted);font-size:12px">${esc(r.notice||'')}</div>
+         <div style="font-family:monospace;font-size:11px;padding:8px;background:var(--dim);border-radius:6px;word-break:break-all">${esc(q.slice(0,300))}</div>`,
+        [{l:'Выполнить и записать в журнал',c:'btn-red',f:'_execDevSql(true)'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+      return;
+    }
     if(!r.rows||!r.rows.length){
-      el('dev-sql-result').innerHTML=`<div style="font-size:11px;color:var(--green)">✅ OK${r.count?` (строк: ${r.count})`:''}</div>`;
+      el('dev-sql-result').innerHTML=`<div style="font-size:11px;color:var(--green)">✅ OK${r.count?` (строк: ${r.count})`:''}${r.logged?' · записано в журнал':''}</div>`;
       return;
     }
     const cols=Object.keys(r.rows[0]);
