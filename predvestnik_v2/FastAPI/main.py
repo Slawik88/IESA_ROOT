@@ -23,7 +23,7 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               events, admin, vip, battle_pass, global_admin,
                               dev_console, payments, relics, cosmetics, clans,
                               combat, legal, analytics as analytics_router, showcase,
-                              skill_games, battle, clans2)
+                              skill_games, battle, clans2, dev_overlay)
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -88,7 +88,8 @@ for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           battle_pass.router, global_admin.router, dev_console.router,
           payments.router, relics.router, cosmetics.router,
           clans.router, combat.router, legal.router, notif_router.router,
-          analytics_router.router, showcase.router, skill_games.router, battle.router, clans2.router]:
+          analytics_router.router, showcase.router, skill_games.router, battle.router,
+          clans2.router, dev_overlay.router]:
     app.include_router(r)
 
 
@@ -226,6 +227,9 @@ _INDEX_HTML = (
 )
 _APP_CSS = _read_static("app.css")
 _APP_JS = "".join(_read_static(p) for p in _APP_JS_PARTS)
+# БЛОК 25: dev-оверлей — отдельный скрипт (НЕ в склейке), активируется только
+# после 200 от /admin/dev-overlay/check; данные за гейтом на бэке.
+_APP_DEVMODE_JS = _read_static("app.devmode.js")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -241,3 +245,8 @@ async def static_css():
 @app.get("/static/app.js")
 async def static_js():
     return Response(_APP_JS, media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/app.devmode.js")
+async def static_devmode_js():
+    return Response(_APP_DEVMODE_JS, media_type="application/javascript; charset=utf-8")

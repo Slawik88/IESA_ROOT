@@ -771,3 +771,8 @@ WAR_ATTACKS_PER_DAY: int = 2                   # ран Боя 2.0 на игро
 WAR_WALL_MAX_DEFENDERS: int = 10               # снапшот питомцев-защитников
 WAR_WALL_SEGMENT_HP: int = 600                 # один ран бьёт сегмент стены ≤600 HP
 WAR_NODE_SHIELD_HOURS: int = 48                # щит узла после захвата
+
+# ── БЛОК 25: dev-mod оверлей на сайте ─────────────────────────────────────────
+# Доп. Telegram ID с доступом к отладочной панели (кроме DEVELOPER_ID из env).
+# Пусто по умолчанию — хелперов добавлять сюда явно, по одному ID.
+DEVELOPER_HELPER_IDS: list = []
