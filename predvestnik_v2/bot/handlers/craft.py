@@ -35,7 +35,8 @@ def _build_list_text(recipes: list[dict]) -> str:
         can = "✅ Можно" if r["can_craft"] else "🔒 Не хватает"
         times = f" (×{r['can_craft_times']})" if r["can_craft_times"] > 1 else ""
         lines.append(f"{'═' * 20}\n{r['name']}  {can}{times}")
-        lines.append(r["desc"])
+        # у рецептов нет поля desc (есть what_is) — раньше тут был гарантированный KeyError
+        lines.append(r.get("what_is") or r.get("desc") or "")
         lines.append("<b>Ингредиенты:</b>")
         for ing in r["ingredients_status"]:
             lines.append(f"  {_ingredient_line(ing)}")
