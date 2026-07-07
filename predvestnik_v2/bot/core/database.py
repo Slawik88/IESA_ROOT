@@ -874,6 +874,29 @@ async def _init_features_extra(db):
         "ALTER TABLE global_sanctions ADD COLUMN IF NOT EXISTS photos_json TEXT DEFAULT '[]'"
     )
 
+    # admin_audit C1b: удаление аккаунтов (самоудаление с остыванием + авто-неактив
+    # + окно восстановления + отложенная финализация)
+    await db.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP"
+    )
+    await db.execute(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS delete_after_days INTEGER DEFAULT 365"
+    )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS account_deletions (
+            user_id          BIGINT PRIMARY KEY,
+            source           TEXT NOT NULL,            -- self | inactivity
+            status           TEXT DEFAULT 'confirming',-- confirming | cooling | pending_restore | finalized | cancelled | restored
+            confirm_code     TEXT,
+            requested_at     TIMESTAMP DEFAULT NOW(),
+            cooling_until    TIMESTAMP,
+            deleted_at       TIMESTAMP,
+            restore_deadline TIMESTAMP,
+            warned_at        TIMESTAMP,
+            finalized_at     TIMESTAMP
+        )
+    """)
+
     # Battle Pass seasons, управляемые с сайта (Консоль разработчика).
     # Мерджатся с registry.BATTLE_PASS_SEASONS — DB перекрывает registry по id.
     await db.execute("""

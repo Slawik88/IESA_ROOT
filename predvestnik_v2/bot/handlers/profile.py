@@ -191,3 +191,21 @@ async def cmd_user_info(message: types.Message, db: aiosqlite.Connection, text_a
         is_self=False, developer_id=developer_id,
     )
     await message.answer(text, parse_mode="HTML")
+
+
+# ── admin_audit C1b: удаление/восстановление аккаунта (ЛС-команды) ────────────
+from services import account_deletion as _acc_svc
+
+
+@router.message(TextCmd(["отменить удаление", "отмена удаления"]))
+async def cmd_cancel_deletion(message: types.Message, db):
+    ok, msg = await _acc_svc.cancel_deletion(db, message.from_user.id)
+    await message.answer(msg, parse_mode="HTML")
+
+
+@router.message(TextCmd(["восстановить аккаунт", "восстановление аккаунта"]))
+async def cmd_restore_account(message: types.Message, db):
+    ok, msg = await _acc_svc.restore_account(db, message.from_user.id)
+    await message.answer(
+        msg + ("\n<i>Профиль: <code>бот я</code> · Сайт: <code>бот сайт</code></i>" if ok else ""),
+        parse_mode="HTML")

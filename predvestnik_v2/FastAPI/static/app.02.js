@@ -146,9 +146,67 @@ function openSettingsModal(){
     <div class="set-sec-t" style="margin-top:14px">Юридические документы</div>
     <button class="btn btn-ghost btn-full" onclick="openLegalDoc('tos')">📖 Пользовательское соглашение</button>
     <button class="btn btn-ghost btn-full" style="margin-top:7px" onclick="openLegalDoc('privacy')">🔒 Политика конфиденциальности</button>
-    <div class="set-hint">Документы также доступны по прямой ссылке и в боте.</div>`,
+    <div class="set-hint">Документы также доступны по прямой ссылке и в боте.</div>
+    <div class="set-sec-t" style="margin-top:14px">👤 Аккаунт</div>
+    <div id="set-account"><div class="loader">Загрузка...</div></div>`,
     [{l:'Готово',c:'btn-gold',f:'CM()'}]);
   _loadNotifPrefs();
+  _loadAccountSection();
+}
+// admin_audit C1b: авто-удаление за неактив + самоудаление с тройной защитой
+function _loadAccountSection(){
+  const box=el('set-account'); if(!box) return;
+  api('/account/deletion-status').then(d=>{
+    const days=d.delete_after_days||365;
+    const proc=d.process_status;
+    let procHtml='';
+    if(proc==='confirming') procHtml=`<div class="set-hint" style="color:var(--gold2)">⏳ Ожидается код из ЛС бота.</div>
+      <button class="btn btn-teal btn-full" onclick="_accCancel()">↩ Отменить процесс</button>`;
+    if(proc==='cooling') procHtml=`<div class="set-hint" style="color:var(--red)">⏳ Удаление запланировано — период «остывания».</div>
+      <button class="btn btn-teal btn-full" onclick="_accCancel()">↩ Отменить удаление</button>`;
+    box.innerHTML=`
+      <div style="font-size:12px;margin-bottom:4px">Удалять аккаунт после неактива:</div>
+      <select class="num-input" style="margin:0 0 4px" onchange="_accSetInactivity(this.value)">
+        <option value="180" ${days===180?'selected':''}>6 месяцев</option>
+        <option value="365" ${days===365?'selected':''}>1 год (по умолчанию)</option>
+        <option value="730" ${days===730?'selected':''}>2 года</option>
+      </select>
+      <div class="set-hint">За 14 дней до срока придёт предупреждение в ЛС; любое сообщение в чате отменяет отсчёт. После удаления — 14 дней на восстановление.</div>
+      ${procHtml||`<button class="btn btn-ghost btn-full" style="margin-top:6px;color:var(--red)" onclick="_accDeleteStart()">🗑 Удалить аккаунт…</button>`}`;
+  }).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
+}
+function _accSetInactivity(v){
+  api('/account/set-inactivity',{method:'POST',body:JSON.stringify({days:parseInt(v,10)})})
+    .then(r=>toast(r.message||'✅')).catch(e=>toast(e,false));
+}
+function _accDeleteStart(){
+  OM('🗑 Удаление аккаунта — шаг 1 из 3',
+    `<div style="font-size:12px;color:var(--muted);line-height:1.5;padding:6px 0">
+      Будут удалены: питомцы, инвентарь, косметика, балансы, прогресс.<br>
+      <b>14 дней</b> после удаления всё можно вернуть («бот восстановить аккаунт»).<br><br>
+      Сейчас в <b>ЛС бота</b> придёт код подтверждения.</div>`,
+    [{l:'📨 Получить код',c:'btn-red',f:'_accDeleteRequest()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _accDeleteRequest(){
+  api('/account/delete/request',{method:'POST'}).then(()=>{
+    OM('🗑 Удаление — шаг 2 из 3',
+      `<div style="font-size:12px;color:var(--muted);padding:4px 0">Код отправлен в ЛС бота.</div>
+       <input id="acc-del-code" class="num-input" inputmode="numeric" style="margin:6px 0" placeholder="Код из ЛС (6 цифр)"/>
+       <input id="acc-del-phrase" class="num-input" style="margin:0 0 4px" placeholder="Введите вручную: УДАЛИТЬ АККАУНТ"/>
+       <div class="set-hint">Шаг 3 — автоматический: 24 часа «остывания», в течение которых удаление можно отменить (в ЛС придёт напоминание как).</div>`,
+      [{l:'Подтвердить удаление',c:'btn-red',f:'_accDeleteConfirm()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+  }).catch(e=>toast(e,false));
+}
+function _accDeleteConfirm(){
+  const code=el('acc-del-code')?.value.trim(), phrase=el('acc-del-phrase')?.value.trim();
+  api('/account/delete/confirm',{method:'POST',body:JSON.stringify({code,phrase})})
+    .then(r=>{toast(r.message||'⏳ Запланировано');CM();})
+    .catch(e=>toast(e,false));
+}
+function _accCancel(){
+  api('/account/delete/cancel',{method:'POST'})
+    .then(r=>{toast(r.message||'✅ Отменено');_loadAccountSection();})
+    .catch(e=>toast(e,false));
 }
 // R6 «Умный Пульс»: тумблеры персональных DM-уведомлений (раньше их нельзя было
 // отключить нигде — БЛОК 36.1)
