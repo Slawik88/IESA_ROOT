@@ -729,10 +729,11 @@ GATES2_DARK_MORA_BASE: int = 3                # награда = BASE + PER_FLOO
 GATES2_DARK_MORA_PER_FLOOR: int = 2
 GATES2_SHARD_CHANCE: float = 0.20             # шанс 1–3 💠 Осколков Бездны лично
 
-# Рейды клана (замена PvP): босс с HP, пороги наград, контр-урон питомцу.
+# Рейды клана (замена PvP): босс с HP, контр-урон питомцу.
+# (RAID_THRESHOLDS удалены 2026-07-07 — промежуточные оповещения «босс на 50%»
+#  так и не были реализованы, константа нигде не читалась.)
 RAID_BOSS_HP_PER_MEMBER: int = 1500           # запас HP босса на участника клана
 RAID_BOSS_COUNTER_FRAC: float = 0.12          # контр-урон питомцу = доля его атаки по боссу
-RAID_THRESHOLDS: tuple = (75, 50, 25, 0)      # пороги % HP босса для наград
 RAID_DURATION_HOURS: int = 48                 # окно рейда
 RAID_ATTACK_COOLDOWN_MIN: int = 30            # КД атаки одним питомцем (анти-спам)
 

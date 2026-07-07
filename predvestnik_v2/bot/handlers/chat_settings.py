@@ -239,7 +239,9 @@ async def cb_toggle_setting(query: types.CallbackQuery, callback_data: ChatSetti
 
 # ── Timezone command ─────────────────────────────────────────────────────────
 
-@router.message(TextCmd(["часовой пояс", "timezone", "часовойпояс"]))
+@router.message(TextCmd(["часовой пояс", "timezone", "часовойпояс",
+                         # алиасы из удалённого дубль-хендлера routing.py (БЛОК 36.4)
+                         "часовой пояс чата", "timezone чата", "пояс чата"]))
 async def cmd_set_timezone(message: types.Message, db, developer_id: int = 0, text_args: str = None):
     """бот часовой пояс        → показать текущий
     бот часовой пояс, +3   → установить UTC+3

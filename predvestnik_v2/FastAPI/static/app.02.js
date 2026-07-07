@@ -403,10 +403,13 @@ function _handleStartParam(){
   if(base==='cosmetics'||base==='looks'){ run(()=>openLooksModal()); return; }
   if(base==='exchange'||base==='exch'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('exch')}catch(e){}},220); }); return; }
   if(base==='crypto'||base==='birzha'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('crypto')}catch(e){}},220); }); return; }
+  // БЛОК 36.1: «бот уведомления» раньше вёл на голую вкладку профиля — теперь
+  // сразу открывает «⚙️ Настройки» с чекбоксами уведомлений.
+  if(base==='notifications'||base==='notifprefs'){ run(()=>{ switchPage('profile'); setTimeout(()=>{try{openSettingsModal()}catch(e){}},260); }); return; }
   const M={ shop:['market','goods'],goods:['market','goods'],gacha:['market','gacha'],deal:['market','deal'],
     vip:['market','vip'],themes:['profile','themes'],craft:['craft'],inventory:['profile','inv'],inv:['profile','inv'],
     quests:['quests'],ach:['ach'],achievements:['ach'],zoo:['zoo'],pets:['zoo'],bp:['bp'],auction:['auction'],
-    arena:['arena'],games:['arena','games'],casino:['arena','games'],relics:['market'],notifications:['profile'] };
+    arena:['arena'],games:['arena','games'],casino:['arena','games'],relics:['market'] };
   const t=M[base]; if(t) run(()=>goTo(t[0],t[1]));
 }
 if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}

@@ -490,6 +490,19 @@ async def _render_full_profile(
     hamster_inc    = await zoo_db.get_pending_hamster_income(db, user_id)
     ach_count      = await ach_repo.get_user_achievements_count(db, user_id)
 
+    # Глобальная санкция — унификация с «бот инфо/досье» (раньше «я/кто» её не
+    # показывал вообще, GAME_BIBLE «Известные проблемы» №18): строка под карточкой.
+    sanction_note = ""
+    from infrastructure.repositories import global_moderation as _gmod_repo
+    from services.global_moderation import SANCTION_LABELS as _S_LABELS
+    _sanc = await _gmod_repo.get_active_restriction(db, "user", user_id)
+    if _sanc:
+        _s_label = _S_LABELS.get(_sanc["sanction_type"], _sanc["sanction_type"])
+        _s_until = ("бессрочно" if not _sanc.get("expires_at")
+                    else f"до {_sanc['expires_at']:%d.%m.%Y}")
+        _s_icon = "🔨" if _sanc["sanction_type"] == "ban" else "⚠️"
+        sanction_note = f"\n{_s_icon} <b>Глобальная санкция:</b> {_s_label} ({_s_until})"
+
     await zoo_db.apply_fatigue_decay(db, user_id)
 
     from infrastructure.repositories.themes import get_active_theme
@@ -585,7 +598,7 @@ async def _render_full_profile(
             override_raw_text=override_raw,
         )
         if premium_text:
-            return premium_text, "HTML"
+            return premium_text + sanction_note, "HTML"
 
     name_block = _build_name_lines(name, g_rank, l_rank, join_str, t_accent, t_side, P)
     pets_str   = _pets_block(nursery_pets, P)
@@ -647,7 +660,7 @@ async def _render_full_profile(
             + tail
         )
 
-    return text, "HTML"
+    return text + sanction_note, "HTML"
 
 
 @router.message(TextCmd(["я", "профиль", "стата", "стат", "мой профиль"]))

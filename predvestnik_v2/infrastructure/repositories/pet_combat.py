@@ -38,7 +38,7 @@ async def ensure_tables(db) -> None:
             raid_id SERIAL PRIMARY KEY, clan_id INTEGER NOT NULL, boss_name TEXT NOT NULL,
             boss_emoji TEXT DEFAULT '👹', hp FLOAT8 NOT NULL, hp_max FLOAT8 NOT NULL,
             status TEXT DEFAULT 'active', started_at TIMESTAMP DEFAULT NOW(),
-            ends_at TIMESTAMP NOT NULL, last_threshold INTEGER DEFAULT 100
+            ends_at TIMESTAMP NOT NULL
         )
     """)
     await db.execute("""

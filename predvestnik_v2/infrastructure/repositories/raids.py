@@ -17,6 +17,18 @@ _BOSSES = [
 ]
 
 
+async def close_expired(db) -> int:
+    """Просроченные рейды (окно 48ч истекло, босс жив) → status='expired', наград нет.
+    Раньше такие рейды зависали 'active' навсегда и блокировали запуск нового
+    («У клана уже идёт рейд» без возможности отменить) — БЛОК 36.4."""
+    async with db.execute(
+        "UPDATE clan_raids SET status = 'expired' "
+        "WHERE status = 'active' AND ends_at <= NOW() RETURNING raid_id"
+    ) as c:
+        rows = await c.fetchall()
+    return len(rows)
+
+
 async def _clan_id(db, user_id):
     clan = await clans_repo.get_user_clan(db, user_id)
     return clan["clan_id"] if clan else None, clan

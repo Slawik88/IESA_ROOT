@@ -6,7 +6,7 @@ import random
 
 from core.constants import (
     RARITY_POWER, DUEL_COMMISSION, DUEL_PET_FATIGUE_COST,
-    DUEL_COOLDOWN_HOURS,
+    DUEL_COOLDOWN_HOURS, DUEL_MIN_BET, DUEL_MAX_BET,
 )
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.duel import (
@@ -31,6 +31,12 @@ async def create_challenge(
     """Reserve challenger's stake and create a pending duel.
     Returns (True, {duel_id, ...}) or (False, error_str)."""
     from datetime import datetime, timedelta
+
+    # Границы ставки — в сервисном слое (единый источник для бота и сайта).
+    # Раньше проверялись только в мёртвом bot/handlers/duel.py — вызов с сайта
+    # полностью обходил лимиты (БЛОК 36 / GAME_BIBLE «Известные проблемы» №6).
+    if not (DUEL_MIN_BET <= stake <= DUEL_MAX_BET):
+        return False, f"Ставка дуэли: от {int(DUEL_MIN_BET)} до {int(DUEL_MAX_BET)} 🪙."
 
     # Check cooldown
     last = await get_cooldown(db, challenger_id, challenged_id)

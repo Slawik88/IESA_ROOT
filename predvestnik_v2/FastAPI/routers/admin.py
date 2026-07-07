@@ -269,8 +269,10 @@ async def admin_update_settings(
     db=Depends(get_db), user=Depends(require_tg_user)
 ):
     actor_rank = await _require_admin(db, user["id"], chat_id)
-    if actor_rank < 4:
-        raise HTTPException(403, "Требуется ранг Старший Админ (4) для изменения настроек.")
+    # Выравнивание с ботом (БЛОК 36.2): вход в «бот настройки чата» требует ранг 5 —
+    # сайт разрешал сохранение с 4, игрок с рангом 4 менял настройки, не видя их в боте.
+    if actor_rank < 5:
+        raise HTTPException(403, "Требуется ранг Совладелец (5) для изменения настроек.")
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
     if not updates:
         return {"ok": True}

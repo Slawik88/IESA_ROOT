@@ -1,3 +1,7 @@
+# DEPRECATED — МЁРТВЫЙ КОД (БЛОК19 «Web First»): роутер этого файла НЕ зарегистрирован
+# в bot/handlers/__init__.py::main_router — ни одна команда/кнопка отсюда не выполняется.
+# Механика живёт в мини-аппе (FastAPI/), чат-алиасы ловит web_redirect.py.
+# Файл оставлен как референс. НЕ подключать без ревизии: тексты/поля могли устареть.
 """bot/handlers/craft.py — Crafting UI."""
 from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
