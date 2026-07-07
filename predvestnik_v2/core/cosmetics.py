@@ -21,8 +21,10 @@ source: "shop" | "vip" (также даётся при активации VIP, �
   13 предметов переведены в "shop" — БЛОК 39.)
 
 ID: строгий формат cos_{slot}_{имя} (рефакторинг 2026-07-07, БЛОК 39).
-  Старые ID в БД игроков мигрируются scripts/migrate_cosmetics_ids.py —
-  скрипт гонять на проде ДО перезапуска кода с этим файлом.
+  Старые ID в БД игроков мигрируются АВТОМАТИЧЕСКИ при старте процесса
+  (services/cosmetics.migrate_legacy_ids, one-shot через schema_migrations) —
+  после прод-инцидента 2026-07-08, когда деплой без ручного прогона скрипта
+  «спрятал» оплаченную косметику. Ручной скрипт остаётся: scripts/migrate_cosmetics_ids.py.
 
 vip_required: НЕ блокирует ПОКУПКУ. Управляет только is_vip_locked() — показывается
   ли предмет без VIP. Покупателю без VIP показывается предупреждение.
@@ -600,3 +602,89 @@ WELCOME_ANIMATIONS: dict[str, dict] = {
 def welcome_animation(anim_id: str) -> dict | None:
     """Запись приветственной анимации по id (или None)."""
     return WELCOME_ANIMATIONS.get(anim_id)
+
+
+# ── БЛОК 39 hotfix: маппинг старых ID → новые (cos_{slot}_{name}) ────────────
+# Единый источник для scripts/migrate_cosmetics_ids.py и авто-миграции на старте
+# (services/cosmetics.migrate_legacy_ids). У игроков в БД могли остаться старые
+# ID (купленная косметика «пропала» после деплоя без прогона скрипта) — стартовая
+# миграция возвращает всё сама, без ручных действий на проде.
+COSMETIC_LEGACY_ID_MAP: dict[str, str] = {
+    "glow_silver": "cos_name_glow_silver",
+    "glow_gold": "cos_name_glow_gold",
+    "glow_crimson": "cos_name_glow_crimson",
+    "glow_ember": "cos_name_glow_ember",
+    "glow_prism": "cos_name_glow_prism",
+    "glow_rift": "cos_name_glow_rift",
+    "frame_bronze": "cos_avatar_frame_bronze",
+    "frame_neon": "cos_avatar_frame_neon",
+    "frame_abyss": "cos_avatar_frame_abyss",
+    "frame_iron": "cos_avatar_frame_iron",
+    "frame_celestial": "cos_avatar_frame_celestial",
+    "frame_omen": "cos_avatar_frame_omen",
+    "title_wanderer": "cos_title_wanderer",
+    "title_patron": "cos_title_patron",
+    "title_abysswalker": "cos_title_abysswalker",
+    "title_legend": "cos_title_legend",
+    "title_omen": "cos_title_omen",
+    "halo_glow": "cos_avatar_halo_glow",
+    "halo_pulse": "cos_avatar_halo_pulse",
+    "halo_runic": "cos_avatar_halo_runic",
+    "halo_aurora": "cos_avatar_halo_aurora",
+    "halo_celestial": "cos_avatar_halo_celestial",
+    "halo_void": "cos_avatar_halo_void",
+    "pbg_carbon": "cos_profile_bg_carbon",
+    "pbg_nebula": "cos_profile_bg_nebula",
+    "pbg_abyss": "cos_profile_bg_abyss",
+    "pbg_forest": "cos_profile_bg_forest",
+    "pbg_ocean": "cos_profile_bg_ocean",
+    "pbg_ember": "cos_profile_bg_ember",
+    "pbg_galaxy": "cos_profile_bg_galaxy",
+    "pbg_dusk": "cos_profile_bg_dusk",
+    "pbg_royal": "cos_profile_bg_royal",
+    "pbg_sunrise": "cos_profile_bg_sunrise",
+    "pbg_legend": "cos_profile_bg_legend",
+    "cfx_sparks": "cos_card_fx_sparks",
+    "cfx_snow": "cos_card_fx_snow",
+    "cfx_petals": "cos_card_fx_petals",
+    "cfx_embers": "cos_card_fx_embers",
+    "cfx_stars": "cos_card_fx_stars",
+    "cfx_fireflies": "cos_card_fx_fireflies",
+    "cfx_void_storm": "cos_card_fx_void_storm",
+    "glow_frost": "cos_name_glow_frost",
+    "glow_thunder": "cos_name_glow_thunder",
+    "glow_solar": "cos_name_glow_solar",
+    "frame_crystal": "cos_avatar_frame_crystal",
+    "frame_arcane": "cos_avatar_frame_arcane",
+    "frame_inferno": "cos_avatar_frame_inferno",
+    "halo_ice": "cos_avatar_halo_ice",
+    "halo_corona": "cos_avatar_halo_corona",
+    "pbg_midnight": "cos_profile_bg_midnight",
+    "pbg_crimson": "cos_profile_bg_crimson",
+    "pbg_void_dark": "cos_profile_bg_void_dark",
+    "pbg_aurora": "cos_profile_bg_aurora",
+    "cfx_dust": "cos_card_fx_dust",
+    "cfx_nova": "cos_card_fx_nova",
+    "title_sentinel": "cos_title_sentinel",
+    "title_rift_walker": "cos_title_rift_walker",
+    "title_apex": "cos_title_apex",
+    "title_harbinger": "cos_title_harbinger",
+    "glow_moon": "cos_name_glow_moon",
+    "glow_verdant": "cos_name_glow_verdant",
+    "glow_void": "cos_name_glow_void",
+    "frame_oak": "cos_avatar_frame_oak",
+    "frame_tidal": "cos_avatar_frame_tidal",
+    "frame_void": "cos_avatar_frame_void",
+    "title_novice": "cos_title_novice",
+    "title_keeper": "cos_title_keeper",
+    "title_ember_born": "cos_title_ember_born",
+    "halo_dust": "cos_avatar_halo_dust",
+    "halo_thorn": "cos_avatar_halo_thorn",
+    "halo_eclipse": "cos_avatar_halo_eclipse",
+    "pbg_amber": "cos_profile_bg_amber",
+    "pbg_phoenix": "cos_profile_bg_phoenix",
+    "pbg_starfall": "cos_profile_bg_starfall",
+    "cfx_leaves": "cos_card_fx_leaves",
+    "cfx_moths": "cos_card_fx_moths",
+    "cfx_eclipse_ash": "cos_card_fx_eclipse_ash",
+}
