@@ -1416,6 +1416,14 @@ async def init_db():
         _conv = await _mig_coins(_PGAdapter(db), CLAN_COINS_TO_SHARDS)
         if _conv:
             logger.info(f"R3: клан-монеты сконвертированы в 💠 у {_conv} игроков")
+        # R4.2/R7 HOTFIX: витрина недели + мини-игры. Эти ensure есть в
+        # lifespan веба, но на проде он может не отработать (логи 2026-07-08:
+        # relation "weekly_showcase"/"minigame_sessions" does not exist → 500).
+        # Бот-процесс — единственный гарантированный создатель схемы.
+        from infrastructure.repositories.showcase import ensure_tables as _ensure_showcase
+        from infrastructure.repositories.minigames import ensure_table as _ensure_minigames
+        await _ensure_showcase(_PGAdapter(db))
+        await _ensure_minigames(_PGAdapter(db))
         # БЛОК 39 HOTFIX: авто-миграция старых ID косметики (one-shot через
         # schema_migrations) — возвращает игрокам оплаченную косметику, если
         # деплой произошёл без ручного прогона scripts/migrate_cosmetics_ids.py
