@@ -1,14 +1,14 @@
 # infrastructure/repositories/raids.py — БЛОК19 Ч.6: клановые рейды (замена PvP).
-# Лидер запускает рейд (босс с HP). Участники бьют боевыми питомцами: питомец наносит
-# урон боссу и получает контр-урон (теряет HP). Победа → награды по доле урона + клан-XP.
+# Боёвка 3.0: участники бьют ОТРЯДОМ юнитов из Казармы (урон = Σ атаки × 1.5),
+# без контр-урона — юниты не имеют персистентного HP. КД атаки прежний.
+# Победа → награды по доле урона + клан-XP.
 import random
 import time
 
 from core.constants import (
-    RAID_BOSS_HP_PER_MEMBER, RAID_BOSS_COUNTER_FRAC, RAID_DURATION_HOURS,
+    RAID_BOSS_HP_PER_MEMBER, RAID_DURATION_HOURS,
     RAID_ATTACK_COOLDOWN_MIN,
 )
-from infrastructure.repositories import pet_combat as combat_repo
 from infrastructure.repositories import clans as clans_repo
 
 _BOSSES = [
@@ -89,7 +89,7 @@ async def start(db, user_id: int) -> tuple[bool, str]:
         return False, f"Ошибка: {e}"
 
 
-async def attack(db, user_id: int, pet_id: int) -> tuple[bool, str]:
+async def attack(db, user_id: int) -> tuple[bool, str]:
     try:
         async with db.connection.transaction():
             cid, clan = await _clan_id(db, user_id)
@@ -112,25 +112,16 @@ async def attack(db, user_id: int, pet_id: int) -> tuple[bool, str]:
             now = time.time()
             if lr and lr[0] and (now - lr[0]) < RAID_ATTACK_COOLDOWN_MIN * 60:
                 left = int((RAID_ATTACK_COOLDOWN_MIN * 60 - (now - lr[0])) / 60) + 1
-                return False, f"Питомец переводит дух. До следующей атаки ~{left} мин."
-            # питомец (не во Вратах/экспедиции)
-            async with db.execute("SELECT 1 FROM shadow_gate_runs WHERE pet_id = ?", (pet_id,)) as c:
-                if await c.fetchone():
-                    return False, "Питомец во Вратах."
-            async with db.execute("SELECT 1 FROM active_expeditions WHERE pet_id = ?", (pet_id,)) as c:
-                if await c.fetchone():
-                    return False, "Питомец в экспедиции."
-            st = await combat_repo.lock_state(db, pet_id, owner_id=user_id)
-            if not st:
-                return False, "Питомец не найден."
-            if st["hp"] <= 0:
-                return False, "У питомца 0 HP — вылечи его."
-            dmg = float(st["attack"])
-            counter = max(1.0, dmg * RAID_BOSS_COUNTER_FRAC - st["defense"] * 0.5)
+                return False, f"Отряд переводит дух. До следующей атаки ~{left} мин."
+            # Боёвка 3.0: урон = Σ атаки отряда × 1.5 (юниты без контр-урона)
+            from core.units import unit_stats
+            from services.barracks import squad_units
+            squad = await squad_units(db, user_id)
+            if not squad:
+                return False, "Сначала собери отряд в Казарме (Арена → Казарма)."
+            dmg = round(sum(unit_stats(s["unit_id"], s["level"])["atk"]
+                            for s in squad) * 1.5, 1)
             new_boss = max(0.0, boss_hp - dmg)
-            new_pet_hp = max(0.0, st["hp"] - counter)
-            await combat_repo.persist(db, pet_id, new_pet_hp, st["stamina"], st["hp_max"],
-                                      st["stamina_max"], st["attack"], st["defense"])
             await db.execute("UPDATE clan_raids SET hp = ? WHERE raid_id = ?", (new_boss, rid))
             await db.execute(
                 "INSERT INTO raid_contributions (raid_id, user_id, damage, last_attack_at) "
@@ -145,9 +136,9 @@ async def attack(db, user_id: int, pet_id: int) -> tuple[bool, str]:
             )
             if new_boss <= 0:
                 reward = await _defeat(db, rid, boss_hp_max)
-                return True, f"💥 Урон {dmg:.0f}. БОСС «{boss_name}» ПОВЕРЖЕН! Награды розданы (твоя: +{reward:.0f} 🪙). Питомцу −{counter:.0f} HP."
+                return True, f"💥 Урон {dmg:.0f}. БОСС «{boss_name}» ПОВЕРЖЕН! Награды розданы (твоя: +{reward:.0f} 🪙)."
             pct = int(new_boss / boss_hp_max * 100)
-            return True, f"💥 Урон {dmg:.0f}! Босс: {new_boss:.0f}/{boss_hp_max:.0f} ({pct}%). Питомцу −{counter:.0f} HP."
+            return True, f"💥 Урон {dmg:.0f}! Босс: {new_boss:.0f}/{boss_hp_max:.0f} ({pct}%)."
     except Exception as e:
         return False, f"Ошибка: {e}"
 

@@ -391,7 +391,7 @@ function loadDarkMora() {
 
   el('dkc').innerHTML=`
     <div id="dkc-merchant"></div>
-    <button class="btn btn-full gates-cta" style="margin-bottom:10px" onclick="openShadowGates()">🌑 Теневые Врата — боевой питомец фармит Тёмную Мору ⚔️</button>
+    <button class="btn btn-full gates-cta" style="margin-bottom:10px" onclick="openShadowGates()">🌑 Врата — отряд юнитов фармит Тёмную Мору ⚔️</button>
     <div class="card card-gold">
     <div class="card-title">🌑 Тёмная Мора</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">

@@ -23,7 +23,8 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               events, admin, vip, battle_pass, global_admin,
                               dev_console, payments, relics, cosmetics, clans,
                               combat, legal, analytics as analytics_router, showcase,
-                              skill_games, battle, clans2, dev_overlay, appeals, account)
+                              skill_games, battle, clans2, dev_overlay, appeals, account,
+                              barracks as barracks_router)
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -36,6 +37,7 @@ from infrastructure.repositories.showcase import ensure_tables as ensure_showcas
 from infrastructure.repositories.minigames import ensure_table as ensure_minigames
 from infrastructure.repositories.battles import ensure_table as ensure_battles
 from infrastructure.repositories.clans2 import ensure_tables as ensure_clans2
+from infrastructure.repositories.units import ensure_tables as ensure_units
 from loguru import logger as _log
 
 
@@ -68,6 +70,7 @@ async def lifespan(app: FastAPI):
             (ensure_minigames,               "minigames"),
             (ensure_battles,                 "battles"),
             (ensure_clans2,                  "clans2"),
+            (ensure_units,                   "units"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
@@ -89,7 +92,8 @@ for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           payments.router, relics.router, cosmetics.router,
           clans.router, combat.router, legal.router, notif_router.router,
           analytics_router.router, showcase.router, skill_games.router, battle.router,
-          clans2.router, dev_overlay.router, appeals.router, account.router]:
+          clans2.router, dev_overlay.router, appeals.router, account.router,
+          barracks_router.router]:
     app.include_router(r)
 
 
@@ -209,7 +213,7 @@ def _read_static(name: str) -> str:
 # КРИТИЧНО: части СКЛЕИВАЮТСЯ в ОДИН скрипт и отдаются одним <script>, а НЕ N тегами —
 # top-level let/const классического скрипта живут в ОДНОЙ лексической области, и
 # раздача отдельными тегами сломала бы cross-file ссылки. Порядок = порядок в исходнике.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in range(1, 11)]  # app.01.js … app.10.js
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in range(1, 12)]  # app.01.js … app.11.js
 
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(

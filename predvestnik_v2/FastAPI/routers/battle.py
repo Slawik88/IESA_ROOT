@@ -1,8 +1,9 @@
-"""FastAPI/routers/battle.py — R2: Бой 2.0 + Врата 2.0 (GDD_REBUILD_PLAN.md).
+"""FastAPI/routers/battle.py — Боёвка 3.0 «Руны отряда» (BATTLE_REWORK_CONCEPT.md).
 
-Тонкий адаптер: логика хода/грейдинга — services/battle.py, состояние —
-infrastructure/repositories/battles.py. Бой ТРАТИТ реальные HP/стамину питомца
-(pet_combat.persist после финала) — лечение после боя за 2🪙/HP."""
+Тонкий адаптер: логика — services/battle3.py, состояние — repositories/battles.py.
+Бои идут ОТРЯДОМ юнитов из Казармы (services/barracks.py); мирные питомцы в боях
+не участвуют. У юнитов нет персистентного HP — каждый бой с полными силами.
+"""
 import random
 import time
 
@@ -13,67 +14,85 @@ from FastAPI.deps import get_db, require_tg_user
 from core.constants import (
     GATES2_FLOORS, GATES2_CP_GATE, GATES2_ENTRIES_PER_DAY,
     GATES2_DARK_MORA_BASE, GATES2_DARK_MORA_PER_FLOOR, GATES2_SHARD_CHANCE,
-    BATTLE_HEAL_MORA_PER_HP,
+    UNIT_SHARD_DROP_ABYSS_BOSS, UNIT_SHARD_DROP_GATES, UNIT_SHARD_DROP_GATES_CHANCE,
+    WAR_NODE_SHIELD_HOURS,
 )
+from core.units import UNITS
 from infrastructure.repositories import battles as bt_repo
-from infrastructure.repositories import pet_combat
 from infrastructure.repositories import economy as eco_repo
-from services import battle as bt
+from infrastructure.repositories import units as u_repo
+from services import battle3 as b3
+from services import barracks
+from services.battle import rate_limited
 from services.combat_power import calculate_cp
-from services.pet_combat import stamina_recovery_info
 
-router = APIRouter(prefix="/combat2", tags=["battle2"])
+router = APIRouter(prefix="/combat2", tags=["battle3"])
 
 
 class GatesEnterRequest(BaseModel):
     floor: int
-    pet_id: int
 
 
-class ActionRequest(BaseModel):
+class RoundRequest(BaseModel):
     battle_id: int
-    stance: str
+    order: list[int]
+    targets: dict[str, int] = {}
+
+
+class QteRequest(BaseModel):
+    battle_id: int
     tap_offset_ms: int
 
 
-class HealRequest(BaseModel):
-    pet_id: int
+class UltRequest(BaseModel):
+    battle_id: int
+    unit_i: int
 
+
+class HandRequest(BaseModel):
+    battle_id: int
+    hand_i: int
+
+
+class BattleIdRequest(BaseModel):
+    battle_id: int
+
+
+async def get_active_b3(db, uid: int, mode: str | None = None) -> dict | None:
+    """Активный бой в формате 3.0; старые бои (движок стоек) закрываются молча."""
+    row = await bt_repo.get_active(db, uid, mode)
+    if not row:
+        return None
+    if "ally" not in row["state"]:
+        await bt_repo.finish(db, row["id"], "lost")
+        await db.commit()
+        return None
+    return row
+
+
+# ── Врата ─────────────────────────────────────────────────────────────────────
 
 @router.get("/gates")
 async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Врата 2.0: этажи с CP-гейтом, остаток входов, боевые питомцы, активный бой."""
+    """Врата: этажи с CP-гейтом, входы, отряд из Казармы, активный бой."""
     uid = user["id"]
     cp = (await calculate_cp(db, uid))["total"]
     used = await bt_repo.count_today(db, uid, "gates")
-    async with db.execute(
-        "SELECT id, name, species_id, rarity, COALESCE(pet_level,1) AS pet_level, placement "
-        "FROM pets WHERE owner_id = ? AND COALESCE(placement,'') NOT IN ('auction')",
-        (uid,),
-    ) as c:
-        pet_rows = [dict(r) for r in await c.fetchall()]
-    pets = []
-    for p in pet_rows:
-        st = await pet_combat.get_state(db, p["id"], uid)
-        if st:
-            pets.append({**p, "hp": st["hp"], "hp_max": st["hp_max"],
-                         "stamina": st["stamina"], "alive": st["alive"],
-                         **stamina_recovery_info(st["stamina"], st["stamina_max"])})
-    active = await bt_repo.get_active(db, uid)
-    # БЛОК 13.X: Теневые реликвии дают +% к 🌑 из Врат — display == actual
-    from infrastructure.repositories.shadow_merchant import get_gates_dark_bonus
-    _sr_bonus = await get_gates_dark_bonus(db, uid)
+    squad = await barracks.squad_units(db, uid)
+    active = await get_active_b3(db, uid)
     return {
         "cp": cp,
         "entries_left": max(0, GATES2_ENTRIES_PER_DAY - used),
         "floors": [{"floor": f, "cp_gate": GATES2_CP_GATE[f], "open": cp >= GATES2_CP_GATE[f],
-                    "waves": bt.gates_waves(f),
-                    "reward_dark": int((GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * f)
-                                       * (1 + _sr_bonus))}
+                    "enemies": 2 if f <= 2 else 3,
+                    "reward_dark": GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * f,
+                    "unit_shards": f >= 5}
                    for f in range(1, GATES2_FLOORS + 1)],
-        "pets": pets,
-        "active_battle": bt.public_state(active["state"], active["id"]) if active else None,
-        "heal_price_per_hp": BATTLE_HEAL_MORA_PER_HP,
+        "squad": [{"unit_id": s["unit_id"], "level": s["level"], "slot": s["slot"],
+                   "name": UNITS[s["unit_id"]]["name"],
+                   "emoji": UNITS[s["unit_id"]]["emoji"]} for s in squad],
+        "squad_cp": await barracks.squad_cp(db, uid),
+        "active_battle": b3.public_state(active["state"], active["id"]) if active else None,
     }
 
 
@@ -82,7 +101,7 @@ async def gates_enter(body: GatesEnterRequest, db=Depends(get_db), user=Depends(
     uid = user["id"]
     if not (1 <= body.floor <= GATES2_FLOORS):
         raise HTTPException(400, "Нет такого этажа.")
-    if await bt_repo.get_active(db, uid):
+    if await get_active_b3(db, uid):
         raise HTTPException(400, "У тебя уже идёт бой — сначала закончи его.")
     if await bt_repo.count_today(db, uid, "gates") >= GATES2_ENTRIES_PER_DAY:
         raise HTTPException(400, f"Лимит Врат: {GATES2_ENTRIES_PER_DAY} входа в день.")
@@ -90,43 +109,44 @@ async def gates_enter(body: GatesEnterRequest, db=Depends(get_db), user=Depends(
     if cp < GATES2_CP_GATE[body.floor]:
         raise HTTPException(400, f"Этаж {body.floor} требует ⚡ {GATES2_CP_GATE[body.floor]} "
                                  f"Силы (у тебя {cp}).")
-
-    pst = await pet_combat.get_state(db, body.pet_id, uid)
-    if not pst:
-        raise HTTPException(404, "Питомец не найден.")
-    if not pst["alive"]:
-        raise HTTPException(400, "Питомец без сил — сначала вылечи его.")
-    if pst["placement"] in ("auction",):
-        raise HTTPException(400, "Питомец занят.")
-
-    state = bt.new_gates_battle_state(
-        {"rarity": pst["rarity"], "pet_level": pst["level"], "name": pst["name"],
-         "species_id": pst["species_id"]}, body.floor)
-    # Реальные текущие HP/стамина (не паспортный максимум) — бой продолжает их
-    state["pet"]["hp"] = min(int(pst["hp"]), state["pet"]["hp_max"])
-    state["pet"]["st"] = min(int(pst["stamina"]), state["pet"]["st_max"])
-
-    bid = await bt_repo.create(db, uid, body.pet_id, "gates", body.floor, bt.dumps(state))
+    squad = await barracks.squad_units(db, uid)
+    if not squad:
+        raise HTTPException(400, "Сначала собери отряд в Казарме (Арена → Казарма).")
+    state = b3.new_battle_state(squad, b3.gates_enemy_squad(body.floor), "gates",
+                                {"floor": body.floor})
+    bid = await bt_repo.create(db, uid, 0, "gates", body.floor, b3.dumps(state))
     await db.commit()
-    return bt.public_state(state, bid)
+    return b3.public_state(state, bid)
 
 
-async def _persist_pet_after_battle(db, battle_row: dict, state: dict) -> None:
-    """Записать реальные HP/стамину питомца после финала боя."""
-    pst = await pet_combat.get_state(db, battle_row["pet_id"])
-    if not pst:
-        return
-    await pet_combat.persist(
-        db, battle_row["pet_id"],
-        hp=float(state["pet"]["hp"]), stamina=float(state["pet"]["st"]),
-        hp_max=pst["hp_max"], stamina_max=pst["stamina_max"],
-        attack=pst["attack"], defense=pst["defense"],
-    )
+# ── Финализация исходов ───────────────────────────────────────────────────────
+
+async def _gates_reward(db, uid: int, floor: int) -> dict:
+    dark = GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * floor
+    from infrastructure.repositories.shadow_merchant import get_gates_dark_bonus
+    _sr_bonus = await get_gates_dark_bonus(db, uid)
+    if _sr_bonus > 0:
+        dark = int(dark * (1 + _sr_bonus))
+    await db.execute(
+        "UPDATE users SET user_balance_dark_mora = COALESCE(user_balance_dark_mora,0) + ? "
+        "WHERE user_tg_id = ?", (dark, uid))
+    shards = 0
+    if random.random() < GATES2_SHARD_CHANCE:
+        shards = random.randint(1, 3)
+        await eco_repo.add_item(db, uid, "abyss_shard", shards)
+    unit_shards = None
+    if floor >= 5 and random.random() < UNIT_SHARD_DROP_GATES_CHANCE:
+        target = random.choice(list(UNITS))
+        n = random.randint(*UNIT_SHARD_DROP_GATES)
+        await u_repo.add_shards(db, uid, target, n)
+        unit_shards = {"unit_id": target, "name": UNITS[target]["name"],
+                       "emoji": UNITS[target]["emoji"], "n": n}
+    return {"dark_mora": dark, "shards": shards, "unit_shards": unit_shards}
 
 
 async def _abyss_finalize(db, uid: int, user: dict, state: dict, won: bool) -> dict | None:
-    """R3: исход боя за клетку Бездны — при победе клетка открывается, лут
-    сплитится 70/30, босс даёт ключ этажа. При поражении клетка остаётся."""
+    """Исход боя за клетку Бездны: победа открывает клетку, лут 70/30, босс —
+    ключ этажа + таргет-осколки юнита."""
     ab_ctx = state.get("abyss") or {}
     clan_id, wk, cell = ab_ctx.get("clan_id"), ab_ctx.get("week"), ab_ctx.get("cell")
     if not clan_id:
@@ -135,7 +155,7 @@ async def _abyss_finalize(db, uid: int, user: dict, state: dict, won: bool) -> d
     from services import clans2 as c2
     uname = user.get("username") or f"id{uid}"
     if not won:
-        await c2_repo.abyss_log(db, clan_id, uid, f"☠️ @{uname} пал в бою в Бездне")
+        await c2_repo.abyss_log(db, clan_id, uid, f"☠️ Отряд @{uname} пал в Бездне")
         return None
     ab = await c2_repo.get_abyss(db, clan_id, wk)
     if not ab or cell in ab["opened"]:
@@ -146,26 +166,32 @@ async def _abyss_finalize(db, uid: int, user: dict, state: dict, won: bool) -> d
     split = await c2.split_loot(db, clan_id, uid, shards)
     await c2_repo.save_abyss(db, clan_id, wk, ab["opened"],
                              key_found=True if is_boss else None)
+    unit_shards = None
+    if is_boss:
+        target = random.choice(list(UNITS))
+        n = random.randint(*UNIT_SHARD_DROP_ABYSS_BOSS)
+        await u_repo.add_shards(db, uid, target, n)
+        unit_shards = {"unit_id": target, "name": UNITS[target]["name"],
+                       "emoji": UNITS[target]["emoji"], "n": n}
     await c2_repo.abyss_log(
         db, clan_id, uid,
         (f"👑 @{uname} сразил БОССА: +{shards}💠 и ключ этажа!" if is_boss
-         else f"⚔️ @{uname} победил монстра: +{shards}💠"))
-    return {"shards": shards, "split": split, "boss_key": is_boss}
+         else f"⚔️ @{uname} победил монстров: +{shards}💠"))
+    return {"shards": shards, "split": split, "boss_key": is_boss,
+            "unit_shards": unit_shards}
 
 
 async def _war_finalize(db, uid: int, state: dict) -> dict | None:
-    """R3: урон рана засчитывается стене; пробитие → узел переходит атакующим."""
+    """Урон рана засчитывается стене; пробитие → узел переходит атакующим."""
     war_ctx = state.get("war") or {}
     war_id = war_ctx.get("war_id")
     if not war_id:
         return None
     from infrastructure.repositories import clans2 as c2_repo
-    from core.constants import WAR_NODE_SHIELD_HOURS
     dmg = float(state.get("dmg_total", 0))
     if dmg <= 0:
         return {"damage": 0}
     total = await c2_repo.add_war_damage(db, war_id, uid, dmg)
-    war = await c2_repo.get_active_war(db)  # перечитаем по id ниже
     async with db.execute("SELECT * FROM clan_wars2 WHERE id = ?", (war_id,)) as c:
         war = dict(await c.fetchone())
     node = await c2_repo.get_node(db, war["node_id"])
@@ -180,79 +206,131 @@ async def _war_finalize(db, uid: int, state: dict) -> dict | None:
             "wall_hp_max": int(node["wall_hp_max"] or 0), "breached": breached}
 
 
-async def _gates_reward(db, uid: int, floor: int) -> dict:
-    dark = GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * floor
-    # БЛОК 13.X: бонус Теневых реликвий (+2..15% суммарно) — та же формула, что в /gates
-    from infrastructure.repositories.shadow_merchant import get_gates_dark_bonus
-    _sr_bonus = await get_gates_dark_bonus(db, uid)
-    if _sr_bonus > 0:
-        dark = int(dark * (1 + _sr_bonus))
-    await db.execute(
-        "UPDATE users SET user_balance_dark_mora = COALESCE(user_balance_dark_mora,0) + ? "
-        "WHERE user_tg_id = ?", (dark, uid))
-    shards = 0
-    if random.random() < GATES2_SHARD_CHANCE:
-        shards = random.randint(1, 3)
-        await eco_repo.add_item(db, uid, "abyss_shard", shards)
-    return {"dark_mora": dark, "shards": shards}
-
-
-@router.post("/battle/action")
-async def battle_action(body: ActionRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    uid = user["id"]
-    row = await bt_repo.get_active(db, uid)
-    if not row or row["id"] != body.battle_id:
-        raise HTTPException(404, "Бой не найден или уже завершён.")
-    if bt.rate_limited(row.get("last_action_at")):
-        raise HTTPException(429, "Слишком быстро — дождись следующего QTE.")
-    if body.stance not in bt.STANCES:
-        raise HTTPException(400, "Неизвестная стойка.")
-
-    state = row["state"]
-    grade, zs = bt.grade_tap(state.get("qte", {}), body.tap_offset_ms,
-                             int(state.get("zero_streak", 0)))
-    state["zero_streak"] = zs
-    turn = bt.resolve_turn(state, body.stance, grade)
-    state["qte"] = bt.qte_window(int(state.get("floor") or 1))
-
+async def _finalize_if_over(db, uid: int, user: dict, row: dict, state: dict) -> dict | None:
+    """Если бой кончился — статус в БД + награды режима. Возвращает reward|None."""
+    if state.get("status") not in ("won", "lost"):
+        return None
+    won = state["status"] == "won"
+    await bt_repo.finish(db, row["id"], state["status"])
     reward = None
-    if turn["battle_won"] or turn["battle_lost"]:
-        status = "won" if turn["battle_won"] else "lost"
-        await bt_repo.finish(db, row["id"], status)
-        await _persist_pet_after_battle(db, row, state)
-        if turn["battle_won"] and row["mode"] == "gates":
-            reward = await _gates_reward(db, uid, int(row["ref_id"]))
-        elif row["mode"] == "abyss":
-            reward = await _abyss_finalize(db, uid, user, state, turn["battle_won"])
-        elif row["mode"] == "war":
-            reward = await _war_finalize(db, uid, state)
+    if row["mode"] == "gates" and won:
+        reward = await _gates_reward(db, uid, int(row["ref_id"]))
+    elif row["mode"] == "abyss":
+        reward = await _abyss_finalize(db, uid, user, state, won)
+    elif row["mode"] == "war":
+        reward = await _war_finalize(db, uid, state)
+    return reward
+
+
+async def _load_battle(db, uid: int, battle_id: int) -> dict:
+    row = await get_active_b3(db, uid)
+    if not row or row["id"] != battle_id:
+        raise HTTPException(404, "Бой не найден или уже завершён.")
+    return row
+
+
+async def _respond(db, uid: int, user: dict, row: dict, state: dict, extra: dict) -> dict:
+    reward = await _finalize_if_over(db, uid, user, row, state)
+    if state.get("status") in ("won", "lost"):
         await db.commit()
-        return {**bt.public_state(state, row["id"], status), "turn": turn, "reward": reward}
+    else:
+        await bt_repo.save_state(db, row["id"], b3.dumps(state), time.time())
+        await db.commit()
+    return {**b3.public_state(state, row["id"]), **extra, "reward": reward}
 
-    await bt_repo.save_state(db, row["id"], bt.dumps(state), time.time())
-    await db.commit()
-    return {**bt.public_state(state, row["id"]), "turn": turn, "reward": None}
 
+# ── Действия боя ──────────────────────────────────────────────────────────────
 
-@router.post("/heal")
-async def heal_pet(body: HealRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Полное лечение питомца за Мору (BATTLE_HEAL_MORA_PER_HP за 1 HP)."""
+@router.post("/battle/round")
+async def battle_round(body: RoundRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     uid = user["id"]
-    pst = await pet_combat.get_state(db, body.pet_id, uid)
-    if not pst:
-        raise HTTPException(404, "Питомец не найден.")
-    missing = int(pst["hp_max"] - pst["hp"])
-    if missing <= 0:
-        raise HTTPException(400, "Питомец и так здоров.")
-    price = round(missing * BATTLE_HEAL_MORA_PER_HP, 1)
-    bal = await eco_repo.get_balance(db, uid)
-    if float(bal["user_balance_mora"] or 0) < price:
-        raise HTTPException(400, f"Нужно {price:.0f} 🪙 (лечение {missing} HP).")
-    await eco_repo.add_balance(db, uid, mora=-price, source="spend",
-                               note=f"Лечение питомца (+{missing} HP)")
-    await pet_combat.persist(db, body.pet_id, hp=float(pst["hp_max"]),
-                             stamina=float(pst["stamina"]), hp_max=pst["hp_max"],
-                             stamina_max=pst["stamina_max"], attack=pst["attack"],
-                             defense=pst["defense"])
-    await db.commit()
-    return {"ok": True, "healed": missing, "price": price}
+    row = await _load_battle(db, uid, body.battle_id)
+    if rate_limited(row.get("last_action_at")):
+        raise HTTPException(429, "Слишком быстро.")
+    state = row["state"]
+    if state.get("pending"):
+        raise HTTPException(400, "Сначала заверши QTE.")
+    hand_n = len(state.get("hand", []))
+    if sorted(body.order) != list(range(hand_n)):
+        raise HTTPException(400, "Порядок должен включать каждую руну руки один раз.")
+    n_enemy = len(state["enemy"]["units"])
+    targets = {k: v for k, v in (body.targets or {}).items()
+               if isinstance(v, int) and 0 <= v < n_enemy}
+    res = b3.play_round(state, body.order, targets)
+    return await _respond(db, uid, user, row, state, {"turn": res})
+
+
+@router.post("/battle/qte")
+async def battle_qte(body: QteRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    uid = user["id"]
+    row = await _load_battle(db, uid, body.battle_id)
+    state = row["state"]
+    if not state.get("pending"):
+        raise HTTPException(400, "Нет ожидающего QTE.")
+    res = b3.resume_qte(state, body.tap_offset_ms)
+    return await _respond(db, uid, user, row, state, {"turn": res})
+
+
+@router.post("/battle/ult")
+async def battle_ult(body: UltRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    uid = user["id"]
+    row = await _load_battle(db, uid, body.battle_id)
+    state = row["state"]
+    if state.get("pending"):
+        raise HTTPException(400, "Сначала заверши QTE.")
+    a = state["ally"]
+    if a["rage"] < 100:
+        raise HTTPException(400, "Ярость ещё не полна.")
+    if not (0 <= body.unit_i < len(a["units"])) or not a["units"][body.unit_i]["alive"]:
+        raise HTTPException(400, "Юнит недоступен.")
+    res = b3.request_ult(state, body.unit_i)
+    return await _respond(db, uid, user, row, state, {"turn": res})
+
+
+@router.post("/battle/reroll")
+async def battle_reroll(body: HandRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    uid = user["id"]
+    row = await _load_battle(db, uid, body.battle_id)
+    state = row["state"]
+    if state.get("pending"):
+        raise HTTPException(400, "Сначала заверши QTE.")
+    if not b3.reroll_rune(state, body.hand_i):
+        raise HTTPException(400, "Не хватает 🧿 Фокуса или руна недоступна.")
+    return await _respond(db, uid, user, row, state, {})
+
+
+@router.post("/battle/focus-crit")
+async def battle_focus_crit(body: HandRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    uid = user["id"]
+    row = await _load_battle(db, uid, body.battle_id)
+    state = row["state"]
+    if state.get("pending"):
+        raise HTTPException(400, "Сначала заверши QTE.")
+    if not b3.mark_forced_crit(state, body.hand_i):
+        raise HTTPException(400, "Нужно 2 🧿 и руна-атака без метки.")
+    return await _respond(db, uid, user, row, state, {})
+
+
+@router.post("/battle/triad")
+async def battle_triad(body: BattleIdRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    uid = user["id"]
+    row = await _load_battle(db, uid, body.battle_id)
+    state = row["state"]
+    if state.get("pending"):
+        raise HTTPException(400, "Сначала заверши QTE.")
+    if not b3.use_triad(state):
+        raise HTTPException(400, "Триада недоступна (нужны 3 разные стихии, раз в бой).")
+    # триада может добить врагов
+    if not any(u["alive"] for u in state["enemy"]["units"]):
+        state["status"] = "won"
+    return await _respond(db, uid, user, row, state, {})
+
+
+@router.post("/battle/flee")
+async def battle_flee(body: BattleIdRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Сдаться: бой закрывается поражением (награды не начисляются, вход потрачен)."""
+    uid = user["id"]
+    row = await _load_battle(db, uid, body.battle_id)
+    state = row["state"]
+    state["status"] = "lost"
+    return await _respond(db, uid, user, row, state, {})

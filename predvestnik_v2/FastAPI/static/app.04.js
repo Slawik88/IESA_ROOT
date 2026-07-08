@@ -43,15 +43,19 @@ function _renderBestiary() {
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
 
 // ── Arena ─────────────────────────────────────────────────────────────────────
-// ── Arena — только Дуэли + Ивенты. Гача/Крафт/Тёмная/Квесты перенесены в Рынок/Профиль.
-function loadArena(){swArena(_arenaTab,document.querySelector('#pg-arena .tb'));}
+// Боёвка 3.0: Казарма (юниты) + Врата (бои отрядом) + Рейды/Игры/Ивенты.
+const _ARENA_TABS=['barracks','gates','raids','games','events'];
+function loadArena(){
+  const i=Math.max(0,_ARENA_TABS.indexOf(_arenaTab));
+  swArena(_ARENA_TABS[i],document.querySelectorAll('#pg-arena .tb')[i]);
+}
 function swArena(tab,btn) {
   _arenaTab=tab;
   document.querySelectorAll('#pg-arena .tb').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  ['raids','games','events'].forEach(t=>{const e=el('ar-'+t); if(e)e.style.display=t===tab?'':'none';});
+  if(btn)btn.classList.add('active');
+  _ARENA_TABS.forEach(t=>{const e=el('ar-'+t); if(e)e.style.display=t===tab?'':'none';});
   _trackSubtab('arena/'+tab);
-  ({raids:loadRaid,games:loadSkillGames,events:loadEvents}[tab]||loadRaid)();
+  ({barracks:loadBarracks,gates:loadGates,raids:loadRaid,games:loadSkillGames,events:loadEvents}[tab]||loadBarracks)();
 }
 const QUEST_NAMES = {
   msg_15:     {n:'💬 Болтун',         d:'Напиши 15 сообщений в чате'},

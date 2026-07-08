@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
-from infrastructure.repositories.zoo import get_user_pets as _get_pets
+from services.barracks import squad_units as _squad_units
 from services.duel import decline_duel, create_challenge, accept_duel
 
 router = APIRouter(prefix="/duels", tags=["duels"])
@@ -66,12 +66,9 @@ async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(req
     if target[0] == user["id"]:
         raise HTTPException(400, "Нельзя вызвать самого себя.")
 
-    # Must match the bot's selection (placement="active") — otherwise a duel
-    # started from the site could fight with the player's *passive* pet
-    # instead of the battle pet shown as "active" on their profile.
-    my_pets = await _get_pets(db, user["id"], placement="active")
-    if not my_pets:
-        raise HTTPException(400, "Нет активного питомца! Назначьте его в Зоопарке.")
+    # Боёвка 3.0: дуэль идёт отрядами юнитов из Казармы
+    if not await _squad_units(db, user["id"]):
+        raise HTTPException(400, "Нет отряда! Собери его в Казарме (Арена → Казарма).")
 
     # Fetch challenger's own username for notifications
     async with db.execute(
@@ -80,9 +77,8 @@ async def challenge(body: ChallengeRequest, db=Depends(get_db), user=Depends(req
         challenger_row = await c.fetchone()
     challenger_name = (challenger_row[0] or f"user_{user['id']}") if challenger_row else f"user_{user['id']}"
 
-    pet = my_pets[0]
     ok, result = await create_challenge(
-        db, user["id"], target[0], body.chat_id, body.stake, pet
+        db, user["id"], target[0], body.chat_id, body.stake
     )
     if not ok:
         raise HTTPException(400, str(result))
@@ -147,15 +143,12 @@ async def accept(body: AcceptRequest, db=Depends(get_db), user=Depends(require_t
     if not duel or duel["challenged_id"] != user["id"]:
         raise HTTPException(404, "Вызов не найден или уже недоступен.")
 
-    # Must match the bot's selection (placement="active") — otherwise a duel
-    # accepted from the site could fight with the player's *passive* pet
-    # instead of the battle pet shown as "active" on their profile.
-    my_pets = await _get_pets(db, user["id"], placement="active")
-    if not my_pets:
-        raise HTTPException(400, "Нет активного питомца! Назначьте его в Зоопарке.")
+    # Боёвка 3.0: сила считается от отряда Казармы (без отряда — базовый минимум,
+    # но честно предупредим)
+    if not await _squad_units(db, user["id"]):
+        raise HTTPException(400, "Нет отряда! Собери его в Казарме (Арена → Казарма).")
 
-    challenged_pet = my_pets[0]
-    ok, result = await accept_duel(db, body.duel_id, challenged_pet)
+    ok, result = await accept_duel(db, body.duel_id)
     if not ok:
         raise HTTPException(400, str(result))
     await db.commit()

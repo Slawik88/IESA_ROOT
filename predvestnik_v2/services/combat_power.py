@@ -1,18 +1,21 @@
 # services/combat_power.py — R1: Индекс Силы (⚡ CP), GDD_REBUILD_PLAN.md.
 #
-# CP — публичный «паспортный» показатель силы аккаунта:
-#   уровень×100 + CP актив-питомца + 0.5×Σ CP пассивных + сет косметики + реликвии.
-# Складские/аукционные питомцы CP не дают. Усталость НЕ учитывается (это паспорт,
-# не боеготовность). Питомцовый CP выводится из тех же COMBAT_BASE_*-статов,
-# что и Боёвка — единый источник силы.
+# Боёвка 3.0: CP — публичный «паспортный» показатель силы аккаунта:
+#   уровень×100 + Σ CP юнитов отряда + 0.25×Σ CP юнитов вне отряда
+#   + 0.1×Σ pet_cp мирной коллекции + сет косметики + реликвии.
+# Мирные питомцы больше не сражаются, но коллекция даёт маленький пассивный
+# бонус (не обесценивать прокачанное). pet_cp сохранён для этого бонуса
+# и для одноразовой компенсации (services/barracks.py).
 from core.constants import (
     COMBAT_BASE_HP, COMBAT_BASE_STAMINA, COMBAT_BASE_ATK, COMBAT_BASE_DEF,
     COMBAT_LEVEL_SCALE,
-    CP_PER_ACCOUNT_LEVEL, CP_PASSIVE_PET_SCALE, CP_PET_WEIGHTS,
+    CP_PER_ACCOUNT_LEVEL, CP_PET_WEIGHTS,
     CP_PER_RELIC_POWER, CP_COSMETIC_SET_BONUS,
+    CP_UNIT_RESERVE_SCALE, CP_PET_COLLECTION_SCALE,
 )
 from core.registry import RELICS, RELIC_RARITY_META
 from core.cosmetics import COSMETICS, COSMETIC_SLOTS, RARITY_ORDER
+from core.units import unit_cp
 
 
 def pet_cp(rarity: str, level: int) -> int:
@@ -46,27 +49,41 @@ def _cosmetic_set_bonus(equipped: dict) -> int:
 
 async def calculate_cp(db, user_id: int) -> dict:
     """Полный расчёт CP с брейкдауном (для модалки «откуда цифра»).
-    Возвращает {total, level_part, active_pet, passive_pets, cosmetics_set, relics}."""
+    Возвращает {total, level_part, squad_units, reserve_units, pet_collection,
+    cosmetics_set, relics} (+легаси-ключи active_pet/passive_pets для фронта)."""
     from infrastructure.repositories import users as users_repo
+    from infrastructure.repositories import units as u_repo
     from services.leveling import account_progress
 
     acc = await users_repo.get_account_progress(db, user_id)
     level = account_progress(acc.get("account_xp", 0))["level"]
     level_part = level * CP_PER_ACCOUNT_LEVEL
 
-    active_part = 0
-    passive_part = 0.0
+    # Боёвка 3.0: юниты (отряд — полностью, резерв — частично)
+    squad_part = 0
+    reserve_part = 0.0
+    try:
+        squad_ids = set((await u_repo.get_squad(db, user_id)).values())
+        for r in await u_repo.get_units(db, user_id):
+            if int(r["level"]) < 1:
+                continue
+            cp = unit_cp(r["unit_id"], int(r["level"]))
+            if r["unit_id"] in squad_ids:
+                squad_part += cp
+            else:
+                reserve_part += cp * CP_UNIT_RESERVE_SCALE
+    except Exception:
+        pass  # таблиц ещё нет (первый старт до init_db)
+
+    # Мирная коллекция: маленький пассивный бонус
+    collection_part = 0.0
     async with db.execute(
-        "SELECT rarity, COALESCE(pet_level, 1) AS pet_level, placement "
+        "SELECT rarity, COALESCE(pet_level, 1) AS pet_level "
         "FROM pets WHERE owner_id = ? AND placement IN ('active', 'passive')",
         (user_id,),
     ) as c:
         for row in await c.fetchall():
-            cp = pet_cp(row["rarity"], row["pet_level"])
-            if row["placement"] == "active":
-                active_part += cp
-            else:
-                passive_part += cp * CP_PASSIVE_PET_SCALE
+            collection_part += pet_cp(row["rarity"], row["pet_level"]) * CP_PET_COLLECTION_SCALE
 
     async with db.execute(
         "SELECT slot, cosmetic_id FROM user_cosmetic_loadout WHERE user_id = ?",
@@ -85,12 +102,17 @@ async def calculate_cp(db, user_id: int) -> dict:
                 relic_power += RELIC_RARITY_META.get(relic["rarity"], {}).get("power", 0)
     relic_part = relic_power * CP_PER_RELIC_POWER
 
-    total = int(round(level_part + active_part + passive_part + set_part + relic_part))
+    total = int(round(level_part + squad_part + reserve_part + collection_part
+                      + set_part + relic_part))
     return {
         "total": total,
         "level_part": level_part,
-        "active_pet": int(active_part),
-        "passive_pets": int(round(passive_part)),
+        "squad_units": int(squad_part),
+        "reserve_units": int(round(reserve_part)),
+        "pet_collection": int(round(collection_part)),
+        # легаси-ключи (старый фронт показывал питомцев) — теперь юниты/коллекция
+        "active_pet": int(squad_part),
+        "passive_pets": int(round(reserve_part + collection_part)),
         "cosmetics_set": set_part,
         "relics": relic_part,
     }

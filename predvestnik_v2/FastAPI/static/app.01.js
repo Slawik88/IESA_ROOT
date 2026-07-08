@@ -34,9 +34,9 @@ const _urlChatId = parseInt(new URLSearchParams(location.search).get('chat_id') 
 const _initChatId = _urlChatId || _tgChat?.id || 0;   // primary chat_id for local data
 const _initChatTitle = _tgChat?.title || '';
 
-// _arenaTab: дефолт 'raids' — вкладки «duels» в Арене больше нет (GAME_BIBLE
+// _arenaTab: дефолт 'barracks' (Боёвка 3.0) — вкладки «duels» в Арене больше нет (GAME_BIBLE
 // находка №8: 'duels' скрывал обе панели при первом открытии Арены)
-let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='raids';
+let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='barracks';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='gacha';
 let _proTab='main', _profileData=null;
 let _achData=null, _achSort='default', _invSearch='', _themeFilter='all';

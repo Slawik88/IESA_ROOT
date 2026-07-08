@@ -787,3 +787,51 @@ ACCOUNT_DELETE_RESTORE_DAYS: int = 14      # окно восстановлени
 ACCOUNT_DELETE_COOLING_HOURS: int = 24     # «остывание» между подтверждением и удалением
 ACCOUNT_DELETE_WARN_DAYS: int = 14         # ЛС-предупреждение до авто-удаления за неактив
 ACCOUNT_DELETE_PHRASE: str = "УДАЛИТЬ АККАУНТ"  # контрольная фраза (ввод вручную)
+
+# ── Боёвка 3.0 «Руны отряда» (BATTLE_REWORK_CONCEPT.md) ───────────────────────
+# Казарма: призыв юнитов за 💠 Осколки Бездны (закрывает валюту-тупик).
+UNIT_SUMMON_COST: int = 25                     # 💠 за один призыв
+UNIT_SUMMON_WEIGHTS: dict = {"rare": 78, "epic": 18, "legendary": 4}
+UNIT_DUP_SHARDS: dict = {"rare": 10, "epic": 15, "legendary": 25}   # дубль → осколки юнита
+UNIT_UNLOCK_SHARDS: dict = {"rare": 20, "epic": 30, "legendary": 50}  # открыть юнита осколками
+# Прокачка уровня N: осколки юнита + 🪙 Мора
+UNIT_LEVEL_SHARDS: dict = {2: 4, 3: 6, 4: 9, 5: 12, 6: 16, 7: 20, 8: 25, 9: 30, 10: 40}
+UNIT_LEVEL_MORA_BASE: float = 400.0            # цена уровня N = BASE × (N−1)
+SQUAD_SIZE: int = 3                            # позиции: 0 фронт / 1 фланг / 2 тыл
+# Движок боя
+B3_HAND_SIZE: int = 3
+B3_FOCUS_START: int = 1
+B3_FOCUS_PER_ROUND: int = 1
+B3_FOCUS_CAP: int = 4
+B3_FOCUS_REROLL_COST: int = 1                  # переброс одной руны руки
+B3_FOCUS_CRIT_COST: int = 2                    # гарантированный крит руны-атаки
+B3_RAGE_MAX: int = 100
+B3_RAGE_PER_HIT_OUT: int = 12                  # за нанесённый удар
+B3_RAGE_PER_HIT_IN: int = 8                    # за полученный удар (база камбэк-кривой)
+B3_RAGE_HIT_CAP: int = 25                      # кап прироста ярости с одного удара
+B3_RAGE_COMEBACK_50: float = 1.5               # HP отряда <50% → входящая ярость ×1.5
+B3_RAGE_COMEBACK_25: float = 2.0               # HP отряда <25% → ×2.0
+B3_CRIT_MULT: dict = {"perfect": 1.75, "good": 1.4, "miss": 1.0}   # QTE подтверждения крита
+B3_ULT_MULT: dict = {"perfect": 1.3, "good": 1.0, "miss": 0.6}     # QTE ульты
+B3_INTERCEPT_REAR: float = 0.60                # фронт перехватывает удар по тылу
+B3_INTERCEPT_FLANK: float = 0.30               # фронт перехватывает удар по флангу
+B3_INTERCEPT_FALLBACK: float = 0.35            # фронт мёртв → перехват флангом (по тылу)
+B3_INTERCEPT_TANK_BONUS: float = 0.15          # танк на фронте: +15% к шансу перехвата
+B3_ESCALATION_FROM_ROUND: int = 6              # анти-затяжка: +10% урона/раунд обеим
+B3_ESCALATION_STEP: float = 0.10
+B3_ESCALATION_CAP: float = 0.60
+B3_TRIAD_MULT: float = 1.2                     # «Триада»: AoE 120% средней атаки (1/бой)
+# Дроп осколков юнитов: босс Бездны и высокие этажи Врат
+UNIT_SHARD_DROP_ABYSS_BOSS: tuple = (3, 5)     # случайному юниту
+UNIT_SHARD_DROP_GATES: tuple = (1, 2)          # этажи 5–6, шанс ниже
+UNIT_SHARD_DROP_GATES_CHANCE: float = 0.35
+# Миграция: компенсация за старых «боевых» питомцев (одноразово, маркер schema_migrations)
+UNIT_COMPENSATION_CP_DIVISOR: int = 50         # 💠 = Σ pet_cp / 50
+UNIT_COMPENSATION_MIN: int = 25                # минимум = 1 призыв
+# Бездна: открытие клеток — дневной лимит вместо стамины питомца
+ABYSS_OPENS_PER_DAY: int = 6                   # + уровень Радара // 2
+# Рейды: атака отрядом (без контр-урона питомцу)
+RAID_ATTACKS_PER_DAY: int = 5
+# CP: вклад юнитов и мирной коллекции
+CP_UNIT_RESERVE_SCALE: float = 0.25            # юниты вне отряда → 25% их CP
+CP_PET_COLLECTION_SCALE: float = 0.10          # мирные питомцы → 10% старого pet_cp
