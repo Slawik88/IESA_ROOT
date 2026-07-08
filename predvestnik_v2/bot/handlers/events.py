@@ -106,6 +106,71 @@ async def _delayed_bot_welcome(bot: Bot, chat_id: int) -> None:
 
 # ── Main member status handler ────────────────────────────────────────────────
 
+async def _bot_joined_chat(event: ChatMemberUpdated, db, bot: Bot) -> None:
+    """Бот добавлен в чат: авто-ранг владельцу, настройки, приветствие."""
+    chat_id = event.chat.id
+    logger.info(f"Бот вошёл в чат {chat_id} ({event.chat.title})")
+
+    # Auto-assign rank 6 (Владелец) to the chat owner
+    try:
+        admins = await bot.get_chat_administrators(chat_id)
+        for admin in admins:
+            if admin.status == "creator":
+                owner_id = admin.user.id
+                owner_username = getattr(admin.user, "username", None)
+                await users_repo.update_user(db, owner_id, owner_username)
+                # Ensure user_chat_stats row exists before setting rank
+                await db.execute(
+                    "INSERT OR IGNORE INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?)",
+                    (owner_id, chat_id),
+                )
+                await db.execute(
+                    "UPDATE user_chat_stats SET local_rank = 6 "
+                    "WHERE user_tg_id = ? AND chat_tg_id = ?",
+                    (owner_id, chat_id),
+                )
+                await db.commit()
+                logger.info(f"Авто-ранг 6 выдан владельцу {owner_id} в чате {chat_id}")
+                break
+    except Exception as e:
+        logger.warning(f"Не удалось выдать авто-ранг в чате {chat_id}: {e}")
+
+    # Ensure chat settings row exists + вернуть ивенты (могли выключиться при кике)
+    chat_title = event.chat.title or ""
+    await db.execute(
+        "INSERT OR IGNORE INTO chat_settings (chat_id, chat_title) VALUES (?, ?)",
+        (chat_id, chat_title),
+    )
+    await db.execute(
+        "UPDATE chat_settings SET events_enabled = 1 WHERE chat_id = ?", (chat_id,)
+    )
+    await db.commit()
+
+    # Send welcome message after 2-second delay (no DB needed in the task)
+    asyncio.create_task(_delayed_bot_welcome(bot, chat_id))
+
+
+@router.my_chat_member()
+async def on_bot_status_changed(event: ChatMemberUpdated, db, bot: Bot):
+    """Статус САМОГО бота приходит ТОЛЬКО через my_chat_member (chat_member —
+    про других участников). Кик бота глушит ивенты чата, иначе шедулер
+    сундуков ловит Forbidden каждый цикл (логи прода 2026-07-08)."""
+    if event.chat.type == "private":
+        return
+    chat_id = event.chat.id
+    new_status = event.new_chat_member.status
+    old_status = event.old_chat_member.status
+    if new_status in ("left", "kicked"):
+        await db.execute(
+            "UPDATE chat_settings SET events_enabled = 0 WHERE chat_id = ?", (chat_id,)
+        )
+        await db.commit()
+        logger.info(f"Бот удалён из чата {chat_id} — фоновые ивенты чата отключены")
+        return
+    if new_status in ("member", "administrator") and old_status in ("left", "kicked"):
+        await _bot_joined_chat(event, db, bot)
+
+
 @router.chat_member()
 async def on_user_status_changed(event: ChatMemberUpdated, db, bot: Bot):
     """Fires when any user's membership status changes in a chat."""
@@ -114,44 +179,9 @@ async def on_user_status_changed(event: ChatMemberUpdated, db, bot: Bot):
     new_status = event.new_chat_member.status
     old_status = event.old_chat_member.status
 
-    # ── Case: BOT itself joined the chat ─────────────────────────────────────
-    if user_id == bot.id and new_status in ("member", "administrator") and old_status in ("left", "kicked"):
-        logger.info(f"Бот вошёл в чат {chat_id} ({event.chat.title})")
-
-        # Auto-assign rank 6 (Владелец) to the chat owner
-        try:
-            admins = await bot.get_chat_administrators(chat_id)
-            for admin in admins:
-                if admin.status == "creator":
-                    owner_id = admin.user.id
-                    owner_username = getattr(admin.user, "username", None)
-                    await users_repo.update_user(db, owner_id, owner_username)
-                    # Ensure user_chat_stats row exists before setting rank
-                    await db.execute(
-                        "INSERT OR IGNORE INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?)",
-                        (owner_id, chat_id),
-                    )
-                    await db.execute(
-                        "UPDATE user_chat_stats SET local_rank = 6 "
-                        "WHERE user_tg_id = ? AND chat_tg_id = ?",
-                        (owner_id, chat_id),
-                    )
-                    await db.commit()
-                    logger.info(f"Авто-ранг 6 выдан владельцу {owner_id} в чате {chat_id}")
-                    break
-        except Exception as e:
-            logger.warning(f"Не удалось выдать авто-ранг в чате {chat_id}: {e}")
-
-        # Ensure chat settings row exists
-        chat_title = event.chat.title or ""
-        await db.execute(
-            "INSERT OR IGNORE INTO chat_settings (chat_id, chat_title) VALUES (?, ?)",
-            (chat_id, chat_title),
-        )
-        await db.commit()
-
-        # Send welcome message after 2-second delay (no DB needed in the task)
-        asyncio.create_task(_delayed_bot_welcome(bot, chat_id))
+    # Собственный статус бота сюда не приходит (см. on_bot_status_changed),
+    # но на случай нестандартных клиентов — не обрабатываем себя как юзера.
+    if user_id == bot.id:
         return
 
     # ── Case: user left or was kicked ────────────────────────────────────────

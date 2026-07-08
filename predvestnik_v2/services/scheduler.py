@@ -799,7 +799,20 @@ async def chest_spawn_task(bot: Bot):
                             parse_mode="HTML",
                         )
                     except Exception as e:
-                        logger.error(f"Chest spawn error chat {chat_id}: {e}")
+                        _msg = str(e)
+                        # Бот кикнут/чат удалён — глушим ивенты чата, чтобы не
+                        # долбиться каждый цикл (страховка к my_chat_member:
+                        # апдейт мог прийти, пока бот был выключен)
+                        if "Forbidden" in _msg or "chat not found" in _msg:
+                            await db.execute(
+                                "UPDATE chat_settings SET events_enabled = 0 "
+                                "WHERE chat_id = ?", (chat_id,))
+                            await db.commit()
+                            logger.info(
+                                f"Chest spawn: чат {chat_id} недоступен ({_msg})"
+                                " — ивенты чата отключены")
+                        else:
+                            logger.error(f"Chest spawn error chat {chat_id}: {e}")
 
         except Exception as e:
             logger.error(f"Ошибка в задаче сундуков: {e}")
