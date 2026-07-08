@@ -122,14 +122,18 @@
   <div id="zoo-bestiary" style="display:none"><div id="best-c"></div></div>
 </div>
 
-<!-- ═══ 3. АРЕНА ═══ -->
+<!-- ═══ 3. АРЕНА (Боёвка 3.0: Казарма юнитов + Врата) ═══ -->
 <div id="pg-arena" class="page">
   <div class="tabs">
-    <button class="tb active" onclick="swArena('raids',this)">👹 Рейды</button>
+    <button class="tb active" onclick="swArena('barracks',this)">🏰 Казарма</button>
+    <button class="tb" onclick="swArena('gates',this)">🌑 Врата</button>
+    <button class="tb" onclick="swArena('raids',this)">👹 Рейды</button>
     <button class="tb" onclick="swArena('games',this)">🎮 Игры</button>
     <button class="tb" onclick="swArena('events',this)">🎪 Ивенты</button>
   </div>
-  <div id="ar-raids"><div id="rc"></div></div>
+  <div id="ar-barracks"><div id="bkc"></div></div>
+  <div id="ar-gates" style="display:none"><div id="gtc"></div></div>
+  <div id="ar-raids" style="display:none"><div id="rc"></div></div>
   <div id="ar-games" style="display:none"><div id="skg"></div></div>
   <div id="ar-events" style="display:none"><div id="evc"></div></div>
 </div>

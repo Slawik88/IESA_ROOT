@@ -1,5 +1,6 @@
 """FastAPI/routers/clans2.py — R3 Кланы 2.0: Бездна, здания, роли, войны.
-Тонкий адаптер: логика — services/clans2.py + services/battle.py."""
+Тонкий адаптер: логика — services/clans2.py + services/battle3.py (Боёвка 3.0:
+бои отрядом юнитов, открытие клеток — дневной лимит вместо стамины питомца)."""
 import json
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,15 +10,15 @@ from FastAPI.deps import get_db, require_tg_user
 from core.constants import (
     CLAN_ROLES, CLAN_BUILDINGS2, CLAN_BUILD_MAX_LEVEL,
     WAR_DECLARE_COST_MORA, WAR_WINDOW_HOURS, WAR_ATTACKS_PER_DAY,
-    WAR_WALL_MAX_DEFENDERS,
+    WAR_WALL_MAX_DEFENDERS, ABYSS_OPENS_PER_DAY,
 )
+from core.units import UNITS, unit_stats
 from infrastructure.repositories import clans2 as repo
 from infrastructure.repositories import battles as bt_repo
-from infrastructure.repositories import pet_combat
 from services import clans2 as svc
-from services import battle as bt
+from services import battle3 as b3
+from services import barracks
 from services.combat_power import calculate_cp
-from services.pet_combat import stamina_recovery_info
 
 router = APIRouter(prefix="/clans2", tags=["clans2"])
 
@@ -29,7 +30,6 @@ class RoleRequest(BaseModel):
 
 class OpenRequest(BaseModel):
     cell: int
-    pet_id: int
 
 
 class BuildRequest(BaseModel):
@@ -42,12 +42,10 @@ class DeclareRequest(BaseModel):
 
 class WallRequest(BaseModel):
     node_id: int
-    pet_ids: list[int]
 
 
 class WarAttackRequest(BaseModel):
     war_id: int
-    pet_id: int
 
 
 async def _member_or_403(db, uid: int, roles: tuple | None = None) -> dict:
@@ -116,34 +114,31 @@ async def build(body: BuildRequest, db=Depends(get_db), user=Depends(require_tg_
 
 @router.get("/abyss")
 async def abyss(db=Depends(get_db), user=Depends(require_tg_user)):
+    from FastAPI.routers.battle import get_active_b3
     m = await _member_or_403(db, user["id"])
     ab = await svc.get_or_create_abyss(db, m["clan_id"])
     radar = await repo.building_level(db, m["clan_id"], "radar")
     cp = (await calculate_cp(db, user["id"]))["total"]
-    async with db.execute(
-        "SELECT id, name, species_id, rarity, COALESCE(pet_level,1) AS pet_level "
-        "FROM pets WHERE owner_id = ? AND COALESCE(placement,'') != 'auction'",
-        (user["id"],)) as c:
-        pet_rows = [dict(r) for r in await c.fetchall()]
-    pets = []
-    for p in pet_rows:
-        st = await pet_combat.get_state(db, p["id"], user["id"])
-        if st and st["alive"]:
-            pets.append({**p, "stamina": int(st["stamina"]), "hp": int(st["hp"]),
-                         **stamina_recovery_info(st["stamina"], st["stamina_max"])})
-    active = await bt_repo.get_active(db, user["id"])
+    opens_used = await repo.abyss_opens_today(db, user["id"])
+    opens_max = ABYSS_OPENS_PER_DAY + radar // 2
+    squad = await barracks.squad_units(db, user["id"])
+    active = await get_active_b3(db, user["id"])
     return {
         "week": ab["week_key"], "floor": ab["floor"], "key_found": ab["key_found"],
         "cp": cp, "cp_gate": svc.floor_cp_gate(ab["floor"]),
-        "stamina_cost": svc.abyss_stamina_cost(radar),
+        "opens_left": max(0, opens_max - opens_used), "opens_max": opens_max,
         "grid": svc.public_grid(ab["grid"], ab["opened"], radar),
-        "pets": pets,
-        "active_battle": bt.public_state(active["state"], active["id"]) if active else None,
+        "squad": [{"unit_id": s["unit_id"], "level": s["level"],
+                   "name": UNITS[s["unit_id"]]["name"],
+                   "emoji": UNITS[s["unit_id"]]["emoji"]} for s in squad],
+        "squad_cp": await barracks.squad_cp(db, user["id"]),
+        "active_battle": b3.public_state(active["state"], active["id"]) if active else None,
     }
 
 
 @router.post("/abyss/open")
 async def abyss_open(body: OpenRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    from FastAPI.routers.battle import get_active_b3
     uid = user["id"]
     m = await _member_or_403(db, uid)
     ab = await svc.get_or_create_abyss(db, m["clan_id"])
@@ -157,44 +152,32 @@ async def abyss_open(body: OpenRequest, db=Depends(get_db), user=Depends(require
     cp = (await calculate_cp(db, uid))["total"]
     if cp < svc.floor_cp_gate(ab["floor"]):
         raise HTTPException(400, f"Этаж {ab['floor']} требует ⚡ {svc.floor_cp_gate(ab['floor'])}.")
-    if await bt_repo.get_active(db, uid):
+    if await get_active_b3(db, uid):
         raise HTTPException(400, "Сначала закончи текущий бой.")
-
-    pst = await pet_combat.get_state(db, body.pet_id, uid)
-    if not pst or not pst["alive"]:
-        raise HTTPException(400, "Питомец не найден или без сил.")
     radar = await repo.building_level(db, m["clan_id"], "radar")
-    st_cost = svc.abyss_stamina_cost(radar)
-    if pst["stamina"] < st_cost:
-        raise HTTPException(400, f"Питомцу нужно {st_cost} выносливости.")
-    await pet_combat.persist(db, body.pet_id, hp=pst["hp"],
-                             stamina=pst["stamina"] - st_cost,
-                             hp_max=pst["hp_max"], stamina_max=pst["stamina_max"],
-                             attack=pst["attack"], defense=pst["defense"])
+    opens_max = ABYSS_OPENS_PER_DAY + radar // 2
+    if await repo.abyss_opens_today(db, uid) >= opens_max:
+        raise HTTPException(400, f"Лимит открытий на сегодня: {opens_max}. Радар клана добавляет ещё.")
 
     cell_type = grid[body.cell]
     uname = user.get("username") or f"id{uid}"
+    await repo.inc_abyss_opens(db, uid)
 
     if cell_type in (svc.CELL_MONSTER, svc.CELL_BOSS):
-        # Бой 2.0: клетка откроется только при победе (в battle.action)
+        # Боёвка 3.0: клетка откроется только при победе отряда
+        squad = await barracks.squad_units(db, uid)
+        if not squad:
+            raise HTTPException(400, "Сначала собери отряд в Казарме (Арена → Казарма).")
         is_boss = cell_type == svc.CELL_BOSS
-        enemy_floor = ab["floor"] + (1 if is_boss else 0)
-        state = bt.new_gates_battle_state(
-            {"rarity": pst["rarity"], "pet_level": pst["level"], "name": pst["name"]},
-            enemy_floor)
-        state["waves"] = state["waves"][:1]
-        state["enemy"] = dict(state["waves"][0]); state["enemy"]["hp"] = state["enemy"]["hp_max"]
-        if is_boss:
-            state["enemy"]["name"], state["enemy"]["emoji"] = "БОСС Бездны", "👑"
-            state["enemy"]["hp_max"] = int(state["enemy"]["hp_max"] * 1.6)
-            state["enemy"]["hp"] = state["enemy"]["hp_max"]
-        state["pet"]["hp"] = min(int(pst["hp"]), state["pet"]["hp_max"])
-        state["pet"]["st"] = min(int(pst["stamina"] - st_cost), state["pet"]["st_max"])
-        state["abyss"] = {"clan_id": m["clan_id"], "week": ab["week_key"],
-                          "cell": body.cell, "boss": is_boss}
-        bid = await bt_repo.create(db, uid, body.pet_id, "abyss", body.cell, bt.dumps(state))
+        enemies = (b3.abyss_boss(ab["floor"]) if is_boss
+                   else b3.abyss_enemy_squad(ab["floor"]))
+        state = b3.new_battle_state(squad, enemies, "abyss", {
+            "floor": ab["floor"],
+            "abyss": {"clan_id": m["clan_id"], "week": ab["week_key"],
+                      "cell": body.cell, "boss": is_boss}})
+        bid = await bt_repo.create(db, uid, 0, "abyss", body.cell, b3.dumps(state))
         await db.commit()
-        return {"battle": bt.public_state(state, bid)}
+        return {"battle": b3.public_state(state, bid)}
 
     # Пустая клетка / сундук — мгновенный исход
     opened.append(body.cell)
@@ -295,28 +278,38 @@ async def war_declare(body: DeclareRequest, db=Depends(get_db), user=Depends(req
 
 @router.post("/war/wall")
 async def war_set_wall(body: WallRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Боёвка 3.0: стена строится АВТОМАТИЧЕСКИ из отрядов топ-участников клана
+    (Σ hp_max + def×10 по юнитам отрядов, до 10 защитников) — без ручного выбора."""
     m = await _member_or_403(db, user["id"], roles=("owner", "warlord"))
     node = await repo.get_node(db, body.node_id)
     if not node or node["owner_clan_id"] != m["clan_id"]:
         raise HTTPException(403, "Узел не ваш.")
-    if len(body.pet_ids) > WAR_WALL_MAX_DEFENDERS:
-        raise HTTPException(400, f"Максимум {WAR_WALL_MAX_DEFENDERS} защитников.")
-    pets = []
-    for pid in body.pet_ids:
-        async with db.execute(
-            "SELECT p.id, p.name, p.rarity, COALESCE(p.pet_level,1) AS pet_level "
-            "FROM pets p JOIN clan_members cm ON cm.user_id = p.owner_id "
-            "WHERE p.id = ? AND cm.clan_id = ?", (pid, m["clan_id"])) as c:
-            row = await c.fetchone()
-        if row:
-            pets.append(dict(row))
-    hp = svc.wall_hp_from_pets(pets)
-    await repo.set_wall(db, body.node_id, json.dumps(pets, ensure_ascii=False), hp)
-    return {"ok": True, "wall_hp": hp, "defenders": len(pets)}
+    async with db.execute(
+        "SELECT user_id FROM clan_members WHERE clan_id = ?", (m["clan_id"],)) as c:
+        member_ids = [int(r[0]) for r in await c.fetchall()]
+    defenders = []
+    for uid_ in member_ids:
+        units = await barracks.squad_units(db, uid_)
+        if not units:
+            continue
+        hp = 0.0
+        for s in units:
+            st = unit_stats(s["unit_id"], s["level"])
+            hp += st["hp_max"] + st["def"] * 10
+        defenders.append({"user_id": uid_, "hp": round(hp, 1),
+                          "units": [s["unit_id"] for s in units]})
+    defenders.sort(key=lambda d: -d["hp"])
+    defenders = defenders[:WAR_WALL_MAX_DEFENDERS]
+    total_hp = round(sum(d["hp"] for d in defenders), 1)
+    if total_hp <= 0:
+        raise HTTPException(400, "Ни у кого в клане нет отряда в Казарме — стену не из чего строить.")
+    await repo.set_wall(db, body.node_id, json.dumps(defenders, ensure_ascii=False), total_hp)
+    return {"ok": True, "wall_hp": total_hp, "defenders": len(defenders)}
 
 
 @router.post("/war/attack")
 async def war_attack(body: WarAttackRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    from FastAPI.routers.battle import get_active_b3
     uid = user["id"]
     m = await _member_or_403(db, uid)
     war = await repo.get_active_war(db, attacker_clan_id=m["clan_id"])
@@ -324,26 +317,17 @@ async def war_attack(body: WarAttackRequest, db=Depends(get_db), user=Depends(re
         raise HTTPException(404, "Активная война не найдена.")
     if await repo.war_attacks_today(db, war["id"], uid) >= WAR_ATTACKS_PER_DAY:
         raise HTTPException(400, f"Лимит: {WAR_ATTACKS_PER_DAY} атаки в день.")
-    if await bt_repo.get_active(db, uid):
+    if await get_active_b3(db, uid):
         raise HTTPException(400, "Сначала закончи текущий бой.")
     node = await repo.get_node(db, war["node_id"])
     remaining = float(node["wall_hp_max"]) - float(war["damage_total"])
     if remaining <= 0:
         raise HTTPException(400, "Стена уже пробита.")
-    pst = await pet_combat.get_state(db, body.pet_id, uid)
-    if not pst or not pst["alive"]:
-        raise HTTPException(400, "Питомец не готов.")
-    enemy = svc.war_wall_enemy(remaining)
-    state = {
-        "pet": {**bt.pet_battle_stats(pst["rarity"], pst["level"]),
-                "name": pst["name"]},
-        "waves": [enemy], "wave_idx": 0,
-        "enemy": {**enemy, "hp": enemy["hp_max"]},
-        "floor": 3, "qte": bt.qte_window(3), "zero_streak": 0, "log": [],
-        "war": {"war_id": war["id"], "node_id": war["node_id"]},
-    }
-    state["pet"]["hp"] = min(int(pst["hp"]), state["pet"]["hp_max"])
-    state["pet"]["st"] = min(int(pst["stamina"]), state["pet"]["st_max"])
-    bid = await bt_repo.create(db, uid, body.pet_id, "war", war["id"], bt.dumps(state))
+    squad = await barracks.squad_units(db, uid)
+    if not squad:
+        raise HTTPException(400, "Сначала собери отряд в Казарме (Арена → Казарма).")
+    state = b3.new_battle_state(squad, b3.war_wall(remaining), "war", {
+        "floor": 3, "war": {"war_id": war["id"], "node_id": war["node_id"]}})
+    bid = await bt_repo.create(db, uid, 0, "war", war["id"], b3.dumps(state))
     await db.commit()
-    return {"battle": bt.public_state(state, bid)}
+    return {"battle": b3.public_state(state, bid)}

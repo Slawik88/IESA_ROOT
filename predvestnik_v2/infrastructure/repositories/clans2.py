@@ -53,6 +53,15 @@ async def ensure_tables(db) -> None:
             PRIMARY KEY (clan_id, user_id, week_key)
         )
     """)
+    # Боёвка 3.0: дневной лимит открытий клеток Бездны (вместо стамины питомца)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS clan_abyss_opens (
+            user_id BIGINT NOT NULL,
+            day     DATE NOT NULL,
+            cnt     INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (user_id, day)
+        )
+    """)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS war_nodes (
             id             SERIAL PRIMARY KEY,
@@ -366,3 +375,20 @@ async def nodes_due_income(db) -> list[dict]:
 async def mark_income(db, node_id: int) -> None:
     await db.execute(
         "UPDATE war_nodes SET last_income_at = NOW() WHERE id = ?", (node_id,))
+
+async def abyss_opens_today(db, user_id: int) -> int:
+    """Боёвка 3.0: сколько клеток Бездны игрок открыл за UTC-сутки."""
+    async with db.execute(
+        "SELECT cnt FROM clan_abyss_opens WHERE user_id = ? AND day = CURRENT_DATE",
+        (user_id,),
+    ) as c:
+        row = await c.fetchone()
+    return int(row[0] or 0) if row else 0
+
+
+async def inc_abyss_opens(db, user_id: int) -> None:
+    await db.execute(
+        "INSERT INTO clan_abyss_opens (user_id, day, cnt) VALUES (?, CURRENT_DATE, 1) "
+        "ON CONFLICT (user_id, day) DO UPDATE SET cnt = clan_abyss_opens.cnt + 1",
+        (user_id,),
+    )

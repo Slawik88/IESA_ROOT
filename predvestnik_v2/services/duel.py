@@ -1,11 +1,13 @@
 """
 services/duel.py
 Pure duel business logic. No bot imports.
+Боёвка 3.0: сила дуэлянта = CP отряда юнитов (Казарма) × случайность —
+мирные питомцы в дуэлях больше не участвуют, усталость не начисляется.
 """
 import random
 
 from core.constants import (
-    RARITY_POWER, DUEL_COMMISSION, DUEL_PET_FATIGUE_COST,
+    DUEL_COMMISSION,
     DUEL_COOLDOWN_HOURS, DUEL_MIN_BET, DUEL_MAX_BET,
 )
 from infrastructure.repositories import economy as eco_repo
@@ -15,9 +17,11 @@ from infrastructure.repositories.duel import (
 from services.formatting import parse_dt
 
 
-def calculate_power(rarity: str, level: int) -> float:
-    base = RARITY_POWER.get(rarity, 1.0)
-    return base * max(1, level) * random.uniform(0.85, 1.15)
+async def squad_power(db, user_id: int) -> float:
+    """Сила отряда: CP юнитов × rand(0.85–1.15); без отряда — базовые 50."""
+    from services.barracks import squad_cp
+    cp = await squad_cp(db, user_id)
+    return max(50.0, float(cp)) * random.uniform(0.85, 1.15)
 
 
 async def create_challenge(
@@ -26,7 +30,6 @@ async def create_challenge(
     challenged_id: int,
     chat_id: int,
     stake: float,
-    challenger_pet: dict,
 ) -> tuple[bool, dict | str]:
     """Reserve challenger's stake and create a pending duel.
     Returns (True, {duel_id, ...}) or (False, error_str)."""
@@ -67,18 +70,17 @@ async def create_challenge(
 
             await _add_reserve(db, challenger_id, stake)
             duel_id = await create_duel(
-                db, challenger_id, challenged_id, chat_id, stake, challenger_pet["id"]
+                db, challenger_id, challenged_id, chat_id, stake, 0
             )
     except Exception as e:
         return False, f"Ошибка: {e}"
 
-    return True, {"duel_id": duel_id, "challenger_pet": challenger_pet}
+    return True, {"duel_id": duel_id}
 
 
 async def accept_duel(
     db,
     duel_id: int,
-    challenged_pet: dict,
 ) -> tuple[bool, dict | str]:
     """Process the challenged player accepting. Resolve the duel.
     Returns (True, result_dict) or (False, error_str)."""
@@ -119,16 +121,9 @@ async def accept_duel(
             return False, f"Недостаточно Моры для принятия ставки ({stake:.0f} 🪙)."
         await _add_reserve(db, challenged_id, stake)
 
-    # Calculate powers
-    challenged_power = calculate_power(challenged_pet.get("rarity", "common"), challenged_pet.get("pet_level") or 1)
-
-    # Get challenger's pet info (was wrongly using challenged_pet data before fix)
-    challenger_pet_id = duel.get("challenger_pet_id")
-    async with db.execute(
-        "SELECT rarity, COALESCE(pet_level, 1) FROM pets WHERE id = ?", (challenger_pet_id,)
-    ) as c:
-        chal_row = await c.fetchone()
-    challenger_power = calculate_power(chal_row[0], chal_row[1]) if chal_row else challenged_power
+    # Боёвка 3.0: сила обеих сторон — из отрядов Казармы
+    challenged_power = await squad_power(db, challenged_id)
+    challenger_power = await squad_power(db, challenger_id)
 
     winner_id = challenger_id if challenger_power >= challenged_power else challenged_id
     loser_id = challenged_id if winner_id == challenger_id else challenger_id
@@ -146,17 +141,9 @@ async def accept_duel(
                                    source="duel_loss", chat_id=duel["chat_id"])
         await eco_repo.add_balance(db, winner_id, mora=winner_gain,
                                    source="duel_win", chat_id=duel["chat_id"])
-        await db.execute(
-            "UPDATE pets SET fatigue = LEAST(100, fatigue + ?) WHERE id = ?",
-            (DUEL_PET_FATIGUE_COST, duel["challenger_pet_id"]),
-        )
-        await db.execute(
-            "UPDATE pets SET fatigue = LEAST(100, fatigue + ?) WHERE id = ?",
-            (DUEL_PET_FATIGUE_COST, challenged_pet["id"]),
-        )
         await set_duel_status(db, duel_id, "finished",
                               winner_id=winner_id,
-                              challenged_pet_id=challenged_pet["id"],
+                              challenged_pet_id=0,
                               winner_gain=winner_gain,
                               commission=commission)
         await set_cooldown(db, challenger_id, challenged_id)

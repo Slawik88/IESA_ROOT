@@ -467,7 +467,8 @@ function _handleStartParam(){
   const M={ shop:['market','goods'],goods:['market','goods'],gacha:['market','gacha'],deal:['market','deal'],
     vip:['market','vip'],themes:['profile','themes'],craft:['craft'],inventory:['profile','inv'],inv:['profile','inv'],
     quests:['quests'],ach:['ach'],achievements:['ach'],zoo:['zoo'],pets:['zoo'],bp:['bp'],auction:['auction'],
-    arena:['arena'],games:['arena','games'],casino:['arena','games'],relics:['market'] };
+    arena:['arena'],games:['arena','games'],casino:['arena','games'],relics:['market'],
+    barracks:['arena','barracks'],gates:['arena','gates'] };
   const t=M[base]; if(t) run(()=>goTo(t[0],t[1]));
 }
 if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
@@ -812,12 +813,13 @@ function showCpBreakdown() {
       <div style="font-size:10px;color:var(--muted);margin-top:2px">публичный показатель силы аккаунта</div>
     </div>
     ${row('⭐ Уровень аккаунта × 100', b.level_part)}
-    ${row('⚔️ Активный питомец', b.active_pet)}
-    ${row('🛡 Пассивные питомцы (×0.5)', b.passive_pets)}
+    ${row('⚔️ Отряд юнитов (Казарма)', b.squad_units!==undefined?b.squad_units:b.active_pet)}
+    ${row('🏰 Юниты в резерве (×0.25)', b.reserve_units!==undefined?b.reserve_units:0)}
+    ${row('🐾 Коллекция питомцев (×0.1)', b.pet_collection!==undefined?b.pet_collection:b.passive_pets)}
     ${row('🎨 Полный сет косметики', b.cosmetics_set)}
     ${row('🏛 Реликвии', b.relics)}
-    <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.4">Питомцы на складе CP не дают. Сет косметики — все 6 слотов надеты, бонус по минимальной редкости.</div>
-  `,[{l:'Понятно',c:'btn-gold',f:'CM()'}]);
+    <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.4">Боёвка 3.0: силу дают боевые юниты из Казармы. Мирные питомцы — экономика, но коллекция даёт небольшой бонус. Сет косметики — все 6 слотов, бонус по минимальной редкости.</div>
+  `,[{l:'🏰 В Казарму',c:'btn-gold',f:"goTo('arena','barracks')"},{l:'Понятно',c:'btn-ghost',f:'CM()'}]);
 }
 
 // ══ R3 Кланы 2.0: Бездна · Здания · Войны (внутри клан-модалки) ══════════════
@@ -835,7 +837,7 @@ function _clan2NavHtml(active){
   </div>`;
 }
 const C2_CELL_ICO={empty:'▫️',chest:'📦',monster:'👹',boss:'👑',exit:'🚪'};
-let _c2Ab=null, _c2PetSel=null;
+let _c2Ab=null;
 function c2Abyss(){
   const b=el('mb'); if(b)b.innerHTML='<div class="loader">Загрузка Бездны...</div>';
   api('/clans2/abyss').then(d=>{
@@ -847,46 +849,33 @@ function c2Abyss(){
 function _c2RenderAbyss(){
   const b=el('mb'); if(!b||!_c2Ab) return;
   const d=_c2Ab;
-  if(!_c2PetSel && d.pets && d.pets.length) _c2PetSel=d.pets[0].id;
   const cells=d.grid.map(c=>{
     if(c.state==='open') return `<div class="ab-cell open">${C2_CELL_ICO[c.type]||'▫️'}</div>`;
     if(c.state==='reachable') return `<button class="ab-cell reach" onclick="c2Open(${c.i},this)">${c.type?C2_CELL_ICO[c.type]:'❔'}</button>`;
     return `<div class="ab-cell fog"></div>`;
   }).join('');
-  const pets=(d.pets||[]).map(p=>`<button class="btn btn-sm ${p.id===_c2PetSel?'btn-gold':'btn-ghost'}"
-      onclick="_c2PetSel=${p.id};_c2RenderAbyss()">${esc(p.name||p.species_id)} ⚡${p.stamina}/${p.stamina_max}</button>`).join('');
-  const _selPet=(d.pets||[]).find(p=>p.id===_c2PetSel);
-  const staminaHint=(_selPet && _selPet.stamina<_selPet.stamina_max)
-    ? `<div class="cx-dim" style="font-size:10px;margin-top:4px">⏳ Полная стамина через ${_selPet.stamina_full_in_min<60?_selPet.stamina_full_in_min+' мин':Math.round(_selPet.stamina_full_in_min/60)+' ч'} (восст. ${_selPet.stamina_regen_per_hour}⚡/ч)</div>`
-    : '';
   const gateOk=d.cp>=d.cp_gate;
-  // UX-аудит: пустое состояние «нет живых питомцев» вело в никуда — теперь
-  // различаем «нет питомцев вообще» (в Гачу) и «все истощены» (лечить в Вратах).
-  const hasAnyPet=(_profileData?.pets||[]).length>0;
-  const noPetsHtml = pets ? '' : (hasAnyPet
-    ? `<div class="cx-dim" style="font-size:11px">Все питомцы истощены (0 HP или стамины).</div>
-       <button class="btn btn-sm btn-ghost" style="margin-top:6px" onclick="goTo('arena','raids')">💊 Подлечить во Вратах</button>`
-    : `<div class="cx-dim" style="font-size:11px">Питомцев пока нет.</div>
-       <button class="btn btn-sm btn-gold" style="margin-top:6px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button>`);
+  // Боёвка 3.0: клетки открываются отрядом юнитов (дневной лимит), питомцы не нужны
+  const squad=(d.squad||[]).map(s=>`<span class="bk-chip">${s.emoji} ${esc(s.name)} · ур.${s.level}</span>`).join('');
+  const squadHtml = squad
+    ? `<div class="looks-slot-t">⚔️ Твой отряд (⚡${fmt(d.squad_cp||0)})</div><div class="bk-chips">${squad}</div>`
+    : `<div class="cx-dim" style="font-size:11px;margin-top:6px">Отряда нет — монстров и босса бить некому.</div>
+       <button class="btn btn-sm btn-gold" style="margin-top:6px" onclick="goTo('arena','barracks')">🏰 Собрать отряд в Казарме</button>`;
   b.innerHTML=`
     ${_clan2NavHtml('abyss')}
-    <div class="looks-hint">🌀 Этаж <b>${d.floor}</b> · неделя ${d.week} · открытие клетки: <b>${d.stamina_cost}</b> выносливости.
+    <div class="looks-hint">🌀 Этаж <b>${d.floor}</b> · неделя ${d.week} · открытий сегодня: <b>${d.opens_left}/${d.opens_max}</b> (📡 Радар клана добавляет).
       Гейт этажа: ⚡${fmt(d.cp_gate)} ${gateOk?'✅':`❌ (у тебя ${fmt(d.cp)})`}
       ${d.key_found?' · 🗝 ключ найден':''}</div>
-    <div class="ab-legend">🌫 туман · ❔ доступно (открой, узнаешь что там) · 📦 сундук · 👹 монстр · 👑 босс · 🚪 выход этажа</div>
+    <div class="ab-legend">🌫 туман · ❔ доступно (открой, узнаешь что там) · 📦 сундук · 👹 монстры (бой отрядом) · 👑 босс · 🚪 выход этажа</div>
     <div class="ab-grid">${cells}</div>
-    <div class="looks-slot-t">Кем копаем</div>
-    <div class="skg-stakes">${pets}</div>
-    ${noPetsHtml}
-    ${staminaHint}
-    ${d.key_found?`<button class="btn btn-gold btn-full" onclick="c2NextFloor()">⬇️ Спуститься на этаж ${d.floor+1}</button>`:''}
+    ${squadHtml}
+    ${d.key_found?`<button class="btn btn-gold btn-full" style="margin-top:8px" onclick="c2NextFloor()">⬇️ Спуститься на этаж ${d.floor+1}</button>`:''}
     <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="openClansModal()">↩ К клану</button>`;
 }
 function c2Open(cell, btn){
-  if(!_c2PetSel){ toast('Выбери питомца', false); return; }
   if(btn) btn.disabled=true;
   _btBackFn=c2Abyss;
-  api('/clans2/abyss/open',{method:'POST',body:JSON.stringify({cell, pet_id:_c2PetSel})})
+  api('/clans2/abyss/open',{method:'POST',body:JSON.stringify({cell})})
     .then(r=>{
       if(r.battle){ _haptic('medium'); _btRender(r.battle); return; }
       if(r.type==='chest'){ _haptic('success'); toast(`📦 +${r.shards} 💠 (${r.split.treasury} в казну)`); }
@@ -970,12 +959,8 @@ function c2Declare(nodeId, btn){
     .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
 }
 function c2WarAttack(warId){
-  if(!_c2Ab||!_c2Ab.pets||!_c2Ab.pets.length){
-    api('/clans2/abyss').then(d=>{_c2Ab=d; c2WarAttack(warId);}).catch(e=>toast(e,false));
-    return;
-  }
   _btBackFn=c2War;
-  api('/clans2/war/attack',{method:'POST',body:JSON.stringify({war_id:warId, pet_id:_c2PetSel||_c2Ab.pets[0].id})})
+  api('/clans2/war/attack',{method:'POST',body:JSON.stringify({war_id:warId})})
     .then(r=>{_haptic('medium'); _btRender(r.battle);})
     .catch(e=>toast(e,false));
 }
