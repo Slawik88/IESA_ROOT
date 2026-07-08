@@ -11,6 +11,8 @@ from core.constants import (
     CLAN_ROLES, CLAN_BUILDINGS2, CLAN_BUILD_MAX_LEVEL,
     WAR_DECLARE_COST_MORA, WAR_WINDOW_HOURS, WAR_ATTACKS_PER_DAY,
     WAR_WALL_MAX_DEFENDERS, ABYSS_OPENS_PER_DAY,
+    ABYSS_CHEST_SHARDS, ABYSS_MONSTER_SHARDS, ABYSS_BOSS_SHARDS,
+    UNIT_SHARD_DROP_ABYSS_BOSS,
 )
 from core.units import UNITS, unit_stats
 from infrastructure.repositories import clans2 as repo
@@ -128,6 +130,10 @@ async def abyss(db=Depends(get_db), user=Depends(require_tg_user)):
         "cp": cp, "cp_gate": svc.floor_cp_gate(ab["floor"]),
         "opens_left": max(0, opens_max - opens_used), "opens_max": opens_max,
         "grid": svc.public_grid(ab["grid"], ab["opened"], radar),
+        # Честные диапазоны лута по типу клетки (легенда UI раньше показывала
+        # только иконки без цифр — «не весь лут отображается»)
+        "loot": {"chest": list(ABYSS_CHEST_SHARDS), "monster": list(ABYSS_MONSTER_SHARDS),
+                 "boss": list(ABYSS_BOSS_SHARDS), "boss_unit_shards": list(UNIT_SHARD_DROP_ABYSS_BOSS)},
         "squad": [{"unit_id": s["unit_id"], "level": s["level"],
                    "name": UNITS[s["unit_id"]]["name"],
                    "emoji": UNITS[s["unit_id"]]["emoji"]} for s in squad],

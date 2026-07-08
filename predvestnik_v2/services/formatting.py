@@ -52,6 +52,30 @@ def parse_dt(val) -> '_dt | None':
     return None
 
 
+def format_chest_rewards_text(rewards: dict[int, float], top3_bonus_label: str = "🎟 Жетон") -> str:
+    """Полная и честная разбивка наград сундука-события по позициям — строится
+    ИЗ CHEST_REWARDS_BY_POSITION, не копируется руками (копии дрейфуют от
+    правды — найдено 3 разных хардкода одного и того же текста, один с фейковыми
+    числами). Позиции 4+ группируются только когда значения РЕАЛЬНО равны подряд,
+    без потери данных о неравных позициях."""
+    positions = sorted(rewards)
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+    lines = []
+    for p in positions[:3]:
+        lines.append(f"{medals.get(p, '•')} {p} место: <b>{int(rewards[p])} 🪙</b> + {top3_bonus_label}")
+    rest = positions[3:]
+    i = 0
+    while i < len(rest):
+        j = i
+        while j + 1 < len(rest) and rewards[rest[j + 1]] == rewards[rest[i]]:
+            j += 1
+        p_from, p_to = rest[i], rest[j]
+        label = f"{p_from}" if p_from == p_to else f"{p_from}–{p_to}"
+        lines.append(f"{label} место: <b>{int(rewards[rest[i]])} 🪙</b>")
+        i = j + 1
+    return "\n".join(lines)
+
+
 def format_seconds_to_time(seconds: int) -> str:
     """3661 → '1ч 1м 1с'"""
     hours, remainder = divmod(seconds, 3600)

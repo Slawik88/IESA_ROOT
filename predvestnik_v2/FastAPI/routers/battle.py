@@ -14,6 +14,7 @@ from FastAPI.deps import get_db, require_tg_user
 from core.constants import (
     GATES2_FLOORS, GATES2_CP_GATE, GATES2_ENTRIES_PER_DAY,
     GATES2_DARK_MORA_BASE, GATES2_DARK_MORA_PER_FLOOR, GATES2_SHARD_CHANCE,
+    GATES2_SHARD_RANGE,
     UNIT_SHARD_DROP_ABYSS_BOSS, UNIT_SHARD_DROP_GATES, UNIT_SHARD_DROP_GATES_CHANCE,
     WAR_NODE_SHIELD_HOURS,
 )
@@ -88,6 +89,11 @@ async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
                     "reward_dark": GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * f,
                     "unit_shards": f >= 5}
                    for f in range(1, GATES2_FLOORS + 1)],
+        # Честные шансы дропа (легенда UI раньше говорила «шанс 💠» без цифр)
+        "loot": {"shard_chance_pct": round(GATES2_SHARD_CHANCE * 100),
+                 "shard_range": list(GATES2_SHARD_RANGE),
+                 "unit_shard_chance_pct": round(UNIT_SHARD_DROP_GATES_CHANCE * 100),
+                 "unit_shard_range": list(UNIT_SHARD_DROP_GATES)},
         "squad": [{"unit_id": s["unit_id"], "level": s["level"], "slot": s["slot"],
                    "name": UNITS[s["unit_id"]]["name"],
                    "emoji": UNITS[s["unit_id"]]["emoji"]} for s in squad],
@@ -132,7 +138,7 @@ async def _gates_reward(db, uid: int, floor: int) -> dict:
         "WHERE user_tg_id = ?", (dark, uid))
     shards = 0
     if random.random() < GATES2_SHARD_CHANCE:
-        shards = random.randint(1, 3)
+        shards = random.randint(*GATES2_SHARD_RANGE)
         await eco_repo.add_item(db, uid, "abyss_shard", shards)
     unit_shards = None
     if floor >= 5 and random.random() < UNIT_SHARD_DROP_GATES_CHANCE:

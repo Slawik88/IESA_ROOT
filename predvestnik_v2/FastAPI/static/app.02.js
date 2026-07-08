@@ -876,7 +876,11 @@ function _c2RenderAbyss(){
     <div class="looks-hint">🌀 Этаж <b>${d.floor}</b> · неделя ${d.week} · открытий сегодня: <b>${d.opens_left}/${d.opens_max}</b> (📡 Радар клана добавляет).
       Гейт этажа: ⚡${fmt(d.cp_gate)} ${gateOk?'✅':`❌ (у тебя ${fmt(d.cp)})`}
       ${d.key_found?' · 🗝 ключ найден':''}</div>
-    <div class="ab-legend">🌫 туман · ❔ доступно (открой, узнаешь что там) · 📦 сундук · 👹 монстры (бой отрядом) · 👑 босс · 🚪 выход этажа</div>
+    <div class="ab-legend">🌫 туман · ❔ доступно (открой, узнаешь что там) ·
+      📦 сундук: ${(d.loot?.chest||[2,6]).join('–')} 💠 ·
+      👹 монстры (бой отрядом): ${(d.loot?.monster||[3,8]).join('–')} 💠 ·
+      👑 босс: ${(d.loot?.boss||[15,25]).join('–')} 💠 + 🗝 ключ + ${(d.loot?.boss_unit_shards||[3,5]).join('–')} ◈ осколков юнита ·
+      🚪 выход этажа</div>
     <div class="ab-grid">${cells}</div>
     ${squadHtml}
     ${d.key_found?`<button class="btn btn-gold btn-full" style="margin-top:8px" onclick="c2NextFloor()">⬇️ Спуститься на этаж ${d.floor+1}</button>`:''}
