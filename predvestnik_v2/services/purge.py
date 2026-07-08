@@ -122,7 +122,8 @@ async def start_purge(db, chat_id: int, initiator_id: int,
     passed, failed, protected, admins = [], [], [], []
     now = datetime.now()
     for u in candidates:
-        link = f'<a href="tg://user?id={u["id"]}">{safe_html(u["username"] or f"ID {u['id']}")}</a>'
+        uname = u["username"] or f'ID {u["id"]}'
+        link = f'<a href="tg://user?id={u["id"]}">{safe_html(uname)}</a>'
         shielded = False
         if u["immune_until"]:
             try:
