@@ -72,10 +72,10 @@ function loadProfile() {
       </div>
 
       <button class="btn btn-full promo-cta" style="margin-top:10px" onclick="openPromoModal()">🎟 У меня есть промокод</button>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="btn btn-ghost" style="flex:1" onclick="openLooksModal()">🎨 Внешний вид</button>
-        <button class="btn btn-ghost" style="flex:1" onclick="openClansModal()">🛡 Клан</button>
-        <button class="btn btn-ghost" style="flex:1" onclick="openSettingsModal()">⚙️ Настройки</button>
+      <div class="pa3-row">
+        <button class="btn btn-ghost" onclick="openLooksModal()">🎨 Внешний вид</button>
+        <button class="btn btn-ghost" onclick="openClansModal()">🛡 Клан</button>
+        <button class="btn btn-ghost" onclick="openSettingsModal()">⚙️ Настройки</button>
       </div>
 
       <!-- Активные баффы (заполняется loadActiveBuffs) -->
@@ -478,6 +478,16 @@ if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendin
 let _currBarVisible = false;
 let _currInited = false;
 
+// UX-фикс: компакт больших чисел в шапке (12,3к / 1,2М) — иначе 4 чипа с
+// длинными суммами не влезают в 390px и наезжают на аватар. Точные значения —
+// в модалке валют (ⓘ) и в профиле, там по-прежнему полный fmtF.
+function fmtBar(v){
+  v = +v || 0;
+  if (v >= 1e6) return (v/1e6).toFixed(1).replace('.',',').replace(',0','') + 'М';
+  if (v >= 1e4) return (v/1e3).toFixed(1).replace('.',',').replace(',0','') + 'к';
+  if (v >= 1e3) return fmt(Math.round(v));   // ≥1000 — без копеек, компактнее
+  return fmtF(v);
+}
 function updateCurrBar(data) {
   const bar = el('curr-bar');
   if (!bar) return;
@@ -489,10 +499,10 @@ function updateCurrBar(data) {
     }
     v.textContent = next;
   };
-  set('cb-mora', data?.mora ?? 0, fmtF);
-  set('cb-dia',  data?.diamonds ?? 0, fmtF);
-  set('cb-dark', data?.dark_mora ?? 0, fmtF);
-  set('cb-zar',  data?.zarniki ?? 0, fmtF);
+  set('cb-mora', data?.mora ?? 0, fmtBar);
+  set('cb-dia',  data?.diamonds ?? 0, fmtBar);
+  set('cb-dark', data?.dark_mora ?? 0, fmtBar);
+  set('cb-zar',  data?.zarniki ?? 0, fmtBar);
   // Баг из UX-аудита: слот 🌑 был захардкожен display:none навсегда — значение
   // обновлялось, но игрок никогда не видел свой баланс Тёмной Моры в шапке.
   // Показываем, как только она у игрока появилась (не захламляем шапку 5-й

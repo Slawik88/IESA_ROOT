@@ -88,7 +88,11 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border2);
 }
-.hdr-user { display: flex; align-items: center; gap: 8px; min-width: 0; cursor: pointer; transition: transform .15s; }
+/* UX-фикс (скрин юзера 2026-07-08): валютные чипы наезжали на аватар/ник и
+   вылезали за экран при 4 валютах или больших числах. Теперь блок юзера
+   не сжимается, а валютный бар скроллится горизонтально (скроллбар скрыт),
+   числа ≥10к компактятся в JS (12,3к / 1,2М) — точные значения по тапу ⓘ. */
+.hdr-user { display: flex; align-items: center; gap: 8px; flex: none; cursor: pointer; transition: transform .15s; }
 .hdr-user:active { transform: scale(.96); }
 .hdr-ava {
   width: 34px; height: 34px; border-radius: 12px; flex: none;
@@ -99,9 +103,14 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .hdr-name { font-size: 12px; font-weight: 700; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 108px; }
 .hdr-sub { font-size: 9.5px; color: var(--muted); white-space: nowrap; }
 
-#curr-bar { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+#curr-bar { display: flex; align-items: center; gap: 5px; cursor: pointer;
+  min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+#curr-bar::-webkit-scrollbar { display: none; }
+/* margin-left:auto вместо justify-content:flex-end: при переполнении flex-end
+   делает левый край недоступным для скролла, auto-маржин — нет */
+#curr-bar > :first-child { margin-left: auto; }
 .cb-item {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 4px; flex: none; white-space: nowrap;
   font-size: 11px; font-weight: 700; color: var(--bright);
   background: var(--bg2); border: 1px solid var(--border2);
   padding: 5px 8px; border-radius: 999px;
@@ -2401,3 +2410,14 @@ body.modal-open { overflow: hidden; }
 /* Слабые телефоны/доступность: гасим пульс ульты */
 @media (prefers-reduced-motion: reduce) { .b3-ult-btn { animation: none; } }
 body.no-fx .b3-ult-btn { animation: none; }
+
+/* UX-фикс: ряд «Внешний вид/Клан/Настройки» — «Внешний вид» переносился на
+   2 строки и ряд выглядел рвано; ужимаем шрифт, запрещаем перенос */
+.pa3-row { display: flex; gap: 8px; margin-top: 8px; }
+.pa3-row .btn { flex: 1; min-width: 0; font-size: 11.5px; padding: 10px 4px; white-space: nowrap; }
+
+/* Арена: полировка после Playwright-прогона — прячем пустую ленту лога,
+   ограничиваем ширину на планшетах, меньше мёртвого пространства */
+.b3-log:empty { display: none; }
+.b3-ov > * { width: 100%; max-width: 520px; margin-left: auto; margin-right: auto; }
+.b3-mid { min-height: 0; }

@@ -41,9 +41,14 @@
   function initUI() {
     var st = document.createElement('style');
     st.textContent = [
-      '#devmode-fab{position:fixed;bottom:70px;right:12px;z-index:9998;width:44px;height:44px;',
-      ' border-radius:50%;background:#1c2733;border:1px solid #3a4a5c;color:#ffd166;font-size:20px;',
-      ' display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.5);cursor:pointer}',
+      // UX-фикс (скрин юзера): FAB 44px непрозрачный наезжал на кнопки контента
+      // («Питомцы» в профиле) — теперь меньше, полупрозрачный и прижат к краю,
+      // при нажатии/наведении проявляется
+      '#devmode-fab{position:fixed;bottom:66px;right:4px;z-index:9998;width:36px;height:36px;opacity:.45;',
+      ' border-radius:50%;background:#1c2733;border:1px solid #3a4a5c;color:#ffd166;font-size:16px;',
+      ' display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,.5);cursor:pointer;',
+      ' transition:opacity .2s}',
+      '#devmode-fab:active,#devmode-fab:hover{opacity:1}',
       '#devmode-panel{position:fixed;inset:auto 8px 122px 8px;max-height:62vh;z-index:9999;',
       ' background:#12181f;border:1px solid #3a4a5c;border-radius:12px;display:none;flex-direction:column;',
       ' font:12px/1.45 monospace;color:#cfe3f5;box-shadow:0 6px 24px rgba(0,0,0,.6)}',
