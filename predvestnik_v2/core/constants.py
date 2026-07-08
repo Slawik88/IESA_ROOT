@@ -727,7 +727,8 @@ GATES2_CP_GATE: dict = {1: 500, 2: 1200, 3: 2500, 4: 4000, 5: 6000, 6: 8000}
 GATES2_ENTRIES_PER_DAY: int = 3
 GATES2_DARK_MORA_BASE: int = 3                # награда = BASE + PER_FLOOR × этаж
 GATES2_DARK_MORA_PER_FLOOR: int = 2
-GATES2_SHARD_CHANCE: float = 0.20             # шанс 1–3 💠 Осколков Бездны лично
+GATES2_SHARD_CHANCE: float = 0.20             # шанс 💠 Осколков Бездны лично
+GATES2_SHARD_RANGE: tuple = (1, 3)            # диапазон 💠 при проке шанса выше
 
 # Рейды клана (замена PvP): босс с HP, контр-урон питомцу.
 # (RAID_THRESHOLDS удалены 2026-07-07 — промежуточные оповещения «босс на 50%»

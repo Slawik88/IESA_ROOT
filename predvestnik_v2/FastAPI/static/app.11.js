@@ -202,8 +202,9 @@ function loadGates(){
     if(d.active_battle){ _btBackFn=loadGates; _btRender(d.active_battle); return; }
     const host2=el('gtc'); if(!host2) return;
     const squad=(d.squad||[]).map(s=>`<span class="bk-chip">${s.emoji} ${esc(s.name)} · ур.${s.level}</span>`).join('');
+    const lo=d.loot||{};
     const floors=(d.floors||[]).map(f=>`<div class="g2-floor${f.open?'':' locked'}">
-        <span class="g2-fn">Этаж ${f.floor} <span class="cx-dim">· врагов: ${f.enemies}${f.unit_shards?' · ◈ осколки юнитов':''}</span></span>
+        <span class="g2-fn">Этаж ${f.floor} <span class="cx-dim">· врагов: ${f.enemies}${f.unit_shards?` · ◈ ${lo.unit_shard_chance_pct||35}% шанс ${(lo.unit_shard_range||[1,2]).join('–')} осколков юнита`:''}</span></span>
         <span class="g2-fr">+${f.reward_dark} 🌑</span>
         ${f.open
           ? `<button class="btn btn-sm btn-gold" ${d.entries_left<=0||!(d.squad||[]).length?'disabled':''} onclick="_gtEnter(${f.floor},this)">⚔️ Войти</button>`
@@ -211,7 +212,8 @@ function loadGates(){
       </div>`).join('');
     host2.innerHTML=`
       <div class="looks-hint">🌑 <b>Врата</b> — бой отрядом: раздача рун, порядок решает.
-        Победа: Тёмная Мора, шанс 💠, на этажах 5–6 — осколки юнитов.
+        Победа: Тёмная Мора + ${lo.shard_chance_pct||20}% шанс ${(lo.shard_range||[1,3]).join('–')} 💠,
+        на этажах 5–6 — ещё и осколки юнитов (см. ниже).
         Входов сегодня: <b>${d.entries_left}</b> · Твоя Сила: ⚡${fmt(d.cp)}.</div>
       ${squad?`<div class="looks-slot-t">⚔️ Отряд (⚡${fmt(d.squad_cp)})</div><div class="bk-chips">${squad}</div>`
         :`<div class="cx-dim" style="font-size:11px">Отряда нет.</div>

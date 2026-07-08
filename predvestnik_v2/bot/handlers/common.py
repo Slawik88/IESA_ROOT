@@ -8,7 +8,10 @@ from aiogram.filters.callback_data import CallbackData
 from bot.filters.text_commands import TextCmd, WrongSyntaxCmd, UnknownBotCmd
 from services.utils import check_callback_owner
 from core.registry import ITEMS_REGISTRY
+from core.constants import CHEST_REWARDS_BY_POSITION
 from html import escape as _he
+
+_CHEST_POS = CHEST_REWARDS_BY_POSITION  # честные цифры сундука в помощи — из константы, не руками
 
 _WEB_BASE_URL = os.getenv("WEB_BASE_URL", "")
 # Dedicated Mini App URL — MUST be set explicitly. Never falls back to WEB_BASE_URL
@@ -313,8 +316,10 @@ HELP_PAGES = {
         "💰 <b>Сундук активности</b>\n"
         "  Бот автоматически спавнит сундук в чате каждые 4–8 часов.\n"
         "  Написал сообщение = зарегистрирован. До 15 игроков успевают!\n"
-        "  🥇 1 место: 300🪙 + 🎟 жетон · 🥈 2-е: 260🪙 + жетон · 🥉 3-е: 220🪙 + жетон\n"
-        "  Место 4-15: 190→30🪙 · Сундук исчезает через 90 сек!\n\n"
+        f"  🥇 1 место: {int(_CHEST_POS[1])}🪙 + 🎟 жетон · 🥈 2-е: {int(_CHEST_POS[2])}🪙 + жетон · "
+        f"🥉 3-е: {int(_CHEST_POS[3])}🪙 + жетон\n"
+        f"  Место 4-15: {int(_CHEST_POS[4])}→{int(_CHEST_POS[15])}🪙 (полная разбивка: «бот ивент») · "
+        "Сундук исчезает через 90 сек!\n\n"
         "💱 <b>Обменник валют</b> (постоянный)\n"
         "▸ <code>бот обмен</code> или клик на 🪙/💎 в профиле на сайте\n"
         "  🛒 Покупка: 3 000 🪙 = 1 💎 · 💸 Продажа: 1 💎 = 2 000 🪙\n"

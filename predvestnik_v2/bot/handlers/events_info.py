@@ -21,6 +21,7 @@ from core.constants import (
     DARK_MORA_CULT_COOLDOWN_DAYS,
 )
 from infrastructure.repositories.chest_events import create_chest
+from services.formatting import format_chest_rewards_text
 from infrastructure.repositories.exchange import (
     get_active_event as _get_active_exchange,
     create_event as _create_exchange_event,
@@ -80,14 +81,9 @@ async def cmd_events_info(message: types.Message, db):
     )
 
     # ── Chest event ───────────────────────────────────────────────────────────
-    top3_reward = CHEST_REWARDS_BY_POSITION.get(1, 300)
     chest_status = (
         f"🎲 Появляются случайно каждые {CHEST_SPAWN_MIN_HOURS}–{CHEST_SPAWN_MAX_HOURS} ч.\n"
-        f"   ├ 🥇 1 место: <b>{int(top3_reward)} 🪙</b> + 🎟 Жетон\n"
-        f"   ├ 🥈 2 место: <b>{int(CHEST_REWARDS_BY_POSITION.get(2, 260))} 🪙</b> + 🎟 Жетон\n"
-        f"   ├ 🥉 3 место: <b>{int(CHEST_REWARDS_BY_POSITION.get(3, 220))} 🪙</b> + 🎟 Жетон\n"
-        f"   └ 4–15 место: <b>{int(CHEST_REWARDS_BY_POSITION.get(15, 30))}–"
-        f"{int(CHEST_REWARDS_BY_POSITION.get(4, 190))} 🪙</b>"
+        + format_chest_rewards_text(CHEST_REWARDS_BY_POSITION)
     )
 
     # ── Dark Mora events ──────────────────────────────────────────────────────
@@ -120,9 +116,13 @@ class _ChestCB(CallbackData, prefix="chest"):
     chest_id: int
 
 
-@router.message(TextCmd(["форс сундук", "форс_сундук", "force chest"]))
+@router.message(TextCmd(["форс сундук", "форс_сундук", "force chest",
+                        "dev ивент сундук", "dev chest"]))
 async def cmd_force_chest(message: types.Message, db, bot: Bot, developer_id: int = 0):
-    """Dev-only: force-spawn a chest in the current chat."""
+    """Dev-only: force-spawn a chest in the current chat. Единственная точка
+    (была ещё копия в bot/handlers/dev.py с ХАРДКОЖЕННЫМИ фейковыми числами
+    70/65/60/55→10 вместо реальных 300/260/220/… из CHEST_REWARDS_BY_POSITION —
+    удалена, алиасы перенесены сюда)."""
     if not developer_id or message.from_user.id != developer_id:
         return
     if message.chat.type == "private":
@@ -139,14 +139,10 @@ async def cmd_force_chest(message: types.Message, db, bot: Bot, developer_id: in
         callback_data=_ChestCB(chest_id=chest_id),
     )
 
-    r = CHEST_REWARDS_BY_POSITION
     await bot.send_message(
         message.chat.id,
-        f"💰 <b>НАЙДЕН СУНДУК ПРЕДВЕСТНИКА!</b>\n\n"
-        f"🥇 1 место: <b>{int(r.get(1, 300))} 🪙</b> + 🎟 Жетон\n"
-        f"🥈 2 место: <b>{int(r.get(2, 260))} 🪙</b> + 🎟 Жетон\n"
-        f"🥉 3 место: <b>{int(r.get(3, 220))} 🪙</b> + 🎟 Жетон\n"
-        f"4–15 место: <b>{int(r.get(15, 30))}–{int(r.get(4, 190))} 🪙</b>\n\n"
+        "💰 <b>НАЙДЕН СУНДУК ПРЕДВЕСТНИКА!</b>\n\n"
+        f"{format_chest_rewards_text(CHEST_REWARDS_BY_POSITION)}\n\n"
         "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
         reply_markup=b.as_markup(),
         parse_mode="HTML",

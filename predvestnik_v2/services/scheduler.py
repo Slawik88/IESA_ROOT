@@ -23,6 +23,7 @@ from infrastructure.repositories.chest_events import (
     get_qualifying_chats, create_chest, close_chest,
     get_expired_active, update_last_chest_at,
 )
+from services.formatting import format_chest_rewards_text
 from infrastructure.repositories.economy import add_balance as _ab, add_item as _add_item
 from services.achievements import increment_metric as _incr_ach
 from services.quests import increment_metric as _incr_quest
@@ -786,14 +787,10 @@ async def chest_spawn_task(bot: Bot):
                             text=f"👋 Забрать! (0/{CHEST_MAX_CLAIMANTS})",
                             callback_data=_ChestCB(chest_id=chest_id),
                         )
-                        _r = CHEST_REWARDS_BY_POSITION
                         await bot.send_message(
                             chat_id,
                             "💰 <b>НАЙДЕН СУНДУК ПРЕДВЕСТНИКА!</b>\n\n"
-                            f"🥇 1 место: <b>{int(_r.get(1,300))} 🪙</b> + 🎟 Жетон\n"
-                            f"🥈 2 место: <b>{int(_r.get(2,260))} 🪙</b> + 🎟 Жетон\n"
-                            f"🥉 3 место: <b>{int(_r.get(3,220))} 🪙</b> + 🎟 Жетон\n"
-                            f"4–15 место: <b>{int(_r.get(15,30))}–{int(_r.get(4,190))} 🪙</b>\n\n"
+                            f"{format_chest_rewards_text(CHEST_REWARDS_BY_POSITION)}\n\n"
                             "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
                             reply_markup=b.as_markup(),
                             parse_mode="HTML",

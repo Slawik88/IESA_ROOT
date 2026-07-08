@@ -182,33 +182,12 @@ async def cmd_dev_reset_streak(message: types.Message, db, text_args: str = None
 
 
 # ── Dev force events ──────────────────────────────────────────────────────────
-
-@router.message(TextCmd(["dev ивент сундук", "dev chest"]))
-async def cmd_dev_chest(message: types.Message, db):
-    from datetime import datetime, timezone, timedelta
-    from infrastructure.repositories.chest_events import create_chest, update_last_chest_at
-    expires = datetime.now(timezone.utc) + timedelta(seconds=90)
-    expires_str = expires.strftime("%Y-%m-%d %H:%M:%S")
-    chest_id = await create_chest(db, message.chat.id, expires_str)
-    await update_last_chest_at(db, message.chat.id)
-    await db.commit()
-
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
-    from bot.handlers.events import ChestCB
-    from core.constants import CHEST_MAX_CLAIMANTS
-
-    b = InlineKeyboardBuilder()
-    b.button(text=f"👋 Забрать! (0/{CHEST_MAX_CLAIMANTS})", callback_data=ChestCB(chest_id=chest_id))
-    await message.answer(
-        "💰 <b>DEV — ПРИНУДИТЕЛЬНЫЙ СУНДУК!</b>\n\n"
-        "🥇 1 место: <b>70 🪙</b> + 🎟 Жетон\n"
-        "🥈 2 место: <b>65 🪙</b> + 🎟 Жетон\n"
-        "🥉 3 место: <b>60 🪙</b> + 🎟 Жетон\n"
-        "4–15 место: <b>55 → 10 🪙</b>\n\n"
-        "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
-        reply_markup=b.as_markup(),
-        parse_mode="HTML",
-    )
+# «dev ивент сундук» / «dev chest» — команда переехала в bot/handlers/events_info.py
+# ::cmd_force_chest (там же «форс сундук»). Была дублирующая копия ЗДЕСЬ с
+# ХАРДКОЖЕННЫМИ фейковыми числами (70/65/60/55→10), которые НЕ совпадали с
+# реальными наградами (300/260/220/… из CHEST_REWARDS_BY_POSITION) — тестовый
+# сундук обещал одно, а платил другое. Удалена, чтобы не плодить второй источник
+# правды по одному и тому же тексту (найдено при аудите «не весь лут отображается»).
 
 
 @router.message(TextCmd(["dev ивент обмен", "dev exchange"]))
