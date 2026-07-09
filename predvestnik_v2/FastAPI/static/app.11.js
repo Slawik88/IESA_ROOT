@@ -313,7 +313,10 @@ function _btRender(st, turn, reward){
   ov.innerHTML=`
     <div class="b3-top">
       <span class="b3-round">Раунд ${st.round}${st.escalation?` · 🔥+${Math.round(st.escalation*100)}%`:''} · колода: ${st.deck_left}</span>
-      ${finished?'':`<button class="b3-flee" onclick="_b3Flee()">🏳 Сдаться</button>`}
+      ${finished?'':`<div style="display:flex;gap:6px">
+        <button class="b3-flee" onclick="_b3Cancel()">🚪 Выйти</button>
+        <button class="b3-flee" onclick="_b3Flee()">🏳 Сдаться</button>
+      </div>`}
     </div>
     <div class="b3-rage b3-rage-en"><div class="b3-rage-f" style="width:${rageE}%"></div><span>ярость врага ${rageE}</span></div>
     <div class="b3-row">${eCards}</div>
@@ -418,4 +421,16 @@ function _b3Flee(){
 function _b3FleeGo(){
   if(!_b3St) return;
   _b3Api('/combat2/battle/flee',{battle_id:_b3St.battle_id});
+}
+function _b3Cancel(){
+  if(!_b3St) return;
+  OM('🚪 Выйти из боя?','<div style="font-size:12px;color:var(--muted)">Бой отменится будто его не было — без награды, но и без поражения. Вход дня всё равно будет потрачен.</div>',
+    [{l:'🚪 Да, выйти',c:'btn-red',f:'CM();_b3CancelGo()'},{l:'Остаться',c:'btn-ghost',f:'CM()'}]);
+}
+function _b3CancelGo(){
+  if(!_b3St||_b3Lock) return;
+  _b3Lock=true;
+  api('/combat2/battle/cancel',{method:'POST',body:JSON.stringify({battle_id:_b3St.battle_id})})
+    .then(()=>{ _b3Lock=false; toast('🚪 Вышел из боя'); _btBack(); })
+    .catch(e=>{ _b3Lock=false; toast(e,false); });
 }
