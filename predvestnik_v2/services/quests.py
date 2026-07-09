@@ -15,6 +15,7 @@ from infrastructure.repositories.quests import (
     get_user_quests, upsert_quest, increment_quest_progress, mark_completed, claim_once,
 )
 from infrastructure.repositories.streak import get_chat_timezone
+from services.battle_pass import add_xp as _bp_add_xp
 
 _DAILY_IDS = {q["id"] for q in DAILY_QUESTS}
 _WEEKLY_IDS = {q["id"] for q in WEEKLY_QUESTS}
@@ -185,6 +186,11 @@ async def increment_metric(
         daily_done = await _increment_set(db, user_id, chat_id, today, DAILY_QUESTS,
                                           existing, metric_name, delta)
         completed_now.extend(daily_done)
+        # РЕБАЛАНС 2026-07-09: квесты — главный источник XP Боевого пропуска
+        # (раньше XP давали только хардкорные капанные действия, полуактивный
+        # игрок не мог пройти сезон). Один квест = одно начисление.
+        for _ in daily_done:
+            await _bp_add_xp(db, user_id, "daily_quest_completed")
         if daily_done:
             bonus = await _maybe_grant_daily_bonus(db, user_id, chat_id, today)
             if bonus:
@@ -207,6 +213,8 @@ async def increment_metric(
         weekly_done = await _increment_set(db, user_id, chat_id, week_key, WEEKLY_QUESTS,
                                            w_existing, metric_name, delta)
         completed_now.extend(weekly_done)
+        for _ in weekly_done:
+            await _bp_add_xp(db, user_id, "weekly_quest_completed")
         if weekly_done:
             wbonus = await _maybe_grant_weekly_bonus(db, user_id, chat_id, week_key)
             if wbonus:
