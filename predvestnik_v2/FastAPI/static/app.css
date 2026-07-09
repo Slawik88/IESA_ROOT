@@ -659,6 +659,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 /* БЛОК21 #4/#5: FOMO-плашка эксклюзива сезона на БП */
 .bp-exclusive { margin-top: 6px; padding: 6px 8px; border-radius: 8px; font-size: 10px; line-height: 1.4; color: var(--gold2); background: linear-gradient(90deg, rgba(214,68,68,.13), rgba(201,168,76,.08)); border: 1px solid rgba(201,168,76,.3); }
 .bp-exc-tag { font-size: 8px; color: var(--gold2); white-space: nowrap; }
+.bp-cos-chip { color: var(--gold); text-decoration: underline dotted; text-underline-offset: 2px; cursor: pointer; }
 /* VIP строка в Зале Славы — переливающийся золотой градиент */
 @keyframes vipShimmer {
   0%   { background-position: -200% center; }

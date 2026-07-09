@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.constants import BATTLE_PASS_MAX_LEVEL, BATTLE_PASS_XP_PER_LEVEL
 from core.registry import BATTLE_PASS_SEASONS, BATTLE_PASS_REWARDS, ITEMS_REGISTRY
+from core.cosmetics import COSMETICS
 from infrastructure.repositories import admin_log as _admin_log
 from services.battle_pass import (
     all_xp_actions,
@@ -251,6 +252,16 @@ async def dev_bp_season_delete(season_id: str, db=Depends(get_db), user=Depends(
     # выглядело как «кнопка не работает» — теперь явно говорим, что произошло.
     reverted = season_id in BATTLE_PASS_SEASONS
     return {"ok": True, "reverted_to_registry": reverted}
+
+
+@router.get("/bp/cosmetics-catalog")
+async def dev_bp_cosmetics_catalog(user=Depends(require_tg_user)):
+    """id→{name,css,rarity,slot} для всей косметики — таблица наград хранит/показывает
+    сырые item_id (cos_name_glow_silver и т.п.), дев не мог понять, что это за
+    предмет, не заглядывая в код. Фронт резолвит имя и рисует кликабельный превью."""
+    _require_dev(user)
+    return {cid: {"name": c["name"], "css": c.get("css", ""),
+                  "rarity": c["rarity"], "slot": c["slot"]} for cid, c in COSMETICS.items()}
 
 
 @router.get("/bp/rewards")

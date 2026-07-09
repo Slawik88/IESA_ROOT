@@ -51,6 +51,26 @@ function _bpLevelRow(r) {
     ${_bpRewardCell(r.level,'paid',r.paid)}
   </div>`;
 }
+// Косметика в наградах БП раньше показывалась голым item_id (cos_name_glow_silver) —
+// теперь бэк резолвит имя+css+rarity+slot (_resolve_items), а тут превращаем это
+// в кликабельный чип: тап открывает живой превью того же вида, что в «Внешний вид».
+let _bpCosMap={};
+function _bpItemChip(it){
+  if(it.is_cosmetic){
+    _bpCosMap[it.item_id]=it;
+    return `<span class="bp-cos-chip" onclick="event.stopPropagation();_bpCosPreview('${it.item_id}')">🎨 ${esc(it.name)}</span>`;
+  }
+  return `+${it.qty} ${esc(it.name)}`;
+}
+function _bpCosPreview(id){
+  const it=_bpCosMap[id]; if(!it) return;
+  const sw=_looksSwatch(it.slot,it);
+  OM(`🎨 ${esc(it.name)}`,
+    `<div style="text-align:center;padding:6px 0">${sw}
+       <div style="margin-top:10px;font-size:12px;color:${rarColor(it.rarity)}">${esc(rarLabel(it.rarity))}</div>
+     </div>`,
+    [{l:'Понятно',c:'btn-gold',f:'CM()'}]);
+}
 function _bpRewardCell(level,track,reward) {
   const hasChoice = reward.options && reward.options.length>=2;
   let text;
@@ -60,7 +80,7 @@ function _bpRewardCell(level,track,reward) {
     const parts=[];
     if(reward.mora) parts.push(`+${fmt(reward.mora)} 🪙`);
     if(reward.diamonds) parts.push(`+${reward.diamonds} 💎`);
-    (reward.items||[]).forEach(it=>parts.push(`+${it.qty} ${it.name}`));
+    (reward.items||[]).forEach(it=>parts.push(_bpItemChip(it)));
     if(reward.theme) parts.push(`🎨 Тема «${reward.theme}» <span class="bp-exc-tag">🗓 эксклюзив</span>`);
     text=parts.join(', ')||'—';
   }
@@ -152,7 +172,7 @@ function _bpNextRewardCard(d){
     else{ const p=[];
       if(rw.mora)p.push(`+${fmt(rw.mora)} 🪙`);
       if(rw.diamonds)p.push(`+${rw.diamonds} 💎`);
-      (rw.items||[]).forEach(it=>p.push(`+${it.qty} ${it.name}`));
+      (rw.items||[]).forEach(it=>p.push(_bpItemChip(it)));
       if(rw.theme)p.push(`🎨 Тема «${rw.theme}»`);
       txt=p.join(', ')||'—';
     }

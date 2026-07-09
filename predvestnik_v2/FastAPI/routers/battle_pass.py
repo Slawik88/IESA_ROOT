@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.constants import BATTLE_PASS_XP_PER_LEVEL
 from core.registry import BATTLE_PASS_REWARDS, ITEMS_REGISTRY
+from core.cosmetics import COSMETICS
 from core.themes import THEMES
 from services.battle_pass import (
     claim_reward, get_active_season, get_progress, level_status, refresh_seasons_cache,
@@ -17,10 +18,26 @@ router = APIRouter(prefix="/battle_pass", tags=["battle_pass"])
 
 
 def _resolve_items(items: tuple) -> list[dict]:
-    return [
-        {"item_id": item_id, "name": ITEMS_REGISTRY.get(item_id, {}).get("name", item_id), "qty": qty}
-        for item_id, qty in items
-    ]
+    """Косметика (cos_{slot}_{имя}) живёт в отдельном реестре (core/cosmetics.py),
+    не в ITEMS_REGISTRY — раньше такие ID в наградах БП падали в fallback и
+    показывались игроку голым айдишником (cos_name_glow_silver). Резолвим отдельно,
+    плюс отдаём css/rarity/slot — фронт превращает это в кликабельный превью-чип."""
+    out = []
+    for item_id, qty in items:
+        cos = COSMETICS.get(item_id) if item_id.startswith("cos_") else None
+        if cos:
+            out.append({
+                "item_id": item_id, "name": cos["name"], "qty": qty,
+                "is_cosmetic": True, "css": cos.get("css", ""),
+                "rarity": cos["rarity"], "slot": cos["slot"],
+            })
+        else:
+            out.append({
+                "item_id": item_id,
+                "name": ITEMS_REGISTRY.get(item_id, {}).get("name", item_id),
+                "qty": qty,
+            })
+    return out
 
 
 def _reward_payload(reward: dict, level: int, track: str, progress: dict) -> dict:
