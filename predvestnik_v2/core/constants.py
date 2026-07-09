@@ -600,15 +600,30 @@ ALCHEMY_MAX_BET: float = 2_000.0       # payout = ставка × min(3.0, сч�
 SAFE_WIN_MULT: float = 1.6             # скилловый винрейт ~60% → EV ≈ 0.96
 
 # ── Battle Pass (Implementation Block 5) ───────────────────────────────────────
-BATTLE_PASS_XP_PER_LEVEL: int = 100  # линейная шкала; подбирается при балансировке
+# РЕБАЛАНС 2026-07-09 (репорт пользователя: полуактивный игрок не проходит БП
+# за сезон). Диагноз: прогресс был завязан ТОЛЬКО на хардкорные капанные
+# действия (дуэли/аукцион/азарт/крутки) — квесты, основной казуальный лут-луп
+# игры, вообще не давали BP XP. Полуактивный игрок получал ~45 XP/день из
+# старых источников → 1800 XP за 40-дневный сезон = уровень 18/50 (36%).
+# Фикс: (1) квесты стали ГЛАВНЫМ источником XP (см. daily_quest_completed/
+# weekly_quest_completed, начисляются в services/quests.py::increment_metric
+# за каждый закрытый квест), (2) лёгкий буст уже казуальным действиям,
+# (3) требование снижено 100→90 XP/уровень (5000→4500 всего). Итог: игрок,
+# делающий ТОЛЬКО квесты, проходит впритык (~38 дней); с лёгкой доп.
+# активностью (пара экспедиций/круток/дуэль в день) — с запасом (~26 дней).
+BATTLE_PASS_XP_PER_LEVEL: int = 90
 BATTLE_PASS_MAX_LEVEL: int = 50
 BATTLE_PASS_SEASON_END_REMINDER_DAYS: int = 3  # напомнить активным игрокам о скором конце сезона
 
-# metric_name (как в вызовах services.achievements.increment_metric) -> XP за единицу delta
+# metric_name (как в вызовах services.achievements.increment_metric, либо
+# синтетические daily_quest_completed/weekly_quest_completed из quests.py)
+# -> XP за единицу delta
 BATTLE_PASS_XP_WEIGHTS: dict[str, int] = {
+    "daily_quest_completed": 20,   # НОВОЕ: за каждый закрытый дневной квест (до 3/день)
+    "weekly_quest_completed": 80,  # НОВОЕ: за каждый закрытый недельный квест (до 5/неделю)
     "duel_wins": 10,
-    "expeditions_done": 8,
-    "gacha_spins": 3,
+    "expeditions_done": 10,   # было 8 — лёгкий буст казуальному действию
+    "gacha_spins": 4,         # было 3 — лёгкий буст казуальному действию
     "auction_sales": 12,
     "gamble_wins": 4,
     "marriage_days_total": 2,
@@ -618,17 +633,21 @@ BATTLE_PASS_XP_WEIGHTS: dict[str, int] = {
 
 # Дневной потолок XP БП на КАЖДОЕ действие (анти-абуз; 0/нет ключа = без лимита).
 # Гасит фарм XP — в первую очередь вош-трейд через auction_sales альт-аккаунтами.
+# daily_quest_completed/weekly_quest_completed капов не требуют — сами по себе
+# ограничены количеством квестов (3/день, 5/неделю).
 # Правится в дев-конструкторе (bp_xp_weight_overrides перекрывает эти дефолты).
 BATTLE_PASS_XP_DAILY_CAPS: dict[str, int] = {
-    "gacha_spins": 60,       # вес 3  → ~20 круток/день засчитываются
+    "gacha_spins": 80,       # вес 4  → ~20 круток/день засчитываются (тот же потолок действий)
     "auction_sales": 36,     # вес 12 → ~3 продажи/день (закрывает вош-трейд)
-    "expeditions_done": 48,  # вес 8  → ~6 экспедиций/день
+    "expeditions_done": 60,  # вес 10 → ~6 экспедиций/день (тот же потолок действий)
     "duel_wins": 50,         # вес 10 → ~5 побед/день
     "gamble_wins": 24,       # вес 4  → ~6 побед/день
 }
 
 # Человекочитаемые ярлыки действий — для дев-конструктора и игровой справки.
 BATTLE_PASS_XP_ACTION_LABELS: dict[str, str] = {
+    "daily_quest_completed": "Закрытый дневной квест",
+    "weekly_quest_completed": "Закрытый недельный квест",
     "duel_wins": "Победа в дуэли",
     "expeditions_done": "Завершённая экспедиция",
     "gacha_spins": "Крутка гачи",
