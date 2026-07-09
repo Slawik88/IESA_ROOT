@@ -149,11 +149,13 @@ function showExpeditionReceipt(e) {
   });
   const tp = [`+${fmt(e.mora)} 🪙`, `+${fmt(e.xp)} XP`];
   if (e.diamonds) tp.push(`+${e.diamonds} 💎`);
+  const earlyNote = e.early_finish
+    ? `<div style="font-size:10px;color:var(--muted);text-align:center;margin-top:2px">⚡ Поход завершён досрочно (энергетик/кристалл) — награда −50%</div>` : '';
   OM(`🎉 ${esc(e.pet || 'Питомец')} вернулся!`,
     `<div style="margin-bottom:6px">${rows}
        <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
      </div>
-     <div style="font-size:10px;color:var(--green);text-align:center">✓ Награда уже зачислена</div>`,
+     <div style="font-size:10px;color:var(--green);text-align:center">✓ Награда уже зачислена</div>${earlyNote}`,
     [{l:'🎁 Забрать', c:'btn-gold', f:'CM();_nextModal()'}]);
 }
 
@@ -208,7 +210,8 @@ function showWelcomeBack(items) {
     totM += e.mora || 0; totX += e.xp || 0; totD += e.diamonds || 0;
     const parts = [`+${fmt(e.mora || 0)} 🪙`, `+${fmt(e.xp || 0)} XP`];
     if (e.diamonds) parts.push(`+${e.diamonds} 💎`);
-    return `<div style="${rs}"><span>🐾 ${esc(e.pet || 'Питомец')}</span><span style="color:var(--gold)">${parts.join(' · ')}</span></div>`;
+    const petLabel = (e.early_finish ? '⚡ ' : '🐾 ') + esc(e.pet || 'Питомец');
+    return `<div style="${rs}"><span>${petLabel}</span><span style="color:var(--gold)">${parts.join(' · ')}</span></div>`;
   }).join('');
   const tp = [`+${fmt(totM)} 🪙`, `+${fmt(totX)} XP`];
   if (totD) tp.push(`+${totD} 💎`);

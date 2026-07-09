@@ -103,8 +103,28 @@ async def gacha_info(db=Depends(get_db), user=Depends(require_tg_user)):
     }
 
 
-async def _notify_chat_spin(db, user_id: int, chat_id: int, spin_type: str, result: dict, multi_count: int = 0) -> None:
-    """Best-effort: notify the originating chat about a gacha spin result."""
+import time as _time
+
+# Спам-фикс (2026-07-09): каждая крутка слала своё сообщение в чат — игрок,
+# скрутивший 10+ жетонов подряд (или несколько игроков разом), заваливал чат
+# десятком строк "выпало 40 Моры". Ценные дропы (is_valuable из roll_single/
+# roll_multi — то же поле, что двигает pity) редки сами по себе и шлются всегда;
+# рядовые прогоняются через кулдаун на чат — не чаще одного сообщения в окно.
+_SPIN_NOTIFY_COOLDOWN_S = 20.0
+_last_spin_notify: dict[int, float] = {}
+
+
+async def _notify_chat_spin(db, user_id: int, chat_id: int, spin_type: str, result: dict,
+                            multi_count: int = 0, is_valuable: bool = False) -> None:
+    """Best-effort: notify the originating chat about a gacha spin result.
+    Рядовые (не is_valuable) дропы гасятся кулдауном на чат, чтобы не спамить —
+    ценные дропы шлются всегда (сами по себе редкие, это и есть хайп-момент)."""
+    if not is_valuable:
+        now = _time.monotonic()
+        last = _last_spin_notify.get(chat_id, 0.0)
+        if now - last < _SPIN_NOTIFY_COOLDOWN_S:
+            return
+        _last_spin_notify[chat_id] = now
     try:
         import os, httpx
         token = os.getenv("BOT_TOKEN", "")
@@ -184,7 +204,8 @@ async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_us
 
     # Send bot notification to chat (best-effort)
     if body.chat_id:
-        await _notify_chat_spin(db, user["id"], body.chat_id, body.spin_type, result)
+        await _notify_chat_spin(db, user["id"], body.chat_id, body.spin_type, result,
+                                is_valuable=bool(result.get("is_valuable")))
 
     return result
 
@@ -243,6 +264,8 @@ async def multi_spin(body: SpinRequest, db=Depends(get_db), user=Depends(require
             break
 
     if body.chat_id:
-        await _notify_chat_spin(db, user["id"], body.chat_id, body.spin_type, summary, multi_count=SPIN_MULTI_COUNT)
+        any_valuable = any(r.get("is_valuable") for r in results)
+        await _notify_chat_spin(db, user["id"], body.chat_id, body.spin_type, summary,
+                                multi_count=SPIN_MULTI_COUNT, is_valuable=any_valuable)
 
     return {"results": results, "summary": summary}

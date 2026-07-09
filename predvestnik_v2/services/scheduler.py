@@ -75,6 +75,7 @@ async def _finish_expedition(bot: Bot, db, row) -> None:
         species_placements=species_placements,
         relic_mora_pct=relic_mora_pct,
         academy_pct=_acad,
+        early_finish=bool(row.get("early_finish")),
     )
 
     if reward["mora"] == 0 and reward["xp"] == 0:
@@ -198,6 +199,7 @@ async def _finish_expedition(bot: Bot, db, row) -> None:
             "base_mora": reward.get("base_mora", reward["mora"]),
             "base_xp": reward.get("base_xp", reward["xp"]),
             "breakdown": reward.get("breakdown", []),
+            "early_finish": reward.get("early_finish", False),
         }
         try:
             from FastAPI.notifications import notify as _ws_notify
@@ -222,7 +224,7 @@ async def expedition_background_task(bot: Bot):
             async with get_pool().acquire() as _conn:
                 db = PGAdapter(_conn)
                 async with db.execute(
-                    "SELECT e.pet_id, e.chat_id, e.duration_hours, "
+                    "SELECT e.pet_id, e.chat_id, e.duration_hours, e.early_finish, "
                     "p.name, p.owner_id, p.marriage_id, p.species_id, "
                     "COALESCE(p.pet_level, 1) AS pet_level, "
                     "u.user_tg_username AS owner_username "

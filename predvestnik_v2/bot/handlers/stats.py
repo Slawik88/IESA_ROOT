@@ -8,7 +8,7 @@ from infrastructure.repositories import stats
 from infrastructure.repositories.streak import get_chat_timezone
 from services.utils import safe_html, format_currency, check_callback_owner
 from services.profile_render import format_display_name
-from services.membership import prune_ghosts
+from services.membership import bot_tg_id, prune_ghosts
 from bot.filters.text_commands import TextCmd
 from core.constants import INACTIVE_THRESHOLD_DAYS
 
@@ -103,6 +103,12 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
     """Возвращает (текст страницы, total_pages).
     Данные за периоды берутся из daily_user_stats — точный учёт без lazy-reset бага."""
     all_users = await _get_period_users(db, chat_id, period)
+    # Бот сам — строка в user_chat_stats, Telegram видит его обычным участником
+    # чата (см. bot_tg_id() в services/membership.py) — без исключения он мог
+    # попасть в собственный топ активности.
+    _self_id = bot_tg_id()
+    if _self_id is not None:
+        all_users = [u for u in all_users if u["user_tg_id"] != _self_id]
     # Сверка с реальным членством в чате — is_left не всегда успевает обновиться
     # пушем от Telegram (см. services/membership.py), топ не должен показывать
     # тех, кто фактически уже не в чате.
@@ -246,6 +252,10 @@ async def _build_cat_top(db, chat_id: int, cat: str, mode: str) -> str:
     elif cat == "auction":
         rows = await stats.get_top_auction_sales(db, cid)
 
+    _self_id = bot_tg_id()
+    if _self_id is not None and rows:
+        rows = [r for r in rows if r.get("user_tg_id", 0) != _self_id]
+
     # Локальный топ — сверяем с реальным членством чата (см. build_top_text).
     # Глобальный режим (cid=None) охватывает много чатов сразу — членство одного
     # чата тут не определяет попадание в топ, сверять нечего.
@@ -318,6 +328,9 @@ async def cmd_inactive(message: types.Message, db):
         return await message.answer("❌ <b>Ошибка:</b> Команда доступна только в группах.", parse_mode="HTML")
 
     inactive_users = await stats.get_inactive_users(db, message.chat.id, days_limit=INACTIVE_THRESHOLD_DAYS)
+    _self_id = bot_tg_id()
+    if _self_id is not None:
+        inactive_users = [u for u in inactive_users if u["user_tg_id"] != _self_id]
     if inactive_users:
         left_ids = await prune_ghosts(db, message.chat.id, [u["user_tg_id"] for u in inactive_users])
         if left_ids:

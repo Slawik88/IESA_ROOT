@@ -985,6 +985,14 @@ function swQuests(tab, btn) {
 // ── Auto-refresh ──────────────────────────────────────────────────────────────
 setInterval(()=>{if(_loaded.has('profile'))loadProfile();},300000);
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
+// Крипто-Биржа: цены — гладкая функция времени на сервере (services/crypto_exchange.py),
+// раньше обновлялись только при заходе на вкладку — игрок видел статичный слепок, пока
+// сам не перезаходил. Обновляем список, только пока реально на нём (список, не карточка
+// сделки — там ререндер сбросил бы открытую историю сделок/слайдер под пальцем).
+setInterval(()=>{
+  if(document.visibilityState==='visible' && _activePage==='auction' && _aucTab==='crypto'
+     && _cxView==='list' && !_cxSel) _cxLoad();
+}, 5000);
 
 // ── Dust modal ────────────────────────────────────────────────────────────────
 function _showDustModal(did) {
