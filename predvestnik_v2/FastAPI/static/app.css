@@ -2421,3 +2421,29 @@ body.no-fx .b3-ult-btn { animation: none; }
 .b3-log:empty { display: none; }
 .b3-ov > * { width: 100%; max-width: 520px; margin-left: auto; margin-right: auto; }
 .b3-mid { min-height: 0; }
+
+/* ═══ Питомцы 2.0: слоты/ростер — максимально переиспользует .bk-*
+   из Казармы (BATTLE_REWORK), новое — только то, чего там не было ═══ */
+.zc-slot-hero { grid-column: span 3; padding: 14px 8px; }
+.zc-slot-hero .bk-slot-e { font-size: 34px; }
+.zc-slots-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 6px; }
+.zc-slots-passive { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.zc-buy-hint { font-size: 10px; color: var(--muted); text-align: center; margin: 4px 0 10px; line-height: 1.5; }
+
+/* Тонкая полоска усталости внизу карточки ростера (пользователь явно попросил
+   видеть её прямо в гриде, не только в деталях) */
+.zc-card-fat { height: 3px; border-radius: 2px; background: var(--bg1); margin-top: 5px; overflow: hidden; }
+.zc-card-fat-fill { height: 100%; transition: width .3s; }
+
+/* Появление карточки в гриде при первом рендере — мягче chestPop */
+@keyframes zcCardIn { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+.zc-card-in { animation: zcCardIn .35s ease both; }
+
+/* Питомец «влетает» в слот при перемещении */
+@keyframes zcSlotFill { 0% { transform: scale(.85); opacity: .4; } 60% { transform: scale(1.04); } 100% { transform: scale(1); opacity: 1; } }
+.zc-slot-fill { animation: zcSlotFill .3s ease both; }
+
+/* Уважаем no-fx/prefers-reduced-motion — анимации лёгкие, упрощённого
+   промежуточного режима не нужно, просто гасим (см. PETS_REDESIGN_CONCEPT §5) */
+@media (prefers-reduced-motion: reduce) { .zc-card-in, .zc-slot-fill { animation: none; } }
+body.no-fx .zc-card-in, body.no-fx .zc-slot-fill { animation: none; }
