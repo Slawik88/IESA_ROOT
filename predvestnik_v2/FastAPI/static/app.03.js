@@ -609,12 +609,14 @@ function openPetModal(petId) {
       : '<div style="font-size:11px;color:var(--muted);padding:5px">Корма нет — купите в Магазине.</div>';
 
     const body = `
-      <!-- Header -->
-      <div style="text-align:center;padding:10px 0 10px">
+      <!-- Header: чип-стиль Казармы (bk-info-head), рамка модалки по редкости -->
+      <div class="r-${p.rarity}" style="text-align:center;padding:10px 0 10px;border-radius:var(--r)">
         <div style="font-size:28px;margin-bottom:6px">${p.name}</div>
-        <div style="margin-bottom:6px">${rc(p.rarity)}</div>
-        <div style="margin-bottom:8px">${placePill}</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5;max-width:280px;margin:0 auto">${p.species_desc||''}</div>
+        <div class="bk-info-head">
+          <span>${rc(p.rarity)}</span>
+          <span>${placePill}</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;max-width:280px;margin:8px auto 0">${p.species_desc||''}</div>
       </div>
       <div class="divider"></div>
 
