@@ -433,6 +433,7 @@ function _zcCard(p) {
   </div>`;
 }
 
+// Питомцы 2.0: 2 вкладки (nursery = единый экран, bestiary — без изменений).
 function swZoo(tab,btn) {
   _zooTab=tab;
   document.querySelectorAll('#pg-zoo > .tabs > .tb').forEach(b=>b.classList.remove('active'));
@@ -443,102 +444,96 @@ function swZoo(tab,btn) {
   _trackSubtab('zoo/'+tab);
   if(tab==='bestiary') { renderZooGuide(); return; }
   if(!_zooData){loadZoo();return;}
-  renderZoo(tab);
+  renderZoo();
 }
 
-function renderZoo(tab) {
+function renderZoo() {
   if(!_zooData)return;
-  let pets;
-  if(tab==='nursery') pets=_zooData.pets.filter(p=>p.placement!=='storage');
-  else pets=_zooData.pets.filter(p=>p.placement==='storage');
-
-  if(!pets.length){
-    el('zoo-c').innerHTML=tab==='nursery'
-      ?`<div style="text-align:center;padding:32px 16px;color:var(--muted)">
-          <div style="font-size:32px;margin-bottom:8px">🐾</div>
-          <div style="font-size:13px;font-weight:600;margin-bottom:4px">Питомник пуст</div>
-          <div style="font-size:11px">Переведи питомца со склада в питомник через кнопку «Переместить»</div>
-        </div>`
-      :`<div class="empty-state">
-          <div class="es-icon">📦</div>
-          <div class="es-title">Склад пуст</div>
-          <div class="es-sub">Крутни Гачу, чтобы получить питомца</div>
-          <button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button>
-        </div>`;
+  const allPets = _zooData.pets || [];
+  if(!allPets.length){
+    el('zoo-c').innerHTML=`<div style="text-align:center;padding:32px 16px;color:var(--muted)">
+        <div style="font-size:32px;margin-bottom:8px">🐾</div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:4px">Питомцев пока нет</div>
+        <div style="font-size:11px">Крутни Гачу, чтобы получить первого питомца</div>
+        <button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button>
+      </div>`;
     return;
   }
 
-  if(tab==='nursery'){
-    const active=pets.filter(p=>p.placement==='active');
-    const passive=pets.filter(p=>p.placement==='passive');
-    const maxSlots=_zooData.max_slots||3;
-    const baseSlots=_zooData.base_slots||3;
-    const boughtSlots=_zooData.bought_slots||0;
-    const vipExtra=_zooData.vip_extra_slot||0;
-    const atCap=!!_zooData.at_slot_cap;
-    const nextPrice=_zooData.slot_next_price;   // null если докуплено максимум
-    const totalSlots=maxSlots+vipExtra;
-    const occupied=active.length+passive.length;
-    const pendingMora=_zooData.pending_hamster_mora||0;
-    const hasHamsters=pets.some(p=>p.species_id==='hamster');
-    let html=`<div style="background:var(--s);border-radius:var(--r);border:1px solid var(--border2);padding:8px 12px;margin-bottom:10px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:12px;color:var(--muted)">🐾 Слоты питомника</span>
-        <span style="font-size:15px;font-weight:700;color:${occupied>=totalSlots?'var(--red)':'var(--green)'}">${occupied}/${totalSlots}</span>
-      </div>
-      <div style="font-size:10px;color:var(--muted);line-height:1.8">
-        <span>📦 Базовых: <b style="color:var(--bright)">${baseSlots}</b></span>
-        ${boughtSlots>0?`&nbsp;· 💎 Докуплено: <b style="color:var(--bright)">+${boughtSlots}</b>`:''}
-        ${vipExtra>0?`&nbsp;· 👑 VIP: <b style="color:var(--gold)">+${vipExtra}</b>`:''}
-      </div>
-      <div style="margin-top:8px;border-top:1px solid var(--border2);padding-top:8px">
-        ${atCap
-          ?`<button class="btn btn-full btn-sm" disabled style="font-size:11px;opacity:.45;cursor:not-allowed">🔒 Слоты за алмазы куплены (${boughtSlots}/${_zooData.max_purchasable||4})</button>`
-          :`<button class="btn btn-full btn-sm btn-gold" onclick="doBuySlot()" style="font-size:11px">🛒 Купить слот за ${nextPrice} 💎</button>`
-        }
-      </div>
-    </div>
-    ${hasHamsters?`<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+  const active=allPets.filter(p=>p.placement==='active');
+  const passive=allPets.filter(p=>p.placement==='passive');
+  const maxSlots=_zooData.max_slots||3;
+  const baseSlots=_zooData.base_slots||3;
+  const boughtSlots=_zooData.bought_slots||0;
+  const vipExtra=_zooData.vip_extra_slot||0;
+  const atCap=!!_zooData.at_slot_cap;
+  const nextPrice=_zooData.slot_next_price;
+  const totalSlots=maxSlots+vipExtra;
+  const pendingMora=_zooData.pending_hamster_mora||0;
+  const hasHamsters=allPets.some(p=>p.species_id==='hamster');
+
+  let html = _zcRenderSlots(active, passive, totalSlots);
+  html += `<div class="zc-buy-hint">
+      📦 Базовых: <b style="color:var(--bright)">${baseSlots}</b>
+      ${boughtSlots>0?` · 💎 Докуплено: <b style="color:var(--bright)">+${boughtSlots}</b>`:''}
+      ${vipExtra>0?` · 👑 VIP: <b style="color:var(--gold)">+${vipExtra}</b>`:''}
+    </div>`;
+  html += atCap
+    ? `<button class="btn btn-full btn-sm" disabled style="opacity:.45;cursor:not-allowed;margin-bottom:10px">🔒 Слоты за алмазы куплены (${boughtSlots}/${_zooData.max_purchasable||4})</button>`
+    : `<button class="btn btn-full btn-sm btn-gold" style="margin-bottom:10px" onclick="doBuySlot()">🛒 Купить слот за ${nextPrice} 💎</button>`;
+
+  if(hasHamsters){
+    html += `<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
       <div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:2px">🐹 Хомяк-банкир накопил</div>
         <div style="font-size:16px;font-weight:700;color:var(--gold)">${pendingMora>0?fmt(pendingMora)+' 🪙':'Копит...'}</div>
       </div>
       <button class="btn btn-gold btn-sm" onclick="collectHamster(this)" ${pendingMora<1?'disabled':''}>Собрать</button>
-    </div>`:''}
-    ${(()=>{
-      const wr=_zooData.wolf_restore;
-      if(!wr||wr.uses_left<=0) return '';
-      return `<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">🐺 Волк — восстановление усталости</div>
-          <div style="font-size:13px;font-weight:600">Осталось: ${wr.uses_left}/${wr.max_uses} · −${wr.restore_amount}% усталости</div>
-        </div>
-        <button class="btn btn-sm" style="background:var(--purple,#7c3aed);color:#fff" onclick="doWolfRestorePick()">Использовать</button>
-      </div>`;
-    })()}
-    ${(()=>{
-      const ua=_zooData.unicorn_ability;
-      if(!ua) return '';
-      if(ua.active) return `<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
+    </div>`;
+  }
+  const wr=_zooData.wolf_restore;
+  if(wr && wr.uses_left>0){
+    html += `<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:2px">🐺 Волк — восстановление усталости</div>
+        <div style="font-size:13px;font-weight:600">Осталось: ${wr.uses_left}/${wr.max_uses} · −${wr.restore_amount}% усталости</div>
+      </div>
+      <button class="btn btn-sm" style="background:var(--purple,#7c3aed);color:#fff" onclick="doWolfRestorePick()">Использовать</button>
+    </div>`;
+  }
+  const ua=_zooData.unicorn_ability;
+  if(ua){
+    if(ua.active){
+      html += `<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">
         <div style="font-size:11px;color:var(--muted)">🦄 Иммунитет усталости: <b style="color:var(--green)">АКТИВЕН</b></div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px">Истекает: ${ua.expires_at?ua.expires_at.slice(0,16).replace('T',' '):''}</div>
       </div>`;
-      if(!ua.available) return '';
-      return `<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+    } else if(ua.available){
+      html += `<div style="background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-size:11px;color:var(--muted);margin-bottom:2px">🦄 Единорог — иммунитет усталости</div>
           <div style="font-size:13px;font-weight:600">Защита на ${ua.immunity_hours} ч. для всех питомцев</div>
         </div>
         <button class="btn btn-sm" style="background:linear-gradient(135deg,#a855f7,#ec4899);color:#fff" onclick="doUnicornImmunity(this)">Активировать</button>
       </div>`;
-    })()}`;
-    html+=expLauncherHtml();
-    if(active.length) html+=`<div class="card-title" style="margin:8px 0 4px">⚔️ Активные (${active.length})</div>${active.map(petCard).join('')}`;
-    if(passive.length) html+=`<div class="card-title" style="margin:12px 0 4px">🛡 Пассивные (${passive.length})</div>${passive.map(petCard).join('')}`;
-    el('zoo-c').innerHTML=html;
-  } else {
-    el('zoo-c').innerHTML=pets.map(petCard).join('');
+    }
   }
+  html += expLauncherHtml();
+
+  // Ростер: ВСЕ питомцы (вкл. занятых слотом — с бейджем), сортировка:
+  // сначала занятые слотом (активный → пассивные), потом склад; внутри —
+  // по убыванию редкости и уровня.
+  const rarityRank = {mythic:5, legendary:4, epic:3, rare:2, uncommon:1, common:0};
+  const placeRank = p => p.placement==='active' ? 2 : p.placement==='passive' ? 1 : 0;
+  const roster = [...allPets].sort((a,b) =>
+    (placeRank(b)-placeRank(a)) ||
+    ((rarityRank[b.rarity]||0)-(rarityRank[a.rarity]||0)) ||
+    ((b.pet_level||1)-(a.pet_level||1)));
+
+  html += `<div class="looks-slot-t" style="margin-top:14px">📖 Все питомцы (${roster.length})</div>
+    <div class="bk-grid">${roster.map(_zcCard).join('')}</div>`;
+
+  el('zoo-c').innerHTML = html;
 }
 
 // Full pet modal — redesigned with all-level progression and active/passive split
