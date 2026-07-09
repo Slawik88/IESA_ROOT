@@ -477,6 +477,7 @@ let _bpTableData=null;
 let _bpSeason=null;   // ЕДИНЫЙ источник сезона: таблица + save + bulk + import
 function loadBpSeasons() {
   const sel=el('dev-bp-season-sel'); if(!sel) return;
+  _bpLoadCosCatalog();
   api('/admin/dev/bp/seasons').then(d=>{
     const seasons=d.seasons||[];
     if(!seasons.length){
@@ -495,13 +496,31 @@ function onBpSeasonChange() {
   const f=el('dev-br-season'); if(f) f.value=_bpSeason||'';
   loadBpTable();
 }
+// Каталог косметики (id→name/css/rarity/slot) для превью в таблице наград — раньше
+// cos_-предметы висели голым айдишником, дев не мог понять, что это без чтения кода.
+// Грузится один раз лениво, таблица перерисовывается по прилёту (первый рендер —
+// с сырыми ID как фолбэком, это ок).
+let _bpCosCatalog=null;
+function _bpLoadCosCatalog(){
+  if(_bpCosCatalog) return;
+  _bpCosCatalog={};
+  api('/admin/dev/bp/cosmetics-catalog').then(d=>{_bpCosCatalog=d||{}; loadBpTable();}).catch(()=>{});
+}
 function _bpRewardFmt(r) {
   if(!r) return '—';
   if(r.options) return '🔀 выбор ×'+r.options.length;
   const p=[];
   if(r.mora) p.push('🪙'+fmt(r.mora));
   if(r.diamonds) p.push('💎'+fmtF(r.diamonds));
-  (r.items||[]).forEach(it=>p.push('📦'+esc(it[0])+(it[1]>1?'×'+it[1]:'')));
+  (r.items||[]).forEach(it=>{
+    const id=it[0], cos=(_bpCosCatalog||{})[id];
+    if(cos){
+      _bpCosMap[id]=Object.assign({item_id:id},cos);
+      p.push(`<span class="bp-cos-chip" onclick="event.stopPropagation();_bpCosPreview('${id}')">🎨 ${esc(cos.name)}</span>`);
+    } else {
+      p.push('📦'+esc(id)+(it[1]>1?'×'+it[1]:''));
+    }
+  });
   if(r.theme||r.theme_id) p.push('🎨'+esc(r.theme||r.theme_id));
   return p.length?p.join(' '):'—';
 }
