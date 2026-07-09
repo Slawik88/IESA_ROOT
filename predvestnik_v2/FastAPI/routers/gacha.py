@@ -226,6 +226,7 @@ async def multi_spin(body: SpinRequest, db=Depends(get_db), user=Depends(require
         "dup_outcomes": all_dups,
         "items":    all_items,
         "count":    len(results),
+        "tokens_used": sum(1 for r in results if r.get("used_token")),
     }
 
     # Theme drop — 10x spins roll the chance 10 times (slightly better odds),

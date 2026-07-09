@@ -293,7 +293,12 @@ async def roll_multi(
     spin_type: str,
     count: int = 10,
 ) -> tuple[bool, list | str]:
-    """Perform `count` spins at a 10% discount. Deducts cost up-front.
+    """Perform `count` spins. Tokens have ABSOLUTE PRIORITY (same rule as
+    roll_single) — up to `count` spin_token_<type> are consumed first, one
+    token per spin; only the REMAINING spins (if any) are charged currency,
+    at the usual 10% multi-discount. Было: всегда списывалась валюта со
+    скидкой, жетоны не проверялись вообще — игрок с полным стаком жетонов
+    платил Морой/Алмазами за ×10, хотя должен был крутить бесплатно.
 
     Returns (True, [result_dict, ...]) or (False, error_str).
     """
@@ -303,8 +308,7 @@ async def roll_multi(
 
     count = min(count, SPIN_MULTI_COUNT)
     discount = SPIN_MULTI_DISCOUNT
-    total_mora = cost["mora"] * count * (1.0 - discount)
-    total_dias = cost["diamonds"] * count * (1.0 - discount)
+    token_id = SPIN_TOKEN_IDS.get(spin_type, "")
     table = GACHA_TABLES.get(spin_type, [])
 
     try:
@@ -314,22 +318,44 @@ async def roll_multi(
         async with db.execute("SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)) as _lk:
             await _lk.fetchone()
 
-        bal = await eco_repo.get_balance(db, user_id)
-        if total_mora > 0 and bal["user_balance_mora"] < total_mora:
-            await db.rollback()
-            return False, f"Недостаточно Моры (нужно {total_mora:.0f} 🪙)."
-        if total_dias > 0 and bal["user_balance_diamonds"] < total_dias:
-            await db.rollback()
-            return False, f"Недостаточно Алмазов (нужно {total_dias:.0f} 💎)."
+        # ── Tokens first: up to `count` — каждый закрывает один спин бесплатно ──
+        tokens_available = 0
+        if token_id:
+            async with db.execute(
+                "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? AND quantity > 0",
+                (user_id, token_id),
+            ) as c:
+                row = await c.fetchone()
+            tokens_available = row[0] if row else 0
+        tokens_to_use = min(count, tokens_available)
+        paid_spins = count - tokens_to_use
 
-        if total_mora > 0:
-            await eco_repo.add_balance(db, user_id, mora=-total_mora, commit=False)
-        if total_dias > 0:
-            await eco_repo.add_balance(db, user_id, diamonds=-total_dias, commit=False)
+        if tokens_to_use:
+            await db.execute(
+                "UPDATE inventory SET quantity = quantity - ? WHERE user_id = ? AND item_id = ?",
+                (tokens_to_use, user_id, token_id),
+            )
+
+        total_mora = cost["mora"] * paid_spins * (1.0 - discount)
+        total_dias = cost["diamonds"] * paid_spins * (1.0 - discount)
+
+        if paid_spins:
+            bal = await eco_repo.get_balance(db, user_id)
+            if total_mora > 0 and bal["user_balance_mora"] < total_mora:
+                await db.rollback()
+                return False, f"Недостаточно Моры (нужно {total_mora:.0f} 🪙)."
+            if total_dias > 0 and bal["user_balance_diamonds"] < total_dias:
+                await db.rollback()
+                return False, f"Недостаточно Алмазов (нужно {total_dias:.0f} 💎)."
+
+            if total_mora > 0:
+                await eco_repo.add_balance(db, user_id, mora=-total_mora, commit=False)
+            if total_dias > 0:
+                await eco_repo.add_balance(db, user_id, diamonds=-total_dias, commit=False)
 
         pity_current = await gacha_repo.get_pity_locked(db, user_id, spin_type)
         results = []
-        for _ in range(count):
+        for i in range(count):
             pity_before = pity_current
             hard_pity_triggered = False
 
@@ -369,6 +395,7 @@ async def roll_multi(
                 "pity_after": pity_after,
                 "hard_pity_triggered": hard_pity_triggered,
                 "is_valuable": is_valuable,
+                "used_token": i < tokens_to_use,
             })
 
         await db.commit()
