@@ -340,3 +340,17 @@ async def battle_flee(body: BattleIdRequest, db=Depends(get_db), user=Depends(re
     state = row["state"]
     state["status"] = "lost"
     return await _respond(db, uid, user, row, state, {})
+
+
+@router.post("/battle/cancel")
+async def battle_cancel(body: BattleIdRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Выйти из боя без последствий: вход дня потрачен (создание боя уже засчитано
+    в count_today), но это НЕ поражение — минуя _finalize_if_over напрямую, чтобы не
+    сработали ни награды, ни лог-сообщения поражения (напр. abyss «Отряд пал»), ни
+    урон стене войны. Юниты не персистентны (полные силы каждый бой) — сбрасывать
+    отдельно нечего."""
+    uid = user["id"]
+    row = await _load_battle(db, uid, body.battle_id)
+    await bt_repo.finish(db, row["id"], "cancelled")
+    await db.commit()
+    return {"ok": True}
