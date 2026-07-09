@@ -416,26 +416,20 @@ function _zcAssignPick(petId, targetPlacement, btn) {
     .catch(e => { toast(e, false); if (btn) btn.disabled = false; });
 }
 
-function petCard(p) {
+// Питомцы 2.0: компактная карточка грида (Казарма-стиль) — заменяет старую
+// list-style petCard.
+function _zcCard(p) {
   const fatPct = p.fatigue || 0;
-  const fatWarn = fatPct >= 100 ? '⛔ ' : fatPct >= 80 ? '⚠️ ' : '';
-  const placeBadge = p.placement === 'active'
-    ? '<span style="color:var(--teal);font-size:10px;font-weight:600">⚔️ Активный</span>'
-    : p.placement === 'passive'
-    ? '<span style="color:var(--blue);font-size:10px;font-weight:600">🛡 Пассивный</span>'
-    : '<span style="color:var(--dim);font-size:10px">📦 Склад</span>';
   const lvl = p.pet_level || 1;
-  const dups = p.duplicates_collected || 0;
-  return `<div class="pcard" style="cursor:pointer;${fatPct>=80?'border-color:'+fatC(fatPct)+';':''}" onclick="openPetModal(${p.id})">
-    <div class="pcol">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-        <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
-        ${placeBadge}
-      </div>
-      <div class="ps">Lv${lvl}/10 · 📦 ${dups} дубл.</div>
-      <div class="fat-bar"><div class="fat-fill${fatPct>=80?' critical':''}" style="width:${fatPct}%;background:${fatC(fatPct)}"></div></div>
-      <div style="font-size:10px;color:${fatC(fatPct)}">${fatWarn}${fatPct}% усталости</div>
-    </div>
+  const emoji = _zcEmoji(p.species_id);
+  const badge = p.placement === 'active' ? '⚔️ Активный'
+    : p.placement === 'passive' ? '🛡 Пассивный' : '';
+  return `<div class="bk-card zc-card zc-card-in r-${p.rarity}" onclick="openPetModal(${p.id})">
+    <div class="bk-card-e">${emoji}</div>
+    <div class="bk-card-n">${esc(p.name || p.species_id)}</div>
+    <div class="bk-card-s">${rc(p.rarity)} · Ур.${lvl}/10</div>
+    <div class="zc-card-fat"><div class="zc-card-fat-fill" style="width:${fatPct}%;background:${fatC(fatPct)}"></div></div>
+    ${badge ? `<div class="bk-card-f"><span class="bk-insq">${badge}</span></div>` : ''}
   </div>`;
 }
 
