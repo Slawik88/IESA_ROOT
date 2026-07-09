@@ -358,6 +358,64 @@ function bonusLines(sid, b) {
   return ln;
 }
 
+// ── Питомцы 2.0: слоты (Казарма-стиль) ─────────────────────────────────────────
+function _zcEmoji(speciesId) {
+  // PET_SPECIES_EMOJI определён в app.04.js (позже в склейке) — но это function
+  // declaration вызывается только по клику, после того как весь скрипт уже
+  // выполнился, так что const уже проинициализирован. Defensive-check — тот же
+  // паттерн, что уже используется в app.06.js/app.11.js для этого же глобала.
+  const map = (typeof PET_SPECIES_EMOJI !== 'undefined') ? PET_SPECIES_EMOJI : {};
+  return map[speciesId] || '🐾';
+}
+function _zcSlotInner(p) {
+  if (!p) return `<div class="bk-slot-e bk-slot-empty">➕</div><div class="bk-slot-n cx-dim">пусто</div>`;
+  const fatPct = p.fatigue || 0;
+  return `<div class="bk-slot-e">${_zcEmoji(p.species_id)}</div>
+    <div class="bk-slot-n">${esc(p.name || p.species_id)}</div>
+    <div class="bk-slot-s">Ур.${p.pet_level || 1}/10</div>
+    <div class="zc-card-fat"><div class="zc-card-fat-fill" style="width:${fatPct}%;background:${fatC(fatPct)}"></div></div>`;
+}
+function _zcRenderSlots(active, passive, totalSlots) {
+  const heroPet = active[0] || null;
+  const hero = `<div class="bk-slot zc-slot-hero" onclick="${heroPet ? `openPetModal(${heroPet.id})` : `_zcOpenSlotPicker('active')`}">
+    <div class="bk-slot-t">⚔️ Активный</div>${_zcSlotInner(heroPet)}
+  </div>`;
+  const passiveSlotsCount = Math.max(0, totalSlots - 1);
+  const passiveCells = [];
+  for (let i = 0; i < passiveSlotsCount; i++) {
+    const p = passive[i] || null;
+    passiveCells.push(`<div class="bk-slot" onclick="${p ? `openPetModal(${p.id})` : `_zcOpenSlotPicker('passive')`}">
+      <div class="bk-slot-t">🛡 Пассивный</div>${_zcSlotInner(p)}
+    </div>`);
+  }
+  return `<div class="zc-slots-row">${hero}</div>
+    <div class="zc-slots-passive">${passiveCells.join('')}</div>`;
+}
+function _zcOpenSlotPicker(targetPlacement) {
+  if (!_zooData) return;
+  const storagePets = (_zooData.pets || []).filter(p => p.placement === 'storage');
+  if (!storagePets.length) {
+    toast('На складе нет питомцев — крутни Гачу.', false);
+    return;
+  }
+  const label = targetPlacement === 'active' ? 'В активный слот' : 'В пассивный слот';
+  const rows = storagePets.map(p => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div>
+        <span style="font-weight:600">${esc(p.name || p.species_id)}</span> ${rc(p.rarity)}
+        <span style="font-size:11px;color:var(--muted);margin-left:6px">Ур.${p.pet_level || 1}</span>
+      </div>
+      <button class="btn btn-sm btn-gold" onclick="_zcAssignPick(${p.id},'${targetPlacement}',this)">Выбрать</button>
+    </div>`).join('');
+  OM(label, `<div>${rows}</div>`, [{ l: 'Отмена', c: 'btn-ghost', f: 'CM()' }]);
+}
+function _zcAssignPick(petId, targetPlacement, btn) {
+  if (btn) btn.disabled = true;
+  api('/zoo/move', { method: 'POST', body: JSON.stringify({ pet_id: petId, placement: targetPlacement }) })
+    .then(() => { CM(); toast('✅ Перемещено!'); _zooData = null; loadZoo(); })
+    .catch(e => { toast(e, false); if (btn) btn.disabled = false; });
+}
+
 function petCard(p) {
   const fatPct = p.fatigue || 0;
   const fatWarn = fatPct >= 100 ? '⛔ ' : fatPct >= 80 ? '⚠️ ' : '';
