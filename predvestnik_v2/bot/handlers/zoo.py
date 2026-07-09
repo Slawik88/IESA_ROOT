@@ -922,7 +922,7 @@ async def cb_zoo_feed_menu(query: types.CallbackQuery, callback_data: ZooCB, db)
         gain = fatigue - new_fat
         extras = ""
         if food_id in ("food_energy", "zarniki_cooldown_skip"):
-            extras = " + сброс КД похода"
+            extras = " + сброс КД похода (−50% награды, если поход шёл)"
         elif food_id == "food_super":
             extras = " + −10 всем в питомнике"
         elif food_id == "food_diamond":

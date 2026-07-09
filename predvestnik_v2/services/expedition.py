@@ -13,6 +13,7 @@ def calculate_reward(
     species_placements: dict | None = None,
     relic_mora_pct: float = 0.0,
     academy_pct: float = 0.0,
+    early_finish: bool = False,
 ) -> dict:
     """
     Calculate expedition outcome.
@@ -22,6 +23,10 @@ def calculate_reward(
         species_id:      species of the active pet (fox-specific perk applies here)
         species_levels:  dict {species_id: level} of all non-exhausted nursery pets.
                          Used for owl / falcon / fox bonuses. Missing key = 0 (no bonus).
+        early_finish:    поход завершён досрочно (food_energy/zarniki_cooldown_skip),
+                         а не по таймеру — награда (мора/xp/алмазы) режется вдвое,
+                         иначе энергетик превращает поход в бесконечный мора-фарм
+                         без реального отката (абуз, найден на проде 2026-07-09).
 
     Returns:
         mora, xp, diamonds, extras (list of free items, e.g. treasure_map), buff_message
@@ -119,6 +124,12 @@ def calculate_reward(
             buff_message += f"\n🏛 <i>Реликвии: +{relic_gain} Моры (+{int(relic_mora_pct * 100)}%)</i>"
             breakdown.append({"label": f"🏛 Реликвии +{int(relic_mora_pct * 100)}%", "mora": relic_gain})
 
+    if early_finish:
+        mora = int(mora * 0.5)
+        xp = int(xp * 0.5)
+        diamonds = int(diamonds * 0.5)
+        buff_message += "\n⚡ <i>Поход завершён досрочно: награда −50%</i>"
+
     return {
         "mora": mora,
         "xp": xp,
@@ -128,4 +139,5 @@ def calculate_reward(
         "base_mora": base_mora,   # для чека награды (БЛОК 3)
         "base_xp": base_xp,
         "breakdown": breakdown,
+        "early_finish": early_finish,
     }

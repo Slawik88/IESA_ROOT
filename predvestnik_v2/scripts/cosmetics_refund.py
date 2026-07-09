@@ -76,29 +76,30 @@ REFUND_CUTOFF = datetime(2026, 6, 30, 23, 59, 59)
 # Мы возвращаем МАКСИМАЛЬНЫЙ из двух (в пользу игрока).
 # Если был только один вариант — возвращаем его.
 EPOCH1_PRICES: dict[str, dict] = {
-    "glow_silver":  {"mora": 20000},          # OR diamonds:10, берём мору
-    "glow_gold":    {"zarniki": 120, "mora": 60000},  # OR варианты → объединяем
-    "glow_crimson": {"zarniki": 180, "dark_mora": 900},
-    "glow_ember":   {"mora": 32000, "diamonds": 30},  # AND (единственный вариант)
-    "frame_bronze": {"mora": 25000},
-    "frame_neon":   {"zarniki": 150, "mora": 70000},
-    "frame_abyss":  {"dark_mora": 1200, "diamonds": 12},  # AND
-    "frame_iron":   {"mora": 15000, "diamonds": 15},      # AND
-    "title_wanderer": {"mora": 15000},
-    "title_patron": {"zarniki": 100, "mora": 40000},
-    "halo_glow":    {"mora": 22000, "diamonds": 12},  # OR → мора
-    "halo_pulse":   {"zarniki": 140, "mora": 65000},
-    "halo_runic":   {"dark_mora": 1100, "diamonds": 10},  # AND
-    "pbg_carbon":   {"mora": 24000},
-    "pbg_nebula":   {"zarniki": 160, "mora": 72000},
-    "pbg_abyss":    {"dark_mora": 1300, "diamonds": 14},  # AND
-    "pbg_forest":   {"mora": 26000, "diamonds": 14},
-    "pbg_ember":    {"zarniki": 130, "mora": 60000},
-    "pbg_galaxy":   {"zarniki": 160, "mora": 72000},  # аналог pbg_nebula
-    "cfx_sparks":   {"mora": 26000, "diamonds": 14},  # OR → мора
-    "cfx_snow":     {"zarniki": 140, "diamonds": 6},
-    "cfx_petals":   {"zarniki": 140, "mora": 65000},  # OR → объединяем
-    "cfx_stars":    {"zarniki": 190, "diamonds": 30},  # OR → объединяем
+    # Правило: только зарники если были; иначе — ничего (предмет не рефандится из EPOCH_1)
+    "glow_silver":  {},                        # не было зарников → нет рефанда
+    "glow_gold":    {"zarniki": 120},
+    "glow_crimson": {"zarniki": 180},
+    "glow_ember":   {},                        # не было зарников → нет рефанда
+    "frame_bronze": {},
+    "frame_neon":   {"zarniki": 150},
+    "frame_abyss":  {},
+    "frame_iron":   {},
+    "title_wanderer": {},
+    "title_patron": {"zarniki": 100},
+    "halo_glow":    {},
+    "halo_pulse":   {"zarniki": 140},
+    "halo_runic":   {},
+    "pbg_carbon":   {},
+    "pbg_nebula":   {"zarniki": 160},
+    "pbg_abyss":    {},
+    "pbg_forest":   {},
+    "pbg_ember":    {"zarniki": 130},
+    "pbg_galaxy":   {"zarniki": 160},
+    "cfx_sparks":   {},
+    "cfx_snow":     {"zarniki": 140},
+    "cfx_petals":   {"zarniki": 140},
+    "cfx_stars":    {"zarniki": 190},
     # pbg_ocean, pbg_dusk появились в EPOCH_2 — нет EPOCH_1 цены
 }
 

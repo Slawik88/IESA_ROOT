@@ -106,7 +106,7 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "food_energy":  {
         "name": "⚡️ Энергетик",          "category": "food", "price_mora": 600,
         "fatigue_restore": 20,            "buff": "expedition_cd_reset",
-        "description": "Бодрящий энергетик: −20 усталости и МГНОВЕННО завершает текущий поход — питомец сразу возвращается с лутом. Покормить: Зоопарк → карточка питомца.",
+        "description": "Бодрящий энергетик: −20 усталости и МГНОВЕННО завершает текущий поход — питомец сразу возвращается с лутом, но награда похода −50% (досрочное завершение). Покормить: Зоопарк → карточка питомца.",
     },
     "food_super": {
         "name": "💊 Суперкорм",           "category": "food", "price_mora": 850,
@@ -162,7 +162,7 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "zarniki_cooldown_skip": {
         "name": "✨ Кристалл времени", "category": "donate", "price_zarniki": 50,
         "fatigue_restore": 50, "buff": "expedition_cd_reset", "is_tradable": False,
-        "description": "Донат за ✨: −50 усталости и сброс кулдауна экспедиции (питомца сразу снова в поход). Применить: Зоопарк → карточка питомца.",
+        "description": "Донат за ✨: −50 усталости и сброс кулдауна экспедиции (питомца сразу снова в поход), но награда похода −50% (досрочное завершение). Применить: Зоопарк → карточка питомца.",
     },
     "zarniki_nickname_token": {
         "name": "✨ Жетон смены ника", "category": "donate", "price_zarniki": 20,

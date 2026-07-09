@@ -46,31 +46,51 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
 
     progress = await get_progress(db, user["id"])
 
-    # DB-уровни-выбор (reward_options) активного сезона → {(level,track): [opts]}
+    # DB-переопределения наград активного сезона (правятся в dev-консоли).
+    # РАНЬШЕ здесь читались только reward_options (уровни-выбор) — обычные
+    # переопределения mora/diamonds/items/theme_id игнорировались, и витрина
+    # всегда показывала статичные значения из registry, хотя claim_reward()
+    # честно выдавал уже новую (БД) награду — на сайте выглядело так, будто
+    # правки из консоли не применяются вообще.
     import json as _json
     choice_levels: dict[tuple, list] = {}
+    base_overrides: dict[tuple, dict] = {}
     async with db.execute(
-        "SELECT level, track, reward_options FROM battle_pass_reward_overrides "
-        "WHERE season_id = ? AND reward_options IS NOT NULL",
+        "SELECT level, track, mora, diamonds, items, theme_id, reward_options "
+        "FROM battle_pass_reward_overrides WHERE season_id = ?",
         (season["id"],),
     ) as _c:
         for _r in await _c.fetchall():
-            try:
-                opts = _json.loads(_r[2])
-            except Exception:
-                continue
-            if isinstance(opts, list) and len(opts) >= 2:
-                choice_levels[(_r[0], _r[1])] = [
+            key = (_r[0], _r[1])
+            raw_opts = _r[6]
+            opts = None
+            if raw_opts:
+                try:
+                    parsed = _json.loads(raw_opts)
+                    if isinstance(parsed, list) and len(parsed) >= 2:
+                        opts = parsed
+                except Exception:
+                    opts = None
+            if opts is not None:
+                choice_levels[key] = [
                     {**_reward_payload(_opt_to_reward(o), _r[0], _r[1], progress),
                      "text": reward_short_text(_opt_to_reward(o))}
                     for o in opts
                 ]
+            else:
+                base_overrides[key] = {
+                    "mora": _r[2] or 0, "diamonds": _r[3] or 0,
+                    "items": tuple(tuple(x) for x in _json.loads(_r[4] or "[]")),
+                    "theme": _r[5],
+                }
 
     rewards = []
     for lv in range(1, progress["max_level"] + 1):
         r = BATTLE_PASS_REWARDS.get(lv, {})
-        free_p = _reward_payload(r.get("free", {}), lv, "free", progress)
-        paid_p = _reward_payload(r.get("paid", {}), lv, "paid", progress)
+        free_r = base_overrides.get((lv, "free")) or r.get("free", {})
+        paid_r = base_overrides.get((lv, "paid")) or r.get("paid", {})
+        free_p = _reward_payload(free_r, lv, "free", progress)
+        paid_p = _reward_payload(paid_r, lv, "paid", progress)
         if (lv, "free") in choice_levels:
             free_p["options"] = choice_levels[(lv, "free")]
         if (lv, "paid") in choice_levels:

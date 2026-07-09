@@ -21,6 +21,22 @@ from infrastructure.repositories.moderation import set_user_left_status
 _API_URL = "https://api.telegram.org/bot{token}/{method}"
 
 
+def bot_tg_id() -> int | None:
+    """Собственный Telegram ID бота — вычисляется из BOT_TOKEN (формат <id>:<secret>,
+    так же его получает aiogram в Bot.id). Бот физически является строкой в
+    user_chat_stats/users (Telegram видит его как обычного участника чата), поэтому
+    места, что строят списки «кто в чате» (чистка, топы), должны сами исключать
+    этот ID — push/middleware-фильтры ловят только НОВЫЕ события, а не старые строки,
+    заведённые до них."""
+    token = os.getenv("BOT_TOKEN", "")
+    if not token or ":" not in token:
+        return None
+    try:
+        return int(token.split(":", 1)[0])
+    except ValueError:
+        return None
+
+
 async def check_chat_members(
     chat_id: int, user_ids: list[int], concurrency: int = 8
 ) -> dict[int, bool]:

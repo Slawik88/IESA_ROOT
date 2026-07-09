@@ -24,7 +24,7 @@ from loguru import logger
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import purge_sessions as ps_repo
 from infrastructure.repositories import routing as routing_repo
-from services.membership import prune_ghosts
+from services.membership import bot_tg_id, prune_ghosts
 from services.utils import safe_html, parse_dt
 
 # Безопасный размер порции досье: с учётом лимитов Telegram (~1 сообщение/сек
@@ -113,6 +113,13 @@ async def start_purge(db, chat_id: int, initiator_id: int,
         (start_date, end_date, chat_id),
     ) as cursor:
         candidates = [dict(r) for r in await cursor.fetchall()]
+
+    # Бот сам — строка в user_chat_stats (Telegram видит его обычным участником);
+    # без этого исключения он попадал себе же в досье нарушителей (найдено
+    # на проде 2026-07-09: старая строка со времён до фикса is_bot_sender в db.py).
+    _self_id = bot_tg_id()
+    if _self_id is not None:
+        candidates = [c for c in candidates if c["id"] != _self_id]
 
     if candidates:
         left_ids = await prune_ghosts(db, chat_id, [c["id"] for c in candidates])

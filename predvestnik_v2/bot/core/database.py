@@ -296,6 +296,14 @@ async def _init_inventory_and_pets(db):
             ends_at        TIMESTAMP
         )
     """)
+    # Абуз Моры (2026-07-09): food_energy/zarniki_cooldown_skip мгновенно завершали
+    # поход БЕЗ реального отката — питомца можно было тут же слать в новый поход
+    # снова, платя кормом дешевле полной награды. early_finish помечает такое
+    # досрочное завершение — services/expedition.calculate_reward режет награду
+    # вдвое именно для этих строк (естественное завершение по таймеру — без штрафа).
+    await db.execute(
+        "ALTER TABLE active_expeditions ADD COLUMN IF NOT EXISTS early_finish BOOLEAN DEFAULT FALSE"
+    )
 
     # 14. Daily login / streak
     await db.execute("""

@@ -604,9 +604,11 @@ async def set_pet_fatigue(db, pet_id: int, value: int) -> None:
 
 
 async def end_expedition_now(db, pet_id: int) -> None:
-    """food_energy: мгновенно завершить текущий поход питомца."""
+    """food_energy/zarniki_cooldown_skip: мгновенно завершить текущий поход питомца.
+    early_finish=TRUE — награду при выдаче срежет вдвое (см. services/expedition.py)."""
     await db.execute(
-        "UPDATE active_expeditions SET ends_at = CURRENT_TIMESTAMP WHERE pet_id = ?",
+        "UPDATE active_expeditions SET ends_at = CURRENT_TIMESTAMP, early_finish = TRUE "
+        "WHERE pet_id = ?",
         (pet_id,),
     )
 
