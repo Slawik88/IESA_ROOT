@@ -211,6 +211,14 @@ PET_SPECIES: Dict[str, Dict[str, Any]] = {
 # novice/standard/premium (common→epic питомцы, мора, расходники, малый шанс 💎).
 # "diamond" (~8💎) — выше шанс редкого лута + шире диапазон (epic→legendary,
 # редкие жетоны (🎟 Алмазный Жетон), легендарные питомцы, гарантии алмазов).
+# РЕБАЛАНС 2026-07-09 (аудит по репорту пользователя): в "diamond" было ЧЕТЫРЕ
+# отдельных записи spin_token_diamond (22+15+8+2×2 веса = 47 из 98, т.е. ~50%
+# шанс получить обратно жетон алмазной крутки за один спин этой же крутки —
+# самоподдерживающийся цикл, крутка почти окупала сама себя бесконечно).
+# Схлопнуто в одну запись с вменяемым весом (см. ниже), освободившийся вес
+# перераспределён в реальную ценность (эпик/легендарки/алмазы), а не обратно
+# в жетоны. В "mora" тот же паттерн (2 записи spin_token) был мягче (3.2%),
+# но тоже схлопнут для гигиены/консистентности.
 GACHA_TABLES: Dict[str, list] = {
     "mora": [
         {"weight": 22, "type": "mora",    "min": 40,  "max": 120},
@@ -225,26 +233,23 @@ GACHA_TABLES: Dict[str, list] = {
         {"weight": 4,  "type": "item",    "id": "star_dust_l",   "qty": 1},
         {"weight": 3,  "type": "item",    "id": "potion_luck_s", "qty": 1},
         {"weight": 3,  "type": "item",    "id": "exp_boost_1h",  "qty": 1, "valuable": True},
-        {"weight": 2,  "type": "item",    "id": "spin_token",    "qty": 1, "valuable": True},
+        {"weight": 3,  "type": "item",    "id": "spin_token",    "qty": 1, "valuable": True},
         {"weight": 2,  "type": "item",    "id": "exp_boost_2h",  "qty": 1, "valuable": True},
-        {"weight": 1.5,"type": "item",    "id": "spin_token",    "qty": 1, "valuable": True},
         {"weight": 0.8,"type": "diamond", "qty": 2,              "valuable": True},
         {"weight": 0.4,"type": "pet_dup", "rarity": "epic",      "valuable": True},
         {"weight": 0.2,"type": "item",    "id": "spin_token_diamond", "qty": 1, "valuable": True},
     ],
     "diamond": [
-        {"weight": 22, "type": "item",    "id": "spin_token_diamond", "qty": 1, "valuable": True},
-        {"weight": 15, "type": "item",    "id": "spin_token_diamond", "qty": 1, "valuable": True},
-        {"weight": 13, "type": "combo",   "items": [{"id": "spin_token", "qty": 1}], "diamond_bonus": 2, "valuable": True},
-        {"weight": 12, "type": "pet_dup", "rarity": "epic",      "valuable": True},
-        {"weight": 9,  "type": "combo",   "items": [{"id": "treasure_map", "qty": 3}], "valuable": True},
-        {"weight": 8,  "type": "item",    "id": "spin_token_diamond", "qty": 1, "valuable": True},
-        {"weight": 6,  "type": "diamond", "qty": 5,              "valuable": True},
-        {"weight": 4,  "type": "item",    "id": "exp_boost_4h",  "qty": 1, "valuable": True},
-        {"weight": 3,  "type": "combo",   "items": [{"id": "exp_boost_2h", "qty": 1}, {"id": "potion_sprint", "qty": 1}], "valuable": True},
-        {"weight": 3,  "type": "pet_dup", "rarity": "legendary", "valuable": True},
-        {"weight": 2,  "type": "item",    "id": "spin_token_diamond", "qty": 2, "valuable": True},
-        {"weight": 1,  "type": "pet_dup_multi", "rarity": "legendary", "count": 2, "valuable": True},
+        {"weight": 20, "type": "pet_dup", "rarity": "epic",      "valuable": True},
+        {"weight": 16, "type": "diamond", "qty": 5,              "valuable": True},
+        {"weight": 12, "type": "combo",   "items": [{"id": "treasure_map", "qty": 3}], "valuable": True},
+        {"weight": 10, "type": "combo",   "items": [{"id": "spin_token", "qty": 1}], "diamond_bonus": 2, "valuable": True},
+        {"weight": 8,  "type": "pet_dup", "rarity": "legendary", "valuable": True},
+        {"weight": 6,  "type": "item",    "id": "spin_token_diamond", "qty": 1, "valuable": True},
+        {"weight": 6,  "type": "diamond", "qty": 10,             "valuable": True},
+        {"weight": 6,  "type": "item",    "id": "exp_boost_4h",  "qty": 1, "valuable": True},
+        {"weight": 5,  "type": "combo",   "items": [{"id": "exp_boost_2h", "qty": 1}, {"id": "potion_sprint", "qty": 1}], "valuable": True},
+        {"weight": 3,  "type": "pet_dup_multi", "rarity": "legendary", "count": 2, "valuable": True},
     ],
 }
 

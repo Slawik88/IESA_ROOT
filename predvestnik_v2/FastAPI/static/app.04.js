@@ -176,7 +176,14 @@ function loadGacha() {
       ${d.spin_types.map(s=>{
         const icon = SPIN_ICONS[s.spin_type] || '🎲';
         const cost = s.cost_mora ? `${fmt(s.cost_mora)} 🪙` : `${s.cost_dia} 💎`;
-        const multiCost = s.cost_mora ? `${fmt(s.multi_cost_mora)} 🪙` : `${s.multi_cost_dia} 💎`;
+        // Жетоны крутки списываются в ×10 первыми (services/gacha.py::roll_multi) —
+        // кнопка должна честно показывать это, а не всегда цену в валюте.
+        const mc = d.multi_count||10;
+        const tokensForMulti = Math.min(s.token_qty||0, mc);
+        const paidSpins = mc - tokensForMulti;
+        const multiCost = paidSpins<=0 ? '🎟 бесплатно'
+          : (tokensForMulti>0 ? `🎟×${tokensForMulti} + ` : '')
+            + (s.cost_mora ? `${fmt(Math.round(s.multi_cost_mora*paidSpins/mc))} 🪙` : `${(s.multi_cost_dia*paidSpins/mc).toFixed(1)} 💎`);
         const pityPct = s.pity_hard > 0 ? Math.round(s.pity/s.pity_hard*100) : 0;
         const rates = s.rates||{};
         const ratesBadges = Object.entries(rates).map(([r,v])=>
@@ -428,7 +435,7 @@ function doMultiSpin(st, btn) {
     const themeCard = s.theme_drop?`<div class="spin-card epic" style="margin-top:8px">🎨 Новая тема: <b>${esc(s.theme_drop.name||'')}</b></div>`:'';
     const tailHtml = `
       <div class="spin-results" style="margin-top:10px">
-        <div class="spin-card ${topRarity||''}">Итого: 🪙 ${fmt(s.mora||0)}${s.diamonds?` · 💎 ${s.diamonds}`:''} · 🐾 ×${dups.length}</div>
+        <div class="spin-card ${topRarity||''}">Итого: 🪙 ${fmt(s.mora||0)}${s.diamonds?` · 💎 ${s.diamonds}`:''} · 🐾 ×${dups.length}${s.tokens_used?` · 🎟 бесплатно: ${s.tokens_used}/${results.length}`:''}</div>
         ${themeCard}
       </div>
       ${_petActionsHtml(dups)}`;
