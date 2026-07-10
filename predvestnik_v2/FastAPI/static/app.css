@@ -2365,11 +2365,12 @@ body.modal-open { overflow: hidden; }
 .b3-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .b3-row:has(> :only-child) { grid-template-columns: minmax(0,60%); justify-content: center; }
 .b3-card { position: relative; background: rgba(255,255,255,.03); border: 1px solid var(--line);
-  border-radius: 12px; padding: 6px 4px; text-align: center; color: var(--text); min-width: 0; }
+  border-radius: 12px; padding: 6px 4px; text-align: center; color: var(--text); min-width: 0;
+  transition: opacity .4s ease, filter .4s ease, transform .4s ease; }
 .b3-en { cursor: pointer; }
 .b3-tgt { border-color: #e05252; box-shadow: 0 0 0 1px #e05252, 0 0 12px rgba(224,82,82,.35); }
 .b3-boss .b3-card-e { font-size: 40px; }
-.b3-dead { opacity: .3; filter: grayscale(1); }
+.b3-dead { opacity: .3; filter: grayscale(1); transform: translateY(4px); }
 .b3-card-e { font-size: 28px; line-height: 1.2; }
 .b3-card-n { font-size: 9.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .b3-hp { font-size: 9px; color: var(--muted); margin-top: 2px; }
@@ -2408,9 +2409,51 @@ body.modal-open { overflow: hidden; }
 .b3-qte { height: 120px; cursor: pointer; }
 .b3-qte-hint { position: absolute; bottom: -4px; width: 100%; text-align: center; font-size: 10px; color: var(--gold2); }
 .b3-log { max-height: 74px; margin-top: 6px; }
-/* Слабые телефоны/доступность: гасим пульс ульты */
-@media (prefers-reduced-motion: reduce) { .b3-ult-btn { animation: none; } }
-body.no-fx .b3-ult-btn { animation: none; }
+
+/* ═══ Боёвка 3.0: визуальная динамика (BATTLE_VFX_CONCEPT.md, блок 2) ═══
+   Цвет по стихии атакующего приходит через inline --el-color (5 стихий —
+   заводить статичный класс на каждую избыточно, один keyframe на всё). */
+@keyframes b3ActPulse { 0% { transform: scale(1); } 40% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.b3-act-pulse { animation: b3ActPulse .35s ease;
+  box-shadow: 0 0 0 2px var(--el-color, #fff), 0 0 14px 2px var(--el-color, #fff); }
+
+@keyframes b3HitShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+.b3-hit-shake { animation: b3HitShake .3s ease; }
+.b3-hit-flash::after { content: ''; position: absolute; inset: 0; border-radius: inherit;
+  background: var(--el-color, #fff); opacity: .5; animation: btFlash .4s ease-out forwards;
+  pointer-events: none; z-index: 4; }
+
+@keyframes b3DmgFloat { 0% { transform: translate(-50%, 0); opacity: 1; }
+  100% { transform: translate(-50%, -22px); opacity: 0; } }
+.b3-dmg-num { position: absolute; top: -6px; left: 50%; transform: translate(-50%, 0);
+  font-weight: 800; font-size: 13px; color: var(--el-color, #fff);
+  text-shadow: 0 1px 3px rgba(0,0,0,.6); pointer-events: none; white-space: nowrap;
+  animation: b3DmgFloat .6s ease-out forwards; z-index: 5; }
+.b3-dmg-crit { font-size: 18px; color: var(--gold); }
+
+@keyframes b3OutcomeFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
+.b3-outcome-won::before, .b3-outcome-lost::before { content: ''; position: absolute; inset: 0;
+  z-index: 6; pointer-events: none; animation: b3OutcomeFlash .6s ease-out forwards; }
+.b3-outcome-won::before { background: radial-gradient(circle at 50% 30%, rgba(232,181,77,.55), transparent 70%); }
+.b3-outcome-lost::before { background: radial-gradient(circle at 50% 30%, rgba(180,30,40,.55), transparent 70%); }
+
+/* Слабые телефоны/доступность: no-fx = мгновенная обратная связь БЕЗ движения,
+   не полное отключение (см. project memory feedback_glow_shadow_restraint —
+   тот же принцип: фидбек остаётся, плавность убирается). Одно исключение —
+   b3-outcome-* полностью гасится: чисто декоративная одноразовая вспышка без
+   информационной нагрузки (итог и так виден в тексте баннера). */
+@media (prefers-reduced-motion: reduce) {
+  .b3-ult-btn, .b3-act-pulse, .b3-hit-shake, .b3-hit-flash::after, .bt-flash,
+  .b3-rage-f, .bt-ring, .bt-fill, .b3-card { animation: none; transition: none; }
+  .b3-dmg-num { animation: none; }
+  .b3-outcome-won::before, .b3-outcome-lost::before { animation: none; display: none; }
+}
+body.no-fx .b3-ult-btn, body.no-fx .b3-act-pulse, body.no-fx .b3-hit-shake,
+body.no-fx .b3-hit-flash::after, body.no-fx .bt-flash, body.no-fx .bt-fill,
+body.no-fx .b3-rage-f, body.no-fx .bt-ring, body.no-fx .b3-card { animation: none; transition: none; }
+body.no-fx .b3-dmg-num { animation: none; }
+body.no-fx .b3-outcome-won::before, body.no-fx .b3-outcome-lost::before { animation: none; display: none; }
 
 /* UX-фикс: ряд «Внешний вид/Клан/Настройки» — «Внешний вид» переносился на
    2 строки и ряд выглядел рвано; ужимаем шрифт, запрещаем перенос */

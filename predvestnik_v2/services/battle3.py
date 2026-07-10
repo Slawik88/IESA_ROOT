@@ -259,6 +259,12 @@ def _apply_damage(state: dict, src_side: str, src_i: int | None, dst_side: str,
             events.append(f"🛡 Щит {dst['name']} поглотил {absorbed}")
     if dmg > 0:
         dst["hp"] = max(0, dst["hp"] - dmg)
+        # VFX (Блок 2 «улучшения боя»): структурированный след урона за раунд —
+        # state.log хранит только готовую текстовую строку, а фронту для чисел
+        # урона/пульса атакующего нужны координаты сторон, не парсинг русского текста.
+        state.setdefault("hits_round", []).append(
+            {"side": dst_side, "i": dst_i, "dmg": dmg, "elem": elem,
+             "src_side": src_side, "src_i": src_i})
         _gain_rage(state, src_side, B3_RAGE_PER_HIT_OUT)
         _gain_rage(state, dst_side, B3_RAGE_PER_HIT_IN, receiving=True)
         if dst_side == "enemy":
@@ -626,7 +632,7 @@ def _process_queue(state: dict) -> dict:
                 state["pending"] = {"type": "crit", "step": step}
                 state["queue"].pop(0)
                 state["qte"] = qte_window(2)
-                return {"phase": "qte", "qte_kind": "crit"}
+                return {"phase": "qte", "qte_kind": "crit", "hits": state.pop("hits_round", [])}
             state["queue"].pop(0)
             _exec_attack(state, step["u"], step["t"], events)
         elif step["k"] == "def":
@@ -669,8 +675,8 @@ def resume_qte(state: dict, tap_offset_ms: int) -> dict:
             return {**_finish_round(state), "grade": grade}
         state["log"] = (state.get("log", []) + events)[-30:]
         state["events_round"] = []
-        return {"phase": "mid", "grade": grade}
-    return {"phase": "mid", "grade": grade}
+        return {"phase": "mid", "grade": grade, "hits": state.pop("hits_round", [])}
+    return {"phase": "mid", "grade": grade, "hits": state.pop("hits_round", [])}
 
 
 def request_ult(state: dict, unit_i: int) -> dict:
@@ -839,11 +845,12 @@ def _finish_round(state: dict, skip_enemy: bool = False) -> dict:
     state["events_round"] = []
     won = not _alive_idx(state["enemy"]["units"])
     lost = not _alive_idx(state["ally"]["units"])
+    hits = state.pop("hits_round", [])
     if won or lost:
         state["status"] = "won" if won else "lost"
-        return {"phase": "over", "won": won, "lost": lost}
+        return {"phase": "over", "won": won, "lost": lost, "hits": hits}
     begin_round(state)
-    return {"phase": "round", "won": False, "lost": False}
+    return {"phase": "round", "won": False, "lost": False, "hits": hits}
 
 
 # ── Генераторы врагов ─────────────────────────────────────────────────────────

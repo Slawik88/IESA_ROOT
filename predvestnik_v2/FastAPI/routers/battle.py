@@ -329,7 +329,7 @@ async def battle_triad(body: BattleIdRequest, db=Depends(get_db), user=Depends(r
     # триада может добить врагов
     if not any(u["alive"] for u in state["enemy"]["units"]):
         state["status"] = "won"
-    return await _respond(db, uid, user, row, state, {})
+    return await _respond(db, uid, user, row, state, {"turn": {"hits": state.pop("hits_round", [])}})
 
 
 @router.post("/battle/flee")

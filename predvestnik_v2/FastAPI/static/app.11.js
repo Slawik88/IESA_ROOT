@@ -3,8 +3,11 @@
 // всю математику (криты/ярость/перехваты/стихии) считает бэкенд (battle3.py).
 let _bkData=null, _bkPickSlot=null;
 let _b3St=null, _b3Order=[], _b3Target=0, _b3QteStart=0, _b3Lock=false, _b3LastReward=null;
+let _b3OutcomeShown=false;
 
 const B3_EL_ICO={fire:'🔥',ice:'❄️',storm:'⚡',earth:'🗿',dark:'🌑'};
+// BATTLE_VFX_CONCEPT.md (блок 2): цвет вспышек/чисел урона по стихии атакующего.
+const B3_ELEMENT_COLORS={fire:'#ff7a3d',ice:'#5fc6ff',storm:'#f7e04a',earth:'#a97c50',dark:'#7a3bd6'};
 const B3_ROLE_ICO={dd:'⚔️',tank:'🛡',support:'💚'};
 const B3_SLOT_NAMES=['Фронт','Фланг','Тыл'];
 const B3_INTENT_ICO={atk:'⚔️',def:'🛡',heal:'💚',ult:'💥',aoe:'💥',frozen:'❄️'};
@@ -260,7 +263,7 @@ function _btRender(st, turn, reward){
     const it=intentOf[i];
     const fx=(u.fx||[]).map(f=>B3_FX_ICO[f]||'').join('');
     return `<button class="b3-card b3-en ${u.alive?'':'b3-dead'} ${i===_b3Target&&u.alive?'b3-tgt':''} ${u.boss?'b3-boss':''}"
-      onclick="_b3SetTarget(${i})">
+      id="b3-c-enemy-${i}" onclick="_b3SetTarget(${i})">
       ${it&&u.alive?`<div class="b3-intent" title="намерение">${B3_INTENT_ICO[it.kind]||'❔'}${it.kind==='atk'&&it.t!==undefined&&it.t!==null?'→'+((st.ally.units[it.t]||{}).emoji||''):''}</div>`:''}
       <div class="b3-card-e">${u.emoji}</div>
       <div class="b3-card-n">${u.element_emoji||''}${esc(u.name)}</div>
@@ -271,7 +274,7 @@ function _btRender(st, turn, reward){
   const aCards=(st.ally.units||[]).map((u,i)=>{
     const fx=(u.fx||[]).map(f=>B3_FX_ICO[f]||'').join('');
     const ultReady=st.ally.rage>=100&&u.alive&&!finished&&!st.pending;
-    return `<div class="b3-card b3-al ${u.alive?'':'b3-dead'}">
+    return `<div class="b3-card b3-al ${u.alive?'':'b3-dead'}" id="b3-c-ally-${i}">
       <div class="b3-card-e">${u.emoji}</div>
       <div class="b3-card-n">${u.element_emoji||''}${esc(u.name)}</div>
       <div class="bt-bar"><div class="bt-fill hp" style="width:${(u.hp/u.hp_max*100).toFixed(0)}%"></div></div>
@@ -343,6 +346,41 @@ function _btRender(st, turn, reward){
     ${finished?`<button class="btn btn-gold btn-full" style="margin-top:6px" onclick="_btBack()">↩ Назад</button>`:''}
   `;
   if(qte) _b3StartQte(st.qte);
+  // BATTLE_VFX_CONCEPT.md (блок 2): бьём по СВЕЖЕ отрендеренным карточкам —
+  // проще и надёжнее, чем анимировать переход старое→новое состояние.
+  if(!finished) _b3OutcomeShown=false;
+  if(turn&&turn.hits&&turn.hits.length) _b3PlayHitFx(turn.hits, grade&&grade!=='miss');
+  if(finished&&!_b3OutcomeShown){
+    _b3OutcomeShown=true;
+    ov.classList.remove('b3-outcome-won','b3-outcome-lost');
+    void ov.offsetWidth;
+    ov.classList.add(st.status==='won'?'b3-outcome-won':'b3-outcome-lost');
+  }
+}
+function _b3CardEl(side,i){ return el('b3-c-'+(side==='enemy'?'enemy':'ally')+'-'+i); }
+function _b3PlayHitFx(hits,isCrit){
+  (hits||[]).forEach(h=>{
+    const color=B3_ELEMENT_COLORS[h.elem]||'#e8b54d';
+    const tgt=_b3CardEl(h.side,h.i);
+    if(tgt){
+      tgt.style.setProperty('--el-color',color);
+      tgt.classList.remove('b3-hit-shake','b3-hit-flash'); void tgt.offsetWidth;
+      tgt.classList.add('b3-hit-shake','b3-hit-flash');
+      const num=document.createElement('div');
+      num.className='b3-dmg-num'+(isCrit?' b3-dmg-crit':'');
+      num.textContent='-'+fmt(h.dmg);
+      tgt.appendChild(num);
+      setTimeout(()=>{ try{num.remove();}catch(e){} },650);
+    }
+    if(h.src_side!=null&&h.src_i!=null){
+      const atk=_b3CardEl(h.src_side,h.src_i);
+      if(atk){
+        atk.style.setProperty('--el-color',color);
+        atk.classList.remove('b3-act-pulse'); void atk.offsetWidth;
+        atk.classList.add('b3-act-pulse');
+      }
+    }
+  });
 }
 function _b3SetTarget(i){
   if(!_b3St||!(_b3St.enemy.units[i]||{}).alive) return;
