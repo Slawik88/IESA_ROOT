@@ -146,7 +146,7 @@ function _cxSpark(cd,up){
   const pts=cl.map((v,i)=>`${(i/(cl.length-1)*W).toFixed(1)},${(H-(v-mn)/rng*H).toFixed(1)}`).join(' ');
   return `<svg class="cx-spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><polyline points="${pts}" fill="none" stroke="${up?'#5fd38a':'#e0556b'}" stroke-width="1.5"/></svg>`;
 }
-function _cxOpen(id){ _cxSel=id; _cxAction='buy'; _cxPct=50; renderCrypto(); }
+function _cxOpen(id){ _cxSel=id; _cxAction='buy'; _cxPct=50; renderCrypto(); _cxAlertsLoad(); }
 function _cxBack(){ _cxSel=null; renderCrypto(); }
 function _cxSetAction(a){ _cxAction=a; _cxPct=50; renderCrypto(); }
 // Комиссия CRYPTO_TRADE_FEE берётся на ОБЕ стороны → учитываем и в maxAmt (на покупке
@@ -177,7 +177,48 @@ function _cxDetailHtml(){
     ${noFunds?`<div class="cx-dim" style="font-size:11px;text-align:center;margin-bottom:6px">${_cxAction==='buy'?'Недостаточно 🪙 для покупки':'Нет '+esc(c.name)+' в портфеле'}</div>`:''}
     <button class="btn btn-full ${_cxAction==='buy'?'btn-gold':'btn-ghost'}" ${noFunds?'disabled':''} onclick="_cxTrade()">${_cxAction==='buy'?'📈 Купить':'📉 Продать'} ${esc(c.name)}</button>
     <button class="btn btn-sm btn-ghost" style="margin-top:8px;width:100%" onclick="_cxHistLoad('${c.id}')">📋 История сделок</button>
-    <div id="cx-hist-box" style="margin-top:6px"></div>`;
+    <div id="cx-hist-box" style="margin-top:6px"></div>
+    <div id="cx-alerts-box" style="margin-top:8px">${_cxAlertsHtml(c)}</div>`;
+}
+// ── VIP-алерты цен: бот пришлёт ЛС, когда цена достигнет отметки ─────────────
+let _cxAlerts=null;
+function _cxAlertsLoad(){
+  api('/exchange/crypto/alerts').then(d=>{
+    _cxAlerts=d;
+    const box=el('cx-alerts-box'), c=_cxCur();
+    if(box&&c) box.innerHTML=_cxAlertsHtml(c);
+  }).catch(()=>{});
+}
+function _cxAlertsHtml(c){
+  if(!_cxAlerts) return '<div class="cx-dim" style="font-size:10px">…</div>';
+  if(!_cxAlerts.is_vip)
+    return `<div class="cx-dim" style="font-size:11px;text-align:center;padding:6px;border:1px dashed var(--line);border-radius:10px">🔔 Уведомления о цене в ЛС — привилегия 👑 VIP («бот vip»)</div>`;
+  const mine=(_cxAlerts.alerts||[]).filter(a=>a.coin_id===c.id);
+  const rows=mine.map(a=>
+    `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;padding:3px 0">
+      <span>${a.direction==='above'?'📈 вырастет до':'📉 упадёт до'} <b>${fmt(a.target_price)}</b> 🪙</span>
+      <button class="cx-star" onclick="_cxAlertDel(${a.id})" title="удалить">✖</button>
+    </div>`).join('');
+  const total=(_cxAlerts.alerts||[]).length, mx=_cxAlerts.max||5;
+  return `<div style="border:1px solid var(--line);border-radius:10px;padding:8px 10px">
+    <div style="font-size:11px;color:var(--gold2);margin-bottom:4px">🔔 Алерты цены <span class="cx-dim">(${total}/${mx}, разовые — сработал и удалился)</span></div>
+    ${rows||'<div class="cx-dim" style="font-size:10.5px">Нет алертов по этой монете.</div>'}
+    <div style="display:flex;gap:6px;margin-top:6px">
+      <input id="cx-alert-price" type="number" min="1" placeholder="Цена 🪙" style="flex:1;min-width:0;background:var(--bg1);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:6px 8px;font-size:12px">
+      <button class="btn btn-sm btn-teal" onclick="_cxAlertAdd('${c.id}')">🔔 Следить</button>
+    </div></div>`;
+}
+function _cxAlertAdd(coinId){
+  const v=parseFloat(el('cx-alert-price')?.value||'');
+  if(!v||v<=0){ toast('Введи цену в 🪙',false); return; }
+  api('/exchange/crypto/alerts',{method:'POST',body:JSON.stringify({coin_id:coinId,target_price:v})})
+    .then(r=>{ toast(r.direction==='above'?'🔔 Сообщу в ЛС, когда вырастет до '+fmt(v):'🔔 Сообщу в ЛС, когда упадёт до '+fmt(v)); _cxAlertsLoad(); })
+    .catch(e=>toast(e,false));
+}
+function _cxAlertDel(id){
+  api('/exchange/crypto/alerts/'+id,{method:'DELETE'})
+    .then(()=>{ toast('Алерт удалён'); _cxAlertsLoad(); })
+    .catch(e=>toast(e,false));
 }
 function _cxChart(cd){
   if(!cd||!cd.length) return '';
