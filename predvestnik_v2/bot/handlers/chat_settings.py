@@ -41,6 +41,17 @@ _TOGGLE_SETTINGS: dict = {
     "nsfw_warps_allowed": ("🔞", "18+ варп-команды в чате"),
 }
 
+# Категорийные тумблеры ИГРОВЫХ уведомлений (2026-07-12). Выключение глушит
+# только сообщения в ЧАТ — сами механики и личные уведомления работают как
+# обычно. Административные сообщения (модерация/чистка/апелляции) тумблера
+# не имеют — шлются всегда.
+_NOTIF_SETTINGS: dict = {
+    "notif_auction":     ("🏛", "Уведомления: новые лоты аукциона"),
+    "notif_gacha":       ("🎰", "Уведомления: крутки гачи"),
+    "notif_expeditions": ("💫", "Уведомления: возврат из походов"),
+    "notif_quests":      ("📋", "Уведомления: выполненные квесты"),
+}
+
 _MODULE_SETTINGS: dict = {
     "module_shop":        ("🛒", "Магазин"),
     "module_gacha":       ("🎰", "Гача"),
@@ -95,6 +106,15 @@ async def _build_menu_text(db, chat_id: int) -> str:
     lines.append(f"└ 🏛 Выставлять на аукцион: <b>{auc_rank_label}</b>")
 
     lines.append("")
+    lines.append("🔔 <b>Игровые уведомления в чат</b> <i>(админ-сообщения — всегда)</i>:")
+    notif_items = list(_NOTIF_SETTINGS.items())
+    for i, (key, (icon, desc)) in enumerate(notif_items):
+        val = s.get(key, 1)
+        status = "✅" if val else "❌"
+        prefix = "└" if i == len(notif_items) - 1 else "├"
+        lines.append(f"{prefix} {icon} {desc.replace('Уведомления: ', '')}: {status}")
+
+    lines.append("")
     lines.append("🧩 <b>Модули чата:</b>")
     mod_items = list(_MODULE_SETTINGS.items())
     for i, (key, (icon, name)) in enumerate(mod_items):
@@ -123,6 +143,11 @@ def _settings_kb(user_id: int = 0) -> types.InlineKeyboardMarkup:
         text="✏️ 🏛 Минимальный ранг для аукциона",
         callback_data=ChatSettingsCB(action="set_rank", key="auction_min_rank", user_id=user_id),
     )
+    for key, (icon, desc) in _NOTIF_SETTINGS.items():
+        b.button(
+            text=f"🔔 {icon} {desc.replace('Уведомления: ', '')}",
+            callback_data=ChatSettingsCB(action="toggle", key=key, user_id=user_id),
+        )
     for key, (icon, name) in _MODULE_SETTINGS.items():
         b.button(
             text=f"🔄 {icon} {name}",
@@ -223,12 +248,18 @@ async def cb_toggle_setting(query: types.CallbackQuery, callback_data: ChatSetti
     chat_id = query.message.chat.id
     key = callback_data.key
     uid = callback_data.user_id
+    # Whitelist: key уходит именем колонки в UPDATE (f-string в update_chat_settings) —
+    # крафтовый callback с произвольным key не должен туда долетать.
+    if key not in {**_TOGGLE_SETTINGS, **_NOTIF_SETTINGS, **_MODULE_SETTINGS}:
+        return await query.answer("❌ Неизвестная настройка.", show_alert=True)
     s = await mod_db.get_chat_settings(db, chat_id)
     new_val = 0 if s.get(key, 1) else 1
     await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
     await db.commit()
     if key in _TOGGLE_SETTINGS:
         icon, desc = _TOGGLE_SETTINGS[key]
+    elif key in _NOTIF_SETTINGS:
+        icon, desc = _NOTIF_SETTINGS[key]
     else:
         icon, name = _MODULE_SETTINGS.get(key, ("🧩", key))
         desc = f"Модуль «{name}»"

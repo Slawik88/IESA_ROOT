@@ -124,7 +124,11 @@ async def flush_pending_announcements(bot, db) -> None:
             [InlineKeyboardButton(text=b["text"], url=b["url"]) for b in row]
             for row in markup["inline_keyboard"]
         ])
+    from infrastructure.repositories.moderation import chat_notif_enabled
     for cid in chats:
+        # Категорийный тумблер игровых уведомлений (бот настройки чата → 🔔)
+        if not await chat_notif_enabled(db, cid, "notif_auction"):
+            continue
         try:
             await bot.send_message(cid, text, parse_mode="HTML",
                                    disable_web_page_preview=True, reply_markup=reply_markup)

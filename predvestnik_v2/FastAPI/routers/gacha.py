@@ -119,6 +119,10 @@ async def _notify_chat_spin(db, user_id: int, chat_id: int, spin_type: str, resu
     """Best-effort: notify the originating chat about a gacha spin result.
     Рядовые (не is_valuable) дропы гасятся кулдауном на чат, чтобы не спамить —
     ценные дропы шлются всегда (сами по себе редкие, это и есть хайп-момент)."""
+    # Категорийный тумблер игровых уведомлений чата (бот настройки чата → 🔔)
+    from infrastructure.repositories.moderation import chat_notif_enabled
+    if not await chat_notif_enabled(db, chat_id, "notif_gacha"):
+        return
     if not is_valuable:
         now = _time.monotonic()
         last = _last_spin_notify.get(chat_id, 0.0)
