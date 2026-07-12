@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌌 Небосвод Предвестника — концепт древа талантов</title>
+<style>
+  :root {
+    --bg: #07080d; --bg1: #0e1017; --card: #12141d; --line: #232636;
+    --text: #d6dae6; --muted: #8b93a7; --bright: #f0f2f8;
+    --gold: #e8b54d; --gold2: #c9a84c; --green: #5fd38a; --red: #e05252;
+    --blue: #5fc6ff; --purple: #c084fc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.55; overflow-x: hidden; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 26px; color: var(--bright); text-align: center; margin-bottom: 4px; }
+  .sub { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 22px; }
+  h2 { font-size: 18px; color: var(--gold); margin: 34px 0 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  h3 { font-size: 14px; color: var(--bright); margin: 16px 0 6px; }
+  p, li { font-size: 13.5px; color: var(--text); }
+  ul { padding-left: 22px; margin: 6px 0; }
+  .muted { color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 12px 0; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 11px;
+    border: 1px solid var(--line); background: var(--bg1); margin: 2px; }
+  .warn { border-left: 3px solid var(--red); padding-left: 12px; }
+  .ok { border-left: 3px solid var(--green); padding-left: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 8px 0; }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: var(--bg1); color: var(--gold2); font-weight: 600; }
+  code { background: var(--bg1); padding: 1px 6px; border-radius: 5px; font-size: 12px; color: var(--blue); }
+
+  /* ── Интерактивная карта ── */
+  .map-shell { position: relative; background: radial-gradient(120% 100% at 50% 0%, #131024 0%, #0a0c14 55%, #07080d 100%);
+    border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+  #sky { display: block; width: 100%; height: auto; touch-action: manipulation; }
+  .hud { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 12px 14px;
+    border-bottom: 1px solid var(--line); background: rgba(10,12,20,.85); font-size: 13px; }
+  .hud b { color: var(--gold); font-size: 16px; }
+  .hud label { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .hud input[type=range] { width: 130px; accent-color: var(--gold); }
+  .hud input[type=checkbox] { accent-color: var(--gold); }
+  .btn-reset { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px;
+    padding: 4px 12px; cursor: pointer; font-size: 12px; }
+  .btn-reset:hover { color: var(--bright); border-color: var(--gold2); }
+  #info { padding: 12px 14px; min-height: 74px; border-top: 1px solid var(--line);
+    background: rgba(10,12,20,.85); font-size: 13px; }
+  #info .t { font-weight: 700; color: var(--bright); }
+  #info .d { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+  #info .cost { color: var(--gold); font-size: 12px; }
+  #info .no { color: var(--red); font-size: 12px; margin-top: 3px; }
+  #info .yes { color: var(--green); font-size: 12px; margin-top: 3px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 14px; font-size: 11px; color: var(--muted);
+    background: rgba(10,12,20,.6); }
+  .lg { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid #666; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🌌 НЕБОСВОД ПРЕДВЕСТНИКА</h1>
+  <div class="sub">Концепт древа талантов · только дизайн-документ, не реализация · 2026-07-12</div>
+
+  <!-- ═══════════ ИНТЕРАКТИВНАЯ КАРТА ═══════════ -->
+  <div class="map-shell">
+    <div class="hud">
+      <span>✴️ Осколков: <b id="pts">0</b> <span class="muted">/ потрачено <span id="spent">0</span></span></span>
+      <label>Уровень аккаунта: <input type="range" id="lvl" min="1" max="50" value="15"><span id="lvlv">15</span></label>
+      <label><input type="checkbox" class="rare" value="2"> 🏆 Вехи ачивок (+2)</label>
+      <label><input type="checkbox" class="rare" value="2"> 🎫 Сезон БП закрыт (+2)</label>
+      <label><input type="checkbox" class="rare" value="2"> 🎪 Топ-3 ивента (+2)</label>
+      <label><input type="checkbox" class="rare" value="2"> 🏰 Легенда клана (+2)</label>
+      <button class="btn-reset" onclick="resetAll()">♻ Сбросить (Затмение)</button>
+    </div>
+    <svg id="sky" viewBox="0 0 1000 760" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="info"><span class="muted">Тапни узел, чтобы вложить осколок. Путь всегда начинается от 👁 Ока Предвестника в центре — узлы открываются только по связям.</span></div>
+    <div class="legend">
+      <span class="lg"><span class="dot" style="border-color:#888;width:9px;height:9px"></span> малый узел (1✴️, мелкий %/QoL)</span>
+      <span class="lg"><span class="dot" style="border-color:#e8b54d"></span> узел-механика (3✴️, новое действие)</span>
+      <span class="lg"><span class="dot" style="border-color:#fff;width:15px;height:15px"></span> ⭐ Звезда (5✴️, максимум 2, всегда с ценой)</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ КОНЦЕПТ ═══════════ -->
+  <h2>1. Идея в двух словах</h2>
+  <div class="card">
+    <p>Ночное небо Предвестника — карта из <b>пяти созвездий</b> вокруг центрального
+    <b>👁 Ока Предвестника</b>. Игрок прокладывает <b>путь</b> от центра, вкладывая
+    <b>✴️ Осколки Судьбы</b> в узлы-звёзды. Это не три скучных столбика «+1% к урону» —
+    это паутина, где важен <i>маршрут</i>: пойти вглубь одного созвездия за его механиками
+    или растянуться по краю неба и зажечь <b>⭐ Звезду</b> на стыке двух миров.</p>
+    <p class="muted" style="margin-top:6px">Лор: Предвестник читает судьбу по звёздам. Каждый вложенный
+    осколок — «зажжённая» звезда на личном небосводе игрока. Профиль может показывать
+    мини-карту зажжённого неба — ещё одна витрина статуса (как косметика).</p>
+  </div>
+
+  <h2>2. Осколки Судьбы — откуда берутся (и почему это не ломает экономику)</h2>
+  <div class="card">
+    <table>
+      <tr><th>Источник</th><th>Сколько</th><th>Комментарий</th></tr>
+      <tr><td>📈 Уровень аккаунта</td><td>+1 за каждый уровень</td><td>Основной поток. Ретроактивно: при релизе всем начисляется по текущему уровню — старички сразу получают заслуженный запас.</td></tr>
+      <tr><td>🏆 Вехи достижений</td><td>+2 разово за каждые 25 закрытых ачивок</td><td>Разовые, не фармятся повторно.</td></tr>
+      <tr><td>🎫 Полное закрытие сезона БП</td><td>+2 за сезон</td><td>Максимум 2 в месяц, требует реальной игры весь сезон.</td></tr>
+      <tr><td>🎪 Топ-3 сезонных ивентов</td><td>+2 разово за ивент</td><td>Соревновательный источник.</td></tr>
+      <tr><td>🏰 Клан — победитель сезона войн</td><td>+2 всем участникам</td><td>Социальная мотивация.</td></tr>
+    </table>
+    <p class="ok"><b>Ключевое правило: осколки НЕЛЬЗЯ купить.</b> Ни за мору, ни за алмазы,
+    ни за зарники, ни за Stars. Единственный вход — играть. Поэтому дерево — морковка
+    удержания, а не витрина pay-to-win.</p>
+    <p class="warn" style="margin-top:8px"><b>Дерево никогда не закрывается полностью.</b>
+    Полная стоимость всех узлов ≈ 75✴️, реально достижимо за разумный срок ≈ 55–60✴️.
+    Выбор пути — навсегда осмыслен (пока не сделал «Затмение»).</p>
+  </div>
+
+  <h2>3. Пять созвездий</h2>
+  <div class="card">
+    <table>
+      <tr><th>Созвездие</th><th>Тема</th><th>Механики-примеры (3✴️)</th></tr>
+      <tr><td>💰 <b>Торговец</b></td><td>экспедиции, биржа, аукцион</td><td>«Ночной торг» — 1 стоп-заявка на бирже (автопродажа по цене, работает офлайн); «Двойной караван» — вторая параллельная экспедиция, но ОБЕ −20% награды</td></tr>
+      <tr><td>⚔️ <b>Воин</b></td><td>Боёвка 3.0: руны, ярость, QTE</td><td>«Эхо рун» — раз в бой первая руна повторяется с 50% силы; «Хладнокровие» — QTE-кольцо на 15% медленнее</td></tr>
+      <tr><td>🐾 <b>Хранитель</b></td><td>питомцы, усталость, зоопарк</td><td>«Смотритель» — авто-кормление самого уставшего питомца раз в день (из твоего инвентаря!); «Шёпот зверя» — раз в неделю мгновенное завершение похода БЕЗ штрафа −50%</td></tr>
+      <tr><td>🎲 <b>Фортуна</b></td><td>гача, сундуки, скилл-игры</td><td>«Страховка» — раз в день проигрыш в скилл-игре возвращает 50% ставки; «Двойное дно» — 10% шанс дубля лута сундука, но сундуки для тебя на 20% реже</td></tr>
+      <tr><td>👥 <b>Глас</b></td><td>чат, стрик, кланы</td><td>«Глашатай» — еженедельный личный финансовый отчёт в ЛС; «Братство» — +3% наград за каждого активного соклановца за 24ч (кап +9%)</td></tr>
+    </table>
+    <p class="muted">Малые узлы (1✴️) — проценты ≤5% и QoL-удобства. Полный список — в интерактивной карте выше (тапай узлы).</p>
+  </div>
+
+  <h2>4. ⭐ Звёзды — сердце системы</h2>
+  <div class="card">
+    <p>На стыке каждой пары соседних созвездий горит <b>Звезда</b> (5✴️). Это самые сильные
+    узлы — и <b>каждая имеет цену</b>. Железное правило: <b>«В небе может гореть лишь две
+    путеводные звезды»</b> — активных Звёзд максимум 2. Хочешь третью — гаси одну из горящих.</p>
+    <table>
+      <tr><th>Звезда</th><th>Стык</th><th>Эффект</th><th>Цена (минус)</th></tr>
+      <tr><td>⭐ Наёмника</td><td>💰×⚔️</td><td>+15% тёмной моры с Врат</td><td>вход во Врата стоит 100 🪙</td></tr>
+      <tr><td>⭐ Стаи</td><td>⚔️×🐾</td><td>+1% атаки юнитов за каждого питомца Lv10+ (кап +8%)</td><td>питомцы устают на +10% быстрее</td></tr>
+      <tr><td>⭐ Азарта</td><td>🐾×🎲</td><td>дубли из гачи дают +25% XP питомцу</td><td>pity копится на 10% медленнее</td></tr>
+      <tr><td>⭐ Гильдии</td><td>🎲×👥</td><td>+1 личное открытие клетки Бездны в день</td><td>50% твоего лута Бездны уходит в казну клана</td></tr>
+      <tr><td>⭐ Алчности</td><td>👥×💰</td><td>+10% ко ВСЕЙ море</td><td>−25% ко всем алмазам («золото затмевает блеск камней»)</td></tr>
+    </table>
+  </div>
+
+  <h2>5. ♻ «Затмение» — респек</h2>
+  <div class="card">
+    <p>Полный сброс неба — ритуал «Затмение». Первый раз в календарный месяц — <b>бесплатно</b>.
+    Повторные в том же месяце: 5 000 🪙 → 15 000 → 30 000 → кап 50 000 (сброс цены 1-го числа).
+    Частичного респека нет — только всё небо целиком (иначе пути теряют смысл).</p>
+  </div>
+
+  <h2>6. Балансовые ограничители (почему это не сломает игру)</h2>
+  <div class="card">
+    <ul>
+      <li><b>Аддитивность, не умножение.</b> Проценты дерева суммируются с бонусами питомцев/кланов/реликвий
+        в общий аддитивный пул, а не перемножаются. Худший случай контролируем.</li>
+      <li><b>Жёсткий кап на источник дохода:</b> суммарный вклад дерева в любой один источник моры ≤ 15%
+        (сравнимо с одним питомцем-фермером, не с целым зоопарком).</li>
+      <li><b>Механики экономят время, но не печатают мору.</b> «Смотритель» кормит ТВОИМ кормом,
+        «Двойной караван» режет обе награды, «Страховка» возвращает половину УЖЕ поставленного.</li>
+      <li><b>Каждая Звезда — trade-off.</b> Нет узлов «просто сильнее». Мета-билдов «бери всё лучшее» не существует,
+        потому что «лучшее» всегда что-то отнимает.</li>
+      <li><b>Дерево не закрывается на 100%</b> → выбор пути важнее гринда.</li>
+      <li><b>Осколки не продаются</b> → нулевое влияние доната на силу.</li>
+      <li><b>Анти-стак с VIP:</b> узлы не дублируют VIP-перки (VIP — удобства и косметика, дерево — билдостроение).</li>
+    </ul>
+  </div>
+
+  <h2>7. Что показывать в UI (когда дойдёт до реализации)</h2>
+  <div class="card">
+    <ul>
+      <li>Вкладка «🌌 Небосвод» в профиле: карта как выше, пан/зум, тап-инфо, кнопка вложения.</li>
+      <li>Счётчик «✴️ N» рядом с валютами, когда есть невложенные осколки (мягкий пинг).</li>
+      <li>Мини-созвездие игрока в публичном профиле (флекс: «смотри, у него горит Звезда Алчности»).</li>
+      <li>При левелапе аккаунта в чате: «+1 ✴️ Осколок Судьбы — зажги звезду!» (диплинк в мини-апп).</li>
+      <li>Всё уважает <code>body.no-fx</code>: мерцание звёзд гаснет, остаётся статичная карта.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+// ═══════════ ДАННЫЕ ДЕРЕВА ═══════════
+const CX = 500, CY = 385, R_GATE = 120, R_MID = 205, R_OUT = 285, R_STAR = 250;
+const CONSTS = [
+  {id:'trade',   name:'Торговец',  emoji:'💰', ang:-90,  color:'#e8b54d'},
+  {id:'war',     name:'Воин',      emoji:'⚔️', ang:-18,  color:'#e05252'},
+  {id:'keeper',  name:'Хранитель', emoji:'🐾', ang:54,   color:'#5fd38a'},
+  {id:'fortune', name:'Фортуна',   emoji:'🎲', ang:126,  color:'#5fc6ff'},
+  {id:'voice',   name:'Глас',      emoji:'👥', ang:198,  color:'#c084fc'},
+];
+const D2R = Math.PI/180;
+function pol(ang, r, spread){ const a=(ang+(spread||0))*D2R; return [CX+Math.cos(a)*r, CY+Math.sin(a)*r]; }
+
+// type: minor(1) | mech(3) | star(5) | core(0)
+const NODES = [
+  {id:'core', type:'core', cost:0, name:'👁 Око Предвестника', desc:'Начало всех путей. Всегда открыто.', x:CX, y:CY},
+];
+const LINKS = [];
+function addC(c, defs){
+  // defs: gate, m1..m3 (minor), x1..x2 (mech)
+  const g = {id:c.id+'_gate', type:'minor', cost:1, cons:c.id, ...defs.gate};
+  const m1={id:c.id+'_m1', type:'minor', cost:1, cons:c.id, ...defs.m1};
+  const m2={id:c.id+'_m2', type:'minor', cost:1, cons:c.id, ...defs.m2};
+  const m3={id:c.id+'_m3', type:'minor', cost:1, cons:c.id, ...defs.m3};
+  const x1={id:c.id+'_x1', type:'mech', cost:3, cons:c.id, ...defs.x1};
+  const x2={id:c.id+'_x2', type:'mech', cost:3, cons:c.id, ...defs.x2};
+  [g.x,g.y]=pol(c.ang,R_GATE); [m1.x,m1.y]=pol(c.ang,R_MID,-14); [m2.x,m2.y]=pol(c.ang,R_MID,14);
+  [m3.x,m3.y]=pol(c.ang,R_OUT,0); [x1.x,x1.y]=pol(c.ang,R_OUT,-24); [x2.x,x2.y]=pol(c.ang,R_OUT,24);
+  NODES.push(g,m1,m2,m3,x1,x2);
+  LINKS.push(['core',g.id],[g.id,m1.id],[g.id,m2.id],[m1.id,m3.id],[m2.id,m3.id],[m1.id,x1.id],[m2.id,x2.id]);
+}
+addC(CONSTS[0], { // Торговец
+  gate:{name:'Торговая жилка', desc:'+3% моры с экспедиций.'},
+  m1:{name:'Караванщик', desc:'−5% к цене входа экспедиций.'},
+  m2:{name:'Глаз оценщика', desc:'QoL: на аукционе видна средняя цена такого лота за 7 дней.'},
+  m3:{name:'Скупой платит раз', desc:'−10% к комиссии крипто-биржи.'},
+  x1:{name:'Ночной торг', desc:'МЕХАНИКА: 1 стоп-заявка на бирже — автопродажа монеты по заданной цене, срабатывает даже офлайн.'},
+  x2:{name:'Двойной караван', desc:'МЕХАНИКА: вторая экспедиция параллельно. ЦЕНА: обе экспедиции −20% награды.'},
+});
+addC(CONSTS[1], { // Воин
+  gate:{name:'Закалка', desc:'+3% HP отряда.'},
+  m1:{name:'Точный глаз', desc:'+2% шанс крита юнитов.'},
+  m2:{name:'Тактик', desc:'QoL: телеграф показывает намерения ещё одного врага.'},
+  m3:{name:'Жажда битвы', desc:'+5 ярости в начале каждого боя.'},
+  x1:{name:'Эхо рун', desc:'МЕХАНИКА: раз в бой первая сыгранная руна раунда повторяется с 50% силы.'},
+  x2:{name:'Хладнокровие', desc:'МЕХАНИКА: QTE-кольцо сжимается на 15% медленнее (легче ловить перфект).'},
+});
+addC(CONSTS[2], { // Хранитель
+  gate:{name:'Забота', desc:'Корм восстанавливает на +10% больше усталости.'},
+  m1:{name:'Выносливость', desc:'−10% усталости питомцам с походов.'},
+  m2:{name:'Компанейство', desc:'+2% XP питомцам со всех источников.'},
+  m3:{name:'Тёплое гнездо', desc:'Пассивные питомцы копят на 20% меньше усталости в сутки.'},
+  x1:{name:'Смотритель', desc:'МЕХАНИКА: раз в день бот сам кормит самого уставшего питомца базовым кормом из ТВОЕГО инвентаря.'},
+  x2:{name:'Шёпот зверя', desc:'МЕХАНИКА: раз в неделю мгновенное завершение похода БЕЗ штрафа −50% к награде.'},
+});
+addC(CONSTS[3], { // Фортуна
+  gate:{name:'Везунчик', desc:'+2% к шансу ценного дропа в гаче.'},
+  m1:{name:'Охотник за сундуками', desc:'QoL: +10 секунд на клейм чат-сундука.'},
+  m2:{name:'Купон', desc:'−5% к цене мульти-крутки ×10.'},
+  m3:{name:'Фарт', desc:'+1% ко всем шансам редких дропов.'},
+  x1:{name:'Страховка', desc:'МЕХАНИКА: раз в день проигрыш в скилл-игре возвращает 50% ставки.'},
+  x2:{name:'Двойное дно', desc:'МЕХАНИКА: 10% шанс дубля лута сундука. ЦЕНА: сундуки для тебя появляются на 20% реже.'},
+});
+addC(CONSTS[4], { // Глас
+  gate:{name:'Оратор', desc:'+5% XP за сообщения в чате.'},
+  m1:{name:'Верность', desc:'+5% к бонусам Академии клана.'},
+  m2:{name:'Знамя', desc:'QoL: стрик прощает 1 пропущенный день в месяц.'},
+  m3:{name:'Дипломат', desc:'−20% КД варп-команд.'},
+  x1:{name:'Глашатай', desc:'МЕХАНИКА: еженедельный личный отчёт в ЛС — доход/расход/топ действий недели.'},
+  x2:{name:'Братство', desc:'МЕХАНИКА: +3% ко всем наградам за каждого соклановца, игравшего за 24ч (кап +9%).'},
+});
+// Звёзды между соседними созвездиями
+const STARS = [
+  {a:'trade', b:'war',     name:'⭐ Звезда Наёмника', desc:'+15% тёмной моры с Врат. ЦЕНА: вход во Врата стоит 100 🪙.'},
+  {a:'war',   b:'keeper',  name:'⭐ Звезда Стаи', desc:'+1% атаки юнитов за питомца Lv10+ (кап +8%). ЦЕНА: питомцы устают на +10% быстрее.'},
+  {a:'keeper',b:'fortune', name:'⭐ Звезда Азарта', desc:'Дубли из гачи дают +25% XP питомцу. ЦЕНА: pity копится на 10% медленнее.'},
+  {a:'fortune',b:'voice',  name:'⭐ Звезда Гильдии', desc:'+1 личное открытие клетки Бездны в день. ЦЕНА: 50% твоего лута Бездны — в казну клана.'},
+  {a:'voice', b:'trade',   name:'⭐ Звезда Алчности', desc:'+10% ко ВСЕЙ море. ЦЕНА: −25% ко всем алмазам.'},
+];
+STARS.forEach(s=>{
+  const ca=CONSTS.find(c=>c.id===s.a), cb=CONSTS.find(c=>c.id===s.b);
+  let mid=(ca.ang+cb.ang)/2; if(Math.abs(ca.ang-cb.ang)>180) mid+=180;
+  const n={id:'star_'+s.a+'_'+s.b, type:'star', cost:5, name:s.name, desc:s.desc};
+  [n.x,n.y]=pol(mid,R_STAR); NODES.push(n);
+  LINKS.push([s.a+'_x2', n.id],[s.b+'_x1', n.id]);
+});
+
+// ═══════════ ЛОГИКА ═══════════
+const byId={}; NODES.forEach(n=>byId[n.id]=n);
+const adj={}; NODES.forEach(n=>adj[n.id]=[]);
+LINKS.forEach(([a,b])=>{adj[a].push(b);adj[b].push(a);});
+let alloc=new Set(['core']);
+function budget(){
+  let p=parseInt(document.getElementById('lvl').value)||1;
+  document.querySelectorAll('.rare:checked').forEach(c=>p+=parseInt(c.value));
+  return p;
+}
+function spent(){ let s=0; alloc.forEach(id=>s+=byId[id].cost); return s; }
+function starsLit(){ let n=0; alloc.forEach(id=>{if(byId[id].type==='star')n++;}); return n; }
+function connectedToCore(set){
+  const seen=new Set(['core']); const q=['core'];
+  while(q.length){ const v=q.pop(); adj[v].forEach(w=>{ if(set.has(w)&&!seen.has(w)){seen.add(w);q.push(w);} }); }
+  for(const id of set) if(!seen.has(id)) return false;
+  return true;
+}
+function canTake(n){
+  if(alloc.has(n.id)) return {ok:false,why:'Уже зажжено. Тапни ещё раз, чтобы погасить.'};
+  if(!adj[n.id].some(w=>alloc.has(w))) return {ok:false,why:'Нет пути: сначала зажги соседний узел.'};
+  if(spent()+n.cost>budget()) return {ok:false,why:'Не хватает осколков ✴️ (добавь уровней в симуляторе).'};
+  if(n.type==='star'&&starsLit()>=2) return {ok:false,why:'«В небе может гореть лишь две путеводные звезды» — сначала погаси одну ⭐.'};
+  return {ok:true};
+}
+function tap(id){
+  const n=byId[id]; if(n.type==='core'){show(n);return;}
+  if(alloc.has(id)){
+    const test=new Set(alloc); test.delete(id);
+    if(connectedToCore(test)){ alloc=test; show(n,'⤵ Узел погашен.'); }
+    else show(n,null,'Нельзя погасить: узлы дальше по пути останутся без связи с Оком.');
+  } else {
+    const c=canTake(n);
+    if(c.ok){ alloc.add(id); show(n,'✔ Зажжено за '+n.cost+'✴️'); }
+    else show(n,null,c.why);
+  }
+  render();
+}
+function show(n,yes,no){
+  const cons=n.cons?CONSTS.find(c=>c.id===n.cons):null;
+  document.getElementById('info').innerHTML=
+    `<div class="t">${cons?cons.emoji+' ':''}${n.name} <span class="cost">${n.cost?'· '+n.cost+'✴️':''}</span>
+     ${n.type==='star'?'<span class="pill">⭐ звезда</span>':n.type==='mech'?'<span class="pill">механика</span>':n.type==='minor'?'<span class="pill">малый узел</span>':''}</div>
+     <div class="d">${n.desc}</div>${yes?`<div class="yes">${yes}</div>`:''}${no?`<div class="no">${no}</div>`:''}`;
+}
+function resetAll(){ alloc=new Set(['core']); render();
+  document.getElementById('info').innerHTML='<span class="muted">♻ Затмение: небо очищено, все осколки возвращены.</span>'; }
+
+// ═══════════ РЕНДЕР SVG ═══════════
+const svg=document.getElementById('sky');
+function render(){
+  const b=budget(), s=spent();
+  document.getElementById('pts').textContent=(b-s);
+  document.getElementById('spent').textContent=s;
+  document.getElementById('lvlv').textContent=document.getElementById('lvl').value;
+  let h='';
+  // фоновые звёздочки (детерминированные)
+  for(let i=0;i<90;i++){ const x=(i*137.5)%1000, y=(i*89.7)%760, r=(i%3)*0.5+0.4;
+    h+=`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r}" fill="#fff" opacity="${(0.06+(i%5)*0.03).toFixed(2)}"/>`; }
+  // подписи созвездий
+  CONSTS.forEach(c=>{ const [x,y]=pol(c.ang,R_OUT+58);
+    h+=`<text x="${x}" y="${y}" text-anchor="middle" font-size="15" fill="${c.color}" opacity=".85">${c.emoji} ${c.name}</text>`; });
+  // связи
+  LINKS.forEach(([a,b2])=>{ const A=byId[a],B=byId[b2]; const lit=alloc.has(a)&&alloc.has(b2);
+    h+=`<line x1="${A.x}" y1="${A.y}" x2="${B.x}" y2="${B.y}" stroke="${lit?'#e8b54d':'#2a2e42'}" stroke-width="${lit?2.2:1.2}" ${lit?'opacity=".9"':'opacity=".7"'}/>`; });
+  // узлы
+  NODES.forEach(n=>{
+    const lit=alloc.has(n.id);
+    const cons=n.cons?CONSTS.find(c=>c.id===n.cons):null;
+    const col=n.type==='star'?'#ffffff':(cons?cons.color:'#e8b54d');
+    const r=n.type==='core'?24:n.type==='star'?15:n.type==='mech'?12:8.5;
+    h+=`<g style="cursor:pointer" onclick="tap('${n.id}')">
+      ${lit?`<circle cx="${n.x}" cy="${n.y}" r="${r+7}" fill="${col}" opacity=".18"/>`:''}
+      <circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${lit?col:'#0e1017'}" stroke="${col}"
+        stroke-width="${n.type==='star'?2.5:2}" opacity="${lit?1:.8}"/>
+      ${n.type==='core'?`<text x="${n.x}" y="${n.y+6}" text-anchor="middle" font-size="18">👁</text>`:''}
+      ${n.type==='star'?`<text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="13" ${lit?'fill="#111"':`fill="${col}"`}>★</text>`:''}
+    </g>`;
+  });
+  svg.innerHTML=h;
+}
+document.getElementById('lvl').addEventListener('input',()=>{ trim(); render(); });
+document.querySelectorAll('.rare').forEach(c=>c.addEventListener('change',()=>{ trim(); render(); }));
+// если бюджет уменьшили ниже потраченного — мягко сбрасываем
+function trim(){ if(spent()>budget()) alloc=new Set(['core']); }
+render();
+</script>
+</body>
+</html>
