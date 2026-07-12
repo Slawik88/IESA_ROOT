@@ -240,6 +240,14 @@ function loadAdminSettings() {
         ${tog('nsfw_warps_allowed','🔞 NSFW варпы',s.nsfw_warps_allowed)}
       </div>
       <div class="card">
+        <div class="card-title">🔔 Игровые уведомления в чат</div>
+        <div style="font-size:10.5px;color:var(--muted);margin-bottom:6px">Глушится только сообщение в чат — механики и личные уведомления работают. Административные сообщения (модерация/чистка) шлются всегда, тумблера нет.</div>
+        ${tog('notif_auction','🏛 Новые лоты аукциона',s.notif_auction)}
+        ${tog('notif_gacha','🎰 Крутки гачи',s.notif_gacha)}
+        ${tog('notif_expeditions','💫 Возврат из походов',s.notif_expeditions)}
+        ${tog('notif_quests','📋 Выполненные квесты',s.notif_quests)}
+      </div>
+      <div class="card">
         <div class="card-title">⚖️ Минимальный ранг для действий</div>
         ${rank('rank_warn','⚠️ Выдавать варны',s.rank_warn)}
         ${rank('rank_mute','🔇 Ставить мут',s.rank_mute)}
@@ -357,7 +365,8 @@ function saveAdmSettings() {
               'module_games','module_exchange','module_quests','module_daily_deal',
               'events_enabled','nsfw_warps_allowed','rank_warn','rank_mute','rank_kick','rank_ban',
               'rank_shield','rank_immune','rank_duel','rank_marriage','rank_give','purge_min_rank',
-              'purge_action_rank','rank_chat_lock'];
+              'purge_action_rank','rank_chat_lock',
+              'notif_auction','notif_gacha','notif_expeditions','notif_quests'];
   const body={};
   for(const k of keys) {
     const e2=el('aset-'+k); if(!e2) continue;

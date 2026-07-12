@@ -80,7 +80,11 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
         "COALESCE(module_quests, 1) AS module_quests, "
         "COALESCE(module_zoo, 1) AS module_zoo, "
         "COALESCE(module_warps, 1) AS module_warps, "
-        "COALESCE(module_daily_deal, 1) AS module_daily_deal "
+        "COALESCE(module_daily_deal, 1) AS module_daily_deal, "
+        "COALESCE(notif_auction, 1) AS notif_auction, "
+        "COALESCE(notif_gacha, 1) AS notif_gacha, "
+        "COALESCE(notif_expeditions, 1) AS notif_expeditions, "
+        "COALESCE(notif_quests, 1) AS notif_quests "
         "FROM chat_settings WHERE chat_id = ?",
         (chat_id,),
     ) as cursor:
@@ -97,7 +101,25 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
             "module_shop": 1, "module_gacha": 1, "module_expeditions": 1,
             "module_auction": 1, "module_games": 1, "module_exchange": 1,
             "module_quests": 1, "module_zoo": 1, "module_warps": 1, "module_daily_deal": 1,
+            "notif_auction": 1, "notif_gacha": 1, "notif_expeditions": 1, "notif_quests": 1,
         }
+
+
+# Категорийные тумблеры ИГРОВЫХ уведомлений чата. Только эти ключи можно
+# спрашивать через chat_notif_enabled — административные сообщения (модерация,
+# чистка, апелляции, приветствия) не гейтятся вообще, у них тумблера нет.
+CHAT_NOTIF_KEYS = ("notif_auction", "notif_gacha", "notif_expeditions", "notif_quests")
+
+
+async def chat_notif_enabled(db: aiosqlite.Connection, chat_id: int, key: str) -> bool:
+    """True = категория игровых уведомлений включена в этом чате (default вкл)."""
+    if key not in CHAT_NOTIF_KEYS:
+        return True
+    async with db.execute(
+        f"SELECT COALESCE({key}, 1) FROM chat_settings WHERE chat_id = ?", (chat_id,)
+    ) as c:
+        row = await c.fetchone()
+    return bool(row[0]) if row else True
 
 
 async def update_chat_settings(db: aiosqlite.Connection, chat_id: int, **kwargs):

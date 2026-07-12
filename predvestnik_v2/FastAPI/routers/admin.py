@@ -261,6 +261,11 @@ class SettingsUpdateRequest(BaseModel):
     module_warps: Optional[int] = None
     module_daily_deal: Optional[int] = None
     nsfw_warps_allowed: Optional[int] = None
+    # Категорийные тумблеры игровых уведомлений чата (2026-07-12)
+    notif_auction: Optional[int] = None
+    notif_gacha: Optional[int] = None
+    notif_expeditions: Optional[int] = None
+    notif_quests: Optional[int] = None
 
 
 @router.post("/{chat_id}/settings")

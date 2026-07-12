@@ -206,7 +206,11 @@ async def db_middleware(
                         db, user.id, chat_obj.id, "messages_in_chat_today", delta=1.0
                     )
                     if completed:
-                        _notify_quest_completions(data.get("bot"), chat_obj.id, user, completed)
+                        # Категорийный тумблер игровых уведомлений чата (🔔) —
+                        # награда начисляется всегда, гейтится только сообщение.
+                        from infrastructure.repositories.moderation import chat_notif_enabled
+                        if await chat_notif_enabled(db, chat_obj.id, "notif_quests"):
+                            _notify_quest_completions(data.get("bot"), chat_obj.id, user, completed)
                 except Exception:
                     pass
 
