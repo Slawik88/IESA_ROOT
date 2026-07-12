@@ -105,6 +105,11 @@ async def _init_users_and_chats(db):
     for _col, _default in [
         ("rank_duel", 0), ("rank_marriage", 0), ("rank_give", 0),
         ("purge_action_rank", 2), ("rank_chat_lock", 4),
+        # Категорийные тумблеры ИГРОВЫХ уведомлений чата (2026-07-12).
+        # Административные сообщения (модерация/чистка/апелляции) не гейтятся —
+        # шлются всегда, у них нет тумблера в принципе.
+        ("notif_auction", 1), ("notif_gacha", 1),
+        ("notif_expeditions", 1), ("notif_quests", 1),
     ]:
         try:
             await db.execute(
@@ -1311,6 +1316,21 @@ async def _init_crypto(db):
             PRIMARY KEY (user_id, coin_id)
         )
     """)
+    # VIP-алерты цен (2026-07-12): разовые уведомления в ЛС при достижении цены.
+    # Зеркало repositories/crypto.py::ensure_tables (веб-процесс).
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS crypto_price_alerts (
+            id           SERIAL PRIMARY KEY,
+            user_id      BIGINT NOT NULL,
+            coin_id      TEXT   NOT NULL,
+            target_price FLOAT8 NOT NULL,
+            direction    TEXT   NOT NULL,
+            created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cpa_user ON crypto_price_alerts(user_id)"
+    )
 
 
 async def _init_combat(db):

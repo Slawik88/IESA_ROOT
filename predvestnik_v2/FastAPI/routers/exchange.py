@@ -219,3 +219,54 @@ async def watchlist_toggle(coin_id: str, db=Depends(get_db), user=Depends(requir
         raise HTTPException(404, "Монета не найдена.")
     added = await crypto_repo.toggle_watchlist(db, user["id"], coin_id)
     return {"ok": True, "starred": added}
+
+
+# ── VIP-алерты цен ────────────────────────────────────────────────────────────
+
+CRYPTO_ALERTS_MAX = 5  # активных алертов на игрока
+
+
+class AlertRequest(BaseModel):
+    coin_id: str
+    target_price: float
+
+
+@router.get("/crypto/alerts")
+async def crypto_alerts_list(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Активные ценовые алерты игрока + VIP-статус (создание — только VIP)."""
+    from services.vip import is_vip_active
+    return {
+        "alerts": await crypto_repo.list_alerts(db, user["id"]),
+        "is_vip": await is_vip_active(db, user["id"]),
+        "max": CRYPTO_ALERTS_MAX,
+    }
+
+
+@router.post("/crypto/alerts")
+async def crypto_alert_add(body: AlertRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Создать разовый алерт: бот пришлёт ЛС, когда цена достигнет отметки.
+    Направление определяется автоматически от текущей цены (выше/ниже)."""
+    from services.vip import is_vip_active
+    if not await is_vip_active(db, user["id"]):
+        raise HTTPException(403, "Ценовые алерты — привилегия 👑 VIP.")
+    coin = cx.get_coin(body.coin_id)
+    if not coin:
+        raise HTTPException(404, "Монета не найдена.")
+    if not math.isfinite(body.target_price) or body.target_price <= 0:
+        raise HTTPException(400, "Некорректная цена.")
+    if await crypto_repo.count_alerts(db, user["id"]) >= CRYPTO_ALERTS_MAX:
+        raise HTTPException(400, f"Лимит: {CRYPTO_ALERTS_MAX} активных алертов. Удалите старый.")
+    now_price = cx.price_now(coin)
+    target = round(body.target_price, 2)
+    if abs(target - now_price) < 0.01:
+        raise HTTPException(400, "Цена уже на этой отметке.")
+    direction = "above" if target > now_price else "below"
+    alert_id = await crypto_repo.add_alert(db, user["id"], coin["id"], target, direction)
+    return {"ok": True, "id": alert_id, "direction": direction, "price_now": now_price}
+
+
+@router.delete("/crypto/alerts/{alert_id}")
+async def crypto_alert_delete(alert_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    if not await crypto_repo.delete_alert(db, user["id"], alert_id):
+        raise HTTPException(404, "Алерт не найден.")
+    return {"ok": True}

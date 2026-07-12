@@ -44,6 +44,79 @@ async def ensure_tables(db) -> None:
             PRIMARY KEY (user_id, coin_id)
         )
     """)
+    # VIP-алерты цен: разовые (сработал → удалился), direction фиксируется при
+    # создании от текущей цены — «упала до X» и «выросла до X» различаются сами.
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS crypto_price_alerts (
+            id           SERIAL PRIMARY KEY,
+            user_id      BIGINT NOT NULL,
+            coin_id      TEXT   NOT NULL,
+            target_price FLOAT8 NOT NULL,
+            direction    TEXT   NOT NULL,
+            created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cpa_user ON crypto_price_alerts(user_id)"
+    )
+    await db.commit()
+
+
+# ── VIP-алерты цен ────────────────────────────────────────────────────────────
+
+async def list_alerts(db, user_id: int) -> list[dict]:
+    async with db.execute(
+        "SELECT id, coin_id, target_price, direction FROM crypto_price_alerts "
+        "WHERE user_id = ? ORDER BY id",
+        (user_id,),
+    ) as c:
+        return [{"id": r[0], "coin_id": r[1], "target_price": float(r[2]),
+                 "direction": r[3]} for r in await c.fetchall()]
+
+
+async def count_alerts(db, user_id: int) -> int:
+    async with db.execute(
+        "SELECT COUNT(*) FROM crypto_price_alerts WHERE user_id = ?", (user_id,)
+    ) as c:
+        row = await c.fetchone()
+    return int(row[0] or 0)
+
+
+async def add_alert(db, user_id: int, coin_id: str, target_price: float, direction: str) -> int:
+    async with db.execute(
+        "INSERT INTO crypto_price_alerts (user_id, coin_id, target_price, direction) "
+        "VALUES (?, ?, ?, ?) RETURNING id",
+        (user_id, coin_id, target_price, direction),
+    ) as c:
+        row = await c.fetchone()
+    await db.commit()
+    return int(row[0])
+
+
+async def delete_alert(db, user_id: int, alert_id: int) -> bool:
+    async with db.execute(
+        "DELETE FROM crypto_price_alerts WHERE id = ? AND user_id = ? RETURNING id",
+        (alert_id, user_id),
+    ) as c:
+        row = await c.fetchone()
+    await db.commit()
+    return row is not None
+
+
+async def all_alerts(db) -> list[dict]:
+    """Все активные алерты — для фонового чекера (services/scheduler.py)."""
+    async with db.execute(
+        "SELECT id, user_id, coin_id, target_price, direction FROM crypto_price_alerts"
+    ) as c:
+        return [{"id": r[0], "user_id": r[1], "coin_id": r[2],
+                 "target_price": float(r[3]), "direction": r[4]} for r in await c.fetchall()]
+
+
+async def delete_alerts_by_ids(db, ids: list[int]) -> None:
+    if not ids:
+        return
+    ph = ",".join("?" * len(ids))
+    await db.execute(f"DELETE FROM crypto_price_alerts WHERE id IN ({ph})", tuple(ids))
     await db.commit()
 
 

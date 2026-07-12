@@ -174,18 +174,23 @@ async def _finish_expedition(bot: Bot, db, row) -> None:
     else:
         owner_mention = "Игрок"
 
-    try:
-        text = (
-            f"🎉 {owner_mention}, <b>питомец вернулся!</b>\n"
-            f"🐾 <b>{pet_name}</b> завершил поход ({hours} ч.) и принёс:\n"
-            f"🪙 Мора: <b>+{reward['mora']}</b>\n"
-            f"💠 Опыт: <b>+{reward['xp']}</b>"
-            f"{reward['buff_message']}"
-            f"{treasure_bonus}"
-        )
-        await bot.send_message(chat_id, text, parse_mode="HTML")
-    except Exception as e:
-        logger.error(f"Не удалось отправить уведомление в чат {chat_id}: {e}")
+    # Категорийный тумблер игровых уведомлений (бот настройки чата → 🔔).
+    # Гейтится ТОЛЬКО сообщение в чат — личное WS/ЛС-уведомление владельцу ниже
+    # уходит всегда (награда-то его, чат тут ни при чём).
+    from infrastructure.repositories.moderation import chat_notif_enabled
+    if await chat_notif_enabled(db, chat_id, "notif_expeditions"):
+        try:
+            text = (
+                f"🎉 {owner_mention}, <b>питомец вернулся!</b>\n"
+                f"🐾 <b>{pet_name}</b> завершил поход ({hours} ч.) и принёс:\n"
+                f"🪙 Мора: <b>+{reward['mora']}</b>\n"
+                f"💠 Опыт: <b>+{reward['xp']}</b>"
+                f"{reward['buff_message']}"
+                f"{treasure_bonus}"
+            )
+            await bot.send_message(chat_id, text, parse_mode="HTML")
+        except Exception as e:
+            logger.error(f"Не удалось отправить уведомление в чат {chat_id}: {e}")
 
     # Notify WebSocket clients (same process). Если игрок офлайн —
     # сохраняем чек в web_notifications для показа при входе (Welcome Back).
@@ -241,6 +246,59 @@ async def expedition_background_task(bot: Bot):
         except Exception as e:
             logger.error(f"Ошибка в фоновом процессе экспедиций: {e}")
             await asyncio.sleep(30)  # backoff on error — avoid tight crash loops
+
+
+async def crypto_alerts_task(bot: Bot):
+    """VIP-алерты цен биржи: раз в минуту сверяет цены (детерминированная функция
+    времени, services/crypto_exchange.py) с активными алертами. Сработавший алерт —
+    ЛС игроку и удаление (разовый). Direction зафиксирован при создании, поэтому
+    «выросла до X» не срабатывает на цене, которая всегда была выше X."""
+    from services import crypto_exchange as cx
+    from infrastructure.repositories import crypto as crypto_repo
+
+    logger.info("Фоновая задача ценовых алертов биржи запущена.")
+    while True:
+        await asyncio.sleep(60)
+        try:
+            async with get_pool().acquire() as _conn:
+                db = PGAdapter(_conn)
+                alerts = await crypto_repo.all_alerts(db)
+                if not alerts:
+                    continue
+                prices = {c["id"]: cx.price_now(c) for c in cx.COINS}
+                fired_ids = []
+                for a in alerts:
+                    p = prices.get(a["coin_id"])
+                    if p is None:
+                        fired_ids.append(a["id"])  # монета удалена из реестра — чистим
+                        continue
+                    hit = (p >= a["target_price"] if a["direction"] == "above"
+                           else p <= a["target_price"])
+                    if not hit:
+                        continue
+                    fired_ids.append(a["id"])
+                    coin = cx.get_coin(a["coin_id"])
+                    arrow = "📈 выросла до" if a["direction"] == "above" else "📉 упала до"
+                    try:
+                        await bot.send_message(
+                            a["user_id"],
+                            f"🔔 <b>ЦЕНОВОЙ АЛЕРТ</b>\n\n"
+                            f"{coin['emoji']} <b>{coin['name']}</b> {arrow} отметки "
+                            f"<b>{a['target_price']:,.0f} 🪙</b>\n"
+                            f"└ Сейчас: <b>{p:,.0f} 🪙</b>\n\n"
+                            f"<i>Алерт разовый — сработал и удалён. Новый: сайт → Биржа → монета.</i>",
+                            parse_mode="HTML",
+                        )
+                    except Exception as e:
+                        # ЛС закрыты/бот заблокирован — алерт всё равно гасим, иначе
+                        # каждую минуту будем долбиться в закрытую дверь.
+                        logger.warning(f"crypto alert DM to {a['user_id']} failed: {e}")
+                if fired_ids:
+                    await crypto_repo.delete_alerts_by_ids(db, fired_ids)
+                    logger.info(f"Ценовые алерты: сработало {len(fired_ids)}")
+        except Exception as e:
+            logger.error(f"Ошибка задачи ценовых алертов: {e}")
+            await asyncio.sleep(60)
 
 
 _daily_gc_day: str | None = None
