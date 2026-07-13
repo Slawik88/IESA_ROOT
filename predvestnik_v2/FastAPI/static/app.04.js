@@ -153,7 +153,7 @@ function loadGacha() {
     const disc = d.multi_discount_pct||10;
     _gachaBal = {mora: d.mora||0, dia: d.diamonds||0};
     _spinCosts = {};
-    d.spin_types.forEach(s=>{ _spinCosts[s.spin_type] = {mora: s.cost_mora||0, dia: s.cost_dia||0}; });
+    d.spin_types.forEach(s=>{ _spinCosts[s.spin_type] = {mora: s.cost_mora||0, dia: s.cost_dia||0, token: s.token_qty||0}; });
     el('gc').innerHTML=`
     <div class="gacha-header">
       <div class="gh-title">✨ ГАЧА</div>
@@ -164,7 +164,7 @@ function loadGacha() {
       <span style="color:var(--border2)">│</span>
       <span class="gb-item" id="gacha-bal-dia">💎 ${(d.diamonds||0).toFixed(1)}</span>
     </div>
-    ${d.spin_types.every(s=>(s.cost_mora&&d.mora<s.cost_mora)||(s.cost_dia&&(d.diamonds||0)<s.cost_dia))
+    ${d.spin_types.every(s=>!s.token_qty&&((s.cost_mora&&d.mora<s.cost_mora)||(s.cost_dia&&(d.diamonds||0)<s.cost_dia)))
       ? `<div class="cx-dim" style="font-size:11px;padding:8px 10px;background:var(--dim);border-radius:var(--r);margin-bottom:10px">
           На крутку пока не хватает — общайся в чате и выполняй <span class="shortcut-link" onclick="goTo('quests')">📋 Задания</span>, там первая Мора.
         </div>` : ''}
@@ -260,8 +260,12 @@ function spinPressStart(ev, st, row){
   if(row.style.pointerEvents==='none') return;  // спин уже в полёте
   // UX-аудит: не начинать ритуал заряда, если крутка заведомо не по карману —
   // раньше игрок проходил всю анимацию и узнавал о нехватке денег в конце.
+  // БАГФИКС 2026-07-14: жетон (бесплатный спин) списывается ПЕРВЫМ и ПРИОРИТЕТНО
+  // (services/gacha.py::roll_single) — эта проверка баланса игнорировала token_qty
+  // и блокировала жест ещё до вызова API, даже когда жетон реально есть и валюта
+  // не нужна вовсе. Игрок с жетоном, но без денег, не мог покрутить.
   const c = _spinCosts[st];
-  if(c && ((c.mora>0 && _gachaBal.mora<c.mora) || (c.dia>0 && _gachaBal.dia<c.dia))){
+  if(c && !c.token && ((c.mora>0 && _gachaBal.mora<c.mora) || (c.dia>0 && _gachaBal.dia<c.dia))){
     _haptic('error');
     toast(c.mora>0?`Не хватает Моры (нужно ${fmt(c.mora)} 🪙)`:`Не хватает Алмазов (нужно ${c.dia} 💎)`, false);
     return;
