@@ -40,7 +40,17 @@ async def get_expired_active(db: PGAdapter) -> list[dict]:
 
 
 async def get_qualifying_chats(db: PGAdapter, min_users: int) -> list[int]:
-    """Chats with enough active users in the last 24h without an active chest."""
+    """Chats with enough active users in the last 24h without an active chest.
+
+    Полиш 2026-07-14 (реальный баг — сундук пришёл юзеру в ЛС): `chat_settings`
+    легитимно хранит и приватные chat_id>0 (см. рассылку,
+    infrastructure/repositories/routing.py::get_broadcast_targets — там же
+    `dm = личные чаты`), а user_chat_stats при некоторых сценариях мог получить
+    строку с приватным chat_tg_id. Группы/супергруппы Telegram — ВСЕГДА
+    отрицательный chat_id, приватный чат с ботом — ВСЕГДА положительный; это
+    гарантия платформы, не эвристика. Тот же фильтр уже используется в
+    routing.py::get_announce_chats — здесь применяем его и к сундукам/Торговцу
+    (обе фичи используют эту функцию)."""
     async with db.execute(
         """SELECT DISTINCT s.chat_tg_id
            FROM user_chat_stats s
@@ -51,7 +61,8 @@ async def get_qualifying_chats(db: PGAdapter, min_users: int) -> list[int]:
                GROUP BY chat_tg_id
            ) active_counts ON active_counts.chat_tg_id = s.chat_tg_id
            LEFT JOIN chat_settings cs ON cs.chat_id = s.chat_tg_id
-           WHERE active_counts.cnt >= ?
+           WHERE s.chat_tg_id < 0
+             AND active_counts.cnt >= ?
              AND COALESCE(cs.is_purging, FALSE) = FALSE
              AND COALESCE(cs.events_enabled, 1) = 1
              AND NOT EXISTS (
@@ -81,12 +92,19 @@ async def get_dormant_chats(db: PGAdapter, quiet_days: float) -> list[int]:
     сундуков (chat_settings.last_chest_at + активный chest_events закрывает
     чат от повторного отбора, пока сундук жив) — отдельного состояния не заводим.
 
-    Верхняя граница 60 дней: совсем заброшенные чаты не тревожим бесконечно."""
+    Верхняя граница 60 дней: совсем заброшенные чаты не тревожим бесконечно.
+
+    Полиш 2026-07-14: `s.chat_tg_id < 0` — жёсткая гарантия Telegram (группы и
+    супергруппы ВСЕГДА отрицательные, приватный чат с ботом ВСЕГДА
+    положительный), не эвристика. Без неё это была ЛС-версия того же бага, что
+    и в get_qualifying_chats — реально ловилась, отсюда и «Давно было тихо...»
+    в личке у игрока."""
     async with db.execute(
         """SELECT s.chat_tg_id
            FROM user_chat_stats s
            LEFT JOIN chat_settings cs ON cs.chat_id = s.chat_tg_id
-           WHERE COALESCE(cs.is_purging, FALSE) = FALSE
+           WHERE s.chat_tg_id < 0
+             AND COALESCE(cs.is_purging, FALSE) = FALSE
              AND COALESCE(cs.events_enabled, 1) = 1
              AND NOT EXISTS (
                  SELECT 1 FROM chest_events ce
