@@ -69,3 +69,34 @@ async def update_last_chest_at(db: PGAdapter, chat_id: int) -> None:
     await db.execute(
         "UPDATE chat_settings SET last_chest_at = NOW() WHERE chat_id = ?", (chat_id,)
     )
+
+
+async def get_dormant_chats(db: PGAdapter, quiet_days: float) -> list[int]:
+    """Growth-полиш 2026-07-13 («реактивация тихого чата», находка 05): чаты,
+    где ВООБЩЕ никто не писал ≥ quiet_days (порог настраивается дев-консолью,
+    infrastructure/repositories/dev_settings.py) — вместо полного молчания
+    получают редкий сундук.
+
+    Кулдаун и защита от повтора переиспользуют ту же механику, что у обычных
+    сундуков (chat_settings.last_chest_at + активный chest_events закрывает
+    чат от повторного отбора, пока сундук жив) — отдельного состояния не заводим.
+
+    Верхняя граница 60 дней: совсем заброшенные чаты не тревожим бесконечно."""
+    async with db.execute(
+        """SELECT s.chat_tg_id
+           FROM user_chat_stats s
+           LEFT JOIN chat_settings cs ON cs.chat_id = s.chat_tg_id
+           WHERE COALESCE(cs.is_purging, FALSE) = FALSE
+             AND COALESCE(cs.events_enabled, 1) = 1
+             AND NOT EXISTS (
+                 SELECT 1 FROM chest_events ce
+                 WHERE ce.chat_id = s.chat_tg_id AND ce.status = 'active'
+             )
+             AND (cs.last_chest_at IS NULL
+                  OR cs.last_chest_at <= NOW() - make_interval(days => ?))
+           GROUP BY s.chat_tg_id
+           HAVING MAX(s.last_message_at) <= NOW() - make_interval(days => ?)
+              AND MAX(s.last_message_at) >= NOW() - INTERVAL '60 days'""",
+        (quiet_days, quiet_days),
+    ) as c:
+        return [r[0] for r in await c.fetchall()]

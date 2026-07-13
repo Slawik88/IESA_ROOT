@@ -1,5 +1,5 @@
 import random
-from aiogram import Router, types
+from aiogram import Router, types, F
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime, timedelta
@@ -38,29 +38,17 @@ def _build_expedition_list() -> str:
     return "\n".join(lines)
 
 
-@router.message(TextCmd(["поход", "экспедиция"]))
-async def cmd_expedition(message: types.Message, db, text_args: str = None):
-    if message.chat.type == "private":
-        return
-
-    user_id = message.from_user.id
-    args = text_args
-
-    if not args:
-        return await message.answer(_build_expedition_list(), parse_mode="HTML")
-
-    parts = args.split()
-    if not parts[0].isdigit() or int(parts[0]) not in EXPEDITIONS_DATA:
-        return await message.answer("❌ <b>Отказ:</b> доступно только 2, 4, 6 или 8 часов.", parse_mode="HTML")
-
-    hours = int(parts[0])
+async def _start_expedition_core(db, user_id: int, chat_id: int, hours: int) -> tuple[bool, str]:
+    """Общая логика запуска похода: и текстовая команда, и кнопка «🔁 Ещё поход»
+    на сообщении о завершении (services/scheduler.py::_finish_expedition) идут
+    сюда (Growth-полиш 2026-07-13, находка 04 — поход был тупиком после награды,
+    в отличие от гачи, где «Крутить ещё» уже был). Возвращает (успех, текст-ответ)."""
     exp_data = EXPEDITIONS_DATA[hours]
 
     pet = await get_active_pet(db, user_id)
     if not pet:
-        return await message.answer(
-            "❌ <b>Нет активного питомца!</b>\n<i>Откройте «бот зоопарк» и сделайте кого-то Активным.</i>",
-            parse_mode="HTML"
+        return False, (
+            "❌ <b>Нет активного питомца!</b>\n<i>Откройте «бот зоопарк» и сделайте кого-то Активным.</i>"
         )
 
     pet_id, pet_name, species_id, fatigue = pet["id"], pet["name"], pet["species_id"], pet["fatigue"]
@@ -76,11 +64,10 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
                 ends_display = raw_ends.strftime("%d.%m %H:%M")
         else:
             ends_display = str(raw_ends)[:16]
-        return await message.answer(
+        return False, (
             f"⏳ <b>Питомец уже в походе!</b>\n"
             f"<i>Вернётся в <code>{ends_display}</code>.</i>\n"
-            f"<i>Ускорить: «бот ускорить поход»</i>",
-            parse_mode="HTML"
+            f"<i>Ускорить: «бот ускорить поход»</i>"
         )
 
     # Wolf reduces all received fatigue, including expedition fatigue cost.
@@ -122,9 +109,8 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
         zero_fatigue_triggered = True
 
     if fatigue + expedition_fatigue > 100:
-        return await message.answer(
-            f"❌ <b>Отказ:</b> питомец слишком устал ({fatigue}/100).\n<i>Покормите его через «бот зоопарк».</i>",
-            parse_mode="HTML"
+        return False, (
+            f"❌ <b>Отказ:</b> питомец слишком устал ({fatigue}/100).\n<i>Покормите его через «бот зоопарк».</i>"
         )
 
     # Turtle (any nursery slot): expedition cost discount from the level curve.
@@ -152,10 +138,7 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
     if actual_cost > 0:
         ok, _ = await eco_db.spend_mora(db, user_id, actual_cost)
         if not ok:
-            return await message.answer(
-                f"❌ <b>Отказ:</b> недостаточно Моры (нужно {actual_cost} 🪙).",
-                parse_mode="HTML"
-            )
+            return False, f"❌ <b>Отказ:</b> недостаточно Моры (нужно {actual_cost} 🪙)."
 
     duration = hours * (1.0 - speed_reduction)
     ends_at = datetime.now() + timedelta(hours=duration)   # для текста ответа; в БД — NOW() + interval
@@ -163,17 +146,14 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
     try:
         await db.execute("BEGIN")
         # Те же repository-функции, что и на сайте (FastAPI/routers/zoo.py) — единая логика.
-        await create_expedition(db, pet_id, message.chat.id, hours, actual_cost, duration)
+        await create_expedition(db, pet_id, chat_id, hours, actual_cost, duration)
         await add_pet_fatigue(db, pet_id, expedition_fatigue)
         await db.commit()
     except Exception:
         await db.rollback()
         if actual_cost > 0:
             await eco_db.add_balance(db, user_id, mora=actual_cost)
-        return await message.answer(
-            "❌ <b>Не удалось запустить экспедицию.</b> Мора возвращена.",
-            parse_mode="HTML"
-        )
+        return False, "❌ <b>Не удалось запустить экспедицию.</b> Мора возвращена."
 
     h = int(duration)
     m = round((duration - h) * 60)
@@ -203,7 +183,44 @@ async def cmd_expedition(message: types.Message, db, text_args: str = None):
         f"└ 💪 Усталость: <code>{fatigue} → {fatigue + expedition_fatigue}/100</code>"
         f"{dog_block}{wolf_bonus_line}{zero_line}{turtle_bonus_line}"
     )
+    return True, text
+
+
+@router.message(TextCmd(["поход", "экспедиция"]))
+async def cmd_expedition(message: types.Message, db, text_args: str = None):
+    if message.chat.type == "private":
+        return
+
+    user_id = message.from_user.id
+    args = text_args
+
+    if not args:
+        return await message.answer(_build_expedition_list(), parse_mode="HTML")
+
+    parts = args.split()
+    if not parts[0].isdigit() or int(parts[0]) not in EXPEDITIONS_DATA:
+        return await message.answer("❌ <b>Отказ:</b> доступно только 2, 4, 6 или 8 часов.", parse_mode="HTML")
+
+    hours = int(parts[0])
+    _ok, text = await _start_expedition_core(db, user_id, message.chat.id, hours)
     await message.answer(text, parse_mode="HTML")
+
+
+# Growth-полиш 2026-07-13 (находка 04): callback с сообщения о завершении похода
+# (services/scheduler.py). Сырой префикс callback_data вместо CallbackData-класса —
+# scheduler.py лежит в services/ и не имеет права импортировать bot.* (CLAUDE.md).
+@router.callback_query(F.data.startswith("expagain:"))
+async def cb_exp_again(query: types.CallbackQuery, db):
+    try:
+        _, hours_s, owner_s = query.data.split(":")
+        hours, owner_id = int(hours_s), int(owner_s)
+    except Exception:
+        return await query.answer()
+    if query.from_user.id != owner_id:
+        return await query.answer("❌ Это не ваш поход.", show_alert=True)
+    await query.answer()
+    _ok, text = await _start_expedition_core(db, owner_id, query.message.chat.id, hours)
+    await query.message.answer(text, parse_mode="HTML")
 
 
 # ── Expedition boost (ускоритель) ─────────────────────────────────────────────

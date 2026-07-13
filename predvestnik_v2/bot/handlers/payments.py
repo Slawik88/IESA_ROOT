@@ -1,5 +1,8 @@
 # bot/handlers/payments.py
-"""Покупка ✨ Зарников за Telegram Stars (XTR) — Implementation Block 1.2/1.5."""
+"""Покупка ✨ Зарников за Telegram Stars (XTR) — Implementation Block 1.2/1.5.
+Growth-полиш 2026-07-13: реферальная программа тоже здесь — /start ref<id> и
+комиссия с покупок логически неотделимы от денежного потока Зарников."""
+import os
 from aiogram import Router, types, F, Bot
 from aiogram.filters import CommandStart, CommandObject, BaseFilter
 from aiogram.filters.callback_data import CallbackData
@@ -8,9 +11,14 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import economy as eco_db
-from core.constants import ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR
+from core.constants import (
+    ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR,
+    REFERRAL_SIGNUP_MORA, REFERRAL_SIGNUP_DIAMONDS, REFERRAL_SIGNUP_VIP_DAYS,
+)
+from services.referral import register_referral, pay_purchase_commission
 
 router = Router(name="payments_router")
+_BOT_USERNAME = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot")
 
 _CUSTOM_AMOUNT_MARKER = "✏️ Введите количество ⭐ для покупки Зарников"
 _MAX_STARS = 100_000
@@ -51,13 +59,59 @@ async def cmd_buy_zarniki(message: types.Message):
 
 
 @router.message(CommandStart())
-async def cmd_start(message: types.Message, command: CommandObject):
+async def cmd_start(message: types.Message, command: CommandObject, db, bot: Bot):
     if command.args == "buyzarniki":
         return await _send_packages_menu(message)
+
+    # Growth-полиш 2026-07-13: /start ref<id> — реферальная ссылка.
+    if command.args and command.args.startswith("ref") and command.args[3:].isdigit():
+        referrer_id = int(command.args[3:])
+        granted = await register_referral(db, message.from_user.id, referrer_id)
+        if granted:
+            bonus_line = (
+                f"🪙 +{int(REFERRAL_SIGNUP_MORA)} Моры · 💎 +{int(REFERRAL_SIGNUP_DIAMONDS)} Алмазов · "
+                f"👑 VIP на {REFERRAL_SIGNUP_VIP_DAYS} дн."
+            )
+            await message.answer(
+                f"🎉 <b>Добро пожаловать по приглашению!</b>\n"
+                f"Вам и другу, который вас позвал, начислено:\n{bonus_line}\n\n"
+                f"Дальше — в группу, где стоит бот, и напишите «бот я», чтобы увидеть профиль.",
+                parse_mode="HTML",
+            )
+            # DM рефереру может не дойти: та же ограниченность Bot API, что и в
+            # продуктовой записке (находка 01) — бот не может писать тому, кто сам
+            # не открывал с ним ЛС. Бонус уже начислен, уведомление best-effort.
+            try:
+                await bot.send_message(
+                    referrer_id,
+                    f"🎉 Ваш друг присоединился по вашей ссылке!\nВам начислено:\n{bonus_line}",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+            return
+        # Невалидная/повторная рефералка — не спамим ошибкой, просто обычное приветствие ниже.
+
     await message.answer(
         "👋 Привет! Я <b>Предвестник</b> — RPG-бот для групповых чатов.\n\n"
         "Команды пишутся словом «бот» прямо в сообщении группы "
         "(например «бот баланс», «бот помощь»).",
+        parse_mode="HTML",
+    )
+
+
+@router.message(TextCmd(["рефералка", "пригласить друга", "реферальная ссылка"]))
+async def cmd_referral_link(message: types.Message):
+    """Growth-полиш 2026-07-13: личная ссылка-приглашение. Работает только в
+    группе (как и остальные команды бота) — делиться ссылкой можно куда угодно."""
+    link = f"https://t.me/{_BOT_USERNAME}?start=ref{message.from_user.id}"
+    await message.answer(
+        f"🤝 <b>Приведи друга — оба в плюсе!</b>\n\n"
+        f"Как только друг перейдёт по ссылке и запустит бота — вам ОБОИМ:\n"
+        f"🪙 +{int(REFERRAL_SIGNUP_MORA)} Моры · 💎 +{int(REFERRAL_SIGNUP_DIAMONDS)} Алмазов · "
+        f"👑 VIP на {REFERRAL_SIGNUP_VIP_DAYS} дн.\n\n"
+        f"А если друг потом купит ✨ Зарники — вам ещё бонус в Зарниках, с любой его покупки.\n\n"
+        f"🔗 <code>{link}</code>",
         parse_mode="HTML",
     )
 
@@ -128,7 +182,7 @@ async def process_pre_checkout(pre_checkout_query: types.PreCheckoutQuery):
 
 
 @router.message(F.successful_payment)
-async def on_successful_payment(message: types.Message, db):
+async def on_successful_payment(message: types.Message, db, bot: Bot):
     payload = message.successful_payment.invoice_payload
 
     if payload.startswith("zarniki:"):
@@ -141,5 +195,17 @@ async def on_successful_payment(message: types.Message, db):
             f"✅ Начислено <b>{amount}✨</b> Зарников! Спасибо за поддержку проекта 💜",
             parse_mode="HTML",
         )
+        # Growth-полиш 2026-07-13: комиссия рефереру, если покупатель пришёл по рефералке.
+        commission = await pay_purchase_commission(db, message.from_user.id, amount)
+        if commission:
+            referrer_id, bonus = commission
+            try:
+                await bot.send_message(
+                    referrer_id,
+                    f"✨ Ваш друг купил Зарники — вам начислено <b>+{bonus}✨</b> комиссии!",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
 
 

@@ -428,7 +428,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 @keyframes plwHi { to { opacity: 1; } }
 @keyframes plwReveal { to { opacity: 1; transform: none; filter: none; } }
 @keyframes plwShine { 0%,100% { background-position: 0 0; } 50% { background-position: 100% 0; } }
-.pl-skip { position: fixed; bottom: 22px; font-size: 9.5px; color: var(--dim); letter-spacing: .3px; }
+.pl-skip { position: fixed; bottom: 22px; font-size: 9.5px; color: var(--muted); letter-spacing: .3px; }
 /* Вход → вкладка = одно целое: контент профиля «всплывает» каскадом, пока
    прелоадер растворяется (триггерится в _plSkip). */
 .pg-enter #pro-main > * { animation: pgRise .55s cubic-bezier(.22,1,.36,1) both; }
@@ -733,14 +733,17 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .wtx-time { font-size: 10px; color: var(--muted); flex-shrink: 0; }
 .wtx-line { display: flex; align-items: center; gap: 5px; font-size: 11px; flex-wrap: wrap; line-height: 1.7; }
 .wtx-was { color: var(--muted); }
-.wtx-arrow { color: var(--dim); font-weight: 700; }
+.wtx-arrow { color: var(--muted); font-weight: 700; }
 .wtx-delta { font-weight: 700; }
 .wtx-now { color: var(--bright); font-weight: 600; }
 .wtx-note { font-size: 10px; color: var(--muted); margin-top: 2px; font-style: italic; }
 /* ШАГ2: панель аукциона — поиск + фильтры + сортировка */
 .auc-bar { display: flex; gap: 7px; margin-bottom: 8px; }
 .auc-bar .auc-search { margin: 0; flex: 1; font-size: 12px; }
-.auc-bar2 { margin-bottom: 10px; }
+/* UX-фикс (полиш 2026-07): 3 селекта в ряд резали подписи («Скоро ко…») на 390px.
+   Сортировка — главный фильтр, ей полный ряд; редкость/тип делят второй. */
+.auc-bar2 { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
+.auc-bar2 .auc-sel:first-child { grid-column: 1 / -1; }
 .auc-sel { margin: 0; flex: 1; min-width: 0; font-size: 11px; padding: 7px 6px; cursor: pointer; }
 /* ШАГ4: Крипто-Биржа */
 .cx-head { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; margin-bottom: 10px; border-radius: 11px; background: linear-gradient(120deg, rgba(95,211,138,.12), rgba(139,108,240,.08)); border: 1px solid var(--border2); }
@@ -1518,7 +1521,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .clan-reqform { display: flex; flex-direction: column; }
 
 /* Группа «основной чат + админка» в досье игрока (дев-консоль, БЛОК 1) */
-.dev-chat-grp { border: 1px solid var(--border2); border-left: 3px solid var(--gold); border-radius: 8px; padding: 0 8px; margin: 5px 0; background: rgba(232,181,77,.05); }
+.dev-chat-grp { border: 1px solid var(--border); border-radius: 8px; padding: 0 8px; margin: 5px 0; background: rgba(232,181,77,.05); }
 .dev-chat-grp .irow { border-bottom: 0; }
 
 /* Каталог предметов в дев-консоли (БЛОК 1) */
@@ -1942,7 +1945,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 }
 .bp-cell:active { transform: scale(.97); }
 .bp-lvl { font-weight: 700; text-align: center; background: var(--bg2); cursor: default; }
-.bp-empty { color: var(--dim); opacity: .55; }
+.bp-empty { color: var(--muted); opacity: .55; }
 .bp-db { font-weight: 600; }
 .bp-db::after { content: ""; }
 .bp-j1 { background: rgba(212,175,55,.08); }
@@ -2027,7 +2030,9 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 input[type=range] { width: 100%; accent-color: var(--gold); }
 
 /* ═══ ТАБЛИЦЫ (админка) ═════════════════════════════════════════════════════ */
-.adm-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+/* min-width: на телефоне таблица скроллится горизонтально (обёртка overflow-x:auto),
+   а не крошит колонки переносами дат/статусов в кашу */
+.adm-table { width: 100%; min-width: 560px; border-collapse: separate; border-spacing: 0; font-size: 11px; }
 .adm-table th {
   background: var(--bg3); color: var(--muted); font-weight: 700; padding: 8px;
   text-align: left;
@@ -2149,22 +2154,39 @@ body.modal-open { overflow: hidden; }
 .tos-gate-links .btn { flex: 1; font-size: 11px; }
 .tos-gate-hint { font-size: 10px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
 
-/* ═══ ЛОГИН ═════════════════════════════════════════════════════════════════ */
+/* ═══ ЛОГИН ═════════════════════════════════════════════════════════════════
+   Полиш 2026-07-13 (Growth-полиш, Уровень 3): только визуал — вход остаётся
+   Telegram-only через initData/виджет, как и был. Ритм отступов вместо плоских
+   14px (DESIGN.md: «варьируй интервалы»), мягкое появление вместо статичного
+   попапа, рамка вокруг виджета — TG-кнопка не висит сиротой на космическом фоне. */
 .login-ov {
   position: fixed; inset: 0; z-index: 300;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   background:
     radial-gradient(700px 360px at 50% -10%, rgba(139,108,240,.16), transparent 60%),
     var(--bg0);
   text-align: center; padding: 24px;
 }
 .login-ov.hidden { display: none; }
-.login-orb { font-size: 56px; animation: glow 2.2s infinite, floaty 4s infinite; }
-.login-ov h1 { margin: 0; font-size: 24px; font-weight: 900; color: var(--gold2); }
-@supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .login-ov h1 { color: transparent; -webkit-text-fill-color: transparent;
-    background: linear-gradient(90deg, var(--gold2), var(--violet)); -webkit-background-clip: text; background-clip: text; } }
-.login-ov p { margin: 0; font-size: 12px; color: var(--muted); max-width: 270px; line-height: 1.6; }
+.login-ov > * { animation: loginRise .4s cubic-bezier(.16,1,.3,1) both; }
+.login-ov > *:nth-child(2) { animation-delay: .05s; }
+.login-ov > *:nth-child(3) { animation-delay: .1s; }
+.login-ov > *:nth-child(4) { animation-delay: .15s; }
+.login-ov > *:nth-child(5) { animation-delay: .2s; }
+@keyframes loginRise { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .login-ov > * { animation: none; }
+}
+.login-orb { font-size: 56px; margin-bottom: 6px; animation: glow 2.2s infinite, floaty 4s infinite; }
+/* Полиш 2026-07: градиентный текст на заголовке убран (Don't в DESIGN.md) —
+   градиент-текст остаётся только у продаваемой косметики (.glow-*, .title-*) */
+.login-ov h1 { margin: 0 0 8px; font-size: 24px; font-weight: 900; color: var(--gold2); }
+.login-ov p { margin: 0 0 18px; font-size: 12px; color: var(--muted); max-width: 270px; line-height: 1.6; }
+#tg-login-widget {
+  padding: 14px 18px; border-radius: var(--r); background: var(--bg2);
+  border: 1px solid var(--border2); box-shadow: var(--shadow-sm);
+}
+.login-ov .tos-gate-hint, .login-ov > p:last-child { margin: 14px 0 0; }
 
 /* ═══ УТИЛИТЫ / ДЕСКТОП ═════════════════════════════════════════════════════ */
 .hidden { display: none !important; }

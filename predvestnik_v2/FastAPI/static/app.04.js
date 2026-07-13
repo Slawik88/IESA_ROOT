@@ -515,12 +515,12 @@ function loadCraft() {
       <div class="card card-gold">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div style="font-size:15px;font-weight:700;color:var(--bright)">${rc.name}</div>
-          ${rc.can_craft_times>1?`<span style="font-size:11px;color:var(--green);background:rgba(82,179,96,.15);padding:2px 8px;border-radius:99px">×${rc.can_craft_times} возможно</span>`:''}
+          ${rc.can_craft_times>1?`<span style="font-size:11px;color:var(--green);background:rgba(86,196,106,.14);border:1px solid rgba(86,196,106,.3);padding:2px 8px;border-radius:999px">×${rc.can_craft_times} возможно</span>`:''}
         </div>
         ${rc.what_is?`<div style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:10px">${rc.what_is}</div>`:''}
         ${rc.how_use?`<div class="irow"><span class="ik">Как использовать</span><span style="color:var(--teal);font-size:11px">${rc.how_use}</span></div>`:''}
         ${rc.gacha_rates?`<div class="irow"><span class="ik">Шансы при открытии</span><span style="font-size:11px">${rc.gacha_rates}</span></div>`:''}
-        ${rc.special_note?`<div style="background:rgba(224,82,82,.1);border:1px solid rgba(224,82,82,.25);border-radius:var(--r);padding:8px 10px;font-size:11px;color:var(--red);margin:8px 0">${rc.special_note}</div>`:''}
+        ${rc.special_note?`<div style="background:rgba(239,99,99,.1);border:1px solid rgba(239,99,99,.25);border-radius:var(--r);padding:8px 10px;font-size:11px;color:var(--red);margin:8px 0">${rc.special_note}</div>`:''}
         <div class="divider"></div>
         <div class="card-title">Нужно для крафта</div>
         ${rc.ingredients_status.map(i=>`
@@ -897,7 +897,7 @@ function selectLotItem(itemId, itemName, maxQty, _unused, itemDesc) {
     <input id="lot-qty" type="number" class="num-input" min="1" max="${maxQty}" value="1"/>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Минимальная ставка 🪙</div>
     <input id="lot-bid" type="number" class="num-input" min="${floor}" value="500" placeholder="Мин. ставка (от ${floor} 🪙)"/>
-    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Цена выкупа 🪙 <span style="color:var(--dim)">(необязательно)</span></div>
+    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Цена выкупа 🪙 <span style="color:var(--muted)">(необязательно)</span></div>
     <input id="lot-buyout" type="number" class="num-input" placeholder="Оставь пустым если без выкупа"/>
     <div style="font-size:10px;color:var(--muted);margin-top:8px;padding:6px 8px;background:var(--s);border-radius:var(--r)">
       ⏳ Лот активен 24 часа. После создания отменить нельзя.
@@ -933,7 +933,7 @@ function selectLotPet(petId, petName, rarity, level) {
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Минимальная ставка 🪙</div>
     <input id="lot-bid" type="number" class="num-input" min="${_aucMinBidFloor}" value="1000" placeholder="Мин. ставка (от ${_aucMinBidFloor} 🪙)"/>
-    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Цена выкупа 🪙 <span style="color:var(--dim)">(необязательно)</span></div>
+    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Цена выкупа 🪙 <span style="color:var(--muted)">(необязательно)</span></div>
     <input id="lot-buyout" type="number" class="num-input" placeholder="Оставь пустым если без выкупа"/>
     <div style="font-size:10px;color:var(--muted);margin-top:8px;padding:6px 8px;background:var(--s);border-radius:var(--r)">
       ⏳ Лот активен 24 часа.

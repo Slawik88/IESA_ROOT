@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from ._common import _require_dev
 from infrastructure.repositories import system_flags as _flags_repo
+from infrastructure.repositories import dev_settings as _num_repo
 
 router = APIRouter()
 
@@ -37,6 +38,28 @@ async def dev_set_flag(key: str, body: FlagBody, db=Depends(get_db), user=Depend
     if not ok:
         raise HTTPException(404, f"Флаг '{key}' не найден.")
     return {"ok": True, "key": key, "enabled": body.enabled}
+
+
+# ── Числовые дев-настройки (Growth-полиш 2026-07-13) ────────────────────────────
+class NumericSettingBody(BaseModel):
+    value: float
+
+
+@router.get("/numeric-settings")
+async def dev_get_numeric_settings(db=Depends(get_db), user=Depends(require_tg_user)):
+    _require_dev(user)
+    return {"settings": await _num_repo.get_all(db)}
+
+
+@router.post("/numeric-settings/{key}")
+async def dev_set_numeric_setting(
+    key: str, body: NumericSettingBody, db=Depends(get_db), user=Depends(require_tg_user)
+):
+    _require_dev(user)
+    ok = await _num_repo.set_value(db, key, body.value)
+    if not ok:
+        raise HTTPException(404, f"Настройка '{key}' не найдена.")
+    return {"ok": True, "key": key, "value": body.value}
 
 
 @router.get("/chat-modules/{chat_id}")

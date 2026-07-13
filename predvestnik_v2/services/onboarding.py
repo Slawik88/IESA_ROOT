@@ -42,7 +42,10 @@ async def grant_starter_kit(db, user_id: int) -> dict | None:
 
         commons = [s for s, d in PET_SPECIES.items() if d.get("rarity") == "common"]
         species = random.choice(commons) if commons else "hamster"
-        await grant_duplicate(db, user_id, species)
+        # initial_placement="active": игрок только что зарегистрирован, активного
+        # питомца ещё нет — сразу ставим сюда, чтобы «бот поход» из справки
+        # работал с первой попытки (Growth-полиш 2026-07-13, находка 02).
+        await grant_duplicate(db, user_id, species, initial_placement="active")
 
         await db.commit()
         return {

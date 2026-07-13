@@ -200,7 +200,7 @@ function devLoadSeasons() {
     </div>`;
     el('dev-seasons').innerHTML=freezeBar+(rows.length?rows.map(s=>`
       <div class="irow">
-        <span class="ik">${s.active?'🟢 ':''}${esc(s.label)} <span style="color:var(--dim)">(${s.id}, ${s.source})</span></span>
+        <span class="ik">${s.active?'🟢 ':''}${esc(s.label)} <span style="color:var(--muted)">(${s.id}, ${s.source})</span></span>
         <span class="iv" style="font-size:10px;display:flex;align-items:center;gap:6px">${s.starts_at} → ${s.ends_at}
           <button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick='devEditSeason(${JSON.stringify(s.id)},${JSON.stringify(s.label)},${JSON.stringify(s.starts_at)},${JSON.stringify(s.ends_at)})'>✏️</button>
           ${s.source==='db'?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick='devDeleteSeason(${JSON.stringify(s.id)})'>🗑</button>`:''}

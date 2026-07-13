@@ -456,7 +456,7 @@ function loadDevLog() {
       if(isSys){
         // Системное действие (season_upsert/delete, bp_freeze, ...)
         return `<div style="padding:6px 0;border-bottom:1px solid var(--border2);font-size:11px">
-          <div><span style="color:var(--muted)">${when}</span> · <b>${admin}</b> · <span style="color:var(--dim)">${esc(e.action||'')}</span></div>
+          <div><span style="color:var(--muted)">${when}</span> · <b>${admin}</b> · <span style="color:var(--muted)">${esc(e.action||'')}</span></div>
           <div style="color:var(--bright)">${esc(e.detail||'—')}</div>
         </div>`;
       }
