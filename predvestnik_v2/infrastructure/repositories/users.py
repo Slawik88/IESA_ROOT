@@ -135,6 +135,9 @@ async def ensure_account_columns(db) -> None:
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_xp BIGINT DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_level INTEGER DEFAULT 1",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_power INTEGER DEFAULT 0",
+        # Growth-полиш 2026-07-13: та же дуальная защита от гонки бот/веб-процессов,
+        # что и у трёх колонок выше.
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT DEFAULT NULL",
     ):
         try:
             await db.execute(stmt)

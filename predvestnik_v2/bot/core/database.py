@@ -138,6 +138,11 @@ async def _init_users_and_chats(db):
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_xp BIGINT DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_level INTEGER DEFAULT 1",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_power INTEGER DEFAULT 0",
+        # Growth-полиш 2026-07-13: кто привёл игрока (referral deep-link /start ref<id>).
+        # NULL по умолчанию = не по рефералке / уже играл до фичи. DEFAULT NULL —
+        # атомарный гард на выдачу сигнап-бонуса делает services/referral.py по
+        # "WHERE referred_by IS NULL".
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT DEFAULT NULL",
     ]:
         try:
             await db.execute(_stmt)
@@ -1421,6 +1426,11 @@ async def init_db():
         await _init_crypto(db)
         await _init_combat(db)
         await _init_system_flags(db)
+        # Growth-полиш 2026-07-13: числовые дев-настройки (порог реактивации
+        # тихого чата и т.п.) — тот же ?-плейсхолдерный repo-путь, что push/units.
+        from infrastructure.repositories.dev_settings import ensure_table as _ensure_dev_settings
+        from infrastructure.pg_adapter import PGAdapter as _PGAdapter_early
+        await _ensure_dev_settings(_PGAdapter_early(db))
         await _init_analytics(db)
         # R6 «Умный Пульс»: очередь DM-событий (зеркало ensure — FastAPI lifespan)
         # Та же оговорка про PGAdapter, что и в _init_analytics выше.

@@ -759,9 +759,9 @@ function renderAch() {
   el('pro-ach').innerHTML=`
     <div style="display:flex;gap:4px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
       <span style="font-size:10px;color:var(--muted);margin-right:2px">Сорт:</span>
-      <button class="btn btn-sm ${_achSort==='default'?'btn-gold':'btn-ghost'}" style="padding:3px 7px;font-size:9px" onclick="setAchSort('default')">По умолч.</button>
-      <button class="btn btn-sm ${_achSort==='progress'?'btn-gold':'btn-ghost'}" style="padding:3px 7px;font-size:9px" onclick="setAchSort('progress')">% прогресса</button>
-      <button class="btn btn-sm ${_achSort==='todo'?'btn-gold':'btn-ghost'}" style="padding:3px 7px;font-size:9px" onclick="setAchSort('todo')">Сначала активные</button>
+      <button class="btn btn-sm ${_achSort==='default'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('default')">По умолч.</button>
+      <button class="btn btn-sm ${_achSort==='progress'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('progress')">% прогресса</button>
+      <button class="btn btn-sm ${_achSort==='todo'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('todo')">Сначала активные</button>
     </div>
     <div class="card">
       <div class="card-title">Достижения <span style="font-size:9px;font-weight:400;color:${done===achs.length?'var(--green)':'var(--muted)'}">${done} / ${achs.length} ✅</span></div>
@@ -987,7 +987,7 @@ function openBanAppealModal() {
   api('/appeals/my').then(d=>{
     const s=d.sanction;
     const thread=(d.thread||[]).map(m=>
-      `<div style="margin:5px 0;padding:6px 8px;border-radius:8px;background:${m.is_staff?'var(--dim)':'rgba(80,140,220,.12)'};font-size:12px">
+      `<div style="margin:5px 0;padding:6px 8px;border-radius:8px;background:${m.is_staff?'var(--dim)':'rgba(94,155,240,.12)'};font-size:12px">
         <div style="font-size:10px;color:var(--muted)">${m.is_staff?'👮 Модерация':'🙋 Вы'}</div>
         ${esc(m.text||'(фото)')}${(m.photos||[]).length?' 📎':''}
       </div>`).join('');

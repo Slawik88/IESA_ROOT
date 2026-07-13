@@ -13,6 +13,29 @@ def _aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+async def grant_vip_days(db, user_id: int, tier: str, days: int) -> None:
+    """Выдать VIP БЕСПЛАТНО (без списания Зарников), стекуя поверх остатка
+    активной подписки — та же формула, что в dev_console/vip.py::dev_give_vip
+    и Growth-полиш 2026-07-13 (реф-бонус). Единый источник, чтобы обе выдачи
+    не разъезжались по формуле стекинга."""
+    await db.execute(
+        "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,))
+    await db.execute(
+        "INSERT INTO vip_subscriptions (user_id, tier, started_at, expires_at, expiry_notified, total_days) "
+        "VALUES (?, ?, NOW(), NOW() + make_interval(days => ?), FALSE, ?) "
+        "ON CONFLICT (user_id) DO UPDATE SET "
+        "tier = EXCLUDED.tier, "
+        "started_at = CASE WHEN vip_subscriptions.expires_at > NOW() "
+        "THEN vip_subscriptions.started_at ELSE NOW() END, "
+        "expires_at = CASE WHEN vip_subscriptions.expires_at > NOW() "
+        "THEN vip_subscriptions.expires_at + make_interval(days => ?) "
+        "ELSE NOW() + make_interval(days => ?) END, "
+        "expiry_notified = FALSE, "
+        "total_days = COALESCE(vip_subscriptions.total_days, 0) + ?",
+        (user_id, tier, days, days, days, days, days),
+    )
+
+
 async def is_vip_active(db, user_id: int) -> bool:
     async with db.execute(
         "SELECT 1 FROM vip_subscriptions WHERE user_id = ? AND expires_at > NOW()",

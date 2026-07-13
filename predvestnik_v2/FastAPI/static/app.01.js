@@ -286,7 +286,7 @@ function toast(msg,ok=true) {
   if(dlg&&dlg.open){if(t.parentElement!==dlg)dlg.appendChild(t);}
   else{if(t.parentElement!==document.body)document.body.appendChild(t);}
   t.textContent=msg;
-  t.style.cssText=`background:${ok?'rgba(82,179,96,.9)':'rgba(224,82,82,.9)'};color:#fff;border:1px solid ${ok?'rgba(82,179,96,.5)':'rgba(224,82,82,.5)'}`;
+  t.style.cssText=`background:${ok?'rgba(86,196,106,.92)':'rgba(239,99,99,.92)'};color:#fff;border:1px solid ${ok?'rgba(86,196,106,.5)':'rgba(239,99,99,.5)'}`;
   t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
   clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500);
 }

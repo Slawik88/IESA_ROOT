@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-13T00:00:00Z",
+  "title": "Design System: Предвестник",
+  "extensions": {
+    "colorMeta": {
+      "gold": { "role": "primary", "displayName": "Золото Предвестника", "canonical": "#e8b54d", "tonalRamp": ["#2b2009", "#4d3a12", "#70551c", "#956f26", "#bb8c33", "#e8b54d", "#f5d488", "#fbe9c0"] },
+      "violet": { "role": "secondary", "displayName": "Мистический фиолет", "canonical": "#8b6cf0", "tonalRamp": ["#181030", "#2a1d55", "#3d2b7c", "#523da5", "#6d52cc", "#8b6cf0", "#ab93f5", "#d3c5fa"] },
+      "bg-deep-space": { "role": "neutral", "displayName": "Космос", "canonical": "#07080f", "tonalRamp": ["#07080f", "#0e1019", "#151827", "#1c2033", "#2a2f4a", "#4a5170", "#7c84a0", "#c9cede"] },
+      "rarity-common": { "role": "rarity", "displayName": "Обычный", "canonical": "#9aa7b8" },
+      "rarity-rare": { "role": "rarity", "displayName": "Редкий", "canonical": "#5b9bd5" },
+      "rarity-epic": { "role": "rarity", "displayName": "Эпический", "canonical": "#b07ad6" },
+      "rarity-legendary": { "role": "rarity", "displayName": "Легендарный", "canonical": "#e8c45a" },
+      "rarity-mythic": { "role": "rarity", "displayName": "Мифический", "canonical": "#e0556b" },
+      "danger-red": { "role": "status", "displayName": "Опасность", "canonical": "#ef6363" },
+      "success-green": { "role": "status", "displayName": "Успех", "canonical": "#56c46a" },
+      "teal": { "role": "status", "displayName": "Бирюза", "canonical": "#46c8c0" },
+      "info-blue": { "role": "status", "displayName": "Инфо", "canonical": "#5e9bf0" }
+    },
+    "typographyMeta": {
+      "title": { "displayName": "Title", "purpose": "Заголовки карточек, ink-bright." },
+      "body": { "displayName": "Body", "purpose": "Основной текст и инпуты." },
+      "label": { "displayName": "Label", "purpose": "Кнопки, вкладки, чипы." },
+      "caption": { "displayName": "Caption", "purpose": "Подписи навигации, сабтайтлы, цены." },
+      "mono": { "displayName": "Mono", "purpose": "Живые метрики, коды, админ-таймлайн." }
+    },
+    "shadows": [
+      { "name": "shadow", "value": "0 8px 28px rgba(0,0,0,.45)", "purpose": "Плавающие слои: навигация, тосты, боттом-шиты." },
+      { "name": "shadow-sm", "value": "0 3px 12px rgba(0,0,0,.35)", "purpose": "Карточки контента." },
+      { "name": "glow-gold", "value": "0 0 22px rgba(232,181,77,.22)", "purpose": "Свет-состояние: активная вкладка, золотая кнопка. Не тень, а свет." }
+    ],
+    "motion": [
+      { "name": "tap", "value": "transform .12s–.15s", "purpose": "Тактильное сжатие :active scale(.9–.96) на всех интерактивах." },
+      { "name": "spring", "value": "cubic-bezier(.34,1.56,.64,1)", "purpose": "Подпрыгивание иконки навигации, появление тоста." },
+      { "name": "sheet", "value": "cubic-bezier(.32,.72,.24,1) .32s", "purpose": "Выезд боттом-шита снизу." },
+      { "name": "rise", "value": "translateY(14px)→0, .3s ease", "purpose": "Появление карточек." },
+      { "name": "sheen", "value": "3.2s ease-in-out infinite", "purpose": "Медленный блик на золотой кнопке." }
+    ],
+    "breakpoints": [
+      { "name": "sheet-max", "value": "480px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Золотая кнопка",
+      "kind": "button",
+      "refersTo": "button-gold",
+      "description": "Primary-действие: одна на экран, золотой градиент, тёмный текст, свечение.",
+      "html": "<button class=\"ds-btn-gold\">Купить за 250 ✨</button>",
+      "css": ".ds-btn-gold { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: none; cursor: pointer; font: 700 12.5px -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 10px 16px; border-radius: 13px; background: linear-gradient(135deg, #f5d488, #e8b54d 55%, #cf9430); color: #211803; box-shadow: 0 0 22px rgba(232,181,77,.22); transition: transform .12s, box-shadow .2s; } .ds-btn-gold:active { transform: scale(.95); } .ds-btn-gold:disabled { opacity: .38; cursor: not-allowed; }"
+    },
+    {
+      "name": "Ghost-кнопка",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Второстепенное действие на приподнятой поверхности.",
+      "html": "<button class=\"ds-btn-ghost\">Отмена</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.07); cursor: pointer; font: 700 12.5px -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 10px 16px; border-radius: 13px; background: #1c2033; color: #c9cede; transition: transform .12s, border-color .2s; } .ds-btn-ghost:hover { border-color: rgba(255,255,255,.16); } .ds-btn-ghost:active { transform: scale(.95); }"
+    },
+    {
+      "name": "Статусная кнопка (тонированный чип)",
+      "kind": "button",
+      "refersTo": "button-red",
+      "description": "Формула: фон ~14% альфы, граница ~30%, текст полным цветом.",
+      "html": "<button class=\"ds-btn-red\">Удалить</button>",
+      "css": ".ds-btn-red { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(239,99,99,.3); cursor: pointer; font: 700 12.5px -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 10px 16px; border-radius: 13px; background: rgba(239,99,99,.14); color: #ef6363; transition: transform .12s; } .ds-btn-red:active { transform: scale(.95); }"
+    },
+    {
+      "name": "Карточка",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Базовый контейнер контента: градиент bg2→bg1, мягкая тень.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">🔮 Предсказание дня</div><div class=\"ds-card-body\">Звёзды сегодня благосклонны к смелым ставкам.</div></div>",
+      "css": ".ds-card { background: linear-gradient(180deg, #151827, #0e1019); border: 1px solid rgba(255,255,255,.07); border-radius: 16px; padding: 14px; box-shadow: 0 3px 12px rgba(0,0,0,.35); font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; } .ds-card-title { font-size: 14px; font-weight: 700; color: #f1f3fa; margin-bottom: 10px; letter-spacing: .1px; } .ds-card-body { font-size: 13px; color: #c9cede; }"
+    },
+    {
+      "name": "Инпут",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Поле темнее карточки; фокус — золотая граница.",
+      "html": "<input class=\"ds-input\" placeholder=\"Сумма ставки\" />",
+      "css": ".ds-input { width: 100%; background: #07080f; color: #f1f3fa; border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 10px 12px; font: 13px -apple-system, 'Segoe UI', Roboto, sans-serif; transition: border-color .2s; } .ds-input:focus { border-color: rgba(232,181,77,.28); outline: none; } .ds-input::placeholder { color: #7c84a0; opacity: .7; }"
+    },
+    {
+      "name": "Сегмент-контрол",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Вкладки секций: активная — золотой градиент с тёмным текстом и свечением.",
+      "html": "<div class=\"ds-tabs\"><button class=\"ds-tb ds-tb-active\">👤 Обзор</button><button class=\"ds-tb\">🎒 Инвентарь</button><button class=\"ds-tb\">🏆 Ачивки</button></div>",
+      "css": ".ds-tabs { display: flex; gap: 5px; padding: 3px; background: #0e1019; border: 1px solid rgba(255,255,255,.07); border-radius: 14px; } .ds-tb { flex: none; border: none; cursor: pointer; background: transparent; color: #7c84a0; font: 600 11.5px -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 7px 12px; border-radius: 11px; white-space: nowrap; transition: all .2s; } .ds-tb:active { transform: scale(.94); } .ds-tb-active { color: #1a1405; font-weight: 800; background: linear-gradient(135deg, #e8b54d, #d9a83b); box-shadow: 0 0 22px rgba(232,181,77,.22); }"
+    },
+    {
+      "name": "Чип валюты",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Пилюля хедера: эмодзи + табличные цифры.",
+      "html": "<span class=\"ds-chip\"><span>✨</span><span class=\"ds-chip-val\">1 250</span></span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font: 700 11px -apple-system, 'Segoe UI', Roboto, sans-serif; color: #f1f3fa; background: #151827; border: 1px solid rgba(255,255,255,.07); padding: 5px 8px; border-radius: 999px; transition: transform .15s; } .ds-chip:active { transform: scale(.93); } .ds-chip-val { font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Нижняя навигация",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Плавающая пилюля: эмодзи-иконки, активный пункт светится золотом с индикатором золото→фиолет.",
+      "html": "<nav class=\"ds-nav\"><div class=\"ds-nb ds-nb-active\"><span class=\"ds-ni\">👤</span>Профиль</div><div class=\"ds-nb\"><span class=\"ds-ni\">🐾</span>Питомцы</div><div class=\"ds-nb\"><span class=\"ds-ni\">🏪</span>Рынок</div><div class=\"ds-nb\"><span class=\"ds-ni\">⚔️</span>Бой</div></nav>",
+      "css": ".ds-nav { display: flex; justify-content: space-around; align-items: stretch; background: rgba(14,16,25,.92); border: 1px solid rgba(255,255,255,.07); border-radius: 22px; padding: 6px 4px; box-shadow: 0 8px 28px rgba(0,0,0,.45); font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; } .ds-nb { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 2px 4px; border-radius: 15px; cursor: pointer; font-size: 9px; font-weight: 600; color: #7c84a0; position: relative; transition: color .2s, background .2s, transform .15s; } .ds-nb:active { transform: scale(.9); } .ds-ni { font-size: 19px; line-height: 1; filter: grayscale(.5) opacity(.75); transition: transform .25s cubic-bezier(.34,1.56,.64,1); } .ds-nb-active { color: #f5d488; background: rgba(232,181,77,.12); } .ds-nb-active .ds-ni { transform: translateY(-2px) scale(1.12); filter: none; } .ds-nb-active::after { content: ''; position: absolute; bottom: 1px; width: 14px; height: 2.5px; border-radius: 2px; background: linear-gradient(90deg, #e8b54d, #8b6cf0); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Золото в темноте",
+    "overview": "Глубокий космос как сцена, золото как награда. Интерфейс живёт в многослойной тьме (четыре слоя фона от космического #07080f до приподнятого #1c2033), а редкий тёплый свет — золото, свечение, шиммер — маркирует ценность: главное действие, активную вкладку, редкий дроп. Чем реже свет, тем дороже он ощущается; система строится на сдержанности, а не на крике. Плотность — мобильная игровая: кегли 9–14px, компактные карточки, сегмент-контролы, нижняя плавающая навигация. Иконография — эмодзи, это осознанный язык проекта. Система отвергает эстетику дешёвого кликера и серого админ-дашборда.",
+    "keyCharacteristics": [
+      "Тёмная тема — единственная (color-scheme: dark only); светлой не существует.",
+      "Четырёхслойная глубина фона вместо тяжёлых теней: bg0 → bg1 → bg2 → bg3.",
+      "Золото #e8b54d — валюта внимания; фиолет #8b6cf0 — мистический второй голос.",
+      "Тактильность: каждый интерактивный элемент сжимается под пальцем.",
+      "Атмосферные радиальные градиенты (золото + фиолет) на фоне body."
+    ],
+    "rules": [
+      { "name": "Правило золота-награды", "body": "Золото маркирует действие, состояние или награду — никогда статичную декорацию. Если золотом залит контейнер «просто для красоты», это ошибка.", "section": "colors" },
+      { "name": "Правило тонированного чипа", "body": "Цветные кнопки и статусы: фон = цвет с альфой ~13–14%, граница = ~30%, текст = полный цвет. Полная заливка статусным цветом запрещена.", "section": "colors" },
+      { "name": "Правило табличных цифр", "body": "Любое живое число набирается font-variant-numeric: tabular-nums.", "section": "typography" },
+      { "name": "Правило веса вместо кегля", "body": "Не хватает иерархии — сначала прибавь вес или яркость текста, и только потом кегль.", "section": "typography" },
+      { "name": "Правило света-состояния", "body": "Свечение — всегда ответ на состояние (активно, доступно, награда), никогда постоянная декорация покоя. Блюр держать умеренным.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do держи одну золотую кнопку на экран — золото дорого, пока его мало.",
+      "Do строй цветные статусы по формуле тонированного чипа: фон ~14% альфы, граница ~30%, текст полным цветом.",
+      "Do давай каждому интерактивному элементу тактильный отклик :active scale(.9–.96).",
+      "Do прописывай prefers-reduced-motion-альтернативу каждой анимации и уважай тумблер body.no-fx.",
+      "Do используй tabular-nums для всех живых чисел и компактуй большие значения (12,3к / 1,2М).",
+      "Do сохраняй мистическую айдентику в админ-разделах: те же карточки, золото, глубина."
+    ],
+    "donts": [
+      "Don't делай светлую тему или светлые поверхности — color-scheme: dark only.",
+      "Don't превращай интерфейс в «дешёвый кликер» (Hamster Kombat / Notcoin): мигание, кричащие CTA, неоновый крик.",
+      "Don't заливай статусные цвета полной непрозрачной заливкой.",
+      "Don't используй белый текст на золоте — только тёмный (#211803 / #1a1405).",
+      "Don't ставь свечение с большим блюром на жирный текст: >10px превращает свечение в цветной блок.",
+      "Don't вводи боковые цветные полосы-акценты, градиентный текст и стеклянные карточки как декорацию.",
+      "Don't заменяй эмодзи-иконографию SVG-иконпаками точечно — только осознанным решением по всей системе."
+    ]
+  }
+}

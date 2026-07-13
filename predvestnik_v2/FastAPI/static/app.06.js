@@ -59,7 +59,7 @@ function renderLots(lots, searchQuery) {
     const rar        = l.item_rarity || '';
     const rarCol     = rar ? rarColor(rar) : '';
 
-    return `<div class="lot-card${hotCls}${buyoutCls}"${rarCol?` style="border-left:3px solid ${rarCol}"`:''}>
+    return `<div class="lot-card${hotCls}${buyoutCls}"${rarCol?` style="border-color:${rarCol}"`:''}>
       <!-- Timer bar -->
       <div class="lot-timer-bar">
         <div class="lot-timer-fill" style="width:${pctLeft}%;${isUrgent?'background:var(--red)':''}"></div>
@@ -893,7 +893,7 @@ function redeemPromo(btn) {
           <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px">Промокод активирован!</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px">${rewards.join('')}</div>
           ${desc}
-          <div style="font-size:10px;color:var(--dim);margin-top:8px">Код: <code>${rw.code||code}</code></div>
+          <div style="font-size:10px;color:var(--muted);margin-top:8px">Код: <code>${rw.code||code}</code></div>
         </div>`;
       refreshCurrBar();
     })

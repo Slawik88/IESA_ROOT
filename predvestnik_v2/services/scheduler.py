@@ -21,7 +21,7 @@ from core.constants import (
 )
 from infrastructure.repositories.chest_events import (
     get_qualifying_chats, create_chest, close_chest,
-    get_expired_active, update_last_chest_at,
+    get_expired_active, update_last_chest_at, get_dormant_chats,
 )
 from services.formatting import format_chest_rewards_text
 from infrastructure.repositories.economy import add_balance as _ab, add_item as _add_item
@@ -188,7 +188,16 @@ async def _finish_expedition(bot: Bot, db, row) -> None:
                 f"{reward['buff_message']}"
                 f"{treasure_bonus}"
             )
-            await bot.send_message(chat_id, text, parse_mode="HTML")
+            # Growth-полиш 2026-07-13 (находка 04): награда не тупик — «Ещё поход»
+            # сразу под сообщением, тем же питомцем и длительностью (обработчик —
+            # bot/handlers/expeditions.py::cb_exp_again).
+            kb = None
+            if owner_id:
+                from aiogram.utils.keyboard import InlineKeyboardBuilder
+                _b = InlineKeyboardBuilder()
+                _b.button(text=f"🔁 Ещё {hours}ч", callback_data=f"expagain:{hours}:{owner_id}")
+                kb = _b.as_markup()
+            await bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
         except Exception as e:
             logger.error(f"Не удалось отправить уведомление в чат {chat_id}: {e}")
 
@@ -803,6 +812,47 @@ async def smart_pulse_task(bot: Bot):
             await asyncio.sleep(60)
 
 
+async def _spawn_chest(bot: Bot, db, chat_id: int, announce_text: str) -> None:
+    """Создать сундук + разослать анонс с кнопкой «Забрать». Общая часть для
+    обычного спавна и реактивации тихого чата (Growth-полиш 2026-07-13) — их
+    отличает только текст анонса и то, как чат попал в список кандидатов."""
+    try:
+        expires = (datetime.now(timezone.utc)
+                   + timedelta(seconds=CHEST_DURATION_SECONDS))
+        expires_str = expires.strftime("%Y-%m-%d %H:%M:%S")
+        chest_id = await create_chest(db, chat_id, expires_str)
+        await db.commit()
+
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        from aiogram.filters.callback_data import CallbackData
+
+        class _ChestCB(CallbackData, prefix="chest"):
+            chest_id: int
+
+        b = InlineKeyboardBuilder()
+        b.button(
+            text=f"👋 Забрать! (0/{CHEST_MAX_CLAIMANTS})",
+            callback_data=_ChestCB(chest_id=chest_id),
+        )
+        await bot.send_message(
+            chat_id, announce_text, reply_markup=b.as_markup(), parse_mode="HTML",
+        )
+    except Exception as e:
+        _msg = str(e)
+        # Бот кикнут/чат удалён — глушим ивенты чата, чтобы не долбиться каждый
+        # цикл (страховка к my_chat_member: апдейт мог прийти, пока бот был выключен)
+        if "Forbidden" in _msg or "chat not found" in _msg:
+            await db.execute(
+                "UPDATE chat_settings SET events_enabled = 0 "
+                "WHERE chat_id = ?", (chat_id,))
+            await db.commit()
+            logger.info(
+                f"Chest spawn: чат {chat_id} недоступен ({_msg})"
+                " — ивенты чата отключены")
+        else:
+            logger.error(f"Chest spawn error chat {chat_id}: {e}")
+
+
 async def chest_spawn_task(bot: Bot):
     """Every 5 minutes: spawn chests in qualifying chats + expire old ones."""
     logger.info("Фоновая задача сундуков запущена.")
@@ -829,47 +879,30 @@ async def chest_spawn_task(bot: Bot):
                     # Random spawn: not every qualifying chat gets one every cycle
                     if _random.random() > 0.3:
                         continue
-                    try:
-                        expires = (datetime.now(timezone.utc)
-                                   + timedelta(seconds=CHEST_DURATION_SECONDS))
-                        expires_str = expires.strftime("%Y-%m-%d %H:%M:%S")
-                        chest_id = await create_chest(db, chat_id, expires_str)
-                        await db.commit()
+                    await _spawn_chest(
+                        bot, db, chat_id,
+                        "💰 <b>НАЙДЕН СУНДУК ПРЕДВЕСТНИКА!</b>\n\n"
+                        f"{format_chest_rewards_text(CHEST_REWARDS_BY_POSITION)}\n\n"
+                        "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
+                    )
 
-                        from aiogram.utils.keyboard import InlineKeyboardBuilder
-                        from aiogram.filters.callback_data import CallbackData
-
-                        class _ChestCB(CallbackData, prefix="chest"):
-                            chest_id: int
-
-                        b = InlineKeyboardBuilder()
-                        b.button(
-                            text=f"👋 Забрать! (0/{CHEST_MAX_CLAIMANTS})",
-                            callback_data=_ChestCB(chest_id=chest_id),
-                        )
-                        await bot.send_message(
-                            chat_id,
-                            "💰 <b>НАЙДЕН СУНДУК ПРЕДВЕСТНИКА!</b>\n\n"
-                            f"{format_chest_rewards_text(CHEST_REWARDS_BY_POSITION)}\n\n"
-                            "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
-                            reply_markup=b.as_markup(),
-                            parse_mode="HTML",
-                        )
-                    except Exception as e:
-                        _msg = str(e)
-                        # Бот кикнут/чат удалён — глушим ивенты чата, чтобы не
-                        # долбиться каждый цикл (страховка к my_chat_member:
-                        # апдейт мог прийти, пока бот был выключен)
-                        if "Forbidden" in _msg or "chat not found" in _msg:
-                            await db.execute(
-                                "UPDATE chat_settings SET events_enabled = 0 "
-                                "WHERE chat_id = ?", (chat_id,))
-                            await db.commit()
-                            logger.info(
-                                f"Chest spawn: чат {chat_id} недоступен ({_msg})"
-                                " — ивенты чата отключены")
-                        else:
-                            logger.error(f"Chest spawn error chat {chat_id}: {e}")
+                # Growth-полиш 2026-07-13 (Уровень 2, находка 05): «реактивация
+                # тихого чата» — редкое исключение вместо полного молчания.
+                # Порог дней — из dev-консоли (infrastructure/repositories/
+                # dev_settings.py), не хардкод: продюсер явно просил крутить без
+                # деплоя. Спавним ВСЕМ подходящим сразу (без 30% рандома выше) —
+                # такие чаты и так редки по построению запроса.
+                from infrastructure.repositories.dev_settings import get_value as _get_dev_setting
+                quiet_days = await _get_dev_setting(db, "quiet_chat_reactivation_days", 3.0)
+                dormant = await get_dormant_chats(db, quiet_days)
+                for chat_id in dormant:
+                    await _spawn_chest(
+                        bot, db, chat_id,
+                        "🌙 <b>Давно было тихо...</b>\n\n"
+                        "Но не совсем — здесь оставили сундук!\n\n"
+                        f"{format_chest_rewards_text(CHEST_REWARDS_BY_POSITION)}\n\n"
+                        "Нажми быстрее — чем раньше, тем больше! ⏳ 90 сек.",
+                    )
 
         except Exception as e:
             logger.error(f"Ошибка в задаче сундуков: {e}")

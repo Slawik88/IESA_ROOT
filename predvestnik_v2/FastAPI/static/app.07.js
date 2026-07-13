@@ -65,7 +65,7 @@ function loadAdminDash() {
       <div class="card">
         <div class="card-title">⚙️ Ваши права</div>
         ${[['Варн',d.can_warn],['Мут',d.can_mute],['Кик',d.can_kick],['Бан',d.can_ban]].map(([n,v])=>
-          `<span class="badge" style="background:${v?'var(--green)':'var(--dim)'};color:${v?'#fff':'var(--muted)'};padding:3px 8px;border-radius:4px;font-size:11px;margin:2px">${n}</span>`
+          `<span class="badge" style="background:${v?'rgba(86,196,106,.14)':'var(--dim)'};border:1px solid ${v?'rgba(86,196,106,.3)':'var(--border2)'};color:${v?'var(--green)':'var(--muted)'};padding:3px 8px;border-radius:8px;font-size:11px;margin:2px">${n}</span>`
         ).join('')}
       </div>
       <div class="card">
@@ -111,7 +111,7 @@ function renderAdminUserTable(d) {
             <td>
               <div style="font-weight:600;font-size:12px">@${vipName(u.user_tg_username||'ID'+u.user_tg_id, u.is_vip)}</div>
               <div style="font-size:10px;color:var(--muted)">ID: ${u.user_tg_id} · ${u.user_messages_count_all_time||0} сообщ.</div>
-              <div style="font-size:9.5px;color:var(--dim)">📅 ${u.joined_at?fmtUTC(u.joined_at):'—'} · 🕓 ${u.last_message_at?fmtUTC(u.last_message_at):'—'}</div>
+              <div style="font-size:9.5px;color:var(--muted);white-space:nowrap">📅 ${u.joined_at?fmtUTC(u.joined_at):'—'} · 🕓 ${u.last_message_at?fmtUTC(u.last_message_at):'—'}</div>
             </td>
             <td style="text-align:center">${u.user_level||1}</td>
             <td style="font-size:10px">${_RANK_NAMES[u.local_rank||0]||'?'}</td>
@@ -121,7 +121,7 @@ function renderAdminUserTable(d) {
                 u.is_immune?'🛡 Иммун':u.is_left?'👋 Ушёл':'✅'}
             </td>
             <td style="white-space:nowrap">
-              ${u.can_act?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban,s:u.can_shield,i:u.can_immune})})'>⚡</button>`:`<span style="font-size:10px;color:var(--dim)">—</span>`}
+              ${u.can_act?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban,s:u.can_shield,i:u.can_immune})})'>⚡</button>`:`<span style="font-size:10px;color:var(--muted)">—</span>`}
               ${u.can_set_rank?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" title="Сменить ранг" onclick='openRankModal(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${u.local_rank||0})'>🎖</button>`:''}
             </td>
           </tr>`).join('')}
@@ -615,7 +615,7 @@ function loadGlobalChats() {
               ${(perms.restrict||perms.ban)?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openGlobalChatSanction(${c.chat_id})">⚡</button>`:''}
             </span>
           </div>
-          ${c.linked_title?`<div style="font-size:9.5px;color:var(--dim);margin-top:2px">${c.role==='admin'?`🛡 админ-чат для «${esc(c.linked_title)}»`:`🛡 админ-чат: «${esc(c.linked_title)}»`}</div>`:''}
+          ${c.linked_title?`<div style="font-size:9.5px;color:var(--muted);margin-top:2px">${c.role==='admin'?`🛡 админ-чат для «${esc(c.linked_title)}»`:`🛡 админ-чат: «${esc(c.linked_title)}»`}</div>`:''}
         </div>`).join('')}
       </div>`;
   }).catch(e=>{el('glb-chats').innerHTML=`<div class="err">${e}</div>`;});
@@ -660,12 +660,12 @@ function renderGlobalMembers(d) {
             <td>
               <div style="font-weight:600;font-size:12px">@${vipName(m.user_tg_username||'ID'+m.user_tg_id, m.is_vip)}</div>
               <div style="font-size:10px;color:var(--muted)">ID: ${m.user_tg_id} · ${m.user_messages_count_all_time||0} сообщ.</div>
-              <div style="font-size:9.5px;color:var(--dim)">📅 ${m.joined_at?fmtUTC(m.joined_at):'—'} · 🕓 ${m.last_message_at?fmtUTC(m.last_message_at):'—'}</div>
+              <div style="font-size:9.5px;color:var(--muted);white-space:nowrap">📅 ${m.joined_at?fmtUTC(m.joined_at):'—'} · 🕓 ${m.last_message_at?fmtUTC(m.last_message_at):'—'}</div>
             </td>
             <td style="text-align:center">${m.user_level||1}</td>
             <td style="font-size:10px">${m.global_rank_name}</td>
             <td>
-              ${(m.can_warn||m.can_restrict||m.can_ban)?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openGlobalSanctionForm("user",${m.user_tg_id},${JSON.stringify(m.user_tg_username||'ID'+m.user_tg_id)},${JSON.stringify({warn:m.can_warn,restrict:m.can_restrict,ban:m.can_ban})})'>⚡</button>`:`<span style="font-size:10px;color:var(--dim)">—</span>`}
+              ${(m.can_warn||m.can_restrict||m.can_ban)?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openGlobalSanctionForm("user",${m.user_tg_id},${JSON.stringify(m.user_tg_username||'ID'+m.user_tg_id)},${JSON.stringify({warn:m.can_warn,restrict:m.can_restrict,ban:m.can_ban})})'>⚡</button>`:`<span style="font-size:10px;color:var(--muted)">—</span>`}
             </td>
           </tr>`).join('')}
         </tbody>

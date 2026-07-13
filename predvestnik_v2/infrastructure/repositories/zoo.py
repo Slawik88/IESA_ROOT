@@ -216,8 +216,16 @@ async def record_pet_milestone(db, pet_id: int, milestone: int) -> None:
     )
 
 
-async def grant_duplicate(db, user_id: int, species_id: str) -> dict:
+async def grant_duplicate(db, user_id: int, species_id: str, initial_placement: str = "storage") -> dict:
     """Process one duplicate of `species_id` for `user_id`.
+
+    `initial_placement`: placement для СОВСЕМ НОВОГО питомца (Case 1 ниже),
+    когда у игрока ещё нет ни одной копии этого вида. По умолчанию 'storage' —
+    так ведёт себя обычный дроп гачи. Онбординг (services/onboarding.py) передаёт
+    'active', чтобы стартовый питомец сразу был готов к «бот поход» без ручного
+    похода в зоопарк (Growth-полиш 2026-07-13, находка 02: официальный «быстрый
+    старт» рекомендовал «бот поход» первой командой, а она отказывала, пока
+    питомец лежал на складе).
 
     Logic:
     1) Look up the species rarity from PET_SPECIES.
@@ -257,8 +265,8 @@ async def grant_duplicate(db, user_id: int, species_id: str) -> dict:
             "INSERT INTO pets "
             "(owner_id, species_id, rarity, name, placement, fatigue, is_summoned, "
             "pet_level, duplicates_collected, copy_index) "
-            "VALUES (?, ?, ?, ?, 'storage', 0, FALSE, 1, 1, 1) RETURNING id",
-            (user_id, species_id, rarity, pet_name),
+            "VALUES (?, ?, ?, ?, ?, 0, FALSE, 1, 1, 1) RETURNING id",
+            (user_id, species_id, rarity, pet_name, initial_placement),
         ) as _c:
             _r = await _c.fetchone()
         new_pet_id = _r[0] if _r else 0

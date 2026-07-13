@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.registry import VIP_TIERS
+from services.vip import grant_vip_days
 from ._common import _require_dev, _tg_call
 
 router = APIRouter()
@@ -22,24 +23,7 @@ async def dev_give_vip(body: GiveVipRequest, db=Depends(get_db), user=Depends(re
         raise HTTPException(400, "Неизвестный тариф.")
     if not 1 <= body.days <= 3650:
         raise HTTPException(400, "days: 1..3650.")
-    # vip_subscriptions.user_id REFERENCES users(user_tg_id) — гарантируем строку,
-    # иначе FK-violation на юзере, который ещё не писал боту (как в dev_balance).
-    await db.execute(
-        "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (body.user_id,))
-    await db.execute(
-        "INSERT INTO vip_subscriptions (user_id, tier, started_at, expires_at, expiry_notified, total_days) "
-        "VALUES (?, ?, NOW(), NOW() + make_interval(days => ?), FALSE, ?) "
-        "ON CONFLICT (user_id) DO UPDATE SET "
-        "tier = EXCLUDED.tier, "
-        "started_at = CASE WHEN vip_subscriptions.expires_at > NOW() "
-        "THEN vip_subscriptions.started_at ELSE NOW() END, "
-        "expires_at = CASE WHEN vip_subscriptions.expires_at > NOW() "
-        "THEN vip_subscriptions.expires_at + make_interval(days => ?) "
-        "ELSE NOW() + make_interval(days => ?) END, "
-        "expiry_notified = FALSE, "
-        "total_days = COALESCE(vip_subscriptions.total_days, 0) + ?",
-        (body.user_id, body.tier, body.days, body.days, body.days, body.days, body.days),
-    )
+    await grant_vip_days(db, body.user_id, body.tier, body.days)
     await db.commit()
     label = VIP_TIERS[body.tier]["label"]
     await _tg_call("sendMessage", chat_id=body.user_id, parse_mode="HTML",

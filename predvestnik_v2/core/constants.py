@@ -427,6 +427,16 @@ EXCHANGE_DAILY_CAP_DIAMONDS: float = 300.0           # лимит покупки
 EXCHANGE_SELL_DAILY_CAP_DIAMONDS: float = 300.0      # лимит продажи 💎/день
 EXCHANGE_MIN_DIAMONDS_PER_REQUEST: float = 5.0
 
+# ── Реферальная программа (Growth-полиш 2026-07-13) ────────────────────────────
+# Цифры согласованы с продюсером проекта дословно: сигнап-бонус ориентируется на
+# уровень дневного супер-квеста (1000🪙/3💎), но чуть скромнее (реферал — разовый
+# per-friend бонус, не повторяемая ежедневная механика).
+REFERRAL_SIGNUP_MORA: float = 500.0
+REFERRAL_SIGNUP_DIAMONDS: float = 5.0
+REFERRAL_SIGNUP_VIP_DAYS: int = 4
+REFERRAL_SIGNUP_VIP_TIER: str = "1m"           # см. core.registry.VIP_TIERS — стартовый тариф
+REFERRAL_PURCHASE_COMMISSION_PCT: float = 0.10  # рефереру — 10% от суммы Зарников, которые купил рефери
+
 # ── Зарники: донат-экономика (Implementation Block 1) ─────────────────────────
 ZARNIKI_PER_STAR: int = 10              # 1⭐ = 10✨
 

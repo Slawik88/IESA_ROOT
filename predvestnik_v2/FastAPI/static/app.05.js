@@ -245,7 +245,7 @@ function switchTop(mode, btn) {
   btn.classList.add('active');
   _trackSubtab('profile/hof/'+mode);
   const localChatId = _initChatId || _cid;
-  const localChatName = _initChatTitle || '(из профиля)';
+  const localChatName = _initChatTitle || 'самый активный из ваших';
 
   if (mode === 'local' && !localChatId) {
     el('top-c').innerHTML='<div style="color:var(--muted);font-size:12px;padding:10px">Откройте мини-апп через кнопку в чате, чтобы видеть его топ.</div>';
@@ -365,7 +365,7 @@ function loadDarkMora() {
     div.style.marginBottom = '10px';
     let merchantHtml = '';
     if(m.active) {
-      merchantHtml = `<div style="background:rgba(201,168,76,.12);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:10px">
+      merchantHtml = `<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:10px">
         <div style="font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:4px">🕵️ Теневой Торговец ЗДЕСЬ!</div>
         <div style="font-size:11px;color:var(--muted)">Найди ключевое слово в пророчестве в чате → <code>бот слово, [слово]</code></div>
       </div>`;
