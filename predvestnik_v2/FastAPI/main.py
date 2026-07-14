@@ -157,6 +157,7 @@ async def health():
 
 @app.get("/profile/{user_id}")
 async def legacy_profile(user_id: int):
+    await create_pool()
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
         async with db.execute(
@@ -172,6 +173,7 @@ async def legacy_profile(user_id: int):
 
 @app.get("/api/events")
 async def api_events():
+    await create_pool()
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
         async with db.execute("SELECT * FROM exchange_events WHERE status='active' LIMIT 1") as c:
