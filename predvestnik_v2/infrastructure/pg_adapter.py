@@ -14,7 +14,7 @@ Automatic translations:
   datetime('now', $N)    → NOW() + $N::INTERVAL
 """
 import re
-from datetime import datetime as _datetime
+from datetime import datetime as _datetime, timezone
 import asyncpg
 from loguru import logger
 
@@ -29,6 +29,11 @@ def _coerce_args(args: list) -> list:
     """Convert full datetime strings to datetime objects for asyncpg TIMESTAMP columns."""
     result = []
     for a in args:
+        if isinstance(a, _datetime):
+            if a.tzinfo is not None:
+                a = a.astimezone(timezone.utc).replace(tzinfo=None)
+            result.append(a)
+            continue
         if isinstance(a, str) and _TS_RE.match(a):
             for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
                 try:
