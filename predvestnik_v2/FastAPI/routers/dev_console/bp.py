@@ -20,7 +20,7 @@ from services.battle_pass import (
     set_weekend_boost_pct,
     set_xp_weight_override,
 )
-from ._common import _require_dev
+from ._common import require_console_perm
 
 router = APIRouter()
 
@@ -36,7 +36,7 @@ class BpXpRequest(BaseModel):
 
 @router.post("/bp/xp")
 async def dev_bp_xp(body: BpXpRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     await refresh_seasons_cache(db)
     season = get_active_season()
     if not season:
@@ -92,7 +92,7 @@ class BpMetricRequest(BaseModel):
 @router.get("/bp/xp-actions")
 async def dev_bp_xp_actions(db=Depends(get_db), user=Depends(require_tg_user)):
     """Список всех действий, дающих XP БП (дефолты ⊕ БД-оверрайды) — для конструктора."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     actions = await all_xp_actions(db)
     return {
         "actions": actions,
@@ -106,7 +106,7 @@ async def dev_bp_xp_actions(db=Depends(get_db), user=Depends(require_tg_user)):
 async def dev_bp_xp_weight_set(body: BpXpWeightRequest, db=Depends(get_db),
                                user=Depends(require_tg_user)):
     """Создать/обновить оверрайд: вес XP, вкл/выкл, дневной потолок, ярлык."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     metric = (body.metric or "").strip().lower()
     if not _METRIC_RE.match(metric):
         raise HTTPException(400, "metric: только a-z, 0-9, _ (до 40 символов).")
@@ -123,7 +123,7 @@ async def dev_bp_xp_weight_set(body: BpXpWeightRequest, db=Depends(get_db),
 async def dev_bp_xp_weight_reset(body: BpMetricRequest, db=Depends(get_db),
                                  user=Depends(require_tg_user)):
     """Удалить оверрайд → действие вернётся к дефолтам constants."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     metric = (body.metric or "").strip().lower()
     if not _METRIC_RE.match(metric):
         raise HTTPException(400, "metric некорректен.")
@@ -139,7 +139,7 @@ class BpWeekendRequest(BaseModel):
 async def dev_bp_weekend_boost(body: BpWeekendRequest, db=Depends(get_db),
                                user=Depends(require_tg_user)):
     """C7: % бонуса XP по выходным (0 = выключить)."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     if not (0 <= body.pct <= 500):
         raise HTTPException(400, "pct вне диапазона 0..500.")
     await set_weekend_boost_pct(db, body.pct)
@@ -148,7 +148,7 @@ async def dev_bp_weekend_boost(body: BpWeekendRequest, db=Depends(get_db),
 
 @router.get("/bp/seasons")
 async def dev_bp_seasons(db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     async with db.execute(
         "SELECT id, label, starts_at, ends_at, COALESCE(max_level,50) AS max_level "
         "FROM battle_pass_seasons ORDER BY starts_at"
@@ -180,7 +180,7 @@ class BpFreezeRequest(BaseModel):
 async def dev_bp_freeze(body: BpFreezeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Заморозить/разморозить БП (ШАГ3): при заморозке middleware/сервис не начисляют
     XP и не выдают награды; у игроков на странице БП висит плашка ❄️."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     await set_bp_frozen(db, body.frozen)
     action = "bp_freeze" if body.frozen else "bp_unfreeze"
     await _admin_log.add_sys(db, user["id"], action, "❄️ БП заморожен" if body.frozen else "🟢 БП разморожен")
@@ -198,7 +198,7 @@ class SeasonRequest(BaseModel):
 
 @router.post("/bp/seasons")
 async def dev_bp_season_upsert(body: SeasonRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     if not _SEASON_ID_RE.match(body.id):
         raise HTTPException(400, "id: латиница/цифры/_, до 32 символов.")
     try:
@@ -230,7 +230,7 @@ async def dev_bp_season_upsert(body: SeasonRequest, db=Depends(get_db), user=Dep
 
 @router.delete("/bp/seasons/{season_id}")
 async def dev_bp_season_delete(season_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     async with db.execute(
         "DELETE FROM battle_pass_seasons WHERE id = ? RETURNING id", (season_id,)
     ) as c:
@@ -255,11 +255,11 @@ async def dev_bp_season_delete(season_id: str, db=Depends(get_db), user=Depends(
 
 
 @router.get("/bp/cosmetics-catalog")
-async def dev_bp_cosmetics_catalog(user=Depends(require_tg_user)):
+async def dev_bp_cosmetics_catalog(db=Depends(get_db), user=Depends(require_tg_user)):
     """id→{name,css,rarity,slot} для всей косметики — таблица наград хранит/показывает
     сырые item_id (cos_name_glow_silver и т.п.), дев не мог понять, что это за
     предмет, не заглядывая в код. Фронт резолвит имя и рисует кликабельный превью."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     return {cid: {"name": c["name"], "css": c.get("css", ""),
                   "rarity": c["rarity"], "slot": c["slot"]} for cid, c in COSMETICS.items()}
 
@@ -270,7 +270,7 @@ async def dev_bp_rewards(season_id: str | None = None, db=Depends(get_db), user=
     season_id необязателен: если не задан/неизвестен — берётся активный сезон. Так
     таблица и операции записи (save/bulk/import) всегда работают с одним сезоном."""
     import json as _json
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     await refresh_seasons_cache(db)
     from services.battle_pass import all_seasons as _all_seasons
     if not season_id or season_id not in _all_seasons():
@@ -335,7 +335,7 @@ async def dev_bp_reward_set(body: BpRewardRequest, db=Depends(get_db), user=Depe
     """Установить награду уровня+трека. Перезаписывает registry. Если задан
     reward_options (≥2 варианта) — уровень становится выбором игрока."""
     import json as _json
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     if body.track not in ("free", "paid"):
         raise HTTPException(400, "track: 'free' или 'paid'.")
     if not 1 <= body.level <= BATTLE_PASS_MAX_LEVEL:
@@ -376,7 +376,7 @@ class BpBulkRequest(BaseModel):
 @router.post("/bp/rewards/bulk")
 async def dev_bp_reward_bulk(body: BpBulkRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Массовое автозаполнение диапазона уровней по формуле base+step×(lv-from)."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     if body.track not in ("free", "paid"):
         raise HTTPException(400, "track: 'free' или 'paid'.")
     lo, hi = body.level_from, body.level_to
@@ -415,7 +415,7 @@ async def dev_bp_reward_distribute(body: BpDistributeRequest, db=Depends(get_db)
     """«Раскидать» суммарный пул ресурсов по диапазону уровней автоматически.
     curve: flat (поровну) / linear (растёт линейно) / progressive (растёт круче).
     Сумма по уровням точно равна заданному пулу (остаток от округления → последнему уровню)."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     if body.track not in ("free", "paid"):
         raise HTTPException(400, "track: 'free' или 'paid'.")
     lo, hi = body.level_from, body.level_to
@@ -467,7 +467,7 @@ async def dev_bp_reward_import(body: BpImportRequest, db=Depends(get_db), user=D
     Каждый элемент: {level, track:'free'|'paid', mora?, diamonds?, items?:[[id,qty]],
     theme_id?, reward_options?}. Невалидные предметы/уровни → в errors, остальные применяются."""
     import json as _json
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     if not isinstance(body.rewards, list) or not body.rewards:
         raise HTTPException(400, "rewards: непустой список наград.")
     count = 0
@@ -517,7 +517,7 @@ class BpCopyRequest(BaseModel):
 async def dev_bp_reward_copy(body: BpCopyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Скопировать ВСЕ переопределения наград из одного сезона в другой
     (стартовый шаблон для нового сезона). Существующие в to_season перезаписываются."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     if body.from_season == body.to_season:
         raise HTTPException(400, "Сезоны должны различаться.")
     async with db.execute(
@@ -545,7 +545,7 @@ async def dev_bp_season_summary(db=Depends(get_db), user=Depends(require_tg_user
     """Сводная «ценность сезона»: сумма мора/алмазов/предметов по трекам
     (registry + DB-переопределения, DB побеждает). Плюс список пустых уровней."""
     import json as _json
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     await refresh_seasons_cache(db)
     season = get_active_season()
     season_id = season["id"] if season else None
@@ -604,7 +604,7 @@ async def dev_bp_reward_reset(
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
     """Сбросить награду к значению из registry (удалить DB-переопределение)."""
-    _require_dev(user)
+    await require_console_perm(db, user, "bp_manage")
     async with db.execute(
         "DELETE FROM battle_pass_reward_overrides WHERE season_id=? AND level=? AND track=? RETURNING level",
         (season_id, level, track),

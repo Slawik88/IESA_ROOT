@@ -6,7 +6,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
 from infrastructure.repositories import global_moderation as repo
 from infrastructure.repositories import users as users_repo
-from services.roles import can_issue_global_sanction
+from services import global_permissions as gperm
 
 SANCTION_LABELS: dict[str, str] = {
     "warn": "предупреждение",
@@ -96,7 +96,9 @@ async def issue_global_sanction(db, bot, actor_id: int, actor_rank: int, target_
     затем send_sanction_notices(). Нарушителю ВСЕГДА сразу уходит ЛС-инструкция
     по апелляции (send_appeal_instruction). Для 'chat' — как раньше, немедленно.
     Возвращает (ok, message, sanction_id)."""
-    if not can_issue_global_sanction(actor_rank, target_type, sanction_type, target_global_rank):
+    # БЛОК 21.2: права настраиваются по-функционно (global_rank_permissions),
+    # антипир внутри can_sanction. Единая проверка для бота и сайта.
+    if not await gperm.can_sanction(db, actor_rank, target_type, sanction_type, target_global_rank):
         return False, "❌ Недостаточно прав для этой санкции.", 0
 
     if reason:
@@ -278,7 +280,8 @@ async def revoke_global_sanction(db, bot, actor_id: int, actor_rank: int, sancti
     if sanction["target_type"] == "user":
         target_global_rank = await users_repo.get_global_rank(db, sanction["target_id"])
 
-    if not can_issue_global_sanction(actor_rank, sanction["target_type"], sanction["sanction_type"], target_global_rank):
+    # Снятие требует того же права, что выдача этого типа санкции (симметрия).
+    if not await gperm.can_sanction(db, actor_rank, sanction["target_type"], sanction["sanction_type"], target_global_rank):
         return False, "❌ Недостаточно прав для снятия этой санкции."
 
     if not await repo.revoke_sanction(db, sanction_id, actor_id):

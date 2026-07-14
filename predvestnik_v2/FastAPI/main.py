@@ -38,6 +38,7 @@ from infrastructure.repositories.minigames import ensure_table as ensure_minigam
 from infrastructure.repositories.battles import ensure_table as ensure_battles
 from infrastructure.repositories.clans2 import ensure_tables as ensure_clans2
 from infrastructure.repositories.units import ensure_tables as ensure_units
+from infrastructure.repositories.global_permissions import ensure_table as ensure_rank_perms
 from loguru import logger as _log
 
 
@@ -72,6 +73,7 @@ async def lifespan(app: FastAPI):
             (ensure_battles,                 "battles"),
             (ensure_clans2,                  "clans2"),
             (ensure_units,                   "units"),
+            (ensure_rank_perms,              "global_rank_permissions"),
         ]:
             try:
                 await _fn(PGAdapter(conn))

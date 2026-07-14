@@ -207,22 +207,25 @@
   <div id="adm-logs"     style="display:none"></div>
 </div>
 
-<!-- ═══ 13. ГЛОБАЛЬНАЯ МОДЕРАЦИЯ ═══ -->
+<!-- ═══ 13. ГЛОБАЛЬНАЯ МОДЕРАЦИЯ (Консоль — отдельная страница pg-console, БЛОК 21.2 W4) ═══ -->
 <div id="pg-global" class="page">
-  <div class="tabs">
+  <div class="tabs tabs-scroll">
     <button class="tb active" onclick="swGlobal('chats',this)">💬 Все чаты</button>
-    <button class="tb" onclick="swGlobal('sanctions',this)">🚫 Ограничения</button>
+    <button class="tb" id="glb-tab-sanctions" onclick="swGlobal('sanctions',this)">🚫 Санкции</button>
     <button class="tb" onclick="swGlobal('log',this)">📋 Журнал</button>
-    <button class="tb" onclick="swGlobal('appeals',this)">📨 Апелляции</button>
+    <button class="tb" id="glb-tab-appeals" onclick="swGlobal('appeals',this)">📨 Апелляции</button>
     <button class="tb" id="glb-tab-ranks" style="display:none" onclick="swGlobal('ranks',this)">👮 Штат</button>
-    <button class="tb" id="glb-tab-dev" style="display:none" onclick="swGlobal('dev',this)">🛠 Консоль</button>
   </div>
   <div id="glb-chats"></div>
   <div id="glb-sanctions" style="display:none"></div>
   <div id="glb-log"       style="display:none"></div>
   <div id="glb-appeals"   style="display:none"></div>
   <div id="glb-ranks"     style="display:none"></div>
-  <div id="glb-dev"       style="display:none"></div>
+</div>
+
+<!-- ═══ 13б. КОНСОЛЬ РАЗРАБОТЧИКА — самодостаточная среда (БЛОК 21.2 W4.1) ═══ -->
+<div id="pg-console" class="page">
+  <div id="console-c"><div class="loader">Загрузка...</div></div>
 </div>
 
 <!-- ═══ 14. ПОМОЩЬ ═══ -->
@@ -315,7 +318,7 @@
   <div class="cc-grid">
     <div class="cc-card cc-bp" onclick="goTo('bp')"><span class="cc-ic">🎫</span><span class="cc-t">Пропуск</span><span class="cc-s">Боевой пропуск</span></div>
     <div class="cc-card" onclick="goTo('auction')"><span class="cc-ic">⚖️</span><span class="cc-t">Аукцион</span><span class="cc-s">и Обменник</span></div>
-    <div class="cc-card" id="cc-manage" style="display:none" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление</span><span class="cc-s">Админка</span></div>
+    <div class="cc-card" id="cc-manage" style="display:none;position:relative" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление</span><span class="cc-s">Админка</span><span id="cc-manage-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;font-variant-numeric:tabular-nums"></span></div>
     <div class="cc-card" onclick="goTo('help')"><span class="cc-ic">🆘</span><span class="cc-t">Помощь</span><span class="cc-s">Гайды</span></div>
   </div>
 </div>

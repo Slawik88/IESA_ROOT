@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
-from ._common import _require_dev
+from ._common import require_console_perm
 from infrastructure.repositories import system_flags as _flags_repo
 from infrastructure.repositories import dev_settings as _num_repo
 
@@ -26,14 +26,14 @@ class _ModuleBody(BaseModel):
 
 @router.get("/flags")
 async def dev_get_flags(db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "flags_manage")
     flags = await _flags_repo.get_all(db)
     return {"flags": flags}
 
 
 @router.post("/flags/{key}")
 async def dev_set_flag(key: str, body: FlagBody, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "flags_manage")
     ok = await _flags_repo.set_flag(db, key, body.enabled)
     if not ok:
         raise HTTPException(404, f"Флаг '{key}' не найден.")
@@ -47,7 +47,7 @@ class NumericSettingBody(BaseModel):
 
 @router.get("/numeric-settings")
 async def dev_get_numeric_settings(db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "flags_manage")
     return {"settings": await _num_repo.get_all(db)}
 
 
@@ -55,7 +55,7 @@ async def dev_get_numeric_settings(db=Depends(get_db), user=Depends(require_tg_u
 async def dev_set_numeric_setting(
     key: str, body: NumericSettingBody, db=Depends(get_db), user=Depends(require_tg_user)
 ):
-    _require_dev(user)
+    await require_console_perm(db, user, "flags_manage")
     ok = await _num_repo.set_value(db, key, body.value)
     if not ok:
         raise HTTPException(404, f"Настройка '{key}' не найдена.")
@@ -64,7 +64,7 @@ async def dev_set_numeric_setting(
 
 @router.get("/chat-modules/{chat_id}")
 async def dev_get_chat_modules(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "modules_manage")
     cols = ", ".join(f"COALESCE({m}, 1)" for m in _CHAT_MODULES)
     async with db.execute(
         f"SELECT {cols} FROM chat_settings WHERE chat_id = ?", (chat_id,)
@@ -79,7 +79,7 @@ async def dev_get_chat_modules(chat_id: int, db=Depends(get_db), user=Depends(re
 async def dev_set_chat_module(
     chat_id: int, body: _ModuleBody, db=Depends(get_db), user=Depends(require_tg_user)
 ):
-    _require_dev(user)
+    await require_console_perm(db, user, "modules_manage")
     if body.module_key not in _CHAT_MODULES:
         raise HTTPException(400, "Неизвестный модуль")
     val = 1 if body.enabled else 0
@@ -99,7 +99,7 @@ async def dev_set_chat_module(
 @router.get("/system-resources")
 async def dev_system_resources(db=Depends(get_db), user=Depends(require_tg_user)):
     """Суммарное количество ресурсов в игре, без учёта аккаунта разработчика."""
-    _require_dev(user)
+    await require_console_perm(db, user, "metrics_view")
     dev_id = user["id"]
 
     async def _sum(col: str) -> float:

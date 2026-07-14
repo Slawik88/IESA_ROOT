@@ -12,6 +12,17 @@ def _require_dev(user: dict) -> None:
         raise HTTPException(403, "Консоль разработчика доступна только Разработчику.")
 
 
+async def require_console_perm(db, user: dict, *perms: str) -> int:
+    """БЛОК 21.2: доступ к функции консоли по праву глобального ранга
+    (реестр — core/admin_permissions.py, настройка — вкладка «Штат»).
+    Несколько ключей = достаточно любого. Возвращает ранг актёра."""
+    from FastAPI.deps import check_global_perm, check_global_perm_any
+    uid = int(user["id"])
+    if len(perms) == 1:
+        return await check_global_perm(db, uid, perms[0])
+    return await check_global_perm_any(db, uid, list(perms))
+
+
 async def _tg_call(method: str, **kwargs) -> dict:
     token = os.getenv("BOT_TOKEN", "")
     if not token:

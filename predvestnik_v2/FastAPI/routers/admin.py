@@ -38,9 +38,22 @@ async def _get_actor_rank(db, user_id: int, chat_id: int) -> int:
         (user_id, chat_id),
     ) as c:
         row = await c.fetchone()
-    # row[0] может быть NULL у старых строк (как и ucs.local_rank в admin_users) —
+    # row[0] может быть NULL у старых строк (как и ucs.local_rank in admin_users) —
     # без `or 0` `_require_admin` сравнивает None < 1 → TypeError → 500.
-    return (row[0] or 0) if row else 0
+    local = (row[0] or 0) if row else 0
+    # БЛОК 21.2 W1.4: глобальный ранг 3 = Владелец в любом чате бота; хелпер с
+    # правом local_actions_any_chat = Ст.Адм (4) — варн/мут/кик по порогам чата,
+    # но не выше владельцев. Все действия пишутся в журнал чата как обычно.
+    if local < 6:
+        from infrastructure.repositories.users import get_global_rank
+        grank = await get_global_rank(db, user_id) or 0
+        if grank >= 3:
+            return 6
+        if grank >= 1:
+            from services import global_permissions as _gperm
+            if await _gperm.has_perm(db, grank, "local_actions_any_chat"):
+                return max(local, 4)
+    return local
 
 
 async def _require_admin(db, user_id: int, chat_id: int) -> int:

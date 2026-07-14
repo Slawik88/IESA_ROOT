@@ -229,8 +229,13 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   margin: 0 0 8px; border-radius: 10px; padding: 2px; gap: 3px;
 }
 .tab-inner .tb { font-size: 10.5px; padding: 5px 9px; border-radius: 8px; }
-/* Скроллируемые вкладки — показывает полосу при переполнении */
-.tabs-scroll { flex-wrap: nowrap; }
+/* Скроллируемые вкладки: правый край затухает — подсказка «дальше есть ещё»
+   (БЛОК 21.2 W4.5: раньше Штат/Консоль были невидимы за обрезом без индикатора) */
+.tabs-scroll {
+  flex-wrap: nowrap;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 22px), transparent);
+}
 .tb {
   flex: none; border: none; cursor: pointer;
   background: transparent; color: var(--muted);

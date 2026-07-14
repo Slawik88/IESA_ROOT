@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.registry import VIP_TIERS
 from services.vip import grant_vip_days
-from ._common import _require_dev, _tg_call
+from ._common import require_console_perm, _tg_call
 
 router = APIRouter()
 
@@ -18,7 +18,7 @@ class GiveVipRequest(BaseModel):
 
 @router.post("/give-vip")
 async def dev_give_vip(body: GiveVipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "economy_vip")
     if body.tier not in VIP_TIERS:
         raise HTTPException(400, "Неизвестный тариф.")
     if not 1 <= body.days <= 3650:
@@ -34,7 +34,7 @@ async def dev_give_vip(body: GiveVipRequest, db=Depends(get_db), user=Depends(re
 @router.post("/revoke-vip")
 async def dev_revoke_vip(body: dict, db=Depends(get_db), user=Depends(require_tg_user)):
     """Отозвать VIP у пользователя (expires_at = NOW(), он сразу теряет статус)."""
-    _require_dev(user)
+    await require_console_perm(db, user, "economy_vip")
     uid = int(body.get("user_id", 0))
     if not uid:
         raise HTTPException(400, "user_id обязателен.")
@@ -62,7 +62,7 @@ class SetVipRequest(BaseModel):
 async def dev_set_vip(body: SetVipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Принудительно заменить текущий VIP на новый тариф и срок.
     Предыдущий VIP (бонусы, срок) сгорают; начисляется gift нового тарифа."""
-    _require_dev(user)
+    await require_console_perm(db, user, "economy_vip")
     if body.tier not in VIP_TIERS:
         raise HTTPException(400, "Неизвестный тариф.")
     if not 1 <= body.days <= 3650:
@@ -117,7 +117,7 @@ class AdjustVipRequest(BaseModel):
 async def dev_adjust_vip_days(body: AdjustVipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """± дней к ТЕКУЩЕМУ VIP, не меняя тариф. days<0 — убавить срок (не уходит в прошлое
     дальше NOW); days>0 — продлить (и +стаж). Требуется активный VIP."""
-    _require_dev(user)
+    await require_console_perm(db, user, "economy_vip")
     if not body.days or not (-3650 <= body.days <= 3650):
         raise HTTPException(400, "days: ненулевое значение в пределах ±3650.")
     async with db.execute(

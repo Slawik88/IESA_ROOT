@@ -1470,6 +1470,9 @@ async def init_db():
         from infrastructure.repositories.minigames import ensure_table as _ensure_minigames
         await _ensure_showcase(_PGAdapter(db))
         await _ensure_minigames(_PGAdapter(db))
+        # БЛОК 21.2: оверрайды прав глобальных рангов (зеркало ensure — FastAPI lifespan)
+        from infrastructure.repositories.global_permissions import ensure_table as _ensure_rank_perms
+        await _ensure_rank_perms(_PGAdapter(db))
         # БЛОК 39 HOTFIX: авто-миграция старых ID косметики (one-shot через
         # schema_migrations) — возвращает игрокам оплаченную косметику, если
         # деплой произошёл без ручного прогона scripts/migrate_cosmetics_ids.py

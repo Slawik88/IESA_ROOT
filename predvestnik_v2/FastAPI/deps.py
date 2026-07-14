@@ -79,6 +79,45 @@ async def require_tg_user(user=Depends(require_tg_user_base)):
     return user
 
 
+# ── БЛОК 21.2: гибкие права глобальных рангов ────────────────────────────────
+# Реестр функций — core/admin_permissions.py; эффективные наборы (дефолты +
+# БД-оверрайды) — services/global_permissions.py. Ранг 3 всегда имеет всё.
+import os as _os
+
+_DEV_ID = int(_os.getenv("DEVELOPER_ID", "0") or 0)
+
+
+async def _actor_global_rank(db, user_id: int) -> int:
+    from infrastructure.repositories.users import get_global_rank
+    rank = await get_global_rank(db, user_id) or 0
+    # Страховка: DEVELOPER_ID — ранг 3 даже если строка users ещё не проставлена
+    # бот-middleware (веб-процесс мог стартовать первым).
+    if _DEV_ID and user_id == _DEV_ID:
+        rank = max(rank, 3)
+    return rank
+
+
+async def check_global_perm(db, user_id: int, perm: str) -> int:
+    """403, если у global_rank юзера нет права `perm`. Возвращает ранг."""
+    from services import global_permissions as gperm
+    from core.admin_permissions import ADMIN_PERMISSIONS
+    rank = await _actor_global_rank(db, user_id)
+    if not await gperm.has_perm(db, rank, perm):
+        label = ADMIN_PERMISSIONS.get(perm, {}).get("label", perm)
+        raise HTTPException(403, f"Нет права: {label}")
+    return rank
+
+
+async def check_global_perm_any(db, user_id: int, perms: list[str]) -> int:
+    """403, если нет НИ ОДНОГО из прав (для эндпоинтов, питающих несколько экранов)."""
+    from services import global_permissions as gperm
+    rank = await _actor_global_rank(db, user_id)
+    for p in perms:
+        if await gperm.has_perm(db, rank, p):
+            return rank
+    raise HTTPException(403, "Нет права на этот раздел консоли.")
+
+
 def require_module(module_key: str):
     """FastAPI dependency factory: checks per-chat and global module toggles.
 
