@@ -3,39 +3,54 @@
 // вкладкам (см. IMPLEMENTATION_BLOCKS/БЛОК34), каждая вкладка — своя функция-шаблон.
 let _devItems=null;
 let _devUserId=0;   // ID игрока из последнего «Досье» — для визуального инвентаря (БЛОК 4.1)
+// БЛОК 21.2: вкладки консоли строятся по правам актёра (gp/gpAny из app.07) —
+// хелпер с частичным доступом видит только разрешённые инструменты.
+const _DEV_TAB_PERMS=[
+  ['pulse','📥 Сводка',['console_overview']],
+  ['sys','🖥 Система',['console_overview','flags_manage','modules_manage']],
+  ['players','👥 Игроки',['dossier_view','economy_balance','economy_items','economy_vip','log_admin_view']],
+  ['content','🎫 Контент',['bp_manage','promo_manage']],
+  ['bc','📢 Вещание',['broadcast_send']],
+  ['sql','🖥 SQL',['sql_run']],
+  ['metrics','📊 Метрики',['metrics_view']],
+  ['themes','🎨 Темы',['themes_manage']],
+];
+function _devAllowedTabs(){ return _DEV_TAB_PERMS.filter(t=>gpAny(t[2])).map(t=>t[0]); }
 function _devTabBtnsHtml(){
-  return `<div class="dev-tabs tab-inner" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:2px">
-    <button class="tb active" onclick="swDev('sys',this)">🖥 Система</button>
-    <button class="tb" onclick="swDev('players',this)">👥 Игроки</button>
-    <button class="tb" onclick="swDev('content',this)">🎫 Контент</button>
-    <button class="tb" onclick="swDev('bc',this)">📢 Вещание</button>
-    <button class="tb" onclick="swDev('sql',this)">🖥 SQL</button>
-    <button class="tb" onclick="swDev('metrics',this)">📊 Метрики</button>
-    <button class="tb" onclick="swDev('themes',this)">🎨 Темы</button>
-  </div>
-`;
+  const allowed=_devAllowedTabs();
+  const btns=_DEV_TAB_PERMS.filter(t=>allowed.includes(t[0]))
+    .map((t,i)=>`<button class="tb${i===0?' active':''}" onclick="swDev('${t[0]}',this)">${t[1]}</button>`).join('');
+  // W2.3: быстрый поиск игрока — виден с любой под-вкладки консоли
+  const search=gp('user_search')?`<div style="margin-bottom:8px">
+      <input id="dev-qsearch" type="text" class="num-input" style="margin:0" placeholder="🔍 Найти игрока: ник / ID" oninput="_devQSearchDebounced(this.value)"/>
+      <div id="dev-qsearch-res"></div>
+    </div>`:'';
+  return `<div class="dev-tabs tab-inner" style="margin-bottom:8px;display:flex;flex-wrap:wrap;gap:2px">${btns}</div>
+`+search;
 }
 function _devSysTabHtml(){
-  return `<div id="dev-t-sys">
-    <div id="dev-overview"><div class="loader">Загрузка...</div></div>
-    <div class="card">
+  if(!gpAny(['console_overview','flags_manage','modules_manage'])) return '';
+  return `<div id="dev-t-sys" style="display:none">
+    ${gp('console_overview')?`<div id="dev-overview"><div class="loader">Загрузка...</div></div>`:''}
+    ${gp('flags_manage')?`<div class="card">
       <div class="card-title">🔌 Глобальные модули <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevFlags()">🔄</button></div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Отключение блокирует и бот-команды, и вкладку на сайте.</div>
       <div id="dev-flags"><div class="loader">Загрузка...</div></div>
-    </div>
-    <div class="card">
+    </div>`:''}
+    ${gp('modules_manage')?`<div class="card">
       <div class="card-title">🧩 Модули чата <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="devLoadChatMods(el('dev-mod-chat-sel')?.value)">🔄</button></div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Включить/выключить модуль для конкретного чата.</div>
       <select id="dev-mod-chat-sel" class="num-input" style="margin-bottom:8px" onchange="devLoadChatMods(this.value)"><option value="">— выбрать чат —</option></select>
       <div id="dev-mod-modules"></div>
-    </div>
+    </div>`:''}
   </div>
 `;
 }
 function _devPlayersTabHtml(){
+  if(!gpAny(['dossier_view','economy_balance','economy_items','economy_vip','log_admin_view'])) return '';
   return `<div id="dev-t-players" style="display:none">
-    <div class="card">
-      <div class="card-title">🔎 Досье на игрока</div>
+    ${gp('dossier_view')?`<div class="card">
+      <div class="card-title">🔎 Центр игрока</div>
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <select id="dev-chat-sel" class="num-input" style="flex:1;margin:0" onchange="devLoadMembers()"><option value="">— выбрать чат —</option></select>
         <select id="dev-member-sel" class="num-input" style="flex:1;margin:0" onchange="devPickMember()"><option value="">— участник —</option></select>
@@ -45,8 +60,8 @@ function _devPlayersTabHtml(){
         <button class="btn btn-gold" onclick="devLookupUser()">Найти</button>
       </div>
       <div id="dev-user-result"></div>
-    </div>
-    <div class="card">
+    </div>`:''}
+    ${gp('economy_balance')?`<div class="card">
       <div class="card-title">💰 Баланс (+/−)</div>
       <input id="dev-bal-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя"/>
       <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -60,8 +75,8 @@ function _devPlayersTabHtml(){
       </div>
       <input id="dev-bal-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (обязательно · покажется игроку)"/>
       <button class="btn btn-gold btn-full" onclick="devAdjustBalance()">Применить</button>
-    </div>
-    <div class="card">
+    </div>`:''}
+    ${gp('economy_items')?`<div class="card">
       <div class="card-title">🎁 Выдать предмет (− забрать)</div>
       <input id="dev-item-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя"/>
       <div style="display:flex;gap:6px;margin-bottom:6px">
@@ -72,12 +87,12 @@ function _devPlayersTabHtml(){
       <button class="btn btn-ghost btn-sm btn-full" style="margin-bottom:6px" onclick="devItemCatalog()">📋 Каталог предметов (полный список)</button>
       <input id="dev-item-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (обязательно · покажется игроку)"/>
       <button class="btn btn-gold btn-full" onclick="devGiveItem()">Применить</button>
-    </div>
-    <div class="card">
+    </div>`:''}
+    ${gp('log_admin_view')?`<div class="card">
       <div class="card-title">📜 Журнал выдач <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevLog()">🔄</button></div>
       <div id="dev-log"><div class="loader">Загрузка...</div></div>
-    </div>
-    <div class="card">
+    </div>`:''}
+    ${gp('economy_vip')?`<div class="card">
       <div class="card-title">👑 VIP — управление</div>
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <input id="dev-vip-uid" type="number" class="num-input" style="flex:2;margin:0" placeholder="ID пользователя"/>
@@ -103,13 +118,14 @@ function _devPlayersTabHtml(){
         <button class="btn btn-red" style="flex:1" onclick="devVipRevoke()">🚫 Отозвать</button>
       </div>
       <div style="font-size:10px;color:var(--muted);margin-top:6px">«Заменить» сбрасывает старый VIP и начисляет бонус-пакет нового тарифа. «Убавить» сокращает срок на N дней (тариф не меняется).</div>
-    </div>
+    </div>`:''}
   </div>
 `;
 }
 function _devContentTabHtml(){
+  if(!gpAny(['bp_manage','promo_manage'])) return '';
   return `<div id="dev-t-content" style="display:none">
-    <div class="card">
+    ${gp('bp_manage')?`<div class="card">
       <div class="card-title">🎫 БП · Шаг 1 — Сезоны</div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Порядок работы: 1️⃣ сезон → 2️⃣ выбрать его в таблице → 3️⃣ править награды → 4️⃣ настроить XP за действия.</div>
       <div id="dev-seasons"><div class="loader">Загрузка...</div></div>
@@ -235,8 +251,8 @@ function _devContentTabHtml(){
         <input id="dev-bpxp-cap" type="number" class="num-input" style="flex:1;margin:0" placeholder="потолок/д (0=∞)"/>
       </div>
       <button class="btn btn-gold btn-full" onclick="devBpXpSet()">💾 Сохранить действие</button>
-    </div>
-    <div class="card">
+    </div>`:''}
+    ${gp('promo_manage')?`<div class="card">
       <div class="card-title">🎟 Промокоды <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="devPromoLoad()">🔄</button></div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Управление и здесь, и в чате: <code>бот dev промокод создать/список/инфо</code>. Активация игроками — «бот промокод» или сайт.</div>
       <div id="dev-promo-list"><div class="loader">Загрузка...</div></div>
@@ -257,11 +273,12 @@ function _devContentTabHtml(){
         <input id="dev-promo-until" type="text" class="num-input" style="flex:1;margin:0" placeholder="до: 2026-08-01 00:00"/>
       </div>
       <button class="btn btn-gold btn-full" onclick="devPromoCreate()">🎟 Создать промокод</button>
-    </div>
+    </div>`:''}
   </div>
 `;
 }
 function _devBcTabHtml(){
+  if(!gp('broadcast_send')) return '';
   return `<div id="dev-t-bc" style="display:none">
     <div class="card">
       <div class="card-title">📢 Рассылка</div>
@@ -285,6 +302,7 @@ function _devBcTabHtml(){
 `;
 }
 function _devSqlTabHtml(){
+  if(!gp('sql_run')) return '';
   return `<div id="dev-t-sql" style="display:none">
     <div class="card">
       <div class="card-title">🖥 SQL-консоль</div>
@@ -296,6 +314,7 @@ function _devSqlTabHtml(){
 `;
 }
 function _devMetricsTabHtml(){
+  if(!gp('metrics_view')) return '';
   return `<div id="dev-t-metrics" style="display:none">
     <div class="card">
       <div class="card-title">📊 Аудитория <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevMetrics()">🔄</button></div>
@@ -311,6 +330,7 @@ function _devMetricsTabHtml(){
 `;
 }
 function _devThemesTabHtml(){
+  if(!gp('themes_manage')) return '';
   return `<div id="dev-t-themes" style="display:none">
     <div class="card" id="tl-card">
       <div class="card-title">🎨 Theme Lab — редактор премиум-тем</div>
@@ -424,25 +444,112 @@ function _devThemesTabHtml(){
     </div>
   </div>`;
 }
-function loadGlobalDev() {
-  el('glb-dev').innerHTML = _devTabBtnsHtml()+_devSysTabHtml()+_devPlayersTabHtml()+_devContentTabHtml()+_devBcTabHtml()+_devSqlTabHtml()+_devMetricsTabHtml()+_devThemesTabHtml();
-  devLoadOverview();
-  devLoadSeasons();
-  devTLInit();
-  loadDevLog();
-  loadDevFlags();
-  devLoadChats();
-  devLoadChatsMod();
-  loadDevMetrics();
-  loadBpSeasons();
-  loadBpXpActions();
-  _bcLoadCounts();
-  if(!_devItems) api('/admin/dev/items').then(d=>{
-    _devItems=d.items||[];
-    const dl=el('dev-items-dl');
-    if(dl) dl.innerHTML=_devItems.map(i=>`<option value="${i.item_id}">${esc(i.name)}</option>`).join('');
-  }).catch(()=>{});
-  else { const dl=el('dev-items-dl'); if(dl) dl.innerHTML=_devItems.map(i=>`<option value="${i.item_id}">${esc(i.name)}</option>`).join(''); }
+// W4.1: Консоль — отдельная страница (pg-console), «Сводка» — пульт дежурного.
+function loadConsole() {
+  if(!_gPerms){ loadMyPerms().then(loadConsole); return; }
+  const box=el('console-c'); if(!box) return;
+  const allowed=_devAllowedTabs();
+  if(!allowed.length){
+    box.innerHTML='<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет прав на инструменты консоли.</div>';
+    return;
+  }
+  box.innerHTML = _devTabBtnsHtml()+_devPulseTabHtml()+_devSysTabHtml()+_devPlayersTabHtml()+_devContentTabHtml()+_devBcTabHtml()+_devSqlTabHtml()+_devMetricsTabHtml()+_devThemesTabHtml();
+  swDev(allowed[0], document.querySelector('#console-c .dev-tabs .tb'));
+  // Загружаем только разрешённые секции — иначе хелпер получит пачку 403-тостов.
+  if(gp('console_overview')) { loadDevPulse(); devLoadOverview(); }
+  if(gp('bp_manage')) { devLoadSeasons(); loadBpSeasons(); loadBpXpActions(); }
+  if(gp('themes_manage')) devTLInit();
+  if(gp('log_admin_view')) loadDevLog();
+  if(gp('flags_manage')) loadDevFlags();
+  if(gp('dossier_view')) devLoadChats();
+  if(gp('modules_manage')) devLoadChatsMod();
+  if(gp('metrics_view')) loadDevMetrics();
+  if(gp('broadcast_send')) _bcLoadCounts();
+  if(gp('economy_items')) {
+    if(!_devItems) api('/admin/dev/items').then(d=>{
+      _devItems=d.items||[];
+      const dl=el('dev-items-dl');
+      if(dl) dl.innerHTML=_devItems.map(i=>`<option value="${i.item_id}">${esc(i.name)}</option>`).join('');
+    }).catch(()=>{});
+    else { const dl=el('dev-items-dl'); if(dl) dl.innerHTML=_devItems.map(i=>`<option value="${i.item_id}">${esc(i.name)}</option>`).join(''); }
+  }
+}
+
+// ── W4.2: «Сводка» — пульт дежурного (счётчики-ссылки + свежие события) ─────────
+function _devPulseTabHtml(){
+  if(!gp('console_overview')) return '';
+  return `<div id="dev-t-pulse" style="display:none">
+    <div id="dev-pulse"><div class="loader">Загрузка...</div></div>
+  </div>
+`;
+}
+function loadDevPulse(){
+  const box=el('dev-pulse'); if(!box) return;
+  api('/admin/dev/pulse').then(d=>{
+    const c=d.counts||{};
+    const tile=(n,label,warn,go)=>`<div style="flex:1;text-align:center;background:var(--bg2);border-radius:10px;padding:10px 4px;cursor:pointer" onclick="${go}">
+      <div style="font-size:22px;font-weight:800;color:${warn&&n>0?'var(--red)':'var(--gold2)'};font-variant-numeric:tabular-nums">${n}</div>
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:2px">${label}</div>
+    </div>`;
+    const apl=(d.appeals||[]).map(a=>`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:11px">
+      <span style="flex:1;min-width:0">⏳ <b>#${a.id}</b> ${gp('dossier_view')?`<span style="cursor:pointer;text-decoration:underline" onclick="openPlayerCenter(${a.user_id})">@${esc(a.user_tg_username||('ID'+a.user_id))}</span>`:'@'+esc(a.user_tg_username||('ID'+a.user_id))}
+        <span style="color:var(--muted)">· ${esc(String(a.created_at||'').slice(5,16))}</span></span>
+      ${gp('appeals_view')?`<button class="btn btn-sm btn-teal" style="padding:2px 8px;flex:none" onclick="openAppealThread(${a.id})">💬</button>`:''}
+    </div>`).join('')||'<div style="font-size:10px;color:var(--muted)">Новых апелляций нет 🎉</div>';
+    const icons={warn:'⚠️',restrict:'🔇',ban:'🚫'};
+    const sanc=(d.sanctions||[]).map(s=>{
+      const nm=s.target_type==='user'?('@'+(s.target_name||('ID'+s.target_id))):('Чат '+s.target_id);
+      return `<div style="padding:5px 0;border-bottom:1px solid var(--border2);font-size:11px">
+        ${icons[s.sanction_type]||'❔'} ${s.target_type==='user'&&gp('dossier_view')?`<span style="cursor:pointer;text-decoration:underline" onclick="openPlayerCenter(${s.target_id})">${esc(nm)}</span>`:esc(nm)}
+        <span style="color:var(--muted)">· ${esc((s.reason||'—').slice(0,42))} · @${esc(s.issued_by_name||'—')} · ${esc(String(s.created_at||'').slice(5,16))}</span>
+      </div>`;
+    }).join('')||'<div style="font-size:10px;color:var(--muted)">Санкций ещё не было</div>';
+    const adm=(d.admin_actions||[]).map(g=>`<div style="padding:4px 0;border-bottom:1px solid var(--border2);font-size:10px;color:var(--muted)">
+      ${esc(String(g.created_at||'').slice(5,16))} · <b style="color:var(--text,inherit)">@${esc(g.admin_name||'—')}</b> ${esc(g.action||'')}: ${esc(g.detail||'')} ${g.amount>0?'+':''}${g.amount||''}${g.target_name?' → @'+esc(g.target_name):''}
+    </div>`).join('')||'<div style="font-size:10px;color:var(--muted)">Действий не было</div>';
+    box.innerHTML=`
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        ${tile(c.appeals_pending||0,'⏳ апелляции',true,"goTo('global','appeals')")}
+        ${tile(c.sanctions_active||0,'🚫 санкции',false,"goTo('global','sanctions')")}
+        ${tile(c.chats_total||0,'💬 чатов',false,"goTo('global','chats')")}
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        ${tile(c.users_total||0,'👥 игроков',false,"swDev('metrics',document.querySelector(&quot;#console-c .dev-tabs .tb[onclick*=\\'metrics\\']&quot;))")}
+        ${tile(c.messages_today||0,'✉️ сообщ. сегодня',false,'')}
+      </div>
+      <div class="card">
+        <div class="card-title">⏳ Новые апелляции <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevPulse()">🔄</button></div>
+        ${apl}
+      </div>
+      <div class="card"><div class="card-title">🚫 Последние санкции</div>${sanc}</div>
+      <div class="card"><div class="card-title">📜 Последние действия штата</div>${adm}</div>`;
+  }).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
+}
+
+// ── БЛОК 21.2 W2.2/2.3: Центр игрока отовсюду + быстрый поиск ────────────────────
+function openPlayerCenter(uid) {
+  loadMyPerms().then(()=>{
+    if(!gp('dossier_view')) return toast('Нет права на досье игрока', false);
+    if(typeof _activePage!=='undefined' && _activePage!=='console') switchPage('console');
+    if(!el('dev-t-players')) loadConsole();   // страховка: DOM консоли ещё не построен
+    swDev('players', document.querySelector(`#console-c .dev-tabs .tb[onclick*="'players'"]`));
+    const q=el('dev-q'); if(q) q.value=String(uid);
+    devLookupUser();
+    try{ el('dev-user-result')?.scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){}
+  });
+}
+let _devQTimer=null;
+function _devQSearchDebounced(v){ clearTimeout(_devQTimer); _devQTimer=setTimeout(()=>_devQSearch(v),300); }
+function _devQSearch(v){
+  const box=el('dev-qsearch-res'); if(!box) return;
+  v=(v||'').trim();
+  if(v.length<2){ box.innerHTML=''; return; }
+  api('/admin/dev/user-search?q='+encodeURIComponent(v)).then(d=>{
+    box.innerHTML=(d.results||[]).map(u=>`<div class="dev-cat-item" onclick="el('dev-qsearch').value='';el('dev-qsearch-res').innerHTML='';openPlayerCenter(${u.user_tg_id})">
+        <span>${u.has_sanction?'🚫 ':''}${u.is_vip?'👑 ':''}@${esc(u.user_tg_username||('ID'+u.user_tg_id))}${u.nickname?` <span style="color:var(--muted)">· ${esc(u.nickname)}</span>`:''}</span>
+        <span style="color:var(--muted);font-size:9px;font-family:monospace">${u.user_tg_id} · ${esc(u.global_rank_name||'')}</span>
+      </div>`).join('')||'<div style="font-size:11px;color:var(--muted);padding:6px">Никого не нашли.</div>';
+  }).catch(()=>{ box.innerHTML=''; });
 }
 function loadDevLog() {
   const box = el('dev-log'); if(!box) return;
@@ -631,12 +738,17 @@ function _devVipLine(v){
   return `<div class="irow"><span class="ik">VIP</span><span class="iv" style="font-size:10px">${head}</span></div>
     <div style="font-size:10px;color:var(--muted);margin:-3px 0 3px;text-align:right">${sub}</div>`;
 }
-// Одна строка чата в досье (с меткой роли: основной / админка)
+// Одна строка чата в досье (с меткой роли: основной / админка).
+// W1.4/W2.1: ⚡ — локальные действия (варн/мут/кик/бан) прямо из Центра игрока.
 function _devChatRow(c){
   const mark=c.role==='admin'?'🛡 ':(c.role==='main'?'🏠 ':'');
   const role=c.role==='admin'?'админка':(c.role==='main'?'основной':'');
+  const muted=c.muted_until&&new Date(String(c.muted_until).replace(' ','T')+'Z')>new Date();
+  const act=(gp('local_actions_any_chat')&&!c.is_left)
+    ?` <button class="btn btn-sm btn-ghost" style="padding:1px 6px;font-size:10px;margin-left:4px" title="Локальные действия в этом чате" onclick='openDevLocalAction(${c.chat_tg_id},${JSON.stringify(c.chat_title||"")})'>⚡</button>`:'';
   return `<div class="irow"><span class="ik" style="font-size:10px">${mark}${esc(c.chat_title)}${role?` <span style="color:var(--muted)">· ${role}</span>`:''}</span>`
-    +`<span class="iv" style="font-size:10px">${esc(c.rank_name)} · ур.${c.user_level||1} · ${fmt(c.user_messages_count_all_time||0)} сообщ.${c.is_left?' · 👋':''}</span></div>`;
+    +`<span class="iv" style="font-size:10px">${esc(c.rank_name)} · ур.${c.user_level||1} · ${fmt(c.user_messages_count_all_time||0)} сообщ.`
+    +`${(c.warnings||0)>0?` · <span style="color:var(--gold)">⚠️${c.warnings}</span>`:''}${muted?' · 🔇':''}${c.is_left?' · 👋':''}${act}</span></div>`;
 }
 // Чаты досье: «основной + админка» одной группой в выделенной рамке (БЛОК 1)
 function _devChatsHtml(chats){
@@ -662,25 +774,128 @@ function devLookupUser() {
       <div class="divider"></div>
       <div class="irow"><span class="ik">@${esc(d.user_tg_username||'—')}</span><span class="iv">ID: ${d.user_tg_id}</span></div>
       <div class="irow"><span class="ik">Глоб. ранг</span><span class="iv">${d.global_rank_name}</span></div>
-      <div class="irow"><span class="ik">Балансы <span style="color:var(--muted);font-size:9px">(клик = ±)</span></span><span class="iv" style="font-size:11px">${[
+      <div class="irow"><span class="ik">Балансы${gp('economy_balance')?' <span style="color:var(--muted);font-size:9px">(клик = ±)</span>':''}</span><span class="iv" style="font-size:11px">${[
         ['mora','🪙 Мора','🪙'+fmtF(d.mora)],
         ['diamonds','💎 Алмазы','💎'+fmtF(d.diamonds)],
         ['dark_mora','🌑 Тёмная Мора','🌑'+fmtF(d.dark_mora)],
         ['zarniki','✨ Зарники','✨'+fmtF(d.zarniki)],
-      ].map(([cur,lbl,txt])=>`<span style="cursor:pointer;text-decoration:underline;margin-left:6px" onclick="devBalanceAction('${cur}','${lbl}')">${txt}</span>`).join('')}</span></div>
+      ].map(([cur,lbl,txt])=>gp('economy_balance')
+        ?`<span style="cursor:pointer;text-decoration:underline;margin-left:6px" onclick="devBalanceAction('${cur}','${lbl}')">${txt}</span>`
+        :`<span style="margin-left:6px">${txt}</span>`).join('')}</span></div>
       ${_devVipLine(d.vip)}
       <div class="irow"><span class="ik">Боевой пропуск</span><span class="iv">${d.battle_pass?`Ур.${d.battle_pass.level} (${fmtF(d.battle_pass.xp)} XP)`:'—'}</span></div>
-      ${d.sanctions.length?`<div class="irow"><span class="ik" style="color:var(--red)">Санкции</span><span class="iv" style="font-size:10px">${d.sanctions.map(s=>esc(s.sanction_type)+(s.expires_at?' до '+s.expires_at.slice(0,10):'')).join(', ')}</span></div>`:''}
-      <div style="font-size:11px;font-weight:700;margin:6px 0 2px">Чаты (${d.chats.length}):</div>
+      ${d.last_seen?`<div class="irow"><span class="ik">Активность</span><span class="iv" style="font-size:10px">🕓 ${esc(String(d.last_seen.at).slice(0,16))} · ${esc(d.last_seen.chat_title)}</span></div>`:''}
+      ${_devModerationHtml(d)}
+      <div style="font-size:11px;font-weight:700;margin:8px 0 2px">Чаты (${d.chats.length}):</div>
       ${_devChatsHtml(d.chats)}
-      ${d.inventory&&d.inventory.length?`<div style="font-size:11px;font-weight:700;margin:8px 0 4px">🎒 Инвентарь (${d.inventory.length}) — клик = выдать/забрать:</div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px">${d.inventory.map(it=>`<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px" onclick="devItemAction('${it.item_id}',${it.quantity})">${esc(it.name)} ×${it.quantity}</button>`).join('')}</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:6px">🎒 Инвентарь пуст</div>'}
+      ${_devPlayerLogHtml(d)}
+      ${d.inventory&&d.inventory.length?`<div style="font-size:11px;font-weight:700;margin:8px 0 4px">🎒 Инвентарь (${d.inventory.length})${gp('economy_items')?' — клик = выдать/забрать':''}:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">${d.inventory.map(it=>gp('economy_items')
+        ?`<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px" onclick="devItemAction('${it.item_id}',${it.quantity})">${esc(it.name)} ×${it.quantity}</button>`
+        :`<span class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px;pointer-events:none">${esc(it.name)} ×${it.quantity}</span>`).join('')}</div>`:'<div style="font-size:10px;color:var(--muted);margin-top:6px">🎒 Инвентарь пуст</div>'}
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <a class="btn btn-sm btn-ghost" style="flex:1;text-decoration:none;text-align:center" href="tg://user?id=${d.user_tg_id}">🔗 Открыть в TG</a>
         ${d.user_tg_username?`<a class="btn btn-sm btn-ghost" style="flex:1;text-decoration:none;text-align:center" href="https://t.me/${esc(d.user_tg_username)}" target="_blank">@${esc(d.user_tg_username)}</a>`:''}
+        <button class="btn btn-sm btn-ghost" style="flex:1" id="dev-dm-btn" onclick="devDmCheck()">✉️ Проверить ЛС</button>
         <button class="btn btn-sm btn-ghost" style="flex:1" onclick="devPrefill(${d.user_tg_id})">⚙️ Подставить ID в формы</button>
       </div>`;
   }).catch(e=>{el('dev-user-result').innerHTML=`<div class="err">${e}</div>`;});
+}
+
+// ── БЛОК 21.2 W2.1: секция «Модерация» Центра игрока ────────────────────────────
+function _devModerationHtml(d){
+  const sp=_actorSanctionPerms('user');
+  const canAny=sp.warn||sp.restrict||sp.ban;
+  const icons={warn:'⚠️',restrict:'🔇',ban:'🚫'};
+  const rows=(d.sanctions_all||[]).map(s=>{
+    const canType=gp('sanction_'+s.sanction_type+'_user');
+    const until=s.active?(s.expires_at?('до '+String(s.expires_at).slice(0,16)):'бессрочно')
+                        :(s.revoked_at?'снята':'истекла');
+    return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--border2);font-size:11px">
+      <span style="flex:1;min-width:0">${s.active?'<span style="color:var(--red)">●</span>':'<span style="color:var(--muted)">○</span>'} ${icons[s.sanction_type]||'❔'} <b>#${s.id}</b> ${esc((s.reason||'—').slice(0,60))} <span style="color:var(--muted)">· ${until}${s.issued_by_name?' · @'+esc(s.issued_by_name):''}</span></span>
+      ${s.active&&canType?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px;flex:none" title="Снять санкцию" onclick="devRevokeSanction(${s.id})">✅</button>`:''}
+    </div>`;
+  }).join('')||'<div style="font-size:10px;color:var(--muted)">Санкций не было</div>';
+  const apl=(d.appeals||[]).map(a=>{
+    const st={pending:'⏳',accepted:'✅',rejected:'❌',closed:'📪'}[a.status]||'❔';
+    return gp('appeals_view')
+      ?`<button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 7px;margin:2px 3px 0 0" onclick="openAppealThread(${a.id})">${st} #${a.id}</button>`
+      :`<span style="font-size:10px;margin-right:6px">${st} #${a.id}</span>`;
+  }).join('')||'<span style="font-size:10px;color:var(--muted)">нет</span>';
+  return `<div style="font-size:11px;font-weight:700;margin:8px 0 2px">⚖️ Модерация</div>
+    <div style="max-height:170px;overflow-y:auto">${rows}</div>
+    ${canAny||gp('sanctions_view')?`<div style="display:flex;gap:6px;margin-top:6px">
+      ${canAny?`<button class="btn btn-sm btn-red" style="flex:1" onclick='openGlobalSanctionForm("user",${d.user_tg_id},${JSON.stringify('@'+(d.user_tg_username||('ID'+d.user_tg_id)))},_actorSanctionPerms("user"))'>➕ Санкция</button>`:''}
+      ${gp('sanctions_view')?`<button class="btn btn-sm btn-ghost" style="flex:1" onclick="openUserCase(${d.user_tg_id})">📁 История дел</button>`:''}
+    </div>`:''}
+    <div style="font-size:10px;margin-top:6px"><span style="color:var(--muted)">Апелляции:</span> ${apl}</div>`;
+}
+// Свёрнутый журнал действий по игроку: локальная модерация + выдачи консоли.
+function _devPlayerLogHtml(d){
+  const mod=(d.mod_log||[]).map(m=>`<div style="font-size:10px;padding:2px 0;border-bottom:1px solid var(--border2)">
+    <span style="color:var(--muted)">${esc(String(m.created_at||'').slice(0,16))}</span> <b>${esc(m.action||'')}</b> в «${esc(m.chat_title||'')}»${m.admin_name?' · @'+esc(m.admin_name):''}${m.reason?` · <span style="color:var(--muted)">${esc(String(m.reason).slice(0,40))}</span>`:''}
+  </div>`).join('');
+  const grants=(d.grant_log||[]).map(g=>`<div style="font-size:10px;padding:2px 0;border-bottom:1px solid var(--border2)">
+    <span style="color:var(--muted)">${esc(String(g.created_at||'').slice(0,16))}</span> ${esc(g.action||'')}: ${esc(g.detail||'')} <b>${g.amount>0?'+':''}${g.amount||''}</b>${g.admin_name?' · @'+esc(g.admin_name):''}
+  </div>`).join('');
+  if(!mod&&!grants) return '';
+  return `<details style="margin-top:8px"><summary style="font-size:11px;font-weight:700;cursor:pointer">📋 Журнал по игроку (модерация: ${(d.mod_log||[]).length} · выдачи: ${(d.grant_log||[]).length})</summary>
+    ${mod?`<div style="font-size:10px;color:var(--gold2);margin:4px 0 2px">Локальная модерация:</div>${mod}`:''}
+    ${grants?`<div style="font-size:10px;color:var(--gold2);margin:6px 0 2px">Выдачи консоли:</div>${grants}`:''}
+  </details>`;
+}
+// Снятие глобальной санкции из Центра игрока.
+function devRevokeSanction(id){
+  OM('✅ Снять санкцию #'+id, '<div style="text-align:center;padding:10px 0;color:var(--muted)">Санкция будет немедленно снята, игрок получит уведомление.</div>',
+    [{l:'Да, снять',c:'btn-gold',f:`_devRevokeGo(${id})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function _devRevokeGo(id){
+  api(`/admin/global/sanctions/${id}/revoke`,{method:'POST'})
+    .then(r=>{toast(r.message||'✅ Снято');CM();devLookupUser();})
+    .catch(e=>toast(e,false));
+}
+// Локальные действия в чате из Центра игрока (W1.4).
+let _devLAChat=0, _devLAReason='';
+function openDevLocalAction(chatId, title){
+  if(!_devUserId) return;
+  _devLAChat=chatId;
+  OM('⚡ '+ (title||('Чат '+chatId)), `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Цель: ID${_devUserId}. Действие запишется в журнал чата.</div>
+    <input id="dev-la-reason" type="text" class="num-input" style="margin:0 0 8px" placeholder="Причина (необязательно)" maxlength="200"/>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+      <button class="btn btn-sm btn-ghost" onclick="devLocalAct('warn')">⚠️ Варн</button>
+      <button class="btn btn-sm btn-ghost" onclick="devLocalAct('unwarn')">✅ Снять варн</button>
+      <button class="btn btn-sm btn-ghost" onclick="devLocalAct('mute',60)">🔇 Мут 1ч</button>
+      <button class="btn btn-sm btn-ghost" onclick="devLocalAct('mute',1440)">🔇 Мут 1д</button>
+      <button class="btn btn-sm btn-ghost" onclick="devLocalAct('unmute')">🔊 Снять мут</button>
+      <button class="btn btn-sm btn-ghost" onclick="devLocalAct('kick')">🥾 Кик</button>
+      <button class="btn btn-sm btn-red" style="grid-column:1/-1" onclick="devLocalAct('ban')">🚫 Бан в этом чате</button>
+    </div>`,
+    [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+}
+function devLocalAct(action, minutes){
+  _devLAReason=(el('dev-la-reason')?.value||'').trim();
+  if(action==='ban'||action==='kick'){
+    OM('Подтверждение', `<div style="text-align:center;padding:10px 0;color:var(--muted)">Точно <b style="color:var(--red)">${action==='ban'?'забанить':'кикнуть'}</b> ID${_devUserId} в этом чате?</div>`,
+      [{l:'Да, выполнить',c:'btn-red',f:`_devLocalActGo('${action}',null)`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    return;
+  }
+  _devLocalActGo(action, minutes||null);
+}
+function _devLocalActGo(action, minutes){
+  api(`/admin/${_devLAChat}/action`,{method:'POST',body:JSON.stringify({
+    user_id:_devUserId, action, duration_minutes:minutes, reason:_devLAReason||null,
+  })}).then(r=>{toast(`✅ ${action} выполнено`+(r.new_warnings!=null?` (варнов: ${r.new_warnings})`:''));CM();devLookupUser();})
+    .catch(e=>toast(e,false));
+}
+// Проверка доступности ЛС (по кнопке — без лишних запросов к TG).
+function devDmCheck(){
+  if(!_devUserId) return;
+  const b=el('dev-dm-btn'); if(b) b.textContent='✉️ …';
+  api('/admin/dev/dm-check?user_id='+_devUserId).then(r=>{
+    if(b) b.textContent=r.dm_ok?'✉️ ЛС открыты ✅':'✉️ ЛС закрыты ❌';
+    if(!r.dm_ok&&r.hint) toast(r.hint,false);
+  }).catch(e=>{ if(b) b.textContent='✉️ Проверить ЛС'; toast(e,false); });
 }
 // Клик по валюте в карточке игрока → ±баланс с причиной (БЛОК 4.1)
 function devBalanceAction(cur, label) {
@@ -919,10 +1134,10 @@ function loadDevMetrics() {
 function swDev(tab, btn) {
   if(btn) btn.closest('.dev-tabs').querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  ['sys','players','content','bc','sql','metrics','themes'].forEach(t=>{
+  ['pulse','sys','players','content','bc','sql','metrics','themes'].forEach(t=>{
     const d=el('dev-t-'+t); if(d) d.style.display=t===tab?'':'none';
   });
-  if(tab==='content'){ try{devPromoLoad();}catch(e){} }
+  if(tab==='content'&&gp('promo_manage')){ try{devPromoLoad();}catch(e){} }
 }
 function devLoadChatsMod() {
   const sel=el('dev-mod-chat-sel'); if(!sel) return;

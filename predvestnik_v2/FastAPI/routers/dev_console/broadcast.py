@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories import routing as routing_repo
-from ._common import _require_dev, _tg_call
+from ._common import require_console_perm, _tg_call
 
 router = APIRouter()
 
@@ -21,16 +21,16 @@ class BroadcastRequest(BaseModel):
 @router.get("/broadcast/audience-counts")
 async def dev_broadcast_counts(db=Depends(get_db), user=Depends(require_tg_user)):
     """Сколько чатов получит рассылку по каждому фильтру — для превью перед отправкой."""
-    _require_dev(user)
+    await require_console_perm(db, user, "broadcast_send")
     return {a: len(await routing_repo.get_broadcast_targets(db, a))
             for a in _BROADCAST_AUDIENCES}
 
 
 @router.post("/broadcast/test")
-async def dev_broadcast_test(body: BroadcastRequest, user=Depends(require_tg_user)):
+async def dev_broadcast_test(body: BroadcastRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """admin_audit C2: тест-отправка рассылки СЕБЕ в ЛС — проверить
     форматирование/разметку до массовой отправки."""
-    _require_dev(user)
+    await require_console_perm(db, user, "broadcast_send")
     text = body.text.strip()
     if not text:
         raise HTTPException(400, "Пустой текст.")
@@ -45,7 +45,7 @@ async def dev_broadcast_test(body: BroadcastRequest, user=Depends(require_tg_use
 
 @router.post("/broadcast")
 async def dev_broadcast(body: BroadcastRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "broadcast_send")
     text = body.text.strip()
     if not text:
         raise HTTPException(400, "Пустой текст.")

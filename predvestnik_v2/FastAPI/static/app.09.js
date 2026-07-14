@@ -540,12 +540,11 @@ function devTLMetaDelete() {
 }
 
 // ── Init global moderation check after login ──────────────────────────────────────
+// БЛОК 21.2: видимость вкладок Штат/Консоль решают ПРАВА (my-permissions), не ранг.
+// Для обычных игроков (rank 0) лишних запросов нет.
 function checkGlobalAccess() {
   const rank=_profileData?.global_rank||0;
-  if(rank>=1) {
-    const tr=el('glb-tab-ranks'); if(tr) tr.style.display=rank>=3?'':'none';
-    const td=el('glb-tab-dev'); if(td) td.style.display=rank>=3?'':'none';
-  }
+  if(rank>=1) loadMyPerms().then(_applyGlobalTabPerms);
   _updateMoreCard();
 }
 

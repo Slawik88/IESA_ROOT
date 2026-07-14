@@ -12,21 +12,21 @@ from pydantic import BaseModel
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories import promocodes as promo_repo
 from FastAPI.deps import get_db, require_tg_user
-from ._common import _require_dev
+from ._common import require_console_perm
 
 router = APIRouter()
 
 
 @router.get("/promocodes")
 async def dev_promocodes_list(db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "promo_manage")
     rows = await promo_repo.list_promocodes(db)
     return {"promocodes": rows}
 
 
 @router.get("/promocodes/{code}")
 async def dev_promocode_info(code: str, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "promo_manage")
     promo = await promo_repo.get_promocode(db, code.upper())
     if not promo:
         raise HTTPException(404, "Промокод не найден.")
@@ -50,7 +50,7 @@ class PromoCreateRequest(BaseModel):
 @router.post("/promocodes")
 async def dev_promocode_create(body: PromoCreateRequest, db=Depends(get_db),
                                user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "promo_manage")
     code = body.code.strip().upper()
     if not (3 <= len(code) <= 32) or not code.replace("_", "").replace("-", "").isalnum():
         raise HTTPException(400, "Код: 3–32 символа, буквы/цифры/-/_.")
@@ -74,7 +74,7 @@ async def dev_promocode_create(body: PromoCreateRequest, db=Depends(get_db),
 
 @router.post("/promocodes/{code}/toggle")
 async def dev_promocode_toggle(code: str, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "promo_manage")
     promo = await promo_repo.get_promocode(db, code.upper())
     if not promo:
         raise HTTPException(404, "Промокод не найден.")
@@ -87,7 +87,7 @@ async def dev_promocode_toggle(code: str, db=Depends(get_db), user=Depends(requi
 
 @router.delete("/promocodes/{code}")
 async def dev_promocode_delete(code: str, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "promo_manage")
     ok = await promo_repo.delete_promocode(db, code.upper())
     if not ok:
         raise HTTPException(404, "Промокод не найден.")

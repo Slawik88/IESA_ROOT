@@ -360,7 +360,7 @@ let _activePage = 'profile';
 const _PAGE_LOADERS = {
   zoo:loadZoo, arena:loadArena, market:loadMarket,
   bp:loadBattlePass, auction:loadAuctionPage,
-  admin:loadAdmin, global:loadGlobal, help:()=>{}
+  admin:loadAdmin, global:loadGlobal, console:loadConsole, help:()=>{}
 };
 
 // Карта page→flag_key: только те страницы, которые управляются ползунком в dev-консоли.
@@ -392,7 +392,7 @@ function switchPage(name, _btn) {
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   (prim || el('nb-more'))?.classList.add('active');
   showCurrBar(name !== 'profile');
-  document.body.classList.toggle('pg-wide', name === 'global');
+  document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');
   try { window.scrollTo(0, 0); } catch(e) {}
   api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:name,session_id:_analyticsSession})}).catch(()=>{});
   if(!_loaded.has(name)){
@@ -449,16 +449,23 @@ function goTo(page, tab) {
   }, 80);
 }
 
-// ── «Ещё» — Control Center: карточка «Управление» ведёт в Админку/Модерацию ────
+// ── «Ещё» — Control Center: карточка «Управление» ведёт в Админку/Глобальную/Консоль ──
+// БЛОК 21.2 W4.1: три полноценных входа; Консоль — по правам (gp из app.07),
+// с фолбэком на ранг 3, пока my-permissions не подгрузились.
+function _canConsole() {
+  // _gPerms/gpAny объявлены в app.07 — в склейке это один скрипт, в рантайме доступны.
+  if (_gPerms) return gpAny(_CONSOLE_PERMS);
+  return (_profileData?.global_rank || 0) >= 3;
+}
 function openManageMenu() {
   const isAdmin = !!(_adminChats && _adminChats.length);
   const gRank = _profileData?.global_rank || 0;
-  if (isAdmin && gRank>=1) {
-    OM('⚙️ Управление', `<div class="more-grid">
-      <div class="more-card" onclick="goTo('admin')"><span class="mc-ic">🛡</span><span class="mc-t">Админка чата</span><span class="mc-s">Модерация</span></div>
-      <div class="more-card" onclick="goTo('global')"><span class="mc-ic">🌍</span><span class="mc-t">Глобальная</span><span class="mc-s">Сеть чатов</span></div>
-    </div>`, []);
-  } else if (isAdmin) goTo('admin');
+  const cards = [];
+  if (isAdmin) cards.push(`<div class="more-card" onclick="goTo('admin')"><span class="mc-ic">🛡</span><span class="mc-t">Админка чата</span><span class="mc-s">Модерация</span></div>`);
+  if (gRank>=1) cards.push(`<div class="more-card" onclick="goTo('global')"><span class="mc-ic">🌍</span><span class="mc-t">Глобальная</span><span class="mc-s">Сеть чатов</span></div>`);
+  if (_canConsole()) cards.push(`<div class="more-card" onclick="goTo('console')"><span class="mc-ic">🛠</span><span class="mc-t">Консоль</span><span class="mc-s">Разработка</span></div>`);
+  if (cards.length > 1) OM('⚙️ Управление', `<div class="more-grid">${cards.join('')}</div>`, []);
+  else if (isAdmin) goTo('admin');
   else if (gRank>=1) goTo('global');
 }
 function _updateMoreCard() {
@@ -467,5 +474,12 @@ function _updateMoreCard() {
   if(c) c.style.display = staff ? '' : 'none';
   const hs = el('help-staff');
   if(hs) hs.style.display = staff ? '' : 'none';
+  // W4.3: бейдж ⏳ новых апелляций на карточке «Управление» (счётчик из my-permissions)
+  const b = el('cc-manage-badge');
+  if(b) {
+    const n = (typeof _gCounts !== 'undefined' && _gCounts ? _gCounts.appeals_pending : 0) || 0;
+    b.style.display = n > 0 ? '' : 'none';
+    b.textContent = n > 99 ? '99+' : String(n);
+  }
 }
 

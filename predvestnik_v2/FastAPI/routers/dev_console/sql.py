@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.admin_log import add_sys
-from ._common import _require_dev
+from ._common import require_console_perm
 
 router = APIRouter()
 
@@ -26,7 +26,7 @@ _READONLY_HEADS = {"select", "show", "explain", "table", "values"}
 
 @router.post("/sql")
 async def dev_sql(body: SqlRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "sql_run")
     q = body.query.strip().rstrip(";")
     if not q:
         raise HTTPException(400, "Пустой запрос.")

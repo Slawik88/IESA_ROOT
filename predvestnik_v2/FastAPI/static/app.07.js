@@ -103,30 +103,23 @@ function renderAdminUserTable(d) {
         <option value="warns" ${_adminSort==='warns'?'selected':''}>По варнам</option>
       </select>
     </div>
-    <div style="overflow-x:auto">
-      <table class="adm-table">
-        <thead><tr><th>Пользователь</th><th>Ур.</th><th>Ранг</th><th>Варны</th><th>Статус</th><th>Действия</th></tr></thead>
-        <tbody>
-          ${d.users.map(u=>`<tr>
-            <td>
-              <div style="font-weight:600;font-size:12px">@${vipName(u.user_tg_username||'ID'+u.user_tg_id, u.is_vip)}</div>
-              <div style="font-size:10px;color:var(--muted)">ID: ${u.user_tg_id} · ${u.user_messages_count_all_time||0} сообщ.</div>
-              <div style="font-size:9.5px;color:var(--muted);white-space:nowrap">📅 ${u.joined_at?fmtUTC(u.joined_at):'—'} · 🕓 ${u.last_message_at?fmtUTC(u.last_message_at):'—'}</div>
-            </td>
-            <td style="text-align:center">${u.user_level||1}</td>
-            <td style="font-size:10px">${_RANK_NAMES[u.local_rank||0]||'?'}</td>
-            <td style="text-align:center;color:${u.warnings>0?'var(--gold)':'var(--muted)'}">${u.warnings||0}</td>
-            <td style="font-size:10px">
-              ${u.muted_until?`<span style="color:var(--gold)">🔇 до ${u.muted_until.slice(0,16)}</span>`:
-                u.is_immune?'🛡 Иммун':u.is_left?'👋 Ушёл':'✅'}
-            </td>
-            <td style="white-space:nowrap">
-              ${u.can_act?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban,s:u.can_shield,i:u.can_immune})})'>⚡</button>`:`<span style="font-size:10px;color:var(--muted)">—</span>`}
-              ${u.can_set_rank?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" title="Сменить ранг" onclick='openRankModal(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${u.local_rank||0})'>🎖</button>`:''}
-            </td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
+    <div class="card" style="padding:8px 14px">
+      ${d.users.map(u=>{
+        const status=u.muted_until?`<span style="color:var(--gold)">🔇 до ${u.muted_until.slice(0,16)}</span>`
+          :u.is_immune?'🛡 Иммун':u.is_left?'👋 Ушёл':'';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
+        <span style="flex:1;min-width:0">
+          <span style="font-weight:600;font-size:12px;color:var(--bright)">@${vipName(u.user_tg_username||'ID'+u.user_tg_id, u.is_vip)}</span>
+          <span style="font-size:10px;color:var(--muted)"> · ур.${u.user_level||1} · ${_RANK_NAMES[u.local_rank||0]||'?'}</span>
+          ${(u.warnings||0)>0?`<span style="font-size:10px;color:var(--gold)"> · ⚠️${u.warnings}</span>`:''}
+          ${status?`<span style="font-size:10px"> · ${status}</span>`:''}<br>
+          <span style="font-size:10px;color:var(--muted)">ID ${u.user_tg_id} · ${u.user_messages_count_all_time||0} сообщ. · 📅 ${u.joined_at?fmtUTC(u.joined_at):'—'} · 🕓 ${u.last_message_at?fmtUTC(u.last_message_at):'—'}</span>
+        </span>
+        <span style="display:flex;gap:4px;flex:none">
+          ${u.can_act?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban,s:u.can_shield,i:u.can_immune})})'>⚡</button>`:''}
+          ${u.can_set_rank?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px" title="Сменить ранг" onclick='openRankModal(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${u.local_rank||0})'>🎖</button>`:''}
+        </span>
+      </div>`;}).join('')}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
       <span>Всего: ${total}</span>
@@ -560,7 +553,7 @@ function refreshPage() {
   const loaders = {
     profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();}, arena:loadArena, market:loadMarket,
     bp:loadBattlePass, auction:loadAuctionPage,
-    admin:()=>{_adminChats=null;loadAdmin();}, global:loadGlobal
+    admin:()=>{_adminChats=null;loadAdmin();}, global:loadGlobal, console:loadConsole
   };
   if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('🔄 Обновлено!'); }
 }
@@ -572,53 +565,125 @@ let _glbSanctionsType='', _glbLogPage=1, _glbAppealsStatus='pending', _glbSancti
 const _SANCTION_LABELS={warn:'⚠️ Варн', restrict:'🔇 Ограничение', ban:'🚫 Бан'};
 
 function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function _actorSanctionPerms() {
-  const r=_profileData?.global_rank||0;
-  return {warn:r>=1, restrict:r>=2, ban:r>=3};
+
+// ── БЛОК 21.2: эффективные права актёра (/admin/global/my-permissions) ─────────
+// Вкладки и кнопки строятся по правам, а не по порогам ранга. Реестр прав —
+// core/admin_permissions.py; настройка — вкладка «Штат» (только Разработчик).
+let _gPerms=null, _gRank=0, _gCounts=null, _gPermsPromise=null;
+function gp(k){ return !!(_gPerms && _gPerms.has(k)); }
+function gpAny(list){ return !!(_gPerms && list.some(k=>_gPerms.has(k))); }
+const _CONSOLE_PERMS=['console_overview','flags_manage','modules_manage','dossier_view',
+  'user_search','economy_balance','economy_items','economy_vip','log_admin_view',
+  'bp_manage','promo_manage','broadcast_send','sql_run','metrics_view','themes_manage'];
+function loadMyPerms(force){
+  if(_gPerms && !force) return Promise.resolve();
+  if(_gPermsPromise) return _gPermsPromise;
+  _gPermsPromise=api('/admin/global/my-permissions').then(d=>{
+    _gPerms=new Set(d.perms||[]); _gRank=d.rank||0; _gCounts=d.counts||{}; _gPermsPromise=null;
+    _updateMoreCard();   // W4.3: бейдж ⏳ на карточке «Управление»
+  }).catch(()=>{ _gPerms=new Set(); _gRank=0; _gCounts={}; _gPermsPromise=null; });
+  return _gPermsPromise;
+}
+function _applyGlobalTabPerms(){
+  const show=(sel,ok)=>{ const b=document.querySelector(sel); if(b) b.style.display=ok?'':'none'; };
+  show(`#pg-global .tb[onclick*="'chats'"]`, gp('members_view'));
+  show(`#pg-global .tb[onclick*="'sanctions'"]`, gp('sanctions_view'));
+  show(`#pg-global .tb[onclick*="'log'"]`, gp('log_view'));
+  show(`#pg-global .tb[onclick*="'appeals'"]`, gp('appeals_view'));
+  const tr=el('glb-tab-ranks'); if(tr) tr.style.display=gp('staff_manage')?'':'none';
+  // W4.3: живые счётчики прямо в вкладках
+  const ta=el('glb-tab-appeals');
+  if(ta){ const n=(_gCounts||{}).appeals_pending||0; ta.textContent=n?`📨 Апелляции (${n})`:'📨 Апелляции'; }
+  const ts=el('glb-tab-sanctions');
+  if(ts){ const n=(_gCounts||{}).sanctions_active||0; ts.textContent=n?`🚫 Санкции (${n})`:'🚫 Санкции'; }
+}
+function _actorSanctionPerms(targetType) {
+  const t=targetType||'user';
+  return {warn:gp('sanction_warn_'+t), restrict:gp('sanction_restrict_'+t), ban:gp('sanction_ban_'+t)};
 }
 
 function loadGlobal() {
-  swGlobal(_glbTab, document.querySelector(`#pg-global .tb[onclick*="'${_glbTab}'"]`));
+  loadMyPerms().then(()=>{
+    _applyGlobalTabPerms();
+    // Если текущая вкладка недоступна (хелпер с урезанными правами) — первая разрешённая;
+    // без единого права модерации, но с консольными — сразу в Консоль (W4.1).
+    const need={chats:'members_view',sanctions:'sanctions_view',log:'log_view',appeals:'appeals_view',ranks:'staff_manage'};
+    if(need[_glbTab] && !gp(need[_glbTab])){
+      if(gp('members_view')) _glbTab='chats';
+      else if(gp('sanctions_view')) _glbTab='sanctions';
+      else if(gp('appeals_view')) _glbTab='appeals';
+      else if(gp('log_view')) _glbTab='log';
+      else if(gpAny(_CONSOLE_PERMS)){ switchPage('console'); return; }
+      else { el('glb-chats').innerHTML='<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет прав глобальной модерации.</div>'; return; }
+    }
+    swGlobal(_glbTab, document.querySelector(`#pg-global .tb[onclick*="'${_glbTab}'"]`));
+  });
 }
 function swGlobal(tab, btn) {
+  if(!_gPerms){ loadMyPerms().then(()=>swGlobal(tab,btn)); return; }
   _glbTab=tab;
   document.querySelectorAll('#pg-global .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  ['chats','sanctions','log','appeals','ranks','dev'].forEach(t=>el('glb-'+t).style.display=t===tab?'':'none');
+  ['chats','sanctions','log','appeals','ranks'].forEach(t=>{const d=el('glb-'+t); if(d) d.style.display=t===tab?'':'none';});
   if(tab==='chats') loadGlobalChats();
   else if(tab==='sanctions') loadGlobalSanctions();
   else if(tab==='log') { _glbLogPage=1; loadGlobalLog(); }
   else if(tab==='appeals') loadGlobalAppeals();
   else if(tab==='ranks') loadGlobalRanksTab();
-  else if(tab==='dev') loadGlobalDev();
 }
 
-// 1. Все чаты ─────────────────────────────────────────────────────────────────────
+// 1. Все чаты — БЛОК 21.2 W1.1: с правом chats_view_all видны ВСЕ чаты бота;
+// поиск/сортировка на клиенте, бейджи: 👻 не состою · 🚫 санкция чата · ⚠️ варны.
+let _glbChatQ='', _glbChatSort='title', _glbViewAll=false;
 function loadGlobalChats() {
   el('glb-chats').innerHTML='<div class="loader">Загрузка...</div>';
   api('/admin/global/chats').then(d=>{
     _glbChatsList=d.chats||[];
-    const perms=_actorSanctionPerms();
+    _glbViewAll=!!d.view_all;
     if(!_glbChatsList.length){
       el('glb-chats').innerHTML='<div class="empty-state"><div class="es-icon">💬</div><div class="es-title">Нет групп</div><div class="es-sub">Показываются только группы, в которых вы состоите</div></div>';
       return;
     }
-    const roleIcon = c => c.role==='admin' ? '🛡' : c.role==='main' ? '🏠' : '💬';
     el('glb-chats').innerHTML=`
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input id="glb-chat-q" type="text" class="num-input" style="flex:1;margin:0" placeholder="🔎 Поиск чата" value="${esc(_glbChatQ)}" oninput="_glbChatQ=this.value;_renderGlobalChatsList()"/>
+        <select class="num-input" style="width:118px;margin:0" onchange="_glbChatSort=this.value;_renderGlobalChatsList()">
+          <option value="title" ${_glbChatSort==='title'?'selected':''}>По имени</option>
+          <option value="members" ${_glbChatSort==='members'?'selected':''}>По людям</option>
+          <option value="warns" ${_glbChatSort==='warns'?'selected':''}>По варнам</option>
+        </select>
+      </div>
       <div class="card">
-        <div class="card-title">💬 Мои группы (${_glbChatsList.length})</div>
-        ${_glbChatsList.map(c=>`<div style="padding:8px 0;border-bottom:1px solid var(--border2)">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-            <span style="cursor:pointer;font-weight:600;color:var(--bright);font-size:12.5px" onclick="openGlobalChatMembers(${c.chat_id})">${roleIcon(c)} ${esc(c.chat_title)}</span>
-            <span style="display:flex;align-items:center;gap:6px;flex:none">
-              <span style="cursor:pointer;font-size:11px;color:var(--muted)" onclick="openGlobalChatMembers(${c.chat_id})">${c.member_count} 👤 ›</span>
-              ${(perms.restrict||perms.ban)?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openGlobalChatSanction(${c.chat_id})">⚡</button>`:''}
-            </span>
-          </div>
-          ${c.linked_title?`<div style="font-size:9.5px;color:var(--muted);margin-top:2px">${c.role==='admin'?`🛡 админ-чат для «${esc(c.linked_title)}»`:`🛡 админ-чат: «${esc(c.linked_title)}»`}</div>`:''}
-        </div>`).join('')}
+        <div class="card-title" id="glb-chats-title"></div>
+        <div id="glb-chats-list"></div>
       </div>`;
+    _renderGlobalChatsList();
   }).catch(e=>{el('glb-chats').innerHTML=`<div class="err">${e}</div>`;});
+}
+function _renderGlobalChatsList() {
+  const box=el('glb-chats-list'); if(!box) return;
+  const q=(_glbChatQ||'').trim().toLowerCase();
+  let rows=(_glbChatsList||[]).filter(c=>!q||(c.chat_title||'').toLowerCase().includes(q));
+  if(_glbChatSort==='members') rows=rows.slice().sort((a,b)=>(b.member_count||0)-(a.member_count||0));
+  else if(_glbChatSort==='warns') rows=rows.slice().sort((a,b)=>(b.warned_count||0)-(a.warned_count||0));
+  const t=el('glb-chats-title');
+  if(t) t.textContent=`${_glbViewAll?'🌐 Все чаты бота':'💬 Мои группы'} (${rows.length})`;
+  const perms=_actorSanctionPerms('chat');
+  const roleIcon = c => c.role==='admin' ? '🛡' : c.role==='main' ? '🏠' : '💬';
+  box.innerHTML=rows.map(c=>`<div style="padding:8px 0;border-bottom:1px solid var(--border2)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span style="cursor:pointer;font-weight:600;color:var(--bright);font-size:12.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" onclick="openGlobalChatMembers(${c.chat_id})">${roleIcon(c)} ${esc(c.chat_title)}${c.chat_sanctioned?' <span style="color:var(--red)">🚫</span>':''}</span>
+        <span style="display:flex;align-items:center;gap:6px;flex:none">
+          ${(c.warned_count||0)>0?`<span style="font-size:10px;color:var(--gold)">⚠️${c.warned_count}</span>`:''}
+          <span style="cursor:pointer;font-size:11px;color:var(--muted)" onclick="openGlobalChatMembers(${c.chat_id})">${c.member_count} 👤 ›</span>
+          ${(perms.warn||perms.restrict||perms.ban)?`<button class="btn btn-sm btn-ghost" style="padding:2px 6px;font-size:10px" onclick="openGlobalChatSanction(${c.chat_id})">⚡</button>`:''}
+        </span>
+      </div>
+      ${c.linked_title||c.is_member===false?`<div style="font-size:9.5px;color:var(--muted);margin-top:2px">
+        ${c.is_member===false?'<span style="opacity:.8">👻 не состою</span>':''}
+        ${c.linked_title?(c.role==='admin'?`🛡 админ-чат для «${esc(c.linked_title)}»`:`🛡 админ-чат: «${esc(c.linked_title)}»`):''}
+      </div>`:''}
+    </div>`).join('')||'<div style="font-size:11px;color:var(--muted);padding:8px 0">Ничего не найдено.</div>';
 }
 function openGlobalChatSanction(chatId) {
   const chat=(_glbChatsList||[]).find(c=>c.chat_id===chatId);
@@ -652,24 +717,15 @@ function renderGlobalMembers(d) {
         <option value="warns" ${_glbMembersSort==='warns'?'selected':''}>По варнам</option>
       </select>
     </div>
-    <div style="overflow-x:auto">
-      <table class="adm-table">
-        <thead><tr><th>Пользователь</th><th>Ур.</th><th>Глоб.ранг</th><th>Действия</th></tr></thead>
-        <tbody>
-          ${d.members.map(m=>`<tr>
-            <td>
-              <div style="font-weight:600;font-size:12px">@${vipName(m.user_tg_username||'ID'+m.user_tg_id, m.is_vip)}</div>
-              <div style="font-size:10px;color:var(--muted)">ID: ${m.user_tg_id} · ${m.user_messages_count_all_time||0} сообщ.</div>
-              <div style="font-size:9.5px;color:var(--muted);white-space:nowrap">📅 ${m.joined_at?fmtUTC(m.joined_at):'—'} · 🕓 ${m.last_message_at?fmtUTC(m.last_message_at):'—'}</div>
-            </td>
-            <td style="text-align:center">${m.user_level||1}</td>
-            <td style="font-size:10px">${m.global_rank_name}</td>
-            <td>
-              ${(m.can_warn||m.can_restrict||m.can_ban)?`<button class="btn btn-sm btn-ghost" style="font-size:10px;padding:3px 6px" onclick='openGlobalSanctionForm("user",${m.user_tg_id},${JSON.stringify(m.user_tg_username||'ID'+m.user_tg_id)},${JSON.stringify({warn:m.can_warn,restrict:m.can_restrict,ban:m.can_ban})})'>⚡</button>`:`<span style="font-size:10px;color:var(--muted)">—</span>`}
-            </td>
-          </tr>`).join('')}
-        </tbody>
-      </table>
+    <div class="card" style="padding:8px 14px">
+      ${d.members.map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
+        <span style="flex:1;min-width:0">
+          <span style="font-weight:600;font-size:12px;color:var(--bright);${gp('dossier_view')?'cursor:pointer;text-decoration:underline':''}" ${gp('dossier_view')?`onclick="openPlayerCenter(${m.user_tg_id})"`:''}>@${vipName(m.user_tg_username||'ID'+m.user_tg_id, m.is_vip)}</span>
+          <span style="font-size:10px;color:var(--muted)"> · ур.${m.user_level||1} · ${esc(m.global_rank_name||'')}</span><br>
+          <span style="font-size:10px;color:var(--muted)">ID ${m.user_tg_id} · ${m.user_messages_count_all_time||0} сообщ. · 📅 ${m.joined_at?fmtUTC(m.joined_at):'—'} · 🕓 ${m.last_message_at?fmtUTC(m.last_message_at):'—'}</span>
+        </span>
+        ${(m.can_warn||m.can_restrict||m.can_ban)?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px;flex:none" onclick='openGlobalSanctionForm("user",${m.user_tg_id},${JSON.stringify(m.user_tg_username||'ID'+m.user_tg_id)},${JSON.stringify({warn:m.can_warn,restrict:m.can_restrict,ban:m.can_ban})})'>⚡</button>`:''}
+      </div>`).join('')}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
       <span>Всего: ${total}</span>
@@ -687,81 +743,217 @@ function onGlobalMemberSearch(v) {
 }
 function onGlobalMemberSort(v) { _glbMembersSort=v; _glbMembersPage=1; loadGlobalChatMembers(); }
 
-// Форма выдачи санкции — используется из «Все чаты» и для «изменить срок» ─────────
+// Форма выдачи санкции — W3.3: причина обязательна, фото-доказательства с сайта,
+// «Выдать» неактивна до выбора типа, выбранный тип подсвечен заливкой.
+let _gstPhotos=[];   // [{name, data(base64)}] — грузятся при отправке
 function openGlobalSanctionForm(targetType, targetId, targetName, perms) {
-  perms = perms || _actorSanctionPerms();
+  perms = perms || _actorSanctionPerms(targetType);
   if(!targetName) targetName = (targetType==='chat'?'Чат ID':'ID')+targetId;
   _glbSanctionTarget={type:targetType, id:targetId};
+  _gstPhotos=[];
   const durations=[[0,'Бессрочно'],[1,'1 день'],[3,'3 дня'],[7,'7 дней'],[30,'30 дней']];
   OM(`⚡ ${targetName}`,`
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <button class="btn btn-sm ${perms.warn?'btn-ghost':''}" ${perms.warn?'':'disabled'} onclick="selectGlobalSanctionType('warn')" id="gst-warn">⚠️ Варн</button>
       <button class="btn btn-sm ${perms.restrict?'btn-ghost':''}" ${perms.restrict?'':'disabled'} onclick="selectGlobalSanctionType('restrict')" id="gst-restrict">🔇 Огранич.</button>
-      <button class="btn btn-sm ${perms.ban?'btn-red':''}" ${perms.ban?'':'disabled'} onclick="selectGlobalSanctionType('ban')" id="gst-ban">🚫 Бан</button>
+      <button class="btn btn-sm ${perms.ban?'btn-ghost':''}" ${perms.ban?'':'disabled'} onclick="selectGlobalSanctionType('ban')" id="gst-ban">🚫 Бан</button>
     </div>
     <div id="gst-duration" style="display:none;margin-bottom:8px">
       <select id="gst-dur-sel" class="num-input" style="margin:0">
         ${durations.map(([dd,l])=>`<option value="${dd}">${l}</option>`).join('')}
       </select>
     </div>
-    <textarea id="gst-reason" class="num-input" style="margin:0 0 6px;min-height:90px;resize:vertical;line-height:1.4" placeholder="Причина (до 9999 символов — можно подробно, со ссылками)" maxlength="9999"></textarea>
+    <textarea id="gst-reason" class="num-input" style="margin:0 0 6px;min-height:90px;resize:vertical;line-height:1.4" placeholder="Причина — ОБЯЗАТЕЛЬНА (до 9999 символов, можно со ссылками)" maxlength="9999"></textarea>
     <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Кого уведомить о санкции:</div>
-    <select id="gst-notify" class="num-input" style="margin:0 0 4px">
+    <select id="gst-notify" class="num-input" style="margin:0 0 6px">
       <option value="all">📣 Все чаты игрока + ЛС</option>
       <option value="none">🔕 Только ЛС нарушителю (без чатов)</option>
     </select>
-    <div style="font-size:10px;color:var(--muted)">Инструкция по апелляции уходит нарушителю в ЛС всегда. Фото-доказательства: в чате — команда ответом на фото.</div>
-  `,[{l:'Выдать',c:'btn-gold',f:'doIssueGlobalSanction()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    <input type="file" id="gst-photo-input" accept="image/*" multiple style="display:none" onchange="_gstAddPhotos(this.files)"/>
+    <button class="btn btn-ghost btn-sm btn-full" style="margin-bottom:6px" onclick="el('gst-photo-input').click()" id="gst-photo-btn">📎 Прикрепить фото-доказательства (0/4)</button>
+    <button class="btn btn-gold btn-full" id="gst-submit" disabled style="margin-bottom:4px" onclick="doIssueGlobalSanction()">Выдать санкцию</button>
+    <div style="font-size:10px;color:var(--muted)">Инструкция по апелляции уходит нарушителю в ЛС всегда. Копии фото останутся у вас в ЛС бота.</div>
+  `,[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
   el('modal')._sanctionType=null;
 }
 function selectGlobalSanctionType(type) {
   el('modal')._sanctionType=type;
-  ['warn','restrict','ban'].forEach(t=>{const b=el('gst-'+t); if(b) b.style.outline=t===type?'2px solid var(--gold)':'';});
+  // Выбранный тип — заливкой (btn-gold), остальные — ghost; «Выдать» оживает.
+  ['warn','restrict','ban'].forEach(t=>{
+    const b=el('gst-'+t); if(!b||b.disabled) return;
+    b.classList.toggle('btn-gold', t===type);
+    b.classList.toggle('btn-ghost', t!==type);
+  });
   el('gst-duration').style.display=(type==='restrict'||type==='ban')?'':'none';
+  const s=el('gst-submit'); if(s) s.disabled=false;
 }
-function doIssueGlobalSanction() {
+function _gstAddPhotos(files) {
+  const room=4-_gstPhotos.length;
+  Array.from(files||[]).slice(0,room).forEach(f=>{
+    if(f.size>5*1024*1024) return toast(`«${f.name}» больше 5 МБ — пропущено`,false);
+    const rd=new FileReader();
+    rd.onload=()=>{ _gstPhotos.push({name:f.name, data:String(rd.result)}); _gstPhotoBtnUpd(); };
+    rd.readAsDataURL(f);
+  });
+}
+function _gstPhotoBtnUpd() {
+  const b=el('gst-photo-btn');
+  if(b) b.textContent=`📎 Прикрепить фото-доказательства (${_gstPhotos.length}/4)`;
+}
+async function _gstUploadPhotos() {
+  const ids=[];
+  for(const p of _gstPhotos){
+    const r=await api('/admin/global/upload-photo',{method:'POST',body:JSON.stringify({data:p.data,filename:p.name})});
+    if(r&&r.file_id) ids.push(r.file_id);
+  }
+  return ids;
+}
+async function doIssueGlobalSanction() {
   const type=el('modal')._sanctionType;
   if(!type) return toast('Выберите тип санкции',false);
-  const reason=el('gst-reason')?.value.trim()||null;
+  const reason=el('gst-reason')?.value.trim();
+  if(!reason||reason.length<3) return toast('Причина обязательна (минимум 3 символа)',false);
   const durSel=el('gst-dur-sel');
   const days=durSel&&durSel.value!=='0'?parseInt(durSel.value):null;
   const notify=el('gst-notify')?.value||'all';
+  const s=el('gst-submit'); if(s){ s.disabled=true; s.textContent=_gstPhotos.length?'📎 Загружаю фото…':'Выдаю…'; }
+  let photo_ids=[];
+  try { photo_ids=await _gstUploadPhotos(); }
+  catch(e){ if(s){s.disabled=false;s.textContent='Выдать санкцию';} return toast('Фото не загрузилось: '+e,false); }
   api('/admin/global/sanctions',{method:'POST',body:JSON.stringify({
     target_type:_glbSanctionTarget.type, target_id:_glbSanctionTarget.id,
-    sanction_type:type, reason, duration_days:days, notify,
+    sanction_type:type, reason, duration_days:days, notify, photo_ids,
   })}).then(r=>{
     const dm=r.dm_instruction_sent?'📨 инструкция в ЛС доставлена':'⚠️ ЛС закрыты';
     toast(`${r.message||'✅ Готово'}${r.chats_notified?` · уведомлено чатов: ${r.chats_notified}`:''} · ${dm}`); CM();
-    if(_glbTab==='chats'&&_glbChatId) loadGlobalChatMembers();
+    if(_activePage==='console'&&_devUserId) devLookupUser();          // Центр игрока: обновить досье
+    else if(_glbTab==='chats'&&_glbChatId) loadGlobalChatMembers();
     else if(_glbTab==='sanctions') loadGlobalSanctions();
-  }).catch(e=>toast(e,false));
+    loadMyPerms(true).then(_applyGlobalTabPerms);                     // счётчики в вкладках/бейджах
+  }).catch(e=>{
+    const s2=el('gst-submit'); if(s2){ s2.disabled=false; s2.textContent='Выдать санкцию'; }
+    toast(e,false);
+  });
 }
 
-// 2. Активные ограничения ─────────────────────────────────────────────────────────
+// ── БЛОК 21.2: «➕ Выдать санкцию» — поиск цели без захода в чат (боль D1) ──────
+let _issTargetType='user', _issTimer=null;
+function openIssueSanctionSearch() {
+  OM('➕ Выдать санкцию', `
+    <div class="tabs tab-inner" style="margin-bottom:8px">
+      <button class="tb active" id="iss-t-user" onclick="_issSwitch('user')">👤 Игроку</button>
+      <button class="tb" id="iss-t-chat" onclick="_issSwitch('chat')">💬 Чату</button>
+    </div>
+    <div id="iss-user-box">
+      ${gp('user_search')
+        ?`<input id="iss-q" type="text" class="num-input" style="margin:0 0 6px" placeholder="🔍 ник / ID (от 2 символов)" oninput="_issSearchDebounced(this.value)"/>`
+        :`<input id="iss-q" type="number" class="num-input" style="margin:0 0 6px" placeholder="ID игрока" oninput="_issIdOnly(this.value)"/>`}
+      <div id="iss-res" style="max-height:40vh;overflow-y:auto"></div>
+    </div>
+    <div id="iss-chat-box" style="display:none">
+      <input id="iss-chat-q" type="text" class="num-input" style="margin:0 0 6px" placeholder="🔎 Поиск чата" oninput="_issFillChats(this.value)"/>
+      <div id="iss-chat-list" style="max-height:40vh;overflow-y:auto"><div class="loader">Загрузка...</div></div>
+    </div>
+  `,[{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+  _issTargetType='user';
+  if(_glbChatsList) _issFillChats('');
+  else api('/admin/global/chats').then(d=>{_glbChatsList=d.chats||[];_glbViewAll=!!d.view_all;_issFillChats('');}).catch(()=>{});
+}
+function _issSwitch(t){
+  _issTargetType=t;
+  el('iss-t-user')?.classList.toggle('active', t==='user');
+  el('iss-t-chat')?.classList.toggle('active', t==='chat');
+  const ub=el('iss-user-box'), cb=el('iss-chat-box');
+  if(ub) ub.style.display=t==='user'?'':'none';
+  if(cb) cb.style.display=t==='chat'?'':'none';
+}
+function _issSearchDebounced(v){ clearTimeout(_issTimer); _issTimer=setTimeout(()=>_issSearch(v),300); }
+function _issSearch(v){
+  const box=el('iss-res'); if(!box) return;
+  v=(v||'').trim();
+  if(v.length<2){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="loader">Поиск...</div>';
+  api('/admin/dev/user-search?q='+encodeURIComponent(v)).then(d=>{
+    const rows=d.results||[];
+    box.innerHTML=rows.map(u=>`<div class="dev-cat-item" onclick='_issPick(${u.user_tg_id},${JSON.stringify('@'+(u.user_tg_username||('ID'+u.user_tg_id)))})'>
+        <span>${u.has_sanction?'🚫 ':''}${u.is_vip?'👑 ':''}@${esc(u.user_tg_username||('ID'+u.user_tg_id))}${u.nickname?` <span style="color:var(--muted)">· ${esc(u.nickname)}</span>`:''}</span>
+        <span style="color:var(--muted);font-size:9px;font-family:monospace">${u.user_tg_id}</span>
+      </div>`).join('')||'<div style="font-size:11px;color:var(--muted);padding:8px">Никого не нашли — попробуйте ID.</div>';
+  }).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
+}
+function _issIdOnly(v){
+  const box=el('iss-res'); if(!box) return;
+  const id=parseInt(v||'0');
+  box.innerHTML=id?`<button class="btn btn-ghost btn-full" onclick="_issPick(${id},'ID${id}')">⚡ Выдать санкцию ID${id}</button>`:'';
+}
+function _issPick(id, name){
+  CM();
+  openGlobalSanctionForm('user', id, name, _actorSanctionPerms('user'));
+}
+function _issFillChats(q){
+  const box=el('iss-chat-list'); if(!box) return;
+  q=(q||'').trim().toLowerCase();
+  const rows=(_glbChatsList||[]).filter(c=>!q||(c.chat_title||'').toLowerCase().includes(q));
+  box.innerHTML=rows.map(c=>`<div class="dev-cat-item" onclick='_issPickChat(${c.chat_id},${JSON.stringify(c.chat_title||String(c.chat_id))})'>
+      <span>${c.role==='admin'?'🛡':'💬'} ${esc(c.chat_title)}${c.chat_sanctioned?' <span style="color:var(--red)">🚫</span>':''}</span>
+      <span style="color:var(--muted);font-size:9px">${c.member_count||0} 👤</span>
+    </div>`).join('')||'<div style="font-size:11px;color:var(--muted);padding:8px">Чатов не найдено.</div>';
+}
+function _issPickChat(id, title){
+  CM();
+  openGlobalSanctionForm('chat', id, title, _actorSanctionPerms('chat'));
+}
+
+// 2. Активные санкции — W3.2: компактные строки, клиентский поиск и фильтры со
+// счётчиками (данные грузятся один раз без type, фильтруем на клиенте).
+const _ALL_SANCTION_PERMS=['sanction_warn_user','sanction_restrict_user','sanction_ban_user',
+  'sanction_warn_chat','sanction_restrict_chat','sanction_ban_chat'];
+let _glbSancAll=null, _glbSancQ='';
 function loadGlobalSanctions() {
   el('glb-sanctions').innerHTML='<div class="loader">Загрузка...</div>';
-  api(`/admin/global/sanctions?active_only=true${_glbSanctionsType?'&type='+_glbSanctionsType:''}`).then(d=>{
+  api('/admin/global/sanctions?active_only=true').then(d=>{
+    _glbSancAll=d.sanctions||[];
     el('glb-sanctions').innerHTML=`
-      <div class="tabs" style="margin-bottom:8px">
-        <button class="tb ${!_glbSanctionsType?'active':''}" onclick="filterGlobalSanctions('')">Все</button>
-        <button class="tb ${_glbSanctionsType==='warn'?'active':''}" onclick="filterGlobalSanctions('warn')">⚠️ Варны</button>
-        <button class="tb ${_glbSanctionsType==='restrict'?'active':''}" onclick="filterGlobalSanctions('restrict')">🔇 Огранич.</button>
-        <button class="tb ${_glbSanctionsType==='ban'?'active':''}" onclick="filterGlobalSanctions('ban')">🚫 Баны</button>
-      </div>
-      ${d.sanctions.length?d.sanctions.map(s=>`<div class="card">
-        <div class="irow"><span class="ik">${_SANCTION_LABELS[s.sanction_type]||s.sanction_type}</span><span class="iv">${s.target_type==='chat'?'💬 ':'👤 '}${esc(s.target_name)}</span></div>
-        <div class="irow"><span class="ik">Причина</span><span style="font-size:11px">${esc(s.reason||'—')}</span></div>
-        <div class="irow"><span class="ik">Выдал</span><span style="font-size:11px">${s.issued_by_name}</span></div>
-        <div class="irow"><span class="ik">До</span><span style="font-size:11px">${s.expires_at?fmtUTC(s.expires_at):'Бессрочно'}</span></div>
-        <div style="display:flex;gap:6px;margin-top:6px">
-          <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doRevokeGlobalSanction(${s.id})">✅ Снять</button>
-          ${s.target_type==='user'?`<button class="btn btn-sm btn-ghost" style="flex:1" onclick="openUserCase(${s.target_id})">📁 История</button>`:''}
-          ${s.sanction_type!=='warn'?`<button class="btn btn-sm btn-ghost" style="flex:1" onclick='openGlobalSanctionForm(${JSON.stringify(s.target_type)},${s.target_id},null,${JSON.stringify(_actorSanctionPerms())})'>✏️ Срок</button>`:''}
-        </div>
-      </div>`).join(''):'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет активных ограничений</div>'}`;
+      ${gpAny(_ALL_SANCTION_PERMS)?`<button class="btn btn-gold btn-full" style="margin-bottom:8px" onclick="openIssueSanctionSearch()">➕ Выдать санкцию</button>`:''}
+      <input type="text" class="num-input" style="margin:0 0 8px" placeholder="🔎 Поиск: ник / ID / причина" value="${esc(_glbSancQ)}" oninput="_glbSancQ=this.value;_renderGlobalSanctions()"/>
+      <div class="tabs" id="glb-sanc-filters" style="margin-bottom:8px"></div>
+      <div id="glb-sanc-list"></div>`;
+    _renderGlobalSanctions();
   }).catch(e=>{el('glb-sanctions').innerHTML=`<div class="err">${e}</div>`;});
 }
-function filterGlobalSanctions(type) { _glbSanctionsType=type; loadGlobalSanctions(); }
+function _renderGlobalSanctions() {
+  const all=_glbSancAll||[];
+  const n=t=>all.filter(s=>s.sanction_type===t).length;
+  const fl=el('glb-sanc-filters');
+  if(fl) fl.innerHTML=`
+    <button class="tb ${!_glbSanctionsType?'active':''}" onclick="filterGlobalSanctions('')">Все (${all.length})</button>
+    <button class="tb ${_glbSanctionsType==='warn'?'active':''}" onclick="filterGlobalSanctions('warn')">⚠️ ${n('warn')}</button>
+    <button class="tb ${_glbSanctionsType==='restrict'?'active':''}" onclick="filterGlobalSanctions('restrict')">🔇 ${n('restrict')}</button>
+    <button class="tb ${_glbSanctionsType==='ban'?'active':''}" onclick="filterGlobalSanctions('ban')">🚫 ${n('ban')}</button>`;
+  const q=(_glbSancQ||'').trim().toLowerCase();
+  const rows=all.filter(s=>(!_glbSanctionsType||s.sanction_type===_glbSanctionsType)
+    &&(!q||(s.target_name||'').toLowerCase().includes(q)||(s.reason||'').toLowerCase().includes(q)
+       ||String(s.target_id).includes(q)));
+  const icons={warn:'⚠️',restrict:'🔇',ban:'🚫'};
+  el('glb-sanc-list').innerHTML=rows.length?`<div class="card" style="padding:8px 14px">${rows.map(s=>{
+    const name=(s.target_type==='user'&&gp('dossier_view'))
+      ?`<span style="cursor:pointer;text-decoration:underline;font-weight:600;color:var(--bright)" onclick="openPlayerCenter(${s.target_id})">${esc(s.target_name)}</span>`
+      :`<span style="font-weight:600;color:var(--bright)">${s.target_type==='chat'?'💬 ':''}${esc(s.target_name)}</span>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
+      <span style="flex:1;min-width:0;font-size:11.5px">${icons[s.sanction_type]||'❔'} ${name}
+        <span style="color:var(--muted)">· ${esc((s.reason||'—').slice(0,48))}</span><br>
+        <span style="font-size:10px;color:var(--muted)">${s.expires_at?('до '+fmtUTC(s.expires_at)):'бессрочно'} · выдал ${esc(s.issued_by_name||'—')}</span>
+      </span>
+      <span style="display:flex;gap:4px;flex:none">
+        <button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="Снять" onclick="doRevokeGlobalSanction(${s.id})">✅</button>
+        ${s.target_type==='user'?`<button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="История дел" onclick="openUserCase(${s.target_id})">📁</button>`:''}
+        ${s.sanction_type!=='warn'?`<button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="Изменить срок" onclick='openGlobalSanctionForm(${JSON.stringify(s.target_type)},${s.target_id},null,_actorSanctionPerms(${JSON.stringify(s.target_type)}))'>✏️</button>`:''}
+      </span>
+    </div>`;
+  }).join('')}</div>`
+  :'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">'+(q||_glbSanctionsType?'Ничего не найдено по фильтру':'Нет активных санкций')+'</div>';
+}
+function filterGlobalSanctions(type) { _glbSanctionsType=type; _renderGlobalSanctions(); }
 function doRevokeGlobalSanction(id) {
   OM('✅ Снять ограничение?','<div style="text-align:center;padding:12px 0;color:var(--muted)">Санкция будет немедленно снята.</div>',
     [{l:'Да, снять',c:'btn-gold',f:`_execRevokeGlobalSanction(${id})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
@@ -785,7 +977,7 @@ function loadGlobalLog() {
             ${d.logs.map(s=>`<tr>
               <td style="font-size:10px;white-space:nowrap">${fmtUTC(s.created_at)||'?'}</td>
               <td style="font-size:11px;font-weight:600">${_SANCTION_LABELS[s.sanction_type]||s.sanction_type}</td>
-              <td style="font-size:11px">${s.target_type==='chat'?'💬':'👤'} ${esc(s.target_name)}</td>
+              <td style="font-size:11px">${(s.target_type==='user'&&gp('dossier_view'))?`<span style="cursor:pointer;text-decoration:underline" onclick="openPlayerCenter(${s.target_id})">👤 ${esc(s.target_name)}</span>`:`${s.target_type==='chat'?'💬':'👤'} ${esc(s.target_name)}`}</td>
               <td style="font-size:11px">${s.issued_by_name}</td>
               <td style="font-size:10px;color:var(--muted)">${esc(s.reason||'—')}</td>
               <td style="font-size:10px">${s.is_active?'<span style="color:var(--green)">Активна</span>':s.revoked_by_name?`<span style="color:var(--muted)">Снята: ${s.revoked_by_name}</span>`:'<span style="color:var(--muted)">Истекла</span>'}</td>
@@ -810,20 +1002,21 @@ function loadGlobalAppeals() {
   el('glb-appeals').innerHTML='<div class="loader">Загрузка...</div>';
   api(`/admin/global/appeals?status=${_glbAppealsStatus}`).then(d=>{
     el('glb-appeals').innerHTML=`
-      <div class="tabs" style="margin-bottom:8px">
-        <button class="tb ${_glbAppealsStatus==='pending'?'active':''}" onclick="filterGlobalAppeals('pending')">⏳ Новые</button>
-        <button class="tb ${_glbAppealsStatus==='accepted'?'active':''}" onclick="filterGlobalAppeals('accepted')">✅ Принятые</button>
-        <button class="tb ${_glbAppealsStatus==='rejected'?'active':''}" onclick="filterGlobalAppeals('rejected')">❌ Отклонённые</button>
+      <div class="tabs tabs-scroll" style="margin-bottom:8px">
+        <button class="tb ${_glbAppealsStatus==='pending'?'active':''}" onclick="filterGlobalAppeals('pending')">⏳ Новые (${(d.counts||{}).pending||0})</button>
+        <button class="tb ${_glbAppealsStatus==='accepted'?'active':''}" onclick="filterGlobalAppeals('accepted')">✅ Принятые (${(d.counts||{}).accepted||0})</button>
+        <button class="tb ${_glbAppealsStatus==='rejected'?'active':''}" onclick="filterGlobalAppeals('rejected')">❌ Отклонённые (${(d.counts||{}).rejected||0})</button>
+        <button class="tb ${_glbAppealsStatus==='closed'?'active':''}" onclick="filterGlobalAppeals('closed')">📪 Закрытые (${(d.counts||{}).closed||0})</button>
       </div>
       ${d.appeals.length?d.appeals.map(a=>`<div class="card">
-        <div class="irow"><span class="ik">От</span><span class="iv">${a.user_name}</span></div>
+        <div class="irow"><span class="ik">От</span><span class="iv">${gp('dossier_view')?`<span style="cursor:pointer;text-decoration:underline" onclick="openPlayerCenter(${a.user_id})">${a.user_name}</span>`:a.user_name}</span></div>
         <div class="irow"><span class="ik">Санкция</span><span style="font-size:11px">${_SANCTION_LABELS[a.sanction_type]||'?'}${a.sanction_active===false?' (уже снята)':''}</span></div>
         <div class="irow"><span class="ik">Причина санкции</span><span style="font-size:11px">${esc(a.sanction_reason||'—')}</span></div>
         <div style="margin:6px 0;padding:8px;background:var(--dim);border-radius:6px;font-size:12px">${esc(a.text)}</div>
         <div class="irow"><span class="ik">Когда</span><span style="font-size:11px">${fmtUTC(a.created_at)}</span></div>
         ${a.status==='pending'?`<div style="display:flex;gap:6px;margin-top:6px">
           <button class="btn btn-sm btn-teal" style="flex:1" onclick="openAppealThread(${a.id})">💬 Диалог</button>
-          <button class="btn btn-sm btn-gold" style="flex:1" onclick="doResolveAppeal(${a.id},'accept')">✅ Снять санкцию</button>
+          <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doResolveAppeal(${a.id},'accept')">✅ Снять санкцию</button>
           <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doResolveAppeal(${a.id},'reject')">❌ Отклонить</button>
         </div>`:`<div class="irow"><span class="ik">Решение</span><span style="font-size:11px">${a.status==='accepted'?'✅ Принята':a.status==='closed'?'📪 Закрыта':'❌ Отклонена'}${a.resolved_by_name?' · '+a.resolved_by_name:''}</span></div>
         <button class="btn btn-sm btn-ghost btn-full" style="margin-top:4px" onclick="openAppealThread(${a.id})">💬 Показать диалог</button>`}
@@ -847,25 +1040,88 @@ function _execResolveAppeal(id, action) {
 }
 
 // 5. Управление штатом ────────────────────────────────────────────────────────────────
+// БЛОК 21.2 (Штат 2.0): список штата с активностью + гибкая матрица прав рангов.
 function loadGlobalRanksTab() {
-  el('glb-ranks').innerHTML=`
-    <div class="card">
-      <div class="card-title">👮 Назначить ранг</div>
-      <input id="glb-rank-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя"/>
-      <select id="glb-rank-sel" class="num-input" style="margin-bottom:6px">
-        <option value="0">👤 Снять (Пользователь)</option>
-        <option value="1">🛡 Хелпер</option>
-        <option value="2">⚔️ Старший хелпер</option>
-      </select>
-      <button class="btn btn-gold btn-full" onclick="doSetGlobalRank()">Сохранить</button>
-    </div>`;
+  el('glb-ranks').innerHTML='<div class="loader">Загрузка...</div>';
+  Promise.all([api('/admin/global/ranks'), api('/admin/global/permissions')]).then(([sd,sp])=>{
+    const staff=sd.staff||[];
+    const staffHtml=staff.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
+      <span style="flex:1;min-width:0;${gp('dossier_view')&&s.global_rank<3?'cursor:pointer':''}" ${gp('dossier_view')&&s.global_rank<3?`onclick="openPlayerCenter(${s.user_tg_id})"`:''}>
+        <span style="font-size:12px;font-weight:600;color:var(--bright)">@${esc(s.user_tg_username||('ID'+s.user_tg_id))}</span><br>
+        <span style="font-size:10px;color:var(--muted)">${esc(s.rank_name)} · за 30д: ⚡${s.sanctions_30d||0} санкц. · ⚖️${s.appeals_30d||0} апелл.</span>
+      </span>
+      ${s.global_rank<3?`<select class="num-input" style="width:auto;margin:0;font-size:11px" onchange="doSetGlobalRankFor(${s.user_tg_id},this.value)">
+        <option value="1" ${s.global_rank===1?'selected':''}>🛡 Хелпер</option>
+        <option value="2" ${s.global_rank===2?'selected':''}>⚔️ Ст. хелпер</option>
+        <option value="0">❌ Снять</option>
+      </select>`:`<span style="font-size:11px;color:var(--gold2)">🌌</span>`}
+    </div>`).join('')||'<div style="font-size:11px;color:var(--muted)">Штат пуст — назначьте первого хелпера ниже.</div>';
+    el('glb-ranks').innerHTML=`
+      <div class="card"><div class="card-title">👮 Штат (${staff.length})</div>${staffHtml}</div>
+      <div class="card">
+        <div class="card-title">➕ Назначить ранг</div>
+        <input id="glb-rank-uid" type="number" class="num-input" style="margin-bottom:6px" placeholder="ID пользователя (найти: Консоль → 🔍)"/>
+        <select id="glb-rank-sel" class="num-input" style="margin-bottom:6px">
+          <option value="1">🛡 Хелпер</option>
+          <option value="2">⚔️ Старший хелпер</option>
+          <option value="0">👤 Снять (Пользователь)</option>
+        </select>
+        <button class="btn btn-gold btn-full" onclick="doSetGlobalRank()">Сохранить</button>
+      </div>
+      <div class="card">
+        <div class="card-title">🔐 Права рангов</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px">
+          Тумблер = у ранга есть право. 🔒 — только Разработчик, не настраивается.
+          ↩ у изменённых — вернуть дефолт. Права действуют и на сайте, и на бот-команды «глоб …».
+        </div>
+        <div style="display:flex;font-size:10px;color:var(--muted);gap:8px;justify-content:flex-end;padding-right:2px">
+          <span style="width:52px;text-align:center">🛡 1</span><span style="width:52px;text-align:center">⚔️ 2</span>
+        </div>
+        <div id="glb-perm-matrix"></div>
+      </div>`;
+    _renderPermMatrix(sp);
+  }).catch(e=>{el('glb-ranks').innerHTML=`<div class="err">${e}</div>`;});
+}
+function _renderPermMatrix(pd) {
+  const box=el('glb-perm-matrix'); if(!box||!pd) return;
+  const items=pd.items||[];
+  box.innerHTML=(pd.groups||[]).map(g=>{
+    const rows=items.filter(i=>i.group===g);
+    if(!rows.length) return '';
+    return `<div style="font-size:10px;font-weight:700;color:var(--gold2);margin:8px 0 2px;text-transform:uppercase">${esc(g)}</div>`
+      + rows.map(i=>{
+        const cell=(rank,on,ov)=>i.locked
+          ? `<span style="width:52px;text-align:center;font-size:13px;opacity:.6">🔒</span>`
+          : `<span style="width:52px;display:inline-flex;align-items:center;justify-content:center;gap:2px">
+              <label class="dev-flag-toggle" style="margin:0" title="${esc(i.key)}">
+                <input type="checkbox" ${on?'checked':''} onchange="devSetRankPerm(${rank},'${i.key}',this.checked)"/>
+                <span class="dev-flag-slider"></span>
+              </label>
+              ${ov?`<span style="cursor:pointer;font-size:11px;color:var(--gold2)" title="Изменён дефолт — клик вернёт" onclick="devSetRankPerm(${rank},'${i.key}',null)">↩</span>`:''}
+            </span>`;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--border2)">
+          <span style="flex:1;min-width:0;font-size:11.5px">${esc(i.label)}</span>
+          ${cell(1,i.rank1,i.rank1_override)}${cell(2,i.rank2,i.rank2_override)}
+        </div>`;
+      }).join('');
+  }).join('');
+}
+function devSetRankPerm(rank, key, allowed) {
+  api('/admin/global/permissions',{method:'POST',body:JSON.stringify({rank,key,allowed})})
+    .then(d=>{toast(allowed===null?'↩ Дефолт восстановлен':'💾 Право обновлено');_renderPermMatrix(d);})
+    .catch(e=>{toast(e,false);loadGlobalRanksTab();});
+}
+function doSetGlobalRankFor(uid, rank) {
+  api('/admin/global/ranks',{method:'POST',body:JSON.stringify({user_id:uid,global_rank:parseInt(rank)})})
+    .then(r=>{toast(`✅ ${r.rank_name}`);loadGlobalRanksTab();})
+    .catch(e=>{toast(e,false);loadGlobalRanksTab();});
 }
 function doSetGlobalRank() {
   const uid=parseInt(el('glb-rank-uid')?.value||'0');
   const rank=parseInt(el('glb-rank-sel')?.value||'0');
   if(!uid) return toast('Укажите ID пользователя',false);
   api('/admin/global/ranks',{method:'POST',body:JSON.stringify({user_id:uid,global_rank:rank})})
-    .then(r=>toast(`✅ Назначено: ${r.rank_name}`))
+    .then(r=>{toast(`✅ Назначено: ${r.rank_name}`);loadGlobalRanksTab();})
     .catch(e=>toast(e,false));
 }
 

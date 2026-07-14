@@ -194,11 +194,234 @@ const MOCKS = {
     { user_tg_id: 5, username: 'sunny', nickname: null, count: 5410, is_vip: false },
   ],
 
-  // ── Глобальная модерация ──
-  'GET /admin/global/chats': { chats: [
-    { chat_id: -100111, chat_title: 'Предвестники Ночи', role: 'main', member_count: 214 },
-    { chat_id: -100222, chat_title: 'Тайный Орден', role: 'admin', member_count: 37, linked_title: 'Предвестники Ночи' },
+  // ── Глобальная модерация (объёмы «наплыва» — для аудита UI под нагрузкой) ──
+  // БЛОК 21.2: my-permissions (фронт строит вкладки по правам), матрица прав, штат.
+  'GET /admin/global/my-permissions': { rank: 3, rank_name: '🌌 Главный разработчик', perms: [
+    'sanction_warn_user', 'sanction_restrict_user', 'sanction_ban_user',
+    'sanction_warn_chat', 'sanction_restrict_chat', 'sanction_ban_chat',
+    'appeals_view', 'appeals_reply', 'appeals_resolve', 'appeals_close',
+    'members_view', 'sanctions_view', 'log_view', 'chats_view_all',
+    'dossier_view', 'user_search', 'local_actions_any_chat',
+    'economy_balance', 'economy_items', 'economy_vip', 'promo_manage', 'log_admin_view',
+    'bp_manage', 'themes_manage', 'console_overview', 'metrics_view',
+    'flags_manage', 'modules_manage', 'broadcast_send', 'sql_run', 'staff_manage',
   ] },
+  'GET /admin/global/permissions': {
+    groups: ['🚨 Санкции', '📨 Апелляции', '🌐 Сеть чатов', '👤 Игроки и досье', '💰 Экономика', '🎫 Контент', '🖥 Система'],
+    items: [
+      { key: 'sanction_warn_user', label: '⚠️ Варн игроку', group: '🚨 Санкции', default: 1, locked: false, rank1: true, rank2: true, rank1_override: false, rank2_override: false },
+      { key: 'sanction_restrict_user', label: '🔇 Ограничение игроку', group: '🚨 Санкции', default: 2, locked: false, rank1: false, rank2: true, rank1_override: false, rank2_override: false },
+      { key: 'sanction_ban_user', label: '🚫 Бан игроку', group: '🚨 Санкции', default: 3, locked: false, rank1: false, rank2: true, rank1_override: false, rank2_override: true },
+      { key: 'appeals_view', label: '📨 Видеть апелляции и диалоги', group: '📨 Апелляции', default: 1, locked: false, rank1: true, rank2: true, rank1_override: false, rank2_override: false },
+      { key: 'appeals_resolve', label: '⚖️ Принимать/отклонять апелляции', group: '📨 Апелляции', default: 1, locked: false, rank1: false, rank2: true, rank1_override: true, rank2_override: false },
+      { key: 'members_view', label: '👥 Списки чатов и участников', group: '🌐 Сеть чатов', default: 1, locked: false, rank1: true, rank2: true, rank1_override: false, rank2_override: false },
+      { key: 'chats_view_all', label: '🌐 Видеть ВСЕ чаты бота', group: '🌐 Сеть чатов', default: 3, locked: false, rank1: false, rank2: false, rank1_override: false, rank2_override: false },
+      { key: 'dossier_view', label: '🔎 Центр игрока (досье)', group: '👤 Игроки и досье', default: 3, locked: false, rank1: false, rank2: true, rank1_override: false, rank2_override: true },
+      { key: 'user_search', label: '🔍 Глобальный поиск игроков', group: '👤 Игроки и досье', default: 3, locked: false, rank1: false, rank2: false, rank1_override: false, rank2_override: false },
+      { key: 'economy_balance', label: '💰 Править балансы игроков', group: '💰 Экономика', default: 3, locked: false, rank1: false, rank2: false, rank1_override: false, rank2_override: false },
+      { key: 'bp_manage', label: '🎫 Боевой пропуск', group: '🎫 Контент', default: 3, locked: false, rank1: false, rank2: false, rank1_override: false, rank2_override: false },
+      { key: 'sql_run', label: '🖥 SQL-консоль', group: '🖥 Система', default: 3, locked: true, rank1: false, rank2: false, rank1_override: false, rank2_override: false },
+      { key: 'staff_manage', label: '👮 Штат и настройка прав', group: '🖥 Система', default: 3, locked: true, rank1: false, rank2: false, rank1_override: false, rank2_override: false },
+    ],
+  },
+  'POST /admin/global/permissions': { ok: true, groups: [], items: [] },
+  'GET /admin/global/ranks': { staff: [
+    { user_tg_id: 1460945748, user_tg_username: 'star_seeker', global_rank: 3, rank_name: '🌌 Главный разработчик', sanctions_30d: 18, appeals_30d: 9, last_sanction_at: '2026-07-13 21:14:00' },
+    { user_tg_id: 2, user_tg_username: 'moon_witch', global_rank: 2, rank_name: '⚔️ Старший хелпер', sanctions_30d: 7, appeals_30d: 3, last_sanction_at: '2026-07-12 10:00:00' },
+    { user_tg_id: 77, user_tg_username: 'helper_one', global_rank: 1, rank_name: '🛡 Хелпер', sanctions_30d: 2, appeals_30d: 0, last_sanction_at: null },
+  ] },
+  'GET /admin/dev/user-search': (u) => {
+    const q = (u.searchParams.get('q') || '').toLowerCase();
+    const all = [
+      { user_tg_id: 2005, user_tg_username: 'crystal_5', nickname: 'Кристалл', global_rank: 0, global_rank_name: '👤 Пользователь', mora: 342100, zarniki: 20, is_vip: false, has_sanction: true },
+      { user_tg_id: 2, user_tg_username: 'moon_witch', nickname: 'Лунная Ведьма', global_rank: 2, global_rank_name: '⚔️ Старший хелпер', mora: 88000, zarniki: 310, is_vip: true, has_sanction: false },
+      { user_tg_id: 3, user_tg_username: 'grimm', nickname: null, global_rank: 0, global_rank_name: '👤 Пользователь', mora: 15200, zarniki: 0, is_vip: false, has_sanction: false },
+      { user_tg_id: 2001, user_tg_username: 'spam_lord_1', nickname: null, global_rank: 0, global_rank_name: '👤 Пользователь', mora: 900, zarniki: 0, is_vip: false, has_sanction: true },
+    ];
+    return { results: all.filter(r => !q || (r.user_tg_username || '').includes(q) || (r.nickname || '').toLowerCase().includes(q) || String(r.user_tg_id).startsWith(q)) };
+  },
+  'GET /admin/dev/dm-check': { dm_ok: true, hint: null },
+  'GET /admin/global/chats': { view_all: true, chats: [
+    { chat_id: -100111, chat_title: 'Предвестники Ночи', role: 'main', member_count: 214, linked_title: 'Тайный Орден', is_member: true, warned_count: 3, chat_sanctioned: false },
+    { chat_id: -100222, chat_title: 'Тайный Орден', role: 'admin', member_count: 37, linked_title: 'Предвестники Ночи', is_member: true, warned_count: 0, chat_sanctioned: false },
+    { chat_id: -100333, chat_title: 'Логово Дракона', role: 'main', member_count: 158, is_member: false, warned_count: 12, chat_sanctioned: false },
+    { chat_id: -100444, chat_title: 'Культ Бездны', role: 'plain', member_count: 96, is_member: false, warned_count: 7, chat_sanctioned: true },
+    { chat_id: -100555, chat_title: 'Звёздный Совет', role: 'main', member_count: 412, linked_title: 'Совет · админка', is_member: true, warned_count: 1, chat_sanctioned: false },
+    { chat_id: -100666, chat_title: 'Совет · админка', role: 'admin', member_count: 12, linked_title: 'Звёздный Совет', is_member: true, warned_count: 0, chat_sanctioned: false },
+    { chat_id: -100777, chat_title: 'Око Ночи', role: 'plain', member_count: 51, is_member: false, warned_count: 0, chat_sanctioned: false },
+    { chat_id: -100888, chat_title: 'Гильдия Рассвета', role: 'plain', member_count: 233, is_member: false, warned_count: 4, chat_sanctioned: false },
+    { chat_id: -100999, chat_title: 'Северный Чертог', role: 'plain', member_count: 74, is_member: false, warned_count: 0, chat_sanctioned: false },
+  ] },
+  'GET /admin/global/chats/-100111/members': {
+    total: 214, page: 1, page_size: 20, can_warn: true, can_restrict: true, can_ban: true,
+    members: Array.from({ length: 20 }, (_, i) => ({
+      user_tg_id: 1000 + i,
+      user_tg_username: ['moon_witch', 'grimm', 'night_raven', 'sunny', 'void_walker', 'ash_knight', 'tide_maiden', 'rock_ward', 'owl_luna', 'pooh_ham'][i % 10] + (i >= 10 ? '_' + i : ''),
+      is_vip: i % 5 === 0, user_level: 34 - i, global_rank: 0, global_rank_name: 'Пользователь',
+      user_messages_count_all_time: 21450 - i * 900, joined_at: '2026-0' + ((i % 6) + 1) + '-12 10:00:00',
+      last_message_at: '2026-07-1' + (i % 4) + ' 0' + (i % 9) + ':15:00',
+      can_warn: true, can_restrict: true, can_ban: true,
+    })),
+  },
+  'GET /admin/global/sanctions': (u) => {
+    const t = u.searchParams.get('type');
+    const types = ['warn', 'restrict', 'ban'];
+    const reasons = ['спам-реклама сторонних ботов', 'оскорбления модерации', 'мультиаккаунт (абуз рефералки)',
+      'слив закрытых наград ивента', 'попытка скупки за реал', 'NSFW в общем чате', 'токсичность после 3 предупреждений'];
+    const all = Array.from({ length: 25 }, (_, i) => ({
+      id: 300 - i, sanction_type: types[i % 3], target_type: i % 6 === 5 ? 'chat' : 'user',
+      target_id: i % 6 === 5 ? -100444 : 2000 + i,
+      target_name: i % 6 === 5 ? 'Культ Бездны' : '@' + ['dark_fox', 'spam_lord', 'x_hunter', 'nagibator', 'crystal', 'wolf_77'][i % 6] + '_' + i,
+      reason: reasons[i % 7], issued_by_name: i % 4 === 0 ? '@star_seeker' : '@helper_one',
+      expires_at: i % 3 === 2 ? null : '2026-07-2' + (i % 9) + ' 12:00:00',
+      created_at: '2026-07-1' + (i % 4) + ' 0' + (i % 9) + ':30:00', is_active: true, revoked_by_name: null,
+    }));
+    return { sanctions: t ? all.filter(s => s.sanction_type === t) : all };
+  },
+  'GET /admin/global/log': {
+    total: 137, page: 1, page_size: 25,
+    logs: Array.from({ length: 25 }, (_, i) => ({
+      id: 300 - i, sanction_type: ['warn', 'restrict', 'ban'][i % 3], target_type: 'user',
+      target_name: '@' + ['dark_fox', 'spam_lord', 'x_hunter'][i % 3] + '_' + i,
+      issued_by_name: i % 4 ? '@helper_one' : '@star_seeker', reason: i % 5 ? 'спам-реклама' : 'оскорбления',
+      created_at: '2026-07-' + String(13 - (i % 10)).padStart(2, '0') + ' 14:0' + (i % 9) + ':00',
+      is_active: i < 8, revoked_by_name: i >= 8 && i % 2 ? '@star_seeker' : null,
+    })),
+  },
+  'GET /admin/global/appeals': (u) => {
+    const st = u.searchParams.get('status') || 'pending';
+    const mk = (id, status, extra) => ({
+      id, user_name: '@repentant_' + id, sanction_type: ['ban', 'restrict', 'warn'][id % 3],
+      sanction_active: true, sanction_reason: 'спам-реклама сторонних ботов',
+      text: 'Здравствуйте! Это недоразумение — аккаунт взломали, рекламу слал не я. Готов подтвердить скриншотами. Прошу пересмотреть.',
+      created_at: '2026-07-1' + (id % 4) + ' 09:1' + (id % 9) + ':00', status, ...extra,
+    });
+    if (st === 'pending') return { appeals: Array.from({ length: 8 }, (_, i) => mk(50 + i, 'pending', {})) };
+    if (st === 'accepted') return { appeals: [mk(31, 'accepted', { resolved_by_name: '@star_seeker' })] };
+    return { appeals: [mk(29, 'rejected', { resolved_by_name: '@helper_one' })] };
+  },
+  'GET /admin/global/user-case/2005': {
+    username: 'crystal_5',
+    sanctions: [
+      { id: 295, sanction_type: 'ban', reason: 'попытка скупки за реал', revoked_at: null, expires_at: null, photos_json: '[]' },
+      { id: 210, sanction_type: 'warn', reason: 'реклама в ЛС участникам', revoked_at: '2026-06-02', expires_at: null, photos_json: '[]' },
+    ],
+    appeals: [{ id: 51, status: 'pending' }],
+  },
+
+  // ── Консоль разработчика ──
+  'GET /admin/dev/overview': {
+    users_total: 1841, chats_total: 23, messages_today: 4120, vips_active: 37,
+    appeals_pending: 8, sanctions_active: 25,
+    mora_total: 48213400, diamonds_total: 9120.5, zarniki_total: 184230,
+    bp_season: { id: 's2', label: 'Сезон 2 — Кровавая Луна', ends_at: '2026-08-31' },
+  },
+  'GET /admin/dev/flags': { flags: [
+    { key: 'module_global_gacha', label: '🎰 Гача (глобально)', enabled: true },
+    { key: 'module_global_auction', label: '🏛 Аукцион (глобально)', enabled: true },
+    { key: 'module_global_exchange', label: '📈 Биржа (глобально)', enabled: true },
+    { key: 'module_global_duels', label: '⚔️ Дуэли (глобально)', enabled: false },
+    { key: 'module_global_events', label: '🎪 Ивенты (глобально)', enabled: true },
+    { key: 'module_global_payments', label: '💳 Платежи Stars', enabled: true },
+  ] },
+  'GET /admin/dev/chats': { chats: [
+    { chat_id: -100111, title: 'Предвестники Ночи', role: 'main', linked_title: 'Тайный Орден' },
+    { chat_id: -100222, title: 'Тайный Орден', role: 'admin', linked_title: 'Предвестники Ночи' },
+    { chat_id: -100333, title: 'Логово Дракона', role: 'main' },
+    { chat_id: -100444, title: 'Культ Бездны', role: 'plain' },
+    { chat_id: -100555, title: 'Звёздный Совет', role: 'main', linked_title: 'Совет · админка' },
+  ] },
+  'GET /admin/dev/chat-members': { members: Array.from({ length: 12 }, (_, i) => ({
+    user_tg_id: 2000 + i, username: ['dark_fox', 'spam_lord', 'x_hunter', 'nagibator', 'crystal', 'wolf_77'][i % 6] + '_' + i,
+    user_level: 25 - i, msgs: 9000 - i * 640,
+  })) },
+  'GET /admin/dev/user': {
+    user_tg_id: 2005, user_tg_username: 'crystal_5', global_rank: 0, global_rank_name: '👤 Пользователь',
+    mora: 342100, diamonds: 18.5, dark_mora: 90, zarniki: 20, active_theme: 'starfall',
+    vip: { tier: 'silver', active: false, expires_at: '2026-05-01 00:00:00', started_at: '2026-04-01 00:00:00', days_left: 0, span_days: 30, total_days: 61 },
+    battle_pass: { season: 's2', xp: 1240, level: 13 },
+    chats: [
+      { chat_tg_id: -100111, chat_title: 'Предвестники Ночи', local_rank: 0, rank_name: '👤 Участник', user_level: 21, user_messages_count_all_time: 8033, warnings: 2, is_left: false, role: 'main', group_key: 'g1' },
+      { chat_tg_id: -100222, chat_title: 'Тайный Орден', local_rank: 0, rank_name: '👤 Участник', user_level: 3, user_messages_count_all_time: 120, warnings: 0, is_left: false, role: 'admin', group_key: 'g1' },
+      { chat_tg_id: -100444, chat_title: 'Культ Бездны', local_rank: 0, rank_name: '👤 Участник', user_level: 9, user_messages_count_all_time: 1420, warnings: 1, is_left: true, role: 'plain', group_key: 'g2' },
+    ],
+    sanctions: [{ id: 295, sanction_type: 'ban', reason: 'попытка скупки за реал', expires_at: null }],
+    sanctions_all: [
+      { id: 295, sanction_type: 'ban', reason: 'попытка скупки за реал', expires_at: null, created_at: '2026-07-10 12:00:00', revoked_at: null, issued_by: 1460945748, issued_by_name: 'star_seeker', active: true },
+      { id: 210, sanction_type: 'warn', reason: 'реклама в ЛС участникам', expires_at: null, created_at: '2026-05-28 09:00:00', revoked_at: '2026-06-02 10:00:00', issued_by: 77, issued_by_name: 'helper_one', active: false },
+      { id: 118, sanction_type: 'restrict', reason: 'абуз обменника', expires_at: '2026-04-01 00:00:00', created_at: '2026-03-25 15:00:00', revoked_at: null, issued_by: 1460945748, issued_by_name: 'star_seeker', active: false },
+    ],
+    appeals: [
+      { id: 51, sanction_id: 295, status: 'pending', created_at: '2026-07-12 09:11:00' },
+      { id: 29, sanction_id: 118, status: 'rejected', created_at: '2026-03-26 11:00:00' },
+    ],
+    grant_log: [
+      { action: 'balance', detail: '🪙 Мора', amount: -50000, reason: 'откат абуза биржи', created_at: '2026-07-13 21:14:00', admin_name: 'star_seeker' },
+      { action: 'item', detail: '🎟 Жетон крутки', amount: 3, reason: 'компенсация бага', created_at: '2026-07-01 10:00:00', admin_name: 'star_seeker' },
+    ],
+    mod_log: [
+      { chat_id: -100111, chat_title: 'Предвестники Ночи', action: 'warn', reason: 'флуд', created_at: '2026-07-11 20:30:00', admin_name: 'moon_witch' },
+      { chat_id: -100111, chat_title: 'Предвестники Ночи', action: 'mute', reason: 'оскорбления', created_at: '2026-07-09 18:12:00', admin_name: 'moon_witch' },
+    ],
+    last_seen: { at: '2026-07-13 22:40:00', chat_title: 'Предвестники Ночи' },
+    inventory: [
+      { item_id: 'food_apple', quantity: 14, name: '🍎 Яблоко' }, { item_id: 'food_meat', quantity: 3, name: '🍖 Мясо' },
+      { item_id: 'spin_token_mora', quantity: 7, name: '🎟 Жетон крутки' }, { item_id: 'gacha_luck', quantity: 2, name: '🍀 Зелье удачи' },
+      { item_id: 'exp_boost_2h', quantity: 1, name: '⏩ Ускоритель похода' },
+    ],
+  },
+  'GET /admin/dev/admin-log': { log: [
+    { created_at: '2026-07-13 21:14:00', admin_id: 1460945748, admin_name: 'star_seeker', target_id: 2005, target_name: 'crystal_5', action: 'balance', detail: '🪙 Мора', amount: -50000, before_val: 392100, after_val: 342100, reason: 'откат абуза биржи' },
+    { created_at: '2026-07-13 20:02:00', admin_id: 1460945748, admin_name: 'star_seeker', target_id: 2001, target_name: 'spam_lord_1', action: 'give_item', detail: '🎟 Жетон крутки', amount: 3, before_val: 0, after_val: 3, reason: 'компенсация бага гачи' },
+    { created_at: '2026-07-12 18:40:00', admin_id: 1460945748, admin_name: 'star_seeker', target_id: 0, action: 'sql_mutation', detail: 'UPDATE users SET user_balance_mora=... WHERE user_tg_id=2001' },
+    { created_at: '2026-07-12 15:11:00', admin_id: 1460945748, admin_name: 'star_seeker', target_id: 2010, target_name: 'wolf_77_4', action: 'balance', detail: '💎 Алмазы', amount: 5, before_val: 0, after_val: 5, reason: '' },
+    { created_at: '2026-07-11 12:00:00', admin_id: 1460945748, admin_name: 'star_seeker', target_id: 0, action: 'season_upsert', detail: 's2 · Сезон 2 — Кровавая Луна' },
+  ] },
+  'GET /admin/dev/analytics': {
+    dau: 214, wau: 619, mau: 1204,
+    top_tabs: [
+      { tab: 'profile', views: 4820, users: 201, avg_dwell_sec: 74 }, { tab: 'zoo', views: 3110, users: 188, avg_dwell_sec: 122 },
+      { tab: 'market', views: 2470, users: 164, avg_dwell_sec: 96 }, { tab: 'arena', views: 1980, users: 141, avg_dwell_sec: 210 },
+      { tab: 'bp', views: 940, users: 96, avg_dwell_sec: 48 }, { tab: 'admin', views: 320, users: 18, avg_dwell_sec: 260 },
+    ],
+    top_subtabs: [
+      { tab: 'market/gacha', views: 1710, users: 130, avg_dwell_sec: 84 }, { tab: 'profile/inv', views: 1320, users: 150, avg_dwell_sec: 40 },
+      { tab: 'arena/gates', views: 880, users: 92, avg_dwell_sec: 190 },
+    ],
+    daily: Array.from({ length: 14 }, (_, i) => ({ date: '2026-07-' + String(i + 1).padStart(2, '0'), sessions: 300 + i * 12, users: 150 + i * 6 })),
+  },
+  'GET /admin/dev/bp/seasons': { frozen: false, seasons: [
+    { id: 's1', label: 'Сезон 1 — Пробуждение', active: false, starts_at: '2026-04-01', ends_at: '2026-06-30', source: 'registry' },
+    { id: 's2', label: 'Сезон 2 — Кровавая Луна', active: true, starts_at: '2026-07-01', ends_at: '2026-08-31', source: 'db' },
+  ] },
+  'GET /admin/dev/bp/rewards': { season_id: 's2', rewards: Array.from({ length: 20 }, (_, i) => {
+    const level = Math.floor(i / 2) + 1, track = i % 2 ? 'paid' : 'free';
+    return { level, track, mora: track === 'paid' ? level * 900 : level * 300, diamonds: track === 'paid' && level % 3 === 0 ? 5 : 0,
+      items: level % 4 === 0 ? [['spin_token_mora', 1]] : [], source: level % 5 === 0 ? 'db' : 'registry' };
+  }) },
+  'GET /admin/dev/bp/cosmetics-catalog': {},
+  'GET /admin/dev/bp/xp-actions': { xp_per_level: 100, weekend_boost_pct: 25, actions: [
+    { metric: 'messages', label: 'Сообщения в чате', weight: 2, daily_cap: 120, enabled: true, is_override: false },
+    { metric: 'gacha_spins', label: 'Крутки гачи', weight: 10, daily_cap: 100, enabled: true, is_override: true },
+    { metric: 'expedition_done', label: 'Завершённые походы', weight: 25, daily_cap: 0, enabled: true, is_override: false },
+    { metric: 'duel_wins', label: 'Победы в дуэлях', weight: 30, daily_cap: 150, enabled: false, is_override: true },
+    { metric: 'quest_done', label: 'Выполненные квесты', weight: 20, daily_cap: 0, enabled: true, is_override: false },
+  ] },
+  'GET /admin/dev/broadcast/audience-counts': { main: 14, admin: 9, main_admin: 23, dm_admin: 251, dm: 242, all: 265 },
+  'GET /admin/dev/promocodes': { promocodes: [
+    { code: 'LUNA2026', is_active: true, activations_count: 141, max_activations: 500, valid_until: '2026-08-01 00:00' },
+    { code: 'SORRY-GACHA', is_active: true, activations_count: 89, max_activations: 0, valid_until: null },
+    { code: 'START30', is_active: false, activations_count: 500, max_activations: 500, valid_until: null },
+    { code: 'VIP-COMP', is_active: true, activations_count: 4, max_activations: 20, valid_until: '2026-07-20 00:00' },
+  ] },
+  'GET /admin/dev/items': { items: [
+    { item_id: 'food_apple', name: '🍎 Яблоко', category: 'food', description: '+20 усталости' },
+    { item_id: 'food_meat', name: '🍖 Мясо', category: 'food', description: '+50 усталости' },
+    { item_id: 'spin_token_mora', name: '🎟 Жетон крутки', category: 'utility', description: 'Бесплатная крутка' },
+    { item_id: 'gacha_luck', name: '🍀 Зелье удачи', category: 'booster', description: '+15% к шансу' },
+  ] },
+  'GET /admin/dev/theme-templates': { templates: [] },
+  'GET /admin/dev/chat-modules/-100111': { modules: { module_shop: 1, module_gacha: 1, module_expeditions: 1, module_auction: 0, module_games: 1, module_exchange: 1, module_quests: 1, module_zoo: 1, module_warps: 0, module_daily_deal: 1 } },
 
   // ── Темы чата ──
   'GET /themes/': [

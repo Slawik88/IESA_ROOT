@@ -10,10 +10,13 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import (get_db, require_tg_user, check_global_perm,
+                          check_global_perm_any, _actor_global_rank)
 from infrastructure.repositories import global_moderation as gm_repo
+from infrastructure.repositories import global_permissions as perm_repo
 from infrastructure.repositories import users as users_repo
 from services import global_moderation as gmod
+from services import global_permissions as gperm_svc
 from services.roles import GLOBAL_RANKS_MAP, LOCAL_RANKS_MAP, DEVELOPER_GLOBAL_RANK
 
 router = APIRouter(prefix="/admin/global", tags=["global_admin"])
@@ -178,23 +181,49 @@ async def _enrich_appeals(db, rows: list[dict]) -> list[dict]:
 # ── 1. Все чаты ────────────────────────────────────────────────────────────────
 @router.get("/chats")
 async def global_chats(db=Depends(get_db), user=Depends(require_tg_user)):
-    actor_rank = await _require_global(db, user["id"])
-    # Только реальные группы (chat_id<0, есть название), где сам модератор СОСТОИТ —
-    # чтобы не вываливать сотни чужих чатов и не показывать «фантомные чаты-цифры».
-    async with db.execute(
-        "SELECT cs.chat_id, COALESCE(cs.chat_title, CAST(cs.chat_id AS TEXT)) AS chat_title, "
-        "lk.admin_chat_id, "
+    actor_rank = await check_global_perm(db, user["id"], "members_view")
+    # БЛОК 21.2 W1.1: с правом chats_view_all (дефолт — ранг 3) видны ВСЕ группы
+    # бота с меткой членства и счётчиками; иначе — только группы, где актор состоит
+    # (как раньше: не вываливать хелперам сотни чужих чатов).
+    view_all = await gperm_svc.has_perm(db, actor_rank, "chats_view_all")
+    counters = (
         "(SELECT COUNT(*) FROM user_chat_stats u2 WHERE u2.chat_tg_id = cs.chat_id "
-        "AND u2.local_rank = 0 AND u2.is_left = FALSE) AS member_count "
-        "FROM chat_settings cs "
-        "JOIN user_chat_stats ucs ON ucs.chat_tg_id = cs.chat_id "
-        "  AND ucs.user_tg_id = ? AND ucs.is_left = FALSE "
-        "LEFT JOIN chat_links lk ON lk.main_chat_id = cs.chat_id "
-        "WHERE cs.chat_id < 0 AND cs.chat_title IS NOT NULL "
-        "ORDER BY cs.chat_title",
-        (user["id"],),
-    ) as c:
+        "AND u2.local_rank = 0 AND u2.is_left = FALSE) AS member_count, "
+        "(SELECT COUNT(*) FROM user_chat_stats w WHERE w.chat_tg_id = cs.chat_id "
+        "AND w.warnings > 0 AND w.is_left = FALSE) AS warned_count, "
+        "EXISTS(SELECT 1 FROM global_sanctions g WHERE g.target_type = 'chat' "
+        "AND g.target_id = cs.chat_id AND g.revoked_at IS NULL "
+        "AND (g.expires_at IS NULL OR g.expires_at > NOW())) AS chat_sanctioned "
+    )
+    if view_all:
+        query = (
+            "SELECT cs.chat_id, COALESCE(cs.chat_title, CAST(cs.chat_id AS TEXT)) AS chat_title, "
+            "lk.admin_chat_id, "
+            "EXISTS(SELECT 1 FROM user_chat_stats me WHERE me.chat_tg_id = cs.chat_id "
+            "AND me.user_tg_id = ? AND me.is_left = FALSE) AS is_member, "
+            + counters +
+            "FROM chat_settings cs "
+            "LEFT JOIN chat_links lk ON lk.main_chat_id = cs.chat_id "
+            "WHERE cs.chat_id < 0 AND cs.chat_title IS NOT NULL "
+            "ORDER BY cs.chat_title"
+        )
+    else:
+        query = (
+            "SELECT cs.chat_id, COALESCE(cs.chat_title, CAST(cs.chat_id AS TEXT)) AS chat_title, "
+            "lk.admin_chat_id, TRUE AS is_member, "
+            + counters +
+            "FROM chat_settings cs "
+            "JOIN user_chat_stats ucs ON ucs.chat_tg_id = cs.chat_id "
+            "  AND ucs.user_tg_id = ? AND ucs.is_left = FALSE "
+            "LEFT JOIN chat_links lk ON lk.main_chat_id = cs.chat_id "
+            "WHERE cs.chat_id < 0 AND cs.chat_title IS NOT NULL "
+            "ORDER BY cs.chat_title"
+        )
+    async with db.execute(query, (user["id"],)) as c:
         rows = [dict(r) for r in await c.fetchall()]
+    for r in rows:
+        r["is_member"] = bool(r["is_member"])
+        r["chat_sanctioned"] = bool(r["chat_sanctioned"])
 
     chat_ids = [r["chat_id"] for r in rows]
     serves: dict = {}
@@ -222,7 +251,7 @@ async def global_chats(db=Depends(get_db), user=Depends(require_tg_user)):
             r["role"] = "main"; r["linked_title"] = titles.get(r["admin_chat_id"])
         else:
             r["role"] = "plain"; r["linked_title"] = None
-    return {"chats": rows, **_global_flags(actor_rank)}
+    return {"chats": rows, "view_all": view_all, **_global_flags(actor_rank)}
 
 
 # ── 2. Участники любого чата ─────────────────────────────────────────────────────
@@ -234,7 +263,7 @@ async def global_chat_members(
     sort: str = Query("messages"),
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
-    actor_rank = await _require_global(db, user["id"])
+    actor_rank = await check_global_perm(db, user["id"], "members_view")
     page_size = 20
     offset = (page - 1) * page_size
 
@@ -293,7 +322,7 @@ async def global_sanctions_list(
     active_only: bool = Query(True),
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
-    actor_rank = await _require_global(db, user["id"])
+    actor_rank = await check_global_perm(db, user["id"], "sanctions_view")
     if sanction_type and sanction_type not in ("warn", "restrict", "ban"):
         raise HTTPException(400, "type должен быть 'warn', 'restrict' или 'ban'.")
     rows = await (gm_repo.list_active(db, sanction_type) if active_only else gm_repo.list_all(db, sanction_type))
@@ -322,6 +351,10 @@ async def global_sanctions_issue(
         raise HTTPException(400, "target_type должен быть 'user' или 'chat'.")
     if body.sanction_type not in ("warn", "restrict", "ban"):
         raise HTTPException(400, "sanction_type должен быть 'warn', 'restrict' или 'ban'.")
+    # W3.3 (D10): причина обязательна — журнал без причин бесполезен, а в экономике
+    # консоли причина обязательна давно (консистентность).
+    if not (body.reason or "").strip() or len(body.reason.strip()) < 3:
+        raise HTTPException(400, "Причина обязательна (минимум 3 символа).")
 
     target_global_rank = 0
     if body.target_type == "user":
@@ -364,7 +397,7 @@ class AppealReplyRequest(BaseModel):
 
 @router.get("/appeals/{appeal_id}/thread")
 async def global_appeal_thread(appeal_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
-    await _require_global(db, user["id"])
+    await check_global_perm(db, user["id"], "appeals_view")
     appeal = await gm_repo.get_appeal_by_id(db, appeal_id)
     if not appeal:
         raise HTTPException(404, "Апелляция не найдена.")
@@ -376,7 +409,7 @@ async def global_appeal_thread(appeal_id: int, db=Depends(get_db), user=Depends(
 @router.post("/appeals/{appeal_id}/reply")
 async def global_appeal_reply(appeal_id: int, body: AppealReplyRequest,
                               db=Depends(get_db), user=Depends(require_tg_user)):
-    await _require_global(db, user["id"])
+    await check_global_perm(db, user["id"], "appeals_reply")
     ok, msg = await gmod.staff_reply_appeal(db, appeal_id, user["id"],
                                             body.text, body.photo_ids or [])
     if not ok:
@@ -392,7 +425,7 @@ class AppealCloseRequest(BaseModel):
 @router.post("/appeals/{appeal_id}/close")
 async def global_appeal_close(appeal_id: int, body: AppealCloseRequest,
                               db=Depends(get_db), user=Depends(require_tg_user)):
-    actor_rank = await _require_global(db, user["id"])
+    actor_rank = await check_global_perm(db, user["id"], "appeals_close")
     appeal = await gm_repo.get_appeal_by_id(db, appeal_id)
     if not appeal:
         raise HTTPException(404, "Апелляция не найдена.")
@@ -411,7 +444,7 @@ async def global_appeal_close(appeal_id: int, body: AppealCloseRequest,
 async def global_user_case(target_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
     """История дел игрока: все санкции (+фото) и все апелляции с полными нитями —
     admin_audit B1: «клик по игроку → вся история лично с этим игроком»."""
-    await _require_global(db, user["id"])
+    await check_global_perm(db, user["id"], "sanctions_view")
     case = await gm_repo.user_case(db, target_id)
     uname = await users_repo.get_user_name(db, target_id)
     return {"user_id": target_id, "username": uname, **case}
@@ -420,7 +453,7 @@ async def global_user_case(target_id: int, db=Depends(get_db), user=Depends(requ
 @router.get("/tg-photo/{file_id}")
 async def global_tg_photo(file_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
     """Прокси фото-вложений (file_id → байты) для просмотра в админке сайта."""
-    await _require_global(db, user["id"])
+    await check_global_perm_any(db, user["id"], ["appeals_view", "sanctions_view"])
     token = os.getenv("BOT_TOKEN", "")
     info = await _tg_call("getFile", file_id=file_id)
     path = (info.get("result") or {}).get("file_path")
@@ -452,7 +485,7 @@ async def global_sanctions_search(
     target_id: int = Query(...),
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
-    actor_rank = await _require_global(db, user["id"])
+    actor_rank = await check_global_perm(db, user["id"], "sanctions_view")
     if target_type not in ("user", "chat"):
         raise HTTPException(400, "target_type должен быть 'user' или 'chat'.")
     rows = await gm_repo.list_sanctions(db, target_type, target_id, active_only=False)
@@ -466,7 +499,7 @@ async def global_log(
     page: int = Query(1, ge=1),
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
-    actor_rank = await _require_global(db, user["id"])
+    actor_rank = await check_global_perm(db, user["id"], "log_view")
     page_size = 25
     offset = (page - 1) * page_size
 
@@ -488,12 +521,17 @@ async def global_appeals_list(
     status: Optional[str] = Query(None),
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
-    actor_rank = await _require_global(db, user["id"])
-    if status and status not in ("pending", "accepted", "rejected"):
-        raise HTTPException(400, "status должен быть 'pending', 'accepted' или 'rejected'.")
+    actor_rank = await check_global_perm(db, user["id"], "appeals_view")
+    # БЛОК 21.2 (фикс D2): 'closed' — легальный статус, закрытые дела видимы в UI.
+    if status and status not in ("pending", "accepted", "rejected", "closed"):
+        raise HTTPException(400, "status: pending | accepted | rejected | closed.")
     rows = await gm_repo.list_appeals(db, status)
     enriched = await _enrich_appeals(db, rows)
-    return {"appeals": enriched, **_global_flags(actor_rank)}
+    # W3.2: счётчики по статусам — для цифр прямо в фильтрах («⏳ Новые (8)»).
+    async with db.execute(
+        "SELECT status, COUNT(*) AS n FROM sanction_appeals GROUP BY status") as c:
+        counts = {r["status"]: r["n"] for r in await c.fetchall()}
+    return {"appeals": enriched, "counts": counts, **_global_flags(actor_rank)}
 
 
 # ── 9. Решение по апелляции ────────────────────────────────────────────────────────
@@ -506,7 +544,7 @@ async def global_appeals_resolve(
     appeal_id: int, body: ResolveAppealRequest,
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
-    actor_rank = await _require_global(db, user["id"])
+    actor_rank = await check_global_perm(db, user["id"], "appeals_resolve")
     if body.action not in ("accept", "reject"):
         raise HTTPException(400, "action должен быть 'accept' или 'reject'.")
 
@@ -546,10 +584,115 @@ async def global_set_rank(
     body: SetRankRequest,
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
-    actor_rank = await _require_global(db, user["id"])
-    if actor_rank < DEVELOPER_GLOBAL_RANK:
-        raise HTTPException(403, "Назначение глобальных рангов — только для Разработчика.")
+    await check_global_perm(db, user["id"], "staff_manage")   # locked: только ранг 3
     if body.global_rank not in (0, 1, 2):
         raise HTTPException(400, "global_rank должен быть 0 (снять), 1 (Хелпер) или 2 (Ст. хелпер).")
     await users_repo.set_global_rank(db, body.user_id, body.global_rank)
     return {"ok": True, "rank_name": GLOBAL_RANKS_MAP.get(body.global_rank, "?")}
+
+
+# ── 11. БЛОК 21.2: штат и гибкие права рангов ──────────────────────────────────────
+@router.get("/my-permissions")
+async def global_my_permissions(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Эффективный набор прав актёра — фронт строит вкладки/кнопки по нему,
+    а не по порогам ранга. Ранг 0 → пустой набор (разделы скрыты).
+    W4.3: + счётчики для бейджей (⏳ апелляции, активные санкции)."""
+    rank = await _actor_global_rank(db, int(user["id"]))
+    perms = await gperm_svc.effective_perms(db, rank)
+    counts = {}
+    if "appeals_view" in perms:
+        async with db.execute(
+            "SELECT COUNT(*) FROM sanction_appeals WHERE status = 'pending'") as c:
+            counts["appeals_pending"] = (await c.fetchone())[0]
+    if "sanctions_view" in perms:
+        async with db.execute(
+            "SELECT COUNT(*) FROM global_sanctions WHERE revoked_at IS NULL "
+            "AND (expires_at IS NULL OR expires_at > NOW())") as c:
+            counts["sanctions_active"] = (await c.fetchone())[0]
+    return {"rank": rank, "rank_name": GLOBAL_RANKS_MAP.get(min(rank, 3), "?"),
+            "perms": sorted(perms), "counts": counts}
+
+
+@router.get("/ranks")
+async def global_staff_list(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Список штата (global_rank >= 1) с активностью за 30 дней."""
+    await check_global_perm(db, user["id"], "staff_manage")
+    staff = await perm_repo.list_staff(db)
+    for s in staff:
+        s["rank_name"] = GLOBAL_RANKS_MAP.get(s["global_rank"] or 0, "?")
+    return {"staff": staff}
+
+
+@router.get("/permissions")
+async def global_permissions_get(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Матрица прав для UI: реестр (группы/ярлыки/дефолты/locked) + эффективные
+    наборы рангов 1–2 + отметки оверрайдов."""
+    await check_global_perm(db, user["id"], "staff_manage")
+    return await gperm_svc.registry_with_effective(db)
+
+
+class PermSetRequest(BaseModel):
+    rank: int
+    key: str
+    allowed: Optional[bool] = None   # None = сброс оверрайда к дефолту реестра
+
+
+@router.post("/permissions")
+async def global_permissions_set(
+    body: PermSetRequest,
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    await check_global_perm(db, user["id"], "staff_manage")
+    ok, msg = await gperm_svc.set_rank_perm(db, body.rank, body.key, body.allowed)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, **(await gperm_svc.registry_with_effective(db))}
+
+
+# ── 12. W3.3 (D11): фото-доказательства с сайта ────────────────────────────────────
+class PhotoUploadRequest(BaseModel):
+    data: str            # base64 (без data:-префикса или с ним — оба варианта)
+    filename: str = "evidence.jpg"
+
+
+@router.post("/upload-photo")
+async def global_upload_photo(
+    body: PhotoUploadRequest,
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    """base64 → sendPhoto в ЛС самому модератору → file_id для photo_ids санкции.
+    Побочный плюс: у модератора в ЛС остаётся копия доказательства. JSON+base64
+    вместо multipart — python-multipart не в зависимостях проекта."""
+    rank = await _actor_global_rank(db, int(user["id"]))
+    if not await gperm_svc.effective_perms(db, rank) & {
+            "sanction_warn_user", "sanction_restrict_user", "sanction_ban_user",
+            "sanction_warn_chat", "sanction_restrict_chat", "sanction_ban_chat"}:
+        raise HTTPException(403, "Нет прав на выдачу санкций.")
+    import base64
+    raw = body.data.split(",", 1)[-1]          # срезаем возможный data:image/...;base64,
+    try:
+        blob = base64.b64decode(raw, validate=True)
+    except Exception:
+        raise HTTPException(400, "Невалидный base64.")
+    if len(blob) > 5 * 1024 * 1024:
+        raise HTTPException(400, "Фото больше 5 МБ.")
+    token = os.getenv("BOT_TOKEN", "")
+    if not token:
+        raise HTTPException(500, "BOT_TOKEN не настроен.")
+    try:
+        async with httpx.AsyncClient(timeout=20) as c:
+            r = (await c.post(
+                f"https://api.telegram.org/bot{token}/sendPhoto",
+                data={"chat_id": str(user["id"]),
+                      "caption": "📎 Вложение к санкции (копия для журнала)"},
+                files={"photo": (body.filename or "evidence.jpg", blob)},
+            )).json()
+    except Exception as e:
+        raise HTTPException(502, f"Telegram недоступен: {e}")
+    if not r.get("ok"):
+        raise HTTPException(400, f"Telegram отклонил фото: {r.get('description') or '?'} "
+                                 f"(ЛС с ботом открыты?)")
+    sizes = (r.get("result") or {}).get("photo") or []
+    if not sizes:
+        raise HTTPException(400, "Telegram не вернул file_id.")
+    return {"ok": True, "file_id": sizes[-1]["file_id"]}

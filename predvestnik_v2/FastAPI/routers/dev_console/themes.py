@@ -11,14 +11,14 @@ from services.profile_render import (
     get_template_variables,
     get_template_var_help,
 )
-from ._common import _premium_template_list, _render_theme_preview, _require_dev, _tg_call, _theme_id_for_template
+from ._common import _premium_template_list, _render_theme_preview, require_console_perm, _tg_call, _theme_id_for_template
 
 router = APIRouter()
 
 
 @router.get("/theme-templates")
 async def dev_theme_templates(db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "themes_manage")
     overrides = await theme_tpl_repo.get_all_overrides(db)
     out = []
     for t in _premium_template_list():
@@ -33,7 +33,7 @@ async def dev_theme_templates(db=Depends(get_db), user=Depends(require_tg_user))
 
 @router.get("/theme-templates/{template_id}")
 async def dev_theme_template_get(template_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "themes_manage")
     default_text = get_default_raw_template(template_id)
     if default_text is None:
         raise HTTPException(404, "Неизвестный шаблон.")
@@ -55,7 +55,7 @@ class ThemeTemplateRequest(BaseModel):
 @router.post("/theme-templates/{template_id}/preview")
 async def dev_theme_template_preview(template_id: str, body: ThemeTemplateRequest,
                                       db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "themes_manage")
     if get_default_raw_template(template_id) is None:
         raise HTTPException(404, "Неизвестный шаблон.")
     theme_id = _theme_id_for_template(template_id)
@@ -70,7 +70,7 @@ async def dev_theme_template_send_test(template_id: str, body: ThemeTemplateRequ
                                         db=Depends(get_db), user=Depends(require_tg_user)):
     """Шлёт разработчику в личку с ботом РЕАЛЬНОЕ сообщение с этим шаблоном —
     100% то же, что увидит игрок (рендер Telegram-клиента, не браузера)."""
-    _require_dev(user)
+    await require_console_perm(db, user, "themes_manage")
     if get_default_raw_template(template_id) is None:
         raise HTTPException(404, "Неизвестный шаблон.")
     theme_id = _theme_id_for_template(template_id)
@@ -86,7 +86,7 @@ async def dev_theme_template_send_test(template_id: str, body: ThemeTemplateRequ
 @router.post("/theme-templates/{template_id}")
 async def dev_theme_template_save(template_id: str, body: ThemeTemplateRequest,
                                    db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "themes_manage")
     if get_default_raw_template(template_id) is None:
         raise HTTPException(404, "Неизвестный шаблон.")
     if not body.raw_text.strip():
@@ -97,7 +97,7 @@ async def dev_theme_template_save(template_id: str, body: ThemeTemplateRequest,
 
 @router.delete("/theme-templates/{template_id}")
 async def dev_theme_template_reset(template_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
+    await require_console_perm(db, user, "themes_manage")
     await theme_tpl_repo.delete_override(db, template_id)
     return {"ok": True}
 
@@ -127,7 +127,7 @@ _VALID_SOURCES  = {"start", "shop_mora", "shop_diamond", "gacha_mora", "gacha_no
 async def dev_theme_meta_get(theme_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
     """Вернуть текущие метаданные темы (база из themes.py + DB-оверрайды) —
     те же значения, что реально применяются при покупке (services/themes.get_effective_theme)."""
-    _require_dev(user)
+    await require_console_perm(db, user, "themes_manage")
     if theme_id not in THEMES:
         raise HTTPException(404, "Тема не найдена.")
     effective = await get_effective_theme(db, theme_id)
@@ -152,7 +152,7 @@ async def dev_theme_meta_save(theme_id: str, body: ThemeMetaRequest,
                                db=Depends(get_db), user=Depends(require_tg_user)):
     """Сохранить метаданные темы (цены, редкость, описание) в DB — сразу применяется
     к реальной покупке в боте и на сайте (services/themes.get_effective_theme)."""
-    _require_dev(user)
+    await require_console_perm(db, user, "themes_manage")
     if theme_id not in THEMES:
         raise HTTPException(404, "Тема не найдена.")
     if body.rarity and body.rarity not in _VALID_RARITIES:
@@ -172,6 +172,6 @@ async def dev_theme_meta_save(theme_id: str, body: ThemeMetaRequest,
 @router.delete("/theme-meta/{theme_id}")
 async def dev_theme_meta_delete(theme_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
     """Удалить DB-оверрайд метаданных (вернуть к значениям из themes.py)."""
-    _require_dev(user)
+    await require_console_perm(db, user, "themes_manage")
     await theme_meta_repo.delete_override(db, theme_id)
     return {"ok": True}
