@@ -9,13 +9,19 @@ import time
 from urllib.parse import unquote
 
 from fastapi import Depends, Header, HTTPException
-from infrastructure.database import get_pool
+from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
 from FastAPI.auth import verify_webapp_data, verify_session_token
 
 
 async def get_db():
-    """Yield a PGAdapter-wrapped DB connection from the shared pool."""
+    """Yield a PGAdapter-wrapped DB connection from the shared pool.
+
+    If the shared pool has not been initialized yet, create it lazily.
+    This protects FastAPI requests that arrive before the bot process finishes
+    its startup sequence and global DB initialization.
+    """
+    await create_pool()
     async with get_pool().acquire() as conn:
         yield PGAdapter(conn)
 
@@ -33,6 +39,7 @@ async def _is_banned_cached(user_id: int) -> bool:
     hit = _BAN_CACHE.get(user_id)
     if hit and hit[1] > now:
         return hit[0]
+    await create_pool()
     from services.global_moderation import is_user_banned
     async with get_pool().acquire() as conn:
         banned = await is_user_banned(PGAdapter(conn), user_id)
