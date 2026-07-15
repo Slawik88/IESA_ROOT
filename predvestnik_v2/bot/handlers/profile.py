@@ -13,6 +13,7 @@ from services import ui
 from bot.filters.text_commands import TextCmd
 from services.leveling import account_progress
 from core.registry import PET_SPECIES
+from bot.keyboards.cta import answer_group_only
 
 
 def _fatigue_icon(fatigue: int) -> str:
@@ -152,7 +153,7 @@ async def _build_profile_text(
 # профиль/я/стат now handled by identity_router which calls cmd_profile
 async def cmd_profile(message: types.Message, db: aiosqlite.Connection, developer_id: int = 0):
     if message.chat.type == "private":
-        return await message.answer("❌ Эта команда доступна только в группах.")
+        return await answer_group_only(message)
 
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -168,7 +169,7 @@ async def cmd_profile(message: types.Message, db: aiosqlite.Connection, develope
 @router.message(TextCmd(["инфо", "досье"]))
 async def cmd_user_info(message: types.Message, db: aiosqlite.Connection, text_args: str = None, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
 

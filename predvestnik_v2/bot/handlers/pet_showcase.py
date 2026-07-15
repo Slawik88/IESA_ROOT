@@ -13,6 +13,7 @@ from core.constants import (
     get_total_duplicates_for_level,
 )
 from services.zoo import format_pet_bonus_short
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="pet_showcase_router")
 
@@ -51,7 +52,7 @@ def _duplicates_bar(rarity: str, pet_level: int, duplicates: int) -> str:
 @router.message(TextCmd(["питомец", "мой питомец", "активный питомец"]))
 async def cmd_pet_showcase(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     user_id = message.from_user.id
 

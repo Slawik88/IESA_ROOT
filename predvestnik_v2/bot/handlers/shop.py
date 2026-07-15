@@ -15,6 +15,7 @@ from services.utils import format_currency, check_callback_owner, safe_html, fea
 
 router = Router(name="shop_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_shop"))
 
 
@@ -131,7 +132,7 @@ async def render_shop(
 @router.message(TextCmd(["магазин", "лавка", "шоп"]))
 async def cmd_shop(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     if not await feature_guard(message, db, "tab_market", "Рынок"):
         return
     await render_shop(message, db, message.from_user.id, is_edit=False)

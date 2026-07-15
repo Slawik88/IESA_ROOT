@@ -248,7 +248,6 @@ function loadAdminSettings() {
         ${rank('rank_ban','🔨 Забанить навсегда',s.rank_ban)}
         ${rank('rank_shield','🛡 Выдавать щит',s.rank_shield)}
         ${rank('rank_immune','🔰 Давать иммунитет',s.rank_immune)}
-        ${rank('rank_duel','⚔️ Начинать дуэли',s.rank_duel,true)}
         ${rank('rank_marriage','💍 Предлагать брак',s.rank_marriage,true)}
         ${rank('rank_give','💸 Переводить мору/алмазы',s.rank_give,true)}
         ${rank('purge_min_rank','🧹 Освобождены от чистки (ранг ≥)',s.purge_min_rank)}
@@ -357,7 +356,7 @@ function saveAdmSettings() {
   const keys=['module_shop','module_gacha','module_zoo','module_expeditions','module_auction',
               'module_games','module_exchange','module_quests','module_daily_deal',
               'events_enabled','nsfw_warps_allowed','rank_warn','rank_mute','rank_kick','rank_ban',
-              'rank_shield','rank_immune','rank_duel','rank_marriage','rank_give','purge_min_rank',
+              'rank_shield','rank_immune','rank_marriage','rank_give','purge_min_rank',
               'purge_action_rank','rank_chat_lock',
               'notif_auction','notif_gacha','notif_expeditions','notif_quests'];
   const body={};

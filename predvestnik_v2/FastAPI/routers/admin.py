@@ -255,7 +255,6 @@ class SettingsUpdateRequest(BaseModel):
     # 8.3: недостающие пороги рангов (бот их уже читает/пишет в той же chat_settings)
     rank_shield: Optional[int] = None
     rank_immune: Optional[int] = None
-    rank_duel: Optional[int] = None
     rank_marriage: Optional[int] = None
     rank_give: Optional[int] = None
     purge_min_rank: Optional[int] = None

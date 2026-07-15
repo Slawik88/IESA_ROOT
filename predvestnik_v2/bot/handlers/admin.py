@@ -6,6 +6,7 @@ from infrastructure.repositories import users, chat
 from services import roles
 from services.utils import safe_html, resolve_target as smart_resolve
 from bot.filters.text_commands import TextCmd
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="admin_router")
 
@@ -81,7 +82,7 @@ async def cmd_setrank(message: types.Message, db, text_args: str = None, develop
     chat_id = message.chat.id
 
     if message.chat.type == "private":
-        return await message.answer("❌ <b>Ошибка:</b> Локальные ранги можно выдавать только в группах.", parse_mode="HTML")
+        return await answer_group_only(message)
 
     target_id, target_name, rank_arg = await smart_resolve(message, db, text_args)
 
@@ -100,7 +101,7 @@ async def cmd_setrank(message: types.Message, db, text_args: str = None, develop
         )
 
     if target_id == initiator_id:
-        return await message.answer("🤡 <b>Ошибка:</b> Вы не можете выдать ранг самому себе!", parse_mode="HTML")
+        return await message.answer("❌ <b>Ошибка:</b> Ранг самому себе выдать нельзя.", parse_mode="HTML")
         
     if target_id == message.bot.id:
         return await message.answer("🤖 <b>Ошибка:</b> Ботам не нужны ранги!", parse_mode="HTML")
@@ -174,3 +175,44 @@ async def process_rank_confirmation(callback: types.CallbackQuery, callback_data
     
     await callback.message.edit_text(text, parse_mode="HTML")
     await callback.answer("✅ Ранг успешно применен!", show_alert=False)
+
+# ==========================================
+# САМОВОССТАНОВЛЕНИЕ ПРАВ (UX_AUDIT Б17)
+# ==========================================
+@router.message(TextCmd(["обновить права", "синх права", "восстановить права"]))
+async def cmd_sync_rank(message: types.Message, db, developer_id: int = 0):
+    """Сверка с фактическим статусом Telegram: creator → ранг 6, admin → 4.
+    Только повышает. Закрывает тупик Б17: раньше авто-ранг получал ТОЛЬКО
+    «creator» при добавлении бота — если создатель чата неактивен, реальные
+    админы не могли настроить бота вообще (setrank требует ранг ≥5)."""
+    if message.chat.type == "private":
+        return await answer_group_only(message)
+    uid = message.from_user.id
+    try:
+        member = await message.bot.get_chat_member(message.chat.id, uid)
+        status = getattr(member, "status", None)
+    except Exception:
+        status = None
+    target = 6 if status == "creator" else 4 if status == "administrator" else None
+    if target is None:
+        return await message.answer(
+            "🌫 По данным Telegram вы не администратор этого чата — ранг не положен.\n"
+            "Ранги внутри игры выдают старшие: <code>бот ранг, @юзер [ранг]</code>.",
+            parse_mode="HTML")
+    stats = await chat.get_chat_stats(db, uid, message.chat.id)
+    current = stats.get("local_rank", 0)
+    if current >= target:
+        return await message.answer(
+            f"✅ У вас уже <b>{roles.LOCAL_RANKS_MAP.get(current, current)}</b> — "
+            "не ниже, чем даёт ваш статус Telegram. Всё в порядке.",
+            parse_mode="HTML")
+    await users.update_user(db, uid, message.from_user.username)
+    await db.execute(
+        "INSERT OR IGNORE INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?)",
+        (uid, message.chat.id))
+    await chat.set_local_rank(db, uid, message.chat.id, target)
+    await db.commit()
+    await message.answer(
+        f"🎖 Статус Telegram подтверждён: вам выдан ранг "
+        f"<b>{roles.LOCAL_RANKS_MAP[target]}</b>.",
+        parse_mode="HTML")

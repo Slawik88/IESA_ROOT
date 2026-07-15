@@ -25,6 +25,7 @@ from services.utils import format_currency, check_callback_owner, feature_guard
 
 router = Router(name="gacha_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_gacha"))
 
 _SPIN_ORDER = ["mora", "diamond"]  # Block 8: единая гача, 2 режима
@@ -347,7 +348,7 @@ async def _build_spin_type_text(db, user_id: int, spin_type: str) -> tuple[str, 
 @router.message(TextCmd(["пити", "pity", "мои пити"]))
 async def cmd_pity(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     pity_all = await get_all_pity(db, message.from_user.id)
     lines = ["📊 <b>МОИ СЧЁТЧИКИ ПИТИ</b>\n"]
     for st in _SPIN_ORDER:
@@ -370,7 +371,7 @@ async def cmd_pity(message: types.Message, db):
 async def cmd_gacha(message: types.Message, db, text_args: str = None,
                      user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     if not await feature_guard(message, db, "tab_market", "Рынок"):
         return
 

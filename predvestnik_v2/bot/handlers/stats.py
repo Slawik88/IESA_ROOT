@@ -11,6 +11,7 @@ from services.profile_render import format_display_name
 from services.membership import bot_tg_id, prune_ghosts
 from bot.filters.text_commands import TextCmd
 from core.constants import INACTIVE_THRESHOLD_DAYS
+from bot.keyboards.cta import answer_group_only
 
 _TOP_PAGE_SIZE = 30
 
@@ -144,7 +145,7 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
 @router.message(TextCmd(["топ", "лидеры"]))
 async def cmd_top(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return await message.answer("❌ <b>Ошибка:</b> Топы доступны только в группах.", parse_mode="HTML")
+        return await answer_group_only(message)
 
     # Support both "бот топ, день" (comma, TextCmd arg) and "бот топ день" (no comma)
     period = "all_time"
@@ -309,7 +310,7 @@ async def cb_top_activity(query: types.CallbackQuery, callback_data: TopCatCB, d
                           "топ стрик", "топ аукцион", "топ сообщений"]))
 async def cmd_top_cat_shortcut(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     raw = message.text.lower()
     cat_map = {
         "мора": "mora", "алмазы": "diamonds", "питомцев": "pets",
@@ -325,7 +326,7 @@ async def cmd_top_cat_shortcut(message: types.Message, db, text_args: str = None
 @router.message(TextCmd(["неактивные", "призраки", "мертвые", "неактив", "неактив чата"]))
 async def cmd_inactive(message: types.Message, db):
     if message.chat.type == "private":
-        return await message.answer("❌ <b>Ошибка:</b> Команда доступна только в группах.", parse_mode="HTML")
+        return await answer_group_only(message)
 
     inactive_users = await stats.get_inactive_users(db, message.chat.id, days_limit=INACTIVE_THRESHOLD_DAYS)
     _self_id = bot_tg_id()

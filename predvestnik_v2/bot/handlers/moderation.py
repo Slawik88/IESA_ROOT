@@ -16,6 +16,7 @@ from services.membership import prune_ghosts
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import routing
 from infrastructure.repositories import chat as chat_repo
+from bot.keyboards.cta import answer_group_only
 
 
 
@@ -90,10 +91,17 @@ async def notify_action(
 @router.message(TextCmd(["варн", "пред", "предупреждение"]))
 async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     target_id, target_name, reason = await resolve_target(message, db, text_args)
 
+    if reason == "error_user_not_found":
+        uname = (text_args or "").split()[0]
+        return await message.answer(
+            f"❌ Пользователь <code>{safe_html(uname)}</code> не найден. "
+            "Он должен написать хоть одно сообщение в этом чате.",
+            parse_mode="HTML",
+        )
     if not target_id:
         return await message.answer(
             "ℹ️ <b>Использование:</b> <code>бот варн, @юзер [причина]</code>\n"
@@ -197,8 +205,15 @@ async def cmd_unwarn(
     developer_id: int = 0,
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
+    if extra_args == "error_user_not_found":
+        uname = (text_args or "").split()[0]
+        return await message.answer(
+            f"❌ Пользователь <code>{safe_html(uname)}</code> не найден. "
+            "Он должен написать хоть одно сообщение в этом чате.",
+            parse_mode="HTML",
+        )
     if not target_id:
         return await message.answer(
             "ℹ️ <b>Использование:</b> <code>бот снять варн, @юзер [кол-во]</code>\n"
@@ -301,7 +316,7 @@ async def cmd_immune(
     developer_id: int = 0,
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     target_id, target_name, resolve_extra = await resolve_target(message, db, text_args)
     if resolve_extra == "error_user_not_found":
         uname = (text_args or "").split()[0]
@@ -345,7 +360,7 @@ async def cmd_protect(
     message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
     if extra_args == "error_user_not_found":
         uname = (text_args or "").split()[0]
@@ -395,7 +410,7 @@ async def cmd_unprotect(
     message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     target_id, target_name, resolve_extra = await resolve_target(message, db, text_args)
     if resolve_extra == "error_user_not_found":
         uname = (text_args or "").split()[0]
@@ -426,7 +441,7 @@ async def cmd_unprotect(
 @router.message(TextCmd(["кто рест", "ресты", "кто в ресте", "список ресты"]))
 async def cmd_who_rested(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     async with db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, s.is_immune, s.immune_until "
@@ -476,7 +491,7 @@ async def cmd_setshield(
     message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     can_mod, err = await mod_service.check_admin_rights(
         db, message.chat.id, message.from_user.id, 5, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
@@ -506,7 +521,7 @@ async def cmd_set_purge_rank(
     message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     can_mod, err = await mod_service.check_admin_rights(
         db, message.chat.id, message.from_user.id, 5, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
@@ -550,7 +565,7 @@ async def cmd_setwarns(
     message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     can_mod, err = await mod_service.check_admin_rights(
         db, message.chat.id, message.from_user.id, 5, developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
@@ -585,7 +600,7 @@ async def cmd_ban(
     developer_id: int = 0,
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
     if extra_args == "error_user_not_found":
         return await message.answer(
@@ -632,7 +647,7 @@ async def cmd_unban(
     developer_id: int = 0,
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
     if extra_args == "error_user_not_found":
         return await message.answer(
@@ -674,7 +689,7 @@ async def cmd_kick(
     developer_id: int = 0,
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
     if extra_args == "error_user_not_found":
         return await message.answer(
@@ -721,7 +736,7 @@ async def cmd_mute(
     developer_id: int = 0,
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
     if extra_args == "error_user_not_found":
         return await message.answer(
@@ -778,7 +793,7 @@ async def cmd_unmute(
     developer_id: int = 0,
 ):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     target_id, target_name, extra_args = await resolve_target(message, db, text_args)
     if extra_args == "error_user_not_found":
         return await message.answer(
@@ -839,7 +854,7 @@ _OPEN_PERMS = ChatPermissions(
 async def cmd_close_chat(message: types.Message, db, bot: Bot, developer_id: int = 0):
     """Закрывает чат: писать смогут только админы Telegram. Порог — rank_chat_lock."""
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     settings = await mod_db.get_chat_settings(db, message.chat.id)
     req_rank = settings.get("rank_chat_lock", 4)
     can_mod, err = await mod_service.check_admin_rights(
@@ -863,7 +878,7 @@ async def cmd_close_chat(message: types.Message, db, bot: Bot, developer_id: int
 async def cmd_open_chat(message: types.Message, db, bot: Bot, developer_id: int = 0):
     """Открывает чат: возвращает всем право писать. Порог — rank_chat_lock."""
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     settings = await mod_db.get_chat_settings(db, message.chat.id)
     req_rank = settings.get("rank_chat_lock", 4)
     can_mod, err = await mod_service.check_admin_rights(

@@ -55,9 +55,8 @@ def _kb(section: str) -> types.InlineKeyboardMarkup:
 
 
 def _make(section: str, title: str):
+    # UX_AUDIT Б4: в ЛС тоже отвечаем — кнопка мини-аппа работает откуда угодно.
     async def handler(message: types.Message, text_args: str = ""):
-        if message.chat.type == "private":
-            return
         await message.answer(
             f"<b>{title}</b> теперь в мини-аппе 📱\n"
             "<i>Тяжёлый контент переехал в Web App — там удобнее и нагляднее.</i>",

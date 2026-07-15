@@ -14,6 +14,7 @@ from infrastructure.repositories.blacklist import (
     add_to_chat_blacklist, remove_from_chat_blacklist, get_chat_blacklist,
 )
 from services.utils import safe_html, resolve_target
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="blacklist_router")
 
@@ -39,7 +40,7 @@ async def _check_rank(db, chat_id: int, user_id: int, developer_id: int) -> bool
 @router.message(TextCmd(["чс", "blacklist", "чёрный список", "черный список"]))
 async def cmd_blacklist_list(message: types.Message, db, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     chat_id = message.chat.id
     entries = await get_chat_blacklist(db, chat_id)
@@ -67,7 +68,7 @@ async def cmd_blacklist_list(message: types.Message, db, developer_id: int = 0):
 @router.message(TextCmd(["чс добавить", "чс add", "добавить в чс"]))
 async def cmd_blacklist_add(message: types.Message, db, text_args: str = None, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     if not await _check_rank(db, message.chat.id, message.from_user.id, developer_id):
         return await message.answer("❌ <b>Отказ:</b> Недостаточно прав.", parse_mode="HTML")
@@ -98,7 +99,7 @@ async def cmd_blacklist_add(message: types.Message, db, text_args: str = None, d
 @router.message(TextCmd(["чс убрать", "чс remove", "убрать из чс"]))
 async def cmd_blacklist_remove(message: types.Message, db, text_args: str = None, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     if not await _check_rank(db, message.chat.id, message.from_user.id, developer_id):
         return await message.answer("❌ <b>Отказ:</b> Недостаточно прав.", parse_mode="HTML")

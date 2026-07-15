@@ -39,6 +39,7 @@ from infrastructure.repositories.streak import get_streak
 from services import roles
 from services.formatting import parse_dt
 from services.utils import safe_html, resolve_target, resolve_display_name
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="identity_router")
 
@@ -666,7 +667,7 @@ async def _render_full_profile(
 @router.message(TextCmd(["я", "профиль", "стата", "стат", "мой профиль"]))
 async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0):
     if message.chat.type == "private":
-        return await message.answer("❌ Эта команда доступна только в группах.")
+        return await answer_group_only(message)
 
     text, parse_mode = await _render_full_profile(
         db, message.from_user.id, message.chat.id, message.from_user.first_name, developer_id,
@@ -679,7 +680,7 @@ async def cmd_profile_unified(message: types.Message, db, developer_id: int = 0)
 @router.message(TextCmd(["кто"]))
 async def cmd_kto(message: types.Message, db, text_args: str = None, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     target_id, target_name, extra = await resolve_target(message, db, text_args)
     if extra == "error_user_not_found":
@@ -704,7 +705,7 @@ async def cmd_kto(message: types.Message, db, text_args: str = None, developer_i
 @router.message(TextCmd(["анкета"]))
 async def cmd_anketa(message: types.Message, db, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     user_id = message.from_user.id
     chat_id = message.chat.id

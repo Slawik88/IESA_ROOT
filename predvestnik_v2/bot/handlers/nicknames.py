@@ -14,6 +14,7 @@ from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import get_nickname, set_nickname, delete_nickname
 from services.utils import safe_html
 from services.vip import is_vip_active
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="nicknames_router")
 
@@ -28,7 +29,7 @@ class NickCB(CallbackData, prefix="nick"):
 @router.message(TextCmd(["мой ник", "мой никнейм", "псевдоним"]))
 async def cmd_my_nick(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     user_id = message.from_user.id
     chat_id = message.chat.id

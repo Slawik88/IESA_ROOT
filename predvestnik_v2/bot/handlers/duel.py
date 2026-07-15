@@ -16,6 +16,7 @@ from services import global_moderation
 from services.duel import create_challenge, accept_duel, decline_duel
 from services.utils import safe_html, resolve_target, resolve_display_name
 from services.achievements import increment_metric
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="duel_router")
 
@@ -29,7 +30,7 @@ class DuelCB(CallbackData, prefix="duel"):
 async def cmd_duel(message: types.Message, db, text_args: str = None,
                     user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     restriction = user_restricted or chat_restricted
     if restriction:

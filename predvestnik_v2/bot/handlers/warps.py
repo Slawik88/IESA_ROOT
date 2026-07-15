@@ -15,6 +15,7 @@ from services.vip import is_vip_active
 
 router = Router(name="warps_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_warps"))
 
 
@@ -45,7 +46,7 @@ ALL_WARP_ALIASES = _all_aliases()
 @router.message(WarpCmd(ALL_WARP_ALIASES))
 async def cmd_warp(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return await message.answer("🌀 Варп-команды работают только в групповых чатах.")
+        return await answer_group_only(message)
 
     # Команда — первая строка, без запятых-аргументов и опционального префикса «бот»
     raw_cmd = message.text.lower().split("\n", 1)[0].split(",")[0].strip()

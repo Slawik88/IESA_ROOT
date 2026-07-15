@@ -7,6 +7,7 @@ from bot.filters.text_commands import TextCmd
 from core.registry import ACHIEVEMENTS, ACHIEVEMENT_LEVEL_REWARDS
 from infrastructure.repositories.achievements import get_all_achievements
 from infrastructure.repositories import users as users_repo
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="achievements_router")
 
@@ -39,7 +40,7 @@ def _next_reward_str(level: int) -> str:
 @router.message(TextCmd(["достижения", "ачивки", "ачивменты"]))
 async def cmd_achievements(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     user_id = message.from_user.id
     user_data = await get_all_achievements(db, user_id)

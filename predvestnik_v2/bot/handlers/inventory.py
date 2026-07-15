@@ -11,6 +11,7 @@ from core.registry import ITEMS_REGISTRY
 from services.inventory_resolve import resolve_and_migrate_item_id, item_display_name
 from services.utils import safe_html, check_callback_owner
 from services.zoo import apply_pet_milestones
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="inventory_router")
 
@@ -338,7 +339,7 @@ class InvCB(CallbackData, prefix="inv"):
 async def cmd_use_item(message: types.Message, db, text_args: str = None):
     """бот использовать, [item_id] — применить расходуемый предмет."""
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     if not text_args:
         return await message.answer(
             "❓ <b>Использование:</b> <code>бот использовать, [item_id]</code>\n"
@@ -388,7 +389,7 @@ async def cmd_use_item(message: types.Message, db, text_args: str = None):
 @router.message(TextCmd(["инвентарь", "рюкзак", "вещи"]))
 async def cmd_inventory(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     user_id = message.from_user.id
     from services.utils import resolve_display_name
     name = await resolve_display_name(db, user_id, message.chat.id, message.from_user.first_name)

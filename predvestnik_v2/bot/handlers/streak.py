@@ -12,6 +12,7 @@ from services.streak import (
 )
 from services.utils import format_currency
 from core.constants import STREAK_BLOCK_SIZE
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="streak_router")
 
@@ -82,7 +83,7 @@ def _recovery_keyboard(user_id: int) -> types.InlineKeyboardMarkup:
 @router.message(TextCmd(["стрик", "стрики", "серия", "ежедневный вход"]))
 async def cmd_streak(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     streak_row = await streak_repo.get_global_streak(db, message.from_user.id)
     await message.answer(_streak_view_text(streak_row), parse_mode="HTML")
 
@@ -90,7 +91,7 @@ async def cmd_streak(message: types.Message, db):
 @router.message(TextCmd(["стрик восстановить", "восстановить стрик"]))
 async def cmd_streak_recover(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     user_id = message.from_user.id
     streak_row = await streak_repo.get_global_streak(db, user_id)

@@ -19,6 +19,7 @@ from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories.dark_mora import spend_dark_mora
 from services.themes import get_all_effective_themes, get_effective_theme
 from services.utils import check_callback_owner, safe_html
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="themes_router")
 
@@ -98,7 +99,7 @@ async def _render_menu(db, user_id: int, target, is_edit: bool):
 @router.message(TextCmd(["темы", "тема профиля", "профиль темы"]))
 async def cmd_themes(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     await _render_menu(db, message.from_user.id, message, is_edit=False)
 
 

@@ -29,6 +29,7 @@ from services.utils import format_currency, parse_dt, feature_guard
 
 router = Router(name="auction_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_auction"))
 
 # ── In-memory pending lot creation state ─────────────────────────────────────
@@ -148,7 +149,7 @@ async def _render_lot_list(db, user_id: int, page: int) -> tuple[str, types.Inli
 @router.message(TextCmd(["аукцион"]))
 async def cmd_auction(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     if not await feature_guard(message, db, "tab_auction", "Аукцион"):
         return
     text, markup = await _render_lot_list(db, message.from_user.id, page=0)
@@ -596,7 +597,7 @@ async def cb_cancel_create(query: types.CallbackQuery, db):
 async def cmd_auction_create(message: types.Message, db,
                               user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     restriction = user_restricted or chat_restricted
     if restriction:
@@ -618,7 +619,7 @@ async def cmd_auction_create(message: types.Message, db,
 @router.message(TextCmd(["аукцион мои"]))
 async def cmd_auction_my(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     lots = await get_seller_active_lots(db, message.from_user.id)
     if not lots:
         return await message.answer("📋 <b>МОИ ЛОТЫ</b>\n\n<i>Нет активных лотов.</i>", parse_mode="HTML")
@@ -633,7 +634,7 @@ async def cmd_auction_my(message: types.Message, db):
 async def cmd_auction_bid(message: types.Message, db, text_args: str = None,
                            user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     restriction = user_restricted or chat_restricted
     if restriction:

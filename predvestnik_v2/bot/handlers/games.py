@@ -10,6 +10,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.filters.text_commands import TextCmd
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="games_router")
 router.message.middleware(ModuleCheckMiddleware("module_games"))
@@ -28,7 +29,7 @@ def _arena_games_kb() -> InlineKeyboardMarkup | None:
                          "числа", "угадай число", "рулетка"]))
 async def cmd_games_moved(message: types.Message):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     await message.answer(
         "🎲 <b>Старое казино ушло в историю.</b>\n"
         "Кости/монетка/число/рулетка были чистой удачей — вместо них теперь "

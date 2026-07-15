@@ -16,6 +16,7 @@ from core.constants import DAILY_DEAL_ROTATION_HOURS
 
 router = Router(name="daily_deal_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_daily_deal"))
 
 
@@ -90,7 +91,7 @@ async def _build_deal_menu(db, user_id: int) -> tuple[str, types.InlineKeyboardM
 @router.message(TextCmd(["акция", "акция дня", "магазин дня", "ежедневный магазин"]))
 async def cmd_daily_deal(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     text, kb = await _build_deal_menu(db, message.from_user.id)
     await message.answer(text, reply_markup=kb, parse_mode="HTML")
 

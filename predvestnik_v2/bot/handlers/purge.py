@@ -11,6 +11,7 @@ from bot.filters.text_commands import TextCmd
 from services import moderation as mod_service
 from services import purge as purge_svc
 from services.utils import feature_guard
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="purge_router")
 
@@ -18,7 +19,7 @@ router = Router(name="purge_router")
 @router.message(TextCmd(["чистка", "начать чистку"]))
 async def cmd_purge_start(message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     if not await feature_guard(message, db, "tab_purge", "Чистки"):
         return
 
@@ -96,7 +97,7 @@ async def cb_purge_verdict(callback: types.CallbackQuery, db, developer_id: int 
 @router.message(TextCmd(["чистка статус", "статус чистки"]))
 async def cmd_purge_status(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     st = await purge_svc.get_status(db, message.chat.id)
     if not st:
         return await message.answer(
@@ -118,7 +119,7 @@ async def cmd_purge_status(message: types.Message, db):
 @router.message(TextCmd(["конец чистки", "закончить чистку"]))
 async def cmd_purge_stop(message: types.Message, db, bot: Bot, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     can_mod, err = await mod_service.check_admin_rights(
         db, message.chat.id, message.from_user.id, 4, developer_id=developer_id)
     if not can_mod:

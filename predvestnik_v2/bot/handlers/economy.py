@@ -14,6 +14,7 @@ from services.admin_service import give_resource, set_resource
 from services.utils import resolve_target, resolve_display_name, safe_html, format_currency, feature_guard
 from core.registry import ITEMS_REGISTRY
 from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="eco_router")
 
@@ -110,7 +111,7 @@ async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None
 async def cmd_pay(message: types.Message, db, text_args: str = None,
                    user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     if not await feature_guard(message, db, "tab_economy", "Переводы"):
         return
 
