@@ -7,6 +7,7 @@ from bot.filters.text_commands import TextCmd
 from services import moderation as mod_service
 from services import roles
 from services.utils import safe_html
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="routing_router")
 
@@ -17,7 +18,7 @@ router = Router(name="routing_router")
 @router.message(TextCmd(["привязать админ чат", "связать", "привязать"]))
 async def cmd_bind_admin(message: types.Message, db, developer_id: int = 0):
     if message.chat.type == "private":
-        return await message.answer("❌ Эта команда только для групп.")
+        return await answer_group_only(message)
 
     can_mod, err = await mod_service.check_admin_rights(
         db, message.chat.id, message.from_user.id, 5, developer_id=developer_id
@@ -98,7 +99,7 @@ async def cmd_accept_bind(message: types.Message, db, bot: Bot, text_args: str =
 @router.message(TextCmd(["инфо чата", "привязки"]))
 async def cmd_chat_info(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     admin_chat_id = await routing.get_admin_chat(db, message.chat.id)
     status = f"✅ Привязан (ID: <code>{admin_chat_id}</code>)" if admin_chat_id else "❌ Не привязан"

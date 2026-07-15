@@ -17,6 +17,7 @@ from services.zoo import get_wolf_fatigue_reduction
 
 router = Router(name="expeditions_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_expeditions"))
 
 
@@ -189,7 +190,7 @@ async def _start_expedition_core(db, user_id: int, chat_id: int, hours: int) -> 
 @router.message(TextCmd(["поход", "экспедиция"]))
 async def cmd_expedition(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     user_id = message.from_user.id
     args = text_args
@@ -240,7 +241,7 @@ class ExpBoostCB(CallbackData, prefix="expboost"):
 @router.message(TextCmd(["ускорить поход", "ускорить экспедицию", "ускорение похода"]))
 async def cmd_exp_boost_menu(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     user_id = message.from_user.id
 
     # Активная экспедиция — та же repository-функция, что и на сайте

@@ -11,6 +11,7 @@ from bot.filters.text_commands import TextCmd
 from core.registry import RELICS, RELIC_RARITY_META
 from infrastructure.repositories import relics as relics_db
 from services.utils import check_callback_owner
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="relics_router")
 
@@ -47,7 +48,7 @@ async def _render(db, user_id: int) -> tuple[str, types.InlineKeyboardMarkup]:
 @router.message(TextCmd(["реликвии", "реликвия", "relics"]))
 async def cmd_relics(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     text, kb = await _render(db, message.from_user.id)
     await message.answer(text, reply_markup=kb, parse_mode="HTML")
 

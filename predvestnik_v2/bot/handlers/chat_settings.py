@@ -9,6 +9,7 @@ from infrastructure.repositories.streak import get_chat_timezone, set_chat_timez
 from services import roles
 from services.utils import check_callback_owner
 from core.constants import CHAT_TIMEZONE_MIN, CHAT_TIMEZONE_MAX
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="chat_settings_router")
 
@@ -28,7 +29,7 @@ _RANK_SETTINGS: dict = {
     "rank_ban":      ("🔨",  "Забанить навсегда",     "rank_ban"),
     "rank_shield":   ("🛡",  "Выдавать щит",          "rank_shield"),
     "rank_immune":   ("🔰",  "Давать иммунитет",      "rank_immune"),
-    "rank_duel":     ("⚔️",  "Начинать дуэли",        "rank_duel"),
+    # rank_duel убран (UX_AUDIT Б12): чат-дуэли выпилены Боёвкой 3.0, настройка ни на что не влияла
     "rank_marriage": ("💍",  "Предлагать брак",        "rank_marriage"),
     "rank_give":     ("💸",  "Переводить мору/алмазы","rank_give"),
     "purge_action_rank": ("⚖️", "Кнопки вердикта в досье/чистке", "purge_action_rank"),
@@ -173,7 +174,7 @@ def _rank_picker_kb(key: str, current: int, label: str, user_id: int = 0) -> typ
 @router.message(TextCmd(["настройки чата", "настройка чата", "settings"]))
 async def cmd_chat_settings(message: types.Message, db, developer_id: int = 0):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     admin_stats = await chat_repo.get_chat_stats(db, message.from_user.id, message.chat.id)
     admin_rank = admin_stats.get("local_rank", 0)
@@ -279,7 +280,7 @@ async def cmd_set_timezone(message: types.Message, db, developer_id: int = 0, te
     бот часовой пояс, +3   → установить UTC+3
     бот часовой пояс, -5   → установить UTC-5"""
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     admin_stats = await chat_repo.get_chat_stats(db, message.from_user.id, message.chat.id)
     admin_rank = admin_stats.get("local_rank", 0)

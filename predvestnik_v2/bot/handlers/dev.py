@@ -667,7 +667,6 @@ async def cmd_dev_chat_info(message: types.Message, db, text_args: str = None):
         f"├ 🔨 Бан: {_rank('rank_ban', 5)}\n"
         f"├ 🛡 Щит: {_rank('rank_shield', 4)}\n"
         f"├ 🔰 Иммунитет: {_rank('rank_immune', 5)}\n"
-        f"├ ⚔️ Дуэли: {_rank('rank_duel', 0)}\n"
         f"├ 💍 Брак: {_rank('rank_marriage', 0)}\n"
         f"└ 💸 Перевод: {_rank('rank_give', 0)}\n"
     )

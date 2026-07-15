@@ -15,6 +15,7 @@ from services import marriage as marriage_service
 from bot.filters.text_commands import TextCmd
 from services.utils import format_currency, resolve_display_name
 from bot.handlers.economy import PayCB  # переиспользуем выбор валюты для «подарка» партнёру
+from bot.keyboards.cta import answer_group_only
 
 router = Router(name="marriage_router")
 
@@ -63,7 +64,7 @@ def _family_currency_kb(action: str, amount: float, user_id: int, marriage_id: i
 @router.message(TextCmd(["брак", "свадьба", "роспись"]))
 async def cmd_marriage(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return await message.answer("❌ <b>Ошибка:</b> Браки заключаются только в группах!", parse_mode="HTML")
+        return await answer_group_only(message)
 
     initiator_id = message.from_user.id
     from services.utils import resolve_display_name
@@ -306,7 +307,7 @@ def _parse_bank_amount(text_args: str | None):
 @router.message(TextCmd(["вложить", "в общак"]))
 async def cmd_family_deposit(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     amount = _parse_bank_amount(text_args)
     if amount is None:
         return await message.answer(
@@ -326,7 +327,7 @@ async def cmd_family_deposit(message: types.Message, db, text_args: str = None):
 @router.message(TextCmd(["снять", "из общака"]))
 async def cmd_family_withdraw(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     amount = _parse_bank_amount(text_args)
     if amount is None:
         return await message.answer(
@@ -370,7 +371,7 @@ async def cb_family_bank(query: types.CallbackQuery, callback_data: FamilyBankCB
 @router.message(TextCmd(["общак", "семейный баланс", "семья"]))
 async def cmd_family_info(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     marriage = await marriages.get_user_marriage(db, message.from_user.id)
     if not marriage:
@@ -414,7 +415,7 @@ async def cmd_gift_partner(message: types.Message, db, text_args: str = None):
     """Подарить партнёру любую валюту (Block 5.3). Авто-цель — супруг.
     Переиспользует PayCB / cb_pay_currency из economy.py."""
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     amount = _parse_bank_amount(text_args)
     if amount is None:
         return await message.answer(
@@ -443,7 +444,7 @@ async def cmd_gift_partner(message: types.Message, db, text_args: str = None):
 @router.message(TextCmd(["подарки", "подарки партнёру", "витрина подарков", "магазин подарков"]))
 async def cmd_gift_catalog(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     marriage = await marriages.get_user_marriage(db, message.from_user.id)
     if not marriage:
         return await message.answer("💔 Сначала найдите свою половинку — подарки дарятся партнёру.")

@@ -15,6 +15,7 @@ from services.utils import format_currency
 
 router = Router(name="quests_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_quests"))
 
 
@@ -40,7 +41,7 @@ def _reward_str(reward: dict) -> str:
 @router.message(TextCmd(["задания", "квесты", "дейлики"]))
 async def cmd_quests(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     user_id = message.from_user.id
     chat_id = message.chat.id

@@ -23,6 +23,7 @@ from services.utils import format_currency, check_callback_owner
 
 router = Router(name="exchange_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_exchange"))
 
 
@@ -80,7 +81,7 @@ async def _render_menu(db, user_id: int) -> tuple[str, InlineKeyboardBuilder]:
 async def cmd_exchange(message: types.Message, db, text_args: str = None,
                        user_restricted: dict | None = None, chat_restricted: dict | None = None):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     restriction = user_restricted or chat_restricted
     if restriction:
         return await message.answer(global_moderation.restriction_message(restriction))

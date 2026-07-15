@@ -10,6 +10,7 @@ from aiogram.types import LabeledPrice
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
+from bot.keyboards.cta import dm_cta_kb
 from infrastructure.repositories import economy as eco_db
 from core.constants import (
     ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR,
@@ -75,7 +76,9 @@ async def cmd_start(message: types.Message, command: CommandObject, db, bot: Bot
             await message.answer(
                 f"🎉 <b>Добро пожаловать по приглашению!</b>\n"
                 f"Вам и другу, который вас позвал, начислено:\n{bonus_line}\n\n"
-                f"Дальше — в группу, где стоит бот, и напишите «бот я», чтобы увидеть профиль.",
+                f"Дальше — в группу, где стоит бот («бот я» покажет профиль), "
+                f"или сразу в мини-апп:",
+                reply_markup=dm_cta_kb(),
                 parse_mode="HTML",
             )
             # DM рефереру может не дойти: та же ограниченность Bot API, что и в
@@ -92,10 +95,15 @@ async def cmd_start(message: types.Message, command: CommandObject, db, bot: Bot
             return
         # Невалидная/повторная рефералка — не спамим ошибкой, просто обычное приветствие ниже.
 
+    # UX_AUDIT Б1: первый экран бота — с действиями, а не голым текстом.
     await message.answer(
-        "👋 Привет! Я <b>Предвестник</b> — RPG-бот для групповых чатов.\n\n"
-        "Команды пишутся словом «бот» прямо в сообщении группы "
-        "(например «бот баланс», «бот помощь»).",
+        "🌘 <b>Предвестник услышал тебя.</b>\n\n"
+        "Я — игровой бот для групповых чатов: питомцы, экономика, кланы, бои.\n\n"
+        "Куда дальше — два пути:\n"
+        "➕ <b>Добавь меня в группу</b> — игра идёт там. Команды пишутся словом "
+        "«бот»: <code>бот помощь</code>\n"
+        "🌐 <b>Открой мини-апп</b> — профиль, магазин, Казарма и бои прямо здесь",
+        reply_markup=dm_cta_kb(),
         parse_mode="HTML",
     )
 

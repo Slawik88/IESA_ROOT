@@ -14,6 +14,7 @@ from infrastructure.repositories.dark_mora import (
 from infrastructure.repositories import economy as eco_repo
 from services.utils import format_currency
 
+from bot.keyboards.cta import answer_group_only
 from core.constants import (
     DARK_MORA_CONTRABANDA_COOLDOWN_DAYS, DARK_MORA_CONTRABANDA_CATCH_PENALTY_DAYS,
     DARK_MORA_CONTRABANDA_MIN_STAKE, DARK_MORA_CONTRABANDA_MAX_STAKE,
@@ -275,7 +276,7 @@ _SM_MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
 async def cmd_shadow_word(message: types.Message, db, text_args: str = None):
     """«бот слово, догадка» — ответ на пророчество Теневого Торговца."""
     if message.chat.type == "private":
-        return await message.answer("🕴 Торговец является только в группах.")
+        return await answer_group_only(message)
     guess = (text_args or "").strip()
     if not guess:
         return await message.answer(

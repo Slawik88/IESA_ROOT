@@ -22,6 +22,7 @@ from core.constants import (
 )
 from infrastructure.repositories.chest_events import create_chest
 from services.formatting import format_chest_rewards_text
+from bot.keyboards.cta import answer_group_only
 from infrastructure.repositories.exchange import (
     get_active_event as _get_active_exchange,
     create_event as _create_exchange_event,
@@ -69,7 +70,7 @@ def _time_until(dt_str: str | None) -> str:
 @router.message(TextCmd(["ивент", "событие", "ивенты", "события"]))
 async def cmd_events_info(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
 
     # ── Currency exchanger (постоянный, БЛОК 2.2) ─────────────────────────────
     ex_status = (
@@ -126,7 +127,7 @@ async def cmd_force_chest(message: types.Message, db, bot: Bot, developer_id: in
     if not developer_id or message.from_user.id != developer_id:
         return
     if message.chat.type == "private":
-        return await message.answer("❌ Только в группах.")
+        return await answer_group_only(message)
 
     expires = datetime.now(timezone.utc) + timedelta(seconds=CHEST_DURATION_SECONDS)
     expires_str = expires.strftime("%Y-%m-%d %H:%M:%S")

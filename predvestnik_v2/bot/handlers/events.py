@@ -20,6 +20,7 @@ from infrastructure.repositories.chest_events import (
     get_active_chest, close_chest, update_last_chest_at,
 )
 from services.utils import resolve_display_name
+from bot.keyboards.cta import MINIAPP_URL
 
 router = Router(name="events_router")
 
@@ -34,64 +35,68 @@ class LeaveCB(CallbackData, prefix="leave"):
 
 # ── Welcome messages diversity ────────────────────────────────────────────────
 
+# UX_AUDIT Б5/Б20: тон — «тихая мистика» бренда, но предельно ясные первые шаги
+# (короткий текст, нумерованные действия, кнопка мини-аппа). Никаких «⚡ Бот активирован!».
 _BOT_WELCOME_MESSAGES = [
     (
-        "👋 <b>Привет! Я — Предвестник V2</b>\n\n"
-        "Я ваш игровой бот: экономика, питомцы, модерация и многое другое.\n\n"
+        "🌘 <b>Предвестник вошёл в этот чат.</b>\n\n"
+        "Теперь здесь идёт игра: питомцы, золото, кланы, бои.\n\n"
+        "📌 <b>Три шага:</b>\n"
+        "1️⃣ <b>бот я</b> — увидишь свой профиль\n"
+        "2️⃣ <b>бот стрик</b> — ежедневная награда\n"
+        "3️⃣ <b>бот помощь</b> — все команды\n\n"
+        "<i>Владелец чата уже получил ранг 👑. Магазин, Казарма и бои — в мини-аппе (кнопка ниже).</i>"
+    ),
+    (
+        "🕯 <b>Кто-то позвал — и Предвестник пришёл.</b>\n\n"
+        "Я игровой бот: экономика, питомцы, гача, кланы.\n\n"
         "📌 <b>С чего начать:</b>\n"
-        "· бот помощь — все команды\n"
-        "· бот профиль — ваш профиль\n"
-        "· бот зоопарк — питомцы\n"
-        "· бот настройки чата — для администраторов\n\n"
-        "<i>Владелец чата уже получил ранг Владельца 👑</i>"
+        "· <b>бот я</b> — твоя карточка\n"
+        "· <b>бот крутка</b> — первый питомец\n"
+        "· <b>бот помощь</b> — всё остальное\n\n"
+        "<i>Команды пишутся словом «бот» прямо в чат. Остальное — в мини-аппе (кнопка ниже).</i>"
     ),
     (
-        "🔮 <b>Предвестник V2 здесь!</b>\n\n"
-        "Готов к работе: экономика, питомцы, гача, аукцион и многое другое.\n\n"
-        "📌 <b>Быстрый старт:</b>\n"
-        "· бот помощь — список всех команд\n"
-        "· бот крутка — гача-крутки\n"
-        "· бот акция — ежедневная акция\n"
-        "· бот задания — ежедневные квесты\n\n"
-        "<i>Пишите «бот» перед каждой командой.</i>"
+        "🌑 <b>В этом чате стало на одну тень больше.</b>\n\n"
+        "Я — Предвестник: считаю Мору, выращиваю питомцев, слежу за порядком.\n\n"
+        "📌 <b>Попробуй сразу:</b>\n"
+        "· <b>бот стрик</b> — начни серию входов\n"
+        "· <b>бот акция</b> — сделка дня\n"
+        "· <b>бот помощь</b> — навигация\n\n"
+        "<i>Администраторам: <b>бот настройки чата</b> — права и модули.</i>"
     ),
     (
-        "⚡ <b>Бот активирован!</b>\n\n"
-        "Добро пожаловать в мир Предвестника.\n"
-        "Собирай питомцев, зарабатывай Мору, участвуй в аукционах.\n\n"
-        "📌 <b>Полезные команды:</b>\n"
-        "· бот помощь — навигация\n"
-        "· бот стрик — ежедневный вход\n"
-        "· бот топ — лидерборд\n"
-        "· бот я — ваша карточка\n\n"
-        "<i>Синтаксис: бот [команда], [аргументы]</i>"
+        "🔮 <b>Шар показал этот чат — значит, мне сюда.</b>\n\n"
+        "🐾 Питомцы · 💰 Экономика · 🛡 Модерация · 🎰 Гача\n\n"
+        "Начни с <b>бот помощь</b> — там всё.\n"
+        "Магазин, Казарма и бои — в мини-аппе (кнопка ниже).\n\n"
+        "<i>Администраторам: <b>бот настройки чата</b>.</i>"
     ),
     (
-        "🌌 <b>Привет, новый чат!</b>\n\n"
-        "Я — Предвестник V2, ваш игровой помощник.\n\n"
-        "🐾 Питомцы · 💰 Экономика · 🛡 Модерация\n"
-        "🎰 Гача · 🏛 Аукцион · 📋 Квесты\n\n"
-        "Напиши <b>бот помощь</b> чтобы узнать всё.\n\n"
-        "<i>Администраторы: бот настройки чата — для настройки прав.</i>"
-    ),
-    (
-        "✨ <b>Предвестник V2 к вашим услугам!</b>\n\n"
-        "Полноценная игровая экосистема прямо в Telegram.\n\n"
+        "✨ <b>Предвестник теперь среди вас.</b>\n\n"
         "📌 <b>Три первых шага:</b>\n"
-        "1️⃣ бот профиль — посмотреть себя\n"
-        "2️⃣ бот стрик — начать серию входов\n"
-        "3️⃣ бот крутка — получить первого питомца\n\n"
-        "<i>Удачи! 🍀</i>"
+        "1️⃣ <b>бот я</b> — твоя карточка\n"
+        "2️⃣ <b>бот стрик</b> — серия входов и награды\n"
+        "3️⃣ <b>бот крутка</b> — первый питомец\n\n"
+        "<i>Всё остальное — <b>бот помощь</b> и мини-апп (кнопка ниже).</i>"
     ),
 ]
 
 _USER_WELCOME_MESSAGES = [
-    "👋 Добро пожаловать, <b>{name}</b>! Напиши <b>бот помощь</b> чтобы узнать команды.",
-    "🌟 <b>{name}</b>, рады тебя видеть! Начни с <b>бот стрик</b> — ежедневный бонус ждёт.",
-    "⚡ <b>{name}</b> только что вошёл(а) в чат! Напиши <b>бот профиль</b> чтобы создать свой профиль.",
-    "🎉 Привет, <b>{name}</b>! Мир Предвестника ждёт тебя — попробуй <b>бот крутка</b>.",
-    "✨ <b>{name}</b> присоединился(ась)! Пиши <b>бот помощь</b> — там всё что нужно знать.",
+    "🌘 <b>{name}</b>, тебя ждали. Напиши <b>бот я</b> — увидишь свой профиль.",
+    "🕯 Свеча зажглась — <b>{name}</b> с нами. Начни с <b>бот стрик</b>: ежедневная награда.",
+    "✨ <b>{name}</b>, добро пожаловать. <b>бот помощь</b> покажет, как тут всё устроено.",
+    "🔮 Шар предсказал твоё появление, <b>{name}</b>. Попробуй <b>бот крутка</b> — первый питомец.",
+    "🌑 Тень стала гуще: <b>{name}</b> здесь. Твоя карточка — <b>бот я</b>.",
 ]
+
+
+def _welcome_kb() -> types.InlineKeyboardMarkup:
+    """Кнопка мини-аппа в приветствии (UX_AUDIT Б5). В группах — только url-кнопка
+    (web_app в группах даёт BUTTON_TYPE_INVALID)."""
+    b = InlineKeyboardBuilder()
+    b.button(text="🌐 Мини-апп: магазин, Казарма, бои", url=MINIAPP_URL)
+    return b.as_markup()
 
 
 async def _delayed_bot_welcome(bot: Bot, chat_id: int) -> None:
@@ -99,7 +104,7 @@ async def _delayed_bot_welcome(bot: Bot, chat_id: int) -> None:
     await asyncio.sleep(2)
     text = random.choice(_BOT_WELCOME_MESSAGES)
     try:
-        await bot.send_message(chat_id, text, parse_mode="HTML")
+        await bot.send_message(chat_id, text, reply_markup=_welcome_kb(), parse_mode="HTML")
     except Exception as e:
         logger.warning(f"Bot welcome failed in {chat_id}: {e}")
 
@@ -111,27 +116,39 @@ async def _bot_joined_chat(event: ChatMemberUpdated, db, bot: Bot) -> None:
     chat_id = event.chat.id
     logger.info(f"Бот вошёл в чат {chat_id} ({event.chat.title})")
 
-    # Auto-assign rank 6 (Владелец) to the chat owner
+    # Авто-ранги (UX_AUDIT Б17): владельцу чата — 6, а также добавившему бота
+    # Telegram-админу — 4 (Ст.Адм). Раньше ранг получал ТОЛЬКО «creator»: если
+    # фаундер неактивен, бот оставался ненастраиваемым для реальных админов.
+    # Самовосстановление в любой момент: «бот обновить права» (admin.py).
+    async def _grant_rank(uid: int, uname, rank: int) -> None:
+        await users_repo.update_user(db, uid, uname)
+        await db.execute(
+            "INSERT OR IGNORE INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?)",
+            (uid, chat_id),
+        )
+        # Только повышение — вдруг у добавившего уже есть ранг выше
+        await db.execute(
+            "UPDATE user_chat_stats SET local_rank = ? "
+            "WHERE user_tg_id = ? AND chat_tg_id = ? AND local_rank < ?",
+            (rank, uid, chat_id, rank),
+        )
+        await db.commit()
+        logger.info(f"Авто-ранг {rank} выдан {uid} в чате {chat_id}")
+
     try:
         admins = await bot.get_chat_administrators(chat_id)
+        adder = event.from_user  # кто добавил бота
         for admin in admins:
             if admin.status == "creator":
-                owner_id = admin.user.id
-                owner_username = getattr(admin.user, "username", None)
-                await users_repo.update_user(db, owner_id, owner_username)
-                # Ensure user_chat_stats row exists before setting rank
-                await db.execute(
-                    "INSERT OR IGNORE INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?)",
-                    (owner_id, chat_id),
-                )
-                await db.execute(
-                    "UPDATE user_chat_stats SET local_rank = 6 "
-                    "WHERE user_tg_id = ? AND chat_tg_id = ?",
-                    (owner_id, chat_id),
-                )
-                await db.commit()
-                logger.info(f"Авто-ранг 6 выдан владельцу {owner_id} в чате {chat_id}")
+                await _grant_rank(
+                    admin.user.id, getattr(admin.user, "username", None), 6)
                 break
+        if adder:
+            adder_status = next(
+                (a.status for a in admins if a.user.id == adder.id), None)
+            if adder_status == "administrator":
+                await _grant_rank(
+                    adder.id, getattr(adder, "username", None), 4)
     except Exception as e:
         logger.warning(f"Не удалось выдать авто-ранг в чате {chat_id}: {e}")
 

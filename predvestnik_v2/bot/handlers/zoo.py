@@ -35,6 +35,7 @@ from services.quests import increment_metric as quest_increment
 
 router = Router(name="zoo_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_zoo"))
 
 
@@ -274,7 +275,7 @@ async def render_storage(message: types.Message, db, user_id: int, page: int):
 @router.message(TextCmd(["зоопарк", "питомник", "питомцы", "питомци", "мои питомцы", "мои питомци"]))
 async def cmd_zoo(message: types.Message, db):
     if message.chat.type == "private":
-        return
+        return await answer_group_only(message)
     await render_main_zoo(message, db, message.from_user.id, is_edit=False)
 
 
