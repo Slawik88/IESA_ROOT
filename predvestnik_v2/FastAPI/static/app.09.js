@@ -611,7 +611,8 @@ function devPromoCreate() {
     dark_mora:parseFloat(el('dev-promo-dark')?.value)||0,
     zarniki:parseFloat(el('dev-promo-zar')?.value)||0,
     items, max_activations:parseInt(el('dev-promo-max')?.value,10)||0,
-    valid_until:el('dev-promo-until')?.value.trim()||null,
+    // W5.3 (D14): дата из <input type="datetime-local"> ('2026-08-01T00:00' → '2026-08-01 00:00')
+    valid_until:(el('dev-promo-until')?.value||'').trim().replace('T',' ')||null,
   };
   api('/admin/dev/promocodes',{method:'POST',body:JSON.stringify(body)})
     .then(r=>{toast('🎟 Создан: '+r.code);['code','desc','mora','dia','dark','zar','items','max','until'].forEach(s=>{const i=el('dev-promo-'+s);if(i)i.value='';});devPromoLoad();})

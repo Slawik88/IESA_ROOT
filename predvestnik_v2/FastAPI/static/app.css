@@ -2047,6 +2047,19 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 .adm-table td { padding: 8px; border-bottom: 1px solid var(--border2); vertical-align: middle; }
 .adm-table tr:hover td { background: rgba(255,255,255,.02); }
 
+/* Аккордеоны консоли (БЛОК 21.2 W5.2): шаги БП сворачиваются, открыт текущий */
+details.dev-acc > summary { cursor: pointer; list-style: none; user-select: none; }
+details.dev-acc > summary::-webkit-details-marker { display: none; }
+details.dev-acc > summary::before {
+  content: '▸'; display: inline-block; margin-right: 6px;
+  color: var(--gold2); transition: transform .2s;
+}
+details.dev-acc[open] > summary::before { transform: rotate(90deg); }
+details.dev-acc:not([open]) > summary { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+  details.dev-acc > summary::before { transition: none; }
+}
+
 /* ═══ ФОРМЫ ═════════════════════════════════════════════════════════════════ */
 .num-input {
   width: 100%; background: var(--bg0); color: var(--bright);
