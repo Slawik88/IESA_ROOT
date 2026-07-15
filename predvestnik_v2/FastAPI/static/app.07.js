@@ -997,31 +997,51 @@ function loadGlobalLog() {
 }
 function glbLogPage(p) { _glbLogPage=p; loadGlobalLog(); }
 
-// 4. Апелляции ──────────────────────────────────────────────────────────────────────
+// 4. Апелляции — W3.2 (D4): компактные строки, поиск, счётчики в фильтрах,
+// порции по 30 («Показать ещё»). Полный текст и вложения — в диалоге (💬).
+let _glbAppealsAll=null, _glbAppealsCounts={}, _glbAppealQ='', _glbAppealsShown=30;
 function loadGlobalAppeals() {
   el('glb-appeals').innerHTML='<div class="loader">Загрузка...</div>';
   api(`/admin/global/appeals?status=${_glbAppealsStatus}`).then(d=>{
+    _glbAppealsAll=d.appeals||[]; _glbAppealsCounts=d.counts||{}; _glbAppealsShown=30;
     el('glb-appeals').innerHTML=`
       <div class="tabs tabs-scroll" style="margin-bottom:8px">
-        <button class="tb ${_glbAppealsStatus==='pending'?'active':''}" onclick="filterGlobalAppeals('pending')">⏳ Новые (${(d.counts||{}).pending||0})</button>
-        <button class="tb ${_glbAppealsStatus==='accepted'?'active':''}" onclick="filterGlobalAppeals('accepted')">✅ Принятые (${(d.counts||{}).accepted||0})</button>
-        <button class="tb ${_glbAppealsStatus==='rejected'?'active':''}" onclick="filterGlobalAppeals('rejected')">❌ Отклонённые (${(d.counts||{}).rejected||0})</button>
-        <button class="tb ${_glbAppealsStatus==='closed'?'active':''}" onclick="filterGlobalAppeals('closed')">📪 Закрытые (${(d.counts||{}).closed||0})</button>
+        <button class="tb ${_glbAppealsStatus==='pending'?'active':''}" onclick="filterGlobalAppeals('pending')">⏳ Новые (${_glbAppealsCounts.pending||0})</button>
+        <button class="tb ${_glbAppealsStatus==='accepted'?'active':''}" onclick="filterGlobalAppeals('accepted')">✅ Принятые (${_glbAppealsCounts.accepted||0})</button>
+        <button class="tb ${_glbAppealsStatus==='rejected'?'active':''}" onclick="filterGlobalAppeals('rejected')">❌ Отклонённые (${_glbAppealsCounts.rejected||0})</button>
+        <button class="tb ${_glbAppealsStatus==='closed'?'active':''}" onclick="filterGlobalAppeals('closed')">📪 Закрытые (${_glbAppealsCounts.closed||0})</button>
       </div>
-      ${d.appeals.length?d.appeals.map(a=>`<div class="card">
-        <div class="irow"><span class="ik">От</span><span class="iv">${gp('dossier_view')?`<span style="cursor:pointer;text-decoration:underline" onclick="openPlayerCenter(${a.user_id})">${a.user_name}</span>`:a.user_name}</span></div>
-        <div class="irow"><span class="ik">Санкция</span><span style="font-size:11px">${_SANCTION_LABELS[a.sanction_type]||'?'}${a.sanction_active===false?' (уже снята)':''}</span></div>
-        <div class="irow"><span class="ik">Причина санкции</span><span style="font-size:11px">${esc(a.sanction_reason||'—')}</span></div>
-        <div style="margin:6px 0;padding:8px;background:var(--dim);border-radius:6px;font-size:12px">${esc(a.text)}</div>
-        <div class="irow"><span class="ik">Когда</span><span style="font-size:11px">${fmtUTC(a.created_at)}</span></div>
-        ${a.status==='pending'?`<div style="display:flex;gap:6px;margin-top:6px">
-          <button class="btn btn-sm btn-teal" style="flex:1" onclick="openAppealThread(${a.id})">💬 Диалог</button>
-          <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doResolveAppeal(${a.id},'accept')">✅ Снять санкцию</button>
-          <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doResolveAppeal(${a.id},'reject')">❌ Отклонить</button>
-        </div>`:`<div class="irow"><span class="ik">Решение</span><span style="font-size:11px">${a.status==='accepted'?'✅ Принята':a.status==='closed'?'📪 Закрыта':'❌ Отклонена'}${a.resolved_by_name?' · '+a.resolved_by_name:''}</span></div>
-        <button class="btn btn-sm btn-ghost btn-full" style="margin-top:4px" onclick="openAppealThread(${a.id})">💬 Показать диалог</button>`}
-      </div>`).join(''):'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет апелляций</div>'}`;
+      <input type="text" class="num-input" style="margin:0 0 8px" placeholder="🔎 Поиск: ник / ID / текст апелляции" value="${esc(_glbAppealQ)}" oninput="_glbAppealQ=this.value;_glbAppealsShown=30;_renderGlobalAppeals()"/>
+      <div id="glb-appeals-list"></div>`;
+    _renderGlobalAppeals();
   }).catch(e=>{el('glb-appeals').innerHTML=`<div class="err">${e}</div>`;});
+}
+function _renderGlobalAppeals() {
+  const box=el('glb-appeals-list'); if(!box) return;
+  const q=(_glbAppealQ||'').trim().toLowerCase();
+  const rows=(_glbAppealsAll||[]).filter(a=>!q
+    ||(a.user_name||'').toLowerCase().includes(q)
+    ||(a.text||'').toLowerCase().includes(q)
+    ||String(a.user_id).includes(q));
+  const st={pending:'⏳',accepted:'✅',rejected:'❌',closed:'📪'};
+  const shown=rows.slice(0,_glbAppealsShown);
+  box.innerHTML=(shown.length?`<div class="card" style="padding:8px 14px">${shown.map(a=>{
+    const name=gp('dossier_view')
+      ?`<span style="cursor:pointer;text-decoration:underline;font-weight:600;color:var(--bright)" onclick="openPlayerCenter(${a.user_id})">${esc(a.user_name)}</span>`
+      :`<span style="font-weight:600;color:var(--bright)">${esc(a.user_name)}</span>`;
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
+      <span style="flex:1;min-width:0;font-size:11.5px">${st[a.status]||'❔'} <b>#${a.id}</b> ${name}
+        <span style="color:var(--muted)">· ${_SANCTION_LABELS[a.sanction_type]||'?'}${a.sanction_active===false?' (снята)':''} · ${esc((a.text||'').slice(0,44))}</span><br>
+        <span style="font-size:10px;color:var(--muted)">${fmtUTC(a.created_at)}${a.status!=='pending'&&a.resolved_by_name?' · решение: '+esc(a.resolved_by_name):''}</span>
+      </span>
+      <span style="display:flex;gap:4px;flex:none">
+        <button class="btn btn-sm btn-teal" style="padding:3px 7px" title="Диалог" onclick="openAppealThread(${a.id})">💬</button>
+        ${a.status==='pending'?`<button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="Снять санкцию" onclick="doResolveAppeal(${a.id},'accept')">✅</button>
+        <button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="Отклонить" onclick="doResolveAppeal(${a.id},'reject')">❌</button>`:''}
+      </span>
+    </div>`;}).join('')}</div>`
+    :'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">'+(q?'Ничего не найдено':'Нет апелляций')+'</div>')
+    +(rows.length>_glbAppealsShown?`<button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="_glbAppealsShown+=30;_renderGlobalAppeals()">⬇ Показать ещё (${rows.length-_glbAppealsShown})</button>`:'');
 }
 function filterGlobalAppeals(status) { _glbAppealsStatus=status; loadGlobalAppeals(); }
 function doResolveAppeal(id, action) {

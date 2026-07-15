@@ -9,7 +9,8 @@ const _DEV_TAB_PERMS=[
   ['pulse','📥 Сводка',['console_overview']],
   ['sys','🖥 Система',['console_overview','flags_manage','modules_manage']],
   ['players','👥 Игроки',['dossier_view','economy_balance','economy_items','economy_vip','log_admin_view']],
-  ['content','🎫 Контент',['bp_manage','promo_manage']],
+  ['content','🎫 Контент',['bp_manage']],
+  ['promo','🎟 Промо',['promo_manage']],
   ['bc','📢 Вещание',['broadcast_send']],
   ['sql','🖥 SQL',['sql_run']],
   ['metrics','📊 Метрики',['metrics_view']],
@@ -90,6 +91,7 @@ function _devPlayersTabHtml(){
     </div>`:''}
     ${gp('log_admin_view')?`<div class="card">
       <div class="card-title">📜 Журнал выдач <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevLog()">🔄</button></div>
+      <input id="dev-log-q" type="text" class="num-input" style="margin-bottom:6px" placeholder="🔎 Фильтр: ник / ID (цель или админ)" oninput="_devLogSearchDebounced(this.value)"/>
       <div id="dev-log"><div class="loader">Загрузка...</div></div>
     </div>`:''}
     ${gp('economy_vip')?`<div class="card">
@@ -122,11 +124,13 @@ function _devPlayersTabHtml(){
   </div>
 `;
 }
+// W5.2 (D13): шаги БП — аккордеоны (<details>): открыт только текущий шаг,
+// вкладка перестаёт быть простынёй 3357px. Промокоды — отдельная под-вкладка.
 function _devContentTabHtml(){
-  if(!gpAny(['bp_manage','promo_manage'])) return '';
+  if(!gp('bp_manage')) return '';
   return `<div id="dev-t-content" style="display:none">
-    ${gp('bp_manage')?`<div class="card">
-      <div class="card-title">🎫 БП · Шаг 1 — Сезоны</div>
+    <details class="card dev-acc" open>
+      <summary class="card-title">🎫 БП · Шаг 1 — Сезоны</summary>
       <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Порядок работы: 1️⃣ сезон → 2️⃣ выбрать его в таблице → 3️⃣ править награды → 4️⃣ настроить XP за действия.</div>
       <div id="dev-seasons"><div class="loader">Загрузка...</div></div>
       <div style="display:flex;gap:6px;margin:8px 0 6px">
@@ -146,18 +150,18 @@ function _devContentTabHtml(){
         <input id="dev-bp-xp" type="number" class="num-input" style="flex:1;margin:0" placeholder="XP (− снять)"/>
         <button class="btn btn-gold" onclick="devBpXp()">OK</button>
       </div>
-    </div>
-    <div class="card">
-      <div class="card-title">🎫 БП · Шаг 2 — Таблица наград (Free / VIP) <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadBpSeasons()">🔄</button></div>
+    </details>
+    <details class="card dev-acc">
+      <summary class="card-title">🎫 БП · Шаг 2 — Таблица наград (Free / VIP) <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="event.preventDefault();loadBpSeasons()">🔄</button></summary>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
         <span style="font-size:11px;color:var(--muted);white-space:nowrap">Сезон:</span>
         <select id="dev-bp-season-sel" class="num-input" style="margin:0;flex:1" onchange="onBpSeasonChange()"></select>
       </div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Клик по ячейке → подставить в форму ниже. 🔧 = в БД. <b>Все правки/импорт идут в ВЫБРАННЫЙ сезон.</b></div>
       <div id="dev-bp-table" style="overflow-x:auto"><div class="loader">Загрузка...</div></div>
-    </div>
-    <div class="card">
-      <div class="card-title">🎫 БП · Шаг 3 — Редактор наград</div>
+    </details>
+    <details class="card dev-acc">
+      <summary class="card-title">🎫 БП · Шаг 3 — Редактор наград</summary>
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <input id="dev-br-season" type="text" class="num-input" style="flex:1;margin:0" placeholder="сезон" readonly title="Сезон выбирается селектором над таблицей"/>
         <input id="dev-br-level" type="number" class="num-input" style="flex:1;margin:0" placeholder="уровень"/>
@@ -230,9 +234,9 @@ function _devContentTabHtml(){
       <textarea id="dev-bp-json" class="num-input" style="margin:0 0 6px;min-height:84px;resize:vertical;font-family:monospace;font-size:10px" placeholder='{"season_id":"s1","rewards":[{"level":1,"track":"free","mora":500}, ...]}'></textarea>
       <button class="btn btn-gold btn-full" onclick="devBpImport()">📥 Импортировать JSON</button>
       <div id="dev-bp-import-out" style="font-size:10px;margin-top:4px"></div>
-    </div>
-    <div class="card" id="bp-xp-card">
-      <div class="card-title">🎫 БП · Шаг 4 — XP за действия <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadBpXpActions()">🔄</button></div>
+    </details>
+    <details class="card dev-acc" id="bp-xp-card">
+      <summary class="card-title">🎫 БП · Шаг 4 — XP за действия <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="event.preventDefault();loadBpXpActions()">🔄</button></summary>
       <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Сколько XP даёт каждое действие, дневной потолок (анти-абуз) и вкл/выкл. 🔧 = оверрайд в БД. <b id="dev-bpxp-perlevel">…</b></div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;padding:6px;background:var(--bg2,var(--s));border-radius:8px">
         <span style="font-size:11px;white-space:nowrap">⚡ Weekend boost</span>
@@ -251,8 +255,15 @@ function _devContentTabHtml(){
         <input id="dev-bpxp-cap" type="number" class="num-input" style="flex:1;margin:0" placeholder="потолок/д (0=∞)"/>
       </div>
       <button class="btn btn-gold btn-full" onclick="devBpXpSet()">💾 Сохранить действие</button>
-    </div>`:''}
-    ${gp('promo_manage')?`<div class="card">
+    </details>
+  </div>
+`;
+}
+// W5.2 (D13): промокоды — отдельная под-вкладка консоли (раньше тонули в «Контенте»).
+function _devPromoTabHtml(){
+  if(!gp('promo_manage')) return '';
+  return `<div id="dev-t-promo" style="display:none">
+    <div class="card">
       <div class="card-title">🎟 Промокоды <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="devPromoLoad()">🔄</button></div>
       <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Управление и здесь, и в чате: <code>бот dev промокод создать/список/инфо</code>. Активация игроками — «бот промокод» или сайт.</div>
       <div id="dev-promo-list"><div class="loader">Загрузка...</div></div>
@@ -270,10 +281,11 @@ function _devContentTabHtml(){
       <input id="dev-promo-items" type="text" class="num-input" style="margin-bottom:6px" placeholder="предметы: spin_token:3, food_elite:1"/>
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <input id="dev-promo-max" type="number" class="num-input" style="flex:1;margin:0" placeholder="лимит активаций (0=∞)"/>
-        <input id="dev-promo-until" type="text" class="num-input" style="flex:1;margin:0" placeholder="до: 2026-08-01 00:00"/>
+        <input id="dev-promo-until" type="datetime-local" class="num-input" style="flex:1;margin:0" title="Действует до (пусто = бессрочно)"/>
       </div>
+      <div style="font-size:10px;color:var(--muted);margin:-2px 0 6px">Справа — срок действия «до» (пусто = бессрочно).</div>
       <button class="btn btn-gold btn-full" onclick="devPromoCreate()">🎟 Создать промокод</button>
-    </div>`:''}
+    </div>
   </div>
 `;
 }
@@ -453,7 +465,7 @@ function loadConsole() {
     box.innerHTML='<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет прав на инструменты консоли.</div>';
     return;
   }
-  box.innerHTML = _devTabBtnsHtml()+_devPulseTabHtml()+_devSysTabHtml()+_devPlayersTabHtml()+_devContentTabHtml()+_devBcTabHtml()+_devSqlTabHtml()+_devMetricsTabHtml()+_devThemesTabHtml();
+  box.innerHTML = _devTabBtnsHtml()+_devPulseTabHtml()+_devSysTabHtml()+_devPlayersTabHtml()+_devContentTabHtml()+_devPromoTabHtml()+_devBcTabHtml()+_devSqlTabHtml()+_devMetricsTabHtml()+_devThemesTabHtml();
   swDev(allowed[0], document.querySelector('#console-c .dev-tabs .tb'));
   // Загружаем только разрешённые секции — иначе хелпер получит пачку 403-тостов.
   if(gp('console_overview')) { loadDevPulse(); devLoadOverview(); }
@@ -551,12 +563,19 @@ function _devQSearch(v){
       </div>`).join('')||'<div style="font-size:11px;color:var(--muted);padding:6px">Никого не нашли.</div>';
   }).catch(()=>{ box.innerHTML=''; });
 }
-function loadDevLog() {
+// W5.1 (D12): журнал выдач — фильтр по нику/ID (цель или админ) + порции по 50.
+let _devLogQ='', _devLogOffset=0, _devLogTimer=null;
+function _devLogSearchDebounced(v){ clearTimeout(_devLogTimer); _devLogTimer=setTimeout(()=>{ _devLogQ=(v||'').trim(); loadDevLog(); },400); }
+function loadDevLog(more) {
   const box = el('dev-log'); if(!box) return;
-  api('/admin/dev/admin-log').then(d=>{
+  if(!more){ _devLogOffset=0; box.innerHTML='<div class="loader">Загрузка...</div>'; }
+  el('dev-log-more')?.remove();
+  api(`/admin/dev/admin-log?q=${encodeURIComponent(_devLogQ)}&offset=${_devLogOffset}`).then(d=>{
     const log = d.log || [];
-    if(!log.length){ box.innerHTML='<div style="font-size:11px;color:var(--muted)">Журнал пуст.</div>'; return; }
-    box.innerHTML = log.map(e=>{
+    if(!more) box.innerHTML='';
+    if(!log.length && !_devLogOffset){ box.innerHTML='<div style="font-size:11px;color:var(--muted)">'+(_devLogQ?'По фильтру ничего не найдено.':'Журнал пуст.')+'</div>'; return; }
+    _devLogOffset += log.length;
+    box.insertAdjacentHTML('beforeend', log.map(e=>{
       const when = e.created_at ? fmtUTC(e.created_at) : '';
       const admin = esc(e.admin_name || ('ID'+e.admin_id));
       const isSys = !e.target_id || e.target_id===0;
@@ -576,7 +595,9 @@ function loadDevLog() {
         <div style="color:var(--gold)">${esc(e.detail||'')}: <b>${sign}${fmt(amt)}</b> · было ${fmt(e.before_val)} → стало ${fmt(e.after_val)}</div>
         ${reason?`<div style="color:var(--muted)">📝 ${esc(reason)}</div>`:'<div style="color:var(--red);font-size:10px">⚠ без причины</div>'}
       </div>`;
-    }).join('');
+    }).join(''));
+    if(d.has_more) box.insertAdjacentHTML('beforeend',
+      `<button id="dev-log-more" class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="loadDevLog(true)">⬇ Ещё 50</button>`);
   }).catch(e=>{ box.innerHTML=`<div class="err">${e}</div>`; });
 }
 // Конструктор БП (БЛОК 4.4): визуальная таблица наград Free/VIP по уровням.
@@ -1084,7 +1105,7 @@ function _metricsBar(rows,emptyText){
     return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0">'
       +'<div style="min-width:110px;max-width:110px;font-size:10px;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+label+'</div>'
       +'<div style="flex:1;background:var(--bg2);border-radius:3px;height:14px;overflow:hidden">'
-      +'<div style="width:'+pct+'%;height:14px;background:var(--gold2);border-radius:3px;transition:width .3s"></div></div>'
+      +'<div style="width:'+pct+'%;height:14px;background:var(--gold2);border-radius:3px"></div></div>'
       +'<div style="min-width:28px;text-align:right;font-size:10px;font-weight:700;color:var(--gold2)">'+r.views+'</div>'
       +'<div style="min-width:34px;text-align:right;font-size:10px;color:var(--muted)">👤 '+r.users+'</div>'
       +'<div style="min-width:46px;text-align:right;font-size:10px;color:var(--muted)" title="Среднее время на вкладке за визит">⏱ '+_fmtDwell(r.avg_dwell_sec)+'</div>'
@@ -1134,10 +1155,10 @@ function loadDevMetrics() {
 function swDev(tab, btn) {
   if(btn) btn.closest('.dev-tabs').querySelectorAll('.tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  ['pulse','sys','players','content','bc','sql','metrics','themes'].forEach(t=>{
+  ['pulse','sys','players','content','promo','bc','sql','metrics','themes'].forEach(t=>{
     const d=el('dev-t-'+t); if(d) d.style.display=t===tab?'':'none';
   });
-  if(tab==='content'&&gp('promo_manage')){ try{devPromoLoad();}catch(e){} }
+  if(tab==='promo'&&gp('promo_manage')){ try{devPromoLoad();}catch(e){} }
 }
 function devLoadChatsMod() {
   const sel=el('dev-mod-chat-sel'); if(!sel) return;
