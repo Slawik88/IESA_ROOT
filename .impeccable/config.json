@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [
+      "gradient-text",
+      "layout-transition"
+    ],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.34, 1.56, .64, 1)",
+        "reason": "Канон DESIGN.md: подписная spring-кривая навигации/наград (user approved 2026-07-15)",
+        "createdAt": "2026-07-15T09:02:47.193Z"
+      }
+    ]
+  }
+}
