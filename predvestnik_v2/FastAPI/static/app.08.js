@@ -14,6 +14,7 @@ const _DEV_TAB_PERMS=[
   ['bc','📢 Вещание',['broadcast_send']],
   ['sql','🖥 SQL',['sql_run']],
   ['metrics','📊 Метрики',['metrics_view']],
+  ['twins','🕵 Твинки',['twin_detection_view']],
   ['themes','🎨 Темы',['themes_manage']],
 ];
 function _devAllowedTabs(){ return _DEV_TAB_PERMS.filter(t=>gpAny(t[2])).map(t=>t[0]); }
@@ -341,6 +342,52 @@ function _devMetricsTabHtml(){
   </div>
 `;
 }
+function _devTwinsTabHtml(){
+  if(!gp('twin_detection_view')) return '';
+  return `<div id="dev-t-twins" style="display:none">
+    <div class="card">
+      <div class="card-title">🕵 Твинк-детект <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="_devTwinsRecalc()">🔄 Пересчитать</button></div>
+      <div class="set-hint">Только диагностика для разработчика — без банов и ограничений. Общий IP сам по себе может совпасть у незнакомых людей (общий Wi-Fi/мобильный интернет) — смотри на разбивку сигналов внутри карточки, не на голый счёт.</div>
+      <div id="dev-twins-meta" style="font-size:10px;color:var(--muted);margin:6px 0"></div>
+      <div id="dev-twins-list"><div class="loader">Загрузка...</div></div>
+    </div>
+  </div>
+`;
+}
+function loadDevTwins(){
+  const box=el('dev-twins-list'); if(!box) return;
+  api('/admin/dev/twins').then(_renderDevTwins).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
+}
+function _devTwinsRecalc(){
+  const box=el('dev-twins-list'); if(!box) return;
+  box.innerHTML='<div class="loader">Считаю…</div>';
+  api('/admin/dev/twins/recalculate',{method:'POST'}).then(_renderDevTwins).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
+}
+function _renderDevTwins(d){
+  const meta=el('dev-twins-meta');
+  if(meta) meta.textContent = d.computed_at ? ('Посчитано: '+new Date(d.computed_at*1000).toLocaleString()) : 'Ещё не считалось — нажми «Пересчитать».';
+  const box=el('dev-twins-list'); if(!box) return;
+  const pairs=d.pairs||[];
+  if(!pairs.length){ box.innerHTML='<div class="set-hint">Подозрительных пар не найдено.</div>'; return; }
+  box.innerHTML = pairs.map((p,i)=>{
+    const sigs=(p.signals||[]).map(s=>
+      `<div style="display:flex;justify-content:space-between;gap:6px;padding:3px 0;font-size:11px">
+         <span>${esc(s.label)}${s.caveat?`<div style="font-size:9.5px;color:var(--muted)">${esc(s.caveat)}</div>`:''}</span>
+         <span style="color:var(--gold2);white-space:nowrap">+${s.points}</span>
+       </div>`).join('');
+    return `<div class="card" style="margin-bottom:6px;padding:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;cursor:pointer" onclick="_devTwinToggle(${i})">
+        <span style="font-size:12.5px">${unameLink(p.user_a,p.username_a,false,null)} ↔ ${unameLink(p.user_b,p.username_b,false,null)}</span>
+        <span class="top-title" style="background:var(--bg2);padding:2px 8px;border-radius:8px;white-space:nowrap">${p.score} очк.</span>
+      </div>
+      <div id="dev-twin-det-${i}" style="display:none;margin-top:6px;border-top:1px solid var(--border2);padding-top:6px">${sigs}</div>
+    </div>`;
+  }).join('');
+}
+function _devTwinToggle(i){
+  const box=el('dev-twin-det-'+i); if(!box) return;
+  box.style.display = box.style.display==='none' ? 'block' : 'none';
+}
 function _devThemesTabHtml(){
   if(!gp('themes_manage')) return '';
   return `<div id="dev-t-themes" style="display:none">
@@ -465,7 +512,7 @@ function loadConsole() {
     box.innerHTML='<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Нет прав на инструменты консоли.</div>';
     return;
   }
-  box.innerHTML = _devTabBtnsHtml()+_devPulseTabHtml()+_devSysTabHtml()+_devPlayersTabHtml()+_devContentTabHtml()+_devPromoTabHtml()+_devBcTabHtml()+_devSqlTabHtml()+_devMetricsTabHtml()+_devThemesTabHtml();
+  box.innerHTML = _devTabBtnsHtml()+_devPulseTabHtml()+_devSysTabHtml()+_devPlayersTabHtml()+_devContentTabHtml()+_devPromoTabHtml()+_devBcTabHtml()+_devSqlTabHtml()+_devMetricsTabHtml()+_devTwinsTabHtml()+_devThemesTabHtml();
   swDev(allowed[0], document.querySelector('#console-c .dev-tabs .tb'));
   // Загружаем только разрешённые секции — иначе хелпер получит пачку 403-тостов.
   if(gp('console_overview')) { loadDevPulse(); devLoadOverview(); }
@@ -476,6 +523,7 @@ function loadConsole() {
   if(gp('dossier_view')) devLoadChats();
   if(gp('modules_manage')) devLoadChatsMod();
   if(gp('metrics_view')) loadDevMetrics();
+  if(gp('twin_detection_view')) loadDevTwins();
   if(gp('broadcast_send')) _bcLoadCounts();
   if(gp('economy_items')) {
     if(!_devItems) api('/admin/dev/items').then(d=>{

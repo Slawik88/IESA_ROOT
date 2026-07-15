@@ -6,7 +6,7 @@ import json
 
 
 async def ensure_tables(db) -> None:
-    # Казна клана: 💠 (стройка) и 🪙 (доход узлов → взносы войн)
+    # Казна клана: 🔷 (стройка) и 🪙 (доход узлов → взносы войн)
     for stmt in (
         "ALTER TABLE clans ADD COLUMN IF NOT EXISTS treasury_shards FLOAT8 DEFAULT 0",
         "ALTER TABLE clans ADD COLUMN IF NOT EXISTS treasury_mora FLOAT8 DEFAULT 0",
@@ -118,7 +118,7 @@ async def ensure_tables(db) -> None:
 
 
 async def migrate_clan_coins_to_shards(db, rate: tuple[int, int]) -> int:
-    """R3-миграция: 10🎖 → 3💠 ЛИЧНО (в инвентарь). Идемпотентно: сконверченные
+    """R3-миграция: 10🎖 → 3🔷 ЛИЧНО (в инвентарь). Идемпотентно: сконверченные
     монеты списываются; остаток <10 остаётся. Возвращает число игроков."""
     coins_per, shards_per = rate
     async with db.execute(
@@ -182,7 +182,7 @@ async def building_level(db, clan_id: int, key: str) -> int:
 
 
 async def upgrade_building(db, clan_id: int, key: str, cost: float) -> bool:
-    """Атомарно: списать 💠 из казны (если хватает) и +1 уровень зданию."""
+    """Атомарно: списать 🔷 из казны (если хватает) и +1 уровень зданию."""
     async with db.execute(
         "UPDATE clans SET treasury_shards = treasury_shards - ? "
         "WHERE clan_id = ? AND treasury_shards >= ? RETURNING clan_id",

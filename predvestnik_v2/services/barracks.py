@@ -1,5 +1,5 @@
 # services/barracks.py — Боёвка 3.0: Казарма (юниты игрока).
-# Призыв за 💠 Осколки Бездны, прокачка осколками+морой, отряд из 3 позиций,
+# Призыв за 🔷 Осколки Бездны, прокачка осколками+морой, отряд из 3 позиций,
 # стартовый выбор, одноразовая компенсация за старых «боевых» питомцев.
 # Без импортов bot.* / FastAPI.* (иерархия services/).
 import random
@@ -7,13 +7,14 @@ import random
 from core.constants import (
     UNIT_SUMMON_COST, UNIT_SUMMON_WEIGHTS, UNIT_DUP_SHARDS, UNIT_UNLOCK_SHARDS,
     UNIT_LEVEL_SHARDS, UNIT_LEVEL_MORA_BASE, SQUAD_SIZE,
+    UNIT_ENGRAVE_COST, UNIT_ENGRAVE_SHARDS,
     UNIT_COMPENSATION_CP_DIVISOR, UNIT_COMPENSATION_MIN,
 )
 from core.units import UNITS, unit_stats, unit_cp, STARTER_UNIT_CHOICES, ELEMENT_META, ROLE_META
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories import units as u_repo
 
-SHARD_ITEM = "abyss_shard"   # 💠 в инвентаре
+SHARD_ITEM = "abyss_shard"   # 🔷 в инвентаре
 
 
 async def shard_balance(db, user_id: int) -> int:
@@ -47,7 +48,7 @@ def _unit_view(unit_id: str, level: int, shards: int, in_squad_slot: int | None)
 
 
 async def get_barracks(db, user_id: int) -> dict:
-    """Полная сводка Казармы: юниты (владение+осколки), отряд, 💠, стартер-статус."""
+    """Полная сводка Казармы: юниты (владение+осколки), отряд, 🔷, стартер-статус."""
     owned = {r["unit_id"]: r for r in await u_repo.get_units(db, user_id)}
     squad = await u_repo.get_squad(db, user_id)
     slot_by_unit = {uid: slot for slot, uid in squad.items()}
@@ -64,6 +65,8 @@ async def get_barracks(db, user_id: int) -> dict:
         "squad_cp": await squad_cp(db, user_id),
         "shards": await shard_balance(db, user_id),
         "summon_cost": UNIT_SUMMON_COST,
+        "engrave_cost": UNIT_ENGRAVE_COST,
+        "engrave_shards": UNIT_ENGRAVE_SHARDS,
         "owned_count": n_owned,
         "starter_available": n_owned == 0,
         "starter_choices": list(STARTER_UNIT_CHOICES),
@@ -105,11 +108,11 @@ async def pick_starter(db, user_id: int, unit_id: str) -> tuple[bool, str]:
 
 
 async def summon(db, user_id: int) -> tuple[bool, dict | str]:
-    """Призыв за 💠: новый юнит ИЛИ дубль → осколки этого юнита."""
+    """Призыв за 🔷: новый юнит ИЛИ дубль → осколки этого юнита."""
     ok = await eco_repo.remove_item(db, user_id, SHARD_ITEM, UNIT_SUMMON_COST, commit=False)
     if not ok:
         have = await shard_balance(db, user_id)
-        return False, f"Нужно {UNIT_SUMMON_COST} 💠 (у тебя {have}). Осколки капают в Бездне и Вратах."
+        return False, f"Нужно {UNIT_SUMMON_COST} 🔷 (у тебя {have}). Осколки капают в Бездне и Вратах."
     rarity = random.choices(
         list(UNIT_SUMMON_WEIGHTS), weights=list(UNIT_SUMMON_WEIGHTS.values()))[0]
     pool = [uid for uid, u in UNITS.items() if u["rarity"] == rarity]
@@ -129,6 +132,23 @@ async def summon(db, user_id: int) -> tuple[bool, dict | str]:
                   "rarity": rarity, "duplicate": is_dup, "shards": shards,
                   "element_emoji": (ELEMENT_META.get(u["element"]) or {}).get("emoji", "🌈"),
                   "role_name": ROLE_META[u["role"]]["name"]}
+
+
+async def engrave(db, user_id: int, unit_id: str) -> tuple[bool, str]:
+    """Гравировка: направленный обмен 🔷 на осколки ВЫБРАННОГО юнита.
+    Закрывает узкое место аудита: конкретного юнита иначе можно качать только
+    случайными дублями призыва и random-дропами Врат/Бездны."""
+    u = UNITS.get(unit_id)
+    if not u:
+        return False, "Юнит не найден."
+    ok = await eco_repo.remove_item(db, user_id, SHARD_ITEM, UNIT_ENGRAVE_COST, commit=False)
+    if not ok:
+        have = await shard_balance(db, user_id)
+        return False, f"Нужно {UNIT_ENGRAVE_COST} 🔷 (у тебя {have}). Осколки капают в Бездне и Вратах."
+    await u_repo.add_shards(db, user_id, unit_id, UNIT_ENGRAVE_SHARDS)
+    await db.commit()
+    return True, (f"{u['emoji']} Гравировка: +{UNIT_ENGRAVE_SHARDS} осколка "
+                  f"«{u['name']}» (−{UNIT_ENGRAVE_COST} 🔷).")
 
 
 async def unlock_by_shards(db, user_id: int, unit_id: str) -> tuple[bool, str]:
@@ -192,7 +212,7 @@ async def set_squad(db, user_id: int, slots: dict) -> tuple[bool, str]:
 
 
 async def compensate_pets_migration(db) -> int:
-    """Одноразовая компенсация 💠 всем владельцам питомцев за выпиленный боевой
+    """Одноразовая компенсация 🔷 всем владельцам питомцев за выпиленный боевой
     слой (маркер schema_migrations.battle3_compensation). Возвращает число игроков."""
     await db.execute("""
         CREATE TABLE IF NOT EXISTS schema_migrations (

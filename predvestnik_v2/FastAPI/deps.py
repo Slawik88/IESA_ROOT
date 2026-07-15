@@ -4,14 +4,15 @@ Two auth flows are supported:
   x-init-data      — Telegram WebApp (opened inside Telegram)
   x-session-token  — Login Widget session (opened in a regular browser)
 """
+import asyncio
 import json
 import time
 from urllib.parse import unquote
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header, HTTPException, Request
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
-from FastAPI.auth import verify_webapp_data, verify_session_token
+from FastAPI.auth import verify_webapp_data, verify_session_token, hash_signal
 
 
 async def get_db():
@@ -50,8 +51,10 @@ async def _is_banned_cached(user_id: int) -> bool:
 
 
 async def require_tg_user_base(
+    request: Request,
     x_init_data: str = Header(default=""),
     x_session_token: str = Header(default=""),
+    x_client_fp: str = Header(default=""),
 ):
     """Auth БЕЗ проверки глобального бана — ТОЛЬКО для эндпоинтов, которые обязаны
     работать у забаненных (апелляции: admin_audit B1 — оспорить можно в любой
@@ -72,7 +75,65 @@ async def require_tg_user_base(
             status_code=401,
             detail="Требуется авторизация через Telegram.",
         )
+    _fire_and_forget(_capture_signals(int(user["id"]), request, x_client_fp))
     return user
+
+
+# ── Твинк-детект (dev-console, диагностика без наказаний) ───────────────────────
+# Пишем солёные HMAC-хэши IP/отпечатка устройства (не сырые значения — auth.hash_signal),
+# с троттлингом в памяти, иначе десятки API-запросов на загрузку страницы = столько же
+# INSERT'ов на каждого юзера. См. services/twin_detection.py — сам скоринг пар.
+_SIGNAL_SEEN: dict[tuple, float] = {}
+_SIGNAL_SEEN_TTL = 1800.0  # 30 минут между записями одного и того же сигнала
+_BG_TASKS: set = set()
+
+
+def _fire_and_forget(coro) -> None:
+    """asyncio.create_task без хранения ссылки рискует потерять задачу к GC —
+    держим её в сете до завершения."""
+    task = asyncio.create_task(coro)
+    _BG_TASKS.add(task)
+    task.add_done_callback(_BG_TASKS.discard)
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+
+async def _capture_signals(user_id: int, request: Request, client_fp: str) -> None:
+    try:
+        now = time.monotonic()
+        raw_pairs = []
+        ip = _client_ip(request)
+        if ip:
+            raw_pairs.append(("ip", hash_signal(ip)))
+        if client_fp:
+            raw_pairs.append(("fp", hash_signal(client_fp)))
+        to_write = []
+        for kind, vhash in raw_pairs:
+            if not vhash:
+                continue
+            key = (user_id, kind, vhash)
+            hit = _SIGNAL_SEEN.get(key)
+            if hit and hit > now:
+                continue
+            _SIGNAL_SEEN[key] = now + _SIGNAL_SEEN_TTL
+            to_write.append((kind, vhash))
+        if not to_write:
+            return
+        if len(_SIGNAL_SEEN) > 50000:   # страховка от разрастания
+            _SIGNAL_SEEN.clear()
+        await create_pool()
+        from infrastructure.repositories import twin_signals
+        async with get_pool().acquire() as conn:
+            db = PGAdapter(conn)
+            for kind, vhash in to_write:
+                await twin_signals.record(db, user_id, kind, vhash)
+    except Exception:
+        pass
 
 
 async def require_tg_user(user=Depends(require_tg_user_base)):

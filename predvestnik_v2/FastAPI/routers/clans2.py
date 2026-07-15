@@ -105,7 +105,7 @@ async def build(body: BuildRequest, db=Depends(get_db), user=Depends(require_tg_
         raise HTTPException(400, "Здание на максимуме.")
     cost = svc.build_cost(lvl + 1)
     if not await repo.upgrade_building(db, m["clan_id"], body.key, cost):
-        raise HTTPException(400, f"В казне не хватает 💠 (нужно {cost}).")
+        raise HTTPException(400, f"В казне не хватает 🔷 (нужно {cost}).")
     await repo.abyss_log(db, m["clan_id"], user["id"],
                          f"🏗 {CLAN_BUILDINGS2[body.key]['name']} → ур.{lvl + 1}")
     await db.commit()
@@ -192,7 +192,7 @@ async def abyss_open(body: OpenRequest, db=Depends(get_db), user=Depends(require
         shards = svc.roll_chest()
         split = await svc.split_loot(db, m["clan_id"], uid, shards)
         await repo.abyss_log(db, m["clan_id"], uid,
-                             f"📦 @{uname}: сундук +{shards}💠 ({split['treasury']} в казну)")
+                             f"📦 @{uname}: сундук +{shards}🔷 ({split['treasury']} в казну)")
         result.update({"shards": shards, "split": split})
     elif cell_type == svc.CELL_EXIT:
         result["exit_found"] = True

@@ -1453,15 +1453,15 @@ async def init_db():
         await _ensure_clans2(_PGAdapter(db))
         _conv = await _mig_coins(_PGAdapter(db), CLAN_COINS_TO_SHARDS)
         if _conv:
-            logger.info(f"R3: клан-монеты сконвертированы в 💠 у {_conv} игроков")
-        # Боёвка 3.0: юниты Казармы + одноразовая компенсация 💠 за выпиленный
+            logger.info(f"R3: клан-монеты сконвертированы в 🔷 у {_conv} игроков")
+        # Боёвка 3.0: юниты Казармы + одноразовая компенсация 🔷 за выпиленный
         # боевой слой мирных питомцев (маркер schema_migrations)
         from infrastructure.repositories.units import ensure_tables as _ensure_units
         from services.barracks import compensate_pets_migration as _b3_comp
         await _ensure_units(_PGAdapter(db))
         _n_comp = await _b3_comp(_PGAdapter(db))
         if _n_comp:
-            logger.info(f"Боёвка 3.0: компенсация 💠 выдана {_n_comp} игрокам")
+            logger.info(f"Боёвка 3.0: компенсация 🔷 выдана {_n_comp} игрокам")
         # R4.2/R7 HOTFIX: витрина недели + мини-игры. Эти ensure есть в
         # lifespan веба, но на проде он может не отработать (логи 2026-07-08:
         # relation "weekly_showcase"/"minigame_sessions" does not exist → 500).
@@ -1478,5 +1478,9 @@ async def init_db():
         # деплой произошёл без ручного прогона scripts/migrate_cosmetics_ids.py
         from services.cosmetics import migrate_legacy_ids as _mig_cos_ids
         await _mig_cos_ids(_PGAdapter(db))
+        # Твинк-детект (dev-console, диагностика без наказаний): сигналы IP/устройства
+        # (зеркало ensure — FastAPI lifespan).
+        from infrastructure.repositories.twin_signals import ensure_table as _ensure_twin_signals
+        await _ensure_twin_signals(_PGAdapter(db))
         await _init_indexes(db)
     logger.info("✅ Схема PostgreSQL готова!")
