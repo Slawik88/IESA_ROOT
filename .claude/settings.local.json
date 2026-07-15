@@ -80,7 +80,74 @@
       "Bash(python -m py_compile IESA_ROOT/notifications/views.py IESA_ROOT/IESA_ROOT/urls.py)",
       "Bash(awk -F: '{print $2\": \"$0}')",
       "Bash(python -m py_compile IESA_ROOT/notifications/views.py)",
-      "Bash(python -m py_compile IESA_ROOT/notifications/views.py IESA_ROOT/users/models.py IESA_ROOT/blog/models.py)"
+      "Bash(python -m py_compile IESA_ROOT/notifications/views.py IESA_ROOT/users/models.py IESA_ROOT/blog/models.py)",
+      "Bash(node *)",
+      "mcp__puppeteer__puppeteer_navigate",
+      "mcp__puppeteer__puppeteer_evaluate",
+      "mcp__puppeteer__puppeteer_screenshot",
+      "PowerShell(Remove-Item *)",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\makss\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\G--IESA-ROOT\\\\feeeea51-7db1-4c42-a014-1485a29becb3\\\\scratchpad\\\\unknown-api.log\" | Where-Object {$_ -notmatch 'analytics'} | Sort-Object -Unique)",
+      "PowerShell($c = Get-NetTCPConnection -LocalPort 8402 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { Stop-Process -Id $c[0].OwningProcess -Force -Confirm:$false }; \"ok\")",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\makss\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\G--IESA-ROOT\\\\feeeea51-7db1-4c42-a014-1485a29becb3\\\\scratchpad\\\\unknown-api.log\" -ErrorAction SilentlyContinue | Where-Object {$_ -notmatch 'analytics'} | Sort-Object -Unique)",
+      "PowerShell($c = Get-NetTCPConnection -LocalPort 8402 -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { Stop-Process -Id $c[0].OwningProcess -Force -Confirm:$false }; \"stopped\")",
+      "Bash(mkdir -p /g/IESA_ROOT/predvestnik_v2/tools)",
+      "Bash(cp \"C:\\\\Users\\\\makss\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\G--IESA-ROOT\\\\feeeea51-7db1-4c42-a014-1485a29becb3\\\\scratchpad\\\\preview-server.mjs\" /g/IESA_ROOT/predvestnik_v2/tools/preview_server.mjs)",
+      "WebFetch(domain:claude.ai)",
+      "Bash(xargs grep -l \"new_chat_member\\\\|new_chat_members\")",
+      "Bash(python -m py_compile infrastructure/repositories/zoo.py services/onboarding.py bot/handlers/common.py bot/handlers/expeditions.py services/scheduler.py)",
+      "mcp__postgres__query",
+      "Bash(curl -s https://api.ipify.org)",
+      "Bash(curl -s https://ifconfig.me)",
+      "Bash(python -m py_compile services/referral.py services/vip.py core/constants.py bot/core/database.py infrastructure/repositories/users.py bot/handlers/payments.py \"FastAPI/routers/dev_console/vip.py\" bot/handlers/common.py)",
+      "Bash(python -m py_compile infrastructure/repositories/dev_settings.py infrastructure/repositories/chest_events.py services/scheduler.py bot/core/database.py FastAPI/main.py \"FastAPI/routers/dev_console/system.py\")",
+      "Bash(python -m py_compile infrastructure/repositories/zoo.py services/onboarding.py bot/handlers/common.py bot/handlers/expeditions.py services/scheduler.py services/vip.py FastAPI/routers/dev_console/vip.py core/constants.py bot/core/database.py infrastructure/repositories/users.py services/referral.py bot/handlers/payments.py infrastructure/repositories/dev_settings.py infrastructure/repositories/chest_events.py FastAPI/main.py FastAPI/routers/dev_console/system.py)",
+      "Bash(python -m pyflakes infrastructure/repositories/zoo.py services/onboarding.py bot/handlers/common.py bot/handlers/expeditions.py services/scheduler.py services/vip.py FastAPI/routers/dev_console/vip.py core/constants.py bot/core/database.py infrastructure/repositories/users.py services/referral.py bot/handlers/payments.py infrastructure/repositories/dev_settings.py infrastructure/repositories/chest_events.py FastAPI/main.py FastAPI/routers/dev_console/system.py)",
+      "Bash(python -m pyflakes --version)",
+      "Bash(xargs grep -ln \"chat.type.*private\\\\|private.*chat_settings\\\\|INSERT INTO chat_settings\")",
+      "Bash(python -m py_compile infrastructure/repositories/chest_events.py)",
+      "Bash(python -m pyflakes infrastructure/repositories/chest_events.py)",
+      "Bash(python -m py_compile services/scheduler.py infrastructure/repositories/chest_events.py)",
+      "Bash(python -m pyflakes services/scheduler.py infrastructure/repositories/chest_events.py)",
+      "Skill(impeccable)",
+      "Bash(sort -k2)",
+      "Bash(IMPECCABLE_CRITIQUE_META='{\"target\":\"админка разработчика \\(Глобальная модерация + DevConsole\\)\",\"total_score\":22,\"p0_count\":2,\"p1_count\":4}' node \"C:\\\\Users\\\\makss\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\critique-storage.mjs\" write dvestnik-v2-dev-admin-console-pg-global-devconsole \"C:\\\\Users\\\\makss\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\G--IESA-ROOT\\\\7fc8ec74-6604-4a14-935a-05de7e637203\\\\scratchpad\\\\critique-body.md\")",
+      "Bash(python -m pyflakes core/admin_permissions.py infrastructure/repositories/global_permissions.py services/global_permissions.py services/global_moderation.py FastAPI/deps.py FastAPI/routers/global_admin.py FastAPI/routers/admin.py FastAPI/routers/dev_console/*.py FastAPI/main.py bot/core/database.py)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(python -m pyflakes FastAPI/routers/global_admin.py FastAPI/routers/dev_console/player.py)",
+      "PowerShell(New-Item *)",
+      "PowerShell(node predvestnik_v2\\\\tools\\\\preview_server.mjs)",
+      "PowerShell($f='predvestnik_v2\\\\FastAPI\\\\static\\\\app.css'; $lines=Get-Content $f; $targets=@{gradient=@\\(424,428,463,467,483,487,531,535,858,879,891,913,1303,1543\\); layout=@\\(330,692,821,833,1503,1521,1549,1703,1814,1848,2024,2301,2425,2520\\)}; foreach\\($k in $targets.Keys\\){ \"=== $k ===\"; foreach\\($n in $targets[$k]\\){ $s=[Math]::Max\\(0,$n-4\\); $e=[Math]::Min\\($lines.Count-1,$n+1\\); \"--- L$n ---\"; for\\($i=$s;$i -le $e;$i++\\){ \"{0}: {1}\" -f \\($i+1\\), $lines[$i] } } })",
+      "PowerShell($base='https://iesaroot-app-8kuyb.ondigitalocean.app/predvestnik'; try { $js=\\(Invoke-WebRequest \"$base/static/app.js\" -UseBasicParsing -TimeoutSec 30\\).Content; $css=\\(Invoke-WebRequest \"$base/static/app.css\" -UseBasicParsing -TimeoutSec 30\\).Content; \"app.js bytes: $\\($js.Length\\)\"; \"W3-5 markers in app.js: _renderGlobalAppeals=$\\($js.Contains\\('_renderGlobalAppeals'\\)\\) dev-t-promo=$\\($js.Contains\\('dev-t-promo'\\)\\) dev-log-q=$\\($js.Contains\\('dev-log-q'\\)\\) datetime-local-promo=$\\($js.Contains\\('id=\\\\\"dev-promo-until\\\\\" type=\\\\\"datetime-local\\\\\"'\\)\\)\"; \"W0-2 markers: openPlayerCenter=$\\($js.Contains\\('openPlayerCenter'\\)\\) my-permissions=$\\($js.Contains\\('my-permissions'\\)\\)\"; \"app.css dev-acc=$\\($css.Contains\\('dev-acc'\\)\\)\" } catch { \"FETCH ERROR: $\\($_.Exception.Message\\)\" })",
+      "PowerShell($base='https://iesaroot-app-8kuyb.ondigitalocean.app/predvestnik'; $js=\\(Invoke-WebRequest \"$base/static/app.js\" -UseBasicParsing -TimeoutSec 30\\).Content; \"datetime-local: $\\($js.Contains\\('datetime-local'\\)\\)\"; \"promo tab: $\\($js.Contains\\([char]0x1F39F+' '+[char]1055+[char]1088+[char]1086+[char]1084+[char]1086\\)\\)\"; $r=Invoke-WebRequest \"$base/health\" -UseBasicParsing -TimeoutSec 30 -ErrorAction SilentlyContinue; if\\($r\\){\"health: $\\($r.StatusCode\\) $\\($r.Content\\)\"} else {\"health endpoint: n/a\"})",
+      "PowerShell(git check-ignore *)",
+      "PowerShell(Select-String -Path predvestnik_v2\\\\GDD_REBUILD_PLAN.md -Pattern '^## БЛОК R' | ForEach-Object { $_.Line.Substring\\(0, [Math]::Min\\(110, $_.Line.Length\\)\\) })",
+      "PowerShell(python \"C:\\\\Users\\\\makss\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\G--IESA-ROOT\\\\0ad0cc9d-0d51-46a7-b43d-cf8851370174\\\\scratchpad\\\\units_audit.py\")",
+      "Bash(sed -i 's/💠/🔷/g' services/barracks.py services/clans2.py FastAPI/routers/clans2.py infrastructure/repositories/clans2.py FastAPI/static/app.02.js FastAPI/static/app.11.js)",
+      "Bash(sed -i 's/💠/🔷/g' FastAPI/routers/battle.py bot/core/database.py)",
+      "PowerShell($old=[char]::ConvertFromUtf32\\(0x1F4A0\\); $new=[char]::ConvertFromUtf32\\(0x1F537\\); $enc=New-Object System.Text.UTF8Encoding\\($false\\); $files=@\\('services\\\\barracks.py','services\\\\clans2.py','FastAPI\\\\routers\\\\clans2.py','infrastructure\\\\repositories\\\\clans2.py','FastAPI\\\\static\\\\app.02.js','FastAPI\\\\static\\\\app.11.js','FastAPI\\\\routers\\\\battle.py','bot\\\\core\\\\database.py'\\) | ForEach-Object { \"G:\\\\IESA_ROOT\\\\predvestnik_v2\\\\$_\" }; foreach\\($f in $files\\){ $t=[IO.File]::ReadAllText\\($f,$enc\\); $n=\\([regex]::Matches\\($t,[regex]::Escape\\($old\\)\\)\\).Count; $t=$t.Replace\\($old,$new\\); [IO.File]::WriteAllText\\($f,$t,$enc\\); \"$\\(Split-Path $f -Leaf\\): replaced $n\" })",
+      "PowerShell($old=[char]::ConvertFromUtf32\\(0x1F4A0\\); $new=[char]::ConvertFromUtf32\\(0x1F537\\); $enc=New-Object System.Text.UTF8Encoding\\($false\\); $files=@\\('core\\\\constants.py','FastAPI\\\\routers\\\\dev_overlay.py','bot\\\\handlers\\\\clans.py'\\) | ForEach-Object { \"G:\\\\IESA_ROOT\\\\predvestnik_v2\\\\$_\" }; foreach\\($f in $files\\){ $t=[IO.File]::ReadAllText\\($f,$enc\\); $n=\\([regex]::Matches\\($t,[regex]::Escape\\($old\\)\\)\\).Count; $t=$t.Replace\\($old,$new\\); [IO.File]::WriteAllText\\($f,$t,$enc\\); \"$\\(Split-Path $f -Leaf\\): replaced $n\" })",
+      "Bash(python -m py_compile FastAPI/deps.py FastAPI/auth.py FastAPI/main.py infrastructure/repositories/twin_signals.py bot/core/database.py)",
+      "Bash(python -m py_compile services/twin_detection.py)",
+      "Bash(python -m py_compile FastAPI/routers/dev_console/twins.py FastAPI/routers/dev_console/__init__.py core/admin_permissions.py)",
+      "Bash(python -c \"import fastapi, asyncpg\")",
+      "Bash(python -m pyflakes services/dark_market.py infrastructure/repositories/dark_market.py services/twin_detection.py infrastructure/repositories/twin_signals.py FastAPI/routers/dev_console/twins.py FastAPI/deps.py FastAPI/auth.py services/barracks.py)",
+      "Bash(echo \"PYFLAKES_EXIT=$?\")"
     ]
-  }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"C:\\\\Users\\\\makss\\\\.claude\\\\skills\\\\impeccable\\\\scripts\\\\hook.mjs\"",
+            "timeout": 5,
+            "statusMessage": "Checking UI changes"
+          }
+        ]
+      }
+    ]
+  },
+  "description": "Impeccable design detector: runs after Edit/Write/MultiEdit on UI files and surfaces findings as system reminders."
 }

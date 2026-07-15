@@ -25,7 +25,7 @@ def week_key() -> str:
 # ── Здания ────────────────────────────────────────────────────────────────────
 
 def build_cost(level_next: int) -> int:
-    """Цена апгрейда здания НА уровень level_next (1..10), 💠 из казны."""
+    """Цена апгрейда здания НА уровень level_next (1..10), 🔷 из казны."""
     return int(round(CLAN_BUILD_BASE * (CLAN_BUILD_GROWTH ** (level_next - 1))))
 
 
@@ -102,7 +102,7 @@ def abyss_stamina_cost(radar_level: int) -> int:
 
 async def split_loot(db, clan_id: int, user_id: int, shards: int) -> dict:
     """Сплит добычи 70/30 с недельным капом взноса в казну и капом самой казны:
-    всё, что не влезло в казну — лично добытчику (💠 в инвентарь)."""
+    всё, что не влезло в казну — лично добытчику (🔷 в инвентарь)."""
     wk = week_key()
     to_treasury = shards * ABYSS_SPLIT_TREASURY
     contributed = await repo.contrib_this_week(db, clan_id, user_id, wk)

@@ -89,7 +89,7 @@ async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
                     "reward_dark": GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * f,
                     "unit_shards": f >= 5}
                    for f in range(1, GATES2_FLOORS + 1)],
-        # Честные шансы дропа (легенда UI раньше говорила «шанс 💠» без цифр)
+        # Честные шансы дропа (легенда UI раньше говорила «шанс 🔷» без цифр)
         "loot": {"shard_chance_pct": round(GATES2_SHARD_CHANCE * 100),
                  "shard_range": list(GATES2_SHARD_RANGE),
                  "unit_shard_chance_pct": round(UNIT_SHARD_DROP_GATES_CHANCE * 100),
@@ -181,8 +181,8 @@ async def _abyss_finalize(db, uid: int, user: dict, state: dict, won: bool) -> d
                        "emoji": UNITS[target]["emoji"], "n": n}
     await c2_repo.abyss_log(
         db, clan_id, uid,
-        (f"👑 @{uname} сразил БОССА: +{shards}💠 и ключ этажа!" if is_boss
-         else f"⚔️ @{uname} победил монстров: +{shards}💠"))
+        (f"👑 @{uname} сразил БОССА: +{shards}🔷 и ключ этажа!" if is_boss
+         else f"⚔️ @{uname} победил монстров: +{shards}🔷"))
     return {"shards": shards, "split": split, "boss_key": is_boss,
             "unit_shards": unit_shards}
 

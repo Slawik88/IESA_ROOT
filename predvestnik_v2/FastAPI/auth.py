@@ -119,3 +119,14 @@ def verify_session_token(token: str) -> int | None:
         return int(user_id_str)
     except Exception:
         return None
+
+
+# ── Signal hashing (твинк-детект в дев-консоли, deps.py) ───────────────────────
+# Сырые IP/отпечатки устройств никогда не попадают в БД — только солёный HMAC.
+# Кто угодно с доступом к БД видит "этот хэш встречался у X и Y", не сам IP.
+
+def hash_signal(raw: str) -> str:
+    if not raw:
+        return ""
+    secret = hashlib.sha256((_bot_token() + "signal").encode()).digest()
+    return hmac.new(secret, raw.encode(), hashlib.sha256).hexdigest()

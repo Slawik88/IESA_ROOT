@@ -48,17 +48,18 @@ function renderBarracks(){
   host.innerHTML=`
     <div class="looks-hint">🏰 <b>Казарма</b> — боевые юниты. Каждый приносит в бой 3 руны:
       ⚔️ удар · 🛡 защита · ✨ навык. Собери отряд из 3 (позиция важна: фронт перехватывает
-      удары по тылу). Призыв — за 💠 Осколки Бездны (Врата, Бездна кланов).</div>
+      удары по тылу). Призыв — за 🔷 Осколки Бездны (Врата, Бездна кланов).</div>
     <div class="looks-slot-t">⚔️ Отряд · сила ⚡${fmt(d.squad_cp)} ${syn?`· <span style="color:var(--gold2)">${syn}</span>`:''}</div>
     <div class="bk-squad">${slots}</div>
     <button class="btn btn-gold btn-full" style="margin:8px 0" onclick="_bkSummon(this)">
-      🔮 Призыв юнита — ${d.summon_cost} 💠 <span class="cx-dim">(у тебя ${fmt(d.shards)})</span></button>
+      🔮 Призыв юнита — ${d.summon_cost} 🔷 <span class="cx-dim">(у тебя ${fmt(d.shards)})</span></button>
     <div class="looks-slot-t">📖 Мои юниты (${d.owned_count}/16)</div>
     <div class="bk-grid">${owned.map(u=>_bkCard(u)).join('')||'<div class="cx-dim" style="padding:6px;font-size:11px">Пока никого — призови первого!</div>'}</div>
     ${locked.length?`<div class="looks-slot-t">🔒 Ещё не открыты</div>
     <div class="bk-grid">${locked.map(u=>_bkCard(u)).join('')}</div>`:''}
     <div class="cx-dim" style="font-size:10px;margin-top:8px;line-height:1.5">Дубль в призыве → осколки юнита.
-      Осколки качают уровень (+12% статов) и открывают юнита напрямую. Таргет-осколки падают с боссов Бездны и этажей Врат 5–6.</div>`;
+      Осколки качают уровень (+12% статов) и открывают юнита напрямую. Таргет-осколки падают с боссов Бездны и этажей Врат 5–6,
+      а нужного юнита можно качать направленно: 🔷 Гравировка в карточке юнита (${d.engrave_cost} 🔷 → +${d.engrave_shards} ◈).</div>`;
 }
 function _bkStarterHtml(d){
   const byId={}; d.units.forEach(u=>byId[u.unit_id]=u);
@@ -74,7 +75,7 @@ function _bkStarterHtml(d){
   }).join('');
   return `<div class="looks-hint">🏰 <b>Добро пожаловать в Казарму!</b> Мирные питомцы теперь заняты
     экономикой — сражаются <b>боевые юниты</b>. Выбери первого бойца (остальных
-    призовёшь за 💠 Осколки Бездны):</div>
+    призовёшь за 🔷 Осколки Бездны):</div>
     <div class="bk-starter-row">${cards}</div>`;
 }
 function _bkStarterPick(uid,btn){
@@ -123,10 +124,17 @@ function _bkInfo(uid){
     <div class="looks-slot-t" style="margin-top:6px">💥 ${esc(u.ult.name)} (ульта, ярость 100)</div>
     <div class="cx-dim" style="font-size:11px">${esc(u.ult.desc)}</div>
     ${u.owned&&u.next_level_shards?`<div class="cx-dim" style="font-size:10px;margin-top:8px">След. уровень: ${u.next_level_shards} осколков (есть ${u.shards}) + ${fmt(u.next_level_mora)} 🪙</div>`:''}
+    <div class="cx-dim" style="font-size:10px;margin-top:4px">🔷 Гравировка: ${_bkData?.engrave_cost||25} 🔷 → +${_bkData?.engrave_shards||4} ◈ осколка именно этого юнита (у тебя ${fmt(_bkData?.shards||0)} 🔷).</div>
   `,[
     ...(u.owned?[{l:inSq?'❌ Убрать из отряда':'⚔️ В отряд',c:inSq?'btn-ghost':'btn-gold',
       f:inSq?`_bkSquadRemove('${u.unit_id}')`:`_bkPickSlotFor('${u.unit_id}')`}]:[]),
+    {l:`🔷 Гравировка ×${_bkData?.engrave_shards||4}◈`,c:'btn-ghost',f:`_bkEngrave('${u.unit_id}')`},
     {l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+}
+function _bkEngrave(uid){
+  api('/barracks/engrave',{method:'POST',body:JSON.stringify({unit_id:uid})})
+    .then(r=>{_haptic('success');toast(r.message);CM();loadBarracks();refreshCurrBar&&refreshCurrBar();})
+    .catch(e=>toast(e,false));
 }
 function _bkSummon(btn){
   if(btn)btn.disabled=true;
@@ -215,7 +223,7 @@ function loadGates(){
       </div>`).join('');
     host2.innerHTML=`
       <div class="looks-hint">🌑 <b>Врата</b> — бой отрядом: раздача рун, порядок решает.
-        Победа: Тёмная Мора + ${lo.shard_chance_pct||20}% шанс ${(lo.shard_range||[1,3]).join('–')} 💠,
+        Победа: Тёмная Мора + ${lo.shard_chance_pct||20}% шанс ${(lo.shard_range||[1,3]).join('–')} 🔷,
         на этажах 5–6 — ещё и осколки юнитов (см. ниже).
         Входов сегодня: <b>${d.entries_left}</b> · Твоя Сила: ⚡${fmt(d.cp)}.</div>
       ${squad?`<div class="looks-slot-t">⚔️ Отряд (⚡${fmt(d.squad_cp)})</div><div class="bk-chips">${squad}</div>`
@@ -303,8 +311,8 @@ function _btRender(st, turn, reward){
     const rw=_b3LastReward;
     let rwTxt='';
     if(st.status==='won'&&rw){
-      if(rw.dark_mora!==undefined) rwTxt=`+${rw.dark_mora} 🌑${rw.shards?` · +${rw.shards} 💠`:''}`;
-      else if(rw.split) rwTxt=`+${rw.shards} 💠 (${rw.split.treasury} в казну${rw.boss_key?' · 🗝 ключ этажа':''})`;
+      if(rw.dark_mora!==undefined) rwTxt=`+${rw.dark_mora} 🌑${rw.shards?` · +${rw.shards} 🔷`:''}`;
+      else if(rw.split) rwTxt=`+${rw.shards} 🔷 (${rw.split.treasury} в казну${rw.boss_key?' · 🗝 ключ этажа':''})`;
       else if(rw.damage!==undefined) rwTxt=`урон стене: ${fmt(rw.damage)}${rw.breached?' · 🏰 УЗЕЛ ЗАХВАЧЕН!':` (${fmt(rw.wall_total)}/${fmt(rw.wall_hp_max)})`}`;
       if(rw.unit_shards) rwTxt+=` · ${rw.unit_shards.emoji} +${rw.unit_shards.n}◈ ${esc(rw.unit_shards.name)}`;
     }

@@ -46,6 +46,14 @@ async def levelup(body: UnitRequest, db=Depends(get_db), user=Depends(require_tg
     return {"ok": True, "message": msg}
 
 
+@router.post("/engrave")
+async def engrave(body: UnitRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await barracks.engrave(db, user["id"], body.unit_id)
+    if not ok:
+        raise HTTPException(400, msg)
+    return {"ok": True, "message": msg}
+
+
 @router.post("/unlock")
 async def unlock(body: UnitRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     ok, msg = await barracks.unlock_by_shards(db, user["id"], body.unit_id)

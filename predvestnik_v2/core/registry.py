@@ -37,9 +37,9 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
         "is_tradable": False,
     },
     "abyss_shard": {
-        "name": "💠 Осколок Бездны",
+        "name": "🔷 Осколок Бездны",
         "category": "material",
-        "description": "Клановый строительный ресурс (Rebuild 2.0). Добывается в Бездне клана и Вратах 2.0; на казну из осколков клан строит здания.",
+        "description": "Боевая валюта: за 🔷 призываются юниты в Казарме, а клан строит здания из казны. Добывается в Бездне клана и Вратах 2.0.",
         "is_tradable": False,
     },
     "chest_mini": {
@@ -285,6 +285,20 @@ DAILY_DEAL_POOL_MORA: list = [
     {"item_id": "soul_shard",          "qty_range": (3, 10), "base_price_mora": 100},
     {"item_id": "star_dust_s",         "qty_range": (2, 5), "base_price_mora": 700},
     {"item_id": "star_dust_l",         "qty_range": (1, 2), "base_price_mora": 3000},
+]
+
+# Чёрный Рынок (R8): еженедельная ротация 3 слотов за 🌑 Тёмную Мору.
+# Только зелья/ускорители — регулярный слив 🌑 между крупными покупками
+# (реликвии 500–2000 🌑, теневые темы 100–350 🌑). Цены калиброваны под доход:
+# Врата ~5–15 🌑/бой, ритуал 10–20 🌑/мес, контрабанда — рискованная мелочь.
+DARK_MARKET_POOL: list = [
+    {"item_id": "potion_luck_s",  "qty_range": (1, 2), "base_price_dark": 45},
+    {"item_id": "exp_boost_1h",   "qty_range": (1, 2), "base_price_dark": 40},
+    {"item_id": "exp_boost_2h",   "qty_range": (1, 2), "base_price_dark": 70},
+    {"item_id": "food_elite",     "qty_range": (1, 3), "base_price_dark": 35},
+    {"item_id": "lucky_charm",    "qty_range": (1, 2), "base_price_dark": 55},
+    {"item_id": "study_notes",    "qty_range": (1, 2), "base_price_dark": 35},
+    {"item_id": "star_dust_l",    "qty_range": (1, 1), "base_price_dark": 130},
 ]
 
 DAILY_DEAL_POOL_DIAMOND: list = [

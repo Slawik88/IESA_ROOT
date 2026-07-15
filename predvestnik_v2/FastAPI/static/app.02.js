@@ -147,6 +147,9 @@ function openSettingsModal(){
     <button class="btn btn-ghost btn-full" onclick="openLegalDoc('tos')">📖 Пользовательское соглашение</button>
     <button class="btn btn-ghost btn-full" style="margin-top:7px" onclick="openLegalDoc('privacy')">🔒 Политика конфиденциальности</button>
     <div class="set-hint">Документы также доступны по прямой ссылке и в боте.</div>
+    ${!INIT_DATA?`<div class="set-sec-t" style="margin-top:14px">🔀 Вход</div>
+    <div class="set-hint">Сейчас: Telegram @${esc((_profileData&&_profileData.username)||'—')}. Сайт открыт в браузере — если сменили активный аккаунт в приложении Telegram, страница сама этого не узнает.</div>
+    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="switchTgAccount()">🔀 Войти другим Telegram-аккаунтом</button>`:''}
     <div class="set-sec-t" style="margin-top:14px">👤 Аккаунт</div>
     <div id="set-account"><div class="loader">Загрузка...</div></div>`,
     [{l:'Готово',c:'btn-gold',f:'CM()'}]);
@@ -842,7 +845,7 @@ function _clan2NavHtml(active){
     `<button class="btn ${active===key?'btn-gold':'btn-ghost'}" onclick="${fn}">${icon} ${label}<span class="clan2-nav-sub">${sub}</span></button>`;
   return `<div class="clan2-nav">
     ${item('abyss','🌀','Бездна','копать клетки','c2Abyss()')}
-    ${item('build','🏗','Здания','тратить 💠','c2Buildings()')}
+    ${item('build','🏗','Здания','тратить 🔷','c2Buildings()')}
     ${item('war','⚔️','Войны','отбить узел','c2War()')}
   </div>`;
 }
@@ -877,9 +880,9 @@ function _c2RenderAbyss(){
       Гейт этажа: ⚡${fmt(d.cp_gate)} ${gateOk?'✅':`❌ (у тебя ${fmt(d.cp)})`}
       ${d.key_found?' · 🗝 ключ найден':''}</div>
     <div class="ab-legend">🌫 туман · ❔ доступно (открой, узнаешь что там) ·
-      📦 сундук: ${(d.loot?.chest||[2,6]).join('–')} 💠 ·
-      👹 монстры (бой отрядом): ${(d.loot?.monster||[3,8]).join('–')} 💠 ·
-      👑 босс: ${(d.loot?.boss||[15,25]).join('–')} 💠 + 🗝 ключ + ${(d.loot?.boss_unit_shards||[3,5]).join('–')} ◈ осколков юнита ·
+      📦 сундук: ${(d.loot?.chest||[2,6]).join('–')} 🔷 ·
+      👹 монстры (бой отрядом): ${(d.loot?.monster||[3,8]).join('–')} 🔷 ·
+      👑 босс: ${(d.loot?.boss||[15,25]).join('–')} 🔷 + 🗝 ключ + ${(d.loot?.boss_unit_shards||[3,5]).join('–')} ◈ осколков юнита ·
       🚪 выход этажа</div>
     <div class="ab-grid">${cells}</div>
     ${squadHtml}
@@ -892,7 +895,7 @@ function c2Open(cell, btn){
   api('/clans2/abyss/open',{method:'POST',body:JSON.stringify({cell})})
     .then(r=>{
       if(r.battle){ _haptic('medium'); _btRender(r.battle); return; }
-      if(r.type==='chest'){ _haptic('success'); toast(`📦 +${r.shards} 💠 (${r.split.treasury} в казну)`); }
+      if(r.type==='chest'){ _haptic('success'); toast(`📦 +${r.shards} 🔷 (${r.split.treasury} в казну)`); }
       else if(r.exit_found){ _haptic('success'); toast('🚪 Найден проход на следующий этаж!'); }
       else _haptic('light');
       // EPIC5: рассеивание тумана — сперва проигрываем fade на самой клетке,
@@ -916,13 +919,13 @@ function c2Buildings(){
         <div class="clan-bld-name">${esc(x.name)} · ур.${x.level}/${x.max}</div>
         <div class="clan-bld-eff">${esc(x.desc)}</div>
       </div>
-      ${x.next_cost?`<button class="btn btn-sm btn-gold" onclick="c2Build('${x.key}',this)">↑ ${x.next_cost} 💠</button>`
+      ${x.next_cost?`<button class="btn btn-sm btn-gold" onclick="c2Build('${x.key}',this)">↑ ${x.next_cost} 🔷</button>`
                    :'<span class="cx-dim">★ макс</span>'}
     </div>`).join('');
     const log=(d.log||[]).map(l=>`<div class="lot-live-row">${esc(l.text)}</div>`).join('');
     el('mb').innerHTML=`
       ${_clan2NavHtml('build')}
-      <div class="looks-hint">🏦 Казна: <b>${fmtF(d.treasury_shards)}</b>/${fmt(d.treasury_cap)} 💠 · <b>${fmt(d.treasury_mora)}</b> 🪙 (доход узлов) · твоя роль: <b>${d.role}</b></div>
+      <div class="looks-hint">🏦 Казна: <b>${fmtF(d.treasury_shards)}</b>/${fmt(d.treasury_cap)} 🔷 · <b>${fmt(d.treasury_mora)}</b> 🪙 (доход узлов) · твоя роль: <b>${d.role}</b></div>
       <div class="clan-blds">${cards}</div>
       ${log?`<div class="looks-slot-t" style="margin-top:10px">📜 Лента клана</div><div class="bt-log">${log}</div>`:''}
       <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="openClansModal()">↩ К клану</button>`;
@@ -931,7 +934,7 @@ function c2Buildings(){
 function c2Build(key, btn){
   if(btn)btn.disabled=true;
   api('/clans2/build',{method:'POST',body:JSON.stringify({key})})
-    .then(r=>{_haptic('success'); toast(`🏗 ур.${r.level} (−${r.paid} 💠)`); c2Buildings();})
+    .then(r=>{_haptic('success'); toast(`🏗 ур.${r.level} (−${r.paid} 🔷)`); c2Buildings();})
     .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
 }
 function c2War(){

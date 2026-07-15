@@ -11,6 +11,22 @@ const el = id => document.getElementById(id);
 try{ if(localStorage.getItem('pv_no_fx')==='1') document.body.classList.add('no-fx'); }catch(e){}
 const INIT_DATA = tg?.initData || '';
 const SK = 'pv_sess';
+const UK = 'pv_uid';
+// Смена активного Telegram-аккаунта в приложении: если initData сейчас называет
+// другого пользователя, чем закэширован pv_uid — старый браузерный токен (7 дней,
+// x-session-token) мог остаться от прошлого аккаунта на этом же устройстве.
+// initData всегда в приоритете на сервере (deps.py), но чистим клиентский кэш
+// проактивно — иначе при последующем открытии сайта БЕЗ Telegram (чистый браузер)
+// снова подхватится чужая сессия.
+(() => {
+  const tgUid = tg?.initDataUnsafe?.user?.id || 0;
+  if (!tgUid) return;
+  const cachedUid = parseInt(localStorage.getItem(UK) || '0', 10);
+  if (cachedUid && cachedUid !== tgUid) {
+    localStorage.removeItem(SK);
+    localStorage.removeItem(UK);
+  }
+})();
 const MEDALS = ['🥇','🥈','🥉'];
 const PL = {active:'Активный',passive:'Пассивный',storage:'Склад',auction:'🏛 На аукционе'};
 const RC = {common:'rc-common',uncommon:'rc-uncommon',rare:'rc-rare',
@@ -45,10 +61,22 @@ let _analyticsSession=(Date.now().toString(36)+Math.random().toString(36).slice(
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 const sess = () => localStorage.getItem(SK)||'';
+// Лёгкий отпечаток браузера (НЕ криптостойкий, только для дедупа на твинк-детекте
+// дев-консоли — сервер всё равно солит HMAC-ом перед записью в БД, см. auth.hash_signal).
+const CLIENT_FP = (() => {
+  try {
+    const raw = [navigator.userAgent, navigator.language, screen.width+'x'+screen.height,
+      Intl.DateTimeFormat().resolvedOptions().timeZone, navigator.platform||''].join('|');
+    let h = 0;
+    for (let i = 0; i < raw.length; i++) { h = (Math.imul(31, h) + raw.charCodeAt(i)) | 0; }
+    return 'fp_' + (h >>> 0).toString(36);
+  } catch (e) { return ''; }
+})();
 const hdrs = () => {
   const h={'content-type':'application/json'};
   if (INIT_DATA) h['x-init-data']=INIT_DATA;
   if (sess()) h['x-session-token']=sess();
+  if (CLIENT_FP) h['x-client-fp']=CLIENT_FP;
   return h;
 };
 function api(path, opts={}) {
@@ -83,10 +111,19 @@ window.addEventListener('unhandledrejection', e => {
 });
 window.onTelegramWidgetAuth = u => {
   api('/auth/telegram-login',{method:'POST',body:JSON.stringify(u)})
-    .then(d=>{localStorage.setItem(SK,d.session_token);_uid=d.user_id||0;el('login-ov').classList.add('hidden');loadProfile();connectWS();})
+    .then(d=>{localStorage.setItem(SK,d.session_token);localStorage.setItem(UK,String(d.user_id||0));_uid=d.user_id||0;el('login-ov').classList.add('hidden');loadProfile();connectWS();})
     .catch(e=>alert('Ошибка: '+e));
 };
 if (!INIT_DATA && !sess()) el('login-ov').classList.remove('hidden');
+// Явная смена Telegram-аккаунта в браузере (Настройки → Аккаунт). Внутри Telegram
+// кнопка скрыта — там аккаунт и так всегда актуальный (initData подписывается заново
+// при каждом запуске мини-аппа). В чистом браузере Telegram не даёт сайту узнать,
+// какой аккаунт сейчас активен на устройстве — поэтому просим один тап в виджете.
+function switchTgAccount(){
+  localStorage.removeItem(SK);
+  localStorage.removeItem(UK);
+  location.reload();
+}
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 let _ws=null;

@@ -159,7 +159,7 @@ async def full_registry(user=Depends(require_dev_user)):
         ("zarniki", "✨ Зарники", "users.user_balance_zarniki"),
         ("dark_mora", "🌑 Тёмная Мора", "users.user_balance_dark_mora"),
         ("clan_coins", "🎖 Клан-монеты (легаси)", "clan_members.clan_coins"),
-        ("treasury_shards", "💠 Казна клана", "clans.treasury_shards"),
+        ("treasury_shards", "🔷 Казна клана", "clans.treasury_shards"),
     ):
         out.append({"id": cur_id, "name": cur_name, "cat": "💰 Валюты", "extra": col})
 

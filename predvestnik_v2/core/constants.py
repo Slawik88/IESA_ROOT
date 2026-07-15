@@ -309,6 +309,8 @@ DAILY_DEAL_MIN_SLOTS: int = 3                      # минимум слотов
 DAILY_DEAL_MAX_SLOTS: int = 7                      # максимум слотов за ротацию
 DAILY_DEAL_MAX_QTY: int = 4                        # макс. кол-во товара в одном слоте
 DAILY_DEAL_ROTATION_HOURS: int = 12               # обновление каждые 12 часов
+# Чёрный Рынок (R8): товары за 🌑, ротация раз в ISO-неделю (понедельник 00:00 UTC)
+DARK_MARKET_SLOTS: int = 3
 # (устаревшие, оставлены для совместимости импортов)
 DAILY_DEAL_MORA_SLOTS: int = 6
 DAILY_DEAL_DIAMOND_SLOTS: int = 1
@@ -756,8 +758,8 @@ GATES2_CP_GATE: dict = {1: 500, 2: 1200, 3: 2500, 4: 4000, 5: 6000, 6: 8000}
 GATES2_ENTRIES_PER_DAY: int = 3
 GATES2_DARK_MORA_BASE: int = 3                # награда = BASE + PER_FLOOR × этаж
 GATES2_DARK_MORA_PER_FLOOR: int = 2
-GATES2_SHARD_CHANCE: float = 0.20             # шанс 💠 Осколков Бездны лично
-GATES2_SHARD_RANGE: tuple = (1, 3)            # диапазон 💠 при проке шанса выше
+GATES2_SHARD_CHANCE: float = 0.20             # шанс 🔷 Осколков Бездны лично
+GATES2_SHARD_RANGE: tuple = (1, 3)            # диапазон 🔷 при проке шанса выше
 
 # Рейды клана (замена PvP): босс с HP, контр-урон питомцу.
 # (RAID_THRESHOLDS удалены 2026-07-07 — промежуточные оповещения «босс на 50%»
@@ -772,12 +774,12 @@ CLAN_ROLES: tuple = ("owner", "warlord", "treasurer", "fighter")
 ABYSS_GRID: int = 7                     # карта 7×7, центр открыт изначально
 ABYSS_OPEN_STAMINA: int = 30            # стамина питомца за открытие клетки
 ABYSS_SPLIT_TREASURY: float = 0.70      # 70% добычи — в казну, 30% — лично
-ABYSS_TREASURY_WEEKLY_CAP: int = 90     # 💠 в казну от ОДНОГО игрока/нед (сверх — лично)
-ABYSS_CHEST_SHARDS: tuple = (2, 6)      # сундук: 2–6 💠
-ABYSS_MONSTER_SHARDS: tuple = (3, 8)    # монстр (Бой 2.0): 3–8 💠
-ABYSS_BOSS_SHARDS: tuple = (15, 25)     # босс: 15–25 💠 + ключ этажа
+ABYSS_TREASURY_WEEKLY_CAP: int = 90     # 🔷 в казну от ОДНОГО игрока/нед (сверх — лично)
+ABYSS_CHEST_SHARDS: tuple = (2, 6)      # сундук: 2–6 🔷
+ABYSS_MONSTER_SHARDS: tuple = (3, 8)    # монстр (Бой 2.0): 3–8 🔷
+ABYSS_BOSS_SHARDS: tuple = (15, 25)     # босс: 15–25 🔷 + ключ этажа
 ABYSS_FLOOR_CP_BASE: int = 800          # CP-гейт этажа Бездны: BASE × этаж
-# Здания 2.0: цена уровня L = BUILD_BASE × BUILD_GROWTH^(L−1) 💠 из казны
+# Здания 2.0: цена уровня L = BUILD_BASE × BUILD_GROWTH^(L−1) 🔷 из казны
 CLAN_BUILD_BASE: int = 60
 CLAN_BUILD_GROWTH: float = 1.55
 CLAN_BUILD_MAX_LEVEL: int = 10
@@ -785,13 +787,13 @@ CLAN_BUILDINGS2: dict = {
     "hq":       {"emoji": "🏛", "name": "Штаб",     "desc": "+1 слот участников за уровень"},
     "academy":  {"emoji": "🎓", "name": "Академия", "desc": "+2%/ур к Море экспедиций соклановцев"},
     "radar":    {"emoji": "📡", "name": "Радар",    "desc": "−3%/ур стамины в Бездне; L5/L10 — видны типы соседних клеток"},
-    "treasury": {"emoji": "🏦", "name": "Казна",    "desc": "+5%/ур к доходу узлов; кап казны 2000+1000/ур 💠"},
+    "treasury": {"emoji": "🏦", "name": "Казна",    "desc": "+5%/ур к доходу узлов; кап казны 2000+1000/ур 🔷"},
 }
 CLAN_ACADEMY_PCT_PER_LEVEL: float = 0.02
 CLAN_RADAR_STAMINA_PCT_PER_LEVEL: float = 0.03
 CLAN_TREASURY_CAP_BASE: int = 2000
 CLAN_TREASURY_CAP_PER_LEVEL: int = 1000
-CLAN_COINS_TO_SHARDS: tuple = (10, 3)   # конверсия при миграции: 10 🎖 → 3 💠 лично
+CLAN_COINS_TO_SHARDS: tuple = (10, 3)   # конверсия при миграции: 10 🎖 → 3 🔷 лично
 # Войны за узлы
 WAR_NODES_COUNT: int = 5
 WAR_NODE_INCOME_MORA_PER_DAY: float = 2000.0   # в 🪙-казну клана-владельца
@@ -819,14 +821,19 @@ ACCOUNT_DELETE_WARN_DAYS: int = 14         # ЛС-предупреждение �
 ACCOUNT_DELETE_PHRASE: str = "УДАЛИТЬ АККАУНТ"  # контрольная фраза (ввод вручную)
 
 # ── Боёвка 3.0 «Руны отряда» (BATTLE_REWORK_CONCEPT.md) ───────────────────────
-# Казарма: призыв юнитов за 💠 Осколки Бездны (закрывает валюту-тупик).
-UNIT_SUMMON_COST: int = 25                     # 💠 за один призыв
+# Казарма: призыв юнитов за 🔷 Осколки Бездны (закрывает валюту-тупик).
+UNIT_SUMMON_COST: int = 25                     # 🔷 за один призыв
 UNIT_SUMMON_WEIGHTS: dict = {"rare": 78, "epic": 18, "legendary": 4}
 UNIT_DUP_SHARDS: dict = {"rare": 10, "epic": 15, "legendary": 25}   # дубль → осколки юнита
 UNIT_UNLOCK_SHARDS: dict = {"rare": 20, "epic": 30, "legendary": 50}  # открыть юнита осколками
 # Прокачка уровня N: осколки юнита + 🪙 Мора
 UNIT_LEVEL_SHARDS: dict = {2: 4, 3: 6, 4: 9, 5: 12, 6: 16, 7: 20, 8: 25, 9: 30, 10: 40}
 UNIT_LEVEL_MORA_BASE: float = 400.0            # цена уровня N = BASE × (N−1)
+# Гравировка: направленный обмен 🔷 на осколки ВЫБРАННОГО юнита (иначе конкретного
+# юнита можно качать только случайными дублями/дропами). Дороже дубля по EV —
+# призыв остаётся выгоднее для открытия новых юнитов.
+UNIT_ENGRAVE_COST: int = 25                    # 🔷 за одну гравировку
+UNIT_ENGRAVE_SHARDS: int = 4                   # осколков выбранного юнита за гравировку
 SQUAD_SIZE: int = 3                            # позиции: 0 фронт / 1 фланг / 2 тыл
 # Движок боя
 B3_HAND_SIZE: int = 3
@@ -856,7 +863,7 @@ UNIT_SHARD_DROP_ABYSS_BOSS: tuple = (3, 5)     # случайному юниту
 UNIT_SHARD_DROP_GATES: tuple = (1, 2)          # этажи 5–6, шанс ниже
 UNIT_SHARD_DROP_GATES_CHANCE: float = 0.35
 # Миграция: компенсация за старых «боевых» питомцев (одноразово, маркер schema_migrations)
-UNIT_COMPENSATION_CP_DIVISOR: int = 50         # 💠 = Σ pet_cp / 50
+UNIT_COMPENSATION_CP_DIVISOR: int = 50         # 🔷 = Σ pet_cp / 50
 UNIT_COMPENSATION_MIN: int = 25                # минимум = 1 призыв
 # Бездна: открытие клеток — дневной лимит вместо стамины питомца
 ABYSS_OPENS_PER_DAY: int = 6                   # + уровень Радара // 2
