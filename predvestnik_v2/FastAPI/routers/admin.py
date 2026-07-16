@@ -10,14 +10,14 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.moderation import (
     get_chat_settings, update_chat_settings, add_warn, remove_warn,
-    log_moderation_action, set_immunity, get_left_users,
+    log_moderation_action, get_left_users, expire_due_warns,
 )
-from infrastructure.repositories.blacklist import (
-    get_chat_blacklist, add_to_chat_blacklist, remove_from_chat_blacklist,
-)
+from infrastructure.repositories.blacklist import get_chat_blacklist
 from infrastructure.repositories.chat import set_local_rank
 from infrastructure.repositories.routing import get_admin_chat
+from services import moderation as mod_service
 from services import roles
+from services.utils import resolve_display_name
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -73,6 +73,36 @@ async def _tg_call(method: str, **kwargs) -> dict:
             return r.json()
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+class _TgBotShim:
+    """services.moderation ждёт интерфейс aiogram.Bot; у FastAPI нет live-бота —
+    те же методы через raw HTTP (как _BotShim в global_admin.py). Ошибка TG
+    → исключение, как у aiogram: сервис тогда НЕ меняет состояние в БД."""
+
+    @staticmethod
+    def _ok(res: dict) -> None:
+        if not res.get("ok"):
+            raise RuntimeError(res.get("error") or res.get("description") or "tg error")
+
+    async def ban_chat_member(self, chat_id: int, user_id: int) -> None:
+        self._ok(await _tg_call("banChatMember", chat_id=chat_id, user_id=user_id))
+
+    async def unban_chat_member(self, chat_id: int, user_id: int,
+                                only_if_banned: bool = False) -> None:
+        self._ok(await _tg_call("unbanChatMember", chat_id=chat_id, user_id=user_id,
+                                only_if_banned=only_if_banned))
+
+    async def restrict_chat_member(self, chat_id: int, user_id: int,
+                                   permissions=None, until_date=None) -> None:
+        kwargs = {"chat_id": chat_id, "user_id": user_id,
+                  "permissions": permissions.model_dump(exclude_none=True)}
+        if until_date is not None:
+            kwargs["until_date"] = until_date
+        self._ok(await _tg_call("restrictChatMember", **kwargs))
+
+
+_tg_bot = _TgBotShim()
 
 
 @router.get("/my-chats")
@@ -348,11 +378,22 @@ async def admin_action(
         raise HTTPException(403, f"Недостаточно прав для действия '{action}'.")
 
     tg_result = None
-    now = datetime.now(timezone.utc)
 
     if action == "warn":
+        # ленивая уборка истёкших срочных варнов — как бот-команда «варн» (admin_audit B3)
+        try:
+            await expire_due_warns(db, chat_id)
+        except Exception:
+            pass
         new_warnings = await add_warn(db, chat_id, body.user_id, user["id"], body.reason)
         await log_moderation_action(db, chat_id, body.user_id, user["id"], "warn", body.reason)
+        # Суд Присяжных при лимите — как бот-команда «варн» («сайт == бот»)
+        max_warns = settings.get("max_warnings") or 3
+        if new_warnings >= max_warns:
+            target_name = await resolve_display_name(
+                db, body.user_id, chat_id, f"ID{body.user_id}")
+            await mod_service.start_warn_court(
+                db, chat_id, body.user_id, target_name, new_warnings, max_warns)
         return {"ok": True, "new_warnings": new_warnings}
 
     elif action == "unwarn":
@@ -360,81 +401,51 @@ async def admin_action(
         await log_moderation_action(db, chat_id, body.user_id, user["id"], "unwarn", body.reason)
         return {"ok": True, "new_warnings": new_warnings}
 
+    # mute/unmute/kick/ban/unban — единый сервис («сайт == бот»): TG-вызов + все
+    # DB-состояния (журнал, muted_until, ЧС) меняются одинаково с бот-командами;
+    # при ошибке TG состояние не трогается (раньше сайт логировал даже фейл).
     elif action == "mute":
         duration = body.duration_minutes or 60
-        until_ts = int((now + timedelta(minutes=duration)).timestamp())
-        until_str = (now + timedelta(minutes=duration)).strftime("%Y-%m-%d %H:%M:%S")
-        tg_result = await _tg_call(
-            "restrictChatMember",
-            chat_id=chat_id, user_id=body.user_id,
-            permissions={"can_send_messages": False,
-                         "can_send_audios": False, "can_send_documents": False,
-                         "can_send_photos": False, "can_send_videos": False,
-                         "can_send_video_notes": False, "can_send_voice_notes": False,
-                         "can_send_polls": False, "can_send_other_messages": False},
-            until_date=until_ts,
-        )
-        try:
-            await db.execute(
-                "UPDATE user_chat_stats SET muted_until = ? WHERE user_tg_id = ? AND chat_tg_id = ?",
-                (until_str, body.user_id, chat_id),
-            )
-            await db.commit()
-        except Exception:
-            pass
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], f"mute_{duration}m", body.reason)
+        tg_ok = await mod_service.mute_user(
+            db, _tg_bot, chat_id, body.user_id, user["id"],
+            duration_minutes=duration, reason=body.reason)
+        return {"ok": True, "telegram_ok": tg_ok}
 
     elif action == "unmute":
-        tg_result = await _tg_call(
-            "restrictChatMember",
-            chat_id=chat_id, user_id=body.user_id,
-            permissions={"can_send_messages": True, "can_send_audios": True,
-                         "can_send_documents": True, "can_send_photos": True,
-                         "can_send_videos": True, "can_send_video_notes": True,
-                         "can_send_voice_notes": True, "can_send_polls": True,
-                         "can_send_other_messages": True, "can_add_web_page_previews": True},
-        )
-        try:
-            await db.execute(
-                "UPDATE user_chat_stats SET muted_until = NULL WHERE user_tg_id = ? AND chat_tg_id = ?",
-                (body.user_id, chat_id),
-            )
-        except Exception:
-            pass
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unmute", body.reason)
+        tg_ok = await mod_service.unmute_user(
+            db, _tg_bot, chat_id, body.user_id, user["id"], reason=body.reason)
+        return {"ok": True, "telegram_ok": tg_ok}
 
     elif action == "kick":
-        tg_result = await _tg_call("banChatMember", chat_id=chat_id, user_id=body.user_id)
-        await _tg_call("unbanChatMember", chat_id=chat_id, user_id=body.user_id, only_if_banned=True)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "kick", body.reason)
+        tg_ok = await mod_service.kick_user(
+            db, _tg_bot, chat_id, body.user_id, user["id"], reason=body.reason)
+        return {"ok": True, "telegram_ok": tg_ok}
 
     elif action == "ban":
-        tg_result = await _tg_call("banChatMember", chat_id=chat_id, user_id=body.user_id)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "ban", body.reason)
+        tg_ok = await mod_service.ban_user(
+            db, _tg_bot, chat_id, body.user_id, user["id"], reason=body.reason)
+        return {"ok": True, "telegram_ok": tg_ok}
 
     elif action == "unban":
-        tg_result = await _tg_call("unbanChatMember", chat_id=chat_id, user_id=body.user_id, only_if_banned=True)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unban", body.reason)
+        tg_ok = await mod_service.unban_user(
+            db, _tg_bot, chat_id, body.user_id, user["id"], reason=body.reason)
+        return {"ok": True, "telegram_ok": tg_ok}
 
     elif action == "shield":
-        # Щит (временный): immune_until = дата, is_immune не трогаем — как бот «защита» (moderation.py:307)
         duration = body.duration_minutes or 1440
-        until = (now + timedelta(minutes=duration)).strftime("%Y-%m-%d %H:%M:%S")
-        await set_immunity(db, chat_id, body.user_id, 0, until)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], f"shield_{duration}m", body.reason)
+        await mod_service.shield_user(
+            db, chat_id, body.user_id, user["id"], duration, reason=body.reason)
 
     elif action == "unshield":
-        await set_immunity(db, chat_id, body.user_id, 0, None)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "unshield", body.reason)
+        await mod_service.unshield_user(db, chat_id, body.user_id, user["id"], reason=body.reason)
 
     elif action == "set_immune":
-        # Иммунитет (постоянный): is_immune=1, immune_until=NULL — как бот «иммунитет» (moderation.py:268)
-        await set_immunity(db, chat_id, body.user_id, 1, None)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "immune_on", body.reason)
+        await mod_service.set_immune_user(
+            db, chat_id, body.user_id, user["id"], True, reason=body.reason)
 
     elif action == "unset_immune":
-        await set_immunity(db, chat_id, body.user_id, 0, None)
-        await log_moderation_action(db, chat_id, body.user_id, user["id"], "immune_off", body.reason)
+        await mod_service.set_immune_user(
+            db, chat_id, body.user_id, user["id"], False, reason=body.reason)
 
     else:
         raise HTTPException(400, f"Неизвестное действие: {action}")
@@ -461,7 +472,8 @@ async def admin_logs(
         if action not in ("ban", "kick", "warn", "unwarn", "unban", "mute", "unmute"):
             raise HTTPException(400, "Недопустимый фильтр action.")
         if action == "mute":
-            action_clause = " AND ml.action LIKE 'mute_%'"
+            # старые бот-записи — просто 'mute', новые (единый сервис) — 'mute_60m'/'mute_perm'
+            action_clause = " AND (ml.action = 'mute' OR ml.action LIKE 'mute_%')"
         else:
             action_clause = " AND ml.action = ?"
             params.append(action)
@@ -581,9 +593,7 @@ async def admin_blacklist_add(
     if actor_rank <= target_rank:
         raise HTTPException(403, "Нельзя внести в ЧС пользователя с таким же или более высоким рангом.")
 
-    await add_to_chat_blacklist(db, chat_id, body.user_id, body.reason, user["id"])
-    await log_moderation_action(db, chat_id, body.user_id, user["id"], "blacklist_add", body.reason)
-    await db.commit()
+    await mod_service.blacklist_user(db, chat_id, body.user_id, user["id"], body.reason)
     return {"ok": True}
 
 
@@ -593,10 +603,7 @@ async def admin_blacklist_remove(
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
     await _require_blacklist_rank(db, user["id"], chat_id)
-    removed = await remove_from_chat_blacklist(db, chat_id, user_id)
-    if removed:
-        await log_moderation_action(db, chat_id, user_id, user["id"], "blacklist_remove", None)
-    await db.commit()
+    removed = await mod_service.unblacklist_user(db, chat_id, user_id, user["id"])
     return {"ok": True, "removed": removed}
 
 

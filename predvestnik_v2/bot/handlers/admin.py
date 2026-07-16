@@ -3,6 +3,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from infrastructure.repositories import users, chat
+from infrastructure.repositories.moderation import log_moderation_action
 from services import roles
 from services.utils import safe_html, resolve_target as smart_resolve
 from bot.filters.text_commands import TextCmd
@@ -157,7 +158,11 @@ async def process_rank_confirmation(callback: types.CallbackQuery, callback_data
         return await callback.answer("❌ У вас нет прав для подтверждения ранга!", show_alert=True)
 
     await chat.set_local_rank(db, callback_data.target_id, chat_id, callback_data.new_rank_id)
-    
+    # журнал как на сайте (admin_set_rank пишет rank_{N})
+    await log_moderation_action(
+        db, chat_id, callback_data.target_id, approver_id,
+        f"rank_{callback_data.new_rank_id}")
+
     approver_name = safe_html(callback.from_user.first_name)
     approver_link = f'<a href="tg://user?id={approver_id}">{approver_name}</a>'
     rank_name = roles.LOCAL_RANKS_MAP[callback_data.new_rank_id]
@@ -211,6 +216,7 @@ async def cmd_sync_rank(message: types.Message, db, developer_id: int = 0):
         "INSERT OR IGNORE INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?)",
         (uid, message.chat.id))
     await chat.set_local_rank(db, uid, message.chat.id, target)
+    await log_moderation_action(db, message.chat.id, uid, uid, f"rank_{target}")
     await db.commit()
     await message.answer(
         f"🎖 Статус Telegram подтверждён: вам выдан ранг "
