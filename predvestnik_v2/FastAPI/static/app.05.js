@@ -177,8 +177,9 @@ function openThemeModal(tid) {
   const price = t.price_mora ? `${fmt(t.price_mora)} 🪙` : t.price_diamonds ? `${t.price_diamonds} 💎`
     : t.price_zarniki ? `${fmt(t.price_zarniki)} ✨` : t.price_dark ? `${t.price_dark} 🌑` : null;
   const src = SRC[t.source] || SRC[t.source?.split('_')[0]+'_'+t.source?.split('_').slice(1).join('_')] || {label:t.source, desc:'', action:null};
-  // Покупаемо в вебе: магазинные (🪙/💎) и донатные (✨). Тёмные (🌑) — через бота.
-  const buyable = price && (t.source === 'shop_mora' || t.source === 'shop_diamond' || t.source === 'zarniki');
+  // UX_AUDIT С5 («Сайт == бот»): покупаемо всё, что умеет бэкенд /themes/buy —
+  // магазинные (🪙/💎), донатные (✨) и тёмные (🌑).
+  const buyable = price && (t.source === 'shop_mora' || t.source === 'shop_diamond' || t.source === 'zarniki' || t.source === 'dark');
 
   const body = `
     <div style="margin-bottom:12px">

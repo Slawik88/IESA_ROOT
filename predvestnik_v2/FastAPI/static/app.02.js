@@ -133,6 +133,7 @@ function openLegalDoc(slug){
 }
 function openSettingsModal(){
   const noFx=document.body.classList.contains('no-fx');
+  const easyInp=_easyInput();
   OM('⚙️ Настройки',`
     <div class="set-sec-t">Внешний вид</div>
     <label style="display:flex;align-items:center;gap:8px;padding:8px 2px;cursor:pointer">
@@ -140,6 +141,11 @@ function openSettingsModal(){
       <span style="font-size:12.5px">Отключить анимации косметики</span>
     </label>
     <div class="set-hint">Свечения, рамки и частицы станут статичными — полезно на слабых телефонах.</div>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 2px;cursor:pointer">
+      <input type="checkbox" ${easyInp?'checked':''} onchange="_toggleEasyInput(this.checked)"/>
+      <span style="font-size:12.5px">Упрощённый ввод (бой и гача)</span>
+    </label>
+    <div class="set-hint">Тайминг крита/ульты в бою мягче, крутка гачи — обычным тапом без удержания. Для тех, кому неудобно ловить моменты.</div>
     <div class="set-sec-t" style="margin-top:14px">🔔 Уведомления от бота</div>
     <div id="set-notif-prefs"><div class="loader">Загрузка...</div></div>
     <div class="set-hint">Личные напоминания в ЛС. Групповые события чата приходят всем и здесь не отключаются.</div>
@@ -152,7 +158,7 @@ function openSettingsModal(){
     <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="switchTgAccount()">🔀 Войти другим Telegram-аккаунтом</button>`:''}
     <div class="set-sec-t" style="margin-top:14px">👤 Аккаунт</div>
     <div id="set-account"><div class="loader">Загрузка...</div></div>`,
-    [{l:'Готово',c:'btn-gold',f:'CM()'}]);
+    [{l:'Готово',c:'btn-ghost',f:'CM()'}]);
   _loadNotifPrefs();
   _loadAccountSection();
 }
@@ -232,6 +238,13 @@ function _toggleNoFx(on){
   document.body.classList.toggle('no-fx',on);
   try{ localStorage.setItem('pv_no_fx',on?'1':'0'); }catch(e){}
 }
+// UX_AUDIT С23: облегчённый ввод для игроков с моторными/реакционными ограничениями.
+// Потребители: гача (app.04 — спин тапом вместо удержания) и бой (app.11 — мягче QTE).
+function _easyInput(){ try{ return localStorage.getItem('pv_easy_input')==='1'; }catch(e){ return false; } }
+function _toggleEasyInput(on){
+  try{ localStorage.setItem('pv_easy_input',on?'1':'0'); }catch(e){}
+  toast(on?'🧿 Упрощённый ввод включён':'Упрощённый ввод выключен');
+}
 // Блок-экран принятия документов (неубираемый оверлей) — для не принявших.
 function _tosGate(d){
   const ex=el('tos-gate');
@@ -288,7 +301,7 @@ function _showWelcome(){
 // ── Кланы / Гильдии ─────────────────────────────────────────────────────────────
 let _clansData=null, _clanEmblemSel='🛡';
 function openClansModal(){
-  OM('🛡 Кланы','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-gold',f:'CM()'}]);
+  OM('🛡 Кланы','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-ghost',f:'CM()'}]);
   api('/clans/').then(d=>{_clansData=d; _clanEmblemSel=(d.emblems&&d.emblems[0])||'🛡'; renderClans();})
     .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
@@ -432,7 +445,11 @@ function _runPreloader() {
   const pl = el('preloader'); if(!pl) return;
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const box = el('pl-lines');
-  const lines = ['🔌 Синхронизация с сервером…','🔍 Проверка сигнатур…','📦 Загрузка данных…'];
+  // UX_AUDIT С2: гостю без сессии нечего «синхронизировать» — честные нейтральные строки
+  const _authed = !!(INIT_DATA || sess());
+  const lines = _authed
+    ? ['🔌 Синхронизация с сервером…','🔍 Проверка сигнатур…','📦 Загрузка данных…']
+    : ['🌘 Открываем врата…','📦 Загрузка данных…'];
   let i = 0;
   const add = () => { if(!box || i>=lines.length) return; const d=document.createElement('div'); d.className='pl-line'; d.textContent=lines[i++]; box.appendChild(d); };
   add();

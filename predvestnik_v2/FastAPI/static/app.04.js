@@ -270,6 +270,12 @@ function spinPressStart(ev, st, row){
     toast(c.mora>0?`Не хватает Моры (нужно ${fmt(c.mora)} 🪙)`:`Не хватает Алмазов (нужно ${c.dia} 💎)`, false);
     return;
   }
+  // UX_AUDIT С23: упрощённый ввод — крутка обычным тапом, без ритуала удержания
+  if(typeof _easyInput==='function' && _easyInput()){
+    _haptic('medium');
+    doSpin(st, row);
+    return;
+  }
   _press = {row, st, t0: Date.now(), fired: false, h1: false, h2: false};
   row.classList.add('charging');
   _haptic('light');
@@ -853,7 +859,7 @@ function openCreateLotModal() {
     _invForAuction = tradable;
     el('mt').textContent = '🏛 Что выставить?';
     let html = `<div style="background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.3);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;font-size:10px;color:var(--red)">
-      ⚠️ Внимательно проверь предмет перед выставлением — отменить лот нельзя!
+      ⚠️ Проверь предмет перед выставлением. Передумаешь — лот можно снять в «📋 Мои лоты», ставки вернутся участникам.
     </div>`;
 
     if(tradable.length) {
@@ -904,7 +910,7 @@ function selectLotItem(itemId, itemName, maxQty, _unused, itemDesc) {
     <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Цена выкупа 🪙 <span style="color:var(--muted)">(необязательно)</span></div>
     <input id="lot-buyout" type="number" class="num-input" placeholder="Оставь пустым если без выкупа"/>
     <div style="font-size:10px;color:var(--muted);margin-top:8px;padding:6px 8px;background:var(--s);border-radius:var(--r)">
-      ⏳ Лот активен 24 часа. После создания отменить нельзя.
+      ⏳ Лот активен 24 часа. Передумал — сними его в «📋 Мои лоты» (ставки вернутся участникам).
     </div>
   `;
   el('mf').innerHTML = `
@@ -1035,14 +1041,16 @@ function loadShopCatalog() {
             ? `<div style="font-size:10px;color:var(--green);margin-top:2px">✓ В инвентаре: ×${_invData.find(i=>i.item_id===it.item_id).quantity}</div>`
             : ''}
         </div>
-        <button class="btn btn-sm ${afford?'btn-gold':'btn-ghost'}" onclick="buyItem('${it.item_id}',this)">${afford?`Купить за ${fmt(priceVal)} ${priceIcon}`:`Нужно ${fmt(priceVal)} ${priceIcon}`}</button>
+        <button class="btn btn-sm ${afford?'btn-gold':'btn-ghost'}" onclick="buyItem('${it.item_id}',this,'${cat}')">${afford?`Купить за ${fmt(priceVal)} ${priceIcon}`:`Нужно ${fmt(priceVal)} ${priceIcon}`}</button>
       </div>`;}).join('')}</div>`).join('');
   }).catch(e=>{el('mkt-shop').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
-// Block 9: warn before buying if already in inventory
-function buyItem(id, btn) {
+// Block 9: warn before buying if already in inventory.
+// UX_AUDIT С19: еда и зелья — расходники, докупаются часто; для них повторный
+// confirm «уже в инвентаре» только мешает. Предупреждаем лишь про остальное.
+function buyItem(id, btn, cat) {
   const existing = _invData.find(i => i.item_id === id);
-  if (existing) {
+  if (existing && cat !== 'food' && cat !== 'booster') {
     OM('⚠️ Уже в инвентаре', `
       <div style="text-align:center;padding:10px 0 14px">
         <div style="font-size:24px;margin-bottom:8px">⚠️</div>

@@ -9,7 +9,7 @@ let _looksFilter='all';                // фильтр редкости — об
 function openLooksModal(){
   _looksDirty=false;
   _looksActiveTab=_LOOKS_SLOTS[0]; _looksFilter='all';
-  OM('🎨 Внешний вид','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-gold',f:'_looksClose()'}]);
+  OM('🎨 Внешний вид','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-ghost',f:'_looksClose()'}]);
   Promise.all([api('/cosmetics/'),api('/cosmetics/presets')])
     .then(([d,pr])=>{_looksData=d;_looksSaved=_looksEquipped(d);_looksSel={..._looksSaved};_looksPresets=pr.presets||[];renderLooks();})
     .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;});
@@ -245,11 +245,19 @@ function _looksPresetsHtml(){
   if(!_looksPresets.length) return `<div class="looks-presets"><div class="looks-presets-hint">Нет сохранённых образов</div>${saveBtn}</div>`;
   return `<div class="looks-presets">${chips}${saveBtn}</div>`;
 }
+// UX_AUDIT С16: bottom-sheet с полем вместо нативного prompt()
 function _savePreset(){
-  const name=(prompt('Название образа (макс. 30 символов):','')||'').trim().slice(0,30)||'Образ';
-  if(!name) return;
+  OM('💾 Сохранить образ',
+    `<div class="set-hint">Текущая косметика сохранится как образ — потом применишь одним тапом.</div>
+     <input id="preset-name-inp" class="num-input" type="text" maxlength="30"
+       placeholder="Название образа (до 30 символов)" autocomplete="off" style="margin-top:10px">`,
+    [{l:'💾 Сохранить',c:'btn-gold',f:'_savePresetGo()'},{l:'Отмена',c:'btn-ghost',f:'openLooksModal()'}]);
+  setTimeout(()=>{const i=el('preset-name-inp'); if(i) i.focus();},60);
+}
+function _savePresetGo(){
+  const name=((el('preset-name-inp')||{}).value||'').trim().slice(0,30)||'Образ';
   api('/cosmetics/presets',{method:'POST',body:JSON.stringify({name})})
-    .then(r=>{toast(r.message); if(r.preset){_looksPresets.push(r.preset);} renderLooks();})
+    .then(r=>{toast(r.message); if(r.preset){_looksPresets.push(r.preset);} openLooksModal();})
     .catch(e=>toast(e,false));
 }
 function _applyPreset(id){

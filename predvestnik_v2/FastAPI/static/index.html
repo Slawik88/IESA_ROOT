@@ -56,6 +56,7 @@
             data-telegram-login="{{BOT_USERNAME}}" data-size="large" data-radius="14"
             data-onauth="onTelegramWidgetAuth(user)" data-request-access="write"></script>
   </div>
+  <div id="login-err" class="err hidden" style="max-width:280px;margin-top:10px" role="alert"></div>
   <p style="font-size:10px;color:var(--muted)">Данные защищены подписью Telegram.</p>
 </div>
 
@@ -63,7 +64,7 @@
 <dialog id="modal">
   <div class="sheet">
     <div class="sheet-grip"></div>
-    <div class="mhead"><span id="mt" class="mtitle"></span><button class="mclose" onclick="CM()">✕</button></div>
+    <div class="mhead"><span id="mt" class="mtitle"></span><button class="mclose" onclick="CM()" aria-label="Закрыть">✕</button></div>
     <div id="mb" class="mbody"></div>
     <div id="mf" class="mfoot"></div>
   </div>
@@ -144,7 +145,7 @@
     <button class="tb" onclick="swMkt('vip',this)">✨ Премиум</button>
     <button class="tb" onclick="swMkt('goods',this)">🛍 Расходники</button>
     <button class="tb" onclick="swMkt('deal',this)">🏷 Акции дня</button>
-    <button class="tb" onclick="_trackSubtab('market/cosmetics');openLooksModal()">🎨 Косметика</button>
+    <button class="tb" onclick="_trackSubtab('market/cosmetics');openLooksModal()">🎨 Косметика ↗</button>
   </div>
   <div id="balrow" class="balrow" style="display:none"></div>
   <div id="mkt-gacha"><div id="gc"><div class="loader">Загрузка...</div></div></div>
@@ -256,7 +257,9 @@
   <div class="card">
     <div class="card-title">⚔️ Арена</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">Дуэли</b> — сражения с другими игроками за награды и рейтинг.<br>
+      <b style="color:var(--bright)">Врата</b> — бои отрядом боевых юнитов по этажам: Тёмная Мора и осколки.<br>
+      <b style="color:var(--bright)">Бездна и Рейды</b> — совместная добыча клана и боссы (вкладка Кланы).<br>
+      Отряд собирается в <b style="color:var(--bright)">🏰 Казарме</b>.<br>
       <b style="color:var(--bright)">Ивенты</b> — временные события с особыми наградами.
     </div>
   </div>

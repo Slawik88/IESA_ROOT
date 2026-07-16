@@ -46,7 +46,8 @@ function renderBarracks(){
   const owned=d.units.filter(u=>u.owned);
   const locked=d.units.filter(u=>!u.owned);
   host.innerHTML=`
-    <div class="looks-hint">🏰 <b>Казарма</b> — боевые юниты. Каждый приносит в бой 3 руны:
+    <div class="looks-hint"><button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px;margin-left:6px" onclick="_b3IntroOpen('barracks')" aria-label="Обучение">❓</button>
+      🏰 <b>Казарма</b> — боевые юниты. Каждый приносит в бой 3 руны:
       ⚔️ удар · 🛡 защита · ✨ навык. Собери отряд из 3 (позиция важна: фронт перехватывает
       удары по тылу). Призыв — за 🔷 Осколки Бездны (Врата, Бездна кланов).</div>
     <div class="looks-slot-t">⚔️ Отряд · сила ⚡${fmt(d.squad_cp)} ${syn?`· <span style="color:var(--gold2)">${syn}</span>`:''}</div>
@@ -60,6 +61,7 @@ function renderBarracks(){
     <div class="cx-dim" style="font-size:10px;margin-top:8px;line-height:1.5">Дубль в призыве → осколки юнита.
       Осколки качают уровень (+12% статов) и открывают юнита напрямую. Таргет-осколки падают с боссов Бездны и этажей Врат 5–6,
       а нужного юнита можно качать направленно: 🔷 Гравировка в карточке юнита (${d.engrave_cost} 🔷 → +${d.engrave_shards} ◈).</div>`;
+  _b3ShowIntro('barracks');
 }
 function _bkStarterHtml(d){
   const byId={}; d.units.forEach(u=>byId[u.unit_id]=u);
@@ -222,7 +224,8 @@ function loadGates(){
           : `<span class="g2-lock">🔒 ⚡${fmt(f.cp_gate)}</span>`}
       </div>`).join('');
     host2.innerHTML=`
-      <div class="looks-hint">🌑 <b>Врата</b> — бой отрядом: раздача рун, порядок решает.
+      <div class="looks-hint"><button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px;margin-left:6px" onclick="_b3IntroOpen('gates')" aria-label="Обучение">❓</button>
+        🌑 <b>Врата</b> — бой отрядом: раздача рун, порядок решает.
         Победа: Тёмная Мора + ${lo.shard_chance_pct||20}% шанс ${(lo.shard_range||[1,3]).join('–')} 🔷,
         на этажах 5–6 — ещё и осколки юнитов (см. ниже).
         Входов сегодня: <b>${d.entries_left}</b> · Твоя Сила: ⚡${fmt(d.cp)}.</div>
@@ -230,7 +233,30 @@ function loadGates(){
         :`<div class="cx-dim" style="font-size:11px">Отряда нет.</div>
           <button class="btn btn-sm btn-gold" style="margin-top:4px" onclick="goTo('arena','barracks')">🏰 Собрать отряд</button>`}
       <div class="looks-slot-t" style="margin-top:8px">🗼 Этажи</div>${floors}`;
+    _b3ShowIntro('gates');
   }).catch(e=>{if(el('gtc'))el('gtc').innerHTML=`<div class="err">${e}</div>`;});
+}
+
+// ── UX_AUDIT С3: обучение Боёвки 3.0 — один раз при первом входе + кнопка «❓» ──
+function _b3ShowIntro(kind){
+  try{
+    if(localStorage.getItem('pv_b3_intro_'+kind)) return;
+    localStorage.setItem('pv_b3_intro_'+kind,'1');
+  }catch(e){ return; }
+  _b3IntroOpen(kind);
+}
+function _b3IntroOpen(kind){
+  const steps = kind==='barracks'
+    ? ['1️⃣ <b>Призови юнитов</b> за 🔷 и собери отряд из трёх. Позиция важна: фронт прикрывает тыл.',
+       '2️⃣ <b>Каждый юнит несёт 3 руны</b>: ⚔️ удар · 🛡 защита · ✨ навык. Из рун отряда соберётся твоя рука в бою.',
+       '3️⃣ <b>Качай юнитов осколками</b> — дубли призыва, боссы, 🔷 Гравировка. Растёт сила ⚡ отряда.']
+    : ['1️⃣ <b>Тапай руны в нужном порядке</b> и жми «▶️ Ход». Цель удара — тап по врагу.',
+       '2️⃣ <b>🧿 Фокус</b> — очки решений: 🔄 переброс руны (1🧿) или 🎯 гарант-крит (2🧿). 🌈 Триада — бонус за 3 разные стихии в руке.',
+       '3️⃣ <b>Круг сжимается — жми в момент сжатия!</b> Так проходят криты и ульты (ярость 100). Промахнулся — будет обычный удар, не страшно.'];
+  OM(kind==='barracks'?'🏰 Как устроена Казарма':'🌑 Как драться во Вратах',
+    `<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0">${steps.map(s=>`<div class="looks-hint" style="margin:0">${s}</div>`).join('')}</div>
+     <div class="cx-dim" style="font-size:10px;margin-top:10px;text-align:center">Вернуться к этой подсказке: кнопка «❓» вверху раздела.</div>`,
+    [{l:'Понятно, в бой!',c:'btn-gold',f:'CM()'}]);
 }
 function _gtEnter(floor,btn){
   if(btn)btn.disabled=true;
@@ -433,7 +459,10 @@ function _b3StartQte(q){
 function _b3QteTap(){
   if(!_b3St||!_b3St.pending) return;
   const elapsed=Date.now()-_b3QteStart;
-  const off=Math.abs(elapsed-(_b3St._ringMs||1400));
+  let off=Math.abs(elapsed-(_b3St._ringMs||1400));
+  // UX_AUDIT С23: упрощённый ввод — окно тайминга мягче (offset считается клиентом,
+  // сервер только грейдит его; это осознанная доступность, не чит-путь)
+  if(typeof _easyInput==='function' && _easyInput()) off=Math.round(off*0.45);
   _b3Api('/combat2/battle/qte',{battle_id:_b3St.battle_id,tap_offset_ms:off},(r,turn)=>{
     const g=turn&&turn.grade;
     _haptic(g==='perfect'?'success':(g==='good'?'medium':'error'));

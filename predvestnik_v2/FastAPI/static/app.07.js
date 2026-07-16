@@ -124,9 +124,9 @@ function renderAdminUserTable(d) {
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
       <span>Всего: ${total}</span>
       <div style="display:flex;gap:6px">
-        <button class="btn btn-sm btn-ghost" ${_adminPage<=1?'disabled':''} onclick="admPage(${_adminPage-1})">◀</button>
+        <button class="btn btn-sm btn-ghost" aria-label="Предыдущая страница" ${_adminPage<=1?'disabled':''} onclick="admPage(${_adminPage-1})">◀</button>
         <span>${_adminPage}/${pages||1}</span>
-        <button class="btn btn-sm btn-ghost" ${_adminPage>=pages?'disabled':''} onclick="admPage(${_adminPage+1})">▶</button>
+        <button class="btn btn-sm btn-ghost" aria-label="Следующая страница" ${_adminPage>=pages?'disabled':''} onclick="admPage(${_adminPage+1})">▶</button>
       </div>
     </div>`;
 }
@@ -289,11 +289,11 @@ function loadPurgePanel() {
     const rows=(st.targets||[]).map(t=>{
       const name=esc(t.username||('ID '+t.user_id));
       const done=t.verdict?`<span style="font-size:14px">${vLabel[t.verdict]||t.verdict}</span>`:
-        `<span style="display:flex;gap:3px">
-          <button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick="purgeVerdict(${t.user_id},'warn')">⚠️</button>
-          <button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick="purgeVerdict(${t.user_id},'kick')">👢</button>
-          <button class="btn btn-sm btn-ghost" style="padding:2px 6px;color:var(--red)" onclick="purgeVerdict(${t.user_id},'ban')">🔨</button>
-          <button class="btn btn-sm btn-ghost" style="padding:2px 6px" onclick="purgeVerdict(${t.user_id},'skip')">🕊</button>
+        `<span style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-ghost" style="padding:6px 10px" title="Варн" aria-label="Варн" onclick="purgeVerdict(${t.user_id},'warn')">⚠️</button>
+          <button class="btn btn-sm btn-ghost" style="padding:6px 10px" title="Кик" aria-label="Кик" onclick="purgeVerdict(${t.user_id},'kick')">👢</button>
+          <button class="btn btn-sm btn-ghost" style="padding:6px 10px;color:var(--red)" title="Бан" aria-label="Бан" onclick="purgeVerdict(${t.user_id},'ban')">🔨</button>
+          <button class="btn btn-sm btn-ghost" style="padding:6px 10px" title="Пропустить" aria-label="Пропустить" onclick="purgeVerdict(${t.user_id},'skip')">🕊</button>
         </span>`;
       return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--dim);font-size:11px">
         <span style="flex:1">${t.dossier_sent?'📨':'⏳'} ${name} <span style="color:var(--muted)">(${t.msg_count} msg · ${t.warns}⚠️)</span></span>${done}
@@ -324,7 +324,15 @@ function purgeDossiers() {
     .then(r=>{toast(`📨 Выслано ${r.sent}, осталось ${r.remaining}`);loadPurgePanel();})
     .catch(e=>toast(e,false));
 }
-function purgeVerdict(uid, action) {
+function purgeVerdict(uid, action, confirmed) {
+  // UX_AUDIT С13: бан — самый тяжёлый вердикт, промах пальцем не должен его выносить
+  if(action==='ban' && !confirmed){
+    OM('🔨 Бан по итогам чистки?',
+      '<div style="padding:8px 0;color:var(--muted);font-size:12px;line-height:1.5">Игрок будет забанен в чате. Это серьёзнее варна и кика — проверь, что палец не промахнулся.</div>',
+      [{l:'🔨 Да, бан',c:'btn-red',f:`CM();purgeVerdict(${uid},'ban',1)`},
+       {l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    return;
+  }
   api(`/admin/${_adminChatId}/purge/verdict`,{method:'POST',body:JSON.stringify({user_id:uid,action})})
     .then(()=>{toast('Вердикт записан');loadPurgePanel();})
     .catch(e=>toast(e,false));
@@ -391,19 +399,16 @@ function loadAdminLogs() {
   api(`/admin/${_adminChatId}/logs?page=${_adminPage}${_admLogFilter?'&action='+_admLogFilter:''}`).then(d=>{
     const total=d.total||0, pages=Math.ceil(total/(d.page_size||25));
     el('adm-logs').innerHTML=filterBar+`
-      <div style="overflow-x:auto">
-        <table class="adm-table">
-          <thead><tr><th>Время</th><th>Действие</th><th>Цель</th><th>Модератор</th><th>Причина</th></tr></thead>
-          <tbody>
-            ${d.logs.map(l=>`<tr>
-              <td style="font-size:10px;white-space:nowrap">${fmtUTC(l.created_at)||'?'}</td>
-              <td><span style="font-size:11px;font-weight:600">${l.action}</span></td>
-              <td style="font-size:11px">@${vipName(l.target_name||'ID'+l.user_id, l.target_is_vip)}</td>
-              <td style="font-size:11px">@${vipName(l.admin_name||'ID'+l.admin_id, l.admin_is_vip)}</td>
-              <td style="font-size:10px;color:var(--muted)">${l.reason||'—'}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>
+      <div>
+        ${d.logs.map(l=>`<div style="padding:7px 2px;border-bottom:1px solid var(--dim);font-size:11px">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+            <span style="font-weight:600">${l.action}</span>
+            <span style="font-size:10px;color:var(--muted);white-space:nowrap">${fmtUTC(l.created_at)||'?'}</span>
+          </div>
+          <div style="margin-top:2px">@${vipName(l.target_name||'ID'+l.user_id, l.target_is_vip)}
+            <span style="color:var(--muted)">· выдал @${vipName(l.admin_name||'ID'+l.admin_id, l.admin_is_vip)}</span></div>
+          ${l.reason?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(l.reason)}</div>`:''}
+        </div>`).join('')}
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
         <span>Всего: ${total}</span>
