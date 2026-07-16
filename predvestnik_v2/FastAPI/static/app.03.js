@@ -626,7 +626,9 @@ function openPetModal(petId) {
             <span class="fq">×${f.qty}</span>
             <span class="fr" style="color:var(--green)">−${f.restore} уст.</span>
           </div>`).join('')
-      : '<div style="font-size:11px;color:var(--muted);padding:5px">Корма нет — купите в Магазине.</div>';
+      : `<div style="font-size:11px;color:var(--muted);padding:5px">Корма нет.
+           <button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="CM();goTo('market','goods')">🛒 Купить корм</button>
+         </div>`;
 
     const body = `
       <!-- Header: чип-стиль Казармы (bk-info-head), рамка модалки по редкости -->

@@ -133,7 +133,7 @@ function _cxRow(c){
   return '<div class="cx-row" onclick="_cxOpen(\''+c.id+'\')">'
     +'<div class="cx-ico">'+c.emoji+'</div>'
     +'<div class="cx-rinfo"><div class="cx-rname">'+esc(c.name)
-    +' <button class="'+starCls+'" onclick="event.stopPropagation();_cxWatch(\''+c.id+'\')" title="Избранное">'+( c.starred?'★':'☆')+'</button></div>'
+    +' <button class="'+starCls+'" onclick="event.stopPropagation();_cxWatch(\''+c.id+'\')" title="Избранное" aria-label="'+(c.starred?'Убрать из избранного':'В избранное')+'">'+( c.starred?'★':'☆')+'</button></div>'
     +holdLine+'</div>'
     +_cxSpark(c.candles,up)
     +'<div class="cx-rprice"><div class="cx-rp">'+fmt(c.price)+'🪙</div>'
@@ -437,8 +437,27 @@ function connectWS() {
     if(ev.type && ev.type.startsWith('lot_')){ _lotLiveOnEvent(ev); return; }  // R5: live-комната
     if(ev.type!=='pong') showWsNotif(ev);
   };
-  _ws.onclose = () => { setTimeout(connectWS, 4000); };
+  // UX_AUDIT С11: разрыв в live-комнате лота не должен выглядеть как «всё живо» —
+  // показываем баннер; на реконнекте восстанавливаем подписку и убираем его.
+  _ws.onopen = () => {
+    if(_lotLive){ _wsSend({type:'sub_lot', lot_id:_lotLive.lotId}); _lotLiveConn(true); }
+  };
+  _ws.onclose = () => { _lotLiveConn(false); setTimeout(connectWS, 4000); };
   _ws.onerror = () => {};
+}
+function _lotLiveConn(ok){
+  if(!_lotLive) return;
+  const t = el('lot-live-timer'); if(!t) return;
+  let b = el('lot-live-conn');
+  if(ok){ if(b) b.remove(); return; }
+  if(!b){
+    b = document.createElement('div');
+    b.id = 'lot-live-conn';
+    b.className = 'err';
+    b.style.cssText = 'margin:6px 0;padding:6px 10px;font-size:11px';
+    b.textContent = '⚠️ Связь прервана — ставки могут не обновляться. Переподключаюсь…';
+    (t.closest('.card')||t.parentElement||document.body).prepend(b);
+  }
 }
 
 // ── WS ping/pong — prevents Cloudflare 100s idle timeout ─────────────────────
@@ -926,6 +945,15 @@ function openExchangeZarnikiModal() {
 function doExchangeZarniki(to) {
   const amount = parseFloat(el('exch-zar-amount')?.value);
   if(!amount || amount<=0){ toast('Укажи количество ✨', false); return; }
+  // UX_AUDIT С20: обмен необратим — подтверждение, как у остальных необратимых
+  // денежных действий (VIP/клан/лот/развод). Курс тот же, что в шапке модалки.
+  const got = to==='mora' ? fmt(amount*150)+' 🪙' : (amount*0.05).toFixed(2)+' 💎';
+  el('exch-zar-result').innerHTML = `<div style="font-size:12px;color:var(--bright);background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px">
+      Обменять <b>${amount} ✨</b> на <b>${got}</b>? Вернуть будет нельзя.
+      <button class="btn btn-sm btn-gold btn-full" style="margin-top:8px" onclick="_doExchangeZarnikiGo('${to}',${amount})">✅ Да, обменять</button>
+    </div>`;
+}
+function _doExchangeZarnikiGo(to, amount) {
   api('/wallet/exchange-zarniki', {method:'POST', body:JSON.stringify({amount, to})})
     .then(r=>{
       el('exch-zar-result').innerHTML = `<div style="color:var(--green);font-size:12px">${r.message}</div>`;

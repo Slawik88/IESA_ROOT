@@ -2196,6 +2196,10 @@ body.modal-open { overflow: hidden; }
   .login-ov > * { animation: none; }
 }
 .login-orb { font-size: 56px; margin-bottom: 6px; animation: glow 2.2s infinite, floaty 4s infinite; }
+/* UX_AUDIT С17: правило стоит ПОСЛЕ .login-orb — иначе при равной специфичности
+   каскад оставлял орб анимированным даже при reduced-motion */
+@media (prefers-reduced-motion: reduce) { .login-orb { animation: none; } }
+.no-fx .login-orb { animation: none; }
 /* Полиш 2026-07: градиентный текст на заголовке убран (Don't в DESIGN.md) —
    градиент-текст остаётся только у продаваемой косметики (.glow-*, .title-*) */
 .login-ov h1 { margin: 0 0 8px; font-size: 24px; font-weight: 900; color: var(--gold2); }

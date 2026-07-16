@@ -93,26 +93,54 @@ function api(path, opts={}) {
             try{ if(typeof openBanAppealModal==='function') openBanAppealModal(); }catch(e2){}
             return Promise.reject(msg.replace('GLOBAL_BAN: ',''));
           }
-          return Promise.reject(msg);
+          return Promise.reject(_humanErr(msg, r.status));
         }catch{
-          return Promise.reject(t.slice(0,120)||'Ошибка сервера');
+          try{ console.warn('API raw error hidden:', t.slice(0,300)); }catch(_){ }
+          return Promise.reject(r.status>=500?'Сервер прилёг отдохнуть. Попробуй через минуту.':'Ошибка сервера');
         }
       });
     });
+}
+// UX_AUDIT С9: сырые/англоязычные detail (Pydantic и пр.) не долетают до игрока.
+// Русские сообщения сервера показываем как есть, техжаргон — прячем в консоль.
+function _humanErr(msg, status){
+  if(typeof msg!=='string'||!msg) return 'Что-то пошло не так. Попробуй ещё раз.';
+  const latin=(msg.match(/[a-zA-Z]/g)||[]).length;
+  const cyr=(msg.match(/[а-яА-ЯёЁ]/g)||[]).length;
+  if(msg[0]==='{'||msg[0]==='['||(latin>8&&latin>cyr*2)){
+    try{ console.warn('API detail hidden:', msg); }catch(_){ }
+    return status>=500?'Сервер прилёг отдохнуть. Попробуй через минуту.'
+                      :'Не получилось: проверь данные и попробуй ещё раз.';
+  }
+  return msg;
 }
 // L10 (аудит): пропущенный .catch у api() больше не «молчит» — показываем тост,
 // чтобы действие без обработки ошибки не выглядело как «ничего не произошло».
 window.addEventListener('unhandledrejection', e => {
   const r = e.reason;
-  const msg = typeof r === 'string' ? r : (r && r.message) || '';
-  if (!msg) return;
+  // Строки — наши осмысленные reject'ы из api(), их показываем как есть.
+  if (typeof r === 'string') {
+    if (!r) return;
+    e.preventDefault();
+    try { toast(r, false); } catch (_) {}
+    return;
+  }
+  // UX_AUDIT С10: сырые JS-исключения (Error.message на английском с внутренностями
+  // кода) игроку не показываем — только в консоль, игроку — человеческий текст.
   e.preventDefault();
-  try { toast(msg, false); } catch (_) {}
+  try { console.error('unhandled rejection:', r); } catch (_) {}
+  try { toast('Что-то пошло не так. Если повторится — обнови страницу.', false); } catch (_) {}
 });
 window.onTelegramWidgetAuth = u => {
+  const errBox=el('login-err');
+  if(errBox) errBox.classList.add('hidden');
   api('/auth/telegram-login',{method:'POST',body:JSON.stringify(u)})
     .then(d=>{localStorage.setItem(SK,d.session_token);localStorage.setItem(UK,String(d.user_id||0));_uid=d.user_id||0;el('login-ov').classList.add('hidden');loadProfile();connectWS();})
-    .catch(e=>alert('Ошибка: '+e));
+    .catch(err=>{
+      // UX_AUDIT С1: оформленное сообщение вместо нативного alert()
+      if(errBox){ errBox.textContent='Не получилось войти: '+err+' Попробуйте ещё раз.'; errBox.classList.remove('hidden'); }
+      else { try{ toast('Не получилось войти: '+err, false); }catch(_){} }
+    });
 };
 if (!INIT_DATA && !sess()) el('login-ov').classList.remove('hidden');
 // Явная смена Telegram-аккаунта в браузере (Настройки → Аккаунт). Внутри Telegram
@@ -388,6 +416,18 @@ document.addEventListener('click', e => {
   const b = e.target.closest('.btn');
   if (b && !b.disabled && typeof _haptic === 'function') _haptic('light');
 }, true);
+
+// UX_AUDIT С12: маска «справа есть ещё» — на ЛЮБОМ ряду вкладок, который реально
+// переполнился (а не только на размеченных вручную). Ряды рендерятся динамически,
+// поэтому пересчёт — после кликов (когда контент дорисовался) и на resize.
+function _updateTabMasks(){
+  document.querySelectorAll('.tabs').forEach(t=>{
+    t.classList.toggle('tabs-scroll', t.scrollWidth > t.clientWidth + 4);
+  });
+}
+window.addEventListener('resize', _updateTabMasks);
+window.addEventListener('load', _updateTabMasks);
+document.addEventListener('click', ()=>{ setTimeout(_updateTabMasks, 350); }, true);
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _loaded=new Set();
