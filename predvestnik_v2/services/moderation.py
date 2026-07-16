@@ -52,3 +52,37 @@ async def check_admin_rights(
     if user_stats.get("local_rank", 0) < min_rank:
         return False, "❌ <b>Ошибка:</b> У вас недостаточно прав для этого действия."
     return True, ""
+
+async def chat_sanctions_map(db, chat_id: int, user_ids: list[int]) -> dict[int, dict]:
+    """Статусы модерации участников чата ОДНИМ проходом — для списков участников
+    в админке сайта и dev-консоли («Сайт == бот»: бот-команды бан/кик пишут те же
+    moderation_logs, глобальный ЧС — global_sanctions).
+
+    banned     — активный бан чата (разбан удаляет строку — см. remove_ban_log);
+    kicked     — кикали (история: после кика можно вернуться);
+    global_ban — активный глобальный бан бота."""
+    out: dict[int, dict] = {
+        int(u): {"banned": False, "kicked": False, "global_ban": False}
+        for u in user_ids
+    }
+    if not out:
+        return out
+    ids = list(out)
+    ph = ",".join(["?"] * len(ids))
+    async with db.execute(
+        "SELECT user_id, action FROM moderation_logs "
+        f"WHERE chat_id = ? AND action IN ('ban','kick') AND user_id IN ({ph})",
+        [chat_id, *ids],
+    ) as c:
+        for r in await c.fetchall():
+            key = "banned" if r["action"] == "ban" else "kicked"
+            out[int(r["user_id"])][key] = True
+    async with db.execute(
+        "SELECT DISTINCT target_id FROM global_sanctions "
+        "WHERE target_type = 'user' AND sanction_type = 'ban' AND revoked_at IS NULL "
+        f"AND (expires_at IS NULL OR expires_at > NOW()) AND target_id IN ({ph})",
+        ids,
+    ) as c:
+        for r in await c.fetchall():
+            out[int(r[0])]["global_ban"] = True
+    return out

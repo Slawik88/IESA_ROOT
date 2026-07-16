@@ -61,6 +61,7 @@ function _devPlayersTabHtml(){
         <input id="dev-q" type="text" class="num-input" style="flex:1;margin:0" placeholder="или ID / @username"/>
         <button class="btn btn-gold" onclick="devLookupUser()">Найти</button>
       </div>
+      <div id="dev-members-list"></div>
       <div id="dev-user-result"></div>
     </div>`:''}
     ${gp('economy_balance')?`<div class="card">
@@ -783,12 +784,43 @@ function devLoadChats() {
 function devLoadMembers() {
   const cid = el('dev-chat-sel')?.value;
   const msel = el('dev-member-sel'); if(!msel) return;
-  if(!cid){ msel.innerHTML='<option value="">— участник —</option>'; return; }
+  const box = el('dev-members-list');
+  if(!cid){ msel.innerHTML='<option value="">— участник —</option>'; if(box) box.innerHTML=''; return; }
   msel.innerHTML='<option value="">загрузка…</option>';
+  if(box) box.innerHTML='<div class="loader">Загрузка...</div>';
   api('/admin/dev/chat-members?chat_id='+encodeURIComponent(cid)).then(d=>{
+    const ms=d.members||[];
     msel.innerHTML = '<option value="">— участник —</option>' +
-      (d.members||[]).map(u=>`<option value="${u.user_tg_id}">@${esc(u.username)} · ур.${u.user_level||1} · ${u.msgs||0} сообщ.</option>`).join('');
-  }).catch(()=>{ msel.innerHTML='<option value="">— участник —</option>'; });
+      ms.map(u=>`<option value="${u.user_tg_id}">${u.is_left?'👋 ':''}@${esc(u.username)} · ур.${u.user_level||1} · ${u.msgs||0} сообщ.</option>`).join('');
+    if(box) box.innerHTML = _devMembersListHtml(ms);
+  }).catch(e=>{ msel.innerHTML='<option value="">— участник —</option>'; if(box) box.innerHTML=`<div class="err">${e}</div>`; });
+}
+// Полная картина модерации при входе в чат из консоли — как у админа чата на сайте.
+function _devMemberBadges(u){
+  const muted=u.muted_until&&new Date(String(u.muted_until).replace(' ','T')+'Z')>new Date();
+  const b=[];
+  if(u.is_banned) b.push('<span style="color:var(--red)">🚫 бан</span>');
+  if(u.global_ban) b.push('<span style="color:var(--red)">⛔ глоб.ЧС</span>');
+  if((u.warnings||0)>0) b.push(`<span style="color:var(--gold)">⚠️${u.warnings}</span>`);
+  if(muted) b.push('<span style="color:var(--gold)">🔇 мут</span>');
+  if(!u.is_banned&&u.was_kicked) b.push('<span style="color:var(--muted)">👢 кикали</span>');
+  if(u.is_left) b.push('<span style="color:var(--muted)">👋 ушёл</span>');
+  return b.join(' ');
+}
+function _devMemberFlagged(u){
+  return (u.is_banned||u.global_ban||u.was_kicked||(u.warnings||0)>0||u.muted_until)?1:0;
+}
+function _devMembersListHtml(ms){
+  if(!ms.length) return '<div class="set-hint">В чате нет участников.</div>';
+  const sorted=ms.slice().sort((a,b)=>_devMemberFlagged(b)-_devMemberFlagged(a));
+  const flagged=sorted.filter(_devMemberFlagged).length;
+  return `<div style="font-size:10px;color:var(--muted);margin:8px 0 4px">👥 Участники: ${ms.length} · с отметками модерации: ${flagged} · тап — Центр игрока</div>
+    <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border2);border-radius:10px;padding:2px 8px">
+    ${sorted.map(u=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--dim);font-size:11px;cursor:pointer" onclick="openPlayerCenter(${u.user_tg_id})">
+      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@${esc(u.username)}${u.rank_name?` <span style="color:var(--muted)">· ${esc(u.rank_name)}</span>`:''}</span>
+      <span style="white-space:nowrap">${_devMemberBadges(u)||'<span style="color:var(--muted)">—</span>'}</span>
+    </div>`).join('')}
+    </div>`;
 }
 function devPickMember() {
   const uid = el('dev-member-sel')?.value;

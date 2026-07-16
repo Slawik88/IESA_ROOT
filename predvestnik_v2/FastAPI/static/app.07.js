@@ -105,8 +105,15 @@ function renderAdminUserTable(d) {
     </div>
     <div class="card" style="padding:8px 14px">
       ${d.users.map(u=>{
-        const status=u.muted_until?`<span style="color:var(--gold)">🔇 до ${u.muted_until.slice(0,16)}</span>`
-          :u.is_immune?'🛡 Иммун':u.is_left?'👋 Ушёл':'';
+        // UX: полный статус модерации участника (бан/глоб.ЧС/мут/кик/иммун/ушёл)
+        const status=[
+          u.is_banned?'<span style="color:var(--red)">🚫 забанен</span>':'',
+          u.global_ban?'<span style="color:var(--red)">⛔ глоб.ЧС</span>':'',
+          u.muted_until?`<span style="color:var(--gold)">🔇 до ${u.muted_until.slice(0,16)}</span>`:'',
+          (!u.is_banned&&u.was_kicked)?'<span style="color:var(--muted)">👢 кикали</span>':'',
+          u.is_immune?'🛡 Иммун':'',
+          u.is_left?'👋 Ушёл':'',
+        ].filter(Boolean).join(' · ');
         return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
         <span style="flex:1;min-width:0">
           <span style="font-weight:600;font-size:12px;color:var(--bright)">@${vipName(u.user_tg_username||'ID'+u.user_tg_id, u.is_vip)}</span>
