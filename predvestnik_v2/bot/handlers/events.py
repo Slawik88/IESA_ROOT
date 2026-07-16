@@ -303,7 +303,7 @@ async def cb_leave_action(
     developer_id: int = 0,
 ):
     import time as _time
-    from infrastructure.repositories.blacklist import add_to_chat_blacklist
+    from services import moderation as _mod_service
     from infrastructure.repositories import chat as _chat_repo
 
     chat_id = query.message.chat.id
@@ -328,8 +328,7 @@ async def cb_leave_action(
         if not (developer_id and actor_id == developer_id) and rank < required:
             return await query.answer("❌ Недостаточно прав.", show_alert=True)
 
-        await add_to_chat_blacklist(db, chat_id, callback_data.user_id, None, actor_id)
-        await db.commit()
+        await _mod_service.blacklist_user(db, chat_id, callback_data.user_id, actor_id)
 
         admin_name = await resolve_display_name(db, actor_id, chat_id, query.from_user.first_name)
         try:
