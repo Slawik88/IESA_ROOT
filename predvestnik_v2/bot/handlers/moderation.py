@@ -3,9 +3,7 @@ import logging
 from datetime import timedelta, datetime
 from aiogram import Router, types, Bot
 from aiogram.types import ChatPermissions
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters.callback_data import CallbackData
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from services.utils import resolve_target, safe_html, resolve_display_name
@@ -136,10 +134,12 @@ async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, 
         elif _tail == "0" and len(_words) > 1:
             reason = _words[0]  # явное «навсегда»
 
-    # 3. Выдача варна в базу
+    # 3. Выдача варна в базу (+журнал — сайт пишет 'warn' так же)
     warns_count = await mod_db.add_warn(
         db, message.chat.id, target_id, message.from_user.id, reason,
         expires_at=expires_at_str)
+    await mod_db.log_moderation_action(
+        db, message.chat.id, target_id, message.from_user.id, "warn", reason)
     settings = await mod_db.get_chat_settings(db, message.chat.id)
     max_warns = settings["max_warnings"]
 
@@ -156,43 +156,10 @@ async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, 
         parse_mode="HTML"
     )
 
-    # 6. Если лимит превышен — запускаем Суд Присяжных
+    # 6. Если лимит превышен — запускаем Суд Присяжных (единый сервис, как с сайта)
     if warns_count >= max_warns:
-        builder = InlineKeyboardBuilder()
-        builder.button(
-            text="🔨 Бан", 
-            callback_data=WarnAction(action="ban", target_id=target_id, chat_id=message.chat.id)
-        )
-        builder.button(
-            text="👢 Кик", 
-            callback_data=WarnAction(action="kick", target_id=target_id, chat_id=message.chat.id)
-        )
-        builder.button(
-            text="🕊 Простить", 
-            callback_data=WarnAction(action="forgive", target_id=target_id, chat_id=message.chat.id)
-        )
-        builder.adjust(2, 1)
-
-        court_text = (
-            f"⚖️ <b>СУД ПРИСЯЖНЫХ</b>\n\n"
-            f"Пользователь {target_name} достиг лимита варнов (<b>{warns_count}/{max_warns}</b>).\n"
-            f"Выберите меру пресечения:"
-        )
-        
-        # Проверяем, есть ли привязанный админ-чат для вынесения вердиктов
-        admin_chat = await routing.get_admin_chat(db, message.chat.id)
-        target_chat = admin_chat if admin_chat else message.chat.id
-        
-        try:
-            await bot.send_message(
-                target_chat, 
-                court_text, 
-                reply_markup=builder.as_markup(), 
-                parse_mode="HTML"
-            )
-        except Exception as e:
-            logger.error(f"Ошибка отправки в админ-чат: {e}")
-            await message.answer(court_text, reply_markup=builder.as_markup(), parse_mode="HTML")
+        await mod_service.start_warn_court(
+            db, message.chat.id, target_id, target_name, warns_count, max_warns)
 
 
 
@@ -235,6 +202,8 @@ async def cmd_unwarn(
             count = max(1, int(parts[0]))
 
     warns = await mod_db.remove_warn(db, message.chat.id, target_id, count)
+    await mod_db.log_moderation_action(
+        db, message.chat.id, target_id, message.from_user.id, "unwarn")
     settings = await mod_db.get_chat_settings(db, message.chat.id)
     removed_text = f"{count} варн{'а' if count in (2,3,4) else 'ов' if count >= 5 else ''}" if count > 1 else "предупреждение"
     await message.answer(
@@ -273,12 +242,17 @@ async def process_warn_action(
 
     try:
         if action == "ban":
-            await bot.ban_chat_member(chat_id, target_id)
+            if not await mod_service.ban_user(
+                    db, bot, chat_id, target_id, callback.from_user.id, "Суд Присяжных"):
+                return await callback.answer(
+                    "Ошибка API (возможно нет прав в основном чате).", show_alert=True)
             await mod_db.clear_warns(db, chat_id, target_id)
             text = f"🔨 {admin_link} вынес приговор: <b>БАН</b> для {target_link}."
         elif action == "kick":
-            await bot.ban_chat_member(chat_id, target_id)
-            await bot.unban_chat_member(chat_id, target_id)
+            if not await mod_service.kick_user(
+                    db, bot, chat_id, target_id, callback.from_user.id, "Суд Присяжных"):
+                return await callback.answer(
+                    "Ошибка API (возможно нет прав в основном чате).", show_alert=True)
             await mod_db.clear_warns(db, chat_id, target_id)
             text = (
                 f"👢 {admin_link} вынес приговор: <b>ИСКЛЮЧЕНИЕ</b> для {target_link}."
@@ -288,6 +262,8 @@ async def process_warn_action(
             text = f"🕊 {admin_link} вынес приговор: <b>ПРОСТИТЬ</b>. Варны {target_link} обнулены."
         elif action == "warn_only":
             warns_count = await mod_db.add_warn(db, chat_id, target_id, callback.from_user.id, "Из досье /purge")
+            await mod_db.log_moderation_action(
+                db, chat_id, target_id, callback.from_user.id, "warn", "Из досье /purge")
             settings = await mod_db.get_chat_settings(db, chat_id)
             text = (
                 f"⚠️ {admin_link} выдал <b>ВАРН</b> для {target_link} "
@@ -341,7 +317,8 @@ async def cmd_immune(
 
     stats = await chat_repo.get_chat_stats(db, target_id, message.chat.id)
     new_status = not bool(stats.get("is_immune", False))
-    await mod_db.set_immunity(db, message.chat.id, target_id, new_status, None)
+    await mod_service.set_immune_user(
+        db, message.chat.id, target_id, message.from_user.id, new_status)
 
     if new_status:
         await message.answer(
@@ -390,14 +367,10 @@ async def cmd_protect(
             "❌ Неверный формат времени! Используйте: 10м, 5ч, 3д.", parse_mode="HTML"
         )
 
-    # Сохраняем текущий is_immune — нельзя временным щитом перебить постоянный иммунитет.
-    stats = await chat_repo.get_chat_stats(db, target_id, message.chat.id)
-    keep_immune = bool(stats.get("is_immune", False))
-
-    until_dt = datetime.now() + td
-    await mod_db.set_immunity(
-        db, message.chat.id, target_id, keep_immune, until_dt.strftime("%Y-%m-%d %H:%M:%S")
-    )
+    # shield_user сам сохраняет is_immune — временный щит не перебивает постоянный иммунитет.
+    await mod_service.shield_user(
+        db, message.chat.id, target_id, message.from_user.id,
+        max(1, int(td.total_seconds() // 60)))
     await message.answer(
         f"🔰 <b>{target_name}</b> защищён от чистки на <b>{extra_args.split()[0]}</b>.\n"
         f"<i>Все защищённые: <code>бот кто рест</code> · Снять: <code>бот снять рест, @юзер</code></i>",
@@ -432,7 +405,8 @@ async def cmd_unprotect(
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
-    await mod_db.set_immunity(db, message.chat.id, target_id, 0, None)
+    # unshield_user сохраняет is_immune — «снять рест» больше не гасит постоянный иммунитет
+    await mod_service.unshield_user(db, message.chat.id, target_id, message.from_user.id)
     await message.answer(
         f"❌ Защитный щит с <b>{target_name}</b> снят.", parse_mode="HTML"
     )
@@ -618,24 +592,20 @@ async def cmd_ban(
         _cs.get("rank_ban", 2), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
-    try:
-        await bot.ban_chat_member(message.chat.id, target_id)
-        await mod_db.log_moderation_action(
-            db, message.chat.id, target_id, message.from_user.id, "ban"
-        )
-        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
-        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
-        reason_text = (
-            f"\n📝 <b>Причина:</b> {safe_html(extra_args)}" if extra_args else ""
-        )
-        detailed = f"🔨 <b>ПОЛЬЗОВАТЕЛЬ ЗАБЛОКИРОВАН</b>\n\n👤 {target_link} занесен в черный список.{reason_text}"
-        short = f"✅ <b>{target_name}</b> заблокирован."
-        await notify_action(bot, db, message.chat, initiator_link, detailed, short)
-    except (TelegramBadRequest, TelegramForbiddenError):
-        await message.answer(
+    if not await mod_service.ban_user(
+            db, bot, message.chat.id, target_id, message.from_user.id, extra_args):
+        return await message.answer(
             "❌ <b>Ошибка API:</b> Не могу заблокировать администратора.",
             parse_mode="HTML",
         )
+    target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+    initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
+    reason_text = (
+        f"\n📝 <b>Причина:</b> {safe_html(extra_args)}" if extra_args else ""
+    )
+    detailed = f"🔨 <b>ПОЛЬЗОВАТЕЛЬ ЗАБЛОКИРОВАН</b>\n\n👤 {target_link} занесен в черный список.{reason_text}"
+    short = f"✅ <b>{target_name}</b> заблокирован."
+    await notify_action(bot, db, message.chat, initiator_link, detailed, short)
 
 
 @router.message(TextCmd(["разбан", "разблокировать"]))
@@ -665,19 +635,19 @@ async def cmd_unban(
         _cs.get("rank_ban", 2), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
-    try:
-        await bot.unban_chat_member(message.chat.id, target_id, only_if_banned=True)
-        await mod_db.remove_ban_log(db, message.chat.id, target_id)
-        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
-        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
-        detailed = f"🕊 <b>ПОЛЬЗОВАТЕЛЬ РАЗБЛОКИРОВАН</b>\n\n👤 {target_link} исключен из черного списка."
-        short = f"✅ <b>{target_name}</b> разблокирован."
-        await notify_action(bot, db, message.chat, initiator_link, detailed, short)
-    except (TelegramBadRequest, TelegramForbiddenError):
-        await message.answer(
+    # unban_user = полная амнистия: TG-разбан + журнал + выход из ЧС чата
+    # (раньше ЧС не чистился — на сайте бан «висел», при входе снова автокик).
+    if not await mod_service.unban_user(
+            db, bot, message.chat.id, target_id, message.from_user.id):
+        return await message.answer(
             "❌ <b>Ошибка API:</b> Не удалось разблокировать пользователя.",
             parse_mode="HTML",
         )
+    target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+    initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
+    detailed = f"🕊 <b>ПОЛЬЗОВАТЕЛЬ РАЗБЛОКИРОВАН</b>\n\n👤 {target_link} исключен из черного списка."
+    short = f"✅ <b>{target_name}</b> разблокирован."
+    await notify_action(bot, db, message.chat, initiator_link, detailed, short)
 
 
 @router.message(TextCmd(["кик", "выгнать"]))
@@ -707,24 +677,19 @@ async def cmd_kick(
         _cs.get("rank_kick", 1), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
-    try:
-        await bot.ban_chat_member(message.chat.id, target_id)
-        await bot.unban_chat_member(message.chat.id, target_id)
-        await mod_db.log_moderation_action(
-            db, message.chat.id, target_id, message.from_user.id, "kick"
-        )
-        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
-        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
-        reason_text = (
-            f"\n📝 <b>Причина:</b> {safe_html(extra_args)}" if extra_args else ""
-        )
-        detailed = f"👢 <b>ПОЛЬЗОВАТЕЛЬ ИСКЛЮЧЕН</b>\n\n👤 {target_link} был выгнан из чата.{reason_text}"
-        short = f"✅ <b>{target_name}</b> исключен из чата."
-        await notify_action(bot, db, message.chat, initiator_link, detailed, short)
-    except (TelegramBadRequest, TelegramForbiddenError):
-        await message.answer(
+    if not await mod_service.kick_user(
+            db, bot, message.chat.id, target_id, message.from_user.id, extra_args):
+        return await message.answer(
             "❌ <b>Ошибка API:</b> Не могу выгнать администратора.", parse_mode="HTML"
         )
+    target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+    initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
+    reason_text = (
+        f"\n📝 <b>Причина:</b> {safe_html(extra_args)}" if extra_args else ""
+    )
+    detailed = f"👢 <b>ПОЛЬЗОВАТЕЛЬ ИСКЛЮЧЕН</b>\n\n👤 {target_link} был выгнан из чата.{reason_text}"
+    short = f"✅ <b>{target_name}</b> исключен из чата."
+    await notify_action(bot, db, message.chat, initiator_link, detailed, short)
 
 
 @router.message(TextCmd(["мут", "заглушить"]))
@@ -755,33 +720,27 @@ async def cmd_mute(
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
-    mute_until, time_display, reason = None, "Навсегда", extra_args
+    duration_minutes, time_display, reason = None, "Навсегда", extra_args
     if extra_args:
         parts = extra_args.split(maxsplit=1)
         td = parse_time(parts[0])
         if td:
-            mute_until = datetime.now() + td
+            duration_minutes = max(1, int(td.total_seconds() // 60))
             time_display = parts[0]
             reason = parts[1] if len(parts) > 1 else None
 
-    try:
-        permissions = ChatPermissions(can_send_messages=False)
-        await bot.restrict_chat_member(
-            message.chat.id, target_id, permissions=permissions, until_date=mute_until
-        )
-        await mod_db.log_moderation_action(
-            db, message.chat.id, target_id, message.from_user.id, "mute"
-        )
-        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
-        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
-        reason_text = f"\n📝 <b>Причина:</b> {safe_html(reason)}" if reason else ""
-        detailed = f"🤐 <b>ПОЛЬЗОВАТЕЛЬ ЗАГЛУШЕН</b>\n\n👤 {target_link} теперь не может писать.\n⏳ <b>Срок:</b> {time_display}{reason_text}"
-        short = f"✅ <b>{target_name}</b> заглушен ({time_display})."
-        await notify_action(bot, db, message.chat, initiator_link, detailed, short)
-    except (TelegramBadRequest, TelegramForbiddenError):
-        await message.answer(
+    if not await mod_service.mute_user(
+            db, bot, message.chat.id, target_id, message.from_user.id,
+            duration_minutes=duration_minutes, reason=reason):
+        return await message.answer(
             "❌ <b>Ошибка API:</b> Не могу замутить администратора.", parse_mode="HTML"
         )
+    target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+    initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
+    reason_text = f"\n📝 <b>Причина:</b> {safe_html(reason)}" if reason else ""
+    detailed = f"🤐 <b>ПОЛЬЗОВАТЕЛЬ ЗАГЛУШЕН</b>\n\n👤 {target_link} теперь не может писать.\n⏳ <b>Срок:</b> {time_display}{reason_text}"
+    short = f"✅ <b>{target_name}</b> заглушен ({time_display})."
+    await notify_action(bot, db, message.chat, initiator_link, detailed, short)
 
 
 @router.message(TextCmd(["размут", "снять мут"]))
@@ -811,32 +770,18 @@ async def cmd_unmute(
         _cs.get("rank_mute", 1), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
-    try:
-        permissions = ChatPermissions(
-            can_send_messages=True,
-            can_send_audios=True,
-            can_send_documents=True,
-            can_send_photos=True,
-            can_send_videos=True,
-            can_send_video_notes=True,
-            can_send_voice_notes=True,
-            can_send_polls=True,
-            can_send_other_messages=True,
-        )
-        await bot.restrict_chat_member(
-            message.chat.id, target_id, permissions=permissions
-        )
-        target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
-        initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
-        detailed = (
-            f"🗣 <b>ПРАВА ВОССТАНОВЛЕНЫ</b>\n\n👤 {target_link} снова может общаться."
-        )
-        short = f"✅ С <b>{target_name}</b> снят мут."
-        await notify_action(bot, db, message.chat, initiator_link, detailed, short)
-    except (TelegramBadRequest, TelegramForbiddenError):
-        await message.answer(
+    if not await mod_service.unmute_user(
+            db, bot, message.chat.id, target_id, message.from_user.id):
+        return await message.answer(
             "❌ <b>Ошибка API:</b> Не удалось восстановить права.", parse_mode="HTML"
         )
+    target_link = f'<a href="tg://user?id={target_id}">{target_name}</a>'
+    initiator_link = f'<a href="tg://user?id={message.from_user.id}">{safe_html(message.from_user.first_name)}</a>'
+    detailed = (
+        f"🗣 <b>ПРАВА ВОССТАНОВЛЕНЫ</b>\n\n👤 {target_link} снова может общаться."
+    )
+    short = f"✅ С <b>{target_name}</b> снят мут."
+    await notify_action(bot, db, message.chat, initiator_link, detailed, short)
 
 
 # ==========================================

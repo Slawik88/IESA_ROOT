@@ -10,9 +10,8 @@ from aiogram.filters.callback_data import CallbackData
 
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import moderation as mod_db
-from infrastructure.repositories.blacklist import (
-    add_to_chat_blacklist, remove_from_chat_blacklist, get_chat_blacklist,
-)
+from infrastructure.repositories.blacklist import get_chat_blacklist
+from services import moderation as mod_service
 from services.utils import safe_html, resolve_target
 from bot.keyboards.cta import answer_group_only
 
@@ -83,8 +82,8 @@ async def cmd_blacklist_add(message: types.Message, db, text_args: str = None, d
         return await message.answer("❌ Пользователь не найден.", parse_mode="HTML")
 
     reason = extra.strip() if extra else None
-    await add_to_chat_blacklist(db, message.chat.id, target_id, reason, message.from_user.id)
-    await db.commit()
+    await mod_service.blacklist_user(
+        db, message.chat.id, target_id, message.from_user.id, reason)
 
     reason_str = f"\n└ Причина: {safe_html(reason)}" if reason else ""
     await message.answer(
@@ -113,8 +112,8 @@ async def cmd_blacklist_remove(message: types.Message, db, text_args: str = None
     if not target_id:
         return await message.answer("❌ Пользователь не найден.", parse_mode="HTML")
 
-    removed = await remove_from_chat_blacklist(db, message.chat.id, target_id)
-    await db.commit()
+    removed = await mod_service.unblacklist_user(
+        db, message.chat.id, target_id, message.from_user.id)
 
     if removed:
         await message.answer(
@@ -151,8 +150,7 @@ async def cb_blacklist_action(
 
         user_id = callback_data.user_id
         reason = callback_data.reason or None
-        await add_to_chat_blacklist(db, chat_id, user_id, reason, actor_id)
-        await db.commit()
+        await mod_service.blacklist_user(db, chat_id, user_id, actor_id, reason)
 
         admin_name = safe_html(query.from_user.first_name)
         await query.message.edit_text(
