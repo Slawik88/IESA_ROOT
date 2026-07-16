@@ -218,7 +218,16 @@ async def admin_users(
     async with db.execute(count_query, params[:1] + params[1:]) as c:
         total = (await c.fetchone())[0]
 
+    # UX: статусы модерации у каждого участника (бан/кик/глоб.ЧС) — админ видит
+    # полную картину прямо в списке, как и dev-консоль (один сервис на обоих).
+    from services.moderation import chat_sanctions_map
+    sanctions = await chat_sanctions_map(db, chat_id, [r["user_tg_id"] for r in rows])
+
     for r in rows:
+        s = sanctions.get(int(r["user_tg_id"])) or {}
+        r["is_banned"] = s.get("banned", False)
+        r["was_kicked"] = s.get("kicked", False)
+        r["global_ban"] = s.get("global_ban", False)
         r["rank_name"] = _LOCAL_RANK_NAMES.get(r["local_rank"] or 0, "?")
         r["can_act"] = actor_rank > (r["local_rank"] or 0)
         r["can_warn"] = r["can_act"] and actor_rank >= settings.get("rank_warn", 2)

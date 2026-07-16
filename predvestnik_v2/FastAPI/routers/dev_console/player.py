@@ -433,18 +433,33 @@ async def dev_chats(db=Depends(get_db), user=Depends(require_tg_user)):
 
 @router.get("/chat-members")
 async def dev_chat_members(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Участники чата (для дропдауна «чат → юзер»), активные первыми."""
+    """Участники чата: дропдаун «чат → юзер» + полный список со статусами
+    модерации (варны/мут/бан/кик/глоб.ЧС/ушёл) — та же картина, что видит
+    админ чата на сайте (services.moderation.chat_sanctions_map)."""
     await require_console_perm(db, user, "dossier_view")
     async with db.execute(
         "SELECT ucs.user_tg_id, "
         "COALESCE(u.user_tg_username, CAST(ucs.user_tg_id AS TEXT)) AS username, "
-        "ucs.user_level, ucs.user_messages_count_all_time AS msgs "
+        "ucs.user_level, ucs.user_messages_count_all_time AS msgs, "
+        "COALESCE(ucs.local_rank, 0) AS local_rank, COALESCE(ucs.warnings, 0) AS warnings, "
+        "ucs.muted_until, COALESCE(ucs.is_left, 0) AS is_left "
         "FROM user_chat_stats ucs LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
-        "WHERE ucs.chat_tg_id = ? AND COALESCE(ucs.is_left, 0) = 0 "
-        "ORDER BY ucs.user_messages_count_all_time DESC LIMIT 200",
+        "WHERE ucs.chat_tg_id = ? "
+        "ORDER BY COALESCE(ucs.is_left, 0) ASC, ucs.user_messages_count_all_time DESC LIMIT 300",
         (chat_id,),
     ) as c:
-        return {"members": [dict(r) for r in await c.fetchall()]}
+        members = [dict(r) for r in await c.fetchall()]
+    from services.moderation import chat_sanctions_map
+    from services.roles import LOCAL_RANKS_MAP
+    sanctions = await chat_sanctions_map(db, chat_id, [m["user_tg_id"] for m in members])
+    for m in members:
+        s = sanctions.get(int(m["user_tg_id"])) or {}
+        m["is_banned"] = s.get("banned", False)
+        m["was_kicked"] = s.get("kicked", False)
+        m["global_ban"] = s.get("global_ban", False)
+        m["rank_name"] = LOCAL_RANKS_MAP.get(m["local_rank"], "?") if m["local_rank"] else ""
+        m["muted_until"] = str(m["muted_until"]) if m.get("muted_until") else None
+    return {"members": members}
 
 
 # ── БЛОК 21.2 W1.2: глобальный поиск игрока (подстрока, топ-10) ──────────────────
