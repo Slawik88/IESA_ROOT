@@ -15,6 +15,7 @@
 .hp-label {
     font-size: .72rem; letter-spacing: .2em; font-weight: 700; text-transform: uppercase;
     color: var(--primary); display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1rem;
+    white-space: nowrap; /* V7: «PARTNERSHIPS» переносилось как «PARTNERS / HIPS» */
 }
 .hp-label::before, .hp-label::after {
     content: ''; flex: 1 1 24px; height: 1px; background: var(--primary); opacity: .4;
@@ -31,8 +32,9 @@
 .hp-container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
 
 /* ── REVEAL ────────────────────────────────────────────────────── */
-[data-reveal] { opacity: 0; transform: translateY(32px); transition: opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1); }
-[data-reveal].revealed { opacity: 1; transform: none; }
+/* V3: прячем только при работающем JS (класс .js ставит base.html) — иначе контент виден сразу */
+html.js [data-reveal] { opacity: 0; transform: translateY(32px); transition: opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1); }
+html.js [data-reveal].revealed { opacity: 1; transform: none; }
 [data-delay="1"] { transition-delay: .1s !important; }
 [data-delay="2"] { transition-delay: .2s !important; }
 [data-delay="3"] { transition-delay: .3s !important; }
@@ -229,7 +231,8 @@
    6. EVENTS
 ════════════════════════════════════════════════════════════════ */
 #hp-events { background: var(--bg-body); }
-.events-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.5rem; margin-top:3rem; }
+/* V16: auto-fit вместо жёстких 3 колонок — 4-е событие не повисает сиротой с пустотой справа */
+.events-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.5rem; margin-top:3rem; }
 .ev-card { border-radius:20px; overflow:hidden; background:var(--bg-surface); border:1.5px solid var(--border-dark); cursor:pointer; text-decoration:none; color:inherit; display:flex; flex-direction:column; transition:transform .3s, box-shadow .3s, border-color .3s; }
 .ev-card:hover { transform:translateY(-5px); box-shadow:0 24px 60px rgba(0,0,0,.1); border-color:var(--primary); color:inherit; text-decoration:none; }
 .ev-img { aspect-ratio:16/9; overflow:hidden; position:relative; }
@@ -344,8 +347,10 @@
 .don-prog-head { display:flex; justify-content:space-between; font-size:.85rem; color:rgba(255,255,255,.5); margin-bottom:.75rem; }
 .don-prog-head strong { color:#fff; }
 .don-track { height:8px; background:rgba(255,255,255,.1); border-radius:50px; overflow:hidden; }
-.don-fill { height:100%; width:0; background:linear-gradient(90deg,#dc2626,#f87171); border-radius:50px; transition:width 1.6s cubic-bezier(.22,1,.36,1); }
-.don-fill.animated { width:45%; }
+/* V8: без JS бар сразу показывает значение; с JS (html.js) — анимируется от нуля */
+.don-fill { height:100%; width:45%; background:linear-gradient(90deg,#dc2626,#f87171); border-radius:50px; transition:width 1.6s cubic-bezier(.22,1,.36,1); }
+html.js .don-fill { width:0; }
+html.js .don-fill.animated { width:45%; }
 .don-meta { display:flex; gap:1.5rem; margin-top:.85rem; }
 .d-m { font-size:.75rem; color:rgba(255,255,255,.4); display:flex; align-items:center; gap:.3rem; }
 .d-m i { color:rgba(220,38,38,.7); }
@@ -816,8 +821,9 @@
                 {% else %}<div class="mc-ava">{{ member.name|slice:":1"|upper }}</div>{% endif %}
                 <div>
                     <div class="mc-name">{{ member.name }}</div>
-                    <div class="mc-pos">{{ member.position }}</div>
-                    <div class="mc-desc">{{ member.description|striptags|truncatewords:25 }}</div>
+                    {# V6: пустые поля не рендерим — не оставляем дыр в карточке #}
+                    {% if member.position %}<div class="mc-pos">{{ member.position }}</div>{% endif %}
+                    {% if member.description %}<div class="mc-desc">{{ member.description|striptags|truncatewords:25 }}</div>{% endif %}
                     <div class="mc-more"><i class="fas fa-arrow-right" style="font-size:.7rem;"></i> {% trans "More" %}</div>
                 </div>
             </div>
@@ -837,7 +843,7 @@
                 <div class="modal-body p-4">
                     <div class="row g-4">
                         <div class="col-md-4 text-center">
-                            <img id="memberModalPhoto" src="" class="rounded-circle shadow" style="width:140px;height:140px;object-fit:cover;border:3px solid rgba(220,38,38,.5);" alt="">
+                            <img id="memberModalPhoto" hidden class="rounded-circle shadow" style="width:140px;height:140px;object-fit:cover;border:3px solid rgba(220,38,38,.5);" alt="">
                         </div>
                         <div class="col-md-8">
                             <h4 id="memberModalName" class="fw-bold mb-1" style="color:#fff;"></h4>
@@ -937,8 +943,8 @@
             <article class="bcard" data-reveal data-delay="{{ forloop.counter }}">
                 <div class="bi"><i class="{{ benefit.icon }}"></i></div>
                 <div class="b-cat">{{ benefit.get_category_display }}</div>
-                <div class="b-title">{{ benefit.title }}</div>
-                <div class="b-desc">{{ benefit.description|striptags|truncatewords:20 }}</div>
+                {% if benefit.title %}<div class="b-title">{{ benefit.title }}</div>{% endif %}
+                {% if benefit.description %}<div class="b-desc">{{ benefit.description|striptags|truncatewords:20 }}</div>{% endif %}
                 {% if benefit.discount_info %}<div class="b-disc"><i class="fas fa-tag"></i> {{ benefit.discount_info }}</div>{% endif %}
             </article>
             {% endfor %}

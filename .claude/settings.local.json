@@ -131,7 +131,14 @@
       "Bash(python -m py_compile FastAPI/routers/dev_console/twins.py FastAPI/routers/dev_console/__init__.py core/admin_permissions.py)",
       "Bash(python -c \"import fastapi, asyncpg\")",
       "Bash(python -m pyflakes services/dark_market.py infrastructure/repositories/dark_market.py services/twin_detection.py infrastructure/repositories/twin_signals.py FastAPI/routers/dev_console/twins.py FastAPI/deps.py FastAPI/auth.py services/barracks.py)",
-      "Bash(echo \"PYFLAKES_EXIT=$?\")"
+      "Bash(echo \"PYFLAKES_EXIT=$?\")",
+      "Bash(grep -B1 \"return$\")",
+      "Bash(python /c/Users/makss/AppData/Local/Temp/claude/G--IESA-ROOT/3bd0608b-1e45-4d87-a85c-790fd4c2ff0e/scratchpad/apply_dm_gate.py)",
+      "Bash(python -c ' *2)",
+      "Bash(python *)",
+      "Bash(grep -rn \"toast\\('Пусто\\\\|toast\\('Нет \\\\|toast\\(\\\\`Нет \\\\|Свободных слотов нет\" FastAPI/static/app.03.js FastAPI/static/app.09.js)",
+      "Bash(sed -i \"s/\\\\[{l:'Готово',c:'btn-gold',f:'CM\\(\\)'}\\\\]\\);/[{l:'Готово',c:'btn-ghost',f:'CM\\(\\)'}]\\);/\" FastAPI/static/app.02.js)",
+      "Bash(sed -i \"s/\\\\[{l:'Готово',c:'btn-gold',f:'_looksClose\\(\\)'}\\\\]\\);/[{l:'Готово',c:'btn-ghost',f:'_looksClose\\(\\)'}]\\);/\" FastAPI/static/app.10.js)"
     ]
   },
   "hooks": {

@@ -236,14 +236,14 @@ p, h1, h2, h3, h4, h5, h6,
     box-shadow: 0 0 0 0.2rem rgba(220,38,38,0.25);
   }
 
-  /* Collapse dropdown — стили оформления (position управляется layout.css) */
+  /* Collapse dropdown — стили оформления (position управляется layout.css).
+     V5: фон строго непрозрачный, без backdrop-blur — сквозь rgba(.98)+blur(20px)
+     просвечивал 90px-заголовок hero, пункты меню читались поверх текста страницы. */
   .iesa-navbar .navbar-collapse {
     padding: .5rem 0 .75rem;
-    background: rgba(10, 10, 15, 0.98);
+    background: #0a0a0f;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     box-shadow: 0 12px 40px rgba(0,0,0,.6);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
   }
 
   .navbar-nav .nav-link {
@@ -1507,7 +1507,8 @@ body { overflow-x: hidden !important; max-width: 100vw; }
 /* ── Формы: кнопки на всю ширину на маленьких экранах ── */
 @media (max-width: 575.98px) {
   .auth-btn { width: 100% !important; }
-  .hero-btn-p, .hero-btn-g { width: 100% !important; justify-content: center !important; }
+  /* V4/V10: full-width только полноразмерным CTA — компактные .btn-sm стоят в ряд (баннеры) */
+  .hero-btn-p:not(.btn-sm), .hero-btn-g:not(.btn-sm) { width: 100% !important; justify-content: center !important; }
 }
 
 /* ── Hero section главной страницы ── */

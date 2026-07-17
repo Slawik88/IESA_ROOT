@@ -105,6 +105,8 @@ MIDDLEWARE = [
 
     # HTMX middleware
     'django_htmx.middleware.HtmxMiddleware',
+    # V1: login-редирект в hx-запросе = страница логина внутри страницы; глушим в 204
+    'IESA_ROOT.security_middleware.HtmxLoginRedirectMiddleware',
 ]
 
 ROOT_URLCONF = 'IESA_ROOT.urls'
@@ -207,7 +209,8 @@ LOCALE_PATHS = [
 # django-modeltranslation settings
 MODELTRANSLATION_DEFAULT_LANGUAGE = 'en'
 MODELTRANSLATION_LANGUAGES = ('en', 'uk', 'fr', 'de')
-MODELTRANSLATION_FALLBACK_LANGUAGES = ('en', 'uk')
+# V6: полный фолбэк — если язык не заполнен, показываем любой заполненный (пустых карточек не бывает)
+MODELTRANSLATION_FALLBACK_LANGUAGES = ('en', 'uk', 'fr', 'de')
 MODELTRANSLATION_PREPOPULATE_LANGUAGE = 'en'
 
 # SECURITY: HTTPS and Security Headers

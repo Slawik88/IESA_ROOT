@@ -1567,3 +1567,27 @@ textarea:focus-visible {
 /* .table, .modal-content, .modal-header, .pagination, .page-link:
    Canonical definitions are in sections 8, 9, 10 above.
    Duplicate light-theme versions removed (Sprint UI-1). */
+
+/* ════════════════════════════════════════════════════════════════
+   HERO BUTTONS — глобальная база (V10, дизайн-аудит 2026-07-17).
+   Раньше жила только во встроенном <style> главной: на blog/gallery/
+   products/benefits кнопки .hero-btn-p/.hero-btn-g рендерились
+   bootstrap-дефолтом (тёмный текст на тёмном фоне — невидимые).
+   ════════════════════════════════════════════════════════════════ */
+.hero-btn-p {
+    display: inline-flex; align-items: center; gap: .6rem; white-space: nowrap; flex-shrink: 0;
+    background: var(--primary); color: #fff; padding: .9rem 2rem; border-radius: 12px;
+    font-weight: 700; font-size: .95rem; text-decoration: none; border: none;
+    box-shadow: 0 4px 28px rgba(220,38,38,.4); transition: box-shadow .25s, transform .25s;
+}
+.hero-btn-p:hover { box-shadow: 0 8px 40px rgba(220,38,38,.6); color: #fff; }
+.hero-btn-g {
+    display: inline-flex; align-items: center; gap: .6rem; white-space: nowrap; flex-shrink: 0;
+    background: transparent; color: #fff; padding: .9rem 2rem; border-radius: 12px;
+    font-weight: 700; font-size: .95rem; text-decoration: none;
+    border: 1.5px solid rgba(255,255,255,.2); transition: border-color .25s, background .25s;
+}
+.hero-btn-g:hover { border-color: rgba(255,255,255,.6); background: rgba(255,255,255,.05); color: #fff; }
+/* Компактный вариант для контекстов с .btn-sm (баннеры, инлайн-CTA) —
+   полноразмерный padding 2rem не влезает на 390px вьюпорт */
+.hero-btn-p.btn-sm, .hero-btn-g.btn-sm { padding: .55rem 1.1rem; font-size: .85rem; }
