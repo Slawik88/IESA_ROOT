@@ -4,7 +4,8 @@
 {% block title %}{% trans "Partner Map" %} — IESA Sport{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+{# V2: Leaflet локально — unpkg.com блокировался нашим же CSP, карта не грузилась #}
+<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
 <style>
 .map-wrap { background:#07070e; min-height:100vh; padding-bottom:80px; }
 .map-hero {
@@ -92,7 +93,7 @@
   {% endif %}
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
 <script>
 (function(){
   var mapEl = document.getElementById('partner-map');

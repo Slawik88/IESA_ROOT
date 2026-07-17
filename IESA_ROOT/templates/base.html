@@ -18,6 +18,9 @@
        Дефолт — dark (НЕ читаем prefers-color-scheme — пользователь явно требует).
        Light доступна только если is_superuser=true И юзер сам кликнул toggle. */
     (function(){
+        /* V3: контент с [data-reveal] прячется ТОЛЬКО при работающем JS (.js на <html>).
+           Без JS (боты, печать, сбой скрипта) всё видно сразу. */
+        document.documentElement.classList.add('js');
         var isSuperuser = {% if request.user.is_superuser %}true{% else %}false{% endif %};
         var theme = 'dark';
         if (isSuperuser) {
@@ -101,6 +104,8 @@
     <link rel="stylesheet" href="{% static 'css/animations.css' %}">
     <link rel="stylesheet" href="{% static 'css/product-cards.css' %}">
     <link rel="stylesheet" href="{% static 'css/homepage.css' %}">
+    <!-- V11: WCAG-фиксы контраста (создан аудитом v3, но линк забыли — файл был мёртвым) -->
+    <link rel="stylesheet" href="{% static 'css/ui-ux-improvements.css' %}">
     <link rel="stylesheet" href="{% static 'css/touch-gestures.css' %}">
     <link rel="stylesheet" href="{% static 'css/responsive.css' %}">
     <!-- Dark-theme overrides: must be last to win the cascade -->

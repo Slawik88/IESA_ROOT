@@ -62,3 +62,29 @@ class SecurityHeadersMiddleware:
         response.setdefault('X-Frame-Options', 'SAMEORIGIN')
 
         return response
+
+
+class HtmxLoginRedirectMiddleware:
+    """HTMX + login_required: редирект на логин нельзя отдавать в hx-запрос —
+    HTMX вставит страницу логина целиком внутрь текущей (аудит V1).
+
+    Отдаём тихий 204 (без свапа). Вью, которым при клике анонима нужен настоящий
+    переход на логин, выставляют заголовок HX-Redirect сами (пример: blog.views.likes).
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if (
+            request.headers.get('HX-Request') == 'true'
+            and response.status_code in (301, 302)
+            and '/auth/login' in response.get('Location', '')
+            and 'HX-Redirect' not in response
+        ):
+            from django.http import HttpResponse
+            suppressed = HttpResponse(status=204)
+            suppressed['X-Suppressed-Login-Redirect'] = response['Location']
+            return suppressed
+        return response

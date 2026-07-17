@@ -9,6 +9,12 @@ echo "🔄 Running database migrations..."
 cd "$PROJECT_ROOT"
 python manage.py migrate --noinput || echo "⚠️  Migration failed (DB may be overloaded) — continuing startup anyway"
 
+# V6 (дизайн-аудит 2026-07-17): легаси-данные лежали в сырых колонках (position, title...),
+# а переводные (position_en...) были пустыми — карточки рендерились с дырами.
+# Команда идемпотентно переносит сырые значения в поле дефолтного языка.
+echo "🈯 Populating translation fields (update_translation_fields)..."
+python manage.py update_translation_fields || echo "⚠️  update_translation_fields failed — continuing startup"
+
 # BLOCK auto-deploy (audit v4): синхронизация переводов при каждом deploy.
 # Скрипт извлекает {% trans %} из шаблонов, обновляет .po файлы, пересобирает .mo.
 # Если polib не установлен ИЛИ скрипт упал — НЕ блокируем старт сервера.

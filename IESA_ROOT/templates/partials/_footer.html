@@ -2,7 +2,8 @@
 {# Global site footer — extracted from base.html (Sprint UI-2) #}
 <footer class="footer-enhanced mt-auto" role="contentinfo">
     <div class="container-limited py-5">
-        <div class="row g-5">
+        {# V4: g-5 (гаттер 3rem) переполнял вьюпорт 390px — +8px гориз. скролла на каждой странице #}
+        <div class="row g-4 g-lg-5">
             <div class="col-12 col-lg-4">
                 <h6 class="footer-title mb-3">{% trans "ABOUT" %}</h6>
                 <p class="footer-text mb-3 footer-about-text">{% trans "IESA connects sports leaders and partners, creating a space for growth, projects and events worldwide." %}</p>
