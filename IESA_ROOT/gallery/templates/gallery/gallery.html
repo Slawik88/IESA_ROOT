@@ -248,7 +248,7 @@
     {# 4g: Улучшенный empty state галереи #}
     <div class="container">
         <div class="gal-empty gal-empty--animated" data-reveal>
-            <span class="gal-empty-icon">📸</span>
+            <span class="gal-empty-icon" style="color:var(--primary);opacity:.75;"><i class="fas fa-camera-retro"></i></span>
             <h5>{% trans "Your first shot goes here" %}</h5>
             {% if user.is_staff %}
             <p class="mb-4">{% trans "Upload photos from events or projects to showcase the community." %}</p>

@@ -1,14 +1,6 @@
+{# V22: стили этого фрагмента вынесены в static/css/pages.css — <style> в HTMX-партиале реинжектится при каждом свапе #}
 {% load i18n %}
 {# 5d: Анимация сердца при лайке — heart-pop keyframe #}
-<style>
-@keyframes heart-pop {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.45); }
-  70%  { transform: scale(.9); }
-  100% { transform: scale(1); }
-}
-.heart-pop { animation: heart-pop .45s cubic-bezier(.22,1,.36,1) both; }
-</style>
 
 <div id="like-button-container" class="engage-chip">
     <button type="button" class="btn engage-btn {% if is_liked %}engage-btn--active{% endif %}"

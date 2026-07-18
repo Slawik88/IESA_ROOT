@@ -166,6 +166,10 @@
      Add data-typed to any heading for typewriter effect
      ────────────────────────────────────────────── */
   function initTypedText() {
+    /* V18 (дизайн-аудит): эффект печатной машинки отключён — заголовки статичны.
+       Курсор мигал на каждой странице, заголовок застывал на полуслове при паузе
+       рендера, а SEO/reader-mode видели пустой h1. Разметка data-typed безвредна. */
+    return;
     const els = document.querySelectorAll('[data-typed]');
     if (!els.length || prefersReducedMotion) return;
 
