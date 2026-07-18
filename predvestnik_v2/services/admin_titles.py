@@ -43,11 +43,43 @@ async def get_admin_titles(chat_id: int) -> dict[int, str]:
 
 def suffix_of(titles: dict[int, str], user_id: int) -> str:
     """HTML-суффикс « · тайтл» к имени; пустая строка, если юзер не TG-админ.
-    Для циклов: карту берём один раз через get_admin_titles, суффиксы — синхронно."""
+    Для циклов: карту берём один раз через get_admin_titles, суффиксы — синхронно.
+    Серые member-теги сюда не входят (их нельзя забрать одним вызовом на чат)."""
     t = titles.get(user_id)
     return f" <i>· {_esc(t)}</i>" if t else ""
 
 
+# ── Серые теги обычных участников (Bot API 9.5, март 2026) ────────────────────
+# У не-админа тоже может быть подпись возле ника — поле `tag` в getChatMember
+# (статусы member/restricted). Списочного метода нет, поэтому пер-юзерный
+# TTL-кэш; используется как фолбэк в title_suffix, когда юзер не в карте админов.
+_MEMBER_CACHE: dict[tuple[int, int], tuple[str | None, float]] = {}
+
+
+async def get_member_tag(chat_id: int, user_id: int) -> str | None:
+    if not chat_id or chat_id >= 0:
+        return None
+    now = time.monotonic()
+    hit = _MEMBER_CACHE.get((chat_id, user_id))
+    if hit and hit[1] > now:
+        return hit[0]
+
+    tag = None
+    r = await tg_call("getChatMember", chat_id=chat_id, user_id=user_id)
+    ok = bool(r.get("ok"))
+    if ok:
+        m = r.get("result") or {}
+        if m.get("status") in ("member", "restricted"):
+            t = m.get("tag")
+            tag = str(t)[:16] if t else None
+    _MEMBER_CACHE[(chat_id, user_id)] = (tag, now + (_TTL if ok else _TTL_FAIL))
+    return tag
+
+
 async def title_suffix(chat_id: int, user_id: int) -> str:
-    """Одиночный вариант suffix_of (сам сходит в кэш/API)."""
-    return suffix_of(await get_admin_titles(chat_id), user_id)
+    """Одиночный суффикс: админский цветной тайтл, иначе серый member-тег."""
+    titles = await get_admin_titles(chat_id)
+    if titles.get(user_id):
+        return suffix_of(titles, user_id)
+    tag = await get_member_tag(chat_id, user_id)
+    return f" <i>· {_esc(tag)}</i>" if tag else ""
