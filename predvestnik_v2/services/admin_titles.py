@@ -1,0 +1,53 @@
+# services/admin_titles.py — кастом-тайтлы TG-админов чата («Владелец»/«Модератор»/свой).
+# Источник — getChatAdministrators через raw HTTP (паттерн services/telegram_http.py —
+# работает и из процесса бота, и из веб-процесса). TTL-кэш на чат: одна лёгкая
+# API-выборка раз в 5 минут, а не на каждое упоминание имени.
+import time
+
+from services.telegram_http import tg_call
+
+_CACHE: dict[int, tuple[dict[int, str], float]] = {}   # chat_id -> (uid->title, expires)
+_TTL = 300.0
+_TTL_FAIL = 60.0   # при ошибке API не долбим Telegram, но и не залипаем надолго
+
+
+def _esc(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+async def get_admin_titles(chat_id: int) -> dict[int, str]:
+    """user_id -> тайтл (кастомный, иначе «владелец»/«админ» — как рисует сам Telegram).
+    Только для групп (chat_id < 0); при ошибке API — пустая карта."""
+    if not chat_id or chat_id >= 0:
+        return {}
+    now = time.monotonic()
+    hit = _CACHE.get(chat_id)
+    if hit and hit[1] > now:
+        return hit[0]
+
+    titles: dict[int, str] = {}
+    r = await tg_call("getChatAdministrators", chat_id=chat_id)
+    ok = bool(r.get("ok"))
+    if ok:
+        for m in r.get("result", []):
+            u = m.get("user") or {}
+            uid = u.get("id")
+            if not uid or u.get("is_bot"):
+                continue
+            title = m.get("custom_title") or (
+                "владелец" if m.get("status") == "creator" else "админ")
+            titles[int(uid)] = str(title)[:16]
+    _CACHE[chat_id] = (titles, now + (_TTL if ok else _TTL_FAIL))
+    return titles
+
+
+def suffix_of(titles: dict[int, str], user_id: int) -> str:
+    """HTML-суффикс « · тайтл» к имени; пустая строка, если юзер не TG-админ.
+    Для циклов: карту берём один раз через get_admin_titles, суффиксы — синхронно."""
+    t = titles.get(user_id)
+    return f" <i>· {_esc(t)}</i>" if t else ""
+
+
+async def title_suffix(chat_id: int, user_id: int) -> str:
+    """Одиночный вариант suffix_of (сам сходит в кэш/API)."""
+    return suffix_of(await get_admin_titles(chat_id), user_id)

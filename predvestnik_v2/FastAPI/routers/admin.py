@@ -656,7 +656,7 @@ class PurgeStartRequest(BaseModel):
 
 @router.get("/{chat_id}/purge/status")
 async def admin_purge_status(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
-    await _require_admin(db, user["id"], chat_id)
+    actor_rank = await _require_admin(db, user["id"], chat_id)
     settings = await get_chat_settings(db, chat_id)
     admin_chat_id = await get_admin_chat(db, chat_id)
     st = await purge_svc.get_status(db, chat_id)
@@ -666,6 +666,12 @@ async def admin_purge_status(chat_id: int, db=Depends(get_db), user=Depends(requ
            "has_admin_chat": bool(admin_chat_id),
            "active": bool(st)}
     if st:
+        # Кто может жать кнопки вердикта (то же правило, что в apply_verdict):
+        # инициатор / разработчик / ранг ≥ purge_action_rank — сайт == бот.
+        out["can_verdict"] = (
+            user["id"] == st["session"]["initiator_id"]
+            or user["id"] == DEVELOPER_ID
+            or actor_rank >= settings.get("purge_action_rank", 2))
         out["session"] = {
             "id": st["session"]["id"],
             "initiator_id": st["session"]["initiator_id"],

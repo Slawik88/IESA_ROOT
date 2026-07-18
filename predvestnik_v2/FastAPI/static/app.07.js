@@ -293,15 +293,18 @@ function loadPurgePanel() {
     }
     const c=st.counts||{}, s=st.session||{};
     const vLabel={warn:'⚠️',kick:'👢',ban:'🔨',skip:'🕊'};
+    // Право вердикта (сайт == бот): инициатор или ранг ≥ purge_action_rank —
+    // остальным кнопки не рисуем вовсе, вместо мёртвых кнопок с 403.
+    const canV=!!st.can_verdict;
     const rows=(st.targets||[]).map(t=>{
       const name=esc(t.username||('ID '+t.user_id));
       const done=t.verdict?`<span style="font-size:14px">${vLabel[t.verdict]||t.verdict}</span>`:
-        `<span style="display:flex;gap:6px">
+        canV?`<span style="display:flex;gap:6px">
           <button class="btn btn-sm btn-ghost" style="padding:6px 10px" title="Варн" aria-label="Варн" onclick="purgeVerdict(${t.user_id},'warn')">⚠️</button>
           <button class="btn btn-sm btn-ghost" style="padding:6px 10px" title="Кик" aria-label="Кик" onclick="purgeVerdict(${t.user_id},'kick')">👢</button>
           <button class="btn btn-sm btn-ghost" style="padding:6px 10px;color:var(--red)" title="Бан" aria-label="Бан" onclick="purgeVerdict(${t.user_id},'ban')">🔨</button>
           <button class="btn btn-sm btn-ghost" style="padding:6px 10px" title="Пропустить" aria-label="Пропустить" onclick="purgeVerdict(${t.user_id},'skip')">🕊</button>
-        </span>`;
+        </span>`:`<span style="font-size:10px;color:var(--muted)">⏳ ждёт вердикта</span>`;
       return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--dim);font-size:11px">
         <span style="flex:1">${t.dossier_sent?'📨':'⏳'} ${name} <span style="color:var(--muted)">(${t.msg_count} msg · ${t.warns}⚠️)</span></span>${done}
       </div>`;
@@ -309,6 +312,7 @@ function loadPurgePanel() {
     box.innerHTML=`
       <div style="font-size:12px;color:var(--gold2);margin-bottom:4px">Сессия #${s.id} · норма ${s.norm} · ${esc(s.date_from)} — ${esc(s.date_to)}</div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Досье: ${c.sent}/${c.total} · Вердиктов: ${c.decided}/${c.total} (⚠️${c.warned} 👢${c.kicked} 🔨${c.banned} 🕊${c.skipped})</div>
+      ${canV?'':`<div style="font-size:10.5px;color:var(--muted);margin-bottom:6px">Вердикты выносит инициатор чистки или админ с рангом ≥ ${st.purge_action_rank} (настройка «⚖️ Кнопки вердикта в сводке»)</div>`}
       <div style="max-height:260px;overflow:auto;margin-bottom:8px">${rows||'<i style="font-size:11px;color:var(--muted)">Нарушителей нет</i>'}</div>
       ${c.sent<c.total?`<button class="btn btn-teal btn-full" style="margin-bottom:6px" onclick="purgeDossiers()">📨 Выслать досье в чат (ещё ${c.total-c.sent})</button>`:''}
       <button class="btn btn-red btn-full" onclick="purgeFinish()">✅ Завершить чистку</button>`;

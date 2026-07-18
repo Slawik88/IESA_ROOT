@@ -26,6 +26,7 @@ from infrastructure.repositories import purge_sessions as ps_repo
 from infrastructure.repositories import routing as routing_repo
 from services.membership import bot_tg_id, prune_ghosts
 from services.utils import safe_html, parse_dt
+from services.admin_titles import get_admin_titles, suffix_of
 
 # Безопасный размер порции досье: с учётом лимитов Telegram (~1 сообщение/сек
 # на чат) порция уходит за ~10 секунд и не приближается к flood control.
@@ -128,9 +129,11 @@ async def start_purge(db, chat_id: int, initiator_id: int,
 
     passed, failed, protected, admins = [], [], [], []
     now = datetime.now()
+    _titles = await get_admin_titles(chat_id)
     for u in candidates:
         uname = u["username"] or f'ID {u["id"]}'
-        link = f'<a href="tg://user?id={u["id"]}">{safe_html(uname)}</a>'
+        link = (f'<a href="tg://user?id={u["id"]}">{safe_html(uname)}'
+                f'{suffix_of(_titles, u["id"])}</a>')
         shielded = False
         if u["immune_until"]:
             try:
@@ -223,15 +226,18 @@ async def send_next_batch(db, session_id: int, requester_id: int | None = None) 
 
     dest = session["dest_chat_id"] or session["chat_id"]
     batch = await ps_repo.unsent_targets(db, session_id, BATCH_SIZE)
+    _settings = await mod_db.get_chat_settings(db, session["chat_id"])
+    _action_rank = _settings.get("purge_action_rank", 2)
+    _titles = await get_admin_titles(session["chat_id"])
     sent = 0
     for t in batch:
-        uname = safe_html(t["username"] or f"ID {t['user_id']}")
+        uname = safe_html(t["username"] or f"ID {t['user_id']}") + suffix_of(_titles, t["user_id"])
         dossier = (
             f'🗂 <b>ДОСЬЕ НАРУШИТЕЛЯ:</b> <a href="tg://user?id={t["user_id"]}">{uname}</a>\n'
             f"├ Сообщений за период: <b>{t['msg_count']}</b> из {session['norm']}\n"
             f"├ Дней в чате: <b>{t['days_in_chat']}</b>\n"
             f"└ Текущие варны: <b>{t['warns']}</b>\n\n"
-            f"<i>Вердикт выносит инициатор чистки:</i>"
+            f"<i>Вердикт: инициатор чистки или ранг {_action_rank}+</i>"
         )
         r = await _tg("sendMessage", chat_id=dest, text=dossier, parse_mode="HTML",
                       reply_markup=_dossier_keyboard(session_id, t["user_id"]))
@@ -265,14 +271,13 @@ _VERDICT_LABEL = {"warn": "⚠️ ВАРН", "kick": "👢 ИСКЛЮЧЕНИЕ"
 
 async def apply_verdict(db, session_id: int, target_id: int, action: str,
                         actor_id: int, developer_id: int = 0) -> tuple[bool, str]:
-    """Вердикт по цели: только инициатор сессии; «Бан»/«Кик» дополнительно
-    требуют порогов rank_ban/rank_kick (согласовано с admin_audit B1).
+    """Вердикт по цели: инициатор сессии ИЛИ админ с рангом ≥ purge_action_rank —
+    одна настройка на чат-бота и сайт («⚖️ Кнопки вердикта в сводке»).
+    «Бан»/«Кик» дополнительно требуют порогов rank_ban/rank_kick (admin_audit B1).
     Исполняется одинаково из чата (кнопка) и с сайта."""
     session = await ps_repo.get_by_id(db, session_id)
     if not session or session["status"] != "active":
         return False, "Сессия чистки уже завершена."
-    if actor_id != session["initiator_id"] and actor_id != developer_id:
-        return False, "Вердикт выносит только инициатор чистки."
     if action not in _VERDICT_LABEL:
         return False, "Неизвестный вердикт."
 
@@ -286,6 +291,13 @@ async def apply_verdict(db, session_id: int, target_id: int, action: str,
     actor_rank = int(row[0]) if row else 0
     if actor_id == developer_id:
         actor_rank = 6
+
+    action_rank = settings.get("purge_action_rank", 2)
+    if (actor_id != session["initiator_id"] and actor_id != developer_id
+            and actor_rank < action_rank):
+        return False, (f"Вердикт выносит инициатор чистки или админ "
+                       f"с рангом {action_rank}+ (у вас {actor_rank}).")
+
     need = {"ban": settings.get("rank_ban", 2), "kick": settings.get("rank_kick", 1)}.get(action, 0)
     if actor_rank < need:
         return False, f"Для этого вердикта нужен ранг {need}+ (у вас {actor_rank})."
@@ -310,7 +322,16 @@ async def apply_verdict(db, session_id: int, target_id: int, action: str,
             await mod_db.log_moderation_action(db, chat_id, target_id, actor_id, "kick")
             await mod_db.clear_warns(db, chat_id, target_id)
     elif action == "warn":
-        await mod_db.add_warn(db, chat_id, target_id, actor_id, "Чистка активности")
+        warns_count = await mod_db.add_warn(db, chat_id, target_id, actor_id, "Чистка активности")
+        await mod_db.log_moderation_action(db, chat_id, target_id, actor_id,
+                                           "warn", "Чистка активности")
+        # Единообразие с «бот варн»/сайтом: лимит варнов → Суд Присяжных
+        max_warns = settings.get("max_warnings") or 3
+        if warns_count >= max_warns:
+            from services.moderation import start_warn_court
+            t = await ps_repo.get_target(db, session_id, target_id)
+            tname = safe_html((t or {}).get("username") or f"ID {target_id}")
+            await start_warn_court(db, chat_id, target_id, tname, warns_count, max_warns)
     await db.commit()
 
     label = _VERDICT_LABEL[action]

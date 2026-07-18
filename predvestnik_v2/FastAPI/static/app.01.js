@@ -392,7 +392,9 @@ function fmtDurShort(sec){
 function OM(title,body,btns=[]) {
   el('mt').textContent=title;
   el('mb').innerHTML=body;
-  el('mf').innerHTML=btns.map(b=>`<button class="btn btn-sm ${b.c||'btn-ghost'}" onclick="${b.f}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
+  // Кавычки в onclick-строке (JSON.stringify-аргументы и т.п.) рвали HTML-атрибут —
+  // кнопка молча умирала (напр. «Да, начать» чистку с выбранными датами).
+  el('mf').innerHTML=btns.map(b=>`<button class="btn btn-sm ${b.c||'btn-ghost'}" onclick="${String(b.f||'').replace(/"/g,'&quot;')}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
   el('modal').showModal();
   document.body.classList.add('modal-open');
 }

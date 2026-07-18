@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from aiogram import Router, types, Bot
 
 from bot.filters.text_commands import TextCmd
-from bot.handlers.moderation import parse_time
+from bot.handlers.moderation import parse_time, TimeTooBigError
 from infrastructure.repositories import global_moderation as global_mod_repo
 from infrastructure.repositories.users import get_global_rank
 from services import global_moderation
@@ -24,7 +24,11 @@ def _split_reason_and_duration(text: str | None) -> tuple[str | None, timedelta 
     if not text:
         return None, None
     parts = text.split()
-    duration = parse_time(parts[-1])
+    try:
+        duration = parse_time(parts[-1])
+    except TimeTooBigError:
+        # Гигантское число не валит хендлер (П10) — просто остаётся частью причины
+        return text, None
     if duration is not None:
         return (" ".join(parts[:-1]) or None), duration
     return text, None
