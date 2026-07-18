@@ -19,7 +19,9 @@ from core.constants import (
 )
 from infrastructure.repositories import ai_assistant as repo
 
-_MODEL_NAME = "gemini-2.5-flash"
+# Алиас «текущая flash-модель»: конкретные версии Google закрывает для новых
+# ключей (gemini-2.5-flash умер с 404 в первый же день) — алиас не протухает.
+_MODEL_NAME = "gemini-flash-latest"
 
 _SYSTEM_PROMPT = (
     "Ты — справочный помощник Telegram-бота «Предвестник» (RPG с питомцами, "
