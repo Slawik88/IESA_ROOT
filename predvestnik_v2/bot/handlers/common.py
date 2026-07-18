@@ -669,6 +669,17 @@ async def cmd_wrong_syntax(message: types.Message, correct_usage: str):
 unknown_cmd_router = Router(name="unknown_cmd_router")
 
 
+# Лорные закрывашки под ответом ИИ — мистический флёр «Предвестника»
+_AI_CLOSERS = [
+    "Руны уже шепчут твой следующий вопрос…",
+    "Судьба любит любопытных.",
+    "Чернила пророчества ещё не высохли.",
+    "Звёзды записали этот разговор.",
+    "Вопрос — первый шаг любого пути.",
+    "Тьма отвечает тем, кто спрашивает.",
+]
+
+
 @unknown_cmd_router.message(AiQuestionCmd())
 async def cmd_ai_question(message: types.Message, ai_question: str, db):
     """«бот, <вопрос>» (запятая после «бот»), не совпавший ни с одной командой →
@@ -682,12 +693,32 @@ async def cmd_ai_question(message: types.Message, ai_question: str, db):
     # для игрока, поэтому страхуем весь путь, не только вызов API внутри сервиса.
     try:
         from services.ai_assistant import answer_question
-        answer = await answer_question(db, message.from_user.id, ai_question, _ai_knowledge_text())
+        answer, remaining = await answer_question(
+            db, message.from_user.id, ai_question, _ai_knowledge_text(),
+            user_name=message.from_user.first_name or "путник",
+        )
     except Exception as e:
         from loguru import logger
         logger.error(f"AI question handler error: {e}")
-        answer = "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже."
-    await message.answer(answer)
+        answer, remaining = "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже.", None
+
+    if remaining is not None:
+        from core.constants import AI_ASSISTANT_DAILY_CAP
+        answer += (f"\n\n<i>🔮 {random.choice(_AI_CLOSERS)}"
+                   f" · ✨ {remaining}/{AI_ASSISTANT_DAILY_CAP} на сегодня</i>")
+
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📖 Полная справка", callback_data=HelpCallback(tab="main", user_id=0))
+    if _MINIAPP_URL:
+        kb.button(text="🌐 Мини-апп", url=_MINIAPP_URL)
+    kb.adjust(2)
+
+    # Реплай на вопрос — в живом чате видно, кому именно ответил бот
+    try:
+        await message.reply(answer, parse_mode="HTML", reply_markup=kb.as_markup())
+    except Exception:
+        # Кривой HTML от модели не должен стоить игроку ответа
+        await message.reply(re.sub(r"<[^>]+>", "", answer), reply_markup=kb.as_markup())
 
 
 @unknown_cmd_router.message(UnknownBotCmd())
