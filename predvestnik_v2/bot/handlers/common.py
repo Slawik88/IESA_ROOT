@@ -1,11 +1,12 @@
 import os
 import random
+import re
 
 from aiogram import Router, types, F
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters.callback_data import CallbackData
 
-from bot.filters.text_commands import TextCmd, WrongSyntaxCmd, UnknownBotCmd
+from bot.filters.text_commands import TextCmd, WrongSyntaxCmd, UnknownBotCmd, AiQuestionCmd
 from services.utils import check_callback_owner
 from core.registry import ITEMS_REGISTRY
 from core.constants import CHEST_REWARDS_BY_POSITION
@@ -634,6 +635,21 @@ async def cmd_rarity(message: types.Message):
     await message.answer(response, parse_mode="HTML")
 
 
+_AI_KNOWLEDGE_CACHE: str | None = None
+
+
+def _ai_knowledge_text() -> str:
+    """HELP_PAGES целиком, без HTML-тегов — контекст для ИИ-помощника (services/ai_assistant.py).
+    Именно HELP_PAGES, а не GAME_BIBLE.md: это то, что реально видят живые игроки прямо
+    сейчас, самокорректируется и уже актуализировано под Web First (в отличие от GAME_BIBLE.md,
+    который не обновляется автоматически и местами устарел)."""
+    global _AI_KNOWLEDGE_CACHE
+    if _AI_KNOWLEDGE_CACHE is None:
+        raw = "\n\n".join(HELP_PAGES.values())
+        _AI_KNOWLEDGE_CACHE = re.sub(r"<[^>]+>", "", raw)
+    return _AI_KNOWLEDGE_CACHE
+
+
 fallback_router = Router(name="fallback_router")
 
 
@@ -650,6 +666,20 @@ async def cmd_wrong_syntax(message: types.Message, correct_usage: str):
 # Registered AFTER all known routers — only fires for unmatched "бот X" messages.
 
 unknown_cmd_router = Router(name="unknown_cmd_router")
+
+
+@unknown_cmd_router.message(AiQuestionCmd())
+async def cmd_ai_question(message: types.Message, ai_question: str, db):
+    """«бот, <вопрос>» (запятая после «бот»), не совпавший ни с одной командой →
+    вопрос ИИ-помощнику. «бот <текст>» без запятой сюда не попадает — идёт в
+    cmd_suggest, как раньше."""
+    try:
+        await message.bot.send_chat_action(message.chat.id, "typing")
+    except Exception:
+        pass
+    from services.ai_assistant import answer_question
+    answer = await answer_question(db, message.from_user.id, ai_question, _ai_knowledge_text())
+    await message.answer(answer)
 
 
 @unknown_cmd_router.message(UnknownBotCmd())

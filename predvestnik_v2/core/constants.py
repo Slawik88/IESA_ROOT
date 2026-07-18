@@ -607,6 +607,14 @@ SAPPER_EDGE: float = 0.96              # множитель = fair-гиперг�
 SAFE_MIN_BET: float = 100.0
 SAFE_MAX_BET: float = 2_000.0
 SAFE_ATTEMPTS: int = 6                 # попыток взлома
+
+# ── ИИ-помощник (Q&A по функциям бота — services/ai_assistant.py) ──────────────
+# Срабатывает только когда "бот <текст>" не похож ни на одну известную команду
+# (fallback после cmd_suggest). Кулдаун+кап — т.к. каждый вопрос стоит денег
+# (внешний вызов Gemini API), в отличие от большинства других кулдаунов в игре.
+AI_ASSISTANT_COOLDOWN_SEC: int = 20        # между вопросами одного игрока
+AI_ASSISTANT_DAILY_CAP: int = 30           # вопросов в сутки на игрока
+AI_ASSISTANT_MAX_QUESTION_LEN: int = 300   # символов, длиннее — просим сократить
 ALCHEMY_MIN_BET: float = 100.0
 ALCHEMY_MAX_BET: float = 2_000.0       # payout = ставка × min(3.0, счёт/1000) — см. services/alchemy.py
 SAFE_WIN_MULT: float = 1.6             # скилловый винрейт ~60% → EV ≈ 0.96
