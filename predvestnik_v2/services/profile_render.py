@@ -131,6 +131,18 @@ def _protect_spacing(text: str) -> str:
     return _MULTI_SPACE_RE.sub(lambda m: " " * len(m.group()), text)
 
 
+_HTML_CHUNK_RE = re.compile(r"(<[^>]*>|&[a-zA-Z]+;|&#\d+;)")
+
+
+def _upper_outside_html(text: str) -> str:
+    """upper() только для текста ВНЕ HTML-тегов и entities: '<i>' и '&amp;'
+    должны остаться как есть, иначе Telegram не распарсит ('&AMP;', '<I>')."""
+    return "".join(
+        part if _HTML_CHUNK_RE.fullmatch(part) else part.upper()
+        for part in _HTML_CHUNK_RE.split(text)
+    )
+
+
 def _build_template_ctx(*, user_id, name, nm, name_upper, g_rank, l_rank, lvl, pct, bar,
                          mora, dia, dark, zar, d, w, a, ach_count, warns, marr,
                          first_seen, last_seen, is_vip,
@@ -367,8 +379,11 @@ def _render_premium_impl(template_id: str, user_id: int, name: str,
     dark = _compact(dark_v)
     zar  = _compact(zar_v)
     d, w, a = _compact(d_msgs), _compact(w_msgs), _compact(a_msgs)
-    name_upper = name.upper()
-    nm = safe_html(name)   # имя экранируется — иначе спецсимволы (< > &) ломают весь профиль
+    # name приходит из resolve_display_name уже экранированным и может содержать
+    # легитимный HTML (тайтл TG-админа «<i>· Владелец</i>»). Повторный safe_html
+    # превращал теги в видимый текст — тайтлы «не отображались» в премиум/raw_text-темах.
+    name_upper = _upper_outside_html(name)
+    nm = name
 
     if marriage:
         dur  = _marriage_duration(marriage.get("marriage_date"))
