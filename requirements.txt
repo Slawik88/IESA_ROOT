@@ -65,6 +65,7 @@ pymorphY3==2.0.2
 matplotlib==3.9.4
 fastapi==0.115.12
 uvicorn[standard]==0.34.3
+google-generativeai==0.8.6
 
 # Translation sync
 polib==1.2.0

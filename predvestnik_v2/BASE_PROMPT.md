@@ -46,7 +46,7 @@ FastAPI/        ← Web-адаптер
 - Не трогать `g:\IESA_ROOT\` корень (IESA Django) и `g:\IESA_ROOT\frontend\` (старый React-мини-апп "predvestnik-miniapp", без коммитов с апреля — мёртвый параллельный трек, не наш код)
 
 ## ENV (DigitalOcean)
-`BOT_TOKEN`, `DATABASE_URL`, `DEVELOPER_ID=1460945748`, `ROOT_PATH=/predvestnik`, `PORT=8000`, `BOT_USERNAME=IIIPredvestnikIIIBot`
+`BOT_TOKEN`, `DATABASE_URL`, `DEVELOPER_ID=1460945748`, `ROOT_PATH=/predvestnik`, `PORT=8000`, `BOT_USERNAME=IIIPredvestnikIIIBot`, `GEMINI_API_KEY` (опц. — ИИ-помощник, без ключа вежливо отключён)
 
 ## ПАМЯТЬ (C:\Users\makss\.claude\projects\g--IESA-ROOT\memory\)
 - НЕ чистить каждую сессию.

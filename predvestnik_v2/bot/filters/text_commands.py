@@ -122,6 +122,24 @@ class UnknownBotCmd(BaseFilter):
         return {"bot_cmd_text": cmd_part}
 
 
+class AiQuestionCmd(BaseFilter):
+    """Matches «бот, <вопрос>» — запятая сразу после «бот» = вопрос ИИ-помощнику.
+    Регистрируется в unknown_cmd_router (перед cmd_suggest): командные роутеры стоят
+    раньше в цепочке, поэтому «бот, помощь» и прочие валидные команды с запятой
+    по-прежнему уходят командам — сюда доходит только нераспознанный текст.
+    Injects: ai_question (str) — текст после запятой, в исходном регистре."""
+
+    async def __call__(self, message: Message) -> dict | bool:
+        if not message.text:
+            return False
+        if not re.match(r"^бот\s*,", message.text, re.IGNORECASE):
+            return False
+        question = message.text.split(",", 1)[1].strip()
+        if len(question) < 3:
+            return False
+        return {"ai_question": question}
+
+
 class TextCmd(BaseFilter):
     """
     Фильтр текстовых команд с разделителем-запятой.

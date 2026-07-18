@@ -706,6 +706,15 @@ async def _init_events_and_moderation(db):
             PRIMARY KEY (user_id, action)
         )
     """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS ai_assistant_usage (
+            user_id       BIGINT,
+            day           TEXT,
+            count         INTEGER NOT NULL DEFAULT 0,
+            last_query_at TIMESTAMP,
+            PRIMARY KEY (user_id, day)
+        )
+    """)
 
     # 33. Player buffs (one-use or timed)
     await db.execute("""
