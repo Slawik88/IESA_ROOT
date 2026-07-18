@@ -207,10 +207,11 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
     width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; font-size: .95rem; color: #fff;
 }
-.si-red   { background: rgba(220,38,38,.80); }
-.si-amber { background: rgba(245,158,11,.80); }
-.si-blue  { background: rgba(59,130,246,.80); }
-.si-green { background: rgba(16,185,129,.80); }
+/* V15: единый брендовый стиль плиток вместо радуги red/amber/blue/green */
+.si-red, .si-amber, .si-blue, .si-green {
+    background: rgba(220,38,38,.14);
+    color: var(--primary, #dc2626);
+}
 .stat-lbl { font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 2px; font-weight: 600; }
 .stat-val { font-size: 1.45rem; font-weight: 900; color: #fff; margin: 0; letter-spacing: -.03em; }
 
