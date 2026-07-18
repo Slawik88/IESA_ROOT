@@ -64,7 +64,11 @@ async def answer_question(db, user_id: int, question: str, system_knowledge: str
         model = genai.GenerativeModel(
             model_name=_MODEL_NAME,
             system_instruction=_SYSTEM_PROMPT.format(knowledge=system_knowledge),
-            generation_config={"temperature": 0.3, "max_output_tokens": 400},
+            # max_output_tokens включает ВНУТРЕННИЕ размышления thinking-моделей
+            # (3.5-flash тратит на них ~400 токенов): при 400 видимый ответ
+            # обрывался на полуслове. 2000 — только защита от разгона, длину
+            # ответа держит промпт («2-5 предложений»).
+            generation_config={"temperature": 0.3, "max_output_tokens": 2000},
         )
         response = await model.generate_content_async(question)
         text = (response.text or "").strip()
