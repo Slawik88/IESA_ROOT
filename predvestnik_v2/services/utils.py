@@ -44,7 +44,16 @@ async def resolve_display_name(
     from services.profile_render import format_display_name
     nick = await get_nickname(db, user_id, chat_id)
     name = safe_html(nick if nick else fallback)
-    return format_display_name(name, await is_vip_active(db, user_id))
+    name = format_display_name(name, await is_vip_active(db, user_id))
+    # Кастом-тайтл TG-админа («Владелец»/«Модератор»/свой) — та же подпись,
+    # что видна рядом с именем в самой группе. Только в группах (chat_id < 0).
+    if chat_id and chat_id < 0:
+        from services.admin_titles import title_suffix
+        try:
+            name += await title_suffix(chat_id, user_id)
+        except Exception:
+            pass
+    return name
 
 
 async def resolve_target(message: types.Message, db: aiosqlite.Connection, args: str = None):

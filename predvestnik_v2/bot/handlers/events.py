@@ -1,7 +1,6 @@
 import asyncio
 import random
 import time
-from datetime import datetime, timedelta
 
 from aiogram import Router, types, Bot
 from aiogram.filters.callback_data import CallbackData
@@ -269,14 +268,13 @@ async def on_user_status_changed(event: ChatMemberUpdated, db, bot: Bot):
         shield_days = settings.get("shield_duration_days", 0)
 
         if shield_days > 0:
-            until_dt = datetime.utcnow() + timedelta(days=shield_days)
-            until_str = until_dt.strftime("%Y-%m-%d %H:%M:%S")
-            await db.execute("INSERT OR IGNORE INTO users (user_tg_id) VALUES (?)", (user_id,))
-            await db.execute(
-                "INSERT OR IGNORE INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?)",
-                (user_id, chat_id),
-            )
-            await mod_db.set_immunity(db, chat_id, user_id, 0, until_str)
+            # bot_audit П7: через единый shield_user — он сохраняет is_immune
+            # (возврат иммунного игрока больше не стирает постоянный иммунитет)
+            # и пишет журнал модерации; строки users/user_chat_stats создаёт сам.
+            from services import moderation as mod_service
+            await mod_service.shield_user(
+                db, chat_id, user_id, bot.id, shield_days * 1440,
+                reason="Щит новичка")
             logger.info(f"Юзер {user_id} получил Щит Новичка на {shield_days} дн.")
 
         # Welcome message for new user (skip if it's the bot itself)

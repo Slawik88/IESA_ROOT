@@ -4,6 +4,7 @@ from datetime import timedelta, datetime
 from aiogram import Router, types, Bot
 from aiogram.types import ChatPermissions
 from aiogram.filters.callback_data import CallbackData
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from services.utils import resolve_target, safe_html, resolve_display_name
@@ -40,21 +41,62 @@ class WarnAction(CallbackData, prefix="warn_act"):
     target_id: int
     chat_id: int
 
+
+class ShieldConfirm(CallbackData, prefix="shield_cf"):
+    """Подтверждение перезаписи уже активного реста/иммунитета (bot_audit П7-adjacent
+    UX-запрос: не перезаписывать тихо, спрашивать)."""
+    action: str  # "yes" | "no"
+    target_id: int
+    chat_id: int
+    minutes: int
+
+
+def _format_remaining(td: timedelta) -> str:
+    days = td.days
+    hours = td.seconds // 3600
+    parts = []
+    if days:
+        parts.append(f"{days} д")
+    if hours or not days:
+        parts.append(f"{hours} ч")
+    return " ".join(parts)
+
+# bot_audit П10: потолок срока. Всё, что выше, — явная ошибка админу, а не
+# необработанный OverflowError из timedelta (раньше ронял хендлер молча).
+MAX_TIME_DAYS = 3650
+
+class TimeTooBigError(ValueError):
+    """Срок распознан по формату, но превышает MAX_TIME_DAYS."""
+
+
 def parse_time(time_str: str) -> timedelta | None:
     match = re.match(r"^(\d+)([смчдsmhd])$", time_str.lower())
     if not match:
         return None
     val = int(match.group(1))
     unit = match.group(2)
-    if unit in ["с", "s"]:
-        return timedelta(seconds=val)
-    if unit in ["м", "m"]:
-        return timedelta(minutes=val)
-    if unit in ["ч", "h"]:
-        return timedelta(hours=val)
-    if unit in ["д", "d"]:
-        return timedelta(days=val)
-    return None
+    try:
+        if unit in ["с", "s"]:
+            td = timedelta(seconds=val)
+        elif unit in ["м", "m"]:
+            td = timedelta(minutes=val)
+        elif unit in ["ч", "h"]:
+            td = timedelta(hours=val)
+        elif unit in ["д", "d"]:
+            td = timedelta(days=val)
+        else:
+            return None
+    except OverflowError:
+        raise TimeTooBigError(time_str)
+    if td > timedelta(days=MAX_TIME_DAYS):
+        raise TimeTooBigError(time_str)
+    return td
+
+
+_TIME_TOO_BIG_MSG = (
+    f"❌ <b>Слишком большой срок.</b> Максимум — <code>{MAX_TIME_DAYS}д</code> (10 лет). "
+    f"Проверьте, не опечатались ли в числе."
+)
 
 
 async def notify_action(
@@ -126,7 +168,10 @@ async def cmd_warn(message: types.Message, db, bot: Bot, text_args: str = None, 
     if reason:
         _words = reason.rsplit(None, 1)
         _tail = _words[-1] if _words else ""
-        _td = parse_time(_tail)
+        try:
+            _td = parse_time(_tail)
+        except TimeTooBigError:
+            return await message.answer(_TIME_TOO_BIG_MSG, parse_mode="HTML")
         if _td:
             expires_at_str = (datetime.now() + _td).strftime("%Y-%m-%d %H:%M:%S")
             ttl_display = f"\n⏳ <b>Срок:</b> {_tail} (после — сгорит сам)"
@@ -361,21 +406,86 @@ async def cmd_protect(
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
-    td = parse_time(extra_args.split()[0])
+    try:
+        td = parse_time(extra_args.split()[0])
+    except TimeTooBigError:
+        return await message.answer(_TIME_TOO_BIG_MSG, parse_mode="HTML")
     if not td:
         return await message.answer(
             "❌ Неверный формат времени! Используйте: 10м, 5ч, 3д.", parse_mode="HTML"
         )
 
+    minutes = max(1, int(td.total_seconds() // 60))
+    target_name = await resolve_display_name(db, target_id, message.chat.id, target_name)
+    new_until_str = (datetime.now() + td).strftime("%d.%m %H:%M")
+
+    # Уже под защитой? Спрашиваем подтверждение вместо тихой перезаписи.
+    stats = await chat_repo.get_chat_stats(db, target_id, message.chat.id)
+    kb = InlineKeyboardBuilder()
+    kb.button(text="✅ Перезаписать", callback_data=ShieldConfirm(
+        action="yes", target_id=target_id, chat_id=message.chat.id, minutes=minutes))
+    kb.button(text="❌ Отмена", callback_data=ShieldConfirm(
+        action="no", target_id=target_id, chat_id=message.chat.id, minutes=minutes))
+    kb.adjust(2)
+
+    if stats.get("is_immune"):
+        return await message.answer(
+            f"⚠️ У <b>{target_name}</b> уже <b>постоянный иммунитет</b> 🛡.\n"
+            f"Выдать поверх ещё и временный щит до <b>{new_until_str}</b> "
+            f"(постоянный иммунитет он не отменит)?",
+            parse_mode="HTML", reply_markup=kb.as_markup(),
+        )
+
+    current_until = parse_dt(stats.get("immune_until"))
+    if current_until and current_until > datetime.now():
+        rem_str = _format_remaining(current_until - datetime.now())
+        return await message.answer(
+            f"⚠️ У <b>{target_name}</b> уже есть рест до "
+            f"<b>{current_until.strftime('%d.%m %H:%M')}</b> (осталось {rem_str}).\n"
+            f"Перезаписать на рест до <b>{new_until_str}</b>?",
+            parse_mode="HTML", reply_markup=kb.as_markup(),
+        )
+
     # shield_user сам сохраняет is_immune — временный щит не перебивает постоянный иммунитет.
     await mod_service.shield_user(
-        db, message.chat.id, target_id, message.from_user.id,
-        max(1, int(td.total_seconds() // 60)))
+        db, message.chat.id, target_id, message.from_user.id, minutes)
     await message.answer(
         f"🔰 <b>{target_name}</b> защищён от чистки на <b>{extra_args.split()[0]}</b>.\n"
         f"<i>Все защищённые: <code>бот кто рест</code> · Снять: <code>бот снять рест, @юзер</code></i>",
         parse_mode="HTML",
     )
+
+
+@router.callback_query(ShieldConfirm.filter())
+async def process_shield_confirm(
+    callback: types.CallbackQuery, callback_data: ShieldConfirm, db, bot: Bot, developer_id: int = 0
+):
+    chat_id = callback_data.chat_id
+    target_id = callback_data.target_id
+
+    if callback_data.action == "no":
+        await callback.message.edit_text(
+            "❌ Отменено — существующий рест/иммунитет не тронут.", parse_mode="HTML")
+        return await callback.answer()
+
+    _cs = await mod_db.get_chat_settings(db, chat_id)
+    can_mod, err = await mod_service.check_admin_rights(
+        db, chat_id, callback.from_user.id,
+        _cs.get("rank_shield", 4), developer_id=developer_id, bot_id=bot.id)
+    if not can_mod:
+        return await callback.answer(err, show_alert=True)
+
+    await mod_service.shield_user(
+        db, chat_id, target_id, callback.from_user.id, callback_data.minutes)
+
+    target_name = await resolve_display_name(db, target_id, chat_id, f"ID {target_id}")
+    until_str = (datetime.now() + timedelta(minutes=callback_data.minutes)).strftime("%d.%m %H:%M")
+    await callback.message.edit_text(
+        f"🔰 <b>{target_name}</b> защищён от чистки до <b>{until_str}</b> (перезаписано).\n"
+        f"<i>Все защищённые: <code>бот кто рест</code></i>",
+        parse_mode="HTML",
+    )
+    await callback.answer("Рест перезаписан")
 
 
 @router.message(TextCmd(["снять рест", "снять защиту", "убрать щит", "убрать рест", "конец реста"]))
@@ -398,10 +508,13 @@ async def cmd_unprotect(
             parse_mode="HTML",
         )
 
+    # bot_audit П9: снятие реста — как выдача (check_admin_rights, без сравнения
+    # с рангом цели). Защита не наказание: раньше рест, выданный старшему по рангу,
+    # «залипал» — выдать мог, а снять уже нет.
     _cs = await mod_db.get_chat_settings(db, message.chat.id)
-    can_mod, err = await _check_target_rights(
-        db, message.chat.id, message.from_user.id, target_id,
-        _cs.get("rank_shield", 4), developer_id, bot.id)
+    can_mod, err = await mod_service.check_admin_rights(
+        db, message.chat.id, message.from_user.id,
+        _cs.get("rank_shield", 4), developer_id=developer_id, bot_id=bot.id)
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
 
@@ -435,10 +548,12 @@ async def cmd_who_rested(message: types.Message, db):
     if not rows:
         return await message.answer("✅ Никто не в ресте и без иммунитета.", parse_mode="HTML")
 
+    from services.admin_titles import get_admin_titles, suffix_of
+    _titles = await get_admin_titles(message.chat.id)
     immune_lines, rested_lines = [], []
     for r in rows:
         uid = r["user_tg_id"]
-        uname = safe_html(r["user_tg_username"] or f"ID {uid}")
+        uname = safe_html(r["user_tg_username"] or f"ID {uid}") + suffix_of(_titles, uid)
         link = f'<a href="tg://user?id={uid}">{uname}</a>'
         if r["is_immune"]:
             immune_lines.append(f"├ 🛡 {link} — иммунитет ∞")
@@ -723,7 +838,10 @@ async def cmd_mute(
     duration_minutes, time_display, reason = None, "Навсегда", extra_args
     if extra_args:
         parts = extra_args.split(maxsplit=1)
-        td = parse_time(parts[0])
+        try:
+            td = parse_time(parts[0])
+        except TimeTooBigError:
+            return await message.answer(_TIME_TOO_BIG_MSG, parse_mode="HTML")
         if td:
             duration_minutes = max(1, int(td.total_seconds() // 60))
             time_display = parts[0]
