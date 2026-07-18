@@ -645,7 +645,8 @@ def _ai_knowledge_text() -> str:
     который не обновляется автоматически и местами устарел)."""
     global _AI_KNOWLEDGE_CACHE
     if _AI_KNOWLEDGE_CACHE is None:
-        raw = "\n\n".join(HELP_PAGES.values())
+        # HELP_PAGES содержит None-заглушки легаси-вкладок ("stats", "pets_old")
+        raw = "\n\n".join(v for v in HELP_PAGES.values() if isinstance(v, str))
         _AI_KNOWLEDGE_CACHE = re.sub(r"<[^>]+>", "", raw)
     return _AI_KNOWLEDGE_CACHE
 
@@ -677,8 +678,15 @@ async def cmd_ai_question(message: types.Message, ai_question: str, db):
         await message.bot.send_chat_action(message.chat.id, "typing")
     except Exception:
         pass
-    from services.ai_assistant import answer_question
-    answer = await answer_question(db, message.from_user.id, ai_question, _ai_knowledge_text())
+    # Глобального error-хендлера в боте нет: любое исключение здесь = молчание
+    # для игрока, поэтому страхуем весь путь, не только вызов API внутри сервиса.
+    try:
+        from services.ai_assistant import answer_question
+        answer = await answer_question(db, message.from_user.id, ai_question, _ai_knowledge_text())
+    except Exception as e:
+        from loguru import logger
+        logger.error(f"AI question handler error: {e}")
+        answer = "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже."
     await message.answer(answer)
 
 
