@@ -85,13 +85,14 @@ async def process_message_xp(
     user_id: int,
     chat_id: int,
     timezone_offset: str = "+3 hours",
-) -> tuple[bool, int]:
+) -> tuple[bool, int, int]:
     """Начислить XP за одно сообщение: per-chat счётчик (топы) + XP аккаунта.
 
     Аккаунт получает: base×софт-кап + бонус Конспекта + бонус Совы.
     Per-chat user_xp получает те же слагаемые БЕЗ софт-капа (это счётчик
     активности, а не прогрессия — резать его незачем).
-    Возвращает (был ли левел-ап аккаунта, текущий уровень аккаунта)."""
+    Возвращает (был ли левел-ап аккаунта, текущий уровень аккаунта,
+    счётчик сообщений юзера в этом чате — user_messages_count_all_time)."""
     stats = await chat_repo.increment_stats_and_get_xp(db, user_id, chat_id, timezone_offset)
 
     msg_count = stats.get("user_messages_count_all_time", 0)
@@ -142,6 +143,6 @@ async def process_message_xp(
             db, user_id, mora=mora, diamonds=diamonds,
             source="level_up", note=f"Уровень аккаунта {new_lvl}",
         )
-        return True, new_lvl
+        return True, new_lvl, msg_count
 
-    return False, new_lvl
+    return False, new_lvl, msg_count
