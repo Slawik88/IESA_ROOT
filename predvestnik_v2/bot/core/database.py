@@ -127,6 +127,11 @@ async def _init_users_and_chats(db):
         # Block 10: DEFAULT TRUE → существующие игроки уже «онбордингованы»
         # (стартовый набор не получат); новые вставляются с FALSE (update_user).
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN DEFAULT TRUE",
+        # Discovery-полиш 2026-07-19 (docs/superpowers/specs/2026-07-19-
+        # ai-assistant-discovery-design.md): тот же приём для разовой подсказки
+        # про ИИ-помощника — существующие игроки «уже видели», новые вставляются
+        # с FALSE (update_user), переключает только services.ai_hint.mark_ai_hint_shown.
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_hint_shown BOOLEAN DEFAULT TRUE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS contrabanda_last_at TIMESTAMP DEFAULT NULL",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS contrabanda_banned_until TIMESTAMP DEFAULT NULL",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS ritual_last_at TIMESTAMP DEFAULT NULL",
