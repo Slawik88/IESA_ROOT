@@ -21,9 +21,15 @@ from core.constants import (
 )
 from infrastructure.repositories import ai_assistant as repo
 
-# Алиас «текущая flash-модель»: конкретные версии Google закрывает для новых
-# ключей (gemini-2.5-flash умер с 404 в первый же день) — алиас не протухает.
-_MODEL_NAME = "gemini-flash-latest"
+# Цепочка фолбэка: дневные квоты Google — ОТДЕЛЬНЫЕ на каждую модель, поэтому
+# при 429 (квота выедена) пробуем следующую — суммарный дневной запас ×3.
+# Только алиасы/живые модели: конкретные 2.5-версии Google закрыл для новых
+# ключей (404 в первый же день). Проверено живыми вызовами 2026-07-19.
+_MODEL_CHAIN = [
+    "gemini-flash-latest",       # → 3.5-flash, основная
+    "gemini-flash-lite-latest",  # → 3.1-flash-lite, своя дневная квота
+    "gemini-3-flash-preview",    # третья независимая квота
+]
 
 _SYSTEM_PROMPT = (
     "Ты — ИИ-помощник Telegram-бота «Предвестник» (RPG с питомцами, экономикой, "
@@ -117,22 +123,38 @@ async def answer_question(
             (f"=== БАЗА ЗНАНИЙ ===\n{kb}\n\n" if kb else "")
             + f"=== АВТОСПРАВКА КОМАНД БОТА ===\n{system_knowledge}"
         )
-        model = genai.GenerativeModel(
-            model_name=_MODEL_NAME,
-            system_instruction=_SYSTEM_PROMPT.format(
-                knowledge=knowledge, user_name=safe_name),
-            # max_output_tokens включает ВНУТРЕННИЕ размышления thinking-моделей
-            # (3.5-flash тратит на них ~400-600 токенов): при 400 видимый ответ
-            # обрывался на полуслове. 2000 — только защита от разгона, длину
-            # ответа держит промпт. temperature 0.8 — против шаблонных ответов,
-            # факты держит правило «только из базы знаний».
-            generation_config={"temperature": 0.8, "max_output_tokens": 2000},
-        )
-        response = await model.generate_content_async(question)
-        text = (response.text or "").strip()
-        if not text:
-            return "🤖 Не смог сформулировать ответ — попробуй переспросить иначе.", None
-        return _sanitize_tg_html(text), remaining
+        quota_hit = False
+        for model_name in _MODEL_CHAIN:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=model_name,
+                    system_instruction=_SYSTEM_PROMPT.format(
+                        knowledge=knowledge, user_name=safe_name),
+                    # max_output_tokens включает ВНУТРЕННИЕ размышления thinking-моделей
+                    # (3.5-flash тратит на них ~400-600 токенов): при 400 видимый ответ
+                    # обрывался на полуслове. 2000 — только защита от разгона, длину
+                    # ответа держит промпт. temperature 0.8 — против шаблонных ответов,
+                    # факты держит правило «только из базы знаний».
+                    generation_config={"temperature": 0.8, "max_output_tokens": 2000},
+                )
+                response = await model.generate_content_async(question)
+                text = (response.text or "").strip()
+                if not text:
+                    return "🤖 Не смог сформулировать ответ — попробуй переспросить иначе.", None
+                return _sanitize_tg_html(text), remaining
+            except Exception as e:
+                s = str(e)
+                # 429 = квота модели выедена, 404 = модель сняли — идём к следующей
+                if "429" in s or "RESOURCE_EXHAUSTED" in s or "404" in s:
+                    quota_hit = quota_hit or "429" in s or "RESOURCE_EXHAUSTED" in s
+                    logger.warning(f"AI model {model_name} недоступна ({s[:120]}) — пробую следующую")
+                    continue
+                logger.error(f"AI assistant error for user {user_id}: {e}")
+                return "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже.", None
+        if quota_hit:
+            return ("🤖 Дневной запас вопросов у бота исчерпан — руны умолкли до полуночи. "
+                    "Возвращайся завтра!"), None
+        return "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже.", None
     except Exception as e:
         logger.error(f"AI assistant error for user {user_id}: {e}")
         return "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже.", None
