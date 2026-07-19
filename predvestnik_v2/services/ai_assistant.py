@@ -23,19 +23,27 @@ from core.constants import (
     AI_ASSISTANT_COOLDOWN_SEC,
     AI_ASSISTANT_DAILY_CAP,
     AI_ASSISTANT_MAX_QUESTION_LEN,
+    get_total_duplicates_for_level,
 )
 from infrastructure.repositories import ai_assistant as repo
 
 _GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 
-# Дневные квоты Google — ОТДЕЛЬНЫЕ на каждую модель: при 429 пробуем следующую
-# (суммарный запас ×3). Только алиасы/живые модели — конкретные версии Google
-# закрывает для новых ключей без предупреждения (2.5-flash дала 404 в первый
-# день). Проверено живыми вызовами 2026-07-19.
+# Дневные квоты Google — ОТДЕЛЬНЫЕ на каждую модель: при 429/404 пробуем
+# следующую (суммарный запас ×5 вместо ×3). Пином фиксируем 5 разных моделей
+# вместо "-latest"-алиасов, чтобы гарантированно бить в РАЗНЫЕ квоты, а не
+# рисковать, что два алиаса сейчас резолвятся в одну и ту же версию под
+# капотом. ID сверены с https://ai.google.dev/gemini-api/docs/models
+# 2026-07-19; gemini-3-flash-preview проверен живыми вызовами в тот же день.
+# Если для конкретного ключа какая-то модель закрыта (бывало: 2.5-flash дала
+# 404 в первый день) — не страшно, answer_question() при 404 просто пробует
+# следующую в списке.
 _MODEL_CHAIN = [
-    "gemini-flash-latest",
-    "gemini-flash-lite-latest",
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
     "gemini-3-flash-preview",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
 ]
 
 _SYSTEM_PROMPT = (
@@ -54,7 +62,9 @@ _SYSTEM_PROMPT = (
     "• Личные данные игрока: get_balance, get_pets_status, get_streak_status, "
     "get_vip_status, get_expedition_status, get_duel_cooldowns — только когда "
     "вопрос про ЕГО текущие цифры/статус. Вызывай только реально нужные, не "
-    "дёргай остальные «на всякий случай».\n"
+    "дёргай остальные «на всякий случай». Если в одном вопросе несколько "
+    "частей про разные его цифры (например баланс И питомец) — вызови "
+    "инструмент под КАЖДУЮ часть, не отвечай на часть по памяти/догадке.\n"
     "• propose_expedition(hours) — ЕДИНСТВЕННОЕ доступное тебе действие: "
     "предложить отправить питомца в поход. Сам поход НЕ запускает: система "
     "покажет игроку кнопки подтверждения под твоим сообщением, решает игрок. "
@@ -136,7 +146,9 @@ _TOOLS = [{"functionDeclarations": [
     },
     {
         "name": "get_pets_status",
-        "description": "Питомцы игрока в питомнике: имя, уровень, усталость, активный/пассивный.",
+        "description": ("Питомцы игрока в питомнике: имя, уровень, редкость, усталость, "
+                        "активный/пассивный, и duplicates_to_max_level — точное число дубликатов "
+                        "гачи до 10 уровня ЭТОГО питомца (уже посчитано, не пересчитывай сам)."),
         "parameters": {"type": "OBJECT", "properties": {}},
     },
     {
@@ -249,18 +261,24 @@ async def _tool_get_pets_status(db, user_id: int, chat_id: int) -> dict:
     pets = await zoo_db.get_user_pets(db, user_id, placement="nursery")
     if not pets:
         return {"has_pets": False}
-    return {
-        "has_pets": True,
-        "pets": [
-            {
-                "name": p.get("name", "?"),
-                "level": p.get("pet_level", 1) or 1,
-                "fatigue": p.get("fatigue", 0) or 0,
-                "role": "активный" if p.get("placement") == "active" else "пассивный",
-            }
-            for p in pets
-        ],
-    }
+
+    def _pet_info(p: dict) -> dict:
+        level = p.get("pet_level", 1) or 1
+        rarity = p.get("rarity", "common") or "common"
+        dups = p.get("duplicates_collected", 0) or 0
+        info = {
+            "name": p.get("name", "?"),
+            "level": level,
+            "rarity": rarity,
+            "fatigue": p.get("fatigue", 0) or 0,
+            "role": "активный" if p.get("placement") == "active" else "пассивный",
+        }
+        if level < 10:
+            need_total = get_total_duplicates_for_level(rarity, 10)
+            info["duplicates_to_max_level"] = max(0, need_total - dups)
+        return info
+
+    return {"has_pets": True, "pets": [_pet_info(p) for p in pets]}
 
 
 async def _tool_get_streak_status(db, user_id: int, chat_id: int) -> dict:
