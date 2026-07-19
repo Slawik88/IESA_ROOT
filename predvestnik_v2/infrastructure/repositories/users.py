@@ -8,9 +8,12 @@ async def update_user(db: aiosqlite.Connection, user_id: int, username: str | No
     Block 10: новые игроки вставляются с onboarded=FALSE (колонка иначе DEFAULT
     TRUE — существующие игроки набор не получают). Флаг переключает только
     services.onboarding.grant_starter_kit.
+    Discovery-полиш 2026-07-19: тот же приём для ai_hint_shown — переключает
+    только services.ai_hint.mark_ai_hint_shown.
     """
     await db.execute(
-        "INSERT INTO users (user_tg_id, user_tg_username, onboarded) VALUES (?, ?, FALSE) "
+        "INSERT INTO users (user_tg_id, user_tg_username, onboarded, ai_hint_shown) "
+        "VALUES (?, ?, FALSE, FALSE) "
         "ON CONFLICT(user_tg_id) DO UPDATE SET user_tg_username = ?",
         (user_id, username, username),
     )
