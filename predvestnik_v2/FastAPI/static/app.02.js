@@ -474,6 +474,10 @@ _runPreloader();
 // доводим юзера до нужного раздела (раньше start_param игнорировался).
 function _handleStartParam(){
   let p=''; try{ p=String((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||''); }catch(e){}
+  // Фолбэк: обычная HTTPS-ссылка ?startapp=<section> (не t.me-диплинк) не несёт
+  // нативный start_param — Telegram его просто не заполняет. Раздел в этом
+  // случае лежит в query самой страницы.
+  if(!p){ try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){} }
   if(!p) return;
   const base=p.split('_')[0];
   const run=fn=>setTimeout(()=>{ try{ fn(); }catch(e){} }, 380);
