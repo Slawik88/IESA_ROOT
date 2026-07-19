@@ -694,7 +694,7 @@ async def cmd_ai_question(message: types.Message, ai_question: str, db):
     try:
         from services.ai_assistant import answer_question
         answer, remaining = await answer_question(
-            db, message.from_user.id, ai_question, _ai_knowledge_text(),
+            db, message.from_user.id, message.chat.id, ai_question, _ai_knowledge_text(),
             user_name=message.from_user.first_name or "путник",
         )
     except Exception as e:
