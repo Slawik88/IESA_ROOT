@@ -720,6 +720,21 @@ async def _init_events_and_moderation(db):
             PRIMARY KEY (user_id, day)
         )
     """)
+    # Действия, предложенные ИИ-помощником (перевод и т.п.): кнопка несёт только id
+    # строки, исполнение — атомарный UPDATE executed FALSE→TRUE с TTL. Одноразовость
+    # гарантирована даже при двойном клике/рестарте (спек: docs/superpowers/specs/
+    # 2026-07-20-ai-transfer-action-design.md).
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS ai_pending_actions (
+            id          SERIAL PRIMARY KEY,
+            user_id     BIGINT NOT NULL,
+            chat_id     BIGINT NOT NULL,
+            action_type TEXT NOT NULL,
+            payload     TEXT NOT NULL DEFAULT '{}',
+            executed    BOOLEAN DEFAULT FALSE,
+            created_at  TIMESTAMP DEFAULT NOW()
+        )
+    """)
 
     # 33. Player buffs (one-use or timed)
     await db.execute("""

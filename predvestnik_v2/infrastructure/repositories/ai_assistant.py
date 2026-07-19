@@ -39,3 +39,40 @@ async def register_query(db: PGAdapter, user_id: int) -> None:
         "count = ai_assistant_usage.count + 1, last_query_at = EXCLUDED.last_query_at",
         (user_id, _today(), now),
     )
+
+
+# ── Одноразовые действия, предложенные ИИ (ai_pending_actions) ────────────────
+# Кнопка подтверждения несёт только id строки; исполнение забирает строку
+# атомарным UPDATE — двойной клик/гонка/рестарт не дают повторного исполнения.
+PENDING_ACTION_TTL_MIN = 10
+
+
+async def create_pending_action(
+    db: PGAdapter, user_id: int, chat_id: int, action_type: str, payload: str,
+) -> int:
+    """payload — уже сериализованный JSON (сервис отвечает за содержимое)."""
+    async with db.execute(
+        "INSERT INTO ai_pending_actions (user_id, chat_id, action_type, payload) "
+        "VALUES (?, ?, ?, ?) RETURNING id",
+        (user_id, chat_id, action_type, payload),
+    ) as c:
+        row = await c.fetchone()
+    await db.commit()
+    return int(row[0])
+
+
+async def consume_pending_action(db: PGAdapter, action_id: int, user_id: int) -> str | None:
+    """Атомарно забрать действие на исполнение. None = уже исполнено, чужое или
+    протухло (старше PENDING_ACTION_TTL_MIN). Возвращает payload (JSON-строку)."""
+    async with db.execute(
+        "UPDATE ai_pending_actions SET executed = TRUE "
+        "WHERE id = ? AND user_id = ? AND executed = FALSE "
+        f"AND created_at > NOW() - INTERVAL '{int(PENDING_ACTION_TTL_MIN)} minutes' "
+        "RETURNING payload",
+        (action_id, user_id),
+    ) as c:
+        row = await c.fetchone()
+    if not row:
+        return None
+    await db.commit()
+    return row[0]
