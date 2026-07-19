@@ -59,12 +59,15 @@ _SYSTEM_PROMPT = (
     "ИНСТРУМЕНТЫ:\n"
     "• get_topic_details(topic) — подробная документация по теме. Вызывай ПЕРЕД "
     "ответом, когда вопрос требует деталей глубже краткой базы знаний ниже.\n"
-    "• Личные данные игрока: get_balance, get_pets_status, get_streak_status, "
-    "get_vip_status, get_expedition_status, get_duel_cooldowns — только когда "
-    "вопрос про ЕГО текущие цифры/статус. Вызывай только реально нужные, не "
-    "дёргай остальные «на всякий случай». Если в одном вопросе несколько "
-    "частей про разные его цифры (например баланс И питомец) — вызови "
-    "инструмент под КАЖДУЮ часть, не отвечай на часть по памяти/догадке.\n"
+    "• Личные данные игрока: get_balance, get_pets_status, get_profile "
+    "(уровень аккаунта/XP/Индекс Силы/ранг/брак/клан/ачивки), get_inventory, "
+    "get_quests_today, get_streak_status, get_vip_status, get_expedition_status, "
+    "get_duel_cooldowns — только когда вопрос про ЕГО текущие цифры/статус. "
+    "Вызывай только реально нужные, не дёргай остальные «на всякий случай». "
+    "Если в одном вопросе несколько частей про разные его цифры (например "
+    "баланс И питомец) — вызови инструмент под КАЖДУЮ часть. ЛЮБАЯ личная "
+    "цифра в ответе обязана прийти из инструмента этого же ответа — никогда "
+    "не из памяти, не из догадки и не из прошлых сообщений.\n"
     "• ДЕЙСТВИЯ (единственные два; сами НИЧЕГО не выполняют — система покажет "
     "кнопки подтверждения под твоим сообщением, решает и жмёт только игрок):\n"
     "  - propose_expedition(hours) — предложить поход питомца. hours передавай "
@@ -154,6 +157,23 @@ _TOOLS = [{"functionDeclarations": [
         "description": ("Питомцы игрока в питомнике: имя, уровень, редкость, усталость, "
                         "активный/пассивный, и duplicates_to_max_level — точное число дубликатов "
                         "гачи до 10 уровня ЭТОГО питомца (уже посчитано, не пересчитывай сам)."),
+        "parameters": {"type": "OBJECT", "properties": {}},
+    },
+    {
+        "name": "get_profile",
+        "description": ("Полный профиль игрока: уровень аккаунта, XP и сколько до следующего, "
+                        "Индекс Силы, сообщения и локальный ранг в этом чате, брак (с кем/дата/"
+                        "общак), клан (название/роль/клан-коины), число полученных достижений."),
+        "parameters": {"type": "OBJECT", "properties": {}},
+    },
+    {
+        "name": "get_inventory",
+        "description": "Инвентарь игрока: названия предметов и количество.",
+        "parameters": {"type": "OBJECT", "properties": {}},
+    },
+    {
+        "name": "get_quests_today",
+        "description": "Дневные квесты игрока в этом чате: метрика, цель, прогресс, награда.",
         "parameters": {"type": "OBJECT", "properties": {}},
     },
     {
@@ -293,9 +313,94 @@ async def _tool_get_pets_status(db, user_id: int, chat_id: int) -> dict:
         if level < 10:
             need_total = get_total_duplicates_for_level(rarity, 10)
             info["duplicates_to_max_level"] = max(0, need_total - dups)
+        # Боёвка 3.0: статы есть у питомцев, прошедших инициализацию боёвки
+        if p.get("attack") or p.get("hp"):
+            info["combat"] = {
+                "hp": p.get("hp"), "hp_max": p.get("hp_max"),
+                "attack": p.get("attack"), "defense": p.get("defense"),
+                "stamina": p.get("stamina"), "stamina_max": p.get("stamina_max"),
+            }
         return info
 
     return {"has_pets": True, "pets": [_pet_info(p) for p in pets]}
+
+
+async def _tool_get_profile(db, user_id: int, chat_id: int) -> dict:
+    """Полный профиль игрока: аккаунт-уровень/XP/Индекс Силы, активность в чате,
+    локальный ранг, брак, клан, ачивки. Закрывает «слепую зону» — раньше ИИ мог
+    выдумать эти цифры, потому что их не было ни в одном инструменте."""
+    from services.leveling import xp_for_level
+    from services import roles
+    from infrastructure.repositories.chat import get_chat_stats
+    from infrastructure.repositories.marriages import get_user_marriage
+    from infrastructure.repositories.clans import get_user_clan
+
+    out: dict = {}
+    async with db.execute(
+        "SELECT COALESCE(account_level,1), COALESCE(account_xp,0), COALESCE(combat_power,0) "
+        "FROM users WHERE user_tg_id = ?", (user_id,),
+    ) as c:
+        row = await c.fetchone()
+    lvl, xp, cp = (int(row[0]), int(row[1]), int(row[2])) if row else (1, 0, 0)
+    out["account"] = {"level": lvl, "xp": xp,
+                      "xp_to_next_level": max(0, xp_for_level(lvl + 1) - xp),
+                      "combat_power_index": cp}
+
+    if chat_id and chat_id < 0:
+        stats = await get_chat_stats(db, user_id, chat_id)
+        rank_id = stats.get("local_rank", 0) or 0
+        out["this_chat"] = {
+            "messages_all_time": stats.get("user_messages_count_all_time", 0),
+            "messages_today": stats.get("user_messages_count_per_day", 0),
+            "local_rank": roles.LOCAL_RANKS_MAP.get(rank_id, f"Ранг {rank_id}"),
+        }
+
+    m = await get_user_marriage(db, user_id)
+    if m:
+        partner = m["user2_name"] if m["user1_id"] == user_id else m["user1_name"]
+        out["marriage"] = {"partner": partner or "?",
+                           "since": str(m.get("marriage_date"))[:10],
+                           "family_bank_mora": float(m.get("family_balance") or 0)}
+    else:
+        out["marriage"] = None
+
+    clan = await get_user_clan(db, user_id)
+    out["clan"] = ({"name": clan["name"], "tag": clan.get("tag"),
+                    "role": clan.get("role"), "clan_coins": float(clan.get("clan_coins") or 0)}
+                   if clan else None)
+
+    async with db.execute(
+        "SELECT COUNT(*) FROM achievements WHERE user_id = ? AND level > 0", (user_id,),
+    ) as c:
+        row = await c.fetchone()
+    out["achievements_unlocked"] = int(row[0]) if row else 0
+    return out
+
+
+async def _tool_get_inventory(db, user_id: int, chat_id: int) -> dict:
+    from infrastructure.repositories.economy import get_inventory
+    from core.registry import ITEMS_REGISTRY
+    items = await get_inventory(db, user_id)
+    if not items:
+        return {"empty": True, "note": "инвентарь пуст"}
+    return {"items": [
+        {"name": ITEMS_REGISTRY.get(i["item_id"], {}).get("name", i["item_id"]),
+         "quantity": i["quantity"]}
+        for i in items
+    ]}
+
+
+async def _tool_get_quests_today(db, user_id: int, chat_id: int) -> dict:
+    if chat_id and chat_id < 0:
+        from services.quests import get_or_assign_quests
+        quests = await get_or_assign_quests(db, user_id, chat_id)
+        return {"quests": [
+            {"metric": q.get("metric"), "target": q.get("target"),
+             "progress": q.get("progress", 0), "done": bool(q.get("completed")),
+             "reward": q.get("reward")}
+            for q in quests
+        ]}
+    return {"error": "Квесты дня привязаны к групповому чату — предложи игроку спросить там."}
 
 
 async def _tool_get_streak_status(db, user_id: int, chat_id: int) -> dict:
@@ -393,6 +498,9 @@ async def _tool_get_topic_details(db, user_id: int, chat_id: int, ctx: dict, arg
 _TOOL_HANDLERS = {
     "get_balance": _tool_get_balance,
     "get_pets_status": _tool_get_pets_status,
+    "get_profile": _tool_get_profile,
+    "get_inventory": _tool_get_inventory,
+    "get_quests_today": _tool_get_quests_today,
     "get_streak_status": _tool_get_streak_status,
     "get_vip_status": _tool_get_vip_status,
     "get_expedition_status": _tool_get_expedition_status,
