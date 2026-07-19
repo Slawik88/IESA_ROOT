@@ -9,8 +9,8 @@ from infrastructure.repositories.streak import get_chat_timezone
 from services.utils import safe_html, format_currency, check_callback_owner
 from services.profile_render import format_display_name
 from services.membership import bot_tg_id, prune_ghosts
-from services.admin_titles import get_admin_titles, suffix_of
-from bot.filters.text_commands import TextCmd
+from services.admin_titles import get_admin_titles, suffix_of, suffixes_for
+from bot.filters.text_commands import TextCmd, TopCmd
 from core.constants import INACTIVE_THRESHOLD_DAYS
 from bot.keyboards.cta import answer_group_only
 
@@ -130,13 +130,13 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
     slice_end = slice_start + _TOP_PAGE_SIZE
     page_users = all_users[slice_start:slice_end]
 
-    _titles = await get_admin_titles(chat_id)
+    _suffixes = await suffixes_for(chat_id, [u["user_tg_id"] for u in page_users])
     lines = [f"🏆 <b>ТОП АКТИВНОСТИ</b>\n📅 <b>Период:</b> {period_name}\n"]
     for local_idx, user in enumerate(page_users, 1):
         global_idx = slice_start + local_idx
         medal = "🥇" if global_idx == 1 else "🥈" if global_idx == 2 else "🥉" if global_idx == 3 else "🏅" if global_idx <= 10 else f"{global_idx}."
         name = format_display_name(safe_html(user["user_tg_username"] or f"Пользователь {user['user_tg_id']}"), user["is_vip"])
-        name += suffix_of(_titles, user["user_tg_id"])
+        name += _suffixes.get(user["user_tg_id"], "")
         link = f'<a href="tg://user?id={user["user_tg_id"]}">{name}</a>'
         lines.append(f"{medal} {link} — <code>{user['msg_count']}</code>")
 
@@ -145,7 +145,7 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
 # ==========================================
 # КОМАНДА: /top
 # ==========================================
-@router.message(TextCmd(["топ", "лидеры"]))
+@router.message(TopCmd(["топ", "лидеры"], list(TEXT_PERIOD_MAP.keys())))
 async def cmd_top(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
         return await answer_group_only(message)
@@ -271,12 +271,12 @@ async def _build_cat_top(db, chat_id: int, cat: str, mode: str) -> str:
     if not rows:
         return f"{label} ({mode_label})\n\n<i>Данных пока нет.</i>"
 
-    _titles = await get_admin_titles(chat_id)
+    _suffixes = await suffixes_for(chat_id, [r.get("user_tg_id", 0) for r in rows[:10]])
     text = f"{label} — {mode_label}\n\n"
     for idx, row in enumerate(rows[:10], 1):
         medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else "🏅" if idx <= 10 else f"{idx}."
         uid = row.get("user_tg_id", 0)
-        name = safe_html(row.get("user_tg_username") or f"ID{uid}") + suffix_of(_titles, uid)
+        name = safe_html(row.get("user_tg_username") or f"ID{uid}") + _suffixes.get(uid, "")
         link = f'<a href="tg://user?id={uid}">{name}</a>'
         val = row.get("value", row.get("msg_count", 0))
         if cat in ("mora", "diamonds"):

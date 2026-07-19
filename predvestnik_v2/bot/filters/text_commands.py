@@ -184,6 +184,41 @@ class TextCmd(BaseFilter):
         return False
 
 
+class TopCmd(BaseFilter):
+    """
+    «бот топ» — как TextCmd (точный алиас / «алиас, арги»), плюс дополнительно
+    «бот топ день» без запятой — период должен точно совпасть с известным
+    словом/фразой (period_words), иначе не матчит (не перехватывает случайный
+    текст после «топ»).
+    """
+    def __init__(self, aliases: list[str], period_words: list[str]):
+        self.aliases = sorted(aliases, key=len, reverse=True)
+        self.period_words = sorted(period_words, key=len, reverse=True)
+
+    async def __call__(self, message: Message) -> dict | bool:
+        if not message.text:
+            return False
+
+        text = message.text.lower().strip()
+        if not text.startswith("бот"):
+            return False
+
+        clean_text = text[3:].lstrip(" ,.").strip()
+        clean_text = re.sub(r'\s*,\s*', ', ', clean_text)
+
+        for alias in self.aliases:
+            if clean_text == alias:
+                return {"text_args": ""}
+            if clean_text.startswith(alias + ","):
+                return {"text_args": clean_text[len(alias) + 1:].strip()}
+            if clean_text.startswith(alias + " "):
+                rest = clean_text[len(alias) + 1:].strip()
+                if rest in self.period_words:
+                    return {"text_args": rest}
+
+        return False
+
+
 class WarpCmd(BaseFilter):
     """
     Варп-команды БЕЗ обязательного префикса «бот» (Implementation Block 1).
