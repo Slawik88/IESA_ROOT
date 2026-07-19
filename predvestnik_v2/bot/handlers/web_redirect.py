@@ -48,9 +48,23 @@ _REDIRECTS: list[tuple[list[str], str, str]] = [
 ]
 
 
+_MINIAPP_URL = os.getenv("MINIAPP_URL", "")
+
+
+def section_url(section: str) -> str:
+    """Прямая HTTPS-ссылка на мини-апп с разделом в query (?startapp=) —
+    обычная ссылка, Telegram не может счесть её «невалидной» и не требует
+    регистрации бота как Direct Link Mini App в BotFather (в отличие от
+    t.me/{bot}?startapp=). app.js читает startapp из query как фолбэк, если
+    Telegram не прислал нативный start_param (см. app.02.js::_handleStartParam)."""
+    if _MINIAPP_URL:
+        return f"{_MINIAPP_URL}?startapp={section}"
+    return f"https://t.me/{_BOT}?startapp={section}"
+
+
 def _kb(section: str) -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="🚀 Открыть в мини-аппе", url=f"https://t.me/{_BOT}?startapp={section}")
+    b.button(text="🚀 Открыть в мини-аппе", url=section_url(section))
     return b.as_markup()
 
 

@@ -707,10 +707,24 @@ async def cmd_ai_question(message: types.Message, ai_question: str, db):
         answer += (f"\n\n<i>🔮 {random.choice(_AI_CLOSERS)}"
                    f" · ✨ {remaining}/{AI_ASSISTANT_DAILY_CAP} на сегодня</i>")
 
+    # Вопрос явно про раздел мини-аппа (биржа/акция дня/...) → сразу кнопка
+    # туда, а не общая. Тот же список алиасов, что у текстовых команд-редиректов
+    # (web_redirect.py) — один источник правды, не расходится с ним.
+    from bot.handlers.web_redirect import _REDIRECTS as _sections, section_url
+    q = ai_question.lower()
+    section_hit = next(
+        ((sec, title) for aliases, sec, title in _sections
+         if any(re.search(rf"\b{re.escape(a)}\b", q) for a in aliases)),
+        None,
+    )
     kb = InlineKeyboardBuilder()
-    kb.button(text="📖 Полная справка", callback_data=HelpCallback(tab="main", user_id=0))
-    if _MINIAPP_URL:
-        kb.button(text="🌐 Мини-апп", url=_MINIAPP_URL)
+    if section_hit:
+        sec, title = section_hit
+        kb.button(text=f"🚀 {title}", url=section_url(sec))
+    else:
+        kb.button(text="📖 Полная справка", callback_data=HelpCallback(tab="main", user_id=0))
+        if _MINIAPP_URL:
+            kb.button(text="🌐 Мини-апп", url=_MINIAPP_URL)
     kb.adjust(2)
 
     # Реплай на вопрос — в живом чате видно, кому именно ответил бот
