@@ -680,6 +680,68 @@ _AI_CLOSERS = [
 ]
 
 
+# Действия, предложенные ИИ-помощником: исполняются ТОЛЬКО после нажатия
+# кнопки самим игроком (user_id зашивается в callback при создании кнопки
+# из message.from_user.id — модель на него влиять не может).
+class AiActionCB(CallbackData, prefix="aiact"):
+    act: str          # "exp" — поход, "cancel" — отмена
+    hours: int = 0
+    user_id: int = 0
+
+
+def _ai_action_kb(action: dict, user_id: int) -> types.InlineKeyboardMarkup | None:
+    """Кнопки подтверждения для pending_action от ИИ. None = действие неизвестно."""
+    if action.get("type") != "expedition":
+        return None
+    from core.registry import EXPEDITIONS_DATA
+    b = InlineKeyboardBuilder()
+    hours = action.get("hours")
+    if hours in EXPEDITIONS_DATA:
+        cost = EXPEDITIONS_DATA[hours]["cost"]
+        cost_s = "бесплатно" if not cost else f"{cost}🪙"
+        b.button(text=f"✅ В поход на {hours}ч ({cost_s})",
+                 callback_data=AiActionCB(act="exp", hours=hours, user_id=user_id))
+    else:
+        for h, d in sorted(EXPEDITIONS_DATA.items()):
+            cost_s = "бесплатно" if not d["cost"] else f"{d['cost']}🪙"
+            b.button(text=f"{h}ч · {cost_s}",
+                     callback_data=AiActionCB(act="exp", hours=h, user_id=user_id))
+    b.button(text="❌ Отмена", callback_data=AiActionCB(act="cancel", user_id=user_id))
+    b.adjust(2, 2, 1)
+    return b.as_markup()
+
+
+@unknown_cmd_router.callback_query(AiActionCB.filter())
+async def cb_ai_action(query: types.CallbackQuery, callback_data: AiActionCB, db):
+    # Жёсткая проверка владельца: кнопку исполняет только тот, чей вопрос
+    if query.from_user.id != callback_data.user_id:
+        return await query.answer("❌ Эта кнопка не для вас.", show_alert=True)
+    if callback_data.act == "cancel":
+        try:
+            await query.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        return await query.answer("Отменено")
+    if callback_data.act == "exp":
+        # Исполнение — ТОЛЬКО общий движок обычной команды «бот поход»: все
+        # проверки (баланс/питомец/занятость/модуль чата) внутри него.
+        from bot.handlers.expeditions import _start_expedition_core
+        try:
+            await query.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        try:
+            _ok, text = await _start_expedition_core(
+                db, callback_data.user_id, query.message.chat.id, callback_data.hours)
+        except Exception as e:
+            from loguru import logger
+            logger.error(f"AI action expedition error: {e}")
+            text = "❌ Не получилось запустить поход, попробуй командой <code>бот поход</code>."
+        await query.message.answer(text, parse_mode="HTML")
+        return await query.answer()
+    return await query.answer()
+
+
 @unknown_cmd_router.message(AiQuestionCmd())
 async def cmd_ai_question(message: types.Message, ai_question: str, db):
     """«бот, <вопрос>» (запятая после «бот»), не совпавший ни с одной командой →
@@ -691,9 +753,10 @@ async def cmd_ai_question(message: types.Message, ai_question: str, db):
         pass
     # Глобального error-хендлера в боте нет: любое исключение здесь = молчание
     # для игрока, поэтому страхуем весь путь, не только вызов API внутри сервиса.
+    action = None
     try:
         from services.ai_assistant import answer_question
-        answer, remaining = await answer_question(
+        answer, remaining, action = await answer_question(
             db, message.from_user.id, message.chat.id, ai_question, _ai_knowledge_text(),
             user_name=message.from_user.first_name or "путник",
         )
@@ -707,32 +770,38 @@ async def cmd_ai_question(message: types.Message, ai_question: str, db):
         answer += (f"\n\n<i>🔮 {random.choice(_AI_CLOSERS)}"
                    f" · ✨ {remaining}/{AI_ASSISTANT_DAILY_CAP} на сегодня</i>")
 
-    # Вопрос явно про раздел мини-аппа (биржа/акция дня/...) → сразу кнопка
-    # туда, а не общая. Тот же список алиасов, что у текстовых команд-редиректов
-    # (web_redirect.py) — один источник правды, не расходится с ним.
-    from bot.handlers.web_redirect import _REDIRECTS as _sections, section_url
-    q = ai_question.lower()
-    section_hit = next(
-        ((sec, title) for aliases, sec, title in _sections
-         if any(re.search(rf"\b{re.escape(a)}\b", q) for a in aliases)),
-        None,
-    )
-    kb = InlineKeyboardBuilder()
-    if section_hit:
-        sec, title = section_hit
-        kb.button(text=f"🚀 {title}", url=section_url(sec))
+    # Предложенное ИИ действие → кнопки подтверждения (владелец зашит в callback)
+    action_kb = _ai_action_kb(action, message.from_user.id) if action else None
+    if action_kb is not None:
+        kb_markup = action_kb
     else:
-        kb.button(text="📖 Полная справка", callback_data=HelpCallback(tab="main", user_id=0))
-        if _MINIAPP_URL:
-            kb.button(text="🌐 Мини-апп", url=_MINIAPP_URL)
-    kb.adjust(2)
+        # Вопрос явно про раздел мини-аппа (биржа/акция дня/...) → сразу кнопка
+        # туда, а не общая. Тот же список алиасов, что у текстовых команд-редиректов
+        # (web_redirect.py) — один источник правды, не расходится с ним.
+        from bot.handlers.web_redirect import _REDIRECTS as _sections, section_url
+        q = ai_question.lower()
+        section_hit = next(
+            ((sec, title) for aliases, sec, title in _sections
+             if any(re.search(rf"\b{re.escape(a)}\b", q) for a in aliases)),
+            None,
+        )
+        kb = InlineKeyboardBuilder()
+        if section_hit:
+            sec, title = section_hit
+            kb.button(text=f"🚀 {title}", url=section_url(sec))
+        else:
+            kb.button(text="📖 Полная справка", callback_data=HelpCallback(tab="main", user_id=0))
+            if _MINIAPP_URL:
+                kb.button(text="🌐 Мини-апп", url=_MINIAPP_URL)
+        kb.adjust(2)
+        kb_markup = kb.as_markup()
 
     # Реплай на вопрос — в живом чате видно, кому именно ответил бот
     try:
-        await message.reply(answer, parse_mode="HTML", reply_markup=kb.as_markup())
+        await message.reply(answer, parse_mode="HTML", reply_markup=kb_markup)
     except Exception:
         # Кривой HTML от модели не должен стоить игроку ответа
-        await message.reply(re.sub(r"<[^>]+>", "", answer), reply_markup=kb.as_markup())
+        await message.reply(re.sub(r"<[^>]+>", "", answer), reply_markup=kb_markup)
 
 
 @unknown_cmd_router.message(UnknownBotCmd())
