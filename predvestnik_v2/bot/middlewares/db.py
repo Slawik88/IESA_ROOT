@@ -1,3 +1,4 @@
+import os
 import time
 from typing import Callable, Awaitable, Dict, Any
 from aiogram.types import TelegramObject
@@ -63,6 +64,16 @@ def _notify_starter_kit(bot, chat_id: int, user, kit: dict) -> None:
         f"Загляни в «бот зоопарк» и «бот крутка» 🎲\n"
         f"🤖 А если что-то будет непонятно — просто напиши «бот, [вопрос]»"
     )
+    asyncio.ensure_future(_safe_send(bot, chat_id, text))
+
+
+def _notify_ai_hint(bot, chat_id: int, user) -> None:
+    """Discovery-полиш 2026-07-19: разовая подсказка про ИИ-помощника после
+    30-го сообщения новичка в чате (fire-and-forget)."""
+    import asyncio
+    if not bot:
+        return
+    text = "🤖 Кстати — если что-то не понятно, просто напиши «бот, [вопрос]» — отвечу как помощник"
     asyncio.ensure_future(_safe_send(bot, chat_id, text))
 
 
@@ -197,9 +208,19 @@ async def db_middleware(
                 # process_message_xp → chat_repo.increment_stats_and_get_xp which
                 # updates BOTH user_chat_stats rolling counters AND daily_user_stats.
                 # Single source of truth — no second INSERT needed here.
-                await leveling.process_message_xp(
+                _, _, _msg_count = await leveling.process_message_xp(
                     db, user.id, chat_obj.id, _tz
                 )
+
+                # Discovery-полиш 2026-07-19: разовая подсказка про ИИ-помощника
+                # после 30-го сообщения новичка в чате (см. spec в docs/superpowers).
+                if _msg_count == 30 and os.getenv("GEMINI_API_KEY"):
+                    try:
+                        from services.ai_hint import mark_ai_hint_shown
+                        if await mark_ai_hint_shown(db, user.id):
+                            _notify_ai_hint(data.get("bot"), chat_obj.id, user)
+                    except Exception:
+                        pass
 
                 # Daily quest: messages_in_chat_today
                 try:
