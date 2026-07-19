@@ -2,6 +2,7 @@
 # Источник — getChatAdministrators через raw HTTP (паттерн services/telegram_http.py —
 # работает и из процесса бота, и из веб-процесса). TTL-кэш на чат: одна лёгкая
 # API-выборка раз в 5 минут, а не на каждое упоминание имени.
+import asyncio
 import time
 
 from services.telegram_http import tg_call
@@ -83,3 +84,24 @@ async def title_suffix(chat_id: int, user_id: int) -> str:
         return suffix_of(titles, user_id)
     tag = await get_member_tag(chat_id, user_id)
     return f" <i>· {_esc(tag)}</i>" if tag else ""
+
+
+async def suffixes_for(chat_id: int, user_ids: list[int]) -> dict[int, str]:
+    """Суффиксы для списка юзеров (топы): админ-тайтл одним вызовом на чат,
+    серые member-теги — параллельно по каждому не-админу (список Telegram не даёт)."""
+    if not chat_id or chat_id >= 0 or not user_ids:
+        return {}
+    titles = await get_admin_titles(chat_id)
+    result: dict[int, str] = {}
+    rest_ids = []
+    for uid in user_ids:
+        if titles.get(uid):
+            result[uid] = suffix_of(titles, uid)
+        else:
+            rest_ids.append(uid)
+    if rest_ids:
+        tags = await asyncio.gather(*(get_member_tag(chat_id, uid) for uid in rest_ids))
+        for uid, tag in zip(rest_ids, tags):
+            if tag:
+                result[uid] = f" <i>· {_esc(tag)}</i>"
+    return result
