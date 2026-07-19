@@ -50,13 +50,21 @@ _SYSTEM_PROMPT = (
     "НИКОГДА не выдумывай команды, цены или механики.\n"
     "У тебя есть функции для ЛИЧНЫХ данных игрока (баланс, питомцы, стрик) — "
     "используй их, когда вопрос буквально про ЕГО ТЕКУЩИЕ цифры/статус "
-    "(«сколько у меня», «какой у меня стрик», «как мои питомцы»). Для общих "
-    "вопросов о механиках функции не нужны — отвечай из базы знаний.\n"
+    "(«сколько у меня», «какой у меня стрик», «как мои питомцы»). Вызывай ТОЛЬКО "
+    "ту функцию, которая реально нужна для ответа — если вопрос про одну вещь, "
+    "не дёргай остальные «на всякий случай». Для общих вопросов о механиках "
+    "функции не нужны — отвечай из базы знаний. После получения результата "
+    "функции ты ОБЯЗАН тут же дать текстовый ответ игроку — никогда не оставляй "
+    "сообщение пустым.\n"
     "ФОРМАТ (Telegram-HTML, только эти три тега): <b>жирный</b> для ключевых слов, "
     "<i>курсив</i> для флёра, <code>команда</code> для КАЖДОЙ команды бота "
     "(тап по ней копирует текст). Никакого markdown (** __ `), никаких других тегов.\n"
-    "Абзацы по 1-2 предложения, пустая строка между ними, ответ ≤ 4-5 коротких "
-    "абзацев — а на простой вопрос хватит и одного.\n\n"
+    "СПИСКИ: если перечисляешь 2+ однородные вещи (валюты, питомцы, шаги гайда, "
+    "варианты) — каждая строго на своей строке со своим эмодзи-значком спереди, "
+    "никогда не через запятую в одном предложении. Пример правильного:\n"
+    "🪙 Мора: 47 330\n💎 Алмазы: 12.5\n✨ Зарники: 800\n"
+    "Обычный текст — абзацами по 1-2 предложения с пустой строкой между ними, "
+    "ответ ≤ 4-5 коротких абзацев/пунктов — а на простой вопрос хватит и одного.\n\n"
     "{knowledge}"
 )
 
@@ -183,6 +191,47 @@ async def _gemini_call(
     return r.json()
 
 
+async def _converse(
+    client: httpx.AsyncClient, model_name: str, api_key: str, question: str,
+    system_prompt: str, db, user_id: int, chat_id: int,
+) -> str | None:
+    """Один диалог с моделью до финального текста. Обрабатывает две капризности
+    thinking-моделей у function calling (проверено живыми вызовами 2026-07-20):
+    1) модель может вызвать несколько функций подряд, не только одну;
+    2) модель иногда возвращает ПУСТОЙ текст сразу после результата функции
+       (finishReason=STOP, 0 токенов сгенерировано — не лимит токенов, просто
+       "запнулась"). Лечится повтором ТОГО ЖЕ contents — новая попытка на той
+       же temperature=0.8 почти всегда даёт содержательный ответ.
+    Возвращает None, если ничего не помогло — вызывающий код переходит к
+    следующей модели в цепочке (см. _MODEL_CHAIN)."""
+    contents = [{"role": "user", "parts": [{"text": question}]}]
+    for _ in range(4):
+        data = await _gemini_call(client, model_name, api_key, contents, system_prompt)
+        part = data["candidates"][0]["content"]["parts"][0]
+
+        if "functionCall" in part:
+            fc = part["functionCall"]
+            handler = _TOOL_HANDLERS.get(fc["name"])
+            tool_result = (
+                await handler(db, user_id, chat_id) if handler
+                else {"error": "неизвестная функция"}
+            )
+            # Content модели пересылаем ЦЕЛИКОМ как пришёл — там скрытый
+            # thoughtSignature, пересборка вручную даёт 400 (см. докстринг файла).
+            contents.append(data["candidates"][0]["content"])
+            contents.append({"role": "user", "parts": [
+                {"functionResponse": {"name": fc["name"], "response": tool_result}}
+            ]})
+            continue
+
+        text = (part.get("text") or "").strip()
+        if text:
+            return text
+        # Пустой текст без вызова функции — не трогаем contents, следующая
+        # итерация это чистый повтор того же запроса.
+    return None
+
+
 async def answer_question(
     db, user_id: int, chat_id: int, question: str, system_knowledge: str,
     user_name: str = "путник",
@@ -223,28 +272,12 @@ async def answer_question(
     async with httpx.AsyncClient() as client:
         for model_name in _MODEL_CHAIN:
             try:
-                contents = [{"role": "user", "parts": [{"text": question}]}]
-                data = await _gemini_call(client, model_name, api_key, contents, system_prompt)
-                part = data["candidates"][0]["content"]["parts"][0]
-
-                if "functionCall" in part:
-                    fc = part["functionCall"]
-                    handler = _TOOL_HANDLERS.get(fc["name"])
-                    tool_result = (
-                        await handler(db, user_id, chat_id) if handler
-                        else {"error": "неизвестная функция"}
-                    )
-                    # Content модели пересылаем ЦЕЛИКОМ как пришёл (см. докстринг файла)
-                    contents.append(data["candidates"][0]["content"])
-                    contents.append({"role": "user", "parts": [
-                        {"functionResponse": {"name": fc["name"], "response": tool_result}}
-                    ]})
-                    data = await _gemini_call(client, model_name, api_key, contents, system_prompt)
-                    part = data["candidates"][0]["content"]["parts"][0]
-
-                text = (part.get("text") or "").strip()
+                text = await _converse(
+                    client, model_name, api_key, question, system_prompt, db, user_id, chat_id)
                 if not text:
-                    return "🤖 Не смог сформулировать ответ — попробуй переспросить иначе.", None
+                    logger.warning(
+                        f"AI model {model_name}: пустой ответ после {question[:40]!r} — пробую следующую")
+                    continue
                 return _sanitize_tg_html(text), remaining
             except httpx.HTTPStatusError as e:
                 code = e.response.status_code
@@ -261,4 +294,4 @@ async def answer_question(
     if quota_hit:
         return ("🤖 Дневной запас вопросов у бота исчерпан — руны умолкли до полуночи. "
                 "Возвращайся завтра!"), None
-    return "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже.", None
+    return "🤖 Не смог сформулировать ответ даже с трёх попыток — попробуй переспросить иначе.", None
