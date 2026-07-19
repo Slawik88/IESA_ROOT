@@ -56,6 +56,27 @@ async def get_cooldown(db: aiosqlite.Connection, user_a: int, user_b: int) -> st
     return row[0] if row else None
 
 
+async def get_user_cooldowns(db, user_id: int) -> list[dict]:
+    """Все пары этого юзера с временем последней дуэли и именем соперника
+    (для ИИ-помощника: «с кем у меня кулдаун дуэли»). Фильтрацию по окну
+    24ч делает вызывающий код — тут только сырые last_duel."""
+    async with db.execute(
+        "SELECT dc.user_a, dc.user_b, dc.last_duel, "
+        "ua.user_tg_username, ub.user_tg_username "
+        "FROM duel_cooldowns dc "
+        "LEFT JOIN users ua ON ua.user_tg_id = dc.user_a "
+        "LEFT JOIN users ub ON ub.user_tg_id = dc.user_b "
+        "WHERE dc.user_a = ? OR dc.user_b = ?",
+        (user_id, user_id),
+    ) as c:
+        rows = await c.fetchall()
+    out = []
+    for a, b, last, name_a, name_b in rows:
+        opp_id, opp_name = (b, name_b) if a == user_id else (a, name_a)
+        out.append({"opponent_id": opp_id, "opponent_name": opp_name, "last_duel": last})
+    return out
+
+
 async def set_cooldown(db: aiosqlite.Connection, user_a: int, user_b: int) -> None:
     key_a, key_b = min(user_a, user_b), max(user_a, user_b)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
