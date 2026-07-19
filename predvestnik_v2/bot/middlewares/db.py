@@ -60,7 +60,8 @@ def _notify_starter_kit(bot, chat_id: int, user, kit: dict) -> None:
         f"🪙 +{int(kit['mora'])} Моры\n"
         f"💎 +{int(kit['diamonds'])} Алмазов (хватит на 1 алмазный спин)\n"
         f"🎟 +{kit['spin_tokens']} Жетон Гачи (бесплатный спин за Мору)\n\n"
-        f"Загляни в «бот зоопарк» и «бот крутка» 🎲"
+        f"Загляни в «бот зоопарк» и «бот крутка» 🎲\n"
+        f"🤖 А если что-то будет непонятно — просто напиши «бот, [вопрос]»"
     )
     asyncio.ensure_future(_safe_send(bot, chat_id, text))
 
