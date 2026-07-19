@@ -685,13 +685,31 @@ _AI_CLOSERS = [
 # кнопки самим игроком (user_id зашивается в callback при создании кнопки
 # из message.from_user.id — модель на него влиять не может).
 class AiActionCB(CallbackData, prefix="aiact"):
-    act: str          # "exp" — поход, "cancel" — отмена
+    act: str          # "exp" — поход, "tr" — перевод, "cancel" — отмена
     hours: int = 0
     user_id: int = 0
+    pa_id: int = 0     # id строки ai_pending_actions (перевод)
+    target_id: int = 0  # получатель перевода
 
 
 def _ai_action_kb(action: dict, user_id: int) -> types.InlineKeyboardMarkup | None:
     """Кнопки подтверждения для pending_action от ИИ. None = действие неизвестно."""
+    if action.get("type") == "transfer":
+        from infrastructure.repositories.economy import TRANSFER_CURRENCIES
+        meta = TRANSFER_CURRENCIES.get(action.get("currency") or "mora", TRANSFER_CURRENCIES["mora"])
+        amount = action.get("amount") or 0
+        amount_s = f"{amount:g}"
+        b = InlineKeyboardBuilder()
+        for cand in (action.get("candidates") or [])[:4]:
+            name = str(cand.get("name") or "?")[:20]
+            b.button(
+                text=f"✅ {amount_s}{meta['icon']} → {name}",
+                callback_data=AiActionCB(act="tr", user_id=user_id,
+                                         pa_id=action.get("action_id") or 0,
+                                         target_id=cand.get("id") or 0))
+        b.button(text="❌ Отмена", callback_data=AiActionCB(act="cancel", user_id=user_id))
+        b.adjust(1)
+        return b.as_markup()
     if action.get("type") != "expedition":
         return None
     from core.registry import EXPEDITIONS_DATA
@@ -723,6 +741,53 @@ async def cb_ai_action(query: types.CallbackQuery, callback_data: AiActionCB, db
         except Exception:
             pass
         return await query.answer("Отменено")
+    if callback_data.act == "tr":
+        # Перевод: одноразовость гарантирует атомарный consume в БД (двойной
+        # клик/гонка/рестарт → второй клик получает «уже исполнено»). Получатель
+        # сверяется со списком, зашитым при создании предложения.
+        import json
+        from infrastructure.repositories.ai_assistant import consume_pending_action
+        from infrastructure.repositories.economy import transfer_currency, TRANSFER_CURRENCIES
+        from services.utils import resolve_display_name, format_currency
+        payload_raw = await consume_pending_action(db, callback_data.pa_id, callback_data.user_id)
+        if payload_raw is None:
+            try:
+                await query.message.edit_reply_markup(reply_markup=None)
+            except Exception:
+                pass
+            return await query.answer("⌛ Предложение устарело или уже исполнено.", show_alert=True)
+        try:
+            payload = json.loads(payload_raw)
+        except (TypeError, ValueError):
+            payload = {}
+        targets = payload.get("targets") or {}
+        if str(callback_data.target_id) not in targets:
+            return await query.answer("❌ Некорректный получатель.", show_alert=True)
+        try:
+            await query.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+        currency = payload.get("currency") or "mora"
+        amount = float(payload.get("amount") or 0)
+        meta = TRANSFER_CURRENCIES.get(currency, TRANSFER_CURRENCIES["mora"])
+        try:
+            success, msg = await transfer_currency(
+                db, callback_data.user_id, callback_data.target_id,
+                currency, amount, chat_id=query.message.chat.id)
+        except Exception as e:
+            from loguru import logger
+            logger.error(f"AI action transfer error: {e}")
+            success, msg = False, "внутренняя ошибка, попробуй командой «бот перевод»."
+        if success:
+            target_name = await resolve_display_name(
+                db, callback_data.target_id, query.message.chat.id, "игроку")
+            text = (f"💸 <b>Перевод выполнен!</b>\n"
+                    f"<code>{format_currency(amount)}</code> {meta['icon']} {meta['label']} → "
+                    f"<b>{target_name}</b>")
+        else:
+            text = f"❌ <b>Отказ:</b> {msg}"
+        await query.message.answer(text, parse_mode="HTML")
+        return await query.answer()
     if callback_data.act == "exp":
         # Исполнение — ТОЛЬКО общий движок обычной команды «бот поход»: все
         # проверки (баланс/питомец/занятость/модуль чата) внутри него.

@@ -65,12 +65,17 @@ _SYSTEM_PROMPT = (
     "дёргай остальные «на всякий случай». Если в одном вопросе несколько "
     "частей про разные его цифры (например баланс И питомец) — вызови "
     "инструмент под КАЖДУЮ часть, не отвечай на часть по памяти/догадке.\n"
-    "• propose_expedition(hours) — ЕДИНСТВЕННОЕ доступное тебе действие: "
-    "предложить отправить питомца в поход. Сам поход НЕ запускает: система "
-    "покажет игроку кнопки подтверждения под твоим сообщением, решает игрок. "
-    "hours передавай ТОЛЬКО если игрок сам явно назвал срок (2/4/6/8), иначе "
-    "вызывай без hours — появятся кнопки выбора срока. После вызова скажи одной "
-    "строкой нажать кнопку под сообщением.\n"
+    "• ДЕЙСТВИЯ (единственные два; сами НИЧЕГО не выполняют — система покажет "
+    "кнопки подтверждения под твоим сообщением, решает и жмёт только игрок):\n"
+    "  - propose_expedition(hours) — предложить поход питомца. hours передавай "
+    "ТОЛЬКО если игрок сам явно назвал срок (2/4/6/8), иначе без hours — "
+    "появятся кнопки выбора срока.\n"
+    "  - propose_transfer(amount, currency, target) — предложить перевод валюты "
+    "другому игроку. target — @username, имя игрока из чата или «супруге»/«мужу». "
+    "amount и target бери ТОЛЬКО из слов игрока, никогда не придумывай. Если "
+    "нашлось несколько игроков с похожим именем — кнопки покажут всех, скажи "
+    "игроку выбрать нужного.\n"
+    "  После вызова действия скажи одной строкой нажать кнопку под сообщением.\n"
     "После результата функции ты ОБЯЗАН дать текстовый ответ — никогда не пустой.\n"
     "ПРАВИЛА ОТВЕТА (строго):\n"
     "1. Первая строка — сразу суть: цифра, да/нет, команда или главный факт. "
@@ -186,6 +191,18 @@ _TOOLS = [{"functionDeclarations": [
         "parameters": {"type": "OBJECT", "properties": {
             "hours": {"type": "INTEGER", "description": "2, 4, 6 или 8 — только если игрок явно назвал срок"},
         }},
+    },
+    {
+        "name": "propose_transfer",
+        "description": ("Предложить перевод валюты другому игроку. НЕ переводит сам — игроку "
+                        "покажут кнопку подтверждения (одноразовую). target: @username, имя "
+                        "игрока из этого чата или «супруге»/«мужу» (возьмётся из брака)."),
+        "parameters": {"type": "OBJECT", "properties": {
+            "amount": {"type": "NUMBER", "description": "сумма перевода, строго из слов игрока"},
+            "currency": {"type": "STRING", "enum": ["mora", "diamonds", "zarniki", "dark_mora"],
+                         "description": "валюта; если игрок не уточнил — mora"},
+            "target": {"type": "STRING", "description": "@username, имя из чата или «супруге»/«мужу»"},
+        }, "required": ["amount", "target"]},
     },
 ]}]
 
@@ -381,8 +398,110 @@ _TOOL_HANDLERS = {
     "get_expedition_status": _tool_get_expedition_status,
     "get_duel_cooldowns": _tool_get_duel_cooldowns,
 }
+# Слова-отношения для propose_transfer: «переведи супруге» → партнёр из брака
+_SPOUSE_WORDS = {
+    "супруга", "супруге", "супругу", "супруг", "жена", "жене", "жену",
+    "муж", "мужу", "мужа", "партнёр", "партнёру", "партнёрше", "партнёрша",
+}
+
+
+async def _tool_propose_transfer(db, user_id: int, chat_id: int, ctx: dict, args: dict) -> dict:
+    import json
+    from infrastructure.repositories import economy as eco_db
+    from infrastructure.repositories import users as users_repo
+    from infrastructure.repositories import system_flags
+    from infrastructure.repositories.marriages import get_user_marriage
+    from infrastructure.repositories.moderation import get_chat_settings
+    from infrastructure.repositories.chat import get_chat_stats
+    from services.membership import bot_tg_id
+
+    if not chat_id or chat_id >= 0:
+        return {"error": "Переводы работают только в групповом чате — предложи игроку спросить там."}
+    if not await system_flags.is_enabled(db, "tab_economy"):
+        return {"error": "Экономика временно отключена разработчиком."}
+
+    # Паритет с ручной командой «бот перевод»: ранговый порог чата (rank_give)
+    settings = await get_chat_settings(db, chat_id)
+    rank_required = settings.get("rank_give", 0) or 0
+    if rank_required > 0:
+        u_stats = await get_chat_stats(db, user_id, chat_id)
+        if (u_stats.get("local_rank") or 0) < rank_required:
+            return {"error": f"В этом чате переводы доступны только с локального ранга {rank_required}+."}
+
+    try:
+        amount = round(float(args.get("amount")), 2)
+    except (TypeError, ValueError):
+        return {"error": "Не понял сумму — попроси игрока назвать число."}
+    if amount <= 0:
+        return {"error": "Сумма должна быть больше нуля."}
+
+    currency = str(args.get("currency") or "mora").strip().lower()
+    if currency not in eco_db.TRANSFER_CURRENCIES:
+        currency = "mora"
+
+    target_raw = str(args.get("target") or "").strip()
+    if not target_raw:
+        return {"error": "Не понял, кому переводить — нужен @username или имя игрока."}
+
+    # Резолюция получателя — строго на сервере, модель кандидатов не выбирает
+    candidates: list[tuple[int, str]] = []
+    q = target_raw.lower().lstrip("@")
+    if target_raw.startswith("@"):
+        tid = await users_repo.get_user_id_by_username(db, target_raw)
+        if tid:
+            candidates = [(tid, target_raw)]
+    elif q in _SPOUSE_WORDS:
+        m = await get_user_marriage(db, user_id)
+        if not m:
+            return {"error": "Игрок не в браке — «супруге» перевести некому."}
+        if m["user1_id"] == user_id:
+            candidates = [(m["user2_id"], m.get("user2_name") or "супруг(а)")]
+        else:
+            candidates = [(m["user1_id"], m.get("user1_name") or "супруг(а)")]
+    else:
+        like = f"%{q}%"
+        async with db.execute(
+            "SELECT u.user_tg_id, u.user_tg_username, n.nickname "
+            "FROM user_chat_stats s JOIN users u ON u.user_tg_id = s.user_tg_id "
+            "LEFT JOIN user_nicknames n ON n.user_id = u.user_tg_id AND n.chat_id = s.chat_tg_id "
+            "WHERE s.chat_tg_id = ? "
+            "AND (LOWER(u.user_tg_username) LIKE ? OR LOWER(n.nickname) LIKE ?) "
+            "LIMIT 5",
+            (chat_id, like, like),
+        ) as c:
+            rows = await c.fetchall()
+        candidates = [(int(r[0]), str(r[2] or r[1] or f"ID{r[0]}")) for r in rows]
+
+    _bot_id = bot_tg_id()
+    candidates = [(i, n) for i, n in candidates if i != user_id and i != _bot_id]
+    if not candidates:
+        return {"error": f"Не нашёл игрока «{target_raw}» в этом чате — "
+                         "попроси точный @username или ответить реплаем."}
+    candidates = candidates[:4]
+
+    payload = json.dumps(
+        {"currency": currency, "amount": amount,
+         "targets": {str(i): n for i, n in candidates}},
+        ensure_ascii=False)
+    action_id = await repo.create_pending_action(db, user_id, chat_id, "transfer", payload)
+    meta = eco_db.TRANSFER_CURRENCIES[currency]
+    ctx["pending_action"] = {
+        "type": "transfer", "action_id": action_id, "amount": amount,
+        "currency": currency,
+        "candidates": [{"id": i, "name": n} for i, n in candidates],
+    }
+    note = ("Нашлось несколько игроков — кнопки покажут всех, скажи игроку нажать нужного."
+            if len(candidates) > 1 else
+            "Система добавит одноразовую кнопку подтверждения — скажи игроку нажать её. "
+            "Баланс проверится при исполнении.")
+    return {"status": "ok", "amount": amount,
+            "currency": f"{meta['icon']} {meta['label']}",
+            "candidates": [n for _, n in candidates], "note": note}
+
+
 _TOOL_HANDLERS_EX = {
     "propose_expedition": _tool_propose_expedition,
+    "propose_transfer": _tool_propose_transfer,
     "get_topic_details": _tool_get_topic_details,
 }
 
