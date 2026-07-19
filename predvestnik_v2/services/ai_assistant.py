@@ -144,7 +144,8 @@ def _load_knowledge_file() -> str:
 # что жмёт именно владелец) через тот же _start_expedition_core, что и
 # обычная команда «бот поход».
 _TOPIC_ENUM = ["expeditions", "pets", "vip", "gacha", "economy", "clans",
-               "moderation", "marriage", "dark_mora", "games", "themes_cosmetics"]
+               "moderation", "marriage", "dark_mora", "games", "themes_cosmetics",
+               "combat"]
 
 _TOOLS = [{"functionDeclarations": [
     {
