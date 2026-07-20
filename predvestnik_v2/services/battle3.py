@@ -1,17 +1,18 @@
-# services/battle3.py — Боёвка 3.0 «Руны отряда» (BATTLE_REWORK_CONCEPT.md).
+# services/battle3.py — Боёвка 4.0: сетка/AP-действия (B1) + ярость/QTE (B2a).
 #
-# Server-authoritative движок: колода/рука/ярость/фокус/позиции/телеграф/QTE
-# живут ТОЛЬКО в state (battles.state_json). Клиент шлёт порядок рун, цели и
-# сырые tap_offset_ms — грейдит сервер (grade_tap из battle.py, анти-чит там же).
+# Server-authoritative движок: позиции на сетке/AP/ярость/телеграф/QTE живут
+# ТОЛЬКО в state (battles.state_json). Клиент шлёт action {type, unit_i, ...}
+# и сырые tap_offset_ms на QTE — грейдит сервер (grade_tap из battle.py, анти-чит там же).
+# Рунный/Фокус-движок Боёвки 3.0 снят в B2a (см. BATTLE_REWORK_CONCEPT.md — история).
 #
-# Раунд: фаза игрока (3 руны в выбранном порядке) → фаза врага (по телеграфу).
-# QTE только на критах (первый прок за раунд) и ультах — пауза pending/resume.
+# Ход: игрок тратит AP отряда действиями (move/attack/defend/skill) → end_turn →
+# фаза врага (по телеграфу). QTE только на критах (1 раз за раунд) и ультах —
+# пауза pending/resume.
 import json
 import random
 import time
 
 from core.constants import (
-    B3_HAND_SIZE, B3_FOCUS_START, B3_FOCUS_PER_ROUND, B3_FOCUS_CAP,
     B3_FOCUS_REROLL_COST, B3_FOCUS_CRIT_COST,
     B3_RAGE_MAX, B3_RAGE_PER_HIT_OUT, B3_RAGE_PER_HIT_IN, B3_RAGE_HIT_CAP,
     B3_RAGE_COMEBACK_50, B3_RAGE_COMEBACK_25,
@@ -30,8 +31,7 @@ from services import battle_grid as grid_mod
 
 B3_SUDDEN_DEATH_ROUND = 20   # с этого раунда обе стороны теряют HP каждый раунд
 
-RUNE_KINDS = ("atk", "def", "skill")
-RUNE_EMOJI = {"atk": "⚔️", "def": "🛡", "skill": "✨"}
+RUNE_EMOJI = {"atk": "⚔️", "def": "🛡", "skill": "✨"}   # public_state.hand (D1 переделает)
 
 
 # ── Построение сторон ─────────────────────────────────────────────────────────
@@ -92,48 +92,16 @@ def new_battle_state(ally_rows: list[dict], enemies: list[dict], mode: str,
     state = {
         "mode": mode, "round": 0, "status": "active",
         "grid": battle_grid_data, "seed": seed,
-        "ally": {"units": allies, "rage": 0, "focus": B3_FOCUS_START,
+        "ally": {"units": allies, "rage": 0,
                  "synergy": syn, "triad_available": meta["triad"],
                  "rebirth_used": False},
         "enemy": {"units": enemies, "rage": 0, "intents": [], "skip_next": False},
-        "deck": [], "discard": [], "hand": [], "hand_size_next": B3_HAND_SIZE,
         "pending": None, "qte": None, "zero_streak": 0,
         "log": [], "dmg_total": 0,
         **(ctx or {}),
     }
-    _rebuild_deck(state)
     begin_round(state)
     return state
-
-
-def _rebuild_deck(state: dict) -> None:
-    deck = []
-    for i, u in enumerate(state["ally"]["units"]):
-        if u["alive"]:
-            for kind in RUNE_KINDS:
-                deck.append({"u": i, "k": kind})
-    random.shuffle(deck)
-    state["deck"], state["discard"], state["hand"] = deck, [], []
-
-
-def _draw(state: dict, n: int) -> None:
-    for _ in range(n):
-        if not state["deck"]:
-            state["deck"] = [r for r in state["discard"]
-                             if state["ally"]["units"][r["u"]]["alive"]]
-            random.shuffle(state["deck"])
-            state["discard"] = []
-        if not state["deck"]:
-            break
-        state["hand"].append(state["deck"].pop())
-
-
-def _purge_dead_runes(state: dict, side: str, idx: int) -> None:
-    """Смерть юнита игрока — его руны изымаются из колоды/сброса/руки."""
-    if side != "ally":
-        return
-    for pile in ("deck", "discard", "hand"):
-        state[pile] = [r for r in state[pile] if r["u"] != idx]
 
 
 # ── Раунд: начало, телеграф ───────────────────────────────────────────────────
@@ -141,10 +109,6 @@ def _purge_dead_runes(state: dict, side: str, idx: int) -> None:
 def begin_round(state: dict) -> None:
     state["round"] += 1
     a = state["ally"]
-    a["focus"] = min(B3_FOCUS_CAP, a["focus"] + (B3_FOCUS_PER_ROUND if state["round"] > 1 else 0))
-    state["hand"] = []
-    _draw(state, state.get("hand_size_next", B3_HAND_SIZE))
-    state["hand_size_next"] = B3_HAND_SIZE
     state["crit_qte_used"] = False
     # Порождение Бездны: стихия подстраивается под слабость первого живого врага
     tgt = _first_alive(state["enemy"]["units"])
@@ -311,7 +275,6 @@ def _kill(state: dict, side: str, idx: int, events: list) -> None:
     u["hp"] = 0
     u["statuses"] = {}
     events.append(f"☠️ {u['emoji']} {u['name']} пал!")
-    _purge_dead_runes(state, side, idx)
 
 
 def _heal(unit: dict, amount: int, events: list) -> None:
@@ -350,39 +313,7 @@ def _pick_target(state: dict, side_def: str, want: int | None) -> int | None:
     return t
 
 
-# ── Руны игрока ───────────────────────────────────────────────────────────────
-
-def _rune_steps(state: dict, order: list[int], targets: dict) -> list[dict]:
-    """Рука → очередь шагов (по одному на руну), в порядке игрока."""
-    steps = []
-    for hi in order:
-        rune = state["hand"][hi]
-        steps.append({"hi": hi, "u": rune["u"], "k": rune["k"],
-                      "t": targets.get(str(hi), targets.get(hi)),
-                      "forced_crit": bool(rune.get("forced_crit"))})
-    return steps
-
-
-def _exec_attack(state: dict, u_i: int, tgt: int | None, events: list,
-                 crit_mult: float = 1.0, power: float = 1.0) -> None:
-    a = state["ally"]["units"][u_i]
-    t = _pick_target(state, "enemy", tgt)
-    if t is None:
-        return
-    dst = state["enemy"]["units"][t]
-    raw = a["atk"] * power * crit_mult
-    tag = " КРИТ!" if crit_mult > 1.0 else ""
-    dmg = _apply_damage(state, "ally", u_i, "enemy", t, raw, events, elem=a["element"])
-    events.append(f"⚔️ {a['emoji']} {a['name']} бьёт {dst['emoji']} {dst['name']}: −{dmg}{tag}")
-
-
-def _exec_defense(state: dict, u_i: int, events: list) -> None:
-    a = state["ally"]["units"][u_i]
-    shield = int(round(a["def"] * 2.5 + a["hp_max"] * 0.10))
-    a["shield"] = a.get("shield", 0) + shield
-    _gain_rage(state, "ally", 6)
-    events.append(f"🛡 {a['emoji']} {a['name']}: щит +{shield}")
-
+# ── Навыки игрока ─────────────────────────────────────────────────────────────
 
 def _exec_skill(state: dict, u_i: int, tgt: int | None, events: list) -> None:
     a_units = state["ally"]["units"]
@@ -515,9 +446,6 @@ def _exec_ult(state: dict, u_i: int, mult: float, events: list) -> None:
             u["alive"] = True
             u["hp"] = int(u["hp_max"] * 0.30 * max(0.6, mult))
             state["ally"]["rebirth_used"] = True
-            # руны воскресшего возвращаются в сброс (рука не трогается)
-            idx = a_units.index(u)
-            state["discard"].extend({"u": idx, "k": k} for k in RUNE_KINDS)
             ev.append(f"🦅 {u['name']} ВОЗРОЖДЁН с {u['hp']} HP!")
         else:
             for u in a_units:
@@ -552,9 +480,9 @@ def _exec_ult(state: dict, u_i: int, mult: float, events: list) -> None:
                 e_units[t]["statuses"]["stunned"] = True
                 ev.append(f"⚡ {e_units[t]['name']} оглушён!")
     elif code == "second_wind":
-        state["hand_size_next"] = 5
-        state["ally"]["focus"] = min(B3_FOCUS_CAP, state["ally"]["focus"] + 1)
-        ev.append("🕊 Второе дыхание: следующий раунд — 5 рун и +1 🧿!")
+        # TODO(B2b/баланс): старый эффект был рунный (рука 5 рун + Фокус) — снят
+        # вместе с рунным движком (B2a), нужна замена под AP-модель.
+        ev.append("🕊 Второе дыхание!")
     elif code == "bastion":
         for u in a_units:
             if u["alive"]:
@@ -609,58 +537,6 @@ def _exec_ult(state: dict, u_i: int, mult: float, events: list) -> None:
 
 # ── Фаза игрока ───────────────────────────────────────────────────────────────
 
-def play_round(state: dict, order: list[int], targets: dict) -> dict:
-    """Запуск фазы игрока. Возвращает {phase:'qte'|'done', ...}. Валидация —
-    в роутере (это чистая логика)."""
-    events = []
-    steps = _rune_steps(state, order, targets)
-    played = [state["hand"][hi] for hi in sorted(order, reverse=True)]
-    for hi in sorted(order, reverse=True):
-        state["hand"].pop(hi)
-    state["discard"].extend(played)
-    state["queue"] = steps
-    state["events_round"] = events
-    return _process_queue(state)
-
-
-def _process_queue(state: dict) -> dict:
-    """Крутим очередь шагов; крит-прок → пауза QTE (1 раз за раунд)."""
-    events = state["events_round"]
-    while state["queue"]:
-        step = state["queue"][0]
-        u = state["ally"]["units"][step["u"]]
-        if not u["alive"]:
-            state["queue"].pop(0)
-            continue
-        if step["k"] == "atk":
-            syn_crit = state["ally"]["synergy"].get("crit", 0)
-            if step.get("forced_crit"):
-                state["queue"].pop(0)
-                _exec_attack(state, step["u"], step["t"], events,
-                             crit_mult=B3_CRIT_MULT["perfect"])
-                continue
-            if (not state.get("crit_qte_used")
-                    and random.random() < (u["crit"] + syn_crit)
-                    and not u["statuses"].get("no_crit")):
-                # пауза: клиент должен подтвердить крит тапом
-                state["crit_qte_used"] = True
-                state["pending"] = {"type": "crit", "step": step}
-                state["queue"].pop(0)
-                state["qte"] = qte_window(2)
-                return {"phase": "qte", "qte_kind": "crit", "hits": state.pop("hits_round", [])}
-            state["queue"].pop(0)
-            _exec_attack(state, step["u"], step["t"], events)
-        elif step["k"] == "def":
-            state["queue"].pop(0)
-            _exec_defense(state, step["u"], events)
-        else:
-            state["queue"].pop(0)
-            _exec_skill(state, step["u"], step["t"], events)
-        if _battle_over(state):
-            return _finish_round(state, skip_enemy=True)
-    return _finish_round(state)
-
-
 def resume_qte(state: dict, tap_offset_ms: int) -> dict:
     """Продолжение после QTE (крит или ульта)."""
     pend = state.get("pending") or {}
@@ -671,27 +547,22 @@ def resume_qte(state: dict, tap_offset_ms: int) -> dict:
     state["pending"] = None
     events = state.setdefault("events_round", [])
     if pend.get("type") == "crit":
-        step = pend["step"]
+        from core.constants import B3_CRIT_MULT
         mult = B3_CRIT_MULT.get(grade, 1.0)
-        if mult > 1.0:
-            events.append(f"🎯 Крит подтверждён ({grade})!")
-        _exec_attack(state, step["u"], step["t"], events, crit_mult=mult)
+        _do_attack(state, pend["atk_i"], pend["tgt_i"], events, crit_mult=mult)
         if _battle_over(state):
-            return {**_finish_round(state, skip_enemy=True), "grade": grade}
-        return {**_process_queue(state), "grade": grade}
+            state["status"] = "won" if not _alive_idx(state["enemy"]["units"]) else "lost"
+            return {"phase": "over", "grade": grade, "hits": state.pop("hits_round", [])}
+        return {"phase": "resolved", "grade": grade, "hits": state.pop("hits_round", [])}
     if pend.get("type") == "ult":
         mult = B3_ULT_MULT.get(grade, 1.0)
         state["ally"]["rage"] = 0
         _exec_ult(state, pend["u"], mult, events)
         if _battle_over(state):
-            return {**_finish_round(state, skip_enemy=True), "grade": grade}
-        # ульта вне очереди рун: если очередь пуста и рука пуста — доигрываем фазу врага
-        if not state["queue"] and not state["hand"]:
-            return {**_finish_round(state), "grade": grade}
-        state["log"] = (state.get("log", []) + events)[-30:]
-        state["events_round"] = []
-        return {"phase": "mid", "grade": grade, "hits": state.pop("hits_round", [])}
-    return {"phase": "mid", "grade": grade, "hits": state.pop("hits_round", [])}
+            state["status"] = "won" if not _alive_idx(state["enemy"]["units"]) else "lost"
+            return {"phase": "over", "grade": grade, "hits": state.pop("hits_round", [])}
+        return {"phase": "resolved", "grade": grade, "hits": state.pop("hits_round", [])}
+    return {"phase": "resolved", "grade": grade, "hits": state.pop("hits_round", [])}
 
 
 def request_ult(state: dict, unit_i: int) -> dict:
@@ -700,29 +571,6 @@ def request_ult(state: dict, unit_i: int) -> dict:
     state["qte"] = qte_window(1)
     state.setdefault("events_round", [])
     return {"phase": "qte", "qte_kind": "ult"}
-
-
-def reroll_rune(state: dict, hand_i: int) -> bool:
-    """Фокус: переброс одной руны руки."""
-    a = state["ally"]
-    if a["focus"] < B3_FOCUS_REROLL_COST or not (0 <= hand_i < len(state["hand"])):
-        return False
-    a["focus"] -= B3_FOCUS_REROLL_COST
-    state["discard"].append(state["hand"].pop(hand_i))
-    _draw(state, 1)
-    return True
-
-
-def mark_forced_crit(state: dict, hand_i: int) -> bool:
-    """Фокус: гарантированный крит на руну-атаку."""
-    a = state["ally"]
-    if a["focus"] < B3_FOCUS_CRIT_COST or not (0 <= hand_i < len(state["hand"])):
-        return False
-    if state["hand"][hand_i]["k"] != "atk" or state["hand"][hand_i].get("forced_crit"):
-        return False
-    a["focus"] -= B3_FOCUS_CRIT_COST
-    state["hand"][hand_i]["forced_crit"] = True
-    return True
 
 
 def use_triad(state: dict) -> bool:
@@ -1019,8 +867,11 @@ def _end_round(state: dict, over: bool) -> dict:
     if _battle_over(state) or over:
         state["status"] = ("won" if not _alive_idx(state["enemy"]["units"]) else "lost")
         return {"ok": True, "phase": "over", "hits": hits}
-    begin_round(state)                     # пока СТАРЫЙ (руны/intents); C1 упростит telegraph
+    begin_round(state)                     # пока СТАРЫЙ intents; C1 упростит telegraph
     begin_player_turn(state)               # новый AP-reset
+    if _battle_over(state):
+        state["status"] = ("won" if not _alive_idx(state["enemy"]["units"]) else "lost")
+        return {"ok": True, "phase": "over", "hits": hits}
     return {"ok": True, "phase": "next", "hits": hits}
 
 
