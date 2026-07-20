@@ -868,6 +868,162 @@ def _finish_round(state: dict, skip_enemy: bool = False) -> dict:
     return {"phase": "round", "won": False, "lost": False, "hits": hits}
 
 
+# ── AP-действия (Боёвка 4.0, замена раунда-руны, B1) ──────────────────────────
+# ДОБАВЛЕНО в задаче B1: сосуществует со старым рунным кодом выше (снимет B2).
+
+def _pos(u: dict) -> tuple:
+    p = u["pos"]
+    return (p["x"], p["y"])
+
+
+def _occupied(state: dict, exclude=None) -> set:
+    s = set()
+    for side in ("ally", "enemy"):
+        for u in state[side]["units"]:
+            if u["alive"] and u is not exclude:
+                s.add(_pos(u))
+    return s
+
+
+def _atk_range(unit: dict) -> int:
+    from core.constants import B4_RANGE_BY_ROLE
+    return B4_RANGE_BY_ROLE.get(unit.get("role"), 2)
+
+
+def _in_cell_type(state, u, cell_type) -> bool:
+    x, y = _pos(u)
+    return state["grid"][y][x] == cell_type
+
+
+def begin_player_turn(state: dict) -> None:
+    from services.battle_grid import CELL_DANGER
+    from core.constants import B4_DANGER_HP_FRAC
+    events = state.setdefault("events_round", [])
+    for u in state["ally"]["units"]:
+        if not u["alive"]:
+            continue
+        u["ap"] = u["ap_max"]
+        u["defending"] = False
+        if u["cd"].get("skill", 0) > 0:
+            u["cd"]["skill"] -= 1
+        if _in_cell_type(state, u, CELL_DANGER):
+            dmg = max(1, int(u["hp_max"] * B4_DANGER_HP_FRAC))
+            u["hp"] = max(0, u["hp"] - dmg)
+            events.append(f"🔥 {u['name']} на опасной клетке: −{dmg}")
+            if u["hp"] <= 0:
+                _kill(state, "ally", state["ally"]["units"].index(u), events)
+
+
+def apply_action(state: dict, action: dict) -> dict:
+    """Одно действие игрока. Валидация AP/дальности/LoS — здесь (server-authoritative)."""
+    from services.battle_grid import reachable, line_of_sight, CELL_COVER
+    from core.constants import (B4_MOVE_AP, B4_ATK_AP, B4_DEF_AP,
+                                B4_COVER_RANGED_MULT, B4_DEFEND_MULT, B4_EXPOSED_DEF_MULT)
+    if state.get("pending"):
+        return {"ok": False, "err": "Сначала заверши QTE."}
+    typ = action.get("type")
+    if typ == "end_turn":
+        return end_player_turn(state)
+    ui = action.get("unit_i")
+    units = state["ally"]["units"]
+    if not isinstance(ui, int) or not (0 <= ui < len(units)) or not units[ui]["alive"]:
+        return {"ok": False, "err": "Юнит недоступен."}
+    u = units[ui]
+    events = state.setdefault("events_round", [])
+
+    if typ == "move":
+        cell = action.get("cell") or {}
+        dst = (cell.get("x"), cell.get("y"))
+        reach = reachable(state["grid"], _pos(u), u["ap"], _occupied(state, exclude=u))
+        cost = reach.get(dst)
+        if cost is None:
+            return {"ok": False, "err": "Клетка недостижима."}
+        u["ap"] -= cost * B4_MOVE_AP
+        u["pos"] = {"x": dst[0], "y": dst[1]}
+        return {"ok": True, "hits": state.pop("hits_round", []), "ap": u["ap"]}
+
+    if typ == "defend":
+        if u["ap"] < B4_DEF_AP:
+            return {"ok": False, "err": "Недостаточно AP."}
+        u["ap"] -= B4_DEF_AP
+        u["defending"] = True
+        events.append(f"🛡 {u['name']} встаёт в защиту")
+        return {"ok": True, "ap": u["ap"]}
+
+    if typ == "attack":
+        if u["ap"] < B4_ATK_AP:
+            return {"ok": False, "err": "Недостаточно AP."}
+        ti = action.get("target_i")
+        enemies = state["enemy"]["units"]
+        if not isinstance(ti, int) or not (0 <= ti < len(enemies)) or not enemies[ti]["alive"]:
+            return {"ok": False, "err": "Цель недоступна."}
+        tgt = enemies[ti]
+        if grid_mod.chebyshev(_pos(u), _pos(tgt)) > _atk_range(u):
+            return {"ok": False, "err": "Цель вне дальности."}
+        if not line_of_sight(state["grid"], _pos(u), _pos(tgt)):
+            return {"ok": False, "err": "Нет линии видимости."}
+        u["ap"] -= B4_ATK_AP
+        syn_crit = state["ally"]["synergy"].get("crit", 0)
+        if (not state.get("crit_qte_used") and random.random() < (u["crit"] + syn_crit)
+                and not u["statuses"].get("no_crit")):
+            state["crit_qte_used"] = True
+            state["pending"] = {"type": "crit", "atk_i": ui, "tgt_i": ti}
+            state["qte"] = qte_window(2)
+            return {"ok": True, "phase": "qte", "qte_kind": "crit",
+                    "hits": state.pop("hits_round", [])}
+        _do_attack(state, ui, ti, events, crit_mult=1.0)
+        if _battle_over(state):
+            state["status"] = "won" if not _alive_idx(enemies) else "lost"
+        return {"ok": True, "hits": state.pop("hits_round", []), "ap": u["ap"]}
+
+    if typ == "skill":
+        return _do_skill_action(state, ui, action.get("target_i"))
+    return {"ok": False, "err": "Неизвестное действие."}
+
+
+def _do_attack(state, atk_i, tgt_i, events, crit_mult=1.0, ranged=None):
+    from services.battle_grid import CELL_COVER
+    from core.constants import B4_COVER_RANGED_MULT, B4_EXPOSED_DEF_MULT
+    u = state["ally"]["units"][atk_i]
+    tgt = state["enemy"]["units"][tgt_i]
+    if ranged is None:
+        ranged = _atk_range(u) >= 2
+    raw = u["atk"] * crit_mult
+    if ranged and _in_cell_type(state, tgt, CELL_COVER):
+        raw *= B4_COVER_RANGED_MULT
+        events.append(f"🪨 {tgt['name']} в укрытии: урон −30%")
+    if not tgt.get("defending") and not _in_cell_type(state, tgt, CELL_COVER):
+        raw *= B4_EXPOSED_DEF_MULT
+    dmg = _apply_damage(state, "ally", atk_i, "enemy", tgt_i, raw, events,
+                        elem=u.get("element"))
+    if crit_mult > 1.0:
+        events.append(f"🎯 Крит! {u['name']} → {tgt['name']}: −{dmg}")
+    else:
+        events.append(f"⚔️ {u['name']} → {tgt['name']}: −{dmg}")
+
+
+def end_player_turn(state: dict) -> dict:
+    events = state.setdefault("events_round", [])
+    _enemy_phase(state, events)            # пока СТАРЫЙ (intents); C1 заменит EV-ИИ
+    if _battle_over(state):
+        return _end_round(state, over=True)
+    return _end_round(state, over=False)
+
+
+def _end_round(state: dict, over: bool) -> dict:
+    events = state.setdefault("events_round", [])
+    _tick_statuses(state, events)
+    state["log"] = (state.get("log", []) + events)[-30:]
+    state["events_round"] = []
+    hits = state.pop("hits_round", [])
+    if _battle_over(state) or over:
+        state["status"] = ("won" if not _alive_idx(state["enemy"]["units"]) else "lost")
+        return {"ok": True, "phase": "over", "hits": hits}
+    begin_round(state)                     # пока СТАРЫЙ (руны/intents); C1 упростит telegraph
+    begin_player_turn(state)               # новый AP-reset
+    return {"ok": True, "phase": "next", "hits": hits}
+
+
 # ── Генераторы врагов ─────────────────────────────────────────────────────────
 
 def spawn_positions(n_ally: int, n_enemy: int):
@@ -1007,3 +1163,9 @@ def loads(raw: str) -> dict:
 
 def now() -> float:
     return time.time()
+
+
+# ── ВРЕМЕННАЯ заглушка (B1) — B2 заменит настоящей реализацией навыков ────────
+
+def _do_skill_action(state, ui, target_i):
+    return {"ok": False, "err": "tbd"}
