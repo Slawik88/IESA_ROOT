@@ -313,110 +313,6 @@ def _pick_target(state: dict, side_def: str, want: int | None) -> int | None:
     return t
 
 
-# ── Навыки игрока ─────────────────────────────────────────────────────────────
-
-def _exec_skill(state: dict, u_i: int, tgt: int | None, events: list) -> None:
-    a_units = state["ally"]["units"]
-    e_units = state["enemy"]["units"]
-    a = a_units[u_i]
-    code = UNITS[a["uid"]]["skill"]["code"]
-    ev = events
-
-    def enemy_t() -> int | None:
-        return _pick_target(state, "enemy", tgt)
-
-    if code == "burn":
-        t = enemy_t()
-        if t is not None:
-            _apply_damage(state, "ally", u_i, "enemy", t, a["atk"] * 0.9, ev, elem=a["element"])
-            e_units[t]["statuses"]["burn"] = {"dmg": int(a["atk"] * 0.25), "rounds": 3}
-            ev.append(f"🔥 {e_units[t]['name']} горит (3 раунда)")
-    elif code == "ember_shell":
-        a["shield"] = a.get("shield", 0) + int(a["hp_max"] * 0.25)
-        a["statuses"]["reflect"] = {"frac": 0.30, "rounds": 1}
-        ev.append(f"🐗 {a['name']}: раскалённый панцирь (щит + отражение 30%)")
-    elif code == "mend":
-        hurt = [u for u in a_units if u["alive"] and u["hp"] < u["hp_max"]]
-        if hurt:
-            w = min(hurt, key=lambda u: u["hp"] / u["hp_max"])
-            _heal(w, int(w["hp_max"] * 0.25), ev)
-    elif code == "chill_taunt":
-        a["statuses"]["intercept_all"] = {"rounds": 1}
-        a["statuses"]["chill_aura"] = {"rounds": 1}   # атакующие теряют 6 ярости врага
-        ev.append(f"🧊 {a['name']} принимает удары на себя (обмерзание)")
-    elif code == "frost_bite":
-        t = enemy_t()
-        if t is not None:
-            _apply_damage(state, "ally", u_i, "enemy", t, a["atk"], ev, elem=a["element"])
-            if e_units[t]["alive"] and random.random() < 0.20:
-                e_units[t]["statuses"]["frozen"] = True
-                ev.append(f"❄️ {e_units[t]['name']} заморожен — пропустит действие!")
-    elif code == "ice_shield":
-        alive = [u for u in a_units if u["alive"]]
-        w = min(alive, key=lambda u: u["hp"] / u["hp_max"])
-        w["shield"] = w.get("shield", 0) + int(w["hp_max"] * 0.30)
-        ev.append(f"🦌 Наледь: щит {w['name']} +{int(w['hp_max'] * 0.30)}")
-    elif code == "chain":
-        t = enemy_t()
-        if t is not None:
-            _apply_damage(state, "ally", u_i, "enemy", t, a["atk"], ev, elem=a["element"])
-            others = [i for i in _alive_idx(e_units) if i != t]
-            if others:
-                j = random.choice(others)
-                d2 = _apply_damage(state, "ally", u_i, "enemy", j, a["atk"] * 0.4, ev,
-                                   elem=a["element"])
-                ev.append(f"⚡ Молния перескакивает на {e_units[j]['name']}: −{d2}")
-    elif code == "counter_stance":
-        a["shield"] = a.get("shield", 0) + int(a["hp_max"] * 0.20)
-        a["statuses"]["counter"] = {"frac": 0.80, "rounds": 1}
-        ev.append(f"🦂 {a['name']}: разрядная стойка (щит + контрудар)")
-    elif code == "tailwind":
-        _gain_rage(state, "ally", 10)
-        state["hand_size_next"] = max(state.get("hand_size_next", 3), 4)
-        ev.append("🕊 Попутный ветер: +10 ярости, в следующем раунде 4 руны!")
-    elif code == "taunt_all":
-        a["statuses"]["intercept_all"] = {"rounds": 1}
-        a["statuses"]["def_up"] = {"add": 0.5, "rounds": 1}
-        ev.append(f"🗿 {a['name']} — бастион: принимает ВСЕ удары (+50% защиты)")
-    elif code == "pierce":
-        t = enemy_t()
-        if t is not None:
-            _apply_damage(state, "ally", u_i, "enemy", t, a["atk"] * 1.1, ev,
-                          elem=a["element"], ignore_def=0.4)
-            ev.append("🪨 Пробитие: 40% защиты цели проигнорировано")
-    elif code == "regrow":
-        for u in a_units:
-            if u["alive"]:
-                _heal(u, int(u["hp_max"] * 0.10), ev)
-                u["statuses"]["regen"] = {"frac": 0.05, "rounds": 2}
-        ev.append("🌿 Прорастание: отряд регенерирует 2 раунда")
-    elif code == "drain":
-        t = enemy_t()
-        if t is not None:
-            _apply_damage(state, "ally", u_i, "enemy", t, a["atk"], ev,
-                          elem=a["element"], lifesteal=0.35)
-    elif code == "web":
-        alive = _alive_idx(e_units)
-        if alive:
-            t = tgt if tgt in alive else max(
-                alive, key=lambda i: e_units[i].get("atk", 0))
-            e_units[t]["statuses"]["web"] = True
-            a["shield"] = a.get("shield", 0) + int(a["hp_max"] * 0.15)
-            ev.append(f"🕷 Паутина на {e_units[t]['name']}: его атака −50%")
-    elif code == "grief":
-        stolen = min(12, state["enemy"]["rage"])
-        state["enemy"]["rage"] -= stolen
-        _gain_rage(state, "ally", stolen)
-        ev.append(f"🌑 Скорбь: украдено {stolen} ярости врага")
-    elif code == "void_strike":
-        t = enemy_t()
-        if t is not None:
-            _apply_damage(state, "ally", u_i, "enemy", t, a["atk"] * 1.15, ev,
-                          elem=a["element"])
-            el = ELEMENT_META.get(a["element"], {}).get("emoji", "🌈")
-            ev.append(f"🐉 Удар Пустоты {el}: стихия под слабость врага")
-
-
 # ── Ульты ─────────────────────────────────────────────────────────────────────
 
 def _exec_ult(state: dict, u_i: int, mult: float, events: list) -> None:
@@ -738,6 +634,19 @@ def _atk_range(unit: dict) -> int:
     return B4_RANGE_BY_ROLE.get(unit.get("role"), 2)
 
 
+def _skill_target_ok(state, ui, ti):
+    """Целевой навык: цель — живой враг в дальности ≤2 и в линии видимости."""
+    if ti is None:
+        return False
+    enemies = state["enemy"]["units"]
+    if not (0 <= ti < len(enemies)) or not enemies[ti]["alive"]:
+        return False
+    u = state["ally"]["units"][ui]
+    tgt = enemies[ti]
+    return (grid_mod.chebyshev(_pos(u), _pos(tgt)) <= 2
+            and grid_mod.line_of_sight(state["grid"], _pos(u), _pos(tgt)))
+
+
 def _in_cell_type(state, u, cell_type) -> bool:
     x, y = _pos(u)
     return state["grid"][y][x] == cell_type
@@ -772,6 +681,12 @@ def apply_action(state: dict, action: dict) -> dict:
     typ = action.get("type")
     if typ == "end_turn":
         return end_player_turn(state)
+    if typ == "triad":
+        if not use_triad(state):
+            return {"ok": False, "err": "Триада недоступна (нужны 3 разные стихии, раз в бой)."}
+        if _battle_over(state):
+            state["status"] = "won" if not _alive_idx(state["enemy"]["units"]) else "lost"
+        return {"ok": True, "hits": state.pop("hits_round", [])}
     ui = action.get("unit_i")
     units = state["ally"]["units"]
     if not isinstance(ui, int) or not (0 <= ui < len(units)) or not units[ui]["alive"]:
@@ -1016,7 +931,102 @@ def now() -> float:
     return time.time()
 
 
-# ── ВРЕМЕННАЯ заглушка (B1) — B2 заменит настоящей реализацией навыков ────────
+_SKILL_TARGET_CODES = {"burn", "frost_bite", "chain", "pierce", "drain", "void_strike", "web"}
+
 
 def _do_skill_action(state, ui, target_i):
-    return {"ok": False, "err": "tbd"}
+    from core.constants import B4_SKILL_AP, B4_SKILL_CD
+    u = state["ally"]["units"][ui]
+    if u["ap"] < B4_SKILL_AP:
+        return {"ok": False, "err": "Недостаточно AP для навыка."}
+    if u["cd"].get("skill", 0) > 0:
+        return {"ok": False, "err": f"Навык на кулдауне ({u['cd']['skill']})."}
+    code = UNITS[u["uid"]]["skill"]["code"]
+    if code in _SKILL_TARGET_CODES and not _skill_target_ok(state, ui, target_i):
+        return {"ok": False, "err": "Цель навыка вне дальности или нет линии видимости."}
+    events = state.setdefault("events_round", [])
+    u["ap"] -= B4_SKILL_AP
+    u["cd"]["skill"] = B4_SKILL_CD
+    _apply_skill_effect(state, ui, target_i, code, events)
+    if _battle_over(state):
+        state["status"] = "won" if not _alive_idx(state["enemy"]["units"]) else "lost"
+    return {"ok": True, "hits": state.pop("hits_round", []), "ap": u["ap"]}
+
+
+def _apply_skill_effect(state, u_i, ti, code, ev):
+    a_units = state["ally"]["units"]
+    e_units = state["enemy"]["units"]
+    a = a_units[u_i]
+
+    if code == "burn":
+        _apply_damage(state, "ally", u_i, "enemy", ti, a["atk"] * 0.9, ev, elem=a["element"])
+        if e_units[ti]["alive"]:
+            e_units[ti]["statuses"]["burn"] = {"dmg": int(a["atk"] * 0.25), "rounds": 3}
+            ev.append(f"🔥 {e_units[ti]['name']} горит (3 раунда)")
+    elif code == "ember_shell":
+        a["shield"] = a.get("shield", 0) + int(a["hp_max"] * 0.25)
+        a["statuses"]["reflect"] = {"frac": 0.30, "rounds": 1}
+        ev.append(f"🐗 {a['name']}: раскалённый панцирь (щит + отражение 30%)")
+    elif code == "mend":
+        hurt = [u for u in a_units if u["alive"] and u["hp"] < u["hp_max"]]
+        if hurt:
+            w = min(hurt, key=lambda u: u["hp"] / u["hp_max"])
+            _heal(w, int(w["hp_max"] * 0.25), ev)
+    elif code == "chill_taunt":
+        a["statuses"]["intercept_all"] = {"rounds": 1}
+        a["statuses"]["chill_aura"] = {"rounds": 1}
+        ev.append(f"🧊 {a['name']} принимает удары на себя (обмерзание)")
+    elif code == "frost_bite":
+        _apply_damage(state, "ally", u_i, "enemy", ti, a["atk"], ev, elem=a["element"])
+        if e_units[ti]["alive"] and random.random() < 0.20:
+            e_units[ti]["statuses"]["frozen"] = True
+            ev.append(f"❄️ {e_units[ti]['name']} заморожен — пропустит действие!")
+    elif code == "ice_shield":
+        alive = [u for u in a_units if u["alive"]]
+        w = min(alive, key=lambda u: u["hp"] / u["hp_max"])
+        w["shield"] = w.get("shield", 0) + int(w["hp_max"] * 0.30)
+        ev.append(f"🦌 Наледь: щит {w['name']} +{int(w['hp_max'] * 0.30)}")
+    elif code == "chain":
+        _apply_damage(state, "ally", u_i, "enemy", ti, a["atk"], ev, elem=a["element"])
+        others = [i for i in _alive_idx(e_units) if i != ti]
+        if others:
+            j = random.choice(others)
+            d2 = _apply_damage(state, "ally", u_i, "enemy", j, a["atk"] * 0.4, ev, elem=a["element"])
+            ev.append(f"⚡ Молния перескакивает на {e_units[j]['name']}: −{d2}")
+    elif code == "counter_stance":
+        a["shield"] = a.get("shield", 0) + int(a["hp_max"] * 0.20)
+        a["statuses"]["counter"] = {"frac": 0.80, "rounds": 1}
+        ev.append(f"🦂 {a['name']}: разрядная стойка (щит + контрудар)")
+    elif code == "tailwind":
+        _gain_rage(state, "ally", 10)
+        a["statuses"]["dmg_bonus"] = {"add": 0.15, "rounds": 1}
+        ev.append(f"🕊 Попутный ветер: +10 ярости, {a['name']} бьёт сильнее в этом раунде")
+    elif code == "taunt_all":
+        a["statuses"]["intercept_all"] = {"rounds": 1}
+        a["statuses"]["def_up"] = {"add": 0.5, "rounds": 1}
+        ev.append(f"🗿 {a['name']} — бастион: принимает ВСЕ удары (+50% защиты)")
+    elif code == "pierce":
+        _apply_damage(state, "ally", u_i, "enemy", ti, a["atk"] * 1.1, ev,
+                      elem=a["element"], ignore_def=0.4)
+        ev.append("🪨 Пробитие: 40% защиты цели проигнорировано")
+    elif code == "regrow":
+        for u in a_units:
+            if u["alive"]:
+                _heal(u, int(u["hp_max"] * 0.10), ev)
+                u["statuses"]["regen"] = {"frac": 0.05, "rounds": 2}
+        ev.append("🌿 Прорастание: отряд регенерирует 2 раунда")
+    elif code == "drain":
+        _apply_damage(state, "ally", u_i, "enemy", ti, a["atk"], ev, elem=a["element"], lifesteal=0.35)
+    elif code == "web":
+        e_units[ti]["statuses"]["web"] = True
+        a["shield"] = a.get("shield", 0) + int(a["hp_max"] * 0.15)
+        ev.append(f"🕷 Паутина на {e_units[ti]['name']}: его атака −50%")
+    elif code == "grief":
+        stolen = min(12, state["enemy"]["rage"])
+        state["enemy"]["rage"] -= stolen
+        _gain_rage(state, "ally", stolen)
+        ev.append(f"🌑 Скорбь: украдено {stolen} ярости врага")
+    elif code == "void_strike":
+        _apply_damage(state, "ally", u_i, "enemy", ti, a["atk"] * 1.15, ev, elem=a["element"])
+        el = ELEMENT_META.get(a["element"], {}).get("emoji", "🌈")
+        ev.append(f"🐉 Удар Пустоты {el}: стихия под слабость врага")
