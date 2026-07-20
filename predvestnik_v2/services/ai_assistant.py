@@ -78,7 +78,11 @@ _SYSTEM_PROMPT = (
     "amount и target бери ТОЛЬКО из слов игрока, никогда не придумывай. Если "
     "нашлось несколько игроков с похожим именем — кнопки покажут всех, скажи "
     "игроку выбрать нужного.\n"
-    "  После вызова действия скажи одной строкой нажать кнопку под сообщением.\n"
+    "  После вызова действия оно ЕЩЁ НЕ ВЫПОЛНЕНО и тобой выполнено не будет — "
+    "исполняет только игрок кнопкой. ЗАПРЕЩЕНО писать «перевёл»/«отправил»/"
+    "«готово» и называть баланс или статус «после действия» — итог напишет "
+    "система отдельным сообщением. Твой ответ — одна строка: нажми кнопку "
+    "под сообщением.\n"
     "После результата функции ты ОБЯЗАН дать текстовый ответ — никогда не пустой.\n"
     "ПРАВИЛА ОТВЕТА (строго):\n"
     "1. Первая строка — сразу суть: цифра, да/нет, команда или главный факт. "
@@ -478,14 +482,16 @@ async def _tool_propose_expedition(db, user_id: int, chat_id: int, ctx: dict, ar
         hours = None
     ctx["pending_action"] = {"type": "expedition", "hours": hours}
     if hours is None:
-        return {"status": "ok",
-                "note": "Срок не выбран — система добавит кнопки выбора срока (2/4/6/8ч) "
-                        "под твоим сообщением. Скажи игроку выбрать срок кнопкой."}
+        return {"status": "proposal_created", "expedition_started": False,
+                "warning": "ПОХОД НЕ ЗАПУЩЕН. Срок не выбран — система добавит кнопки "
+                           "выбора срока (2/4/6/8ч). Скажи одной строкой выбрать срок "
+                           "кнопкой; не пиши, что питомец уже отправлен."}
     d = EXPEDITIONS_DATA[hours]
-    return {"status": "ok", "hours": hours,
+    return {"status": "proposal_created", "expedition_started": False, "hours": hours,
             "cost": d["cost"], "reward_mora": f"{d['min_m']}–{d['max_m']}",
-            "note": "Система добавит кнопку подтверждения под твоим сообщением — "
-                    "скажи игроку нажать её для отправки."}
+            "warning": "ПОХОД НЕ ЗАПУЩЕН и тобой запущен не будет — исполнит только "
+                       "игрок кнопкой. Скажи одной строкой нажать кнопку подтверждения; "
+                       "итог напишет система."}
 
 
 async def _tool_get_topic_details(db, user_id: int, chat_id: int, ctx: dict, args: dict) -> dict:
@@ -599,13 +605,15 @@ async def _tool_propose_transfer(db, user_id: int, chat_id: int, ctx: dict, args
         "currency": currency,
         "candidates": [{"id": i, "name": n} for i, n in candidates],
     }
-    note = ("Нашлось несколько игроков — кнопки покажут всех, скажи игроку нажать нужного."
-            if len(candidates) > 1 else
-            "Система добавит одноразовую кнопку подтверждения — скажи игроку нажать её. "
-            "Баланс проверится при исполнении.")
-    return {"status": "ok", "amount": amount,
-            "currency": f"{meta['icon']} {meta['label']}",
-            "candidates": [n for _, n in candidates], "note": note}
+    return {"status": "proposal_created", "transfer_executed": False,
+            "amount": amount, "currency": f"{meta['icon']} {meta['label']}",
+            "candidates": [n for _, n in candidates],
+            "warning": ("ПЕРЕВОД НЕ ВЫПОЛНЕН и тобой выполнен не будет. ЗАПРЕЩЕНО "
+                        "писать «перевёл/готово» и называть новый баланс — итог "
+                        "напишет система после нажатия кнопки. Скажи одной строкой: "
+                        + ("выбери нужного игрока кнопкой под сообщением."
+                           if len(candidates) > 1 else
+                           "нажми кнопку подтверждения под сообщением."))}
 
 
 _TOOL_HANDLERS_EX = {
