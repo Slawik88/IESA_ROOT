@@ -866,6 +866,29 @@ B3_ESCALATION_FROM_ROUND: int = 6              # анти-затяжка: +10% �
 B3_ESCALATION_STEP: float = 0.10
 B3_ESCALATION_CAP: float = 0.60
 B3_TRIAD_MULT: float = 1.2                     # «Триада»: AoE 120% средней атаки (1/бой)
+
+# ── Боёвка 4.0 «Клеточная тактика» (services/battle3.py) ──────────────────────
+GRID_W: int = 7                 # ширина поля (колонки x=0..6)
+GRID_H: int = 5                 # высота поля (ряды y=0..4)
+# AP-пул и дальность атаки по роли юнита
+B4_AP_BY_ROLE: dict = {"tank": 4, "dd": 5, "support": 5}
+B4_AP_LEGENDARY_BONUS: int = 1  # +1 AP юнитам легендарной редкости (поверх роли)
+B4_RANGE_BY_ROLE: dict = {"tank": 1, "dd": 2, "support": 2}
+B4_MOVE_AP: int = 1             # AP за 1 клетку хода
+B4_ATK_AP: int = 2             # AP за атаку
+B4_SKILL_AP: int = 3           # AP за навык
+B4_DEF_AP: int = 1             # AP за защиту
+B4_SKILL_CD: int = 2           # кулдаун навыка (раундов)
+B4_COVER_RANGED_MULT: float = 0.70   # урон по цели В укрытии от ranged (−30%)
+B4_DANGER_HP_FRAC: float = 0.05      # опасная клетка: −5% hp_max за вход/старт хода
+B4_EXPOSED_DEF_MULT: float = 1.25    # «вскрытая оборона»: не защищался и не в укрытии → +25%
+B4_DEFEND_MULT: float = 0.60         # активная защита: входящий урон ×0.60 (−40%)
+# Награда за скилл (БЛ3): множители исхода Врат/Бездны
+B4_REWARD_NO_LOSS_MULT: float = 1.5  # ни один юнит не пал
+B4_REWARD_FAST_MULT: float = 1.25    # победа за ≤ N раундов
+B4_REWARD_FAST_ROUNDS: int = 6
+B4_WOUND_HOURS: int = 3              # «павший» юнит недоступен N часов
+
 # Дроп осколков юнитов: босс Бездны и высокие этажи Врат
 UNIT_SHARD_DROP_ABYSS_BOSS: tuple = (3, 5)     # случайному юниту
 UNIT_SHARD_DROP_GATES: tuple = (1, 2)          # этажи 5–6, шанс ниже
