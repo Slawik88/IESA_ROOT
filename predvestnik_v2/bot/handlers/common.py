@@ -839,6 +839,10 @@ async def cmd_ai_question(message: types.Message, ai_question: str, db):
     # Предложенное ИИ действие → кнопки подтверждения (владелец зашит в callback)
     action_kb = _ai_action_kb(action, message.from_user.id) if action else None
     if action_kb is not None:
+        # Железный дисклеймер ОТ СИСТЕМЫ: модель могла написать «перевёл/готово»,
+        # но правда всегда на экране — действие исполняет только кнопка, итог
+        # приходит отдельным сообщением из реального API (cb_ai_action).
+        answer += "\n⏳ <i>Действие ещё НЕ выполнено — его исполняет только кнопка ниже.</i>"
         kb_markup = action_kb
     else:
         # Вопрос явно про раздел мини-аппа (биржа/акция дня/...) → сразу кнопка
