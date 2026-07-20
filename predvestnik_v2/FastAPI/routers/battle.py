@@ -25,7 +25,6 @@ from infrastructure.repositories import units as u_repo
 from services import battle3 as b3
 from services import barracks
 from services.battle import rate_limited
-from services.combat_power import calculate_cp
 
 router = APIRouter(prefix="/combat2", tags=["battle3"])
 
@@ -34,10 +33,12 @@ class GatesEnterRequest(BaseModel):
     floor: int
 
 
-class RoundRequest(BaseModel):
+class ActionRequest(BaseModel):
     battle_id: int
-    order: list[int]
-    targets: dict[str, int] = {}
+    type: str
+    unit_i: int | None = None
+    cell: dict | None = None
+    target_i: int | None = None
 
 
 class QteRequest(BaseModel):
@@ -50,11 +51,6 @@ class UltRequest(BaseModel):
     unit_i: int
 
 
-class HandRequest(BaseModel):
-    battle_id: int
-    hand_i: int
-
-
 class BattleIdRequest(BaseModel):
     battle_id: int
 
@@ -64,8 +60,10 @@ async def get_active_b3(db, uid: int, mode: str | None = None) -> dict | None:
     row = await bt_repo.get_active(db, uid, mode)
     if not row:
         return None
-    if "ally" not in row["state"]:
-        await bt_repo.finish(db, row["id"], "lost")
+    st = row["state"]
+    if "ally" not in st or "grid" not in st:
+        # бой доклеточного движка (3.0) — закрываем как отмену, без штрафа поражения
+        await bt_repo.finish(db, row["id"], "cancelled")
         await db.commit()
         return None
     return row
@@ -77,7 +75,7 @@ async def get_active_b3(db, uid: int, mode: str | None = None) -> dict | None:
 async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
     """Врата: этажи с CP-гейтом, входы, отряд из Казармы, активный бой."""
     uid = user["id"]
-    cp = (await calculate_cp(db, uid))["total"]
+    cp = await barracks.squad_cp(db, uid)
     used = await bt_repo.count_today(db, uid, "gates")
     squad = await barracks.squad_units(db, uid)
     active = await get_active_b3(db, uid)
@@ -111,7 +109,7 @@ async def gates_enter(body: GatesEnterRequest, db=Depends(get_db), user=Depends(
         raise HTTPException(400, "У тебя уже идёт бой — сначала закончи его.")
     if await bt_repo.count_today(db, uid, "gates") >= GATES2_ENTRIES_PER_DAY:
         raise HTTPException(400, f"Лимит Врат: {GATES2_ENTRIES_PER_DAY} входа в день.")
-    cp = (await calculate_cp(db, uid))["total"]
+    cp = await barracks.squad_cp(db, uid)
     if cp < GATES2_CP_GATE[body.floor]:
         raise HTTPException(400, f"Этаж {body.floor} требует ⚡ {GATES2_CP_GATE[body.floor]} "
                                  f"Силы (у тебя {cp}).")
@@ -247,8 +245,8 @@ async def _respond(db, uid: int, user: dict, row: dict, state: dict, extra: dict
 
 # ── Действия боя ──────────────────────────────────────────────────────────────
 
-@router.post("/battle/round")
-async def battle_round(body: RoundRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+@router.post("/battle/action")
+async def battle_action(body: ActionRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     uid = user["id"]
     row = await _load_battle(db, uid, body.battle_id)
     if rate_limited(row.get("last_action_at")):
@@ -256,13 +254,12 @@ async def battle_round(body: RoundRequest, db=Depends(get_db), user=Depends(requ
     state = row["state"]
     if state.get("pending"):
         raise HTTPException(400, "Сначала заверши QTE.")
-    hand_n = len(state.get("hand", []))
-    if sorted(body.order) != list(range(hand_n)):
-        raise HTTPException(400, "Порядок должен включать каждую руну руки один раз.")
-    n_enemy = len(state["enemy"]["units"])
-    targets = {k: v for k, v in (body.targets or {}).items()
-               if isinstance(v, int) and 0 <= v < n_enemy}
-    res = b3.play_round(state, body.order, targets)
+    action = {"type": body.type, "unit_i": body.unit_i,
+              "cell": body.cell, "target_i": body.target_i}
+    res = b3.apply_action(state, action)
+    if not res.get("ok"):
+        # действие отклонено движком (мало AP / вне дальности / нет LoS и т.п.)
+        raise HTTPException(400, res.get("err") or "Недопустимое действие.")
     return await _respond(db, uid, user, row, state, {"turn": res})
 
 
@@ -291,45 +288,6 @@ async def battle_ult(body: UltRequest, db=Depends(get_db), user=Depends(require_
         raise HTTPException(400, "Юнит недоступен.")
     res = b3.request_ult(state, body.unit_i)
     return await _respond(db, uid, user, row, state, {"turn": res})
-
-
-@router.post("/battle/reroll")
-async def battle_reroll(body: HandRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    uid = user["id"]
-    row = await _load_battle(db, uid, body.battle_id)
-    state = row["state"]
-    if state.get("pending"):
-        raise HTTPException(400, "Сначала заверши QTE.")
-    if not b3.reroll_rune(state, body.hand_i):
-        raise HTTPException(400, "Не хватает 🧿 Фокуса или руна недоступна.")
-    return await _respond(db, uid, user, row, state, {})
-
-
-@router.post("/battle/focus-crit")
-async def battle_focus_crit(body: HandRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    uid = user["id"]
-    row = await _load_battle(db, uid, body.battle_id)
-    state = row["state"]
-    if state.get("pending"):
-        raise HTTPException(400, "Сначала заверши QTE.")
-    if not b3.mark_forced_crit(state, body.hand_i):
-        raise HTTPException(400, "Нужно 2 🧿 и руна-атака без метки.")
-    return await _respond(db, uid, user, row, state, {})
-
-
-@router.post("/battle/triad")
-async def battle_triad(body: BattleIdRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    uid = user["id"]
-    row = await _load_battle(db, uid, body.battle_id)
-    state = row["state"]
-    if state.get("pending"):
-        raise HTTPException(400, "Сначала заверши QTE.")
-    if not b3.use_triad(state):
-        raise HTTPException(400, "Триада недоступна (нужны 3 разные стихии, раз в бой).")
-    # триада может добить врагов
-    if not any(u["alive"] for u in state["enemy"]["units"]):
-        state["status"] = "won"
-    return await _respond(db, uid, user, row, state, {"turn": {"hits": state.pop("hits_round", [])}})
 
 
 @router.post("/battle/flee")
