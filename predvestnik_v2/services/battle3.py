@@ -22,6 +22,7 @@ from core.constants import (
     B3_ESCALATION_FROM_ROUND, B3_ESCALATION_STEP, B3_ESCALATION_CAP,
     B3_TRIAD_MULT, WAR_WALL_SEGMENT_HP,
     GRID_W, GRID_H, B4_AP_BY_ROLE, B4_AP_LEGENDARY_BONUS, B4_RANGE_BY_ROLE,
+    B4_ENEMY_MOVE,
 )
 from core.units import (
     UNITS, unit_stats, element_mult, ELEMENT_META, ELEMENT_SYNERGY, ELEMENTS, _BEATS,
@@ -118,7 +119,7 @@ def begin_round(state: dict) -> None:
             if u["uid"] == "u_porozhdenie" and u["alive"] and enemy_el:
                 u["element"] = next((el for el, beats in _BEATS.items()
                                      if beats == enemy_el), None) or "dark"
-    _roll_intents(state)
+    _roll_telegraph(state)
 
 
 def _first_alive(units: list[dict]) -> int | None:
@@ -132,41 +133,21 @@ def _alive_idx(units: list[dict]) -> list[int]:
     return [i for i, u in enumerate(units) if u["alive"]]
 
 
-def _roll_intents(state: dict) -> None:
-    """Телеграф: намерения врага на ЕГО следующую фазу — игрок видит их заранее."""
-    e, a = state["enemy"], state["ally"]
+def _roll_telegraph(state: dict) -> None:
+    """Намерения врага на его следующую фазу (для UI): кого и как он ударит."""
     intents = []
-    if e.get("skip_next"):
-        e["intents"] = [{"i": i, "kind": "frozen"} for i in _alive_idx(e["units"])]
-        return
-    ally_alive = _alive_idx(a["units"])
-    ult_assigned = e["rage"] >= B3_RAGE_MAX
-    for i in _alive_idx(e["units"]):
-        u = e["units"][i]
-        if u["statuses"].get("frozen") or u["statuses"].get("stunned"):
-            intents.append({"i": i, "kind": "frozen"})
+    for ei, e in enumerate(state["enemy"]["units"]):
+        if not e["alive"]:
             continue
-        if ult_assigned:
-            intents.append({"i": i, "kind": "ult",
-                            "t": random.choice(ally_alive) if ally_alive else None})
-            ult_assigned = False
+        if e.get("boss") and state["round"] % 3 == 0:
+            intents.append({"i": ei, "kind": "aoe"})
             continue
-        if u.get("boss") and state["round"] % 3 == 0:
-            intents.append({"i": i, "kind": "aoe"})
-            continue
-        role = u.get("role", "dd")
-        hurt = [j for j in _alive_idx(e["units"])
-                if e["units"][j]["hp"] < e["units"][j]["hp_max"] * 0.7]
-        if role == "support" and hurt:
-            intents.append({"i": i, "kind": "heal", "t": min(
-                hurt, key=lambda j: e["units"][j]["hp"] / e["units"][j]["hp_max"])})
-        elif role == "tank" and random.random() < 0.4:
-            intents.append({"i": i, "kind": "def"})
-        elif u.get("atk", 0) > 0 and ally_alive:
-            intents.append({"i": i, "kind": "atk", "t": random.choice(ally_alive)})
-        else:
-            intents.append({"i": i, "kind": "def"})
-    e["intents"] = intents
+        plan = _best_enemy_plan(state, ei)
+        if plan and plan["kind"] == "attack":
+            intents.append({"i": ei, "kind": "atk", "target": plan["target"]})
+        elif plan:
+            intents.append({"i": ei, "kind": plan["kind"]})
+    state["enemy"]["intents"] = intents
 
 
 # ── Урон/лечение/ярость ───────────────────────────────────────────────────────
@@ -489,61 +470,166 @@ def use_triad(state: dict) -> bool:
     return True
 
 
+# ── Фаза врага: EV-скоринг (детерминированный ИИ, C1) ──────────────────────────
+
+def _expected_damage(state, src, ally_i) -> int:
+    """Оценка урона врага src по союзнику ally_i БЕЗ мутаций (для EV-скоринга).
+    Зеркалит боевую формулу: стихия, эскалация, укрытие(ranged), защита/вскрытая оборона, def."""
+    from services.battle_grid import CELL_COVER
+    from core.constants import B4_COVER_RANGED_MULT, B4_DEFEND_MULT, B4_EXPOSED_DEF_MULT
+    ally = state["ally"]["units"][ally_i]
+    raw = src["atk"] * element_mult(src.get("element"), ally.get("element")) * _escalation(state)
+    ax, ay = _pos(ally)
+    in_cover = state["grid"][ay][ax] == CELL_COVER
+    ranged = _atk_range(src) >= 2
+    if ranged and in_cover:
+        raw *= B4_COVER_RANGED_MULT
+    if ally.get("defending"):
+        raw *= B4_DEFEND_MULT
+    elif not in_cover:
+        raw *= B4_EXPOSED_DEF_MULT
+    return max(1, int(round(raw - ally["def"] * 0.5)))
+
+
+def _threat_at(state, cell) -> float:
+    """Суммарная угроза союзников для клетки cell: атака тех, кто в СЛЕДУЮЩИЙ ход
+    дотянется до неё (грубая оценка = дальность хода AP + дальность атаки)."""
+    from core.constants import B4_MOVE_AP
+    total = 0.0
+    for u in state["ally"]["units"]:
+        if not u["alive"]:
+            continue
+        reach = (u["ap_max"] // max(1, B4_MOVE_AP)) + _atk_range(u)
+        if grid_mod.manhattan(_pos(u), cell) <= reach:
+            total += u["atk"]
+    return total
+
+
+def _best_enemy_plan(state, ei):
+    """Перебор (клетка × цель) + защита. EV = урон + стратегия + выживание − риск.
+    Детерминированный tie-break: EV → роль цели (dd>support>tank) → меньший индекс цели
+    → меньшая стоимость хода. Возвращает план-словарь или None."""
+    from services.battle_grid import reachable, line_of_sight, CELL_COVER, CELL_DANGER
+    e = state["enemy"]["units"][ei]
+    role_pref = {"dd": 3, "support": 2, "tank": 1}
+    reach = reachable(state["grid"], _pos(e), B4_ENEMY_MOVE, _occupied(state, exclude=e))
+    reach[_pos(e)] = 0                      # остаться на месте — тоже вариант
+    low_hp_self = e["hp"] / max(1, e["hp_max"]) < 0.30
+    best = None                            # (key_tuple, plan)
+    allies = state["ally"]["units"]
+    for cell, movecost in reach.items():
+        cx, cy = cell
+        cell_cover = state["grid"][cy][cx] == CELL_COVER
+        cell_danger = state["grid"][cy][cx] == CELL_DANGER
+        threat = _threat_at(state, cell)
+        for ti, ally in enumerate(allies):
+            if not ally["alive"]:
+                continue
+            if grid_mod.chebyshev(cell, _pos(ally)) > _atk_range(e):
+                continue
+            if not line_of_sight(state["grid"], cell, _pos(ally)):
+                continue
+            gain = _expected_damage(state, e, ti)
+            strat = 0.0
+            if ally["hp"] / max(1, ally["hp_max"]) < 0.35:
+                strat += gain * 0.5                        # добить раненого
+            if ally.get("role") == "support":
+                strat += e["atk"] * 0.3                     # давить саппорта
+            # threat — ОГРАНИЧЕННЫЙ штраф за опасную клетку, а не доминанта: он выбирает
+            # между атакующими клетками (безопаснее = лучше), но не запрещает атаковать.
+            # Сырой atk союзников (~55) несопоставим с митигированным уроном (~8), поэтому
+            # берём малый вес; при низком HP врага вес растёт — тогда он предпочтёт отступить.
+            threat_w = 0.15 if low_hp_self else 0.02
+            surv = (e["atk"] * 0.2 if cell_cover else 0.0) - threat * threat_w
+            cost = e["atk"] * 0.5 if cell_danger else 0.0
+            ev = gain + strat + surv - cost
+            key = (round(ev, 3), role_pref.get(ally.get("role"), 0), -ti, -movecost)
+            if best is None or key > best[0]:
+                best = (key, {"kind": "attack", "cell": cell, "target": ti})
+    # запасной вариант — защита (встать в оборону), особенно если ранен и нет цели
+    defend_ev = e["atk"] * 0.1 + (e["atk"] * 0.5 if low_hp_self else 0.0)
+    defend_key = (round(defend_ev, 3), 0, 0, 0)
+    if best is None or defend_key > best[0]:
+        best = (defend_key, {"kind": "defend", "cell": _pos(e)})
+    return best[1]
+
+
+def _enemy_attack(state, ei, ti, events, mult=1.0):
+    """Реальный удар врага по союзнику: укрытие/защита/вскрытая оборона + контрудар/обмерзание."""
+    from services.battle_grid import CELL_COVER
+    from core.constants import B4_COVER_RANGED_MULT, B4_DEFEND_MULT, B4_EXPOSED_DEF_MULT
+    e = state["enemy"]["units"][ei]
+    ally = state["ally"]["units"][ti]
+    ax, ay = _pos(ally)
+    in_cover = state["grid"][ay][ax] == CELL_COVER
+    ranged = _atk_range(e) >= 2
+    raw = e["atk"] * mult
+    if ranged and in_cover:
+        raw *= B4_COVER_RANGED_MULT
+    if ally.get("defending"):
+        raw *= B4_DEFEND_MULT
+    elif not in_cover:
+        raw *= B4_EXPOSED_DEF_MULT
+    dmg = _apply_damage(state, "enemy", ei, "ally", ti, raw, events, elem=e.get("element"))
+    events.append(f"💢 {e['emoji']} {e['name']} → {ally['name']}: −{dmg}")
+    # контрудар защитной стойки союзника / обмерзание
+    cnt = ally["statuses"].get("counter")
+    if cnt and ally["alive"] and e["alive"]:
+        back = max(1, int(ally["atk"] * cnt["frac"]))
+        _apply_damage(state, "ally", ti, "enemy", ei, back, events, no_reflect=True)
+        events.append(f"🦂 Контрудар: −{back} {e['name']}")
+    if ally["statuses"].get("chill_aura"):
+        state["enemy"]["rage"] = max(0, state["enemy"]["rage"] - 6)
+
+
+def _execute_enemy_plan(state, ei, plan, events):
+    e = state["enemy"]["units"][ei]
+    cell = plan.get("cell")
+    if cell and cell != _pos(e):
+        e["pos"] = {"x": cell[0], "y": cell[1]}
+    if plan["kind"] == "attack":
+        _enemy_attack(state, ei, plan["target"], events)
+    elif plan["kind"] == "defend":
+        e["shield"] = e.get("shield", 0) + int(e["hp_max"] * 0.15)
+        events.append(f"🛡 {e['name']} укрепляется")
+
+
+def _enemy_aoe(state, ei, events):
+    e = state["enemy"]["units"][ei]
+    events.append(f"💥 {e['emoji']} {e['name']}: СОКРУШАЮЩИЙ УДАР по всем!")
+    for ti in _alive_idx(state["ally"]["units"]):
+        _enemy_attack(state, ei, ti, events, mult=0.7)
+
+
 # ── Фаза врага и конец раунда ─────────────────────────────────────────────────
 
 def _enemy_phase(state: dict, events: list) -> None:
-    e, a = state["enemy"], state["ally"]
-    if e.get("skip_next"):
-        e["skip_next"] = False
+    # «Абсолютный ноль» и подобные ульты выставляют skip_next — вся фаза врага пропущена.
+    if state["enemy"].get("skip_next"):
+        state["enemy"]["skip_next"] = False
         events.append("🧊 Враг скован — фаза пропущена!")
         return
-    for intent in e.get("intents", []):
-        i = intent["i"]
-        u = e["units"][i]
-        if not u["alive"]:
+    enemies = state["enemy"]["units"]
+    for ei, e in enumerate(enemies):
+        if not e["alive"]:
             continue
-        if u["statuses"].pop("frozen", None) or u["statuses"].pop("stunned", None):
-            events.append(f"❄️ {u['name']} пропускает действие")
+        if e["statuses"].pop("frozen", None) or e["statuses"].pop("stunned", None):
+            events.append(f"❄️ {e['name']} пропускает действие")
             continue
-        kind = intent.get("kind")
-        acts = 2 if u.get("boss") and kind == "atk" else 1
+        is_boss = bool(e.get("boss"))
+        if is_boss and state["round"] % 3 == 0:
+            _enemy_aoe(state, ei, events)
+            if _battle_over(state):
+                return
+            continue
+        acts = 2 if is_boss else 1
         for _ in range(acts):
-            if kind == "atk":
-                t = _pick_target(state, "ally", intent.get("t"))
-                if t is None:
-                    return
-                tgt_u = a["units"][t]
-                dmg = _apply_damage(state, "enemy", i, "ally", t, u["atk"], events,
-                                    elem=u.get("element"))
-                events.append(f"💢 {u['emoji']} {u['name']} бьёт {tgt_u['name']}: −{dmg}")
-                # контрудар/обмерзание защитных стоек
-                cnt = tgt_u["statuses"].get("counter")
-                if cnt and tgt_u["alive"] and u["alive"]:
-                    back = max(1, int(tgt_u["atk"] * cnt["frac"]))
-                    _apply_damage(state, "ally", t, "enemy", i, back, events,
-                                  no_reflect=True)
-                    events.append(f"🦂 Контрудар: −{back} {u['name']}")
-                if tgt_u["statuses"].get("chill_aura"):
-                    e["rage"] = max(0, e["rage"] - 6)
-            elif kind == "aoe":
-                events.append(f"💥 {u['emoji']} {u['name']}: СОКРУШАЮЩИЙ УДАР по всем!")
-                for t in _alive_idx(a["units"]):
-                    _apply_damage(state, "enemy", i, "ally", t, u["atk"] * 0.7, events,
-                                  elem=u.get("element"))
-            elif kind == "ult":
-                e["rage"] = 0
-                t = _pick_target(state, "ally", intent.get("t"))
-                if t is not None:
-                    events.append(f"💥 УЛЬТА ВРАГА: {u['emoji']} {u['name']}!")
-                    _apply_damage(state, "enemy", i, "ally", t, u["atk"] * 1.8, events,
-                                  elem=u.get("element"))
-            elif kind == "heal":
-                t = intent.get("t")
-                if t is not None and e["units"][t]["alive"]:
-                    _heal(e["units"][t], int(e["units"][t]["hp_max"] * 0.18), events)
-            else:  # def
-                u["shield"] = u.get("shield", 0) + int(u["hp_max"] * 0.15)
-                events.append(f"🛡 {u['name']} укрепляется")
+            if not e["alive"] or not _alive_idx(state["ally"]["units"]):
+                break
+            plan = _best_enemy_plan(state, ei)
+            if plan is None:
+                break
+            _execute_enemy_plan(state, ei, plan, events)
             if _battle_over(state):
                 return
 
