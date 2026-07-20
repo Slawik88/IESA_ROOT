@@ -20,11 +20,13 @@ from core.constants import (
     B3_INTERCEPT_TANK_BONUS,
     B3_ESCALATION_FROM_ROUND, B3_ESCALATION_STEP, B3_ESCALATION_CAP,
     B3_TRIAD_MULT, WAR_WALL_SEGMENT_HP,
+    GRID_W, GRID_H, B4_AP_BY_ROLE, B4_AP_LEGENDARY_BONUS, B4_RANGE_BY_ROLE,
 )
 from core.units import (
     UNITS, unit_stats, element_mult, ELEMENT_META, ELEMENT_SYNERGY, ELEMENTS, _BEATS,
 )
 from services.battle import qte_window, grade_tap
+from services import battle_grid as grid_mod
 
 B3_SUDDEN_DEATH_ROUND = 20   # с этого раунда обе стороны теряют HP каждый раунд
 
@@ -75,8 +77,21 @@ def new_battle_state(ally_rows: list[dict], enemies: list[dict], mode: str,
         e.setdefault("alive", True)
         e.setdefault("statuses", {})
         e.setdefault("crit", 0.10)
+    ally_pts, enemy_pts = spawn_positions(len(allies), len(enemies))
+    for u, p in zip(allies, ally_pts):
+        u["pos"] = {"x": p[0], "y": p[1]}
+        u["ap_max"] = _unit_ap_max(u)
+        u["ap"] = u["ap_max"]
+        u["cd"] = {"skill": 0}
+        u["defending"] = False
+    for u, p in zip(enemies, enemy_pts):
+        u["pos"] = {"x": p[0], "y": p[1]}
+        u.setdefault("cd", {"skill": 0})
+    seed = int((ctx or {}).get("seed") or random.randint(1, 2**31 - 1))
+    battle_grid_data = grid_mod.gen_grid(seed, ally_pts + enemy_pts)
     state = {
         "mode": mode, "round": 0, "status": "active",
+        "grid": battle_grid_data, "seed": seed,
         "ally": {"units": allies, "rage": 0, "focus": B3_FOCUS_START,
                  "synergy": syn, "triad_available": meta["triad"],
                  "rebirth_used": False},
@@ -854,6 +869,21 @@ def _finish_round(state: dict, skip_enemy: bool = False) -> dict:
 
 
 # ── Генераторы врагов ─────────────────────────────────────────────────────────
+
+def spawn_positions(n_ally: int, n_enemy: int):
+    """Отряд — колонки 0–1, враги — 5–6. Ряды по центру поля. Детерминировано."""
+    rows = [2, 1, 3, 0, 4]  # порядок заполнения: центр наружу
+    ally = [(0 if i % 2 == 0 else 1, rows[i]) for i in range(n_ally)]
+    enemy = [(6 if i % 2 == 0 else 5, rows[i]) for i in range(n_enemy)]
+    return ally[:n_ally], enemy[:n_enemy]
+
+
+def _unit_ap_max(unit: dict) -> int:
+    ap = B4_AP_BY_ROLE.get(unit.get("role"), 5)
+    if UNITS.get(unit.get("uid"), {}).get("rarity") == "legendary":
+        ap += B4_AP_LEGENDARY_BONUS
+    return ap
+
 
 _ENEMY_NAMES = {
     "dd":      [("Тень Бездны", "👁"), ("Пожиратель", "👹"), ("Мгла", "💀")],
