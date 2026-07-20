@@ -13,7 +13,6 @@ import random
 import time
 
 from core.constants import (
-    B3_FOCUS_REROLL_COST, B3_FOCUS_CRIT_COST,
     B3_RAGE_MAX, B3_RAGE_PER_HIT_OUT, B3_RAGE_PER_HIT_IN, B3_RAGE_HIT_CAP,
     B3_RAGE_COMEBACK_50, B3_RAGE_COMEBACK_25,
     B3_CRIT_MULT, B3_ULT_MULT,
@@ -31,9 +30,6 @@ from services.battle import qte_window, grade_tap
 from services import battle_grid as grid_mod
 
 B3_SUDDEN_DEATH_ROUND = 20   # с этого раунда обе стороны теряют HP каждый раунд
-
-RUNE_EMOJI = {"atk": "⚔️", "def": "🛡", "skill": "✨"}   # public_state.hand (D1 переделает)
-
 
 # ── Построение сторон ─────────────────────────────────────────────────────────
 
@@ -954,46 +950,46 @@ def war_wall(remaining_hp: float) -> list[dict]:
 def _pub_unit(u: dict) -> dict:
     el = ELEMENT_META.get(u.get("element")) or {}
     stt = u.get("statuses", {})
+    p = u.get("pos") or {}
     return {"name": u["name"], "emoji": u["emoji"], "element": u.get("element"),
             "element_emoji": el.get("emoji", ""), "role": u.get("role"),
-            "slot": u.get("slot", 0), "hp": u["hp"], "hp_max": u["hp_max"],
+            "pos": {"x": p.get("x", 0), "y": p.get("y", 0)},
+            "hp": u["hp"], "hp_max": u["hp_max"],
             "shield": u.get("shield", 0), "alive": u["alive"],
             "boss": bool(u.get("boss")),
+            "defending": bool(u.get("defending")),
             "fx": [k for k in ("burn", "frozen", "stunned", "reflect", "regen",
                                "weaken", "invuln", "intercept_all", "web",
-                               "armor_break", "dmg_bonus") if stt.get(k)]}
+                               "armor_break", "dmg_bonus", "counter", "def_up",
+                               "chill_aura") if stt.get(k)]}
 
 
 def public_state(state: dict, battle_id: int) -> dict:
+    from core.constants import B4_MOVE_AP, B4_ATK_AP, B4_SKILL_AP, B4_DEF_AP
     a, e = state["ally"], state["enemy"]
-    hand = []
-    for r in state.get("hand", []):
-        u = a["units"][r["u"]]
-        meta = UNITS[u["uid"]]
-        hand.append({"k": r["k"], "emoji": RUNE_EMOJI[r["k"]],
-                     "unit_emoji": u["emoji"], "unit_name": u["name"],
-                     "unit_i": r["u"], "element": u.get("element"),
-                     "forced_crit": bool(r.get("forced_crit")),
-                     "label": {"atk": "Удар", "def": "Защита",
-                               "skill": meta["skill"]["name"]}[r["k"]],
-                     "desc": meta["skill"]["desc"] if r["k"] == "skill" else ""})
     q = state.get("qte") or {}
     pend = state.get("pending") or {}
+
+    def ally_unit(u):
+        meta = UNITS[u["uid"]]
+        return dict(
+            _pub_unit(u), uid=u["uid"], atk=u["atk"], level=u.get("level", 1),
+            ap=u.get("ap", 0), ap_max=u.get("ap_max", 0), range=_atk_range(u),
+            skill_cd=u.get("cd", {}).get("skill", 0),
+            skill_name=meta["skill"]["name"], skill_desc=meta["skill"]["desc"],
+            ult_name=meta["ult"]["name"], ult_desc=meta["ult"]["desc"])
+
     return {
         "battle_id": battle_id, "status": state.get("status", "active"),
         "mode": state.get("mode"), "round": state.get("round", 1),
-        "ally": {"units": [dict(_pub_unit(u), uid=u["uid"], atk=u["atk"],
-                                level=u.get("level", 1),
-                                ult_name=UNITS[u["uid"]]["ult"]["name"],
-                                ult_desc=UNITS[u["uid"]]["ult"]["desc"])
-                           for u in a["units"]],
-                 "rage": a["rage"], "focus": a["focus"],
+        "grid": state.get("grid", []),
+        "ally": {"units": [ally_unit(u) for u in a["units"]],
+                 "rage": a["rage"],
                  "synergy": a.get("synergy", {}),
                  "triad_available": a.get("triad_available", False)},
         "enemy": {"units": [_pub_unit(u) for u in e["units"]],
                   "rage": e["rage"],
                   "intents": e.get("intents", [])},
-        "hand": hand, "deck_left": len(state.get("deck", [])),
         "pending": {"type": pend.get("type")} if pend else None,
         "qte": ({"ring_ms": q.get("ring_ms", 1400),
                  "perfect_ms": q.get("perfect_ms", 120),
@@ -1001,7 +997,8 @@ def public_state(state: dict, battle_id: int) -> dict:
         "escalation": round(_escalation(state) - 1.0, 2),
         "log": state.get("log", [])[-8:],
         "rage_max": B3_RAGE_MAX,
-        "focus_costs": {"reroll": B3_FOCUS_REROLL_COST, "crit": B3_FOCUS_CRIT_COST},
+        "ap_costs": {"move": B4_MOVE_AP, "attack": B4_ATK_AP,
+                     "skill": B4_SKILL_AP, "defend": B4_DEF_AP},
     }
 
 
