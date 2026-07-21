@@ -550,7 +550,8 @@ function _btRender(st, turn, reward){
     // в режиме навыка подсвечиваем врагов в радиусе 2.
     const _trng=_b3SkillMode?2:(sel.range||1);
     eUnits.forEach(u=>{ if(u.alive){ const p=u.pos||{};
-      if(Math.max(Math.abs(p.x-sel.pos.x),Math.abs(p.y-sel.pos.y))<=_trng) atkCells.add(p.x+','+p.y); } });
+      if(Math.max(Math.abs(p.x-sel.pos.x),Math.abs(p.y-sel.pos.y))<=_trng
+         && _b4Los(grid, sel.pos.x, sel.pos.y, p.x, p.y)) atkCells.add(p.x+','+p.y); } });
   }
 
   // Сетка 7×5
@@ -796,6 +797,23 @@ function _b4Reach(grid, sx, sy, ap, occupied){
   }
   return res;
 }
+// Линия видимости — точный порт server-side battle_grid.line_of_sight (Брезенхэм):
+// препятствие (клетка==1) СТРОГО между стрелком и целью рвёт обзор; концы не считаются.
+// Раньше фронт этого НЕ проверял: враг за препятствием получал кольцо-прицел, игрок
+// тапал — сервер отклонял «Нет линии видимости», и враг «не атаковался» (тост прятался
+// под доской). Теперь фронт и сервер согласны: нет LoS → нет прицела, тап → инфо-подсказка.
+function _b4Los(grid, x0, y0, x1, y1){
+  let dx=Math.abs(x1-x0), dy=-Math.abs(y1-y0);
+  const sx=x0<x1?1:-1, sy=y0<y1?1:-1;
+  let err=dx+dy, cx=x0, cy=y0;
+  while(cx!==x1||cy!==y1){
+    const e2=2*err;
+    if(e2>=dy){ err+=dy; cx+=sx; }
+    if(e2<=dx){ err+=dx; cy+=sy; }
+    if((cx!==x1||cy!==y1) && (grid[cy]||[])[cx]===1) return false;
+  }
+  return true;
+}
 function _b3TapCell(x,y){
   // Онбординг боя: тап по доске во время проигрывания ленты — доиграть мгновенно.
   if(_b3Playing){ _b3SkipReq=true; return; }
@@ -810,22 +828,31 @@ function _b3TapCell(x,y){
     if(_b3SkillMode&&hit.i===_b3Sel){ _b3AttackOrSkill(null); return; }
     _b3SelectUnit(hit.i); return;
   }
-  if(_b3Sel==null) return;
-  const sel=aUnits[_b3Sel]; if(!sel||!sel.alive||!sel.pos) return;
-  // тап по врагу → атака или навык (дальность навыка = 2, обычной атаки = роль)
+  const sel=(_b3Sel!=null)?aUnits[_b3Sel]:null;
+  const selOk=sel&&sel.alive&&sel.pos;
+  // тап по врагу → бьём, ЕСЛИ выбран боец и враг в дальности; иначе показываем его
+  // характеристики + подсказку «как ударить» (раньше молчали или прятали тост под доской —
+  // игрок думал, что врага «не добить»).
   if(hit&&hit.side==='enemy'&&hit.u.alive){
-    const rng=_b3SkillMode?2:(sel.range||1);
-    if(Math.max(Math.abs(x-sel.pos.x),Math.abs(y-sel.pos.y))<=rng) _b3AttackOrSkill(hit.i);
-    else toast('Цель вне дальности',false);
+    if(selOk){
+      const rng=_b3SkillMode?2:(sel.range||1);
+      const inRng=Math.max(Math.abs(x-sel.pos.x),Math.abs(y-sel.pos.y))<=rng;
+      if(inRng && _b4Los(st.grid, sel.pos.x, sel.pos.y, x, y)){ _b3AttackOrSkill(hit.i); return; }
+    }
+    _b3EnemyInfo(hit.i);
     return;
   }
-  // тап по пустой/трупной клетке: в режиме навыка → выход из режима (без траты AP);
-  // иначе → ход, если клетка достижима (труп не занимает клетку для сервера)
+  // тап по пустой/трупной/рельефной клетке
   if(!hit||!hit.u.alive){
     if(_b3SkillMode){ _b3SkillMode=false; _btRender(st); return; }
-    const occSet=new Set();
-    aUnits.concat(eUnits).forEach(u=>{ if(u.alive&&u!==sel&&u.pos) occSet.add(u.pos.x+','+u.pos.y); });
-    if(_b4Reach(st.grid, sel.pos.x, sel.pos.y, sel.ap||0, occSet).has(x+','+y)) _b3Move(x,y);
+    if(selOk){
+      const occSet=new Set();
+      aUnits.concat(eUnits).forEach(u=>{ if(u.alive&&u!==sel&&u.pos) occSet.add(u.pos.x+','+u.pos.y); });
+      if(_b4Reach(st.grid, sel.pos.x, sel.pos.y, sel.ap||0, occSet).has(x+','+y)){ _b3Move(x,y); return; }
+    }
+    // клетка не для хода — если это рельеф (укрытие/опасная/препятствие), объясняем что это
+    const cellType=(st.grid[y]||[])[x];
+    if(cellType===1||cellType===2||cellType===3) _b3CellInfo(cellType);
   }
 }
 function _b3SelectUnit(i){
@@ -847,6 +874,64 @@ function _b3AttackOrSkill(targetI){
 }
 function _b3Defend(){ if(_b3Sel==null) return; _b3Act({type:'defend', unit_i:_b3Sel}); }
 function _b3EndTurn(){ _b3Act({type:'end_turn'}); }
+
+// ── Инфо-модалки боя: тап по врагу (кто это + как ударить) и по рельефу клетки ──
+const _B3I_ROLE={dd:'⚔️ Атакующий — бьёт больно, но хрупкий',tank:'🛡 Танк — много HP, держит удар',
+  sup:'✚ Поддержка — лечит и усиливает своих',assassin:'🗡 Убийца — быстрый, метит в тыл'};
+const _B3I_FX={burn:'🔥 Горит (теряет HP каждый ход)',frozen:'🧊 Заморожен (пропустит ход)',
+  stunned:'💫 Оглушён',shield:'🛡 Под щитом',regen:'🌿 Реген',weaken:'⛓ Ослаблен (бьёт слабее)',
+  web:'🕸 В паутине (урон −50%)',reflect:'↩️ Отражает урон',invuln:'✨ Неуязвим',armor_break:'🪓 Броня пробита',
+  def_up:'🛡 Защита усилена',dmg_bonus:'💢 Усилен урон',chill_aura:'❄️ Аура холода',counter:'⚔️ Контратака'};
+const _B3I_INTENT={atk:'⚔️ готовится ударить',defend:'🛡 встанет в защиту',
+  aoe:'💥 удар по всем',ult:'🔥💥 ГОТОВИТ УЛЬТУ!'};
+const _B3I_CELL={
+  1:{e:'🌲',t:'Препятствие',d:'Через него нельзя пройти, и оно перекрывает обзор — сквозь него не ударить дальней атакой (и по тебе не ударят). Прячься за ним от стрелков или обходи.'},
+  2:{e:'🪨',t:'Укрытие',d:'Пока стоишь на этой клетке, получаешь на 30% меньше урона от дальних атак. Хорошее место, чтобы переждать залп.'},
+  3:{e:'🔥',t:'Опасная клетка',d:'В начале твоего хода, пока стоишь здесь, теряешь немного HP. Не задерживайся — проходи насквозь или обойди.'},
+};
+function _b3CellInfo(type){
+  const c=_B3I_CELL[type]; if(!c) return;
+  OM(`${c.e} ${c.t}`, `<div class="b4-inf"><div class="b4-inf-d">${c.d}</div></div>`,
+    [{l:'Понятно',c:'btn-ghost',f:'CM()'}]);
+}
+function _b3EnemyInfo(i){
+  const st=_b3St; if(!st) return;
+  const e=(st.enemy.units||[])[i]; if(!e||!e.pos) return;
+  const sel=(_b3Sel!=null)?(st.ally.units||[])[_b3Sel]:null;
+  const selOk=sel&&sel.alive&&sel.pos;
+  const hpPct=Math.max(0,Math.min(100,Math.round((e.hp/(e.hp_max||1))*100)));
+  const role=_B3I_ROLE[e.role]||'';
+  const fx=(e.fx||[]).map(f=>_B3I_FX[f]||f).join(' · ');
+  const intent=(st.enemy.intents||[]).find(x=>x.i===i);
+  const intentTxt=intent?(_B3I_INTENT[intent.kind]||''):'';
+  // Подсказка «как его ударить» — по реальной причине, почему сейчас нельзя.
+  let hint;
+  if(!selOk){ hint='👆 Сначала тапни своего бойца, потом этого врага.'; }
+  else{
+    const rng=(sel.range||1);
+    const dist=Math.max(Math.abs(e.pos.x-sel.pos.x),Math.abs(e.pos.y-sel.pos.y));
+    if(dist>rng) hint=`📏 Далеко: ${dist} кл., твоя дальность ${rng}. Подойди ближе и ударь.`;
+    else if(!_b4Los(st.grid, sel.pos.x, sel.pos.y, e.pos.x, e.pos.y))
+      hint='🌲 Обзор перекрыт препятствием — зайди сбоку, чтобы ударить.';
+    else hint='🎯 В дальности! Тапни ещё раз по нему, чтобы ударить.';
+  }
+  const body=`<div class="b4-inf">
+    <div class="b4-inf-head">
+      <span class="b4-inf-emo">${e.emoji||'👾'}</span>
+      <div class="b4-inf-id">
+        <div class="b4-inf-name">${esc(e.name||'Враг')} ${e.element_emoji||''}${e.boss?' 👑':''}</div>
+        ${role?`<div class="b4-inf-role">${role}</div>`:''}
+      </div>
+    </div>
+    <div class="b4-inf-hpbar"><span style="width:${hpPct}%"></span></div>
+    <div class="b4-inf-hp">❤️ ${Math.max(0,Math.round(e.hp))} / ${e.hp_max}${e.shield?` &nbsp;🛡 ${e.shield}`:''}</div>
+    ${intentTxt?`<div class="b4-inf-row"><span class="b4-inf-k">Намерение</span><span>${intentTxt}</span></div>`:''}
+    ${e.defending?'<div class="b4-inf-row"><span class="b4-inf-k">Сейчас</span><span>🛡 в защите (−40%)</span></div>':''}
+    ${fx?`<div class="b4-inf-row"><span class="b4-inf-k">Статусы</span><span>${fx}</span></div>`:''}
+    <div class="b4-inf-hint">${hint}</div>
+  </div>`;
+  OM('👾 Враг', body, [{l:'Понятно',c:'btn-ghost',f:'CM()'}]);
+}
 function _b3TriadAct(){ _b3Act({type:'triad'}); }
 function _b3Api(path, body, after){
   if(_b3Lock||_b3Playing) return;

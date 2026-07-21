@@ -21,16 +21,25 @@
   <div class="pl-skip">нажми, чтобы пропустить</div>
 </div>
 
-<!-- ═══ ХЕДЕР: игрок + валюты (✨ с кнопкой пополнения — всегда на виду) ═══ -->
+<!-- ═══ ХЕДЕР (двухслойный): 1) игрок + «Что нового», 2) валюты во всю ширину ═══ -->
 <header id="app-header">
-  <div class="hdr-user" onclick="goTo('profile')">
-    <div class="hdr-ava" id="hdr-ava">🔮</div>
-    <div class="hdr-id">
-      <div class="hdr-name" id="hdr-name">Игрок</div>
-      <div class="hdr-sub" id="hdr-sub">…</div>
+  <div class="hdr-row hdr-row-top">
+    <div class="hdr-user" onclick="goTo('profile')">
+      <div class="hdr-ava" id="hdr-ava">🔮</div>
+      <div class="hdr-id">
+        <div class="hdr-name" id="hdr-name">Игрок</div>
+        <div class="hdr-sub" id="hdr-sub">…</div>
+      </div>
+    </div>
+    <div class="hdr-actions">
+      <button class="hdr-news" id="whatsnew-btn" onclick="openWhatsNew()" aria-label="Что нового">
+        <span class="hn-ic">📣</span>
+        <span class="hn-dot" id="whatsnew-dot" hidden></span>
+      </button>
+      <button class="hdr-refresh" onclick="refreshPage()" aria-label="Обновить">🔄</button>
     </div>
   </div>
-  <div style="display:flex;align-items:center;gap:5px;flex:1;min-width:0;justify-content:flex-end">
+  <div class="hdr-row hdr-row-curr">
     <div id="curr-bar" aria-label="Ваши валюты — нажмите для подробностей">
       <span class="cb-item"><span>🪙</span><span class="cb-val" id="cb-mora">0</span></span>
       <span class="cb-item"><span>💎</span><span class="cb-val" id="cb-dia">0.0</span></span>
@@ -40,7 +49,6 @@
       <span class="cb-item" id="cb-dark-item" style="display:none"><span>🌑</span><span class="cb-val" id="cb-dark">0</span></span>
       <span class="cb-info">ⓘ</span>
     </div>
-    <button class="hdr-refresh" onclick="refreshPage()" aria-label="Обновить">🔄</button>
   </div>
 </header>
 
@@ -317,6 +325,8 @@
 </div>
 
 <!-- ═══ 15. ЕЩЁ — Control Center ═══ -->
+<div id="pg-news" class="page"></div>
+
 <div id="pg-more" class="page">
   <div class="cc-grid">
     <div class="cc-card cc-bp" onclick="goTo('bp')"><span class="cc-ic">🎫</span><span class="cc-t">Пропуск</span><span class="cc-s">Боевой пропуск</span></div>
