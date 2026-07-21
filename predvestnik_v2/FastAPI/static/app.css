@@ -60,7 +60,7 @@ body {
     radial-gradient(900px 420px at -10% 0%, rgba(232,181,77,.07), transparent 55%),
     var(--bg0);
   color: var(--text);
-  padding: 62px 12px calc(88px + var(--safe-b));
+  padding: 88px 12px calc(88px + var(--safe-b));
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -82,17 +82,19 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 /* ═══ ХЕДЕР: профиль + валюты + донат-CTA (всегда на виду) ══════════════════ */
 #app-header {
   position: fixed; inset: 0 0 auto 0; z-index: 90;
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 8px 12px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  padding: 7px 12px;
   background: linear-gradient(180deg, rgba(10,11,20,.96), rgba(10,11,20,.82));
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border2);
 }
-/* UX-фикс (скрин юзера 2026-07-08): валютные чипы наезжали на аватар/ник и
-   вылезали за экран при 4 валютах или больших числах. Теперь блок юзера
-   не сжимается, а валютный бар скроллится горизонтально (скроллбар скрыт),
-   числа ≥10к компактятся в JS (12,3к / 1,2М) — точные значения по тапу ⓘ. */
-.hdr-user { display: flex; align-items: center; gap: 8px; flex: none; cursor: pointer; transition: transform .15s; }
+/* Двухслойная шапка (2026-07-22): слой 1 — игрок + действия («Что нового», 🔄),
+   слой 2 — валюты во всю ширину ряда. Раньше всё было в одном ряду, и при 4-5
+   валютах бар скроллился горизонтально (валюты обрезались). Теперь ряд валют
+   получает всю ширину и не скроллится; числа ≥10к компактятся в JS (12,3к/1,2М). */
+.hdr-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.hdr-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.hdr-user { display: flex; align-items: center; gap: 8px; flex: none; cursor: pointer; transition: transform .15s; min-width: 0; }
 .hdr-user:active { transform: scale(.96); }
 .hdr-ava {
   width: 34px; height: 34px; border-radius: 12px; flex: none;
@@ -100,15 +102,16 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   background: linear-gradient(135deg, var(--violet-dim), var(--gold-dim));
   border: 1px solid var(--border2); overflow: hidden;
 }
-.hdr-name { font-size: 12px; font-weight: 700; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 108px; }
+.hdr-id { min-width: 0; }
+.hdr-name { font-size: 13px; font-weight: 700; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
 .hdr-sub { font-size: 9.5px; color: var(--muted); white-space: nowrap; }
 
-#curr-bar { display: flex; align-items: center; gap: 5px; cursor: pointer;
-  min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+/* Слой 2 шапки: валюты кластером слева во всю ширину ряда, ⓘ прижата к правому
+   краю для баланса. Ряд получает всю ширину → не скроллится (overflow-x:auto
+   остаётся страховкой для сверхузких экранов, скроллбар скрыт). */
+#curr-bar { display: flex; align-items: center; gap: 7px; cursor: pointer;
+  width: 100%; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 #curr-bar::-webkit-scrollbar { display: none; }
-/* margin-left:auto вместо justify-content:flex-end: при переполнении flex-end
-   делает левый край недоступным для скролла, auto-маржин — нет */
-#curr-bar > :first-child { margin-left: auto; }
 .cb-item {
   display: flex; align-items: center; gap: 4px; flex: none; white-space: nowrap;
   font-size: 11px; font-weight: 700; color: var(--bright);
@@ -120,7 +123,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .cb-val { font-variant-numeric: tabular-nums; }
 /* UX-аудит: подсказка «тапни для подробностей» была видна только через
    aria-label (незрячим), зрячие не понимали, что валюты кликабельны. */
-.cb-info { font-size: 11px; color: var(--muted); opacity: .6; margin-left: 1px; }
+.cb-info { font-size: 12px; color: var(--muted); opacity: .6; margin-left: auto; }
 @keyframes currencyPop {
   0%   { transform: scale(1); }
   35%  { transform: scale(1.25); color: var(--gold2); }
@@ -140,6 +143,24 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   transition: transform .15s;
 }
 .cb-plus:active { transform: scale(.85); }
+/* «Что нового»: иконка-вход в слое 1. Золотая точка-бейдж — сигнал «есть
+   непрочитанное» (свет = состояние, по DESIGN.md). Блюр свечения <10px. */
+.hdr-news {
+  position: relative;
+  border: 1px solid var(--border2); background: var(--bg2); color: var(--muted);
+  width: 30px; height: 30px; border-radius: 10px; font-size: 15px; cursor: pointer; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, border-color .15s;
+}
+.hdr-news:active { transform: scale(.9); }
+.hdr-news.has-new { border-color: var(--border); }
+.hn-ic { line-height: 1; }
+.hn-dot {
+  position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 0 6px rgba(232,181,77,.9);
+  animation: pulseDot 2.2s infinite;
+}
+.hn-dot[hidden] { display: none; }
 .hdr-refresh {
   border: 1px solid var(--border2); background: var(--bg2); color: var(--muted);
   width: 30px; height: 30px; border-radius: 10px; font-size: 13px; cursor: pointer; flex: none;
@@ -2076,6 +2097,12 @@ dialog#modal {
   width: 100%; max-width: 480px;
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
   margin: 0; max-height: 86vh; top: auto;
+  /* Явный z-index выше боевого оверлея (.b3-ov=340) и гейтов. showModal() кладёт
+     диалог в top-layer (поверх всего) в совместимых браузерах, но webview Telegram
+     (особенно Android) top-layer не всегда чтит — тогда без z-index боттом-шит
+     уезжал ПОД .b3-ov, и тот перехватывал все тапы («Выйти»/«Сдаться» не работали).
+     z-index чинит fallback и не вредит там, где top-layer уже работает. */
+  z-index: 500;
 }
 dialog#modal::backdrop { background: rgba(4,5,10,.66); backdrop-filter: blur(3px); }
 dialog#modal[open] .sheet { animation: sheetUp .32s cubic-bezier(.32,.72,.24,1) both; }
@@ -2113,7 +2140,7 @@ body.modal-open { overflow: hidden; }
 }
 .toast {
   position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-14px) scale(.94);
-  z-index: 200; padding: 10px 18px; border-radius: 999px;
+  z-index: 600; padding: 10px 18px; border-radius: 999px;   /* выше .b3-ov(340)/модалки(500) — тосты во время боя не прятались */
   font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none;
   transition: opacity .2s ease-out; box-shadow: var(--shadow); max-width: 88vw;
 }
@@ -2697,3 +2724,83 @@ body.no-fx .b3-outcome-won::before, body.no-fx .b3-outcome-lost::before { animat
    промежуточного режима не нужно, просто гасим (см. PETS_REDESIGN_CONCEPT §5) */
 @media (prefers-reduced-motion: reduce) { .zc-card-in, .zc-slot-fill { animation: none; } }
 body.no-fx .zc-card-in, body.no-fx .zc-slot-fill { animation: none; }
+
+/* ═══ «Что нового» — лента обновлений (страница pg-news) ══════════════════════
+   Сканируемая лента: свёрнутые карточки (тег+дата+заголовок+1 строка сути),
+   раскрытие тапом. Теги — тонированные чипы по DESIGN.md. Бейдж «Новое» — золото
+   (свет = сигнал/ценность), блюр свечения умеренный. */
+.wn-head { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+.wn-back {
+  width: 34px; height: 34px; border-radius: 11px; flex: none;
+  border: 1px solid var(--border2); background: var(--bg2); color: var(--bright);
+  font-size: 20px; line-height: 1; cursor: pointer; transition: transform .15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.wn-back:active { transform: scale(.9); }
+.wn-htitle { font-size: 15px; font-weight: 800; color: var(--bright); }
+
+.wn-list { display: flex; flex-direction: column; gap: 10px; }
+.wn-card {
+  background: linear-gradient(180deg, var(--bg2), var(--bg1));
+  border: 1px solid var(--border2); border-radius: var(--r);
+  overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.wn-card--new { border-color: var(--border); }
+.wn-card-head {
+  display: block; width: 100%; text-align: left; border: none; background: none;
+  cursor: pointer; padding: 13px 14px; position: relative; color: inherit; font: inherit;
+  transition: background .15s;
+}
+.wn-card-head:active { background: rgba(255,255,255,.03); }
+.wn-card-meta { display: flex; align-items: center; gap: 7px; margin-bottom: 7px; }
+.wn-tag { font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+.wn-tag--feat    { color: var(--violet); background: rgba(139,108,240,.14); border: 1px solid rgba(139,108,240,.30); }
+.wn-tag--fix     { color: var(--teal);   background: rgba(70,200,192,.13);  border: 1px solid rgba(70,200,192,.30); }
+.wn-tag--content { color: var(--blue);   background: rgba(94,155,240,.13);  border: 1px solid rgba(94,155,240,.30); }
+.wn-tag--balance { color: var(--green);  background: rgba(86,196,106,.13);  border: 1px solid rgba(86,196,106,.30); }
+.wn-date { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.wn-new-badge {
+  margin-left: auto; font-size: 10px; font-weight: 800; color: var(--gold);
+  letter-spacing: .3px; text-shadow: 0 0 6px rgba(232,181,77,.55);
+}
+.wn-card-title { font-size: 14px; font-weight: 700; color: var(--bright); margin-bottom: 3px; padding-right: 22px; }
+.wn-card-sum { font-size: 12px; color: var(--text); line-height: 1.45; padding-right: 22px; }
+.wn-chevron { position: absolute; right: 14px; top: 14px; color: var(--muted); font-size: 13px; transition: transform .25s; }
+.wn-card--open .wn-chevron { transform: rotate(180deg); }
+.wn-card-body { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
+.wn-card--open .wn-card-body { max-height: 700px; }
+.wn-details { margin: 0; padding: 0 14px 12px 28px; list-style: none; }
+.wn-details li {
+  font-size: 13px; color: var(--text); line-height: 1.5; padding: 6px 0;
+  border-top: 1px solid var(--border2);
+}
+.wn-details li:first-child { border-top: none; padding-top: 2px; }
+.wn-term { color: var(--gold2); border-bottom: 1px dotted rgba(232,181,77,.6); cursor: pointer; font-weight: 600; }
+.wn-term:active { opacity: .7; }
+
+/* Мини-поповер термина (маленький, на месте) */
+.wn-pop {
+  position: absolute; z-index: 200; max-width: 240px;
+  background: linear-gradient(180deg, var(--bg3), var(--bg2));
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 9px 11px; box-shadow: var(--shadow); animation: pop .16s ease-out;
+}
+.wn-pop-term { font-size: 12px; font-weight: 800; color: var(--gold2); margin-bottom: 3px; }
+.wn-pop-def { font-size: 11.5px; color: var(--text); line-height: 1.45; }
+@media (prefers-reduced-motion: reduce) { .wn-card-body, .wn-chevron, .wn-pop { transition: none; animation: none; } }
+body.no-fx .wn-pop { animation: none; }
+
+/* ═══ Инфо-модалки боя: тап по врагу (характеристики + как ударить) / по рельефу ══ */
+.b4-inf { display: flex; flex-direction: column; gap: 9px; }
+.b4-inf-d { font-size: 13px; color: var(--text); line-height: 1.55; }
+.b4-inf-head { display: flex; align-items: center; gap: 11px; }
+.b4-inf-emo { font-size: 34px; line-height: 1; flex: none; }
+.b4-inf-id { min-width: 0; }
+.b4-inf-name { font-size: 15px; font-weight: 800; color: var(--bright); }
+.b4-inf-role { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.b4-inf-hpbar { height: 7px; border-radius: 4px; background: var(--bg0); overflow: hidden; }
+.b4-inf-hpbar > span { display: block; height: 100%; border-radius: 4px; background: var(--red); }
+.b4-inf-hp { font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
+.b4-inf-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--text); padding: 5px 0; border-top: 1px solid var(--border2); }
+.b4-inf-k { color: var(--muted); }
+.b4-inf-hint { font-size: 12.5px; color: var(--gold2); background: var(--gold-dim); border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; line-height: 1.45; }

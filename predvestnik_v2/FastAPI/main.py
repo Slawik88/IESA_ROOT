@@ -241,11 +241,19 @@ _APP_JS = "".join(_read_static(p) for p in _APP_JS_PARTS)
 # БЛОК 25: dev-оверлей — отдельный скрипт (НЕ в склейке), активируется только
 # после 200 от /admin/dev-overlay/check; данные за гейтом на бэке.
 _APP_DEVMODE_JS = _read_static("app.devmode.js")
+# Лента «Что нового»: владелец правит FastAPI/static/updates.json как текст
+# (при деплое перечитывается). Отдаётся как обычный JSON — фронт рендерит страницу.
+_UPDATES_JSON = _read_static("updates.json")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def mini_app():
     return HTMLResponse(_INDEX_HTML)
+
+
+@app.get("/updates.json")
+async def updates_feed():
+    return Response(_UPDATES_JSON, media_type="application/json; charset=utf-8")
 
 
 @app.get("/static/app.css")

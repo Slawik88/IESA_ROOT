@@ -439,7 +439,8 @@ let _activePage = 'profile';
 const _PAGE_LOADERS = {
   zoo:loadZoo, arena:loadArena, market:loadMarket,
   bp:loadBattlePass, auction:loadAuctionPage,
-  admin:loadAdmin, global:loadGlobal, console:loadConsole, help:()=>{}
+  admin:loadAdmin, global:loadGlobal, console:loadConsole, help:()=>{},
+  news:loadWhatsNew
 };
 
 // Карта page→flag_key: только те страницы, которые управляются ползунком в dev-консоли.

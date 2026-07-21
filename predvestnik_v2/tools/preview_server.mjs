@@ -593,6 +593,11 @@ const server = http.createServer((req, res) => {
     if (fs.existsSync(f)) return send(res, 200, fs.readFileSync(f), 'application/json');
     return send(res, 200, { name: 'Предвестник', display: 'standalone' });
   }
+  if (p === '/updates.json') {
+    const f = path.join(STATIC, 'updates.json');
+    if (fs.existsSync(f)) return send(res, 200, fs.readFileSync(f), 'application/json');
+    return send(res, 404, { detail: 'нет файла' });
+  }
 
   const key = `${req.method} ${p}`;
   const hit = Object.prototype.hasOwnProperty.call(MOCKS, key) ? MOCKS[key] : null;
