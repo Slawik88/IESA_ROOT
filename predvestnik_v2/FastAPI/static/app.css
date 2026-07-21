@@ -2475,7 +2475,10 @@ body.modal-open { overflow: hidden; }
   50% { border-color: rgba(224,82,82,.8); } }
 .b4-terr { position: absolute; font-size: 15px; opacity: .55; pointer-events: none; }
 /* подсветки при выбранном юните: ход = точка-след, атака = кольцо-прицел, угроза врага */
-.b4-reach { background: rgba(94,155,240,.09); border-color: rgba(94,155,240,.4); box-shadow: none; }
+/* Только точка-след (без заливки/border) — иначе на клетках рельефа (укрытие/опасно)
+   .b4-reach забивает их предупреждающий цвет каскадом (source order = равная
+   специфичность). Клетка обязана оставаться читаемой как «опасно»/«укрытие» ДАЖЕ
+   когда она входит в зону хода — там это важнее всего. */
 .b4-reach::after { content: ''; position: absolute; top: 50%; left: 50%; width: 26%; height: 26%;
   transform: translate(-50%, -50%); border-radius: 50%; background: rgba(125,178,250,.85);
   box-shadow: 0 0 6px rgba(94,155,240,.7); pointer-events: none; z-index: 1; }
@@ -2543,9 +2546,12 @@ body.modal-open { overflow: hidden; }
 @keyframes b4CoachIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .b4-coach-t { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.4; color: var(--text); }
 .b4-coach-ic { font-size: 16px; line-height: 1.2; flex: 0 0 auto; }
+/* «Пропустить» — в общей нижней строке с «Шаг X из Y» (не абсолютом поверх текста
+   переменной длины — та компоновка ловила наложение при длинных подсказках). */
+.b4-coach-foot { display: flex; align-items: center; justify-content: space-between; }
 .b4-coach-step { font-size: 9.5px; color: var(--muted); font-weight: 600; }
-.b4-coach-skip { position: absolute; top: 7px; right: 9px; background: none; border: none;
-  color: var(--muted); font-size: 10px; padding: 2px; cursor: pointer; }
+.b4-coach-skip { background: none; border: none; color: var(--muted); font-size: 10px;
+  padding: 2px; cursor: pointer; }
 .b4-coach-hl { animation: b4CoachHl 1.1s ease-in-out infinite; }
 @keyframes b4CoachHl { 0%, 100% { box-shadow: 0 0 0 2px rgba(232,181,77,.55); }
   50% { box-shadow: 0 0 0 2px var(--gold2), 0 0 14px 3px rgba(232,181,77,.7); } }
