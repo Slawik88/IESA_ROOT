@@ -592,28 +592,58 @@ def _enemy_attack(state, ei, ti, events, mult=1.0):
         state["enemy"]["rage"] = max(0, state["enemy"]["rage"] - 6)
 
 
+def _beat(state, ei, kind, from_pos=None, to_pos=None, hits_from=None, text=""):
+    """Онбординг боя: добавляет бит в «ленту хода врага» (state['timeline_round']) для
+    пошаговой анимации на клиенте. Лента транзиентна (в БД не пишется — попается в
+    _end_round). hits_from — индекс в hits_round, с которого этот бит нанёс урон:
+    срез становится beat['hits'] (клиент проигрывает FX только по ним, без дублей)."""
+    tl = state.get("timeline_round")
+    if tl is None:
+        return
+    beat = {"actor": {"side": "enemy", "i": ei}, "kind": kind,
+            "from": {"x": from_pos[0], "y": from_pos[1]} if from_pos else None,
+            "to": {"x": to_pos[0], "y": to_pos[1]} if to_pos else None,
+            "text": text}
+    if hits_from is not None:
+        beat["hits"] = list(state.get("hits_round", [])[hits_from:])
+    tl.append(beat)
+
+
 def _execute_enemy_plan(state, ei, plan, events):
     e = state["enemy"]["units"][ei]
     cell = plan.get("cell")
-    if cell and cell != _pos(e):
+    old = _pos(e)
+    if cell and cell != old:
         e["pos"] = {"x": cell[0], "y": cell[1]}
+        _beat(state, ei, "move", from_pos=old, to_pos=cell,
+              text=f"{e['emoji']} {e['name']} перемещается")
     if plan["kind"] == "attack":
+        h0 = len(state.get("hits_round", []))
         _enemy_attack(state, ei, plan["target"], events)
+        tgt = state["ally"]["units"][plan["target"]]
+        _beat(state, ei, "attack", hits_from=h0,
+              text=f"{e['emoji']} {e['name']} → {tgt['name']}")
     elif plan["kind"] == "defend":
         e["shield"] = e.get("shield", 0) + int(e["hp_max"] * 0.15)
         events.append(f"🛡 {e['name']} укрепляется")
+        _beat(state, ei, "defend", text=f"🛡 {e['name']} укрепляется")
 
 
 def _enemy_aoe(state, ei, events):
     e = state["enemy"]["units"][ei]
     events.append(f"💥 {e['emoji']} {e['name']}: СОКРУШАЮЩИЙ УДАР по всем!")
+    h0 = len(state.get("hits_round", []))
     for ti in _alive_idx(state["ally"]["units"]):
         _enemy_attack(state, ei, ti, events, mult=0.7)
+    _beat(state, ei, "aoe", hits_from=h0,
+          text=f"{e['emoji']} {e['name']}: СОКРУШАЮЩИЙ УДАР!")
 
 
 # ── Фаза врага и конец раунда ─────────────────────────────────────────────────
 
 def _enemy_phase(state: dict, events: list) -> None:
+    # Онбординг боя: открываем ленту битов на эту фазу (пошаговая анимация фронта).
+    state["timeline_round"] = []
     # «Абсолютный ноль» и подобные ульты выставляют skip_next — вся фаза врага пропущена.
     if state["enemy"].get("skip_next"):
         state["enemy"]["skip_next"] = False
@@ -632,7 +662,10 @@ def _enemy_phase(state: dict, events: list) -> None:
             e = state["enemy"]["units"][ei]
             ti = min(alive_a, key=lambda i: state["ally"]["units"][i]["hp"])
             events.append(f"💥 УЛЬТА ВРАГА: {e['emoji']} {e['name']}!")
+            h0 = len(state.get("hits_round", []))
             _enemy_attack(state, ei, ti, events, mult=1.8)
+            _beat(state, ei, "ult", hits_from=h0,
+                  text=f"💥 УЛЬТА: {e['emoji']} {e['name']}!")
             if _battle_over(state):
                 return
     enemies = state["enemy"]["units"]
@@ -645,6 +678,7 @@ def _enemy_phase(state: dict, events: list) -> None:
             continue
         if e["statuses"].pop("frozen", None) or e["statuses"].pop("stunned", None):
             events.append(f"❄️ {e['name']} пропускает действие")
+            _beat(state, ei, "skip", text=f"❄️ {e['name']} скован")
             continue
         is_boss = bool(e.get("boss"))
         if is_boss and state["round"] % 3 == 0:
@@ -721,6 +755,7 @@ def _finish_round(state: dict, skip_enemy: bool = False) -> dict:
     won = not _alive_idx(state["enemy"]["units"])
     lost = not _alive_idx(state["ally"]["units"])
     hits = state.pop("hits_round", [])
+    state.pop("timeline_round", None)   # онбординг боя: не даём ленте утечь в state (старый движок)
     if won or lost:
         state["status"] = "won" if won else "lost"
         return {"phase": "over", "won": won, "lost": lost, "hits": hits}
@@ -895,15 +930,16 @@ def _end_round(state: dict, over: bool) -> dict:
     state["log"] = (state.get("log", []) + events)[-30:]
     state["events_round"] = []
     hits = state.pop("hits_round", [])
+    timeline = state.pop("timeline_round", [])   # онбординг боя: лента хода врага
     if _battle_over(state) or over:
         state["status"] = ("won" if not _alive_idx(state["enemy"]["units"]) else "lost")
-        return {"ok": True, "phase": "over", "hits": hits}
+        return {"ok": True, "phase": "over", "hits": hits, "timeline": timeline}
     begin_round(state)                     # пока СТАРЫЙ intents; C1 упростит telegraph
     begin_player_turn(state)               # новый AP-reset
     if _battle_over(state):
         state["status"] = ("won" if not _alive_idx(state["enemy"]["units"]) else "lost")
-        return {"ok": True, "phase": "over", "hits": hits}
-    return {"ok": True, "phase": "next", "hits": hits}
+        return {"ok": True, "phase": "over", "hits": hits, "timeline": timeline}
+    return {"ok": True, "phase": "next", "hits": hits, "timeline": timeline}
 
 
 # ── Генераторы врагов ─────────────────────────────────────────────────────────
