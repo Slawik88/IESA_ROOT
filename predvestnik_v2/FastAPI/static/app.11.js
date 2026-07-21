@@ -12,6 +12,10 @@ let _b3OutcomeShown=false, _b3Round=0;
 // в финальное состояние. Тайминги зеркалят core/constants.py::B4_BEAT_*.
 let _b3Playing=false, _b3PlayTimer=null, _b3PendingFinal=null, _b3SkipReq=false;
 const B4_BEAT_MOVE_MS=300, B4_BEAT_HIT_MS=220, B4_BEAT_GAP_MS=180;
+// Онбординг боя: коуч-слой скриптованного «Первого боя». Индекс текущего шага и
+// стартовый суммарный HP врагов (веха «нанёс первый урон»). Мягкое ведение — шаги
+// продвигаются по наблюдаемому состоянию, игрок волен действовать иначе.
+let _b3CoachIdx=0, _b3CoachEnemyHp0=null;
 
 const B3_EL_ICO={fire:'🔥',ice:'❄️',storm:'⚡',earth:'🗿',dark:'🌑'};
 // BATTLE_VFX_CONCEPT.md (блок 2): цвет вспышек/чисел урона по стихии атакующего.
@@ -241,6 +245,9 @@ function loadGates(){
         Победа: Тёмная Мора + ${lo.shard_chance_pct||20}% шанс ${(lo.shard_range||[1,3]).join('–')} 🔷,
         на этажах 5–6 — ещё и осколки юнитов (см. ниже).
         Входов сегодня: <b>${d.entries_left}</b> · Твоя Сила: ⚡${fmt(d.cp)}.</div>
+      ${d.tutorial_done===false
+        ? `<button class="btn btn-gold btn-full" style="margin:8px 0" onclick="_gtTutorialStart(this)">▶ Пройти обучение «Первый бой»</button>`
+        : `<button class="btn btn-sm btn-ghost" style="margin:6px 0" onclick="_gtTutorialStart(this)">🎓 Пройти обучение заново</button>`}
       ${squad?`<div class="looks-slot-t">⚔️ Отряд (⚡${fmt(d.squad_cp)})</div><div class="bk-chips">${squad}</div>`
         :`<div class="cx-dim" style="font-size:11px">Отряда нет.</div>
           <button class="btn btn-sm btn-gold" style="margin-top:4px" onclick="goTo('arena','barracks')">🏰 Собрать отряд</button>`}
@@ -277,6 +284,16 @@ function _gtEnter(floor,btn){
     .then(st=>{_haptic('medium');_btRender(st);})
     .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
+// Онбординг боя: запуск/перезапуск скриптованного «Первого боя» (коуч-слой сам
+// ведёт по вехам). Сбрасываем прогресс коуча перед стартом.
+function _gtTutorialStart(btn){
+  if(btn)btn.disabled=true;
+  _btBackFn=loadGates;
+  _b3CoachReset();
+  api('/combat2/tutorial/start',{method:'POST'})
+    .then(st=>{_haptic('medium');_btRender(st);})
+    .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
+}
 
 // ── АРЕНА: полноэкранный бой ──────────────────────────────────────────────────
 function _b3Ov(){
@@ -307,6 +324,43 @@ function _b3Legend(){
     <div class="b4-lg-sec">Шкалы</div>
     <div class="b4-lg-row">⚡ AP — очки действий: шаг / атака / навык / защита. Ярость 100 → 💥 ульта.</div>
   </div>`, [{l:'Понятно',c:'btn-gold',f:'CM()'}]);
+}
+// ── Онбординг боя: коуч-слой «Первого боя» (data-driven, мягкое ведение) ────────
+function _b3EnemyHpSum(st){
+  return ((st.enemy||{}).units||[]).reduce(function(s,u){ return s+(u.alive?u.hp:0); }, 0);
+}
+function _b3CoachReset(){ _b3CoachIdx=0; _b3CoachEnemyHp0=null; }
+function _b3CoachSkip(){ _b3CoachIdx=9999; if(_b3St) _btRender(_b3St); }
+// Возвращает текущий шаг обучения {text, hlSel, idx, total} или null. Шаги — по
+// наблюдаемым вехам состояния (выбор → первый урон → конец хода → фаза врага → ярость).
+function _b3CoachStep(st){
+  if(!st || !st.tutorial || st.status==='lost') return null;
+  if(_b3CoachEnemyHp0==null) _b3CoachEnemyHp0=_b3EnemyHpSum(st);
+  const aUnits=(st.ally||{}).units||[];
+  let firstAlly=-1;
+  for(let i=0;i<aUnits.length;i++){ if(aUnits[i].alive){ firstAlly=i; break; } }
+  const rage=(st.ally||{}).rage||0;
+  const steps=[
+    { text:'👆 <b>Тапни своего бойца</b> — подсветятся клетки хода и цели.',
+      hl: firstAlly>=0?'#b4-tok-ally-'+firstAlly:null,
+      done: _b3Sel!=null },
+    { text:'🔵 Точки — куда <b>шагнуть</b>. 🎯 Кольцо-прицел — <b>враг в дальности</b>: тапни по нему, чтобы ударить.',
+      hl: null,
+      done: _b3EnemyHpSum(st) < _b3CoachEnemyHp0 },
+    { text:'💡 Прячься в 🪨 укрытие (−30%), 🛡 <b>Защита</b> (−40%), бей открытого (+25%). Кончились ⚡AP — жми <b>«Конец хода»</b>.',
+      hl: '.b4-endturn',
+      done: (st.round||1) > 1 },
+    { text:'👀 Вот как ходит <b>враг</b>: сначала намерение, потом шаг, потом удар. Продолжай — добивай врагов!',
+      hl: null,
+      done: rage>=100 || st.status==='won' },
+    { text:'💥 <b>Ярость полна!</b> Выбери бойца и жми 💥 ульту — по кольцу тапни в момент сжатия.',
+      hl: null,
+      done: st.status==='won' },
+  ];
+  while(_b3CoachIdx<steps.length && steps[_b3CoachIdx].done) _b3CoachIdx++;
+  if(_b3CoachIdx>=steps.length) return null;
+  const s=steps[_b3CoachIdx];
+  return { text:s.text, hlSel:s.hl, idx:_b3CoachIdx, total:steps.length };
 }
 function _btRender(st, turn, reward){
   // Боёвка 4.0: клеточная арена (Врата/Бездна/Войны — app.02/app.11).
@@ -438,6 +492,15 @@ function _btRender(st, turn, reward){
     </div>`;
   }
 
+  // Онбординг боя: коуч-пузырь скриптованного «Первого боя» (в потоке, над панелью
+  // действий — не перекрывает кнопки). Подсветку цели вешаем после рендера.
+  const coach = st.tutorial ? _b3CoachStep(st) : null;
+  const coachHtml = coach ? `<div class="b4-coach">
+      <button class="b4-coach-skip" onclick="_b3CoachSkip()">Пропустить обучение ✕</button>
+      <div class="b4-coach-t"><span class="b4-coach-ic">🎓</span><span>${coach.text}</span></div>
+      <div class="b4-coach-step">Шаг ${coach.idx+1} из ${coach.total}</div>
+    </div>` : '';
+
   ov.innerHTML=`
     <div class="b3-top">
       <span class="b3-round">Раунд ${st.round}${st.escalation?` · 🔥+${Math.round(st.escalation*100)}%`:''}</span>
@@ -452,6 +515,7 @@ function _btRender(st, turn, reward){
     ${grade?`<div class="bt-flash bt-flash-${grade}"></div>`:''}
     <div class="b3-rage"><div class="b3-rage-f b3-rage-my" style="width:${rageA}%"></div><span>твоя ярость ${rageA}${rageA>=100?' — УЛЬТА ГОТОВА!':''}</span></div>
     <div class="b4-mid">
+      ${coachHtml}
       ${headHtml}
       ${qte?`<div class="bt-qte b3-qte" onclick="_b3QteTap()">
           <div class="bt-ring" id="b3-ring"></div>
@@ -463,6 +527,8 @@ function _btRender(st, turn, reward){
     ${finished?`<button class="btn btn-gold btn-full" style="margin-top:6px" onclick="_btBack()">↩ Назад</button>`:''}
   `;
   if(qte) _b3StartQte(st.qte);
+  // Онбординг боя: подсвечиваем цель текущего шага обучения (токен/кнопка) — glow.
+  if(coach && coach.hlSel){ const _hl=ov.querySelector(coach.hlSel); if(_hl) _hl.classList.add('b4-coach-hl'); }
   // BATTLE_VFX_CONCEPT.md (блок 2): бьём по СВЕЖЕ отрендеренным токенам.
   if(!finished) _b3OutcomeShown=false;
   if(turn&&turn.hits&&turn.hits.length) _b3PlayHitFx(turn.hits, grade&&grade!=='miss');
