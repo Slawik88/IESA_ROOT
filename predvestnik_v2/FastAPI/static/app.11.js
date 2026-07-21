@@ -450,28 +450,40 @@ function _btRender(st, turn, reward){
   }
 }
 function _b3CardEl(side,i){ return el('b4-tok-'+(side==='enemy'?'enemy':'ally')+'-'+i); }
+function _b3OneHitFx(h,isCrit){
+  const color=B3_ELEMENT_COLORS[h.elem]||'#e8b54d';
+  const tgt=_b3CardEl(h.side,h.i);
+  if(tgt){
+    tgt.style.setProperty('--el-color',color);
+    tgt.classList.remove('b3-hit-shake','b3-hit-flash'); void tgt.offsetWidth;
+    tgt.classList.add('b3-hit-shake','b3-hit-flash');
+    const num=document.createElement('div');
+    num.className='b3-dmg-num'+(isCrit?' b3-dmg-crit':'');
+    num.textContent='-'+fmt(h.dmg);
+    tgt.appendChild(num);
+    setTimeout(()=>{ try{num.remove();}catch(e){} },650);
+  }
+  if(h.src_side!=null&&h.src_i!=null){
+    const atk=_b3CardEl(h.src_side,h.src_i);
+    if(atk){
+      atk.style.setProperty('--el-color',color);
+      atk.classList.remove('b3-act-pulse'); void atk.offsetWidth;
+      atk.classList.add('b3-act-pulse');
+    }
+  }
+}
 function _b3PlayHitFx(hits,isCrit){
-  (hits||[]).forEach(h=>{
-    const color=B3_ELEMENT_COLORS[h.elem]||'#e8b54d';
-    const tgt=_b3CardEl(h.side,h.i);
-    if(tgt){
-      tgt.style.setProperty('--el-color',color);
-      tgt.classList.remove('b3-hit-shake','b3-hit-flash'); void tgt.offsetWidth;
-      tgt.classList.add('b3-hit-shake','b3-hit-flash');
-      const num=document.createElement('div');
-      num.className='b3-dmg-num'+(isCrit?' b3-dmg-crit':'');
-      num.textContent='-'+fmt(h.dmg);
-      tgt.appendChild(num);
-      setTimeout(()=>{ try{num.remove();}catch(e){} },650);
-    }
-    if(h.src_side!=null&&h.src_i!=null){
-      const atk=_b3CardEl(h.src_side,h.src_i);
-      if(atk){
-        atk.style.setProperty('--el-color',color);
-        atk.classList.remove('b3-act-pulse'); void atk.offsetWidth;
-        atk.classList.add('b3-act-pulse');
-      }
-    }
+  const arr=hits||[];
+  // Ход врага приходит одним ответом сервера (все его удары разом) — разносим FX
+  // во времени, чтобы фаза врага читалась как серия ударов, а не мгновенная вспышка.
+  // Без движения (no-fx/reduced-motion) — без задержек, всё сразу.
+  let noMotion=false;
+  try{ noMotion=document.body.classList.contains('no-fx')
+    || (window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches); }catch(e){}
+  const gap=(noMotion||arr.length<=1)?0:240;
+  arr.forEach((h,idx)=>{
+    if(gap) setTimeout(()=>_b3OneHitFx(h,isCrit), idx*gap);
+    else _b3OneHitFx(h,isCrit);
   });
 }
 // Клиентский BFS достижимости (4-соседства, стоимость 1/клетка, не сквозь
