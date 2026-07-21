@@ -1,6 +1,7 @@
-// ═══ app.11.js — Боёвка 3.0 «Руны отряда»: Казарма + Врата + арена ═══
-// Сервер-авторитарно: клиент шлёт порядок рун/цели/сырой tap_offset_ms,
-// всю математику (криты/ярость/перехваты/стихии) считает бэкенд (battle3.py).
+// ═══ app.11.js — Боёвка 4.0 «Клеточная тактика»: Казарма + Врата + арена ═══
+// Сервер-авторитарно: клиент шлёт действия (move/attack/skill/defend/end_turn) и
+// сырой tap_offset_ms; всю математику (AP/дальность/LoS/криты/ярость/стихии/ИИ
+// врага) считает бэкенд (battle3.py).
 let _bkData=null, _bkPickSlot=null;
 // Боёвка 4.0: клеточная арена. _b3Sel — индекс выбранного своего юнита (null=нет),
 // _b3SkillMode — режим выбора цели навыка.
@@ -48,14 +49,14 @@ function renderBarracks(){
   const els=squadUnits.map(u=>u.element).filter(Boolean);
   let syn='';
   if(new Set(els).size<els.length) syn='✨ Синергия стихии активна';
-  else if(els.length===3 && new Set(els).size===3) syn='🌈 «Триада»: бесплатная комбо-руна раз в бой';
+  else if(els.length===3 && new Set(els).size===3) syn='🌈 «Триада»: бесплатный AoE-удар по всем врагам раз в бой';
   const owned=d.units.filter(u=>u.owned);
   const locked=d.units.filter(u=>!u.owned);
   host.innerHTML=`
     <div class="looks-hint"><button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px;margin-left:6px" onclick="_b3IntroOpen('barracks')" aria-label="Обучение">❓</button>
-      🏰 <b>Казарма</b> — боевые юниты. Каждый приносит в бой 3 руны:
-      ⚔️ удар · 🛡 защита · ✨ навык. Собери отряд из 3 (позиция важна: фронт перехватывает
-      удары по тылу). Призыв — за 🔷 Осколки Бездны (Врата, Бездна кланов).</div>
+      🏰 <b>Казарма</b> — боевые юниты. Собери отряд из 3: в бою они ходят по клеткам
+      (⚡ AP на шаг/атаку/навык/защиту), позиция и укрытия решают. Призыв — за 🔷
+      Осколки Бездны (Врата, Бездна кланов).</div>
     <div class="looks-slot-t">⚔️ Отряд · сила ⚡${fmt(d.squad_cp)} ${syn?`· <span style="color:var(--gold2)">${syn}</span>`:''}</div>
     <div class="bk-squad">${slots}</div>
     <button class="btn btn-gold btn-full" style="margin:8px 0" onclick="_bkSummon(this)">
@@ -127,7 +128,7 @@ function _bkInfo(uid){
     <div class="irow"><span class="ik">🛡 Защита</span><span class="iv">${u.def}</span></div>
     <div class="irow"><span class="ik">❤️ Здоровье</span><span class="iv">${u.hp}</span></div>
     ${u.owned?`<div class="irow"><span class="ik">⚡ Сила (CP)</span><span class="iv" style="color:var(--gold2)">${fmt(u.cp)}</span></div>`:''}
-    <div class="looks-slot-t" style="margin-top:8px">✨ ${esc(u.skill.name)} (руна навыка)</div>
+    <div class="looks-slot-t" style="margin-top:8px">✨ ${esc(u.skill.name)} (навык · 3 AP)</div>
     <div class="cx-dim" style="font-size:11px">${esc(u.skill.desc)}</div>
     <div class="looks-slot-t" style="margin-top:6px">💥 ${esc(u.ult.name)} (ульта, ярость 100)</div>
     <div class="cx-dim" style="font-size:11px">${esc(u.ult.desc)}</div>
@@ -231,7 +232,7 @@ function loadGates(){
       </div>`).join('');
     host2.innerHTML=`
       <div class="looks-hint"><button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px;margin-left:6px" onclick="_b3IntroOpen('gates')" aria-label="Обучение">❓</button>
-        🌑 <b>Врата</b> — бой отрядом: раздача рун, порядок решает.
+        🌑 <b>Врата</b> — бой отрядом на клеточном поле: позиция и AP решают.
         Победа: Тёмная Мора + ${lo.shard_chance_pct||20}% шанс ${(lo.shard_range||[1,3]).join('–')} 🔷,
         на этажах 5–6 — ещё и осколки юнитов (см. ниже).
         Входов сегодня: <b>${d.entries_left}</b> · Твоя Сила: ⚡${fmt(d.cp)}.</div>
@@ -253,11 +254,11 @@ function _b3ShowIntro(kind){
 }
 function _b3IntroOpen(kind){
   const steps = kind==='barracks'
-    ? ['1️⃣ <b>Призови юнитов</b> за 🔷 и собери отряд из трёх. Позиция важна: фронт прикрывает тыл.',
-       '2️⃣ <b>Каждый юнит несёт 3 руны</b>: ⚔️ удар · 🛡 защита · ✨ навык. Из рун отряда соберётся твоя рука в бою.',
+    ? ['1️⃣ <b>Призови юнитов</b> за 🔷 и собери отряд из трёх — они выходят на поле боя.',
+       '2️⃣ <b>Каждый юнит ходит по клеткам</b>: очки действий (AP) тратятся на шаг, атаку, навык и защиту. Позиция решает.',
        '3️⃣ <b>Качай юнитов осколками</b> — дубли призыва, боссы, 🔷 Гравировка. Растёт сила ⚡ отряда.']
-    : ['1️⃣ <b>Тапай руны в нужном порядке</b> и жми «▶️ Ход». Цель удара — тап по врагу.',
-       '2️⃣ <b>🧿 Фокус</b> — очки решений: 🔄 переброс руны (1🧿) или 🎯 гарант-крит (2🧿). 🌈 Триада — бонус за 3 разные стихии в руке.',
+    : ['1️⃣ <b>Тапни своего юнита</b> — подсветятся клетки хода и цели. Тап по клетке — шаг, тап по врагу — удар (в дальности).',
+       '2️⃣ <b>Тактика решает</b>: прячься в укрытие (−30% урона), защищайся (−40%), бей врага без защиты (+25%). Кончились AP — «Конец хода».',
        '3️⃣ <b>Круг сжимается — жми в момент сжатия!</b> Так проходят криты и ульты (ярость 100). Промахнулся — будет обычный удар, не страшно.'];
   OM(kind==='barracks'?'🏰 Как устроена Казарма':'🌑 Как драться во Вратах',
     `<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0">${steps.map(s=>`<div class="looks-hint" style="margin:0">${s}</div>`).join('')}</div>
