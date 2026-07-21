@@ -129,11 +129,25 @@ def _alive_idx(units: list[dict]) -> list[int]:
     return [i for i, u in enumerate(units) if u["alive"]]
 
 
+def _strongest_enemy(state: dict) -> int | None:
+    """Индекс живого врага с макс. атакой (для вражеской ульты). Стена (atk 0) исключена."""
+    best, bi = 0, None
+    for i, e in enumerate(state["enemy"]["units"]):
+        if e["alive"] and e.get("atk", 0) > best:
+            best, bi = e["atk"], i
+    return bi
+
+
 def _roll_telegraph(state: dict) -> None:
     """Намерения врага на его следующую фазу (для UI): кого и как он ударит."""
     intents = []
+    # Ярость врага полна → телеграфируем ульту сильнейшего (см. _enemy_phase).
+    ult_i = _strongest_enemy(state) if state["enemy"].get("rage", 0) >= B3_RAGE_MAX else None
     for ei, e in enumerate(state["enemy"]["units"]):
         if not e["alive"]:
+            continue
+        if ei == ult_i:
+            intents.append({"i": ei, "kind": "ult"})
             continue
         if e.get("boss") and state["round"] % 3 == 0:
             intents.append({"i": ei, "kind": "aoe"})
@@ -605,9 +619,29 @@ def _enemy_phase(state: dict, events: list) -> None:
         state["enemy"]["skip_next"] = False
         events.append("🧊 Враг скован — фаза пропущена!")
         return
+    # Ярость врага полна → ульта сильнейшего по самому раненому союзнику (1.8×);
+    # ярость сбрасывается, а сам ультовавший враг пропускает обычное действие
+    # (ульта = его ход). Делает шкалу «ярость врага» осмысленной угрозой (БЛ4).
+    ult_ei = None
+    if state["enemy"].get("rage", 0) >= B3_RAGE_MAX:
+        ei = _strongest_enemy(state)
+        alive_a = _alive_idx(state["ally"]["units"])
+        if ei is not None and alive_a:
+            ult_ei = ei
+            state["enemy"]["rage"] = 0
+            e = state["enemy"]["units"][ei]
+            ti = min(alive_a, key=lambda i: state["ally"]["units"][i]["hp"])
+            events.append(f"💥 УЛЬТА ВРАГА: {e['emoji']} {e['name']}!")
+            _enemy_attack(state, ei, ti, events, mult=1.8)
+            if _battle_over(state):
+                return
     enemies = state["enemy"]["units"]
     for ei, e in enumerate(enemies):
-        if not e["alive"]:
+        if not e["alive"] or ei == ult_ei:
+            continue
+        # Стена узла (Войны) и прочие статичные цели с atk 0 — НЕ ходят и не бьют
+        # (по спеке стена — объект-цель, EV-ИИ ей не нужен).
+        if not e.get("atk"):
             continue
         if e["statuses"].pop("frozen", None) or e["statuses"].pop("stunned", None):
             events.append(f"❄️ {e['name']} пропускает действие")

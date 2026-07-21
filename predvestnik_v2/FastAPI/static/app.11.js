@@ -6,7 +6,7 @@ let _bkData=null, _bkPickSlot=null;
 // Боёвка 4.0: клеточная арена. _b3Sel — индекс выбранного своего юнита (null=нет),
 // _b3SkillMode — режим выбора цели навыка.
 let _b3St=null, _b3Sel=null, _b3SkillMode=false, _b3QteStart=0, _b3Lock=false, _b3LastReward=null;
-let _b3OutcomeShown=false;
+let _b3OutcomeShown=false, _b3Round=0;
 
 const B3_EL_ICO={fire:'🔥',ice:'❄️',storm:'⚡',earth:'🗿',dark:'🌑'};
 // BATTLE_VFX_CONCEPT.md (блок 2): цвет вспышек/чисел урона по стихии атакующего.
@@ -19,7 +19,7 @@ const B3_FX_ICO={burn:'🔥',frozen:'🧊',stunned:'💫',reflect:'↩️',regen
 // Боёвка 4.0: рельеф клеток (grid: 0 пусто, 1 препятствие, 2 укрытие, 3 опасная)
 // и иконки намерений врага (intents.kind).
 const B4_TERR={1:['b4-obstacle','🌲'],2:['b4-cover','🪨'],3:['b4-danger','🔥']};
-const B4_THREAT_ICO={atk:'⚔️',defend:'🛡',aoe:'💥'};
+const B4_THREAT_ICO={atk:'⚔️',defend:'🛡',aoe:'💥',ult:'🔥💥'};
 
 // ── Казарма ───────────────────────────────────────────────────────────────────
 function loadBarracks(){
@@ -290,7 +290,15 @@ function _btRender(st, turn, reward){
   // Локальные ре-рендеры (выбор юнита/навыка) приходят с тем же объектом st →
   // выбор сохраняется. НОВОЕ состояние с сервера (st!==_b3St) = новый ход →
   // сбрасываем выбор и режим навыка.
-  if(st!==_b3St){ _b3Sel=null; _b3SkillMode=false; }
+  // Выбор юнита живёт в пределах СВОЕГО хода (AP-модель = несколько действий одним
+  // юнитом: ход→атака). Сброс — на новом раунде (после фазы врага) или если юнит пал.
+  // Режим навыка — транзиентный, сбрасывается на любом новом состоянии с сервера.
+  if(st!==_b3St){
+    _b3SkillMode=false;
+    const selAlive=_b3Sel!=null && ((st.ally.units[_b3Sel]||{}).alive);
+    if(st.round!==_b3Round || !selAlive) _b3Sel=null;
+  }
+  _b3Round=st.round;
   _b3St=st; _b3Lock=false;
   if(reward!==undefined) _b3LastReward=reward;
   if(st.reward!==undefined&&st.reward!==null) _b3LastReward=st.reward;
