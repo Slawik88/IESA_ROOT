@@ -2463,14 +2463,27 @@ body.modal-open { overflow: hidden; }
 .b4-cell:active { transform: scale(.93); }
 /* рельеф: препятствие 🌲 / укрытие 🪨 / опасная 🔥 */
 .b4-obstacle { background: #14171f; border-color: #1c2130; cursor: default; }
-.b4-cover { background: rgba(120,160,120,.10); border-color: rgba(120,170,120,.28); }
-.b4-danger { background: rgba(224,82,82,.12); border-color: rgba(224,82,82,.35); }
-.b4-terr { position: absolute; font-size: 15px; opacity: .5; pointer-events: none; }
-/* подсветки при выбранном юните: ход / атака / угроза врага */
-.b4-reach { background: rgba(94,155,240,.16); border-color: rgba(94,155,240,.5);
-  box-shadow: inset 0 0 6px rgba(94,155,240,.25); }
-.b4-atk { box-shadow: inset 0 0 0 2px #e05252, 0 0 8px rgba(224,82,82,.4); }
-.b4-threat { box-shadow: inset 0 0 0 2px rgba(224,82,82,.45); }
+/* Онбординг боя: рельеф читается без текста. Укрытие — «безопасно» (зелёный + мини-щит),
+   опасная — «плохо» (красная штриховка + пульс границы). Легенда: кнопка «❓» в бою. */
+.b4-cover { background: rgba(90,155,110,.12); border-color: rgba(110,185,135,.4); }
+.b4-cover::before { content: '🛡'; position: absolute; top: 1px; right: 1px; font-size: 8px;
+  opacity: .85; z-index: 2; pointer-events: none; }
+.b4-danger { border-color: rgba(224,82,82,.5);
+  background: repeating-linear-gradient(45deg, rgba(224,82,82,.18) 0 5px, rgba(224,82,82,.05) 5px 11px);
+  animation: b4DangerPulse 1.6s ease-in-out infinite; }
+@keyframes b4DangerPulse { 0%, 100% { border-color: rgba(224,82,82,.4); }
+  50% { border-color: rgba(224,82,82,.8); } }
+.b4-terr { position: absolute; font-size: 15px; opacity: .55; pointer-events: none; }
+/* подсветки при выбранном юните: ход = точка-след, атака = кольцо-прицел, угроза врага */
+.b4-reach { background: rgba(94,155,240,.09); border-color: rgba(94,155,240,.4); box-shadow: none; }
+.b4-reach::after { content: ''; position: absolute; top: 50%; left: 50%; width: 26%; height: 26%;
+  transform: translate(-50%, -50%); border-radius: 50%; background: rgba(125,178,250,.85);
+  box-shadow: 0 0 6px rgba(94,155,240,.7); pointer-events: none; z-index: 1; }
+.b4-atk { box-shadow: none; }
+.b4-atk::before { content: ''; position: absolute; inset: 7%; border: 2px solid #ff6b6b;
+  border-radius: 50%; box-shadow: 0 0 8px rgba(255,90,90,.6), inset 0 0 6px rgba(255,90,90,.4);
+  z-index: 2; pointer-events: none; }
+.b4-threat { box-shadow: inset 0 0 0 2px rgba(224,82,82,.5), 0 0 7px rgba(224,82,82,.3); }
 /* токен юнита */
 .b4-tok { position: relative; width: 100%; height: 100%; border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
@@ -2510,6 +2523,18 @@ body.modal-open { overflow: hidden; }
 /* Отзывчивость тапа в бою (Telegram WebView/iOS): убираем 300ms-задержку клика и
    двойной тап-зум — прямой фикс «Конец хода срабатывает со второго тапа». */
 .b3-ov .btn, .b3-ov .b4-cell, .b3-flee { touch-action: manipulation; }
+/* Онбординг боя: легенда боя (боттом-шит «❓») — мини-иконки зеркалят клетки поля */
+.b4-lg { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text); }
+.b4-lg-sec { font-size: 10px; font-weight: 700; color: var(--gold2); text-transform: uppercase;
+  letter-spacing: .4px; margin-top: 9px; }
+.b4-lg-row { display: flex; align-items: center; gap: 9px; line-height: 1.35; }
+.b4-lg-ic { position: relative; flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px;
+  border: 1px solid var(--line); background: rgba(255,255,255,.02); }
+.b4-lg-reach::after { content: ''; position: absolute; top: 50%; left: 50%; width: 28%; height: 28%;
+  transform: translate(-50%, -50%); border-radius: 50%; background: rgba(125,178,250,.85);
+  box-shadow: 0 0 5px rgba(94,155,240,.7); }
+.b4-lg-atk::before { content: ''; position: absolute; inset: 4px; border: 2px solid #ff6b6b; border-radius: 50%; }
+.b4-lg-terr { flex: 0 0 auto; width: 22px; text-align: center; font-size: 15px; }
 /* Слабые телефоны/доступность: без движения, фидбек мгновенный (см. .b3-* ниже) */
 @media (prefers-reduced-motion: reduce) {
   .b4-cell, .b4-tok, .b4-hpfill { transition: none; }

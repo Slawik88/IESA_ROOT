@@ -290,6 +290,24 @@ function _b3Ov(){
   return ov;
 }
 function _b3Close(){ const ov=el('b3-ov'); if(ov)ov.style.display='none'; _b3St=null; }
+// Онбординг боя: постоянная легенда поля — доступна кнопкой «❓» в любой момент боя.
+function _b3Legend(){
+  OM('❓ Как читать поле', `<div class="b4-lg">
+    <div class="b4-lg-sec">Клетки при выбранном бойце</div>
+    <div class="b4-lg-row"><span class="b4-lg-ic b4-lg-reach"></span> Точка — куда можно шагнуть (⚡ AP на клетку)</div>
+    <div class="b4-lg-row"><span class="b4-lg-ic b4-lg-atk"></span> Кольцо-прицел — враг в дальности удара</div>
+    <div class="b4-lg-sec">Рельеф</div>
+    <div class="b4-lg-row"><span class="b4-lg-terr">🪨</span> Укрытие — входящий урон −30%</div>
+    <div class="b4-lg-row"><span class="b4-lg-terr">🔥</span> Опасная — теряешь HP в начале своего хода</div>
+    <div class="b4-lg-row"><span class="b4-lg-terr">🌲</span> Препятствие — не пройти и не простреливается</div>
+    <div class="b4-lg-sec">Намерение врага (над ним)</div>
+    <div class="b4-lg-row">⚔️→ ударит по цели · 🛡 защита · 💥 удар по всем · 🔥💥 ульта</div>
+    <div class="b4-lg-sec">Статусы на бойце</div>
+    <div class="b4-lg-row">🔥 горение · 🧊 заморозка · 💫 оглушение · 🛡 щит · 🌿 реген · ⛓ ослабление · 🕸 паутина</div>
+    <div class="b4-lg-sec">Шкалы</div>
+    <div class="b4-lg-row">⚡ AP — очки действий: шаг / атака / навык / защита. Ярость 100 → 💥 ульта.</div>
+  </div>`, [{l:'Понятно',c:'btn-gold',f:'CM()'}]);
+}
 function _btRender(st, turn, reward){
   // Боёвка 4.0: клеточная арена (Врата/Бездна/Войны — app.02/app.11).
   // Локальные ре-рендеры (выбор юнита/навыка) приходят с тем же объектом st →
@@ -423,10 +441,11 @@ function _btRender(st, turn, reward){
   ov.innerHTML=`
     <div class="b3-top">
       <span class="b3-round">Раунд ${st.round}${st.escalation?` · 🔥+${Math.round(st.escalation*100)}%`:''}</span>
-      ${finished?'':`<div style="display:flex;gap:6px">
-        <button class="b3-flee" onclick="_b3Cancel()">🚪 Выйти</button>
-        <button class="b3-flee" onclick="_b3Flee()">🏳 Сдаться</button>
-      </div>`}
+      <div style="display:flex;gap:6px">
+        <button class="b3-flee" onclick="_b3Legend()" aria-label="Легенда боя">❓</button>
+        ${finished?'':`<button class="b3-flee" onclick="_b3Cancel()">🚪 Выйти</button>
+        <button class="b3-flee" onclick="_b3Flee()">🏳 Сдаться</button>`}
+      </div>
     </div>
     <div class="b3-rage b3-rage-en"><div class="b3-rage-f" style="width:${rageE}%"></div><span>ярость врага ${rageE}</span></div>
     <div class="b4-grid">${cells}</div>
