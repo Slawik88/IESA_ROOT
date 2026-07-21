@@ -368,7 +368,7 @@ function _btRender(st, turn, reward){
   if(finished){
     const rw=_b3LastReward; let rwTxt='';
     if(st.status==='won'&&rw){
-      if(rw.dark_mora!==undefined) rwTxt=`+${rw.dark_mora} 🌑${rw.shards?` · +${rw.shards} 🔷`:''}`;
+      if(rw.dark_mora!==undefined) rwTxt=`+${rw.dark_mora} 🌑${rw.shards?` · +${rw.shards} 🔷`:''}${rw.reward_mult&&rw.reward_mult>1?` · ⚡×${rw.reward_mult} за мастерство`:''}`;
       else if(rw.split) rwTxt=`+${rw.shards} 🔷 (${rw.split.treasury} в казну${rw.boss_key?' · 🗝 ключ этажа':''})`;
       else if(rw.damage!==undefined) rwTxt=`урон стене: ${fmt(rw.damage)}${rw.breached?' · 🏰 УЗЕЛ ЗАХВАЧЕН!':` (${fmt(rw.wall_total)}/${fmt(rw.wall_hp_max)})`}`;
       if(rw.unit_shards) rwTxt+=` · ${rw.unit_shards.emoji} +${rw.unit_shards.n}◈ ${esc(rw.unit_shards.name)}`;

@@ -762,7 +762,9 @@ BATTLE_HEAL_MORA_PER_HP: float = 2.0          # лечение после боя
 
 # Врата 2.0 — PvE-лестница (замена пассивного дрейна SHADOW_GATE_*).
 GATES2_FLOORS: int = 6
-GATES2_CP_GATE: dict = {1: 500, 2: 1200, 3: 2500, 4: 4000, 5: 6000, 6: 8000}
+# Пороги под Σ CP ОТРЯДА (БЛ1, гейт считается barracks.squad_cp, не полный CP).
+# Кривая: 3×rare L1≈700 → эт.1–2; 3×rare L10≈1452 → эт.1–4; эндгейм-микс L10≈2345 → эт.6.
+GATES2_CP_GATE: dict = {1: 350, 2: 650, 3: 1000, 4: 1400, 5: 1850, 6: 2300}
 GATES2_ENTRIES_PER_DAY: int = 3
 GATES2_DARK_MORA_BASE: int = 3                # награда = BASE + PER_FLOOR × этаж
 GATES2_DARK_MORA_PER_FLOOR: int = 2
