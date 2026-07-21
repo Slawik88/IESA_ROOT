@@ -229,6 +229,9 @@ def _apply_damage(state: dict, src_side: str, src_i: int | None, dst_side: str,
             events.append(f"🛡 Щит {dst['name']} поглотил {absorbed}")
     if dmg > 0:
         dst["hp"] = max(0, dst["hp"] - dmg)
+        # Онбординг боя: в «Первом бою» союзник не может пасть — учебный, не наказание.
+        if state.get("tutorial") and dst_side == "ally" and dst["hp"] <= 0:
+            dst["hp"] = 1
         # VFX (Блок 2 «улучшения боя»): структурированный след урона за раунд —
         # state.log хранит только готовую текстовую строку, а фронту для чисел
         # урона/пульса атакующего нужны координаты сторон, не парсинг русского текста.
@@ -878,7 +881,8 @@ def apply_action(state: dict, action: dict) -> dict:
             return {"ok": False, "err": "Нет линии видимости."}
         u["ap"] -= B4_ATK_AP
         syn_crit = state["ally"]["synergy"].get("crit", 0)
-        if (not state.get("crit_qte_used") and random.random() < (u["crit"] + syn_crit)
+        if (not state.get("tutorial")   # онбординг: крит-QTE не всплывает случайно в «Первом бою»
+                and not state.get("crit_qte_used") and random.random() < (u["crit"] + syn_crit)
                 and not u["statuses"].get("no_crit")):
             state["crit_qte_used"] = True
             state["pending"] = {"type": "crit", "atk_i": ui, "tgt_i": ti}
@@ -995,6 +999,20 @@ def gates_enemy_squad(floor: int) -> list[dict]:
     return out
 
 
+def tutorial_squad() -> list[dict]:
+    """Онбординг боя: фиксированный синтетический отряд «Первого боя» — НЕ отряд игрока.
+    DD (🦎 Саламандра) + танк (🧊 Ледяной Голем): учит роли, позицию, укрытие, навык, ярость."""
+    return [{"unit_id": "u_salamandra", "level": 1, "slot": 0},
+            {"unit_id": "u_ice_golem", "level": 1, "slot": 1}]
+
+
+def tutorial_enemy_squad() -> list[dict]:
+    """Онбординг боя: 2 слабых скриптованных врага — символический урон, победа гарантирована
+    (плюс анти-фейл hp≥1 в _apply_damage). Имена/эмодзи фиксированы (детерминизм коуча)."""
+    return [_mk_enemy("dd", "dark", 40, 6, 2, 0, name="Теневой Мальк", emoji="👻"),
+            _mk_enemy("tank", "earth", 60, 5, 3, 1, name="Каменный Чурбан", emoji="🗿")]
+
+
 def abyss_enemy_squad(floor: int) -> list[dict]:
     return gates_enemy_squad(floor)
 
@@ -1051,7 +1069,8 @@ def public_state(state: dict, battle_id: int) -> dict:
 
     return {
         "battle_id": battle_id, "status": state.get("status", "active"),
-        "mode": state.get("mode"), "round": state.get("round", 1),
+        "mode": state.get("mode"), "tutorial": bool(state.get("tutorial")),
+        "round": state.get("round", 1),
         "grid": state.get("grid", []),
         "ally": {"units": [ally_unit(u) for u in a["units"]],
                  "rage": a["rage"],
