@@ -2454,6 +2454,62 @@ body.modal-open { overflow: hidden; }
 .b3-qte-hint { position: absolute; bottom: -4px; width: 100%; text-align: center; font-size: 10px; color: var(--gold2); }
 .b3-log { max-height: 74px; margin-top: 6px; }
 
+/* ═══ Боёвка 4.0: клеточная арена (.b4-*) — тёмная тема как .b3-*, 390px без гор. скролла ═══ */
+.b4-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; max-width: 100%; margin: 6px 0 4px; }
+.b4-cell { position: relative; aspect-ratio: 1; min-width: 0; border-radius: 6px;
+  background: rgba(255,255,255,.02); border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  transition: transform .1s ease, box-shadow .2s ease; }
+.b4-cell:active { transform: scale(.93); }
+/* рельеф: препятствие 🌲 / укрытие 🪨 / опасная 🔥 */
+.b4-obstacle { background: #14171f; border-color: #1c2130; cursor: default; }
+.b4-cover { background: rgba(120,160,120,.10); border-color: rgba(120,170,120,.28); }
+.b4-danger { background: rgba(224,82,82,.12); border-color: rgba(224,82,82,.35); }
+.b4-terr { position: absolute; font-size: 15px; opacity: .5; pointer-events: none; }
+/* подсветки при выбранном юните: ход / атака / угроза врага */
+.b4-reach { background: rgba(94,155,240,.16); border-color: rgba(94,155,240,.5);
+  box-shadow: inset 0 0 6px rgba(94,155,240,.25); }
+.b4-atk { box-shadow: inset 0 0 0 2px #e05252, 0 0 8px rgba(224,82,82,.4); }
+.b4-threat { box-shadow: inset 0 0 0 2px rgba(224,82,82,.45); }
+/* токен юнита */
+.b4-tok { position: relative; width: 100%; height: 100%; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .25s ease, filter .25s ease; }
+.b4-emoji { font-size: 21px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,.65)); }
+.b4-boss .b4-emoji { font-size: 26px; }
+.b4-tok.b4-sel { box-shadow: inset 0 0 0 2px var(--gold2), 0 0 10px rgba(232,181,77,.6); }
+.b4-tok.b4-dead { opacity: .32; filter: grayscale(1); }
+.b4-tok.b4-def::after { content: '🛡'; position: absolute; bottom: 6px; right: 1px; font-size: 9px; z-index: 2; }
+.b4-el { position: absolute; top: 0; left: 1px; font-size: 9px; opacity: .9; pointer-events: none; }
+.b4-fx { position: absolute; top: 0; right: 1px; font-size: 8px; line-height: 1; pointer-events: none; }
+.b4-hpbar { position: absolute; bottom: 2px; left: 3px; right: 3px; height: 3px;
+  border-radius: 3px; background: rgba(0,0,0,.5); overflow: hidden; }
+.b4-hpfill { display: block; height: 100%; border-radius: 3px;
+  background: linear-gradient(90deg, #52b360, #7bd389); transition: width .3s; }
+.b4-hpfill.en { background: linear-gradient(90deg, #e05252, #f08080); }
+.b4-threat-l { position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+  font-size: 10px; white-space: nowrap; background: var(--bg1); border: 1px solid var(--line);
+  border-radius: 7px; padding: 0 3px; z-index: 3; pointer-events: none; }
+/* панель действий (AP) выбранного юнита + общий ряд */
+.b4-mid { display: flex; flex-direction: column; padding: 2px 0; min-height: 0; }
+.b4-actions { background: rgba(255,255,255,.03); border: 1px solid var(--line);
+  border-radius: 10px; padding: 7px 8px; margin-bottom: 6px; }
+.b4-ap { font-size: 11px; font-weight: 700; color: var(--gold2); margin-bottom: 6px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b4-btns { display: flex; flex-wrap: wrap; gap: 5px; }
+.b4-btns .btn { flex: 1; min-width: 92px; font-size: 11px; padding: 7px 4px; line-height: 1.25; }
+.b4-hint { font-size: 10px; color: var(--teal); margin-top: 6px; line-height: 1.4; }
+.b4-hint-idle { color: var(--muted); text-align: center; padding: 10px 0; }
+.b4-bar { display: flex; gap: 6px; }
+.b4-endturn { flex: 1; }
+/* Слабые телефоны/доступность: без движения, фидбек мгновенный (см. .b3-* ниже) */
+@media (prefers-reduced-motion: reduce) {
+  .b4-cell, .b4-tok, .b4-hpfill { transition: none; }
+  .b4-cell:active { transform: none; }
+}
+body.no-fx .b4-cell, body.no-fx .b4-tok, body.no-fx .b4-hpfill { transition: none; }
+body.no-fx .b4-cell:active { transform: none; }
+
 /* ═══ Боёвка 3.0: визуальная динамика (BATTLE_VFX_CONCEPT.md, блок 2) ═══
    Цвет по стихии атакующего приходит через inline --el-color (5 стихий —
    заводить статичный класс на каждую избыточно, один keyframe на всё). */
