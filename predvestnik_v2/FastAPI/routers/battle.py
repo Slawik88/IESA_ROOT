@@ -152,7 +152,7 @@ async def _gates_reward(db, uid: int, floor: int, state: dict | None = None) -> 
         await eco_repo.add_item(db, uid, "abyss_shard", shards)
     # БЛ2: осколки ЮНИТА гарантированно с ЛЮБОГО этажа (растут с этажом), а не 35% с эт.5+.
     # эт.1–2 → 1, эт.3–4 → 2, эт.5–6 → 2–3 (без множителя награды — это ресурс прокачки).
-    n = max(1, floor // 2) + (random.randint(0, 1) if floor >= 5 else 0)
+    n = (floor + 1) // 2 + (random.randint(0, 1) if floor >= 5 else 0)
     target = random.choice(list(UNITS))
     await u_repo.add_shards(db, uid, target, n)
     unit_shards = {"unit_id": target, "name": UNITS[target]["name"],
