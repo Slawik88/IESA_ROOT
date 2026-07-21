@@ -12,7 +12,6 @@ const B3_EL_ICO={fire:'🔥',ice:'❄️',storm:'⚡',earth:'🗿',dark:'🌑'};
 const B3_ELEMENT_COLORS={fire:'#ff7a3d',ice:'#5fc6ff',storm:'#f7e04a',earth:'#a97c50',dark:'#7a3bd6'};
 const B3_ROLE_ICO={dd:'⚔️',tank:'🛡',support:'💚'};
 const B3_SLOT_NAMES=['Фронт','Фланг','Тыл'];
-const B3_INTENT_ICO={atk:'⚔️',def:'🛡',heal:'💚',ult:'💥',aoe:'💥',frozen:'❄️'};
 const B3_FX_ICO={burn:'🔥',frozen:'🧊',stunned:'💫',reflect:'↩️',regen:'🌿',weaken:'⛓',
   invuln:'🛡',intercept_all:'🧲',web:'🕸',armor_break:'🪨',dmg_bonus:'📈',
   counter:'🥊',def_up:'🛡',chill_aura:'❄️'};
@@ -320,8 +319,12 @@ function _btRender(st, turn, reward){
     const occSet=new Set();
     aUnits.concat(eUnits).forEach(u=>{ if(u.alive&&u!==sel){ const p=u.pos||{}; occSet.add(p.x+','+p.y); } });
     reachSet=_b4Reach(grid, sel.pos.x, sel.pos.y, sel.ap||0, occSet);
+    // Дальность цели: обычная атака — по роли (sel.range); целевой навык сервер
+    // разрешает на chebyshev≤2 независимо от роли (см. _skill_target_ok), так что
+    // в режиме навыка подсвечиваем врагов в радиусе 2.
+    const _trng=_b3SkillMode?2:(sel.range||1);
     eUnits.forEach(u=>{ if(u.alive){ const p=u.pos||{};
-      if(Math.max(Math.abs(p.x-sel.pos.x),Math.abs(p.y-sel.pos.y))<=(sel.range||1)) atkCells.add(p.x+','+p.y); } });
+      if(Math.max(Math.abs(p.x-sel.pos.x),Math.abs(p.y-sel.pos.y))<=_trng) atkCells.add(p.x+','+p.y); } });
   }
 
   // Сетка 7×5
@@ -332,14 +335,14 @@ function _btRender(st, turn, reward){
       const key=x+','+y, o=occ[key];
       let cls='b4-cell';
       if(terr) cls+=' '+terr[0];
-      if(!o&&reachSet.has(key)) cls+=' b4-reach';
+      if((!o||!o.u.alive)&&reachSet.has(key)) cls+=' b4-reach';
       if(o&&o.side==='enemy'&&o.u.alive&&atkCells.has(key)) cls+=' b4-atk';
       if(o&&o.side==='ally'&&threatCells.has(key)) cls+=' b4-threat';
       let inner=terr?`<span class="b4-terr">${terr[1]}</span>`:'';
       if(o){
         const u=o.u, side=o.side, pct=Math.max(0,Math.min(100,u.hp/u.hp_max*100)).toFixed(0);
         const isSel=side==='ally'&&o.i===_b3Sel;
-        const fx=(u.fx||[]).map(f=>B3_FX_ICO[f]||'').join('');
+        const fx=((u.shield?['🛡'+fmt(u.shield)]:[]).concat((u.fx||[]).map(f=>B3_FX_ICO[f]||''))).join(' ');
         let threat='';
         if(side==='enemy'&&u.alive&&intentByEnemy[o.i]){
           const it=intentByEnemy[o.i];
@@ -496,14 +499,17 @@ function _b3TapCell(x,y){
   }
   if(_b3Sel==null) return;
   const sel=aUnits[_b3Sel]; if(!sel||!sel.alive||!sel.pos) return;
-  // тап по врагу → атака или навык (если в дальности)
+  // тап по врагу → атака или навык (дальность навыка = 2, обычной атаки = роль)
   if(hit&&hit.side==='enemy'&&hit.u.alive){
-    if(Math.max(Math.abs(x-sel.pos.x),Math.abs(y-sel.pos.y))<=(sel.range||1)) _b3AttackOrSkill(hit.i);
+    const rng=_b3SkillMode?2:(sel.range||1);
+    if(Math.max(Math.abs(x-sel.pos.x),Math.abs(y-sel.pos.y))<=rng) _b3AttackOrSkill(hit.i);
     else toast('Цель вне дальности',false);
     return;
   }
-  // тап по пустой достижимой клетке → ход
-  if(!hit){
+  // тап по пустой/трупной клетке: в режиме навыка → выход из режима (без траты AP);
+  // иначе → ход, если клетка достижима (труп не занимает клетку для сервера)
+  if(!hit||!hit.u.alive){
+    if(_b3SkillMode){ _b3SkillMode=false; _btRender(st); return; }
     const occSet=new Set();
     aUnits.concat(eUnits).forEach(u=>{ if(u.alive&&u!==sel&&u.pos) occSet.add(u.pos.x+','+u.pos.y); });
     if(_b4Reach(st.grid, sel.pos.x, sel.pos.y, sel.ap||0, occSet).has(x+','+y)) _b3Move(x,y);
