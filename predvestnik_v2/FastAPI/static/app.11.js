@@ -2,7 +2,9 @@
 // Сервер-авторитарно: клиент шлёт порядок рун/цели/сырой tap_offset_ms,
 // всю математику (криты/ярость/перехваты/стихии) считает бэкенд (battle3.py).
 let _bkData=null, _bkPickSlot=null;
-let _b3St=null, _b3Order=[], _b3Target=0, _b3QteStart=0, _b3Lock=false, _b3LastReward=null;
+// Боёвка 4.0: клеточная арена. _b3Sel — индекс выбранного своего юнита (null=нет),
+// _b3SkillMode — режим выбора цели навыка.
+let _b3St=null, _b3Sel=null, _b3SkillMode=false, _b3QteStart=0, _b3Lock=false, _b3LastReward=null;
 let _b3OutcomeShown=false;
 
 const B3_EL_ICO={fire:'🔥',ice:'❄️',storm:'⚡',earth:'🗿',dark:'🌑'};
@@ -12,7 +14,12 @@ const B3_ROLE_ICO={dd:'⚔️',tank:'🛡',support:'💚'};
 const B3_SLOT_NAMES=['Фронт','Фланг','Тыл'];
 const B3_INTENT_ICO={atk:'⚔️',def:'🛡',heal:'💚',ult:'💥',aoe:'💥',frozen:'❄️'};
 const B3_FX_ICO={burn:'🔥',frozen:'🧊',stunned:'💫',reflect:'↩️',regen:'🌿',weaken:'⛓',
-  invuln:'🛡',intercept_all:'🧲',web:'🕸',armor_break:'🪨',dmg_bonus:'📈'};
+  invuln:'🛡',intercept_all:'🧲',web:'🕸',armor_break:'🪨',dmg_bonus:'📈',
+  counter:'🥊',def_up:'🛡',chill_aura:'❄️'};
+// Боёвка 4.0: рельеф клеток (grid: 0 пусто, 1 препятствие, 2 укрытие, 3 опасная)
+// и иконки намерений врага (intents.kind).
+const B4_TERR={1:['b4-obstacle','🌲'],2:['b4-cover','🪨'],3:['b4-danger','🔥']};
+const B4_THREAT_ICO={atk:'⚔️',defend:'🛡',aoe:'💥'};
 
 // ── Казарма ───────────────────────────────────────────────────────────────────
 function loadBarracks(){
@@ -279,63 +286,84 @@ function _b3Ov(){
 }
 function _b3Close(){ const ov=el('b3-ov'); if(ov)ov.style.display='none'; _b3St=null; }
 function _btRender(st, turn, reward){
-  // Совместимое имя: сюда приходят Врата/Бездна/Войны (app.02/app.11).
-  // Порядок рун сбрасывается только на НОВОМ состоянии с сервера —
-  // локальные ре-рендеры (выбор цели/порядка) его сохраняют.
-  if(st!==_b3St) _b3Order=[];
+  // Боёвка 4.0: клеточная арена (Врата/Бездна/Войны — app.02/app.11).
+  // Локальные ре-рендеры (выбор юнита/навыка) приходят с тем же объектом st →
+  // выбор сохраняется. НОВОЕ состояние с сервера (st!==_b3St) = новый ход →
+  // сбрасываем выбор и режим навыка.
+  if(st!==_b3St){ _b3Sel=null; _b3SkillMode=false; }
   _b3St=st; _b3Lock=false;
   if(reward!==undefined) _b3LastReward=reward;
   if(st.reward!==undefined&&st.reward!==null) _b3LastReward=st.reward;
   const ov=_b3Ov();
   const finished=st.status==='won'||st.status==='lost';
-  const alive=(st.enemy.units||[]).map((u,i)=>({u,i})).filter(x=>x.u.alive);
-  if(!alive.find(x=>x.i===_b3Target)) _b3Target=alive.length?alive[0].i:0;
-  // Телеграф по юнитам
-  const intentOf={};
-  (st.enemy.intents||[]).forEach(it=>{intentOf[it.i]=it;});
-  const eCards=(st.enemy.units||[]).map((u,i)=>{
-    const it=intentOf[i];
-    const fx=(u.fx||[]).map(f=>B3_FX_ICO[f]||'').join('');
-    return `<button class="b3-card b3-en ${u.alive?'':'b3-dead'} ${i===_b3Target&&u.alive?'b3-tgt':''} ${u.boss?'b3-boss':''}"
-      id="b3-c-enemy-${i}" onclick="_b3SetTarget(${i})">
-      ${it&&u.alive?`<div class="b3-intent" title="намерение">${B3_INTENT_ICO[it.kind]||'❔'}${it.kind==='atk'&&it.t!==undefined&&it.t!==null?'→'+((st.ally.units[it.t]||{}).emoji||''):''}</div>`:''}
-      <div class="b3-card-e">${u.emoji}</div>
-      <div class="b3-card-n">${u.element_emoji||''}${esc(u.name)}</div>
-      <div class="bt-bar"><div class="bt-fill hp en" style="width:${(u.hp/u.hp_max*100).toFixed(0)}%"></div></div>
-      <div class="b3-hp">${fmt(u.hp)}/${fmt(u.hp_max)}${u.shield?` 🛡${fmt(u.shield)}`:''} ${fx}</div>
-    </button>`;
-  }).join('');
-  const aCards=(st.ally.units||[]).map((u,i)=>{
-    const fx=(u.fx||[]).map(f=>B3_FX_ICO[f]||'').join('');
-    const ultReady=st.ally.rage>=100&&u.alive&&!finished&&!st.pending;
-    return `<div class="b3-card b3-al ${u.alive?'':'b3-dead'}" id="b3-c-ally-${i}">
-      <div class="b3-card-e">${u.emoji}</div>
-      <div class="b3-card-n">${u.element_emoji||''}${esc(u.name)}</div>
-      <div class="bt-bar"><div class="bt-fill hp" style="width:${(u.hp/u.hp_max*100).toFixed(0)}%"></div></div>
-      <div class="b3-hp">${fmt(u.hp)}/${fmt(u.hp_max)}${u.shield?` 🛡${fmt(u.shield)}`:''} ${fx}</div>
-      ${ultReady?`<button class="b3-ult-btn" onclick="_b3Ult(${i})" title="${esc(u.ult_desc||'')}">💥 ${esc(u.ult_name||'УЛЬТА')}</button>`:''}
-    </div>`;
-  }).join('');
+  const grid=st.grid||[];
+  const aUnits=st.ally.units||[], eUnits=st.enemy.units||[];
+
+  // Кто на какой клетке (для рендера токенов и тап-логики)
+  const occ={};
+  aUnits.forEach((u,i)=>{ const p=u.pos||{}; occ[p.x+','+p.y]={side:'ally',i,u}; });
+  eUnits.forEach((u,i)=>{ const p=u.pos||{}; occ[p.x+','+p.y]={side:'enemy',i,u}; });
+
+  // Намерения врага → иконки угрозы + подсветка союзников-целей (упрощённо)
+  const intentByEnemy={}, threatCells=new Set();
+  (st.enemy.intents||[]).forEach(it=>{
+    intentByEnemy[it.i]=it;
+    if(it.kind==='atk'&&it.target!=null){
+      const tp=(aUnits[it.target]||{}).pos; if(tp) threatCells.add(tp.x+','+tp.y);
+    }
+  });
+
+  // Выбранный юнит → достижимые клетки (BFS) и атакуемые враги (chebyshev≤range)
+  let reachSet=new Set(); const atkCells=new Set();
+  const sel=(_b3Sel!=null)?aUnits[_b3Sel]:null;
+  if(sel&&sel.alive&&!finished&&!st.pending){
+    const occSet=new Set();
+    aUnits.concat(eUnits).forEach(u=>{ if(u.alive&&u!==sel){ const p=u.pos||{}; occSet.add(p.x+','+p.y); } });
+    reachSet=_b4Reach(grid, sel.pos.x, sel.pos.y, sel.ap||0, occSet);
+    eUnits.forEach(u=>{ if(u.alive){ const p=u.pos||{};
+      if(Math.max(Math.abs(p.x-sel.pos.x),Math.abs(p.y-sel.pos.y))<=(sel.range||1)) atkCells.add(p.x+','+p.y); } });
+  }
+
+  // Сетка 7×5
+  let cells='';
+  for(let y=0;y<grid.length;y++){
+    for(let x=0;x<(grid[y]||[]).length;x++){
+      const terr=B4_TERR[grid[y][x]];
+      const key=x+','+y, o=occ[key];
+      let cls='b4-cell';
+      if(terr) cls+=' '+terr[0];
+      if(!o&&reachSet.has(key)) cls+=' b4-reach';
+      if(o&&o.side==='enemy'&&o.u.alive&&atkCells.has(key)) cls+=' b4-atk';
+      if(o&&o.side==='ally'&&threatCells.has(key)) cls+=' b4-threat';
+      let inner=terr?`<span class="b4-terr">${terr[1]}</span>`:'';
+      if(o){
+        const u=o.u, side=o.side, pct=Math.max(0,Math.min(100,u.hp/u.hp_max*100)).toFixed(0);
+        const isSel=side==='ally'&&o.i===_b3Sel;
+        const fx=(u.fx||[]).map(f=>B3_FX_ICO[f]||'').join('');
+        let threat='';
+        if(side==='enemy'&&u.alive&&intentByEnemy[o.i]){
+          const it=intentByEnemy[o.i];
+          const tgtE=(it.kind==='atk'&&it.target!=null)?'→'+((aUnits[it.target]||{}).emoji||''):'';
+          threat=`<span class="b4-threat-l">${B4_THREAT_ICO[it.kind]||'❔'}${tgtE}</span>`;
+        }
+        inner+=`<span class="b4-tok b4-${side} ${u.alive?'':'b4-dead'} ${u.boss?'b4-boss':''} ${isSel?'b4-sel':''} ${u.defending?'b4-def':''}" id="b4-tok-${side}-${o.i}">
+          ${threat}${u.element_emoji?`<span class="b4-el">${u.element_emoji}</span>`:''}
+          <span class="b4-emoji">${u.emoji}</span>
+          ${fx?`<span class="b4-fx">${fx}</span>`:''}
+          <span class="b4-hpbar"><span class="b4-hpfill ${side==='enemy'?'en':''}" style="width:${pct}%"></span></span>
+        </span>`;
+      }
+      cells+=`<div class="${cls}" onclick="_b3TapCell(${x},${y})">${inner}</div>`;
+    }
+  }
+
   const rageA=Math.min(100,st.ally.rage||0), rageE=Math.min(100,st.enemy.rage||0);
-  // Рука рун
-  const hand=(st.hand||[]).map((r,i)=>{
-    const ord=_b3Order.indexOf(i);
-    return `<div class="b3-rune ${r.forced_crit?'b3-fcrit':''} ${ord>=0?'b3-ord':''}" onclick="_b3TapRune(${i})">
-      ${ord>=0?`<div class="b3-ord-n">${ord+1}</div>`:''}
-      <div class="b3-rune-e">${r.emoji}<span class="b3-rune-ue">${r.unit_emoji}</span></div>
-      <div class="b3-rune-l">${esc(r.label)}</div>
-      ${r.k==='skill'?`<div class="b3-rune-d">${esc((r.desc||'').slice(0,42))}</div>`:''}
-      ${!finished&&!st.pending?`<div class="b3-rune-acts">
-        <button class="b3-ract" onclick="event.stopPropagation();_b3Reroll(${i})" title="переброс (1🧿)">🔄1</button>
-        ${r.k==='atk'&&!r.forced_crit?`<button class="b3-ract" onclick="event.stopPropagation();_b3FCrit(${i})" title="гарант-крит (2🧿)">🎯2</button>`:''}
-      </div>`:''}
-    </div>`;
-  }).join('');
   const grade=turn&&turn.grade;
+
+  // Итог боя + награда
   let headHtml='';
   if(finished){
-    const rw=_b3LastReward;
-    let rwTxt='';
+    const rw=_b3LastReward; let rwTxt='';
     if(st.status==='won'&&rw){
       if(rw.dark_mora!==undefined) rwTxt=`+${rw.dark_mora} 🌑${rw.shards?` · +${rw.shards} 🔷`:''}`;
       else if(rw.split) rwTxt=`+${rw.shards} 🔷 (${rw.split.treasury} в казну${rw.boss_key?' · 🗝 ключ этажа':''})`;
@@ -346,42 +374,60 @@ function _btRender(st, turn, reward){
       ?`<div class="skg-head skg-won">🏆 ПОБЕДА! ${rwTxt}</div>`
       :`<div class="skg-head skg-lost">☠️ Отряд пал. Юниты восстановятся к следующему бою.</div>`;
   }
+
   const qte=st.qte&&st.pending;
+  const apc=st.ap_costs||{};
+
+  // Панель действий (AP) выбранного юнита + общий ряд (Триада/Конец хода)
+  let actHtml='';
+  if(!finished&&!qte){
+    if(sel&&sel.alive){
+      const rageReady=(st.ally.rage||0)>=100;
+      const skillDis=(sel.ap||0)<(apc.skill||3)||(sel.skill_cd||0)>0;
+      actHtml+=`<div class="b4-actions">
+        <div class="b4-ap">${sel.emoji} ${esc(sel.name)} · ⚡ ${sel.ap||0}/${sel.ap_max||0} AP</div>
+        <div class="b4-btns">
+          <button class="btn btn-sm ${_b3SkillMode?'btn-teal':'btn-ghost'}" ${skillDis?'disabled':''}
+            onclick="_b3SkillBtn()" title="${esc(sel.skill_desc||'')}">🎯 ${esc(sel.skill_name||'Навык')}${(sel.skill_cd||0)>0?` (${sel.skill_cd})`:''} · ${apc.skill||3}AP</button>
+          <button class="btn btn-sm btn-ghost" ${(sel.ap||0)<(apc.defend||1)?'disabled':''} onclick="_b3Defend()">🛡 Защита · ${apc.defend||1}AP</button>
+          ${rageReady?`<button class="btn btn-sm btn-gold" onclick="_b3Ult(${_b3Sel})" title="${esc(sel.ult_desc||'')}">💥 ${esc(sel.ult_name||'Ульта')}</button>`:''}
+        </div>
+        ${_b3SkillMode?`<div class="b4-hint">🎯 Выбери цель навыка (враг в дальности) — или тапни этого юнита для навыка на себя.</div>`:''}
+      </div>`;
+    } else {
+      actHtml+=`<div class="b4-hint b4-hint-idle">👆 Тапни своего юнита — подсветятся ходы и цели.</div>`;
+    }
+    actHtml+=`<div class="b4-bar">
+      ${st.ally.triad_available?`<button class="btn btn-sm btn-teal" onclick="_b3TriadAct()">🌈 Триада</button>`:''}
+      <button class="btn btn-gold b4-endturn" onclick="_b3EndTurn()">↪ Конец хода</button>
+    </div>`;
+  }
+
   ov.innerHTML=`
     <div class="b3-top">
-      <span class="b3-round">Раунд ${st.round}${st.escalation?` · 🔥+${Math.round(st.escalation*100)}%`:''} · колода: ${st.deck_left}</span>
+      <span class="b3-round">Раунд ${st.round}${st.escalation?` · 🔥+${Math.round(st.escalation*100)}%`:''}</span>
       ${finished?'':`<div style="display:flex;gap:6px">
         <button class="b3-flee" onclick="_b3Cancel()">🚪 Выйти</button>
         <button class="b3-flee" onclick="_b3Flee()">🏳 Сдаться</button>
       </div>`}
     </div>
     <div class="b3-rage b3-rage-en"><div class="b3-rage-f" style="width:${rageE}%"></div><span>ярость врага ${rageE}</span></div>
-    <div class="b3-row">${eCards}</div>
+    <div class="b4-grid">${cells}</div>
     ${grade?`<div class="bt-flash bt-flash-${grade}"></div>`:''}
-    <div class="b3-mid">
+    <div class="b3-rage"><div class="b3-rage-f b3-rage-my" style="width:${rageA}%"></div><span>твоя ярость ${rageA}${rageA>=100?' — УЛЬТА ГОТОВА!':''}</span></div>
+    <div class="b4-mid">
       ${headHtml}
       ${qte?`<div class="bt-qte b3-qte" onclick="_b3QteTap()">
           <div class="bt-ring" id="b3-ring"></div>
           <div class="bt-ring-core">${st.pending.type==='ult'?'💥':'🎯'}</div>
           <div class="b3-qte-hint">${st.pending.type==='ult'?'УЛЬТА: жми в момент сжатия!':'КРИТ: жми в момент сжатия!'}</div>
-        </div>`
-      :finished?''
-      :`<div class="b3-hand">${hand||'<div class="cx-dim" style="font-size:11px;padding:6px">Рука пуста</div>'}</div>
-        <div class="b3-ctl">
-          <span class="b3-focus" title="Фокус: 🔄 переброс руны (1) · 🎯 гарант-крит (2)">🧿 ${st.ally.focus}</span>
-          ${st.ally.triad_available?`<button class="btn btn-sm btn-teal" onclick="_b3Triad(this)">🌈 Триада</button>`:''}
-          <button class="btn btn-gold b3-go" ${_b3Order.length===(st.hand||[]).length&&(st.hand||[]).length>=0?'':'disabled'} onclick="_b3Play(this)">▶️ Ход (${_b3Order.length}/${(st.hand||[]).length})</button>
-        </div>
-        <div class="cx-dim" style="font-size:10px;text-align:center">Тапай руны в нужном порядке · цель — тап по врагу</div>`}
+        </div>`:actHtml}
     </div>
-    <div class="b3-rage"><div class="b3-rage-f b3-rage-my" style="width:${rageA}%"></div><span>твоя ярость ${rageA}${rageA>=100?' — УЛЬТА ГОТОВА!':''}</span></div>
-    <div class="b3-row">${aCards}</div>
     <div class="bt-log b3-log">${(st.log||[]).slice(-6).map(l=>`<div>${esc(l)}</div>`).join('')}</div>
     ${finished?`<button class="btn btn-gold btn-full" style="margin-top:6px" onclick="_btBack()">↩ Назад</button>`:''}
   `;
   if(qte) _b3StartQte(st.qte);
-  // BATTLE_VFX_CONCEPT.md (блок 2): бьём по СВЕЖЕ отрендеренным карточкам —
-  // проще и надёжнее, чем анимировать переход старое→новое состояние.
+  // BATTLE_VFX_CONCEPT.md (блок 2): бьём по СВЕЖЕ отрендеренным токенам.
   if(!finished) _b3OutcomeShown=false;
   if(turn&&turn.hits&&turn.hits.length) _b3PlayHitFx(turn.hits, grade&&grade!=='miss');
   if(finished&&!_b3OutcomeShown){
@@ -391,7 +437,7 @@ function _btRender(st, turn, reward){
     ov.classList.add(st.status==='won'?'b3-outcome-won':'b3-outcome-lost');
   }
 }
-function _b3CardEl(side,i){ return el('b3-c-'+(side==='enemy'?'enemy':'ally')+'-'+i); }
+function _b3CardEl(side,i){ return el('b4-tok-'+(side==='enemy'?'enemy':'ally')+'-'+i); }
 function _b3PlayHitFx(hits,isCrit){
   (hits||[]).forEach(h=>{
     const color=B3_ELEMENT_COLORS[h.elem]||'#e8b54d';
@@ -416,18 +462,73 @@ function _b3PlayHitFx(hits,isCrit){
     }
   });
 }
-function _b3SetTarget(i){
-  if(!_b3St||!(_b3St.enemy.units[i]||{}).alive) return;
-  _b3Target=i; _haptic('light');
-  _btRender(_b3St);
+// Клиентский BFS достижимости (4-соседства, стоимость 1/клетка, не сквозь
+// препятствия grid==1 и занятые клетки). occupied — Set "x,y" всех живых юнитов
+// кроме выбранного. Возвращает Set "x,y" с cost≤ap (сервер валидирует повторно).
+function _b4Reach(grid, sx, sy, ap, occupied){
+  const H=grid.length, W=(grid[0]||[]).length, res=new Set();
+  if(!(ap>0)||!H||!W) return res;
+  const seen=new Set([sx+','+sy]), q=[[sx,sy,0]], DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+  while(q.length){
+    const cur=q.shift(), x=cur[0], y=cur[1], c=cur[2];
+    if(c>0) res.add(x+','+y);
+    if(c>=ap) continue;
+    for(let d=0;d<DIRS.length;d++){
+      const nx=x+DIRS[d][0], ny=y+DIRS[d][1], k=nx+','+ny;
+      if(nx<0||ny<0||nx>=W||ny>=H||seen.has(k)) continue;
+      if(grid[ny][nx]===1||occupied.has(k)) continue;
+      seen.add(k); q.push([nx,ny,c+1]);
+    }
+  }
+  return res;
 }
-function _b3TapRune(i){
-  if(!_b3St||_b3St.pending) return;
-  const p=_b3Order.indexOf(i);
-  if(p>=0) _b3Order.splice(p,1); else _b3Order.push(i);
-  _haptic('light');
-  _btRender(_b3St);
+function _b3TapCell(x,y){
+  if(!_b3St||_b3Lock) return;
+  const st=_b3St, aUnits=st.ally.units||[], eUnits=st.enemy.units||[];
+  if(st.status==='won'||st.status==='lost'||st.pending) return;
+  let hit=null;
+  aUnits.forEach((u,i)=>{ if(u.pos&&u.pos.x===x&&u.pos.y===y) hit={side:'ally',i,u}; });
+  eUnits.forEach((u,i)=>{ if(u.pos&&u.pos.x===x&&u.pos.y===y) hit={side:'enemy',i,u}; });
+  // тап по своему живому юниту → выбор (в режиме навыка тап по себе = навык на себя)
+  if(hit&&hit.side==='ally'&&hit.u.alive){
+    if(_b3SkillMode&&hit.i===_b3Sel){ _b3AttackOrSkill(null); return; }
+    _b3SelectUnit(hit.i); return;
+  }
+  if(_b3Sel==null) return;
+  const sel=aUnits[_b3Sel]; if(!sel||!sel.alive||!sel.pos) return;
+  // тап по врагу → атака или навык (если в дальности)
+  if(hit&&hit.side==='enemy'&&hit.u.alive){
+    if(Math.max(Math.abs(x-sel.pos.x),Math.abs(y-sel.pos.y))<=(sel.range||1)) _b3AttackOrSkill(hit.i);
+    else toast('Цель вне дальности',false);
+    return;
+  }
+  // тап по пустой достижимой клетке → ход
+  if(!hit){
+    const occSet=new Set();
+    aUnits.concat(eUnits).forEach(u=>{ if(u.alive&&u!==sel&&u.pos) occSet.add(u.pos.x+','+u.pos.y); });
+    if(_b4Reach(st.grid, sel.pos.x, sel.pos.y, sel.ap||0, occSet).has(x+','+y)) _b3Move(x,y);
+  }
 }
+function _b3SelectUnit(i){
+  if(!_b3St) return;
+  if(_b3Sel===i){ _b3Sel=null; _b3SkillMode=false; }
+  else { _b3Sel=i; _b3SkillMode=false; }
+  _haptic('light'); _btRender(_b3St);
+}
+function _b3SkillBtn(){
+  if(_b3Sel==null) return;
+  _b3SkillMode=!_b3SkillMode; _haptic('light'); _btRender(_b3St);
+}
+function _b3Act(body){ if(!_b3St) return; _b3Api('/combat2/battle/action', Object.assign({battle_id:_b3St.battle_id}, body)); }
+function _b3Move(x,y){ if(_b3Sel==null) return; _b3Act({type:'move', unit_i:_b3Sel, cell:{x,y}}); }
+function _b3AttackOrSkill(targetI){
+  if(_b3Sel==null) return;
+  _b3Act(_b3SkillMode?{type:'skill', unit_i:_b3Sel, target_i:targetI}
+                     :{type:'attack', unit_i:_b3Sel, target_i:targetI});
+}
+function _b3Defend(){ if(_b3Sel==null) return; _b3Act({type:'defend', unit_i:_b3Sel}); }
+function _b3EndTurn(){ _b3Act({type:'end_turn'}); }
+function _b3TriadAct(){ _b3Act({type:'triad'}); }
 function _b3Api(path, body, after){
   if(_b3Lock) return;
   _b3Lock=true;
@@ -439,15 +540,6 @@ function _b3Api(path, body, after){
       (after||_btRender)(r, r.turn, r.reward);
     })
     .catch(e=>{_b3Lock=false;toast(e,false);});
-}
-function _b3Play(btn){
-  if(!_b3St) return;
-  if(_b3Order.length!==(_b3St.hand||[]).length){toast('Выбери порядок всех рун',false);return;}
-  if(btn)btn.disabled=true;
-  const targets={};
-  _b3Order.forEach(hi=>{targets[String(hi)]=_b3Target;});
-  _b3Api('/combat2/battle/round',{battle_id:_b3St.battle_id,order:_b3Order,targets});
-  _b3Order=[];
 }
 function _b3StartQte(q){
   const ring=el('b3-ring'); if(!ring||!q) return;
@@ -472,21 +564,6 @@ function _b3QteTap(){
 function _b3Ult(unitI){
   if(!_b3St) return;
   _b3Api('/combat2/battle/ult',{battle_id:_b3St.battle_id,unit_i:unitI});
-}
-function _b3Reroll(i){
-  if(!_b3St) return;
-  _b3Order=[];
-  _b3Api('/combat2/battle/reroll',{battle_id:_b3St.battle_id,hand_i:i});
-}
-function _b3FCrit(i){
-  if(!_b3St) return;
-  _b3Api('/combat2/battle/focus-crit',{battle_id:_b3St.battle_id,hand_i:i});
-}
-function _b3Triad(btn){
-  if(!_b3St) return;
-  if(btn)btn.disabled=true;
-  _b3Order=[];
-  _b3Api('/combat2/battle/triad',{battle_id:_b3St.battle_id});
 }
 function _b3Flee(){
   if(!_b3St) return;
