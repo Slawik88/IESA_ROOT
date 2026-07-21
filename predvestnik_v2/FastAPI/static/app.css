@@ -2553,6 +2553,53 @@ body.modal-open { overflow: hidden; }
   box-shadow: 0 0 0 2px var(--gold2); } }
 body.no-fx .b4-coach { animation: none; }
 body.no-fx .b4-coach-hl { animation: none; box-shadow: 0 0 0 2px var(--gold2); }
+/* Онбординг боя: дофаминовый экран победы/поражения (замена строки-баннера) */
+.b4-win { position: relative; display: flex; flex-direction: column; align-items: center;
+  gap: 10px; padding: 14px 6px 4px; text-align: center; overflow: hidden; }
+.b4-win-stamp { font-size: 22px; font-weight: 800; color: #1a1405;
+  background: linear-gradient(135deg, #f5d488, #e8b54d 60%, #cf9430); border-radius: 14px;
+  padding: 8px 22px; box-shadow: 0 0 24px rgba(232,181,77,.4), 0 6px 18px rgba(0,0,0,.4);
+  animation: b4WinStampIn .4s cubic-bezier(.34,1.56,.64,1) both; }
+@keyframes b4WinStampIn { 0% { opacity: 0; transform: scale(.6); }
+  60% { transform: scale(1.08); } 100% { opacity: 1; transform: scale(1); } }
+.b4-lose-stamp { font-size: 18px; font-weight: 800; color: var(--red); background: none;
+  box-shadow: none; padding: 4px; animation: none; }
+.b4-win-sub { font-size: 12px; color: var(--muted); line-height: 1.4; max-width: 300px; }
+.b4-win-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; }
+.b4-win-card { position: relative; display: flex; flex-direction: column; align-items: center;
+  gap: 2px; min-width: 84px; background: linear-gradient(180deg, var(--bg2,#151827), var(--bg1,#0e1019));
+  border: 1px solid rgba(232,181,77,.28); border-radius: 12px; padding: 9px 10px; cursor: pointer;
+  opacity: 0; animation: b4WinCardIn .35s ease both; }
+.b4-win-card:active { transform: scale(.94); }
+@keyframes b4WinCardIn { from { opacity: 0; transform: translateY(10px) scale(.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); } }
+.b4-win-card-e { font-size: 22px; line-height: 1.15; }
+.b4-win-card-n { font-size: 9.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.b4-win-card-a { font-size: 14px; font-weight: 800; color: var(--gold2); font-variant-numeric: tabular-nums; }
+.b4-win-card-s { font-size: 8.5px; color: var(--muted); }
+.b4-win-badge { font-size: 10.5px; font-weight: 700; color: var(--gold2);
+  background: rgba(232,181,77,.13); border: 1px solid rgba(232,181,77,.3); border-radius: 999px;
+  padding: 3px 10px; }
+.b4-win-btns { display: flex; gap: 8px; width: 100%; margin-top: 4px; }
+.b4-win-btns .btn { flex: 1; }
+/* Confetti-lite: сдержанно, коротко (~900ms), только золото/фиолет по DESIGN */
+.b4-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+.b4-confetti-piece { position: absolute; top: -8px; width: 5px; height: 5px; border-radius: 1px;
+  background: var(--gold2); opacity: .85; animation: b4ConfettiFall .85s ease-in forwards; }
+.b4-confetti-piece:nth-child(3n) { background: #8b6cf0; }
+.b4-confetti-piece.big { width: 7px; height: 7px; }
+@keyframes b4ConfettiFall { 0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: .9; }
+  100% { transform: translateY(140px) translateX(var(--drift,0px)) rotate(220deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .b4-win-stamp, .b4-win-card { animation: none; opacity: 1; }
+  .b4-confetti { display: none; }
+}
+body.no-fx .b4-win-stamp, body.no-fx .b4-win-card { animation: none; opacity: 1; }
+body.no-fx .b4-confetti { display: none; }
+/* Лист-описание (showItemDetail) — переиспользуемый чип типа над секциями */
+.ii-chip { display: inline-block; font-size: 10px; font-weight: 700; color: var(--muted);
+  background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 10px; margin-bottom: 6px; }
 /* Слабые телефоны/доступность: без движения, фидбек мгновенный (см. .b3-* ниже) */
 @media (prefers-reduced-motion: reduce) {
   .b4-cell, .b4-tok, .b4-hpfill { transition: none; }

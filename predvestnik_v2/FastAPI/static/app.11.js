@@ -325,6 +325,135 @@ function _b3Legend(){
     <div class="b4-lg-row">⚡ AP — очки действий: шаг / атака / навык / защита. Ярость 100 → 💥 ульта.</div>
   </div>`, [{l:'Понятно',c:'btn-gold',f:'CM()'}]);
 }
+// ── Дофамин победы: переиспользуемый лист-описание (задел под #4 — весь сайт) ──
+// «Что это / зачем / где взять / где применить» — после прочтения не должно
+// оставаться вопросов. Реестр — только боевые награды; раскатка на весь сайт (#4)
+// подключит остальные предметы к этому же showItemDetail().
+const ITEM_INFO = {
+  dark_mora: { emoji:'🌑', name:'Тёмная Мора', type:'Валюта Бездны',
+    what:'Особая валюта, которая падает только в боях: Врата, Бездна клана, Войны кланов.',
+    why:'На неё в Тёмном Рынке покупаются вещи, которых нет за обычную мору — сезонная косметика, ускорители и редкие ресурсы.',
+    where_get:'Победа во Вратах (растёт с этажом), бои Бездны клана, участие в Войнах кланов.',
+    where_use:'Тёмный Рынок (Арена → Тёмный Рынок). Баланс виден в шапке профиля.' },
+  abyss_shard: { emoji:'🔷', name:'Осколки Бездны', type:'Валюта призыва',
+    what:'Ресурс для призыва боевых юнитов в Казарме.',
+    why:'Без осколков не собрать отряд — каждый призыв тратит их пачкой, а дубли превращаются в осколки уже открытого юнита.',
+    where_get:'Шанс с победы во Вратах и в боях Бездны клана.',
+    where_use:'Казарма → кнопка «🔮 Призыв юнита».' },
+  unit_shard: { emoji:'◈', name:'Осколки юнита', type:'Ресурс прокачки',
+    what:'Осколки конкретного бойца — не общая валюта, а прогресс именно по нему.',
+    why:'Копи, чтобы поднять юниту уровень (+12% статов) или открыть его напрямую, если он ещё не призван.',
+    where_get:'Гарантированно с любого этажа Врат (больше на высоких), боссы Бездны клана, 🔷 Гравировка в карточке юнита.',
+    where_use:'Казарма → карточка юнита → «⬆ Прокачать» / «🔓 Открыть».' },
+  _fallback: { emoji:'🎁', name:'Награда', type:'',
+    what:'Награда за победу в бою.', why:'Усиливает твой прогресс в игре.',
+    where_get:'Бои Врат, Бездны клана и Войн кланов.',
+    where_use:'Проверь баланс в шапке профиля или соответствующем разделе игры.' },
+};
+function showItemDetail(key, override){
+  const info=Object.assign({}, ITEM_INFO[key]||ITEM_INFO._fallback, override||{});
+  OM(`${info.emoji} ${esc(info.name)}`, `
+    ${info.type?`<div class="ii-chip">${esc(info.type)}</div>`:''}
+    <div class="looks-slot-t">Что это</div>
+    <div class="cx-dim" style="font-size:12px;line-height:1.45">${esc(info.what)}</div>
+    <div class="looks-slot-t" style="margin-top:8px">Зачем нужно</div>
+    <div class="cx-dim" style="font-size:12px;line-height:1.45">${esc(info.why)}</div>
+    <div class="looks-slot-t" style="margin-top:8px">Где взять</div>
+    <div class="cx-dim" style="font-size:12px;line-height:1.45">${esc(info.where_get)}</div>
+    <div class="looks-slot-t" style="margin-top:8px">Где применить</div>
+    <div class="cx-dim" style="font-size:12px;line-height:1.45">${esc(info.where_use)}</div>
+  `, [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+}
+// ── Дофамин победы: экран победы/поражения (заменяет прежнюю строку headHtml) ──
+let _b3RewardCardsCache=[];
+function _b3ItemClick(i){ const c=(_b3RewardCardsCache||[])[i]; if(!c) return; showItemDetail(c.key, c.override); }
+function _b3ConfettiHtml(){
+  if(_b3NoMotion()) return '';
+  let s='';
+  for(let i=0;i<10;i++){
+    const left=(5+Math.random()*90).toFixed(1), delay=(Math.random()*0.3).toFixed(2),
+          drift=Math.round(Math.random()*40-20), big=Math.random()>0.5;
+    s+=`<i class="b4-confetti-piece${big?' big':''}" style="left:${left}%;animation-delay:${delay}s;--drift:${drift}px"></i>`;
+  }
+  return `<div class="b4-confetti">${s}</div>`;
+}
+function _b3RewardItems(st, rw){
+  if(!rw || st.mode==='war') return [];
+  const items=[];
+  if(rw.dark_mora!==undefined) items.push({key:'dark_mora', emoji:'🌑', label:'Тёмная Мора', amount:rw.dark_mora});
+  if(rw.shards){
+    const sub=rw.split?`из них ${fmt(rw.split.treasury)} в казну клана`:'';
+    items.push({key:'abyss_shard', emoji:'🔷', label:'Осколки Бездны', amount:rw.shards, sub});
+  }
+  if(rw.unit_shards){
+    const us=rw.unit_shards;
+    items.push({key:'unit_shard', emoji:us.emoji, label:esc(us.name), amount:us.n,
+      override:{emoji:us.emoji, name:us.name+' — осколки'}});
+  }
+  return items;
+}
+function _b3WinButtonsHtml(st){
+  const again=st.mode==='tutorial'
+    ?`<button class="btn btn-gold" onclick="_gtTutorialStart()">🎓 Пройти ещё раз</button>`:'';
+  return `<div class="b4-win-btns">${again}
+    <button class="btn ${st.mode==='tutorial'?'btn-ghost':'btn-gold'}" onclick="_btBack()">↩ Назад</button>
+  </div>`;
+}
+function _b3VictoryHtml(st, rw){
+  if(st.mode==='war'){
+    let txt=rw?`Урон стене: ${fmt(rw.damage)}`:'';
+    if(rw&&rw.breached) txt=`🏰 УЗЕЛ ЗАХВАЧЕН! ${txt}`;
+    else if(rw) txt+=` (${fmt(rw.wall_total)}/${fmt(rw.wall_hp_max)})`;
+    return `<div class="b4-win">${_b3ConfettiHtml()}
+      <div class="b4-win-stamp">🏆 ПОБЕДА</div>
+      <div class="b4-win-sub">${txt}</div>
+      ${_b3WinButtonsHtml(st)}
+    </div>`;
+  }
+  _b3RewardCardsCache=_b3RewardItems(st, rw);
+  const cards=_b3RewardCardsCache;
+  const multBadge=(rw&&rw.reward_mult&&rw.reward_mult>1)
+    ?`<div class="b4-win-badge">⚡×${rw.reward_mult} — за мастерство</div>`:'';
+  const keyBadge=(rw&&rw.boss_key)?`<div class="b4-win-badge">🗝 Ключ этажа</div>`:'';
+  const cardsHtml=cards.length
+    ?`<div class="b4-win-cards">${cards.map((c,i)=>`
+        <div class="b4-win-card" style="animation-delay:${(0.18+i*0.12).toFixed(2)}s" onclick="_b3ItemClick(${i})">
+          <span class="b4-win-card-e">${c.emoji}</span>
+          <span class="b4-win-card-n">${esc(c.label)}</span>
+          <span class="b4-win-card-a" data-final="${c.amount}">0</span>
+          ${c.sub?`<span class="b4-win-card-s">${esc(c.sub)}</span>`:''}
+        </div>`).join('')}</div>`
+    :`<div class="b4-win-sub">${st.mode==='tutorial'
+        ?'Обучение пройдено — теперь в бой за настоящие награды! 🎓'
+        :'Победа без добычи в этот раз.'}</div>`;
+  return `<div class="b4-win">${_b3ConfettiHtml()}
+    <div class="b4-win-stamp">🏆 ПОБЕДА</div>
+    ${cardsHtml}
+    ${multBadge}${keyBadge}
+    ${_b3WinButtonsHtml(st)}
+  </div>`;
+}
+function _b3DefeatHtml(){
+  return `<div class="b4-win b4-lose">
+    <div class="b4-win-stamp b4-lose-stamp">☠️ Отряд пал</div>
+    <div class="b4-win-sub">Юниты восстановятся к следующему бою — не сдавайся!</div>
+    <div class="b4-win-btns"><button class="btn btn-gold" onclick="_btBack()">⚔️ Ещё бой</button></div>
+  </div>`;
+}
+function _b3AnimateCounters(ov){
+  const noMotion=_b3NoMotion();
+  ov.querySelectorAll('.b4-win-card-a').forEach(function(elm){
+    const target=parseInt(elm.getAttribute('data-final')||'0',10);
+    if(noMotion){ elm.textContent='+'+fmt(target); return; }
+    const start=performance.now(), dur=650;
+    function tick(now){
+      const p=Math.min(1,(now-start)/dur);
+      elm.textContent='+'+fmt(Math.round(target*p));
+      if(p<1) requestAnimationFrame(tick); else elm.textContent='+'+fmt(target);
+    }
+    requestAnimationFrame(tick);
+  });
+}
 // ── Онбординг боя: коуч-слой «Первого боя» (data-driven, мягкое ведение) ────────
 function _b3EnemyHpSum(st){
   return ((st.enemy||{}).units||[]).reduce(function(s,u){ return s+(u.alive?u.hp:0); }, 0);
@@ -449,19 +578,10 @@ function _btRender(st, turn, reward){
   const rageA=Math.min(100,st.ally.rage||0), rageE=Math.min(100,st.enemy.rage||0);
   const grade=turn&&turn.grade;
 
-  // Итог боя + награда
+  // Онбординг боя: дофаминовый экран победы/поражения вместо строки текста.
   let headHtml='';
   if(finished){
-    const rw=_b3LastReward; let rwTxt='';
-    if(st.status==='won'&&rw){
-      if(rw.dark_mora!==undefined) rwTxt=`+${rw.dark_mora} 🌑${rw.shards?` · +${rw.shards} 🔷`:''}${rw.reward_mult&&rw.reward_mult>1?` · ⚡×${rw.reward_mult} за мастерство`:''}`;
-      else if(rw.split) rwTxt=`+${rw.shards} 🔷 (${rw.split.treasury} в казну${rw.boss_key?' · 🗝 ключ этажа':''})`;
-      else if(rw.damage!==undefined) rwTxt=`урон стене: ${fmt(rw.damage)}${rw.breached?' · 🏰 УЗЕЛ ЗАХВАЧЕН!':` (${fmt(rw.wall_total)}/${fmt(rw.wall_hp_max)})`}`;
-      if(rw.unit_shards) rwTxt+=` · ${rw.unit_shards.emoji} +${rw.unit_shards.n}◈ ${esc(rw.unit_shards.name)}`;
-    }
-    headHtml=st.status==='won'
-      ?`<div class="skg-head skg-won">🏆 ПОБЕДА! ${rwTxt}</div>`
-      :`<div class="skg-head skg-lost">☠️ Отряд пал. Юниты восстановятся к следующему бою.</div>`;
+    headHtml=st.status==='won' ? _b3VictoryHtml(st, _b3LastReward) : _b3DefeatHtml();
   }
 
   const qte=st.qte&&st.pending;
@@ -524,7 +644,6 @@ function _btRender(st, turn, reward){
         </div>`:actHtml}
     </div>
     <div class="bt-log b3-log">${(st.log||[]).slice(-6).map(l=>`<div>${esc(l)}</div>`).join('')}</div>
-    ${finished?`<button class="btn btn-gold btn-full" style="margin-top:6px" onclick="_btBack()">↩ Назад</button>`:''}
   `;
   if(qte) _b3StartQte(st.qte);
   // Онбординг боя: подсвечиваем цель текущего шага обучения (токен/кнопка) — glow.
@@ -537,6 +656,7 @@ function _btRender(st, turn, reward){
     ov.classList.remove('b3-outcome-won','b3-outcome-lost');
     void ov.offsetWidth;
     ov.classList.add(st.status==='won'?'b3-outcome-won':'b3-outcome-lost');
+    if(st.status==='won') _b3AnimateCounters(ov);
   }
 }
 function _b3CardEl(side,i){ return el('b4-tok-'+(side==='enemy'?'enemy':'ally')+'-'+i); }
