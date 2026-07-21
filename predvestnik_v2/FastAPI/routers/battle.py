@@ -17,11 +17,13 @@ from core.constants import (
     GATES2_SHARD_RANGE,
     UNIT_SHARD_DROP_ABYSS_BOSS,
     WAR_NODE_SHIELD_HOURS,
+    B4_TUTORIAL_SEED,
 )
 from core.units import UNITS
 from infrastructure.repositories import battles as bt_repo
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories import units as u_repo
+from infrastructure.repositories import users as users_repo
 from services import battle3 as b3
 from services import barracks
 from services.battle import rate_limited
@@ -98,6 +100,8 @@ async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
                    "emoji": UNITS[s["unit_id"]]["emoji"]} for s in squad],
         "squad_cp": await barracks.squad_cp(db, uid),
         "active_battle": b3.public_state(active["state"], active["id"]) if active else None,
+        # Онбординг боя: пройден ли «Первый бой» (клиент решает автопредложение обучения).
+        "tutorial_done": await users_repo.get_combat_tutorial_done(db, uid),
     }
 
 
@@ -120,6 +124,23 @@ async def gates_enter(body: GatesEnterRequest, db=Depends(get_db), user=Depends(
     state = b3.new_battle_state(squad, b3.gates_enemy_squad(body.floor), "gates",
                                 {"floor": body.floor})
     bid = await bt_repo.create(db, uid, 0, "gates", body.floor, b3.dumps(state))
+    await db.commit()
+    return b3.public_state(state, bid)
+
+
+# ── Туториал: скриптованный «Первый бой» ──────────────────────────────────────
+
+@router.post("/tutorial/start")
+async def tutorial_start(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Онбординг боя: запустить/перезапустить «Первый бой». Реальный серверный бой на
+    синтетическом отряде против слабых врагов; не тратит вход дня (mode='tutorial' не
+    учитывается count_today), без награды, анти-фейл (hp≥1). Детерминирован (фикс-сид)."""
+    uid = user["id"]
+    if await get_active_b3(db, uid):
+        raise HTTPException(400, "У тебя уже идёт бой — сначала закончи его.")
+    state = b3.new_battle_state(b3.tutorial_squad(), b3.tutorial_enemy_squad(),
+                                "tutorial", {"tutorial": True, "seed": B4_TUTORIAL_SEED})
+    bid = await bt_repo.create(db, uid, 0, "tutorial", 0, b3.dumps(state))
     await db.commit()
     return b3.public_state(state, bid)
 
@@ -236,6 +257,10 @@ async def _finalize_if_over(db, uid: int, user: dict, row: dict, state: dict) ->
         reward = await _abyss_finalize(db, uid, user, state, won)
     elif row["mode"] == "war":
         reward = await _war_finalize(db, uid, state)
+    elif row["mode"] == "tutorial" and won:
+        # Онбординг боя: «Первый бой» — без награды (повтор через «?» = эксплойт),
+        # только отмечаем прохождение. Экран победы покажет поздравление без лута.
+        await users_repo.set_combat_tutorial_done(db, uid)
     return reward
 
 

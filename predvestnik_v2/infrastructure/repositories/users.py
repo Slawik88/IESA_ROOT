@@ -141,12 +141,34 @@ async def ensure_account_columns(db) -> None:
         # Growth-полиш 2026-07-13: та же дуальная защита от гонки бот/веб-процессов,
         # что и у трёх колонок выше.
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT DEFAULT NULL",
+        # Онбординг боя 2026-07-21: пройден ли скриптованный «Первый бой».
+        # DEFAULT FALSE → и существующим игрокам предложим новое обучение (не форс —
+        # заметная кнопка «▶ Первый бой» + «Пропустить», см. app.11.js).
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_tutorial_done BOOLEAN DEFAULT FALSE",
     ):
         try:
             await db.execute(stmt)
         except Exception:
             pass  # колонка уже есть / гонка двух процессов — не фатально
     await db.commit()
+
+
+async def get_combat_tutorial_done(db, user_id: int) -> bool:
+    """Онбординг боя: пройден ли «Первый бой» (флаг переживает смену устройства/кэша)."""
+    try:
+        async with db.execute(
+            "SELECT combat_tutorial_done FROM users WHERE user_tg_id = ?", (user_id,)
+        ) as c:
+            row = await c.fetchone()
+        return bool(row and row[0])
+    except Exception:
+        return False  # колонка ещё не создана на этом процессе — считаем «не пройден»
+
+
+async def set_combat_tutorial_done(db, user_id: int) -> None:
+    """Отметить «Первый бой» пройденным (идемпотентно)."""
+    await db.execute(
+        "UPDATE users SET combat_tutorial_done = TRUE WHERE user_tg_id = ?", (user_id,))
 
 
 async def add_account_xp(db, user_id: int, amount: int) -> dict:
