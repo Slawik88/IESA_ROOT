@@ -15,7 +15,7 @@ from core.constants import (
     GATES2_FLOORS, GATES2_CP_GATE, GATES2_ENTRIES_PER_DAY,
     GATES2_DARK_MORA_BASE, GATES2_DARK_MORA_PER_FLOOR, GATES2_SHARD_CHANCE,
     GATES2_SHARD_RANGE,
-    UNIT_SHARD_DROP_ABYSS_BOSS, UNIT_SHARD_DROP_GATES, UNIT_SHARD_DROP_GATES_CHANCE,
+    UNIT_SHARD_DROP_ABYSS_BOSS,
     WAR_NODE_SHIELD_HOURS,
 )
 from core.units import UNITS
@@ -85,13 +85,14 @@ async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
         "floors": [{"floor": f, "cp_gate": GATES2_CP_GATE[f], "open": cp >= GATES2_CP_GATE[f],
                     "enemies": 2 if f <= 2 else 3,
                     "reward_dark": GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * f,
-                    "unit_shards": f >= 5}
+                    "unit_shards": True}
                    for f in range(1, GATES2_FLOORS + 1)],
         # Честные шансы дропа (легенда UI раньше говорила «шанс 🔷» без цифр)
+        # БЛ2: осколки юнита гарантированы с ЛЮБОГО этажа (растут с этажом) — см. _gates_reward.
         "loot": {"shard_chance_pct": round(GATES2_SHARD_CHANCE * 100),
                  "shard_range": list(GATES2_SHARD_RANGE),
-                 "unit_shard_chance_pct": round(UNIT_SHARD_DROP_GATES_CHANCE * 100),
-                 "unit_shard_range": list(UNIT_SHARD_DROP_GATES)},
+                 "unit_shard_chance_pct": 100,
+                 "unit_shard_range": [1, 4]},
         "squad": [{"unit_id": s["unit_id"], "level": s["level"], "slot": s["slot"],
                    "name": UNITS[s["unit_id"]]["name"],
                    "emoji": UNITS[s["unit_id"]]["emoji"]} for s in squad],
@@ -125,27 +126,39 @@ async def gates_enter(body: GatesEnterRequest, db=Depends(get_db), user=Depends(
 
 # ── Финализация исходов ───────────────────────────────────────────────────────
 
-async def _gates_reward(db, uid: int, floor: int) -> dict:
+async def _gates_reward(db, uid: int, floor: int, state: dict | None = None) -> dict:
+    from core.constants import (B4_REWARD_NO_LOSS_MULT, B4_REWARD_FAST_MULT,
+                                B4_REWARD_FAST_ROUNDS)
+    # БЛ3: множитель за скилл — без потерь юнитов ×1.5, победа ≤6 раундов ×1.25 (стакаются)
+    mult = 1.0
+    if state:
+        allies = state.get("ally", {}).get("units", [])
+        if allies and all(u.get("alive") for u in allies):
+            mult *= B4_REWARD_NO_LOSS_MULT
+        if state.get("round", 99) <= B4_REWARD_FAST_ROUNDS:
+            mult *= B4_REWARD_FAST_MULT
     dark = GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * floor
     from infrastructure.repositories.shadow_merchant import get_gates_dark_bonus
     _sr_bonus = await get_gates_dark_bonus(db, uid)
     if _sr_bonus > 0:
         dark = int(dark * (1 + _sr_bonus))
+    dark = int(round(dark * mult))
     await db.execute(
         "UPDATE users SET user_balance_dark_mora = COALESCE(user_balance_dark_mora,0) + ? "
         "WHERE user_tg_id = ?", (dark, uid))
     shards = 0
     if random.random() < GATES2_SHARD_CHANCE:
-        shards = random.randint(*GATES2_SHARD_RANGE)
+        shards = int(round(random.randint(*GATES2_SHARD_RANGE) * mult))
         await eco_repo.add_item(db, uid, "abyss_shard", shards)
-    unit_shards = None
-    if floor >= 5 and random.random() < UNIT_SHARD_DROP_GATES_CHANCE:
-        target = random.choice(list(UNITS))
-        n = random.randint(*UNIT_SHARD_DROP_GATES)
-        await u_repo.add_shards(db, uid, target, n)
-        unit_shards = {"unit_id": target, "name": UNITS[target]["name"],
-                       "emoji": UNITS[target]["emoji"], "n": n}
-    return {"dark_mora": dark, "shards": shards, "unit_shards": unit_shards}
+    # БЛ2: осколки ЮНИТА гарантированно с ЛЮБОГО этажа (растут с этажом), а не 35% с эт.5+.
+    # эт.1–2 → 1, эт.3–4 → 2, эт.5–6 → 2–3 (без множителя награды — это ресурс прокачки).
+    n = max(1, floor // 2) + (random.randint(0, 1) if floor >= 5 else 0)
+    target = random.choice(list(UNITS))
+    await u_repo.add_shards(db, uid, target, n)
+    unit_shards = {"unit_id": target, "name": UNITS[target]["name"],
+                   "emoji": UNITS[target]["emoji"], "n": n}
+    return {"dark_mora": dark, "shards": shards, "unit_shards": unit_shards,
+            "reward_mult": round(mult, 2)}
 
 
 async def _abyss_finalize(db, uid: int, user: dict, state: dict, won: bool) -> dict | None:
@@ -218,7 +231,7 @@ async def _finalize_if_over(db, uid: int, user: dict, row: dict, state: dict) ->
     await bt_repo.finish(db, row["id"], state["status"])
     reward = None
     if row["mode"] == "gates" and won:
-        reward = await _gates_reward(db, uid, int(row["ref_id"]))
+        reward = await _gates_reward(db, uid, int(row["ref_id"]), state)
     elif row["mode"] == "abyss":
         reward = await _abyss_finalize(db, uid, user, state, won)
     elif row["mode"] == "war":
