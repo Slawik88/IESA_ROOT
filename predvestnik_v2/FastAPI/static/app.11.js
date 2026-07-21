@@ -240,7 +240,7 @@ function loadGates(){
           : `<span class="g2-lock">🔒 ⚡${fmt(f.cp_gate)}</span>`}
       </div>`).join('');
     host2.innerHTML=`
-      <div class="looks-hint"><button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px;margin-left:6px" onclick="_b3IntroOpen('gates')" aria-label="Обучение">❓</button>
+      <div class="looks-hint">
         🌑 <b>Врата</b> — бой отрядом на клеточном поле: позиция и AP решают.
         Победа: Тёмная Мора + ${lo.shard_chance_pct||20}% шанс ${(lo.shard_range||[1,3]).join('–')} 🔷,
         на этажах 5–6 — ещё и осколки юнитов (см. ниже).
@@ -252,7 +252,9 @@ function loadGates(){
         :`<div class="cx-dim" style="font-size:11px">Отряда нет.</div>
           <button class="btn btn-sm btn-gold" style="margin-top:4px" onclick="goTo('arena','barracks')">🏰 Собрать отряд</button>`}
       <div class="looks-slot-t" style="margin-top:8px">🗼 Этажи</div>${floors}`;
-    _b3ShowIntro('gates');
+    // Онбординг боя: старая одноразовая text-модалка про механику боя (3 экрана —
+    // именно то, что «никто не читает до первого боя») заменена скриптованным
+    // «Первым боем» + постоянной легендой «❓» внутри арены. Автопоказ убран.
   }).catch(e=>{if(el('gtc'))el('gtc').innerHTML=`<div class="err">${e}</div>`;});
 }
 
@@ -264,15 +266,14 @@ function _b3ShowIntro(kind){
   }catch(e){ return; }
   _b3IntroOpen(kind);
 }
+// Онбординг боя: осталась только ветка Казармы (меню сбора отряда) — механика
+// самого боя теперь учится в скриптованном «Первом бою» + постоянной легенде «❓»
+// внутри арены (_b3Legend), а не текстовым дампом до первого тапа по полю.
 function _b3IntroOpen(kind){
-  const steps = kind==='barracks'
-    ? ['1️⃣ <b>Призови юнитов</b> за 🔷 и собери отряд из трёх — они выходят на поле боя.',
+  const steps=['1️⃣ <b>Призови юнитов</b> за 🔷 и собери отряд из трёх — они выходят на поле боя.',
        '2️⃣ <b>Каждый юнит ходит по клеткам</b>: очки действий (AP) тратятся на шаг, атаку, навык и защиту. Позиция решает.',
-       '3️⃣ <b>Качай юнитов осколками</b> — дубли призыва, боссы, 🔷 Гравировка. Растёт сила ⚡ отряда.']
-    : ['1️⃣ <b>Тапни своего юнита</b> — подсветятся клетки хода и цели. Тап по клетке — шаг, тап по врагу — удар (в дальности).',
-       '2️⃣ <b>Тактика решает</b>: прячься в укрытие (−30% урона), защищайся (−40%), бей врага без защиты (+25%). Кончились AP — «Конец хода».',
-       '3️⃣ <b>Круг сжимается — жми в момент сжатия!</b> Так проходят криты и ульты (ярость 100). Промахнулся — будет обычный удар, не страшно.'];
-  OM(kind==='barracks'?'🏰 Как устроена Казарма':'🌑 Как драться во Вратах',
+       '3️⃣ <b>Качай юнитов осколками</b> — дубли призыва, боссы, 🔷 Гравировка. Растёт сила ⚡ отряда.'];
+  OM('🏰 Как устроена Казарма',
     `<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0">${steps.map(s=>`<div class="looks-hint" style="margin:0">${s}</div>`).join('')}</div>
      <div class="cx-dim" style="font-size:10px;margin-top:10px;text-align:center">Вернуться к этой подсказке: кнопка «❓» вверху раздела.</div>`,
     [{l:'Понятно, в бой!',c:'btn-gold',f:'CM()'}]);
@@ -416,13 +417,15 @@ function _b3VictoryHtml(st, rw){
     ?`<div class="b4-win-badge">⚡×${rw.reward_mult} — за мастерство</div>`:'';
   const keyBadge=(rw&&rw.boss_key)?`<div class="b4-win-badge">🗝 Ключ этажа</div>`:'';
   const cardsHtml=cards.length
-    ?`<div class="b4-win-cards">${cards.map((c,i)=>`
-        <div class="b4-win-card" style="animation-delay:${(0.18+i*0.12).toFixed(2)}s" onclick="_b3ItemClick(${i})">
+    ?`<div class="b4-win-cards">${cards.map((c,i)=>{
+        const delayMs=180+i*120;   // синхронизирован с CSS animation-delay ниже
+        return `
+        <div class="b4-win-card" style="animation-delay:${(delayMs/1000).toFixed(2)}s" onclick="_b3ItemClick(${i})">
           <span class="b4-win-card-e">${c.emoji}</span>
           <span class="b4-win-card-n">${esc(c.label)}</span>
-          <span class="b4-win-card-a" data-final="${c.amount}">0</span>
+          <span class="b4-win-card-a" data-final="${c.amount}" data-delay-ms="${delayMs}">0</span>
           ${c.sub?`<span class="b4-win-card-s">${esc(c.sub)}</span>`:''}
-        </div>`).join('')}</div>`
+        </div>`;}).join('')}</div>`
     :`<div class="b4-win-sub">${st.mode==='tutorial'
         ?'Обучение пройдено — теперь в бой за настоящие награды! 🎓'
         :'Победа без добычи в этот раз.'}</div>`;
@@ -445,13 +448,19 @@ function _b3AnimateCounters(ov){
   ov.querySelectorAll('.b4-win-card-a').forEach(function(elm){
     const target=parseInt(elm.getAttribute('data-final')||'0',10);
     if(noMotion){ elm.textContent='+'+fmt(target); return; }
-    const start=performance.now(), dur=650;
-    function tick(now){
-      const p=Math.min(1,(now-start)/dur);
-      elm.textContent='+'+fmt(Math.round(target*p));
-      if(p<1) requestAnimationFrame(tick); else elm.textContent='+'+fmt(target);
-    }
-    requestAnimationFrame(tick);
+    // Онбординг боя: старт счётчика синхронизирован с CSS animation-delay карточки
+    // (data-delay-ms) — иначе поздние карточки досчитывают ДО того, как появятся
+    // на экране (visible), и роллап никто не видит (найдено визуальной проверкой).
+    const delay=parseInt(elm.getAttribute('data-delay-ms')||'0',10);
+    setTimeout(function(){
+      const start=performance.now(), dur=650;
+      function tick(now){
+        const p=Math.min(1,(now-start)/dur);
+        elm.textContent='+'+fmt(Math.round(target*p));
+        if(p<1) requestAnimationFrame(tick); else elm.textContent='+'+fmt(target);
+      }
+      requestAnimationFrame(tick);
+    }, delay);
   });
 }
 // ── Онбординг боя: коуч-слой «Первого боя» (data-driven, мягкое ведение) ────────
@@ -463,7 +472,9 @@ function _b3CoachSkip(){ _b3CoachIdx=9999; if(_b3St) _btRender(_b3St); }
 // Возвращает текущий шаг обучения {text, hlSel, idx, total} или null. Шаги — по
 // наблюдаемым вехам состояния (выбор → первый урон → конец хода → фаза врага → ярость).
 function _b3CoachStep(st){
-  if(!st || !st.tutorial || st.status==='lost') return null;
+  // Онбординг боя: коуч молчит на исходе боя (won/lost) — экран победы/поражения
+  // берёт слово, пузырь поверх него был бы мусором (найдено визуальной проверкой).
+  if(!st || !st.tutorial || st.status!=='active') return null;
   if(_b3CoachEnemyHp0==null) _b3CoachEnemyHp0=_b3EnemyHpSum(st);
   const aUnits=(st.ally||{}).units||[];
   let firstAlly=-1;
@@ -615,10 +626,13 @@ function _btRender(st, turn, reward){
   // Онбординг боя: коуч-пузырь скриптованного «Первого боя» (в потоке, над панелью
   // действий — не перекрывает кнопки). Подсветку цели вешаем после рендера.
   const coach = st.tutorial ? _b3CoachStep(st) : null;
+  // Кнопка «Пропустить» — в нижней строке рядом с «Шаг X из Y», НЕ поверх текста
+  // подсказки: абсолютное позиционирование над текстом переменной длины конфликтовало
+  // с переносом строк (см. правку CSS выше — тут меняем сам источник проблемы).
   const coachHtml = coach ? `<div class="b4-coach">
-      <button class="b4-coach-skip" onclick="_b3CoachSkip()">Пропустить обучение ✕</button>
       <div class="b4-coach-t"><span class="b4-coach-ic">🎓</span><span>${coach.text}</span></div>
-      <div class="b4-coach-step">Шаг ${coach.idx+1} из ${coach.total}</div>
+      <div class="b4-coach-foot"><span class="b4-coach-step">Шаг ${coach.idx+1} из ${coach.total}</span>
+        <button class="b4-coach-skip" onclick="_b3CoachSkip()">Пропустить ✕</button></div>
     </div>` : '';
 
   ov.innerHTML=`
