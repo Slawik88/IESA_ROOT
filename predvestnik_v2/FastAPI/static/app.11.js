@@ -7,6 +7,11 @@ let _bkData=null, _bkPickSlot=null;
 // _b3SkillMode — режим выбора цели навыка.
 let _b3St=null, _b3Sel=null, _b3SkillMode=false, _b3QteStart=0, _b3Lock=false, _b3LastReward=null;
 let _b3OutcomeShown=false, _b3Round=0;
+// Онбординг боя: пошаговый проигрыватель «ленты хода врага». Пока идёт — доска на
+// экране остаётся до-фазовой, мы анимируем DOM-токены; по завершении — один _btRender
+// в финальное состояние. Тайминги зеркалят core/constants.py::B4_BEAT_*.
+let _b3Playing=false, _b3PlayTimer=null, _b3PendingFinal=null, _b3SkipReq=false;
+const B4_BEAT_MOVE_MS=300, B4_BEAT_HIT_MS=220, B4_BEAT_GAP_MS=180;
 
 const B3_EL_ICO={fire:'🔥',ice:'❄️',storm:'⚡',earth:'🗿',dark:'🌑'};
 // BATTLE_VFX_CONCEPT.md (блок 2): цвет вспышек/чисел урона по стихии атакующего.
@@ -365,7 +370,7 @@ function _btRender(st, turn, reward){
           <span class="b4-hpbar"><span class="b4-hpfill ${side==='enemy'?'en':''}" style="width:${pct}%"></span></span>
         </span>`;
       }
-      cells+=`<div class="${cls}" onclick="_b3TapCell(${x},${y})">${inner}</div>`;
+      cells+=`<div class="${cls}" data-cell="${x}-${y}" onclick="_b3TapCell(${x},${y})">${inner}</div>`;
     }
   }
 
@@ -450,7 +455,7 @@ function _btRender(st, turn, reward){
   }
 }
 function _b3CardEl(side,i){ return el('b4-tok-'+(side==='enemy'?'enemy':'ally')+'-'+i); }
-function _b3OneHitFx(h,isCrit){
+function _b3OneHitFx(h,isCrit,noSrcPulse){
   const color=B3_ELEMENT_COLORS[h.elem]||'#e8b54d';
   const tgt=_b3CardEl(h.side,h.i);
   if(tgt){
@@ -463,7 +468,9 @@ function _b3OneHitFx(h,isCrit){
     tgt.appendChild(num);
     setTimeout(()=>{ try{num.remove();}catch(e){} },650);
   }
-  if(h.src_side!=null&&h.src_i!=null){
+  // noSrcPulse — в проигрывателе ленты источник (враг) уже сдвинут инлайн-transform;
+  // b3-act-pulse (scale) перебил бы слайд, поэтому подсветку источника даём через b4-acting.
+  if(!noSrcPulse&&h.src_side!=null&&h.src_i!=null){
     const atk=_b3CardEl(h.src_side,h.src_i);
     if(atk){
       atk.style.setProperty('--el-color',color);
@@ -471,6 +478,70 @@ function _b3OneHitFx(h,isCrit){
       atk.classList.add('b3-act-pulse');
     }
   }
+}
+// ── Онбординг боя: проигрыватель «ленты хода врага» (пошагово вместо телепорта) ──
+function _b3NoMotion(){
+  try{ return document.body.classList.contains('no-fx')
+    || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  catch(e){ return false; }
+}
+function _b3PlayTimeline(timeline, finalRes){
+  const st=_b3St;
+  if(!st){ _btRender(finalRes, null, finalRes.reward); return; }
+  const noMotion=_b3NoMotion();
+  // «живой» HP по сторонам (сеем из до-фазового состояния): полоски убывают по мере ударов
+  const live={};
+  ['ally','enemy'].forEach(function(side){
+    ((st[side]||{}).units||[]).forEach(function(u,i){
+      live[side+i]={hp:u.hp, max:u.hp_max||1, alive:u.alive}; });
+  });
+  _b3Playing=true; _b3PendingFinal=finalRes; _b3SkipReq=false;
+  let idx=0;
+  function finish(){
+    if(_b3PlayTimer){ clearTimeout(_b3PlayTimer); _b3PlayTimer=null; }
+    _b3Playing=false; _b3SkipReq=false; _b3PendingFinal=null;
+    _btRender(finalRes, null, finalRes.reward);   // null turn → без повторного проигрыша hits
+  }
+  function step(){
+    if(_b3SkipReq || idx>=timeline.length){ finish(); return; }
+    const beat=timeline[idx++];
+    const ei=beat.actor && beat.actor.i;
+    const tok=_b3CardEl('enemy', ei);
+    if(tok && !noMotion){ tok.classList.remove('b4-acting'); void tok.offsetWidth; tok.classList.add('b4-acting'); }
+    let dur=B4_BEAT_GAP_MS;
+    if(beat.kind==='move' && beat.to){
+      dur=_b3SlideToken(tok, beat.to, noMotion)+B4_BEAT_GAP_MS;
+    } else if(beat.hits && beat.hits.length){
+      beat.hits.forEach(function(h){ _b3OneHitFx(h, false, true); _b3LiveHit(live, h); });
+      dur=B4_BEAT_HIT_MS+B4_BEAT_GAP_MS;
+    } else {
+      dur=B4_BEAT_GAP_MS+100;   // defend/skip — короткая пауза, чтобы бит читался
+    }
+    if(noMotion) dur=0;
+    _b3PlayTimer=setTimeout(step, dur);
+  }
+  step();
+}
+function _b3SlideToken(tok, to, noMotion){
+  if(!tok || noMotion) return 0;
+  const ov=el('b3-ov'); if(!ov) return 0;
+  const cellFrom=tok.closest('.b4-cell');
+  const cellTo=ov.querySelector('[data-cell="'+to.x+'-'+to.y+'"]');
+  if(!cellFrom || !cellTo) return 0;
+  const rf=cellFrom.getBoundingClientRect(), rt=cellTo.getBoundingClientRect();
+  const dx=Math.round(rt.left-rf.left), dy=Math.round(rt.top-rf.top);
+  tok.style.zIndex='6';
+  tok.style.transition='transform '+B4_BEAT_MOVE_MS+'ms cubic-bezier(.4,.1,.3,1)';
+  tok.style.transform='translate('+dx+'px,'+dy+'px)';
+  return B4_BEAT_MOVE_MS;
+}
+function _b3LiveHit(live, h){
+  const rec=live[h.side+h.i]; if(!rec) return;
+  rec.hp=Math.max(0, rec.hp-(h.dmg||0));
+  const tok=_b3CardEl(h.side, h.i); if(!tok) return;
+  const fill=tok.querySelector('.b4-hpfill');
+  if(fill) fill.style.width=Math.max(0,Math.min(100, rec.hp/rec.max*100)).toFixed(0)+'%';
+  if(rec.hp<=0 && rec.alive){ rec.alive=false; tok.classList.add('b4-dead'); }
 }
 function _b3PlayHitFx(hits,isCrit){
   const arr=hits||[];
@@ -507,6 +578,8 @@ function _b4Reach(grid, sx, sy, ap, occupied){
   return res;
 }
 function _b3TapCell(x,y){
+  // Онбординг боя: тап по доске во время проигрывания ленты — доиграть мгновенно.
+  if(_b3Playing){ _b3SkipReq=true; return; }
   if(!_b3St||_b3Lock) return;
   const st=_b3St, aUnits=st.ally.units||[], eUnits=st.enemy.units||[];
   if(st.status==='won'||st.status==='lost'||st.pending) return;
@@ -537,13 +610,13 @@ function _b3TapCell(x,y){
   }
 }
 function _b3SelectUnit(i){
-  if(!_b3St) return;
+  if(!_b3St||_b3Playing) return;
   if(_b3Sel===i){ _b3Sel=null; _b3SkillMode=false; }
   else { _b3Sel=i; _b3SkillMode=false; }
   _haptic('light'); _btRender(_b3St);
 }
 function _b3SkillBtn(){
-  if(_b3Sel==null) return;
+  if(_b3Sel==null||_b3Playing) return;
   _b3SkillMode=!_b3SkillMode; _haptic('light'); _btRender(_b3St);
 }
 function _b3Act(body){ if(!_b3St) return; _b3Api('/combat2/battle/action', Object.assign({battle_id:_b3St.battle_id}, body)); }
@@ -557,14 +630,18 @@ function _b3Defend(){ if(_b3Sel==null) return; _b3Act({type:'defend', unit_i:_b3
 function _b3EndTurn(){ _b3Act({type:'end_turn'}); }
 function _b3TriadAct(){ _b3Act({type:'triad'}); }
 function _b3Api(path, body, after){
-  if(_b3Lock) return;
+  if(_b3Lock||_b3Playing) return;
   _b3Lock=true;
   api(path,{method:'POST',body:JSON.stringify(body)})
     .then(r=>{
       _b3Lock=false;
       if(r.status==='won'){_haptic('success');refreshCurrBar&&refreshCurrBar();}
       else if(r.status==='lost')_haptic('error');
-      (after||_btRender)(r, r.turn, r.reward);
+      // Онбординг боя: если пришла лента хода врага — проигрываем её пошагово (кроме
+      // кастомного after у QTE и режима без анимаций). Иначе — обычный рендер.
+      const tl=r.turn&&r.turn.timeline;
+      if(!after && tl && tl.length && _b3St && !_b3NoMotion()){ _b3PlayTimeline(tl, r); }
+      else (after||_btRender)(r, r.turn, r.reward);
     })
     .catch(e=>{_b3Lock=false;toast(e,false);});
 }

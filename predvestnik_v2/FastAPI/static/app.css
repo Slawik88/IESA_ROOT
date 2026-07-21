@@ -2502,13 +2502,23 @@ body.modal-open { overflow: hidden; }
 .b4-hint-idle { color: var(--muted); text-align: center; padding: 10px 0; }
 .b4-bar { display: flex; gap: 6px; }
 .b4-endturn { flex: 1; }
+/* Онбординг боя: подсветка «ходящего» врага в проигрывателе ленты. Box-shadow, НЕ
+   transform — инлайновый translate слайда токена не должен перебиваться. */
+@keyframes b4Acting { 0%, 100% { box-shadow: inset 0 0 0 2px rgba(224,82,82,.5); }
+  50% { box-shadow: inset 0 0 0 2px #e05252, 0 0 12px 2px rgba(224,82,82,.7); } }
+.b4-acting { animation: b4Acting .5s ease; z-index: 6; }
+/* Отзывчивость тапа в бою (Telegram WebView/iOS): убираем 300ms-задержку клика и
+   двойной тап-зум — прямой фикс «Конец хода срабатывает со второго тапа». */
+.b3-ov .btn, .b3-ov .b4-cell, .b3-flee { touch-action: manipulation; }
 /* Слабые телефоны/доступность: без движения, фидбек мгновенный (см. .b3-* ниже) */
 @media (prefers-reduced-motion: reduce) {
   .b4-cell, .b4-tok, .b4-hpfill { transition: none; }
   .b4-cell:active { transform: none; }
+  .b4-acting { animation: none; }
 }
 body.no-fx .b4-cell, body.no-fx .b4-tok, body.no-fx .b4-hpfill { transition: none; }
 body.no-fx .b4-cell:active { transform: none; }
+body.no-fx .b4-acting { animation: none; }
 
 /* ═══ Боёвка 3.0: визуальная динамика (BATTLE_VFX_CONCEPT.md, блок 2) ═══
    Цвет по стихии атакующего приходит через inline --el-color (5 стихий —
