@@ -84,6 +84,7 @@ const B4_STATE_ACTION = {"battle_id": 1, "status": "active", "mode": "gates", "r
 // Ключ: "METHOD /path". Значение: объект | функция(url)→объект | [status, объект].
 const MOCKS = {
   'GET /profile/me': PROFILE,
+  'POST /profile/whatsnew-seen': { ok: true },
   'POST /analytics/tab': { ok: true },
   'POST /analytics/tab-duration': { ok: true },
   'GET /admin/dev-overlay/check': [404, { detail: 'нет' }],

@@ -1069,8 +1069,13 @@ function _banAppealSend() {
 
 // ═══ «Что нового» — страница обновлений + бейдж в шапке ═══════════════════════
 // Данные: /updates.json (владелец правит FastAPI/static/updates.json как текст).
-// «Прочитано» хранится в localStorage (id последней открытой записи) — badge гаснет,
-// когда игрок открыл ленту. Записи newest-first; всё новее прочитанной — «Новое».
+// «Прочитано» хранится на сервере (users.whatsnew_seen_id, через /profile/me +
+// POST /profile/whatsnew-seen) — badge гаснет, когда игрок открыл ленту. Раньше
+// хранилось только в localStorage: Telegram WebView не гарантирует его сохранность
+// (чистка кэша/переустановка/долгий простой), из-за чего лента периодически
+// «сбрасывалась» и всё показывалось заново «Новое», у многих игроков. localStorage
+// остаётся только как разовый фолбэк миграции для игроков, у кого ещё нет
+// server-side значения (см. _wnSeenId). Записи newest-first; новее прочитанной — «Новое».
 let _wnData = null;                         // кэш ленты (массив записей)
 const _WN_SEEN_KEY = 'wn_seen_id';
 const _WN_MONTHS = ['января','февраля','марта','апреля','мая','июня','июля',
@@ -1086,7 +1091,13 @@ function _wnFetch(){
   if (_wnData) return Promise.resolve(_wnData);
   return api('/updates.json').then(d => { _wnData = (d && d.updates) || []; return _wnData; });
 }
-function _wnSeenId(){ try { return localStorage.getItem(_WN_SEEN_KEY) || ''; } catch(_) { return ''; } }
+function _wnSeenId(){
+  const server = _profileData && _profileData.whatsnew_seen_id;
+  if (server) return server;
+  // Разовая миграция: сервер ещё не знает (старый игрок/только что выкатили фикс) —
+  // используем локальное значение один раз, дальше сервер уже источник правды.
+  try { return localStorage.getItem(_WN_SEEN_KEY) || ''; } catch(_) { return ''; }
+}
 function _wnLatestId(list){ return (list && list.length) ? list[0].id : ''; }
 function _wnNewCount(list){
   const seen = _wnSeenId();
@@ -1104,7 +1115,11 @@ function checkWhatsNewBadge(){
 }
 function _wnMarkSeen(list){
   const latest = _wnLatestId(list);
-  if (latest) { try { localStorage.setItem(_WN_SEEN_KEY, latest); } catch(_){} }
+  if (latest) {
+    if (_profileData) _profileData.whatsnew_seen_id = latest;   // сразу видно этой же сессии
+    try { localStorage.setItem(_WN_SEEN_KEY, latest); } catch(_){}   // офлайн-подстраховка
+    api('/profile/whatsnew-seen', {method:'POST', body: JSON.stringify({seen_id: latest})}).catch(()=>{});
+  }
   const dot = el('whatsnew-dot'), btn = el('whatsnew-btn');
   if (dot) dot.hidden = true;
   if (btn) btn.classList.remove('has-new');

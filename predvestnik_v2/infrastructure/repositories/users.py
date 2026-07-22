@@ -145,6 +145,11 @@ async def ensure_account_columns(db) -> None:
         # DEFAULT FALSE → и существующим игрокам предложим новое обучение (не форс —
         # заметная кнопка «▶ Первый бой» + «Пропустить», см. app.11.js).
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_tutorial_done BOOLEAN DEFAULT FALSE",
+        # «Что нового» 2026-07-23: id последней прочитанной записи ленты обновлений.
+        # Раньше хранилось ТОЛЬКО в localStorage — Telegram WebView не гарантирует его
+        # сохранность (чистка кэша/переустановка/долгий простой), поэтому у многих
+        # игроков лента периодически «сбрасывалась» и всё показывалось заново «Новое».
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsnew_seen_id TEXT DEFAULT NULL",
     ):
         # КАЖДЫЙ ALTER — в своей транзакции (commit после успеха, rollback после сбоя).
         # PostgreSQL при ошибке ЛЮБОГО стейтмента аварийно завершает ВСЮ транзакцию, и
