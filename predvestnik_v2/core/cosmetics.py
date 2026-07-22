@@ -122,32 +122,37 @@ COSMETICS: dict[str, dict] = {
     # ── Титул (текст, бот + веб) ─────────────────────────────────────────────
     "cos_title_wanderer": {
         "name": "Странник Пустошей", "slot": "title", "rarity": "common",
-        "text": "Странник Пустошей", "vip_required": False, "source": "shop",
+        "text": "Странник Пустошей", "css": "title-wanderer",
+        "vip_required": False, "source": "shop",
         "price": [{"zarniki": 250}],
         "desc": "Текстовый титул под ником. Виден и в чате, и на сайте.",
     },
     "cos_title_patron": {
         "name": "Меценат", "slot": "title", "rarity": "rare",
-        "text": "Меценат", "vip_required": False, "source": "shop",
+        "text": "Меценат", "css": "title-patron",
+        "vip_required": False, "source": "shop",
         "price": [{"zarniki": 440}],
         "desc": "Титул для щедрых покровителей. Отображается при активной VIP.",
     },
     "cos_title_abysswalker": {
         "name": "Покоритель Бездны", "slot": "title", "rarity": "epic",
-        "text": "Покоритель Бездны", "vip_required": False, "source": "shop",
+        "text": "Покоритель Бездны", "css": "title-abysswalker",
+        "vip_required": False, "source": "shop",
         "price": [{"zarniki": 630}],
         "desc": "Титул-награда или покупка за зарники. Отображается при активной VIP.",
     },
     "cos_title_legend": {
         "name": "Легенда Сезона", "slot": "title", "rarity": "legendary",
-        "text": "Легенда Сезона", "vip_required": False, "source": "bp",
+        "text": "Легенда Сезона", "css": "title-legend",
+        "vip_required": False, "source": "bp",
         "price": [{"zarniki": 820}],
         "bp_level": 50,
         "desc": "Титул платного трека БП (макс. уровень) или за зарники.",
     },
     "cos_title_omen": {
         "name": "Предвестник", "slot": "title", "rarity": "mythic",
-        "text": "Предвестник", "vip_required": False, "source": "shop",
+        "text": "Предвестник", "css": "title-omen",
+        "vip_required": False, "source": "shop",
         "price": [{"zarniki": 1000}],
         "desc": "Мифический титул. Особая награда или за зарники.",
     },
@@ -476,7 +481,8 @@ COSMETICS: dict[str, dict] = {
     # ── Титул: +common, +rare, +epic ────────────────────────────────────────
     "cos_title_novice": {
         "name": "Новичок Бездны", "slot": "title", "rarity": "common",
-        "text": "Новичок Бездны", "vip_required": False, "source": "shop",
+        "text": "Новичок Бездны", "css": "title-novice",
+        "vip_required": False, "source": "shop",
         "price": [{"zarniki": 250}],
         "desc": "Простой стартовый титул. Виден и в чате, и на сайте.",
     },

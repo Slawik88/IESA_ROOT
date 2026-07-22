@@ -948,11 +948,21 @@ def _end_round(state: dict, over: bool) -> dict:
 
 # ── Генераторы врагов ─────────────────────────────────────────────────────────
 
+def _center_out_rows(h: int) -> list[int]:
+    """Порядок заполнения рядов от центра наружу — генерируется от GRID_H, а не
+    захардкожен, чтобы размер поля (core.constants.GRID_W/GRID_H) менялся без
+    правки этой функции. Для h=5 даёт ровно [2,1,3,0,4] (прежнее значение)."""
+    mid = (h - 1) / 2
+    return sorted(range(h), key=lambda r: (abs(r - mid), r))
+
+
 def spawn_positions(n_ally: int, n_enemy: int):
-    """Отряд — колонки 0–1, враги — 5–6. Ряды по центру поля. Детерминировано."""
-    rows = [2, 1, 3, 0, 4]  # порядок заполнения: центр наружу
+    """Отряд — левые 2 колонки, враги — правые 2 колонки (от GRID_W, не хардкод —
+    иначе при увеличении поля враги оказались бы в центре, а не у своего края).
+    Ряды по центру поля наружу. Детерминировано."""
+    rows = _center_out_rows(GRID_H)
     ally = [(0 if i % 2 == 0 else 1, rows[i]) for i in range(n_ally)]
-    enemy = [(6 if i % 2 == 0 else 5, rows[i]) for i in range(n_enemy)]
+    enemy = [(GRID_W - 1 if i % 2 == 0 else GRID_W - 2, rows[i]) for i in range(n_enemy)]
     return ally[:n_ally], enemy[:n_enemy]
 
 
