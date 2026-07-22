@@ -2,21 +2,25 @@
 const _LOOKS_SLOTS=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx'];
 const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки',welcome:'🎬 Приветствие'};
 const _LOOKS_TABS=[..._LOOKS_SLOTS,'welcome'];
-let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false;
+let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false, _looksFocus=null;
 let _looksPresets=[];  // кэш пресетов текущей сессии
 let _looksActiveTab=_LOOKS_SLOTS[0];   // какая вкладка сейчас открыта в модалке
 let _looksFilter='all';                // фильтр редкости — общий для всех вкладок, не сбрасывается при переключении
+// Полноэкранный экран «Внешний вид» (был модалкой). Имя openLooksModal сохранено —
+// его зовут старые точки входа (профиль/маркет), диплинки и «назад» из под-шитов.
 function openLooksModal(){
+  _looksActiveTab=_LOOKS_SLOTS[0]; _looksFilter='all'; _looksFocus=null;
+  switchPage('looks');
+  if(_looksData){ renderLooks(); return; }        // из кэша — БЕЗ пере-запроса (убирает лаги навигации)
   _looksDirty=false;
-  _looksActiveTab=_LOOKS_SLOTS[0]; _looksFilter='all';
-  OM('🎨 Внешний вид','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-ghost',f:'_looksClose()'}]);
+  const b=el('pg-looks'); if(b) b.innerHTML='<div class="loader" style="margin-top:44px">Загрузка…</div>';
   Promise.all([api('/cosmetics/'),api('/cosmetics/presets')])
     .then(([d,pr])=>{_looksData=d;_looksSaved=_looksEquipped(d);_looksSel={..._looksSaved};_looksPresets=pr.presets||[];renderLooks();})
-    .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;});
+    .catch(e=>{const bb=el('pg-looks'); if(bb)bb.innerHTML=`<div class="err" style="margin:16px">${e}</div>`;});
 }
-function _looksClose(){
-  if(_looksChanged()){ _looksApply().then(()=>{ CM(); loadProfile(); }); }   // «Готово» = применить незакоммиченное
-  else { CM(); if(_looksDirty) loadProfile(); }
+function _looksClose(){   // стрелка ‹ Назад: применить незакоммиченное и вернуться в профиль
+  if(_looksChanged()){ _looksApply().then(()=>{ loadProfile(); goTo('profile'); }); }
+  else { if(_looksDirty) loadProfile(); goTo('profile'); }
 }
 function _looksEquipped(d){
   const sel={};
@@ -28,11 +32,16 @@ function _rarLabel(r){return rarLabel(r);}
 function _srcLabel(s){return {vip:'🎁 даётся с VIP',bp:'🎫 платный БП',reward:'🏅 за достижение',shop:''}[s]||'';}
 function _looksPriceTxt(opt){ return Object.entries(opt).map(([cur,amt])=>`${amt}${(_looksData.currency_icons||{})[cur]||cur}`).join('+'); }
 function renderLooks(){
-  const b=el('mb'); if(!b||!_looksData) return;
+  const b=el('pg-looks'); if(!b||!_looksData) return;
   const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
     <span>👑 Купить можно любую косметику. Редкая и выше (🟣+) <b>отображается на профиле только с VIP</b>.</span>
-    <button class="btn btn-sm btn-gold" onclick="CM();goTo('market','vip')">Перейти к VIP</button></div>`;
-  b.innerHTML=`<div id="looks-top">${_looksPreviewHtml()}</div>`+vipBar
+    <button class="btn btn-sm btn-gold" onclick="goTo('market','vip')">Перейти к VIP</button></div>`;
+  b.innerHTML=`
+    <div class="looks-head">
+      <button class="looks-back" onclick="_looksClose()" aria-label="Назад">‹</button>
+      <div class="looks-htitle">🎨 Внешний вид</div>
+    </div>
+    <div id="looks-top">${_looksPreviewHtml()}</div>`+vipBar
     +'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'
     +_looksPresetsHtml()+_looksTabsHtml()+'<div id="looks-tabpanel"></div>'
     +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
@@ -93,16 +102,39 @@ function _looksChanged(){ return _LOOKS_SLOTS.some(s=>(_looksSel[s]||null)!==(_l
 // Превью «Сейчас → Станет»: левая карточка = применённое, правая = выбранное (ещё не сохранено).
 function _looksPreviewHtml(){
   const changed=_looksChanged();
-  const actions=changed
+  const applyable=_looksChanged(), diff=_looksHeroDiffers();
+  const actions=applyable
     ?`<div class="looks-ba-act">
         <button class="btn btn-sm btn-gold" onclick="_looksApply()">✓ Применить</button>
         <button class="btn btn-sm btn-ghost" onclick="_looksReset()">Сбросить</button></div>`
-    :`<div class="looks-ba-hint">👇 Жми предмет — увидишь, как изменится профиль, затем «Применить».</div>`;
+    :diff
+    ?`<div class="looks-ba-act"><button class="btn btn-sm btn-ghost btn-full" onclick="_looksReset()">↩ Сбросить примерку</button></div>`
+    :`<div class="looks-ba-hint">👇 Жми предмет — примерка сразу здесь. Понравилось — «Применить».</div>`;
   return `<div class="looks-ba">
       <div class="looks-ba-col"><div class="looks-ba-lbl">Сейчас</div>${_looksRenderCard(_looksSaved,'mini')}</div>
-      <div class="looks-ba-arrow">${changed?'➜':'='}</div>
-      <div class="looks-ba-col"><div class="looks-ba-lbl ${changed?'looks-ba-lbl--new':''}">Станет</div>${_looksRenderCard(_looksSel,'mini')}</div>
-    </div>${actions}`;
+      <div class="looks-ba-arrow">${diff?'➜':'='}</div>
+      <div class="looks-ba-col"><div class="looks-ba-lbl ${diff?'looks-ba-lbl--new':''}">Станет</div>${_looksRenderCard(_looksHeroSel(),'mini')}</div>
+    </div>${_looksBuyBarHtml()}${actions}`;
+}
+// Инлайн-плашка покупки под превью — когда последний выбранный предмет ещё не куплен.
+// Заменяет 2-ю модалку «Примерка»: примерка теперь прямо в hero, покупка — тут же.
+function _looksBuyBarHtml(){
+  const f=_looksFocus; if(!f) return '';
+  const it=(_looksData.slots[f.slot]||[]).find(x=>x.id===f.id);
+  if(!it || it.owned || !(it.price&&it.price.length)) return '';
+  const opt=it.price[0], bal=_looksData.balances||{};
+  const can=Object.entries(opt).every(([c,a])=>(bal[c]||0)>=a);
+  const price=_looksPriceTxt(opt);   // уже с иконкой ✨ из currency_icons
+  const vipWarn=(!_looksData.vip && it.rarity && it.rarity!=='common')
+    ? `<div class="looks-buy-vip">⚠️ Без VIP предмет ляжет в инвентарь, но не покажется на профиле.</div>` : '';
+  return `<div class="looks-buybar">
+    <div class="looks-buy-t">🔒 <b>${esc(it.name)}</b> · ${_rarLabel(it.rarity)}${it.desc?`<div class="looks-buy-d">${esc(it.desc)}</div>`:''}</div>
+    <button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyFocus()">${can?'✨ Купить за '+price:'🚫 Нужно '+price}</button>
+    ${vipWarn}</div>`;
+}
+function _looksBuyFocus(){
+  const f=_looksFocus; if(!f) return;
+  _looksBuyFromPreview(f.id, 0, f.slot);   // купить + надеть + перезагрузить (reuse)
 }
 // Топ-редкость слота среди ещё НЕ купленного — витрина-спотлайт (только при фильтре «Все»).
 function _looksSpotlight(slot){
@@ -118,7 +150,7 @@ function _looksGridHtml(slot){
   const items=(_looksData.slots[slot]||[]).filter(it=>
     (_looksFilter==='all'||it.rarity===_looksFilter) && (!spot||it.id!==spot.id));
   const spotHtml=spot?`<div class="looks-spotlight">${_looksCard(slot,spot,true)}</div>`:'';
-  const none=`<div class="looks-card ${_looksSel[slot]?'':'sel'}" onclick="_looksUnequip('${slot}')">
+  const none=`<div class="looks-card ${_looksShownId(slot)==null?'sel':''}" data-cos="__none__" onclick="_looksUnequip('${slot}')">
     <div class="lc-sw lc-sw--none">✖</div><div class="lc-name">Без</div></div>`;
   const empty=items.length?'':'<div class="looks-empty">Нет предметов этой редкости</div>';
   return `${spotHtml}<div class="looks-cards">${none}${items.map(it=>_looksCard(slot,it)).join('')}${empty}</div>`;
@@ -138,20 +170,20 @@ function _looksSwatch(slot,it){
   }
 }
 function _looksCard(slot,it,spotlight){
-  const sel=_looksSel[slot]===it.id;
+  const sel=_looksShownId(slot)===it.id;
   const sw=_looksSwatch(slot,it);
   const rar=`<span class="lc-rar">${_rarLabel(it.rarity)}</span>`;
   const spotBadge=spotlight?'<div class="lc-spot-badge">★ Топ слота</div>':'';
   if(it.owned){
     const offBadge=it.vip_locked_inactive?'<span class="lc-vip-off">⏸ нужна VIP</span>':'';
-    return `<div class="looks-card r-${it.rarity} ${sel?'sel':''} ${it.vip_locked_inactive?'lc-dim':''}" onclick="_looksEquip('${slot}','${it.id}')">
+    return `<div class="looks-card r-${it.rarity} ${sel?'sel':''} ${it.vip_locked_inactive?'lc-dim':''}" data-cos="${it.id}" onclick="_looksEquip('${slot}','${it.id}')">
       ${spotBadge}${sw}<div class="lc-name">${esc(it.name)}</div>
       <div class="lc-foot">${rar}${offBadge}${(!it.vip_locked_inactive&&_looksSaved[slot]===it.id)?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
   }
-  // Непокупленный предмет — кнопка «Примерить» открывает превью-модалку
+  // Непокупленный предмет — тап примеряет его в hero и показывает плашку покупки (без 2-й модалки)
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
   const priceTxt=it.price&&it.price.length?`<span class="lc-price-hint">${_looksPriceTxt(it.price[0])} ✨</span>`:'';
-  return `<div class="looks-card r-${it.rarity} locked lc-buyable" onclick="_showCosmeticPreview('${slot}','${it.id}')">
+  return `<div class="looks-card r-${it.rarity} locked lc-buyable ${sel?'sel':''}" data-cos="${it.id}" onclick="_looksTapUnowned('${slot}','${it.id}')">
     ${spotBadge}${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
     <div class="lc-foot">${rar}${priceTxt}<span class="lc-prev-hint">👁</span></div></div>`;
 }
@@ -227,13 +259,34 @@ function _looksBuyFromPreview(id,opt,slot){
   api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})
     .then(r=>{toast(r.message); refreshCurrBar(); _looksDirty=true;
       return api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})});})
-    .then(()=>{toast('✅ Надето!'); openLooksModal();})
+    .then(()=>{toast('✅ Надето!'); _looksData=null; openLooksModal();})   // владение изменилось → перезагрузить кэш
     .catch(e=>toast(e,false));
 }
 
-function _looksEquip(slot,id){ _looksSel[slot]=id; _looksRenderTop(); _looksRenderActiveTab(); }
-function _looksUnequip(slot){ _looksSel[slot]=null; _looksRenderTop(); _looksRenderActiveTab(); }
-function _looksReset(){ _looksSel={..._looksSaved}; _looksRenderTop(); _looksRenderActiveTab(); }
+// Что показано в слоте прямо сейчас: примеряемый (focus) перекрывает выбранное.
+function _looksShownId(slot){ return (_looksFocus&&_looksFocus.slot===slot)?_looksFocus.id:(_looksSel[slot]||null); }
+// Набор для hero: применимый выбор + наложенная примерка focus (в т.ч. непокупленного).
+function _looksHeroSel(){ if(!_looksFocus) return _looksSel; const s={..._looksSel}; s[_looksFocus.slot]=_looksFocus.id; return s; }
+// Отличается ли hero от применённого визуально (для стрелки/подписи «Станет»).
+function _looksHeroDiffers(){ const hs=_looksHeroSel(); return _LOOKS_SLOTS.some(s=>(hs[s]||null)!==(_looksSaved[s]||null)); }
+function _looksEquip(slot,id){ _looksSel[slot]=id; _looksFocus={slot,id}; _looksRenderTop(); _looksMarkSel(slot); }
+function _looksUnequip(slot){ _looksSel[slot]=null; _looksFocus=null; _looksRenderTop(); _looksMarkSel(slot); }
+function _looksReset(){ _looksSel={..._looksSaved}; _looksFocus=null; _looksRenderTop(); _looksRenderActiveTab(); }
+// Непокупленный: только примерка (focus), в _looksSel НЕ кладём → «Применить» его не тронет
+// (нельзя надеть то, чем не владеешь); для покупки — инлайн-плашка под hero.
+function _looksTapUnowned(slot,id){ _looksFocus={slot,id}; _looksRenderTop(); _looksMarkSel(slot); }
+// Перф: точечно переставить .sel в активной сетке (без пересборки всего грида — это
+// и был источник «подлагивания»: раньше каждый тап перерисовывал весь innerHTML грида).
+function _looksMarkSel(slot){
+  const panel=el('looks-tabpanel'); if(!panel){ _looksRenderActiveTab(); return; }
+  const cards=panel.querySelectorAll('.looks-card[data-cos]');
+  if(!cards.length){ _looksRenderActiveTab(); return; }
+  const shown=_looksShownId(slot);
+  cards.forEach(c=>{
+    const cid=c.getAttribute('data-cos');
+    c.classList.toggle('sel', cid===String(shown) || (cid==='__none__' && shown==null));
+  });
+}
 
 // ── Пресеты образов ────────────────────────────────────────────────────────────
 function _looksPresetsHtml(){
@@ -251,18 +304,18 @@ function _savePreset(){
     `<div class="set-hint">Текущая косметика сохранится как образ — потом применишь одним тапом.</div>
      <input id="preset-name-inp" class="num-input" type="text" maxlength="30"
        placeholder="Название образа (до 30 символов)" autocomplete="off" style="margin-top:10px">`,
-    [{l:'💾 Сохранить',c:'btn-gold',f:'_savePresetGo()'},{l:'Отмена',c:'btn-ghost',f:'openLooksModal()'}]);
+    [{l:'💾 Сохранить',c:'btn-gold',f:'_savePresetGo()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
   setTimeout(()=>{const i=el('preset-name-inp'); if(i) i.focus();},60);
 }
 function _savePresetGo(){
   const name=((el('preset-name-inp')||{}).value||'').trim().slice(0,30)||'Образ';
   api('/cosmetics/presets',{method:'POST',body:JSON.stringify({name})})
-    .then(r=>{toast(r.message); if(r.preset){_looksPresets.push(r.preset);} openLooksModal();})
+    .then(r=>{toast(r.message); if(r.preset){_looksPresets.push(r.preset);} CM(); renderLooks();})
     .catch(e=>toast(e,false));
 }
 function _applyPreset(id){
   api(`/cosmetics/presets/${id}/apply`,{method:'POST'})
-    .then(r=>{toast(r.message); _looksDirty=true; openLooksModal();})
+    .then(r=>{toast(r.message); _looksDirty=true; _looksData=null; openLooksModal();})
     .catch(e=>toast(e,false));
 }
 function _deletePreset(id){
@@ -331,7 +384,7 @@ function _setWelcome(id){
 }
 // ── БЛОК21 #3: сундуки-сюрпризы + крафт косметики из осколков ────────────────────
 function _openSurprisesModal(){
-  OM('🎁 Сюрпризы и Крафт','<div class="loader">Загрузка...</div>',[{l:'← К внешнему виду',c:'btn-ghost',f:'openLooksModal()'}]);
+  OM('🎁 Сюрпризы и Крафт','<div class="loader">Загрузка...</div>',[{l:'← К внешнему виду',c:'btn-ghost',f:'CM();_looksData=null;openLooksModal()'}]);
   Promise.all([api('/cosmetics/chests'),api('/cosmetics/craft')]).then(([ch,cr])=>{
     const b=el('mb'); if(!b) return;
     const chests=(ch.chests||[]).map(c=>{

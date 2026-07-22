@@ -79,10 +79,29 @@ const hdrs = () => {
   if (CLIENT_FP) h['x-client-fp']=CLIENT_FP;
   return h;
 };
+// Авто-refresh (реактивный слой): после успешного мутирующего запроса раз в ~350мс
+// (debounce, чтобы серия действий не долбила сервер) подтягиваем бар валют + счётчики,
+// чтобы мора/алмазы/зарники/🌑 обновлялись сами, без ручной перезагрузки страницы.
+// Подписчики (напр. экран гачи) регистрируют колбэк через onReactiveRefresh().
+let _reactiveTimer=null;
+const _reactiveSubs=new Set();
+function onReactiveRefresh(fn){ if(typeof fn==='function') _reactiveSubs.add(fn); return fn; }
+function offReactiveRefresh(fn){ _reactiveSubs.delete(fn); }
+function _scheduleReactiveRefresh(){
+  if(_reactiveTimer) clearTimeout(_reactiveTimer);
+  _reactiveTimer=setTimeout(()=>{
+    _reactiveTimer=null;
+    try{ if(typeof refreshCurrBar==='function') refreshCurrBar(); }catch(_){}
+    _reactiveSubs.forEach(fn=>{ try{ fn(); }catch(_){} });
+  }, 350);
+}
 function api(path, opts={}) {
   return fetch(BASE+path,{...opts,headers:{...hdrs(),...(opts.headers||{})}})
     .then(r=>{
       if(r.status===401){localStorage.removeItem(SK);el('login-ov').classList.remove('hidden');return Promise.reject('Войдите снова.');}
+      // авто-refresh только на успешных мутациях; GET/аналитику/сам /profile/me не триггерим (без петель)
+      const _m=(opts.method||'GET').toUpperCase();
+      if(r.ok && _m!=='GET' && path.indexOf('/analytics')!==0 && path.indexOf('/profile/me')!==0) _scheduleReactiveRefresh();
       return r.ok?r.json():r.text().then(t=>{
         try{
           const e=JSON.parse(t);

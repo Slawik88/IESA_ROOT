@@ -147,6 +147,67 @@ function _topRarity(dups) {
 
 let _gachaBal = {mora:0, dia:0};
 let _spinCosts = {};
+// Ряды круток — вынесены, чтобы обновлять счётчик жетонов/цены/пити ПОСЛЕ крутки,
+// не трогая экран результата (#spin-res). Раньше 🎟 ×N висел устаревшим до перезагрузки.
+function _gachaBlocks(d){
+  const disc = d.multi_discount_pct||10;
+  return d.spin_types.map(s=>{
+    const icon = SPIN_ICONS[s.spin_type] || '🎲';
+    const cost = s.cost_mora ? `${fmt(s.cost_mora)} 🪙` : `${s.cost_dia} 💎`;
+    const mc = d.multi_count||10;
+    const tokensForMulti = Math.min(s.token_qty||0, mc);
+    const paidSpins = mc - tokensForMulti;
+    const multiCost = paidSpins<=0 ? '🎟 бесплатно'
+      : (tokensForMulti>0 ? `🎟×${tokensForMulti} + ` : '')
+        + (s.cost_mora ? `${fmt(Math.round(s.multi_cost_mora*paidSpins/mc))} 🪙` : `${(s.multi_cost_dia*paidSpins/mc).toFixed(1)} 💎`);
+    const pityPct = s.pity_hard > 0 ? Math.round(s.pity/s.pity_hard*100) : 0;
+    const rates = s.rates||{};
+    const ratesBadges = Object.entries(rates).map(([r,v])=>
+      `<span class="${RC[r]||'rc-common'}" style="font-size:9px;padding:1px 4px">${r[0].toUpperCase()+r.slice(1)} ${v}%</span>`
+    ).join(' ');
+    return `<div class="spin-block">
+      <div class="spin-row" onclick="spinRowClick(event,'${s.spin_type}',this)"
+           onpointerdown="spinPressStart(event,'${s.spin_type}',this)"
+           onpointerup="spinPressEnd(event,this)"
+           onpointercancel="spinPressEnd(event,this)"
+           onpointerleave="spinPressEnd(event,this)">
+        <div class="sr-charge"></div>
+        <div class="sr-icon">${icon}</div>
+        <div class="sr-info">
+          <div class="sr-name">${s.label}</div>
+          ${ratesBadges?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${ratesBadges}</div>`:''}
+        </div>
+        ${s.token_qty?`<span style="font-size:11px;color:var(--green);margin-right:6px">🎟 ×${s.token_qty}</span>`:''}
+        <div style="text-align:right"><div class="sr-cost">${cost}</div><div class="sr-hold-hint">⏱ удерживай</div></div>
+      </div>
+      <div style="display:flex;gap:6px;padding:0 4px 10px">
+        <div style="flex:1;font-size:10px;color:var(--muted)">
+          ${s.pity>0?`Пити: <span style="color:var(--gold)">${s.pity}/${s.pity_hard}</span>
+          <div class="pity-bar"><div class="pity-fill" style="width:${pityPct}%"></div></div>`:'Гарант не накоплен'}
+        </div>
+        <button class="btn btn-sm btn-ghost" style="font-size:10px;white-space:nowrap" onclick="doMultiSpin('${s.spin_type}',this)">
+          ×${d.multi_count||10} <span style="color:var(--green)">−${disc}%</span><br>
+          <span style="color:var(--gold)">${multiCost}</span>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+// Реактивно (после любой крутки/мутации, пока открыта гача): подтянуть свежие жетоны/
+// цены/пити и баланс, НЕ затирая экран результата. Guard el('gacha-rows') — если гача
+// не открыта, ничего не делаем и не ходим в сеть.
+function _gachaSyncRows(){
+  const box=el('gacha-rows'); if(!box) return;
+  api('/gacha/').then(d=>{
+    _gachaBal={mora:d.mora||0,dia:d.diamonds||0};
+    _spinCosts={};
+    d.spin_types.forEach(s=>{ _spinCosts[s.spin_type]={mora:s.cost_mora||0,dia:s.cost_dia||0,token:s.token_qty||0}; });
+    const bm=el('gacha-bal-mora'); if(bm) bm.textContent='🪙 '+fmt(d.mora);
+    const bd=el('gacha-bal-dia'); if(bd) bd.textContent='💎 '+(d.diamonds||0).toFixed(1);
+    const b=el('gacha-rows'); if(b) b.innerHTML=_gachaBlocks(d);
+  }).catch(()=>{});
+}
+onReactiveRefresh(_gachaSyncRows);   // регистрируем один раз (Set дедупит по ссылке)
 function loadGacha() {
   el('gc').innerHTML='<div class="loader">Загрузка...</div>';
   api('/gacha/').then(d=>{
@@ -173,49 +234,7 @@ function loadGacha() {
         <span>Выберите крутку</span>
         <button class="btn btn-sm btn-ghost" style="padding:2px 8px;font-size:10px" onclick="openGachaOdds()">ℹ️ Шансы</button>
       </div>
-      ${d.spin_types.map(s=>{
-        const icon = SPIN_ICONS[s.spin_type] || '🎲';
-        const cost = s.cost_mora ? `${fmt(s.cost_mora)} 🪙` : `${s.cost_dia} 💎`;
-        // Жетоны крутки списываются в ×10 первыми (services/gacha.py::roll_multi) —
-        // кнопка должна честно показывать это, а не всегда цену в валюте.
-        const mc = d.multi_count||10;
-        const tokensForMulti = Math.min(s.token_qty||0, mc);
-        const paidSpins = mc - tokensForMulti;
-        const multiCost = paidSpins<=0 ? '🎟 бесплатно'
-          : (tokensForMulti>0 ? `🎟×${tokensForMulti} + ` : '')
-            + (s.cost_mora ? `${fmt(Math.round(s.multi_cost_mora*paidSpins/mc))} 🪙` : `${(s.multi_cost_dia*paidSpins/mc).toFixed(1)} 💎`);
-        const pityPct = s.pity_hard > 0 ? Math.round(s.pity/s.pity_hard*100) : 0;
-        const rates = s.rates||{};
-        const ratesBadges = Object.entries(rates).map(([r,v])=>
-          `<span class="${RC[r]||'rc-common'}" style="font-size:9px;padding:1px 4px">${r[0].toUpperCase()+r.slice(1)} ${v}%</span>`
-        ).join(' ');
-        return `<div class="spin-block">
-          <div class="spin-row" onclick="spinRowClick(event,'${s.spin_type}',this)"
-               onpointerdown="spinPressStart(event,'${s.spin_type}',this)"
-               onpointerup="spinPressEnd(event,this)"
-               onpointercancel="spinPressEnd(event,this)"
-               onpointerleave="spinPressEnd(event,this)">
-            <div class="sr-charge"></div>
-            <div class="sr-icon">${icon}</div>
-            <div class="sr-info">
-              <div class="sr-name">${s.label}</div>
-              ${ratesBadges?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${ratesBadges}</div>`:''}
-            </div>
-            ${s.token_qty?`<span style="font-size:11px;color:var(--green);margin-right:6px">🎟 ×${s.token_qty}</span>`:''}
-            <div style="text-align:right"><div class="sr-cost">${cost}</div><div class="sr-hold-hint">⏱ удерживай</div></div>
-          </div>
-          <div style="display:flex;gap:6px;padding:0 4px 10px">
-            <div style="flex:1;font-size:10px;color:var(--muted)">
-              ${s.pity>0?`Пити: <span style="color:var(--gold)">${s.pity}/${s.pity_hard}</span>
-              <div class="pity-bar"><div class="pity-fill" style="width:${pityPct}%"></div></div>`:'Гарант не накоплен'}
-            </div>
-            <button class="btn btn-sm btn-ghost" style="font-size:10px;white-space:nowrap" onclick="doMultiSpin('${s.spin_type}',this)">
-              ×${d.multi_count||10} <span style="color:var(--green)">−${disc}%</span><br>
-              <span style="color:var(--gold)">${multiCost}</span>
-            </button>
-          </div>
-        </div>`;
-      }).join('')}
+      <div id="gacha-rows">${_gachaBlocks(d)}</div>
     </div>
     <div id="spin-res"></div>`;
   }).catch(e=>{el('gc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
