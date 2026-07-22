@@ -146,11 +146,20 @@ async def ensure_account_columns(db) -> None:
         # заметная кнопка «▶ Первый бой» + «Пропустить», см. app.11.js).
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_tutorial_done BOOLEAN DEFAULT FALSE",
     ):
+        # КАЖДЫЙ ALTER — в своей транзакции (commit после успеха, rollback после сбоя).
+        # PostgreSQL при ошибке ЛЮБОГО стейтмента аварийно завершает ВСЮ транзакцию, и
+        # последующие команды молча игнорируются до конца блока. Раньше все ALTER'ы шли
+        # одной транзакцией с общим commit в конце: сбой/гонка на ранней колонке отравлял
+        # транзакцию, и combat_tutorial_done (последняя) НЕ создавалась — на проде это
+        # давало «column combat_tutorial_done does not exist».
         try:
             await db.execute(stmt)
+            await db.commit()
         except Exception:
-            pass  # колонка уже есть / гонка двух процессов — не фатально
-    await db.commit()
+            try:
+                await db.rollback()
+            except Exception:
+                pass  # колонка уже есть / гонка двух процессов — не фатально
 
 
 async def get_combat_tutorial_done(db, user_id: int) -> bool:
