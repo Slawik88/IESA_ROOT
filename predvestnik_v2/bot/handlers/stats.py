@@ -138,7 +138,9 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
         name = format_display_name(safe_html(user["user_tg_username"] or f"Пользователь {user['user_tg_id']}"), user["is_vip"])
         name += _suffixes.get(user["user_tg_id"], "")
         link = f'<a href="tg://user?id={user["user_tg_id"]}">{name}</a>'
-        lines.append(f"{medal} {link} — <code>{user['msg_count']}</code>")
+        # Число — сразу после медали, до имени: если длинное имя уедет переносом
+        # на новую строку, число уже видно, а не «повисает» без контекста.
+        lines.append(f"{medal} <code>{user['msg_count']}</code>  {link}")
 
     return "\n".join(lines), total_pages
 
@@ -283,7 +285,9 @@ async def _build_cat_top(db, chat_id: int, cat: str, mode: str) -> str:
             val_str = format_currency(float(val))
         else:
             val_str = str(int(val))
-        text += f"{medal} {link} — <code>{val_str} {unit}</code>\n"
+        # Число — сразу после медали, до имени: см. build_top_text() выше — та же
+        # причина (длинное имя не должно оставлять число «висеть» без контекста).
+        text += f"{medal} <code>{val_str} {unit}</code>  {link}\n"
 
     return text.rstrip()
 

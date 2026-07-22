@@ -405,31 +405,34 @@ def _pets_block(pets: list, prefix: str = "") -> str:
         slots.append(("💤", "Пассив", passive[0]))
     lines = []
     for i, (icon, role, p) in enumerate(slots):
-        sp   = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
         lvl  = p.get("pet_level", 1) or 1
         dups = p.get("duplicates_collected", 0) or 0
         fat  = p.get("fatigue", 0)
         sym  = "└" if i == len(slots) - 1 else "├"
         pet_name = p['name']
-        sp_part  = f" ({sp})" if sp and sp != pet_name else ""
         is_last  = (i == len(slots) - 1)
         cont     = "   " if is_last else "│  "
-        # Two-line format: name on line 1, stats on line 2 — prevents mobile wrap
+        # Два-line формат: ТОЛЬКО имя на строке 1 (может быть длинным — имя
+        # питомца ничем не ограничено), статы на строке 2. Вид питомца убран
+        # отсюда совсем (не на строке 1, не на строке 2) — с самыми длинными
+        # реальными видами («🐉 Дракон Хранитель», «🦄 Астральный Единорог»)
+        # строка 2 всё равно рвала перенос; вид и так виден в карточке питомца.
         lines.append(
-            f"{prefix}{sym} {icon} <b>{pet_name}</b>{sp_part}\n"
+            f"{prefix}{sym} {icon} <b>{pet_name}</b>\n"
             f"{prefix}{cont}Lv{lvl}  {_fatigue_icon(fat)} {fat}/100  📦×{dups}"
         )
     return "\n".join(lines) + "\n"
 
 
 def _active_pet_str(pets: list) -> str:
+    """Компактно: без вида питомца (он есть на карточке самого питомца) — с видом
+    строка легко превышала ширину экрана на длинных именах и рвала перенос."""
     p = next((p for p in pets if p.get("placement") == "active"), None)
     if not p:
         return "нет"
-    sp  = PET_SPECIES.get(p["species_id"], {}).get("name", p["species_id"])
     lvl = p.get("pet_level", 1) or 1
     fat = p.get("fatigue", 0)
-    return f"{p['name']} ({sp}) · Lv{lvl} · {_fatigue_icon(fat)}"
+    return f"{p['name']} · Lv{lvl} · {_fatigue_icon(fat)}"
 
 
 def _theme_fields(theme: dict) -> tuple:
@@ -614,10 +617,12 @@ async def _render_full_profile(
             + "\n"
             + f"{t_sep}\n"
             + "\n"
-            + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
+            + f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}%\n"
+            + f"{P}✨ XP: {xp_str}\n"
             + f"{P}{_bal1}\n"
             + f"{P}{_bal2}\n"
-            + f"{P}🏆 {ach_count} ачив.  |  ⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
+            + f"{P}🏆 {ach_count} ачив.  ·  ⚖️ Реп: +0\n"
+            + f"{P}⚠️ Варны: {warns}\n"
             + (f"{P}🔥 Стрик: <b>{streak}</b> дн.\n" if streak else "")
             + "\n"
             + f"{t_sep}\n"
@@ -640,10 +645,12 @@ async def _render_full_profile(
             + "\n"
             + f"{t_sep}\n"
             + "\n"
-            + f"🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}% {xp_str}\n"
+            + f"🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}%\n"
+            + f"✨ XP: {xp_str}\n"
             + f"{_bal1}\n"
             + f"{_bal2}\n"
-            + f"🏆 {ach_count} ачив.  |  ⚖️ Реп: +0  |  ⚠️ Варны: {warns}\n"
+            + f"🏆 {ach_count} ачив.  ·  ⚖️ Реп: +0\n"
+            + f"⚠️ Варны: {warns}\n"
             + f"🔥 Стрик: <b>{streak}</b> дн.\n"
             + "\n"
             + f"{t_sep}\n"
@@ -776,7 +783,8 @@ async def cmd_anketa(message: types.Message, db, developer_id: int = 0):
         f"{P}🌟 Ур.<b>{lvl}</b>  [{bar}] {pct}%\n"
         f"{P}💰 {_compact(mora_v)} 🪙  |  💎 {_compact(dia_v)}\n"
         f"{P}{partner_line}\n"
-        f"{P}🐾 Питомцев: <b>{len(pets)}</b>  ·  Акт: {_active_pet_str(pets)}\n"
+        f"{P}🐾 Питомцев: <b>{len(pets)}</b>\n"
+        f"{P}⚔️ Актив: {_active_pet_str(pets)}\n"
         f"{t_sep}\n"
         f"{P}💬 Чат:   {d_local}д  ·  {w_local}н  ·  {a_local} всего\n"
         f"{P}🌐 Глоб.: {gd}д  ·  {gw}н  ·  {ga} всего\n"

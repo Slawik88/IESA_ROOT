@@ -27,18 +27,24 @@ def _pet_block(nursery_pets: list) -> str:
     if not nursery_pets:
         return "\n\n🐾 <b>ПИТОМЦЫ</b>\n└ <i>Питомник пуст</i>"
     role_map = {"active": "⚔️", "passive": "💤"}
-    pet_lines = []
-    for p in nursery_pets:
+    n = len(nursery_pets)
+    lines = []
+    for i, p in enumerate(nursery_pets):
         species_name = PET_SPECIES.get(p['species_id'], {}).get('name', p['species_id'])
         role_icon = role_map.get(p['placement'], "📦")
         level = p.get('pet_level', 1) or 1
         fatigue = p.get('fatigue', 0)
         r_badge = ui.rarity_badge(p.get('rarity', 'common'))
-        pet_lines.append(
-            f"{role_icon} {r_badge} <b>{p['name']}</b> <i>{species_name}</i> · "
-            f"Lv{level} · {ui.fatigue_icon(fatigue)} {fatigue}/100"
+        is_last = (i == n - 1)
+        sym = "└" if is_last else "├"
+        cont = "   " if is_last else "│  "
+        # Двухстрочный формат (имя отдельно от статов) — длинное имя питомца не
+        # рвёт перенос строки на узком экране (раньше всё было в одну строку).
+        lines.append(
+            f"{sym} {role_icon} {r_badge} <b>{p['name']}</b>\n"
+            f"{cont}<i>{species_name}</i> · Lv{level} · {ui.fatigue_icon(fatigue)} {fatigue}/100"
         )
-    return "\n\n🐾 <b>ПИТОМЦЫ</b>\n" + ui.tree(pet_lines)
+    return "\n\n🐾 <b>ПИТОМЦЫ</b>\n" + "\n".join(lines)
 
 
 async def _build_profile_text(
@@ -138,7 +144,7 @@ async def _build_profile_text(
         f"⭐ <b>Lv{level}</b>  <code>[{xp_bar}]</code>  {xp_in_level}/{_xp_need}"
     )
     if level < 999:
-        text += f" · +{xp_to_next} XP до Lv{level + 1}"
+        text += f"\n✨ +{xp_to_next} XP до Lv{level + 1}"
 
     text += (
         f"\n📊 День {stats.get('user_messages_count_per_day', 0)} · "
