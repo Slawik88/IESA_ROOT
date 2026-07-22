@@ -97,6 +97,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "COALESCE(u.user_balance_zarniki, 0) AS user_balance_zarniki, "
         "COALESCE(u.account_xp, 0) AS account_xp, "
         "(u.tos_accepted_at IS NOT NULL) AS tos_accepted, "
+        "u.whatsnew_seen_id, "
         "(v.user_id IS NOT NULL) AS is_vip "
         "FROM users u "
         "LEFT JOIN vip_subscriptions v ON v.user_id = u.user_tg_id AND v.expires_at > NOW() "
@@ -193,7 +194,24 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "partner":      partner,
         "cosmetics":    await get_active_cosmetics(db, user_id),
         "system_flags": await _system_flags.get_all(db),
+        "whatsnew_seen_id": row["whatsnew_seen_id"],
     }
+
+
+class WhatsNewSeenRequest(BaseModel):
+    seen_id: str = ""
+
+
+@router.post("/whatsnew-seen")
+async def set_whatsnew_seen(body: WhatsNewSeenRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Отметить ленту «Что нового» прочитанной до записи seen_id (сервер — источник
+    правды вместо localStorage, который Telegram WebView не гарантирует сохранным)."""
+    await db.execute(
+        "UPDATE users SET whatsnew_seen_id = ? WHERE user_tg_id = ?",
+        (body.seen_id, user["id"]),
+    )
+    await db.commit()
+    return {"ok": True}
 
 
 @router.get("/u/{target_id}")
