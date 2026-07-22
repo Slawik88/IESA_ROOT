@@ -289,7 +289,9 @@ async def cmd_all_couples(message: types.Message, db):
             duration_str = f"{days} дн. {hours} ч." if hours else f"{days} дн."
         except Exception:
             duration_str = "—"
-        text += f"{idx}. 💍 {u1_link} ❤️ {u2_link} — <i>{duration_str}</i>\n"
+        # Двухстрочно: пара имён отдельно от длительности — с двумя длинными
+        # именами подряд строка легко рвала перенос на узком экране.
+        text += f"{idx}. 💍 {u1_link} ❤️ {u2_link}\n    <i>{duration_str}</i>\n"
 
     text += f"\n<i>💡 Всего пар в чате: <b>{len(all_m)}</b></i>"
     await message.answer(text, parse_mode="HTML")
