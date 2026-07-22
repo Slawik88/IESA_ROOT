@@ -31,7 +31,15 @@ function openFeedSelModal(fid) {
 function doFeedFromInv(pid,fid,row) {
   row.style.opacity='.4';
   api('/zoo/feed',{method:'POST',body:JSON.stringify({pet_id:pid,food_id:fid})})
-    .then(r=>{toast(`✅ ${r.fatigue_before}%→${r.fatigue_after}%`);CM();_zooData=null;loadInventory();})
+    .then(r=>{
+      toast(`✅ ${r.fatigue_before}%→${r.fatigue_after}%`);CM();_zooData=null;loadInventory();
+      // БАГ 2026-07-23: food_energy мгновенно завершает поход (services/zoo.py::
+      // end_expedition_now), но экран «Отправить в поход» на Зоопарке строится из
+      // кэша _expOpts (см. app.03.js::loadZoo/expLauncherHtml) — этот путь его не
+      // трогал (только loadInventory), так что открытый ранее Зоопарк ещё долго
+      // показывал старое «поход идёт». Тот же паттерн, что и у WS expedition_done.
+      if(fid==='food_energy' && _loaded.has('zoo')) loadZoo();
+    })
     .catch(e=>{toast(e,false);row.style.opacity='1';});
 }
 function openBoostSelModal(bid) {
