@@ -53,10 +53,10 @@ function loadProfile() {
           <div class="cp-hero-val" id="cp-hero-val">0</div>
         </div>`:''}
         <div class="stats">
-          <div class="stat clickable" onclick="openExchangeCurrencyModal('buy')"><div>🪙</div><div class="sv">${fmt(d.mora)}</div><div class="sl">Мора 🔄</div></div>
-          <div class="stat clickable" onclick="openExchangeCurrencyModal('sell')"><div>💎</div><div class="sv">${fmtF(d.diamonds)}</div><div class="sl">Алмазы 🔄</div></div>
-          <div class="stat clickable" onclick="${(d.zarniki||0)>0?'openExchangeZarnikiModal()':"goTo('market','vip')"}"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">${(d.zarniki||0)>0?'Зарники 🔄':'Зарники +'}</div></div>
-          <div class="stat clickable" onclick="goTo('ach')"><div>🏆</div><div class="sv">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
+          <div class="stat clickable" onclick="openExchangeCurrencyModal('buy')"><div>🪙</div><div class="sv" id="pro-stat-mora">${fmt(d.mora)}</div><div class="sl">Мора</div></div>
+          <div class="stat clickable" onclick="openExchangeCurrencyModal('sell')"><div>💎</div><div class="sv" id="pro-stat-dia">${fmtF(d.diamonds)}</div><div class="sl">Алмазы</div></div>
+          <div class="stat clickable" onclick="${(d.zarniki||0)>0?'openExchangeZarnikiModal()':"goTo('market','vip')"}"><div>✨</div><div class="sv" id="pro-stat-zar">${Math.floor(d.zarniki||0)}</div><div class="sl">${(d.zarniki||0)>0?'Зарники':'Зарники +'}</div></div>
+          <div class="stat clickable" onclick="goTo('ach')"><div>🏆</div><div class="sv" id="pro-stat-ach">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0 0;margin-top:11px;border-top:1px solid var(--border2)">
           <span style="font-size:10.5px;color:var(--muted)">🆔 <code>${uid}</code></span>
@@ -66,7 +66,7 @@ function loadProfile() {
 
       <!-- Быстрые действия: всё важное в 1 клик -->
       <div class="qa-row">
-        <div class="qa qa-hot" onclick="goTo('quests','streak')"><span>🔥</span>Стрик ${d.streak}</div>
+        <div class="qa qa-hot" onclick="goTo('quests','streak')"><span>🔥</span>Стрик <span id="pro-stat-streak">${d.streak}</span></div>
         <div class="qa" onclick="goTo('quests')"><span>📋</span>Квесты</div>
         <div class="qa" onclick="goTo('bp')"><span>🎫</span>Пропуск</div>
         <div class="qa" onclick="goTo('zoo')"><span>🍖</span>Питомцы</div>
@@ -499,8 +499,13 @@ function _handleStartParam(){
 if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
 
 // ── Sticky currency bar ───────────────────────────────────────────────────────
-// Shows 🪙💎🌑✨ at top of screen (hidden on Profile tab)
-let _currBarVisible = false;
+// Редизайн v5: хедер с валютами виден ВСЕГДА (см. showCurrBar ниже — параметр show
+// уже не используется, флаг всегда true). Раньше стартовал false и включался только
+// внутри switchPage() — а Профиль загружается из серверного HTML БЕЗ switchPage(),
+// поэтому в свежей сессии, где игрок ни разу не тронул нижнюю навигацию, весь
+// авто-refresh валют (и 90-сек таймер, и реактивный хук после мутаций) молча не
+// работал до первого перехода по вкладкам. Стартуем сразу true.
+let _currBarVisible = true;
 let _currInited = false;
 
 // UX-фикс: компакт больших чисел в шапке (12,3к / 1,2М) — иначе 4 чипа с
@@ -604,15 +609,30 @@ function showCurrBar(show) {
 
 el('curr-bar')?.addEventListener('click', showCurrModal);
 
-// Refresh bar data from server (called on a slow timer)
+// Refresh bar data from server (called on a slow timer + реактивно после мутаций, см. app.01.js api())
 function refreshCurrBar() {
   if (!_uid || !_currBarVisible) return;
   api('/profile/me').then(d => {
     updateCurrBar(d);
     if(d.mora!==undefined) _profileData = {...(_profileData||{}), mora:d.mora, diamonds:d.diamonds};
+    _profileSyncStats(d);
   }).catch(()=>{});
 }
 setInterval(refreshCurrBar, 90000); // every 90s
+// Точечный патч цифр на карточке профиля (Мора/Алмазы/Зарники/Ачивки/Индекс Силы/Стрик) —
+// БЕЗ полного loadProfile() (это дёрнуло бы скелетон-лоадер и пересборку всей карточки).
+// Раньше эти карточки обновлялись только раз в 5 мин (setInterval в app.06.js) или
+// вручную (F5) — метки честно предупреждали об этом значком 🔄, теперь он не нужен.
+// Патчит и когда экран профиля не активен — тот же паттерн, что уже у updateCurrBar().
+function _profileSyncStats(d){
+  const set=(id,val)=>{ const n=el(id); if(n && val!=null) n.textContent=val; };
+  set('pro-stat-mora', fmt(d.mora));
+  set('pro-stat-dia', fmtF(d.diamonds));
+  set('pro-stat-zar', Math.floor(d.zarniki||0));
+  set('pro-stat-ach', d.achievements);
+  set('pro-stat-streak', d.streak);
+  if(typeof d.combat_power==='number') set('cp-hero-val', fmt(d.combat_power));
+}
 
 // Mirrors services/streak.py:calc_streak_reward
 function calcStreakReward(streak) {
