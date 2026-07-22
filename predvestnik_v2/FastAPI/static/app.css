@@ -2872,3 +2872,36 @@ body.no-fx .wn-pop { animation: none; }
 .looks-buy-t { font-size: 12.5px; color: var(--bright); }
 .looks-buy-d { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
 .looks-buy-vip { font-size: 10.5px; color: var(--gold2); line-height: 1.4; }
+
+/* ═══ Редизайн блока 7 (2026-07-23): вкладки → один скролл + sticky превью ═══
+   Раньше: приходилось листать вкладки-слоты И скроллить наверх, чтобы увидеть
+   «Сейчас→Станет». Теперь превью прилипает под шапкой (видно всегда), а секции
+   идут одна за другой; чипы-якоря наверху скроллят к нужной без переключения панели. */
+.looks-sticky {
+  position: sticky; top: 88px; z-index: 5;
+  background: linear-gradient(180deg, var(--bg0) 88%, transparent);
+  padding-bottom: 4px; margin: 0 -12px; padding-left: 12px; padding-right: 12px;
+}
+.looks-intro { font-size: 11.5px; color: var(--muted); text-align: center; margin: 2px 0 10px; line-height: 1.4; }
+.looks-anchors { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; scrollbar-width: none; padding-bottom: 2px; }
+.looks-anchors::-webkit-scrollbar { display: none; }
+.looks-anchor-chip {
+  flex: none; font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap;
+  background: var(--bg2); border: 1px solid var(--border2); border-radius: 999px;
+  padding: 6px 12px; cursor: pointer; transition: transform .15s;
+}
+.looks-anchor-chip:active { transform: scale(.94); }
+.looks-section { margin-bottom: 20px; scroll-margin-top: 96px; }
+/* Запас под последней секцией: иначе якорь-прыжок к ней упирается в конец
+   документа и не может доскроллить её край до-под sticky-превью (некуда). */
+#looks-sections { padding-bottom: 55vh; }
+.looks-sec-t { font-size: 12px; font-weight: 700; color: var(--gold2); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+.looks-sec-grid { min-height: 40px; }
+/* Тема: инлайн-превью (raw-строка с бэка) прямо в секции, без ухода в модалку */
+.looks-theme-preview {
+  background: linear-gradient(180deg, var(--bg2), var(--bg1)); border: 1px solid var(--border2);
+  border-radius: var(--r); padding: 12px; margin-bottom: 10px; min-height: 56px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.looks-theme-name { font-size: 11.5px; color: var(--muted); text-align: center; }
+.looks-theme-active { text-align: center; padding: 6px; color: var(--gold); font-size: 12px; font-weight: 600; }
