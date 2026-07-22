@@ -639,8 +639,13 @@ const server = http.createServer((req, res) => {
   if (p.startsWith('/profile/u/')) {
     return send(res, 200, {
       user_id: 999, username: 'lilith_hhh', rank: '🌙 Владычица Бездны',
-      level: 47, combat_power: 8420, messages: 39710, streak: 53, achievements: 12,
-      is_vip: true,
+      level: 47, combat_power: 8420, messages: 39710, streak: 53, achievements: 8,
+      achievements_total: 12,
+      is_vip: true, vip_tier_label: 'VIP Gold',
+      gates_floor: 14, duel_wins: 237,
+      joined_date: '2025-11-02T10:00:00',
+      partner: 'moonlight_whisperer_of_the_abyss',
+      best_achievement: { icon: '🛒', name: 'Меценат', level: 9 },
       pets: [
         { name: 'Уголёк', species_id: 'salamander', pet_level: 9, placement: 'active' },
         { name: 'Нюша', species_id: 'boar', pet_level: 6, placement: 'stash' },

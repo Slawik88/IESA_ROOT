@@ -300,14 +300,33 @@ function openGlobalProfile(userId){
   OM('👤 Профиль игрока','<div class="loader">Загрузка...</div>',[{l:'Закрыть',c:'btn-gold',f:'CM()'}]);
   api('/profile/u/'+userId).then(d=>renderGlobalProfile(d, userId)).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
+// Слоты косметики → иконка+подпись для чипов «полный образ» на публичной карточке.
+// title намеренно исключён — он уже показан отдельной строкой под ником.
+const _GP_OUTFIT_SLOTS = {name_glow:'✨', avatar_frame:'🖼', avatar_halo:'🌟', profile_bg:'🌌', card_fx:'💫'};
+function _gpJoinedStr(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');
+  if(!m) return '';
+  const months=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  return `${+m[3]} ${months[+m[2]-1]||''} ${m[1]}`;
+}
 function renderGlobalProfile(d, recipientId){
   const b=el('mb'); if(!b) return;
   const co=d.cosmetics||{}, cls=s=>(co[s]&&co[s].css)||'';
   const emap=(typeof PET_SPECIES_EMOJI!=='undefined')?PET_SPECIES_EMOJI:{};
-  const pets=(d.pets||[]).map(p=>`<div class="gp-pet"><span class="gp-pe">${emap[p.species_id]||'🐾'}</span>
+  const allPets=d.pets||[];
+  const activePet=allPets.find(p=>p.placement==='active');
+  const restPets=allPets.filter(p=>p!==activePet);
+  const activePetHtml = activePet ? `<div class="gp-pet-hero">
+      <span class="gp-pet-hero-e">${emap[activePet.species_id]||'🐾'}</span>
+      <div class="gp-pet-hero-i">
+        <div class="gp-pet-hero-n">${esc(activePet.name||activePet.species_id)}</div>
+        <div class="gp-pet-hero-l">⚔️ Активный боец · Ур.${activePet.pet_level}</div>
+      </div>
+    </div>` : '';
+  const petsListHtml = restPets.map(p=>`<div class="gp-pet"><span class="gp-pe">${emap[p.species_id]||'🐾'}</span>
     <span class="gp-pn">${esc(p.name||p.species_id)}</span>
-    <span class="gp-pl">Ур.${p.pet_level}${p.placement==='active'?' ·⚔️':''}</span></div>`).join('')
-    ||'<div class="cx-dim" style="font-size:11px;padding:4px">Питомцев нет</div>';
+    <span class="gp-pl">Ур.${p.pet_level}</span></div>`).join('')
+    || (allPets.length===0 ? '<div class="cx-dim" style="font-size:11px;padding:4px">Питомцев нет</div>' : '');
   const clan=d.clan?`<div class="gp-clan">${d.clan.emblem||'🛡'} <b>${esc(d.clan.name)}</b> <span class="clan-tag">[${esc(d.clan.tag)}]</span> · ${d.clan.role==='leader'?'👑 Лидер':'Участник'}</div>`:'';
   const s=d.sanction;
   const sanctionHtml = s ? `<div class="gp-sanction gp-sanction-${s.type}">
@@ -318,6 +337,21 @@ function renderGlobalProfile(d, recipientId){
   if(d.chat_warnings>0) chatSancBits.push(`⚠️ ${d.chat_warnings} варн(ов) в чатах`);
   if(d.muted_until) chatSancBits.push(`🔇 в муте до ${new Date(d.muted_until).toLocaleString('ru')}`);
   const chatSanctionHtml = chatSancBits.length ? `<div class="gp-sanction gp-sanction-restrict">${chatSancBits.join(' · ')}</div>` : '';
+  // «Полный образ» — чипы надетой косметики (не только фон/аватарка узкой полоской).
+  const outfitBits = Object.keys(_GP_OUTFIT_SLOTS).filter(sl=>co[sl]&&co[sl].name)
+    .map(sl=>`<span class="gp-chip">${_GP_OUTFIT_SLOTS[sl]} ${esc(co[sl].name)}</span>`);
+  const outfitHtml = outfitBits.length ? `<div class="gp-chips">${outfitBits.join('')}</div>` : '';
+  // Престиж-бейджи: VIP-тир (не просто корона) + лучшая ачивка.
+  const badgeBits=[];
+  if(d.vip_tier_label) badgeBits.push(`<span class="gp-chip gp-chip--vip">👑 ${esc(d.vip_tier_label)}</span>`);
+  if(d.best_achievement) badgeBits.push(`<span class="gp-chip gp-chip--best">${d.best_achievement.icon} ${esc(d.best_achievement.name)} · Ур.${d.best_achievement.level}</span>`);
+  const badgesHtml = badgeBits.length ? `<div class="gp-chips">${badgeBits.join('')}</div>` : '';
+  // Стаж + брак — тоже чипами (не одной строкой), чтобы длинный ник партнёра не рвал вёрстку.
+  const metaBits=[];
+  if(d.joined_date) metaBits.push(`<span class="gp-chip">📅 С ${_gpJoinedStr(d.joined_date)}</span>`);
+  if(d.partner) metaBits.push(`<span class="gp-chip">💍 @${esc(d.partner)}</span>`);
+  const metaHtml = metaBits.length ? `<div class="gp-chips">${metaBits.join('')}</div>` : '';
+  const isOwn = String(recipientId)===String(typeof _uid!=='undefined'?_uid:'');
   b.innerHTML=`<div class="looks-preview ${cls('profile_bg')}" style="text-align:left;padding:14px">
       ${cls('card_fx')?`<div class="card-fx ${cls('card_fx')}"></div>`:''}
       <div style="position:relative;z-index:3">
@@ -329,21 +363,28 @@ function renderGlobalProfile(d, recipientId){
             ${co.title?`<div class="ptitle${co.title_css?' '+co.title_css:''}">${esc(co.title)}</div>`:''}
           </div>
         </div>
+        ${outfitHtml}
+        ${badgesHtml}
         ${sanctionHtml}
         ${chatSanctionHtml}
         ${clan}
+        ${metaHtml}
         <div class="gp-stats">
           <div class="gp-st"><div class="gp-sv">${d.level}</div><div class="gp-sl">Уровень</div></div>
           ${typeof d.combat_power==='number'?`<div class="gp-st"><div class="gp-sv" style="color:var(--gold2)">⚡${fmt(d.combat_power)}</div><div class="gp-sl">Сила</div></div>`:''}
           <div class="gp-st"><div class="gp-sv">🔥${d.streak}</div><div class="gp-sl">Стрик</div></div>
-          <div class="gp-st"><div class="gp-sv">🏆${d.achievements}</div><div class="gp-sl">Ачивки</div></div>
+          <div class="gp-st"><div class="gp-sv">🏆${d.achievements}${d.achievements_total?'/'+d.achievements_total:''}</div><div class="gp-sl">Ачивки</div></div>
           <div class="gp-st"><div class="gp-sv">${fmt(d.messages)}</div><div class="gp-sl">Сообщений</div></div>
+          ${d.gates_floor>0?`<div class="gp-st"><div class="gp-sv">🗝${d.gates_floor}</div><div class="gp-sl">Врата</div></div>`:''}
+          ${d.duel_wins>0?`<div class="gp-st"><div class="gp-sv">⚔️${d.duel_wins}</div><div class="gp-sl">Дуэли</div></div>`:''}
         </div>
-        <div class="looks-slot-t" style="margin-top:12px">🐾 Питомцы (${(d.pets||[]).length})</div>
-        <div class="gp-pets">${pets}</div>
+        <div class="looks-slot-t" style="margin-top:12px">🐾 Питомцы (${allPets.length})</div>
+        ${activePetHtml}
+        <div class="gp-pets" style="margin-top:5px">${petsListHtml}</div>
       </div>
     </div>
-    ${(recipientId && String(recipientId)!==String(typeof _uid!=='undefined'?_uid:''))?`<button class="btn btn-gold btn-full" style="margin-top:12px" onclick="_openGiftModal(${recipientId})">🎁 Подарить косметику</button>`:''}`;
+    ${(!isOwn && outfitBits.length)?`<button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="CM();openLooksModal()">✨ Такой же образ</button>`:''}
+    ${(recipientId && !isOwn)?`<button class="btn btn-gold btn-full" style="margin-top:10px" onclick="_openGiftModal(${recipientId})">🎁 Подарить косметику</button>`:''}`;
 }
 // ── БЛОК21: подарок косметики за Stars (виральность) ─────────────────────────────
 function _openGiftModal(rid){
