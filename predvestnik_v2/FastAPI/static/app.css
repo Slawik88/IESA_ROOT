@@ -1336,6 +1336,54 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   0%,100% { color: #f472b6; text-shadow: 0 0 4px rgba(244,114,182,.5); }
   50%     { color: #e879f9; text-shadow: 0 0 8px rgba(232,121,249,.8); }
 }
+/* БЛОК 3 (2026-07-23): у 6 титулов (wanderer/patron/abysswalker/legend/omen/novice —
+   ВСЕ редкости от common до mythic) в реестре не было поля "css" — рендерились
+   голым `.ptitle` текстом без единого визуального отличия от бесплатного стартового
+   титула, независимо от цены/редкости. Ниже — недостающие классы, тот же контракт
+   редкости, что и выше: common/rare статичны, epic — анимация, legendary — градиент,
+   mythic — самый сильный пульс-glow. */
+/* common — странник пустошей: пыльный песочный тон, статичный */
+.ptitle.title-wanderer, .top-title.title-wanderer, .lc-title.title-wanderer {
+  color: #c2a878; font-style: normal; font-weight: 500; letter-spacing: .2px;
+}
+/* common — новичок бездны: нейтральный серо-лиловый, статичный (вторая common-альтернатива) */
+.ptitle.title-novice, .top-title.title-novice, .lc-title.title-novice {
+  color: #a8a3b8; font-style: normal; font-weight: 500; letter-spacing: .2px;
+}
+/* rare — меценат: тёплое золото щедрости, статичный (как sentinel/keeper — rare без анимации) */
+.ptitle.title-patron, .top-title.title-patron, .lc-title.title-patron {
+  color: #d4a24a; font-style: normal; font-weight: 600; letter-spacing: .3px;
+}
+/* epic — покоритель бездны: индиго-фиолетовый пульс силы (отличить от rift_walker магентой) */
+.ptitle.title-abysswalker, .top-title.title-abysswalker, .lc-title.title-abysswalker {
+  color: #7c5cff; font-style: italic; animation: titleAbysswalker 3s ease-in-out infinite;
+}
+@keyframes titleAbysswalker {
+  0%,100% { color: #7c5cff; text-shadow: 0 0 4px rgba(124,92,255,.45); }
+  50%     { color: #a68cff; text-shadow: 0 0 8px rgba(166,140,255,.7); }
+}
+/* legendary — легенда сезона: платиновый gradient-блик (холодный, в пару к тёплому apex) */
+.ptitle.title-legend, .top-title.title-legend, .lc-title.title-legend {
+  font-style: normal; font-weight: 700; letter-spacing: .7px; color: #d8dee6;
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .ptitle.title-legend, .top-title.title-legend, .lc-title.title-legend {
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg,#8a95a3,#e8ecf2,#ffffff,#e8ecf2,#8a95a3);
+    background-size: 220% 100%; animation: titleLegend 4.2s linear infinite;
+  }
+}
+@keyframes titleLegend { 0% { background-position: 0 0; } 100% { background-position: 220% 0; } }
+/* mythic — предвестник: золото-белый пульс-glow (единственный титул, названный как сама игра) */
+.ptitle.title-omen, .top-title.title-omen, .lc-title.title-omen {
+  font-style: normal; font-weight: 700; letter-spacing: .9px;
+  color: #ffe9b3; text-shadow: 0 0 4px rgba(255,210,110,.55); animation: titleOmen 2.4s ease-in-out infinite;
+}
+@keyframes titleOmen {
+  0%,100% { color: #ffe9b3; text-shadow: 0 0 4px rgba(255,210,110,.55); }
+  50%     { color: #fff8e0; text-shadow: 0 0 9px rgba(255,230,150,.85); }
+}
 /* ── Доступность/перф: заморозка анимаций косметики ──────────────────────────
    Общий вход и для системного prefers-reduced-motion, и для тумблера «Отключить
    анимации» (body.no-fx, см. openSettingsModal в app.02.js). Селекторы заякорены
@@ -2482,7 +2530,7 @@ body.modal-open { overflow: hidden; }
 .b3-log { max-height: 74px; margin-top: 6px; }
 
 /* ═══ Боёвка 4.0: клеточная арена (.b4-*) — тёмная тема как .b3-*, 390px без гор. скролла ═══ */
-.b4-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; max-width: 100%; margin: 6px 0 4px; }
+.b4-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; max-width: 100%; margin: 6px 0 4px; }
 .b4-cell { position: relative; aspect-ratio: 1; min-width: 0; border-radius: 6px;
   background: rgba(255,255,255,.02); border: 1px solid var(--line);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
