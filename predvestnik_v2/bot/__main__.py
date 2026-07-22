@@ -48,6 +48,10 @@ async def main():
             import uvicorn
             from FastAPI.main import app as _fastapi_app
             from FastAPI.prefix import strip_prefix_middleware
+            from FastAPI.notifications import notify as _ws_notify
+            from services.scheduler import set_ws_notify as _set_ws_notify
+
+            _set_ws_notify(_ws_notify)
 
             _root_path = os.getenv("ROOT_PATH", "").rstrip("/")
             _mounted_app = (

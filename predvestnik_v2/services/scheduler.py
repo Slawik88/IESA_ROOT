@@ -28,6 +28,16 @@ from infrastructure.repositories.economy import add_balance as _ab, add_item as 
 from services.achievements import increment_metric as _incr_ach
 from services.quests import increment_metric as _incr_quest
 from infrastructure.repositories.auction import get_expired_active_lots
+
+# WS-транспорт уведомлений регистрируется извне (bot/__main__.py при старте) —
+# инверсия зависимости, чтобы services/ не импортировал FastAPI.* напрямую (П6
+# BOT_AUDIT.md: единственное нарушение иерархии по всему services/).
+_ws_notify_cb = None
+
+
+def set_ws_notify(cb) -> None:
+    global _ws_notify_cb
+    _ws_notify_cb = cb
 from infrastructure.repositories.wallet_log import log_wallet as _lw
 from services.auction import resolve_lot, flush_pending_announcements
 from infrastructure.repositories.duel import get_expired_pending
@@ -216,8 +226,7 @@ async def _finish_expedition(bot: Bot, db, row) -> None:
             "early_finish": reward.get("early_finish", False),
         }
         try:
-            from FastAPI.notifications import notify as _ws_notify
-            delivered = await _ws_notify(owner_id, ws_payload)
+            delivered = await _ws_notify_cb(owner_id, ws_payload) if _ws_notify_cb else False
         except Exception:
             delivered = False
         if not delivered:

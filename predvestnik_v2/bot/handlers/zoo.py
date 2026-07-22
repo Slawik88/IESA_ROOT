@@ -360,13 +360,23 @@ async def cb_pet_view(query: types.CallbackQuery, callback_data: ZooCB, db):
         if bonus.get("expedition_discount", 0) > 0:
             bonus_lines.append(f"🗺 Скидка на поход: −{int(bonus['expedition_discount']*100)}%")
     elif sid == "wolf":
-        bonus_lines.append(f"🐾 Питомник: −{int(bonus.get('nursery_fatigue_reduce', 0)*100)}% усталости от перемещений")
-        if bonus.get("daily_fatigue_restore", 0) > 0:
-            bonus_lines.append(f"🌙 Восстанавливает {bonus['daily_fatigue_restore']} усталости раз в день")
+        bonus_lines.append(f"🐺 Усталость пассивно: −{int(bonus.get('passive_reduction', 0)*100)}%")
+        if bonus.get("active_reduction", 0) > 0:
+            bonus_lines.append(f"⚔️ Усталость активно: −{int(bonus['active_reduction']*100)}%")
+        if bonus.get("food_extra", 0) > 0:
+            bonus_lines.append(f"🍖 Корм: +{bonus['food_extra']}")
+        if bonus.get("daily_restore_uses", 0) > 0:
+            bonus_lines.append(f"🌙 {bonus['daily_restore_uses']}× в день восстанавливает {bonus.get('daily_restore_amount', 0)} усталости")
+        if bonus.get("movement_immunity"):
+            bonus_lines.append("✨ Иммунитет к усталости от перемещений")
     elif sid == "dragon":
-        bonus_lines.append(f"🏦 Семейный банк +{bonus.get('family_bank_cap_bonus', 0)} 🪙 кап")
+        bonus_lines.append(f"🏦 Семейный банк: +{int(bonus.get('bank_bonus', 0))} 🪙 кап")
         if bonus.get("free_food_chance", 0) > 0:
             bonus_lines.append(f"🍖 Шанс бесплатного корма: {int(bonus['free_food_chance']*100)}%")
+        if bonus.get("hamster_collect_bonus", 0) > 0:
+            bonus_lines.append(f"🐹 Сбор хомяков: +{int(bonus['hamster_collect_bonus'])} 🪙")
+        if bonus.get("weekly_bank_grant", 0) > 0:
+            bonus_lines.append(f"📅 Раз в неделю в банк: +{int(bonus['weekly_bank_grant'])} 🪙")
 
     bonus_str = "\n".join(f"  └ {b}" for b in bonus_lines) if bonus_lines else "  └ Нет данных"
 

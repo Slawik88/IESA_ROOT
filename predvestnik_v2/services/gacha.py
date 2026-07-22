@@ -12,8 +12,14 @@ from core.constants import (
 from core.registry import GACHA_TABLES, PITY_HARD_REWARD, PET_SPECIES
 from infrastructure.repositories import economy as eco_repo
 from infrastructure.repositories import gacha as gacha_repo
-from infrastructure.repositories.zoo import grant_duplicate
+from infrastructure.repositories.zoo import grant_duplicate, get_species_bonus
 from services.achievements import increment_metric as _incr_ach
+
+
+async def _turtle_gacha_discount(db, user_id: int) -> float:
+    """Скидка на крутку гачи (доля 0..1) от Черепахи Lv8+ (П3 BOT_AUDIT.md — было
+    объявлено в реестре и показывалось на карточке питомца, но нигде не применялось)."""
+    return (await get_species_bonus(db, user_id, "turtle")).get("gacha_daily_discount", 0.0)
 
 
 # ── Low-level helpers ─────────────────────────────────────────────────────────
@@ -204,18 +210,21 @@ async def roll_single(
 
         gacha_source = f"gacha_{spin_type}"
         if not used_token:
+            turtle_discount = await _turtle_gacha_discount(db, user_id)
+            unit_mora = cost["mora"] * (1.0 - turtle_discount)
+            unit_dias = cost["diamonds"] * (1.0 - turtle_discount)
             bal = await eco_repo.get_balance(db, user_id)
-            if cost["mora"] > 0 and bal["user_balance_mora"] < cost["mora"]:
+            if unit_mora > 0 and bal["user_balance_mora"] < unit_mora:
                 await db.rollback()
-                return False, f"Недостаточно Моры (нужно {cost['mora']:.0f} 🪙)."
-            if cost["diamonds"] > 0 and bal["user_balance_diamonds"] < cost["diamonds"]:
+                return False, f"Недостаточно Моры (нужно {unit_mora:.0f} 🪙)."
+            if unit_dias > 0 and bal["user_balance_diamonds"] < unit_dias:
                 await db.rollback()
-                return False, f"Недостаточно Алмазов (нужно {cost['diamonds']:.0f} 💎)."
-            if cost["mora"] > 0:
-                await eco_repo.add_balance(db, user_id, mora=-cost["mora"], commit=False,
+                return False, f"Недостаточно Алмазов (нужно {unit_dias:.0f} 💎)."
+            if unit_mora > 0:
+                await eco_repo.add_balance(db, user_id, mora=-unit_mora, commit=False,
                                            source=gacha_source)
-            if cost["diamonds"] > 0:
-                await eco_repo.add_balance(db, user_id, diamonds=-cost["diamonds"], commit=False,
+            if unit_dias > 0:
+                await eco_repo.add_balance(db, user_id, diamonds=-unit_dias, commit=False,
                                            source=gacha_source)
 
         # ── Pity check ────────────────────────────────────────────────────────
@@ -336,8 +345,11 @@ async def roll_multi(
                 (tokens_to_use, user_id, token_id),
             )
 
-        total_mora = cost["mora"] * paid_spins * (1.0 - discount)
-        total_dias = cost["diamonds"] * paid_spins * (1.0 - discount)
+        # Скидка Черепахи Lv8+ (П3 BOT_AUDIT.md) складывается с обычной ×10-скидкой
+        # мультипликативно (не суммой долей — так сумма скидок никогда не уйдёт за 100%).
+        turtle_discount = await _turtle_gacha_discount(db, user_id)
+        total_mora = cost["mora"] * paid_spins * (1.0 - discount) * (1.0 - turtle_discount)
+        total_dias = cost["diamonds"] * paid_spins * (1.0 - discount) * (1.0 - turtle_discount)
 
         if paid_spins:
             bal = await eco_repo.get_balance(db, user_id)

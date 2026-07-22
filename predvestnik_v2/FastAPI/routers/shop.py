@@ -19,7 +19,7 @@ _BUYABLE_CATEGORIES = {"food", "utility", "booster", "donate"}
 _QTY_MAX_CAP = {"food": 99, "utility": 5}
 
 
-def _build_catalog(eco: EconomyService, has_discount: bool) -> list[dict]:
+def _build_catalog(eco: EconomyService, discount: float) -> list[dict]:
     result = []
     for item_id, item in ITEMS_REGISTRY.items():
         if item.get("category") not in _BUYABLE_CATEGORIES:
@@ -35,12 +35,12 @@ def _build_catalog(eco: EconomyService, has_discount: bool) -> list[dict]:
             "name":            item["name"],
             "category":        item.get("category", ""),
             "description":     item.get("description", ""),
-            # apply_discount() is the same helper purchase_item() uses, so the
+            # apply_discount_fraction() is the same helper purchase_item() uses, so the
             # displayed price always matches what actually gets charged.
-            "price_mora":      eco.apply_discount(price_mora, has_discount) if price_mora else 0,
-            "price_diamonds":  eco.apply_discount(price_dia, has_discount) if price_dia else 0,
+            "price_mora":      eco.apply_discount_fraction(price_mora, discount) if price_mora else 0,
+            "price_diamonds":  eco.apply_discount_fraction(price_dia, discount) if price_dia else 0,
             "price_zarniki":   price_zar,
-            "discount_active": has_discount,
+            "discount_active": discount > 0,
         })
     return result
 
@@ -49,13 +49,13 @@ def _build_catalog(eco: EconomyService, has_discount: bool) -> list[dict]:
 async def get_shop(db=Depends(get_db), user=Depends(require_tg_user)):
     """Каталог магазина с ценами (учитывает скидку черепахи)."""
     eco = EconomyService(db)
-    has_discount = await eco.has_turtle_discount(user["id"])
+    discount = await eco.get_turtle_discount(user["id"])
     bal = await get_balance(db, user["id"])
     return {
         "mora":     float(bal["user_balance_mora"] or 0),
         "diamonds": float(bal["user_balance_diamonds"] or 0),
         "zarniki":  float(bal["user_balance_zarniki"] or 0),
-        "items":    _build_catalog(eco, has_discount),
+        "items":    _build_catalog(eco, discount),
     }
 
 
