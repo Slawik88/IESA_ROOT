@@ -633,6 +633,29 @@ const server = http.createServer((req, res) => {
     if (fs.existsSync(f)) return send(res, 200, fs.readFileSync(f), 'application/json');
     return send(res, 404, { detail: 'нет файла' });
   }
+  // Публичный профиль (БЛОК4: карточка целиком в косметике) — насыщенный мок
+  // со всеми слотами занятыми, чтобы видеть фон/частицы/рамку на всей карточке.
+  if (p.startsWith('/profile/u/')) {
+    return send(res, 200, {
+      user_id: 999, username: 'lilith_hhh', rank: '🌙 Владычица Бездны',
+      level: 47, combat_power: 8420, messages: 39710, streak: 53, achievements: 12,
+      is_vip: true,
+      pets: [
+        { name: 'Уголёк', species_id: 'salamander', pet_level: 9, placement: 'active' },
+        { name: 'Нюша', species_id: 'boar', pet_level: 6, placement: 'stash' },
+      ],
+      clan: { name: 'Тёмный Орден', tag: 'DARK', emblem: '🛡', role: 'leader' },
+      cosmetics: {
+        profile_bg: { css: 'pbg-galaxy', name: 'Галактика' },
+        card_fx: { css: 'cfx-sparks', name: 'Искры' },
+        avatar_frame: { css: 'frame-arcane', name: 'Аркана' },
+        avatar_halo: { css: 'halo-eclipse', name: 'Затмение' },
+        name_glow: { css: 'glow-rift', name: 'Разлом' },
+        title: 'Владычица Бездны', title_css: 'title-harbinger',
+      },
+      sanction: null, chat_warnings: 0, muted_until: null,
+    });
+  }
   // Тема-превью (Render Raw String): синтетическая строка из top/name/bot_line
   // мока темы — реальный бэк отдаёт разметку профиля в этом же формате.
   if (p.startsWith('/themes/preview/')) {

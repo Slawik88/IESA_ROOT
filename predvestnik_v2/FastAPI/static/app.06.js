@@ -320,27 +320,29 @@ function renderGlobalProfile(d, recipientId){
   const chatSanctionHtml = chatSancBits.length ? `<div class="gp-sanction gp-sanction-restrict">${chatSancBits.join(' · ')}</div>` : '';
   b.innerHTML=`<div class="looks-preview ${cls('profile_bg')}" style="text-align:left;padding:14px">
       ${cls('card_fx')?`<div class="card-fx ${cls('card_fx')}"></div>`:''}
-      <div style="display:flex;align-items:center;gap:12px;position:relative;z-index:3">
-        <div class="ava ${cls('avatar_frame')} ${cls('avatar_halo')}" style="width:58px;height:58px;font-size:30px;flex:none">${d.is_vip?'👑':'🔮'}</div>
-        <div style="min-width:0">
-          <div class="pname ${cls('name_glow')}" style="font-size:18px">@${esc(d.username)}</div>
-          <div class="prank">${d.rank}</div>
-          ${co.title?`<div class="ptitle${co.title_css?' '+co.title_css:''}">${esc(co.title)}</div>`:''}
+      <div style="position:relative;z-index:3">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="ava ${cls('avatar_frame')} ${cls('avatar_halo')}" style="width:58px;height:58px;font-size:30px;flex:none">${d.is_vip?'👑':'🔮'}</div>
+          <div style="min-width:0">
+            <div class="pname ${cls('name_glow')}" style="font-size:18px">@${esc(d.username)}</div>
+            <div class="prank">${d.rank}</div>
+            ${co.title?`<div class="ptitle${co.title_css?' '+co.title_css:''}">${esc(co.title)}</div>`:''}
+          </div>
         </div>
+        ${sanctionHtml}
+        ${chatSanctionHtml}
+        ${clan}
+        <div class="gp-stats">
+          <div class="gp-st"><div class="gp-sv">${d.level}</div><div class="gp-sl">Уровень</div></div>
+          ${typeof d.combat_power==='number'?`<div class="gp-st"><div class="gp-sv" style="color:var(--gold2)">⚡${fmt(d.combat_power)}</div><div class="gp-sl">Сила</div></div>`:''}
+          <div class="gp-st"><div class="gp-sv">🔥${d.streak}</div><div class="gp-sl">Стрик</div></div>
+          <div class="gp-st"><div class="gp-sv">🏆${d.achievements}</div><div class="gp-sl">Ачивки</div></div>
+          <div class="gp-st"><div class="gp-sv">${fmt(d.messages)}</div><div class="gp-sl">Сообщений</div></div>
+        </div>
+        <div class="looks-slot-t" style="margin-top:12px">🐾 Питомцы (${(d.pets||[]).length})</div>
+        <div class="gp-pets">${pets}</div>
       </div>
     </div>
-    ${sanctionHtml}
-    ${chatSanctionHtml}
-    ${clan}
-    <div class="gp-stats">
-      <div class="gp-st"><div class="gp-sv">${d.level}</div><div class="gp-sl">Уровень</div></div>
-      ${typeof d.combat_power==='number'?`<div class="gp-st"><div class="gp-sv" style="color:var(--gold2)">⚡${fmt(d.combat_power)}</div><div class="gp-sl">Сила</div></div>`:''}
-      <div class="gp-st"><div class="gp-sv">🔥${d.streak}</div><div class="gp-sl">Стрик</div></div>
-      <div class="gp-st"><div class="gp-sv">🏆${d.achievements}</div><div class="gp-sl">Ачивки</div></div>
-      <div class="gp-st"><div class="gp-sv">${fmt(d.messages)}</div><div class="gp-sl">Сообщений</div></div>
-    </div>
-    <div class="looks-slot-t" style="margin-top:12px">🐾 Питомцы (${(d.pets||[]).length})</div>
-    <div class="gp-pets">${pets}</div>
     ${(recipientId && String(recipientId)!==String(typeof _uid!=='undefined'?_uid:''))?`<button class="btn btn-gold btn-full" style="margin-top:12px" onclick="_openGiftModal(${recipientId})">🎁 Подарить косметику</button>`:''}`;
 }
 // ── БЛОК21: подарок косметики за Stars (виральность) ─────────────────────────────
