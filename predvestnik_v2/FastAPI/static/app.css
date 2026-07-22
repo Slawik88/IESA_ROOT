@@ -1435,7 +1435,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .looks-slot-t { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
 .looks-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .looks-card {
-  position: relative; box-sizing: border-box;
+  position: relative; box-sizing: border-box; min-width: 0; overflow: hidden;
   border: 1px solid var(--border2); border-radius: 11px; padding: 7px;
   cursor: pointer; display: flex; flex-direction: column; gap: 5px; background: var(--s);
   transition: border-color .15s, transform .1s, box-shadow .2s;

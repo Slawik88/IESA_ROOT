@@ -32,7 +32,7 @@ async def _fmt(db, rows: list[dict], count_key: str = "msg_count") -> list[dict]
 @router.get("/local/{chat_id}")
 async def local_top(chat_id: int, db=Depends(get_db)):
     """Топ за всё время внутри одного чата."""
-    rows = await get_top_messages(db, chat_id, "all_time", limit=50)
+    rows = await get_top_messages(db, chat_id, "all_time", limit=200)
     # Бот сам — строка в user_chat_stats, Telegram видит его обычным участником
     # чата (см. bot_tg_id() в services/membership.py) — без исключения он мог
     # попасть в собственный топ активности.
@@ -52,7 +52,7 @@ async def local_top(chat_id: int, db=Depends(get_db)):
 @router.get("/global")
 async def global_top(db=Depends(get_db)):
     """Топ за всё время по всем чатам."""
-    rows = await get_top_messages_global(db, limit=50)
+    rows = await get_top_messages_global(db, limit=200)
     _self_id = bot_tg_id()
     if _self_id is not None:
         rows = [r for r in rows if r["user_tg_id"] != _self_id]

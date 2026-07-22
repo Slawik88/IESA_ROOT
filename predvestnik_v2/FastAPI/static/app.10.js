@@ -440,9 +440,16 @@ function _looksRenderThemesGrid(){
   g.innerHTML=`<div class="looks-cards">${filtered.map(_looksThemeCard).join('')}</div>`;
 }
 function _looksThemeCard(t){
+  // БАГ 2026-07-23: раньше сюда впихивали ПОЛНУЮ декоративную «шапку» темы (top/bot_line) —
+  // некоторые темы используют длинные безпробельные строки (fullwidth-текст, эмодзи-паттерны
+  // без пробелов), браузер не может их перенести — карточка требовала ширину больше своей
+  // колонки, и вся сетка/страница уезжала вбок (растягивала сайт по ширине). Правильное
+  // место для полной «шапки» — inline-превью сверху секции (уже есть, тап по карточке),
+  // а в самой карточке — компактная иконка+имя, как у остальной косметики (.lc-sw).
   const sel=_looksThemeSel===t.theme_id;
+  const accent=t.accent||(t.top||'').trim().charAt(0)||'🎭';
   return `<div class="looks-card${t.active?' sel':''}${sel&&!t.active?' sel':''}" data-theme="${t.theme_id}" onclick="_looksThemeTap('${t.theme_id}')">
-    <div class="lc-sw"><div class="theme-deco" style="font-size:9px;line-height:1.3">${t.top||'━━━━'}<br>${esc(t.name)}<br>${t.bot_line||'━━━━'}</div></div>
+    <div class="lc-sw"><span class="lc-ava">${esc(accent)}</span></div>
     <div class="lc-name">${esc(t.name)}</div>
     <div class="lc-foot">${themeStatusBadge(t)}</div>
   </div>`;

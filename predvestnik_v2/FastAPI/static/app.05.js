@@ -271,7 +271,7 @@ function switchTop(mode, btn) {
         return;
       }
       // Подиум для топ-3 + список остальных
-      const top3=rows.slice(0,3), rest=rows.slice(3,30);
+      const top3=rows.slice(0,3), rest=rows.slice(3,200);
       const podium = top3.length>=2 ? '<div class="podium">'+top3.map((r,i)=>`
         <div class="pd pd-${i+1}">
           <div class="pd-medal">${MEDALS[i]}</div>
