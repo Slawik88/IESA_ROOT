@@ -1,6 +1,9 @@
+import logging
 from typing import Callable, Awaitable, Dict, Any
 from aiogram.types import TelegramObject
 from aiogram import Bot
+
+logger = logging.getLogger(__name__)
 
 from infrastructure.repositories import streak as streak_repo
 from infrastructure.repositories import economy as eco_repo
@@ -86,37 +89,40 @@ async def streak_middleware(
                     recovery_cost = calc_recovery_cost(result["recovery_missed_days"])
                     result["_recovery_cost"] = recovery_cost
 
-                    # Atomically claim the day (на глобальной строке chat_id=0): защищает
-                    # от двойной награды при сообщениях в разных чатах в один день.
-                    claimed = await streak_repo.upsert_global_streak(
-                        db, user.id,
-                        streak=result["new_streak"],
-                        today=today,
-                        recovery_streak=result["recovery_streak"],
-                        recovery_missed_days=result["recovery_missed_days"],
-                        recovery_expires=result["recovery_expires"],
-                    )
-                    if not claimed:
-                        return await handler(event, data)
-
-                    streak_source = "streak_block_end" if reward.get("is_block_end") else "streak_daily"
-                    await eco_repo.add_balance(
-                        db, user.id,
-                        mora=reward["mora"],
-                        diamonds=reward["diamonds"],
-                        commit=False,
-                        source=streak_source,
-                        chat_id=chat_obj.id,
-                        note=f"streak={result['new_streak']}",
-                    )
-
-                    # Выдаём жетон за день-7 каждого блока (block_end)
-                    if reward.get("is_block_end"):
-                        await db.execute(
-                            "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, 1) "
-                            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + 1",
-                            (user.id, "spin_token"),
+                    # Atomically claim the day (на глобальной строке chat_id=0) + начислить
+                    # награду в ОДНОЙ транзакции: сбой между claim и наградой (напр. обрыв
+                    # БД в add_balance) откатывает и claim — игрок получит награду со
+                    # следующего сообщения, а не потеряет день навсегда (П1 BOT_AUDIT.md).
+                    async with db.connection.transaction():
+                        claimed = await streak_repo.upsert_global_streak(
+                            db, user.id,
+                            streak=result["new_streak"],
+                            today=today,
+                            recovery_streak=result["recovery_streak"],
+                            recovery_missed_days=result["recovery_missed_days"],
+                            recovery_expires=result["recovery_expires"],
                         )
+                        if not claimed:
+                            return await handler(event, data)
+
+                        streak_source = "streak_block_end" if reward.get("is_block_end") else "streak_daily"
+                        await eco_repo.add_balance(
+                            db, user.id,
+                            mora=reward["mora"],
+                            diamonds=reward["diamonds"],
+                            commit=False,
+                            source=streak_source,
+                            chat_id=chat_obj.id,
+                            note=f"streak={result['new_streak']}",
+                        )
+
+                        # Выдаём жетон за день-7 каждого блока (block_end)
+                        if reward.get("is_block_end"):
+                            await db.execute(
+                                "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, 1) "
+                                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + 1",
+                                (user.id, "spin_token"),
+                            )
 
                     # Owl Lv10: daily free spin token
                     try:
@@ -143,8 +149,6 @@ async def streak_middleware(
                                 )
                     except Exception:
                         pass
-
-                    await db.commit()
 
                     # Achievement: marriage_days_total (vow_keeper) — daily increment
                     try:
@@ -217,6 +221,6 @@ async def streak_middleware(
                     pass
 
             except Exception:
-                pass
+                logger.exception("streak_mw: сбой обработки дневного стрика user_id=%s", user.id)
 
     return await handler(event, data)

@@ -55,7 +55,7 @@ async def render_shop(
     selected_item: str = "",
 ):
     economy = EconomyService(db)
-    has_discount = await economy.has_turtle_discount(user_id)
+    discount = await economy.get_turtle_discount(user_id)
     inv = {r["item_id"]: r["quantity"] for r in await get_inventory(db, user_id)}
     bal = await get_balance(db, user_id)
     mora_str = format_currency(bal["user_balance_mora"])
@@ -65,8 +65,8 @@ async def render_shop(
         "🏪 <b>ГЛОБАЛЬНЫЙ МАГАЗИН</b>",
         f"💳 <code>{mora_str} 🪙</code>  ·  <code>{dia_str} 💎</code>",
     ]
-    if has_discount:
-        lines.append("🐢 <i>Черепаха: −5% цена активна!</i>")
+    if discount > 0:
+        lines.append(f"🐢 <i>Черепаха: −{discount:.0%} цена активна!</i>")
 
     builder = InlineKeyboardBuilder()
 
@@ -78,7 +78,7 @@ async def render_shop(
         lines.append(f"\n{cat_icon} <b>{cat_label}</b>")
 
         for item_id, item in items_in_cat:
-            prices = await economy.get_item_prices(item_id, user_id, has_discount=has_discount)
+            prices = await economy.get_item_prices(item_id, user_id, discount=discount)
             p_str = _price_str(prices)
             owned = inv.get(item_id, 0)
             owned_str = f"  <b>×{owned}</b>" if owned > 0 else ""
@@ -161,8 +161,8 @@ async def cb_shop_qty(query: types.CallbackQuery, callback_data: ShopCB, db):
         return await query.answer("❌ Предмет не найден.", show_alert=True)
 
     economy = EconomyService(db)
-    has_discount = await economy.has_turtle_discount(query.from_user.id)
-    prices = await economy.get_item_prices(item_id, query.from_user.id, has_discount=has_discount)
+    discount = await economy.get_turtle_discount(query.from_user.id)
+    prices = await economy.get_item_prices(item_id, query.from_user.id, discount=discount)
     balance = await get_balance(db, query.from_user.id)
     inv = {r["item_id"]: r["quantity"] for r in await get_inventory(db, query.from_user.id)}
     owned = inv.get(item_id, 0)
