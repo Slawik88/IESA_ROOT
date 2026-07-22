@@ -8,6 +8,7 @@ import random
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
+from loguru import logger
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
@@ -245,22 +246,39 @@ async def _war_finalize(db, uid: int, state: dict) -> dict | None:
 
 
 async def _finalize_if_over(db, uid: int, user: dict, row: dict, state: dict) -> dict | None:
-    """Если бой кончился — статус в БД + награды режима. Возвращает reward|None."""
+    """Если бой кончился — статус в БД + награды режима. Возвращает reward|None.
+
+    БАГ 2026-07-23: bt_repo.finish() ниже выполняется через PGAdapter.execute(),
+    который автокоммитится МГНОВЕННО (commit() — no-op без явного BEGIN, см.
+    infrastructure/pg_adapter.py) — статус боя необратимо становится won/lost
+    ДО того, как посчитаны награды режима. Раньше, если начисление наград кидало
+    исключение (напр. set_combat_tutorial_done на ещё не задеплоенной колонке),
+    оно улетало наверх необработанным: клиент получал голый 500, а бой на сервере
+    уже навсегда завершён — любое следующее действие (атака/Сдаться/Выйти)
+    отвечало 404 «бой не найден», хотя клиент ещё рисовал живого врага. Теперь
+    начисление наград изолировано: сбой здесь не должен стоить игроку залипшего
+    боя — победа/поражение долетают до клиента всегда, просто без «reward» в тот
+    редкий раз, когда конкретная награда сама сломалась (это видно в логах)."""
     if state.get("status") not in ("won", "lost"):
         return None
     won = state["status"] == "won"
     await bt_repo.finish(db, row["id"], state["status"])
     reward = None
-    if row["mode"] == "gates" and won:
-        reward = await _gates_reward(db, uid, int(row["ref_id"]), state)
-    elif row["mode"] == "abyss":
-        reward = await _abyss_finalize(db, uid, user, state, won)
-    elif row["mode"] == "war":
-        reward = await _war_finalize(db, uid, state)
-    elif row["mode"] == "tutorial" and won:
-        # Онбординг боя: «Первый бой» — без награды (повтор через «?» = эксплойт),
-        # только отмечаем прохождение. Экран победы покажет поздравление без лута.
-        await users_repo.set_combat_tutorial_done(db, uid)
+    try:
+        if row["mode"] == "gates" and won:
+            reward = await _gates_reward(db, uid, int(row["ref_id"]), state)
+        elif row["mode"] == "abyss":
+            reward = await _abyss_finalize(db, uid, user, state, won)
+        elif row["mode"] == "war":
+            reward = await _war_finalize(db, uid, state)
+        elif row["mode"] == "tutorial" and won:
+            # Онбординг боя: «Первый бой» — без награды (повтор через «?» = эксплойт),
+            # только отмечаем прохождение. Экран победы покажет поздравление без лута.
+            await users_repo.set_combat_tutorial_done(db, uid)
+    except Exception:
+        logger.exception(f"[battle] начисление награды упало (battle_id={row['id']}, "
+                          f"mode={row['mode']}, uid={uid}) — бой всё равно завершается корректно")
+        reward = None
     return reward
 
 
