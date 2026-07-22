@@ -554,6 +554,37 @@ const MOCKS = {
   },
   'GET /showcase/': { slots: [], rotates_in_sec: 0 },
 
+  // ── Косметика (экран «Внешний вид») ──
+  'GET /cosmetics/': {
+    vip: false,
+    balances: { zarniki: 1250, mora: 125430, diamonds: 42, dark_mora: 340 },
+    currency_icons: { zarniki: '✨', mora: '🪙', diamonds: '💎' },
+    slots: {
+      name_glow: [
+        { id: 'glow_gold', name: 'Золотое сияние', rarity: 'rare', css: 'glow-gold', owned: true, equipped: true, price: [] },
+        { id: 'glow_violet', name: 'Фиолетовая аура', rarity: 'epic', css: 'glow-violet', owned: false, price: [{ zarniki: 440 }], vip_required: true, desc: 'Мистическое свечение ника — заметно в топах и профиле.' },
+        { id: 'glow_ember', name: 'Уголёк', rarity: 'legendary', css: 'glow-ember', owned: false, price: [{ zarniki: 9999 }], desc: 'Тёплое тлеющее свечение (дороже баланса — проверка «не хватает»).' },
+      ],
+      avatar_frame: [
+        { id: 'frame_bronze', name: 'Бронза', rarity: 'common', css: 'frame-bronze', owned: true, equipped: false, price: [] },
+        { id: 'frame_royal', name: 'Королевская', rarity: 'mythic', css: 'frame-royal', owned: false, price: [{ zarniki: 1000 }], desc: 'Рамка, достойная легенды.' },
+      ],
+      avatar_halo: [],
+      title: [
+        { id: 'title_dawn', name: 'Предвестник Рассвета', rarity: 'epic', css: 'title-keeper', text: 'Предвестник Рассвета', owned: true, equipped: true, price: [] },
+      ],
+      profile_bg: [
+        { id: 'bg_nebula', name: 'Туманность', rarity: 'rare', css: 'pbg-nebula', owned: false, price: [{ zarniki: 440 }], desc: 'Космический фон профиля.' },
+      ],
+      card_fx: [],
+    },
+    welcome: { current: 'scanner', options: [
+      { id: 'scanner', name: 'Сканер', rarity: 'common', current: true, desc: 'Классический прелоадер' },
+      { id: 'nova', name: 'Вспышка', rarity: 'epic', locked: true, vip_required: true, current: false, desc: 'Премиум-приветствие' },
+    ] },
+  },
+  'GET /cosmetics/presets': { presets: [{ id: 1, name: 'Золотой образ' }] },
+
   // ── Админка чата ──
   'GET /admin/-100111/dashboard': {
     my_rank_name: '🏆 Владелец', member_count: 214, active_today: 58,
