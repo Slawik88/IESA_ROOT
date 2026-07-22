@@ -1,15 +1,19 @@
 // ── Конструктор «Внешний вид» (косметика профиля) ──────────────────────────────
+// Редизайн (блок 7, 2026-07-23): вкладки убраны — один непрерывный скролл по всем
+// секциям + чипы-якоря (скроллят к секции, не переключают панель) + прилипающее
+// превью сверху, видно всегда. Раньше приходилось листать вкладки И скроллить
+// наверх, чтобы увидеть «как оно будет выглядеть» — теперь ни то, ни другое.
 const _LOOKS_SLOTS=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx'];
-const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки',welcome:'🎬 Приветствие'};
-const _LOOKS_TABS=[..._LOOKS_SLOTS,'welcome'];
+const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки'};
+const _LOOKS_ANCHOR_LABEL={name_glow:'✨ Ореол',avatar_frame:'🖼 Рамка',avatar_halo:'🌟 Гало',title:'🏷 Титул',profile_bg:'🖌 Фон',card_fx:'❄️ Частицы',welcome:'🎬 Вход',themes:'🎭 Темы'};
+const _LOOKS_SECTIONS=[..._LOOKS_SLOTS,'welcome','themes'];
 let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false, _looksFocus=null;
 let _looksPresets=[];  // кэш пресетов текущей сессии
-let _looksActiveTab=_LOOKS_SLOTS[0];   // какая вкладка сейчас открыта в модалке
-let _looksFilter='all';                // фильтр редкости — общий для всех вкладок, не сбрасывается при переключении
+let _looksFilter='all';                // фильтр редкости — общий для ВСЕХ секций разом
 // Полноэкранный экран «Внешний вид» (был модалкой). Имя openLooksModal сохранено —
 // его зовут старые точки входа (профиль/маркет), диплинки и «назад» из под-шитов.
 function openLooksModal(){
-  _looksActiveTab=_LOOKS_SLOTS[0]; _looksFilter='all'; _looksFocus=null;
+  _looksFilter='all'; _looksFocus=null;
   switchPage('looks');
   if(_looksData){ renderLooks(); return; }        // из кэша — БЕЗ пере-запроса (убирает лаги навигации)
   _looksDirty=false;
@@ -41,40 +45,45 @@ function renderLooks(){
       <button class="looks-back" onclick="_looksClose()" aria-label="Назад">‹</button>
       <div class="looks-htitle">🎨 Внешний вид</div>
     </div>
-    <div id="looks-top">${_looksPreviewHtml()}</div>`+vipBar
+    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div></div>`
+    +vipBar
     +'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'
-    +_looksPresetsHtml()+_looksTabsHtml()+'<div id="looks-tabpanel"></div>'
+    +_looksPresetsHtml()
+    +`<div class="looks-anchors">${_LOOKS_SECTIONS.map(s=>`<button class="looks-anchor-chip" onclick="_looksJump('${s}')">${_LOOKS_ANCHOR_LABEL[s]}</button>`).join('')}</div>`
+    +_looksFilterHtml()
+    +`<div id="looks-sections">${_LOOKS_SLOTS.map(_looksSectionHtml).join('')}${_looksWelcomeSectionHtml()}${_looksThemesSectionHtml()}</div>`
     +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
-  _looksRenderActiveTab();
+  _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
+  _looksThemesEnsureLoaded();
 }
-// Панель вкладок слотов — переиспользует .tabs/.tb (тот же паттерн, что и в Маркете).
-function _looksTabsHtml(){
-  return `<div class="tabs" id="looks-tabs">${_LOOKS_TABS.map(t=>
-    `<button class="tb${t===_looksActiveTab?' active':''}" onclick="_looksSwitchTab('${t}',this)">${_LOOKS_SLOT_LABEL[t]}</button>`
-  ).join('')}</div>`;
-}
-function _looksSwitchTab(tab,btn){
-  _looksActiveTab=tab;
-  document.querySelectorAll('#looks-tabs .tb').forEach(b=>b.classList.remove('active'));
-  if(btn) btn.classList.add('active');
-  _looksRenderActiveTab();
+// Якорь-чип: скроллит к секции (не переключает панель — все секции уже на странице).
+function _looksJump(id){
+  const sec=el('looks-sec-'+id); if(!sec) return;
+  const reduce=document.body.classList.contains('no-fx')||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+  sec.scrollIntoView({behavior: reduce?'auto':'smooth', block:'start'});
 }
 function _looksFilterHtml(){
   const rarities=['all',...Object.keys(RARITY_META)];
-  return `<div class="looks-filter">${rarities.map(r=>
-    `<button class="looks-chip${r===_looksFilter?' active':''}" onclick="_looksSetFilter('${r}')">${r==='all'?'Все':rarLabel(r)}</button>`
+  return `<div class="looks-filter" id="looks-filter-bar">${rarities.map(r=>
+    `<button class="looks-chip${r===_looksFilter?' active':''}" data-rar="${r}" onclick="_looksSetFilter('${r}')">${r==='all'?'Все':rarLabel(r)}</button>`
   ).join('')}</div>`;
 }
-function _looksSetFilter(r){ _looksFilter=r; _looksRenderActiveTab(); }
-// Горячий путь: перерисовывает ТОЛЬКО панель активной вкладки (не всю модалку).
-function _looksRenderActiveTab(){
-  const p=el('looks-tabpanel'); if(!p) return;
-  if(_looksActiveTab==='welcome'){
-    p.innerHTML=_looksWelcomeHtml();
-    _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
-    return;
-  }
-  p.innerHTML=_looksFilterHtml()+_looksGridHtml(_looksActiveTab);
+// Фильтр общий для всех секций разом — перерисовываем сетку в каждой (заголовки/якоря не трогаем).
+function _looksSetFilter(r){
+  _looksFilter=r;
+  const bar=el('looks-filter-bar');
+  if(bar) bar.querySelectorAll('.looks-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-rar')===r));
+  _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
+}
+// Секция одного слота: заголовок-якорь + фильтруемая сетка (id стабилен для _looksJump).
+function _looksSectionHtml(slot){
+  return `<section class="looks-section" id="looks-sec-${slot}">
+    <div class="looks-sec-t">${_LOOKS_SLOT_LABEL[slot]}</div>
+    <div class="looks-sec-grid" id="looks-grid-${slot}">${_looksGridHtml(slot)}</div>
+  </section>`;
+}
+function _looksRenderSectionGrid(slot){
+  const g=el('looks-grid-'+slot); if(g) g.innerHTML=_looksGridHtml(slot);
 }
 // Горячий путь: перерисовывает только блок «сейчас→станет» (не всю модалку).
 function _looksRenderTop(){
@@ -271,16 +280,16 @@ function _looksHeroSel(){ if(!_looksFocus) return _looksSel; const s={..._looksS
 function _looksHeroDiffers(){ const hs=_looksHeroSel(); return _LOOKS_SLOTS.some(s=>(hs[s]||null)!==(_looksSaved[s]||null)); }
 function _looksEquip(slot,id){ _looksSel[slot]=id; _looksFocus={slot,id}; _looksRenderTop(); _looksMarkSel(slot); }
 function _looksUnequip(slot){ _looksSel[slot]=null; _looksFocus=null; _looksRenderTop(); _looksMarkSel(slot); }
-function _looksReset(){ _looksSel={..._looksSaved}; _looksFocus=null; _looksRenderTop(); _looksRenderActiveTab(); }
+function _looksReset(){ _looksSel={..._looksSaved}; _looksFocus=null; _looksRenderTop(); _LOOKS_SLOTS.forEach(_looksMarkSel); }
 // Непокупленный: только примерка (focus), в _looksSel НЕ кладём → «Применить» его не тронет
 // (нельзя надеть то, чем не владеешь); для покупки — инлайн-плашка под hero.
 function _looksTapUnowned(slot,id){ _looksFocus={slot,id}; _looksRenderTop(); _looksMarkSel(slot); }
-// Перф: точечно переставить .sel в активной сетке (без пересборки всего грида — это
-// и был источник «подлагивания»: раньше каждый тап перерисовывал весь innerHTML грида).
+// Перф: точечно переставить .sel в сетке ЭТОГО слота (без пересборки innerHTML —
+// это и был источник «подлагивания»: раньше каждый тап перерисовывал весь грид).
 function _looksMarkSel(slot){
-  const panel=el('looks-tabpanel'); if(!panel){ _looksRenderActiveTab(); return; }
-  const cards=panel.querySelectorAll('.looks-card[data-cos]');
-  if(!cards.length){ _looksRenderActiveTab(); return; }
+  const grid=el('looks-grid-'+slot); if(!grid){ _looksRenderSectionGrid(slot); return; }
+  const cards=grid.querySelectorAll('.looks-card[data-cos]');
+  if(!cards.length){ _looksRenderSectionGrid(slot); return; }
   const shown=_looksShownId(slot);
   cards.forEach(c=>{
     const cid=c.getAttribute('data-cos');
@@ -341,7 +350,7 @@ function _looksApply(){
 }
 // ── Приветственная анимация (выбор режима прелоадера; премиум — за VIP) ─────────
 let _wpMode=null;
-function _looksWelcomeHtml(){
+function _looksWelcomeSectionHtml(){
   const w=_looksData.welcome; if(!w) return '';
   const cards=(w.options||[]).map(o=>{
     const cls=['looks-card','lc-wide','r-'+o.rarity]; if(o.current)cls.push('sel'); if(o.locked)cls.push('locked');
@@ -351,8 +360,11 @@ function _looksWelcomeHtml(){
       <div class="lc-tag">${o.current?'✓ выбрано':esc(o.desc)}</div></div>`;
   }).join('');
   const hint=_looksData.vip?'':'<div class="looks-hint">👆 Жми на любой режим — увидишь превью. Выбрать приветствие можно с VIP.</div>';
-  return `<div id="wpreview" class="wpreview"></div>${hint}
-    <div class="looks-cards">${cards}</div>`;
+  return `<section class="looks-section" id="looks-sec-welcome">
+    <div class="looks-sec-t">${_LOOKS_ANCHOR_LABEL.welcome}</div>
+    <div id="wpreview" class="wpreview"></div>${hint}
+    <div class="looks-cards">${cards}</div>
+  </section>`;
 }
 function _playWelcomePreview(mode){
   const box=el('wpreview'); if(!box) return;
@@ -371,16 +383,102 @@ function _welcomePick(id){
   if(o.locked){ toast('🔒 Это приветствие доступно с VIP',false); return; }
   _setWelcome(id);                               // применить — только разрешённое
 }
+// Точечно перерисовать секцию приветствия (список карточек «выбрано»/локи) —
+// не всю страницу. wpreview восстанавливаем следом, т.к. новая разметка его очищает.
+function _looksRenderWelcomeSection(){
+  const sec=el('looks-sec-welcome'); if(!sec) return;
+  sec.outerHTML=_looksWelcomeSectionHtml();
+  _wpMode=null; _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
+}
 function _setWelcome(id){
   if(!_looksData||!_looksData.welcome) return;
   const w=_looksData.welcome, prev=w.current;
   if(id===prev) return;
   w.current=id; (w.options||[]).forEach(o=>o.current=(o.id===id));
-  _looksRenderActiveTab(); _looksDirty=true;
+  _looksRenderWelcomeSection(); _looksDirty=true;
   api('/cosmetics/welcome',{method:'POST',body:JSON.stringify({animation_id:id})})
     .then(r=>toast(r.message))
     .catch(e=>{toast(e,false); w.current=prev;
-      (w.options||[]).forEach(o=>o.current=(o.id===prev)); _looksRenderActiveTab();});
+      (w.options||[]).forEach(o=>o.current=(o.id===prev)); _looksRenderWelcomeSection();});
+}
+
+// ── Темы профиля — секция экрана «Внешний вид» ──────────────────────────────────
+// Миграция блока 7: раньше отдельная вкладка Профиль→Темы (модалка-на-тему через
+// openThemeModal). Здесь — тот же паттерн, что у косметики: тап примеряет тему
+// инлайн (raw-string превью с бэка, как и было — /themes/preview/{id}), без ухода
+// в модалку. _themeData/themeStatusBadge переиспользуются из app.05.js.
+let _looksThemeSel=null, _looksThemeFilter='all';
+function _looksThemesEnsureLoaded(){
+  if(_themeData){ _looksRenderThemesGrid(); return; }
+  api('/themes/').then(themes=>{ _themeData=themes; _looksRenderThemesGrid(); })
+    .catch(e=>{ const g=el('looks-grid-themes'); if(g) g.innerHTML=`<div class="err">${e}</div>`; });
+}
+function _looksThemesSectionHtml(){
+  return `<section class="looks-section" id="looks-sec-themes">
+    <div class="looks-sec-t">${_LOOKS_ANCHOR_LABEL.themes}</div>
+    <div id="looks-theme-preview" class="looks-theme-preview"></div>
+    <div class="looks-filter" id="looks-theme-filter">
+      <button class="looks-chip active" data-f="all" onclick="_looksThemeSetFilter('all')">Все</button>
+      <button class="looks-chip" data-f="owned" onclick="_looksThemeSetFilter('owned')">Мои</button>
+      <button class="looks-chip" data-f="premium" onclick="_looksThemeSetFilter('premium')">✨ Премиум</button>
+    </div>
+    <div class="looks-sec-grid" id="looks-grid-themes"><div class="loader">Загрузка…</div></div>
+  </section>`;
+}
+function _looksThemeSetFilter(f){
+  _looksThemeFilter=f;
+  const bar=el('looks-theme-filter');
+  if(bar) bar.querySelectorAll('.looks-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-f')===f));
+  _looksRenderThemesGrid();
+}
+function _looksRenderThemesGrid(){
+  const g=el('looks-grid-themes'); if(!g||!_themeData) return;
+  const filtered=_looksThemeFilter==='owned'?_themeData.filter(t=>t.owned||t.active)
+    :_looksThemeFilter==='premium'?_themeData.filter(t=>t.premium)
+    :_themeData;
+  if(!filtered.length){ g.innerHTML='<div class="looks-empty">Нет тем в этой категории</div>'; return; }
+  g.innerHTML=`<div class="looks-cards">${filtered.map(_looksThemeCard).join('')}</div>`;
+}
+function _looksThemeCard(t){
+  const sel=_looksThemeSel===t.theme_id;
+  return `<div class="looks-card${t.active?' sel':''}${sel&&!t.active?' sel':''}" data-theme="${t.theme_id}" onclick="_looksThemeTap('${t.theme_id}')">
+    <div class="lc-sw"><div class="theme-deco" style="font-size:9px;line-height:1.3">${t.top||'━━━━'}<br>${esc(t.name)}<br>${t.bot_line||'━━━━'}</div></div>
+    <div class="lc-name">${esc(t.name)}</div>
+    <div class="lc-foot">${themeStatusBadge(t)}</div>
+  </div>`;
+}
+function _looksThemeTap(tid){
+  if(!_themeData) return;
+  const t=_themeData.find(x=>x.theme_id===tid); if(!t) return;
+  _looksThemeSel=tid;
+  document.querySelectorAll('#looks-grid-themes .looks-card').forEach(c=>
+    c.classList.toggle('sel', c.getAttribute('data-theme')===tid));
+  const box=el('looks-theme-preview'); if(!box) return;
+  box.innerHTML='<div class="loader">Загрузка превью…</div>';
+  api(`/themes/preview/${tid}`).then(r=>{
+    const price=t.price_mora?`${fmt(t.price_mora)} 🪙`:t.price_diamonds?`${t.price_diamonds} 💎`
+      :t.price_zarniki?`${fmt(t.price_zarniki)} ✨`:t.price_dark?`${t.price_dark} 🌑`:null;
+    const buyable=price&&(t.source==='shop_mora'||t.source==='shop_diamond'||t.source==='zarniki'||t.source==='dark');
+    let actionHtml='';
+    if(t.active) actionHtml='<div class="looks-theme-active">✓ Активная тема</div>';
+    else if(t.owned) actionHtml=`<button class="btn btn-sm btn-gold btn-full" onclick="_looksThemeEquip('${tid}')">✓ Надеть</button>`;
+    else if(buyable) actionHtml=`<button class="btn btn-sm btn-gold btn-full" onclick="_looksThemeBuy('${tid}')">Купить — ${price}</button>`;
+    box.innerHTML=`<div class="profile-preview" style="min-height:40px">${r.text||''}</div>
+      <div class="looks-theme-name">${esc(t.name)} · ${_rarLabel(t.rarity)}</div>
+      ${actionHtml}`;
+  }).catch(()=>{ box.innerHTML='<span style="color:var(--muted);font-size:11px">Нет данных профиля</span>'; });
+}
+function _looksThemeBuy(tid){
+  api('/themes/buy',{method:'POST',body:JSON.stringify({theme_id:tid})})
+    .then(r=>{ toast(`✅ ${r.theme_name} куплена!`); _themeData=null; refreshCurrBar();
+      _looksThemesEnsureLoaded(); _looksThemeTap(tid); })
+    .catch(e=>toast(e,false));
+}
+function _looksThemeEquip(tid){
+  api('/themes/equip',{method:'POST',body:JSON.stringify({theme_id:tid})})
+    .then(()=>{ toast('✅ Тема активирована!'); _themeData=null; loadProfile();
+      _looksThemesEnsureLoaded(); _looksThemeTap(tid); })
+    .catch(e=>toast(e,false));
 }
 // ── БЛОК21 #3: сундуки-сюрпризы + крафт косметики из осколков ────────────────────
 function _openSurprisesModal(){

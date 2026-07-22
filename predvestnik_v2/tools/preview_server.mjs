@@ -629,6 +629,15 @@ const server = http.createServer((req, res) => {
     if (fs.existsSync(f)) return send(res, 200, fs.readFileSync(f), 'application/json');
     return send(res, 404, { detail: 'нет файла' });
   }
+  // Тема-превью (Render Raw String): синтетическая строка из top/name/bot_line
+  // мока темы — реальный бэк отдаёт разметку профиля в этом же формате.
+  if (p.startsWith('/themes/preview/')) {
+    const tid = decodeURIComponent(p.slice('/themes/preview/'.length));
+    const themes = MOCKS['GET /themes/'] || [];
+    const t = themes.find(x => x.theme_id === tid);
+    if (!t) return send(res, 404, { detail: 'тема не найдена' });
+    return send(res, 200, { text: `${t.top}\n<b>@star_seeker</b>\n${t.bot_line}` });
+  }
 
   const key = `${req.method} ${p}`;
   const hit = Object.prototype.hasOwnProperty.call(MOCKS, key) ? MOCKS[key] : null;

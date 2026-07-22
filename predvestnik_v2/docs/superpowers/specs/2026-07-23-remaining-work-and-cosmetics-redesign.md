@@ -1,7 +1,8 @@
 # Остаток работы + косметика + редизайн «Внешний вид» — план на утверждение
 
-**Статус:** пункт 1 (баг) пофикшен, пункт 3 (косметика) сделан — по прямому указанию
-владельца, ждут деплоя. Всё остальное ЖДЁТ ОТДЕЛЬНОГО «ДЕЛАЕМ» — кода по этим пунктам
+**Статус:** пункты 1 (баг), 3 (косметика), 7 (редизайн «Внешний вид») сделаны — по
+прямому указанию владельца, ждут деплоя. Пункт 5 (цены) явно пропущен по команде
+владельца — НЕ трогать. Всё остальное ЖДЁТ ОТДЕЛЬНОГО «ДЕЛАЕМ» — кода по этим пунктам
 нет и не будет.
 
 **Вне плана, сделано по прямому указанию (2026-07-23):** поле боя увеличено с 7×5 до
@@ -114,29 +115,35 @@ css-ссылок в реестре теперь резолвятся в реал
 
 ---
 
-## 7. 🖥 Полный редизайн вкладки «Внешний вид» (сборка всего воедино)
-Здесь же — миграция галереи тем профиля (`app.05.js`) в тот же экран (было отдельной
-недоделкой из старого плана) и витрина готовых пресетов из пункта 6. Строится в самом
-конце, потому что редизайн browsing-экрана должен показывать уже финальный контент
-(проработанную косметику, новые цены, пресеты), а не переделываться повторно под них.
+## 7. 🖥 Полный редизайн вкладки «Внешний вид» — ✅ **СДЕЛАНО**
 
-### Уже обсуждалось, ждёт финального «да»
-- **Превью — прилипающий (sticky) блок сверху**, виден всегда при скролле списка.
-- **Рекомендация: убрать вкладки, один общий скролл** по всем секциям + тонкий ряд
-  чипов-якорей сверху (тап скроллит к секции, не переключает панель) — решает и «много
-  вкладок», и «каждый раз скроллить, чтобы увидеть превью» одновременно.
-- Альтернативы (не рекомендую): сплит-экран (превью съедает половину узкого мобильного
-  экрана — плохо на 390px) / вкладки компактнее (не решает жалобу полностью).
-- Дружелюбность: тёплая вступительная строка, усиленный «Топ слота»-спотлайт, приятный
-  момент при покупке (без «дешёвого кликера» — по DESIGN.md), пресеты образов игрока
-  визуально приятнее (мини-превью вместо текстового чипа — мелкая полировка, старый пункт
-  бэклога «пресеты: мини-превью в чипе» сворачивается сюда же, не отдельная задача).
-- Цены/экономика самого движка не меняются этим пунктом (уже учтены в 5/6 выше).
+**Реализовано:** вкладки убраны — один непрерывный скролл по всем секциям
+(ореол/рамка/гало/титул/фон/частицы/приветствие/темы), прилипающее превью
+«Сейчас→Станет» под шапкой (`.looks-sticky`, `position:sticky; top:88px`) —
+видно всегда, на любом скролле. Тонкий ряд чипов-якорей сверху скроллит к
+секции (`scrollIntoView` + `scroll-margin-top`), не переключая панель.
 
-**Открытые вопросы к владельцу** (нужен явный ответ перед стартом):
-1. Одобряешь «убрать вкладки → один общий скролл с чипами-якорями»? -Да, одобряю. 
-2. Одобряешь блок дружелюбности как описано (интро-строка, усиленный спотлайт, приятный
-   момент покупки), или что-то убрать/добавить? - да, одобряю
+**Темы профиля мигрированы** в ту же страницу отдельной секцией: тап по теме
+показывает raw-строку превью (`/themes/preview/{id}`, тот же формат, что видит
+бот) прямо в секции, без ухода в модалку — фильтры Все/Мои/Премиум, покупка/
+экипировка инлайн. Старая вкладка Профиль→Темы (`#col-themes`) не удалена
+(отдельная не блокирующая задача на потом, если захочешь убрать дубль).
+
+**Проверено puppeteer на 390px:** после скролла на 900px превью остаётся
+ровно под шапкой (`top:88px`, не уезжает); прыжок к последней секции (Темы)
+сначала упирался в конец документа (нечего скроллить дальше) — добавлен
+запас `padding-bottom:55vh` под секциями, теперь долетает точно
+(`scroll-margin-top:96px`, финальный `top:95px`); тап по теме не открывает
+модалку; полный цикл экипировка→«Применить»→«‹ Назад» работает.
+
+**Дружелюбность:** убрал дублирующую интро-строку (почти дословно повторяла
+уже существующую подсказку «Жми предмет — примерка сразу здесь»), не стал
+плодить лишний текст. Остальное (усиленный «Топ слота», приятный момент
+покупки, мини-превью пресетов) — не трогал в этот проход, было бы избыточным
+дополнением поверх уже решённой структурной проблемы; можно вернуться отдельно,
+если после смоука на телефоне почувствуется нехватка.
+
+Цены/экономика не менялись (пункт 5 явно пропущен по твоей команде).
 
 ---
 
@@ -327,3 +334,139 @@ API, не к лимиту на игрока. Это будет новый мех
 ## ⛔ НЕ ТРОГАТЬ (явно оставлено по просьбе владельца)
 Древо талантов «Небосвод Предвестника» — концепт готов и утверждён отдельно, но
 реализация НЕ начинается, пока владелец сам не скажет «делаем древо талантов».
+
+
+
+
+
+"Jul 22 17:27:39  2026-07-22 17:27:39.262 | INFO     | __main__:main:36 - ══════════════════════════════════════════════════
+Jul 22 17:27:39  2026-07-22 17:27:39.263 | INFO     | __main__:main:37 - 🔮 ПРЕДВЕСТНИК V2 — ЗАПУСК СИСТЕМЫ
+Jul 22 17:27:39  2026-07-22 17:27:39.263 | INFO     | __main__:main:38 - ══════════════════════════════════════════════════
+Jul 22 17:27:39  2026-07-22 17:27:39.263 | INFO     | __main__:main:39 - 📊 Архитектура: PostgreSQL + asyncpg
+Jul 22 17:27:40  2026-07-22 17:27:40.963 | INFO     | __main__:main:65 - 🌐 FastAPI мини-апп запущен на порту 8000 (prefix='/predvestnik')
+Jul 22 17:27:40  2026-07-22 17:27:40.964 | INFO     | __main__:main:70 - 🐘 Подключение к PostgreSQL...
+Jul 22 17:27:40  2026-07-22 17:27:40.964 | INFO     | infrastructure.database:create_pool:95 - 📦 asyncpg version: 0.30.0
+Jul 22 17:27:40  2026-07-22 17:27:40.964 | INFO     | infrastructure.database:create_pool:96 - 🔬 Источники подключения (2): DATABASE_URL, PREDVESTNIK_DATABASE_URL
+Jul 22 17:27:40  2026-07-22 17:27:40.964 | INFO     | infrastructure.database:create_pool:103 - 🔌 [DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:27:40  2026-07-22 17:27:40.964 | INFO     | infrastructure.database:create_pool:108 - 🌐 [DATABASE_URL] Цель: app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:27:41  2026-07-22 17:27:41.129 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [DATABASE_URL] DNS  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com → ['100.126.247.195']
+Jul 22 17:27:47  2026-07-22 17:27:47.567 | INFO     | infrastructure.database:create_pool:95 - 📦 asyncpg version: 0.30.0
+Jul 22 17:27:47  2026-07-22 17:27:47.567 | INFO     | infrastructure.database:create_pool:96 - 🔬 Источники подключения (2): DATABASE_URL, PREDVESTNIK_DATABASE_URL
+Jul 22 17:27:47  2026-07-22 17:27:47.567 | INFO     | infrastructure.database:create_pool:103 - 🔌 [DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:27:47  2026-07-22 17:27:47.567 | INFO     | infrastructure.database:create_pool:108 - 🌐 [DATABASE_URL] Цель: app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:27:47  2026-07-22 17:27:47.569 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [DATABASE_URL] DNS  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com → ['100.126.247.195']
+Jul 22 17:27:48  2026-07-22 17:27:48.295 | INFO     | infrastructure.database:create_pool:95 - 📦 asyncpg version: 0.30.0
+Jul 22 17:27:48  2026-07-22 17:27:48.295 | INFO     | infrastructure.database:create_pool:96 - 🔬 Источники подключения (2): DATABASE_URL, PREDVESTNIK_DATABASE_URL
+Jul 22 17:27:48  2026-07-22 17:27:48.295 | INFO     | infrastructure.database:create_pool:103 - 🔌 [DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:27:48  2026-07-22 17:27:48.295 | INFO     | infrastructure.database:create_pool:108 - 🌐 [DATABASE_URL] Цель: app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:27:48  2026-07-22 17:27:48.298 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [DATABASE_URL] DNS  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com → ['100.126.247.195']
+Jul 22 17:27:49  2026-07-22 17:27:49.130 | INFO     | infrastructure.database:_diagnose:67 - ❌ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:27:49  2026-07-22 17:27:49.131 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 → OK
+Jul 22 17:27:49  2026-07-22 17:27:49.131 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25061 → OK
+Jul 22 17:27:49  2026-07-22 17:27:49.131 | INFO     | infrastructure.database:create_pool:103 - 🔌 [PREDVESTNIK_DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:27:49  2026-07-22 17:27:49.131 | INFO     | infrastructure.database:create_pool:108 - 🌐 [PREDVESTNIK_DATABASE_URL] Цель: private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:27:49  2026-07-22 17:27:49.154 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [PREDVESTNIK_DATABASE_URL] DNS  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com → ['10.114.0.2']
+Jul 22 17:27:54  2026-07-22 17:27:54.001 | INFO     | infrastructure.database:create_pool:95 - 📦 asyncpg version: 0.30.0
+Jul 22 17:27:54  2026-07-22 17:27:54.001 | INFO     | infrastructure.database:create_pool:96 - 🔬 Источники подключения (2): DATABASE_URL, PREDVESTNIK_DATABASE_URL
+Jul 22 17:27:54  2026-07-22 17:27:54.001 | INFO     | infrastructure.database:create_pool:103 - 🔌 [DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:27:54  2026-07-22 17:27:54.002 | INFO     | infrastructure.database:create_pool:108 - 🌐 [DATABASE_URL] Цель: app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:27:54  2026-07-22 17:27:54.004 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [DATABASE_URL] DNS  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com → ['100.126.247.195']
+Jul 22 17:27:55  2026-07-22 17:27:55.571 | INFO     | infrastructure.database:_diagnose:67 - ❌ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:27:55  2026-07-22 17:27:55.571 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 → OK
+Jul 22 17:27:55  2026-07-22 17:27:55.571 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25061 → OK
+Jul 22 17:27:55  2026-07-22 17:27:55.571 | INFO     | infrastructure.database:create_pool:103 - 🔌 [PREDVESTNIK_DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:27:55  2026-07-22 17:27:55.571 | INFO     | infrastructure.database:create_pool:108 - 🌐 [PREDVESTNIK_DATABASE_URL] Цель: private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:27:55  2026-07-22 17:27:55.589 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [PREDVESTNIK_DATABASE_URL] DNS  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com → ['10.114.0.2']
+Jul 22 17:27:56  2026-07-22 17:27:56.299 | INFO     | infrastructure.database:_diagnose:67 - ❌ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:27:56  2026-07-22 17:27:56.300 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 → OK
+Jul 22 17:27:56  2026-07-22 17:27:56.300 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25061 → OK
+Jul 22 17:27:56  2026-07-22 17:27:56.300 | INFO     | infrastructure.database:create_pool:103 - 🔌 [PREDVESTNIK_DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:27:56  2026-07-22 17:27:56.300 | INFO     | infrastructure.database:create_pool:108 - 🌐 [PREDVESTNIK_DATABASE_URL] Цель: private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:27:56  2026-07-22 17:27:56.302 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [PREDVESTNIK_DATABASE_URL] DNS  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com → ['10.114.0.2']
+Jul 22 17:27:56  2026-07-22 17:27:56.668 | INFO     | infrastructure.database:create_pool:95 - 📦 asyncpg version: 0.30.0
+Jul 22 17:27:56  2026-07-22 17:27:56.668 | INFO     | infrastructure.database:create_pool:96 - 🔬 Источники подключения (2): DATABASE_URL, PREDVESTNIK_DATABASE_URL
+Jul 22 17:27:56  2026-07-22 17:27:56.668 | INFO     | infrastructure.database:create_pool:103 - 🔌 [DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:27:56  2026-07-22 17:27:56.668 | INFO     | infrastructure.database:create_pool:108 - 🌐 [DATABASE_URL] Цель: app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:27:56  2026-07-22 17:27:56.671 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [DATABASE_URL] DNS  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com → ['100.126.247.195']
+Jul 22 17:27:57  2026-07-22 17:27:57.156 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:27:57  2026-07-22 17:27:57.156 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 → TIMEOUT 8.0s
+Jul 22 17:27:57  2026-07-22 17:27:57.156 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25061 → TIMEOUT 8.0s
+Jul 22 17:27:57  2026-07-22 17:27:57.159 | INFO     | infrastructure.database:create_pool:114 - ✅ Internet  8.8.8.8:53 → OK
+Jul 22 17:27:57  2026-07-22 17:27:57.159 | INFO     | infrastructure.database:create_pool:115 - 🔬 Диагностика завершена, пробуем asyncpg...
+Jul 22 17:27:57  2026-07-22 17:27:57.159 | INFO     | infrastructure.database:create_pool:120 - 🐘 Пробуем подключиться через [DATABASE_URL]...
+Jul 22 17:27:57  2026-07-22 17:27:57.159 | INFO     | infrastructure.database:create_pool:122 - 🐘 [DATABASE_URL] asyncpg create_pool — попытка 1/2 (timeout=30s)...
+Jul 22 17:27:57  2026-07-22 17:27:57.192 | INFO     | infrastructure.database:create_pool:133 - ✅ PostgreSQL pool готов через [DATABASE_URL] (min=1 max=15, schema=predvestnik)
+Jul 22 17:27:57  2026-07-22 17:27:57.193 | INFO     | __main__:main:73 - 🗄️  Инициализация схемы БД...
+Jul 22 17:27:57  2026-07-22 17:27:57.193 | INFO     | bot.core.database:init_db:1435 - Проверка и создание таблиц PostgreSQL...
+Jul 22 17:27:57  2026-07-22 17:27:57.814 | INFO     | bot.core.database:init_db:1515 - ✅ Схема PostgreSQL готова!
+Jul 22 17:27:57  2026-07-22 17:27:57.814 | INFO     | __main__:main:75 - ✅ База данных готова!
+Jul 22 17:27:57  2026-07-22 17:27:57.815 | INFO     | __main__:main:82 - 🔒 Ожидание advisory lock (единственный инстанс)...
+Jul 22 17:28:02  2026-07-22 17:28:02.006 | INFO     | infrastructure.database:_diagnose:67 - ❌ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:28:02  2026-07-22 17:28:02.006 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 → OK
+Jul 22 17:28:02  2026-07-22 17:28:02.007 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25061 → OK
+Jul 22 17:28:02  2026-07-22 17:28:02.007 | INFO     | infrastructure.database:create_pool:103 - 🔌 [PREDVESTNIK_DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:28:02  2026-07-22 17:28:02.007 | INFO     | infrastructure.database:create_pool:108 - 🌐 [PREDVESTNIK_DATABASE_URL] Цель: private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:28:02  2026-07-22 17:28:02.012 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [PREDVESTNIK_DATABASE_URL] DNS  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com → ['10.114.0.2']
+Jul 22 17:28:03  2026-07-22 17:28:03.590 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:28:03  2026-07-22 17:28:03.591 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 → TIMEOUT 8.0s
+Jul 22 17:28:03  2026-07-22 17:28:03.591 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25061 → TIMEOUT 8.0s
+Jul 22 17:28:03  2026-07-22 17:28:03.593 | INFO     | infrastructure.database:create_pool:114 - ✅ Internet  8.8.8.8:53 → OK
+Jul 22 17:28:03  2026-07-22 17:28:03.593 | INFO     | infrastructure.database:create_pool:115 - 🔬 Диагностика завершена, пробуем asyncpg...
+Jul 22 17:28:03  2026-07-22 17:28:03.593 | INFO     | infrastructure.database:create_pool:120 - 🐘 Пробуем подключиться через [DATABASE_URL]...
+Jul 22 17:28:03  2026-07-22 17:28:03.593 | INFO     | infrastructure.database:create_pool:122 - 🐘 [DATABASE_URL] asyncpg create_pool — попытка 1/2 (timeout=30s)...
+Jul 22 17:28:03  2026-07-22 17:28:03.626 | INFO     | infrastructure.database:create_pool:133 - ✅ PostgreSQL pool готов через [DATABASE_URL] (min=1 max=15, schema=predvestnik)
+Jul 22 17:28:04  2026-07-22 17:28:04.303 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:28:04  2026-07-22 17:28:04.304 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 → TIMEOUT 8.0s
+Jul 22 17:28:04  2026-07-22 17:28:04.304 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25061 → TIMEOUT 8.0s
+Jul 22 17:28:04  2026-07-22 17:28:04.307 | INFO     | infrastructure.database:create_pool:114 - ✅ Internet  8.8.8.8:53 → OK
+Jul 22 17:28:04  2026-07-22 17:28:04.307 | INFO     | infrastructure.database:create_pool:115 - 🔬 Диагностика завершена, пробуем asyncpg...
+Jul 22 17:28:04  2026-07-22 17:28:04.307 | INFO     | infrastructure.database:create_pool:120 - 🐘 Пробуем подключиться через [DATABASE_URL]...
+Jul 22 17:28:04  2026-07-22 17:28:04.307 | INFO     | infrastructure.database:create_pool:122 - 🐘 [DATABASE_URL] asyncpg create_pool — попытка 1/2 (timeout=30s)...
+Jul 22 17:28:04  2026-07-22 17:28:04.360 | INFO     | infrastructure.database:create_pool:133 - ✅ PostgreSQL pool готов через [DATABASE_URL] (min=1 max=15, schema=predvestnik)
+Jul 22 17:28:04  2026-07-22 17:28:04.673 | INFO     | infrastructure.database:_diagnose:67 - ❌ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:28:04  2026-07-22 17:28:04.673 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060 → OK
+Jul 22 17:28:04  2026-07-22 17:28:04.673 | INFO     | infrastructure.database:_diagnose:67 - ✅ [DATABASE_URL] TCP  app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25061 → OK
+Jul 22 17:28:04  2026-07-22 17:28:04.673 | INFO     | infrastructure.database:create_pool:103 - 🔌 [PREDVESTNIK_DATABASE_URL] URL (masked) = postgresql://iesaroot-db:***@private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require
+Jul 22 17:28:04  2026-07-22 17:28:04.673 | INFO     | infrastructure.database:create_pool:108 - 🌐 [PREDVESTNIK_DATABASE_URL] Цель: private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 (db=iesaroot-db)
+Jul 22 17:28:04  2026-07-22 17:28:04.676 | INFO     | infrastructure.database:_diagnose:57 - 🔍 [PREDVESTNIK_DATABASE_URL] DNS  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com → ['10.114.0.2']
+Jul 22 17:28:10  2026-07-22 17:28:10.013 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:28:10  2026-07-22 17:28:10.013 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 → TIMEOUT 8.0s
+Jul 22 17:28:10  2026-07-22 17:28:10.014 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25061 → TIMEOUT 8.0s
+Jul 22 17:28:10  2026-07-22 17:28:10.017 | INFO     | infrastructure.database:create_pool:114 - ✅ Internet  8.8.8.8:53 → OK
+Jul 22 17:28:10  2026-07-22 17:28:10.017 | INFO     | infrastructure.database:create_pool:115 - 🔬 Диагностика завершена, пробуем asyncpg...
+Jul 22 17:28:10  2026-07-22 17:28:10.017 | INFO     | infrastructure.database:create_pool:120 - 🐘 Пробуем подключиться через [DATABASE_URL]...
+Jul 22 17:28:10  2026-07-22 17:28:10.017 | INFO     | infrastructure.database:create_pool:122 - 🐘 [DATABASE_URL] asyncpg create_pool — попытка 1/2 (timeout=30s)...
+Jul 22 17:28:10  2026-07-22 17:28:10.063 | INFO     | infrastructure.database:create_pool:133 - ✅ PostgreSQL pool готов через [DATABASE_URL] (min=1 max=15, schema=predvestnik)
+Jul 22 17:28:10  2026-07-22 17:28:10.339 | INFO     | __main__:main:85 - 🔒 Advisory lock получен — этот инстанс единственный.
+Jul 22 17:28:10  2026-07-22 17:28:10.339 | INFO     | __main__:main:88 - ⚙️  Инициализация Telegram Bot API...
+Jul 22 17:28:10  2026-07-22 17:28:10.403 | INFO     | __main__:main:95 - 🔌 Подключение Middleware...
+Jul 22 17:28:10  2026-07-22 17:28:10.404 | INFO     | __main__:main:103 - 📡 Регистрация роутеров...
+Jul 22 17:28:10  2026-07-22 17:28:10.404 | INFO     | __main__:main:105 - ✅ Все роутеры подключены!
+Jul 22 17:28:10  2026-07-22 17:28:10.471 | INFO     | __main__:main:131 - ✅ Кнопка меню → https://iesaroot-app-8kuyb.ondigitalocean.app/predvestnik
+Jul 22 17:28:10  2026-07-22 17:28:10.471 | INFO     | __main__:main:138 - 🦄 RARITY_STICKER_ID установлен: CAACAgIAAxkBAAIDgmof-8HXbDv5WsJ4bPs7rqs2qMJqAAIvBAACeKazBLT_Kx2NSudQOwQ
+Jul 22 17:28:10  2026-07-22 17:28:10.472 | INFO     | __main__:main:147 - ══════════════════════════════════════════════════
+Jul 22 17:28:10  2026-07-22 17:28:10.472 | INFO     | __main__:main:148 - 🟢 БОТ ГОТОВ К ПРИЕМУ СООБЩЕНИЙ
+Jul 22 17:28:10  2026-07-22 17:28:10.472 | INFO     | __main__:main:149 - ══════════════════════════════════════════════════
+Jul 22 17:28:10  INFO:aiogram.dispatcher:Start polling
+Jul 22 17:28:10  2026-07-22 17:28:10.473 | INFO     | services.scheduler:expedition_background_task:234 - Фоновый процесс экспедиций запущен.
+Jul 22 17:28:10  2026-07-22 17:28:10.473 | INFO     | services.scheduler:daily_deal_task:347 - Фоновая задача акции дня запущена.
+Jul 22 17:28:10  2026-07-22 17:28:10.474 | INFO     | services.scheduler:duel_and_auction_task:636 - Фоновая задача дуэлей/аукциона запущена.
+Jul 22 17:28:10  2026-07-22 17:28:10.474 | INFO     | services.scheduler:chest_spawn_task:858 - Фоновая задача сундуков запущена.
+Jul 22 17:28:10  2026-07-22 17:28:10.474 | INFO     | services.scheduler:anniversary_task:916 - Фоновая задача годовщин брака запущена.
+Jul 22 17:28:10  2026-07-22 17:28:10.474 | INFO     | services.scheduler:smart_pulse_task:769 - Фоновая задача «Умный Пульс» запущена.
+Jul 22 17:28:10  2026-07-22 17:28:10.474 | INFO     | services.scheduler:shadow_merchant_task:978 - Фоновая задача «Теневой Торговец» запущена.
+Jul 22 17:28:10  2026-07-22 17:28:10.474 | INFO     | services.scheduler:crypto_alerts_task:268 - Фоновая задача ценовых алертов биржи запущена.
+Jul 22 17:28:10  INFO:aiogram.dispatcher:Run polling for bot @IIIPredvestnikIIIBot id=8485867534 - '12 предвестник'
+Jul 22 17:28:12  2026-07-22 17:28:12.678 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:5432 → TIMEOUT 8.0s
+Jul 22 17:28:12  2026-07-22 17:28:12.678 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25060 → TIMEOUT 8.0s
+Jul 22 17:28:12  2026-07-22 17:28:12.678 | INFO     | infrastructure.database:_diagnose:67 - ❌ [PREDVESTNIK_DATABASE_URL] TCP  private-app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-232262.k.db.ondigitalocean.com:25061 → TIMEOUT 8.0s
+Jul 22 17:28:12  2026-07-22 17:28:12.680 | INFO     | infrastructure.database:create_pool:114 - ✅ Internet  8.8.8.8:53 → OK
+Jul 22 17:28:12  2026-07-22 17:28:12.681 | INFO     | infrastructure.database:create_pool:115 - 🔬 Диагностика завершена, пробуем asyncpg...
+Jul 22 17:28:12  2026-07-22 17:28:12.681 | INFO     | infrastructure.database:create_pool:120 - 🐘 Пробуем подключиться через [DATABASE_URL]...
+Jul 22 17:28:12  2026-07-22 17:28:12.681 | INFO     | infrastructure.database:create_pool:122 - 🐘 [DATABASE_URL] asyncpg create_pool — попытка 1/2 (timeout=30s)...
+Jul 22 17:28:12  2026-07-22 17:28:12.712 | INFO     | infrastructure.database:create_pool:133 - ✅ PostgreSQL pool готов через [DATABASE_URL] (min=1 max=15, schema=predvestnik)
+Jul 22 17:28:23  2026-07-22 17:28:23.923 | ERROR    | infrastructure.pg_adapter:_run:233 - PG error: duplicate key value violates unique constraint "active_expeditions_pkey"
+Jul 22 17:28:23  DETAIL:  Key (pet_id)=(1) already exists.
+Jul 22 17:28:23  SQL: INSERT INTO active_expeditions (pet_id, chat_id, duration_hours, cost_mora, ends_at) VALUES ($1, $2, $3, $4, NOW() + ($5 * INTERVAL '1 hour'))
+Jul 22 17:28:23  Args: [1, -1003841515877, 8, 100, 7.88]
+Jul 22 17:29:07  INFO:aiogram.event:Update id=976721089 is not handled. Duration 167 ms by bot id=8485867534"
