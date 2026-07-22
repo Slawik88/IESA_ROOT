@@ -15,13 +15,15 @@ from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
 from services.leveling import account_progress
 from services.combat_power import calculate_cp
 from services.formatting import safe_html
-from services.vip import is_vip_active
+from services.vip import is_vip_active, get_vip_info
 from services.cosmetics import get_active_cosmetics
 from infrastructure.repositories.economy import get_item_quantity, remove_item
-from infrastructure.repositories.users import set_nickname
+from infrastructure.repositories.users import set_nickname, get_first_seen
+from infrastructure.repositories.achievements import get_achievement, get_all_achievements
 from infrastructure.repositories import system_flags as _system_flags
 from infrastructure.repositories import global_moderation as gmod_repo
 from services.global_moderation import SANCTION_LABELS
+from core.registry import ACHIEVEMENTS
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -283,6 +285,44 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
         chat_sanc = dict(await c.fetchone())
     mute_until = chat_sanc.get("mute_until")
 
+    # «Настоящий профиль»: партнёр по браку (публично, как и в /me), побед в дуэлях
+    # (raw-прогресс метрики duel_wins, не капается порогами ачивки), лучшая ачивка
+    # (по уровню, для престиж-бейджа), VIP-тир (не просто корона), этаж Врат (лучший
+    # пройденный), дата первого сообщения (стаж игрока) — см. brainstorm 2026-07-23.
+    async with db.execute(
+        "SELECT p2.user_tg_username "
+        "FROM marriages m "
+        "JOIN users p2 ON p2.user_tg_id = CASE "
+        "  WHEN m.user1_id = ? THEN m.user2_id ELSE m.user1_id END "
+        "WHERE m.user1_id = ? OR m.user2_id = ? "
+        "ORDER BY m.marriage_date DESC LIMIT 1",
+        (target_id, target_id, target_id),
+    ) as c:
+        partner_row = await c.fetchone()
+    partner = partner_row[0] if partner_row else None
+
+    duel_ach = await get_achievement(db, target_id, "duelist")
+    duel_wins = int(duel_ach["progress"]) if duel_ach else 0
+
+    all_ach = await get_all_achievements(db, target_id)
+    best_achievement = None
+    best_level = 0
+    for aid, a in all_ach.items():
+        if a["level"] > best_level and aid in ACHIEVEMENTS:
+            best_level = a["level"]
+            best_achievement = {"icon": ACHIEVEMENTS[aid]["icon"], "name": ACHIEVEMENTS[aid]["name"], "level": a["level"]}
+
+    vip_info = await get_vip_info(db, target_id)
+
+    async with db.execute(
+        "SELECT MAX(ref_id) FROM battles WHERE user_id = ? AND mode = 'gates' AND status = 'won'",
+        (target_id,),
+    ) as c:
+        gates_row = await c.fetchone()
+    gates_floor = int(gates_row[0]) if gates_row and gates_row[0] else 0
+
+    joined_date = await get_first_seen(db, target_id)
+
     return {
         "user_id":      target_id,
         "username":     row["user_tg_username"] or f"id{target_id}",
@@ -293,7 +333,14 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
         "messages":     int(agg["msgs"] or 0),
         "streak":       streak,
         "achievements": ach,
+        "achievements_total": len(ACHIEVEMENTS),
+        "best_achievement": best_achievement,
         "is_vip":       bool(row["is_vip"]),
+        "vip_tier_label": vip_info["tier_label"] if vip_info else None,
+        "gates_floor":  gates_floor,
+        "joined_date":  joined_date,
+        "partner":      partner,
+        "duel_wins":    duel_wins,
         "pets":         pets,
         "clan":         ({"name": clan["name"], "tag": clan["tag"],
                           "emblem": clan["emblem"], "role": clan["role"]} if clan else None),

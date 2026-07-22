@@ -830,6 +830,22 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .gp-pe { font-size: 16px; flex: none; }
 .gp-pn { flex: 1; font-weight: 600; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gp-pl { font-size: 10px; color: var(--gold2); white-space: nowrap; flex: none; }
+/* Публичный профиль 2026-07-23: чипы (образ/бейджи/стаж) — гибкий ряд, каждый чип
+   не переносится ВНУТРИ себя (white-space:nowrap), а сам ряд оборачивает чипы целиком
+   на новую строку при нехватке ширины — безопасно на узких экранах, ничего не рвётся
+   посреди слова. */
+.gp-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; min-width: 0; }
+.gp-chip { font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+  white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  background: rgba(255,255,255,.06); border: 1px solid var(--border2); color: var(--bright); }
+.gp-chip--vip, .gp-chip--best { color: var(--gold2); background: rgba(232,181,77,.14); border-color: rgba(232,181,77,.35); }
+/* Активный питомец — «второй герой» карточки, выделен отдельным блоком над списком */
+.gp-pet-hero { display: flex; align-items: center; gap: 10px; padding: 9px 11px; margin-top: 10px;
+  border-radius: 10px; background: rgba(232,181,77,.08); border: 1px solid rgba(232,181,77,.3); }
+.gp-pet-hero-e { font-size: 26px; flex: none; }
+.gp-pet-hero-i { min-width: 0; }
+.gp-pet-hero-n { font-weight: 800; color: var(--bright); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-pet-hero-l { font-size: 10.5px; color: var(--gold2); margin-top: 1px; }
 /* БЛОК19 Ч.7: Теневые Врата */
 .gates-cta { background: linear-gradient(120deg, #3a1430, #1a0a1f) !important; border: 1px solid rgba(200,50,80,.45) !important; color: #ffb3c8 !important; font-weight: 700; }
 .gt-runs, .gt-pets { display: flex; flex-direction: column; gap: 6px; }
