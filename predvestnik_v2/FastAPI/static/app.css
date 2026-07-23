@@ -1426,6 +1426,10 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 }
 /* Конструктор «Внешний вид» */
 .looks-preview { position: relative; overflow: hidden; text-align: center; padding: 16px 0; margin-bottom: 10px; border-radius: 14px; border: 1px solid var(--border2); }
+/* Публичная карточка профиля — цельная, без серой рамки конструктора. Фон даёт
+   косметика (pbg-*), а у игрока без фона — мягкая подложка вместо пустоты. */
+.looks-preview.gp-card { border: none; }
+.looks-preview.gp-card--plain { background: var(--surface2); }
 .looks-preview .ava { width: 64px; height: 64px; font-size: 32px; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--s); }
 .looks-preview .pname { font-size: 16px; font-weight: 700; }
 /* Превью «Сейчас → Станет» (сравнение до/после применения косметики) */
