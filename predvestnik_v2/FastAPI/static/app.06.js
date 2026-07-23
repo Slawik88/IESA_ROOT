@@ -352,7 +352,7 @@ function renderGlobalProfile(d, recipientId){
   if(d.partner) metaBits.push(`<span class="gp-chip">💍 @${esc(d.partner)}</span>`);
   const metaHtml = metaBits.length ? `<div class="gp-chips">${metaBits.join('')}</div>` : '';
   const isOwn = String(recipientId)===String(typeof _uid!=='undefined'?_uid:'');
-  b.innerHTML=`<div class="looks-preview ${cls('profile_bg')}" style="text-align:left;padding:14px">
+  b.innerHTML=`<div class="looks-preview gp-card ${cls('profile_bg')||'gp-card--plain'}" style="text-align:left;padding:14px">
       ${cls('card_fx')?`<div class="card-fx ${cls('card_fx')}"></div>`:''}
       <div style="position:relative;z-index:3">
         <div style="display:flex;align-items:center;gap:12px">
