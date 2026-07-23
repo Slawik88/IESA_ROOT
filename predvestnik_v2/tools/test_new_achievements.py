@@ -37,5 +37,15 @@ bat_src = (ROOT / "FastAPI" / "routers" / "battle.py").read_text(encoding="utf-8
 assert re.search(r'increment_metric\(\s*db\s*,\s*uid\s*,\s*"gates_battles_won"', bat_src), \
     "battle.py::_gates_reward не инкрементит gates_battles_won — ачивка мёртвая"
 
+# Бэкфилл: прошлые действия (уже купленная косметика / победы во Вратах) должны
+# засчитываться на странице ачивок — иначе старым игрокам ачивка «с нуля».
+ach_src = (ROOT / "FastAPI" / "routers" / "achievements.py").read_text(encoding="utf-8")
+assert 'FROM user_cosmetics WHERE user_id' in ach_src \
+    and 'backfill_metric(db, user_id, "cosmetics_bought"' in ach_src, \
+    "achievements.py не бэкфиллит cosmetics_bought из user_cosmetics"
+assert "mode = 'gates' AND status = 'won'" in ach_src \
+    and 'backfill_metric(db, user_id, "gates_battles_won"' in ach_src, \
+    "achievements.py не бэкфиллит gates_battles_won из battles"
+
 print("OK: 🎨 Модник (cosmetics_bought) и 🏰 Покоритель Врат (gates_battles_won) "
-      "объявлены и реально инкрементятся в коде (покупка косметики / победа во Вратах)")
+      "объявлены, инкрементятся в коде И бэкфиллятся из прошлого (косметика/победы Врат)")
