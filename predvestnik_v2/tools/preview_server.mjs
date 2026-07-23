@@ -211,6 +211,11 @@ const MOCKS = {
   ],
   // Глобальный топ — формат как реальный _fmt: user_id/username/count/is_vip.
   // Сессионный игрок (1460945748) на 5-м месте — проверка строки «до топ-3».
+  'GET /craft/': [
+    { recipe_id: 'spin_token_craft', name: '🎟 Жетон Призыва', can_craft: true, can_craft_times: 1,
+      what_is: 'Собери из осколков души — даёт бесплатную крутку Гачи.',
+      ingredients_status: [ { item_id: 'soul_shard', item_name: '💠 Осколок Души', have: 7, needed: 5 } ] },
+  ],
   'GET /top/global': [
     { user_id: 2, username: 'moon_witch', count: 48200, is_vip: true },
     { user_id: 7, username: 'abyss_lord', count: 39100, is_vip: true },

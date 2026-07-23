@@ -346,11 +346,28 @@ const ITEM_INFO = {
     why:'Копи, чтобы поднять юниту уровень (+12% статов) или открыть его напрямую, если он ещё не призван.',
     where_get:'Гарантированно с любого этажа Врат (больше на высоких), боссы Бездны клана, 🔷 Гравировка в карточке юнита.',
     where_use:'Казарма → карточка юнита → «⬆ Прокачать» / «🔓 Открыть».' },
+  soul_shard: { emoji:'💠', name:'Осколок Души', type:'Ресурс крафта',
+    what:'Застывшая искра чужой души — ресурс для крафта.',
+    why:'Накопи 5 штук и собери из них 🎟 Жетон Призыва — бесплатную крутку Гачи.',
+    where_get:'Выпадает из круток Гачи, встречается в наградах и на Аукционе.',
+    where_use:'Профиль → Инвентарь → Крафт → «🎟 Жетон Призыва».' },
   _fallback: { emoji:'🎁', name:'Награда', type:'',
     what:'Награда за победу в бою.', why:'Усиливает твой прогресс в игре.',
     where_get:'Бои Врат, Бездны клана и Войн кланов.',
     where_use:'Проверь баланс в шапке профиля или соответствующем разделе игры.' },
 };
+// ── Внутритекстовые ссылки (навигация Б): слово-предмет → попап описания,
+// слово-действие → переход во вкладку. Ссылку рисуем ТОЛЬКО если у предмета есть
+// описание (иначе обычный текст) — так не плодим пустые попапы-заглушки.
+function itemLink(key, label){
+  const txt = esc(label!=null?label:key);
+  if(typeof ITEM_INFO==='undefined' || !ITEM_INFO[key]) return txt;
+  return `<span class="tlink" onclick="event.stopPropagation();showItemDetail('${key}')">${txt}</span>`;
+}
+function tabLink(label, page, tab){
+  const t = tab ? (",'"+tab+"'") : '';
+  return `<span class="tlink tlink--go" onclick="event.stopPropagation();goTo('${page}'${t})">${esc(label)}</span>`;
+}
 function showItemDetail(key, override){
   const info=Object.assign({}, ITEM_INFO[key]||ITEM_INFO._fallback, override||{});
   OM(`${info.emoji} ${esc(info.name)}`, `
