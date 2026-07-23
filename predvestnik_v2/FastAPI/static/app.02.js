@@ -785,6 +785,21 @@ const ACH_HOW = {
     where: 'Пишите больше всех в чате в течение недели',
     note:  'Засчитывается каждая неделя когда вы на 1-м месте',
   },
+  star_gacha:  {
+    how:   'Выбивайте легендарных и мифических питомцев из гачи',
+    where: 'Арена → Гача — одиночные и мульти-крутки',
+    note:  'Считаются legendary и mythic из любой крутки',
+  },
+  fashionista: {
+    how:   'Покупайте предметы косметики',
+    where: 'Профиль → Внешний вид — ореолы, рамки, гало, фоны, частицы, титулы',
+    note:  'Косметика, что у вас уже есть, тоже засчитана',
+  },
+  gate_conqueror:{
+    how:   'Побеждайте во Вратах',
+    where: 'Арена → Врата — PvE-лестница по этажам',
+    note:  'Прошлые победы во Вратах тоже засчитаны',
+  },
 };
 
 function loadAch() {
@@ -848,7 +863,7 @@ function openAchModal(a) {
       <div style="font-size:12px;color:var(--muted)">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}</div>
     </div>
     <div class="divider"></div>
-    <div class="irow"><span class="ik">Что нужно</span><span style="color:var(--text);text-align:right;max-width:65%;font-size:11px">${hw.how||'—'}</span></div>
+    <div class="irow"><span class="ik">Что нужно</span><span style="color:var(--text);text-align:right;max-width:65%;font-size:11px">${hw.how||a.desc||'—'}</span></div>
     <div class="irow"><span class="ik">Где</span><span style="color:var(--teal);text-align:right;max-width:65%;font-size:11px">${hw.where||'—'}</span></div>
     ${hw.note?`<div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">💡 ${hw.note}</div>`:''}
     ${!a.completed&&rwParts?`<div class="irow" style="margin-top:8px"><span class="ik">Награда Lv${a.level+1}</span><span style="color:var(--gold)">${rwParts}</span></div>`:''}
