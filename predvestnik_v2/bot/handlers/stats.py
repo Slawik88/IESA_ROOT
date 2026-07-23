@@ -16,6 +16,17 @@ from bot.keyboards.cta import answer_group_only
 
 _TOP_PAGE_SIZE = 30
 
+# Реальные TG-юзернеймы (до 32 симв.) + админ-тайтл/серый тег (до 16 симв.,
+# suffixes_for) давали строки топа от ~5 до ~50+ видимых символов подряд без
+# всякого предела — на узком экране одни переносились на второй ряд, другие
+# нет, без системы («хаос»). Обрезка юзернейма держит длину ряда предсказуемой.
+_TOP_NAME_MAX = 14
+
+
+def _trunc_name(s: str) -> str:
+    return s if len(s) <= _TOP_NAME_MAX else s[:_TOP_NAME_MAX - 1] + "…"
+
+
 router = Router(name="stats_router")
 
 # Фабрика кнопок для переключения периодов в ТОПе
@@ -135,7 +146,11 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
     for local_idx, user in enumerate(page_users, 1):
         global_idx = slice_start + local_idx
         medal = "🥇" if global_idx == 1 else "🥈" if global_idx == 2 else "🥉" if global_idx == 3 else "🏅" if global_idx <= 10 else f"{global_idx}."
-        name = format_display_name(safe_html(user["user_tg_username"] or f"Пользователь {user['user_tg_id']}"), user["is_vip"])
+        uname = user["user_tg_username"]
+        name = format_display_name(
+            safe_html(_trunc_name(uname) if uname else f"Пользователь {user['user_tg_id']}"),
+            user["is_vip"],
+        )
         name += _suffixes.get(user["user_tg_id"], "")
         link = f'<a href="tg://user?id={user["user_tg_id"]}">{name}</a>'
         # Число — сразу после медали, до имени: если длинное имя уедет переносом
@@ -278,7 +293,8 @@ async def _build_cat_top(db, chat_id: int, cat: str, mode: str) -> str:
     for idx, row in enumerate(rows[:10], 1):
         medal = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else "🏅" if idx <= 10 else f"{idx}."
         uid = row.get("user_tg_id", 0)
-        name = safe_html(row.get("user_tg_username") or f"ID{uid}") + _suffixes.get(uid, "")
+        uname = row.get("user_tg_username")
+        name = safe_html(_trunc_name(uname) if uname else f"ID{uid}") + _suffixes.get(uid, "")
         link = f'<a href="tg://user?id={uid}">{name}</a>'
         val = row.get("value", row.get("msg_count", 0))
         if cat in ("mora", "diamonds"):
