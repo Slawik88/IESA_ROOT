@@ -356,7 +356,7 @@ function renderGlobalProfile(d, recipientId){
       ${cls('card_fx')?`<div class="card-fx ${cls('card_fx')}"></div>`:''}
       <div style="position:relative;z-index:3">
         <div style="display:flex;align-items:center;gap:12px">
-          <div class="ava ${cls('avatar_frame')} ${cls('avatar_halo')}" style="width:58px;height:58px;font-size:30px;flex:none">${d.is_vip?'👑':'🔮'}</div>
+          <div class="ava ${cls('avatar_frame')} ${cls('avatar_halo')}" style="width:58px;height:58px;font-size:30px;flex:none;overflow:hidden">${d.avatar?`<img src="${d.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(d.is_vip?'👑':'🔮')}</div>
           <div style="min-width:0">
             <div class="pname ${cls('name_glow')}" style="font-size:18px">@${esc(d.username)}</div>
             <div class="prank">${d.rank}</div>

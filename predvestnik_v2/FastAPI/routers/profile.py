@@ -64,20 +64,28 @@ async def _fetch_tg_avatar(user_id: int) -> str | None:
         return None
 
 
-@router.get("/avatar")
-async def my_avatar(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Аватарка из Telegram (data URI) — перк активного VIP. Иначе avatar=null.
-    Кэш на процесс (6ч). Картинка проксируется, токен бота на фронт не уходит."""
-    user_id = user["id"]
+async def _vip_avatar(db, user_id: int) -> str | None:
+    """Data-URI аватарки Telegram, если у игрока АКТИВНЫЙ VIP (перк); иначе None.
+    Кэш на процесс (6ч), картинка уже проксирована в data-URI (токен бота наружу
+    не уходит). Используется и для своего профиля (/avatar), и для публичной
+    карточки чужого VIP-игрока (/u/{id}) — VIP оплатил, аватарку показываем везде."""
     if not await is_vip_active(db, user_id):
-        return {"avatar": None, "vip": False}
+        return None
     now = time.time()
     cached = _AVATAR_CACHE.get(user_id)
     if cached and now - cached[1] < _AVATAR_TTL:
-        return {"avatar": cached[0], "vip": True}
+        return cached[0]
     avatar = await _fetch_tg_avatar(user_id)
     _AVATAR_CACHE[user_id] = (avatar, now)
-    return {"avatar": avatar, "vip": True}
+    return avatar
+
+
+@router.get("/avatar")
+async def my_avatar(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Аватарка из Telegram (data URI) — перк активного VIP. Иначе avatar=null."""
+    vip = await is_vip_active(db, user["id"])
+    avatar = await _vip_avatar(db, user["id"]) if vip else None
+    return {"avatar": avatar, "vip": vip}
 
 # Единый источник правды для названий глобальных рангов — services/roles.py
 # (та же таблица, что использует бот через get_global_rank_name).
@@ -368,6 +376,9 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
         "achievements_total": len(ACHIEVEMENTS),
         "best_achievement": best_achievement,
         "is_vip":       bool(row["is_vip"]),
+        # VIP оплатил живую аватарку — показываем её и в его публичной карточке
+        # (раньше у чужого VIP там висела только корона-заглушка).
+        "avatar":       await _vip_avatar(db, target_id),
         "vip_tier_label": vip_info["tier_label"] if vip_info else None,
         "gates_floor":  gates_floor,
         "joined_date":  joined_date,
