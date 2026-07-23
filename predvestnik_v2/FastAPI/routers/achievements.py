@@ -51,6 +51,21 @@ async def _backfill_snapshot_metrics(db, user_id: int) -> None:
         row = await c.fetchone()
     await backfill_metric(db, user_id, "auction_sales", float(row[0] or 0))
 
+    # Модник (косметика) и Покоритель Врат (PvE) — игроки покупали косметику /
+    # побеждали во Вратах ДО введения ачивок; их прошлое считаемо из БД, засчитываем.
+    async with db.execute(
+        "SELECT COUNT(*) FROM user_cosmetics WHERE user_id = ?", (user_id,)
+    ) as c:
+        row = await c.fetchone()
+    await backfill_metric(db, user_id, "cosmetics_bought", float(row[0] or 0))
+
+    async with db.execute(
+        "SELECT COUNT(*) FROM battles WHERE user_id = ? AND mode = 'gates' AND status = 'won'",
+        (user_id,),
+    ) as c:
+        row = await c.fetchone()
+    await backfill_metric(db, user_id, "gates_battles_won", float(row[0] or 0))
+
     await db.commit()
 
 
