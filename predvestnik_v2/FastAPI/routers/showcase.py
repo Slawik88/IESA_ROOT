@@ -15,6 +15,21 @@ from services.cosmetics import buy as cosmetics_buy
 
 router = APIRouter(prefix="/showcase", tags=["showcase"])
 
+# Block 14 (стимул покупок): «весь набор» дешевле поштучной суммы на столько ✨,
+# но скидка комплекта не превышает 50% (на дешёвых наборах −300 не уводит в абсурд).
+SHOWCASE_BUNDLE_DISCOUNT = 300
+
+
+def _bundle_price(disc_sum: int) -> int:
+    return max(round(disc_sum * 0.5), disc_sum - SHOWCASE_BUNDLE_DISCOUNT, 1)
+
+
+async def _owned_ids(db, user_id: int) -> set[str]:
+    async with db.execute(
+        "SELECT cosmetic_id FROM user_cosmetics WHERE user_id = ?", (user_id,)
+    ) as c:
+        return {r[0] for r in await c.fetchall()}
+
 
 def _zarniki_price(cos: dict) -> int:
     """Базовая ✨-цена предмета (все shop-предметы имеют зарниковый вариант)."""
@@ -67,7 +82,29 @@ async def get_showcase(db=Depends(get_db), user=Depends(require_tg_user)):
                 "price": _discounted(base, s["discount_pct"]),
             })
         out.append(item)
-    return {"week": wk, "slots": out, "rotates_in_sec": _seconds_to_next_week()}
+
+    # Комплект «весь набор» (block 14): агрегат по ещё не купленным и не имеющимся
+    # предметам витрины — сумма недельных скидок минус бонус комплекта. Считаем по
+    # ВСЕМ слотам (не только раскрытым) — цену показываем общей суммой, отдельные
+    # предметы не раскрываем. Нужно ≥2 предмета, иначе «комплекта» нет.
+    owned = await _owned_ids(db, user["id"])
+    b_base = b_disc = b_count = 0
+    for i, s in enumerate(slots):
+        cos = COSMETICS.get(s["cosmetic_id"])
+        if not cos or state.get(i, {}).get("purchased") or s["cosmetic_id"] in owned:
+            continue
+        base = _zarniki_price(cos)
+        b_base += base
+        b_disc += _discounted(base, s["discount_pct"])
+        b_count += 1
+    bundle = None
+    if b_count >= 2:
+        bp = _bundle_price(b_disc)
+        bundle = {"count": b_count, "price": bp, "sum": b_disc,
+                  "base_sum": b_base, "savings": b_base - bp}
+
+    return {"week": wk, "slots": out, "rotates_in_sec": _seconds_to_next_week(),
+            "bundle": bundle}
 
 
 class SlotRequest(BaseModel):
@@ -122,3 +159,59 @@ async def buy_slot(body: SlotRequest, db=Depends(get_db), user=Depends(require_t
         raise HTTPException(400, msg)
     await sc_repo.mark_purchased(db, user["id"], wk, body.slot_idx)
     return {"ok": True, "message": msg, "price": price}
+
+
+@router.post("/buy-bundle")
+async def buy_bundle(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Купить «весь набор» витрины одним действием со скидкой комплекта (block 14).
+    Берёт все ещё не купленные и не имеющиеся предметы, раскрывает их и выдаёт за
+    (сумма недельных скидок − бонус комплекта). Атомарно, цена считается на сервере."""
+    uid = user["id"]
+    wk = sc_repo.week_key()
+    slots = await sc_repo.get_week_slots(db, wk)
+    state = await sc_repo.get_user_state(db, uid, wk)
+    owned = await _owned_ids(db, uid)
+
+    eligible: list[tuple[int, str]] = []
+    disc_sum = 0
+    for i, s in enumerate(slots):
+        cos = COSMETICS.get(s["cosmetic_id"])
+        if not cos or state.get(i, {}).get("purchased") or s["cosmetic_id"] in owned:
+            continue
+        eligible.append((i, s["cosmetic_id"]))
+        disc_sum += _discounted(_zarniki_price(cos), s["discount_pct"])
+    if len(eligible) < 2:
+        raise HTTPException(400, "Комплект доступен, когда в витрине ≥2 ещё не купленных предмета.")
+
+    price = _bundle_price(disc_sum)
+    async with db.connection.transaction():
+        async with db.execute(
+            "SELECT COALESCE(user_balance_zarniki, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
+            (uid,),
+        ) as c:
+            bal = float((await c.fetchone())[0])
+        if bal < price:
+            raise HTTPException(400, f"Нужно {price}✨ за весь набор (у тебя {int(bal)}).")
+        await db.execute(
+            "UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?",
+            (price, uid))
+        for idx, cid in eligible:
+            await db.execute(
+                "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
+                "ON CONFLICT DO NOTHING", (uid, cid))
+            await db.execute(
+                "INSERT INTO showcase_state (user_id, week_key, slot_idx, revealed, purchased) "
+                "VALUES (?, ?, ?, TRUE, TRUE) ON CONFLICT (user_id, week_key, slot_idx) "
+                "DO UPDATE SET revealed = TRUE, purchased = TRUE",
+                (uid, wk, idx))
+
+    # Ачивка «Модник» — весь набор разом (вне транзакции покупки, самокоммит).
+    try:
+        from services.achievements import increment_metric
+        await increment_metric(db, uid, "cosmetics_bought", delta=float(len(eligible)))
+        await db.commit()
+    except Exception:
+        pass
+
+    return {"ok": True, "count": len(eligible), "price": price,
+            "message": f"🎁 Куплен весь набор ({len(eligible)} шт.) за {price}✨!"}

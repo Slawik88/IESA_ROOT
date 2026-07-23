@@ -557,7 +557,17 @@ const MOCKS = {
       { slot: 2, item_name: '🎟 Жетон крутки', item_description: 'Бесплатная крутка Гачи.', quantity: 1, price_mora: 400, price_diamonds: 0, purchased: true },
     ],
   },
-  'GET /showcase/': { slots: [], rotates_in_sec: 0 },
+  'GET /showcase/': {
+    week: 'W2026-30', rotates_in_sec: 3 * 86400 + 5 * 3600,
+    slots: [
+      { slot_idx: 0, slot: 'name_glow', rarity: 'epic', revealed: true, purchased: false,
+        cosmetic_id: 'glow_violet', name: 'Фиолетовая аура', discount_pct: 20, price_base: 440, price: 352 },
+      { slot_idx: 1, slot: 'avatar_frame', rarity: 'rare', revealed: false, purchased: false },
+      { slot_idx: 2, slot: 'profile_bg', rarity: 'legendary', revealed: false, purchased: false },
+    ],
+    bundle: { count: 3, price: 900, sum: 1200, base_sum: 1500, savings: 600 },
+  },
+  'POST /showcase/buy-bundle': { ok: true, count: 3, price: 900, message: '🎁 Куплен весь набор (3 шт.) за 900✨!' },
 
   // ── Косметика (экран «Внешний вид») ──
   'GET /cosmetics/': {

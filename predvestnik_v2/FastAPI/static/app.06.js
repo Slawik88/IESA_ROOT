@@ -852,8 +852,20 @@ function loadShowcase(){
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${slots.map(s=>_showcaseCard(s)).join('')}
       </div>
+      ${d.bundle?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border2)">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">🎁 Забрать всё сразу — дешевле, чем по одной карте:</div>
+        <button class="btn btn-gold btn-full" onclick="_showcaseBuyBundle(this)">
+          Весь набор (${d.bundle.count}) — ${d.bundle.price}✨ · <s style="opacity:.7;font-weight:400">${d.bundle.base_sum}✨</s> <span style="color:#1a1407">экономия ${d.bundle.savings}✨</span>
+        </button>
+      </div>`:''}
     </div>`;
   }).catch(()=>{box.innerHTML='';});
+}
+function _showcaseBuyBundle(btn){
+  if(btn){btn.disabled=true;btn.textContent='...';}
+  api('/showcase/buy-bundle',{method:'POST'})
+    .then(r=>{toast(r.message||'🎁 Набор куплен!');if(typeof refreshCurrBar==='function')refreshCurrBar();loadShowcase();})
+    .catch(e=>{toast(e,false);loadShowcase();});
 }
 function _showcaseCard(s){
   const slotIcons={name_glow:'✨',avatar_frame:'🖼',title:'🏷',avatar_halo:'🌟',profile_bg:'🖌',card_fx:'❄️'};
