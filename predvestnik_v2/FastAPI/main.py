@@ -81,6 +81,18 @@ async def lifespan(app: FastAPI):
                 await _fn(PGAdapter(conn))
             except Exception as _e:
                 _log.error(f"[lifespan] {_label}.ensure_table failed: {_e}")
+            finally:
+                # Любой ensure мог оставить общее соединение в aborted-transaction
+                # (multi-statement execute, гонка ON CONFLICT и т.п.). Тогда КАЖДЫЙ
+                # следующий ensure молча падает на «current transaction is aborted»
+                # — так на проде не создавались новые колонки users
+                # (combat_tutorial_done, whatsnew_seen_id → /profile/me = 500).
+                # Сбрасываем состояние перед следующим ensure.
+                try:
+                    if conn.is_in_transaction():
+                        await conn.execute("ROLLBACK")
+                except Exception:
+                    pass
     yield
 
 

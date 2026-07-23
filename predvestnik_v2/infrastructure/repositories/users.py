@@ -131,9 +131,33 @@ async def delete_nickname(db: aiosqlite.Connection, user_id: int, chat_id: int) 
 
 # ── R0/R1: уровень аккаунта и Индекс Силы (GDD_REBUILD_PLAN.md) ────────────────
 
+async def _reset_aborted_tx(db) -> None:
+    """Сбросить aborted-transaction на сыром asyncpg-соединении.
+
+    В общем lifespan-цикле FastAPI все ensure_* бегут на ОДНОМ соединении. Если
+    предыдущий ensure оставил его в aborted-transaction (multi-statement execute,
+    гонка ON CONFLICT и т.п.), каждый следующий стейтмент падает «current
+    transaction is aborted». adapter.rollback() в autocommit — no-op и это НЕ
+    чистит, поэтому чистим сырым ROLLBACK прямо на asyncpg-соединении."""
+    raw = getattr(db, "connection", None)
+    if raw is None:
+        return
+    try:
+        if raw.is_in_transaction():
+            await raw.execute("ROLLBACK")
+    except Exception:
+        pass
+
+
 async def ensure_account_columns(db) -> None:
     """Идемпотентные колонки прогрессии аккаунта. Зовётся и из бот-init,
-    и из FastAPI lifespan (веб-процесс может стартовать раньше бота)."""
+    и из FastAPI lifespan (веб-процесс может стартовать раньше бота).
+
+    Прод-инцидент 2026-07-23: combat_tutorial_done/whatsnew_seen_id молча не
+    создавались, т.к. соединение приходило из lifespan-цикла уже в aborted-
+    transaction (см. _reset_aborted_tx) — /profile/me отдавал 500. Поэтому
+    чистим состояние ДО цикла и после каждого сбоя ALTER."""
+    await _reset_aborted_tx(db)  # соединение могло прийти aborted из общего цикла
     for stmt in (
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_xp BIGINT DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_level INTEGER DEFAULT 1",
@@ -165,6 +189,10 @@ async def ensure_account_columns(db) -> None:
                 await db.rollback()
             except Exception:
                 pass  # колонка уже есть / гонка двух процессов — не фатально
+            # ...но adapter.rollback() в autocommit — no-op: если соединение в
+            # aborted-transaction, следующий ALTER снова упадёт. Чистим сырым
+            # ROLLBACK, иначе новые колонки не создаются (см. docstring).
+            await _reset_aborted_tx(db)
 
 
 async def get_combat_tutorial_done(db, user_id: int) -> bool:
