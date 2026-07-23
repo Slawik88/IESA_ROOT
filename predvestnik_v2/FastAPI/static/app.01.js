@@ -39,6 +39,7 @@ const RARITY_META = {
   epic:      {label:'Эпический',  color:'#b07ad6'},
   legendary: {label:'Легендарный',color:'#e8c45a'},
   mythic:    {label:'Мифический', color:'#e0556b'},
+  artifact:  {label:'Артефакт',   color:'#3fe0e0'},
 };
 function rarLabel(r){ return (RARITY_META[r]||{}).label || r; }
 function rarColor(r){ return (RARITY_META[r]||{}).color || '#9aa7b8'; }

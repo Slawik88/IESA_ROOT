@@ -990,6 +990,46 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   88%           { color: #f0d9ff; text-shadow: 0 0 4px rgba(220,160,255,.95), 0 0 10px rgba(180,100,255,.5); }
   94%           { color: #b8a8d8; text-shadow: 0 0 2px rgba(140,110,190,.5); }
 }
+/* ══ Артефакт (block 10) — премиум-ореолы с ОБВОДКОЙ КОНТУРОВ (text-stroke):
+   у каждого своя энергетическая фишка. Заливка светлая (ник читается всегда),
+   контур+сияние — цвет эффекта; блюр ≤10px. Под reduced-motion анимации гаснут
+   правилом [class*="glow-"] выше, статичная обводка остаётся. */
+.glow-neon-tube {
+  color: #eafeff; -webkit-text-stroke: 0.6px rgba(70,225,255,.9);
+  text-shadow: 0 0 3px rgba(70,225,255,.85), 0 0 7px rgba(40,180,255,.4);
+  animation: glowNeonTube 2.4s ease-in-out infinite;
+}
+@keyframes glowNeonTube {
+  0%,100% { text-shadow: 0 0 3px rgba(70,225,255,.7), 0 0 6px rgba(40,180,255,.32); }
+  50%     { text-shadow: 0 0 4px rgba(110,240,255,.95), 0 0 10px rgba(60,200,255,.5); }
+}
+.glow-electro {
+  color: #eef4ff; -webkit-text-stroke: 0.5px rgba(130,185,255,.9);
+  text-shadow: 0 0 2px rgba(150,200,255,.85), 0 0 6px rgba(90,140,255,.4);
+  animation: glowElectro 1.5s steps(6,end) infinite;
+}
+@keyframes glowElectro {
+  0%  { text-shadow: 0 0 2px rgba(150,200,255,.7), 0 0 5px rgba(90,140,255,.3); }
+  17% { text-shadow: -1px 0 3px rgba(210,230,255,1), 1px 0 6px rgba(120,170,255,.55); }
+  34% { text-shadow: 0 0 1px rgba(120,160,255,.45); }
+  55% { text-shadow: 1px 0 3px rgba(220,235,255,1), -1px 0 7px rgba(140,180,255,.6); }
+  78% { text-shadow: 0 0 2px rgba(160,200,255,.7); }
+}
+.glow-plasma {
+  color: #ffeaff; -webkit-text-stroke: 0.6px rgba(255,120,220,.75);
+  text-shadow: 0 0 3px rgba(255,120,220,.7), 0 0 8px rgba(180,90,255,.4);
+  animation: glowPlasma 4s linear infinite;
+}
+@keyframes glowPlasma { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }
+.glow-hologram {
+  color: #eafffb; -webkit-text-stroke: 0.5px rgba(120,255,235,.7);
+  text-shadow: -1px 0 2px rgba(255,80,200,.55), 1px 0 2px rgba(80,200,255,.6), 0 0 6px rgba(150,255,240,.35);
+  animation: glowHolo 3.6s ease-in-out infinite;
+}
+@keyframes glowHolo {
+  0%,100% { text-shadow: -1px 0 2px rgba(255,80,200,.5), 1px 0 2px rgba(80,200,255,.5), 0 0 5px rgba(150,255,240,.3); }
+  50%     { text-shadow: -1.6px 0 3px rgba(255,100,210,.65), 1.6px 0 3px rgba(100,210,255,.65), 0 0 8px rgba(170,255,245,.42); }
+}
 /* Косметика: рамки аватара — разный характер (металл / неон-дыхание / энергия / золото) */
 /* common — статичная гравированная металлическая оправа (3D-кант, без анимации) */
 .frame-bronze { box-shadow: inset 0 0 0 1px rgba(255,222,170,.3), 0 0 0 2px #8a5a2b, 0 0 0 4px #5e3c1c, 0 0 6px rgba(138,90,43,.5); }
@@ -1529,6 +1569,10 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .r-rare .lc-rar { color: #5b9bd5; } .r-epic .lc-rar { color: #b07ad6; }
 .r-legendary .lc-rar { color: var(--gold2); } .r-mythic .lc-rar { color: #e0556b; }
 .r-mythic .lc-name { color: #e0556b; }
+/* Артефакт (block 10) — электрический циан, ярче mythic */
+.r-artifact .lc-rar { color: #3fe0e0; } .r-artifact .lc-name { color: #3fe0e0; }
+.looks-card.r-artifact { border-color: rgba(63,224,224,.5); box-shadow: 0 0 10px rgba(63,224,224,.15); }
+.scr-card.r-artifact { border-color: rgba(63,224,224,.6); box-shadow: 0 0 12px rgba(63,224,224,.28); }
 .lc-on { color: #6ed08a; font-size: 9px; font-weight: 600; }
 .lc-tag { font-size: 9px; color: var(--muted); }
 .lc-vip { font-size: 8px; background: var(--gold); color: #1a1407; border-radius: 4px; padding: 0 4px; font-weight: 700; vertical-align: middle; }
