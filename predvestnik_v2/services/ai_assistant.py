@@ -308,20 +308,29 @@ async def _tool_get_balance(db, user_id: int, chat_id: int) -> dict:
 
 async def _tool_get_pets_status(db, user_id: int, chat_id: int) -> dict:
     from infrastructure.repositories import zoo as zoo_db
-    pets = await zoo_db.get_user_pets(db, user_id, placement="nursery")
+    # ВСЕ питомцы игрока (не только активная команда) — иначе ИИ видел лишь 2 из 12
+    # и выдавал неполную инфо. Роль и признак «может в поход» — у каждого.
+    pets = await zoo_db.get_user_pets(db, user_id)
     if not pets:
         return {"has_pets": False}
+
+    _ROLE_RU = {"active": "активный боец", "passive": "в команде (пассивный)",
+                "storage": "в питомнике (склад)", "stash": "в питомнике (склад)"}
 
     def _pet_info(p: dict) -> dict:
         level = p.get("pet_level", 1) or 1
         rarity = p.get("rarity", "common") or "common"
         dups = p.get("duplicates_collected", 0) or 0
+        placement = p.get("placement")
+        fatigue = p.get("fatigue", 0) or 0
         info = {
             "name": p.get("name", "?"),
             "level": level,
             "rarity": rarity,
-            "fatigue": p.get("fatigue", 0) or 0,
-            "role": "активный" if p.get("placement") == "active" else "пассивный",
+            "fatigue": fatigue,
+            "role": _ROLE_RU.get(placement, "в питомнике (склад)"),
+            # В поход идут только активный/пассивный и не измотанные (усталость < 100).
+            "can_expedition": placement in ("active", "passive") and fatigue < 100,
         }
         if level < 10:
             need_total = get_total_duplicates_for_level(rarity, 10)
@@ -335,7 +344,15 @@ async def _tool_get_pets_status(db, user_id: int, chat_id: int) -> dict:
             }
         return info
 
-    return {"has_pets": True, "pets": [_pet_info(p) for p in pets]}
+    infos = [_pet_info(p) for p in pets]
+    return {
+        "has_pets": True,
+        "total": len(infos),
+        # готовые к походу (активный/пассивный, усталость < 100) — подсказка ИИ,
+        # кого реально можно отправить; в питомнике/складе питомцы в поход не ходят
+        "expedition_ready": [i["name"] for i in infos if i["can_expedition"]],
+        "pets": infos,
+    }
 
 
 async def _tool_get_profile(db, user_id: int, chat_id: int) -> dict:
