@@ -772,8 +772,13 @@ GATES2_FLOORS: int = 6
 # Кривая: 3×rare L1≈700 → эт.1–2; 3×rare L10≈1452 → эт.1–4; эндгейм-микс L10≈2345 → эт.6.
 GATES2_CP_GATE: dict = {1: 350, 2: 650, 3: 1000, 4: 1400, 5: 1850, 6: 2300}
 GATES2_ENTRIES_PER_DAY: int = 3
-GATES2_DARK_MORA_BASE: int = 3                # награда = BASE + PER_FLOOR × этаж
+GATES2_DARK_MORA_BASE: int = 3                # награда = (BASE + PER_FLOOR × этаж) × MULT
 GATES2_DARK_MORA_PER_FLOOR: int = 2
+# Блок 15 этап 2 (2026-07-23): 🌑 из Врат была главным источником фарма
+# (27🌑/день на эт.3 … 84🌑/день на эт.6 с множителями) — сильно выше цели «редкий
+# ресурс, не 10-20/день». Режем добычу на 60% (×0.4) равномерно по этажам; применяется
+# И в награде (_gates_reward), И в витрине этажей (gates_overview) — показ = выдача.
+GATES2_DARK_MORA_MULT: float = 0.4
 GATES2_SHARD_CHANCE: float = 0.20             # шанс 🔷 Осколков Бездны лично
 GATES2_SHARD_RANGE: tuple = (1, 3)            # диапазон 🔷 при проке шанса выше
 

@@ -14,7 +14,8 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.constants import (
     GATES2_FLOORS, GATES2_CP_GATE, GATES2_ENTRIES_PER_DAY,
-    GATES2_DARK_MORA_BASE, GATES2_DARK_MORA_PER_FLOOR, GATES2_SHARD_CHANCE,
+    GATES2_DARK_MORA_BASE, GATES2_DARK_MORA_PER_FLOOR, GATES2_DARK_MORA_MULT,
+    GATES2_SHARD_CHANCE,
     GATES2_SHARD_RANGE,
     UNIT_SHARD_DROP_ABYSS_BOSS,
     WAR_NODE_SHIELD_HOURS,
@@ -87,7 +88,7 @@ async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
         "entries_left": max(0, GATES2_ENTRIES_PER_DAY - used),
         "floors": [{"floor": f, "cp_gate": GATES2_CP_GATE[f], "open": cp >= GATES2_CP_GATE[f],
                     "enemies": 2 if f <= 2 else 3,
-                    "reward_dark": GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * f,
+                    "reward_dark": round((GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * f) * GATES2_DARK_MORA_MULT),
                     "unit_shards": True}
                    for f in range(1, GATES2_FLOORS + 1)],
         # Честные шансы дропа (легенда UI раньше говорила «шанс 🔷» без цифр)
@@ -159,7 +160,8 @@ async def _gates_reward(db, uid: int, floor: int, state: dict | None = None) -> 
             mult *= B4_REWARD_NO_LOSS_MULT
         if state.get("round", 99) <= B4_REWARD_FAST_ROUNDS:
             mult *= B4_REWARD_FAST_MULT
-    dark = GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * floor
+    # Блок 15 эт.2: −60% добычи 🌑 из Врат (×GATES2_DARK_MORA_MULT), затем реликвия/скилл.
+    dark = (GATES2_DARK_MORA_BASE + GATES2_DARK_MORA_PER_FLOOR * floor) * GATES2_DARK_MORA_MULT
     from infrastructure.repositories.shadow_merchant import get_gates_dark_bonus
     _sr_bonus = await get_gates_dark_bonus(db, uid)
     if _sr_bonus > 0:
