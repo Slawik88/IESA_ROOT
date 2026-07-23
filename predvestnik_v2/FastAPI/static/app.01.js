@@ -451,6 +451,44 @@ window.addEventListener('resize', _updateTabMasks);
 window.addEventListener('load', _updateTabMasks);
 document.addEventListener('click', ()=>{ setTimeout(_updateTabMasks, 350); }, true);
 
+// ── Артефакт: интерактивная голо-фольга (block 10 v2) ───────────────────────────
+// Единственный интерактивный косметический эффект в игре — карта наклоняется и
+// переливается вслед за пальцем/курсором, как настоящая foil-карта. Делегирование
+// на document (карта может быть где угодно — свой профиль, чужой профиль, превью
+// «Внешнего вида»), throttle через rAF, мгновенный no-op, если рядом нет
+// .cfx-artifact — стоимость на страницах без Артефакта пренебрежимо мала.
+let _artFoilRAF = null, _artFoilXY = null;
+function _artFoilTick(){
+  _artFoilRAF = null;
+  if(!_artFoilXY) return;
+  const [x, y] = _artFoilXY;
+  const card = document.elementFromPoint(x, y)?.closest('.hero, .looks-preview');
+  if(!card || !card.querySelector(':scope > .card-fx.cfx-artifact')) return;
+  const r = card.getBoundingClientRect();
+  if(!r.width || !r.height) return;
+  const px = Math.min(1, Math.max(0, (x - r.left) / r.width));
+  const py = Math.min(1, Math.max(0, (y - r.top) / r.height));
+  card.style.setProperty('--art-mx', (px * 100).toFixed(1) + '%');
+  card.style.setProperty('--art-my', (py * 100).toFixed(1) + '%');
+  card.style.setProperty('--art-tx', ((px - 0.5) * 10).toFixed(2) + 'deg');
+  card.style.setProperty('--art-ty', ((0.5 - py) * 10).toFixed(2) + 'deg');
+}
+function _artFoilMove(x, y){
+  _artFoilXY = [x, y];
+  if(_artFoilRAF == null) _artFoilRAF = requestAnimationFrame(_artFoilTick);
+}
+function _artFoilReset(){
+  document.querySelectorAll('.hero, .looks-preview').forEach(card => {
+    card.style.removeProperty('--art-mx'); card.style.removeProperty('--art-my');
+    card.style.removeProperty('--art-tx'); card.style.removeProperty('--art-ty');
+  });
+}
+document.addEventListener('pointermove', e => _artFoilMove(e.clientX, e.clientY), {passive:true});
+document.addEventListener('touchmove', e => { const t=e.touches[0]; if(t) _artFoilMove(t.clientX, t.clientY); }, {passive:true});
+document.addEventListener('pointerleave', _artFoilReset, {passive:true});
+document.addEventListener('touchend', _artFoilReset, {passive:true});
+document.addEventListener('touchcancel', _artFoilReset, {passive:true});
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _loaded=new Set();
 // История страниц для кнопки «Назад» (нативная Telegram BackButton + фолбэк в браузере).

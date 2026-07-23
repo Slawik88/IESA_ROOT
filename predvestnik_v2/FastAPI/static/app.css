@@ -1030,9 +1030,26 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   0%,100% { text-shadow: -1px 0 2px rgba(255,80,200,.5), 1px 0 2px rgba(80,200,255,.5), 0 0 5px rgba(150,255,240,.3); }
   50%     { text-shadow: -1.6px 0 3px rgba(255,100,210,.65), 1.6px 0 3px rgba(100,210,255,.65), 0 0 8px rgba(170,255,245,.42); }
 }
-/* ══ Артефакт СЕТ (block 10): единый голографический язык на ВСЕ слоты — надетый
-   целиком даёт самый сильный образ. Reduced-motion/.no-fx гасят анимации правилами
-   [class*="frame-/halo-/pbg-/cfx-/title-"] ниже. ══════════════════════════════════ */
+/* ══ Артефакт СЕТ (block 10 v2) — переосмыслено: владелец справедливо указал, что
+   v1 (просто новые box-shadow/drop-shadow/частицы) технически неотличим от
+   legendary/mythic — те же приёмы, другой цвет. Настоящее отличие редкости выше
+   mythic не в цвете, а в МЕХАНИКЕ: card_fx здесь — ЕДИНСТВЕННЫЙ ИНТЕРАКТИВНЫЙ
+   эффект в игре. Карта — живая голографическая фольга: наклоняется и переливается
+   вслед за пальцем/курсором (JS в конце app.01.js пишет --art-mx/--art-my/--art-tx/
+   --art-ty на сам элемент карты через rAF-throttle, no-op, если рядом нет
+   .cfx-artifact). Ни один другой предмет в игре не реагирует на прикосновение —
+   это и обосновывает редкость выше mythic, не палитра. Reduced-motion/.no-fx
+   полностью гасят наклон и анимацию (см. правила ниже и общее правило
+   [class*="frame-/halo-/pbg-/cfx-/title-"]). ═══════════════════════════════════ */
+.hero:has(> .card-fx.cfx-artifact), .looks-preview:has(> .card-fx.cfx-artifact) {
+  isolation: isolate;
+  transform: perspective(700px) rotateX(var(--art-ty, 0deg)) rotateY(var(--art-tx, 0deg));
+  transition: transform .5s cubic-bezier(.22,1,.36,1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero:has(> .card-fx.cfx-artifact), .looks-preview:has(> .card-fx.cfx-artifact) { transform: none !important; }
+}
+body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .card-fx.cfx-artifact) { transform: none !important; }
 .frame-artifact {
   box-shadow: 0 0 0 2px #3fe0e0, 0 0 0 4px rgba(255,80,200,.4), 0 0 16px 3px rgba(63,224,224,.6);
   animation: frameArtifact 2.6s ease-in-out infinite;
@@ -1049,34 +1066,46 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   0%,100% { filter: drop-shadow(0 0 1px rgba(180,255,245,.9)) drop-shadow(0 0 7px rgba(63,224,224,.6)) drop-shadow(0 0 14px rgba(255,80,200,.3)); }
   50%     { filter: drop-shadow(0 0 2px rgba(205,255,250,1)) drop-shadow(0 0 11px rgba(90,235,255,.82)) drop-shadow(0 0 20px rgba(255,100,215,.45)); }
 }
+/* Фон — «энергорешётка»: диагональная структурная сетка данных (никакая другая
+   pbg-* не использует линейчатый паттерн — все они чистые мягкие пятна-градиенты). */
 .hero.pbg-artifact, .looks-preview.pbg-artifact, .lc-bg.pbg-artifact {
   background:
-    linear-gradient(115deg, transparent 40%, rgba(63,224,224,.14) 46%, transparent 52%),
-    linear-gradient(115deg, transparent 60%, rgba(255,80,200,.11) 65%, transparent 70%),
-    radial-gradient(80% 60% at 20% 18%, rgba(63,224,224,.3), transparent 60%),
-    radial-gradient(75% 55% at 85% 82%, rgba(180,90,255,.26), transparent 60%),
-    linear-gradient(160deg, #071016, #0a0714);
-  background-size: 220% 220%, 220% 220%, 100% 100%, 100% 100%, 100% 100%;
-  animation: pbgArtifact 8s ease-in-out infinite;
+    repeating-linear-gradient(58deg, rgba(63,224,224,.08) 0 1px, transparent 1px 25px),
+    repeating-linear-gradient(-58deg, rgba(255,80,200,.06) 0 1px, transparent 1px 25px),
+    radial-gradient(85% 65% at 18% 15%, rgba(63,224,224,.26), transparent 60%),
+    radial-gradient(80% 60% at 85% 85%, rgba(180,90,255,.24), transparent 60%),
+    linear-gradient(160deg, #050b10, #08061000);
+  background-size: 100% 100%, 100% 100%, 140% 140%, 140% 140%, 100% 100%;
+  animation: pbgArtifact 9s ease-in-out infinite;
 }
 @keyframes pbgArtifact {
-  0%,100% { background-position: 0% 0%, 100% 100%, 0 0, 0 0, 0 0; }
-  50%     { background-position: 100% 50%, 0% 50%, 0 0, 0 0, 0 0; }
+  0%,100% { background-position: 0 0, 0 0, 0% 0%, 100% 100%, 0 0; }
+  50%     { background-position: 0 0, 0 0, 30% 20%, 70% 80%, 0 0; }
 }
+/* Флагман сета: настоящая голо-фольга. Conic-gradient радуги центрируется на
+   --art-mx/--art-my (палец/курсор), color-dodge вплавляет её в тёмный фон карты
+   (а не рисует поверх — тот же приём, что делает реальные фольгированные карты
+   «живыми»), поверх — статичное зерно фольги (диагональные линии, overlay). */
 .cfx-artifact {
-  background-image:
-    repeating-linear-gradient(0deg, rgba(63,224,224,.06) 0 1px, transparent 1px 3px),
-    radial-gradient(2px 2px at 20% 30%, rgba(63,224,224,.9), transparent),
-    radial-gradient(1.5px 1.5px at 70% 60%, rgba(255,120,220,.7), transparent),
-    radial-gradient(2px 2px at 45% 82%, rgba(120,210,255,.8), transparent),
-    radial-gradient(1.5px 1.5px at 85% 40%, rgba(63,224,224,.65), transparent);
-  background-size: 100% 3px, 100% 200%, 100% 200%, 100% 200%, 100% 200%;
-  animation: cfxArtifact 6s linear infinite;
+  /* Узкая диагональная полоса «блика», как свет, отражённый от фольги — не
+     заливка всей карты, а движущийся вслед за пальцем/курсором луч (--art-mx). */
+  background: linear-gradient(115deg,
+    transparent calc(var(--art-mx, 50%) - 26%),
+    rgba(255,110,220,.6) calc(var(--art-mx, 50%) - 10%),
+    rgba(140,235,255,.7) var(--art-mx, 50%),
+    rgba(255,225,120,.55) calc(var(--art-mx, 50%) + 10%),
+    transparent calc(var(--art-mx, 50%) + 26%));
+  mix-blend-mode: screen;
+  opacity: .6;
+  animation: cfxArtifactIdle 6s ease-in-out infinite;
 }
-@keyframes cfxArtifact {
-  0%   { background-position: 0 0, 0 100%, 0 100%, 0 100%, 0 100%; }
-  100% { background-position: 0 6px, 0 -100%, 0 -100%, 0 -100%, 0 -100%; }
+.cfx-artifact::after {
+  content: ''; position: absolute; inset: 0; mix-blend-mode: overlay; opacity: .22;
+  background-image: repeating-linear-gradient(115deg, rgba(255,255,255,.12) 0 1px, transparent 1px 5px);
 }
+/* Без прикосновения полоса не должна «замирать» — лёгкий самостоятельный дрейф
+   яркости, чтобы эффект читался живым даже на скриншоте/до первого тапа. */
+@keyframes cfxArtifactIdle { 0%,100% { opacity: .45; } 50% { opacity: .72; } }
 .title-artifact {
   color: #d6fffb; -webkit-text-stroke: 0.4px rgba(63,224,224,.7);
   text-shadow: -1px 0 2px rgba(255,80,200,.5), 1px 0 2px rgba(80,200,255,.55), 0 0 6px rgba(63,224,224,.4);
