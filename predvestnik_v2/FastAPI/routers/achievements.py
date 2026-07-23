@@ -100,6 +100,7 @@ async def my_achievements(db=Depends(get_db), user=Depends(require_tg_user)):
             "pct":             pct,
             "completed":       level >= max_level,
             "next_reward":     next_reward,
+            "desc":            meta.get("desc", ""),
         })
 
     # Sort: in-progress first, then completed
