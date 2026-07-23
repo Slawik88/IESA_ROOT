@@ -1,35 +1,44 @@
-"""Block 14: «весь набор» витрины недели — цена комплекта = сумма недельных скидок
-минус бонус комплекта (−300✨), но скидка комплекта не больше 50% (на дешёвых
-наборах −300 не уводит в абсурд/минус)."""
+"""Block 14: «весь набор» витрины недели. Бонус комплекта — от 200✨ (2 предмета)
+до 400✨ (полный набор из SHOWCASE_SLOTS), линейно по количеству. Цена не дешевле
+60% суммы (макс 40% off) — «не так дёшево»."""
 import sys
 import pathlib
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from FastAPI.routers.showcase import _bundle_price, SHOWCASE_BUNDLE_DISCOUNT
+from FastAPI.routers.showcase import (
+    _bundle_price, _bundle_discount, SHOWCASE_BUNDLE_MIN, SHOWCASE_BUNDLE_MAX)
+from infrastructure.repositories.showcase import SHOWCASE_SLOTS
 
-assert SHOWCASE_BUNDLE_DISCOUNT == 300
+assert SHOWCASE_BUNDLE_MIN == 200 and SHOWCASE_BUNDLE_MAX == 400
 
-cases = [
-    # disc_sum, ожидаемая цена, комментарий
-    (2000, 1700, "−300 на дорогом наборе"),
-    (800,  500,  "−300 (500 = ровно порог, где −300 == 50%)"),
-    (500,  250,  "50%-кап: −300 дало бы 200 (60%), берём 250"),
-    (400,  200,  "50%-кап на дешёвом наборе (не 100)"),
-    (100,  50,   "очень дешёвый — 50%, не уходим в минус"),
-]
-for disc_sum, expected, note in cases:
-    got = _bundle_price(disc_sum)
-    assert got == expected, f"disc_sum={disc_sum}: ожидали {expected} ({note}), получили {got}"
-    # инварианты: не дороже суммы, не дешевле 50%, всегда ≥1
-    assert got <= disc_sum, f"комплект дороже поштучной суммы ({got}>{disc_sum})"
-    assert got >= round(disc_sum * 0.5), f"скидка комплекта >50% на {disc_sum} (got {got})"
-    assert got >= 1
+# Бонус растёт от 200 (2 предмета) до 400 (полный набор)
+assert _bundle_discount(2) == 200, "2 предмета → −200"
+assert _bundle_discount(SHOWCASE_SLOTS) == 400, "полный набор → −400"
+for n in range(2, SHOWCASE_SLOTS + 1):
+    d = _bundle_discount(n)
+    assert 200 <= d <= 400, f"бонус за {n} предметов вне 200..400: {d}"
+# монотонно не убывает с ростом набора
+disc_seq = [_bundle_discount(n) for n in range(2, SHOWCASE_SLOTS + 1)]
+assert disc_seq == sorted(disc_seq), f"бонус не растёт с размером набора: {disc_seq}"
 
-# −300 применяется, когда это НЕ превышает 50% (disc_sum >= 600)
-assert _bundle_price(1000) == 700, "−300 на 1000 → 700"
-assert _bundle_price(600) == 300, "−300 на 600 → 300 (ровно 50%)"
+print("Бонус комплекта по размеру:",
+      {n: _bundle_discount(n) for n in range(2, SHOWCASE_SLOTS + 1)})
 
-print("OK: цена комплекта = −300✨ от суммы, но не более 50% скидки; проверены "
-      "дорогие и дешёвые наборы, инварианты (≤суммы, ≥50%, ≥1) держатся")
+# Цена: −бонус от суммы, но не дешевле 60% (макс 40% off)
+for disc_sum, count in [(1200, 5), (1000, 5), (800, 3), (500, 2), (300, 2), (2000, 4)]:
+    p = _bundle_price(disc_sum, count)
+    assert p <= disc_sum, f"комплект дороже суммы: {p}>{disc_sum}"
+    assert p >= round(disc_sum * 0.6), f"скидка >40% на {disc_sum}: цена {p}"
+    assert p >= 1
+    # не глубже, чем полный бонус
+    assert p >= disc_sum - _bundle_discount(count), "цена ниже, чем сумма минус бонус"
+
+# Конкретика: дорогой полный набор — ровно −400 (пол не мешает)
+assert _bundle_price(1200, 5) == 800, f"1200/5 → 800, got {_bundle_price(1200,5)}"
+# Дешёвый набор упирается в пол 60% (−200 дало бы 40% off, floor держит)
+assert _bundle_price(300, 2) == round(300 * 0.6), f"300/2 floor 60%, got {_bundle_price(300,2)}"
+
+print("OK: бонус комплекта 200→400 по размеру набора, цена не дешевле 60% суммы "
+      "(«не так дёшево»), инварианты держатся")

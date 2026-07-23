@@ -15,13 +15,26 @@ from services.cosmetics import buy as cosmetics_buy
 
 router = APIRouter(prefix="/showcase", tags=["showcase"])
 
-# Block 14 (стимул покупок): «весь набор» дешевле поштучной суммы на столько ✨,
-# но скидка комплекта не превышает 50% (на дешёвых наборах −300 не уводит в абсурд).
-SHOWCASE_BUNDLE_DISCOUNT = 300
+# Block 14 (стимул покупок): бонус комплекта «весь набор» — от 200✨ (2 предмета)
+# до 400✨ (полный набор из SHOWCASE_SLOTS). Плюс пол цены: не дешевле 60% суммы
+# (макс 40% off), чтобы наборы не уходили в бесценок — «не так дёшево».
+SHOWCASE_BUNDLE_MIN = 200
+SHOWCASE_BUNDLE_MAX = 400
 
 
-def _bundle_price(disc_sum: int) -> int:
-    return max(round(disc_sum * 0.5), disc_sum - SHOWCASE_BUNDLE_DISCOUNT, 1)
+def _bundle_discount(count: int) -> int:
+    """✨-бонус за комплект, линейно 200 (2 предмета) → 400 (полный набор)."""
+    slots = sc_repo.SHOWCASE_SLOTS
+    if count <= 2:
+        return SHOWCASE_BUNDLE_MIN
+    if count >= slots:
+        return SHOWCASE_BUNDLE_MAX
+    step = (SHOWCASE_BUNDLE_MAX - SHOWCASE_BUNDLE_MIN) / (slots - 2)
+    return round(SHOWCASE_BUNDLE_MIN + (count - 2) * step)
+
+
+def _bundle_price(disc_sum: int, count: int) -> int:
+    return max(round(disc_sum * 0.6), disc_sum - _bundle_discount(count), 1)
 
 
 async def _owned_ids(db, user_id: int) -> set[str]:
@@ -99,7 +112,7 @@ async def get_showcase(db=Depends(get_db), user=Depends(require_tg_user)):
         b_count += 1
     bundle = None
     if b_count >= 2:
-        bp = _bundle_price(b_disc)
+        bp = _bundle_price(b_disc, b_count)
         bundle = {"count": b_count, "price": bp, "sum": b_disc,
                   "base_sum": b_base, "savings": b_base - bp}
 
@@ -183,7 +196,7 @@ async def buy_bundle(db=Depends(get_db), user=Depends(require_tg_user)):
     if len(eligible) < 2:
         raise HTTPException(400, "Комплект доступен, когда в витрине ≥2 ещё не купленных предмета.")
 
-    price = _bundle_price(disc_sum)
+    price = _bundle_price(disc_sum, len(eligible))
     async with db.connection.transaction():
         async with db.execute(
             "SELECT COALESCE(user_balance_zarniki, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
