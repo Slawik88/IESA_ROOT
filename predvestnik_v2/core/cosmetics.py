@@ -38,8 +38,11 @@ COSMETIC_SLOTS = (
     "avatar_halo", "profile_bg", "card_fx",
 )
 
-# Порядок редкостей для сортировки/цвета в UI
-RARITY_ORDER = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4}
+# Порядок редкостей для сортировки/цвета в UI.
+# artifact — премиум-ось НАД mythic (block 10): у каждого предмета своя
+# энергетическая обводка контуров (неон/электро/плазма/голограмма). Цена 1500✨.
+RARITY_ORDER = {"common": 0, "rare": 1, "epic": 2, "legendary": 3, "mythic": 4,
+                "artifact": 5}
 
 COSMETICS: dict[str, dict] = {
     # ── Ореол имени (CSS, веб) ───────────────────────────────────────────────
@@ -48,6 +51,32 @@ COSMETICS: dict[str, dict] = {
         "css": "glow-silver", "vip_required": False, "source": "shop",
         "price": [{"zarniki": 250}],
         "desc": "Мягкое серебристое свечение вокруг ника. Доступно всем.",
+    },
+    # ── Артефакт (эксклюзив, block 10): у КАЖДОГО предмета своя энергетическая
+    #    обводка контуров букв — премиум-VFX, каких нет у прочих ореолов ──────────
+    "cos_name_glow_neon": {
+        "name": "Неоновая трубка", "slot": "name_glow", "rarity": "artifact",
+        "css": "glow-neon-tube", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Ник светится как неоновая вывеска: чёткая обводка букв и ровное дыхание сияния. Показывается при активной VIP.",
+    },
+    "cos_name_glow_electro": {
+        "name": "Электро-разряд", "slot": "name_glow", "rarity": "artifact",
+        "css": "glow-electro", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "По контуру ника пробегают резкие электрические разряды — живой нервный ток. Показывается при активной VIP.",
+    },
+    "cos_name_glow_plasma": {
+        "name": "Плазменный контур", "slot": "name_glow", "rarity": "artifact",
+        "css": "glow-plasma", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Обводка ника медленно переливается всеми цветами плазмы. Показывается при активной VIP.",
+    },
+    "cos_name_glow_hologram": {
+        "name": "Голограмма", "slot": "name_glow", "rarity": "artifact",
+        "css": "glow-hologram", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Голографический раскол цвета по краям букв — как дорогая голограмма. Показывается при активной VIP.",
     },
     "cos_name_glow_gold": {
         "name": "Золотое сияние", "slot": "name_glow", "rarity": "rare",
