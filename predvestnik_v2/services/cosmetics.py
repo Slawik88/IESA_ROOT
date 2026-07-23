@@ -345,6 +345,15 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0,
             "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
             "ON CONFLICT DO NOTHING", (user_id, cosmetic_id))
 
+    # Ачивка «Модник» (fashionista) — считаем купленные предметы косметики.
+    # Вне транзакции покупки: increment_metric открывает свою (самокоммит).
+    try:
+        from services.achievements import increment_metric
+        await increment_metric(db, user_id, "cosmetics_bought", delta=1.0)
+        await db.commit()
+    except Exception:
+        pass
+
     paid = ", ".join(f"{int(amt)}{_CUR_ICON[cur]}" for cur, amt in chosen.items())
     msg = f"🎨 Куплено: {cos['name']} ({paid})"
     if cos.get("rarity", "common") != "common" and not await is_vip_active(db, user_id):
