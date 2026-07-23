@@ -79,6 +79,9 @@ function loadProfile() {
         <button class="btn btn-ghost" onclick="openSettingsModal()">⚙️ Настройки</button>
       </div>
 
+      <!-- Топ-3 игроков (loadTop3) — соревнование на видном месте (block 11) -->
+      <div id="pro-top3"></div>
+
       <!-- Активные баффы (заполняется loadActiveBuffs) -->
       <div id="pro-buffs"></div>
 
@@ -114,6 +117,7 @@ function loadProfile() {
       <div id="wallet-mini"></div>`;
     loadMarriageCard();
     loadNickCard();
+    loadTop3();
     loadActiveBuffs();
     loadWalletMini();
     if(!_ws && _uid) connectWS();
@@ -121,6 +125,42 @@ function loadProfile() {
     if(!_adminChats) checkAdminAccess();
     checkGlobalAccess();
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
+}
+// ── Топ-3 игроков на профиле (block 11): соревнование на видном месте ──────────
+// Глобальный подиум + СВОЁ место и дистанция до топ-3 — главный крючок вовлечения.
+function loadTop3(){
+  const box=el('pro-top3'); if(!box) return;
+  api('/top/global').then(rows=>{
+    if(!Array.isArray(rows) || rows.length<3){ box.innerHTML=''; return; }  // нужен полный подиум
+    const top3=rows.slice(0,3);
+    const meIdx=rows.findIndex(r=>String(r.user_id)===String(typeof _uid!=='undefined'?_uid:''));
+    const meRank=meIdx>=0?meIdx+1:null;
+    const rowsHtml=top3.map((r,i)=>`<div class="t3-row${meRank===i+1?' t3-row--me':''}">
+        <span class="t3-medal">${MEDALS[i]||(i+1)}</span>
+        <span class="t3-name">${_topName(r)}</span>
+        <span class="t3-cnt">${fmt(r.count)} 💬</span>
+      </div>`).join('');
+    let you;
+    if(meRank && meRank>3){
+      const gap=Math.max(1,(top3[2].count||0)-(rows[meIdx].count||0)+1);
+      you=`<span>Ты <b>#${meRank}</b></span><span>до топ-3: <b>+${fmt(gap)}</b> 💬</span>`;
+    } else if(meRank){
+      you=`<span>🔥 Ты в топ-3 — <b>#${meRank}</b></span><span>удержи место</span>`;
+    } else {
+      you=`<span>Ты пока вне топ-200</span><span>активнее в чатах →</span>`;
+    }
+    box.innerHTML=`<div class="card t3-card" onclick="openTop3Full()">
+      <div class="t3-head"><span class="t3-title">🏆 Топ игроков</span><span class="t3-all">весь топ ›</span></div>
+      ${rowsHtml}
+      <div class="t3-you">${you}</div>
+    </div>`;
+  }).catch(()=>{box.innerHTML='';});
+}
+function openTop3Full(){
+  goTo('hof');
+  // виджет глобальный → открываем глобальную вкладку (2-я кнопка в свитчере топа)
+  const btns=document.querySelectorAll('#pro-hof .tab-inner .tb');
+  if(btns[1]) switchTop('global', btns[1]);
 }
 // ── БЛОК22: Настройки + юридические документы ──────────────────────────────────
 function _legalUrl(slug){ return BASE+'/legal/'+slug; }   // прямая публичная ссылка
