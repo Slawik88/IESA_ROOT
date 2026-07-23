@@ -108,21 +108,31 @@ _tg_bot = _TgBotShim()
 @router.get("/my-chats")
 async def my_admin_chats(db=Depends(get_db), user=Depends(require_tg_user)):
     """Только РЕАЛЬНЫЕ группы (chat_id < 0, есть название), где пользователь
-    состоит (is_left=FALSE) и имеет права модератора (local_rank >= 1).
+    состоит (is_left=FALSE). Обычному пользователю нужен явный ранг модератора
+    (local_rank >= 1). Разработчик (DEVELOPER_ID) — Владелец (ранг 6) в ЛЮБОМ
+    чате по _get_actor_rank, даже без явной строки local_rank в этом чате
+    (просто состоит как обычный участник) — без байпаса свитчер не показывал
+    его собственный чат вообще, хотя действия там уже работали.
     Без «фантомных чатов-цифр» и без показа всех чатов бота.
     Размечает связь Основная↔Админская группа (chat_links)."""
+    is_developer = bool(DEVELOPER_ID) and user["id"] == DEVELOPER_ID
+    rank_filter = "1=1" if is_developer else "ucs.local_rank >= 1"
     async with db.execute(
         "SELECT ucs.chat_tg_id, COALESCE(cs.chat_title, CAST(ucs.chat_tg_id AS TEXT)) AS chat_title, "
         "ucs.local_rank, lk.admin_chat_id "
         "FROM user_chat_stats ucs "
         "LEFT JOIN chat_settings cs ON cs.chat_id = ucs.chat_tg_id "
         "LEFT JOIN chat_links lk ON lk.main_chat_id = ucs.chat_tg_id "
-        "WHERE ucs.user_tg_id = ? AND ucs.local_rank >= 1 AND ucs.is_left = FALSE "
+        f"WHERE ucs.user_tg_id = ? AND {rank_filter} AND ucs.is_left = FALSE "
         "AND ucs.chat_tg_id < 0 AND cs.chat_title IS NOT NULL "
         "ORDER BY ucs.local_rank DESC",
         (user["id"],),
     ) as c:
         rows = [dict(r) for r in await c.fetchall()]
+
+    if is_developer:
+        for r in rows:
+            r["local_rank"] = 6  # фактический ранг в любом чате, см. _get_actor_rank
 
     chat_ids = [r["chat_tg_id"] for r in rows]
     # Какие из этих чатов сами являются админ-чатами для какой-то основной группы
