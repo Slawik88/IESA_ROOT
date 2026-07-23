@@ -148,6 +148,13 @@ async def _init_users_and_chats(db):
         # атомарный гард на выдачу сигнап-бонуса делает services/referral.py по
         # "WHERE referred_by IS NULL".
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT DEFAULT NULL",
+        # Онбординг боя 2026-07-21 / «Что нового» 2026-07-23. КРИТИЧНО, что они здесь:
+        # на проде FastAPI стартует с lifespan="off" (bot/__main__.py), поэтому
+        # users.ensure_account_columns из веб-lifespan НЕ выполняется — единственное
+        # место, реально создающее эти колонки на проде, — этот init_db. Без них
+        # /profile/me падал 500 «column whatsnew_seen_id does not exist».
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_tutorial_done BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsnew_seen_id TEXT DEFAULT NULL",
     ]:
         try:
             await db.execute(_stmt)
