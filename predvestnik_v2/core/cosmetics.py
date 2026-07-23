@@ -78,6 +78,40 @@ COSMETICS: dict[str, dict] = {
         "price": [{"zarniki": 1500}],
         "desc": "Голографический раскол цвета по краям букв — как дорогая голограмма. Показывается при активной VIP.",
     },
+    # Артефакт — ПОЛНЫЙ СЕТ (block 10): по предмету на каждый слот, единый
+    # голографический энергетический язык. Надетые вместе — самый сильный образ
+    # в игре (bg+card_fx покрывают всю карточку, рамка+гало+титул+ник довершают).
+    "cos_avatar_frame_artifact": {
+        "name": "Энергокольцо", "slot": "avatar_frame", "rarity": "artifact",
+        "css": "frame-artifact", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Аватар в кольце живой циан-магента энергии, которое пульсирует. Показывается при активной VIP.",
+    },
+    "cos_avatar_halo_artifact": {
+        "name": "Ореол Артефакта", "slot": "avatar_halo", "rarity": "artifact",
+        "css": "halo-artifact", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Голографический ореол вокруг аватара — циановое ядро с магента-отсветом. Показывается при активной VIP.",
+    },
+    "cos_profile_bg_artifact": {
+        "name": "Голо-поле", "slot": "profile_bg", "rarity": "artifact",
+        "css": "pbg-artifact", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Фон карточки — живое голографическое энергополе: диагональные лучи света дрейфуют по тёмной глубине. Показывается при активной VIP.",
+    },
+    "cos_card_fx_artifact": {
+        "name": "Сканлайны", "slot": "card_fx", "rarity": "artifact",
+        "css": "cfx-artifact", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Поверх всей карточки — голографические сканлайны и поднимающиеся частицы энергии. Показывается при активной VIP.",
+    },
+    "cos_title_artifact": {
+        "name": "Артефакт (титул)", "slot": "title", "rarity": "artifact",
+        "text": "⚡ Артефакт", "css": "title-artifact",
+        "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Титул с голографическим расколом цвета — под стать всему сету. Показывается при активной VIP.",
+    },
     "cos_name_glow_gold": {
         "name": "Золотое сияние", "slot": "name_glow", "rarity": "rare",
         "css": "glow-gold", "vip_required": False, "source": "shop",
