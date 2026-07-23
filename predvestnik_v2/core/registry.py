@@ -435,6 +435,19 @@ ACHIEVEMENTS: Dict[str, Dict] = {
         "thresholds": [1, 3, 7, 15, 30, 60, 120, 250, 500, 1000],
         "desc": "Получите N легендарных+ питомцев из гачи. Считаются legendary и mythic.",
     },
+    "fashionista": {
+        "icon": "🎨", "name": "Модник",
+        "metric": "cosmetics_bought",
+        "thresholds": [1, 3, 5, 8, 12, 16, 20, 25, 32, 40],
+        "desc": "Купите N предметов косметики (ореолы, рамки, гало, фоны, частицы, "
+                "титулы) во «Внешнем виде». Счётчик идёт с момента появления достижения.",
+    },
+    "gate_conqueror": {
+        "icon": "🏰", "name": "Покоритель Врат",
+        "metric": "gates_battles_won",
+        "thresholds": [1, 5, 15, 40, 100, 250, 600, 1500, 3500, 8000],
+        "desc": "Победите во Вратах N раз (PvE-лестница, Арена → Врата).",
+    },
 }
 
 ACHIEVEMENT_LEVEL_REWARDS: Dict[int, Dict] = {

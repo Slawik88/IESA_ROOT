@@ -181,6 +181,13 @@ async def _gates_reward(db, uid: int, floor: int, state: dict | None = None) -> 
     await u_repo.add_shards(db, uid, target, n)
     unit_shards = {"unit_id": target, "name": UNITS[target]["name"],
                    "emoji": UNITS[target]["emoji"], "n": n}
+    # Ачивка «Покоритель Врат» (gate_conqueror) — победа во Вратах. _gates_reward
+    # зовётся только на win (см. _finalize_if_over) и уже в try/except там.
+    try:
+        from services.achievements import increment_metric
+        await increment_metric(db, uid, "gates_battles_won", delta=1.0)
+    except Exception:
+        pass
     return {"dark_mora": dark, "shards": shards, "unit_shards": unit_shards,
             "reward_mult": round(mult, 2)}
 
