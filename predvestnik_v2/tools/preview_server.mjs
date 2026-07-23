@@ -209,6 +209,16 @@ const MOCKS = {
     { id: 'gacha_spins', icon: '🎰', name: 'Испытатель удачи', level: 2, max_level: 10, progress: 214, next_threshold: 500, pct: 43, completed: false, next_reward: { mora: 1500, diamonds: 1 } },
     { id: 'streak', icon: '🔥', name: 'Верность', level: 5, max_level: 5, progress: 30, next_threshold: null, pct: 100, completed: true, next_reward: null },
   ],
+  // Глобальный топ — формат как реальный _fmt: user_id/username/count/is_vip.
+  // Сессионный игрок (1460945748) на 5-м месте — проверка строки «до топ-3».
+  'GET /top/global': [
+    { user_id: 2, username: 'moon_witch', count: 48200, is_vip: true },
+    { user_id: 7, username: 'abyss_lord', count: 39100, is_vip: true },
+    { user_id: 3, username: 'grimm', count: 31050, is_vip: false },
+    { user_id: 9, username: 'nightcaller', count: 22400, is_vip: false },
+    { user_id: 1460945748, username: 'star_seeker', count: 15873, is_vip: true },
+    { user_id: 4, username: 'night_raven', count: 8033, is_vip: false },
+  ],
   'GET /top/local/-100111': [
     { user_tg_id: 2, username: 'moon_witch', nickname: 'Лунная Ведьма', count: 21450, is_vip: true },
     { user_tg_id: 1460945748, username: 'star_seeker', nickname: 'Звездочёт', count: 15873, is_vip: true },

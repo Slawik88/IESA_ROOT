@@ -657,6 +657,23 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .pd-name { font-size: 10.5px; font-weight: 700; color: var(--bright); margin-top: 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
 .pd-cnt { font-size: 9.5px; color: var(--muted); margin-top: 2px; }
+/* Топ-3 на профиле (block 11) — компактный подиум + своё место и дистанция */
+.t3-card { cursor: pointer; transition: border-color .2s; }
+.t3-card:active { border-color: var(--border); }
+.t3-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.t3-title { font-size: 13px; font-weight: 700; color: var(--bright); }
+.t3-all { font-size: 11.5px; color: var(--gold2); }
+.t3-row { display: flex; align-items: center; gap: 9px; padding: 6px 0; }
+.t3-row + .t3-row { border-top: 1px solid var(--dim); }
+.t3-medal { font-size: 15px; width: 20px; text-align: center; flex: 0 0 auto; }
+.t3-name { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--bright);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t3-cnt { font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+.t3-row--me { background: rgba(232,181,77,.08); border-radius: 8px; margin: 2px -8px; padding: 6px 8px; }
+.t3-row--me + .t3-row { border-top: none; }
+.t3-you { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid var(--border2); font-size: 11.5px; color: var(--muted); }
+.t3-you b { color: var(--gold2); font-weight: 700; }
 .trow {
   display: flex; align-items: center; gap: 10px; padding: 9px 0;
   border-bottom: 1px solid var(--border2); font-size: 12px;
