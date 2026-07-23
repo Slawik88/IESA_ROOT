@@ -643,7 +643,7 @@ async def _gemini_call(
         # (~400-600 токенов) — при 400 видимый ответ обрывался на полуслове.
         "generationConfig": {"temperature": 0.8, "maxOutputTokens": 2000},
     }
-    r = await client.post(url, json=body, timeout=20)
+    r = await client.post(url, json=body, timeout=15)
     r.raise_for_status()
     return r.json()
 
@@ -744,6 +744,7 @@ async def answer_question(
     system_prompt = _SYSTEM_PROMPT.format(knowledge=knowledge, user_name=safe_name)
 
     quota_hit = False
+    service_down = False
     async with httpx.AsyncClient() as client:
         for model_name in _MODEL_CHAIN:
             # ctx пересоздаётся на каждую модель: если предыдущая успела
@@ -760,17 +761,30 @@ async def answer_question(
                 return _sanitize_tg_html(text), remaining, ctx.get("pending_action")
             except httpx.HTTPStatusError as e:
                 code = e.response.status_code
-                if code in (429, 404):
+                # 5xx (503 «high demand», 500, 502, 504) — временная перегрузка Gemini:
+                # ОБЯЗАТЕЛЬНО пробуем следующую модель цепочки, а не сдаёмся сразу
+                # (раньше 503 на первой модели рвал весь _MODEL_CHAIN).
+                if code == 429 or code == 404 or code >= 500:
                     quota_hit = quota_hit or code == 429
+                    service_down = service_down or code >= 500
                     logger.warning(f"AI model {model_name} недоступна ({code}) — пробую следующую")
                     continue
                 logger.error(f"AI assistant HTTP error for user {user_id}: {code} {e.response.text[:200]}")
                 return "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже.", None, None
+            except (httpx.TimeoutException, httpx.TransportError) as e:
+                # Таймаут/сетевой сбой к Gemini (у thinking-моделей бывает под нагрузкой)
+                # — тоже пробуем следующую модель, а не роняем весь запрос.
+                service_down = True
+                logger.warning(f"AI model {model_name} сеть/таймаут ({type(e).__name__}) — пробую следующую")
+                continue
             except Exception as e:
-                logger.error(f"AI assistant error for user {user_id}: {e}")
+                logger.error(f"AI assistant error for user {user_id}: {e!r}")
                 return "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже.", None, None
 
     if quota_hit:
         return ("🤖 Дневной запас вопросов у бота исчерпан — руны умолкли до полуночи. "
                 "Возвращайся завтра!"), None, None
+    if service_down:
+        return ("🤖 Помощник сейчас перегружен (у ИИ высокий спрос) — это временно. "
+                "Попробуй переспросить через минуту."), None, None
     return "🤖 Не смог сформулировать ответ даже с трёх попыток — попробуй переспросить иначе.", None, None
