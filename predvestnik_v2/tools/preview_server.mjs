@@ -596,15 +596,21 @@ const MOCKS = {
     warned_count: 3, ban_count: 1,
     can_warn: true, can_mute: true, can_kick: true, can_ban: true,
   },
-  'GET /admin/-100111/users': {
-    total: 214, page_size: 20, max_assignable_rank: 4,
-    users: [
-      { user_tg_id: 2, user_tg_username: 'moon_witch', is_vip: true, user_level: 34, local_rank: 4, warnings: 0, user_messages_count_all_time: 21450, joined_at: '2025-11-02 10:00:00', last_message_at: '2026-07-13 09:15:00', can_act: true, can_warn: true, can_mute: true, can_kick: true, can_ban: true, can_shield: true, can_immune: true, can_set_rank: true, is_immune: false, is_left: false, muted_until: null },
-      { user_tg_id: 3, user_tg_username: 'grimm', is_vip: false, user_level: 22, local_rank: 1, warnings: 2, user_messages_count_all_time: 12200, joined_at: '2026-01-15 18:30:00', last_message_at: '2026-07-12 22:47:00', can_act: true, can_warn: true, can_mute: true, can_kick: true, can_ban: true, can_shield: true, can_immune: true, can_set_rank: true, is_immune: false, is_left: false, muted_until: '2026-07-14 12:00:00' },
-      { user_tg_id: 4, user_tg_username: 'night_raven', is_vip: false, user_level: 15, local_rank: 0, warnings: 0, user_messages_count_all_time: 8033, joined_at: '2026-03-08 12:00:00', last_message_at: '2026-07-13 08:02:00', can_act: true, can_warn: true, can_mute: true, can_kick: true, can_ban: true, can_shield: true, can_immune: true, can_set_rank: true, is_immune: true, is_left: false, muted_until: null },
-      { user_tg_id: 5, user_tg_username: 'sunny', is_vip: false, user_level: 9, local_rank: 0, warnings: 0, user_messages_count_all_time: 5410, joined_at: '2026-05-20 09:10:00', last_message_at: '2026-06-30 16:20:00', can_act: false, can_set_rank: false, is_immune: false, is_left: true, muted_until: null },
-    ],
+  // Функция: реагирует на ?filter=banned (block 7.2). is_banned/was_kicked/global_ban —
+  // как chat_sanctions_map на реальном бэке; при фильтре отдаём только их.
+  'GET /admin/-100111/users': (u) => {
+    const all = [
+      { user_tg_id: 2, user_tg_username: 'moon_witch', is_vip: true, user_level: 34, local_rank: 4, warnings: 0, user_messages_count_all_time: 21450, joined_at: '2025-11-02 10:00:00', last_message_at: '2026-07-13 09:15:00', can_act: true, can_warn: true, can_mute: true, can_kick: true, can_ban: true, can_shield: true, can_immune: true, can_set_rank: true, is_immune: false, is_left: false, muted_until: null, is_banned: false, was_kicked: false, global_ban: false },
+      { user_tg_id: 3, user_tg_username: 'grimm', is_vip: false, user_level: 22, local_rank: 1, warnings: 2, user_messages_count_all_time: 12200, joined_at: '2026-01-15 18:30:00', last_message_at: '2026-07-12 22:47:00', can_act: true, can_warn: true, can_mute: true, can_kick: true, can_ban: true, can_shield: true, can_immune: true, can_set_rank: true, is_immune: false, is_left: false, muted_until: '2026-07-14 12:00:00', is_banned: false, was_kicked: false, global_ban: false },
+      { user_tg_id: 4, user_tg_username: 'night_raven', is_vip: false, user_level: 15, local_rank: 0, warnings: 0, user_messages_count_all_time: 8033, joined_at: '2026-03-08 12:00:00', last_message_at: '2026-07-13 08:02:00', can_act: true, can_warn: true, can_mute: true, can_kick: true, can_ban: true, can_shield: true, can_immune: true, can_set_rank: true, is_immune: true, is_left: false, muted_until: null, is_banned: false, was_kicked: false, global_ban: false },
+      { user_tg_id: 5, user_tg_username: 'sunny', is_vip: false, user_level: 9, local_rank: 0, warnings: 0, user_messages_count_all_time: 5410, joined_at: '2026-05-20 09:10:00', last_message_at: '2026-06-30 16:20:00', can_act: true, can_warn: true, can_mute: true, can_kick: true, can_ban: true, can_shield: true, can_immune: true, can_set_rank: true, is_immune: false, is_left: true, muted_until: null, is_banned: true, was_kicked: false, global_ban: false },
+      { user_tg_id: 6, user_tg_username: 'troublemaker_with_a_very_long_name', is_vip: false, user_level: 4, local_rank: 0, warnings: 3, user_messages_count_all_time: 210, joined_at: '2026-06-01 09:10:00', last_message_at: '2026-06-15 16:20:00', can_act: true, can_warn: true, can_mute: true, can_kick: true, can_ban: true, can_shield: true, can_immune: true, can_set_rank: true, is_immune: false, is_left: true, muted_until: null, is_banned: false, was_kicked: true, global_ban: false },
+    ];
+    const banned = u.searchParams.get('filter') === 'banned';
+    const users = banned ? all.filter(x => x.is_banned || x.was_kicked || x.global_ban) : all;
+    return { total: banned ? users.length : 214, page_size: 20, max_assignable_rank: 4, users };
   },
+  'POST /admin/-100111/action': { ok: true, telegram_ok: true },
 };
 
 function send(res, status, body, type = 'application/json; charset=utf-8') {
