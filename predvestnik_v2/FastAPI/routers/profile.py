@@ -99,7 +99,6 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "COALESCE(u.user_balance_zarniki, 0) AS user_balance_zarniki, "
         "COALESCE(u.account_xp, 0) AS account_xp, "
         "(u.tos_accepted_at IS NOT NULL) AS tos_accepted, "
-        "u.whatsnew_seen_id, "
         "(v.user_id IS NOT NULL) AS is_vip "
         "FROM users u "
         "LEFT JOIN vip_subscriptions v ON v.user_id = u.user_tg_id AND v.expires_at > NOW() "
@@ -169,6 +168,27 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         partner_row = await c.fetchone()
     partner = partner_row[0] if partner_row else None
 
+    # whatsnew_seen_id вынесен из основного запроса и достаётся отдельно с мягкой
+    # деградацией: колонка создаётся миграцией init_db, но на проде FastAPI работает
+    # с lifespan="off", а деплой кода мог опередить рестарт бота с миграцией. Раньше
+    # ссылка на неё в основном SELECT роняла ВЕСЬ /profile/me в 500 — теперь профиль
+    # грузится, а поле деградирует в None (лента максимум разово покажет «Новое»).
+    whatsnew_seen_id = None
+    try:
+        async with db.execute(
+            "SELECT whatsnew_seen_id FROM users WHERE user_tg_id = ?", (user_id,)
+        ) as c:
+            _wn = await c.fetchone()
+        whatsnew_seen_id = _wn[0] if _wn else None
+    except Exception:
+        raw = getattr(db, "connection", None)  # снять возможный aborted-tx
+        if raw is not None:
+            try:
+                if raw.is_in_transaction():
+                    await raw.execute("ROLLBACK")
+            except Exception:
+                pass
+
     return {
         "user_id":      user_id,
         "username":     row["user_tg_username"],
@@ -196,7 +216,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "partner":      partner,
         "cosmetics":    await get_active_cosmetics(db, user_id),
         "system_flags": await _system_flags.get_all(db),
-        "whatsnew_seen_id": row["whatsnew_seen_id"],
+        "whatsnew_seen_id": whatsnew_seen_id,
     }
 
 
@@ -208,11 +228,23 @@ class WhatsNewSeenRequest(BaseModel):
 async def set_whatsnew_seen(body: WhatsNewSeenRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Отметить ленту «Что нового» прочитанной до записи seen_id (сервер — источник
     правды вместо localStorage, который Telegram WebView не гарантирует сохранным)."""
-    await db.execute(
-        "UPDATE users SET whatsnew_seen_id = ? WHERE user_tg_id = ?",
-        (body.seen_id, user["id"]),
-    )
-    await db.commit()
+    # Мягко: если колонки ещё нет на этом процессе (деплой опередил миграцию бота),
+    # не роняем запрос — отметка «прочитано» просто не сохранится до появления колонки.
+    try:
+        await db.execute(
+            "UPDATE users SET whatsnew_seen_id = ? WHERE user_tg_id = ?",
+            (body.seen_id, user["id"]),
+        )
+        await db.commit()
+    except Exception:
+        raw = getattr(db, "connection", None)
+        if raw is not None:
+            try:
+                if raw.is_in_transaction():
+                    await raw.execute("ROLLBACK")
+            except Exception:
+                pass
+        return {"ok": False, "pending_migration": True}
     return {"ok": True}
 
 
