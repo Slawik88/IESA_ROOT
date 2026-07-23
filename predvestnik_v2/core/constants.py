@@ -613,7 +613,13 @@ SAFE_ATTEMPTS: int = 6                 # попыток взлома
 # (fallback после cmd_suggest). Кулдаун+кап — т.к. каждый вопрос стоит денег
 # (внешний вызов Gemini API), в отличие от большинства других кулдаунов в игре.
 AI_ASSISTANT_COOLDOWN_SEC: int = 20        # между вопросами одного игрока
-AI_ASSISTANT_DAILY_CAP: int = 30           # вопросов в сутки на игрока
+AI_ASSISTANT_DAILY_CAP: int = 5            # вопросов в сутки БЕЗ VIP (block 8)
+# VIP поднимает дневной лимит вопросов к ИИ-помощнику: VIP-1М → 7, VIP-2М и любой
+# более длинный пак → 10. Ключи — id тиров из registry.VIP_TIERS; отсутствующий
+# тир (или нет активного VIP) падает на базовый AI_ASSISTANT_DAILY_CAP.
+AI_ASSISTANT_DAILY_CAP_BY_VIP: dict[str, int] = {
+    "1m": 7, "2m": 10, "3m": 10, "8m": 10, "12m": 10,
+}
 AI_ASSISTANT_MAX_QUESTION_LEN: int = 300   # символов, длиннее — просим сократить
 ALCHEMY_MIN_BET: float = 100.0
 ALCHEMY_MAX_BET: float = 2_000.0       # payout = ставка × min(3.0, счёт/1000) — см. services/alchemy.py

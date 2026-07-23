@@ -22,6 +22,7 @@ from loguru import logger
 from core.constants import (
     AI_ASSISTANT_COOLDOWN_SEC,
     AI_ASSISTANT_DAILY_CAP,
+    AI_ASSISTANT_DAILY_CAP_BY_VIP,
     AI_ASSISTANT_MAX_QUESTION_LEN,
     get_total_duplicates_for_level,
 )
@@ -258,10 +259,15 @@ def _auto_pets() -> str:
 
 def _auto_vip() -> str:
     from core.registry import VIP_TIERS
+    from core.constants import AI_ASSISTANT_DAILY_CAP, AI_ASSISTANT_DAILY_CAP_BY_VIP
     lines = ["Тарифы VIP (сгенерировано из кода, всегда актуально):"]
-    for t in VIP_TIERS.values():
+    for tid, t in VIP_TIERS.items():
+        cap = AI_ASSISTANT_DAILY_CAP_BY_VIP.get(tid, AI_ASSISTANT_DAILY_CAP)
         lines.append(f"- {t['label']}: {t['duration_days']} дн. за {t['price_zarniki']}✨"
-                     + (f", +{t['extra_slots']} слот(а) питомника" if t.get("extra_slots") else ""))
+                     + (f", +{t['extra_slots']} слот(а) питомника" if t.get("extra_slots") else "")
+                     + f", лимит вопросов ко мне {cap}/день")
+    lines.append(f"Без VIP лимит вопросов ко мне — {AI_ASSISTANT_DAILY_CAP}/день; с VIP больше "
+                 f"(VIP-1М — 7/день, VIP-2М и любой более длинный пак — 10/день).")
     return "\n".join(lines)
 
 
@@ -702,9 +708,23 @@ async def answer_question(
     if len(question) > AI_ASSISTANT_MAX_QUESTION_LEN:
         return f"🤖 Вопрос длинноват — уложись в {AI_ASSISTANT_MAX_QUESTION_LEN} символов.", None, None
 
+    # Дневной лимит зависит от VIP (block 8): базовый / VIP-1М=7 / VIP-2М и выше=10.
+    daily_cap = AI_ASSISTANT_DAILY_CAP
+    try:
+        from services.vip import get_vip_info
+        _vip = await get_vip_info(db, user_id)
+        if _vip:
+            daily_cap = AI_ASSISTANT_DAILY_CAP_BY_VIP.get(_vip["tier"], daily_cap)
+    except Exception:
+        pass  # VIP недоступен — остаёмся на базовом лимите, не роняем помощника
+
     count_today, last_at = await repo.get_usage_today(db, user_id)
-    if count_today >= AI_ASSISTANT_DAILY_CAP:
-        return "🤖 На сегодня вопросы к помощнику закончились — заходи завтра.", None, None
+    if count_today >= daily_cap:
+        # Подсказку про VIP показываем только тем, кто ещё не на максимуме лимита.
+        tip = "" if daily_cap >= max(AI_ASSISTANT_DAILY_CAP_BY_VIP.values()) \
+            else " 👑 С VIP лимит больше — до 10 вопросов в день."
+        return (f"🤖 На сегодня вопросы к помощнику закончились (лимит {daily_cap}/день) — "
+                f"обновится в полночь.{tip}"), None, None
     if last_at is not None:
         elapsed = (datetime.now(timezone.utc) - last_at).total_seconds()
         if elapsed < AI_ASSISTANT_COOLDOWN_SEC:
@@ -712,7 +732,7 @@ async def answer_question(
             return f"🤖 Не так быстро — подожди {left}с и спроси ещё раз.", None, None
 
     await repo.register_query(db, user_id)
-    remaining = AI_ASSISTANT_DAILY_CAP - count_today - 1
+    remaining = daily_cap - count_today - 1
 
     # Фигурные скобки в имени сломали бы .format системного промпта
     safe_name = (user_name or "путник").replace("{", "").replace("}", "")[:32]

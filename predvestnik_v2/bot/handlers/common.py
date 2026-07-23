@@ -832,9 +832,10 @@ async def cmd_ai_question(message: types.Message, ai_question: str, db):
         answer, remaining = "🤖 ИИ-помощник сейчас недоступен, попробуй чуть позже.", None
 
     if remaining is not None:
-        from core.constants import AI_ASSISTANT_DAILY_CAP
+        # Дневной лимит теперь зависит от VIP (block 8) — знаменатель у каждого свой,
+        # поэтому показываем только остаток, без «/N».
         answer += (f"\n\n<i>🔮 {random.choice(_AI_CLOSERS)}"
-                   f" · ✨ {remaining}/{AI_ASSISTANT_DAILY_CAP} на сегодня</i>")
+                   f" · ✨ осталось {remaining} на сегодня</i>")
 
     # Предложенное ИИ действие → кнопки подтверждения (владелец зашит в callback)
     action_kb = _ai_action_kb(action, message.from_user.id) if action else None
