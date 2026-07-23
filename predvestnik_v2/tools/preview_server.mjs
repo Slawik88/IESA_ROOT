@@ -645,6 +645,7 @@ const server = http.createServer((req, res) => {
   if (p.startsWith('/profile/u/')) {
     return send(res, 200, {
       user_id: 999, username: 'lilith_hhh', rank: '🌙 Владычица Бездны',
+      avatar: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
       level: 47, combat_power: 8420, messages: 39710, streak: 53, achievements: 8,
       achievements_total: 12,
       is_vip: true, vip_tier_label: 'VIP Gold',
