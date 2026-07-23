@@ -2284,8 +2284,23 @@ body.modal-open { overflow: hidden; }
 .wn-body { font-size: 11px; color: var(--text); margin-top: 3px; }
 
 /* ═══ СОСТОЯНИЯ ═════════════════════════════════════════════════════════════ */
-.loader { text-align: center; color: var(--muted); font-size: 12px; padding: 26px 0; }
-.loader::before { content: '🔮'; display: block; font-size: 26px; margin-bottom: 8px; animation: floaty 1.6s infinite; }
+.loader { text-align: center; color: var(--muted); font-size: 12px; padding: 26px 0; position: relative; }
+/* Парящий кристалл с мистической аурой — общий loading для ВСЕХ разделов (block 9).
+   Аура пульсирует за кристаллом (не блюр по тексту) — «залипательное» ожидание. */
+.loader::before {
+  content: '🔮'; display: block; width: 44px; height: 44px; line-height: 44px; margin: 0 auto 8px;
+  font-size: 28px; border-radius: 50%; animation: floaty 1.9s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(139,108,240,.28), transparent 68%);
+}
+.loader::after {
+  content: ''; position: absolute; top: 6px; left: 50%; width: 52px; height: 52px;
+  margin-left: -26px; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 22px 2px rgba(139,108,240,.28);
+  animation: loaderPulse 1.9s ease-in-out infinite;
+}
+@keyframes loaderPulse { 0%,100% { opacity: .35; transform: scale(.85); } 50% { opacity: .8; transform: scale(1.05); } }
+@media (prefers-reduced-motion: reduce) { .loader::before, .loader::after { animation: none; } .loader::after { opacity: .5; } }
+body.no-fx .loader::before, body.no-fx .loader::after { animation: none; }
 .err { color: var(--red); font-size: 12px; padding: 12px; background: rgba(239,99,99,.07);
   border: 1px solid rgba(239,99,99,.2); border-radius: 13px; margin-bottom: 10px; }
 .sk {
