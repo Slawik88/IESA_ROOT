@@ -556,7 +556,7 @@ function loadCraft() {
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span style="font-size:18px">${i.have>=i.needed?'✅':'❌'}</span>
             <div style="flex:1">
-              <div style="font-size:12px;font-weight:600">${i.item_name}</div>
+              <div style="font-size:12px;font-weight:600">${itemLink(i.item_id, i.item_name)}</div>
               <div style="font-size:10px;color:var(--muted)">${i.have} из ${i.needed} в инвентаре</div>
             </div>
             <div style="font-size:14px;font-weight:700;color:${i.have>=i.needed?'var(--green)':'var(--red)'}">${i.have}/${i.needed}</div>
