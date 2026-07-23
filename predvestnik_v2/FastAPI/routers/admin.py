@@ -219,6 +219,7 @@ async def admin_users(
     page: int = Query(1, ge=1),
     search: str = Query("", max_length=64),
     sort: str = Query("messages"),
+    flt: str = Query("", max_length=16, alias="filter"),
     db=Depends(get_db),
     user=Depends(require_tg_user),
 ):
@@ -240,6 +241,22 @@ async def admin_users(
         search_clause = " AND (LOWER(u.user_tg_username) LIKE LOWER(?) OR CAST(ucs.user_tg_id AS TEXT) LIKE ?)"
         params += [f"%{search}%", f"%{search}%"]
 
+    # Фильтр «только забаненные/кикнутые» (block 7.2): бан/кик/ЧС/глоб.бан живут НЕ в
+    # user_chat_stats, а в moderation_logs / chat_blacklist / global_sanctions (те же
+    # источники, что chat_sanctions_map рисует бейджами) — поэтому сужаем серверно;
+    # постранично клиент отфильтровал бы лишь текущую страницу (20 из N).
+    ban_clause = ""
+    if flt == "banned":
+        ban_clause = (
+            " AND ucs.user_tg_id IN ("
+            "SELECT user_id FROM moderation_logs WHERE chat_id = ? AND action IN ('ban','kick') "
+            "UNION SELECT user_id FROM chat_blacklist WHERE chat_id = ? "
+            "UNION SELECT target_id FROM global_sanctions WHERE target_type = 'user' "
+            "AND sanction_type = 'ban' AND revoked_at IS NULL "
+            "AND (expires_at IS NULL OR expires_at > NOW()))"
+        )
+        params += [chat_id, chat_id]
+
     query = (
         f"SELECT ucs.user_tg_id, u.user_tg_username, ucs.user_level, ucs.user_xp, "
         f"ucs.local_rank, ucs.warnings, ucs.is_immune, ucs.immune_until, ucs.is_left, "
@@ -248,14 +265,18 @@ async def admin_users(
         f"FROM user_chat_stats ucs "
         f"LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
         f"LEFT JOIN vip_subscriptions v ON v.user_id = ucs.user_tg_id AND v.expires_at > NOW() "
-        f"WHERE ucs.chat_tg_id = ? {search_clause} "
+        f"WHERE ucs.chat_tg_id = ? {search_clause}{ban_clause} "
         f"ORDER BY {sort_col} LIMIT {page_size} OFFSET {offset}"
     )
     async with db.execute(query, params) as c:
         rows = [dict(r) for r in await c.fetchall()]
 
-    count_query = f"SELECT COUNT(*) FROM user_chat_stats ucs LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id WHERE ucs.chat_tg_id = ?{search_clause}"
-    async with db.execute(count_query, params[:1] + params[1:]) as c:
+    count_query = (
+        f"SELECT COUNT(*) FROM user_chat_stats ucs "
+        f"LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
+        f"WHERE ucs.chat_tg_id = ?{search_clause}{ban_clause}"
+    )
+    async with db.execute(count_query, params) as c:
         total = (await c.fetchone())[0]
 
     # UX: статусы модерации у каждого участника (бан/кик/глоб.ЧС) — админ видит

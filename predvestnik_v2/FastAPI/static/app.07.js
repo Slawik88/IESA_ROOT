@@ -1,6 +1,6 @@
 // ── Admin Panel ───────────────────────────────────────────────────────────────
 let _adminChats=null, _adminChatId=0, _adminTab='dash';
-let _adminPage=1, _adminSearch='', _adminSort='messages', _adminSearchTimer=null;
+let _adminPage=1, _adminSearch='', _adminSort='messages', _adminSearchTimer=null, _adminFilter='';
 const _RANK_NAMES={0:'👤',1:'👁 Мод.',2:'👮 Мл.Адм',3:'👮 Адм',4:'🕵️ Ст.Адм',5:'👑 Совл.',6:'👑 Влад.'};
 
 function loadAdmin() {
@@ -86,7 +86,7 @@ function doChatLock(open) {
 function loadAdminUsers() {
   if(!_adminChatId) return;
   el('adm-users').innerHTML='<div class="loader">Загрузка...</div>';
-  api(`/admin/${_adminChatId}/users?page=${_adminPage}&search=${encodeURIComponent(_adminSearch)}&sort=${_adminSort}`)
+  api(`/admin/${_adminChatId}/users?page=${_adminPage}&search=${encodeURIComponent(_adminSearch)}&sort=${_adminSort}&filter=${_adminFilter}`)
     .then(d=>renderAdminUserTable(d))
     .catch(e=>{el('adm-users').innerHTML=`<div class="err">${e}</div>`;});
 }
@@ -102,6 +102,9 @@ function renderAdminUserTable(d) {
         <option value="rank" ${_adminSort==='rank'?'selected':''}>По рангу</option>
         <option value="warns" ${_adminSort==='warns'?'selected':''}>По варнам</option>
       </select>
+    </div>
+    <div style="margin-bottom:8px">
+      <button class="btn btn-sm ${_adminFilter==='banned'?'btn-red':'btn-ghost'}" style="width:100%" onclick="onAdminFilter('${_adminFilter==='banned'?'':'banned'}')">${_adminFilter==='banned'?'✅ ':''}🚫 Только забаненные и кикнутые</button>
     </div>
     <div class="card" style="padding:8px 14px">
       ${d.users.map(u=>{
@@ -123,6 +126,7 @@ function renderAdminUserTable(d) {
           <span style="font-size:10px;color:var(--muted)">ID ${u.user_tg_id} · ${u.user_messages_count_all_time||0} сообщ. · 📅 ${u.joined_at?fmtUTC(u.joined_at):'—'} · 🕓 ${u.last_message_at?fmtUTC(u.last_message_at):'—'}</span>
         </span>
         <span style="display:flex;gap:4px;flex:none">
+          ${(u.is_banned&&u.can_ban)?`<button class="btn btn-sm btn-gold" style="padding:4px 8px" title="Разбанить одним тапом" onclick='doAdminUnban(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)})'>🔓</button>`:''}
           ${u.can_act?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban,s:u.can_shield,i:u.can_immune})})'>⚡</button>`:''}
           ${u.can_set_rank?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px" title="Сменить ранг" onclick='openRankModal(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${u.local_rank||0})'>🎖</button>`:''}
         </span>
@@ -143,6 +147,17 @@ function onAdminSearch(v) {
   _adminSearchTimer=setTimeout(()=>{ _adminSearch=v; _adminPage=1; loadAdminUsers(); },400);
 }
 function onAdminSort(v) { _adminSort=v; _adminPage=1; loadAdminUsers(); }
+function onAdminFilter(v) { _adminFilter=v; _adminPage=1; loadAdminUsers(); }
+// Разбан одним тапом прямо из списка (block 7.2): unban_user — полная амнистия
+// (TG-разбан + журнал + выход из ЧС), тот же путь, что бот-команда «разбан».
+function doAdminUnban(userId, userName) {
+  api(`/admin/${_adminChatId}/action`,{method:'POST',body:JSON.stringify({user_id:userId,action:'unban',reason:null})})
+    .then(r=>{
+      if(r.telegram_ok===false){ toast('Не удалось разбанить: Telegram недоступен',false); return; }
+      toast(`🔓 Разбанен: ${userName||'ID'+userId}`); loadAdminUsers();
+    })
+    .catch(e=>toast(e,false));
+}
 
 function openAdminAction(userId, userName, perms) {
   // Map each action to its permission flag (unwarn shares warn perm, unmute shares mute perm,
