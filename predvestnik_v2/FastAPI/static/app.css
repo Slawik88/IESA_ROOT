@@ -2303,6 +2303,21 @@ body.modal-open { overflow: hidden; }
 body.no-fx .loader::before, body.no-fx .loader::after { animation: none; }
 .err { color: var(--red); font-size: 12px; padding: 12px; background: rgba(239,99,99,.07);
   border: 1px solid rgba(239,99,99,.2); border-radius: 13px; margin-bottom: 10px; }
+/* Кнопка «Назад» в браузере (в Telegram — нативная BackButton). Возврат на
+   предыдущую страницу без ручного поиска вкладки. */
+#nav-back {
+  position: fixed; left: 12px; bottom: 78px; z-index: 50;
+  display: inline-flex; align-items: center; gap: 2px;
+  background: var(--bg3); color: var(--bright); border: 1px solid var(--border2);
+  border-radius: 999px; padding: 8px 15px 8px 11px;
+  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.5);
+  animation: navBackIn .24s cubic-bezier(.22,1,.36,1) both;
+}
+#nav-back:active { transform: scale(.96); }
+#nav-back.hidden { display: none; }
+@keyframes navBackIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #nav-back { animation: none; } }
 .sk {
   background: linear-gradient(90deg, var(--bg2) 25%, var(--bg3) 50%, var(--bg2) 75%);
   background-size: 900px 100%; animation: shimmer 1.4s infinite linear; border-radius: var(--r-sm);

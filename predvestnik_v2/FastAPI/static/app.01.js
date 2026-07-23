@@ -453,6 +453,8 @@ document.addEventListener('click', ()=>{ setTimeout(_updateTabMasks, 350); }, tr
 
 // ── Navigation ────────────────────────────────────────────────────────────────
 const _loaded=new Set();
+// История страниц для кнопки «Назад» (нативная Telegram BackButton + фолбэк в браузере).
+const _navStack=[];
 // Единая маршрутизация по ИМЕНИ страницы. Подсветка нижнего дока — по data-page;
 // вторичные разделы (открытые через «Ещё») подсвечивают «Ещё».
 let _activePage = 'profile';
@@ -483,8 +485,15 @@ function _showMaintenance(pg) {
   </div>`;
 }
 
-function switchPage(name, _btn) {
+function switchPage(name, _btn, _viaBack) {
   if(!el('pg-'+name)) return;
+  // История для «Назад»: перед уходом кладём ТЕКУЩУЮ страницу (кроме перехода
+  // назад и повторного клика по той же). Без дублей подряд, кап 25.
+  if(!_viaBack && _activePage && _activePage !== name &&
+     _navStack[_navStack.length-1] !== _activePage){
+    _navStack.push(_activePage);
+    if(_navStack.length>25) _navStack.shift();
+  }
   _activePage = name;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
@@ -497,9 +506,38 @@ function switchPage(name, _btn) {
   api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:name,session_id:_analyticsSession})}).catch(()=>{});
   if(!_loaded.has(name)){
     _loaded.add(name);
-    if(!_isPageEnabled(name)){ _showMaintenance(name); return; }
+    if(!_isPageEnabled(name)){ _showMaintenance(name); _syncBackButton(); return; }
     (_PAGE_LOADERS[name] || (() => {}))();
   }
+  _syncBackButton();
+}
+// ── Кнопка «Назад»: возвращает на предыдущую страницу без ручного поиска вкладки ──
+let _tgBackWired=false;
+function _syncBackButton(){
+  const has=_navStack.length>0;
+  // Нативную Telegram BackButton используем ТОЛЬКО реально внутри Telegram
+  // (непустой initData): в обычном браузере объект tg.BackButton существует, но
+  // не работает — там показываем свою кнопку-фолбэк.
+  const inTg=!!(tg && tg.initData && tg.BackButton);
+  if(inTg){
+    try{
+      if(!_tgBackWired){ tg.BackButton.onClick(navBack); _tgBackWired=true; }
+      if(has) tg.BackButton.show(); else tg.BackButton.hide();
+    }catch(e){}
+  }
+  let btn=el('nav-back');
+  if(!btn && has && !inTg){
+    btn=document.createElement('button');
+    btn.id='nav-back'; btn.type='button'; btn.setAttribute('aria-label','Назад');
+    btn.innerHTML='‹ Назад'; btn.onclick=navBack;
+    document.body.appendChild(btn);
+  }
+  if(btn) btn.classList.toggle('hidden', !has || inTg);
+}
+function navBack(){
+  if(!_navStack.length) return;
+  const prev=_navStack.pop();
+  switchPage(prev, null, true);
 }
 function _trackSubtab(path){api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:path,session_id:_analyticsSession})}).catch(()=>{});}
 
