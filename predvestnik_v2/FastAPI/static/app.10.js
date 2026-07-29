@@ -10,6 +10,7 @@ const _LOOKS_SECTIONS=[..._LOOKS_SLOTS,'welcome','themes'];
 let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false, _looksFocus=null;
 let _looksPresets=[];  // кэш пресетов текущей сессии
 let _looksFilter='all';                // фильтр ЛИНЕЙКИ (id из _looksData.lineups) — общий для ВСЕХ секций разом
+let _looksStatus='all';                // фильтр СТАТУСА: all|owned|missing — независимое второе измерение (см. аудит 2026-07-29)
 // Редизайн 2026-07-29: редкость (common→artifact) заменена ЛИНЕЙКАМИ (тематические
 // коллекции, core/cosmetics.py::LINEUPS) — фильтр/бейджи теперь по линейке, не по
 // редкости. `rarity` на предмете остался ТЕХНИЧЕСКИМ полем (ценовой ярус, VIP-гейт,
@@ -28,7 +29,7 @@ function lineupColor(id){ return LINEUP_COLOR[id]||'#9aa7b8'; }
 // Полноэкранный экран «Внешний вид» (был модалкой). Имя openLooksModal сохранено —
 // его зовут старые точки входа (профиль/маркет), диплинки и «назад» из под-шитов.
 function openLooksModal(){
-  _looksFilter='all'; _looksFocus=null;
+  _looksFilter='all'; _looksStatus='all'; _looksFocus=null;
   switchPage('looks');
   if(_looksData){ renderLooks(); return; }        // из кэша — БЕЗ пере-запроса (убирает лаги навигации)
   _looksDirty=false;
@@ -91,7 +92,7 @@ function _looksFilterHtml(){
   return `<div class="looks-filter" id="looks-filter-bar">
     <button class="looks-chip${_looksFilter==='all'?' active':''}" data-lin="all" onclick="_looksSetFilter('all')">Все</button>
     ${lineups.map(lid=>`<button class="looks-chip${lid===_looksFilter?' active':''}" data-lin="${lid}" onclick="_looksSetFilter('${lid}')">${esc(lineupLabel(lid))}</button>`).join('')}
-  </div><div id="looks-lineup-info">${_looksLineupInfoHtml()}</div>`;
+  </div>${_looksStatusFilterHtml()}<div id="looks-lineup-info">${_looksLineupInfoHtml()}</div>`;
 }
 // Фильтр общий для всех секций разом — перерисовываем сетку в каждой (заголовки/якоря не трогаем).
 function _looksSetFilter(lin){
@@ -100,6 +101,22 @@ function _looksSetFilter(lin){
   if(bar) bar.querySelectorAll('.looks-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-lin')===lin));
   _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
   const info=el('looks-lineup-info'); if(info) info.innerHTML=_looksLineupInfoHtml();
+  _looksSyncStickyH();
+}
+// Второе, независимое измерение фильтра — статус владения (аудит 2026-07-29: у ТЕМ в
+// этой же вкладке уже был Все/Мои/Премиум, у косметики такого не было — с 89 предметами
+// в каталоге искать «что ещё не куплено» без него неудобно). AND с фильтром линейки.
+const _LOOKS_STATUS_LABEL={all:'Все',owned:'✓ Куплено',missing:'🔒 Не куплено'};
+function _looksStatusFilterHtml(){
+  return `<div class="looks-filter looks-filter--status" id="looks-status-bar">
+    ${Object.keys(_LOOKS_STATUS_LABEL).map(k=>`<button class="looks-chip${k===_looksStatus?' active':''}" data-st="${k}" onclick="_looksSetStatus('${k}')">${_LOOKS_STATUS_LABEL[k]}</button>`).join('')}
+  </div>`;
+}
+function _looksSetStatus(st){
+  _looksStatus=st;
+  const bar=el('looks-status-bar');
+  if(bar) bar.querySelectorAll('.looks-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-st')===st));
+  _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
   _looksSyncStickyH();
 }
 // Карточка-плашка с полной коммерческой инфой линейки (цена/VIP/описание) —
@@ -130,16 +147,12 @@ function _looksRenderTop(){
   const t=el('looks-top'); if(!t) return;
   t.innerHTML=_looksPreviewHtml();
 }
-// Мини-карточка профиля из набора слотов sel — общий рендерер для всех размеров:
-// size='mini' (сравнение «Сейчас→Станет»), size='hero' (витрина примерки, крупный
-// план), без size — обычный (карточка «Сейчас» в витрине примерки).
-// Раньше было 2 независимые копии этой функции (расходились только CSS-модификатором
-// размера) — снесены в одну, чтобы не плодить точки будущего расхождения разметки.
-function _looksRenderCard(sel,size){
+// Мини-карточка профиля из набора слотов sel для сравнения «Сейчас → Станет».
+function _looksRenderCard(sel){
   const d=_looksData;
   const glow=_looksCos(sel.name_glow), frame=_looksCos(sel.avatar_frame), title=_looksCos(sel.title);
   const halo=_looksCos(sel.avatar_halo), bg=_looksCos(sel.profile_bg), fx=_looksCos(sel.card_fx);
-  const sizeCls=size==='mini'?' looks-preview--mini':size==='hero'?' looks-preview--hero':'';
+  const sizeCls=' looks-preview--mini';
   return `<div class="looks-preview${sizeCls} ${bg?bg.css:''}">
     ${fx?`<div class="card-fx ${fx.css}"></div>`:''}
     <div class="ava ${frame?frame.css:''} ${halo?halo.css:''}">${d.vip?'👑':'🔮'}</div>
@@ -160,9 +173,9 @@ function _looksPreviewHtml(){
     ?`<div class="looks-ba-act"><button class="btn btn-sm btn-ghost btn-full" onclick="_looksReset()">↩ Сбросить примерку</button></div>`
     :`<div class="looks-ba-hint">👇 Жми предмет — примерка сразу здесь. Понравилось — «Применить».</div>`;
   return `<div class="looks-ba">
-      <div class="looks-ba-col"><div class="looks-ba-lbl">Сейчас</div>${_looksRenderCard(_looksSaved,'mini')}</div>
+      <div class="looks-ba-col"><div class="looks-ba-lbl">Сейчас</div>${_looksRenderCard(_looksSaved)}</div>
       <div class="looks-ba-arrow">${diff?'➜':'='}</div>
-      <div class="looks-ba-col"><div class="looks-ba-lbl ${diff?'looks-ba-lbl--new':''}">Станет</div>${_looksRenderCard(_looksHeroSel(),'mini')}</div>
+      <div class="looks-ba-col"><div class="looks-ba-lbl ${diff?'looks-ba-lbl--new':''}">Станет</div>${_looksRenderCard(_looksHeroSel())}</div>
     </div>${_looksBuyBarHtml()}${actions}`;
 }
 // Инлайн-плашка покупки под превью — когда последний выбранный предмет ещё не куплен.
@@ -185,24 +198,14 @@ function _looksBuyFocus(){
   const f=_looksFocus; if(!f) return;
   _looksBuyFromPreview(f.id, 0, f.slot);   // купить + надеть + перезагрузить (reuse)
 }
-// Топ-редкость слота среди ещё НЕ купленного — витрина-спотлайт (только при фильтре «Все»).
-function _looksSpotlight(slot){
-  if(_looksFilter!=='all') return null;
-  const cand=(_looksData.slots[slot]||[]).filter(it=>!it.owned);
-  if(!cand.length) return null;
-  const order=Object.keys(RARITY_META);
-  cand.sort((a,b)=>order.indexOf(b.rarity)-order.indexOf(a.rarity));
-  return cand[0];
-}
 function _looksGridHtml(slot){
-  const spot=_looksSpotlight(slot);
   const items=(_looksData.slots[slot]||[]).filter(it=>
-    (_looksFilter==='all'||it.lineup===_looksFilter) && (!spot||it.id!==spot.id));
-  const spotHtml=spot?`<div class="looks-spotlight">${_looksCard(slot,spot,true)}</div>`:'';
+    (_looksFilter==='all'||it.lineup===_looksFilter) &&
+    (_looksStatus==='all'||(_looksStatus==='owned'?it.owned:!it.owned)));
   const none=`<div class="looks-card ${_looksShownId(slot)==null?'sel':''}" data-cos="__none__" onclick="_looksUnequip('${slot}')">
     <div class="lc-sw lc-sw--none">✖</div><div class="lc-name">Без</div></div>`;
-  const empty=items.length?'':'<div class="looks-empty">Нет предметов этой линейки</div>';
-  return `${spotHtml}<div class="looks-cards">${none}${items.map(it=>_looksCard(slot,it)).join('')}${empty}</div>`;
+  const empty=items.length?'':'<div class="looks-empty">Нет предметов по этому фильтру</div>';
+  return `<div class="looks-cards">${none}${items.map(it=>_looksCard(slot,it)).join('')}${empty}</div>`;
 }
 // Мини-превью реального эффекта в карточке (а не просто текст).
 function _looksSwatch(slot,it){
@@ -218,94 +221,25 @@ function _looksSwatch(slot,it){
     default:             return `<div class="lc-sw"></div>`;
   }
 }
-function _looksCard(slot,it,spotlight){
+function _looksCard(slot,it){
   const sel=_looksShownId(slot)===it.id;
   const sw=_looksSwatch(slot,it);
   // Бейдж линейки вместо редкости — цвет линейки (не редкости), r-{rarity} на
   // самой карточке ниже оставлен как есть (рамка-подсветка по ценовому ярусу
   // всё ещё осмысленна, просто больше не подписана текстом отдельно).
   const rar=`<span class="lc-rar" style="color:${lineupColor(it.lineup)}">${esc(lineupLabel(it.lineup))}</span>`;
-  const spotBadge=spotlight?'<div class="lc-spot-badge">★ Топ слота</div>':'';
   if(it.owned){
     const offBadge=it.vip_locked_inactive?'<span class="lc-vip-off">⏸ нужна VIP</span>':'';
     return `<div class="looks-card r-${it.rarity} ${sel?'sel':''} ${it.vip_locked_inactive?'lc-dim':''}" data-cos="${it.id}" onclick="_looksEquip('${slot}','${it.id}')">
-      ${spotBadge}${sw}<div class="lc-name">${esc(it.name)}</div>
+      ${sw}<div class="lc-name">${esc(it.name)}</div>
       <div class="lc-foot">${rar}${offBadge}${(!it.vip_locked_inactive&&_looksSaved[slot]===it.id)?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
   }
   // Непокупленный предмет — тап примеряет его в hero и показывает плашку покупки (без 2-й модалки)
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
   const priceTxt=it.price&&it.price.length?`<span class="lc-price-hint">${_looksPriceTxt(it.price[0])} ✨</span>`:'';
   return `<div class="looks-card r-${it.rarity} locked lc-buyable ${sel?'sel':''}" data-cos="${it.id}" onclick="_looksTapUnowned('${slot}','${it.id}')">
-    ${spotBadge}${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
+    ${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
     <div class="lc-foot">${rar}${priceTxt}<span class="lc-prev-hint">👁</span></div></div>`;
-}
-// Превью-модалка (витрина примерки): полноэкранный показ косметики до покупки,
-// с пролистыванием ‹/› по остальным предметам того же слота+фильтра (без выхода
-// в сетку и обратно — чисто по уже закэшированным _looksData, без новых запросов).
-let _cosPrevSlot=null, _cosPrevList=[], _cosPrevIdx=0;
-function _showCosmeticPreview(slot,id){
-  if(!_looksData) return;
-  const all=_looksData.slots[slot]||[];
-  _cosPrevSlot=slot;
-  _cosPrevList=_looksFilter==='all'?all:all.filter(it=>it.lineup===_looksFilter);
-  const idx=_cosPrevList.findIndex(it=>it.id===id);
-  _cosPrevIdx=idx>=0?idx:0;
-  _renderCosmeticPreview();
-}
-function _cosPrevNav(dir){
-  if(!_cosPrevList.length) return;
-  _cosPrevIdx=(_cosPrevIdx+dir+_cosPrevList.length)%_cosPrevList.length;
-  _renderCosmeticPreview();
-}
-function _renderCosmeticPreview(){
-  const it=_cosPrevList[_cosPrevIdx]; if(!it) return;
-  const slot=_cosPrevSlot;
-
-  // «После» — показываем только выбранный слот поверх текущего набора, крупным планом
-  const afterSel=Object.assign({},_looksSaved); afterSel[slot]=it.id;
-  const beforeCard=_looksRenderCard(_looksSaved);
-  const afterCard=_looksRenderCard(afterSel,'hero');
-
-  const rc_=lineupColor(it.lineup), rl_=lineupLabel(it.lineup);
-  const bal=_looksData.balances||{};
-
-  let priceHtml='';
-  if(it.owned){
-    priceHtml=`<div class="cos-prev-lock">${_looksSaved[slot]===it.id?'✓ уже надето':'✓ уже в коллекции'}</div>`;
-  } else if(it.price&&it.price.length){
-    const opt=it.price[0];
-    const can=Object.entries(opt).every(([cur,amt])=>(bal[cur]||0)>=amt);
-    const lbl=_looksPriceTxt(opt)+' ✨';
-    const zarBtn=`<button class="btn btn-gold cos-prev-buy${can?'':' lc-buy--no'}" onclick="_looksBuyFromPreview('${it.id}',0,'${slot}')">${can?'✨ Купить за':'🚫 Нужно'} ${lbl}</button>`;
-    const nomoney=!can?`<div class="cos-prev-nomoney">Нет зарников? Пополни через раздел VIP/Зарники ✨</div>`:'';
-    const vipWarn=(!_looksData.vip&&it.rarity&&it.rarity!=='common')
-      ?`<div class="cos-prev-vipwarn">⚠️ Без VIP-подписки косметика сохранится в инвентаре, но не будет отображаться на профиле.
-        <button class="btn btn-xs btn-gold" onclick="CM();goTo('market','vip')">Получить VIP ›</button></div>` : '';
-    priceHtml=`<div class="cos-prev-price">${zarBtn}${nomoney}${vipWarn}</div>`;
-  } else {
-    priceHtml=`<div class="cos-prev-lock">${_srcLabel(it.source)||'Не продаётся'}</div>`;
-  }
-
-  const body=`<div class="cos-prev-modal">
-    <div class="cos-prev-header">
-      <span class="cos-prev-rar" style="color:${rc_}">${rl_}</span>
-      <span class="cos-prev-name">${esc(it.name)}</span>
-    </div>
-    <div class="cos-prev-desc">${esc(it.desc||'')}</div>
-    <div class="cos-prev-cards">
-      <div class="cos-prev-col"><div class="cos-prev-lbl">Сейчас</div>${beforeCard}</div>
-      <div class="cos-prev-arrow">✨</div>
-      <div class="cos-prev-col cos-prev-col--hero"><div class="cos-prev-lbl cos-prev-lbl--new">Станет</div>${afterCard}</div>
-    </div>
-    ${priceHtml}
-  </div>`;
-
-  const nav=_cosPrevList.length>1;
-  OM('👁 Примерка',body,[
-    ...(nav?[{l:'‹',c:'btn-ghost',f:'_cosPrevNav(-1)'}]:[]),
-    {l:'← Назад',c:'btn-ghost',f:'openLooksModal()'},
-    ...(nav?[{l:'›',c:'btn-ghost',f:'_cosPrevNav(1)'}]:[]),
-  ]);
 }
 function _looksBuyFromPreview(id,opt,slot){
   api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})

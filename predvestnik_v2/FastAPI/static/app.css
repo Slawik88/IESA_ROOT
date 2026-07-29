@@ -1861,12 +1861,6 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
 .looks-preview--mini .ava { width: 46px; height: 46px; font-size: 24px; margin-bottom: 6px; }
 .looks-preview--mini .pname { font-size: 13px; }
 .looks-preview--mini .ptitle { font-size: 10px; }
-/* Витрина примерки — «После»-карточка крупнее и в фокусе (примерочная, БЛОК 20.A) */
-.looks-preview--hero { padding: 22px 0; }
-.looks-preview--hero .ava { width: 88px; height: 88px; font-size: 42px; margin-bottom: 10px; }
-.looks-preview--hero .pname { font-size: 20px; }
-.looks-preview--hero .ptitle { font-size: 12px; }
-.cos-prev-col--hero { flex: 1.4; }
 .looks-ba-act { display: flex; gap: 8px; margin: 2px 0 12px; }
 .looks-ba-act .btn { flex: 1; }
 .looks-ba-hint { font-size: 10px; color: var(--muted); text-align: center; margin: 2px 0 12px; line-height: 1.4; }
@@ -1883,8 +1877,15 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
 .looks-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 11px; padding: 14px 0; }
 /* Панель вкладок слотов «Внешнего вида» — переиспользует .tabs/.tb, id только для JS */
 #looks-tabs { margin-bottom: 10px; }
-/* Фильтр по редкости — компактные чипы над сеткой (не такие крупные, как .tb) */
-.looks-filter { display: flex; gap: 5px; overflow-x: auto; margin-bottom: 8px; scrollbar-width: none; }
+/* Фильтр по линейке — компактные чипы над сеткой (не такие крупные, как .tb).
+   Ряд шире экрана (8 чипов на 390px) — mask-image гасит край, подсказывая, что
+   можно проскроллить вбок (иначе крайние линейки просто никто не находит,
+   аудит 2026-07-29: "И..." обрублен без всякого намёка на скролл). */
+.looks-filter {
+  display: flex; gap: 5px; overflow-x: auto; margin-bottom: 8px; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+}
 .looks-filter::-webkit-scrollbar { display: none; }
 .looks-chip {
   flex: none; border: 1px solid var(--border2); background: var(--s); color: var(--muted);
@@ -1893,13 +1894,12 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
 }
 .looks-chip:active { transform: scale(.94); }
 .looks-chip.active { color: #1a1405; font-weight: 800; background: var(--gold); border-color: var(--gold); }
-/* Спотлайт — витрина топ-редкости слота (некупленный), не дублируется в сетке ниже.
-   Та же вертикальная карточка, что и в сетке, просто крупнее и во всю ширину. */
-.looks-spotlight { margin-bottom: 8px; }
-.looks-spotlight .looks-card { width: 100%; padding: 10px; }
-.looks-spotlight .lc-sw { height: 84px; }
-.looks-spotlight .lc-name { font-size: 13px; }
-.lc-spot-badge { font-size: 9px; font-weight: 700; color: var(--gold2); letter-spacing: .3px; }
+/* Второй ряд — фильтр статуса владения (аудит 2026-07-29). Бирюзовый акцент вместо
+   золотого, чтобы визуально не спорить с рядом линеек над ним — это не альтернативный
+   выбор той же природы, а независимое второе измерение фильтра. */
+.looks-filter--status { margin-top: -2px; margin-bottom: 8px; }
+.looks-filter--status .looks-chip { font-size: 9.5px; padding: 3px 9px; }
+.looks-filter--status .looks-chip.active { color: #06201e; background: var(--teal); border-color: var(--teal); }
 .looks-card:active { transform: scale(.97); }
 .looks-card.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 14px rgba(201,168,76,.18); background: var(--gold-dim, rgba(201,168,76,.1)); }
 .looks-card.locked { cursor: pointer; }
@@ -1948,24 +1948,6 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
 
 /* ── Превью-модалка косметики (примерочная) ─────────────────────────────────── */
 /* Тот же reveal, что и у открытия сундука (chestPop) — не отдельная анимационная система. */
-.cos-prev-modal { text-align: center; animation: chestPop .3s cubic-bezier(.34,1.56,.64,1); }
-.cos-prev-header { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 5px; flex-wrap: wrap; }
-.cos-prev-rar { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
-.cos-prev-name { font-size: 18px; font-weight: 800; color: var(--bright); }
-.cos-prev-desc { font-size: 12.5px; color: var(--muted); margin: 4px 0 14px; line-height: 1.5; }
-.cos-prev-cards { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 16px; }
-.cos-prev-col { flex: 1; min-width: 0; }
-.cos-prev-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); text-align: center; margin-bottom: 4px; }
-.cos-prev-lbl--new { color: var(--gold2); font-weight: 700; }
-.cos-prev-arrow { font-size: 20px; color: var(--gold2); flex: 0 0 auto; align-self: center; }
-.cos-prev-price { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.cos-prev-buy { font-size: 15px !important; padding: 11px 28px !important; width: 100%; }
-.cos-prev-lock { font-size: 13px; color: var(--muted); margin: 10px 0; }
-.cos-prev-nomoney { font-size: 11px; color: var(--muted); }
-.cos-prev-vipwarn { font-size: 11px; color: var(--gold2); background: rgba(212,175,55,.08); border: 1px solid rgba(212,175,55,.25); border-radius: 6px; padding: 7px 10px; text-align: center; width: 100%; }
-.cos-prev-vipwarn .btn { margin-top: 5px; font-size: 11px !important; padding: 4px 12px !important; }
-.cos-prev-cards .looks-preview { margin-bottom: 0; }
-.cos-prev-buy-stars:active { opacity: .8; }
 
 /* Пресеты образов */
 .looks-presets { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; padding: 8px 10px; background: var(--surface2); border-radius: 10px; }
