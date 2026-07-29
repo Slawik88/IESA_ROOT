@@ -1874,7 +1874,8 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
   transition: border-color .15s, transform .1s, box-shadow .2s;
 }
 .looks-card.lc-wide { grid-column: span 2; }   /* приветствия — шире (текст-описание) */
-.looks-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 11px; padding: 14px 0; }
+.looks-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 10px; padding: 18px 12px; border: 1px dashed var(--border2); border-radius: 12px; background: rgba(255,255,255,.015); }
+.looks-empty-ico { font-size: 20px; opacity: .4; margin-bottom: 6px; }
 /* Панель вкладок слотов «Внешнего вида» — переиспользует .tabs/.tb, id только для JS */
 #looks-tabs { margin-bottom: 10px; }
 /* Умный ряд (Стадия 1, 2026-07-29): поиск + пилюля линейки + переключатель
