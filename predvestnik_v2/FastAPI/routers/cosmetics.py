@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_tab_enabled
 from services.cosmetics import (
     buy, equip, get_catalog, set_welcome, unequip,
     chest_catalog, open_chest, craft_catalog, craft_cosmetic,
@@ -17,7 +17,14 @@ from services.cosmetics import (
     list_presets, save_preset, apply_preset, delete_preset,
 )
 
-router = APIRouter(prefix="/cosmetics", tags=["cosmetics"])
+# Баг 2026-07-29: владелец выключил "Косметика/Образы" в "Глобальные модули"
+# (system_flags.tab_cosmetics) — вкладка пропала из меню, но /cosmetics/buy
+# продолжал молча принимать покупки, т.к. НИКТО не проверял этот флаг на
+# бэке (в отличие от shop.py/gacha.py и др., где require_module() уже стоял).
+# Игроки успели докупить старую косметику ПОСЛЕ отключения. require_tab_enabled
+# закрывает ВЕСЬ роутер разом — так же, как shop.py закрывает module_shop.
+router = APIRouter(prefix="/cosmetics", tags=["cosmetics"],
+                    dependencies=[Depends(require_tab_enabled("tab_cosmetics"))])
 
 
 async def _tg_dm(user_id: int, text: str) -> None:

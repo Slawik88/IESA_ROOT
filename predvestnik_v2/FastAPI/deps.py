@@ -239,3 +239,23 @@ def require_module(module_key: str):
             raise HTTPException(403, "🔧 Этот раздел временно отключён глобально.")
 
     return _check
+
+
+def require_tab_enabled(flag_key: str):
+    """FastAPI dependency factory для GLOBAL-ONLY флагов из system_flags
+    (админка «Глобальные модули», infrastructure/repositories/system_flags.py).
+
+    Отдельно от require_module() выше: тот читает global_module_toggles/
+    chat_settings (per-chat + отдельная global-таблица), этот — system_flags
+    (только global, ключи tab_*). Раньше system_flags использовался ТОЛЬКО как
+    UI-хинт (profile.py отдаёт его фронту, чтобы спрятать вкладку) — сам тумблер
+    ничего на бэке не блокировал. Баг 2026-07-29: владелец выключил
+    "Косметика/Образы" в админке, а /cosmetics/buy продолжал молча принимать
+    покупки — вкладка пропадала из меню, но прямой запрос к API проходил."""
+    from infrastructure.repositories import system_flags as _flags_repo
+
+    async def _check(db=Depends(get_db)):
+        if not await _flags_repo.is_enabled(db, flag_key):
+            raise HTTPException(403, "🔧 Этот раздел временно отключён.")
+
+    return _check
