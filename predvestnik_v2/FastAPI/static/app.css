@@ -1538,6 +1538,276 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
   0%,100% { color: #ffe9b3; text-shadow: 0 0 4px rgba(255,210,110,.55); }
   50%     { color: #fff8e0; text-shadow: 0 0 9px rgba(255,230,150,.85); }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ЛИНЕЙКИ (редизайн 2026-07-29, core/cosmetics.py::LINEUPS) — 33 новых предмета
+   для 6 линеек (Артефакт/Лесной Странник/Инферно/Небесное Сияние/Изморозь/
+   Порог; Бездна — 100% переиспользование, новых предметов нет). Значения
+   скопированы 1:1 из predvestnik_v2/tools/artifact_fx_prototypes.html —
+   владелец долго вычитывал каждый эффект там, менять на глаз здесь нельзя.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* .ava имеет overflow:hidden (обрезка эмодзи-аватара по скруглённым углам) —
+   но 4 новых эффекта ниже используют ::before/::after с ОТРИЦАТЕЛЬНЫМ inset,
+   выходящим ЗА границу .ava (кольцо данных/лоза/угли шире самого аватара).
+   Без снятия overflow они бы просто не рисовались вообще (обрезаны молча,
+   без ошибки) — нашёл это ДО деплоя, сравнив .ava мокета (без overflow:hidden)
+   с боевым .ava. Остальные 85+ предметов overflow:hidden не теряют — селектор
+   точечный, только по этим 4 классам. */
+.ava.frame-artifact-data, .ava.halo-artifact-grid,
+.ava.frame-vine, .ava.frame-coal { overflow: visible; }
+
+/* ── Артефакт: 4 новых (frame-artifact-data/halo-artifact-grid/pbg-artifact-matrix/
+   title-artifact-glitch). Рамка = ::before, гало = ::after — конвенция на все
+   пары рамка+гало в игре, никогда не столкнутся друг с другом. */
+@property --dataAngle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.frame-artifact-data {
+  box-shadow: 0 0 0 1px rgba(63,224,224,.2), 0 0 8px 1px rgba(63,224,224,.2);
+}
+.frame-artifact-data::before {
+  content: ''; position: absolute; inset: -3px; border-radius: inherit; padding: 2px;
+  background: repeating-conic-gradient(from var(--dataAngle),
+    #3fe0e0 0deg 8deg, transparent 8deg 20deg, #ff50c8 20deg 24deg, transparent 24deg 40deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  filter: drop-shadow(0 0 3px rgba(63,224,224,.5));
+  animation: dataRingSpin 6s linear infinite;
+}
+@keyframes dataRingSpin { to { --dataAngle: 360deg; } }
+.halo-artifact-grid::after {
+  content: ''; position: absolute; inset: -13px; border-radius: 50%;
+  background: repeating-conic-gradient(from var(--dataAngle), rgba(120,240,255,.4) 0deg .8deg, transparent .8deg 30deg);
+  mix-blend-mode: screen; animation: dataRingSpin 11s linear infinite reverse;
+  pointer-events: none;
+}
+.hero.pbg-artifact-matrix, .looks-preview.pbg-artifact-matrix, .lc-bg.pbg-artifact-matrix {
+  background: repeating-linear-gradient(90deg, rgba(63,224,224,.05) 0 1px, transparent 1px 14px), linear-gradient(180deg, #030608, #050b0a);
+  position: relative;
+}
+.hero.pbg-artifact-matrix::after, .looks-preview.pbg-artifact-matrix::after, .lc-bg.pbg-artifact-matrix::after {
+  content: ''; position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(180deg, transparent 0 40px, rgba(63,224,224,.35) 40px 42px, transparent 42px 90px);
+  background-size: 100% 220%; animation: matrixFall 9s linear infinite;
+  mix-blend-mode: screen; opacity: .5;
+}
+@keyframes matrixFall { from { background-position: 0 -120%; } to { background-position: 0 0%; } }
+.ptitle.title-artifact-glitch, .top-title.title-artifact-glitch, .lc-title.title-artifact-glitch {
+  color: #eafffd; display: inline-block; animation: titleGlitchBase 4s ease-in-out infinite;
+}
+@keyframes titleGlitchBase {
+  0%,92%,100% { text-shadow: 0 0 4px rgba(63,224,224,.5); transform: translate(0,0); }
+  93%  { text-shadow: -2px 0 rgba(255,50,90,.8), 2px 0 rgba(50,220,255,.8); transform: translate(-1px,0); }
+  94%  { text-shadow: 0 0 4px rgba(63,224,224,.5); transform: translate(0,0); }
+  95%  { text-shadow: 2px 0 rgba(255,50,90,.7), -2px 0 rgba(50,220,255,.7); transform: translate(1px,0); }
+  96%,100% { text-shadow: 0 0 4px rgba(63,224,224,.5); transform: translate(0,0); }
+}
+
+/* ── Лесной Странник: 6 новых. Тёплый зелёно-золотой язык, никакой резкой
+   геометрии/техно — визуально не спутать с Артефактом. */
+.frame-vine { box-shadow: 0 0 0 2px #3f7a3a, 0 0 8px 2px rgba(90,160,70,.5); }
+.frame-vine::before {
+  content: ''; position: absolute; inset: -4px; border-radius: inherit; padding: 3px;
+  background: repeating-conic-gradient(from 0deg, rgba(120,190,90,.55) 0deg 6deg, transparent 6deg 34deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: vineSway 5s ease-in-out infinite;
+}
+@keyframes vineSway { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+.halo-dappled { animation: dappleFlicker 2.6s steps(5,end) infinite; }
+@keyframes dappleFlicker {
+  0%   { filter: drop-shadow(0 0 6px rgba(200,230,120,.6)) drop-shadow(0 0 12px rgba(255,210,110,.35)); }
+  20%  { filter: drop-shadow(0 0 3px rgba(200,230,120,.3)) drop-shadow(0 0 7px rgba(255,210,110,.18)); }
+  40%  { filter: drop-shadow(0 0 8px rgba(200,230,120,.7)) drop-shadow(0 0 15px rgba(255,210,110,.4)); }
+  60%  { filter: drop-shadow(0 0 4px rgba(200,230,120,.35)) drop-shadow(0 0 9px rgba(255,210,110,.2)); }
+  80%  { filter: drop-shadow(0 0 7px rgba(200,230,120,.55)) drop-shadow(0 0 13px rgba(255,210,110,.3)); }
+  100% { filter: drop-shadow(0 0 6px rgba(200,230,120,.6)) drop-shadow(0 0 12px rgba(255,210,110,.35)); }
+}
+.hero.pbg-misty-glade, .looks-preview.pbg-misty-glade, .lc-bg.pbg-misty-glade {
+  background:
+    radial-gradient(120% 70% at 50% 100%, rgba(210,230,200,.28), transparent 60%),
+    radial-gradient(100% 60% at 20% 0%, rgba(180,210,170,.18), transparent 55%),
+    linear-gradient(180deg, #0d1710, #070d09);
+  background-size: 180% 180%, 180% 180%, 100% 100%;
+  animation: mistyDrift 14s ease-in-out infinite;
+}
+@keyframes mistyDrift { 0%,100% { background-position: 0% 0%, 100% 100%, 0 0; } 50% { background-position: 30% 20%, 70% 80%, 0 0; } }
+.cfx-pollen {
+  background-image:
+    radial-gradient(1.2px 1.2px at 30% 65%, rgba(220,220,140,.7), transparent),
+    radial-gradient(1px 1px at 55% 30%, rgba(200,230,150,.6), transparent),
+    radial-gradient(1.3px 1.3px at 75% 78%, rgba(230,210,130,.65), transparent),
+    radial-gradient(1px 1px at 15% 20%, rgba(210,225,160,.55), transparent);
+  background-size: 150% 150%; animation: cfxDrift 16s ease-in-out infinite;
+}
+.ptitle.title-forest-wanderer, .top-title.title-forest-wanderer, .lc-title.title-forest-wanderer {
+  color: #bfe8a8; text-shadow: 0 0 3px rgba(150,220,120,.5);
+}
+.ptitle.title-thicket-child, .top-title.title-thicket-child, .lc-title.title-thicket-child {
+  color: #d8c98a; text-shadow: 0 0 3px rgba(210,190,110,.5); font-style: italic;
+}
+
+/* ── Инферно: 5 новых (гало не было ни одного огненного). Рамка = ::before,
+   те же псевдоэлементы, что у Артефакта/Лесного Странника — не столкнутся. */
+.frame-coal { box-shadow: 0 0 0 2px #2a1510, 0 0 10px 2px rgba(255,90,20,.4); }
+.frame-coal::before {
+  content: ''; position: absolute; inset: -3px; border-radius: inherit; padding: 2px;
+  background: repeating-conic-gradient(from 0deg, rgba(255,110,30,.5) 0deg 4deg, transparent 4deg 26deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: coalEmber 3s ease-in-out infinite;
+}
+@keyframes coalEmber { 0%,100% { opacity: .3; } 50% { opacity: .9; } }
+.halo-flame-crown { animation: flameFlicker 1.8s ease-in-out infinite; }
+@keyframes flameFlicker {
+  0%,100% { filter: drop-shadow(0 0 6px rgba(255,120,30,.6)) drop-shadow(0 0 14px rgba(255,60,10,.35)); }
+  30%     { filter: drop-shadow(0 0 9px rgba(255,160,50,.8)) drop-shadow(0 0 18px rgba(255,80,20,.5)); }
+  55%     { filter: drop-shadow(0 0 4px rgba(255,100,20,.4)) drop-shadow(0 0 10px rgba(255,50,10,.25)); }
+  80%     { filter: drop-shadow(0 0 8px rgba(255,140,40,.7)) drop-shadow(0 0 16px rgba(255,70,15,.42)); }
+}
+.halo-smolder { animation: smolderPulse 4s ease-in-out infinite; }
+@keyframes smolderPulse {
+  0%,100% { filter: drop-shadow(0 0 4px rgba(200,50,20,.4)); }
+  50%     { filter: drop-shadow(0 0 7px rgba(255,80,30,.65)); }
+}
+.cfx-ash {
+  background-image:
+    radial-gradient(2px 2px at 20% 15%, rgba(180,175,170,.6), transparent),
+    radial-gradient(1.5px 1.5px at 55% 35%, rgba(200,120,80,.5), transparent),
+    radial-gradient(2px 2px at 75% 60%, rgba(170,165,160,.55), transparent);
+  background-size: 100% 200%; animation: cfxFall 14s linear infinite;
+}
+.ptitle.title-flame-eater, .top-title.title-flame-eater, .lc-title.title-flame-eater {
+  color: #ffb870; animation: flameEaterFlicker 1.8s ease-in-out infinite;
+}
+@keyframes flameEaterFlicker {
+  0%,100% { text-shadow: 0 0 3px rgba(255,120,30,.55); }
+  30%     { text-shadow: 0 0 5px rgba(255,160,50,.75); }
+  55%     { text-shadow: 0 0 2px rgba(255,100,20,.35); }
+  80%     { text-shadow: 0 0 4px rgba(255,140,40,.65); }
+}
+
+/* ── Небесное Сияние: 5 новых. Рамка — box-shadow напрямую (как пара-партнёр
+   frame-celestial), псевдоэлементы не нужны. */
+.glow-starwhisper { color: #eaf4ff; text-shadow: 0 0 2px rgba(200,225,255,.7); animation: glowStarwhisper 3.6s ease-in-out infinite; }
+@keyframes glowStarwhisper {
+  0%,100% { text-shadow: 0 0 2px rgba(200,225,255,.6); }
+  50%     { text-shadow: 0 0 5px rgba(225,240,255,.95), 0 0 10px rgba(180,210,255,.4); }
+}
+.frame-dawn-disc { box-shadow: 0 0 0 2px #ff8a5c, 0 0 14px 3px rgba(255,138,92,.55); animation: frameDawn 3.4s ease-in-out infinite; }
+@keyframes frameDawn {
+  0%,100% { box-shadow: 0 0 0 2px #ff8a5c, 0 0 12px 2px rgba(255,138,92,.5); }
+  50%     { box-shadow: 0 0 0 2px #ffd08a, 0 0 20px 5px rgba(255,208,138,.85); }
+}
+.cfx-solar-wind {
+  background-image:
+    radial-gradient(2px 2px at 18% 25%, rgba(255,210,140,.85), transparent),
+    radial-gradient(1.5px 1.5px at 55% 45%, rgba(255,190,110,.65), transparent),
+    radial-gradient(2px 2px at 82% 20%, rgba(255,225,160,.8), transparent),
+    radial-gradient(1.5px 1.5px at 38% 70%, rgba(255,200,130,.6), transparent);
+  background-size: 200% 100%; animation: cfxSolarWind 7s linear infinite;
+}
+@keyframes cfxSolarWind { from { background-position: 0 0; } to { background-position: -200% 0; } }
+.ptitle.title-dawnchild, .top-title.title-dawnchild, .lc-title.title-dawnchild {
+  color: #ffb8a0; font-style: normal; font-weight: 600; animation: titleDawnchild 3s ease-in-out infinite;
+}
+@keyframes titleDawnchild {
+  0%,100% { text-shadow: 0 0 3px rgba(255,150,110,.5); }
+  50%     { text-shadow: 0 0 6px rgba(255,190,150,.8); }
+}
+.ptitle.title-skykeeper, .top-title.title-skykeeper, .lc-title.title-skykeeper {
+  color: #cfe6ff; font-style: normal; font-weight: 600; text-shadow: 0 0 4px rgba(160,205,255,.55);
+}
+
+/* ── Изморозь: 7 новых. Пара B (рамка/гало) в том же ключе, что пара A —
+   box-shadow/filter напрямую, без псевдоэлементов. */
+.glow-frostbreath { color: #d8f0ff; text-shadow: 0 0 2px rgba(210,240,255,.6); animation: glowFrostbreath 4s ease-in-out infinite; }
+@keyframes glowFrostbreath {
+  0%,100% { text-shadow: 0 0 2px rgba(210,240,255,.5); opacity: .85; }
+  50%     { text-shadow: 0 0 6px rgba(230,248,255,.9), 0 0 12px rgba(180,225,255,.4); opacity: 1; }
+}
+.frame-icespikes { box-shadow: 0 0 0 2px #bfeeff, 0 0 0 4px rgba(90,190,230,.35), 0 0 12px rgba(140,220,255,.55); animation: frameIcespikes 2.6s steps(3,end) infinite; }
+@keyframes frameIcespikes {
+  0%,100% { box-shadow: 0 0 0 2px #bfeeff, 0 0 0 4px rgba(90,190,230,.35), 0 0 10px rgba(140,220,255,.5); }
+  50%     { box-shadow: 0 0 0 2px #eafcff, 0 0 0 4px rgba(140,220,255,.5), 0 0 18px rgba(180,235,255,.85); }
+}
+.halo-snowcrown { filter: drop-shadow(0 0 1px rgba(255,255,255,1)) drop-shadow(0 0 8px rgba(200,235,255,.75)); animation: haloSnowcrown 2.4s ease-in-out infinite; }
+@keyframes haloSnowcrown {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(255,255,255,1)) drop-shadow(0 0 7px rgba(200,235,255,.65)); }
+  50%     { filter: drop-shadow(0 0 2px rgba(255,255,255,1)) drop-shadow(0 0 14px rgba(220,242,255,.95)); }
+}
+.hero.pbg-snowpeak, .looks-preview.pbg-snowpeak, .lc-bg.pbg-snowpeak {
+  background: radial-gradient(ellipse 90% 60% at 50% 0%, rgba(220,240,255,.28), transparent 65%), linear-gradient(180deg, #0c1826, #061019);
+}
+.cfx-frostbite {
+  background-image:
+    radial-gradient(45px 32px at 8% 6%, rgba(200,235,255,.4), transparent 72%),
+    radial-gradient(45px 32px at 92% 6%, rgba(200,235,255,.4), transparent 72%),
+    radial-gradient(40px 28px at 6% 94%, rgba(200,235,255,.3), transparent 72%),
+    radial-gradient(40px 28px at 94% 94%, rgba(200,235,255,.3), transparent 72%),
+    radial-gradient(2px 2px at 10% 8%, #fff, transparent),
+    radial-gradient(2px 2px at 88% 10%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 20% 18%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 80% 85%, #fff, transparent);
+  background-size: 100% 100%; animation: cfxFrostbite 3.2s ease-in-out infinite;
+}
+@keyframes cfxFrostbite { 0%,100% { opacity: .65; } 50% { opacity: 1; } }
+.ptitle.title-frostchild, .top-title.title-frostchild, .lc-title.title-frostchild {
+  color: #bfe6ff; font-style: normal; font-weight: 600; animation: titleFrostchild 3.4s ease-in-out infinite;
+}
+@keyframes titleFrostchild {
+  0%,100% { text-shadow: 0 0 3px rgba(160,210,255,.5); }
+  50%     { text-shadow: 0 0 6px rgba(200,230,255,.85); }
+}
+.ptitle.title-icekeeper, .top-title.title-icekeeper, .lc-title.title-icekeeper {
+  color: #eafcff; font-style: normal; font-weight: 700; text-shadow: 0 0 4px rgba(200,240,255,.6);
+}
+
+/* ── Порог: 6 новых. Палитра фиолет+бирюза задана самими переиспользуемыми
+   предметами линейки (frame-abyss/halo-pulse), не подгонял под неё название. */
+.glow-riftwhisper { color: #e2d0ff; text-shadow: 0 0 2px rgba(190,150,255,.6); animation: glowRiftwhisper 4.2s ease-in-out infinite; }
+@keyframes glowRiftwhisper {
+  0%,100% { text-shadow: 0 0 2px rgba(190,150,255,.5); }
+  50%     { text-shadow: 0 0 6px rgba(210,175,255,.85), 0 0 12px rgba(180,130,255,.35); }
+}
+.glow-thresholdshade { color: #cfeeea; text-shadow: 0 0 2px rgba(150,210,200,.6); }
+.frame-rift-edge { box-shadow: 0 0 0 2px #c084fc, 0 0 12px 3px rgba(192,132,252,.5); animation: frameRiftEdge 4s ease-in-out infinite; }
+@keyframes frameRiftEdge {
+  0%,100% { box-shadow: 0 0 0 2px #c084fc, 0 0 10px 2px rgba(192,132,252,.45); }
+  50%     { box-shadow: 0 0 0 2px #e879f9, 0 0 18px 5px rgba(232,121,249,.75); }
+}
+.halo-threshold-flicker { filter: drop-shadow(0 0 1px rgba(95,201,192,1)) drop-shadow(0 0 7px rgba(95,201,192,.6)); animation: haloThreshold 3.4s steps(4,end) infinite; }
+@keyframes haloThreshold {
+  0%   { filter: drop-shadow(0 0 1px rgba(95,201,192,.9)) drop-shadow(0 0 5px rgba(95,201,192,.4)); }
+  50%  { filter: drop-shadow(0 0 2px rgba(130,225,215,1)) drop-shadow(0 0 12px rgba(95,201,192,.85)); }
+  100% { filter: drop-shadow(0 0 1px rgba(95,201,192,.9)) drop-shadow(0 0 5px rgba(95,201,192,.4)); }
+}
+.cfx-rift-dust {
+  background-image:
+    radial-gradient(2px 2px at 18% 20%, rgba(200,170,255,.7), transparent),
+    radial-gradient(1.5px 1.5px at 55% 40%, rgba(180,150,240,.55), transparent),
+    radial-gradient(2px 2px at 80% 65%, rgba(210,180,255,.65), transparent),
+    radial-gradient(1.5px 1.5px at 35% 80%, rgba(190,160,245,.5), transparent);
+  background-size: 160% 160%; animation: cfxDrift 20s ease-in-out infinite;
+}
+/* Урок из фикса cfx-nova (ниже, приветственный экран) применён СРАЗУ: фикс-px
+   радиус (не farthest-corner) + широкий мягкий переход у кольца (15-18%, не
+   3%) — без резкой видимой границы с самого начала. */
+.cfx-void-echo {
+  background-image:
+    radial-gradient(70px 70px at 50% 50%, transparent 35%, rgba(120,200,255,.22) 50%, transparent 68%),
+    radial-gradient(70px 70px at 50% 50%, transparent 55%, rgba(192,132,252,.18) 68%, transparent 85%);
+  background-size: 100% 100%; animation: cfxVoidEcho 3.6s ease-out infinite;
+}
+@keyframes cfxVoidEcho {
+  0%   { transform: scale(.3); opacity: 0; }
+  15%  { opacity: .9; }
+  70%  { opacity: .15; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
 /* ── Доступность/перф: заморозка анимаций косметики ──────────────────────────
    Общий вход и для системного prefers-reduced-motion, и для тумблера «Отключить
    анимации» (body.no-fx, см. openSettingsModal в app.02.js). Селекторы заякорены
