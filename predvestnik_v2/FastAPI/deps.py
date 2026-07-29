@@ -195,12 +195,19 @@ def require_module(module_key: str):
 
     Skips per-chat check when no chat_id is known.
     Always performs the global check via global_module_toggles.
-    """
+
+    DEVELOPER_ID обходит любой тумблер (страховка та же, что в _actor_global_rank
+    выше) — иначе разработчик не может зайти и проверить/включить обратно
+    раздел, который сам же выключил для теста (жалоба владельца 2026-07-29:
+    "почему разделы отключаются и для разработчика")."""
     async def _check(
         x_init_data: str = Header(default=""),
         x_chat_id: int = Header(default=0),
         db=Depends(get_db),
+        user=Depends(require_tg_user_base),
     ):
+        if _DEV_ID and int(user["id"]) == _DEV_ID:
+            return
         # Extract chat_id from Telegram-signed initData
         chat_id = 0
         if x_init_data:
@@ -251,10 +258,14 @@ def require_tab_enabled(flag_key: str):
     UI-хинт (profile.py отдаёт его фронту, чтобы спрятать вкладку) — сам тумблер
     ничего на бэке не блокировал. Баг 2026-07-29: владелец выключил
     "Косметика/Образы" в админке, а /cosmetics/buy продолжал молча принимать
-    покупки — вкладка пропадала из меню, но прямой запрос к API проходил."""
+    покупки — вкладка пропадала из меню, но прямой запрос к API проходил.
+
+    DEVELOPER_ID обходит тумблер — та же страховка, что в require_module()."""
     from infrastructure.repositories import system_flags as _flags_repo
 
-    async def _check(db=Depends(get_db)):
+    async def _check(db=Depends(get_db), user=Depends(require_tg_user_base)):
+        if _DEV_ID and int(user["id"]) == _DEV_ID:
+            return
         if not await _flags_repo.is_enabled(db, flag_key):
             raise HTTPException(403, "🔧 Этот раздел временно отключён.")
 
