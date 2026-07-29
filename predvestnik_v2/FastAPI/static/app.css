@@ -585,6 +585,17 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   font-size: 10px; color: var(--muted); background: var(--s);
   border-radius: 8px; padding: 6px 8px; margin-bottom: 8px;
 }
+/* Плашка линейки (редизайн 2026-07-29): описание+цена+VIP-правило выбранной
+   коллекции — владелец явно просил "чтобы точно видел то, что будет на
+   продакшене", не прятать это в описаниях отдельных предметов. Пусто при
+   фильтре "Все" (см. _looksLineupInfoHtml в app.10.js). */
+.looks-lineup-info {
+  font-size: 11px; line-height: 1.5; color: var(--muted);
+  background: var(--s); border: 1px solid var(--border2); border-radius: 10px;
+  padding: 8px 10px; margin-bottom: 8px;
+}
+.looks-lineup-blurb { color: var(--bright); margin-bottom: 4px; }
+.looks-lineup-meta { display: flex; gap: 10px; flex-wrap: wrap; font-size: 10.5px; }
 /* Баннер-апселл VIP в конструкторе «Внешний вид» (не-VIP: смотреть всё, покупать с VIP) */
 .looks-vipbar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -3345,9 +3356,12 @@ body.no-fx .wn-pop { animation: none; }
    идут одна за другой; чипы-якоря наверху скроллят к нужной без переключения панели. */
 .looks-sticky {
   position: sticky; top: 88px; z-index: 5;
-  background: linear-gradient(180deg, var(--bg0) 88%, transparent);
-  padding-bottom: 4px; margin: 0 -12px; padding-left: 12px; padding-right: 12px;
+  background: var(--bg0);
+  padding-bottom: 8px; margin: 0 -12px; padding-left: 12px; padding-right: 12px;
+  box-shadow: var(--shadow-sm);
 }
+.looks-sticky .looks-filter { margin: 4px 0 0; }
+.looks-sticky #looks-lineup-info { margin-bottom: 0; }
 .looks-intro { font-size: 11.5px; color: var(--muted); text-align: center; margin: 2px 0 10px; line-height: 1.4; }
 .looks-anchors { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; scrollbar-width: none; padding-bottom: 2px; }
 .looks-anchors::-webkit-scrollbar { display: none; }
@@ -3357,7 +3371,7 @@ body.no-fx .wn-pop { animation: none; }
   padding: 6px 12px; cursor: pointer; transition: transform .15s;
 }
 .looks-anchor-chip:active { transform: scale(.94); }
-.looks-section { margin-bottom: 20px; scroll-margin-top: 96px; }
+.looks-section { margin-bottom: 20px; scroll-margin-top: var(--looks-sticky-h, 190px); }
 /* Запас под последней секцией: иначе якорь-прыжок к ней упирается в конец
    документа и не может доскроллить её край до-под sticky-превью (некуда). */
 #looks-sections { padding-bottom: 55vh; }

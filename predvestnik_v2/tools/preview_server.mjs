@@ -585,28 +585,46 @@ const MOCKS = {
   'POST /showcase/buy-bundle': { ok: true, count: 3, price: 900, message: '🎁 Куплен весь набор (3 шт.) за 900✨!' },
 
   // ── Косметика (экран «Внешний вид») ──
+  // Редизайн 2026-07-29: редкость → линейки (core/cosmetics.py::LINEUPS). Мок ниже —
+  // репрезентативная выборка РЕАЛЬНЫХ id/css из каждой линейки (не все 89 предметов,
+  // но минимум по 1-2 на слот на линейку — достаточно проверить фильтр+бейджи+инфо-плашку).
   'GET /cosmetics/': {
     vip: false,
     balances: { zarniki: 1250, mora: 125430, diamonds: 42, dark_mora: 340 },
     currency_icons: { zarniki: '✨', mora: '🪙', diamonds: '💎' },
+    lineups: {
+      forest:    { name: '🌲 Лесной Странник', rarity: 'common', price: [{ zarniki: 250 }], vip_required: false, blurb: 'Тёплое дерево и зелень леса — самая доступная линейка, видна всем без VIP.' },
+      threshold: { name: '🔮 Порог', rarity: 'rare', price: [{ zarniki: 440 }], vip_required: true, blurb: 'Фиолетовые разломы и спокойная бирюза стражей на границе Бездны.' },
+      frost:     { name: '❄️ Изморозь', rarity: 'rare', price: [{ zarniki: 440 }], vip_required: true, blurb: 'Лёд, иней и морозная тишина.' },
+      inferno:   { name: '🔥 Инферно', rarity: 'epic', price: [{ zarniki: 630 }], vip_required: true, blurb: 'Пламя, угли и раскалённый металл.' },
+      celestial: { name: '✨ Небесное Сияние', rarity: 'legendary', price: [{ zarniki: 820 }], vip_required: true, blurb: 'Рассвет, аврора и солнечная корона — тёплое золото на холодном небе.' },
+      void:      { name: '🌌 Бездна', rarity: 'mythic', price: [{ zarniki: 1000 }], vip_required: true, blurb: 'Глубокий космос, разломы и тихое затмение.' },
+      artifact:  { name: '⚡ Артефакт', rarity: 'artifact', price: [{ zarniki: 1500 }], vip_required: true, blurb: 'Голографическая энергия: циан+магента+золото, техно-язык.' },
+    },
     slots: {
       name_glow: [
-        { id: 'glow_gold', name: 'Золотое сияние', rarity: 'rare', css: 'glow-gold', owned: true, equipped: true, price: [] },
-        { id: 'glow_violet', name: 'Фиолетовая аура', rarity: 'epic', css: 'glow-violet', owned: false, price: [{ zarniki: 440 }], vip_required: true, desc: 'Мистическое свечение ника — заметно в топах и профиле.' },
-        { id: 'glow_ember', name: 'Уголёк', rarity: 'legendary', css: 'glow-ember', owned: false, price: [{ zarniki: 9999 }], desc: 'Тёплое тлеющее свечение (дороже баланса — проверка «не хватает»).' },
+        { id: 'cos_name_glow_moon', name: 'Лунный свет', lineup: 'forest', rarity: 'common', css: 'glow-moon', owned: true, equipped: true, price: [{ zarniki: 250 }] },
+        { id: 'cos_name_glow_frost', name: 'Ледяная вязь', lineup: 'frost', rarity: 'rare', css: 'glow-frost', owned: false, price: [{ zarniki: 440 }], desc: 'Хрустальное ледяное свечение вокруг ника. Отображается при активной VIP.' },
+        { id: 'cos_name_glow_neon', name: 'Неоновая трубка', lineup: 'artifact', rarity: 'artifact', css: 'glow-neon-tube', owned: false, price: [{ zarniki: 1500 }], vip_required: true, desc: 'Ник светится как неоновая вывеска. Показывается при активной VIP.' },
       ],
       avatar_frame: [
-        { id: 'frame_bronze', name: 'Бронза', rarity: 'common', css: 'frame-bronze', owned: true, equipped: false, price: [] },
-        { id: 'frame_royal', name: 'Королевская', rarity: 'mythic', css: 'frame-royal', owned: false, price: [{ zarniki: 1000 }], desc: 'Рамка, достойная легенды.' },
+        { id: 'cos_avatar_frame_vine', name: 'Плетёная лоза', lineup: 'forest', rarity: 'common', css: 'frame-vine', owned: false, price: [{ zarniki: 250 }], desc: 'Живая лоза оплетает край аватара.' },
+        { id: 'cos_avatar_frame_abyss', name: 'Оправа Бездны', lineup: 'threshold', rarity: 'rare', css: 'frame-abyss', owned: false, price: [{ zarniki: 440 }], desc: 'Рамка из застывшей Тёмной Моры. Отображается при активной VIP.' },
+        { id: 'cos_avatar_frame_inferno', name: 'Инферно', lineup: 'inferno', rarity: 'epic', css: 'frame-inferno', owned: false, price: [{ zarniki: 630 }], desc: 'Живое пламя лижет края аватара.' },
       ],
-      avatar_halo: [],
+      avatar_halo: [
+        { id: 'cos_avatar_halo_void', name: 'Кольцо Бездны', lineup: 'void', rarity: 'mythic', css: 'halo-void', owned: false, price: [{ zarniki: 1000 }], desc: 'Тёмное кольцо с багровыми всполохами.' },
+      ],
       title: [
-        { id: 'title_dawn', name: 'Предвестник Рассвета', rarity: 'epic', css: 'title-keeper', text: 'Предвестник Рассвета', owned: true, equipped: true, price: [] },
+        { id: 'cos_title_dawnchild', name: 'Дитя Зари', lineup: 'celestial', rarity: 'legendary', css: 'title-dawnchild', text: 'Дитя Зари', owned: true, equipped: true, price: [{ zarniki: 820 }] },
       ],
       profile_bg: [
-        { id: 'bg_nebula', name: 'Туманность', rarity: 'rare', css: 'pbg-nebula', owned: false, price: [{ zarniki: 440 }], desc: 'Космический фон профиля.' },
+        { id: 'cos_profile_bg_snowpeak', name: 'Снежная вершина', lineup: 'frost', rarity: 'rare', css: 'pbg-snowpeak', owned: false, price: [{ zarniki: 440 }], desc: 'Заснеженная горная вершина в морозной дымке.' },
+        { id: 'cos_profile_bg_starfall', name: 'Звездопад Богов', lineup: 'void', rarity: 'mythic', css: 'pbg-starfall', owned: false, price: [{ zarniki: 1000 }], desc: 'Глубокий космос с падающими звёздами.' },
       ],
-      card_fx: [],
+      card_fx: [
+        { id: 'cos_card_fx_void_echo', name: 'Эхо Пустоты', lineup: 'threshold', rarity: 'rare', css: 'cfx-void-echo', owned: false, price: [{ zarniki: 440 }], desc: 'Кольца эха расходятся из центра карточки.' },
+      ],
     },
     welcome: { current: 'scanner', options: [
       { id: 'scanner', name: 'Сканер', rarity: 'common', current: true, desc: 'Классический прелоадер' },

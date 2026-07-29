@@ -7,7 +7,7 @@ import json
 import random
 
 from core.cosmetics import (
-    COSMETICS, COSMETIC_SLOTS, WELCOME_ANIMATIONS, WELCOME_DEFAULT, is_vip_locked,
+    COSMETICS, COSMETIC_SLOTS, LINEUPS, WELCOME_ANIMATIONS, WELCOME_DEFAULT, is_vip_locked,
 )
 from core.constants import (
     COSMETIC_CHESTS, COSMETIC_DUPE_SHARDS, COSMETIC_CRAFT_SHARDS,
@@ -163,6 +163,7 @@ def _public(cid: str, cos: dict, owned: set[str], loadout: dict[str, str], vip: 
         "name": cos["name"],
         "slot": cos["slot"],
         "rarity": cos["rarity"],
+        "lineup": cos.get("lineup"),
         "css": cos.get("css"),
         "text": cos.get("text"),
         "desc": cos.get("desc", ""),
@@ -259,6 +260,7 @@ async def get_catalog(db, user_id: int) -> dict:
         "vip": vip,
         "balances": await _balances(db, user_id),
         "slots": slots,
+        "lineups": LINEUPS,
         "currency_icons": _CUR_ICON,
         "welcome": {"current": welcome_cur, "options": _welcome_options(welcome_cur, vip)},
     }
