@@ -9,7 +9,22 @@ const _LOOKS_ANCHOR_LABEL={name_glow:'✨ Ореол',avatar_frame:'🖼 Рам�
 const _LOOKS_SECTIONS=[..._LOOKS_SLOTS,'welcome','themes'];
 let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false, _looksFocus=null;
 let _looksPresets=[];  // кэш пресетов текущей сессии
-let _looksFilter='all';                // фильтр редкости — общий для ВСЕХ секций разом
+let _looksFilter='all';                // фильтр ЛИНЕЙКИ (id из _looksData.lineups) — общий для ВСЕХ секций разом
+// Редизайн 2026-07-29: редкость (common→artifact) заменена ЛИНЕЙКАМИ (тематические
+// коллекции, core/cosmetics.py::LINEUPS) — фильтр/бейджи теперь по линейке, не по
+// редкости. `rarity` на предмете остался ТЕХНИЧЕСКИМ полем (ценовой ярус, VIP-гейт,
+// see core/cosmetics.py) — r-{rarity} CSS-классы карточек (цвет рамки) поэтому не
+// трогал, они по-прежнему осмысленны (ярус линейки=та же цена). Только ВИДИМЫЙ текст
+// бейджа сменился с названия редкости на название линейки. Фильтр-чипы теперь ВНУТРИ
+// .looks-sticky вместе с превью (не отдельным блоком ниже anchors) — иначе при скролле
+// вниз чипы уезжали ПОД прилипшее превью и физически переставали быть кликабельными.
+const LINEUP_COLOR = {
+  forest:'#7dc47d', threshold:'#c084fc', frost:'#7ad4ff', inferno:'#ff7a3d',
+  celestial:'#e8c45a', void:'#ff4d8d', artifact:'#3fe0e0',
+};
+function lineupMeta(id){ return (_looksData&&_looksData.lineups&&_looksData.lineups[id])||null; }
+function lineupLabel(id){ const l=lineupMeta(id); return l?l.name:(id||'—'); }
+function lineupColor(id){ return LINEUP_COLOR[id]||'#9aa7b8'; }
 // Полноэкранный экран «Внешний вид» (был модалкой). Имя openLooksModal сохранено —
 // его зовут старые точки входа (профиль/маркет), диплинки и «назад» из под-шитов.
 function openLooksModal(){
@@ -38,23 +53,32 @@ function _looksPriceTxt(opt){ return Object.entries(opt).map(([cur,amt])=>`${amt
 function renderLooks(){
   const b=el('pg-looks'); if(!b||!_looksData) return;
   const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
-    <span>👑 Купить можно любую косметику. Редкая и выше (🟣+) <b>отображается на профиле только с VIP</b>.</span>
+    <span>👑 Купить можно любую косметику. Линейки дороже «Лесного Странника» <b>отображаются на профиле только с VIP</b>.</span>
     <button class="btn btn-sm btn-gold" onclick="goTo('market','vip')">Перейти к VIP</button></div>`;
   b.innerHTML=`
     <div class="looks-head">
       <button class="looks-back" onclick="_looksClose()" aria-label="Назад">‹</button>
       <div class="looks-htitle">🎨 Внешний вид</div>
     </div>
-    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div></div>`
+    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div>${_looksFilterHtml()}</div>`
     +vipBar
     +'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'
     +_looksPresetsHtml()
     +`<div class="looks-anchors">${_LOOKS_SECTIONS.map(s=>`<button class="looks-anchor-chip" onclick="_looksJump('${s}')">${_LOOKS_ANCHOR_LABEL[s]}</button>`).join('')}</div>`
-    +_looksFilterHtml()
     +`<div id="looks-sections">${_LOOKS_SLOTS.map(_looksSectionHtml).join('')}${_looksWelcomeSectionHtml()}${_looksThemesSectionHtml()}</div>`
     +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
   _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
   _looksThemesEnsureLoaded();
+  _looksSyncStickyH();
+}
+// Высота .looks-sticky «плавает» (lineup-info то есть, то нет, разной длины) —
+// scroll-margin-top секций держим в CSS-переменной, иначе якорь-прыжок иногда
+// подсовывал заголовок секции ПОД прилипшую шапку (замерено puppeteer при фиксе
+// бага "фильтр-чипы уезжают под sticky-превью", 2026-07-29).
+function _looksSyncStickyH(){
+  const s=document.querySelector('.looks-sticky'); if(!s) return;
+  const top=parseFloat(getComputedStyle(s).top)||0;   // «прилипает» с отступом top — его тоже надо перекрыть
+  document.documentElement.style.setProperty('--looks-sticky-h', (top+s.offsetHeight+14)+'px');
 }
 // Якорь-чип: скроллит к секции (не переключает панель — все секции уже на странице).
 function _looksJump(id){
@@ -63,17 +87,33 @@ function _looksJump(id){
   sec.scrollIntoView({behavior: reduce?'auto':'smooth', block:'start'});
 }
 function _looksFilterHtml(){
-  const rarities=['all',...Object.keys(RARITY_META)];
-  return `<div class="looks-filter" id="looks-filter-bar">${rarities.map(r=>
-    `<button class="looks-chip${r===_looksFilter?' active':''}" data-rar="${r}" onclick="_looksSetFilter('${r}')">${r==='all'?'Все':rarLabel(r)}</button>`
-  ).join('')}</div>`;
+  const lineups=Object.keys(_looksData.lineups||{});
+  return `<div class="looks-filter" id="looks-filter-bar">
+    <button class="looks-chip${_looksFilter==='all'?' active':''}" data-lin="all" onclick="_looksSetFilter('all')">Все</button>
+    ${lineups.map(lid=>`<button class="looks-chip${lid===_looksFilter?' active':''}" data-lin="${lid}" onclick="_looksSetFilter('${lid}')">${esc(lineupLabel(lid))}</button>`).join('')}
+  </div><div id="looks-lineup-info">${_looksLineupInfoHtml()}</div>`;
 }
 // Фильтр общий для всех секций разом — перерисовываем сетку в каждой (заголовки/якоря не трогаем).
-function _looksSetFilter(r){
-  _looksFilter=r;
+function _looksSetFilter(lin){
+  _looksFilter=lin;
   const bar=el('looks-filter-bar');
-  if(bar) bar.querySelectorAll('.looks-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-rar')===r));
+  if(bar) bar.querySelectorAll('.looks-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-lin')===lin));
   _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
+  const info=el('looks-lineup-info'); if(info) info.innerHTML=_looksLineupInfoHtml();
+  _looksSyncStickyH();
+}
+// Карточка-плашка с полной коммерческой инфой линейки (цена/VIP/описание) —
+// владелец явно просил "чтобы точно видел то, что будет на продакшене", не
+// прятать это в описаниях отдельных предметов. Пусто при фильтре "Все".
+function _looksLineupInfoHtml(){
+  if(_looksFilter==='all') return '';
+  const l=lineupMeta(_looksFilter); if(!l) return '';
+  const price=(l.price&&l.price[0]&&l.price[0].zarniki)?`${l.price[0].zarniki}✨ за предмет`:'—';
+  const vipTxt=l.vip_required?'👑 показ на профиле только с VIP':'👁 видна всем, VIP не влияет';
+  return `<div class="looks-lineup-info">
+    <div class="looks-lineup-blurb">${esc(l.blurb||'')}</div>
+    <div class="looks-lineup-meta"><span>💰 ${price}</span><span>${vipTxt}</span></div>
+  </div>`;
 }
 // Секция одного слота: заголовок-якорь + фильтруемая сетка (id стабилен для _looksJump).
 function _looksSectionHtml(slot){
@@ -137,7 +177,7 @@ function _looksBuyBarHtml(){
   const vipWarn=(!_looksData.vip && it.rarity && it.rarity!=='common')
     ? `<div class="looks-buy-vip">⚠️ Без VIP предмет ляжет в инвентарь, но не покажется на профиле.</div>` : '';
   return `<div class="looks-buybar">
-    <div class="looks-buy-t">🔒 <b>${esc(it.name)}</b> · ${_rarLabel(it.rarity)}${it.desc?`<div class="looks-buy-d">${esc(it.desc)}</div>`:''}</div>
+    <div class="looks-buy-t">🔒 <b>${esc(it.name)}</b> · ${esc(lineupLabel(it.lineup))}${it.desc?`<div class="looks-buy-d">${esc(it.desc)}</div>`:''}</div>
     <button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyFocus()">${can?'✨ Купить за '+price:'🚫 Нужно '+price}</button>
     ${vipWarn}</div>`;
 }
@@ -157,11 +197,11 @@ function _looksSpotlight(slot){
 function _looksGridHtml(slot){
   const spot=_looksSpotlight(slot);
   const items=(_looksData.slots[slot]||[]).filter(it=>
-    (_looksFilter==='all'||it.rarity===_looksFilter) && (!spot||it.id!==spot.id));
+    (_looksFilter==='all'||it.lineup===_looksFilter) && (!spot||it.id!==spot.id));
   const spotHtml=spot?`<div class="looks-spotlight">${_looksCard(slot,spot,true)}</div>`:'';
   const none=`<div class="looks-card ${_looksShownId(slot)==null?'sel':''}" data-cos="__none__" onclick="_looksUnequip('${slot}')">
     <div class="lc-sw lc-sw--none">✖</div><div class="lc-name">Без</div></div>`;
-  const empty=items.length?'':'<div class="looks-empty">Нет предметов этой редкости</div>';
+  const empty=items.length?'':'<div class="looks-empty">Нет предметов этой линейки</div>';
   return `${spotHtml}<div class="looks-cards">${none}${items.map(it=>_looksCard(slot,it)).join('')}${empty}</div>`;
 }
 // Мини-превью реального эффекта в карточке (а не просто текст).
@@ -181,7 +221,10 @@ function _looksSwatch(slot,it){
 function _looksCard(slot,it,spotlight){
   const sel=_looksShownId(slot)===it.id;
   const sw=_looksSwatch(slot,it);
-  const rar=`<span class="lc-rar">${_rarLabel(it.rarity)}</span>`;
+  // Бейдж линейки вместо редкости — цвет линейки (не редкости), r-{rarity} на
+  // самой карточке ниже оставлен как есть (рамка-подсветка по ценовому ярусу
+  // всё ещё осмысленна, просто больше не подписана текстом отдельно).
+  const rar=`<span class="lc-rar" style="color:${lineupColor(it.lineup)}">${esc(lineupLabel(it.lineup))}</span>`;
   const spotBadge=spotlight?'<div class="lc-spot-badge">★ Топ слота</div>':'';
   if(it.owned){
     const offBadge=it.vip_locked_inactive?'<span class="lc-vip-off">⏸ нужна VIP</span>':'';
@@ -204,7 +247,7 @@ function _showCosmeticPreview(slot,id){
   if(!_looksData) return;
   const all=_looksData.slots[slot]||[];
   _cosPrevSlot=slot;
-  _cosPrevList=_looksFilter==='all'?all:all.filter(it=>it.rarity===_looksFilter);
+  _cosPrevList=_looksFilter==='all'?all:all.filter(it=>it.lineup===_looksFilter);
   const idx=_cosPrevList.findIndex(it=>it.id===id);
   _cosPrevIdx=idx>=0?idx:0;
   _renderCosmeticPreview();
@@ -223,7 +266,7 @@ function _renderCosmeticPreview(){
   const beforeCard=_looksRenderCard(_looksSaved);
   const afterCard=_looksRenderCard(afterSel,'hero');
 
-  const rc_=rarColor(it.rarity), rl_=rarLabel(it.rarity);
+  const rc_=lineupColor(it.lineup), rl_=lineupLabel(it.lineup);
   const bal=_looksData.balances||{};
 
   let priceHtml='';
