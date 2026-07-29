@@ -151,8 +151,19 @@ function _looksLineupInfoHtml(){
 }
 // Секция одного слота: заголовок-якорь + фильтруемая сетка (id стабилен для _looksJump).
 function _looksSectionHtml(slot){
+  const items=_looksData.slots[slot]||[];
+  const owned=items.filter(it=>it.owned).length, total=items.length;
+  // Порядок делений НЕ важен — деления обезличены (просто N одинаковых чёрточек,
+  // не привязаны к конкретному предмету), горят ПЕРВЫЕ owned штук слева направо.
+  // Это осознанно проще per-item подсветки (которая бы выглядела рандомно
+  // раскиданной, т.к. массив не гарантированно owned-first).
+  const notches=items.map((_,i)=>`<div class="mini-notch${i<owned?' on':''}"></div>`).join('');
   return `<section class="looks-section" id="looks-sec-${slot}">
-    <div class="looks-sec-t">${_LOOKS_SLOT_LABEL[slot]}</div>
+    <div class="sec-head">
+      <div class="looks-sec-t">${_LOOKS_SLOT_LABEL[slot]}</div>
+      <div class="mini-meter">${notches}</div>
+      <div class="sec-num">${owned}/${total}</div>
+    </div>
     <div class="looks-sec-grid" id="looks-grid-${slot}">${_looksGridHtml(slot)}</div>
   </section>`;
 }
