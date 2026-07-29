@@ -254,20 +254,20 @@ function _looksSwatch(slot,it){
 function _looksCard(slot,it){
   const sel=_looksShownId(slot)===it.id;
   const sw=_looksSwatch(slot,it);
-  // Бейдж линейки вместо редкости — цвет линейки (не редкости), r-{rarity} на
-  // самой карточке ниже оставлен как есть (рамка-подсветка по ценовому ярусу
-  // всё ещё осмысленна, просто больше не подписана текстом отдельно).
   const rar=`<span class="lc-rar" style="color:${lineupColor(it.lineup)}">${esc(lineupLabel(it.lineup))}</span>`;
+  // Статичный акцент цвета линейки (не анимация — .lc-sw уже намеренно без
+  // анимации из-за перф, см. app.css:1925). r-{rarity} класс НЕ убираю —
+  // им пользуется модалка сундуков/крафта (осталась на старой системе).
+  const accentStyle=`style="--lc:${lineupColor(it.lineup)};--lcg:${lineupColor(it.lineup)}22"`;
   if(it.owned){
     const offBadge=it.vip_locked_inactive?'<span class="lc-vip-off">⏸ нужна VIP</span>':'';
-    return `<div class="looks-card r-${it.rarity} ${sel?'sel':''} ${it.vip_locked_inactive?'lc-dim':''}" data-cos="${it.id}" onclick="_looksEquip('${slot}','${it.id}')">
+    return `<div class="looks-card lc-lineup-accent r-${it.rarity} ${sel?'sel':''} ${it.vip_locked_inactive?'lc-dim':''}" ${accentStyle} data-cos="${it.id}" onclick="_looksEquip('${slot}','${it.id}')">
       ${sw}<div class="lc-name">${esc(it.name)}</div>
       <div class="lc-foot">${rar}${offBadge}${(!it.vip_locked_inactive&&_looksSaved[slot]===it.id)?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
   }
-  // Непокупленный предмет — тап примеряет его в hero и показывает плашку покупки (без 2-й модалки)
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
   const priceTxt=it.price&&it.price.length?`<span class="lc-price-hint">${_looksPriceTxt(it.price[0])} ✨</span>`:'';
-  return `<div class="looks-card r-${it.rarity} locked lc-buyable ${sel?'sel':''}" data-cos="${it.id}" onclick="_looksTapUnowned('${slot}','${it.id}')">
+  return `<div class="looks-card lc-lineup-accent r-${it.rarity} locked lc-buyable ${sel?'sel':''}" ${accentStyle} data-cos="${it.id}" onclick="_looksTapUnowned('${slot}','${it.id}')">
     ${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
     <div class="lc-foot">${rar}${priceTxt}<span class="lc-prev-hint">👁</span></div></div>`;
 }
