@@ -29,7 +29,7 @@ function lineupColor(id){ return LINEUP_COLOR[id]||'#9aa7b8'; }
 // Полноэкранный экран «Внешний вид» (был модалкой). Имя openLooksModal сохранено —
 // его зовут старые точки входа (профиль/маркет), диплинки и «назад» из под-шитов.
 function openLooksModal(){
-  _looksFilter='all'; _looksStatus='all'; _looksFocus=null;
+  _looksFilter='all'; _looksStatus='all'; _looksSearch=''; _looksFocus=null;
   switchPage('looks');
   if(_looksData){ renderLooks(); return; }        // из кэша — БЕЗ пере-запроса (убирает лаги навигации)
   _looksDirty=false;
@@ -61,7 +61,7 @@ function renderLooks(){
       <button class="looks-back" onclick="_looksClose()" aria-label="Назад">‹</button>
       <div class="looks-htitle">🎨 Внешний вид</div>
     </div>
-    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div>${_looksFilterHtml()}</div>`
+    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div><div id="looks-filter-bar">${_looksFilterHtml()}</div></div>`
     +vipBar
     +'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'
     +_looksPresetsHtml()
@@ -87,35 +87,52 @@ function _looksJump(id){
   const reduce=document.body.classList.contains('no-fx')||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
   sec.scrollIntoView({behavior: reduce?'auto':'smooth', block:'start'});
 }
+let _looksSearch='';   // поиск по названию — общий для всех секций разом, как и остальные фильтры
 function _looksFilterHtml(){
-  const lineups=Object.keys(_looksData.lineups||{});
-  return `<div class="looks-filter" id="looks-filter-bar">
-    <button class="looks-chip${_looksFilter==='all'?' active':''}" data-lin="all" onclick="_looksSetFilter('all')">Все</button>
-    ${lineups.map(lid=>`<button class="looks-chip${lid===_looksFilter?' active':''}" data-lin="${lid}" onclick="_looksSetFilter('${lid}')">${esc(lineupLabel(lid))}</button>`).join('')}
-  </div>${_looksStatusFilterHtml()}<div id="looks-lineup-info">${_looksLineupInfoHtml()}</div>`;
+  const lin=lineupMeta(_looksFilter);
+  const lineupTxt=_looksFilter==='all'?'Все линейки':esc(lin?lin.name:'—');
+  const dotHtml=_looksFilter==='all'
+    ?`<span class="sr-dot-all"><span style="background:#ff7a3d"></span><span style="background:#7ad4ff"></span><span style="background:#c084fc"></span></span>`
+    :`<span class="sr-dot" style="color:${lineupColor(_looksFilter)}"></span>`;
+  const statusIcon={all:'∅',owned:'✓',missing:'🔒'}[_looksStatus];
+  return `<div class="smartrow">
+    <div class="sr-tap sr-tap--flex"><div class="sr-box sr-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input type="text" id="looks-search-inp" placeholder="Поиск…" value="${esc(_looksSearch)}" oninput="_looksSetSearch(this.value)">
+    </div></div>
+    <div class="sr-tap"><div class="sr-box sr-lineup" id="looks-lineup-pill" onclick="_looksOpenLineupPicker()">${dotHtml}${lineupTxt}</div></div>
+    <div class="sr-tap"><button class="sr-box sr-status sr-status--${_looksStatus}" id="looks-status-btn" onclick="_looksCycleStatus()" type="button">${statusIcon}</button></div>
+  </div><div id="looks-lineup-info">${_looksLineupInfoHtml()}</div>`;
 }
-// Фильтр общий для всех секций разом — перерисовываем сетку в каждой (заголовки/якоря не трогаем).
-function _looksSetFilter(lin){
-  _looksFilter=lin;
-  const bar=el('looks-filter-bar');
-  if(bar) bar.querySelectorAll('.looks-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-lin')===lin));
+function _looksSetSearch(v){
+  _looksSearch=v;
   _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
-  const info=el('looks-lineup-info'); if(info) info.innerHTML=_looksLineupInfoHtml();
   _looksSyncStickyH();
 }
-// Второе, независимое измерение фильтра — статус владения (аудит 2026-07-29: у ТЕМ в
-// этой же вкладке уже был Все/Мои/Премиум, у косметики такого не было — с 89 предметами
-// в каталоге искать «что ещё не куплено» без него неудобно). AND с фильтром линейки.
-const _LOOKS_STATUS_LABEL={all:'Все',owned:'✓ Куплено',missing:'🔒 Не куплено'};
-function _looksStatusFilterHtml(){
-  return `<div class="looks-filter looks-filter--status" id="looks-status-bar">
-    ${Object.keys(_LOOKS_STATUS_LABEL).map(k=>`<button class="looks-chip${k===_looksStatus?' active':''}" data-st="${k}" onclick="_looksSetStatus('${k}')">${_LOOKS_STATUS_LABEL[k]}</button>`).join('')}
-  </div>`;
+function _looksOpenLineupPicker(){
+  const lineups=Object.keys(_looksData.lineups||{});
+  const rows=[{id:'all',label:'Все линейки'}, ...lineups.map(id=>({id,label:lineupLabel(id)}))]
+    .map(o=>`<div class="picker-opt${o.id===_looksFilter?' on':''}" onclick="_looksPickLineup('${o.id}')">${esc(o.label)}</div>`).join('');
+  OM('Линейка', `<div class="picker">${rows}</div>`, [{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
 }
-function _looksSetStatus(st){
-  _looksStatus=st;
-  const bar=el('looks-status-bar');
-  if(bar) bar.querySelectorAll('.looks-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-st')===st));
+function _looksPickLineup(lin){
+  CM();
+  _looksFilter=lin;
+  // Полная перерисовка умного ряда (пилюля/точка меняются) — дешёвая операция, не вся страница
+  const host=el('looks-filter-bar');
+  if(host) host.outerHTML=`<div id="looks-filter-bar">${_looksFilterHtml()}</div>`;
+  _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
+  _looksSyncStickyH();
+}
+const _LOOKS_STATUS_CYCLE=['all','owned','missing'];
+function _looksCycleStatus(){
+  const i=_LOOKS_STATUS_CYCLE.indexOf(_looksStatus);
+  _looksStatus=_LOOKS_STATUS_CYCLE[(i+1)%_LOOKS_STATUS_CYCLE.length];
+  const btn=el('looks-status-btn');
+  if(btn){
+    btn.textContent={all:'∅',owned:'✓',missing:'🔒'}[_looksStatus];
+    btn.className=`sr-box sr-status sr-status--${_looksStatus}`;
+  }
   _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
   _looksSyncStickyH();
 }
@@ -199,12 +216,14 @@ function _looksBuyFocus(){
   _looksBuyFromPreview(f.id, 0, f.slot);   // купить + надеть + перезагрузить (reuse)
 }
 function _looksGridHtml(slot){
+  const q=_looksSearch.trim().toLowerCase();
   const items=(_looksData.slots[slot]||[]).filter(it=>
     (_looksFilter==='all'||it.lineup===_looksFilter) &&
-    (_looksStatus==='all'||(_looksStatus==='owned'?it.owned:!it.owned)));
+    (_looksStatus==='all'||(_looksStatus==='owned'?it.owned:!it.owned)) &&
+    (!q||it.name.toLowerCase().includes(q)));
   const none=`<div class="looks-card ${_looksShownId(slot)==null?'sel':''}" data-cos="__none__" onclick="_looksUnequip('${slot}')">
     <div class="lc-sw lc-sw--none">✖</div><div class="lc-name">Без</div></div>`;
-  const empty=items.length?'':'<div class="looks-empty">Нет предметов по этому фильтру</div>';
+  const empty=items.length?'':`<div class="looks-empty"><div class="looks-empty-ico">🔍</div>Ничего не найдено по этому фильтру</div>`;
   return `<div class="looks-cards">${none}${items.map(it=>_looksCard(slot,it)).join('')}${empty}</div>`;
 }
 // Мини-превью реального эффекта в карточке (а не просто текст).
@@ -394,10 +413,10 @@ function _looksThemesSectionHtml(){
   return `<section class="looks-section" id="looks-sec-themes">
     <div class="looks-sec-t">${_LOOKS_ANCHOR_LABEL.themes}</div>
     <div id="looks-theme-preview" class="looks-theme-preview"></div>
-    <div class="looks-filter" id="looks-theme-filter">
-      <button class="looks-chip active" data-f="all" onclick="_looksThemeSetFilter('all')">Все</button>
-      <button class="looks-chip" data-f="owned" onclick="_looksThemeSetFilter('owned')">Мои</button>
-      <button class="looks-chip" data-f="premium" onclick="_looksThemeSetFilter('premium')">✨ Премиум</button>
+    <div class="looks-theme-filter" id="looks-theme-filter">
+      <button class="looks-theme-chip active" data-f="all" onclick="_looksThemeSetFilter('all')">Все</button>
+      <button class="looks-theme-chip" data-f="owned" onclick="_looksThemeSetFilter('owned')">Мои</button>
+      <button class="looks-theme-chip" data-f="premium" onclick="_looksThemeSetFilter('premium')">✨ Премиум</button>
     </div>
     <div class="looks-sec-grid" id="looks-grid-themes"><div class="loader">Загрузка…</div></div>
   </section>`;
@@ -405,7 +424,7 @@ function _looksThemesSectionHtml(){
 function _looksThemeSetFilter(f){
   _looksThemeFilter=f;
   const bar=el('looks-theme-filter');
-  if(bar) bar.querySelectorAll('.looks-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-f')===f));
+  if(bar) bar.querySelectorAll('.looks-theme-chip').forEach(c=>c.classList.toggle('active', c.getAttribute('data-f')===f));
   _looksRenderThemesGrid();
 }
 function _looksRenderThemesGrid(){

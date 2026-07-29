@@ -1877,29 +1877,52 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
 .looks-empty { grid-column: 1 / -1; text-align: center; color: var(--muted); font-size: 11px; padding: 14px 0; }
 /* Панель вкладок слотов «Внешнего вида» — переиспользует .tabs/.tb, id только для JS */
 #looks-tabs { margin-bottom: 10px; }
-/* Фильтр по линейке — компактные чипы над сеткой (не такие крупные, как .tb).
-   Ряд шире экрана (8 чипов на 390px) — mask-image гасит край, подсказывая, что
-   можно проскроллить вбок (иначе крайние линейки просто никто не находит,
-   аудит 2026-07-29: "И..." обрублен без всякого намёка на скролл). */
-.looks-filter {
+/* Умный ряд (Стадия 1, 2026-07-29): поиск + пилюля линейки + переключатель
+   статуса вместо двух рядов чипов. Тап-зона ≥44px — НЕВИДИМЫМ padding на
+   .sr-tap (обёртке), сама пилюля остаётся тонкой ~30px (см. правило в
+   COSMETICS_COLLECTION_DESIGN_RULES.md §4 — раздувать саму пилюлю нельзя). */
+.smartrow { display: flex; gap: 6px; margin-bottom: 6px; }
+.sr-tap { padding: 5px 0; display: flex; flex: none; }
+.sr-tap--flex { flex: 1; min-width: 0; }
+.sr-box {
+  width: 100%; background: linear-gradient(160deg, var(--bg3), var(--bg2));
+  border: 1px solid var(--border2); border-radius: 10px;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.35);
+  display: flex; align-items: center; gap: 6px; padding: 6px 10px;
+  font-family: inherit; cursor: pointer;
+}
+.sr-search { min-width: 0; cursor: text; }
+.sr-search:focus-within { border-color: rgba(139,108,240,.5); box-shadow: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 2px rgba(139,108,240,.13); }
+.sr-search svg { width: 12px; height: 12px; opacity: .65; flex: none; color: var(--muted); }
+.sr-search input { background: none; border: none; outline: none; color: var(--bright); font-size: 10px; width: 100%; font-family: inherit; }
+.sr-search input::placeholder { color: var(--muted); }
+.sr-lineup { white-space: nowrap; max-width: 100px; overflow: hidden; text-overflow: ellipsis; color: var(--bright); font-size: 10px; font-weight: 600; }
+.sr-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 4px; box-shadow: 0 0 5px currentColor; flex: none; }
+.sr-dot-all { display: inline-flex; flex: none; margin-right: 5px; }
+.sr-dot-all span { width: 5.5px; height: 5.5px; border-radius: 50%; margin-left: -2px; border: 1px solid var(--bg2); }
+.sr-dot-all span:first-child { margin-left: 0; }
+.sr-status { width: 30px; justify-content: center; padding: 6px 0; font-size: 12px; }
+.sr-status--owned { background: linear-gradient(160deg, rgba(86,196,106,.16), rgba(86,196,106,.04)); border-color: rgba(86,196,106,.3); }
+.sr-status--missing { background: linear-gradient(160deg, rgba(232,181,77,.16), rgba(232,181,77,.04)); border-color: rgba(232,181,77,.3); }
+/* Лист выбора линейки (открывается тапом по .sr-lineup через OM()) */
+.picker { display: flex; flex-direction: column; gap: 2px; }
+.picker-opt { padding: 8px 10px; font-size: 12px; color: var(--text); border-radius: 8px; cursor: pointer; }
+.picker-opt:active { background: var(--bg3); }
+.picker-opt.on { background: rgba(232,181,77,.1); color: var(--gold2); font-weight: 700; }
+/* Фильтр тем — отдельные классы чтобы не конфликтовать с проверкой умного ряда */
+.looks-theme-filter {
   display: flex; gap: 5px; overflow-x: auto; margin-bottom: 8px; scrollbar-width: none;
   -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
   mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
 }
-.looks-filter::-webkit-scrollbar { display: none; }
-.looks-chip {
+.looks-theme-filter::-webkit-scrollbar { display: none; }
+.looks-theme-chip {
   flex: none; border: 1px solid var(--border2); background: var(--s); color: var(--muted);
   font-size: 10px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
   white-space: nowrap; cursor: pointer; font-family: inherit; transition: all .15s;
 }
-.looks-chip:active { transform: scale(.94); }
-.looks-chip.active { color: #1a1405; font-weight: 800; background: var(--gold); border-color: var(--gold); }
-/* Второй ряд — фильтр статуса владения (аудит 2026-07-29). Бирюзовый акцент вместо
-   золотого, чтобы визуально не спорить с рядом линеек над ним — это не альтернативный
-   выбор той же природы, а независимое второе измерение фильтра. */
-.looks-filter--status { margin-top: -2px; margin-bottom: 8px; }
-.looks-filter--status .looks-chip { font-size: 9.5px; padding: 3px 9px; }
-.looks-filter--status .looks-chip.active { color: #06201e; background: var(--teal); border-color: var(--teal); }
+.looks-theme-chip:active { transform: scale(.94); }
+.looks-theme-chip.active { color: #1a1405; font-weight: 800; background: var(--gold); border-color: var(--gold); }
 .looks-card:active { transform: scale(.97); }
 .looks-card.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 14px rgba(201,168,76,.18); background: var(--gold-dim, rgba(201,168,76,.1)); }
 .looks-card.locked { cursor: pointer; }
