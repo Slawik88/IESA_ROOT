@@ -3381,6 +3381,12 @@ body.no-fx .wn-pop { animation: none; }
    документа и не может доскроллить её край до-под sticky-превью (некуда). */
 #looks-sections { padding-bottom: 55vh; }
 .looks-sec-t { font-size: 12px; font-weight: 700; color: var(--gold2); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
+.sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 10px; }
+.sec-head .looks-sec-t { margin-bottom: 0; white-space: nowrap; }
+.mini-meter { display: flex; gap: 2px; flex: 1; max-width: 90px; }
+.mini-notch { flex: 1; height: 5px; border-radius: 2px; background: var(--dim); }
+.mini-notch.on { background: linear-gradient(180deg, var(--gold2), var(--gold)); }
+.sec-num { font-size: 8.5px; color: var(--muted); white-space: nowrap; }
 .looks-sec-grid { min-height: 40px; }
 /* Тема: инлайн-превью (raw-строка с бэка) прямо в секции, без ухода в модалку */
 .looks-theme-preview {
