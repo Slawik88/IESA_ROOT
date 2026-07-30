@@ -3322,11 +3322,11 @@ body.no-fx .zc-card-in, body.no-fx .zc-slot-fill { animation: none; }
 @keyframes gemSparkle { 0%,100%{opacity:0;transform:scale(.4)} 50%{opacity:1;transform:scale(1)} }
 
 .coll-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
-.sig-med { width: 56px; height: 56px; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; overflow: hidden; }
-.sig-med::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #232739, #0e1019 75%); box-shadow: inset 0 2px 6px rgba(0,0,0,.5); }
-.sig-svg { position: relative; width: 27px; height: 27px; filter: drop-shadow(0 0 5px var(--c)); }
-.ring { position: absolute; inset: 0; border-radius: 50%; padding: 2.5px; }
-.ring-mask { width: 100%; height: 100%; border-radius: 50%; background: #0e1019; }
+.coll-sig { width: 56px; height: 56px; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; overflow: hidden; }
+.coll-sig::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #232739, #0e1019 75%); box-shadow: inset 0 2px 6px rgba(0,0,0,.5); }
+.coll-sig-svg { position: relative; width: 27px; height: 27px; filter: drop-shadow(0 0 5px var(--c)); }
+.coll-ring { position: absolute; inset: 0; border-radius: 50%; padding: 2.5px; }
+.coll-ring-mask { width: 100%; height: 100%; border-radius: 50%; background: #0e1019; }
 
 .coll-card { background: linear-gradient(135deg, var(--bg2), var(--bg3)); border-radius: 14px; padding: 1px; position: relative; cursor: pointer; }
 .coll-card:active { transform: scale(.98); }
@@ -3340,13 +3340,6 @@ body.no-fx .zc-card-in, body.no-fx .zc-slot-fill { animation: none; }
 .coll-slots { display: flex; gap: 3px; margin-top: 8px; position: relative; padding-top: 7px; border-top: 1px solid rgba(255,255,255,.06); }
 .coll-slot { flex: 1; text-align: center; font-size: 9px; opacity: .25; filter: grayscale(1); }
 .coll-slot.on { opacity: 1; filter: none; text-shadow: 0 0 4px var(--c); }
-/* Отключение анимаций под настройкой «уменьшить анимации» — тот же паттерн,
-   что уже используется по всему проекту (body.no-fx .xxx { animation: none }). */
-body.no-fx .coll-card .sig-svg,
-body.no-fx .coll-card .sig-svg *,
-body.no-fx .coll-card [style*="animation"] {
-  animation: none !important;
-}
 .wn-card--new { border-color: var(--border); }
 .wn-card-head {
   display: block; width: 100%; text-align: left; border: none; background: none;
@@ -3450,7 +3443,7 @@ body.no-fx .wn-pop { animation: none; }
 .looks-section { margin-bottom: 20px; scroll-margin-top: var(--looks-sticky-h, 190px); }
 /* Запас под последней секцией: иначе якорь-прыжок к ней упирается в конец
    документа и не может доскроллить её край до-под sticky-превью (некуда). */
-#looks-sections { padding-bottom: 55vh; }
+#pg-looks { padding-bottom: 55vh; }
 .looks-sec-t { font-size: 12px; font-weight: 700; color: var(--gold2); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; }
 .sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 10px; }
 .sec-head .looks-sec-t { margin-bottom: 0; white-space: nowrap; }
@@ -3467,3 +3460,33 @@ body.no-fx .wn-pop { animation: none; }
 }
 .looks-theme-name { font-size: 11.5px; color: var(--muted); text-align: center; }
 .looks-theme-active { text-align: center; padding: 6px; color: var(--gold); font-size: 12px; font-weight: 600; }
+
+/* Стадия 2, «По коллекциям»: отключение анимаций под ручной настройкой
+   «уменьшить анимации» И под системной prefers-reduced-motion — тот же
+   парный паттерн, что уже используется по всему проекту (см. .no-fx +
+   @media(prefers-reduced-motion) блок выше). Плюс несколько декоративных
+   узлов при animation:none замирают на неверных базовых значениях (SVG-
+   атрибуты не знают об анимации) — им нужны отдельные значения покоя,
+   иначе иконка "ломается" визуально даже с корректно остановленной
+   анимацией (см. COSMETICS_COLLECTION_DESIGN_RULES.md §4).
+*/
+body.no-fx .coll-card .coll-sig-svg,
+body.no-fx .coll-card .coll-sig-svg *,
+body.no-fx .coll-card [style*="animation"] {
+  animation: none !important;
+}
+body.no-fx .coll-card .ico-heatglow { opacity: .35; }
+body.no-fx .coll-card .ico-rays line { opacity: .35; }
+body.no-fx .coll-card .ico-voidspark { opacity: 0; }
+body.no-fx .coll-card .ico-snowflake { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .coll-card .coll-sig-svg,
+  .coll-card .coll-sig-svg *,
+  .coll-card [style*="animation"] {
+    animation: none !important;
+  }
+  .coll-card .ico-heatglow { opacity: .35; }
+  .coll-card .ico-rays line { opacity: .35; }
+  .coll-card .ico-voidspark { opacity: 0; }
+  .coll-card .ico-snowflake { opacity: 0; }
+}
