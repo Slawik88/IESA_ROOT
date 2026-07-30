@@ -78,19 +78,22 @@ function renderLooks(){
   // приветствия/темы. Умный ряд фильтров («По слотам» режим) тоже ОБЩИЙ, но
   // находится ВНУТРИ .looks-sticky (2026-07-29: чтобы при скролле не уезжал под
   // прилипшее превью).
-  // Всегда рендерим (не убираем из DOM условно) — иначе высота .looks-sticky
-  // меняется между режимами и всё ниже (переключатель режимов, секции) прыгает
-  // при каждом клике «По коллекциям»/«По слотам». sr-hidden прячет визуально,
-  // но оставляет место — резервирование места, не анимация (см. комментарий
-  // в app.css рядом с .sr-hidden).
-  const stickyFilterBar = `<div id="looks-filter-bar" class="${_looksMode==='slots'?'':'sr-hidden'}">${_looksFilterHtml()}</div>`;
+  const stickyFilterBar = _looksMode==='slots' ? `<div id="looks-filter-bar">${_looksFilterHtml()}</div>` : '';
+  // Переключатель режимов рендерится ДО .looks-sticky (не после) — так его позиция
+  // не зависит от высоты .looks-sticky вообще, и он физически не может «прыгать»
+  // при переключении режима/примерке предмета. Попытка №1 (резервировать место
+  // под умный ряд ВНУТРИ .looks-sticky даже когда он скрыт) чинила прыжок, но
+  // удлиняла .looks-sticky в режиме «По коллекциям» настолько, что вторая строка
+  // карточек коллекций уезжала под нижнюю навигацию на 390×844 — клик по карточке
+  // перехватывался табом навигации, а не открывал коллекцию. Эта версия не трогает
+  // высоту .looks-sticky вообще (умный ряд снова строго условный, как раньше).
   b.innerHTML=`
     <div class="looks-head">
       <button class="looks-back" onclick="_looksClose()" aria-label="Назад">‹</button>
       <div class="looks-htitle">🎨 Внешний вид</div>
     </div>
-    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div>${stickyFilterBar}</div>
-    ${_looksDetailLineup?'':_looksModeToggleHtml()}`
+    ${_looksDetailLineup?'':_looksModeToggleHtml()}
+    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div>${stickyFilterBar}</div>`
     +vipBar
     +'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'
     +_looksPresetsHtml()
