@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url';
 const STATIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'FastAPI', 'static');
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const UNKNOWN_LOG = path.join(HERE, 'unknown-api.log');
-const PORT = 8402;
+const PORT = Number(process.env.PORT) || 8402;
 
 const read = (n) => fs.readFileSync(path.join(STATIC, n), 'utf8');
 const PARTS = Array.from({ length: 11 }, (_, i) => `app.${String(i + 1).padStart(2, '0')}.js`);
@@ -608,7 +608,6 @@ const MOCKS = {
         { id: 'cos_name_glow_neon', name: 'Неоновая трубка', lineup: 'artifact', rarity: 'artifact', css: 'glow-neon-tube', owned: false, price: [{ zarniki: 1500 }], vip_required: true, desc: 'Ник светится как неоновая вывеска. Показывается при активной VIP.' },
       ],
       avatar_frame: [
-        { id: 'cos_avatar_frame_vine', name: 'Плетёная лоза', lineup: 'forest', rarity: 'common', css: 'frame-vine', owned: false, price: [{ zarniki: 250 }], desc: 'Живая лоза оплетает край аватара.' },
         { id: 'cos_avatar_frame_abyss', name: 'Оправа Бездны', lineup: 'threshold', rarity: 'rare', css: 'frame-abyss', owned: false, price: [{ zarniki: 440 }], desc: 'Рамка из застывшей Тёмной Моры. Отображается при активной VIP.' },
         { id: 'cos_avatar_frame_inferno', name: 'Инферно', lineup: 'inferno', rarity: 'epic', css: 'frame-inferno', owned: false, price: [{ zarniki: 630 }], desc: 'Живое пламя лижет края аватара.' },
       ],
@@ -655,6 +654,7 @@ const MOCKS = {
   'POST /cosmetics/chest/buy': { ok: true, message: '🎁 Обычный сундук куплен за 150✨! Открой его ниже.' },
   'POST /cosmetics/chest/open': { message: 'Из сундука выпало!', drop: { kind: 'shards', shards: 5, name: '🔹 5 осколков' } },
   'POST /cosmetics/craft': { message: '✅ Скрафчено!' },
+  'POST /cosmetics/buy-lineup': { ok: true, message: '🎨 Линейка собрана полностью! Докуплено — за ✨' },
 
   // ── Админка чата ──
   'GET /admin/-100111/dashboard': {

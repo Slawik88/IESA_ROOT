@@ -3340,6 +3340,44 @@ body.no-fx .zc-card-in, body.no-fx .zc-slot-fill { animation: none; }
 .coll-slots { display: flex; gap: 3px; margin-top: 8px; position: relative; padding-top: 7px; border-top: 1px solid rgba(255,255,255,.06); }
 .coll-slot { flex: 1; text-align: center; font-size: 9px; opacity: .25; filter: grayscale(1); }
 .coll-slot.on { opacity: 1; filter: none; text-shadow: 0 0 4px var(--c); }
+
+/* Стадия 3 (2026-07-30): алтарная шапка открытой коллекции — медальон крупнее,
+   сегментный измеритель, кнопка «Купить всё недостающее». См.
+   COSMETICS_COLLECTION_DESIGN_RULES.md §6. */
+.coll-detail-head { position: relative; overflow: hidden; border-radius: 16px;
+  padding: 22px 14px 16px; margin-bottom: 14px; text-align: center;
+  background: linear-gradient(180deg, var(--bg2), var(--bg3));
+  border: 1px solid var(--cb); }
+.coll-detail-head::before { content: ''; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 0%, var(--cg), transparent 60%); }
+.coll-detail-head::after { content: ''; position: absolute; inset: 0; border-radius: 16px;
+  box-shadow: inset 0 0 26px rgba(0,0,0,.55); pointer-events: none; }
+.coll-detail-back { position: absolute; top: 8px; left: 8px; z-index: 3; width: 30px; height: 30px;
+  border-radius: 50%; border: none; background: rgba(0,0,0,.35); color: var(--bright);
+  font-size: 18px; line-height: 1; cursor: pointer; }
+.coll-detail-atmo { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.coll-detail-sig { position: relative; z-index: 1; width: 76px; height: 76px; margin: 4px auto 10px;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.coll-detail-sig::before { content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #232739, #0e1019 75%);
+  box-shadow: inset 0 3px 10px rgba(0,0,0,.55); }
+.coll-detail-sig::after { content: ''; position: absolute; inset: 0; border-radius: 50%;
+  border: 1px solid var(--c); opacity: .5; }
+.coll-detail-sig .coll-sig-svg { position: relative; width: 38px; height: 38px;
+  filter: drop-shadow(0 0 8px var(--c)); }
+.coll-detail-name { position: relative; z-index: 1; color: var(--bright); font-weight: 700; font-size: 16px; }
+.coll-detail-blurb { position: relative; z-index: 1; color: var(--muted); font-size: 11px;
+  margin: 4px auto 14px; max-width: 280px; line-height: 1.4; }
+.coll-meter { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 3px;
+  justify-content: center; max-width: 280px; margin: 0 auto; }
+.coll-meter-notch { width: 14px; height: 6px; border-radius: 2px; background: var(--dim); }
+.coll-meter-notch.on { background: linear-gradient(180deg, var(--gold2), var(--gold));
+  box-shadow: 0 0 5px var(--gold2); animation: collMeterPulse 2.6s ease-in-out infinite; }
+.coll-meter-caption { position: relative; z-index: 1; display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--muted); margin: 8px auto 12px; max-width: 280px; }
+.coll-detail-done { position: relative; z-index: 1; color: #56c46a; font-weight: 700; font-size: 12px;
+  background: rgba(86,196,106,.13); border-radius: 8px; padding: 8px; }
+@keyframes collMeterPulse { 0%,100%{box-shadow:0 0 5px var(--gold2)} 50%{box-shadow:0 0 10px var(--gold)} }
 .wn-card--new { border-color: var(--border); }
 .wn-card-head {
   display: block; width: 100%; text-align: left; border: none; background: none;
@@ -3489,4 +3527,11 @@ body.no-fx .coll-card .ico-snowflake { opacity: 0; }
   .coll-card .ico-rays line { opacity: .35; }
   .coll-card .ico-voidspark { opacity: 0; }
   .coll-card .ico-snowflake { opacity: 0; }
+}
+
+/* Стадия 3 (2026-07-30): та же пара no-fx/prefers-reduced-motion для шапки
+   детального экрана (см. правило в комментарии над блоком .coll-card выше). */
+body.no-fx .coll-meter-notch.on { animation: none !important; box-shadow: 0 0 5px var(--gold2); }
+@media (prefers-reduced-motion: reduce) {
+  .coll-meter-notch.on { animation: none !important; box-shadow: 0 0 5px var(--gold2); }
 }
