@@ -286,11 +286,13 @@ function _looksPickLineup(lin){
   _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
   _looksSyncStickyH();
 }
+// Тап по карточке коллекции: переключает в «По слотам», фильтрует на эту линейку.
+// Полноценный компактный «детальный экран одной линейки» — Стадия 3 (там же
+// появляется кнопка «Купить всё недостающее», массовая покупка). Сейчас —
+// осознанно простой мост на уже проверенный фильтр Стадии 1.
 function _looksOpenCollection(lin){
   _looksFilter=lin;
-  _looksMode='slots';
-  try{ localStorage.setItem('pv_looks_mode', 'slots'); }catch(e){}
-  renderLooks();
+  _looksSetMode('slots');
 }
 const _LOOKS_STATUS_CYCLE=['all','owned','missing'];
 const _LOOKS_STATUS_ICON={all:'∅',owned:'✓',missing:'🔒'};
