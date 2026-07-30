@@ -15,7 +15,9 @@ await page.mouse.click(195, 700); // skip welcome splash
 await new Promise(r => setTimeout(r, 500));
 await page.evaluate(() => openLooksModal());
 await new Promise(r => setTimeout(r, 500));
-await page.type('#looks-search-inp', 'этогонесуществует12345');
+await page.click('[data-mode="slots"]');
+await new Promise(r => setTimeout(r, 300));
+await page.type('#looks-filter-bar input[type="text"]', 'этогонесуществует12345');
 await new Promise(r => setTimeout(r, 300));
 
 const empty = await page.evaluate(() => {

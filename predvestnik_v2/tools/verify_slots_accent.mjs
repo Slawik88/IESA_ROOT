@@ -13,6 +13,8 @@ await page.mouse.click(195,700);
 await new Promise(r=>setTimeout(r,500));
 await page.evaluate(()=>openLooksModal());
 await new Promise(r=>setTimeout(r,500));
+await page.click('[data-mode="slots"]');
+await new Promise(r=>setTimeout(r,300));
 const info=await page.evaluate(()=>{
   const card=document.querySelector('#looks-grid-name_glow .looks-card[data-cos]:not([data-cos="__none__"])');
   if(!card) return null;
