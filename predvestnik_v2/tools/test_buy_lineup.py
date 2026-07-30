@@ -86,19 +86,24 @@ class FakeDB:
         self.connection = FakeConnection()
         self.executed = []
         self.balance = balance
+        self.granted = set()   # имитирует строки user_cosmetics, персистентно между вызовами
 
     def execute(self, sql, args=()):
         self.executed.append((sql.strip(), tuple(args)))
         if "SELECT COALESCE(user_balance_zarniki" in sql:
             return FakeCursor((self.balance,))
         if "SELECT cosmetic_id FROM user_cosmetics" in sql:
-            return FakeCursor(rows=[])
+            return FakeCursor(rows=[(cid,) for cid in self.granted])
+        if sql.startswith("UPDATE users"):
+            self.balance -= args[0]
+            return FakeCursor(None)
+        if sql.startswith("INSERT INTO user_cosmetics"):
+            self.granted.add(args[1])
+            return FakeCursor(None)
         if "SELECT" in sql:
-            # Default for any SELECT: return empty rows or single empty row
             if "FROM" in sql:
                 return FakeCursor(rows=[])
             return FakeCursor(None)
-        # For UPDATE/INSERT: return empty cursor (no rows returned)
         return FakeCursor(None)
 
     async def commit(self):
@@ -135,6 +140,30 @@ async def main():
         print("OK: buy_lineup — отказ без побочных эффектов при нехватке баланса; "
               "при достатке — 1 списание + по 1 выдаче на каждый недостающий предмет, "
               "сообщение содержит количество и сумму")
+
+        # ── Регресс-тест финального ревью Стадии 3: владение ОБЯЗАНО читаться
+        # ПОСЛЕ SELECT...FOR UPDATE, не до. В реальном Postgres второй
+        # параллельный вызов buy_lineup для того же user_id блокируется на
+        # FOR UPDATE, пока первый не закоммитится — если владение прочитано ДО
+        # этой блокировки, оба вызова посчитают одну и ту же "missing" и спишут
+        # total ДВАЖДЫ за одни и те же предметы (двойной тап по кнопке "Купить
+        # всё недостающее" на фронте). FakeDB не умеет симулировать реальную
+        # блокировку между двумя ОТДЕЛЬНЫМИ вызовами, но порядок SQL-запросов
+        # ВНУТРИ одного вызова — то, что делает фикс верным под реальным
+        # Postgres — проверяется напрямую по журналу executed.
+        db_order = FakeDB(balance=total_needed)
+        await buy_lineup(db_order, 111, "forest")
+        sql_order = [sql for sql, _ in db_order.executed]
+        idx_lock = next(i for i, s in enumerate(sql_order) if "FOR UPDATE" in s)
+        idx_owned = next(i for i, s in enumerate(sql_order) if s.startswith("SELECT cosmetic_id FROM user_cosmetics"))
+        assert idx_owned > idx_lock, (
+            "владение прочитано ДО SELECT...FOR UPDATE — под реальным Postgres второй "
+            "параллельный вызов (двойной тап) увидит СТАРОЕ владение и спишет total "
+            "ещё раз за уже выданные предметы"
+        )
+        print("OK: buy_lineup — владение читается ПОСЛЕ захвата блокировки баланса "
+              "(SELECT...FOR UPDATE), не до — двойной тап/параллельный вызов не спишет "
+              "дважды за одни и те же предметы")
 
 
 asyncio.run(main())

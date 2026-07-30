@@ -312,10 +312,16 @@ function _looksPickLineup(lin){
 function _looksOpenCollection(lin){
   _looksSearch=''; _looksStatus='all'; _looksFilter=lin; _looksDetailLineup=lin;
   renderLooks();
+  // Финальный ревью: если тап пришёлся на карточку в скролле (не только у 3 из
+  // 7 линеек внизу сетки), шапка детального экрана рендерится за текущим
+  // scrollTop и остаётся за прилипшим превью — игрок не видит медальон/блёрб/
+  // измеритель вообще, только хвост кнопки покупки.
+  window.scrollTo(0,0);
 }
 function _looksCloseCollection(){
   _looksDetailLineup=null; _looksFilter='all';
   renderLooks();
+  window.scrollTo(0,0);
 }
 // Алтарная шапка открытой коллекции (Стадия 3) — см. COSMETICS_COLLECTION_DESIGN_RULES.md §6:
 // медальон крупнее (74px+), сегментный измеритель (N делений = N предметов
@@ -333,7 +339,7 @@ function _looksCollectionDetailHeaderHtml(lin){
   const notches=Array.from({length:stats.total},(_,i)=>`<div class="coll-meter-notch${i<stats.owned?' on':''}"></div>`).join('');
   const action = missing===0
     ? `<div class="coll-detail-done">✓ Коллекция собрана полностью</div>`
-    : `<button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyLineup('${lin}')">${can?`✨ Купить всё недостающее — ${total}✨ (${missing}×${unit}✨)`:`🚫 Нужно ${total}✨ (есть ${Math.floor(bal)}✨)`}</button>`;
+    : `<button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyLineup('${lin}',this)">${can?`✨ Купить всё недостающее — ${total}✨ (${missing}×${unit}✨)`:`🚫 Нужно ${total}✨ (есть ${Math.floor(bal)}✨)`}</button>`;
   return `<div class="coll-detail-head" style="--c:${c};--cb:${c}4d;--cg:${c}1f">
     <button class="coll-detail-back" onclick="_looksCloseCollection()" aria-label="Назад к коллекциям">‹</button>
     <div class="coll-detail-atmo">${_looksCollectionAtmosphereHtml(lin)}</div>
@@ -345,12 +351,21 @@ function _looksCollectionDetailHeaderHtml(lin){
     ${action}
   </div>`;
 }
-function _looksBuyLineup(lin){
+// Финальный ревью Стадии 3: без блокировки кнопки двойной тап отправлял 2
+// одинаковых POST — бэкенд теперь тоже защищён (владение читается после
+// блокировки баланса), но кнопку всё равно блокируем на время запроса —
+// не полагаться на бэк как на единственную линию защиты. Также обновляет
+// #looks-top (сброс _looksFocus) — иначе инлайн-плашка покупки под превью
+// могла остаться нацеленной на предмет, который эта покупка уже выдала.
+function _looksBuyLineup(lin,btn){
+  if(btn) btn.disabled=true;
   api('/cosmetics/buy-lineup',{method:'POST',body:JSON.stringify({lineup:lin})})
     .then(r=>{toast(r.message); refreshCurrBar(); return api('/cosmetics/');})
     .then(d=>{_looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved};
-      const body=el('looks-mode-body'); if(body) body.innerHTML=_looksCollectionsViewHtml();})
-    .catch(e=>toast(e,false));
+      _looksFocus=null; _looksDirty=true;
+      const body=el('looks-mode-body'); if(body) body.innerHTML=_looksCollectionsViewHtml();
+      _looksRenderTop(); _looksSyncStickyH();})
+    .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
 // Фоновая атмосфера шапки детального экрана (Стадия 3) — 2-3 крупные МЕДЛЕННЫЕ
 // малозаметные частицы в духе линейки, см. COSMETICS_COLLECTION_DESIGN_RULES.md
@@ -534,11 +549,25 @@ function _looksCard(slot,it){
     ${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
     <div class="lc-foot">${rar}${priceTxt}<span class="lc-prev-hint">👁</span></div></div>`;
 }
+// Финальный ревью Стадии 3: перезагружает каталог после покупки/применения БЕЗ
+// сброса навигационного состояния (открытая коллекция/фильтр/поиск) — в
+// отличие от openLooksModal(), которая рассчитана на «холодный» вход в вкладку
+// и раньше использовалась здесь как попало «перезагрузить кэш» — из-за чего
+// покупка предмета ИЗНУТРИ детального экрана коллекции выкидывала игрока
+// обратно на сетку карточек (тот же баг класса, что и с переключателем
+// режимов — новое состояние встретилось со старым «reload», который его
+// не знал и сбрасывал).
+function _looksReloadCatalog(){
+  return api('/cosmetics/').then(d=>{
+    _looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved}; _looksFocus=null;
+    renderLooks();
+  });
+}
 function _looksBuyFromPreview(id,opt,slot){
   api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})
     .then(r=>{toast(r.message); refreshCurrBar(); _looksDirty=true;
       return api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})});})
-    .then(()=>{toast('✅ Надето!'); _looksData=null; openLooksModal();})   // владение изменилось → перезагрузить кэш
+    .then(()=>{toast('✅ Надето!'); return _looksReloadCatalog();})   // владение изменилось → перезагрузить кэш
     .catch(e=>toast(e,false));
 }
 
@@ -594,7 +623,7 @@ function _savePresetGo(){
 }
 function _applyPreset(id){
   api(`/cosmetics/presets/${id}/apply`,{method:'POST'})
-    .then(r=>{toast(r.message); _looksDirty=true; _looksData=null; openLooksModal();})
+    .then(r=>{toast(r.message); _looksDirty=true; return _looksReloadCatalog();})
     .catch(e=>toast(e,false));
 }
 function _deletePreset(id){
@@ -759,7 +788,7 @@ function _looksThemeEquip(tid){
 }
 // ── БЛОК21 #3: сундуки-сюрпризы + крафт косметики из осколков ────────────────────
 function _openSurprisesModal(){
-  OM('🎁 Сюрпризы и Крафт','<div class="loader">Загрузка...</div>',[{l:'← К внешнему виду',c:'btn-ghost',f:'CM();_looksData=null;openLooksModal()'}]);
+  OM('🎁 Сюрпризы и Крафт','<div class="loader">Загрузка...</div>',[{l:'← К внешнему виду',c:'btn-ghost',f:'CM();_looksReloadCatalog()'}]);
   Promise.all([api('/cosmetics/chests'),api('/cosmetics/craft')]).then(([ch,cr])=>{
     const b=el('mb'); if(!b) return;
     const chests=(ch.chests||[]).map(c=>{

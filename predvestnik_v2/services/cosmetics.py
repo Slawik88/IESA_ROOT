@@ -387,12 +387,22 @@ async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
     недостающее», Стадия 3 редизайна «Внешний вид»). Мирроит buy_bundle()
     (FastAPI/routers/showcase.py, витрина недели) — тот же паттерн SELECT ...
     FOR UPDATE + одно списание + N выдач в одной транзакции — но без скидки
-    комплекта: у линейки и так единая фиксированная цена за предмет."""
-    owned = await _owned(db, user_id)
-    quote = lineup_buy_quote(lineup_id, owned)
-    if not quote:
-        return False, "Эта линейка уже собрана полностью или недоступна для покупки."
-    missing, total = quote["missing"], quote["total"]
+    комплекта: у линейки и так единая фиксированная цена за предмет.
+
+    Финальный ревью Стадии 3 (2026-07-31): владение читалось ДО открытия
+    транзакции/блокировки баланса — двойной тап по кнопке (или 2 параллельных
+    запроса) считали одну и ту же "missing" ДВАЖДЫ и списывали total дважды,
+    хотя предметы выдавались только один раз (ON CONFLICT DO NOTHING). Второй
+    SELECT ... FOR UPDATE блокируется на строке юзера, пока первая транзакция
+    не закоммитится — поэтому владение теперь читается ПОСЛЕ захвата блокировки:
+    второй вызов увидит уже выданные первым предметы и посчитает missing/total
+    заново (меньше или 0), а не спишет цену за уже подаренное."""
+    meta = LINEUPS.get(lineup_id)
+    if not meta:
+        return False, "Нет такой линейки."
+    price_opt = (meta.get("price") or [None])[0]
+    if not price_opt or "zarniki" not in price_opt:
+        return False, "Эта линейка не продаётся за зарники."
 
     async with db.connection.transaction():
         async with db.execute(
@@ -401,6 +411,13 @@ async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
         ) as c:
             row = await c.fetchone()
         bal = float(row[0]) if row else 0.0
+
+        owned = await _owned(db, user_id)
+        quote = lineup_buy_quote(lineup_id, owned)
+        if not quote:
+            return False, "Эта линейка уже собрана полностью или недоступна для покупки."
+        missing, total = quote["missing"], quote["total"]
+
         if bal < total:
             return False, f"Нужно {total}✨ за всю линейку (у тебя {int(bal)})."
         await db.execute(
@@ -420,7 +437,6 @@ async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
     except Exception:
         pass
 
-    meta = LINEUPS[lineup_id]
     return True, f"🎨 «{meta['name']}» собрана полностью! Докуплено {len(missing)} шт. за {total}✨"
 
 
