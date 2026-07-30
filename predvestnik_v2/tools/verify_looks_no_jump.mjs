@@ -33,15 +33,17 @@ check('умный ряд фильтра существует в DOM в режи�
 check('умный ряд фильтра скрыт классом sr-hidden в режиме "По коллекциям"', barPresence.hiddenInCollections);
 
 // Сценарий 3: ряд действий под превью не сдвигает переключатель режимов при примерке предмета
-// (переключаемся в slots, тапаем по предмету косметики — фокус ставится, actions меняется)
+// (переключаемся в slots, тапаем "Без" по слоту title — там уже надет cos_title_dawnchild,
+// поэтому клик реально снимает предмет: _looksUnequip('title') меняет _looksSel.title на null
+// и _looksFocus на null — ряд действий переходит .looks-ba-hint → .looks-ba-act (2 кнопки),
+// без байбара (он вне скоупа задачи). Тап по уже надетой карточке был бы вакуумным —
+// _looksSel не менялся бы и ряд действий не переключался бы вовсе.)
 await page.click('[data-mode="slots"]');
 await new Promise(r => setTimeout(r, 300));
 const toggleYBeforeTap = await page.evaluate(() => document.getElementById('looks-mode-toggle').getBoundingClientRect().y);
-// Найти первый card с data-cos, который НЕ "__none__" (это карточка "Без")
 await page.evaluate(() => {
-  const cards = Array.from(document.querySelectorAll('.looks-card[data-cos]'));
-  const card = cards.find(c => c.getAttribute('data-cos') !== '__none__');
-  if (card) card.click();
+  const noneCard = document.querySelector('#looks-grid-title [data-cos="__none__"]');
+  if (noneCard) noneCard.click();
 });
 await new Promise(r => setTimeout(r, 300));
 const toggleYAfterTap = await page.evaluate(() => document.getElementById('looks-mode-toggle').getBoundingClientRect().y);
