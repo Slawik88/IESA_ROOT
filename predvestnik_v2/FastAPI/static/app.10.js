@@ -101,7 +101,7 @@ function renderLooks(){
 // отдельно в renderLooks().
 function _looksSlotsViewHtml(){
   return `<div class="looks-anchors">${_LOOKS_SLOTS.map(s=>`<button class="looks-anchor-chip" onclick="_looksJump('${s}')">${_LOOKS_ANCHOR_LABEL[s]}</button>`).join('')}</div>`
-    +`<div id="looks-sections">${_LOOKS_SLOTS.map(_looksSectionHtml).join('')}</div>`;
+    +`<div id="looks-sections">${_LOOKS_SLOTS.map(s=>_looksSectionHtml(s)).join('')}</div>`;
 }
 // Статистика коллекции: считается на клиенте из уже загруженных _looksData.slots
 // (никакого нового запроса к бэку не нужно — lineup/owned уже есть на каждом предмете).
@@ -155,7 +155,7 @@ function _looksCollectionsViewHtml(){
 // (.looks-anchors) намеренно не рендерим — 6 секций одной линейки короткие,
 // прыгать некуда.
 function _looksCollectionDetailBodyHtml(){
-  return `<div id="looks-sections">${_LOOKS_SLOTS.map(_looksSectionHtml).join('')}</div>`;
+  return `<div id="looks-sections">${_LOOKS_SLOTS.map(s=>_looksSectionHtml(s,_looksDetailLineup)).join('')}</div>`;
 }
 // Медальон-иконка каждой линейки — авторский анимированный SVG-сигиль (не эмодзи,
 // см. COSMETICS_COLLECTION_DESIGN_RULES.md §1). Код транскрибирован из брейншторма
@@ -325,7 +325,7 @@ function _looksCollectionDetailHeaderHtml(lin){
   const notches=Array.from({length:stats.total},(_,i)=>`<div class="coll-meter-notch${i<stats.owned?' on':''}"></div>`).join('');
   const action = missing===0
     ? `<div class="coll-detail-done">✓ Коллекция собрана полностью</div>`
-    : `<button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyLineup('${lin}')">${can?`✨ Купить всё недостающее — ${total}✨ (${missing}×${unit}✨)`:`🚫 Нужно ${total}✨ (есть ${Math.floor(bal)})`}</button>`;
+    : `<button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyLineup('${lin}')">${can?`✨ Купить всё недостающее — ${total}✨ (${missing}×${unit}✨)`:`🚫 Нужно ${total}✨ (есть ${Math.floor(bal)}✨)`}</button>`;
   return `<div class="coll-detail-head" style="--c:${c};--cb:${c}4d;--cg:${c}1f">
     <button class="coll-detail-back" onclick="_looksCloseCollection()" aria-label="Назад к коллекциям">‹</button>
     <div class="coll-detail-atmo">${_looksCollectionAtmosphereHtml(lin)}</div>
@@ -375,8 +375,9 @@ function _looksLineupInfoHtml(){
   </div>`;
 }
 // Секция одного слота: заголовок-якорь + фильтруемая сетка (id стабилен для _looksJump).
-function _looksSectionHtml(slot){
-  const items=_looksData.slots[slot]||[];
+function _looksSectionHtml(slot, lineupFilter){
+  const all=_looksData.slots[slot]||[];
+  const items=lineupFilter?all.filter(it=>it.lineup===lineupFilter):all;
   const owned=items.filter(it=>it.owned).length, total=items.length;
   // Порядок делений НЕ важен — деления обезличены (просто N одинаковых чёрточек,
   // не привязаны к конкретному предмету), горят ПЕРВЫЕ owned штук слева направо.
