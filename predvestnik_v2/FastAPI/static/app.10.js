@@ -344,7 +344,36 @@ function _looksBuyLineup(lin){
       const body=el('looks-mode-body'); if(body) body.innerHTML=_looksCollectionsViewHtml();})
     .catch(e=>toast(e,false));
 }
-function _looksCollectionAtmosphereHtml(lin){ return ''; }   // Task 4 заменит на реальную атмосферу
+// Фоновая атмосфера шапки детального экрана (Стадия 3) — 2-3 крупные МЕДЛЕННЫЕ
+// малозаметные частицы в духе линейки, см. COSMETICS_COLLECTION_DESIGN_RULES.md
+// §6: «тот же тип, что у иконки (_looksCollectionIconSvg), но крупнее и
+// медленнее — это фон всего экрана, не деталь 56px иконки». Переиспользует
+// СУЩЕСТВУЮЩИЕ keyframes иконок (app.css) с более долгой длительностью —
+// не изобретает новые анимации.
+function _looksCollectionAtmosphereHtml(lin){
+  switch(lin){
+    case 'forest': return `
+      <div style="position:absolute;width:5px;height:5px;border-radius:50%;background:#e8ffb0;left:20%;top:65%;animation:fireflyDrift 7s ease-in-out infinite"></div>
+      <div style="position:absolute;width:4px;height:4px;border-radius:50%;background:#e8ffb0;left:75%;top:30%;animation:fireflyDrift 8.5s ease-in-out infinite 2s"></div>`;
+    case 'threshold': return `
+      <div style="position:absolute;left:30%;top:0;width:40%;height:60%;background:linear-gradient(180deg, rgba(224,201,255,.35), transparent);animation:portalTravel 6.5s ease-in-out infinite"></div>`;
+    case 'frost': return `
+      <div style="position:absolute;font-size:20px;color:#cdeeff;left:15%;top:8%;animation:snowFall 7s linear infinite">❋</div>
+      <div style="position:absolute;font-size:14px;color:#cdeeff;left:70%;top:14%;animation:snowFall 9s linear infinite 2.5s">❋</div>`;
+    case 'inferno': return `
+      <div style="position:absolute;width:90px;height:90px;border-radius:50%;left:50%;top:60%;transform:translate(-50%,0);background:radial-gradient(circle,#ff7a3d,transparent 70%);animation:heatGlow 4.5s ease-in-out infinite"></div>
+      <div style="position:absolute;width:4px;height:4px;border-radius:50%;background:#ffb15e;left:35%;top:70%;animation:emberRise 4s ease-in infinite"></div>
+      <div style="position:absolute;width:3px;height:3px;border-radius:50%;background:#ffb15e;left:60%;top:75%;animation:emberRise 4.6s ease-in infinite 1.5s"></div>`;
+    case 'celestial': return `
+      <div style="position:absolute;width:100%;height:100%;background:conic-gradient(from 0deg, transparent, rgba(232,196,90,.12), transparent 30%);animation:starSpin 20s linear infinite"></div>`;
+    case 'void': return `
+      <div style="position:absolute;width:3px;height:3px;border-radius:50%;background:#ffd0e2;left:25%;top:40%;animation:voidSpark 4.4s ease-in-out infinite"></div>
+      <div style="position:absolute;width:2px;height:2px;border-radius:50%;background:#ffd0e2;left:70%;top:55%;animation:voidSpark 5.2s ease-in-out infinite 1.6s"></div>`;
+    case 'artifact': return `
+      <div style="position:absolute;width:60%;height:200%;left:-30%;top:-50%;background:linear-gradient(100deg, transparent, rgba(255,255,255,.10), transparent);animation:gemShimmer 6s ease-in-out infinite alternate"></div>`;
+    default: return '';
+  }
+}
 const _LOOKS_STATUS_CYCLE=['all','owned','missing'];
 const _LOOKS_STATUS_ICON={all:'∅',owned:'✓',missing:'🔒'};
 const _LOOKS_STATUS_LABEL={all:'Все',owned:'Куплено',missing:'Не куплено'};

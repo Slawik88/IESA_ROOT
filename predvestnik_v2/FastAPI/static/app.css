@@ -3532,6 +3532,8 @@ body.no-fx .coll-card .ico-snowflake { opacity: 0; }
 /* Стадия 3 (2026-07-30): та же пара no-fx/prefers-reduced-motion для шапки
    детального экрана (см. правило в комментарии над блоком .coll-card выше). */
 body.no-fx .coll-meter-notch.on { animation: none !important; box-shadow: 0 0 5px var(--gold2); }
+body.no-fx .coll-detail-atmo * { animation: none !important; opacity: .3; }
 @media (prefers-reduced-motion: reduce) {
   .coll-meter-notch.on { animation: none !important; box-shadow: 0 0 5px var(--gold2); }
+  .coll-detail-atmo * { animation: none !important; opacity: .3; }
 }
