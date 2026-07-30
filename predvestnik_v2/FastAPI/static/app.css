@@ -3340,6 +3340,13 @@ body.no-fx .zc-card-in, body.no-fx .zc-slot-fill { animation: none; }
 .coll-slots { display: flex; gap: 3px; margin-top: 8px; position: relative; padding-top: 7px; border-top: 1px solid rgba(255,255,255,.06); }
 .coll-slot { flex: 1; text-align: center; font-size: 9px; opacity: .25; filter: grayscale(1); }
 .coll-slot.on { opacity: 1; filter: none; text-shadow: 0 0 4px var(--c); }
+/* Отключение анимаций под настройкой «уменьшить анимации» — тот же паттерн,
+   что уже используется по всему проекту (body.no-fx .xxx { animation: none }). */
+body.no-fx .coll-card .sig-svg,
+body.no-fx .coll-card .sig-svg *,
+body.no-fx .coll-card [style*="animation"] {
+  animation: none !important;
+}
 .wn-card--new { border-color: var(--border); }
 .wn-card-head {
   display: block; width: 100%; text-align: left; border: none; background: none;
