@@ -12,6 +12,8 @@ await page.mouse.click(195,700);
 await new Promise(r=>setTimeout(r,500));
 await page.evaluate(()=>openLooksModal());
 await new Promise(r=>setTimeout(r,500));
+await page.click('[data-mode="slots"]');
+await new Promise(r=>setTimeout(r,300));
 const info=await page.evaluate(()=>{
   const total=(_looksData.slots.name_glow||[]).length;
   const owned=(_looksData.slots.name_glow||[]).filter(it=>it.owned).length;

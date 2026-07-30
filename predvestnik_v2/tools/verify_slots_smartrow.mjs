@@ -15,6 +15,9 @@ await page.mouse.click(195, 700); // skip welcome splash
 await new Promise(r => setTimeout(r, 500));
 await page.evaluate(() => openLooksModal());
 await new Promise(r => setTimeout(r, 500));
+// Переключиться на режим "По слотам" (т.к. по умолчанию режим "По коллекциям")
+await page.click('[data-mode="slots"]');
+await new Promise(r => setTimeout(r, 300));
 
 const state = await page.evaluate(() => {
   const searchInput = document.querySelector('#looks-filter-bar input[type="text"]');
