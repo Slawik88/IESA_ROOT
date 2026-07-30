@@ -94,14 +94,16 @@ function _looksFilterHtml(){
   const dotHtml=_looksFilter==='all'
     ?`<span class="sr-dot-all"><span style="background:#ff7a3d"></span><span style="background:#7ad4ff"></span><span style="background:#c084fc"></span></span>`
     :`<span class="sr-dot" style="color:${lineupColor(_looksFilter)}"></span>`;
-  const statusIcon={all:'∅',owned:'✓',missing:'🔒'}[_looksStatus];
+  const statusIcon=_LOOKS_STATUS_ICON[_looksStatus];
+  const statusLabel=_LOOKS_STATUS_LABEL[_looksStatus];
+  const lineupTxtAttr=lineupTxt.replace(/"/g,'&quot;');   // esc() не экранирует кавычки — своя защита для атрибута title
   return `<div class="smartrow">
     <div class="sr-tap sr-tap--flex"><div class="sr-box sr-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-      <input type="text" id="looks-search-inp" placeholder="Поиск…" value="${esc(_looksSearch)}" oninput="_looksSetSearch(this.value)">
+      <input type="text" id="looks-search-inp" placeholder="Поиск…" value="${esc(_looksSearch).replace(/"/g,'&quot;')}" oninput="_looksSetSearch(this.value)">
     </div></div>
-    <div class="sr-tap"><div class="sr-box sr-lineup" id="looks-lineup-pill" onclick="_looksOpenLineupPicker()">${dotHtml}${lineupTxt}</div></div>
-    <div class="sr-tap"><button class="sr-box sr-status sr-status--${_looksStatus}" id="looks-status-btn" onclick="_looksCycleStatus()" type="button">${statusIcon}</button></div>
+    <div class="sr-tap"><button class="sr-box sr-lineup" id="looks-lineup-pill" type="button" onclick="_looksOpenLineupPicker()" title="Линейка: ${lineupTxtAttr}">${dotHtml}${lineupTxt}</button></div>
+    <div class="sr-tap"><button class="sr-box sr-status sr-status--${_looksStatus}" id="looks-status-btn" onclick="_looksCycleStatus()" type="button" title="${statusLabel}" aria-label="Статус владения: ${statusLabel}">${statusIcon}</button></div>
   </div><div id="looks-lineup-info">${_looksLineupInfoHtml()}</div>`;
 }
 function _looksSetSearch(v){
@@ -125,13 +127,17 @@ function _looksPickLineup(lin){
   _looksSyncStickyH();
 }
 const _LOOKS_STATUS_CYCLE=['all','owned','missing'];
+const _LOOKS_STATUS_ICON={all:'∅',owned:'✓',missing:'🔒'};
+const _LOOKS_STATUS_LABEL={all:'Все',owned:'Куплено',missing:'Не куплено'};
 function _looksCycleStatus(){
   const i=_LOOKS_STATUS_CYCLE.indexOf(_looksStatus);
   _looksStatus=_LOOKS_STATUS_CYCLE[(i+1)%_LOOKS_STATUS_CYCLE.length];
   const btn=el('looks-status-btn');
   if(btn){
-    btn.textContent={all:'∅',owned:'✓',missing:'🔒'}[_looksStatus];
+    btn.textContent=_LOOKS_STATUS_ICON[_looksStatus];
     btn.className=`sr-box sr-status sr-status--${_looksStatus}`;
+    btn.title=_LOOKS_STATUS_LABEL[_looksStatus];
+    btn.setAttribute('aria-label', `Статус владения: ${_LOOKS_STATUS_LABEL[_looksStatus]}`);
   }
   _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
   _looksSyncStickyH();
@@ -266,7 +272,7 @@ function _looksCard(slot,it){
       <div class="lc-foot">${rar}${offBadge}${(!it.vip_locked_inactive&&_looksSaved[slot]===it.id)?'<span class="lc-on">✓ надето</span>':''}</div></div>`;
   }
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
-  const priceTxt=it.price&&it.price.length?`<span class="lc-price-hint">${_looksPriceTxt(it.price[0])} ✨</span>`:'';
+  const priceTxt=it.price&&it.price.length?`<span class="lc-price-hint">${_looksPriceTxt(it.price[0])}</span>`:'';   // _looksPriceTxt уже с иконкой ✨
   return `<div class="looks-card lc-lineup-accent r-${it.rarity} locked lc-buyable ${sel?'sel':''}" ${accentStyle} data-cos="${it.id}" onclick="_looksTapUnowned('${slot}','${it.id}')">
     ${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
     <div class="lc-foot">${rar}${priceTxt}<span class="lc-prev-hint">👁</span></div></div>`;
@@ -531,7 +537,7 @@ function _buyChest(id){
 function _openChest(id,btn){
   if(btn) btn.disabled=true;
   api('/cosmetics/chest/open',{method:'POST',body:JSON.stringify({chest_id:id})})
-    .then(r=>{ _looksDirty=true; _chestReveal(r.drop||{}); })
+    .then(r=>{ _looksDirty=true; _looksData=null; _chestReveal(r.drop||{}); })   // владение могло измениться → кэш инвалидировать (иначе счётчики измерителя устареют)
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
 function _chestReveal(d){
@@ -551,6 +557,6 @@ function _chestReveal(d){
 function _craftCosmetic(id,btn){
   if(btn) btn.disabled=true;
   api('/cosmetics/craft',{method:'POST',body:JSON.stringify({cosmetic_id:id})})
-    .then(r=>{ toast(r.message); _looksDirty=true; _openSurprisesModal(); })
+    .then(r=>{ toast(r.message); _looksDirty=true; _looksData=null; _openSurprisesModal(); })   // владение изменилось → кэш инвалидировать
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }

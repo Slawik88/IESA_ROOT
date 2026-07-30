@@ -632,6 +632,29 @@ const MOCKS = {
     ] },
   },
   'GET /cosmetics/presets': { presets: [{ id: 1, name: 'Золотой образ' }] },
+  // Модалка «Сюрпризы и Крафт» (_openSurprisesModal) — сундуки/крафт ОСОЗНАННО остались
+  // на старой редкостной системе (r-{rarity}, без lineup), не тронуты редизайном
+  // линеек (2026-07-29). Формы сняты с services/cosmetics.py::chest_catalog()/craft_catalog().
+  'GET /cosmetics/chests': { chests: [
+    { id: 'chest_common', name: '📦 Обычный сундук', zarniki: 150, owned: 2, odds: [
+      { label: '🔹 5 осколков', pct: 50, rarity: null },
+      { label: 'Косметика · Редкая', pct: 35, rarity: 'rare' },
+      { label: 'Косметика · Эпическая', pct: 15, rarity: 'epic' },
+    ] },
+    { id: 'chest_gold', name: '🎁 Золотой сундук', zarniki: 500, owned: 0, odds: [
+      { label: 'Косметика · Эпическая', pct: 60, rarity: 'epic' },
+      { label: 'Косметика · Легендарная', pct: 30, rarity: 'legendary' },
+      { label: 'Косметика · Мифическая', pct: 10, rarity: 'mythic' },
+    ] },
+  ] },
+  'GET /cosmetics/craft': { shards: 42, items: [
+    { id: 'cos_glow_ember', name: 'Тлеющее сияние', slot: 'name_glow', rarity: 'rare', css: 'glow-ember', text: null, cost: 15, owned: false, can: true },
+    { id: 'cos_title_ashborn', name: 'Пепельнорождённый', slot: 'title', rarity: 'epic', css: null, text: 'Пепельнорождённый', cost: 30, owned: false, can: true },
+    { id: 'cos_frame_iron', name: 'Железная рамка', slot: 'avatar_frame', rarity: 'rare', css: 'frame-iron', text: null, cost: 15, owned: true, can: false },
+  ] },
+  'POST /cosmetics/chest/buy': { ok: true, message: '🎁 Обычный сундук куплен за 150✨! Открой его ниже.' },
+  'POST /cosmetics/chest/open': { message: 'Из сундука выпало!', drop: { kind: 'shards', shards: 5, name: '🔹 5 осколков' } },
+  'POST /cosmetics/craft': { message: '✅ Скрафчено!' },
 
   // ── Админка чата ──
   'GET /admin/-100111/dashboard': {
