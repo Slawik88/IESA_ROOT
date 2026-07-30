@@ -370,7 +370,7 @@ function _looksCollectionAtmosphereHtml(lin){
       <div style="position:absolute;width:3px;height:3px;border-radius:50%;background:#ffd0e2;left:25%;top:40%;animation:voidSpark 4.4s ease-in-out infinite"></div>
       <div style="position:absolute;width:2px;height:2px;border-radius:50%;background:#ffd0e2;left:70%;top:55%;animation:voidSpark 5.2s ease-in-out infinite 1.6s"></div>`;
     case 'artifact': return `
-      <div style="position:absolute;width:60%;height:200%;left:-30%;top:-50%;background:linear-gradient(100deg, transparent, rgba(255,255,255,.10), transparent);animation:gemShimmer 6s ease-in-out infinite alternate"></div>`;
+      <div style="position:absolute;width:80%;height:90%;left:10%;top:5%;background:linear-gradient(100deg, transparent, rgba(255,255,255,.10), transparent);animation:gemShimmer 6s ease-in-out infinite alternate"></div>`;
     default: return '';
   }
 }
