@@ -8,6 +8,7 @@ import random
 
 from core.cosmetics import (
     COSMETICS, COSMETIC_SLOTS, LINEUPS, WELCOME_ANIMATIONS, WELCOME_DEFAULT, is_vip_locked,
+    lineup_items,
 )
 from core.constants import (
     COSMETIC_CHESTS, COSMETIC_DUPE_SHARDS, COSMETIC_CRAFT_SHARDS,
@@ -361,6 +362,66 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0,
     if cos.get("rarity", "common") != "common" and not await is_vip_active(db, user_id):
         msg += "\n\n⚠️ Эта косметика отображается только при активной VIP-подписке. Без VIP она сохранена в инвентаре, но не будет видна на профиле."
     return True, msg
+
+
+def lineup_buy_quote(lineup_id: str, owned: set[str]) -> dict | None:
+    """Раскладка покупки «всё недостающее» для линейки (Стадия 3 косметики):
+    {"missing": [id,...], "unit_price": int, "total": int}. None если линейки
+    нет, она не продаётся за зарники, либо уже полностью собрана — во всех
+    трёх случаях покупать нечего/некорректно."""
+    meta = LINEUPS.get(lineup_id)
+    if not meta:
+        return None
+    price_opt = (meta.get("price") or [None])[0]
+    if not price_opt or "zarniki" not in price_opt:
+        return None
+    missing = [cid for cid in lineup_items(lineup_id) if cid not in owned]
+    if not missing:
+        return None
+    unit = int(price_opt["zarniki"])
+    return {"missing": missing, "unit_price": unit, "total": unit * len(missing)}
+
+
+async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
+    """Купить ВСЕ недостающие предметы линейки одной транзакцией («Купить всё
+    недостающее», Стадия 3 редизайна «Внешний вид»). Мирроит buy_bundle()
+    (FastAPI/routers/showcase.py, витрина недели) — тот же паттерн SELECT ...
+    FOR UPDATE + одно списание + N выдач в одной транзакции — но без скидки
+    комплекта: у линейки и так единая фиксированная цена за предмет."""
+    owned = await _owned(db, user_id)
+    quote = lineup_buy_quote(lineup_id, owned)
+    if not quote:
+        return False, "Эта линейка уже собрана полностью или недоступна для покупки."
+    missing, total = quote["missing"], quote["total"]
+
+    async with db.connection.transaction():
+        async with db.execute(
+            "SELECT COALESCE(user_balance_zarniki,0) FROM users WHERE user_tg_id = ? FOR UPDATE",
+            (user_id,)
+        ) as c:
+            row = await c.fetchone()
+        bal = float(row[0]) if row else 0.0
+        if bal < total:
+            return False, f"Нужно {total}✨ за всю линейку (у тебя {int(bal)})."
+        await db.execute(
+            "UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?",
+            (total, user_id))
+        for cid in missing:
+            await db.execute(
+                "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
+                "ON CONFLICT DO NOTHING", (user_id, cid))
+
+    # Ачивка «Модник» — считаем ВСЕ докупленные предметы, не только 1 (buy() делает
+    # то же самое при одиночной покупке). Вне транзакции — increment_metric коммитит сам.
+    try:
+        from services.achievements import increment_metric
+        await increment_metric(db, user_id, "cosmetics_bought", delta=float(len(missing)))
+        await db.commit()
+    except Exception:
+        pass
+
+    meta = LINEUPS[lineup_id]
+    return True, f"🎨 «{meta['name']}» собрана полностью! Докуплено {len(missing)} шт. за {total}✨"
 
 
 async def get_active_cosmetics(db, user_id: int) -> dict:
