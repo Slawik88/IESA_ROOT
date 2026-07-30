@@ -558,8 +558,15 @@ function _looksCard(slot,it){
 // режимов — новое состояние встретилось со старым «reload», который его
 // не знал и сбрасывал).
 function _looksReloadCatalog(){
-  return api('/cosmetics/').then(d=>{
+  // Ревью финального ревью: openLooksModal() тянет и /cosmetics/presets тоже
+  // (Promise.all), но только на «холодном» входе (if(!_looksData)) — этот
+  // хелпер вызывается, когда _looksData УЖЕ не пуст, так что тот путь никогда
+  // не сработал бы. Без явного рефетча тут пресеты один раз ушли бы в 0 и
+  // оставались 0 до полной перезагрузки страницы (originSessionId бага —
+  // .superpowers/sdd/progress.md, финальное ревью Стадии 3).
+  return Promise.all([api('/cosmetics/'),api('/cosmetics/presets')]).then(([d,pr])=>{
     _looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved}; _looksFocus=null;
+    _looksPresets=pr.presets||[];
     renderLooks();
   });
 }
@@ -788,7 +795,11 @@ function _looksThemeEquip(tid){
 }
 // ── БЛОК21 #3: сундуки-сюрпризы + крафт косметики из осколков ────────────────────
 function _openSurprisesModal(){
-  OM('🎁 Сюрпризы и Крафт','<div class="loader">Загрузка...</div>',[{l:'← К внешнему виду',c:'btn-ghost',f:'CM();_looksReloadCatalog()'}]);
+  // Модалка доступна и НЕ из вкладки «Внешний вид» (напр. категория «сундуки»
+  // инвентаря, app.04.js::openItemModal) — «← К внешнему виду» ОБЯЗАН сам
+  // переключить страницу (switchPage), _looksReloadCatalog() этого не делает
+  // (он только для «уже на вкладке, просто обновить кэш»).
+  OM('🎁 Сюрпризы и Крафт','<div class="loader">Загрузка...</div>',[{l:'← К внешнему виду',c:'btn-ghost',f:"CM();switchPage('looks');_looksReloadCatalog()"}]);
   Promise.all([api('/cosmetics/chests'),api('/cosmetics/craft')]).then(([ch,cr])=>{
     const b=el('mb'); if(!b) return;
     const chests=(ch.chests||[]).map(c=>{
