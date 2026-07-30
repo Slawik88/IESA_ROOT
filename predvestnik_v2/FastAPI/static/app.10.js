@@ -102,10 +102,135 @@ function _looksSlotsViewHtml(){
   return `<div class="looks-anchors">${_LOOKS_SLOTS.map(s=>`<button class="looks-anchor-chip" onclick="_looksJump('${s}')">${_LOOKS_ANCHOR_LABEL[s]}</button>`).join('')}</div>`
     +`<div id="looks-sections">${_LOOKS_SLOTS.map(_looksSectionHtml).join('')}</div>`;
 }
-// Режим «По коллекциям» — заглушка, реальное содержимое (карточки линеек) пишет
-// Task 2. Не убирать эту функцию при написании Task 2 — ЗАМЕНИТЬ её тело.
+// Статистика коллекции: считается на клиенте из уже загруженных _looksData.slots
+// (никакого нового запроса к бэку не нужно — lineup/owned уже есть на каждом предмете).
+function _looksLineupStats(lin){
+  let owned=0, total=0; const slotOwned={};
+  _LOOKS_SLOTS.forEach(slot=>{
+    const items=(_looksData.slots[slot]||[]).filter(it=>it.lineup===lin);
+    total+=items.length;
+    const hasOwned=items.some(it=>it.owned);
+    if(hasOwned) owned+=items.filter(it=>it.owned).length;
+    slotOwned[slot]=hasOwned;
+  });
+  return {owned,total,slotOwned};
+}
+function _looksCollectionStatusHtml(stats){
+  if(stats.total===0) return `<div class="coll-status" style="color:var(--muted);background:rgba(255,255,255,.05)">не начато</div>`;
+  if(stats.owned===stats.total) return `<div class="coll-status" style="color:#56c46a;background:rgba(86,196,106,.13)">✓ собрано</div>`;
+  if(stats.owned===0) return `<div class="coll-status" style="color:var(--muted);background:rgba(255,255,255,.05)">не начато</div>`;
+  return `<div class="coll-status" style="color:var(--gold2);background:rgba(232,181,77,.13)">${stats.total-stats.owned} не куплено</div>`;
+}
+const _LOOKS_SLOT_ICON={name_glow:'✨',avatar_frame:'🖼',avatar_halo:'🌟',title:'🏷',profile_bg:'🖌',card_fx:'❄️'};
+function _looksCollectionCard(lin){
+  const meta=lineupMeta(lin); if(!meta) return '';
+  const stats=_looksLineupStats(lin);
+  const pct=stats.total?Math.round(stats.owned/stats.total*100):0;
+  const c=LINEUP_COLOR[lin]||'#9aa7b8';
+  const price=(meta.price&&meta.price[0]&&meta.price[0].zarniki)?`${meta.price[0].zarniki}✨/предмет`:'—';
+  const slotsHtml=_LOOKS_SLOTS.map(slot=>`<span class="coll-slot${stats.slotOwned[slot]?' on':''}">${_LOOKS_SLOT_ICON[slot]}</span>`).join('');
+  return `<div class="coll-card" style="--c:${c};--cb:${c}4d;--cg:${c}1f" data-lineup="${lin}" onclick="_looksOpenCollection('${lin}')">
+    <div class="coll-inner"><div class="coll-frame"></div>
+      <div class="coll-top">
+        <div class="sig-med" style="--c:${c}">
+          <div class="ring" style="background:conic-gradient(${c} calc(${pct}%),rgba(255,255,255,.08) 0)"><div class="ring-mask"></div></div>
+          ${_looksCollectionIconSvg(lin)}
+        </div>
+        <div><div class="coll-name">${esc(meta.name)}</div>${_looksCollectionStatusHtml(stats)}<div class="coll-price">${price}</div></div>
+      </div>
+      <div class="coll-slots">${slotsHtml}</div>
+    </div>
+  </div>`;
+}
 function _looksCollectionsViewHtml(){
-  return `<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">Карточки коллекций — Task 2</div>`;
+  const lineups=Object.keys(_looksData.lineups||{});
+  return `<div class="coll-grid">${lineups.map(_looksCollectionCard).join('')}</div>`;
+}
+// Медальон-иконка каждой линейки — авторский анимированный SVG-сигиль (не эмодзи,
+// см. COSMETICS_COLLECTION_DESIGN_RULES.md §1). Код транскрибирован из брейншторма
+// (.superpowers/brainstorm/1020-1785343726/content/icon-set-v3.html) без изменений.
+function _looksCollectionIconSvg(lin){
+  switch(lin){
+    case 'forest': return `<svg class="sig-svg" viewBox="0 0 24 24" style="animation:canopyBreathe 3.6s ease-in-out infinite;transform-origin:12px 20px">
+        <defs><linearGradient id="pineGrad-${lin}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a8e0a8"/><stop offset="100%" stop-color="#3f7d3f"/></linearGradient></defs>
+        <polygon points="12,2 4,10 20,10" fill="url(#pineGrad-${lin})" stroke="#3f7d3f" stroke-width=".6"/>
+        <polygon points="12,6 3,15 21,15" fill="url(#pineGrad-${lin})" stroke="#3f7d3f" stroke-width=".6" opacity=".95"/>
+        <polygon points="12,10 2,20 22,20" fill="url(#pineGrad-${lin})" stroke="#3f7d3f" stroke-width=".6" opacity=".9"/>
+        <rect x="10.5" y="20" width="3" height="2.5" fill="#5c4326"/>
+        <circle cx="6" cy="9" r="1" fill="#e8ffb0" style="animation:fireflyDrift 3.4s ease-in-out infinite"/>
+        <circle cx="18" cy="13" r="1" fill="#e8ffb0" style="animation:fireflyDrift 4.1s ease-in-out infinite 1.1s"/>
+        <circle cx="9" cy="17" r=".7" fill="#e8ffb0" style="animation:fireflyDrift 3.8s ease-in-out infinite 2s"/>
+      </svg>`;
+    case 'threshold': return `<svg class="sig-svg" viewBox="0 0 24 24" fill="none">
+        <defs>
+          <clipPath id="gateClip-${lin}"><path d="M6.5 22V10a5.5 5.5 0 0 1 11 0v12z"/></clipPath>
+          <linearGradient id="gateGlow-${lin}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c084fc" stop-opacity="0"/><stop offset="50%" stop-color="#e6c9ff" stop-opacity=".9"/><stop offset="100%" stop-color="#c084fc" stop-opacity="0"/></linearGradient>
+        </defs>
+        <path d="M5 22V10a7 7 0 0 1 14 0v12" stroke="currentColor" stroke-width="1.3" style="color:#c084fc"/>
+        <path d="M6.5 22V10a5.5 5.5 0 0 1 11 0v12" stroke="currentColor" stroke-width=".6" opacity=".5" style="color:#c084fc"/>
+        <g clip-path="url(#gateClip-${lin})">
+          <rect x="4" y="0" width="16" height="6" fill="url(#gateGlow-${lin})" style="animation:portalTravel 3.2s ease-in-out infinite"/>
+          <g style="animation:portalSwirl 6s linear infinite;transform-origin:12px 15px">
+            <circle cx="12" cy="11" r=".6" fill="#e6c9ff"/><circle cx="12" cy="19" r=".5" fill="#e6c9ff"/>
+          </g>
+        </g>
+      </svg>`;
+    case 'frost': return `<svg class="sig-svg" viewBox="0 0 24 24" fill="none" stroke="#7ad4ff" stroke-width="1.1" style="transform-origin:center;animation:frostSway 4.5s ease-in-out infinite">
+        <line x1="12" y1="2" x2="12" y2="22"/><line x1="12" y1="2" x2="12" y2="22" transform="rotate(60 12 12)"/><line x1="12" y1="2" x2="12" y2="22" transform="rotate(120 12 12)"/>
+        <path d="M12 6 9 8M12 6 15 8M12 18 9 16M12 18 15 16M12 4 10.5 5M12 4 13.5 5" style="animation:frostTwinkle 2s ease-in-out infinite"/>
+        <circle cx="12" cy="12" r="1.4" fill="#7ad4ff" stroke="none" style="animation:frostTwinkle 2s ease-in-out infinite .3s"/>
+      </svg>
+      <svg class="sig-svg" viewBox="0 0 24 24" style="position:absolute;inset:0;margin:auto">
+        <text x="4" y="2" font-size="3" fill="#cdeeff" style="--sx:3px;animation:snowFall 3s linear infinite">❋</text>
+        <text x="17" y="0" font-size="2.4" fill="#cdeeff" style="--sx:-2px;animation:snowFall 3.6s linear infinite 1.2s">❋</text>
+        <text x="10" y="-2" font-size="2" fill="#cdeeff" style="--sx:2px;animation:snowFall 2.6s linear infinite 2s">❋</text>
+      </svg>`;
+    case 'inferno': return `<div style="position:absolute;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,#ff7a3d,transparent 70%);animation:heatGlow 2.4s ease-in-out infinite"></div>
+      <svg class="sig-svg" viewBox="0 0 24 24">
+        <defs><linearGradient id="flameGrad-${lin}" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#ff7a3d"/><stop offset="60%" stop-color="#ffb15e"/><stop offset="100%" stop-color="#fff1c2"/></linearGradient></defs>
+        <path d="M12 2C9 6 6 9 6 13a6 6 0 0 0 12 0c0-2-1-3.5-2-5 .3 2-.5 3-1.5 3.5.5-3-1-6-2.5-9.5z" fill="url(#flameGrad-${lin})" style="transform-origin:12px 22px;animation:collFlameFlicker 1.6s ease-in-out infinite"/>
+        <circle cx="9" cy="18" r="1" fill="#ffb15e" style="--ex:-4px;animation:emberRise 2.2s ease-in infinite"/>
+        <circle cx="15" cy="19" r="1" fill="#ffb15e" style="--ex:5px;animation:emberRise 2.6s ease-in infinite .8s"/>
+        <circle cx="12" cy="20" r=".8" fill="#ffb15e" style="--ex:1px;animation:emberRise 2s ease-in infinite 1.5s"/>
+      </svg>`;
+    case 'celestial': return `<svg class="sig-svg" viewBox="0 0 24 24" style="position:absolute;transform-origin:center">
+        <g stroke="#e8c45a" stroke-width=".6">
+          <line x1="12" y1="0" x2="12" y2="4" style="animation:rayPulse 2s ease-in-out infinite"/>
+          <line x1="12" y1="20" x2="12" y2="24" style="animation:rayPulse 2s ease-in-out infinite .5s"/>
+          <line x1="0" y1="12" x2="4" y2="12" style="animation:rayPulse 2s ease-in-out infinite 1s"/>
+          <line x1="20" y1="12" x2="24" y2="12" style="animation:rayPulse 2s ease-in-out infinite 1.5s"/>
+        </g>
+      </svg>
+      <svg class="sig-svg" viewBox="0 0 24 24" style="transform-origin:center;animation:starSpin 9s linear infinite">
+        <defs><radialGradient id="starGrad-${lin}"><stop offset="0%" stop-color="#fff6d8"/><stop offset="100%" stop-color="#e8c45a"/></radialGradient></defs>
+        <path d="M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10 Z" fill="url(#starGrad-${lin})"/>
+        <circle cx="12" cy="12" r="2.2" fill="#fff6d8" style="animation:starPulse 2.4s ease-in-out infinite"/>
+      </svg>`;
+    case 'void': return `<svg class="sig-svg" viewBox="0 0 24 24" fill="none" style="position:absolute;animation:voidSwirl 12s linear infinite;transform-origin:12px 12px">
+        <circle cx="12" cy="2.3" r=".6" fill="#ffd0e2" style="animation:voidSpark 2.4s ease-in-out infinite"/>
+        <circle cx="21.7" cy="12" r=".5" fill="#ffd0e2" style="animation:voidSpark 3s ease-in-out infinite .8s"/>
+        <circle cx="12" cy="21.7" r=".5" fill="#ffd0e2" style="animation:voidSpark 2.7s ease-in-out infinite 1.6s"/>
+      </svg>
+      <svg class="sig-svg" viewBox="0 0 24 24" fill="none">
+        <defs><radialGradient id="voidGrad-${lin}" cx="50%" cy="50%" r="50%"><stop offset="55%" stop-color="#0e1019"/><stop offset="100%" stop-color="#ff4d8d" stop-opacity=".6"/></radialGradient></defs>
+        <circle cx="12" cy="12" r="8.4" fill="url(#voidGrad-${lin})" stroke="#ff4d8d" stroke-width="1"/>
+        <circle cx="12" cy="12" r="8.4" fill="#0e1019" style="animation:voidOrbit 6s ease-in-out infinite"/>
+      </svg>`;
+    case 'artifact': return `<svg class="sig-svg" viewBox="0 0 24 24" style="overflow:visible">
+        <defs>
+          <clipPath id="gemclip-${lin}"><path d="M12 2 L20 9 L16 21 L8 21 L4 9 Z"/></clipPath>
+          <linearGradient id="gemGrad-${lin}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c8fbfb"/><stop offset="100%" stop-color="#1f9d9d"/></linearGradient>
+        </defs>
+        <path d="M12 2 L20 9 L16 21 L8 21 L4 9 Z" fill="url(#gemGrad-${lin})" opacity=".85" stroke="#3fe0e0" stroke-width=".8"/>
+        <path d="M4 9 L20 9M8 21 L12 9 L16 21M12 2 L12 9" stroke="#0b3d3d" stroke-width=".6" opacity=".6" fill="none"/>
+        <g clip-path="url(#gemclip-${lin})">
+          <rect x="-4" y="-4" width="10" height="32" fill="#fff" opacity=".5" style="animation:gemShimmer 3.6s ease-in-out infinite alternate"/>
+        </g>
+        <circle cx="9" cy="12" r=".7" fill="#fff" style="animation:gemSparkle 2.6s ease-in-out infinite"/>
+        <circle cx="15" cy="15" r=".6" fill="#fff" style="animation:gemSparkle 3.1s ease-in-out infinite 1.3s"/>
+      </svg>`;
+    default: return `<svg class="sig-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
+  }
 }
 // Высота .looks-sticky «плавает» (lineup-info то есть, то нет, разной длины) —
 // scroll-margin-top секций держим в CSS-переменной, иначе якорь-прыжок иногда
@@ -160,6 +285,12 @@ function _looksPickLineup(lin){
   if(host) host.outerHTML=`<div id="looks-filter-bar">${_looksFilterHtml()}</div>`;
   _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
   _looksSyncStickyH();
+}
+function _looksOpenCollection(lin){
+  _looksFilter=lin;
+  _looksMode='slots';
+  try{ localStorage.setItem('pv_looks_mode', 'slots'); }catch(e){}
+  renderLooks();
 }
 const _LOOKS_STATUS_CYCLE=['all','owned','missing'];
 const _LOOKS_STATUS_ICON={all:'∅',owned:'✓',missing:'🔒'};
