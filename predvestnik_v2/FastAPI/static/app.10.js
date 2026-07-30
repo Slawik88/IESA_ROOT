@@ -132,8 +132,8 @@ function _looksCollectionCard(lin){
   return `<div class="coll-card" style="--c:${c};--cb:${c}4d;--cg:${c}1f" data-lineup="${lin}" onclick="_looksOpenCollection('${lin}')">
     <div class="coll-inner"><div class="coll-frame"></div>
       <div class="coll-top">
-        <div class="sig-med" style="--c:${c}">
-          <div class="ring" style="background:conic-gradient(${c} calc(${pct}%),rgba(255,255,255,.08) 0)"><div class="ring-mask"></div></div>
+        <div class="coll-sig" style="--c:${c}">
+          <div class="coll-ring" style="background:conic-gradient(${c} calc(${pct}%),rgba(255,255,255,.08) 0)"><div class="coll-ring-mask"></div></div>
           ${_looksCollectionIconSvg(lin)}
         </div>
         <div><div class="coll-name">${esc(meta.name)}</div>${_looksCollectionStatusHtml(stats)}<div class="coll-price">${price}</div></div>
@@ -151,7 +151,7 @@ function _looksCollectionsViewHtml(){
 // (.superpowers/brainstorm/1020-1785343726/content/icon-set-v3.html) без изменений.
 function _looksCollectionIconSvg(lin){
   switch(lin){
-    case 'forest': return `<svg class="sig-svg" viewBox="0 0 24 24" style="animation:canopyBreathe 3.6s ease-in-out infinite;transform-origin:12px 20px">
+    case 'forest': return `<svg class="coll-sig-svg" viewBox="0 0 24 24" style="animation:canopyBreathe 3.6s ease-in-out infinite;transform-origin:12px 20px">
         <defs><linearGradient id="pineGrad-${lin}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#a8e0a8"/><stop offset="100%" stop-color="#3f7d3f"/></linearGradient></defs>
         <polygon points="12,2 4,10 20,10" fill="url(#pineGrad-${lin})" stroke="#3f7d3f" stroke-width=".6"/>
         <polygon points="12,6 3,15 21,15" fill="url(#pineGrad-${lin})" stroke="#3f7d3f" stroke-width=".6" opacity=".95"/>
@@ -161,7 +161,7 @@ function _looksCollectionIconSvg(lin){
         <circle cx="18" cy="13" r="1" fill="#e8ffb0" style="animation:fireflyDrift 4.1s ease-in-out infinite 1.1s"/>
         <circle cx="9" cy="17" r=".7" fill="#e8ffb0" style="animation:fireflyDrift 3.8s ease-in-out infinite 2s"/>
       </svg>`;
-    case 'threshold': return `<svg class="sig-svg" viewBox="0 0 24 24" fill="none">
+    case 'threshold': return `<svg class="coll-sig-svg" viewBox="0 0 24 24" fill="none">
         <defs>
           <clipPath id="gateClip-${lin}"><path d="M6.5 22V10a5.5 5.5 0 0 1 11 0v12z"/></clipPath>
           <linearGradient id="gateGlow-${lin}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#c084fc" stop-opacity="0"/><stop offset="50%" stop-color="#e6c9ff" stop-opacity=".9"/><stop offset="100%" stop-color="#c084fc" stop-opacity="0"/></linearGradient>
@@ -175,48 +175,48 @@ function _looksCollectionIconSvg(lin){
           </g>
         </g>
       </svg>`;
-    case 'frost': return `<svg class="sig-svg" viewBox="0 0 24 24" fill="none" stroke="#7ad4ff" stroke-width="1.1" style="transform-origin:center;animation:frostSway 4.5s ease-in-out infinite">
+    case 'frost': return `<svg class="coll-sig-svg" viewBox="0 0 24 24" fill="none" stroke="#7ad4ff" stroke-width="1.1" style="transform-origin:center;animation:frostSway 4.5s ease-in-out infinite">
         <line x1="12" y1="2" x2="12" y2="22"/><line x1="12" y1="2" x2="12" y2="22" transform="rotate(60 12 12)"/><line x1="12" y1="2" x2="12" y2="22" transform="rotate(120 12 12)"/>
         <path d="M12 6 9 8M12 6 15 8M12 18 9 16M12 18 15 16M12 4 10.5 5M12 4 13.5 5" style="animation:frostTwinkle 2s ease-in-out infinite"/>
         <circle cx="12" cy="12" r="1.4" fill="#7ad4ff" stroke="none" style="animation:frostTwinkle 2s ease-in-out infinite .3s"/>
       </svg>
-      <svg class="sig-svg" viewBox="0 0 24 24" style="position:absolute;inset:0;margin:auto">
-        <text x="4" y="2" font-size="3" fill="#cdeeff" style="--sx:3px;animation:snowFall 3s linear infinite">❋</text>
-        <text x="17" y="0" font-size="2.4" fill="#cdeeff" style="--sx:-2px;animation:snowFall 3.6s linear infinite 1.2s">❋</text>
-        <text x="10" y="-2" font-size="2" fill="#cdeeff" style="--sx:2px;animation:snowFall 2.6s linear infinite 2s">❋</text>
+      <svg class="coll-sig-svg" viewBox="0 0 24 24" style="position:absolute;inset:0;margin:auto">
+        <text class="ico-snowflake" x="4" y="2" font-size="3" fill="#cdeeff" style="--sx:3px;animation:snowFall 3s linear infinite">❋</text>
+        <text class="ico-snowflake" x="17" y="0" font-size="2.4" fill="#cdeeff" style="--sx:-2px;animation:snowFall 3.6s linear infinite 1.2s">❋</text>
+        <text class="ico-snowflake" x="10" y="-2" font-size="2" fill="#cdeeff" style="--sx:2px;animation:snowFall 2.6s linear infinite 2s">❋</text>
       </svg>`;
-    case 'inferno': return `<div style="position:absolute;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,#ff7a3d,transparent 70%);animation:heatGlow 2.4s ease-in-out infinite"></div>
-      <svg class="sig-svg" viewBox="0 0 24 24">
+    case 'inferno': return `<div class="ico-heatglow" style="position:absolute;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle,#ff7a3d,transparent 70%);animation:heatGlow 2.4s ease-in-out infinite"></div>
+      <svg class="coll-sig-svg" viewBox="0 0 24 24">
         <defs><linearGradient id="flameGrad-${lin}" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#ff7a3d"/><stop offset="60%" stop-color="#ffb15e"/><stop offset="100%" stop-color="#fff1c2"/></linearGradient></defs>
         <path d="M12 2C9 6 6 9 6 13a6 6 0 0 0 12 0c0-2-1-3.5-2-5 .3 2-.5 3-1.5 3.5.5-3-1-6-2.5-9.5z" fill="url(#flameGrad-${lin})" style="transform-origin:12px 22px;animation:collFlameFlicker 1.6s ease-in-out infinite"/>
         <circle cx="9" cy="18" r="1" fill="#ffb15e" style="--ex:-4px;animation:emberRise 2.2s ease-in infinite"/>
         <circle cx="15" cy="19" r="1" fill="#ffb15e" style="--ex:5px;animation:emberRise 2.6s ease-in infinite .8s"/>
         <circle cx="12" cy="20" r=".8" fill="#ffb15e" style="--ex:1px;animation:emberRise 2s ease-in infinite 1.5s"/>
       </svg>`;
-    case 'celestial': return `<svg class="sig-svg" viewBox="0 0 24 24" style="position:absolute;transform-origin:center">
-        <g stroke="#e8c45a" stroke-width=".6">
+    case 'celestial': return `<svg class="coll-sig-svg" viewBox="0 0 24 24" style="position:absolute;transform-origin:center">
+        <g class="ico-rays" stroke="#e8c45a" stroke-width=".6">
           <line x1="12" y1="0" x2="12" y2="4" style="animation:rayPulse 2s ease-in-out infinite"/>
           <line x1="12" y1="20" x2="12" y2="24" style="animation:rayPulse 2s ease-in-out infinite .5s"/>
           <line x1="0" y1="12" x2="4" y2="12" style="animation:rayPulse 2s ease-in-out infinite 1s"/>
           <line x1="20" y1="12" x2="24" y2="12" style="animation:rayPulse 2s ease-in-out infinite 1.5s"/>
         </g>
       </svg>
-      <svg class="sig-svg" viewBox="0 0 24 24" style="transform-origin:center;animation:starSpin 9s linear infinite">
+      <svg class="coll-sig-svg" viewBox="0 0 24 24" style="transform-origin:center;animation:starSpin 9s linear infinite">
         <defs><radialGradient id="starGrad-${lin}"><stop offset="0%" stop-color="#fff6d8"/><stop offset="100%" stop-color="#e8c45a"/></radialGradient></defs>
         <path d="M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10 Z" fill="url(#starGrad-${lin})"/>
         <circle cx="12" cy="12" r="2.2" fill="#fff6d8" style="animation:starPulse 2.4s ease-in-out infinite"/>
       </svg>`;
-    case 'void': return `<svg class="sig-svg" viewBox="0 0 24 24" fill="none" style="position:absolute;animation:voidSwirl 12s linear infinite;transform-origin:12px 12px">
-        <circle cx="12" cy="2.3" r=".6" fill="#ffd0e2" style="animation:voidSpark 2.4s ease-in-out infinite"/>
-        <circle cx="21.7" cy="12" r=".5" fill="#ffd0e2" style="animation:voidSpark 3s ease-in-out infinite .8s"/>
-        <circle cx="12" cy="21.7" r=".5" fill="#ffd0e2" style="animation:voidSpark 2.7s ease-in-out infinite 1.6s"/>
+    case 'void': return `<svg class="coll-sig-svg" viewBox="0 0 24 24" fill="none" style="position:absolute;animation:voidSwirl 12s linear infinite;transform-origin:12px 12px">
+        <circle class="ico-voidspark" cx="12" cy="2.3" r=".6" fill="#ffd0e2" style="animation:voidSpark 2.4s ease-in-out infinite"/>
+        <circle class="ico-voidspark" cx="21.7" cy="12" r=".5" fill="#ffd0e2" style="animation:voidSpark 3s ease-in-out infinite .8s"/>
+        <circle class="ico-voidspark" cx="12" cy="21.7" r=".5" fill="#ffd0e2" style="animation:voidSpark 2.7s ease-in-out infinite 1.6s"/>
       </svg>
-      <svg class="sig-svg" viewBox="0 0 24 24" fill="none">
+      <svg class="coll-sig-svg" viewBox="0 0 24 24" fill="none">
         <defs><radialGradient id="voidGrad-${lin}" cx="50%" cy="50%" r="50%"><stop offset="55%" stop-color="#0e1019"/><stop offset="100%" stop-color="#ff4d8d" stop-opacity=".6"/></radialGradient></defs>
         <circle cx="12" cy="12" r="8.4" fill="url(#voidGrad-${lin})" stroke="#ff4d8d" stroke-width="1"/>
         <circle cx="12" cy="12" r="8.4" fill="#0e1019" style="animation:voidOrbit 6s ease-in-out infinite"/>
       </svg>`;
-    case 'artifact': return `<svg class="sig-svg" viewBox="0 0 24 24" style="overflow:visible">
+    case 'artifact': return `<svg class="coll-sig-svg" viewBox="0 0 24 24" style="overflow:visible">
         <defs>
           <clipPath id="gemclip-${lin}"><path d="M12 2 L20 9 L16 21 L8 21 L4 9 Z"/></clipPath>
           <linearGradient id="gemGrad-${lin}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#c8fbfb"/><stop offset="100%" stop-color="#1f9d9d"/></linearGradient>
@@ -229,7 +229,7 @@ function _looksCollectionIconSvg(lin){
         <circle cx="9" cy="12" r=".7" fill="#fff" style="animation:gemSparkle 2.6s ease-in-out infinite"/>
         <circle cx="15" cy="15" r=".6" fill="#fff" style="animation:gemSparkle 3.1s ease-in-out infinite 1.3s"/>
       </svg>`;
-    default: return `<svg class="sig-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
+    default: return `<svg class="coll-sig-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
   }
 }
 // Высота .looks-sticky «плавает» (lineup-info то есть, то нет, разной длины) —
@@ -291,6 +291,8 @@ function _looksPickLineup(lin){
 // появляется кнопка «Купить всё недостающее», массовая покупка). Сейчас —
 // осознанно простой мост на уже проверенный фильтр Стадии 1.
 function _looksOpenCollection(lin){
+  _looksSearch='';
+  _looksStatus='all';
   _looksFilter=lin;
   _looksSetMode('slots');
 }

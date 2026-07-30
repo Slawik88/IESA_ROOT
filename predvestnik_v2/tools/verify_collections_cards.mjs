@@ -22,8 +22,8 @@ const info = await page.evaluate(() => {
   const results = [];
   cards.forEach(card => {
     const lin = card.getAttribute('data-lineup');
-    const svg = card.querySelector('.sig-svg');
-    const ring = card.querySelector('.ring');
+    const svg = card.querySelector('.coll-sig-svg');
+    const ring = card.querySelector('.coll-ring');
     const slots = card.querySelectorAll('.coll-slot');
     const statusEl = card.querySelector('.coll-status');
     results.push({
@@ -42,28 +42,42 @@ check('у каждой карточки есть кольцо-прогресс',
 check('у каждой карточки ровно 6 слот-иконок (по числу слотов игры)', info.results.every(r => r.slotCount === 6));
 check('у каждой карточки есть текст статуса', info.results.every(r => !!r.statusText));
 
-// Честность статус-текста: сверяем с реальными данными по каждой линейке
+// Честность статус-текста и полоски слотов: сверяем с реальными данными по каждой линейке
 const statsCheck = await page.evaluate(() => {
   const mismatches = [];
+  const slotMismatches = [];
   Object.keys(_looksData.lineups).forEach(lin => {
     let owned = 0, total = 0;
+    const slotOwned = {};
     _LOOKS_SLOTS.forEach(slot => {
-      (_looksData.slots[slot] || []).forEach(it => {
-        if (it.lineup === lin) { total++; if (it.owned) owned++; }
-      });
+      const items = (_looksData.slots[slot] || []).filter(it => it.lineup === lin);
+      total += items.length;
+      const hasOwned = items.some(it => it.owned);
+      if (hasOwned) owned += items.filter(it => it.owned).length;
+      slotOwned[slot] = hasOwned;
     });
     const card = document.querySelector(`.coll-card[data-lineup="${lin}"] .coll-status`);
     const text = card ? card.textContent.trim() : null;
     let expected;
-    if (owned === total) expected = '✓ собрано';
+    if (total === 0) expected = 'не начато';
+    else if (owned === total) expected = '✓ собрано';
     else if (owned === 0) expected = 'не начато';
     else expected = `${total - owned} не куплено`;
     if (text !== expected) mismatches.push({ lin, owned, total, text, expected });
+
+    const slotEls = document.querySelectorAll(`.coll-card[data-lineup="${lin}"] .coll-slot`);
+    _LOOKS_SLOTS.forEach((slot, i) => {
+      const domOn = slotEls[i] ? slotEls[i].classList.contains('on') : null;
+      const expectedOn = slotOwned[slot];
+      if (domOn !== expectedOn) slotMismatches.push({ lin, slot, domOn, expectedOn });
+    });
   });
-  return mismatches;
+  return { mismatches, slotMismatches };
 });
-check('статус-текст на каждой карточке точно совпадает с реальным owned/total', statsCheck.length === 0);
-if (statsCheck.length) console.log('mismatches:', JSON.stringify(statsCheck));
+check('статус-текст на каждой карточке точно совпадает с реальным owned/total', statsCheck.mismatches.length === 0);
+if (statsCheck.mismatches.length) console.log('mismatches:', JSON.stringify(statsCheck.mismatches));
+check('полоска слот-иконок (яркая/тусклая) точно совпадает с реальным владением по слотам', statsCheck.slotMismatches.length === 0);
+if (statsCheck.slotMismatches.length) console.log('slot mismatches:', JSON.stringify(statsCheck.slotMismatches));
 
 await browser.close();
 if (FAIL.length) { console.error('FAIL:', FAIL); process.exit(1); }
