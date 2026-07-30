@@ -1904,10 +1904,6 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
      (текст по умолчанию центрируется/имеет свои отступы в некоторых браузерах). */
   margin: 0; text-align: left; color: inherit;
 }
-/* Задача 6 (2026-07-30): «скрыто, но место зарезервировано» — не даёт
-   .looks-sticky менять высоту при переключении режима (visibility, не
-   display:none — DOM/тап-зона теряется, layout-место остаётся). */
-.sr-hidden { visibility: hidden; pointer-events: none; }
 .sr-search { min-width: 0; cursor: text; }
 .sr-search:focus-within { border-color: rgba(139,108,240,.5); box-shadow: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 2px rgba(139,108,240,.13); }
 .sr-search svg { width: 12px; height: 12px; opacity: .65; flex: none; color: var(--muted); }
