@@ -52,22 +52,30 @@ check('реальный клик по карточке "Инферно" (2-й р
 await page.click('.coll-detail-back');
 await new Promise(r => setTimeout(r, 300));
 
-// Сценарий 3: ряд действий под превью не сдвигает переключатель режимов при примерке предмета
-// (переключаемся в slots, тапаем "Без" по слоту title — там уже надет cos_title_dawnchild,
-// поэтому клик реально снимает предмет: _looksUnequip('title') меняет _looksSel.title на null
-// и _looksFocus на null — ряд действий переходит .looks-ba-hint → .looks-ba-act (2 кнопки),
-// без байбара (он вне скоупа задачи). Тап по уже надетой карточке был бы вакуумным —
-// _looksSel не менялся бы и ряд действий не переключался бы вовсе.)
+// Сценарий 3: ряд действий под превью НЕ сдвигает контент ниже .looks-sticky при
+// примерке предмета (переключаемся в slots, тапаем "Без" по слоту title — там уже
+// надет cos_title_dawnchild, поэтому клик реально снимает предмет: _looksUnequip
+// ('title') меняет _looksSel.title на null и _looksFocus на null — ряд действий
+// переходит .looks-ba-hint → .looks-ba-act (2 кнопки), без байбара (вне скоупа
+// задачи). Тап по уже надетой карточке был бы вакуумным.
+//
+// ВАЖНО: проверяем Y координату #looks-mode-body, НЕ #looks-mode-toggle — после
+// финального ревью переключатель рендерится ДО .looks-sticky (Сценарий 1), поэтому
+// его Y НИКОГДА не меняется от того, что внутри .looks-sticky, независимо от того,
+// работает ли фикс min-height ряда действий или нет — проверка по toggle здесь была
+// бы вакуумной (доказано: временный откат min-height не ронял её). #looks-mode-body
+// идёт ПОСЛЕ .looks-sticky в потоке — его Y корректно отражает, действительно ли
+// высота .looks-sticky осталась постоянной между состояниями ряда действий.
 await page.click('[data-mode="slots"]');
 await new Promise(r => setTimeout(r, 300));
-const toggleYBeforeTap = await page.evaluate(() => document.getElementById('looks-mode-toggle').getBoundingClientRect().y);
+const bodyYBeforeTap = await page.evaluate(() => document.getElementById('looks-mode-body').getBoundingClientRect().y);
 await page.evaluate(() => {
   const noneCard = document.querySelector('#looks-grid-title [data-cos="__none__"]');
   if (noneCard) noneCard.click();
 });
 await new Promise(r => setTimeout(r, 300));
-const toggleYAfterTap = await page.evaluate(() => document.getElementById('looks-mode-toggle').getBoundingClientRect().y);
-check('переключатель режимов НЕ сдвигается при примерке предмета (ряд действий меняется)', toggleYBeforeTap === toggleYAfterTap);
+const bodyYAfterTap = await page.evaluate(() => document.getElementById('looks-mode-body').getBoundingClientRect().y);
+check('контент под превью НЕ сдвигается при примерке предмета (ряд действий меняется, min-height одинаковый)', bodyYBeforeTap === bodyYAfterTap);
 
 await browser.close();
 if (FAIL.length) { console.error('FAIL:', FAIL); process.exit(1); }
