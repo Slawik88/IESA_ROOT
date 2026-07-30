@@ -1,5 +1,5 @@
-// Тап по карточке коллекции переключает в режим «По слотам», отфильтрованный
-// на эту линейку, и режим сохраняется (можно вернуться назад к «По коллекциям»).
+// Тап по карточке коллекции открывает детальный экран (Стадия 3) с шапкой и
+// сегментным измерителем; кнопка "‹ Назад" возвращает к списку карточек.
 import puppeteer from 'puppeteer';
 const FAIL = [];
 function check(name, cond) { if (!cond) FAIL.push(name); else console.log('OK:', name); }
@@ -18,20 +18,25 @@ await new Promise(r => setTimeout(r, 400));
 
 const state = await page.evaluate(() => ({
   mode: _looksMode,
-  filter: _looksFilter,
+  detailLineup: _looksDetailLineup,
+  hasDetailHead: !!document.querySelector('.coll-detail-head'),
   hasFilterBar: !!document.getElementById('looks-filter-bar'),
-  lineupPillText: (document.getElementById('looks-lineup-pill') || {}).textContent || null,
 }));
-check('тап по карточке "Инферно" переключает режим на slots', state.mode === 'slots');
-check('фильтр линейки установлен на inferno', state.filter === 'inferno');
-check('умный ряд "По слотам" виден', state.hasFilterBar);
-check('пилюля линейки показывает название Инферно', /Инферно/i.test(state.lineupPillText || ''));
+check('тап по карточке "Инферно" открывает детальный экран (mode остаётся collections)', state.mode === 'collections');
+check('_looksDetailLineup выставлен на inferno', state.detailLineup === 'inferno');
+check('шапка детального экрана отрендерена', state.hasDetailHead);
+check('умный ряд "По слотам" НЕ показывается внутри детального экрана', !state.hasFilterBar);
 
-// Кнопка "По коллекциям" в переключателе возвращает назад (не теряя фильтр слотов)
-await page.click('[data-mode="collections"]');
+// Кнопка "‹ Назад" в шапке детального экрана возвращает к списку карточек коллекций
+await page.click('.coll-detail-back');
 await new Promise(r => setTimeout(r, 300));
-const back = await page.evaluate(() => ({ mode: _looksMode, cardCount: document.querySelectorAll('.coll-card').length }));
-check('кнопка "По коллекциям" возвращает в режим collections', back.mode === 'collections');
+const back = await page.evaluate(() => ({
+  mode: _looksMode,
+  detailLineup: _looksDetailLineup,
+  cardCount: document.querySelectorAll('.coll-card').length,
+}));
+check('кнопка "‹ Назад" возвращает detailLineup в null', back.detailLineup === null);
+check('режим остаётся collections', back.mode === 'collections');
 check('карточки коллекций снова на экране', back.cardCount === 7);
 
 await browser.close();
