@@ -39,6 +39,12 @@ check('forest: 1 деление, 1 горит (мок владеет единс�
 check('forest: показан статус "собрано", кнопки покупки нет', /собрана полностью/.test(forest.doneText || '') && !forest.btn);
 check('6 секций слотов отрендерены под шапкой', forest.sectionsCount === 6);
 
+// Ревью-финдинг: счётчик секции name_glow внутри детального экрана forest должен
+// быть СКОПИРОВАН на линейку (1/1 — владеет только cos_name_glow_moon), а НЕ
+// глобальным счётом по всем линейкам (1/3: moon(forest,owned)+frost+neon(artifact)).
+const forestGlowNum = await page.evaluate(() => (document.querySelector('#looks-sec-name_glow .sec-num') || {}).textContent || null);
+check('forest detail: секция name_glow показывает 1/1 (скоуп на линейку), не 1/3', forestGlowNum === '1/1');
+
 const threshold = await openAndRead('threshold');
 check('threshold: 2 деления, 0 горит', threshold.notches === 2 && threshold.onNotches === 0);
 check('threshold: кнопка активна (880✨ ≤ баланс 1250✨)', threshold.btn && !threshold.btnDisabled);
@@ -59,6 +65,13 @@ const back = await page.evaluate(() => ({
 check('кнопка "‹ Назад" закрывает детальный экран', back.detailGone);
 check('переключатель режимов снова виден', back.toggleBack);
 check('карточки коллекций снова на экране', back.cardCount === 7);
+
+// Режим «По слотам» (полный каталог) должен по-прежнему показывать ГЛОБАЛЬНЫЙ счёт
+// (не затронут фиксом finding 2 — только детальный экран коллекции скоупится).
+await page.evaluate(() => _looksSetMode('slots'));
+await new Promise(r => setTimeout(r, 300));
+const slotsGlowNum = await page.evaluate(() => (document.querySelector('#looks-sec-name_glow .sec-num') || {}).textContent || null);
+check('режим «По слотам»: секция name_glow показывает глобальные 1/3 (не изменилось)', slotsGlowNum === '1/3');
 
 await browser.close();
 if (FAIL.length) { console.error('FAIL:', FAIL); process.exit(1); }
