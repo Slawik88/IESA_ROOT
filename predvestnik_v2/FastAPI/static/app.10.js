@@ -11,6 +11,7 @@ let _looksPresets=[];  // кэш пресетов текущей сессии
 let _looksFilter='all';                // фильтр ЛИНЕЙКИ (id из _looksData.lineups) — общий для ВСЕХ секций разом
 let _looksStatus='all';                // фильтр СТАТУСА: all|owned|missing — независимое второе измерение (см. аудит 2026-07-29)
 let _looksMode='collections';          // режим отображения: collections|slots — по умолчанию коллекции (Стадия 2)
+let _looksDetailLineup=null;   // id открытой коллекции в детальном экране (Стадия 3); null = список карточек
 // Редизайн 2026-07-29: редкость (common→artifact) заменена ЛИНЕЙКАМИ (тематические
 // коллекции, core/cosmetics.py::LINEUPS) — фильтр/бейджи теперь по линейке, не по
 // редкости. `rarity` на предмете остался ТЕХНИЧЕСКИМ полем (ценовой ярус, VIP-гейт,
@@ -29,7 +30,7 @@ function lineupColor(id){ return LINEUP_COLOR[id]||'#9aa7b8'; }
 // Полноэкранный экран «Внешний вид» (был модалкой). Имя openLooksModal сохранено —
 // его зовут старые точки входа (профиль/маркет), диплинки и «назад» из под-шитов.
 function openLooksModal(){
-  _looksFilter='all'; _looksStatus='all'; _looksSearch=''; _looksFocus=null;
+  _looksFilter='all'; _looksStatus='all'; _looksSearch=''; _looksFocus=null; _looksDetailLineup=null;
   if(!_looksData){   // режим восстанавливаем только на «холодном» открытии — не сбрасывать выбор пользователя, если он уже листает вкладку
     try{ const saved=localStorage.getItem('pv_looks_mode'); if(saved==='collections'||saved==='slots') _looksMode=saved; }catch(e){}
   }
@@ -84,7 +85,7 @@ function renderLooks(){
       <div class="looks-htitle">🎨 Внешний вид</div>
     </div>
     <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div>${stickyFilterBar}</div>
-    ${_looksModeToggleHtml()}`
+    ${_looksDetailLineup?'':_looksModeToggleHtml()}`
     +vipBar
     +'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'
     +_looksPresetsHtml()
@@ -143,8 +144,18 @@ function _looksCollectionCard(lin){
   </div>`;
 }
 function _looksCollectionsViewHtml(){
+  if(_looksDetailLineup) return _looksCollectionDetailHeaderHtml(_looksDetailLineup)+_looksCollectionDetailBodyHtml();
   const lineups=Object.keys(_looksData.lineups||{});
   return `<div class="coll-grid">${lineups.map(_looksCollectionCard).join('')}</div>`;
+}
+// Детальный экран: все 6 секций слотов, переиспользованы БЕЗ ИЗМЕНЕНИЙ из режима
+// «По слотам» (Стадия 1) — уже читают _looksFilter (=lin, выставлен в
+// _looksOpenCollection) и рендерят реальные карточки предметов с тем же
+// инлайн-примеркой+покупкой, что и everywhere else в конструкторе. Якорь-чипы
+// (.looks-anchors) намеренно не рендерим — 6 секций одной линейки короткие,
+// прыгать некуда.
+function _looksCollectionDetailBodyHtml(){
+  return `<div id="looks-sections">${_LOOKS_SLOTS.map(_looksSectionHtml).join('')}</div>`;
 }
 // Медальон-иконка каждой линейки — авторский анимированный SVG-сигиль (не эмодзи,
 // см. COSMETICS_COLLECTION_DESIGN_RULES.md §1). Код транскрибирован из брейншторма
@@ -286,16 +297,54 @@ function _looksPickLineup(lin){
   _LOOKS_SLOTS.forEach(_looksRenderSectionGrid);
   _looksSyncStickyH();
 }
-// Тап по карточке коллекции: переключает в «По слотам», фильтрует на эту линейку.
-// Полноценный компактный «детальный экран одной линейки» — Стадия 3 (там же
-// появляется кнопка «Купить всё недостающее», массовая покупка). Сейчас —
-// осознанно простой мост на уже проверенный фильтр Стадии 1.
+// Тап по карточке коллекции: открывает детальный экран (Стадия 3) — алтарная
+// шапка (медальон крупнее/блёрб/сегментный измеритель/атмосфера линейки) +
+// кнопка «Купить всё недостающее» + все 6 секций слотов (переиспользованы БЕЗ
+// изменений из Стадии 1 — они уже фильтруются по _looksFilter=lin).
 function _looksOpenCollection(lin){
-  _looksSearch='';
-  _looksStatus='all';
-  _looksFilter=lin;
-  _looksSetMode('slots');
+  _looksSearch=''; _looksStatus='all'; _looksFilter=lin; _looksDetailLineup=lin;
+  renderLooks();
 }
+function _looksCloseCollection(){
+  _looksDetailLineup=null; _looksFilter='all';
+  renderLooks();
+}
+// Алтарная шапка открытой коллекции (Стадия 3) — см. COSMETICS_COLLECTION_DESIGN_RULES.md §6:
+// медальон крупнее (74px+), сегментный измеритель (N делений = N предметов
+// линейки, не гладкий %), явная кнопка «Купить всё недостающее» — реальная
+// транзакция, НЕ побочный эффект тапа по карточке/плитке.
+function _looksCollectionDetailHeaderHtml(lin){
+  const meta=lineupMeta(lin); if(!meta) return '';
+  const stats=_looksLineupStats(lin);
+  const c=LINEUP_COLOR[lin]||'#9aa7b8';
+  const missing=stats.total-stats.owned;
+  const unit=(meta.price&&meta.price[0]&&meta.price[0].zarniki)||0;
+  const total=missing*unit;
+  const bal=(_looksData.balances||{}).zarniki||0;
+  const can=missing>0&&bal>=total;
+  const notches=Array.from({length:stats.total},(_,i)=>`<div class="coll-meter-notch${i<stats.owned?' on':''}"></div>`).join('');
+  const action = missing===0
+    ? `<div class="coll-detail-done">✓ Коллекция собрана полностью</div>`
+    : `<button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyLineup('${lin}')">${can?`✨ Купить всё недостающее — ${total}✨ (${missing}×${unit}✨)`:`🚫 Нужно ${total}✨ (есть ${Math.floor(bal)})`}</button>`;
+  return `<div class="coll-detail-head" style="--c:${c};--cb:${c}4d;--cg:${c}1f">
+    <button class="coll-detail-back" onclick="_looksCloseCollection()" aria-label="Назад к коллекциям">‹</button>
+    <div class="coll-detail-atmo">${_looksCollectionAtmosphereHtml(lin)}</div>
+    <div class="coll-detail-sig" style="--c:${c}">${_looksCollectionIconSvg(lin)}</div>
+    <div class="coll-detail-name">${esc(meta.name)}</div>
+    <div class="coll-detail-blurb">${esc(meta.blurb||'')}</div>
+    <div class="coll-meter">${notches}</div>
+    <div class="coll-meter-caption"><span>${stats.owned} из ${stats.total} собрано</span><span>${missing>0?`${missing} не куплено · ${unit}✨/предмет`:''}</span></div>
+    ${action}
+  </div>`;
+}
+function _looksBuyLineup(lin){
+  api('/cosmetics/buy-lineup',{method:'POST',body:JSON.stringify({lineup:lin})})
+    .then(r=>{toast(r.message); refreshCurrBar(); return api('/cosmetics/');})
+    .then(d=>{_looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved};
+      const body=el('looks-mode-body'); if(body) body.innerHTML=_looksCollectionsViewHtml();})
+    .catch(e=>toast(e,false));
+}
+function _looksCollectionAtmosphereHtml(lin){ return ''; }   // Task 4 заменит на реальную атмосферу
 const _LOOKS_STATUS_CYCLE=['all','owned','missing'];
 const _LOOKS_STATUS_ICON={all:'∅',owned:'✓',missing:'🔒'};
 const _LOOKS_STATUS_LABEL={all:'Все',owned:'Куплено',missing:'Не куплено'};
