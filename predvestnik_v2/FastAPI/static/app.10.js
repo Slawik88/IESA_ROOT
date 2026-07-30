@@ -6,11 +6,11 @@
 const _LOOKS_SLOTS=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx'];
 const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки'};
 const _LOOKS_ANCHOR_LABEL={name_glow:'✨ Ореол',avatar_frame:'🖼 Рамка',avatar_halo:'🌟 Гало',title:'🏷 Титул',profile_bg:'🖌 Фон',card_fx:'❄️ Частицы',welcome:'🎬 Вход',themes:'🎭 Темы'};
-const _LOOKS_SECTIONS=[..._LOOKS_SLOTS,'welcome','themes'];
 let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false, _looksFocus=null;
 let _looksPresets=[];  // кэш пресетов текущей сессии
 let _looksFilter='all';                // фильтр ЛИНЕЙКИ (id из _looksData.lineups) — общий для ВСЕХ секций разом
 let _looksStatus='all';                // фильтр СТАТУСА: all|owned|missing — независимое второе измерение (см. аудит 2026-07-29)
+let _looksMode='collections';          // режим отображения: collections|slots — по умолчанию коллекции (Стадия 2)
 // Редизайн 2026-07-29: редкость (common→artifact) заменена ЛИНЕЙКАМИ (тематические
 // коллекции, core/cosmetics.py::LINEUPS) — фильтр/бейджи теперь по линейке, не по
 // редкости. `rarity` на предмете остался ТЕХНИЧЕСКИМ полем (ценовой ярус, VIP-гейт,
@@ -30,6 +30,9 @@ function lineupColor(id){ return LINEUP_COLOR[id]||'#9aa7b8'; }
 // его зовут старые точки входа (профиль/маркет), диплинки и «назад» из под-шитов.
 function openLooksModal(){
   _looksFilter='all'; _looksStatus='all'; _looksSearch=''; _looksFocus=null;
+  if(!_looksData){   // режим восстанавливаем только на «холодном» открытии — не сбрасывать выбор пользователя, если он уже листает вкладку
+    try{ const saved=localStorage.getItem('pv_looks_mode'); if(saved==='collections'||saved==='slots') _looksMode=saved; }catch(e){}
+  }
   switchPage('looks');
   if(_looksData){ renderLooks(); return; }        // из кэша — БЕЗ пере-запроса (убирает лаги навигации)
   _looksDirty=false;
@@ -37,6 +40,18 @@ function openLooksModal(){
   Promise.all([api('/cosmetics/'),api('/cosmetics/presets')])
     .then(([d,pr])=>{_looksData=d;_looksSaved=_looksEquipped(d);_looksSel={..._looksSaved};_looksPresets=pr.presets||[];renderLooks();})
     .catch(e=>{const bb=el('pg-looks'); if(bb)bb.innerHTML=`<div class="err" style="margin:16px">${e}</div>`;});
+}
+const _LOOKS_MODE_LABEL={collections:'🗂 По коллекциям',slots:'📚 По слотам'};
+function _looksModeToggleHtml(){
+  return `<div class="mode-toggle" id="looks-mode-toggle">
+    ${Object.keys(_LOOKS_MODE_LABEL).map(m=>`<button class="mode-toggle-btn${m===_looksMode?' on':''}" data-mode="${m}" type="button" onclick="_looksSetMode('${m}')">${_LOOKS_MODE_LABEL[m]}</button>`).join('')}
+  </div>`;
+}
+function _looksSetMode(mode){
+  if(mode===_looksMode) return;
+  _looksMode=mode;
+  try{ localStorage.setItem('pv_looks_mode', mode); }catch(e){}
+  renderLooks();
 }
 function _looksClose(){   // стрелка ‹ Назад: применить незакоммиченное и вернуться в профиль
   if(_looksChanged()){ _looksApply().then(()=>{ loadProfile(); goTo('profile'); }); }
@@ -56,21 +71,41 @@ function renderLooks(){
   const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
     <span>👑 Купить можно любую косметику. Линейки дороже «Лесного Странника» <b>отображаются на профиле только с VIP</b>.</span>
     <button class="btn btn-sm btn-gold" onclick="goTo('market','vip')">Перейти к VIP</button></div>`;
+  const modeBody=_looksMode==='collections'?_looksCollectionsViewHtml():_looksSlotsViewHtml();
+  // «Вход»/«Темы» — ОБЩИЕ для обоих режимов (по спеку), рендерятся здесь ОДИН раз,
+  // а не внутри modeBody — иначе в режиме «По коллекциям» пропал бы доступ к смене
+  // приветствия/темы. Умный ряд фильтров («По слотам» режим) тоже ОБЩИЙ, но
+  // находится ВНУТРИ .looks-sticky (2026-07-29: чтобы при скролле не уезжал под
+  // прилипшее превью).
+  const stickyFilterBar = _looksMode==='slots' ? `<div id="looks-filter-bar">${_looksFilterHtml()}</div>` : '';
   b.innerHTML=`
     <div class="looks-head">
       <button class="looks-back" onclick="_looksClose()" aria-label="Назад">‹</button>
       <div class="looks-htitle">🎨 Внешний вид</div>
     </div>
-    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div><div id="looks-filter-bar">${_looksFilterHtml()}</div></div>`
+    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div>${stickyFilterBar}</div>
+    ${_looksModeToggleHtml()}`
     +vipBar
     +'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'
     +_looksPresetsHtml()
-    +`<div class="looks-anchors">${_LOOKS_SECTIONS.map(s=>`<button class="looks-anchor-chip" onclick="_looksJump('${s}')">${_LOOKS_ANCHOR_LABEL[s]}</button>`).join('')}</div>`
-    +`<div id="looks-sections">${_LOOKS_SLOTS.map(_looksSectionHtml).join('')}${_looksWelcomeSectionHtml()}${_looksThemesSectionHtml()}</div>`
+    +`<div id="looks-mode-body">${modeBody}</div>`
+    +`<div id="looks-common-sections">${_looksWelcomeSectionHtml()}${_looksThemesSectionHtml()}</div>`
     +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
   _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
   _looksThemesEnsureLoaded();
   _looksSyncStickyH();
+}
+// Режим «По слотам» — умный ряд (фильтр) живёт в .looks-sticky (рендерится в
+// renderLooks), здесь только якоря и секции слотов. «Вход»/«Темы» общие, рендерятся
+// отдельно в renderLooks().
+function _looksSlotsViewHtml(){
+  return `<div class="looks-anchors">${_LOOKS_SLOTS.map(s=>`<button class="looks-anchor-chip" onclick="_looksJump('${s}')">${_LOOKS_ANCHOR_LABEL[s]}</button>`).join('')}</div>`
+    +`<div id="looks-sections">${_LOOKS_SLOTS.map(_looksSectionHtml).join('')}</div>`;
+}
+// Режим «По коллекциям» — заглушка, реальное содержимое (карточки линеек) пишет
+// Task 2. Не убирать эту функцию при написании Task 2 — ЗАМЕНИТЬ её тело.
+function _looksCollectionsViewHtml(){
+  return `<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">Карточки коллекций — Task 2</div>`;
 }
 // Высота .looks-sticky «плавает» (lineup-info то есть, то нет, разной длины) —
 // scroll-margin-top секций держим в CSS-переменной, иначе якорь-прыжок иногда
