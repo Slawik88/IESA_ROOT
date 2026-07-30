@@ -1879,11 +1879,14 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
 /* Панель вкладок слотов «Внешнего вида» — переиспользует .tabs/.tb, id только для JS */
 #looks-tabs { margin-bottom: 10px; }
 /* Умный ряд (Стадия 1, 2026-07-29): поиск + пилюля линейки + переключатель
-   статуса вместо двух рядов чипов. Тап-зона ≥44px — НЕВИДИМЫМ padding на
-   .sr-tap (обёртке), сама пилюля остаётся тонкой ~30px (см. правило в
-   COSMETICS_COLLECTION_DESIGN_RULES.md §4 — раздувать саму пилюлю нельзя). */
+   статуса вместо двух рядов чипов. Тап-зона — НЕВИДИМЫМ padding на .sr-tap
+   (обёртке): padding:7px 3px даёт высоту ~45px (≥44) каждой обёртке; по
+   ширине пилюля/кнопка статуса растут лишь на 6px (3+3) — сама пилюля
+   остаётся тонкой ~30px (см. правило в COSMETICS_COLLECTION_DESIGN_RULES.md
+   §4 — раздувать саму пилюлю нельзя), т.е. ширина кнопки статуса ~36px —
+   осознанный компромисс уже читаемости ради, не полные 44px. */
 .smartrow { display: flex; gap: 6px; margin-bottom: 6px; }
-.sr-tap { padding: 5px 0; display: flex; flex: none; }
+.sr-tap { padding: 7px 3px; display: flex; flex: none; }
 .sr-tap--flex { flex: 1; min-width: 0; }
 .sr-box {
   width: 100%; background: linear-gradient(160deg, var(--bg3), var(--bg2));
@@ -1891,6 +1894,9 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
   box-shadow: inset 0 1px 2px rgba(0,0,0,.35);
   display: flex; align-items: center; gap: 6px; padding: 6px 10px;
   font-family: inherit; cursor: pointer;
+  /* .sr-lineup и .sr-status оба теперь <button> — сброс UA-стилей кнопки
+     (текст по умолчанию центрируется/имеет свои отступы в некоторых браузерах). */
+  margin: 0; text-align: left; color: inherit;
 }
 .sr-search { min-width: 0; cursor: text; }
 .sr-search:focus-within { border-color: rgba(139,108,240,.5); box-shadow: inset 0 1px 2px rgba(0,0,0,.35), 0 0 0 2px rgba(139,108,240,.13); }
@@ -1935,10 +1941,16 @@ body.no-fx .hero:has(> .card-fx.cfx-artifact), body.no-fx .looks-preview:has(> .
 .looks-card.lc-dim { opacity: .42; }
 /* Статичный акцент цвета линейки (Стадия 1, 2026-07-29) — override поверх
    r-{rarity} рамки ТОЛЬКО когда есть класс lc-lineup-accent (сундуки/крафт
-   этот класс не получают, у них остаётся старая r-{rarity} окраска нетронутой). */
-.looks-card.lc-lineup-accent { border-color: var(--lc, var(--border2)); position: relative; overflow: hidden; }
-.looks-card.lc-lineup-accent::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 90% 0%, var(--lcg, transparent), transparent 60%); pointer-events: none; }
-.looks-card.lc-lineup-accent.sel { border-color: var(--gold); }
+   этот класс не получают, у них остаётся старая r-{rarity} окраска
+   нетронутой). Скоуп через .looks-cards поднимает специфичность до (0,3,0) —
+   иначе .looks-card.r-artifact (0,2,0), объявленный НИЖЕ по файлу, выигрывал
+   бы по порядку источника и гасил акцент у линейки «Артефакт». Свечение —
+   box-shadow (не ::before): ::before рисуется под непрозрачным .lc-sw
+   (свотч) и почти не виден; box-shadow красится вокруг рамки карточки и
+   свотч его перекрыть не может. position/overflow не дублируем — уже есть
+   на базовом .looks-card. */
+.looks-cards .looks-card.lc-lineup-accent { border-color: var(--lc, var(--border2)); box-shadow: 0 0 10px var(--lcg); }
+.looks-cards .looks-card.lc-lineup-accent.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold), 0 4px 14px rgba(201,168,76,.18); }
 /* Свотч — живое превью самого эффекта (а не текст) */
 .lc-sw {
   width: 100%; height: 54px; border-radius: 8px; position: relative; overflow: hidden;
@@ -3372,7 +3384,6 @@ body.no-fx .wn-pop { animation: none; }
   padding-bottom: 8px; margin: 0 -12px; padding-left: 12px; padding-right: 12px;
   box-shadow: var(--shadow-sm);
 }
-.looks-sticky .looks-filter { margin: 4px 0 0; }
 .looks-sticky #looks-lineup-info { margin-bottom: 0; }
 .looks-intro { font-size: 11.5px; color: var(--muted); text-align: center; margin: 2px 0 10px; line-height: 1.4; }
 .looks-anchors { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 10px; scrollbar-width: none; padding-bottom: 2px; }
