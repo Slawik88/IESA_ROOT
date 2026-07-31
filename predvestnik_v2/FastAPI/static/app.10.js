@@ -564,7 +564,11 @@ function _looksReloadCatalog(){
   // не сработал бы. Без явного рефетча тут пресеты один раз ушли бы в 0 и
   // оставались 0 до полной перезагрузки страницы (originSessionId бага —
   // .superpowers/sdd/progress.md, финальное ревью Стадии 3).
-  return Promise.all([api('/cosmetics/'),api('/cosmetics/presets')]).then(([d,pr])=>{
+  // .catch на пресетах отдельно от каталога: иначе сбой ЧТЕНИЯ пресетов (сеть,
+  // 500) топит ВЕСЬ reload — включая случай, когда его вызвали ПОСЛЕ успешной
+  // платной покупки (см. _looksBuyFromPreview) — игрок теряет деньги/предмет
+  // на сервере, но видит ошибку и не видит купленное на экране.
+  return Promise.all([api('/cosmetics/'),api('/cosmetics/presets').catch(()=>({presets:_looksPresets}))]).then(([d,pr])=>{
     _looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved}; _looksFocus=null;
     _looksPresets=pr.presets||[];
     renderLooks();
