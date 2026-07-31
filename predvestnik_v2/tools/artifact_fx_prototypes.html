@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Артефакт — 8 концептов card_fx (v3, без тапов)</title>
+<style>
+html { color-scheme: dark only; }
+:root {
+  --bg0: #07080f; --bg1: #0e1019; --bg2: #151827; --bg3: #1c2033;
+  --text: #c9cede; --bright: #f1f3fa; --muted: #7c84a0; --dim: #232739;
+  --gold: #e8b54d; --gold2: #f5d488; --gold-dim: rgba(232,181,77,.12);
+  --violet: #8b6cf0; --violet-dim: rgba(139,108,240,.14);
+  --border: rgba(232,181,77,.28); --border2: rgba(255,255,255,.07);
+  --shadow: 0 8px 28px rgba(0,0,0,.45); --glow-gold: 0 0 22px rgba(232,181,77,.22);
+  --cyan: #3fe0e0; --pink: #ff50c8;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { font-size: 14px; }
+body {
+  margin: 0; min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  background:
+    radial-gradient(1100px 500px at 85% -10%, rgba(139,108,240,.12), transparent 60%),
+    radial-gradient(900px 420px at -10% 0%, rgba(232,181,77,.08), transparent 55%),
+    var(--bg0);
+  color: var(--text);
+  padding: 28px 16px 60px;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+}
+::selection { background: rgba(232,181,77,.3); }
+
+/* ── Шапка прототипа ─────────────────────────────────────────────────────── */
+.proto-head { max-width: 500px; text-align: center; }
+.proto-head h1 { font-size: 18px; font-weight: 800; color: var(--bright); margin: 0 0 6px; }
+.proto-head p { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin: 0; }
+.proto-head code { background: var(--bg2); border: 1px solid var(--border2); border-radius: 4px; padding: 0 4px; font-size: 11.5px; }
+
+
+/* ── Карточка (репродукция .hero из app.css) ─────────────────────────────── */
+.stage { width: 100%; max-width: 340px; }
+.card, .gp-card {
+  position: relative; overflow: hidden; isolation: isolate;
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.card { border: 1px solid var(--border); border-radius: 22px; padding: 20px 18px 34px; }
+/* Фон "Артефакта" (энергорешётка) — в игре это отдельный слот profile_bg, здесь
+   зашит всегда включённым, т.к. цель прототипа — card_fx, а не остальные слоты. */
+.card, .gp-card {
+  background:
+    repeating-linear-gradient(58deg, rgba(63,224,224,.08) 0 1px, transparent 1px 25px),
+    repeating-linear-gradient(-58deg, rgba(255,80,200,.06) 0 1px, transparent 1px 25px),
+    radial-gradient(85% 65% at 18% 15%, rgba(63,224,224,.26), transparent 60%),
+    radial-gradient(80% 60% at 85% 85%, rgba(180,90,255,.24), transparent 60%),
+    linear-gradient(160deg, #050b10, #08061000);
+  background-size: 100% 100%, 100% 100%, 140% 140%, 140% 140%, 100% 100%;
+  animation: pbgArtifact 9s ease-in-out infinite;
+}
+@keyframes pbgArtifact {
+  0%,100% { background-position: 0 0, 0 0, 0% 0%, 100% 100%, 0 0; }
+  50%     { background-position: 0 0, 0 0, 30% 20%, 70% 80%, 0 0; }
+}
+.hero-head, .gp-header { display: flex; align-items: center; gap: 12px; position: relative; z-index: 3; }
+.ava {
+  width: 56px; height: 56px; border-radius: 18px; flex: none;
+  display: flex; align-items: center; justify-content: center; font-size: 30px;
+  background: linear-gradient(135deg, var(--violet-dim), var(--gold-dim));
+  border: 1px solid var(--border2); animation: floaty 4.5s ease-in-out infinite;
+}
+@keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+/* frame-artifact + halo-artifact — реальные классы app.css, не тронуты (не card_fx) */
+.frame-artifact {
+  box-shadow: 0 0 0 2px #3fe0e0, 0 0 0 4px rgba(255,80,200,.4), 0 0 16px 3px rgba(63,224,224,.6);
+  animation: frameArtifact 2.6s ease-in-out infinite;
+}
+@keyframes frameArtifact {
+  0%,100% { box-shadow: 0 0 0 2px #3fe0e0, 0 0 0 4px rgba(255,80,200,.28), 0 0 14px 3px rgba(63,224,224,.5); }
+  50%     { box-shadow: 0 0 0 2px #7af0ff, 0 0 0 4px rgba(120,180,255,.45), 0 0 22px 5px rgba(63,224,224,.78); }
+}
+.halo-artifact {
+  filter: drop-shadow(0 0 1px rgba(180,255,245,.95)) drop-shadow(0 0 8px rgba(63,224,224,.7)) drop-shadow(0 0 16px rgba(255,80,200,.35));
+  animation: haloArtifact 3s ease-in-out infinite;
+}
+@keyframes haloArtifact {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(180,255,245,.9)) drop-shadow(0 0 7px rgba(63,224,224,.6)) drop-shadow(0 0 14px rgba(255,80,200,.3)); }
+  50%     { filter: drop-shadow(0 0 2px rgba(205,255,250,1)) drop-shadow(0 0 11px rgba(90,235,255,.82)) drop-shadow(0 0 20px rgba(255,100,215,.45)); }
+}
+.who { min-width: 0; }
+.pname { font-size: 17px; font-weight: 800; }
+.glow-hologram {
+  color: #eafffb; -webkit-text-stroke: 0.5px rgba(120,255,235,.7);
+  text-shadow: -1px 0 2px rgba(255,80,200,.55), 1px 0 2px rgba(80,200,255,.6), 0 0 6px rgba(150,255,240,.35);
+  animation: glowHolo 3.6s ease-in-out infinite;
+}
+@keyframes glowHolo {
+  0%,100% { text-shadow: -1px 0 2px rgba(255,80,200,.5), 1px 0 2px rgba(80,200,255,.5), 0 0 5px rgba(150,255,240,.3); }
+  50%     { text-shadow: -1.6px 0 3px rgba(255,100,210,.65), 1.6px 0 3px rgba(100,210,255,.65), 0 0 8px rgba(170,255,245,.42); }
+}
+.prank { font-size: 11px; color: var(--gold2); margin-top: 2px; }
+.ptitle { font-size: 10.5px; margin-top: 3px; font-style: italic; }
+.title-artifact {
+  color: #d6fffb; -webkit-text-stroke: 0.4px rgba(63,224,224,.7);
+  text-shadow: -1px 0 2px rgba(255,80,200,.5), 1px 0 2px rgba(80,200,255,.55), 0 0 6px rgba(63,224,224,.4);
+  animation: glowHolo 3.6s ease-in-out infinite;
+}
+
+/* ── Мокап публичного профиля (реальная структура .looks-preview.gp-card
+   из app.06.js/_cxDetailHtml-соседа — рендерится при просмотре ЧУЖОГО профиля).
+   Раньше прототип показывал только hero-шапку — здесь ещё и то, что card_fx
+   обязан покрывать: статы, чипы, питомцы, во весь настоящий рост карточки. ─── */
+.stage2 { width: 100%; max-width: 400px; }
+.sec-label { max-width: 500px; width: 100%; text-align: center; font-size: 12px; font-weight: 700;
+  color: var(--muted); margin-top: 2px; }
+.gp-card { border-radius: 14px; padding: 14px; }
+.gp-inner { position: relative; z-index: 3; }
+.gp-card .ava { width: 58px; height: 58px; font-size: 28px; margin: 0; }
+.gp-card .pname { font-size: 17px; }
+.gp-card .prank { font-size: 11px; }
+.gp-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; min-width: 0; }
+.gp-chip { font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+  color: var(--text); background: rgba(255,255,255,.05); border: 1px solid var(--border2); }
+.gp-chip--vip, .gp-chip--best { color: var(--gold2); background: rgba(232,181,77,.14); border-color: rgba(232,181,77,.35); }
+.gp-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px; margin-top: 12px; }
+.gp-st { text-align: center; padding: 8px 4px; border-radius: 9px; background: rgba(255,255,255,.035); border: 1px solid var(--border2); }
+.gp-sv { font-size: 14px; font-weight: 800; color: var(--bright); }
+.gp-sl { font-size: 9px; color: var(--muted); margin-top: 2px; }
+.looks-slot-t { font-size: 11px; color: var(--muted); margin: 12px 0 6px; }
+.gp-pets { display: flex; flex-direction: column; gap: 5px; }
+.gp-pet-row { font-size: 12px; color: var(--text); background: rgba(255,255,255,.03);
+  border: 1px solid var(--border2); border-radius: 9px; padding: 6px 10px; }
+.gp-pet-row b { color: var(--bright); }
+.gbtn { display: block; width: 100%; text-align: center; font: inherit; font-size: 12.5px; font-weight: 700;
+  padding: 10px; border-radius: 12px; border: 1px solid var(--border2); background: transparent;
+  color: var(--text); margin-top: 8px; }
+.gbtn-gold { background: linear-gradient(135deg, var(--gold2), var(--gold)); color: #1a1405; border: none; }
+
+/* ── card_fx оверлеи — общий переключатель для ОБЕИХ карточек разом ─────────
+   .fxcard носят и .card, и .gp-card; data-set синхронизирует обе через JS. */
+.cfx { position: absolute; inset: 0; z-index: 2; border-radius: inherit; overflow: hidden;
+  pointer-events: none; display: none; }
+.fxcard[data-set="A"] .cfx-edge    { display: block; }
+.fxcard[data-set="B"] .cfx-pulse   { display: block; }
+.fxcard[data-set="C"] .cfx-sigils  { display: block; }
+.fxcard[data-set="D"] .cfx-sweep   { display: block; }
+.fxcard[data-set="E"] .cfx-aurora  { display: block; }
+.fxcard[data-set="F"] .cfx-facets  { display: block; }
+.fxcard[data-set="G"] .cfx-glitch  { display: block; }
+.fxcard[data-set="H"] .cfx-blob    { display: block; }
+
+/* Единая лёгкая анимация появления при смене вкладки — общая для всех 8,
+   вместо восьми бесповторных вариантов (не нужно, эффект несёт сам card_fx). */
+.fx-enter { animation: fxEnter .4s cubic-bezier(.22,1,.36,1) both; }
+@keyframes fxEnter { 0% { opacity: 0; transform: translateY(8px); } 100% { opacity: 1; transform: translateY(0); } }
+
+/* ═══ A · Разряд — вечный ток по контуру ═════════════════════════════════
+   Была: искра стартовала из точки тапа (offset-path + JS-триггер). Стала:
+   два "заряда" (основной + едва заметный хвост-призрак на противофазе через
+   отрицательный animation-delay) бесконечно облетают border-box по кругу;
+   у стартового угла оба на пике яркости — раз за оборот, само, без тапа. */
+.edge-idle {
+  position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 1.5px rgba(63,224,224,.3), 0 0 10px 1px rgba(63,224,224,.16);
+  animation: edgeBreath 4s ease-in-out infinite;
+}
+@keyframes edgeBreath {
+  0%,100% { box-shadow: inset 0 0 0 1.5px rgba(63,224,224,.22), 0 0 8px 1px rgba(63,224,224,.12); }
+  50%     { box-shadow: inset 0 0 0 1.5px rgba(140,245,255,.6), 0 0 18px 2px rgba(63,224,224,.34); }
+}
+.edge-comet {
+  position: absolute; top: 0; left: 0; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%; pointer-events: none;
+  offset-path: border-box;
+  background: linear-gradient(90deg, var(--cyan), var(--pink));
+  box-shadow: 0 0 8px 2px var(--cyan), 0 0 16px 5px rgba(255,80,200,.45);
+  animation: cometOrbit 5.5s linear infinite;
+}
+.edge-comet.ghost { width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; opacity: .5; animation-delay: -2.75s; }
+@keyframes cometOrbit {
+  0%   { offset-distance: 0%;   opacity: 1;   transform: scale(1.35); }
+  6%   { opacity: .85; transform: scale(1); }
+  94%  { opacity: .85; transform: scale(1); }
+  100% { offset-distance: 100%; opacity: 1;   transform: scale(1.35); }
+}
+
+/* ═══ B · Пульс — сонар от аватара ════════════════════════════════════════
+   ПЕРЕДЕЛАНО после отзыва владельца ("ужасно, зависают на месте, очень
+   яркие, не с центра аватарки, режут глаза") — три отдельных бага, не один:
+   1) border+box-shadow, растянутые через transform:scale(9), масштабируют
+      И толщину обводки, И блюр тени — 2px обводка и 12px блюр на пике
+      превращались в ~18px обводку и ~108px блюр: отсюда "яркие/режут глаза".
+      Фикс: кольцо — radial-gradient (прозрачно-цвет-прозрачно), никакого
+      border/box-shadow — масштабировать градиент безопасно, яркость не
+      взрывается с размером.
+   2) ease-out на всём диапазоне scale(.4→9) — гигantский диапазон, ease-out
+      быстро разгоняется и потом еле ползёт весь хвост цикла: читалось как
+      "зависло". Фикс: linear + сильно уменьшенный максимальный масштаб
+      (кольцо больше не разрастается за пределы карточки, где кривизна
+      теряется и кажется, что оно "не оттуда" появилось).
+   3) Общий --ox/--oy был один на обе карточки, хотя паддинг/размер аватарки
+      разные (compact 56px/пад.18-20, gp-card 58px/пад.14). Разница всего
+      5px, но при огромном блюре по п.1 даже она бросалась в глаза — теперь
+      точные координаты центра аватарки на карточку (измерено через
+      getBoundingClientRect, не на глаз).
+   4) НОВЫЙ баг после отзыва ("первые 2-3с кольца статичные, потом ожили"):
+      positive animation-delay (1.5s/3s) на infinite-анимации без fill-mode
+      значит — ДО старта элемент показывает свои СТАТИЧНЫЕ (не keyframe)
+      значения transform/opacity, т.е. кольца 2 и 3 буквально стояли на
+      месте scale(3)/scale(5) весь свой delay, и оживали только когда delay
+      истекал. Фикс: отрицательный delay — кольцо сразу стартует "с середины"
+      своего цикла, без статичной паузы (тот же приём уже был у edge-comet
+      в блоке A, здесь просто забыл применить). */
+.cfx-pulse { --ox: 47px; --oy: 49px; }
+.gp-card .cfx-pulse { --ox: 43px; --oy: 43px; }
+.pulse-ring {
+  position: absolute; left: var(--ox); top: var(--oy); width: 30px; height: 30px; margin: -15px 0 0 -15px;
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 55%, rgba(140,235,255,.55) 63%, rgba(63,224,224,.22) 74%, transparent 84%);
+  /* Статичная база (вне keyframes) — то, что останется под reduced-motion:
+     3 круга разного фиксированного масштаба, а не один "блик побольше". */
+  opacity: .32; animation: sonarRing 4.5s linear infinite;
+}
+.pulse-ring:nth-child(1) { transform: scale(1); }
+.pulse-ring:nth-child(2) { transform: scale(3); animation-delay: -1.5s; }
+.pulse-ring:nth-child(3) { transform: scale(5); animation-delay: -3s; }
+@keyframes sonarRing {
+  0%   { transform: scale(.6); opacity: 0; }
+  12%  { opacity: .5; }
+  55%  { opacity: .2; }
+  100% { transform: scale(6); opacity: 0; }
+}
+.motes-slot { position: absolute; inset: 0; }
+.mote { position: absolute; width: 3px; height: 3px; border-radius: 50%;
+  background: var(--cyan); opacity: 0; box-shadow: 0 0 4px var(--cyan);
+  animation: moteDrift linear infinite; }
+@keyframes moteDrift { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: .55; } 85% { opacity: .4; } 100% { opacity: 0; transform: translateY(-70px); } }
+
+/* ═══ C · Живые письмена — эстафета рун ═══════════════════════════════════
+   Владелец: "гармонично, спокойно, но чего-то не хватает". Разбор: описание
+   концепта обещало руне "прочертить себя, как чернила" — а после фикса
+   невидимости в покое (см. историю ниже) реальное рисование пропало, остался
+   только pulse яркости на неизменном контуре. Добавлено 2 детали:
+   1) Сеть тонких линий-связей между рунами: луч эстафеты бежит от только что
+      зажжённой руны к следующей и приходит ровно к её вспышке — ощущение
+      единой системы, а не 5 независимых блинков.
+   2) Поверх дежурного (всегда видимого) глифа — вторая, более яркая копия
+      того же <use>, которая реально ДОРИСОВЫВАЕТСЯ (stroke-dashoffset 1→0)
+      в момент вспышки и гаснет; дежурный слой не трогаем — он и раньше был
+      исправлением бага невидимости, регрессировать нельзя. */
+.cfx-sigils { color: rgba(100,235,235,.5); }
+/* Владелец: "созвездие" (сеть связей) понравилось больше всего — усилить
+   акцент. Было: еле видимые линии (.16 alpha) + один тонкий луч-эстафета.
+   Стало: 1) сама сеть постоянно "дышит" ярче/тише — живая, а не статичный
+   чертёж; 2) на каждой руне — узловая звёздочка со своим twinkle, сеть
+   реально читается как звёздная карта, а не просто линии между значками;
+   3) луч — теперь голова (яркая, тонкая) + хвост (шире, мягче, тот же путь)
+   для эффекта кометы, а не одной сухой чёрточки. */
+.rune-net { position: absolute; inset: 0; overflow: visible; }
+.rune-link {
+  fill: none; stroke: rgba(120,240,240,.32); stroke-width: .6;
+  animation: netBreathe 5s ease-in-out infinite;
+}
+@keyframes netBreathe { 0%,100% { stroke-opacity: .55; } 50% { stroke-opacity: 1; } }
+.rune-node {
+  fill: rgba(150,240,255,.75); filter: drop-shadow(0 0 2px rgba(150,245,255,.9));
+  animation: nodeTwinkle 3.4s ease-in-out infinite;
+}
+@keyframes nodeTwinkle { 0%,100% { r: .8px; opacity: .45; } 50% { r: 1.4px; opacity: 1; } }
+.beam-tail {
+  fill: none; stroke: rgba(150,245,255,.4); stroke-width: 2.2; stroke-linecap: round;
+  stroke-dasharray: .3 1; stroke-dashoffset: 1; opacity: 0;
+  animation: relayTravel 8s linear infinite;
+}
+.beam {
+  fill: none; stroke: #eafffe; stroke-width: 1.3; stroke-linecap: round;
+  stroke-dasharray: .12 1; stroke-dashoffset: 1; opacity: 0;
+  filter: drop-shadow(0 0 3px rgba(180,250,255,.95));
+  animation: relayTravel 8s linear infinite;
+}
+@keyframes relayTravel {
+  0%,3%    { opacity: 0; stroke-dashoffset: 1; }
+  4%       { opacity: 1; }
+  20%      { stroke-dashoffset: -.3; }
+  21%,100% { opacity: 0; stroke-dashoffset: -.3; }
+}
+.sigil { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; overflow: visible;
+  animation: runeCycle 8s ease-in-out infinite; }
+.sigil use { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.sigil .use-draw {
+  stroke: #eafffd; stroke-width: 2.6; stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0;
+  filter: drop-shadow(0 0 4px rgba(180,250,255,.95));
+  animation: runeDraw 8s linear infinite;
+}
+/* Тайминг каждого экземпляра (руна/её use-draw/spark/луч/хвост/узел) задаётся
+   ИНЛАЙН style="animation-delay" в разметке, не через :nth-of-type — .rune-net
+   держит вперемешку <line> и <circle>, а .cfx-sigils держит <svg class="rune-net">
+   ПЕРЕД пятью <svg class="sigil">, так что :nth-of-type считает ПО ТИПУ ТЕГА
+   среди всех соседей разом (line+line+line или svg+svg+svg), а не по классу —
+   с ним .beam:nth-of-type(1..5) вообще ни на что не попадал (реальные .beam —
+   6-10-й <line> среди соседей, не 1-5-й), все 5 лучей стартовали синхронно
+   вместо эстафеты. Инлайн-delay однозначен и не зависит от порядка соседей. */
+@keyframes runeCycle {
+  0%       { opacity: .55; color: rgba(100,235,235,.5); filter: drop-shadow(0 0 2px rgba(63,224,224,.25)); transform: scale(1); }
+  4%       { opacity: 1;   color: #d6faff;               filter: drop-shadow(0 0 5px rgba(140,245,255,.95)) drop-shadow(0 0 12px rgba(255,90,210,.55)); transform: scale(1.12); }
+  16%,100% { opacity: .55; color: rgba(100,235,235,.5); filter: drop-shadow(0 0 2px rgba(63,224,224,.25)); transform: scale(1); }
+}
+@keyframes runeDraw {
+  0%       { stroke-dashoffset: 1; opacity: 0; }
+  3%       { opacity: 1; }
+  7%       { stroke-dashoffset: 0; opacity: 1; }
+  16%,100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.sigil .spark { opacity: 0; animation: sparkCycle 8s ease-in-out infinite; }
+@keyframes sparkCycle {
+  0%      { opacity: 0; transform: scale(.2); }
+  3%      { opacity: 1; transform: scale(1.5); }
+  9%,100% { opacity: 0; transform: scale(.7); }
+}
+
+/* ═══ D · Отблеск — фольга, которая никогда не лежит смирно ══════════════
+   Была: тихий дрейф + одна яркая полоса ТОЛЬКО по тапу. Стала: дрейф как
+   был (идёт всегда), плюс тот же блик сам, раз в 9с, без тапа.
+   ПЕРЕСДЕЛАНО после отзыва ("луч скучный, не заманивает"): плоская белая
+   полоса не имела ничего общего с "фольгой" из описания — настоящая фольга
+   расщепляет свет на радугу. Теперь у блика два слоя фона в одном элементе
+   (двигаются одним transform, без лишних DOM-узлов): широкое мягкое радужное
+   зарево (halo) + узкое яркое ядро-призма с честным разложением цвета
+   (фиолетовый→синий→циан→белый пик→золото→розовый→магента). */
+.cfx-sweep::before {
+  content: ''; position: absolute; inset: -20% -40%;
+  background: linear-gradient(115deg, transparent 42%, rgba(140,235,255,.22) 48%, rgba(255,225,120,.28) 50%, rgba(255,110,220,.22) 52%, transparent 58%);
+  animation: sweepIdle 7s ease-in-out infinite;
+}
+@keyframes sweepIdle { 0%,100% { transform: translateX(-16%); } 50% { transform: translateX(16%); } }
+/* НОВЫЙ третий слой после отзыва: владелец хочет, чтобы луч иногда доходил
+   от края до края — карточка на пике целиком в одном цвете, потом целиком в
+   другом. Узкая лента ::before для этого физически не годится (у неё цвет
+   только в средней трети, по бокам — прозрачность; сдвинь её на всю ширину и
+   увидишь просто пустоту, а не "вся карта другого цвета"). Поэтому — третий,
+   отдельный слой: широкий двухцветный градиент (не полоса, а половина-в-одном-
+   цвете/половина-в-другом с мягким переходом) панорамируется через
+   background-position — на одном краю карта циановая, на другом магента,
+   переход между ними и есть видимый "луч". Редкое явление (раз в 17с, не
+   каждые 9с как призма-блик) — чтобы решётка эффектов на карточке не гудела
+   одновременно, и достаточно долгое (~4с самого перехода + мягкие фейды),
+   чтобы обе "темы" успели прочитаться, без единого рывка/скачка. */
+.cfx-sweep .sweep-flip {
+  position: absolute; inset: 0; opacity: 0;
+  background: linear-gradient(115deg,
+    rgba(90,205,255,.4) 0%, rgba(90,205,255,.4) 38%,
+    rgba(150,120,255,.3) 47%, rgba(255,110,205,.3) 53%,
+    rgba(255,110,205,.4) 62%, rgba(255,110,205,.4) 100%);
+  background-size: 320% 100%;
+  animation: sweepFlip 17s ease-in-out infinite;
+}
+@keyframes sweepFlip {
+  0%, 55%   { opacity: 0; background-position: 0% 0; }
+  60%       { opacity: 1; background-position: 0% 0; }
+  85%       { opacity: 1; background-position: 100% 0; }
+  90%,100%  { opacity: 0; background-position: 100% 0; }
+}
+.cfx-sweep::after {
+  content: ''; position: absolute; inset: -20% -60%; opacity: 0;
+  background:
+    linear-gradient(115deg, transparent 22%, rgba(170,130,255,.22) 38%, rgba(255,255,255,.28) 50%, rgba(255,165,215,.22) 62%, transparent 78%),
+    linear-gradient(115deg, transparent 39%, rgba(150,100,255,.55) 45.5%, rgba(80,180,255,.6) 47.5%, rgba(120,255,225,.65) 49%,
+      #fff 50%,
+      rgba(255,225,120,.65) 51%, rgba(255,130,195,.6) 52.5%, rgba(255,90,205,.55) 54.5%, transparent 61%);
+  animation: sweepAuto 9s cubic-bezier(.16,1,.3,1) infinite;
+}
+@keyframes sweepAuto {
+  0%          { transform: translateX(-130%); opacity: 0; }
+  9%          { opacity: 1; }
+  20%         { transform: translateX(130%); opacity: 0; }
+  20.01%,100% { opacity: 0; transform: translateX(-130%); }
+}
+
+/* ═══ E · Аврора — вращающийся конический градиент ════════════════════════
+   Новая техника: CSS @property регистрирует --auroraAngle как <angle>,
+   что разрешает браузеру ПЛАВНО анимировать его в conic-gradient (обычным
+   custom-property это недоступно — без @property анимация была бы "скачком").
+   Юзер: единственный эффект, которого нет ни у одной другой редкости в игре
+   в принципе (ни как текстовый градиент, ни как фон) — не переливается,
+   а буквально КРУТИТСЯ. Без поддержки @property (редкость к 2026) градиент
+   останется статичным — деградация безопасная, ничего не ломается. */
+@property --auroraAngle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+/* ПЕРЕСДЕЛАНО после отзыва ("переливание и градиенты ужасны"): 5 цветовых
+   стопов подряд без разрывов сливались в мутный "цветной дым" под blur(16px)
+   поверх и без того цветного фона-решётки. Настоящая аврора — это отдельные
+   ЛЕНТЫ света с тёмными промежутками между ними, не сплошное колесо. Теперь
+   два узких потока (циан и фиолетово-магента — те же 2 акцентных цвета, что
+   у остальных 7 концептов) с честными прозрачными паузами между ними, блюр
+   уменьшен вдвое — края лент читаются, а не размыты в кашу. */
+.cfx-aurora {
+  background: conic-gradient(from var(--auroraAngle) at 50% 55px,
+    transparent 0deg, transparent 10deg,
+    rgba(70,230,225,.5) 32deg, rgba(130,255,240,.32) 52deg,
+    transparent 78deg, transparent 172deg,
+    rgba(165,110,240,.48) 196deg, rgba(255,110,215,.38) 216deg,
+    transparent 242deg, transparent 360deg);
+  mix-blend-mode: screen; opacity: .55; filter: blur(9px);
+  animation: auroraSpin 18s linear infinite;
+}
+@keyframes auroraSpin { to { --auroraAngle: 360deg; } }
+
+/* ═══ F · Огранка — гранёный медальон в шапке ══════════════════════════════
+   Новая техника: hard-edged clip-path facets (у всех остальных эффектов —
+   мягкие градиенты/блюр, тут — острая геометрия). Специально ограничен
+   узкой полосой у шапки (не на всю карту) — иначе грани разъезжаются в
+   тонкие полосы на высокой публичной карточке (клип завязан на пропорции
+   контейнера).
+   ПЕРЕСДЕЛАНО после отзыва ("скучно"): один и тот же белый градиент на всех
+   4 гранях при opacity .07 читался как "почти ничего". Теперь у КАЖДОЙ грани
+   свой цвет (циан/фиолетовый/магента/золото — палитра сета, не рандом) на
+   заметной базовой заливке — эффект "гранёный кристалл" виден без анимации
+   вообще, а "поймал свет" — отдельный ::after поверх, ярче и дольше. */
+.cfx-facets { height: min(100%, 140px); mix-blend-mode: screen; }
+/* На публичном профиле (карточка в разы выше) 140px-медальон с жёсткой нижней
+   границей смотрелся как "обрезок" — прямоугольник, приклеенный к фону, а не
+   часть карточки (отзыв владельца). Выше + мягкое растворение низа маской —
+   низ переходит в остальную карточку, а не обрывается ровной линией. Только
+   для .gp-card — в компактной карточке (там "всё супер") не трогаем. */
+.gp-card .cfx-facets {
+  height: min(100%, 230px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 68%, transparent 100%);
+          mask-image: linear-gradient(to bottom, #000 0%, #000 68%, transparent 100%);
+}
+.facet { position: absolute; inset: 0; }
+.facet::before { content: ''; position: absolute; inset: 0; background: var(--fc); opacity: .22; }
+.facet::after {
+  content: ''; position: absolute; inset: 0; opacity: 0;
+  background: linear-gradient(160deg, transparent 12%, rgba(255,255,255,.9) 50%, transparent 88%);
+  animation: facetCatch 6s ease-in-out infinite;
+}
+.facet.f1 { clip-path: polygon(0% 0%, 26% 0%, 15% 100%, 0% 100%); --fc: rgba(63,224,224,.9); }
+.facet.f2 { clip-path: polygon(26% 0%, 52% 0%, 44% 100%, 15% 100%); --fc: rgba(150,110,240,.9); }
+.facet.f3 { clip-path: polygon(52% 0%, 76% 0%, 70% 100%, 44% 100%); --fc: rgba(255,90,205,.85); }
+.facet.f4 { clip-path: polygon(76% 0%, 100% 0%, 100% 100%, 70% 100%); --fc: rgba(232,181,77,.85); }
+.facet.f1::after { animation-delay: 0s; }
+.facet.f2::after { animation-delay: 1.4s; }
+.facet.f3::after { animation-delay: 2.8s; }
+.facet.f4::after { animation-delay: 4.2s; }
+@keyframes facetCatch { 0%,78%,100% { opacity: 0; } 87% { opacity: .85; } }
+
+/* ═══ G · Сбой — голограмма, которая иногда чихает ═══════════════════════
+   Новая техника: хроматическая аберрация (разъезд R/C-каналов) + скан-линия
+   — цифровой/глитч-язык, у остальных 7 либо плавный свет, либо геометрия.
+   ПЕРЕСДЕЛАНО ЕЩЁ РАЗ после отзыва ("сейчас идёт ровно по 1 интервалу, а было
+   хаотично"): предыдущая версия была CSS `animation: X 5s infinite` — то есть
+   технически ИДЕАЛЬНО регулярна (ровно раз в 5.000с, один и тот же паттерн
+   каждый раз) — метроном, не хаос, даже с резкими steps() внутри. Настоящая
+   хаотичность требует рандома, а keyframe — детерминированная функция
+   времени, случайных чисел там взять неоткуда.
+   Фикс: скан/RGB/блочный шум ушли с бесконечной CSS-петли на одноразовые
+   ("burst") анимации, которые ЗАПУСКАЕТ JS (fireBgGlitch, см. <script>) —
+   1) интервал между вспышками случайный (2.5–6.5с, не ровно 5с),
+   2) КАЖДЫЙ раз случайно решается, какие из 3 частей сработают (скан-линия/
+      RGB-канал/блочный шум) — не всегда все три разом, иногда одна, иногда
+      две — реального "сбоя" никогда не бывает дважды одинаковым.
+   Работает тем же классом-триггером, что уже был у per-элементного глюка
+   (add class → force reflow → CSS играет один раз и гаснет в базовое
+   opacity:0 состояние, fill-mode не нужен). */
+.cfx-glitch-tex { position: absolute; inset: 0; opacity: .06; mix-blend-mode: overlay;
+  background: repeating-linear-gradient(0deg, rgba(160,235,255,.6) 0 1px, transparent 1px 3px); }
+.cfx-glitch-scan { position: absolute; left: 0; right: 0; height: 6px; top: -8%;
+  background: linear-gradient(90deg, transparent, rgba(210,245,255,1), transparent);
+  opacity: 0; mix-blend-mode: screen; }
+.cfx-glitch.gb-scan .cfx-glitch-scan { animation: glitchScanBurst .7s linear; }
+@keyframes glitchScanBurst {
+  0%    { opacity: 0; top: -8%; }
+  6%    { opacity: 1; }
+  100%  { opacity: 0; top: 106%; }
+}
+.cfx-glitch-rgb { position: absolute; inset: 0; }
+.cfx-glitch-rgb::before, .cfx-glitch-rgb::after { content: ''; position: absolute; left: 0; right: 0;
+  opacity: 0; mix-blend-mode: screen; }
+.cfx-glitch-rgb::before { top: 32%; height: 26%; background: rgba(255,45,95,.8); }
+.cfx-glitch-rgb::after  { top: 37%; height: 26%; background: rgba(45,220,255,.8); }
+.cfx-glitch.gb-rgb .cfx-glitch-rgb::before { animation: glitchRBurst .5s steps(1,end); }
+.cfx-glitch.gb-rgb .cfx-glitch-rgb::after  { animation: glitchCBurst .5s steps(1,end); }
+@keyframes glitchRBurst {
+  0%    { opacity: .85; transform: translateX(-8px); }
+  27%   { opacity: 0; }
+  36%   { opacity: .75; transform: translateX(6px); }
+  45%   { opacity: 0; }
+  64%   { opacity: .65; transform: translateX(-5px); }
+  100%  { opacity: 0; transform: translateX(0); }
+}
+@keyframes glitchCBurst {
+  0%    { opacity: .85; transform: translateX(8px); }
+  27%   { opacity: 0; }
+  36%   { opacity: .75; transform: translateX(-6px); }
+  45%   { opacity: 0; }
+  64%   { opacity: .65; transform: translateX(5px); }
+  100%  { opacity: 0; transform: translateX(0); }
+}
+/* Слабый фоновый "блочный шум" — доп. заказ владельца ("еле заметный, но
+   дополняет уже имеющиеся глюки"). Триггерится тем же fireBgGlitch, но не
+   обязательно одновременно со скан/RGB — см. рандом-выбор части в JS. */
+.cfx-glitch-blocks span { position: absolute; opacity: 0; mix-blend-mode: screen; }
+.cfx-glitch-blocks span:nth-child(1) { left: 6%;  top: 22%; width: 16%; height: 2.5%; background: rgba(140,235,255,.4); }
+.cfx-glitch-blocks span:nth-child(2) { right: 10%; top: 60%; width: 11%; height: 2%;   background: rgba(255,90,140,.35); animation-delay: .12s; }
+.cfx-glitch-blocks span:nth-child(3) { left: 44%; top: 80%; width: 20%; height: 1.8%;  background: rgba(140,235,255,.3); animation-delay: .22s; }
+.cfx-glitch.gb-blocks .cfx-glitch-blocks span { animation: glitchBlockBurst .5s steps(1,end); }
+@keyframes glitchBlockBurst {
+  0%    { opacity: .55; }
+  30%   { opacity: 0; }
+  55%   { opacity: .4; }
+  100%  { opacity: 0; }
+}
+
+/* per-элементный глитч (G) — владелец: аватарка/ник/gp-stats/чипы должны
+   глючить НЕЗАВИСИМО друг от друга, в случайные моменты, не все разом. Чистым
+   CSS честную рандомизацию не сделать (keyframe — детерминированная функция
+   времени), поэтому здесь минимум JS: раз в 2-4с (random) берёт 2-4 случайных
+   элемента из пула и на 1.5-3.3с (тоже random) вешает .gz-active — сам вид
+   глюка ниже чисто декларативный (CSS keyframe), рандомизация только "когда
+   и на ком". Работает только пока активна вкладка G (см. gzFire в <script>). */
+.gz-target.gz-active {
+  animation: gzJitter .28s steps(1,end) infinite;
+}
+@keyframes gzJitter {
+  0%   { transform: translate(0,0); filter: drop-shadow(-2px 0 rgba(255,50,90,.55)) drop-shadow(2px 0 rgba(50,220,255,.55)); }
+  25%  { transform: translate(-2px,1px); filter: none; }
+  50%  { transform: translate(1px,-1px); filter: drop-shadow(-3px 0 rgba(255,50,90,.4)) drop-shadow(3px 0 rgba(50,220,255,.4)); }
+  75%  { transform: translate(-1px,1px); filter: none; }
+  100% { transform: translate(0,0); filter: drop-shadow(-2px 0 rgba(255,50,90,.5)) drop-shadow(2px 0 rgba(50,220,255,.5)); }
+}
+
+/* ═══ H · Дыхание — живой жидкий металл ═══════════════════════════════════
+   Новая техника: органическая морфящаяся форма (border-radius keyframes,
+   не геометрия/не частицы/не текст) — единственный эффект без единой прямой
+   линии. Высота ограничена min(), чтобы на высокой публичной карточке пятно
+   не растянулось в вертикальный "огурец".
+   ДОРАБОТАНО после отзыва ("сыро, недоработано"): 1) hue-rotate(360deg) по
+   ПОЛНОМУ кругу проходил и через зелёный/оранжевый/жёлто-коричневый — вне
+   палитры сета половину цикла, отсюда ощущение "не то". Заменено на мягкое
+   качание ±30° вокруг базовых цветов — всегда циан/фиолет/магента, никогда
+   не мутнеет в чужой цвет. 2) Добавлены второй, меньший слой (::before,
+   движется в противофазе — две не смешивающиеся друг с другом жидкости,
+   не одно ровное пятно) и блуждающий блик (::after) — как отражение света
+   на поверхности жидкого металла, а не просто цветной туман. */
+.cfx-blob {
+  position: absolute; width: 64%; height: min(44%, 170px); left: 10%; top: 8%;
+  background: radial-gradient(circle at 35% 30%, rgba(63,224,224,.5), rgba(150,90,230,.36) 55%, rgba(255,80,200,.22) 80%, transparent 100%);
+  mix-blend-mode: screen; opacity: .6;
+  animation: blobMorph 11s ease-in-out infinite, blobHue 7s ease-in-out infinite;
+}
+.cfx-blob::before {
+  content: ''; position: absolute; width: 58%; height: 58%; right: -8%; bottom: -12%;
+  background: radial-gradient(circle at 60% 60%, rgba(255,110,220,.4), rgba(63,224,224,.28) 60%, transparent 85%);
+  border-radius: 50%; mix-blend-mode: screen;
+  animation: blobMorph2 9s ease-in-out infinite;
+}
+.cfx-blob::after {
+  content: ''; position: absolute; width: 20%; height: 20%; left: 28%; top: 18%;
+  background: radial-gradient(circle, rgba(255,255,255,.8), transparent 72%);
+  border-radius: 50%; filter: blur(1px);
+  animation: blobShine 6s ease-in-out infinite;
+}
+@keyframes blobMorph {
+  0%,100% { border-radius: 42% 58% 65% 35% / 45% 40% 60% 55%; transform: scale(1) translate(0,0); }
+  25%     { border-radius: 60% 40% 30% 70% / 55% 65% 35% 45%; transform: scale(1.08) translate(3%,-2%); }
+  50%     { border-radius: 35% 65% 55% 45% / 40% 50% 50% 60%; transform: scale(.94) translate(-2%,3%); }
+  75%     { border-radius: 55% 45% 40% 60% / 60% 35% 65% 40%; transform: scale(1.05) translate(2%,2%); }
+}
+@keyframes blobMorph2 {
+  0%,100% { border-radius: 55% 45% 35% 65% / 50% 60% 40% 50%; transform: scale(1) translate(0,0); }
+  33%     { border-radius: 35% 65% 60% 40% / 45% 35% 65% 55%; transform: scale(1.1) translate(-4%,3%); }
+  66%     { border-radius: 65% 35% 45% 55% / 60% 50% 50% 40%; transform: scale(.9) translate(3%,-3%); }
+}
+@keyframes blobHue {
+  0%,100% { filter: blur(20px) hue-rotate(-30deg); }
+  50%     { filter: blur(20px) hue-rotate(30deg); }
+}
+@keyframes blobShine {
+  0%,100% { transform: translate(0,0); opacity: .5; }
+  40%     { transform: translate(55%,30%); opacity: .8; }
+  70%     { transform: translate(15%,50%); opacity: .35; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ЛИНЕЙКИ КОСМЕТИКИ — новый раздел (заменяет "редкость" как способ группировки
+   косметики, см. запрос владельца 2026-07-28). Ниже — 2 линейки:
+   ⚡ Артефакт (дорогая, 1500✨, уже была) — докинуты новые предметы почти на
+   каждый слот, чтобы попасть в требуемые "2-6 вариантов на слот" (раньше был
+   ровно 1 на большинство слотов).
+   🌲 Лесной Странник (дешёвая, 250✨, новая) — контраст: почти целиком
+   переиспользует УЖЕ существующие common-предметы (дуб/лес/листопад/луна и
+   т.д.), чтобы доказать, что концепция работает не только в премиуме.
+   Правило рамка+гало: внутри линейки они спроектированы ПАРАМИ (общая
+   палитра/настрой) — помечены 🔗A/🔗B в UI. Свободный микс с чужими предметами
+   по-прежнему работает (экипировка всегда была per-слот, линейка — только
+   витрина), просто "родная" пара гарантированно сочетается. ══════════════ */
+
+/* ── Переиспользуемые предметы — точные копии CSS из app.css (не переизобретал,
+   раз задача явно "используя уже имеющиеся продукты косметики"). ──────────── */
+.pbg-forest { background: radial-gradient(120% 90% at 30% 0%, rgba(46,170,110,.4), transparent 55%), linear-gradient(165deg, #0e2018, #08120d); }
+.cfx-dust {
+  background-image:
+    radial-gradient(1.5px 1.5px at 26% 58%, rgba(218,212,198,.65), transparent),
+    radial-gradient(1px 1px at 62% 38%, rgba(208,202,188,.5), transparent),
+    radial-gradient(1.5px 1.5px at 80% 72%, rgba(222,218,204,.58), transparent),
+    radial-gradient(1px 1px at 44% 88%, rgba(212,207,193,.5), transparent);
+  background-size: 160% 160%; animation: cfxDrift 18s ease-in-out infinite;
+}
+.cfx-leaves {
+  background-image:
+    radial-gradient(3px 2.5px at 24% 10%, rgba(214,140,50,.85), transparent),
+    radial-gradient(2.5px 2px at 62% 25%, rgba(190,110,40,.7), transparent),
+    radial-gradient(3px 2.5px at 40% 55%, rgba(224,160,60,.75), transparent);
+  background-size: 100% 220%; animation: cfxFall 11s linear infinite;
+}
+@keyframes cfxDrift { 0%,100% { background-position: 0% 8%; } 50% { background-position: 8% 0%; } }
+@keyframes cfxFall   { from { background-position: 0 -100%; } to { background-position: 0 100%; } }
+.frame-oak { box-shadow: inset 0 0 0 1px rgba(220,180,140,.3), 0 0 0 2px #a9793f, 0 0 0 4px #6b4423, 0 0 6px rgba(169,121,63,.45); }
+.halo-dust { filter: drop-shadow(0 0 5px rgba(230,200,150,.5)); }
+.glow-moon { color: #dbe6ff; text-shadow: 0 0 2px rgba(200,220,255,.7), 0 0 6px rgba(160,190,255,.25); }
+.glow-verdant { color: #b8f0c8; text-shadow: 0 0 2px rgba(120,230,150,.75), 0 0 6px rgba(60,200,110,.3); animation: glowVerdant 3.4s ease-in-out infinite; }
+@keyframes glowVerdant { 0%,100% { text-shadow: 0 0 2px rgba(120,230,150,.7), 0 0 5px rgba(60,200,110,.25); } 50% { text-shadow: 0 0 3px rgba(150,245,175,.85), 0 0 7px rgba(80,220,130,.35); } }
+
+/* ── Артефакт — 4 новых предмета (докинуты, чтобы каждый слот был не 1, а
+   2+ варианта) + прод-card_fx как честный вариант (не переизобретён — 1:1
+   логика из app.01.js/app.css: pointermove пишет --art-mx/--art-tx на карту,
+   3D-наклон + узкая радужная полоса фольги вслед за пальцем).
+   ВАЖНО (это и есть тот самый конфликт рамка/гало, о котором просили подумать):
+   рамка и гало накладываются на ОДИН .ava, а у элемента только ОДИН слот
+   ::after и ОДИН ::before. Первая версия дала рамке И гало оба ::after —
+   halo-artifact-grid молча "съедал" frame-artifact-data (CSS не мержит два
+   ::after с разных классов, побеждает один, по source order). Нашлось только
+   через getComputedStyle-диагностику в puppeteer, на глаз было незаметно.
+   Конвенция на будущее, работает для ЛЮБОЙ пары рамка+гало, не только
+   "родной": РАМКА — только ::before, ГАЛО — только ::after. Никогда не
+   пересекутся, даже при свободном миксе рамки одной линейки с гало другой. */
+.ava { position: relative; }
+@property --dataAngle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.frame-artifact-data {
+  box-shadow: 0 0 0 1px rgba(63,224,224,.2), 0 0 8px 1px rgba(63,224,224,.2);
+}
+.frame-artifact-data::before {
+  content: ''; position: absolute; inset: -3px; border-radius: inherit; padding: 2px;
+  background: repeating-conic-gradient(from var(--dataAngle),
+    #3fe0e0 0deg 8deg, transparent 8deg 20deg, #ff50c8 20deg 24deg, transparent 24deg 40deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  filter: drop-shadow(0 0 3px rgba(63,224,224,.5));
+  animation: dataRingSpin 6s linear infinite;
+}
+@keyframes dataRingSpin { to { --dataAngle: 360deg; } }
+.halo-artifact-grid::after {
+  content: ''; position: absolute; inset: -13px; border-radius: 50%;
+  background: repeating-conic-gradient(from var(--dataAngle), rgba(120,240,255,.4) 0deg .8deg, transparent .8deg 30deg);
+  mix-blend-mode: screen; animation: dataRingSpin 11s linear infinite reverse;
+  pointer-events: none;
+}
+.pbg-artifact-matrix {
+  background: repeating-linear-gradient(90deg, rgba(63,224,224,.05) 0 1px, transparent 1px 14px), linear-gradient(180deg, #030608, #050b0a);
+  position: relative;
+}
+.pbg-artifact-matrix::after {
+  content: ''; position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(180deg, transparent 0 40px, rgba(63,224,224,.35) 40px 42px, transparent 42px 90px);
+  background-size: 100% 220%; animation: matrixFall 9s linear infinite;
+  mix-blend-mode: screen; opacity: .5;
+}
+@keyframes matrixFall { from { background-position: 0 -120%; } to { background-position: 0 0%; } }
+.title-artifact-glitch { color: #eafffd; display: inline-block; animation: titleGlitchBase 4s ease-in-out infinite; }
+@keyframes titleGlitchBase {
+  0%,92%,100% { text-shadow: 0 0 4px rgba(63,224,224,.5); transform: translate(0,0); }
+  93%  { text-shadow: -2px 0 rgba(255,50,90,.8), 2px 0 rgba(50,220,255,.8); transform: translate(-1px,0); }
+  94%  { text-shadow: 0 0 4px rgba(63,224,224,.5); transform: translate(0,0); }
+  95%  { text-shadow: 2px 0 rgba(255,50,90,.7), -2px 0 rgba(50,220,255,.7); transform: translate(1px,0); }
+  96%,100% { text-shadow: 0 0 4px rgba(63,224,224,.5); transform: translate(0,0); }
+}
+/* Прод card_fx: 3D-наклон карты + узкая радужная полоса фольги вслед за пальцем/
+   курсором. JS ниже пишет --art-mx/--art-tx/--art-ty локально на .ln-preview
+   (упрощено против прод-версии: там слушатель на document ради любых карточек
+   на странице, здесь карточка ровно одна — слушатель вешаем прямо на неё). */
+.ln-preview:has(> .ln-cfx-wrap.cfx-artifact),
+#lnHero:has(> .ln-cfx-wrap.cfx-artifact) {
+  isolation: isolate;
+  transform: perspective(700px) rotateX(var(--art-ty, 0deg)) rotateY(var(--art-tx, 0deg));
+  transition: transform .5s cubic-bezier(.22,1,.36,1);
+}
+.cfx-artifact {
+  background: linear-gradient(115deg,
+    transparent calc(var(--art-mx, 50%) - 26%), rgba(255,110,220,.6) calc(var(--art-mx, 50%) - 10%),
+    rgba(140,235,255,.7) var(--art-mx, 50%), rgba(255,225,120,.55) calc(var(--art-mx, 50%) + 10%),
+    transparent calc(var(--art-mx, 50%) + 26%));
+  mix-blend-mode: screen; opacity: .6; animation: cfxArtifactIdle 6s ease-in-out infinite;
+}
+.cfx-artifact::after {
+  content: ''; position: absolute; inset: 0; mix-blend-mode: overlay; opacity: .22;
+  background-image: repeating-linear-gradient(115deg, rgba(255,255,255,.12) 0 1px, transparent 1px 5px);
+}
+@keyframes cfxArtifactIdle { 0%,100% { opacity: .45; } 50% { opacity: .72; } }
+
+/* ── Лесной Странник — 6 новых предметов (рамка/гало/фон/частицы/2 титула).
+   Органический язык нарочно противоположен Артефакту: тёплые зелёно-золотые
+   тона, никакой резкой геометрии/техно — визуально спутать линейки нельзя. */
+.frame-vine { box-shadow: 0 0 0 2px #3f7a3a, 0 0 8px 2px rgba(90,160,70,.5); }
+.frame-vine::before {
+  content: ''; position: absolute; inset: -4px; border-radius: inherit; padding: 3px;
+  background: repeating-conic-gradient(from 0deg, rgba(120,190,90,.55) 0deg 6deg, transparent 6deg 34deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: vineSway 5s ease-in-out infinite;
+}
+@keyframes vineSway { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+.halo-dappled { animation: dappleFlicker 2.6s steps(5,end) infinite; }
+@keyframes dappleFlicker {
+  0%   { filter: drop-shadow(0 0 6px rgba(200,230,120,.6)) drop-shadow(0 0 12px rgba(255,210,110,.35)); }
+  20%  { filter: drop-shadow(0 0 3px rgba(200,230,120,.3)) drop-shadow(0 0 7px rgba(255,210,110,.18)); }
+  40%  { filter: drop-shadow(0 0 8px rgba(200,230,120,.7)) drop-shadow(0 0 15px rgba(255,210,110,.4)); }
+  60%  { filter: drop-shadow(0 0 4px rgba(200,230,120,.35)) drop-shadow(0 0 9px rgba(255,210,110,.2)); }
+  80%  { filter: drop-shadow(0 0 7px rgba(200,230,120,.55)) drop-shadow(0 0 13px rgba(255,210,110,.3)); }
+  100% { filter: drop-shadow(0 0 6px rgba(200,230,120,.6)) drop-shadow(0 0 12px rgba(255,210,110,.35)); }
+}
+.pbg-misty-glade {
+  background:
+    radial-gradient(120% 70% at 50% 100%, rgba(210,230,200,.28), transparent 60%),
+    radial-gradient(100% 60% at 20% 0%, rgba(180,210,170,.18), transparent 55%),
+    linear-gradient(180deg, #0d1710, #070d09);
+  background-size: 180% 180%, 180% 180%, 100% 100%;
+  animation: mistyDrift 14s ease-in-out infinite;
+}
+@keyframes mistyDrift { 0%,100% { background-position: 0% 0%, 100% 100%, 0 0; } 50% { background-position: 30% 20%, 70% 80%, 0 0; } }
+.cfx-pollen {
+  background-image:
+    radial-gradient(1.2px 1.2px at 30% 65%, rgba(220,220,140,.7), transparent),
+    radial-gradient(1px 1px at 55% 30%, rgba(200,230,150,.6), transparent),
+    radial-gradient(1.3px 1.3px at 75% 78%, rgba(230,210,130,.65), transparent),
+    radial-gradient(1px 1px at 15% 20%, rgba(210,225,160,.55), transparent);
+  background-size: 150% 150%; animation: cfxDrift 16s ease-in-out infinite;
+}
+.title-forest-wanderer { color: #bfe8a8; text-shadow: 0 0 3px rgba(150,220,120,.5); }
+.title-thicket-child { color: #d8c98a; text-shadow: 0 0 3px rgba(210,190,110,.5); font-style: italic; }
+
+/* ── Инферно (630✨, средний ярус — раньше был пробел между 250 и 1500) ─────
+   7 из 12 предметов — уже существующие epic/rare/legendary (не Артефакт и не
+   Лесной Странник) — это САМЫЙ сильный кластер по переиспользованию: имена у
+   них УЖЕ были огненные (Багровое пламя/Тлеющий уголь/Инферно/Тлеющий вулкан/
+   Багровый горизонт/Угольки/Рождённый Пеплом), просто никогда не продавались
+   вместе. 5 новых — только там, где готового не нашлось (гало вообще не было
+   огненного ни одного, и по 2-му варианту рамки/частиц/титула). Копии CSS
+   переиспользованных предметов — точные, из app.css. */
+.glow-crimson { color: #ffb8b8; text-shadow: 0 0 2px rgba(214,68,68,.85), 0 0 6px rgba(214,68,68,.35); animation: glowFlame 2.1s ease-in-out infinite; }
+@keyframes glowFlame {
+  0%,100% { text-shadow: 0 0 2px rgba(214,68,68,.8), 0 0 5px rgba(214,68,68,.3); }
+  25% { text-shadow: 0 0 3px rgba(255,96,64,.95), 0 0 8px rgba(214,40,40,.4); }
+  45% { text-shadow: 0 0 2px rgba(200,52,52,.7), 0 0 4px rgba(214,68,68,.25); }
+  72% { text-shadow: 0 0 3px rgba(255,112,72,.95), 0 0 9px rgba(230,50,40,.45); }
+}
+.glow-ember { color: #ffd0a3; text-shadow: 0 0 2px rgba(255,190,130,.75), 0 0 6px rgba(230,120,40,.35); }
+.frame-inferno { box-shadow: 0 0 0 2px #ff5500, 0 0 16px 4px rgba(255,85,0,.7), 0 -7px 18px 2px rgba(255,175,50,.5); animation: frameInferno 1.5s ease-in-out infinite; }
+@keyframes frameInferno {
+  0%,100% { box-shadow: 0 0 0 2px #ff5500, 0 0 14px 3px rgba(255,85,0,.65), 0 -5px 14px 2px rgba(255,165,40,.45); }
+  18%     { box-shadow: 0 0 0 2px #ff8800, 0 0 24px 8px rgba(255,136,0,.92), 0 -9px 22px 4px rgba(255,205,60,.82); }
+  36%     { box-shadow: 0 0 0 2px #cc3300, 0 0 9px 1px rgba(204,51,0,.48), 0 -3px 9px 1px rgba(255,120,30,.32); }
+  58%     { box-shadow: 0 0 0 2px #ff6600, 0 0 22px 7px rgba(255,102,0,.88), 0 -8px 20px 3px rgba(255,185,70,.78); }
+  80%     { box-shadow: 0 0 0 2px #e04000, 0 0 11px 2px rgba(224,64,0,.58), 0 -4px 12px 2px rgba(255,140,50,.42); }
+}
+.pbg-ember { background: radial-gradient(120% 95% at 50% 115%, rgba(255,120,50,.5), transparent 55%), radial-gradient(90% 70% at 50% 120%, rgba(255,60,30,.4), transparent 60%), linear-gradient(0deg, #2a1207, #140805); }
+.pbg-crimson { background: radial-gradient(130% 100% at 50% 110%, rgba(190,28,46,.55), transparent 52%), radial-gradient(100% 80% at 50% 115%, rgba(120,12,22,.4), transparent 58%), linear-gradient(180deg, #130304, #0e0203); }
+.cfx-embers { background-image: radial-gradient(2px 2px at 25% 90%, rgba(255,140,60,.9), transparent), radial-gradient(1.5px 1.5px at 65% 85%, rgba(255,90,40,.7), transparent), radial-gradient(2px 2px at 85% 95%, rgba(255,160,70,.8), transparent);
+  background-size: 100% 200%; animation: cfxRise 5s linear infinite; }
+@keyframes cfxRise { from { background-position: 0 100%; } to { background-position: 0 -100%; } }
+.title-ember-born { color: #ff9d5c; font-style: italic; animation: titleEmberBorn 3.2s ease-in-out infinite; }
+@keyframes titleEmberBorn { 0%,100% { color: #ff9d5c; text-shadow: 0 0 3px rgba(255,140,60,.4); } 50% { color: #ffb885; text-shadow: 0 0 6px rgba(255,160,80,.65); } }
+
+/* Новые 5: рамка/гало-пара B, гало-пара A, частицы, титул. Рамка = ::before,
+   гало = ::after — та же конвенция, что у Артефакта/Лесного Странника, никогда
+   не столкнутся ни друг с другом, ни при миксе с любой другой линейкой. */
+.frame-coal { box-shadow: 0 0 0 2px #2a1510, 0 0 10px 2px rgba(255,90,20,.4); }
+.frame-coal::before {
+  content: ''; position: absolute; inset: -3px; border-radius: inherit; padding: 2px;
+  background: repeating-conic-gradient(from 0deg, rgba(255,110,30,.5) 0deg 4deg, transparent 4deg 26deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: coalEmber 3s ease-in-out infinite;
+}
+@keyframes coalEmber { 0%,100% { opacity: .3; } 50% { opacity: .9; } }
+.halo-flame-crown { animation: flameFlicker 1.8s ease-in-out infinite; }
+@keyframes flameFlicker {
+  0%,100% { filter: drop-shadow(0 0 6px rgba(255,120,30,.6)) drop-shadow(0 0 14px rgba(255,60,10,.35)); }
+  30%     { filter: drop-shadow(0 0 9px rgba(255,160,50,.8)) drop-shadow(0 0 18px rgba(255,80,20,.5)); }
+  55%     { filter: drop-shadow(0 0 4px rgba(255,100,20,.4)) drop-shadow(0 0 10px rgba(255,50,10,.25)); }
+  80%     { filter: drop-shadow(0 0 8px rgba(255,140,40,.7)) drop-shadow(0 0 16px rgba(255,70,15,.42)); }
+}
+.halo-smolder { animation: smolderPulse 4s ease-in-out infinite; }
+@keyframes smolderPulse {
+  0%,100% { filter: drop-shadow(0 0 4px rgba(200,50,20,.4)); }
+  50%     { filter: drop-shadow(0 0 7px rgba(255,80,30,.65)); }
+}
+.cfx-ash {
+  background-image:
+    radial-gradient(2px 2px at 20% 15%, rgba(180,175,170,.6), transparent),
+    radial-gradient(1.5px 1.5px at 55% 35%, rgba(200,120,80,.5), transparent),
+    radial-gradient(2px 2px at 75% 60%, rgba(170,165,160,.55), transparent);
+  background-size: 100% 200%; animation: cfxFall 14s linear infinite;
+}
+.title-flame-eater { color: #ffb870; animation: flameEaterFlicker 1.8s ease-in-out infinite; }
+@keyframes flameEaterFlicker {
+  0%,100% { text-shadow: 0 0 3px rgba(255,120,30,.55); }
+  30%     { text-shadow: 0 0 5px rgba(255,160,50,.75); }
+  55%     { text-shadow: 0 0 2px rgba(255,100,20,.35); }
+  80%     { text-shadow: 0 0 4px rgba(255,140,40,.65); }
+}
+
+/* ── Бездна — 12/12 уже существующих mythic-предметов, 1:1 копия правил из
+   app.css (значения, ключевые кадры не менял). Рамка/гало здесь — box-shadow/
+   filter напрямую на .ava, без псевдоэлементов, поэтому конвенция ::before/
+   ::after (нужна только для НОВЫХ pseudo-эффектов) тут не задействована и
+   конфликтовать не с чем. */
+.glow-rift { color: #ffd9f0; text-shadow: 0 0 3px rgba(196,98,255,.45); }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .glow-rift {
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(100deg,#7a3bd6,#ff4d8d,#ffd36a,#ff4d8d,#7a3bd6);
+    background-size: 300% 100%; animation: glowRift 4.5s linear infinite;
+    text-shadow: none;
+  }
+}
+@keyframes glowRift { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
+.glow-void { color: #b8a8d8; text-shadow: 0 0 2px rgba(140,110,190,.5); animation: glowVoid 5s ease-in-out infinite; }
+@keyframes glowVoid {
+  0%, 82%, 100% { color: #b8a8d8; text-shadow: 0 0 2px rgba(140,110,190,.5); }
+  88%           { color: #f0d9ff; text-shadow: 0 0 4px rgba(220,160,255,.95), 0 0 10px rgba(180,100,255,.5); }
+  94%           { color: #b8a8d8; text-shadow: 0 0 2px rgba(140,110,190,.5); }
+}
+.frame-omen { box-shadow: 0 0 0 2px #ff4d8d, 0 0 0 3px rgba(255,211,106,.45), 0 0 16px 4px rgba(255,77,141,.65); animation: frameOmen 3.4s ease-in-out infinite; }
+@keyframes frameOmen {
+  0%,100% { box-shadow: 0 0 0 2px #7a3bd6, 0 0 14px 3px rgba(122,59,214,.7); }
+  30%     { box-shadow: 0 0 0 2px #ff4d8d, 0 0 22px 6px rgba(255,77,141,.9); }
+  60%     { box-shadow: 0 0 0 2px #ffd36a, 0 0 20px 5px rgba(255,211,106,.85); }
+  80%     { box-shadow: 0 0 0 2px #d63b6e, 0 0 18px 4px rgba(214,59,110,.8); }
+}
+.frame-void { box-shadow: 0 0 0 2px #2a1a3a, 0 0 8px 2px rgba(80,40,120,.4); animation: frameVoid 4.5s ease-in-out infinite; }
+@keyframes frameVoid {
+  0%, 80%, 100% { box-shadow: 0 0 0 2px #2a1a3a, 0 0 8px 2px rgba(80,40,120,.4); }
+  86%           { box-shadow: 0 0 0 2px #b23bff, 0 0 22px 6px rgba(178,59,255,.9); }
+  92%           { box-shadow: 0 0 0 2px #2a1a3a, 0 0 8px 2px rgba(80,40,120,.4); }
+}
+.halo-void { filter: drop-shadow(0 0 1px rgba(40,10,30,.95)) drop-shadow(0 0 6px rgba(180,40,60,.45)); animation: haloVoid 1.9s ease-in-out infinite; }
+@keyframes haloVoid {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(40,10,30,.95)) drop-shadow(0 0 6px rgba(180,40,60,.45)); }
+  30%     { filter: drop-shadow(0 0 1px rgba(80,15,50,.95)) drop-shadow(0 0 16px rgba(230,50,80,.9)); }
+  45%     { filter: drop-shadow(0 0 1px rgba(50,10,35,.95)) drop-shadow(0 0 7px rgba(180,40,60,.5)); }
+  70%     { filter: drop-shadow(0 0 1px rgba(92,18,56,.95)) drop-shadow(0 0 18px rgba(255,60,90,.95)); }
+}
+.halo-eclipse { filter: drop-shadow(0 0 1px rgba(10,5,15,1)) drop-shadow(0 0 4px rgba(255,140,60,.85)) drop-shadow(0 0 10px rgba(255,90,30,.4)); animation: haloEclipse 3.2s ease-in-out infinite; }
+@keyframes haloEclipse {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(10,5,15,1)) drop-shadow(0 0 4px rgba(255,140,60,.8)) drop-shadow(0 0 10px rgba(255,90,30,.38)); }
+  50%     { filter: drop-shadow(0 0 1px rgba(10,5,15,1)) drop-shadow(0 0 6px rgba(255,170,90,.95)) drop-shadow(0 0 16px rgba(255,110,40,.55)); }
+}
+.pbg-legend { background: radial-gradient(ellipse 70% 60% at 50% 15%, rgba(255,210,110,.24), transparent 68%), linear-gradient(135deg, #241c09, #362408, #0a0705); background-size: 160% 160%, 200% 200%; animation: pbgLegend 8s ease infinite; }
+@keyframes pbgLegend { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+/* v2 (владелец: исходные полосы-балки "плохо проработаны, не приятно глазу").
+   Линейный градиент-полоса по определению красит ВЕСЬ бокс перпендикулярно
+   своей оси — отсюда и "лучи через всю карточку", а не звезда. Настоящий
+   метеор — это точка-голова с затухающим хвостом, круглой формой градиент не
+   растянуть по диагонали без transform (background его не поддерживает), так
+   что хвост собран из бусин: 5-6 круглых точек по убыванию размера/яркости
+   вдоль диагонали — визуально читается как падающая звезда с хвостом, без
+   единой resize-искажённой полосы через всю карту. */
+.pbg-starfall {
+  background:
+    radial-gradient(2.4px 2.4px at 88% 8%, #fff, transparent 70%),
+    radial-gradient(2px 2px at 81.5% 16%, rgba(230,225,255,.8), transparent 70%),
+    radial-gradient(1.6px 1.6px at 75% 24%, rgba(220,212,255,.6), transparent 70%),
+    radial-gradient(1.3px 1.3px at 69% 31%, rgba(220,212,255,.4), transparent 70%),
+    radial-gradient(1px 1px at 63.5% 37%, rgba(220,212,255,.22), transparent 70%),
+    radial-gradient(1.8px 1.8px at 90% 80%, rgba(255,255,255,.9), transparent 70%),
+    radial-gradient(1.4px 1.4px at 84.5% 87%, rgba(230,225,255,.65), transparent 70%),
+    radial-gradient(1.1px 1.1px at 79.5% 93%, rgba(220,212,255,.4), transparent 70%),
+    radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 40% 12%, #fff, transparent),
+    radial-gradient(1px 1px at 45% 55%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 12% 62%, #fff, transparent),
+    radial-gradient(1px 1px at 10% 88%, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 55% 78%, #fff, transparent),
+    radial-gradient(140% 100% at 50% 105%, rgba(80,50,130,.35), transparent 62%),
+    linear-gradient(180deg, #05040f, #0a0620);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%,
+    100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 220% 220%, 100% 100%;
+  animation: pbgStarfallDrift 14s ease-in-out infinite;
+}
+@keyframes pbgStarfallDrift {
+  0%,100% { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 40% 30%, 0 0; }
+  50%     { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 60% 45%, 0 0; }
+}
+/* Слабое место (нашёл владелец): исходные версии storm/ash из app.css — тёмные
+   мелкие точки почти сливались с тёмным фоном карточки, на скриншоте едва видны
+   даже в пике twinkle. Увеличил размер/яркость частиц и поднял нижнюю границу
+   мерцания (было .35 — реально гасло почти до невидимости). */
+.cfx-void-storm {
+  background-image:
+    radial-gradient(16px 16px at 25% 35%, rgba(220,40,100,.32), transparent 70%),
+    radial-gradient(18px 18px at 72% 62%, rgba(170,30,120,.3), transparent 70%),
+    radial-gradient(3.5px 3.5px at 20% 30%, rgba(255,90,140,1), transparent),
+    radial-gradient(3px 3px at 70% 60%, rgba(220,60,150,.95), transparent),
+    radial-gradient(3px 3px at 45% 85%, rgba(255,110,160,.95), transparent),
+    radial-gradient(2.5px 2.5px at 85% 20%, rgba(255,130,180,.9), transparent),
+    radial-gradient(3px 3px at 8% 70%, rgba(240,70,140,.9), transparent),
+    radial-gradient(2.5px 2.5px at 55% 12%, rgba(255,140,190,.85), transparent);
+  background-size: 140% 140%; animation: cfxStorm 5s linear infinite, cfxTwinkle 1.8s ease-in-out infinite;
+}
+@keyframes cfxStorm { 0% { background-position: 0% 0%; } 100% { background-position: 100% 100%; } }
+@keyframes cfxTwinkle { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+.cfx-eclipse-ash {
+  background-image:
+    radial-gradient(3px 3px at 22% 15%, rgba(200,195,210,.9), transparent),
+    radial-gradient(2.5px 2.5px at 55% 35%, rgba(170,160,190,.75), transparent),
+    radial-gradient(3px 3px at 80% 55%, rgba(210,205,220,.85), transparent),
+    radial-gradient(2.5px 2.5px at 38% 70%, rgba(175,165,195,.7), transparent),
+    radial-gradient(3px 3px at 65% 85%, rgba(255,90,100,.85), transparent);
+  background-size: 100% 220%; animation: cfxFall 13s linear infinite, cfxTwinkle 3.5s ease-in-out infinite;
+}
+.title-omen { font-style: normal; font-weight: 700; letter-spacing: .9px; color: #ffe9b3; text-shadow: 0 0 4px rgba(255,210,110,.55); animation: titleOmen 2.4s ease-in-out infinite; }
+@keyframes titleOmen {
+  0%,100% { color: #ffe9b3; text-shadow: 0 0 4px rgba(255,210,110,.55); }
+  50%     { color: #fff8e0; text-shadow: 0 0 9px rgba(255,230,150,.85); }
+}
+.title-harbinger { font-style: normal; font-weight: 700; letter-spacing: .9px; color: #f472b6; text-shadow: 0 0 4px rgba(244,114,182,.5); animation: titleHarb 2.2s ease-in-out infinite; }
+@keyframes titleHarb {
+  0%,100% { color: #f472b6; text-shadow: 0 0 4px rgba(244,114,182,.5); }
+  50%     { color: #e879f9; text-shadow: 0 0 8px rgba(232,121,249,.8); }
+}
+
+/* ── Небесное Сияние — реюз из app.css (glow-solar/frame-celestial/halo-celestial/
+   halo-corona/halo-aurora/pbg-sunrise/pbg-aurora/cfx-nova, значения не менял) +
+   5 новых (glow-starwhisper/frame-dawn-disc/cfx-solar-wind/2 титула). Рамка здесь
+   тоже box-shadow напрямую (как у пары-партнёра frame-celestial) — псевдоэлементы
+   не нужны, конфликтовать нечему. */
+.glow-solar { color: #ffe9b3; text-shadow: 0 0 3px rgba(255,210,80,.75), 0 0 7px rgba(255,150,40,.3); animation: glowSolarPulse 2.8s ease-in-out infinite; }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .glow-solar {
+    color: transparent; -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; background-clip: text;
+    background-image: linear-gradient(90deg,#c05c00,#ff8800,#ffe066,#fff8cc,#ffe066,#ff8800,#c05c00);
+    background-size: 300% 100%; animation: glowSolar 3.5s ease-in-out infinite;
+    text-shadow: none;
+  }
+}
+@keyframes glowSolarPulse {
+  0%,100% { text-shadow: 0 0 3px rgba(255,200,70,.7), 0 0 6px rgba(255,140,40,.28); }
+  50%     { text-shadow: 0 0 4px rgba(255,235,110,.9), 0 0 9px rgba(255,175,50,.4); }
+}
+@keyframes glowSolar { 0% { background-position: 0 0; } 100% { background-position: 300% 0; } }
+.glow-starwhisper { color: #eaf4ff; text-shadow: 0 0 2px rgba(200,225,255,.7); animation: glowStarwhisper 3.6s ease-in-out infinite; }
+@keyframes glowStarwhisper {
+  0%,100% { text-shadow: 0 0 2px rgba(200,225,255,.6); }
+  50%     { text-shadow: 0 0 5px rgba(225,240,255,.95), 0 0 10px rgba(180,210,255,.4); }
+}
+.frame-celestial { box-shadow: 0 0 0 2px #e8c45a, 0 0 14px 3px rgba(232,196,90,.6); animation: frameCeles 2.6s ease-in-out infinite; }
+@keyframes frameCeles {
+  0%,100% { box-shadow: 0 0 0 2px #e8c45a, 0 0 12px 2px rgba(232,196,90,.55); }
+  50%     { box-shadow: 0 0 0 2px #fff0b8, 0 0 22px 6px rgba(255,224,140,.9); }
+}
+.frame-dawn-disc { box-shadow: 0 0 0 2px #ff8a5c, 0 0 14px 3px rgba(255,138,92,.55); animation: frameDawn 3.4s ease-in-out infinite; }
+@keyframes frameDawn {
+  0%,100% { box-shadow: 0 0 0 2px #ff8a5c, 0 0 12px 2px rgba(255,138,92,.5); }
+  50%     { box-shadow: 0 0 0 2px #ffd08a, 0 0 20px 5px rgba(255,208,138,.85); }
+}
+.halo-celestial { filter: drop-shadow(0 0 1px rgba(255,224,140,1)) drop-shadow(0 0 10px rgba(255,210,110,.7)) drop-shadow(0 0 18px rgba(255,200,90,.3)); animation: haloCeles 3s ease-in-out infinite; }
+@keyframes haloCeles {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(255,224,140,1)) drop-shadow(0 0 10px rgba(255,210,110,.65)) drop-shadow(0 0 18px rgba(255,200,90,.28)); }
+  50%     { filter: drop-shadow(0 0 1px rgba(255,242,194,1)) drop-shadow(0 0 16px rgba(255,220,130,.9)) drop-shadow(0 0 28px rgba(255,200,90,.5)); }
+}
+.halo-corona { filter: drop-shadow(0 0 1px rgba(255,255,200,1)) drop-shadow(0 0 9px rgba(255,225,80,.9)) drop-shadow(0 0 20px rgba(255,165,40,.55)) drop-shadow(0 0 34px rgba(255,130,20,.25)); animation: haloCorona 2.2s ease-in-out infinite; }
+@keyframes haloCorona {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(255,255,200,1)) drop-shadow(0 0 8px rgba(255,220,75,.85)) drop-shadow(0 0 18px rgba(255,160,38,.5)) drop-shadow(0 0 30px rgba(255,125,18,.22)); }
+  30%     { filter: drop-shadow(0 0 2px rgba(255,255,220,1)) drop-shadow(0 0 15px rgba(255,245,110,1)) drop-shadow(0 0 30px rgba(255,195,62,.78)) drop-shadow(0 0 50px rgba(255,155,30,.38)); }
+  55%     { filter: drop-shadow(0 0 1px rgba(255,248,185,1)) drop-shadow(0 0 10px rgba(255,215,72,.92)) drop-shadow(0 0 22px rgba(255,165,42,.56)) drop-shadow(0 0 36px rgba(255,130,22,.26)); }
+  78%     { filter: drop-shadow(0 0 2px rgba(255,255,230,1)) drop-shadow(0 0 18px rgba(255,250,125,1)) drop-shadow(0 0 34px rgba(255,205,68,.82)) drop-shadow(0 0 55px rgba(255,160,32,.4)); }
+}
+.halo-aurora { filter: drop-shadow(0 0 10px rgba(80,220,180,.7)); animation: haloAuroraShift 5s linear infinite; }
+@keyframes haloAuroraShift {
+  0%   { filter: drop-shadow(0 0 10px rgba(80,220,180,.7)); }
+  33%  { filter: drop-shadow(0 0 10px rgba(120,140,255,.7)); }
+  66%  { filter: drop-shadow(0 0 10px rgba(220,120,220,.7)); }
+  100% { filter: drop-shadow(0 0 10px rgba(80,220,180,.7)); }
+}
+.pbg-sunrise { background: radial-gradient(ellipse 110% 65% at 50% 110%, rgba(255,130,40,.4), transparent 60%), radial-gradient(ellipse 80% 45% at 50% 95%, rgba(255,200,80,.22), transparent 55%), linear-gradient(170deg,#1a0c22,#3a1d10,#5a3418); background-size: 200% 200%, 200% 200%, 100% 100%; animation: pbgSunrise 9s ease-in-out infinite; }
+@keyframes pbgSunrise { 0%,100% { background-position: 0% 100%, 0% 100%, 0 0; } 50% { background-position: 100% 55%, 100% 55%, 0 0; } }
+.pbg-aurora { background: radial-gradient(ellipse 90% 42% at 20% 58%, rgba(0,255,150,.34), transparent 76%), radial-gradient(ellipse 70% 30% at 82% 26%, rgba(20,205,255,.3), transparent 76%), radial-gradient(ellipse 80% 35% at 55% 78%, rgba(110,80,255,.26), transparent 76%), linear-gradient(180deg,#030e0c,#050a10); background-size: 300% 220%, 300% 220%, 300% 220%, 100% 100%; animation: pbgAuroraShift 11s ease-in-out infinite; }
+@keyframes pbgAuroraShift {
+  0%,100% { background-position: 0% 0%, 100% 100%, 50% 50%, 0 0; }
+  25%     { background-position: 80% 35%, 18% 65%, 90% 10%, 0 0; }
+  50%     { background-position: 100% 65%, 0% 38%, 30% 82%, 0 0; }
+  75%     { background-position: 28% 82%, 72% 8%, 80% 42%, 0 0; }
+}
+/* Владелец: вспышка выглядела "как анимация за доллар из подвала" — резкая
+   видимая граница круга. Причина: всего 3 цветовых стопа + `farthest-corner`
+   (по умолчанию) давали РАЗНЫЙ видимый радиус на разных формах карточки, и на
+   пике scale(1.65) яркое кольцо долетало почти до края бокса, где overflow:
+   hidden его обрезал ещё не до конца прозрачным — вот и "порез". Фикс: фикс-
+   ированный радиус круга (не зависит от формы карточки), 6 плавных стопов
+   вместо 3 (долгий мягкий хвост, а не обрыв), и уменьшенный пик масштаба,
+   чтобы яркая часть даже на максимуме не долетала до границ обёртки. */
+.cfx-nova {
+  background: radial-gradient(circle 70px at 50% 50%,
+    rgba(255,252,225,1) 0%,
+    rgba(255,225,150,.7) 16%,
+    rgba(255,195,100,.4) 34%,
+    rgba(255,170,75,.2) 54%,
+    rgba(255,150,60,.07) 74%,
+    transparent 92%);
+  transform-origin: center; animation: cfxNova 4.5s ease-out infinite;
+}
+@keyframes cfxNova {
+  0%          { opacity:0; transform:scale(.1); }
+  8%          { opacity:1; transform:scale(.6); }
+  32%         { opacity:.55; transform:scale(1); }
+  64%         { opacity:.15; transform:scale(1.3); }
+  82%,100%    { opacity:0; transform:scale(1.4); }
+}
+.cfx-solar-wind {
+  background-image:
+    radial-gradient(2px 2px at 18% 25%, rgba(255,210,140,.85), transparent),
+    radial-gradient(1.5px 1.5px at 55% 45%, rgba(255,190,110,.65), transparent),
+    radial-gradient(2px 2px at 82% 20%, rgba(255,225,160,.8), transparent),
+    radial-gradient(1.5px 1.5px at 38% 70%, rgba(255,200,130,.6), transparent);
+  background-size: 200% 100%; animation: cfxSolarWind 7s linear infinite;
+}
+@keyframes cfxSolarWind { from { background-position: 0 0; } to { background-position: -200% 0; } }
+.title-dawnchild { color: #ffb8a0; font-style: normal; font-weight: 600; animation: titleDawnchild 3s ease-in-out infinite; }
+@keyframes titleDawnchild {
+  0%,100% { text-shadow: 0 0 3px rgba(255,150,110,.5); }
+  50%     { text-shadow: 0 0 6px rgba(255,190,150,.8); }
+}
+.title-skykeeper { color: #cfe6ff; font-style: normal; font-weight: 600; text-shadow: 0 0 4px rgba(160,205,255,.55); }
+
+/* ── Изморозь — реюз glow-frost/frame-crystal/halo-ice/pbg-midnight/cfx-snow (0
+   изменений в значениях) + 7 новых. Рамка/гало у пары A уже box-shadow/filter
+   напрямую — новая пара B сделана в том же ключе, без псевдоэлементов. */
+.glow-frost { color: #cde8ff; text-shadow: 0 0 2px rgba(200,235,255,.8), 0 0 5px rgba(100,190,255,.3); }
+.glow-frostbreath { color: #d8f0ff; text-shadow: 0 0 2px rgba(210,240,255,.6); animation: glowFrostbreath 4s ease-in-out infinite; }
+@keyframes glowFrostbreath {
+  0%,100% { text-shadow: 0 0 2px rgba(210,240,255,.5); opacity: .85; }
+  50%     { text-shadow: 0 0 6px rgba(230,248,255,.9), 0 0 12px rgba(180,225,255,.4); opacity: 1; }
+}
+.frame-crystal { box-shadow: inset 0 0 0 1px rgba(200,240,255,.45), 0 0 0 2px #7ad4ff, 0 0 0 4px rgba(100,200,255,.2), 0 0 10px rgba(130,215,255,.5); }
+.frame-icespikes { box-shadow: 0 0 0 2px #bfeeff, 0 0 0 4px rgba(90,190,230,.35), 0 0 12px rgba(140,220,255,.55); animation: frameIcespikes 2.6s steps(3,end) infinite; }
+@keyframes frameIcespikes {
+  0%,100% { box-shadow: 0 0 0 2px #bfeeff, 0 0 0 4px rgba(90,190,230,.35), 0 0 10px rgba(140,220,255,.5); }
+  50%     { box-shadow: 0 0 0 2px #eafcff, 0 0 0 4px rgba(140,220,255,.5), 0 0 18px rgba(180,235,255,.85); }
+}
+.halo-ice { filter: drop-shadow(0 0 1px rgba(210,240,255,.95)) drop-shadow(0 0 7px rgba(150,215,255,.8)) drop-shadow(0 0 14px rgba(100,185,255,.4)); }
+.halo-snowcrown { filter: drop-shadow(0 0 1px rgba(255,255,255,1)) drop-shadow(0 0 8px rgba(200,235,255,.75)); animation: haloSnowcrown 2.4s ease-in-out infinite; }
+@keyframes haloSnowcrown {
+  0%,100% { filter: drop-shadow(0 0 1px rgba(255,255,255,1)) drop-shadow(0 0 7px rgba(200,235,255,.65)); }
+  50%     { filter: drop-shadow(0 0 2px rgba(255,255,255,1)) drop-shadow(0 0 14px rgba(220,242,255,.95)); }
+}
+.pbg-midnight { background: radial-gradient(circle at 50% 25%, rgba(30,45,90,.55), transparent 65%), linear-gradient(180deg, #06091a, #090d1e); }
+.pbg-snowpeak { background: radial-gradient(ellipse 90% 60% at 50% 0%, rgba(220,240,255,.28), transparent 65%), linear-gradient(180deg, #0c1826, #061019); }
+.cfx-snow {
+  background-image:
+    radial-gradient(2px 2px at 20% 10%, rgba(255,255,255,.85), transparent),
+    radial-gradient(1.5px 1.5px at 60% 30%, rgba(255,255,255,.6), transparent),
+    radial-gradient(2px 2px at 80% 55%, rgba(255,255,255,.75), transparent),
+    radial-gradient(1.5px 1.5px at 38% 70%, rgba(255,255,255,.55), transparent);
+  background-size: 100% 200%; animation: cfxFall 9s linear infinite;
+}
+/* Слабое место (та же ошибка, что была у cfx-void-storm до фикса): блобы РОВНО
+   в углу (at 0% 0%) обрезаются боксом на 3/4 — виден только тонкий огрызок.
+   Сдвинул центры внутрь (8-12%) — виден весь "иней", не четверть, + добавил
+   нижние углы и ярче кристаллы-точки. */
+.cfx-frostbite {
+  background-image:
+    radial-gradient(45px 32px at 8% 6%, rgba(200,235,255,.4), transparent 72%),
+    radial-gradient(45px 32px at 92% 6%, rgba(200,235,255,.4), transparent 72%),
+    radial-gradient(40px 28px at 6% 94%, rgba(200,235,255,.3), transparent 72%),
+    radial-gradient(40px 28px at 94% 94%, rgba(200,235,255,.3), transparent 72%),
+    radial-gradient(2px 2px at 10% 8%, #fff, transparent),
+    radial-gradient(2px 2px at 88% 10%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 20% 18%, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 80% 85%, #fff, transparent);
+  background-size: 100% 100%; animation: cfxFrostbite 3.2s ease-in-out infinite;
+}
+@keyframes cfxFrostbite { 0%,100% { opacity: .65; } 50% { opacity: 1; } }
+.title-frostchild { color: #bfe6ff; font-style: normal; font-weight: 600; animation: titleFrostchild 3.4s ease-in-out infinite; }
+@keyframes titleFrostchild {
+  0%,100% { text-shadow: 0 0 3px rgba(160,210,255,.5); }
+  50%     { text-shadow: 0 0 6px rgba(200,230,255,.85); }
+}
+.title-icekeeper { color: #eafcff; font-style: normal; font-weight: 700; text-shadow: 0 0 4px rgba(200,240,255,.6); }
+
+/* ── Порог — реюз epic/rare "разлом/бездна"-предметов, которые НЕ подошли по
+   редкости в мифическую "Бездну" (та линейка сознательно 100% mythic). Палитра
+   тут задана самими реюзнутыми предметами (frame-abyss/pbg-abyss фиолетовые,
+   halo-pulse голубой) — не подгонял название под выдуманную тему, взял то, что
+   реально есть у CSS-значений. */
+.frame-abyss { box-shadow: 0 0 0 2px #7a3bd6, 0 0 12px 3px rgba(122,59,214,.6); animation: frameAbyss 3s ease-in-out infinite; }
+@keyframes frameAbyss {
+  0%,100% { box-shadow: 0 0 0 2px #7a3bd6, 0 0 10px 2px rgba(122,59,214,.55); }
+  35%     { box-shadow: 0 0 0 2px #b23bd6, 0 0 18px 5px rgba(180,59,214,.85); }
+  65%     { box-shadow: 0 0 0 2px #5a2bff, 0 0 14px 3px rgba(90,59,255,.7); }
+}
+.frame-rift-edge { box-shadow: 0 0 0 2px #c084fc, 0 0 12px 3px rgba(192,132,252,.5); animation: frameRiftEdge 4s ease-in-out infinite; }
+@keyframes frameRiftEdge {
+  0%,100% { box-shadow: 0 0 0 2px #c084fc, 0 0 10px 2px rgba(192,132,252,.45); }
+  50%     { box-shadow: 0 0 0 2px #e879f9, 0 0 18px 5px rgba(232,121,249,.75); }
+}
+.halo-pulse { filter: drop-shadow(0 0 6px rgba(120,200,255,.7)); animation: haloPulse 2.2s ease-in-out infinite; }
+@keyframes haloPulse {
+  0%,100% { filter: drop-shadow(0 0 5px rgba(120,200,255,.55)); }
+  50%     { filter: drop-shadow(0 0 14px rgba(120,200,255,.95)); }
+}
+.halo-threshold-flicker { filter: drop-shadow(0 0 1px rgba(95,201,192,1)) drop-shadow(0 0 7px rgba(95,201,192,.6)); animation: haloThreshold 3.4s steps(4,end) infinite; }
+@keyframes haloThreshold {
+  0%   { filter: drop-shadow(0 0 1px rgba(95,201,192,.9)) drop-shadow(0 0 5px rgba(95,201,192,.4)); }
+  50%  { filter: drop-shadow(0 0 2px rgba(130,225,215,1)) drop-shadow(0 0 12px rgba(95,201,192,.85)); }
+  100% { filter: drop-shadow(0 0 1px rgba(95,201,192,.9)) drop-shadow(0 0 5px rgba(95,201,192,.4)); }
+}
+.pbg-abyss { background: radial-gradient(130% 100% at 50% 0%, rgba(122,59,214,.4), transparent 60%), linear-gradient(180deg, #14101f, #07060c); }
+.pbg-void-dark { background: radial-gradient(100% 80% at 30% 50%, rgba(76,38,155,.32), transparent 62%), radial-gradient(90% 70% at 82% 62%, rgba(115,18,75,.28), transparent 62%), linear-gradient(160deg, #090712, #04030a); background-size: 200% 200%, 200% 200%, 100% 100%; animation: pbgVoidDark 14s ease-in-out infinite; }
+@keyframes pbgVoidDark { 0%,100% { background-position: 0% 0%, 100% 100%, 0 0; } 50% { background-position: 100% 100%, 0% 0%, 0 0; } }
+.glow-riftwhisper { color: #e2d0ff; text-shadow: 0 0 2px rgba(190,150,255,.6); animation: glowRiftwhisper 4.2s ease-in-out infinite; }
+@keyframes glowRiftwhisper {
+  0%,100% { text-shadow: 0 0 2px rgba(190,150,255,.5); }
+  50%     { text-shadow: 0 0 6px rgba(210,175,255,.85), 0 0 12px rgba(180,130,255,.35); }
+}
+.glow-thresholdshade { color: #cfeeea; text-shadow: 0 0 2px rgba(150,210,200,.6); }
+.cfx-rift-dust {
+  background-image:
+    radial-gradient(2px 2px at 18% 20%, rgba(200,170,255,.7), transparent),
+    radial-gradient(1.5px 1.5px at 55% 40%, rgba(180,150,240,.55), transparent),
+    radial-gradient(2px 2px at 80% 65%, rgba(210,180,255,.65), transparent),
+    radial-gradient(1.5px 1.5px at 35% 80%, rgba(190,160,245,.5), transparent);
+  background-size: 160% 160%; animation: cfxDrift 20s ease-in-out infinite;
+}
+/* Applied сразу урок из фикса cfx-nova: фиксированный px-радиус (не farthest-
+   corner) + ШИРОКИЙ мягкий переход у каждого кольца (15-18%, не 3%) — кольцо
+   без резкой видимой границы с самого начала, не пришлось чинить по отзыву. */
+.cfx-void-echo {
+  background-image:
+    radial-gradient(70px 70px at 50% 50%, transparent 35%, rgba(120,200,255,.22) 50%, transparent 68%),
+    radial-gradient(70px 70px at 50% 50%, transparent 55%, rgba(192,132,252,.18) 68%, transparent 85%);
+  background-size: 100% 100%; animation: cfxVoidEcho 3.6s ease-out infinite;
+}
+@keyframes cfxVoidEcho {
+  0%   { transform: scale(.3); opacity: 0; }
+  15%  { opacity: .9; }
+  70%  { opacity: .15; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* ── UI-обвязка билдера линеек (не игровой CSS, инструмент сравнения) ──────── */
+/* 6 линеек больше не влезают в 1 ряд flex:1 (owner: "Изморозь" уехала за край
+   экрана на 390px) — переведено на грид 3×2, как у 8-концептов выше в этом же
+   файле (тот же паттерн уже проверен на этой ширине). */
+.ln-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--bg1);
+  border: 1px solid var(--border2); border-radius: 14px; padding: 4px; width: 100%; max-width: 480px; }
+.ln-tab { border: none; background: transparent; color: var(--muted); cursor: pointer;
+  font: inherit; font-size: 11px; font-weight: 700; padding: 9px 4px; border-radius: 11px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.25; }
+.ln-tab .ln-price { font-size: 10px; font-weight: 600; opacity: .75; }
+.ln-tab.active { background: linear-gradient(135deg, var(--gold2), var(--gold)); color: #1a1405; box-shadow: var(--glow-gold); }
+.ln-blurb { max-width: 500px; width: 100%; text-align: center; font-size: 12.5px; color: var(--muted); line-height: 1.55; padding: 0 8px; }
+.ln-blurb b { color: var(--gold2); }
+/* Владелец: по каждой линейке нужна полная коммерческая инфа (цена/VIP/сколько
+   предметов), "чтобы точно видел то, что будет на продакшене" — не растворять
+   в прозе блёрба, отдельным явным блоком со строками. */
+.ln-info { max-width: 500px; width: 100%; background: var(--bg1); border: 1px solid var(--border2);
+  border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 7px; }
+.ln-info-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  font-size: 12.5px; line-height: 1.4; }
+.ln-info-row .k { color: var(--muted); white-space: nowrap; }
+.ln-info-row .v { color: var(--bright); font-weight: 700; text-align: right; }
+.ln-info-note { font-size: 11px; color: var(--muted); line-height: 1.5; padding-top: 5px;
+  border-top: 1px solid var(--border2); }
+.ln-preview { position: relative; overflow: hidden; isolation: isolate; border-radius: 16px; padding: 16px;
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.05); }
+.ln-preview .ava { width: 58px; height: 58px; font-size: 28px; margin: 0; }
+.ln-cfx-wrap { position: absolute; inset: 0; z-index: 2; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.ln-inner { position: relative; z-index: 3; }
+.ln-slots { max-width: 500px; width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.ln-slot-row { background: var(--bg1); border: 1px solid var(--border2); border-radius: 12px; padding: 10px 12px; }
+.ln-slot-title { font-size: 11.5px; font-weight: 700; color: var(--muted); margin-bottom: 7px; display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+.ln-slot-title .ln-count { font-weight: 500; opacity: .7; }
+.ln-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.ln-swatch { font: inherit; font-size: 11px; font-weight: 600; padding: 7px 10px; border-radius: 10px;
+  border: 1px solid var(--border2); background: rgba(255,255,255,.03); color: var(--text); cursor: pointer;
+  display: flex; align-items: center; gap: 5px; }
+.ln-swatch:active { transform: scale(.96); }
+.ln-swatch.active { background: linear-gradient(135deg, var(--gold-dim), rgba(232,181,77,.22)); border-color: var(--border); color: var(--bright); }
+.ln-swatch .ln-pair { font-size: 9px; padding: 1px 4px; border-radius: 6px; background: rgba(63,224,224,.18); color: #9ff0f0; }
+.ln-swatch .ln-new { font-size: 9px; padding: 1px 4px; border-radius: 6px; background: rgba(232,181,77,.22); color: var(--gold2); }
+.ln-legend { max-width: 500px; width: 100%; font-size: 11px; color: var(--muted); line-height: 1.5;
+  background: var(--bg1); border: 1px solid var(--border2); border-radius: 12px; padding: 10px 12px; }
+.ln-legend .ln-pair { font-size: 10px; padding: 1px 5px; border-radius: 6px; background: rgba(63,224,224,.18); color: #9ff0f0; }
+.ln-legend .ln-new-tag { font-size: 10px; padding: 1px 5px; border-radius: 6px; background: rgba(232,181,77,.22); color: var(--gold2); }
+
+/* ── Reduced motion: ручной тумблер + системная настройка ──────────────────
+   ВАЖНО: голый `.cfx *` (или `.ava` и т.п.) НЕ гасит анимации на ::before/
+   ::after этих же элементов — универсальный селектор `*` не подразумевает
+   псевдоэлементы (это отдельные боксы, не "потомки" в смысле DOM-дерева).
+   Без явного ::before/::after ниже — D (cfx-sweep) и G (glitch-rgb/scan),
+   а теперь ещё frame-artifact-data/halo-artifact-grid/frame-vine — под
+   reduced-motion продолжали бы анимироваться. Добавлены явно. */
+body.force-reduced .card, body.force-reduced .gp-card, body.force-reduced .ln-preview,
+body.force-reduced .cfx, body.force-reduced .cfx *, body.force-reduced .cfx *::before, body.force-reduced .cfx *::after,
+body.force-reduced .ava, body.force-reduced .ava::before, body.force-reduced .ava::after,
+body.force-reduced .pname, body.force-reduced .ptitle, body.force-reduced .mote,
+body.force-reduced .gz-target, body.force-reduced [class*="pbg-"]::after {
+  animation: none !important; transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card, .gp-card, .ln-preview,
+  .cfx, .cfx *, .cfx *::before, .cfx *::after,
+  .ava, .ava::before, .ava::after,
+  .pname, .ptitle, .mote, .gz-target, [class*="pbg-"]::after {
+    animation: none !important; transition: none !important;
+  }
+}
+
+
+</style>
+</head>
+<body>
+
+<!-- Общие SVG-символы рун (C) — переиспользуются lnHero/lnCard через <use href="#runeN">. -->
+<svg style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">
+  <defs>
+    <symbol id="rune1" viewBox="0 0 24 24">
+      <path pathLength="1" d="M12 3 L21 19 L3 19 Z M12 13 v3.5"/>
+      <circle pathLength="1" cx="12" cy="9" r="1.3" fill="currentColor"/>
+    </symbol>
+    <symbol id="rune2" viewBox="0 0 24 24">
+      <circle pathLength="1" cx="12" cy="12" r="8"/>
+      <path pathLength="1" d="M12 4 v6 M12 14 v6 M4 12 h6 M14 12 h6"/>
+    </symbol>
+    <symbol id="rune3" viewBox="0 0 24 24">
+      <path pathLength="1" d="M12 2 L22 12 L12 22 L2 12 Z"/>
+      <path pathLength="1" d="M7 12 h10"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="proto-head" id="sec-lineups">
+  <h1>Линейки косметики — вместо редкости</h1>
+  <p>Редкость (common→artifact) была ценовым ярусом без общего стиля внутри яруса.
+  Линейка — тематический сет: у каждой свой узнаваемый язык, цена — свойство самой линейки
+  (дорогая/дешёвая), а не отдельного предмета. Рамка+гало внутри линейки спроектированы
+  ПАРОЙ (пометка 🔗A/🔗B) — гарантированно сочетаются, если взять обе одной буквы; свободный
+  микс с чужими предметами по-прежнему работает, просто без такой гарантии.</p>
+</div>
+
+<div class="ln-tabs" id="ln-tabs">
+  <button class="ln-tab active" data-lineup="artifact">⚡ Артефакт <span class="ln-price">1500✨ · с VIP</span></button>
+  <button class="ln-tab" data-lineup="forest">🌲 Лесной Странник <span class="ln-price">250✨ · всем</span></button>
+  <button class="ln-tab" data-lineup="inferno">🔥 Инферно <span class="ln-price">630✨ · с VIP</span></button>
+  <button class="ln-tab" data-lineup="void">🌌 Бездна <span class="ln-price">1000✨ · с VIP</span></button>
+  <button class="ln-tab" data-lineup="celestial">✨ Небесное Сияние <span class="ln-price">820✨ · с VIP</span></button>
+  <button class="ln-tab" data-lineup="frost">❄️ Изморозь <span class="ln-price">440✨ · с VIP</span></button>
+  <button class="ln-tab" data-lineup="threshold">🔮 Порог <span class="ln-price">440✨ · с VIP</span></button>
+</div>
+
+<div class="ln-blurb" id="ln-blurb"></div>
+
+<div class="ln-info" id="ln-info"></div>
+
+<div class="sec-label">👤 Ваш профиль — личная карточка</div>
+<div class="stage">
+  <div class="card fxcard" id="lnHero" data-set="">
+    <div class="cfx cfx-edge">
+      <div class="edge-idle"></div>
+      <div class="edge-comet"></div>
+      <div class="edge-comet ghost"></div>
+    </div>
+    <div class="cfx cfx-pulse">
+      <div class="pulse-ring"></div><div class="pulse-ring"></div><div class="pulse-ring"></div>
+      <div class="motes-slot" data-tall="0"></div>
+    </div>
+    <div class="cfx cfx-sigils">
+      <svg class="rune-net" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line class="rune-link" x1="88" y1="16" x2="88" y2="52"/>
+        <line class="rune-link" x1="88" y1="52" x2="88" y2="88"/>
+        <line class="rune-link" x1="88" y1="88" x2="55" y2="94"/>
+        <line class="rune-link" x1="55" y1="94" x2="18" y2="88"/>
+        <line class="rune-link" x1="18" y1="88" x2="88" y2="16"/>
+        <line class="beam-tail" pathLength="1" x1="88" y1="16" x2="88" y2="52" style="animation-delay:0s"/>
+        <line class="beam-tail" pathLength="1" x1="88" y1="52" x2="88" y2="88" style="animation-delay:1.6s"/>
+        <line class="beam-tail" pathLength="1" x1="88" y1="88" x2="55" y2="94" style="animation-delay:3.2s"/>
+        <line class="beam-tail" pathLength="1" x1="55" y1="94" x2="18" y2="88" style="animation-delay:4.8s"/>
+        <line class="beam-tail" pathLength="1" x1="18" y1="88" x2="88" y2="16" style="animation-delay:6.4s"/>
+        <line class="beam" pathLength="1" x1="88" y1="16" x2="88" y2="52" style="animation-delay:0s"/>
+        <line class="beam" pathLength="1" x1="88" y1="52" x2="88" y2="88" style="animation-delay:1.6s"/>
+        <line class="beam" pathLength="1" x1="88" y1="88" x2="55" y2="94" style="animation-delay:3.2s"/>
+        <line class="beam" pathLength="1" x1="55" y1="94" x2="18" y2="88" style="animation-delay:4.8s"/>
+        <line class="beam" pathLength="1" x1="18" y1="88" x2="88" y2="16" style="animation-delay:6.4s"/>
+        <circle class="rune-node" cx="88" cy="16" r=".8" style="animation-delay:0s"/>
+        <circle class="rune-node" cx="88" cy="52" r=".8" style="animation-delay:-1.1s"/>
+        <circle class="rune-node" cx="88" cy="88" r=".8" style="animation-delay:-2.2s"/>
+        <circle class="rune-node" cx="55" cy="94" r=".8" style="animation-delay:-.6s"/>
+        <circle class="rune-node" cx="18" cy="88" r=".8" style="animation-delay:-1.8s"/>
+      </svg>
+      <svg class="sigil" style="left:88%;top:16%;animation-delay:0s" viewBox="0 0 24 24"><use href="#rune1"/><use class="use-draw" href="#rune1" style="animation-delay:0s"/><circle class="spark" cx="12" cy="9" r="1.3" fill="#baf6ff" style="animation-delay:0s"/></svg>
+      <svg class="sigil" style="left:88%;top:52%;animation-delay:1.6s" viewBox="0 0 24 24"><use href="#rune2"/><use class="use-draw" href="#rune2" style="animation-delay:1.6s"/><circle class="spark" cx="12" cy="12" r="1.3" fill="#ffc9f0" style="animation-delay:1.6s"/></svg>
+      <svg class="sigil" style="left:88%;top:88%;animation-delay:3.2s" viewBox="0 0 24 24"><use href="#rune3"/><use class="use-draw" href="#rune3" style="animation-delay:3.2s"/><circle class="spark" cx="7" cy="12" r="1.3" fill="#baf6ff" style="animation-delay:3.2s"/></svg>
+      <svg class="sigil" style="left:55%;top:94%;animation-delay:4.8s" viewBox="0 0 24 24"><use href="#rune1"/><use class="use-draw" href="#rune1" style="animation-delay:4.8s"/><circle class="spark" cx="12" cy="9" r="1.3" fill="#ffe6a8" style="animation-delay:4.8s"/></svg>
+      <svg class="sigil" style="left:18%;top:88%;animation-delay:6.4s" viewBox="0 0 24 24"><use href="#rune2"/><use class="use-draw" href="#rune2" style="animation-delay:6.4s"/><circle class="spark" cx="12" cy="12" r="1.3" fill="#ffc9f0" style="animation-delay:6.4s"/></svg>
+    </div>
+    <div class="cfx cfx-sweep"><div class="sweep-flip"></div></div>
+    <div class="cfx cfx-aurora"></div>
+    <div class="cfx cfx-facets">
+      <div class="facet f1"></div><div class="facet f2"></div><div class="facet f3"></div><div class="facet f4"></div>
+    </div>
+    <div class="cfx cfx-glitch">
+      <div class="cfx-glitch-tex"></div>
+      <div class="cfx-glitch-scan"></div>
+      <div class="cfx-glitch-rgb"></div>
+      <div class="cfx-glitch-blocks"><span></span><span></span><span></span></div>
+    </div>
+    <div class="cfx cfx-blob"></div>
+    <div class="ln-cfx-wrap" id="lnHeroCfxWrap"></div>
+
+    <div class="hero-head">
+      <div class="ava gz-target" id="lnHeroAva">🔮</div>
+      <div class="who">
+        <div class="pname gz-target" id="lnHeroPname">@Испытатель</div>
+        <div class="prank">Хранитель Тайн · Ур. 42</div>
+        <div class="ptitle gz-target" id="lnHeroPtitle"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sec-label">🌍 Так это увидит ДРУГОЙ игрок — публичный профиль</div>
+<div class="stage2">
+  <div class="ln-preview pbg-artifact fxcard" id="lnCard" data-set="">
+    <!-- Разметка 8 концептов ниже — 1:1 копия из #card (см. секцию "8 концептов
+    card_fx" выше), скопирована БУКВАЛЬНО, ни одного класса/стиля не менял —
+    владелец отдельно просил не трогать их дизайн при слиянии в линейку.
+    Показ/скрытие управляется ТЕМИ ЖЕ немодифицированными CSS-правилами
+    .fxcard[data-set="X"] .cfx-Y{display:block}, просто теперь ещё и на
+    lnCard, не только на #card/#pcard. -->
+    <div class="cfx cfx-edge">
+      <div class="edge-idle"></div>
+      <div class="edge-comet"></div>
+      <div class="edge-comet ghost"></div>
+    </div>
+    <div class="cfx cfx-pulse">
+      <div class="pulse-ring"></div><div class="pulse-ring"></div><div class="pulse-ring"></div>
+      <div class="motes-slot" data-tall="1"></div>
+    </div>
+    <!-- Расположение продумано под реальную вёрстку gp-card (не рандом): 4
+    руны цепочкой вдоль ПРАВОГО поля (чипы/статы выровнены по левому краю с
+    паддингом — правая кромка почти всегда пустая независимо от числа чипов/
+    питомцев), 5-я — по центру внизу, в открытой зоне под кнопками. Ничего не
+    сидит поверх текста статов/чипов. Проверено скриншотом, не только расчётом. -->
+    <div class="cfx cfx-sigils">
+      <svg class="rune-net" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line class="rune-link" x1="94" y1="4" x2="94" y2="20"/>
+        <line class="rune-link" x1="94" y1="20" x2="94" y2="40"/>
+        <line class="rune-link" x1="94" y1="40" x2="94" y2="58"/>
+        <line class="rune-link" x1="94" y1="58" x2="50" y2="90"/>
+        <line class="rune-link" x1="50" y1="90" x2="94" y2="4"/>
+        <line class="beam-tail" pathLength="1" x1="94" y1="4" x2="94" y2="20" style="animation-delay:0s"/>
+        <line class="beam-tail" pathLength="1" x1="94" y1="20" x2="94" y2="40" style="animation-delay:1.6s"/>
+        <line class="beam-tail" pathLength="1" x1="94" y1="40" x2="94" y2="58" style="animation-delay:3.2s"/>
+        <line class="beam-tail" pathLength="1" x1="94" y1="58" x2="50" y2="90" style="animation-delay:4.8s"/>
+        <line class="beam-tail" pathLength="1" x1="50" y1="90" x2="94" y2="4" style="animation-delay:6.4s"/>
+        <line class="beam" pathLength="1" x1="94" y1="4" x2="94" y2="20" style="animation-delay:0s"/>
+        <line class="beam" pathLength="1" x1="94" y1="20" x2="94" y2="40" style="animation-delay:1.6s"/>
+        <line class="beam" pathLength="1" x1="94" y1="40" x2="94" y2="58" style="animation-delay:3.2s"/>
+        <line class="beam" pathLength="1" x1="94" y1="58" x2="50" y2="90" style="animation-delay:4.8s"/>
+        <line class="beam" pathLength="1" x1="50" y1="90" x2="94" y2="4" style="animation-delay:6.4s"/>
+        <circle class="rune-node" cx="94" cy="4" r=".8" style="animation-delay:0s"/>
+        <circle class="rune-node" cx="94" cy="20" r=".8" style="animation-delay:-1.1s"/>
+        <circle class="rune-node" cx="94" cy="40" r=".8" style="animation-delay:-2.2s"/>
+        <circle class="rune-node" cx="94" cy="58" r=".8" style="animation-delay:-.6s"/>
+        <circle class="rune-node" cx="50" cy="90" r=".8" style="animation-delay:-1.8s"/>
+      </svg>
+      <svg class="sigil" style="left:94%;top:4%;animation-delay:0s" viewBox="0 0 24 24"><use href="#rune1"/><use class="use-draw" href="#rune1" style="animation-delay:0s"/><circle class="spark" cx="12" cy="9" r="1.3" fill="#baf6ff" style="animation-delay:0s"/></svg>
+      <svg class="sigil" style="left:94%;top:20%;animation-delay:1.6s" viewBox="0 0 24 24"><use href="#rune2"/><use class="use-draw" href="#rune2" style="animation-delay:1.6s"/><circle class="spark" cx="12" cy="12" r="1.3" fill="#ffc9f0" style="animation-delay:1.6s"/></svg>
+      <svg class="sigil" style="left:94%;top:40%;animation-delay:3.2s" viewBox="0 0 24 24"><use href="#rune3"/><use class="use-draw" href="#rune3" style="animation-delay:3.2s"/><circle class="spark" cx="7" cy="12" r="1.3" fill="#baf6ff" style="animation-delay:3.2s"/></svg>
+      <svg class="sigil" style="left:94%;top:58%;animation-delay:4.8s" viewBox="0 0 24 24"><use href="#rune1"/><use class="use-draw" href="#rune1" style="animation-delay:4.8s"/><circle class="spark" cx="12" cy="9" r="1.3" fill="#ffe6a8" style="animation-delay:4.8s"/></svg>
+      <svg class="sigil" style="left:50%;top:90%;animation-delay:6.4s" viewBox="0 0 24 24"><use href="#rune2"/><use class="use-draw" href="#rune2" style="animation-delay:6.4s"/><circle class="spark" cx="12" cy="12" r="1.3" fill="#ffc9f0" style="animation-delay:6.4s"/></svg>
+    </div>
+    <div class="cfx cfx-sweep"><div class="sweep-flip"></div></div>
+    <div class="cfx cfx-aurora"></div>
+    <div class="cfx cfx-facets">
+      <div class="facet f1"></div><div class="facet f2"></div><div class="facet f3"></div><div class="facet f4"></div>
+    </div>
+    <div class="cfx cfx-glitch">
+      <div class="cfx-glitch-tex"></div>
+      <div class="cfx-glitch-scan"></div>
+      <div class="cfx-glitch-rgb"></div>
+      <div class="cfx-glitch-blocks"><span></span><span></span><span></span></div>
+    </div>
+    <div class="cfx cfx-blob"></div>
+    <div class="ln-cfx-wrap" id="lnCfxWrap"></div>
+    <div class="ln-inner">
+      <div class="gp-header">
+        <div class="ava gz-target" id="lnAva">🔮</div>
+        <div class="who">
+          <div class="pname gz-target" id="lnPname">@Испытатель</div>
+          <div class="prank">Хранитель Тайн · Ур. 42</div>
+          <div class="ptitle gz-target" id="lnPtitle"></div>
+        </div>
+      </div>
+      <div class="gp-chips gz-target">
+        <span class="gp-chip" id="lnChipGlow"></span>
+        <span class="gp-chip" id="lnChipFrame"></span>
+        <span class="gp-chip" id="lnChipHalo"></span>
+      </div>
+      <div class="gp-chips gz-target">
+        <span class="gp-chip" id="lnChipBg"></span>
+        <span class="gp-chip" id="lnChipFx"></span>
+      </div>
+      <div class="gp-stats gz-target">
+        <div class="gp-st"><div class="gp-sv">42</div><div class="gp-sl">Уровень</div></div>
+        <div class="gp-st"><div class="gp-sv">🔥63</div><div class="gp-sl">Стрик</div></div>
+        <div class="gp-st"><div class="gp-sv">12.4k</div><div class="gp-sl">Сообщений</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="hint-tap" style="max-width:500px;text-align:center" id="lnFoilHint">
+  👉 у "Сканлайны (прод)" — наведи курсор мышью (десктоп) или веди пальцем по карточке (телефон)
+</div>
+
+<div class="ln-legend">
+  <b>🔗A/🔗B</b> — рамка и гало этой пометки спроектированы друг под друга: одна палитра,
+  один настрой. Возьмите обе одной буквы — получите фирменный вид линейки. Остальные
+  комбинации по-прежнему доступны (экипировка всегда per-слот, линейка — только витрина
+  в магазине), просто без гарантии, что зайдёт визуально. <b class="ln-new-tag">новое</b> —
+  предмета не было в игре, придуман для полноты линейки; остальное — уже существующие
+  предметы (иногда из другой бывшей редкости — цена и группировка пересмотрены под линейку).
+</div>
+
+<div class="ln-slots" id="ln-slots"></div>
+
+<script>
+function spawnMotes() {
+  document.querySelectorAll('.motes-slot').forEach(box => {
+    box.innerHTML = '';
+    const tall = box.dataset.tall === '1';
+    const n = tall ? 13 : 7;
+    for (let i = 0; i < n; i++) {
+      const m = document.createElement('span');
+      m.className = 'mote';
+      m.style.left = (8 + Math.random() * 84) + '%';
+      m.style.bottom = (Math.random() * (tall ? 82 : 60)) + '%';
+      m.style.animationDuration = (5 + Math.random() * 4) + 's';
+      m.style.animationDelay = (Math.random() * 6) + 's';
+      box.appendChild(m);
+    }
+  });
+}
+
+// G — по-элементный случайный глитч (владелец: "аватарка/ник/gp-stats и всё
+// остальное должно глючить по отдельности, в случайные моменты, не всё разом").
+// Честной рандомизации чистым CSS не сделать (keyframe — функция времени, не
+// генератор случайных чисел), поэтому только "когда и на ком" решает этот
+// таймер — САМ вид глюка (.gz-active) целиком декларативный CSS. Крутится,
+// только пока открыта вкладка G; guard на dataset.set останавливает цепочку,
+// когда ушли на другую вкладку (не требует явного clearTimeout снаружи).
+// gGetActiveGCards — G может идти на lnHero И lnCard независимо (разные
+// линейки/слоты выбраны на каждой карточке отдельно). Динамический пересчёт
+// каждый тик — всегда бьёт по ТЕМ картам, которые ПРЯМО СЕЙЧАС показывают G.
+function gGetActiveGCards() { return [lnHero, lnCard].filter(c => c && c.dataset.set === 'G'); }
+let gzTimer = null;
+function gzFire() {
+  const gActive = gGetActiveGCards();
+  if (!gActive.length || document.body.classList.contains('force-reduced')) { gzTimer = null; return; }
+  const pool = gActive.flatMap(c => Array.from(c.querySelectorAll('.gz-target')));
+  const n = 2 + Math.floor(Math.random() * 3); // 2..4 элемента за эпизод
+  const picks = pool.map(el => [Math.random(), el]).sort((a, b) => a[0] - b[0]).slice(0, Math.min(n, pool.length));
+  picks.forEach(([, el]) => {
+    const dur = 600 + Math.random() * 400;     // 0.6..1с — короткий баг, не землетрясение (было 1.5-3.3с)
+    const startDelay = Math.random() * 500;    // лёгкий разброс старта внутри эпизода — не строем
+    setTimeout(() => {
+      el.classList.add('gz-active');
+      setTimeout(() => el.classList.remove('gz-active'), dur);
+    }, startDelay);
+  });
+  gzTimer = setTimeout(gzFire, 2000 + Math.random() * 2000); // следующий эпизод через 2..4с
+}
+
+// G — фоновый сбой (скан-линия/RGB-каналы/блочный шум) был раньше на чистом
+// `animation: X 5s infinite` — то есть ИДЕАЛЬНО регулярным, метроном, не хаос
+// (отзыв владельца: "ровно по 1 интервалу"). Теперь тоже JS-триггер: интервал
+// случайный, и случайно решается, какая ИЗ ЧАСТЕЙ сработает в этот раз — не
+// всегда скан+RGB+блоки все разом, иногда одна-две. Независим от gzFire выше
+// (может тикать одновременно, разные классы/элементы, не мешают друг другу).
+let bgGlitchTimer = null;
+function fireBgGlitch() {
+  const gActive = gGetActiveGCards();
+  if (!gActive.length || document.body.classList.contains('force-reduced')) { bgGlitchTimer = null; return; }
+  const parts = ['scan', 'rgb', 'blocks'].filter(() => Math.random() < 0.65);
+  if (!parts.length) parts.push(['scan', 'rgb', 'blocks'][Math.floor(Math.random() * 3)]); // не бывает пустого сбоя
+  gActive.forEach(c => {
+    const wrap = c.querySelector('.cfx-glitch');
+    if (!wrap) return;
+    wrap.classList.remove('gb-scan', 'gb-rgb', 'gb-blocks');
+    void wrap.offsetWidth;
+    parts.forEach(p => wrap.classList.add('gb-' + p));
+  });
+  bgGlitchTimer = setTimeout(fireBgGlitch, 2500 + Math.random() * 4000); // 2.5..6.5с, не ровно
+}
+
+spawnMotes();
+</script>
+
+<script>
+// ═══ Линейки косметики — билдер. Реюз слотов: экипировка
+// всегда была per-слот, линейка — только группировка витрины, так что "смешать
+// рамку одной линейки с гало другой" уже поддержано без единой новой строчки —
+// показывать тут нечего, просто так уже работает. Единственное новое поведение,
+// которое стоит доказать интерактивно — что "родная" пара рамка+гало (🔗A/🔗B)
+// действительно сочетается лучше случайной. ══════════════════════════════════
+const LINEUPS = {
+  artifact: {
+    name: '⚡ Артефакт', price: '1500✨ · видна только с VIP',
+    priceZarniki: 1500, vipDisplay: true, itemCount: 13,
+    itemCountNote: '13 реальных предметов каталога (4+2+2+2+1+2 по слотам) + 8 экспериментальных дизайнов card_fx для сравнения — в магазин уйдёт только ОДИН выбранный вариант card_fx, не все 9',
+    blurb: 'Голографическая энергия: циан+магента+золото, техно-язык (сетки, сканлайны, вращение через <code>@property</code>). Слот «Частицы карточки» — 9 вариантов: реальный прод-эффект (наклон+гироскоп) и все 8 экспериментальных концептов, которые сравнивали выше в этом же файле, один в один, без единого изменения дизайна. Остальные слоты — кроме 4 новых предметов (см. пометку) — уже были в игре.',
+    slots: {
+      name_glow: [
+        { id: 'neon', label: 'Неоновая трубка', css: 'glow-neon-tube' },
+        { id: 'electro', label: 'Электро-разряд', css: 'glow-electro' },
+        { id: 'plasma', label: 'Плазменный контур', css: 'glow-plasma' },
+        { id: 'hologram', label: 'Голограмма', css: 'glow-hologram' },
+      ],
+      avatar_frame: [
+        { id: 'ring', label: 'Энергокольцо', css: 'frame-artifact', pair: 'A' },
+        { id: 'data', label: 'Кольцо Данных', css: 'frame-artifact-data', pair: 'B', isNew: true },
+      ],
+      avatar_halo: [
+        { id: 'halo', label: 'Ореол Артефакта', css: 'halo-artifact', pair: 'A' },
+        { id: 'grid', label: 'Сетка Сингулярности', css: 'halo-artifact-grid', pair: 'B', isNew: true },
+      ],
+      profile_bg: [
+        { id: 'field', label: 'Голо-поле', css: 'pbg-artifact' },
+        { id: 'matrix', label: 'Тёмная Матрица', css: 'pbg-artifact-matrix', isNew: true },
+      ],
+      card_fx: [
+        { id: 'prod', label: 'Сканлайны (прод, сейчас в игре)', css: 'cfx-artifact', special: 'pointer' },
+        { id: 'A', label: 'A · Разряд', set: 'A' },
+        { id: 'B', label: 'B · Пульс', set: 'B' },
+        { id: 'C', label: 'C · Письмена', set: 'C' },
+        { id: 'D', label: 'D · Отблеск', set: 'D' },
+        { id: 'E', label: 'E · Аврора', set: 'E' },
+        { id: 'F', label: 'F · Огранка', set: 'F' },
+        { id: 'G', label: 'G · Сбой', set: 'G' },
+        { id: 'H', label: 'H · Дыхание', set: 'H' },
+      ],
+      title: [
+        { id: 'artifact', label: 'Артефакт', css: 'title-artifact', text: '⚡ Артефакт' },
+        { id: 'glitch', label: 'Скол Реальности', css: 'title-artifact-glitch', text: '⟁ Скол Реальности', isNew: true },
+      ],
+    },
+  },
+  forest: {
+    name: '🌲 Лесной Странник', price: '250✨ · видна всем, без VIP',
+    priceZarniki: 250, vipDisplay: false, itemCount: 13,
+    itemCountNote: '13 предметов, все обычной редкости — VIP тут вообще ни на что не влияет',
+    blurb: 'Тёплое дерево и зелень, мягкий органический свет — никакой резкой геометрии, полная противоположность Артефакту. 7 из 13 предметов ниже — уже существующие common-вещи (цена не менялась, просто перегруппированы под линейку), 6 — новые для полноты слотов.',
+    slots: {
+      name_glow: [
+        { id: 'moon', label: 'Лунный свет', css: 'glow-moon' },
+        { id: 'verdant', label: 'Изумрудный шёпот', css: 'glow-verdant' },
+      ],
+      avatar_frame: [
+        { id: 'oak', label: 'Дубовая оправа', css: 'frame-oak', pair: 'A' },
+        { id: 'vine', label: 'Плетёная лоза', css: 'frame-vine', pair: 'B', isNew: true },
+      ],
+      avatar_halo: [
+        { id: 'dust', label: 'Пыльный нимб', css: 'halo-dust', pair: 'A' },
+        { id: 'dapple', label: 'Блики сквозь листву', css: 'halo-dappled', pair: 'B', isNew: true },
+      ],
+      profile_bg: [
+        { id: 'forest', label: 'Изумрудный лес', css: 'pbg-forest' },
+        { id: 'glade', label: 'Туманная поляна', css: 'pbg-misty-glade', isNew: true },
+      ],
+      card_fx: [
+        { id: 'leaves', label: 'Листопад', css: 'cfx-leaves' },
+        { id: 'wdust', label: 'Пыль Странника', css: 'cfx-dust' },
+        { id: 'pollen', label: 'Пыльца', css: 'cfx-pollen', isNew: true },
+      ],
+      title: [
+        { id: 'wanderer', label: 'Лесной Странник', css: 'title-forest-wanderer', text: '🌲 Лесной Странник', isNew: true },
+        { id: 'thicket', label: 'Дитя Чащи', css: 'title-thicket-child', text: 'Дитя Чащи', isNew: true },
+      ],
+    },
+  },
+  inferno: {
+    name: '🔥 Инферно', price: '630✨ · видна только с VIP',
+    priceZarniki: 630, vipDisplay: true, itemCount: 12,
+    itemCountNote: '12 предметов, 7 из них уже существовали под другой ценой/редкостью — старые владельцы ничего не теряют, id не менялся',
+    blurb: 'Средний ценовой ярус — раньше между 250✨ и 1500✨ линеек не было вообще. 7 из 12 предметов — уже существующие epic/rare/legendary вещи, у которых и раньше были огненные имена (Багровое пламя, Тлеющий уголь, Инферно, Тлеющий вулкан...) — просто никогда не продавались одним сетом. 5 новых — там, где готового не нашлось (гало не было вообще ни одного огненного).',
+    slots: {
+      name_glow: [
+        { id: 'crimson', label: 'Багровое пламя', css: 'glow-crimson', pair: 'A' },
+        { id: 'ember', label: 'Тлеющий уголь', css: 'glow-ember', pair: 'B' },
+      ],
+      avatar_frame: [
+        { id: 'inferno', label: 'Инферно', css: 'frame-inferno', pair: 'A' },
+        { id: 'coal', label: 'Угольная кираса', css: 'frame-coal', pair: 'B', isNew: true },
+      ],
+      avatar_halo: [
+        { id: 'flame', label: 'Пламенный венец', css: 'halo-flame-crown', pair: 'A', isNew: true },
+        { id: 'smolder', label: 'Тлеющее ядро', css: 'halo-smolder', pair: 'B', isNew: true },
+      ],
+      profile_bg: [
+        { id: 'ember', label: 'Тлеющий вулкан', css: 'pbg-ember' },
+        { id: 'crimson', label: 'Багровый горизонт', css: 'pbg-crimson' },
+      ],
+      card_fx: [
+        { id: 'embers', label: 'Угольки', css: 'cfx-embers' },
+        { id: 'ash', label: 'Пепел', css: 'cfx-ash', isNew: true },
+      ],
+      title: [
+        { id: 'emberborn', label: 'Рождённый Пеплом', css: 'title-ember-born', text: 'Рождённый Пеплом' },
+        { id: 'eater', label: 'Пожиратель Пламени', css: 'title-flame-eater', text: '🔥 Пожиратель Пламени', isNew: true },
+      ],
+    },
+  },
+  // Бездна — самый нетронутый угол старого каталога. Все 12 предметов уже
+  // существовали (rarity=mythic, 1000✨ — единственный ценовой ярус, который
+  // 3 линейки выше ещё не занимали), и сами по себе УЖЕ образуют идеальный
+  // сет: ровно 2 варианта на каждый из 6 слотов, ни одного нового предмета
+  // не потребовалось. "Предвестник"/"Предвестник Конца" — то же слово, что
+  // имя самого бота, не случайное совпадение в старом каталоге.
+  void: {
+    name: '🌌 Бездна', price: '1000✨ · видна только с VIP',
+    priceZarniki: 1000, vipDisplay: true, itemCount: 12,
+    itemCountNote: '12 предметов, 12 из них уже существовали (100% переиспользование, 0 новых) — старые владельцы ничего не теряют, id не менялся',
+    blurb: 'Глубокий космос, разломы и тихое затмение — 100% уже существующие мифические предметы (12 из 12), просто никогда не продавались одним сетом. Занимает ценовой ярус 1000✨, который остальные линейки ещё не трогали. Титулы «Предвестник»/«Предвестник Конца» — то самое слово, что и имя бота.',
+    slots: {
+      name_glow: [
+        { id: 'rift', label: 'Разлом Бездны', css: 'glow-rift' },
+        { id: 'void', label: 'Голос Пустоты', css: 'glow-void' },
+      ],
+      avatar_frame: [
+        { id: 'void', label: 'Разлом Пустоты', css: 'frame-void', pair: 'A' },
+        { id: 'omen', label: 'Оправа Предвестника', css: 'frame-omen', pair: 'B' },
+      ],
+      avatar_halo: [
+        { id: 'eclipse', label: 'Затмение', css: 'halo-eclipse', pair: 'A' },
+        { id: 'void', label: 'Кольцо Бездны', css: 'halo-void', pair: 'B' },
+      ],
+      profile_bg: [
+        { id: 'legend', label: 'Холст Легенды', css: 'pbg-legend' },
+        { id: 'starfall', label: 'Звездопад Богов', css: 'pbg-starfall' },
+      ],
+      card_fx: [
+        { id: 'storm', label: 'Шторм Бездны', css: 'cfx-void-storm' },
+        { id: 'ash', label: 'Пепел Затмения', css: 'cfx-eclipse-ash' },
+      ],
+      title: [
+        { id: 'omen', label: 'Предвестник', css: 'title-omen', text: 'Предвестник' },
+        { id: 'harbinger', label: 'Предвестник Конца', css: 'title-harbinger', text: 'Предвестник Конца' },
+      ],
+    },
+  },
+  // 820✨ — единственный ценовой ярус (legendary), который ещё не занимала ни
+  // одна линейка. 8 из 13 предметов уже существовали: glow-solar/frame-celestial/
+  // 3 halo (celestial+corona+aurora)/pbg-sunrise/pbg-aurora/cfx-nova — halo набрал
+  // сразу 3 реальных варианта, ни одного нового туда не потребовалось.
+  celestial: {
+    name: '✨ Небесное Сияние', price: '820✨ · видна только с VIP',
+    priceZarniki: 820, vipDisplay: true, itemCount: 13,
+    itemCountNote: '13 предметов, 8 из них уже существовали (glow/frame/3×halo/2×bg/card_fx) — старые владельцы ничего не теряют, id не менялся',
+    blurb: 'Рассвет, аврора и солнечная корона — тёплое золото на холодном небе. 8 из 13 предметов уже существовали (легендарные и один эпический), просто никогда не продавались одним сетом — гало сразу набралось 3 реальных варианта. Занимает ценовой ярус 820✨, который ни одна линейка ещё не трогала.',
+    slots: {
+      name_glow: [
+        { id: 'solar', label: 'Солнечная корона', css: 'glow-solar' },
+        { id: 'starwhisper', label: 'Звёздный шёпот', css: 'glow-starwhisper', isNew: true },
+      ],
+      avatar_frame: [
+        { id: 'celestial', label: 'Небесная оправа', css: 'frame-celestial', pair: 'A' },
+        { id: 'dawn', label: 'Диск Зари', css: 'frame-dawn-disc', pair: 'B', isNew: true },
+      ],
+      avatar_halo: [
+        { id: 'celestial', label: 'Небесный нимб', css: 'halo-celestial', pair: 'A' },
+        { id: 'corona', label: 'Солнечная корона', css: 'halo-corona', pair: 'B' },
+        { id: 'aurora', label: 'Аврора', css: 'halo-aurora' },
+      ],
+      profile_bg: [
+        { id: 'sunrise', label: 'Рассвет', css: 'pbg-sunrise' },
+        { id: 'aurora', label: 'Полярное сияние', css: 'pbg-aurora' },
+      ],
+      card_fx: [
+        { id: 'nova', label: 'Вспышка Новой', css: 'cfx-nova' },
+        { id: 'solarwind', label: 'Солнечный Ветер', css: 'cfx-solar-wind', isNew: true },
+      ],
+      title: [
+        { id: 'dawnchild', label: 'Дитя Зари', css: 'title-dawnchild', text: 'Дитя Зари', isNew: true },
+        { id: 'skykeeper', label: 'Хранитель Небес', css: 'title-skykeeper', text: 'Хранитель Небес', isNew: true },
+      ],
+    },
+  },
+  // 440✨ — последний непокрытый ценовой ярус (rare). Реюз тоньше остальных линеек
+  // (5 из 12) — icy-тематика в старом каталоге не такая богатая, как огонь/бездна/
+  // небо, честно об этом сказано в blurb, а не замаскировано. pbg-midnight (common,
+  // 250✨) сознательно перепривязан сюда — тёмно-синяя полночь без деталей подходит
+  // под зимнюю тему лучше, чем что-либо в common-остатке.
+  frost: {
+    name: '❄️ Изморозь', price: '440✨ · видна только с VIP',
+    priceZarniki: 440, vipDisplay: true, itemCount: 12,
+    itemCountNote: '12 предметов, 5 из них уже существовали — icy-тема в старом каталоге тоньше остальных, честно не форсировал больше переиспользования, чем есть',
+    blurb: 'Лёд, иней и морозная тишина. Реюза здесь меньше, чем в остальных линейках (5 из 12) — готовых icy-предметов в старом каталоге было мало, не стал искусственно натягивать. Занимает последний непокрытый ценовой ярус — 440✨ (rare).',
+    slots: {
+      name_glow: [
+        { id: 'frost', label: 'Ледяная вязь', css: 'glow-frost' },
+        { id: 'frostbreath', label: 'Морозное дыхание', css: 'glow-frostbreath', isNew: true },
+      ],
+      avatar_frame: [
+        { id: 'crystal', label: 'Кристальная грань', css: 'frame-crystal', pair: 'A' },
+        { id: 'icespikes', label: 'Ледяные шипы', css: 'frame-icespikes', pair: 'B', isNew: true },
+      ],
+      avatar_halo: [
+        { id: 'ice', label: 'Ледяной сполох', css: 'halo-ice', pair: 'A' },
+        { id: 'snowcrown', label: 'Снежная корона', css: 'halo-snowcrown', pair: 'B', isNew: true },
+      ],
+      profile_bg: [
+        { id: 'midnight', label: 'Полночь', css: 'pbg-midnight' },
+        { id: 'snowpeak', label: 'Снежная вершина', css: 'pbg-snowpeak', isNew: true },
+      ],
+      card_fx: [
+        { id: 'snow', label: 'Снегопад', css: 'cfx-snow' },
+        { id: 'frostbite', label: 'Изморозь', css: 'cfx-frostbite', isNew: true },
+      ],
+      title: [
+        { id: 'frostchild', label: 'Дитя Стужи', css: 'title-frostchild', text: 'Дитя Стужи', isNew: true },
+        { id: 'icekeeper', label: 'Хранитель Льда', css: 'title-icekeeper', text: 'Хранитель Льда', isNew: true },
+      ],
+    },
+  },
+  // "Бездна" забрала себе ТОЛЬКО mythic — эти epic/rare "разлом/бездна"-предметы
+  // остались вне линеек. Не стал придумывать тему под них — назвал и покрасил
+  // по факту того, что уже нарисовано в CSS (фиолет+бирюза, не тёплая пустыня).
+  threshold: {
+    name: '🔮 Порог', price: '440✨ · видна только с VIP',
+    priceZarniki: 440, vipDisplay: true, itemCount: 14,
+    itemCountNote: '14 предметов, 8 из них уже существовали (frame/2×bg/4×титула/halo-pulse) — то, что осталось от "разлом/бездна" за пределами mythic-тира',
+    blurb: 'Фиолетовые разломы и спокойная бирюза стражей на границе. Младшая родня «Бездны» — те же слова (разлом, бездна, порог), но epic/rare тир, которому не хватило мифического ранга. 8 из 14 предметов уже существовали, включая сразу 4 титула.',
+    slots: {
+      name_glow: [
+        { id: 'riftwhisper', label: 'Шёпот Разлома', css: 'glow-riftwhisper', isNew: true },
+        { id: 'thresholdshade', label: 'Тень Порога', css: 'glow-thresholdshade', isNew: true },
+      ],
+      avatar_frame: [
+        { id: 'abyss', label: 'Оправа Бездны', css: 'frame-abyss', pair: 'A' },
+        { id: 'riftedge', label: 'Кромка Разлома', css: 'frame-rift-edge', pair: 'B', isNew: true },
+      ],
+      avatar_halo: [
+        { id: 'pulse', label: 'Пульсирующий ореол', css: 'halo-pulse', pair: 'A' },
+        { id: 'flicker', label: 'Мерцание Порога', css: 'halo-threshold-flicker', pair: 'B', isNew: true },
+      ],
+      profile_bg: [
+        { id: 'abyss', label: 'Бездна', css: 'pbg-abyss' },
+        { id: 'voiddark', label: 'Тёмная Пустота', css: 'pbg-void-dark' },
+      ],
+      card_fx: [
+        { id: 'riftdust', label: 'Пыль Разлома', css: 'cfx-rift-dust', isNew: true },
+        { id: 'voidecho', label: 'Эхо Пустоты', css: 'cfx-void-echo', isNew: true },
+      ],
+      title: [
+        { id: 'abysswalker', label: 'Покоритель Бездны', css: 'title-abysswalker', text: 'Покоритель Бездны' },
+        { id: 'riftwalker', label: 'Странник Разломов', css: 'title-rift-walker', text: 'Странник Разломов' },
+        { id: 'sentinel', label: 'Часовой Пустоши', css: 'title-sentinel', text: 'Часовой Пустоши' },
+        { id: 'keeper', label: 'Хранитель Порога', css: 'title-keeper', text: 'Хранитель Порога' },
+      ],
+    },
+  },
+};
+const SLOT_LABEL = {
+  name_glow: '✨ Ореол имени', avatar_frame: '🖼 Рамка аватара', avatar_halo: '🌟 Гало аватара',
+  profile_bg: '🌌 Фон профиля', card_fx: '💫 Частицы карточки', title: '🏷 Титул',
+};
+const SLOT_CHIP_ICON = { name_glow: '✨', avatar_frame: '🖼', avatar_halo: '🌟', profile_bg: '🌌', card_fx: '💫' };
+
+// Владелец: билдер должен показывать ОБЕ карточки, как в реальной игре — свой
+// профиль (hero, крупный аватар, без чипов/статов) И то, что видит ДРУГОЙ
+// игрок (gp-card, чипы+статы+питомцы). Раньше был только lnCard (публичная) —
+// это и был "огрызок". Теперь lnHero + lnCard обновляются вместе, на каждый
+// выбор слота, для ВСЕХ линеек (не только Артефакта).
+let lnState = {};
+const lnHero = document.getElementById('lnHero');
+const lnCard = document.getElementById('lnCard');
+const lnHeroCfxWrap = document.getElementById('lnHeroCfxWrap');
+const lnCfxWrap = document.getElementById('lnCfxWrap');
+
+function lnItem(slot, id) { return LINEUPS[lnState.lineup].slots[slot].find(i => i.id === id); }
+
+function lnApplyAva() {
+  const frame = lnItem('avatar_frame', lnState.avatar_frame);
+  const halo = lnItem('avatar_halo', lnState.avatar_halo);
+  document.getElementById('lnAva').className = `ava ${frame.css} ${halo.css}`;
+  document.getElementById('lnHeroAva').className = `ava gz-target ${frame.css} ${halo.css}`;
+}
+function lnApplyGlowTitle() {
+  const glow = lnItem('name_glow', lnState.name_glow);
+  const title = lnItem('title', lnState.title);
+  document.getElementById('lnPname').className = `pname ${glow.css}`;
+  document.getElementById('lnHeroPname').className = `pname gz-target ${glow.css}`;
+  [document.getElementById('lnPtitle'), document.getElementById('lnHeroPtitle')].forEach(t => {
+    t.className = `ptitle gz-target ${title.css}`;
+    t.textContent = title.text;
+  });
+}
+function lnApplyBg() {
+  const bg = lnItem('profile_bg', lnState.profile_bg);
+  // РЕГРЕССИЯ, найдена puppeteer-диагностикой: className = `ln-preview ${bg.css}`
+  // затирал класс fxcard целиком (добавленный при слиянии с 8 концептами) —
+  // .fxcard[data-set="X"] переставал совпадать, все 8 молча гасли. lnApplyAll()
+  // зовёт lnApplyBg() на КАЖДОЕ изменение любого слота, не только фона — так что
+  // это стирало fxcard постоянно. Теперь трогаем только pbg-* токен, остальное
+  // (ln-preview/card, fxcard) не задеваем. lnHero — тот же трюк, но у него ЕЩЁ
+  // и хардкодный .card{background:pbg-artifact...} база (из старой секции) —
+  // pbg-* класс в источнике объявлен ПОЗЖЕ, при равной специфичности побеждает
+  // (порядок в файле), так что переопределяет корректно и для Леса/Инферно.
+  lnCard.className = lnCard.className.replace(/\bpbg-\S+/g, '').trim() + ' ' + bg.css;
+  lnHero.className = lnHero.className.replace(/\bpbg-\S+/g, '').trim() + ' ' + bg.css;
+}
+// card_fx бывает 2 родов: 9 вариантов Артефакта (прод + все 8 концептов из
+// сравнения выше — set:'A'..'H', встроенные немодифицированные .fxcard[data-set]
+// CSS-правила) ИЛИ простой класс-свап (Лесной Странник/Инферно/прод-Сканлайны —
+// 1 div, 1 css-класс). Обе карточки содержат разметку ОБОИХ механизмов
+// одновременно (см. HTML) — здесь решаем, какой активен на КАЖДОЙ из них.
+function lnApplyCardFx() {
+  const fx = lnItem('card_fx', lnState.card_fx);
+  [[lnHero, lnHeroCfxWrap], [lnCard, lnCfxWrap]].forEach(([card, wrap]) => {
+    if (fx.set) {
+      card.dataset.set = fx.set;
+      wrap.className = 'ln-cfx-wrap';
+    } else {
+      card.dataset.set = '';
+      wrap.className = `ln-cfx-wrap ${fx.css}`;
+    }
+  });
+  lnSetPointerFollow(fx.special === 'pointer');
+  if (fx.set === 'B') spawnMotes();   // как и в оригинале — рандомные частицы при каждом заходе на B
+  if (fx.set === 'G') { if (!gzTimer) gzTimer = setTimeout(gzFire, 600); if (!bgGlitchTimer) bgGlitchTimer = setTimeout(fireBgGlitch, 400); }
+}
+function lnApplyChips() {
+  document.getElementById('lnChipGlow').textContent = SLOT_CHIP_ICON.name_glow + ' ' + lnItem('name_glow', lnState.name_glow).label;
+  document.getElementById('lnChipFrame').textContent = SLOT_CHIP_ICON.avatar_frame + ' ' + lnItem('avatar_frame', lnState.avatar_frame).label;
+  document.getElementById('lnChipHalo').textContent = SLOT_CHIP_ICON.avatar_halo + ' ' + lnItem('avatar_halo', lnState.avatar_halo).label;
+  document.getElementById('lnChipBg').textContent = SLOT_CHIP_ICON.profile_bg + ' ' + lnItem('profile_bg', lnState.profile_bg).label;
+  document.getElementById('lnChipFx').textContent = SLOT_CHIP_ICON.card_fx + ' ' + lnItem('card_fx', lnState.card_fx).label;
+}
+function lnApplyAll() {
+  lnApplyAva(); lnApplyGlowTitle(); lnApplyBg(); lnApplyCardFx(); lnApplyChips();
+}
+
+function lnRenderSlots() {
+  const L = LINEUPS[lnState.lineup];
+  const wordVariant = n => n === 1 ? 'вариант' : (n < 5 ? 'варианта' : 'вариантов');
+  document.getElementById('ln-slots').innerHTML = Object.keys(SLOT_LABEL).map(slot => {
+    const items = L.slots[slot];
+    const swatches = items.map(it => {
+      const active = lnState[slot] === it.id ? ' active' : '';
+      const pair = it.pair ? `<span class="ln-pair">🔗${it.pair}</span>` : '';
+      const isNew = it.isNew ? `<span class="ln-new">новое</span>` : '';
+      return `<button class="ln-swatch${active}" data-slot="${slot}" data-item="${it.id}">${it.label}${pair}${isNew}</button>`;
+    }).join('');
+    return `<div class="ln-slot-row">`
+      + `<div class="ln-slot-title"><span>${SLOT_LABEL[slot]}</span><span class="ln-count">${items.length} ${wordVariant(items.length)}</span></div>`
+      + `<div class="ln-swatches">${swatches}</div></div>`;
+  }).join('');
+  document.querySelectorAll('.ln-swatch').forEach(btn => {
+    btn.addEventListener('click', () => {
+      lnState[btn.dataset.slot] = btn.dataset.item;
+      if (btn.dataset.slot === 'card_fx') lnCard.querySelectorAll('.gz-target').forEach(el => el.classList.remove('gz-active'));
+      lnRenderSlots();
+      lnApplyAll();
+    });
+  });
+}
+
+// Точная копия правила из core/cosmetics.py::is_vip_locked — VIP гейтит только
+// ПОКАЗ экипированной косметики на профиле, ПОКУПКУ в магазине не блокирует
+// никогда (можно купить без VIP, она просто "спит" до активации VIP). Показано
+// явным блоком по требованию владельца — "чтобы точно видел то, что будет на
+// продакшене", не растворено в проде-прозе блёрба.
+function lnRenderInfo(L) {
+  const row = (k, v) => `<div class="ln-info-row"><span class="k">${k}</span><span class="v">${v}</span></div>`;
+  const visibility = L.vipDisplay
+    ? '👑 только с активной VIP'
+    : '👁 всем, VIP не влияет';
+  const purchase = L.vipDisplay
+    ? 'доступна всем без VIP (VIP не блокирует покупку — правило игры)'
+    : 'доступна всем';
+  document.getElementById('ln-info').innerHTML =
+    row('💰 Цена', `${L.priceZarniki}✨ за любой предмет`) +
+    row('🛒 Покупка в магазине', purchase) +
+    row('👁 Показ на профиле', visibility) +
+    row('📦 Предметов в линейке', L.itemCount) +
+    (L.itemCountNote ? `<div class="ln-info-note">${L.itemCountNote}</div>` : '');
+}
+function selectLineup(id) {
+  const L = LINEUPS[id];
+  lnState = { lineup: id };
+  Object.keys(L.slots).forEach(slot => { lnState[slot] = L.slots[slot][0].id; });
+  document.querySelectorAll('.ln-tab').forEach(t => t.classList.toggle('active', t.dataset.lineup === id));
+  document.getElementById('ln-blurb').innerHTML = `<b>${L.name}</b> · ${L.price}<br>${L.blurb}`;
+  lnRenderInfo(L);
+  [lnHero, lnCard].forEach(c => {
+    c.querySelectorAll('.gz-target').forEach(el => el.classList.remove('gz-active')); // не тащить недоглюченный хвост с прошлой линейки
+    c.classList.remove('fx-enter'); void c.offsetWidth; c.classList.add('fx-enter');
+  });
+  clearTimeout(selectLineup._t);
+  selectLineup._t = setTimeout(() => { lnHero.classList.remove('fx-enter'); lnCard.classList.remove('fx-enter'); }, 450);
+  lnRenderSlots();
+  lnApplyAll();
+}
+document.querySelectorAll('.ln-tab').forEach(t => t.addEventListener('click', () => selectLineup(t.dataset.lineup)));
+
+// Прод card_fx "Сканлайны" — упрощённая локальная копия механики из app.01.js:
+// там слушатель на document (карточка может быть где угодно на странице), тут
+// карточка ровно одна — вешаем pointermove/touchmove прямо на неё же.
+// applyFoil(px,py) — общая точка входа что для мыши/пальца, что для гироскопа,
+// px/py всегда 0..1 (0.5=центр), дальше оба механизма считают одинаково.
+// Обе карточки (личная lnHero + публичная lnCard) следят за пальцем/мышью
+// НЕЗАВИСИМО — у каждой свой bounding rect, поэтому наклон считается от
+// геометрии конкретной карточки, а не одной "главной".
+function applyFoilTo(card, px, py) {
+  px = Math.min(1, Math.max(0, px)); py = Math.min(1, Math.max(0, py));
+  card.style.setProperty('--art-mx', (px * 100).toFixed(1) + '%');
+  card.style.setProperty('--art-my', (py * 100).toFixed(1) + '%');
+  card.style.setProperty('--art-tx', ((px - 0.5) * 10).toFixed(2) + 'deg');
+  card.style.setProperty('--art-ty', ((0.5 - py) * 10).toFixed(2) + 'deg');
+}
+function clearFoilOn(card) {
+  card.style.removeProperty('--art-mx'); card.style.removeProperty('--art-my');
+  card.style.removeProperty('--art-tx'); card.style.removeProperty('--art-ty');
+}
+// applyFoil/clearFoil — совместимость с гироскоп-обработчиком ниже (тот
+// двигает ОБЕ карточки разом, у гироскопа нет понятия "какая карточка под пальцем")
+function applyFoil(px, py) { applyFoilTo(lnHero, px, py); applyFoilTo(lnCard, px, py); }
+function clearFoil() { clearFoilOn(lnHero); clearFoilOn(lnCard); }
+function bindFoilPointer(card) {
+  const tickXY = (x, y) => {
+    const r = card.getBoundingClientRect();
+    applyFoilTo(card, (x - r.left) / r.width, (y - r.top) / r.height);
+  };
+  card.addEventListener('pointermove', e => tickXY(e.clientX, e.clientY), { passive: true });
+  card.addEventListener('touchmove', e => { const t = e.touches[0]; if (t) tickXY(t.clientX, t.clientY); }, { passive: true });
+  card.addEventListener('pointerleave', () => clearFoilOn(card), { passive: true });
+}
+let _lnFoilBound = false;
+function lnSetPointerFollow(on) {
+  if (!on) { clearFoil(); return; }
+  if (_lnFoilBound) return;
+  _lnFoilBound = true;
+  bindFoilPointer(lnHero);
+  bindFoilPointer(lnCard);
+}
+
+selectLineup('artifact');
+</script>
+</body>
+</html>

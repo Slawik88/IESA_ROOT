@@ -339,6 +339,7 @@
 </div>
 
 <!-- ═══ НИЖНИЙ ДОК (5 слотов под большой палец — UX-лимит 3-5) ═══ -->
+<!-- Вне .page: анимация страницы использует transform и иначе ломает fixed-позицию dock. -->
 <nav class="nav">
   <div class="nb active" data-page="profile" onclick="switchPage('profile')"><span class="ni">👤</span>Профиль</div>
   <div class="nb" data-page="zoo" onclick="switchPage('zoo')"><span class="ni">🐾</span>Питомцы</div>

@@ -37,7 +37,7 @@ function loadProfile() {
         ${d.cosmetics&&d.cosmetics.card_fx?`<div class="card-fx ${d.cosmetics.card_fx.css}"></div>`:''}
         <div class="hero-head">
           <div class="ava ${d.cosmetics&&d.cosmetics.avatar_frame?d.cosmetics.avatar_frame.css:''} ${d.cosmetics&&d.cosmetics.avatar_halo?d.cosmetics.avatar_halo.css:''}" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
-          <div style="min-width:0">
+          <div class="profile-copy">
             <div class="pname ${d.cosmetics&&d.cosmetics.name_glow?d.cosmetics.name_glow.css:''}">@${vipName(d.username||'Игрок', d.is_vip)}</div>
             <div class="prank">${d.rank}</div>
             ${d.cosmetics&&d.cosmetics.title?`<div class="ptitle${d.cosmetics.title_css?' '+d.cosmetics.title_css:''}">${esc(d.cosmetics.title)}</div>`:''}
@@ -597,6 +597,7 @@ function _applyVipAvatar() {
   const img = `<img src="${_vipAvatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`;
   const h = el('hdr-ava'); if (h) h.innerHTML = img;
   const p = el('pro-ava'); if (p) p.innerHTML = img;
+  const f = el('fit-ava'); if (f) f.innerHTML = img;
 }
 function _ensureVipAvatar() {
   if (_vipAvatar) { _applyVipAvatar(); return; }
@@ -654,7 +655,8 @@ function refreshCurrBar() {
   if (!_uid || !_currBarVisible) return;
   api('/profile/me').then(d => {
     updateCurrBar(d);
-    if(d.mora!==undefined) _profileData = {...(_profileData||{}), mora:d.mora, diamonds:d.diamonds};
+      if(d.mora!==undefined) _profileData = {...(_profileData||{}),
+        mora:d.mora, diamonds:d.diamonds, zarniki:d.zarniki, dark_mora:d.dark_mora};
     _profileSyncStats(d);
   }).catch(()=>{});
 }

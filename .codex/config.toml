@@ -1,0 +1,29 @@
+[mcp_servers.fetch]
+command = "npx"
+args = ["@modelcontextprotocol/server-fetch"]
+
+[mcp_servers.filesystem]
+command = "npx"
+args = [
+    "@modelcontextprotocol/server-filesystem",
+    'G:\IESA_ROOT',
+]
+
+[mcp_servers.github]
+command = "npx"
+args = ["@modelcontextprotocol/server-github"]
+
+[mcp_servers.postgres]
+command = "npx"
+args = [
+    "@modelcontextprotocol/server-postgres",
+    "postgresql://iesaroot-db:AVNS_MOvjIhw-xS0SFSrqLqM@app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require",
+]
+
+[mcp_servers.puppeteer]
+command = "npx"
+args = ["@modelcontextprotocol/server-puppeteer"]
+
+[mcp_servers.sentry]
+command = "npx"
+args = ["@modelcontextprotocol/server-sentry"]
