@@ -75,3 +75,9 @@ htmlcov/
 
 # Superpowers brainstorming companion mockups
 .superpowers/
+
+# Node dependencies (regenerable via npm install — huge, platform-specific)
+node_modules/
+
+# Graphify knowledge-graph cache (regenerable via `graphify update`)
+graphify-out/

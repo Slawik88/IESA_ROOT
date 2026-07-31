@@ -463,15 +463,15 @@ const MOCKS = {
 
   // ── Темы чата ──
   'GET /themes/': [
-    { theme_id: 'classic', name: 'Классика', rarity: 'common', badge: '⬜', rarity_label: 'Обычная', source: 'база', desc: 'Стандартная рамка сообщений бота.', top: '━━━━━━━━━━', bot_line: '━━━━━━━━━━', accent: '▪', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: null, owned: true, active: true, gacha: false, it: false, premium: false },
-    { theme_id: 'starfall', name: 'Звездопад', rarity: 'rare', badge: '🟦', rarity_label: 'Редкая', source: 'магазин', desc: 'Падающие звёзды обрамляют каждое сообщение.', top: '✦ ˚ · . ✦ ˚ ·', bot_line: '· ˚ ✦ . · ˚ ✦', accent: '✦', price_mora: 15000, price_diamonds: null, price_dark: null, price_zarniki: null, owned: true, active: false, gacha: false, it: false, premium: false },
-    { theme_id: 'bloodmoon', name: 'Кровавая Луна', rarity: 'epic', badge: '🟪', rarity_label: 'Эпическая', source: 'ивент', desc: 'Багровое сияние затмения.', top: '🌘━━━━━━━🌒', bot_line: '🌘━━━━━━━🌒', accent: '🌑', price_mora: null, price_diamonds: 25, price_dark: null, price_zarniki: null, owned: false, active: false, gacha: false, it: false, premium: false },
-    { theme_id: 'golden_dawn', name: 'Золотой Рассвет', rarity: 'legendary', badge: '🟨', rarity_label: 'Легендарная', source: 'гача', desc: 'Первый луч солнца в вечной тьме.', top: '☀️═══════☀️', bot_line: '☀️═══════☀️', accent: '✨', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: null, owned: false, active: false, gacha: true, it: false, premium: false },
-    { theme_id: 'neon_terminal', name: 'Неоновый Терминал', rarity: 'zarniki', badge: '✨', rarity_label: 'Зарниковая', source: 'донат', desc: 'IT-стиль: зелёный курсор, поток кода.', top: '▚▞▚▞▚▞▚▞▚▞', bot_line: '▞▚▞▚▞▚▞▚▞▚', accent: '▓', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: 440, owned: false, active: false, gacha: false, it: true, premium: true },
+    { theme_id: 'classic', name: 'Классика', rarity: 'common', badge: '⬜', rarity_label: 'Обычная', source: 'start', desc: 'Стандартная рамка сообщений бота.', top: '━━━━━━━━━━', bot_line: '━━━━━━━━━━', accent: '▪', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: null, owned: true, active: true, gacha: false, it: false, premium: false },
+    { theme_id: 'starfall', name: 'Звездопад', rarity: 'rare', badge: '🟦', rarity_label: 'Редкая', source: 'shop_mora', desc: 'Падающие звёзды обрамляют каждое сообщение.', top: '✦ ˚ · . ✦ ˚ ·', bot_line: '· ˚ ✦ . · ˚ ✦', accent: '✦', price_mora: 15000, price_diamonds: null, price_dark: null, price_zarniki: null, owned: true, active: false, gacha: false, it: false, premium: false },
+    { theme_id: 'bloodmoon', name: 'Кровавая Луна', rarity: 'epic', badge: '🟪', rarity_label: 'Эпическая', source: 'shop_diamond', desc: 'Багровое сияние затмения.', top: '🌘━━━━━━━🌒', bot_line: '🌘━━━━━━━🌒', accent: '🌑', price_mora: null, price_diamonds: 25, price_dark: null, price_zarniki: null, owned: false, active: false, gacha: false, it: false, premium: false },
+    { theme_id: 'golden_dawn', name: 'Золотой Рассвет', rarity: 'legendary', badge: '🟨', rarity_label: 'Легендарная', source: 'gacha_premium', desc: 'Первый луч солнца в вечной тьме.', top: '☀️═══════☀️', bot_line: '☀️═══════☀️', accent: '✨', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: null, owned: false, active: false, gacha: true, it: false, premium: false },
+    { theme_id: 'neon_terminal', name: 'Неоновый Терминал', rarity: 'zarniki', badge: '✨', rarity_label: 'Зарниковая', source: 'zarniki', desc: 'IT-стиль: зелёный курсор, поток кода.', top: '▚▞▚▞▚▞▚▞▚▞', bot_line: '▞▚▞▚▞▚▞▚▞▚', accent: '▓', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: 440, owned: false, active: false, gacha: false, it: true, premium: true },
     // Реальные длинные/безпробельные строки из core/themes.py (theme_system_override,
     // theme_bloodmoon) — воспроизводят баг «вкладка Темы растягивает сайт по ширине».
-    { theme_id: 'system_override', name: '💻 System Override', rarity: 'zarniki', badge: '✨', rarity_label: 'Зарниковая', source: 'донат', desc: 'Взлом системы. Кибер-терминальный стиль.', top: '▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼', bot_line: '*>_ Проснись, Нео. Ты всё ещё в чате… ▮* 🟢', accent: '💻', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: 400, owned: false, active: false, gacha: false, it: true, premium: true },
-    { theme_id: 'bloodmoon2', name: '🩸 Кровавая Луна', rarity: 'mythic', badge: '🟥', rarity_label: 'Мифическая', source: 'донат', desc: 'Багровое сияние затмения.', top: '🩸🌕 КРОВАВАЯ ЛУНА 🌕🩸\n🩸🌕🩸🌕🩸🌕🩸🌕🩸🌕🩸', bot_line: '🩸🌕🩸🌕🩸🌕🩸🌕🩸🌕🩸', accent: '🩸', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: 500, owned: false, active: false, gacha: false, it: false, premium: false },
+    { theme_id: 'system_override', name: '💻 System Override', rarity: 'zarniki', badge: '✨', rarity_label: 'Зарниковая', source: 'zarniki', desc: 'Взлом системы. Кибер-терминальный стиль.', top: '▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼', bot_line: '*>_ Проснись, Нео. Ты всё ещё в чате… ▮* 🟢', accent: '💻', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: 400, owned: false, active: false, gacha: false, it: true, premium: true },
+    { theme_id: 'bloodmoon2', name: '🩸 Кровавая Луна', rarity: 'mythic', badge: '🟥', rarity_label: 'Мифическая', source: 'zarniki', desc: 'Багровое сияние затмения.', top: '🩸🌕 КРОВАВАЯ ЛУНА 🌕🩸\n🩸🌕🩸🌕🩸🌕🩸🌕🩸🌕🩸', bot_line: '🩸🌕🩸🌕🩸🌕🩸🌕🩸🌕🩸', accent: '🩸', price_mora: null, price_diamonds: null, price_dark: null, price_zarniki: 500, owned: false, active: false, gacha: false, it: false, premium: false },
   ],
 
   // ── Инвентарь ──
@@ -610,19 +610,23 @@ const MOCKS = {
       avatar_frame: [
         { id: 'cos_avatar_frame_abyss', name: 'Оправа Бездны', lineup: 'threshold', rarity: 'rare', css: 'frame-abyss', owned: false, price: [{ zarniki: 440 }], desc: 'Рамка из застывшей Тёмной Моры. Отображается при активной VIP.' },
         { id: 'cos_avatar_frame_inferno', name: 'Инферно', lineup: 'inferno', rarity: 'epic', css: 'frame-inferno', owned: false, price: [{ zarniki: 630 }], desc: 'Живое пламя лижет края аватара.' },
+        { id: 'cos_avatar_frame_crystal', name: 'Кристальная грань', lineup: 'frost', rarity: 'rare', css: 'frame-crystal', owned: false, price: [{ zarniki: 420 }], desc: 'Чёткая ледяная кромка с ребристым блеском.' },
       ],
       avatar_halo: [
         { id: 'cos_avatar_halo_void', name: 'Кольцо Бездны', lineup: 'void', rarity: 'mythic', css: 'halo-void', owned: false, price: [{ zarniki: 1000 }], desc: 'Тёмное кольцо с багровыми всполохами.' },
+        { id: 'cos_avatar_halo_ice', name: 'Ледяной сполох', lineup: 'frost', rarity: 'rare', css: 'halo-ice', owned: false, price: [{ zarniki: 370 }], desc: 'Хрустальный ледяной ореол.' },
       ],
       title: [
         { id: 'cos_title_dawnchild', name: 'Дитя Зари', lineup: 'celestial', rarity: 'legendary', css: 'title-dawnchild', text: 'Дитя Зари', owned: true, equipped: true, price: [{ zarniki: 820 }] },
+        { id: 'cos_title_frostchild', name: 'Дитя Стужи', lineup: 'frost', rarity: 'rare', css: 'title-frostchild', text: 'Дитя Стужи', owned: false, price: [{ zarniki: 310 }], desc: 'Рождённый среди вечных льдов.' },
       ],
       profile_bg: [
-        { id: 'cos_profile_bg_snowpeak', name: 'Снежная вершина', lineup: 'frost', rarity: 'rare', css: 'pbg-snowpeak', owned: false, price: [{ zarniki: 440 }], desc: 'Заснеженная горная вершина в морозной дымке.' },
+        { id: 'cos_profile_bg_snowpeak', name: 'Снежная вершина', lineup: 'frost', rarity: 'rare', css: 'pbg-snowpeak', owned: false, price: [{ zarniki: 550 }], desc: 'Заснеженная горная вершина в морозной дымке.' },
         { id: 'cos_profile_bg_starfall', name: 'Звездопад Богов', lineup: 'void', rarity: 'mythic', css: 'pbg-starfall', owned: false, price: [{ zarniki: 1000 }], desc: 'Глубокий космос с падающими звёздами.' },
       ],
       card_fx: [
         { id: 'cos_card_fx_void_echo', name: 'Эхо Пустоты', lineup: 'threshold', rarity: 'rare', css: 'cfx-void-echo', owned: false, price: [{ zarniki: 440 }], desc: 'Кольца эха расходятся из центра карточки.' },
+        { id: 'cos_card_fx_snow', name: 'Снегопад', lineup: 'frost', rarity: 'rare', css: 'cfx-snow', owned: false, price: [{ zarniki: 590 }], desc: 'Тихо падающие снежинки поверх профиля.' },
       ],
     },
     welcome: { current: 'scanner', options: [
@@ -655,6 +659,7 @@ const MOCKS = {
   'POST /cosmetics/chest/open': { message: 'Из сундука выпало!', drop: { kind: 'shards', shards: 5, name: '🔹 5 осколков' } },
   'POST /cosmetics/craft': { message: '✅ Скрафчено!' },
   'POST /cosmetics/buy-lineup': { ok: true, message: '🎨 Линейка собрана полностью! Докуплено — за ✨' },
+  'POST /cosmetics/buy-many': { ok: true, message: '🎨 Локальный стенд: цены предложения показаны в каталоге.' },
 
   // ── Админка чата ──
   'GET /admin/-100111/dashboard': {
@@ -679,12 +684,40 @@ const MOCKS = {
   'POST /admin/-100111/action': { ok: true, telegram_ok: true },
 };
 
+// Состояние локального стенда: темы покупаются и надеваются по-настоящему в
+// памяти процесса, чтобы интерфейс после CTA показывал владение, а не ложный
+// успешный тост. Reset нужен только регрессионным тестам, которые не должны
+// зависеть от покупок предыдущего прогона.
+const PREVIEW_THEME_SNAPSHOT = JSON.stringify(MOCKS['GET /themes/']);
+const PREVIEW_BALANCE_SNAPSHOT = {
+  mora: PROFILE.mora, diamonds: PROFILE.diamonds, dark_mora: PROFILE.dark_mora, zarniki: PROFILE.zarniki,
+};
+function resetPreviewThemeState() {
+  const themes = MOCKS['GET /themes/'];
+  themes.splice(0, themes.length, ...JSON.parse(PREVIEW_THEME_SNAPSHOT));
+  Object.assign(PROFILE, PREVIEW_BALANCE_SNAPSHOT);
+}
+async function readJsonBody(req) {
+  const chunks=[];
+  for await (const chunk of req) chunks.push(chunk);
+  const raw=Buffer.concat(chunks).toString('utf8').trim();
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return null; }
+}
+function themePrice(t) {
+  if (t.price_mora) return { balance: 'mora', amount: t.price_mora };
+  if (t.price_diamonds) return { balance: 'diamonds', amount: t.price_diamonds };
+  if (t.price_zarniki) return { balance: 'zarniki', amount: t.price_zarniki };
+  if (t.price_dark) return { balance: 'dark_mora', amount: t.price_dark };
+  return null;
+}
+
 function send(res, status, body, type = 'application/json; charset=utf-8') {
   res.writeHead(status, { 'content-type': type, 'access-control-allow-origin': '*' });
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
   const p = u.pathname;
 
@@ -743,6 +776,37 @@ const server = http.createServer((req, res) => {
     const t = themes.find(x => x.theme_id === tid);
     if (!t) return send(res, 404, { detail: 'тема не найдена' });
     return send(res, 200, { text: `${t.top}\n<b>@star_seeker</b>\n${t.bot_line}` });
+  }
+  if (p === '/__preview/reset' && req.method === 'POST') {
+    resetPreviewThemeState();
+    return send(res, 200, { ok: true });
+  }
+  if (p === '/themes/buy' && req.method === 'POST') {
+    const body=await readJsonBody(req);
+    if (!body || !body.theme_id) return send(res, 400, { detail: 'Нужен theme_id.' });
+    const theme=MOCKS['GET /themes/'].find(t=>t.theme_id===body.theme_id);
+    if (!theme) return send(res, 404, { detail: 'Тема не найдена.' });
+    if (theme.owned) return send(res, 400, { detail: 'Эта тема уже в коллекции.' });
+    if (!['shop_mora','shop_diamond','zarniki','dark'].includes(theme.source)) {
+      return send(res, 400, { detail: 'Эта тема не продаётся напрямую.' });
+    }
+    const price=themePrice(theme);
+    if (!price) return send(res, 400, { detail: 'У темы не задана цена.' });
+    if (PROFILE[price.balance] < price.amount) return send(res, 400, { detail: 'Недостаточно валюты.' });
+    PROFILE[price.balance]-=price.amount;
+    theme.owned=true;
+    return send(res, 200, { ok: true, theme_name: theme.name });
+  }
+  if (p === '/themes/equip' && req.method === 'POST') {
+    const body=await readJsonBody(req);
+    if (!body || !body.theme_id) return send(res, 400, { detail: 'Нужен theme_id.' });
+    const themes=MOCKS['GET /themes/'];
+    const theme=themes.find(t=>t.theme_id===body.theme_id);
+    if (!theme) return send(res, 404, { detail: 'Тема не найдена.' });
+    if (!theme.owned) return send(res, 400, { detail: 'Сначала добавьте тему в коллекцию.' });
+    themes.forEach(t=>{ t.active=false; });
+    theme.active=true;
+    return send(res, 200, { ok: true, theme_name: theme.name });
   }
 
   const key = `${req.method} ${p}`;

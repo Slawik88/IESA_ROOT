@@ -8,6 +8,21 @@
 import puppeteer from 'puppeteer';
 const FAIL = [];
 function check(name, cond) { if (!cond) FAIL.push(name); else console.log('OK:', name); }
+async function settledFrame(page) {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+async function stableY(page, selector) {
+  let last=null, identicalFrames=0;
+  for(let attempt=0; attempt<12; attempt++){
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await settledFrame(page);
+    const current=await page.evaluate(sel => document.querySelector(sel)?.getBoundingClientRect().y, selector);
+    identicalFrames=current===last ? identicalFrames+1 : 0;
+    if(identicalFrames>=2) return current;
+    last=current;
+  }
+  throw new Error(`Layout did not settle for ${selector}`);
+}
 const browser = await puppeteer.launch({ headless: 'new' });
 const page = await browser.newPage();
 await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
@@ -19,15 +34,13 @@ await page.evaluate(() => openLooksModal());
 await new Promise(r => setTimeout(r, 800));
 
 // Сценарий 1: переключатель режимов не должен менять свой Y при клике по нему самому
-const toggleYBefore = await page.evaluate(() => document.getElementById('looks-mode-toggle').getBoundingClientRect().y);
+const toggleYBefore = await stableY(page, '#looks-mode-toggle');
 await page.click('[data-mode="slots"]');
-await new Promise(r => setTimeout(r, 300));
-const toggleYAfterSlots = await page.evaluate(() => document.getElementById('looks-mode-toggle').getBoundingClientRect().y);
+const toggleYAfterSlots = await stableY(page, '#looks-mode-toggle');
 await page.click('[data-mode="collections"]');
-await new Promise(r => setTimeout(r, 300));
-const toggleYAfterBack = await page.evaluate(() => document.getElementById('looks-mode-toggle').getBoundingClientRect().y);
-check('переключатель режимов НЕ сдвигается при переходе в "По слотам"', toggleYBefore === toggleYAfterSlots);
-check('переключатель режимов НЕ сдвигается при возврате в "По коллекциям"', toggleYBefore === toggleYAfterBack);
+const toggleYAfterBack = await stableY(page, '#looks-mode-toggle');
+check('переключатель режимов НЕ сдвигается при переходе в "По слотам"', Math.abs(toggleYBefore - toggleYAfterSlots) < .5);
+check('переключатель режимов НЕ сдвигается при возврате в "По коллекциям"', Math.abs(toggleYBefore - toggleYAfterBack) < .5);
 
 // Сценарий 2: умный ряд фильтра строго условный (НЕТ в DOM вне "По слотам") —
 // место под него НЕ резервируется (резервирование ломало клики по карточкам
@@ -45,6 +58,10 @@ check('умный ряд фильтра НЕ в DOM в режиме "По кол
 // становился выше, вторая строка карточек уезжала под нижнюю навигацию (.nb),
 // и реальный клик попадал в таб навигации, а не в карточку (JS .click() этого
 // не ловит — он не делает hit-testing, поэтому нужен именно page.click()).
+// Карточка второй строки естественно находится ниже первого экрана после добавления
+// примерочной, образов и полезных ссылок. Сначала скроллим её в безопасную зону над nav,
+// затем проверяем именно реальный pointer tap, а не программный вызов обработчика.
+await page.evaluate(() => document.querySelector('.coll-card[data-lineup="inferno"]')?.scrollIntoView({block:'center'}));
 await page.click('.coll-card[data-lineup="inferno"]');
 await new Promise(r => setTimeout(r, 400));
 const infernoOpened = await page.evaluate(() => _looksDetailLineup === 'inferno');

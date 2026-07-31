@@ -534,6 +534,7 @@ function switchPage(name, _btn, _viaBack) {
   }
   _activePage = name;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const looksDock=el('looks-dock'); if(looksDock && name!=='looks') looksDock.innerHTML='';
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
   el('pg-'+name).classList.add('active');
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
@@ -563,14 +564,17 @@ function _syncBackButton(){
       if(has) tg.BackButton.show(); else tg.BackButton.hide();
     }catch(e){}
   }
+  // «Внешний вид» уже даёт собственную стрелку в шапке. Браузерный fallback
+  // внизу экрана там дублирует выход и перекрывает каталог/примерочную.
+  const hasLocalAppearanceExit=_activePage==='looks';
   let btn=el('nav-back');
-  if(!btn && has && !inTg){
+  if(!btn && has && !inTg && !hasLocalAppearanceExit){
     btn=document.createElement('button');
     btn.id='nav-back'; btn.type='button'; btn.setAttribute('aria-label','Назад');
     btn.innerHTML='‹ Назад'; btn.onclick=navBack;
     document.body.appendChild(btn);
   }
-  if(btn) btn.classList.toggle('hidden', !has || inTg);
+  if(btn) btn.classList.toggle('hidden', !has || inTg || hasLocalAppearanceExit);
 }
 function navBack(){
   if(!_navStack.length) return;
@@ -658,4 +662,3 @@ function _updateMoreCard() {
     b.textContent = n > 99 ? '99+' : String(n);
   }
 }
-

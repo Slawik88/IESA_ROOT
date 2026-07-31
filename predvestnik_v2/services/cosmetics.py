@@ -440,6 +440,64 @@ async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
     return True, f"🎨 «{meta['name']}» собрана полностью! Докуплено {len(missing)} шт. за {total}✨"
 
 
+async def buy_many(db, user_id: int, cosmetic_ids: list[str]) -> tuple[bool, str]:
+    """Купить выбранные предметы примерочной одной транзакцией.
+
+    В отличие от buy_lineup(), набор может содержать предметы из разных линеек
+    и с разной ценой. Владение читается только после блокировки баланса: это
+    предотвращает повторное списание при двух параллельных запросах.
+    """
+    ids = list(dict.fromkeys(cosmetic_ids))
+    if not ids:
+        return False, "Список предметов пуст."
+
+    for cosmetic_id in ids:
+        cos = COSMETICS.get(cosmetic_id)
+        if not cos:
+            return False, f"Нет такой косметики: {cosmetic_id}."
+        price = cos.get("price")
+        if not price or "zarniki" not in price[0]:
+            return False, f"«{cos['name']}» не продаётся за зарники."
+
+    async with db.connection.transaction():
+        async with db.execute(
+            "SELECT COALESCE(user_balance_zarniki,0) FROM users WHERE user_tg_id = ? FOR UPDATE",
+            (user_id,),
+        ) as c:
+            row = await c.fetchone()
+        balance = float(row[0]) if row else 0.0
+
+        owned = await _owned(db, user_id)
+        missing = [cosmetic_id for cosmetic_id in ids if cosmetic_id not in owned]
+        if not missing:
+            return False, "Всё это у тебя уже есть."
+
+        total = sum(int(COSMETICS[cosmetic_id]["price"][0]["zarniki"])
+                    for cosmetic_id in missing)
+        if balance < total:
+            return False, f"Нужно {total}✨ (у тебя {int(balance)})."
+
+        await db.execute(
+            "UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?",
+            (total, user_id),
+        )
+        for cosmetic_id in missing:
+            await db.execute(
+                "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
+                "ON CONFLICT DO NOTHING",
+                (user_id, cosmetic_id),
+            )
+
+    try:
+        from services.achievements import increment_metric
+        await increment_metric(db, user_id, "cosmetics_bought", delta=float(len(missing)))
+        await db.commit()
+    except Exception:
+        pass
+
+    return True, f"🎨 Куплено {len(missing)} шт. за {total}✨"
+
+
 async def get_active_cosmetics(db, user_id: int) -> dict:
     """Надетая косметика для рендера профиля (веб + титул в боте).
     → {"name_glow": {"css","name"}, "avatar_frame": {...}, "title": "текст"}

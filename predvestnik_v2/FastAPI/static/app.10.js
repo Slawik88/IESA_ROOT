@@ -6,7 +6,8 @@
 const _LOOKS_SLOTS=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx'];
 const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки'};
 const _LOOKS_ANCHOR_LABEL={name_glow:'✨ Ореол',avatar_frame:'🖼 Рамка',avatar_halo:'🌟 Гало',title:'🏷 Титул',profile_bg:'🖌 Фон',card_fx:'❄️ Частицы',welcome:'🎬 Вход',themes:'🎭 Темы'};
-let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false, _looksFocus=null;
+let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false;
+let _looksTrial={}; // некупленная примерка: по одному предмету на каждый слот
 let _looksPresets=[];  // кэш пресетов текущей сессии
 let _looksFilter='all';                // фильтр ЛИНЕЙКИ (id из _looksData.lineups) — общий для ВСЕХ секций разом
 let _looksStatus='all';                // фильтр СТАТУСА: all|owned|missing — независимое второе измерение (см. аудит 2026-07-29)
@@ -30,7 +31,7 @@ function lineupColor(id){ return LINEUP_COLOR[id]||'#9aa7b8'; }
 // Полноэкранный экран «Внешний вид» (был модалкой). Имя openLooksModal сохранено —
 // его зовут старые точки входа (профиль/маркет), диплинки и «назад» из под-шитов.
 function openLooksModal(){
-  _looksFilter='all'; _looksStatus='all'; _looksSearch=''; _looksFocus=null; _looksDetailLineup=null;
+  _looksFilter='all'; _looksStatus='all'; _looksSearch=''; _looksTrial={}; _looksDetailLineup=null;
   if(!_looksData){   // режим восстанавливаем только на «холодном» открытии — не сбрасывать выбор пользователя, если он уже листает вкладку
     try{ const saved=localStorage.getItem('pv_looks_mode'); if(saved==='collections'||saved==='slots') _looksMode=saved; }catch(e){}
   }
@@ -54,9 +55,15 @@ function _looksSetMode(mode){
   try{ localStorage.setItem('pv_looks_mode', mode); }catch(e){}
   renderLooks();
 }
-function _looksClose(){   // стрелка ‹ Назад: применить незакоммиченное и вернуться в профиль
-  if(_looksChanged()){ _looksApply().then(()=>{ loadProfile(); goTo('profile'); }); }
-  else { if(_looksDirty) loadProfile(); goTo('profile'); }
+function _looksClose(){   // стрелка ‹: сохранить изменения и вернуться именно к странице-источнику
+  const leave=()=>{
+    if(_looksDirty) loadProfile();
+    // При открытии из магазина/профиля switchPage уже сохранил точку входа.
+    // Используем её, чтобы не создавать второй маршрут «Внешний вид → Профиль».
+    if(_navStack.length) navBack(); else goTo('profile');
+  };
+  if(_looksChanged()) _looksApply().then(leave);
+  else leave();
 }
 function _looksEquipped(d){
   const sel={};
@@ -73,62 +80,93 @@ function renderLooks(){
     <span>👑 Купить можно любую косметику. Линейки дороже «Лесного Странника» <b>отображаются на профиле только с VIP</b>.</span>
     <button class="btn btn-sm btn-gold" onclick="goTo('market','vip')">Перейти к VIP</button></div>`;
   const modeBody=_looksMode==='collections'?_looksCollectionsViewHtml():_looksSlotsViewHtml();
-  // «Вход»/«Темы» — ОБЩИЕ для обоих режимов (по спеку), рендерятся здесь ОДИН раз,
-  // а не внутри modeBody — иначе в режиме «По коллекциям» пропал бы доступ к смене
-  // приветствия/темы. Умный ряд фильтров («По слотам» режим) тоже ОБЩИЙ, но
-  // находится ВНУТРИ .looks-sticky (2026-07-29: чтобы при скролле не уезжал под
-  // прилипшее превью).
-  const stickyFilterBar = _looksMode==='slots' ? `<div id="looks-filter-bar">${_looksFilterHtml()}</div>` : '';
-  // Переключатель режимов рендерится ДО .looks-sticky (не после) — так его позиция
-  // не зависит от высоты .looks-sticky вообще, и он физически не может «прыгать»
-  // при переключении режима/примерке предмета. Попытка №1 (резервировать место
-  // под умный ряд ВНУТРИ .looks-sticky даже когда он скрыт) чинила прыжок, но
-  // удлиняла .looks-sticky в режиме «По коллекциям» настолько, что вторая строка
-  // карточек коллекций уезжала под нижнюю навигацию на 390×844 — клик по карточке
-  // перехватывался табом навигации, а не открывал коллекцию. Эта версия не трогает
-  // высоту .looks-sticky вообще (умный ряд снова строго условный, как раньше).
+  // Примерочная вынесена из потока страницы в FAB и шторку. Sticky оставлен только
+  // для фильтра режима «По слотам»: так фильтр не уезжает под шапку, но карточки
+  // коллекций не получают лишнюю высоту над собой.
+  const stickyFilterBar = _looksMode==='slots' ? `<div class="looks-sticky"><div id="looks-filter-bar">${_looksFilterHtml()}</div></div>` : '';
   b.innerHTML=`
     <div class="looks-head">
       <button class="looks-back" onclick="_looksClose()" aria-label="Назад">‹</button>
       <div class="looks-htitle">🎨 Внешний вид</div>
     </div>
+    <div id="looks-dock"></div>
     ${_looksDetailLineup?'':_looksModeToggleHtml()}
-    <div class="looks-sticky"><div id="looks-top">${_looksPreviewHtml()}</div>${stickyFilterBar}</div>`
+    ${stickyFilterBar}`
     +vipBar
-    +'<button class="btn btn-ghost btn-full" style="margin:2px 0 10px" onclick="_openSurprisesModal()">🎁 Сюрпризы и 🔹 Крафт косметики</button>'
+    +`<button class="looks-surprises-entry" type="button" onclick="_openSurprisesModal()">
+        <span class="looks-surprises-medallion" aria-hidden="true">🎁</span>
+        <span class="looks-surprises-copy"><span>Сюрпризы и крафт</span><small>Сундуки, осколки и косметика</small></span>
+        <span class="looks-surprises-arrow" aria-hidden="true">›</span>
+      </button>`
     +_looksPresetsHtml()
+    +_looksQuickLinksHtml()
     +`<div id="looks-mode-body">${modeBody}</div>`
     +`<div id="looks-common-sections">${_looksWelcomeSectionHtml()}${_looksThemesSectionHtml()}</div>`
     +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
   _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
   _looksThemesEnsureLoaded();
   _looksSyncStickyH();
+  _looksObserveSwatches();
+  _looksRenderFab();
+}
+// Быстрые переходы остаются доступными и в «По коллекциям»: «Вход» и «Темы» —
+// полноценные части внешнего вида, а не нижний хвост каталога. В слотах рядом с
+// ними доступны все шесть слотов; в коллекциях остаются только две общие секции.
+function _looksQuickLinksHtml(){
+  const ids=_looksMode==='slots'?[..._LOOKS_SLOTS,'welcome','themes']:['welcome','themes'];
+  return `<div class="looks-anchors" id="looks-quick-links" aria-label="Быстрые переходы по внешнему виду">${ids.map(id=>
+    `<button class="looks-anchor-chip" type="button" data-looks-jump="${id}" onclick="_looksJump('${id}')">${_LOOKS_ANCHOR_LABEL[id]}</button>`
+  ).join('')}</div>`;
 }
 // Режим «По слотам» — умный ряд (фильтр) живёт в .looks-sticky (рендерится в
-// renderLooks), здесь только якоря и секции слотов. «Вход»/«Темы» общие, рендерятся
+// renderLooks), здесь только секции слотов. «Вход»/«Темы» общие, рендерятся
 // отдельно в renderLooks().
 function _looksSlotsViewHtml(){
-  return `<div class="looks-anchors">${_LOOKS_SLOTS.map(s=>`<button class="looks-anchor-chip" onclick="_looksJump('${s}')">${_LOOKS_ANCHOR_LABEL[s]}</button>`).join('')}</div>`
-    +`<div id="looks-sections">${_LOOKS_SLOTS.map(s=>_looksSectionHtml(s)).join('')}</div>`;
+  return `<div id="looks-sections">${_LOOKS_SLOTS.map(s=>_looksSectionHtml(s)).join('')}</div>`;
 }
 // Статистика коллекции: считается на клиенте из уже загруженных _looksData.slots
 // (никакого нового запроса к бэку не нужно — lineup/owned уже есть на каждом предмете).
 function _looksLineupStats(lin){
-  let owned=0, total=0; const slotOwned={};
+  let owned=0, total=0, trial=0; const slotOwned={};
   _LOOKS_SLOTS.forEach(slot=>{
     const items=(_looksData.slots[slot]||[]).filter(it=>it.lineup===lin);
     total+=items.length;
     const hasOwned=items.some(it=>it.owned);
     if(hasOwned) owned+=items.filter(it=>it.owned).length;
+    if(items.some(it=>!it.owned && _looksTrial[slot]===it.id)) trial++;
     slotOwned[slot]=hasOwned;
   });
-  return {owned,total,slotOwned};
+  return {owned,total,trial,slotOwned};
 }
 function _looksCollectionStatusHtml(stats){
   if(stats.total===0) return `<div class="coll-status" style="color:var(--muted);background:rgba(255,255,255,.05)">не начато</div>`;
   if(stats.owned===stats.total) return `<div class="coll-status" style="color:#56c46a;background:rgba(86,196,106,.13)">✓ собрано</div>`;
+  if(stats.trial) return `<div class="coll-status" style="color:#c7b5ff;background:rgba(139,108,240,.15)">🔮 Примеряется: ${stats.trial}</div>`;
   if(stats.owned===0) return `<div class="coll-status" style="color:var(--muted);background:rgba(255,255,255,.05)">не начато</div>`;
   return `<div class="coll-status" style="color:var(--gold2);background:rgba(232,181,77,.13)">${stats.total-stats.owned} не куплено</div>`;
+}
+function _looksLineupVisibility(meta, compact=false){
+  if(compact) return meta&&meta.vip_required ? '👑 С VIP' : '👁 Всем';
+  return meta&&meta.vip_required ? '👑 На профиле — с VIP' : '👁 Видна всем';
+}
+function _looksItemPrice(item){
+  return Number(item&&item.price&&item.price[0]&&item.price[0].zarniki)||0;
+}
+function _looksLineupItems(lin){
+  if(!_looksData) return [];
+  return _LOOKS_SLOTS.flatMap(slot=>_looksData.slots[slot]||[]).filter(item=>item.lineup===lin);
+}
+function _looksLineupPriceRange(lin){
+  const prices=_looksLineupItems(lin).map(_looksItemPrice).filter(Boolean);
+  if(prices.length) return {min:Math.min(...prices),max:Math.max(...prices)};
+  const meta=_looksData&&_looksData.lineups&&_looksData.lineups[lin];
+  const value=Number(meta&&meta.price&&meta.price[0]&&meta.price[0].zarniki)||0;
+  return {min:value,max:value};
+}
+function _looksLineupPriceText(lin){
+  const {min,max}=_looksLineupPriceRange(lin);
+  if(!min) return '—';
+  return min===max?`${min}✨`:`${min}–${max}✨`;
 }
 const _LOOKS_SLOT_ICON={name_glow:'✨',avatar_frame:'🖼',avatar_halo:'🌟',title:'🏷',profile_bg:'🖌',card_fx:'❄️'};
 function _looksCollectionCard(lin){
@@ -136,7 +174,7 @@ function _looksCollectionCard(lin){
   const stats=_looksLineupStats(lin);
   const pct=stats.total?Math.round(stats.owned/stats.total*100):0;
   const c=LINEUP_COLOR[lin]||'#9aa7b8';
-  const price=(meta.price&&meta.price[0]&&meta.price[0].zarniki)?`${meta.price[0].zarniki}✨/предмет`:'—';
+  const price=_looksLineupPriceText(lin);
   const slotsHtml=_LOOKS_SLOTS.map(slot=>`<span class="coll-slot${stats.slotOwned[slot]?' on':''}">${_LOOKS_SLOT_ICON[slot]}</span>`).join('');
   return `<div class="coll-card" style="--c:${c};--cb:${c}4d;--cg:${c}1f" data-lineup="${lin}" onclick="_looksOpenCollection('${lin}')">
     <div class="coll-inner"><div class="coll-frame"></div>
@@ -145,7 +183,7 @@ function _looksCollectionCard(lin){
           <div class="coll-ring" style="background:conic-gradient(${c} calc(${pct}%),rgba(255,255,255,.08) 0)"><div class="coll-ring-mask"></div></div>
           ${_looksCollectionIconSvg(lin)}
         </div>
-        <div><div class="coll-name">${esc(meta.name)}</div>${_looksCollectionStatusHtml(stats)}<div class="coll-price">${price}</div></div>
+        <div><div class="coll-name">${esc(meta.name)}</div>${_looksCollectionStatusHtml(stats)}<div class="coll-price">${price}</div><div class="coll-visibility${meta.vip_required?' coll-visibility--vip':''}">${_looksLineupVisibility(meta,true)}</div></div>
       </div>
       <div class="coll-slots">${slotsHtml}</div>
     </div>
@@ -156,14 +194,15 @@ function _looksCollectionsViewHtml(){
   const lineups=Object.keys(_looksData.lineups||{});
   return `<div class="coll-grid">${lineups.map(_looksCollectionCard).join('')}</div>`;
 }
-// Детальный экран: все 6 секций слотов, переиспользованы БЕЗ ИЗМЕНЕНИЙ из режима
-// «По слотам» (Стадия 1) — уже читают _looksFilter (=lin, выставлен в
-// _looksOpenCollection) и рендерят реальные карточки предметов с тем же
-// инлайн-примеркой+покупкой, что и everywhere else в конструкторе. Якорь-чипы
-// (.looks-anchors) намеренно не рендерим — 6 секций одной линейки короткие,
-// прыгать некуда.
+// Детальный экран: переиспользует секции слотов из режима «По слотам», но не
+// рисует пустые категории. В полном каталоге у каждой линейки есть все шесть
+// слотов; эта защита нужна для частичной выдачи, чтобы вместо карточки товара
+// игрок не видел ложное «Ничего не найдено». Якорь-чипы не нужны: набор
+// секций одной линейки остаётся коротким.
 function _looksCollectionDetailBodyHtml(){
-  return `<div id="looks-sections">${_LOOKS_SLOTS.map(s=>_looksSectionHtml(s,_looksDetailLineup)).join('')}</div>`;
+  const slots=_LOOKS_SLOTS.filter(s=>
+    (_looksData.slots[s]||[]).some(it=>it.lineup===_looksDetailLineup));
+  return `<div id="looks-sections">${slots.map(s=>_looksSectionHtml(s,_looksDetailLineup)).join('')}</div>`;
 }
 // Медальон-иконка каждой линейки — авторский анимированный SVG-сигиль (не эмодзи,
 // см. COSMETICS_COLLECTION_DESIGN_RULES.md §1). Код транскрибирован из брейншторма
@@ -331,23 +370,26 @@ function _looksCollectionDetailHeaderHtml(lin){
   const meta=lineupMeta(lin); if(!meta) return '';
   const stats=_looksLineupStats(lin);
   const c=LINEUP_COLOR[lin]||'#9aa7b8';
-  const missing=stats.total-stats.owned;
-  const unit=(meta.price&&meta.price[0]&&meta.price[0].zarniki)||0;
-  const total=missing*unit;
+  const missingItems=_looksLineupItems(lin).filter(item=>!item.owned);
+  const missing=missingItems.length;
+  const total=missingItems.reduce((sum,item)=>sum+_looksItemPrice(item),0);
+  const priceRange=_looksLineupPriceText(lin);
+  const visibility=_looksLineupVisibility(meta);
   const bal=(_looksData.balances||{}).zarniki||0;
   const can=missing>0&&bal>=total;
   const notches=Array.from({length:stats.total},(_,i)=>`<div class="coll-meter-notch${i<stats.owned?' on':''}"></div>`).join('');
   const action = missing===0
     ? `<div class="coll-detail-done">✓ Коллекция собрана полностью</div>`
-    : `<button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyLineup('${lin}',this)">${can?`✨ Купить всё недостающее — ${total}✨ (${missing}×${unit}✨)`:`🚫 Нужно ${total}✨ (есть ${Math.floor(bal)}✨)`}</button>`;
+    : `<button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyLineup('${lin}',this)">${can?`✨ Купить всё недостающее — ${total}✨ (${missing} шт.)`:`🚫 Нужно ${total}✨ (есть ${Math.floor(bal)}✨)`}</button>`;
   return `<div class="coll-detail-head" style="--c:${c};--cb:${c}4d;--cg:${c}1f">
     <button class="coll-detail-back" onclick="_looksCloseCollection()" aria-label="Назад к коллекциям">‹</button>
     <div class="coll-detail-atmo">${_looksCollectionAtmosphereHtml(lin)}</div>
     <div class="coll-detail-sig" style="--c:${c}">${_looksCollectionIconSvg(lin)}</div>
     <div class="coll-detail-name">${esc(meta.name)}</div>
     <div class="coll-detail-blurb">${esc(meta.blurb||'')}</div>
+    <div class="coll-detail-rule"><span class="coll-visibility${meta.vip_required?' coll-visibility--vip':''}">${visibility}</span><span>🛍 Купить может каждый</span></div>
     <div class="coll-meter">${notches}</div>
-    <div class="coll-meter-caption"><span>${stats.owned} из ${stats.total} собрано</span><span>${missing>0?`${missing} не куплено · ${unit}✨/предмет`:''}</span></div>
+    <div class="coll-meter-caption"><span>${stats.owned} из ${stats.total} собрано</span><span>${missing>0?`${missing} не куплено · ${priceRange}`:''}</span></div>
     ${action}
   </div>`;
 }
@@ -355,16 +397,16 @@ function _looksCollectionDetailHeaderHtml(lin){
 // одинаковых POST — бэкенд теперь тоже защищён (владение читается после
 // блокировки баланса), но кнопку всё равно блокируем на время запроса —
 // не полагаться на бэк как на единственную линию защиты. Также обновляет
-// #looks-top (сброс _looksFocus) — иначе инлайн-плашка покупки под превью
-// могла остаться нацеленной на предмет, который эта покупка уже выдала.
+// После массовой покупки обновляем каталог и только FAB: примерочная больше не
+// живёт в основном потоке страницы.
 function _looksBuyLineup(lin,btn){
   if(btn) btn.disabled=true;
   api('/cosmetics/buy-lineup',{method:'POST',body:JSON.stringify({lineup:lin})})
     .then(r=>{toast(r.message); refreshCurrBar(); return api('/cosmetics/');})
     .then(d=>{_looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved};
-      _looksFocus=null; _looksDirty=true;
+      _looksDirty=true;
       const body=el('looks-mode-body'); if(body) body.innerHTML=_looksCollectionsViewHtml();
-      _looksRenderTop(); _looksSyncStickyH();})
+      _looksRenderFab(); _looksSyncStickyH();})
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
 // Фоновая атмосфера шапки детального экрана (Стадия 3) — 2-3 крупные МЕДЛЕННЫЕ
@@ -419,11 +461,11 @@ function _looksCycleStatus(){
 function _looksLineupInfoHtml(){
   if(_looksFilter==='all') return '';
   const l=lineupMeta(_looksFilter); if(!l) return '';
-  const price=(l.price&&l.price[0]&&l.price[0].zarniki)?`${l.price[0].zarniki}✨ за предмет`:'—';
-  const vipTxt=l.vip_required?'👑 показ на профиле только с VIP':'👁 видна всем, VIP не влияет';
+  const price=`${_looksLineupPriceText(_looksFilter)} за предмет`;
+  const visibility=_looksLineupVisibility(l);
   return `<div class="looks-lineup-info">
     <div class="looks-lineup-blurb">${esc(l.blurb||'')}</div>
-    <div class="looks-lineup-meta"><span>💰 ${price}</span><span>${vipTxt}</span></div>
+    <div class="looks-lineup-meta"><span>💰 ${price}</span><span>${visibility}</span><span>🛍 Купить может каждый</span></div>
   </div>`;
 }
 // Секция одного слота: заголовок-якорь + фильтруемая сетка (id стабилен для _looksJump).
@@ -445,64 +487,143 @@ function _looksSectionHtml(slot, lineupFilter){
     <div class="looks-sec-grid" id="looks-grid-${slot}">${_looksGridHtml(slot)}</div>
   </section>`;
 }
+// Живой свотч только у карточек, реально видимых на экране прямо сейчас. Когда
+// карточка уходит за экран, класс снимается и её эффект снова становится статичным.
+let _lcSwObserver=null;
+function _looksObserveSwatches(container){
+  if(!('IntersectionObserver' in window)) return;
+  if(!_lcSwObserver){
+    _lcSwObserver=new IntersectionObserver(entries=>{
+      entries.forEach(entry=>entry.target.classList.toggle('lc-sw-live', entry.isIntersecting));
+    }, {root:null, rootMargin:'50px', threshold:0.1});
+  }
+  (container||document).querySelectorAll('.looks-card[data-cos]').forEach(card=>_lcSwObserver.observe(card));
+}
 function _looksRenderSectionGrid(slot){
-  const g=el('looks-grid-'+slot); if(g) g.innerHTML=_looksGridHtml(slot);
+  const g=el('looks-grid-'+slot); if(g){ g.innerHTML=_looksGridHtml(slot); _looksObserveSwatches(g); }
 }
-// Горячий путь: перерисовывает только блок «сейчас→станет» (не всю модалку).
-function _looksRenderTop(){
-  const t=el('looks-top'); if(!t) return;
-  t.innerHTML=_looksPreviewHtml();
-}
-// Мини-карточка профиля из набора слотов sel для сравнения «Сейчас → Станет».
+// В примерочной показываем тот же полный профиль, что и на главной странице.
+// Разница только в источнике косметики: здесь он может содержать примеряемые предметы.
 function _looksRenderCard(sel){
-  const d=_looksData;
+  const d=_profileData||{};
   const glow=_looksCos(sel.name_glow), frame=_looksCos(sel.avatar_frame), title=_looksCos(sel.title);
   const halo=_looksCos(sel.avatar_halo), bg=_looksCos(sel.profile_bg), fx=_looksCos(sel.card_fx);
-  const sizeCls=' looks-preview--mini';
-  return `<div class="looks-preview${sizeCls} ${bg?bg.css:''}">
+  const lvl=d.account_level||d.chats?.[0]?.user_level||1;
+  const xpPerLvl=d.xp_to_next||d.xp_per_level||3000;
+  const xpInLvl=typeof d.xp_into==='number'?d.xp_into:((d.chats?.[0]?.user_xp||0)%xpPerLvl);
+  const xpPct=Math.min(100,Math.round(xpInLvl/xpPerLvl*100));
+  const avatar=(typeof _vipAvatar!=='undefined'&&_vipAvatar)
+    ?`<img src="${esc(_vipAvatar)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`
+    :(d.is_vip?'👑':'🔮');
+  const uid=d.user_id||_uid||0;
+  return `<div class="hero fit-player-card ${bg?bg.css:''}">
     ${fx?`<div class="card-fx ${fx.css}"></div>`:''}
-    <div class="ava ${frame?frame.css:''} ${halo?halo.css:''}">${d.vip?'👑':'🔮'}</div>
-    <div class="pname ${glow?glow.css:''}">@${esc((_profileData&&_profileData.username)||'Игрок')}</div>
-    ${title?`<div class="ptitle${title.css?' '+title.css:''}">${esc(title.text||title.name)}</div>`:''}
+    <div class="hero-head">
+      <div class="ava ${frame?frame.css:''} ${halo?halo.css:''}" id="fit-ava">${avatar}</div>
+      <div class="profile-copy">
+        <div class="pname ${glow?glow.css:''}">@${esc(vipName(d.username||'Игрок',d.is_vip))}</div>
+        <div class="prank">${esc(d.rank||'Игрок')}</div>
+        ${title?`<div class="ptitle${title.css?' '+title.css:''}">${esc(title.text||title.name)}</div>`:''}
+      </div>
+    </div>
+    <div class="hero-xp">
+      <div class="xp-bar"><div class="xp-fill" style="width:${xpPct}%"></div></div>
+      <div class="xp-lbl"><span>Уровень ${lvl}</span><span>${fmt(xpInLvl)} / ${fmt(xpPerLvl)} XP</span></div>
+    </div>
+    ${typeof d.combat_power==='number'?`<div class="cp-hero fit-cp-hero"><div class="cp-hero-lbl">⚡ ИНДЕКС СИЛЫ</div><div class="cp-hero-val">${fmt(d.combat_power)}</div></div>`:''}
+    <div class="stats">
+      <div class="stat"><div>🪙</div><div class="sv">${fmt(d.mora||0)}</div><div class="sl">Мора</div></div>
+      <div class="stat"><div>💎</div><div class="sv">${fmtF(d.diamonds||0)}</div><div class="sl">Алмазы</div></div>
+      <div class="stat"><div>✨</div><div class="sv">${Math.floor(d.zarniki||0)}</div><div class="sl">Зарники</div></div>
+      <div class="stat"><div>🏆</div><div class="sv">${fmt(d.achievements||0)}</div><div class="sl">Ачивки</div></div>
+    </div>
+    ${uid?`<div class="fit-player-id"><span>🆔 <code>${uid}</code></span><button class="btn btn-ghost btn-sm" onclick="copyUid(${Number(uid)})">📋 Копировать</button></div>`:''}
   </div>`;
 }
 function _looksChanged(){ return _LOOKS_SLOTS.some(s=>(_looksSel[s]||null)!==(_looksSaved[s]||null)); }
-// Превью «Сейчас → Станет»: левая карточка = применённое, правая = выбранное (ещё не сохранено).
-function _looksPreviewHtml(){
-  const changed=_looksChanged();
-  const applyable=_looksChanged(), diff=_looksHeroDiffers();
-  const actions=applyable
-    ?`<div class="looks-ba-act">
-        <button class="btn btn-sm btn-gold" onclick="_looksApply()">✓ Применить</button>
-        <button class="btn btn-sm btn-ghost" onclick="_looksReset()">Сбросить</button></div>`
-    :diff
-    ?`<div class="looks-ba-act"><button class="btn btn-sm btn-ghost btn-full" onclick="_looksReset()">↩ Сбросить примерку</button></div>`
-    :`<div class="looks-ba-hint">👇 Жми предмет — примерка сразу здесь. Понравилось — «Применить».</div>`;
-  return `<div class="looks-ba">
-      <div class="looks-ba-col"><div class="looks-ba-lbl">Сейчас</div>${_looksRenderCard(_looksSaved)}</div>
-      <div class="looks-ba-arrow">${diff?'➜':'='}</div>
-      <div class="looks-ba-col"><div class="looks-ba-lbl ${diff?'looks-ba-lbl--new':''}">Станет</div>${_looksRenderCard(_looksHeroSel())}</div>
-    </div>${_looksBuyBarHtml()}${actions}`;
+
+function _looksFabHtml(){
+  if(!_looksData) return '';
+  const sel=_looksHeroSel();
+  const frame=_looksCos(sel.avatar_frame), halo=_looksCos(sel.avatar_halo);
+  const hasTrial=Object.keys(_looksTrial).length>0;
+  return `<button class="looks-fab" onclick="_looksOpenFittingSheet()" aria-label="Примерочная">
+    <span class="looks-fab-avatar"><span class="ava looks-fab-ava ${frame?frame.css:''} ${halo?halo.css:''}">${_looksData.vip?'👑':'🔮'}</span></span>
+    <span class="looks-fab-label">Примерочная</span>
+    ${hasTrial?`<span class="looks-fab-badge">${Object.keys(_looksTrial).length}</span>`:''}
+  </button>`;
 }
-// Инлайн-плашка покупки под превью — когда последний выбранный предмет ещё не куплен.
-// Заменяет 2-ю модалку «Примерка»: примерка теперь прямо в hero, покупка — тут же.
-function _looksBuyBarHtml(){
-  const f=_looksFocus; if(!f) return '';
-  const it=(_looksData.slots[f.slot]||[]).find(x=>x.id===f.id);
-  if(!it || it.owned || !(it.price&&it.price.length)) return '';
-  const opt=it.price[0], bal=_looksData.balances||{};
-  const can=Object.entries(opt).every(([c,a])=>(bal[c]||0)>=a);
-  const price=_looksPriceTxt(opt);   // уже с иконкой ✨ из currency_icons
-  const vipWarn=(!_looksData.vip && it.rarity && it.rarity!=='common')
-    ? `<div class="looks-buy-vip">⚠️ Без VIP предмет ляжет в инвентарь, но не покажется на профиле.</div>` : '';
-  return `<div class="looks-buybar">
-    <div class="looks-buy-t">🔒 <b>${esc(it.name)}</b> · ${esc(lineupLabel(it.lineup))}${it.desc?`<div class="looks-buy-d">${esc(it.desc)}</div>`:''}</div>
-    <button class="btn btn-sm ${can?'btn-gold':'btn-ghost'} btn-full" ${can?'':'disabled'} onclick="_looksBuyFocus()">${can?'✨ Купить за '+price:'🚫 Нужно '+price}</button>
-    ${vipWarn}</div>`;
+function _looksRenderFab(){
+  const dock=el('looks-dock'); if(dock) dock.innerHTML=_looksFabHtml();
 }
-function _looksBuyFocus(){
-  const f=_looksFocus; if(!f) return;
-  _looksBuyFromPreview(f.id, 0, f.slot);   // купить + надеть + перезагрузить (reuse)
+
+function _looksOpenFittingSheet(){
+  OM('🎨 Примерочная', _looksFittingSheetBodyHtml(), _looksFittingSheetButtons());
+}
+function _looksTrialTotal(){
+  return Object.values(_looksTrial).reduce((sum,id)=>{
+    const it=_looksCos(id);
+    return sum+((it&&it.price&&it.price[0]&&it.price[0].zarniki)||0);
+  },0);
+}
+function _looksFittingSlotChipsHtml(){
+  const used=_LOOKS_SLOTS.filter(slot=>_looksHeroSel()[slot]).length;
+  return `<section class="fit-outfit" aria-label="Состав образа">
+    <div class="fit-outfit-head"><span>Состав образа</span><span>${used} из ${_LOOKS_SLOTS.length}</span></div>
+    <div class="fit-outfit-list">${_LOOKS_SLOTS.map(slot=>{
+    const rawLabel=_LOOKS_SLOT_LABEL[slot]||slot;
+    const icon=rawLabel.split(' ')[0], slotLabel=rawLabel.replace(/^\S+\s*/, '');
+    const trialId=_looksTrial[slot];
+    if(trialId){
+      const it=_looksCos(trialId);
+      const price=(it&&it.price&&it.price[0]&&it.price[0].zarniki)||0;
+      return `<button class="fit-outfit-row trial" onclick="_looksBuyFromPreview('${trialId}',0,'${slot}')"><span class="fit-outfit-icon">${icon}</span><span class="fit-outfit-main"><span class="fit-outfit-slot">${esc(slotLabel)}</span><strong>${esc(it?it.name:'Предмет')}</strong></span><span class="fit-outfit-state"><span>Примеряется</span><b>${price}✨</b></span></button>`;
+    }
+    const ownedId=_looksSel[slot];
+    if(ownedId){
+      const it=_looksCos(ownedId), state=_looksSaved[slot]===ownedId?'Надето':'Выбрано';
+      return `<div class="fit-outfit-row owned"><span class="fit-outfit-icon">${icon}</span><span class="fit-outfit-main"><span class="fit-outfit-slot">${esc(slotLabel)}</span><strong>${esc(it?it.name:'Предмет')}</strong></span><span class="fit-outfit-state">${state}</span></div>`;
+    }
+    return `<div class="fit-outfit-row empty"><span class="fit-outfit-icon">${icon}</span><span class="fit-outfit-main"><span class="fit-outfit-slot">${esc(slotLabel)}</span><strong>Слот свободен</strong></span><span class="fit-outfit-state">Свободно</span></div>`;
+  }).join('')}</div>
+    <div class="fit-outfit-hint">Выберите предмет в каталоге — он сразу появится на карточке и в составе образа.</div>
+  </section>`;
+}
+function _looksFittingSheetButtons(){
+  const hasTrial=Object.keys(_looksTrial).length>0;
+  const hasFree=_looksChanged();
+  if(!hasFree&&!hasTrial) return [{l:'Закрыть',c:'btn-ghost',f:'CM()'}];
+  {
+    const total=_looksTrialTotal(), bal=(_looksData.balances||{}).zarniki||0;
+    const can=!hasTrial||bal>=total;
+    const label=hasTrial?(can?`✨ Купить и применить всё — ${total}✨`:`🚫 Нужно ${total}✨ (есть ${Math.floor(bal)}✨)`):'✓ Применить';
+    return [{l:'Сбросить примерку',c:'btn-ghost',f:'_looksResetTrialAndRerenderSheet()'},{l:label,c:can?'btn-gold':'btn-ghost',d:!can,f:'_looksBuyAndApplyAll(this)'}];
+  }
+}
+function _looksFittingSheetBodyHtml(){
+  return `<div id="looks-fit-top">${_looksRenderCard(_looksHeroSel())}</div>${_looksFittingSlotChipsHtml()}`;
+}
+function _looksRerenderFittingSheetIfOpen(){
+  const dlg=el('modal'); if(dlg&&dlg.open){
+    const body=el('mb'), foot=el('mf');
+    if(body) body.innerHTML=_looksFittingSheetBodyHtml();
+    if(foot) foot.innerHTML=_looksFittingSheetButtons().map(b=>`<button class="btn btn-sm ${b.c||'btn-ghost'}" onclick="${String(b.f||'').replace(/"/g,'&quot;')}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
+  }
+}
+function _looksResetTrialAndRerenderSheet(){ _looksReset(); _looksRerenderFittingSheetIfOpen(); }
+function _looksBuyAndApplyAll(btn){
+  if(btn) btn.disabled=true;
+  const trialIds=Object.values(_looksTrial);
+  const buy=trialIds.length?api('/cosmetics/buy-many',{method:'POST',body:JSON.stringify({cosmetic_ids:trialIds})}):Promise.resolve(null);
+  buy.then(r=>{
+      if(r){toast(r.message); refreshCurrBar();}
+      Object.entries(_looksTrial).forEach(([slot,id])=>{_looksSel[slot]=id;});
+      _looksTrial={};
+      return _looksApply();
+    })
+    .then(()=>_looksReloadCatalog())
+    .then(()=>CM())
+    .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
 function _looksGridHtml(slot){
   const q=_looksSearch.trim().toLowerCase();
@@ -531,6 +652,7 @@ function _looksSwatch(slot,it){
 }
 function _looksCard(slot,it){
   const sel=_looksShownId(slot)===it.id;
+  const trial=!it.owned && _looksTrial[slot]===it.id;
   const sw=_looksSwatch(slot,it);
   const rar=`<span class="lc-rar" style="color:${lineupColor(it.lineup)}">${esc(lineupLabel(it.lineup))}</span>`;
   // Статичный акцент цвета линейки (не анимация — .lc-sw уже намеренно без
@@ -545,9 +667,9 @@ function _looksCard(slot,it){
   }
   const vip=it.vip_required?'<span class="lc-vip">VIP</span>':'';
   const priceTxt=it.price&&it.price.length?`<span class="lc-price-hint">${_looksPriceTxt(it.price[0])}</span>`:'';   // _looksPriceTxt уже с иконкой ✨
-  return `<div class="looks-card lc-lineup-accent r-${it.rarity} locked lc-buyable ${sel?'sel':''}" ${accentStyle} data-cos="${it.id}" onclick="_looksTapUnowned('${slot}','${it.id}')">
-    ${sw}<div class="lc-name">🔒 ${esc(it.name)} ${vip}</div>
-    <div class="lc-foot">${rar}${priceTxt}<span class="lc-prev-hint">👁</span></div></div>`;
+  return `<div class="looks-card lc-lineup-accent r-${it.rarity} locked lc-buyable ${sel?'sel':''}${trial?' lc-trial':''}" ${accentStyle} data-cos="${it.id}" onclick="_looksTapUnowned('${slot}','${it.id}')">
+    ${sw}<div class="lc-name">${trial?'🔮':'🔒'} ${esc(it.name)} ${vip}</div>
+    <div class="lc-foot">${rar}${priceTxt}${trial?'<span class="lc-trial-state">Примеряется</span>':'<span class="lc-prev-hint">👁</span>'}</div></div>`;
 }
 // Финальный ревью Стадии 3: перезагружает каталог после покупки/применения БЕЗ
 // сброса навигационного состояния (открытая коллекция/фильтр/поиск) — в
@@ -569,53 +691,63 @@ function _looksReloadCatalog(){
   // платной покупки (см. _looksBuyFromPreview) — игрок теряет деньги/предмет
   // на сервере, но видит ошибку и не видит купленное на экране.
   return Promise.all([api('/cosmetics/'),api('/cosmetics/presets').catch(()=>({presets:_looksPresets}))]).then(([d,pr])=>{
-    _looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved}; _looksFocus=null;
+    _looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved};
     _looksPresets=pr.presets||[];
     renderLooks();
   });
 }
+// Покупка одного предмета: удаляет только его примерку. Остальные слоты в
+// примерочной сохраняются и после обновления каталога остаются в шторке.
 function _looksBuyFromPreview(id,opt,slot){
   api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})
     .then(r=>{toast(r.message); refreshCurrBar(); _looksDirty=true;
       return api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})});})
-    .then(()=>{toast('✅ Надето!'); return _looksReloadCatalog();})   // владение изменилось → перезагрузить кэш
+    .then(()=>{toast('✅ Надето!'); delete _looksTrial[slot]; return _looksReloadCatalog();})
+    .then(()=>_looksRerenderFittingSheetIfOpen())
     .catch(e=>toast(e,false));
 }
 
-// Что показано в слоте прямо сейчас: примеряемый (focus) перекрывает выбранное.
-function _looksShownId(slot){ return (_looksFocus&&_looksFocus.slot===slot)?_looksFocus.id:(_looksSel[slot]||null); }
-// Набор для hero: применимый выбор + наложенная примерка focus (в т.ч. непокупленного).
-function _looksHeroSel(){ if(!_looksFocus) return _looksSel; const s={..._looksSel}; s[_looksFocus.slot]=_looksFocus.id; return s; }
-// Отличается ли hero от применённого визуально (для стрелки/подписи «Станет»).
+// Примерка перекрывает выбранное только в том же слоте: можно держать несколько
+// неоплаченных предметов одновременно, по одному на слот.
+function _looksShownId(slot){ return _looksTrial[slot]||_looksSel[slot]||null; }
+function _looksHeroSel(){ const sel={..._looksSel}; Object.keys(_looksTrial).forEach(slot=>{sel[slot]=_looksTrial[slot];}); return sel; }
 function _looksHeroDiffers(){ const hs=_looksHeroSel(); return _LOOKS_SLOTS.some(s=>(hs[s]||null)!==(_looksSaved[s]||null)); }
-function _looksEquip(slot,id){ _looksSel[slot]=id; _looksFocus={slot,id}; _looksRenderTop(); _looksMarkSel(slot); }
-function _looksUnequip(slot){ _looksSel[slot]=null; _looksFocus=null; _looksRenderTop(); _looksMarkSel(slot); }
-function _looksReset(){ _looksSel={..._looksSaved}; _looksFocus=null; _looksRenderTop(); _LOOKS_SLOTS.forEach(_looksMarkSel); }
-// Непокупленный: только примерка (focus), в _looksSel НЕ кладём → «Применить» его не тронет
-// (нельзя надеть то, чем не владеешь); для покупки — инлайн-плашка под hero.
-function _looksTapUnowned(slot,id){ _looksFocus={slot,id}; _looksRenderTop(); _looksMarkSel(slot); }
+function _looksEquip(slot,id){ _looksSel[slot]=id; delete _looksTrial[slot]; _looksRenderFab(); _looksMarkSel(slot); }
+function _looksUnequip(slot){ _looksSel[slot]=null; delete _looksTrial[slot]; _looksRenderFab(); _looksMarkSel(slot); }
+function _looksReset(){ _looksSel={..._looksSaved}; _looksTrial={}; _looksRenderFab(); _LOOKS_SLOTS.forEach(_looksMarkSel); }
+function _looksTapUnowned(slot,id){ _looksTrial[slot]=id; _looksRenderFab(); _looksMarkSel(slot); }
 // Перф: точечно переставить .sel в сетке ЭТОГО слота (без пересборки innerHTML —
 // это и был источник «подлагивания»: раньше каждый тап перерисовывал весь грид).
 function _looksMarkSel(slot){
-  const grid=el('looks-grid-'+slot); if(!grid){ _looksRenderSectionGrid(slot); return; }
-  const cards=grid.querySelectorAll('.looks-card[data-cos]');
-  if(!cards.length){ _looksRenderSectionGrid(slot); return; }
-  const shown=_looksShownId(slot);
-  cards.forEach(c=>{
-    const cid=c.getAttribute('data-cos');
-    c.classList.toggle('sel', cid===String(shown) || (cid==='__none__' && shown==null));
-  });
+  // Выбор примерки меняет не только обводку, но и смысл карточки: замок
+  // превращается в «Примеряется». Поэтому обновляем лишь сетку этого слота —
+  // без пересборки всей страницы и без скачка её прокрутки.
+  _looksRenderSectionGrid(slot);
 }
 
 // ── Пресеты образов ────────────────────────────────────────────────────────────
+function _looksPresetCountLabel(count){
+  const tail=count%100, last=count%10;
+  const noun=tail>=11&&tail<=14?'образов':last===1?'образ':last>=2&&last<=4?'образа':'образов';
+  return `${count} ${noun}`;
+}
 function _looksPresetsHtml(){
-  const chips=_looksPresets.map(p=>`<span class="looks-preset-chip">
-    <button class="btn-plain looks-preset-name" onclick="_applyPreset(${p.id})" title="Применить образ">${esc(p.name)}</button>
-    <button class="btn-plain looks-preset-del" onclick="_deletePreset(${p.id})" title="Удалить">✕</button>
-  </span>`).join('');
-  const saveBtn=`<button class="btn btn-sm btn-ghost looks-preset-save" onclick="_savePreset()">💾 Сохранить образ</button>`;
-  if(!_looksPresets.length) return `<div class="looks-presets"><div class="looks-presets-hint">Нет сохранённых образов</div>${saveBtn}</div>`;
-  return `<div class="looks-presets">${chips}${saveBtn}</div>`;
+  const cards=_looksPresets.map(p=>`<article class="looks-preset-card" data-preset="${p.id}">
+    <button class="btn-plain looks-preset-apply" onclick="_applyPreset(${p.id})" title="Применить образ «${esc(p.name)}»">
+      <span class="looks-preset-orb" aria-hidden="true">💾</span>
+      <span class="looks-preset-copy"><span class="looks-preset-name">${esc(p.name)}</span><span class="looks-preset-kind">Твой образ</span></span>
+    </button>
+    <button class="btn-plain looks-preset-del" onclick="_deletePreset(${p.id})" title="Удалить образ «${esc(p.name)}»" aria-label="Удалить образ «${esc(p.name)}»">✕</button>
+  </article>`).join('');
+  const save=`<button class="looks-preset-card looks-preset-card--add" type="button" onclick="_savePreset()">
+    <span class="looks-preset-orb looks-preset-orb--add" aria-hidden="true">＋</span>
+    <span class="looks-preset-copy"><span class="looks-preset-name">Сохранить текущий</span><span class="looks-preset-kind">Новый образ</span></span>
+  </button>`;
+  const empty=!_looksPresets.length?'<div class="looks-presets-empty">Сохраните удачную комбинацию, чтобы вернуть её одним тапом.</div>':'';
+  return `<section class="looks-presets" id="looks-presets" aria-label="Сохранённые образы">
+    <div class="looks-presets-head"><span>💾 Образы</span>${_looksPresets.length?`<span>${_looksPresetCountLabel(_looksPresets.length)}</span>`:''}</div>
+    ${empty}<div class="looks-presets-row">${cards}${save}</div>
+  </section>`;
 }
 // UX_AUDIT С16: bottom-sheet с полем вместо нативного prompt()
 function _savePreset(){
@@ -663,17 +795,18 @@ let _wpMode=null;
 function _looksWelcomeSectionHtml(){
   const w=_looksData.welcome; if(!w) return '';
   const cards=(w.options||[]).map(o=>{
-    const cls=['looks-card','lc-wide','r-'+o.rarity]; if(o.current)cls.push('sel'); if(o.locked)cls.push('locked');
+    const cls=['looks-card','welcome-card','r-'+o.rarity]; if(o.current)cls.push('sel'); if(o.locked)cls.push('locked');
     const vip=o.vip_required?' <span class="lc-vip">VIP</span>':'';
-    return `<div class="${cls.join(' ')}" onclick="_welcomePick('${o.id}')">
+    const state=o.current?'✓ Сейчас используется':(o.locked?'🔒 Доступно с VIP':o.desc);
+    return `<div class="${cls.join(' ')}" data-welcome="${o.id}" onclick="_welcomePick('${o.id}')">
       <div class="lc-name">${o.locked?'🔒 ':''}${esc(o.name)}${vip}</div>
-      <div class="lc-tag">${o.current?'✓ выбрано':esc(o.desc)}</div></div>`;
+      <div class="lc-tag${o.current?' welcome-state-current':''}${o.locked?' welcome-state-locked':''}">${esc(state)}</div></div>`;
   }).join('');
-  const hint=_looksData.vip?'':'<div class="looks-hint">👆 Жми на любой режим — увидишь превью. Выбрать приветствие можно с VIP.</div>';
+  const hint=_looksData.vip?'':'<div class="looks-hint">👆 Нажмите на режим — увидите его в превью. «Вспышка» доступна с VIP.</div>';
   return `<section class="looks-section" id="looks-sec-welcome">
     <div class="looks-sec-t">${_LOOKS_ANCHOR_LABEL.welcome}</div>
     <div id="wpreview" class="wpreview"></div>${hint}
-    <div class="looks-cards">${cards}</div>
+    <div class="looks-welcome-cards">${cards}</div>
   </section>`;
 }
 function _playWelcomePreview(mode){
@@ -719,9 +852,18 @@ function _setWelcome(id){
 // в модалку. _themeData/themeStatusBadge переиспользуются из app.05.js.
 let _looksThemeSel=null, _looksThemeFilter='all';
 function _looksThemesEnsureLoaded(){
-  if(_themeData){ _looksRenderThemesGrid(); return; }
-  api('/themes/').then(themes=>{ _themeData=themes; _looksRenderThemesGrid(); })
+  if(_themeData){ _looksRenderThemesGrid(); _looksThemeShowInitialPreview(); return; }
+  api('/themes/').then(themes=>{ _themeData=themes; _looksRenderThemesGrid(); _looksThemeShowInitialPreview(); })
     .catch(e=>{ const g=el('looks-grid-themes'); if(g) g.innerHTML=`<div class="err">${e}</div>`; });
+}
+// У темы всегда есть контекст: после возврата на экран восстанавливаем последний
+// просмотр, а при первом входе — активную тему. Пустая декоративная плашка не
+// объясняла игроку, что именно он видит и зачем нужны карточки ниже.
+function _looksThemeShowInitialPreview(){
+  if(!_themeData) return;
+  const selected=_themeData.find(t=>t.theme_id===_looksThemeSel)
+    ||_themeData.find(t=>t.active)||_themeData[0];
+  if(selected) _looksThemeTap(selected.theme_id);
 }
 function _looksThemesSectionHtml(){
   return `<section class="looks-section" id="looks-sec-themes">
@@ -747,7 +889,18 @@ function _looksRenderThemesGrid(){
     :_looksThemeFilter==='premium'?_themeData.filter(t=>t.premium)
     :_themeData;
   if(!filtered.length){ g.innerHTML='<div class="looks-empty">Нет тем в этой категории</div>'; return; }
-  g.innerHTML=`<div class="looks-cards">${filtered.map(_looksThemeCard).join('')}</div>`;
+  g.innerHTML=`<div class="looks-cards looks-theme-cards">${filtered.map(_looksThemeCard).join('')}</div>`;
+}
+function _looksThemeAvailabilityText(t){
+  if(t.active) return 'Надета сейчас';
+  if(t.owned) return 'В коллекции';
+  if(t.source&&t.source.startsWith('gacha')) return 'Выпадает в Гаче';
+  if(t.source==='event') return 'Награда ивента';
+  if(t.price_mora) return `Купить · ${fmt(t.price_mora)} 🪙`;
+  if(t.price_diamonds) return `Купить · ${t.price_diamonds} 💎`;
+  if(t.price_zarniki) return `Купить · ${fmt(t.price_zarniki)} ✨`;
+  if(t.price_dark) return `Купить · ${t.price_dark} 🌑`;
+  return 'Способ получения неизвестен';
 }
 function _looksThemeCard(t){
   // БАГ 2026-07-23: раньше сюда впихивали ПОЛНУЮ декоративную «шапку» темы (top/bot_line) —
@@ -758,18 +911,22 @@ function _looksThemeCard(t){
   // а в самой карточке — компактная иконка+имя, как у остальной косметики (.lc-sw).
   const sel=_looksThemeSel===t.theme_id;
   const accent=t.accent||(t.top||'').trim().charAt(0)||'🎭';
-  return `<div class="looks-card${t.active?' sel':''}${sel&&!t.active?' sel':''}" data-theme="${t.theme_id}" onclick="_looksThemeTap('${t.theme_id}')">
-    <div class="lc-sw"><span class="lc-ava">${esc(accent)}</span></div>
-    <div class="lc-name">${esc(t.name)}</div>
-    <div class="lc-foot">${themeStatusBadge(t)}</div>
+  const pattern=(t.top||t.bot_line||accent).replace(/\s+/g,' ').trim();
+  return `<div class="looks-card theme-card r-${esc(t.rarity||'common')}${t.active?' sel':''}${sel&&!t.active?' theme-previewing':''}" data-theme="${t.theme_id}" onclick="_looksThemeTap('${t.theme_id}')">
+    <div class="theme-card-swatch"><span class="theme-card-pattern">${esc(pattern)}</span><span class="theme-card-accent">${esc(accent)}</span></div>
+    <div class="theme-card-copy"><div class="lc-name">${esc(t.name)}</div><div class="theme-card-meta">${esc(_looksThemeAvailabilityText(t))}</div></div>
   </div>`;
 }
 function _looksThemeTap(tid){
   if(!_themeData) return;
   const t=_themeData.find(x=>x.theme_id===tid); if(!t) return;
   _looksThemeSel=tid;
-  document.querySelectorAll('#looks-grid-themes .looks-card').forEach(c=>
-    c.classList.toggle('sel', c.getAttribute('data-theme')===tid));
+  document.querySelectorAll('#looks-grid-themes .looks-card').forEach(c=>{
+    const cardTheme=_themeData.find(x=>x.theme_id===c.getAttribute('data-theme'));
+    const active=!!(cardTheme&&cardTheme.active);
+    c.classList.toggle('sel', active);
+    c.classList.toggle('theme-previewing', c.getAttribute('data-theme')===tid&&!active);
+  });
   const box=el('looks-theme-preview'); if(!box) return;
   box.innerHTML='<div class="loader">Загрузка превью…</div>';
   api(`/themes/preview/${tid}`).then(r=>{
@@ -780,8 +937,10 @@ function _looksThemeTap(tid){
     if(t.active) actionHtml='<div class="looks-theme-active">✓ Активная тема</div>';
     else if(t.owned) actionHtml=`<button class="btn btn-sm btn-gold btn-full" onclick="_looksThemeEquip('${tid}')">✓ Надеть</button>`;
     else if(buyable) actionHtml=`<button class="btn btn-sm btn-gold btn-full" onclick="_looksThemeBuy('${tid}')">Купить — ${price}</button>`;
-    box.innerHTML=`<div class="profile-preview" style="min-height:40px">${r.text||''}</div>
+    const stateLabel=t.active?'Сейчас на профиле':'Предпросмотр темы';
+    box.innerHTML=`<div class="looks-theme-kicker">${stateLabel}</div><div class="profile-preview" style="min-height:40px">${r.text||''}</div>
       <div class="looks-theme-name">${esc(t.name)} · ${_rarLabel(t.rarity)}</div>
+      ${t.desc?`<div class="looks-theme-desc">${esc(t.desc)}</div>`:''}
       ${actionHtml}`;
   }).catch(()=>{ box.innerHTML='<span style="color:var(--muted);font-size:11px">Нет данных профиля</span>'; });
 }

@@ -15,7 +15,7 @@ from services.cosmetics import (
     chest_catalog, open_chest, craft_catalog, craft_cosmetic,
     giftable_cosmetics, gift_cosmetic, buy_chest,
     list_presets, save_preset, apply_preset, delete_preset,
-    buy_lineup,
+    buy_lineup, buy_many,
 )
 
 # Баг 2026-07-29: владелец выключил "Косметика/Образы" в "Глобальные модули"
@@ -67,6 +67,19 @@ class BuyLineupRequest(BaseModel):
 @router.post("/buy-lineup")
 async def cosmetics_buy_lineup(body: BuyLineupRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     ok, msg = await buy_lineup(db, user["id"], body.lineup)
+    if not ok:
+        raise HTTPException(400, msg)
+    await db.commit()
+    return {"ok": True, "message": msg}
+
+
+class BuyManyRequest(BaseModel):
+    cosmetic_ids: list[str]
+
+
+@router.post("/buy-many")
+async def cosmetics_buy_many(body: BuyManyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    ok, msg = await buy_many(db, user["id"], body.cosmetic_ids)
     if not ok:
         raise HTTPException(400, msg)
     await db.commit()
