@@ -128,6 +128,16 @@ nix-shell -p nodejs_22 chromium --run \
   'PUPPETEER_EXECUTABLE_PATH=$(command -v chromium) npm run test:ui --prefix predvestnik_v2 -- fitting looks'
 ```
 
+Для ревизии косметики скрипт ниже читает локальный `core.cosmetics`, собирает по
+две полные комбинации каждой линейки и сохраняет карточки в `/tmp` без обращения к
+production или пользовательским данным:
+
+```bash
+cd predvestnik_v2
+nix-shell -p nodejs_22 chromium --run \
+  'PUPPETEER_EXECUTABLE_PATH=$(command -v chromium) node tools/capture_all_cosmetic_lineups_audit.mjs'
+```
+
 Минимальный предпроизводственный шлюз:
 
 1. синтаксис затронутых Python/JavaScript-файлов;
