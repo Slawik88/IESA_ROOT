@@ -20,6 +20,7 @@ from services.battle_pass import (
     set_weekend_boost_pct,
     set_xp_weight_override,
 )
+from services.battle_pass_rewards import normalize_configured_reward_items
 from ._common import require_console_perm
 
 router = APIRouter()
@@ -342,12 +343,24 @@ async def dev_bp_reward_set(body: BpRewardRequest, db=Depends(get_db), user=Depe
         raise HTTPException(400, f"level: 1..{BATTLE_PASS_MAX_LEVEL}.")
 
     opts_json = None
-    if body.reward_options:
-        if not isinstance(body.reward_options, list) or len(body.reward_options) < 2:
-            raise HTTPException(400, "reward_options: нужно ≥2 вариантов (или null).")
-        opts_json = _json.dumps(body.reward_options)
+    try:
+        clean_items = normalize_configured_reward_items(body.items)
+        if body.reward_options:
+            if not isinstance(body.reward_options, list) or len(body.reward_options) < 2:
+                raise ValueError("reward_options: нужно ≥2 вариантов (или null).")
+            clean_options = []
+            for option in body.reward_options:
+                if not isinstance(option, dict):
+                    raise ValueError("каждый reward_options должен быть объектом")
+                clean_options.append({
+                    **option,
+                    "items": normalize_configured_reward_items(option.get("items") or []),
+                })
+            opts_json = _json.dumps(clean_options, ensure_ascii=False)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
-    items_json = _json.dumps(body.items)
+    items_json = _json.dumps(clean_items, ensure_ascii=False)
     await db.execute(
         "INSERT INTO battle_pass_reward_overrides "
         "(season_id, level, track, mora, diamonds, items, theme_id, reward_options) "
@@ -482,15 +495,22 @@ async def dev_bp_reward_import(body: BpImportRequest, db=Depends(get_db), user=D
                 raise ValueError(f"level вне 1..{BATTLE_PASS_MAX_LEVEL}")
             mora = int(r.get("mora", 0) or 0)
             dia = int(r.get("diamonds", 0) or 0)
-            clean_items = []
-            for it in (r.get("items") or []):
-                iid = it[0]
-                if iid not in ITEMS_REGISTRY:
-                    raise ValueError(f"неизвестный item '{iid}'")
-                clean_items.append([iid, int(it[1])])
+            clean_items = normalize_configured_reward_items(r.get("items") or [])
             theme_id = r.get("theme_id") or None
             opts = r.get("reward_options")
-            opts_json = _json.dumps(opts, ensure_ascii=False) if opts else None
+            clean_options = None
+            if opts:
+                if not isinstance(opts, list) or len(opts) < 2:
+                    raise ValueError("reward_options: нужно ≥2 вариантов")
+                clean_options = []
+                for option in opts:
+                    if not isinstance(option, dict):
+                        raise ValueError("каждый reward_options должен быть объектом")
+                    clean_options.append({
+                        **option,
+                        "items": normalize_configured_reward_items(option.get("items") or []),
+                    })
+            opts_json = _json.dumps(clean_options, ensure_ascii=False) if clean_options else None
             await db.execute(
                 "INSERT INTO battle_pass_reward_overrides "
                 "(season_id, level, track, mora, diamonds, items, theme_id, reward_options) "
