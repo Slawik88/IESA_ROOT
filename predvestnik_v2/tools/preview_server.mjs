@@ -66,7 +66,12 @@ const PROFILE = {
     { id: 3, name: 'Пух', species_id: 'hamster', rarity: 'common', placement: 'storage', fatigue: 0, pet_level: 3 },
   ],
   is_vip: true, tos_accepted: true, global_rank: 3, partner: 'moon_witch',
-  cosmetics: { name_glow: { css: 'glow-gold', name: 'Золотое сияние' }, title: 'Предвестник Рассвета' },
+  cosmetics: {
+    name_glow: { css: 'glow-moon', name: 'Лунный свет', lineup: 'forest' },
+    avatar_frame: { css: 'frame-oak', name: 'Дубовая оправа', lineup: 'forest' },
+    title: 'Предвестник Рассвета',
+    lineage: { id: 'forest', source_slot: 'avatar_frame' },
+  },
   system_flags: [
     { key: 'tab_zoo', enabled: true }, { key: 'tab_market', enabled: true },
     { key: 'tab_bp', enabled: true }, { key: 'tab_auction', enabled: true },
@@ -895,12 +900,13 @@ const server = http.createServer(async (req, res) => {
       ],
       clan: { name: 'Тёмный Орден', tag: 'DARK', emblem: '🛡', role: 'leader' },
       cosmetics: {
-        profile_bg: { css: 'pbg-galaxy', name: 'Галактика' },
-        card_fx: { css: 'cfx-sparks', name: 'Искры' },
-        avatar_frame: { css: 'frame-arcane', name: 'Аркана' },
-        avatar_halo: { css: 'halo-eclipse', name: 'Затмение' },
-        name_glow: { css: 'glow-rift', name: 'Разлом' },
+        profile_bg: { css: 'pbg-galaxy', name: 'Галактика', lineup: 'void' },
+        card_fx: { css: 'cfx-sparks', name: 'Искры', lineup: 'void' },
+        avatar_frame: { css: 'frame-arcane', name: 'Аркана', lineup: 'void' },
+        avatar_halo: { css: 'halo-eclipse', name: 'Затмение', lineup: 'void' },
+        name_glow: { css: 'glow-rift', name: 'Разлом', lineup: 'void' },
         title: 'Владычица Бездны', title_css: 'title-harbinger',
+        lineage: { id: 'void', source_slot: 'avatar_frame' },
       },
       sanction: null, chat_warnings: 0, muted_until: null,
     });

@@ -500,7 +500,8 @@ async def buy_many(db, user_id: int, cosmetic_ids: list[str]) -> tuple[bool, str
 
 async def get_active_cosmetics(db, user_id: int) -> dict:
     """Надетая косметика для рендера профиля (веб + титул в боте).
-    → {"name_glow": {"css","name"}, "avatar_frame": {...}, "title": "текст"}
+    → {"name_glow": {"css","name","lineup"}, "avatar_frame": {...},
+       "title": "текст", "lineage": {"id","source_slot"}}
     VIP-гейт: косметика с is_vip_locked() показывается только при активной VIP —
     без неё «спит» (выбор слота в БД не трогаем, чтобы при продлении VIP она
     вернулась сама, без переэкипировки)."""
@@ -518,7 +519,11 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
             if cos.get("css"):
                 out["title_css"] = cos["css"]
         else:
-            out[slot] = {"css": cos.get("css"), "name": cos["name"]}
+            out[slot] = {
+                "css": cos.get("css"),
+                "name": cos["name"],
+                "lineup": cos.get("lineup"),
+            }
         locked[slot] = is_vip_locked(cos)
 
     chosen = loadout.get(_WELCOME_SLOT)
@@ -533,6 +538,17 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
             out.pop(slot, None)
             if slot == "title":
                 out.pop("title_css", None)
+
+    # Родословная образа вычисляется ПОСЛЕ VIP-фильтра: профиль не должен
+    # подсвечиваться цветом предмета, который сейчас «спит». Приоритет отражает
+    # близость к аватару; клиент получает готовый lineup id и не поддерживает
+    # хрупкую карту cosmetic_id → lineup.
+    for source_slot in ("avatar_frame", "avatar_halo", "card_fx", "profile_bg"):
+        item = out.get(source_slot)
+        lineup_id = item.get("lineup") if isinstance(item, dict) else None
+        if lineup_id:
+            out["lineage"] = {"id": lineup_id, "source_slot": source_slot}
+            break
     return out
 
 

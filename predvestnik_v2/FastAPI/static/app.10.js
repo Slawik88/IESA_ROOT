@@ -51,6 +51,22 @@ const LINEUP_COLOR = {
 function lineupMeta(id){ return (_looksData&&_looksData.lineups&&_looksData.lineups[id])||null; }
 function lineupLabel(id){ const l=lineupMeta(id); return l?l.name:(id||'—'); }
 function lineupColor(id){ return LINEUP_COLOR[id]||'#9aa7b8'; }
+const _LOOKS_LINEAGE_PRIORITY=['avatar_frame','avatar_halo','card_fx','profile_bg'];
+function _looksLineageId(cosmetics){
+  const co=cosmetics||{};
+  const declared=co.lineage&&typeof co.lineage.id==='string'?co.lineage.id:'';
+  if(declared&&LINEUP_COLOR[declared]) return declared;
+  for(const slot of _LOOKS_LINEAGE_PRIORITY){
+    const id=co[slot]&&typeof co[slot].lineup==='string'?co[slot].lineup:'';
+    if(id&&LINEUP_COLOR[id]) return id;
+  }
+  return '';
+}
+window._looksLineageStyle=function(cosmetics){
+  const id=_looksLineageId(cosmetics); if(!id) return '';
+  const color=LINEUP_COLOR[id];
+  return `--avatar-lineage:${color};--avatar-lineage-wash:${color}30`;
+};
 function _looksTrialMetaFromItem(it){
   return {id:it.id,name:it.name||'Предмет',text:it.text||'',css:it.css||'',lineup:it.lineup||'',price:_looksItemPrice(it)};
 }
@@ -649,9 +665,10 @@ function _looksRenderCard(sel){
     ?`<img src="${esc(_vipAvatar)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`
     :(d.is_vip?'👑':'🔮');
   const uid=d.user_id||_uid||0;
+  const lineageStyle=_looksLineageStyle({avatar_frame:frame,avatar_halo:halo,card_fx:fx,profile_bg:bg});
   return `<div class="hero fit-player-card ${bg?bg.css:''}">
     ${fx?`<div class="card-fx ${fx.css}"></div>`:''}
-    <div class="hero-head">
+    <div class="hero-head${lineageStyle?' lineage-link':''}"${lineageStyle?` style="${lineageStyle}"`:''}>
       <div class="ava ${frame?frame.css:''} ${halo?halo.css:''}" id="fit-ava">${avatar}</div>
       <div class="profile-copy">
         <div class="pname ${glow?glow.css:''}">@${esc(vipName(d.username||'Игрок',d.is_vip))}</div>

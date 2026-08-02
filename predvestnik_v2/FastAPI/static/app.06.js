@@ -312,6 +312,7 @@ function _gpJoinedStr(iso){
 function renderGlobalProfile(d, recipientId){
   const b=el('mb'); if(!b) return;
   const co=d.cosmetics||{}, cls=s=>(co[s]&&co[s].css)||'';
+  const lineageStyle=typeof window._looksLineageStyle==='function'?window._looksLineageStyle(co):'';
   const emap=(typeof PET_SPECIES_EMOJI!=='undefined')?PET_SPECIES_EMOJI:{};
   const allPets=d.pets||[];
   const activePet=allPets.find(p=>p.placement==='active');
@@ -355,7 +356,7 @@ function renderGlobalProfile(d, recipientId){
   b.innerHTML=`<div class="looks-preview gp-card ${cls('profile_bg')||'gp-card--plain'}" style="text-align:left;padding:14px">
       ${cls('card_fx')?`<div class="card-fx ${cls('card_fx')}"></div>`:''}
       <div style="position:relative;z-index:3">
-        <div class="profile-copy-row">
+        <div class="profile-copy-row${lineageStyle?' lineage-link':''}"${lineageStyle?` style="${lineageStyle}"`:''}>
           <div class="ava ${cls('avatar_frame')} ${cls('avatar_halo')}" style="width:58px;height:58px;font-size:30px;flex:none">${d.avatar?`<img src="${d.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(d.is_vip?'👑':'🔮')}</div>
           <div class="profile-copy">
             <div class="pname ${cls('name_glow')}" style="font-size:18px">@${esc(d.username)}</div>
