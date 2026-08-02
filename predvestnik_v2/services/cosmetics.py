@@ -7,7 +7,8 @@ import json
 import random
 
 from core.cosmetics import (
-    COSMETICS, COSMETIC_SLOTS, LINEUPS, WELCOME_ANIMATIONS, WELCOME_DEFAULT, is_vip_locked,
+    COSMETICS, COSMETIC_SLOTS, CURATED_LOOKS, LINEUPS,
+    WELCOME_ANIMATIONS, WELCOME_DEFAULT, is_vip_locked,
     lineup_items,
 )
 from core.constants import (
@@ -262,9 +263,34 @@ async def get_catalog(db, user_id: int) -> dict:
         "balances": await _balances(db, user_id),
         "slots": slots,
         "lineups": LINEUPS,
+        "curated_looks": _curated_looks(owned),
         "currency_icons": _CUR_ICON,
         "welcome": {"current": welcome_cur, "options": _welcome_options(welcome_cur, vip)},
     }
+
+
+def _curated_looks(owned: set[str]) -> list[dict]:
+    """Публичные кураторские наборы с честной ценой недостающих предметов."""
+    result = []
+    for look_id, look in CURATED_LOOKS.items():
+        items = dict(look.get("items") or {})
+        missing = [cid for cid in items.values() if cid not in owned]
+        missing_price = sum(
+            int((COSMETICS[cid].get("price") or [{}])[0].get("zarniki", 0))
+            for cid in missing
+        )
+        result.append({
+            "id": look_id,
+            "name": look["name"],
+            "mood": look["mood"],
+            "lineup": look["lineup"],
+            "items": items,
+            "owned_count": len(items) - len(missing),
+            "total_count": len(items),
+            "missing_price": missing_price,
+            "fully_owned": not missing,
+        })
+    return result
 
 
 async def grant_cosmetic(db, user_id: int, cosmetic_id: str) -> bool:

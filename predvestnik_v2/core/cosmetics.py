@@ -989,6 +989,86 @@ COSMETICS: dict[str, dict] = {
 }
 
 
+# Кураторские образы — серверный источник готовых сочетаний, а не клиентская
+# имитация. Каждый образ обязан содержать ровно один реальный предмет на каждый
+# визуальный слот. UI получает только эти стабильные ID и строит примерку из
+# обычного каталога, поэтому цены, владение и VIP-правила остаются едиными.
+CURATED_LOOKS: dict[str, dict] = {
+    "hanami_washi_dawn": {
+        "name": "Рассвет на васи", "lineup": "hanami",
+        "mood": "Тихий сад, живая тушь и первый лепесток.",
+        "items": {
+            "name_glow": "cos_name_glow_hanami_ink",
+            "avatar_frame": "cos_avatar_frame_hanami_branches",
+            "avatar_halo": "cos_avatar_halo_hanami_petals",
+            "title": "cos_title_hanami_witness",
+            "profile_bg": "cos_profile_bg_hanami_washi",
+            "card_fx": "cos_card_fx_hanami_drift",
+        },
+    },
+    "hanami_lantern_rain": {
+        "name": "Фонари после дождя", "lineup": "hanami",
+        "mood": "Тёплый свет, мокрый лак и мотыльки в сумерках.",
+        "items": {
+            "name_glow": "cos_name_glow_hanami_lantern",
+            "avatar_frame": "cos_avatar_frame_hanami_goldleaf",
+            "avatar_halo": "cos_avatar_halo_hanami_afterglow",
+            "title": "cos_title_hanami_witness",
+            "profile_bg": "cos_profile_bg_hanami_rain",
+            "card_fx": "cos_card_fx_hanami_moths",
+        },
+    },
+    "lotus_full_moon": {
+        "name": "Тишина полнолуния", "lineup": "moon_lotus",
+        "mood": "Перламутровый цветок и круги на неподвижной воде.",
+        "items": {
+            "name_glow": "cos_name_glow_moon_lotus",
+            "avatar_frame": "cos_avatar_frame_moon_lotus",
+            "avatar_halo": "cos_avatar_halo_moon_ripple",
+            "title": "cos_title_moon_lotus",
+            "profile_bg": "cos_profile_bg_moon_lotus",
+            "card_fx": "cos_card_fx_moon_lotus",
+        },
+    },
+    "lotus_eclipse_garden": {
+        "name": "Сад затмения", "lineup": "moon_lotus",
+        "mood": "Жемчужная дорожка, тёмная луна и живые огни.",
+        "items": {
+            "name_glow": "cos_name_glow_lotus_pearl",
+            "avatar_frame": "cos_avatar_frame_lotus_petal_orbit",
+            "avatar_halo": "cos_avatar_halo_lotus_moonwake",
+            "title": "cos_title_moon_lotus",
+            "profile_bg": "cos_profile_bg_lotus_eclipse",
+            "card_fx": "cos_card_fx_lotus_fireflies",
+        },
+    },
+    "ryujin_storm_ink": {
+        "name": "Чернила шторма", "lineup": "ryujin_tide",
+        "mood": "Суми-э поток, морская чешуя и короткая золотая вспышка.",
+        "items": {
+            "name_glow": "cos_name_glow_ryujin_ink",
+            "avatar_frame": "cos_avatar_frame_ryujin_scale",
+            "avatar_halo": "cos_avatar_halo_ryujin_tide",
+            "title": "cos_title_ryujin_heir",
+            "profile_bg": "cos_profile_bg_ryujin_storm",
+            "card_fx": "cos_card_fx_ryujin_lightning",
+        },
+    },
+    "ryujin_sunken_palace": {
+        "name": "Дворец под приливом", "lineup": "ryujin_tide",
+        "mood": "Затонувшие врата, око тайфуна и след живого дракона.",
+        "items": {
+            "name_glow": "cos_name_glow_ryujin_foam",
+            "avatar_frame": "cos_avatar_frame_ryujin_torii",
+            "avatar_halo": "cos_avatar_halo_ryujin_eye",
+            "title": "cos_title_ryujin_heir",
+            "profile_bg": "cos_profile_bg_ryujin_palace",
+            "card_fx": "cos_card_fx_ryujin_ink_serpent",
+        },
+    },
+}
+
+
 def cosmetics_by_slot(slot: str) -> dict[str, dict]:
     """Все косметики данного слота (id → entry)."""
     return {cid: c for cid, c in COSMETICS.items() if c["slot"] == slot}

@@ -638,6 +638,20 @@ const MOCKS = {
       moon_lotus: { name: '🪷 Лунный Лотос', rarity: 'artifact', price: [{ zarniki: 1500 }], vip_required: true, blurb: 'Перламутровый лотос на ночной воде: серебряный свет, тихая рябь и глубокий индиго.' },
       ryujin_tide: { name: '🐉 Прилив Рюдзина', rarity: 'artifact', price: [{ zarniki: 1500 }], vip_required: true, blurb: 'Драконий поток в языке суми-э: штормовая вода, чёрный лак и прожилки кинцуги.' },
     },
+    curated_looks: [
+      { id: 'hanami_washi_dawn', name: 'Рассвет на васи', mood: 'Тихий сад, живая тушь и первый лепесток.', lineup: 'hanami', owned_count: 0, total_count: 6, missing_price: 3780, fully_owned: false,
+        items: { name_glow: 'cos_name_glow_hanami_ink', avatar_frame: 'cos_avatar_frame_hanami_branches', avatar_halo: 'cos_avatar_halo_hanami_petals', title: 'cos_title_hanami_witness', profile_bg: 'cos_profile_bg_hanami_washi', card_fx: 'cos_card_fx_hanami_drift' } },
+      { id: 'hanami_lantern_rain', name: 'Фонари после дождя', mood: 'Тёплый свет, мокрый лак и мотыльки в сумерках.', lineup: 'hanami', owned_count: 0, total_count: 6, missing_price: 3780, fully_owned: false,
+        items: { name_glow: 'cos_name_glow_hanami_lantern', avatar_frame: 'cos_avatar_frame_hanami_goldleaf', avatar_halo: 'cos_avatar_halo_hanami_afterglow', title: 'cos_title_hanami_witness', profile_bg: 'cos_profile_bg_hanami_rain', card_fx: 'cos_card_fx_hanami_moths' } },
+      { id: 'lotus_full_moon', name: 'Тишина полнолуния', mood: 'Перламутровый цветок и круги на неподвижной воде.', lineup: 'moon_lotus', owned_count: 0, total_count: 6, missing_price: 9000, fully_owned: false,
+        items: { name_glow: 'cos_name_glow_moon_lotus', avatar_frame: 'cos_avatar_frame_moon_lotus', avatar_halo: 'cos_avatar_halo_moon_ripple', title: 'cos_title_moon_lotus', profile_bg: 'cos_profile_bg_moon_lotus', card_fx: 'cos_card_fx_moon_lotus' } },
+      { id: 'lotus_eclipse_garden', name: 'Сад затмения', mood: 'Жемчужная дорожка, тёмная луна и живые огни.', lineup: 'moon_lotus', owned_count: 0, total_count: 6, missing_price: 9000, fully_owned: false,
+        items: { name_glow: 'cos_name_glow_lotus_pearl', avatar_frame: 'cos_avatar_frame_lotus_petal_orbit', avatar_halo: 'cos_avatar_halo_lotus_moonwake', title: 'cos_title_moon_lotus', profile_bg: 'cos_profile_bg_lotus_eclipse', card_fx: 'cos_card_fx_lotus_fireflies' } },
+      { id: 'ryujin_storm_ink', name: 'Чернила шторма', mood: 'Суми-э поток, морская чешуя и короткая золотая вспышка.', lineup: 'ryujin_tide', owned_count: 0, total_count: 6, missing_price: 9000, fully_owned: false,
+        items: { name_glow: 'cos_name_glow_ryujin_ink', avatar_frame: 'cos_avatar_frame_ryujin_scale', avatar_halo: 'cos_avatar_halo_ryujin_tide', title: 'cos_title_ryujin_heir', profile_bg: 'cos_profile_bg_ryujin_storm', card_fx: 'cos_card_fx_ryujin_lightning' } },
+      { id: 'ryujin_sunken_palace', name: 'Дворец под приливом', mood: 'Затонувшие врата, око тайфуна и след живого дракона.', lineup: 'ryujin_tide', owned_count: 0, total_count: 6, missing_price: 9000, fully_owned: false,
+        items: { name_glow: 'cos_name_glow_ryujin_foam', avatar_frame: 'cos_avatar_frame_ryujin_torii', avatar_halo: 'cos_avatar_halo_ryujin_eye', title: 'cos_title_ryujin_heir', profile_bg: 'cos_profile_bg_ryujin_palace', card_fx: 'cos_card_fx_ryujin_ink_serpent' } },
+    ],
     slots: {
       name_glow: [
         { id: 'cos_name_glow_moon', name: 'Лунный свет', lineup: 'forest', rarity: 'common', css: 'glow-moon', owned: true, equipped: true, price: [{ zarniki: 250 }] },
