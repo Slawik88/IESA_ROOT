@@ -2509,7 +2509,7 @@ body.no-fx .ava[class*="frame-"][class*="halo-"]::after { animation: none !impor
   display: flex; align-items: center; justify-content: center;
   background: radial-gradient(circle at 50% 38%, #13151f, #0a0b12); border: 1px solid var(--border);
 }
-.lc-sw .lc-ava { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; background: linear-gradient(135deg, var(--violet-dim), var(--gold-dim)); }
+.lc-sw .lc-ava { position: relative; flex: none; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; background: linear-gradient(135deg, var(--violet-dim), var(--gold-dim)); }
 .lc-sw .lc-nick { font-size: 13px; font-weight: 800; color: var(--bright); }
 .lc-sw .lc-title { font-size: 11px; font-style: italic; color: var(--gold2); padding: 0 4px; text-align: center; }
 .lc-sw--none { color: var(--muted); font-size: 18px; }
@@ -2663,6 +2663,10 @@ body.no-fx .gift-buy-pill::after { animation: none; opacity: 0; }
   width: 100%; height: 96px; min-height: 0; margin: 0; padding: 0; display: grid; place-items: center;
   border: 0; border-radius: 10px; background-color: var(--bg1); isolation: isolate;
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.075);
+}
+.looks-curated-preview.pbg-lotus-eclipse {
+  background-position:97% 8%,0 0,0 78%,50% 100%,0 0;
+  background-size:36px 36px,100% 100%,145% 120%,160% 145%,100% 100%;
 }
 .looks-curated-identity {
   position: relative; z-index: 3; width: calc(100% - 20px); display: flex; align-items: center; gap: 13px;
