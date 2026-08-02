@@ -3263,6 +3263,28 @@ dialog#modal.looks-fitting-modal .sheet {
   max-height: 98vh;
   max-height: calc(100dvh - 8px);
 }
+/* COS-N2: короткий shared-element переход показывает, куда попала выбранная
+   косметика. Он заменяет подъём всей шторки, чтобы движения не спорили друг с
+   другом; JS вообще не запускает View Transition при no-fx/reduced-motion. */
+dialog#modal[open].looks-fitting-shared .sheet { animation: none; }
+::view-transition-group(looks-fitting-card) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(.22,.72,.22,1);
+}
+::view-transition-old(looks-fitting-card),
+::view-transition-new(looks-fitting-card) {
+  overflow: clip;
+  border-radius: 16px;
+}
+::view-transition-old(looks-fitting-card) { animation: 220ms ease-out both looksFitOld; }
+::view-transition-new(looks-fitting-card) { animation: 220ms ease-out both looksFitNew; }
+@keyframes looksFitOld { to { opacity: .18; } }
+@keyframes looksFitNew { from { opacity: .45; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(looks-fitting-card),
+  ::view-transition-old(looks-fitting-card),
+  ::view-transition-new(looks-fitting-card) { animation-duration: .01ms !important; }
+}
 .sheet {
   background: linear-gradient(180deg, var(--bg2), var(--bg1));
   border: 1px solid var(--border2); border-bottom: none;

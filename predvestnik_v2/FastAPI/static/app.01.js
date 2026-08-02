@@ -410,7 +410,7 @@ function fmtDurShort(sec){
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 function OM(title,body,btns=[]) {
-  el('modal').classList.remove('looks-fitting-modal');
+  el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');
   el('mt').textContent=title;
   el('mb').innerHTML=body;
   // Кавычки в onclick-строке (JSON.stringify-аргументы и т.п.) рвали HTML-атрибут —
@@ -420,7 +420,7 @@ function OM(title,body,btns=[]) {
   document.body.classList.add('modal-open');
 }
 const CM=()=>{
-  el('modal').close();el('modal').classList.remove('looks-fitting-modal');document.body.classList.remove('modal-open');
+  el('modal').close();el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');document.body.classList.remove('modal-open');
   // R5: закрытие модалки = выход из live-комнаты лота (объявлена в app.06 —
   // к моменту клика склейка загружена целиком, hoisting function declaration)
   try{ if(typeof lotLiveLeave==='function') lotLiveLeave(); }catch(e){}
@@ -428,7 +428,7 @@ const CM=()=>{
   const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);
 };
 el('modal').addEventListener('click',e=>{if(e.target===el('modal'))CM();});
-el('modal').addEventListener('cancel',()=>{el('modal').classList.remove('looks-fitting-modal');document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);});
+el('modal').addEventListener('cancel',()=>{el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);});
 
 // EPIC6: базовый haptic на КАЖДОЙ кнопке .btn — один делегированный листенер
 // вместо ручной расстановки _haptic() по сотням onclick по всему приложению.
