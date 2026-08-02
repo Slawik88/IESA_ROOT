@@ -1,0 +1,390 @@
+{
+  "captured_at": "2026-08-02T11:19:15.940Z",
+  "viewport_primary": "390x844",
+  "evidence": [
+    {
+      "step": 1,
+      "name": "active-classic",
+      "description": "Вход в секцию: активная бесплатная тема и полный каталог.",
+      "file": "01-active-classic.png",
+      "state": {
+        "preview": "Сейчас на профиле━━━━━━━━━━ @star_seeker ━━━━━━━━━━ Классика · Обычный Стандартная рамка сообщений бота. ✓ Активная тема",
+        "cards": [
+          "━━━━━━━━━━▪ КлассикаНадета сейчас",
+          "✦ ˚ · . ✦ ˚ ·✦ ЗвездопадВ коллекции",
+          "🌘━━━━━━━🌒🌑 Кровавая ЛунаКупить · 25 💎",
+          "☀️═══════☀️✨ Золотой РассветВыпадает в Гаче",
+          "▚▞▚▞▚▞▚▞▚▞▓ Неоновый ТерминалКупить · 440 ✨",
+          "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼💻 💻 System OverrideКупить · 400 ✨",
+          "🩸🌕 КРОВАВАЯ ЛУНА 🌕🩸 🩸🌕🩸🌕🩸🌕🩸🌕🩸🌕🩸🩸 🩸 Кровавая ЛунаКупить · 500 ✨"
+        ],
+        "selected": "classic",
+        "sectionWidth": 366,
+        "noPageOverflow": true,
+        "actionHeight": 0,
+        "actionText": "",
+        "cardSemantics": [
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          }
+        ],
+        "filterSemantics": [
+          {
+            "tag": "BUTTON",
+            "active": true,
+            "text": "Все"
+          },
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "Мои"
+          },
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "✨ Премиум"
+          }
+        ],
+        "metaFont": "10px",
+        "visibleCards": 6
+      }
+    },
+    {
+      "step": 2,
+      "name": "premium-preview",
+      "description": "Предпросмотр платной темы до покупки.",
+      "file": "02-premium-preview.png",
+      "state": {
+        "preview": "Предпросмотр темы▚▞▚▞▚▞▚▞▚▞ @star_seeker ▞▚▞▚▞▚▞▚▞▚ Неоновый Терминал · zarniki IT-стиль: зелёный курсор, поток кода. Купить — 440 ✨",
+        "cards": [
+          "━━━━━━━━━━▪ КлассикаНадета сейчас",
+          "✦ ˚ · . ✦ ˚ ·✦ ЗвездопадВ коллекции",
+          "🌘━━━━━━━🌒🌑 Кровавая ЛунаКупить · 25 💎",
+          "☀️═══════☀️✨ Золотой РассветВыпадает в Гаче",
+          "▚▞▚▞▚▞▚▞▚▞▓ Неоновый ТерминалКупить · 440 ✨",
+          "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼💻 💻 System OverrideКупить · 400 ✨",
+          "🩸🌕 КРОВАВАЯ ЛУНА 🌕🩸 🩸🌕🩸🌕🩸🌕🩸🌕🩸🌕🩸🩸 🩸 Кровавая ЛунаКупить · 500 ✨"
+        ],
+        "selected": "classic",
+        "sectionWidth": 366,
+        "noPageOverflow": true,
+        "actionHeight": 25,
+        "actionText": "Купить — 440 ✨",
+        "cardSemantics": [
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          }
+        ],
+        "filterSemantics": [
+          {
+            "tag": "BUTTON",
+            "active": true,
+            "text": "Все"
+          },
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "Мои"
+          },
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "✨ Премиум"
+          }
+        ],
+        "metaFont": "10px",
+        "visibleCards": 6
+      }
+    },
+    {
+      "step": 3,
+      "name": "premium-filter-long-copy",
+      "description": "Премиум-фильтр и тема с длинной строкой оформления.",
+      "file": "03-premium-filter-long-copy.png",
+      "state": {
+        "preview": "Предпросмотр темы▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼ @star_seeker *>_ Проснись, Нео. Ты всё ещё в чате… ▮* 🟢 💻 System Override · zarniki Взлом системы. Кибер-терминальный стиль. Купить — 400 ✨",
+        "cards": [
+          "▚▞▚▞▚▞▚▞▚▞▓ Неоновый ТерминалКупить · 440 ✨",
+          "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼💻 💻 System OverrideКупить · 400 ✨"
+        ],
+        "selected": "system_override",
+        "sectionWidth": 366,
+        "noPageOverflow": true,
+        "actionHeight": 25,
+        "actionText": "Купить — 400 ✨",
+        "cardSemantics": [
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          }
+        ],
+        "filterSemantics": [
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "Все"
+          },
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "Мои"
+          },
+          {
+            "tag": "BUTTON",
+            "active": true,
+            "text": "✨ Премиум"
+          }
+        ],
+        "metaFont": "10px",
+        "visibleCards": 2
+      }
+    },
+    {
+      "step": 4,
+      "name": "purchased-ready-to-equip",
+      "description": "Состояние после покупки: тема принадлежит игроку, но ещё не надета.",
+      "file": "04-purchased-ready-to-equip.png",
+      "state": {
+        "preview": "Предпросмотр темы▚▞▚▞▚▞▚▞▚▞ @star_seeker ▞▚▞▚▞▚▞▚▞▚ Неоновый Терминал · zarniki IT-стиль: зелёный курсор, поток кода. ✓ Надеть",
+        "cards": [
+          "▚▞▚▞▚▞▚▞▚▞▓ Неоновый ТерминалВ коллекции",
+          "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼💻 💻 System OverrideКупить · 400 ✨"
+        ],
+        "selected": "neon_terminal",
+        "sectionWidth": 366,
+        "noPageOverflow": true,
+        "actionHeight": 25,
+        "actionText": "✓ Надеть",
+        "cardSemantics": [
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          }
+        ],
+        "filterSemantics": [
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "Все"
+          },
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "Мои"
+          },
+          {
+            "tag": "BUTTON",
+            "active": true,
+            "text": "✨ Премиум"
+          }
+        ],
+        "metaFont": "10px",
+        "visibleCards": 2
+      }
+    },
+    {
+      "step": 5,
+      "name": "equipped-success",
+      "description": "Состояние после активации купленной темы.",
+      "file": "05-equipped-success.png",
+      "state": {
+        "preview": "Сейчас на профиле▚▞▚▞▚▞▚▞▚▞ @star_seeker ▞▚▞▚▞▚▞▚▞▚ Неоновый Терминал · zarniki IT-стиль: зелёный курсор, поток кода. ✓ Активная тема",
+        "cards": [
+          "▚▞▚▞▚▞▚▞▚▞▓ Неоновый ТерминалНадета сейчас",
+          "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼💻 💻 System OverrideКупить · 400 ✨"
+        ],
+        "selected": "neon_terminal",
+        "sectionWidth": 366,
+        "noPageOverflow": true,
+        "actionHeight": 0,
+        "actionText": "",
+        "cardSemantics": [
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          }
+        ],
+        "filterSemantics": [
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "Все"
+          },
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "Мои"
+          },
+          {
+            "tag": "BUTTON",
+            "active": true,
+            "text": "✨ Премиум"
+          }
+        ],
+        "metaFont": "10px",
+        "visibleCards": 2
+      }
+    },
+    {
+      "step": 6,
+      "name": "narrow-bloodmoon",
+      "description": "Узкий телефон: длинная многострочная тема и две одноимённые темы в каталоге.",
+      "file": "06-narrow-bloodmoon.png",
+      "state": {
+        "preview": "Предпросмотр темы🩸🌕 КРОВАВАЯ ЛУНА 🌕🩸 🩸🌕🩸🌕🩸🌕🩸🌕🩸🌕🩸 @star_seeker 🩸🌕🩸🌕🩸🌕🩸🌕🩸🌕🩸 🩸 Кровавая Луна · Мифический Багровое сияние затмения. Купить — 500 ✨",
+        "cards": [
+          "━━━━━━━━━━▪ КлассикаВ коллекции",
+          "✦ ˚ · . ✦ ˚ ·✦ ЗвездопадВ коллекции",
+          "🌘━━━━━━━🌒🌑 Кровавая ЛунаКупить · 25 💎",
+          "☀️═══════☀️✨ Золотой РассветВыпадает в Гаче",
+          "▚▞▚▞▚▞▚▞▚▞▓ Неоновый ТерминалНадета сейчас",
+          "▼ 💻 ＳＹＳＴＥＭ_ＯＶＥＲＲＩＤＥ 💻 ▼💻 💻 System OverrideКупить · 400 ✨",
+          "🩸🌕 КРОВАВАЯ ЛУНА 🌕🩸 🩸🌕🩸🌕🩸🌕🩸🌕🩸🌕🩸🩸 🩸 Кровавая ЛунаКупить · 500 ✨"
+        ],
+        "selected": "neon_terminal",
+        "sectionWidth": 296,
+        "noPageOverflow": true,
+        "actionHeight": 25,
+        "actionText": "Купить — 500 ✨",
+        "cardSemantics": [
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          },
+          {
+            "tag": "DIV",
+            "role": null,
+            "tabIndex": -1
+          }
+        ],
+        "filterSemantics": [
+          {
+            "tag": "BUTTON",
+            "active": true,
+            "text": "Все"
+          },
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "Мои"
+          },
+          {
+            "tag": "BUTTON",
+            "active": false,
+            "text": "✨ Премиум"
+          }
+        ],
+        "metaFont": "10px",
+        "visibleCards": 4
+      }
+    }
+  ]
+}
