@@ -1865,6 +1865,433 @@ body.no-fx .card-fx.cfx-frostbite { opacity: .44; }
   100% { transform: scale(1.6); opacity: 0; }
 }
 
+/* ── Японский триптих: Ханами / Лунный Лотос / Прилив Рюдзина ─────────────
+   Карточки коллекций остаются на исходном компоненте. Здесь только реальные
+   эффекты предметов: средняя Ханами спокойнее; два artifact-сета получают
+   самостоятельные материалы (перламутровая вода и лак+кинцуги), а не смену
+   оттенка существующего Артефакта. Декор держится у краёв и под контентом. */
+
+/* Ханами · 630✨ */
+.glow-hanami-ink {
+  color: #f5d8df; text-shadow: 0 0 2px rgba(238,166,188,.72), 0 0 6px rgba(159,74,105,.28);
+  animation: hanamiInkBreathe 4.8s ease-in-out infinite;
+}
+.glow-hanami-lantern {
+  color: #ffe0b2; text-shadow: 0 0 2px rgba(255,199,122,.72), 0 0 7px rgba(231,121,92,.3);
+  animation: hanamiLanternBreathe 5.2s ease-in-out infinite;
+}
+.glow-hanami-dew {
+  color:#fff0f3;-webkit-text-stroke:.35px rgba(228,154,180,.64);
+  text-shadow:-1px 0 2px rgba(185,100,133,.42),1px 0 2px rgba(255,230,234,.72),0 0 7px rgba(226,141,172,.3);
+  animation:hanamiDewGlint 6.2s ease-in-out infinite;
+}
+@keyframes hanamiInkBreathe {
+  0%,100% { text-shadow: 0 0 2px rgba(238,166,188,.64), 0 0 5px rgba(159,74,105,.22); }
+  50% { text-shadow: 0 0 3px rgba(255,200,215,.82), 0 0 8px rgba(188,92,124,.34); }
+}
+@keyframes hanamiLanternBreathe {
+  0%,100% { color:#f7d2ad; text-shadow:0 0 2px rgba(255,185,105,.58),0 0 5px rgba(210,94,70,.22); }
+  50% { color:#ffe8c8; text-shadow:0 0 3px rgba(255,211,145,.82),0 0 8px rgba(232,119,87,.34); }
+}
+@keyframes hanamiDewGlint { 0%,100%{filter:brightness(.94)} 44%{filter:brightness(1)} 52%{filter:brightness(1.22)} 62%{filter:brightness(1)} }
+.ava.frame-hanami-branches, .ava.frame-hanami-goldleaf,
+.ava.frame-moon-lotus, .ava.frame-lotus-silver, .ava.frame-lotus-petal-orbit,
+.ava.frame-ryujin-kintsugi, .ava.frame-ryujin-scale, .ava.frame-ryujin-torii { overflow: visible; }
+.frame-hanami-branches {
+  box-shadow: inset 0 0 0 1px rgba(255,224,230,.18), 0 0 0 2px #70434f, 0 0 8px 2px rgba(210,116,147,.32);
+}
+.frame-hanami-branches::before {
+  content:''; position:absolute; inset:-4px; border-radius:inherit; padding:2px;
+  background: repeating-conic-gradient(from 18deg, transparent 0 35deg, rgba(244,174,195,.75) 35deg 40deg, transparent 40deg 91deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor; mask-composite:exclude; animation:hanamiBranchSway 7s ease-in-out infinite;
+}
+.frame-hanami-lacquer {
+  box-shadow: inset 0 0 0 1px rgba(255,225,235,.22), 0 0 0 2px #5b283f,
+    0 0 0 3px rgba(229,155,181,.34), 0 0 10px rgba(163,66,104,.3);
+  animation:hanamiLacquer 5.4s ease-in-out infinite;
+}
+.frame-hanami-goldleaf {
+  box-shadow:inset 0 0 0 1px rgba(255,226,232,.2),0 0 0 2px #4b2335,0 0 0 3px rgba(207,164,91,.3),0 0 12px rgba(174,82,115,.32);
+}
+.frame-hanami-goldleaf::before {
+  content:'';position:absolute;inset:-4px;border-radius:inherit;padding:2px;
+  background:conic-gradient(from 11deg,transparent 0 24deg,rgba(226,190,113,.92) 24deg 29deg,transparent 29deg 102deg,rgba(244,181,203,.78) 102deg 108deg,transparent 108deg 191deg,rgba(219,177,93,.86) 191deg 196deg,transparent 196deg 276deg,rgba(237,174,197,.7) 276deg 281deg,transparent 281deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+  filter:drop-shadow(0 0 3px rgba(228,178,103,.38));animation:hanamiGoldleaf 7.4s ease-in-out infinite;
+}
+@keyframes hanamiBranchSway { 0%,100%{transform:rotate(-2deg);opacity:.72} 50%{transform:rotate(2deg);opacity:1} }
+@keyframes hanamiLacquer { 0%,100%{filter:brightness(.95)} 50%{filter:brightness(1.12)} }
+@keyframes hanamiGoldleaf { 0%,100%{opacity:.58;transform:rotate(-1deg)} 50%{opacity:1;transform:rotate(1deg)} }
+.halo-hanami-petals { filter:drop-shadow(0 0 6px rgba(235,155,184,.62)) drop-shadow(0 0 13px rgba(173,79,119,.3)); }
+.halo-hanami-afterglow { filter:drop-shadow(0 0 5px rgba(250,197,156,.56)) drop-shadow(0 0 14px rgba(180,89,125,.38)); }
+.hero.pbg-hanami-washi, .looks-preview.pbg-hanami-washi, .lc-bg.pbg-hanami-washi {
+  background:
+    repeating-linear-gradient(8deg, rgba(255,255,255,.018) 0 1px, transparent 1px 7px),
+    radial-gradient(ellipse 38% 26% at 82% 18%, rgba(226,151,176,.25), transparent 72%),
+    radial-gradient(ellipse 42% 34% at 8% 86%, rgba(123,62,83,.24), transparent 70%),
+    linear-gradient(155deg,#171216,#21131b 52%,#0c0a0d);
+  background-size:100% 100%,150% 130%,150% 130%,100% 100%; animation:hanamiWashiDrift 15s ease-in-out infinite;
+}
+.hero.pbg-hanami-lanterns, .looks-preview.pbg-hanami-lanterns, .lc-bg.pbg-hanami-lanterns {
+  background:
+    radial-gradient(circle at 78% 18%, rgba(255,195,108,.34) 0 2%, rgba(226,119,88,.14) 7%, transparent 17%),
+    radial-gradient(circle at 17% 73%, rgba(255,184,96,.22) 0 1.5%, rgba(218,100,77,.1) 6%, transparent 15%),
+    radial-gradient(90% 65% at 50% 100%, rgba(116,43,77,.34), transparent 68%),
+    linear-gradient(165deg,#120b16,#24101e 56%,#09080c);
+  background-size:100% 100%,100% 100%,145% 145%,100% 100%; animation:hanamiLanternDrift 12s ease-in-out infinite;
+}
+.hero.pbg-hanami-rain, .looks-preview.pbg-hanami-rain, .lc-bg.pbg-hanami-rain {
+  background:
+    repeating-linear-gradient(108deg,transparent 0 22px,rgba(238,202,215,.045) 23px,transparent 24px 43px),
+    radial-gradient(circle at 84% 18%,rgba(255,192,111,.25) 0 2%,rgba(225,111,89,.1) 7%,transparent 16%),
+    radial-gradient(ellipse 110% 46% at 50% 108%,rgba(104,56,86,.36),transparent 68%),
+    linear-gradient(165deg,#100f18,#1a1320 58%,#09090d);
+  background-size:120% 155%,100% 100%,155% 140%,100% 100%;animation:hanamiRain 9s linear infinite;
+}
+@keyframes hanamiWashiDrift { 0%,100%{background-position:0 0,100% 0,0 100%,0 0} 50%{background-position:0 0,75% 14%,24% 82%,0 0} }
+@keyframes hanamiLanternDrift { 0%,100%{background-position:0 0,0 0,50% 100%,0 0;filter:brightness(.96)} 50%{background-position:0 0,0 0,45% 82%,0 0;filter:brightness(1.08)} }
+@keyframes hanamiRain { from{background-position:0 -80%,0 0,50% 100%,0 0} to{background-position:14% 100%,0 0,46% 88%,0 0} }
+.cfx-hanami-drift {
+  --hanami-petal:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 20'%3E%3Cpath d='M7 1C11 4 14 9 12 14C11 18 7 20 4 17C1 14 1 8 7 1Z' fill='%23f1aec3'/%3E%3Cpath d='M7 3C7 8 6 12 4 16' stroke='%23fff0f5' stroke-opacity='.62' stroke-width='.65' fill='none'/%3E%3C/svg%3E");
+  background-image:
+    var(--hanami-petal),var(--hanami-petal),var(--hanami-petal),var(--hanami-petal);
+  background-repeat:no-repeat;background-size:9px 13px,7px 10px,8px 12px,6px 9px;
+  background-position:15% 14%,72% 30%,42% 60%,88% 82%;
+  opacity:.72;animation:hanamiPetalDrift 12s linear infinite;
+}
+.cfx-hanami-ink-bloom {
+  background:
+    radial-gradient(ellipse 90px 70px at 102% 88%,rgba(82,34,55,.34),transparent 72%),
+    radial-gradient(ellipse 58px 46px at 92% 79%,rgba(229,145,177,.13),transparent 74%);
+  transform-origin:100% 100%; animation:hanamiInkBloom 8s ease-in-out infinite;
+}
+.cfx-hanami-ink-bloom::before {
+  content:'';position:absolute;width:136px;height:72px;right:-8px;bottom:1%;opacity:.64;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 92'%3E%3Cpath d='M184 83C145 61 120 69 91 48C70 32 49 36 12 8' fill='none' stroke='%2369364b' stroke-opacity='.82' stroke-width='2.6' stroke-linecap='round'/%3E%3Cpath d='M109 58C102 43 94 31 78 22M141 69C134 53 125 44 114 36' fill='none' stroke='%23804a60' stroke-opacity='.62' stroke-width='1.6' stroke-linecap='round'/%3E%3Cg fill='%23e7a0b8' fill-opacity='.82'%3E%3Cpath d='M74 18c5-7 12-5 12 1-4 4-8 5-12-1Z'/%3E%3Cpath d='M109 33c3-8 10-8 12-2-2 5-6 7-12 2Z'/%3E%3Cpath d='M91 43c-6-5-3-11 3-10 3 4 3 8-3 10Z'/%3E%3C/g%3E%3C/svg%3E") center/100% 100% no-repeat;
+  filter:drop-shadow(0 0 3px rgba(229,145,177,.22));
+}
+.cfx-hanami-ink-bloom::after {
+  content:'';position:absolute;inset:0;--hanami-petal:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 20'%3E%3Cpath d='M7 1C11 4 14 9 12 14C11 18 7 20 4 17C1 14 1 8 7 1Z' fill='%23f1aec3'/%3E%3Cpath d='M7 3C7 8 6 12 4 16' stroke='%23fff0f5' stroke-opacity='.62' stroke-width='.65' fill='none'/%3E%3C/svg%3E");
+  background-image:var(--hanami-petal),var(--hanami-petal),var(--hanami-petal);background-repeat:no-repeat;
+  background-size:9px 13px,7px 10px,8px 12px;background-position:88% 62%,75% 78%,96% 52%;animation:hanamiEdgePetals 9s ease-in-out infinite;
+}
+.cfx-hanami-moths {
+  --hanami-moth:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 12'%3E%3Cpath d='M9 6C5 0 1 1 2 6c1 4 5 3 7 0Zm0 0c4-6 8-5 7 0-1 4-5 3-7 0Z' fill='%23f0c478' fill-opacity='.9'/%3E%3Ccircle cx='9' cy='6' r='1.1' fill='%23fff1c8'/%3E%3C/svg%3E");
+  background-image:var(--hanami-moth),var(--hanami-moth),var(--hanami-moth),radial-gradient(circle at 88% 24%,rgba(255,190,104,.24),transparent 17%);
+  background-repeat:no-repeat;background-size:11px 8px,8px 6px,9px 7px,100% 100%;background-position:82% 23%,91% 38%,73% 48%,0 0;
+  opacity:.72;animation:hanamiMoths 8s ease-in-out infinite;
+}
+@keyframes hanamiPetalDrift { from{background-position:15% -8%,72% -28%,42% -48%,88% -68%} to{background-position:34% 112%,58% 132%,62% 152%,72% 172%} }
+@keyframes hanamiInkBloom { 0%,100%{opacity:.28;transform:scale(.86)} 50%{opacity:.72;transform:scale(1.08)} }
+@keyframes hanamiEdgePetals { 0%,100%{background-position:88% 58%,75% 70%,96% 46%;opacity:.26} 50%{background-position:80% 78%,66% 92%,88% 66%;opacity:.82} }
+@keyframes hanamiMoths { 0%,100%{background-position:82% 23%,91% 38%,73% 48%,0 0;opacity:.42} 42%{background-position:86% 30%,84% 46%,77% 39%,0 0;opacity:.82} 72%{background-position:79% 35%,93% 30%,70% 54%,0 0;opacity:.6} }
+.ptitle.title-hanami-witness, .top-title.title-hanami-witness, .lc-title.title-hanami-witness {
+  color:#edb4c5; font-style:normal; font-weight:600; letter-spacing:.25px; text-shadow:0 0 4px rgba(207,108,142,.34);
+}
+
+/* Лунный Лотос · 1500✨ */
+.glow-moon-lotus, .glow-lotus-reflection { color:#eef2ff; -webkit-text-stroke:.45px rgba(190,205,255,.7); }
+.glow-moon-lotus {
+  text-shadow:0 0 2px rgba(246,240,255,.86),0 0 7px rgba(158,184,255,.42); animation:moonLotusText 5.6s ease-in-out infinite;
+}
+.glow-lotus-reflection {
+  text-shadow:-1px 0 2px rgba(238,185,223,.35),1px 0 2px rgba(160,210,255,.5),0 0 6px rgba(190,201,255,.34);
+  animation:lotusReflectionText 4.8s ease-in-out infinite;
+}
+.glow-lotus-pearl {
+  color:#fff4fb;-webkit-text-stroke:.4px rgba(182,199,250,.68);
+  text-shadow:-1px 0 2px rgba(226,178,215,.5),1px 0 2px rgba(190,223,255,.62),0 0 8px rgba(194,202,255,.4);
+  animation:lotusPearlPath 6.8s ease-in-out infinite;
+}
+@keyframes moonLotusText { 0%,100%{filter:brightness(.95)} 50%{filter:brightness(1.16)} }
+@keyframes lotusReflectionText { 0%,100%{text-shadow:-.5px 0 2px rgba(238,185,223,.28),1px 0 2px rgba(160,210,255,.42),0 0 5px rgba(190,201,255,.28)} 50%{text-shadow:-1.5px 0 3px rgba(248,202,232,.48),1.5px 0 3px rgba(182,226,255,.62),0 0 9px rgba(203,211,255,.45)} }
+@keyframes lotusPearlPath { 0%,100%{filter:brightness(.93)} 46%{filter:brightness(1.05)} 54%{filter:brightness(1.24)} 64%{filter:brightness(1)} } }
+.frame-moon-lotus {
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.3),0 0 0 2px #aebde8,0 0 13px 3px rgba(151,174,242,.46);
+}
+.frame-moon-lotus::before {
+  content:''; position:absolute; inset:-5px; border-radius:inherit; padding:3px;
+  background:conic-gradient(from 0deg,transparent 0 10deg,#f0d7ea 10deg 20deg,transparent 20deg 70deg,#c1d1ff 70deg 82deg,transparent 82deg 130deg,#fff3e4 130deg 140deg,transparent 140deg 190deg,#b6c8ff 190deg 202deg,transparent 202deg 252deg,#eed8f1 252deg 263deg,transparent 263deg 320deg,#dce5ff 320deg 330deg,transparent 330deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;filter:drop-shadow(0 0 3px rgba(187,204,255,.5));animation:moonLotusFrame 9s linear infinite;
+}
+.frame-lotus-silver {
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.26),0 0 0 1px #dce5ff,0 0 0 4px rgba(139,159,221,.22),0 0 14px 3px rgba(181,199,255,.42);
+  animation:lotusSilverOrbit 5.8s ease-in-out infinite;
+}
+.frame-lotus-petal-orbit {
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),0 0 0 2px #8497d2,0 0 0 4px rgba(215,190,225,.2),0 0 16px 3px rgba(167,188,251,.46);
+}
+.frame-lotus-petal-orbit::before {
+  content:'';position:absolute;inset:-6px;border-radius:inherit;padding:3px;
+  background:repeating-conic-gradient(from 0deg,transparent 0 31deg,rgba(244,223,239,.9) 32deg 39deg,rgba(187,207,255,.72) 40deg 44deg,transparent 45deg 76deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+  filter:drop-shadow(0 0 4px rgba(192,208,255,.52));animation:lotusPetalOrbit 12s linear infinite;
+}
+@keyframes moonLotusFrame { to{transform:rotate(360deg)} }
+@keyframes lotusSilverOrbit { 0%,100%{box-shadow:inset 0 0 0 1px rgba(255,255,255,.24),0 0 0 1px #dce5ff,0 0 0 4px rgba(139,159,221,.18),0 0 11px 2px rgba(181,199,255,.34)} 50%{box-shadow:inset 0 0 0 1px rgba(255,255,255,.34),0 0 0 1px #fff5fd,0 0 0 5px rgba(164,180,235,.28),0 0 18px 4px rgba(198,211,255,.56)} }
+@keyframes lotusPetalOrbit { to{transform:rotate(360deg)} }
+.halo-moon-ripple { filter:drop-shadow(0 0 1px rgba(245,247,255,.95)) drop-shadow(0 0 9px rgba(169,191,255,.66)) drop-shadow(0 0 18px rgba(205,170,225,.26)); }
+.halo-lotus-moonwake { filter:drop-shadow(0 0 2px rgba(255,246,253,.94)) drop-shadow(0 0 11px rgba(190,207,255,.7)) drop-shadow(0 0 21px rgba(223,179,218,.3)); }
+.hero.pbg-moon-lotus, .looks-preview.pbg-moon-lotus, .lc-bg.pbg-moon-lotus {
+  background:
+    radial-gradient(circle at 74% 14%,rgba(247,247,255,.52) 0 2.8%,rgba(186,202,255,.12) 9%,transparent 21%),
+    linear-gradient(178deg,transparent 0 72%,rgba(190,205,255,.055) 72.4% 72.8%,transparent 73.2% 80%,rgba(190,205,255,.04) 80.4% 80.7%,transparent 81%),
+    radial-gradient(95% 62% at 50% 112%,rgba(73,89,151,.38),transparent 67%),linear-gradient(175deg,#070918,#10152d 58%,#050711);
+  background-size:100% 100%,100% 100%,150% 130%,100% 100%;animation:moonLotusWater 13s ease-in-out infinite;
+}
+.hero.pbg-lotus-sanctuary, .looks-preview.pbg-lotus-sanctuary, .lc-bg.pbg-lotus-sanctuary {
+  background:
+    radial-gradient(ellipse 24% 72% at 15% 20%,rgba(207,217,255,.055),transparent 72%),
+    radial-gradient(ellipse 62% 20% at 50% 86%,rgba(219,199,231,.14),transparent 74%),
+    radial-gradient(110% 70% at 50% 110%,rgba(77,91,154,.42),transparent 65%),linear-gradient(180deg,#090b19,#11152b 58%,#05070f);
+  background-size:100% 100%,145% 120%,155% 140%,100% 100%;animation:lotusSanctuaryMist 16s ease-in-out infinite;
+}
+.hero.pbg-lotus-eclipse, .looks-preview.pbg-lotus-eclipse, .lc-bg.pbg-lotus-eclipse {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'%3E%3Cpath d='M48 8A37 37 0 1 0 48 82C27 68 27 22 48 8Z' fill='%23f4edff' fill-opacity='.82'/%3E%3Cpath d='M45 12A33 33 0 0 0 45 78C29 62 29 28 45 12Z' fill='%23c9d6ff' fill-opacity='.34'/%3E%3C/svg%3E") 84% 12%/64px 64px no-repeat,
+    radial-gradient(circle at 84% 12%,rgba(177,157,226,.2) 0 6%,transparent 20%),
+    radial-gradient(ellipse 72% 18% at 48% 84%,rgba(227,194,224,.13),transparent 70%),
+    radial-gradient(120% 72% at 50% 112%,rgba(69,67,135,.42),transparent 65%),
+    linear-gradient(180deg,#070817,#151126 58%,#05060d);
+  background-size:64px 64px,100% 100%,145% 120%,160% 145%,100% 100%;animation:lotusEclipseTide 15s ease-in-out infinite;
+}
+@keyframes moonLotusWater { 0%,100%{background-position:0 0,0 0,50% 100%,0 0} 50%{background-position:0 0,0 3px,46% 88%,0 0} }
+@keyframes lotusSanctuaryMist { 0%,100%{background-position:0 0,0 80%,50% 100%,0 0} 50%{background-position:7% 0,24% 76%,44% 86%,0 0} }
+@keyframes lotusEclipseTide { 0%,100%{background-position:84% 12%,0 0,0 78%,50% 100%,0 0} 50%{background-position:84% 12%,0 0,20% 84%,45% 88%,0 0} }
+.cfx-moon-lotus, .cfx-lotus-caustics {
+  --lotus-petal:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 15 22'%3E%3Cpath d='M7.5 1C12 5 15 11 12 17C10 21 6 22 3.5 18C.5 13 2 7 7.5 1Z' fill='%23f0dce9'/%3E%3Cpath d='M7.5 3C8 8 7 13 4 18' stroke='%23bed0ff' stroke-opacity='.82' stroke-width='.75' fill='none'/%3E%3C/svg%3E");
+}
+.cfx-moon-lotus {
+  background-image:
+    var(--lotus-petal),var(--lotus-petal),var(--lotus-petal),var(--lotus-petal),
+    radial-gradient(ellipse 48% 22% at 50% 88%,rgba(187,205,255,.18),transparent 72%);
+  background-repeat:no-repeat;background-size:10px 15px,8px 12px,9px 14px,7px 11px,100% 100%;opacity:.74;
+  background-position:16% 14%,68% 28%,43% 52%,84% 72%,0 0;
+  animation:lotusPetalSheet 14s linear infinite,moonLotusReveal 8s ease-in-out infinite;
+}
+.cfx-moon-lotus::before {
+  content:'';position:absolute;inset:70% 12% 5%;border-radius:50%;
+  background:repeating-radial-gradient(ellipse at 50% 100%,transparent 0 10px,rgba(222,228,255,.16) 11px 12px,transparent 13px 23px);
+  -webkit-mask-image:linear-gradient(transparent,#000);mask-image:linear-gradient(transparent,#000);animation:moonLotusCaustic 7s ease-in-out infinite;
+}
+.cfx-moon-lotus::after {
+  content:'';position:absolute;width:38px;height:22px;left:calc(50% - 19px);bottom:14%;opacity:.38;
+  background:radial-gradient(ellipse at 50% 100%,rgba(244,224,241,.9),transparent 58%);clip-path:polygon(50% 0,60% 46%,81% 18%,72% 68%,100% 54%,72% 100%,28% 100%,0 54%,28% 68%,19% 18%,40% 46%);
+  filter:drop-shadow(0 0 8px rgba(185,201,255,.55));animation:moonLotusBloom 8s ease-in-out infinite;
+}
+.cfx-lotus-caustics {
+  background:none;mix-blend-mode:screen;opacity:.65;
+}
+.cfx-lotus-caustics::before {
+  content:'';position:absolute;left:-5%;right:-5%;bottom:2%;height:36%;
+  background:
+    radial-gradient(ellipse 42% 22% at 18% 82%,transparent 54%,rgba(201,218,255,.15) 57% 59%,transparent 63%),
+    radial-gradient(ellipse 48% 24% at 72% 70%,transparent 54%,rgba(241,211,232,.12) 57% 59%,transparent 63%),
+    radial-gradient(ellipse 56% 30% at 48% 110%,rgba(130,153,222,.15),transparent 68%);
+  background-size:115% 100%,120% 100%,100% 100%;animation:lotusCaustics 9s ease-in-out infinite;
+  -webkit-mask-image:linear-gradient(transparent,#000);mask-image:linear-gradient(transparent,#000);
+}
+.cfx-lotus-caustics::after {
+  content:'';position:absolute;inset:0;background-image:var(--lotus-petal),var(--lotus-petal),var(--lotus-petal);
+  background-repeat:no-repeat;background-size:10px 15px,8px 12px,9px 14px;
+  background-position:24% 16%,76% 36%,52% 62%;
+  animation:lotusPetalSheet 16s linear infinite 1.8s;opacity:.72;
+}
+.cfx-lotus-fireflies {
+  --lotus-bloom:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 20'%3E%3Cpath d='M20 17C13 14 10 8 20 1c10 7 7 13 0 16Z' fill='%23e8d9eb' fill-opacity='.44'/%3E%3Cpath d='M19 17C11 18 5 14 5 7c8 1 12 4 14 10Zm2 0c8 1 14-3 14-10-8 1-12 4-14 10Z' fill='%23b9cbff' fill-opacity='.35'/%3E%3Cpath d='M7 18h26' stroke='%23dce5ff' stroke-opacity='.35' stroke-width='1'/%3E%3C/svg%3E");
+  background:
+    radial-gradient(circle at 18% 72%,rgba(245,231,255,.9) 0 1px,rgba(174,197,255,.28) 2px,transparent 5px),
+    radial-gradient(circle at 72% 64%,rgba(255,235,247,.86) 0 1px,rgba(208,183,235,.24) 2px,transparent 5px),
+    radial-gradient(circle at 86% 34%,rgba(224,235,255,.82) 0 1px,rgba(160,192,255,.22) 2px,transparent 5px),
+    radial-gradient(ellipse 62% 18% at 50% 94%,rgba(167,187,249,.15),transparent 72%);
+  opacity:.72;animation:lotusFireflies 9.5s ease-in-out infinite;
+}
+.cfx-lotus-fireflies::before {
+  content:'';position:absolute;inset:0;
+  background-image:
+    var(--lotus-bloom),var(--lotus-bloom),
+    radial-gradient(ellipse 42px 12px at 18% 84%,transparent 45%,rgba(210,221,255,.17) 52% 57%,transparent 64%),
+    radial-gradient(ellipse 36px 10px at 72% 76%,transparent 44%,rgba(236,210,231,.14) 51% 57%,transparent 64%),
+    radial-gradient(ellipse 30px 9px at 86% 48%,transparent 44%,rgba(190,211,255,.13) 51% 57%,transparent 64%);
+  background-repeat:no-repeat;background-size:28px 14px,21px 11px,100% 100%,100% 100%,100% 100%;
+  background-position:14% 83%,69% 75%,0 0,0 0,0 0;
+  animation:lotusFireflyRipple 7s ease-in-out infinite;
+}
+@keyframes moonLotusReveal { 0%,100%{opacity:.35} 50%{opacity:.72} }
+@keyframes moonLotusCaustic { 0%,100%{transform:translateX(-3%) scale(.96);opacity:.42} 50%{transform:translateX(3%) scale(1.04);opacity:.76} }
+@keyframes moonLotusBloom { 0%,18%,100%{transform:translateY(5px) scale(.82);opacity:.08} 45%,70%{transform:translateY(0) scale(1);opacity:.42} }
+@keyframes lotusCaustics { 0%,100%{background-position:0 100%,100% 100%;opacity:.4} 50%{background-position:12% 84%,86% 90%;opacity:.72} }
+@keyframes lotusPetalSheet { from{background-position:16% -10%,68% -30%,43% -50%,84% -70%,0 0} to{background-position:32% 110%,52% 130%,60% 150%,72% 170%,0 0} }
+@keyframes lotusFireflies { 0%,100%{background-position:0 12px,0 24px,0 6px,0 0;opacity:.38} 50%{background-position:8px -20px,-6px -16px,5px -26px,0 0;opacity:.82} }
+@keyframes lotusFireflyRipple { 0%,100%{transform:scaleX(.88);opacity:.3} 50%{transform:scaleX(1.08);opacity:.72} }
+.ptitle.title-moon-lotus, .top-title.title-moon-lotus, .lc-title.title-moon-lotus {
+  color:#e8edff;font-style:normal;font-weight:700;letter-spacing:.45px;text-shadow:0 0 3px rgba(241,220,239,.44),0 0 7px rgba(159,181,247,.34);animation:moonLotusTitle 5.4s ease-in-out infinite;
+}
+@keyframes moonLotusTitle { 0%,100%{filter:brightness(.96)} 50%{filter:brightness(1.14)} }
+
+/* Прилив Рюдзина · 1500✨ */
+.glow-ryujin-ink {
+  color:#d8eef4;-webkit-text-stroke:.5px rgba(76,142,170,.76);text-shadow:0 0 2px rgba(132,207,227,.68),0 0 7px rgba(37,91,119,.38);animation:ryujinInkPulse 5.1s ease-in-out infinite;
+}
+.glow-ryujin-gold {
+  color:#eef6f5;-webkit-text-stroke:.55px rgba(208,178,99,.75);text-shadow:-1px 0 2px rgba(41,111,143,.48),1px 0 2px rgba(230,200,121,.58),0 0 6px rgba(58,126,155,.32);animation:ryujinGoldText 6s ease-in-out infinite;
+}
+.glow-ryujin-foam {
+  color:#effbfc;-webkit-text-stroke:.45px rgba(105,181,207,.7);text-shadow:-1px 0 2px rgba(55,127,157,.52),1px 0 2px rgba(241,252,252,.76),0 0 8px rgba(80,165,193,.42);animation:ryujinFoamText 5.4s ease-in-out infinite;
+}
+@keyframes ryujinInkPulse { 0%,82%,100%{text-shadow:0 0 2px rgba(132,207,227,.62),0 0 6px rgba(37,91,119,.32)} 88%{text-shadow:0 0 3px rgba(225,244,248,.92),0 0 8px rgba(80,166,199,.55),1px 0 2px rgba(229,197,111,.7)} }
+@keyframes ryujinGoldText { 0%,100%{filter:brightness(.92)} 50%{filter:brightness(1.18)} }
+@keyframes ryujinFoamText { 0%,100%{filter:brightness(.92)} 38%{filter:brightness(1)} 48%{filter:brightness(1.28)} 60%{filter:brightness(1.02)} }
+.frame-ryujin-kintsugi {
+  box-shadow:inset 0 0 0 1px rgba(118,192,216,.22),0 0 0 2px #172a31,0 0 0 3px rgba(216,180,91,.52),0 0 14px rgba(45,123,151,.42);
+}
+.frame-ryujin-kintsugi::before {
+  content:'';position:absolute;inset:-4px;border-radius:inherit;padding:2px;
+  background:conic-gradient(from 16deg,transparent 0 18deg,#d8b45b 18deg 20deg,transparent 20deg 74deg,#77c9df 74deg 78deg,transparent 78deg 151deg,#e2c77d 151deg 154deg,transparent 154deg 229deg,#4d9dbb 229deg 234deg,transparent 234deg 307deg,#d8b45b 307deg 310deg,transparent 310deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+  filter:drop-shadow(0 0 3px rgba(222,188,101,.44));animation:ryujinKintsugi 6.6s ease-in-out infinite;
+}
+.frame-ryujin-scale {
+  box-shadow:inset 0 0 0 1px rgba(195,231,238,.2),0 0 0 2px #204858,0 0 0 4px rgba(49,110,134,.34),0 0 14px 3px rgba(76,158,187,.38);animation:ryujinScale 4.8s ease-in-out infinite;
+}
+.frame-ryujin-torii {
+  box-shadow:inset 0 0 0 1px rgba(202,236,241,.2),0 0 0 2px #14252b,0 0 0 3px rgba(214,179,91,.46),0 0 15px rgba(52,139,170,.4);
+}
+.frame-ryujin-torii::before {
+  content:'';position:absolute;inset:-5px;border-radius:inherit;padding:2px;
+  background:conic-gradient(from 45deg,rgba(229,198,112,.86) 0 8deg,transparent 9deg 82deg,rgba(96,181,204,.72) 83deg 91deg,transparent 92deg 172deg,rgba(229,198,112,.86) 173deg 181deg,transparent 182deg 262deg,rgba(96,181,204,.72) 263deg 271deg,transparent 272deg 352deg,rgba(229,198,112,.86) 353deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+  filter:drop-shadow(0 0 4px rgba(216,184,95,.4));animation:ryujinToriiPulse 6.8s ease-in-out infinite;
+}
+@keyframes ryujinKintsugi { 0%,100%{opacity:.62;filter:drop-shadow(0 0 2px rgba(222,188,101,.34))} 50%{opacity:1;filter:drop-shadow(0 0 5px rgba(232,201,120,.64))} }
+@keyframes ryujinScale { 0%,100%{filter:brightness(.92) hue-rotate(-4deg)} 50%{filter:brightness(1.16) hue-rotate(5deg)} }
+@keyframes ryujinToriiPulse { 0%,100%{opacity:.62;transform:scale(.985)} 50%{opacity:1;transform:scale(1.015)} }
+.halo-ryujin-tide { filter:drop-shadow(0 0 1px rgba(198,235,242,.9)) drop-shadow(0 0 9px rgba(76,168,201,.68)) drop-shadow(0 0 19px rgba(224,190,97,.22)); }
+.halo-ryujin-eye { filter:drop-shadow(0 0 2px rgba(223,244,247,.88)) drop-shadow(0 0 11px rgba(52,150,185,.72)) drop-shadow(0 0 20px rgba(224,188,92,.3)); }
+.hero.pbg-ryujin-storm, .looks-preview.pbg-ryujin-storm, .lc-bg.pbg-ryujin-storm {
+  background:
+    radial-gradient(ellipse 135% 42% at 20% 93%,rgba(76,151,179,.38),transparent 64%),
+    radial-gradient(ellipse 110% 35% at 94% 76%,rgba(31,84,108,.46),transparent 68%),
+    radial-gradient(ellipse 28% 24% at 94% 18%,rgba(220,186,94,.1),transparent 72%),
+    linear-gradient(160deg,#06090c,#0b1820 54%,#030506);
+  background-size:190% 145%,175% 145%,100% 100%,100% 100%;animation:ryujinStormFlow 10s ease-in-out infinite;
+}
+.hero.pbg-ryujin-tempest, .looks-preview.pbg-ryujin-tempest, .lc-bg.pbg-ryujin-tempest {
+  background:
+    repeating-linear-gradient(105deg,transparent 0 18px,rgba(177,218,229,.035) 19px,transparent 20px 34px),
+    linear-gradient(90deg,transparent 42%,rgba(9,14,17,.72) 43% 57%,transparent 58%),
+    radial-gradient(ellipse 120% 46% at 50% 106%,rgba(70,137,161,.42),transparent 67%),linear-gradient(175deg,#0b1116,#071016 58%,#030506);
+  background-size:115% 115%,100% 100%,170% 150%,100% 100%;animation:ryujinTempest 12s ease-in-out infinite;
+}
+.hero.pbg-ryujin-palace, .looks-preview.pbg-ryujin-palace, .lc-bg.pbg-ryujin-palace {
+  background:
+    linear-gradient(90deg,transparent 13%,rgba(223,190,96,.035) 13.4% 14%,transparent 14.4% 86%,rgba(223,190,96,.035) 86.4% 87%,transparent 87.4%),
+    linear-gradient(180deg,transparent 17%,rgba(223,190,96,.045) 17.4% 18.2%,transparent 18.6%),
+    radial-gradient(ellipse 120% 55% at 50% 108%,rgba(42,128,157,.48),transparent 67%),
+    linear-gradient(165deg,#061016,#081b23 55%,#030608);
+  background-size:100% 100%,100% 100%,165% 145%,100% 100%;animation:ryujinPalaceDepth 13s ease-in-out infinite;
+}
+@keyframes ryujinStormFlow { 0%,100%{background-position:0 100%,100% 74%,0 0,0 0} 50%{background-position:32% 82%,68% 88%,0 0,0 0} }
+@keyframes ryujinTempest { 0%,100%{background-position:0 0,0 0,50% 100%,0 0;filter:brightness(.92)} 50%{background-position:14% 8%,0 0,44% 84%,0 0;filter:brightness(1.08)} }
+@keyframes ryujinPalaceDepth { 0%,100%{background-position:0 0,0 0,50% 100%,0 0;filter:brightness(.92)} 50%{background-position:0 0,0 2px,44% 86%,0 0;filter:brightness(1.08)} }
+.cfx-ryujin-current {
+  --ryujin-scale:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 10'%3E%3Cpath d='M1 5 8 0l7 5-7 5Z' fill='%23d9b963'/%3E%3Cpath d='M3 5h10' stroke='%2379c5d8' stroke-opacity='.65' stroke-width='.7'/%3E%3C/svg%3E");
+  --ryujin-spine:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 96'%3E%3Cpath d='M-12 82C26 42 56 91 91 70C126 49 128 18 165 22C184 24 199 37 224 27' fill='none' stroke='%2368b4cc' stroke-opacity='.3' stroke-width='4.5' stroke-linecap='round'/%3E%3Cpath d='M-12 82C26 42 56 91 91 70C126 49 128 18 165 22C184 24 199 37 224 27' fill='none' stroke='%23d9b963' stroke-opacity='.54' stroke-width='1' stroke-dasharray='2 13' stroke-linecap='round'/%3E%3Cpath d='m164 22 7-5 5 5-7 5Z' fill='%23d9b963' fill-opacity='.48'/%3E%3Cpath d='m170 18 2-5 1 6m-5 1-3-4 1 5m8 3 7 1' fill='none' stroke='%2379c5d8' stroke-opacity='.6' stroke-width='1'/%3E%3C/svg%3E");
+  background-image:
+    var(--ryujin-scale),var(--ryujin-scale),var(--ryujin-scale);
+  background-repeat:no-repeat;background-size:10px 6px,8px 5px,11px 7px;
+  background-position:18% 82%,62% 94%,84% 74%;
+  opacity:.72;mix-blend-mode:screen;animation:ryujinScaleSheet 11s ease-in-out infinite;
+}
+.cfx-ryujin-current::before {
+  content:'';position:absolute;left:-10%;right:-10%;bottom:-3%;height:42%;background:
+    repeating-radial-gradient(ellipse at -8% 96%,transparent 0 24px,rgba(100,189,215,.14) 25px 27px,transparent 28px 47px),
+    repeating-radial-gradient(ellipse at 108% 76%,transparent 0 28px,rgba(38,112,142,.17) 29px 31px,transparent 32px 54px);
+  background-size:125% 100%,135% 100%;animation:ryujinCurrent 7.5s ease-in-out infinite;
+  -webkit-mask-image:linear-gradient(transparent,#000);mask-image:linear-gradient(transparent,#000);
+}
+.cfx-ryujin-current::after {
+  content:'';position:absolute;left:-3%;right:-3%;bottom:0;height:21%;opacity:.46;background:var(--ryujin-spine) center bottom/100% 100% no-repeat;filter:drop-shadow(0 0 4px rgba(76,158,187,.28));animation:ryujinDragonCurrent 8.2s ease-in-out infinite;
+}
+.cfx-ryujin-lightning {
+  --ryujin-scale:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 10'%3E%3Cpath d='M1 5 8 0l7 5-7 5Z' fill='%23d9b963'/%3E%3Cpath d='M3 5h10' stroke='%2379c5d8' stroke-opacity='.65' stroke-width='.7'/%3E%3C/svg%3E");
+  --ryujin-spine:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 96'%3E%3Cpath d='M-12 82C26 42 56 91 91 70C126 49 128 18 165 22C184 24 199 37 224 27' fill='none' stroke='%23599ab2' stroke-opacity='.25' stroke-width='4.5' stroke-linecap='round'/%3E%3Cpath d='M-12 82C26 42 56 91 91 70C126 49 128 18 165 22C184 24 199 37 224 27' fill='none' stroke='%23dfc16d' stroke-opacity='.48' stroke-width='1' stroke-dasharray='3 14'/%3E%3Cpath d='m164 22 7-5 5 5-7 5Z' fill='%23dfc16d' fill-opacity='.42'/%3E%3C/svg%3E");
+  background-image:repeating-linear-gradient(106deg,transparent 0 18px,rgba(142,203,219,.055) 19px,transparent 20px 38px);background-size:115% 160%;opacity:.56;animation:ryujinRain 7s linear infinite;
+}
+.cfx-ryujin-lightning::before {
+  content:'';position:absolute;inset:5% 8% 58% 77%;opacity:0;background:linear-gradient(180deg,rgba(255,231,159,.9),rgba(214,175,78,.18));
+  clip-path:polygon(48% 0,64% 0,51% 38%,75% 35%,28% 100%,40% 53%,18% 58%);filter:drop-shadow(0 0 5px rgba(233,200,108,.72));animation:ryujinLightning 8.6s steps(1,end) infinite;
+}
+.cfx-ryujin-lightning::after {
+  content:'';position:absolute;inset:0;background-image:var(--ryujin-scale),var(--ryujin-scale),var(--ryujin-scale),var(--ryujin-spine);
+  background-repeat:no-repeat;background-size:10px 6px,8px 5px,11px 7px,106% 21%;
+  background-position:20% 88%,56% 78%,86% 92%,center 98%;
+  animation:ryujinScaleSheet 10s ease-in-out infinite 1.4s;opacity:.68;
+}
+.cfx-ryujin-ink-serpent {
+  background:
+    radial-gradient(ellipse 70% 24% at 18% 94%,rgba(60,146,176,.18),transparent 70%),
+    radial-gradient(ellipse 64% 20% at 84% 82%,rgba(216,181,91,.1),transparent 72%);
+  opacity:.76;animation:ryujinSerpentMist 8.8s ease-in-out infinite;
+}
+.cfx-ryujin-ink-serpent::before {
+  content:'';position:absolute;left:-4%;right:-4%;bottom:0;height:19%;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 88'%3E%3Cpath d='M-8 74C31 28 72 88 112 61C146 38 149 14 184 20C203 23 219 35 244 25' fill='none' stroke='%232d748e' stroke-opacity='.42' stroke-width='7' stroke-linecap='round'/%3E%3Cpath d='M-8 74C31 28 72 88 112 61C146 38 149 14 184 20C203 23 219 35 244 25' fill='none' stroke='%23d8b75f' stroke-opacity='.6' stroke-width='1.1' stroke-dasharray='2 12'/%3E%3Cpath d='m183 20 8-6 6 6-8 6Z' fill='%23d8b75f' fill-opacity='.55'/%3E%3Cpath d='m190 16 2-6 2 7m-6 1-4-5 2 6m8 3 10 1' fill='none' stroke='%2385cede' stroke-opacity='.68' stroke-width='1.1'/%3E%3C/svg%3E") center bottom/100% 100% no-repeat;
+  filter:drop-shadow(0 0 5px rgba(62,149,180,.34));animation:ryujinSerpentAwake 8.8s ease-in-out infinite;
+}
+@keyframes ryujinCurrent { 0%,100%{background-position:0 100%,100% 85%;opacity:.46} 50%{background-position:14% 82%,86% 100%;opacity:.78} }
+@keyframes ryujinFxGold { 0%,82%,100%{opacity:.05} 87%{opacity:.72} 91%{opacity:.12} }
+@keyframes ryujinDragonCurrent { 0%,100%{transform:translateX(-2%) scaleY(.94);opacity:.32} 50%{transform:translateX(2%) scaleY(1.04);opacity:.58} }
+@keyframes ryujinRain { from{background-position:0 -120%} to{background-position:12% 120%} }
+@keyframes ryujinLightning { 0%,84%,88%,100%{opacity:0} 85%{opacity:.88} 86%{opacity:.14} 87%{opacity:.62} }
+@keyframes ryujinScaleSheet { 0%,100%{background-position:18% 104%,62% 112%,84% 98%;opacity:.22} 50%{background-position:28% 64%,54% 72%,76% 58%;opacity:.76} }
+@keyframes ryujinSerpentMist { 0%,100%{opacity:.3} 50%{opacity:.78} }
+@keyframes ryujinSerpentAwake { 0%,100%{transform:translateX(-3%) scaleY(.9);opacity:.18} 44%,68%{transform:translateX(2%) scaleY(1.05);opacity:.72} }
+.ptitle.title-ryujin-heir, .top-title.title-ryujin-heir, .lc-title.title-ryujin-heir {
+  color:#d9e8e9;font-style:normal;font-weight:700;letter-spacing:.55px;-webkit-text-stroke:.25px rgba(216,180,91,.48);text-shadow:0 0 4px rgba(72,154,181,.44),1px 0 2px rgba(222,188,101,.35);animation:ryujinTitle 6s ease-in-out infinite;
+}
+@keyframes ryujinTitle { 0%,100%{filter:brightness(.94)} 50%{filter:brightness(1.14)} }
+
+/* Сигилы и фоновые акценты новых коллекций. */
+@keyframes hanamiBloom { 0%,100%{transform:scale(.92);opacity:.76} 50%{transform:scale(1.06);opacity:1} }
+@keyframes hanamiPetalFall { 0%,100%{transform:translate(0,-2px) rotate(-16deg);opacity:.18} 45%{opacity:.9} 75%{transform:translate(-3px,7px) rotate(34deg);opacity:.5} }
+@keyframes hanamiAtmoFall { 0%{transform:translate(0,-12px) rotate(-12deg);opacity:0} 18%{opacity:.55} 82%{opacity:.28} 100%{transform:translate(28px,150px) rotate(150deg);opacity:0} }
+@keyframes moonLotusGlow { 0%,100%{opacity:.62;filter:brightness(.96)} 50%{opacity:1;filter:brightness(1.14)} }
+@keyframes moonLotusFloat { 0%,100%{transform:translateY(1px)} 50%{transform:translateY(-1.5px)} }
+@keyframes moonRipple { 0%,100%{transform:scaleX(.88);opacity:.34} 50%{transform:scaleX(1.08);opacity:.82} }
+@keyframes lotusPetalAtmo { 0%{transform:translate(0,-14px) rotate(-18deg);opacity:0} 16%{opacity:.58} 72%{opacity:.36} 100%{transform:translate(24px,145px) rotate(145deg);opacity:0} }
+@keyframes ryujinSigFlow { 0%,100%{transform:rotate(-2deg) scale(.97)} 50%{transform:rotate(2deg) scale(1.03)} }
+@keyframes ryujinGoldFlash { 0%,78%,100%{opacity:.18;filter:none} 84%{opacity:1;filter:drop-shadow(0 0 4px #e6c879)} 90%{opacity:.3;filter:none} }
+@keyframes ryujinAtmoCurrent { 0%,100%{transform:translateX(-5%) rotate(-7deg);opacity:.35} 50%{transform:translateX(5%) rotate(-4deg);opacity:.75} }
+@keyframes ryujinScaleDrift { 0%{transform:translate(-8px,18px) rotate(-20deg);opacity:0} 22%{opacity:.5} 75%{opacity:.3} 100%{transform:translate(20px,-70px) rotate(130deg);opacity:0} }
+
+body.no-fx .frame-hanami-branches::before,
+body.no-fx .frame-hanami-goldleaf::before,
+body.no-fx .frame-moon-lotus::before,
+body.no-fx .frame-lotus-petal-orbit::before,
+body.no-fx .frame-ryujin-kintsugi::before,
+body.no-fx .frame-ryujin-torii::before,
+body.no-fx .cfx-moon-lotus::before, body.no-fx .cfx-moon-lotus::after,
+body.no-fx .cfx-hanami-ink-bloom::after,
+body.no-fx .cfx-lotus-caustics::before, body.no-fx .cfx-lotus-caustics::after,
+body.no-fx .cfx-ryujin-current::before, body.no-fx .cfx-ryujin-current::after,
+body.no-fx .cfx-ryujin-lightning::before, body.no-fx .cfx-ryujin-lightning::after,
+body.no-fx .cfx-lotus-fireflies::before,
+body.no-fx .cfx-ryujin-ink-serpent::before { animation:none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .frame-hanami-branches::before, .frame-hanami-goldleaf::before,
+  .frame-moon-lotus::before, .frame-lotus-petal-orbit::before,
+  .frame-ryujin-kintsugi::before, .frame-ryujin-torii::before,
+  .cfx-moon-lotus::before, .cfx-moon-lotus::after,
+  .cfx-hanami-ink-bloom::after,
+  .cfx-lotus-caustics::before, .cfx-lotus-caustics::after,
+  .cfx-ryujin-current::before, .cfx-ryujin-current::after,
+  .cfx-ryujin-lightning::before, .cfx-ryujin-lightning::after,
+  .cfx-lotus-fireflies::before, .cfx-ryujin-ink-serpent::before { animation:none !important; }
+}
+
 /* ── Доступность/перф: заморозка анимаций косметики ──────────────────────────
    Общий вход и для системного prefers-reduced-motion, и для тумблера «Отключить
    анимации» (body.no-fx, см. openSettingsModal в app.02.js). Селекторы заякорены
@@ -1899,6 +2326,12 @@ body.no-fx .card-fx.cfx-frostbite { opacity: .44; }
 .ava.halo-void, .ava.halo-eclipse { --halo-edge: rgba(225,91,127,.82); --halo-wash: rgba(176,48,86,.15); --halo-glow: rgba(224,65,102,.52); --halo-speed: 2.7s; }
 .ava.halo-flame-crown, .ava.halo-smolder { --halo-edge: rgba(255,159,74,.86); --halo-wash: rgba(255,93,25,.16); --halo-glow: rgba(255,91,24,.56); --halo-speed: 2.2s; }
 .ava.halo-artifact { --halo-edge: rgba(115,245,245,.88); --halo-wash: rgba(63,224,224,.15); --halo-glow: rgba(82,229,244,.58); }
+.ava.halo-hanami-petals { --halo-edge: rgba(247,197,213,.86); --halo-wash: rgba(222,135,166,.14); --halo-glow: rgba(224,126,162,.46); --halo-speed: 4.4s; }
+.ava.halo-hanami-afterglow { --halo-edge: rgba(250,209,168,.86); --halo-wash: rgba(194,112,146,.15); --halo-glow: rgba(223,142,157,.5); --halo-speed: 5.2s; }
+.ava.halo-moon-ripple { --halo-edge: rgba(231,237,255,.92); --halo-wash: rgba(169,190,255,.16); --halo-glow: rgba(178,197,255,.58); --halo-speed: 4.8s; }
+.ava.halo-lotus-moonwake { --halo-edge: rgba(249,239,252,.94); --halo-wash: rgba(183,198,250,.18); --halo-glow: rgba(198,205,255,.64); --halo-speed: 5.6s; }
+.ava.halo-ryujin-tide { --halo-edge: rgba(188,229,239,.88); --halo-wash: rgba(66,150,182,.16); --halo-glow: rgba(74,163,197,.58); --halo-speed: 3.8s; }
+.ava.halo-ryujin-eye { --halo-edge: rgba(223,241,241,.9); --halo-wash: rgba(54,146,179,.18); --halo-glow: rgba(65,158,193,.62); --halo-speed: 4.2s; }
 /* Контрастная рамка Инферно в паре с гало остаётся огненной, но не рисует
    тяжёлый оранжевый обруч поверх второй световой орбиты. */
 .ava.frame-inferno[class*="halo-"] {
@@ -3496,7 +3929,7 @@ body.no-fx .zc-card-in, body.no-fx .zc-slot-fill { animation: none; }
   overflow: hidden; box-shadow: var(--shadow-sm);
 }
 
-/* ═══ Стадия 2 (2026-07-30): режим «По коллекциям» — 7 карточек-линеек ═══ */
+/* ═══ Стадия 2 (2026-07-30): режим «По коллекциям» — карточки-линейки ═══ */
 @keyframes fireflyDrift { 0%{opacity:.1;transform:translate(0,0)} 30%{opacity:.9;transform:translate(1px,-3px)} 55%{opacity:.4;transform:translate(-1px,-4px)} 80%{opacity:.8;transform:translate(0,-2px)} 100%{opacity:.1;transform:translate(0,0)} }
 @keyframes canopyBreathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.025)} }
 @keyframes portalTravel { 0%{transform:translateY(9px);opacity:0} 15%{opacity:.8} 85%{opacity:.8} 100%{transform:translateY(-9px);opacity:0} }

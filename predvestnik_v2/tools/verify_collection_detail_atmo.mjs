@@ -1,4 +1,4 @@
-// Атмосфера шапки детального экрана (Стадия 3): каждая из 7 линеек рендерит
+// Атмосфера шапки детального экрана (Стадия 3): каждая линейка каталога рендерит
 // хотя бы 1 анимированный узел внутри .coll-detail-atmo, и все они гасятся
 // под body.no-fx (тот же парный паттерн, что и .coll-card, Стадия 2).
 import puppeteer from 'puppeteer';
@@ -14,7 +14,7 @@ await new Promise(r => setTimeout(r, 500));
 await page.evaluate(() => openLooksModal());
 await new Promise(r => setTimeout(r, 800));
 
-const lineups = ['forest','threshold','frost','inferno','celestial','void','artifact'];
+const lineups = await page.evaluate(() => Object.keys(_looksData.lineups || {}));
 for (const lin of lineups) {
   await page.evaluate((l) => _looksOpenCollection(l), lin);
   await new Promise(r => setTimeout(r, 200));

@@ -45,7 +45,7 @@ check('пустые для линейки слоты не создают сек�
 
 // Ревью-финдинг: счётчик секции name_glow внутри детального экрана forest должен
 // быть СКОПИРОВАН на линейку (1/1 — владеет только cos_name_glow_moon), а НЕ
-// глобальным счётом по всем линейкам (1/3: moon(forest,owned)+frost+neon(artifact)).
+// глобальным счётом по всем линейкам (который растёт при добавлении каталога).
 const forestGlowNum = await page.evaluate(() => (document.querySelector('#looks-sec-name_glow .sec-num') || {}).textContent || null);
 check('forest detail: секция name_glow показывает 1/1 (скоуп на линейку), не 1/3', forestGlowNum === '1/1');
 
@@ -65,17 +65,22 @@ const back = await page.evaluate(() => ({
   detailGone: !document.querySelector('.coll-detail-head'),
   toggleBack: !!document.getElementById('looks-mode-toggle'),
   cardCount: document.querySelectorAll('.coll-card').length,
+  lineupCount: Object.keys(_looksData.lineups || {}).length,
 }));
 check('кнопка "‹ Назад" закрывает детальный экран', back.detailGone);
 check('переключатель режимов снова виден', back.toggleBack);
-check('карточки коллекций снова на экране', back.cardCount === 7);
+check('карточки всех коллекций снова на экране', back.cardCount === back.lineupCount && back.cardCount === 10);
 
 // Режим «По слотам» (полный каталог) должен по-прежнему показывать ГЛОБАЛЬНЫЙ счёт
 // (не затронут фиксом finding 2 — только детальный экран коллекции скоупится).
 await page.evaluate(() => _looksSetMode('slots'));
 await new Promise(r => setTimeout(r, 300));
 const slotsGlowNum = await page.evaluate(() => (document.querySelector('#looks-sec-name_glow .sec-num') || {}).textContent || null);
-check('режим «По слотам»: секция name_glow показывает глобальные 1/3 (не изменилось)', slotsGlowNum === '1/3');
+const slotsGlowExpected = await page.evaluate(() => {
+  const items=_looksData.slots.name_glow || [];
+  return `${items.filter(item=>item.owned).length}/${items.length}`;
+});
+check('режим «По слотам»: секция name_glow показывает глобальный счёт', slotsGlowNum === slotsGlowExpected);
 
 await browser.close();
 if (FAIL.length) { console.error('FAIL:', FAIL); process.exit(1); }

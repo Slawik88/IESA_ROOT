@@ -3,13 +3,15 @@
 Только КОСМЕТИКА, без игрового преимущества. Без внешних зависимостей.
 
 ЛИНЕЙКИ (редизайн 2026-07-29): группировка по редкости (common→artifact, 86
-разрозненных предметов без общего стиля внутри яруса) заменена на 7 тематических
+разрозненных предметов без общего стиля внутри яруса) заменена на тематические
 "линеек" — коллекций с единым визуальным языком на все 6 слотов. Цена и VIP-гейт
 теперь СВОЙСТВО ЛИНЕЙКИ (см. LINEUPS ниже), не отдельного предмета:
   Лесной Странник → 250✨, без VIP      Изморозь  → 440✨, с VIP
   Порог           → 440✨, с VIP        Инферно   → 630✨, с VIP
   Небесное Сияние → 820✨, с VIP        Бездна    → 1000✨, с VIP
   Артефакт        → 1500✨, с VIP
+  Ханами          → 630✨, с VIP        Лунный Лотос → 1500✨, с VIP
+  Прилив Рюдзина  → 1500✨, с VIP
 
 Порядок действий при переходе (важно для истории): владелец сначала прогнал
 scripts/cosmetics_lineup_wipe_refund.py — рефанд+снятие ВСЕЙ косметики у ВСЕХ
@@ -25,7 +27,7 @@ VIP-гейтом (is_vip_locked) и пулом дропа в сундуках/к
 `lineup` — НОВОЕ поле, id записи в LINEUPS, для группировки в магазине.
 
 56 из 86 старых предметов переприписаны в линейки (у части сменились
-rarity/price — см. LINEUPS/комментарии по секциям), 33 — новые (для слотов,
+rarity/price — см. LINEUPS/комментарии по секциям), 78 — новые (для слотов,
 где готового по теме не нашлось). Разрозненные предметы вне какой-либо линейки
 удалены из каталога целиком (был полный wipe — владельцу принадлежать было
 уже некому, терять было нечего).
@@ -86,6 +88,11 @@ LINEUPS: dict[str, dict] = {
         "price": [{"zarniki": 630}], "vip_required": True,
         "blurb": "Пламя, угли и раскалённый металл.",
     },
+    "hanami": {
+        "name": "🌸 Ханами", "rarity": "epic",
+        "price": [{"zarniki": 630}], "vip_required": True,
+        "blurb": "Сакура, тёплая тушь и сумеречная бумага васи — красота одного короткого цветения.",
+    },
     "celestial": {
         "name": "✨ Небесное Сияние", "rarity": "legendary",
         "price": [{"zarniki": 820}], "vip_required": True,
@@ -100,6 +107,16 @@ LINEUPS: dict[str, dict] = {
         "name": "⚡ Артефакт", "rarity": "artifact",
         "price": [{"zarniki": 1500}], "vip_required": True,
         "blurb": "Голографическая энергия: циан+магента+золото, техно-язык.",
+    },
+    "moon_lotus": {
+        "name": "🪷 Лунный Лотос", "rarity": "artifact",
+        "price": [{"zarniki": 1500}], "vip_required": True,
+        "blurb": "Перламутровый лотос на ночной воде: серебряный свет, тихая рябь и глубокий индиго.",
+    },
+    "ryujin_tide": {
+        "name": "🐉 Прилив Рюдзина", "rarity": "artifact",
+        "price": [{"zarniki": 1500}], "vip_required": True,
+        "blurb": "Драконий поток в языке суми-э: штормовая вода, чёрный лак и прожилки кинцуги.",
     },
 }
 
@@ -689,6 +706,285 @@ COSMETICS: dict[str, dict] = {
         "vip_required": True, "source": "shop",
         "price": [{"zarniki": 1500}],
         "desc": "RGB-сбой текста титула — на грани реальности. Показывается при активной VIP.",
+    },
+
+    # ═══════════════════════ 🌸 ХАНАМИ (630✨, с VIP) — 15 предметов ════════
+    "cos_name_glow_hanami_ink": {
+        "name": "Сакура в туши", "slot": "name_glow", "rarity": "epic", "lineup": "hanami",
+        "css": "glow-hanami-ink", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Тёплая тушь и розовый свет проходят по краю букв, как цветение на свитке.",
+    },
+    "cos_name_glow_hanami_lantern": {
+        "name": "Свет бумажного фонаря", "slot": "name_glow", "rarity": "epic", "lineup": "hanami",
+        "css": "glow-hanami-lantern", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Тёплый янтарный блик проходит по имени сквозь розовую дымку вечернего сада.",
+    },
+    "cos_name_glow_hanami_dew": {
+        "name": "Роса на сакуре", "slot": "name_glow", "rarity": "epic", "lineup": "hanami",
+        "css": "glow-hanami-dew", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Светлая капля росы проходит по буквам поверх спокойного сливового контура.",
+    },
+    "cos_avatar_frame_hanami_branches": {
+        "name": "Ветви ханами", "slot": "avatar_frame", "rarity": "epic", "lineup": "hanami",
+        "css": "frame-hanami-branches", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Тонкая тёмная оправа с редкими лепестками сакуры — выразительно, но без тяжёлого сияния.",
+    },
+    "cos_avatar_frame_hanami_lacquer": {
+        "name": "Лак и сакура", "slot": "avatar_frame", "rarity": "epic", "lineup": "hanami",
+        "css": "frame-hanami-lacquer", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Гладкая сливовая оправа с тонким перламутровым кантом, будто роспись на тёмном лаке.",
+    },
+    "cos_avatar_frame_hanami_goldleaf": {
+        "name": "Золотой лист на лаке", "slot": "avatar_frame", "rarity": "epic", "lineup": "hanami",
+        "css": "frame-hanami-goldleaf", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Тёмно-сливовый лак с редкими фрагментами сусального золота и розовым внутренним бликом.",
+    },
+    "cos_avatar_halo_hanami_petals": {
+        "name": "Венец лепестков", "slot": "avatar_halo", "rarity": "epic", "lineup": "hanami",
+        "css": "halo-hanami-petals", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Мягкий розовый ореол будто удерживает вокруг аватара несколько падающих лепестков.",
+    },
+    "cos_avatar_halo_hanami_afterglow": {
+        "name": "Послесвечение цветения", "slot": "avatar_halo", "rarity": "epic", "lineup": "hanami",
+        "css": "halo-hanami-afterglow", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Тёплое сливово-золотое свечение остаётся вокруг аватара, как закат после ханами.",
+    },
+    "cos_profile_bg_hanami_washi": {
+        "name": "Сад на васи", "slot": "profile_bg", "rarity": "epic", "lineup": "hanami",
+        "css": "pbg-hanami-washi", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Угольная бумага васи, дымчатая сакура и тёплый свет далёкого фонаря.",
+    },
+    "cos_profile_bg_hanami_lanterns": {
+        "name": "Аллея фонарей", "slot": "profile_bg", "rarity": "epic", "lineup": "hanami",
+        "css": "pbg-hanami-lanterns", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Глубокие сливовые сумерки и несколько тёплых огней между цветущими деревьями.",
+    },
+    "cos_profile_bg_hanami_rain": {
+        "name": "Весенний дождь на васи", "slot": "profile_bg", "rarity": "epic", "lineup": "hanami",
+        "css": "pbg-hanami-rain", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Прохладный дождь проступает поверх тёмной бумаги, а вдали теплеет один фонарь.",
+    },
+    "cos_card_fx_hanami_drift": {
+        "name": "Тихий листопад", "slot": "card_fx", "rarity": "epic", "lineup": "hanami",
+        "css": "cfx-hanami-drift", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Редкие лепестки медленно пересекают карточку и не закрывают важную информацию.",
+    },
+    "cos_card_fx_hanami_ink_bloom": {
+        "name": "Цветение туши", "slot": "card_fx", "rarity": "epic", "lineup": "hanami",
+        "css": "cfx-hanami-ink-bloom", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Полупрозрачное чернильное пятно медленно распускается у края карточки, как ветвь на свитке.",
+    },
+    "cos_card_fx_hanami_moths": {
+        "name": "Мотыльки у фонаря", "slot": "card_fx", "rarity": "epic", "lineup": "hanami",
+        "css": "cfx-hanami-moths", "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Три крошечных золотистых мотылька неспешно кружат у тёплого края карточки.",
+    },
+    "cos_title_hanami_witness": {
+        "name": "Свидетель Ханами", "slot": "title", "rarity": "epic", "lineup": "hanami",
+        "text": "Свидетель Ханами", "css": "title-hanami-witness",
+        "vip_required": False, "source": "shop",
+        "price": [{"zarniki": 630}],
+        "desc": "Титул того, кто умеет заметить красоту, пока она не исчезла.",
+    },
+
+    # ══════════════════ 🪷 ЛУННЫЙ ЛОТОС (1500✨, с VIP) — 15 предметов ══════
+    "cos_name_glow_moon_lotus": {
+        "name": "Перламутр луны", "slot": "name_glow", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "glow-moon-lotus", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Перламутровый блик скользит по имени, сохраняя чёткий светлый контур букв.",
+    },
+    "cos_name_glow_lotus_reflection": {
+        "name": "Серебро на воде", "slot": "name_glow", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "glow-lotus-reflection", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Холодное серебро дробится по буквам на тонкие отражения спокойной воды.",
+    },
+    "cos_name_glow_lotus_pearl": {
+        "name": "Жемчужная дорожка", "slot": "name_glow", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "glow-lotus-pearl", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Розово-серебряный блик медленно собирается на имени в одну чистую лунную дорожку.",
+    },
+    "cos_avatar_frame_moon_lotus": {
+        "name": "Жемчужный лотос", "slot": "avatar_frame", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "frame-moon-lotus", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Перламутровая оправа раскрывается вокруг аватара подобно лепесткам ночного лотоса.",
+    },
+    "cos_avatar_frame_lotus_silver": {
+        "name": "Серебряная орбита", "slot": "avatar_frame", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "frame-lotus-silver", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Два тонких серебряных кольца расходятся вокруг аватара подобно отражению полной луны.",
+    },
+    "cos_avatar_frame_lotus_petal_orbit": {
+        "name": "Орбита лепестков", "slot": "avatar_frame", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "frame-lotus-petal-orbit", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Тонкие лепестковые сегменты бесшумно обходят перламутровый край аватара.",
+    },
+    "cos_avatar_halo_moon_ripple": {
+        "name": "Лунная рябь", "slot": "avatar_halo", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "halo-moon-ripple", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Серебряная водяная орбита дышит вокруг аватара, как круги под полной луной.",
+    },
+    "cos_avatar_halo_lotus_moonwake": {
+        "name": "След полной луны", "slot": "avatar_halo", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "halo-lotus-moonwake", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Широкое перламутровое свечение оставляет за аватаром спокойный след на ночной воде.",
+    },
+    "cos_profile_bg_moon_lotus": {
+        "name": "Озеро полнолуния", "slot": "profile_bg", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "pbg-moon-lotus", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Глубокое индиго, далёкая луна и тонкие серебряные отражения на чёрной воде.",
+    },
+    "cos_profile_bg_lotus_sanctuary": {
+        "name": "Святилище зеркальной воды", "slot": "profile_bg", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "pbg-lotus-sanctuary", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Затопленное лунным светом святилище: вода, туман и едва заметные силуэты лотосов.",
+    },
+    "cos_profile_bg_lotus_eclipse": {
+        "name": "Сад во время затмения", "slot": "profile_bg", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "pbg-lotus-eclipse", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Серебряный серп, фиолетовая тень и редкие лотосы на почти неподвижной чёрной воде.",
+    },
+    "cos_card_fx_moon_lotus": {
+        "name": "Отражение лотоса", "slot": "card_fx", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "cfx-moon-lotus", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Свет луны преломляется на воде; редкий перламутровый лотос проявляется и снова уходит в глубину.",
+    },
+    "cos_card_fx_lotus_caustics": {
+        "name": "Жемчужная каустика", "slot": "card_fx", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "cfx-lotus-caustics", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Очень тонкие световые узоры движутся по нижней части карточки, как лунные блики под водой.",
+    },
+    "cos_card_fx_lotus_fireflies": {
+        "name": "Светлячки над водой", "slot": "card_fx", "rarity": "artifact", "lineup": "moon_lotus",
+        "css": "cfx-lotus-fireflies", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Редкие жемчужные огни поднимаются над водой и гаснут, оставляя короткие круги на поверхности.",
+    },
+    "cos_title_moon_lotus": {
+        "name": "Хранитель Лунного Лотоса", "slot": "title", "rarity": "artifact", "lineup": "moon_lotus",
+        "text": "Хранитель Лунного Лотоса", "css": "title-moon-lotus",
+        "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Редкий перламутровый титул хранителя ночного озера.",
+    },
+
+    # ══════════════════ 🐉 ПРИЛИВ РЮДЗИНА (1500✨, с VIP) — 15 предметов ════
+    "cos_name_glow_ryujin_ink": {
+        "name": "Грозовая каллиграфия", "slot": "name_glow", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "glow-ryujin-ink", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Холодная водяная тушь проходит по имени, а золотой импульс вспыхивает подобно молнии в облаках.",
+    },
+    "cos_name_glow_ryujin_gold": {
+        "name": "Золото в прибое", "slot": "name_glow", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "glow-ryujin-gold", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Тёмный водяной контур и тонкая золотая кромка создают эффект надписи на чёрном лаке.",
+    },
+    "cos_name_glow_ryujin_foam": {
+        "name": "Пена драконьей волны", "slot": "name_glow", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "glow-ryujin-foam", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Белый гребень прибоя на секунду высветляет холодный синий контур имени.",
+    },
+    "cos_avatar_frame_ryujin_kintsugi": {
+        "name": "Кинцуги Рюдзина", "slot": "avatar_frame", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "frame-ryujin-kintsugi", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Чёрная лаковая оправа прорезана тонкими золотыми жилами и холодным светом прибоя.",
+    },
+    "cos_avatar_frame_ryujin_scale": {
+        "name": "Чешуя морского дракона", "slot": "avatar_frame", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "frame-ryujin-scale", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Слоистая сине-чёрная оправа переливается, как мокрая чешуя в свете грозы.",
+    },
+    "cos_avatar_frame_ryujin_torii": {
+        "name": "Врата в шторм", "slot": "avatar_frame", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "frame-ryujin-torii", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Строгая лаковая рамка с золотыми углами напоминает врата, стоящие перед морской бурей.",
+    },
+    "cos_avatar_halo_ryujin_tide": {
+        "name": "Драконий прилив", "slot": "avatar_halo", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "halo-ryujin-tide", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Глубокая синяя орбита собирается вокруг аватара в движение драконьей волны.",
+    },
+    "cos_avatar_halo_ryujin_eye": {
+        "name": "Око тайфуна", "slot": "avatar_halo", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "halo-ryujin-eye", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Холодный круг шторма собирается вокруг спокойного золотого центра.",
+    },
+    "cos_profile_bg_ryujin_storm": {
+        "name": "Чернила шторма", "slot": "profile_bg", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "pbg-ryujin-storm", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Суми-э шторм движется в глубине чёрного лака, оставляя золотой след Рюдзина.",
+    },
+    "cos_profile_bg_ryujin_tempest": {
+        "name": "Храм перед бурей", "slot": "profile_bg", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "pbg-ryujin-tempest", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Дальний силуэт храма растворяется между дождём, морской пеной и тяжёлым грозовым небом.",
+    },
+    "cos_profile_bg_ryujin_palace": {
+        "name": "Дворец под приливом", "slot": "profile_bg", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "pbg-ryujin-palace", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Затонувшие золотые врата едва видны в глубоком синем потоке дворца морского дракона.",
+    },
+    "cos_card_fx_ryujin_current": {
+        "name": "Течение Рюдзина", "slot": "card_fx", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "cfx-ryujin-current", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Чернильное течение огибает содержимое карточки; по гребню волны изредка проходит золотая молния.",
+    },
+    "cos_card_fx_ryujin_lightning": {
+        "name": "Молния над морем", "slot": "card_fx", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "cfx-ryujin-lightning", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Редкая золотая вспышка прорезает холодный дождь и сразу оставляет карточку в спокойной темноте.",
+    },
+    "cos_card_fx_ryujin_ink_serpent": {
+        "name": "Живые чернила Рюдзина", "slot": "card_fx", "rarity": "artifact", "lineup": "ryujin_tide",
+        "css": "cfx-ryujin-ink-serpent", "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Тонкий драконий силуэт рождается из чернильного потока у нижнего края и снова растворяется в воде.",
+    },
+    "cos_title_ryujin_heir": {
+        "name": "Наследник Рюдзина", "slot": "title", "rarity": "artifact", "lineup": "ryujin_tide",
+        "text": "Наследник Рюдзина", "css": "title-ryujin-heir",
+        "vip_required": True, "source": "shop",
+        "price": [{"zarniki": 1500}],
+        "desc": "Титул наследника морского дракона — тёмная сталь, вода и тонкое золото.",
     },
 }
 
