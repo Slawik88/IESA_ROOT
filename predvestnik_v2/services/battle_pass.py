@@ -15,10 +15,16 @@ from core.constants import (
     BATTLE_PASS_XP_PER_LEVEL,
     BATTLE_PASS_XP_WEIGHTS,
 )
-from core.registry import BATTLE_PASS_REWARDS, BATTLE_PASS_SEASONS, ITEMS_REGISTRY
+from core.registry import BATTLE_PASS_REWARDS, BATTLE_PASS_SEASONS
 from core.themes import THEMES
 from infrastructure.repositories.economy import add_balance
 from infrastructure.repositories.themes import grant_theme
+from services.battle_pass_rewards import (
+    grant_reward_items,
+    reward_cosmetics_error,
+    reward_item_name,
+    reward_short_text,
+)
 from services.vip import is_vip_active
 
 # Сезоны из БД (создаются через Консоль разработчика на сайте). Кэш на процесс:
@@ -205,21 +211,6 @@ def _opt_to_reward(opt: dict) -> dict:
     }
 
 
-def reward_short_text(reward: dict) -> str:
-    """Краткое текстовое описание награды (для кнопок выбора)."""
-    parts = []
-    if reward.get("mora"):
-        parts.append(f"+{int(reward['mora'])}🪙")
-    if reward.get("diamonds"):
-        parts.append(f"+{int(reward['diamonds'])}💎")
-    for item_id, qty in reward.get("items", ()):
-        name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
-        parts.append(f"+{qty} {name}")
-    if reward.get("theme"):
-        parts.append(f"🎨 {THEMES.get(reward['theme'], {}).get('name', reward['theme'])}")
-    return ", ".join(parts) if parts else "—"
-
-
 async def get_level_options(db, level: int, track: str) -> list[dict] | None:
     """Если уровень/трек — это ВЫБОР между ≥2 наградами (reward_options в DB),
     вернуть список reward-dict'ов (с полем 'text' для кнопки). Иначе None."""
@@ -315,6 +306,10 @@ async def claim_reward(db, user_id: int, level: int, track: str,
     items = reward.get("items", ())
     theme_id = reward.get("theme")  # сезонная тема (топ платного трека)
 
+    cosmetic_error = reward_cosmetics_error(items)
+    if cosmetic_error:
+        return False, cosmetic_error
+
     # ATOMIC GUARD: lock the progress row and re-check `claimed` inside the
     # transaction before granting anything. Without this, two concurrent
     # claims (double-click / bot+site race) can both pass the check above
@@ -336,12 +331,7 @@ async def claim_reward(db, user_id: int, level: int, track: str,
                 source="battle_pass_reward", note=f"{season['id']}_lv{level}_{track}",
             )
 
-        for item_id, qty in items:
-            await db.execute(
-                "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
-                (user_id, item_id, qty, qty),
-            )
+        await grant_reward_items(db, user_id, items)
 
         if theme_id:
             await grant_theme(db, user_id, theme_id)
@@ -358,8 +348,7 @@ async def claim_reward(db, user_id: int, level: int, track: str,
     if diamonds:
         parts.append(f"+{int(diamonds)} 💎")
     for item_id, qty in items:
-        name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
-        parts.append(f"+{qty} {name}")
+        parts.append(f"+{1 if item_id.startswith('cos_') else qty} {reward_item_name(item_id)}")
     if theme_id:
         theme_name = THEMES.get(theme_id, {}).get("name", theme_id)
         parts.append(f"🎨 Тема «{theme_name}»")
