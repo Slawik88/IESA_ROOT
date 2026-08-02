@@ -2,11 +2,17 @@
 // switchPro() defined later with marriage + wallet tabs
 function loadProfile() {
   el('pro-main').innerHTML='<div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div>';
-  api('/profile/me').then(d=>{
+  return api('/profile/me').then(d=>{
     if(!d || typeof d !== 'object') throw new Error('Неверный формат ответа сервера');
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
+    const cosmetics = typeof window._looksProfileCosmeticsPreview==='function'
+      ? window._looksProfileCosmeticsPreview(d.cosmetics||{})
+      : (d.cosmetics||{});
+    const looksTrial = typeof window._looksProfileTrialSummary==='function'
+      ? window._looksProfileTrialSummary()
+      : null;
     _applySysFlags(d.system_flags);
     checkWhatsNewBadge();   // «Что нового»: золотая точка на 📣, если есть непрочитанное
     _tosGate(d);   // БЛОК22: блок-экран принятия ToS/Privacy для не принявших
@@ -33,14 +39,14 @@ function loadProfile() {
       else { const n = el('cp-hero-val'); if (n) n.textContent = fmt(d.combat_power); }
     }, 40);
     el('pro-main').innerHTML=`
-      <div class="hero ${d.cosmetics&&d.cosmetics.profile_bg?d.cosmetics.profile_bg.css:''}">
-        ${d.cosmetics&&d.cosmetics.card_fx?`<div class="card-fx ${d.cosmetics.card_fx.css}"></div>`:''}
+      <div class="hero ${cosmetics.profile_bg?cosmetics.profile_bg.css:''}">
+        ${cosmetics.card_fx?`<div class="card-fx ${cosmetics.card_fx.css}"></div>`:''}
         <div class="hero-head">
-          <div class="ava ${d.cosmetics&&d.cosmetics.avatar_frame?d.cosmetics.avatar_frame.css:''} ${d.cosmetics&&d.cosmetics.avatar_halo?d.cosmetics.avatar_halo.css:''}" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
+          <div class="ava ${cosmetics.avatar_frame?cosmetics.avatar_frame.css:''} ${cosmetics.avatar_halo?cosmetics.avatar_halo.css:''}" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
           <div class="profile-copy">
-            <div class="pname ${d.cosmetics&&d.cosmetics.name_glow?d.cosmetics.name_glow.css:''}">@${vipName(d.username||'Игрок', d.is_vip)}</div>
+            <div class="pname ${cosmetics.name_glow?cosmetics.name_glow.css:''}">@${vipName(d.username||'Игрок', d.is_vip)}</div>
             <div class="prank">${d.rank}</div>
-            ${d.cosmetics&&d.cosmetics.title?`<div class="ptitle${d.cosmetics.title_css?' '+d.cosmetics.title_css:''}">${esc(d.cosmetics.title)}</div>`:''}
+            ${cosmetics.title?`<div class="ptitle${cosmetics.title_css?' '+cosmetics.title_css:''}">${esc(cosmetics.title)}</div>`:''}
           </div>
         </div>
         <div class="hero-xp">
@@ -63,6 +69,11 @@ function loadProfile() {
           <button class="btn btn-ghost btn-sm" style="padding:3px 9px;font-size:10px" onclick="copyUid(${uid})">📋 Копировать</button>
         </div>
       </div>
+      ${looksTrial?`<button class="profile-trial-chip" type="button" onclick="openLooksModal()" aria-label="Продолжить примерку: сохранено ${looksTrial.count} ${looksTrial.noun}">
+        <span class="profile-trial-avatar" aria-hidden="true">${d.is_vip?'👑':'🔮'}</span>
+        <span class="profile-trial-copy"><span class="profile-trial-label">Продолжить примерку</span><span class="profile-trial-sub">Сохранено: ${looksTrial.count} ${looksTrial.noun}</span></span>
+        <span class="profile-trial-arrow" aria-hidden="true">›</span>
+      </button>`:''}
 
       <!-- Быстрые действия: всё важное в 1 клик -->
       <div class="qa-row">

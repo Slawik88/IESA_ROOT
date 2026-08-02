@@ -24,14 +24,14 @@ const initialFab = await page.evaluate(() => {
   const label = button?.querySelector('.looks-fab-label');
   if (!button || !nav || !label) return {exists: !!button, hasBadge: false, dock: null};
   const b = button.getBoundingClientRect();
-  const dock=document.querySelector('#pg-looks #looks-dock');
+  const dock=document.getElementById('looks-dock');
   return {
     exists: true,
     hasBadge: !!button.querySelector('.looks-fab-badge'),
     dock: {
       label: label.textContent.trim(),
-      inAppearanceFlow: !!dock,
-      sticky: !!dock && getComputedStyle(dock).position === 'sticky',
+      portaledToBody: dock?.parentElement === document.body,
+      fixed: !!dock && getComputedStyle(dock).position === 'fixed',
       staticButton: getComputedStyle(button).position === 'static',
       width: Math.round(b.width),
     },
@@ -41,8 +41,8 @@ check('FAB отрендерен на странице', initialFab.exists);
 check('у FAB нет бейджа до примерки', !initialFab.hasBadge);
 
 check('dock panel has label', initialFab.dock?.label === 'Примерочная');
-check('dock panel is a sticky part of the appearance screen', initialFab.dock?.inAppearanceFlow === true && initialFab.dock?.sticky === true);
-check('dock panel keeps a full-width tap target instead of floating over cards', initialFab.dock?.staticButton === true && initialFab.dock?.width >= 300);
+check('dock panel is portaled to the viewport outside the animated page', initialFab.dock?.portaledToBody === true && initialFab.dock?.fixed === true);
+check('dock panel keeps a compact but clearly labelled tap target', initialFab.dock?.staticButton === true && initialFab.dock?.width >= 176 && initialFab.dock?.width <= 220);
 
 await page.click('.looks-fab');
 await new Promise(resolve => setTimeout(resolve, 300));
@@ -176,7 +176,7 @@ check('trial name glow is shown with its full name and price', sheetState.trialR
 check('trial avatar frame is shown with its full name and price', sheetState.trialRows.some(text=>/Рамка аватара/.test(text) && /Оправа Бездны/.test(text) && /440/.test(text)));
 
 await page.evaluate(() => switchPage('profile'));
-await new Promise(resolve => setTimeout(resolve, 150));
+await page.waitForFunction(() => _activePage === 'profile');
 check('dock panel hides outside appearance screen', !await page.$('.looks-fab'));
 
 await browser.close();

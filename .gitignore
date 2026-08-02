@@ -38,7 +38,9 @@ predvestnik_v2/.env
 predvestnik_v2/db.sqlite3
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
 .idea/
 *.swp
 *.swo

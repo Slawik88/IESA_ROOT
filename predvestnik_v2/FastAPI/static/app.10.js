@@ -6,8 +6,30 @@
 const _LOOKS_SLOTS=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx'];
 const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки'};
 const _LOOKS_ANCHOR_LABEL={name_glow:'✨ Ореол',avatar_frame:'🖼 Рамка',avatar_halo:'🌟 Гало',title:'🏷 Титул',profile_bg:'🖌 Фон',card_fx:'❄️ Частицы',welcome:'🎬 Вход',themes:'🎭 Темы'};
+const _LOOKS_TRIAL_KEY='pv_looks_trial_v1';
+function _looksLoadTrialState(){
+  try{
+    const raw=JSON.parse(sessionStorage.getItem(_LOOKS_TRIAL_KEY)||'null');
+    const ids={}, items={};
+    _LOOKS_SLOTS.forEach(slot=>{
+      const id=raw&&raw.ids&&raw.ids[slot];
+      if(typeof id!=='string'||!/^[a-z0-9_-]{1,100}$/i.test(id)) return;
+      ids[slot]=id;
+      const meta=raw.items&&raw.items[slot];
+      if(!meta||meta.id!==id) return;
+      const css=typeof meta.css==='string'&&/^[a-z0-9_-]{0,80}$/i.test(meta.css)?meta.css:'';
+      const lineup=typeof meta.lineup==='string'&&/^[a-z0-9_-]{0,40}$/i.test(meta.lineup)?meta.lineup:'';
+      items[slot]={id,name:String(meta.name||'Предмет').slice(0,80),text:String(meta.text||'').slice(0,80),css,lineup,
+        price:Number.isFinite(Number(meta.price))?Math.max(0,Number(meta.price)):0};
+    });
+    return {ids,items};
+  }catch(e){ return {ids:{},items:{}}; }
+}
+const _looksRestoredTrial=_looksLoadTrialState();
 let _looksData=null, _looksSel={}, _looksSaved={}, _looksDirty=false;
-let _looksTrial={}; // некупленная примерка: по одному предмету на каждый слот
+let _looksTrial=_looksRestoredTrial.ids; // некупленная примерка: по одному предмету на каждый слот
+let _looksTrialMeta=_looksRestoredTrial.items; // снимок эффекта нужен профилю даже после reload до загрузки каталога
+let _looksPreviewDirty=false, _looksLeavePending=false, _looksLeavePass=false;
 let _looksPresets=[];  // кэш пресетов текущей сессии
 let _looksFilter='all';                // фильтр ЛИНЕЙКИ (id из _looksData.lineups) — общий для ВСЕХ секций разом
 let _looksStatus='all';                // фильтр СТАТУСА: all|owned|missing — независимое второе измерение (см. аудит 2026-07-29)
@@ -28,19 +50,80 @@ const LINEUP_COLOR = {
 function lineupMeta(id){ return (_looksData&&_looksData.lineups&&_looksData.lineups[id])||null; }
 function lineupLabel(id){ const l=lineupMeta(id); return l?l.name:(id||'—'); }
 function lineupColor(id){ return LINEUP_COLOR[id]||'#9aa7b8'; }
+function _looksTrialMetaFromItem(it){
+  return {id:it.id,name:it.name||'Предмет',text:it.text||'',css:it.css||'',lineup:it.lineup||'',price:_looksItemPrice(it)};
+}
+function _looksPersistTrial(){
+  try{
+    if(Object.keys(_looksTrial).length) sessionStorage.setItem(_LOOKS_TRIAL_KEY,JSON.stringify({ids:_looksTrial,items:_looksTrialMeta}));
+    else sessionStorage.removeItem(_LOOKS_TRIAL_KEY);
+  }catch(e){}
+}
+function _looksSetTrial(slot,id){
+  const it=_looksCos(id); if(!it) return;
+  _looksTrial[slot]=id; _looksTrialMeta[slot]=_looksTrialMetaFromItem(it);
+  _looksPreviewDirty=true; _looksPersistTrial();
+}
+function _looksDropTrial(slot){
+  if(!_looksTrial[slot]&&!_looksTrialMeta[slot]) return;
+  delete _looksTrial[slot]; delete _looksTrialMeta[slot];
+  _looksPreviewDirty=true; _looksPersistTrial();
+}
+function _looksClearTrial(){
+  const had=Object.keys(_looksTrial).length||Object.keys(_looksTrialMeta).length;
+  _looksTrial={}; _looksTrialMeta={};
+  if(had) _looksPreviewDirty=true;
+  _looksPersistTrial();
+}
+function _looksSanitizeTrial(){
+  if(!_looksData) return;
+  let changed=false;
+  _LOOKS_SLOTS.forEach(slot=>{
+    const id=_looksTrial[slot]; if(!id) return;
+    const it=(_looksData.slots[slot]||[]).find(item=>item.id===id);
+    if(!it||it.owned){ delete _looksTrial[slot]; delete _looksTrialMeta[slot]; changed=true; return; }
+    const nextMeta=_looksTrialMetaFromItem(it);
+    if(JSON.stringify(_looksTrialMeta[slot]||null)!==JSON.stringify(nextMeta)) changed=true;
+    _looksTrialMeta[slot]=nextMeta;
+  });
+  if(changed) _looksPreviewDirty=true;
+  _looksPersistTrial();
+}
+window._looksProfileCosmeticsPreview=function(serverCosmetics){
+  // Черновик примерки сохраняется между экранами, но не маскируется под уже
+  // надетую косметику на основном профиле. Там показываем только серверное
+  // состояние; возврат к черновику даёт отдельная компактная кнопка.
+  return {...(serverCosmetics||{})};
+};
+window._looksProfileTrialSummary=function(){
+  const count=Object.keys(_looksTrial).length; if(!count) return null;
+  const noun=count===1?'предмет':count>=2&&count<=4?'предмета':'предметов';
+  const total=Object.values(_looksTrialMeta).reduce((sum,it)=>sum+(Number(it.price)||0),0);
+  return {count,noun,total};
+};
+window._looksGuardPageLeave=function(resume){
+  if(_looksLeavePass){ _looksLeavePass=false; return false; }
+  if(_looksLeavePending) return true;
+  _looksLeavePending=true;
+  const apply=_looksChanged()?_looksApply():Promise.resolve();
+  apply.then(()=>((_looksDirty||_looksPreviewDirty)?loadProfile():null)).then(()=>{
+    _looksDirty=false; _looksPreviewDirty=false; _looksLeavePending=false; _looksLeavePass=true; resume();
+  }).catch(e=>{ _looksLeavePending=false; toast(e,false); });
+  return true;
+};
 // Полноэкранный экран «Внешний вид» (был модалкой). Имя openLooksModal сохранено —
 // его зовут старые точки входа (профиль/маркет), диплинки и «назад» из под-шитов.
 function openLooksModal(){
-  _looksFilter='all'; _looksStatus='all'; _looksSearch=''; _looksTrial={}; _looksDetailLineup=null;
+  _looksFilter='all'; _looksStatus='all'; _looksSearch=''; _looksDetailLineup=null;
   if(!_looksData){   // режим восстанавливаем только на «холодном» открытии — не сбрасывать выбор пользователя, если он уже листает вкладку
     try{ const saved=localStorage.getItem('pv_looks_mode'); if(saved==='collections'||saved==='slots') _looksMode=saved; }catch(e){}
   }
   switchPage('looks');
-  if(_looksData){ renderLooks(); return; }        // из кэша — БЕЗ пере-запроса (убирает лаги навигации)
+  if(_looksData){ _looksSanitizeTrial(); renderLooks(); return; } // из кэша — БЕЗ пере-запроса (убирает лаги навигации)
   _looksDirty=false;
   const b=el('pg-looks'); if(b) b.innerHTML='<div class="loader" style="margin-top:44px">Загрузка…</div>';
   Promise.all([api('/cosmetics/'),api('/cosmetics/presets')])
-    .then(([d,pr])=>{_looksData=d;_looksSaved=_looksEquipped(d);_looksSel={..._looksSaved};_looksPresets=pr.presets||[];renderLooks();})
+    .then(([d,pr])=>{_looksData=d;_looksSaved=_looksEquipped(d);_looksSel={..._looksSaved};_looksPresets=pr.presets||[];_looksSanitizeTrial();renderLooks();})
     .catch(e=>{const bb=el('pg-looks'); if(bb)bb.innerHTML=`<div class="err" style="margin:16px">${e}</div>`;});
 }
 const _LOOKS_MODE_LABEL={collections:'🗂 По коллекциям',slots:'📚 По слотам'};
@@ -56,55 +139,53 @@ function _looksSetMode(mode){
   renderLooks();
 }
 function _looksClose(){   // стрелка ‹: сохранить изменения и вернуться именно к странице-источнику
-  const leave=()=>{
-    if(_looksDirty) loadProfile();
-    // При открытии из магазина/профиля switchPage уже сохранил точку входа.
-    // Используем её, чтобы не создавать второй маршрут «Внешний вид → Профиль».
-    if(_navStack.length) navBack(); else goTo('profile');
-  };
-  if(_looksChanged()) _looksApply().then(leave);
-  else leave();
+  // Общий guard в switchPage обрабатывает и эту стрелку, и нижнюю навигацию.
+  // Так любой путь выхода одинаково применяет купленные предметы и сохраняет примерку.
+  if(_navStack.length) navBack(); else goTo('profile');
 }
 function _looksEquipped(d){
   const sel={};
   _LOOKS_SLOTS.forEach(s=>{const eq=(d.slots[s]||[]).find(it=>it.equipped); sel[s]=eq?eq.id:null;});
   return sel;
 }
-function _looksCos(id){ if(!id)return null; for(const s of _LOOKS_SLOTS){const f=(_looksData.slots[s]||[]).find(it=>it.id===id); if(f)return f;} return null; }
+function _looksCos(id){ if(!id||!_looksData)return null; for(const s of _LOOKS_SLOTS){const f=(_looksData.slots[s]||[]).find(it=>it.id===id); if(f)return f;} return null; }
 function _rarLabel(r){return rarLabel(r);}
 function _srcLabel(s){return {vip:'🎁 даётся с VIP',bp:'🎫 платный БП',reward:'🏅 за достижение',shop:''}[s]||'';}
 function _looksPriceTxt(opt){ return Object.entries(opt).map(([cur,amt])=>`${amt}${(_looksData.currency_icons||{})[cur]||cur}`).join('+'); }
 function renderLooks(){
   const b=el('pg-looks'); if(!b||!_looksData) return;
+  const isDetail=!!_looksDetailLineup;
   const vipBar=_looksData.vip?'':`<div class="looks-vipbar">
     <span>👑 Купить можно любую косметику. Линейки дороже «Лесного Странника» <b>отображаются на профиле только с VIP</b>.</span>
     <button class="btn btn-sm btn-gold" onclick="goTo('market','vip')">Перейти к VIP</button></div>`;
   const modeBody=_looksMode==='collections'?_looksCollectionsViewHtml():_looksSlotsViewHtml();
-  // Примерочная вынесена из потока страницы в FAB и шторку. Sticky оставлен только
-  // для фильтра режима «По слотам»: так фильтр не уезжает под шапку, но карточки
-  // коллекций не получают лишнюю высоту над собой.
+  // Примерочная живёт в отдельном viewport-dock, который _looksRenderFab()
+  // порталит прямо в body. Внутри .page его нельзя оставлять: animation:rise
+  // создаёт transform-контейнер, из-за которого fixed/sticky в Telegram WebView
+  // перестаёт быть надёжно привязан к экрану. Sticky здесь только для фильтра.
   const stickyFilterBar = _looksMode==='slots' ? `<div class="looks-sticky"><div id="looks-filter-bar">${_looksFilterHtml()}</div></div>` : '';
   b.innerHTML=`
     <div class="looks-head">
-      <button class="looks-back" onclick="_looksClose()" aria-label="Назад">‹</button>
+      ${isDetail?'':'<button class="looks-back" onclick="_looksClose()" aria-label="Назад">‹</button>'}
       <div class="looks-htitle">🎨 Внешний вид</div>
     </div>
-    <div id="looks-dock"></div>
-    ${_looksDetailLineup?'':_looksModeToggleHtml()}
-    ${stickyFilterBar}`
-    +vipBar
-    +`<button class="looks-surprises-entry" type="button" onclick="_openSurprisesModal()">
+    ${isDetail?'':_looksModeToggleHtml()}
+    ${isDetail?'':stickyFilterBar}`
+    +(isDetail?'':vipBar)
+    +(isDetail?'':`<button class="looks-surprises-entry" type="button" onclick="_openSurprisesModal()">
         <span class="looks-surprises-medallion" aria-hidden="true">🎁</span>
         <span class="looks-surprises-copy"><span>Сюрпризы и крафт</span><small>Сундуки, осколки и косметика</small></span>
         <span class="looks-surprises-arrow" aria-hidden="true">›</span>
-      </button>`
-    +_looksPresetsHtml()
-    +_looksQuickLinksHtml()
+      </button>`)
+    +(isDetail?'':_looksPresetsHtml())
+    +(isDetail?'':_looksQuickLinksHtml())
     +`<div id="looks-mode-body">${modeBody}</div>`
-    +`<div id="looks-common-sections">${_looksWelcomeSectionHtml()}${_looksThemesSectionHtml()}</div>`
+    +(isDetail?'':`<div id="looks-common-sections">${_looksWelcomeSectionHtml()}${_looksThemesSectionHtml()}</div>`)
     +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
-  _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
-  _looksThemesEnsureLoaded();
+  if(!isDetail){
+    _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
+    _looksThemesEnsureLoaded();
+  }
   _looksSyncStickyH();
   _looksObserveSwatches();
   _looksRenderFab();
@@ -405,6 +486,7 @@ function _looksBuyLineup(lin,btn){
     .then(r=>{toast(r.message); refreshCurrBar(); return api('/cosmetics/');})
     .then(d=>{_looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved};
       _looksDirty=true;
+      _looksSanitizeTrial();
       const body=el('looks-mode-body'); if(body) body.innerHTML=_looksCollectionsViewHtml();
       _looksRenderFab(); _looksSyncStickyH();})
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
@@ -546,47 +628,82 @@ function _looksFabHtml(){
   if(!_looksData) return '';
   const sel=_looksHeroSel();
   const frame=_looksCos(sel.avatar_frame), halo=_looksCos(sel.avatar_halo);
-  const hasTrial=Object.keys(_looksTrial).length>0;
-  return `<button class="looks-fab" onclick="_looksOpenFittingSheet()" aria-label="Примерочная">
+  const trialCount=Object.keys(_looksTrial).length, hasTrial=trialCount>0;
+  const trialNoun=trialCount===1?'предмет':trialCount>=2&&trialCount<=4?'предмета':'предметов';
+  const sub=hasTrial?`${trialCount} ${trialNoun} · ${_looksTrialTotal()}✨`:'Открыть свой образ';
+  return `<button class="looks-fab" onclick="_looksOpenFittingSheet()" aria-label="Примерочная — ${sub}">
     <span class="looks-fab-avatar"><span class="ava looks-fab-ava ${frame?frame.css:''} ${halo?halo.css:''}">${_looksData.vip?'👑':'🔮'}</span></span>
-    <span class="looks-fab-label">Примерочная</span>
-    ${hasTrial?`<span class="looks-fab-badge">${Object.keys(_looksTrial).length}</span>`:''}
+    <span class="looks-fab-copy"><span class="looks-fab-label">Примерочная</span><span class="looks-fab-sub">${sub}</span></span>
+    ${hasTrial?`<span class="looks-fab-badge">${trialCount}</span>`:''}
+    <span class="looks-fab-arrow" aria-hidden="true">›</span>
   </button>`;
 }
 function _looksRenderFab(){
-  const dock=el('looks-dock'); if(dock) dock.innerHTML=_looksFabHtml();
+  let dock=el('looks-dock');
+  if(_activePage!=='looks'){
+    if(dock) dock.innerHTML='';
+    return;
+  }
+  if(!dock){
+    dock=document.createElement('div');
+    dock.id='looks-dock';
+    document.body.appendChild(dock);
+  }
+  dock.innerHTML=_looksFabHtml();
 }
 
 function _looksOpenFittingSheet(){
   OM('🎨 Примерочная', _looksFittingSheetBodyHtml(), _looksFittingSheetButtons());
+  el('modal').classList.add('looks-fitting-modal');
 }
 function _looksTrialTotal(){
-  return Object.values(_looksTrial).reduce((sum,id)=>{
-    const it=_looksCos(id);
-    return sum+((it&&it.price&&it.price[0]&&it.price[0].zarniki)||0);
+  return Object.entries(_looksTrial).reduce((sum,[slot,id])=>{
+    const it=_looksCos(id), meta=_looksTrialMeta[slot];
+    return sum+((it&&it.price&&it.price[0]&&it.price[0].zarniki)||(meta&&meta.price)||0);
   },0);
 }
 function _looksFittingSlotChipsHtml(){
-  const used=_LOOKS_SLOTS.filter(slot=>_looksHeroSel()[slot]).length;
+  const hero=_looksHeroSel();
+  const used=_LOOKS_SLOTS.filter(slot=>hero[slot]).length;
+  const trialCount=Object.keys(_looksTrial).length;
+  const trialTotal=_looksTrialTotal();
+  const selectedItems=_LOOKS_SLOTS.map(slot=>{
+    const id=hero[slot];
+    return id?(_looksCos(id)||_looksTrialMeta[slot]||null):null;
+  }).filter(Boolean);
+  const selectedLineups=[...new Set(selectedItems.map(it=>it.lineup).filter(Boolean))];
+  const fullLineup=used===_LOOKS_SLOTS.length&&selectedLineups.length===1?selectedLineups[0]:'';
+  const setColor=lineupColor(fullLineup);
+  const setName=fullLineup?String(lineupLabel(fullLineup)).replace(/^\S+\s*/,''):'Собранный образ';
+  const setKicker=fullLineup?'Полная коллекция':`${used} из ${_LOOKS_SLOTS.length} предметов`;
+  const setState=trialCount===used&&used>0?'Вся коллекция в примерочной':trialCount?`${trialCount} в примерочной`:'Ваш текущий образ';
   return `<section class="fit-outfit" aria-label="Состав образа">
-    <div class="fit-outfit-head"><span>Состав образа</span><span>${used} из ${_LOOKS_SLOTS.length}</span></div>
-    <div class="fit-outfit-list">${_LOOKS_SLOTS.map(slot=>{
+    <div class="fit-collection-card" style="--fit-set:${setColor};--fit-set-wash:${setColor}18;--fit-set-edge:${setColor}66">
+      <div class="fit-collection-head${fullLineup?'':' fit-collection-head--mixed'}">
+        ${fullLineup?`<div class="fit-collection-sig" style="--c:${setColor}">${_looksCollectionIconSvg(fullLineup)}</div>`:''}
+        <div class="fit-collection-copy"><span class="fit-collection-kicker">${esc(setKicker)}</span><strong class="fit-collection-name">${esc(setName)}</strong><span class="fit-collection-state">${esc(setState)}</span></div>
+        ${trialTotal?`<strong class="fit-collection-total">${trialTotal}✨</strong>`:`<span class="fit-collection-count">${used}/${_LOOKS_SLOTS.length}</span>`}
+      </div>
+      <div class="fit-outfit-list">${_LOOKS_SLOTS.map(slot=>{
     const rawLabel=_LOOKS_SLOT_LABEL[slot]||slot;
     const icon=rawLabel.split(' ')[0], slotLabel=rawLabel.replace(/^\S+\s*/, '');
     const trialId=_looksTrial[slot];
     if(trialId){
-      const it=_looksCos(trialId);
-      const price=(it&&it.price&&it.price[0]&&it.price[0].zarniki)||0;
-      return `<button class="fit-outfit-row trial" onclick="_looksBuyFromPreview('${trialId}',0,'${slot}')"><span class="fit-outfit-icon">${icon}</span><span class="fit-outfit-main"><span class="fit-outfit-slot">${esc(slotLabel)}</span><strong>${esc(it?it.name:'Предмет')}</strong></span><span class="fit-outfit-state"><span>Примеряется</span><b>${price}✨</b></span></button>`;
+      const it=_looksCos(trialId)||_looksTrialMeta[slot];
+      const price=(it&&it.price&&it.price[0]&&it.price[0].zarniki)||(it&&it.price)||0;
+      const c=lineupColor(it&&it.lineup);
+      return `<button class="fit-outfit-row trial" style="--fit-c:${c};--fit-bg:${c}18" aria-label="${esc(it?it.name:'Предмет')} — ${price} зарников" onclick="_looksBuyFromPreview('${trialId}',0,'${slot}')"><span class="fit-outfit-icon">${icon}</span><span class="fit-outfit-main"><span class="fit-outfit-slot">${esc(slotLabel)}</span><strong>${esc(it?it.name:'Предмет')}</strong></span><span class="fit-outfit-state"><b>${price}✨</b></span></button>`;
     }
     const ownedId=_looksSel[slot];
     if(ownedId){
       const it=_looksCos(ownedId), state=_looksSaved[slot]===ownedId?'Надето':'Выбрано';
-      return `<div class="fit-outfit-row owned"><span class="fit-outfit-icon">${icon}</span><span class="fit-outfit-main"><span class="fit-outfit-slot">${esc(slotLabel)}</span><strong>${esc(it?it.name:'Предмет')}</strong></span><span class="fit-outfit-state">${state}</span></div>`;
+      const c=lineupColor(it&&it.lineup);
+      return `<div class="fit-outfit-row owned" style="--fit-c:${c};--fit-bg:${c}14"><span class="fit-outfit-icon">${icon}</span><span class="fit-outfit-main"><span class="fit-outfit-slot">${esc(slotLabel)}</span><strong>${esc(it?it.name:'Предмет')}</strong></span><span class="fit-outfit-state">${state}</span></div>`;
     }
     return `<div class="fit-outfit-row empty"><span class="fit-outfit-icon">${icon}</span><span class="fit-outfit-main"><span class="fit-outfit-slot">${esc(slotLabel)}</span><strong>Слот свободен</strong></span><span class="fit-outfit-state">Свободно</span></div>`;
   }).join('')}</div>
-    <div class="fit-outfit-hint">Выберите предмет в каталоге — он сразу появится на карточке и в составе образа.</div>
+    </div>
+    ${used<_LOOKS_SLOTS.length?'<div class="fit-outfit-hint">Выберите предмет в каталоге — он сразу появится на карточке и в составе образа.</div>':''}
   </section>`;
 }
 function _looksFittingSheetButtons(){
@@ -596,8 +713,8 @@ function _looksFittingSheetButtons(){
   {
     const total=_looksTrialTotal(), bal=(_looksData.balances||{}).zarniki||0;
     const can=!hasTrial||bal>=total;
-    const label=hasTrial?(can?`✨ Купить и применить всё — ${total}✨`:`🚫 Нужно ${total}✨ (есть ${Math.floor(bal)}✨)`):'✓ Применить';
-    return [{l:'Сбросить примерку',c:'btn-ghost',f:'_looksResetTrialAndRerenderSheet()'},{l:label,c:can?'btn-gold':'btn-ghost',d:!can,f:'_looksBuyAndApplyAll(this)'}];
+    const label=hasTrial?(can?`Купить и применить · ${total}✨`:`Не хватает ${Math.max(0,total-Math.floor(bal))}✨`):'✓ Применить';
+    return [{l:'↺ Сбросить',c:'btn-ghost',f:'_looksResetTrialAndRerenderSheet()'},{l:label,c:can?'btn-gold':'btn-ghost',d:!can,f:'_looksBuyAndApplyAll(this)'}];
   }
 }
 function _looksFittingSheetBodyHtml(){
@@ -618,7 +735,7 @@ function _looksBuyAndApplyAll(btn){
   buy.then(r=>{
       if(r){toast(r.message); refreshCurrBar();}
       Object.entries(_looksTrial).forEach(([slot,id])=>{_looksSel[slot]=id;});
-      _looksTrial={};
+      _looksClearTrial();
       return _looksApply();
     })
     .then(()=>_looksReloadCatalog())
@@ -693,6 +810,7 @@ function _looksReloadCatalog(){
   return Promise.all([api('/cosmetics/'),api('/cosmetics/presets').catch(()=>({presets:_looksPresets}))]).then(([d,pr])=>{
     _looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved};
     _looksPresets=pr.presets||[];
+    _looksSanitizeTrial();
     renderLooks();
   });
 }
@@ -702,7 +820,7 @@ function _looksBuyFromPreview(id,opt,slot){
   api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})
     .then(r=>{toast(r.message); refreshCurrBar(); _looksDirty=true;
       return api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})});})
-    .then(()=>{toast('✅ Надето!'); delete _looksTrial[slot]; return _looksReloadCatalog();})
+    .then(()=>{toast('✅ Надето!'); _looksDropTrial(slot); return _looksReloadCatalog();})
     .then(()=>_looksRerenderFittingSheetIfOpen())
     .catch(e=>toast(e,false));
 }
@@ -712,10 +830,10 @@ function _looksBuyFromPreview(id,opt,slot){
 function _looksShownId(slot){ return _looksTrial[slot]||_looksSel[slot]||null; }
 function _looksHeroSel(){ const sel={..._looksSel}; Object.keys(_looksTrial).forEach(slot=>{sel[slot]=_looksTrial[slot];}); return sel; }
 function _looksHeroDiffers(){ const hs=_looksHeroSel(); return _LOOKS_SLOTS.some(s=>(hs[s]||null)!==(_looksSaved[s]||null)); }
-function _looksEquip(slot,id){ _looksSel[slot]=id; delete _looksTrial[slot]; _looksRenderFab(); _looksMarkSel(slot); }
-function _looksUnequip(slot){ _looksSel[slot]=null; delete _looksTrial[slot]; _looksRenderFab(); _looksMarkSel(slot); }
-function _looksReset(){ _looksSel={..._looksSaved}; _looksTrial={}; _looksRenderFab(); _LOOKS_SLOTS.forEach(_looksMarkSel); }
-function _looksTapUnowned(slot,id){ _looksTrial[slot]=id; _looksRenderFab(); _looksMarkSel(slot); }
+function _looksEquip(slot,id){ _looksSel[slot]=id; _looksDropTrial(slot); _looksRenderFab(); _looksMarkSel(slot); }
+function _looksUnequip(slot){ _looksSel[slot]=null; _looksDropTrial(slot); _looksRenderFab(); _looksMarkSel(slot); }
+function _looksReset(){ _looksSel={..._looksSaved}; _looksClearTrial(); _looksRenderFab(); _LOOKS_SLOTS.forEach(_looksMarkSel); }
+function _looksTapUnowned(slot,id){ _looksSetTrial(slot,id); _looksRenderFab(); _looksMarkSel(slot); }
 // Перф: точечно переставить .sel в сетке ЭТОГО слота (без пересборки innerHTML —
 // это и был источник «подлагивания»: раньше каждый тап перерисовывал весь грид).
 function _looksMarkSel(slot){
@@ -737,11 +855,11 @@ function _looksPresetsHtml(){
       <span class="looks-preset-orb" aria-hidden="true">💾</span>
       <span class="looks-preset-copy"><span class="looks-preset-name">${esc(p.name)}</span><span class="looks-preset-kind">Твой образ</span></span>
     </button>
-    <button class="btn-plain looks-preset-del" onclick="_deletePreset(${p.id})" title="Удалить образ «${esc(p.name)}»" aria-label="Удалить образ «${esc(p.name)}»">✕</button>
+    <button class="btn-plain looks-preset-del" onclick="_deletePreset(${p.id})" title="Удалить образ «${esc(p.name)}»" aria-label="Удалить образ «${esc(p.name)}»"><span class="looks-preset-del-icon" aria-hidden="true"></span></button>
   </article>`).join('');
   const save=`<button class="looks-preset-card looks-preset-card--add" type="button" onclick="_savePreset()">
     <span class="looks-preset-orb looks-preset-orb--add" aria-hidden="true">＋</span>
-    <span class="looks-preset-copy"><span class="looks-preset-name">Сохранить текущий</span><span class="looks-preset-kind">Новый образ</span></span>
+    <span class="looks-preset-copy"><span class="looks-preset-name">Сохранить</span><span class="looks-preset-kind">Новый образ</span></span>
   </button>`;
   const empty=!_looksPresets.length?'<div class="looks-presets-empty">Сохраните удачную комбинацию, чтобы вернуть её одним тапом.</div>':'';
   return `<section class="looks-presets" id="looks-presets" aria-label="Сохранённые образы">
@@ -869,10 +987,10 @@ function _looksThemesSectionHtml(){
   return `<section class="looks-section" id="looks-sec-themes">
     <div class="looks-sec-t">${_LOOKS_ANCHOR_LABEL.themes}</div>
     <div id="looks-theme-preview" class="looks-theme-preview"></div>
-    <div class="looks-theme-filter" id="looks-theme-filter">
-      <button class="looks-theme-chip active" data-f="all" onclick="_looksThemeSetFilter('all')">Все</button>
-      <button class="looks-theme-chip" data-f="owned" onclick="_looksThemeSetFilter('owned')">Мои</button>
-      <button class="looks-theme-chip" data-f="premium" onclick="_looksThemeSetFilter('premium')">✨ Премиум</button>
+    <div class="tabs tab-inner looks-theme-filter" id="looks-theme-filter">
+      <button class="tb looks-theme-chip active" data-f="all" onclick="_looksThemeSetFilter('all')">Все</button>
+      <button class="tb looks-theme-chip" data-f="owned" onclick="_looksThemeSetFilter('owned')">Мои</button>
+      <button class="tb looks-theme-chip" data-f="premium" onclick="_looksThemeSetFilter('premium')">✨ Премиум</button>
     </div>
     <div class="looks-sec-grid" id="looks-grid-themes"><div class="loader">Загрузка…</div></div>
   </section>`;

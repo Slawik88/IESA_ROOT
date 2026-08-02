@@ -410,6 +410,7 @@ function fmtDurShort(sec){
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 function OM(title,body,btns=[]) {
+  el('modal').classList.remove('looks-fitting-modal');
   el('mt').textContent=title;
   el('mb').innerHTML=body;
   // Кавычки в onclick-строке (JSON.stringify-аргументы и т.п.) рвали HTML-атрибут —
@@ -419,7 +420,7 @@ function OM(title,body,btns=[]) {
   document.body.classList.add('modal-open');
 }
 const CM=()=>{
-  el('modal').close();document.body.classList.remove('modal-open');
+  el('modal').close();el('modal').classList.remove('looks-fitting-modal');document.body.classList.remove('modal-open');
   // R5: закрытие модалки = выход из live-комнаты лота (объявлена в app.06 —
   // к моменту клика склейка загружена целиком, hoisting function declaration)
   try{ if(typeof lotLiveLeave==='function') lotLiveLeave(); }catch(e){}
@@ -427,7 +428,7 @@ const CM=()=>{
   const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);
 };
 el('modal').addEventListener('click',e=>{if(e.target===el('modal'))CM();});
-el('modal').addEventListener('cancel',()=>{document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);});
+el('modal').addEventListener('cancel',()=>{el('modal').classList.remove('looks-fitting-modal');document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);});
 
 // EPIC6: базовый haptic на КАЖДОЙ кнопке .btn — один делегированный листенер
 // вместо ручной расстановки _haptic() по сотням onclick по всему приложению.
@@ -525,6 +526,13 @@ function _showMaintenance(pg) {
 
 function switchPage(name, _btn, _viaBack) {
   if(!el('pg-'+name)) return;
+  // Любой выход из «Внешнего вида» (включая нижнюю навигацию) сначала даёт
+  // примерочной сохранить выбранную экипировку и подготовить профиль-превью.
+  // Раньше это делала только собственная стрелка _looksClose(), поэтому тап по
+  // «Профиль» обходил сохранение и визуально стирал только что собранный образ.
+  if(_activePage==='looks' && name!=='looks'
+     && typeof window._looksGuardPageLeave==='function'
+     && window._looksGuardPageLeave(()=>switchPage(name,_btn,_viaBack))) return;
   // История для «Назад»: перед уходом кладём ТЕКУЩУЮ страницу (кроме перехода
   // назад и повторного клика по той же). Без дублей подряд, кап 25.
   if(!_viaBack && _activePage && _activePage !== name &&
