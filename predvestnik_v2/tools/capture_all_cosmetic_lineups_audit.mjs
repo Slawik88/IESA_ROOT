@@ -45,7 +45,9 @@ await page.evaluate(data => {
 }, catalog);
 
 const lineupIds = Object.keys(catalog.lineups);
-const variants = [0, 1];
+// Третья комбинация нужна новым расширенным линейкам; в старых слотах с двумя
+// вариантами безопасно остаётся последний доступный предмет.
+const variants = [0, 1, 2];
 const results = [];
 
 for (const lineup of lineupIds) {

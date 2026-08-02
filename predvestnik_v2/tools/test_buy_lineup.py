@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, patch
 sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from core.cosmetics import lineup_items
+from core.cosmetics import COSMETIC_SLOTS, LINEUPS, lineup_items
 from services.cosmetics import lineup_buy_quote, buy_lineup
 
 # ── lineup_buy_quote(): чистая функция, реальный каталог, без БД ────────────
@@ -37,6 +37,24 @@ assert q_partial["total"] == 250 * (len(forest_ids) - 1)
 
 print("OK: lineup_buy_quote — None на неизвестной/полностью собранной линейке, "
       "верная раскладка missing×цена на частично собранной")
+
+# Новые японские линейки: не минимальные 6 заглушек, а по 15 самостоятельных
+# предметов, при этом все визуальные слоты реально покрыты.
+new_lineups = {
+    "hanami": ("epic", 630),
+    "moon_lotus": ("artifact", 1500),
+    "ryujin_tide": ("artifact", 1500),
+}
+for lineup_id, (rarity, price) in new_lineups.items():
+    meta = LINEUPS[lineup_id]
+    items = lineup_items(lineup_id)
+    assert len(items) == 15, f"{lineup_id}: ожидалось 15 предметов, получено {len(items)}"
+    assert {item["slot"] for item in items.values()} == set(COSMETIC_SLOTS), \
+        f"{lineup_id}: не все 6 слотов покрыты"
+    assert {item["rarity"] for item in items.values()} == {rarity}
+    assert {item["price"][0]["zarniki"] for item in items.values()} == {price}
+    assert meta["rarity"] == rarity and meta["price"] == [{"zarniki": price}]
+print("OK: Ханами / Лунный Лотос / Прилив Рюдзина — по 15 предметов, все 6 слотов, единый тир и цена")
 
 
 # ── buy_lineup(): транзакция, нехватка/достаток баланса ─────────────────────

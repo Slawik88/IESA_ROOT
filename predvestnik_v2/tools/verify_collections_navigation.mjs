@@ -39,11 +39,12 @@ const back = await page.evaluate(() => ({
   mode: _looksMode,
   detailLineup: _looksDetailLineup,
   cardCount: document.querySelectorAll('.coll-card').length,
+  lineupCount: Object.keys(_looksData?.lineups || {}).length,
   hasAppearanceExit: !!document.querySelector('#pg-looks .looks-back'),
 }));
 check('кнопка "‹ Назад" возвращает detailLineup в null', back.detailLineup === null);
 check('режим остаётся collections', back.mode === 'collections');
-check('карточки коллекций снова на экране', back.cardCount === 7);
+check('карточки всех коллекций снова на экране', back.cardCount === back.lineupCount && back.cardCount > 0);
 check('после возврата появляется выход из раздела внешнего вида', back.hasAppearanceExit);
 
 await browser.close();

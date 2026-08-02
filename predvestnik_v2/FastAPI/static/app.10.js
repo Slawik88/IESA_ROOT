@@ -46,6 +46,7 @@ let _looksDetailLineup=null;   // id открытой коллекции в де
 const LINEUP_COLOR = {
   forest:'#7dc47d', threshold:'#c084fc', frost:'#7ad4ff', inferno:'#ff7a3d',
   celestial:'#e8c45a', void:'#ff4d8d', artifact:'#3fe0e0',
+  hanami:'#e8a3b6', moon_lotus:'#b9c9ff', ryujin_tide:'#69b8d6',
 };
 function lineupMeta(id){ return (_looksData&&_looksData.lineups&&_looksData.lineups[id])||null; }
 function lineupLabel(id){ const l=lineupMeta(id); return l?l.name:(id||'—'); }
@@ -368,6 +369,43 @@ function _looksCollectionIconSvg(lin){
         <circle cx="9" cy="12" r=".7" fill="#fff" style="animation:gemSparkle 2.6s ease-in-out infinite"/>
         <circle cx="15" cy="15" r=".6" fill="#fff" style="animation:gemSparkle 3.1s ease-in-out infinite 1.3s"/>
       </svg>`;
+    case 'hanami': return `<svg class="coll-sig-svg" viewBox="0 0 24 24" fill="none" style="overflow:visible">
+        <defs><linearGradient id="hanamiBranch-${lin}" x1="2" y1="22" x2="20" y2="3"><stop stop-color="#6b3f45"/><stop offset="1" stop-color="#d8a07f"/></linearGradient></defs>
+        <path d="M3 21C7.5 16.8 8.2 11.2 14 7.5c2.2-1.4 4.2-2.5 7-3.4M9 14.4c-1.2-2.2-2.8-3.4-5-4.1M13.2 8.1c-.1-2.3.8-4.1 2.8-5.6" stroke="url(#hanamiBranch-${lin})" stroke-width="1.25" stroke-linecap="round"/>
+        <g fill="#f3b6c6" stroke="#fff0f4" stroke-width=".25" style="transform-origin:16px 7px;animation:hanamiBloom 4.8s ease-in-out infinite">
+          <path d="M17 4.3c.8-1.6 2.5-1.3 2.4.3 1.6-.3 2.2 1.3.8 2.1 1.1 1.1.1 2.5-1.3 1.7-.5 1.5-2.2 1.4-2.4-.2-1.5.5-2.2-1.1-.9-2.1-1.2-1.1-.1-2.5 1.4-1.8z"/>
+          <circle cx="17.8" cy="6.4" r=".65" fill="#d889a2" stroke="none"/>
+        </g>
+        <g fill="#ed9fb7" opacity=".92" style="transform-origin:7px 12px;animation:hanamiBloom 5.4s ease-in-out infinite 1.1s">
+          <circle cx="7" cy="11.3" r="1.5"/><circle cx="8.5" cy="12" r="1.4"/><circle cx="7.7" cy="13.5" r="1.35"/><circle cx="6" cy="13.1" r="1.35"/><circle cx="5.7" cy="11.6" r="1.3"/><circle cx="7.1" cy="12.4" r=".55" fill="#ffe6ad"/>
+        </g>
+        <path d="M20.5 10c1.1.8.9 2.2-.3 2.8-1.1-.8-1-2.1.3-2.8z" fill="#f3b6c6" style="animation:hanamiPetalFall 4.6s ease-in-out infinite"/>
+      </svg>`;
+    case 'moon_lotus': return `<svg class="coll-sig-svg" viewBox="0 0 24 24" fill="none" style="overflow:visible">
+        <defs>
+          <radialGradient id="lotusMoon-${lin}"><stop stop-color="#fffef2"/><stop offset=".72" stop-color="#dce4ff"/><stop offset="1" stop-color="#8da4e5"/></radialGradient>
+          <linearGradient id="lotusPearl-${lin}" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".45" stop-color="#efc9e4"/><stop offset="1" stop-color="#9eb8ff"/></linearGradient>
+        </defs>
+        <circle cx="12" cy="7" r="4.6" fill="url(#lotusMoon-${lin})" opacity=".9" style="animation:moonLotusGlow 4.8s ease-in-out infinite"/>
+        <g fill="url(#lotusPearl-${lin})" stroke="#f8f2ff" stroke-width=".3" style="transform-origin:12px 18px;animation:moonLotusFloat 5.6s ease-in-out infinite">
+          <path d="M12 19.5C8.8 16.7 8.8 13.5 12 11c3.2 2.5 3.2 5.7 0 8.5z"/>
+          <path d="M11.3 20c-4.2-.6-6.2-3.2-5.5-6.9 3.7.5 5.7 2.8 5.5 6.9z" opacity=".9"/>
+          <path d="M12.7 20c4.2-.6 6.2-3.2 5.5-6.9-3.7.5-5.7 2.8-5.5 6.9z" opacity=".9"/>
+          <path d="M10.4 20.1c-3.6 1-6.4-.2-7.8-3.4 3.2-.9 5.8.1 7.8 3.4z" opacity=".72"/>
+          <path d="M13.6 20.1c3.6 1 6.4-.2 7.8-3.4-3.2-.9-5.8.1-7.8 3.4z" opacity=".72"/>
+        </g>
+        <path d="M4 22c4-1 12-1 16 0" stroke="#9eb8ff" stroke-width=".65" stroke-linecap="round" opacity=".75" style="animation:moonRipple 5s ease-in-out infinite"/>
+      </svg>`;
+    case 'ryujin_tide': return `<svg class="coll-sig-svg" viewBox="0 0 24 24" fill="none" style="overflow:visible">
+        <defs><linearGradient id="ryujinWave-${lin}" x1="2" y1="20" x2="22" y2="5"><stop stop-color="#23516c"/><stop offset=".55" stop-color="#7bd4e8"/><stop offset="1" stop-color="#e6c879"/></linearGradient></defs>
+        <g stroke="url(#ryujinWave-${lin})" stroke-linecap="round" stroke-linejoin="round" style="transform-origin:12px 12px;animation:ryujinSigFlow 6.5s ease-in-out infinite">
+          <path d="M2.5 17.8c3.5-5.7 7.2-7.7 11.1-5.8 2.3 1.1 3.4-.5 2.2-2.4-1.1-1.8.3-3.9 2.4-3.1 1.6.6 2.8 2.2 3.3 4" stroke-width="1.45"/>
+          <path d="M3.2 20.2c4.9-3.7 9.2-4 12.8-.8 1.6 1.4 3.5 1.3 5.5-.1" stroke-width="1" opacity=".8"/>
+          <path d="M15.9 7.7 13.6 5l3.5.7M19 6.8l1-3 1.1 3.2" stroke-width=".75"/>
+          <circle cx="18.6" cy="8.3" r=".55" fill="#f7df9a" stroke="none"/>
+        </g>
+        <path d="m5 15.7 2.2-2.5-1.1 3.1 2.7-.8" stroke="#f2d17b" stroke-width=".55" style="animation:ryujinGoldFlash 4.2s ease-in-out infinite"/>
+      </svg>`;
     default: return `<svg class="coll-sig-svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`;
   }
 }
@@ -433,7 +471,7 @@ function _looksOpenCollection(lin){
   _looksSearch=''; _looksStatus='all'; _looksFilter=lin; _looksDetailLineup=lin;
   renderLooks();
   // Финальный ревью: если тап пришёлся на карточку в скролле (не только у 3 из
-  // 7 линеек внизу сетки), шапка детального экрана рендерится за текущим
+  // карточек линеек внизу сетки), шапка детального экрана рендерится за текущим
   // scrollTop и остаётся за прилипшим превью — игрок не видит медальон/блёрб/
   // измеритель вообще, только хвост кнопки покупки.
   window.scrollTo(0,0);
@@ -518,6 +556,19 @@ function _looksCollectionAtmosphereHtml(lin){
       <div style="position:absolute;width:2px;height:2px;border-radius:50%;background:#ffd0e2;left:70%;top:55%;animation:voidSpark 5.2s ease-in-out infinite 1.6s"></div>`;
     case 'artifact': return `
       <div style="position:absolute;width:80%;height:90%;left:10%;top:5%;background:linear-gradient(100deg, transparent, rgba(255,255,255,.10), transparent);animation:gemShimmer 6s ease-in-out infinite alternate"></div>`;
+    case 'hanami': return `
+      <div style="position:absolute;width:8px;height:5px;border-radius:90% 15% 90% 15%;background:#e8a3b6;left:18%;top:12%;animation:hanamiAtmoFall 8s ease-in-out infinite;opacity:.55"></div>
+      <div style="position:absolute;width:6px;height:4px;border-radius:90% 15% 90% 15%;background:#f2c2cf;left:76%;top:4%;animation:hanamiAtmoFall 10s ease-in-out infinite 2.4s;opacity:.48"></div>`;
+    case 'moon_lotus': return `
+      <div style="position:absolute;width:120px;height:120px;border-radius:50%;left:50%;top:-68px;transform:translateX(-50%);background:radial-gradient(circle,rgba(245,247,255,.18),rgba(185,201,255,.04) 54%,transparent 70%);animation:moonLotusGlow 7s ease-in-out infinite"></div>
+      <div style="position:absolute;width:64%;height:18px;left:18%;top:64%;border:1px solid rgba(185,201,255,.18);border-left-color:transparent;border-right-color:transparent;border-radius:50%;animation:moonRipple 8s ease-in-out infinite"></div>
+      <div style="position:absolute;width:9px;height:5px;border-radius:90% 18% 90% 18%;background:#e9d6eb;left:22%;top:5%;opacity:.56;animation:lotusPetalAtmo 9s ease-in-out infinite"></div>
+      <div style="position:absolute;width:7px;height:4px;border-radius:90% 18% 90% 18%;background:#cbd8ff;left:72%;top:16%;opacity:.46;animation:lotusPetalAtmo 11s ease-in-out infinite 2.8s"></div>`;
+    case 'ryujin_tide': return `
+      <div style="position:absolute;width:130%;height:85%;left:-15%;top:38%;border-radius:50%;border-top:2px solid rgba(105,184,214,.14);transform:rotate(-7deg);animation:ryujinAtmoCurrent 9s ease-in-out infinite"></div>
+      <div style="position:absolute;width:2px;height:46%;left:69%;top:6%;background:linear-gradient(transparent,rgba(230,200,121,.38),transparent);transform:rotate(34deg);animation:ryujinGoldFlash 6.5s ease-in-out infinite"></div>
+      <div style="position:absolute;width:5px;height:3px;left:24%;top:72%;background:#e4c36e;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);opacity:.45;animation:ryujinScaleDrift 8s ease-in-out infinite"></div>
+      <div style="position:absolute;width:4px;height:2px;left:79%;top:67%;background:#8ccfdf;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);opacity:.4;animation:ryujinScaleDrift 10s ease-in-out infinite 2.2s"></div>`;
     default: return '';
   }
 }

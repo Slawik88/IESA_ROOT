@@ -1,4 +1,4 @@
-// Проверка карточек коллекций: 7 штук, у каждой медальон+SVG, кольцо-прогресс
+// Проверка карточек коллекций: одна на каждую запись каталога, у каждой медальон+SVG, кольцо-прогресс
 // соответствует реальному owned/total, полоска слотов совпадает с фактическим
 // владением, статус-текст честный (собрано/не куплено/не начато).
 import puppeteer from 'puppeteer';
@@ -35,7 +35,7 @@ const info = await page.evaluate(() => {
   return { cardCount: cards.length, lineupCount: lineupIds.length, results, lineupIds };
 });
 
-check('ровно 7 карточек коллекций (по числу линеек)', info.cardCount === info.lineupCount && info.cardCount === 7);
+check('ровно 10 карточек коллекций (по числу линеек)', info.cardCount === info.lineupCount && info.cardCount === 10);
 check('каждая карточка имеет data-lineup из реального набора линеек', info.results.every(r => info.lineupIds.includes(r.lin)));
 check('у каждой карточки есть SVG-медальон', info.results.every(r => r.hasSvg));
 check('у каждой карточки есть кольцо-прогресс', info.results.every(r => r.hasRing));
