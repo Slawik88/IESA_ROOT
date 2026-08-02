@@ -294,6 +294,50 @@ function _looksCollectionsViewHtml(){
   const lineups=Object.keys(_looksData.lineups||{});
   return `<div class="coll-grid">${lineups.map(_looksCollectionCard).join('')}</div>`;
 }
+function _looksCuratedById(lookId){
+  return ((_looksData&&_looksData.curated_looks)||[]).find(look=>look.id===lookId)||null;
+}
+function _looksCuratedCardHtml(look){
+  const ids=look.items||{};
+  const glow=_looksCos(ids.name_glow), frame=_looksCos(ids.avatar_frame), halo=_looksCos(ids.avatar_halo);
+  const title=_looksCos(ids.title), bg=_looksCos(ids.profile_bg), fx=_looksCos(ids.card_fx);
+  if(!glow||!frame||!halo||!title||!bg||!fx) return '';
+  const color=lineupColor(look.lineup);
+  const state=look.fully_owned?'✓ Всё принадлежит':`${look.owned_count||0}/${look.total_count||6} · докупить ${look.missing_price||0}✨`;
+  return `<button class="looks-curated-card" type="button" data-curated-look="${esc(look.id)}" style="--curated:${color};--curated-wash:${color}24" onclick="_looksTryCurated('${look.id}')">
+    <span class="looks-curated-preview looks-preview ${bg.css}">
+      <span class="card-fx ${fx.css}"></span>
+      <span class="looks-curated-identity">
+        <span class="ava ${frame.css} ${halo.css}">${_looksData.vip?'👑':'🔮'}</span>
+        <span class="looks-curated-profile-copy"><strong class="pname ${glow.css}">@Твой ник</strong><small class="ptitle ${title.css||''}">${esc(title.text||title.name)}</small></span>
+      </span>
+    </span>
+    <span class="looks-curated-copy"><strong>${esc(look.name)}</strong><small>${esc(look.mood)}</small><span>${state}</span></span>
+    <span class="looks-curated-action">Примерить образ <b aria-hidden="true">›</b></span>
+  </button>`;
+}
+function _looksCuratedLooksHtml(lineup){
+  const looks=((_looksData&&_looksData.curated_looks)||[]).filter(look=>look.lineup===lineup);
+  if(!looks.length) return '';
+  return `<section class="looks-curated" aria-label="Кураторские образы коллекции">
+    <div class="looks-curated-head"><strong>Собранные образы</strong><span>${looks.length} сочетания</span></div>
+    <div class="looks-curated-row">${looks.map(_looksCuratedCardHtml).join('')}</div>
+  </section>`;
+}
+function _looksTryCurated(lookId){
+  const look=_looksCuratedById(lookId); if(!look) return;
+  _looksSel={..._looksSaved};
+  _looksLastTouchedCosmetic='';
+  _LOOKS_SLOTS.forEach(slot=>{
+    const id=look.items&&look.items[slot], item=_looksCos(id);
+    if(!item) return;
+    if(item.owned){ _looksSel[slot]=id; _looksDropTrial(slot); }
+    else _looksSetTrial(slot,id);
+  });
+  _looksRenderFab();
+  _LOOKS_SLOTS.forEach(_looksMarkSel);
+  _looksOpenFittingSheet();
+}
 // Детальный экран: переиспользует секции слотов из режима «По слотам», но не
 // рисует пустые категории. В полном каталоге у каждой линейки есть все шесть
 // слотов; эта защита нужна для частичной выдачи, чтобы вместо карточки товара
@@ -302,7 +346,7 @@ function _looksCollectionsViewHtml(){
 function _looksCollectionDetailBodyHtml(){
   const slots=_LOOKS_SLOTS.filter(s=>
     (_looksData.slots[s]||[]).some(it=>it.lineup===_looksDetailLineup));
-  return `<div id="looks-sections">${slots.map(s=>_looksSectionHtml(s,_looksDetailLineup)).join('')}</div>`;
+  return `${_looksCuratedLooksHtml(_looksDetailLineup)}<div id="looks-sections">${slots.map(s=>_looksSectionHtml(s,_looksDetailLineup)).join('')}</div>`;
 }
 // Медальон-иконка каждой линейки — авторский анимированный SVG-сигиль (не эмодзи,
 // см. COSMETICS_COLLECTION_DESIGN_RULES.md §1). Код транскрибирован из брейншторма

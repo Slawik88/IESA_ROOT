@@ -2638,6 +2638,66 @@ body.no-fx .gift-buy-pill::after { animation: none; opacity: 0; }
 .looks-presets-empty { color: var(--muted); font-size: 10px; line-height: 1.4; }
 .btn-plain { background: none; border: none; padding: 0; cursor: pointer; color: inherit; font-family: inherit; }
 
+/* Реальные кураторские сочетания живут внутри деталей коллекции: они не
+   меняют знакомые карточки коллекций и не смешиваются с личными сохранениями. */
+.looks-curated { display: grid; gap: 8px; margin: 2px 0 16px; }
+.looks-curated-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.looks-curated-head strong { color: var(--bright); font-size: 12px; }
+.looks-curated-head span { color: var(--muted); font-size: 10px; }
+.looks-curated-row {
+  display: flex; gap: 8px; overflow-x: auto; padding: 2px; margin: -2px;
+  scrollbar-width: none; scroll-snap-type: x proximity;
+}
+.looks-curated-row::-webkit-scrollbar { display: none; }
+.looks-curated-card {
+  position: relative; flex: 0 0 216px; min-width: 0; min-height: 212px; display: grid;
+  grid-template-rows: 96px minmax(0,1fr) auto; gap: 8px; padding: 8px;
+  overflow: hidden; scroll-snap-align: start; border: 1px solid var(--border2);
+  border-color: color-mix(in srgb,var(--curated) 34%,var(--border2));
+  border-radius: 14px; background: linear-gradient(155deg,var(--curated-wash),rgba(17,20,31,.96) 42%,rgba(10,12,20,.98));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05),0 8px 20px rgba(0,0,0,.18);
+  color: var(--bright); font: inherit; text-align: left; cursor: pointer;
+}
+.looks-curated-card:active { transform: scale(.985); }
+.looks-curated-preview.looks-preview {
+  width: 100%; height: 96px; min-height: 0; margin: 0; padding: 0; display: grid; place-items: center;
+  border: 0; border-radius: 10px; background-color: var(--bg1); isolation: isolate;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.075);
+}
+.looks-curated-identity {
+  position: relative; z-index: 3; width: calc(100% - 20px); display: flex; align-items: center; gap: 13px;
+}
+.looks-curated-preview.looks-preview .ava {
+  width: 46px; height: 46px; flex: 0 0 46px; margin: 0; font-size: 23px;
+}
+.looks-curated-profile-copy { position: relative; z-index: 5; isolation: isolate; min-width: 0; display: grid; gap: 3px; }
+.looks-curated-profile-copy::before {
+  content:''; position:absolute; z-index:-1; inset:-4px -8px; border-radius:9px;
+  background:linear-gradient(90deg,rgba(5,7,14,.9),rgba(5,7,14,.64) 72%,transparent);
+  filter:blur(4px); opacity:.92;
+}
+.looks-curated-profile-copy .pname {
+  max-width: 126px; overflow: hidden; color: var(--bright); font-size: 11px; line-height: 1.2;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.looks-curated-profile-copy .ptitle {
+  max-width: 126px; max-height: 21px; overflow: hidden; display: -webkit-box; font-size: 8.5px; line-height: 1.2;
+  -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal;
+}
+.looks-curated-copy { min-width: 0; display: grid; align-content: start; gap: 3px; }
+.looks-curated-copy > strong { overflow: hidden; font-size: 12px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
+.looks-curated-copy > small { min-height: 28px; color: var(--muted); font-size: 9.5px; line-height: 1.42; }
+.looks-curated-copy > span { color: var(--curated); font-size: 9px; font-weight: 700; }
+.looks-curated-action {
+  min-height: 30px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  border-top: 1px solid rgba(255,255,255,.07); color: var(--bright); font-size: 9.5px; font-weight: 750;
+}
+.looks-curated-action b { color: var(--curated); font-size: 18px; font-weight: 500; line-height: 1; }
+body.no-fx .looks-curated-preview *, body.no-fx .looks-curated-preview::before, body.no-fx .looks-curated-preview::after { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .looks-curated-preview *, .looks-curated-preview::before, .looks-curated-preview::after { animation: none !important; }
+}
+
 /* ── Кланы / Гильдии ─────────────────────────────────────────────────────────── */
 .clan-card {
   text-align: center; padding: 16px 14px; border-radius: 14px; border: 1px solid var(--border2);
