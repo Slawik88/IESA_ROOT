@@ -336,6 +336,14 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   animation: rise .3s ease both;
 }
 .hero-head, .phead, .profile-copy-row { display: flex; align-items: center; gap: 12px; }
+.hero-head.lineage-link, .profile-copy-row.lineage-link { position: relative; isolation: isolate; }
+.hero-head.lineage-link::before, .profile-copy-row.lineage-link::before {
+  content:'';position:absolute;z-index:0;left:-14px;top:-14px;bottom:-14px;width:126px;pointer-events:none;
+  border-radius:50%;opacity:.7;filter:blur(4px);
+  background:radial-gradient(ellipse at 32% 50%,var(--avatar-lineage-wash,transparent),transparent 72%);
+}
+.hero-head.lineage-link > .ava, .profile-copy-row.lineage-link > .ava { position:relative;z-index:1; }
+.hero-head.lineage-link > .profile-copy, .profile-copy-row.lineage-link > .profile-copy { position:relative;z-index:3; }
 .hero-head:has(.ava[class*="frame-"]),
 .hero-head:has(.ava[class*="halo-"]),
 .profile-copy-row:has(.ava[class*="frame-"]),

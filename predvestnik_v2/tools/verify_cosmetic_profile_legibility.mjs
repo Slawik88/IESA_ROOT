@@ -49,6 +49,8 @@ try {
         headZ:getComputedStyle(head).zIndex,
         copyUnderlayLeft:copy?getComputedStyle(copy,'::before').left:'',
         avatarToCopyGap:measuredGap||parseFloat(getComputedStyle(head).columnGap)||0,
+        hasLineage:head?.classList.contains('lineage-link')||false,
+        lineageWash:head?getComputedStyle(head,'::before').backgroundImage:'',
       };
     };
     return {
@@ -67,10 +69,14 @@ try {
     check(`${name} card keeps the content above cosmetic particles`, Number(card.headZ)>Number(card.effectZ));
     check(`${name} card keeps avatar glow out of the text underlay`, parseFloat(card.copyUnderlayLeft)>=0 && card.avatarToCopyGap>=20);
   }
+  check('main profile links the avatar to the server-declared cosmetic lineage', state.profile.hasLineage
+    && state.profile.lineageWash.includes('radial-gradient'));
   const publicSource=fs.readFileSync('FastAPI/static/app.06.js','utf8');
   check('public profile uses the same semantic copy layer', publicSource.includes('class="profile-copy"'));
-  check('public profile uses the shared glow-safe profile row', publicSource.includes('class="profile-copy-row"')
+  check('public profile uses the shared glow-safe profile row', publicSource.includes('class="profile-copy-row${lineageStyle')
     && !publicSource.includes('flex:none;overflow:hidden'));
+  check('public profile consumes the same lineage metadata without a cosmetic-id map', publicSource.includes('_looksLineageStyle(co)')
+    && publicSource.includes("lineage-link"));
 
   await page.setViewport({width:320,height:780,deviceScaleFactor:2});
   const narrow=await page.evaluate(()=>{

@@ -13,6 +13,9 @@ function loadProfile() {
     const looksTrial = typeof window._looksProfileTrialSummary==='function'
       ? window._looksProfileTrialSummary()
       : null;
+    const lineageStyle = typeof window._looksLineageStyle==='function'
+      ? window._looksLineageStyle(cosmetics)
+      : '';
     _applySysFlags(d.system_flags);
     checkWhatsNewBadge();   // «Что нового»: золотая точка на 📣, если есть непрочитанное
     _tosGate(d);   // БЛОК22: блок-экран принятия ToS/Privacy для не принявших
@@ -41,7 +44,7 @@ function loadProfile() {
     el('pro-main').innerHTML=`
       <div class="hero ${cosmetics.profile_bg?cosmetics.profile_bg.css:''}">
         ${cosmetics.card_fx?`<div class="card-fx ${cosmetics.card_fx.css}"></div>`:''}
-        <div class="hero-head">
+        <div class="hero-head${lineageStyle?' lineage-link':''}"${lineageStyle?` style="${lineageStyle}"`:''}>
           <div class="ava ${cosmetics.avatar_frame?cosmetics.avatar_frame.css:''} ${cosmetics.avatar_halo?cosmetics.avatar_halo.css:''}" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
           <div class="profile-copy">
             <div class="pname ${cosmetics.name_glow?cosmetics.name_glow.css:''}">@${vipName(d.username||'Игрок', d.is_vip)}</div>
