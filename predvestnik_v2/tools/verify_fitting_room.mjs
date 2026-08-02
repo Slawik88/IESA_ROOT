@@ -160,6 +160,9 @@ await page.click('.looks-fab');
 await new Promise(resolve => setTimeout(resolve, 400));
 const sheetState = await page.evaluate(() => ({
   modalOpen: document.getElementById('modal').open,
+  viewTransitionSupported: !!document.startViewTransition,
+  sharedTransition: document.getElementById('modal').classList.contains('looks-fitting-shared'),
+  transitionNameAfterFinish: getComputedStyle(document.querySelector('#looks-fit-top .fit-player-card')).viewTransitionName,
   hasHeroCard: !!document.querySelector('#looks-fit-top .hero'),
   trialChipCount: document.querySelectorAll('.fit-outfit-row.trial').length,
   trialRows: [...document.querySelectorAll('.fit-outfit-row.trial')].map(row=>row.textContent.replace(/\s+/g,' ').trim()),
@@ -167,6 +170,9 @@ const sheetState = await page.evaluate(() => ({
   actionText: document.querySelector('#mf .btn-gold, #mf .btn-ghost:last-child')?.textContent || '',
 }));
 check('шторка открыта', sheetState.modalOpen);
+check('visible selected cosmetic uses one short shared transition into the fitting card',
+  !sheetState.viewTransitionSupported || sheetState.sharedTransition);
+check('shared transition releases its temporary name after finishing', sheetState.transitionNameAfterFinish === 'none');
 check('в шторке показана карточка профиля', sheetState.hasHeroCard);
 check('шторка показывает обе примерки', sheetState.trialChipCount === 2);
 check('в шторке только одна золотая кнопка', sheetState.goldButtonCount === 1);
@@ -174,6 +180,29 @@ check('золотая кнопка покупает и применяет всё
 
 check('trial name glow is shown with its full name and price', sheetState.trialRows.some(text=>/Ореол имени/.test(text) && /Ледяная вязь/.test(text) && /440/.test(text)));
 check('trial avatar frame is shown with its full name and price', sheetState.trialRows.some(text=>/Рамка аватара/.test(text) && /Оправа Бездны/.test(text) && /440/.test(text)));
+
+const noFxTransition = await page.evaluate(async () => {
+  CM();
+  document.body.classList.add('no-fx');
+  _looksOpenFittingSheet();
+  await new Promise(resolve=>setTimeout(resolve,40));
+  const shared=document.getElementById('modal').classList.contains('looks-fitting-shared');
+  CM();
+  document.body.classList.remove('no-fx');
+  return shared;
+});
+check('no-fx opens the same fitting state without the shared transition', !noFxTransition);
+
+await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
+const reducedMotionTransition = await page.evaluate(async () => {
+  _looksOpenFittingSheet();
+  await new Promise(resolve=>setTimeout(resolve,40));
+  const shared=document.getElementById('modal').classList.contains('looks-fitting-shared');
+  CM();
+  return shared;
+});
+check('prefers-reduced-motion opens the same fitting state without the shared transition', !reducedMotionTransition);
+await page.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'no-preference'}]);
 
 await page.evaluate(() => switchPage('profile'));
 await page.waitForFunction(() => _activePage === 'profile');

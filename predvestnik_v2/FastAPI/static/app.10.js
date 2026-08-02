@@ -35,6 +35,8 @@ let _looksFilter='all';                // фильтр ЛИНЕЙКИ (id из _
 let _looksStatus='all';                // фильтр СТАТУСА: all|owned|missing — независимое второе измерение (см. аудит 2026-07-29)
 let _looksMode='collections';          // режим отображения: collections|slots — по умолчанию коллекции (Стадия 2)
 let _looksDetailLineup=null;   // id открытой коллекции в детальном экране (Стадия 3); null = список карточек
+let _looksLastTouchedCosmetic=''; // источник короткого перехода «карточка → примерочная»
+let _looksFittingViewTransitionActive=false;
 // Редизайн 2026-07-29: редкость (common→artifact) заменена ЛИНЕЙКАМИ (тематические
 // коллекции, core/cosmetics.py::LINEUPS) — фильтр/бейджи теперь по линейке, не по
 // редкости. `rarity` на предмете остался ТЕХНИЧЕСКИМ полем (ценовой ярус, VIP-гейт,
@@ -666,7 +668,8 @@ function _looksRenderCard(sel){
     :(d.is_vip?'👑':'🔮');
   const uid=d.user_id||_uid||0;
   const lineageStyle=_looksLineageStyle({avatar_frame:frame,avatar_halo:halo,card_fx:fx,profile_bg:bg});
-  return `<div class="hero fit-player-card ${bg?bg.css:''}">
+  const transitionStyle=_looksFittingViewTransitionActive?'view-transition-name:looks-fitting-card':'';
+  return `<div class="hero fit-player-card ${bg?bg.css:''}"${transitionStyle?` style="${transitionStyle}"`:''}>
     ${fx?`<div class="card-fx ${fx.css}"></div>`:''}
     <div class="hero-head${lineageStyle?' lineage-link':''}"${lineageStyle?` style="${lineageStyle}"`:''}>
       <div class="ava ${frame?frame.css:''} ${halo?halo.css:''}" id="fit-ava">${avatar}</div>
@@ -720,9 +723,44 @@ function _looksRenderFab(){
   dock.innerHTML=_looksFabHtml();
 }
 
-function _looksOpenFittingSheet(){
+function _looksOpenFittingSheetNow(sharedTransition=false){
   OM('🎨 Примерочная', _looksFittingSheetBodyHtml(), _looksFittingSheetButtons());
   el('modal').classList.add('looks-fitting-modal');
+  if(sharedTransition) el('modal').classList.add('looks-fitting-shared');
+}
+function _looksOpenFittingSheet(){
+  const source=_looksLastTouchedCosmetic
+    ?document.querySelector(`.looks-card[data-cos="${_looksLastTouchedCosmetic}"]`)
+    :null;
+  const rect=source&&source.getBoundingClientRect();
+  const sourceVisible=!!rect&&rect.width>0&&rect.height>0&&rect.bottom>0&&rect.top<innerHeight;
+  const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!document.startViewTransition||document.body.classList.contains('no-fx')||reduceMotion||!sourceVisible){
+    _looksOpenFittingSheetNow(false);
+    return;
+  }
+  // Связываем только последнюю реально видимую карточку с итоговой карточкой
+  // игрока. Состояние примерки меняется ДО этого, поэтому анимация ничего не
+  // маскирует и остаётся чисто навигационной подсказкой.
+  source.style.viewTransitionName='looks-fitting-card';
+  _looksFittingViewTransitionActive=true;
+  let transition;
+  try{
+    transition=document.startViewTransition(()=>{
+      source.style.removeProperty('view-transition-name');
+      _looksOpenFittingSheetNow(true);
+    });
+  }catch(e){
+    source.style.removeProperty('view-transition-name');
+    _looksFittingViewTransitionActive=false;
+    _looksOpenFittingSheetNow(false);
+    return;
+  }
+  transition.finished.finally(()=>{
+    _looksFittingViewTransitionActive=false;
+    const target=document.querySelector('#looks-fit-top .fit-player-card');
+    if(target) target.style.removeProperty('view-transition-name');
+  });
 }
 function _looksTrialTotal(){
   return Object.entries(_looksTrial).reduce((sum,[slot,id])=>{
@@ -898,10 +936,10 @@ function _looksBuyFromPreview(id,opt,slot){
 function _looksShownId(slot){ return _looksTrial[slot]||_looksSel[slot]||null; }
 function _looksHeroSel(){ const sel={..._looksSel}; Object.keys(_looksTrial).forEach(slot=>{sel[slot]=_looksTrial[slot];}); return sel; }
 function _looksHeroDiffers(){ const hs=_looksHeroSel(); return _LOOKS_SLOTS.some(s=>(hs[s]||null)!==(_looksSaved[s]||null)); }
-function _looksEquip(slot,id){ _looksSel[slot]=id; _looksDropTrial(slot); _looksRenderFab(); _looksMarkSel(slot); }
-function _looksUnequip(slot){ _looksSel[slot]=null; _looksDropTrial(slot); _looksRenderFab(); _looksMarkSel(slot); }
+function _looksEquip(slot,id){ _looksLastTouchedCosmetic=id; _looksSel[slot]=id; _looksDropTrial(slot); _looksRenderFab(); _looksMarkSel(slot); }
+function _looksUnequip(slot){ _looksLastTouchedCosmetic=''; _looksSel[slot]=null; _looksDropTrial(slot); _looksRenderFab(); _looksMarkSel(slot); }
 function _looksReset(){ _looksSel={..._looksSaved}; _looksClearTrial(); _looksRenderFab(); _LOOKS_SLOTS.forEach(_looksMarkSel); }
-function _looksTapUnowned(slot,id){ _looksSetTrial(slot,id); _looksRenderFab(); _looksMarkSel(slot); }
+function _looksTapUnowned(slot,id){ _looksLastTouchedCosmetic=id; _looksSetTrial(slot,id); _looksRenderFab(); _looksMarkSel(slot); }
 // Перф: точечно переставить .sel в сетке ЭТОГО слота (без пересборки innerHTML —
 // это и был источник «подлагивания»: раньше каждый тап перерисовывал весь грид).
 function _looksMarkSel(slot){
