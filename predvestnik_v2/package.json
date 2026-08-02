@@ -1,0 +1,13 @@
+{
+  "name": "predvestnik-v2-local-tooling",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preview": "node --watch --watch-preserve-output tools/preview_server.mjs",
+    "check:preview": "node --check tools/preview_server.mjs && node tools/verify_preview_server.mjs",
+    "test:ui": "node tools/run_ui_regressions.mjs"
+  },
+  "devDependencies": {
+    "puppeteer": "25.4.0"
+  }
+}

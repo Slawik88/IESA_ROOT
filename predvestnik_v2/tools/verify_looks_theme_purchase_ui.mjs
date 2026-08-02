@@ -24,6 +24,7 @@ try {
 
   await page.click('.theme-card[data-theme="neon_terminal"]');
   await page.waitForFunction(() => /Купить\s*—\s*440\s*✨/.test(document.querySelector('#looks-theme-preview')?.textContent || ''));
+  await page.$eval('#looks-theme-preview .btn-gold', button => button.scrollIntoView({block: 'center'}));
   await page.click('#looks-theme-preview .btn-gold');
   await page.waitForFunction(() => {
     const theme=_themeData?.find(item => item.theme_id === 'neon_terminal');
@@ -34,6 +35,7 @@ try {
     zarniki: _profileData?.zarniki,
   }));
 
+  await page.$eval('#looks-theme-preview .btn-gold', button => button.scrollIntoView({block: 'center'}));
   await page.click('#looks-theme-preview .btn-gold');
   await page.waitForFunction(() => {
     const theme=_themeData?.find(item => item.theme_id === 'neon_terminal');

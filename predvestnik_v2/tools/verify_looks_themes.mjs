@@ -35,12 +35,24 @@ try {
     viewedClasses: document.querySelector('#looks-grid-themes .looks-card[data-theme="neon_terminal"]')?.className || '',
     gridColumns: getComputedStyle(document.querySelector('#looks-grid-themes .looks-cards')).gridTemplateColumns.split(' ').length,
     pattern: document.querySelector('#looks-grid-themes .looks-card[data-theme="neon_terminal"] .theme-card-pattern')?.textContent || '',
-    filterHeight: Math.round(document.querySelector('.looks-theme-chip')?.getBoundingClientRect().height || 0),
+    filterUsesSharedTabs: document.querySelector('.looks-theme-filter')?.classList.contains('tabs')
+      && document.querySelector('.looks-theme-filter')?.classList.contains('tab-inner')
+      && document.querySelector('.looks-theme-chip')?.classList.contains('tb'),
+    filterVisibleHeight: Math.round(document.querySelector('.looks-theme-chip')?.getBoundingClientRect().height || 0),
+    filterVisibleRadius: parseFloat(getComputedStyle(document.querySelector('.looks-theme-chip')).borderRadius) || 0,
+    filterHitTop: parseFloat(getComputedStyle(document.querySelector('.looks-theme-chip'),'::before').top) || 0,
+    filterHitContent: getComputedStyle(document.querySelector('.looks-theme-chip'),'::before').content,
     dock: (() => {
-      const host=document.querySelector('#pg-looks #looks-dock'), node=document.querySelector('.looks-fab'), card=document.querySelector('.theme-card');
-      const rect=item=>item?.getBoundingClientRect(); const buttonRect=rect(node), cardRect=rect(card);
-      const overlaps=!!(buttonRect&&cardRect&&buttonRect.left<cardRect.right&&buttonRect.right>cardRect.left&&buttonRect.top<cardRect.bottom&&buttonRect.bottom>cardRect.top);
-      return {inside:!!host, position:host?getComputedStyle(host).position:'', buttonPosition:node?getComputedStyle(node).position:'', width:Math.round(buttonRect?.width||0), overlaps};
+      const host=document.querySelector('body > #looks-dock'), node=host?.querySelector('.looks-fab'), nav=document.querySelector('.nav');
+      const buttonRect=node?.getBoundingClientRect(), navRect=nav?.getBoundingClientRect();
+      const centerX=buttonRect?buttonRect.left+buttonRect.width/2:0, centerY=buttonRect?buttonRect.top+buttonRect.height/2:0;
+      return {
+        portaled:!!host,
+        position:host?getComputedStyle(host).position:'',
+        width:Math.round(buttonRect?.width||0),
+        clearOfNav:!!(buttonRect&&navRect&&buttonRect.bottom<=navRect.top),
+        hitTarget:document.elementFromPoint(centerX,centerY)?.closest('.looks-fab')===node,
+      };
     })(),
     looksPageBottomPadding: Math.round(parseFloat(getComputedStyle(document.querySelector('#pg-looks')).paddingBottom)),
   }));
@@ -54,10 +66,16 @@ try {
     /theme-previewing/.test(state.viewedClasses) && !/\bsel\b/.test(state.viewedClasses));
   check('theme catalog uses roomy two-column cards with a clipped visual pattern',
     state.gridColumns === 2 && /▚▞/.test(state.pattern));
-  check('theme filters have a mobile-safe touch target', state.filterHeight >= 44);
-  check('fitting room stays in the appearance flow instead of covering catalog cards',
-    state.dock.inside && state.dock.position === 'sticky' && state.dock.buttonPosition === 'static' && state.dock.width >= 300 && !state.dock.overlaps);
-  check('looks page keeps a purposeful bottom clearance instead of a viewport-sized blank tail', state.looksPageBottomPadding <= 160);
+  check('theme filters reuse the shared segmented-tab language across the app', state.filterUsesSharedTabs);
+  check('theme filters keep an invisible expanded tap area around a compact visible segment', state.filterVisibleHeight <= 30
+    && state.filterVisibleRadius <= 9 && state.filterHitContent==='""' && state.filterHitTop <= -9);
+  check('fitting room stays compact, viewport-fixed, touchable and clear of bottom navigation',
+    state.dock.portaled && state.dock.position === 'fixed' && state.dock.width >= 176 && state.dock.width <= 220 && state.dock.clearOfNav && state.dock.hitTarget);
+  check('looks page keeps a compact bottom clearance instead of a viewport-sized blank tail', state.looksPageBottomPadding >= 64 && state.looksPageBottomPadding <= 88);
+  if (process.env.SCREENSHOT_PATH) {
+    const filter = await page.$('#looks-theme-filter');
+    await filter.screenshot({path: process.env.SCREENSHOT_PATH});
+  }
 } finally {
   await browser.close();
 }

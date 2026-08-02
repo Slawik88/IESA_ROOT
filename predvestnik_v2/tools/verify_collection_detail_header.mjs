@@ -1,8 +1,8 @@
 // Детальный экран коллекции (Стадия 3): шапка, сегментный измеритель, кнопка
 // «Купить всё недостающее» — 3 сценария на реальных данных мока preview_server.mjs:
 // forest (1 предмет, уже владеет → «собрано»), threshold (2 предмета, 0 owned,
-// цена 440 → 880 ≤ баланс 1250 → кнопка активна), artifact (1 предмет, 0 owned,
-// цена 1500 > баланс 1250 → кнопка заблокирована).
+// сумма фактических цен 880 ≤ баланс 1250 → кнопка активна), artifact
+// (1 предмет, 0 owned, цена 1500 > баланс 1250 → кнопка заблокирована).
 import puppeteer from 'puppeteer';
 const FAIL = [];
 function check(name, cond) { if (!cond) FAIL.push(name); else console.log('OK:', name); }
@@ -21,6 +21,8 @@ async function openAndRead(lin) {
   await new Promise(r => setTimeout(r, 300));
   return page.evaluate(() => ({
     hasHead: !!document.querySelector('.coll-detail-head'),
+    headTop: document.querySelector('.coll-detail-head')?.getBoundingClientRect().top ?? null,
+    catalogChromeVisible: !!document.querySelector('.looks-surprises-entry, .looks-presets, #looks-quick-links, .looks-vipbar'),
     hasToggle: !!document.getElementById('looks-mode-toggle'),
     notches: document.querySelectorAll('.coll-meter-notch').length,
     onNotches: document.querySelectorAll('.coll-meter-notch.on').length,
@@ -34,10 +36,12 @@ async function openAndRead(lin) {
 
 const forest = await openAndRead('forest');
 check('шапка детального экрана отрендерена (forest)', forest.hasHead);
+check('шапка коллекции попадает в первый мобильный экран', forest.headTop !== null && forest.headTop < 160);
+check('каталожные промо и пресеты не отталкивают детали коллекции вниз', !forest.catalogChromeVisible);
 check('переключатель режимов скрыт внутри детального экрана', !forest.hasToggle);
 check('forest: 1 деление, 1 горит (мок владеет единственным предметом)', forest.notches === 1 && forest.onNotches === 1);
 check('forest: показан статус "собрано", кнопки покупки нет', /собрана полностью/.test(forest.doneText || '') && !forest.btn);
-check('6 секций слотов отрендерены под шапкой', forest.sectionsCount === 6);
+check('пустые для линейки слоты не создают секции', forest.sectionsCount === 1);
 
 // Ревью-финдинг: счётчик секции name_glow внутри детального экрана forest должен
 // быть СКОПИРОВАН на линейку (1/1 — владеет только cos_name_glow_moon), а НЕ
@@ -48,7 +52,7 @@ check('forest detail: секция name_glow показывает 1/1 (скоу�
 const threshold = await openAndRead('threshold');
 check('threshold: 2 деления, 0 горит', threshold.notches === 2 && threshold.onNotches === 0);
 check('threshold: кнопка активна (880✨ ≤ баланс 1250✨)', threshold.btn && !threshold.btnDisabled);
-check('threshold: текст кнопки содержит раскладку 2×440', /880.*2.*440|2.*440.*880/.test((threshold.btnText||'').replace(/✨/g,'')));
+check('threshold: текст кнопки содержит сумму фактических цен и количество', /880.*2\s*шт/.test((threshold.btnText||'').replace(/✨/g,'')));
 
 const artifact = await openAndRead('artifact');
 check('artifact: кнопка заблокирована (1500✨ > баланс 1250✨)', artifact.btn && artifact.btnDisabled);

@@ -37,7 +37,7 @@ try {
   check('both collection cards stay inside the narrow screen', state.cardContentFits && state.widths.length===2 && state.widths.every(width=>width>=130));
   check('narrow collection card uses a compact but unambiguous VIP visibility label', state.vipVisibility==='👑 С VIP');
   check('collection metadata stays readable instead of using sub-caption text', state.typeScale.join('|')==='12px|9.5px|9px|8.5px');
-  check('fitting-room dock remains a wide touch target on narrow screens', state.dockWidth>=280);
+  check('fitting-room dock remains compact and labelled on narrow screens', state.dockWidth>=176 && state.dockWidth<=220);
 } finally {
   await browser.close();
 }

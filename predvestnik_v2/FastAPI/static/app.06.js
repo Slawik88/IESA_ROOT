@@ -355,8 +355,8 @@ function renderGlobalProfile(d, recipientId){
   b.innerHTML=`<div class="looks-preview gp-card ${cls('profile_bg')||'gp-card--plain'}" style="text-align:left;padding:14px">
       ${cls('card_fx')?`<div class="card-fx ${cls('card_fx')}"></div>`:''}
       <div style="position:relative;z-index:3">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div class="ava ${cls('avatar_frame')} ${cls('avatar_halo')}" style="width:58px;height:58px;font-size:30px;flex:none;overflow:hidden">${d.avatar?`<img src="${d.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(d.is_vip?'👑':'🔮')}</div>
+        <div class="profile-copy-row">
+          <div class="ava ${cls('avatar_frame')} ${cls('avatar_halo')}" style="width:58px;height:58px;font-size:30px;flex:none">${d.avatar?`<img src="${d.avatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:(d.is_vip?'👑':'🔮')}</div>
           <div class="profile-copy">
             <div class="pname ${cls('name_glow')}" style="font-size:18px">@${esc(d.username)}</div>
             <div class="prank">${d.rank}</div>
@@ -383,7 +383,7 @@ function renderGlobalProfile(d, recipientId){
         <div class="gp-pets" style="margin-top:5px">${petsListHtml}</div>
       </div>
     </div>
-    ${(!isOwn && outfitBits.length)?`<button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="CM();openLooksModal()">✨ Такой же образ</button>`:''}
+    ${(!isOwn && outfitBits.length)?`<button class="btn btn-ghost btn-full" style="margin-top:10px" onclick="CM();openLooksModal()">🎨 Собрать свой образ</button>`:''}
     ${(recipientId && !isOwn)?`<button class="btn btn-gold btn-full" style="margin-top:10px" onclick="_openGiftModal(${recipientId})">🎁 Подарить косметику</button>`:''}`;
 }
 // ── БЛОК21: подарок косметики за Stars (виральность) ─────────────────────────────
@@ -394,13 +394,13 @@ function _openGiftModal(rid){
     if(!items.length){ b.innerHTML='<div class="cx-dim" style="padding:12px;text-align:center">Нет косметики для подарка.</div>'; return; }
     const cards=items.map(it=>{
       const foot = it.owned ? '<span class="lc-on">✓ есть</span>'
-        : `<button class="btn btn-sm btn-gold" onclick="_giftBuy(${rid},'${it.id}',this)">${it.zarniki} ✨</button>`;
+        : `<button class="btn gift-buy" aria-label="Подарить ${esc(it.name)} за ${it.zarniki} Зарников" onclick="_giftBuy(${rid},'${it.id}',this)"><span class="gift-buy-pill">${it.zarniki} ✨</span></button>`;
       return `<div class="looks-card r-${it.rarity}${it.owned?' lc-dim':''}">
         ${_looksSwatch(it.slot, it)}<div class="lc-name">${esc(it.name)}</div>
         <div class="lc-foot"><span class="lc-rar">${_rarLabel(it.rarity)}</span>${foot}</div></div>`;
     }).join('');
     b.innerHTML=`<div class="looks-hint">🎁 Списываются твои ✨ Зарники — подарок прилетит игроку, а в его профиле/топах засветится статус. Серые — у него уже есть.</div>
-      <div class="looks-cards">${cards}</div>`;
+      <div class="looks-cards gift-cards">${cards}</div>`;
   }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
 function _giftBuy(rid, cid, btn){
@@ -1270,4 +1270,3 @@ function showSpeciesDetail(sid) {
     <div style="margin-top:10px">${bonusHtml||'<div style="color:var(--muted);font-size:11px">Нет данных о бонусах</div>'}</div>
   </div>`,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
 }
-

@@ -3,6 +3,7 @@
 // Отдаёт index.html (BASE=''), склеенный app.js (порядок как в main.py), app.css;
 // все /api/* — реалистичные мок-JSON (формы сняты с реальных роутеров 2026-07-13).
 // Сессия пре-сидится в localStorage → логин-оверлей не мешает.
+// Изменения static/* рассылаются всем открытым вкладкам через SSE → ручной F5 не нужен.
 // Незамоканные эндпоинты логируются в unknown-api.log рядом со скриптом.
 import http from 'http';
 import fs from 'fs';
@@ -13,6 +14,8 @@ const STATIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'Fa
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const UNKNOWN_LOG = path.join(HERE, 'unknown-api.log');
 const PORT = Number(process.env.PORT) || 8402;
+const liveReloadClients = new Set();
+let liveReloadTimer = null;
 
 const read = (n) => fs.readFileSync(path.join(STATIC, n), 'utf8');
 const PARTS = Array.from({ length: 11 }, (_, i) => `app.${String(i + 1).padStart(2, '0')}.js`);
@@ -28,6 +31,17 @@ try{localStorage.setItem('pv_sess','dev-session');}catch(e){}
 window.__errs=[];
 window.addEventListener('error',e=>window.__errs.push(String(e.message)));
 window.addEventListener('unhandledrejection',e=>window.__errs.push('rej: '+String(e.reason)));
+// Локальный live reload: обновляет все открытые вкладки после правки static/* и
+// после автоматического перезапуска preview-сервера.
+(()=>{
+  const source=new EventSource('/__preview/live');
+  let connected=false;
+  source.addEventListener('open',()=>{
+    if(connected) location.reload();
+    connected=true;
+  });
+  source.addEventListener('reload',()=>location.reload());
+})();
 </script>`);
   return h;
 }
@@ -111,6 +125,20 @@ const MOCKS = {
     family_pets: [{ name: 'Звёздочка', species_id: 'unicorn', rarity: 'mythic', placement: 'active', pet_level: 10 }],
   },
   'GET /marriage/proposals': { proposals: [] },
+  'GET /clans/': {
+    my_clan: null,
+    top: [
+      { clan_id: 11, name: 'Тёмный Орден', tag: 'DARK', emblem: '🛡', total_xp: 48200, level: 8, member_count: 18, effective_max: 24 },
+      { clan_id: 12, name: 'Стражи Рассвета', tag: 'DAWN', emblem: '☀️', total_xp: 36100, level: 7, member_count: 16, effective_max: 22 },
+      { clan_id: 13, name: 'Лунный Круг', tag: 'MOON', emblem: '🌙', total_xp: 24900, level: 6, member_count: 14, effective_max: 20 },
+    ],
+    create_cost: 50000,
+    max_members: 20,
+    emblems: ['🛡', '⚔️', '🌙', '☀️', '🐉'],
+    name_max: 24,
+    tag_max: 5,
+    request_items: [],
+  },
   'GET /admin/my-chats': { chats: [
     { chat_tg_id: -100111, chat_title: 'Предвестники Ночи', role: 'main', local_rank: 5 },
     { chat_tg_id: -100222, chat_title: 'Тайный Орден', role: 'admin', local_rank: 4 },
@@ -635,6 +663,19 @@ const MOCKS = {
     ] },
   },
   'GET /cosmetics/presets': { presets: [{ id: 1, name: 'Золотой образ' }] },
+  'GET /cosmetics/gift/catalog': (u) => ({
+    recipient_id: Number(u.searchParams.get('recipient_id')) || 999,
+    items: [
+      { id: 'cos_title_frostchild', name: 'Дитя Стужи', slot: 'title', rarity: 'rare', css: 'title-frostchild', text: 'Дитя Стужи', zarniki: 310, owned: false },
+      { id: 'cos_avatar_halo_ice', name: 'Ледяной сполох', slot: 'avatar_halo', rarity: 'rare', css: 'halo-ice', text: null, zarniki: 370, owned: false },
+      { id: 'cos_avatar_frame_crystal', name: 'Кристальная грань', slot: 'avatar_frame', rarity: 'rare', css: 'frame-crystal', text: null, zarniki: 420, owned: false },
+      { id: 'cos_name_glow_frost', name: 'Ледяная вязь', slot: 'name_glow', rarity: 'rare', css: 'glow-frost', text: null, zarniki: 440, owned: false },
+      { id: 'cos_avatar_frame_inferno', name: 'Инферно', slot: 'avatar_frame', rarity: 'epic', css: 'frame-inferno', text: null, zarniki: 630, owned: false },
+      { id: 'cos_avatar_halo_void', name: 'Кольцо Бездны', slot: 'avatar_halo', rarity: 'mythic', css: 'halo-void', text: null, zarniki: 1000, owned: false },
+      { id: 'cos_name_glow_moon', name: 'Лунный свет', slot: 'name_glow', rarity: 'common', css: 'glow-moon', text: null, zarniki: 250, owned: true },
+    ],
+  }),
+  'POST /cosmetics/gift': { ok: true, message: '🎁 Подарок отправлен! −310✨' },
   // Модалка «Сюрпризы и Крафт» (_openSurprisesModal) — сундуки/крафт ОСОЗНАННО остались
   // на старой редкостной системе (r-{rarity}, без lineup), не тронуты редизайном
   // линеек (2026-07-29). Формы сняты с services/cosmetics.py::chest_catalog()/craft_catalog().
@@ -660,6 +701,9 @@ const MOCKS = {
   'POST /cosmetics/craft': { message: '✅ Скрафчено!' },
   'POST /cosmetics/buy-lineup': { ok: true, message: '🎨 Линейка собрана полностью! Докуплено — за ✨' },
   'POST /cosmetics/buy-many': { ok: true, message: '🎨 Локальный стенд: цены предложения показаны в каталоге.' },
+  'POST /cosmetics/buy': { ok: true, message: '✨ Локальная покупка подтверждена.' },
+  'POST /cosmetics/equip': { ok: true },
+  'POST /cosmetics/unequip': { ok: true },
 
   // ── Админка чата ──
   'GET /admin/-100111/dashboard': {
@@ -713,20 +757,64 @@ function themePrice(t) {
 }
 
 function send(res, status, body, type = 'application/json; charset=utf-8') {
-  res.writeHead(status, { 'content-type': type, 'access-control-allow-origin': '*' });
+  res.writeHead(status, {
+    'content-type': type,
+    'access-control-allow-origin': '*',
+    'cache-control': 'no-store',
+  });
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
+
+function staticContentType(filePath) {
+  const ext=path.extname(filePath).toLowerCase();
+  return ({
+    '.css': 'text/css; charset=utf-8',
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+  })[ext] || 'application/octet-stream';
+}
+
+function attachLiveReload(req, res) {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream; charset=utf-8',
+    'cache-control': 'no-store',
+    connection: 'keep-alive',
+    'access-control-allow-origin': '*',
+  });
+  res.write('retry: 500\n: connected\n\n');
+  liveReloadClients.add(res);
+  req.on('close', () => liveReloadClients.delete(res));
+}
+
+function scheduleLiveReload(changedPath = '') {
+  clearTimeout(liveReloadTimer);
+  liveReloadTimer = setTimeout(() => {
+    const payload = `event: reload\ndata: ${JSON.stringify({changedPath, at: Date.now()})}\n\n`;
+    for (const client of liveReloadClients) client.write(payload);
+  }, 120);
+}
+
+const staticWatcher = fs.watch(STATIC, {recursive: true}, (_event, changedPath) => {
+  scheduleLiveReload(changedPath ? String(changedPath) : 'static');
+});
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
   const p = u.pathname;
 
+  if (p === '/__preview/live' && req.method === 'GET') return attachLiveReload(req, res);
   if (p === '/' || p === '/index.html') return send(res, 200, indexHtml(), 'text/html; charset=utf-8');
   if (p === '/static/app.css') return send(res, 200, read('app.css'), 'text/css; charset=utf-8');
   if (p === '/static/app.js') return send(res, 200, PARTS.map(read).join(''), 'text/javascript; charset=utf-8');
   if (p.startsWith('/static/')) {
     const f = path.join(STATIC, p.slice('/static/'.length));
-    if (fs.existsSync(f) && fs.statSync(f).isFile()) return send(res, 200, fs.readFileSync(f), 'text/javascript; charset=utf-8');
+    if (fs.existsSync(f) && fs.statSync(f).isFile()) return send(res, 200, fs.readFileSync(f), staticContentType(f));
     return send(res, 404, { detail: 'нет файла' });
   }
   if (p === '/manifest.json') {
@@ -744,7 +832,7 @@ const server = http.createServer(async (req, res) => {
   if (p.startsWith('/profile/u/')) {
     return send(res, 200, {
       user_id: 999, username: 'lilith_hhh', rank: '🌙 Владычица Бездны',
-      avatar: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      avatar: null,
       level: 47, combat_power: 8420, messages: 39710, streak: 53, achievements: 8,
       achievements_total: 12,
       is_vip: true, vip_tier_label: 'VIP Gold',
@@ -808,6 +896,9 @@ const server = http.createServer(async (req, res) => {
     theme.active=true;
     return send(res, 200, { ok: true, theme_name: theme.name });
   }
+  if (req.method === 'DELETE' && /^\/cosmetics\/presets\/\d+$/.test(p)) {
+    return send(res, 200, { ok: true, message: '🗑 Образ удалён.' });
+  }
 
   const key = `${req.method} ${p}`;
   const hit = Object.prototype.hasOwnProperty.call(MOCKS, key) ? MOCKS[key] : null;
@@ -820,4 +911,5 @@ const server = http.createServer(async (req, res) => {
   return send(res, 200, {});
 });
 server.on('upgrade', (_req, socket) => socket.destroy()); // WS не поддерживаем
+server.on('close', () => staticWatcher.close());
 server.listen(PORT, () => console.log(`preview on http://localhost:${PORT}/`));

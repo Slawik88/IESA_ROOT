@@ -15,7 +15,7 @@ try {
   await page.goto('http://localhost:8402/', {waitUntil: 'load'});
   await page.waitForFunction(() => typeof openLooksModal === 'function');
   await page.mouse.click(195, 700);
-  await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
+  await page.waitForFunction(() => !document.getElementById('preloader'));
 
   await page.evaluate(() => openLooksModal());
   await page.waitForFunction(() => !!_looksData && !!document.querySelector('.looks-presets'));
@@ -24,23 +24,47 @@ try {
     const saved=root?.querySelector('.looks-preset-card[data-preset]');
     const add=root?.querySelector('.looks-preset-card--add');
     const remove=root?.querySelector('.looks-preset-del');
+    const removeIcon=remove?.querySelector('.looks-preset-del-icon');
+    const addName=add?.querySelector('.looks-preset-name');
     const rect=node=>node?{width:Math.round(node.getBoundingClientRect().width),height:Math.round(node.getBoundingClientRect().height)}:null;
     return {
       hasLabel: root?.getAttribute('aria-label') || '',
       countText: root?.querySelector('.looks-presets-head span:last-child')?.textContent.trim() || '',
       savedText: saved?.textContent.replace(/\s+/g, ' ').trim() || '',
       addText: add?.textContent.replace(/\s+/g, ' ').trim() || '',
-      savedRect: rect(saved), addRect: rect(add), deleteRect: rect(remove),
+      addName: addName?.textContent.trim() || '',
+      addNameFits: !!addName && addName.scrollWidth <= addName.clientWidth,
+      savedRect: rect(saved), addRect: rect(add), deleteRect: rect(remove), deleteIconRect: rect(removeIcon),
+      deleteBackground: remove?getComputedStyle(remove).backgroundColor:'',
+      deleteIconMask: removeIcon?(getComputedStyle(removeIcon).maskImage || getComputedStyle(removeIcon).webkitMaskImage):'',
+      deleteIconRightGap: removeIcon&&saved?Math.round(saved.getBoundingClientRect().right-removeIcon.getBoundingClientRect().right):null,
+      deleteIconTopGap: removeIcon&&saved?Math.round(removeIcon.getBoundingClientRect().top-saved.getBoundingClientRect().top):null,
+      applyPaddingRight: saved?parseFloat(getComputedStyle(saved.querySelector('.looks-preset-apply')).paddingRight):0,
       legacySave: !!root?.querySelector('.looks-preset-save'),
     };
   });
 
+  console.log('Preset-strip geometry:', JSON.stringify(state));
+
   check('presets use an explicit accessible image-strip container', state.hasLabel === 'Сохранённые образы');
   check('preset counter uses a natural Russian image noun', state.countText === '1 образ');
   check('saved preset identifies itself as a personal image', /Золотой образ/.test(state.savedText) && /Твой образ/.test(state.savedText));
-  check('the last tile clearly saves the current image', /Сохранить текущий/.test(state.addText));
+  check('the last tile clearly saves a new image', state.addName === 'Сохранить' && /Новый образ/.test(state.addText));
+  check('save-image label is fully visible instead of ending with an ellipsis', state.addNameFits);
   check('saved and add tiles are comfortably tappable', state.savedRect?.width >= 120 && state.savedRect?.height >= 64 && state.addRect?.width >= 120 && state.addRect?.height >= 64);
-  check('delete action has an independent touch target and old ghost save button is gone', state.deleteRect?.width >= 32 && state.deleteRect?.height >= 32 && !state.legacySave);
+  check('delete action has an independent mobile touch target and old ghost save button is gone', state.deleteRect?.width >= 44 && state.deleteRect?.height >= 44 && !state.legacySave);
+  check('delete action uses a restrained library icon embedded in the card corner instead of a hanging oval', state.deleteIconRect?.width >= 12
+    && state.deleteIconRect?.width <= 14 && state.deleteIconRect?.height === state.deleteIconRect?.width
+    && /x\.svg/.test(state.deleteIconMask) && state.deleteBackground === 'rgba(0, 0, 0, 0)'
+    && state.deleteIconRightGap >= 8 && state.deleteIconRightGap <= 12
+    && state.deleteIconTopGap >= 8 && state.deleteIconTopGap <= 12 && state.applyPaddingRight >= 20);
+  if (process.env.SCREENSHOT_PATH) {
+    const saved = await page.$('.looks-preset-card[data-preset]');
+    await saved.screenshot({path: process.env.SCREENSHOT_PATH});
+  }
+  await page.click('.looks-preset-del');
+  await page.waitForFunction(() => !document.querySelector('.looks-preset-card[data-preset]'));
+  check('the full invisible target activates the delete action without opening the preset', true);
 } finally {
   await browser.close();
 }
