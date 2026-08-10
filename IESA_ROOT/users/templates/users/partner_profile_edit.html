@@ -2,43 +2,56 @@
 {% load static i18n %}
 
 {% block title %}{% trans "Company Profile" %} — {{ partner.company_name }}{% endblock %}
-
 {% block partner_title %}{% trans "Company Profile" %}{% endblock %}
-{% block partner_subtitle %}{{ partner.company_name }}{% endblock %}
+{% block partner_subtitle %}{% trans "Public business information used across IESA" %}{% endblock %}
 
 {% block partner_content %}
 
 {% if messages %}
   {% for msg in messages %}
-    <div class="dash-msg dash-msg--success">
-      <i class="fas fa-check-circle"></i> {{ msg }}
-    </div>
+  <div class="dash-msg dash-msg--success" role="status">
+    <i class="fas fa-circle-check" aria-hidden="true"></i> <span>{{ msg }}</span>
+  </div>
   {% endfor %}
 {% endif %}
 
-<div class="pp-card" style="max-width:620px;">
-  <form method="post">
-    {% csrf_token %}
-    {% for field in form %}
-    <div class="pp-field">
-      <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-      {{ field }}
-      {% if field.errors %}<ul class="errorlist">{% for e in field.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-      {% if field.help_text %}<div style="font-size:.73rem;color:rgba(255,255,255,.3);margin-top:5px;font-family:var(--font-mono);">{{ field.help_text }}</div>{% endif %}
+<div class="partner-profile-layout">
+  <div class="pp-card">
+    <div class="partner-form-intro">
+      <div class="partner-form-intro__icon" aria-hidden="true"><i class="fas fa-building"></i></div>
+      <div>
+        <div class="partner-form-intro__title">{% trans "Business identity" %}</div>
+        <div class="partner-form-intro__meta">{% trans "Keep the name accurate and recognisable for members." %}</div>
+      </div>
     </div>
-    {% endfor %}
-    <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap;">
-      <button type="submit" class="pp-btn">✓ {% trans "Save Changes" %}</button>
-      <a href="{% url 'users:partner_dashboard' %}" class="pp-btn pp-btn-ghost">{% trans "Cancel" %}</a>
-    </div>
-  </form>
 
-  <div style="margin-top:28px;padding-top:20px;border-top:1px solid rgba(255,255,255,.06);">
-    <div style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.25);">
+    <form method="post" class="partner-form-body" novalidate>
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="pp-field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.errors %}<ul class="errorlist" role="alert">{% for error in field.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+        {% if field.help_text %}<div class="partner-field-help">{{ field.help_text }}</div>{% endif %}
+      </div>
+      {% endfor %}
+      <div class="partner-form-actions">
+        <button type="submit" class="pp-btn"><i class="fas fa-check" aria-hidden="true"></i> {% trans "Save Changes" %}</button>
+        <a href="{% url 'users:partner_dashboard' %}" class="pp-btn-ghost">{% trans "Cancel" %}</a>
+      </div>
+    </form>
+  </div>
+
+  <aside class="partner-profile-aside" aria-labelledby="profile-guidance-title">
+    <div class="partner-profile-aside__title" id="profile-guidance-title">{% trans "Before you save" %}</div>
+    <p class="partner-profile-aside__copy">
+      {% trans "Use the official business name and the closest business category. Members may see this information in visit and meeting records." %}
+    </p>
+    <div class="partner-profile-meta">
       {% trans "Partner since" %}: {{ partner.created_at|date:"d M Y" }}<br>
       {% trans "Account" %}: {{ request.user.username }}
     </div>
-  </div>
+  </aside>
 </div>
 
 {% endblock %}

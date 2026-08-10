@@ -1,108 +1,91 @@
-{# V22: стили этого фрагмента вынесены в static/css/pages.css — <style> в HTMX-партиале реинжектится при каждом свапе #}
 {% load i18n %}
-{# 7b: HTMX partial — история визитов с умными фильтрами #}
 
-{# ── Pill-фильтры ── #}
-<div class="vh-filters" id="vh-filters">
-  {% for p, label in forloop_periods %}{% endfor %}
-  <div style="display:flex;gap:.5rem;flex-wrap:wrap;padding:.75rem 1.25rem .5rem;border-bottom:1px solid rgba(255,255,255,.05);">
-
-    {# Period pills #}
-    <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
+<div class="vh-filters" id="vh-filters" aria-label="{% trans 'Visit filters' %}">
+  <div>
+    <div class="partner-filter-group" aria-label="{% trans 'Period' %}">
       {% for val, lbl in periods %}
-      <button type="button" class="vh-pill {% if period == val %}vh-pill--active{% endif %}"
+      <button type="button"
+              class="vh-pill {% if period == val %}vh-pill--active{% endif %}"
               hx-get="{% url 'users:partner_visit_history' %}?period={{ val }}&status_f={{ status_f }}"
               hx-target="#visit-history-wrap"
               hx-swap="innerHTML"
               hx-push-url="false">{{ lbl }}</button>
       {% endfor %}
     </div>
-
-    <div style="width:1px;background:rgba(255,255,255,.1);margin:0 .25rem;align-self:stretch;"></div>
-
-    {# Status pills #}
-    <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
-      <button type="button" class="vh-pill {% if status_f == '' %}vh-pill--active{% endif %}"
+    <span class="partner-filter-divider" aria-hidden="true"></span>
+    <div class="partner-filter-group" aria-label="{% trans 'Status' %}">
+      <button type="button"
+              class="vh-pill {% if status_f == '' %}vh-pill--active{% endif %}"
               hx-get="{% url 'users:partner_visit_history' %}?period={{ period }}&status_f="
-              hx-target="#visit-history-wrap" hx-swap="innerHTML">{% trans "All" %}</button>
-      <button type="button" class="vh-pill {% if status_f == 'verified' %}vh-pill--active{% endif %}"
+              hx-target="#visit-history-wrap"
+              hx-swap="innerHTML">{% trans "All" %}</button>
+      <button type="button"
+              class="vh-pill {% if status_f == 'verified' %}vh-pill--active{% endif %}"
               hx-get="{% url 'users:partner_visit_history' %}?period={{ period }}&status_f=verified"
-              hx-target="#visit-history-wrap" hx-swap="innerHTML">
-        <span style="color:#4ade80;">✓</span> {% trans "PIN verified" %}
+              hx-target="#visit-history-wrap"
+              hx-swap="innerHTML">
+        <i class="fas fa-shield-halved" aria-hidden="true"></i> {% trans "PIN verified" %}
       </button>
-      <button type="button" class="vh-pill {% if status_f == 'cancelled' %}vh-pill--active{% endif %}"
+      <button type="button"
+              class="vh-pill {% if status_f == 'cancelled' %}vh-pill--active{% endif %}"
               hx-get="{% url 'users:partner_visit_history' %}?period={{ period }}&status_f=cancelled"
-              hx-target="#visit-history-wrap" hx-swap="innerHTML">
-        <span style="color:#f87171;">✗</span> {% trans "Cancelled" %}
+              hx-target="#visit-history-wrap"
+              hx-swap="innerHTML">
+        <i class="fas fa-ban" aria-hidden="true"></i> {% trans "Cancelled" %}
       </button>
     </div>
-
   </div>
 </div>
 
-{# ── Таблица ── #}
 {% if visits.object_list %}
-<div style="overflow-x:auto;">
+<div class="partner-table-wrap">
   <table class="dash-table">
     <thead>
       <tr>
-        <th>{% trans "DATE" %}</th>
-        <th>{% trans "MEMBER" %}</th>
-        <th>{% trans "SERVICE" %}</th>
+        <th>{% trans "Date" %}</th>
+        <th>{% trans "Member" %}</th>
+        <th>{% trans "Service" %}</th>
         <th>CHF</th>
         <th>{% trans "PIN" %}</th>
-        {# 7c: статус с tooltip #}
-        <th>{% trans "STATUS" %}</th>
-        <th></th>
+        <th>{% trans "Status" %}</th>
+        <th><span class="visually-hidden">{% trans "Actions" %}</span></th>
       </tr>
     </thead>
     <tbody>
       {% for visit in visits %}
       <tr>
-        <td style="white-space:nowrap;font-family:var(--font-mono);font-size:.75rem;color:rgba(255,255,255,.4);">
+        <td data-label="{% trans 'Date' %}" class="partner-table-date">
           {{ visit.timestamp|date:"d M Y" }}<br>{{ visit.timestamp|date:"H:i" }}
         </td>
-        <td>
-          <a href="{% url 'users:partner_member_visits' visit.member.pk %}" class="member-name" style="text-decoration:none;">
+        <td data-label="{% trans 'Member' %}">
+          <a href="{% url 'users:partner_member_visits' visit.member.pk %}" class="member-name partner-member-link">
             {{ visit.member.get_full_name|default:visit.member.username }}
           </a>
-          {% if visit.member.pseudonym %}
-          <br><span style="font-size:.7rem;color:rgba(255,255,255,.28);">@{{ visit.member.pseudonym }}</span>
-          {% endif %}
+          {% if visit.member.pseudonym %}<span class="partner-table-secondary">@{{ visit.member.pseudonym }}</span>{% endif %}
         </td>
-        <td>
+        <td data-label="{% trans 'Service' %}">
           {{ visit.get_service_type_display }}
-          {% if visit.service_description %}
-          <br><span style="font-size:.7rem;color:rgba(255,255,255,.32);font-style:italic;">{{ visit.service_description|truncatechars:30 }}</span>
-          {% endif %}
+          {% if visit.service_description %}<span class="partner-table-secondary">{{ visit.service_description|truncatechars:42 }}</span>{% endif %}
         </td>
-        <td>
-          {% if visit.cost %}<span style="font-weight:600;">{{ visit.cost }}</span>
-          {% else %}<span style="color:rgba(255,255,255,.2);">—</span>{% endif %}
+        <td data-label="CHF">
+          {% if visit.cost %}<strong class="partner-table-amount">{{ visit.cost }}</strong>{% else %}<span class="partner-table-empty">—</span>{% endif %}
         </td>
-        <td>
+        <td data-label="{% trans 'PIN' %}">
           {% if visit.pin_verified %}
-          <span style="background:rgba(34,197,94,.1);color:#4ade80;border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;">✓ PIN</span>
-          {% else %}
-          <span style="color:rgba(255,255,255,.22);font-size:.75rem;">—</span>
-          {% endif %}
+          <span class="pp-badge pp-badge-verified"><i class="fas fa-check" aria-hidden="true"></i> PIN</span>
+          {% else %}<span class="partner-table-empty">—</span>{% endif %}
         </td>
-        {# 7c: Status badge с CSS tooltip #}
-        <td>
-          <span class="vh-status-badge"
-                data-tooltip="{% if visit.status == 'ACTIVE' %}{% trans 'Confirmed via PIN' %}{% elif visit.status == 'EDITED' %}{% trans 'Was edited after logging' %}{% elif visit.status == 'CANCELLED' %}{% if visit.cancel_reason %}{{ visit.cancel_reason }}{% else %}{% trans 'Cancelled' %}{% endif %}{% endif %}"
-                style="border-radius:100px;padding:2px 8px;font-size:.68rem;font-weight:700;
-                  {% if visit.status == 'ACTIVE' %}background:rgba(34,197,94,.1);color:#4ade80;
-                  {% elif visit.status == 'EDITED' %}background:rgba(59,130,246,.1);color:#93c5fd;
-                  {% else %}background:rgba(255,255,255,.06);color:rgba(255,255,255,.35);{% endif %}">
-            {{ visit.status }}
+        <td data-label="{% trans 'Status' %}">
+          <span class="vh-status-badge pp-badge-{{ visit.status|lower }}"
+                title="{% if visit.status == 'ACTIVE' %}{% trans 'Confirmed via PIN' %}{% elif visit.status == 'EDITED' %}{% trans 'Edited after logging' %}{% elif visit.cancel_reason %}{{ visit.cancel_reason }}{% else %}{% trans 'Cancelled' %}{% endif %}">
+            {{ visit.status|title }}
           </span>
         </td>
-        <td style="white-space:nowrap;">
+        <td data-label="{% trans 'Actions' %}" class="partner-table-actions">
           {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
-          <a href="{% url 'users:edit_visit' visit.pk %}" style="font-size:.75rem;color:rgba(255,255,255,.45);text-decoration:none;margin-right:.4rem;">{% trans "edit" %}</a>
-          <a href="{% url 'users:cancel_visit' visit.pk %}" style="font-size:.75rem;color:#f87171;text-decoration:none;">{% trans "cancel" %}</a>
-          {% endif %}
+          <a href="{% url 'users:edit_visit' visit.pk %}" class="pp-act-link">{% trans "Edit" %}</a>
+          <a href="{% url 'users:cancel_visit' visit.pk %}" class="pp-act-link danger">{% trans "Cancel" %}</a>
+          {% else %}<span class="partner-table-empty">—</span>{% endif %}
         </td>
       </tr>
       {% endfor %}
@@ -110,17 +93,18 @@
   </table>
 </div>
 
-{# Пагинация с сохранением фильтров #}
 {% if visits.has_other_pages %}
-<div style="display:flex;align-items:center;justify-content:center;gap:.4rem;padding:1rem;border-top:1px solid rgba(255,255,255,.06);">
+<nav class="partner-pagination" aria-label="{% trans 'Visit history pages' %}">
   {% if visits.has_previous %}
   <button type="button" class="vh-page-btn"
           hx-get="{% url 'users:partner_visit_history' %}?page={{ visits.previous_page_number }}&period={{ period }}&status_f={{ status_f }}"
-          hx-target="#visit-history-wrap" hx-swap="innerHTML">‹</button>
+          hx-target="#visit-history-wrap" hx-swap="innerHTML" aria-label="{% trans 'Previous page' %}">
+    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+  </button>
   {% endif %}
   {% for num in visits.paginator.page_range %}
     {% if visits.number == num %}
-    <span style="padding:.35rem .75rem;border-radius:7px;background:var(--primary);color:#fff;font-size:.82rem;font-weight:700;">{{ num }}</span>
+    <span class="partner-page-current" aria-current="page">{{ num }}</span>
     {% elif num > visits.number|add:"-3" and num < visits.number|add:"3" %}
     <button type="button" class="vh-page-btn"
             hx-get="{% url 'users:partner_visit_history' %}?page={{ num }}&period={{ period }}&status_f={{ status_f }}"
@@ -130,15 +114,16 @@
   {% if visits.has_next %}
   <button type="button" class="vh-page-btn"
           hx-get="{% url 'users:partner_visit_history' %}?page={{ visits.next_page_number }}&period={{ period }}&status_f={{ status_f }}"
-          hx-target="#visit-history-wrap" hx-swap="innerHTML">›</button>
+          hx-target="#visit-history-wrap" hx-swap="innerHTML" aria-label="{% trans 'Next page' %}">
+    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+  </button>
   {% endif %}
-</div>
+</nav>
 {% endif %}
 
 {% else %}
-<div class="dash-empty" style="padding:2.5rem 1.5rem;">
-  <i class="fas fa-history"></i>
-  <p>{% trans "No visits for the selected filters." %}</p>
+<div class="dash-empty">
+  <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+  <p>{% trans "No visits match the selected filters." %}</p>
 </div>
 {% endif %}
-

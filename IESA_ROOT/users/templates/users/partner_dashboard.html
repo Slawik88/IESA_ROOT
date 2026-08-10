@@ -3,80 +3,20 @@
 
 {% block title %}{% trans "Partner Portal" %} — {{ partner.company_name }}{% endblock %}
 
-{% block partner_extra_css %}
-<style>
-/* ── Member Autocomplete ── */
-.mac-dropdown {
-  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
-  background: #111118; border: 1px solid rgba(255,255,255,.12);
-  border-radius: 12px; overflow: hidden;
-  box-shadow: 0 12px 40px rgba(0,0,0,.5);
-  z-index: 200; max-height: 320px; overflow-y: auto;
-  scrollbar-width: thin;
-  display: none;
-}
-.mac-dropdown:not(:empty) { display: block; }
-.mac-item {
-  display: flex; align-items: center; gap: .75rem;
-  padding: .65rem 1rem; text-decoration: none;
-  border-bottom: 1px solid rgba(255,255,255,.05);
-  transition: background .12s; cursor: pointer;
-}
-.mac-item:last-child { border-bottom: none; }
-.mac-item:hover, .mac-item.focused { background: rgba(220,38,38,.08); }
-.mac-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-.mac-avatar-fallback {
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(220,38,38,.15); color: #f87171;
-  font-size: .88rem; font-weight: 800;
-}
-.mac-info { flex: 1; min-width: 0; }
-.mac-name { font-size: .88rem; font-weight: 700; color: #fff; }
-.mac-meta { display: flex; align-items: center; gap: .5rem; margin-top: .12rem; }
-.mac-username { font-size: .73rem; color: rgba(255,255,255,.4); font-family: var(--font-mono); }
-.mac-status { font-size: .62rem; font-weight: 700; padding: .1rem .45rem; border-radius: 4px; }
-.mac-active   { background: rgba(34,197,94,.12); color: #4ade80; }
-.mac-inactive { background: rgba(248,113,113,.12); color: #f87171; }
-.mac-action-icon { color: rgba(220,38,38,.5); font-size: .85rem; flex-shrink: 0; transition: color .15s; }
-.mac-item:hover .mac-action-icon { color: #f87171; }
-.mac-empty {
-  padding: 1.25rem 1rem; font-size: .82rem;
-  color: rgba(255,255,255,.3); text-align: center;
-  display: flex; align-items: center; justify-content: center; gap: .5rem;
-}
-@keyframes float-icon { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-/* Recent clients list */
-.rc-link {
-  display:flex; align-items:center; gap:.75rem;
-  padding:.7rem 1.25rem; border-bottom:1px solid rgba(255,255,255,.05);
-  text-decoration:none; transition:background .15s;
-}
-.rc-link:hover { background:rgba(255,255,255,.03); }
-#rc-popup { animation: fadeIn .12s ease; }
-@keyframes fadeIn { from{opacity:0;transform:scale(.97)} to{opacity:1;transform:scale(1)} }
-</style>
-{% endblock %}
-
 {% block partner_title %}{% trans "Dashboard" %}{% endblock %}
-
 {% block partner_subtitle %}
-  {% trans "Partner since" %} {{ partner.created_at|date:"M Y" }}
-  {% if partner.partner_type == 'association_staff' %}
-  · <span style="color:#a5b4fc;">{% trans "Association Staff" %}</span>
-  {% endif %}
+  {{ partner.company_name }} · {% trans "Partner since" %} {{ partner.created_at|date:"M Y" }}
 {% endblock %}
 
 {% block partner_topbar_action %}
-<a href="{% url 'users:partner_analytics' %}"
-   data-tour="analytics"
-   style="display:inline-flex;align-items:center;gap:.45rem;padding:.42rem 1rem;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:rgba(255,255,255,.7);font-size:.82rem;text-decoration:none;transition:background .15s;"
-   onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='rgba(255,255,255,.07)'">
-  <i class="fas fa-chart-bar"></i> {% trans "Analytics" %}
+<a href="{% url 'users:partner_analytics' %}" class="pp-btn-ghost">
+  <i class="fas fa-chart-line" aria-hidden="true"></i>
+  {% trans "Open analytics" %}
 </a>
 {% endblock %}
 
 {% block sidebar_dashboard_badge %}
-  {% if today_count %}<span class="dash-nav-badge" style="background:rgba(220,38,38,.2);color:#f87171;">{{ today_count }}</span>{% endif %}
+  {% if today_count %}<span class="dash-nav-badge">{{ today_count }}</span>{% endif %}
 {% endblock %}
 
 {% block sidebar_visits_badge %}
@@ -84,62 +24,89 @@
 {% endblock %}
 
 {% block partner_sidebar_footer %}
-<div style="padding:.75rem .9rem;margin-top:auto;border-top:1px solid rgba(255,255,255,.06);">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
-    <div style="text-align:center;padding:.5rem;background:rgba(255,255,255,.03);border-radius:8px;">
-      <div style="font-size:1.2rem;font-weight:900;color:#f87171;">{{ today_count }}</div>
-      <div style="font-size:.62rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.06em;">{% trans "Today" %}</div>
-    </div>
-    <div style="text-align:center;padding:.5rem;background:rgba(255,255,255,.03);border-radius:8px;">
-      <div style="font-size:1.2rem;font-weight:900;color:#4ade80;">{{ today_revenue|floatformat:0 }}</div>
-      <div style="font-size:.62rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.06em;">CHF</div>
-    </div>
+<div class="partner-sidebar-summary" aria-label="{% trans 'Today summary' %}">
+  <div>
+    <strong>{{ today_count }}</strong>
+    <span>{% trans "Visits today" %}</span>
+  </div>
+  <div>
+    <strong>{{ today_revenue|floatformat:0 }}</strong>
+    <span>CHF</span>
   </div>
 </div>
 {% endblock %}
 
 {% block partner_content %}
 
-{# ── Messages ── #}
 {% if messages %}
   {% for msg in messages %}
-  <div class="dash-msg dash-msg--{% if msg.level >= 40 %}error{% elif msg.level >= 30 %}warning{% elif msg.level >= 25 %}success{% else %}info{% endif %}">
-    <i class="fas fa-{% if msg.level >= 40 %}exclamation-circle{% elif msg.level >= 30 %}exclamation-triangle{% elif msg.level >= 25 %}check-circle{% else %}info-circle{% endif %}"></i>
-    {{ msg }}
+  <div class="dash-msg dash-msg--{% if msg.level >= 40 %}error{% elif msg.level >= 30 %}warning{% elif msg.level >= 25 %}success{% else %}info{% endif %}" role="status">
+    <i class="fas fa-{% if msg.level >= 40 %}circle-exclamation{% elif msg.level >= 30 %}triangle-exclamation{% elif msg.level >= 25 %}circle-check{% else %}circle-info{% endif %}" aria-hidden="true"></i>
+    <span>{{ msg }}</span>
   </div>
   {% endfor %}
 {% endif %}
 
 {% include 'partials/email_verification_banner.html' %}
 
-{# ── Stat карточки с HTMX polling 60s ── #}
+<section class="partner-command" id="search-section" aria-labelledby="partner-search-title">
+  <div class="partner-command__eyebrow">{% trans "Primary action" %}</div>
+  <h2 class="partner-command__title" id="partner-search-title">{% trans "Find a member and log a visit" %}</h2>
+  <p class="partner-command__copy">
+    {% trans "Search by name or username. Select the correct member, record the service and confirm the visit with their current six-digit PIN." %}
+  </p>
+
+  <div id="mac-wrap" class="partner-search-field">
+    <i class="fas fa-search" aria-hidden="true"></i>
+    <label for="mac-input" class="visually-hidden">{% trans "Search member by name or username" %}</label>
+    <input type="search"
+           id="mac-input"
+           class="dash-search-input"
+           placeholder="{% trans 'Name or username' %}"
+           autocomplete="off"
+           hx-get="{% url 'users:member_autocomplete' %}"
+           hx-trigger="input changed delay:300ms"
+           hx-target="#mac-results"
+           hx-swap="innerHTML"
+           name="q"
+           aria-autocomplete="list"
+           aria-controls="mac-results"
+           aria-expanded="false">
+    <span id="mac-spinner" class="htmx-indicator partner-search-spinner" aria-hidden="true">
+      <i class="fas fa-spinner fa-spin"></i>
+    </span>
+    <div id="mac-results" class="mac-dropdown" role="listbox" aria-label="{% trans 'Member suggestions' %}"></div>
+  </div>
+</section>
+
 <div class="dash-stat-grid"
      hx-get="{% url 'users:partner_today_stats' %}"
      hx-trigger="every 60s"
-     hx-swap="outerHTML">
-  <div class="dash-stat-card" style="position:relative;">
-    <div class="dash-stat-icon ds-red"><i class="fas fa-calendar-day"></i></div>
+     hx-swap="outerHTML"
+     aria-label="{% trans 'Partner statistics' %}">
+  <div class="dash-stat-card">
+    <div class="dash-stat-icon"><i class="fas fa-calendar-day" aria-hidden="true"></i></div>
     <div>
       <div class="dash-stat-val">{{ today_count }}</div>
       <div class="dash-stat-lbl">{% trans "Today's visits" %}</div>
     </div>
   </div>
   <div class="dash-stat-card">
-    <div class="dash-stat-icon ds-green"><i class="fas fa-coins"></i></div>
+    <div class="dash-stat-icon"><i class="fas fa-coins" aria-hidden="true"></i></div>
     <div>
       <div class="dash-stat-val">{{ today_revenue|floatformat:0 }}</div>
       <div class="dash-stat-lbl">{% trans "Today CHF" %}</div>
     </div>
   </div>
   <div class="dash-stat-card">
-    <div class="dash-stat-icon ds-blue"><i class="fas fa-users"></i></div>
+    <div class="dash-stat-icon"><i class="fas fa-user-group" aria-hidden="true"></i></div>
     <div>
       <div class="dash-stat-val">{{ unique_members }}</div>
       <div class="dash-stat-lbl">{% trans "Unique clients" %}</div>
     </div>
   </div>
   <div class="dash-stat-card">
-    <div class="dash-stat-icon ds-amber"><i class="fas fa-list-check"></i></div>
+    <div class="dash-stat-icon"><i class="fas fa-list-check" aria-hidden="true"></i></div>
     <div>
       <div class="dash-stat-val">{{ total_visits }}</div>
       <div class="dash-stat-lbl">{% trans "Total visits" %}</div>
@@ -147,388 +114,192 @@
   </div>
 </div>
 
-{# ── Поиск участника (HTMX autocomplete) ── #}
-<div class="dash-card" id="search-section">
-  <div class="dash-card__header">
-    <span class="dash-card__title">
-      <i class="fas fa-search" style="color:var(--primary);"></i>
-      {% trans "Find Member & Log Visit" %}
-    </span>
-  </div>
-  <div class="dash-card__body">
-    <div id="mac-wrap" style="position:relative;">
-      <div style="display:flex;gap:.75rem;align-items:center;">
-        <div style="position:relative;flex:1;">
-          <i class="fas fa-search" style="position:absolute;left:.9rem;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.3);font-size:.85rem;pointer-events:none;"></i>
-          <label for="mac-input" class="visually-hidden">{% trans "Search member by name or username" %}</label>
-          <input type="text" id="mac-input"
-                 class="dash-search-input" style="padding-left:2.5rem;"
-                 placeholder="{% trans 'Start typing name or username…' %}"
-                 autocomplete="off"
-                 hx-get="{% url 'users:member_autocomplete' %}"
-                 hx-trigger="input changed delay:300ms"
-                 hx-target="#mac-results"
-                 hx-swap="innerHTML"
-                 name="q"
-                 aria-autocomplete="list"
-                 aria-controls="mac-results">
-          <span id="mac-spinner" class="htmx-indicator"
-                style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);display:none;">
-            <i class="fas fa-spinner fa-spin" style="color:rgba(255,255,255,.3);font-size:.8rem;"></i>
-          </span>
-          <div id="mac-skeleton" style="display:none;padding:.5rem 0;">
-            {% for _ in "123" %}
-            <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 1rem;">
-              <div class="skeleton" style="width:36px;height:36px;border-radius:50%;flex-shrink:0;"></div>
-              <div style="flex:1;">
-                <div class="skeleton" style="height:12px;width:60%;border-radius:4px;margin-bottom:5px;"></div>
-                <div class="skeleton" style="height:10px;width:40%;border-radius:4px;"></div>
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-      <div id="mac-results" class="mac-dropdown" role="listbox" aria-label="{% trans 'Member suggestions' %}"></div>
-    </div>
-
-    {% if search_results is not None %}
-      {% if search_results %}
-      <div style="margin-top:1rem;">
-        <div style="font-size:.72rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);margin-bottom:.65rem;">
-          {{ search_results|length }} {% trans "result(s)" %}
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:.75rem;">
-          {% for u in search_results %}
-          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:1rem;">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;margin-bottom:.4rem;">
-              <div style="font-weight:600;font-size:.88rem;color:#f1f5f9;">{{ u.get_full_name|default:u.username }}</div>
-              {% if u.membership_status == 'active' %}
-              <span style="background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.22);border-radius:100px;padding:1px 7px;font-size:.65rem;font-weight:700;white-space:nowrap;">ACTIVE</span>
-              {% else %}
-              <span style="background:rgba(255,255,255,.06);color:rgba(255,255,255,.38);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:1px 7px;font-size:.65rem;font-weight:700;white-space:nowrap;">INACTIVE</span>
-              {% endif %}
-            </div>
-            <div style="font-size:.78rem;color:rgba(255,255,255,.38);margin-bottom:.75rem;">@{{ u.username }}</div>
-            <div style="display:flex;gap:.5rem;">
-              <a href="{% url 'users:log_visit' u.pk %}"
-                 data-tour="log-visit"
-                 style="flex:1;display:flex;align-items:center;justify-content:center;gap:.4rem;padding:.45rem;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.25);border-radius:8px;color:#f87171;font-size:.8rem;font-weight:700;text-decoration:none;transition:background .15s;">
-                <i class="fas fa-plus"></i> {% trans "Log Visit" %}
-              </a>
-              <a href="{% url 'users:partner_member_visits' u.pk %}"
-                 style="display:flex;align-items:center;justify-content:center;padding:.45rem .6rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:rgba(255,255,255,.55);font-size:.8rem;text-decoration:none;"
-                 title="{% trans 'Visit history' %}">
-                <i class="fas fa-history"></i>
-              </a>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% else %}
-      <div class="dash-empty" style="padding-top:1.5rem;">
-        <i class="fas fa-user-slash"></i>
-        <p>{% trans "No members found for" %} «{{ search_form.query.value }}»</p>
-      </div>
-      {% endif %}
-    {% endif %}
-  </div>
-</div>
-
-{# ── Табы на мобиле: Today / Recent Clients ── #}
-<div class="dash-today-tabs" aria-label="{% trans 'Today' %}" style="display:none;margin-bottom:.75rem;">
-  <button type="button" class="dtt-btn dtt-btn--active" data-panel="today">
-    <i class="fas fa-bolt"></i> {% trans "Today's Visits" %}
+<div class="dash-today-tabs" aria-label="{% trans 'Dashboard panels' %}">
+  <button type="button" class="dtt-btn dtt-btn--active" data-panel="today" aria-selected="true">
+    <i class="fas fa-bolt" aria-hidden="true"></i> {% trans "Today" %}
     {% if today_visit_list %}<span class="dtt-badge">{{ today_visit_list|length }}</span>{% endif %}
   </button>
-  <button type="button" class="dtt-btn" data-panel="clients">
-    <i class="fas fa-users"></i> {% trans "Recent Clients" %}
+  <button type="button" class="dtt-btn" data-panel="clients" aria-selected="false">
+    <i class="fas fa-user-group" aria-hidden="true"></i> {% trans "Recent clients" %}
   </button>
 </div>
-<div class="dash-today-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;">
 
-  {# Today's Visits #}
-  <div class="dash-card dash-panel" data-panel="today" style="margin:0;">
+<div class="partner-work-grid">
+  <section class="dash-card dash-panel" data-panel="today" aria-labelledby="today-visits-title">
     <div class="dash-card__header">
-      <span class="dash-card__title">
-        <i class="fas fa-bolt" style="color:var(--primary);"></i>
-        {% trans "Today's Visits" %}
+      <span class="dash-card__title" id="today-visits-title">
+        <i class="fas fa-bolt" aria-hidden="true"></i>
+        {% trans "Today's visits" %}
       </span>
-      <span style="font-size:.75rem;color:rgba(255,255,255,.32);">{{ now|date:"d M Y" }}</span>
+      <span class="partner-section-meta">{{ now|date:"d M Y" }}</span>
     </div>
-    <div class="dash-card__body" style="padding:0;">
+    <div class="dash-card__body partner-list-body">
       {% if today_visit_list %}
         {% for visit in today_visit_list %}
-        <div style="display:flex;align-items:center;gap:.85rem;padding:.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,.05);">
-          <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;flex-shrink:0;
-            {% if visit.status == 'CANCELLED' %}background:rgba(255,255,255,.07);color:rgba(255,255,255,.3);
-            {% elif visit.pin_verified %}background:rgba(34,197,94,.15);color:#4ade80;
-            {% else %}background:rgba(245,158,11,.12);color:#fbbf24;{% endif %}">
+        <div class="partner-list-row">
+          <span class="partner-list-avatar" aria-hidden="true">
             {% if visit.status == 'CANCELLED' %}<i class="fas fa-ban"></i>
             {% elif visit.pin_verified %}<i class="fas fa-check"></i>
             {% else %}<i class="fas fa-exclamation"></i>{% endif %}
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:.85rem;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              {{ visit.member.get_full_name|default:visit.member.username }}
-            </div>
-            <div style="font-size:.75rem;color:rgba(255,255,255,.38);">
-              {{ visit.get_service_type_display }}
-              <span style="background:rgba(255,255,255,.06);border-radius:100px;padding:1px 6px;font-size:.65rem;margin-left:.3rem;">{{ visit.status }}</span>
-            </div>
+          </span>
+          <div>
+            <div class="partner-list-name">{{ visit.member.get_full_name|default:visit.member.username }}</div>
+            <div class="partner-list-meta">{{ visit.get_service_type_display }} · {{ visit.status|title }}</div>
             {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
-            <div style="margin-top:.2rem;">
-              <a href="{% url 'users:edit_visit' visit.pk %}" style="font-size:.72rem;color:rgba(255,255,255,.4);text-decoration:none;margin-right:.5rem;">{% trans "edit" %}</a>
-              <a href="{% url 'users:cancel_visit' visit.pk %}" style="font-size:.72rem;color:#f87171;text-decoration:none;">{% trans "cancel" %}</a>
+            <div class="partner-row-actions">
+              <a href="{% url 'users:edit_visit' visit.pk %}">{% trans "Edit" %}</a>
+              <a href="{% url 'users:cancel_visit' visit.pk %}" class="danger">{% trans "Cancel" %}</a>
             </div>
             {% endif %}
           </div>
-          <div style="text-align:right;flex-shrink:0;">
-            <div style="font-size:.75rem;color:rgba(255,255,255,.4);font-family:var(--font-mono);">{{ visit.timestamp|date:"H:i" }}</div>
-            {% if visit.cost %}<div style="font-size:.8rem;font-weight:700;color:#f1f5f9;">{{ visit.cost }} CHF</div>{% endif %}
+          <div class="partner-list-value">
+            {{ visit.timestamp|date:"H:i" }}
+            <small>{% if visit.cost %}{{ visit.cost }} CHF{% else %}{% trans "No amount" %}{% endif %}</small>
           </div>
         </div>
         {% endfor %}
       {% else %}
-      <div class="dash-empty" style="padding:2rem 1.5rem;">
-        <div style="font-size:1.9rem;margin-bottom:.65rem;color:var(--primary);opacity:.75;animation:float-icon 3s ease-in-out infinite;"><i class="fas fa-person-running"></i></div>
-        <p style="font-weight:700;color:rgba(255,255,255,.7);margin-bottom:.35rem;">{% trans "No visits yet today." %}</p>
-        <p style="font-size:.78rem;color:rgba(255,255,255,.35);margin-bottom:1rem;">{% trans "Log the first visit and start your day." %}</p>
-        <a href="#search-section"
-           style="display:inline-flex;align-items:center;gap:.5rem;padding:.45rem 1.1rem;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.28);border-radius:8px;color:#f87171;font-size:.8rem;font-weight:700;text-decoration:none;">
-          <i class="fas fa-user-plus"></i> {% trans "Log a Visit" %}
-        </a>
+      <div class="dash-empty">
+        <i class="fas fa-person-walking" aria-hidden="true"></i>
+        <p>{% trans "No visits have been logged today." %}</p>
+        <a href="#search-section" class="partner-empty-action">{% trans "Find a member" %}</a>
       </div>
       {% endif %}
     </div>
-  </div>
+  </section>
 
-  {# Recent Clients #}
-  <div class="dash-card dash-panel" data-panel="clients" style="margin:0;">
+  <section class="dash-card dash-panel" data-panel="clients" aria-labelledby="recent-clients-title">
     <div class="dash-card__header">
-      <span class="dash-card__title">
-        <i class="fas fa-users" style="color:var(--primary);"></i>
-        {% trans "Recent Clients" %}
+      <span class="dash-card__title" id="recent-clients-title">
+        <i class="fas fa-user-group" aria-hidden="true"></i>
+        {% trans "Recent clients" %}
       </span>
     </div>
-    <div class="dash-card__body" style="padding:0;">
+    <div class="dash-card__body partner-list-body">
       {% if recent_members %}
         {% for m in recent_members %}
-        <div class="rc-item" style="position:relative;">
-          <a href="{% url 'users:partner_member_visits' m.member__id %}"
-             class="rc-link"
-             data-id="{{ m.member__id }}"
-             data-name="{% if m.member__first_name or m.member__last_name %}{{ m.member__first_name }} {{ m.member__last_name }}{% else %}{{ m.member__username }}{% endif %}"
-             data-visits="{{ m.visit_count }}"
-             data-last="{{ m.last_visit|date:'d.m.Y' }}"
-             data-status="{{ m.member__membership_status }}">
-            <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#991b1b);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.78rem;flex-shrink:0;">
-              {{ m.member__first_name|slice:":1"|default:m.member__username|slice:":1"|upper }}
-            </div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:.85rem;font-weight:600;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                {% if m.member__first_name or m.member__last_name %}{{ m.member__first_name }} {{ m.member__last_name }}
-                {% else %}{{ m.member__username }}{% endif %}
-              </div>
-              <div style="font-size:.73rem;color:rgba(255,255,255,.35);">
-                {{ m.visit_count }} {% trans "visit(s)" %} · {% trans "last" %}: {{ m.last_visit|date:"d.m.Y" }}
-              </div>
-            </div>
-            {% if m.member__membership_status == 'active' %}
-            <span style="font-size:.65rem;color:#4ade80;font-weight:700;">●</span>
-            {% else %}
-            <span style="font-size:.65rem;color:rgba(255,255,255,.22);font-weight:700;">●</span>
-            {% endif %}
+        <div class="recent-client-row">
+          <a href="{% url 'users:partner_member_visits' m.member__id %}" class="partner-list-row recent-client-main">
+            <span class="partner-list-avatar">{{ m.member__first_name|slice:":1"|default:m.member__username|slice:":1"|upper }}</span>
+            <span>
+              <span class="partner-list-name">
+                {% if m.member__first_name or m.member__last_name %}{{ m.member__first_name }} {{ m.member__last_name }}{% else %}{{ m.member__username }}{% endif %}
+              </span>
+              <span class="partner-list-meta">{{ m.visit_count }} {% trans "visits" %} · {{ m.last_visit|date:"d.m.Y" }}</span>
+            </span>
+            <i class="fas fa-chevron-right recent-client-chevron" aria-hidden="true"></i>
+          </a>
+          <a href="{% url 'users:log_visit' m.member__id %}" class="recent-client-log" aria-label="{% trans 'Log visit for' %} {% if m.member__first_name or m.member__last_name %}{{ m.member__first_name }} {{ m.member__last_name }}{% else %}{{ m.member__username }}{% endif %}">
+            <i class="fas fa-plus" aria-hidden="true"></i>
           </a>
         </div>
         {% endfor %}
       {% else %}
       <div class="dash-empty">
-        <i class="fas fa-users"></i>
-        <p>{% trans "No clients yet." %}</p>
+        <i class="fas fa-user-group" aria-hidden="true"></i>
+        <p>{% trans "Recent clients will appear after the first logged visit." %}</p>
       </div>
       {% endif %}
     </div>
-  </div>
-
-  {# Mini-popup клиента #}
-  <div id="rc-popup" style="display:none;position:fixed;z-index:500;background:#1a1a28;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:1rem 1.1rem;min-width:220px;box-shadow:0 16px 48px rgba(0,0,0,.6);pointer-events:none;">
-    <div id="rc-pop-name" style="font-size:.9rem;font-weight:700;color:#fff;margin-bottom:.3rem;"></div>
-    <div id="rc-pop-status" style="font-size:.68rem;font-weight:700;margin-bottom:.65rem;"></div>
-    <div style="display:flex;gap:1rem;">
-      <div><div id="rc-pop-visits" style="font-size:1.1rem;font-weight:800;color:#f87171;"></div><div style="font-size:.65rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.07em;">{% trans "Visits" %}</div></div>
-      <div><div id="rc-pop-last" style="font-size:.78rem;font-weight:600;color:rgba(255,255,255,.65);margin-top:.2rem;"></div><div style="font-size:.65rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.07em;">{% trans "Last visit" %}</div></div>
-    </div>
-    <div style="display:flex;gap:.45rem;margin-top:.75rem;">
-      <a id="rc-pop-log" href="#" style="flex:1;display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.25);border-radius:7px;color:#f87171;font-size:.72rem;font-weight:700;text-decoration:none;pointer-events:all;">
-        <i class="fas fa-plus"></i> {% trans "Log" %}
-      </a>
-      <a id="rc-pop-hist" href="#" style="display:flex;align-items:center;justify-content:center;gap:.3rem;padding:.35rem .7rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:rgba(255,255,255,.55);font-size:.72rem;text-decoration:none;pointer-events:all;">
-        <i class="fas fa-history"></i>
-      </a>
-    </div>
-  </div>
-
+  </section>
 </div>
 
-{# ── История визитов с фильтрами (HTMX) ── #}
-<div class="dash-card" id="history-section">
-  <div class="dash-card__header">
-    <span class="dash-card__title">
-      <i class="fas fa-list-ul" style="color:var(--primary);"></i>
-      {% trans "All Visit History" %}
+<section class="dash-card" id="history-section" aria-labelledby="visit-history-title">
+  <div class="dash-card__header partner-history-head">
+    <span class="dash-card__title" id="visit-history-title">
+      <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+      {% trans "Visit history" %}
     </span>
-    <div style="display:flex;align-items:center;gap:.75rem;">
-      <a href="{% url 'users:partner_visits_csv' %}"
-         style="font-size:.75rem;color:rgba(255,255,255,.4);text-decoration:none;display:flex;align-items:center;gap:.3rem;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:.25rem .7rem;transition:all .15s;"
-         onmouseover="this.style.color='#fff';this.style.borderColor='rgba(255,255,255,.3)'"
-         onmouseout="this.style.color='rgba(255,255,255,.4)';this.style.borderColor='rgba(255,255,255,.12)'">
-        <i class="fas fa-download"></i> CSV
+    <div class="partner-history-actions">
+      <a href="{% url 'users:partner_visits_csv' %}" class="partner-text-action">
+        <i class="fas fa-download" aria-hidden="true"></i> CSV
       </a>
-      <a href="{% url 'users:partner_analytics' %}"
-         style="font-size:.78rem;color:rgba(255,255,255,.4);text-decoration:none;transition:color .15s;"
-         onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.4)'">
-        {% trans "Analytics" %} →
+      <a href="{% url 'users:partner_analytics' %}" class="partner-text-action">
+        {% trans "Analytics" %} <i class="fas fa-arrow-right" aria-hidden="true"></i>
       </a>
     </div>
   </div>
-  <div class="dash-card__body" style="padding:0;">
+  <div class="dash-card__body partner-history-body">
     <div id="visit-history-wrap"
          hx-get="{% url 'users:partner_visit_history' %}"
          hx-trigger="load"
-         hx-swap="innerHTML">
-      <div style="padding:1rem 1.25rem;">
-        {% for _ in "12345" %}
-        <div style="display:flex;gap:1rem;padding:.6rem 0;border-bottom:1px solid rgba(255,255,255,.04);">
-          <div class="skeleton" style="height:12px;width:90px;border-radius:4px;flex-shrink:0;"></div>
-          <div class="skeleton" style="height:12px;width:140px;border-radius:4px;"></div>
-          <div class="skeleton" style="height:12px;width:80px;border-radius:4px;"></div>
-          <div class="skeleton" style="height:12px;width:40px;border-radius:4px;"></div>
-        </div>
-        {% endfor %}
+         hx-swap="innerHTML"
+         aria-live="polite">
+      <div class="partner-table-loading" aria-label="{% trans 'Loading visit history' %}">
+        {% for _ in "12345" %}<span class="skeleton"></span>{% endfor %}
       </div>
     </div>
   </div>
-</div>
+</section>
 
-{% endblock %}
-
-{% block partner_fab %}
-{# FAB — кнопка «New Meeting» #}
-<div class="dash-fab-wrap" id="dash-fab">
-  <a href="{% url 'users:partner_calendar' %}"
-     class="fab-main"
-     data-tour="calendar"
-     aria-label="{% trans 'Schedule a new meeting' %}"
-     title="{% trans 'New Meeting' %}">
-    <i class="fas fa-calendar-plus"></i>
-  </a>
-</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-/* ── Autocomplete keyboard navigation ── */
 (function () {
-    var macInput   = document.getElementById('mac-input');
-    var macResults = document.getElementById('mac-results');
-    if (!macInput || !macResults) return;
+  var input = document.getElementById('mac-input');
+  var results = document.getElementById('mac-results');
+  var spinner = document.getElementById('mac-spinner');
+  if (!input || !results) return;
 
-    macInput.addEventListener('htmx:beforeRequest', function () {
-        var sp = document.getElementById('mac-spinner');
-        var sk = document.getElementById('mac-skeleton');
-        if (sp) sp.style.display = 'inline';
-        if (sk && macInput.value.length >= 2) sk.style.display = 'block';
-    });
-    macInput.addEventListener('htmx:afterRequest', function () {
-        var sp = document.getElementById('mac-spinner');
-        var sk = document.getElementById('mac-skeleton');
-        if (sp) sp.style.display = 'none';
-        if (sk) sk.style.display = 'none';
-    });
+  function setExpanded() {
+    input.setAttribute('aria-expanded', results.children.length ? 'true' : 'false');
+  }
 
-    macInput.addEventListener('keydown', function (e) {
-        var items   = macResults.querySelectorAll('.mac-item');
-        var focused = macResults.querySelector('.mac-item.focused');
-        var idx = focused ? Array.from(items).indexOf(focused) : -1;
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            if (focused) focused.classList.remove('focused');
-            var next = items[Math.min(idx + 1, items.length - 1)];
-            if (next) next.classList.add('focused');
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            if (focused) focused.classList.remove('focused');
-            var prev = items[Math.max(idx - 1, 0)];
-            if (prev) prev.classList.add('focused');
-        } else if (e.key === 'Enter') {
-            if (focused) { e.preventDefault(); focused.click(); }
-        } else if (e.key === 'Escape') {
-            macResults.innerHTML = '';
-        }
-    });
-
-    document.addEventListener('click', function (e) {
-        if (!document.getElementById('mac-wrap').contains(e.target)) macResults.innerHTML = '';
-    });
-    macResults.addEventListener('click', function () {
-        setTimeout(function () { macResults.innerHTML = ''; macInput.value = ''; }, 100);
-    });
-})();
-
-/* ── Recent Clients hover popup ── */
-(function(){
-  var popup = document.getElementById('rc-popup');
-  if (!popup) return;
-  var timer;
-  document.querySelectorAll('.rc-link').forEach(function(link){
-    link.addEventListener('mouseenter', function(){
-      clearTimeout(timer);
-      document.getElementById('rc-pop-name').textContent   = link.dataset.name;
-      document.getElementById('rc-pop-visits').textContent = link.dataset.visits;
-      document.getElementById('rc-pop-last').textContent   = link.dataset.last;
-      var stEl = document.getElementById('rc-pop-status');
-      stEl.textContent = link.dataset.status === 'active' ? '● ACTIVE' : '● INACTIVE';
-      stEl.style.color = link.dataset.status === 'active' ? '#4ade80' : 'rgba(255,255,255,.3)';
-      document.getElementById('rc-pop-log').href  = '/auth/partner/visit/' + link.dataset.id + '/';
-      document.getElementById('rc-pop-hist').href = '/auth/partner/member/' + link.dataset.id + '/';
-      popup.style.display = 'block';
-      var rect = link.getBoundingClientRect();
-      popup.style.left = Math.min(rect.right + 8, window.innerWidth - 240) + 'px';
-      popup.style.top  = (Math.min(rect.top, window.innerHeight - 180) + window.scrollY) + 'px';
-    });
-    link.addEventListener('mouseleave', function(){
-      timer = setTimeout(function(){ popup.style.display = 'none'; }, 200);
-    });
+  input.addEventListener('htmx:beforeRequest', function () {
+    if (spinner) spinner.classList.add('is-visible');
   });
-  popup.addEventListener('mouseenter', function(){ clearTimeout(timer); });
-  popup.addEventListener('mouseleave', function(){ timer = setTimeout(function(){ popup.style.display = 'none'; }, 150); });
+  input.addEventListener('htmx:afterRequest', function () {
+    if (spinner) spinner.classList.remove('is-visible');
+  });
+  results.addEventListener('htmx:afterSwap', setExpanded);
+
+  input.addEventListener('keydown', function (event) {
+    var items = Array.from(results.querySelectorAll('.mac-item'));
+    var current = results.querySelector('.mac-item.focused');
+    var index = current ? items.indexOf(current) : -1;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (current) current.classList.remove('focused');
+      var nextIndex = event.key === 'ArrowDown' ? Math.min(index + 1, items.length - 1) : Math.max(index - 1, 0);
+      if (items[nextIndex]) items[nextIndex].classList.add('focused');
+    } else if (event.key === 'Enter' && current) {
+      event.preventDefault();
+      current.click();
+    } else if (event.key === 'Escape') {
+      results.innerHTML = '';
+      setExpanded();
+    }
+  });
+
+  document.addEventListener('click', function (event) {
+    var wrap = document.getElementById('mac-wrap');
+    if (wrap && !wrap.contains(event.target)) {
+      results.innerHTML = '';
+      setExpanded();
+    }
+  });
 })();
 
-/* ── Today/Clients табы (мобиль) ── */
 (function () {
-  function initTabs() {
-    if (window.innerWidth >= 768) return;
-    var panels = document.querySelectorAll('.dash-panel');
-    var btns   = document.querySelectorAll('.dtt-btn');
-    if (!panels.length || !btns.length) return;
-    panels[0].classList.add('dtt-visible');
-    btns.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var target = btn.dataset.panel;
-        btns.forEach(function (b) { b.classList.remove('dtt-btn--active'); });
-        panels.forEach(function (p) { p.classList.remove('dtt-visible'); });
-        btn.classList.add('dtt-btn--active');
-        var panel = document.querySelector('.dash-panel[data-panel="' + target + '"]');
-        if (panel) panel.classList.add('dtt-visible');
-      });
+  var buttons = document.querySelectorAll('.dtt-btn');
+  var panels = document.querySelectorAll('.dash-panel');
+  if (!buttons.length || !panels.length) return;
+  function activate(target) {
+    buttons.forEach(function (button) {
+      var active = button.dataset.panel === target;
+      button.classList.toggle('dtt-btn--active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    panels.forEach(function (panel) {
+      panel.classList.toggle('dtt-visible', panel.dataset.panel === target);
     });
   }
-  document.addEventListener('DOMContentLoaded', initTabs);
+  buttons.forEach(function (button) {
+    button.addEventListener('click', function () { activate(button.dataset.panel); });
+  });
+  activate('today');
 })();
 </script>
-
-{# Interactive tour for new partners (2026-05-27) #}
 {% include 'partials/_tour.html' %}
 {% endblock %}

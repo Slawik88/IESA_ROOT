@@ -67,7 +67,7 @@
 {% if total_30 == 0 %}
 <div class="dash-card" style="margin-top:1.25rem;">
   <div class="dash-card__body" style="text-align:center;padding:3rem 2rem;">
-    <div style="font-size:3rem;margin-bottom:1rem;animation:float-icon 3s ease-in-out infinite;">📊</div>
+    <div class="partner-empty-illustration" aria-hidden="true"><i class="fas fa-chart-column"></i></div>
     <div style="font-size:1rem;font-weight:700;color:rgba(255,255,255,.65);margin-bottom:.4rem;">{% trans "No data for the last 30 days" %}</div>
     <div style="font-size:.8rem;color:rgba(255,255,255,.3);margin-bottom:1.4rem;max-width:340px;margin-left:auto;margin-right:auto;line-height:1.55;">
       {% trans "Start logging visits and within a few days the analytics will fill with insights." %}
@@ -78,7 +78,6 @@
     </a>
   </div>
 </div>
-<style>@keyframes float-icon { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }</style>
 {% else %}
 
 <div class="dash-card" style="margin-top:1.25rem;">
@@ -235,7 +234,7 @@ if (dates.length) {
 }
 
 if (svcLabels.length) {
-  const colors = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#a855f7'];
+  const colors = ['#ef4444','#c72c2c','#a82424','#871f1f','#6f1d1d','#531919'];
   new Chart(document.getElementById('chartServices'), {
     type: 'doughnut',
     data: {
