@@ -1,0 +1,1 @@
+{% load i18n %}{% trans "Confirm your e-mail address — IESA Sport" %}

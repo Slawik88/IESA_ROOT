@@ -2,6 +2,7 @@ import os
 import django
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'IESA_ROOT.settings')
 django.setup()
@@ -18,11 +19,13 @@ class ProfileQRAndSearchTests(TestCase):
         self.client = Client()
 
     def test_profile_contains_qr(self):
-        # public profile should contain media path for QR if card_active
+        # QR is intentionally visible only to the profile owner and is served
+        # by the protected dynamic endpoint, not a legacy media/cards path.
+        self.client.force_login(self.user)
         resp = self.client.get(f'/auth/user/{self.user.username}/')
         self.assertEqual(resp.status_code, 200)
         content = resp.content.decode('utf-8')
-        self.assertIn('cards/', content)
+        self.assertIn(reverse('users:user_qr', kwargs={'permanent_id': self.user.permanent_id}), content)
 
     def test_user_search_returns_user(self):
         resp = self.client.get('/auth/search/', {'q': 'testuser1'})

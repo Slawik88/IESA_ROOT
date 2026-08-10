@@ -334,8 +334,13 @@
 @media (max-width: 767.98px) {
     .dash-root { flex-direction: column; }
 
-    /* ── 2i: Topbar скрываем на мобиле — занимает ценное пространство ── */
-    .dash-topbar { display: none; }
+    /* Keep page context visible on mobile in a compact form. */
+    .dash-topbar {
+        display: flex; position: static; padding: .65rem .75rem;
+        min-height: 44px; background: rgba(10,10,15,.92);
+    }
+    .dash-topbar__title { font-size: .95rem; margin: 0; }
+    .dash-topbar__sub, .dash-topbar__actions { display: none; }
 
     /* ── 2b: Sidebar → горизонтальный scroll-nav ── */
     .dash-sidebar {
@@ -391,22 +396,20 @@
         padding: .05rem .35rem;
     }
 
-    /* ── 2e: Stats → горизонтальный scroll ── */
+    /* All four core metrics stay visible without a hidden horizontal scroll. */
     .dash-stat-grid {
-        display: flex;
-        overflow-x: auto;
-        scroll-snap-type: x mandatory;
-        scrollbar-width: none;
-        -webkit-overflow-scrolling: touch;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: .75rem;
-        padding: .25rem .25rem .75rem;
+        padding: 0;
     }
-    .dash-stat-grid::-webkit-scrollbar { display: none; }
     .dash-stat-card {
-        flex: 0 0 148px;
-        scroll-snap-align: start;
         min-width: 0;
+        padding: .9rem;
     }
+    .dash-stat-icon { width: 36px; height: 36px; }
+    .dash-stat-val { font-size: 1.25rem; }
+    .dash-stat-lbl { font-size: .61rem; line-height: 1.25; }
 
     .dash-content { padding: .75rem; }
 

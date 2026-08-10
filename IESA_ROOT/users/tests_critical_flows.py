@@ -173,6 +173,27 @@ class InviteRegisterTest(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 410)
 
+    @patch('users.views.invites.send_email_verification', return_value=True)
+    def test_partner_registration_sends_email_verification(self, send_mock):
+        url = reverse('users:invite_register', kwargs={'token': self.invite.token})
+
+        response = self.client.post(url, data={
+            'username': 'invited_partner',
+            'email': 'INVITED@Example.com',
+            'first_name': 'Invited',
+            'last_name': 'Partner',
+            'company_name': 'Test Co',
+            'business_type': 'gym',
+            'password1': 'Partner!Pass123',
+            'password2': 'Partner!Pass123',
+        })
+
+        self.assertRedirects(response, reverse('users:partner_dashboard'), fetch_redirect_response=False)
+        created = User.objects.get(username='invited_partner')
+        self.assertEqual(created.email, 'invited@example.com')
+        send_mock.assert_called_once()
+        self.assertEqual(send_mock.call_args.args[0], created)
+
 
 # ── insurance_agent_request tests ─────────────────────────────────────────────
 
@@ -210,17 +231,32 @@ class DashboardRedirectTest(TestCase):
     def setUp(self):
         self.client = Client()
 
-    def test_partner_goes_to_partner_dashboard(self):
+    def test_partner_my_cabinet_goes_to_personal_profile(self):
         user, _ = make_partner_user('p_redirect')
         self.client.login(username='p_redirect', password='pass123X!')
         response = self.client.get(reverse('users:dashboard'))
-        self.assertRedirects(response, reverse('users:partner_dashboard'), fetch_redirect_response=False)
+        self.assertRedirects(response, reverse('users:profile'), fetch_redirect_response=False)
 
     def test_regular_user_goes_to_profile(self):
         user = User.objects.create_user(username='regular', password='pass123X!')
         self.client.login(username='regular', password='pass123X!')
         response = self.client.get(reverse('users:dashboard'))
         self.assertRedirects(response, reverse('users:profile'), fetch_redirect_response=False)
+
+    def test_partner_flag_without_profile_gets_safe_minimal_profile(self):
+        user = User.objects.create_user(
+            username='flag_only_partner',
+            password='pass123X!',
+            is_partner=True,
+            first_name='Flag',
+            last_name='Partner',
+        )
+        self.client.login(username='flag_only_partner', password='pass123X!')
+
+        response = self.client.get(reverse('users:partner_dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(user.partner_profile.company_name, 'Flag Partner')
 
 
 # ── ProfileView context tests ─────────────────────────────────────────────────

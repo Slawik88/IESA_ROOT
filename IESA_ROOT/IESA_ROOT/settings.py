@@ -432,6 +432,11 @@ CACHES = {
 # Используем отдельный кэш для django_ratelimit (см. CACHES['ratelimit'] выше)
 RATELIMIT_USE_CACHE = 'ratelimit'
 
+# Ownership confirmation links are intentionally short-lived. The setting is
+# explicit so production behavior is documented and can be tightened through
+# an environment variable without a code release.
+EMAIL_VERIFICATION_MAX_AGE = int(os.getenv('EMAIL_VERIFICATION_MAX_AGE', str(48 * 60 * 60)))
+
 # Session Configuration - Support multiple devices/sessions per user
 # cached_db checks the in-process cache (LocMemCache) first and only
 # falls back to the DB on a cache miss.  This nearly eliminates the extra

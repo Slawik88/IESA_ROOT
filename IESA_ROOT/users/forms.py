@@ -28,11 +28,22 @@ class CustomUserCreationForm(UserCreationForm):
             'required': _("You must agree to become a member to register."),
         },
     )
+    email = forms.EmailField(
+        required=True,
+        label=_('Email address'),
+        widget=forms.EmailInput(attrs={'autocomplete': 'email'}),
+    )
 
     class Meta(UserCreationForm.Meta):
         model = User
         # Только обязательные поля для регистрации
         fields = UserCreationForm.Meta.fields + ('email',)
+
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(_('An account with this e-mail address already exists.'))
+        return email
 
     def save(self, commit=True):
         user = super().save(commit=False)
@@ -78,6 +89,25 @@ class CustomUserChangeForm(UserChangeForm):
             phone = ' '.join(phone.split())
         return phone
 
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if not email:
+            raise forms.ValidationError(_('E-mail address is required.'))
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError(_('An account with this e-mail address already exists.'))
+        self._email_changed = email.casefold() != (self.instance.email or '').strip().casefold()
+        return email
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if getattr(self, '_email_changed', False):
+            user.email_verified_at = None
+            user.email_verification_sent_at = None
+        if commit:
+            user.save()
+            self.save_m2m()
+        return user
+
 
 class UserProfileEditForm(forms.ModelForm):
     """
@@ -97,6 +127,15 @@ class UserProfileEditForm(forms.ModelForm):
             'pattern': '\\d{2}\\.\\d{2}\\.\\d{4}'
         }),
         label=_('Date of birth')
+    )
+
+    email = forms.EmailField(
+        required=True,
+        label=_('Email address'),
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'autocomplete': 'email',
+        }),
     )
     
     github_url = forms.CharField(
@@ -160,6 +199,23 @@ class UserProfileEditForm(forms.ModelForm):
             validate_phone_number(phone)
             phone = ' '.join(phone.split())
         return phone
+
+    def clean_email(self):
+        email = (self.cleaned_data.get('email') or '').strip().lower()
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError(_('An account with this e-mail address already exists.'))
+        self._email_changed = email.casefold() != (self.instance.email or '').strip().casefold()
+        return email
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        if getattr(self, '_email_changed', False):
+            user.email_verified_at = None
+            user.email_verification_sent_at = None
+        if commit:
+            user.save()
+            self.save_m2m()
+        return user
 
     def clean_github_url(self):
         url = self.cleaned_data.get('github_url')
@@ -292,4 +348,3 @@ class AccountChangeRequestForm(forms.Form):
     def clean_reason(self):
         # BLOCK 1 (audit v4): убрана min length=50 — теперь без ограничения
         return (self.cleaned_data.get('reason') or '').strip()
-

@@ -21,26 +21,21 @@ logger = logging.getLogger(__name__)
 @partner_required
 def partner_dashboard(request):
     """Partner dashboard: member search, visit log, statistics."""
-    partner = request.user.partner_profile
     try:
-        pass  # partner_required guarantees existence
-    except Exception:
-        messages.error(request, _('⚠️ System error. Contact administrator.'))
-        return redirect('core:home')
-
-    # Auto-create minimal Partner if flag set but no record
-    if not hasattr(request.user, '_partner_profile_loaded'):
-        try:
-            partner = request.user.partner_profile
-        except Partner.DoesNotExist:
-            if request.user.is_partner:
-                partner = Partner.objects.create(
-                    user=request.user,
-                    company_name=request.user.get_full_name() or request.user.username,
-                )
-            else:
-                messages.error(request, _('⚠️ Partner profile not configured. Contact administrator.'))
-                return redirect('core:home')
+        partner = request.user.partner_profile
+    except Partner.DoesNotExist:
+        # A partner flag can be granted before the business profile is filled
+        # in. Keep the portal usable and create the minimal one-to-one record
+        # atomically instead of raising a production 500.
+        if not request.user.is_partner:
+            messages.error(request, _('⚠️ Partner profile not configured. Contact administrator.'))
+            return redirect('core:home')
+        partner, _created = Partner.objects.get_or_create(
+            user=request.user,
+            defaults={
+                'company_name': request.user.get_full_name() or request.user.username,
+            },
+        )
 
     visits = Visit.objects.filter(partner=partner).select_related('member').order_by('-timestamp')
     _stats = Visit.objects.filter(partner=partner).aggregate(

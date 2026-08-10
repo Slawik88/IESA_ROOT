@@ -1,0 +1,8 @@
+{% load i18n %}{% blocktrans with name=user.get_full_name|default:user.username %}Hello {{ name }},{% endblocktrans %}
+
+{% trans "Confirm that this e-mail address belongs to you:" %}
+{{ verification_url }}
+
+{% blocktrans %}This link expires in {{ expires_hours }} hours. If you did not create or update an IESA account, you can ignore this message.{% endblocktrans %}
+
+{% trans "Need help?" %} {{ support_email }}

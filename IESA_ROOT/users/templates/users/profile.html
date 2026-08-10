@@ -477,7 +477,12 @@
             {% if profile_user.is_verified %}
               <span class="sb sb-verified"><i class="fas fa-check-circle"></i> {% trans "Verified" %}</span>
             {% else %}
-              <span class="sb sb-grey"><i class="fas fa-clock"></i> {% trans "Pending verification" %}</span>
+              <span class="sb sb-grey"><i class="fas fa-clock"></i> {% trans "Identity review pending" %}</span>
+            {% endif %}
+            {% if profile_user.is_email_verified %}
+              <span class="sb sb-verified"><i class="fas fa-envelope-circle-check"></i> {% trans "E-mail confirmed" %}</span>
+            {% else %}
+              <span class="sb sb-grey"><i class="fas fa-envelope-open"></i> {% trans "E-mail not confirmed" %}</span>
             {% endif %}
           </div>
         </div>
@@ -541,6 +546,10 @@
     </nav>
   </div>
 
+  <div class="cab-wrap cab-wrap--verification">
+    {% include 'partials/email_verification_banner.html' %}
+  </div>
+
   <style>
   .cab-quick-nav {
     display: flex; align-items: center; gap: .25rem;
@@ -561,7 +570,6 @@
   .cab-qn-item.active { background: rgba(255,255,255,.07); color: rgba(255,255,255,.88); }
   .cab-qn-item i { font-size: .78rem; }
   {# ═══ Block 2a: Quick Actions CSS ═══ #}
-  <style>
   .hero-quick-actions {
     display: flex; align-items: center; gap: .45rem;
     margin-top: .5rem; flex-wrap: wrap;

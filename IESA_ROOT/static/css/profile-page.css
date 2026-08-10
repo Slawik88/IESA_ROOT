@@ -438,13 +438,24 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
 ══════════════════════════════════════════════ */
 @media (max-width: 991.98px) { .stat-row { grid-template-columns: repeat(2,1fr); } }
 @media (max-width: 575.98px) {
-    .cab-hero { padding: 3rem 0 2.5rem; }
-    .cab-identity { flex-direction: column; align-items: center; text-align: center; }
-    .hero-actions { justify-content: center; }
-    .cab-hero-inner { align-items: center; justify-content: center; flex-direction: column; }
-    .stat-row { grid-template-columns: 1fr; }
-    .cab-name { font-size: 1.6rem; }
-    .cab-avatar, .cab-avatar-fallback { width: 80px; height: 80px; }
+    .cab-hero { padding: 1.75rem 0 1.5rem; margin-bottom: 1.25rem; }
+    .cab-hero-inner { align-items: stretch; flex-direction: column; gap: 1.15rem; }
+    .cab-identity {
+        width: 100%; flex-direction: row; align-items: center;
+        text-align: left; flex-wrap: nowrap; gap: 1rem;
+    }
+    .cab-identity > div:last-child { min-width: 0; }
+    .cab-sub { overflow-wrap: anywhere; line-height: 1.45; }
+    .hero-actions { justify-content: flex-start; gap: .5rem; }
+    .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
+    .stat-box { padding: .8rem; gap: .6rem; border-radius: 13px; }
+    .stat-icon { width: 34px; height: 34px; border-radius: 10px; }
+    .stat-lbl { font-size: .6rem; letter-spacing: .06em; line-height: 1.2; }
+    .stat-val { font-size: 1.2rem; }
+    .cab-card { padding: 1.15rem; border-radius: 16px; }
+    .cab-name { font-size: 1.45rem; }
+    .cab-avatar, .cab-avatar-fallback { width: 72px; height: 72px; font-size: 2rem; }
+    .cab-online-dot { width: 14px; height: 14px; }
     .pin-d { width: 2.2rem; height: 2.7rem; font-size: 1.5rem; }
     .posts-grid { grid-template-columns: 1fr; }
 }
