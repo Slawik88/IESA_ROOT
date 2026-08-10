@@ -48,7 +48,7 @@
 
   {% if not partners %}
   <div class="text-center py-5">
-    <div style="font-size:2.5rem;margin-bottom:12px;opacity:.3;">🤝</div>
+    <div style="font-size:2.5rem;margin-bottom:12px;opacity:.3;color:var(--primary);" aria-hidden="true"><i class="fas fa-handshake"></i></div>
     <h5 style="color:rgba(255,255,255,.5);">{% trans "No Partners Yet" %}</h5>
     <p style="color:rgba(255,255,255,.3);">{% trans "We're working on establishing partnerships. Check back soon!" %}</p>
   </div>
@@ -56,11 +56,11 @@
 </div>
 
 <!-- Partner Details Modal -->
-<div class="modal fade" id="partnerModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="partnerModal" tabindex="-1" aria-labelledby="partnerModalSectionLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content" style="background:#12121c;border:1.5px solid rgba(255,255,255,.1);border-radius:20px;overflow:hidden;">
       <div class="modal-header" style="background:#0e0e18;border-bottom:1px solid rgba(255,255,255,.07);padding:16px 24px;">
-        <h5 class="modal-title" style="color:#fff;font-weight:700;">{% trans "Partner Details" %}</h5>
+        <h5 class="modal-title" id="partnerModalSectionLabel" style="color:#fff;font-weight:700;">{% trans "Partner Details" %}</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
       </div>
       <div class="modal-body p-0" id="partner-modal-body">
@@ -170,4 +170,3 @@
   transform: translateY(-1px);
 }
 </style>
-

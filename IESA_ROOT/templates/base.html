@@ -178,46 +178,86 @@
         function showToast(message, type) {
             var container = document.getElementById('toast-container');
             if (!container) return;
-            var bg   = { danger:'text-bg-danger', warning:'text-bg-warning', info:'text-bg-info' }[type] || 'text-bg-danger';
-            var icon = { danger:'fa-exclamation-circle', warning:'fa-exclamation-triangle', info:'fa-info-circle' }[type] || 'fa-exclamation-circle';
+            var bg = {
+                success: 'text-bg-success',
+                danger: 'text-bg-danger',
+                warning: 'text-bg-warning',
+                info: 'text-bg-info'
+            }[type] || 'text-bg-info';
+            var icon = {
+                success: 'fa-check-circle',
+                danger: 'fa-exclamation-circle',
+                warning: 'fa-exclamation-triangle',
+                info: 'fa-info-circle'
+            }[type] || 'fa-info-circle';
             var el = document.createElement('div');
             el.className = 'toast align-items-center ' + bg + ' border-0';
             el.setAttribute('role', 'alert');
             el.setAttribute('aria-live', 'assertive');
             el.setAttribute('aria-atomic', 'true');
             el.setAttribute('data-bs-delay', '6000');
-            el.innerHTML = '<div class="d-flex"><div class="toast-body"><i class="fas ' + icon + ' me-2"></i>' + message + '</div>'
-                + '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>';
+            var row = document.createElement('div');
+            row.className = 'd-flex';
+            var body = document.createElement('div');
+            body.className = 'toast-body';
+            var iconEl = document.createElement('i');
+            iconEl.className = 'fas ' + icon + ' me-2';
+            iconEl.setAttribute('aria-hidden', 'true');
+            body.appendChild(iconEl);
+            body.appendChild(document.createTextNode(String(message || '')));
+            var close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'btn-close btn-close-white me-2 m-auto';
+            close.setAttribute('data-bs-dismiss', 'toast');
+            close.setAttribute('aria-label', '{% filter escapejs %}{% trans "Close" %}{% endfilter %}');
+            row.appendChild(body);
+            row.appendChild(close);
+            el.appendChild(row);
             container.appendChild(el);
             new bootstrap.Toast(el, { autohide: true, delay: 6000 }).show();
             el.addEventListener('hidden.bs.toast', function () { el.remove(); });
         }
         window._iesa_showToast = showToast;
 
-        /* Init Bootstrap toasts after HTMX swap */
-        document.body.addEventListener('htmx:afterSwap', function () {
-            document.querySelectorAll('.toast:not(.show)').forEach(function (t) {
+        function initToasts(root) {
+            (root || document).querySelectorAll('.toast').forEach(function (t) {
                 if (!bootstrap.Toast.getInstance(t)) {
-                    new bootstrap.Toast(t, { autohide: true, delay: 5000 }).show();
+                    bootstrap.Toast.getOrCreateInstance(t, { autohide: true, delay: 5000 }).show();
                 }
             });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () { initToasts(document); });
+
+        /* Init Bootstrap toasts after HTMX swap */
+        document.body.addEventListener('htmx:afterSwap', function (evt) {
+            initToasts(evt.detail.target || document);
         });
 
-        /* HTMX error handling — U2-01 (5xx/network toast) + U2-07 (403 soft modal) */
-        document.body.addEventListener('htmx:responseError', function (evt) {
-            var status = evt.detail.xhr ? evt.detail.xhr.status : 0;
-            if (status === 403) {
-                var modal = document.getElementById('sessionExpiredModal');
-                if (modal) {
-                    new bootstrap.Modal(modal).show();
-                } else {
-                    showToast('Session expired. Please log in again.', 'warning');
-                }
+        function showSessionExpired(loginUrl) {
+            var modal = document.getElementById('sessionExpiredModal');
+            if (modal) {
+                var loginLink = modal.querySelector('[data-session-login]');
+                if (loginLink && loginUrl) loginLink.href = loginUrl;
+                bootstrap.Modal.getOrCreateInstance(modal).show();
                 return;
             }
-            if (status === 0) { showToast('Connection lost. Please check your network.', 'warning'); return; }
-            if (status === 503) { showToast('Service temporarily unavailable. Try again in a moment.', 'warning'); return; }
-            if (status >= 500) { showToast('Server error. Please try again later.', 'danger'); }
+            showToast('{% filter escapejs %}{% trans "Session expired. Please log in again." %}{% endfilter %}', 'warning');
+        }
+        window._iesa_showSessionExpired = showSessionExpired;
+
+        /* HTMX error handling — explicit session expiry + honest permission/network states */
+        document.body.addEventListener('htmx:responseError', function (evt) {
+            var status = evt.detail.xhr ? evt.detail.xhr.status : 0;
+            var expired = evt.detail.xhr && evt.detail.xhr.getResponseHeader('X-Session-Expired') === '1';
+            if (status === 401 || expired) {
+                showSessionExpired(evt.detail.xhr.getResponseHeader('X-Login-URL'));
+                return;
+            }
+            if (status === 403) { showToast('{% filter escapejs %}{% trans "You do not have permission to perform this action." %}{% endfilter %}', 'warning'); return; }
+            if (status === 0) { showToast('{% filter escapejs %}{% trans "Connection lost. Please check your network." %}{% endfilter %}', 'warning'); return; }
+            if (status === 503) { showToast('{% filter escapejs %}{% trans "Service temporarily unavailable. Try again in a moment." %}{% endfilter %}', 'warning'); return; }
+            if (status >= 500) { showToast('{% filter escapejs %}{% trans "Server error. Please try again later." %}{% endfilter %}', 'danger'); }
         });
 
         /* ── 5b: Loading state на кнопках ── */
@@ -229,7 +269,11 @@
                 el.setAttribute('data-orig-html', el.innerHTML);
                 el.style.opacity = '.65';
                 el.style.cursor  = 'wait';
-                el.setAttribute('disabled', 'true');
+                if (el.tagName === 'BUTTON') el.disabled = true;
+                if (el.tagName === 'A') {
+                    el.setAttribute('aria-disabled', 'true');
+                    el.style.pointerEvents = 'none';
+                }
             }
         });
         document.body.addEventListener('htmx:afterRequest', function (evt) {
@@ -237,7 +281,9 @@
             if (el && el.getAttribute('data-orig-html') !== null) {
                 el.style.opacity = '';
                 el.style.cursor  = '';
-                el.removeAttribute('disabled');
+                el.style.pointerEvents = '';
+                if (el.tagName === 'BUTTON') el.disabled = false;
+                el.removeAttribute('aria-disabled');
                 el.removeAttribute('data-orig-html');
             }
         });
@@ -246,22 +292,27 @@
         document.addEventListener('submit', function (e) {
             var form = e.target;
             if (form.hasAttribute('data-no-loading')) return;
-            var btn = form.querySelector('[type="submit"]');
+            var btn = e.submitter || form.querySelector('[type="submit"]');
             if (!btn || btn.hasAttribute('data-loading')) return;
-            btn.setAttribute('data-loading', '1');
-            var orig = btn.innerHTML;
-            btn.disabled = true;
-            btn.style.opacity = '.65';
-            btn.style.cursor  = 'wait';
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>' + btn.textContent.trim();
-            /* Восстанавливаем при ошибке (pageshow = navigate back) */
-            window.addEventListener('pageshow', function () {
-                btn.disabled = false;
-                btn.style.opacity = '';
-                btn.style.cursor  = '';
-                btn.innerHTML = orig;
-                btn.removeAttribute('data-loading');
-            }, { once: true });
+            /* Other submit listeners may still cancel custom validation.
+               Wait for the current event dispatch before locking the button. */
+            Promise.resolve().then(function(){
+                if (e.defaultPrevented || btn.hasAttribute('data-loading')) return;
+                btn.setAttribute('data-loading', '1');
+                var orig = btn.innerHTML;
+                btn.disabled = true;
+                btn.style.opacity = '.65';
+                btn.style.cursor  = 'wait';
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1" aria-hidden="true"></i>' + btn.textContent.trim();
+                /* Restore on browser back or if navigation was interrupted. */
+                window.addEventListener('pageshow', function () {
+                    btn.disabled = false;
+                    btn.style.opacity = '';
+                    btn.style.cursor  = '';
+                    btn.innerHTML = orig;
+                    btn.removeAttribute('data-loading');
+                }, { once: true });
+            });
         });
 
         /* ── UI/UX: Ripple effect на всех кнопках ── */
@@ -331,20 +382,22 @@
         </div>
 
         <!-- Session Expired Modal (U2-07: replaces hard reload on 403) -->
-        <div class="modal fade" id="sessionExpiredModal" tabindex="-1" aria-labelledby="sessionExpiredLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal fade" id="sessionExpiredModal" tabindex="-1" aria-labelledby="sessionExpiredLabel" aria-describedby="sessionExpiredDescription" aria-hidden="true" data-bs-backdrop="static">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="sessionExpiredLabel">
                             <i class="fas fa-lock me-2 text-warning"></i>{% trans "Session Expired" %}
                         </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
                     </div>
                     <div class="modal-body text-center py-4">
-                        <p class="mb-3">{% trans "Your session has expired. Please log in again to continue." %}</p>
-                        <p class="small text-muted mb-0">{% trans "Any unsaved changes on this page have been preserved." %}</p>
+                        <p class="mb-3" id="sessionExpiredDescription">{% trans "Your session has expired. Please log in again to continue." %}</p>
+                        <p class="small text-muted mb-0">{% trans "If you have unsaved text, close this message and copy it before logging in." %}</p>
                     </div>
                     <div class="modal-footer justify-content-center">
-                        <a href="{% url 'users:login' %}?next={{ request.path }}" class="btn btn-primary">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Stay on this page" %}</button>
+                        <a href="{% url 'users:login' %}?next={{ request.get_full_path|urlencode }}" class="btn btn-primary" data-session-login>
                             <i class="fas fa-sign-in-alt me-1"></i>{% trans "Log In Again" %}
                         </a>
                     </div>
@@ -354,15 +407,17 @@
     {% endif %}
     
         <!-- Partner Modal (global) -->
-        <div class="modal fade" id="partnerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal fade" id="partnerModal" tabindex="-1" aria-labelledby="partnerModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">{% trans "Partner" %}</h5>
+                        <h5 class="modal-title" id="partnerModalLabel">{% trans "Partner" %}</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans "Close" %}"></button>
                     </div>
                     <div class="modal-body" id="partner-modal-body">
-                        <div class="text-center py-5 text-muted">{% trans "Loading..." %}</div>
+                        <div class="text-center py-5 text-muted" role="status" aria-live="polite">
+                            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>{% trans "Loading..." %}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -463,7 +518,7 @@
     {% if user.is_authenticated and user.permanent_id %}
     <div id="qr-fullscreen-overlay"
          style="display:none;position:fixed;inset:0;background:#fff;z-index:10001;flex-direction:column;align-items:center;justify-content:center;"
-         aria-modal="true" role="dialog" aria-label="{% trans 'Your QR Code' %}">
+         aria-modal="true" aria-hidden="true" role="dialog" tabindex="-1" aria-label="{% trans 'Your QR Code' %}">
       <div style="font-size:.72rem;font-family:monospace;color:rgba(0,0,0,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1rem;">
         {% trans "YOUR MEMBERSHIP QR" %}
       </div>
@@ -486,23 +541,42 @@
     <script>
     (function(){
       var overlay = document.getElementById('qr-fullscreen-overlay');
-      var qrBtn   = document.getElementById('mbn-qr-btn');
       var closeBtn = document.getElementById('qr-fs-close');
-      if (!overlay || !qrBtn) return;
+      var lastFocused = null;
+      var previousOverflow = '';
+      if (!overlay) return;
 
-      function openQR() {
+      function openQR(trigger) {
+        lastFocused = trigger || document.activeElement;
+        previousOverflow = document.body.style.overflow;
         overlay.style.display = 'flex';
+        overlay.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
+        if (closeBtn) closeBtn.focus(); else overlay.focus();
         if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function(){});
       }
       function closeQR() {
         overlay.style.display = 'none';
-        document.body.style.overflow = '';
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = previousOverflow;
+        if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
       }
 
-      qrBtn.addEventListener('click', openQR);
+      window.IESAOpenQR = openQR;
+      window.IESACloseQR = closeQR;
       if (closeBtn) closeBtn.addEventListener('click', closeQR);
-      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeQR(); });
+      document.addEventListener('keydown', function(e){
+        if (overlay.getAttribute('aria-hidden') === 'true') return;
+        if (e.key === 'Escape') { e.preventDefault(); closeQR(); return; }
+        if (e.key !== 'Tab') return;
+        var focusable = Array.prototype.slice.call(overlay.querySelectorAll('button, a[href], [tabindex]:not([tabindex="-1"])'))
+          .filter(function(el){ return !el.disabled && el.offsetParent !== null; });
+        if (!focusable.length) { e.preventDefault(); overlay.focus(); return; }
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      });
 
       /* Swipe-down закрыть */
       var startY = 0;
@@ -539,14 +613,15 @@
 
     {# 10c: PWA Install Prompt (bottom sheet) #}
     {% block pwa_install_prompt %}
-    <div class="iesa-bottom-sheet" id="pwa-install-sheet" style="padding:1.5rem 1.25rem 2rem;">
+    <div class="iesa-bottom-sheet" id="pwa-install-sheet" style="padding:1.5rem 1.25rem 2rem;"
+         role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="pwa-install-title" tabindex="-1">
       <div class="bs-handle"></div>
       <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
         <div style="width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#dc2626,#991b1b);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
           <i class="fas fa-mountain" style="color:#fff;font-size:1.4rem;"></i>
         </div>
         <div>
-          <div style="font-size:1rem;font-weight:700;color:#fff;">{% trans "Install IESA Sport" %}</div>
+          <div id="pwa-install-title" style="font-size:1rem;font-weight:700;color:#fff;">{% trans "Install IESA Sport" %}</div>
           <div style="font-size:.78rem;color:rgba(255,255,255,.45);">{% trans "Add to your home screen" %}</div>
         </div>
       </div>
@@ -609,8 +684,13 @@
 
     {% comment %}FIX 2026-05-23: Единый Action Menu Bottom Sheet для ВСЕХ аутентифицированных юзеров. Раньше было 2 разных sheet'а (user-actions/quick-visit) с разными conditions — это давало "мёртвые" клики у партнёров. Теперь один sheet, разделы видны по роли.{% endcomment %}
     {% if user.is_authenticated %}
-    <div class="iesa-bottom-sheet" id="center-actions-sheet" style="padding:0 0 1.5rem;">
+    <div class="iesa-bottom-sheet" id="center-actions-sheet" style="padding:0 0 1.5rem;"
+         role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="center-actions-title" tabindex="-1">
       <div class="bs-handle"></div>
+      <h2 id="center-actions-title" class="visually-hidden">{% trans "Quick actions" %}</h2>
+      <button type="button" class="bs-close" data-bottom-sheet-close aria-label="{% trans 'Close' %}">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
 
       {# QR Code — главное действие для активных членов #}
       {% if user.permanent_id %}
@@ -683,6 +763,7 @@
 
     <script>
     (function(){
+      function initCenterActions(){
       /* FIX 2026-05-23: универсальный обработчик для центральной кнопки */
       var btn = document.getElementById('mbn-center-btn');
       if (!btn) return;
@@ -697,11 +778,7 @@
       if (qrInner) {
         qrInner.addEventListener('click', function(){
           if (window.IESABottomSheet) window.IESABottomSheet.close('center-actions-sheet');
-          var overlay = document.getElementById('qr-fullscreen-overlay');
-          if (overlay) {
-            overlay.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-          }
+          if (window.IESAOpenQR) window.IESAOpenQR(document.getElementById('mbn-center-btn') || qrInner);
         });
       }
       /* Logout-кнопка внутри sheet → закрыть sheet, modal откроется через data-bs-toggle */
@@ -711,6 +788,9 @@
           if (window.IESABottomSheet) window.IESABottomSheet.close('center-actions-sheet');
         });
       }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initCenterActions, { once:true });
+      else initCenterActions();
     })();
     </script>
     {% endif %}
@@ -747,6 +827,15 @@
       width: 40px; height: 4px; background: rgba(255,255,255,.15);
       border-radius: 2px; margin: 12px auto 0; cursor: grab;
     }
+    .bs-close {
+      position: absolute; top: 10px; right: 12px;
+      width: 40px; height: 40px; display: inline-flex;
+      align-items: center; justify-content: center;
+      border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+      background: rgba(255,255,255,.04); color: rgba(255,255,255,.65);
+      cursor: pointer;
+    }
+    .bs-close:hover, .bs-close:focus-visible { color: #fff; background: rgba(255,255,255,.09); }
     .bs-backdrop {
       position: fixed; inset: 0; z-index: 9989;
       background: rgba(0,0,0,.55); backdrop-filter: blur(3px);
@@ -759,40 +848,78 @@
     <script>
     /* ── 6d: Bottom Sheet API ── */
     window.IESABottomSheet = {
-      _dragStartY: 0, _currentSheet: null,
+      _dragStartY: 0, _currentSheet: null, _lastFocused: null, _previousOverflow: '',
       open: function(id) {
         var sheet = document.getElementById(id);
         var back  = document.getElementById('bs-backdrop');
         if (!sheet || !back) return;
+        if (this._currentSheet && this._currentSheet !== sheet) this.close(this._currentSheet.id, false);
         this._currentSheet = sheet;
+        this._lastFocused = document.activeElement;
+        this._previousOverflow = document.body.style.overflow;
+        sheet.setAttribute('aria-hidden', 'false');
         back.style.display = 'block';
-        requestAnimationFrame(function(){ back.classList.add('open'); sheet.classList.add('open'); });
+        requestAnimationFrame(function(){
+          back.classList.add('open');
+          sheet.classList.add('open');
+          var focusTarget = sheet.querySelector('[data-bottom-sheet-close], button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+          (focusTarget || sheet).focus();
+        });
         document.body.style.overflow = 'hidden';
-        /* Swipe-down to close */
         var self = this;
-        var handle = sheet.querySelector('.bs-handle');
-        if (handle) {
-          handle.addEventListener('touchstart', function(e){ self._dragStartY = e.touches[0].clientY; }, { passive: true });
-          handle.addEventListener('touchmove', function(e){
-            var dy = e.touches[0].clientY - self._dragStartY;
-            if (dy > 0) sheet.style.transform = 'translateY(' + dy + 'px)';
-          }, { passive: true });
-          handle.addEventListener('touchend', function(e){
-            var dy = e.changedTouches[0].clientY - self._dragStartY;
-            sheet.style.transform = '';
-            if (dy > 100) { self.close(id); } else { sheet.classList.add('open'); }
-          });
-        }
         back.onclick = function() { self.close(id); };
       },
-      close: function(id) {
+      close: function(id, restoreFocus) {
         var sheet = document.getElementById(id) || this._currentSheet;
         var back  = document.getElementById('bs-backdrop');
-        if (sheet) sheet.classList.remove('open');
+        if (sheet) {
+          sheet.classList.remove('open');
+          sheet.setAttribute('aria-hidden', 'true');
+        }
         if (back) { back.classList.remove('open'); setTimeout(function(){ back.style.display='none'; }, 250); }
-        document.body.style.overflow = '';
+        document.body.style.overflow = this._previousOverflow;
+        if (restoreFocus !== false && this._lastFocused && typeof this._lastFocused.focus === 'function') this._lastFocused.focus();
+        this._currentSheet = null;
       }
     };
+
+    document.querySelectorAll('.iesa-bottom-sheet').forEach(function(sheet){
+      sheet.setAttribute('aria-hidden', sheet.classList.contains('open') ? 'false' : 'true');
+      var handle = sheet.querySelector('.bs-handle');
+      if (handle) {
+        handle.addEventListener('touchstart', function(e){ window.IESABottomSheet._dragStartY = e.touches[0].clientY; }, { passive: true });
+        handle.addEventListener('touchmove', function(e){
+          var dy = e.touches[0].clientY - window.IESABottomSheet._dragStartY;
+          if (dy > 0) sheet.style.transform = 'translateY(' + dy + 'px)';
+        }, { passive: true });
+        handle.addEventListener('touchend', function(e){
+          var dy = e.changedTouches[0].clientY - window.IESABottomSheet._dragStartY;
+          sheet.style.transform = '';
+          if (dy > 100) window.IESABottomSheet.close(sheet.id);
+        }, { passive: true });
+      }
+      sheet.querySelectorAll('[data-bottom-sheet-close]').forEach(function(button){
+        button.addEventListener('click', function(){ window.IESABottomSheet.close(sheet.id); });
+      });
+    });
+
+    document.addEventListener('keydown', function(e){
+      var sheet = window.IESABottomSheet._currentSheet;
+      if (!sheet) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        window.IESABottomSheet.close(sheet.id);
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      var focusable = Array.prototype.slice.call(sheet.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+        .filter(function(el){ return el.offsetParent !== null; });
+      if (!focusable.length) { e.preventDefault(); sheet.focus(); return; }
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
     </script>
 
     {# BLOCK 13 (audit v3): light-theme стили вынесены в /static/css/light-theme.css #}

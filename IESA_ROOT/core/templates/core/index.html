@@ -267,8 +267,9 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
 .pres-role { font-size:.9rem; color:rgba(255,255,255,.45); margin-bottom:1.25rem; font-style:italic; }
 .pres-bio { font-size:.95rem; color:rgba(255,255,255,.65); line-height:1.75; }
 .members-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:1.25rem; margin-top:2.5rem; }
-.mc-v2 { display:flex; gap:1.25rem; align-items:center; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:1.25rem 1.5rem; cursor:pointer; transition:background .3s, border-color .3s, transform .25s; }
+.mc-v2 { display:flex; width:100%; gap:1.25rem; align-items:center; text-align:left; color:inherit; font:inherit; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:1.25rem 1.5rem; cursor:pointer; transition:background .3s, border-color .3s, transform .25s; }
 .mc-v2:hover { background:rgba(220,38,38,.07); border-color:rgba(220,38,38,.3); transform:translateY(-2px); }
+.mc-v2:focus-visible { outline:3px solid rgba(248,113,113,.65); outline-offset:3px; background:rgba(220,38,38,.07); }
 .mc-photo { width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid rgba(220,38,38,.4); flex-shrink:0; }
 .mc-ava { width:60px; height:60px; border-radius:50%; background:linear-gradient(135deg,#374151,#1f2937); display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:800; color:#fff; border:2px solid rgba(255,255,255,.1); flex-shrink:0; }
 .mc-name { font-size:.95rem; font-weight:700; color:#fff; margin-bottom:.2rem; }
@@ -812,11 +813,12 @@ html.js .don-fill.animated { width:45%; }
         </div>
         <div class="members-grid">
             {% for member in members %}
-            <div class="mc-v2" data-reveal data-delay="{{ forloop.counter }}"
+            <button type="button" class="mc-v2" data-reveal data-delay="{{ forloop.counter }}"
                  data-member-name="{{ member.name }}"
                  data-member-position="{{ member.position }}"
-                 data-member-description="{{ member.description|safe }}"
+                 data-member-description="{{ member.description|striptags }}"
                  data-member-photo="{% if member.photo %}{{ member.photo.url }}{% endif %}"
+                 aria-label="{% blocktrans with name=member.name %}Learn more about {{ name }}{% endblocktrans %}"
                  onclick="openMemberModal(this)">
                 {% if member.photo %}<img loading="lazy" src="{{ member.photo.url }}" class="mc-photo" alt="{{ member.name }}">
                 {% else %}<div class="mc-ava">{{ member.name|slice:":1"|upper }}</div>{% endif %}
@@ -827,26 +829,26 @@ html.js .don-fill.animated { width:45%; }
                     {% if member.description %}<div class="mc-desc">{{ member.description|striptags|truncatewords:25 }}</div>{% endif %}
                     <div class="mc-more"><i class="fas fa-arrow-right" style="font-size:.7rem;"></i> {% trans "More" %}</div>
                 </div>
-            </div>
+            </button>
             {% endfor %}
         </div>
         {% endif %}
     </div>
 
     <!-- Member Modal -->
-    <div class="modal fade modal-dark" id="memberModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade modal-dark" id="memberModal" tabindex="-1" aria-labelledby="memberModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title fw-bold">{% trans "Team Member" %}</h5>
+                    <h5 class="modal-title fw-bold" id="memberModalLabel">{% trans "Team Member" %}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
                 </div>
                 <div class="modal-body p-4">
                     <div class="row g-4">
-                        <div class="col-md-4 text-center">
+                        <div class="col-md-4 text-center" id="memberModalPhotoColumn">
                             <img id="memberModalPhoto" hidden class="rounded-circle shadow" style="width:140px;height:140px;object-fit:cover;border:3px solid rgba(220,38,38,.5);" alt="">
                         </div>
-                        <div class="col-md-8">
+                        <div class="col-md-8" id="memberModalContentColumn">
                             <h4 id="memberModalName" class="fw-bold mb-1" style="color:#fff;"></h4>
                             <p id="memberModalPosition" style="color:rgba(255,255,255,.4);font-style:italic;margin-bottom:1rem;"></p>
                             <div id="memberModalDescription" style="color:rgba(255,255,255,.7);font-size:.92rem;line-height:1.7;"></div>
@@ -1076,9 +1078,19 @@ document.querySelectorAll('.mag-btn').forEach(btn=>{
 function openMemberModal(el){
     document.getElementById('memberModalName').textContent=el.dataset.memberName||'';
     document.getElementById('memberModalPosition').textContent=el.dataset.memberPosition||'';
-    document.getElementById('memberModalDescription').innerHTML=el.dataset.memberDescription||'';
+    document.getElementById('memberModalDescription').textContent=el.dataset.memberDescription||'';
     const img=document.getElementById('memberModalPhoto');
-    if(el.dataset.memberPhoto){ img.src=el.dataset.memberPhoto; img.style.display='block'; } else img.style.display='none';
+    const photoColumn=document.getElementById('memberModalPhotoColumn');
+    const contentColumn=document.getElementById('memberModalContentColumn');
+    if(el.dataset.memberPhoto){
+        img.src=el.dataset.memberPhoto; img.alt=el.dataset.memberName||''; img.style.display='block';
+        if(photoColumn) photoColumn.hidden=false;
+        if(contentColumn){ contentColumn.classList.remove('col-md-12'); contentColumn.classList.add('col-md-8'); }
+    } else {
+        img.removeAttribute('src'); img.alt=''; img.style.display='none';
+        if(photoColumn) photoColumn.hidden=true;
+        if(contentColumn){ contentColumn.classList.remove('col-md-8'); contentColumn.classList.add('col-md-12'); }
+    }
     bootstrap.Modal.getOrCreateInstance(document.getElementById('memberModal')).show();
 }
 </script>

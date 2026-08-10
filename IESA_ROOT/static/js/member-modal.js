@@ -41,7 +41,9 @@
             name: document.getElementById('memberModalName'),
             position: document.getElementById('memberModalPosition'),
             description: document.getElementById('memberModalDescription'),
-            photo: document.getElementById('memberModalPhoto')
+            photo: document.getElementById('memberModalPhoto'),
+            photoColumn: document.getElementById('memberModalPhotoColumn'),
+            contentColumn: document.getElementById('memberModalContentColumn')
         };
 
         if (elements.name) {
@@ -63,8 +65,20 @@
                 elements.photo.src = photoUrl;
                 elements.photo.alt = data.memberName || 'Team member';
                 elements.photo.style.display = 'block';
+                if (elements.photoColumn) elements.photoColumn.hidden = false;
+                if (elements.contentColumn) {
+                    elements.contentColumn.classList.remove('col-md-12');
+                    elements.contentColumn.classList.add('col-md-8');
+                }
             } else {
+                elements.photo.removeAttribute('src');
+                elements.photo.alt = '';
                 elements.photo.style.display = 'none';
+                if (elements.photoColumn) elements.photoColumn.hidden = true;
+                if (elements.contentColumn) {
+                    elements.contentColumn.classList.remove('col-md-8');
+                    elements.contentColumn.classList.add('col-md-12');
+                }
             }
         }
     }

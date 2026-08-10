@@ -313,6 +313,32 @@ class DashboardRedirectTest(TestCase):
         self.assertContains(response, 'Access restricted', status_code=403)
 
 
+class HtmxSessionStateTest(TestCase):
+    def test_expired_session_returns_explicit_401_for_htmx(self):
+        response = self.client.get(
+            reverse('notifications:unread_count'),
+            HTTP_HX_REQUEST='true',
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.headers['X-Session-Expired'], '1')
+        self.assertIn(reverse('users:login'), response.headers['X-Login-URL'])
+        self.assertIn('next=', response.headers['X-Login-URL'])
+
+    def test_real_permission_denial_stays_403(self):
+        user = User.objects.create_user(username='member_no_partner', password='pass123X!')
+        self.client.force_login(user)
+
+        response = self.client.get(
+            reverse('users:member_autocomplete'),
+            {'q': 'member'},
+            HTTP_HX_REQUEST='true',
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn('X-Session-Expired', response.headers)
+
+
 # ── ProfileView context tests ─────────────────────────────────────────────────
 
 class ProfileViewContextTest(TestCase):

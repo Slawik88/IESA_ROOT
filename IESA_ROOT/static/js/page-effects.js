@@ -481,67 +481,8 @@
       document.head.appendChild(style);
     }
 
-    // Intercept prev/next to add fade transition
-    const prevBtn = document.getElementById('galleryPrev');
-    const nextBtn = document.getElementById('galleryNext');
-    if (!prevBtn || !nextBtn) return;
-
-    function wrapWithFade(original) {
-      return function (e) {
-        img.classList.add('iesa-fading');
-        setTimeout(() => {
-          original.call(this, e);
-          // The original handler sets img.src; once loaded, reveal
-          img.onload = () => {
-            img.classList.remove('iesa-fading');
-            img.onload = null;
-          };
-          // Fallback remove if already cached
-          setTimeout(() => img.classList.remove('iesa-fading'), 150);
-        }, 200);
-      };
-    }
-
-    // Clone buttons to remove old listeners, then add enhanced ones
-    const items = Array.from(document.querySelectorAll('.gallery-grid__item'));
-    if (!items.length) return;
-
-    let current = 0;
-    const imgEl = img;
-    const capEl = document.getElementById('galleryModalCaption');
-    const counterEl = document.getElementById('galleryCounter');
-
-    function show(index, animate) {
-      const doShow = () => {
-        const it = items[index];
-        imgEl.src = it.dataset.src;
-        if (capEl) capEl.textContent = it.dataset.caption || '';
-        if (counterEl) counterEl.textContent = (index + 1) + ' / ' + items.length;
-        current = index;
-        if (animate) {
-          imgEl.onload = () => { imgEl.classList.remove('iesa-fading'); imgEl.onload = null; };
-          setTimeout(() => imgEl.classList.remove('iesa-fading'), 200);
-        }
-      };
-
-      if (animate) {
-        imgEl.classList.add('iesa-fading');
-        setTimeout(doShow, 200);
-      } else {
-        doShow();
-      }
-    }
-
-    // Touch swipe support
-    let touchStartX = 0;
-    modal.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-    modal.addEventListener('touchend', e => {
-      const diff = e.changedTouches[0].screenX - touchStartX;
-      if (Math.abs(diff) > 50) {
-        if (diff > 0) show((current - 1 + items.length) % items.length, true);
-        else show((current + 1) % items.length, true);
-      }
-    }, { passive: true });
+    // Navigation, keyboard and swipe are owned by the gallery component itself.
+    // A single controller prevents duplicate swipe events and desynchronised counters.
   }
 
   /* ──────────────────────────────────────────────
