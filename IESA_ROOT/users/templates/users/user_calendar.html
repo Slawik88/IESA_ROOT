@@ -3,10 +3,13 @@
 
 {% block title %}{% trans "My Calendar" %} — IESA{% endblock %}
 
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/profile-page.css' %}">
 <style>
-.ucal-wrap { max-width: 860px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+.ucal-wrap { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
 .ucal-title { font-size: 1.5rem; font-weight: 800; color: #f1f5f9; margin-bottom: .35rem; }
 .ucal-sub   { font-size: .88rem; color: rgba(255,255,255,.38); margin-bottom: 2rem; }
 
@@ -58,25 +61,116 @@
 .ucal-badge--past     { background: rgba(255,255,255,.06); color: rgba(255,255,255,.35); border-color: rgba(255,255,255,.1); }
 
 .ucal-empty {
-    text-align: center; padding: 3rem 1rem;
-    color: rgba(255,255,255,.28);
+    text-align: center; padding: 2rem 1.25rem;
+    color: rgba(255,255,255,.42); border:1px dashed rgba(255,255,255,.1);
+    border-radius:16px; background:rgba(255,255,255,.02);
 }
-.ucal-empty i { font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: .3; }
+.ucal-empty > i { font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: .3; }
+.ucal-empty h2 { color:#f1f5f9; font-size:1rem; font-weight:750; margin-bottom:.4rem; }
+.ucal-empty p { max-width:34rem; margin:0 auto; font-size:.84rem; line-height:1.55; }
+.ucal-empty-actions { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:.6rem; margin-top:1.1rem; }
+.ucal-empty-actions .btn { min-height:42px; display:inline-flex; align-items:center; }
+.ucal-empty-actions .btn i { font-size:.85rem; opacity:1; margin-bottom:0; display:inline-block; }
+.ucal-header { display:flex; align-items:flex-end; gap:1rem; margin-bottom:1.75rem; flex-wrap:wrap; }
+@media(max-width:575.98px){
+    .ucal-wrap { padding:1rem 1rem 5rem; }
+    .ucal-header { align-items:stretch; }
+    .ucal-header-actions { width:100%; display:grid !important; grid-template-columns:1fr 1fr; }
+    .ucal-header-actions .btn { justify-content:center; min-height:42px; }
+    .ucal-card-inner { align-items:stretch; }
+    .ucal-date-block { min-width:62px; padding:.8rem .35rem; }
+    .ucal-body { padding:.85rem; }
+    .ucal-empty { padding:1.5rem 1rem; }
+}
+
+/* Strict calendar surface. */
+body:has(.ucal-wrap) { background:#07070e !important; }
+.ucal-wrap {
+    max-width:900px;
+    min-height:calc(100vh - 60px);
+    padding:3rem 1.5rem 6rem;
+}
+.ucal-title { font-size:clamp(1.65rem,3vw,2.25rem) !important; color:#fff; letter-spacing:-.035em; }
+.ucal-sub { max-width:34rem; margin-bottom:1.5rem; color:rgba(255,255,255,.46); line-height:1.6; }
+.ucal-header {
+    align-items:flex-end;
+    padding-bottom:1.5rem;
+    margin-bottom:1.5rem;
+    border-bottom:1px solid rgba(255,255,255,.08);
+}
+.ucal-header-actions .btn { min-height:42px; border-radius:9px; padding:.55rem .9rem; }
+.ucal-export {
+    background:rgba(255,255,255,.025) !important;
+    border:1px solid rgba(255,255,255,.14) !important;
+    color:rgba(255,255,255,.72) !important;
+    white-space:nowrap;
+}
+.ucal-export:hover { background:rgba(255,255,255,.06) !important; color:#fff !important; }
+.ucal-section-label {
+    justify-content:flex-start;
+    margin-bottom:.75rem;
+    color:rgba(255,255,255,.46);
+    font-size:.66rem;
+    letter-spacing:.11em;
+}
+.ucal-section-label::before { flex:0 0 12px; background:#dc2626; }
+.ucal-section-label::after { display:none; }
+.ucal-card {
+    margin:0;
+    border:0;
+    border-bottom:1px solid rgba(255,255,255,.075);
+    border-radius:0;
+    background:transparent;
+}
+.ucal-card:first-of-type { border-top:1px solid rgba(255,255,255,.075); }
+.ucal-card:hover { border-color:rgba(255,255,255,.14); background:rgba(255,255,255,.018); }
+.ucal-date-block {
+    min-width:78px;
+    background:rgba(220,38,38,.045);
+    border-right:1px solid rgba(255,255,255,.07);
+}
+.ucal-day { color:#fff; font-size:1.55rem; }
+.ucal-body { padding:1.15rem 1.25rem; }
+.ucal-empty {
+    padding:4rem 2rem;
+    border:1px solid rgba(255,255,255,.085);
+    border-top:2px solid rgba(220,38,38,.65);
+    border-radius:16px;
+    background:rgba(255,255,255,.022);
+}
+.ucal-empty > i { color:rgba(255,255,255,.2); font-size:2.1rem; }
+.ucal-empty h2 { font-size:1.2rem !important; }
+.ucal-empty p { max-width:30rem; color:rgba(255,255,255,.44); }
+.ucal-empty-actions .btn { min-height:42px; border-radius:9px; }
+.ucal-empty-actions .btn-primary { background:linear-gradient(135deg,#dc2626,#b91c1c); box-shadow:none; }
+
+@media(max-width:575.98px){
+    .ucal-wrap { padding:1.5rem 1rem 6rem; }
+    .ucal-header { align-items:flex-start; }
+    .ucal-header-actions { width:100%; display:grid !important; grid-template-columns:1fr 1fr; }
+    .ucal-empty { padding:3rem 1.15rem; border-radius:14px; }
+    .ucal-empty-actions { display:grid; grid-template-columns:1fr; width:100%; max-width:230px; }
+}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="ucal-wrap">
-    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:2rem;flex-wrap:wrap;">
+    <nav aria-label="{% trans 'Breadcrumb' %}" class="page-bc mb-3">
+        <ol>
+            <li><a href="{% url 'users:profile' %}">{% trans "Cabinet" %}</a><span class="bc-sep"><i class="fas fa-chevron-right" aria-hidden="true"></i></span></li>
+            <li><span>{% trans "My Calendar" %}</span></li>
+        </ol>
+    </nav>
+    <div class="ucal-header">
         <div>
             <h1 class="ucal-title">{% trans "My Calendar" %}</h1>
             <p class="ucal-sub">{% trans "Your upcoming meetings and scheduled sessions" %}</p>
         </div>
-        <div class="d-flex gap-2 ms-auto flex-wrap">
+        <div class="d-flex gap-2 ms-auto flex-wrap ucal-header-actions">
           {# 10a: Экспорт .ics #}
           <a href="{% url 'users:user_calendar_ics' %}"
-             class="btn btn-sm"
-             style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#a5b4fc;white-space:nowrap;"
+             class="btn btn-sm ucal-export"
              title="{% trans 'Export to Google Calendar / Apple Calendar / Outlook' %}">
             <i class="fas fa-calendar-plus me-1"></i>{% trans "Export .ics" %}
           </a>
@@ -131,7 +225,12 @@
     {% else %}
     <div class="ucal-empty">
         <i class="fas fa-calendar-check"></i>
-        <p>{% trans "No upcoming meetings. Check back later!" %}</p>
+        <h2>{% trans "No upcoming meetings" %}</h2>
+        <p>{% trans "When an IESA partner schedules a meeting with you, its date, time and address will appear here." %}</p>
+        <div class="ucal-empty-actions">
+            <a href="{% url 'core:partners_map' %}" class="btn btn-primary btn-sm"><i class="fas fa-location-dot me-2" aria-hidden="true"></i>{% trans "Find a partner" %}</a>
+            <a href="{% url 'blog:event_list' %}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-calendar-day me-2" aria-hidden="true"></i>{% trans "Browse events" %}</a>
+        </div>
     </div>
     {% endif %}
 

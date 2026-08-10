@@ -26,6 +26,13 @@
     border-bottom: 1px solid rgba(255,255,255,.07);
     background: linear-gradient(135deg, rgba(220,38,38,.08) 0%, transparent 60%);
 }
+.edit-card-heading { min-width:0; flex:1; }
+.edit-header-save {
+    display:inline-flex; align-items:center; justify-content:center; gap:.45rem;
+    min-height:40px; padding:.5rem .9rem; border:0; border-radius:10px;
+    background:linear-gradient(135deg,#dc2626,#991b1b); color:#fff;
+    font-size:.8rem; font-weight:700; white-space:nowrap;
+}
 .edit-header-icon {
     width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
     background: rgba(220,38,38,.15); border: 1.5px solid rgba(220,38,38,.3);
@@ -193,23 +200,175 @@
 .edit-tab:hover { color: rgba(255,255,255,.7); }
 .edit-tab.active { color: #f87171; border-bottom-color: var(--primary); }
 .edit-tab i { font-size: .72rem; }
+.card-section { scroll-margin-top: 124px; }
+.link-format-hint {
+    display:flex; align-items:flex-start; gap:.65rem; padding:.75rem .9rem;
+    margin-bottom:1rem; border:1px solid rgba(255,255,255,.08); border-radius:10px;
+    background:rgba(255,255,255,.035); color:rgba(255,255,255,.48);
+    font-size:.78rem; line-height:1.5;
+}
+.link-format-hint i { color:#f87171; margin-top:.15rem; }
+.link-format-hint code { font-size:.74rem; overflow-wrap:anywhere; }
+.profile-draft-status { padding:0 2rem; color:rgba(255,255,255,.38); font-size:.72rem; min-height:1.2em; transition:opacity .3s; }
+.edit-save-dock {
+    position:fixed; z-index:1035; left:50%; bottom:1rem; transform:translate(-50%, 140%);
+    width:min(560px, calc(100vw - 2rem)); display:flex; align-items:center; gap:.85rem;
+    padding:.65rem .75rem .65rem 1rem; border:1px solid rgba(220,38,38,.3); border-radius:14px;
+    background:rgba(17,17,28,.97); box-shadow:0 14px 40px rgba(0,0,0,.5);
+    opacity:0; pointer-events:none; transition:transform .2s, opacity .2s;
+}
+.edit-save-dock.visible { transform:translate(-50%, 0); opacity:1; pointer-events:auto; }
+.edit-save-dock span { color:rgba(255,255,255,.72); font-size:.78rem; font-weight:600; flex:1; }
+.edit-save-dock button { border:0; border-radius:9px; background:#dc2626; color:#fff; min-height:40px; padding:.45rem .85rem; font-size:.78rem; font-weight:700; }
 
 @media(max-width:576px){
     .edit-card-header { padding: 1.25rem 1.25rem 1rem; }
     .card-section { padding: 1.25rem; }
     .edit-actions { padding: 1.25rem; flex-wrap: wrap; }
     .edit-tab { padding: .6rem .85rem; font-size: .7rem; }
-    /* BLOCK 7a (audit v3): Examples hint — 2 колонки → 1 на мобиле,
-       чтобы длинные URL не выходили за границу экрана */
-    .social-examples-grid { grid-template-columns: 1fr !important; }
-    .social-examples-grid code { word-break: break-all; font-size: .78rem !important; }
+    .edit-card-header { align-items:flex-start; }
+    .edit-header-save { width:40px; padding:.5rem; flex:0 0 40px; }
+    .edit-header-save span { display:none; }
+    .edit-tabs { overflow-x:auto; scrollbar-width:none; }
+    .edit-tabs::-webkit-scrollbar { display:none; }
+    .edit-tab { white-space:nowrap; flex:1 0 auto; justify-content:center; }
+    .profile-draft-status { padding:0 1.25rem; }
+    .edit-save-dock { bottom:calc(76px + env(safe-area-inset-bottom)); }
 }
-/* BLOCK 7a (audit v3): сами code-теги не должны вылезать за родителя */
-.social-examples-grid code {
-    display: inline-block;
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    word-break: break-word;
+
+/* Strict member settings — same brand, calmer hierarchy. */
+body:has(.profile-edit-page) { background:#07070e !important; }
+.profile-edit-page {
+    position:relative;
+    padding:3rem 0 6rem !important;
+    background-color:#07070e;
+    background-image:
+        linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
+    background-size:52px 52px;
+}
+.profile-edit-card {
+    background:rgba(255,255,255,.022);
+    border:1px solid rgba(255,255,255,.085);
+    border-top:2px solid rgba(220,38,38,.72);
+    border-radius:20px;
+    box-shadow:0 24px 70px rgba(0,0,0,.28);
+    padding:0 !important;
+}
+.edit-card-header {
+    padding:1.65rem 2rem;
+    background:transparent;
+    border-bottom:1px solid rgba(255,255,255,.075);
+    margin-bottom:0 !important;
+}
+.edit-header-icon {
+    width:38px; height:38px; border-radius:9px;
+    background:rgba(220,38,38,.08);
+    border:1px solid rgba(220,38,38,.24);
+    font-size:.95rem; box-shadow:none !important;
+}
+.edit-title { font-size:1.45rem; font-weight:800; }
+.edit-subtitle { color:rgba(255,255,255,.48); }
+.edit-header-save {
+    min-height:42px; padding:.55rem 1rem; border-radius:9px;
+    background:linear-gradient(135deg,#dc2626,#b91c1c);
+    box-shadow:0 8px 24px rgba(220,38,38,.16);
+}
+.edit-tabs {
+    position:sticky;
+    top:var(--header-height,60px);
+    padding:0 2rem;
+    gap:1.5rem;
+    background:rgba(9,9,16,.96);
+    border-bottom-color:rgba(255,255,255,.075);
+    backdrop-filter:blur(16px);
+}
+.edit-tab {
+    min-height:50px; padding:0;
+    font-size:.7rem; letter-spacing:.08em;
+    color:rgba(255,255,255,.38);
+}
+.edit-tab.active { color:#fff; border-bottom-color:#dc2626; }
+.card-section {
+    padding:1.75rem 2rem !important;
+    background:transparent !important;
+    border:0 !important;
+    border-bottom:1px solid rgba(255,255,255,.065) !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+    margin-bottom:0 !important;
+}
+.section-heading {
+    margin-bottom:1.35rem;
+    color:rgba(255,255,255,.48);
+    font-size:.67rem;
+    letter-spacing:.11em;
+}
+.section-heading::before {
+    content:''; width:12px; height:1px; background:#dc2626;
+}
+.edit-form .form-label { color:rgba(255,255,255,.68); font-size:.78rem; }
+.edit-form .form-control,
+.edit-form .form-select,
+.edit-form textarea {
+    min-height:46px;
+    padding:.68rem .85rem;
+    background:rgba(255,255,255,.045) !important;
+    border:1px solid rgba(255,255,255,.11) !important;
+    border-radius:9px !important;
+}
+.edit-form .form-control:focus,
+.edit-form .form-select:focus,
+.edit-form textarea:focus {
+    background:rgba(255,255,255,.055) !important;
+    border-color:rgba(220,38,38,.58) !important;
+    box-shadow:0 0 0 3px rgba(220,38,38,.09) !important;
+}
+#profile-edit-form .form-check-input:checked {
+    background-color:#dc2626 !important;
+    border-color:#dc2626 !important;
+}
+.email-security-hint { color:rgba(255,255,255,.43); }
+#avatar-drop-zone {
+    border-width:1px !important;
+    border-color:rgba(255,255,255,.12) !important;
+    border-radius:10px !important;
+    background:rgba(255,255,255,.018) !important;
+}
+.link-format-hint {
+    border-radius:9px;
+    background:rgba(255,255,255,.018);
+    color:rgba(255,255,255,.43);
+}
+.edit-actions {
+    padding:1.35rem 2rem;
+    background:rgba(255,255,255,.012);
+    border-top:0;
+}
+.edit-actions .btn-primary,
+.edit-actions .btn-outline-secondary { min-height:42px; border-radius:9px !important; }
+.profile-draft-status { padding:0 2rem 1rem; }
+.edit-save-dock {
+    border:1px solid rgba(255,255,255,.12);
+    border-top:2px solid rgba(220,38,38,.7);
+    border-radius:12px;
+    background:rgba(11,10,17,.98);
+    box-shadow:0 18px 50px rgba(0,0,0,.55);
+}
+
+@media(max-width:576px){
+    .profile-edit-page { padding:1.5rem 0 6rem !important; }
+    .profile-edit-card { border-radius:16px; }
+    .edit-card-header { padding:1.15rem 1.2rem; gap:.75rem; }
+    .edit-header-icon { width:34px; height:34px; }
+    .edit-title { font-size:1.25rem; }
+    .edit-subtitle { font-size:.77rem; line-height:1.45; }
+    .edit-header-save { width:38px; min-height:38px; flex-basis:38px; border-radius:8px; }
+    .edit-tabs { top:52px; padding:0 1.2rem; gap:1.25rem; }
+    .edit-tab { min-height:46px; }
+    .card-section { padding:1.35rem 1.2rem !important; }
+    .edit-actions { padding:1.2rem; }
+    .profile-draft-status { padding:0 1.2rem .8rem; }
 }
 </style>
 {% endblock %}
@@ -233,10 +392,13 @@
                 <div class="profile-edit-card">
                     <div class="edit-card-header">
                         <div class="edit-header-icon"><i class="fas fa-user-cog"></i></div>
-                        <div>
+                        <div class="edit-card-heading">
                             <h1 class="edit-title">{% trans "Edit profile" %}</h1>
                             <p class="edit-subtitle">{% trans "Refresh your info, avatar and social links." %}</p>
                         </div>
+                        <button type="submit" class="edit-header-save" form="profile-edit-form">
+                            <i class="fas fa-check" aria-hidden="true"></i><span>{% trans "Save" %}</span>
+                        </button>
                     </div>
 
                     {# 6c: Sticky tab навигация по секциям #}
@@ -244,12 +406,15 @@
                         <a class="edit-tab active" href="#sec-basic" data-section="sec-basic">
                             <i class="fas fa-user"></i> {% trans "Personal" %}
                         </a>
+                        <a class="edit-tab" href="#sec-avatar" data-section="sec-avatar">
+                            <i class="fas fa-camera"></i> {% trans "Avatar" %}
+                        </a>
                         <a class="edit-tab" href="#sec-social" data-section="sec-social">
                             <i class="fas fa-link"></i> {% trans "Links" %}
                         </a>
                     </nav>
 
-                    <form method="post" enctype="multipart/form-data" class="edit-form">
+                    <form method="post" enctype="multipart/form-data" class="edit-form" id="profile-edit-form">
                         {% csrf_token %}
 
                         <div class="card-section" id="sec-basic">
@@ -300,8 +465,13 @@
                                         </label>
                                     </div>
                                 </div>
-                                {# 3g: Avatar drag-and-drop zone #}
-                                <div class="col-12">
+                            </div>
+                        </div>
+
+                        <div class="card-section" id="sec-avatar">
+                            <div class="section-heading"><i class="fas fa-camera me-2" aria-hidden="true"></i>{% trans "Profile photo" %}</div>
+                            {# 3g: Avatar drag-and-drop zone #}
+                            <div class="row"><div class="col-12">
                                     <label class="form-label">{% trans "Avatar" %}</label>
                                     <div id="avatar-drop-zone" style="
                                         border: 2px dashed rgba(255,255,255,.15); border-radius: 14px;
@@ -336,36 +506,16 @@
                                     </div>
                                     {% include 'partials/form_field_errors.html' with field=form.avatar %}
                                     <div id="avatar-file-name" style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:.4rem;"></div>
-                                </div>
-                            </div>
+                            </div></div>
                         </div>
 
                         <div class="card-section" id="sec-social">
                             <div class="section-heading">
                                 <i class="fas fa-link me-2"></i>{% trans "Social & links" %}
-                                <span class="text-muted" style="font-size: 0.9rem; font-weight: normal;">({% trans "examples below" %})</span>
                             </div>
-                            
-                            <!-- Examples hint -->
-                            <div style="background: rgba(255,255,255,0.04); padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc2626; max-width: 100%; overflow: hidden;">
-                                <div class="social-examples-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.9rem;">
-                                    <div>
-                                        <strong><i class="fab fa-github me-2"></i>{% trans "GitHub" %}:</strong><br>
-                                        <code>https://github.com/username</code>
-                                    </div>
-                                    <div>
-                                        <strong><i class="fas fa-globe me-2" style="color: #3b82f6;"></i>{% trans "Website" %}:</strong><br>
-                                        <code>https://example.com</code>
-                                    </div>
-                                    <div>
-                                        <strong><i class="fab fa-telegram me-2" style="color: #0088cc;"></i>{% trans "Telegram" %}:</strong><br>
-                                        <code>https://t.me/username</code>
-                                    </div>
-                                    <div>
-                                        <strong><i class="fab fa-discord me-2" style="color: #5865F2;"></i>{% trans "Discord" %}:</strong><br>
-                                        <code>https://discord.com/users/123456</code>
-                                    </div>
-                                </div>
+                            <div class="link-format-hint">
+                                <i class="fas fa-circle-info" aria-hidden="true"></i>
+                                <span>{% trans "Use a full link beginning with https:// — for example" %} <code>https://t.me/username</code>.</span>
                             </div>
                             
                             <div class="row g-3">
@@ -419,16 +569,20 @@
                             </div>
                         {% endif %}
 
-                        <div id="profile-draft-status" style="font-size:.72rem;font-family:'Courier New',monospace;color:rgba(255,255,255,.3);margin-bottom:.5rem;min-height:1.2em;transition:opacity .3s;"></div>
+                        <div id="profile-draft-status" class="profile-draft-status" role="status" aria-live="polite"></div>
                         <div class="edit-actions">
                             <button type="submit" class="btn btn-primary btn-modern">{% trans "Save changes" %}</button>
-                            <a href="{% url 'users:profile' %}" class="btn btn-outline-secondary btn-modern">{% trans "Cancel" %}</a>
+                            <a href="{% url 'users:profile' %}" class="btn btn-outline-secondary btn-modern" data-cancel-profile>{% trans "Cancel" %}</a>
                         </div>
                     </form>
                 </div>
             </div>
         </div>
     </div>
+</div>
+<div class="edit-save-dock" id="edit-save-dock" aria-hidden="true">
+    <span><i class="fas fa-circle-exclamation me-1" aria-hidden="true"></i>{% trans "You have unsaved changes" %}</span>
+    <button type="submit" form="profile-edit-form"><i class="fas fa-check me-1" aria-hidden="true"></i>{% trans "Save" %}</button>
 </div>
 {% endblock %}
 
@@ -447,8 +601,9 @@
         var scrollY = window.scrollY + 120;
         var active = sections[0];
         sections.forEach(function(s){ if (s.sec.offsetTop <= scrollY) active = s; });
-        tabs.forEach(function(t){ t.classList.remove('active'); });
+        tabs.forEach(function(t){ t.classList.remove('active'); t.removeAttribute('aria-current'); });
         active.tab.classList.add('active');
+        active.tab.setAttribute('aria-current', 'location');
     }
     window.addEventListener('scroll', updateActive, { passive: true });
     tabs.forEach(function(tab){
@@ -462,13 +617,19 @@
 
 /* ── Profile edit auto-save (U2-08) ── */
 (function(){
-    var KEY = 'iesa-profile-draft-v1';
+    var KEY = 'iesa-profile-draft-v2-{{ request.user.pk }}';
     var FIELDS = ['first_name','last_name','email','date_of_birth','phone_number',
                   'github_url','discord_url','telegram_url','website_url','other_links'];
     var form    = document.querySelector('.edit-form');
     var statusEl= document.getElementById('profile-draft-status');
     var saveTimer = null;
     var statusTimer = null;
+    var baseline = {};
+
+    FIELDS.forEach(function(name){
+        var field = form && form.querySelector('[name="'+name+'"]');
+        if (field) baseline[name] = field.value;
+    });
 
     function setStatus(msg, fade) {
         if (!statusEl) return;
@@ -486,26 +647,29 @@
             if (el && el.type !== 'file' && el.type !== 'password') data[name] = el.value;
         });
         try {
-            localStorage.setItem(KEY, JSON.stringify({ data: data, ts: Date.now() }));
-            setStatus('✓ {% trans "Draft saved" %}', true);
+            sessionStorage.setItem(KEY, JSON.stringify({ data: data, baseline: baseline, ts: Date.now() }));
+            setStatus('{% trans "Draft saved in this tab" %}', true);
         } catch(e) {}
     }
 
     function restoreDraft() {
         try {
-            var raw = localStorage.getItem(KEY);
+            var raw = sessionStorage.getItem(KEY);
             if (!raw) return;
             var d = JSON.parse(raw);
             if (!d || Date.now() - d.ts > 86400000) return;
             var restored = false;
             FIELDS.forEach(function(name){
                 var el = form && form.querySelector('[name="'+name+'"]');
-                if (el && !el.value && d.data && d.data[name]) {
-                    el.value = d.data[name];
+                if (el && d.data && d.baseline && el.value === d.baseline[name] && d.data[name] !== d.baseline[name]) {
+                    el.value = d.data[name] || '';
                     restored = true;
                 }
             });
-            if (restored) setStatus('↩ {% trans "Draft restored" %}', true);
+            if (restored) {
+                form.dataset.draftRestored = '1';
+                setStatus('{% trans "Draft restored" %}', true);
+            }
         } catch(e) {}
     }
 
@@ -520,11 +684,39 @@
             if (el) el.addEventListener('input', scheduleSave);
         });
         form.addEventListener('submit', function(){
-            try { localStorage.removeItem(KEY); } catch(e) {}
+            try { sessionStorage.removeItem(KEY); } catch(e) {}
         });
         restoreDraft();
     }
     setInterval(saveDraft, 30000);
+})();
+
+/* Explicit save UX: reveal a dock and guard navigation when the form is dirty. */
+(function(){
+    var form = document.getElementById('profile-edit-form');
+    var dock = document.getElementById('edit-save-dock');
+    var cancel = document.querySelector('[data-cancel-profile]');
+    var dirty = false;
+    if (!form || !dock) return;
+
+    function markDirty(){
+        dirty = true;
+        dock.classList.add('visible');
+        dock.setAttribute('aria-hidden', 'false');
+    }
+    form.addEventListener('input', markDirty);
+    form.addEventListener('change', markDirty);
+    if (form.dataset.draftRestored === '1') markDirty();
+    form.addEventListener('submit', function(){ dirty = false; });
+    if (cancel) cancel.addEventListener('click', function(event){
+        if (dirty && !window.confirm('{% trans "Discard your unsaved changes?" %}')) event.preventDefault();
+        else dirty = false;
+    });
+    window.addEventListener('beforeunload', function(event){
+        if (!dirty) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
 })();
 
 /* ── 3g: Avatar drag & drop ── */
@@ -561,11 +753,11 @@
 
     function handleFile(file) {
         if (!file.type.startsWith('image/')) {
-            if (label) label.textContent = '❌ {% trans "Not an image" %}';
+            if (label) label.textContent = '{% trans "Not an image" %}';
             return;
         }
         if (file.size > 5 * 1024 * 1024) {
-            if (label) label.textContent = '❌ {% trans "File too large (max 5 MB)" %}';
+            if (label) label.textContent = '{% trans "File too large (max 5 MB)" %}';
             return;
         }
         // Preview
@@ -581,7 +773,7 @@
             dt.items.add(file);
             realInp.files = dt.files;
         }
-        if (label) label.textContent = '📎 ' + file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
+        if (label) label.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
         // Зелёная рамка
         zone.style.borderColor = '#4ade80';
         setTimeout(function () { zone.style.borderColor = 'rgba(255,255,255,.15)'; }, 2000);
@@ -594,80 +786,5 @@
     if (phoneEl && window._applyPhoneMask) window._applyPhoneMask(phoneEl);
 })();
 
-/* ── 3e: Inline autosave individual fields ── */
-(function () {
-    var SAVE_URL = '{% url "users:profile_field_save" %}';
-    var CSRF     = document.querySelector('[name=csrfmiddlewaretoken]');
-    if (!CSRF) return;
-
-    var INLINE_FIELDS = {
-        'id_first_name':   'first_name',
-        'id_last_name':    'last_name',
-        'id_phone_number': 'phone_number',
-        'id_pseudonym':    'pseudonym',
-        'id_github_url':   'github_url',
-        'id_discord_url':  'discord_url',
-        'id_telegram_url': 'telegram_url',
-        'id_website_url':  'website_url',
-    };
-
-    Object.keys(INLINE_FIELDS).forEach(function (elId) {
-        var el = document.getElementById(elId);
-        if (!el) return;
-
-        // Добавляем маленький статус-бейдж под полем
-        var badge = document.createElement('span');
-        badge.style.cssText = 'font-size:.65rem;font-family:var(--font-mono);margin-left:.5rem;opacity:0;transition:opacity .3s;';
-        el.parentNode.appendChild(badge);
-
-        var timer, lastVal = el.value;
-
-        function showBadge(msg, color) {
-            badge.textContent = msg;
-            badge.style.color = color;
-            badge.style.opacity = '1';
-            setTimeout(function () { badge.style.opacity = '0'; }, 2500);
-        }
-
-        function save() {
-            var val = el.value.trim();
-            if (val === lastVal) return;
-            badge.textContent = '{% trans "Saving…" %}';
-            badge.style.color = 'rgba(255,255,255,.3)';
-            badge.style.opacity = '1';
-
-            var body = new URLSearchParams({
-                csrfmiddlewaretoken: CSRF.value,
-                field: INLINE_FIELDS[elId],
-                value: val,
-            });
-            fetch(SAVE_URL, { method: 'POST', body: body })
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    if (d.ok) {
-                        lastVal = val;
-                        showBadge('✓ {% trans "Saved" %}', '#4ade80');
-                        // Обновляем progress bar если он есть
-                        var fillEl = document.getElementById('pcp-fill');
-                        if (fillEl && d.completeness_percent != null) {
-                            fillEl.style.width = d.completeness_percent + '%';
-                        }
-                    } else {
-                        showBadge('✗ {% trans "Error" %}', '#f87171');
-                    }
-                })
-                .catch(function () { showBadge('✗ {% trans "Error" %}', '#f87171'); });
-        }
-
-        el.addEventListener('blur', function () {
-            clearTimeout(timer);
-            save();
-        });
-        el.addEventListener('input', function () {
-            clearTimeout(timer);
-            timer = setTimeout(save, 1500);
-        });
-    });
-})();
 </script>
 {% endblock %}

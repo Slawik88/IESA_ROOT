@@ -17,7 +17,6 @@
 {% block container_wrap_end %}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/profile-page.css' %}">
 {# styles → static/css/profile-page.css (П9-01) #}
 <style>
 /* ══ Блок заявки на повышение статуса (ACR) ══════════════════════════
@@ -434,6 +433,7 @@
 .acr-pn-sub strong { color:#fbbf24; }
 .acr-pn-date { font-size:.75rem; color:rgba(255,255,255,.32); font-family:var(--font-mono); }
 </style>
+<link rel="stylesheet" href="{% static 'css/profile-page.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -453,12 +453,13 @@
           {% endif %}
           <div class="cab-online-dot"></div>
         </div>
-        <div>
+        <div class="cab-identity-copy">
           <h1 class="cab-name">
             {{ profile_user.first_name|default:profile_user.username }}{% if profile_user.last_name %} {{ profile_user.last_name }}{% endif %}
           </h1>
-          <p class="cab-sub">@{{ profile_user.username }} &nbsp;·&nbsp; {{ profile_user.email }}</p>
-          <div class="cab-badges">
+          <p class="cab-sub"><span>@{{ profile_user.username }}</span><span aria-hidden="true">·</span><span>{{ profile_user.email }}</span></p>
+        </div>
+        <div class="cab-badges">
             {# BLOCK 10/11 (audit v4): иерархия ролей — Owner > Staff > President > Partner > Member > Verified #}
             {% if profile_user.is_superuser %}
               <span class="sb sb-owner"><i class="fas fa-crown"></i> Owner</span>
@@ -484,7 +485,6 @@
             {% else %}
               <span class="sb sb-grey"><i class="fas fa-envelope-open"></i> {% trans "E-mail not confirmed" %}</span>
             {% endif %}
-          </div>
         </div>
       </div>
       <div class="hero-actions">
@@ -492,9 +492,10 @@
           <i class="fas fa-pencil-alt"></i> {% trans "Edit Profile" %}
         </a>
         {% if profile_user.permanent_id %}
-          <a href="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}?download=1" class="btn-cab-outline" data-tour="qr">
-            <i class="fas fa-qrcode"></i> {% trans "QR Code" %}
-          </a>
+          <button type="button" class="btn-cab-outline" data-tour="qr"
+                  onclick="if(window.IESAOpenQR){window.IESAOpenQR(this);}">
+            <i class="fas fa-qrcode" aria-hidden="true"></i> {% trans "Show QR" %}
+          </button>
         {% endif %}
         {% if profile_user.is_partner or profile_user.partner_profile %}
           <a href="{% url 'users:partner_dashboard' %}" class="btn-cab-outline">
@@ -511,8 +512,9 @@
   </div>
 
   {# ═══════ БЫСТРАЯ НАВИГАЦИЯ ═══════ #}
-  <div class="cab-wrap" style="padding-bottom:0; margin-bottom:0;">
-    <nav class="cab-quick-nav" aria-label="{% trans 'Cabinet navigation' %}">
+  <div class="cab-nav-shell">
+    <div class="cab-wrap" style="padding-bottom:0; margin-bottom:0;">
+    <nav class="cab-quick-nav" aria-label="{% trans 'Cabinet navigation' %}" data-cab-quick-nav>
       <a href="#stats-section" class="cab-qn-item active">
         <i class="fas fa-tachometer-alt"></i> {% trans "Overview" %}
       </a>
@@ -544,6 +546,8 @@
         <i class="fas fa-sliders-h"></i> {% trans "Settings" %}
       </a>
     </nav>
+    <span class="cab-nav-more" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+    </div>
   </div>
 
   <div class="cab-wrap cab-wrap--verification">
@@ -662,6 +666,11 @@
   }
   @media (max-width: 1180px) {
     .pcp-wrap { margin-left: 1.25rem; margin-right: 1.25rem; }
+  }
+  @media (max-width: 359.98px) {
+    .pcp-wrap { margin-left:1rem; margin-right:1rem; padding:.8rem 1rem; }
+    .pcp-label { white-space:nowrap; font-size:.66rem; letter-spacing:.05em; }
+    .pcp-toggle { margin-left:.15rem; }
   }
   .pcp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
   .pcp-label  { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.38); }
@@ -882,17 +891,18 @@
         <div><p class="stat-lbl">{% trans "Points" %}</p><p class="stat-val">{{ profile_user.activity_points }}</p></div>
       </div>
     </div>
+    </div><!-- /stats-section -->
 
     <!-- ═══════════ 2-COL GRID ═══════════ -->
-    <div class="row g-4" style="--bs-gutter-x:1.25rem;">
+    <div class="row g-4 cab-dashboard-grid" style="--bs-gutter-x:1.25rem;">
 
       <!-- ── LEFT ── -->
-      <div class="col-lg-4">
+      <div class="col-lg-4 cab-side">
 
         <!-- ACTIVITY LEVEL -->
         {% with level_info=profile_user.get_achievement_level %}
-        <div class="cab-card mb-3" data-reveal data-delay="2">
-          <p class="cab-card-title">{% trans "Activity Level" %}</p>
+        <div class="cab-card mb-3 cab-order-activity" data-reveal data-delay="2">
+          <h2 class="cab-card-title">{% trans "Activity Level" %}</h2>
           <div class="level-row">
             <div>
               <div class="level-pts-big">{{ profile_user.activity_points }}<span class="level-pts-lbl"> {% trans "pts" %}</span></div>
@@ -933,8 +943,8 @@
         {% endwith %}
 
         <!-- TELEGRAM -->
-        <div class="cab-card mb-3" data-reveal data-delay="3" style="border-color:rgba(41,168,235,0.22);">
-          <p class="cab-card-title">Telegram</p>
+        <div class="cab-card mb-3 cab-order-telegram" data-reveal data-delay="3" style="border-color:rgba(41,168,235,0.22);">
+          <h2 class="cab-card-title">Telegram</h2>
           <div class="tg-row">
             <div class="tg-icon-wrap {% if user.telegram_linked_at %}connected{% else %}disconnected{% endif %}">
               <i class="fab fa-telegram"></i>
@@ -966,22 +976,32 @@
 
         <!-- QR CODE -->
         {% if profile_user.permanent_id %}
-        <div class="cab-card mb-3" data-reveal data-delay="{% if current_pin %}5{% else %}4{% endif %}"
+        <div class="cab-card mb-3 cab-order-qr" data-reveal data-delay="{% if current_pin %}5{% else %}4{% endif %}"
           {% if show_quick_actions %}data-onb-tip="{% trans 'Scan at any partner for quick check-in' %}"{% endif %}>
-          <p class="cab-card-title">{% trans "Your QR Card" %}</p>
+          <h2 class="cab-card-title">{% trans "Your QR Card" %}</h2>
           <div class="qr-wrap">
-            <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}">
-              <img loading="lazy" src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" alt="QR Code">
-            </a>
-            <p class="mt-2 mb-0" style="font-size:.78rem;color:var(--muted);">{% trans "Scan to open your public profile" %}</p>
+            <button type="button" class="qr-preview-button"
+                    onclick="if(window.IESAOpenQR){window.IESAOpenQR(this);}"
+                    aria-label="{% trans 'Show QR code full screen' %}">
+              <img loading="lazy" src="{% url 'users:user_qr' permanent_id=profile_user.permanent_id %}" alt="{% trans 'Membership QR code' %}">
+            </button>
+            <p class="qr-help">{% trans "Show this code at a partner location for a quick check-in." %}</p>
+            <div class="qr-actions">
+              <button type="button" class="btn-cab-primary" onclick="if(window.IESAOpenQR){window.IESAOpenQR(this);}">
+                <i class="fas fa-expand" aria-hidden="true"></i> {% trans "Full screen" %}
+              </button>
+              <a href="{% url 'users:profile_by_card' permanent_id=profile_user.permanent_id %}" class="btn-cab-outline">
+                <i class="fas fa-user" aria-hidden="true"></i> {% trans "Public profile" %}
+              </a>
+            </div>
           </div>
         </div>
         {% endif %}
 
         <!-- SOCIAL LINKS -->
         {% if profile_user.github_url or profile_user.website_url or profile_user.telegram_url or profile_user.discord_url %}
-        <div class="cab-card mb-3" data-reveal data-delay="5">
-          <p class="cab-card-title">{% trans "Links" %}</p>
+        <div class="cab-card mb-3 cab-order-links" data-reveal data-delay="5">
+          <h2 class="cab-card-title">{% trans "Links" %}</h2>
           <div class="link-chips">
             {% if profile_user.github_url %}
               <a href="{{ profile_user.github_url }}" target="_blank" class="link-chip" rel="noopener noreferrer"><i class="fab fa-github"></i> GitHub</a>
@@ -1002,12 +1022,12 @@
       </div><!-- /col-lg-4 -->
 
       <!-- ── RIGHT ── -->
-      <div class="col-lg-8" id="posts-section">
+      <div class="col-lg-8 cab-main">
 
         <!-- ACCOUNT INFO -->
-        <div class="cab-card mb-3" data-reveal data-delay="2">
+        <div class="cab-card mb-3 cab-order-account" data-reveal data-delay="2">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;">
-            <p class="cab-card-title" style="margin:0;">{% trans "Account Info" %}</p>
+            <h2 class="cab-card-title" style="margin:0;">{% trans "Account Info" %}</h2>
             <a href="{% url 'users:profile_edit' %}" class="btn-cab-outline" style="padding:.28rem .75rem;font-size:.78rem;">
               <i class="fas fa-pencil-alt me-1"></i>{% trans "Edit" %}
             </a>
@@ -1056,9 +1076,9 @@
         </div>
 
         <!-- MY POSTS -->
-        <div class="cab-card" data-reveal data-delay="4">
+        <div class="cab-card cab-order-posts" id="posts-section" data-reveal data-delay="4">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem;">
-            <p class="cab-card-title" style="margin:0;">{% trans "My Posts" %}</p>
+            <h2 class="cab-card-title" style="margin:0;">{% trans "My Posts" %}</h2>
             <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
               {% if pending_count %}<span class="pst-badge pst-pending"><i class="fas fa-clock"></i> {{ pending_count }}</span>{% endif %}
               {% if published_count %}<span class="pst-badge pst-published"><i class="fas fa-check"></i> {{ published_count }}</span>{% endif %}
@@ -1127,11 +1147,11 @@
 
         {# ══════ PIN & CARD SECTION (перенесено из member_cabinet) ══════ #}
         {# BLOCK 3a (audit v3): PIN-секция доступна всем — TOTP + permanent_id есть у каждого юзера #}
-        <div id="pin-section" class="cab-card mb-3" data-reveal data-delay="5">
-          <p class="cab-card-title">
+        <div id="pin-section" class="cab-card mb-3 cab-order-pin" data-reveal data-delay="5">
+          <h2 class="cab-card-title">
             <i class="fas fa-fingerprint" style="color:var(--red);"></i>
             {% trans "PIN & Membership Card" %}
-          </p>
+          </h2>
 
           {% if current_pin %}
           {# BLOCK 8 (audit v4): отображение PIN-кода большими цифрами с обратным отсчётом #}
@@ -1163,7 +1183,12 @@
           </div>
 
           {# ── Шаги использования PIN ── #}
-          <div class="steps-grid mb-3">
+          <details class="pin-help mb-3">
+            <summary>
+              <span><i class="fas fa-circle-info" aria-hidden="true"></i> {% trans "How to use your PIN" %}</span>
+              <span class="pin-help-count">{% trans "4 steps" %}</span>
+            </summary>
+          <div class="steps-grid">
             <div class="step-card">
               <div class="step-num-badge">1</div>
               <div class="step-title">{% trans "Visit a partner" %}</div>
@@ -1181,10 +1206,11 @@
             </div>
             <div class="step-card">
               <div class="step-num-badge">4</div>
-              <div class="step-title">{% trans "Get notified ✅" %}</div>
+              <div class="step-title">{% trans "Get notified" %}</div>
               <div class="step-desc">{% trans "Visit is logged. Telegram confirmation incoming." %}</div>
             </div>
           </div>
+          </details>
           {% else %}
           <div style="background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.22);border-radius:12px;padding:1rem 1.25rem;color:#fbbf24;font-size:.88rem;margin-bottom:1rem;">
             <i class="fas fa-exclamation-triangle me-2"></i>
@@ -1211,12 +1237,12 @@
 
         {# ══════ VISIT HISTORY (перенесено из member_cabinet) ══════ #}
         {% if recent_visits %}
-        <div class="cab-card mb-3" data-reveal data-delay="6">
+        <div class="cab-card mb-3 cab-order-visits" data-reveal data-delay="6">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-            <p class="cab-card-title" style="margin:0;">
+            <h2 class="cab-card-title" style="margin:0;">
               <i class="fas fa-history" style="color:var(--red);"></i>
               {% trans "Visit History" %}
-            </p>
+            </h2>
             <span style="font-size:.72rem;color:var(--muted);">{% trans "last 20" %}</span>
           </div>
           <div class="vh-list">
@@ -1244,8 +1270,8 @@
           </div>
         </div>
         {% elif profile_user.membership_status == 'active' %}
-        <div class="cab-card mb-3" data-reveal data-delay="6">
-          <p class="cab-card-title"><i class="fas fa-history" style="color:var(--red);"></i> {% trans "Visit History" %}</p>
+        <div class="cab-card mb-3 cab-order-visits" data-reveal data-delay="6">
+          <h2 class="cab-card-title"><i class="fas fa-history" style="color:var(--red);"></i> {% trans "Visit History" %}</h2>
           <div class="vh-empty">
             <i class="fas fa-map-marker-alt"></i>
             {% trans "No visits recorded yet. Visit a partner to see history here." %}
@@ -1261,7 +1287,21 @@
   {% if not user.is_partner %}
   <div class="cab-wrap" style="margin-top:0; padding-top:0;">
     <div id="acr-section" data-reveal data-delay="5">
-      {% include 'users/partials/acr_form.html' %}
+      {% if pending_upgrade_request %}
+        {% include 'users/partials/acr_form.html' %}
+      {% else %}
+      <details class="acr-disclosure" id="acr-disclosure">
+        <summary>
+          <span class="acr-disclosure-icon"><i class="fas fa-handshake" aria-hidden="true"></i></span>
+          <span class="acr-disclosure-copy">
+            <strong>{% trans "Become an IESA partner" %}</strong>
+            <small>{% trans "Open the application only when you're ready. Your profile details will be prefilled." %}</small>
+          </span>
+          <span class="acr-disclosure-action">{% trans "Open form" %} <i class="fas fa-chevron-down" aria-hidden="true"></i></span>
+        </summary>
+        {% include 'users/partials/acr_form.html' %}
+      </details>
+      {% endif %}
     </div>
   </div>
   {% endif %}
@@ -1271,6 +1311,45 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+
+  /* Keep the compact cabinet navigation in sync with visible sections. */
+  var quickNav = document.querySelector('[data-cab-quick-nav]');
+  if (quickNav) {
+    var anchorLinks = Array.prototype.slice.call(quickNav.querySelectorAll('a[href^="#"]'));
+    var observedSections = anchorLinks.map(function(link){
+      var section = document.querySelector(link.getAttribute('href'));
+      return section ? { link: link, section: section } : null;
+    }).filter(Boolean);
+
+    function activateQuickLink(link) {
+      anchorLinks.forEach(function(item){ item.classList.toggle('active', item === link); });
+      if (link && typeof link.scrollIntoView === 'function') {
+        link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+
+    anchorLinks.forEach(function(link){
+      link.addEventListener('click', function(){
+        var disclosure = link.getAttribute('href') === '#acr-section' && document.getElementById('acr-disclosure');
+        if (disclosure) disclosure.open = true;
+        activateQuickLink(link);
+      });
+    });
+
+    if ('IntersectionObserver' in window && observedSections.length) {
+      var sectionObserver = new IntersectionObserver(function(entries){
+        var visible = entries.filter(function(entry){ return entry.isIntersecting; })
+          .sort(function(a, b){ return b.intersectionRatio - a.intersectionRatio; });
+        if (!visible.length) return;
+        var match = observedSections.find(function(item){ return item.section === visible[0].target; });
+        if (match) activateQuickLink(match.link);
+      }, { rootMargin: '-28% 0px -58% 0px', threshold: [0, .15, .4] });
+      observedSections.forEach(function(item){ sectionObserver.observe(item.section); });
+    }
+  }
+
+  var acrDisclosure = document.getElementById('acr-disclosure');
+  if (acrDisclosure && window.location.hash === '#acr-section') acrDisclosure.open = true;
 
   /* ── particle canvas ── */
   var c = document.getElementById('cab-canvas');
