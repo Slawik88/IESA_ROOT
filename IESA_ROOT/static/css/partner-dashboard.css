@@ -321,6 +321,14 @@ body:has(.pp-wrap) { background: #06060d !important; }
 .pp-member-info { flex: 1; min-width: 0; }
 .pp-member-fullname { font-size: 1rem; font-weight: 600; color: #fff; }
 .pp-member-un { font-size: .78rem; color: rgba(255,255,255,.4); font-family: var(--font-mono); }
+.pp-member-partner {
+  flex: 0 0 auto;
+  max-width: 34%;
+  font-size: .72rem;
+  color: rgba(255,255,255,.35);
+  font-family: var(--font-mono);
+  text-align: right;
+}
 .status-active   { color: #4ade80; }
 .status-inactive { color: #f87171; }
 
@@ -474,3 +482,57 @@ body:has(.pmv-wrap) { background: #06060d !important; }
 .pmc-table tr:last-child td { border-bottom: none; }
 .pmc-table tr:hover td { background: rgba(255,255,255,.02); }
 @media (max-width: 600px) { .pmc { margin: 14px 12px 0; } }
+
+@media (max-width: 700px) {
+  .pp-member-banner {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 14px;
+  }
+  .pp-member-info { flex-basis: calc(100% - 62px); }
+  .pp-member-fullname,
+  .pp-member-un { overflow-wrap: anywhere; }
+  .pp-member-partner {
+    width: 100%;
+    max-width: none;
+    margin-left: 62px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,.06);
+    text-align: left;
+  }
+
+  .pmc-table { display: block; padding: 10px; }
+  .pmc-table thead { display: none; }
+  .pmc-table tbody { display: grid; gap: 10px; }
+  .pmc-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 10px;
+    background: rgba(255,255,255,.025);
+  }
+  .pmc-table td {
+    display: grid;
+    grid-template-columns: minmax(78px, .45fr) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    max-width: none !important;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,.045);
+    overflow-wrap: anywhere;
+  }
+  .pmc-table td::before {
+    content: attr(data-label);
+    color: rgba(255,255,255,.35);
+    font-family: var(--font-mono);
+    font-size: .64rem;
+    font-weight: 700;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+  }
+  .pmc-table td:last-child { border-bottom: 0; }
+  .pmc-table .pmv-row-actions.is-empty { display: none; }
+  .pmc-table .pmv-row-actions:not(.is-empty) { display: flex; gap: 14px; }
+  .pmc-table .pmv-row-actions:not(.is-empty)::before { min-width: 66px; }
+}

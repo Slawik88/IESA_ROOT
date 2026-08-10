@@ -102,7 +102,7 @@
                     {% csrf_token %}
 
                     <div class="mb-4">
-                        <label class="pc-form-label d-flex justify-content-between align-items-baseline">
+                        <label for="{{ form.title.id_for_label }}" class="pc-form-label d-flex justify-content-between align-items-baseline">
                             <span>{{ form.title.label }}</span>
                             <span id="title-char-counter" style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 / 200</span>
                         </label>
@@ -111,7 +111,7 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="pc-form-label d-flex justify-content-between align-items-baseline">
+                        <label for="{{ form.text.id_for_label }}" class="pc-form-label d-flex justify-content-between align-items-baseline">
                             <span>{{ form.text.label }}</span>
                             <span id="content-word-counter" style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 {% trans "words" %}</span>
                         </label>
@@ -121,7 +121,7 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="pc-form-label">{{ form.preview_image.label }}</label>
+                        <label for="{{ form.preview_image.id_for_label }}" class="pc-form-label">{{ form.preview_image.label }}</label>
                         {{ form.preview_image }}
                         {% if form.preview_image.errors %}<div class="text-danger small mt-1">{{ form.preview_image.errors }}</div>{% endif %}
                     </div>

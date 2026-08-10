@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_http_methods
@@ -35,7 +36,8 @@ def invite_generate(request):
                 expires_at=timezone.now() + timedelta(days=days),
                 created_by=request.user,
             )
-            messages.success(request, f"Инвайт создан! Ссылка: {request.build_absolute_uri(f'/users/invite/{invite.token}/')}")
+            invite_path = reverse('users:invite_register', kwargs={'token': invite.token})
+            messages.success(request, f"Инвайт создан! Ссылка: {request.build_absolute_uri(invite_path)}")
             return redirect('users:invite_list')
     else:
         form = InviteGenerateForm()

@@ -44,7 +44,7 @@
       </div>
     </div>
     {% if partner %}
-    <div style="font-size:.72rem;color:rgba(255,255,255,.25);font-family:var(--font-mono);text-align:right;">
+    <div class="pp-member-partner">
       {{ partner.company_name }}<br>{{ partner.get_business_type_display }}
     </div>
     {% endif %}
@@ -67,27 +67,27 @@
   <form method="post" id="log-visit-form">
     {% csrf_token %}
     <div class="pp-field">
-      <label>{% trans "Service Type" %} *</label>
+      <label for="{{ form.service_type.id_for_label }}">{% trans "Service Type" %} *</label>
       {{ form.service_type }}
       {% if form.service_type.errors %}<ul class="errorlist">{% for e in form.service_type.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
     </div>
     <div class="pp-field">
-      <label>{% trans "Service Description" %}</label>
+      <label for="{{ form.service_description.id_for_label }}">{% trans "Service Description" %}</label>
       {{ form.service_description }}
       {% if form.service_description.errors %}<ul class="errorlist">{% for e in form.service_description.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
     </div>
     <div class="pp-field">
-      <label>{% trans "Cost CHF" %}</label>
+      <label for="{{ form.cost.id_for_label }}">{% trans "Cost CHF" %}</label>
       {{ form.cost }}
       {% if form.cost.errors %}<ul class="errorlist">{% for e in form.cost.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
     </div>
     <div class="pp-field">
-      <label>{% trans "Additional Comments" %}</label>
+      <label for="{{ form.comments.id_for_label }}">{% trans "Additional Comments" %}</label>
       {{ form.comments }}
     </div>
     <hr class="pp-divider">
     <div class="pp-field pp-pin-field">
-      <label>🔑 {% trans "Member PIN Code (6 digits)" %} *</label>
+      <label for="{{ form.pin.id_for_label }}">🔑 {% trans "Member PIN Code (6 digits)" %} *</label>
       {{ form.pin }}
       {% if form.pin.errors %}<ul class="errorlist">{% for e in form.pin.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
       <div class="pp-pin-hint">{% trans "Ask the member to show their current PIN from their personal cabinet" %}</div>

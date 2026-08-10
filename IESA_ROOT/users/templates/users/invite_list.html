@@ -3,6 +3,35 @@
 
 {% block title %}{% trans "Invite Links" %} — Admin{% endblock %}
 
+{% block extra_css %}
+<style>
+.invite-table-wrap {
+    overflow-x: auto;
+    background: #111118;
+    border: 1.5px solid rgba(255,255,255,.07);
+    border-radius: 16px;
+    -webkit-overflow-scrolling: touch;
+}
+.invite-table { min-width: 960px; width: 100%; border-collapse: collapse; }
+@media (max-width: 767.98px) {
+    .invite-table-wrap {
+        margin-inline: -4px;
+        border-radius: 12px;
+    }
+    .invite-table-wrap::after {
+        content: "{% trans 'Swipe horizontally to see all columns' %}";
+        display: block;
+        position: sticky;
+        left: 0;
+        width: max-content;
+        padding: .6rem 1rem;
+        color: rgba(255,255,255,.4);
+        font-size: .72rem;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container-limited" style="padding-top:2.5rem;padding-bottom:4rem;">
 
@@ -28,13 +57,20 @@
     {% endif %}
 
     {% if invites %}
-    <div style="background:#111118;border:1.5px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden;">
-        <table style="width:100%;border-collapse:collapse;">
+    <div class="invite-table-wrap" tabindex="0" role="region" aria-label="{% trans 'Invite links table' %}">
+        <table class="invite-table">
+            <caption class="visually-hidden">{% trans "Generated partner invite links" %}</caption>
             <thead>
                 <tr style="border-bottom:1px solid rgba(255,255,255,.07);">
-                    {% for h in "Type,Company,Note,Created by,Used by,Uses,Expires,Active,Link"|split:"," %}
-                    <th style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{{ h }}</th>
-                    {% endfor %}
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Type" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Company" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Note" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Created by" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Used by" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Uses" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Expires" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Active" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Link" %}</th>
                 </tr>
             </thead>
             <tbody>
@@ -61,7 +97,7 @@
                         {% endif %}
                     </td>
                     <td style="padding:.7rem 1rem;">
-                        <a href="/users/invite/{{ inv.token }}/"
+                        <a href="{% url 'users:invite_register' inv.token %}"
                            style="font-size:.78rem;color:rgba(220,38,38,.7);font-family:var(--font-mono);word-break:break-all;"
                            title="Copy this link">/invite/{{ inv.token|truncatechars:12 }}</a>
                     </td>

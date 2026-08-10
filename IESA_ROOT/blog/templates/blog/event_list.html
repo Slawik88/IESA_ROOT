@@ -63,8 +63,8 @@
                   hx-target="#events-container"
                   hx-trigger="input from:[name='search'] delay:300ms, change from:select"
                   hx-swap="innerHTML">
-                <label class="cmd-lbl">QUERY_</label>
-                <input type="text" name="search" value="{{ search }}" class="cmd-input"
+                <label class="cmd-lbl" for="event-search">QUERY_</label>
+                <input id="event-search" type="text" name="search" value="{{ search }}" class="cmd-input"
                        placeholder="{% trans "type to search..." %}" autocomplete="off">
             </form>
 
@@ -73,8 +73,8 @@
             <!-- Filters -->
             <div class="cmd-filters">
                 <div class="cmd-filter-group">
-                    <label class="cmd-lbl">STATUS_</label>
-                    <select name="status" class="cmd-select"
+                    <label class="cmd-lbl" for="event-status">STATUS_</label>
+                    <select id="event-status" name="status" class="cmd-select"
                             form="event-filters">
                         <option value="upcoming" {% if status == 'upcoming' %}selected{% endif %}>{% trans "UPCOMING" %}</option>
                         <option value="all" {% if status == 'all' %}selected{% endif %}>{% trans "ALL" %}</option>
@@ -82,8 +82,8 @@
                     </select>
                 </div>
                 <div class="cmd-filter-group">
-                    <label class="cmd-lbl">ORDER_</label>
-                    <select name="sort" class="cmd-select"
+                    <label class="cmd-lbl" for="event-sort">ORDER_</label>
+                    <select id="event-sort" name="sort" class="cmd-select"
                             form="event-filters">
                         <option value="date" {% if sort == 'date' %}selected{% endif %}>{% trans "DATE ↑" %}</option>
                         <option value="-date" {% if sort == '-date' %}selected{% endif %}>{% trans "DATE ↓" %}</option>
@@ -93,8 +93,8 @@
                 </div>
                 {% if categories %}
                 <div class="cmd-filter-group">
-                    <label class="cmd-lbl">CATEG_</label>
-                    <select name="category" class="cmd-select" form="event-filters">
+                    <label class="cmd-lbl" for="event-category">CATEG_</label>
+                    <select id="event-category" name="category" class="cmd-select" form="event-filters">
                         <option value="">{% trans "ALL" %}</option>
                         {% for cat in categories %}
                         <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat|upper }}</option>
