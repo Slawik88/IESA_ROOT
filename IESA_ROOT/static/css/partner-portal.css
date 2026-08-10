@@ -1630,6 +1630,10 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
     display: contents;
   }
 
+  .partner-portal-shell .dash-nav-section--account {
+    display: none;
+  }
+
   .partner-portal-shell .dash-nav-section-label {
     display: none;
   }

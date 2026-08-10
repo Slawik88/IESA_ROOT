@@ -518,9 +518,6 @@
       <a href="#stats-section" class="cab-qn-item active">
         <i class="fas fa-tachometer-alt"></i> {% trans "Overview" %}
       </a>
-      <a href="#posts-section" class="cab-qn-item">
-        <i class="fas fa-newspaper"></i> {% trans "Posts" %}
-      </a>
       <a href="{% url 'users:user_calendar' %}" class="cab-qn-item">
         <i class="fas fa-calendar-alt"></i> {% trans "My Calendar" %}
       </a>
@@ -532,21 +529,11 @@
       <a href="{% url 'users:partner_dashboard' %}" class="cab-qn-item">
         <i class="fas fa-store"></i> {% trans "Partner Portal" %}
       </a>
-      {% else %}
-      {# HOTFIX 2026-05-22: ACR — заявка на повышение статуса (для не-партнёров) #}
-      <a href="#acr-section" class="cab-qn-item" id="cab-qn-acr">
-        {% if pending_upgrade_request %}
-          <i class="fas fa-hourglass-half" style="color:#fbbf24;"></i> {% trans "Application pending" %}
-        {% else %}
-          <i class="fas fa-arrow-trend-up"></i> {% trans "Apply for partner" %}
-        {% endif %}
-      </a>
       {% endif %}
       <a href="{% url 'users:profile_edit' %}" class="cab-qn-item">
         <i class="fas fa-sliders-h"></i> {% trans "Settings" %}
       </a>
     </nav>
-    <span class="cab-nav-more" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
     </div>
   </div>
 

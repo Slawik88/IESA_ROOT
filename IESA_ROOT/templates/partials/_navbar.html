@@ -16,30 +16,7 @@
             {# ════ МОБИЛЬНЫЙ ПРАВЫЙ БЛОК: иконки + гамбургер вместе (ms-auto) ════ #}
             <div class="iesa-nav-mobile-wrap d-flex d-lg-none align-items-center ms-auto gap-1">
 
-                {% if user.is_authenticated %}
-                {# Колокол с бейджем #}
-                <a href="{% url 'notifications:notification_list' %}"
-                   class="nav-mob-btn"
-                   aria-label="{% trans 'Notifications' %}">
-                    <i class="fas fa-bell"></i>
-                    <span id="navbar-notif-badge-mob" aria-live="polite">
-                        {% if unread_notifications_count > 0 %}
-                        <span class="notif-dot">{{ unread_notifications_count }}</span>
-                        {% endif %}
-                    </span>
-                </a>
-
-                {# Аватар (ведёт в профиль) #}
-                <a href="{% url 'users:profile' %}"
-                   class="nav-mob-avatar"
-                   aria-label="{% trans 'Profile' %}">
-                    {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
-                        <img src="{{ user.avatar.url }}" alt="{{ user.username }}">
-                    {% else %}
-                        <span>{{ user.username|slice:":1"|upper }}</span>
-                    {% endif %}
-                </a>
-                {% else %}
+                {% if not user.is_authenticated %}
                 <a href="{% url 'users:login' %}" class="nav-mob-login">{% trans "Sign In" %}</a>
                 {% endif %}
 
@@ -57,6 +34,7 @@
 
                 <!-- Центральные ссылки (десктоп: горизонталь; мобиль: вертикаль) -->
                 <ul class="navbar-nav mx-auto align-items-lg-center">
+                    <li class="mobile-nav-section-label d-lg-none">{% trans "Community" %}</li>
                     {# 7b: Home скрыт в hamburger на мобиле — дублирует bottom-nav Home #}
                     <li class="nav-item d-none d-lg-block">
                         <a class="nav-link" href="{% url 'core:home' %}">{% trans "Home" %}</a>
@@ -95,6 +73,7 @@
                         <a class="nav-link" href="{% url 'users:register' %}" style="color:#f87171;">{% trans "Register" %}</a>
                     </li>
                     {% else %}
+                    <li class="mobile-nav-section-label d-lg-none">{% trans "Account" %}</li>
                     {# HOTFIX 2026-05-22: Logout-пункт в hamburger меню для мобилы (на ПК есть в profile dropdown) #}
                     <li class="nav-item d-lg-none">
                         <hr class="dropdown-divider" style="margin:.5rem 0;border-color:rgba(255,255,255,.08);">

@@ -182,9 +182,6 @@ img:not([src]), img[src=""] {
   background-size: 200% 100%;
   animation: skeleton-loading 1.5s infinite;
 }
-img {
-  background-color: #1a1a24; /* fallback пока грузится */
-}
 
 /* ══════════════════════════════════════════════════════════════
    10. PROFILE QUICK ACTIONS — HOVER ANIMATIONS
