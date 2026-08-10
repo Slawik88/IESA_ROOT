@@ -185,18 +185,15 @@
 
     let savedScrollY = 0;
 
-    document.addEventListener('htmx:beforeRequest', function () {
+    document.addEventListener('htmx:beforeSwap', function () {
       savedScrollY = window.scrollY;
     });
 
-    document.addEventListener('htmx:afterSettle', function (e) {
-      // Восстанавливаем только если таргет не в видимой части экрана
-      const target = e.detail && e.detail.target;
-      if (target) {
-        const rect = target.getBoundingClientRect();
-        if (rect.top < 0) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+    document.addEventListener('htmx:afterSettle', function () {
+      /* HTMX may replace content above the viewport. Keep the user's exact
+         position; never animate or pull them to a background-updated target. */
+      if (Math.abs(window.scrollY - savedScrollY) > 1) {
+        window.scrollTo({ top: savedScrollY, behavior: 'auto' });
       }
     });
   }

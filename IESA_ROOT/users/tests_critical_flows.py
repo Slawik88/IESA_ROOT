@@ -293,6 +293,15 @@ class DashboardRedirectTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(user.partner_profile.company_name, 'Flag Partner')
 
+    def test_empty_partner_dashboard_has_an_explicit_search_focus_action(self):
+        user, _ = make_partner_user('partner_empty_action')
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('users:partner_dashboard'))
+
+        self.assertContains(response, 'data-focus-member-search')
+        self.assertContains(response, 'type="button"')
+
     def test_anonymous_partner_route_redirects_to_login_instead_of_400(self):
         response = self.client.get(reverse('users:partner_dashboard'))
 

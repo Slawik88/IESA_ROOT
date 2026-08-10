@@ -162,7 +162,10 @@
       <div class="dash-empty">
         <i class="fas fa-person-walking" aria-hidden="true"></i>
         <p>{% trans "No visits have been logged today." %}</p>
-        <a href="#search-section" class="partner-empty-action">{% trans "Find a member" %}</a>
+        <button type="button" class="partner-empty-action" data-focus-member-search>
+          <i class="fas fa-search" aria-hidden="true"></i>
+          {% trans "Find a member" %}
+        </button>
       </div>
       {% endif %}
     </div>
@@ -241,6 +244,14 @@
   var results = document.getElementById('mac-results');
   var spinner = document.getElementById('mac-spinner');
   if (!input || !results) return;
+
+  document.querySelectorAll('[data-focus-member-search]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      document.getElementById('search-section').scrollIntoView({ behavior: 'auto', block: 'start' });
+      input.focus({ preventScroll: true });
+      input.setAttribute('aria-expanded', results.children.length ? 'true' : 'false');
+    });
+  });
 
   function setExpanded() {
     input.setAttribute('aria-expanded', results.children.length ? 'true' : 'false');

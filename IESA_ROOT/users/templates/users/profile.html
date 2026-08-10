@@ -1323,8 +1323,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function activateQuickLink(link) {
       anchorLinks.forEach(function(item){ item.classList.toggle('active', item === link); });
-      if (link && typeof link.scrollIntoView === 'function') {
-        link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      if (link) {
+        /* Keep the active tab visible without moving the document vertically.
+           scrollIntoView() used to pull the whole profile back to this nav on
+           every IntersectionObserver update, making the page appear unable to
+           scroll beyond the PIN card. */
+        var left = link.offsetLeft - (quickNav.clientWidth - link.offsetWidth) / 2;
+        quickNav.scrollTo({ left: Math.max(0, left), behavior: 'smooth' });
       }
     }
 
