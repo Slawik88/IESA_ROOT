@@ -3,6 +3,9 @@
 
 {% block title %}{% trans "Notifications" %} | IESA{% endblock %}
 
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
 {% block extra_css %}
 <style>
 /* ── Dark notification list ─────────────────── */
@@ -10,7 +13,7 @@
     display: flex;
     flex-direction: column;
     gap: .65rem;
-    max-width: 680px;
+    max-width: 760px;
     margin: 0 auto;
 }
 
@@ -84,6 +87,11 @@
     margin-bottom: .4rem;
     line-height: 1.55;
 }
+.notification-page-head { max-width:760px; margin:0 auto 1.5rem; display:flex; align-items:flex-end; gap:1rem; }
+.notification-page-copy { flex:1; min-width:0; }
+.notification-page-copy h1 { color:#fff; font-size:1.45rem; font-weight:800; margin:0 0 .25rem; }
+.notification-page-copy p { color:rgba(255,255,255,.4); font-size:.86rem; margin:0; }
+.notification-back { white-space:nowrap; min-height:40px; display:inline-flex; align-items:center; }
 
 .notification-meta { margin-top: .3rem; }
 .notification-meta .text-muted { color: rgba(255,255,255,.28) !important; font-size: .75rem; }
@@ -141,20 +149,110 @@
 }
 
 @media (max-width: 576px) {
-    .notification-item { flex-wrap: wrap; padding: .85rem 1rem; }
-    .notification-content { flex-basis: 100%; min-width: 100%; }
-    .notification-actions { flex-basis: 100%; margin-left: 0; margin-top: .35rem; }
+    .notification-item { display:grid; grid-template-columns:36px minmax(0,1fr); gap:.7rem; padding:.85rem; }
+    .notification-icon { width:36px; height:36px; border-radius:10px; }
+    .notification-content { min-width:0; }
+    .notification-title { font-size:.84rem; }
+    .notification-message { font-size:.82rem; line-height:1.45; margin-bottom:.25rem; }
+    .notification-actions { grid-column:2; width:100%; margin:.1rem 0 0; justify-content:flex-start; }
+    .notification-actions .btn { min-height:38px; display:inline-flex; align-items:center; justify-content:center; }
+    .notification-page-head { align-items:flex-start; margin-bottom:1.25rem; }
+    .notification-page-copy h1 { font-size:1.2rem; }
+    .notification-back span { display:none; }
+    #notification-actions { align-items:flex-start !important; gap:.75rem; }
+}
+
+/* Strict inbox: one surface, quiet rows, state shown by a precise marker. */
+body:has(.notification-list) { background:#07070e !important; }
+.notification-page-head {
+    align-items:flex-end;
+    padding-bottom:1.4rem;
+    margin-bottom:1.2rem;
+    border-bottom:1px solid rgba(255,255,255,.08);
+}
+.notification-page-copy h1 { font-size:clamp(1.65rem,3vw,2.15rem); letter-spacing:-.035em; }
+.notification-page-copy h1 i { font-size:.8em; }
+.notification-page-copy p { color:rgba(255,255,255,.46); }
+.notification-back { border-radius:9px !important; }
+#notification-actions { max-width:760px; margin-left:auto; margin-right:auto; }
+#notification-actions .btn-outline-primary {
+    min-height:40px;
+    border-width:1px !important;
+    border-radius:9px !important;
+    background:transparent !important;
+}
+#notification-actions .badge { border-radius:999px !important; padding:.38rem .65rem; }
+.notification-list {
+    gap:0;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.085);
+    border-radius:16px;
+    background:rgba(255,255,255,.018);
+}
+.notification-item {
+    gap:.9rem;
+    padding:1rem 1.1rem;
+    border:0;
+    border-bottom:1px solid rgba(255,255,255,.07);
+    border-radius:0;
+    background:transparent;
+    transform:none !important;
+}
+.notification-item:last-child { border-bottom:0; }
+.notification-item::before {
+    left:0; top:1rem; bottom:auto;
+    width:3px; height:3px; border-radius:50%;
+}
+.notification-item:hover { background:rgba(255,255,255,.025); }
+.notification-unread { background:rgba(220,38,38,.025); }
+.notification-unread::before { top:1.45rem; width:5px; height:5px; border-radius:50%; }
+.notification-unread:hover { background:rgba(220,38,38,.045); }
+.notification-icon {
+    width:36px; height:36px; border-radius:9px;
+    font-size:.85rem;
+    background:rgba(255,255,255,.035) !important;
+}
+.notification-title { font-size:.88rem; }
+.notification-message { color:rgba(255,255,255,.5); font-size:.84rem; }
+.notification-actions .btn-danger,
+.notification-actions .btn-outline-danger {
+    min-height:36px;
+    border-radius:8px !important;
+    padding:.32rem .65rem !important;
+}
+.notification-actions .btn-danger {
+    background:rgba(220,38,38,.08) !important;
+    border-color:rgba(220,38,38,.24) !important;
+}
+.notification-actions .btn-outline-danger { background:transparent !important; }
+.badge-sm { border-radius:999px; background:rgba(220,38,38,.7) !important; }
+
+@media (max-width:576px) {
+    .notification-page-head { align-items:flex-start; }
+    .notification-page-copy h1 { font-size:1.55rem; }
+    .notification-list { border-radius:14px; }
+    .notification-item { padding:.9rem .85rem; }
+    .notification-actions { gap:.35rem; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-limited" style="padding-top:3rem;padding-bottom:1rem;" data-pull-refresh="#notification-list-wrap">
-    <div class="text-center mb-5">
-        <h1 class="h3 fw-bold mb-2" style="color:#fff;">
-            <i class="fas fa-bell me-2" style="color:#f87171;"></i>{% trans "Notifications" %}
-        </h1>
-        <p style="color:rgba(255,255,255,.4);">{% trans "Stay updated with your activity" %}</p>
+<div class="container-limited" style="padding-top:2rem;padding-bottom:5rem;" data-pull-refresh="#notification-list-wrap">
+    <nav aria-label="{% trans 'Breadcrumb' %}" class="page-bc mb-3" style="max-width:760px;margin-left:auto;margin-right:auto;">
+        <ol>
+            <li><a href="{% url 'users:profile' %}">{% trans "Cabinet" %}</a><span class="bc-sep"><i class="fas fa-chevron-right" aria-hidden="true"></i></span></li>
+            <li><span>{% trans "Notifications" %}</span></li>
+        </ol>
+    </nav>
+    <div class="notification-page-head">
+        <div class="notification-page-copy">
+            <h1><i class="fas fa-bell me-2" style="color:#f87171;" aria-hidden="true"></i>{% trans "Notifications" %}</h1>
+            <p>{% trans "Updates about your posts, visits, events and account." %}</p>
+        </div>
+        <a href="{% url 'users:profile' %}" class="btn btn-sm btn-outline-secondary notification-back">
+            <i class="fas fa-arrow-left me-1" aria-hidden="true"></i><span>{% trans "Back to Cabinet" %}</span>
+        </a>
     </div>
 
     {% if notifications %}
@@ -197,20 +295,28 @@
                         <div class="notification-icon primary">
                             <i class="fas fa-user-plus"></i>
                         </div>
-                    {% elif notification.notification_type == 'event_reminder' %}
+                    {% elif notification.notification_type == 'event_reminder' or notification.notification_type == 'event' %}
                         <div class="notification-icon secondary">
                             <i class="fas fa-calendar-alt"></i>
                         </div>
+                    {% elif notification.notification_type == 'new_message' %}
+                        <div class="notification-icon info">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                    {% elif notification.notification_type == 'system' %}
+                        <div class="notification-icon primary">
+                            <i class="fas fa-shield-halved"></i>
+                        </div>
                     {% else %}
                         <div class="notification-icon default">
-                            <i class="fas fa-circle"></i>
+                            <i class="fas fa-bell"></i>
                         </div>
                     {% endif %}
                 </div>
 
                 <div class="notification-content flex-grow-1">
                     <div class="notification-title">
-                        {{ notification.get_notification_type_display }}
+                        {% if notification.title %}{{ notification.title }}{% else %}{{ notification.get_notification_type_display }}{% endif %}
                         {% if not notification.is_read %}
                             <span class="badge bg-danger badge-sm ms-2">{% trans "New" %}</span>
                         {% endif %}
@@ -281,7 +387,7 @@
         {% if total_count > 0 %}
         {# Все уведомления удалены / прочитаны (но в paginator они есть — этот блок при пустой странице) #}
         <div class="empty-state text-center py-5">
-            <div class="mb-4" style="font-size:3rem;animation:float-notif 3s ease-in-out infinite;">✅</div>
+            <div class="mb-4" style="font-size:2.6rem;color:#4ade80;opacity:.75;animation:float-notif 3s ease-in-out infinite;"><i class="fas fa-circle-check" aria-hidden="true"></i></div>
             <h5 class="fw-bold mb-2" style="color:rgba(255,255,255,.75);">{% trans "All caught up!" %}</h5>
             <p class="text-muted mb-4">{% trans "You've read all your notifications. New ones will appear here." %}</p>
             <a href="{% url 'blog:post_list' %}" class="btn btn-primary btn-modern">
