@@ -73,6 +73,25 @@
 }
 .pc-btn-submit:hover { background: rgba(220,38,38,.28); color: #fca5a5; }
 .pc-btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+.pc-card input[type="file"] {
+    width: 100%; color: rgba(255,255,255,.62); background: rgba(255,255,255,.035);
+    border: 1px solid rgba(255,255,255,.09); border-radius: 10px;
+}
+.pc-card input[type="file"]::file-selector-button {
+    min-height: 44px; margin-right: .85rem; padding: .65rem .95rem;
+    color: #fca5a5; background: rgba(220,38,38,.12);
+    border: 0; border-right: 1px solid rgba(255,255,255,.09);
+    font-weight: 700; cursor: pointer;
+}
+.pc-card input[type="file"]:focus-visible { outline: 3px solid rgba(248,113,113,.28); outline-offset: 2px; }
+.pc-form-error {
+    display: flex; align-items: flex-start; gap: .6rem;
+    margin-bottom: 1.25rem; padding: .8rem 1rem;
+    border: 1px solid rgba(248,113,113,.3); border-radius: 10px;
+    background: rgba(220,38,38,.1); color: #fca5a5; font-size: .85rem;
+}
+.pc-form-error[hidden] { display: none; }
+.pc-invalid { border-color: #f87171 !important; box-shadow: 0 0 0 3px rgba(248,113,113,.12) !important; }
 /* Modal dark */
 #postPreviewModal .modal-content {
     background: #111118; border: 1.5px solid rgba(255,255,255,.1); border-radius: 18px; color: #e2e8f0;
@@ -98,8 +117,12 @@
             </div>
 
             <div class="pc-card">
-                <form method="post" enctype="multipart/form-data" id="post-create-form">
+                <form method="post" enctype="multipart/form-data" id="post-create-form" novalidate>
                     {% csrf_token %}
+                    <div class="pc-form-error" id="post-create-error" role="alert" aria-live="assertive" hidden>
+                        <i class="fas fa-exclamation-circle" aria-hidden="true"></i>
+                        <span id="post-create-error-text"></span>
+                    </div>
 
                     <div class="mb-4">
                         <label for="{{ form.title.id_for_label }}" class="pc-form-label d-flex justify-content-between align-items-baseline">
@@ -127,7 +150,7 @@
                     </div>
 
                     <!-- Draft status indicator (U2-08) -->
-                    <div id="draft-status" style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.28);margin-bottom:.75rem;min-height:1.2em;transition:opacity .3s;"></div>
+                    <div id="draft-status" role="status" aria-live="polite" aria-atomic="true" style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.28);margin-bottom:.75rem;min-height:1.2em;transition:opacity .3s;"></div>
 
                     <div class="pc-actions">
                         <button type="button" id="preview-btn" class="pc-btn-preview">{% trans "Preview" %}</button>
@@ -156,6 +179,8 @@
 <div id="postCreateStrings"
      data-title-required="{% trans "Please enter a post title" %}"
      data-content-required="{% trans "Please enter post content" %}"
+     data-title-label="{{ form.title.label }}"
+     data-content-label="{{ form.text.label }}"
      data-default-title="{% trans "Post Title" %}"
      data-default-body="{% trans "Description will appear here after editing." %}"></div>
 <!-- Quill fallback (loaded only if CKEditor absent) -->
@@ -190,6 +215,9 @@ document.addEventListener('DOMContentLoaded', function(){
             ]
         }
     });
+    const strings = document.getElementById('postCreateStrings')?.dataset;
+    quill.root.setAttribute('aria-label', strings?.contentLabel || 'Post content');
+    quill.root.setAttribute('aria-multiline', 'true');
 
     // If textarea has initial value, populate Quill
     if (ta.value) quill.root.innerHTML = ta.value;
@@ -206,23 +234,36 @@ document.addEventListener('DOMContentLoaded', function(){
             // Get content from Quill
             var quillContent = quill.root.innerHTML.trim();
             var titleContent = form.querySelector('input[name="title"]').value.trim();
-            
+
             // Validate: both title and text required
-            const strings = document.getElementById('postCreateStrings')?.dataset;
             const titleRequired = strings?.titleRequired || 'Please enter a post title';
             const contentRequired = strings?.contentRequired || 'Please enter post content';
+            var errorBar = document.getElementById('post-create-error');
+            var errorText = document.getElementById('post-create-error-text');
+            function showError(message, target) {
+                if (errorText) errorText.textContent = message;
+                if (errorBar) errorBar.hidden = false;
+                if (target) {
+                    target.classList.add('pc-invalid');
+                    target.setAttribute('aria-invalid', 'true');
+                    target.setAttribute('aria-describedby', 'post-create-error');
+                    target.focus();
+                }
+            }
 
             if (!titleContent) {
                 e.preventDefault();
-                alert(titleRequired);
+                showError(titleRequired, form.querySelector('input[name="title"]'));
                 return false;
             }
             
             if (!quillContent || quillContent === '<p><br></p>') {
                 e.preventDefault();
-                alert(contentRequired);
+                showError(contentRequired, quill.root);
                 return false;
             }
+
+            if (errorBar) errorBar.hidden = true;
             
             // Синхронизируем Quill контент с textarea перед отправкой
             ta.value = quillContent;
@@ -243,7 +284,21 @@ document.addEventListener('DOMContentLoaded', function(){
             if (previewBody) previewBody.innerHTML = quill.root.innerHTML || defaultBody;
         }
         quill.on('text-change', syncPreview);
-        if (titleInput) titleInput.addEventListener('input', syncPreview);
+        quill.on('text-change', function(){
+            if (quill.root.textContent.trim()) {
+                quill.root.classList.remove('pc-invalid');
+                quill.root.removeAttribute('aria-invalid');
+                if (quill.root.getAttribute('aria-describedby') === 'post-create-error') quill.root.removeAttribute('aria-describedby');
+            }
+        });
+        if (titleInput) titleInput.addEventListener('input', function(){
+            syncPreview();
+            if (titleInput.value.trim()) {
+                titleInput.classList.remove('pc-invalid');
+                titleInput.removeAttribute('aria-invalid');
+                if (titleInput.getAttribute('aria-describedby') === 'post-create-error') titleInput.removeAttribute('aria-describedby');
+            }
+        });
         syncPreview();
 
         // Image preview
@@ -269,121 +324,20 @@ document.addEventListener('DOMContentLoaded', function(){
 </script>
 
 <!-- Modal for preview -->
-<div class="modal fade" id="postPreviewModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="postPreviewModal" tabindex="-1" aria-labelledby="postPreviewModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Post preview</h5>
+                <h5 class="modal-title" id="postPreviewModalLabel">{% trans "Post preview" %}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
             </div>
             <div class="modal-body" id="post-preview-body" style="min-height:200px;"></div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{% trans "Close" %}</button>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-/* ── Auto-save + Char/Word counters (U2-08, U2-17) ── */
-(function(){
-    var DRAFT_KEY   = 'iesa-post-draft-v1';
-    var titleInput  = document.querySelector('input[name="title"]');
-    var statusEl    = document.getElementById('draft-status');
-    var charCounter = document.getElementById('title-char-counter');
-    var wordCounter = document.getElementById('content-word-counter');
-    var saveTimer   = null;
-    var statusTimer = null;
-
-    function setStatus(msg, fade) {
-        if (!statusEl) return;
-        clearTimeout(statusTimer);
-        statusEl.style.opacity = '1';
-        statusEl.textContent = msg;
-        if (fade) { statusTimer = setTimeout(function(){ statusEl.style.opacity = '0'; }, 3000); }
-    }
-
-    function saveDraft() {
-        if (!titleInput) return;
-        var quillEl = document.getElementById('quill-editor');
-        try {
-            localStorage.setItem(DRAFT_KEY, JSON.stringify({
-                title:   titleInput.value,
-                content: quillEl ? quillEl.innerHTML : '',
-                ts:      Date.now()
-            }));
-            setStatus('✓ {% trans "Draft saved" %}', true);
-        } catch(e) {}
-    }
-
-    function scheduleSave() {
-        clearTimeout(saveTimer);
-        saveTimer = setTimeout(saveDraft, 5000);
-    }
-
-    function clearDraft() {
-        try { localStorage.removeItem(DRAFT_KEY); } catch(e) {}
-    }
-
-    function restoreDraft() {
-        try {
-            var raw = localStorage.getItem(DRAFT_KEY);
-            if (!raw) return;
-            var d = JSON.parse(raw);
-            if (!d || Date.now() - d.ts > 86400000) return;
-            if (titleInput && !titleInput.value && d.title) {
-                titleInput.value = d.title;
-                updateTitleCounter();
-                setStatus('↩ {% trans "Draft restored" %}', true);
-            }
-            if (d.content) window._iesa_draft_content = d.content;
-        } catch(e) {}
-    }
-
-    function updateTitleCounter() {
-        if (!charCounter || !titleInput) return;
-        var n = titleInput.value.length;
-        charCounter.textContent = n + ' / 200';
-        charCounter.style.color = n > 180 ? '#f87171' : n > 150 ? '#fbbf24' : 'rgba(255,255,255,.3)';
-    }
-
-    function updateWordCount(html) {
-        if (!wordCounter) return;
-        var tmp = document.createElement('div');
-        tmp.innerHTML = html || '';
-        var text = tmp.textContent.trim();
-        var words = text ? text.split(/\s+/).filter(Boolean).length : 0;
-        wordCounter.textContent = words + ' {% trans "words" %}';
-        wordCounter.style.color = words > 1500 ? '#fbbf24' : words > 0 ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.28)';
-    }
-
-    if (titleInput) {
-        titleInput.addEventListener('input', function(){
-            updateTitleCounter();
-            scheduleSave();
-        });
-    }
-
-    var form = document.getElementById('post-create-form');
-    if (form) form.addEventListener('submit', clearDraft);
-
-    /* Expose hook for Quill init (in the existing DOMContentLoaded above) */
-    window._iesa_quill_hook = function(quill) {
-        if (window._iesa_draft_content) {
-            quill.root.innerHTML = window._iesa_draft_content;
-            updateWordCount(quill.root.innerHTML);
-        }
-        quill.on('text-change', function(){
-            updateWordCount(quill.root.innerHTML);
-            scheduleSave();
-        });
-    };
-
-    restoreDraft();
-    updateTitleCounter();
-    setInterval(saveDraft, 30000);
-})();
-</script>
 
 <script>
 /* ── Standalone preview modal (works with Quill, CKEditor, or plain textarea) ── */
@@ -398,11 +352,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Get HTML content: Quill → CKEditor → plain textarea
         var contentHtml = '';
+        var richContent = false;
         if (window._iesa_quill_instance) {
             contentHtml = window._iesa_quill_instance.root.innerHTML;
+            richContent = true;
         } else if (window.CKEDITOR) {
             var key = Object.keys(CKEDITOR.instances)[0];
-            if (key) contentHtml = CKEDITOR.instances[key].getData();
+            if (key) {
+                contentHtml = CKEDITOR.instances[key].getData();
+                richContent = true;
+            }
         } else {
             var ta = document.querySelector('textarea[name="text"]');
             if (ta) contentHtml = ta.value;
@@ -412,14 +371,48 @@ document.addEventListener('DOMContentLoaded', function () {
         var modalBody = document.getElementById('post-preview-body');
         if (!modalBody) return;
 
-        var html = '';
+        modalBody.replaceChildren();
         if (previewImgEl && previewImgEl.style.display !== 'none' && previewImgEl.src) {
-            html += '<img src="' + previewImgEl.src + '" class="img-fluid rounded mb-3 w-100" style="max-height:320px;object-fit:cover;" alt="">';
+            var image = document.createElement('img');
+            image.src = previewImgEl.src;
+            image.className = 'img-fluid rounded mb-3 w-100';
+            image.style.cssText = 'max-height:320px;object-fit:cover;';
+            image.alt = '{% filter escapejs %}{% trans "Preview image" %}{% endfilter %}';
+            modalBody.appendChild(image);
         }
-        html += '<h2 class="mb-3" style="color:#f1f5f9;">' + (titleText || '{% trans "Post Title" %}') + '</h2>';
-        html += '<div class="post-content" style="color:rgba(255,255,255,.75);line-height:1.75;">' + (contentHtml || '<em style="color:rgba(255,255,255,.35);">{% trans "No content yet" %}</em>') + '</div>';
+        var heading = document.createElement('h2');
+        heading.className = 'mb-3';
+        heading.style.color = '#f1f5f9';
+        heading.textContent = titleText || '{% filter escapejs %}{% trans "Post Title" %}{% endfilter %}';
+        modalBody.appendChild(heading);
 
-        modalBody.innerHTML = html;
+        var content = document.createElement('div');
+        content.className = 'post-content';
+        content.style.cssText = 'color:rgba(255,255,255,.75);line-height:1.75;';
+        if (!contentHtml) {
+            var empty = document.createElement('em');
+            empty.style.color = 'rgba(255,255,255,.35)';
+            empty.textContent = '{% filter escapejs %}{% trans "No content yet" %}{% endfilter %}';
+            content.appendChild(empty);
+        } else if (!richContent) {
+            content.style.whiteSpace = 'pre-wrap';
+            content.textContent = contentHtml;
+        } else {
+            var template = document.createElement('template');
+            template.innerHTML = contentHtml;
+            template.content.querySelectorAll('script, style, iframe, object, embed').forEach(function(node){ node.remove(); });
+            template.content.querySelectorAll('*').forEach(function(node){
+                Array.prototype.slice.call(node.attributes).forEach(function(attr){
+                    var name = attr.name.toLowerCase();
+                    var value = attr.value.trim().toLowerCase();
+                    if (name.indexOf('on') === 0 || ((name === 'href' || name === 'src') && value.indexOf('javascript:') === 0)) {
+                        node.removeAttribute(attr.name);
+                    }
+                });
+            });
+            content.appendChild(template.content.cloneNode(true));
+        }
+        modalBody.appendChild(content);
 
         if (typeof bootstrap !== 'undefined') {
             bootstrap.Modal.getOrCreateInstance(previewModal).show();
@@ -427,110 +420,178 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-/* ── 3f: Draft autosave to localStorage (every 10s + on input) ── */
+/* ── One draft controller: restore, counters, autosave and safe submit ── */
 (function () {
     var DRAFT_KEY = 'iesa-post-draft-v2';
-    var titleEl   = document.querySelector('input[name="title"]');
-    var form      = document.getElementById('post-create-form');
-    var statusEl  = document.getElementById('draft-status');
+    var LEGACY_KEY = 'iesa-post-draft-v1';
+    var titleEl = null;
+    var form = null;
+    var statusEl = null;
+    var charCounter = null;
+    var wordCounter = null;
+    var quillInstance = null;
+    var saveTimer = null;
+    var statusTimer = null;
+    var dirty = false;
+    var isSubmitting = false;
 
-    function getContent() {
-        if (window._iesa_quill_instance) return window._iesa_quill_instance.root.innerHTML;
-        if (window.CKEDITOR) {
-            var k = Object.keys(CKEDITOR.instances)[0];
-            return k ? CKEDITOR.instances[k].getData() : '';
-        }
-        var ta = document.querySelector('textarea[name="text"]');
-        return ta ? ta.value : '';
+    function normalizedContent(value) {
+        return String(value || '').trim().replace(/^<p><br><\/p>$/, '');
     }
 
-    function saveDraft() {
-        var title   = titleEl ? titleEl.value.trim() : '';
-        var content = getContent().trim();
-        if (!title && !content) return;
+    function getContent() {
+        if (quillInstance) return quillInstance.root.innerHTML;
+        if (window.CKEDITOR) {
+            var key = Object.keys(CKEDITOR.instances)[0];
+            return key ? CKEDITOR.instances[key].getData() : '';
+        }
+        var textarea = document.querySelector('textarea[name="text"]');
+        return textarea ? textarea.value : '';
+    }
 
+    function setStatus(message, timeout) {
+        if (!statusEl) return;
+        clearTimeout(statusTimer);
+        statusEl.textContent = message;
+        statusEl.style.opacity = '1';
+        if (timeout) statusTimer = setTimeout(function(){ statusEl.style.opacity = '0'; }, timeout);
+    }
+
+    function clearDraft() {
         try {
-            localStorage.setItem(DRAFT_KEY, JSON.stringify({
-                title: title, content: content, ts: Date.now(),
-            }));
-            if (statusEl) {
-                statusEl.textContent = '⚡ {% trans "Draft saved" %} ' + new Date().toLocaleTimeString();
-                statusEl.style.opacity = '1';
-                setTimeout(function () { statusEl.style.opacity = '0'; }, 2500);
-            }
+            localStorage.removeItem(DRAFT_KEY);
+            localStorage.removeItem(LEGACY_KEY);
         } catch (e) {}
+    }
+
+    function updateCounters() {
+        if (charCounter && titleEl) {
+            var chars = titleEl.value.length;
+            charCounter.textContent = chars + ' / 200';
+            charCounter.style.color = chars > 180 ? '#f87171' : chars > 150 ? '#fbbf24' : 'rgba(255,255,255,.3)';
+        }
+        if (wordCounter) {
+            var temp = document.createElement('div');
+            temp.innerHTML = getContent();
+            var textValue = temp.textContent.trim();
+            var words = textValue ? textValue.split(/\s+/).filter(Boolean).length : 0;
+            wordCounter.textContent = words + ' {% filter escapejs %}{% trans "words" %}{% endfilter %}';
+            wordCounter.style.color = words > 1500 ? '#fbbf24' : words ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.28)';
+        }
+    }
+
+    function saveDraft(showStatus) {
+        if (isSubmitting || !dirty) return;
+        var title = titleEl ? titleEl.value.trim() : '';
+        var content = normalizedContent(getContent());
+        try {
+            if (!title && !content) {
+                clearDraft();
+                dirty = false;
+                return;
+            }
+            localStorage.setItem(DRAFT_KEY, JSON.stringify({ title: title, content: content, ts: Date.now() }));
+            localStorage.removeItem(LEGACY_KEY);
+            dirty = false;
+            if (showStatus !== false) {
+                setStatus('{% filter escapejs %}{% trans "Draft saved" %}{% endfilter %} · ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}), 3000);
+            }
+        } catch (e) {
+            setStatus('{% filter escapejs %}{% trans "Draft could not be saved in this browser" %}{% endfilter %}', 5000);
+        }
+    }
+
+    function scheduleSave() {
+        dirty = true;
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function(){ saveDraft(true); }, 2000);
+    }
+
+    function refreshRestoredPreview(content) {
+        var titlePreview = document.getElementById('preview-title');
+        var bodyPreview = document.getElementById('preview-body');
+        if (titlePreview && titleEl) {
+            titlePreview.textContent = titleEl.value || '{% filter escapejs %}{% trans "Post Title" %}{% endfilter %}';
+        }
+        if (bodyPreview && content) bodyPreview.innerHTML = content;
     }
 
     function restoreDraft() {
         try {
-            var raw = localStorage.getItem(DRAFT_KEY);
+            var raw = localStorage.getItem(DRAFT_KEY) || localStorage.getItem(LEGACY_KEY);
             if (!raw) return;
-            var d = JSON.parse(raw);
-            var age = Date.now() - (d.ts || 0);
-            if (age > 7 * 24 * 3600 * 1000) { localStorage.removeItem(DRAFT_KEY); return; } // 7 дней
+            var draft = JSON.parse(raw);
+            var age = Date.now() - (draft.ts || 0);
+            if (!draft || age > 7 * 24 * 3600 * 1000) { clearDraft(); return; }
 
-            if (d.title && titleEl && !titleEl.value) titleEl.value = d.title;
-
-            // Restore content после инициализации редактора
-            if (d.content) {
-                var tryRestore = function (attempts) {
-                    if (window._iesa_quill_instance) {
-                        if (!window._iesa_quill_instance.root.innerHTML.trim().replace(/<p><br><\/p>/, '')) {
-                            window._iesa_quill_instance.root.innerHTML = d.content;
-                        }
-                        return;
-                    }
-                    if (window.CKEDITOR) {
-                        var k = Object.keys(CKEDITOR.instances)[0];
-                        if (k && !CKEDITOR.instances[k].getData().trim()) {
-                            CKEDITOR.instances[k].setData(d.content);
-                        }
-                        return;
-                    }
-                    if (attempts > 0) setTimeout(function () { tryRestore(attempts - 1); }, 500);
-                };
-                tryRestore(10);
+            var restored = false;
+            if (draft.title && titleEl && !titleEl.value) {
+                titleEl.value = draft.title;
+                restored = true;
             }
-
-            if (statusEl) {
-                var ago = Math.round(age / 60000);
-                statusEl.textContent = '🗒 {% trans "Draft restored" %} (' + (ago < 2 ? '{% trans "just now" %}' : ago + ' {% trans "min ago" %}') + ')';
-                statusEl.style.opacity = '1';
-                setTimeout(function () { statusEl.style.opacity = '0'; }, 4000);
+            if (draft.content && !normalizedContent(getContent())) {
+                if (quillInstance) quillInstance.root.innerHTML = draft.content;
+                else if (window.CKEDITOR) {
+                    var key = Object.keys(CKEDITOR.instances)[0];
+                    if (key) CKEDITOR.instances[key].setData(draft.content);
+                } else {
+                    var textarea = document.querySelector('textarea[name="text"]');
+                    if (textarea) textarea.value = draft.content;
+                }
+                restored = true;
             }
-        } catch (e) {}
+            if (restored) {
+                refreshRestoredPreview(draft.content);
+                updateCounters();
+                var minutes = Math.max(0, Math.round(age / 60000));
+                var ageText = minutes < 2
+                    ? '{% filter escapejs %}{% trans "just now" %}{% endfilter %}'
+                    : minutes + ' {% filter escapejs %}{% trans "min ago" %}{% endfilter %}';
+                setStatus('{% filter escapejs %}{% trans "Draft restored" %}{% endfilter %} (' + ageText + ')', 5000);
+            }
+            localStorage.removeItem(LEGACY_KEY);
+        } catch (e) {
+            clearDraft();
+        }
     }
 
-    // Autosave on input
-    if (titleEl) titleEl.addEventListener('input', function () { clearTimeout(window._draftTimer); window._draftTimer = setTimeout(saveDraft, 2000); });
-
-    // Autosave every 10 seconds
-    setInterval(saveDraft, 10000);
-
-    // Clear on submit
-    if (form) form.addEventListener('submit', function () { try { localStorage.removeItem(DRAFT_KEY); } catch(e) {} });
-
-    // Restore after short delay (give editor time to init)
-    setTimeout(restoreDraft, 300);
-
-    // Warn before leaving with unsaved content
-    window.addEventListener('beforeunload', function (e) {
-        var title = titleEl ? titleEl.value.trim() : '';
-        var content = getContent().trim();
-        if (title || content) {
-            saveDraft(); // последний шанс сохранить
-            e.preventDefault();
-            return (e.returnValue = '{% trans "You have unsaved content. Leave anyway?" %}');
-        }
-    });
-
-    // Quill hook — подключаем autosave после инициализации редактора
     window._iesa_quill_hook = function (quill) {
-        quill.on('text-change', function () {
-            clearTimeout(window._draftTimer);
-            window._draftTimer = setTimeout(saveDraft, 2000);
+        quillInstance = quill;
+        quill.on('text-change', function(){
+            updateCounters();
+            scheduleSave();
         });
     };
+
+    document.addEventListener('DOMContentLoaded', function(){
+        titleEl = document.querySelector('input[name="title"]');
+        form = document.getElementById('post-create-form');
+        statusEl = document.getElementById('draft-status');
+        charCounter = document.getElementById('title-char-counter');
+        wordCounter = document.getElementById('content-word-counter');
+
+        if (titleEl) titleEl.addEventListener('input', function(){ updateCounters(); scheduleSave(); });
+        if (form) form.addEventListener('submit', function(e){
+            if (e.defaultPrevented) return;
+            isSubmitting = true;
+            clearTimeout(saveTimer);
+            clearDraft();
+        });
+
+        restoreDraft();
+        updateCounters();
+        setInterval(function(){ saveDraft(false); }, 10000);
+    });
+
+    window.addEventListener('beforeunload', function(e){
+        if (isSubmitting) return;
+        var hasContent = (titleEl && titleEl.value.trim()) || normalizedContent(getContent());
+        if (!hasContent) return;
+        dirty = true;
+        saveDraft(false);
+        e.preventDefault();
+        e.returnValue = '';
+    });
 })();
 </script>
 {% endblock %}

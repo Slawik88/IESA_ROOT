@@ -111,14 +111,16 @@
     scrollbar-width: none; max-width: 80%; margin-left: auto; margin-right: auto;
 }
 .gal-thumb-strip::-webkit-scrollbar { display: none; }
-.gal-thumb-mini {
+.gal-thumb-button {
     width: 52px; height: 38px; border-radius: 6px;
-    object-fit: cover; border: 2px solid transparent;
+    padding: 0; overflow: hidden; background: transparent; border: 2px solid transparent;
     opacity: .45; transition: opacity .2s, border-color .2s, transform .2s;
     cursor: pointer; flex-shrink: 0;
 }
-.gal-thumb-mini:hover { opacity: .75; transform: scale(1.06); }
-.gal-thumb-mini.active { opacity: 1; border-color: var(--primary); }
+.gal-thumb-button:hover { opacity: .75; transform: scale(1.06); }
+.gal-thumb-button:focus-visible { opacity:1; outline:2px solid #fff; outline-offset:2px; }
+.gal-thumb-button.active { opacity: 1; border-color: var(--primary); }
+.gal-thumb-mini { width:100%; height:100%; object-fit:cover; display:block; }
 
 /* ── Empty State ── */
 .gal-empty {
@@ -196,10 +198,11 @@
         </div>
 
         <!-- Lightbox modal -->
-        <div class="modal fade" id="galleryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal fade" id="galleryModal" tabindex="-1" aria-labelledby="galleryModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-xl modal-dialog-centered">
                 <div class="modal-content gallery-modal-wrap">
                     <div class="modal-body p-3 p-md-4 position-relative">
+                        <h2 class="visually-hidden" id="galleryModalLabel">{% trans "Photo viewer" %}</h2>
                         <button type="button" class="gal-modal-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}">
                             <i class="fas fa-times"></i>
                         </button>
@@ -213,7 +216,9 @@
                                 </div>
                                 <div class="gal-thumb-strip" id="galleryThumbStrip">
                                     {% for photo in photos %}
-                                    <img src="{{ photo.image.url }}" class="gal-thumb-mini" data-idx="{{ forloop.counter0 }}" alt="" loading="lazy">
+                                    <button type="button" class="gal-thumb-button" data-idx="{{ forloop.counter0 }}" aria-label="{{ default_view_photo }} {{ forloop.counter }}">
+                                        <img src="{{ photo.image.url }}" class="gal-thumb-mini" alt="" loading="lazy">
+                                    </button>
                                     {% endfor %}
                                 </div>
                             </div>
@@ -277,12 +282,14 @@
     const capEl = document.getElementById('galleryModalCaption');
     const counterEl = document.getElementById('galleryCounter');
     const strip = document.getElementById('galleryThumbStrip');
-    const thumbs = strip ? Array.from(strip.querySelectorAll('.gal-thumb-mini')) : [];
+    const thumbs = strip ? Array.from(strip.querySelectorAll('.gal-thumb-button')) : [];
+    const defaultPhotoAlt = '{{ default_photo|escapejs }}';
     let current = 0;
 
     function updateThumbs(idx) {
         thumbs.forEach((t,i) => {
             t.classList.toggle('active', i === idx);
+            t.setAttribute('aria-current', i === idx ? 'true' : 'false');
             if (i === idx) t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         });
     }
@@ -291,6 +298,7 @@
         const doIt = () => {
             const it = items[index];
             imgEl.src = it.dataset.src;
+            imgEl.alt = it.dataset.caption || (defaultPhotoAlt + ' ' + (index + 1));
             if (capEl) capEl.textContent = it.dataset.caption || '';
             if (counterEl) counterEl.textContent = (index + 1) + ' / ' + items.length;
             current = index;

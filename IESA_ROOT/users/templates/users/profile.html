@@ -618,10 +618,11 @@
     text-align: center;
     box-shadow: 0 40px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(220,38,38,.08);
     animation: onb-pop-in .35s cubic-bezier(.34,1.56,.64,1);
+    max-height: calc(100dvh - 2rem); overflow-y: auto; overscroll-behavior: contain;
   }
   @keyframes onb-pop-in { from { opacity:0; transform:scale(.85) translateY(30px) } to { opacity:1; transform:none } }
 
-  .onb-icon { font-size: 3.5rem; margin-bottom: 1rem; display: block; }
+  .onb-icon { width:64px; height:64px; margin:0 auto 1rem; border-radius:18px; display:flex; align-items:center; justify-content:center; background:rgba(220,38,38,.12); color:#f87171; font-size:1.75rem; }
   .onb-title { font-size: 1.5rem; font-weight: 900; color: #fff; margin-bottom: .5rem; letter-spacing: -.02em; }
   .onb-sub   { color: rgba(255,255,255,.5); font-size: .9rem; line-height: 1.6; margin-bottom: 1.75rem; }
 
@@ -641,6 +642,13 @@
   .onb-btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
   .onb-btn-skip { background: none; border: none; color: rgba(255,255,255,.3); font-size: .82rem; cursor: pointer; padding: .25rem; transition: color .15s; }
   .onb-btn-skip:hover { color: rgba(255,255,255,.6); }
+  @media (max-width: 480px), (max-height: 700px) {
+    .onb-backdrop { padding: .75rem; align-items: flex-end; }
+    .onb-modal { padding: 1.5rem 1rem; border-radius: 18px; max-height: calc(100dvh - 1.5rem); }
+    .onb-icon { width:52px; height:52px; margin-bottom:.75rem; font-size:1.4rem; }
+    .onb-sub { margin-bottom:1rem; }
+    .onb-steps { margin-bottom:1.25rem; }
+  }
 
   /* ── Profile Completeness Bar (1b) ──────────────────────────────── */
   .pcp-wrap {
@@ -733,7 +741,7 @@
   {% if show_welcome %}
   <div class="onb-backdrop" id="onb-backdrop" role="dialog" aria-modal="true" aria-labelledby="onb-title">
     <div class="onb-modal">
-      <span class="onb-icon">🏔️</span>
+      <span class="onb-icon" aria-hidden="true"><i class="fas fa-mountain"></i></span>
       <h2 class="onb-title" id="onb-title">{% trans "Welcome to IESA Sport!" %}</h2>
       <p class="onb-sub">{% trans "You're now part of Switzerland's sports community. Here's how to get the most out of your membership:" %}</p>
 
@@ -1531,7 +1539,13 @@ document.addEventListener('DOMContentLoaded', function () {
     errDiv.className = 'acr-field-error';
     errDiv.id = errId;
     errDiv.setAttribute('role', 'alert');
-    errDiv.innerHTML = '<i class="fas fa-exclamation-circle" aria-hidden="true"></i><span>' + msg + '</span>';
+    var errIcon = document.createElement('i');
+    errIcon.className = 'fas fa-exclamation-circle';
+    errIcon.setAttribute('aria-hidden', 'true');
+    var errText = document.createElement('span');
+    errText.textContent = msg;
+    errDiv.appendChild(errIcon);
+    errDiv.appendChild(errText);
     /* Вставляем сразу после поля (или после wrapper-а .acr-select-wrap / .acr-combo) */
     var insertAfter = field.closest('.acr-select-wrap, .acr-combo') || field;
     insertAfter.parentNode.insertBefore(errDiv, insertAfter.nextSibling);
@@ -1540,7 +1554,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function showGlobalError(msg) {
     if (!errBar) return;
-    errBar.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>' + msg;
+    errBar.replaceChildren();
+    var icon = document.createElement('i');
+    icon.className = 'fas fa-exclamation-circle me-2';
+    icon.setAttribute('aria-hidden', 'true');
+    errBar.appendChild(icon);
+    errBar.appendChild(document.createTextNode(String(msg || '')));
     errBar.style.display = 'flex';
     errBar.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
@@ -1558,7 +1577,14 @@ document.addEventListener('DOMContentLoaded', function () {
       headers: { 'X-CSRFToken': data.get('csrfmiddlewaretoken') },
       body: data,
     })
-    .then(function (r) { return r.json(); })
+    .then(function (r) {
+      var sessionExpired = r.status === 401 || (r.redirected && r.url.indexOf('{% url "users:login" %}') !== -1);
+      if (sessionExpired) {
+        if (window._iesa_showSessionExpired) window._iesa_showSessionExpired(r.headers.get('X-Login-URL') || r.url);
+        throw { sessionExpired: true };
+      }
+      return r.json();
+    })
     .then(function (json) {
       if (json.ok) {
         if (card)    card.style.display    = 'none';
@@ -1589,7 +1615,11 @@ document.addEventListener('DOMContentLoaded', function () {
       }
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
     })
-    .catch(function () {
+    .catch(function (error) {
+      if (error && error.sessionExpired) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
+        return;
+      }
       showGlobalError('{% trans "Network error. Please try again." %}');
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane me-2"></i>{% trans "Submit Request" %}'; }
     });
@@ -1773,11 +1803,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
   /* ── 1a: Welcome Modal ─────────────────────────────── */
   var backdrop = document.getElementById('onb-backdrop');
+  var previousFocus = document.activeElement;
+
+  function getOnboardingFocusables() {
+    return backdrop ? Array.from(backdrop.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])')) : [];
+  }
 
   function dismissModal() {
     if (!backdrop) return;
     backdrop.classList.add('onb-hiding');
-    setTimeout(function () { backdrop.remove(); }, 220);
+    setTimeout(function () {
+      backdrop.remove();
+      if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+    }, 220);
     // POST → mark_onboarded без перезагрузки страницы
     fetch('{% url "users:mark_onboarded" %}', {
       method: 'POST',
@@ -1799,12 +1837,23 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   if (skipBtn) skipBtn.addEventListener('click', dismissModal);
   if (backdrop) {
+    var initialFocus = getOnboardingFocusables()[0];
+    if (initialFocus) setTimeout(function () { initialFocus.focus(); }, 0);
     backdrop.addEventListener('click', function (e) {
       if (e.target === backdrop) dismissModal();
     });
   }
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && backdrop && document.body.contains(backdrop)) dismissModal();
+    if (!backdrop || !document.body.contains(backdrop)) return;
+    if (e.key === 'Escape') { e.preventDefault(); dismissModal(); return; }
+    if (e.key === 'Tab') {
+      var focusables = getOnboardingFocusables();
+      if (!focusables.length) return;
+      var first = focusables[0];
+      var last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
   });
 
   /* ── 1b: Progress Bar анимация ─────────────────────── */

@@ -287,7 +287,7 @@
     {% else %}
     <!-- Empty State -->
     <div class="ben-empty" data-reveal>
-        <span class="ben-empty-icon">🎁</span>
+        <span class="ben-empty-icon" aria-hidden="true"><i class="fas fa-gift"></i></span>
         <h3 class="mb-2">{% trans "Benefits coming soon" %}</h3>
         <p class="mb-4">{% trans "We are working on exclusive offers for our members" %}</p>
         <a href="{% url 'core:home' %}" class="btn hero-btn-p">
@@ -298,5 +298,4 @@
 
 </div>
 {% endblock %}
-
 

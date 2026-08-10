@@ -68,8 +68,10 @@ class HtmxLoginRedirectMiddleware:
     """HTMX + login_required: редирект на логин нельзя отдавать в hx-запрос —
     HTMX вставит страницу логина целиком внутрь текущей (аудит V1).
 
-    Отдаём тихий 204 (без свапа). Вью, которым при клике анонима нужен настоящий
-    переход на логин, выставляют заголовок HX-Redirect сами (пример: blog.views.likes).
+    Отдаём явный 401 без свапа и передаём URL входа в заголовке. Клиент показывает
+    диалог истёкшей сессии, поэтому polling/формы не выглядят как «мёртвые».
+    Вью, которым при клике анонима нужен настоящий переход на логин, выставляют
+    HX-Redirect сами (пример: blog.views.likes) и сюда не попадают.
     """
 
     def __init__(self, get_response):
@@ -84,7 +86,8 @@ class HtmxLoginRedirectMiddleware:
             and 'HX-Redirect' not in response
         ):
             from django.http import HttpResponse
-            suppressed = HttpResponse(status=204)
-            suppressed['X-Suppressed-Login-Redirect'] = response['Location']
-            return suppressed
+            expired = HttpResponse(status=401)
+            expired['X-Session-Expired'] = '1'
+            expired['X-Login-URL'] = response['Location']
+            return expired
         return response
