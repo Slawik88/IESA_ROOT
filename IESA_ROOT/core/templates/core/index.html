@@ -554,10 +554,10 @@ html.js .don-fill.animated { width:45%; }
             <a href="{% url 'blog:event_list' %}" class="hero-btn-g mag-btn"><i class="fas fa-calendar-alt"></i> {% trans "View events" %}</a>
         </div>
         <div class="hero-stats">
-            <div><div class="hero-stat-num"><span class="cnt" data-count="6">0</span></div><div class="hero-stat-label">{% trans "Sport types" %}</div></div>
-            <div><div class="hero-stat-num"><span class="cnt" data-count="2">0</span></div><div class="hero-stat-label">{% trans "Countries" %}</div></div>
-            <div><div class="hero-stat-num"><span class="cnt" data-count="2">0</span></div><div class="hero-stat-label">{% trans "Years active" %}</div></div>
-            <div><div class="hero-stat-num"><span class="cnt" data-count="4">0</span></div><div class="hero-stat-label">{% trans "Programs" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="6">6</span></div><div class="hero-stat-label">{% trans "Sport types" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="2">2</span></div><div class="hero-stat-label">{% trans "Countries" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="2">2</span></div><div class="hero-stat-label">{% trans "Years active" %}</div></div>
+            <div><div class="hero-stat-num"><span class="cnt" data-count="4">4</span></div><div class="hero-stat-label">{% trans "Programs" %}</div></div>
         </div>
     </div>
     <div class="hero-scroll"><div class="s-line"></div><span>{% trans "Scroll" %}</span></div>
@@ -1049,9 +1049,6 @@ function animCnt(el, target, dur){
 /* ── 4. SCROLL REVEAL ──────────── */
 const revIO = new IntersectionObserver(entries=>entries.forEach(e=>{ if(!e.isIntersecting) return; e.target.classList.add('revealed'); revIO.unobserve(e.target); }),{threshold:.12});
 document.querySelectorAll('[data-reveal]').forEach(el=>revIO.observe(el));
-
-/* Hero counters */
-setTimeout(()=>document.querySelectorAll('.hero-stats .cnt').forEach(c=>animCnt(c,+c.dataset.count,1800)), 600);
 
 /* Band counters */
 const statsEl=document.getElementById('hp-stats');

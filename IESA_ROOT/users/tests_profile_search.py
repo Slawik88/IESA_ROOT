@@ -3,6 +3,7 @@ import django
 from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import translation
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'IESA_ROOT.settings')
 django.setup()
@@ -32,3 +33,17 @@ class ProfileQRAndSearchTests(TestCase):
         # search endpoint supports GET; ensure response OK (200) and contains username or email
         self.assertEqual(resp.status_code, 200)
         self.assertTrue('testuser1' in resp.content.decode('utf-8') or 'testuser1@example.com' in resp.content.decode('utf-8'))
+
+    def test_empty_member_search_shows_prompt_instead_of_empty_query_error(self):
+        with translation.override('en'):
+            resp = self.client.get(reverse('users:users_search'))
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Find a member')
+        self.assertNotContains(resp, 'No results for ""')
+
+    def test_member_search_controls_stack_cleanly_on_mobile(self):
+        resp = self.client.get(reverse('users:users_search'))
+
+        self.assertContains(resp, 'member-search-group')
+        self.assertContains(resp, 'member-search-sort')
