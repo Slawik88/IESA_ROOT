@@ -84,8 +84,14 @@
 .iesa-navbar .container-limited { display: flex; align-items: center; height: 100%; }
 
 /* Logo */
-.iesa-brand { flex-shrink: 0; }
-.iesa-brand .navbar-logo { height: 32px; width: auto; display: block; transition: opacity .2s; }
+.iesa-brand {
+  width: 64px; height: 22px; flex-shrink: 0;
+  position: relative; overflow: hidden; display: block;
+}
+.iesa-brand .navbar-logo {
+  width: 64px; height: auto; position: absolute; left: 0; bottom: -1px;
+  display: block; transition: opacity .2s;
+}
 .iesa-brand:hover .navbar-logo { opacity: .82; }
 
 /* Nav links */
@@ -346,6 +352,15 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+.mobile-nav-section-label {
+  padding: .85rem 1.35rem .3rem;
+  color: rgba(255,255,255,.3);
+  font-size: .65rem;
+  font-weight: 750;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
 @media (max-width: 991.98px) {
   /* Collapse: абсолютное позиционирование под navbar */
   .iesa-navbar .navbar-nav { flex-direction: column; gap: 0; }
@@ -380,7 +395,8 @@
 
 @media (max-width: 575.98px) {
   .iesa-navbar { height: 52px; }
-  .iesa-brand .navbar-logo { height: 28px; }
+  .iesa-brand { width: 60px; height: 21px; }
+  .iesa-brand .navbar-logo { width: 60px; }
 }
 
 /* ── Desktop: collapse не absolute ── */

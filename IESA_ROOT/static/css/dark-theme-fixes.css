@@ -629,7 +629,6 @@ img:not([src]), img[src=""] {
   background-size: 200% 100%;
   animation: skeleton-loading 1.5s infinite;
 }
-img { background-color: #1a1a24; }
 
 /* ── 10. Profile quick actions ── */
 .cab-qn-item, .qa-item, .btn-hero-quick {
