@@ -42,6 +42,12 @@
 }
 .btn-log-visit-inline:hover { background: rgba(220,38,38,.22); color: #fff; }
 .btn-log-visit-inline i { font-size: .7rem; }
+@media (max-width: 575.98px) {
+  .member-search-group { display: grid !important; grid-template-columns: 1fr; gap: .55rem; }
+  .member-search-group > .form-control,
+  .member-search-group > .btn { width: 100%; border-radius: 10px !important; min-height: 48px; }
+  .member-search-sort { width: 100%; margin-left: 0 !important; }
+}
 </style>
 {% endblock %}
 
@@ -58,7 +64,7 @@
 
   <!-- Search form with filters (audit v5) -->
   <form method="get" action="{% url 'users:users_search' %}" class="mb-4">
-    <div class="input-group mb-2">
+    <div class="input-group mb-2 member-search-group">
       <label for="member-search-query" class="visually-hidden">{% trans "Search members" %}</label>
       <input id="member-search-query" type="search" name="q" class="form-control" placeholder="{% trans "Search by name, username, email or ID..." %}" value="{{ query }}" autofocus>
       <button type="submit" class="btn btn-primary btn-modern">
@@ -77,7 +83,7 @@
         {% endfor %}
       </div>
       <label for="member-search-sort" class="visually-hidden">{% trans "Sort members" %}</label>
-      <select id="member-search-sort" name="sort" onchange="this.form.submit()"
+      <select id="member-search-sort" class="member-search-sort" name="sort" onchange="this.form.submit()"
               style="margin-left:auto;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:.4rem .75rem;font-size:.85rem;">
         <option value="relevance" {% if sort_by == 'relevance' %}selected{% endif %}>{% trans "Relevance" %}</option>
         <option value="newest"    {% if sort_by == 'newest'    %}selected{% endif %}>{% trans "Newest first" %}</option>
@@ -135,7 +141,8 @@
     {% empty %}
       {# 4e: Улучшенный empty state с предложением пригласить #}
       <div style="text-align:center;padding:3rem 1.5rem;background:rgba(255,255,255,.025);border:1.5px dashed rgba(255,255,255,.08);border-radius:20px;margin-top:.75rem;">
-        <div style="font-size:2.8rem;margin-bottom:.8rem;animation:float-icon 3s ease-in-out infinite;">👤</div>
+        <div style="font-size:2.4rem;margin-bottom:.8rem;color:rgba(220,38,38,.6);"><i class="fas fa-user-group" aria-hidden="true"></i></div>
+        {% if query %}
         <div style="font-size:.95rem;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:.35rem;">
           {% blocktrans with q=query %}No results for "{{ q }}"{% endblocktrans %}
         </div>
@@ -147,8 +154,11 @@
           <i class="fas fa-envelope"></i> {% trans "Invite to IESA Sport" %}
         </a>
         {% endif %}
+        {% else %}
+        <div style="font-size:.95rem;font-weight:700;color:rgba(255,255,255,.72);margin-bottom:.35rem;">{% trans "Find a member" %}</div>
+        <p style="font-size:.8rem;color:rgba(255,255,255,.4);margin-bottom:0;">{% trans "Search by name or username" %}</p>
+        {% endif %}
       </div>
-      <style>@keyframes float-icon{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}</style>
     {% endfor %}
   </div>
 </div>

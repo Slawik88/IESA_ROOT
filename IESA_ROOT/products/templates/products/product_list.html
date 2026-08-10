@@ -71,31 +71,6 @@
     transform: translateY(-2px);
 }
 .prod-tag i { color: var(--primary); font-size: .7rem; }
-/* Progress bar */
-.prod-progress-wrap {
-    max-width: 300px;
-    margin: 0 auto 1.5rem;
-}
-.prod-progress-label {
-    display: flex;
-    justify-content: space-between;
-    font-size: .75rem;
-    color: rgba(255,255,255,.35);
-    margin-bottom: .4rem;
-}
-.prod-progress-bar {
-    height: 6px;
-    background: rgba(255,255,255,.06);
-    border-radius: 100px;
-    overflow: hidden;
-}
-.prod-progress-fill {
-    height: 100%;
-    border-radius: 100px;
-    background: linear-gradient(90deg, var(--primary), #f87171);
-    width: 0%;
-    transition: width 1.5s cubic-bezier(.22,1,.36,1);
-}
 </style>
 {% endblock %}
 
@@ -122,18 +97,8 @@
             <span class="prod-tag"><i class="fas fa-circle"></i> {% trans "Services" %}</span>
         </div>
 
-        <div class="prod-progress-wrap" data-reveal data-delay="2">
-            <div class="prod-progress-label">
-                <span>{% trans "Preparation" %}</span>
-                <span>65%</span>
-            </div>
-            <div class="prod-progress-bar">
-                <div class="prod-progress-fill" data-progress="65"></div>
-            </div>
-        </div>
-        
-        <a href="{% url 'core:home' %}" class="btn hero-btn-p">
-            <i class="fas fa-home me-2"></i>{% trans "Back to home" %}
+        <a href="{% url 'core:benefits' %}" class="btn hero-btn-p">
+            <i class="fas fa-gift me-2"></i>{% trans "Benefits" %}
         </a>
     </div>
 </div>

@@ -43,6 +43,15 @@
     transition: transform .6s cubic-bezier(.22,1,.36,1), filter .5s;
 }
 .gallery-card:hover img { transform: scale(1.08); filter: brightness(1.04); }
+.gallery-card__fallback {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: .65rem;
+    color: rgba(255,255,255,.42); font-size: .78rem; text-align: center;
+}
+.gallery-card__fallback i { color: rgba(220,38,38,.55); font-size: 1.5rem; }
+.gallery-card.is-missing { cursor: default; }
+.gallery-card.is-missing .gallery-card__zoom,
+.gallery-card.is-missing .gallery-card__overlay { display: none; }
 
 /* Caption overlay */
 .gallery-card__overlay {
@@ -168,7 +177,7 @@
         {% if photos %}
         <div class="gal-counter-chip" data-reveal>
             <i class="fas fa-images"></i>
-            <span data-count="{{ photos|length }}">0</span> {% trans "photos" %}
+            <span>{{ photos|length }}</span> {% trans "photos" %}
         </div>
         {% endif %}
     </div>
@@ -178,13 +187,17 @@
     {% trans "Photo" as default_photo %}
     {% trans "View photo" as default_view_photo %}
     <div class="container-limited gallery-section">
-        <div class="row row-cols-2 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3 gallery-grid">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3 gallery-grid">
             {% for photo in photos %}
             <div class="col" data-reveal data-delay="{% cycle '1' '2' '3' '4' %}">
                 <a href="#" class="gallery-grid__item gallery-card"
                    data-index="{{ forloop.counter0 }}"
                    data-src="{{ photo.image.url }}"
                    data-caption="{{ photo.caption|default:'' }}">
+                    <div class="gallery-card__fallback" aria-hidden="true">
+                        <i class="fas fa-image"></i>
+                        <span>{{ default_photo }}</span>
+                    </div>
                     <img src="{{ photo.image.url }}" alt="{{ photo.caption|default:default_photo }}">
                     <div class="gallery-card__overlay">
                         {% if photo.caption %}
@@ -286,6 +299,14 @@
     const defaultPhotoAlt = '{{ default_photo|escapejs }}';
     let current = 0;
 
+    items.forEach(it => {
+        const photo = it.querySelector(':scope > img');
+        if (!photo) return;
+        const markMissing = () => { photo.hidden = true; it.classList.add('is-missing'); };
+        photo.addEventListener('error', markMissing, { once: true });
+        if (photo.complete && photo.naturalWidth === 0) markMissing();
+    });
+
     function updateThumbs(idx) {
         thumbs.forEach((t,i) => {
             t.classList.toggle('active', i === idx);
@@ -315,7 +336,10 @@
     }
 
     items.forEach((it, idx) => {
-        it.addEventListener('click', e => { e.preventDefault(); show(idx, false); });
+        it.addEventListener('click', e => {
+            e.preventDefault();
+            if (!it.classList.contains('is-missing')) show(idx, false);
+        });
     });
 
     thumbs.forEach(t => {
