@@ -103,11 +103,11 @@
         }
         </script>
         <hr class="err-divider">
-        <span class="err-search-label">{% trans "OR SEARCH THE SITE" %}</span>
+        <label for="err-search-input" class="err-search-label">{% trans "OR SEARCH THE SITE" %}</label>
         <form action="{% url 'blog:global_search' %}" method="get" class="err-search-form">
-            <input type="text" name="q" class="err-search-input"
-                   placeholder="{% trans 'Search...' %}" autofocus>
-            <button type="submit" class="btn btn-secondary">
+            <input id="err-search-input" type="search" name="q" class="err-search-input"
+                   placeholder="{% trans 'Search...' %}">
+            <button type="submit" class="btn btn-secondary" aria-label="{% trans 'Search' %}">
                 <i class="fas fa-search"></i>
             </button>
         </form>

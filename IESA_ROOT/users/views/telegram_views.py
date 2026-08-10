@@ -6,7 +6,7 @@ import os
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -41,7 +41,9 @@ def _tg_bot_name() -> str:
 def test_telegram_view(request):
     """Staff-only Telegram setup page (Block 8e: uses template instead of inline HTML)."""
     if not request.user.is_staff:
-        return HttpResponseForbidden(_("Access restricted to administrators only."))
+        return render(request, '403.html', {
+            'permission_reason': _("Access restricted to administrators only."),
+        }, status=403)
 
     result_html = ""
     webhook_secret = _webhook_secret()

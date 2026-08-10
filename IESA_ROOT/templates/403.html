@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "403 — Access restricted" %} | IESA{% endblock %}
+{% block meta_description %}{% trans "You do not have permission to open this page." %}{% endblock %}
+
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.access-denied-page {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 1.5rem;
+}
+.access-denied-wrap { width: 100%; max-width: 560px; text-align: center; }
+.access-denied-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(220,38,38,.3);
+    border-radius: 50%;
+    background: rgba(220,38,38,.1);
+    color: #f87171;
+    font-size: 1.75rem;
+}
+.access-denied-code {
+    color: rgba(220,38,38,.75);
+    font-family: var(--font-mono);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    margin-bottom: .6rem;
+}
+.access-denied-title { color: #f1f5f9; font-size: clamp(1.4rem, 4vw, 1.8rem); font-weight: 800; margin-bottom: .75rem; }
+.access-denied-desc { color: rgba(255,255,255,.52); font-size: .95rem; line-height: 1.65; margin: 0 auto 1.75rem; }
+.access-denied-reason {
+    margin-bottom: 1.75rem;
+    padding: .85rem 1rem;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+    background: rgba(255,255,255,.035);
+    color: rgba(255,255,255,.65);
+    font-size: .85rem;
+}
+.access-denied-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; }
+@media (max-width: 420px) {
+    .access-denied-actions > * { width: 100%; justify-content: center; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="access-denied-page">
+    <div class="access-denied-wrap">
+        <div class="access-denied-icon" aria-hidden="true"><i class="fas fa-lock"></i></div>
+        <div class="access-denied-code">{% trans "Error 403" %}</div>
+        <h1 class="access-denied-title">{% trans "Access restricted" %}</h1>
+        <p class="access-denied-desc">
+            {% trans "This page is available only to accounts with the required permissions." %}
+        </p>
+        {% if permission_reason %}
+        <div class="access-denied-reason">{{ permission_reason }}</div>
+        {% endif %}
+        <div class="access-denied-actions">
+            <button type="button" id="access-denied-back" class="btn btn-secondary" hidden>
+                <i class="fas fa-arrow-left me-2" aria-hidden="true"></i>{% trans "Go back" %}
+            </button>
+            <a href="{% url 'core:home' %}" class="btn btn-primary">
+                <i class="fas fa-home me-2" aria-hidden="true"></i>{% trans "Back to home" %}
+            </a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'users:profile' %}" class="btn btn-secondary">
+                <i class="fas fa-user me-2" aria-hidden="true"></i>{% trans "Open my profile" %}
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var button = document.getElementById('access-denied-back');
+    if (button && window.history.length > 1) {
+        button.hidden = false;
+        button.addEventListener('click', function () { window.history.back(); });
+    }
+})();
+</script>
+{% endblock %}

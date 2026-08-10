@@ -250,14 +250,15 @@
     {# Копия левой панели: мини-календарь + список предстоящих #}
     <div class="cal-month-nav">
       <div class="cal-month-header">
-        <a href="?month={{ prev_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn"><i class="fas fa-chevron-left"></i></a>
+        <a href="?month={{ prev_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn" aria-label="{% trans 'Previous month' %}"><i class="fas fa-chevron-left"></i></a>
         <span class="cal-month-title">{{ cal_month_name }}</span>
-        <a href="?month={{ next_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn"><i class="fas fa-chevron-right"></i></a>
+        <a href="?month={{ next_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn" aria-label="{% trans 'Next month' %}"><i class="fas fa-chevron-right"></i></a>
       </div>
       <div class="cal-jump-row">
         <form method="get" action="" style="display:flex;gap:.4rem;flex:1;margin:0;">
           <input type="hidden" name="day" value="{{ selected_day|date:'Y-m-d' }}">
-          <select name="jump" class="cal-jump-select" onchange="this.form.submit()">
+          <label for="calendar-jump-overlay" class="visually-hidden">{% trans "Choose month" %}</label>
+          <select id="calendar-jump-overlay" name="jump" class="cal-jump-select" onchange="this.form.submit()">
             {% for opt in jump_options %}<option value="{{ opt.value }}"{% if opt.selected %} selected{% endif %}>{{ opt.label }}</option>{% endfor %}
           </select>
         </form>
@@ -314,11 +315,11 @@
 
     <div class="cal-month-nav">
       <div class="cal-month-header">
-        <a href="?month={{ prev_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn">
+        <a href="?month={{ prev_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn" aria-label="{% trans 'Previous month' %}">
           <i class="fas fa-chevron-left"></i>
         </a>
         <span class="cal-month-title">{{ cal_month_name }}</span>
-        <a href="?month={{ next_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn">
+        <a href="?month={{ next_month_str }}&day={{ selected_day|date:'Y-m-d' }}" class="cal-mnav-btn" aria-label="{% trans 'Next month' %}">
           <i class="fas fa-chevron-right"></i>
         </a>
       </div>
@@ -326,7 +327,8 @@
       <div class="cal-jump-row">
         <form method="get" action="" style="display:flex;gap:.4rem;flex:1;margin:0;">
           <input type="hidden" name="day" value="{{ selected_day|date:'Y-m-d' }}">
-          <select name="jump" class="cal-jump-select" onchange="this.form.submit()">
+          <label for="calendar-jump-main" class="visually-hidden">{% trans "Choose month" %}</label>
+          <select id="calendar-jump-main" name="jump" class="cal-jump-select" onchange="this.form.submit()">
             {% for opt in jump_options %}
             <option value="{{ opt.value }}"{% if opt.selected %} selected{% endif %}>{{ opt.label }}</option>
             {% endfor %}
@@ -490,14 +492,14 @@
           <i class="fas fa-calendar-plus" style="color:var(--primary);margin-right:.35rem;"></i>
           {% trans "Schedule Meeting" %}
         </div>
-        <button type="button" onclick="closeFormDrawer()" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:1.1rem;cursor:pointer;padding:.2rem .4rem;line-height:1;">✕</button>
+        <button type="button" onclick="closeFormDrawer()" aria-label="{% trans 'Close meeting form' %}" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:1.1rem;cursor:pointer;padding:.2rem .4rem;line-height:1;">✕</button>
       </div>
         <form method="post">
           {% csrf_token %}
           <div class="cal-form-grid" style="margin-bottom:.85rem;">
             <div style="grid-column:span 2;">
-              <label class="cal-field-label">{% trans "MEMBER / CLIENT" %} *</label>
-              <select name="member" class="cal-input" required>
+              <label class="cal-field-label" for="meeting-member">{% trans "MEMBER / CLIENT" %} *</label>
+              <select id="meeting-member" name="member" class="cal-input" required>
                 <option value="">— {% trans "Search member" %} —</option>
                 {% for m in all_members %}
                 <option value="{{ m.pk }}">{{ m.get_full_name|default:m.username }} (@{{ m.username }})</option>
@@ -505,11 +507,11 @@
               </select>
             </div>
             <div style="grid-column:span 2;">
-              <label class="cal-field-label">{% trans "MEETING TITLE" %} *</label>
+              <label class="cal-field-label" for="meeting-title">{% trans "MEETING TITLE" %} *</label>
               <input type="text" name="title" id="meeting-title" class="cal-input" placeholder="{% trans 'Personal training, Consultation, Insurance review...' %}" required>
             </div>
             <div>
-              <label class="cal-field-label">{% trans "DATE" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.62rem;">({% trans "optional" %})</span></label>
+              <label class="cal-field-label" for="meeting-date">{% trans "DATE" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.62rem;">({% trans "optional" %})</span></label>
               <input type="date" name="date" id="meeting-date" class="cal-input" value="{{ prefill_date }}">
               <div style="display:flex;gap:.4rem;margin-top:.4rem;">
                 <button type="button" class="cal-date-quick" id="cal-today-btn">{% trans "Today" %}</button>
@@ -522,25 +524,25 @@
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
               <div>
-                <label class="cal-field-label">{% trans "START" %}</label>
+                <label class="cal-field-label" for="meeting-start">{% trans "START" %}</label>
                 <input type="time" name="start_time" id="meeting-start" class="cal-input" value="{{ prefill_time }}">
               </div>
               <div>
-                <label class="cal-field-label">{% trans "END" %} <span style="color:rgba(255,255,255,.3);font-size:.6rem;" id="cal-duration-label"></span></label>
+                <label class="cal-field-label" for="meeting-end">{% trans "END" %} <span style="color:rgba(255,255,255,.3);font-size:.6rem;" id="cal-duration-label"></span></label>
                 <input type="time" name="end_time" id="meeting-end" class="cal-input">
               </div>
             </div>
             <div>
-              <label class="cal-field-label">{% trans "ADDRESS" %}</label>
-              <input type="text" name="address" class="cal-input" placeholder="{% trans 'Street, city...' %}">
+              <label class="cal-field-label" for="meeting-address">{% trans "ADDRESS" %}</label>
+              <input id="meeting-address" type="text" name="address" class="cal-input" placeholder="{% trans 'Street, city...' %}">
             </div>
             <div>
-              <label class="cal-field-label">{% trans "SERIES LABEL" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.6rem;">{% trans "(for long-term clients)" %}</span></label>
-              <input type="text" name="series_label" class="cal-input" placeholder="{% trans 'e.g. Insurance case #123, Rehab Q1' %}">
+              <label class="cal-field-label" for="meeting-series">{% trans "SERIES LABEL" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.6rem;">{% trans "(for long-term clients)" %}</span></label>
+              <input id="meeting-series" type="text" name="series_label" class="cal-input" placeholder="{% trans 'e.g. Insurance case #123, Rehab Q1' %}">
             </div>
             <div style="grid-column:span 2;">
-              <label class="cal-field-label">{% trans "NOTES FOR MEMBER" %}</label>
-              <textarea name="notes" class="cal-input" rows="2" placeholder="{% trans 'Additional info for the client...' %}"></textarea>
+              <label class="cal-field-label" for="meeting-notes">{% trans "NOTES FOR MEMBER" %}</label>
+              <textarea id="meeting-notes" name="notes" class="cal-input" rows="2" placeholder="{% trans 'Additional info for the client...' %}"></textarea>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">

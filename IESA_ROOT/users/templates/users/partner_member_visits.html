@@ -89,40 +89,40 @@
           <tbody>
             {% for visit in visits %}
               <tr>
-                <td style="white-space:nowrap;color:rgba(255,255,255,.45);font-size:.73rem;font-family:var(--font-mono);">
+                <td data-label="{% trans 'DATE' %}" style="white-space:nowrap;color:rgba(255,255,255,.45);font-size:.73rem;font-family:var(--font-mono);">
                   {{ visit.timestamp|date:"d M Y" }}<br>{{ visit.timestamp|date:"H:i" }}
                 </td>
-                <td style="color:rgba(255,255,255,.75);">
+                <td data-label="{% trans 'SERVICE' %}" style="color:rgba(255,255,255,.75);">
                   {{ visit.get_service_type_display }}
                   {% if visit.service_description %}
                     <br><span style="font-size:.71rem;color:rgba(255,255,255,.32);font-style:italic;">{{ visit.service_description|truncatechars:50 }}</span>
                   {% endif %}
                 </td>
-                <td>
+                <td data-label="CHF">
                   {% if visit.cost %}
                     <span style="color:#e2e8f0;font-weight:600;">{{ visit.cost }}</span>
                   {% else %}
                     <span style="color:rgba(255,255,255,.18);">—</span>
                   {% endif %}
                 </td>
-                <td>
+                <td data-label="{% trans 'PIN' %}">
                   {% if visit.pin_verified %}
                     <span class="pp-badge pp-badge-verified">✓ PIN</span>
                   {% else %}
                     <span class="pp-badge pp-badge-unverified">—</span>
                   {% endif %}
                 </td>
-                <td>
+                <td data-label="{% trans 'STATUS' %}">
                   <span class="pp-badge pp-badge-{{ visit.status|lower }}">{{ visit.status }}</span>
                 </td>
-                <td style="max-width:160px;">
+                <td data-label="{% trans 'NOTES' %}" style="max-width:160px;">
                   {% if visit.comments %}
                     <span style="font-size:.73rem;color:rgba(255,255,255,.4);font-style:italic;">{{ visit.comments|truncatechars:60 }}</span>
                   {% else %}
                     <span style="color:rgba(255,255,255,.15);">—</span>
                   {% endif %}
                 </td>
-                <td style="white-space:nowrap;">
+                <td data-label="{% trans 'ACTIONS' %}" class="pmv-row-actions{% if visit.status != 'ACTIVE' or visit.timestamp < edit_window_cutoff %} is-empty{% endif %}" style="white-space:nowrap;">
                   {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
                     <a href="{% url 'users:edit_visit' visit.pk %}" class="pp-act-link">{% trans "edit" %}</a>
                     <a href="{% url 'users:cancel_visit' visit.pk %}" class="pp-act-link danger">{% trans "cancel" %}</a>

@@ -64,7 +64,7 @@
     color: var(--tg-color);
 }
 
-.tg-header h2 {
+.tg-header h1 {
     font-size: 1.45rem;
     font-weight: 700;
     color: #fff;
@@ -458,7 +458,7 @@
         {# Header #}
         <div class="tg-header">
             <div class="tg-icon"><i class="fab fa-telegram"></i></div>
-            <h2>{% trans "Connect Telegram" %}</h2>
+            <h1>{% trans "Connect Telegram" %}</h1>
             <p>{% trans "Link your account to receive instant notifications" %}</p>
         </div>
 
@@ -535,14 +535,14 @@
                 {% csrf_token %}
                 <input type="hidden" name="code" id="code-hidden">
 
-                <div class="otp-wrap" id="otp-wrap">
-                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="0">
-                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="1">
-                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="2">
+                <div class="otp-wrap" id="otp-wrap" role="group" aria-label="{% trans 'Six-digit Telegram connection code' %}">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="0" aria-label="{% trans 'Digit 1' %}">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="1" aria-label="{% trans 'Digit 2' %}">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="2" aria-label="{% trans 'Digit 3' %}">
                     <div class="otp-sep">–</div>
-                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="3">
-                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="4">
-                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="5">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="3" aria-label="{% trans 'Digit 4' %}">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="4" aria-label="{% trans 'Digit 5' %}">
+                    <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" data-idx="5" aria-label="{% trans 'Digit 6' %}">
                 </div>
                 <div class="otp-progress"><div class="otp-progress-bar" id="otp-progress-bar"></div></div>
 
@@ -636,7 +636,8 @@
         setTimeout(() => r.remove(), 550);
     });
 
-    boxes[0].focus();
+    // Do not force-focus on load: mobile browsers otherwise jump past the
+    // instructions and open the numeric keyboard before the user is ready.
 })();
 
 /* BLOCK 6b (audit v3): copy-to-clipboard для @{{ bot }} */

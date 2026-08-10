@@ -839,7 +839,7 @@ html.js .don-fill.animated { width:45%; }
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title fw-bold">{% trans "Team Member" %}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
                 </div>
                 <div class="modal-body p-4">
                     <div class="row g-4">
@@ -987,18 +987,6 @@ html.js .don-fill.animated { width:45%; }
     </div>
 </section>
 
-<!-- Partner Modal -->
-<div class="modal fade" id="partnerModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content" style="border-radius:20px;overflow:hidden;">
-            <div id="partner-modal-body">
-                <div class="modal-body p-5 text-center text-muted">
-                    <i class="fas fa-spinner fa-spin me-2"></i> {% trans "Loading..." %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -1095,4 +1083,3 @@ function openMemberModal(el){
 }
 </script>
 {% endblock %}
-

@@ -196,7 +196,7 @@
         <form method="post" class="needs-validation">
           {% csrf_token %}
           <div class="mb-4">
-            <p class="deact-section-label">{% trans "Enter your password to confirm:" %}</p>
+            <label for="password" class="deact-section-label">{% trans "Enter your password to confirm:" %}</label>
             <input type="password"
                    class="deact-input"
                    id="password"
@@ -233,4 +233,3 @@
   </div>
 </div>
 {% endblock %}
-

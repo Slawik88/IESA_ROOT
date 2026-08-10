@@ -52,14 +52,15 @@
 <div class="container-limited">
   <div class="text-center mb-5">
     <h6 class="section-title d-block mb-4">{% trans "MEMBER DIRECTORY" %}</h6>
-    <h3 class="fw-bold mb-2" style="color:rgba(255,255,255,.87);">{% trans "Find & Connect With Members" %}</h3>
+    <h1 class="fw-bold mb-2" style="color:rgba(255,255,255,.87);font-size:clamp(1.75rem,4vw,2.5rem);">{% trans "Find & Connect With Members" %}</h1>
     <p class="text-muted">{% trans "Search our community by name, username, email or ID" %}</p>
   </div>
 
   <!-- Search form with filters (audit v5) -->
   <form method="get" action="{% url 'users:users_search' %}" class="mb-4">
     <div class="input-group mb-2">
-      <input type="search" name="q" class="form-control" placeholder="{% trans "Search by name, username, email or ID..." %}" value="{{ query }}" autofocus>
+      <label for="member-search-query" class="visually-hidden">{% trans "Search members" %}</label>
+      <input id="member-search-query" type="search" name="q" class="form-control" placeholder="{% trans "Search by name, username, email or ID..." %}" value="{{ query }}" autofocus>
       <button type="submit" class="btn btn-primary btn-modern">
         <i class="fas fa-search"></i> {% trans "Search" %}
       </button>
@@ -75,7 +76,8 @@
         </button>
         {% endfor %}
       </div>
-      <select name="sort" onchange="this.form.submit()"
+      <label for="member-search-sort" class="visually-hidden">{% trans "Sort members" %}</label>
+      <select id="member-search-sort" name="sort" onchange="this.form.submit()"
               style="margin-left:auto;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:8px;padding:.4rem .75rem;font-size:.85rem;">
         <option value="relevance" {% if sort_by == 'relevance' %}selected{% endif %}>{% trans "Relevance" %}</option>
         <option value="newest"    {% if sort_by == 'newest'    %}selected{% endif %}>{% trans "Newest first" %}</option>

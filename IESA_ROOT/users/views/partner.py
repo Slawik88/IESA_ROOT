@@ -254,6 +254,7 @@ def cancel_visit(request, visit_id):
 def partner_member_visits(request, member_id):
     partner = request.user.partner_profile
     member  = get_object_or_404(User, id=member_id)
+    now = timezone.now()
     member_visits = Visit.objects.filter(partner=partner, member=member).order_by('-timestamp')
     total         = member_visits.count()
     total_revenue = member_visits.aggregate(r=Sum('cost'))['r'] or 0
@@ -264,6 +265,7 @@ def partner_member_visits(request, member_id):
         'partner': partner, 'member': member, 'visits': page_obj,
         'total': total, 'total_revenue': total_revenue,
         'verified_count': verified_count, 'last_visit': last_visit,
+        'edit_window_cutoff': now - timezone.timedelta(seconds=EDIT_WINDOW),
         'crumbs': [
             {'label': _('Partner Portal'), 'url': '/auth/partner/dashboard/'},
             {'label': member.get_full_name() or member.username, 'url': None},

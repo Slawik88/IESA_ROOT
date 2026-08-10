@@ -56,6 +56,30 @@
   line-height: 1.6;
   position: relative; z-index: 1;
 }
+.ins-hero__cta {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-top: 24px;
+  padding: 11px 22px;
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, var(--primary), #991b1b);
+  color: #fff;
+  font-size: .92rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--shadow-primary);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+.ins-hero__cta:hover {
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-primary-lg);
+}
 
 /* ── Карточки преимуществ ────────────────────────────────────────── */
 .ins-benefits {
@@ -100,7 +124,7 @@
   margin: 0 auto;
   box-shadow: var(--shadow-card-lg);
 }
-.ins-form-wrap h3 {
+.ins-form-wrap h2 {
   font-size: 1.3rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -263,14 +287,14 @@
   .ins-hero__sub { font-size: .9rem; }
   .ins-benefits { grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 28px 0 24px; }
   .ins-benefit-card { padding: 16px 14px; }
+  .ins-benefit-card__icon { font-size: 1.45rem; margin-bottom: 7px; }
   .ins-form-wrap { padding: 24px 18px; }
   .ins-checkbox-list { grid-template-columns: 1fr 1fr; }
   .ins-tg-banner { flex-direction: column; gap: 10px; padding: 16px; }
   .ins-radio-group { flex-direction: column; }
   .ins-radio-item { flex: none; }
 }
-@media (max-width: 400px) {
-  .ins-benefits { grid-template-columns: 1fr; }
+@media (max-width: 339px) {
   .ins-checkbox-list { grid-template-columns: 1fr; }
 }
 </style>
@@ -280,11 +304,15 @@
 <!-- Hero -->
 <section class="ins-hero">
   <div class="container position-relative">
-    <div class="ins-hero__icon">🛡️</div>
+    <div class="ins-hero__icon" aria-hidden="true"><i class="fas fa-shield-alt"></i></div>
     <h1 class="ins-hero__title">{% trans "IESA Insurance Agent" %}</h1>
     <p class="ins-hero__sub">
       {% trans "We will match you with a personal insurance agent — a specialist who will help protect your health, sports career and financial future." %}
     </p>
+    <a class="ins-hero__cta" href="#insurance-request">
+      <i class="fas fa-paper-plane" aria-hidden="true"></i>
+      {% trans "Submit a request" %}
+    </a>
   </div>
 </section>
 
@@ -293,22 +321,22 @@
   <!-- Преимущества -->
   <div class="ins-benefits">
     <div class="ins-benefit-card">
-      <div class="ins-benefit-card__icon">🤝</div>
+      <div class="ins-benefit-card__icon" aria-hidden="true"><i class="fas fa-user-check"></i></div>
       <div class="ins-benefit-card__title">{% trans "Personal agent" %}</div>
       <div class="ins-benefit-card__text">{% trans "One specialist guides you from start to finish" %}</div>
     </div>
     <div class="ins-benefit-card">
-      <div class="ins-benefit-card__icon">⚡</div>
+      <div class="ins-benefit-card__icon" aria-hidden="true"><i class="fas fa-bolt"></i></div>
       <div class="ins-benefit-card__title">{% trans "Fast response" %}</div>
       <div class="ins-benefit-card__text">{% trans "We will respond within 24 hours after your request" %}</div>
     </div>
     <div class="ins-benefit-card">
-      <div class="ins-benefit-card__icon">🏆</div>
+      <div class="ins-benefit-card__icon" aria-hidden="true"><i class="fas fa-medal"></i></div>
       <div class="ins-benefit-card__title">{% trans "Sports specialization" %}</div>
       <div class="ins-benefit-card__text">{% trans "We understand the needs of athletes and coaches" %}</div>
     </div>
     <div class="ins-benefit-card">
-      <div class="ins-benefit-card__icon">🔒</div>
+      <div class="ins-benefit-card__icon" aria-hidden="true"><i class="fas fa-lock"></i></div>
       <div class="ins-benefit-card__title">{% trans "Confidential" %}</div>
       <div class="ins-benefit-card__text">{% trans "Data is protected and not shared with third parties" %}</div>
     </div>
@@ -326,9 +354,9 @@
 
   {% if existing %}
   <!-- Уже есть активная заявка -->
-  <div class="ins-status-card">
+  <div class="ins-status-card" id="insurance-request">
     <div class="ins-status-badge {{ existing.status }}">
-      {% if existing.status == 'new' %}⏳{% elif existing.status == 'reviewing' %}🔍{% else %}✅{% endif %}
+      {% if existing.status == 'new' %}<i class="fas fa-hourglass-half" aria-hidden="true"></i>{% elif existing.status == 'reviewing' %}<i class="fas fa-search" aria-hidden="true"></i>{% else %}<i class="fas fa-check-circle" aria-hidden="true"></i>{% endif %}
       {{ existing.get_status_display }}
     </div>
     <h4 class="fw-bold mb-2" style="color:var(--text-primary);">{% trans "Your request has been received" %}</h4>
@@ -338,18 +366,18 @@
     </p>
     <div style="font-size:.85rem; color:var(--text-muted);">
       <strong style="color:var(--text-secondary);">{{ existing.get_request_type_display }}</strong><br>
-      {% if existing.phone %}<span>📞 {{ existing.phone }}</span><br>{% endif %}
-      {% if existing.city %}<span>📍 {{ existing.city }}</span>{% endif %}
+      {% if existing.phone %}<span><i class="fas fa-phone" aria-hidden="true"></i> {{ existing.phone }}</span><br>{% endif %}
+      {% if existing.city %}<span><i class="fas fa-map-marker-alt" aria-hidden="true"></i> {{ existing.city }}</span>{% endif %}
     </div>
   </div>
 
   {% else %}
   <!-- Форма заявки -->
-  <div class="ins-form-wrap">
-    <h3>
-      <span style="color:#dc2626;">📋</span>
+  <div class="ins-form-wrap" id="insurance-request">
+    <h2>
+      <i class="fas fa-clipboard-list" aria-hidden="true" style="color:#dc2626;"></i>
       {% trans "Submit a request" %}
-    </h3>
+    </h2>
 
     <form method="post" id="insForm">
       {% csrf_token %}
@@ -360,21 +388,21 @@
         <div class="ins-radio-item">
           <input type="radio" name="request_type" id="rt_new" value="new_agent" checked>
           <label for="rt_new">
-            <span class="icon">🆕</span>
+            <span class="icon" aria-hidden="true"><i class="fas fa-user-plus"></i></span>
             {% trans "Need an agent" %}
           </label>
         </div>
         <div class="ins-radio-item">
           <input type="radio" name="request_type" id="rt_change" value="change_agent">
           <label for="rt_change">
-            <span class="icon">🔄</span>
+            <span class="icon" aria-hidden="true"><i class="fas fa-exchange-alt"></i></span>
             {% trans "Change agent" %}
           </label>
         </div>
         <div class="ins-radio-item">
           <input type="radio" name="request_type" id="rt_consult" value="consultation">
           <label for="rt_consult">
-            <span class="icon">💬</span>
+            <span class="icon" aria-hidden="true"><i class="fas fa-comments"></i></span>
             {% trans "Consultation" %}
           </label>
         </div>
@@ -384,27 +412,32 @@
       <div class="ins-section-label">{% trans "Contact details" %}</div>
       <div class="row g-3 mb-3">
         <div class="col-md-6">
-          <input type="text" name="full_name" class="ins-input"
+          <label for="ins-full-name" class="visually-hidden">{% trans "Full name" %}</label>
+          <input id="ins-full-name" type="text" name="full_name" class="ins-input"
                  placeholder="{% trans 'Full name *' %}"
                  value="{{ user.get_full_name|default:'' }}" required>
         </div>
         <div class="col-md-6">
+          <label for="ins-phone" class="visually-hidden">{% trans "Phone number" %}</label>
           <input type="tel" name="phone" class="ins-input" id="ins-phone"
                  placeholder="{% trans '+41 79 000 00 00' %}"
                  data-phone-mask>
         </div>
         <div class="col-md-6">
-          <input type="email" name="email" class="ins-input"
+          <label for="ins-email" class="visually-hidden">{% trans "Email" %}</label>
+          <input id="ins-email" type="email" name="email" class="ins-input"
                  placeholder="{% trans 'Email' %}"
                  value="{{ user.email|default:'' }}">
         </div>
         <div class="col-md-6">
-          <input type="text" name="telegram_username" class="ins-input"
+          <label for="ins-telegram" class="visually-hidden">{% trans "Telegram username" %}</label>
+          <input id="ins-telegram" type="text" name="telegram_username" class="ins-input"
                  placeholder="{% trans 'Telegram @username' %}"
                  value="{% if user.telegram_username %}@{{ user.telegram_username }}{% endif %}">
         </div>
         <div class="col-12">
-          <input type="text" name="city" class="ins-input"
+          <label for="ins-city" class="visually-hidden">{% trans "City or region" %}</label>
+          <input id="ins-city" type="text" name="city" class="ins-input"
                  placeholder="{% trans 'City / Region' %}">
         </div>
       </div>
@@ -414,35 +447,35 @@
       <div class="ins-checkbox-list mb-4" id="insCheckboxes">
         <div class="ins-check-item">
           <input type="checkbox" id="ins_health" value="Health & life" name="ins_types">
-          <label for="ins_health">❤️ {% trans "Health & life" %}</label>
+          <label for="ins_health"><i class="fas fa-heartbeat" aria-hidden="true"></i> {% trans "Health & life" %}</label>
         </div>
         <div class="ins-check-item">
           <input type="checkbox" id="ins_sport" value="Спортивное страхование" name="ins_types">
-          <label for="ins_sport">🏋️ {% trans "Sports insurance" %}</label>
+          <label for="ins_sport"><i class="fas fa-running" aria-hidden="true"></i> {% trans "Sports insurance" %}</label>
         </div>
         <div class="ins-check-item">
           <input type="checkbox" id="ins_travel" value="Travel" name="ins_types">
-          <label for="ins_travel">✈️ {% trans "Travel" %}</label>
+          <label for="ins_travel"><i class="fas fa-plane" aria-hidden="true"></i> {% trans "Travel" %}</label>
         </div>
         <div class="ins-check-item">
           <input type="checkbox" id="ins_auto" value="Auto" name="ins_types">
-          <label for="ins_auto">🚗 {% trans "Auto" %}</label>
+          <label for="ins_auto"><i class="fas fa-car" aria-hidden="true"></i> {% trans "Auto" %}</label>
         </div>
         <div class="ins-check-item">
           <input type="checkbox" id="ins_property" value="Property" name="ins_types">
-          <label for="ins_property">🏠 {% trans "Property" %}</label>
+          <label for="ins_property"><i class="fas fa-home" aria-hidden="true"></i> {% trans "Property" %}</label>
         </div>
         <div class="ins-check-item">
           <input type="checkbox" id="ins_business" value="Business" name="ins_types">
-          <label for="ins_business">💼 {% trans "Business" %}</label>
+          <label for="ins_business"><i class="fas fa-briefcase" aria-hidden="true"></i> {% trans "Business" %}</label>
         </div>
         <div class="ins-check-item">
           <input type="checkbox" id="ins_pension" value="Пенсионное и накопительное" name="ins_types">
-          <label for="ins_pension">💰 {% trans "Pension / savings" %}</label>
+          <label for="ins_pension"><i class="fas fa-piggy-bank" aria-hidden="true"></i> {% trans "Pension / savings" %}</label>
         </div>
         <div class="ins-check-item">
           <input type="checkbox" id="ins_other" value="Other" name="ins_types">
-          <label for="ins_other">📋 {% trans "Other" %}</label>
+          <label for="ins_other"><i class="fas fa-clipboard-list" aria-hidden="true"></i> {% trans "Other" %}</label>
         </div>
       </div>
 
@@ -451,11 +484,12 @@
 
       <!-- Сообщение -->
       <div class="ins-section-label">{% trans "Additional info" %}</div>
-      <textarea name="message" class="ins-input mb-4" rows="3"
+      <label for="ins-message" class="visually-hidden">{% trans "Additional information" %}</label>
+      <textarea id="ins-message" name="message" class="ins-input mb-4" rows="3"
                 placeholder="{% trans 'Tell us more about your situation, wishes or questions...' %}"></textarea>
 
       <button type="submit" class="ins-submit-btn">
-        🛡️ {% trans "Send request" %}
+        <i class="fas fa-shield-alt" aria-hidden="true"></i> {% trans "Send request" %}
       </button>
     </form>
   </div>
@@ -464,7 +498,7 @@
   <!-- Telegram баннер -->
   {% with bot_name=request.session.telegram_bot_name|default:"IESA_Administrator_bot" %}
   <div class="ins-tg-banner">
-    <div class="ins-tg-banner__icon">✈️</div>
+    <div class="ins-tg-banner__icon" aria-hidden="true"><i class="fab fa-telegram-plane"></i></div>
     <div class="ins-tg-banner__text">
       <strong style="color:#fff;">{% trans "Request via Telegram" %}</strong><br>
       {% trans "You can also submit a request via our bot:" %}

@@ -3,8 +3,9 @@ import uuid as _uuid_mod
 from functools import wraps
 
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
 from ..models import User
@@ -47,7 +48,15 @@ def partner_required(view_func):
     def _wrapped(request, *args, **kwargs):
         if not request.user.is_authenticated:
             from django.conf import settings
-            return redirect(f"{settings.LOGIN_URL}?next={request.path}")
+            # LOGIN_URL is a named Django route (``users:login``), not a
+            # literal URL.  Building a string from it produced
+            # ``users:login?next=...`` which Django treated as an unsafe
+            # external scheme and returned HTTP 400.  Django's helper
+            # resolves the name and safely quotes the complete return path.
+            return redirect_to_login(
+                request.get_full_path(),
+                login_url=settings.LOGIN_URL,
+            )
         if not is_partner(request.user):
             return render(request, 'users/partner_access_denied.html', status=403)
         return view_func(request, *args, **kwargs)

@@ -98,7 +98,7 @@
             <!-- Filters -->
             <div class="cmd-filters">
                 <div class="cmd-filter-group">
-                    <label class="cmd-lbl">STATUS_</label>
+                    <label class="cmd-lbl" for="cmd-status">STATUS_</label>
                     <select id="cmd-status" name="status" class="cmd-select"
                             hx-get="{% url 'blog:post_search' %}"
                             hx-target="#posts-container"
@@ -110,7 +110,7 @@
                     </select>
                 </div>
                 <div class="cmd-filter-group">
-                    <label class="cmd-lbl">ORDER_</label>
+                    <label class="cmd-lbl" for="cmd-sort">ORDER_</label>
                     <select id="cmd-sort" name="sort" class="cmd-select"
                             hx-get="{% url 'blog:post_search' %}"
                             hx-target="#posts-container"
@@ -159,7 +159,7 @@
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem;">
             <div>
-                <div style="font-size:.63rem;font-family:var(--font-mono);color:rgba(220,38,38,.7);letter-spacing:.12em;margin-bottom:.4rem;">STATUS_</div>
+                <label for="mob-status" style="display:block;font-size:.63rem;font-family:var(--font-mono);color:rgba(220,38,38,.7);letter-spacing:.12em;margin-bottom:.4rem;">STATUS_</label>
                 <select id="mob-status" class="cmd-select"
                         style="width:100%;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px;padding:.45rem .7rem!important;color:#fff!important;"
                         hx-get="{% url 'blog:post_search' %}"
@@ -172,7 +172,7 @@
                 </select>
             </div>
             <div>
-                <div style="font-size:.63rem;font-family:var(--font-mono);color:rgba(220,38,38,.7);letter-spacing:.12em;margin-bottom:.4rem;">ORDER_</div>
+                <label for="mob-sort" style="display:block;font-size:.63rem;font-family:var(--font-mono);color:rgba(220,38,38,.7);letter-spacing:.12em;margin-bottom:.4rem;">ORDER_</label>
                 <select id="mob-sort" class="cmd-select"
                         style="width:100%;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px;padding:.45rem .7rem!important;color:#fff!important;"
                         hx-get="{% url 'blog:post_search' %}"

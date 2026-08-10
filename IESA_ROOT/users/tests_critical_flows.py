@@ -140,6 +140,24 @@ class EditVisitWindowTest(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 302)
 
+    def test_member_history_only_shows_actions_inside_edit_window(self):
+        current = self._make_visit(60)
+        expired = self._make_visit(1300)
+
+        response = self.client.get(
+            reverse('users:partner_member_visits', kwargs={'member_id': self.member.pk})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            reverse('users:edit_visit', kwargs={'visit_id': current.pk}),
+        )
+        self.assertNotContains(
+            response,
+            reverse('users:edit_visit', kwargs={'visit_id': expired.pk}),
+        )
+
 
 # ── invite_register tests ─────────────────────────────────────────────────────
 
@@ -158,6 +176,23 @@ class InviteRegisterTest(TestCase):
         url = reverse('users:invite_register', kwargs={'token': self.invite.token})
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
+
+    def test_generated_invite_message_uses_real_registration_route(self):
+        self.client.login(username='staff', password='pass123X!')
+
+        response = self.client.post(reverse('users:invite_generate'), data={
+            'partner_type': 'partner',
+            'company_name': 'New Partner',
+            'max_uses': 1,
+            'expires_days': 7,
+        }, follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        created = InviteToken.objects.exclude(pk=self.invite.pk).get()
+        expected_path = reverse('users:invite_register', kwargs={'token': created.token})
+        messages = [str(message) for message in response.context['messages']]
+        self.assertTrue(any(expected_path in message for message in messages))
+        self.assertFalse(any('/users/invite/' in message for message in messages))
 
     def test_expired_invite_returns_410(self):
         self.invite.expires_at = timezone.now() - timedelta(seconds=1)
@@ -257,6 +292,25 @@ class DashboardRedirectTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(user.partner_profile.company_name, 'Flag Partner')
+
+    def test_anonymous_partner_route_redirects_to_login_instead_of_400(self):
+        response = self.client.get(reverse('users:partner_dashboard'))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response.url,
+            f"{reverse('users:login')}?next={reverse('users:partner_dashboard')}",
+        )
+
+    def test_non_staff_telegram_tool_gets_helpful_403_page(self):
+        user = User.objects.create_user(username='regular_403', password='pass123X!')
+        self.client.force_login(user)
+
+        response = self.client.get(reverse('users:test_telegram'))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTemplateUsed(response, '403.html')
+        self.assertContains(response, 'Access restricted', status_code=403)
 
 
 # ── ProfileView context tests ─────────────────────────────────────────────────
