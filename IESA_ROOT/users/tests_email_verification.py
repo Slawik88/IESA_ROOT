@@ -1,4 +1,5 @@
 from unittest.mock import patch
+from datetime import date
 
 from django.core import signing
 from django.test import TestCase
@@ -204,6 +205,38 @@ class EmailVerificationFormTests(TestCase):
         self.assertEqual(updated.email, 'new-owner@example.com')
         self.assertIsNone(updated.email_verified_at)
         self.assertIsNone(updated.email_verification_sent_at)
+
+    def test_profile_date_is_rendered_in_the_format_accepted_by_the_field(self):
+        self.user.date_of_birth = date(2004, 10, 18)
+        self.user.save(update_fields=['date_of_birth'])
+
+        form = UserProfileEditForm(instance=self.user)
+
+        self.assertEqual(form['date_of_birth'].value(), date(2004, 10, 18))
+        self.assertIn('value="18.10.2004"', str(form['date_of_birth']))
+
+    def test_unchanged_profile_with_existing_birth_date_can_be_saved(self):
+        self.user.date_of_birth = date(2004, 10, 18)
+        self.user.save(update_fields=['date_of_birth'])
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse('users:profile_edit'), data={
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+            'email': self.user.email,
+            'date_of_birth': '18.10.2004',
+            'phone_number': '',
+            'is_phone_hidden': True,
+            'github_url': '',
+            'discord_url': '',
+            'telegram_url': '',
+            'website_url': '',
+            'other_links': '',
+        })
+
+        self.assertRedirects(response, reverse('users:profile'))
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.date_of_birth, date(2004, 10, 18))
 
     def test_duplicate_email_error_is_visible_on_profile_edit_page(self):
         other = User.objects.create_user(

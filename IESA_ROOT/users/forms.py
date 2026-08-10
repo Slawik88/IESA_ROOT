@@ -68,7 +68,7 @@ class CustomUserChangeForm(UserChangeForm):
     date_of_birth = forms.DateField(
         required=False,
         input_formats=['%d.%m.%Y', '%Y-%m-%d', '%d/%m/%Y'],
-        widget=forms.TextInput(attrs={
+        widget=forms.DateInput(format='%d.%m.%Y', attrs={
             'type': 'text',
             'placeholder': 'DD.MM.YYYY',
             'class': 'form-control date-mask',
@@ -120,7 +120,7 @@ class UserProfileEditForm(forms.ModelForm):
     date_of_birth = forms.DateField(
         required=False,
         input_formats=['%d.%m.%Y', '%Y-%m-%d', '%d/%m/%Y'],  # Принимаем разные форматы ввода
-        widget=forms.TextInput(attrs={
+        widget=forms.DateInput(format='%d.%m.%Y', attrs={
             'type': 'text',
             'placeholder': 'DD.MM.YYYY',
             'class': 'form-control date-mask',
