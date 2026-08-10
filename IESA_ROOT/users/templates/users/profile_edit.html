@@ -96,6 +96,18 @@
 }
 .edit-form .form-check-input:checked { background-color: #dc2626 !important; border-color: #dc2626 !important; }
 .edit-form .form-check-label { color: rgba(255,255,255,.6); font-size: .85rem; }
+.field-errors {
+    list-style: none; margin: .4rem 0 0; padding: 0;
+    color: #fca5a5; font-size: .76rem; line-height: 1.4;
+}
+.field-errors li { display: flex; gap: .35rem; }
+.field-errors li::before { content: '\f06a'; font-family: 'Font Awesome 6 Free'; font-weight: 900; }
+.email-security-hint {
+    display: flex; align-items: flex-start; gap: .45rem;
+    margin-top: .45rem; color: rgba(255,255,255,.58);
+    font-size: .72rem; line-height: 1.45;
+}
+.email-security-hint i { color: #fbbf24; margin-top: .15rem; }
 
 /* Current avatar */
 .edit-form .avatar { background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.12); }
@@ -222,7 +234,7 @@
                     <div class="edit-card-header">
                         <div class="edit-header-icon"><i class="fas fa-user-cog"></i></div>
                         <div>
-                            <h3 class="edit-title">{% trans "Edit profile" %}</h3>
+                            <h1 class="edit-title">{% trans "Edit profile" %}</h1>
                             <p class="edit-subtitle">{% trans "Refresh your info, avatar and social links." %}</p>
                         </div>
                     </div>
@@ -246,23 +258,38 @@
                                 <div class="col-md-6">
                                     <label for="id_first_name" class="form-label">{% trans "First name" %}</label>
                                     {{ form.first_name }}
+                                    {% include 'partials/form_field_errors.html' with field=form.first_name %}
                                 </div>
                                 <div class="col-md-6">
                                     <label for="id_last_name" class="form-label">{% trans "Last name" %}</label>
                                     {{ form.last_name }}
+                                    {% include 'partials/form_field_errors.html' with field=form.last_name %}
                                 </div>
                                 <div class="col-md-6">
                                     <label for="id_email" class="form-label">{% trans "Email" %}</label>
                                     {{ form.email }}
+                                    {% include 'partials/form_field_errors.html' with field=form.email %}
+                                    <div class="email-security-hint">
+                                        <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                                        <span>
+                                        {% if request.user.is_email_verified %}
+                                          {% trans "Your current address is confirmed. If you change it, the new address must be confirmed again." %}
+                                        {% else %}
+                                          {% trans "This address is not confirmed yet. We will send a confirmation link after you save it." %}
+                                        {% endif %}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="id_date_of_birth" class="form-label">{% trans "Date of birth" %}</label>
                                     {{ form.date_of_birth }}
+                                    {% include 'partials/form_field_errors.html' with field=form.date_of_birth %}
                                     <small class="form-text text-muted d-block mt-1">{% trans "Format: DD.MM.YYYY" %}</small>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="id_phone_number" class="form-label">{% trans "Phone Number" %}</label>
                                     {{ form.phone_number }}
+                                    {% include 'partials/form_field_errors.html' with field=form.phone_number %}
                                     <small class="form-text text-muted d-block mt-1">{% trans "Example: +41 XX XXX XX XX" %}</small>
                                 </div>
                                 <div class="col-12">
@@ -307,6 +334,7 @@
                                                style="position:absolute;inset:0;opacity:0;cursor:pointer;"
                                                aria-label="{% trans 'Upload avatar' %}">
                                     </div>
+                                    {% include 'partials/form_field_errors.html' with field=form.avatar %}
                                     <div id="avatar-file-name" style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:.4rem;"></div>
                                 </div>
                             </div>
@@ -346,24 +374,28 @@
                                         <i class="fab fa-github me-2"></i>{% trans "GitHub" %}
                                     </label>
                                     {{ form.github_url }}
+                                    {% include 'partials/form_field_errors.html' with field=form.github_url %}
                                 </div>
                                 <div class="col-md-6">
                                     <label for="id_website_url" class="form-label">
                                         <i class="fas fa-globe me-2"></i>{% trans "Website" %}
                                     </label>
                                     {{ form.website_url }}
+                                    {% include 'partials/form_field_errors.html' with field=form.website_url %}
                                 </div>
                                 <div class="col-md-6">
                                     <label for="id_telegram_url" class="form-label">
                                         <i class="fab fa-telegram me-2"></i>{% trans "Telegram" %}
                                     </label>
                                     {{ form.telegram_url }}
+                                    {% include 'partials/form_field_errors.html' with field=form.telegram_url %}
                                 </div>
                                 <div class="col-md-6">
                                     <label for="id_discord_url" class="form-label">
                                         <i class="fab fa-discord me-2"></i>{% trans "Discord" %}
                                     </label>
                                     {{ form.discord_url }}
+                                    {% include 'partials/form_field_errors.html' with field=form.discord_url %}
                                 </div>
                                 <div class="col-12">
                                     <label for="id_other_links" class="form-label">
@@ -371,6 +403,7 @@
                                         <span class="text-muted" style="font-size: 0.85rem;">({% trans "one per line" %})</span>
                                     </label>
                                     {{ form.other_links }}
+                                    {% include 'partials/form_field_errors.html' with field=form.other_links %}
                                     <small class="form-text text-muted d-block mt-2">
                                         {% trans "Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, Medium, etc." %}
                                     </small>

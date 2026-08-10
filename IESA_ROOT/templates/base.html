@@ -538,6 +538,7 @@
     {% endif %}
 
     {# 10c: PWA Install Prompt (bottom sheet) #}
+    {% block pwa_install_prompt %}
     <div class="iesa-bottom-sheet" id="pwa-install-sheet" style="padding:1.5rem 1.25rem 2rem;">
       <div class="bs-handle"></div>
       <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
@@ -604,6 +605,7 @@
       }
     })();
     </script>
+    {% endblock %}
 
     {% comment %}FIX 2026-05-23: Единый Action Menu Bottom Sheet для ВСЕХ аутентифицированных юзеров. Раньше было 2 разных sheet'а (user-actions/quick-visit) с разными conditions — это давало "мёртвые" клики у партнёров. Теперь один sheet, разделы видны по роли.{% endcomment %}
     {% if user.is_authenticated %}
@@ -727,6 +729,20 @@
       padding-bottom: env(safe-area-inset-bottom, 0px);
     }
     .iesa-bottom-sheet.open { transform: translateY(0); }
+    @media (min-width: 768px) {
+      /* Desktop install prompt behaves like a compact, non-blocking toast
+         instead of covering the full width of the current task. */
+      #pwa-install-sheet {
+        left: auto; right: 1rem; bottom: 1rem;
+        width: min(420px, calc(100vw - 2rem));
+        border: 1px solid rgba(255,255,255,.10);
+        border-top-color: rgba(220,38,38,.35);
+        border-radius: 18px;
+        transform: translateY(calc(100% + 2rem));
+      }
+      #pwa-install-sheet.open { transform: translateY(0); }
+      #pwa-install-sheet .bs-handle { display: none; }
+    }
     .bs-handle {
       width: 40px; height: 4px; background: rgba(255,255,255,.15);
       border-radius: 2px; margin: 12px auto 0; cursor: grab;
@@ -847,7 +863,7 @@
     (function () {
         'use strict';
         // Страницы-корни — показываем логотип как обычно
-        var ROOT_PATHS = ['/', '/blog/', '/gallery/', '/products/', '/auth/profile/', '/auth/dashboard/', '/auth/login/', '/auth/register/'];
+        var ROOT_PATHS = ['/', '/blog/', '/gallery/', '/products/', '/auth/profile/', '/auth/dashboard/', '/auth/partner/dashboard/', '/auth/login/', '/auth/register/'];
         var currentPath = window.location.pathname;
         var isRoot = ROOT_PATHS.some(function (p) { return currentPath === p || currentPath === p.replace(/\/$/, ''); });
 
@@ -875,6 +891,7 @@
          MOBILE BOTTOM NAVIGATION — макс. 5 элементов
          Видна только на экранах < 768px
          ===================================================== -->
+    {% block mobile_bottom_navigation %}
     <nav class="mobile-bottom-nav" aria-label="{% trans "Mobile navigation" %}" id="mobileBottomNav">
         {# Таб 1: Home #}
         <a href="{% url 'core:home' %}" class="mbn-item {% if request.resolver_match.url_name == 'home' %}active{% endif %}" aria-label="{% trans "Home" %}">
@@ -913,7 +930,7 @@
         {# Таб 5: Профиль #}
         {% with active_profile=request.resolver_match.url_name %}
         <a href="{% url 'users:profile' %}"
-           class="mbn-item {% if active_profile == 'profile' or active_profile == 'profile_edit' or active_profile == 'dashboard' or active_profile == 'user_calendar' or active_profile == 'partner_dashboard' or active_profile == 'partner_calendar' %}active{% endif %}"
+           class="mbn-item {% if active_profile == 'profile' or active_profile == 'profile_edit' or active_profile == 'dashboard' or active_profile == 'user_calendar' or active_profile == 'partner_dashboard' or active_profile == 'partner_calendar' or active_profile == 'partner_analytics' or active_profile == 'partner_profile_edit' or active_profile == 'partner_visit_history' %}active{% endif %}"
            aria-label="{% trans "Profile" %}">
             {% if user.avatar and user.avatar.name != 'avatars/default.png' %}
                 <span class="mbn-avatar"><img src="{{ user.avatar.url }}" alt="{{ user.username }}"></span>
@@ -939,6 +956,7 @@
         </a>
         {% endif %}
     </nav>
+    {% endblock %}
     <script>
     /* ── Language Picker ── */
     (function(){

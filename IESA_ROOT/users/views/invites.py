@@ -10,6 +10,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_http_methods
 
 from ..models import InviteToken, Partner, User
+from ..services.email_verification import send_email_verification
 
 
 @user_passes_test(lambda u: u.is_staff)
@@ -72,6 +73,10 @@ def invite_register(request, token):
             invite.mark_used(user)
             auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             messages.success(request, _("Добро пожаловать! Ваш аккаунт партнёра создан."))
+            if send_email_verification(user, request):
+                messages.info(request, _("We sent a confirmation link to your e-mail address."))
+            else:
+                messages.warning(request, _("The confirmation e-mail could not be sent. You can retry from your cabinet."))
             return redirect('users:partner_dashboard')
     else:
         form = InviteRegisterForm(invite=invite)

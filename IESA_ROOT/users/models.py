@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserMa
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.db.models import Q
+from django.db.models.functions import Lower
 import uuid
 import secrets
 import pyotp
@@ -97,6 +98,20 @@ class User(AbstractUser):
         default=True,
         verbose_name=_('Hide Phone Number'),
         help_text=_('If checked, only admins can see your phone number')
+    )
+
+    # Ownership of the current e-mail address.  This is deliberately separate
+    # from ``is_verified`` which represents the association/member verification
+    # performed by administrators.
+    email_verified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_('E-mail verified at'),
+    )
+    email_verification_sent_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name=_('E-mail verification sent at'),
     )
     
     last_online = models.DateTimeField(
@@ -213,9 +228,24 @@ class User(AbstractUser):
             models.Index(fields=['membership_status'], name='user_membership_idx'),
             models.Index(fields=['pseudonym'], name='user_pseudonym_idx'),
         ]
+        constraints = [
+            # Existing accounts are migrated as unverified, so this can be
+            # introduced safely even if historical e-mail duplicates exist.
+            # From now on only one account may prove ownership of an address.
+            models.UniqueConstraint(
+                Lower('email'),
+                condition=Q(email_verified_at__isnull=False),
+                name='unique_verified_user_email_ci',
+            ),
+        ]
 
     def __str__(self):
         return self.username
+
+    @property
+    def is_email_verified(self):
+        """Whether the user proved ownership of their current e-mail address."""
+        return bool(self.email and self.email_verified_at)
     
     def calculate_activity_points(self):
         """Calculate total activity points based on user actions"""

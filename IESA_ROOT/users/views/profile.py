@@ -18,6 +18,7 @@ from ..constants import (
 )
 from ..forms import UserProfileEditForm
 from ..models import AccountChangeRequest, User, Visit
+from ..services.email_verification import send_email_verification
 from blog.models import BlogSubscription, Post
 
 
@@ -111,6 +112,19 @@ class ProfileEditView(UpdateView):
     def get_success_url(self):
         messages.success(self.request, _('Profile updated successfully! ✨'))
         return reverse_lazy('users:profile')
+
+    def form_valid(self, form):
+        email_changed = 'email' in form.changed_data
+        response = super().form_valid(form)
+        if email_changed:
+            if send_email_verification(self.object, self.request):
+                messages.info(self.request, _('We sent a confirmation link to your new e-mail address.'))
+            else:
+                messages.warning(
+                    self.request,
+                    _('Your new e-mail was saved, but the confirmation message could not be sent. Try again from your cabinet.'),
+                )
+        return response
 
 
 def _get_public_profile_context(user_obj, request_user=None):

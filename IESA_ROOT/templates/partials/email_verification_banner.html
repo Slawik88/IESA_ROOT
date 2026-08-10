@@ -1,0 +1,31 @@
+{% load i18n %}
+{% if user.is_authenticated and user.email and not user.is_email_verified %}
+<section class="email-verify-banner" aria-labelledby="email-verify-title">
+  <div class="email-verify-banner__icon" aria-hidden="true">
+    <i class="fas fa-envelope-circle-check"></i>
+  </div>
+  <div class="email-verify-banner__content">
+    <h2 id="email-verify-title">{% trans "Confirm your e-mail address" %}</h2>
+    <p>
+      {% blocktrans with email=user.email %}We need to confirm {{ email }}. This protects account recovery and sensitive profile changes.{% endblocktrans %}
+    </p>
+    {% if user.email_verification_sent_at %}
+    <span class="email-verify-banner__meta">
+      <i class="fas fa-paper-plane" aria-hidden="true"></i>
+      {% blocktrans with sent=user.email_verification_sent_at|date:"d M Y, H:i" %}Last sent {{ sent }}{% endblocktrans %}
+    </span>
+    {% endif %}
+  </div>
+  <div class="email-verify-banner__actions">
+    <form method="post" action="{% url 'users:resend_email_verification' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="email-verify-banner__button">
+        <i class="fas fa-rotate" aria-hidden="true"></i>
+        {% if user.email_verification_sent_at %}{% trans "Send again" %}{% else %}{% trans "Send confirmation" %}{% endif %}
+      </button>
+    </form>
+    <a href="{% url 'users:profile_edit' %}" class="email-verify-banner__link">{% trans "Change e-mail" %}</a>
+  </div>
+</section>
+{% endif %}

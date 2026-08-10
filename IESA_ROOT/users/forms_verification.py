@@ -291,8 +291,8 @@ class InviteRegisterForm(forms.Form):
 
     def clean_email(self):
         from .models import User
-        email = self.cleaned_data['email']
-        if User.objects.filter(email=email).exists():
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
             raise ValidationError(_('This email is already registered.'))
         return email
 

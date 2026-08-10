@@ -80,7 +80,7 @@
     {# Топбар — скрывается на мобиле через CSS (2i) #}
     <div class="dash-topbar">
       <div>
-        <div class="dash-topbar__title">{% block partner_title %}{% trans "Partner Portal" %}{% endblock %}</div>
+        <h1 class="dash-topbar__title">{% block partner_title %}{% trans "Partner Portal" %}{% endblock %}</h1>
         <div class="dash-topbar__sub">{% block partner_subtitle %}{{ partner.company_name }}{% endblock %}</div>
       </div>
       <div class="dash-topbar__actions">

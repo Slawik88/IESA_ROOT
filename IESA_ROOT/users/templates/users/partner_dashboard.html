@@ -110,6 +110,8 @@
   {% endfor %}
 {% endif %}
 
+{% include 'partials/email_verification_banner.html' %}
+
 {# ── Stat карточки с HTMX polling 60s ── #}
 <div class="dash-stat-grid"
      hx-get="{% url 'users:partner_today_stats' %}"

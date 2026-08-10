@@ -1,6 +1,7 @@
 from django import forms as _dj_forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.db.models import Q
 from .models import (
     AccountChangeRequest, AdminNotificationProfile, InsuranceAgentRequest,
     InviteToken, Meeting, Partner, SiteSettings, User, Visit, VisitAudit,
@@ -92,8 +93,8 @@ class CardStatusFilter(admin.SimpleListFilter):
 
 
 class VerificationFilter(admin.SimpleListFilter):
-    """Filter users by verification status."""
-    title = _('Verification Status')
+    """Filter users by administrator-reviewed identity status."""
+    title = _('Identity verification')
     parameter_name = 'verification'
 
     def lookups(self, request, model_admin):
@@ -109,6 +110,25 @@ class VerificationFilter(admin.SimpleListFilter):
             return queryset.filter(is_verified=False)
         return queryset
 
+
+class EmailVerificationFilter(admin.SimpleListFilter):
+    """Filter users by proof of ownership of the current e-mail address."""
+    title = _('E-mail verification')
+    parameter_name = 'email_verification'
+
+    def lookups(self, request, model_admin):
+        return [
+            ('verified', _('E-mail confirmed')),
+            ('unverified', _('E-mail not confirmed')),
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value() == 'verified':
+            return queryset.filter(email_verified_at__isnull=False).exclude(email='')
+        if self.value() == 'unverified':
+            return queryset.filter(Q(email_verified_at__isnull=True) | Q(email=''))
+        return queryset
+
 class UserAdmin(BaseUserAdmin):
     """
     User admin configuration with optimized queries and bulk actions.
@@ -121,12 +141,12 @@ class UserAdmin(BaseUserAdmin):
     add_form = CustomUserCreationForm
     form = CustomUserChangeForm
     model = User
-    list_display = ['username', 'email', 'first_name', 'last_name', 'membership_status', 'pseudonym', 'is_staff', 'is_verified', 'is_partner', 'last_online', 'permanent_id', 'card_qr']
-    list_filter = (CardStatusFilter, VerificationFilter, 'membership_status', 'is_staff', 'date_joined')
+    list_display = ['username', 'email', 'email_confirmation', 'first_name', 'last_name', 'membership_status', 'pseudonym', 'is_staff', 'is_verified', 'is_partner', 'last_online', 'permanent_id', 'card_qr']
+    list_filter = (CardStatusFilter, VerificationFilter, EmailVerificationFilter, 'membership_status', 'is_staff', 'date_joined')
     
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
-        (_('Personal information'), {'fields': ('first_name', 'last_name', 'email', 'avatar', 'date_of_birth', 'phone_number', 'is_phone_hidden')}),
+        (_('Personal information'), {'fields': ('first_name', 'last_name', 'email', 'email_verified_at', 'email_verification_sent_at', 'avatar', 'date_of_birth', 'phone_number', 'is_phone_hidden')}),
         (_('Membership'), {'fields': ('membership_status', 'pseudonym', 'totp_secret_display')}),
         (_('Card QR & Actions'), {'fields': ('card_qr_with_actions', 'card_active', 'card_issued_at')}),
         (_('Permissions'), {'fields': ('is_verified', 'is_partner', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
@@ -144,9 +164,13 @@ class UserAdmin(BaseUserAdmin):
         }),
     )
     
-    readonly_fields = ('last_online', 'permanent_id', 'card_qr_with_actions', 'totp_secret_display')
+    readonly_fields = ('last_online', 'permanent_id', 'card_qr_with_actions', 'totp_secret_display', 'email_verification_sent_at')
     
     actions = ['regenerate_qr_same_id', 'regenerate_permanent_id', 'issue_card', 'revoke_card']
+
+    @admin.display(boolean=True, description=_('E-mail confirmed'))
+    def email_confirmation(self, obj):
+        return obj.is_email_verified
     
     def totp_secret_display(self, obj):
         """Display TOTP secret (read-only for security)."""

@@ -58,7 +58,7 @@
 }
 .reg-eyebrow::before,.reg-eyebrow::after { content:''; flex:0 0 28px; height:1px; background:rgba(220,38,38,.35); }
 .reg-title { font-size:1.9rem; font-weight:900; color:#fff; margin-bottom:.3rem; letter-spacing:-.02em; }
-.reg-desc  { color:rgba(255,255,255,.3); font-size:.875rem; margin-bottom:2rem; }
+.reg-desc  { color:rgba(255,255,255,.58); font-size:.875rem; margin-bottom:2rem; }
 
 /* ── Steps bar ──────────────────────────────────── */
 .reg-steps {
@@ -110,7 +110,7 @@
 
 /* ── Field ──────────────────────────────────────── */
 .rf { }
-.rf label { display:block; font-size:.62rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.38); font-family:'Courier New',monospace; margin-bottom:.45rem; }
+.rf label { display:block; font-size:.62rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.64); font-family:'Courier New',monospace; margin-bottom:.45rem; }
 .rf-wrap { position:relative; }
 .rf-ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.2); font-size:.82rem; pointer-events:none; transition:color .2s; }
 .rf-wrap input,.rf-wrap select {
@@ -136,7 +136,7 @@
 .rf-pw-btn { position:absolute; right:.85rem; top:50%; transform:translateY(-50%); background:none; border:none; color:rgba(255,255,255,.22); cursor:pointer; padding:.2rem; font-size:.82rem; transition:color .2s; line-height:1; }
 .rf-pw-btn:hover { color:rgba(255,255,255,.55); }
 .rf-wrap input.has-pw { padding-right:2.6rem; }
-.rf-hint { color:rgba(255,255,255,.22); font-size:.72rem; margin-top:.3rem; line-height:1.4; }
+.rf-hint { color:rgba(255,255,255,.52); font-size:.72rem; margin-top:.3rem; line-height:1.4; }
 .rf-err  { color:#f87171; font-size:.72rem; margin-top:.3rem; display:flex; align-items:flex-start; gap:.3rem; flex-wrap:wrap; }
 
 /* ── Submit ─────────────────────────────────────── */
@@ -151,7 +151,7 @@
 }
 .reg-submit:hover { filter:brightness(1.1); box-shadow:0 6px 32px rgba(220,38,38,.5); transform:translateY(-1px); }
 .reg-submit:active { transform:translateY(0); }
-.reg-login { text-align:center; color:rgba(255,255,255,.3); font-size:.875rem; }
+.reg-login { text-align:center; color:rgba(255,255,255,.58); font-size:.875rem; }
 .reg-login a { color:#ef4444; font-weight:700; text-decoration:none; }
 .reg-login a:hover { color:#f87171; text-decoration:underline; }
 
@@ -160,7 +160,7 @@
     background:rgba(220,38,38,.05); border-top:1px solid rgba(220,38,38,.12);
     padding:1.2rem 3rem; display:flex; gap:2rem; flex-wrap:wrap;
 }
-.reg-fp { display:flex; align-items:center; gap:.55rem; color:rgba(255,255,255,.35); font-size:.78rem; }
+.reg-fp { display:flex; align-items:center; gap:.55rem; color:rgba(255,255,255,.58); font-size:.78rem; }
 .reg-fp i { color:rgba(220,38,38,.7); }
 
 /* mobile */
@@ -185,6 +185,8 @@
 
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
+{% block pwa_install_prompt %}{% endblock %}
+{% block mobile_bottom_navigation %}{% endblock %}
 
 {% block content %}
 <div class="reg-page">
@@ -291,7 +293,7 @@
                                            {% if form.password1.errors %}aria-invalid="true" aria-describedby="err-password1"{% endif %}
                                            autocomplete="new-password" placeholder="••••••••"
                                            tabindex="3">
-                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                 </div>
                                 {# Полоска силы пароля #}
                                 <div style="margin-top:.5rem;">
@@ -318,7 +320,7 @@
                                            {% if form.password2.errors %}aria-invalid="true" aria-describedby="err-password2"{% endif %}
                                            autocomplete="new-password" placeholder="••••••••"
                                            tabindex="4">
-                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" tabindex="-1" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                 </div>
                                 <div id="pw-match-msg" style="font-size:.72rem;margin-top:.3rem;min-height:1em;" aria-live="polite"></div>
                                 {% for err in form.password2.errors %}<div id="err-password2" class="rf-err" role="alert"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;" aria-hidden="true"></i>{{ err }}</div>{% endfor %}

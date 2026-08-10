@@ -10,7 +10,10 @@ users/views/ — пакет представлений (Block 7 рефактор
 """
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
-from .auth import RegisterView, LoginView, logout_view
+from .auth import (
+    RegisterView, LoginView, logout_view,
+    verify_email, resend_email_verification,
+)
 
 # ── Profile ───────────────────────────────────────────────────────────────────
 from .profile import (
@@ -79,6 +82,7 @@ from .onboarding import (
 
 __all__ = [
     'RegisterView', 'LoginView', 'logout_view',
+    'verify_email', 'resend_email_verification',
     'ProfileView', 'ProfileEditView', '_get_public_profile_context',
     'profile_public_by_username', 'profile_public_by_card',
     'profile_deactivate', 'dashboard_redirect',

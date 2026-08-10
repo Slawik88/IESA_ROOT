@@ -80,10 +80,10 @@
 }
 .ar-ey::before,.ar-ey::after { content:''; flex:0 0 30px; height:1px; background:rgba(220,38,38,.38); }
 .ar-title { font-size:1.8rem; font-weight:900; color:#fff; margin-bottom:.3rem; letter-spacing:-.02em; }
-.ar-desc  { color:rgba(255,255,255,.3); font-size:.875rem; margin-bottom:2rem; }
+.ar-desc  { color:rgba(255,255,255,.58); font-size:.875rem; margin-bottom:2rem; }
 /* inputs */
 .af { margin-bottom:1.2rem; }
-.af label { display:block; font-size:.63rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.4); font-family:var(--font-mono); margin-bottom:.45rem; }
+.af label { display:block; font-size:.63rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.64); font-family:var(--font-mono); margin-bottom:.45rem; }
 .af-wrap { position:relative; }
 .af-ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.22); font-size:.82rem; pointer-events:none; transition:color .2s; }
 .af-wrap input {
@@ -117,7 +117,7 @@
 /* divider + link */
 .ar-div { display:flex; align-items:center; gap:.75rem; color:rgba(255,255,255,.18); font-size:.73rem; margin:1.7rem 0; }
 .ar-div::before,.ar-div::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.07); }
-.ar-link { text-align:center; color:rgba(255,255,255,.32); font-size:.875rem; }
+.ar-link { text-align:center; color:rgba(255,255,255,.58); font-size:.875rem; }
 .ar-link a { color:#ef4444; font-weight:700; text-decoration:none; transition:color .2s; }
 .ar-link a:hover { color:#f87171; text-decoration:underline; }
 /* mobile */
@@ -135,6 +135,8 @@
 
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
+{% block pwa_install_prompt %}{% endblock %}
+{% block mobile_bottom_navigation %}{% endblock %}
 
 {% block content %}
 <div class="auth-page">
@@ -190,7 +192,7 @@
                                    class="has-pw{% if field.errors %} inv{% endif %}"
                                    {% if field.errors %}aria-invalid="true" aria-describedby="err-{{ field.html_name }}"{% endif %}
                                    autocomplete="current-password" placeholder="••••••••">
-                            <button type="button" class="af-pw-btn" onclick="togglePw(this)" tabindex="-1" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                            <button type="button" class="af-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                         {% else %}
                             <i class="fas fa-user af-ic" aria-hidden="true"></i>
                             <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
