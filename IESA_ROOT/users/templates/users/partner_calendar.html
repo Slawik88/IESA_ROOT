@@ -231,15 +231,20 @@
 {% endfor %}
 {% endif %}
 
-{# ── 2g: Кнопка «Выбрать дату» (только мобиль) ── #}
-<button type="button" class="cal-mobile-date-btn" id="cal-mobile-date-btn" aria-label="{% trans 'Open date picker' %}">
-  <span>
-    <i class="fas fa-calendar-alt"></i>
-    {{ selected_day|date:"l, d F Y" }}
-    {% if selected_day == today %}<span style="font-size:.72rem;background:rgba(220,38,38,.15);color:#f87171;border-radius:100px;padding:1px 8px;margin-left:.5rem;">TODAY</span>{% endif %}
-  </span>
-  <i class="fas fa-chevron-down" style="font-size:.8rem;color:rgba(255,255,255,.4);"></i>
-</button>
+{# ── Mobile calendar controls ── #}
+<div class="cal-mobile-toolbar">
+  <button type="button" class="cal-mobile-date-btn" id="cal-mobile-date-btn" aria-label="{% trans 'Open date picker' %}">
+    <span>
+      <i class="fas fa-calendar-alt" aria-hidden="true"></i>
+      {{ selected_day|date:"l, d F Y" }}
+      {% if selected_day == today %}<span class="cal-today-badge">{% trans "Today" %}</span>{% endif %}
+    </span>
+    <i class="fas fa-chevron-down" aria-hidden="true"></i>
+  </button>
+  <button type="button" class="cal-mobile-add-btn" onclick="openFormDrawer('{{ selected_day|date:'Y-m-d' }}', '')" aria-label="{% trans 'Schedule a new meeting' %}" title="{% trans 'Schedule a new meeting' %}">
+    <i class="fas fa-plus" aria-hidden="true"></i>
+  </button>
+</div>
 
 {# ── Оверлей мини-календаря (открывается по кнопке выше) ── #}
 <div class="cal-date-overlay" id="cal-date-overlay">
@@ -293,7 +298,7 @@
       <a href="?month={{ m.date|date:'Y-m' }}&day={{ m.date|date:'Y-m-d' }}" class="cal-upcoming-item">
         <div class="cal-upcoming-date"><div class="cal-upcoming-date-day">{{ m.date|date:"d" }}</div><div class="cal-upcoming-date-mon">{{ m.date|date:"M" }}</div></div>
         <div class="cal-upcoming-info">
-          <div class="cal-upcoming-title">{% if m.is_recurring %}<span class="badge-recurring me-1">↻</span>{% endif %}{{ m.title }}</div>
+          <div class="cal-upcoming-title">{% if m.is_recurring %}<span class="badge-recurring me-1"><i class="fas fa-repeat" aria-hidden="true"></i></span>{% endif %}{{ m.title }}</div>
           <div class="cal-upcoming-member">{{ m.member.get_full_name|default:m.member.username }}</div>
           <div class="cal-upcoming-time">{% if m.start_time %}{{ m.start_time|time:"H:i" }}{% if m.end_time %}–{{ m.end_time|time:"H:i" }}{% endif %}{% else %}{% trans "Time TBD" %}{% endif %}</div>
         </div>
@@ -385,7 +390,7 @@
         </div>
         <div class="cal-upcoming-info">
           <div class="cal-upcoming-title">
-            {% if m.is_recurring %}<span class="badge-recurring me-1">↻</span>{% endif %}
+            {% if m.is_recurring %}<span class="badge-recurring me-1"><i class="fas fa-repeat" aria-hidden="true"></i></span>{% endif %}
             {{ m.title }}
           </div>
           <div class="cal-upcoming-member"><i class="fas fa-user" style="font-size:.6rem;margin-right:3px;"></i>{{ m.member.get_full_name|default:m.member.username }}</div>
@@ -444,7 +449,7 @@
       {% endwith %}
 
       <div class="cal-no-meetings" id="cal-no-meetings-overlay">
-        <div class="cal-no-meetings-icon">📅</div>
+        <div class="cal-no-meetings-icon"><i class="fas fa-calendar-day" aria-hidden="true"></i></div>
         <div class="cal-no-meetings-title">{% trans "No meetings on this day" %}</div>
         <div class="cal-no-meetings-sub">{% trans "Click any time slot to schedule a meeting" %}</div>
         <button type="button" class="cal-no-meetings-btn" onclick="openFormDrawer('{{ selected_day|date:'Y-m-d' }}', '')">
@@ -492,7 +497,7 @@
           <i class="fas fa-calendar-plus" style="color:var(--primary);margin-right:.35rem;"></i>
           {% trans "Schedule Meeting" %}
         </div>
-        <button type="button" onclick="closeFormDrawer()" aria-label="{% trans 'Close meeting form' %}" style="background:none;border:none;color:rgba(255,255,255,.4);font-size:1.1rem;cursor:pointer;padding:.2rem .4rem;line-height:1;">✕</button>
+        <button type="button" class="partner-icon-button" onclick="closeFormDrawer()" aria-label="{% trans 'Close meeting form' %}"><i class="fas fa-xmark" aria-hidden="true"></i></button>
       </div>
         <form method="post">
           {% csrf_token %}
@@ -572,7 +577,7 @@
 <div id="meeting-popup" style="display:none;position:fixed;z-index:9999;background:#111118;border:1.5px solid rgba(255,255,255,.12);border-radius:14px;padding:1.1rem 1.3rem;max-width:300px;box-shadow:0 20px 50px rgba(0,0,0,.6);">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.65rem;">
     <div id="popup-title" style="font-size:.92rem;font-weight:700;color:#f1f5f9;"></div>
-    <button type="button" onclick="document.getElementById('meeting-popup').style.display='none'" style="background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;font-size:1rem;padding:0 0 0 .5rem;">✕</button>
+    <button type="button" class="partner-icon-button" onclick="document.getElementById('meeting-popup').style.display='none'" aria-label="{% trans 'Close meeting details' %}"><i class="fas fa-xmark" aria-hidden="true"></i></button>
   </div>
   <div id="popup-member" style="font-size:.78rem;color:rgba(255,255,255,.5);margin-bottom:.4rem;"></div>
   <div id="popup-time"   style="font-size:.78rem;color:#f87171;font-family:var(--font-mono);margin-bottom:.4rem;"></div>
@@ -680,7 +685,7 @@ function renderMeetings() {
             var block = document.createElement('div');
             block.className = 'cal-meeting-block ' + (colors[m.status] || 'cal-meeting-block--scheduled');
             block.style.cssText = 'top:' + topPx + 'px;height:' + height + 'px;';
-            block.innerHTML = '<div class="cal-mb-title">' + (m.is_recurring ? '<span class="badge-recurring me-1">↻</span>' : '') + escapeHtml(m.title) + '</div><div class="cal-mb-member"><i class="fas fa-user cal-mb-icon"></i>' + escapeHtml(m.member) + '</div>' + (m.start ? '<div class="cal-mb-time">' + m.start + (m.end ? '–'+m.end : '') + '</div>' : '');
+            block.innerHTML = '<div class="cal-mb-title">' + (m.is_recurring ? '<span class="badge-recurring me-1"><i class="fas fa-repeat"></i></span>' : '') + escapeHtml(m.title) + '</div><div class="cal-mb-member"><i class="fas fa-user cal-mb-icon"></i>' + escapeHtml(m.member) + '</div>' + (m.start ? '<div class="cal-mb-time">' + m.start + (m.end ? '–'+m.end : '') + '</div>' : '');
             block.onclick = function() { showPopup(m); };
             hourRow.style.position = 'relative';
             hourRow.appendChild(block);
@@ -724,10 +729,10 @@ function renderNowLine() {
 function showPopup(m) {
     var popup = document.getElementById('meeting-popup');
     document.getElementById('popup-title').textContent  = m.title;
-    document.getElementById('popup-member').textContent = '👤 ' + m.member;
-    document.getElementById('popup-time').textContent   = m.start ? '🕐 ' + m.start + (m.end ? ' — ' + m.end : '') : '';
-    document.getElementById('popup-addr').textContent   = m.address ? '📍 ' + m.address : '';
-    document.getElementById('popup-notes').textContent  = m.series_label ? '🔄 ' + m.series_label : '';
+    document.getElementById('popup-member').textContent = m.member;
+    document.getElementById('popup-time').textContent   = m.start ? m.start + (m.end ? ' — ' + m.end : '') : '';
+    document.getElementById('popup-addr').textContent   = m.address || '';
+    document.getElementById('popup-notes').textContent  = m.series_label || '';
     document.getElementById('popup-cancel-btn').href    = m.cancel_url;
     popup.style.display = 'block';
     var ev = window.event || {};

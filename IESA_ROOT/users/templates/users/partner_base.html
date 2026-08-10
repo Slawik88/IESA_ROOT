@@ -2,8 +2,9 @@
 {% load i18n static %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=block05-strict">
 {% block partner_extra_css %}{% endblock %}
+<link rel="stylesheet" href="{% static 'css/partner-portal.css' %}?v=block05-strict">
 {% endblock %}
 
 {# Убираем стандартные контейнеры base.html — layout полностью наш #}
@@ -11,7 +12,7 @@
 {% block container_wrap_end %}{% endblock %}
 
 {% block content %}
-<div class="dash-root">
+<div class="dash-root partner-portal-shell">
 
   {# ═══════════ ЕДИНЫЙ SIDEBAR ═══════════ #}
   <aside class="dash-sidebar">
@@ -28,7 +29,7 @@
 
       <div class="dash-nav-section">
         <a href="{% url 'users:partner_dashboard' %}"
-           class="dash-nav-item {% if request.resolver_match.url_name == 'partner_dashboard' %}active{% endif %}">
+           class="dash-nav-item {% if request.resolver_match.url_name == 'partner_dashboard' or request.resolver_match.url_name == 'log_visit' or request.resolver_match.url_name == 'edit_visit' or request.resolver_match.url_name == 'cancel_visit' %}active{% endif %}">
           <span class="dash-nav-icon"><i class="fas fa-home"></i></span>
           {% trans "Dashboard" %}
           {% block sidebar_dashboard_badge %}{% endblock %}
@@ -39,7 +40,7 @@
           {% trans "Calendar" %}
         </a>
         <a href="{% url 'users:partner_dashboard' %}#history-section"
-           class="dash-nav-item {% if request.resolver_match.url_name == 'partner_visit_history' %}active{% endif %}">
+           class="dash-nav-item {% if request.resolver_match.url_name == 'partner_visit_history' or request.resolver_match.url_name == 'partner_member_visits' %}active{% endif %}">
           <span class="dash-nav-icon"><i class="fas fa-history"></i></span>
           {% trans "Visit History" %}
           {% block sidebar_visits_badge %}{% endblock %}
@@ -51,7 +52,7 @@
         </a>
       </div>
 
-      <div class="dash-nav-section" style="margin-top:.5rem;">
+      <div class="dash-nav-section dash-nav-section--account">
         <div class="dash-nav-section-label">{% trans "Account" %}</div>
         <a href="{% url 'users:partner_profile_edit' %}"
            class="dash-nav-item {% if request.resolver_match.url_name == 'partner_profile_edit' %}active{% endif %}">
@@ -78,15 +79,16 @@
   <main class="dash-main">
 
     {# Топбар — скрывается на мобиле через CSS (2i) #}
-    <div class="dash-topbar">
+    <header class="dash-topbar">
       <div>
+        <div class="dash-topbar__eyebrow">{% trans "Partner workspace" %}</div>
         <h1 class="dash-topbar__title">{% block partner_title %}{% trans "Partner Portal" %}{% endblock %}</h1>
         <div class="dash-topbar__sub">{% block partner_subtitle %}{{ partner.company_name }}{% endblock %}</div>
       </div>
       <div class="dash-topbar__actions">
         {% block partner_topbar_action %}{% endblock %}
       </div>
-    </div>
+    </header>
 
     <div class="dash-content">
       {% block partner_content %}{% endblock %}

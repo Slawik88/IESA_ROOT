@@ -17,9 +17,8 @@ class MemberSearchForm(forms.Form):
         widget=forms.TextInput(attrs={
             'class': 'form-control search-input',
             'id': 'id_query',
-            'placeholder': _('🔍 Start typing name, username, or UUID...'),
+            'placeholder': _('Start typing name, username, or UUID...'),
             'autocomplete': 'off',
-            'style': 'border-radius: 15px; border: 2px solid #e9ecef; padding: 15px 20px; font-size: 1.1rem;'
         }),
         label=''
     )
@@ -32,16 +31,15 @@ class VisitForm(forms.ModelForm):
         min_length=6,
         required=True,
         widget=forms.TextInput(attrs={
-            'class': 'form-control form-control-lg text-center font-monospace',
+            'class': 'form-control partner-pin-input',
             'placeholder': '● ● ● ● ● ●',
             'pattern': '[0-9]{6}',
             'inputmode': 'numeric',
             'maxlength': '6',
             'autocomplete': 'off',
-            'style': 'font-size: 2rem; letter-spacing: 1rem; border: 3px solid #667eea; border-radius: 15px;'
         }),
-        label=_('🔑 Member PIN Code (6 digits)'),
-        help_text=_('⚠️ Ask member to show their current PIN from personal cabinet')
+        label=_('Member PIN Code (6 digits)'),
+        help_text=_('Ask the member to show the current PIN from their personal cabinet.')
     )
     
     class Meta:
@@ -50,47 +48,43 @@ class VisitForm(forms.ModelForm):
         widgets = {
             'service_type': forms.Select(attrs={
                 'class': 'form-select form-select-lg',
-                'style': 'border: 2px solid #667eea; border-radius: 10px;'
             }),
             'service_description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3,
                 'placeholder': _('Example: Massage therapy 60 minutes, Personal training session, Product purchase details...'),
-                'style': 'border: 2px solid #dee2e6; border-radius: 10px;'
             }),
             'cost': forms.NumberInput(attrs={
                 'class': 'form-control form-control-lg',
                 'step': '0.01',
                 'min': '0',
                 'placeholder': _('Enter amount (e.g., 50.00)'),
-                'style': 'border: 2px solid #dee2e6; border-radius: 10px; font-size: 1.25rem;'
             }),
             'comments': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 2,
                 'placeholder': _('Any additional notes about this visit...'),
-                'style': 'border: 2px solid #dee2e6; border-radius: 10px;'
             }),
         }
         labels = {
-            'service_type': _('📋 Service Type *'),
-            'service_description': _('📝 Service Description (Optional)'),
-            'cost': _('💰 Cost in CHF (Optional)'),
-            'comments': _('💬 Additional Comments (Optional)'),
+            'service_type': _('Service Type'),
+            'service_description': _('Service Description (Optional)'),
+            'cost': _('Cost in CHF (Optional)'),
+            'comments': _('Additional Comments (Optional)'),
         }
     
     def clean_pin(self):
         """Validate PIN format"""
         pin = self.cleaned_data.get('pin', '').strip()
         if not pin.isdigit() or len(pin) != PIN_LENGTH:
-            raise forms.ValidationError(_('❌ PIN must be exactly 6 digits (numbers only)'))
+            raise forms.ValidationError(_('PIN must be exactly 6 digits (numbers only).'))
         return pin
     
     def clean_cost(self):
         """Validate cost is positive"""
         cost = self.cleaned_data.get('cost')
         if cost is not None and cost < 0:
-            raise forms.ValidationError(_('❌ Cost cannot be negative'))
+            raise forms.ValidationError(_('Cost cannot be negative.'))
         return cost
 
 
@@ -103,9 +97,8 @@ class EditVisitForm(forms.ModelForm):
             'class': 'form-control',
             'rows': 3,
             'placeholder': _('Explain why this visit record needs to be corrected...'),
-            'style': 'border: 2px solid #f093fb; border-radius: 10px;'
         }),
-        label=_('📝 Reason for Edit *'),
+        label=_('Reason for Edit'),
         help_text=_('Required — will be stored in the audit log and sent to member by email.')
     )
 
@@ -115,36 +108,32 @@ class EditVisitForm(forms.ModelForm):
         widgets = {
             'service_type': forms.Select(attrs={
                 'class': 'form-select form-select-lg',
-                'style': 'border: 2px solid #667eea; border-radius: 10px;'
             }),
             'service_description': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 3,
-                'style': 'border: 2px solid #dee2e6; border-radius: 10px;'
             }),
             'cost': forms.NumberInput(attrs={
                 'class': 'form-control form-control-lg',
                 'step': '0.01',
                 'min': '0',
-                'style': 'border: 2px solid #dee2e6; border-radius: 10px; font-size: 1.25rem;'
             }),
             'comments': forms.Textarea(attrs={
                 'class': 'form-control',
                 'rows': 2,
-                'style': 'border: 2px solid #dee2e6; border-radius: 10px;'
             }),
         }
         labels = {
-            'service_type': _('📋 Service Type *'),
-            'service_description': _('📝 Service Description'),
-            'cost': _('💰 Cost in CHF'),
-            'comments': _('💬 Comments'),
+            'service_type': _('Service Type'),
+            'service_description': _('Service Description'),
+            'cost': _('Cost in CHF'),
+            'comments': _('Comments'),
         }
 
     def clean_cost(self):
         cost = self.cleaned_data.get('cost')
         if cost is not None and cost < 0:
-            raise forms.ValidationError(_('❌ Cost cannot be negative'))
+            raise forms.ValidationError(_('Cost cannot be negative.'))
         return cost
 
 
@@ -178,9 +167,8 @@ class CancelVisitForm(forms.Form):
             'class': 'form-control',
             'rows': 3,
             'placeholder': _('Explain why this visit is being cancelled...'),
-            'style': 'border: 2px solid #f5576c; border-radius: 10px;'
         }),
-        label=_('Reason for Cancellation *'),
+        label=_('Reason for Cancellation'),
         help_text=_('Required — will be stored in the audit log and sent to member by email.')
     )
 

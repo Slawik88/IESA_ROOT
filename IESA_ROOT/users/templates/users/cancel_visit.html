@@ -2,49 +2,45 @@
 {% load static i18n %}
 
 {% block title %}{% trans "Cancel Visit" %} #{{ visit.pk }}{% endblock %}
-
 {% block partner_title %}{% trans "Cancel Visit" %} #{{ visit.pk }}{% endblock %}
-{% block partner_subtitle %}{% trans "Cancel Visit Record" %}{% endblock %}
+{% block partner_subtitle %}{% trans "Review the visit before cancelling it" %}{% endblock %}
 
 {% block partner_content %}
 {% include "partials/_breadcrumbs.html" with crumbs=crumbs %}
 
-<div class="pp-card" style="max-width:620px;">
-
-  <!-- VISIT SUMMARY -->
+<div class="pp-card">
   <div class="pp-danger-banner">
-    <div style="font-size:.68rem;font-family:var(--font-mono);color:rgba(248,113,113,.6);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;">{% trans "Visit" %} #{{ visit.pk }}</div>
-    <div style="font-size:.9rem;color:#f87171;">
-      {{ visit.member.get_full_name|default:visit.member.username }}
-      &nbsp;·&nbsp; {{ visit.get_service_type_display }}
-      {% if visit.cost %}&nbsp;·&nbsp; {{ visit.cost }} CHF{% endif %}
+    <div class="pp-visit-label">{% trans "Visit" %} #{{ visit.pk }}</div>
+    <div class="pp-visit-val">
+      {{ visit.member.get_full_name|default:visit.member.username }} · {{ visit.get_service_type_display }}
+      {% if visit.cost %} · {{ visit.cost }} CHF{% endif %}
     </div>
-    <div style="font-size:.75rem;color:rgba(255,255,255,.35);font-family:var(--font-mono);margin-top:4px;">{{ visit.timestamp|date:"d M Y H:i" }}</div>
+    <div class="partner-record-time">{{ visit.timestamp|date:"d M Y H:i" }}</div>
     {% if seconds_left > 0 %}
-      <div class="pp-timer danger" id="cancelTimer">
-        ⏱ {% trans "Cancellation window closes in" %}: <span id="timerVal">{{ seconds_left }}</span>s
-      </div>
+    <div class="pp-timer danger" id="cancelTimer">
+      <i class="fas fa-clock" aria-hidden="true"></i>
+      {% trans "Cancellation window closes in" %}: <span id="timerVal">{{ seconds_left }}</span>s
+    </div>
     {% endif %}
   </div>
 
-  <div style="font-size:.82rem;color:rgba(255,255,255,.45);margin-bottom:18px;">
-    ⚠️ {% trans "This action cannot be undone. The member will be notified via Telegram." %}
-  </div>
-
-  <form method="post">
+  <form method="post" class="partner-form-body" novalidate>
     {% csrf_token %}
+    <div class="partner-destructive-note">
+      <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
+      <span>{% trans "This cannot be undone. The member will receive a cancellation notification." %}</span>
+    </div>
     <div class="pp-field">
       <label for="{{ form.reason.id_for_label }}">{{ form.reason.label }} *</label>
       {{ form.reason }}
-      {% if form.reason.errors %}<ul class="errorlist">{% for e in form.reason.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
-      {% if form.reason.help_text %}<div style="font-size:.72rem;color:rgba(255,255,255,.3);margin-top:5px;font-family:var(--font-mono);">{{ form.reason.help_text }}</div>{% endif %}
+      {% if form.reason.errors %}<ul class="errorlist" role="alert">{% for error in form.reason.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+      {% if form.reason.help_text %}<div class="partner-field-help">{{ form.reason.help_text }}</div>{% endif %}
     </div>
-    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-      <button type="submit" class="pp-btn-danger">✕ {% trans "Confirm Cancellation" %}</button>
+    <div class="partner-form-actions">
+      <button type="submit" class="pp-btn-danger"><i class="fas fa-ban" aria-hidden="true"></i> {% trans "Confirm Cancellation" %}</button>
       <a href="{% url 'users:partner_dashboard' %}" class="pp-btn-ghost">{% trans "Go Back" %}</a>
     </div>
   </form>
-
 </div>
 {% endblock %}
 
@@ -53,10 +49,14 @@
 <script>
 let s = {{ seconds_left }};
 const el = document.getElementById('timerVal');
-const timer = setInterval(function() {
+const timer = setInterval(function () {
   s--;
-  if (s <= 0) { clearInterval(timer); if (el) el.closest('.pp-timer').textContent = '⛔ Cancellation window expired.'; }
-  else if (el) el.textContent = s;
+  if (s <= 0) {
+    clearInterval(timer);
+    if (el) el.closest('.pp-timer').textContent = '{% trans "Cancellation window expired." %}';
+  } else if (el) {
+    el.textContent = s;
+  }
 }, 1000);
 </script>
 {% endif %}

@@ -8,7 +8,7 @@
 
 {% block partner_topbar_action %}
 <a href="{% url 'users:log_visit' member.pk %}"
-   class="dash-cta-btn" style="font-size:.82rem;">
+   class="dash-cta-btn">
   <i class="fas fa-plus"></i> {% trans "Log New Visit" %}
 </a>
 {% endblock %}
@@ -19,44 +19,45 @@
 <!-- MEMBER INFO CARD -->
 <div class="dash-card" style="margin-bottom:1.25rem;">
   <div class="dash-card__body">
-    <div class="pmv-member-row">
-      <div class="pmv-avatar">
-        {{ member.first_name|slice:":1"|default:member.username|slice:":1"|upper }}
+    <div class="partner-member-summary">
+      <div class="pmv-member-row">
+        <div class="pmv-avatar">
+          {{ member.first_name|slice:":1"|default:member.username|slice:":1"|upper }}
+        </div>
+        <div style="flex:1;min-width:0;">
+          {% if member.first_name or member.last_name %}
+            <div class="pmv-name">{{ member.get_full_name }}</div>
+          {% else %}
+            <div class="pmv-name">{{ member.username }}</div>
+          {% endif %}
+          <div class="pmv-username">@{{ member.username }}{% if member.pseudonym %} · {{ member.pseudonym }}{% endif %}</div>
+          {% if member.membership_status == 'active' %}
+            <span class="pmv-badge active"><i class="fas fa-shield-alt" aria-hidden="true"></i> {% trans "Active Member" %}</span>
+          {% else %}
+            <span class="pmv-badge inactive"><i class="fas fa-times-circle" aria-hidden="true"></i> {% trans "Inactive" %}</span>
+          {% endif %}
+        </div>
       </div>
-      <div style="flex:1;min-width:0;">
-        {% if member.first_name or member.last_name %}
-          <div class="pmv-name">{{ member.get_full_name }}</div>
-        {% else %}
-          <div class="pmv-name">{{ member.username }}</div>
+      <div class="pmv-stats">
+        <div class="pmv-stat">
+          <div class="pmv-stat-label">{% trans "Total Visits" %}</div>
+          <div class="pmv-stat-val red">{{ total }}</div>
+        </div>
+        <div class="pmv-stat">
+          <div class="pmv-stat-label">CHF {% trans "Revenue" %}</div>
+          <div class="pmv-stat-val">{{ total_revenue|floatformat:0 }}</div>
+        </div>
+        <div class="pmv-stat">
+          <div class="pmv-stat-label">{% trans "PIN Verified" %}</div>
+          <div class="pmv-stat-val">{{ verified_count }}</div>
+        </div>
+        {% if last_visit %}
+        <div class="pmv-stat">
+          <div class="pmv-stat-label">{% trans "Last Visit" %}</div>
+          <div class="pmv-stat-val pmv-stat-val--date">{{ last_visit.timestamp|date:"d.m.Y" }}</div>
+        </div>
         {% endif %}
-        <div class="pmv-username">@{{ member.username }}{% if member.pseudonym %} · {{ member.pseudonym }}{% endif %}</div>
-        {% if member.membership_status == 'active' %}
-          <span class="pmv-badge active"><i class="fas fa-shield-alt"></i> {% trans "Active Member" %}</span>
-        {% else %}
-          <span class="pmv-badge inactive"><i class="fas fa-times-circle"></i> {% trans "Inactive" %}</span>
-        {% endif %}
       </div>
-    </div>
-
-    <div class="pmv-stats" style="margin-top:1rem;">
-      <div class="pmv-stat">
-        <div class="pmv-stat-label">{% trans "Total Visits" %}</div>
-        <div class="pmv-stat-val red">{{ total }}</div>
-      </div>
-      <div class="pmv-stat">
-        <div class="pmv-stat-label">CHF {% trans "Revenue" %}</div>
-        <div class="pmv-stat-val">{{ total_revenue|floatformat:0 }}</div>
-      </div>
-      <div class="pmv-stat">
-        <div class="pmv-stat-label">{% trans "PIN Verified" %}</div>
-        <div class="pmv-stat-val">{{ verified_count }}</div>
-      </div>
-      {% if last_visit %}
-      <div class="pmv-stat">
-        <div class="pmv-stat-label">{% trans "Last Visit" %}</div>
-        <div class="pmv-stat-val" style="font-size:1rem;">{{ last_visit.timestamp|date:"d.m.Y" }}</div>
-      </div>
-      {% endif %}
     </div>
   </div>
 </div>
@@ -73,7 +74,7 @@
   <div class="dash-card__body" style="padding:0;">
 
     {% if visits.object_list %}
-      <div style="overflow-x:auto;">
+      <div class="partner-table-wrap">
         <table class="pmc-table">
           <thead>
             <tr>
@@ -107,7 +108,7 @@
                 </td>
                 <td data-label="{% trans 'PIN' %}">
                   {% if visit.pin_verified %}
-                    <span class="pp-badge pp-badge-verified">✓ PIN</span>
+                    <span class="pp-badge pp-badge-verified"><i class="fas fa-check" aria-hidden="true"></i> PIN</span>
                   {% else %}
                     <span class="pp-badge pp-badge-unverified">—</span>
                   {% endif %}
@@ -124,8 +125,8 @@
                 </td>
                 <td data-label="{% trans 'ACTIONS' %}" class="pmv-row-actions{% if visit.status != 'ACTIVE' or visit.timestamp < edit_window_cutoff %} is-empty{% endif %}" style="white-space:nowrap;">
                   {% if visit.status == 'ACTIVE' and visit.timestamp >= edit_window_cutoff %}
-                    <a href="{% url 'users:edit_visit' visit.pk %}" class="pp-act-link">{% trans "edit" %}</a>
-                    <a href="{% url 'users:cancel_visit' visit.pk %}" class="pp-act-link danger">{% trans "cancel" %}</a>
+                    <a href="{% url 'users:edit_visit' visit.pk %}" class="pp-act-link">{% trans "Edit" %}</a>
+                    <a href="{% url 'users:cancel_visit' visit.pk %}" class="pp-act-link danger">{% trans "Cancel" %}</a>
                   {% endif %}
                 </td>
               </tr>

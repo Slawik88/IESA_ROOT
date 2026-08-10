@@ -28,7 +28,7 @@ def partner_dashboard(request):
         # in. Keep the portal usable and create the minimal one-to-one record
         # atomically instead of raising a production 500.
         if not request.user.is_partner:
-            messages.error(request, _('⚠️ Partner profile not configured. Contact administrator.'))
+            messages.error(request, _('Partner profile is not configured. Contact an administrator.'))
             return redirect('core:home')
         partner, _created = Partner.objects.get_or_create(
             user=request.user,
@@ -107,7 +107,7 @@ def log_visit(request, member_id):
 
     if member.membership_status != 'active':
         messages.warning(request, _(
-            '⚠️ Warning: %(name)s membership is currently inactive.'
+            '%(name)s has an inactive membership. Confirm eligibility before recording a visit.'
         ) % {'name': member.get_full_name()})
 
     if request.method == 'POST':
@@ -119,12 +119,12 @@ def log_visit(request, member_id):
             locked, remaining = check_pin_lockout(member, now)
             if locked:
                 messages.error(request, _(
-                    '🔒 PIN entry locked for this member. Please wait %(remaining)d minute(s).'
+                    'PIN entry is temporarily locked for this member. Please wait %(remaining)d minute(s).'
                 ) % {'remaining': remaining})
                 return render(request, 'users/log_visit.html', {'form': form, 'member': member, 'partner': partner})
 
             if not member.totp_secret:
-                messages.error(request, _('⚠️ Member PIN system not configured. Contact administrator.'))
+                messages.error(request, _('The member PIN system is not configured. Contact an administrator.'))
                 return redirect('users:partner_dashboard')
 
             pin_ok, pin_error = process_pin_attempt(member, form.cleaned_data['pin'], now)
@@ -134,7 +134,7 @@ def log_visit(request, member_id):
                 existing = check_idempotent_visit(partner, member, form.cleaned_data['service_type'], form.cleaned_data.get('cost'))
                 if existing:
                     messages.warning(request, _(
-                        'ℹ️ Duplicate detected: identical visit already logged within the last 5 minutes for %(name)s. No new record created.'
+                        'An identical visit was already logged for %(name)s within the last five minutes. No new record was created.'
                     ) % {'name': member.get_full_name() or member.username})
                     return redirect('users:partner_dashboard')
 
@@ -148,10 +148,10 @@ def log_visit(request, member_id):
                 from ..services.visit_notifications import notify_visit_logged as _nv
                 _nv(visit, partner, member)
                 if not getattr(member, 'telegram_chat_id', None):
-                    messages.info(request, _('ℹ️ Member has no Telegram linked — in-site notification sent instead.'))
+                    messages.info(request, _('The member has no linked Telegram account. An in-site notification was sent instead.'))
 
                 messages.success(request, _(
-                    '✅ Visit logged! Member: %(name)s | Service: %(service)s | Cost: %(cost)s'
+                    'Visit logged. Member: %(name)s | Service: %(service)s | Cost: %(cost)s'
                 ) % {
                     'name':    member.get_full_name() or member.username,
                     'service': visit.get_service_type_display(),
@@ -171,10 +171,10 @@ def edit_visit(request, visit_id):
     age     = (timezone.now() - visit.timestamp).total_seconds()
 
     if age > EDIT_WINDOW:
-        messages.error(request, _('⏰ Edit window expired. Visits can only be edited within 20 minutes of logging.'))
+        messages.error(request, _('The edit window has expired. Visits can only be edited within 20 minutes of logging.'))
         return redirect('users:partner_dashboard')
     if visit.status == 'CANCELLED':
-        messages.error(request, _('❌ Cancelled visits cannot be edited.'))
+        messages.error(request, _('Cancelled visits cannot be edited.'))
         return redirect('users:partner_dashboard')
 
     if request.method == 'POST':
@@ -193,7 +193,7 @@ def edit_visit(request, visit_id):
 
             from ..services.visit_notifications import notify_visit_edited as _nv
             _nv(updated_visit, audit, partner)
-            messages.success(request, _('✅ Visit updated. Member notified.'))
+            messages.success(request, _('Visit updated. The member was notified.'))
             return redirect('users:partner_dashboard')
     else:
         form = EditVisitForm(instance=visit)
@@ -216,7 +216,7 @@ def cancel_visit(request, visit_id):
     age     = (timezone.now() - visit.timestamp).total_seconds()
 
     if age > EDIT_WINDOW:
-        messages.error(request, _('⏰ Edit window expired. Visits can only be cancelled within 20 minutes of logging.'))
+        messages.error(request, _('The cancellation window has expired. Visits can only be cancelled within 20 minutes of logging.'))
         return redirect('users:partner_dashboard')
     if visit.status == 'CANCELLED':
         messages.warning(request, _('This visit is already cancelled.'))
@@ -235,7 +235,7 @@ def cancel_visit(request, visit_id):
             visit.status = 'CANCELLED'; visit.save(update_fields=['status']); audit.save()
             from ..services.visit_notifications import notify_visit_cancelled as _nv
             _nv(visit, audit, partner)
-            messages.success(request, _('✅ Visit cancelled. Member notified.'))
+            messages.success(request, _('Visit cancelled. The member was notified.'))
             return redirect('users:partner_dashboard')
     else:
         form = CancelVisitForm()
@@ -417,7 +417,7 @@ def partner_profile_edit(request):
         form = PartnerProfileForm(request.POST, instance=partner)
         if form.is_valid():
             form.save()
-            messages.success(request, _('✅ Partner profile updated successfully.'))
+            messages.success(request, _('Partner profile updated successfully.'))
             return redirect('users:partner_dashboard')
     else:
         form = PartnerProfileForm(instance=partner)
