@@ -3,6 +3,14 @@ from django.urls import reverse
 
 
 class PublicShellRegressionTests(TestCase):
+    def test_shared_header_renders_full_logo_in_a_bounded_slot(self):
+        response = self.client.get(reverse('core:home'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="navbar-logo" width="42" height="42"')
+        self.assertContains(response, 'css/layout.css?v=logo-full-20260811')
+        self.assertContains(response, 'css/responsive.css?v=logo-full-20260811')
+
     def test_homepage_critical_counters_are_visible_without_javascript_delay(self):
         response = self.client.get(reverse('core:home'))
 
