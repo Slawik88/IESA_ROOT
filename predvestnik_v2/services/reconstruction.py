@@ -13,6 +13,7 @@ from core.reconstruction import (
     MEMORIES,
     STARTER_UNITS,
 )
+from infrastructure.repositories import gameplay_events as event_repo
 from infrastructure.repositories import reconstruction as repo
 from services import reconstruction_combat as combat
 
@@ -149,16 +150,39 @@ async def start_encounter(
             db, user_id, GAME_VERSION, BALANCE_VERSION, encounter_id, combat.dumps(state)
         )
         stats = await repo.record_run_started(db, user_id, GAME_VERSION)
-        await repo.record_event(
+        await event_repo.record_event(
             db,
             user_id=user_id,
-            event_name="encounter_started",
+            event_name="battle_start",
             game_version=GAME_VERSION,
             balance_version=BALANCE_VERSION,
             run_id=run_id,
             source=source,
-            payload={"encounter_id": encounter_id},
+            payload={
+                "mode": "reconstruction_clicker",
+                "encounter_id": encounter_id,
+                "squad": list(STARTER_UNITS),
+                "levels": {unit_id: 1 for unit_id in STARTER_UNITS},
+                # У стартового отряда Reconstruction пока нет канонического CP.
+                # None честнее выдуманного числа и явно показывает пробел модели.
+                "combat_power": None,
+                "modifiers": [],
+            },
             idempotency_key=f"run:{run_id}:started",
+        )
+        await event_repo.record_event(
+            db,
+            user_id=user_id,
+            event_name="game_onboarding_step",
+            game_version=GAME_VERSION,
+            balance_version=BALANCE_VERSION,
+            source=source,
+            payload={
+                "step": "first_encounter_started",
+                "result": "completed",
+                "encounter_id": encounter_id,
+            },
+            idempotency_key=f"onboarding:{GAME_VERSION}:first_encounter_started",
         )
         return {
             "run_id": run_id,
@@ -204,6 +228,14 @@ async def apply_run_action(
             raise ReconstructionConflict("Встреча создана несовместимой версией игры.")
 
         state = run["state"]
+        action_type = str(action.get("type") or "")
+        round_before = int(state.get("round", 0))
+        challenge_before = copy.deepcopy(state.get("challenge") or {})
+        offered_before = [
+            str(option.get("id"))
+            for option in state.get("reward_options", [])
+            if option.get("id")
+        ]
         result = combat.apply_action(state, action)
         if not result.get("ok"):
             raise ReconstructionError(str(result.get("error") or "Действие отклонено."))
@@ -217,47 +249,92 @@ async def apply_run_action(
         if new_revision is None:
             raise ReconstructionConflict("Состояние уже изменилось в другой вкладке. Обновляю бой.")
 
-        await repo.record_event(
-            db,
-            user_id=user_id,
-            event_name="combat_action",
-            game_version=GAME_VERSION,
-            balance_version=BALANCE_VERSION,
-            run_id=run_id,
-            source=source,
-            payload={
-                "encounter_id": run["encounter_id"],
-                "round": state["round"],
-                "action_type": action.get("type"),
-                "challenge_id": action.get("challenge_id"),
-                "target_slot": action.get("target_slot"),
-                "upgrade_id": action.get("upgrade_id"),
-                "strike_correct": (result.get("strike") or {}).get("correct"),
-                "result_phase": result.get("phase"),
-            },
-            idempotency_key=f"run:{run_id}:action:{action_id}",
-        )
-
-        pending_memory = None
-        career_stats = None
-        if state["status"] in ("won", "lost"):
-            await repo.record_event(
+        strike = result.get("strike")
+        if isinstance(strike, dict):
+            await event_repo.record_event(
                 db,
                 user_id=user_id,
-                event_name="encounter_completed",
+                event_name="battle_action",
                 game_version=GAME_VERSION,
                 balance_version=BALANCE_VERSION,
                 run_id=run_id,
                 source=source,
                 payload={
+                    "mode": "reconstruction_clicker",
                     "encounter_id": run["encounter_id"],
-                    "outcome": state["status"],
+                    "round": round_before,
+                    "action": "resolve_signal",
+                    "challenge_id": action.get("challenge_id"),
+                    "target_slot": action.get("target_slot"),
+                    "accepted": bool(strike.get("accepted")),
+                    "correct": bool(strike.get("correct")),
+                    "critical": bool(strike.get("critical", False)),
+                    "damage": strike.get("damage"),
+                    "discharged": bool(strike.get("discharged", False)),
+                    "reason": strike.get("reason"),
+                    "legal_options_count": len(challenge_before.get("options") or []),
+                },
+                idempotency_key=f"run:{run_id}:action:{action_id}",
+            )
+        elif action_type == "choose_upgrade":
+            await event_repo.record_event(
+                db,
+                user_id=user_id,
+                event_name="battle_upgrade",
+                game_version=GAME_VERSION,
+                balance_version=BALANCE_VERSION,
+                run_id=run_id,
+                source=source,
+                payload={
+                    "mode": "reconstruction_clicker",
+                    "encounter_id": run["encounter_id"],
+                    "round": round_before,
+                    "upgrade_id": str(action.get("upgrade_id") or ""),
+                    "offered_ids": offered_before,
+                },
+                idempotency_key=f"run:{run_id}:action:{action_id}",
+            )
+
+        pending_memory = None
+        career_stats = None
+        if state["status"] in ("won", "lost"):
+            await event_repo.record_event(
+                db,
+                user_id=user_id,
+                event_name="battle_end",
+                game_version=GAME_VERSION,
+                balance_version=BALANCE_VERSION,
+                run_id=run_id,
+                source=source,
+                payload={
+                    "mode": "reconstruction_clicker",
+                    "encounter_id": run["encounter_id"],
+                    "result": state["status"],
                     "outcome_reason": state.get("outcome_reason"),
                     "rounds": state["round"],
-                    "mastery": state["mastery"],
+                    "metrics": state["mastery"],
                 },
-                idempotency_key=f"run:{run_id}:completed",
+                idempotency_key=f"run:{run_id}:ended",
             )
+            # Проигрыш остаётся battle_end попытки, но не закрывает шаг онбординга.
+            # Иначе фиксированный ключ шага запомнит `lost`, а последующая победа
+            # справедливо станет idempotency-конфликтом с другим payload.
+            if state["status"] == "won":
+                await event_repo.record_event(
+                    db,
+                    user_id=user_id,
+                    event_name="game_onboarding_step",
+                    game_version=GAME_VERSION,
+                    balance_version=BALANCE_VERSION,
+                    source=source,
+                    payload={
+                        "step": "first_encounter_completed",
+                        "result": "completed",
+                        "encounter_id": run["encounter_id"],
+                        "elapsed_ms": max(0, int(state["mastery"].get("elapsed_ms", 0))),
+                    },
+                    idempotency_key=f"onboarding:{GAME_VERSION}:first_encounter_completed",
+                )
             career_stats = await repo.record_run_completed(
                 db,
                 user_id,
@@ -326,15 +403,35 @@ async def choose_memory(
             completed=progress["completed"],
             memories=memories,
         )
-        await repo.record_event(
+        await event_repo.record_event(
             db,
             user_id=user_id,
-            event_name="memory_chosen",
+            event_name="progression_upgrade",
             game_version=GAME_VERSION,
             balance_version=BALANCE_VERSION,
             source=source,
-            payload={"memory_id": memory_id, "after_encounter": FIRST_ENCOUNTER},
-            idempotency_key=f"memory:{GAME_VERSION}:{FIRST_ENCOUNTER}",
+            payload={
+                "entity": "memory",
+                "from_value": None,
+                "to_value": memory_id,
+                "resource_cost": {},
+                "trigger": f"reward:{FIRST_ENCOUNTER}",
+            },
+            idempotency_key=f"progression:{GAME_VERSION}:memory:{FIRST_ENCOUNTER}",
+        )
+        await event_repo.record_event(
+            db,
+            user_id=user_id,
+            event_name="game_onboarding_step",
+            game_version=GAME_VERSION,
+            balance_version=BALANCE_VERSION,
+            source=source,
+            payload={
+                "step": "first_reward_chosen",
+                "result": "completed",
+                "encounter_id": FIRST_ENCOUNTER,
+            },
+            idempotency_key=f"onboarding:{GAME_VERSION}:first_reward_chosen",
         )
         return {
             "ok": True,

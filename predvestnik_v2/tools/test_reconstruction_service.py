@@ -148,11 +148,13 @@ async def main():
     for name in (
         "lock_user", "get_progress", "ensure_progress", "save_progress",
         "get_active_run", "get_run", "create_run", "save_run_state",
-        "get_action_response", "save_action_response", "record_event",
+        "get_action_response", "save_action_response",
         "get_stats", "record_run_started", "record_run_completed",
     ):
         original[name] = getattr(service.repo, name)
         setattr(service.repo, name, getattr(memory, name))
+    original_event_writer = service.event_repo.record_event
+    service.event_repo.record_event = memory.record_event
     try:
         db = _DB()
         user_id = 7001
@@ -181,6 +183,9 @@ async def main():
         # Открываем первый одноразовый сигнал и проверяем idempotency на ударе.
         while not memory.runs[run_id]["state"]["challenge"]["active"]:
             await apply({"type": "frame", "delta_ms": 100})
+        assert not any(
+            event["event_name"] == "battle_action" for event in memory.events.values()
+        ), "служебные frame-тики попали в meaningful telemetry"
         state = memory.runs[run_id]["state"]
         challenge = state["challenge"]
         slot = next(
@@ -190,7 +195,10 @@ async def main():
         action_id = f"a{counter + 1}"
         first = await service.apply_run_action(
             db, user_id, run_id, action_id,
-            {"type": "strike", "challenge_id": challenge["id"], "target_slot": slot},
+            {
+                "type": "frame", "delta_ms": 100,
+                "challenge_id": challenge["id"], "target_slot": slot,
+            },
         )
         counter += 1
         replay = await service.apply_run_action(
@@ -238,8 +246,13 @@ async def main():
         assert result["accuracy"] == 100.0
         assert memory.progress["completed"] == [service.FIRST_ENCOUNTER]
         assert memory.progress["current_encounter"] == "e02_shattered_causeway"
-        completed_events = [event for event in memory.events.values() if event["event_name"] == "encounter_completed"]
+        completed_events = [event for event in memory.events.values() if event["event_name"] == "battle_end"]
         assert len(completed_events) == 1
+        action_events = [event for event in memory.events.values() if event["event_name"] == "battle_action"]
+        upgrade_events = [event for event in memory.events.values() if event["event_name"] == "battle_upgrade"]
+        assert len(action_events) == memory.stats["total_taps"]
+        assert len(upgrade_events) == 2
+        assert all(event["payload"]["legal_options_count"] == 3 for event in action_events)
         assert memory.stats["runs_started"] == 1
         assert memory.stats["runs_won"] == 1 and memory.stats["runs_lost"] == 0
         assert memory.stats["accuracy"] == 100.0
@@ -254,9 +267,21 @@ async def main():
         assert chosen_again["idempotent_replay"] is True
         assert memory.progress["memories"] == ["m_mobile_oath"]
         assert memory.progress["game_version"] == GAME_VERSION
+        assert any(
+            event["event_name"] == "progression_upgrade" for event in memory.events.values()
+        )
+        onboarding_steps = {
+            event["payload"]["step"]
+            for event in memory.events.values()
+            if event["event_name"] == "game_onboarding_step"
+        }
+        assert onboarding_steps == {
+            "first_encounter_started", "first_encounter_completed", "first_reward_chosen",
+        }
     finally:
         for name, value in original.items():
             setattr(service.repo, name, value)
+        service.event_repo.record_event = original_event_writer
 
     print("reconstruction_service: resume+idempotency+progress+career-stats  OK")
 

@@ -98,8 +98,10 @@ Dev-лаборатория хранит аналогичную статисти�
 
 - `core/reconstruction.py` — версионированный контент и баланс.
 - `services/reconstruction_combat.py` — чистый детерминированный движок.
-- `services/reconstruction.py` — прогресс, idempotency и telemetry.
+- `services/reconstruction.py` — прогресс, idempotency и meaningful telemetry.
 - `infrastructure/repositories/reconstruction.py` — PostgreSQL persistence.
+- `core/gameplay_events.py` + `infrastructure/repositories/gameplay_events.py` —
+  общий версионированный event ledger; служебные `frame`-тики туда не попадают.
 - `FastAPI/routers/reconstruction.py` — тонкий HTTP-адаптер за feature flag.
 - `tools/reconstruction_preview_api.py` — только локальный bridge к тому же движку;
   состояние изолировано по вкладкам и сохраняется между hot-restart той же версии.
@@ -125,6 +127,8 @@ Dev-лаборатория хранит аналогичную статисти�
 - [x] Result/menu/pause/choice взаимоисключающие и сохраняются после live reload.
 - [x] Стабильная геометрия центрального знака и автоматический CLS-порог `< 0,05`.
 - [x] Локальная статистика дедуплицирует завершение после перезагрузки.
+- [x] Meaningful telemetry: start/signal/upgrade/end/reward без шумовых frame-событий;
+      схема, PII-гейт и конфликт idempotency проверены отдельно.
 - [ ] Production wall clock, nonce, rate limit и anomaly telemetry.
 - [ ] Баланс по реальным сессиям: completion rate, accuracy, quit wave, p50/p90 run time.
 - [ ] Интеграция входа в игру в основной интерфейс после одобрения вертикали.
