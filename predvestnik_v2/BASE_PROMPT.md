@@ -41,6 +41,7 @@ FastAPI/        ← Web-адаптер
 | `COSMETICS_LIFECYCLE_POLICY.md` | Правило сохранения старой/BP-косметики: архив для владельца по умолчанию, read-only аудит, versioned migration, ledger и откат; читать до любого удаления ID |
 | `AUTONOMOUS_MODE.md` | Восстановленный протокол режима «автономный режим» / «делай всё»: самостоятельный цикл аудит → фикс → проверка → ревью → следующая находка, с границами риска и внешних действий |
 | `LOCAL_PREVIEW.md` | Обязательный local-first контур перед production: preview-сервер `:8402`, VS Code Ports, моки, Puppeteer/smoke-проверки и границы стенда |
+| `PRODUCTION_RELEASE_CHECKLIST.md` | Обязательный release-gate: сравнение production/local, актуализация `📣 Что нового`, проверки и только затем явно разрешённый деплой |
 
 ## КРИТИЧЕСКИЕ ПРАВИЛА
 - `services/` не импортирует `bot.*` / `FastAPI.*`
@@ -48,6 +49,7 @@ FastAPI/        ← Web-адаптер
 - `${...}` только в backtick-строках
 - PostgreSQL ON CONFLICT: `table.column + $N`
 - Дублированные JS-функции — проверять `node --check`
+- Перед КАЖДЫМ production-деплоем сравнить точный production revision с локальным кодом, обновить `FastAPI/static/updates.json` реальными пользовательскими изменениями и пройти `PRODUCTION_RELEASE_CHECKLIST.md`; одинаковая live/local лента при пользовательском diff блокирует релиз
 - Не трогать `g:\IESA_ROOT\` корень (IESA Django) и `g:\IESA_ROOT\frontend\` (старый React-мини-апп "predvestnik-miniapp", без коммитов с апреля — мёртвый параллельный трек, не наш код)
 
 ## ENV (DigitalOcean)
@@ -61,4 +63,4 @@ FastAPI/        ← Web-адаптер
   - дубли/противоречия после новых указаний пользователя
 - Цель — экономия токенов: `MEMORY.md` грузится целиком в каждую сессию.
 
-*Обновлено: 2026-08-02 | Автономный режим: AUTONOMOUS_MODE.md | Доделки: NOT_IMPLEMENTED.md | Идеи: FUTURE_IDEAS.md | Планы фич: IMPLEMENTATION_BLOCKS.md | Админ-аудит: admin_audit.md | Игровой контент: GAME_BIBLE.md*
+*Обновлено: 2026-08-12 | Автономный режим: AUTONOMOUS_MODE.md | Release-gate: PRODUCTION_RELEASE_CHECKLIST.md | Доделки: NOT_IMPLEMENTED.md | Идеи: FUTURE_IDEAS.md | Планы фич: IMPLEMENTATION_BLOCKS.md | Админ-аудит: admin_audit.md | Игровой контент: GAME_BIBLE.md*
