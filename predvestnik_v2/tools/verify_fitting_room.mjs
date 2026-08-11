@@ -179,7 +179,7 @@ check('в шторке только одна золотая кнопка', sheet
 check('золотая кнопка покупает и применяет всё', /Купить и применить/.test(sheetState.actionText));
 
 check('trial name glow is shown with its full name and price', sheetState.trialRows.some(text=>/Ореол имени/.test(text) && /Ледяная вязь/.test(text) && /440/.test(text)));
-check('trial avatar frame is shown with its full name and price', sheetState.trialRows.some(text=>/Рамка аватара/.test(text) && /Оправа Бездны/.test(text) && /440/.test(text)));
+check('trial avatar frame is shown with its full name and price', sheetState.trialRows.some(text=>/Рамка аватара/.test(text) && /Оправа Бездны/.test(text) && /420/.test(text)));
 
 const noFxTransition = await page.evaluate(async () => {
   CM();

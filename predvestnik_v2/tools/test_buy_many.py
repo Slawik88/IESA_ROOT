@@ -16,8 +16,8 @@ from core.cosmetics import COSMETICS
 from services.cosmetics import buy_many
 
 
-ID_A = "cos_name_glow_moon"  # forest, 250✨
-ID_B = "cos_name_glow_frost"  # frost, 440✨
+ID_A = "cos_name_glow_moon"  # forest name glow, 250✨
+ID_B = "cos_name_glow_frost"  # frost name glow, 440✨
 assert COSMETICS[ID_A]["price"][0]["zarniki"] == 250
 assert COSMETICS[ID_B]["price"][0]["zarniki"] == 440
 EXPECTED_TOTAL = 690

@@ -734,13 +734,13 @@ const MOCKS = {
   'GET /cosmetics/gift/catalog': (u) => ({
     recipient_id: Number(u.searchParams.get('recipient_id')) || 999,
     items: [
-      { id: 'cos_title_frostchild', name: 'Дитя Стужи', slot: 'title', rarity: 'rare', css: 'title-frostchild', text: 'Дитя Стужи', zarniki: 310, owned: false },
-      { id: 'cos_avatar_halo_ice', name: 'Ледяной сполох', slot: 'avatar_halo', rarity: 'rare', css: 'halo-ice', text: null, zarniki: 370, owned: false },
-      { id: 'cos_avatar_frame_crystal', name: 'Кристальная грань', slot: 'avatar_frame', rarity: 'rare', css: 'frame-crystal', text: null, zarniki: 420, owned: false },
-      { id: 'cos_name_glow_frost', name: 'Ледяная вязь', slot: 'name_glow', rarity: 'rare', css: 'glow-frost', text: null, zarniki: 440, owned: false },
-      { id: 'cos_avatar_frame_inferno', name: 'Инферно', slot: 'avatar_frame', rarity: 'epic', css: 'frame-inferno', text: null, zarniki: 630, owned: false },
-      { id: 'cos_avatar_halo_void', name: 'Кольцо Бездны', slot: 'avatar_halo', rarity: 'mythic', css: 'halo-void', text: null, zarniki: 1000, owned: false },
-      { id: 'cos_name_glow_moon', name: 'Лунный свет', slot: 'name_glow', rarity: 'common', css: 'glow-moon', text: null, zarniki: 250, owned: true },
+      { id: 'cos_title_frostchild', name: 'Дитя Стужи', slot: 'title', rarity: 'rare', css: 'title-frostchild', text: 'Дитя Стужи', zarniki: previewCosmeticPrice('cos_title_frostchild',310), owned: false },
+      { id: 'cos_avatar_halo_ice', name: 'Ледяной сполох', slot: 'avatar_halo', rarity: 'rare', css: 'halo-ice', text: null, zarniki: previewCosmeticPrice('cos_avatar_halo_ice',370), owned: false },
+      { id: 'cos_avatar_frame_crystal', name: 'Кристальная грань', slot: 'avatar_frame', rarity: 'rare', css: 'frame-crystal', text: null, zarniki: previewCosmeticPrice('cos_avatar_frame_crystal',420), owned: false },
+      { id: 'cos_name_glow_frost', name: 'Ледяная вязь', slot: 'name_glow', rarity: 'rare', css: 'glow-frost', text: null, zarniki: previewCosmeticPrice('cos_name_glow_frost',440), owned: false },
+      { id: 'cos_avatar_frame_inferno', name: 'Инферно', slot: 'avatar_frame', rarity: 'epic', css: 'frame-inferno', text: null, zarniki: previewCosmeticPrice('cos_avatar_frame_inferno',600), owned: false },
+      { id: 'cos_avatar_halo_void', name: 'Кольцо Бездны', slot: 'avatar_halo', rarity: 'mythic', css: 'halo-void', text: null, zarniki: previewCosmeticPrice('cos_avatar_halo_void',850), owned: false },
+      { id: 'cos_name_glow_moon', name: 'Лунный свет', slot: 'name_glow', rarity: 'common', css: 'glow-moon', text: null, zarniki: previewCosmeticPrice('cos_name_glow_moon',250), owned: true },
     ],
   }),
   'POST /cosmetics/gift': { ok: true, message: '🎁 Подарок отправлен! −310✨' },
@@ -804,6 +804,49 @@ const PREVIEW_THEME_SNAPSHOT = JSON.stringify(MOCKS['GET /themes/']);
 const PREVIEW_BALANCE_SNAPSHOT = {
   mora: PROFILE.mora, diamonds: PROFILE.diamonds, dark_mora: PROFILE.dark_mora, zarniki: PROFILE.zarniki,
 };
+
+// Production pricing proposal approved by the owner: the collection defines
+// its segment, while the actual item price follows the visual weight of slot.
+// Keep this fixture matrix byte-for-byte aligned with core/cosmetics.py; the
+// server-side contract test guards the authoritative Python registry.
+const PREVIEW_COSMETIC_SLOT_PRICES = {
+  250:  {title:180,avatar_halo:210,avatar_frame:240,name_glow:250,profile_bg:310,card_fx:340},
+  440:  {title:310,avatar_halo:370,avatar_frame:420,name_glow:440,profile_bg:550,card_fx:590},
+  630:  {title:440,avatar_halo:540,avatar_frame:600,name_glow:630,profile_bg:790,card_fx:850},
+  820:  {title:570,avatar_halo:700,avatar_frame:780,name_glow:820,profile_bg:1020,card_fx:1110},
+  1000: {title:700,avatar_halo:850,avatar_frame:950,name_glow:1000,profile_bg:1250,card_fx:1350},
+  1500: {title:800,avatar_halo:1100,avatar_frame:1250,name_glow:1350,profile_bg:1500,card_fx:1650},
+};
+function applyPreviewCosmeticPrices() {
+  const catalog=MOCKS['GET /cosmetics/'];
+  const byId=new Map();
+  Object.entries(catalog.slots).forEach(([slot,items])=>items.forEach(item=>{
+    const meta=catalog.lineups[item.lineup];
+    const base=Number(meta?.price?.[0]?.zarniki)||0;
+    const price=PREVIEW_COSMETIC_SLOT_PRICES[base]?.[slot];
+    if(price) item.price=[{zarniki:price}];
+    byId.set(item.id,{...item,slot});
+  }));
+  Object.values(catalog.lineups).forEach(meta=>{
+    const base=Number(meta?.price?.[0]?.zarniki)||0;
+    const values=Object.values(PREVIEW_COSMETIC_SLOT_PRICES[base]||{});
+    if(values.length) meta.price_range={min:Math.min(...values),max:Math.max(...values)};
+  });
+  catalog.curated_looks.forEach(look=>{
+    look.missing_price=Object.values(look.items).reduce((sum,id)=>sum+(byId.get(id)?.price?.[0]?.zarniki||0),0);
+  });
+}
+applyPreviewCosmeticPrices();
+
+function previewCosmeticPrice(cosmeticId,fallback=0){
+  const catalog=MOCKS['GET /cosmetics/'];
+  for(const items of Object.values(catalog.slots||{})){
+    const item=items.find(candidate=>candidate.id===cosmeticId);
+    if(item) return Number(item.price?.[0]?.zarniki)||fallback;
+  }
+  return fallback;
+}
+
 function resetPreviewThemeState() {
   const themes = MOCKS['GET /themes/'];
   themes.splice(0, themes.length, ...JSON.parse(PREVIEW_THEME_SNAPSHOT));
