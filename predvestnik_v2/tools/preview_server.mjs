@@ -8,14 +8,27 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const STATIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'FastAPI', 'static');
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const UNKNOWN_LOG = path.join(HERE, 'unknown-api.log');
 const PORT = Number(process.env.PORT) || 8402;
+const RECON_PREVIEW_PORT = Number(process.env.RECON_PREVIEW_PORT) || 8403;
 const liveReloadClients = new Set();
 let liveReloadTimer = null;
+
+// Dev-only bridge: the browser lab talks to the real Python combat engine.
+// It is deliberately not part of the production FastAPI process.
+const reconstructionApi = spawn('python3', [path.join(HERE, 'reconstruction_preview_api.py')], {
+  cwd: path.join(HERE, '..'),
+  env: { ...process.env, RECON_PREVIEW_PORT: String(RECON_PREVIEW_PORT) },
+  stdio: ['ignore', 'inherit', 'inherit'],
+});
+reconstructionApi.on('exit', (code) => {
+  if (code && code !== 0) console.error(`reconstruction preview api exited with code ${code}`);
+});
 
 const read = (n) => fs.readFileSync(path.join(STATIC, n), 'utf8');
 const PARTS = Array.from({ length: 11 }, (_, i) => `app.${String(i + 1).padStart(2, '0')}.js`);
@@ -876,6 +889,31 @@ function send(res, status, body, type = 'application/json; charset=utf-8') {
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
+function proxyReconstruction(req, res, pathname) {
+  const suffix = pathname.slice('/__reconstruction'.length) || '/state';
+  const upstream = http.request({
+    hostname: '127.0.0.1',
+    port: RECON_PREVIEW_PORT,
+    path: suffix,
+    method: req.method,
+    headers: {
+      'content-type': req.headers['content-type'] || 'application/json',
+      'x-reconstruction-session': req.headers['x-reconstruction-session'] || 'default',
+      ...(req.headers['content-length'] ? { 'content-length': req.headers['content-length'] } : {}),
+    },
+  }, (upstreamRes) => {
+    res.writeHead(upstreamRes.statusCode || 502, {
+      'content-type': upstreamRes.headers['content-type'] || 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    });
+    upstreamRes.pipe(res);
+  });
+  upstream.on('error', (error) => send(res, 503, {
+    detail: `Движок реконструкции ещё запускается: ${error.code || error.message}`,
+  }));
+  req.pipe(upstream);
+}
+
 function staticContentType(filePath) {
   const ext=path.extname(filePath).toLowerCase();
   return ({
@@ -920,6 +958,7 @@ const server = http.createServer(async (req, res) => {
   const p = u.pathname;
 
   if (p === '/__preview/live' && req.method === 'GET') return attachLiveReload(req, res);
+  if (p.startsWith('/__reconstruction')) return proxyReconstruction(req, res, p);
   if (p === '/' || p === '/index.html') return send(res, 200, indexHtml(), 'text/html; charset=utf-8');
   if (p === '/static/app.css') return send(res, 200, read('app.css'), 'text/css; charset=utf-8');
   if (p === '/static/app.js') return send(res, 200, PARTS.map(read).join(''), 'text/javascript; charset=utf-8');
@@ -1023,5 +1062,17 @@ const server = http.createServer(async (req, res) => {
   return send(res, 200, {});
 });
 server.on('upgrade', (_req, socket) => socket.destroy()); // WS не поддерживаем
-server.on('close', () => staticWatcher.close());
+server.on('close', () => {
+  staticWatcher.close();
+  reconstructionApi.kill('SIGTERM');
+});
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    reconstructionApi.kill('SIGTERM');
+    for (const client of liveReloadClients) client.end();
+    liveReloadClients.clear();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 800).unref();
+  });
+}
 server.listen(PORT, () => console.log(`preview on http://localhost:${PORT}/`));
