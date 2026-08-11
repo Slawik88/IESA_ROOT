@@ -41,56 +41,73 @@ function loadProfile() {
       if (animateCp) _animateCpCount('cp-hero-val', d.combat_power);
       else { const n = el('cp-hero-val'); if (n) n.textContent = fmt(d.combat_power); }
     }, 40);
+    const looksEntryLabel=looksTrial?'Продолжить примерку':'Внешний вид';
+    const looksEntryMeta=looksTrial?`${looksTrial.count} ${looksTrial.noun} сохранено`:'Примерочная и образы';
     el('pro-main').innerHTML=`
-      <div class="hero ${cosmetics.profile_bg?cosmetics.profile_bg.css:''}">
+      <div class="hero profile-showcase-card ${cosmetics.profile_bg?cosmetics.profile_bg.css:''}">
         ${cosmetics.card_fx?`<div class="card-fx ${cosmetics.card_fx.css}"></div>`:''}
-        <div class="hero-head${lineageStyle?' lineage-link':''}"${lineageStyle?` style="${lineageStyle}"`:''}>
-          <div class="ava ${cosmetics.avatar_frame?cosmetics.avatar_frame.css:''} ${cosmetics.avatar_halo?cosmetics.avatar_halo.css:''}" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
-          <div class="profile-copy">
-            <div class="pname ${cosmetics.name_glow?cosmetics.name_glow.css:''}">@${vipName(d.username||'Игрок', d.is_vip)}</div>
-            <div class="prank">${d.rank}</div>
-            ${cosmetics.title?`<div class="ptitle${cosmetics.title_css?' '+cosmetics.title_css:''}">${esc(cosmetics.title)}</div>`:''}
+        <div class="profile-showcase-head">
+          <div class="hero-head${lineageStyle?' lineage-link':''}"${lineageStyle?` style="${lineageStyle}"`:''}>
+            <div class="ava ${cosmetics.avatar_frame?cosmetics.avatar_frame.css:''} ${cosmetics.avatar_halo?cosmetics.avatar_halo.css:''}" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
+            <div class="profile-copy">
+              <div class="pname ${cosmetics.name_glow?cosmetics.name_glow.css:''}">@${vipName(d.username||'Игрок', d.is_vip)}</div>
+              <div class="prank">${d.rank}</div>
+              ${cosmetics.title?`<div class="ptitle${cosmetics.title_css?' '+cosmetics.title_css:''}">${esc(cosmetics.title)}</div>`:''}
+            </div>
           </div>
+          <button class="showcase-fitting-button" type="button" onclick="openLooksModal()" aria-label="${looksEntryLabel}">
+            <span aria-hidden="true">🎨</span><span>Примерочная</span><span aria-hidden="true">›</span>
+          </button>
         </div>
-        <div class="hero-xp">
-          <div class="xp-bar"><div class="xp-fill" data-pct="${xpPct}" style="width:${animateXp?0:xpPct}%"></div></div>
-          <div class="xp-lbl"><span>Уровень ${lvl}</span><span>${fmt(xpInLvl)} / ${fmt(xpPerLvl)} XP</span></div>
+
+        <div class="profile-showcase-main">
+          <button class="character-showcase-area" type="button" onclick="openLooksModal()" aria-label="Открыть текущий образ в примерочной">
+            <span class="character-showcase-caption"><strong>${looksEntryLabel}</strong><small>${looksEntryMeta}</small></span>
+          </button>
+          <aside class="player-data-rail" aria-label="Основные показатели игрока">
+            ${hasCp?`<button class="player-rail-item player-rail-item--power" type="button" onclick="showCpBreakdown()">
+              <span class="player-rail-kicker">⚡ Сила</span><strong id="cp-hero-val">0</strong><small>Подробнее ›</small>
+            </button>`:''}
+            <div class="player-rail-item player-rail-item--level">
+              <span class="player-rail-kicker">Уровень</span><strong>LV${lvl}</strong>
+              <div class="hero-xp">
+                <div class="xp-bar"><div class="xp-fill" data-pct="${xpPct}" style="width:${animateXp?0:xpPct}%"></div></div>
+                <div class="xp-lbl"><span>${fmt(xpInLvl)}</span><span>${fmt(xpPerLvl)} XP</span></div>
+              </div>
+            </div>
+            <button class="player-rail-item" type="button" onclick="goTo('quests','streak')">
+              <span class="player-rail-kicker">🔥 Стрик</span><strong id="pro-stat-streak">${d.streak}</strong><small>дней подряд</small>
+            </button>
+            <button class="player-rail-item" type="button" onclick="goTo('ach')">
+              <span class="player-rail-kicker">🏆 Ачивки</span><strong>${d.achievements}</strong><small>Открыть ›</small>
+            </button>
+          </aside>
         </div>
-        ${typeof d.combat_power==='number'?`
-        <div class="cp-hero" onclick="showCpBreakdown()">
-          <div class="cp-hero-lbl">⚡ ИНДЕКС СИЛЫ</div>
-          <div class="cp-hero-val" id="cp-hero-val">0</div>
-        </div>`:''}
-        <div class="stats">
+
+        <div class="stats profile-resource-rail" aria-label="Ресурсы игрока">
           <div class="stat clickable" onclick="openExchangeCurrencyModal('buy')"><div>🪙</div><div class="sv" id="pro-stat-mora">${fmt(d.mora)}</div><div class="sl">Мора</div></div>
           <div class="stat clickable" onclick="openExchangeCurrencyModal('sell')"><div>💎</div><div class="sv" id="pro-stat-dia">${fmtF(d.diamonds)}</div><div class="sl">Алмазы</div></div>
           <div class="stat clickable" onclick="${(d.zarniki||0)>0?'openExchangeZarnikiModal()':"goTo('market','vip')"}"><div>✨</div><div class="sv" id="pro-stat-zar">${Math.floor(d.zarniki||0)}</div><div class="sl">${(d.zarniki||0)>0?'Зарники':'Зарники +'}</div></div>
           <div class="stat clickable" onclick="goTo('ach')"><div>🏆</div><div class="sv" id="pro-stat-ach">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0 0;margin-top:11px;border-top:1px solid var(--border2)">
-          <span style="font-size:10.5px;color:var(--muted)">🆔 <code>${uid}</code></span>
-          <button class="btn btn-ghost btn-sm" style="padding:3px 9px;font-size:10px" onclick="copyUid(${uid})">📋 Копировать</button>
+        <div class="profile-showcase-meta">
+          <span>🆔 <code>${uid}</code></span>
+          <button class="profile-copy-id" type="button" onclick="copyUid(${uid})">Копировать</button>
         </div>
       </div>
-      ${looksTrial?`<button class="profile-trial-chip" type="button" onclick="openLooksModal()" aria-label="Продолжить примерку: сохранено ${looksTrial.count} ${looksTrial.noun}">
-        <span class="profile-trial-avatar" aria-hidden="true">${d.is_vip?'👑':'🔮'}</span>
-        <span class="profile-trial-copy"><span class="profile-trial-label">Продолжить примерку</span><span class="profile-trial-sub">Сохранено: ${looksTrial.count} ${looksTrial.noun}</span></span>
-        <span class="profile-trial-arrow" aria-hidden="true">›</span>
-      </button>`:''}
+
+      <div class="profile-card-actions" aria-label="Настройки профиля">
+        <button type="button" onclick="openClansModal()"><span aria-hidden="true">🛡</span><span>Клан</span></button>
+        <button type="button" onclick="openPromoModal()"><span aria-hidden="true">🎟</span><span>Промокод</span></button>
+        <button type="button" onclick="openSettingsModal()"><span aria-hidden="true">⚙️</span><span>Настройки</span></button>
+      </div>
 
       <!-- Быстрые действия: всё важное в 1 клик -->
       <div class="qa-row">
-        <div class="qa qa-hot" onclick="goTo('quests','streak')"><span>🔥</span>Стрик <span id="pro-stat-streak">${d.streak}</span></div>
+        <div class="qa qa-hot" onclick="goTo('quests','streak')"><span>🔥</span>Стрик <span>${d.streak}</span></div>
         <div class="qa" onclick="goTo('quests')"><span>📋</span>Квесты</div>
         <div class="qa" onclick="goTo('bp')"><span>🎫</span>Пропуск</div>
         <div class="qa" onclick="goTo('zoo')"><span>🍖</span>Питомцы</div>
-      </div>
-
-      <button class="btn btn-full promo-cta" style="margin-top:10px" onclick="openPromoModal()">🎟 У меня есть промокод</button>
-      <div class="pa3-row">
-        <button class="btn btn-ghost" onclick="openLooksModal()">🎨 Внешний вид</button>
-        <button class="btn btn-ghost" onclick="openClansModal()">🛡 Клан</button>
-        <button class="btn btn-ghost" onclick="openSettingsModal()">⚙️ Настройки</button>
       </div>
 
       <!-- Топ-3 игроков (loadTop3) — соревнование на видном месте (block 11) -->
@@ -109,8 +126,9 @@ function loadProfile() {
       <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
       <!-- Карточка ника (заполняется loadNickCard) -->
       <div id="pro-nick-card"></div>
-      ${pets.length?`<div class="card">
-        <div class="card-title">🐾 Питомники</div>
+      ${pets.length?`<details class="profile-fold">
+        <summary><span class="profile-fold-title">🐾 Питомники</span><span class="profile-fold-meta">${pets.length} активн.</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+        <div class="profile-fold-body">
         ${pets.map(p=>`
         <div class="pcard" onclick="goTo('zoo')" style="cursor:pointer"><div class="pcol">
           <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
@@ -120,14 +138,17 @@ function loadProfile() {
         <div class="shortcut-row">
           <span class="shortcut-link" onclick="goTo('zoo')">Управлять питомцами →</span>
         </div>
-      </div>`:`<div class="card"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Питомцев пока нет</div><div class="es-sub">Крутни Гачу, чтобы завести первого</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button></div></div>`}
-      ${d.chats.length?`<div class="card">
-        <div class="card-title">💬 Активность</div>
+        </div>
+      </details>`:`<details class="profile-fold"><summary><span class="profile-fold-title">🐾 Питомники</span><span class="profile-fold-meta">Нет питомцев</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary><div class="profile-fold-body"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Питомцев пока нет</div><div class="es-sub">Крутни Гачу, чтобы завести первого</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button></div></div></details>`}
+      ${d.chats.length?`<details class="profile-fold">
+        <summary><span class="profile-fold-title">💬 Активность</span><span class="profile-fold-meta">${d.chats.length} ${d.chats.length===1?'чат':'чата'}</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+        <div class="profile-fold-body">
         ${d.chats.map(c=>`<div class="irow"><span class="ik">${esc(c.chat_title||'Чат')}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}
         <div class="shortcut-row">
           <span class="shortcut-link" onclick="goTo('hof')">Посмотреть топ →</span>
         </div>
-      </div>`:''}
+        </div>
+      </details>`:''}
       <div id="wallet-mini"></div>`;
     loadMarriageCard();
     loadNickCard();

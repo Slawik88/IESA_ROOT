@@ -620,20 +620,24 @@ function loadMarriageCard() {
     }
     if(!m.married){
       // Empty state с CTA (заповедь 5)
-      host.innerHTML=propHtml+`<div class="card">
+      host.innerHTML=propHtml+`<details class="profile-fold">
+        <summary><span class="profile-fold-title">💔 Брак</span><span class="profile-fold-meta">Не заключён</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+        <div class="profile-fold-body">
         <div class="empty-state">
           <div class="es-icon">💔</div>
           <div class="es-title">Вы не в браке</div>
           <div class="es-sub">Свяжите судьбу с другим игроком: в групповом чате, где есть бот
           (не здесь, в мини-аппе), напишите текстом<br><code>бот брак, @username</code></div>
         </div>
-      </div>`;
+        </div>
+      </details>`;
       return;
     }
     const pets=m.family_pets||[];
     host.innerHTML=propHtml+`
-      <div class="card card-gold">
-        <div class="card-title">💍 Брак</div>
+      <details class="profile-fold profile-fold--gold">
+        <summary><span class="profile-fold-title">💍 Брак</span><span class="profile-fold-meta">${vipName(m.partner_name||'Партнёр', m.partner_is_vip)} · ${m.days} дн.</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+        <div class="profile-fold-body">
         <div style="text-align:center;padding:4px 0 12px">
           <div style="font-size:28px;margin-bottom:6px">💍</div>
           <div style="font-size:15px;font-weight:700;color:var(--bright)">${vipName(m.partner_name||'Партнёр', m.partner_is_vip)}</div>
@@ -667,7 +671,8 @@ function loadMarriageCard() {
         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
           <button class="btn btn-red btn-full" style="margin:0" onclick="confirmDivorce()">💔 Развестись</button>
         </div>
-      </div>`;
+        </div>
+      </details>`;
     host._mid=m.marriage_id;
   }).catch(e=>{host.innerHTML=`<div class="card"><div class="err">${e}</div></div>`;});
 }
@@ -764,8 +769,7 @@ function _renderWalletMini() {
   const host = el('wallet-mini');
   if(!host) return;
   if(!_walletMiniTxs.length){
-    host.innerHTML=`<div class="card"><div class="card-title">💳 История операций</div>
-      <div class="cx-dim" style="font-size:11px;padding:6px 0">Пока пусто — здесь появится история, как только пройдёт первая покупка, поход или обмен.</div></div>`;
+    host.innerHTML=`<details class="profile-fold"><summary><span class="profile-fold-title">💳 История операций</span><span class="profile-fold-meta">Пока пусто</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary><div class="profile-fold-body"><div class="cx-dim" style="font-size:11px;padding:6px 0">Здесь появится история после первой покупки, похода или обмена.</div></div></details>`;
     return;
   }
   const show = _walletMiniExpanded ? _walletMiniTxs : _walletMiniTxs.slice(0,4);
@@ -790,11 +794,13 @@ function _renderWalletMini() {
       ${t.note?`<div class="wtx-note">${esc(t.note)}</div>`:''}
     </div>`;
   };
-  host.innerHTML=`<div class="card">
-    <div class="card-title">💳 История операций</div>
+  host.innerHTML=`<details class="profile-fold">
+    <summary><span class="profile-fold-title">💳 История операций</span><span class="profile-fold-meta">${_walletMiniTxs.length} операций</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+    <div class="profile-fold-body">
     ${show.map(fmtTx).join('')}
     ${_walletMiniTxs.length>4?`<button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="toggleWalletMini()">${_walletMiniExpanded?'▲ Свернуть':'▼ Показать все ('+_walletMiniTxs.length+')'}</button>`:''}
-  </div>`;
+    </div>
+  </details>`;
 }
 
 // ── Daily Deal ────────────────────────────────────────────────────────────────
@@ -1162,8 +1168,9 @@ function loadNickCard() {
   if(!chatId){ c.innerHTML=''; return; }
   api(`/profile/nickname?chat_id=${chatId}`).then(r=>{
     const nick=(r.nickname||'').replace(/"/g,'&quot;');
-    c.innerHTML=`<div class="card">
-      <div class="card-title">🏷 Ник в чате</div>
+    c.innerHTML=`<details class="profile-fold">
+      <summary><span class="profile-fold-title">🏷 Ник в чате</span><span class="profile-fold-meta">${nick||'Не задан'}</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+      <div class="profile-fold-body">
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Отображается вместо @username в статистике чата</div>
       <div style="display:flex;gap:8px;align-items:center">
         <input id="nick-inp" type="text" class="num-input" style="flex:1;margin:0"
@@ -1171,7 +1178,8 @@ function loadNickCard() {
         <button class="btn btn-sm btn-gold" onclick="saveNick()">Сохранить</button>
       </div>
       <div id="nick-status" style="font-size:11px;margin-top:6px;color:var(--muted)">1–32 символа, буквы/цифры/пробел/- .</div>
-    </div>`;
+      </div>
+    </details>`;
   }).catch(()=>{c.innerHTML='';});
 }
 function saveNick() {
