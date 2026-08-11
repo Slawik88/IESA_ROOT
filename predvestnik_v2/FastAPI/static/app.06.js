@@ -1012,17 +1012,23 @@ function doExchangeZarniki(to) {
   const got = to==='mora' ? fmt(amount*150)+' 🪙' : (amount*0.05).toFixed(2)+' 💎';
   el('exch-zar-result').innerHTML = `<div style="font-size:12px;color:var(--bright);background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px">
       Обменять <b>${amount} ✨</b> на <b>${got}</b>? Вернуть будет нельзя.
-      <button class="btn btn-sm btn-gold btn-full" style="margin-top:8px" onclick="_doExchangeZarnikiGo('${to}',${amount})">✅ Да, обменять</button>
+      <button class="btn btn-sm btn-gold btn-full" style="margin-top:8px" onclick="_doExchangeZarnikiGo('${to}',${amount},this)">✅ Да, обменять</button>
     </div>`;
 }
-function _doExchangeZarnikiGo(to, amount) {
-  api('/wallet/exchange-zarniki', {method:'POST', body:JSON.stringify({amount, to})})
+function _doExchangeZarnikiGo(to, amount, btn) {
+  if(btn) btn.disabled=true;
+  const requestKey=btn?.dataset.requestKey||economyRequestKey('zarniki-'+to);
+  if(btn) btn.dataset.requestKey=requestKey;
+  api('/wallet/exchange-zarniki', {
+    method:'POST', headers:{'Idempotency-Key':requestKey}, body:JSON.stringify({amount, to})
+  })
     .then(r=>{
       el('exch-zar-result').innerHTML = `<div style="color:var(--green);font-size:12px">${r.message}</div>`;
       loadProfile();
     })
     .catch(e=>{
       el('exch-zar-result').innerHTML = `<div class="err">${e}</div>`;
+      if(btn) btn.disabled=false;
     });
 }
 

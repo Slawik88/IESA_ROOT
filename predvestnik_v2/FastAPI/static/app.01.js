@@ -88,6 +88,12 @@ let _reactiveTimer=null;
 const _reactiveSubs=new Set();
 function onReactiveRefresh(fn){ if(typeof fn==='function') _reactiveSubs.add(fn); return fn; }
 function offReactiveRefresh(fn){ _reactiveSubs.delete(fn); }
+function economyRequestKey(scope){
+  let nonce='';
+  try{ nonce=globalThis.crypto?.randomUUID?.()||''; }catch(_){ nonce=''; }
+  if(!nonce) nonce=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,12);
+  return String(scope||'economy').slice(0,48)+':'+nonce;
+}
 function _scheduleReactiveRefresh(){
   if(_reactiveTimer) clearTimeout(_reactiveTimer);
   _reactiveTimer=setTimeout(()=>{

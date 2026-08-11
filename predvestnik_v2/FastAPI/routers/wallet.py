@@ -1,5 +1,5 @@
 """FastAPI/routers/wallet.py — история транзакций кошелька."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.wallet_log import get_recent
@@ -25,6 +25,10 @@ _SOURCE_LABELS = {
     "auction_listing_fee": "🏛 Аукцион (листинг-сбор)",
     "exchange":         "💱 Обмен",
     "exchange_mora_to_dia": "💱 Обмен",
+    "exchange_dia_to_mora": "💱 Обмен",
+    "zarniki_exchange": "💱 Обмен Зарников",
+    "stars_purchase":  "⭐ Покупка Зарников",
+    "referral_commission": "🤝 Реферальная комиссия",
     "streak":           "🔥 Стрик",
     "streak_daily":     "🔥 Стрик",
     "streak_block_end": "🔥 Стрик (блок)",
@@ -89,12 +93,19 @@ async def exchange_zarniki_endpoint(
     body: ExchangeZarnikiRequest,
     db=Depends(get_db),
     user=Depends(require_tg_user),
+    request_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     """Обменять ✨ Зарники на 🪙 Мору или 💎 Алмазы (необратимо, без лимита)."""
     if body.to not in ("mora", "diamonds"):
         raise HTTPException(status_code=400, detail="Некорректное направление обмена.")
 
-    ok, message = await exchange_zarniki(db, user["id"], body.amount, body.to)
+    if request_key is not None and (not request_key.strip() or len(request_key.strip()) > 120):
+        raise HTTPException(status_code=400, detail="Idempotency-Key должен содержать 1–120 символов.")
+
+    ok, message = await exchange_zarniki(
+        db, user["id"], body.amount, body.to,
+        idempotency_key=request_key.strip() if request_key else None,
+    )
     if not ok:
         raise HTTPException(status_code=400, detail=message)
 

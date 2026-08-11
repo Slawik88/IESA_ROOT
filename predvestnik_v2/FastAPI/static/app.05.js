@@ -353,7 +353,9 @@ function doExchangeCurrency(dir, btn) {
   if(!v || v<=0){ toast('Укажи количество 💎', false); return; }
   btn.disabled = true;
   const path = dir==='buy' ? '/exchange/convert' : '/exchange/sell';
-  api(path, {method:'POST', body:JSON.stringify({diamonds:v})})
+  const requestKey=btn.dataset.requestKey||economyRequestKey('currency-'+dir);
+  btn.dataset.requestKey=requestKey;
+  api(path, {method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({diamonds:v})})
     .then(r=>{
       const msg = dir==='buy'
         ? `✅ +${r.diamonds_gained} 💎  −${fmt(r.mora_spent)} 🪙`
@@ -635,4 +637,3 @@ function confirmBuyVip(tier) {
 }
 
 // swArena and swMkt are defined above with correct dark/exch handling
-

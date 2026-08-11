@@ -12,9 +12,10 @@
 import math
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
+from core.economy_contract import IdempotencyConflict, InvalidEconomicMutation
 from core.constants import (
     EXCHANGE_RATE_MORA_PER_DIAMOND, EXCHANGE_RATE_MORA_PER_DIAMOND_SELL,
     EXCHANGE_DAILY_CAP_DIAMONDS, EXCHANGE_SELL_DAILY_CAP_DIAMONDS,
@@ -22,6 +23,7 @@ from core.constants import (
 )
 from FastAPI.deps import get_db, require_tg_user, require_module
 from infrastructure.repositories import economy as eco_repo
+from infrastructure.repositories.economy_ledger import find_balance_replay
 from infrastructure.repositories.exchange import get_user_quota, add_quota
 from infrastructure.repositories import crypto as crypto_repo
 from services import crypto_exchange as cx
@@ -37,6 +39,15 @@ def _buy_key() -> int:
 def _sell_key() -> int:
     """Ключ дневной квоты продажи: -YYYYMMDD (отдельный неймспейс от покупки)."""
     return -_buy_key()
+
+
+def _idempotency_key(raw_key: str | None, action: str) -> str | None:
+    if raw_key is None:
+        return None
+    clean = raw_key.strip()
+    if not clean or len(clean) > 120:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
+    return f"web:exchange:{action}:{clean}"
 
 
 @router.get("/")
@@ -66,56 +77,118 @@ class ConvertRequest(BaseModel):
 
 
 @router.post("/convert")
-async def convert(body: ConvertRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+async def convert(
+    body: ConvertRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+    request_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
     """Купить Алмазы за Мору (3000🪙 → 1💎). Постоянно, дневной лимит."""
     diamonds = round(body.diamonds, 2)
     if diamonds < EXCHANGE_MIN_DIAMONDS_PER_REQUEST:
         raise HTTPException(400, f"Минимум {int(EXCHANGE_MIN_DIAMONDS_PER_REQUEST)} 💎.")
 
     key = _buy_key()
+    scoped_key = _idempotency_key(request_key, "mora-to-diamonds")
+    mora_needed = diamonds * EXCHANGE_RATE_MORA_PER_DIAMOND
     # atomic: лочим строку игрока — параллельные обмены не уведут баланс в минус
-    async with eco_repo.atomic(db, user["id"]):
-        used = await get_user_quota(db, user["id"], key)
-        remaining = EXCHANGE_DAILY_CAP_DIAMONDS - used
-        if diamonds > remaining:
-            raise HTTPException(400, f"Дневной лимит покупки: {remaining:.1f} 💎 осталось.")
+    try:
+        async with eco_repo.atomic(db, user["id"]):
+            if scoped_key:
+                replay = await find_balance_replay(
+                    db, user["id"], {"mora": -mora_needed, "diamonds": diamonds},
+                    reason_code="exchange_mora_to_dia", idempotency_key=scoped_key,
+                    source_type="exchange", reference_type="currency_pair",
+                    reference_id="mora_diamonds",
+                )
+                if replay:
+                    return {
+                        "ok": True, "replayed": True, "operation_id": replay.operation_id,
+                        "mora_spent": mora_needed, "diamonds_gained": diamonds,
+                    }
 
-        mora_needed = diamonds * EXCHANGE_RATE_MORA_PER_DIAMOND
-        bal = await eco_repo.get_balance(db, user["id"])
-        if bal["user_balance_mora"] < mora_needed:
-            raise HTTPException(400, f"Нужно {mora_needed:,.0f} 🪙, есть {bal['user_balance_mora']:,.0f}.")
+            used = await get_user_quota(db, user["id"], key)
+            remaining = EXCHANGE_DAILY_CAP_DIAMONDS - used
+            if diamonds > remaining:
+                raise HTTPException(400, f"Дневной лимит покупки: {remaining:.1f} 💎 осталось.")
 
-        await eco_repo.add_balance(db, user["id"], mora=-mora_needed, diamonds=diamonds,
-                                   source="exchange_mora_to_dia")
-        await add_quota(db, user["id"], key, diamonds)
+            bal = await eco_repo.get_balance(db, user["id"])
+            if bal["user_balance_mora"] < mora_needed:
+                raise HTTPException(400, f"Нужно {mora_needed:,.0f} 🪙, есть {bal['user_balance_mora']:,.0f}.")
 
-    return {"ok": True, "mora_spent": mora_needed, "diamonds_gained": diamonds}
+            mutation = await eco_repo.add_balance(
+                db, user["id"], mora=-mora_needed, diamonds=diamonds,
+                source="exchange_mora_to_dia", source_type="exchange",
+                idempotency_key=scoped_key, reference_type="currency_pair",
+                reference_id="mora_diamonds",
+            )
+            if mutation and mutation.applied:
+                await add_quota(db, user["id"], key, diamonds)
+    except (IdempotencyConflict, InvalidEconomicMutation) as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+    return {
+        "ok": True, "replayed": False,
+        "operation_id": mutation.operation_id if mutation else None,
+        "mora_spent": mora_needed, "diamonds_gained": diamonds,
+    }
 
 
 @router.post("/sell")
-async def sell(body: ConvertRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+async def sell(
+    body: ConvertRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+    request_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
     """Продать Алмазы за Мору (1💎 → 2000🪙, спред). Постоянно, дневной лимит."""
     diamonds = round(body.diamonds, 2)
     if diamonds < EXCHANGE_MIN_DIAMONDS_PER_REQUEST:
         raise HTTPException(400, f"Минимум {int(EXCHANGE_MIN_DIAMONDS_PER_REQUEST)} 💎.")
 
     key = _sell_key()
-    async with eco_repo.atomic(db, user["id"]):
-        used = await get_user_quota(db, user["id"], key)
-        remaining = EXCHANGE_SELL_DAILY_CAP_DIAMONDS - used
-        if diamonds > remaining:
-            raise HTTPException(400, f"Дневной лимит продажи: {remaining:.1f} 💎 осталось.")
+    scoped_key = _idempotency_key(request_key, "diamonds-to-mora")
+    mora_gained = diamonds * EXCHANGE_RATE_MORA_PER_DIAMOND_SELL
+    try:
+        async with eco_repo.atomic(db, user["id"]):
+            if scoped_key:
+                replay = await find_balance_replay(
+                    db, user["id"], {"mora": mora_gained, "diamonds": -diamonds},
+                    reason_code="exchange_dia_to_mora", idempotency_key=scoped_key,
+                    source_type="exchange", reference_type="currency_pair",
+                    reference_id="diamonds_mora",
+                )
+                if replay:
+                    return {
+                        "ok": True, "replayed": True, "operation_id": replay.operation_id,
+                        "mora_gained": mora_gained, "diamonds_spent": diamonds,
+                    }
 
-        bal = await eco_repo.get_balance(db, user["id"])
-        if bal["user_balance_diamonds"] < diamonds:
-            raise HTTPException(400, f"Нужно {diamonds:.0f} 💎, есть {bal['user_balance_diamonds']:.1f}.")
+            used = await get_user_quota(db, user["id"], key)
+            remaining = EXCHANGE_SELL_DAILY_CAP_DIAMONDS - used
+            if diamonds > remaining:
+                raise HTTPException(400, f"Дневной лимит продажи: {remaining:.1f} 💎 осталось.")
 
-        mora_gained = diamonds * EXCHANGE_RATE_MORA_PER_DIAMOND_SELL
-        await eco_repo.add_balance(db, user["id"], mora=mora_gained, diamonds=-diamonds,
-                                   source="exchange_dia_to_mora")
-        await add_quota(db, user["id"], key, diamonds)
+            bal = await eco_repo.get_balance(db, user["id"])
+            if bal["user_balance_diamonds"] < diamonds:
+                raise HTTPException(400, f"Нужно {diamonds:.0f} 💎, есть {bal['user_balance_diamonds']:.1f}.")
 
-    return {"ok": True, "mora_gained": mora_gained, "diamonds_spent": diamonds}
+            mutation = await eco_repo.add_balance(
+                db, user["id"], mora=mora_gained, diamonds=-diamonds,
+                source="exchange_dia_to_mora", source_type="exchange",
+                idempotency_key=scoped_key, reference_type="currency_pair",
+                reference_id="diamonds_mora",
+            )
+            if mutation and mutation.applied:
+                await add_quota(db, user["id"], key, diamonds)
+    except (IdempotencyConflict, InvalidEconomicMutation) as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+    return {
+        "ok": True, "replayed": False,
+        "operation_id": mutation.operation_id if mutation else None,
+        "mora_gained": mora_gained, "diamonds_spent": diamonds,
+    }
 
 
 # ── Крипто-Биржа (ШАГ4) ─────────────────────────────────────────────────────────
