@@ -1456,6 +1456,11 @@ async def init_db():
             pass  # might fail without ALTER ROLE privilege; server_settings handles it
         await _init_users_and_chats(db)
         await _init_inventory_and_pets(db)
+        # Canonical economy DDL lives in its repository; init_db and standalone
+        # FastAPI startup call the same idempotent schema function.
+        from infrastructure.pg_adapter import PGAdapter as _LedgerPGAdapter
+        from infrastructure.repositories.economy_ledger import ensure_tables as _ensure_ledger
+        await _ensure_ledger(_LedgerPGAdapter(db))
         await _init_progression_and_economy(db)
         await _init_events_and_moderation(db)
         await _init_features_extra(db)

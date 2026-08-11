@@ -56,7 +56,13 @@ async def register_referral(db, new_user_id: int, referrer_id: int) -> bool:
     return True
 
 
-async def pay_purchase_commission(db, buyer_id: int, zarniki_amount: float) -> tuple[int, float] | None:
+async def pay_purchase_commission(
+    db,
+    buyer_id: int,
+    zarniki_amount: float,
+    *,
+    purchase_id: str | None = None,
+) -> tuple[int, float] | None:
     """Рефереру buyer_id (если есть) — комиссия в Зарниках при покупке Звёздами.
     Возвращает (referrer_id, начисленная сумма) для уведомления, иначе None."""
     async with db.execute(
@@ -70,8 +76,14 @@ async def pay_purchase_commission(db, buyer_id: int, zarniki_amount: float) -> t
     bonus = round(zarniki_amount * REFERRAL_PURCHASE_COMMISSION_PCT, 2)
     if bonus <= 0:
         return None
-    await add_balance(
+    mutation = await add_balance(
         db, referrer_id, zarniki=bonus, source="referral_commission",
         note=f"friend bought {zarniki_amount}",
+        source_type="payment",
+        idempotency_key=(f"referral_commission:{purchase_id}" if purchase_id else None),
+        reference_type="stars_payment" if purchase_id else None,
+        reference_id=purchase_id,
     )
+    if mutation and not mutation.applied:
+        return None
     return referrer_id, bonus

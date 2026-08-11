@@ -195,16 +195,42 @@ async def on_successful_payment(message: types.Message, db, bot: Bot):
 
     if payload.startswith("zarniki:"):
         amount = int(payload.split(":")[1])
-        await eco_db.add_balance(
+        payment = message.successful_payment
+        purchase_id = (
+            payment.telegram_payment_charge_id
+            or payment.provider_payment_charge_id
+            or f"message-{message.message_id}"
+        )
+        mutation = await eco_db.add_balance(
             db, message.from_user.id, zarniki=amount, source="stars_purchase",
             note=f"{message.successful_payment.total_amount}⭐",
+            source_type="payment",
+            idempotency_key=f"stars_purchase:{purchase_id}",
+            reference_type="stars_payment",
+            reference_id=purchase_id,
+            metadata={
+                "currency": payment.currency,
+                "total_amount": payment.total_amount,
+                "invoice_payload": payload,
+            },
         )
-        await message.answer(
-            f"✅ Начислено <b>{amount}✨</b> Зарников! Спасибо за поддержку проекта 💜",
-            parse_mode="HTML",
+        replayed = bool(mutation and not mutation.applied)
+        # The commission has its own key.  Retry it even when the buyer credit is
+        # already present, so a transient failure between the two operations can
+        # heal without ever duplicating either side.
+        commission = await pay_purchase_commission(
+            db, message.from_user.id, amount, purchase_id=purchase_id,
         )
+        if replayed:
+            await message.answer(
+                "✅ Этот платёж уже был обработан — повторного списания или начисления не произошло."
+            )
+        else:
+            await message.answer(
+                f"✅ Начислено <b>{amount}✨</b> Зарников! Спасибо за поддержку проекта 💜",
+                parse_mode="HTML",
+            )
         # Growth-полиш 2026-07-13: комиссия рефереру, если покупатель пришёл по рефералке.
-        commission = await pay_purchase_commission(db, message.from_user.id, amount)
         if commission:
             referrer_id, bonus = commission
             try:
@@ -215,5 +241,3 @@ async def on_successful_payment(message: types.Message, db, bot: Bot):
                 )
             except Exception:
                 pass
-
-

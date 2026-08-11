@@ -2,19 +2,18 @@
 infrastructure/repositories/economy.py
 
 ВАЖНО про атомарность (аудит H1/H2):
-PGAdapter работает в autocommit — каждый execute фиксируется сразу, а
-`db.commit()` без явного BEGIN/transaction() это NO-OP. Поэтому:
-  • Чистый КРЕДИТ безопасен: `add_balance` делает `UPDATE … = balance + ?`
-    (атомарный инкремент строки, без потери при гонке).
-  • ДЕБЕТ С ПРЕДВАРИТЕЛЬНЫМ ЧТЕНИЕМ баланса (прочитал → проверил → списал)
-    безопасен ТОЛЬКО внутри `async with eco.atomic(db, user_id):` — он
-    открывает транзакцию и берёт `SELECT … FOR UPDATE` на строке игрока.
+`add_balance` теперь всегда проходит через canonical economic ledger: операция,
+`SELECT … FOR UPDATE`, обновление баланса, ledger и совместимый wallet_log
+фиксируются одной транзакцией. Внешний `atomic()` всё ещё нужен операциям,
+которые вместе с балансом меняют инвентарь/квоты/прогрессию.
 Параметр `commit=` у add_balance — НЕ управляет транзакцией (в autocommit это
-no-op); оставлен для совместимости вызовов. Реальную атомарность даёт ТОЛЬКО
-внешний `atomic()`/`db.connection.transaction()`.
+no-op); оставлен для совместимости вызовов. Внешний `atomic()` объединяет ledger
+со связанными изменениями других таблиц в одну общую транзакцию.
 """
 from contextlib import asynccontextmanager
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from infrastructure.repositories.wallet_log import log_wallet
+from infrastructure.repositories.economy_ledger import apply_balance_change, BalanceMutation
 from infrastructure.pg_adapter import PGAdapter
 from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
 
@@ -52,6 +51,7 @@ async def get_balance(db: PGAdapter, user_id: int) -> dict:
     )
     async with db.execute(
         "SELECT user_balance_mora, user_balance_diamonds, "
+        "COALESCE(user_balance_dark_mora, 0) AS user_balance_dark_mora, "
         "COALESCE(user_balance_zarniki, 0) AS user_balance_zarniki "
         "FROM users WHERE user_tg_id = ?",
         (user_id,),
@@ -60,6 +60,7 @@ async def get_balance(db: PGAdapter, user_id: int) -> dict:
     return dict(row) if row else {
         "user_balance_mora": 0.0,
         "user_balance_diamonds": 0.0,
+        "user_balance_dark_mora": 0.0,
         "user_balance_zarniki": 0.0,
     }
 
@@ -74,22 +75,38 @@ async def add_balance(
     source: str = "system",
     chat_id: int | None = None,
     note: str | None = None,
-):
-    """Credit or debit currency. Each call is logged in wallet_log."""
-    await db.execute(
-        "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
-    )
-    await db.execute(
-        "UPDATE users SET "
-        "user_balance_mora = user_balance_mora + ?, "
-        "user_balance_diamonds = user_balance_diamonds + ?, "
-        "user_balance_zarniki = COALESCE(user_balance_zarniki, 0) + ? "
-        "WHERE user_tg_id = ?",
-        (mora, diamonds, zarniki, user_id),
-    )
-    await log_wallet(
-        db, user_id, delta_mora=mora, delta_diamonds=diamonds, delta_zarniki=zarniki,
-        source=source, chat_id=chat_id, note=note,
+    *,
+    idempotency_key: str | None = None,
+    source_type: str = "game",
+    reference_type: str | None = None,
+    reference_id: str | int | None = None,
+    metadata: dict | None = None,
+    allow_negative: bool = False,
+) -> BalanceMutation | None:
+    """Credit or debit currency through the canonical append-only ledger.
+
+    ``commit`` remains a no-op compatibility argument.  A caller-supplied
+    idempotency key makes retries return the original operation without applying
+    the deltas twice.  Calls without a key are treated as distinct operations.
+    """
+    if mora == 0 and diamonds == 0 and zarniki == 0:
+        await db.execute(
+            "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
+        )
+        return None
+    return await apply_balance_change(
+        db,
+        user_id,
+        {"mora": mora, "diamonds": diamonds, "zarniki": zarniki},
+        reason_code=source,
+        idempotency_key=idempotency_key,
+        source_type=source_type,
+        reference_type=reference_type,
+        reference_id=reference_id,
+        metadata=metadata,
+        allow_negative=allow_negative,
+        chat_id=chat_id,
+        note=note,
     )
 
 
@@ -99,35 +116,46 @@ add_reward = add_balance  # alias
 async def exchange_zarniki(
     db: PGAdapter, user_id: int, amount: float, to: str,
     chat_id: int | None = None,
+    idempotency_key: str | None = None,
 ) -> tuple[bool, str]:
     """✨ → 🪙 (×ZARNIKI_TO_MORA_RATE) или ✨ → 💎 (×ZARNIKI_TO_DIAMONDS_RATE).
     Одностороннее, без лимита."""
     if amount <= 0 or to not in ("mora", "diamonds"):
         return False, "Некорректные параметры обмена."
     try:
-        async with db.connection.transaction():
-            async with db.execute(
-                "SELECT COALESCE(user_balance_zarniki, 0) FROM users "
-                "WHERE user_tg_id = ? FOR UPDATE",
-                (user_id,),
-            ) as c:
-                row = await c.fetchone()
-            current = float(row[0]) if row else 0.0
-            if current < amount:
-                return False, f"Недостаточно ✨ (есть {current:.0f})."
+        if to == "mora":
+            gained = amount * ZARNIKI_TO_MORA_RATE
+            mutation = await add_balance(
+                db, user_id, mora=gained, zarniki=-amount,
+                source="zarniki_exchange", source_type="exchange",
+                idempotency_key=(
+                    f"exchange:zarniki:mora:{idempotency_key}" if idempotency_key else None
+                ),
+                reference_type="currency_pair", reference_id="zarniki_mora",
+                chat_id=chat_id, note=f"✨{amount:.0f}→🪙{gained:.0f}",
+            )
+            if mutation and not mutation.applied:
+                return True, "✅ Этот обмен уже был обработан."
+            return True, f"✅ Обменяно ✨{amount:.0f} → 🪙{gained:.0f}"
 
-            if to == "mora":
-                gained = amount * ZARNIKI_TO_MORA_RATE
-                await add_balance(db, user_id, mora=gained, zarniki=-amount,
-                                   source="zarniki_exchange", chat_id=chat_id,
-                                   note=f"✨{amount:.0f}→🪙{gained:.0f}")
-                return True, f"✅ Обменяно ✨{amount:.0f} → 🪙{gained:.0f}"
-
-            gained = amount * ZARNIKI_TO_DIAMONDS_RATE
-            await add_balance(db, user_id, diamonds=gained, zarniki=-amount,
-                               source="zarniki_exchange", chat_id=chat_id,
-                               note=f"✨{amount:.0f}→💎{gained:.2f}")
-            return True, f"✅ Обменяно ✨{amount:.0f} → 💎{gained:.2f}"
+        gained = amount * ZARNIKI_TO_DIAMONDS_RATE
+        mutation = await add_balance(
+            db, user_id, diamonds=gained, zarniki=-amount,
+            source="zarniki_exchange", source_type="exchange",
+            idempotency_key=(
+                f"exchange:zarniki:diamonds:{idempotency_key}" if idempotency_key else None
+            ),
+            reference_type="currency_pair", reference_id="zarniki_diamonds",
+            chat_id=chat_id, note=f"✨{amount:.0f}→💎{gained:.2f}",
+        )
+        if mutation and not mutation.applied:
+            return True, "✅ Этот обмен уже был обработан."
+        return True, f"✅ Обменяно ✨{amount:.0f} → 💎{gained:.2f}"
+    except InsufficientBalance:
+        current = await get_balance(db, user_id)
+        return False, f"Недостаточно ✨ (есть {current['user_balance_zarniki']:.0f})."
+    except IdempotencyConflict:
+        return False, "Этот ключ запроса уже использован для другого обмена."
     except Exception as e:
         return False, f"Ошибка: {e}"
 
