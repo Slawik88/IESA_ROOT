@@ -47,6 +47,27 @@ async def ensure_tables(db) -> None:
         "ON gameplay_runs(user_id, started_at DESC)"
     )
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS gameplay_stats (
+            user_id            BIGINT NOT NULL,
+            game_version       TEXT NOT NULL,
+            runs_started       INTEGER NOT NULL DEFAULT 0,
+            runs_won           INTEGER NOT NULL DEFAULT 0,
+            runs_lost          INTEGER NOT NULL DEFAULT 0,
+            total_taps         BIGINT NOT NULL DEFAULT 0,
+            correct_taps       BIGINT NOT NULL DEFAULT 0,
+            mistakes           BIGINT NOT NULL DEFAULT 0,
+            missed_signals     BIGINT NOT NULL DEFAULT 0,
+            critical_taps      BIGINT NOT NULL DEFAULT 0,
+            discharges         BIGINT NOT NULL DEFAULT 0,
+            best_combo         INTEGER NOT NULL DEFAULT 0,
+            fastest_win_ms     BIGINT NULL,
+            total_play_ms      BIGINT NOT NULL DEFAULT 0,
+            upgrades_json      TEXT NOT NULL DEFAULT '{}',
+            updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, game_version)
+        )
+    """)
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS gameplay_run_actions (
             run_id          BIGINT NOT NULL REFERENCES gameplay_runs(id) ON DELETE CASCADE,
             action_id       TEXT NOT NULL,
@@ -87,6 +108,104 @@ async def lock_user(db, user_id: int) -> None:
     """Сериализовать мутации одного игрока внутри внешней транзакции."""
     async with db.execute("SELECT pg_advisory_xact_lock(?)", (int(user_id),)) as cursor:
         await cursor.fetchone()
+
+
+def empty_stats() -> dict[str, Any]:
+    return {
+        "runs_started": 0,
+        "runs_won": 0,
+        "runs_lost": 0,
+        "total_taps": 0,
+        "correct_taps": 0,
+        "mistakes": 0,
+        "missed_signals": 0,
+        "critical_taps": 0,
+        "discharges": 0,
+        "best_combo": 0,
+        "fastest_win_ms": None,
+        "total_play_ms": 0,
+        "upgrades": {},
+        "accuracy": None,
+    }
+
+
+async def get_stats(db, user_id: int, game_version: str) -> dict[str, Any]:
+    async with db.execute(
+        "SELECT * FROM gameplay_stats WHERE user_id = ? AND game_version = ?",
+        (user_id, game_version),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        return empty_stats()
+    data = dict(row)
+    data["upgrades"] = json.loads(data.pop("upgrades_json") or "{}")
+    attempts = int(data["correct_taps"]) + int(data["mistakes"]) + int(data["missed_signals"])
+    data["accuracy"] = (
+        round(int(data["correct_taps"]) / attempts * 100, 1) if attempts else None
+    )
+    return data
+
+
+async def record_run_started(db, user_id: int, game_version: str) -> dict[str, Any]:
+    await db.execute(
+        "INSERT INTO gameplay_stats (user_id, game_version, runs_started) VALUES (?, ?, 1) "
+        "ON CONFLICT (user_id, game_version) DO UPDATE SET "
+        "runs_started = gameplay_stats.runs_started + 1, updated_at = NOW()",
+        (user_id, game_version),
+    )
+    return await get_stats(db, user_id, game_version)
+
+
+async def record_run_completed(
+    db,
+    user_id: int,
+    game_version: str,
+    *,
+    outcome: str,
+    mastery: dict[str, Any],
+    best_combo: int,
+    upgrades: list[str],
+) -> dict[str, Any]:
+    await db.execute(
+        "INSERT INTO gameplay_stats (user_id, game_version) VALUES (?, ?) "
+        "ON CONFLICT (user_id, game_version) DO NOTHING",
+        (user_id, game_version),
+    )
+    current = await get_stats(db, user_id, game_version)
+    upgrade_counts = dict(current["upgrades"])
+    for upgrade_id in upgrades:
+        upgrade_counts[upgrade_id] = int(upgrade_counts.get(upgrade_id, 0)) + 1
+    elapsed_ms = max(0, int(mastery.get("elapsed_ms", 0)))
+    fastest_win_ms = current.get("fastest_win_ms")
+    if outcome == "won" and (fastest_win_ms is None or elapsed_ms < int(fastest_win_ms)):
+        fastest_win_ms = elapsed_ms
+    await db.execute(
+        "UPDATE gameplay_stats SET "
+        "runs_won = runs_won + ?, runs_lost = runs_lost + ?, "
+        "total_taps = total_taps + ?, correct_taps = correct_taps + ?, "
+        "mistakes = mistakes + ?, missed_signals = missed_signals + ?, "
+        "critical_taps = critical_taps + ?, discharges = discharges + ?, "
+        "best_combo = GREATEST(best_combo, ?), fastest_win_ms = ?, "
+        "total_play_ms = total_play_ms + ?, upgrades_json = ?, updated_at = NOW() "
+        "WHERE user_id = ? AND game_version = ?",
+        (
+            1 if outcome == "won" else 0,
+            1 if outcome == "lost" else 0,
+            max(0, int(mastery.get("total_taps", 0))),
+            max(0, int(mastery.get("correct_taps", 0))),
+            max(0, int(mastery.get("mistakes", 0))),
+            max(0, int(mastery.get("missed_signals", 0))),
+            max(0, int(mastery.get("critical_taps", 0))),
+            max(0, int(mastery.get("discharges", 0))),
+            max(0, int(best_combo)),
+            fastest_win_ms,
+            elapsed_ms,
+            json.dumps(upgrade_counts, ensure_ascii=False, separators=(",", ":")),
+            user_id,
+            game_version,
+        ),
+    )
+    return await get_stats(db, user_id, game_version)
 
 
 def _decode_progress(row: Any) -> dict[str, Any] | None:

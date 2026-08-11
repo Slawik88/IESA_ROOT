@@ -12,8 +12,8 @@ from __future__ import annotations
 from typing import Any, Final
 
 
-GAME_VERSION: Final = "3.0.0-alpha.2"
-BALANCE_VERSION: Final = "r3-2026-08-11-b"
+GAME_VERSION: Final = "3.0.0-alpha.3"
+BALANCE_VERSION: Final = "r4-2026-08-11-mvp"
 FEATURE_FLAG_KEY: Final = "game_reconstruction_v1"
 CAMPAIGN_ID: Final = "echoes_of_the_drowned_bell"
 
@@ -108,28 +108,56 @@ STARTER_SQUAD: Final = tuple(STARTER_UNITS)
 # решением: сам раунд остаётся чистым автокликером без панели способностей.
 CLICKER_UPGRADES: dict[str, dict[str, Any]] = {
     "heavy_echo": {
-        "name": "Тяжёлое эхо", "emoji": "🔔", "description": "+12 урона правильного попадания.",
-        "effect": {"tap_power": 12},
+        "name": "Тяжёлый резонанс",
+        "emoji": "🔔",
+        "archetype": "Напор",
+        "description": "+18 урона каждого точного знака.",
+        "tradeoff": "Сигнал гаснет на 0,16 с раньше.",
+        "effect": {"tap_power": 18, "signal_window_ms": -160},
     },
     "quick_current": {
-        "name": "Быстрое течение", "emoji": "🌊", "description": "+60% пассивного урона отряда.",
-        "effect": {"auto_dps_multiplier": 1.6},
+        "name": "Глубокое течение",
+        "emoji": "🌊",
+        "archetype": "Темп",
+        "description": "Пассивный урон отряда усиливается в 3,2 раза.",
+        "tradeoff": "Разряд требует пять точных знаков вместо четырёх.",
+        "effect": {"auto_dps_multiplier": 3.2, "charge_per_hit": -5},
     },
     "golden_seam": {
-        "name": "Золотой шов", "emoji": "🪡", "description": "Золотая часть сигнала шире на 0,18 с.",
-        "effect": {"critical_window_ms": 180},
+        "name": "Живая нить",
+        "emoji": "🪡",
+        "archetype": "Точность",
+        "description": "Золотое окно шире на 0,18 с, критический удар сильнее.",
+        "tradeoff": "Обычный точный знак наносит на 10 меньше урона.",
+        "effect": {"critical_window_ms": 180, "critical_multiplier": 0.5, "tap_power": -10},
     },
     "deep_discharge": {
-        "name": "Глубокий разряд", "emoji": "⚡", "description": "+60 урона автоматического Разряда.",
-        "effect": {"overdrive_power": 60},
+        "name": "Грозовой разряд",
+        "emoji": "⚡",
+        "archetype": "Взрыв",
+        "description": "+95 урона автоматического Разряда.",
+        "tradeoff": "Каждый обычный знак наносит на 8 меньше урона.",
+        "effect": {"overdrive_power": 95, "tap_power": -8},
     },
     "last_bell": {
-        "name": "Последний звон", "emoji": "⏳", "description": "+3 секунды к каждой следующей волне.",
-        "effect": {"round_bonus_ms": 3000},
+        "name": "Клятва тишины",
+        "emoji": "◌",
+        "archetype": "Контроль",
+        "description": "Первая неверная руна волны не лечит цель и сохраняет половину заряда.",
+        "tradeoff": "Пассивный урон отряда снижается на 40%.",
+        "effect": {"mistake_guard": True, "auto_dps_multiplier": 0.6},
     },
     "hungry_pattern": {
-        "name": "Голодный узор", "emoji": "✦", "description": "Точная серия усиливает удары на 60% быстрее.",
-        "effect": {"combo_step_multiplier": 1.6},
+        "name": "Голодный узор",
+        "emoji": "✦",
+        "archetype": "Риск",
+        "description": "Точная серия наращивает урон на 80% быстрее.",
+        "tradeoff": "Ошибка сильнее лечит цель и полностью гасит заряд.",
+        "effect": {
+            "combo_step_multiplier": 1.8,
+            "wrong_heal_bonus": 55,
+            "reset_charge_on_wrong": True,
+        },
     },
 }
 

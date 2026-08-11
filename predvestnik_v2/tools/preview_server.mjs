@@ -18,17 +18,59 @@ const PORT = Number(process.env.PORT) || 8402;
 const RECON_PREVIEW_PORT = Number(process.env.RECON_PREVIEW_PORT) || 8403;
 const liveReloadClients = new Set();
 let liveReloadTimer = null;
+let reconstructionApi = null;
+let reconstructionRestartTimer = null;
+let reconstructionRestartRequested = false;
+let shuttingDown = false;
 
 // Dev-only bridge: the browser lab talks to the real Python combat engine.
 // It is deliberately not part of the production FastAPI process.
-const reconstructionApi = spawn('python3', [path.join(HERE, 'reconstruction_preview_api.py')], {
-  cwd: path.join(HERE, '..'),
-  env: { ...process.env, RECON_PREVIEW_PORT: String(RECON_PREVIEW_PORT) },
-  stdio: ['ignore', 'inherit', 'inherit'],
-});
-reconstructionApi.on('exit', (code) => {
-  if (code && code !== 0) console.error(`reconstruction preview api exited with code ${code}`);
-});
+const RECONSTRUCTION_WATCH_FILES = [
+  path.join(HERE, 'reconstruction_preview_api.py'),
+  path.join(HERE, '..', 'core', 'reconstruction.py'),
+  path.join(HERE, '..', 'services', 'reconstruction.py'),
+  path.join(HERE, '..', 'services', 'reconstruction_combat.py'),
+];
+
+function startReconstructionApi() {
+  if (shuttingDown || reconstructionApi) return;
+  const child = spawn('python3', [path.join(HERE, 'reconstruction_preview_api.py')], {
+    cwd: path.join(HERE, '..'),
+    env: { ...process.env, RECON_PREVIEW_PORT: String(RECON_PREVIEW_PORT) },
+    stdio: ['ignore', 'inherit', 'inherit'],
+  });
+  reconstructionApi = child;
+  child.on('exit', (code, signal) => {
+    if (reconstructionApi === child) reconstructionApi = null;
+    if (shuttingDown) return;
+    if (code && code !== 0) {
+      console.error(`reconstruction preview api exited with code ${code}${signal ? ` (${signal})` : ''}`);
+    }
+    const requested = reconstructionRestartRequested;
+    reconstructionRestartRequested = false;
+    setTimeout(() => {
+      startReconstructionApi();
+      if (requested) scheduleLiveReload('reconstruction-engine');
+    }, requested ? 80 : 500).unref();
+  });
+}
+
+function scheduleReconstructionRestart(changedPath = 'reconstruction-engine') {
+  clearTimeout(reconstructionRestartTimer);
+  reconstructionRestartTimer = setTimeout(() => {
+    if (shuttingDown) return;
+    reconstructionRestartRequested = true;
+    if (reconstructionApi && reconstructionApi.exitCode === null) {
+      reconstructionApi.kill('SIGTERM');
+      return;
+    }
+    reconstructionRestartRequested = false;
+    startReconstructionApi();
+    scheduleLiveReload(changedPath);
+  }, 180);
+}
+
+startReconstructionApi();
 
 const read = (n) => fs.readFileSync(path.join(STATIC, n), 'utf8');
 const PARTS = Array.from({ length: 11 }, (_, i) => `app.${String(i + 1).padStart(2, '0')}.js`);
@@ -952,6 +994,10 @@ function scheduleLiveReload(changedPath = '') {
 const staticWatcher = fs.watch(STATIC, {recursive: true}, (_event, changedPath) => {
   scheduleLiveReload(changedPath ? String(changedPath) : 'static');
 });
+const reconstructionWatchers = RECONSTRUCTION_WATCH_FILES.map((filePath) => fs.watch(
+  filePath,
+  () => scheduleReconstructionRestart(path.relative(path.join(HERE, '..'), filePath)),
+));
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
@@ -1063,12 +1109,16 @@ const server = http.createServer(async (req, res) => {
 });
 server.on('upgrade', (_req, socket) => socket.destroy()); // WS не поддерживаем
 server.on('close', () => {
+  shuttingDown = true;
+  clearTimeout(reconstructionRestartTimer);
   staticWatcher.close();
-  reconstructionApi.kill('SIGTERM');
+  for (const watcher of reconstructionWatchers) watcher.close();
+  if (reconstructionApi) reconstructionApi.kill('SIGTERM');
 });
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.once(signal, () => {
-    reconstructionApi.kill('SIGTERM');
+    shuttingDown = true;
+    if (reconstructionApi) reconstructionApi.kill('SIGTERM');
     for (const client of liveReloadClients) client.end();
     liveReloadClients.clear();
     server.close(() => process.exit(0));

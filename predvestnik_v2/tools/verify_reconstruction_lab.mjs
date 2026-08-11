@@ -24,9 +24,29 @@ try{
     const page=await browser.newPage();
     const errors=[];
     page.on('pageerror',error=>errors.push(error.message));
+    await page.evaluateOnNewDocument(()=>localStorage.removeItem('reconstruction-mvp-career-v1'));
     await page.setViewport({width,height:width<600?844:900,deviceScaleFactor:1});
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('.squad-member');
+    await page.waitForSelector('#menuLayer:not([hidden])');
+    const frozenBefore=await page.$eval('#roundClock strong',node=>node.textContent);
+    await new Promise(resolve=>setTimeout(resolve,320));
+    const frozenAfter=await page.$eval('#roundClock strong',node=>node.textContent);
+    check(frozenBefore===frozenAfter,`${width}px: timer advances behind main menu`);
+    const menuMetrics=await page.evaluate(()=>({
+      width:document.querySelector('.menu-card').getBoundingClientRect().width,
+      height:document.querySelector('.menu-card').getBoundingClientRect().height,
+      viewportHeight:innerHeight,
+      tabs:document.querySelectorAll('[data-menu-tab]').length,
+      startHeight:document.querySelector('#startRunButton').getBoundingClientRect().height,
+    }));
+    check(menuMetrics.width<=width-16,`${width}px: menu exceeds viewport`);
+    check(menuMetrics.height<=menuMetrics.viewportHeight-16,`${width}px: menu exceeds viewport height`);
+    check(menuMetrics.tabs===3,`${width}px: expected three menu tabs`);
+    check(menuMetrics.startHeight>=42&&menuMetrics.startHeight<=48,`${width}px: start action is not compact`);
+    if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-menu.png`,fullPage:true});
+    await page.click('#startRunButton');
+    await page.waitForSelector('#menuLayer[hidden]');
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
     const metrics=await page.evaluate(()=>{
       document.body.classList.add('no-fx');
@@ -62,17 +82,146 @@ try{
     await page.close();
   }
 
+  // Сквозная формула точности: UI обязан повторять server state, а нулевое
+  // количество сигналов не должно выглядеть как заработанные 100%.
+  const accuracyPage=await browser.newPage();
+  await accuracyPage.evaluateOnNewDocument(()=>localStorage.removeItem('reconstruction-mvp-career-v1'));
+  await accuracyPage.setViewport({width:390,height:844,deviceScaleFactor:1});
+  await accuracyPage.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+  await accuracyPage.waitForSelector('.squad-member');
+  check(await accuracyPage.$eval('#accuracyValue',node=>node.textContent.trim())==='—','accuracy: empty run must show dash');
+  await accuracyPage.click('#startRunButton');
+  await accuracyPage.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
+  await accuracyPage.click('#menuButton');
+  await accuracyPage.waitForSelector('#pauseLayer:not([hidden])');
+  const liveContract=await accuracyPage.evaluate(async()=>{
+    const session=sessionStorage.getItem('reconstruction-preview-session');
+    const response=await fetch('/__reconstruction/state',{headers:{'x-reconstruction-session':session}});
+    const api=await response.json();
+    const number=value=>Math.max(0,Math.round(Number(value)||0)).toLocaleString('ru-RU');
+    return {
+      actual:{
+        wave:document.querySelector('#waveLabel').textContent.trim(),
+        name:document.querySelector('#bossName').textContent.trim(),
+        subtitle:document.querySelector('#bossSubtitle').textContent.trim(),
+        clock:document.querySelector('#roundClock strong').textContent.trim(),
+        health:document.querySelector('#bossHealthValue').textContent.trim(),
+        combo:document.querySelector('#comboValue').textContent.trim(),
+        accuracy:document.querySelector('#accuracyValue').textContent.trim(),
+        tapPower:document.querySelector('#tapPowerValue').textContent.trim(),
+        charge:document.querySelector('#chargeValue').textContent.trim(),
+      },
+      expected:{
+        wave:`ВОЛНА ${api.round} ИЗ ${api.waves_total}`,
+        name:api.wave.name,
+        subtitle:api.wave.subtitle,
+        clock:Math.max(0,api.wave.time_left_ms/1000).toFixed(1).replace('.',','),
+        health:`${number(api.wave.hp)} / ${number(api.wave.hp_max)}`,
+        combo:`×${api.combo.count}`,
+        accuracy:api.accuracy===null?'—':`${number(api.accuracy)}%`,
+        tapPower:number(api.team.tap_power),
+        charge:`${Math.floor(api.team.charge/api.team.charge_max*100)}%`,
+      },
+    };
+  });
+  check(JSON.stringify(liveContract.actual)===JSON.stringify(liveContract.expected),`live readout mismatch ${JSON.stringify(liveContract)}`);
+  await accuracyPage.click('#continueButton');
+  await accuracyPage.waitForSelector('#pauseLayer[hidden]');
+  for(const correct of [true,false]){
+    await accuracyPage.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
+    const clicked=await accuracyPage.evaluate(shouldBeCorrect=>{
+      const target=document.querySelector('#bossGlyph').textContent.trim();
+      const button=[...document.querySelectorAll('.strike-rune')].find(node=>{
+        const match=node.textContent.trim()===target;
+        return !node.disabled&&(shouldBeCorrect?match:!match);
+      });
+      if(!button)return false;
+      button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:button.getBoundingClientRect().x+20,clientY:button.getBoundingClientRect().y+20}));
+      return true;
+    },correct);
+    check(clicked,`accuracy: ${correct?'correct':'wrong'} rune was not clickable`);
+    await new Promise(resolve=>setTimeout(resolve,180));
+  }
+  await accuracyPage.waitForFunction(()=>document.querySelector('#accuracyValue')?.textContent.trim()==='50%',{timeout:2000});
+  const accuracyContract=await accuracyPage.evaluate(async()=>{
+    const session=sessionStorage.getItem('reconstruction-preview-session');
+    const response=await fetch('/__reconstruction/state',{headers:{'x-reconstruction-session':session}});
+    const api=await response.json();
+    return {
+      ui:document.querySelector('#accuracyValue').textContent.trim(),
+      api:api.accuracy,
+      tapAccuracy:api.tap_accuracy,
+      resolved:api.signals_resolved,
+      correct:api.mastery.correct_taps,
+      wrong:api.mastery.mistakes,
+      missed:api.mastery.missed_signals,
+      totalTaps:api.mastery.total_taps,
+    };
+  });
+  check(accuracyContract.ui==='50%'&&accuracyContract.api===50&&accuracyContract.tapAccuracy===50,'accuracy: UI/API mismatch after 1 correct + 1 wrong');
+  check(accuracyContract.resolved===2&&accuracyContract.correct===1&&accuracyContract.wrong===1&&accuracyContract.missed===0&&accuracyContract.totalTaps===2,`accuracy: counters mismatch ${JSON.stringify(accuracyContract)}`);
+  await accuracyPage.close();
+
   // Полный забег через реальный UI: читаем знак в центре и нажимаем совпавшую
   // кнопку. Это проверяет три волны, два выбора усиления и финальный экран.
   await reset();
   const play=await browser.newPage();
   const errors=[];
   play.on('pageerror',error=>errors.push(error.message));
+  await play.evaluateOnNewDocument(()=>{
+    if(!sessionStorage.getItem('reconstruction-verify-started')){
+      localStorage.removeItem('reconstruction-mvp-career-v1');
+      sessionStorage.setItem('reconstruction-verify-started','1');
+    }
+    window.__reconstructionLayoutShifts=[];
+    new PerformanceObserver(list=>{
+      for(const entry of list.getEntries())if(!entry.hadRecentInput)window.__reconstructionLayoutShifts.push({
+        value:entry.value,
+        sources:(entry.sources||[]).map(source=>{
+          const node=source.node;
+          return node?.id?`#${node.id}`:node?.className?`.${String(node.className).trim().replace(/\s+/g,'.')}`:node?.tagName||'unknown';
+        }),
+      });
+    }).observe({type:'layout-shift',buffered:true});
+  });
   await play.setViewport({width:390,height:844,deviceScaleFactor:1});
   await play.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
   await play.waitForSelector('.squad-member');
+  await play.click('#startRunButton');
+  await play.waitForSelector('#menuLayer[hidden]');
+
+  // Пауза не должна расходовать время и должна возвращать в тот же run.
+  await new Promise(resolve=>setTimeout(resolve,220));
+  await play.click('#menuButton');
+  await play.waitForSelector('#pauseLayer:not([hidden])');
+  const pauseBefore=await play.$eval('#roundClock strong',node=>node.textContent);
+  await new Promise(resolve=>setTimeout(resolve,320));
+  const pauseAfter=await play.$eval('#roundClock strong',node=>node.textContent);
+  check(pauseBefore===pauseAfter,'pause: timer keeps advancing');
+  await play.click('#continueButton');
+  await play.waitForSelector('#pauseLayer[hidden]');
+
+  const geometry=await play.evaluate(async()=>{
+    const selectors=['#battleCard','.echo-core','.rune-orbit','.combat-readout','.squad-strip'];
+    const samples=[];
+    for(let index=0;index<18;index+=1){
+      samples.push(selectors.map(selector=>{
+        const rect=document.querySelector(selector).getBoundingClientRect();
+        return [rect.x,rect.y,rect.width,rect.height].map(value=>Math.round(value*10)/10);
+      }));
+      await new Promise(resolve=>setTimeout(resolve,55));
+    }
+    return samples;
+  });
+  for(let element=0;element<geometry[0].length;element+=1){
+    for(let metric=0;metric<4;metric+=1){
+      const values=geometry.map(sample=>sample[element][metric]);
+      check(Math.max(...values)-Math.min(...values)<=1,`stability: element ${element} metric ${metric} shifted (${Math.min(...values)}..${Math.max(...values)})`);
+    }
+  }
 
   let finished=false;
+  let capturedChoice=false;
   for(let guard=0;guard<100&&!finished;guard+=1){
     await play.waitForFunction(()=>{
       const signal=document.querySelector('.tap-stage')?.classList.contains('signal');
@@ -88,6 +237,10 @@ try{
     }));
     if(phase.result){finished=true;break;}
     if(phase.choice){
+      if(output&&!capturedChoice){
+        await play.screenshot({path:`${output}/clicker-390-choice.png`,fullPage:true});
+        capturedChoice=true;
+      }
       await play.click('.upgrade-card');
       await play.waitForFunction(()=>document.querySelector('#choiceLayer').hidden);
       continue;
@@ -112,8 +265,53 @@ try{
   check(result.visible,'playthrough: result screen did not open');
   check(result.title==='Колокол отвечает тебе',`playthrough: unexpected result ${result.title}`);
   check(/100%/.test(result.stats),`playthrough: expected 100% accuracy (${result.stats})`);
-  check(errors.length===0,`playthrough: browser errors ${errors.join(', ')}`);
+  const resultContract=await play.evaluate(async()=>{
+    const session=sessionStorage.getItem('reconstruction-preview-session');
+    const response=await fetch('/__reconstruction/state',{headers:{'x-reconstruction-session':session}});
+    const api=await response.json();
+    const number=value=>Math.max(0,Math.round(Number(value)||0)).toLocaleString('ru-RU');
+    return {
+      actual:[...document.querySelectorAll('#resultStats strong')].map(node=>node.textContent.trim()),
+      expected:[
+        String(api.mastery.correct_taps),
+        `${number(api.accuracy)}%`,
+        String(api.combo.max),
+        String(api.mastery.discharges),
+        String(api.mastery.mistakes),
+        `${Math.round(api.mastery.elapsed_ms/1000)}с`,
+      ],
+    };
+  });
+  check(JSON.stringify(resultContract.actual)===JSON.stringify(resultContract.expected),`result readout mismatch ${JSON.stringify(resultContract)}`);
+  const modalState=()=>play.evaluate(()=>{
+    const ids=['menuLayer','pauseLayer','choiceLayer','resultLayer'];
+    return ids.filter(id=>!document.getElementById(id).hidden);
+  });
+  check(JSON.stringify(await modalState())===JSON.stringify(['resultLayer']),'modal: result is not the only visible layer');
+  await new Promise(resolve=>setTimeout(resolve,650));
+  check(JSON.stringify(await modalState())===JSON.stringify(['resultLayer']),'modal: result changed without user action');
   if(output) await play.screenshot({path:`${output}/clicker-390-won.png`,fullPage:true});
+  const shiftsBeforeReload=await play.evaluate(()=>window.__reconstructionLayoutShifts);
+  await play.reload({waitUntil:'domcontentloaded'});
+  await play.waitForSelector('#resultLayer:not([hidden])');
+  check(JSON.stringify(await modalState())===JSON.stringify(['resultLayer']),'modal: live reload did not restore result layer');
+  check(await play.$eval('#resultTitle',node=>node.textContent.trim())==='Колокол отвечает тебе','modal: result content changed after reload');
+  await play.click('#resultMenu');
+  await play.waitForSelector('#menuLayer:not([hidden])');
+  await new Promise(resolve=>setTimeout(resolve,450));
+  check(JSON.stringify(await modalState())===JSON.stringify(['menuLayer']),'modal: stats menu changed without user action');
+  const career=await play.evaluate(()=>({
+    stats:document.querySelector('#careerStats')?.textContent,
+    activeTab:document.querySelector('[data-menu-tab].active')?.dataset.menuTab,
+  }));
+  check(career.activeTab==='stats','result: stats menu did not open');
+  check(/1побед/.test((career.stats||'').replace(/\s/g,'')),`result: local victory was not recorded (${career.stats})`);
+  check(errors.length===0,`playthrough: browser errors ${errors.join(', ')}`);
+  const shiftsAfterReload=await play.evaluate(()=>window.__reconstructionLayoutShifts);
+  const allShifts=[...shiftsBeforeReload,...shiftsAfterReload];
+  const cls=allShifts.reduce((sum,item)=>sum+item.value,0);
+  check(cls<0.05,`playthrough: unexpected layout shift score ${cls} ${JSON.stringify(allShifts)}`);
+  if(output) await play.screenshot({path:`${output}/clicker-390-stats.png`,fullPage:true});
   await play.close();
 }finally{
   await browser.close();
