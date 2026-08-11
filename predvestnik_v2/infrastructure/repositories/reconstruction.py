@@ -77,30 +77,6 @@ async def ensure_tables(db) -> None:
             PRIMARY KEY (run_id, action_id)
         )
     """)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS gameplay_events (
-            id                 BIGSERIAL PRIMARY KEY,
-            user_id            BIGINT NOT NULL,
-            event_name         TEXT NOT NULL,
-            event_version      INTEGER NOT NULL DEFAULT 1,
-            game_version       TEXT NOT NULL,
-            balance_version    TEXT NOT NULL,
-            run_id             BIGINT NULL REFERENCES gameplay_runs(id) ON DELETE SET NULL,
-            source             TEXT NOT NULL DEFAULT 'mini_app',
-            payload_json       TEXT NOT NULL DEFAULT '{}',
-            idempotency_key    TEXT NULL,
-            created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            UNIQUE (user_id, idempotency_key)
-        )
-    """)
-    await db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gameplay_events_name_time "
-        "ON gameplay_events(event_name, created_at DESC)"
-    )
-    await db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gameplay_events_user_time "
-        "ON gameplay_events(user_id, created_at DESC)"
-    )
     await db.commit()
 
 
@@ -348,34 +324,3 @@ async def save_action_response(
             json.dumps(response, ensure_ascii=False, separators=(",", ":")),
         ),
     )
-
-
-async def record_event(
-    db,
-    *,
-    user_id: int,
-    event_name: str,
-    game_version: str,
-    balance_version: str,
-    run_id: int | None = None,
-    source: str = "mini_app",
-    payload: dict[str, Any] | None = None,
-    idempotency_key: str | None = None,
-) -> bool:
-    async with db.execute(
-        "INSERT INTO gameplay_events "
-        "(user_id, event_name, game_version, balance_version, run_id, source, "
-        "payload_json, idempotency_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
-        "ON CONFLICT (user_id, idempotency_key) DO NOTHING RETURNING id",
-        (
-            user_id,
-            event_name,
-            game_version,
-            balance_version,
-            run_id,
-            source,
-            json.dumps(payload or {}, ensure_ascii=False, separators=(",", ":")),
-            idempotency_key,
-        ),
-    ) as cursor:
-        return bool(await cursor.fetchone())
