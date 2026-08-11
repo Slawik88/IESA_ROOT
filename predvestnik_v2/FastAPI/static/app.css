@@ -4405,6 +4405,19 @@ body.no-fx .coll-detail-atmo * { animation: none !important; opacity: .3; }
 .fit-outfit-row.trial .fit-outfit-state b { color: var(--gold2); font-size: 9.5px; font-variant-numeric: tabular-nums; }
 .fit-outfit-row.trial:active { background: var(--fit-bg, rgba(139,108,240,.12)); transform: scale(.985); }
 .fit-outfit-hint { margin: 8px 2px 2px; color: var(--muted); font-size: 10px; line-height: 1.4; }
+@media (max-width: 340px) {
+  .fit-outfit-row {
+    min-height: 76px; grid-template-columns: 26px minmax(0,1fr); grid-template-rows: auto auto auto;
+    column-gap: 6px; row-gap: 2px; padding: 6px 5px;
+  }
+  .fit-outfit-icon { grid-row: 1 / 4; width: 26px; height: 26px; border-radius: 8px; }
+  .fit-outfit-main strong {
+    display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  }
+  .fit-outfit-state {
+    grid-column: 2; grid-row: 3; justify-self: start; align-self: end;
+  }
+}
 .looks-fitting-modal .mbody { padding-top: 8px; padding-bottom: 6px; }
 .looks-fitting-modal .mfoot .btn { min-height: 44px; }
 .looks-fitting-modal .mfoot .btn:first-child { flex: 0 0 auto; padding-inline: 12px; }

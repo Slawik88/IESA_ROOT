@@ -1,8 +1,8 @@
 // Детальный экран коллекции (Стадия 3): шапка, сегментный измеритель, кнопка
 // «Купить всё недостающее» — 3 сценария на реальных данных мока preview_server.mjs:
 // forest (1 предмет, уже владеет → «собрано»), threshold (2 предмета, 0 owned,
-// сумма фактических цен 880 ≤ баланс 1250 → кнопка активна), artifact
-// (1 предмет, 0 owned, цена 1500 > баланс 1250 → кнопка заблокирована).
+// сумма фактических цен 1010 ≤ баланс 1250 → кнопка активна), artifact
+// (1 предмет, 0 owned, цена выше баланса → кнопка заблокирована).
 import puppeteer from 'puppeteer';
 const FAIL = [];
 function check(name, cond) { if (!cond) FAIL.push(name); else console.log('OK:', name); }
@@ -51,11 +51,11 @@ check('forest detail: секция name_glow показывает 1/1 (скоу�
 
 const threshold = await openAndRead('threshold');
 check('threshold: 2 деления, 0 горит', threshold.notches === 2 && threshold.onNotches === 0);
-check('threshold: кнопка активна (880✨ ≤ баланс 1250✨)', threshold.btn && !threshold.btnDisabled);
-check('threshold: текст кнопки содержит сумму фактических цен и количество', /880.*2\s*шт/.test((threshold.btnText||'').replace(/✨/g,'')));
+check('threshold: кнопка активна (1010✨ ≤ баланс 1250✨)', threshold.btn && !threshold.btnDisabled);
+check('threshold: текст кнопки содержит сумму фактических цен и количество', /1010.*2\s*шт/.test((threshold.btnText||'').replace(/✨/g,'')));
 
 const artifact = await openAndRead('artifact');
-check('artifact: кнопка заблокирована (1500✨ > баланс 1250✨)', artifact.btn && artifact.btnDisabled);
+check('artifact: кнопка заблокирована (сумма недостающего > баланс 1250✨)', artifact.btn && artifact.btnDisabled);
 check('artifact: текст кнопки — "Нужно"', /Нужно/.test(artifact.btnText || ''));
 
 // Назад — детальный экран закрывается, переключатель режимов возвращается

@@ -392,20 +392,28 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0,
 
 def lineup_buy_quote(lineup_id: str, owned: set[str]) -> dict | None:
     """Раскладка покупки «всё недостающее» для линейки (Стадия 3 косметики):
-    {"missing": [id,...], "unit_price": int, "total": int}. None если линейки
-    нет, она не продаётся за зарники, либо уже полностью собрана — во всех
-    трёх случаях покупать нечего/некорректно."""
-    meta = LINEUPS.get(lineup_id)
-    if not meta:
+    {"missing": [id,...], "price_min": int, "price_max": int, "total": int}.
+    Цена считается по каждому реальному предмету: титул, рамка, фон и эффект
+    имеют разный визуальный вес. None если линейки нет, хотя бы один предмет не
+    продаётся за зарники или всё уже принадлежит игроку."""
+    if lineup_id not in LINEUPS:
         return None
-    price_opt = (meta.get("price") or [None])[0]
-    if not price_opt or "zarniki" not in price_opt:
-        return None
-    missing = [cid for cid in lineup_items(lineup_id) if cid not in owned]
+    items = lineup_items(lineup_id)
+    missing = [cid for cid in items if cid not in owned]
     if not missing:
         return None
-    unit = int(price_opt["zarniki"])
-    return {"missing": missing, "unit_price": unit, "total": unit * len(missing)}
+    prices = []
+    for cosmetic_id in missing:
+        price_opt = (items[cosmetic_id].get("price") or [None])[0]
+        if not price_opt or "zarniki" not in price_opt:
+            return None
+        prices.append(int(price_opt["zarniki"]))
+    return {
+        "missing": missing,
+        "price_min": min(prices),
+        "price_max": max(prices),
+        "total": sum(prices),
+    }
 
 
 async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
@@ -413,7 +421,7 @@ async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
     недостающее», Стадия 3 редизайна «Внешний вид»). Мирроит buy_bundle()
     (FastAPI/routers/showcase.py, витрина недели) — тот же паттерн SELECT ...
     FOR UPDATE + одно списание + N выдач в одной транзакции — но без скидки
-    комплекта: у линейки и так единая фиксированная цена за предмет.
+    комплекта: сервер складывает актуальные поштучные цены недостающих предметов.
 
     Финальный ревью Стадии 3 (2026-07-31): владение читалось ДО открытия
     транзакции/блокировки баланса — двойной тап по кнопке (или 2 параллельных
@@ -426,9 +434,6 @@ async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
     meta = LINEUPS.get(lineup_id)
     if not meta:
         return False, "Нет такой линейки."
-    price_opt = (meta.get("price") or [None])[0]
-    if not price_opt or "zarniki" not in price_opt:
-        return False, "Эта линейка не продаётся за зарники."
 
     async with db.connection.transaction():
         async with db.execute(

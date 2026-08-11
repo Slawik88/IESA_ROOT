@@ -19,7 +19,7 @@ const catalog=await page.evaluate(()=>{
   const avatar=card?.querySelector('.lc-ava');
   return {text:card?.textContent.replace(/\s+/g,' ').trim()||'',css:avatar?.className||'',avatarPosition:avatar?getComputedStyle(avatar).position:''};
 });
-check('catalog names and prices the audited item transparently',catalog.text.includes('Орбита лепестков')&&catalog.text.includes('1500✨'));
+check('catalog names and prices the audited item transparently',catalog.text.includes('Орбита лепестков')&&catalog.text.includes('1250✨'));
 check('catalog swatch applies the real frame class to a local positioned avatar',catalog.css.includes('frame-lotus-petal-orbit')&&catalog.avatarPosition==='relative');
 
 await page.evaluate(()=>{_looksMode='collections';_looksOpenCollection('moon_lotus');});
@@ -35,7 +35,7 @@ const detail=await page.evaluate(()=>{
   };
 });
 check('collection detail preserves the same item identity and price',detail.text===catalog.text&&detail.css===catalog.css);
-check('curated state shows the full look and exact missing price',detail.curatedText.includes('Сад затмения')&&detail.curatedText.includes('9000✨'));
+check('curated state shows the full look and exact missing price',detail.curatedText.includes('Сад затмения')&&detail.curatedText.includes('7650✨'));
 check('compact eclipse preview uses its protected moon scale without page overflow',detail.curatedBgSize.startsWith('36px 36px')&&detail.noOverflow);
 
 await page.click('[data-curated-look="lotus_eclipse_garden"]');
@@ -47,7 +47,7 @@ const fitting=await page.evaluate(()=>({
   profileContained:document.querySelector('#looks-fit-top .hero')?.getBoundingClientRect().right<=innerWidth,
 }));
 check('fitting profile applies the same frame class',fitting.avatarCss.includes('frame-lotus-petal-orbit'));
-check('purchase state keeps the same item name, exact item price, and exact total gap',fitting.frameRow.includes('1500✨')&&fitting.action.includes('7750✨'));
+check('purchase state keeps the same item name, exact item price, and exact total gap',fitting.frameRow.includes('1250✨')&&fitting.action.includes('6400✨'));
 check('complete premium look remains contained in the mobile fitting room',fitting.profileContained);
 
 await page.evaluate(()=>{
