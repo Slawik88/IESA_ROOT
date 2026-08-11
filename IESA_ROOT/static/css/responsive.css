@@ -195,9 +195,10 @@ p, h1, h2, h3, h4, h5, h6,
 
   .navbar-brand img,
   .navbar-brand .navbar-logo {
-    height: auto !important;
-    max-width: none !important;
-    width: 60px !important;
+    width: 36px !important;
+    height: 36px !important;
+    max-width: 36px !important;
+    object-fit: contain !important;
   }
 
   /* Hamburger toggler — тёмный (единый стиль с navbar) */
@@ -276,7 +277,10 @@ p, h1, h2, h3, h4, h5, h6,
 
 @media (min-width: 768px) and (max-width: 991.98px) {
   .navbar-brand img {
-    height: 30px;
+    width: 40px;
+    height: 40px;
+    max-width: 40px;
+    object-fit: contain;
   }
 
   .navbar-collapse .d-flex.align-items-center {

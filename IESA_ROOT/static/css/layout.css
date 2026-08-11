@@ -85,14 +85,17 @@
 
 /* Logo */
 .iesa-brand {
-  width: 64px; height: 22px; flex-shrink: 0;
-  position: relative; overflow: hidden; display: block;
+  width: 42px; height: 42px; flex: 0 0 42px;
+  position: relative; overflow: visible; display: grid; place-items: center;
+  margin-right: 1.1rem; padding: 0;
 }
 .iesa-brand .navbar-logo {
-  width: 64px; height: auto; position: absolute; left: 0; bottom: -1px;
-  display: block; transition: opacity .2s;
+  width: 42px; height: 42px; max-width: 100%; object-fit: contain;
+  position: static; display: block; margin: 0;
+  mix-blend-mode: normal; filter: none;
+  transition: opacity .2s, transform .2s;
 }
-.iesa-brand:hover .navbar-logo { opacity: .82; }
+.iesa-brand:hover .navbar-logo { opacity: .9; transform: scale(1.03); }
 
 /* Nav links */
 .iesa-navbar .navbar-nav { flex-direction: row; gap: .1rem; }
@@ -395,8 +398,8 @@
 
 @media (max-width: 575.98px) {
   .iesa-navbar { height: 52px; }
-  .iesa-brand { width: 60px; height: 21px; }
-  .iesa-brand .navbar-logo { width: 60px; }
+  .iesa-brand { width: 36px; height: 36px; flex-basis: 36px; margin-right: .65rem; }
+  .iesa-brand .navbar-logo { width: 36px; height: 36px; }
 }
 
 /* ── Desktop: collapse не absolute ── */

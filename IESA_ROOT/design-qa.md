@@ -123,4 +123,35 @@ No actionable P0, P1 or P2 finding remains in this partner-cabinet scope.
 - [x] E-mail verification/security banner preserved.
 - [x] Existing server behavior and authorization boundaries preserved.
 
+## Header logo corrective pass — 2026-08-11
+
+### Comparison target and evidence
+
+- Source visual truth: the user's inline desktop and iPhone 17 / 402 × 874 screenshots in the current conversation. The mobile source visibly cropped the 184 × 181 IESA raster inside a short, wide slot, leaving the runner outside the header rhythm.
+- Browser-rendered implementation:
+  - `docs/audits/2026-08-11-iesa-bug-first/logo-fix/partner-analytics-after-402.png`
+  - `docs/audits/2026-08-11-iesa-bug-first/logo-fix/home-after-1900.png`
+- Focused header evidence:
+  - `docs/audits/2026-08-11-iesa-bug-first/logo-fix/header-after-402.png`
+  - `docs/audits/2026-08-11-iesa-bug-first/logo-fix/header-after-1900.png`
+- Viewports: 320, 360, 390, 402, 430, 768, 1440 and 1900 CSS px; implementation captures use device scale factor 1. The user's mobile reference used a 402 × 874 CSS emulation at DPR 3, so geometry was normalized against CSS pixels rather than raw screenshot density.
+- State: authenticated partner analytics on mobile; authenticated public homepage header on desktop.
+
+### Findings and comparison history
+
+- Pass 1 — blocked, P1: the original square logo was forced into a 60 × 21 crop. The runner was visibly clipped on mobile and desktop showed only the IESA word fragment.
+- Fix: the shared header now renders the original asset at its natural square proportion inside a bounded 36 × 36 mobile or 42 × 42 desktop slot, with `object-fit: contain`, no blend mode, no positional crop and explicit intrinsic dimensions.
+- Pass 2 — passed: the complete runner and IESA word are visible at both target sizes. The logo remains inside the 52/60 px header, has no overlap with the menu, causes no layout shift and produces zero horizontal overflow.
+
+### Required fidelity surfaces
+
+- Typography and copy: unchanged; no text substitute was introduced for the brand asset.
+- Spacing and layout: logo bounds remain inside the header at every tested width; mobile menu gap is at least 180 px at 320 px.
+- Colors and tokens: original transparent PNG colors are preserved without `mix-blend-mode` or artificial background.
+- Image quality: the existing 184 × 181 IESA source is used at proportional downscale with no distortion or crop.
+- Interaction and accessibility: the home link and `alt="IESA"` remain intact; hover only changes opacity/scale slightly.
+- Browser checks: eight responsive widths, zero horizontal overflow, natural image dimensions 184 × 181, no logo/menu overlap and zero JavaScript console errors in the captured state.
+
+No actionable P0, P1 or P2 finding remains in this corrective scope.
+
 final result: passed
