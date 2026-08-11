@@ -73,6 +73,34 @@ async def get_active_b3(db, uid: int, mode: str | None = None) -> dict | None:
     return row
 
 
+async def _tutorial_done_reconciled(db, uid: int) -> bool:
+    """Return the milestone and repair a stale derived flag from battle truth.
+
+    A production incident left a tutorial winner with a false user flag after
+    the historical outcome had already committed.  The won battle is the
+    durable fact; the boolean is only a projection used by the UI.
+    """
+    if await users_repo.get_combat_tutorial_done(db, uid):
+        return True
+    if not await bt_repo.has_completed(db, uid, "tutorial", "won"):
+        return False
+    try:
+        await users_repo.set_combat_tutorial_done(db, uid)
+        await db.commit()
+    except Exception:
+        # Do not regress the gate screen if the projection cannot be repaired
+        # right now. The factual won outcome still makes the response truthful,
+        # and the next overview request will retry the idempotent repair.
+        logger.exception(
+            f"[battle] не удалось восстановить combat_tutorial_done (uid={uid})"
+        )
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+    return True
+
+
 # ── Врата ─────────────────────────────────────────────────────────────────────
 
 @router.get("/gates")
@@ -103,7 +131,7 @@ async def gates_overview(db=Depends(get_db), user=Depends(require_tg_user)):
         "squad_cp": await barracks.squad_cp(db, uid),
         "active_battle": b3.public_state(active["state"], active["id"]) if active else None,
         # Онбординг боя: пройден ли «Первый бой» (клиент решает автопредложение обучения).
-        "tutorial_done": await users_repo.get_combat_tutorial_done(db, uid),
+        "tutorial_done": await _tutorial_done_reconciled(db, uid),
     }
 
 
