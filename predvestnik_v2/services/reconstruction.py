@@ -89,6 +89,7 @@ def _pending_memory(progress: dict[str, Any]) -> dict[str, Any] | None:
 async def overview(db, user_id: int) -> dict[str, Any]:
     progress = await repo.get_progress(db, user_id, GAME_VERSION)
     active = await repo.get_active_run(db, user_id, GAME_VERSION)
+    stats = await repo.get_stats(db, user_id, GAME_VERSION)
     if not progress:
         progress_view = {
             "started": False,
@@ -112,7 +113,12 @@ async def overview(db, user_id: int) -> dict[str, Any]:
             "revision": active["revision"],
             **combat.public_state(active["state"]),
         }
-    return {"content": content_manifest(), "progress": progress_view, "active_run": active_view}
+    return {
+        "content": content_manifest(),
+        "progress": progress_view,
+        "active_run": active_view,
+        "stats": stats,
+    }
 
 
 async def start_encounter(
@@ -142,6 +148,7 @@ async def start_encounter(
         run_id = await repo.create_run(
             db, user_id, GAME_VERSION, BALANCE_VERSION, encounter_id, combat.dumps(state)
         )
+        stats = await repo.record_run_started(db, user_id, GAME_VERSION)
         await repo.record_event(
             db,
             user_id=user_id,
@@ -157,6 +164,7 @@ async def start_encounter(
             "run_id": run_id,
             "revision": 0,
             "resumed": False,
+            "career_stats": stats,
             **combat.public_state(state),
         }
 
@@ -231,6 +239,7 @@ async def apply_run_action(
         )
 
         pending_memory = None
+        career_stats = None
         if state["status"] in ("won", "lost"):
             await repo.record_event(
                 db,
@@ -248,6 +257,15 @@ async def apply_run_action(
                     "mastery": state["mastery"],
                 },
                 idempotency_key=f"run:{run_id}:completed",
+            )
+            career_stats = await repo.record_run_completed(
+                db,
+                user_id,
+                GAME_VERSION,
+                outcome=state["status"],
+                mastery=state["mastery"],
+                best_combo=int(state["combo"]["max"]),
+                upgrades=list(state["upgrades"]),
             )
             if state["status"] == "won":
                 progress = await repo.ensure_progress(db, user_id, GAME_VERSION, FIRST_ENCOUNTER)
@@ -273,6 +291,7 @@ async def apply_run_action(
             "revision": new_revision,
             "turn": result,
             "pending_memory": pending_memory,
+            "career_stats": career_stats,
             "idempotent_replay": False,
             **combat.public_state(state),
         }

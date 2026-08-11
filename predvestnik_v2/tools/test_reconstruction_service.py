@@ -36,6 +36,7 @@ class MemoryRepo:
         self.runs = {}
         self.actions = {}
         self.events = {}
+        self.stats = service.repo.empty_stats()
         self.next_id = 1
 
     async def lock_user(self, _db, _user_id):
@@ -110,6 +111,35 @@ class MemoryRepo:
         self.events[key] = copy.deepcopy(event)
         return True
 
+    async def get_stats(self, _db, user_id, game_version):
+        return copy.deepcopy(self.stats)
+
+    async def record_run_started(self, _db, user_id, game_version):
+        self.stats["runs_started"] += 1
+        return copy.deepcopy(self.stats)
+
+    async def record_run_completed(
+        self, _db, user_id, game_version, *, outcome, mastery, best_combo, upgrades
+    ):
+        self.stats["runs_won"] += int(outcome == "won")
+        self.stats["runs_lost"] += int(outcome == "lost")
+        for key in (
+            "total_taps", "correct_taps", "mistakes", "missed_signals",
+            "critical_taps", "discharges",
+        ):
+            self.stats[key] += int(mastery.get(key, 0))
+        self.stats["best_combo"] = max(self.stats["best_combo"], int(best_combo))
+        self.stats["total_play_ms"] += int(mastery.get("elapsed_ms", 0))
+        if outcome == "won":
+            elapsed = int(mastery.get("elapsed_ms", 0))
+            fastest = self.stats["fastest_win_ms"]
+            self.stats["fastest_win_ms"] = elapsed if fastest is None else min(fastest, elapsed)
+        for upgrade_id in upgrades:
+            self.stats["upgrades"][upgrade_id] = self.stats["upgrades"].get(upgrade_id, 0) + 1
+        attempts = self.stats["correct_taps"] + self.stats["mistakes"] + self.stats["missed_signals"]
+        self.stats["accuracy"] = round(self.stats["correct_taps"] / attempts * 100, 1) if attempts else None
+        return copy.deepcopy(self.stats)
+
 
 async def main():
     assert _DEFAULT_ENABLED["game_reconstruction_v1"] is False
@@ -119,6 +149,7 @@ async def main():
         "lock_user", "get_progress", "ensure_progress", "save_progress",
         "get_active_run", "get_run", "create_run", "save_run_state",
         "get_action_response", "save_action_response", "record_event",
+        "get_stats", "record_run_started", "record_run_completed",
     ):
         original[name] = getattr(service.repo, name)
         setattr(service.repo, name, getattr(memory, name))
@@ -209,6 +240,13 @@ async def main():
         assert memory.progress["current_encounter"] == "e02_shattered_causeway"
         completed_events = [event for event in memory.events.values() if event["event_name"] == "encounter_completed"]
         assert len(completed_events) == 1
+        assert memory.stats["runs_started"] == 1
+        assert memory.stats["runs_won"] == 1 and memory.stats["runs_lost"] == 0
+        assert memory.stats["accuracy"] == 100.0
+        assert memory.stats["best_combo"] == result["combo"]["max"]
+        assert sum(memory.stats["upgrades"].values()) == 2
+        overview = await service.overview(db, user_id)
+        assert overview["stats"]["runs_won"] == 1
 
         chosen = await service.choose_memory(db, user_id, "m_mobile_oath")
         chosen_again = await service.choose_memory(db, user_id, "m_mobile_oath")
@@ -220,7 +258,7 @@ async def main():
         for name, value in original.items():
             setattr(service.repo, name, value)
 
-    print("reconstruction_service: resume+optimistic-state+idempotency+progress  OK")
+    print("reconstruction_service: resume+idempotency+progress+career-stats  OK")
 
 
 asyncio.run(main())

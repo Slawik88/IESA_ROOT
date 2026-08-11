@@ -16,7 +16,7 @@
       </div>
       <div class="top-actions">
         <a href="/" aria-label="На основной сайт">←</a>
-        <button id="resetButton" type="button" aria-label="Начать забег заново">↻</button>
+        <button id="menuButton" type="button" aria-label="Пауза и меню" aria-expanded="false">☰</button>
       </div>
     </header>
 
@@ -65,7 +65,7 @@
 
       <div class="combat-readout">
         <div><span>Серия</span><strong id="comboValue">×0</strong></div>
-        <div><span>Точность</span><strong id="accuracyValue">100%</strong></div>
+        <div><span title="Верные руны среди всех завершённых сигналов">Точность</span><strong id="accuracyValue">—</strong></div>
         <div><span>Сила знака</span><strong id="tapPowerValue">65</strong></div>
         <div class="charge-stat"><span>Импульс</span><strong id="chargeValue">0%</strong></div>
       </div>
@@ -73,17 +73,85 @@
 
     <section class="squad-strip" aria-label="Автоматический отряд" id="squadStrip"></section>
 
+    <section class="build-strip" id="activeBuild" aria-label="Усиления текущего забега" hidden></section>
+
     <section class="event-strip" aria-live="polite">
       <span class="event-pulse" id="eventPulse">·</span>
       <p id="lastLog">Нажимай по ядру. Отряд атакует автоматически.</p>
     </section>
   </main>
 
+  <div class="menu-layer" id="menuLayer">
+    <section class="menu-card" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+      <header class="tester-card">
+        <span class="tester-avatar" id="testerAvatar">◉</span>
+        <span><small>ПРОФИЛЬ ТЕСТИРОВЩИКА</small><strong id="testerName">Гость стенда</strong></span>
+        <i id="versionBadge">MVP</i>
+      </header>
+
+      <nav class="menu-tabs" aria-label="Разделы игры">
+        <button class="active" type="button" data-menu-tab="play">Играть</button>
+        <button type="button" data-menu-tab="stats">Статистика</button>
+        <button type="button" data-menu-tab="help">Как играть</button>
+      </nav>
+
+      <div class="menu-panel active" data-menu-panel="play">
+        <span class="eyebrow">ПЕРВАЯ ИГРАБЕЛЬНАЯ ВЕРСИЯ</span>
+        <h2 id="menuTitle">Разлом колокола</h2>
+        <p>Три короткие волны. Смотри на знак в центре и находи такой же среди трёх рун.</p>
+        <div class="run-facts">
+          <span><strong>3</strong>волны</span>
+          <span><strong>≈ 75 с</strong>забег</span>
+          <span><strong>1</strong>попытка</span>
+        </div>
+        <div class="menu-note"><b>Важно</b><span>Скорость кликов не даёт преимущество. Побеждает правильный выбор руны.</span></div>
+        <div class="compact-actions">
+          <button class="primary-action" id="startRunButton" type="button">Начать забег <span>›</span></button>
+          <button class="quiet-action" id="newRunButton" type="button" hidden>Новый забег</button>
+        </div>
+      </div>
+
+      <div class="menu-panel" data-menu-panel="stats" hidden>
+        <span class="eyebrow">ЛОКАЛЬНЫЙ ПРОФИЛЬ</span>
+        <h2>Твои сигналы</h2>
+        <p>Статистика хранится в этом браузере и не затрагивает валюты или production-прогресс.</p>
+        <div class="career-grid" id="careerStats"></div>
+        <div class="build-history" id="buildHistory"></div>
+      </div>
+
+      <div class="menu-panel" data-menu-panel="help" hidden>
+        <span class="eyebrow">ПРАВИЛА ЗА 20 СЕКУНД</span>
+        <h2>Не кликай вслепую</h2>
+        <ol class="help-steps">
+          <li><i>1</i><span><strong>Дождись сигнала</strong>Центр покажет один из трёх знаков.</span></li>
+          <li><i>2</i><span><strong>Найди совпадение</strong>Нажми такую же руну снизу — только один раз.</span></li>
+          <li><i>3</i><span><strong>Собери импульс</strong>Четыре точных знака автоматически выпускают Разряд.</span></li>
+        </ol>
+        <div class="menu-note danger"><b>Ошибка</b><span>Ломает серию, снимает заряд и лечит цель. Фиксированный автоклик проигрывает.</span></div>
+      </div>
+
+      <footer class="menu-footer">DEV MVP · без наград, трат и влияния на экономику</footer>
+    </section>
+  </div>
+
+  <div class="pause-layer" id="pauseLayer" hidden>
+    <section class="pause-card" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+      <span class="eyebrow">ЗАБЕГ НА ПАУЗЕ</span>
+      <h2 id="pauseTitle">Эхо ждёт тебя</h2>
+      <p>Таймер и сигналы остановлены. Прогресс этой вкладки сохранён.</p>
+      <div class="compact-actions">
+        <button class="primary-action" id="continueButton" type="button">Продолжить <span>›</span></button>
+        <button class="quiet-action" id="pauseMenuButton" type="button">В главное меню</button>
+        <button class="danger-action" id="restartButton" type="button">Начать заново</button>
+      </div>
+    </section>
+  </div>
+
   <div class="choice-layer" id="choiceLayer" hidden>
     <section class="choice-sheet">
       <span class="eyebrow">ВОЛНА ПРОЙДЕНА</span>
-      <h2>Одно усиление на следующий бой</h2>
-      <p>Выбор меняет темп, но не добавляет новых кнопок.</p>
+      <h2>Выбери направление сборки</h2>
+      <p>У каждого усиления есть преимущество и цена. Выбор действует только в этом забеге.</p>
       <div class="upgrade-list" id="upgradeList"></div>
     </section>
   </div>
@@ -95,7 +163,11 @@
       <h2 id="resultTitle">Колокол отвечает тебе</h2>
       <p id="resultCopy"></p>
       <div class="result-stats" id="resultStats"></div>
-      <button id="resultReset" type="button">Ещё один забег</button>
+      <div class="compact-actions result-actions">
+        <button class="primary-action" id="resultReset" type="button">Ещё один забег <span>›</span></button>
+        <button class="quiet-action" id="resultMenu" type="button">В меню</button>
+        <button class="quiet-action" id="copyResult" type="button">Скопировать итог</button>
+      </div>
     </section>
   </div>
 

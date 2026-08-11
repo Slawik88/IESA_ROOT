@@ -100,17 +100,25 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
         "options": options,
         "scheduled_at_ms": now,
         "opens_at_ms": opens_at,
-        "expires_at_ms": opens_at + int(WAVES[state["round"] - 1]["signal_ms"]),
+        "expires_at_ms": opens_at + max(
+            620,
+            int(WAVES[state["round"] - 1]["signal_ms"])
+            + int(state["team"]["signal_window_bonus_ms"]),
+        ),
     }
 
 
-def _wave_runtime(index: int, round_bonus_ms: int) -> dict[str, Any]:
+def _wave_runtime(
+    index: int, round_bonus_ms: int, *, mistake_guard: bool = False
+) -> dict[str, Any]:
     meta = WAVES[index]
     return {
         "id": meta["id"], "name": meta["name"], "subtitle": meta["subtitle"],
         "emoji": meta["emoji"], "hp": meta["hp"], "hp_max": meta["hp"],
         "duration_ms": int(meta["duration_ms"]) + int(round_bonus_ms),
-        "elapsed_ms": 0, "last_stand_used": False,
+        "elapsed_ms": 0,
+        "last_stand_used": False,
+        "mistake_guard_available": bool(mistake_guard),
     }
 
 
@@ -123,6 +131,29 @@ def new_encounter(encounter_id: str = "e01_two_bells", *, seed: int = 1) -> dict
         raise ValueError(f"Неизвестная встреча: {encounter_id}")
     if not encounter.get("implemented"):
         raise ValueError(f"Встреча {encounter_id} ещё не включена в игровой срез.")
+    team: dict[str, Any] = {
+        "tap_power": 65.0,
+        "auto_dps": 3.0,
+        "charge": 0.0,
+        "charge_max": CHARGE_MAX,
+        "charge_per_hit": 25.0,
+        "overdrive_power": 120.0,
+        "critical_multiplier": 1.55,
+        "critical_window_ms": 300,
+        "signal_window_bonus_ms": 0,
+        "combo_step_multiplier": 1.0,
+        "round_bonus_ms": 0,
+        "wrong_heal_bonus": 0,
+        "reset_charge_on_wrong": False,
+        "mistake_guard": False,
+        "units": [
+            {
+                "id": unit_id, "name": STARTER_UNITS[unit_id]["short_name"],
+                "emoji": STARTER_UNITS[unit_id]["emoji"], "role": STARTER_UNITS[unit_id]["role"],
+            }
+            for unit_id in STARTER_SQUAD
+        ],
+    }
     state: dict[str, Any] = {
         "game_version": GAME_VERSION,
         "balance_version": BALANCE_VERSION,
@@ -132,24 +163,7 @@ def new_encounter(encounter_id: str = "e01_two_bells", *, seed: int = 1) -> dict
         "status": "active",
         "outcome_reason": None,
         "wave": _wave_runtime(0, 0),
-        "team": {
-            "tap_power": 65.0,
-            "auto_dps": 3.0,
-            "charge": 0.0,
-            "charge_max": CHARGE_MAX,
-            "overdrive_power": 120.0,
-            "critical_multiplier": 1.55,
-            "critical_window_ms": 300,
-            "combo_step_multiplier": 1.0,
-            "round_bonus_ms": 0,
-            "units": [
-                {
-                    "id": unit_id, "name": STARTER_UNITS[unit_id]["short_name"],
-                    "emoji": STARTER_UNITS[unit_id]["emoji"], "role": STARTER_UNITS[unit_id]["role"],
-                }
-                for unit_id in STARTER_SQUAD
-            ],
-        },
+        "team": team,
         "combo": {"count": 0, "max": 0},
         "challenge": None,
         "seam_ready": False,
@@ -207,7 +221,11 @@ def _complete_wave(state: dict[str, Any]) -> None:
 def _start_next_wave(state: dict[str, Any]) -> None:
     state["round"] += 1
     state["status"] = "active"
-    state["wave"] = _wave_runtime(state["round"] - 1, state["team"]["round_bonus_ms"])
+    state["wave"] = _wave_runtime(
+        state["round"] - 1,
+        state["team"]["round_bonus_ms"],
+        mistake_guard=state["team"]["mistake_guard"],
+    )
     state["reward_options"] = []
     state["seam_ready"] = False
     state["combo"] = {"count": 0, "max": state["combo"]["max"]}
@@ -231,20 +249,31 @@ def _combo_multiplier(state: dict[str, Any]) -> float:
 
 
 def _miss_signal(state: dict[str, Any], *, wrong_tap: bool) -> None:
+    guarded = False
     if wrong_tap:
         state["mastery"]["mistakes"] += 1
         state["mastery"]["total_taps"] += 1
-        label = "НЕ ТА РУНА"
-        restored = 35 + state["round"] * 5
-        state["wave"]["hp"] = min(
-            state["wave"]["hp_max"], _round_number(state["wave"]["hp"] + restored)
-        )
-        state["log"].append(f"× Неверная руна: серия оборвалась, цель вернула {restored} HP.")
+        guarded = bool(state["wave"].get("mistake_guard_available"))
+        if guarded:
+            state["wave"]["mistake_guard_available"] = False
+            label = "КЛЯТВА УДЕРЖАЛА УДАР"
+            state["team"]["charge"] = _round_number(float(state["team"]["charge"]) * 0.5)
+            state["log"].append("◌ Клятва поглотила лечение цели и сохранила половину заряда.")
+        else:
+            label = "НЕ ТА РУНА"
+            restored = 35 + state["round"] * 5 + int(state["team"]["wrong_heal_bonus"])
+            state["wave"]["hp"] = min(
+                state["wave"]["hp_max"], _round_number(state["wave"]["hp"] + restored)
+            )
+            state["log"].append(f"× Неверная руна: серия оборвалась, цель вернула {restored} HP.")
+            if state["team"]["reset_charge_on_wrong"]:
+                state["team"]["charge"] = 0.0
     else:
         state["mastery"]["missed_signals"] += 1
         label = "СИГНАЛ УШЁЛ"
     state["combo"]["count"] = 0
-    state["team"]["charge"] = max(0.0, float(state["team"]["charge"]) - 10.0)
+    if not guarded and not (wrong_tap and state["team"]["reset_charge_on_wrong"]):
+        state["team"]["charge"] = max(0.0, float(state["team"]["charge"]) - 10.0)
     _emit(state, "miss", label)
     _schedule_challenge(state)
 
@@ -321,7 +350,10 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     if state["combo"]["count"] % 5 == 0:
         damage += float(state["team"]["tap_power"]) * 0.75
     dealt = _deal(state, damage, "tap")
-    state["team"]["charge"] = min(CHARGE_MAX * 2 - 0.01, state["team"]["charge"] + 25.0)
+    state["team"]["charge"] = min(
+        CHARGE_MAX * 2 - 0.01,
+        state["team"]["charge"] + float(state["team"]["charge_per_hit"]),
+    )
     discharged = False
     if state["status"] == "active" and state["team"]["charge"] >= CHARGE_MAX:
         _discharge(state)
@@ -347,15 +379,22 @@ def _choose_upgrade(state: dict[str, Any], upgrade_id: str) -> dict[str, Any]:
     upgrade = CLICKER_UPGRADES[upgrade_id]
     effect = upgrade["effect"]
     team = state["team"]
-    if "tap_power" in effect:
-        team["tap_power"] += effect["tap_power"]
+    for key in (
+        "tap_power", "charge_per_hit", "critical_window_ms", "critical_multiplier",
+        "overdrive_power", "round_bonus_ms", "signal_window_ms", "wrong_heal_bonus",
+    ):
+        if key not in effect:
+            continue
+        target_key = "signal_window_bonus_ms" if key == "signal_window_ms" else key
+        team[target_key] += effect[key]
     if "auto_dps_multiplier" in effect:
         team["auto_dps"] = _round_number(team["auto_dps"] * effect["auto_dps_multiplier"])
-    for key in ("critical_window_ms", "overdrive_power", "round_bonus_ms"):
-        if key in effect:
-            team[key] += effect[key]
     if "combo_step_multiplier" in effect:
         team["combo_step_multiplier"] *= effect["combo_step_multiplier"]
+    if effect.get("mistake_guard"):
+        team["mistake_guard"] = True
+    if effect.get("reset_charge_on_wrong"):
+        team["reset_charge_on_wrong"] = True
     state["upgrades"].append(upgrade_id)
     state["log"].append(f"{upgrade['emoji']} Получено усиление «{upgrade['name']}».")
     _start_next_wave(state)
@@ -414,8 +453,14 @@ def public_state(state: dict[str, Any]) -> dict[str, Any]:
         view["signal_progress"] = 0.0
     view["critical_active"] = _critical_active(state) if state["status"] == "active" else False
     view["waves_total"] = len(WAVES)
-    attempts = int(view["mastery"]["total_taps"])
-    view["accuracy"] = round(view["mastery"]["correct_taps"] / attempts * 100, 1) if attempts else 100.0
+    correct = int(view["mastery"]["correct_taps"])
+    wrong = int(view["mastery"]["mistakes"])
+    missed = int(view["mastery"]["missed_signals"])
+    resolved_signals = correct + wrong + missed
+    physical_taps = int(view["mastery"]["total_taps"])
+    view["signals_resolved"] = resolved_signals
+    view["accuracy"] = round(correct / resolved_signals * 100, 1) if resolved_signals else None
+    view["tap_accuracy"] = round(correct / physical_taps * 100, 1) if physical_taps else None
     return view
 
 

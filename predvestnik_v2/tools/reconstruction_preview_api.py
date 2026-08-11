@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import secrets
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,12 +20,54 @@ from services import reconstruction, reconstruction_combat  # noqa: E402
 
 
 PORT = int(os.environ.get("RECON_PREVIEW_PORT", "8403"))
+MAX_PREVIEW_SESSIONS = 256
+STATE_FILE = pathlib.Path(
+    os.environ.get(
+        "RECON_PREVIEW_STATE_FILE",
+        f"/tmp/predvestnik-reconstruction-preview-{PORT}.json",
+    )
+)
 _LOCK = threading.RLock()
-_STATES = {}
+
+
+def _load_states() -> dict[str, dict]:
+    try:
+        payload = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    states = {}
+    for key, state in payload.items():
+        if (
+            isinstance(key, str)
+            and isinstance(state, dict)
+            and state.get("game_version") == reconstruction.GAME_VERSION
+            and state.get("balance_version") == reconstruction.BALANCE_VERSION
+        ):
+            states[key] = state
+    return states
+
+
+def _save_states() -> None:
+    temporary = STATE_FILE.with_suffix(STATE_FILE.suffix + ".tmp")
+    try:
+        temporary.write_text(
+            json.dumps(_STATES, ensure_ascii=False, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        temporary.replace(STATE_FILE)
+    except OSError as exc:
+        sys.stderr.write(f"[reconstruction-preview] state snapshot failed: {exc}\n")
+
+
+_STATES = _load_states()
 
 
 def _new_state():
-    return reconstruction_combat.new_encounter(seed=20260811)
+    # У каждой вкладки и каждого reset свой run key: локальная статистика может
+    # надёжно дедуплицировать завершение, а тестировщики не делят один seed.
+    return reconstruction_combat.new_encounter(seed=secrets.randbelow(2**31 - 1) + 1)
 
 
 def _json_bytes(value) -> bytes:
@@ -64,8 +107,11 @@ class Handler(BaseHTTPRequestHandler):
         key = self._session_key()
         state = _STATES.get(key)
         if state is None:
+            if len(_STATES) >= MAX_PREVIEW_SESSIONS:
+                _STATES.pop(next(iter(_STATES)))
             state = _new_state()
             _STATES[key] = state
+            _save_states()
         return state
 
     def do_GET(self):
@@ -81,6 +127,7 @@ class Handler(BaseHTTPRequestHandler):
             with _LOCK:
                 state = _new_state()
                 _STATES[self._session_key()] = state
+                _save_states()
                 return self._send(200, reconstruction_combat.public_state(state))
         if self.path == "/action":
             body = self._body()
@@ -98,6 +145,7 @@ class Handler(BaseHTTPRequestHandler):
                         "rejected": True,
                         "state": reconstruction_combat.public_state(state),
                     })
+                _save_states()
                 return self._send(200, {
                     "turn": turn,
                     "state": reconstruction_combat.public_state(state),
