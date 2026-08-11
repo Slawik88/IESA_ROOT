@@ -4587,8 +4587,13 @@ body {
 .cb-plus { animation: none; box-shadow: none; }
 
 .nav {
-  left: 9px;
-  right: 9px;
+  /* Keep the fixed dock centered at every viewport. A later left:9px override
+     used to combine with the tablet translateX(-50%) rule and push it off-screen. */
+  left: 50%;
+  right: auto;
+  width: min(calc(100vw - 18px), 482px);
+  box-sizing: border-box;
+  transform: translateX(-50%);
   bottom: calc(9px + var(--safe-b));
   padding: 5px;
   border-radius: 18px;
@@ -4958,7 +4963,6 @@ dialog .sheet {
 @media (min-width: 520px) {
   body { max-width: 500px; }
   #app-header { max-width: 500px; }
-  .nav { width: 482px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

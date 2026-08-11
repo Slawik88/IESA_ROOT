@@ -66,3 +66,48 @@ The focused card comparison confirms:
 - [P3] When a real character-rendering system is introduced, place it inside `.character-showcase-area` without changing the surrounding layout or adding default decorative effects.
 
 final result: passed
+
+---
+
+# Design QA addendum — bottom navigation containment
+
+## Comparison target
+
+- Source visual truth: the user's 611 × 755 px screenshot showing the fixed dock shifted beyond the left edge. The same pre-fix cascade was reproduced at `docs/audits/2026-08-11-bottom-nav/bottom-nav-source-reproduction-611.png`.
+- Implementation: `docs/audits/2026-08-11-bottom-nav/bottom-nav-after-611.png`.
+- Focused evidence: `docs/audits/2026-08-11-bottom-nav/bottom-nav-source-focused-611.png` and `docs/audits/2026-08-11-bottom-nav/bottom-nav-after-focused-611.png`.
+- Viewport and pixels: both full captures are 611 × 755 px at a 611 × 755 CSS viewport and `deviceScaleFactor: 1`; both focused captures are 611 × 110 px from the same browser state. No density normalization was needed.
+- State: local preview profile, bottom dock visible, profile item active, scroll position 0. The pre-fix capture injects only the former late `left: 9px; right: 9px; width: 482px` cascade so the user-reported defect can be compared at the same content and viewport.
+
+## Full-view and focused comparison evidence
+
+The source reproduction loses the profile and pets destinations beyond the left viewport edge and shows only part of the arena destination. The revised capture keeps all five destinations inside the centered 500 px application column. In the focused pair, the dock changes from approximately `-232..250px` to `64.5..546.5px`; its intended 482 px tablet width and 9 px bottom inset are preserved.
+
+## Required fidelity surfaces
+
+- Fonts and typography: unchanged; labels retain their existing size, weight, line height and single-line fit at 320/390/611/1024 px.
+- Spacing and layout rhythm: the dock is centered with 9 px side clearance on mobile and capped at 482 px on wider screens. All five items retain equal tracks and a 50 px minimum height.
+- Colors and visual tokens: unchanged; active gold, neutral surface, border and shadow tokens remain consistent with the approved redesign.
+- Image quality and asset fidelity: no raster asset, icon or decorative layer was added or replaced; existing navigation symbols are unchanged.
+- Copy and content: all five destination labels and their order are unchanged.
+
+## Findings and comparison history
+
+### Pass 1
+
+- [P1] Persistent bottom navigation was clipped at widths of 520 px and above.
+  - Cause: a late `.nav { left: 9px }` rule overrode the tablet centering rule while leaving `transform: translateX(-50%)` active.
+  - Fix: made the final rule self-contained with `left: 50%`, `right: auto`, `transform: translateX(-50%)`, and `width: min(calc(100vw - 18px), 482px)`; removed the now-redundant media-query width override.
+
+### Pass 2
+
+- Post-fix browser verification passes at 320, 390, 611 and 1024 px: no dock clipping, no horizontal page overflow, exact center alignment, five practical touch targets, and a 9 px bottom inset.
+- All five destinations (`profile`, `zoo`, `arena`, `market`, `more`) activate the expected dock item and page at every tested width.
+- Browser runtime errors checked: none.
+- No actionable P0, P1 or P2 mismatch remains. No focused-region issue remains for typography, spacing, color, imagery, icons, copy, interaction state or responsiveness.
+
+## Follow-up polish
+
+- No P3 visual follow-up is required for this scoped correction.
+
+final result: passed
