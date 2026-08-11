@@ -1233,20 +1233,21 @@ async def _init_system_flags(db):
         )
     """)
     _defaults = [
-        ("tab_bp",        "🎫 Боевой пропуск"),
-        ("tab_zoo",       "🐾 Зоопарк"),
-        ("tab_market",    "🛒 Рынок (магазин + гача)"),
-        ("tab_auction",   "🔨 Аукцион"),
-        ("tab_economy",   "💰 Экономика (переводы)"),
-        ("tab_purge",     "🧹 Чистки"),
-        ("tab_cosmetics", "🎨 Косметика / Образы"),
-        ("tab_quests",    "📋 Квесты"),
+        ("tab_bp",                 "🎫 Боевой пропуск", 1),
+        ("tab_zoo",                "🐾 Зоопарк", 1),
+        ("tab_market",             "🛒 Рынок (магазин + гача)", 1),
+        ("tab_auction",            "🔨 Аукцион", 1),
+        ("tab_economy",            "💰 Экономика (переводы)", 1),
+        ("tab_purge",              "🧹 Чистки", 1),
+        ("tab_cosmetics",          "🎨 Косметика / Образы", 1),
+        ("tab_quests",             "📋 Квесты", 1),
+        ("game_reconstruction_v1", "🧭 Reconstruction 3.0 (dev)", 0),
     ]
-    for key, label in _defaults:
+    for key, label, enabled in _defaults:
         await db.execute(
-            "INSERT INTO system_flags (key, enabled, label) VALUES ($1, 1, $2) "
+            "INSERT INTO system_flags (key, enabled, label) VALUES ($1, $2, $3) "
             "ON CONFLICT (key) DO NOTHING",
-            key, label,
+            key, enabled, label,
         )
 
 

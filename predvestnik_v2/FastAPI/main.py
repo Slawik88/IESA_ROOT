@@ -24,7 +24,8 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               dev_console, payments, relics, cosmetics, clans,
                               combat, legal, analytics as analytics_router, showcase,
                               skill_games, battle, clans2, dev_overlay, appeals, account,
-                              barracks as barracks_router)
+                              barracks as barracks_router,
+                              reconstruction as reconstruction_router)
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -40,6 +41,7 @@ from infrastructure.repositories.clans2 import ensure_tables as ensure_clans2
 from infrastructure.repositories.units import ensure_tables as ensure_units
 from infrastructure.repositories.global_permissions import ensure_table as ensure_rank_perms
 from infrastructure.repositories.twin_signals import ensure_table as ensure_twin_signals
+from infrastructure.repositories.reconstruction import ensure_tables as ensure_reconstruction
 from loguru import logger as _log
 
 
@@ -76,6 +78,7 @@ async def lifespan(app: FastAPI):
             (ensure_units,                   "units"),
             (ensure_rank_perms,              "global_rank_permissions"),
             (ensure_twin_signals,            "twin_signals"),
+            (ensure_reconstruction,          "reconstruction"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
@@ -110,7 +113,7 @@ for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           clans.router, combat.router, legal.router, notif_router.router,
           analytics_router.router, showcase.router, skill_games.router, battle.router,
           clans2.router, dev_overlay.router, appeals.router, account.router,
-          barracks_router.router]:
+          barracks_router.router, reconstruction_router.router]:
     app.include_router(r)
 
 

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#070a10">
+  <title>Разлом · боевой автокликер</title>
+  <link rel="stylesheet" href="/static/reconstruction-lab.css">
+</head>
+<body>
+  <main class="clicker-shell">
+    <header class="topbar">
+      <div>
+        <span class="eyebrow">DEV · ЖИВОЙ ДВИЖОК</span>
+        <h1>Разлом колокола</h1>
+      </div>
+      <div class="top-actions">
+        <a href="/" aria-label="На основной сайт">←</a>
+        <button id="resetButton" type="button" aria-label="Начать забег заново">↻</button>
+      </div>
+    </header>
+
+    <nav class="wave-rail" aria-label="Прогресс забега">
+      <span class="current" data-wave-node="1"><i>1</i>Эхо</span>
+      <b></b>
+      <span data-wave-node="2"><i>2</i>Похититель</span>
+      <b></b>
+      <span data-wave-node="3"><i>3</i>Архивариус</span>
+    </nav>
+
+    <section class="battle-card" id="battleCard">
+      <div class="boss-heading">
+        <div>
+          <span class="section-label" id="waveLabel">ВОЛНА 1 ИЗ 3</span>
+          <strong id="bossName">Безымянный отголосок</strong>
+          <small id="bossSubtitle">Поймай ритм колокола</small>
+        </div>
+        <div class="round-clock" id="roundClock"><strong>20,0</strong><span>сек</span></div>
+      </div>
+
+      <div class="boss-health" id="bossHealth" role="progressbar" aria-label="Здоровье противника" aria-valuemin="0">
+        <i id="bossHealthFill"></i>
+        <span id="bossHealthValue">1 300 / 1 300</span>
+      </div>
+
+      <div class="tap-stage" id="tapStage" aria-label="Поле точного сигнала">
+        <div class="window-indicator" id="windowIndicator">
+          <span>Сигнал приближается</span><i><b id="windowProgress"></b></i>
+        </div>
+
+        <div class="echo-core" id="tapCore" aria-label="Руна, которую нужно найти" aria-live="polite">
+          <span class="charge-ring" id="chargeRing"></span>
+          <span class="core-glyph" id="bossGlyph">◉</span>
+          <strong id="corePrompt">СЛУШАЙ</strong>
+          <small id="coreHint">затем найди такой же знак</small>
+        </div>
+
+        <div class="rune-orbit" id="runeOrbit" aria-label="Выбор руны">
+          <button class="strike-rune left" type="button" data-target-slot="left" aria-label="Левая руна">·</button>
+          <button class="strike-rune center" type="button" data-target-slot="center" aria-label="Центральная руна">·</button>
+          <button class="strike-rune right" type="button" data-target-slot="right" aria-label="Правая руна">·</button>
+        </div>
+        <div class="impact-layer" id="impactLayer" aria-hidden="true"></div>
+      </div>
+
+      <div class="combat-readout">
+        <div><span>Серия</span><strong id="comboValue">×0</strong></div>
+        <div><span>Точность</span><strong id="accuracyValue">100%</strong></div>
+        <div><span>Сила знака</span><strong id="tapPowerValue">65</strong></div>
+        <div class="charge-stat"><span>Импульс</span><strong id="chargeValue">0%</strong></div>
+      </div>
+    </section>
+
+    <section class="squad-strip" aria-label="Автоматический отряд" id="squadStrip"></section>
+
+    <section class="event-strip" aria-live="polite">
+      <span class="event-pulse" id="eventPulse">·</span>
+      <p id="lastLog">Нажимай по ядру. Отряд атакует автоматически.</p>
+    </section>
+  </main>
+
+  <div class="choice-layer" id="choiceLayer" hidden>
+    <section class="choice-sheet">
+      <span class="eyebrow">ВОЛНА ПРОЙДЕНА</span>
+      <h2>Одно усиление на следующий бой</h2>
+      <p>Выбор меняет темп, но не добавляет новых кнопок.</p>
+      <div class="upgrade-list" id="upgradeList"></div>
+    </section>
+  </div>
+
+  <div class="result-layer" id="resultLayer" hidden>
+    <section class="result-card">
+      <span class="eyebrow">ЗАБЕГ ЗАВЕРШЁН</span>
+      <div class="result-mark" id="resultMark">✦</div>
+      <h2 id="resultTitle">Колокол отвечает тебе</h2>
+      <p id="resultCopy"></p>
+      <div class="result-stats" id="resultStats"></div>
+      <button id="resultReset" type="button">Ещё один забег</button>
+    </section>
+  </div>
+
+  <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
+  <script src="/static/reconstruction-lab.js" defer></script>
+</body>
+</html>

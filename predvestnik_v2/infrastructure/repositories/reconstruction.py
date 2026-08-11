@@ -1,0 +1,262 @@
+"""Персистентность Reconstruction 3.0.
+
+Все таблицы изолированы от старой экономики. ``revision`` защищает состояние
+боя от двух параллельных действий, а ``gameplay_run_actions`` возвращает тот же
+ответ при сетевом retry с тем же ``action_id``.
+"""
+from __future__ import annotations
+
+import json
+from typing import Any
+
+
+async def ensure_tables(db) -> None:
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS gameplay_progress (
+            user_id            BIGINT NOT NULL,
+            game_version       TEXT NOT NULL,
+            current_encounter  TEXT NOT NULL,
+            completed_json     TEXT NOT NULL DEFAULT '[]',
+            memories_json      TEXT NOT NULL DEFAULT '[]',
+            started_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, game_version)
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS gameplay_runs (
+            id                 BIGSERIAL PRIMARY KEY,
+            user_id            BIGINT NOT NULL,
+            game_version       TEXT NOT NULL,
+            balance_version    TEXT NOT NULL,
+            encounter_id       TEXT NOT NULL,
+            state_json         TEXT NOT NULL,
+            status             TEXT NOT NULL DEFAULT 'active',
+            revision           INTEGER NOT NULL DEFAULT 0,
+            started_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            completed_at       TIMESTAMPTZ NULL
+        )
+    """)
+    await db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_gameplay_active_run "
+        "ON gameplay_runs(user_id, game_version) WHERE status = 'active'"
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_gameplay_runs_user "
+        "ON gameplay_runs(user_id, started_at DESC)"
+    )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS gameplay_run_actions (
+            run_id          BIGINT NOT NULL REFERENCES gameplay_runs(id) ON DELETE CASCADE,
+            action_id       TEXT NOT NULL,
+            request_json    TEXT NOT NULL,
+            response_json   TEXT NOT NULL,
+            created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (run_id, action_id)
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS gameplay_events (
+            id                 BIGSERIAL PRIMARY KEY,
+            user_id            BIGINT NOT NULL,
+            event_name         TEXT NOT NULL,
+            event_version      INTEGER NOT NULL DEFAULT 1,
+            game_version       TEXT NOT NULL,
+            balance_version    TEXT NOT NULL,
+            run_id             BIGINT NULL REFERENCES gameplay_runs(id) ON DELETE SET NULL,
+            source             TEXT NOT NULL DEFAULT 'mini_app',
+            payload_json       TEXT NOT NULL DEFAULT '{}',
+            idempotency_key    TEXT NULL,
+            created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (user_id, idempotency_key)
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_gameplay_events_name_time "
+        "ON gameplay_events(event_name, created_at DESC)"
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_gameplay_events_user_time "
+        "ON gameplay_events(user_id, created_at DESC)"
+    )
+    await db.commit()
+
+
+async def lock_user(db, user_id: int) -> None:
+    """Сериализовать мутации одного игрока внутри внешней транзакции."""
+    async with db.execute("SELECT pg_advisory_xact_lock(?)", (int(user_id),)) as cursor:
+        await cursor.fetchone()
+
+
+def _decode_progress(row: Any) -> dict[str, Any] | None:
+    if not row:
+        return None
+    data = dict(row)
+    data["completed"] = json.loads(data.pop("completed_json") or "[]")
+    data["memories"] = json.loads(data.pop("memories_json") or "[]")
+    return data
+
+
+async def get_progress(db, user_id: int, game_version: str) -> dict[str, Any] | None:
+    async with db.execute(
+        "SELECT * FROM gameplay_progress WHERE user_id = ? AND game_version = ?",
+        (user_id, game_version),
+    ) as cursor:
+        return _decode_progress(await cursor.fetchone())
+
+
+async def ensure_progress(
+    db, user_id: int, game_version: str, first_encounter: str
+) -> dict[str, Any]:
+    await db.execute(
+        "INSERT INTO gameplay_progress (user_id, game_version, current_encounter) "
+        "VALUES (?, ?, ?) ON CONFLICT (user_id, game_version) DO NOTHING",
+        (user_id, game_version, first_encounter),
+    )
+    progress = await get_progress(db, user_id, game_version)
+    if not progress:
+        raise RuntimeError("Не удалось создать прогресс Reconstruction 3.0.")
+    return progress
+
+
+async def save_progress(
+    db,
+    user_id: int,
+    game_version: str,
+    *,
+    current_encounter: str,
+    completed: list[str],
+    memories: list[str],
+) -> None:
+    await db.execute(
+        "UPDATE gameplay_progress SET current_encounter = ?, completed_json = ?, "
+        "memories_json = ?, updated_at = NOW() WHERE user_id = ? AND game_version = ?",
+        (
+            current_encounter,
+            json.dumps(completed, ensure_ascii=False),
+            json.dumps(memories, ensure_ascii=False),
+            user_id,
+            game_version,
+        ),
+    )
+
+
+def _decode_run(row: Any) -> dict[str, Any] | None:
+    if not row:
+        return None
+    data = dict(row)
+    data["state"] = json.loads(data.pop("state_json") or "{}")
+    return data
+
+
+async def get_active_run(db, user_id: int, game_version: str) -> dict[str, Any] | None:
+    async with db.execute(
+        "SELECT * FROM gameplay_runs WHERE user_id = ? AND game_version = ? "
+        "AND status = 'active' ORDER BY id DESC LIMIT 1",
+        (user_id, game_version),
+    ) as cursor:
+        return _decode_run(await cursor.fetchone())
+
+
+async def get_run(db, run_id: int, user_id: int) -> dict[str, Any] | None:
+    async with db.execute(
+        "SELECT * FROM gameplay_runs WHERE id = ? AND user_id = ?",
+        (run_id, user_id),
+    ) as cursor:
+        return _decode_run(await cursor.fetchone())
+
+
+async def create_run(
+    db,
+    user_id: int,
+    game_version: str,
+    balance_version: str,
+    encounter_id: str,
+    state_json: str,
+) -> int:
+    async with db.execute(
+        "INSERT INTO gameplay_runs "
+        "(user_id, game_version, balance_version, encounter_id, state_json) "
+        "VALUES (?, ?, ?, ?, ?) RETURNING id",
+        (user_id, game_version, balance_version, encounter_id, state_json),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return int(row[0])
+
+
+async def save_run_state(
+    db,
+    run_id: int,
+    expected_revision: int,
+    state_json: str,
+    status: str,
+) -> int | None:
+    completed_sql = ", completed_at = NOW()" if status in ("won", "lost", "cancelled") else ""
+    async with db.execute(
+        "UPDATE gameplay_runs SET state_json = ?, status = ?, revision = revision + 1, "
+        f"updated_at = NOW(){completed_sql} "
+        "WHERE id = ? AND revision = ? AND status = 'active' RETURNING revision",
+        (state_json, status, run_id, expected_revision),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return int(row[0]) if row else None
+
+
+async def get_action_response(db, run_id: int, action_id: str) -> dict[str, Any] | None:
+    async with db.execute(
+        "SELECT response_json FROM gameplay_run_actions WHERE run_id = ? AND action_id = ?",
+        (run_id, action_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return json.loads(row[0]) if row else None
+
+
+async def save_action_response(
+    db,
+    run_id: int,
+    action_id: str,
+    request: dict[str, Any],
+    response: dict[str, Any],
+) -> None:
+    await db.execute(
+        "INSERT INTO gameplay_run_actions (run_id, action_id, request_json, response_json) "
+        "VALUES (?, ?, ?, ?) ON CONFLICT (run_id, action_id) DO NOTHING",
+        (
+            run_id,
+            action_id,
+            json.dumps(request, ensure_ascii=False, separators=(",", ":")),
+            json.dumps(response, ensure_ascii=False, separators=(",", ":")),
+        ),
+    )
+
+
+async def record_event(
+    db,
+    *,
+    user_id: int,
+    event_name: str,
+    game_version: str,
+    balance_version: str,
+    run_id: int | None = None,
+    source: str = "mini_app",
+    payload: dict[str, Any] | None = None,
+    idempotency_key: str | None = None,
+) -> bool:
+    async with db.execute(
+        "INSERT INTO gameplay_events "
+        "(user_id, event_name, game_version, balance_version, run_id, source, "
+        "payload_json, idempotency_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT (user_id, idempotency_key) DO NOTHING RETURNING id",
+        (
+            user_id,
+            event_name,
+            game_version,
+            balance_version,
+            run_id,
+            source,
+            json.dumps(payload or {}, ensure_ascii=False, separators=(",", ":")),
+            idempotency_key,
+        ),
+    ) as cursor:
+        return bool(await cursor.fetchone())
