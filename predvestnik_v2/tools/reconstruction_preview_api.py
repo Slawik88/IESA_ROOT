@@ -11,12 +11,13 @@ import pathlib
 import secrets
 import sys
 import threading
+import copy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from services import reconstruction, reconstruction_combat  # noqa: E402
+from services import reconstruction, reconstruction_combat, reconstruction_timing  # noqa: E402
 
 
 PORT = int(os.environ.get("RECON_PREVIEW_PORT", "8403"))
@@ -67,7 +68,9 @@ _STATES = _load_states()
 def _new_state():
     # У каждой вкладки и каждого reset свой run key: локальная статистика может
     # надёжно дедуплицировать завершение, а тестировщики не делят один seed.
-    return reconstruction_combat.new_encounter(seed=secrets.randbelow(2**31 - 1) + 1)
+    state = reconstruction_combat.new_encounter(seed=secrets.randbelow(2**31 - 1) + 1)
+    reconstruction_timing.attach_server_clock(state)
+    return state
 
 
 def _json_bytes(value) -> bytes:
@@ -135,16 +138,32 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"detail": "Ожидался JSON-объект действия."})
             with _LOCK:
                 state = self._state()
-                turn = reconstruction_combat.apply_action(state, body)
+                state_before = copy.deepcopy(state)
+                # Browser regression tests need deterministic short runs.  This
+                # bridge is local-only and never settles rewards; production has
+                # no equivalent header or fixed-step branch.
+                fixed_step = self.headers.get("X-Reconstruction-Test-Clock") == "fixed-step-100"
+                now_ms = None
+                if fixed_step:
+                    clock = state.get(reconstruction_timing.CLOCK_STATE_KEY) or {}
+                    now_ms = int(clock.get("last_server_ms", reconstruction_timing.server_now_ms())) + 100
+                timed_body, timing_result = reconstruction_timing.server_timed_action(
+                    state,
+                    body,
+                    now_ms=now_ms,
+                )
+                turn = reconstruction_combat.apply_action(state, timed_body)
                 if not turn.get("ok"):
+                    _STATES[self._session_key()] = state_before
                     # Dev-вкладка могла пережить hot reload или конец забега. Возврат
                     # актуального state останавливает старый клиент без бесконечного
                     # цикла 400; production-сервис по-прежнему отклоняет такой action.
                     return self._send(200, {
                         "turn": turn,
                         "rejected": True,
-                        "state": reconstruction_combat.public_state(state),
+                        "state": reconstruction_combat.public_state(state_before),
                     })
+                turn["timing"] = timing_result
                 _save_states()
                 return self._send(200, {
                     "turn": turn,

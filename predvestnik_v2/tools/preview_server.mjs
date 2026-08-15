@@ -30,6 +30,7 @@ const RECONSTRUCTION_WATCH_FILES = [
   path.join(HERE, '..', 'core', 'reconstruction.py'),
   path.join(HERE, '..', 'services', 'reconstruction.py'),
   path.join(HERE, '..', 'services', 'reconstruction_combat.py'),
+  path.join(HERE, '..', 'services', 'reconstruction_timing.py'),
 ];
 
 function startReconstructionApi() {
@@ -941,6 +942,9 @@ function proxyReconstruction(req, res, pathname) {
     headers: {
       'content-type': req.headers['content-type'] || 'application/json',
       'x-reconstruction-session': req.headers['x-reconstruction-session'] || 'default',
+      ...(req.headers['x-reconstruction-test-clock']
+        ? { 'x-reconstruction-test-clock': req.headers['x-reconstruction-test-clock'] }
+        : {}),
       ...(req.headers['content-length'] ? { 'content-length': req.headers['content-length'] } : {}),
     },
   }, (upstreamRes) => {

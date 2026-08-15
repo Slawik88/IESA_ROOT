@@ -418,6 +418,13 @@ def apply_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, Any
     if delta_ms < 0:
         return {"ok": False, "error": "Время кадра не может быть отрицательным."}
 
+    applied_delta = min(delta_ms, FRAME_MAX_MS)
+    # Elapsed time is resolved before an optional tap.  Otherwise a client could
+    # wait past the visible signal window and still have the stale tap judged
+    # against the pre-request state.
+    if state["status"] == "active":
+        _advance_time(state, applied_delta)
+
     strike_result = None
     slot = action.get("target_slot")
     if slot is not None:
@@ -426,16 +433,17 @@ def apply_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, Any
         except (TypeError, ValueError):
             return {"ok": False, "error": "challenge_id обязателен для нажатия."}
         strike_result = _strike(state, challenge_id, str(slot))
-    if state["status"] == "active":
-        _advance_time(state, min(delta_ms, FRAME_MAX_MS))
     return {
-        "ok": True, "phase": state["status"], "delta_ms": min(delta_ms, FRAME_MAX_MS),
+        "ok": True, "phase": state["status"], "delta_ms": applied_delta,
         "strike": strike_result,
     }
 
 
 def public_state(state: dict[str, Any]) -> dict[str, Any]:
     view = copy.deepcopy(state)
+    # Wall-clock internals are persistence metadata, not part of the client
+    # authority contract.  The per-turn response exposes only bounded timing.
+    view.pop("_server_clock", None)
     wave = view["wave"]
     wave["time_left_ms"] = max(0, int(wave["duration_ms"]) - int(wave["elapsed_ms"]))
     challenge = view.get("challenge")

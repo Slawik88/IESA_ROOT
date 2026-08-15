@@ -17,9 +17,12 @@ try {
     await page.setViewport({ width, height: 844, deviceScaleFactor: 1 });
     await page.goto(base, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.nb[data-page="arena"]');
-    const preloaderVisible = await page.$eval('#preloader', (node) => getComputedStyle(node).display !== 'none');
+    const preloaderVisible = await page.evaluate(() => {
+      const node = document.getElementById('preloader');
+      return Boolean(node && getComputedStyle(node).display !== 'none');
+    });
     if (preloaderVisible) {
-      await page.click('#preloader');
+      await page.evaluate(() => document.getElementById('preloader')?.click());
       await page.waitForFunction(() => {
         const node = document.getElementById('preloader');
         return !node || node.classList.contains('pl-done');

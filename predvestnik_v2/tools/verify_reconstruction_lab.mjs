@@ -24,6 +24,7 @@ try{
     const page=await browser.newPage();
     const errors=[];
     page.on('pageerror',error=>errors.push(error.message));
+    await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(()=>localStorage.removeItem('reconstruction-mvp-career-v1'));
     await page.setViewport({width,height:width<600?844:900,deviceScaleFactor:1});
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
@@ -271,14 +272,20 @@ try{
     const api=await response.json();
     const number=value=>Math.max(0,Math.round(Number(value)||0)).toLocaleString('ru-RU');
     return {
-      actual:[...document.querySelectorAll('#resultStats strong')].map(node=>node.textContent.trim()),
+      actual:[...document.querySelectorAll('#resultStats span')].map(node=>({
+        value:node.querySelector('strong')?.textContent.trim(),
+        label:[...node.childNodes]
+          .filter(child=>child.nodeType===Node.TEXT_NODE)
+          .map(child=>child.textContent.trim())
+          .join(' '),
+      })),
       expected:[
-        String(api.mastery.correct_taps),
-        `${number(api.accuracy)}%`,
-        String(api.combo.max),
-        String(api.mastery.discharges),
-        String(api.mastery.mistakes),
-        `${Math.round(api.mastery.elapsed_ms/1000)}с`,
+        {value:String(api.mastery.correct_taps),label:'точных'},
+        {value:`${number(api.accuracy)}%`,label:'точность'},
+        {value:String(api.combo.max),label:'макс. серия'},
+        {value:String(api.mastery.mistakes),label:'ошибок'},
+        {value:String(api.mastery.missed_signals),label:'пропущено'},
+        {value:`${Math.round(api.mastery.elapsed_ms/1000)}с`,label:'время'},
       ],
     };
   });
