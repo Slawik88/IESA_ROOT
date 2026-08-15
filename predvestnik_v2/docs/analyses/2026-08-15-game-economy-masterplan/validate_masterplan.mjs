@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
-// Structural checks for the paper design package. This does not validate player
-// behavior; it prevents incomplete event cards and stale production facts from
-// silently entering the approval packet.
+// Structural and consistency checks for the current owner-v3 paper package.
+// This proves reproducibility and internal agreement, not player enjoyment.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -16,11 +15,30 @@ const check = (condition, message) => {
   if (!condition) failures.push(message);
 };
 
-const snapshot = read('PRODUCTION_SNAPSHOT.md');
-check(snapshot.includes('183'), 'Production snapshot must use the fresh 183-account baseline.');
-check(snapshot.includes('2026-08-15 09:48:14 UTC'), 'Production snapshot timestamp is missing or stale.');
-check(snapshot.includes('REPEATABLE READ READ ONLY'), 'Production query mode must be documented.');
+const requiredFiles = [
+  'START_HERE.md',
+  'PRODUCTION_SNAPSHOT.md',
+  'GAME_ECONOMY_OWNER_V3.md',
+  'OWNER_V3_SELF_CRITIQUE.md',
+  'GAME_ECONOMY_MASTER_SPEC.md',
+  'EVENT_ECONOMY_CATALOG.md',
+  'VALIDATION_AND_SELF_CRITIQUE.md',
+  'economy_model_v3.mjs',
+  'artifact.json',
+  'report.html',
+];
+for (const name of requiredFiles) {
+  const target = join(root, name);
+  check(existsSync(target) && statSync(target).size > 0, `${name} is missing or empty.`);
+}
 
+const snapshot = read('PRODUCTION_SNAPSHOT.md');
+check(snapshot.includes('183'), 'Production snapshot must retain the 183-account research baseline.');
+check(snapshot.includes('2026-08-15 09:48:14 UTC'), 'Production snapshot timestamp is missing or stale.');
+check(snapshot.includes('REPEATABLE READ READ ONLY'), 'Production query mode must remain documented.');
+
+// The 40-event v2 catalog remains a complete research inventory. V3 warnings
+// prevent its rejected caps or monetization rules from becoming implementation canon.
 const catalog = read('EVENT_ECONOMY_CATALOG.md');
 const eventMatches = [...catalog.matchAll(/^### (E\d{2})\. ([^\n]+)\n\n([\s\S]*?)(?=^### E\d{2}\.|^---$|^## )/gm)];
 const requiredFields = [
@@ -35,120 +53,117 @@ const requiredFields = [
   'Телеметрия',
   'Конец/миграция',
 ];
-
-check(eventMatches.length === 40, `Expected 40 event contracts, found ${eventMatches.length}.`);
+check(eventMatches.length === 40, `Expected 40 historical event contracts, found ${eventMatches.length}.`);
 eventMatches.forEach((match, index) => {
   const expectedId = `E${String(index + 1).padStart(2, '0')}`;
   check(match[1] === expectedId, `Expected ${expectedId}, found ${match[1]}.`);
   const labels = [...match[3].matchAll(/^- \*\*([^*]+):\*\*/gm)].map((item) => item[1]);
-  check(labels.length === requiredFields.length, `${match[1]} has ${labels.length} fields, expected 10.`);
   requiredFields.forEach((field) => {
     check(labels.filter((label) => label === field).length === 1, `${match[1]} must contain exactly one “${field}” field.`);
   });
 });
+check(catalog.includes('v3'), 'Historical event catalog must point to the owner-v3 override.');
 
-const modelPath = join(root, 'economy_model.mjs');
-const model = JSON.parse(execFileSync(process.execPath, [modelPath], { encoding: 'utf8' }));
-check(model.model_version === 'constitution-v2', 'Stress model/report contract must use constitution-v2.');
-check(model.horizon_weeks === 520, 'Stress model must declare 520 weekly periods.');
-check(model.horizon_days === 3640, 'Stress model horizon must remain the declared 520 weekly periods (3,640 modeled days).');
-check(model.invariants?.weekly_repeatable_mora_cap === 2400, 'Weekly Mora reserve changed unexpectedly.');
-check(model.invariants?.payment_to_combat_power === false, 'Paid-to-power invariant must remain false.');
-check(model.invariants?.payment_to_gameplay_currency === false, 'Payment-to-gameplay-currency invariant must remain false.');
-const main = model.scenarios.find((row) => row.id === 'main');
-const payer = model.scenarios.find((row) => row.id === 'payer');
-check(Boolean(main && payer), 'Main and payer scenarios are required.');
-check(main?.mora_p50_10y === payer?.mora_p50_10y, 'Payer scenario has an economic advantage.');
-check(model.scenarios.every((row) => row.mora_p50_10y >= 0), 'Stress model produced a negative balance.');
-check(!read('economy_model.mjs').includes('earlyMilestonesRemaining'), 'Unpublished 1,000-Mora early milestone grant returned to the model.');
-
-const optionalRequiredAtDelivery = [
-  'GAME_ECONOMY_MASTER_SPEC.md',
-  'VALIDATION_AND_SELF_CRITIQUE.md',
-  'artifact.json',
-  'report.html',
+const v3 = read('GAME_ECONOMY_OWNER_V3.md');
+const v3Rules = [
+  '1 Зарник = 150 Моры',
+  'необратимый обмен Зарники → Мора',
+  'Новый положительный баланс Зарников появляется только из подтверждённой покупки за Telegram Stars',
+  '100 Моры',
+  '75 Моры',
+  '50 Моры',
+  '36 096 XP',
+  'вся новая косметика',
+  'цену только в Зарниках',
+  'Аукцион',
+  'Биржа',
+  '50 дней',
+  '6 300 XP',
+  '50 000 синтетических аккаунтов',
+  'квитанц',
 ];
-optionalRequiredAtDelivery.forEach((name) => {
-  const path = join(root, name);
-  check(existsSync(path) && statSync(path).size > 0, `${name} is missing from the delivery package.`);
-});
+for (const rule of v3Rules) check(v3.includes(rule), `Owner-v3 rule is missing: ${rule}`);
+check(!v3.includes('ЗАРНИКИ МОЖНО'), 'Raw owner comment leaked into the canonical v3 specification.');
+check(!v3.includes('промо-операции'), 'V3 must not mint positive Zarniki from promotions.');
 
-if (existsSync(join(root, 'artifact.json'))) {
-  const artifact = JSON.parse(read('artifact.json'));
-  const artifactRaw = read('artifact.json');
-  check(artifact.surface === 'report', 'artifact.json must use the report surface.');
-  check(Boolean(artifact.manifest?.title), 'artifact.json is missing a manifest title.');
+for (const historicalName of [
+  'GAME_ECONOMY_MASTER_SPEC.md',
+  'EVENT_ECONOMY_CATALOG.md',
+  'VALIDATION_AND_SELF_CRITIQUE.md',
+]) {
+  const historical = read(historicalName);
   check(
-    Array.isArray(artifact.snapshot?.datasets) || typeof artifact.snapshot?.datasets === 'object',
-    'artifact.json is missing snapshot datasets.',
+    historical.includes('v3') && historical.includes('GAME_ECONOMY_OWNER_V3.md'),
+    `${historicalName} must explicitly defer conflicting decisions to owner v3.`,
   );
-  const modelBlock = artifact.manifest?.blocks?.find((block) => block.id === 'model_results')?.body ?? '';
-  const spacedInteger = (value) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
-    .format(value)
-    .replace(/[\u00a0\u202f]/g, ' ');
-  model.scenarios.forEach((scenario) => {
-    check(
-      modelBlock.includes(spacedInteger(scenario.mora_p50_10y)),
-      `Report is stale for ${scenario.id}: missing Mora P50 ${scenario.mora_p50_10y}.`,
-    );
-    check(
-      modelBlock.includes(scenario.sink_source_ratio_p50.toFixed(3).replace('.', ','))
-        || modelBlock.includes(`${(scenario.sink_source_ratio_p50 * 100).toFixed(1).replace('.', ',')}%`),
-      `Report is stale for ${scenario.id}: missing sink/source ${scenario.sink_source_ratio_p50}.`,
-    );
-  });
-  check(
-    artifactRaw.includes('50/145/285') || artifactRaw.includes('50 / 145 / 285'),
-    'Report must use the corrected 2/6/12h expedition rewards.',
-  );
-  check(!artifactRaw.includes('50/145/280'), 'Stale expedition reward 280 remains in report artifact.');
-  check(!artifactRaw.includes('3 650'), 'Stale 3,650-day model horizon remains in report artifact.');
-  check(
-    artifactRaw.includes('Season 1–3')
-      || artifactRaw.includes('Season 1, 2 и 3')
-      || artifactRaw.includes('сезоны 1, 2 и 3'),
-    'Three-season content runway is missing.',
-  );
-  check(artifactRaw.includes('72-час'), 'Chosen legacy crypto settlement is missing.');
-  check(
-    artifactRaw.includes('один `operation_id`')
-      || artifactRaw.includes('один terminal action')
-      || artifactRaw.includes('один идентификатор операции'),
-    'Atomic one-action/one-Mora rule is missing.',
-  );
-  check(
-    artifactRaw.includes('недополученный полный блок из 35') && artifactRaw.includes('остаток от 18'),
-    'Broken-pity settlement is missing or over-compensates already satisfied guarantee blocks.',
-  );
-  check(artifactRaw.includes('0 / 1 / 2') && artifactRaw.includes('витрин'), 'Exact VIP replacement is missing.');
-  check(artifactRaw.includes('45 осмысленных игровых дней'), 'Ten pet roles must be guaranteed within 45 meaningful days.');
-  check(artifactRaw.includes('верхних 10% покупателей') && artifactRaw.includes('≤45%'), 'Market concentration gates are missing.');
-  check(
-    !artifact.manifest.blocks.some((block) => block.type === 'markdown' && /(^|\n)\|[^\n]+\|/.test(block.body ?? '')),
-    'Owner report contains Markdown tables that break the no-JS fallback.',
-  );
+}
 
-  const reportPath = join(root, 'report.html');
-  if (existsSync(reportPath)) {
-    const reportHtml = read('report.html');
-    check(
-      statSync(reportPath).mtimeMs >= statSync(join(root, 'artifact.json')).mtimeMs,
-      'report.html is older than artifact.json; repackage the portable report.',
-    );
-    check(reportHtml.includes('<html lang="ru"'), 'Portable report must declare Russian document language.');
-    const approvalStart = reportHtml.indexOf('data-artifact-block-id="approval_matrix"');
-    const approvalEnd = reportHtml.indexOf('data-artifact-block-id="recommended_next_steps"', approvalStart);
-    const approvalHtml = approvalStart >= 0 && approvalEnd > approvalStart
-      ? reportHtml.slice(approvalStart, approvalEnd)
-      : '';
-    check((approvalHtml.match(/<li>/g) ?? []).length === 18, 'Rendered owner approval checklist must contain exactly 18 decisions.');
-    check(approvalHtml.includes('1 200 Моры'), 'Rendered Mora carry value was split or lost.');
+const modelPath = join(root, 'economy_model_v3.mjs');
+const firstRun = execFileSync(process.execPath, [modelPath], { encoding: 'utf8' });
+const secondRun = execFileSync(process.execPath, [modelPath], { encoding: 'utf8' });
+check(firstRun === secondRun, 'Owner-v3 stress model is not deterministic.');
+const model = JSON.parse(firstRun);
+check(model.model === 'owner-v3-provisional-1', 'Stress model must use owner-v3-provisional-1.');
+check(model.horizon_weeks === 520, 'Stress model must cover 520 weeks.');
+check(model.unit_level_cap_xp === 36096, 'Unit level cap must remain 36,096 XP.');
+check(model.rows?.length === 8, `Expected 8 model personas, found ${model.rows?.length ?? 0}.`);
+check(Array.isArray(model.violations) && model.violations.length === 0, 'Stress model reports invariant violations.');
+check(model.rows.every((row) => row.ending_mora >= 0), 'Stress model produced a negative ending balance.');
+const hostile = model.rows.find((row) => row.persona === 'hostile_bot');
+check(
+  hostile && hostile.accepted_results_per_week / hostile.contracts_per_week < 0.02,
+  'Hostile automation acceptance exceeds the 2% stress threshold.',
+);
+const hoarder = model.rows.find((row) => row.persona === 'hoarder');
+check(hoarder?.ending_mora > 3_000_000, 'Hoarder risk signal disappeared; review model or self-critique.');
+check(
+  read('OWNER_V3_SELF_CRITIQUE.md').includes('3,6 млн Моры'),
+  'Self-critique must disclose the modeled long-term hoarder balance.',
+);
+
+const artifact = JSON.parse(read('artifact.json'));
+const artifactRaw = read('artifact.json');
+check(artifact.surface === 'report', 'artifact.json must use the report surface.');
+check(artifact.manifest?.title === 'Экономика Предвестника v3: решения владельца', 'Artifact title is stale.');
+check(artifact.manifest?.blocks?.length === 21, `Expected 21 report blocks, found ${artifact.manifest?.blocks?.length ?? 0}.`);
+for (const blockId of ['executive_summary', 'owner_decisions', 'model_table', 'blocking_gates', 'caveats']) {
+  check(artifact.manifest.blocks.some((block) => block.id === blockId), `Report block ${blockId} is missing.`);
+}
+check(
+  !artifact.manifest.blocks.some((block) => block.type === 'markdown' && /(^|\n)\|[^\n]+\|/.test(block.body ?? '')),
+  'Owner report contains Markdown tables that break the no-JS fallback.',
+);
+for (const sourceId of ['production_snapshot', 'owner_v3', 'owner_v3_self_critique', 'economy_model']) {
+  check(artifact.sources.some((source) => source.id === sourceId), `Artifact source ${sourceId} is missing.`);
+}
+const modelTable = artifact.manifest.tables.find((table) => table.id === 'v3_model');
+check(Boolean(modelTable), 'V3 model native table is missing.');
+const artifactModelRows = artifact.snapshot?.datasets?.v3_model;
+check(Array.isArray(artifactModelRows) && artifactModelRows.length === model.rows.length, 'Artifact model rows are missing or stale.');
+model.rows.forEach((row, index) => {
+  const rendered = artifactModelRows?.[index];
+  for (const field of ['contracts_per_week', 'first_unit_cap_week', 'earned_mora_10y', 'paid_exchange_mora_10y', 'ending_mora']) {
+    check(rendered?.[field] === row[field], `Artifact model field ${field} is stale for ${row.persona}.`);
   }
+});
+check(artifactRaw.includes('Что пока запрещает включать реальные награды'), 'P0 blocking gates are missing from the owner report.');
+check(!artifactRaw.includes('## Executive Summary'), 'English executive heading remains in the owner report.');
+
+const reportPath = join(root, 'report.html');
+const reportHtml = read('report.html');
+check(statSync(reportPath).mtimeMs >= statSync(join(root, 'artifact.json')).mtimeMs, 'report.html is older than artifact.json.');
+check(reportHtml.includes('<html lang="ru"'), 'Portable report must declare Russian document language.');
+check(reportHtml.includes('Экономика Предвестника v3: решения владельца'), 'Portable report title is stale.');
+check(reportHtml.includes('Что пока запрещает включать реальные награды'), 'Portable report omitted P0 blocking gates.');
+
+const staticReportPath = join(root, '../../../FastAPI/static/economy-masterplan-report.html');
+if (existsSync(staticReportPath)) {
+  check(readFileSync(staticReportPath, 'utf8') === reportHtml, 'Dev-server report copy differs from the canonical report.html.');
 }
 
 if (failures.length) {
-  process.stderr.write(`Masterplan validation failed (${failures.length}):\n- ${failures.join('\n- ')}\n`);
+  process.stderr.write(`Owner-v3 masterplan validation failed (${failures.length}):\n- ${failures.join('\n- ')}\n`);
   process.exitCode = 1;
 } else {
-  process.stdout.write(`Masterplan validation passed: ${eventMatches.length} events, ${model.scenarios.length} stress personas, fresh 183-account baseline.\n`);
+  process.stdout.write(`Owner-v3 masterplan validation passed: ${eventMatches.length} historical events, ${model.rows.length} stress personas, 21 report blocks, fresh 183-account baseline.\n`);
 }
