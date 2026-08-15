@@ -568,7 +568,7 @@ function _handleStartParam(){
     vip:['market','vip'],themes:['profile','themes'],craft:['craft'],inventory:['profile','inv'],inv:['profile','inv'],
     quests:['quests'],ach:['ach'],achievements:['ach'],zoo:['zoo'],pets:['zoo'],bp:['bp'],auction:['auction'],
     arena:['arena'],games:['arena','games'],casino:['arena','games'],relics:['market'],
-    barracks:['arena','barracks'],gates:['arena','gates'] };
+    barracks:['arena','game'],gates:['arena','game'],game:['arena','game'] };
   const t=M[base]; if(t) run(()=>goTo(t[0],t[1]));
 }
 if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}

@@ -5,17 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#070a10">
   <title>Разлом · боевой автокликер</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="/static/reconstruction-lab.css">
 </head>
-<body>
+<body data-runtime="preview" data-api-base="/__reconstruction" data-app-base="">
   <main class="clicker-shell">
     <header class="topbar">
       <div>
-        <span class="eyebrow">DEV · ЖИВОЙ ДВИЖОК</span>
+        <span class="eyebrow" id="runtimeEyebrow">DEV · ЖИВОЙ ДВИЖОК</span>
         <h1>Разлом колокола</h1>
       </div>
       <div class="top-actions">
-        <a href="/" aria-label="На основной сайт">←</a>
+        <a id="homeLink" href="/" aria-label="На основной сайт">←</a>
         <button id="menuButton" type="button" aria-label="Пауза и меню" aria-expanded="false">☰</button>
       </div>
     </header>
@@ -85,7 +86,7 @@
     <section class="menu-card" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
       <header class="tester-card">
         <span class="tester-avatar" id="testerAvatar">◉</span>
-        <span><small>ПРОФИЛЬ ТЕСТИРОВЩИКА</small><strong id="testerName">Гость стенда</strong></span>
+        <span><small id="profileKind">ПРОФИЛЬ ТЕСТИРОВЩИКА</small><strong id="testerName">Гость стенда</strong></span>
         <i id="versionBadge">MVP</i>
       </header>
 
@@ -101,8 +102,8 @@
         <p>Три короткие волны. Смотри на знак в центре и находи такой же среди трёх рун.</p>
         <div class="run-facts">
           <span><strong>3</strong>волны</span>
-          <span><strong>≈ 75 с</strong>забег</span>
-          <span><strong>1</strong>попытка</span>
+          <span><strong>≈ 1 мин</strong>короткий забег</span>
+          <span><strong>1</strong>выбор / сигнал</span>
         </div>
         <div class="menu-note"><b>Важно</b><span>Скорость кликов не даёт преимущество. Побеждает правильный выбор руны.</span></div>
         <div class="compact-actions">
@@ -112,9 +113,9 @@
       </div>
 
       <div class="menu-panel" data-menu-panel="stats" hidden>
-        <span class="eyebrow">ЛОКАЛЬНЫЙ ПРОФИЛЬ</span>
+        <span class="eyebrow" id="statsEyebrow">ЛОКАЛЬНЫЙ ПРОФИЛЬ</span>
         <h2>Твои сигналы</h2>
-        <p>Статистика хранится в этом браузере и не затрагивает валюты или production-прогресс.</p>
+        <p id="statsCopy">Статистика хранится в этом браузере и не затрагивает валюты или production-прогресс.</p>
         <div class="career-grid" id="careerStats"></div>
         <div class="build-history" id="buildHistory"></div>
       </div>
@@ -130,7 +131,7 @@
         <div class="menu-note danger"><b>Ошибка</b><span>Ломает серию, снимает заряд и лечит цель. Фиксированный автоклик проигрывает.</span></div>
       </div>
 
-      <footer class="menu-footer">DEV MVP · без наград, трат и влияния на экономику</footer>
+      <footer class="menu-footer" id="runtimeFooter">DEV MVP · без наград, трат и влияния на экономику</footer>
     </section>
   </div>
 
@@ -149,9 +150,9 @@
 
   <div class="choice-layer" id="choiceLayer" hidden>
     <section class="choice-sheet">
-      <span class="eyebrow">ВОЛНА ПРОЙДЕНА</span>
-      <h2>Выбери направление сборки</h2>
-      <p>У каждого усиления есть преимущество и цена. Выбор действует только в этом забеге.</p>
+      <span class="eyebrow" id="choiceEyebrow">ВОЛНА ПРОЙДЕНА</span>
+      <h2 id="choiceTitle">Выбери направление сборки</h2>
+      <p id="choiceCopy">У каждого усиления есть преимущество и цена. Выбор действует только в этом забеге.</p>
       <div class="upgrade-list" id="upgradeList"></div>
     </section>
   </div>

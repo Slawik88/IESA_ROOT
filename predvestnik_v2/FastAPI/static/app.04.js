@@ -44,7 +44,21 @@ setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExp
 
 // ── Arena ─────────────────────────────────────────────────────────────────────
 // Боёвка 3.0: Казарма (юниты) + Врата (бои отрядом) + Рейды/Игры/Ивенты.
-const _ARENA_TABS=['barracks','gates','raids','games','events'];
+const _ARENA_TABS=['game','games','events'];
+function openReconstructionGame(){ location.href=BASE+'/game'; }
+function loadReconstructionHub(){
+  const host=el('game-hub'); if(!host)return;
+  host.innerHTML=`<section class="recon-entry-card">
+    <div class="recon-entry-mark">◉</div>
+    <div class="recon-entry-copy">
+      <span class="recon-entry-kicker">НОВАЯ БОЕВАЯ СИСТЕМА</span>
+      <h2>Разлом колокола</h2>
+      <p>Три короткие волны. Найди правильную руну, удержи серию и собери усиления между волнами.</p>
+      <div class="recon-entry-facts"><span>≈ 75 сек</span><span>3 волны</span><span>без спама</span></div>
+    </div>
+    <button class="btn btn-gold recon-entry-action" onclick="openReconstructionGame()">Начать забег <b>›</b></button>
+  </section>`;
+}
 function loadArena(){
   const i=Math.max(0,_ARENA_TABS.indexOf(_arenaTab));
   swArena(_ARENA_TABS[i],document.querySelectorAll('#pg-arena .tb')[i]);
@@ -55,7 +69,7 @@ function swArena(tab,btn) {
   if(btn)btn.classList.add('active');
   _ARENA_TABS.forEach(t=>{const e=el('ar-'+t); if(e)e.style.display=t===tab?'':'none';});
   _trackSubtab('arena/'+tab);
-  ({barracks:loadBarracks,gates:loadGates,raids:loadRaid,games:loadSkillGames,events:loadEvents}[tab]||loadBarracks)();
+  ({game:loadReconstructionHub,games:loadSkillGames,events:loadEvents}[tab]||loadReconstructionHub)();
 }
 const QUEST_NAMES = {
   msg_15:     {n:'💬 Болтун',         d:'Напиши 15 сообщений в чате'},

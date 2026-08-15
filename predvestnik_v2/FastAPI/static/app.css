@@ -4968,3 +4968,64 @@ dialog .sheet {
 @media (prefers-reduced-motion: reduce) {
   .profile-showcase-card *, .profile-card-actions *, .qa-row * { scroll-behavior: auto; }
 }
+
+/* Reconstruction 3.0 — neutral entry point; the battle owns its full-screen canvas. */
+.recon-entry-card {
+  position: relative;
+  min-height: 330px;
+  padding: 22px 18px 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: 1px solid var(--border2);
+  border-radius: 18px;
+  background: linear-gradient(155deg, rgba(23,31,44,.96), rgba(10,14,22,.98));
+}
+.recon-entry-card::before {
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  top: -118px;
+  right: -102px;
+  border: 1px solid rgba(105,194,207,.12);
+  border-radius: 50%;
+}
+.recon-entry-mark {
+  width: 82px;
+  height: 82px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(105,194,207,.3);
+  border-radius: 50%;
+  background: rgba(105,194,207,.07);
+  color: #c8edf0;
+  font-size: 35px;
+}
+.recon-entry-copy { margin-top: 24px; max-width: 340px; }
+.recon-entry-kicker {
+  color: var(--gold2);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+.recon-entry-copy h2 { margin: 6px 0; font-size: 22px; letter-spacing: -.03em; }
+.recon-entry-copy p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+.recon-entry-facts { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+.recon-entry-facts span {
+  padding: 5px 8px;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  color: var(--dim);
+  font-size: 8px;
+}
+.recon-entry-action {
+  width: auto;
+  min-height: 40px;
+  margin-top: auto;
+  padding: 0 13px;
+  border-radius: 10px;
+  font-size: 10px;
+}
+.recon-entry-action b { margin-left: 8px; font-size: 15px; }

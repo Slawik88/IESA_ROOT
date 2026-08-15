@@ -245,6 +245,8 @@ _APP_JS_PARTS = [f"app.{i:02d}.js" for i in range(1, 12)]  # app.01.js … app.1
 _ASSET_VER = str(int(max(
     *[os.path.getmtime(os.path.join(_STATIC_DIR, p)) for p in _APP_JS_PARTS],
     os.path.getmtime(os.path.join(_STATIC_DIR, "app.css")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "reconstruction-lab.css")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "reconstruction-lab.js")),
 )))
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
 # routing prefix regardless of trailing slash in the document URL.
@@ -260,6 +262,22 @@ _APP_JS = "".join(_read_static(p) for p in _APP_JS_PARTS)
 # БЛОК 25: dev-оверлей — отдельный скрипт (НЕ в склейке), активируется только
 # после 200 от /admin/dev-overlay/check; данные за гейтом на бэке.
 _APP_DEVMODE_JS = _read_static("app.devmode.js")
+_RECONSTRUCTION_CSS = _read_static("reconstruction-lab.css")
+_RECONSTRUCTION_JS = _read_static("reconstruction-lab.js")
+_RECONSTRUCTION_HTML = (
+    _read_static("reconstruction-lab.html")
+    .replace('data-runtime="preview"', 'data-runtime="production"')
+    .replace('data-api-base="/__reconstruction"', 'data-api-base=""')
+    .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
+    .replace(
+        'href="/static/reconstruction-lab.css"',
+        f'href="{_ASSET_BASE}/static/reconstruction-lab.css?v={_ASSET_VER}"',
+    )
+    .replace(
+        'src="/static/reconstruction-lab.js"',
+        f'src="{_ASSET_BASE}/static/reconstruction-lab.js?v={_ASSET_VER}"',
+    )
+)
 # Лента «Что нового»: владелец правит FastAPI/static/updates.json как текст
 # (при деплое перечитывается). Отдаётся как обычный JSON — фронт рендерит страницу.
 _UPDATES_JSON = _read_static("updates.json")
@@ -268,6 +286,11 @@ _UPDATES_JSON = _read_static("updates.json")
 @app.get("/", response_class=HTMLResponse)
 async def mini_app():
     return HTMLResponse(_INDEX_HTML)
+
+
+@app.get("/game", response_class=HTMLResponse)
+async def reconstruction_game():
+    return HTMLResponse(_RECONSTRUCTION_HTML)
 
 
 @app.get("/updates.json")
@@ -288,3 +311,13 @@ async def static_js():
 @app.get("/static/app.devmode.js")
 async def static_devmode_js():
     return Response(_APP_DEVMODE_JS, media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/reconstruction-lab.css")
+async def reconstruction_css():
+    return Response(_RECONSTRUCTION_CSS, media_type="text/css; charset=utf-8")
+
+
+@app.get("/static/reconstruction-lab.js")
+async def reconstruction_js():
+    return Response(_RECONSTRUCTION_JS, media_type="application/javascript; charset=utf-8")

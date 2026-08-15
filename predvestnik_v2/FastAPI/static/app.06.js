@@ -414,7 +414,7 @@ function _giftBuy(rid, cid, btn){
 // Здесь остались только точка возврата после боя и легаси-алиас входа во Врата.
 let _btBackFn=null;   // куда возвращаться после боя (Врата/Бездна/Война)
 function _btBack(){ const f=_btBackFn; _b3Close(); (f||loadGates)(); }
-function openShadowGates(){ CM(); goTo('arena','gates'); }
+function openShadowGates(){ CM(); openReconstructionGame(); }
 // ── Клановые Рейды (БЛОК19 Ч.6, замена PvP) ─────────────────────────────────────
 let _raidData=null;
 function loadRaid(){
