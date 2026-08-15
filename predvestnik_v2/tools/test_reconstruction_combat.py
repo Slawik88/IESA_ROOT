@@ -99,6 +99,26 @@ assert missed_view["signals_resolved"] == 1
 assert missed_view["accuracy"] == 0.0
 assert missed_view["tap_accuracy"] is None
 
+# Время запроса применяется до удара: просроченный правильный символ не может
+# быть принят только потому, что клиент прислал его вместе с поздним frame.
+late = combat.new_encounter(seed=11)
+challenge = open_signal(late)
+remaining = challenge["expires_at_ms"] - late["wave"]["elapsed_ms"]
+while remaining > 1:
+    act(late, type="frame", delta_ms=min(500, remaining - 1))
+    remaining = late["challenge"]["expires_at_ms"] - late["wave"]["elapsed_ms"]
+late_result = act(
+    late,
+    type="frame",
+    delta_ms=1,
+    challenge_id=challenge["id"],
+    target_slot=correct_slot(challenge),
+)
+assert late_result["strike"]["accepted"] is False
+assert late_result["strike"]["reason"] in {"no_active_signal", "stale_signal"}
+assert late["mastery"]["correct_taps"] == 0
+assert late["mastery"]["missed_signals"] == 1
+
 # Простой автоклик по одной координате не проходит первую волну ни на одном из
 # проверяемых seed: позиции выдаются перемешанными сбалансированными тройками.
 for seed in range(1, 33):

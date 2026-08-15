@@ -144,6 +144,14 @@ async def main():
     memory = MemoryRepo()
     original = {}
     original_randbelow = service.secrets.randbelow
+    original_server_now_ms = service.timing.server_now_ms
+    fake_clock = {"now": 1_000_000}
+
+    def server_now_ms():
+        fake_clock["now"] += 100
+        return fake_clock["now"]
+
+    service.timing.server_now_ms = server_now_ms
     seeded_runs = iter((101, 202, 303))
     service.secrets.randbelow = lambda _upper: next(seeded_runs)
     for name in (
@@ -266,6 +274,9 @@ async def main():
         assert economy_policy["settlement_mode"] == "shadow_only"
         assert economy_policy["real_rewards_enabled"] is False
         assert economy_policy["unit_level_cap_xp"] == 36_096
+        timing_policy = overview["content"]["timing_policy"]
+        assert timing_policy["mode"] == "server_wall_clock"
+        assert timing_policy["client_delta_ms_ignored"] is True
 
         chosen = await service.choose_memory(db, user_id, "m_mobile_oath")
         chosen_again = await service.choose_memory(db, user_id, "m_mobile_oath")
@@ -304,6 +315,7 @@ async def main():
         assert len(cancel_events) == 1
     finally:
         service.secrets.randbelow = original_randbelow
+        service.timing.server_now_ms = original_server_now_ms
         for name, value in original.items():
             setattr(service.repo, name, value)
         service.event_repo.record_event = original_event_writer

@@ -18,6 +18,7 @@ from core.economy_v3 import public_policy_manifest
 from infrastructure.repositories import gameplay_events as event_repo
 from infrastructure.repositories import reconstruction as repo
 from services import reconstruction_combat as combat
+from services import reconstruction_timing as timing
 
 
 FIRST_ENCOUNTER = "e01_two_bells"
@@ -68,6 +69,7 @@ def content_manifest() -> dict[str, Any]:
         "balance_version": BALANCE_VERSION,
         "feature_flag": FEATURE_FLAG_KEY,
         "mode": "advanced_clicker",
+        "timing_policy": timing.public_timing_manifest(),
         "economy_policy": public_policy_manifest(),
         "starter_units": units,
         "clicker_upgrades": [
@@ -164,6 +166,7 @@ async def start_encounter(
             encounter_id,
             seed=secrets.randbelow(2**31 - 1) + 1,
         )
+        timing.attach_server_clock(state)
         state["run_kind"] = "practice" if practice else "campaign"
         run_id = await repo.create_run(
             db, user_id, GAME_VERSION, BALANCE_VERSION, encounter_id, combat.dumps(state)
@@ -264,9 +267,11 @@ async def apply_run_action(
             for option in state.get("reward_options", [])
             if option.get("id")
         ]
-        result = combat.apply_action(state, action)
+        timed_action, timing_result = timing.server_timed_action(state, action)
+        result = combat.apply_action(state, timed_action)
         if not result.get("ok"):
             raise ReconstructionError(str(result.get("error") or "Действие отклонено."))
+        result["timing"] = timing_result
         # Межволновый выбор — часть незавершённого забега. В БД такой run остаётся
         # active, иначе частичный unique-index и optimistic UPDATE сочтут его
         # завершённым и не дадут принять выбранное усиление.
@@ -300,6 +305,7 @@ async def apply_run_action(
                     "damage": strike.get("damage"),
                     "discharged": bool(strike.get("discharged", False)),
                     "reason": strike.get("reason"),
+                    "server_delta_ms": timing_result["applied_ms"],
                     "legal_options_count": len(challenge_before.get("options") or []),
                 },
                 idempotency_key=f"run:{run_id}:action:{action_id}",
