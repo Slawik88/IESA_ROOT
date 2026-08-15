@@ -262,6 +262,10 @@ async def main():
         assert sum(memory.stats["upgrades"].values()) == 2
         overview = await service.overview(db, user_id)
         assert overview["stats"]["runs_won"] == 1
+        economy_policy = overview["content"]["economy_policy"]
+        assert economy_policy["settlement_mode"] == "shadow_only"
+        assert economy_policy["real_rewards_enabled"] is False
+        assert economy_policy["unit_level_cap_xp"] == 36_096
 
         chosen = await service.choose_memory(db, user_id, "m_mobile_oath")
         chosen_again = await service.choose_memory(db, user_id, "m_mobile_oath")

@@ -14,6 +14,7 @@ from core.reconstruction import (
     MEMORIES,
     STARTER_UNITS,
 )
+from core.economy_v3 import public_policy_manifest
 from infrastructure.repositories import gameplay_events as event_repo
 from infrastructure.repositories import reconstruction as repo
 from services import reconstruction_combat as combat
@@ -67,6 +68,7 @@ def content_manifest() -> dict[str, Any]:
         "balance_version": BALANCE_VERSION,
         "feature_flag": FEATURE_FLAG_KEY,
         "mode": "advanced_clicker",
+        "economy_policy": public_policy_manifest(),
         "starter_units": units,
         "clicker_upgrades": [
             {"id": upgrade_id, **copy.deepcopy(upgrade)}
