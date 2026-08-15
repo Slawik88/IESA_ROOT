@@ -1,7 +1,12 @@
 (() => {
   'use strict';
 
-  const API = '/__reconstruction';
+  const runtime = document.body.dataset.runtime || 'preview';
+  const production = runtime === 'production';
+  const appBase = (document.body.dataset.appBase || '').replace(/\/$/, '');
+  const API = production
+    ? `${appBase}/reconstruction`
+    : (document.body.dataset.apiBase || '/__reconstruction');
   const FRAME_MS = 100;
   const SESSION_STORAGE_KEY = 'reconstruction-preview-session';
   const STATS_STORAGE_KEY = 'reconstruction-mvp-career-v1';
@@ -31,6 +36,21 @@
   let lastFrameAt = performance.now();
   let lastEventId = 0;
   let toastTimer = null;
+  let runId = null;
+  let progress = null;
+  let pendingMemory = null;
+  let actionSequence = 0;
+
+  document.getElementById('homeLink').href = `${appBase}/` || '/';
+  if (production) {
+    document.getElementById('runtimeEyebrow').textContent = 'БОЕВАЯ СИСТЕМА';
+    document.getElementById('profileKind').textContent = 'ПРОФИЛЬ ИГРОКА';
+    document.getElementById('statsEyebrow').textContent = 'ПРОФИЛЬ РАЗЛОМА';
+    document.getElementById('statsCopy').textContent =
+      'Серверная статистика завершённых забегов. Пропуски входят в расчёт точности.';
+    document.getElementById('runtimeFooter').textContent =
+      'MVP · прогресс и статистика сохраняются в профиле';
+  }
 
   const emptyCareer = () => ({
     runsStarted: 0,
@@ -49,6 +69,7 @@
   });
 
   function loadCareer() {
+    if (production) return emptyCareer();
     try {
       const value = JSON.parse(localStorage.getItem(STATS_STORAGE_KEY) || '{}');
       return { ...emptyCareer(), ...(value && typeof value === 'object' ? value : {}) };
@@ -63,10 +84,13 @@
   })[char]);
   const number = (value) => Math.max(0, Math.round(Number(value) || 0)).toLocaleString('ru-RU');
   const percent = (value) => value === null || value === undefined ? '—' : `${number(value)}%`;
-  const runKey = () => state ? `${state.game_version}:${state.seed}` : '';
+  const runKey = () => state
+    ? (production ? String(runId || '') : `${state.game_version}:${state.seed}`)
+    : '';
   const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function saveCareer() {
+    if (production) return;
     career.startedRunKeys = [...new Set(career.startedRunKeys)].slice(-40);
     career.completedRunKeys = [...new Set(career.completedRunKeys)].slice(-40);
     try { localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(career)); } catch (_) { /* optional */ }
@@ -105,6 +129,7 @@
   }
 
   function recordRunStarted() {
+    if (production) return;
     const key = runKey();
     if (!key || career.startedRunKeys.includes(key)) return;
     career.startedRunKeys.push(key);
@@ -113,6 +138,7 @@
   }
 
   function recordRunCompleted() {
+    if (production) return;
     const key = runKey();
     if (!key || !['won', 'lost'].includes(state?.status) || career.completedRunKeys.includes(key)) return;
     recordRunStarted();
@@ -143,7 +169,14 @@
         ...options,
         headers: {
           'content-type': 'application/json',
-          'x-reconstruction-session': previewSession,
+          ...(production ? {
+            ...(window.Telegram?.WebApp?.initData
+              ? { 'x-init-data': window.Telegram.WebApp.initData }
+              : {}),
+            ...(localStorage.getItem('pv_sess')
+              ? { 'x-session-token': localStorage.getItem('pv_sess') }
+              : {}),
+          } : { 'x-reconstruction-session': previewSession }),
           ...(options.headers || {}),
         },
       });
@@ -153,6 +186,24 @@
     }
     if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
     return data;
+  }
+
+  function applyCareerStats(stats) {
+    if (!stats || !production) return;
+    career = {
+      ...emptyCareer(),
+      runsStarted: Number(stats.runs_started) || 0,
+      runsWon: Number(stats.runs_won) || 0,
+      runsLost: Number(stats.runs_lost) || 0,
+      correctTaps: Number(stats.correct_taps) || 0,
+      totalTaps: Number(stats.total_taps) || 0,
+      mistakes: Number(stats.mistakes) || 0,
+      missedSignals: Number(stats.missed_signals) || 0,
+      bestCombo: Number(stats.best_combo) || 0,
+      fastestWinMs: stats.fastest_win_ms == null ? null : Number(stats.fastest_win_ms),
+      totalPlayMs: Number(stats.total_play_ms) || 0,
+      upgrades: stats.upgrades || {},
+    };
   }
 
   function notify(message, error = false) {
@@ -234,6 +285,7 @@
   }
 
   function renderRunes() {
+    if (!state) return;
     const challenge = state.challenge;
     const options = new Map((challenge?.options || []).map((option) => [option.slot, option.symbol]));
     orbit.querySelectorAll('[data-target-slot]').forEach((button) => {
@@ -247,6 +299,10 @@
   function renderChoice() {
     if (state.status !== 'reward' || ['menu', 'pause', 'result'].includes(currentView)) return;
     playing = false;
+    document.getElementById('choiceEyebrow').textContent = 'ВОЛНА ПРОЙДЕНА';
+    document.getElementById('choiceTitle').textContent = 'Выбери направление сборки';
+    document.getElementById('choiceCopy').textContent =
+      'У каждого усиления есть преимущество и цена. Выбор действует только в этом забеге.';
     document.getElementById('upgradeList').innerHTML = state.reward_options.map((upgrade) => `
       <button class="upgrade-card" type="button" data-upgrade-id="${esc(upgrade.id)}">
         <span>${esc(upgrade.emoji)}</span>
@@ -254,6 +310,27 @@
         <b>›</b>
       </button>`).join('');
     showOnly('choice');
+  }
+
+  function showMemoryChoice() {
+    const choices = pendingMemory?.choices || [];
+    if (!choices.length) return false;
+    playing = false;
+    document.getElementById('choiceEyebrow').textContent = 'ПЕРВАЯ ПОБЕДА';
+    document.getElementById('choiceTitle').textContent = 'Сохрани одну Память';
+    document.getElementById('choiceCopy').textContent =
+      'Это постоянный выбор профиля. Он не тратит валюту и останется после забега.';
+    document.getElementById('upgradeList').innerHTML = choices.map((memory) => {
+      const unit = (manifest?.starter_units || []).find((item) => item.id === memory.unit_id);
+      return `
+      <button class="upgrade-card" type="button" data-memory-id="${esc(memory.id)}">
+        <span>${esc(unit?.emoji || '◌')}</span>
+        <span class="upgrade-copy"><em>ПОСТОЯННАЯ ПАМЯТЬ</em><strong>${esc(memory.name)}</strong><small>${esc(memory.effect)}</small><small class="tradeoff">− ${esc(memory.tradeoff)}</small></span>
+        <b>›</b>
+      </button>`;
+    }).join('');
+    showOnly('choice');
+    return true;
   }
 
   function resultSummary() {
@@ -269,30 +346,32 @@
     document.getElementById('resultMark').textContent = won ? '✦' : '◌';
     document.getElementById('resultTitle').textContent = won ? 'Колокол отвечает тебе' : 'Эхо погасло';
     document.getElementById('resultCopy').textContent = won
-      ? 'Три волны пройдены точностью, а выбранные усиления сложились в полноценную сборку.'
+      ? 'Ты точно прошёл три волны, а выбранные усиления сложились в полноценную сборку.'
       : 'Посмотри на знак в центре и выбирай его отражение. Частота нажатий не заменяет точность.';
     document.getElementById('resultStats').innerHTML = [
       [state.mastery.correct_taps, 'точных'],
       [percent(state.accuracy), 'точность'],
       [state.combo.max, 'макс. серия'],
-      [state.mastery.discharges, 'разрядов'],
       [state.mastery.mistakes, 'ошибок'],
+      [state.mastery.missed_signals, 'пропущено'],
       [`${Math.round(state.mastery.elapsed_ms / 1000)}с`, 'время'],
     ].map(([value, label]) => `<span><strong>${esc(value)}</strong>${esc(label)}</span>`).join('');
+    document.getElementById('resultReset').innerHTML = pendingMemory
+      ? 'Выбрать Память <span>›</span>'
+      : 'Ещё один забег <span>›</span>';
     showOnly('result');
   }
 
   function renderCareer() {
     const attempts = (Number(career.correctTaps) || 0) + (Number(career.mistakes) || 0) + (Number(career.missedSignals) || 0);
     const accuracy = attempts ? Math.round(career.correctTaps / attempts * 1000) / 10 : null;
-    const fastest = career.fastestWinMs === null ? '—' : `${Math.round(career.fastestWinMs / 1000)}с`;
     document.getElementById('careerStats').innerHTML = [
       [career.runsStarted, 'забегов'],
       [career.runsWon, 'побед'],
       [percent(accuracy), 'точность'],
       [career.bestCombo, 'лучшая серия'],
-      [fastest, 'быстрая победа'],
       [career.mistakes, 'ошибок'],
+      [career.missedSignals, 'пропущено'],
     ].map(([value, label]) => `<span><strong>${esc(value)}</strong>${esc(label)}</span>`).join('');
     const catalog = new Map((manifest?.clicker_upgrades || []).map((item) => [item.id, item]));
     const favorites = Object.entries(career.upgrades || {}).sort((a, b) => b[1] - a[1]);
@@ -305,10 +384,16 @@
   }
 
   function refreshMenu() {
-    if (!state) return;
-    const resumable = state.status === 'reward' || (state.status === 'active' && state.wave.elapsed_ms > 0);
     const startButton = document.getElementById('startRunButton');
-    startButton.innerHTML = `${resumable ? 'Продолжить забег' : state.status === 'active' ? 'Начать забег' : 'Новый забег'} <span>›</span>`;
+    const resumable = Boolean(
+      state && (state.status === 'reward' || (state.status === 'active' && state.wave.elapsed_ms > 0))
+    );
+    const label = pendingMemory
+      ? 'Выбрать Память'
+      : resumable ? 'Продолжить забег'
+        : state?.status === 'active' ? 'Начать забег'
+          : state ? 'Новый забег' : 'Начать первый забег';
+    startButton.innerHTML = `${label} <span>›</span>`;
     document.getElementById('newRunButton').hidden = !resumable;
     document.getElementById('versionBadge').textContent = manifest?.game_version?.replace('3.0.0-', '') || 'MVP';
     renderCareer();
@@ -432,6 +517,84 @@
     haptic('light');
   }
 
+  function nextActionId() {
+    actionSequence += 1;
+    const nonce = globalThis.crypto?.randomUUID?.()
+      || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    return `web:${actionSequence}:${nonce}`.slice(0, 96);
+  }
+
+  async function submitAction(payload) {
+    if (!production) {
+      return jsonFetch('/action', {
+        method: 'POST', body: JSON.stringify(payload),
+      });
+    }
+    if (!runId) throw new Error('Нет активного забега.');
+    const data = await jsonFetch(`/runs/${runId}/actions`, {
+      method: 'POST',
+      body: JSON.stringify({ action_id: nextActionId(), ...payload }),
+    });
+    if (data.career_stats) applyCareerStats(data.career_stats);
+    if (data.pending_memory) {
+      pendingMemory = data.pending_memory;
+      progress = {
+        ...(progress || {}),
+        completed: [...new Set([
+          ...(progress?.completed || []),
+          data.pending_memory.encounter_id,
+        ])],
+      };
+    }
+    return { state: data, turn: data.turn, rejected: false };
+  }
+
+  async function startRun() {
+    if (!production) return jsonFetch('/reset', { method: 'POST', body: '{}' });
+    const practice = Boolean((progress?.completed || []).includes('e01_two_bells'));
+    const data = await jsonFetch('/start', {
+      method: 'POST',
+      body: JSON.stringify({ encounter_id: 'e01_two_bells', practice }),
+    });
+    runId = data.run_id;
+    if (data.career_stats) applyCareerStats(data.career_stats);
+    return data;
+  }
+
+  async function cancelRunIfActive() {
+    if (!production || !runId || ['won', 'lost'].includes(state?.status)) return;
+    await jsonFetch(`/runs/${runId}/cancel`, { method: 'POST', body: '{}' });
+    runId = null;
+    state = null;
+  }
+
+  async function chooseMemory(memoryId) {
+    if (!production || busy) return;
+    busy = true;
+    try {
+      await jsonFetch('/memory', {
+        method: 'POST', body: JSON.stringify({ memory_id: memoryId }),
+      });
+      pendingMemory = null;
+      progress = {
+        ...(progress || {}),
+        memories: [...new Set([...(progress?.memories || []), memoryId])],
+      };
+      haptic('medium');
+      notify('Память сохранена в профиле');
+      if (state && ['won', 'lost'].includes(state.status)) {
+        showOnly('result');
+        renderResult();
+      }
+      else showOnly('menu', 'play');
+      refreshMenu();
+    } catch (error) {
+      notify(error.message, true);
+    } finally {
+      busy = false;
+    }
+  }
+
   async function sendFrame() {
     if (busy || !playing || !state || state.status !== 'active') return;
     const now = performance.now();
@@ -446,7 +609,7 @@
     }
     busy = true;
     try {
-      const data = await jsonFetch('/action', { method: 'POST', body: JSON.stringify(payload) });
+      const data = await submitAction(payload);
       state = data.state;
       if (data.rejected) pendingStrike = null;
       render();
@@ -462,9 +625,7 @@
     if (busy) return;
     busy = true;
     try {
-      const data = await jsonFetch('/action', {
-        method: 'POST', body: JSON.stringify({ type: 'choose_upgrade', upgrade_id: upgradeId }),
-      });
+      const data = await submitAction({ type: 'choose_upgrade', upgrade_id: upgradeId });
       state = data.state;
       pendingStrike = null;
       lastFrameAt = performance.now();
@@ -484,7 +645,8 @@
     busy = true;
     playing = false;
     try {
-      state = await jsonFetch('/reset', { method: 'POST', body: '{}' });
+      await cancelRunIfActive();
+      state = await startRun();
       pendingStrike = null;
       lastFrameAt = performance.now();
       lastEventId = state.last_event?.id || 0;
@@ -504,7 +666,8 @@
   }
 
   async function startFromMenu() {
-    if (['won', 'lost'].includes(state.status)) {
+    if (pendingMemory && showMemoryChoice()) return;
+    if (!state || ['won', 'lost'].includes(state.status)) {
       await reset(true);
       return;
     }
@@ -527,6 +690,11 @@
     if (document.hidden && playing) openPause();
   });
   document.getElementById('upgradeList').addEventListener('click', (event) => {
+    const memory = event.target.closest('[data-memory-id]');
+    if (memory) {
+      chooseMemory(memory.dataset.memoryId);
+      return;
+    }
     const card = event.target.closest('[data-upgrade-id]');
     if (card) chooseUpgrade(card.dataset.upgradeId);
   });
@@ -540,7 +708,10 @@
   document.getElementById('continueButton').addEventListener('click', continueRun);
   document.getElementById('pauseMenuButton').addEventListener('click', () => openMenu('play'));
   document.getElementById('restartButton').addEventListener('click', () => reset(true));
-  document.getElementById('resultReset').addEventListener('click', () => reset(true));
+  document.getElementById('resultReset').addEventListener('click', () => {
+    if (pendingMemory && showMemoryChoice()) return;
+    reset(true);
+  });
   document.getElementById('resultMenu').addEventListener('click', () => openMenu('stats'));
   document.getElementById('copyResult').addEventListener('click', async () => {
     try {
@@ -557,13 +728,29 @@
   } catch (_) { /* optional */ }
   setTesterIdentity();
 
-  Promise.all([jsonFetch('/manifest'), jsonFetch('/state')])
-    .then(([manifestData, stateData]) => {
+  const bootstrap = production
+    ? jsonFetch('').then((overview) => {
+      manifest = overview.content;
+      progress = overview.progress;
+      pendingMemory = overview.progress?.pending_memory || null;
+      state = overview.active_run || null;
+      runId = state?.run_id || null;
+      applyCareerStats(overview.stats);
+    })
+    : Promise.all([jsonFetch('/manifest'), jsonFetch('/state')]).then(([manifestData, stateData]) => {
       manifest = manifestData;
       state = stateData;
-      lastEventId = state.last_event?.id || 0;
+    });
+
+  bootstrap
+    .then(() => {
+      lastEventId = state?.last_event?.id || 0;
       const desired = savedUiState();
-      if (state.status === 'reward') {
+      if (pendingMemory && !state) {
+        showMemoryChoice();
+      } else if (!state) {
+        showOnly('menu', desired.tab, false);
+      } else if (state.status === 'reward') {
         showOnly(desired.view === 'menu' ? 'menu' : 'choice', desired.tab, false);
       } else if (['won', 'lost'].includes(state.status)) {
         showOnly(desired.view === 'menu' ? 'menu' : 'result', desired.tab, false);
@@ -583,11 +770,13 @@
     })
     .catch((error) => notify(error.message, true));
 
-  const source = new EventSource('/__preview/live');
-  let connected = false;
-  source.addEventListener('open', () => {
-    if (connected) location.reload();
-    connected = true;
-  });
-  source.addEventListener('reload', () => location.reload());
+  if (!production) {
+    const source = new EventSource('/__preview/live');
+    let connected = false;
+    source.addEventListener('open', () => {
+      if (connected) location.reload();
+      connected = true;
+    });
+    source.addEventListener('reload', () => location.reload());
+  }
 })();

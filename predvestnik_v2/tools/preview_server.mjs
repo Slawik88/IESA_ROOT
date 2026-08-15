@@ -1005,6 +1005,7 @@ const server = http.createServer(async (req, res) => {
 
   if (p === '/__preview/live' && req.method === 'GET') return attachLiveReload(req, res);
   if (p.startsWith('/__reconstruction')) return proxyReconstruction(req, res, p);
+  if (p === '/game') return send(res, 200, read('reconstruction-lab.html'), 'text/html; charset=utf-8');
   if (p === '/' || p === '/index.html') return send(res, 200, indexHtml(), 'text/html; charset=utf-8');
   if (p === '/static/app.css') return send(res, 200, read('app.css'), 'text/css; charset=utf-8');
   if (p === '/static/app.js') return send(res, 200, PARTS.map(read).join(''), 'text/javascript; charset=utf-8');

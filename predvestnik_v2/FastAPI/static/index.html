@@ -130,18 +130,14 @@
   <div id="zoo-bestiary" style="display:none"><div id="best-c"></div></div>
 </div>
 
-<!-- ═══ 3. АРЕНА (Боёвка 3.0: Казарма юнитов + Врата) ═══ -->
+<!-- ═══ 3. ИГРА (Reconstruction 3.0: точный автокликер) ═══ -->
 <div id="pg-arena" class="page">
   <div class="tabs">
-    <button class="tb active" onclick="swArena('barracks',this)">🏰 Казарма</button>
-    <button class="tb" onclick="swArena('gates',this)">🌑 Врата</button>
-    <button class="tb" onclick="swArena('raids',this)">👹 Рейды</button>
+    <button class="tb active" onclick="swArena('game',this)">🔔 Разлом</button>
     <button class="tb" onclick="swArena('games',this)">🎮 Игры</button>
     <button class="tb" onclick="swArena('events',this)">🎪 Ивенты</button>
   </div>
-  <div id="ar-barracks"><div id="bkc"></div></div>
-  <div id="ar-gates" style="display:none"><div id="gtc"></div></div>
-  <div id="ar-raids" style="display:none"><div id="rc"></div></div>
+  <div id="ar-game"><div id="game-hub"></div></div>
   <div id="ar-games" style="display:none"><div id="skg"></div></div>
   <div id="ar-events" style="display:none"><div id="evc"></div></div>
 </div>
@@ -263,11 +259,10 @@
   </div>
 
   <div class="card">
-    <div class="card-title">⚔️ Арена</div>
+    <div class="card-title">🔔 Разлом</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">Врата</b> — бои отрядом боевых юнитов по этажам: Тёмная Мора и осколки.<br>
-      <b style="color:var(--bright)">Бездна и Рейды</b> — совместная добыча клана и боссы (вкладка Кланы).<br>
-      Отряд собирается в <b style="color:var(--bright)">🏰 Казарме</b>.<br>
+      <b style="color:var(--bright)">Разлом колокола</b> — короткий боевой автокликер, где важна правильная руна, а не скорость спама.<br>
+      Между волнами ты выбираешь усиления и собираешь собственную комбинацию.<br>
       <b style="color:var(--bright)">Ивенты</b> — временные события с особыми наградами.
     </div>
   </div>
@@ -343,7 +338,7 @@
 <nav class="nav">
   <div class="nb active" data-page="profile" onclick="switchPage('profile')"><span class="ni">👤</span>Профиль</div>
   <div class="nb" data-page="zoo" onclick="switchPage('zoo')"><span class="ni">🐾</span>Питомцы</div>
-  <div class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni">⚔️</span>Арена</div>
+  <div class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni">🔔</span>Игра</div>
   <div class="nb nb-shop" data-page="market" onclick="switchPage('market')"><span class="ni">💎</span>Магазин</div>
   <div class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><span class="ni">🎛</span>Ещё</div>
 </nav>

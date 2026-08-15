@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import secrets
 from typing import Any
 
 from core.reconstruction import (
@@ -123,7 +124,12 @@ async def overview(db, user_id: int) -> dict[str, Any]:
 
 
 async def start_encounter(
-    db, user_id: int, encounter_id: str = FIRST_ENCOUNTER, *, source: str = "mini_app"
+    db,
+    user_id: int,
+    encounter_id: str = FIRST_ENCOUNTER,
+    *,
+    practice: bool = False,
+    source: str = "mini_app",
 ) -> dict[str, Any]:
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
@@ -139,13 +145,24 @@ async def start_encounter(
                 **combat.public_state(active["state"]),
             }
         if progress["current_encounter"] != encounter_id:
-            raise ReconstructionError("Эта встреча ещё не является следующим шагом кампании.")
+            replay_allowed = practice and encounter_id in progress["completed"]
+            if not replay_allowed:
+                raise ReconstructionError("Эта встреча ещё не является следующим шагом кампании.")
+            if _pending_memory(progress):
+                raise ReconstructionError("Сначала выбери постоянную Память за первую победу.")
         encounter = ENCOUNTERS.get(encounter_id)
         if not encounter:
             raise ReconstructionError("Неизвестная встреча.")
         if not encounter.get("implemented"):
             raise ReconstructionError("Следующая встреча ещё не включена в dev-срез.")
-        state = combat.new_encounter(encounter_id, seed=(int(user_id) ^ 0x5EED) & 0x7FFFFFFF)
+        # Новый забег обязан получать новый непредсказуемый seed. Привязка seed к
+        # user_id делала все повторы одного игрока одинаковыми и превращала
+        # записанный макрос в готовое решение будущих забегов.
+        state = combat.new_encounter(
+            encounter_id,
+            seed=secrets.randbelow(2**31 - 1) + 1,
+        )
+        state["run_kind"] = "practice" if practice else "campaign"
         run_id = await repo.create_run(
             db, user_id, GAME_VERSION, BALANCE_VERSION, encounter_id, combat.dumps(state)
         )
@@ -159,7 +176,10 @@ async def start_encounter(
             run_id=run_id,
             source=source,
             payload={
-                "mode": "reconstruction_clicker",
+                "mode": (
+                    "reconstruction_practice" if practice
+                    else "reconstruction_clicker"
+                ),
                 "encounter_id": encounter_id,
                 "squad": list(STARTER_UNITS),
                 "levels": {unit_id: 1 for unit_id in STARTER_UNITS},
@@ -170,20 +190,21 @@ async def start_encounter(
             },
             idempotency_key=f"run:{run_id}:started",
         )
-        await event_repo.record_event(
-            db,
-            user_id=user_id,
-            event_name="game_onboarding_step",
-            game_version=GAME_VERSION,
-            balance_version=BALANCE_VERSION,
-            source=source,
-            payload={
-                "step": "first_encounter_started",
-                "result": "completed",
-                "encounter_id": encounter_id,
-            },
-            idempotency_key=f"onboarding:{GAME_VERSION}:first_encounter_started",
-        )
+        if not practice:
+            await event_repo.record_event(
+                db,
+                user_id=user_id,
+                event_name="game_onboarding_step",
+                game_version=GAME_VERSION,
+                balance_version=BALANCE_VERSION,
+                source=source,
+                payload={
+                    "step": "first_encounter_started",
+                    "result": "completed",
+                    "encounter_id": encounter_id,
+                },
+                idempotency_key=f"onboarding:{GAME_VERSION}:first_encounter_started",
+            )
         return {
             "run_id": run_id,
             "revision": 0,
@@ -228,6 +249,11 @@ async def apply_run_action(
             raise ReconstructionConflict("Встреча создана несовместимой версией игры.")
 
         state = run["state"]
+        run_mode = (
+            "reconstruction_practice"
+            if state.get("run_kind") == "practice"
+            else "reconstruction_clicker"
+        )
         action_type = str(action.get("type") or "")
         round_before = int(state.get("round", 0))
         challenge_before = copy.deepcopy(state.get("challenge") or {})
@@ -260,7 +286,7 @@ async def apply_run_action(
                 run_id=run_id,
                 source=source,
                 payload={
-                    "mode": "reconstruction_clicker",
+                    "mode": run_mode,
                     "encounter_id": run["encounter_id"],
                     "round": round_before,
                     "action": "resolve_signal",
@@ -286,7 +312,7 @@ async def apply_run_action(
                 run_id=run_id,
                 source=source,
                 payload={
-                    "mode": "reconstruction_clicker",
+                    "mode": run_mode,
                     "encounter_id": run["encounter_id"],
                     "round": round_before,
                     "upgrade_id": str(action.get("upgrade_id") or ""),
@@ -307,7 +333,7 @@ async def apply_run_action(
                 run_id=run_id,
                 source=source,
                 payload={
-                    "mode": "reconstruction_clicker",
+                    "mode": run_mode,
                     "encounter_id": run["encounter_id"],
                     "result": state["status"],
                     "outcome_reason": state.get("outcome_reason"),
@@ -319,7 +345,7 @@ async def apply_run_action(
             # Проигрыш остаётся battle_end попытки, но не закрывает шаг онбординга.
             # Иначе фиксированный ключ шага запомнит `lost`, а последующая победа
             # справедливо станет idempotency-конфликтом с другим payload.
-            if state["status"] == "won":
+            if state["status"] == "won" and state.get("run_kind") != "practice":
                 await event_repo.record_event(
                     db,
                     user_id=user_id,
@@ -344,7 +370,7 @@ async def apply_run_action(
                 best_combo=int(state["combo"]["max"]),
                 upgrades=list(state["upgrades"]),
             )
-            if state["status"] == "won":
+            if state["status"] == "won" and state.get("run_kind") != "practice":
                 progress = await repo.ensure_progress(db, user_id, GAME_VERSION, FIRST_ENCOUNTER)
                 completed = list(dict.fromkeys([*progress["completed"], run["encounter_id"]]))
                 await repo.save_progress(
@@ -374,6 +400,59 @@ async def apply_run_action(
         }
         await repo.save_action_response(db, run_id, action_id, action, response)
         return response
+
+
+async def cancel_run(
+    db, user_id: int, run_id: int, *, source: str = "mini_app"
+) -> dict[str, Any]:
+    """Cancel an owned active run without rewards or a recorded defeat."""
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        run = await repo.get_run(db, run_id, user_id)
+        if not run:
+            raise ReconstructionError("Забег не найден.")
+        if run["status"] == "cancelled":
+            return {"ok": True, "run_id": run_id, "idempotent_replay": True}
+        if run["status"] != "active":
+            raise ReconstructionConflict("Завершённый забег нельзя отменить.")
+        state = run["state"]
+        new_revision = await repo.save_run_state(
+            db,
+            run_id,
+            int(run["revision"]),
+            combat.dumps(state),
+            "cancelled",
+        )
+        if new_revision is None:
+            raise ReconstructionConflict("Забег уже изменился в другой вкладке.")
+        await event_repo.record_event(
+            db,
+            user_id=user_id,
+            event_name="battle_end",
+            game_version=GAME_VERSION,
+            balance_version=BALANCE_VERSION,
+            run_id=run_id,
+            source=source,
+            payload={
+                "mode": (
+                    "reconstruction_practice"
+                    if state.get("run_kind") == "practice"
+                    else "reconstruction_clicker"
+                ),
+                "encounter_id": run["encounter_id"],
+                "result": "cancelled",
+                "outcome_reason": "player_restart",
+                "rounds": int(state.get("round", 0)),
+                "metrics": state.get("mastery", {}),
+            },
+            idempotency_key=f"run:{run_id}:ended",
+        )
+        return {
+            "ok": True,
+            "run_id": run_id,
+            "revision": new_revision,
+            "idempotent_replay": False,
+        }
 
 
 async def choose_memory(

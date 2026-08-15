@@ -9,7 +9,6 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from core.reconstruction import GAME_VERSION
-from infrastructure.repositories.system_flags import _DEFAULT_ENABLED
 from services import reconstruction as service
 
 
@@ -142,9 +141,11 @@ class MemoryRepo:
 
 
 async def main():
-    assert _DEFAULT_ENABLED["game_reconstruction_v1"] is False
     memory = MemoryRepo()
     original = {}
+    original_randbelow = service.secrets.randbelow
+    seeded_runs = iter((101, 202, 303))
+    service.secrets.randbelow = lambda _upper: next(seeded_runs)
     for name in (
         "lock_user", "get_progress", "ensure_progress", "save_progress",
         "get_active_run", "get_run", "create_run", "save_run_state",
@@ -161,6 +162,7 @@ async def main():
         started = await service.start_encounter(db, user_id)
         resumed = await service.start_encounter(db, user_id)
         assert started["run_id"] == resumed["run_id"] and resumed["resumed"] is True
+        assert started["seed"] == 102
         run_id = started["run_id"]
 
         try:
@@ -278,7 +280,26 @@ async def main():
         assert onboarding_steps == {
             "first_encounter_started", "first_encounter_completed", "first_reward_chosen",
         }
+
+        practice = await service.start_encounter(
+            db, user_id, service.FIRST_ENCOUNTER, practice=True
+        )
+        assert practice["run_kind"] == "practice" and practice["resumed"] is False
+        assert practice["seed"] == 203
+        practice_id = practice["run_id"]
+        cancelled = await service.cancel_run(db, user_id, practice_id)
+        cancelled_again = await service.cancel_run(db, user_id, practice_id)
+        assert cancelled["idempotent_replay"] is False
+        assert cancelled_again["idempotent_replay"] is True
+        assert memory.runs[practice_id]["status"] == "cancelled"
+        cancel_events = [
+            event for event in memory.events.values()
+            if event["event_name"] == "battle_end"
+            and event["payload"].get("result") == "cancelled"
+        ]
+        assert len(cancel_events) == 1
     finally:
+        service.secrets.randbelow = original_randbelow
         for name, value in original.items():
             setattr(service.repo, name, value)
         service.event_repo.record_event = original_event_writer
