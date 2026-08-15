@@ -1,5 +1,7 @@
 # Валидация и жёсткая самокритика проекта экономики
 
+> **Историческая QA версии v2. Канон v3 находится в [GAME_ECONOMY_OWNER_V3.md](./GAME_ECONOMY_OWNER_V3.md).** Вердикты этого файла про недельный Reserve, запрет Зарники → Мора, закрытый аукцион и paper-only биржу больше не являются release-решениями.
+
 **Дата проверки:** 2026-08-15
 **Post-revision verdict:** `PAPER DESIGN READY FOR OWNER REVIEW`.
 **Implementation/cutover verdict:** `NO-GO`, пока владелец не утвердил решения, не собраны machine-readable manifests и не пройдены runtime/release gates.
