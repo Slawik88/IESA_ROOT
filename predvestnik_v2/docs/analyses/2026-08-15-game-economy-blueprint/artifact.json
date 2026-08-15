@@ -1,0 +1,443 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Экономика и игровая экосистема «Предвестника»",
+    "description": "Проект для утверждения до реализации: игровой цикл, валюты, кланы, питомцы, магазины, сезон и перенос production-прогресса.",
+    "generatedAt": "2026-08-15T18:00:00+02:00",
+    "cards": [
+      {
+        "id": "social_mau",
+        "description": "Уникальные игроки, писавшие сообщения за последние 30 дней; это социальная, а не игровая активность.",
+        "dataset": "snapshot_kpis",
+        "sourceId": "social_activity_sql",
+        "metrics": [
+          { "label": "Social MAU", "field": "social_mau", "format": "number" }
+        ]
+      },
+      {
+        "id": "pet_owners",
+        "description": "Аккаунты, у которых есть хотя бы один питомец.",
+        "dataset": "snapshot_kpis",
+        "sourceId": "gameplay_funnel_sql",
+        "metrics": [
+          { "label": "Владельцы питомцев", "field": "pet_owners", "format": "number" }
+        ]
+      },
+      {
+        "id": "battle_users",
+        "description": "Аккаунты, которые хотя бы раз начинали существующий бой.",
+        "dataset": "snapshot_kpis",
+        "sourceId": "gameplay_funnel_sql",
+        "metrics": [
+          { "label": "Пробовали бои", "field": "battle_users", "format": "number" }
+        ]
+      },
+      {
+        "id": "clan_members",
+        "description": "Аккаунты, состоявшие в клане на дату production-среза.",
+        "dataset": "snapshot_kpis",
+        "sourceId": "gameplay_funnel_sql",
+        "metrics": [
+          { "label": "Участники кланов", "field": "clan_members", "format": "number" }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "current_reach",
+        "title": "Охват существующих игровых механик",
+        "subtitle": "Доля всех 173 production-аккаунтов, которые хотя бы раз использовали механику.",
+        "type": "bar",
+        "dataset": "feature_reach",
+        "sourceId": "feature_reach_sql",
+        "encodings": {
+          "x": { "field": "feature", "type": "ordinal", "label": "Механика" },
+          "y": { "field": "share", "type": "quantitative", "label": "Охват", "format": "percent" }
+        }
+      },
+      {
+        "id": "season_xp",
+        "title": "Доступный сезонный опыт",
+        "subtitle": "5 500 XP доступно при требовании 5 000 XP — около 10% запаса на пропуски.",
+        "type": "bar",
+        "dataset": "season_sources",
+        "sourceId": "season_model_sql",
+        "encodings": {
+          "x": { "field": "source", "type": "ordinal", "label": "Источник" },
+          "y": { "field": "xp", "type": "quantitative", "label": "Сезонный XP", "format": "number" }
+        }
+      }
+    ],
+    "tables": [
+      {
+        "id": "decision_package",
+        "title": "Пакет решений для утверждения",
+        "dataset": "decisions",
+        "sourceId": "decisions_model_sql",
+        "columns": [
+          { "field": "area", "label": "Область", "type": "text" },
+          { "field": "proposal", "label": "Предложение", "type": "text" },
+          { "field": "reason", "label": "Зачем", "type": "text" }
+        ],
+        "defaultSort": { "field": "area", "direction": "asc" }
+      },
+      {
+        "id": "mora_model",
+        "title": "Модель потока Моры на 50 дней",
+        "dataset": "mora_scenarios",
+        "sourceId": "mora_model_sql",
+        "columns": [
+          { "field": "segment", "label": "Сегмент", "type": "text" },
+          { "field": "active_days", "label": "Активных дней", "format": "number" },
+          { "field": "source_per_day", "label": "Источник/день", "format": "number" },
+          { "field": "sink_per_day", "label": "Траты/день", "format": "number" },
+          { "field": "season_net", "label": "Итог сезона", "format": "number", "signed": true }
+        ],
+        "defaultSort": { "field": "active_days", "direction": "asc" }
+      },
+      {
+        "id": "migration_rules",
+        "title": "Ключевые правила миграции",
+        "dataset": "migration",
+        "sourceId": "migration_model_sql",
+        "columns": [
+          { "field": "old_state", "label": "Старое", "type": "text" },
+          { "field": "new_state", "label": "Новое", "type": "text" },
+          { "field": "rule", "label": "Правило", "type": "text" }
+        ],
+        "defaultSort": { "field": "old_state", "direction": "asc" }
+      }
+    ],
+    "sources": [
+      {
+        "id": "production_audit",
+        "label": "Production-аудит игровой экономики, 11 августа 2026",
+        "path": "GAMEPLAY_ECONOMY_REBUILD_AUDIT.md"
+      },
+      {
+        "id": "design_model",
+        "label": "Полная проектная спецификация экономики",
+        "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md"
+      },
+      {
+        "id": "social_activity_sql",
+        "label": "Production SQL: social MAU",
+        "path": "tools/audit_production_gameplay_readonly.sql",
+        "query": {
+          "engine": "postgresql",
+          "language": "sql",
+          "executed_at": "2026-08-11T00:00:00+02:00",
+          "description": "30-дневная активность по сообщениям из production-аудита.",
+          "sql": "WITH activity AS (SELECT user_id, date::date AS activity_day, sum(message_count)::bigint AS messages FROM predvestnik.daily_user_stats WHERE date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' GROUP BY user_id, date::date), anchor AS (SELECT max(activity_day) AS max_day FROM activity) SELECT count(DISTINCT user_id) AS social_mau FROM activity, anchor WHERE activity_day BETWEEN max_day - 29 AND max_day"
+        }
+      },
+      {
+        "id": "gameplay_funnel_sql",
+        "label": "Production SQL: gameplay funnel",
+        "path": "tools/audit_production_gameplay_readonly.sql",
+        "query": {
+          "engine": "postgresql",
+          "language": "sql",
+          "executed_at": "2026-08-11T00:00:00+02:00",
+          "description": "Количество аккаунтов и владельцев/участников ключевых игровых механик.",
+          "sql": "SELECT (SELECT count(*) FROM predvestnik.users WHERE deleted_at IS NULL) AS accounts, (SELECT count(DISTINCT owner_id) FROM predvestnik.pets) AS pet_owners, (SELECT count(DISTINCT user_id) FROM predvestnik.battles) AS battle_users, (SELECT count(DISTINCT user_id) FROM predvestnik.clan_members) AS clan_members"
+        }
+      },
+      {
+        "id": "feature_reach_sql",
+        "label": "Production SQL: feature reach",
+        "path": "tools/audit_production_gameplay_readonly.sql",
+        "query": {
+          "engine": "postgresql",
+          "language": "sql",
+          "executed_at": "2026-08-11T00:00:00+02:00",
+          "description": "Охват механик относительно 173 действующих production-аккаунтов.",
+          "sql": "WITH totals AS (SELECT count(*)::numeric accounts FROM predvestnik.users WHERE deleted_at IS NULL), reach AS (SELECT 'Питомцы' feature, count(DISTINCT owner_id)::numeric users FROM predvestnik.pets UNION ALL SELECT 'Гача', count(DISTINCT user_id) FROM predvestnik.gacha_history UNION ALL SELECT 'Походы', count(DISTINCT user_id) FROM predvestnik.wallet_log WHERE source='expedition' UNION ALL SELECT 'Боевой пропуск', count(DISTINCT user_id) FROM predvestnik.wallet_log WHERE source='battle_pass_reward' UNION ALL SELECT 'Магазин', count(DISTINCT user_id) FROM predvestnik.wallet_log WHERE source='shop_purchase' UNION ALL SELECT 'Бои', count(DISTINCT user_id) FROM predvestnik.battles UNION ALL SELECT 'Мини-игры', count(DISTINCT user_id) FROM predvestnik.minigame_sessions UNION ALL SELECT 'Кланы', count(DISTINCT user_id) FROM predvestnik.clan_members) SELECT feature, users, users / accounts AS share FROM reach CROSS JOIN totals"
+        }
+      },
+      {
+        "id": "season_model_sql",
+        "label": "Design model: season XP",
+        "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md",
+        "query": {
+          "engine": "postgresql",
+          "language": "sql",
+          "executed_at": "2026-08-15T18:00:00+02:00",
+          "description": "Проектный объём сезонного XP по четырём источникам.",
+          "sql": "SELECT * FROM (VALUES ('Дневные комплекты', 2500), ('Недельные комплекты', 1750), ('Сюжет и вехи', 750), ('Catch-up', 500)) AS season_sources(source, xp)"
+        }
+      },
+      {
+        "id": "decisions_model_sql",
+        "label": "Design model: approval decisions",
+        "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md",
+        "query": {
+          "engine": "postgresql",
+          "language": "sql",
+          "executed_at": "2026-08-15T18:00:00+02:00",
+          "description": "Пакет проектных решений для утверждения владельцем.",
+          "sql": "SELECT * FROM (VALUES (1,'Бой','Только «Разлом колокола»','Одно качественное игровое ядро'),(2,'Честность','Навык 65–70%; платная сила 0%','Прогресс не заменяет правильность'),(3,'Валюты','4 кошелька + персональное Эхо','Меньше путаницы, ясные роли'),(4,'Юниты','16 Воспоминаний','Сохранить коллекцию и добавить глубину'),(5,'Питомцы','Забота без наказания + специализации','Усилить любимую систему'),(6,'Кланы','Недельный кооперативный разлом','Реальная совместная цель'),(7,'Сезон','50 дней, 50 уровней','Предсказуемый ритм и запас пропусков'),(8,'Миграция','Без обнуления кошельков','Сохранить доверие и историю'),(9,'Монетизация','Косметика и сервис','Не продавать победу'),(10,'Дизайн','Объёмная тихая сцена','Глубина без визуального шума')) AS decisions(decision_order,area,proposal,reason) ORDER BY decision_order"
+        }
+      },
+      {
+        "id": "mora_model_sql",
+        "label": "Design model: 50-day Mora scenarios",
+        "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md",
+        "query": {
+          "engine": "postgresql",
+          "language": "sql",
+          "executed_at": "2026-08-15T18:00:00+02:00",
+          "description": "Сценарный расчёт источников и стоков Моры на 50-дневный сезон.",
+          "sql": "SELECT segment, active_days, source_per_day, sink_per_day, active_days * (source_per_day - sink_per_day) AS season_net FROM (VALUES ('Нерегулярный',22,650,500),('Основной',36,950,850),('Ежедневный',50,1250,1200),('Ветеран',50,1450,1500)) AS scenarios(segment, active_days, source_per_day, sink_per_day)"
+        }
+      },
+      {
+        "id": "migration_model_sql",
+        "label": "Design model: migration rules",
+        "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md",
+        "query": {
+          "engine": "postgresql",
+          "language": "sql",
+          "executed_at": "2026-08-15T18:00:00+02:00",
+          "description": "Проектные правила переноса существующего production-прогресса.",
+          "sql": "SELECT * FROM (VALUES (1,'Все кошельки','Те же балансы','Без обнуления'),(2,'Личные осколки Бездны','Осколки Эха','1:1'),(3,'Юниты уровня 1–10','Воспоминания I–V','Диапазоны 1 / 2–3 / 4–6 / 7–9 / 10'),(4,'Питомцы уровня 1–10','Связь I–V','Сохранить долю прогресса между порогами'),(5,'Старый CP и рекорды','Зал наследия','История и титулы, не рейтинговая сила'),(6,'Кланы и здания','Кланы и Фундамент','Сохранить состав; не допустить двойной компенсации')) AS migration(migration_order,old_state,new_state,rule) ORDER BY migration_order"
+        }
+      }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Экономика и игровая экосистема «Предвестника»"
+      },
+      {
+        "id": "executive_summary",
+        "type": "markdown",
+        "sourceId": "production_audit",
+        "body": "## Краткий вывод\n\nУ проекта есть сильное социальное ядро и любимые питомцы, но игровая часть почти не проникает в аудиторию: из **173** production-аккаунтов только **11** пробовали бои и **8** состоят в кланах, тогда как питомцы есть у **128**. Простая смена цен это не исправит. Нужна одна экосистема вокруг точного автокликера «Разлом колокола», где навык определяет победу, а остальные системы создают выбор, подготовку, совместные цели и долгий горизонт."
+      },
+      {
+        "id": "headline_metrics",
+        "type": "metric-strip",
+        "cardIds": ["social_mau", "pet_owners", "battle_users", "clan_members"]
+      },
+      {
+        "id": "reach_context",
+        "type": "markdown",
+        "sourceId": "production_audit",
+        "body": "## Почему нужна реконструкция\n\n**Социальное удержание маскирует слабое игровое удержание.** D1/D7/D30 в текущем срезе основаны на сообщениях, а не на осмысленных игровых событиях. Старые «Врата» и «Бездна» дают примерно 99% побед, поэтому не создают мастерства или напряжения."
+      },
+      { "id": "reach_chart", "type": "chart", "chartId": "current_reach" },
+      {
+        "id": "target_system",
+        "type": "markdown",
+        "body": "## Целевая система\n\n**Единственное боевое ядро — «Разлом колокола».** Короткий точностный забег приводит к выбору награды, развитию Воспоминаний или связи с питомцем, новым контрактам и походам, личному сезону и Клановому разлому.\n\n- 65–70% результата определяет правильность и ритм.\n- До 20–25% даёт горизонтальная сборка.\n- До 10% — спутник и восстановление.\n- Платёж не даёт прямой силы."
+      },
+      { "id": "decisions", "type": "table", "tableId": "decision_package" },
+      {
+        "id": "currencies",
+        "type": "markdown",
+        "body": "## Валюты и прогресс\n\nСохраняются **Мора, Алмазы, Тёмная мора и Зарники**. Кристаллы удаляются, потому что на production у всех нулевой баланс. Личные осколки Бездны становятся непередаваемыми **Осколками Эха** для Воспоминаний. Старые 16 юнитов превращаются в 16 модификаторов правил автокликера вместо примитивных прибавок к урону."
+      },
+      {
+        "id": "economy_model_intro",
+        "type": "markdown",
+        "body": "## Стартовая экономика\n\nМодель оставляет большинству небольшой положительный остаток, а ветерану даёт добровольные стоки для старых запасов. Финальные цены фиксируются только после свежего production-среза и минимум двух недель новой телеметрии."
+      },
+      { "id": "mora_table", "type": "table", "tableId": "mora_model" },
+      {
+        "id": "pets_clans",
+        "type": "markdown",
+        "body": "## Питомцы, походы и кланы\n\n**Забота не наказывает за пропуск.** Короткий ритуал меняет настроение и следующее предложение похода. Каждый из 10 питомцев получает уникальную разведывательную, восстановительную или клановую роль. Походы выбирают будущую награду, а не просто запускают таймер.\n\n**Клан становится недельной кооперативной игрой.** Учитываются ограниченные лучшие забеги участников; фазы требуют разных стилей, а клан поддерживает только два проекта. Это создаёт специализацию и не позволяет спаму или донату купить лидерство."
+      },
+      {
+        "id": "season",
+        "type": "markdown",
+        "body": "## Сезон без обязательной рутины\n\nСезон длится **50 дней** и содержит 50 уровней по 100 XP. Игрок выбирает 2 из 3 дневных и 3 из 5 недельных контрактов. Покупка, гача и вступление в клан не являются обязательными заданиями. Премиальная ветка ретроактивна и не содержит эксклюзивной силы."
+      },
+      { "id": "season_chart", "type": "chart", "chartId": "season_xp" },
+      {
+        "id": "longevity",
+        "type": "markdown",
+        "body": "## Как не надоесть через месяц\n\nДолговечность строится не на бесконечном ускорении. Меняются четыре слоя: последовательность и выбор усилений в каждом забеге, три контракта каждый день, общее семейство модификаторов каждую неделю и одна новая авторская комбинация правил каждый сезон. Если одно Воспоминание занимает более 35% зачётных сборок или один межволновой выбор берут более чем в 55% предложений, проверяются слабые альтернативы и однообразие контента."
+      },
+      {
+        "id": "migration",
+        "type": "markdown",
+        "body": "## Миграция без вайпа\n\nКошельки, платежи, VIP, косметика, питомцы, юниты, реликвии, кланы и история сохраняются. Старые богатые аккаунты не обнуляются, но Мора больше не способна купить весь вертикальный прогресс: для него нужны навык, прохождение и непередаваемое Эхо. Каждая конвертация проходит идемпотентно и отображается в персональной квитанции."
+      },
+      { "id": "migration_table", "type": "table", "tableId": "migration_rules" },
+      {
+        "id": "design",
+        "type": "markdown",
+        "body": "## Визуальный принцип: объёмная тихая сцена\n\nИнтерфейс **не плоский**, но и не перегруженный: глубокий фон → секция → карточка → приподнятый интерактивный слой → косметика. Крупные частично обрезанные круги и дуги создают спокойную глубину, тонкий холодный контур разделяет слои, а золото остаётся единственным главным акцентом. Кнопки компактны визуально, но сохраняют зону нажатия 44 px."
+      },
+      {
+        "id": "next_steps",
+        "type": "markdown",
+        "body": "## Рекомендуемые следующие шаги\n\n1. Утвердить или изменить десять решений из таблицы.\n2. Завершить техническую стабильность MVP автокликера и новую телеметрию.\n3. Собрать вертикальный срез: один контракт, четыре Воспоминания, три питомца, Мора и Эхо.\n4. Проверить его на закрытой группе до премиальной монетизации.\n5. Повторить read-only production-срез и только затем зафиксировать цены и выполнить dry-run миграции."
+      },
+      {
+        "id": "questions",
+        "type": "markdown",
+        "body": "## Вопросы для решения\n\n- Подтверждаем ли полный отказ от старого поля с клетками?\n- Подтверждаем ли, что Зарники никогда не дают прямой боевой силы?\n- Подтверждаем ли конвертацию старых юнитов во Воспоминания?\n- Нужен ли клановый PvP когда-нибудь, или кооператив и нормализованный рейтинг достаточны?\n- Подходит ли стартовая цена сезонного пропуска 1 900 Зарников?"
+      },
+      {
+        "id": "caveats",
+        "type": "markdown",
+        "body": "## Ограничения и допущения\n\nProduction-срез датирован 11 августа 2026. У 74,3% сессий длительность равна нулю, combat_power устарел у 145 из 173 аккаунтов, а надёжного gameplay-retention пока нет. Поэтому архитектура решений имеет высокую уверенность, но конкретные цены и пороги — среднюю или низкую до появления новой телеметрии."
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-08-15T18:00:00+02:00",
+    "status": "ready",
+    "datasets": {
+      "snapshot_kpis": [
+        { "social_mau": 121, "pet_owners": 128, "battle_users": 11, "clan_members": 8 }
+      ],
+      "feature_reach": [
+        { "feature": "Питомцы", "users": 128, "share": 0.74 },
+        { "feature": "Гача", "users": 25, "share": 0.145 },
+        { "feature": "Походы", "users": 20, "share": 0.116 },
+        { "feature": "Боевой пропуск", "users": 15, "share": 0.087 },
+        { "feature": "Магазин", "users": 13, "share": 0.075 },
+        { "feature": "Бои", "users": 11, "share": 0.064 },
+        { "feature": "Мини-игры", "users": 11, "share": 0.064 },
+        { "feature": "Кланы", "users": 8, "share": 0.046 }
+      ],
+      "season_sources": [
+        { "source": "Дневные комплекты", "xp": 2500 },
+        { "source": "Недельные комплекты", "xp": 1750 },
+        { "source": "Сюжет и вехи", "xp": 750 },
+        { "source": "Catch-up", "xp": 500 }
+      ],
+      "decisions": [
+        { "order": 1, "area": "Бой", "proposal": "Только «Разлом колокола»", "reason": "Одно качественное игровое ядро" },
+        { "order": 2, "area": "Честность", "proposal": "Навык 65–70%; платная сила 0%", "reason": "Прогресс не заменяет правильность" },
+        { "order": 3, "area": "Валюты", "proposal": "4 кошелька + персональное Эхо", "reason": "Меньше путаницы, ясные роли" },
+        { "order": 4, "area": "Юниты", "proposal": "16 Воспоминаний", "reason": "Сохранить коллекцию и добавить глубину" },
+        { "order": 5, "area": "Питомцы", "proposal": "Забота без наказания + специализации", "reason": "Усилить любимую систему" },
+        { "order": 6, "area": "Кланы", "proposal": "Недельный кооперативный разлом", "reason": "Реальная совместная цель" },
+        { "order": 7, "area": "Сезон", "proposal": "50 дней, 50 уровней", "reason": "Предсказуемый ритм и запас пропусков" },
+        { "order": 8, "area": "Миграция", "proposal": "Без обнуления кошельков", "reason": "Сохранить доверие и историю" },
+        { "order": 9, "area": "Монетизация", "proposal": "Косметика и сервис", "reason": "Не продавать победу" },
+        { "order": 10, "area": "Дизайн", "proposal": "Объёмная тихая сцена", "reason": "Глубина без визуального шума" }
+      ],
+      "mora_scenarios": [
+        { "segment": "Нерегулярный", "active_days": 22, "source_per_day": 650, "sink_per_day": 500, "season_net": 3300 },
+        { "segment": "Основной", "active_days": 36, "source_per_day": 950, "sink_per_day": 850, "season_net": 3600 },
+        { "segment": "Ежедневный", "active_days": 50, "source_per_day": 1250, "sink_per_day": 1200, "season_net": 2500 },
+        { "segment": "Ветеран", "active_days": 50, "source_per_day": 1450, "sink_per_day": 1500, "season_net": -2500 }
+      ],
+      "migration": [
+        { "order": 1, "old_state": "Все кошельки", "new_state": "Те же балансы", "rule": "Без обнуления" },
+        { "order": 2, "old_state": "Личные осколки Бездны", "new_state": "Осколки Эха", "rule": "1:1" },
+        { "order": 3, "old_state": "Юниты уровня 1–10", "new_state": "Воспоминания I–V", "rule": "Диапазоны 1 / 2–3 / 4–6 / 7–9 / 10" },
+        { "order": 4, "old_state": "Питомцы уровня 1–10", "new_state": "Связь I–V", "rule": "Сохранить долю прогресса между порогами" },
+        { "order": 5, "old_state": "Старый CP и рекорды", "new_state": "Зал наследия", "rule": "История и титулы, не рейтинговая сила" },
+        { "order": 6, "old_state": "Кланы и здания", "new_state": "Кланы и Фундамент", "rule": "Сохранить состав; не допустить двойной компенсации" }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "production_audit",
+      "label": "Production-аудит игровой экономики, 11 августа 2026",
+      "path": "GAMEPLAY_ECONOMY_REBUILD_AUDIT.md"
+    },
+    {
+      "id": "design_model",
+      "label": "Полная проектная спецификация экономики",
+      "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md"
+    },
+    {
+      "id": "social_activity_sql",
+      "label": "Production SQL: social MAU",
+      "path": "tools/audit_production_gameplay_readonly.sql",
+      "query": {
+        "engine": "postgresql",
+        "language": "sql",
+        "executed_at": "2026-08-11T00:00:00+02:00",
+        "description": "30-дневная активность по сообщениям из production-аудита.",
+        "sql": "WITH activity AS (SELECT user_id, date::date AS activity_day, sum(message_count)::bigint AS messages FROM predvestnik.daily_user_stats WHERE date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' GROUP BY user_id, date::date), anchor AS (SELECT max(activity_day) AS max_day FROM activity) SELECT count(DISTINCT user_id) AS social_mau FROM activity, anchor WHERE activity_day BETWEEN max_day - 29 AND max_day"
+      }
+    },
+    {
+      "id": "gameplay_funnel_sql",
+      "label": "Production SQL: gameplay funnel",
+      "path": "tools/audit_production_gameplay_readonly.sql",
+      "query": {
+        "engine": "postgresql",
+        "language": "sql",
+        "executed_at": "2026-08-11T00:00:00+02:00",
+        "description": "Количество аккаунтов и владельцев/участников ключевых игровых механик.",
+        "sql": "SELECT (SELECT count(*) FROM predvestnik.users WHERE deleted_at IS NULL) AS accounts, (SELECT count(DISTINCT owner_id) FROM predvestnik.pets) AS pet_owners, (SELECT count(DISTINCT user_id) FROM predvestnik.battles) AS battle_users, (SELECT count(DISTINCT user_id) FROM predvestnik.clan_members) AS clan_members"
+      }
+    },
+    {
+      "id": "feature_reach_sql",
+      "label": "Production SQL: feature reach",
+      "path": "tools/audit_production_gameplay_readonly.sql",
+      "query": {
+        "engine": "postgresql",
+        "language": "sql",
+        "executed_at": "2026-08-11T00:00:00+02:00",
+        "description": "Охват механик относительно 173 действующих production-аккаунтов.",
+        "sql": "WITH totals AS (SELECT count(*)::numeric accounts FROM predvestnik.users WHERE deleted_at IS NULL), reach AS (SELECT 'Питомцы' feature, count(DISTINCT owner_id)::numeric users FROM predvestnik.pets UNION ALL SELECT 'Гача', count(DISTINCT user_id) FROM predvestnik.gacha_history UNION ALL SELECT 'Походы', count(DISTINCT user_id) FROM predvestnik.wallet_log WHERE source='expedition' UNION ALL SELECT 'Боевой пропуск', count(DISTINCT user_id) FROM predvestnik.wallet_log WHERE source='battle_pass_reward' UNION ALL SELECT 'Магазин', count(DISTINCT user_id) FROM predvestnik.wallet_log WHERE source='shop_purchase' UNION ALL SELECT 'Бои', count(DISTINCT user_id) FROM predvestnik.battles UNION ALL SELECT 'Мини-игры', count(DISTINCT user_id) FROM predvestnik.minigame_sessions UNION ALL SELECT 'Кланы', count(DISTINCT user_id) FROM predvestnik.clan_members) SELECT feature, users, users / accounts AS share FROM reach CROSS JOIN totals"
+      }
+    },
+    {
+      "id": "season_model_sql",
+      "label": "Design model: season XP",
+      "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md",
+      "query": {
+        "engine": "postgresql",
+        "language": "sql",
+        "executed_at": "2026-08-15T18:00:00+02:00",
+        "description": "Проектный объём сезонного XP по четырём источникам.",
+        "sql": "SELECT * FROM (VALUES ('Дневные комплекты', 2500), ('Недельные комплекты', 1750), ('Сюжет и вехи', 750), ('Catch-up', 500)) AS season_sources(source, xp)"
+      }
+    },
+    {
+      "id": "decisions_model_sql",
+      "label": "Design model: approval decisions",
+      "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md",
+      "query": {
+        "engine": "postgresql",
+        "language": "sql",
+        "executed_at": "2026-08-15T18:00:00+02:00",
+        "description": "Пакет проектных решений для утверждения владельцем.",
+        "sql": "SELECT * FROM (VALUES (1,'Бой','Только «Разлом колокола»','Одно качественное игровое ядро'),(2,'Честность','Навык 65–70%; платная сила 0%','Прогресс не заменяет правильность'),(3,'Валюты','4 кошелька + персональное Эхо','Меньше путаницы, ясные роли'),(4,'Юниты','16 Воспоминаний','Сохранить коллекцию и добавить глубину'),(5,'Питомцы','Забота без наказания + специализации','Усилить любимую систему'),(6,'Кланы','Недельный кооперативный разлом','Реальная совместная цель'),(7,'Сезон','50 дней, 50 уровней','Предсказуемый ритм и запас пропусков'),(8,'Миграция','Без обнуления кошельков','Сохранить доверие и историю'),(9,'Монетизация','Косметика и сервис','Не продавать победу'),(10,'Дизайн','Объёмная тихая сцена','Глубина без визуального шума')) AS decisions(decision_order,area,proposal,reason) ORDER BY decision_order"
+      }
+    },
+    {
+      "id": "mora_model_sql",
+      "label": "Design model: 50-day Mora scenarios",
+      "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md",
+      "query": {
+        "engine": "postgresql",
+        "language": "sql",
+        "executed_at": "2026-08-15T18:00:00+02:00",
+        "description": "Сценарный расчёт источников и стоков Моры на 50-дневный сезон.",
+        "sql": "SELECT segment, active_days, source_per_day, sink_per_day, active_days * (source_per_day - sink_per_day) AS season_net FROM (VALUES ('Нерегулярный',22,650,500),('Основной',36,950,850),('Ежедневный',50,1250,1200),('Ветеран',50,1450,1500)) AS scenarios(segment, active_days, source_per_day, sink_per_day)"
+      }
+    },
+    {
+      "id": "migration_model_sql",
+      "label": "Design model: migration rules",
+      "path": "docs/analyses/2026-08-15-game-economy-blueprint/ECONOMY_BLUEPRINT.md",
+      "query": {
+        "engine": "postgresql",
+        "language": "sql",
+        "executed_at": "2026-08-15T18:00:00+02:00",
+        "description": "Проектные правила переноса существующего production-прогресса.",
+        "sql": "SELECT * FROM (VALUES (1,'Все кошельки','Те же балансы','Без обнуления'),(2,'Личные осколки Бездны','Осколки Эха','1:1'),(3,'Юниты уровня 1–10','Воспоминания I–V','Диапазоны 1 / 2–3 / 4–6 / 7–9 / 10'),(4,'Питомцы уровня 1–10','Связь I–V','Сохранить долю прогресса между порогами'),(5,'Старый CP и рекорды','Зал наследия','История и титулы, не рейтинговая сила'),(6,'Кланы и здания','Кланы и Фундамент','Сохранить состав; не допустить двойной компенсации')) AS migration(migration_order,old_state,new_state,rule) ORDER BY migration_order"
+      }
+    }
+  ],
+  "package_info": {}
+}
