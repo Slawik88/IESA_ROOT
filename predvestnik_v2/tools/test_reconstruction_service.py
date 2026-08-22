@@ -37,6 +37,8 @@ class MemoryRepo:
         self.events = {}
         self.shadow_decisions = {}
         self.shadow_rows = []
+        self.mastery_proofs = {}
+        self.unit_branches = {}
         self.stats = service.repo.empty_stats()
         self.next_id = 1
 
@@ -172,6 +174,36 @@ class MemoryRepo:
         self.stats["accuracy"] = round(self.stats["correct_taps"] / attempts * 100, 1) if attempts else None
         return copy.deepcopy(self.stats)
 
+    async def list_unit_progress(self, _db, _user_id, _game_version):
+        return []
+
+    async def get_mastery_proofs(self, _db, _user_id, _game_version):
+        return copy.deepcopy(self.mastery_proofs)
+
+    async def record_mastery_proofs(
+        self, _db, *, terminal_result_id, encounter_id, challenge_ids, **_values
+    ):
+        for challenge_id in challenge_ids:
+            self.mastery_proofs.setdefault(challenge_id, {
+                "terminal_result_id": terminal_result_id,
+                "encounter_id": encounter_id,
+                "proven_at": "2026-08-22T00:00:00Z",
+            })
+        return copy.deepcopy(self.mastery_proofs)
+
+    async def choose_unit_branch(
+        self, _db, *, unit_id, branch_id, **_values
+    ):
+        key = (unit_id, 5)
+        prior = self.unit_branches.get(key)
+        if prior and prior != branch_id:
+            raise ValueError("This milestone already has a branch; use the respec contract.")
+        self.unit_branches[key] = branch_id
+        return {
+            "applied": prior is None,
+            "progress": service.unit_progress_view(unit_id, 1190, {"5": branch_id}),
+        }
+
 
 async def main():
     memory = MemoryRepo()
@@ -197,6 +229,15 @@ async def main():
         setattr(service.repo, name, getattr(memory, name))
     original_event_writer = service.event_repo.record_event
     service.event_repo.record_event = memory.record_event
+    original_units = {}
+    for name, replacement in (
+        ("list_progress", memory.list_unit_progress),
+        ("get_mastery_proofs", memory.get_mastery_proofs),
+        ("record_mastery_proofs", memory.record_mastery_proofs),
+        ("choose_branch", memory.choose_unit_branch),
+    ):
+        original_units[name] = getattr(service.unit_repo, name)
+        setattr(service.unit_repo, name, replacement)
     original_shadow = {}
     for name, replacement in (
         ("get_decision", memory.get_shadow_decision),
@@ -357,6 +398,16 @@ async def main():
         assert sum(memory.stats["upgrades"].values()) == 2
         overview = await service.overview(db, user_id)
         assert overview["stats"]["runs_won"] == 1
+        assert len(overview["units"]) == 3
+        assert all(unit["level"] == 1 for unit in overview["units"])
+        selected_branch = await service.choose_unit_branch(
+            db, user_id, "r_oath_bell", "bell_broken_vow"
+        )
+        selected_branch_again = await service.choose_unit_branch(
+            db, user_id, "r_oath_bell", "bell_broken_vow"
+        )
+        assert selected_branch["applied"] is True
+        assert selected_branch_again["applied"] is False
         economy_policy = overview["content"]["economy_policy"]
         assert economy_policy["settlement_mode"] == "shadow_only"
         assert economy_policy["real_rewards_enabled"] is False
@@ -467,6 +518,8 @@ async def main():
         service.event_repo.record_event = original_event_writer
         for name, value in original_shadow.items():
             setattr(service.shadow_repo, name, value)
+        for name, value in original_units.items():
+            setattr(service.unit_repo, name, value)
 
     print("reconstruction_service: terminal+shadow-reward+idempotency+progress  OK")
 

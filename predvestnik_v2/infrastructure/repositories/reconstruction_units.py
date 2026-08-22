@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from core.reconstruction_progression import branch_by_id, unit_progress_view
+from core.reconstruction_progression import UNIT_BRANCHES, branch_by_id, unit_progress_view
 
 
 async def ensure_tables(db) -> None:
@@ -37,6 +37,18 @@ async def ensure_tables(db) -> None:
         "CREATE INDEX IF NOT EXISTS idx_reconstruction_unit_xp_user "
         "ON reconstruction_unit_xp_events(user_id, created_at DESC)"
     )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS reconstruction_mastery_proofs (
+            user_id             BIGINT NOT NULL,
+            game_version        TEXT NOT NULL,
+            challenge_id        TEXT NOT NULL,
+            terminal_result_id  TEXT NOT NULL,
+            encounter_id        TEXT NOT NULL,
+            proven_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, game_version, challenge_id),
+            UNIQUE (terminal_result_id, challenge_id)
+        )
+    """)
     await db.commit()
 
 
@@ -61,6 +73,68 @@ async def get_progress(
         (int(user_id), game_version, unit_id),
     ) as cursor:
         return _decode(await cursor.fetchone())
+
+
+async def list_progress(db, user_id: int, game_version: str) -> list[dict[str, Any]]:
+    async with db.execute(
+        "SELECT unit_id, total_xp, branch_choices_json, legacy_mastery "
+        "FROM reconstruction_unit_progress WHERE user_id = ? AND game_version = ? "
+        "ORDER BY unit_id",
+        (int(user_id), game_version),
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [_decode(row) for row in rows if row]
+
+
+async def get_mastery_proofs(
+    db, user_id: int, game_version: str
+) -> dict[str, dict[str, Any]]:
+    async with db.execute(
+        "SELECT challenge_id, terminal_result_id, encounter_id, proven_at "
+        "FROM reconstruction_mastery_proofs "
+        "WHERE user_id = ? AND game_version = ? ORDER BY challenge_id",
+        (int(user_id), game_version),
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return {
+        str(row["challenge_id"]): {
+            "terminal_result_id": str(row["terminal_result_id"]),
+            "encounter_id": str(row["encounter_id"]),
+            "proven_at": row["proven_at"],
+        }
+        for row in rows
+    }
+
+
+async def record_mastery_proofs(
+    db,
+    *,
+    user_id: int,
+    game_version: str,
+    terminal_result_id: str,
+    encounter_id: str,
+    challenge_ids: tuple[str, ...],
+) -> dict[str, dict[str, Any]]:
+    known = {
+        str(branch["mastery_challenge"])
+        for milestones in UNIT_BRANCHES.values()
+        for branches in milestones.values()
+        for branch in branches
+    }
+    unknown = set(challenge_ids) - known
+    if unknown:
+        raise ValueError(f"Unknown mastery challenge: {sorted(unknown)}")
+    for challenge_id in dict.fromkeys(challenge_ids):
+        await db.execute(
+            "INSERT INTO reconstruction_mastery_proofs "
+            "(user_id, game_version, challenge_id, terminal_result_id, encounter_id) "
+            "VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+            (
+                int(user_id), game_version, challenge_id,
+                terminal_result_id, encounter_id,
+            ),
+        )
+    return await get_mastery_proofs(db, user_id, game_version)
 
 
 async def ensure_unit(db, user_id: int, game_version: str, unit_id: str) -> dict[str, Any]:
@@ -138,7 +212,6 @@ async def choose_branch(
     game_version: str,
     unit_id: str,
     branch_id: str,
-    proven_mastery_challenge: str,
 ) -> dict[str, Any]:
     """Persist the first free choice after a server-verified mastery challenge."""
     found = branch_by_id(branch_id)
@@ -153,7 +226,8 @@ async def choose_branch(
         raise ValueError("This milestone already has a branch; use the respec contract.")
     if progress["level"] < level:
         raise ValueError("Branch is locked by unit level.")
-    if proven_mastery_challenge != branch["mastery_challenge"]:
+    proofs = await get_mastery_proofs(db, user_id, game_version)
+    if branch["mastery_challenge"] not in proofs:
         raise ValueError("Required mastery challenge is not proven.")
     choices = {**progress["branch_choices"], str(level): branch_id}
     prior_json = json.dumps(

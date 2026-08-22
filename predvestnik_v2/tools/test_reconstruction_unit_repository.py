@@ -18,6 +18,7 @@ class Cursor:
     async def __aenter__(self): return self
     async def __aexit__(self, *_args): return None
     async def fetchone(self): return self.rows[0] if self.rows else None
+    async def fetchall(self): return self.rows
     def __await__(self):
         async def done(): return self
         return done().__await__()
@@ -27,6 +28,7 @@ class DB:
     def __init__(self):
         self.progress = {}
         self.events = {}
+        self.proofs = {}
 
     def execute(self, sql, args=()):
         compact = " ".join(sql.split())
@@ -37,8 +39,14 @@ class DB:
                                            "branch_choices_json": "{}", "legacy_mastery": 0})
             return Cursor()
         if upper.startswith("SELECT UNIT_ID, TOTAL_XP"):
-            row = self.progress.get((int(args[0]), args[1], args[2]))
-            return Cursor([dict(row)] if row else [])
+            if len(args) == 3:
+                row = self.progress.get((int(args[0]), args[1], args[2]))
+                return Cursor([dict(row)] if row else [])
+            rows = [
+                dict(row) for (user_id, version, _unit_id), row in self.progress.items()
+                if user_id == int(args[0]) and version == args[1]
+            ]
+            return Cursor(sorted(rows, key=lambda row: row["unit_id"]))
         if upper.startswith("INSERT INTO RECONSTRUCTION_UNIT_XP_EVENTS"):
             key = (args[0], args[1])
             if key in self.events:
@@ -57,6 +65,19 @@ class DB:
         if upper.startswith("SELECT USER_ID, GAME_VERSION"):
             row = self.events.get((args[0], args[1]))
             return Cursor([row] if row else [])
+        if upper.startswith("INSERT INTO RECONSTRUCTION_MASTERY_PROOFS"):
+            key = (int(args[0]), args[1], args[2])
+            self.proofs.setdefault(key, {
+                "challenge_id": args[2], "terminal_result_id": args[3],
+                "encounter_id": args[4], "proven_at": "2026-08-22T00:00:00Z",
+            })
+            return Cursor()
+        if upper.startswith("SELECT CHALLENGE_ID, TERMINAL_RESULT_ID"):
+            rows = [
+                dict(row) for (user_id, version, _challenge), row in self.proofs.items()
+                if user_id == int(args[0]) and version == args[1]
+            ]
+            return Cursor(sorted(rows, key=lambda row: row["challenge_id"]))
         raise AssertionError(f"Unexpected SQL: {compact}")
 
 
@@ -82,20 +103,26 @@ async def main():
 
     # Reach level 5, then prove and choose exactly one real branch.
     db.progress[(7, "3.0.0-alpha.3", "r_oath_bell")]["total_xp"] = 1190
+    proofs = await repo.record_mastery_proofs(
+        db, user_id=7, game_version="3.0.0-alpha.3",
+        terminal_result_id="reconstruction:43:terminal", encounter_id="e01_two_bells",
+        challenge_ids=("bell_recover_three_clean",),
+    )
+    assert "bell_recover_three_clean" in proofs
     selected = await repo.choose_branch(
         db, user_id=7, game_version="3.0.0-alpha.3", unit_id="r_oath_bell",
-        branch_id="bell_broken_vow", proven_mastery_challenge="bell_recover_three_clean",
+        branch_id="bell_broken_vow",
     )
     selected_again = await repo.choose_branch(
         db, user_id=7, game_version="3.0.0-alpha.3", unit_id="r_oath_bell",
-        branch_id="bell_broken_vow", proven_mastery_challenge="bell_recover_three_clean",
+        branch_id="bell_broken_vow",
     )
     assert selected["applied"] is True and selected_again["applied"] is False
     assert selected["progress"]["branch_choices"] == {"5": "bell_broken_vow"}
     try:
         await repo.choose_branch(
             db, user_id=7, game_version="3.0.0-alpha.3", unit_id="r_oath_bell",
-            branch_id="bell_silent_release", proven_mastery_challenge="bell_hold_and_release",
+            branch_id="bell_silent_release",
         )
     except ValueError as exc:
         assert "respec" in str(exc)

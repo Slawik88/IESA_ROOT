@@ -38,6 +38,7 @@
   let toastTimer = null;
   let runId = null;
   let progress = null;
+  let units = [];
   let pendingMemory = null;
   let actionSequence = 0;
 
@@ -217,6 +218,7 @@
     const overview = await jsonFetch('');
     manifest = overview.content;
     progress = overview.progress;
+    units = overview.units || [];
     pendingMemory = overview.progress?.pending_memory || null;
     state = overview.active_run || null;
     runId = state?.run_id || null;
@@ -358,6 +360,57 @@
     return true;
   }
 
+  function unitBranches(unitId) {
+    return manifest?.unit_progression?.branches?.[unitId]?.['5'] || [];
+  }
+
+  function showUnitBranchChoice(unitId) {
+    const unit = units.find((item) => item.unit_id === unitId);
+    if (!unit) return;
+    if (Number(unit.level) < 5) {
+      notify(`Ветвь откроется на 5 уровне. Сейчас ${number(unit.level)}.`);
+      return;
+    }
+    const selected = unit.branch_choices?.['5'];
+    if (selected) {
+      const branch = unitBranches(unitId).find((item) => item.id === selected);
+      notify(`Уже выбрана ветвь «${branch?.name || selected}».`);
+      return;
+    }
+    playing = false;
+    document.getElementById('choiceEyebrow').textContent = `${unit.short_name} · УРОВЕНЬ 5`;
+    document.getElementById('choiceTitle').textContent = 'Выбери ветвь мастерства';
+    document.getElementById('choiceCopy').textContent =
+      'Обе ветви меняют решение в бою и имеют цену. Первый выбор бесплатный и постоянный.';
+    const proven = new Set(unit.proven_challenges || []);
+    document.getElementById('upgradeList').innerHTML = unitBranches(unitId).map((branch) => {
+      const unlocked = proven.has(branch.mastery_challenge);
+      return `
+      <button class="upgrade-card" type="button" data-unit-id="${esc(unitId)}" data-unit-branch="${esc(branch.id)}" ${unlocked ? '' : 'disabled'}>
+        <span>${esc(unit.emoji)}</span>
+        <span class="upgrade-copy"><em>${unlocked ? 'ИСПЫТАНИЕ ПРОЙДЕНО' : 'НУЖНО ИСПЫТАНИЕ'}</em><strong>${esc(branch.name)}</strong><small>${esc(branch.decision)}</small><small class="tradeoff">− ${esc(branch.tradeoff)}</small><small class="mastery">${esc(branch.mastery_requirement)}</small></span>
+        <b>›</b>
+      </button>`;
+    }).join('');
+    showOnly('choice');
+  }
+
+  function renderUnitProgress() {
+    const container = document.getElementById('unitProgress');
+    if (!units.length) {
+      container.hidden = true;
+      return;
+    }
+    container.hidden = false;
+    container.innerHTML = units.map((unit) => {
+      const selected = unit.branch_choices?.['5'];
+      const selectedBranch = unitBranches(unit.unit_id).find((branch) => branch.id === selected);
+      const ready = Number(unit.level) >= 5 && !selected;
+      const detail = selectedBranch?.name || (ready ? 'выбрать ветвь' : `ветвь на ${unit.next_branch_level || 30} ур.`);
+      return `<button class="unit-progress-card${ready ? ' ready' : ''}" type="button" data-unit-progress="${esc(unit.unit_id)}"><i>${esc(unit.emoji)}</i><strong>${esc(unit.short_name)}</strong><small>ур. ${number(unit.level)} · ${esc(detail)}</small></button>`;
+    }).join('');
+  }
+
   function resultSummary() {
     const outcome = state.status === 'won' ? 'Победа' : 'Поражение';
     const name = activeEncounter()?.name || 'Разлом колокола';
@@ -472,6 +525,7 @@
     document.getElementById('newRunButton').hidden = !resumable;
     document.getElementById('versionBadge').textContent = manifest?.game_version?.replace('3.0.0-', '') || 'MVP';
     renderCareer();
+    renderUnitProgress();
   }
 
   function render() {
@@ -650,6 +704,18 @@
       };
     }
     if (data.next_step) progress = { ...(progress || {}), next_step: data.next_step };
+    if (Array.isArray(data.mastery_proofs)) {
+      const proofs = new Set(data.mastery_proofs);
+      units = units.map((unit) => ({
+        ...unit,
+        proven_challenges: [...new Set([
+          ...(unit.proven_challenges || []),
+          ...unitBranches(unit.unit_id)
+            .map((branch) => branch.mastery_challenge)
+            .filter((challenge) => proofs.has(challenge)),
+        ])],
+      }));
+    }
     return { state: data, turn: data.turn, rejected: false };
   }
 
@@ -704,6 +770,27 @@
         renderResult();
       }
       else showOnly('menu', 'play');
+      refreshMenu();
+    } catch (error) {
+      notify(error.message, true);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function chooseUnitBranch(unitId, branchId) {
+    if (!production || busy) return;
+    busy = true;
+    try {
+      const selected = await jsonFetch('/units/branch', {
+        method: 'POST', body: JSON.stringify({ unit_id: unitId, branch_id: branchId }),
+      });
+      units = units.map((unit) => unit.unit_id === unitId
+        ? { ...unit, ...selected.progress }
+        : unit);
+      haptic('medium');
+      notify('Ветвь мастерства сохранена');
+      showOnly('menu', 'play');
       refreshMenu();
     } catch (error) {
       notify(error.message, true);
@@ -810,6 +897,11 @@
     if (document.hidden && playing) openPause();
   });
   document.getElementById('upgradeList').addEventListener('click', (event) => {
+    const branch = event.target.closest('[data-unit-branch]');
+    if (branch) {
+      chooseUnitBranch(branch.dataset.unitId, branch.dataset.unitBranch);
+      return;
+    }
     const memory = event.target.closest('[data-memory-id]');
     if (memory) {
       chooseMemory(memory.dataset.memoryId);
@@ -817,6 +909,10 @@
     }
     const card = event.target.closest('[data-upgrade-id]');
     if (card) chooseUpgrade(card.dataset.upgradeId);
+  });
+  document.getElementById('unitProgress').addEventListener('click', (event) => {
+    const card = event.target.closest('[data-unit-progress]');
+    if (card) showUnitBranchChoice(card.dataset.unitProgress);
   });
   document.querySelector('.menu-tabs').addEventListener('click', (event) => {
     const button = event.target.closest('[data-menu-tab]');
@@ -852,6 +948,7 @@
     ? jsonFetch('').then((overview) => {
       manifest = overview.content;
       progress = overview.progress;
+      units = overview.units || [];
       pendingMemory = overview.progress?.pending_memory || null;
       state = overview.active_run || null;
       runId = state?.run_id || null;
@@ -860,6 +957,11 @@
     : Promise.all([jsonFetch('/manifest'), jsonFetch('/state')]).then(([manifestData, stateData]) => {
       manifest = manifestData;
       state = stateData;
+      units = (manifest.starter_units || []).map((unit) => ({
+        unit_id: unit.id, short_name: unit.short_name, name: unit.name, emoji: unit.emoji,
+        level: 1, total_xp: 0, xp_in_level: 0, xp_to_next: 120,
+        branch_choices: {}, next_branch_level: 5, proven_challenges: [],
+      }));
     });
 
   bootstrap

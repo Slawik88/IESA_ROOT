@@ -25,6 +25,7 @@ UNIT_BRANCHES: Final[dict[str, dict[int, tuple[dict[str, Any], ...]]]] = {
                 "counter_scenario": "На быстрой волне безопаснее добровольно потерять заряд.",
                 "mobile_control": "Одна компактная кнопка решения появляется рядом с Импульсом.",
                 "mastery_challenge": "bell_recover_three_clean",
+                "mastery_requirement": "Победи после ошибки и собери новую серию не короче 8.",
                 "telemetry": ("recovery_offered", "recovery_kept", "next_signal_result"),
             },
             {
@@ -35,7 +36,8 @@ UNIT_BRANCHES: Final[dict[str, dict[int, tuple[dict[str, Any], ...]]]] = {
                 "tradeoff": "Если не выбрать вовремя, половина Импульса исчезает без урона.",
                 "counter_scenario": "На хаотичной волне автоматический Разряд надёжнее ручного окна.",
                 "mobile_control": "Импульс становится одной кнопкой; отдельная панель не нужна.",
-                "mastery_challenge": "bell_hold_and_release",
+                "mastery_challenge": "bell_three_discharges",
+                "mastery_requirement": "Победи, выпустив не меньше трёх Разрядов.",
                 "telemetry": ("discharge_armed", "discharge_released", "discharge_expired"),
             },
         ),
@@ -50,7 +52,8 @@ UNIT_BRANCHES: Final[dict[str, dict[int, tuple[dict[str, Any], ...]]]] = {
                 "tradeoff": "Повтор исходной позиции снимает шов без дополнительного урона.",
                 "counter_scenario": "Предсказуемые повторяющиеся позиции делают ветку рискованной.",
                 "mobile_control": "Запомненная позиция отмечается тонкой нитью, без новой кнопки.",
-                "mastery_challenge": "seam_break_three_positions",
+                "mastery_challenge": "seam_three_critical",
+                "mastery_requirement": "Победи с тремя золотыми ударами за встречу.",
                 "telemetry": ("seam_stored", "seam_broken", "seam_wasted"),
             },
             {
@@ -61,7 +64,8 @@ UNIT_BRANCHES: Final[dict[str, dict[int, tuple[dict[str, Any], ...]]]] = {
                 "tradeoff": "Если правильный ответ пришёл в запрещённую позицию, серию приходится отпустить.",
                 "counter_scenario": "Игрок выбирает стабильность базовой Швеи против высокого потолка серии.",
                 "mobile_control": "Запрещённая руна приглушена, но остаётся читаемой и доступной.",
-                "mastery_challenge": "seam_no_repeat_chain",
+                "mastery_challenge": "seam_clean_twenty",
+                "mastery_requirement": "Победи, удержав серию не короче 20.",
                 "telemetry": ("slot_forbidden", "forbidden_respected", "forced_break"),
             },
         ),
@@ -76,7 +80,8 @@ UNIT_BRANCHES: Final[dict[str, dict[int, tuple[dict[str, Any], ...]]]] = {
                 "tradeoff": "Срок сигнала не продлевается, а после сдвига таймер скрывается.",
                 "counter_scenario": "Переносит ответ под удобный палец, но съедает время и может ухудшить раскладку.",
                 "mobile_control": "Короткое нажатие по ядру сдвигает руны; отдельная панель не появляется.",
-                "mastery_challenge": "tide_swap_without_miss",
+                "mastery_challenge": "tide_fast_response",
+                "mastery_requirement": "Победи: не меньше 10 ответов, средняя реакция до 650 мс.",
                 "telemetry": ("swap_started", "swap_committed", "swapped_signal_result"),
             },
             {
@@ -87,7 +92,8 @@ UNIT_BRANCHES: Final[dict[str, dict[int, tuple[dict[str, Any], ...]]]] = {
                 "tradeoff": "Пока подсказка открыта, пассивный урон Картографа останавливается.",
                 "counter_scenario": "На простой волне информация стоит дороже потерянного темпа.",
                 "mobile_control": "Семейство показано одним знаком над ядром, без текста и модалки.",
-                "mastery_challenge": "tide_forecast_three_families",
+                "mastery_challenge": "tide_no_miss",
+                "mastery_requirement": "Победи без пропусков и с точностью не ниже 90%.",
                 "telemetry": ("family_previewed", "preview_followed", "preview_ignored"),
             },
         ),
@@ -162,12 +168,45 @@ def public_progression_manifest() -> dict[str, Any]:
     }
 
 
+def mastery_proofs_from_terminal(state: Mapping[str, Any]) -> tuple[str, ...]:
+    """Return only challenges proven by immutable server battle metrics.
+
+    Unlock challenges deliberately use base-kit behavior.  A branch must never
+    require its own not-yet-selected mechanic, and the client never supplies a
+    proof string.
+    """
+    mastery = state.get("mastery") if isinstance(state.get("mastery"), Mapping) else {}
+    combo = state.get("combo") if isinstance(state.get("combo"), Mapping) else {}
+    won = state.get("status") == "won"
+    correct = max(0, int(mastery.get("correct_taps", 0)))
+    mistakes = max(0, int(mastery.get("mistakes", 0)))
+    missed = max(0, int(mastery.get("missed_signals", 0)))
+    attempts = correct + mistakes + missed
+    accuracy = correct / attempts if attempts else None
+    reactions = max(0, int(mastery.get("reaction_count", 0)))
+    average_reaction = (
+        max(0, int(mastery.get("reaction_total_ms", 0))) / reactions
+        if reactions else None
+    )
+    facts = {
+        "bell_recover_three_clean": won and mistakes >= 1
+        and int(mastery.get("max_combo_after_mistake", 0)) >= 8,
+        "bell_three_discharges": won and int(mastery.get("discharges", 0)) >= 3,
+        "seam_three_critical": won and int(mastery.get("critical_taps", 0)) >= 3,
+        "seam_clean_twenty": won and int(combo.get("max", 0)) >= 20,
+        "tide_fast_response": won and reactions >= 10
+        and average_reaction is not None and average_reaction <= 650,
+        "tide_no_miss": won and missed == 0 and accuracy is not None and accuracy >= 0.9,
+    }
+    return tuple(challenge for challenge, proven in facts.items() if proven)
+
+
 def validate_progression_content() -> list[str]:
     errors: list[str] = []
     ids: set[str] = set()
     required = {
         "id", "name", "decision", "mechanic", "tradeoff", "counter_scenario",
-        "mobile_control", "mastery_challenge", "telemetry",
+        "mobile_control", "mastery_challenge", "mastery_requirement", "telemetry",
     }
     for unit_id in STARTER_UNITS:
         milestones = UNIT_BRANCHES.get(unit_id, {})
