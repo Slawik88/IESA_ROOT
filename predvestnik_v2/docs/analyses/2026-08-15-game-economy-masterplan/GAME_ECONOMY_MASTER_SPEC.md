@@ -738,7 +738,7 @@ P-кривая заботы: одна opportunity восстанавливает
 
 Разница ожидаемой эффективности после учёта active interaction — не более **P 5%**. Один слот доступен сразу, второй открывает Хроника. VIP/платёж не добавляет слот или output. Вся повторяемая Мора входит в pet-channel cap 600 и общий Reserve.
 
-Награда не сгорает и забирается одной кнопкой. Seed/result фиксируются на старте; cancel не reroll’ит результат. Четыре активных production-похода на cutover завершаются по старому контракту один раз.
+Награда не сгорает и забирается одной кнопкой. Seed/result фиксируются на старте; cancel не reroll’ит результат. Read-only сверка 2026-08-22 нашла шесть активных production-походов; на cutover фактический freeze manifest определяет полный набор, и каждый такой поход завершается по старому контракту один раз.
 
 ---
 
@@ -1076,9 +1076,9 @@ UI и core MVP можно тестировать когортами на отд�
 
 | Legacy asset | FACT | Правило | Новый результат |
 |---|---:|---|---|
-| питомцы | 288 копий / 138 владельцев | сохранить каждый ownership record, вид, имя и cosmetic state | те же питомцы; первая роль сразу, остальные direct choice unopened role на 5-й, 10-й, …, 45-й meaningful gameplay day; все 10 не позднее дня 45 |
+| питомцы | read-only 2026-08-22: 328 копий / 169 владельцев | сохранить каждый ownership record, вид, имя и cosmetic state; cutover scope только из freeze manifest | те же питомцы; первая роль сразу, остальные direct choice unopened role на 5-й, 10-й, …, 45-й meaningful gameplay day; все 10 не позднее дня 45 |
 | pet level | Lv10 есть у 5 владельцев | сохранить точное старое значение как `Legacy Care Rank`; **не seed Bond/силу** | трофей профиля/питомца, новый Bond стартует по общему правилу |
-| pet duplicates | common 1 876; rare 1 446; epic 1 287; legendary 751 суммарно | сохранить точные counts в legacy record; **не seed Bond/силу** | collection history и cosmetic legacy presentation, не dust |
+| pet duplicates | read-only 2026-08-22: common 2 061; rare 1 531; epic 1 441; legendary 778 | сохранить точные counts из freeze manifest в legacy record; **не seed Bond/силу** | collection history и cosmetic legacy presentation, не dust |
 | старые юниты | 16 владельцев; median 2, max 8 | каждый owned unit становится owned named Imprint + legacy appearance | владение сохранено, функциональные узлы требуют новую игру |
 | unit level | max Lv3 | сохранить как `Legacy Mastery L0–L3`; **не seed Attunement/силу** | видимое признание, новый Attunement стартует по общему правилу |
 | target shards | 43 unused; 2 level-0 partial rows | сохранить target и amount в `Legacy Research Claim`; сначала применить old unlock audit, если старое владение уже было обязано | owed ownership выдаётся; остаток обслуживает только target-specific lore/cosmetic archive, не universal progress |
@@ -1227,7 +1227,7 @@ VIP dry-run считается полным только при 100% SKU/term ma
 
 ### 16.14. Активные походы, бои, задания и прочие runtime-права
 
-- четыре active expeditions с prepaid cost 297 завершаются по старому result, один раз и вне нового Reserve; следующий поход только новый;
+- read-only 2026-08-22: шесть active expeditions с prepaid cost 547; cutover использует фактический freeze manifest, каждый найденный поход завершается по старому result один раз и вне нового Reserve; следующий поход только новый;
 - family pets (`pets.marriage_id`) и их active expeditions входят в тот же per-pet manifest; marriage ownership не делает их orphan;
 - active legacy battles/duels прекращают создание; завершённый terminal result исполняется один раз, незавершённая ставка/fee возвращается;
 - pending minigame sessions и DEV-MVP runs закрываются без reward; тестовая статистика сохраняется как `DEV_MVP`, но не становится production economy history;

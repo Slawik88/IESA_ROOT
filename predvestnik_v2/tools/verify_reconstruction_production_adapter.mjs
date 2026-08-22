@@ -12,9 +12,12 @@ const productionHtml = source
   .replace('data-runtime="preview"', 'data-runtime="production"')
   .replace('data-api-base="/__reconstruction"', 'data-api-base=""');
 
-const [manifest, initialState] = await Promise.all([
+const [manifest, initialState, companionOverview] = await Promise.all([
   fetch(`${base}/__reconstruction/manifest`).then((response) => response.json()),
   fetch(`${base}/__reconstruction/state`, {
+    headers: { 'x-reconstruction-session': 'production-adapter-verifier' },
+  }).then((response) => response.json()),
+  fetch(`${base}/__reconstruction/companions`, {
     headers: { 'x-reconstruction-session': 'production-adapter-verifier' },
   }).then((response) => response.json()),
 ]);
@@ -106,6 +109,14 @@ try {
         status: 200,
         contentType: 'application/json; charset=utf-8',
         body: JSON.stringify(overviewResponse),
+      });
+      return;
+    }
+    if (url.pathname === '/reconstruction/companions' && request.method() === 'GET') {
+      request.respond({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify(companionOverview),
       });
       return;
     }

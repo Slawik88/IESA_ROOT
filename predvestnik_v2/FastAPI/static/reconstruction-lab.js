@@ -39,6 +39,7 @@
   let runId = null;
   let progress = null;
   let units = [];
+  let companionState = null;
   let pendingMemory = null;
   let actionSequence = 0;
 
@@ -104,7 +105,7 @@
       const value = JSON.parse(sessionStorage.getItem(UI_STORAGE_KEY) || '{}');
       return {
         view: ['menu', 'battle', 'pause', 'choice', 'result'].includes(value.view) ? value.view : null,
-        tab: ['play', 'stats', 'help'].includes(value.tab) ? value.tab : 'play',
+        tab: ['play', 'companion', 'stats', 'help'].includes(value.tab) ? value.tab : 'play',
       };
     } catch (_) {
       return { view: null, tab: 'play' };
@@ -585,6 +586,61 @@
       : '<span>История сборок появится после первого завершённого забега.</span>';
   }
 
+  function renderCompanions() {
+    const container = document.getElementById('companionContent');
+    if (!container) return;
+    if (!companionState) {
+      container.innerHTML = '<div class="companion-empty">Загружаю профиль спутника…</div>';
+      return;
+    }
+    const species = {
+      fox: '🦊', owl: '🦉', dragon: '🐉', dog: '🐕', squirrel: '🐿️', hamster: '🐹',
+      turtle: '🐢', falcon: '🦅', wolf: '🐺', unicorn: '🦄',
+    };
+    const rarityNames = {
+      common: 'обычный', rare: 'редкий', epic: 'эпический', legendary: 'легендарный',
+    };
+    const pets = companionState.pets || [];
+    const active = pets.find((pet) => pet.active_companion) || pets[0];
+    if (!active) {
+      container.innerHTML = '<div class="companion-empty">Питомцев пока нет. Первый спутник появится в onboarding Хроники.</div>';
+      return;
+    }
+    const roles = companionState.policy?.roles || [];
+    const unlocked = new Set(companionState.unlocked_roles || []);
+    const selected = companionState.selected_role_id;
+    const progress = active.bond || {};
+    const nextBond = progress.next_milestone == null ? 'все основные сцены открыты'
+      : `${number(progress.points)} / ${number(progress.next_milestone)}`;
+    const petRail = pets.map((pet) => `
+      <button type="button" class="pet-chip${pet.active_companion ? ' active' : ''}" data-companion-pet="${pet.id}">
+        <i>${species[pet.species_id] || '◌'}</i><span><strong>${esc(pet.name)}</strong><small>стар. ур. ${number(pet.legacy.level)} · Bond ${number(pet.bond.points)}</small></span>
+      </button>`).join('');
+    const roleCards = roles.map((role) => {
+      const owned = unlocked.has(role.id);
+      const current = selected === role.id;
+      const canUnlock = owned || unlocked.size < Number(companionState.role_slots || 1);
+      return `<button type="button" class="role-card${current ? ' selected' : ''}${owned ? ' unlocked' : ''}" data-companion-role="${esc(role.id)}" ${canUnlock ? '' : 'disabled'}>
+        <i>${esc(role.emoji)}</i><span><strong>${esc(role.name)}</strong><small>${esc(role.decision)}</small><em>− ${esc(role.tradeoff)}</em></span><b>${current ? 'выбрано' : owned ? 'сменить' : canUnlock ? 'открыть' : `день ${number(companionState.next_role_day)}`}</b>
+      </button>`;
+    }).join('');
+    const careButtons = (companionState.care_actions || []).map((action) => `
+      <button type="button" data-care-action="${esc(action.id)}" ${Number(active.care_bank) > 0 ? '' : 'disabled'}>${esc(action.name)}</button>`).join('');
+    const expeditions = (companionState.expeditions?.options || []).map((option) => `
+      <span><i>${number(option.duration_hours)}ч</i><strong>${number(option.projected_mora)} Моры</strong><small>${esc(option.route_name)}</small></span>`).join('');
+    container.innerHTML = `
+      <section class="companion-hero">
+        <div class="companion-mark">${species[active.species_id] || '◌'}</div>
+        <div><span>АКТИВНЫЙ СПУТНИК</span><strong>${esc(active.name)}</strong><small>${esc(rarityNames[active.rarity] || active.rarity || 'обычный')} · старый уровень ${number(active.legacy.level)} сохранён</small></div>
+        <b>Bond ${nextBond}</b>
+      </section>
+      <div class="bond-line"><span><b style="width:${Math.min(100, Number(progress.points || 0) / 78 * 100)}%"></b></span><small>открыто сцен: ${number(progress.milestones_reached)}</small></div>
+      <div class="pet-rail">${petRail}</div>
+      <section class="care-block"><header><span><strong>Забота</strong><small>короткий ритуал без штрафа за пропуск</small></span><b>${number(active.care_bank)} / 7</b></header><div>${careButtons}</div></section>
+      <section class="companion-section"><header><span><strong>Атлас ролей</strong><small>${number(unlocked.size)} открыто · ${number(companionState.role_slots)} доступно сейчас</small></span><b>след. ${companionState.next_role_day == null ? 'все' : `${number(companionState.next_role_day)} день`}</b></header><div class="role-list">${roleCards}</div></section>
+      <section class="companion-section expedition-preview"><header><span><strong>Поход-разведка</strong><small>выбор времени больше не наказывает</small></span><b>лимит 600 / 7д</b></header><div class="expedition-grid">${expeditions}</div><p>${esc(companionState.expeditions?.reason || '')}</p></section>`;
+  }
+
   function refreshMenu() {
     const startButton = document.getElementById('startRunButton');
     const next = progress?.next_step;
@@ -775,6 +831,7 @@
       panel.hidden = !active;
     });
     if (tab === 'stats') renderCareer();
+    if (tab === 'companion') renderCompanions();
     if (persist && currentView === 'menu') saveUiState();
   }
 
@@ -1159,6 +1216,34 @@
     const card = event.target.closest('[data-unit-progress]');
     if (card) showUnitBranchChoice(card.dataset.unitProgress);
   });
+  document.getElementById('companionPanel').addEventListener('click', async (event) => {
+    const pet = event.target.closest('[data-companion-pet]');
+    const role = event.target.closest('[data-companion-role]');
+    const care = event.target.closest('[data-care-action]');
+    if (!pet && !role && !care) return;
+    try {
+      if (pet) companionState = await jsonFetch('/companions/active', {
+        method: 'POST', body: JSON.stringify({ pet_id: Number(pet.dataset.companionPet) }),
+      });
+      if (role) companionState = await jsonFetch('/companions/role', {
+        method: 'POST', body: JSON.stringify({ role_id: role.dataset.companionRole }),
+      });
+      if (care) {
+        const active = companionState?.pets?.find((item) => item.active_companion);
+        await jsonFetch('/companions/care', {
+          method: 'POST', body: JSON.stringify({
+            pet_id: Number(active?.id), action: care.dataset.careAction,
+            action_id: globalThis.crypto?.randomUUID?.() || `care-${Date.now()}`,
+          }),
+        });
+        companionState = await jsonFetch('/companions');
+        notify('Bond вырос. Валюта и сила не изменились.');
+      }
+      renderCompanions();
+    } catch (error) {
+      notify(error.message, true);
+    }
+  });
   document.getElementById('branchControls').addEventListener('click', (event) => {
     const control = event.target.closest('[data-combat-command]');
     if (!control) return;
@@ -1199,7 +1284,7 @@
   setTesterIdentity();
 
   const bootstrap = production
-    ? jsonFetch('').then((overview) => {
+    ? Promise.all([jsonFetch(''), jsonFetch('/companions')]).then(([overview, companionData]) => {
       manifest = overview.content;
       progress = overview.progress;
       units = overview.units || [];
@@ -1207,10 +1292,12 @@
       state = overview.active_run || null;
       runId = state?.run_id || null;
       applyCareerStats(overview.stats);
+      companionState = companionData;
     })
-    : Promise.all([jsonFetch('/manifest'), jsonFetch('/state')]).then(([manifestData, stateData]) => {
+    : Promise.all([jsonFetch('/manifest'), jsonFetch('/state'), jsonFetch('/companions')]).then(([manifestData, stateData, companionData]) => {
       manifest = manifestData;
       state = stateData;
+      companionState = companionData;
       units = (manifest.starter_units || []).map((unit) => ({
         unit_id: unit.id, short_name: unit.short_name, name: unit.name, emoji: unit.emoji,
         level: 1, total_xp: 0, xp_in_level: 0, xp_to_next: 120,

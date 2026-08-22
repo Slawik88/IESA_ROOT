@@ -99,6 +99,7 @@
 
       <nav class="menu-tabs" aria-label="Разделы игры">
         <button class="active" type="button" data-menu-tab="play">Играть</button>
+        <button type="button" data-menu-tab="companion">Спутник</button>
         <button type="button" data-menu-tab="stats">Статистика</button>
         <button type="button" data-menu-tab="help">Как играть</button>
       </nav>
@@ -118,6 +119,13 @@
           <button class="primary-action" id="startRunButton" type="button">Начать первый забег <span>›</span></button>
           <button class="quiet-action" id="newRunButton" type="button" hidden>Новый забег</button>
         </div>
+      </div>
+
+      <div class="menu-panel companion-panel" id="companionPanel" data-menu-panel="companion" hidden>
+        <span class="eyebrow">СПУТНИК · НОВЫЙ КОНТУР</span>
+        <h2>Питомец — это стиль решений</h2>
+        <p>Внешность и старый прогресс сохранены. Роль меняет тактику, но не продаёт силу.</p>
+        <div id="companionContent" class="companion-content"></div>
       </div>
 
       <div class="menu-panel" data-menu-panel="stats" hidden>

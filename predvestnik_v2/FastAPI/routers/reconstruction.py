@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tg_user
 from services import reconstruction as game
+from services import companions_v3 as companions
 
 
 router = APIRouter(prefix="/reconstruction", tags=["reconstruction"])
@@ -47,8 +48,27 @@ class ChroniclePathBody(BaseModel):
     path_id: Literal["ink", "ash"]
 
 
+class CompanionPetBody(BaseModel):
+    pet_id: int = Field(gt=0)
+
+
+class CompanionRoleBody(BaseModel):
+    role_id: str = Field(min_length=1, max_length=48)
+
+
+class CompanionCareBody(BaseModel):
+    pet_id: int = Field(gt=0)
+    action: Literal["feed", "play", "groom"]
+    action_id: str = Field(min_length=1, max_length=96)
+
+
 def _raise_service_error(exc: Exception) -> None:
     status = 409 if isinstance(exc, game.ReconstructionConflict) else 400
+    raise HTTPException(status, str(exc)) from exc
+
+
+def _raise_companion_error(exc: Exception) -> None:
+    status = 409 if isinstance(exc, companions.CompanionConflict) else 400
     raise HTTPException(status, str(exc)) from exc
 
 
@@ -136,3 +156,40 @@ async def choose_chronicle_path(
         return await game.choose_chronicle_path(db, int(user["id"]), body.path_id)
     except game.ReconstructionError as exc:
         _raise_service_error(exc)
+
+
+@router.get("/companions")
+async def companion_overview(db=Depends(get_db), user=Depends(require_tg_user)):
+    return await companions.overview(db, int(user["id"]))
+
+
+@router.post("/companions/active")
+async def companion_active(
+    body: CompanionPetBody, db=Depends(get_db), user=Depends(require_tg_user)
+):
+    try:
+        return await companions.select_active_pet(db, int(user["id"]), body.pet_id)
+    except companions.CompanionError as exc:
+        _raise_companion_error(exc)
+
+
+@router.post("/companions/role")
+async def companion_role(
+    body: CompanionRoleBody, db=Depends(get_db), user=Depends(require_tg_user)
+):
+    try:
+        return await companions.select_role(db, int(user["id"]), body.role_id)
+    except companions.CompanionError as exc:
+        _raise_companion_error(exc)
+
+
+@router.post("/companions/care")
+async def companion_care(
+    body: CompanionCareBody, db=Depends(get_db), user=Depends(require_tg_user)
+):
+    try:
+        return await companions.care(
+            db, int(user["id"]), body.pet_id, body.action, body.action_id
+        )
+    except companions.CompanionError as exc:
+        _raise_companion_error(exc)

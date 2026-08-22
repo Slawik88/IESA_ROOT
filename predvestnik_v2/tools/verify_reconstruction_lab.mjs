@@ -43,9 +43,27 @@ try{
     }));
     check(menuMetrics.width<=width-16,`${width}px: menu exceeds viewport`);
     check(menuMetrics.height<=menuMetrics.viewportHeight-16,`${width}px: menu exceeds viewport height`);
-    check(menuMetrics.tabs===3,`${width}px: expected three menu tabs`);
+    check(menuMetrics.tabs===4,`${width}px: expected four menu tabs`);
     check(menuMetrics.startHeight>=42&&menuMetrics.startHeight<=48,`${width}px: start action is not compact`);
     if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-menu.png`,fullPage:true});
+    await page.click('[data-menu-tab="companion"]');
+    await page.waitForSelector('.role-card');
+    const companionMetrics=await page.evaluate(()=>({
+      pageWidth:document.documentElement.scrollWidth,
+      viewport:innerWidth,
+      menuHeight:document.querySelector('.menu-card').getBoundingClientRect().height,
+      viewportHeight:innerHeight,
+      roles:document.querySelectorAll('.role-card').length,
+      careHeights:[...document.querySelectorAll('[data-care-action]')].map(node=>node.getBoundingClientRect().height),
+      expeditionOptions:document.querySelectorAll('.expedition-grid > span').length,
+    }));
+    check(companionMetrics.pageWidth<=companionMetrics.viewport,`${width}px: companion page overflows`);
+    check(companionMetrics.menuHeight<=companionMetrics.viewportHeight-16,`${width}px: companion menu exceeds viewport`);
+    check(companionMetrics.roles===10,`${width}px: expected ten companion roles`);
+    check(companionMetrics.careHeights.every(height=>height>=34&&height<=44),`${width}px: care controls are not compact`);
+    check(companionMetrics.expeditionOptions===3,`${width}px: expected three expedition contracts`);
+    if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-companion.png`,fullPage:true});
+    await page.click('[data-menu-tab="play"]');
     await page.click('#startRunButton');
     await page.waitForSelector('#menuLayer[hidden]');
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
