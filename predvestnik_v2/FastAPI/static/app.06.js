@@ -872,8 +872,10 @@ function loadShowcase(){
 }
 function _showcaseBuyBundle(btn){
   if(btn){btn.disabled=true;btn.textContent='...';}
-  api('/showcase/buy-bundle',{method:'POST'})
-    .then(r=>{toast(r.message||'🎁 Набор куплен!');if(typeof refreshCurrBar==='function')refreshCurrBar();loadShowcase();})
+  const requestKey=btn?.dataset.requestKey||economyRequestKey('showcase-bundle');
+  if(btn)btn.dataset.requestKey=requestKey;
+  api('/showcase/buy-bundle',{method:'POST',headers:{'Idempotency-Key':requestKey}})
+    .then(r=>{if(btn)delete btn.dataset.requestKey;toast(r.message||'🎁 Набор куплен!');if(typeof refreshCurrBar==='function')refreshCurrBar();loadShowcase();})
     .catch(e=>{toast(e,false);loadShowcase();});
 }
 function _showcaseCard(s){
@@ -907,8 +909,10 @@ function _showcaseReveal(idx,card){
 }
 function _showcaseBuy(idx,btn){
   if(btn){btn.disabled=true;btn.textContent='...';}
-  api('/showcase/buy',{method:'POST',body:JSON.stringify({slot_idx:idx})})
-    .then(r=>{toast(r.message||'🎨 Куплено!');loadShowcase();})
+  const requestKey=btn?.dataset.requestKey||economyRequestKey(`showcase-slot-${idx}`);
+  if(btn)btn.dataset.requestKey=requestKey;
+  api('/showcase/buy',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({slot_idx:idx})})
+    .then(r=>{if(btn)delete btn.dataset.requestKey;toast(r.message||'🎨 Куплено!');loadShowcase();})
     .catch(e=>{toast(e,false);loadShowcase();});
 }
 function startDealTimer() {
