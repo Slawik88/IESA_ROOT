@@ -279,6 +279,12 @@ function expLauncherHtml() {
       <div style="font-size:10px;color:var(--muted);margin-top:4px">За раз можно отправить одного питомца. Ускорить возвращение — бустером (см. блок похода выше).</div>
     </div>`;
   }
+  if(o.new_starts_enabled===false) {
+    return `<div class="card" style="margin-bottom:10px">
+      <div class="card-title">🗺 Старые походы завершены</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">Новый поход отправить нельзя. Питомец остаётся у тебя, а игровые забеги теперь находятся во вкладке «Игра».</div>
+    </div>`;
+  }
   if(!o.active_pet) {
     return `<div class="card" style="margin-bottom:10px">
       <div class="card-title">🗺 Отправить в поход</div>
@@ -805,4 +811,3 @@ function boostExp(pid,bid,row) {
     .then(r=>{toast(`⏩ −${r.boosted_hours}ч!`);_loaded.delete('zoo');loadZoo();})
     .catch(e=>{toast(e,false);row.style.opacity='1';});
 }
-

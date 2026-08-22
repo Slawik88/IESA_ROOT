@@ -294,6 +294,7 @@ async def expedition_options(db=Depends(get_db), user=Depends(require_tg_user)):
     busy = await get_busy_expedition(db, uid)
     balance = await get_balance(db, uid)
     return {
+        "new_starts_enabled": False,
         "options": options,
         "active_pet": active_pet,
         "busy": busy is not None,
@@ -312,6 +313,10 @@ class StartExpeditionRequest(BaseModel):
 @router.post("/start-expedition")
 async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Отправить активного питомца в поход. Синхронизировано с bot/handlers/expeditions.py."""
+    raise HTTPException(
+        410,
+        "Старые походы больше не запускаются. Уже начатый поход завершится и вернёт награду; новые активности находятся во вкладке «Игра».",
+    )
     if body.hours not in EXPEDITIONS_DATA:
         raise HTTPException(400, "Доступная длительность: 2, 4, 6 или 8 часов.")
 
