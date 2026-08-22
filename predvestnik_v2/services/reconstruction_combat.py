@@ -37,17 +37,17 @@ E01_WAVES: tuple[dict[str, Any], ...] = (
     {
         "id": "echo_shell", "name": "Безымянный отголосок",
         "subtitle": "Услышь знак и найди его отражение", "emoji": "◉",
-        "hp": 950.0, "duration_ms": 20000, "signal_ms": 1200,
+        "hp": 950.0, "duration_ms": 20000, "signal_ms": 1200, "rail": "Эхо",
     },
     {
         "id": "bell_thief", "name": "Похититель звона",
         "subtitle": "Руны меняются быстрее, спам ломает серию", "emoji": "◈",
-        "hp": 1400.0, "duration_ms": 24000, "signal_ms": 1050,
+        "hp": 1400.0, "duration_ms": 24000, "signal_ms": 1050, "rail": "Похититель",
     },
     {
         "id": "drowned_archivist", "name": "Архивариус глубин",
         "subtitle": "Последний звон решит исход", "emoji": "♜",
-        "hp": 1900.0, "duration_ms": 29000, "signal_ms": 950,
+        "hp": 1900.0, "duration_ms": 29000, "signal_ms": 950, "rail": "Архивариус",
     },
 )
 
@@ -55,17 +55,17 @@ E02_WAVES: tuple[dict[str, Any], ...] = (
     {
         "id": "lantern_wake", "name": "След фонаря",
         "subtitle": "Ошибки гасят свет, чистая серия возвращает его", "emoji": "◌",
-        "hp": 1450.0, "duration_ms": 30000, "signal_ms": 1150,
+        "hp": 1450.0, "duration_ms": 30000, "signal_ms": 1150, "rail": "Фонарь",
     },
     {
         "id": "split_causeway", "name": "Расколотый пролёт",
         "subtitle": "Сохрани точность, когда течение ускорится", "emoji": "⌁",
-        "hp": 1900.0, "duration_ms": 36000, "signal_ms": 980,
+        "hp": 1900.0, "duration_ms": 36000, "signal_ms": 980, "rail": "Пролёт",
     },
     {
         "id": "toll_gate", "name": "Затонувшие ворота",
         "subtitle": "Последняя длинная серия решает судьбу Фонаря", "emoji": "◇",
-        "hp": 2450.0, "duration_ms": 42000, "signal_ms": 880,
+        "hp": 2450.0, "duration_ms": 42000, "signal_ms": 880, "rail": "Ворота",
     },
 )
 
@@ -73,17 +73,17 @@ E03_INK_WAVES: tuple[dict[str, Any], ...] = (
     {
         "id": "ink_reflection", "name": "Чернильное отражение",
         "subtitle": "Отражение приходит раньше настоящего знака", "emoji": "◆",
-        "hp": 1650.0, "duration_ms": 34000, "signal_ms": 1100,
+        "hp": 1650.0, "duration_ms": 34000, "signal_ms": 1100, "rail": "Отражение",
     },
     {
         "id": "ink_mask", "name": "Маска переписчика",
         "subtitle": "Не отвечай на первый увиденный символ", "emoji": "◐",
-        "hp": 2200.0, "duration_ms": 40000, "signal_ms": 980,
+        "hp": 2200.0, "duration_ms": 40000, "signal_ms": 980, "rail": "Маска",
     },
     {
         "id": "ink_archive", "name": "Архив ложных имён",
         "subtitle": "Читай открытый сигнал, а не его предвестник", "emoji": "▣",
-        "hp": 2900.0, "duration_ms": 46000, "signal_ms": 850,
+        "hp": 2900.0, "duration_ms": 46000, "signal_ms": 850, "rail": "Архив",
     },
 )
 
@@ -91,17 +91,17 @@ E03_ASH_WAVES: tuple[dict[str, Any], ...] = (
     {
         "id": "ash_ember", "name": "Остывающий уголь",
         "subtitle": "Точный темп поддерживает огонь", "emoji": "·",
-        "hp": 1550.0, "duration_ms": 32000, "signal_ms": 1050,
+        "hp": 1550.0, "duration_ms": 32000, "signal_ms": 1050, "rail": "Уголь",
     },
     {
         "id": "ash_wind", "name": "Пепельный ветер",
         "subtitle": "Поздний золотой ответ возвращает больше жара", "emoji": "≈",
-        "hp": 2100.0, "duration_ms": 38000, "signal_ms": 900,
+        "hp": 2100.0, "duration_ms": 38000, "signal_ms": 900, "rail": "Ветер",
     },
     {
         "id": "ash_keeper", "name": "Хранитель костра",
         "subtitle": "Удержи огонь, не превращая риск в угадывание", "emoji": "△",
-        "hp": 2850.0, "duration_ms": 45000, "signal_ms": 780,
+        "hp": 2850.0, "duration_ms": 45000, "signal_ms": 780, "rail": "Костёр",
     },
 )
 
@@ -109,17 +109,17 @@ E04_WAVES: tuple[dict[str, Any], ...] = (
     {
         "id": "name_anchor", "name": "Якорь без имени",
         "subtitle": "Запомни два знака и повтори их без подсказки", "emoji": "⌁",
-        "hp": 1500.0, "duration_ms": 28000, "signal_ms": 1450,
+        "hp": 1500.0, "duration_ms": 28000, "signal_ms": 1450, "rail": "Имя",
     },
     {
         "id": "debt_anchor", "name": "Якорь старого долга",
         "subtitle": "Три знака: порядок важнее скорости", "emoji": "⟁",
-        "hp": 2100.0, "duration_ms": 35000, "signal_ms": 1300,
+        "hp": 2100.0, "duration_ms": 35000, "signal_ms": 1300, "rail": "Долг",
     },
     {
         "id": "choir_anchor", "name": "Якорь утонувшего хора",
         "subtitle": "Последняя цепочка не простит слепого клика", "emoji": "♢",
-        "hp": 2850.0, "duration_ms": 42000, "signal_ms": 1150,
+        "hp": 2850.0, "duration_ms": 42000, "signal_ms": 1150, "rail": "Хор",
     },
 )
 
@@ -127,17 +127,35 @@ E05_WAVES: tuple[dict[str, Any], ...] = (
     {
         "id": "first_mirror", "name": "Зеркало первого шага",
         "subtitle": "Выбранная позиция станет запретной для следующего знака", "emoji": "◫",
-        "hp": 1700.0, "duration_ms": 30000, "signal_ms": 1350,
+        "hp": 1700.0, "duration_ms": 30000, "signal_ms": 1350, "rail": "Шаг",
     },
     {
         "id": "copyist_mirror", "name": "Зеркало Переписчика",
         "subtitle": "Следи за знаком и не возвращайся в отмеченную ячейку", "emoji": "▱",
-        "hp": 2350.0, "duration_ms": 37000, "signal_ms": 1150,
+        "hp": 2350.0, "duration_ms": 37000, "signal_ms": 1150, "rail": "Переписчик",
     },
     {
         "id": "courtyard_mirror", "name": "Сердце Зеркального двора",
         "subtitle": "Последняя печать проверяет выбор, а не скорость", "emoji": "▣",
-        "hp": 3150.0, "duration_ms": 45000, "signal_ms": 980,
+        "hp": 3150.0, "duration_ms": 45000, "signal_ms": 980, "rail": "Двор",
+    },
+)
+
+E06_WAVES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "archivist_record", "name": "Фаза I · Запись",
+        "subtitle": "Архивариус запоминает прошлую позицию", "emoji": "⌑",
+        "hp": 2100.0, "duration_ms": 34000, "signal_ms": 1300, "rail": "Запись",
+    },
+    {
+        "id": "archivist_tide", "name": "Фаза II · Прилив",
+        "subtitle": "Короткие и длинные окна объявляются заранее", "emoji": "≈",
+        "hp": 2850.0, "duration_ms": 43000, "signal_ms": 1100, "rail": "Прилив",
+    },
+    {
+        "id": "archivist_name", "name": "Фаза III · Последнее имя",
+        "subtitle": "Запомни две руны и верни имя в правильном порядке", "emoji": "◉",
+        "hp": 3800.0, "duration_ms": 50000, "signal_ms": 1050, "rail": "Имя",
     },
 )
 
@@ -148,6 +166,7 @@ ENCOUNTER_WAVES: dict[str, tuple[dict[str, Any], ...]] = {
     "e03_ash_path": E03_ASH_WAVES,
     "e04_drowned_names": E04_WAVES,
     "e05_mirror_courtyard": E05_WAVES,
+    "e06_archivist": E06_WAVES,
 }
 
 SEQUENCE_LENGTHS = tuple(ENCOUNTERS["e04_drowned_names"]["objective"]["sequence_lengths"])
@@ -237,8 +256,19 @@ def _forced_challenge_data(
     ], delay
 
 
+def _is_sequence_objective(objective: dict[str, Any]) -> bool:
+    return bool(
+        objective.get("kind") == "drowned_sequence"
+        or (
+            objective.get("kind") == "archivist_boss"
+            and objective.get("phase") in {"preview", "recall"}
+        )
+    )
+
+
 def _sequence_for_wave(state: dict[str, Any]) -> list[str]:
-    length = SEQUENCE_LENGTHS[int(state["round"]) - 1]
+    objective = state.get("objective_state") or {}
+    length = 2 if objective.get("kind") == "archivist_boss" else SEQUENCE_LENGTHS[int(state["round"]) - 1]
     result: list[str] = []
     for index in range(length):
         value = _mix(state["seed"] + int(state["round"]) * 4099, index + 1)
@@ -264,22 +294,46 @@ def _begin_sequence_preview(state: dict[str, Any], *, replay: bool = False) -> N
     state["challenge"] = None
 
 
+def _begin_archivist_phase(state: dict[str, Any]) -> None:
+    objective = state["objective_state"]
+    if int(state["round"]) == 1:
+        objective.update({
+            "phase": "record", "recorded_slot": None, "tide_window": None,
+        })
+        _schedule_challenge(state, first=True)
+    elif int(state["round"]) == 2:
+        objective.update({
+            "phase": "tide", "recorded_slot": None, "tide_window": "long",
+        })
+        _schedule_challenge(state, first=True)
+    else:
+        objective.update({"phase": "last_name", "attempts_left": 3, "attempts_max": 3})
+        _begin_sequence_preview(state)
+
+
 def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
     previous_id = int((state.get("challenge") or {}).get("id", 0))
     sequence = max(int(state.get("challenge_seq", 0)), previous_id) + 1
     state["challenge_seq"] = sequence
     objective = state.get("objective_state") or {}
-    if objective.get("kind") == "drowned_sequence":
+    if _is_sequence_objective(objective):
         target = objective["sequence"][int(objective["answer_index"])]
         target, options, delay = _forced_challenge_data(state, sequence, target)
     else:
         target, options, delay = _challenge_data(state, sequence)
-    if objective.get("kind") == "mirror_rule" and objective.get("forbidden_slot"):
+    blocked_slot = (
+        objective.get("forbidden_slot")
+        if objective.get("kind") == "mirror_rule"
+        else objective.get("recorded_slot")
+        if objective.get("kind") == "archivist_boss" and objective.get("phase") == "record"
+        else None
+    )
+    if blocked_slot:
         correct_index = next(
             index for index, option in enumerate(options)
             if option["symbol"] == target
         )
-        forbidden_index = RUNE_SLOTS.index(str(objective["forbidden_slot"]))
+        forbidden_index = RUNE_SLOTS.index(str(blocked_slot))
         if correct_index == forbidden_index:
             swap_index = (forbidden_index + 1 + _mix(state["seed"] + 1771, sequence) % 2) % 3
             options[correct_index]["symbol"], options[swap_index]["symbol"] = (
@@ -287,7 +341,7 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
             )
     now = int(state["wave"]["elapsed_ms"])
     if first:
-        delay = 420 if objective.get("kind") == "drowned_sequence" else 650
+        delay = 420 if _is_sequence_objective(objective) else 650
     opens_at = now + delay
     branch = _branch_state(state)
     penalty_ms = max(0, int(branch.get("next_signal_penalty_ms", 0)))
@@ -305,6 +359,13 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
             - penalty_ms,
         ),
     }
+    if objective.get("kind") == "archivist_boss" and objective.get("phase") == "tide":
+        tide_window = "short" if sequence % 2 else "long"
+        window_ms = 760 if tide_window == "short" else 1580
+        state["challenge"]["expires_at_ms"] = opens_at + max(
+            620, window_ms + int(state["team"]["signal_window_bonus_ms"])
+        )
+        objective["tide_window"] = tide_window
     branch["next_signal_penalty_ms"] = 0
     branch["hide_signal_timer"] = False
     branch["family_preview"] = None
@@ -469,9 +530,24 @@ def new_encounter(
         state["log"] = [
             "◫ После точного ответа выбранная позиция закрывается до следующего знака."
         ]
+    elif encounter_id == "e06_archivist":
+        state["objective_state"] = {
+            "kind": "archivist_boss",
+            "phase": "record",
+            "phases_completed": 0,
+            "phases_total": 3,
+            "recorded_slot": None,
+            "tide_window": None,
+            "sequence_replays": 0,
+        }
+        state["log"] = [
+            "⌑ Архивариус меняет правило после каждой фазы. Сначала он записывает выбранную позицию."
+        ]
     state["wave"] = _wave_runtime(state, 0, 0)
     if encounter_id == "e04_drowned_names":
         _begin_sequence_preview(state)
+    elif encounter_id == "e06_archivist":
+        _begin_archivist_phase(state)
     else:
         _schedule_challenge(state, first=True)
     return state
@@ -488,7 +564,7 @@ def _deal(state: dict[str, Any], amount: float, source: str) -> float:
     wave = state["wave"]
     objective = state.get("objective_state") or {}
     if (
-        objective.get("kind") == "drowned_sequence"
+        _is_sequence_objective(objective)
         and int(objective.get("answer_index", 0)) < int(objective.get("sequence_length", 1))
     ):
         # Отряд помогает, но не может разорвать якорь вместо правильного ответа.
@@ -506,13 +582,17 @@ def _deal(state: dict[str, Any], amount: float, source: str) -> float:
 def _complete_wave(state: dict[str, Any]) -> None:
     state["log"].append(f"✦ {state['wave']['name']} рассыпается. Волна {state['round']} пройдена.")
     state["challenge"] = None
+    objective = state.get("objective_state") or {}
+    if objective.get("kind") == "archivist_boss":
+        objective["phases_completed"] = max(
+            int(objective.get("phases_completed", 0)), int(state["round"])
+        )
     if state["round"] >= len(_waves(state)):
         correct = int(state["mastery"]["correct_taps"])
         resolved = correct + int(state["mastery"]["mistakes"]) + int(
             state["mastery"]["missed_signals"]
         )
         accuracy = correct / resolved * 100 if resolved else 0
-        objective = state.get("objective_state") or {}
         if (
             objective.get("kind") == "lantern_escort"
             and accuracy < float(objective["minimum_accuracy"])
@@ -528,6 +608,7 @@ def _complete_wave(state: dict[str, Any]) -> None:
                 "ash_fire": ("fire_carried", "Огонь сохранён"),
                 "drowned_sequence": ("drowned_names_released", "Имена освобождены"),
                 "mirror_rule": ("courtyard_crossed", "Переписчик отступил"),
+                "archivist_boss": ("archivist_defeated", "Архивариус отпустил имя"),
             }
             outcome_reason, victory_label = outcomes.get(
                 str(objective.get("kind")), ("all_echoes_broken", "Колокол отвечает тебе")
@@ -572,6 +653,8 @@ def _start_next_wave(state: dict[str, Any]) -> None:
     if objective.get("kind") == "drowned_sequence":
         objective["attempts_left"] = int(objective["attempts_max"])
         _begin_sequence_preview(state)
+    elif objective.get("kind") == "archivist_boss":
+        _begin_archivist_phase(state)
     else:
         if objective.get("kind") == "mirror_rule":
             objective["forbidden_slot"] = None
@@ -681,6 +764,22 @@ def _miss_signal(
         _consume_manual_discharge_window(state, challenge_id)
         _emit(state, "miss", "ЦЕПОЧКА СНАЧАЛА")
         return
+    elif (
+        objective.get("kind") == "archivist_boss"
+        and objective.get("phase") in {"preview", "recall"}
+    ):
+        objective["attempts_left"] = max(0, int(objective["attempts_left"]) - 1)
+        if objective["attempts_left"] <= 0:
+            state["status"] = "lost"
+            state["outcome_reason"] = "last_name_lost"
+            state["challenge"] = None
+            _emit(state, "defeat", "Последнее имя стёрто")
+            return
+        objective["sequence_replays"] = int(objective.get("sequence_replays", 0)) + 1
+        _begin_sequence_preview(state, replay=True)
+        _consume_manual_discharge_window(state, challenge_id)
+        _emit(state, "miss", "ИМЯ НУЖНО ВСПОМНИТЬ СНАЧАЛА")
+        return
     elif objective.get("kind") == "mirror_rule":
         objective["wards"] = max(0, int(objective["wards"]) - 1)
         repeated = bool(
@@ -725,7 +824,7 @@ def _advance_time(state: dict[str, Any], delta_ms: int) -> None:
     challenge = state.get("challenge")
     branch = _branch_state(state)
     objective = state.get("objective_state") or {}
-    if objective.get("kind") == "drowned_sequence" and objective.get("phase") == "preview":
+    if _is_sequence_objective(objective) and objective.get("phase") == "preview":
         relative = int(wave["elapsed_ms"]) - int(objective["preview_started_at_ms"])
         sequence = objective["sequence"]
         if relative < 0:
@@ -869,14 +968,19 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
             state["combo"]["count"],
         )
     objective = state.get("objective_state") or {}
-    if objective.get("kind") == "drowned_sequence":
+    if _is_sequence_objective(objective):
         objective["answer_index"] = int(objective["answer_index"]) + 1
-        if objective["answer_index"] >= int(objective["sequence_length"]):
+        if (
+            objective.get("kind") == "drowned_sequence"
+            and objective["answer_index"] >= int(objective["sequence_length"])
+        ):
             objective["anchors_broken"] = min(
                 int(objective["anchors_total"]), int(objective["anchors_broken"]) + 1
             )
     elif objective.get("kind") == "mirror_rule":
         objective["forbidden_slot"] = slot
+    elif objective.get("kind") == "archivist_boss" and objective.get("phase") == "record":
+        objective["recorded_slot"] = slot
     if (
         objective.get("kind") == "lantern_escort"
         and state["combo"]["count"] % 5 == 0
@@ -922,7 +1026,7 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
         damage += float(state["team"]["tap_power"]) * 0.75
     dealt = _deal(state, damage, "tap")
     if (
-        objective.get("kind") == "drowned_sequence"
+        _is_sequence_objective(objective)
         and objective["answer_index"] >= int(objective["sequence_length"])
         and state["status"] == "active"
     ):
@@ -947,7 +1051,7 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
                 state, "critical" if critical else "hit", "ТОЧНО" if not critical else "ЗОЛОТОЙ УДАР",
                 damage=int(round(dealt)), combo=state["combo"]["count"],
             )
-        if objective.get("kind") != "drowned_sequence" or (
+        if not _is_sequence_objective(objective) or (
             objective["answer_index"] < int(objective["sequence_length"])
         ):
             _schedule_challenge(state)
@@ -1142,7 +1246,7 @@ def public_state(state: dict[str, Any]) -> dict[str, Any]:
     wave["time_left_ms"] = max(0, int(wave["duration_ms"]) - int(wave["elapsed_ms"]))
     challenge = view.get("challenge")
     objective = view.get("objective_state") or {}
-    if objective.get("kind") == "drowned_sequence":
+    if _is_sequence_objective(objective):
         objective.pop("sequence", None)
         objective.pop("preview_started_at_ms", None)
     if challenge:
@@ -1150,7 +1254,7 @@ def public_state(state: dict[str, Any]) -> dict[str, Any]:
         if challenge["active"]:
             duration = max(1, challenge["expires_at_ms"] - challenge["opens_at_ms"])
             view["signal_progress"] = min(1.0, max(0.0, (elapsed - challenge["opens_at_ms"]) / duration))
-            if objective.get("kind") == "drowned_sequence":
+            if _is_sequence_objective(objective):
                 challenge["target_symbol"] = None
         else:
             duration = max(1, challenge["opens_at_ms"] - challenge["scheduled_at_ms"])
@@ -1161,6 +1265,7 @@ def public_state(state: dict[str, Any]) -> dict[str, Any]:
         view["signal_progress"] = 0.0
     view["critical_active"] = _critical_active(state) if state["status"] == "active" else False
     view["waves_total"] = len(_waves(state))
+    view["wave_labels"] = [str(wave.get("rail") or wave["name"]) for wave in _waves(state)]
     correct = int(view["mastery"]["correct_taps"])
     wrong = int(view["mastery"]["mistakes"])
     missed = int(view["mastery"]["missed_signals"])

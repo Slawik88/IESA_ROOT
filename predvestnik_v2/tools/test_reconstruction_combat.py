@@ -411,6 +411,56 @@ assert mirror_perfect["status"] == "won"
 assert mirror_perfect["outcome_reason"] == "courtyard_crossed"
 assert mirror_perfect["objective_state"]["repeat_violations"] == 0
 
+# Финал главы действительно состоит из трёх правил. Запись не оставляет цель в
+# прошлой позиции, Прилив заранее объявляет оба размера окна, Последнее имя
+# скрывает двухзнаковую цепочку во время ответа.
+archivist = combat.new_encounter("e06_archivist", seed=1601)
+last_recorded_slot = None
+tide_windows = set()
+preview_symbols = []
+hidden_last_name = False
+for _ in range(2600):
+    if archivist["status"] in {"won", "lost"}:
+        break
+    if archivist["status"] == "reward":
+        act(
+            archivist, type="choose_upgrade",
+            upgrade_id=archivist["reward_options"][0]["id"],
+        )
+        last_recorded_slot = None
+        continue
+    objective = archivist["objective_state"]
+    if archivist["round"] == 3 and objective.get("phase") == "preview":
+        symbol = objective.get("preview_symbol")
+        if symbol and (not preview_symbols or preview_symbols[-1] != symbol):
+            preview_symbols.append(symbol)
+    challenge = archivist.get("challenge")
+    if not challenge or not challenge["active"]:
+        act(archivist, type="frame", delta_ms=100)
+        continue
+    slot = correct_slot(challenge)
+    if archivist["round"] == 1:
+        assert last_recorded_slot is None or slot != last_recorded_slot
+        last_recorded_slot = slot
+    elif archivist["round"] == 2:
+        tide_windows.add(objective["tide_window"])
+        duration = challenge["expires_at_ms"] - challenge["opens_at_ms"]
+        base_window = 760 if objective["tide_window"] == "short" else 1580
+        assert duration == max(620, base_window + int(archivist["team"]["signal_window_bonus_ms"]))
+    else:
+        hidden_last_name = hidden_last_name or (
+            combat.public_state(archivist)["challenge"]["target_symbol"] is None
+        )
+    act(
+        archivist, type="strike", challenge_id=challenge["id"],
+        target_slot=slot,
+    )
+assert archivist["status"] == "won"
+assert archivist["outcome_reason"] == "archivist_defeated"
+assert archivist["objective_state"]["phases_completed"] == 3
+assert tide_windows == {"short", "long"}
+assert len(preview_symbols) == 2 and hidden_last_name
+
 # Первый рубеж мастерства меняет решения, а не только числа.
 vow = combat.new_encounter(seed=1201, unit_branches={"r_oath_bell": "bell_broken_vow"})
 vow["team"]["charge"] = 80

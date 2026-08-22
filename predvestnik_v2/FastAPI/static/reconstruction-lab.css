@@ -34,6 +34,7 @@ h2 { letter-spacing: -.03em; }
 
 .wave-rail { height: 47px; margin: 6px 0 10px; padding: 0 8px; display: grid; grid-template-columns: auto 1fr auto 1fr auto; align-items: center; color: #626e7e; font-size: 9px; }
 .wave-rail span { display: grid; justify-items: center; gap: 3px; white-space: nowrap; }
+.wave-rail small { max-width: 84px; overflow: hidden; color: inherit; font: inherit; text-overflow: ellipsis; }
 .wave-rail i { width: 20px; height: 20px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; font-style: normal; font-weight: 800; }
 .wave-rail b { height: 1px; margin: 0 6px 13px; background: var(--line); }
 .wave-rail span.current { color: var(--gold); }
@@ -67,6 +68,8 @@ h2 { letter-spacing: -.03em; }
 .objective-meter.memory strong { color: #a9dfe0; }
 .objective-meter.mirror b { background: linear-gradient(90deg, #71879f, #c0d1df); }
 .objective-meter.mirror strong { color: #c9d9e6; }
+.objective-meter.boss b { background: linear-gradient(90deg, #9a7a49, var(--gold)); }
+.objective-meter.boss strong { color: #f0cf81; }
 .tap-stage.memory-preview .echo-core { box-shadow: 0 0 0 1px rgba(105,194,207,.46), 0 14px 45px rgba(0,0,0,.35); }
 .tap-stage.memory-preview .core-glyph { color: #bce9e8; }
 .branch-controls { margin: 7px 15px 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
