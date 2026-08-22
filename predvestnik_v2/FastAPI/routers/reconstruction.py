@@ -30,6 +30,7 @@ class ActionBody(BaseModel):
     command: Literal[
         "vow_keep", "vow_release", "manual_discharge",
         "forbidden_toggle", "tide_swap", "companion_guardian_window",
+        "companion_rhythm_guard",
     ] | None = None
     decision_id: str | None = Field(default=None, max_length=96)
     enabled: bool | None = None

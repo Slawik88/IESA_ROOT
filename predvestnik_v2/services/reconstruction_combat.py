@@ -476,6 +476,8 @@ def new_encounter(
             "lantern_marks": 0,
             "guardian_used_rounds": [],
             "guardian_active_challenge": None,
+            "rhythm_guard_used": False,
+            "rhythm_guard_challenge": None,
         },
         "branch_state": {
             "decision": None,
@@ -706,7 +708,8 @@ def _critical_active(state: dict[str, Any]) -> bool:
 
 
 def _combo_multiplier(state: dict[str, Any]) -> float:
-    steps = min(max(0, int(state["combo"]["count"]) - 1), 20)
+    cap = 12 if _has_companion_role(state, "rhythm_keeper") else 20
+    steps = min(max(0, int(state["combo"]["count"]) - 1), cap)
     return 1.0 + steps * 0.04 * float(state["team"]["combo_step_multiplier"])
 
 
@@ -728,6 +731,12 @@ def _miss_signal(
 ) -> None:
     challenge_id = int((state.get("challenge") or {}).get("id", 0))
     charge_before = float(state["team"]["charge"])
+    companion = state.get("companion_state") or {}
+    rhythm_guarded = bool(
+        not wrong_tap
+        and _has_companion_role(state, "rhythm_keeper")
+        and int(companion.get("rhythm_guard_challenge") or 0) == challenge_id
+    )
     guarded = False
     if wrong_tap:
         state["mastery"]["mistakes"] += 1
@@ -749,8 +758,14 @@ def _miss_signal(
                 state["team"]["charge"] = 0.0
     else:
         state["mastery"]["missed_signals"] += 1
-        label = "СИГНАЛ УШЁЛ"
+        label = "РИТМ СОХРАНЁН" if rhythm_guarded else "СИГНАЛ УШЁЛ"
     state["combo"]["count"] = 0
+    if rhythm_guarded:
+        companion["rhythm_guard_challenge"] = None
+        _consume_manual_discharge_window(state, challenge_id)
+        _emit(state, "companion", label, role="rhythm_keeper", accuracy_penalty=True)
+        _schedule_challenge(state)
+        return
     if not guarded and not (wrong_tap and state["team"]["reset_charge_on_wrong"]):
         state["team"]["charge"] = max(0.0, float(state["team"]["charge"]) - 10.0)
     objective = state.get("objective_state") or {}
@@ -1140,6 +1155,22 @@ def _branch_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, A
     command = str(action.get("command") or "")
     branch = _branch_state(state)
     decision = branch.get("decision")
+    if command == "companion_rhythm_guard":
+        challenge = state.get("challenge")
+        companion = state.get("companion_state") or {}
+        if not _has_companion_role(state, "rhythm_keeper"):
+            return {"ok": False, "error": "Роль Хранителя ритма не выбрана."}
+        if companion.get("rhythm_guard_used"):
+            return {"ok": False, "error": "Хранитель ритма уже вмешивался в этом забеге."}
+        if not challenge or not challenge.get("active"):
+            return {"ok": False, "error": "Защитить можно только активный сигнал."}
+        companion["rhythm_guard_used"] = True
+        companion["rhythm_guard_challenge"] = int(challenge["id"])
+        _emit(state, "companion", "РИТМ УДЕРЖАН", role="rhythm_keeper")
+        return {
+            "ok": True, "phase": state["status"], "branch": "companion_rhythm_keeper",
+            "result": "signal_guarded", "challenge_id": int(challenge["id"]),
+        }
     if command == "companion_guardian_window":
         challenge = state.get("challenge")
         companion = state.get("companion_state") or {}
@@ -1263,6 +1294,7 @@ def apply_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, Any
                     "forbidden_toggle": "seam_forbidden_repeat",
                     "tide_swap": "tide_hidden_swap",
                     "companion_guardian_window": "companion_guardian",
+                    "companion_rhythm_guard": "companion_rhythm_keeper",
                 }.get(command, "unknown")
                 return {
                     "ok": True, "phase": state["status"], "branch": branch_id,

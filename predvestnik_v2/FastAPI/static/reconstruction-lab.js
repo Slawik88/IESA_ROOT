@@ -383,6 +383,9 @@
     if (state.companion_role_id === 'guardian' && state.challenge?.active && !guardianUsed.includes(state.round)) {
       controls.push('<button type="button" data-combat-command="companion_guardian_window">⬡ Расширить это окно</button>');
     }
+    if (state.companion_role_id === 'rhythm_keeper' && state.challenge?.active && !state.companion_state?.rhythm_guard_used) {
+      controls.push('<button type="button" data-combat-command="companion_rhythm_guard">◌ Сохранить этот ритм</button>');
+    }
     container.innerHTML = controls.join('');
     container.hidden = !controls.length;
   }
