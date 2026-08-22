@@ -131,10 +131,10 @@ _ITEM_DETAILS: dict[str, dict] = {
         "cmds":   ["бот крутка"],
     },
     "study_notes": {
-        "use":    "Используй через «бот использовать, study_notes» (если реализовано) или авто",
-        "get":    "Магазин за 250 🪙",
-        "tip":    "+50% XP от сообщений на 4 часа",
-        "cmds":   ["бот магазин"],
+        "use":    "Сохранён как архивный предмет и не расходуется",
+        "get":    "Больше не выдаётся",
+        "tip":    "Старый бонус XP от сообщений закрыт",
+        "cmds":   ["бот инвентарь"],
     },
     "shield_day": {
         "use":    "Активируй через «бот использовать, shield_day»",
@@ -343,7 +343,7 @@ async def cmd_use_item(message: types.Message, db, text_args: str = None):
     if not text_args:
         return await message.answer(
             "❓ <b>Использование:</b> <code>бот использовать, [item_id]</code>\n"
-            "Например: <code>бот использовать, study_notes</code>",
+            "Активируемые предметы показывают способ применения в описании.",
             parse_mode="HTML",
         )
     item_id = text_args.strip().lower()
@@ -358,22 +358,9 @@ async def cmd_use_item(message: types.Message, db, text_args: str = None):
     if not row:
         return await message.answer(f"❌ У вас нет <code>{item_id}</code> в инвентаре.", parse_mode="HTML")
 
-    # ── study_notes: +50% XP на 4 часа ──────────────────────────────────────
     if item_id == "study_notes":
-        from datetime import datetime, timedelta
-        expires = (datetime.utcnow() + timedelta(hours=4)).strftime("%Y-%m-%d %H:%M:%S")
-        await db.execute(
-            "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at, value) VALUES (?, ?, 1, ?, 0.5) "
-            "ON CONFLICT(user_id, buff_type) DO UPDATE SET expires_at = EXCLUDED.expires_at",
-            (user_id, "study_xp", expires),
-        )
-        await db.execute(
-            "UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = 'study_notes'",
-            (user_id,),
-        )
-        await db.commit()
         return await message.answer(
-            "📚 <b>Конспект применён!</b>\n+50% XP от сообщений на 4 часа. 🔥",
+            "📚 Конспект сохранён как архивный предмет и не расходуется. Старый бонус XP от сообщений закрыт.",
             parse_mode="HTML",
         )
 

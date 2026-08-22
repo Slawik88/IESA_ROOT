@@ -21,15 +21,12 @@ function loadProfile() {
     _tosGate(d);   // БЛОК22: блок-экран принятия ToS/Privacy для не принявших
     const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,6);
     const uid = d.user_id || _uid;
-    // R0: уровень аккаунта (глобальный, экспоненциальная кривая) — с бэка,
-    // per-chat user_level больше не игровой уровень (фолбэк для старого кэша ответа)
+    // Сохранённый уровень старой прогрессии. Он больше не растёт от сообщений.
     const lvl = d.account_level || d.chats?.[0]?.user_level || 1;
     const xpPerLvl = d.xp_to_next || d.xp_per_level || 3000;
     const xpInLvl = (typeof d.xp_into==='number') ? d.xp_into : ((d.chats?.[0]?.user_xp||0) % xpPerLvl);
     const xpPct = Math.min(100, Math.round(xpInLvl/xpPerLvl*100));
-    // БЛОК 3: торжественный левел-ап (детект между загрузками) + анимация заливки
-    // XP-шкалы один раз за сессию (чтобы авто-релоад каждые 5 мин её не дёргал).
-    _checkLevelUp(lvl);
+    // Шкала остаётся частью исторического профиля и не обещает новый level-up.
     const animateXp = !_xpAnimated; _xpAnimated = true;
     if (animateXp) setTimeout(() => {
       const f = el('pro-main')?.querySelector('.xp-fill');
@@ -69,10 +66,10 @@ function loadProfile() {
               <span class="player-rail-kicker">⚡ Сила</span><strong id="cp-hero-val">0</strong><small>Подробнее ›</small>
             </button>`:''}
             <div class="player-rail-item player-rail-item--level">
-              <span class="player-rail-kicker">Уровень</span><strong>LV${lvl}</strong>
+              <span class="player-rail-kicker">Уровень наследия</span><strong>LV${lvl}</strong>
               <div class="hero-xp">
                 <div class="xp-bar"><div class="xp-fill" data-pct="${xpPct}" style="width:${animateXp?0:xpPct}%"></div></div>
-                <div class="xp-lbl"><span>${fmt(xpInLvl)}</span><span>${fmt(xpPerLvl)} XP</span></div>
+                <div class="xp-lbl"><span>${fmt(xpInLvl)} XP</span><span>сохранено</span></div>
               </div>
             </div>
             <button class="player-rail-item" type="button" onclick="goTo('quests','streak')">
@@ -619,7 +616,7 @@ function updateCurrBar(data) {
   if (data?.username !== undefined) {
     const nm=el('hdr-name'); if(nm) nm.textContent=(data.is_vip?'👑 ':'')+(data.username||'Игрок');
     const sub=el('hdr-sub');
-    if(sub) sub.textContent=`Lv${data.account_level||data.chats?.[0]?.user_level||1} · 🔥${data.streak||0}`;
+    if(sub) sub.textContent=`Наследие ${data.account_level||data.chats?.[0]?.user_level||1} · 🔥${data.streak||0}`;
     const av=el('hdr-ava'); if(av && data.is_vip){ av.textContent='👑'; _ensureVipAvatar(); }
   }
 }

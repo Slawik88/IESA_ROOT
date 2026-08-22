@@ -64,8 +64,7 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "study_notes": {
         "name": "📚 Конспект",
         "category": "utility",
-        "price_mora": 600,
-        "description": "Шпаргалка для быстрой прокачки. Активируй командой «бот использовать, study_notes»: +50% XP от сообщений на 4 часа.",
+        "description": "Архивный предмет старой прогрессии. Сохранён во владении и не расходуется.",
         "is_tradable": False,
     },
     "lucky_charm": {
@@ -178,7 +177,7 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
 PET_SPECIES: Dict[str, Dict[str, Any]] = {
     # Common
     "hamster": {"name": "🐹 Хомяк-банкир",        "rarity": "common",    "default_role": "passive", "desc": "Накапливает Мору со временем. Lv4 — работает при 100 усталости, Lv8 — шанс ×2 при сборе, Lv10 — +💎/сутки."},
-    "owl":     {"name": "🦉 Сова-студент",        "rarity": "common",    "default_role": "passive", "desc": "Бонус XP за сообщения. Lv4 — XP в экспедиции, Lv8 — ×2 в выходные, Lv10 — Жетон Крутки/сутки."},
+    "owl":     {"name": "🦉 Сова-студент",        "rarity": "common",    "default_role": "passive", "desc": "Владелец архивной способности старой прогрессии. Питомец и его уровень сохранены; бонус за сообщения не действует."},
     "dog":     {"name": "🐕 Дворовая Собака",     "rarity": "common",    "default_role": "active",  "desc": "Ускоряет экспедиции. Lv4 — собаке меньше усталости, Lv8 — шанс 0 усталости, Lv10 — −5% стоимость похода."},
     "squirrel":{"name": "🐿 Запасливая Белка",    "rarity": "common",    "default_role": "passive", "desc": "Грызун-бухгалтер: +% Моры к награде за КВЕСТЫ (держи в питомнике). Lv1 +5% → Lv10 +20%. В пассивном слоте — половина бонуса."},
     # Rare
@@ -281,7 +280,6 @@ DAILY_DEAL_POOL_MORA: list = [
     {"item_id": "spin_token",          "qty_range": (1, 3), "base_price_mora": 600},
     {"item_id": "treasure_map",        "qty_range": (1, 2), "base_price_mora": 900},
     {"item_id": "lucky_charm",         "qty_range": (1, 2), "base_price_mora": 900},
-    {"item_id": "study_notes",         "qty_range": (1, 2), "base_price_mora": 600},
     {"item_id": "soul_shard",          "qty_range": (3, 10), "base_price_mora": 100},
     {"item_id": "star_dust_s",         "qty_range": (2, 5), "base_price_mora": 700},
     {"item_id": "star_dust_l",         "qty_range": (1, 2), "base_price_mora": 3000},
@@ -297,7 +295,6 @@ DARK_MARKET_POOL: list = [
     {"item_id": "exp_boost_2h",   "qty_range": (1, 2), "base_price_dark": 70},
     {"item_id": "food_elite",     "qty_range": (1, 3), "base_price_dark": 35},
     {"item_id": "lucky_charm",    "qty_range": (1, 2), "base_price_dark": 55},
-    {"item_id": "study_notes",    "qty_range": (1, 2), "base_price_dark": 35},
     {"item_id": "star_dust_l",    "qty_range": (1, 1), "base_price_dark": 130},
 ]
 

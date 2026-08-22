@@ -1171,7 +1171,7 @@ function openItemModal(iid) {
     body+=`<div class="irow"><span class="ik">Даёт дубликатов</span><span style="color:var(--gold)">+${dup_count||1}</span></div>`;
     if(quantity>0)btns.unshift({l:'✨ Применить',c:'btn-gold',f:`openDustModal('${item_id}')`});
   } else if(item_id==='study_notes'){
-    if(quantity>0)btns.unshift({l:'📚 Активировать',c:'btn-gold',f:`useConsumable('${item_id}')`});
+    body+=`<div class="irow"><span class="ik">Статус</span><span>Архивный · не расходуется</span></div>`;
   }
   OM(name,body,btns);
 }

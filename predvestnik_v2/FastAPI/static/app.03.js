@@ -348,10 +348,8 @@ function bonusLines(sid, b) {
       if(b.ignore_exhaustion) ln.push('✅ Копит при 100% усталости');
       if(b.double_chance>0) ln.push(`🎲 Шанс ×2: ${p(b.double_chance)}`);
       if(b.daily_diamond>0) ln.push(`💎 +${b.daily_diamond}/день`); },
-    owl: b => { ln.push(`📚 +${b.bonus_xp} XP каждые ${b.trigger_every_n_msg} сообщ.`);
-      if(b.expedition_xp_bonus>0) ln.push(`🗺 +${p(b.expedition_xp_bonus)} XP похода`);
-      if(b.weekend_double) ln.push('✅ ×2 XP в выходные');
-      if(b.daily_free_spin_token) ln.push('🎟 Жетон/день'); },
+    owl: () => { ln.push('📚 Архивная способность сохранена');
+      ln.push('Бонус за сообщения не действует'); },
     dog: b => { ln.push(`⏱ −${p(b.speed_reduction)} время похода`);
       if(b.self_fatigue_reduction>0) ln.push(`💪 Пёс: −${p(b.self_fatigue_reduction)} усталости`);
       if(b.zero_fatigue_chance>0) ln.push(`🍀 0 усталости: ${p(b.zero_fatigue_chance)}`);
