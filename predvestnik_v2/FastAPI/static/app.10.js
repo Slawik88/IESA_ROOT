@@ -966,9 +966,13 @@ function _looksReloadCatalog(){
 }
 // Покупка одного предмета: удаляет только его примерку. Остальные слоты в
 // примерочной сохраняются и после обновления каталога остаются в шторке.
+const _looksPurchaseKeys=new Map();
 function _looksBuyFromPreview(id,opt,slot){
-  api('/cosmetics/buy',{method:'POST',body:JSON.stringify({cosmetic_id:id,option_index:opt})})
-    .then(r=>{toast(r.message); refreshCurrBar(); _looksDirty=true;
+  const keySlot=`${id}:${opt}`;
+  const requestKey=_looksPurchaseKeys.get(keySlot)||economyRequestKey(`cosmetic-${id}`);
+  _looksPurchaseKeys.set(keySlot,requestKey);
+  api('/cosmetics/buy',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({cosmetic_id:id,option_index:opt})})
+    .then(r=>{_looksPurchaseKeys.delete(keySlot); toast(r.message); refreshCurrBar(); _looksDirty=true;
       return api('/cosmetics/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})});})
     .then(()=>{toast('✅ Надето!'); _looksDropTrial(slot); return _looksReloadCatalog();})
     .then(()=>_looksRerenderFittingSheetIfOpen())
