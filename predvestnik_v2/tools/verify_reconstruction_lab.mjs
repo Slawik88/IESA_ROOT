@@ -72,7 +72,7 @@ try{
     }));
     check(allianceMetrics.overflow<=0,`${width}px: Alliance panel overflows`);
     check(allianceMetrics.stages===3,`${width}px: Alliance stages are incomplete`);
-    check(allianceMetrics.copy?.includes('0 выплат'),`${width}px: Alliance shadow state is unclear`);
+    check(allianceMetrics.copy?.includes('0 НАГРАД'),`${width}px: Alliance test state is unclear`);
     if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-alliance.png`,fullPage:true});
     await page.click('[data-menu-tab="play"]');
     await page.click('#startRunButton');
@@ -97,6 +97,10 @@ try{
       noFxTransition:getComputedStyle(document.querySelector('.strike-rune')).transitionDuration,
       companionDecoys:document.querySelectorAll('.strike-rune.companion-decoy').length,
       companionBuild:document.querySelectorAll('.companion-build').length,
+      readableText:[
+        '#bossHealthValue', '#windowIndicator span', '#coreHint',
+        '.combat-readout span', '.squad-member small', '.build-strip small', '.event-strip',
+      ].map(selector=>({selector,size:parseFloat(getComputedStyle(document.querySelector(selector)).fontSize)})),
     };});
     check(metrics.pageWidth<=metrics.viewport,`${width}px: page overflow ${metrics.pageWidth}px`);
     check(metrics.runes.length===3,`${width}px: expected three rune choices`);
@@ -108,11 +112,70 @@ try{
     check(metrics.noFxAnimation==='none'&&metrics.noFxTransition==='0s',`${width}px: no-fx still animates`);
     check(metrics.companionDecoys===1,`${width}px: Lantern did not mark exactly one decoy`);
     check(metrics.companionBuild===1,`${width}px: companion role missing from active build`);
+    check(metrics.readableText.every(item=>item.size>=9),`${width}px: unreadable combat text ${JSON.stringify(metrics.readableText)}`);
     check(!metrics.errorText,`${width}px: startup error ${metrics.errorText}`);
     check(errors.length===0,`${width}px: browser errors ${errors.join(', ')}`);
     if(output&&[390,1024].includes(width)){
       await page.screenshot({path:`${output}/clicker-${width}.png`,fullPage:true});
     }
+    await page.close();
+  }
+
+  {
+    const session=`feedback-ui-${Date.now()}`;
+    const feedbackReset=await fetch(`${base}/__reconstruction/reset`,{
+      method:'POST',
+      headers:{'content-type':'application/json','x-reconstruction-session':session},
+      body:JSON.stringify({encounter_id:'e01_two_bells'}),
+    });
+    check(feedbackReset.ok,'feedback UI: dev reset failed');
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width:390,height:844,deviceScaleFactor:1});
+    await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.click('#startRunButton');
+    await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal')
+      && [...document.querySelectorAll('.strike-rune')].some(node=>!node.disabled),{timeout:3000});
+    const wrongClicked=await page.evaluate(()=>{
+      const target=document.getElementById('bossGlyph').textContent.trim();
+      const button=[...document.querySelectorAll('.strike-rune')]
+        .find(node=>node.textContent.trim()!==target&&!node.disabled);
+      if(!button)return false;
+      button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:button.getBoundingClientRect().x+20,clientY:button.getBoundingClientRect().y+20}));
+      return true;
+    });
+    check(wrongClicked,'feedback UI: deliberate mistake was not clickable');
+    await page.waitForSelector('.impact.miss',{timeout:2000});
+    const missFeedback=await page.evaluate(()=>({
+      text:document.querySelector('.impact.miss')?.textContent.trim(),
+      accuracy:document.getElementById('accuracyValue').textContent.trim(),
+      battleVisible:document.getElementById('menuLayer').hidden
+        && document.getElementById('choiceLayer').hidden
+        && document.getElementById('resultLayer').hidden,
+    }));
+    check(missFeedback.text==='ОШИБКА',`feedback UI: mistake confirmation missing ${JSON.stringify(missFeedback)}`);
+    check(missFeedback.accuracy==='0%',`feedback UI: mistake accuracy is unclear ${missFeedback.accuracy}`);
+    check(missFeedback.battleVisible,'feedback UI: mistake opened an unrelated modal');
+    if(output)await page.screenshot({path:`${output}/clicker-390-error-feedback.png`,fullPage:true});
+    await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal')
+      && [...document.querySelectorAll('.strike-rune')].some(node=>!node.disabled),{timeout:3000});
+    const correctClicked=await page.evaluate(()=>{
+      const target=document.getElementById('bossGlyph').textContent.trim();
+      const button=[...document.querySelectorAll('.strike-rune')]
+        .find(node=>node.textContent.trim()===target&&!node.disabled);
+      if(!button)return false;
+      button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,clientX:button.getBoundingClientRect().x+20,clientY:button.getBoundingClientRect().y+20}));
+      return true;
+    });
+    check(correctClicked,'feedback UI: recovery signal was not clickable');
+    await page.waitForSelector('.impact.hit',{timeout:2000});
+    const hitFeedback=await page.$eval('.impact.hit',node=>node.textContent.trim());
+    check(hitFeedback.startsWith('ТОЧНО'),`feedback UI: success confirmation missing ${hitFeedback}`);
+    check(errors.length===0,`feedback UI browser errors ${errors.join(', ')}`);
+    if(output)await page.screenshot({path:`${output}/clicker-390-success-feedback.png`,fullPage:true});
     await page.close();
   }
 
@@ -133,6 +196,27 @@ try{
     await page.click('#startRunButton');
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
     await page.waitForSelector('[data-combat-command="companion_guardian_window"]');
+    const guardianUsability=await page.evaluate(()=>{
+      const button=document.querySelector('[data-combat-command="companion_guardian_window"]');
+      const rune=document.querySelector('.strike-rune');
+      const rect=button.getBoundingClientRect();
+      return {
+        height:rect.height,
+        fontSize:parseFloat(getComputedStyle(button).fontSize),
+        gapToRunes:rune.getBoundingClientRect().top-rect.bottom,
+        inStage:Boolean(button.closest('.tap-stage')),
+        visible:rect.top>=0&&rect.bottom<=innerHeight,
+      };
+    });
+    check(guardianUsability.height>=44,`Guardian skill target is too short: ${guardianUsability.height}px`);
+    check(guardianUsability.fontSize>=10,`Guardian skill text is too small: ${guardianUsability.fontSize}px`);
+    check(guardianUsability.gapToRunes>=0&&guardianUsability.gapToRunes<=18,`Guardian skill is too far from runes: ${guardianUsability.gapToRunes}px`);
+    check(guardianUsability.inStage&&guardianUsability.visible,'Guardian skill is outside the active play area');
+    await page.$eval('[data-combat-command="companion_guardian_window"]',node=>{node.dataset.frameStable='yes';});
+    await new Promise(resolve=>setTimeout(resolve,240));
+    const guardianStable=await page.$eval('[data-combat-command="companion_guardian_window"]',node=>node.dataset.frameStable);
+    check(guardianStable==='yes','Guardian skill was recreated during the active tap window');
+    if(output)await page.screenshot({path:`${output}/clicker-390-guardian-ready.png`,fullPage:true});
     await page.evaluate(()=>document.querySelector('[data-combat-command="companion_guardian_window"]')?.click());
     await page.waitForFunction(()=>!document.querySelector('[data-combat-command="companion_guardian_window"]'));
     const roleState=await page.evaluate(()=>({
@@ -168,6 +252,15 @@ try{
     await page.click('[data-menu-tab="play"]');
     await page.click('#startRunButton');
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
+    await page.waitForSelector('[data-combat-command="companion_rhythm_guard"]');
+    const rhythmUsability=await page.evaluate(()=>{
+      const button=document.querySelector('[data-combat-command="companion_rhythm_guard"]');
+      const rect=button.getBoundingClientRect();
+      return {height:rect.height,fontSize:parseFloat(getComputedStyle(button).fontSize),copy:button.textContent.trim()};
+    });
+    check(rhythmUsability.height>=44,`Rhythm skill target is too short: ${rhythmUsability.height}px`);
+    check(rhythmUsability.fontSize>=10&&rhythmUsability.copy.includes('пропуск'),`Rhythm skill lacks readable consequence: ${JSON.stringify(rhythmUsability)}`);
+    if(output)await page.screenshot({path:`${output}/clicker-390-rhythm-ready.png`,fullPage:true});
     await page.evaluate(()=>document.querySelector('[data-combat-command="companion_rhythm_guard"]')?.click());
     await page.waitForFunction(()=>document.querySelector('#accuracyValue')?.textContent.trim()==='0%',{timeout:5000});
     const roleState=await page.evaluate(async()=>{
@@ -216,6 +309,14 @@ try{
     });
     check(await strikeTarget(),'Echo UI: first known signal was not clickable');
     await page.waitForSelector('[data-combat-command="companion_echo_repeat"]',{timeout:3000});
+    const echoUsability=await page.evaluate(()=>{
+      const button=document.querySelector('[data-combat-command="companion_echo_repeat"]');
+      const rect=button.getBoundingClientRect();
+      return {height:rect.height,fontSize:parseFloat(getComputedStyle(button).fontSize),copy:button.textContent.trim()};
+    });
+    check(echoUsability.height>=44,`Echo skill target is too short: ${echoUsability.height}px`);
+    check(echoUsability.fontSize>=10&&echoUsability.copy.includes('62%'),`Echo skill lacks readable timing: ${JSON.stringify(echoUsability)}`);
+    if(output)await page.screenshot({path:`${output}/clicker-390-echo-ready.png`,fullPage:true});
     await page.evaluate(()=>document.querySelector('[data-combat-command="companion_echo_repeat"]')?.click());
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
     check(await strikeTarget(),'Echo UI: accelerated repeat was not clickable');
@@ -264,7 +365,7 @@ try{
       };
     });
     check(forecastState.role==='Навигатор',`Navigator active-build label missing: ${forecastState.role}`);
-    check(forecastState.note?.includes(`волна ${forecastState.forecast?.wave}`),`Navigator forecast is not visible: ${forecastState.note}`);
+    check(forecastState.note?.includes(`${forecastState.forecast?.wave}-я волна`),`Navigator forecast is not visible: ${forecastState.note}`);
     check(forecastState.forecast?.reveals_answer===false,'Navigator leaked a correct answer');
     check(forecastState.overflow<=0,`Navigator forecast overflows by ${forecastState.overflow}px`);
     check(errors.length===0,`Navigator UI browser errors ${errors.join(', ')}`);
@@ -295,7 +396,7 @@ try{
     check(started.text?.includes('2ч'),`expedition UI contract missing: ${started.text}`);
     await page.waitForSelector('[data-expedition-claim]',{timeout:12000});
     await page.click('[data-expedition-claim]');
-    await page.waitForFunction(()=>document.querySelector('.status-toast')?.textContent.includes('Кошелёк не изменён'));
+    await page.waitForFunction(()=>document.querySelector('.status-toast')?.textContent.includes('В кошелёк не начислено'));
     const claimed=await page.evaluate(()=>({
       visibleContracts:document.querySelectorAll('.expedition-contracts > span').length,
       toast:document.querySelector('.status-toast').textContent,
@@ -323,6 +424,7 @@ try{
     const errors=[];
     page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport({width,height:844,deviceScaleFactor:1});
+    await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
@@ -358,6 +460,7 @@ try{
       const errors=[];
       page.on('pageerror',error=>errors.push(error.message));
       await page.setViewport({width,height:844,deviceScaleFactor:1});
+      await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
       await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
       await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
       await page.click('#startRunButton');
@@ -392,6 +495,7 @@ try{
     const errors=[];
     page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport({width,height:844,deviceScaleFactor:1});
+    await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
     await page.click('#startRunButton');
@@ -436,6 +540,7 @@ try{
     const errors=[];
     page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport({width,height:844,deviceScaleFactor:1});
+    await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
     await page.click('#startRunButton');
@@ -451,6 +556,7 @@ try{
     check(clicked,`${width}px: e05 first target missing`);
     await page.waitForFunction(()=>
       document.querySelector('.tap-stage')?.classList.contains('signal')
+      && [...document.querySelectorAll('.strike-rune')].some(node=>!node.disabled)
       && document.querySelector('.strike-rune.mirror-forbidden'),
       {timeout:3000},
     );
@@ -489,6 +595,7 @@ try{
     const errors=[];
     page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport({width,height:844,deviceScaleFactor:1});
+    await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
     await page.click('#startRunButton');
@@ -504,6 +611,7 @@ try{
     check(clicked,`${width}px: e06 first target missing`);
     await page.waitForFunction(()=>
       document.querySelector('.tap-stage')?.classList.contains('signal')
+      && [...document.querySelectorAll('.strike-rune')].some(node=>!node.disabled)
       && document.querySelector('.strike-rune.mirror-forbidden'),
       {timeout:3000},
     );
@@ -545,14 +653,16 @@ try{
   let lastNameCaptured=false;
   for(let guard=0;guard<160&&!lastNameCaptured;guard+=1){
     await bossPage.waitForFunction(()=>{
-      const signal=document.querySelector('.tap-stage')?.classList.contains('signal');
+      const signal=document.querySelector('.tap-stage')?.classList.contains('signal')
+        && [...document.querySelectorAll('.strike-rune')].some(node=>!node.disabled);
       const choice=!document.getElementById('choiceLayer')?.hidden;
       const preview=document.getElementById('corePrompt')?.textContent.trim()==='ЗАПОМНИ';
       return signal||choice||preview;
     },{timeout:3500});
     const phase=await bossPage.evaluate(()=>({
       choice:!document.getElementById('choiceLayer').hidden,
-      signal:document.querySelector('.tap-stage').classList.contains('signal'),
+      signal:document.querySelector('.tap-stage').classList.contains('signal')
+        && [...document.querySelectorAll('.strike-rune')].some(node=>!node.disabled),
       preview:document.getElementById('corePrompt').textContent.trim()==='ЗАПОМНИ',
       wave:document.getElementById('waveLabel').textContent.trim(),
       prompt:document.getElementById('corePrompt').textContent.trim(),
@@ -583,13 +693,14 @@ try{
         if(output)await bossPage.screenshot({path:`${output}/clicker-390-e06-tide.png`,fullPage:true});
         tideCaptured=true;
       }
-      const clicked=await bossPage.evaluate(target=>{
+      const clicked=await bossPage.evaluate(()=>{
+        const target=document.getElementById('bossGlyph').textContent.trim();
         const button=[...document.querySelectorAll('.strike-rune')]
           .find(node=>node.textContent.trim()===target&&!node.disabled);
         if(!button)return false;
         button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
         return true;
-      },phase.target);
+      });
       check(clicked,`e06 deep: matching rune ${phase.target} missing`);
       await new Promise(resolve=>setTimeout(resolve,120));
     }
@@ -607,19 +718,52 @@ try{
     headers:{'content-type':'application/json','x-reconstruction-session':branchSession},
     body:JSON.stringify({
       encounter_id:'e01_two_bells',
-      unit_branches:{r_red_seam:'seam_forbidden_repeat'},
+      unit_branches:{
+        r_red_seam:'seam_forbidden_repeat',
+        r_tide_cartographer:'tide_hidden_swap',
+      },
+      companion_role_id:'guardian',
     }),
   });
   check(branchReset.ok,'branch UI: dev reset failed');
+  const branchCompanion=await fetch(`${base}/__reconstruction/companions/role`,{
+    method:'POST',
+    headers:{'content-type':'application/json','x-reconstruction-session':branchSession},
+    body:JSON.stringify({role_id:'guardian'}),
+  });
+  check(branchCompanion.ok,'branch UI: Guardian selection failed');
   const branchPage=await browser.newPage();
   await branchPage.setViewport({width:320,height:844,deviceScaleFactor:1});
   await branchPage.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),branchSession);
   await branchPage.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
   await branchPage.waitForSelector('#menuLayer:not([hidden])');
   await branchPage.click('#startRunButton');
+  await branchPage.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
   await branchPage.waitForSelector('[data-combat-command="forbidden_toggle"]');
-  const branchButtonHeight=await branchPage.$eval('[data-combat-command="forbidden_toggle"]',node=>node.getBoundingClientRect().height);
-  check(branchButtonHeight>=40&&branchButtonHeight<=44,`branch UI: control height ${branchButtonHeight}px`);
+  await branchPage.waitForSelector('[data-combat-command="tide_swap"]');
+  await branchPage.waitForSelector('[data-combat-command="companion_guardian_window"]');
+  const branchControls=await branchPage.evaluate(()=>{
+    const container=document.getElementById('branchControls');
+    const runes=document.querySelector('.rune-orbit').getBoundingClientRect();
+    const prompt=document.getElementById('coreHint').getBoundingClientRect();
+    const buttons=[...container.querySelectorAll('button')].map(node=>{
+      const rect=node.getBoundingClientRect();
+      return {top:rect.top,height:rect.height,width:rect.width,right:rect.right,bottom:rect.bottom,fontSize:parseFloat(getComputedStyle(node).fontSize)};
+    });
+    const box=container.getBoundingClientRect();
+    return {
+      buttons, count:buttons.length, overflow:container.scrollWidth-container.clientWidth,
+      gapToRunes:runes.top-box.bottom, gapFromPrompt:Math.min(...buttons.map(item=>item.top))-prompt.bottom,
+      viewport:innerWidth,
+    };
+  });
+  check(branchControls.count===3,`branch UI: expected three simultaneous controls, got ${branchControls.count}`);
+  check(branchControls.buttons.every(item=>item.height>=44&&item.fontSize>=10),`branch UI: controls are not readable tap targets ${JSON.stringify(branchControls.buttons)}`);
+  check(branchControls.overflow<=0,`branch UI: hidden horizontal controls ${branchControls.overflow}px`);
+  check(Math.max(...branchControls.buttons.map(item=>item.top))-Math.min(...branchControls.buttons.map(item=>item.top))<=1,'branch UI: simultaneous controls wrapped into the target prompt');
+  check(branchControls.gapFromPrompt>=4,`branch UI: controls cover the central instruction by ${branchControls.gapFromPrompt}px`);
+  check(branchControls.gapToRunes>=0&&branchControls.gapToRunes<=18,`branch UI: controls are too far from runes ${branchControls.gapToRunes}px`);
+  if(output)await branchPage.screenshot({path:`${output}/clicker-320-multi-skills-ready.png`,fullPage:true});
   await branchPage.evaluate(()=>document.querySelector('[data-combat-command="forbidden_toggle"]')?.click());
   await branchPage.waitForSelector('[data-combat-command="forbidden_toggle"].risk-on',{timeout:5000});
   const branchOverflow=await branchPage.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
@@ -803,7 +947,8 @@ try{
   let capturedChoice=false;
   for(let guard=0;guard<100&&!finished;guard+=1){
     await play.waitForFunction(()=>{
-      const signal=document.querySelector('.tap-stage')?.classList.contains('signal');
+      const signal=document.querySelector('.tap-stage')?.classList.contains('signal')
+        && [...document.querySelectorAll('.strike-rune')].some(node=>!node.disabled);
       const choice=!document.querySelector('#choiceLayer')?.hidden;
       const result=!document.querySelector('#resultLayer')?.hidden;
       return signal||choice||result;
@@ -811,7 +956,8 @@ try{
     const phase=await play.evaluate(()=>({
       result:!document.querySelector('#resultLayer').hidden,
       choice:!document.querySelector('#choiceLayer').hidden,
-      signal:document.querySelector('.tap-stage').classList.contains('signal'),
+      signal:document.querySelector('.tap-stage').classList.contains('signal')
+        && [...document.querySelectorAll('.strike-rune')].some(node=>!node.disabled),
       target:document.querySelector('#bossGlyph').textContent.trim(),
     }));
     if(phase.result){finished=true;break;}

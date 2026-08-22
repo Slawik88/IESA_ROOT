@@ -198,7 +198,7 @@ try {
   if (labels.runtime !== 'БОЕВАЯ СИСТЕМА') throw new Error(`runtime label: ${labels.runtime}`);
   if (labels.profile !== 'ПРОФИЛЬ ИГРОКА') throw new Error(`profile label: ${labels.profile}`);
   if (labels.stats !== 'ПРОФИЛЬ РАЗЛОМА') throw new Error(`stats label: ${labels.stats}`);
-  if (!labels.statsCopy.includes('Серверная статистика')) {
+  if (!labels.statsCopy.includes('Сервер') || !labels.statsCopy.includes('пропуски входят в точность')) {
     throw new Error(`stats copy is still preview-only: ${labels.statsCopy}`);
   }
   if (!labels.resultAction.includes('Выбрать Память')) {
