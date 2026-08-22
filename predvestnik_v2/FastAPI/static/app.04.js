@@ -594,20 +594,19 @@ function loadDuels() {
   Promise.all([api('/duels/active'), api('/duels/history')]).then(([active, hist]) => {
     let html = '';
 
-    // Challenge button
-    html += `<button class="btn btn-red btn-full" style="margin-bottom:10px" onclick="openDuelChallenge()">⚔️ Вызвать игрока на дуэль</button>`;
+    html += `<div class="card" style="margin-bottom:10px">
+      <div class="card-title">⚔️ Старые дуэли закрыты</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">Новые бои проходят во вкладке «Игра». Здесь можно освободить Мору из незавершённого старого вызова и посмотреть историю.</div>
+    </div>`;
 
     // Incoming challenges
     const incoming = active.filter(d => d.challenged_id == _uid);
     if(incoming.length) {
       html += `<div class="card"><div class="card-title">⏳ Входящие вызовы (${incoming.length})</div>
         ${incoming.map(d=>`<div class="duel-card">
-          <div class="duel-vs">${vipName(d.challenger_name||'Игрок', d.challenger_is_vip)} вызывает вас</div>
-          <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
-          <div style="display:flex;gap:6px;margin-top:8px">
-            <button class="btn btn-sm btn-teal" style="flex:1" onclick="acceptDuel(${d.id},'${esc(d.challenger_name||'Игрок')}',this)">⚔️ Принять</button>
-            <button class="btn btn-sm btn-red" style="flex:1" onclick="declineDuel(${d.id},this)">❌ Отклонить</button>
-          </div>
+          <div class="duel-vs">${vipName(d.challenger_name||'Игрок', d.challenger_is_vip)} · старый вызов</div>
+          <div class="duel-stake">Зарезервировано: ${fmt(d.stake)} 🪙</div>
+          <button class="btn btn-sm btn-ghost" style="margin-top:8px" onclick="declineDuel(${d.id},this)">Освободить ставку</button>
         </div>`).join('')}
       </div>`;
     }
@@ -618,8 +617,8 @@ function loadDuels() {
       html += `<div class="card"><div class="card-title">📤 Мои вызовы</div>
         ${outgoing.map(d=>`<div class="duel-card">
           <div class="duel-vs">→ ${vipName(d.challenged_name||'Игрок', d.challenged_is_vip)}</div>
-          <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
-          <div style="font-size:10px;color:var(--muted)">Ожидание ответа...</div>
+          <div class="duel-stake">Зарезервировано: ${fmt(d.stake)} 🪙</div>
+          <button class="btn btn-sm btn-ghost" style="margin-top:8px" onclick="declineDuel(${d.id},this)">Освободить ставку</button>
         </div>`).join('')}
       </div>`;
     }
@@ -688,7 +687,7 @@ function acceptDuel(id, opponentName, btn) {
 function declineDuel(id, btn) {
   btn.disabled = true;
   api('/duels/decline', {method:'POST', body:JSON.stringify({duel_id:id})})
-    .then(() => { toast('✅ Вызов отклонён.'); loadDuels(); })
+    .then(r => { toast(r.message||'Старая ставка освобождена.'); loadDuels(); refreshCurrBar(); })
     .catch(e => { toast(e, false); btn.disabled = false; });
 }
 
