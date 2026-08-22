@@ -290,6 +290,8 @@
   function renderRail() {
     document.querySelectorAll('[data-wave-node]').forEach((node) => {
       const wave = Number(node.dataset.waveNode);
+      const label = node.querySelector('small');
+      if (label && state.wave_labels?.[wave - 1]) label.textContent = state.wave_labels[wave - 1];
       node.classList.toggle('complete', wave < state.round || state.status === 'won');
       node.classList.toggle('current', wave === state.round && state.status !== 'won');
     });
@@ -322,8 +324,11 @@
       button.setAttribute('aria-label', `${button.dataset.targetSlot}: руна ${symbol}`);
       button.classList.toggle('seam-stored', state.branch_state?.stored_seam_slot === button.dataset.targetSlot);
       button.classList.toggle('forbidden', state.branch_state?.forbidden_slot === button.dataset.targetSlot);
-      button.classList.toggle('mirror-forbidden', state.objective_state?.kind === 'mirror_rule'
-        && state.objective_state?.forbidden_slot === button.dataset.targetSlot);
+      const objective = state.objective_state || {};
+      const blockedSlot = objective.kind === 'mirror_rule' ? objective.forbidden_slot
+        : objective.kind === 'archivist_boss' && objective.phase === 'record'
+          ? objective.recorded_slot : null;
+      button.classList.toggle('mirror-forbidden', blockedSlot === button.dataset.targetSlot);
     });
   }
 
@@ -488,10 +493,13 @@
     const ash = objectiveKind === 'ash_fire';
     const sequence = objectiveKind === 'drowned_sequence';
     const mirror = objectiveKind === 'mirror_rule';
+    const archivist = objectiveKind === 'archivist_boss';
     const next = progress?.next_step;
     document.getElementById('resultMark').textContent = won ? '✦' : '◌';
     document.getElementById('resultEyebrow').textContent = won ? 'ВСТРЕЧА ПРОЙДЕНА' : 'ВСТРЕЧА НЕ ПРОЙДЕНА';
-    document.getElementById('resultTitle').textContent = mirror
+    document.getElementById('resultTitle').textContent = archivist
+      ? (won ? 'Архивариус отпустил имя' : 'Запись не разорвана')
+      : mirror
       ? (won ? 'Переписчик отступил' : 'Зеркала сомкнулись')
       : sequence
       ? (won ? 'Имена освобождены' : 'Цепочка утрачена')
@@ -501,7 +509,11 @@
       : lantern
       ? (won ? 'Фонарь достиг ворот' : 'Фонарь не дошёл')
       : (won ? 'Колокол отвечает тебе' : 'Эхо погасло');
-    document.getElementById('resultCopy').textContent = mirror
+    document.getElementById('resultCopy').textContent = archivist
+      ? (won
+        ? 'Ты прочитал Запись, адаптировался к Приливу и вернул Последнее имя без подсказки.'
+        : 'Каждая фаза требует другого решения: меняй позицию, читай длину окна и удерживай короткую цепочку.')
+      : mirror
       ? (won
         ? 'Ты читал перестановку и каждый раз менял позицию, не превращая бой в привычный ритм.'
         : 'После ответа выбранная позиция временно запрещена. Ищи тот же знак в новом месте.')
@@ -538,6 +550,7 @@
     if (ash) stats.splice(0, 1, [`${number(state.objective_state.fire_integrity)}%`, 'огонь']);
     if (sequence) stats.splice(0, 1, [`${number(state.objective_state.anchors_broken)}/${number(state.objective_state.anchors_total)}`, 'якоря']);
     if (mirror) stats.splice(0, 1, [`${number(state.objective_state.wards)}/${number(state.objective_state.wards_max)}`, 'печати']);
+    if (archivist) stats.splice(0, 1, [`${number(state.objective_state.phases_completed)}/${number(state.objective_state.phases_total)}`, 'фазы']);
     document.getElementById('resultStats').innerHTML = stats
       .map(([value, label]) => `<span><strong>${esc(value)}</strong>${esc(label)}</span>`).join('');
     const previewContinues = !production && won && state.encounter_id === 'e01_two_bells';
@@ -621,6 +634,10 @@
       eyebrow: 'ХРОНИКА · ВСТРЕЧА 5', title: nextEncounter.name,
       copy: nextEncounter.objective.description, waves: '3', time: '≈ 2 мин', goal: 'позиции',
       note: 'Запрет', noteCopy: 'Последняя точная позиция отмечается. Правильный знак всегда будет в другом месте.',
+    } : nextEncounter?.id === 'e06_archivist' ? {
+      eyebrow: 'ХРОНИКА · ФИНАЛ ГЛАВЫ', title: nextEncounter.name,
+      copy: nextEncounter.objective.description, waves: '3', time: '≈ 3 мин', goal: '3 правила',
+      note: 'Босс', noteCopy: 'Запись, Прилив и Последнее имя проверяют разные навыки в одном забеге.',
     } : {
       eyebrow: 'ХРОНИКА · ВСТРЕЧА 1', title: nextEncounter?.name || 'Разлом колокола',
       copy: nextEncounter?.objective?.description || 'Три короткие волны. Смотри на знак в центре и находи такой же среди трёх рун.',
@@ -655,10 +672,12 @@
     document.getElementById('bossSubtitle').textContent = wave.subtitle;
     const reflection = objective.kind === 'ink_decipher' ? objective.reflection_cue : null;
     const sequence = objective.kind === 'drowned_sequence';
-    const sequencePreview = sequence && objective.phase === 'preview';
+    const archivist = objective.kind === 'archivist_boss';
+    const sequenceMode = sequence || (archivist && ['preview', 'recall'].includes(objective.phase));
+    const sequencePreview = sequenceMode && objective.phase === 'preview';
     document.getElementById('bossGlyph').textContent = sequencePreview
       ? (objective.preview_symbol || '·')
-      : signalActive ? (sequence ? '⌁' : challenge.target_symbol)
+      : signalActive ? (sequenceMode ? '⌁' : challenge.target_symbol)
         : reflection?.symbol || wave.emoji;
     document.getElementById('roundClock').innerHTML = `<strong>${seconds}</strong><span>сек</span>`;
     document.getElementById('roundClock').classList.toggle('urgent', wave.time_left_ms <= 5000);
@@ -673,6 +692,7 @@
       ash_fire: ['ОГОНЬ', 'fire_integrity', 'fire_integrity_max', 'ash', 'percent'],
       drowned_sequence: ['ЯКОРИ', 'anchors_broken', 'anchors_total', 'memory', 'fraction'],
       mirror_rule: ['ПЕЧАТИ', 'wards', 'wards_max', 'mirror', 'fraction'],
+      archivist_boss: ['ФАЗЫ', 'phases_completed', 'phases_total', 'boss', 'fraction'],
     }[objective.kind];
     objectiveMeter.hidden = !objectiveConfig;
     objectiveMeter.className = `objective-meter${objectiveConfig?.[3] ? ` ${objectiveConfig[3]}` : ''}`;
@@ -701,30 +721,36 @@
     const timerHidden = Boolean(state.branch_state?.hide_signal_timer && signalActive);
     document.getElementById('windowIndicator').classList.toggle('timer-hidden', timerHidden);
     const mirror = objective.kind === 'mirror_rule';
-    const forbiddenSlot = objective.forbidden_slot;
+    const forbiddenSlot = mirror ? objective.forbidden_slot
+      : archivist && objective.phase === 'record' ? objective.recorded_slot : null;
+    const tideWindow = archivist && objective.phase === 'tide' ? objective.tide_window : null;
     const slotNames = {left: 'левая',center: 'средняя',right: 'правая'};
     indicator.textContent = sequencePreview
       ? `Запомни · ${Math.max(1, Number(objective.preview_index) + 1)} из ${number(objective.sequence_length)}`
-      : sequence && signalActive
+      : sequenceMode && signalActive
         ? `Повтори · знак ${number(Number(objective.answer_index) + 1)} из ${number(objective.sequence_length)}`
-      : mirror && signalActive && forbiddenSlot
+      : (mirror || archivist) && signalActive && forbiddenSlot
         ? `Запрет: ${slotNames[forbiddenSlot] || forbiddenSlot} позиция`
+      : tideWindow
+        ? `${tideWindow === 'short' ? 'Короткое' : 'Длинное'} окно объявлено заранее`
       : timerHidden ? 'Течение скрывает остаток окна'
       : state.critical_active
       ? '✦ ЗОЛОТОЕ ОКНО · БОНУС ЗА МОМЕНТ'
       : signalActive ? 'Выбери совпадающую руну' : 'Сигнал приближается';
     const family = state.branch_state?.family_preview;
     document.getElementById('corePrompt').textContent = sequencePreview ? 'ЗАПОМНИ'
-      : sequence && signalActive ? 'ПОВТОРИ'
-      : mirror && signalActive && forbiddenSlot ? 'СМЕНИ ПОЗИЦИЮ'
+      : sequenceMode && signalActive ? 'ПОВТОРИ'
+      : (mirror || archivist) && signalActive && forbiddenSlot ? 'СМЕНИ ПОЗИЦИЮ'
+      : tideWindow && signalActive ? (tideWindow === 'short' ? 'КОРОТКО' : 'ДЛИННО')
       : reflection ? 'ОТРАЖЕНИЕ' : family ? 'КАРТА' : signalActive ? 'НАЙДИ ЗНАК' : 'СЛУШАЙ';
     document.getElementById('coreHint').textContent = sequencePreview ? 'ответ появится после всей цепочки'
-      : sequence && signalActive ? 'центральной подсказки больше нет'
-      : mirror && signalActive && forbiddenSlot ? 'запрет отмечен на рунах'
+      : sequenceMode && signalActive ? 'центральной подсказки больше нет'
+      : (mirror || archivist) && signalActive && forbiddenSlot ? 'запрет отмечен на рунах'
+      : tideWindow && signalActive ? 'длина окна известна до сигнала'
       : reflection ? 'не нажимай · дождись настоящего' : family ? `семейство: ${family}` : signalActive ? 'одна попытка на сигнал' : 'затем найди такой же знак';
     core.setAttribute('aria-label', sequencePreview && objective.preview_symbol
       ? `Запомни руну ${objective.preview_symbol}`
-      : sequence && signalActive ? `Повтори знак ${Number(objective.answer_index) + 1}`
+      : sequenceMode && signalActive ? `Повтори знак ${Number(objective.answer_index) + 1}`
         : signalActive ? `Найди руну ${challenge.target_symbol}` : 'Ожидание следующей руны');
     renderRunes();
     renderBranchControls();

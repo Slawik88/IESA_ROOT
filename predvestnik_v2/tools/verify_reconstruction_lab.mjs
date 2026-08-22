@@ -249,6 +249,130 @@ try{
     await page.close();
   }
 
+  // Босс получает собственные подписи фаз, компактный счётчик и первую
+  // серверную механику Записи без наследования чужих названий волн.
+  for(const width of [320,390,430]){
+    const session=`visual-e06-${width}`;
+    const response=await fetch(`${base}/__reconstruction/reset`,{
+      method:'POST',
+      headers:{'content-type':'application/json','x-reconstruction-session':session},
+      body:JSON.stringify({encounter_id:'e06_archivist'}),
+    });
+    check(response.ok,`${width}px: e06 dev reset failed`);
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width,height:844,deviceScaleFactor:1});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.click('#startRunButton');
+    await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
+    const clicked=await page.evaluate(()=>{
+      const target=document.getElementById('bossGlyph').textContent.trim();
+      const button=[...document.querySelectorAll('.strike-rune')]
+        .find(node=>node.textContent.trim()===target&&!node.disabled);
+      if(!button)return false;
+      button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+      return true;
+    });
+    check(clicked,`${width}px: e06 first target missing`);
+    await page.waitForFunction(()=>
+      document.querySelector('.tap-stage')?.classList.contains('signal')
+      && document.querySelector('.strike-rune.mirror-forbidden'),
+      {timeout:3000},
+    );
+    const metrics=await page.evaluate(()=>({
+      overflow:document.documentElement.scrollWidth-innerWidth,
+      objective:document.getElementById('objectiveValue').textContent.trim(),
+      rails:[...document.querySelectorAll('[data-wave-node] small')].map(node=>node.textContent.trim()),
+      phase:document.getElementById('bossName').textContent.trim(),
+      forbiddenHeight:document.querySelector('.strike-rune.mirror-forbidden')?.getBoundingClientRect().height||0,
+    }));
+    check(metrics.overflow<=0,`${width}px: e06 overflow ${metrics.overflow}px`);
+    check(metrics.objective==='0/3',`${width}px: e06 phase counter ${metrics.objective}`);
+    check(metrics.rails.join('|')==='Запись|Прилив|Имя',`${width}px: e06 rail ${metrics.rails.join('|')}`);
+    check(metrics.phase==='Фаза I · Запись',`${width}px: e06 phase name ${metrics.phase}`);
+    check(metrics.forbiddenHeight>=44,`${width}px: e06 forbidden target below 44px`);
+    check(errors.length===0,`${width}px: e06 browser errors ${errors.join(', ')}`);
+    if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-e06.png`,fullPage:true});
+    await page.close();
+  }
+
+  // Один глубокий проход босса проверяет, что в браузере реально появляются
+  // вторая и третья грамматики, а не только их серверные поля.
+  const bossSession='visual-e06-deep';
+  const bossReset=await fetch(`${base}/__reconstruction/reset`,{
+    method:'POST',
+    headers:{'content-type':'application/json','x-reconstruction-session':bossSession},
+    body:JSON.stringify({encounter_id:'e06_archivist'}),
+  });
+  check(bossReset.ok,'e06 deep: dev reset failed');
+  const bossPage=await browser.newPage();
+  const bossErrors=[];
+  bossPage.on('pageerror',error=>bossErrors.push(error.message));
+  await bossPage.setViewport({width:390,height:844,deviceScaleFactor:1});
+  await bossPage.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
+  await bossPage.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),bossSession);
+  await bossPage.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+  await bossPage.click('#startRunButton');
+  let tideCaptured=false;
+  let lastNameCaptured=false;
+  for(let guard=0;guard<160&&!lastNameCaptured;guard+=1){
+    await bossPage.waitForFunction(()=>{
+      const signal=document.querySelector('.tap-stage')?.classList.contains('signal');
+      const choice=!document.getElementById('choiceLayer')?.hidden;
+      const preview=document.getElementById('corePrompt')?.textContent.trim()==='ЗАПОМНИ';
+      return signal||choice||preview;
+    },{timeout:3500});
+    const phase=await bossPage.evaluate(()=>({
+      choice:!document.getElementById('choiceLayer').hidden,
+      signal:document.querySelector('.tap-stage').classList.contains('signal'),
+      preview:document.getElementById('corePrompt').textContent.trim()==='ЗАПОМНИ',
+      wave:document.getElementById('waveLabel').textContent.trim(),
+      prompt:document.getElementById('corePrompt').textContent.trim(),
+      target:document.getElementById('bossGlyph').textContent.trim(),
+    }));
+    if(phase.choice){
+      await bossPage.click('.upgrade-card');
+      await bossPage.waitForSelector('#choiceLayer[hidden]');
+      continue;
+    }
+    if(phase.preview&&phase.wave.includes('3')){
+      if(output)await bossPage.screenshot({path:`${output}/clicker-390-e06-last-name-preview.png`,fullPage:true});
+      await bossPage.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:4000});
+      const recall=await bossPage.evaluate(()=>({
+        prompt:document.getElementById('corePrompt').textContent.trim(),
+        center:document.getElementById('bossGlyph').textContent.trim(),
+        runes:[...document.querySelectorAll('.strike-rune')].map(node=>node.textContent.trim()),
+      }));
+      check(recall.prompt==='ПОВТОРИ','e06 deep: last-name recall prompt missing');
+      check(!recall.runes.includes(recall.center),'e06 deep: last-name target leaked in center');
+      if(output)await bossPage.screenshot({path:`${output}/clicker-390-e06-last-name-recall.png`,fullPage:true});
+      lastNameCaptured=true;
+      break;
+    }
+    if(phase.signal){
+      if(phase.wave.includes('2')&&!tideCaptured){
+        check(['КОРОТКО','ДЛИННО'].includes(phase.prompt),`e06 deep: tide prompt ${phase.prompt}`);
+        if(output)await bossPage.screenshot({path:`${output}/clicker-390-e06-tide.png`,fullPage:true});
+        tideCaptured=true;
+      }
+      const clicked=await bossPage.evaluate(target=>{
+        const button=[...document.querySelectorAll('.strike-rune')]
+          .find(node=>node.textContent.trim()===target&&!node.disabled);
+        if(!button)return false;
+        button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+        return true;
+      },phase.target);
+      check(clicked,`e06 deep: matching rune ${phase.target} missing`);
+      await new Promise(resolve=>setTimeout(resolve,120));
+    }
+  }
+  check(tideCaptured,'e06 deep: tide phase was not reached');
+  check(lastNameCaptured,'e06 deep: last-name phase was not reached');
+  check(bossErrors.length===0,`e06 deep browser errors ${bossErrors.join(', ')}`);
+  await bossPage.close();
+
   // Ветвь с активным решением не добавляет старую панель способностей:
   // одна компактная кнопка меняет риск и сохраняет мобильную ширину.
   const branchSession='visual-branch-control';

@@ -13,7 +13,7 @@ from typing import Any, Final
 
 
 GAME_VERSION: Final = "3.0.0-alpha.3"
-BALANCE_VERSION: Final = "r8-2026-08-22-mirror-courtyard"
+BALANCE_VERSION: Final = "r9-2026-08-22-archivist-boss"
 FEATURE_FLAG_KEY: Final = "game_reconstruction_v1"
 CAMPAIGN_ID: Final = "echoes_of_the_drowned_bell"
 
@@ -258,11 +258,12 @@ ENCOUNTERS: dict[str, dict[str, Any]] = {
     "e06_archivist": {
         "order": 6,
         "name": "Архивариус Утонувшего Колокола",
-        "implemented": False,
+        "implemented": True,
         "objective": {
             "type": "boss",
             "description": "Пережить три фазы и разорвать запись собственного имени.",
-            "round_limit": 14,
+            "waves": 3,
+            "round_limit": 3,
         },
         "phases": (
             {
