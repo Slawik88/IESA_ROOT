@@ -653,6 +653,13 @@ async def apply_run_action(
                     "outcome_reason": state.get("outcome_reason"),
                     "rounds": state["round"],
                     "metrics": state["mastery"],
+                    "signals_resolved": (
+                        int(state["mastery"].get("correct_taps", 0))
+                        + int(state["mastery"].get("mistakes", 0))
+                        + int(state["mastery"].get("missed_signals", 0))
+                    ),
+                    "companion_role_id": state.get("companion_role_id"),
+                    "upgrades": list(state.get("upgrades") or []),
                     "terminal_result": terminal,
                     "shadow_reward": shadow_reward,
                     "branches": sorted(
@@ -802,6 +809,14 @@ async def cancel_run(
                 "outcome_reason": "player_restart",
                 "rounds": int(state.get("round", 0)),
                 "metrics": state.get("mastery", {}),
+                "signals_resolved": (
+                    int((state.get("mastery") or {}).get("correct_taps", 0))
+                    + int((state.get("mastery") or {}).get("mistakes", 0))
+                    + int((state.get("mastery") or {}).get("missed_signals", 0))
+                ),
+                "companion_role_id": state.get("companion_role_id"),
+                "upgrades": list(state.get("upgrades") or []),
+                "exit_wave_elapsed_ms": int((state.get("wave") or {}).get("elapsed_ms", 0)),
                 "terminal_result": terminal,
                 "shadow_reward": shadow_reward,
             },

@@ -9,6 +9,7 @@ wall clock; production-адаптер дополнительно огранич�
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from typing import Any
 
@@ -181,10 +182,7 @@ def _waves(state: dict[str, Any]) -> tuple[dict[str, Any], ...]:
     except KeyError as exc:
         raise ValueError("Для встречи не задан проверенный набор волн.") from exc
 
-REWARD_POOLS: tuple[tuple[str, ...], ...] = (
-    ("heavy_echo", "quick_current", "golden_seam"),
-    ("deep_discharge", "last_bell", "hungry_pattern"),
-)
+REWARD_OFFER_SIZE = 3
 
 
 def _round_number(value: float) -> float:
@@ -222,6 +220,24 @@ def _mix(seed: int, sequence: int) -> int:
     value ^= value >> 17
     value ^= value << 5 & 0xFFFFFFFF
     return value & 0xFFFFFFFF
+
+
+def _reward_offer_ids(state: dict[str, Any]) -> list[str]:
+    """Build a deterministic varied offer without repeating a chosen upgrade."""
+    candidates = sorted(
+        upgrade_id for upgrade_id in CLICKER_UPGRADES
+        if upgrade_id not in set(state.get("upgrades") or [])
+    )
+    prefix = (
+        f"{GAME_VERSION}:{BALANCE_VERSION}:{int(state['seed'])}:"
+        f"{int(state['round'])}:"
+    )
+    return sorted(
+        candidates,
+        key=lambda upgrade_id: hashlib.sha256(
+            f"{prefix}{upgrade_id}".encode("utf-8")
+        ).digest(),
+    )[:REWARD_OFFER_SIZE]
 
 
 def _navigator_forecast(state: dict[str, Any]) -> dict[str, Any]:
@@ -733,7 +749,7 @@ def _complete_wave(state: dict[str, Any]) -> None:
         return
     state["reward_options"] = [
         {"id": upgrade_id, **copy.deepcopy(CLICKER_UPGRADES[upgrade_id])}
-        for upgrade_id in REWARD_POOLS[state["round"] - 1]
+        for upgrade_id in _reward_offer_ids(state)
     ]
     companion = state.get("companion_state") or {}
     if _has_companion_role(state, "archivist"):

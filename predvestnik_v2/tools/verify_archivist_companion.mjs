@@ -7,6 +7,7 @@ const session = `archivist-${Date.now()}`;
 const headers = {
   'content-type': 'application/json',
   'x-reconstruction-session': session,
+  'x-reconstruction-test-clock': 'fixed-step-100',
 };
 
 async function request(path, options = {}) {
