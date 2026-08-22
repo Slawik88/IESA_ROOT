@@ -21,6 +21,8 @@ html { min-height: 100%; background: var(--bg); }
 body { margin: 0; min-height: 100vh; min-height: 100dvh; color: var(--text); background: radial-gradient(circle at 50% -15%, #162132 0, var(--bg) 38%); }
 button, a { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+button:active:not(:disabled), a:active { transform: scale(.96); }
 [hidden] { display: none !important; }
 
 .clicker-shell { width: min(500px, 100%); min-height: 100dvh; margin: 0 auto; padding: max(12px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom)); }
@@ -96,6 +98,7 @@ h2 { letter-spacing: -.03em; }
 .window-indicator.timer-hidden > i { opacity: .18; }
 
 .echo-core { --charge: 0deg; position: relative; z-index: 3; width: 168px; height: 168px; margin-bottom: 82px; padding: 0; border: 0; border-radius: 50%; display: grid; grid-template-rows: 64px 18px 16px; align-content: center; justify-items: center; background: radial-gradient(circle at 42% 35%, #253448 0, #121b28 46%, #090e16 75%); box-shadow: 0 0 0 1px rgba(105,194,207,.27), 0 14px 45px rgba(0,0,0,.35); outline: none; transition: transform .07s ease; }
+.echo-core:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
 .charge-ring { position: absolute; inset: 0; pointer-events: none; }
 .echo-core::before { content: ""; position: absolute; inset: -12px; z-index: -2; border-radius: 50%; background: conic-gradient(var(--gold) var(--charge), rgba(255,255,255,.07) 0); }
 .echo-core::after { content: ""; position: absolute; inset: -7px; z-index: -1; border-radius: 50%; background: var(--panel); }
@@ -277,6 +280,13 @@ h2 { letter-spacing: -.03em; }
 .pause-card, .choice-sheet, .result-card { padding: 19px; }
 .pause-card { margin-bottom: 4px; }
 .upgrade-list { display: grid; gap: 7px; margin-top: 14px; }
+.archivist-review { padding: 11px 12px; display: grid; grid-template-columns: 1fr auto; gap: 5px 12px; border: 1px solid rgba(107,190,205,.24); border-radius: 12px; background: linear-gradient(135deg, rgba(55,117,133,.14), rgba(20,30,42,.48)); }
+.archivist-review > span { display: flex; align-items: center; gap: 7px; color: #9ed4dd; }
+.archivist-review > span i { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid rgba(158,212,221,.26); border-radius: 7px; font-style: normal; }
+.archivist-review > span small { font-size: 9px; font-weight: 800; letter-spacing: .11em; }
+.archivist-review > strong { align-self: center; color: var(--text); font-size: 13px; }
+.archivist-review > p { grid-column: 1 / -1; margin: 1px 0 0; color: var(--text); font-size: 12px; line-height: 1.4; }
+.archivist-review > em { grid-column: 1 / -1; color: var(--muted); font-size: 10px; font-style: normal; }
 .upgrade-card { width: 100%; min-height: 90px; padding: 10px 11px; display: grid; grid-template-columns: 38px 1fr 12px; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
 .upgrade-card:hover { border-color: rgba(229,189,95,.48); background: rgba(229,189,95,.07); }
 .upgrade-card:disabled { cursor: default; opacity: .55; }

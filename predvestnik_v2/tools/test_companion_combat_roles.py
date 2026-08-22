@@ -114,6 +114,27 @@ assert forecast["pressure"] in ("высокое", "среднее", "мягко�
 assert forecast["locked"] and not forecast["reveals_answer"]
 assert combat.new_encounter(seed=808, companion_role_id="navigator")["companion_state"]["navigator_forecast"] == forecast
 
+archivist = combat.new_encounter(seed=515, companion_role_id="archivist")
+archivist["mastery"]["correct_taps"] = 7
+archivist["mastery"]["mistakes"] = 2
+archivist["mastery"]["missed_signals"] = 1
+combat._complete_wave(archivist)
+review = archivist["companion_state"]["archivist_review"]
+assert archivist["status"] == "reward" and len(archivist["reward_options"]) == 2
+assert review["wave"] == 1 and review["accuracy"] == 70.0
+assert review["correct"] == 7 and review["wrong"] == 2 and review["missed"] == 1
+assert review["focus_kind"] == "wrong_taps" and not review["reveals_answer"]
+assert "target" not in review and "symbol" not in review and "seed" not in review
+
+# The second review must contain only second-wave events, not cumulative totals.
+combat._start_next_wave(archivist)
+archivist["mastery"]["correct_taps"] += 5
+archivist["mastery"]["missed_signals"] += 3
+combat._complete_wave(archivist)
+review = archivist["companion_state"]["archivist_review"]
+assert review["correct"] == 5 and review["wrong"] == 0 and review["missed"] == 3
+assert review["accuracy"] == 62.5 and review["focus_kind"] == "missed_signals"
+
 for unsupported in ("trickster", "unknown"):
     try:
         combat.new_encounter(seed=1, companion_role_id=unsupported)
@@ -122,4 +143,4 @@ for unsupported in ("trickster", "unknown"):
     else:
         raise AssertionError(f"Unsupported companion role entered combat: {unsupported}")
 
-print("companion_combat_roles: five horizontal role contracts  OK")
+print("companion_combat_roles: six horizontal role contracts OK")

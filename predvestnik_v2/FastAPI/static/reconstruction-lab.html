@@ -90,22 +90,22 @@
   </main>
 
   <div class="menu-layer" id="menuLayer">
-    <section class="menu-card" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+    <section class="menu-card" role="dialog" aria-modal="true" aria-label="Меню игры">
       <header class="tester-card">
         <span class="tester-avatar" id="testerAvatar">◉</span>
         <span><small id="profileKind">ПРОФИЛЬ ТЕСТИРОВЩИКА</small><strong id="testerName">Гость стенда</strong></span>
         <i id="versionBadge">MVP</i>
       </header>
 
-      <nav class="menu-tabs" aria-label="Разделы игры">
-        <button class="active" type="button" data-menu-tab="play">Играть</button>
-        <button type="button" data-menu-tab="companion">Спутник</button>
-        <button type="button" data-menu-tab="alliance">Союз</button>
-        <button type="button" data-menu-tab="stats">Статистика</button>
-        <button type="button" data-menu-tab="help">Как играть</button>
+      <nav class="menu-tabs" role="tablist" aria-label="Разделы игры">
+        <button class="active" id="menuTabPlay" role="tab" aria-selected="true" aria-controls="menuPanelPlay" type="button" data-menu-tab="play">Играть</button>
+        <button id="menuTabCompanion" role="tab" aria-selected="false" aria-controls="companionPanel" type="button" data-menu-tab="companion">Спутник</button>
+        <button id="menuTabAlliance" role="tab" aria-selected="false" aria-controls="menuPanelAlliance" type="button" data-menu-tab="alliance">Союз</button>
+        <button id="menuTabStats" role="tab" aria-selected="false" aria-controls="menuPanelStats" type="button" data-menu-tab="stats">Статистика</button>
+        <button id="menuTabHelp" role="tab" aria-selected="false" aria-controls="menuPanelHelp" type="button" data-menu-tab="help">Как играть</button>
       </nav>
 
-      <div class="menu-panel active" data-menu-panel="play">
+      <div class="menu-panel active" id="menuPanelPlay" role="tabpanel" aria-labelledby="menuTabPlay" data-menu-panel="play">
         <span class="eyebrow" id="menuEyebrow">ХРОНИКА · ВСТРЕЧА 1</span>
         <h2 id="menuTitle">Два безымянных колокола</h2>
         <p id="menuCopy">Разбить три воплощения колокола до затухания эха.</p>
@@ -122,21 +122,21 @@
         </div>
       </div>
 
-      <div class="menu-panel companion-panel" id="companionPanel" data-menu-panel="companion" hidden>
+      <div class="menu-panel companion-panel" id="companionPanel" role="tabpanel" aria-labelledby="menuTabCompanion" data-menu-panel="companion" hidden>
         <span class="eyebrow">СПУТНИК · РОЛЬ В ЗАБЕГЕ</span>
         <h2>Выбери роль спутника</h2>
         <p>Выбранная роль меняет правила забега, но не повышает характеристики. Внешность и прежний прогресс питомца сохраняются.</p>
         <div id="companionContent" class="companion-content"></div>
       </div>
 
-      <div class="menu-panel alliance-panel" data-menu-panel="alliance" hidden>
+      <div class="menu-panel alliance-panel" id="menuPanelAlliance" role="tabpanel" aria-labelledby="menuTabAlliance" data-menu-panel="alliance" hidden>
         <span class="eyebrow">ОБЩАЯ ЦЕЛЬ · ТЕСТ БЕЗ НАГРАД</span>
         <h2>Союз Предвестников</h2>
         <p>Забеги участников заполняют общий контур. Личный дневной и недельный предел не позволяет одному игроку закрыть событие за всех.</p>
         <div id="allianceContent" class="alliance-content"></div>
       </div>
 
-      <div class="menu-panel" data-menu-panel="stats" hidden>
+      <div class="menu-panel" id="menuPanelStats" role="tabpanel" aria-labelledby="menuTabStats" data-menu-panel="stats" hidden>
         <span class="eyebrow" id="statsEyebrow">ЛОКАЛЬНЫЙ ПРОФИЛЬ</span>
         <h2>Твои сигналы</h2>
         <p id="statsCopy">Здесь считаются завершённые забеги, победы, точность, ошибки и лучшая серия.</p>
@@ -144,7 +144,7 @@
         <div class="build-history" id="buildHistory"></div>
       </div>
 
-      <div class="menu-panel" data-menu-panel="help" hidden>
+      <div class="menu-panel" id="menuPanelHelp" role="tabpanel" aria-labelledby="menuTabHelp" data-menu-panel="help" hidden>
         <span class="eyebrow">ПРАВИЛА ЗА 20 СЕКУНД</span>
         <h2>Не кликай вслепую</h2>
         <ol class="help-steps">
@@ -173,7 +173,7 @@
   </div>
 
   <div class="choice-layer" id="choiceLayer" hidden>
-    <section class="choice-sheet">
+    <section class="choice-sheet" role="dialog" aria-modal="true" aria-labelledby="choiceTitle">
       <span class="eyebrow" id="choiceEyebrow">ВОЛНА ПРОЙДЕНА</span>
       <h2 id="choiceTitle">Выбери направление сборки</h2>
       <p id="choiceCopy">У каждого усиления есть преимущество и цена. Выбор действует только в этом забеге.</p>
@@ -182,7 +182,7 @@
   </div>
 
   <div class="result-layer" id="resultLayer" hidden>
-    <section class="result-card">
+    <section class="result-card" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
       <span class="eyebrow" id="resultEyebrow">ЗАБЕГ ЗАВЕРШЁН</span>
       <div class="result-mark" id="resultMark">✦</div>
       <h2 id="resultTitle">Колокол отвечает тебе</h2>
