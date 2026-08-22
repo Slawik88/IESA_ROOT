@@ -18,11 +18,16 @@ async def ensure_tables(db) -> None:
             current_encounter  TEXT NOT NULL,
             completed_json     TEXT NOT NULL DEFAULT '[]',
             memories_json      TEXT NOT NULL DEFAULT '[]',
+            route_choices_json TEXT NOT NULL DEFAULT '{}',
             started_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             PRIMARY KEY (user_id, game_version)
         )
     """)
+    await db.execute(
+        "ALTER TABLE gameplay_progress ADD COLUMN IF NOT EXISTS "
+        "route_choices_json TEXT NOT NULL DEFAULT '{}'"
+    )
     await db.execute("""
         CREATE TABLE IF NOT EXISTS gameplay_runs (
             id                 BIGSERIAL PRIMARY KEY,
@@ -190,6 +195,7 @@ def _decode_progress(row: Any) -> dict[str, Any] | None:
     data = dict(row)
     data["completed"] = json.loads(data.pop("completed_json") or "[]")
     data["memories"] = json.loads(data.pop("memories_json") or "[]")
+    data["route_choices"] = json.loads(data.pop("route_choices_json") or "{}")
     return data
 
 
@@ -223,14 +229,17 @@ async def save_progress(
     current_encounter: str,
     completed: list[str],
     memories: list[str],
+    route_choices: dict[str, str],
 ) -> None:
     await db.execute(
         "UPDATE gameplay_progress SET current_encounter = ?, completed_json = ?, "
-        "memories_json = ?, updated_at = NOW() WHERE user_id = ? AND game_version = ?",
+        "memories_json = ?, route_choices_json = ?, updated_at = NOW() "
+        "WHERE user_id = ? AND game_version = ?",
         (
             current_encounter,
             json.dumps(completed, ensure_ascii=False),
             json.dumps(memories, ensure_ascii=False),
+            json.dumps(route_choices, ensure_ascii=False, sort_keys=True),
             user_id,
             game_version,
         ),

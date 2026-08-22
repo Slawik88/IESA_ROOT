@@ -13,7 +13,7 @@ from typing import Any, Final
 
 
 GAME_VERSION: Final = "3.0.0-alpha.3"
-BALANCE_VERSION: Final = "r5-2026-08-22-unit-branches"
+BALANCE_VERSION: Final = "r6-2026-08-22-chronicle-paths"
 FEATURE_FLAG_KEY: Final = "game_reconstruction_v1"
 CAMPAIGN_ID: Final = "echoes_of_the_drowned_bell"
 
@@ -201,11 +201,13 @@ ENCOUNTERS: dict[str, dict[str, Any]] = {
         "order": 3,
         "branch": "ink",
         "name": "Чернильная тропа",
-        "implemented": False,
+        "implemented": True,
         "objective": {
             "type": "decipher",
             "description": "Отличить настоящую руну от отражений и разрушить три чернильные маски.",
-            "round_limit": 7,
+            "waves": 3,
+            "round_limit": 3,
+            "clarity": 100,
         },
         "teaches": ("ложные сигналы", "чтение знака", "точность без спама"),
         "mastery": "Найти каждый оригинал с первой попытки.",
@@ -214,11 +216,13 @@ ENCOUNTERS: dict[str, dict[str, Any]] = {
         "order": 3,
         "branch": "ash",
         "name": "Пепельная тропа",
-        "implemented": False,
+        "implemented": True,
         "objective": {
             "type": "survival",
             "description": "Удержать костёр, отвечая правильной руной на три ускоряющиеся волны.",
-            "round_limit": 8,
+            "waves": 3,
+            "round_limit": 3,
+            "fire_integrity": 100,
         },
         "teaches": ("смена темпа", "риск золотого окна", "контроль ошибок"),
         "mastery": "Костёр сохраняет не меньше 70% прочности.",

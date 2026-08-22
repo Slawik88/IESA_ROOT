@@ -69,9 +69,47 @@ E02_WAVES: tuple[dict[str, Any], ...] = (
     },
 )
 
+E03_INK_WAVES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "ink_reflection", "name": "Чернильное отражение",
+        "subtitle": "Отражение приходит раньше настоящего знака", "emoji": "◆",
+        "hp": 1650.0, "duration_ms": 34000, "signal_ms": 1100,
+    },
+    {
+        "id": "ink_mask", "name": "Маска переписчика",
+        "subtitle": "Не отвечай на первый увиденный символ", "emoji": "◐",
+        "hp": 2200.0, "duration_ms": 40000, "signal_ms": 980,
+    },
+    {
+        "id": "ink_archive", "name": "Архив ложных имён",
+        "subtitle": "Читай открытый сигнал, а не его предвестник", "emoji": "▣",
+        "hp": 2900.0, "duration_ms": 46000, "signal_ms": 850,
+    },
+)
+
+E03_ASH_WAVES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "ash_ember", "name": "Остывающий уголь",
+        "subtitle": "Точный темп поддерживает огонь", "emoji": "·",
+        "hp": 1550.0, "duration_ms": 32000, "signal_ms": 1050,
+    },
+    {
+        "id": "ash_wind", "name": "Пепельный ветер",
+        "subtitle": "Поздний золотой ответ возвращает больше жара", "emoji": "≈",
+        "hp": 2100.0, "duration_ms": 38000, "signal_ms": 900,
+    },
+    {
+        "id": "ash_keeper", "name": "Хранитель костра",
+        "subtitle": "Удержи огонь, не превращая риск в угадывание", "emoji": "△",
+        "hp": 2850.0, "duration_ms": 45000, "signal_ms": 780,
+    },
+)
+
 ENCOUNTER_WAVES: dict[str, tuple[dict[str, Any], ...]] = {
     "e01_two_bells": E01_WAVES,
     "e02_shattered_causeway": E02_WAVES,
+    "e03_ink_path": E03_INK_WAVES,
+    "e03_ash_path": E03_ASH_WAVES,
 }
 
 
@@ -164,6 +202,8 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
     branch["next_signal_penalty_ms"] = 0
     branch["hide_signal_timer"] = False
     branch["family_preview"] = None
+    if (state.get("objective_state") or {}).get("kind") == "ink_decipher":
+        state["objective_state"]["reflection_cue"] = None
 
 
 def _wave_runtime(
@@ -277,6 +317,27 @@ def new_encounter(
         state["log"] = [
             "🏮 Фонарь гаснет от ошибок. Каждые пять точных знаков подряд возвращают свет."
         ]
+    elif encounter_id == "e03_ink_path":
+        state["objective_state"] = {
+            "kind": "ink_decipher",
+            "clarity": 100,
+            "clarity_max": 100,
+            "reflection_cue": None,
+        }
+        state["log"] = [
+            "◆ Отражение показывается раньше. Нажимай только после открытия настоящего сигнала."
+        ]
+    elif encounter_id == "e03_ash_path":
+        state["objective_state"] = {
+            "kind": "ash_fire",
+            "fire_integrity": 100,
+            "fire_integrity_max": 100,
+            "decay_ticks": 0,
+            "golden_recoveries": 0,
+        }
+        state["log"] = [
+            "🔥 Огонь медленно гаснет. Точные знаки поддерживают его, золотые возвращают больше."
+        ]
     state["wave"] = _wave_runtime(state, 0, 0)
     _schedule_challenge(state, first=True)
     return state
@@ -320,15 +381,19 @@ def _complete_wave(state: dict[str, Any]) -> None:
             _emit(state, "defeat", "Фонарь не принял неточный путь")
         else:
             state["status"] = "won"
-            state["outcome_reason"] = (
-                "lantern_delivered" if objective.get("kind") == "lantern_escort"
-                else "all_echoes_broken"
+            outcomes = {
+                "lantern_escort": ("lantern_delivered", "Фонарь достиг ворот"),
+                "ink_decipher": ("true_names_read", "Настоящие имена прочитаны"),
+                "ash_fire": ("fire_carried", "Огонь сохранён"),
+            }
+            outcome_reason, victory_label = outcomes.get(
+                str(objective.get("kind")), ("all_echoes_broken", "Колокол отвечает тебе")
             )
+            state["outcome_reason"] = outcome_reason
             _emit(
                 state,
                 "victory",
-                "Фонарь достиг ворот" if objective.get("kind") == "lantern_escort"
-                else "Колокол отвечает тебе",
+                victory_label,
             )
         return
     state["reward_options"] = [
@@ -431,6 +496,26 @@ def _miss_signal(state: dict[str, Any], *, wrong_tap: bool) -> None:
             state["challenge"] = None
             _emit(state, "defeat", "Фонарь погас")
             return
+    elif objective.get("kind") == "ink_decipher":
+        loss = 25 if wrong_tap else 15
+        objective["clarity"] = max(0, int(objective["clarity"]) - loss)
+        if objective["clarity"] <= 0:
+            state["status"] = "lost"
+            state["outcome_reason"] = "lost_in_reflections"
+            state["challenge"] = None
+            _emit(state, "defeat", "Чернила скрыли настоящий знак")
+            return
+    elif objective.get("kind") == "ash_fire":
+        loss = 18 if wrong_tap else 11
+        objective["fire_integrity"] = max(
+            0, int(objective["fire_integrity"]) - loss
+        )
+        if objective["fire_integrity"] <= 0:
+            state["status"] = "lost"
+            state["outcome_reason"] = "fire_extinguished"
+            state["challenge"] = None
+            _emit(state, "defeat", "Костёр погас")
+            return
     _consume_manual_discharge_window(state, challenge_id)
     branch = _branch_state(state)
     if (
@@ -460,6 +545,30 @@ def _advance_time(state: dict[str, Any], delta_ms: int) -> None:
     state["mastery"]["elapsed_ms"] += delta_ms
     challenge = state.get("challenge")
     branch = _branch_state(state)
+    objective = state.get("objective_state") or {}
+    if objective.get("kind") == "ash_fire":
+        target_ticks = int(state["mastery"]["elapsed_ms"]) // 2000
+        new_ticks = max(0, target_ticks - int(objective.get("decay_ticks", 0)))
+        if new_ticks:
+            objective["decay_ticks"] = target_ticks
+            objective["fire_integrity"] = max(
+                0, int(objective["fire_integrity"]) - new_ticks
+            )
+            if objective["fire_integrity"] <= 0:
+                state["status"] = "lost"
+                state["outcome_reason"] = "fire_extinguished"
+                state["challenge"] = None
+                _emit(state, "defeat", "Костёр погас")
+                return
+    if objective.get("kind") == "ink_decipher" and challenge and not challenge["active"]:
+        until_open = int(challenge["opens_at_ms"]) - int(wave["elapsed_ms"])
+        if 0 < until_open <= 420:
+            reflections = [symbol for symbol in RUNE_SYMBOLS if symbol != challenge["target_symbol"]]
+            objective["reflection_cue"] = {
+                "symbol": reflections[_mix(state["seed"], int(challenge["id"])) % len(reflections)],
+            }
+        else:
+            objective["reflection_cue"] = None
     preview_active = bool(
         _has_branch(state, "tide_early_chart")
         and challenge
@@ -479,6 +588,8 @@ def _advance_time(state: dict[str, Any], delta_ms: int) -> None:
     if challenge and not challenge["active"] and wave["elapsed_ms"] >= challenge["opens_at_ms"]:
         challenge["active"] = True
         branch["family_preview"] = None
+        if objective.get("kind") == "ink_decipher":
+            objective["reflection_cue"] = None
         _emit(state, "signal", f"Найди {challenge['target_symbol']}", challenge_id=challenge["id"])
     if challenge and challenge["active"] and wave["elapsed_ms"] >= challenge["expires_at_ms"]:
         _miss_signal(state, wrong_tap=False)
@@ -592,6 +703,16 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
             branch["stored_seam_slot"] = slot
         else:
             state["seam_ready"] = True
+    if objective.get("kind") == "ash_fire":
+        recovery = 7 if critical else 1
+        before = int(objective["fire_integrity"])
+        objective["fire_integrity"] = min(
+            int(objective["fire_integrity_max"]), before + recovery
+        )
+        if critical and objective["fire_integrity"] > before:
+            objective["golden_recoveries"] = int(
+                objective.get("golden_recoveries", 0)
+            ) + 1
     damage = float(state["team"]["tap_power"]) * multiplier + seam_bonus
     if state["combo"]["count"] % 5 == 0:
         damage += float(state["team"]["tap_power"]) * 0.75
