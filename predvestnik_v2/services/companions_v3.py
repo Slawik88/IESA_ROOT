@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from typing import Any
+import hashlib
+import secrets
 
 from core.companions_v3 import (
     COMPANION_ROLES,
@@ -12,8 +14,12 @@ from core.companions_v3 import (
     quote_expedition,
     recover_care_bank,
     role_unlock_count,
+    expedition_discovery,
+    expedition_slot_count,
+    SECOND_EXPEDITION_SLOT_ENCOUNTER,
 )
 from infrastructure.repositories import companions_v3 as repo
+from core.reconstruction import GAME_VERSION
 
 
 CARE_ACTIONS = {
@@ -67,6 +73,13 @@ async def overview(db, user_id: int) -> dict[str, Any]:
     role_slots = role_unlock_count(meaningful_days)
     unlocked = list((profile or {}).get("unlocked_roles") or [])
     legacy_expeditions = await repo.list_legacy_expeditions(db, user_id)
+    second_slot = await repo.has_second_expedition_slot(
+        db, user_id, GAME_VERSION, SECOND_EXPEDITION_SLOT_ENCOUNTER
+    )
+    expedition_slots = expedition_slot_count(second_slot)
+    expeditions = await repo.list_expeditions(db, user_id)
+    open_expeditions = sum(item["status"] in ("active", "ready") for item in expeditions)
+    reserved_mora = await repo.reserved_mora_last_7_days(db, user_id)
     return {
         "policy": public_companion_manifest(),
         "meaningful_days": meaningful_days,
@@ -82,13 +95,100 @@ async def overview(db, user_id: int) -> dict[str, Any]:
         ],
         "expeditions": {
             "mode": "shadow_only",
-            "start_enabled": False,
-            "reason": "Новая Мора не начисляется до общего migration/release gate.",
-            "options": [asdict(quote_expedition(hours)) for hours in EXPEDITION_OPTIONS],
+            "start_enabled": bool(pets) and not legacy_expeditions and open_expeditions < expedition_slots,
+            "reason": (
+                "Сначала заверши старый поход — его договор сохранён без изменений."
+                if legacy_expeditions else
+                "Результат фиксируется сервером, но Мора пока только считается и не начисляется."
+            ),
+            "slots": expedition_slots,
+            "open_slots": max(0, expedition_slots - open_expeditions),
+            "weekly_reserved_mora": reserved_mora,
+            "options": [asdict(quote_expedition(hours, reserved_mora)) for hours in EXPEDITION_OPTIONS],
+            "contracts": expeditions,
+            "ready_count": sum(item["status"] == "ready" for item in expeditions),
             "legacy_active": legacy_expeditions,
             "legacy_contracts_preserved": True,
         },
     }
+
+
+async def start_expedition(
+    db, user_id: int, pet_id: int, duration_hours: int, action_id: str
+) -> dict[str, Any]:
+    action_id = str(action_id or "").strip()
+    if not action_id or len(action_id) > 96:
+        raise CompanionError("action_id обязателен и не должен превышать 96 символов.")
+    if duration_hours not in EXPEDITION_OPTIONS:
+        raise CompanionError("Доступны походы на 2, 6 или 12 часов.")
+    request = {"pet_id": int(pet_id), "duration_hours": int(duration_hours)}
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        cached = await repo.get_cached_action(db, user_id, action_id)
+        if cached:
+            if cached["request"] != request:
+                raise CompanionConflict("action_id уже использован для другого похода.")
+            return {**cached["response"], "idempotent_replay": True}
+        pet = await repo.get_owned_pet(db, user_id, pet_id)
+        if not pet:
+            raise CompanionError("Питомец не найден или принадлежит другому игроку.")
+        if await repo.list_legacy_expeditions(db, user_id):
+            raise CompanionConflict("Сначала заверши старый поход: его награда сохранена по старым правилам.")
+        second_slot = await repo.has_second_expedition_slot(
+            db, user_id, GAME_VERSION, SECOND_EXPEDITION_SLOT_ENCOUNTER
+        )
+        slots = expedition_slot_count(second_slot)
+        if await repo.count_open_expeditions(db, user_id) >= slots:
+            raise CompanionConflict("Все доступные слоты разведки заняты.")
+        if await repo.pet_has_open_expedition(db, user_id, pet_id):
+            raise CompanionConflict("Этот спутник уже находится в разведке.")
+        reserved = await repo.reserved_mora_last_7_days(db, user_id)
+        quote = quote_expedition(duration_hours, reserved)
+        seed_digest = hashlib.sha256(secrets.token_bytes(32)).hexdigest()
+        discovery_id = expedition_discovery(seed_digest, duration_hours)
+        row = await repo.create_expedition(
+            db, user_id=user_id, pet_id=pet_id, duration_hours=duration_hours,
+            route_id=quote.route, fixed_mora=quote.projected_mora,
+            seed_digest=seed_digest, discovery_id=discovery_id,
+        )
+        response = {
+            "ok": True, "contract_id": int(row["id"]), "pet_id": int(pet_id),
+            "duration_hours": duration_hours, "route_id": quote.route,
+            "projected_mora": quote.projected_mora, "discovery_id": discovery_id,
+            "ends_at": row["ends_at"].isoformat(), "settled": False,
+            "economic_reward": None,
+        }
+        await repo.save_action(db, user_id, action_id, "expedition_start", request, response)
+    return response
+
+
+async def claim_expeditions(db, user_id: int, action_id: str) -> dict[str, Any]:
+    action_id = str(action_id or "").strip()
+    if not action_id or len(action_id) > 96:
+        raise CompanionError("action_id обязателен и не должен превышать 96 символов.")
+    request = {"claim": "all_ready"}
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        cached = await repo.get_cached_action(db, user_id, action_id)
+        if cached:
+            if cached["request"] != request:
+                raise CompanionConflict("action_id уже использован для другого действия.")
+            return {**cached["response"], "idempotent_replay": True}
+        claimed = await repo.mark_ready_and_claim(db, user_id)
+        if not claimed:
+            raise CompanionConflict("Готовых походов пока нет.")
+        response = {
+            "ok": True,
+            "claimed": [{
+                "contract_id": int(item["id"]), "pet_id": int(item["pet_id"]),
+                "projected_mora": int(item["fixed_mora"]),
+                "discovery_id": item["discovery_id"],
+            } for item in claimed],
+            "projected_mora_total": sum(int(item["fixed_mora"]) for item in claimed),
+            "settled": False, "economic_reward": None,
+        }
+        await repo.save_action(db, user_id, action_id, "expedition_claim", request, response)
+    return response
 
 
 async def select_active_pet(db, user_id: int, pet_id: int) -> dict[str, Any]:
@@ -196,9 +296,11 @@ def preview_overview() -> dict[str, Any]:
             for key, value in CARE_ACTIONS.items()
         ],
         "expeditions": {
-            "mode": "shadow_only", "start_enabled": False,
+            "mode": "shadow_only", "start_enabled": True,
             "reason": "Награды пока считаются в тени и не меняют кошелёк.",
             "options": [asdict(quote_expedition(hours)) for hours in EXPEDITION_OPTIONS],
+            "slots": 2, "open_slots": 2, "weekly_reserved_mora": 0,
+            "contracts": [], "ready_count": 0,
             "legacy_active": [], "legacy_contracts_preserved": True,
         },
     }

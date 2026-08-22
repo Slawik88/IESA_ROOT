@@ -12,6 +12,9 @@ import secrets
 import sys
 import threading
 import copy
+import time
+import hashlib
+from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -135,12 +138,16 @@ class Handler(BaseHTTPRequestHandler):
         key = self._session_key()
         value = _COMPANION_STATES.get(key)
         if value is None:
+            if len(_COMPANION_STATES) >= MAX_PREVIEW_SESSIONS:
+                _COMPANION_STATES.pop(next(iter(_COMPANION_STATES)))
             value = {
                 "active_pet_id": 901,
                 "unlocked_roles": ["navigator", "gardener"],
                 "selected_role_id": "navigator",
                 "care": {"901": {"points": 6, "bank": 3, "last": "play"}},
                 "actions": {},
+                "contracts": [],
+                "next_contract_id": 1,
             }
             _COMPANION_STATES[key] = value
         return value
@@ -158,6 +165,34 @@ class Handler(BaseHTTPRequestHandler):
                 pet["bond"] = companions_v3.bond_progress(care["points"])
                 pet["care_bank"] = care["bank"]
                 pet["last_care_action"] = care["last"]
+        now = time.time()
+        for contract in saved["contracts"]:
+            if contract["status"] == "active" and contract["ends_epoch"] <= now:
+                contract["status"] = "ready"
+        visible = []
+        for contract in saved["contracts"]:
+            if contract["status"] not in ("active", "ready", "claimed"):
+                continue
+            visible.append({
+                "id": contract["id"], "pet_id": contract["pet_id"],
+                "duration_hours": contract["duration_hours"], "route_id": contract["route_id"],
+                "fixed_mora": contract["fixed_mora"], "discovery_id": contract["discovery_id"],
+                "status": contract["status"],
+                "remaining_sec": max(0, int(contract["ends_epoch"] - now)),
+            })
+        open_count = sum(item["status"] in ("active", "ready") for item in visible)
+        reserved = sum(item["fixed_mora"] for item in visible)
+        overview["expeditions"].update({
+            "start_enabled": open_count < overview["expeditions"]["slots"],
+            "open_slots": max(0, overview["expeditions"]["slots"] - open_count),
+            "weekly_reserved_mora": reserved,
+            "options": [
+                asdict(companions_v3.quote_expedition(hours, reserved))
+                for hours in companions_v3.EXPEDITION_OPTIONS
+            ],
+            "contracts": visible,
+            "ready_count": sum(item["status"] == "ready" for item in visible),
+        })
         return overview
 
     def do_GET(self):
@@ -211,6 +246,58 @@ class Handler(BaseHTTPRequestHandler):
                     care["points"] += 1
                     care["last"] = action
                     response = {"ok": True, "economic_reward": None}
+                    state["actions"][action_id] = response
+                    return self._send(200, response)
+                if self.path == "/companions/expeditions/start":
+                    pet_id = body.get("pet_id")
+                    hours = body.get("duration_hours")
+                    action_id = str(body.get("action_id") or "")
+                    if action_id in state["actions"]:
+                        return self._send(200, state["actions"][action_id])
+                    if pet_id not in pet_ids or hours not in companions_v3.EXPEDITION_OPTIONS:
+                        return self._send(400, {"detail": "Контракт разведки отклонён."})
+                    open_contracts = [
+                        item for item in state["contracts"] if item["status"] in ("active", "ready")
+                    ]
+                    if len(open_contracts) >= overview["expeditions"]["slots"]:
+                        return self._send(409, {"detail": "Все слоты разведки заняты."})
+                    if any(item["pet_id"] == pet_id for item in open_contracts):
+                        return self._send(409, {"detail": "Этот спутник уже в разведке."})
+                    quote = companions_v3.quote_expedition(hours, overview["expeditions"]["weekly_reserved_mora"])
+                    digest = hashlib.sha256(f"{self._session_key()}:{action_id}".encode()).hexdigest()
+                    contract = {
+                        "id": state["next_contract_id"], "pet_id": pet_id,
+                        "duration_hours": hours, "route_id": quote.route,
+                        "fixed_mora": quote.projected_mora,
+                        "discovery_id": companions_v3.expedition_discovery(digest, hours),
+                        "status": "active",
+                        "ends_epoch": time.time() + {2: 8, 6: 14, 12: 20}[hours],
+                    }
+                    state["next_contract_id"] += 1
+                    state["contracts"].append(contract)
+                    response = {"ok": True, "contract_id": contract["id"], "settled": False,
+                                "economic_reward": None}
+                    state["actions"][action_id] = response
+                    return self._send(200, response)
+                if self.path == "/companions/expeditions/claim":
+                    action_id = str(body.get("action_id") or "")
+                    if action_id in state["actions"]:
+                        return self._send(200, state["actions"][action_id])
+                    now = time.time()
+                    ready = []
+                    for contract in state["contracts"]:
+                        if contract["status"] == "active" and contract["ends_epoch"] <= now:
+                            contract["status"] = "ready"
+                        if contract["status"] == "ready":
+                            contract["status"] = "claimed"
+                            ready.append(contract)
+                    if not ready:
+                        return self._send(409, {"detail": "Готовых походов пока нет."})
+                    response = {
+                        "ok": True, "claimed": [item["id"] for item in ready],
+                        "projected_mora_total": sum(item["fixed_mora"] for item in ready),
+                        "settled": False, "economic_reward": None,
+                    }
                     state["actions"][action_id] = response
                     return self._send(200, response)
         if self.path == "/reset":

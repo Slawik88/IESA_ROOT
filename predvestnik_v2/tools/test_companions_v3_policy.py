@@ -20,6 +20,8 @@ from core.companions_v3 import (  # noqa: E402
     quote_expedition,
     recover_care_bank,
     role_unlock_count,
+    expedition_discovery,
+    expedition_slot_count,
 )
 
 
@@ -45,12 +47,16 @@ assert limited.projected_mora == 30 and limited.weekly_mora_after == 600
 assert limited.cap_reached and not limited.can_settle
 closed = quote_expedition(2, 600)
 assert closed.projected_mora == 0 and closed.cap_reached
+assert expedition_slot_count(False) == 1 and expedition_slot_count(True) == 2
+digest = "a" * 64
+assert expedition_discovery(digest, 6) == expedition_discovery(digest, 6)
 
 manifest = public_companion_manifest()
 assert manifest["real_rewards_enabled"] is REAL_REWARDS_ENABLED is False
 assert manifest["care"]["missed_care_penalty"] is False
 assert manifest["care"]["duplicate_power"] is False
 assert manifest["expeditions"]["rewards_expire"] is False
+assert expedition_discovery(digest, 2) in manifest["expeditions"]["discoveries"]
 
 for bad in (-1, True, 1.5):
     try:

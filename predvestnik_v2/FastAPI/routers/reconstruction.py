@@ -62,6 +62,16 @@ class CompanionCareBody(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
 
 
+class CompanionExpeditionBody(BaseModel):
+    pet_id: int = Field(gt=0)
+    duration_hours: Literal[2, 6, 12]
+    action_id: str = Field(min_length=1, max_length=96)
+
+
+class CompanionClaimBody(BaseModel):
+    action_id: str = Field(min_length=1, max_length=96)
+
+
 def _raise_service_error(exc: Exception) -> None:
     status = 409 if isinstance(exc, game.ReconstructionConflict) else 400
     raise HTTPException(status, str(exc)) from exc
@@ -190,6 +200,30 @@ async def companion_care(
     try:
         return await companions.care(
             db, int(user["id"]), body.pet_id, body.action, body.action_id
+        )
+    except companions.CompanionError as exc:
+        _raise_companion_error(exc)
+
+
+@router.post("/companions/expeditions/start")
+async def companion_expedition_start(
+    body: CompanionExpeditionBody, db=Depends(get_db), user=Depends(require_tg_user)
+):
+    try:
+        return await companions.start_expedition(
+            db, int(user["id"]), body.pet_id, body.duration_hours, body.action_id
+        )
+    except companions.CompanionError as exc:
+        _raise_companion_error(exc)
+
+
+@router.post("/companions/expeditions/claim")
+async def companion_expedition_claim(
+    body: CompanionClaimBody, db=Depends(get_db), user=Depends(require_tg_user)
+):
+    try:
+        return await companions.claim_expeditions(
+            db, int(user["id"]), body.action_id
         )
     except companions.CompanionError as exc:
         _raise_companion_error(exc)

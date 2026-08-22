@@ -36,6 +36,8 @@ class FakeRepo:
         self.bonds = {}
         self.actions = {}
         self.meaningful_days = 0
+        self.expeditions = []
+        self.claim_ready = []
 
     async def lock_user(self, _db, _uid): return None
     async def list_owned_pets(self, _db, _uid): return copy.deepcopy(self.pets)
@@ -64,6 +66,25 @@ class FakeRepo:
     async def save_action(self, _db, uid, action_id, _kind, request, response):
         self.actions[(uid, action_id)] = {"request": copy.deepcopy(request), "response": copy.deepcopy(response)}
     async def list_legacy_expeditions(self, _db, _uid): return []
+    async def has_second_expedition_slot(self, _db, _uid, _version, _encounter): return False
+    async def list_expeditions(self, _db, _uid): return copy.deepcopy(self.expeditions)
+    async def reserved_mora_last_7_days(self, _db, _uid):
+        return sum(item["fixed_mora"] for item in self.expeditions if item["status"] != "cancelled")
+    async def count_open_expeditions(self, _db, _uid):
+        return sum(item["status"] in ("active", "ready") for item in self.expeditions)
+    async def pet_has_open_expedition(self, _db, _uid, pet_id):
+        return any(item["pet_id"] == pet_id and item["status"] in ("active", "ready") for item in self.expeditions)
+    async def create_expedition(self, _db, **values):
+        item = {"id": len(self.expeditions) + 1, **values, "status": "active",
+                "starts_at": datetime(2026, 8, 22, tzinfo=timezone.utc),
+                "ends_at": datetime(2026, 8, 22, 2, tzinfo=timezone.utc),
+                "claimed_at": None, "remaining_sec": 7200}
+        self.expeditions.append(item)
+        return copy.deepcopy(item)
+    async def mark_ready_and_claim(self, _db, _uid):
+        rows = copy.deepcopy(self.claim_ready)
+        self.claim_ready = []
+        return rows
 
 
 async def main():
@@ -75,7 +96,8 @@ async def main():
         initial = await service.overview(db, 7)
         assert initial["active_pet_id"] == 11 and initial["pets"][0]["legacy"]["level"] == 8
         assert initial["pets"][0]["legacy"]["duplicates"] == 14
-        assert initial["role_slots"] == 1 and not initial["expeditions"]["start_enabled"]
+        assert initial["role_slots"] == 1 and initial["expeditions"]["start_enabled"]
+        assert initial["expeditions"]["slots"] == 1
 
         first = await service.select_role(db, 7, "navigator")
         assert first["selected_role_id"] == "navigator"
@@ -99,6 +121,25 @@ async def main():
             pass
         else:
             raise AssertionError("Conflicting care action id was accepted")
+
+        started = await service.start_expedition(db, 7, 11, 2, "exp-1")
+        started_replay = await service.start_expedition(db, 7, 11, 2, "exp-1")
+        assert started["projected_mora"] == 50 and started["settled"] is False
+        assert started_replay["idempotent_replay"] is True and len(fake.expeditions) == 1
+        try:
+            await service.start_expedition(db, 7, 11, 6, "exp-2")
+        except service.CompanionConflict:
+            pass
+        else:
+            raise AssertionError("Second expedition slot opened before Chronicle gate")
+        fake.claim_ready = [{
+            "id": 1, "pet_id": 11, "duration_hours": 2, "route_id": "quick_feedback",
+            "fixed_mora": 50, "discovery_id": "bell_fragment", "claimed_at": None,
+        }]
+        claimed = await service.claim_expeditions(db, 7, "claim-1")
+        claimed_replay = await service.claim_expeditions(db, 7, "claim-1")
+        assert claimed["projected_mora_total"] == 50 and claimed["settled"] is False
+        assert claimed_replay["idempotent_replay"] is True
     finally:
         service.repo = original
 

@@ -52,13 +52,27 @@ async def ensure_tables(db) -> None:
             route_id       TEXT NOT NULL,
             fixed_mora     INTEGER NOT NULL CHECK (fixed_mora >= 0),
             seed_digest    TEXT NOT NULL,
-            status         TEXT NOT NULL DEFAULT 'shadow',
+            discovery_id   TEXT NOT NULL,
+            status         TEXT NOT NULL DEFAULT 'active',
             starts_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             ends_at        TIMESTAMPTZ NOT NULL,
             claimed_at     TIMESTAMPTZ NULL,
-            CHECK (status IN ('shadow', 'active', 'ready', 'claimed', 'cancelled'))
+            settled        BOOLEAN NOT NULL DEFAULT FALSE,
+            CHECK (status IN ('active', 'ready', 'claimed', 'cancelled')),
+            CHECK (settled = FALSE)
         )
     """)
+    await db.execute(
+        "ALTER TABLE companion_v3_expeditions ADD COLUMN IF NOT EXISTS "
+        "discovery_id TEXT NOT NULL DEFAULT 'unassigned'"
+    )
+    await db.execute(
+        "ALTER TABLE companion_v3_expeditions ADD COLUMN IF NOT EXISTS "
+        "settled BOOLEAN NOT NULL DEFAULT FALSE"
+    )
+    await db.execute(
+        "ALTER TABLE companion_v3_expeditions ALTER COLUMN status SET DEFAULT 'active'"
+    )
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_companion_v3_expeditions_user_status "
         "ON companion_v3_expeditions(user_id, status, ends_at)"
@@ -226,6 +240,100 @@ async def list_legacy_expeditions(db, user_id: int) -> list[dict[str, Any]]:
         "CAST(EXTRACT(EPOCH FROM (e.ends_at - NOW())) AS BIGINT) AS remaining_sec "
         "FROM active_expeditions e JOIN pets p ON p.id = e.pet_id "
         "WHERE p.owner_id = ? ORDER BY e.ends_at",
+        (int(user_id),),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def has_second_expedition_slot(db, user_id: int, game_version: str, encounter_id: str) -> bool:
+    async with db.execute(
+        "SELECT completed_json FROM gameplay_progress WHERE user_id = ? AND game_version = ?",
+        (int(user_id), game_version),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        return False
+    try:
+        return encounter_id in json.loads(row[0] or "[]")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return False
+
+
+async def list_expeditions(db, user_id: int) -> list[dict[str, Any]]:
+    async with db.execute(
+        "SELECT id, pet_id, duration_hours, route_id, fixed_mora, discovery_id, "
+        "CASE WHEN status = 'active' AND ends_at <= NOW() THEN 'ready' ELSE status END AS status, "
+        "starts_at, ends_at, claimed_at, "
+        "CAST(EXTRACT(EPOCH FROM (ends_at - NOW())) AS BIGINT) AS remaining_sec "
+        "FROM companion_v3_expeditions WHERE user_id = ? "
+        "AND (status IN ('active','ready') OR "
+        "(status = 'claimed' AND claimed_at >= NOW() - INTERVAL '7 days')) "
+        "ORDER BY CASE status WHEN 'ready' THEN 0 WHEN 'active' THEN 1 ELSE 2 END, ends_at DESC",
+        (int(user_id),),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def count_open_expeditions(db, user_id: int) -> int:
+    async with db.execute(
+        "SELECT COUNT(*) FROM companion_v3_expeditions "
+        "WHERE user_id = ? AND status IN ('active','ready')",
+        (int(user_id),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def pet_has_open_expedition(db, user_id: int, pet_id: int) -> bool:
+    async with db.execute(
+        "SELECT 1 FROM companion_v3_expeditions WHERE user_id = ? AND pet_id = ? "
+        "AND status IN ('active','ready') LIMIT 1",
+        (int(user_id), int(pet_id)),
+    ) as cursor:
+        return await cursor.fetchone() is not None
+
+
+async def reserved_mora_last_7_days(db, user_id: int) -> int:
+    async with db.execute(
+        "SELECT COALESCE(SUM(fixed_mora),0) FROM companion_v3_expeditions "
+        "WHERE user_id = ? AND ((status IN ('active','ready')) OR "
+        "(status = 'claimed' AND claimed_at >= NOW() - INTERVAL '7 days'))",
+        (int(user_id),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def create_expedition(
+    db, *, user_id: int, pet_id: int, duration_hours: int, route_id: str,
+    fixed_mora: int, seed_digest: str, discovery_id: str,
+) -> dict[str, Any]:
+    async with db.execute(
+        "INSERT INTO companion_v3_expeditions "
+        "(user_id, pet_id, duration_hours, route_id, fixed_mora, seed_digest, discovery_id, ends_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, NOW() + (? * INTERVAL '1 hour')) "
+        "RETURNING id, starts_at, ends_at",
+        (
+            int(user_id), int(pet_id), int(duration_hours), route_id, int(fixed_mora),
+            seed_digest, discovery_id, int(duration_hours),
+        ),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise RuntimeError("Не удалось зафиксировать поход.")
+    return dict(row)
+
+
+async def mark_ready_and_claim(db, user_id: int) -> list[dict[str, Any]]:
+    await db.execute(
+        "UPDATE companion_v3_expeditions SET status = 'ready' "
+        "WHERE user_id = ? AND status = 'active' AND ends_at <= NOW()",
+        (int(user_id),),
+    )
+    async with db.execute(
+        "UPDATE companion_v3_expeditions SET status = 'claimed', claimed_at = NOW() "
+        "WHERE user_id = ? AND status = 'ready' "
+        "RETURNING id, pet_id, duration_hours, route_id, fixed_mora, discovery_id, claimed_at",
         (int(user_id),),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
