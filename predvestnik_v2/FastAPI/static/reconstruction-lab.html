@@ -44,6 +44,11 @@
         <span id="bossHealthValue">1 300 / 1 300</span>
       </div>
 
+      <div class="objective-meter" id="objectiveMeter" hidden>
+        <span><small id="objectiveLabel">ФОНАРЬ</small><strong id="objectiveValue">100%</strong></span>
+        <i><b id="objectiveFill"></b></i>
+      </div>
+
       <div class="tap-stage" id="tapStage" aria-label="Поле точного сигнала">
         <div class="window-indicator" id="windowIndicator">
           <span>Сигнал приближается</span><i><b id="windowProgress"></b></i>
@@ -97,17 +102,17 @@
       </nav>
 
       <div class="menu-panel active" data-menu-panel="play">
-        <span class="eyebrow">ПЕРВАЯ ИГРАБЕЛЬНАЯ ВЕРСИЯ</span>
-        <h2 id="menuTitle">Разлом колокола</h2>
-        <p>Три короткие волны. Смотри на знак в центре и находи такой же среди трёх рун.</p>
+        <span class="eyebrow" id="menuEyebrow">ХРОНИКА · ВСТРЕЧА 1</span>
+        <h2 id="menuTitle">Два безымянных колокола</h2>
+        <p id="menuCopy">Разбить три воплощения колокола до затухания эха.</p>
         <div class="run-facts">
-          <span><strong>3</strong>волны</span>
-          <span><strong>≈ 1 мин</strong>короткий забег</span>
-          <span><strong>1</strong>выбор / сигнал</span>
+          <span><strong id="menuFactWaves">3</strong>волны</span>
+          <span><strong id="menuFactTime">≈ 1 мин</strong>короткий забег</span>
+          <span><strong id="menuFactGoal">1</strong>выбор / сигнал</span>
         </div>
-        <div class="menu-note"><b>Важно</b><span>Скорость кликов не даёт преимущество. Побеждает правильный выбор руны.</span></div>
+        <div class="menu-note"><b id="menuNoteLabel">Важно</b><span id="menuNoteCopy">Скорость кликов не даёт преимущество. Побеждает правильный выбор руны.</span></div>
         <div class="compact-actions">
-          <button class="primary-action" id="startRunButton" type="button">Начать забег <span>›</span></button>
+          <button class="primary-action" id="startRunButton" type="button">Начать первый забег <span>›</span></button>
           <button class="quiet-action" id="newRunButton" type="button" hidden>Новый забег</button>
         </div>
       </div>
@@ -159,7 +164,7 @@
 
   <div class="result-layer" id="resultLayer" hidden>
     <section class="result-card">
-      <span class="eyebrow">ЗАБЕГ ЗАВЕРШЁН</span>
+      <span class="eyebrow" id="resultEyebrow">ЗАБЕГ ЗАВЕРШЁН</span>
       <div class="result-mark" id="resultMark">✦</div>
       <h2 id="resultTitle">Колокол отвечает тебе</h2>
       <p id="resultCopy"></p>

@@ -70,10 +70,13 @@ def _save_states() -> None:
 _STATES = _load_states()
 
 
-def _new_state():
+def _new_state(encounter_id: str = reconstruction.FIRST_ENCOUNTER):
     # У каждой вкладки и каждого reset свой run key: локальная статистика может
     # надёжно дедуплицировать завершение, а тестировщики не делят один seed.
-    state = reconstruction_combat.new_encounter(seed=secrets.randbelow(2**31 - 1) + 1)
+    state = reconstruction_combat.new_encounter(
+        seed=secrets.randbelow(2**31 - 1) + 1,
+        encounter_id=encounter_id,
+    )
     reconstruction_timing.attach_server_clock(state)
     return state
 
@@ -133,7 +136,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == "/reset":
             with _LOCK:
-                state = _new_state()
+                body = self._body()
+                encounter_id = str((body or {}).get("encounter_id") or reconstruction.FIRST_ENCOUNTER)
+                encounter = reconstruction.ENCOUNTERS.get(encounter_id)
+                if not encounter or not encounter.get("implemented"):
+                    return self._send(400, {"detail": "Эта встреча ещё не доступна в dev-стенде."})
+                state = _new_state(encounter_id)
                 _STATES[self._session_key()] = state
                 _save_states()
                 return self._send(200, reconstruction_combat.public_state(state))

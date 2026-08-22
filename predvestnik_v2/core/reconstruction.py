@@ -184,11 +184,14 @@ ENCOUNTERS: dict[str, dict[str, Any]] = {
     "e02_shattered_causeway": {
         "order": 2,
         "name": "Разломанный тракт",
-        "implemented": False,
+        "implemented": True,
         "objective": {
             "type": "streak",
             "description": "Провести живой Фонарь через три волны, сохраняя точность выше 75%.",
-            "round_limit": 7,
+            "waves": 3,
+            "round_limit": 3,
+            "lantern_integrity": 100,
+            "minimum_accuracy": 75,
         },
         "teaches": ("точная серия", "восстановление после ошибки", "длинный забег"),
         "mastery": "Довести Фонарь без единого усиления, которое расширяет окно сигнала.",

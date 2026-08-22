@@ -214,6 +214,59 @@ assert perfect["mastery"]["correct_taps"] == perfect["mastery"]["total_taps"]
 assert perfect["combo"]["max"] >= 8
 assert perfect["upgrades"] == selected and len(selected) == 2
 
+# Вторая встреча — не перекрашенный первый бой: Фонарь имеет собственную
+# прочность, восстанавливается за чистую серию и может погаснуть от ошибок.
+lantern = combat.new_encounter("e02_shattered_causeway", seed=904)
+assert lantern["objective_state"]["lantern_integrity"] == 100
+challenge = open_signal(lantern)
+wrong = next(
+    option["slot"] for option in challenge["options"]
+    if option["symbol"] != challenge["target_symbol"]
+)
+act(lantern, type="strike", challenge_id=challenge["id"], target_slot=wrong)
+assert lantern["objective_state"]["lantern_integrity"] == 82
+for _ in range(5):
+    challenge = open_signal(lantern)
+    act(lantern, type="strike", challenge_id=challenge["id"], target_slot=correct_slot(challenge))
+assert lantern["objective_state"]["lantern_integrity"] == 89
+assert lantern["objective_state"]["recoveries"] == 1
+
+extinguished = combat.new_encounter("e02_shattered_causeway", seed=905)
+while extinguished["status"] == "active":
+    challenge = open_signal(extinguished)
+    if extinguished["status"] != "active":
+        break
+    wrong = next(
+        option["slot"] for option in challenge["options"]
+        if option["symbol"] != challenge["target_symbol"]
+    )
+    act(extinguished, type="strike", challenge_id=challenge["id"], target_slot=wrong)
+assert extinguished["status"] == "lost"
+assert extinguished["outcome_reason"] == "lantern_extinguished"
+
+lantern_perfect = combat.new_encounter("e02_shattered_causeway", seed=906)
+guard = 0
+while lantern_perfect["status"] not in {"won", "lost"} and guard < 1600:
+    guard += 1
+    if lantern_perfect["status"] == "reward":
+        act(
+            lantern_perfect,
+            type="choose_upgrade",
+            upgrade_id=lantern_perfect["reward_options"][0]["id"],
+        )
+        continue
+    challenge = open_signal(lantern_perfect)
+    if lantern_perfect["status"] == "active":
+        act(
+            lantern_perfect,
+            type="strike",
+            challenge_id=challenge["id"],
+            target_slot=correct_slot(challenge),
+        )
+assert lantern_perfect["status"] == "won"
+assert lantern_perfect["outcome_reason"] == "lantern_delivered"
+assert combat.public_state(lantern_perfect)["accuracy"] == 100.0
+
 # Public-state является копией, а не возможностью мутировать server state.
 view = combat.public_state(perfect)
 snapshot = copy.deepcopy(perfect)

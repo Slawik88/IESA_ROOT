@@ -40,6 +40,11 @@ const overview = {
     completed: ['e01_two_bells'],
     memories: [],
     pending_memory: { encounter_id: 'e01_two_bells', choices: [memory] },
+    next_step: {
+      type: 'choose_memory', encounter_id: 'e01_two_bells',
+      title: 'Сохрани Память первой победы',
+      description: 'Выбор постоянный.',
+    },
   },
   active_run: completedState,
   stats: {
@@ -124,7 +129,15 @@ try {
       request.respond({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify({ ok: true, memory_id: memory.id, idempotent_replay: false }),
+        body: JSON.stringify({
+          ok: true,
+          memory_id: memory.id,
+          idempotent_replay: false,
+          next_step: {
+            type: 'play_encounter', encounter_id: 'e02_shattered_causeway',
+            title: 'Разломанный тракт', description: 'Провести Фонарь.', practice: false,
+          },
+        }),
       });
       return;
     }
@@ -154,7 +167,7 @@ try {
   await page.waitForSelector('[data-memory-id]');
   await page.click('[data-memory-id]');
   await page.waitForFunction(
-    () => document.getElementById('resultReset')?.textContent.includes('Ещё один забег'),
+    () => document.getElementById('resultReset')?.textContent.includes('Продолжить Хронику'),
   );
   const resultStats = await page.$$eval('#resultStats span', (nodes) =>
     nodes.map((node) => node.textContent.trim()));
