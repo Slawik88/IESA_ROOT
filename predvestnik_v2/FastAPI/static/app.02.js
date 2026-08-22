@@ -831,8 +831,10 @@ const ACH_HOW = {
 
 function loadAch() {
   el('pro-ach').innerHTML='<div class="loader">Загрузка...</div>';
-  api('/achievements/').then(achs=>{
-    _achData=achs;
+  api('/achievements/').then(payload=>{
+    _achRetired=Boolean(payload&&payload.retired);
+    _achMessage=payload&&payload.message||'';
+    _achData=Array.isArray(payload)?payload:(payload.achievements||[]);
     renderAch();
   }).catch(e=>{el('pro-ach').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
 }
@@ -844,6 +846,7 @@ function renderAch() {
   else if(_achSort==='todo') achs.sort((a,b)=>(a.completed?1:0)-(b.completed?1:0)||b.pct-a.pct);
   const done=achs.filter(a=>a.completed).length;
   el('pro-ach').innerHTML=`
+    ${_achRetired?`<div class="card" style="margin-bottom:8px"><div class="card-title">🏆 Архив достижений</div><div style="font-size:11px;color:var(--muted);line-height:1.5">${esc(_achMessage)}</div></div>`:''}
     <div style="display:flex;gap:4px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
       <span style="font-size:10px;color:var(--muted);margin-right:2px">Сорт:</span>
       <button class="btn btn-sm ${_achSort==='default'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('default')">По умолч.</button>
@@ -867,7 +870,7 @@ function renderAch() {
               ${a.completed?'★ MAX':a.level>0?`Lv${a.level}`:'—'}
             </div>
           </div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${hw.how||''}${!a.completed&&rwParts?` · <span style="color:var(--gold)">Далее: ${rwParts}</span>`:''}</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${_achRetired?'Сохранённый прогресс':(hw.how||'')}${!_achRetired&&!a.completed&&rwParts?` · <span style="color:var(--gold)">Далее: ${rwParts}</span>`:''}</div>
           <div class="ach-bar"><div class="ach-fill ${fc}" style="width:${a.pct}%"></div></div>
           <div class="ach-prog">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}${a.completed?' ✅':''}</div>
         </div>`;
@@ -890,10 +893,12 @@ function openAchModal(a) {
       <div style="font-size:12px;color:var(--muted)">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}</div>
     </div>
     <div class="divider"></div>
-    <div class="irow"><span class="ik">Что нужно</span><span style="color:var(--text);text-align:right;max-width:65%;font-size:11px">${hw.how||a.desc||'—'}</span></div>
-    <div class="irow"><span class="ik">Где</span><span style="color:var(--teal);text-align:right;max-width:65%;font-size:11px">${hw.where||'—'}</span></div>
-    ${hw.note?`<div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">💡 ${hw.note}</div>`:''}
-    ${!a.completed&&rwParts?`<div class="irow" style="margin-top:8px"><span class="ik">Награда Lv${a.level+1}</span><span style="color:var(--gold)">${rwParts}</span></div>`:''}
+    ${_achRetired?`<div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">Уровень и счётчик сохранены. Новые действия не меняют этот результат.</div>`:`
+      <div class="irow"><span class="ik">Что нужно</span><span style="color:var(--text);text-align:right;max-width:65%;font-size:11px">${hw.how||a.desc||'—'}</span></div>
+      <div class="irow"><span class="ik">Где</span><span style="color:var(--teal);text-align:right;max-width:65%;font-size:11px">${hw.where||'—'}</span></div>
+      ${hw.note?`<div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">💡 ${hw.note}</div>`:''}
+      ${!a.completed&&rwParts?`<div class="irow" style="margin-top:8px"><span class="ik">Награда Lv${a.level+1}</span><span style="color:var(--gold)">${rwParts}</span></div>`:''}
+    `}
     ${a.completed?`<div style="text-align:center;padding:10px;color:var(--gold);font-size:13px;font-weight:600">🏆 Выполнено полностью!</div>`:''}
   `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
 }

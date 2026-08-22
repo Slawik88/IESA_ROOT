@@ -56,7 +56,7 @@ const _initChatTitle = _tgChat?.title || '';
 let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='game';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='gacha';
 let _proTab='main', _profileData=null;
-let _achData=null, _achSort='default', _invSearch='', _themeFilter='all';
+let _achData=null, _achSort='default', _achRetired=false, _achMessage='', _invSearch='', _themeFilter='all';
 let _bpData=null;
 let _analyticsSession=(Date.now().toString(36)+Math.random().toString(36).slice(2)).slice(0,16);
 
