@@ -681,6 +681,26 @@
       <section class="companion-section expedition-preview"><header><span><strong>Поход-разведка</strong><small>${number(companionState.expeditions?.open_slots)} из ${number(companionState.expeditions?.slots)} слотов свободно</small></span><b>тень ${number(companionState.expeditions?.weekly_reserved_mora)} / 600</b></header><div class="expedition-grid">${expeditions}</div>${contracts ? `<div class="expedition-contracts">${contracts}</div>` : ''}${Number(companionState.expeditions?.ready_count) > 0 ? '<button class="claim-expeditions" type="button" data-expedition-claim>Забрать готовые результаты</button>' : ''}<p>${esc(companionState.expeditions?.reason || '')}</p></section>`;
   }
 
+  function renderAlliance() {
+    const container = document.getElementById('allianceContent');
+    const policy = manifest?.alliance;
+    if (!container || !policy) return;
+    const caps = policy.caps || {};
+    const gates = policy.clan_gates || {};
+    const stages = (policy.stages || []).map((stage, index) => `
+      <span><b>${number(stage)}%</b><small>${['След найден', 'Контур собран', 'Цикл закрыт'][index] || 'Этап'}</small></span>`).join('');
+    container.innerHTML = `
+      <section class="alliance-hero">
+        <header><strong>Первый общий цикл</strong><b>SHADOW · 0 выплат</b></header>
+        <p>Цель будет рассчитана по активным игрокам за 28 дней. Победа даёт 2 сигнала, содержательное поражение — 1; Practice и карантин не учитываются.</p>
+        <div class="alliance-stages">${stages}</div>
+      </section>
+      <div class="alliance-rules">
+        <span class="alliance-rule"><b>${number(caps.daily_signals)} / день · ${number(caps.weekly_signals)} / неделю</b><small>Личный потолок не даёт одному игроку закрыть общее событие.</small></span>
+        <span class="alliance-rule"><b>${number(gates.projects)} → проекты · ${number(gates.competition)} → состязание</b><small>Сначала живые кланы, затем конкуренция. Старые членства сохранены.</small></span>
+      </div>`;
+  }
+
   function refreshMenu() {
     const startButton = document.getElementById('startRunButton');
     const next = progress?.next_step;
@@ -872,6 +892,7 @@
     });
     if (tab === 'stats') renderCareer();
     if (tab === 'companion') renderCompanions();
+    if (tab === 'alliance') renderAlliance();
     if (persist && currentView === 'menu') saveUiState();
   }
 

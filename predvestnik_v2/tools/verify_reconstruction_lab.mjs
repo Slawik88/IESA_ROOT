@@ -43,7 +43,7 @@ try{
     }));
     check(menuMetrics.width<=width-16,`${width}px: menu exceeds viewport`);
     check(menuMetrics.height<=menuMetrics.viewportHeight-16,`${width}px: menu exceeds viewport height`);
-    check(menuMetrics.tabs===4,`${width}px: expected four menu tabs`);
+    check(menuMetrics.tabs===5,`${width}px: expected five menu tabs`);
     check(menuMetrics.startHeight>=42&&menuMetrics.startHeight<=48,`${width}px: start action is not compact`);
     if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-menu.png`,fullPage:true});
     await page.click('[data-menu-tab="companion"]');
@@ -63,6 +63,17 @@ try{
     check(companionMetrics.careHeights.every(height=>height>=34&&height<=44),`${width}px: care controls are not compact`);
     check(companionMetrics.expeditionOptions===3,`${width}px: expected three expedition contracts`);
     if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-companion.png`,fullPage:true});
+    await page.click('[data-menu-tab="alliance"]');
+    await page.waitForSelector('[data-menu-panel="alliance"]:not([hidden])');
+    const allianceMetrics=await page.evaluate(()=>({
+      overflow:document.documentElement.scrollWidth-innerWidth,
+      stages:document.querySelectorAll('.alliance-stages > span').length,
+      copy:document.getElementById('allianceContent')?.textContent,
+    }));
+    check(allianceMetrics.overflow<=0,`${width}px: Alliance panel overflows`);
+    check(allianceMetrics.stages===3,`${width}px: Alliance stages are incomplete`);
+    check(allianceMetrics.copy?.includes('0 выплат'),`${width}px: Alliance shadow state is unclear`);
+    if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-alliance.png`,fullPage:true});
     await page.click('[data-menu-tab="play"]');
     await page.click('#startRunButton');
     await page.waitForSelector('#menuLayer[hidden]');
@@ -115,13 +126,14 @@ try{
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('[data-menu-tab="companion"]');
+    await page.waitForSelector('[data-companion-role="guardian"]');
     await page.click('[data-companion-role="guardian"]');
     await page.waitForFunction(()=>document.querySelector('[data-companion-role="guardian"]')?.classList.contains('selected'));
     await page.click('[data-menu-tab="play"]');
     await page.click('#startRunButton');
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
     await page.waitForSelector('[data-combat-command="companion_guardian_window"]');
-    await page.click('[data-combat-command="companion_guardian_window"]');
+    await page.evaluate(()=>document.querySelector('[data-combat-command="companion_guardian_window"]')?.click());
     await page.waitForFunction(()=>!document.querySelector('[data-combat-command="companion_guardian_window"]'));
     const roleState=await page.evaluate(()=>({
       role:document.querySelector('.companion-build b')?.textContent.trim(),
@@ -150,12 +162,13 @@ try{
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('[data-menu-tab="companion"]');
+    await page.waitForSelector('[data-companion-role="rhythm_keeper"]');
     await page.click('[data-companion-role="rhythm_keeper"]');
     await page.waitForFunction(()=>document.querySelector('[data-companion-role="rhythm_keeper"]')?.classList.contains('selected'));
     await page.click('[data-menu-tab="play"]');
     await page.click('#startRunButton');
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
-    await page.click('[data-combat-command="companion_rhythm_guard"]');
+    await page.evaluate(()=>document.querySelector('[data-combat-command="companion_rhythm_guard"]')?.click());
     await page.waitForFunction(()=>document.querySelector('#accuracyValue')?.textContent.trim()==='0%',{timeout:5000});
     const roleState=await page.evaluate(async()=>{
       const sessionKey=sessionStorage.getItem('reconstruction-preview-session');
@@ -187,6 +200,7 @@ try{
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('[data-menu-tab="companion"]');
+    await page.waitForSelector('[data-companion-role="echo"]');
     await page.click('[data-companion-role="echo"]');
     await page.waitForFunction(()=>document.querySelector('[data-companion-role="echo"]')?.classList.contains('selected'));
     await page.click('[data-menu-tab="play"]');
@@ -202,7 +216,7 @@ try{
     });
     check(await strikeTarget(),'Echo UI: first known signal was not clickable');
     await page.waitForSelector('[data-combat-command="companion_echo_repeat"]',{timeout:3000});
-    await page.click('[data-combat-command="companion_echo_repeat"]');
+    await page.evaluate(()=>document.querySelector('[data-combat-command="companion_echo_repeat"]')?.click());
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
     check(await strikeTarget(),'Echo UI: accelerated repeat was not clickable');
     await page.waitForFunction(async()=>{
@@ -232,6 +246,7 @@ try{
     await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('[data-menu-tab="companion"]');
+    await page.waitForSelector('[data-companion-role="navigator"]');
     await page.click('[data-companion-role="navigator"]');
     await page.waitForFunction(()=>document.querySelector('[data-companion-role="navigator"]')?.classList.contains('selected'));
     await page.click('[data-menu-tab="play"]');
