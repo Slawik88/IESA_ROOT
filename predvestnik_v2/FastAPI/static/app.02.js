@@ -76,7 +76,7 @@ function loadProfile() {
               </div>
             </div>
             <button class="player-rail-item" type="button" onclick="goTo('quests','streak')">
-              <span class="player-rail-kicker">🔥 Стрик</span><strong id="pro-stat-streak">${d.streak}</strong><small>дней подряд</small>
+              <span class="player-rail-kicker">🔥 Рекорд серии</span><strong id="pro-stat-streak">${d.streak}</strong><small>сохранено</small>
             </button>
             <button class="player-rail-item" type="button" onclick="goTo('ach')">
               <span class="player-rail-kicker">🏆 Ачивки</span><strong>${d.achievements}</strong><small>Открыть ›</small>
@@ -711,81 +711,34 @@ function _profileSyncStats(d){
   if(typeof d.combat_power==='number') set('cp-hero-val', fmt(d.combat_power));
 }
 
-// Mirrors services/streak.py:calc_streak_reward
-function calcStreakReward(streak) {
-  if(streak<=0) streak=1;
-  const BLOCK=7, BASE_M=70, BASE_D=0.15, BONUS=4.0;
-  const cycle=Math.floor((streak-1)/BLOCK);
-  const dayInBlock=((streak-1)%BLOCK)+1;
-  const isEnd=(dayInBlock===BLOCK);
-  const logMult=1.0+0.5*Math.log(1.0+cycle);
-  const blockMult=isEnd?BONUS:1.0;
-  return {
-    mora:Math.round(BASE_M*logMult*blockMult*100)/100,
-    dia:Math.round(BASE_D*logMult*blockMult*100)/100,
-    dayInBlock, isEnd, cycle,
-  };
-}
-
 function plDays(n){n=Math.abs(n)%100;const d=n%10;if(n>10&&n<20)return'дней';if(d===1)return'день';if(d>=2&&d<=4)return'дня';return'дней';}
 function loadStreak() {
   el('pro-streak').innerHTML='<div class="loader">Загрузка...</div>';
   api('/streak/calendar').then(d=>{
     const today=new Date().toISOString().slice(0,10);
     const streak=d.streak||0;
-    const cur=calcStreakReward(streak||1);
-    const dayInBlock=cur.dayInBlock;            // позиция дня в текущем блоке (1..7)
-    const cycleStart=cur.cycle*7;               // номер стрика дня 1 текущего блока
-    const blockPct=Math.round(dayInBlock/7*100);
-    const toBonus=7-dayInBlock;
-    const nextRw=calcStreakReward(streak+1);
-
-    // 7-дневный трек блока: завершён / текущий / бонус / будущий
-    const track=Array.from({length:7},(_,i)=>{
-      const pos=i+1, rw=calcStreakReward(cycleStart+pos);
-      const done=streak>0 && pos<dayInBlock;
-      const isCur=streak>0 && pos===dayInBlock;
-      let cls='st-day'; if(done)cls+=' done'; if(isCur)cls+=' cur'; if(rw.isEnd)cls+=' bonus';
-      return `<div class="${cls}">
-        <div class="st-day-n">${pos}${rw.isEnd?' ★':''}</div>
-        <div class="st-day-r">${fmt(Math.round(rw.mora))}🪙</div>
-        ${rw.dia>0?`<div class="st-day-d">${fmtF(rw.dia)}💎</div>`:''}
-        ${done?'<div class="st-day-chk">✓</div>':''}</div>`;
-    }).join('');
-
-    // Хитмап активности (интенсивность по числу сообщений)
+    // История присутствия, без награды за объём сообщений.
     const cells=d.calendar.map(day=>{
-      const c=day.count||0; let lvl=0;
-      if(c>0)lvl=1; if(c>=5)lvl=2; if(c>=20)lvl=3; if(c>=50)lvl=4;
-      return `<div class="st-cell l${lvl}${day.date===today?' today':''}" title="${day.date}: ${c} сообщ."></div>`;
+      const active=Boolean(day.active);
+      return `<div class="st-cell l${active?2:0}${day.date===today?' today':''}" title="${day.date}: ${active?'был активен':'нет активности'}"></div>`;
     }).join('');
 
     el('pro-streak').innerHTML=`
     <div class="st-hero">
       <div class="st-flame">🔥</div>
       <div class="st-big">${streak}</div>
-      <div class="st-sub">${plDays(streak)} подряд · единый на все чаты</div>
-      <div class="st-blockbar"><div class="st-blockfill" style="width:${blockPct}%"></div></div>
-      <div class="st-blocklabel">Блок #${cur.cycle+1} · день ${dayInBlock}/7 ${toBonus>0?'· до бонуса '+toBonus+' '+plDays(toBonus):'· 🎉 бонусный день!'}</div>
+      <div class="st-sub">${plDays(streak)} · сохранённый рекорд старой системы</div>
     </div>
 
     <div class="card" style="margin-top:10px">
-      <div class="card-title">🎁 Завтра — день ${streak+1}</div>
-      <div class="st-next">
-        <span class="st-next-m">+${fmt(Math.round(nextRw.mora))} 🪙</span>
-        ${nextRw.dia>0?`<span class="st-next-d">+${fmtF(nextRw.dia)} 💎</span>`:''}
-        ${nextRw.isEnd?'<span class="st-next-b">★ БОНУС ×4</span>':''}
-      </div>
-      <div class="st-track">${track}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:7px">Пиши хотя бы одно сообщение в день в любом чате — стрик растёт. Пропуск дня сбрасывает блок (можно восстановить: «бот стрик восстановить»).</div>
+      <div class="card-title">Что изменилось</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">Рекорд не стирается и не уменьшается. Сообщения больше не дают Мору, Алмазы или жетоны, а платного восстановления нет.</div>
     </div>
 
     <div class="card" style="margin-top:10px">
-      <div class="card-title">📅 Активность · 60 дней</div>
+      <div class="card-title">📅 Присутствие в чатах · 60 дней</div>
       <div class="st-heat">${cells}</div>
-      <div class="st-legend"><span>меньше</span>
-        <i class="st-cell l0"></i><i class="st-cell l1"></i><i class="st-cell l2"></i><i class="st-cell l3"></i><i class="st-cell l4"></i>
-        <span>больше</span></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:7px">Показан только факт активности за день; число сообщений не усиливает награду.</div>
     </div>`;
   }).catch(e=>{el('pro-streak').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${typeof e==='string'?esc(e):'Ошибка загрузки'}</div>`;});
 }
@@ -813,9 +766,9 @@ const ACH_HOW = {
     note:  'Засчитывается каждое завершение похода (не старт)',
   },
   persistent:  {
-    how:   'Поддерживайте ежедневный стрик',
-    where: 'Пишите хотя бы одно сообщение в боте каждый день',
-    note:  'Счётчик — максимальный стрик за всё время, не текущий',
+    how:   'Сохранённый рекорд старой серии',
+    where: 'Результат уже записан в истории профиля',
+    note:  'Новые сообщения не меняют рекорд и не создают награды',
   },
   vow_keeper:  {
     how:   'Пробудьте в браке суммарно N дней',
@@ -834,7 +787,7 @@ const ACH_HOW = {
   },
   treasury:    {
     how:   'Накопите максимальный баланс Алмазов',
-    where: 'Получайте Алмазы из стрика, ачивок, гачи',
+    where: 'Алмазы доступны только в явно указанных наградах и покупках',
     note:  'Трекается МАКСИМАЛЬНЫЙ баланс когда-либо, не текущий',
   },
   dealer:      {
@@ -843,9 +796,9 @@ const ACH_HOW = {
     note:  'Засчитывается только успешная продажа (кто-то купил)',
   },
   lucky_one:   {
-    how:   'Побеждайте в мини-играх',
-    where: '«бот кости», «бот монета», «бот число», «бот рулетка»',
-    note:  'Засчитывается каждая победа в любой мини-игре',
+    how:   'Сохранённый рекорд старых мини-игр',
+    where: 'Старые игры со ставками закрыты',
+    note:  'Прежние победы остаются в истории профиля',
   },
   duelist:     {
     how:   'Сохранённый рекорд старых дуэлей',
