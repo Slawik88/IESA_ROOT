@@ -33,6 +33,7 @@ from core.economy_contract import (  # noqa: E402
 from infrastructure.repositories.economy_ledger import (  # noqa: E402
     apply_balance_change,
     find_balance_replay,
+    find_reference_replay,
 )
 from infrastructure.repositories.economy import (  # noqa: E402
     buy_item,
@@ -146,6 +147,10 @@ class FakeLedgerDB:
         if upper.startswith("SELECT 1 FROM ECONOMIC_OPERATIONS"):
             operation = self.operations.get((int(args[0]), args[1]))
             return _Cursor([(1,)] if operation else [])
+
+        if upper.startswith("SELECT ID, REQUEST_FINGERPRINT, REASON_CODE"):
+            operation = self.operations.get((int(args[0]), args[1]))
+            return _Cursor([operation] if operation else [])
 
         if upper.startswith("SELECT ID, REQUEST_FINGERPRINT FROM ECONOMIC_OPERATIONS"):
             operation = self.operations.get((int(args[0]), args[1]))
@@ -456,12 +461,48 @@ async def _assert_shop_and_spend_use_one_ledger_operation():
     assert len(db.operations) == 3 and len(db.wallet) == 3
 
 
+async def _assert_dynamic_reference_replay():
+    db = FakeLedgerDB()
+    db.users[31] = {"mora": 0.0, "diamonds": 0.0, "dark_mora": 0.0, "zarniki": 900.0}
+    first = await apply_balance_change(
+        db, 31, {"zarniki": -440},
+        reason_code="cosmetic_lineup_purchase",
+        idempotency_key="lineup:request-31",
+        source_type="cosmetics",
+        reference_type="lineup",
+        reference_id="hanami",
+    )
+    replay = await find_reference_replay(
+        db, 31,
+        reason_code="cosmetic_lineup_purchase",
+        idempotency_key="lineup:request-31",
+        source_type="cosmetics",
+        reference_type="lineup",
+        reference_id="hanami",
+    )
+    assert replay and not replay.applied and replay.operation_id == first.operation_id
+    try:
+        await find_reference_replay(
+            db, 31,
+            reason_code="cosmetic_lineup_purchase",
+            idempotency_key="lineup:request-31",
+            source_type="cosmetics",
+            reference_type="lineup",
+            reference_id="lotus",
+        )
+    except IdempotencyConflict:
+        pass
+    else:
+        raise AssertionError("Dynamic replay accepted a different reference")
+
+
 async def main():
     _assert_contract_validation()
     _assert_schema_and_boundaries_wired()
     await _assert_apply_replay_conflict_and_rollback()
     await _assert_exchange_retry_ignores_consumed_balance()
     await _assert_shop_and_spend_use_one_ledger_operation()
+    await _assert_dynamic_reference_replay()
     print("economy ledger tests: OK")
 
 

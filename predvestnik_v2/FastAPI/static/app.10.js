@@ -582,8 +582,10 @@ function _looksCollectionDetailHeaderHtml(lin){
 // живёт в основном потоке страницы.
 function _looksBuyLineup(lin,btn){
   if(btn) btn.disabled=true;
-  api('/cosmetics/buy-lineup',{method:'POST',body:JSON.stringify({lineup:lin})})
-    .then(r=>{toast(r.message); refreshCurrBar(); return api('/cosmetics/');})
+  const requestKey=btn?.dataset.requestKey||economyRequestKey(`cosmetic-lineup-${lin}`);
+  if(btn)btn.dataset.requestKey=requestKey;
+  api('/cosmetics/buy-lineup',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({lineup:lin})})
+    .then(r=>{if(btn)delete btn.dataset.requestKey; toast(r.message); refreshCurrBar(); return api('/cosmetics/');})
     .then(d=>{_looksData=d; _looksSaved=_looksEquipped(d); _looksSel={..._looksSaved};
       _looksDirty=true;
       _looksSanitizeTrial();
@@ -881,8 +883,11 @@ function _looksResetTrialAndRerenderSheet(){ _looksReset(); _looksRerenderFittin
 function _looksBuyAndApplyAll(btn){
   if(btn) btn.disabled=true;
   const trialIds=Object.values(_looksTrial);
-  const buy=trialIds.length?api('/cosmetics/buy-many',{method:'POST',body:JSON.stringify({cosmetic_ids:trialIds})}):Promise.resolve(null);
+  const requestKey=btn?.dataset.requestKey||economyRequestKey('cosmetic-fitting');
+  if(btn)btn.dataset.requestKey=requestKey;
+  const buy=trialIds.length?api('/cosmetics/buy-many',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({cosmetic_ids:trialIds})}):Promise.resolve(null);
   buy.then(r=>{
+      if(btn)delete btn.dataset.requestKey;
       if(r){toast(r.message); refreshCurrBar();}
       Object.entries(_looksTrial).forEach(([slot,id])=>{_looksSel[slot]=id;});
       _looksClearTrial();
