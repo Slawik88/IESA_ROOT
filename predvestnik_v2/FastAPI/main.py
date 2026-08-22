@@ -47,6 +47,7 @@ from infrastructure.repositories.economy_ledger import ensure_tables as ensure_e
 from infrastructure.repositories.economy_shadow import ensure_table as ensure_economy_shadow
 from infrastructure.repositories.reconstruction_units import ensure_tables as ensure_reconstruction_units
 from infrastructure.repositories.companions_v3 import ensure_tables as ensure_companions_v3
+from infrastructure.repositories.alliance_v3 import ensure_table as ensure_alliance_v3
 from loguru import logger as _log
 
 
@@ -89,6 +90,7 @@ async def lifespan(app: FastAPI):
             (ensure_economy_shadow,           "economy_shadow_rewards"),
             (ensure_reconstruction_units,     "reconstruction_unit_progress"),
             (ensure_companions_v3,             "companions_v3"),
+            (ensure_alliance_v3,               "alliance_v3_shadow"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
