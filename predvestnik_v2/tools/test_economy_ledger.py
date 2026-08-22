@@ -83,7 +83,7 @@ class _Transaction:
 
     async def __aenter__(self):
         self.snapshot = copy.deepcopy(
-            (self.db.users, self.db.operations, self.db.ledger, self.db.wallet, self.db.inventory)
+            (self.db.users, self.db.operations, self.db.ledger, self.db.wallet, self.db.inventory, self.db.reserves)
         )
         return self
 
@@ -95,6 +95,7 @@ class _Transaction:
                 self.db.ledger,
                 self.db.wallet,
                 self.db.inventory,
+                self.db.reserves,
             ) = self.snapshot
         return False
 
@@ -109,6 +110,7 @@ class FakeLedgerDB:
         self.ledger = []
         self.wallet = []
         self.inventory = {}
+        self.reserves = {}
 
     def transaction(self):
         return _Transaction(self)
@@ -165,6 +167,9 @@ class FakeLedgerDB:
         if upper.startswith("SELECT COALESCE(USER_BALANCE_MORA") and "FOR UPDATE" in upper:
             balances = self.users[int(args[0])]
             return _Cursor([dict(balances)])
+
+        if upper.startswith("SELECT COALESCE(RESERVED_MORA"):
+            return _Cursor([(self.reserves.get(int(args[0]), 0.0),)])
 
         if upper.startswith("UPDATE USERS SET USER_BALANCE_MORA = ?"):
             mora, diamonds, dark_mora, zarniki, user_id = args
@@ -355,6 +360,20 @@ async def _assert_apply_replay_conflict_and_rollback():
     else:
         raise AssertionError("Idempotency key was accepted for a different mutation")
     assert db.users[7]["mora"] == 700.0 and len(db.ledger) == 2
+
+    db.reserves[7] = 650.0
+    try:
+        await apply_balance_change(
+            db, 7, {"mora": -51}, reason_code="shop_purchase",
+            idempotency_key="reserved-mora-block", source_type="shop",
+            reference_type="item", reference_id="test",
+        )
+    except InsufficientBalance:
+        pass
+    else:
+        raise AssertionError("Reserved Mora was spendable by an unrelated operation")
+    assert db.users[7]["mora"] == 700.0
+    db.reserves[7] = 0.0
 
     try:
         await apply_balance_change(

@@ -214,20 +214,24 @@ async def cb_bid_confirm(query: types.CallbackQuery, callback_data: AucCB, db):
     lot_id = int(lot_id_str)
     amount = float(amount_str)
 
-    result = await place_bid(db, lot_id, query.from_user.id, amount,
-                             chat_id=query.message.chat.id)
+    result = await place_bid(
+        db, lot_id, query.from_user.id, amount,
+        chat_id=query.message.chat.id,
+        idempotency_key=f"auction-bid:bot:{query.id}",
+    )
     if not result["ok"]:
         await query.answer(f"❌ {result['error']}", show_alert=True)
         return
 
     # Quest: auction_bids_today
     try:
-        await quest_increment(db, query.from_user.id, query.message.chat.id, "auction_bids_today", delta=1.0)
+        if result.get("applied"):
+            await quest_increment(db, query.from_user.id, query.message.chat.id, "auction_bids_today", delta=1.0)
         await db.commit()
     except Exception:
         pass
 
-    await query.answer(f"✅ Ставка {amount:.0f} 🪙 принята!", show_alert=False)
+    await query.answer(f"✅ Ставка {result.get('amount', amount):.0f} 🪙 принята!", show_alert=False)
 
     # Notify outbid user via DM (best effort)
     if result.get("outbid_user_id"):
@@ -237,7 +241,7 @@ async def cb_bid_confirm(query: types.CallbackQuery, callback_data: AucCB, db):
             await bot.send_message(
                 result["outbid_user_id"],
                 f"🎯 Вашу ставку на лот «{lot.get('item_name','?')}» перебили!\n"
-                f"Текущая ставка: <code>{amount:.0f} 🪙</code>\n"
+                f"Текущая ставка: <code>{result.get('amount', amount):.0f} 🪙</code>\n"
                 f"Осталось: {_time_left(lot['ends_at'])}",
                 parse_mode="HTML",
             )
@@ -246,7 +250,8 @@ async def cb_bid_confirm(query: types.CallbackQuery, callback_data: AucCB, db):
 
     if result.get("is_buyout"):
         await query.message.edit_text(
-            f"⚡ <b>Моментальный выкуп!</b> Лот #{lot_id} продан за <code>{amount:.0f} 🪙</code>.",
+            f"⚡ <b>Моментальный выкуп!</b> Лот #{lot_id} продан за "
+            f"<code>{result.get('amount', amount):.0f} 🪙</code>.",
             parse_mode="HTML",
         )
     else:
@@ -523,9 +528,6 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
             row = await c.fetchone()
         sp = PET_SPECIES.get(row[0] if row else "", {})
         item_name = f"{sp.get('name','?')} Lv{row[1] if row else 1}"
-        # Remove pet from seller's storage
-        await db.execute("UPDATE pets SET placement = 'auction' WHERE id = ? AND owner_id = ?",
-                         (pet_id, user_id))
     else:
         item_id = v.split("|")[0]
         item_type = "inventory"
@@ -533,22 +535,12 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
         item_id_or_pet_id = abs(hash(item_id)) % (10**9)
         item_name = f"{item_name}||{item_id}"
 
-        # Create lot FIRST — if bot restarts after this the lot exists in DB.
-        # Then remove item. Order matters: losing item without a lot is worse
-        # than having a lot without item deduction (can be fixed manually).
-        ok, result = await create_auction_lot(
-            db, user_id, cat, item_type, item_id_or_pet_id, qty, item_name, min_bid, buyout
+        ok, result, applied = await create_auction_lot(
+            db, user_id, cat, item_type, item_id_or_pet_id, qty, item_name, min_bid, buyout,
+            idempotency_key=f"auction-listing:bot:{query.id}",
         )
         if not ok:
             return await query.answer(f"❌ {result}", show_alert=True)
-
-        from infrastructure.repositories.economy import remove_item
-        removed = await remove_item(db, user_id, item_id, qty, commit=False)
-        if not removed:
-            # Lot was created but item is gone — cancel the lot
-            from services.auction import cancel_lot
-            await cancel_lot(db, result, user_id)
-            return await query.answer("❌ Недостаточно предметов в инвентаре.", show_alert=True)
 
         await db.commit()
         await query.answer("✅ Лот выставлен!", show_alert=False)
@@ -559,21 +551,16 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
             )
         except Exception:
             pass
-        queue_lot_announcement(result)
+        if applied:
+            queue_lot_announcement(result)
         return
 
-    ok, result = await create_auction_lot(
-        db, user_id, cat, item_type, item_id_or_pet_id, qty, item_name, min_bid, buyout
+    ok, result, applied = await create_auction_lot(
+        db, user_id, cat, item_type, item_id_or_pet_id, qty, item_name, min_bid, buyout,
+        idempotency_key=f"auction-listing:bot:{query.id}",
     )
 
     if not ok:
-        # Лот не создан, а питомец уже в эскроу (placement='auction') — вернуть на
-        # склад, иначе он застрянет и пропадёт у владельца.
-        if v.startswith("PET|"):
-            await db.execute(
-                "UPDATE pets SET placement = 'storage' WHERE id = ? AND owner_id = ?",
-                (item_id_or_pet_id, user_id),
-            )
         await query.answer(f"❌ {result}", show_alert=True)
     else:
         await query.answer("✅ Лот выставлен!", show_alert=False)
@@ -581,7 +568,8 @@ async def cb_create_confirm(query: types.CallbackQuery, db):
             f"✅ <b>Лот #{result} создан!</b>\n<i>Аукцион длится 24 часа.</i>",
             parse_mode="HTML",
         )
-        queue_lot_announcement(result)
+        if applied:
+            queue_lot_announcement(result)
 
 
 @router.callback_query(AucCB.filter(F.action == "cancel_create"))
@@ -653,8 +641,14 @@ async def cmd_auction_bid(message: types.Message, db, text_args: str = None,
     except ValueError:
         return await message.answer("❌ Неверный формат.", parse_mode="HTML")
 
-    result = await place_bid(db, lot_id, message.from_user.id, amount, message.chat.id)
+    result = await place_bid(
+        db, lot_id, message.from_user.id, amount, message.chat.id,
+        idempotency_key=f"auction-bid:message:{message.chat.id}:{message.message_id}",
+    )
     if not result["ok"]:
         return await message.answer(f"❌ {result['error']}", parse_mode="HTML")
 
-    await message.answer(f"✅ Ставка <code>{amount:.0f} 🪙</code> на лот #{lot_id} принята!", parse_mode="HTML")
+    await message.answer(
+        f"✅ Ставка <code>{result.get('amount', amount):.0f} 🪙</code> "
+        f"на лот #{lot_id} принята!", parse_mode="HTML",
+    )
