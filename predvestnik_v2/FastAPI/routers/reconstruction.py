@@ -20,6 +20,7 @@ class StartBody(BaseModel):
 
 class ActionBody(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
+    expected_revision: int = Field(ge=0)
     type: Literal["frame", "strike", "choose_upgrade"]
     delta_ms: int | None = Field(default=None, ge=0, le=500)
     upgrade_id: str | None = None
@@ -61,10 +62,18 @@ async def action(
     db=Depends(get_db),
     user=Depends(require_tg_user),
 ):
-    payload: dict[str, Any] = body.model_dump(exclude={"action_id"}, exclude_none=True)
+    payload: dict[str, Any] = body.model_dump(
+        exclude={"action_id", "expected_revision"},
+        exclude_none=True,
+    )
     try:
         return await game.apply_run_action(
-            db, int(user["id"]), run_id, body.action_id, payload
+            db,
+            int(user["id"]),
+            run_id,
+            body.action_id,
+            body.expected_revision,
+            payload,
         )
     except game.ReconstructionError as exc:
         _raise_service_error(exc)

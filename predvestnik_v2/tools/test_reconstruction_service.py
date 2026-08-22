@@ -175,7 +175,12 @@ async def main():
 
         try:
             await service.apply_run_action(
-                db, user_id + 1, run_id, "foreign", {"type": "frame", "delta_ms": 100}
+                db,
+                user_id + 1,
+                run_id,
+                "foreign",
+                0,
+                {"type": "frame", "delta_ms": 100},
             )
             raise AssertionError("чужой пользователь получил доступ к run")
         except service.ReconstructionError as exc:
@@ -187,7 +192,12 @@ async def main():
             nonlocal counter
             counter += 1
             return await service.apply_run_action(
-                db, user_id, run_id, f"a{counter}", action
+                db,
+                user_id,
+                run_id,
+                f"a{counter}",
+                memory.runs[run_id]["revision"],
+                action,
             )
 
         # Открываем первый одноразовый сигнал и проверяем idempotency на ударе.
@@ -205,6 +215,7 @@ async def main():
         action_id = f"a{counter + 1}"
         first = await service.apply_run_action(
             db, user_id, run_id, action_id,
+            memory.runs[run_id]["revision"],
             {
                 "type": "frame", "delta_ms": 100,
                 "challenge_id": challenge["id"], "target_slot": slot,
@@ -213,6 +224,7 @@ async def main():
         counter += 1
         replay = await service.apply_run_action(
             db, user_id, run_id, action_id,
+            first["revision"],
             {"type": "strike", "challenge_id": challenge["id"], "target_slot": "left"},
         )
         assert replay["idempotent_replay"] is True
@@ -221,11 +233,27 @@ async def main():
         try:
             await service.apply_run_action(
                 db, user_id + 1, run_id, action_id,
+                first["revision"],
                 {"type": "strike", "challenge_id": challenge["id"], "target_slot": slot},
             )
             raise AssertionError("idempotency-кэш раскрыл чужой run")
         except service.ReconstructionError as exc:
             assert str(exc) == "Встреча не найдена."
+
+        snapshot = copy.deepcopy(memory.runs[run_id])
+        try:
+            await service.apply_run_action(
+                db,
+                user_id,
+                run_id,
+                "stale-revision",
+                first["revision"] - 1,
+                {"type": "frame", "delta_ms": 100},
+            )
+            raise AssertionError("устаревшая вкладка изменила run")
+        except service.ReconstructionConflict as exc:
+            assert "другой вкладке" in str(exc)
+        assert memory.runs[run_id] == snapshot
 
         # Полный забег проходит через два межволновых reward-state, которые в БД
         # обязаны оставаться active до финальной победы.
@@ -258,11 +286,20 @@ async def main():
         assert memory.progress["current_encounter"] == "e02_shattered_causeway"
         completed_events = [event for event in memory.events.values() if event["event_name"] == "battle_end"]
         assert len(completed_events) == 1
+        terminal = result["terminal_result"]
+        assert terminal["id"] == f"reconstruction:{run_id}:terminal"
+        assert terminal["outcome"] == "won"
+        assert terminal["server_revision"] == result["revision"]
+        assert terminal["integrity"]["automatic_ban"] is False
+        assert completed_events[0]["payload"]["terminal_result"] == terminal
         action_events = [event for event in memory.events.values() if event["event_name"] == "battle_action"]
         upgrade_events = [event for event in memory.events.values() if event["event_name"] == "battle_upgrade"]
         assert len(action_events) == memory.stats["total_taps"]
         assert len(upgrade_events) == 2
+        assert all(event["payload"]["server_revision"] >= 1 for event in upgrade_events)
         assert all(event["payload"]["legal_options_count"] == 3 for event in action_events)
+        assert all(event["payload"]["reaction_ms"] >= 0 for event in action_events)
+        assert all(event["payload"]["server_revision"] >= 1 for event in action_events)
         assert memory.stats["runs_started"] == 1
         assert memory.stats["runs_won"] == 1 and memory.stats["runs_lost"] == 0
         assert memory.stats["accuracy"] == 100.0
@@ -277,6 +314,9 @@ async def main():
         timing_policy = overview["content"]["timing_policy"]
         assert timing_policy["mode"] == "server_wall_clock"
         assert timing_policy["client_delta_ms_ignored"] is True
+        integrity_policy = overview["content"]["integrity_policy"]
+        assert integrity_policy["mode"] == "shadow_review"
+        assert integrity_policy["automatic_ban"] is False
 
         chosen = await service.choose_memory(db, user_id, "m_mobile_oath")
         chosen_again = await service.choose_memory(db, user_id, "m_mobile_oath")
@@ -306,6 +346,8 @@ async def main():
         cancelled_again = await service.cancel_run(db, user_id, practice_id)
         assert cancelled["idempotent_replay"] is False
         assert cancelled_again["idempotent_replay"] is True
+        assert cancelled_again["terminal_result"] == cancelled["terminal_result"]
+        assert cancelled["terminal_result"]["outcome"] == "cancelled"
         assert memory.runs[practice_id]["status"] == "cancelled"
         cancel_events = [
             event for event in memory.events.values()

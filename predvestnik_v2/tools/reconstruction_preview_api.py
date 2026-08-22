@@ -17,7 +17,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from services import reconstruction, reconstruction_combat, reconstruction_timing  # noqa: E402
+from services import (  # noqa: E402
+    reconstruction,
+    reconstruction_combat,
+    reconstruction_integrity,
+    reconstruction_timing,
+)
 
 
 PORT = int(os.environ.get("RECON_PREVIEW_PORT", "8403"))
@@ -163,7 +168,9 @@ class Handler(BaseHTTPRequestHandler):
                         "rejected": True,
                         "state": reconstruction_combat.public_state(state_before),
                     })
+                reconstruction_integrity.record_strike(state, turn.get("strike"))
                 turn["timing"] = timing_result
+                turn["integrity"] = reconstruction_integrity.verdict(state)
                 _save_states()
                 return self._send(200, {
                     "turn": turn,

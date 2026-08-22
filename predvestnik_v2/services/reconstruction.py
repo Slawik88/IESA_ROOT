@@ -18,6 +18,7 @@ from core.economy_v3 import public_policy_manifest
 from infrastructure.repositories import gameplay_events as event_repo
 from infrastructure.repositories import reconstruction as repo
 from services import reconstruction_combat as combat
+from services import reconstruction_integrity as integrity
 from services import reconstruction_timing as timing
 
 
@@ -70,6 +71,7 @@ def content_manifest() -> dict[str, Any]:
         "feature_flag": FEATURE_FLAG_KEY,
         "mode": "advanced_clicker",
         "timing_policy": timing.public_timing_manifest(),
+        "integrity_policy": integrity.public_integrity_manifest(),
         "economy_policy": public_policy_manifest(),
         "starter_units": units,
         "clicker_upgrades": [
@@ -230,6 +232,7 @@ async def apply_run_action(
     user_id: int,
     run_id: int,
     action_id: str,
+    expected_revision: int,
     action: dict[str, Any],
     *,
     source: str = "mini_app",
@@ -252,6 +255,16 @@ async def apply_run_action(
             raise ReconstructionConflict("Встреча уже завершена.")
         if run["game_version"] != GAME_VERSION:
             raise ReconstructionConflict("Встреча создана несовместимой версией игры.")
+        if (
+            isinstance(expected_revision, bool)
+            or not isinstance(expected_revision, int)
+            or expected_revision < 0
+        ):
+            raise ReconstructionError("expected_revision должен быть неотрицательным числом.")
+        if expected_revision != int(run["revision"]):
+            raise ReconstructionConflict(
+                "Забег уже изменился в другой вкладке. Обнови состояние боя."
+            )
 
         state = run["state"]
         run_mode = (
@@ -272,6 +285,7 @@ async def apply_run_action(
         if not result.get("ok"):
             raise ReconstructionError(str(result.get("error") or "Действие отклонено."))
         result["timing"] = timing_result
+        integrity.record_strike(state, result.get("strike"))
         # Межволновый выбор — часть незавершённого забега. В БД такой run остаётся
         # active, иначе частичный unique-index и optimistic UPDATE сочтут его
         # завершённым и не дадут принять выбранное усиление.
@@ -281,6 +295,7 @@ async def apply_run_action(
         )
         if new_revision is None:
             raise ReconstructionConflict("Состояние уже изменилось в другой вкладке. Обновляю бой.")
+        result["server_revision"] = new_revision
 
         strike = result.get("strike")
         if isinstance(strike, dict):
@@ -305,7 +320,10 @@ async def apply_run_action(
                     "damage": strike.get("damage"),
                     "discharged": bool(strike.get("discharged", False)),
                     "reason": strike.get("reason"),
+                    "reaction_ms": strike.get("reaction_ms"),
                     "server_delta_ms": timing_result["applied_ms"],
+                    "server_revision": new_revision,
+                    "integrity_status": integrity.verdict(state)["status"],
                     "legal_options_count": len(challenge_before.get("options") or []),
                 },
                 idempotency_key=f"run:{run_id}:action:{action_id}",
@@ -325,13 +343,21 @@ async def apply_run_action(
                     "round": round_before,
                     "upgrade_id": str(action.get("upgrade_id") or ""),
                     "offered_ids": offered_before,
+                    "server_revision": new_revision,
                 },
                 idempotency_key=f"run:{run_id}:action:{action_id}",
             )
 
         pending_memory = None
         career_stats = None
+        terminal = None
         if state["status"] in ("won", "lost"):
+            terminal = integrity.terminal_result(
+                run_id=run_id,
+                revision=new_revision,
+                outcome=state["status"],
+                state=state,
+            )
             await event_repo.record_event(
                 db,
                 user_id=user_id,
@@ -347,6 +373,7 @@ async def apply_run_action(
                     "outcome_reason": state.get("outcome_reason"),
                     "rounds": state["round"],
                     "metrics": state["mastery"],
+                    "terminal_result": terminal,
                 },
                 idempotency_key=f"run:{run_id}:ended",
             )
@@ -401,6 +428,7 @@ async def apply_run_action(
             "run_id": run_id,
             "revision": new_revision,
             "turn": result,
+            "terminal_result": terminal,
             "pending_memory": pending_memory,
             "career_stats": career_stats,
             "idempotent_replay": False,
@@ -420,7 +448,18 @@ async def cancel_run(
         if not run:
             raise ReconstructionError("Забег не найден.")
         if run["status"] == "cancelled":
-            return {"ok": True, "run_id": run_id, "idempotent_replay": True}
+            return {
+                "ok": True,
+                "run_id": run_id,
+                "revision": int(run["revision"]),
+                "terminal_result": integrity.terminal_result(
+                    run_id=run_id,
+                    revision=int(run["revision"]),
+                    outcome="cancelled",
+                    state=run["state"],
+                ),
+                "idempotent_replay": True,
+            }
         if run["status"] != "active":
             raise ReconstructionConflict("Завершённый забег нельзя отменить.")
         state = run["state"]
@@ -433,6 +472,12 @@ async def cancel_run(
         )
         if new_revision is None:
             raise ReconstructionConflict("Забег уже изменился в другой вкладке.")
+        terminal = integrity.terminal_result(
+            run_id=run_id,
+            revision=new_revision,
+            outcome="cancelled",
+            state=state,
+        )
         await event_repo.record_event(
             db,
             user_id=user_id,
@@ -452,6 +497,7 @@ async def cancel_run(
                 "outcome_reason": "player_restart",
                 "rounds": int(state.get("round", 0)),
                 "metrics": state.get("mastery", {}),
+                "terminal_result": terminal,
             },
             idempotency_key=f"run:{run_id}:ended",
         )
@@ -459,6 +505,7 @@ async def cancel_run(
             "ok": True,
             "run_id": run_id,
             "revision": new_revision,
+            "terminal_result": terminal,
             "idempotent_replay": False,
         }
 

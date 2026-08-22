@@ -184,7 +184,11 @@
       if (response.status !== 503 || attempt === 2) break;
       await wait(180 * (attempt + 1));
     }
-    if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+    if (!response.ok) {
+      const error = new Error(data.detail || `HTTP ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
     return data;
   }
 
@@ -204,6 +208,25 @@
       totalPlayMs: Number(stats.total_play_ms) || 0,
       upgrades: stats.upgrades || {},
     };
+  }
+
+  async function resyncAfterConflict(message) {
+    if (!production) return;
+    const overview = await jsonFetch('');
+    manifest = overview.content;
+    progress = overview.progress;
+    pendingMemory = overview.progress?.pending_memory || null;
+    state = overview.active_run || null;
+    runId = state?.run_id || null;
+    applyCareerStats(overview.stats);
+    pendingStrike = null;
+    playing = false;
+    if (pendingMemory && !state) showMemoryChoice();
+    else if (!state) openMenu('play');
+    else if (state.status === 'reward') showOnly('choice');
+    else showOnly('pause');
+    render();
+    notify(message || 'Забег обновлён из серверного состояния.');
   }
 
   function notify(message, error = false) {
@@ -531,10 +554,27 @@
       });
     }
     if (!runId) throw new Error('Нет активного забега.');
-    const data = await jsonFetch(`/runs/${runId}/actions`, {
-      method: 'POST',
-      body: JSON.stringify({ action_id: nextActionId(), ...payload }),
-    });
+    const expectedRevision = Number(state?.revision);
+    if (!Number.isInteger(expectedRevision) || expectedRevision < 0) {
+      throw new Error('Серверная версия забега недоступна. Обнови игру.');
+    }
+    let data;
+    try {
+      data = await jsonFetch(`/runs/${runId}/actions`, {
+        method: 'POST',
+        body: JSON.stringify({
+          action_id: nextActionId(),
+          expected_revision: expectedRevision,
+          ...payload,
+        }),
+      });
+    } catch (error) {
+      if (error.status === 409) {
+        await resyncAfterConflict(error.message);
+        error.resynced = true;
+      }
+      throw error;
+    }
     if (data.career_stats) applyCareerStats(data.career_stats);
     if (data.pending_memory) {
       pendingMemory = data.pending_memory;
@@ -614,8 +654,8 @@
       if (data.rejected) pendingStrike = null;
       render();
     } catch (error) {
-      if (strike) pendingStrike = strike;
-      notify(error.message, true);
+      if (strike && !error.resynced) pendingStrike = strike;
+      if (!error.resynced) notify(error.message, true);
     } finally {
       busy = false;
     }
@@ -634,7 +674,7 @@
       render();
       haptic('medium');
     } catch (error) {
-      notify(error.message, true);
+      if (!error.resynced) notify(error.message, true);
     } finally {
       busy = false;
     }

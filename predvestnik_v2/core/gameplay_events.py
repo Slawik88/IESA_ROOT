@@ -57,16 +57,18 @@ GAMEPLAY_EVENT_SPECS: Final[dict[str, EventSpec]] = {
         }),
         frozenset({
             "challenge_id", "target_slot", "critical", "damage", "discharged", "reason",
+            "reaction_ms", "server_delta_ms", "server_revision", "integrity_status",
         }),
     ),
     "battle_upgrade": EventSpec(
         1,
         frozenset({"mode", "encounter_id", "round", "upgrade_id", "offered_ids"}),
+        frozenset({"server_revision"}),
     ),
     "battle_end": EventSpec(
         1,
         frozenset({"mode", "encounter_id", "result", "rounds", "metrics"}),
-        frozenset({"outcome_reason"}),
+        frozenset({"outcome_reason", "terminal_result"}),
     ),
     "progression_upgrade": EventSpec(
         1,

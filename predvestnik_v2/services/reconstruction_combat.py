@@ -331,10 +331,19 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     option = next((item for item in challenge["options"] if item["slot"] == slot), None)
     if not option:
         return {"accepted": False, "correct": False, "reason": "unknown_slot"}
+    reaction_ms = max(
+        0,
+        int(state["wave"]["elapsed_ms"]) - int(challenge["opens_at_ms"]),
+    )
     correct = option["symbol"] == challenge["target_symbol"]
     if not correct:
         _miss_signal(state, wrong_tap=True)
-        return {"accepted": True, "correct": False, "reason": "wrong_rune"}
+        return {
+            "accepted": True,
+            "correct": False,
+            "reason": "wrong_rune",
+            "reaction_ms": reaction_ms,
+        }
 
     state["mastery"]["total_taps"] += 1
     state["mastery"]["correct_taps"] += 1
@@ -368,6 +377,7 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     return {
         "accepted": True, "correct": True, "critical": critical,
         "damage": _round_number(dealt), "discharged": discharged,
+        "reaction_ms": reaction_ms,
     }
 
 
@@ -444,6 +454,7 @@ def public_state(state: dict[str, Any]) -> dict[str, Any]:
     # Wall-clock internals are persistence metadata, not part of the client
     # authority contract.  The per-turn response exposes only bounded timing.
     view.pop("_server_clock", None)
+    view.pop("_integrity", None)
     wave = view["wave"]
     wave["time_left_ms"] = max(0, int(wave["duration_ms"]) - int(wave["elapsed_ms"]))
     challenge = view.get("challenge")
