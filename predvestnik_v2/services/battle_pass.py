@@ -69,14 +69,12 @@ async def _get_or_create_progress(db, user_id: int, season_id: str) -> dict:
     ) as c:
         row = await c.fetchone()
     if row:
-        return dict(row)
+        return {**dict(row), "exists": True}
 
-    await db.execute(
-        "INSERT INTO battle_pass_progress (user_id, season_id) VALUES (?, ?) "
-        "ON CONFLICT (user_id, season_id) DO NOTHING",
-        (user_id, season_id),
-    )
-    return {"xp": 0, "level": 1, "claimed_free_levels": [], "claimed_paid_levels": []}
+    # Retired seasons never create a liability merely because the status screen
+    # was opened. Existing rows remain readable and claimable.
+    return {"xp": 0, "level": 1, "claimed_free_levels": [],
+            "claimed_paid_levels": [], "exists": False}
 
 
 async def _effective_xp_config(db, metric_name: str) -> tuple[int, bool, int]:
@@ -98,70 +96,8 @@ async def _effective_xp_config(db, metric_name: str) -> tuple[int, bool, int]:
 
 
 async def add_xp(db, user_id: int, metric_name: str, delta: float = 1.0) -> None:
-    """Начислить XP Боевого пропуска за игровое действие. No commit — caller handles commit.
-
-    B (конструктор): вес и вкл/выкл берутся из bp_xp_weight_overrides (БД > constants).
-    A (анти-абуз): дневной потолок XP на это действие усекает прибавку до остатка.
-    """
-    weight, enabled, daily_cap = await _effective_xp_config(db, metric_name)
-    if not enabled or weight <= 0:
-        return
-    season = get_active_season()
-    if not season:
-        return
-    if await is_bp_frozen(db):   # ШАГ3: заморозка — XP не начисляется
-        return
-
-    xp_gain = int(weight * delta)
-    if xp_gain <= 0:
-        return
-
-    # C7. Бонус выходного дня (+X% XP), если включён в конструкторе.
-    boost_on, boost_pct = await weekend_boost_active(db)
-    if boost_on:
-        xp_gain = int(xp_gain * (100 + boost_pct) / 100)
-
-    # A. Дневной потолок XP на это действие (0 = без лимита). Усекаем прибавку до
-    # остатка лимита; счётчик инкрементим в той же транзакции, что и начисление XP.
-    if daily_cap > 0:
-        today = date.today().isoformat()
-        async with db.execute(
-            "SELECT xp_today FROM bp_xp_daily WHERE user_id = ? AND day = ? AND metric = ?",
-            (user_id, today, metric_name),
-        ) as c:
-            drow = await c.fetchone()
-        used = int(drow["xp_today"]) if drow else 0
-        remaining = daily_cap - used
-        if remaining <= 0:
-            return
-        if xp_gain > remaining:
-            xp_gain = remaining
-        await db.execute(
-            "INSERT INTO bp_xp_daily (user_id, day, metric, xp_today) VALUES (?, ?, ?, ?) "
-            "ON CONFLICT (user_id, day, metric) "
-            "DO UPDATE SET xp_today = bp_xp_daily.xp_today + ?",
-            (user_id, today, metric_name, xp_gain, xp_gain),
-        )
-
-    await _get_or_create_progress(db, user_id, season["id"])
-    await db.execute(
-        "UPDATE battle_pass_progress SET xp = xp + ? WHERE user_id = ? AND season_id = ?",
-        (xp_gain, user_id, season["id"]),
-    )
-
-    async with db.execute(
-        "SELECT xp FROM battle_pass_progress WHERE user_id = ? AND season_id = ?",
-        (user_id, season["id"]),
-    ) as c:
-        row = await c.fetchone()
-    new_xp = row["xp"] if row else xp_gain
-    new_level = min(BATTLE_PASS_MAX_LEVEL, 1 + new_xp // BATTLE_PASS_XP_PER_LEVEL)
-
-    await db.execute(
-        "UPDATE battle_pass_progress SET level = ? "
-        "WHERE user_id = ? AND season_id = ? AND level < ?",
-        (new_level, user_id, season["id"], new_level),
-    )
+    """Retired writer boundary: old Battle Pass XP never advances."""
+    return None
 
 
 async def get_progress(db, user_id: int) -> dict | None:
@@ -171,6 +107,8 @@ async def get_progress(db, user_id: int) -> dict | None:
         return None
 
     progress = await _get_or_create_progress(db, user_id, season["id"])
+    if not progress.get("exists"):
+        return None
     xp = progress["xp"]
     level = progress["level"]
     xp_in_level = xp % BATTLE_PASS_XP_PER_LEVEL
@@ -256,6 +194,8 @@ async def claim_reward(db, user_id: int, level: int, track: str,
         return False, "❄️ Сезон временно заморожен — награды недоступны."
 
     progress = await _get_or_create_progress(db, user_id, season["id"])
+    if not progress.get("exists"):
+        return False, "У этого аккаунта нет сохранённого прогресса старого сезона."
     if level > progress["level"]:
         return False, f"🔒 Уровень {level} ещё не достигнут (сейчас {progress['level']})."
 
@@ -321,7 +261,9 @@ async def claim_reward(db, user_id: int, level: int, track: str,
             (user_id, season["id"]),
         ) as c:
             row = await c.fetchone()
-        locked_claimed = (row[0] if row else None) or []
+        if not row:
+            return False, "Сохранённый прогресс не найден. Награда не выдана."
+        locked_claimed = row[0] or []
         if level in locked_claimed:
             return False, "Эта награда уже получена."
 
@@ -452,57 +394,8 @@ def next_level_price(target_level: int, diamond_value: int) -> int:
 
 
 async def buy_next_level(db, user_id: int) -> tuple[bool, str, dict]:
-    """C5: открыть следующий уровень БП за 💎 (только +1, последовательно).
-    Атомарно: проверяем баланс, списываем 💎, поднимаем уровень. Награду игрок
-    забирает отдельно. Транзакция коммитит сама."""
-    season = get_active_season()
-    if not season:
-        return False, "Сейчас нет активного сезона.", {}
-    progress = await _get_or_create_progress(db, user_id, season["id"])
-    cur = int(progress["level"])
-    if cur >= BATTLE_PASS_MAX_LEVEL:
-        return False, "Достигнут максимальный уровень.", {}
-    target = cur + 1
-    dval = await _level_diamond_value(db, season["id"], target)
-    price = next_level_price(target, dval)
-    new_xp = (target - 1) * BATTLE_PASS_XP_PER_LEVEL
-
-    async with db.connection.transaction():
-        async with db.execute(
-            "SELECT COALESCE(user_balance_diamonds, 0) FROM users "
-            "WHERE user_tg_id = ? FOR UPDATE",
-            (user_id,),
-        ) as c:
-            row = await c.fetchone()
-        bal = float(row[0]) if row else 0.0
-        if bal < price:
-            return False, f"Недостаточно 💎: нужно {price}, есть {int(bal)}.", {"price": price}
-
-        # Лочим прогресс и перечитываем уровень — защита от гонки (не перескочить >1).
-        async with db.execute(
-            "SELECT level FROM battle_pass_progress "
-            "WHERE user_id = ? AND season_id = ? FOR UPDATE",
-            (user_id, season["id"]),
-        ) as c:
-            prow = await c.fetchone()
-        locked = int(prow[0]) if prow else cur
-        if locked != cur:
-            return False, "Уровень изменился, попробуйте ещё раз.", {}
-        if locked >= BATTLE_PASS_MAX_LEVEL:
-            return False, "Достигнут максимальный уровень.", {}
-
-        await add_balance(db, user_id, diamonds=-price, commit=False,
-                          source="battle_pass_buy_level",
-                          note=f"{season['id']}_open_lv{target}")
-        await db.execute(
-            "UPDATE battle_pass_progress SET xp = GREATEST(xp, ?), level = ? "
-            "WHERE user_id = ? AND season_id = ?",
-            (new_xp, target, user_id, season["id"]),
-        )
-
-    return True, f"🎫 Открыт уровень {target} за {price}💎! Не забудь забрать награду.", {
-        "level": target, "price": price,
-    }
+    """Retired writer boundary: buying old Battle Pass levels is closed."""
+    return False, "Покупка уровней старого Боевого пропуска закрыта.", {}
 
 
 # ── C7: бонус XP выходного дня (флаг конструктора) ───────────────────────────

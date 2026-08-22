@@ -16,4 +16,11 @@ async def daily_quests(chat_id: int, db=Depends(get_db), user=Depends(require_tg
     bonus = await daily_bonus_status(db, user["id"], chat_id)
     weekly = await get_or_assign_weekly_quests(db, user["id"], chat_id)
     weekly_bonus = await weekly_bonus_status(db, user["id"], chat_id)
-    return {"quests": quests, "bonus": bonus, "weekly": weekly, "weekly_bonus": weekly_bonus}
+    return {
+        "retired": True,
+        "message": "Старые задания закрыты. Сохранённый прогресс показан только для истории.",
+        "quests": quests,
+        "bonus": bonus,
+        "weekly": weekly,
+        "weekly_bonus": weekly_bonus,
+    }

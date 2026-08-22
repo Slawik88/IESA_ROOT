@@ -16,23 +16,24 @@ function renderBattlePass() {
   const d=_bpData;
   if(!d) return;
   if(!d.active) {
-    el('pro-bp').innerHTML=`<div class="card" style="text-align:center;padding:24px;color:var(--muted);font-size:12px">🎫 Сезон Боевого пропуска скоро начнётся, следи за анонсами!</div>`;
+    el('pro-bp').innerHTML=`<div class="card" style="padding:16px"><div class="card-title">🎫 Архив Боевого пропуска</div><div style="color:var(--muted);font-size:11px;line-height:1.5">${esc(d.message||'Старый Боевой пропуск закрыт.')}</div></div>`;
     return;
   }
-  _bpCheckLevelUp(d.level);
+  if(!d.retired) _bpCheckLevelUp(d.level);
   const pct=Math.round(d.xp_in_level/d.xp_per_level*100);
   const isMax=d.level>=d.max_level;
   const tinfo=_bpSeasonTimer(d);
   el('pro-bp').innerHTML=`
     <div class="card card-gold" style="margin-bottom:8px">
-      <div class="card-title">🎫 ${d.season_label} — Уровень ${d.level}/${d.max_level}<button class="xpg-btn" onclick="bpXpGuide()">⚡ За что XP?</button></div>
+      <div class="card-title">🎫 ${d.season_label} — Уровень ${d.level}/${d.max_level}${!d.retired?'<button class="xpg-btn" onclick="bpXpGuide()">⚡ За что XP?</button>':''}</div>
+      ${d.retired?`<div class="bp-frozen-banner"><b>Архив сезона.</b> ${esc(d.retired_message||'Прогресс закрыт.')}</div>`:''}
       ${d.frozen?`<div class="bp-frozen-banner">❄️ <b>Сезон временно заморожен.</b> Начисление XP и выдача наград приостановлены.</div>`:''}
       ${!d.frozen&&d.weekend_boost&&d.weekend_boost.active?`<div style="margin:4px 0 8px;padding:5px 8px;border-radius:8px;background:linear-gradient(90deg,rgba(232,181,77,.18),rgba(232,181,77,.04));font-size:11px;color:var(--gold)">⚡ Выходные: <b>+${d.weekend_boost.pct}% XP</b> ко всему Боевому пропуску!</div>`:''}
       <div class="ach-bar bp-xpbar ${d.frozen?'bp-bar-frozen':''}" style="height:10px"><div class="ach-fill" style="width:${isMax?100:pct}%"></div></div>
-      <div class="ach-prog">${isMax?'★ MAX уровень достигнут':`${fmt(d.xp_in_level)} / ${fmt(d.xp_per_level)} XP · осталось ${fmt(d.xp_to_next)} XP до ур. ${d.level+1}`}</div>
+      <div class="ach-prog">${d.retired?`${fmt(d.xp)} XP сохранено`:isMax?'★ MAX уровень достигнут':`${fmt(d.xp_in_level)} / ${fmt(d.xp_per_level)} XP · осталось ${fmt(d.xp_to_next)} XP до ур. ${d.level+1}`}</div>
       ${tinfo.html}
       ${d.buy_next&&!d.frozen?`<button class="btn btn-sm btn-teal" style="margin-top:8px;width:100%" onclick="bpBuyLevel(this)">💎 Открыть уровень ${d.buy_next.level} за ${d.buy_next.price}💎</button>`:''}
-      ${!d.paid_track_open?'<div style="margin-top:8px;font-size:11px;color:var(--gold2)">👑 VIP-трек закрыт — оформи VIP («бот vip»), чтобы забирать платные награды.</div>':''}
+      ${!d.paid_track_open&&!d.retired?'<div style="margin-top:8px;font-size:11px;color:var(--gold2)">👑 VIP-трек закрыт — оформи VIP («бот vip»), чтобы забирать платные награды.</div>':''}
     </div>
     ${_bpNextRewardCard(d)}
     <div class="card">
