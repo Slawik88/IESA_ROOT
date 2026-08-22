@@ -139,6 +139,14 @@ h2 { letter-spacing: -.03em; }
 .menu-note b { color: #b8e5e8; }
 .menu-note.danger { border-color: var(--red); background: rgba(226,111,112,.06); }
 .menu-note.danger b { color: #f0a3a4; }
+.unit-progress-strip { margin-top: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.unit-progress-card { min-width: 0; min-height: 51px; padding: 7px; display: grid; grid-template-columns: 24px 1fr; grid-template-rows: auto auto; column-gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.018); text-align: left; }
+.unit-progress-card > i { grid-row: 1 / 3; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 7px; background: var(--panel-2); font-style: normal; }
+.unit-progress-card strong, .unit-progress-card small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.unit-progress-card strong { font-size: 8px; }
+.unit-progress-card small { color: var(--muted); font-size: 7px; }
+.unit-progress-card.ready { border-color: rgba(229,189,95,.4); background: var(--gold-soft); }
+.unit-progress-card.ready small { color: var(--gold); }
 .compact-actions { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 7px; }
 .compact-actions button { min-height: 42px; padding: 0 13px; border-radius: 10px; font-size: 10px; font-weight: 750; }
 .primary-action { border: 1px solid rgba(229,189,95,.48); background: var(--gold-soft); color: #f4d98f; }
@@ -164,12 +172,15 @@ h2 { letter-spacing: -.03em; }
 .upgrade-list { display: grid; gap: 7px; margin-top: 14px; }
 .upgrade-card { width: 100%; min-height: 90px; padding: 10px 11px; display: grid; grid-template-columns: 38px 1fr 12px; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--panel-2); }
 .upgrade-card:hover { border-color: rgba(229,189,95,.48); background: rgba(229,189,95,.07); }
+.upgrade-card:disabled { cursor: default; opacity: .55; }
+.upgrade-card:disabled:hover { border-color: var(--line); background: var(--panel-2); }
 .upgrade-card > span:first-child { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; background: rgba(255,255,255,.04); font-size: 19px; }
 .upgrade-copy em, .upgrade-copy strong, .upgrade-copy small { display: block; }
 .upgrade-copy em { margin-bottom: 2px; color: var(--gold); font-size: 7px; font-style: normal; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .upgrade-copy strong { font-size: 12px; }
 .upgrade-copy small { margin-top: 3px; color: #aab5c3; font-size: 9px; line-height: 1.25; }
 .upgrade-copy .tradeoff { color: #b77879; }
+.upgrade-copy .mastery { color: #8fcbd2; }
 .upgrade-card > b { color: var(--gold); font-size: 18px; }
 .result-card { text-align: center; }
 .result-mark { margin: 7px auto 4px; color: var(--gold); font-size: 46px; }

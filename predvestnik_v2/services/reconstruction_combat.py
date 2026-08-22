@@ -202,6 +202,8 @@ def new_encounter(encounter_id: str = "e01_two_bells", *, seed: int = 1) -> dict
         "mastery": {
             "total_taps": 0, "correct_taps": 0, "mistakes": 0, "missed_signals": 0,
             "critical_taps": 0, "discharges": 0, "seam_hits": 0,
+            "reaction_total_ms": 0, "reaction_count": 0,
+            "max_combo_after_mistake": 0,
             "damage_taps": 0.0, "damage_auto": 0.0, "damage_discharge": 0.0,
             "elapsed_ms": 0,
         },
@@ -424,8 +426,19 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
 
     state["mastery"]["total_taps"] += 1
     state["mastery"]["correct_taps"] += 1
+    state["mastery"]["reaction_total_ms"] = (
+        int(state["mastery"].get("reaction_total_ms", 0)) + reaction_ms
+    )
+    state["mastery"]["reaction_count"] = int(
+        state["mastery"].get("reaction_count", 0)
+    ) + 1
     state["combo"]["count"] += 1
     state["combo"]["max"] = max(state["combo"]["max"], state["combo"]["count"])
+    if state["mastery"]["mistakes"] > 0:
+        state["mastery"]["max_combo_after_mistake"] = max(
+            int(state["mastery"].get("max_combo_after_mistake", 0)),
+            state["combo"]["count"],
+        )
     objective = state.get("objective_state") or {}
     if (
         objective.get("kind") == "lantern_escort"

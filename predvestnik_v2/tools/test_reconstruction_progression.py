@@ -10,6 +10,7 @@ from core.economy_v3 import UNIT_LEVEL_CAP_XP, UNIT_XP_REQUIREMENTS  # noqa: E40
 from core.reconstruction import STARTER_UNITS  # noqa: E402
 from core.reconstruction_progression import (  # noqa: E402
     UNIT_BRANCHES,
+    mastery_proofs_from_terminal,
     public_progression_manifest,
     unit_progress_view,
     validate_progression_content,
@@ -44,5 +45,22 @@ for unit in manifest["branches"].values():
     for branch in unit["5"]:
         assert branch["tradeoff"] and branch["counter_scenario"]
         assert len(branch["telemetry"]) >= 3
+
+proof_state = {
+    "status": "won",
+    "combo": {"max": 24},
+    "mastery": {
+        "correct_taps": 30, "mistakes": 1, "missed_signals": 0,
+        "discharges": 3, "critical_taps": 4,
+        "max_combo_after_mistake": 9,
+        "reaction_count": 30, "reaction_total_ms": 15_000,
+    },
+}
+assert set(mastery_proofs_from_terminal(proof_state)) == {
+    "bell_recover_three_clean", "bell_three_discharges",
+    "seam_three_critical", "seam_clean_twenty",
+    "tide_fast_response", "tide_no_miss",
+}
+assert mastery_proofs_from_terminal({**proof_state, "status": "lost"}) == ()
 
 print("reconstruction_progression: 1-30 curve+six meaningful branches  OK")

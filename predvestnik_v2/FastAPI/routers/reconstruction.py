@@ -32,6 +32,11 @@ class MemoryBody(BaseModel):
     memory_id: str
 
 
+class UnitBranchBody(BaseModel):
+    unit_id: str
+    branch_id: str
+
+
 def _raise_service_error(exc: Exception) -> None:
     status = 409 if isinstance(exc, game.ReconstructionConflict) else 400
     raise HTTPException(status, str(exc)) from exc
@@ -97,5 +102,17 @@ async def choose_memory(
 ):
     try:
         return await game.choose_memory(db, int(user["id"]), body.memory_id)
+    except game.ReconstructionError as exc:
+        _raise_service_error(exc)
+
+
+@router.post("/units/branch")
+async def choose_unit_branch(
+    body: UnitBranchBody, db=Depends(get_db), user=Depends(require_tg_user)
+):
+    try:
+        return await game.choose_unit_branch(
+            db, int(user["id"]), body.unit_id, body.branch_id
+        )
     except game.ReconstructionError as exc:
         _raise_service_error(exc)

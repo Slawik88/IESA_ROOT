@@ -34,6 +34,19 @@ const memory = {
 };
 const overview = {
   content: manifest,
+  units: manifest.starter_units.map((unit) => ({
+    unit_id: unit.id,
+    name: unit.name,
+    short_name: unit.short_name,
+    emoji: unit.emoji,
+    level: 1,
+    total_xp: 0,
+    xp_in_level: 0,
+    xp_to_next: 120,
+    branch_choices: {},
+    next_branch_level: 5,
+    proven_challenges: [],
+  })),
   progress: {
     started: true,
     current_encounter: 'e02_shattered_causeway',
@@ -152,6 +165,7 @@ try {
     stats: document.getElementById('statsEyebrow').textContent.trim(),
     statsCopy: document.getElementById('statsCopy').textContent.trim(),
     resultAction: document.getElementById('resultReset').textContent.trim(),
+    unitCards: document.querySelectorAll('[data-unit-progress]').length,
   }));
   if (labels.runtime !== 'БОЕВАЯ СИСТЕМА') throw new Error(`runtime label: ${labels.runtime}`);
   if (labels.profile !== 'ПРОФИЛЬ ИГРОКА') throw new Error(`profile label: ${labels.profile}`);
@@ -162,6 +176,7 @@ try {
   if (!labels.resultAction.includes('Выбрать Память')) {
     throw new Error(`pending memory action is missing: ${labels.resultAction}`);
   }
+  if (labels.unitCards !== 3) throw new Error(`unit progress cards: ${labels.unitCards}`);
 
   await page.click('#resultReset');
   await page.waitForSelector('[data-memory-id]');

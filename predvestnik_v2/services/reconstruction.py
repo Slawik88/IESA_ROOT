@@ -19,10 +19,16 @@ from core.economy_v3 import (
     evaluate_reconstruction_reward_shadow,
     public_policy_manifest,
 )
-from core.reconstruction_progression import public_progression_manifest
+from core.reconstruction_progression import (
+    branch_by_id,
+    mastery_proofs_from_terminal,
+    public_progression_manifest,
+    unit_progress_view,
+)
 from infrastructure.repositories import gameplay_events as event_repo
 from infrastructure.repositories import reconstruction as repo
 from infrastructure.repositories import economy_shadow as shadow_repo
+from infrastructure.repositories import reconstruction_units as unit_repo
 from services import reconstruction_combat as combat
 from services import reconstruction_integrity as integrity
 from services import reconstruction_timing as timing
@@ -135,6 +141,28 @@ async def overview(db, user_id: int) -> dict[str, Any]:
     progress = await repo.get_progress(db, user_id, GAME_VERSION)
     active = await repo.get_active_run(db, user_id, GAME_VERSION)
     stats = await repo.get_stats(db, user_id, GAME_VERSION)
+    stored_units = {
+        item["unit_id"]: item
+        for item in await unit_repo.list_progress(db, user_id, GAME_VERSION)
+    }
+    mastery_proofs = await unit_repo.get_mastery_proofs(db, user_id, GAME_VERSION)
+    units = []
+    for unit_id in STARTER_UNITS:
+        progress_item = stored_units.get(unit_id) or unit_progress_view(unit_id, 0)
+        units.append({
+            **progress_item,
+            "name": STARTER_UNITS[unit_id]["name"],
+            "short_name": STARTER_UNITS[unit_id]["short_name"],
+            "emoji": STARTER_UNITS[unit_id]["emoji"],
+            "proven_challenges": sorted(
+                challenge_id for challenge_id in mastery_proofs
+                if any(
+                    branch["mastery_challenge"] == challenge_id
+                    for branches in public_progression_manifest()["branches"][unit_id].values()
+                    for branch in branches
+                )
+            ),
+        })
     if not progress:
         progress_view = {
             "started": False,
@@ -164,7 +192,45 @@ async def overview(db, user_id: int) -> dict[str, Any]:
         "progress": progress_view,
         "active_run": active_view,
         "stats": stats,
+        "units": units,
     }
+
+
+async def choose_unit_branch(
+    db, user_id: int, unit_id: str, branch_id: str
+) -> dict[str, Any]:
+    found = branch_by_id(branch_id)
+    if not found or found[0] != unit_id:
+        raise ReconstructionError("Эта ветвь не принадлежит выбранному юниту.")
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        try:
+            result = await unit_repo.choose_branch(
+                db,
+                user_id=user_id,
+                game_version=GAME_VERSION,
+                unit_id=unit_id,
+                branch_id=branch_id,
+            )
+        except ValueError as exc:
+            raise ReconstructionError(str(exc)) from exc
+        await event_repo.record_event(
+            db,
+            user_id=user_id,
+            event_name="progression_upgrade",
+            game_version=GAME_VERSION,
+            balance_version=BALANCE_VERSION,
+            source="mini_app",
+            payload={
+                "entity": f"unit:{unit_id}:branch:{found[1]}",
+                "from_value": "unselected",
+                "to_value": branch_id,
+                "resource_cost": {"mora": 0, "diamonds": 0, "zarniki": 0},
+                "trigger": f"mastery:{found[2]['mastery_challenge']}",
+            },
+            idempotency_key=f"unit-branch:{GAME_VERSION}:{unit_id}:{found[1]}",
+        )
+        return result
 
 
 async def start_encounter(
@@ -467,6 +533,7 @@ async def apply_run_action(
         career_stats = None
         terminal = None
         shadow_reward = None
+        mastery_proofs = None
         next_step = None
         if state["status"] in ("won", "lost"):
             terminal = integrity.terminal_result(
@@ -483,6 +550,16 @@ async def apply_run_action(
                 state=state,
                 terminal=terminal,
             )
+            if state["status"] == "won" and state.get("run_kind") != "practice":
+                recorded_proofs = await unit_repo.record_mastery_proofs(
+                    db,
+                    user_id=user_id,
+                    game_version=GAME_VERSION,
+                    terminal_result_id=terminal["id"],
+                    encounter_id=run["encounter_id"],
+                    challenge_ids=mastery_proofs_from_terminal(state),
+                )
+                mastery_proofs = sorted(recorded_proofs)
             await event_repo.record_event(
                 db,
                 user_id=user_id,
@@ -561,6 +638,7 @@ async def apply_run_action(
             "turn": result,
             "terminal_result": terminal,
             "shadow_reward": shadow_reward,
+            "mastery_proofs": mastery_proofs,
             "next_step": next_step,
             "pending_memory": pending_memory,
             "career_stats": career_stats,
