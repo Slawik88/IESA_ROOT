@@ -22,7 +22,7 @@ CARE_BANK_CAP: Final = 7
 CARE_RECOVERY_HOURS: Final = 48
 BOND_MILESTONES: Final = (1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 78)
 EXPEDITION_WEEKLY_MORA_CAP: Final = 600
-SECOND_EXPEDITION_SLOT_ENCOUNTER: Final = "e06_first_archivist"
+SECOND_EXPEDITION_SLOT_ENCOUNTER: Final = "e06_archivist"
 EXPEDITION_DISCOVERIES: Final = (
     "bell_fragment", "salt_map", "ink_trace", "ash_seed",
     "drowned_name", "mirror_shard", "tide_formula", "quiet_key",
@@ -30,54 +30,64 @@ EXPEDITION_DISCOVERIES: Final = (
 )
 
 
-COMPANION_ROLES: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType({
+COMPANION_ROLES: Final[Mapping[str, Mapping[str, Any]]] = MappingProxyType({
     "navigator": {
         "name": "Навигатор", "emoji": "⌁",
+        "implemented": False,
         "decision": "До старта раскрывает семейство одной будущей волны.",
         "tradeoff": "После просмотра нельзя заменить этот контракт.",
     },
     "rhythm_keeper": {
         "name": "Хранитель ритма", "emoji": "◌",
+        "implemented": False,
         "decision": "Один раз превращает пропуск в нейтральный разрыв серии.",
         "tradeoff": "Максимальный бонус серии в этом забеге ниже.",
     },
     "echo": {
         "name": "Эхо", "emoji": "◍",
+        "implemented": False,
         "decision": "Предлагает повторить знакомый паттерн в ускоренной версии.",
         "tradeoff": "Ошибка обнуляет бонус этой ветки.",
     },
     "gardener": {
         "name": "Садовник", "emoji": "❧",
+        "implemented": False,
         "decision": "Выращивает межволновой вариант чередованием классов.",
         "tradeoff": "Повтор одного класса сбрасывает рост.",
     },
     "archivist": {
         "name": "Архивариус", "emoji": "▤",
+        "implemented": False,
         "decision": "Разбирает один фрагмент повтора перед следующим выбором.",
         "tradeoff": "Занимает один слот усиления.",
     },
     "lantern": {
         "name": "Фонарь", "emoji": "✧",
+        "implemented": True,
         "decision": "Заранее отмечает один тип ложного сигнала.",
         "tradeoff": "Между волнами доступно два варианта вместо трёх.",
     },
     "weaver": {
         "name": "Ткач", "emoji": "⌘",
+        "implemented": False,
         "decision": "Связывает эффекты двух слабых узлов в один план.",
         "tradeoff": "Третий узел той же группы блокируется.",
     },
     "cartographer": {
         "name": "Картограф", "emoji": "◇",
+        "implemented": False,
         "decision": "Показывает вероятности веток текущего контракта.",
         "tradeoff": "Бесплатная замена предложения закрывается.",
     },
     "guardian": {
         "name": "Страж", "emoji": "⬡",
+        "implemented": True,
         "decision": "Позволяет заранее расширить одно окно реакции.",
         "tradeoff": "Множитель результата этого окна ниже.",
     },
     "trickster": {
         "name": "Трикстер", "emoji": "⟲",
+        "implemented": False,
         "decision": "Меняет правило кульминации на более рискованное.",
         "tradeoff": "Выбор необратим до конца забега.",
     },

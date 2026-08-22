@@ -99,8 +99,15 @@ async def main():
         assert initial["role_slots"] == 1 and initial["expeditions"]["start_enabled"]
         assert initial["expeditions"]["slots"] == 1
 
-        first = await service.select_role(db, 7, "navigator")
-        assert first["selected_role_id"] == "navigator"
+        first = await service.select_role(db, 7, "lantern")
+        assert first["selected_role_id"] == "lantern"
+        assert await service.selected_role(db, 7) == "lantern"
+        try:
+            await service.select_role(db, 7, "navigator")
+        except service.CompanionConflict:
+            pass
+        else:
+            raise AssertionError("Unimplemented role became selectable")
         try:
             await service.select_role(db, 7, "guardian")
         except service.CompanionConflict:
@@ -109,7 +116,7 @@ async def main():
             raise AssertionError("Second role unlocked before meaningful day 5")
         fake.meaningful_days = 5
         second = await service.select_role(db, 7, "guardian")
-        assert second["unlocked_roles"] == ["navigator", "guardian"]
+        assert second["unlocked_roles"] == ["lantern", "guardian"]
 
         cared = await service.care(db, 7, 11, "play", "care-1")
         replay = await service.care(db, 7, 11, "play", "care-1")

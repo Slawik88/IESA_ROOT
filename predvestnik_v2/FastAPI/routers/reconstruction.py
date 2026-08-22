@@ -29,7 +29,7 @@ class ActionBody(BaseModel):
     target_slot: Literal["left", "center", "right"] | None = None
     command: Literal[
         "vow_keep", "vow_release", "manual_discharge",
-        "forbidden_toggle", "tide_swap",
+        "forbidden_toggle", "tide_swap", "companion_guardian_window",
     ] | None = None
     decision_id: str | None = Field(default=None, max_length=96)
     enabled: bool | None = None
@@ -90,11 +90,13 @@ async def get_overview(db=Depends(get_db), user=Depends(require_tg_user)):
 @router.post("/start")
 async def start(body: StartBody, db=Depends(get_db), user=Depends(require_tg_user)):
     try:
+        companion_role_id = await companions.selected_role(db, int(user["id"]))
         return await game.start_encounter(
             db,
             int(user["id"]),
             body.encounter_id,
             practice=body.practice,
+            companion_role_id=companion_role_id,
         )
     except game.ReconstructionError as exc:
         _raise_service_error(exc)
