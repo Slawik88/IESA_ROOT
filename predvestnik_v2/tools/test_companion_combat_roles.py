@@ -106,7 +106,15 @@ combat._complete_wave(echo)
 assert len(echo["reward_options"]) == 4
 assert sum(option.get("companion_offer") == "echo" for option in echo["reward_options"]) == 1
 
-for unsupported in ("navigator", "trickster", "unknown"):
+navigator = combat.new_encounter(seed=808, companion_role_id="navigator")
+forecast = navigator["companion_state"]["navigator_forecast"]
+assert forecast["wave"] in (2, 3)
+assert forecast["window"] in ("короткое", "среднее", "длинное")
+assert forecast["pressure"] in ("высокое", "среднее", "мягкое")
+assert forecast["locked"] and not forecast["reveals_answer"]
+assert combat.new_encounter(seed=808, companion_role_id="navigator")["companion_state"]["navigator_forecast"] == forecast
+
+for unsupported in ("trickster", "unknown"):
     try:
         combat.new_encounter(seed=1, companion_role_id=unsupported)
     except ValueError:
@@ -114,4 +122,4 @@ for unsupported in ("navigator", "trickster", "unknown"):
     else:
         raise AssertionError(f"Unsupported companion role entered combat: {unsupported}")
 
-print("companion_combat_roles: Lantern + Guardian + Rhythm Keeper + Echo contracts  OK")
+print("companion_combat_roles: five horizontal role contracts  OK")

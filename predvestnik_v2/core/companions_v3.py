@@ -33,9 +33,9 @@ EXPEDITION_DISCOVERIES: Final = (
 COMPANION_ROLES: Final[Mapping[str, Mapping[str, Any]]] = MappingProxyType({
     "navigator": {
         "name": "Навигатор", "emoji": "⌁",
-        "implemented": False,
-        "decision": "До старта раскрывает семейство одной будущей волны.",
-        "tradeoff": "После просмотра нельзя заменить этот контракт.",
+        "implemented": True,
+        "decision": "До старта раскрывает темп и давление одной будущей волны.",
+        "tradeoff": "Прогноз фиксируется на весь забег и не раскрывает правильные ответы.",
     },
     "rhythm_keeper": {
         "name": "Хранитель ритма", "emoji": "◌",
