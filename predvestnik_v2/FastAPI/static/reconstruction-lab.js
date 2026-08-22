@@ -86,6 +86,12 @@
   })[char]);
   const number = (value) => Math.max(0, Math.round(Number(value) || 0)).toLocaleString('ru-RU');
   const percent = (value) => value === null || value === undefined ? '—' : `${number(value)}%`;
+  const shortTime = (seconds) => {
+    const value = Math.max(0, Math.round(Number(seconds) || 0));
+    if (value >= 3600) return `${Math.floor(value / 3600)}ч ${Math.floor(value % 3600 / 60)}м`;
+    if (value >= 60) return `${Math.floor(value / 60)}м ${value % 60}с`;
+    return `${value}с`;
+  };
   const encounterById = (id) => (manifest?.encounters || []).find((item) => item.id === id);
   const activeEncounter = () => encounterById(state?.encounter_id);
   const runKey = () => state
@@ -600,6 +606,12 @@
     const rarityNames = {
       common: 'обычный', rare: 'редкий', epic: 'эпический', legendary: 'легендарный',
     };
+    const discoveryNames = {
+      bell_fragment: 'осколок колокола', salt_map: 'соляная карта', ink_trace: 'чернильный след',
+      ash_seed: 'семя пепла', drowned_name: 'утонувшее имя', mirror_shard: 'осколок зеркала',
+      tide_formula: 'формула прилива', quiet_key: 'тихий ключ', archive_thread: 'нить архива',
+      lantern_glass: 'стекло Фонаря', garden_mark: 'метка сада', sealed_route: 'запечатанный путь',
+    };
     const pets = companionState.pets || [];
     const active = pets.find((pet) => pet.active_companion) || pets[0];
     if (!active) {
@@ -627,7 +639,12 @@
     const careButtons = (companionState.care_actions || []).map((action) => `
       <button type="button" data-care-action="${esc(action.id)}" ${Number(active.care_bank) > 0 ? '' : 'disabled'}>${esc(action.name)}</button>`).join('');
     const expeditions = (companionState.expeditions?.options || []).map((option) => `
-      <span><i>${number(option.duration_hours)}ч</i><strong>${number(option.projected_mora)} Моры</strong><small>${esc(option.route_name)}</small></span>`).join('');
+      <button type="button" data-expedition-hours="${number(option.duration_hours)}" ${companionState.expeditions?.start_enabled ? '' : 'disabled'}><i>${number(option.duration_hours)}ч</i><strong>${number(option.projected_mora)} Моры</strong><small>${esc(option.route_name)}</small></button>`).join('');
+    const activePetName = new Map(pets.map((pet) => [pet.id, pet.name]));
+    const contracts = (companionState.expeditions?.contracts || []).filter((item) => item.status !== 'claimed').map((item) => {
+      const status = item.status === 'ready' ? 'Готово' : `ещё ${shortTime(item.remaining_sec)}`;
+      return `<span><i>${esc(activePetName.get(item.pet_id) || 'Спутник')}</i><strong>${number(item.duration_hours)}ч · ${esc(status)}</strong><small>${number(item.fixed_mora)} Моры · ${esc(discoveryNames[item.discovery_id] || 'находка')}</small></span>`;
+    }).join('');
     container.innerHTML = `
       <section class="companion-hero">
         <div class="companion-mark">${species[active.species_id] || '◌'}</div>
@@ -638,7 +655,7 @@
       <div class="pet-rail">${petRail}</div>
       <section class="care-block"><header><span><strong>Забота</strong><small>короткий ритуал без штрафа за пропуск</small></span><b>${number(active.care_bank)} / 7</b></header><div>${careButtons}</div></section>
       <section class="companion-section"><header><span><strong>Атлас ролей</strong><small>${number(unlocked.size)} открыто · ${number(companionState.role_slots)} доступно сейчас</small></span><b>след. ${companionState.next_role_day == null ? 'все' : `${number(companionState.next_role_day)} день`}</b></header><div class="role-list">${roleCards}</div></section>
-      <section class="companion-section expedition-preview"><header><span><strong>Поход-разведка</strong><small>выбор времени больше не наказывает</small></span><b>лимит 600 / 7д</b></header><div class="expedition-grid">${expeditions}</div><p>${esc(companionState.expeditions?.reason || '')}</p></section>`;
+      <section class="companion-section expedition-preview"><header><span><strong>Поход-разведка</strong><small>${number(companionState.expeditions?.open_slots)} из ${number(companionState.expeditions?.slots)} слотов свободно</small></span><b>тень ${number(companionState.expeditions?.weekly_reserved_mora)} / 600</b></header><div class="expedition-grid">${expeditions}</div>${contracts ? `<div class="expedition-contracts">${contracts}</div>` : ''}${Number(companionState.expeditions?.ready_count) > 0 ? '<button class="claim-expeditions" type="button" data-expedition-claim>Забрать готовые результаты</button>' : ''}<p>${esc(companionState.expeditions?.reason || '')}</p></section>`;
   }
 
   function refreshMenu() {
@@ -1220,7 +1237,9 @@
     const pet = event.target.closest('[data-companion-pet]');
     const role = event.target.closest('[data-companion-role]');
     const care = event.target.closest('[data-care-action]');
-    if (!pet && !role && !care) return;
+    const expedition = event.target.closest('[data-expedition-hours]');
+    const claim = event.target.closest('[data-expedition-claim]');
+    if (!pet && !role && !care && !expedition && !claim) return;
     try {
       if (pet) companionState = await jsonFetch('/companions/active', {
         method: 'POST', body: JSON.stringify({ pet_id: Number(pet.dataset.companionPet) }),
@@ -1238,6 +1257,26 @@
         });
         companionState = await jsonFetch('/companions');
         notify('Bond вырос. Валюта и сила не изменились.');
+      }
+      if (expedition) {
+        const active = companionState?.pets?.find((item) => item.active_companion);
+        await jsonFetch('/companions/expeditions/start', {
+          method: 'POST', body: JSON.stringify({
+            pet_id: Number(active?.id), duration_hours: Number(expedition.dataset.expeditionHours),
+            action_id: globalThis.crypto?.randomUUID?.() || `expedition-${Date.now()}`,
+          }),
+        });
+        companionState = await jsonFetch('/companions');
+        notify('Результат похода зафиксирован. В DEV часы сжаты до секунд.');
+      }
+      if (claim) {
+        const result = await jsonFetch('/companions/expeditions/claim', {
+          method: 'POST', body: JSON.stringify({
+            action_id: globalThis.crypto?.randomUUID?.() || `claim-${Date.now()}`,
+          }),
+        });
+        companionState = await jsonFetch('/companions');
+        notify(`Теневой итог: ${number(result.projected_mora_total)} Моры. Кошелёк не изменён.`);
       }
       renderCompanions();
     } catch (error) {
@@ -1330,6 +1369,13 @@
       saveUiState();
       lastFrameAt = performance.now();
       setInterval(sendFrame, FRAME_MS);
+      setInterval(async () => {
+        if (currentView !== 'menu' || currentMenuTab !== 'companion') return;
+        try {
+          companionState = await jsonFetch('/companions');
+          renderCompanions();
+        } catch (_) { /* следующий ручной запрос покажет ошибку */ }
+      }, 2000);
     })
     .catch((error) => notify(error.message, true));
 

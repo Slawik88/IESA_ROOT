@@ -55,7 +55,7 @@ try{
       viewportHeight:innerHeight,
       roles:document.querySelectorAll('.role-card').length,
       careHeights:[...document.querySelectorAll('[data-care-action]')].map(node=>node.getBoundingClientRect().height),
-      expeditionOptions:document.querySelectorAll('.expedition-grid > span').length,
+      expeditionOptions:document.querySelectorAll('.expedition-grid > button').length,
     }));
     check(companionMetrics.pageWidth<=companionMetrics.viewport,`${width}px: companion page overflows`);
     check(companionMetrics.menuHeight<=companionMetrics.viewportHeight-16,`${width}px: companion menu exceeds viewport`);
@@ -98,6 +98,43 @@ try{
     if(output&&[390,1024].includes(width)){
       await page.screenshot({path:`${output}/clicker-${width}.png`,fullPage:true});
     }
+    await page.close();
+  }
+
+  // DEV-only time compression makes the real expedition state transitions
+  // testable without waiting two hours.  No wallet is attached to this bridge.
+  {
+    const session=`expedition-ui-state-machine-${Date.now()}`;
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width:390,height:844,deviceScaleFactor:1});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.waitForSelector('#menuLayer:not([hidden])');
+    await page.click('[data-menu-tab="companion"]');
+    await page.waitForSelector('[data-expedition-hours="2"]:not(:disabled)');
+    await page.click('[data-expedition-hours="2"]');
+    await page.waitForSelector('.expedition-contracts > span');
+    const started=await page.evaluate(()=>({
+      reserved:document.querySelector('.expedition-preview header > b')?.textContent.trim(),
+      text:document.querySelector('.expedition-contracts')?.textContent,
+    }));
+    check(started.reserved?.includes('50'),`expedition UI did not reserve 50 Mora: ${started.reserved}`);
+    check(started.text?.includes('2ч'),`expedition UI contract missing: ${started.text}`);
+    await page.waitForSelector('[data-expedition-claim]',{timeout:12000});
+    await page.click('[data-expedition-claim]');
+    await page.waitForFunction(()=>document.querySelector('.status-toast')?.textContent.includes('Кошелёк не изменён'));
+    const claimed=await page.evaluate(()=>({
+      visibleContracts:document.querySelectorAll('.expedition-contracts > span').length,
+      toast:document.querySelector('.status-toast').textContent,
+      overflow:document.documentElement.scrollWidth-innerWidth,
+    }));
+    check(claimed.visibleContracts===0,'claimed expedition remains actionable');
+    check(claimed.toast.includes('50 Моры'),'shadow claim total is missing');
+    check(claimed.overflow<=0,`expedition state UI overflows by ${claimed.overflow}px`);
+    check(errors.length===0,`expedition UI browser errors ${errors.join(', ')}`);
+    if(output)await page.screenshot({path:`${output}/clicker-390-expedition-claimed.png`,fullPage:true});
     await page.close();
   }
 

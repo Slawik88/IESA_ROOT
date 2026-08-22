@@ -231,11 +231,18 @@ h2 { letter-spacing: -.03em; }
 .role-card.selected > b { color: var(--gold); }
 .role-card:disabled { cursor: default; opacity: .46; }
 .expedition-grid { margin-top: 9px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; }
-.expedition-grid span { padding: 8px 5px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); text-align: center; }
+.expedition-grid button { min-width: 0; padding: 8px 5px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); color: var(--text); text-align: center; }
+.expedition-grid button:disabled { cursor: default; opacity: .45; }
 .expedition-grid i, .expedition-grid strong, .expedition-grid small { display: block; }
 .expedition-grid i { color: var(--cyan); font-size: 8px; font-style: normal; font-weight: 850; }
 .expedition-grid strong { margin-top: 3px; font-size: 10px; }
 .expedition-grid small { margin-top: 2px; color: var(--muted); font-size: 7px; }
+.expedition-contracts { margin-top: 7px; display: grid; gap: 4px; }
+.expedition-contracts > span { padding: 7px 8px; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 2px 8px; border: 1px solid rgba(105,194,207,.18); border-radius: 8px; background: rgba(105,194,207,.035); }
+.expedition-contracts i { grid-row: 1 / 3; align-self: center; color: #c8d5df; font-size: 8px; font-style: normal; }
+.expedition-contracts strong { color: var(--cyan); font-size: 8px; }
+.expedition-contracts small { color: var(--muted); font-size: 7px; }
+.claim-expeditions { min-height: 36px; margin-top: 7px; padding: 0 10px; border: 1px solid rgba(229,189,95,.4); border-radius: 8px; background: var(--gold-soft); color: #f2d487; font-size: 8px; font-weight: 800; }
 .expedition-preview > p { margin: 8px 0 0; color: #8b97a6; font-size: 8px; line-height: 1.4; }
 
 .pause-card, .choice-sheet, .result-card { padding: 19px; }

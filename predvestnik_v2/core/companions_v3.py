@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from types import MappingProxyType
 from typing import Any, Final, Mapping
+import hashlib
 
 
 POLICY_VERSION: Final = "companions-v3-provisional-1"
@@ -21,6 +22,12 @@ CARE_BANK_CAP: Final = 7
 CARE_RECOVERY_HOURS: Final = 48
 BOND_MILESTONES: Final = (1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 66, 78)
 EXPEDITION_WEEKLY_MORA_CAP: Final = 600
+SECOND_EXPEDITION_SLOT_ENCOUNTER: Final = "e06_first_archivist"
+EXPEDITION_DISCOVERIES: Final = (
+    "bell_fragment", "salt_map", "ink_trace", "ash_seed",
+    "drowned_name", "mirror_shard", "tide_formula", "quiet_key",
+    "archive_thread", "lantern_glass", "garden_mark", "sealed_route",
+)
 
 
 COMPANION_ROLES: Final[Mapping[str, Mapping[str, str]]] = MappingProxyType({
@@ -174,6 +181,23 @@ def quote_expedition(duration_hours: int, weekly_mora_before: int = 0) -> Expedi
     )
 
 
+def expedition_slot_count(first_chapter_complete: bool) -> int:
+    if not isinstance(first_chapter_complete, bool):
+        raise CompanionPolicyError("first_chapter_complete must be boolean.")
+    return 2 if first_chapter_complete else 1
+
+
+def expedition_discovery(seed_digest: str, duration_hours: int) -> str:
+    """Map a committed server seed to a bounded discovery catalog."""
+    digest = str(seed_digest or "").strip().lower()
+    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise CompanionPolicyError("seed_digest must be a SHA-256 hex digest.")
+    if duration_hours not in EXPEDITION_OPTIONS:
+        raise CompanionPolicyError("duration_hours must be 2, 6 or 12.")
+    mixed = hashlib.sha256(f"{digest}:{duration_hours}".encode("ascii")).digest()
+    return EXPEDITION_DISCOVERIES[int.from_bytes(mixed[:4], "big") % len(EXPEDITION_DISCOVERIES)]
+
+
 def public_companion_manifest() -> dict[str, Any]:
     return {
         "policy_version": POLICY_VERSION,
@@ -193,5 +217,7 @@ def public_companion_manifest() -> dict[str, Any]:
             "options": [asdict(quote_expedition(hours)) for hours in EXPEDITION_OPTIONS],
             "rewards_expire": False,
             "cancel_rerolls": False,
+            "second_slot_encounter": SECOND_EXPEDITION_SLOT_ENCOUNTER,
+            "discoveries": list(EXPEDITION_DISCOVERIES),
         },
     }
