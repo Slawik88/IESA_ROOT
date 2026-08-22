@@ -367,6 +367,50 @@ assert names_perfect["objective_state"]["anchors_broken"] == 3
 assert names_perfect["objective_state"]["replays"] == 0
 assert names_perfect["mastery"]["correct_taps"] == 8
 
+# Зеркальный двор запрещает привычную координату, но никогда не создаёт
+# невозможный сигнал: правильная руна сервером переносится в другую позицию.
+mirror = combat.new_encounter("e05_mirror_courtyard", seed=1501)
+challenge = open_signal(mirror)
+first_slot = correct_slot(challenge)
+act(mirror, type="strike", challenge_id=challenge["id"], target_slot=first_slot)
+assert mirror["objective_state"]["forbidden_slot"] == first_slot
+challenge = open_signal(mirror)
+assert correct_slot(challenge) != first_slot
+act(mirror, type="strike", challenge_id=challenge["id"], target_slot=first_slot)
+assert mirror["objective_state"]["wards"] == 2
+assert mirror["objective_state"]["repeat_violations"] == 1
+for expected_wards in (1, 0):
+    challenge = open_signal(mirror)
+    assert correct_slot(challenge) != first_slot
+    act(mirror, type="strike", challenge_id=challenge["id"], target_slot=first_slot)
+    assert mirror["objective_state"]["wards"] == expected_wards
+assert mirror["status"] == "lost"
+assert mirror["outcome_reason"] == "mirror_wards_broken"
+
+mirror_perfect = combat.new_encounter("e05_mirror_courtyard", seed=1502)
+last_slot = None
+for _ in range(1800):
+    if mirror_perfect["status"] in {"won", "lost"}:
+        break
+    if mirror_perfect["status"] == "reward":
+        act(
+            mirror_perfect, type="choose_upgrade",
+            upgrade_id=mirror_perfect["reward_options"][0]["id"],
+        )
+        last_slot = None
+        continue
+    challenge = open_signal(mirror_perfect)
+    slot = correct_slot(challenge)
+    assert last_slot is None or slot != last_slot
+    act(
+        mirror_perfect, type="strike", challenge_id=challenge["id"],
+        target_slot=slot,
+    )
+    last_slot = slot
+assert mirror_perfect["status"] == "won"
+assert mirror_perfect["outcome_reason"] == "courtyard_crossed"
+assert mirror_perfect["objective_state"]["repeat_violations"] == 0
+
 # Первый рубеж мастерства меняет решения, а не только числа.
 vow = combat.new_encounter(seed=1201, unit_branches={"r_oath_bell": "bell_broken_vow"})
 vow["team"]["charge"] = 80

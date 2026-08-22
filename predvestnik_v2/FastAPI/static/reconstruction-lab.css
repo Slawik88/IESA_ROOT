@@ -65,6 +65,8 @@ h2 { letter-spacing: -.03em; }
 .objective-meter.ash strong { color: #f0c87c; }
 .objective-meter.memory b { background: linear-gradient(90deg, #5d8ca7, #90c9ca); }
 .objective-meter.memory strong { color: #a9dfe0; }
+.objective-meter.mirror b { background: linear-gradient(90deg, #71879f, #c0d1df); }
+.objective-meter.mirror strong { color: #c9d9e6; }
 .tap-stage.memory-preview .echo-core { box-shadow: 0 0 0 1px rgba(105,194,207,.46), 0 14px 45px rgba(0,0,0,.35); }
 .tap-stage.memory-preview .core-glyph { color: #bce9e8; }
 .branch-controls { margin: 7px 15px 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
@@ -99,6 +101,8 @@ h2 { letter-spacing: -.03em; }
 .tap-stage.golden .strike-rune { border-color: rgba(229,189,95,.32); }
 .strike-rune.seam-stored { border-color: rgba(226,111,112,.55); box-shadow: inset 0 -2px rgba(226,111,112,.4); }
 .strike-rune.forbidden { border-color: rgba(229,189,95,.35); background: rgba(229,189,95,.045); }
+.strike-rune.mirror-forbidden { position: relative; border-color: rgba(226,111,112,.38); background: rgba(226,111,112,.055); }
+.strike-rune.mirror-forbidden::after { content: "НЕ ПОВТОРЯЙ"; position: absolute; right: 0; bottom: 3px; left: 0; color: #bb7779; font-size: 6px; font-weight: 850; letter-spacing: .08em; }
 .tap-stage.miss .strike-rune { border-color: rgba(226,111,112,.45); }
 .impact-layer { position: absolute; z-index: 8; inset: 0; pointer-events: none; overflow: hidden; }
 .impact { position: absolute; color: #e8f5f6; font-size: 14px; font-weight: 850; pointer-events: none; animation: impact .52s ease-out forwards; text-shadow: 0 2px 8px #000; }

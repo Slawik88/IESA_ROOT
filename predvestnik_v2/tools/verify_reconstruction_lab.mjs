@@ -196,6 +196,59 @@ try{
     await page.close();
   }
 
+  // Зеркальный двор визуально отмечает прошлую позицию, но правильная руна
+  // всегда остаётся на другой доступной кнопке.
+  for(const width of [320,390,430]){
+    const session=`visual-e05-${width}`;
+    const response=await fetch(`${base}/__reconstruction/reset`,{
+      method:'POST',
+      headers:{'content-type':'application/json','x-reconstruction-session':session},
+      body:JSON.stringify({encounter_id:'e05_mirror_courtyard'}),
+    });
+    check(response.ok,`${width}px: e05 dev reset failed`);
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width,height:844,deviceScaleFactor:1});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.click('#startRunButton');
+    await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
+    const clicked=await page.evaluate(()=>{
+      const target=document.getElementById('bossGlyph').textContent.trim();
+      const button=[...document.querySelectorAll('.strike-rune')]
+        .find(node=>node.textContent.trim()===target&&!node.disabled);
+      if(!button)return false;
+      button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+      return true;
+    });
+    check(clicked,`${width}px: e05 first target missing`);
+    await page.waitForFunction(()=>
+      document.querySelector('.tap-stage')?.classList.contains('signal')
+      && document.querySelector('.strike-rune.mirror-forbidden'),
+      {timeout:3000},
+    );
+    const metrics=await page.evaluate(()=>{
+      const target=document.getElementById('bossGlyph').textContent.trim();
+      const forbidden=document.querySelector('.strike-rune.mirror-forbidden');
+      const matching=[...document.querySelectorAll('.strike-rune')]
+        .find(node=>node.textContent.trim()===target&&!node.disabled);
+      return {
+        overflow:document.documentElement.scrollWidth-innerWidth,
+        objective:document.getElementById('objectiveValue').textContent.trim(),
+        forbiddenIsTarget:forbidden===matching,
+        forbiddenHeight:forbidden?.getBoundingClientRect().height||0,
+      };
+    });
+    check(metrics.overflow<=0,`${width}px: e05 overflow ${metrics.overflow}px`);
+    check(metrics.objective==='3/3',`${width}px: e05 ward counter ${metrics.objective}`);
+    check(!metrics.forbiddenIsTarget,`${width}px: e05 target stayed in forbidden slot`);
+    check(metrics.forbiddenHeight>=44,`${width}px: e05 forbidden target below 44px`);
+    check(errors.length===0,`${width}px: e05 browser errors ${errors.join(', ')}`);
+    if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-e05.png`,fullPage:true});
+    await page.close();
+  }
+
   // Ветвь с активным решением не добавляет старую панель способностей:
   // одна компактная кнопка меняет риск и сохраняет мобильную ширину.
   const branchSession='visual-branch-control';
