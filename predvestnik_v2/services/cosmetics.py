@@ -5,6 +5,7 @@ No bot.*/FastAPI.* imports. Только косметика — без игро�
 """
 import json
 import random
+import hashlib
 
 from core.cosmetics import (
     COSMETICS, COSMETIC_SLOTS, CURATED_LOOKS, LINEUPS,
@@ -15,6 +16,8 @@ from core.constants import (
     COSMETIC_CHESTS, COSMETIC_DUPE_SHARDS, COSMETIC_CRAFT_SHARDS,
 )
 from core.registry import ITEMS_REGISTRY
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
+from infrastructure.repositories.economy_ledger import apply_balance_change, find_balance_replay
 from services.vip import is_vip_active, is_vip_active_batch
 
 # Слот приветственной анимации в user_cosmetic_loadout (отдельно от носимой косметики;
@@ -328,7 +331,8 @@ async def unequip(db, user_id: int, slot: str) -> tuple[bool, str]:
 
 
 async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0,
-              price_override: dict | None = None) -> tuple[bool, str]:
+              price_override: dict | None = None,
+              idempotency_key: str | None = None) -> tuple[bool, str]:
     """Купить косметику за выбранный вариант оплаты (мульти/альт-валюта). Атомарно.
     price_override — СЕРВЕРНАЯ подмена цены (R4.2 Витрина недели: скидка считается
     на бэке, клиентской цене не доверяем); формат {"zarniki": 200}."""
@@ -338,8 +342,6 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0,
     price = cos.get("price")
     if not price:
         return False, "Эта косметика не продаётся — выдаётся за VIP / БП / достижения."
-    if cosmetic_id in await _owned(db, user_id):
-        return False, "Эта косметика у тебя уже есть."
     if price_override is not None:
         chosen = price_override
     else:
@@ -347,44 +349,65 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0,
             return False, "Некорректный вариант оплаты."
         chosen = price[option_index]
 
-    async with db.connection.transaction():
-        async with db.execute(
-            "SELECT COALESCE(user_balance_mora,0), COALESCE(user_balance_diamonds,0), "
-            "COALESCE(user_balance_dark_mora,0), COALESCE(user_balance_zarniki,0) "
-            "FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)
-        ) as c:
-            row = await c.fetchone()
-        bal = {"mora": float(row[0]), "diamonds": float(row[1]),
-               "dark_mora": float(row[2]), "zarniki": float(row[3])} if row else \
-              {"mora": 0.0, "diamonds": 0.0, "dark_mora": 0.0, "zarniki": 0.0}
-
-        for cur, amt in chosen.items():
-            if cur not in _CUR_COL:
-                return False, "Некорректная валюта цены."
-            if bal.get(cur, 0) < amt:
-                return False, (f"Недостаточно {_CUR_ICON[cur]}: нужно {int(amt)}, "
-                               f"есть {int(bal.get(cur, 0))}.")
-
-        for cur, amt in chosen.items():
-            col = _CUR_COL[cur]  # whitelisted, не пользовательский ввод
+    if any(cur not in _CUR_COL or amt <= 0 for cur, amt in chosen.items()):
+        return False, "Некорректная цена косметики."
+    deltas = {cur: -amt for cur, amt in chosen.items()}
+    price_hash = hashlib.sha256(
+        json.dumps(chosen, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()[:16]
+    reference_id = f"{cosmetic_id}:{price_hash}"
+    mutation = None
+    try:
+        async with db.connection.transaction():
             await db.execute(
-                f"UPDATE users SET {col} = {col} - ? WHERE user_tg_id = ?", (amt, user_id))
-
-        await db.execute(
-            "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
-            "ON CONFLICT DO NOTHING", (user_id, cosmetic_id))
+                "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
+            )
+            async with db.execute(
+                "SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)
+            ) as cursor:
+                await cursor.fetchone()
+            if idempotency_key:
+                mutation = await find_balance_replay(
+                    db, user_id, deltas,
+                    reason_code="cosmetic_purchase", idempotency_key=idempotency_key,
+                    source_type="cosmetics", reference_type="cosmetic_offer",
+                    reference_id=reference_id,
+                )
+            if mutation is None:
+                if cosmetic_id in await _owned(db, user_id):
+                    return False, "Эта косметика у тебя уже есть."
+                mutation = await apply_balance_change(
+                    db, user_id, deltas,
+                    reason_code="cosmetic_purchase", idempotency_key=idempotency_key,
+                    source_type="cosmetics", reference_type="cosmetic_offer",
+                    reference_id=reference_id,
+                    metadata={"cosmetic_id": cosmetic_id, "price": chosen},
+                    note=cosmetic_id,
+                )
+                await db.execute(
+                    "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
+                    "ON CONFLICT DO NOTHING", (user_id, cosmetic_id))
+    except InsufficientBalance:
+        paid = ", ".join(f"{int(amt)}{_CUR_ICON[cur]}" for cur, amt in chosen.items())
+        return False, f"Недостаточно средств: цена {paid}."
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другой покупки."
+    except Exception as error:
+        return False, f"Ошибка: {error}"
 
     # Ачивка «Модник» (fashionista) — считаем купленные предметы косметики.
     # Вне транзакции покупки: increment_metric открывает свою (самокоммит).
     try:
         from services.achievements import increment_metric
-        await increment_metric(db, user_id, "cosmetics_bought", delta=1.0)
-        await db.commit()
+        if mutation and mutation.applied:
+            await increment_metric(db, user_id, "cosmetics_bought", delta=1.0)
+            await db.commit()
     except Exception:
         pass
 
     paid = ", ".join(f"{int(amt)}{_CUR_ICON[cur]}" for cur, amt in chosen.items())
-    msg = f"🎨 Куплено: {cos['name']} ({paid})"
+    msg = (f"🎨 Куплено: {cos['name']} ({paid})" if mutation and mutation.applied
+           else f"Эта покупка уже обработана: {cos['name']}.")
     if cos.get("rarity", "common") != "common" and not await is_vip_active(db, user_id):
         msg += "\n\n⚠️ Эта косметика отображается только при активной VIP-подписке. Без VIP она сохранена в инвентаре, но не будет видна на профиле."
     return True, msg

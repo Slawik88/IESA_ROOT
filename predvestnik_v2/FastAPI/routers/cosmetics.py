@@ -6,7 +6,7 @@
 import os
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user, require_tab_enabled
@@ -52,8 +52,18 @@ class BuyRequest(BaseModel):
 
 
 @router.post("/buy")
-async def cosmetics_buy(body: BuyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg = await buy(db, user["id"], body.cosmetic_id, body.option_index)
+async def cosmetics_buy(
+    body: BuyRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+    request_key: str = Header(alias="Idempotency-Key"),
+):
+    if not request_key.strip() or len(request_key.strip()) > 120:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
+    ok, msg = await buy(
+        db, user["id"], body.cosmetic_id, body.option_index,
+        idempotency_key=f"cosmetic:{request_key.strip()}",
+    )
     if not ok:
         raise HTTPException(400, msg)
     await db.commit()
