@@ -22,6 +22,7 @@ from services import (  # noqa: E402
     reconstruction_combat,
     reconstruction_integrity,
     reconstruction_timing,
+    companions_v3,
 )
 
 
@@ -68,6 +69,7 @@ def _save_states() -> None:
 
 
 _STATES = _load_states()
+_COMPANION_STATES: dict[str, dict] = {}
 
 
 def _new_state(
@@ -129,15 +131,88 @@ class Handler(BaseHTTPRequestHandler):
             _save_states()
         return state
 
+    def _companion_state(self):
+        key = self._session_key()
+        value = _COMPANION_STATES.get(key)
+        if value is None:
+            value = {
+                "active_pet_id": 901,
+                "unlocked_roles": ["navigator", "gardener"],
+                "selected_role_id": "navigator",
+                "care": {"901": {"points": 6, "bank": 3, "last": "play"}},
+                "actions": {},
+            }
+            _COMPANION_STATES[key] = value
+        return value
+
+    def _companion_overview(self):
+        overview = companions_v3.preview_overview()
+        saved = self._companion_state()
+        overview["active_pet_id"] = saved["active_pet_id"]
+        overview["unlocked_roles"] = list(saved["unlocked_roles"])
+        overview["selected_role_id"] = saved["selected_role_id"]
+        for pet in overview["pets"]:
+            pet["active_companion"] = pet["id"] == saved["active_pet_id"]
+            care = saved["care"].get(str(pet["id"]))
+            if care:
+                pet["bond"] = companions_v3.bond_progress(care["points"])
+                pet["care_bank"] = care["bank"]
+                pet["last_care_action"] = care["last"]
+        return overview
+
     def do_GET(self):
         if self.path == "/manifest":
             return self._send(200, reconstruction.content_manifest())
         if self.path == "/state":
             with _LOCK:
                 return self._send(200, reconstruction_combat.public_state(self._state()))
+        if self.path == "/companions":
+            return self._send(200, self._companion_overview())
         return self._send(404, {"detail": "Локальный маршрут не найден."})
 
     def do_POST(self):
+        if self.path.startswith("/companions/"):
+            body = self._body()
+            if not isinstance(body, dict):
+                return self._send(400, {"detail": "Ожидался JSON-объект действия."})
+            with _LOCK:
+                state = self._companion_state()
+                overview = self._companion_overview()
+                pet_ids = {pet["id"] for pet in overview["pets"]}
+                if self.path == "/companions/active":
+                    pet_id = body.get("pet_id")
+                    if pet_id not in pet_ids:
+                        return self._send(400, {"detail": "Питомец не найден."})
+                    state["active_pet_id"] = pet_id
+                    return self._send(200, self._companion_overview())
+                if self.path == "/companions/role":
+                    role_id = str(body.get("role_id") or "")
+                    valid = {role["id"] for role in overview["policy"]["roles"]}
+                    if role_id not in valid:
+                        return self._send(400, {"detail": "Неизвестная роль."})
+                    if role_id not in state["unlocked_roles"]:
+                        if len(state["unlocked_roles"]) >= overview["role_slots"]:
+                            return self._send(409, {"detail": "Следующий выбор откроется на 15 meaningful-дне."})
+                        state["unlocked_roles"].append(role_id)
+                    state["selected_role_id"] = role_id
+                    return self._send(200, self._companion_overview())
+                if self.path == "/companions/care":
+                    pet_id = body.get("pet_id")
+                    action = str(body.get("action") or "")
+                    action_id = str(body.get("action_id") or "")
+                    if pet_id not in pet_ids or action not in companions_v3.CARE_ACTIONS:
+                        return self._send(400, {"detail": "Действие заботы отклонено."})
+                    if action_id in state["actions"]:
+                        return self._send(200, state["actions"][action_id])
+                    care = state["care"].setdefault(str(pet_id), {"points": 0, "bank": 1, "last": None})
+                    if care["bank"] <= 0:
+                        return self._send(409, {"detail": "Запас заботы пуст. Возможность вернётся через 48 часов."})
+                    care["bank"] -= 1
+                    care["points"] += 1
+                    care["last"] = action
+                    response = {"ok": True, "economic_reward": None}
+                    state["actions"][action_id] = response
+                    return self._send(200, response)
         if self.path == "/reset":
             with _LOCK:
                 body = self._body()
