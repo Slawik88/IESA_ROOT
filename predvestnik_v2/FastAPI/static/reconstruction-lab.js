@@ -322,6 +322,8 @@
       button.setAttribute('aria-label', `${button.dataset.targetSlot}: руна ${symbol}`);
       button.classList.toggle('seam-stored', state.branch_state?.stored_seam_slot === button.dataset.targetSlot);
       button.classList.toggle('forbidden', state.branch_state?.forbidden_slot === button.dataset.targetSlot);
+      button.classList.toggle('mirror-forbidden', state.objective_state?.kind === 'mirror_rule'
+        && state.objective_state?.forbidden_slot === button.dataset.targetSlot);
     });
   }
 
@@ -485,10 +487,13 @@
     const ink = objectiveKind === 'ink_decipher';
     const ash = objectiveKind === 'ash_fire';
     const sequence = objectiveKind === 'drowned_sequence';
+    const mirror = objectiveKind === 'mirror_rule';
     const next = progress?.next_step;
     document.getElementById('resultMark').textContent = won ? '✦' : '◌';
     document.getElementById('resultEyebrow').textContent = won ? 'ВСТРЕЧА ПРОЙДЕНА' : 'ВСТРЕЧА НЕ ПРОЙДЕНА';
-    document.getElementById('resultTitle').textContent = sequence
+    document.getElementById('resultTitle').textContent = mirror
+      ? (won ? 'Переписчик отступил' : 'Зеркала сомкнулись')
+      : sequence
       ? (won ? 'Имена освобождены' : 'Цепочка утрачена')
       : ink
       ? (won ? 'Настоящие имена прочитаны' : 'Отражения победили')
@@ -496,7 +501,11 @@
       : lantern
       ? (won ? 'Фонарь достиг ворот' : 'Фонарь не дошёл')
       : (won ? 'Колокол отвечает тебе' : 'Эхо погасло');
-    document.getElementById('resultCopy').textContent = sequence
+    document.getElementById('resultCopy').textContent = mirror
+      ? (won
+        ? 'Ты читал перестановку и каждый раз менял позицию, не превращая бой в привычный ритм.'
+        : 'После ответа выбранная позиция временно запрещена. Ищи тот же знак в новом месте.')
+      : sequence
       ? (won
         ? 'Ты удержал порядок без подсказки и разорвал все три якоря.'
         : 'Сначала смотри всю цепочку. Во время ответа важен порядок, а не скорость нажатий.')
@@ -528,6 +537,7 @@
     if (ink) stats.splice(0, 1, [`${number(state.objective_state.clarity)}%`, 'ясность']);
     if (ash) stats.splice(0, 1, [`${number(state.objective_state.fire_integrity)}%`, 'огонь']);
     if (sequence) stats.splice(0, 1, [`${number(state.objective_state.anchors_broken)}/${number(state.objective_state.anchors_total)}`, 'якоря']);
+    if (mirror) stats.splice(0, 1, [`${number(state.objective_state.wards)}/${number(state.objective_state.wards_max)}`, 'печати']);
     document.getElementById('resultStats').innerHTML = stats
       .map(([value, label]) => `<span><strong>${esc(value)}</strong>${esc(label)}</span>`).join('');
     const previewContinues = !production && won && state.encounter_id === 'e01_two_bells';
@@ -607,6 +617,10 @@
       eyebrow: 'ХРОНИКА · ВСТРЕЧА 4', title: nextEncounter.name,
       copy: nextEncounter.objective.description, waves: '3', time: '≈ 2 мин', goal: 'память',
       note: 'Порядок', noteCopy: 'Сначала запомни всю цепочку. Во время ответа центральная подсказка исчезает.',
+    } : nextEncounter?.id === 'e05_mirror_courtyard' ? {
+      eyebrow: 'ХРОНИКА · ВСТРЕЧА 5', title: nextEncounter.name,
+      copy: nextEncounter.objective.description, waves: '3', time: '≈ 2 мин', goal: 'позиции',
+      note: 'Запрет', noteCopy: 'Последняя точная позиция отмечается. Правильный знак всегда будет в другом месте.',
     } : {
       eyebrow: 'ХРОНИКА · ВСТРЕЧА 1', title: nextEncounter?.name || 'Разлом колокола',
       copy: nextEncounter?.objective?.description || 'Три короткие волны. Смотри на знак в центре и находи такой же среди трёх рун.',
@@ -658,6 +672,7 @@
       ink_decipher: ['ЯСНОСТЬ', 'clarity', 'clarity_max', 'ink', 'percent'],
       ash_fire: ['ОГОНЬ', 'fire_integrity', 'fire_integrity_max', 'ash', 'percent'],
       drowned_sequence: ['ЯКОРИ', 'anchors_broken', 'anchors_total', 'memory', 'fraction'],
+      mirror_rule: ['ПЕЧАТИ', 'wards', 'wards_max', 'mirror', 'fraction'],
     }[objective.kind];
     objectiveMeter.hidden = !objectiveConfig;
     objectiveMeter.className = `objective-meter${objectiveConfig?.[3] ? ` ${objectiveConfig[3]}` : ''}`;
@@ -685,10 +700,15 @@
     const indicator = document.getElementById('windowIndicator').querySelector('span');
     const timerHidden = Boolean(state.branch_state?.hide_signal_timer && signalActive);
     document.getElementById('windowIndicator').classList.toggle('timer-hidden', timerHidden);
+    const mirror = objective.kind === 'mirror_rule';
+    const forbiddenSlot = objective.forbidden_slot;
+    const slotNames = {left: 'левая',center: 'средняя',right: 'правая'};
     indicator.textContent = sequencePreview
       ? `Запомни · ${Math.max(1, Number(objective.preview_index) + 1)} из ${number(objective.sequence_length)}`
       : sequence && signalActive
         ? `Повтори · знак ${number(Number(objective.answer_index) + 1)} из ${number(objective.sequence_length)}`
+      : mirror && signalActive && forbiddenSlot
+        ? `Запрет: ${slotNames[forbiddenSlot] || forbiddenSlot} позиция`
       : timerHidden ? 'Течение скрывает остаток окна'
       : state.critical_active
       ? '✦ ЗОЛОТОЕ ОКНО · БОНУС ЗА МОМЕНТ'
@@ -696,9 +716,11 @@
     const family = state.branch_state?.family_preview;
     document.getElementById('corePrompt').textContent = sequencePreview ? 'ЗАПОМНИ'
       : sequence && signalActive ? 'ПОВТОРИ'
+      : mirror && signalActive && forbiddenSlot ? 'СМЕНИ ПОЗИЦИЮ'
       : reflection ? 'ОТРАЖЕНИЕ' : family ? 'КАРТА' : signalActive ? 'НАЙДИ ЗНАК' : 'СЛУШАЙ';
     document.getElementById('coreHint').textContent = sequencePreview ? 'ответ появится после всей цепочки'
       : sequence && signalActive ? 'центральной подсказки больше нет'
+      : mirror && signalActive && forbiddenSlot ? 'запрет отмечен на рунах'
       : reflection ? 'не нажимай · дождись настоящего' : family ? `семейство: ${family}` : signalActive ? 'одна попытка на сигнал' : 'затем найди такой же знак';
     core.setAttribute('aria-label', sequencePreview && objective.preview_symbol
       ? `Запомни руну ${objective.preview_symbol}`

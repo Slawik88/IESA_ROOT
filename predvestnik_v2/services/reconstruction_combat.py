@@ -123,12 +123,31 @@ E04_WAVES: tuple[dict[str, Any], ...] = (
     },
 )
 
+E05_WAVES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "first_mirror", "name": "Зеркало первого шага",
+        "subtitle": "Выбранная позиция станет запретной для следующего знака", "emoji": "◫",
+        "hp": 1700.0, "duration_ms": 30000, "signal_ms": 1350,
+    },
+    {
+        "id": "copyist_mirror", "name": "Зеркало Переписчика",
+        "subtitle": "Следи за знаком и не возвращайся в отмеченную ячейку", "emoji": "▱",
+        "hp": 2350.0, "duration_ms": 37000, "signal_ms": 1150,
+    },
+    {
+        "id": "courtyard_mirror", "name": "Сердце Зеркального двора",
+        "subtitle": "Последняя печать проверяет выбор, а не скорость", "emoji": "▣",
+        "hp": 3150.0, "duration_ms": 45000, "signal_ms": 980,
+    },
+)
+
 ENCOUNTER_WAVES: dict[str, tuple[dict[str, Any], ...]] = {
     "e01_two_bells": E01_WAVES,
     "e02_shattered_causeway": E02_WAVES,
     "e03_ink_path": E03_INK_WAVES,
     "e03_ash_path": E03_ASH_WAVES,
     "e04_drowned_names": E04_WAVES,
+    "e05_mirror_courtyard": E05_WAVES,
 }
 
 SEQUENCE_LENGTHS = tuple(ENCOUNTERS["e04_drowned_names"]["objective"]["sequence_lengths"])
@@ -255,6 +274,17 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
         target, options, delay = _forced_challenge_data(state, sequence, target)
     else:
         target, options, delay = _challenge_data(state, sequence)
+    if objective.get("kind") == "mirror_rule" and objective.get("forbidden_slot"):
+        correct_index = next(
+            index for index, option in enumerate(options)
+            if option["symbol"] == target
+        )
+        forbidden_index = RUNE_SLOTS.index(str(objective["forbidden_slot"]))
+        if correct_index == forbidden_index:
+            swap_index = (forbidden_index + 1 + _mix(state["seed"] + 1771, sequence) % 2) % 3
+            options[correct_index]["symbol"], options[swap_index]["symbol"] = (
+                options[swap_index]["symbol"], options[correct_index]["symbol"],
+            )
     now = int(state["wave"]["elapsed_ms"])
     if first:
         delay = 420 if objective.get("kind") == "drowned_sequence" else 650
@@ -428,6 +458,17 @@ def new_encounter(
         state["log"] = [
             "⌁ Запомни цепочку, затем повтори её по порядку. Во время ответа подсказки исчезнут."
         ]
+    elif encounter_id == "e05_mirror_courtyard":
+        state["objective_state"] = {
+            "kind": "mirror_rule",
+            "forbidden_slot": None,
+            "wards": 3,
+            "wards_max": 3,
+            "repeat_violations": 0,
+        }
+        state["log"] = [
+            "◫ После точного ответа выбранная позиция закрывается до следующего знака."
+        ]
     state["wave"] = _wave_runtime(state, 0, 0)
     if encounter_id == "e04_drowned_names":
         _begin_sequence_preview(state)
@@ -486,6 +527,7 @@ def _complete_wave(state: dict[str, Any]) -> None:
                 "ink_decipher": ("true_names_read", "Настоящие имена прочитаны"),
                 "ash_fire": ("fire_carried", "Огонь сохранён"),
                 "drowned_sequence": ("drowned_names_released", "Имена освобождены"),
+                "mirror_rule": ("courtyard_crossed", "Переписчик отступил"),
             }
             outcome_reason, victory_label = outcomes.get(
                 str(objective.get("kind")), ("all_echoes_broken", "Колокол отвечает тебе")
@@ -531,6 +573,8 @@ def _start_next_wave(state: dict[str, Any]) -> None:
         objective["attempts_left"] = int(objective["attempts_max"])
         _begin_sequence_preview(state)
     else:
+        if objective.get("kind") == "mirror_rule":
+            objective["forbidden_slot"] = None
         _schedule_challenge(state, first=True)
     state["log"].append(f"⚔️ Волна {state['round']}: {state['wave']['name']}.")
     _emit(state, "wave_start", state["wave"]["name"], wave=state["round"])
@@ -562,7 +606,9 @@ def _consume_manual_discharge_window(state: dict[str, Any], challenge_id: int) -
     state["log"].append("◌ Безмолвный разряд не выпущен: половина Импульса ушла.")
 
 
-def _miss_signal(state: dict[str, Any], *, wrong_tap: bool) -> None:
+def _miss_signal(
+    state: dict[str, Any], *, wrong_tap: bool, selected_slot: str | None = None
+) -> None:
     challenge_id = int((state.get("challenge") or {}).get("id", 0))
     charge_before = float(state["team"]["charge"])
     guarded = False
@@ -635,6 +681,20 @@ def _miss_signal(state: dict[str, Any], *, wrong_tap: bool) -> None:
         _consume_manual_discharge_window(state, challenge_id)
         _emit(state, "miss", "ЦЕПОЧКА СНАЧАЛА")
         return
+    elif objective.get("kind") == "mirror_rule":
+        objective["wards"] = max(0, int(objective["wards"]) - 1)
+        repeated = bool(
+            wrong_tap and selected_slot and selected_slot == objective.get("forbidden_slot")
+        )
+        if repeated:
+            objective["repeat_violations"] = int(objective.get("repeat_violations", 0)) + 1
+            label = "ЗЕРКАЛО НАКАЗАЛО ПОВТОР"
+        if objective["wards"] <= 0:
+            state["status"] = "lost"
+            state["outcome_reason"] = "mirror_wards_broken"
+            state["challenge"] = None
+            _emit(state, "defeat", "Зеркала сомкнулись")
+            return
     _consume_manual_discharge_window(state, challenge_id)
     branch = _branch_state(state)
     if (
@@ -773,7 +833,7 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     )
     correct = option["symbol"] == challenge["target_symbol"]
     if not correct:
-        _miss_signal(state, wrong_tap=True)
+        _miss_signal(state, wrong_tap=True, selected_slot=slot)
         return {
             "accepted": True,
             "correct": False,
@@ -815,6 +875,8 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
             objective["anchors_broken"] = min(
                 int(objective["anchors_total"]), int(objective["anchors_broken"]) + 1
             )
+    elif objective.get("kind") == "mirror_rule":
+        objective["forbidden_slot"] = slot
     if (
         objective.get("kind") == "lantern_escort"
         and state["combo"]["count"] % 5 == 0

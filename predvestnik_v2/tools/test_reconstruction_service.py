@@ -219,7 +219,7 @@ async def main():
         return fake_clock["now"]
 
     service.timing.server_now_ms = server_now_ms
-    seeded_runs = iter((101, 202, 303, 404, 505))
+    seeded_runs = iter((101, 202, 303, 404, 505, 606))
     service.secrets.randbelow = lambda _upper: next(seeded_runs)
     for name in (
         "lock_user", "get_progress", "ensure_progress", "save_progress",
@@ -568,15 +568,46 @@ async def main():
             })
         assert result["status"] == "won"
         assert result["outcome_reason"] == "drowned_names_released"
-        assert result["next_step"]["type"] == "development_gate"
-        assert result["next_step"]["practice_encounter_id"] == "e04_drowned_names"
+        assert result["next_step"]["type"] == "play_encounter"
+        assert result["next_step"]["encounter_id"] == "e05_mirror_courtyard"
         assert memory.progress["current_encounter"] == "e05_mirror_courtyard"
+
+        fifth = await service.start_encounter(db, user_id, "e05_mirror_courtyard")
+        assert fifth["seed"] == 506
+        assert fifth["objective_state"]["kind"] == "mirror_rule"
+        run_id = fifth["run_id"]
+        result = fifth
+        guard = 0
+        while memory.runs[run_id]["state"]["status"] not in {"won", "lost"} and guard < 1800:
+            guard += 1
+            state = memory.runs[run_id]["state"]
+            if state["status"] == "reward":
+                result = await apply({
+                    "type": "choose_upgrade",
+                    "upgrade_id": state["reward_options"][0]["id"],
+                })
+                continue
+            challenge = state.get("challenge")
+            if not challenge or not challenge["active"]:
+                result = await apply({"type": "frame", "delta_ms": 100})
+                continue
+            slot = next(
+                option["slot"] for option in challenge["options"]
+                if option["symbol"] == challenge["target_symbol"]
+            )
+            result = await apply({
+                "type": "strike", "challenge_id": challenge["id"], "target_slot": slot,
+            })
+        assert result["status"] == "won" and result["outcome_reason"] == "courtyard_crossed"
+        assert result["next_step"]["type"] == "development_gate"
+        assert result["next_step"]["practice_encounter_id"] == "e05_mirror_courtyard"
+        assert memory.progress["current_encounter"] == "e06_archivist"
 
         practice = await service.start_encounter(
             db, user_id, "e03_ash_path", practice=True
         )
         assert practice["run_kind"] == "practice" and practice["resumed"] is False
-        assert practice["seed"] == 506
+        assert practice["seed"] == 607
         practice_id = practice["run_id"]
         assert practice["unit_branches"] == {"r_red_seam": ["seam_forbidden_repeat"]}
         toggled = await service.apply_run_action(
@@ -599,7 +630,7 @@ async def main():
         assert cancelled["shadow_reward"]["eligible"] is False
         assert cancelled["shadow_reward"]["reason"] == "practice"
         assert cancelled["shadow_reward"]["projected"]["mora"] == 0
-        assert len(memory.shadow_rows) == 5
+        assert len(memory.shadow_rows) == 6
         assert memory.runs[practice_id]["status"] == "cancelled"
         cancel_events = [
             event for event in memory.events.values()

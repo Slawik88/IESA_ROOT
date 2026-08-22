@@ -13,7 +13,7 @@ from typing import Any, Final
 
 
 GAME_VERSION: Final = "3.0.0-alpha.3"
-BALANCE_VERSION: Final = "r7-2026-08-22-drowned-sequences"
+BALANCE_VERSION: Final = "r8-2026-08-22-mirror-courtyard"
 FEATURE_FLAG_KEY: Final = "game_reconstruction_v1"
 CAMPAIGN_ID: Final = "echoes_of_the_drowned_bell"
 
@@ -244,11 +244,13 @@ ENCOUNTERS: dict[str, dict[str, Any]] = {
     "e05_mirror_courtyard": {
         "order": 5,
         "name": "Зеркальный двор",
-        "implemented": False,
+        "implemented": True,
         "objective": {
             "type": "duel_rule",
             "description": "Победить Переписчика, который запрещает повторять последнюю выбранную позицию.",
-            "round_limit": 10,
+            "waves": 3,
+            "round_limit": 3,
+            "mirror_wards": 3,
         },
         "teaches": ("чтение перестановки", "смена позиции", "адаптация серии"),
         "mastery": "Не получить ни одной кары за повтор позиции.",
