@@ -116,6 +116,65 @@ try{
     await page.close();
   }
 
+  // Ветвь с активным решением не добавляет старую панель способностей:
+  // одна компактная кнопка меняет риск и сохраняет мобильную ширину.
+  const branchSession='visual-branch-control';
+  const branchReset=await fetch(`${base}/__reconstruction/reset`,{
+    method:'POST',
+    headers:{'content-type':'application/json','x-reconstruction-session':branchSession},
+    body:JSON.stringify({
+      encounter_id:'e01_two_bells',
+      unit_branches:{r_red_seam:'seam_forbidden_repeat'},
+    }),
+  });
+  check(branchReset.ok,'branch UI: dev reset failed');
+  const branchPage=await browser.newPage();
+  await branchPage.setViewport({width:320,height:844,deviceScaleFactor:1});
+  await branchPage.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),branchSession);
+  await branchPage.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+  await branchPage.waitForSelector('#menuLayer:not([hidden])');
+  await branchPage.click('#startRunButton');
+  await branchPage.waitForSelector('[data-combat-command="forbidden_toggle"]');
+  const branchButtonHeight=await branchPage.$eval('[data-combat-command="forbidden_toggle"]',node=>node.getBoundingClientRect().height);
+  check(branchButtonHeight>=40&&branchButtonHeight<=44,`branch UI: control height ${branchButtonHeight}px`);
+  await branchPage.click('[data-combat-command="forbidden_toggle"]');
+  await branchPage.waitForSelector('[data-combat-command="forbidden_toggle"].risk-on');
+  const branchOverflow=await branchPage.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+  check(branchOverflow<=0,`branch UI: overflow ${branchOverflow}px`);
+  await branchPage.close();
+
+  const vowSession='visual-vow-decision';
+  const vowReset=await fetch(`${base}/__reconstruction/reset`,{
+    method:'POST',
+    headers:{'content-type':'application/json','x-reconstruction-session':vowSession},
+    body:JSON.stringify({
+      encounter_id:'e01_two_bells',
+      unit_branches:{r_oath_bell:'bell_broken_vow'},
+    }),
+  });
+  check(vowReset.ok,'vow UI: dev reset failed');
+  const vowPage=await browser.newPage();
+  await vowPage.setViewport({width:390,height:844,deviceScaleFactor:1});
+  await vowPage.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),vowSession);
+  await vowPage.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+  await vowPage.click('#startRunButton');
+  await vowPage.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'));
+  await vowPage.evaluate(()=>{
+    const target=document.getElementById('bossGlyph').textContent.trim();
+    const wrong=[...document.querySelectorAll('.strike-rune')]
+      .find(node=>node.textContent.trim()!==target&&!node.disabled);
+    wrong.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+  });
+  await vowPage.waitForSelector('[data-combat-command="vow_keep"]');
+  const vowModals=await vowPage.evaluate(()=>
+    ['menuLayer','pauseLayer','choiceLayer','resultLayer']
+      .filter(id=>!document.getElementById(id).hidden));
+  check(vowModals.join(',')==='choiceLayer',`vow UI: wrong modal ${vowModals.join(',')}`);
+  await vowPage.click('[data-combat-command="vow_keep"]');
+  await vowPage.waitForSelector('#choiceLayer[hidden]');
+  check(await vowPage.$eval('#menuLayer',node=>node.hidden),'vow UI: returned to menu instead of battle');
+  await vowPage.close();
+
   // Сквозная формула точности: UI обязан повторять server state, а нулевое
   // количество сигналов не должно выглядеть как заработанные 100%.
   const accuracyPage=await browser.newPage();

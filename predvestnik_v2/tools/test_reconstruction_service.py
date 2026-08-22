@@ -39,6 +39,7 @@ class MemoryRepo:
         self.shadow_rows = []
         self.mastery_proofs = {}
         self.unit_branches = {}
+        self.unit_progress_rows = []
         self.stats = service.repo.empty_stats()
         self.next_id = 1
 
@@ -175,7 +176,7 @@ class MemoryRepo:
         return copy.deepcopy(self.stats)
 
     async def list_unit_progress(self, _db, _user_id, _game_version):
-        return []
+        return copy.deepcopy(self.unit_progress_rows)
 
     async def get_mastery_proofs(self, _db, _user_id, _game_version):
         return copy.deepcopy(self.mastery_proofs)
@@ -486,12 +487,28 @@ async def main():
         assert overview["stats"]["runs_started"] == 2
         assert overview["stats"]["runs_won"] == 2
 
+        memory.unit_progress_rows = [
+            service.unit_progress_view(
+                "r_red_seam", 1190, {"5": "seam_forbidden_repeat"}
+            )
+        ]
         practice = await service.start_encounter(
             db, user_id, "e02_shattered_causeway", practice=True
         )
         assert practice["run_kind"] == "practice" and practice["resumed"] is False
         assert practice["seed"] == 304
         practice_id = practice["run_id"]
+        assert practice["unit_branches"] == {"r_red_seam": ["seam_forbidden_repeat"]}
+        toggled = await service.apply_run_action(
+            db, user_id, practice_id, "branch-toggle", 0,
+            {"type": "branch_action", "command": "forbidden_toggle", "enabled": True},
+        )
+        assert toggled["branch_state"]["forbidden_mode"] is True
+        assert any(
+            event["event_name"] == "battle_branch_action"
+            and event["payload"]["branch_id"] == "seam_forbidden_repeat"
+            for event in memory.events.values()
+        )
         cancelled = await service.cancel_run(db, user_id, practice_id)
         cancelled_again = await service.cancel_run(db, user_id, practice_id)
         assert cancelled["idempotent_replay"] is False

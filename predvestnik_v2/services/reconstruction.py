@@ -268,9 +268,16 @@ async def start_encounter(
         # Новый забег обязан получать новый непредсказуемый seed. Привязка seed к
         # user_id делала все повторы одного игрока одинаковыми и превращала
         # записанный макрос в готовое решение будущих забегов.
+        unit_progress = await unit_repo.list_progress(db, user_id, GAME_VERSION)
+        selected_branches = {
+            item["unit_id"]: list(item["branch_choices"].values())
+            for item in unit_progress
+            if item["branch_choices"]
+        }
         state = combat.new_encounter(
             encounter_id,
             seed=secrets.randbelow(2**31 - 1) + 1,
+            unit_branches=selected_branches,
         )
         timing.attach_server_clock(state)
         state["run_kind"] = "practice" if practice else "campaign"
@@ -293,11 +300,25 @@ async def start_encounter(
                 ),
                 "encounter_id": encounter_id,
                 "squad": list(STARTER_UNITS),
-                "levels": {unit_id: 1 for unit_id in STARTER_UNITS},
+                "levels": {
+                    unit_id: next(
+                        (
+                            int(item["level"])
+                            for item in unit_progress
+                            if item["unit_id"] == unit_id
+                        ),
+                        1,
+                    )
+                    for unit_id in STARTER_UNITS
+                },
                 # У стартового отряда Reconstruction пока нет канонического CP.
                 # None честнее выдуманного числа и явно показывает пробел модели.
                 "combat_power": None,
-                "modifiers": [],
+                "modifiers": sorted(
+                    branch_id
+                    for branch_ids in selected_branches.values()
+                    for branch_id in branch_ids
+                ),
             },
             idempotency_key=f"run:{run_id}:started",
         )
@@ -506,6 +527,11 @@ async def apply_run_action(
                     "server_revision": new_revision,
                     "integrity_status": integrity.verdict(state)["status"],
                     "legal_options_count": len(challenge_before.get("options") or []),
+                    "branch_results": {
+                        key: strike[key]
+                        for key in ("seam_result", "forbidden_result")
+                        if strike.get(key) is not None
+                    },
                 },
                 idempotency_key=f"run:{run_id}:action:{action_id}",
             )
@@ -524,6 +550,27 @@ async def apply_run_action(
                     "round": round_before,
                     "upgrade_id": str(action.get("upgrade_id") or ""),
                     "offered_ids": offered_before,
+                    "server_revision": new_revision,
+                },
+                idempotency_key=f"run:{run_id}:action:{action_id}",
+            )
+        elif action_type == "branch_action":
+            await event_repo.record_event(
+                db,
+                user_id=user_id,
+                event_name="battle_branch_action",
+                game_version=GAME_VERSION,
+                balance_version=BALANCE_VERSION,
+                run_id=run_id,
+                source=source,
+                payload={
+                    "mode": run_mode,
+                    "encounter_id": run["encounter_id"],
+                    "round": round_before,
+                    "branch_id": str(result.get("branch") or ""),
+                    "command": str(action.get("command") or ""),
+                    "result": str(result.get("result") or ""),
+                    "damage": result.get("damage"),
                     "server_revision": new_revision,
                 },
                 idempotency_key=f"run:{run_id}:action:{action_id}",
@@ -577,6 +624,11 @@ async def apply_run_action(
                     "metrics": state["mastery"],
                     "terminal_result": terminal,
                     "shadow_reward": shadow_reward,
+                    "branches": sorted(
+                        branch_id
+                        for raw in (state.get("unit_branches") or {}).values()
+                        for branch_id in (raw if isinstance(raw, list) else [raw])
+                    ),
                 },
                 idempotency_key=f"run:{run_id}:ended",
             )

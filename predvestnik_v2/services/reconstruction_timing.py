@@ -90,7 +90,12 @@ def server_timed_action(
     discarded = 0
     resumed_after_idle = False
     reason = "non_frame"
-    if action_type in {"frame", "strike"}:
+    branch_command = str(action.get("command") or "")
+    timed_branch_action = (
+        action_type == "branch_action"
+        and branch_command not in {"vow_keep", "vow_release"}
+    )
+    if action_type in {"frame", "strike"} or timed_branch_action:
         if initialized:
             reason = "clock_initialized"
         elif clock_rebased:

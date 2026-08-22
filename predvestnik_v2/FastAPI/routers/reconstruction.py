@@ -21,11 +21,17 @@ class StartBody(BaseModel):
 class ActionBody(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
     expected_revision: int = Field(ge=0)
-    type: Literal["frame", "strike", "choose_upgrade"]
+    type: Literal["frame", "strike", "choose_upgrade", "branch_action"]
     delta_ms: int | None = Field(default=None, ge=0, le=500)
     upgrade_id: str | None = None
     challenge_id: int | None = Field(default=None, ge=1)
     target_slot: Literal["left", "center", "right"] | None = None
+    command: Literal[
+        "vow_keep", "vow_release", "manual_discharge",
+        "forbidden_toggle", "tide_swap",
+    ] | None = None
+    decision_id: str | None = Field(default=None, max_length=96)
+    enabled: bool | None = None
 
 
 class MemoryBody(BaseModel):
