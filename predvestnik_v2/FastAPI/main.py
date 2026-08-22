@@ -45,6 +45,7 @@ from infrastructure.repositories.reconstruction import ensure_tables as ensure_r
 from infrastructure.repositories.gameplay_events import ensure_table as ensure_gameplay_events
 from infrastructure.repositories.economy_ledger import ensure_tables as ensure_economy_ledger
 from infrastructure.repositories.economy_shadow import ensure_table as ensure_economy_shadow
+from infrastructure.repositories.reconstruction_units import ensure_tables as ensure_reconstruction_units
 from loguru import logger as _log
 
 
@@ -85,6 +86,7 @@ async def lifespan(app: FastAPI):
             (ensure_gameplay_events,          "gameplay_events"),
             (ensure_economy_ledger,           "economy_ledger"),
             (ensure_economy_shadow,           "economy_shadow_rewards"),
+            (ensure_reconstruction_units,     "reconstruction_unit_progress"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
