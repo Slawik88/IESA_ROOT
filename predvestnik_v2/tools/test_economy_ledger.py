@@ -40,6 +40,7 @@ from infrastructure.repositories.economy import (  # noqa: E402
     exchange_zarniki,
     spend_diamonds,
     spend_mora,
+    transfer_currency,
 )
 
 
@@ -515,6 +516,28 @@ async def _assert_dynamic_reference_replay():
         raise AssertionError("Dynamic replay accepted a different reference")
 
 
+async def _assert_direct_transfers_are_closed():
+    class NoDatabaseAccess:
+        def __getattr__(self, name):
+            raise AssertionError(f"Closed transfer attempted database access: {name}")
+
+    ok, message = await transfer_currency(
+        NoDatabaseAccess(), 1, 2, "zarniki", 999, chat_id=-100,
+    )
+    assert ok is False
+    assert "Прямые переводы валют отключены" in message
+
+    repository = (ROOT / "infrastructure/repositories/economy.py").read_text(encoding="utf-8")
+    transfer_block = repository[
+        repository.index("async def transfer_currency("):
+        repository.index("async def transfer_mora(")
+    ]
+    assert "UPDATE users SET" not in transfer_block
+    ai = (ROOT / "services/ai_assistant.py").read_text(encoding="utf-8")
+    exposed_tools = ai[ai.index("_TOOLS ="):ai.index("# ── Динамические темы")]
+    assert '"name": "propose_transfer"' not in exposed_tools
+
+
 async def main():
     _assert_contract_validation()
     _assert_schema_and_boundaries_wired()
@@ -522,6 +545,7 @@ async def main():
     await _assert_exchange_retry_ignores_consumed_balance()
     await _assert_shop_and_spend_use_one_ledger_operation()
     await _assert_dynamic_reference_replay()
+    await _assert_direct_transfers_are_closed()
     print("economy ledger tests: OK")
 
 
