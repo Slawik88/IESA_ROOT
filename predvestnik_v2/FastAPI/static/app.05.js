@@ -292,79 +292,41 @@ function switchTop(mode, btn) {
     .catch(e => { el('top-c').innerHTML=`<div class="err">${e}</div>`; });
 }
 
-// ── Обмен Моры ↔ Алмазов (постоянный обменник, БЛОК 2.2) ─────────────────────
+// ── Роли Моры и Алмазов (owner-v3: прямого обмена больше нет) ────────────────
 let _exchData = null;
-// Вкладка «Обмен» в pg-auction — постоянная инфо-панель + кнопка открытия модалки.
+// Старый вход сохранён как понятная памятка, чтобы не оставлять мёртвую вкладку.
 function loadExchange() {
   el('mkt-exch').innerHTML='<div class="loader">Загрузка...</div>';
   api('/exchange/').then(d=>{
     _exchData = d;
-    el('mkt-exch').innerHTML=`<div class="card card-gold">
-      <div style="text-align:center;padding:12px 0 8px">
-        <div style="font-size:34px;margin-bottom:6px">💱</div>
-        <div style="font-size:15px;font-weight:700;color:var(--bright)">Обменник валют</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Доступен всегда</div>
+    el('mkt-exch').innerHTML=`<div class="card">
+      <div style="padding:4px 0 8px">
+        <div style="font-size:15px;font-weight:700;color:var(--bright)">${d.title}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">${d.blocked_rule}</div>
       </div>
       <div class="divider"></div>
       <div class="irow"><span class="ik">Ваш баланс</span><span>${fmt(d.mora)} 🪙 · ${d.diamonds.toFixed(1)} 💎</span></div>
-      <div class="irow"><span class="ik">🛒 Покупка 💎</span><span style="color:var(--gold)">${fmt(d.rate)} 🪙 = 1 💎</span></div>
-      <div class="irow"><span class="ik">💸 Продажа 💎</span><span style="color:var(--teal)">1 💎 = ${fmt(d.sell_rate)} 🪙</span></div>
-      <div class="irow"><span class="ik">Лимит покупки</span><span>${d.remaining.toFixed(0)} / ${d.daily_cap.toFixed(0)} 💎</span></div>
-      <div class="irow"><span class="ik">Лимит продажи</span><span>${d.sell_remaining.toFixed(0)} / ${d.sell_daily_cap.toFixed(0)} 💎</span></div>
-      <button class="btn btn-gold btn-full" style="margin-top:12px" onclick="openExchangeCurrencyModal('buy')">💱 Обменять</button>
-      <div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:8px">Продажа дешевле покупки (спред) — 💎 остаётся премиум-валютой.</div>
+      <div class="irow"><span class="ik">🪙 Мора</span><span>${d.mora_rule}</span></div>
+      <div class="irow"><span class="ik">💎 Алмазы</span><span>${d.diamonds_rule}</span></div>
     </div>
-    <button class="btn btn-full btn-ghost" style="margin-top:10px" onclick="swAuction('crypto')">📈 Открыть Крипто-Биржу →</button>`;
+    <button class="btn btn-sm btn-ghost" style="margin-top:10px" onclick="swAuction('crypto')">📈 Перейти на Биржу</button>`;
   }).catch(e=>{el('mkt-exch').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
-// Модалка обмена — открывается по клику на 🪙/💎 в профиле и из вкладки «Обмен».
+// Клик по Море/Алмазам объясняет их назначение вместо несуществующего обмена.
 function openExchangeCurrencyModal(dir) {
   OM('💱 Обмен валют', '<div class="loader">Загрузка...</div>', [{l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
   api('/exchange/').then(d=>{
     _exchData = d;
     el('mb').innerHTML = `
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.6">
-        Баланс: <b style="color:var(--gold2)">${fmt(d.mora)} 🪙</b> · <b style="color:var(--bright)">${d.diamonds.toFixed(1)} 💎</b><br>
-        🛒 Покупка: <b>${fmt(d.rate)} 🪙 = 1 💎</b> · лимит ${d.remaining.toFixed(0)}/${d.daily_cap.toFixed(0)} 💎<br>
-        💸 Продажа: <b>1 💎 = ${fmt(d.sell_rate)} 🪙</b> · лимит ${d.sell_remaining.toFixed(0)}/${d.sell_daily_cap.toFixed(0)} 💎<br>
-        <span style="color:var(--gold);font-size:11px">Минимум ${d.min_diamonds} 💎 за операцию. Продажа дешевле покупки (спред).</span>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6">
+        Баланс: <b style="color:var(--gold2)">${fmt(d.mora)} 🪙</b> · <b style="color:var(--bright)">${d.diamonds.toFixed(1)} 💎</b>
       </div>
-      <input id="exch-cur-amount" type="number" class="num-input" min="${d.min_diamonds}" step="1"
-             placeholder="Сколько 💎" style="margin:0" oninput="updExchCur()"/>
-      <div id="exch-cur-calc" style="font-size:11px;color:var(--muted);margin:6px 0;min-height:30px"></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-sm btn-gold" style="flex:1" onclick="doExchangeCurrency('buy',this)">🛒 Купить 💎</button>
-        <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doExchangeCurrency('sell',this)">💸 Продать 💎</button>
+      <div style="display:grid;gap:8px;margin-top:10px">
+        <div class="irow"><span class="ik">🪙 Мора</span><span>${d.mora_rule}</span></div>
+        <div class="irow"><span class="ik">💎 Алмазы</span><span>${d.diamonds_rule}</span></div>
       </div>
-      <div id="exch-cur-result" style="margin-top:8px"></div>`;
-    updExchCur();
+      <div style="font-size:11px;color:var(--gold2);margin-top:10px">${d.blocked_rule}</div>`;
   }).catch(e=>{ el('mb').innerHTML = `<div class="err">${e}</div>`; });
-}
-function updExchCur() {
-  const d = _exchData; if(!d) return;
-  const c = el('exch-cur-calc'); if(!c) return;
-  const v = parseFloat(el('exch-cur-amount')?.value) || 0;
-  if(v<=0){ c.textContent=''; return; }
-  c.innerHTML = `🛒 Купить ${v} 💎 → <span style="color:var(--gold)">−${fmt(v*d.rate)} 🪙</span><br>`
-              + `💸 Продать ${v} 💎 → <span style="color:var(--teal)">+${fmt(v*d.sell_rate)} 🪙</span>`;
-}
-function doExchangeCurrency(dir, btn) {
-  const v = parseFloat(el('exch-cur-amount')?.value);
-  if(!v || v<=0){ toast('Укажи количество 💎', false); return; }
-  btn.disabled = true;
-  const path = dir==='buy' ? '/exchange/convert' : '/exchange/sell';
-  const requestKey=btn.dataset.requestKey||economyRequestKey('currency-'+dir);
-  btn.dataset.requestKey=requestKey;
-  api(path, {method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({diamonds:v})})
-    .then(r=>{
-      const msg = dir==='buy'
-        ? `✅ +${r.diamonds_gained} 💎  −${fmt(r.mora_spent)} 🪙`
-        : `✅ +${fmt(r.mora_gained)} 🪙  −${r.diamonds_spent} 💎`;
-      toast(msg);
-      refreshCurrBar();
-      openExchangeCurrencyModal(dir); // перерисовать с обновлёнными балансами/квотой
-    })
-    .catch(e=>{ el('exch-cur-result').innerHTML = `<div class="err">${e}</div>`; btn.disabled=false; });
 }
 
 // ── Dark Mora ─────────────────────────────────────────────────────────────────

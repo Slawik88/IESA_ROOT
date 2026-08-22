@@ -987,18 +987,16 @@ function redeemPromo(btn) {
 // ── Exchange Zarniki → Mora/Diamonds (Implementation Block 1.3) ───────────────
 function openExchangeZarnikiModal() {
   const zar = Math.floor(_profileData?.zarniki || 0);
-  OM('🔄 Обмен Зарников', `
+  OM('✨ Зарники → Мора', `
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
       Баланс: <b style="color:var(--bright)">${zar} ✨</b><br>
-      Курс: 1✨ = 150 🪙  ·  1✨ = 0.05 💎 (20✨ = 1💎)<br>
-      <span style="color:var(--gold);font-size:11px">⚠️ Обмен необратим.</span>
+      <b style="color:var(--gold2)">1 ✨ = 150 🪙</b><br>
+      Мора приходит сразу. Обмен назад невозможен.
     </div>
     <input id="exch-zar-amount" type="number" class="num-input" min="1" max="${zar}" step="1"
            placeholder="Сколько ✨ обменять" style="margin:0"/>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn btn-sm btn-gold" style="flex:1" onclick="doExchangeZarniki('mora')">→ 🪙 Мора</button>
-      <button class="btn btn-sm btn-gold" style="flex:1" onclick="doExchangeZarniki('diamonds')">→ 💎 Алмазы</button>
-    </div>
+    <button class="btn btn-sm btn-gold" style="margin-top:8px" onclick="doExchangeZarniki('mora')">Обменять на Мору</button>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">💎 Алмазы выдаются за испытания и сезонные рубежи.</div>
     <div id="exch-zar-result" style="margin-top:8px"></div>
   `, [
     {l:'Закрыть', c:'btn-ghost', f:'CM()'},
@@ -1009,7 +1007,7 @@ function doExchangeZarniki(to) {
   if(!amount || amount<=0){ toast('Укажи количество ✨', false); return; }
   // UX_AUDIT С20: обмен необратим — подтверждение, как у остальных необратимых
   // денежных действий (VIP/клан/лот/развод). Курс тот же, что в шапке модалки.
-  const got = to==='mora' ? fmt(amount*150)+' 🪙' : (amount*0.05).toFixed(2)+' 💎';
+  const got = fmt(amount*150)+' 🪙';
   el('exch-zar-result').innerHTML = `<div style="font-size:12px;color:var(--bright);background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px">
       Обменять <b>${amount} ✨</b> на <b>${got}</b>? Вернуть будет нельзя.
       <button class="btn btn-sm btn-gold btn-full" style="margin-top:8px" onclick="_doExchangeZarnikiGo('${to}',${amount},this)">✅ Да, обменять</button>

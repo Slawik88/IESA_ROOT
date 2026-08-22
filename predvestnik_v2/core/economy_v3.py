@@ -20,6 +20,47 @@ REAL_REWARDS_ENABLED: Final = False
 ZARNIKI_TO_MORA_RATE: Final = 150
 ZARNIKI_POSITIVE_SOURCE: Final = "stars_purchase"
 
+
+@dataclass(frozen=True, slots=True)
+class WalletPolicy:
+    code: str
+    label: str
+    purpose: str
+    acquisition: str
+    lifecycle: str = "active"
+
+
+WALLET_POLICIES: Final[tuple[WalletPolicy, ...]] = (
+    WalletPolicy(
+        "mora",
+        "Мора",
+        "оборотные игровые расходы",
+        "валидная игра, торговля и необратимый обмен Зарников",
+    ),
+    WalletPolicy(
+        "diamonds",
+        "Алмазы",
+        "редкие права выбора и исправления решения",
+        "опубликованные испытания и сезонные рубежи",
+    ),
+    WalletPolicy(
+        "zarniki",
+        "Зарники",
+        "косметика и сервис без боевой силы",
+        "только подтверждённая покупка за Telegram Stars",
+    ),
+)
+LEGACY_BALANCE_POLICIES: Final[tuple[WalletPolicy, ...]] = (
+    WalletPolicy(
+        "dark_mora",
+        "Тёмная Мора",
+        "исполнение уже существующих обязательств старого каталога",
+        "новые начисления запрещены",
+        lifecycle="legacy_spend_only",
+    ),
+)
+ALLOWED_EXCHANGE_ROUTES: Final = (("zarniki", "mora"),)
+
 UNIT_LEVEL_CAP: Final = 30
 UNIT_BRANCH_LEVELS: Final = (5, 10, 15, 20, 25, 30)
 SUPPORT_UNIT_XP_SHARE: Final = Decimal("0.60")
@@ -304,6 +345,16 @@ def validate_positive_zarniki_source(source: str) -> str:
     return normalized
 
 
+def validate_exchange_route(source: str, target: str) -> tuple[str, str]:
+    """Fail closed for every currency conversion not present in owner-v3."""
+    route = (str(source or "").strip().lower(), str(target or "").strip().lower())
+    if route not in ALLOWED_EXCHANGE_ROUTES:
+        raise EconomyV3PolicyError(
+            "Owner-v3 permits only the irreversible Zarniki-to-Mora exchange."
+        )
+    return route
+
+
 def public_policy_manifest() -> dict[str, object]:
     """Return a JSON-safe manifest; exposing it never enables settlement."""
     return {
@@ -326,6 +377,27 @@ def public_policy_manifest() -> dict[str, object]:
         "unit_branch_levels": list(UNIT_BRANCH_LEVELS),
         "zarniki_to_mora_rate": ZARNIKI_TO_MORA_RATE,
         "zarniki_positive_source": ZARNIKI_POSITIVE_SOURCE,
+        "wallets": [
+            {
+                "code": wallet.code,
+                "label": wallet.label,
+                "purpose": wallet.purpose,
+                "acquisition": wallet.acquisition,
+                "lifecycle": wallet.lifecycle,
+            }
+            for wallet in WALLET_POLICIES
+        ],
+        "legacy_balances": [
+            {
+                "code": wallet.code,
+                "label": wallet.label,
+                "purpose": wallet.purpose,
+                "acquisition": wallet.acquisition,
+                "lifecycle": wallet.lifecycle,
+            }
+            for wallet in LEGACY_BALANCE_POLICIES
+        ],
+        "allowed_exchange_routes": [list(route) for route in ALLOWED_EXCHANGE_ROUTES],
     }
 
 
@@ -339,6 +411,9 @@ ECONOMY_V3_PUBLIC_CONTRACT: Final[Mapping[str, object]] = MappingProxyType({
     "unit_branch_levels": UNIT_BRANCH_LEVELS,
     "zarniki_to_mora_rate": ZARNIKI_TO_MORA_RATE,
     "zarniki_positive_source": ZARNIKI_POSITIVE_SOURCE,
+    "wallets": WALLET_POLICIES,
+    "legacy_balances": LEGACY_BALANCE_POLICIES,
+    "allowed_exchange_routes": ALLOWED_EXCHANGE_ROUTES,
 })
 
 

@@ -51,6 +51,11 @@ class PromoCreateRequest(BaseModel):
 async def dev_promocode_create(body: PromoCreateRequest, db=Depends(get_db),
                                user=Depends(require_tg_user)):
     await require_console_perm(db, user, "promo_manage")
+    if body.dark_mora or body.zarniki:
+        raise HTTPException(
+            400,
+            "Промокод может выдавать Мору, Алмазы и предметы. Тёмная Мора закрыта, Зарники доступны только за Stars.",
+        )
     code = body.code.strip().upper()
     if not (3 <= len(code) <= 32) or not code.replace("_", "").replace("-", "").isalnum():
         raise HTTPException(400, "Код: 3–32 символа, буквы/цифры/-/_.")

@@ -16,7 +16,7 @@ from core.constants import (
     ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR,
     REFERRAL_SIGNUP_MORA, REFERRAL_SIGNUP_DIAMONDS, REFERRAL_SIGNUP_VIP_DAYS,
 )
-from services.referral import register_referral, pay_purchase_commission
+from services.referral import register_referral
 
 router = Router(name="payments_router")
 _BOT_USERNAME = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot")
@@ -118,7 +118,6 @@ async def cmd_referral_link(message: types.Message):
         f"Как только друг перейдёт по ссылке и запустит бота — вам ОБОИМ:\n"
         f"🪙 +{int(REFERRAL_SIGNUP_MORA)} Моры · 💎 +{int(REFERRAL_SIGNUP_DIAMONDS)} Алмазов · "
         f"👑 VIP на {REFERRAL_SIGNUP_VIP_DAYS} дн.\n\n"
-        f"А если друг потом купит ✨ Зарники — вам ещё бонус в Зарниках, с любой его покупки.\n\n"
         f"🔗 <code>{link}</code>",
         parse_mode="HTML",
     )
@@ -215,12 +214,6 @@ async def on_successful_payment(message: types.Message, db, bot: Bot):
             },
         )
         replayed = bool(mutation and not mutation.applied)
-        # The commission has its own key.  Retry it even when the buyer credit is
-        # already present, so a transient failure between the two operations can
-        # heal without ever duplicating either side.
-        commission = await pay_purchase_commission(
-            db, message.from_user.id, amount, purchase_id=purchase_id,
-        )
         if replayed:
             await message.answer(
                 "✅ Этот платёж уже был обработан — повторного списания или начисления не произошло."
@@ -230,14 +223,3 @@ async def on_successful_payment(message: types.Message, db, bot: Bot):
                 f"✅ Начислено <b>{amount}✨</b> Зарников! Спасибо за поддержку проекта 💜",
                 parse_mode="HTML",
             )
-        # Growth-полиш 2026-07-13: комиссия рефереру, если покупатель пришёл по рефералке.
-        if commission:
-            referrer_id, bonus = commission
-            try:
-                await bot.send_message(
-                    referrer_id,
-                    f"✨ Ваш друг купил Зарники — вам начислено <b>+{bonus}✨</b> комиссии!",
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass

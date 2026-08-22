@@ -25,6 +25,7 @@ from core.economy_contract import (
     validate_idempotency_key,
     validate_reason_code,
 )
+from core.economy_v3 import EconomyV3PolicyError, validate_positive_zarniki_source
 from infrastructure.repositories.wallet_log import log_wallet
 
 
@@ -119,6 +120,21 @@ def _metadata_json(metadata: Mapping[str, Any] | None) -> str:
     return encoded
 
 
+def _validate_premium_origin(
+    deltas: Mapping[str, Decimal],
+    reason_code: str,
+) -> None:
+    """Prevent free creation of paid currency after owner-v3 reconciliation."""
+    if deltas.get("zarniki", Decimal("0")) <= 0:
+        return
+    try:
+        validate_positive_zarniki_source(reason_code)
+    except EconomyV3PolicyError as exc:
+        raise InvalidEconomicMutation(
+            "Положительные Зарники разрешены только из подтверждённой покупки Stars."
+        ) from exc
+
+
 def _row_get(row, key: str, index: int):
     try:
         return row[key]
@@ -196,6 +212,7 @@ async def find_balance_replay(
     if not normalized:
         raise InvalidEconomicMutation("At least one non-zero currency delta is required.")
     reason = validate_reason_code(reason_code)
+    _validate_premium_origin(normalized, reason)
     source = validate_reason_code(source_type)
     ref_type = validate_reason_code(reference_type) if reference_type else None
     ref_id = str(reference_id) if reference_id is not None else None
@@ -249,6 +266,7 @@ async def apply_balance_change(
         raise InvalidEconomicMutation("At least one non-zero currency delta is required.")
 
     reason = validate_reason_code(reason_code)
+    _validate_premium_origin(normalized, reason)
     source = validate_reason_code(source_type)
     ref_type = validate_reason_code(reference_type) if reference_type else None
     ref_id = str(reference_id) if reference_id is not None else None

@@ -15,7 +15,11 @@ from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from infrastructure.repositories.wallet_log import log_wallet
 from infrastructure.repositories.economy_ledger import apply_balance_change, BalanceMutation
 from infrastructure.pg_adapter import PGAdapter
-from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
+from core.economy_v3 import (
+    EconomyV3PolicyError,
+    quote_zarniki_to_mora,
+    validate_exchange_route,
+)
 
 
 @asynccontextmanager
@@ -118,39 +122,33 @@ async def exchange_zarniki(
     chat_id: int | None = None,
     idempotency_key: str | None = None,
 ) -> tuple[bool, str]:
-    """✨ → 🪙 (×ZARNIKI_TO_MORA_RATE) или ✨ → 💎 (×ZARNIKI_TO_DIAMONDS_RATE).
-    Одностороннее, без лимита."""
-    if amount <= 0 or to not in ("mora", "diamonds"):
-        return False, "Некорректные параметры обмена."
+    """Необратимо обменять целое число Зарников на Мору по owner-v3."""
     try:
-        if to == "mora":
-            gained = amount * ZARNIKI_TO_MORA_RATE
-            mutation = await add_balance(
-                db, user_id, mora=gained, zarniki=-amount,
-                source="zarniki_exchange", source_type="exchange",
-                idempotency_key=(
-                    f"exchange:zarniki:mora:{idempotency_key}" if idempotency_key else None
-                ),
-                reference_type="currency_pair", reference_id="zarniki_mora",
-                chat_id=chat_id, note=f"✨{amount:.0f}→🪙{gained:.0f}",
-            )
-            if mutation and not mutation.applied:
-                return True, "✅ Этот обмен уже был обработан."
-            return True, f"✅ Обменяно ✨{amount:.0f} → 🪙{gained:.0f}"
-
-        gained = amount * ZARNIKI_TO_DIAMONDS_RATE
+        validate_exchange_route("zarniki", to)
+        quote = quote_zarniki_to_mora(amount)
         mutation = await add_balance(
-            db, user_id, diamonds=gained, zarniki=-amount,
-            source="zarniki_exchange", source_type="exchange",
+            db, user_id, mora=quote.mora_received, zarniki=-quote.zarniki_spent,
+            source="paid_exchange", source_type="exchange",
             idempotency_key=(
-                f"exchange:zarniki:diamonds:{idempotency_key}" if idempotency_key else None
+                f"exchange:zarniki:mora:{idempotency_key}" if idempotency_key else None
             ),
-            reference_type="currency_pair", reference_id="zarniki_diamonds",
-            chat_id=chat_id, note=f"✨{amount:.0f}→💎{gained:.2f}",
+            reference_type="currency_pair", reference_id="zarniki_mora",
+            metadata={
+                "policy_version": "owner-v3-provisional-1",
+                "provenance": quote.provenance,
+                "rate": quote.rate,
+                "reversible": quote.reversible,
+            },
+            chat_id=chat_id,
+            note=f"✨{quote.zarniki_spent}→🪙{quote.mora_received}",
         )
         if mutation and not mutation.applied:
             return True, "✅ Этот обмен уже был обработан."
-        return True, f"✅ Обменяно ✨{amount:.0f} → 💎{gained:.2f}"
+        return True, f"✅ {quote.zarniki_spent} ✨ → {quote.mora_received:,} 🪙"
+    except EconomyV3PolicyError:
+        if str(to).strip().lower() == "diamonds":
+            return False, "Алмазы нельзя купить Зарниками — они выдаются за испытания и сезонные рубежи."
+        return False, "Введите целое число Зарников больше нуля."
     except InsufficientBalance:
         current = await get_balance(db, user_id)
         return False, f"Недостаточно ✨ (есть {current['user_balance_zarniki']:.0f})."

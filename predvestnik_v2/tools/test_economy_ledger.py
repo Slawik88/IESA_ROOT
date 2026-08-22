@@ -229,18 +229,27 @@ def _assert_schema_and_boundaries_wired():
     payments = (ROOT / "bot/handlers/payments.py").read_text(encoding="utf-8")
     assert "payment.telegram_payment_charge_id" in payments
     assert 'idempotency_key=f"stars_purchase:{purchase_id}"' in payments
-    assert "purchase_id=purchase_id" in payments
+    assert "pay_purchase_commission" not in payments
+
+    referral = (ROOT / "services/referral.py").read_text(encoding="utf-8")
+    assert "referral_commission" not in referral
+    assert "zarniki=" not in referral
+
+    promo_repository = (ROOT / "infrastructure/repositories/promocodes.py").read_text(
+        encoding="utf-8"
+    )
+    assert "if dark_mora or zarniki:" in promo_repository
 
     exchange = (ROOT / "FastAPI/routers/exchange.py").read_text(encoding="utf-8")
-    assert 'alias="Idempotency-Key"' in exchange
-    assert exchange.count("find_balance_replay(") >= 2
-    assert exchange.count("if mutation and mutation.applied:") >= 2
+    assert "Покупка и продажа Алмазов за Мору отключены" in exchange
+    assert "Алмазы больше нельзя купить за Мору" in exchange
+    assert "Алмазы больше нельзя продать за Мору" in exchange
+    assert "exchange_mora_to_dia" not in exchange
+    assert "exchange_dia_to_mora" not in exchange
 
     client_base = (ROOT / "FastAPI/static/app.01.js").read_text(encoding="utf-8")
-    client_exchange = (ROOT / "FastAPI/static/app.05.js").read_text(encoding="utf-8")
     client_wallet = (ROOT / "FastAPI/static/app.06.js").read_text(encoding="utf-8")
     assert "function economyRequestKey(scope)" in client_base
-    assert "'Idempotency-Key':requestKey" in client_exchange
     assert "'Idempotency-Key':requestKey" in client_wallet
 
 
@@ -327,6 +336,30 @@ async def _assert_apply_replay_conflict_and_rollback():
     assert (7, "insufficient-case") not in db.operations, "Failed mutation must roll back gate"
     assert len(db.ledger) == 2 and len(db.wallet) == 1
 
+    try:
+        await apply_balance_change(
+            db,
+            7,
+            {"zarniki": 10},
+            reason_code="promocode",
+            idempotency_key="free-premium",
+        )
+    except InvalidEconomicMutation as exc:
+        assert "Stars" in str(exc)
+    else:
+        raise AssertionError("A free positive Zarniki source was accepted")
+    assert (7, "free-premium") not in db.operations
+
+    purchase = await apply_balance_change(
+        db,
+        7,
+        {"zarniki": 10},
+        reason_code="stars_purchase",
+        idempotency_key="stars-payment-1",
+        source_type="payment",
+    )
+    assert purchase.applied and db.users[7]["zarniki"] == 60.0
+
 
 async def _assert_exchange_retry_ignores_consumed_balance():
     db = FakeLedgerDB()
@@ -338,6 +371,10 @@ async def _assert_exchange_retry_ignores_consumed_balance():
     assert ok is True
     after_first = dict(db.users[11])
     assert after_first["zarniki"] == 5.0
+    operation = db.operations[(11, "exchange:zarniki:mora:request-77")]
+    assert operation["reason_code"] == "paid_exchange"
+    assert operation["source_type"] == "exchange"
+    assert '"provenance":"paid_exchange"' in operation["metadata_json"]
 
     # A retry must resolve from the operation gate before checking the now-spent
     # balance; otherwise a valid replay would incorrectly fail as insufficient.
@@ -352,6 +389,12 @@ async def _assert_exchange_retry_ignores_consumed_balance():
         db, 11, 21, "mora", idempotency_key="request-77"
     )
     assert ok is False and "ключ" in message.lower()
+    assert db.users[11] == after_first
+
+    ok, message = await exchange_zarniki(db, 11, 1, "diamonds")
+    assert ok is False and "нельзя купить" in message.lower()
+    ok, message = await exchange_zarniki(db, 11, 1.5, "mora")
+    assert ok is False and "целое число" in message.lower()
     assert db.users[11] == after_first
 
 
