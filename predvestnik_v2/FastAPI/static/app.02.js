@@ -564,7 +564,7 @@ function _handleStartParam(){
   const M={ shop:['market','goods'],goods:['market','goods'],gacha:['market','gacha'],deal:['market','deal'],
     vip:['market','vip'],themes:['profile','themes'],craft:['craft'],inventory:['profile','inv'],inv:['profile','inv'],
     quests:['quests'],ach:['ach'],achievements:['ach'],zoo:['zoo'],pets:['zoo'],bp:['bp'],auction:['auction'],
-    arena:['arena'],games:['arena','games'],casino:['arena','games'],relics:['market'],
+    arena:['arena'],games:['arena','game'],casino:['arena','game'],relics:['market'],
     barracks:['arena','game'],gates:['arena','game'],game:['arena','game'] };
   const t=M[base]; if(t) run(()=>goTo(t[0],t[1]));
 }
