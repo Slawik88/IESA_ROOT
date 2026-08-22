@@ -305,27 +305,21 @@ async def spend_mora(
     source: str = "spend",
     chat_id: int | None = None,
     note: str | None = None,
+    idempotency_key: str | None = None,
 ) -> tuple[bool, str]:
-    """Deduct mora atomically. Prevents negative balance under concurrency."""
+    """Deduct Mora through the canonical ledger exactly once when keyed."""
     if amount <= 0:
         return False, "Сумма <= 0"
     try:
-        async with db.connection.transaction():
-            async with db.execute(
-                "SELECT user_balance_mora FROM users WHERE user_tg_id = ? FOR UPDATE",
-                (user_id,),
-            ) as c:
-                row = await c.fetchone()
-            if not row or row[0] < amount:
-                return False, "Недостаточно Моры."
-            await db.execute(
-                "UPDATE users SET user_balance_mora = user_balance_mora - ? "
-                "WHERE user_tg_id = ?",
-                (amount, user_id),
-            )
-            await log_wallet(db, user_id, delta_mora=-amount, source=source,
-                             chat_id=chat_id, note=note)
+        await add_balance(
+            db, user_id, mora=-amount, source=source, chat_id=chat_id, note=note,
+            idempotency_key=idempotency_key, source_type="spend",
+        )
         return True, "OK"
+    except InsufficientBalance:
+        return False, "Недостаточно Моры."
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другой операции."
     except Exception as e:
         return False, f"Ошибка: {e}"
 
@@ -337,27 +331,21 @@ async def spend_diamonds(
     source: str = "spend",
     chat_id: int | None = None,
     note: str | None = None,
+    idempotency_key: str | None = None,
 ) -> tuple[bool, str]:
-    """Deduct diamonds atomically. Prevents negative balance under concurrency."""
+    """Deduct Diamonds through the canonical ledger exactly once when keyed."""
     if amount <= 0:
         return False, "Сумма <= 0"
     try:
-        async with db.connection.transaction():
-            async with db.execute(
-                "SELECT user_balance_diamonds FROM users WHERE user_tg_id = ? FOR UPDATE",
-                (user_id,),
-            ) as c:
-                row = await c.fetchone()
-            if not row or row[0] < amount:
-                return False, "Недостаточно Алмазов."
-            await db.execute(
-                "UPDATE users SET user_balance_diamonds = user_balance_diamonds - ? "
-                "WHERE user_tg_id = ?",
-                (amount, user_id),
-            )
-            await log_wallet(db, user_id, delta_diamonds=-amount, source=source,
-                             chat_id=chat_id, note=note)
+        await add_balance(
+            db, user_id, diamonds=-amount, source=source, chat_id=chat_id, note=note,
+            idempotency_key=idempotency_key, source_type="spend",
+        )
         return True, "OK"
+    except InsufficientBalance:
+        return False, "Недостаточно Алмазов."
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другой операции."
     except Exception as e:
         return False, f"Ошибка: {e}"
 
@@ -371,76 +359,52 @@ async def buy_item(
     qty: int,
     chat_id: int | None = None,
     p_zarniki: float = 0,
-    cover_with_zarniki: bool = False,
+    idempotency_key: str | None = None,
 ) -> tuple[bool, str]:
-    """Купить предмет. cover_with_zarniki (ШАГ6 Smart Checkout): если базовой валюты
-    не хватает, дефицит покрывается Зарниками по ZARNIKI_EXCHANGE_RATES (ceil, в
-    пользу казино). Списание базы + ✨ + выдача — в ОДНОЙ транзакции (или полный rollback)."""
-    import math
-    from core.constants import ZARNIKI_EXCHANGE_RATES
+    """Atomically charge the listed currencies and grant inventory.
+
+    Owner-v3 deliberately forbids hidden premium shortfall coverage.  A player
+    may explicitly exchange whole Zarniki to Mora in the wallet, but a shop
+    purchase never converts currencies on their behalf.
+    """
+    if qty <= 0:
+        return False, "Количество должно быть больше нуля."
     total_m = p_mora * qty
     total_d = p_dia * qty
     total_z = p_zarniki * qty
+    deltas = {
+        code: -amount
+        for code, amount in (
+            ("mora", total_m), ("diamonds", total_d), ("zarniki", total_z)
+        )
+        if amount > 0
+    }
+    if not deltas:
+        return False, "Этот предмет нельзя купить."
     try:
         async with db.connection.transaction():
-            async with db.execute(
-                "SELECT user_balance_mora, user_balance_diamonds, "
-                "COALESCE(user_balance_zarniki, 0) FROM users "
-                "WHERE user_tg_id = ? FOR UPDATE",
-                (user_id,),
-            ) as c:
-                bal = await c.fetchone()
-            if not bal:
-                return False, "Недостаточно средств."
-            bal_m, bal_d, bal_z = float(bal[0]), float(bal[1]), float(bal[2])
-
-            # Сколько реально списываем с каждой валюты + добор Зарниками.
-            pay_m, pay_d, pay_z = total_m, total_d, total_z
-            extra_z = 0  # ✨ на покрытие дефицита базовой валюты
-            base_ok = bal_m >= total_m and bal_d >= total_d
-            if not base_ok:
-                if not cover_with_zarniki:
-                    return False, "Недостаточно средств."
-                def_m = max(0.0, total_m - bal_m)
-                def_d = max(0.0, total_d - bal_d)
-                rate_m = ZARNIKI_EXCHANGE_RATES.get("mora") or 0
-                rate_d = ZARNIKI_EXCHANGE_RATES.get("diamonds") or 0
-                if (def_m > 0 and not rate_m) or (def_d > 0 and not rate_d):
-                    return False, "Недостаточно средств."
-                extra_z = (math.ceil(def_m / rate_m) if def_m > 0 else 0) \
-                        + (math.ceil(def_d / rate_d) if def_d > 0 else 0)
-                pay_m = min(total_m, bal_m)   # списываем всю имеющуюся базу
-                pay_d = min(total_d, bal_d)
-                pay_z = total_z + extra_z
-            if bal_z < pay_z:
-                return False, "Недостаточно средств."
-
-            await db.execute(
-                "UPDATE users SET user_balance_mora = user_balance_mora - ?, "
-                "user_balance_diamonds = user_balance_diamonds - ?, "
-                "user_balance_zarniki = COALESCE(user_balance_zarniki, 0) - ? "
-                "WHERE user_tg_id = ?",
-                (pay_m, pay_d, pay_z, user_id),
+            mutation = await apply_balance_change(
+                db, user_id, deltas,
+                reason_code="shop_purchase",
+                idempotency_key=idempotency_key,
+                source_type="shop",
+                reference_type="item",
+                reference_id=item_id,
+                metadata={"item_id": item_id, "quantity": qty},
+                chat_id=chat_id,
+                note=f"{item_id}×{qty}",
             )
-            await db.execute(
-                "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
-                (user_id, item_id, qty, qty),
-            )
-            if pay_m > 0:
-                await log_wallet(db, user_id, delta_mora=-pay_m, source="shop_purchase",
-                                 chat_id=chat_id, note=f"{item_id}×{qty}")
-            if pay_d > 0:
-                await log_wallet(db, user_id, delta_diamonds=-pay_d, source="shop_purchase",
-                                 chat_id=chat_id, note=f"{item_id}×{qty}")
-            if pay_z > 0:
-                _note = f"{item_id}×{qty}" + (f" (+{extra_z}✨ добор)" if extra_z else "")
-                await log_wallet(db, user_id, delta_zarniki=-pay_z, source="shop_purchase",
-                                 chat_id=chat_id, note=_note)
-        msg = "Покупка успешна."
-        if extra_z:
-            msg = f"Покупка успешна (доплата {extra_z}✨ за недостаток базовой валюты)."
-        return True, msg
+            if mutation.applied:
+                await db.execute(
+                    "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+                    "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+                    (user_id, item_id, qty, qty),
+                )
+        return True, "Покупка завершена." if mutation.applied else "Эта покупка уже обработана."
+    except InsufficientBalance:
+        return False, "Недостаточно средств."
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другой покупки."
     except Exception as e:
         return False, f"Ошибка: {e}"
 

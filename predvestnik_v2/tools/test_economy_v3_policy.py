@@ -29,7 +29,6 @@ from core.economy_v3 import (  # noqa: E402
     unit_xp_to_next,
     validate_positive_zarniki_source,
 )
-from services.smart_checkout import zarniki_for_deficit  # noqa: E402
 
 
 def decision(**overrides):
@@ -168,8 +167,6 @@ def assert_zarniki_contract():
         else:
             raise AssertionError(f"Invalid Zarniki exchange accepted: {invalid_amount!r}")
     assert validate_exchange_route("zarniki", "mora") == ("zarniki", "mora")
-    assert zarniki_for_deficit("mora", 151) == 2
-    assert zarniki_for_deficit("diamonds", 1) is None
     for source, target in (
         ("zarniki", "diamonds"),
         ("mora", "diamonds"),

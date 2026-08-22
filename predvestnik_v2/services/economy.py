@@ -66,11 +66,11 @@ class EconomyService:
 
     async def purchase_item(
         self, user_id: int, item_id: str, quantity: int = 1,
-        cover_with_zarniki: bool = False,
+        idempotency_key: str | None = None,
     ) -> tuple[bool, str]:
         """
         Complete purchase flow: resolve discount → check balance → deduct → add to inventory.
-        cover_with_zarniki (ШАГ6): покрыть нехватку базовой валюты Зарниками.
+        Автодоплаты валютой здесь нет: покупка использует только опубликованную цену.
         Returns (success, message).
         """
         item = ITEMS_REGISTRY.get(item_id)
@@ -87,5 +87,5 @@ class EconomyService:
 
         return await _repo_buy_item(
             self._db, user_id, item_id, mora_unit, dia_unit, quantity,
-            p_zarniki=zar_unit, cover_with_zarniki=cover_with_zarniki,
+            p_zarniki=zar_unit, idempotency_key=idempotency_key,
         )

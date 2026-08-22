@@ -34,7 +34,12 @@ from infrastructure.repositories.economy_ledger import (  # noqa: E402
     apply_balance_change,
     find_balance_replay,
 )
-from infrastructure.repositories.economy import exchange_zarniki  # noqa: E402
+from infrastructure.repositories.economy import (  # noqa: E402
+    buy_item,
+    exchange_zarniki,
+    spend_diamonds,
+    spend_mora,
+)
 
 
 class _Cursor:
@@ -77,13 +82,19 @@ class _Transaction:
 
     async def __aenter__(self):
         self.snapshot = copy.deepcopy(
-            (self.db.users, self.db.operations, self.db.ledger, self.db.wallet)
+            (self.db.users, self.db.operations, self.db.ledger, self.db.wallet, self.db.inventory)
         )
         return self
 
     async def __aexit__(self, exc_type, *_):
         if exc_type:
-            self.db.users, self.db.operations, self.db.ledger, self.db.wallet = self.snapshot
+            (
+                self.db.users,
+                self.db.operations,
+                self.db.ledger,
+                self.db.wallet,
+                self.db.inventory,
+            ) = self.snapshot
         return False
 
 
@@ -96,6 +107,7 @@ class FakeLedgerDB:
         self.operations = {}
         self.ledger = []
         self.wallet = []
+        self.inventory = {}
 
     def transaction(self):
         return _Transaction(self)
@@ -187,6 +199,15 @@ class FakeLedgerDB:
             self.wallet.append(args)
             return _Cursor()
 
+        if upper.startswith("INSERT INTO INVENTORY"):
+            user_id, item_id, quantity, increment = args
+            key = (int(user_id), str(item_id))
+            if key in self.inventory:
+                self.inventory[key] += int(increment)
+            else:
+                self.inventory[key] = int(quantity)
+            return _Cursor()
+
         raise AssertionError(f"Unexpected SQL in FakeLedgerDB: {compact}")
 
 
@@ -239,6 +260,16 @@ def _assert_schema_and_boundaries_wired():
         encoding="utf-8"
     )
     assert "if dark_mora or zarniki:" in promo_repository
+    shop_repository = (ROOT / "infrastructure/repositories/economy.py").read_text(
+        encoding="utf-8"
+    )
+    shop_router = (ROOT / "FastAPI/routers/shop.py").read_text(encoding="utf-8")
+    shop_client = (ROOT / "FastAPI/static/app.04.js").read_text(encoding="utf-8")
+    bot_shop = (ROOT / "bot/handlers/shop.py").read_text(encoding="utf-8")
+    assert "cover_with_zarniki" not in shop_repository + shop_router + shop_client
+    assert "/shop/checkout-quote" not in shop_router + shop_client
+    assert 'Header(alias="Idempotency-Key")' in shop_router
+    assert 'idempotency_key=f"shop:telegram:{query.id}"' in bot_shop
 
     exchange = (ROOT / "FastAPI/routers/exchange.py").read_text(encoding="utf-8")
     assert "Покупка и продажа Алмазов за Мору отключены" in exchange
@@ -398,11 +429,39 @@ async def _assert_exchange_retry_ignores_consumed_balance():
     assert db.users[11] == after_first
 
 
+async def _assert_shop_and_spend_use_one_ledger_operation():
+    db = FakeLedgerDB()
+    db.users[21] = {"mora": 500.0, "diamonds": 5.0, "dark_mora": 0.0, "zarniki": 20.0}
+
+    ok, message = await buy_item(
+        db, 21, "ration", 100, 1, 2, p_zarniki=2,
+        idempotency_key="shop:request-21",
+    )
+    assert ok and message == "Покупка завершена."
+    assert db.users[21] == {"mora": 300.0, "diamonds": 3.0, "dark_mora": 0.0, "zarniki": 16.0}
+    assert db.inventory[(21, "ration")] == 2
+    assert len(db.operations) == 1 and len(db.ledger) == 3 and len(db.wallet) == 1
+
+    ok, message = await buy_item(
+        db, 21, "ration", 100, 1, 2, p_zarniki=2,
+        idempotency_key="shop:request-21",
+    )
+    assert ok and message == "Эта покупка уже обработана."
+    assert db.inventory[(21, "ration")] == 2
+    assert len(db.operations) == 1 and len(db.ledger) == 3 and len(db.wallet) == 1
+
+    assert await spend_mora(db, 21, 50, idempotency_key="spend:mora:1") == (True, "OK")
+    assert await spend_diamonds(db, 21, 1, idempotency_key="spend:diamond:1") == (True, "OK")
+    assert db.users[21]["mora"] == 250.0 and db.users[21]["diamonds"] == 2.0
+    assert len(db.operations) == 3 and len(db.wallet) == 3
+
+
 async def main():
     _assert_contract_validation()
     _assert_schema_and_boundaries_wired()
     await _assert_apply_replay_conflict_and_rollback()
     await _assert_exchange_retry_ignores_consumed_balance()
+    await _assert_shop_and_spend_use_one_ledger_operation()
     print("economy ledger tests: OK")
 
 
