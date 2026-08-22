@@ -56,6 +56,9 @@ const overview = {
     upgrades: {},
   },
 };
+let overviewResponse = overview;
+const actionBodies = [];
+let rejectNextAction = false;
 
 const browser = await puppeteer.launch({
   headless: true,
@@ -83,7 +86,37 @@ try {
       request.respond({
         status: 200,
         contentType: 'application/json; charset=utf-8',
-        body: JSON.stringify(overview),
+        body: JSON.stringify(overviewResponse),
+      });
+      return;
+    }
+    if (url.pathname === '/reconstruction/runs/88/actions' && request.method() === 'POST') {
+      const actionBody = JSON.parse(request.postData() || '{}');
+      actionBodies.push(actionBody);
+      if (rejectNextAction) {
+        rejectNextAction = false;
+        overviewResponse = {
+          ...overviewResponse,
+          active_run: { ...overviewResponse.active_run, revision: actionBody.expected_revision + 1 },
+        };
+        request.respond({
+          status: 409,
+          contentType: 'application/json; charset=utf-8',
+          body: JSON.stringify({ detail: 'Забег уже изменился в другой вкладке.' }),
+        });
+        return;
+      }
+      request.respond({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({
+          ...overviewResponse.active_run,
+          revision: actionBody.expected_revision + 1,
+          turn: { ok: true, phase: 'active' },
+          pending_memory: null,
+          career_stats: overviewResponse.stats,
+          idempotent_replay: false,
+        }),
       });
       return;
     }
@@ -128,8 +161,55 @@ try {
   if (!resultStats.some((value) => value.includes('пропущено'))) {
     throw new Error(`missed signals absent from result: ${resultStats.join(' | ')}`);
   }
+
+  overviewResponse = {
+    ...overview,
+    progress: { ...overview.progress, pending_memory: null },
+    active_run: {
+      ...initialState,
+      run_id: 88,
+      revision: 12,
+      status: 'active',
+    },
+  };
+  await page.evaluate(() => sessionStorage.removeItem('reconstruction-mvp-ui-v1'));
+  await page.goto(`${base}/production-harness`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#menuLayer:not([hidden])');
+  await page.click('#startRunButton');
+  await page.waitForFunction(() => document.querySelector('#roundClock strong'));
+  for (let attempt = 0; attempt < 20 && !actionBodies.length; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  const firstActionBody = actionBodies[0];
+  if (firstActionBody?.expected_revision !== 12) {
+    throw new Error(`server revision missing from action: ${JSON.stringify(firstActionBody)}`);
+  }
+  if (!String(firstActionBody?.action_id || '').startsWith('web:')) {
+    throw new Error(`action id missing from action: ${JSON.stringify(firstActionBody)}`);
+  }
+
+  actionBodies.length = 0;
+  overviewResponse = {
+    ...overviewResponse,
+    active_run: { ...overviewResponse.active_run, revision: 20 },
+  };
+  rejectNextAction = true;
+  await page.evaluate(() => sessionStorage.removeItem('reconstruction-mvp-ui-v1'));
+  await page.goto(`${base}/production-harness`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#menuLayer:not([hidden])');
+  await page.click('#startRunButton');
+  await page.waitForSelector('#pauseLayer:not([hidden])');
+  const visibleLayers = await page.evaluate(() =>
+    ['menuLayer', 'pauseLayer', 'choiceLayer', 'resultLayer']
+      .filter((id) => !document.getElementById(id).hidden));
+  if (visibleLayers.join(',') !== 'pauseLayer') {
+    throw new Error(`revision conflict changed to wrong modal: ${visibleLayers.join(',')}`);
+  }
+  if (actionBodies[0]?.expected_revision !== 20) {
+    throw new Error(`conflict request used wrong revision: ${JSON.stringify(actionBodies[0])}`);
+  }
   if (errors.length) throw new Error(`browser errors: ${errors.join(' | ')}`);
-  console.log('OK: production adapter labels, server stats and Memory handoff');
+  console.log('OK: production adapter labels, server stats, Memory handoff and revision contract');
 } finally {
   await browser.close();
 }

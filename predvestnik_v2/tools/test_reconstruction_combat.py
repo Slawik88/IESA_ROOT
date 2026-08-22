@@ -68,6 +68,8 @@ first = act(single, type="strike", challenge_id=challenge["id"], target_slot=slo
 damage_after_first = single["mastery"]["damage_taps"]
 replay = act(single, type="strike", challenge_id=challenge["id"], target_slot=slot)
 assert first["strike"]["correct"] is True
+assert isinstance(first["strike"]["reaction_ms"], int)
+assert first["strike"]["reaction_ms"] >= 0
 assert replay["strike"] == {"accepted": False, "correct": False, "reason": "no_active_signal"}
 assert single["mastery"]["damage_taps"] == damage_after_first
 

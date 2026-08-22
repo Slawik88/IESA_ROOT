@@ -90,7 +90,7 @@ def server_timed_action(
     discarded = 0
     resumed_after_idle = False
     reason = "non_frame"
-    if action_type == "frame":
+    if action_type in {"frame", "strike"}:
         if initialized:
             reason = "clock_initialized"
         elif clock_rebased:

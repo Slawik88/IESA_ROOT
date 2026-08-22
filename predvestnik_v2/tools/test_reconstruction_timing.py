@@ -70,6 +70,18 @@ choice, choice_meta = server_timed_action(
 )
 assert choice["delta_ms"] == 0 and choice_meta["reason"] == "non_frame"
 
+# Standalone strike is also a timed combat action; otherwise repeated empty
+# strikes could keep rebasing the clock without advancing the round.
+strike_state = {}
+attach_server_clock(strike_state, now_ms=7_000)
+strike, strike_meta = server_timed_action(
+    strike_state,
+    {"type": "strike", "challenge_id": 1, "target_slot": "left"},
+    now_ms=7_140,
+)
+assert strike["delta_ms"] == 140
+assert strike_meta["reason"] == "server_elapsed"
+
 # A legacy active run without a clock freezes its first action and initializes.
 legacy = {}
 legacy_action, legacy_meta = server_timed_action(

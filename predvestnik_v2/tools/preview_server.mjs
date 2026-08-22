@@ -30,6 +30,7 @@ const RECONSTRUCTION_WATCH_FILES = [
   path.join(HERE, '..', 'core', 'reconstruction.py'),
   path.join(HERE, '..', 'services', 'reconstruction.py'),
   path.join(HERE, '..', 'services', 'reconstruction_combat.py'),
+  path.join(HERE, '..', 'services', 'reconstruction_integrity.py'),
   path.join(HERE, '..', 'services', 'reconstruction_timing.py'),
 ];
 

@@ -63,6 +63,36 @@ async def main():
     version, payload_json = canonical_event_payload("battle_start", battle_start_payload())
     assert version == 1 and '"combat_power":null' in payload_json
 
+    _, action_json = canonical_event_payload("battle_action", {
+        "mode": "reconstruction_clicker",
+        "encounter_id": "e01_two_bells",
+        "round": 1,
+        "action": "resolve_signal",
+        "accepted": True,
+        "correct": True,
+        "legal_options_count": 3,
+        "reaction_ms": 143,
+        "server_delta_ms": 101,
+        "server_revision": 9,
+        "integrity_status": "clear",
+    })
+    assert '"reaction_ms":143' in action_json and '"server_revision":9' in action_json
+
+    _, terminal_json = canonical_event_payload("battle_end", {
+        "mode": "reconstruction_clicker",
+        "encounter_id": "e01_two_bells",
+        "result": "won",
+        "rounds": 3,
+        "metrics": {"correct_taps": 12},
+        "terminal_result": {
+            "id": "reconstruction:41:terminal",
+            "outcome": "won",
+            "server_revision": 23,
+            "integrity": {"status": "clear", "automatic_ban": False},
+        },
+    })
+    assert '"reconstruction:41:terminal"' in terminal_json
+
     for invalid in (
         {**battle_start_payload(), "username": "private"},
         {key: value for key, value in battle_start_payload().items() if key != "squad"},

@@ -199,9 +199,10 @@ try{
   await new Promise(resolve=>setTimeout(resolve,320));
   const pauseAfter=await play.$eval('#roundClock strong',node=>node.textContent);
   check(pauseBefore===pauseAfter,'pause: timer keeps advancing');
-  await play.click('#continueButton');
-  await play.waitForSelector('#pauseLayer[hidden]');
 
+  // Measure the underlying battle layout while the run is paused.  Advancing
+  // nearly a second here would intentionally ignore an open signal and make a
+  // 100%-accuracy playthrough depend on test timing.
   const geometry=await play.evaluate(async()=>{
     const selectors=['#battleCard','.echo-core','.rune-orbit','.combat-readout','.squad-strip'];
     const samples=[];
@@ -220,6 +221,8 @@ try{
       check(Math.max(...values)-Math.min(...values)<=1,`stability: element ${element} metric ${metric} shifted (${Math.min(...values)}..${Math.max(...values)})`);
     }
   }
+  await play.click('#continueButton');
+  await play.waitForSelector('#pauseLayer[hidden]');
 
   let finished=false;
   let capturedChoice=false;
