@@ -43,8 +43,8 @@ function _renderBestiary() {
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
 
 // ── Arena ─────────────────────────────────────────────────────────────────────
-// Боёвка 3.0: Казарма (юниты) + Врата (бои отрядом) + Рейды/Игры/Ивенты.
-const _ARENA_TABS=['game','games','events'];
+// Разлом — единственная игровая петля; старые режимы со ставками удалены из UI.
+const _ARENA_TABS=['game','events'];
 function openReconstructionGame(){ location.href=BASE+'/game'; }
 function loadReconstructionHub(){
   const host=el('game-hub'); if(!host)return;
@@ -69,7 +69,7 @@ function swArena(tab,btn) {
   if(btn)btn.classList.add('active');
   _ARENA_TABS.forEach(t=>{const e=el('ar-'+t); if(e)e.style.display=t===tab?'':'none';});
   _trackSubtab('arena/'+tab);
-  ({game:loadReconstructionHub,games:loadSkillGames,events:loadEvents}[tab]||loadReconstructionHub)();
+  ({game:loadReconstructionHub,events:loadEvents}[tab]||loadReconstructionHub)();
 }
 const QUEST_NAMES = {
   msg_15:     {n:'💬 Болтун',         d:'Напиши 15 сообщений в чате'},
