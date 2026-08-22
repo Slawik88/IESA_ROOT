@@ -144,7 +144,7 @@ class Handler(BaseHTTPRequestHandler):
                 _COMPANION_STATES.pop(next(iter(_COMPANION_STATES)))
             value = {
                 "active_pet_id": 901,
-                "unlocked_roles": ["lantern", "guardian", "rhythm_keeper", "echo", "navigator"],
+                "unlocked_roles": ["lantern", "guardian", "rhythm_keeper", "echo", "navigator", "archivist"],
                 "selected_role_id": "lantern",
                 "care": {"901": {"points": 6, "bank": 3, "last": "play"}},
                 "actions": {},
@@ -229,7 +229,8 @@ class Handler(BaseHTTPRequestHandler):
                         return self._send(400, {"detail": "Неизвестная роль."})
                     if role_id not in state["unlocked_roles"]:
                         if len(state["unlocked_roles"]) >= overview["role_slots"]:
-                            return self._send(409, {"detail": "Следующий выбор откроется на 15 meaningful-дне."})
+                            next_day = overview.get("next_role_day")
+                            return self._send(409, {"detail": f"Следующий выбор откроется на {next_day}-й день активной игры."})
                         state["unlocked_roles"].append(role_id)
                     state["selected_role_id"] = role_id
                     return self._send(200, self._companion_overview())

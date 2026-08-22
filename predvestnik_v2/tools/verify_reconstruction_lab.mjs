@@ -72,7 +72,7 @@ try{
     }));
     check(allianceMetrics.overflow<=0,`${width}px: Alliance panel overflows`);
     check(allianceMetrics.stages===3,`${width}px: Alliance stages are incomplete`);
-    check(allianceMetrics.copy?.includes('0 НАГРАД'),`${width}px: Alliance test state is unclear`);
+    check(allianceMetrics.copy?.includes('БЕЗ НАГРАД'),`${width}px: Alliance test state is unclear`);
     if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-alliance.png`,fullPage:true});
     await page.click('[data-menu-tab="play"]');
     await page.click('#startRunButton');

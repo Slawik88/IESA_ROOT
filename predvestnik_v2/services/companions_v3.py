@@ -297,8 +297,8 @@ def preview_overview() -> dict[str, Any]:
             "active_companion": index == 0,
         })
     return {
-        "policy": policy, "meaningful_days": 20, "role_slots": 5, "next_role_day": 25,
-        "unlocked_roles": ["lantern", "guardian", "rhythm_keeper", "echo", "navigator"], "selected_role_id": "lantern",
+        "policy": policy, "meaningful_days": 25, "role_slots": 6, "next_role_day": 30,
+        "unlocked_roles": ["lantern", "guardian", "rhythm_keeper", "echo", "navigator", "archivist"], "selected_role_id": "lantern",
         "active_pet_id": 901, "pets": pets,
         "care_actions": [
             {"id": key, "name": value[0], "scene_hint": value[1]}
@@ -306,7 +306,7 @@ def preview_overview() -> dict[str, Any]:
         ],
         "expeditions": {
             "mode": "shadow_only", "start_enabled": True,
-            "reason": "Награды пока считаются в тени и не меняют кошелёк.",
+            "reason": "Тестовый результат появится здесь, но кошелёк не изменится.",
             "options": [asdict(quote_expedition(hours)) for hours in EXPEDITION_OPTIONS],
             "slots": 2, "open_slots": 2, "weekly_reserved_mora": 0,
             "contracts": [], "ready_count": 0,

@@ -28,7 +28,7 @@ from core.companions_v3 import (  # noqa: E402
 
 assert len(COMPANION_ROLES) == 10
 assert {key for key, role in COMPANION_ROLES.items() if role["implemented"]} == {
-    "lantern", "guardian", "rhythm_keeper", "echo", "navigator",
+    "lantern", "guardian", "rhythm_keeper", "echo", "navigator", "archivist",
 }
 assert [role_unlock_count(day) for day in (0, 4, 5, 44, 45, 999)] == [1, 1, 2, 9, 10, 10]
 assert bond_progress(0) == {

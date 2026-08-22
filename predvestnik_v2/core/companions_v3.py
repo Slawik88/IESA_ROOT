@@ -57,9 +57,9 @@ COMPANION_ROLES: Final[Mapping[str, Mapping[str, Any]]] = MappingProxyType({
     },
     "archivist": {
         "name": "Архивариус", "emoji": "▤",
-        "implemented": False,
-        "decision": "Разбирает один фрагмент повтора перед следующим выбором.",
-        "tradeoff": "Занимает один слот усиления.",
+        "implemented": True,
+        "decision": "После волны выделяет одну полезную закономерность твоей игры.",
+        "tradeoff": "Разбор занимает один слот: доступно два усиления вместо трёх.",
     },
     "lantern": {
         "name": "Фонарь", "emoji": "✧",

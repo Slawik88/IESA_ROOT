@@ -243,6 +243,58 @@ def _navigator_forecast(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _archivist_wave_snapshot(state: dict[str, Any]) -> dict[str, int]:
+    mastery = state["mastery"]
+    return {
+        "correct": int(mastery["correct_taps"]),
+        "wrong": int(mastery["mistakes"]),
+        "missed": int(mastery["missed_signals"]),
+    }
+
+
+def _archivist_review(state: dict[str, Any]) -> dict[str, Any]:
+    """Return one actionable wave insight without revealing an answer or seed."""
+    companion = state.get("companion_state") or {}
+    started = companion.get("archivist_wave_start") or {
+        "correct": 0, "wrong": 0, "missed": 0,
+    }
+    current = _archivist_wave_snapshot(state)
+    correct = max(0, current["correct"] - int(started.get("correct", 0)))
+    wrong = max(0, current["wrong"] - int(started.get("wrong", 0)))
+    missed = max(0, current["missed"] - int(started.get("missed", 0)))
+    resolved = correct + wrong + missed
+    accuracy = round(correct / resolved * 100, 1) if resolved else None
+    if not resolved:
+        focus = "Нет распознанных сигналов — данных для разбора пока недостаточно."
+        focus_kind = "no_data"
+    elif wrong > missed:
+        focus = f"Лишних нажатий: {wrong}. Сначала прочитай знак, затем выбирай руну."
+        focus_kind = "wrong_taps"
+    elif missed > wrong:
+        focus = f"Пропущено сигналов: {missed}. Держи внимание на моменте открытия окна."
+        focus_kind = "missed_signals"
+    elif wrong:
+        focus = f"Ошибок и пропусков поровну: {wrong}. Стабильность сейчас важнее темпа."
+        focus_kind = "mixed"
+    elif accuracy is not None and accuracy >= 90:
+        focus = "Чистое чтение волны. Сохрани этот ритм, когда окна станут короче."
+        focus_kind = "clean"
+    else:
+        focus = "Ритм найден. Следующая цель — отвечать без угадывания."
+        focus_kind = "steady"
+    return {
+        "wave": int(state["round"]),
+        "correct": correct,
+        "wrong": wrong,
+        "missed": missed,
+        "resolved": resolved,
+        "accuracy": accuracy,
+        "focus": focus,
+        "focus_kind": focus_kind,
+        "reveals_answer": False,
+    }
+
+
 def _challenge_data(state: dict[str, Any], sequence: int) -> tuple[str, list[dict[str, str]], int]:
     value = _mix(state["seed"] + state["round"] * 977, sequence)
     offset = value % len(RUNE_SYMBOLS)
@@ -503,6 +555,8 @@ def new_encounter(
             "echo_active_challenge": None,
             "echo_insight": 0,
             "navigator_forecast": None,
+            "archivist_wave_start": {"correct": 0, "wrong": 0, "missed": 0},
+            "archivist_review": None,
         },
         "branch_state": {
             "decision": None,
@@ -681,13 +735,19 @@ def _complete_wave(state: dict[str, Any]) -> None:
         {"id": upgrade_id, **copy.deepcopy(CLICKER_UPGRADES[upgrade_id])}
         for upgrade_id in REWARD_POOLS[state["round"] - 1]
     ]
+    companion = state.get("companion_state") or {}
+    if _has_companion_role(state, "archivist"):
+        companion["archivist_review"] = _archivist_review(state)
+        # Информация — реальное преимущество роли. Цена не декоративная:
+        # один из трёх вариантов сборки скрывается по детерминированному seed.
+        remove_index = _mix(state["seed"] + 5171, state["round"]) % len(state["reward_options"])
+        state["reward_options"].pop(remove_index)
     if _has_companion_role(state, "lantern"):
         # Фонарь даёт информацию в каждом сигнале, но между волнами оставляет
         # только два усиления.  Seed выбирает скрытый вариант, чтобы роль не
         # всегда удаляла одну и ту же сборку.
         remove_index = _mix(state["seed"] + 3907, state["round"]) % len(state["reward_options"])
         state["reward_options"].pop(remove_index)
-    companion = state.get("companion_state") or {}
     if _has_companion_role(state, "echo") and int(companion.get("echo_insight", 0)) > 0:
         offered = {option["id"] for option in state["reward_options"]}
         candidates = [
@@ -730,6 +790,8 @@ def _start_next_wave(state: dict[str, Any]) -> None:
     companion["echo_offer_symbol"] = None
     companion["echo_active_challenge"] = None
     companion["echo_insight"] = 0
+    companion["archivist_wave_start"] = _archivist_wave_snapshot(state)
+    companion["archivist_review"] = None
     objective = state.get("objective_state") or {}
     if objective.get("kind") == "drowned_sequence":
         objective["attempts_left"] = int(objective["attempts_max"])

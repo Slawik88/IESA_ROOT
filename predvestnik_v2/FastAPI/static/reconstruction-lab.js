@@ -127,6 +127,7 @@
   }
 
   function showOnly(view, tab = currentMenuTab, persist = true) {
+    const changed = currentView !== view;
     currentView = view;
     currentMenuTab = tab;
     menuLayer.hidden = view !== 'menu';
@@ -138,6 +139,13 @@
     );
     if (view === 'menu') selectMenuTab(tab, false);
     if (persist) saveUiState();
+    if (changed) requestAnimationFrame(() => {
+      const target = view === 'pause' ? document.getElementById('continueButton')
+        : view === 'choice' ? document.querySelector('#upgradeList button')
+          : view === 'result' ? document.getElementById('resultReset')
+            : view === 'menu' ? document.querySelector(`[data-menu-tab="${currentMenuTab}"]`) : null;
+      target?.focus({ preventScroll: true });
+    });
   }
 
   function recordRunStarted() {
@@ -337,6 +345,7 @@
       guardian: '+0,32 с · урон ×0,8',
       rhythm_keeper: 'одна защита сигнала',
       echo: 'ускоренный повтор',
+      archivist: 'разбор волны · 2 усиления',
     };
     const roleNote = role?.id === 'navigator' && forecast
       ? `${number(forecast.wave)}-я волна · ${esc(forecast.window)}`
@@ -357,7 +366,12 @@
       const symbol = option?.symbol || '·';
       button.textContent = symbol;
       button.disabled = !playing || !challenge?.active || Boolean(pendingStrike);
-      button.setAttribute('aria-label', `${button.dataset.targetSlot}: руна ${symbol}`);
+      const slotName = { left: 'Слева', center: 'По центру', right: 'Справа' }[button.dataset.targetSlot]
+        || 'Позиция';
+      const stateHint = option?.companion_hint === 'decoy' ? '. Фонарь отметил ложную руну'
+        : state.branch_state?.forbidden_slot === button.dataset.targetSlot ? '. Позиция запрещена сборкой'
+          : '';
+      button.setAttribute('aria-label', `${slotName}: руна ${symbol}${stateHint}`);
       button.classList.toggle('seam-stored', state.branch_state?.stored_seam_slot === button.dataset.targetSlot);
       button.classList.toggle('forbidden', state.branch_state?.forbidden_slot === button.dataset.targetSlot);
       const objective = state.objective_state || {};
@@ -437,9 +451,19 @@
     playing = false;
     document.getElementById('choiceEyebrow').textContent = 'ВОЛНА ПРОЙДЕНА';
     document.getElementById('choiceTitle').textContent = 'Выбери направление сборки';
-    document.getElementById('choiceCopy').textContent =
-      'У каждого усиления есть преимущество и цена. Выбор действует только в этом забеге.';
-    document.getElementById('upgradeList').innerHTML = state.reward_options.map((upgrade) => `
+    const review = state.companion_role_id === 'archivist'
+      ? state.companion_state?.archivist_review : null;
+    document.getElementById('choiceCopy').textContent = review
+      ? 'Архивариус разобрал эту волну. Выбери одно из двух направлений сборки.'
+      : 'У каждого усиления есть преимущество и цена. Выбор действует только в этом забеге.';
+    const reviewCard = review ? `
+      <aside class="archivist-review" aria-label="Разбор Архивариуса за ${number(review.wave)} волну">
+        <span><i>▤</i><small>РАЗБОР · ВОЛНА ${number(review.wave)}</small></span>
+        <strong>${review.accuracy == null ? '—' : percent(review.accuracy)} точность</strong>
+        <p>${esc(review.focus)}</p>
+        <em>${number(review.correct)} точных · ${number(review.wrong)} ошибок · ${number(review.missed)} пропущено</em>
+      </aside>` : '';
+    document.getElementById('upgradeList').innerHTML = reviewCard + state.reward_options.map((upgrade) => `
       <button class="upgrade-card" type="button" data-upgrade-id="${esc(upgrade.id)}">
         <span>${esc(upgrade.emoji)}</span>
         <span class="upgrade-copy"><em>${upgrade.companion_offer === 'echo' ? 'ЭХО · ' : ''}${esc(upgrade.archetype)}</em><strong>${esc(upgrade.name)}</strong><small>${esc(upgrade.description)}</small><small class="tradeoff">− ${esc(upgrade.tradeoff)}</small></span>
@@ -680,7 +704,7 @@
     const nextBond = progress.next_milestone == null ? 'все основные сцены открыты'
       : `${number(progress.points)} / ${number(progress.next_milestone)}`;
     const petRail = pets.map((pet) => `
-      <button type="button" class="pet-chip${pet.active_companion ? ' active' : ''}" data-companion-pet="${pet.id}">
+      <button type="button" class="pet-chip${pet.active_companion ? ' active' : ''}" data-companion-pet="${pet.id}" aria-pressed="${pet.active_companion ? 'true' : 'false'}">
         <i>${species[pet.species_id] || '◌'}</i><span><strong>${esc(pet.name)}</strong><small>прежний ур. ${number(pet.legacy.level)} · связь ${number(pet.bond.points)}</small></span>
       </button>`).join('');
     const roleCards = roles.map((role) => {
@@ -688,7 +712,7 @@
       const current = selected === role.id;
       const implemented = role.implemented === true;
       const canUnlock = implemented && (owned || unlocked.size < Number(companionState.role_slots || 1));
-      return `<button type="button" class="role-card${current ? ' selected' : ''}${owned ? ' unlocked' : ''}" data-companion-role="${esc(role.id)}" ${canUnlock ? '' : 'disabled'}>
+      return `<button type="button" class="role-card${current ? ' selected' : ''}${owned ? ' unlocked' : ''}" data-companion-role="${esc(role.id)}" aria-pressed="${current ? 'true' : 'false'}" ${canUnlock ? '' : 'disabled'}>
         <i>${esc(role.emoji)}</i><span><strong>${esc(role.name)}</strong><small>${esc(role.decision)}</small><em>− ${esc(role.tradeoff)}</em></span><b>${!implemented ? 'в разработке' : current ? 'выбрано' : owned ? 'сменить' : canUnlock ? 'открыть' : `день ${number(companionState.next_role_day)}`}</b>
       </button>`;
     }).join('');
@@ -724,8 +748,8 @@
       <span><b>${number(stage)}%</b><small>${['След найден', 'Контур собран', 'Цикл закрыт'][index] || 'Этап'}</small></span>`).join('');
     container.innerHTML = `
       <section class="alliance-hero">
-        <header><strong>Первый общий цикл</strong><b>ТЕНЬ · 0 НАГРАД</b></header>
-        <p>Цель рассчитывается по активным игрокам за 28 дней. Победа даёт 2 сигнала, содержательное поражение — 1; тренировка и забеги на проверке не учитываются.</p>
+        <header><strong>Первый общий цикл</strong><b>ТЕСТ · БЕЗ НАГРАД</b></header>
+        <p>Цель зависит от числа активных игроков за 28 дней. Победа даёт 2 сигнала, честно сыгранное поражение — 1; тренировка и подозрительные забеги не учитываются.</p>
         <div class="alliance-stages">${stages}</div>
       </section>
       <div class="alliance-rules">
@@ -892,8 +916,8 @@
       : (mirror || archivist) && signalActive && forbiddenSlot ? 'СМЕНИ ПОЗИЦИЮ'
       : tideWindow && signalActive ? (tideWindow === 'short' ? 'КОРОТКО' : 'ДЛИННО')
       : reflection ? 'ОТРАЖЕНИЕ' : family ? 'КАРТА' : signalActive ? 'НАЙДИ ЗНАК' : 'СЛУШАЙ';
-    document.getElementById('coreHint').textContent = sequencePreview ? 'ответ появится после всей цепочки'
-      : sequenceMode && signalActive ? 'центральной подсказки больше нет'
+    document.getElementById('coreHint').textContent = sequencePreview ? 'ответишь после цепочки'
+      : sequenceMode && signalActive ? 'отвечай по памяти'
       : (mirror || archivist) && signalActive && forbiddenSlot ? 'запрет отмечен на рунах'
       : tideWindow && signalActive ? 'длина окна известна до сигнала'
       : reflection ? 'не нажимай · дождись настоящего' : family ? `семейство: ${family}` : signalActive ? 'одна попытка на сигнал' : 'затем найди такой же знак';
@@ -916,7 +940,10 @@
   function selectMenuTab(tab, persist = true) {
     currentMenuTab = tab;
     document.querySelectorAll('[data-menu-tab]').forEach((button) => {
-      button.classList.toggle('active', button.dataset.menuTab === tab);
+      const active = button.dataset.menuTab === tab;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+      button.tabIndex = active ? 0 : -1;
     });
     document.querySelectorAll('[data-menu-panel]').forEach((panel) => {
       const active = panel.dataset.menuPanel === tab;
@@ -1394,6 +1421,16 @@
   document.querySelector('.menu-tabs').addEventListener('click', (event) => {
     const button = event.target.closest('[data-menu-tab]');
     if (button) selectMenuTab(button.dataset.menuTab);
+  });
+  document.querySelector('.menu-tabs').addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const tabs = [...document.querySelectorAll('[data-menu-tab]')];
+    const current = Math.max(0, tabs.indexOf(document.activeElement));
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+      : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    event.preventDefault();
+    selectMenuTab(tabs[next].dataset.menuTab);
+    tabs[next].focus();
   });
   document.getElementById('menuButton').addEventListener('click', openPause);
   document.getElementById('startRunButton').addEventListener('click', startFromMenu);
