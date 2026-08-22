@@ -52,6 +52,33 @@ strike = combat.apply_action(guardian, {
 assert strike["correct"] and strike["companion_result"] == "guardian_wide_window"
 assert strike["damage"] == 52.0  # 65 base × 0.8; wider window has a real price.
 
+rhythm = combat.new_encounter(
+    "e02_shattered_causeway", seed=119, companion_role_id="rhythm_keeper",
+)
+too_early = combat.apply_action(rhythm, {
+    "type": "branch_action", "command": "companion_rhythm_guard", "delta_ms": 0,
+})
+assert not too_early["ok"]
+open_first_signal(rhythm)
+rhythm["combo"]["count"] = 21
+assert combat._combo_multiplier(rhythm) == 1.48
+rhythm["team"]["charge"] = 50.0
+integrity_before = rhythm["objective_state"]["lantern_integrity"]
+guarded_id = rhythm["challenge"]["id"]
+armed = combat.apply_action(rhythm, {
+    "type": "branch_action", "command": "companion_rhythm_guard", "delta_ms": 0,
+})
+assert armed["ok"] and armed["challenge_id"] == guarded_id
+while rhythm["challenge"] and rhythm["challenge"]["id"] == guarded_id:
+    combat.apply_action(rhythm, {"type": "frame", "delta_ms": 500})
+assert rhythm["mastery"]["missed_signals"] == 1  # Accuracy is never forgiven.
+assert rhythm["combo"]["count"] == 0 and rhythm["team"]["charge"] == 50.0
+assert rhythm["objective_state"]["lantern_integrity"] == integrity_before
+again = combat.apply_action(rhythm, {
+    "type": "branch_action", "command": "companion_rhythm_guard", "delta_ms": 0,
+})
+assert not again["ok"]
+
 for unsupported in ("navigator", "trickster", "unknown"):
     try:
         combat.new_encounter(seed=1, companion_role_id=unsupported)
@@ -60,4 +87,4 @@ for unsupported in ("navigator", "trickster", "unknown"):
     else:
         raise AssertionError(f"Unsupported companion role entered combat: {unsupported}")
 
-print("companion_combat_roles: Lantern information trade-off + Guardian timed choice  OK")
+print("companion_combat_roles: Lantern + Guardian + Rhythm Keeper contracts  OK")

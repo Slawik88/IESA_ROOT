@@ -298,7 +298,7 @@ def preview_overview() -> dict[str, Any]:
         })
     return {
         "policy": policy, "meaningful_days": 12, "role_slots": 3, "next_role_day": 15,
-        "unlocked_roles": ["lantern", "guardian"], "selected_role_id": "lantern",
+        "unlocked_roles": ["lantern", "guardian", "rhythm_keeper"], "selected_role_id": "lantern",
         "active_pet_id": 901, "pets": pets,
         "care_actions": [
             {"id": key, "name": value[0], "scene_hint": value[1]}

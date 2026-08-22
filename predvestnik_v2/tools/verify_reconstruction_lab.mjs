@@ -134,6 +134,49 @@ try{
     await page.close();
   }
 
+  {
+    const session=`rhythm-ui-${Date.now()}`;
+    const rhythmReset=await fetch(`${base}/__reconstruction/reset`,{
+      method:'POST',
+      headers:{'content-type':'application/json','x-reconstruction-session':session},
+      body:JSON.stringify({encounter_id:'e02_shattered_causeway'}),
+    });
+    check(rhythmReset.ok,'Rhythm Keeper UI: dev reset failed');
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width:390,height:844,deviceScaleFactor:1});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.waitForSelector('#menuLayer:not([hidden])');
+    await page.click('[data-menu-tab="companion"]');
+    await page.click('[data-companion-role="rhythm_keeper"]');
+    await page.waitForFunction(()=>document.querySelector('[data-companion-role="rhythm_keeper"]')?.classList.contains('selected'));
+    await page.click('[data-menu-tab="play"]');
+    await page.click('#startRunButton');
+    await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
+    await page.click('[data-combat-command="companion_rhythm_guard"]');
+    await page.waitForFunction(()=>document.querySelector('#accuracyValue')?.textContent.trim()==='0%',{timeout:5000});
+    const roleState=await page.evaluate(async()=>{
+      const sessionKey=sessionStorage.getItem('reconstruction-preview-session');
+      const response=await fetch('/__reconstruction/state',{headers:{'x-reconstruction-session':sessionKey}});
+      const api=await response.json();
+      return {
+        role:document.querySelector('.companion-build b')?.textContent.trim(),
+        missed:api.mastery.missed_signals,
+        integrity:api.objective_state?.lantern_integrity,
+        overflow:document.documentElement.scrollWidth-innerWidth,
+      };
+    });
+    check(roleState.role==='Хранитель ритма',`Rhythm Keeper active-build label missing: ${roleState.role}`);
+    check(roleState.missed===1,`Rhythm Keeper hid the miss from accuracy: ${roleState.missed}`);
+    check(roleState.integrity===100,`Rhythm Keeper failed to protect objective integrity: ${roleState.integrity}`);
+    check(roleState.overflow<=0,`Rhythm Keeper controls overflow by ${roleState.overflow}px`);
+    check(errors.length===0,`Rhythm Keeper UI browser errors ${errors.join(', ')}`);
+    if(output)await page.screenshot({path:`${output}/clicker-390-rhythm-guard.png`,fullPage:true});
+    await page.close();
+  }
+
   // DEV-only time compression makes the real expedition state transitions
   // testable without waiting two hours.  No wallet is attached to this bridge.
   {

@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Any, Final
 
 GAME_VERSION: Final = "3.0.0-alpha.3"
-BALANCE_VERSION: Final = "r12-2026-08-22-companion-combat-pilot"
+BALANCE_VERSION: Final = "r13-2026-08-22-rhythm-keeper"
 FEATURE_FLAG_KEY: Final = "game_reconstruction_v1"
 CAMPAIGN_ID: Final = "echoes_of_the_drowned_bell"
 

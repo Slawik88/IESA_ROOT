@@ -39,9 +39,9 @@ COMPANION_ROLES: Final[Mapping[str, Mapping[str, Any]]] = MappingProxyType({
     },
     "rhythm_keeper": {
         "name": "Хранитель ритма", "emoji": "◌",
-        "implemented": False,
-        "decision": "Один раз превращает пропуск в нейтральный разрыв серии.",
-        "tradeoff": "Максимальный бонус серии в этом забеге ниже.",
+        "implemented": True,
+        "decision": "Один раз защищает выбранный активный сигнал от последствий пропуска.",
+        "tradeoff": "Пропуск считается в точности, а потолок бонуса серии ниже.",
     },
     "echo": {
         "name": "Эхо", "emoji": "◍",
