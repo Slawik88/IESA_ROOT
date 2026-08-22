@@ -51,9 +51,9 @@
     document.getElementById('profileKind').textContent = 'ПРОФИЛЬ ИГРОКА';
     document.getElementById('statsEyebrow').textContent = 'ПРОФИЛЬ РАЗЛОМА';
     document.getElementById('statsCopy').textContent =
-      'Серверная статистика завершённых забегов. Пропуски входят в расчёт точности.';
+      'Сервер считает завершённые забеги; пропуски входят в точность, незавершённые сигналы не становятся 100%.';
     document.getElementById('runtimeFooter').textContent =
-      'MVP · прогресс и статистика сохраняются в профиле';
+      'Прогресс и статистика забегов сохраняются в профиле';
   }
 
   const emptyCareer = () => ({
@@ -265,10 +265,10 @@
     document.getElementById('testerAvatar').textContent = name.trim().slice(0, 1).toUpperCase() || '◉';
   }
 
-  function spawnImpact(x, y, label, critical = false) {
+  function spawnImpact(x, y, label, critical = false, tone = '') {
     const bounds = stage.getBoundingClientRect();
     const node = document.createElement('span');
-    node.className = `impact${critical ? ' critical' : ''}`;
+    node.className = `impact${critical ? ' critical' : ''}${tone ? ` ${tone}` : ''}`;
     node.textContent = label;
     node.style.left = `${Math.min(bounds.width - 24, Math.max(24, x - bounds.left))}px`;
     node.style.top = `${Math.min(bounds.height - 30, Math.max(50, y - bounds.top))}px`;
@@ -281,6 +281,20 @@
     lastEventId = event.id;
     const pulse = document.getElementById('eventPulse');
     pulse.textContent = event.kind === 'discharge' ? '⚡' : event.kind === 'critical' ? '✦' : event.kind === 'miss' ? '×' : '·';
+    const coreBounds = core.getBoundingClientRect();
+    const feedback = {
+      discharge: ['РАЗРЯД', false, 'discharge'],
+      critical: ['ТОЧНО ✦', true, 'hit'],
+      hit: ['ТОЧНО', false, 'hit'],
+      miss: ['ОШИБКА', false, 'miss'],
+    }[event.kind];
+    if (feedback) {
+      spawnImpact(
+        coreBounds.left + coreBounds.width / 2,
+        coreBounds.top - 4,
+        feedback[0], feedback[1], feedback[2],
+      );
+    }
     if (event.kind === 'discharge') {
       stage.classList.remove('discharge');
       void stage.offsetWidth;
@@ -318,9 +332,15 @@
     const selected = (state.upgrades || []).map((id) => catalog.get(id)).filter(Boolean);
     const role = (manifest?.companions?.roles || []).find((item) => item.id === state.companion_role_id);
     const forecast = state.companion_state?.navigator_forecast;
+    const roleNotes = {
+      lantern: 'метит одну ложную руну',
+      guardian: '+0,32 с · урон ×0,8',
+      rhythm_keeper: 'одна защита сигнала',
+      echo: 'ускоренный повтор',
+    };
     const roleNote = role?.id === 'navigator' && forecast
-      ? `волна ${number(forecast.wave)} · ${esc(forecast.window)} окно`
-      : 'роль спутника';
+      ? `${number(forecast.wave)}-я волна · ${esc(forecast.window)}`
+      : roleNotes[role?.id] || 'правило спутника активно';
     container.hidden = false;
     const roleChip = role ? `<span class="companion-build"><i>${esc(role.emoji)}</i><b>${esc(role.name)}</b><small>${roleNote}</small></span>` : '';
     container.innerHTML = roleChip + (selected.length ? selected.map((upgrade) => `
@@ -374,28 +394,41 @@
       (value) => Array.isArray(value) ? value : [value],
     ));
     const controls = [];
+    const addControl = (command, label, detail, className = '', enabled = null) => {
+      const enabledData = enabled === null ? '' : ` data-enabled="${enabled ? 'true' : 'false'}"`;
+      controls.push(`<button type="button"${className ? ` class="${className}"` : ''} data-combat-command="${command}"${enabledData} aria-label="${esc(`${label}. ${detail}`)}"><strong>${label}</strong><small>${detail}</small></button>`);
+    };
     if (selected.has('bell_silent_release') && branch.manual_discharge && state.challenge?.active) {
-      controls.push('<button type="button" data-combat-command="manual_discharge">⚡ Выпустить Разряд</button>');
+      addControl('manual_discharge', '⚡ Разряд', 'выпустить весь заряд сейчас');
     }
     if (selected.has('seam_forbidden_repeat')) {
-      controls.push(`<button type="button" class="${branch.forbidden_mode ? 'risk-on' : ''}" data-combat-command="forbidden_toggle" data-enabled="${branch.forbidden_mode ? 'false' : 'true'}">🪡 Риск ${branch.forbidden_mode ? 'вкл' : 'выкл'}</button>`);
+      addControl(
+        'forbidden_toggle', `🪡 Риск · ${branch.forbidden_mode ? 'вкл' : 'выкл'}`,
+        branch.forbidden_mode ? 'снять запрет позиции' : 'запретить одну позицию',
+        branch.forbidden_mode ? 'risk-on' : '', !branch.forbidden_mode,
+      );
     }
     if (selected.has('tide_hidden_swap') && state.challenge?.active && !branch.tide_swap_used) {
-      controls.push('<button type="button" data-combat-command="tide_swap">🌊 Сдвинуть руны</button>');
+      addControl('tide_swap', '🌊 Сдвиг', 'переставить руны · 1 раз');
     }
     const guardianUsed = state.companion_state?.guardian_used_rounds || [];
     if (state.companion_role_id === 'guardian' && state.challenge?.active && !guardianUsed.includes(state.round)) {
-      controls.push('<button type="button" data-combat-command="companion_guardian_window">⬡ Расширить это окно</button>');
+      addControl('companion_guardian_window', '⬡ +0,32 с', 'урон этого знака ×0,8');
     }
     if (state.companion_role_id === 'rhythm_keeper' && state.challenge?.active && !state.companion_state?.rhythm_guard_used) {
-      controls.push('<button type="button" data-combat-command="companion_rhythm_guard">◌ Сохранить этот ритм</button>');
+      addControl('companion_rhythm_guard', '◌ Защита', 'пропуск не повредит цели');
     }
     const echoUsed = state.companion_state?.echo_used_rounds || [];
     const echoOffered = Number(state.companion_state?.echo_offer_challenge || 0) === Number(state.challenge?.id || -1);
     if (state.companion_role_id === 'echo' && state.challenge && !state.challenge.active && echoOffered && !echoUsed.includes(state.round)) {
-      controls.push('<button type="button" data-combat-command="companion_echo_repeat">◍ Повторить быстрее</button>');
+      addControl('companion_echo_repeat', '◍ Повтор', 'на ответ 62% обычного окна');
     }
-    container.innerHTML = controls.join('');
+    const markup = controls.join('');
+    if (container.dataset.markup !== markup) {
+      container.innerHTML = markup;
+      container.dataset.markup = markup;
+    }
+    container.dataset.count = String(controls.length);
     container.hidden = !controls.length;
   }
 
@@ -637,7 +670,7 @@
     const pets = companionState.pets || [];
     const active = pets.find((pet) => pet.active_companion) || pets[0];
     if (!active) {
-      container.innerHTML = '<div class="companion-empty">Питомцев пока нет. Первый спутник появится в onboarding Хроники.</div>';
+      container.innerHTML = '<div class="companion-empty">Питомцев пока нет. Первый спутник появится во вступлении Хроники.</div>';
       return;
     }
     const roles = companionState.policy?.roles || [];
@@ -648,7 +681,7 @@
       : `${number(progress.points)} / ${number(progress.next_milestone)}`;
     const petRail = pets.map((pet) => `
       <button type="button" class="pet-chip${pet.active_companion ? ' active' : ''}" data-companion-pet="${pet.id}">
-        <i>${species[pet.species_id] || '◌'}</i><span><strong>${esc(pet.name)}</strong><small>стар. ур. ${number(pet.legacy.level)} · Bond ${number(pet.bond.points)}</small></span>
+        <i>${species[pet.species_id] || '◌'}</i><span><strong>${esc(pet.name)}</strong><small>прежний ур. ${number(pet.legacy.level)} · связь ${number(pet.bond.points)}</small></span>
       </button>`).join('');
     const roleCards = roles.map((role) => {
       const owned = unlocked.has(role.id);
@@ -671,14 +704,14 @@
     container.innerHTML = `
       <section class="companion-hero">
         <div class="companion-mark">${species[active.species_id] || '◌'}</div>
-        <div><span>АКТИВНЫЙ СПУТНИК</span><strong>${esc(active.name)}</strong><small>${esc(rarityNames[active.rarity] || active.rarity || 'обычный')} · старый уровень ${number(active.legacy.level)} сохранён</small></div>
-        <b>Bond ${nextBond}</b>
+        <div><span>АКТИВНЫЙ СПУТНИК</span><strong>${esc(active.name)}</strong><small>${esc(rarityNames[active.rarity] || active.rarity || 'обычный')} · прежний уровень ${number(active.legacy.level)} сохранён</small></div>
+        <b>Связь ${nextBond}</b>
       </section>
       <div class="bond-line"><span><b style="width:${Math.min(100, Number(progress.points || 0) / 78 * 100)}%"></b></span><small>открыто сцен: ${number(progress.milestones_reached)}</small></div>
       <div class="pet-rail">${petRail}</div>
-      <section class="care-block"><header><span><strong>Забота</strong><small>короткий ритуал без штрафа за пропуск</small></span><b>${number(active.care_bank)} / 7</b></header><div>${careButtons}</div></section>
+      <section class="care-block"><header><span><strong>Забота</strong><small>одно действие даёт +1 к связи</small></span><b>запас ${number(active.care_bank)} / 7</b></header><div>${careButtons}</div></section>
       <section class="companion-section"><header><span><strong>Атлас ролей</strong><small>${number(unlocked.size)} открыто · ${number(companionState.role_slots)} доступно сейчас</small></span><b>след. ${companionState.next_role_day == null ? 'все' : `${number(companionState.next_role_day)} день`}</b></header><div class="role-list">${roleCards}</div></section>
-      <section class="companion-section expedition-preview"><header><span><strong>Поход-разведка</strong><small>${number(companionState.expeditions?.open_slots)} из ${number(companionState.expeditions?.slots)} слотов свободно</small></span><b>тень ${number(companionState.expeditions?.weekly_reserved_mora)} / 600</b></header><div class="expedition-grid">${expeditions}</div>${contracts ? `<div class="expedition-contracts">${contracts}</div>` : ''}${Number(companionState.expeditions?.ready_count) > 0 ? '<button class="claim-expeditions" type="button" data-expedition-claim>Забрать готовые результаты</button>' : ''}<p>${esc(companionState.expeditions?.reason || '')}</p></section>`;
+      <section class="companion-section expedition-preview"><header><span><strong>Поход-разведка</strong><small>${number(companionState.expeditions?.open_slots)} из ${number(companionState.expeditions?.slots)} слотов свободно</small></span><b>резерв ${number(companionState.expeditions?.weekly_reserved_mora)} / 600 Моры</b></header><div class="expedition-grid">${expeditions}</div>${contracts ? `<div class="expedition-contracts">${contracts}</div>` : ''}${Number(companionState.expeditions?.ready_count) > 0 ? '<button class="claim-expeditions" type="button" data-expedition-claim>Забрать готовые результаты</button>' : ''}<p>${esc(companionState.expeditions?.reason || '')}</p></section>`;
   }
 
   function renderAlliance() {
@@ -691,8 +724,8 @@
       <span><b>${number(stage)}%</b><small>${['След найден', 'Контур собран', 'Цикл закрыт'][index] || 'Этап'}</small></span>`).join('');
     container.innerHTML = `
       <section class="alliance-hero">
-        <header><strong>Первый общий цикл</strong><b>SHADOW · 0 выплат</b></header>
-        <p>Цель будет рассчитана по активным игрокам за 28 дней. Победа даёт 2 сигнала, содержательное поражение — 1; Practice и карантин не учитываются.</p>
+        <header><strong>Первый общий цикл</strong><b>ТЕНЬ · 0 НАГРАД</b></header>
+        <p>Цель рассчитывается по активным игрокам за 28 дней. Победа даёт 2 сигнала, содержательное поражение — 1; тренировка и забеги на проверке не учитываются.</p>
         <div class="alliance-stages">${stages}</div>
       </section>
       <div class="alliance-rules">
@@ -725,11 +758,11 @@
     } : next?.type === 'choose_chronicle_path' ? {
       eyebrow: 'ХРОНИКА · РАЗВИЛКА', title: next.title,
       copy: next.description, waves: '2', time: 'тропы', goal: '1', note: 'Навсегда',
-      noteCopy: 'Выбранная тропа меняет порядок обучения, но не продаёт силу и не закрывает историю.',
+      noteCopy: 'Тропа меняет порядок встреч; обе ветви истории всё равно останутся доступны.',
     } : next?.type === 'development_gate' ? {
       eyebrow: 'ГРАНИЦА ТЕКУЩЕГО MVP', title: next.title,
       copy: next.description, waves: '2', time: 'пройдено', goal: '0', note: 'Без наград',
-      noteCopy: 'Тренировка не меняет экономику и нужна для проверки сборок.',
+      noteCopy: 'В тренировке можно проверять сборки; награды и прогресс не начисляются.',
     } : nextEncounter?.id === 'e02_shattered_causeway' ? {
       eyebrow: 'ХРОНИКА · ВСТРЕЧА 2', title: nextEncounter.name,
       copy: nextEncounter.objective.description, waves: '3', time: '≈ 2 мин', goal: '≥ 75%',
@@ -757,8 +790,8 @@
     } : {
       eyebrow: 'ХРОНИКА · ВСТРЕЧА 1', title: nextEncounter?.name || 'Разлом колокола',
       copy: nextEncounter?.objective?.description || 'Три короткие волны. Смотри на знак в центре и находи такой же среди трёх рун.',
-      waves: '3', time: '≈ 1 мин', goal: '1', note: 'Важно',
-      noteCopy: 'Скорость кликов не даёт преимущество. Побеждает правильный выбор руны.',
+      waves: '3', time: '≈ 1 мин', goal: '1', note: 'Правило',
+      noteCopy: 'На сигнал даётся одна попытка: дождись знака и выбери совпадающую руну.',
     };
     document.getElementById('menuEyebrow').textContent = menu.eyebrow;
     document.getElementById('menuTitle').textContent = menu.title;
@@ -1323,7 +1356,7 @@
           }),
         });
         companionState = await jsonFetch('/companions');
-        notify('Bond вырос. Валюта и сила не изменились.');
+        notify('Связь со спутником выросла на 1. Характеристики не изменились.');
       }
       if (expedition) {
         const active = companionState?.pets?.find((item) => item.active_companion);
@@ -1343,7 +1376,7 @@
           }),
         });
         companionState = await jsonFetch('/companions');
-        notify(`Теневой итог: ${number(result.projected_mora_total)} Моры. Кошелёк не изменён.`);
+        notify(`Тестовый результат: ${number(result.projected_mora_total)} Моры. В кошелёк не начислено.`);
       }
       renderCompanions();
     } catch (error) {
