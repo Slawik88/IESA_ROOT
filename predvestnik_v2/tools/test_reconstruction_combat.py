@@ -18,7 +18,7 @@ def act(state, **action):
 
 
 def open_signal(state):
-    while state["status"] == "active" and not state["challenge"]["active"]:
+    while state["status"] == "active" and not (state.get("challenge") or {}).get("active"):
         act(state, type="frame", delta_ms=100)
     return state.get("challenge")
 
@@ -309,6 +309,63 @@ for encounter_id, outcome_reason in (
         )
     assert path["status"] == "won", (encounter_id, path["outcome_reason"])
     assert path["outcome_reason"] == outcome_reason
+
+# Четвёртая встреча проверяет память, а не поиск видимого совпадения. Сервер
+# показывает цепочку по одному знаку, затем скрывает ответ и принимает только
+# правильный порядок. Повтор старого challenge_id не получает второго шанса.
+names = combat.new_encounter("e04_drowned_names", seed=1401)
+first_sequence = list(names["objective_state"]["sequence"])
+assert len(first_sequence) == 2
+assert "sequence" not in combat.public_state(names)["objective_state"]
+seen_preview = []
+while names["objective_state"]["phase"] == "preview":
+    act(names, type="frame", delta_ms=100)
+    symbol = names["objective_state"].get("preview_symbol")
+    if symbol and (not seen_preview or seen_preview[-1] != symbol):
+        seen_preview.append(symbol)
+assert seen_preview == first_sequence
+challenge = open_signal(names)
+hidden_recall = combat.public_state(names)
+assert hidden_recall["challenge"]["target_symbol"] is None
+assert len(hidden_recall["challenge"]["options"]) == 3
+first_id = challenge["id"]
+wrong = next(
+    option["slot"] for option in challenge["options"]
+    if option["symbol"] != challenge["target_symbol"]
+)
+act(names, type="strike", challenge_id=first_id, target_slot=wrong)
+assert names["objective_state"]["phase"] == "preview"
+assert names["objective_state"]["attempts_left"] == 2
+assert names["objective_state"]["sequence"] == first_sequence
+challenge = open_signal(names)
+assert challenge["id"] > first_id
+stale = act(names, type="strike", challenge_id=first_id, target_slot=correct_slot(challenge))
+assert stale["strike"]["accepted"] is False
+assert stale["strike"]["reason"] == "stale_signal"
+
+names_perfect = combat.new_encounter("e04_drowned_names", seed=1402)
+for _ in range(1800):
+    if names_perfect["status"] in {"won", "lost"}:
+        break
+    if names_perfect["status"] == "reward":
+        act(
+            names_perfect, type="choose_upgrade",
+            upgrade_id=names_perfect["reward_options"][0]["id"],
+        )
+        continue
+    challenge = names_perfect.get("challenge")
+    if not challenge or not challenge["active"]:
+        act(names_perfect, type="frame", delta_ms=100)
+        continue
+    act(
+        names_perfect, type="strike", challenge_id=challenge["id"],
+        target_slot=correct_slot(challenge),
+    )
+assert names_perfect["status"] == "won"
+assert names_perfect["outcome_reason"] == "drowned_names_released"
+assert names_perfect["objective_state"]["anchors_broken"] == 3
+assert names_perfect["objective_state"]["replays"] == 0
+assert names_perfect["mastery"]["correct_taps"] == 8
 
 # Первый рубеж мастерства меняет решения, а не только числа.
 vow = combat.new_encounter(seed=1201, unit_branches={"r_oath_bell": "bell_broken_vow"})

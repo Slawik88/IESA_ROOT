@@ -152,6 +152,50 @@ try{
     }
   }
 
+  // Встреча памяти сначала показывает цепочку, затем намеренно убирает
+  // центральную подсказку. На мобильном остаются только три удобные руны.
+  for(const width of [320,390,430]){
+    const session=`visual-e04-${width}`;
+    const response=await fetch(`${base}/__reconstruction/reset`,{
+      method:'POST',
+      headers:{'content-type':'application/json','x-reconstruction-session':session},
+      body:JSON.stringify({encounter_id:'e04_drowned_names'}),
+    });
+    check(response.ok,`${width}px: e04 dev reset failed`);
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width,height:844,deviceScaleFactor:1});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.click('#startRunButton');
+    await page.waitForFunction(()=>
+      document.getElementById('corePrompt')?.textContent.trim()==='ЗАПОМНИ'
+      && ['◇','△','○'].includes(document.getElementById('bossGlyph')?.textContent.trim()),
+      {timeout:3000},
+    );
+    const previewSymbol=await page.$eval('#bossGlyph',node=>node.textContent.trim());
+    check(['◇','△','○'].includes(previewSymbol),`${width}px: e04 preview rune missing (${previewSymbol})`);
+    await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:4000});
+    const metrics=await page.evaluate(()=>({
+      overflow:document.documentElement.scrollWidth-innerWidth,
+      objective:document.getElementById('objectiveValue').textContent.trim(),
+      prompt:document.getElementById('corePrompt').textContent.trim(),
+      center:document.getElementById('bossGlyph').textContent.trim(),
+      runes:[...document.querySelectorAll('.strike-rune')].map(node=>({
+        text:node.textContent.trim(),height:node.getBoundingClientRect().height,
+      })),
+    }));
+    check(metrics.overflow<=0,`${width}px: e04 overflow ${metrics.overflow}px`);
+    check(metrics.objective==='0/3',`${width}px: e04 anchor counter ${metrics.objective}`);
+    check(metrics.prompt==='ПОВТОРИ',`${width}px: e04 recall prompt ${metrics.prompt}`);
+    check(!metrics.runes.some(item=>item.text===metrics.center),`${width}px: e04 leaked target in center`);
+    check(metrics.runes.every(item=>item.height>=44),`${width}px: e04 target below 44px`);
+    check(errors.length===0,`${width}px: e04 browser errors ${errors.join(', ')}`);
+    if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-e04.png`,fullPage:true});
+    await page.close();
+  }
+
   // Ветвь с активным решением не добавляет старую панель способностей:
   // одна компактная кнопка меняет риск и сохраняет мобильную ширину.
   const branchSession='visual-branch-control';

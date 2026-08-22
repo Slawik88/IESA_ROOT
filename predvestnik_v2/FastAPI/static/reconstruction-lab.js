@@ -484,16 +484,23 @@
     const lantern = objectiveKind === 'lantern_escort';
     const ink = objectiveKind === 'ink_decipher';
     const ash = objectiveKind === 'ash_fire';
+    const sequence = objectiveKind === 'drowned_sequence';
     const next = progress?.next_step;
     document.getElementById('resultMark').textContent = won ? '✦' : '◌';
     document.getElementById('resultEyebrow').textContent = won ? 'ВСТРЕЧА ПРОЙДЕНА' : 'ВСТРЕЧА НЕ ПРОЙДЕНА';
-    document.getElementById('resultTitle').textContent = ink
+    document.getElementById('resultTitle').textContent = sequence
+      ? (won ? 'Имена освобождены' : 'Цепочка утрачена')
+      : ink
       ? (won ? 'Настоящие имена прочитаны' : 'Отражения победили')
       : ash ? (won ? 'Огонь сохранён' : 'Костёр погас')
       : lantern
       ? (won ? 'Фонарь достиг ворот' : 'Фонарь не дошёл')
       : (won ? 'Колокол отвечает тебе' : 'Эхо погасло');
-    document.getElementById('resultCopy').textContent = ink
+    document.getElementById('resultCopy').textContent = sequence
+      ? (won
+        ? 'Ты удержал порядок без подсказки и разорвал все три якоря.'
+        : 'Сначала смотри всю цепочку. Во время ответа важен порядок, а не скорость нажатий.')
+      : ink
       ? (won
         ? 'Ты дождался настоящих сигналов и не позволил ранним отражениям управлять выбором.'
         : 'Ранний символ — только отражение. Решение принимается после открытия трёх рун.')
@@ -520,6 +527,7 @@
     if (lantern) stats.splice(0, 1, [`${number(state.objective_state.lantern_integrity)}%`, 'свет Фонаря']);
     if (ink) stats.splice(0, 1, [`${number(state.objective_state.clarity)}%`, 'ясность']);
     if (ash) stats.splice(0, 1, [`${number(state.objective_state.fire_integrity)}%`, 'огонь']);
+    if (sequence) stats.splice(0, 1, [`${number(state.objective_state.anchors_broken)}/${number(state.objective_state.anchors_total)}`, 'якоря']);
     document.getElementById('resultStats').innerHTML = stats
       .map(([value, label]) => `<span><strong>${esc(value)}</strong>${esc(label)}</span>`).join('');
     const previewContinues = !production && won && state.encounter_id === 'e01_two_bells';
@@ -595,6 +603,10 @@
       eyebrow: 'ХРОНИКА · ТРОПА ПЕПЛА', title: nextEncounter.name,
       copy: nextEncounter.objective.description, waves: '3', time: '≈ 3 мин', goal: 'огонь',
       note: 'Костёр', noteCopy: 'Огонь медленно гаснет. Поздний золотой ответ возвращает больше жара.',
+    } : nextEncounter?.id === 'e04_drowned_names' ? {
+      eyebrow: 'ХРОНИКА · ВСТРЕЧА 4', title: nextEncounter.name,
+      copy: nextEncounter.objective.description, waves: '3', time: '≈ 2 мин', goal: 'память',
+      note: 'Порядок', noteCopy: 'Сначала запомни всю цепочку. Во время ответа центральная подсказка исчезает.',
     } : {
       eyebrow: 'ХРОНИКА · ВСТРЕЧА 1', title: nextEncounter?.name || 'Разлом колокола',
       copy: nextEncounter?.objective?.description || 'Три короткие волны. Смотри на знак в центре и находи такой же среди трёх рун.',
@@ -628,9 +640,12 @@
     document.getElementById('bossName').textContent = wave.name;
     document.getElementById('bossSubtitle').textContent = wave.subtitle;
     const reflection = objective.kind === 'ink_decipher' ? objective.reflection_cue : null;
-    document.getElementById('bossGlyph').textContent = signalActive
-      ? challenge.target_symbol
-      : reflection?.symbol || wave.emoji;
+    const sequence = objective.kind === 'drowned_sequence';
+    const sequencePreview = sequence && objective.phase === 'preview';
+    document.getElementById('bossGlyph').textContent = sequencePreview
+      ? (objective.preview_symbol || '·')
+      : signalActive ? (sequence ? '⌁' : challenge.target_symbol)
+        : reflection?.symbol || wave.emoji;
     document.getElementById('roundClock').innerHTML = `<strong>${seconds}</strong><span>сек</span>`;
     document.getElementById('roundClock').classList.toggle('urgent', wave.time_left_ms <= 5000);
     document.getElementById('bossHealthFill').style.transform = `scaleX(${Math.max(0, Math.min(1, hpPercent / 100))})`;
@@ -639,20 +654,23 @@
     document.getElementById('bossHealth').setAttribute('aria-valuenow', String(Math.round(wave.hp)));
     const objectiveMeter = document.getElementById('objectiveMeter');
     const objectiveConfig = {
-      lantern_escort: ['ФОНАРЬ', 'lantern_integrity', 'lantern_integrity_max', ''],
-      ink_decipher: ['ЯСНОСТЬ', 'clarity', 'clarity_max', 'ink'],
-      ash_fire: ['ОГОНЬ', 'fire_integrity', 'fire_integrity_max', 'ash'],
+      lantern_escort: ['ФОНАРЬ', 'lantern_integrity', 'lantern_integrity_max', '', 'percent'],
+      ink_decipher: ['ЯСНОСТЬ', 'clarity', 'clarity_max', 'ink', 'percent'],
+      ash_fire: ['ОГОНЬ', 'fire_integrity', 'fire_integrity_max', 'ash', 'percent'],
+      drowned_sequence: ['ЯКОРИ', 'anchors_broken', 'anchors_total', 'memory', 'fraction'],
     }[objective.kind];
     objectiveMeter.hidden = !objectiveConfig;
     objectiveMeter.className = `objective-meter${objectiveConfig?.[3] ? ` ${objectiveConfig[3]}` : ''}`;
     if (objectiveConfig) {
-      const [label, valueKey, maxKey] = objectiveConfig;
+      const [label, valueKey, maxKey, , format] = objectiveConfig;
       const max = Math.max(1, Number(objective[maxKey]) || 100);
       const value = Math.max(0, Math.min(max, Number(objective[valueKey]) || 0));
       document.getElementById('objectiveLabel').textContent = label;
-      document.getElementById('objectiveValue').textContent = `${number(value)}%`;
+      document.getElementById('objectiveValue').textContent = format === 'fraction'
+        ? `${number(value)}/${number(max)}` : `${number(value)}%`;
       document.getElementById('objectiveFill').style.transform = `scaleX(${value / max})`;
-      objectiveMeter.setAttribute('aria-label', `${label} ${number(value)} процентов`);
+      objectiveMeter.setAttribute('aria-label', format === 'fraction'
+        ? `${label} ${number(value)} из ${number(max)}` : `${label} ${number(value)} процентов`);
     }
     core.style.setProperty('--charge', `${Math.min(360, chargePercent * 3.6)}deg`);
     document.getElementById('comboValue').textContent = `×${state.combo.count}`;
@@ -663,17 +681,29 @@
     document.getElementById('windowProgress').style.transform = `scaleX(${Math.max(0, Math.min(1, state.signal_progress))})`;
     stage.classList.toggle('signal', signalActive);
     stage.classList.toggle('golden', state.critical_active);
+    stage.classList.toggle('memory-preview', sequencePreview);
     const indicator = document.getElementById('windowIndicator').querySelector('span');
     const timerHidden = Boolean(state.branch_state?.hide_signal_timer && signalActive);
     document.getElementById('windowIndicator').classList.toggle('timer-hidden', timerHidden);
-    indicator.textContent = timerHidden ? 'Течение скрывает остаток окна'
+    indicator.textContent = sequencePreview
+      ? `Запомни · ${Math.max(1, Number(objective.preview_index) + 1)} из ${number(objective.sequence_length)}`
+      : sequence && signalActive
+        ? `Повтори · знак ${number(Number(objective.answer_index) + 1)} из ${number(objective.sequence_length)}`
+      : timerHidden ? 'Течение скрывает остаток окна'
       : state.critical_active
       ? '✦ ЗОЛОТОЕ ОКНО · БОНУС ЗА МОМЕНТ'
       : signalActive ? 'Выбери совпадающую руну' : 'Сигнал приближается';
     const family = state.branch_state?.family_preview;
-    document.getElementById('corePrompt').textContent = reflection ? 'ОТРАЖЕНИЕ' : family ? 'КАРТА' : signalActive ? 'НАЙДИ ЗНАК' : 'СЛУШАЙ';
-    document.getElementById('coreHint').textContent = reflection ? 'не нажимай · дождись настоящего' : family ? `семейство: ${family}` : signalActive ? 'одна попытка на сигнал' : 'затем найди такой же знак';
-    core.setAttribute('aria-label', signalActive ? `Найди руну ${challenge.target_symbol}` : 'Ожидание следующей руны');
+    document.getElementById('corePrompt').textContent = sequencePreview ? 'ЗАПОМНИ'
+      : sequence && signalActive ? 'ПОВТОРИ'
+      : reflection ? 'ОТРАЖЕНИЕ' : family ? 'КАРТА' : signalActive ? 'НАЙДИ ЗНАК' : 'СЛУШАЙ';
+    document.getElementById('coreHint').textContent = sequencePreview ? 'ответ появится после всей цепочки'
+      : sequence && signalActive ? 'центральной подсказки больше нет'
+      : reflection ? 'не нажимай · дождись настоящего' : family ? `семейство: ${family}` : signalActive ? 'одна попытка на сигнал' : 'затем найди такой же знак';
+    core.setAttribute('aria-label', sequencePreview && objective.preview_symbol
+      ? `Запомни руну ${objective.preview_symbol}`
+      : sequence && signalActive ? `Повтори знак ${Number(objective.answer_index) + 1}`
+        : signalActive ? `Найди руну ${challenge.target_symbol}` : 'Ожидание следующей руны');
     renderRunes();
     renderBranchControls();
     renderRail();

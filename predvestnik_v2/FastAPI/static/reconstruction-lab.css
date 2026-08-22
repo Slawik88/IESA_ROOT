@@ -63,6 +63,10 @@ h2 { letter-spacing: -.03em; }
 .objective-meter.ink b { background: linear-gradient(90deg, #8776c9, #b7a9ec); }
 .objective-meter.ash b { background: linear-gradient(90deg, #bd6555, var(--gold)); }
 .objective-meter.ash strong { color: #f0c87c; }
+.objective-meter.memory b { background: linear-gradient(90deg, #5d8ca7, #90c9ca); }
+.objective-meter.memory strong { color: #a9dfe0; }
+.tap-stage.memory-preview .echo-core { box-shadow: 0 0 0 1px rgba(105,194,207,.46), 0 14px 45px rgba(0,0,0,.35); }
+.tap-stage.memory-preview .core-glyph { color: #bce9e8; }
 .branch-controls { margin: 7px 15px 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .branch-controls::-webkit-scrollbar { display: none; }
 .branch-controls button { min-width: max-content; min-height: 42px; padding: 0 10px; border: 1px solid rgba(105,194,207,.28); border-radius: 9px; background: rgba(105,194,207,.07); color: #b8e5e8; font-size: 8px; font-weight: 800; }
