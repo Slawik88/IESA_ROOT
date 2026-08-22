@@ -28,6 +28,13 @@ router = APIRouter(prefix="/cosmetics", tags=["cosmetics"],
                     dependencies=[Depends(require_tab_enabled("tab_cosmetics"))])
 
 
+def _economic_key(value: str, scope: str) -> str:
+    key = value.strip()
+    if not key or len(key) > 120:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
+    return f"{scope}:{key}"
+
+
 async def _tg_dm(user_id: int, text: str) -> None:
     """Тихий DM получателю подарка через Bot API. Ошибки глушим (мог не /start-нуть бота)."""
     token = os.getenv("BOT_TOKEN", "")
@@ -58,11 +65,9 @@ async def cosmetics_buy(
     user=Depends(require_tg_user),
     request_key: str = Header(alias="Idempotency-Key"),
 ):
-    if not request_key.strip() or len(request_key.strip()) > 120:
-        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
     ok, msg = await buy(
         db, user["id"], body.cosmetic_id, body.option_index,
-        idempotency_key=f"cosmetic:{request_key.strip()}",
+        idempotency_key=_economic_key(request_key, "cosmetic"),
     )
     if not ok:
         raise HTTPException(400, msg)
@@ -75,8 +80,14 @@ class BuyLineupRequest(BaseModel):
 
 
 @router.post("/buy-lineup")
-async def cosmetics_buy_lineup(body: BuyLineupRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg = await buy_lineup(db, user["id"], body.lineup)
+async def cosmetics_buy_lineup(
+    body: BuyLineupRequest, db=Depends(get_db), user=Depends(require_tg_user),
+    request_key: str = Header(alias="Idempotency-Key"),
+):
+    ok, msg = await buy_lineup(
+        db, user["id"], body.lineup,
+        idempotency_key=_economic_key(request_key, "cosmetic-lineup"),
+    )
     if not ok:
         raise HTTPException(400, msg)
     await db.commit()
@@ -88,8 +99,14 @@ class BuyManyRequest(BaseModel):
 
 
 @router.post("/buy-many")
-async def cosmetics_buy_many(body: BuyManyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg = await buy_many(db, user["id"], body.cosmetic_ids)
+async def cosmetics_buy_many(
+    body: BuyManyRequest, db=Depends(get_db), user=Depends(require_tg_user),
+    request_key: str = Header(alias="Idempotency-Key"),
+):
+    ok, msg = await buy_many(
+        db, user["id"], body.cosmetic_ids,
+        idempotency_key=_economic_key(request_key, "cosmetic-many"),
+    )
     if not ok:
         raise HTTPException(400, msg)
     await db.commit()

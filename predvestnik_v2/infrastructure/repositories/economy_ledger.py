@@ -239,6 +239,55 @@ async def find_balance_replay(
     )
 
 
+async def find_reference_replay(
+    db,
+    user_id: int,
+    *,
+    reason_code: str,
+    idempotency_key: str,
+    source_type: str,
+    reference_type: str,
+    reference_id: str | int,
+) -> BalanceMutation | None:
+    """Find a prior dynamic-price operation by its immutable request identity.
+
+    Bundle prices may depend on ownership at the moment of purchase. Recomputing
+    their deltas after a successful request would produce a different amount, so
+    retries first verify the stable reason/source/reference tuple and then load
+    the original ledger arithmetic.
+    """
+    reason = validate_reason_code(reason_code)
+    source = validate_reason_code(source_type)
+    ref_type = validate_reason_code(reference_type)
+    ref_id = str(reference_id)
+    key = validate_idempotency_key(idempotency_key)
+    async with db.execute(
+        "SELECT id, request_fingerprint, reason_code, source_type, reference_type, reference_id "
+        "FROM economic_operations WHERE user_id = ? AND idempotency_key = ?",
+        (user_id, key),
+    ) as cursor:
+        operation = await cursor.fetchone()
+    if not operation:
+        return None
+    actual = (
+        str(_row_get(operation, "reason_code", 2)),
+        str(_row_get(operation, "source_type", 3)),
+        str(_row_get(operation, "reference_type", 4)),
+        str(_row_get(operation, "reference_id", 5)),
+    )
+    expected = (reason, source, ref_type, ref_id)
+    if actual != expected:
+        raise IdempotencyConflict(
+            "The idempotency key is already bound to a different economic reference."
+        )
+    return await _load_replayed_mutation(
+        db,
+        user_id=user_id,
+        idempotency_key=key,
+        request_fingerprint=str(_row_get(operation, "request_fingerprint", 1)),
+    )
+
+
 async def apply_balance_change(
     db,
     user_id: int,

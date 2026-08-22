@@ -17,7 +17,11 @@ from core.constants import (
 )
 from core.registry import ITEMS_REGISTRY
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
-from infrastructure.repositories.economy_ledger import apply_balance_change, find_balance_replay
+from infrastructure.repositories.economy_ledger import (
+    apply_balance_change,
+    find_balance_replay,
+    find_reference_replay,
+)
 from services.vip import is_vip_active, is_vip_active_batch
 
 # Слот приветственной анимации в user_cosmetic_loadout (отдельно от носимой косметики;
@@ -439,7 +443,9 @@ def lineup_buy_quote(lineup_id: str, owned: set[str]) -> dict | None:
     }
 
 
-async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
+async def buy_lineup(
+    db, user_id: int, lineup_id: str, idempotency_key: str | None = None,
+) -> tuple[bool, str]:
     """Купить ВСЕ недостающие предметы линейки одной транзакцией («Купить всё
     недостающее», Стадия 3 редизайна «Внешний вид»). Мирроит buy_bundle()
     (FastAPI/routers/showcase.py, витрина недели) — тот же паттерн SELECT ...
@@ -458,29 +464,52 @@ async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
     if not meta:
         return False, "Нет такой линейки."
 
-    async with db.connection.transaction():
-        async with db.execute(
-            "SELECT COALESCE(user_balance_zarniki,0) FROM users WHERE user_tg_id = ? FOR UPDATE",
-            (user_id,)
-        ) as c:
-            row = await c.fetchone()
-        bal = float(row[0]) if row else 0.0
-
-        owned = await _owned(db, user_id)
-        quote = lineup_buy_quote(lineup_id, owned)
-        if not quote:
-            return False, "Эта линейка уже собрана полностью или недоступна для покупки."
-        missing, total = quote["missing"], quote["total"]
-
-        if bal < total:
-            return False, f"Нужно {total}✨ за всю линейку (у тебя {int(bal)})."
-        await db.execute(
-            "UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?",
-            (total, user_id))
-        for cid in missing:
+    mutation = None
+    missing: list[str] = []
+    total = 0
+    try:
+        async with db.connection.transaction():
             await db.execute(
-                "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
-                "ON CONFLICT DO NOTHING", (user_id, cid))
+                "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
+            )
+            async with db.execute(
+                "SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)
+            ) as cursor:
+                await cursor.fetchone()
+            if idempotency_key:
+                mutation = await find_reference_replay(
+                    db, user_id,
+                    reason_code="cosmetic_lineup_purchase",
+                    idempotency_key=idempotency_key,
+                    source_type="cosmetics", reference_type="lineup",
+                    reference_id=lineup_id,
+                )
+            if mutation is not None:
+                return True, f"Покупка коллекции «{meta['name']}» уже обработана."
+
+            quote = lineup_buy_quote(lineup_id, await _owned(db, user_id))
+            if not quote:
+                return False, "Эта линейка уже собрана полностью или недоступна для покупки."
+            missing, total = quote["missing"], quote["total"]
+            mutation = await apply_balance_change(
+                db, user_id, {"zarniki": -total},
+                reason_code="cosmetic_lineup_purchase",
+                idempotency_key=idempotency_key,
+                source_type="cosmetics", reference_type="lineup",
+                reference_id=lineup_id,
+                metadata={"lineup_id": lineup_id, "cosmetic_ids": missing},
+                note=f"{lineup_id}×{len(missing)}",
+            )
+            for cid in missing:
+                await db.execute(
+                    "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
+                    "ON CONFLICT DO NOTHING", (user_id, cid))
+    except InsufficientBalance:
+        return False, f"Нужно {total}✨ за всю линейку."
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другой покупки."
+    except Exception as error:
+        return False, f"Ошибка: {error}"
 
     # Ачивка «Модник» — считаем ВСЕ докупленные предметы, не только 1 (buy() делает
     # то же самое при одиночной покупке). Вне транзакции — increment_metric коммитит сам.
@@ -494,7 +523,9 @@ async def buy_lineup(db, user_id: int, lineup_id: str) -> tuple[bool, str]:
     return True, f"🎨 «{meta['name']}» собрана полностью! Докуплено {len(missing)} шт. за {total}✨"
 
 
-async def buy_many(db, user_id: int, cosmetic_ids: list[str]) -> tuple[bool, str]:
+async def buy_many(
+    db, user_id: int, cosmetic_ids: list[str], idempotency_key: str | None = None,
+) -> tuple[bool, str]:
     """Купить выбранные предметы примерочной одной транзакцией.
 
     В отличие от buy_lineup(), набор может содержать предметы из разных линеек
@@ -513,34 +544,55 @@ async def buy_many(db, user_id: int, cosmetic_ids: list[str]) -> tuple[bool, str
         if not price or "zarniki" not in price[0]:
             return False, f"«{cos['name']}» не продаётся за зарники."
 
-    async with db.connection.transaction():
-        async with db.execute(
-            "SELECT COALESCE(user_balance_zarniki,0) FROM users WHERE user_tg_id = ? FOR UPDATE",
-            (user_id,),
-        ) as c:
-            row = await c.fetchone()
-        balance = float(row[0]) if row else 0.0
-
-        owned = await _owned(db, user_id)
-        missing = [cosmetic_id for cosmetic_id in ids if cosmetic_id not in owned]
-        if not missing:
-            return False, "Всё это у тебя уже есть."
-
-        total = sum(int(COSMETICS[cosmetic_id]["price"][0]["zarniki"])
-                    for cosmetic_id in missing)
-        if balance < total:
-            return False, f"Нужно {total}✨ (у тебя {int(balance)})."
-
-        await db.execute(
-            "UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?",
-            (total, user_id),
-        )
-        for cosmetic_id in missing:
+    request_id = hashlib.sha256("\0".join(sorted(ids)).encode("utf-8")).hexdigest()[:24]
+    mutation = None
+    missing: list[str] = []
+    total = 0
+    try:
+        async with db.connection.transaction():
             await db.execute(
-                "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
-                "ON CONFLICT DO NOTHING",
-                (user_id, cosmetic_id),
+                "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
             )
+            async with db.execute(
+                "SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)
+            ) as cursor:
+                await cursor.fetchone()
+            if idempotency_key:
+                mutation = await find_reference_replay(
+                    db, user_id,
+                    reason_code="cosmetic_many_purchase",
+                    idempotency_key=idempotency_key,
+                    source_type="cosmetics", reference_type="cosmetic_selection",
+                    reference_id=request_id,
+                )
+            if mutation is not None:
+                return True, "Покупка выбранного образа уже обработана."
+
+            owned = await _owned(db, user_id)
+            missing = [cosmetic_id for cosmetic_id in ids if cosmetic_id not in owned]
+            if not missing:
+                return False, "Всё это у тебя уже есть."
+            total = sum(int(COSMETICS[cosmetic_id]["price"][0]["zarniki"])
+                        for cosmetic_id in missing)
+            mutation = await apply_balance_change(
+                db, user_id, {"zarniki": -total},
+                reason_code="cosmetic_many_purchase",
+                idempotency_key=idempotency_key,
+                source_type="cosmetics", reference_type="cosmetic_selection",
+                reference_id=request_id,
+                metadata={"cosmetic_ids": missing},
+                note=f"fitting×{len(missing)}",
+            )
+            for cosmetic_id in missing:
+                await db.execute(
+                    "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
+                    "ON CONFLICT DO NOTHING", (user_id, cosmetic_id))
+    except InsufficientBalance:
+        return False, f"Нужно {total}✨."
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другой покупки."
+    except Exception as error:
+        return False, f"Ошибка: {error}"
 
     try:
         from services.achievements import increment_metric
