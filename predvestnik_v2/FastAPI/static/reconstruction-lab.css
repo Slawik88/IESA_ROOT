@@ -54,6 +54,12 @@ h2 { letter-spacing: -.03em; }
 .boss-health { position: relative; height: 18px; margin: 0 15px; overflow: hidden; border-radius: 7px; background: #080c12; }
 .boss-health i { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, #813f47, #d06d6a); transform: scaleX(1); transform-origin: left center; transition: transform .12s linear; }
 .boss-health span { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255,255,255,.88); font-size: 8px; font-weight: 750; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000; }
+.objective-meter { margin: 8px 15px 0; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 9px; }
+.objective-meter > span { min-width: 74px; display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.objective-meter small { color: var(--muted); font-size: 7px; font-weight: 800; letter-spacing: .12em; }
+.objective-meter strong { color: #b8e5e8; font-size: 10px; font-variant-numeric: tabular-nums; }
+.objective-meter > i { height: 4px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.07); }
+.objective-meter b { display: block; width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), #a4e1d2); transform: scaleX(1); transform-origin: left center; transition: transform .12s linear; }
 
 .tap-stage { position: relative; min-height: 356px; margin-top: 10px; overflow: hidden; display: grid; place-items: center; touch-action: manipulation; user-select: none; background: radial-gradient(circle at 50% 48%, rgba(105,194,207,.08), transparent 47%), linear-gradient(180deg, transparent, rgba(0,0,0,.12)); }
 .tap-stage::before { content: ""; position: absolute; width: 300px; height: 300px; border: 1px solid rgba(105,194,207,.08); border-radius: 50%; }
@@ -68,8 +74,8 @@ h2 { letter-spacing: -.03em; }
 .echo-core::before { content: ""; position: absolute; inset: -12px; z-index: -2; border-radius: 50%; background: conic-gradient(var(--gold) var(--charge), rgba(255,255,255,.07) 0); }
 .echo-core::after { content: ""; position: absolute; inset: -7px; z-index: -1; border-radius: 50%; background: var(--panel); }
 .core-glyph { width: 100%; height: 64px; display: grid; place-items: center; color: #e7f4f7; font-size: 56px; line-height: 64px; text-shadow: 0 0 22px rgba(105,194,207,.38); }
-.echo-core strong { height: 18px; margin: 0; display: grid; place-items: center; color: #d7e1ec; font-size: 11px; line-height: 18px; letter-spacing: .16em; }
-.echo-core small { height: 14px; margin: 0; display: grid; place-items: center; color: #718092; font-size: 8px; line-height: 14px; }
+.echo-core strong { width: 100%; height: 18px; margin: 0; display: grid; place-items: center; color: #d7e1ec; font-size: 11px; line-height: 18px; letter-spacing: .16em; }
+.echo-core small { width: 100%; height: 14px; margin: 0; display: grid; place-items: center; color: #718092; font-size: 8px; line-height: 14px; }
 .tap-stage.golden .echo-core { box-shadow: 0 0 0 1px rgba(229,189,95,.65), 0 0 38px rgba(229,189,95,.18); }
 .tap-stage.golden .core-glyph { color: #ffdc78; text-shadow: 0 0 24px rgba(229,189,95,.6); }
 .tap-stage.discharge .echo-core { animation: discharge .42s ease-out; }
@@ -106,7 +112,7 @@ h2 { letter-spacing: -.03em; }
 .build-strip small { align-self: start; color: var(--muted); font-size: 7px; }
 .build-strip .empty-build { border-style: dashed; opacity: .72; }
 .event-strip { height: 42px; margin-top: 7px; padding: 6px 10px; overflow: hidden; display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }
-.event-strip p { margin: 0; overflow: hidden; display: -webkit-box; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.event-strip p { height: 24px; margin: 0; overflow: hidden; display: -webkit-box; line-height: 12px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .event-pulse { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 6px; background: var(--gold-soft); color: var(--gold); font-weight: 900; }
 
 .menu-layer, .pause-layer, .choice-layer, .result-layer { position: fixed; z-index: 30; inset: 0; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); display: grid; place-items: center; overflow-y: auto; background: rgba(3,5,8,.86); backdrop-filter: blur(5px); }

@@ -84,6 +84,8 @@
   })[char]);
   const number = (value) => Math.max(0, Math.round(Number(value) || 0)).toLocaleString('ru-RU');
   const percent = (value) => value === null || value === undefined ? '—' : `${number(value)}%`;
+  const encounterById = (id) => (manifest?.encounters || []).find((item) => item.id === id);
+  const activeEncounter = () => encounterById(state?.encounter_id);
   const runKey = () => state
     ? (production ? String(runId || '') : `${state.game_version}:${state.seed}`)
     : '';
@@ -358,7 +360,8 @@
 
   function resultSummary() {
     const outcome = state.status === 'won' ? 'Победа' : 'Поражение';
-    return `${outcome} в «Разломе колокола»: точность ${percent(state.accuracy)}, серия ${state.combo.max}, ошибок ${state.mastery.mistakes}, время ${Math.round(state.mastery.elapsed_ms / 1000)} с.`;
+    const name = activeEncounter()?.name || 'Разлом колокола';
+    return `${outcome} во встрече «${name}»: точность ${percent(state.accuracy)}, серия ${state.combo.max}, ошибок ${state.mastery.mistakes}, время ${Math.round(state.mastery.elapsed_ms / 1000)} с.`;
   }
 
   function renderResult() {
@@ -366,22 +369,40 @@
     playing = false;
     recordRunCompleted();
     const won = state.status === 'won';
+    const lantern = state.objective_state?.kind === 'lantern_escort';
+    const next = progress?.next_step;
     document.getElementById('resultMark').textContent = won ? '✦' : '◌';
-    document.getElementById('resultTitle').textContent = won ? 'Колокол отвечает тебе' : 'Эхо погасло';
-    document.getElementById('resultCopy').textContent = won
-      ? 'Ты точно прошёл три волны, а выбранные усиления сложились в полноценную сборку.'
-      : 'Посмотри на знак в центре и выбирай его отражение. Частота нажатий не заменяет точность.';
-    document.getElementById('resultStats').innerHTML = [
+    document.getElementById('resultEyebrow').textContent = won ? 'ВСТРЕЧА ПРОЙДЕНА' : 'ВСТРЕЧА НЕ ПРОЙДЕНА';
+    document.getElementById('resultTitle').textContent = lantern
+      ? (won ? 'Фонарь достиг ворот' : 'Фонарь не дошёл')
+      : (won ? 'Колокол отвечает тебе' : 'Эхо погасло');
+    document.getElementById('resultCopy').textContent = lantern
+      ? (won
+        ? 'Точная серия сохранила свет до конца тракта. Ошибки можно было исправить, но не заменить скоростью.'
+        : state.outcome_reason === 'lantern_accuracy_failed'
+          ? 'Фонарь дошёл, но точность оказалась ниже 75%. Собирай серию осознанно и не угадывай.'
+          : 'Ошибки гасят Фонарь, а каждые пять точных знаков возвращают часть его света.')
+      : (won
+        ? 'Ты точно прошёл три волны, а выбранные усиления сложились в полноценную сборку.'
+        : 'Посмотри на знак в центре и выбирай его отражение. Частота нажатий не заменяет точность.');
+    const stats = [
       [state.mastery.correct_taps, 'точных'],
       [percent(state.accuracy), 'точность'],
       [state.combo.max, 'макс. серия'],
       [state.mastery.mistakes, 'ошибок'],
       [state.mastery.missed_signals, 'пропущено'],
       [`${Math.round(state.mastery.elapsed_ms / 1000)}с`, 'время'],
-    ].map(([value, label]) => `<span><strong>${esc(value)}</strong>${esc(label)}</span>`).join('');
-    document.getElementById('resultReset').innerHTML = pendingMemory
-      ? 'Выбрать Память <span>›</span>'
-      : 'Ещё один забег <span>›</span>';
+    ];
+    if (lantern) stats.splice(3, 0, [`${number(state.objective_state.lantern_integrity)}%`, 'свет Фонаря']);
+    document.getElementById('resultStats').innerHTML = stats
+      .map(([value, label]) => `<span><strong>${esc(value)}</strong>${esc(label)}</span>`).join('');
+    const previewContinues = !production && won && state.encounter_id === 'e01_two_bells';
+    const actionLabel = pendingMemory ? 'Выбрать Память'
+      : won && next?.type === 'play_encounter' ? 'Продолжить Хронику'
+        : previewContinues ? 'Продолжить Хронику'
+        : next?.type === 'development_gate' ? 'Тренировка'
+          : 'Попробовать снова';
+    document.getElementById('resultReset').innerHTML = `${actionLabel} <span>›</span>`;
     showOnly('result');
   }
 
@@ -408,6 +429,8 @@
 
   function refreshMenu() {
     const startButton = document.getElementById('startRunButton');
+    const next = progress?.next_step;
+    const nextEncounter = encounterById(next?.encounter_id || progress?.current_encounter || state?.encounter_id);
     const resumable = Boolean(
       state && (state.status === 'reward' || (state.status === 'active' && state.wave.elapsed_ms > 0))
     );
@@ -415,8 +438,37 @@
       ? 'Выбрать Память'
       : resumable ? 'Продолжить забег'
         : state?.status === 'active' ? 'Начать забег'
-          : state ? 'Новый забег' : 'Начать первый забег';
+          : next?.type === 'development_gate' ? 'Тренировка'
+            : next?.type === 'play_encounter' && next.encounter_id !== 'e01_two_bells' ? 'Начать встречу'
+              : state ? 'Новый забег' : 'Начать первый забег';
     startButton.innerHTML = `${label} <span>›</span>`;
+    const menu = pendingMemory ? {
+      eyebrow: 'ПОСЛЕ ПЕРВОЙ ПОБЕДЫ', title: 'Сохрани одну Память',
+      copy: 'Выбери постоянный стиль игры. Валюта не тратится, второй вариант выбрать нельзя.',
+      waves: '1', time: 'выбор', goal: 'навсегда', note: 'Решение',
+      noteCopy: 'У каждой Памяти есть преимущество и честное ограничение.',
+    } : next?.type === 'development_gate' ? {
+      eyebrow: 'ГРАНИЦА ТЕКУЩЕГО MVP', title: next.title,
+      copy: next.description, waves: '2', time: 'пройдено', goal: '0', note: 'Без наград',
+      noteCopy: 'Тренировка не меняет экономику и нужна для проверки сборок.',
+    } : nextEncounter?.id === 'e02_shattered_causeway' ? {
+      eyebrow: 'ХРОНИКА · ВСТРЕЧА 2', title: nextEncounter.name,
+      copy: nextEncounter.objective.description, waves: '3', time: '≈ 2 мин', goal: '≥ 75%',
+      note: 'Фонарь', noteCopy: 'Ошибка гасит свет. Серия из пяти точных знаков восстанавливает его.',
+    } : {
+      eyebrow: 'ХРОНИКА · ВСТРЕЧА 1', title: nextEncounter?.name || 'Разлом колокола',
+      copy: nextEncounter?.objective?.description || 'Три короткие волны. Смотри на знак в центре и находи такой же среди трёх рун.',
+      waves: '3', time: '≈ 1 мин', goal: '1', note: 'Важно',
+      noteCopy: 'Скорость кликов не даёт преимущество. Побеждает правильный выбор руны.',
+    };
+    document.getElementById('menuEyebrow').textContent = menu.eyebrow;
+    document.getElementById('menuTitle').textContent = menu.title;
+    document.getElementById('menuCopy').textContent = menu.copy;
+    document.getElementById('menuFactWaves').textContent = menu.waves;
+    document.getElementById('menuFactTime').textContent = menu.time;
+    document.getElementById('menuFactGoal').textContent = menu.goal;
+    document.getElementById('menuNoteLabel').textContent = menu.note;
+    document.getElementById('menuNoteCopy').textContent = menu.noteCopy;
     document.getElementById('newRunButton').hidden = !resumable;
     document.getElementById('versionBadge').textContent = manifest?.game_version?.replace('3.0.0-', '') || 'MVP';
     renderCareer();
@@ -440,6 +492,17 @@
     document.getElementById('bossHealthValue').textContent = `${number(wave.hp)} / ${number(wave.hp_max)}`;
     document.getElementById('bossHealth').setAttribute('aria-valuemax', String(Math.round(wave.hp_max)));
     document.getElementById('bossHealth').setAttribute('aria-valuenow', String(Math.round(wave.hp)));
+    const objective = state.objective_state || {};
+    const objectiveMeter = document.getElementById('objectiveMeter');
+    const lantern = objective.kind === 'lantern_escort';
+    objectiveMeter.hidden = !lantern;
+    if (lantern) {
+      const max = Math.max(1, Number(objective.lantern_integrity_max) || 100);
+      const value = Math.max(0, Math.min(max, Number(objective.lantern_integrity) || 0));
+      document.getElementById('objectiveValue').textContent = `${number(value)}%`;
+      document.getElementById('objectiveFill').style.transform = `scaleX(${value / max})`;
+      objectiveMeter.setAttribute('aria-label', `Свет Фонаря ${number(value)} процентов`);
+    }
     core.style.setProperty('--charge', `${Math.min(360, chargePercent * 3.6)}deg`);
     document.getElementById('comboValue').textContent = `×${state.combo.count}`;
     document.getElementById('accuracyValue').textContent = percent(state.accuracy);
@@ -586,15 +649,28 @@
         ])],
       };
     }
+    if (data.next_step) progress = { ...(progress || {}), next_step: data.next_step };
     return { state: data, turn: data.turn, rejected: false };
   }
 
   async function startRun() {
-    if (!production) return jsonFetch('/reset', { method: 'POST', body: '{}' });
-    const practice = Boolean((progress?.completed || []).includes('e01_two_bells'));
+    if (!production) {
+      const encounterId = state?.status === 'won' && state.encounter_id === 'e01_two_bells'
+        ? 'e02_shattered_causeway'
+        : state?.encounter_id || 'e01_two_bells';
+      return jsonFetch('/reset', {
+        method: 'POST', body: JSON.stringify({ encounter_id: encounterId }),
+      });
+    }
+    const next = progress?.next_step;
+    const gate = next?.type === 'development_gate';
+    const encounterId = gate
+      ? next.practice_encounter_id
+      : next?.encounter_id || progress?.current_encounter || 'e01_two_bells';
+    const practice = Boolean(gate || next?.practice);
     const data = await jsonFetch('/start', {
       method: 'POST',
-      body: JSON.stringify({ encounter_id: 'e01_two_bells', practice }),
+      body: JSON.stringify({ encounter_id: encounterId, practice }),
     });
     runId = data.run_id;
     if (data.career_stats) applyCareerStats(data.career_stats);
@@ -612,13 +688,14 @@
     if (!production || busy) return;
     busy = true;
     try {
-      await jsonFetch('/memory', {
+      const chosen = await jsonFetch('/memory', {
         method: 'POST', body: JSON.stringify({ memory_id: memoryId }),
       });
       pendingMemory = null;
       progress = {
         ...(progress || {}),
         memories: [...new Set([...(progress?.memories || []), memoryId])],
+        next_step: chosen.next_step || progress?.next_step,
       };
       haptic('medium');
       notify('Память сохранена в профиле');
@@ -652,7 +729,10 @@
       const data = await submitAction(payload);
       state = data.state;
       if (data.rejected) pendingStrike = null;
-      render();
+      // Ответ уже отправленного кадра может прийти после нажатия «Пауза».
+      // Состояние сервера принимаем, но замороженный экран не перерисовываем
+      // до явного продолжения — иначе таймер визуально дёргается под модалкой.
+      if (playing) render();
     } catch (error) {
       if (strike && !error.resynced) pendingStrike = strike;
       if (!error.resynced) notify(error.message, true);

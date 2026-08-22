@@ -83,6 +83,39 @@ try{
     await page.close();
   }
 
+  // Вторая встреча использует другую цель: отдельный индикатор Фонаря обязан
+  // оставаться читаемым и не расширять мобильный viewport.
+  for(const width of [320,390,430]){
+    const session=`visual-e02-${width}`;
+    const resetResponse=await fetch(`${base}/__reconstruction/reset`,{
+      method:'POST',
+      headers:{'content-type':'application/json','x-reconstruction-session':session},
+      body:JSON.stringify({encounter_id:'e02_shattered_causeway'}),
+    });
+    check(resetResponse.ok,`${width}px: e02 dev reset failed`);
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width,height:844,deviceScaleFactor:1});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.waitForSelector('#menuLayer:not([hidden])');
+    await page.click('#startRunButton');
+    await page.waitForSelector('#menuLayer[hidden]');
+    const metrics=await page.evaluate(()=>({
+      overflow:document.documentElement.scrollWidth-innerWidth,
+      objectiveHidden:document.getElementById('objectiveMeter').hidden,
+      objective:document.getElementById('objectiveValue').textContent.trim(),
+      targetHeight:document.querySelector('.strike-rune').getBoundingClientRect().height,
+    }));
+    check(metrics.overflow<=0,`${width}px: e02 overflows by ${metrics.overflow}px`);
+    check(!metrics.objectiveHidden&&metrics.objective==='100%',`${width}px: lantern meter missing`);
+    check(metrics.targetHeight>=44,`${width}px: e02 rune target below 44px`);
+    check(errors.length===0,`${width}px: e02 browser errors ${errors.join(', ')}`);
+    if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-e02.png`,fullPage:true});
+    await page.close();
+  }
+
   // Сквозная формула точности: UI обязан повторять server state, а нулевое
   // количество сигналов не должно выглядеть как заработанные 100%.
   const accuracyPage=await browser.newPage();

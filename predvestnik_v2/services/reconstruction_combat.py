@@ -32,7 +32,7 @@ _SLOT_BAGS = (
     (1, 2, 0), (2, 0, 1), (2, 1, 0),
 )
 
-WAVES: tuple[dict[str, Any], ...] = (
+E01_WAVES: tuple[dict[str, Any], ...] = (
     {
         "id": "echo_shell", "name": "Безымянный отголосок",
         "subtitle": "Услышь знак и найди его отражение", "emoji": "◉",
@@ -49,6 +49,36 @@ WAVES: tuple[dict[str, Any], ...] = (
         "hp": 1900.0, "duration_ms": 29000, "signal_ms": 950,
     },
 )
+
+E02_WAVES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "lantern_wake", "name": "След фонаря",
+        "subtitle": "Ошибки гасят свет, чистая серия возвращает его", "emoji": "◌",
+        "hp": 1450.0, "duration_ms": 30000, "signal_ms": 1150,
+    },
+    {
+        "id": "split_causeway", "name": "Расколотый пролёт",
+        "subtitle": "Сохрани точность, когда течение ускорится", "emoji": "⌁",
+        "hp": 1900.0, "duration_ms": 36000, "signal_ms": 980,
+    },
+    {
+        "id": "toll_gate", "name": "Затонувшие ворота",
+        "subtitle": "Последняя длинная серия решает судьбу Фонаря", "emoji": "◇",
+        "hp": 2450.0, "duration_ms": 42000, "signal_ms": 880,
+    },
+)
+
+ENCOUNTER_WAVES: dict[str, tuple[dict[str, Any], ...]] = {
+    "e01_two_bells": E01_WAVES,
+    "e02_shattered_causeway": E02_WAVES,
+}
+
+
+def _waves(state: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    try:
+        return ENCOUNTER_WAVES[state["encounter_id"]]
+    except KeyError as exc:
+        raise ValueError("Для встречи не задан проверенный набор волн.") from exc
 
 REWARD_POOLS: tuple[tuple[str, ...], ...] = (
     ("heavy_echo", "quick_current", "golden_seam"),
@@ -102,16 +132,16 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
         "opens_at_ms": opens_at,
         "expires_at_ms": opens_at + max(
             620,
-            int(WAVES[state["round"] - 1]["signal_ms"])
+            int(_waves(state)[state["round"] - 1]["signal_ms"])
             + int(state["team"]["signal_window_bonus_ms"]),
         ),
     }
 
 
 def _wave_runtime(
-    index: int, round_bonus_ms: int, *, mistake_guard: bool = False
+    state: dict[str, Any], index: int, round_bonus_ms: int, *, mistake_guard: bool = False
 ) -> dict[str, Any]:
-    meta = WAVES[index]
+    meta = _waves(state)[index]
     return {
         "id": meta["id"], "name": meta["name"], "subtitle": meta["subtitle"],
         "emoji": meta["emoji"], "hp": meta["hp"], "hp_max": meta["hp"],
@@ -162,7 +192,7 @@ def new_encounter(encounter_id: str = "e01_two_bells", *, seed: int = 1) -> dict
         "round": 1,
         "status": "active",
         "outcome_reason": None,
-        "wave": _wave_runtime(0, 0),
+        "wave": {},
         "team": team,
         "combo": {"count": 0, "max": 0},
         "challenge": None,
@@ -179,6 +209,18 @@ def new_encounter(encounter_id: str = "e01_two_bells", *, seed: int = 1) -> dict
         "event_seq": 0,
         "log": ["🔔 Центр показывает знак. Нажми такую же руну вокруг него."],
     }
+    if encounter_id == "e02_shattered_causeway":
+        state["objective_state"] = {
+            "kind": "lantern_escort",
+            "lantern_integrity": 100,
+            "lantern_integrity_max": 100,
+            "minimum_accuracy": 75,
+            "recoveries": 0,
+        }
+        state["log"] = [
+            "🏮 Фонарь гаснет от ошибок. Каждые пять точных знаков подряд возвращают свет."
+        ]
+    state["wave"] = _wave_runtime(state, 0, 0)
     _schedule_challenge(state, first=True)
     return state
 
@@ -205,10 +247,32 @@ def _deal(state: dict[str, Any], amount: float, source: str) -> float:
 def _complete_wave(state: dict[str, Any]) -> None:
     state["log"].append(f"✦ {state['wave']['name']} рассыпается. Волна {state['round']} пройдена.")
     state["challenge"] = None
-    if state["round"] >= len(WAVES):
-        state["status"] = "won"
-        state["outcome_reason"] = "all_echoes_broken"
-        _emit(state, "victory", "Колокол отвечает тебе")
+    if state["round"] >= len(_waves(state)):
+        correct = int(state["mastery"]["correct_taps"])
+        resolved = correct + int(state["mastery"]["mistakes"]) + int(
+            state["mastery"]["missed_signals"]
+        )
+        accuracy = correct / resolved * 100 if resolved else 0
+        objective = state.get("objective_state") or {}
+        if (
+            objective.get("kind") == "lantern_escort"
+            and accuracy < float(objective["minimum_accuracy"])
+        ):
+            state["status"] = "lost"
+            state["outcome_reason"] = "lantern_accuracy_failed"
+            _emit(state, "defeat", "Фонарь не принял неточный путь")
+        else:
+            state["status"] = "won"
+            state["outcome_reason"] = (
+                "lantern_delivered" if objective.get("kind") == "lantern_escort"
+                else "all_echoes_broken"
+            )
+            _emit(
+                state,
+                "victory",
+                "Фонарь достиг ворот" if objective.get("kind") == "lantern_escort"
+                else "Колокол отвечает тебе",
+            )
         return
     state["reward_options"] = [
         {"id": upgrade_id, **copy.deepcopy(CLICKER_UPGRADES[upgrade_id])}
@@ -222,6 +286,7 @@ def _start_next_wave(state: dict[str, Any]) -> None:
     state["round"] += 1
     state["status"] = "active"
     state["wave"] = _wave_runtime(
+        state,
         state["round"] - 1,
         state["team"]["round_bonus_ms"],
         mistake_guard=state["team"]["mistake_guard"],
@@ -274,6 +339,18 @@ def _miss_signal(state: dict[str, Any], *, wrong_tap: bool) -> None:
     state["combo"]["count"] = 0
     if not guarded and not (wrong_tap and state["team"]["reset_charge_on_wrong"]):
         state["team"]["charge"] = max(0.0, float(state["team"]["charge"]) - 10.0)
+    objective = state.get("objective_state") or {}
+    if objective.get("kind") == "lantern_escort":
+        loss = 18 if wrong_tap else 12
+        objective["lantern_integrity"] = max(
+            0, int(objective["lantern_integrity"]) - loss
+        )
+        if objective["lantern_integrity"] <= 0:
+            state["status"] = "lost"
+            state["outcome_reason"] = "lantern_extinguished"
+            state["challenge"] = None
+            _emit(state, "defeat", "Фонарь погас")
+            return
     _emit(state, "miss", label)
     _schedule_challenge(state)
 
@@ -349,6 +426,17 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     state["mastery"]["correct_taps"] += 1
     state["combo"]["count"] += 1
     state["combo"]["max"] = max(state["combo"]["max"], state["combo"]["count"])
+    objective = state.get("objective_state") or {}
+    if (
+        objective.get("kind") == "lantern_escort"
+        and state["combo"]["count"] % 5 == 0
+        and int(objective["lantern_integrity"]) < int(objective["lantern_integrity_max"])
+    ):
+        before = int(objective["lantern_integrity"])
+        objective["lantern_integrity"] = min(
+            int(objective["lantern_integrity_max"]), before + 7
+        )
+        objective["recoveries"] = int(objective.get("recoveries", 0)) + 1
     critical = _critical_active(state)
     multiplier = _combo_multiplier(state)
     if critical:
@@ -471,7 +559,7 @@ def public_state(state: dict[str, Any]) -> dict[str, Any]:
     else:
         view["signal_progress"] = 0.0
     view["critical_active"] = _critical_active(state) if state["status"] == "active" else False
-    view["waves_total"] = len(WAVES)
+    view["waves_total"] = len(_waves(state))
     correct = int(view["mastery"]["correct_taps"])
     wrong = int(view["mastery"]["mistakes"])
     missed = int(view["mastery"]["missed_signals"])

@@ -379,6 +379,8 @@ async def main():
         chosen_again = await service.choose_memory(db, user_id, "m_mobile_oath")
         assert chosen["idempotent_replay"] is False
         assert chosen_again["idempotent_replay"] is True
+        assert chosen["next_step"]["type"] == "play_encounter"
+        assert chosen["next_step"]["encounter_id"] == "e02_shattered_causeway"
         assert memory.progress["memories"] == ["m_mobile_oath"]
         assert memory.progress["game_version"] == GAME_VERSION
         assert any(
@@ -393,11 +395,51 @@ async def main():
             "first_encounter_started", "first_encounter_completed", "first_reward_chosen",
         }
 
+        second = await service.start_encounter(db, user_id, "e02_shattered_causeway")
+        assert second["run_kind"] == "campaign" and second["resumed"] is False
+        assert second["seed"] == 203
+        run_id = second["run_id"]
+        result = second
+        guard = 0
+        while memory.runs[run_id]["state"]["status"] not in {"won", "lost"} and guard < 900:
+            guard += 1
+            state = memory.runs[run_id]["state"]
+            if state["status"] == "reward":
+                result = await apply({
+                    "type": "choose_upgrade",
+                    "upgrade_id": state["reward_options"][0]["id"],
+                })
+                continue
+            challenge = state["challenge"]
+            if not challenge["active"]:
+                result = await apply({"type": "frame", "delta_ms": 100})
+                continue
+            slot = next(
+                option["slot"] for option in challenge["options"]
+                if option["symbol"] == challenge["target_symbol"]
+            )
+            result = await apply({
+                "type": "strike", "challenge_id": challenge["id"], "target_slot": slot,
+            })
+        assert result["status"] == "won"
+        assert result["outcome_reason"] == "lantern_delivered"
+        assert result["pending_memory"] is None
+        assert result["next_step"]["type"] == "development_gate"
+        assert result["next_step"]["practice_encounter_id"] == "e02_shattered_causeway"
+        assert memory.progress["completed"] == [
+            service.FIRST_ENCOUNTER, "e02_shattered_causeway",
+        ]
+        assert memory.progress["current_encounter"] == "e03_ink_path"
+        overview = await service.overview(db, user_id)
+        assert overview["progress"]["next_step"]["type"] == "development_gate"
+        assert overview["stats"]["runs_started"] == 2
+        assert overview["stats"]["runs_won"] == 2
+
         practice = await service.start_encounter(
-            db, user_id, service.FIRST_ENCOUNTER, practice=True
+            db, user_id, "e02_shattered_causeway", practice=True
         )
         assert practice["run_kind"] == "practice" and practice["resumed"] is False
-        assert practice["seed"] == 203
+        assert practice["seed"] == 304
         practice_id = practice["run_id"]
         cancelled = await service.cancel_run(db, user_id, practice_id)
         cancelled_again = await service.cancel_run(db, user_id, practice_id)
@@ -409,7 +451,7 @@ async def main():
         assert cancelled["shadow_reward"]["eligible"] is False
         assert cancelled["shadow_reward"]["reason"] == "practice"
         assert cancelled["shadow_reward"]["projected"]["mora"] == 0
-        assert len(memory.shadow_rows) == 2
+        assert len(memory.shadow_rows) == 3
         assert memory.runs[practice_id]["status"] == "cancelled"
         cancel_events = [
             event for event in memory.events.values()

@@ -101,6 +101,36 @@ def _pending_memory(progress: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _next_step(progress: dict[str, Any]) -> dict[str, Any]:
+    pending = _pending_memory(progress)
+    if pending:
+        return {
+            "type": "choose_memory",
+            "title": "Сохрани Память первой победы",
+            "description": "Выбор постоянный, бесплатный и не тратит валюту.",
+            "encounter_id": pending["encounter_id"],
+        }
+    encounter_id = str(progress.get("current_encounter") or FIRST_ENCOUNTER)
+    encounter = ENCOUNTERS.get(encounter_id)
+    if encounter and encounter.get("implemented"):
+        return {
+            "type": "play_encounter",
+            "title": encounter["name"],
+            "description": encounter["objective"]["description"],
+            "encounter_id": encounter_id,
+            "practice": False,
+        }
+    completed = list(progress.get("completed") or [])
+    return {
+        "type": "development_gate",
+        "title": "Первая глава Хроники пройдена",
+        "description": "Следующая ветка ещё не включена; повтор доступен только в тренировке без наград.",
+        "encounter_id": encounter_id,
+        "practice_encounter_id": completed[-1] if completed else FIRST_ENCOUNTER,
+        "practice": True,
+    }
+
+
 async def overview(db, user_id: int) -> dict[str, Any]:
     progress = await repo.get_progress(db, user_id, GAME_VERSION)
     active = await repo.get_active_run(db, user_id, GAME_VERSION)
@@ -121,6 +151,7 @@ async def overview(db, user_id: int) -> dict[str, Any]:
             "memories": progress["memories"],
             "pending_memory": _pending_memory(progress),
         }
+    progress_view["next_step"] = _next_step(progress_view)
     active_view = None
     if active:
         active_view = {
@@ -204,7 +235,7 @@ async def start_encounter(
             },
             idempotency_key=f"run:{run_id}:started",
         )
-        if not practice:
+        if not practice and encounter_id == FIRST_ENCOUNTER:
             await event_repo.record_event(
                 db,
                 user_id=user_id,
@@ -229,9 +260,10 @@ async def start_encounter(
 
 
 def _next_after(encounter_id: str) -> str:
-    if encounter_id == FIRST_ENCOUNTER:
-        return "e02_shattered_causeway"
-    return encounter_id
+    return {
+        FIRST_ENCOUNTER: "e02_shattered_causeway",
+        "e02_shattered_causeway": "e03_ink_path",
+    }.get(encounter_id, encounter_id)
 
 
 async def _record_shadow_reward(
@@ -435,6 +467,7 @@ async def apply_run_action(
         career_stats = None
         terminal = None
         shadow_reward = None
+        next_step = None
         if state["status"] in ("won", "lost"):
             terminal = integrity.terminal_result(
                 run_id=run_id,
@@ -473,7 +506,11 @@ async def apply_run_action(
             # Проигрыш остаётся battle_end попытки, но не закрывает шаг онбординга.
             # Иначе фиксированный ключ шага запомнит `lost`, а последующая победа
             # справедливо станет idempotency-конфликтом с другим payload.
-            if state["status"] == "won" and state.get("run_kind") != "practice":
+            if (
+                state["status"] == "won"
+                and state.get("run_kind") != "practice"
+                and run["encounter_id"] == FIRST_ENCOUNTER
+            ):
                 await event_repo.record_event(
                     db,
                     user_id=user_id,
@@ -509,13 +546,14 @@ async def apply_run_action(
                     completed=completed,
                     memories=progress["memories"],
                 )
-                pending_memory = {
-                    "encounter_id": run["encounter_id"],
-                    "choices": [
-                        {"id": memory_id, **copy.deepcopy(MEMORIES[memory_id])}
-                        for memory_id in ENCOUNTERS[run["encounter_id"]].get("reward_choice", ())
-                    ],
-                }
+                refreshed = await repo.get_progress(db, user_id, GAME_VERSION)
+                if refreshed:
+                    pending_memory = _pending_memory(refreshed)
+                    next_step = _next_step(refreshed)
+            elif state["status"] == "lost":
+                current = await repo.get_progress(db, user_id, GAME_VERSION)
+                if current:
+                    next_step = _next_step(current)
 
         response = {
             "run_id": run_id,
@@ -523,6 +561,7 @@ async def apply_run_action(
             "turn": result,
             "terminal_result": terminal,
             "shadow_reward": shadow_reward,
+            "next_step": next_step,
             "pending_memory": pending_memory,
             "career_stats": career_stats,
             "idempotent_replay": False,
@@ -677,5 +716,6 @@ async def choose_memory(
             "ok": True,
             "memory_id": memory_id,
             "memory": copy.deepcopy(MEMORIES[memory_id]),
+            "next_step": _next_step({**progress, "memories": memories}),
             "idempotent_replay": False,
         }
