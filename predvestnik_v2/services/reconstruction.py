@@ -14,9 +14,14 @@ from core.reconstruction import (
     MEMORIES,
     STARTER_UNITS,
 )
-from core.economy_v3 import public_policy_manifest
+from core.economy_v3 import (
+    POLICY_VERSION,
+    evaluate_reconstruction_reward_shadow,
+    public_policy_manifest,
+)
 from infrastructure.repositories import gameplay_events as event_repo
 from infrastructure.repositories import reconstruction as repo
+from infrastructure.repositories import economy_shadow as shadow_repo
 from services import reconstruction_combat as combat
 from services import reconstruction_integrity as integrity
 from services import reconstruction_timing as timing
@@ -227,6 +232,82 @@ def _next_after(encounter_id: str) -> str:
     return encounter_id
 
 
+async def _record_shadow_reward(
+    db,
+    *,
+    user_id: int,
+    run_id: int,
+    encounter_id: str,
+    state: dict[str, Any],
+    terminal: dict[str, Any],
+) -> dict[str, Any]:
+    """Persist one auditable projection; never mutate a player wallet."""
+    existing = await shadow_repo.get_decision(db, terminal["id"])
+    if existing is not None:
+        return existing
+    fingerprint = shadow_repo.seed_fingerprint(
+        GAME_VERSION, encounter_id, int(state.get("seed", 0))
+    )
+    accepted_before = await shadow_repo.count_accepted_last_7_days(
+        db, user_id, POLICY_VERSION
+    )
+    repeated_losses = await shadow_repo.count_same_seed_eligible_losses(
+        db, user_id, fingerprint
+    )
+    mastery = state.get("mastery") or {}
+    inputs = {
+        "outcome": terminal["outcome"],
+        "run_kind": "practice" if state.get("run_kind") == "practice" else "campaign",
+        "accepted_results_last_7_days": accepted_before,
+        "server_terminal_confirmed": True,
+        "first_branch_reached": int(state.get("round", 0)) > 1 or bool(state.get("upgrades")),
+        "correct_signals": max(0, int(mastery.get("correct_taps", 0))),
+        "wrong_signals": max(0, int(mastery.get("mistakes", 0))),
+        "missed_signals": max(0, int(mastery.get("missed_signals", 0))),
+        "aborted": terminal["outcome"] == "cancelled",
+        "quarantined": bool(terminal["integrity"]["review_required"]),
+        "same_seed_eligible_losses_before": repeated_losses,
+    }
+    evaluated = evaluate_reconstruction_reward_shadow(**inputs)
+    accuracy_percent = (
+        round(float(evaluated.accuracy) * 100, 1)
+        if evaluated.accuracy is not None else None
+    )
+    public = {
+        "policy_version": evaluated.policy_version,
+        "settlement_mode": evaluated.settlement_mode,
+        "settled": False,
+        "eligible": evaluated.eligible,
+        "reason": evaluated.reason,
+        "accepted_result_ordinal": evaluated.accepted_result_ordinal,
+        "tier": evaluated.tier,
+        "projected": {
+            "mora": evaluated.mora,
+            "lead_unit_xp": evaluated.lead_unit_xp,
+            "support_unit_xp_each": evaluated.support_unit_xp_each,
+        },
+        "accuracy_percent": accuracy_percent,
+        "provenance": evaluated.provenance,
+    }
+    return await shadow_repo.save_decision(
+        db,
+        terminal_result_id=terminal["id"],
+        user_id=user_id,
+        run_id=run_id,
+        game_version=GAME_VERSION,
+        balance_version=BALANCE_VERSION,
+        policy_version=POLICY_VERSION,
+        outcome=terminal["outcome"],
+        run_kind=inputs["run_kind"],
+        fingerprint=fingerprint,
+        eligible=evaluated.eligible,
+        reason=evaluated.reason,
+        accepted_result_ordinal=evaluated.accepted_result_ordinal,
+        decision=public,
+        inputs=inputs,
+    )
+
+
 async def apply_run_action(
     db,
     user_id: int,
@@ -351,12 +432,21 @@ async def apply_run_action(
         pending_memory = None
         career_stats = None
         terminal = None
+        shadow_reward = None
         if state["status"] in ("won", "lost"):
             terminal = integrity.terminal_result(
                 run_id=run_id,
                 revision=new_revision,
                 outcome=state["status"],
                 state=state,
+            )
+            shadow_reward = await _record_shadow_reward(
+                db,
+                user_id=user_id,
+                run_id=run_id,
+                encounter_id=run["encounter_id"],
+                state=state,
+                terminal=terminal,
             )
             await event_repo.record_event(
                 db,
@@ -374,6 +464,7 @@ async def apply_run_action(
                     "rounds": state["round"],
                     "metrics": state["mastery"],
                     "terminal_result": terminal,
+                    "shadow_reward": shadow_reward,
                 },
                 idempotency_key=f"run:{run_id}:ended",
             )
@@ -429,6 +520,7 @@ async def apply_run_action(
             "revision": new_revision,
             "turn": result,
             "terminal_result": terminal,
+            "shadow_reward": shadow_reward,
             "pending_memory": pending_memory,
             "career_stats": career_stats,
             "idempotent_replay": False,
@@ -448,16 +540,18 @@ async def cancel_run(
         if not run:
             raise ReconstructionError("Забег не найден.")
         if run["status"] == "cancelled":
+            terminal = integrity.terminal_result(
+                run_id=run_id,
+                revision=int(run["revision"]),
+                outcome="cancelled",
+                state=run["state"],
+            )
             return {
                 "ok": True,
                 "run_id": run_id,
                 "revision": int(run["revision"]),
-                "terminal_result": integrity.terminal_result(
-                    run_id=run_id,
-                    revision=int(run["revision"]),
-                    outcome="cancelled",
-                    state=run["state"],
-                ),
+                "terminal_result": terminal,
+                "shadow_reward": await shadow_repo.get_decision(db, terminal["id"]),
                 "idempotent_replay": True,
             }
         if run["status"] != "active":
@@ -477,6 +571,14 @@ async def cancel_run(
             revision=new_revision,
             outcome="cancelled",
             state=state,
+        )
+        shadow_reward = await _record_shadow_reward(
+            db,
+            user_id=user_id,
+            run_id=run_id,
+            encounter_id=run["encounter_id"],
+            state=state,
+            terminal=terminal,
         )
         await event_repo.record_event(
             db,
@@ -498,6 +600,7 @@ async def cancel_run(
                 "rounds": int(state.get("round", 0)),
                 "metrics": state.get("mastery", {}),
                 "terminal_result": terminal,
+                "shadow_reward": shadow_reward,
             },
             idempotency_key=f"run:{run_id}:ended",
         )
@@ -506,6 +609,7 @@ async def cancel_run(
             "run_id": run_id,
             "revision": new_revision,
             "terminal_result": terminal,
+            "shadow_reward": shadow_reward,
             "idempotent_replay": False,
         }
 

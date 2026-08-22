@@ -68,7 +68,7 @@ GAMEPLAY_EVENT_SPECS: Final[dict[str, EventSpec]] = {
     "battle_end": EventSpec(
         1,
         frozenset({"mode", "encounter_id", "result", "rounds", "metrics"}),
-        frozenset({"outcome_reason", "terminal_result"}),
+        frozenset({"outcome_reason", "terminal_result", "shadow_reward"}),
     ),
     "progression_upgrade": EventSpec(
         1,
