@@ -400,14 +400,16 @@ function _openGiftModal(rid){
         ${_looksSwatch(it.slot, it)}<div class="lc-name">${esc(it.name)}</div>
         <div class="lc-foot"><span class="lc-rar">${_rarLabel(it.rarity)}</span>${foot}</div></div>`;
     }).join('');
-    b.innerHTML=`<div class="looks-hint">🎁 Списываются твои ✨ Зарники — подарок прилетит игроку, а в его профиле/топах засветится статус. Серые — у него уже есть.</div>
+    b.innerHTML=`<div class="looks-hint">🎁 Списываются твои Зарники. Получатель сразу получит предмет; уже принадлежащие ему варианты недоступны.</div>
       <div class="looks-cards gift-cards">${cards}</div>`;
   }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
 function _giftBuy(rid, cid, btn){
   if(btn) btn.disabled=true;
-  api('/cosmetics/gift',{method:'POST',body:JSON.stringify({recipient_id:rid,cosmetic_id:cid,chat_id:(_initChatId||_cid||0)})})
-    .then(r=>{ toast(r.message||'🎁 Подарок отправлен! 💜'); refreshCurrBar(); CM(); })
+  const requestKey=btn?.dataset.requestKey||economyRequestKey(`cosmetic-gift-${rid}-${cid}`);
+  if(btn)btn.dataset.requestKey=requestKey;
+  api('/cosmetics/gift',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({recipient_id:rid,cosmetic_id:cid,chat_id:(_initChatId||_cid||0)})})
+    .then(r=>{if(btn)delete btn.dataset.requestKey; toast(r.message||'🎁 Подарок отправлен!'); refreshCurrBar(); CM(); })
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
 // ── Боёвка 3.0: Врата и экран боя переехали в Арену (app.11.js) ───────────────

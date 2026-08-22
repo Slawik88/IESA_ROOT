@@ -199,10 +199,18 @@ class GiftRequest(BaseModel):
 
 
 @router.post("/gift")
-async def cosmetics_gift(body: GiftRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg, cname = await gift_cosmetic(db, user["id"], body.recipient_id, body.cosmetic_id)
+async def cosmetics_gift(
+    body: GiftRequest, db=Depends(get_db), user=Depends(require_tg_user),
+    request_key: str = Header(alias="Idempotency-Key"),
+):
+    ok, msg, cname, applied = await gift_cosmetic(
+        db, user["id"], body.recipient_id, body.cosmetic_id,
+        idempotency_key=_economic_key(request_key, "cosmetic-gift"),
+    )
     if not ok:
         raise HTTPException(400, msg)
+    if not applied:
+        return {"ok": True, "message": msg}
     from infrastructure.repositories import users as users_repo
     sn = await users_repo.get_user_name(db, user["id"])
     sender = f"@{sn}" if sn and sn != str(user["id"]) else "Друг"
@@ -223,8 +231,14 @@ class ChestBuyRequest(BaseModel):
 
 
 @router.post("/chest/buy")
-async def cosmetics_chest_buy(body: ChestBuyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg = await buy_chest(db, user["id"], body.chest_id)
+async def cosmetics_chest_buy(
+    body: ChestBuyRequest, db=Depends(get_db), user=Depends(require_tg_user),
+    request_key: str = Header(alias="Idempotency-Key"),
+):
+    ok, msg = await buy_chest(
+        db, user["id"], body.chest_id,
+        idempotency_key=_economic_key(request_key, "cosmetic-chest"),
+    )
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}

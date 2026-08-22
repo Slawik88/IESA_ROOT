@@ -895,50 +895,68 @@ async def craft_cosmetic(db, user_id: int, cosmetic_id: str) -> tuple[bool, str]
         return False, f"Ошибка: {e}"
 
 
-# ── БЛОК21: покупки за ✨ Зарники (всё в мини-аппе — за ✨, а ✨ — за ⭐) ───────────
-async def _charge_zarniki(db, user_id: int, amount: int) -> tuple[bool, str]:
-    """Списать ✨ Зарники атомарно (вызывать ВНУТРИ транзакции с FOR UPDATE на users)."""
-    async with db.execute(
-        "SELECT COALESCE(user_balance_zarniki, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
-        (user_id,),
-    ) as c:
-        row = await c.fetchone()
-    have = float(row[0]) if row else 0.0
-    if have < amount:
-        return False, f"Недостаточно ✨ Зарников: нужно {amount}, есть {int(have)}."
-    await db.execute(
-        "UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?",
-        (amount, user_id))
-    return True, "ok"
-
-
-async def gift_cosmetic(db, sender_id: int, recipient_id: int, cosmetic_id: str) -> tuple[bool, str, str]:
+async def gift_cosmetic(
+    db, sender_id: int, recipient_id: int, cosmetic_id: str,
+    idempotency_key: str | None = None,
+) -> tuple[bool, str, str, bool]:
     """Подарить косметику за ✨ Зарники: списать у дарителя → выдать получателю.
-    Возвращает (ok, msg, cosmetic_name) — имя для уведомления получателя в Telegram."""
+    Возвращает (ok, msg, cosmetic_name, applied): уведомление отправляется
+    только когда applied=True, а не при повторе запроса."""
     cos = COSMETICS.get(cosmetic_id)
     if not cos:
-        return False, "Косметика не найдена.", ""
+        return False, "Косметика не найдена.", "", False
     if int(sender_id) == int(recipient_id):
-        return False, "Нельзя подарить самому себе 🙂", ""
+        return False, "Нельзя подарить самому себе 🙂", "", False
     zar = _gift_zarniki(cos)
     if zar is None:
-        return False, "Эту косметику нельзя подарить.", ""
+        return False, "Эту косметику нельзя подарить.", "", False
+    reference_id = f"{recipient_id}:{cosmetic_id}"
     try:
         async with db.connection.transaction():
+            for user_id in sorted({int(sender_id), int(recipient_id)}):
+                await db.execute(
+                    "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
+                )
+                async with db.execute(
+                    "SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)
+                ) as cursor:
+                    await cursor.fetchone()
+            if idempotency_key:
+                replay = await find_reference_replay(
+                    db, sender_id,
+                    reason_code="cosmetic_gift_purchase",
+                    idempotency_key=idempotency_key,
+                    source_type="cosmetics", reference_type="cosmetic_gift",
+                    reference_id=reference_id,
+                )
+                if replay is not None:
+                    return True, "Этот подарок уже отправлен.", cos["name"], False
             if cosmetic_id in await _owned(db, recipient_id):
-                return False, "У игрока уже есть эта косметика.", ""
-            ok, msg = await _charge_zarniki(db, sender_id, zar)
-            if not ok:
-                return False, msg, ""
+                return False, "У игрока уже есть эта косметика.", "", False
+            await apply_balance_change(
+                db, sender_id, {"zarniki": -zar},
+                reason_code="cosmetic_gift_purchase",
+                idempotency_key=idempotency_key,
+                source_type="cosmetics", reference_type="cosmetic_gift",
+                reference_id=reference_id,
+                metadata={"recipient_id": recipient_id, "cosmetic_id": cosmetic_id},
+                target_id=recipient_id, note=cosmetic_id,
+            )
             await db.execute(
                 "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
                 (recipient_id, cosmetic_id))
-        return True, f"🎁 Подарок отправлен! −{zar}✨", cos["name"]
-    except Exception as e:
-        return False, f"Ошибка: {e}", ""
+        return True, f"🎁 Подарок отправлен! −{zar}✨", cos["name"], True
+    except InsufficientBalance:
+        return False, f"Недостаточно Зарников: нужно {zar}✨.", "", False
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другого подарка.", "", False
+    except Exception as error:
+        return False, f"Ошибка: {error}", "", False
 
 
-async def buy_chest(db, user_id: int, chest_id: str) -> tuple[bool, str]:
+async def buy_chest(
+    db, user_id: int, chest_id: str, idempotency_key: str | None = None,
+) -> tuple[bool, str]:
     """Купить сундук за ✨ Зарники → выдать ТОКЕН-сундук (открыть отдельно для реветь-момента)."""
     ch = COSMETIC_CHESTS.get(chest_id)
     if not ch:
@@ -946,13 +964,39 @@ async def buy_chest(db, user_id: int, chest_id: str) -> tuple[bool, str]:
     zar = int(ch["zarniki"])
     try:
         async with db.connection.transaction():
-            ok, msg = await _charge_zarniki(db, user_id, zar)
-            if not ok:
-                return False, msg
+            await db.execute(
+                "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
+            )
+            async with db.execute(
+                "SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)
+            ) as cursor:
+                await cursor.fetchone()
+            if idempotency_key:
+                replay = await find_reference_replay(
+                    db, user_id,
+                    reason_code="cosmetic_chest_purchase",
+                    idempotency_key=idempotency_key,
+                    source_type="cosmetics", reference_type="cosmetic_chest",
+                    reference_id=chest_id,
+                )
+                if replay is not None:
+                    return True, f"Покупка {ch['name']} уже обработана."
+            await apply_balance_change(
+                db, user_id, {"zarniki": -zar},
+                reason_code="cosmetic_chest_purchase",
+                idempotency_key=idempotency_key,
+                source_type="cosmetics", reference_type="cosmetic_chest",
+                reference_id=chest_id,
+                metadata={"chest_id": chest_id}, note=chest_id,
+            )
             await _add_item(db, user_id, chest_id, 1)
         return True, f"🎁 {ch['name']} куплен за {zar}✨! Открой его ниже."
-    except Exception as e:
-        return False, f"Ошибка: {e}"
+    except InsufficientBalance:
+        return False, f"Недостаточно Зарников: нужно {zar}✨."
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другого сундука."
+    except Exception as error:
+        return False, f"Ошибка: {error}"
 
 
 # ── Пресеты косметики (БЛОК 20.B) ─────────────────────────────────────────────
