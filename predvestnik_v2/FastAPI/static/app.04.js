@@ -829,7 +829,7 @@ function loadMyLots() {
 }
 function cancelMyLot(lotId) {
   OM('Снять лот с торгов?',
-    '<div style="font-size:12px;color:var(--muted);line-height:1.5">Лот закроется, активные ставки отменятся, а резерв вернётся участникам. Питомец (если лот на питомца) вернётся на склад.</div>',
+    '<div style="font-size:12px;color:var(--muted);line-height:1.5">Лот закроется, предмет вернётся тебе, а Мора из активной ставки снова станет доступна участнику.</div>',
     [{l:'Отмена', c:'btn-ghost', f:'CM()'},
      {l:'🗑 Снять', c:'btn-red', f:`_doCancelLot(${lotId})`}]);
 }
@@ -958,7 +958,10 @@ function submitLot(itemId) {
   if(!minBid||minBid<_aucMinBidFloor){toast(`Мин. ставка от ${_aucMinBidFloor} 🪙`,false);return;}
   const btn = document.querySelector('#mf .btn-gold');
   if(btn) btn.disabled=true;
-  api('/auction/create',{method:'POST',body:JSON.stringify({item_id:itemId,quantity:qty,min_bid:minBid,buyout})})
+  const sig=`${itemId}:${qty}:${minBid}:${buyout??''}`;
+  if(btn && btn.dataset.requestSig!==sig){btn.dataset.requestSig=sig;btn.dataset.requestKey=economyRequestKey('auction-listing');}
+  const requestKey=btn?.dataset.requestKey||economyRequestKey('auction-listing');
+  api('/auction/create',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({item_id:itemId,quantity:qty,min_bid:minBid,buyout})})
     .then(r=>{toast(`✅ Лот #${r.lot_id} создан! (24ч)`);CM();loadAuction();refreshCurrBar();})
     .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
@@ -991,7 +994,10 @@ function submitPetLot(petId) {
   if(!minBid||minBid<_aucMinBidFloor){toast(`Мин. ставка от ${_aucMinBidFloor} 🪙`,false);return;}
   const btn = document.querySelector('#mf .btn-gold');
   if(btn) btn.disabled=true;
-  api('/auction/create-pet',{method:'POST',body:JSON.stringify({pet_id:petId,min_bid:minBid,buyout})})
+  const sig=`${petId}:${minBid}:${buyout??''}`;
+  if(btn && btn.dataset.requestSig!==sig){btn.dataset.requestSig=sig;btn.dataset.requestKey=economyRequestKey('auction-pet-listing');}
+  const requestKey=btn?.dataset.requestKey||economyRequestKey('auction-pet-listing');
+  api('/auction/create-pet',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({pet_id:petId,min_bid:minBid,buyout})})
     .then(r=>{toast(`✅ Питомец выставлен! Лот #${r.lot_id} (24ч)`);CM();loadAuction();})
     .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
@@ -1041,8 +1047,11 @@ function doBid(lotId, btn, fixedAmount) {
   const v = fixedAmount > 0 ? fixedAmount : parseFloat(el('bid-val')?.value || 0);
   if (!v || v <= 0) { toast('Введите сумму.', false); return; }
   btn.disabled = true;
-  api('/auction/bid', {method:'POST', body:JSON.stringify({lot_id:lotId, amount:v})})
-    .then(r => { toast(r.is_buyout ? '🎉 Выкуплено!' : '✅ Ставка принята!'); CM(); loadAuction(); refreshCurrBar(); })
+  const sig=`${lotId}:${v}`;
+  if(btn.dataset.requestSig!==sig){btn.dataset.requestSig=sig;btn.dataset.requestKey=economyRequestKey('auction-bid');}
+  const requestKey=btn.dataset.requestKey;
+  api('/auction/bid', {method:'POST', headers:{'Idempotency-Key':requestKey}, body:JSON.stringify({lot_id:lotId, amount:v})})
+    .then(r => { toast(r.is_buyout ? `🎉 Выкуплено за ${fmt(r.amount)} 🪙!` : `✅ Ставка ${fmt(r.amount)} 🪙 принята!`); CM(); loadAuction(); refreshCurrBar(); })
     .catch(e => { toast(e, false); btn.disabled = false; });
 }
 

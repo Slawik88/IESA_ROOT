@@ -543,7 +543,8 @@ async def _init_progression_and_economy(db):
             buyout            FLOAT8,
             created_at        TIMESTAMP DEFAULT NOW(),
             ends_at           TIMESTAMP NOT NULL,
-            status            TEXT DEFAULT 'active'
+            status            TEXT DEFAULT 'active',
+            listing_operation_id TEXT
         )
     """)
     await db.execute("""
@@ -553,6 +554,7 @@ async def _init_progression_and_economy(db):
             bidder_id BIGINT NOT NULL,
             amount    FLOAT8 NOT NULL,
             is_active INTEGER DEFAULT 1,
+            request_key TEXT,
             placed_at TIMESTAMP DEFAULT NOW()
         )
     """)
@@ -574,6 +576,20 @@ async def _init_progression_and_economy(db):
     try:
         await db.execute(
             "ALTER TABLE auction_lots ADD COLUMN IF NOT EXISTS extended_sec INTEGER DEFAULT 0"
+        )
+        await db.execute(
+            "ALTER TABLE auction_lots ADD COLUMN IF NOT EXISTS listing_operation_id TEXT"
+        )
+        await db.execute(
+            "ALTER TABLE auction_bids ADD COLUMN IF NOT EXISTS request_key TEXT"
+        )
+        await db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_auction_lots_listing_operation "
+            "ON auction_lots (listing_operation_id) WHERE listing_operation_id IS NOT NULL"
+        )
+        await db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_auction_bids_request "
+            "ON auction_bids (bidder_id, request_key) WHERE request_key IS NOT NULL"
         )
     except Exception:
         pass

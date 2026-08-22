@@ -2,11 +2,25 @@ import aiosqlite
 
 
 async def ensure_columns(db) -> None:
-    """R5: extended_sec — суммарное анти-снайп-продление лота. Идемпотентно;
+    """Auction lifecycle columns and retry guards. Идемпотентно;
     зовётся из бот-init (database.py) и FastAPI lifespan (веб стартует раньше)."""
     try:
         await db.execute(
             "ALTER TABLE auction_lots ADD COLUMN IF NOT EXISTS extended_sec INTEGER DEFAULT 0"
+        )
+        await db.execute(
+            "ALTER TABLE auction_lots ADD COLUMN IF NOT EXISTS listing_operation_id TEXT"
+        )
+        await db.execute(
+            "ALTER TABLE auction_bids ADD COLUMN IF NOT EXISTS request_key TEXT"
+        )
+        await db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_auction_lots_listing_operation "
+            "ON auction_lots (listing_operation_id) WHERE listing_operation_id IS NOT NULL"
+        )
+        await db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_auction_bids_request "
+            "ON auction_bids (bidder_id, request_key) WHERE request_key IS NOT NULL"
         )
         await db.commit()
     except Exception:
@@ -24,14 +38,15 @@ async def create_lot(
     min_bid: float,
     buyout: float | None,
     ends_at: str,
+    listing_operation_id: str | None = None,
 ) -> int:
     async with db.execute(
         """INSERT INTO auction_lots
             (seller_id, category, item_type, item_id_or_pet_id, quantity,
-             item_name, min_bid, buyout, ends_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
+             item_name, min_bid, buyout, ends_at, listing_operation_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""",
         (seller_id, category, item_type, item_id_or_pet_id, quantity,
-         item_name, min_bid, buyout, ends_at),
+         item_name, min_bid, buyout, ends_at, listing_operation_id),
     ) as c:
         row = await c.fetchone()
     return row[0] if row else 0
@@ -119,14 +134,27 @@ async def deactivate_bid(db: aiosqlite.Connection, bid_id: int) -> None:
 
 
 async def insert_bid(
-    db: aiosqlite.Connection, lot_id: int, bidder_id: int, amount: float
+    db: aiosqlite.Connection, lot_id: int, bidder_id: int, amount: float,
+    request_key: str | None = None,
 ) -> int:
     async with db.execute(
-        "INSERT INTO auction_bids (lot_id, bidder_id, amount) VALUES (?, ?, ?) RETURNING id",
-        (lot_id, bidder_id, amount),
+        "INSERT INTO auction_bids (lot_id, bidder_id, amount, request_key) "
+        "VALUES (?, ?, ?, ?) RETURNING id",
+        (lot_id, bidder_id, amount, request_key),
     ) as c:
         row = await c.fetchone()
     return row[0] if row else 0
+
+
+async def get_bid_by_request(
+    db: aiosqlite.Connection, bidder_id: int, request_key: str
+) -> dict | None:
+    async with db.execute(
+        "SELECT * FROM auction_bids WHERE bidder_id = ? AND request_key = ?",
+        (bidder_id, request_key),
+    ) as c:
+        row = await c.fetchone()
+    return dict(row) if row else None
 
 
 async def get_user_active_bids(db: aiosqlite.Connection, bidder_id: int) -> list[dict]:
