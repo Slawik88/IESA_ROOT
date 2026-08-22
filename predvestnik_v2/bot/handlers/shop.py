@@ -262,13 +262,16 @@ async def cb_shop_do_buy(query: types.CallbackQuery, callback_data: ShopCB, db):
         return await query.answer(f"❌ Максимум: {cap} шт.", show_alert=True)
 
     economy = EconomyService(db)
-    success, msg = await economy.purchase_item(query.from_user.id, item_id, qty)
+    success, msg = await economy.purchase_item(
+        query.from_user.id, item_id, qty,
+        idempotency_key=f"shop:telegram:{query.id}",
+    )
 
     if success:
         # Track patron achievement (mora spent in shop)
         prices = await economy.get_item_prices(item_id, query.from_user.id)
         mora_spent = prices["mora"] * qty
-        if mora_spent > 0:
+        if mora_spent > 0 and msg == "Покупка завершена.":
             try:
                 await ach_incr(db, query.from_user.id, "total_mora_spent_shop", delta=mora_spent)
                 await db.commit()

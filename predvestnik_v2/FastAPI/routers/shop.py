@@ -1,14 +1,13 @@
 """FastAPI/routers/shop.py — каталог и покупки.
 purchase_item() из services.economy — та же функция что и у бота.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from FastAPI.deps import get_db, require_tg_user, require_module
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories.economy import get_balance
 from services.economy import EconomyService
 from services.achievements import increment_metric as ach_incr
-from services.smart_checkout import calculate_missing_resources_cost
 
 router = APIRouter(prefix="/shop", tags=["shop"], dependencies=[Depends(require_module("module_shop"))])
 
@@ -62,12 +61,6 @@ async def get_shop(db=Depends(get_db), user=Depends(require_tg_user)):
 class BuyRequest(BaseModel):
     item_id:  str
     quantity: int = Field(default=1, ge=1, le=99)
-    cover_with_zarniki: bool = False   # ШАГ6: добрать нехватку базовой валюты ✨
-
-
-class CheckoutQuoteRequest(BaseModel):
-    item_id:  str
-    quantity: int = Field(default=1, ge=1, le=99)
 
 
 @router.post("/buy")
@@ -75,17 +68,20 @@ async def buy_item(
     body: BuyRequest,
     db=Depends(get_db),
     user=Depends(require_tg_user),
+    request_key: str = Header(alias="Idempotency-Key"),
 ):
     """Купить предмет. Использует EconomyService.purchase_item() — та же логика что в боте."""
     item = ITEMS_REGISTRY.get(body.item_id, {})
     cap = _QTY_MAX_CAP.get(item.get("category", ""), 99)
     if body.quantity > cap:
         raise HTTPException(status_code=400, detail=f"Максимум: {cap} шт.")
+    if not request_key.strip() or len(request_key.strip()) > 120:
+        raise HTTPException(status_code=400, detail="Idempotency-Key должен содержать 1–120 символов.")
 
     eco = EconomyService(db)
     ok, message = await eco.purchase_item(
         user["id"], body.item_id, body.quantity,
-        cover_with_zarniki=body.cover_with_zarniki,
+        idempotency_key=f"shop:{request_key.strip()}",
     )
 
     if not ok:
@@ -94,7 +90,9 @@ async def buy_item(
     # Track patron achievement (mora spent in shop) — same as bot's cb_shop_do_buy.
     prices = await eco.get_item_prices(body.item_id, user["id"])
     mora_spent = prices["mora"] * body.quantity
-    if mora_spent > 0:
+    # An exact HTTP retry returns the original purchase and must not advance
+    # secondary counters a second time.
+    if mora_spent > 0 and message == "Покупка завершена.":
         try:
             await ach_incr(db, user["id"], "total_mora_spent_shop", delta=mora_spent)
         except Exception:
@@ -108,27 +106,3 @@ async def buy_item(
         "item_name": item.get("name", body.item_id),
         "quantity": body.quantity,
     }
-
-
-@router.post("/checkout-quote")
-async def checkout_quote(body: CheckoutQuoteRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """ШАГ6 Smart Checkout: расчёт недостающих ресурсов для покупки (для модалок A/B).
-    Не списывает ничего — только считает дефицит и ✨ на его покрытие."""
-    item = ITEMS_REGISTRY.get(body.item_id)
-    if not item:
-        raise HTTPException(404, "Предмет не найден.")
-    qty = body.quantity
-    eco = EconomyService(db)
-    prices = await eco.get_item_prices(body.item_id, user["id"])
-    cost = {"mora": prices.get("mora", 0) * qty, "diamonds": prices.get("diamonds", 0) * qty}
-    z_unit = item.get("price_zarniki", 0)
-    if z_unit:
-        cost["zarniki"] = z_unit * qty
-    bal = await get_balance(db, user["id"])
-    balances = {
-        "mora": bal["user_balance_mora"],
-        "diamonds": bal["user_balance_diamonds"],
-        "zarniki": bal["user_balance_zarniki"],
-    }
-    quote = calculate_missing_resources_cost(balances, cost)
-    return {"item_name": item.get("name", body.item_id), "quantity": qty, "cost": cost, **quote}

@@ -1099,40 +1099,21 @@ function buyItem(id, btn, cat) {
   }
   _execBuy(id, btn);
 }
-function doBuyConfirmed(id) { CM(); _shopBuy(id, 1, false, null); }
-function _execBuy(id, btn) { _shopBuy(id, 1, false, btn); }
-// Единый поток покупки + Smart Checkout (ШАГ6): при нехватке базовой валюты
-// предлагаем добрать Зарниками (сценарий A) или купить Зарники (сценарий B).
-function _shopBuy(id, qty, cover, btn) {
+function doBuyConfirmed(id) { CM(); _shopBuy(id, 1, null); }
+function _execBuy(id, btn) { _shopBuy(id, 1, btn); }
+const _shopRequestKeys=new Map();
+function _shopBuy(id, qty, btn) {
   if(btn) btn.disabled = true;
-  api('/shop/buy', {method:'POST', body:JSON.stringify({item_id:id, quantity:qty, cover_with_zarniki:!!cover})})
-    .then(r => { toast('✅ ' + (r.message || ('Куплено: ' + r.item_name))); loadShopCatalog(); refreshCurrBar(); if(btn) btn.disabled=false; })
+  const slot=`${id}:${qty}`;
+  const requestKey=_shopRequestKeys.get(slot)||economyRequestKey(`shop-${id}`);
+  _shopRequestKeys.set(slot,requestKey);
+  api('/shop/buy', {method:'POST', headers:{'Idempotency-Key':requestKey}, body:JSON.stringify({item_id:id, quantity:qty})})
+    .then(r => { _shopRequestKeys.delete(slot); toast('✅ ' + (r.message || ('Куплено: ' + r.item_name))); loadShopCatalog(); refreshCurrBar(); if(btn) btn.disabled=false; })
     .catch(e => {
       if(btn) btn.disabled=false;
-      if(cover) { toast(e, false); return; }   // уже добирали ✨ — не зацикливаемся
-      _smartCheckout(id, qty, e);
+      toast(e, false);
     });
 }
-function _smartCheckout(id, qty, origErr) {
-  api('/shop/checkout-quote', {method:'POST', body:JSON.stringify({item_id:id, quantity:qty})})
-    .then(q => {
-      if(q.affordable || !q.zarniki_needed) { toast(origErr, false); return; }  // ошибка не про деньги
-      const lack = Object.values(q.deficits||{}).map(d=>`${fmtF(d.amount)} ${d.icon}`).join(' и ');
-      if(q.coverable) {
-        OM('✨ Не хватает чуть-чуть',
-          `<div style="padding:6px 2px;font-size:13px;line-height:1.5">Тебе не хватает <b>${lack}</b> для покупки «${esc(q.item_name)}».<br><br>Покрыть недостаток Зарниками? Спишется <b>${q.zarniki_needed} ✨</b> <span style="color:var(--muted)">(у тебя ${fmtF(q.zarniki_have)} ✨)</span>.</div>`,
-          [{l:`Купить +${q.zarniki_needed} ✨`, c:'btn-gold', f:`_smartConfirm('${id}',${qty})`},
-           {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
-      } else {
-        OM('✨ Нужны Зарники',
-          `<div style="padding:6px 2px;font-size:13px;line-height:1.5">Тебе не хватает <b>${lack}</b> (или <b>${q.zarniki_needed} ✨</b>) для быстрой покупки «${esc(q.item_name)}».<br><br><span style="color:var(--muted)">У тебя ${fmtF(q.zarniki_have)} ✨ — недостаточно.</span></div>`,
-          [{l:'Купить Зарники ✨', c:'btn-gold', f:"CM();goTo('market','vip')"},
-           {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
-      }
-    })
-    .catch(() => toast(origErr, false));
-}
-function _smartConfirm(id, qty) { CM(); _shopBuy(id, qty, true, null); }
 // Русские названия категорий для бейджа инвентаря (магазин локализует свои отдельно).
 const CAT_RU={food:'Корм',material:'Материал',booster:'Зелье',utility:'Утилита',spin_token:'Жетон',chest:'Сундук',donate:'Донат'};
 function loadInventory() {
