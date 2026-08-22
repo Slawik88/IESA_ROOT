@@ -317,8 +317,12 @@
     const catalog = new Map((manifest?.clicker_upgrades || []).map((item) => [item.id, item]));
     const selected = (state.upgrades || []).map((id) => catalog.get(id)).filter(Boolean);
     const role = (manifest?.companions?.roles || []).find((item) => item.id === state.companion_role_id);
+    const forecast = state.companion_state?.navigator_forecast;
+    const roleNote = role?.id === 'navigator' && forecast
+      ? `волна ${number(forecast.wave)} · ${esc(forecast.window)} окно`
+      : 'роль спутника';
     container.hidden = false;
-    const roleChip = role ? `<span class="companion-build"><i>${esc(role.emoji)}</i><b>${esc(role.name)}</b><small>роль спутника</small></span>` : '';
+    const roleChip = role ? `<span class="companion-build"><i>${esc(role.emoji)}</i><b>${esc(role.name)}</b><small>${roleNote}</small></span>` : '';
     container.innerHTML = roleChip + (selected.length ? selected.map((upgrade) => `
       <span><i>${esc(upgrade.emoji)}</i><b>${esc(upgrade.name)}</b><small>${esc(upgrade.archetype)}</small></span>`).join('')
       : '<span class="empty-build"><i>＋</i><b>Сборка</b><small>усиление после волны</small></span>');

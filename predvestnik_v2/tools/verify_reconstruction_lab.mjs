@@ -222,6 +222,41 @@ try{
     await page.close();
   }
 
+  {
+    const session=`navigator-ui-${Date.now()}`;
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width:320,height:844,deviceScaleFactor:1});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.waitForSelector('#menuLayer:not([hidden])');
+    await page.click('[data-menu-tab="companion"]');
+    await page.click('[data-companion-role="navigator"]');
+    await page.waitForFunction(()=>document.querySelector('[data-companion-role="navigator"]')?.classList.contains('selected'));
+    await page.click('[data-menu-tab="play"]');
+    await page.click('#startRunButton');
+    await page.waitForSelector('.companion-build');
+    const forecastState=await page.evaluate(async()=>{
+      const sessionKey=sessionStorage.getItem('reconstruction-preview-session');
+      const response=await fetch('/__reconstruction/state',{headers:{'x-reconstruction-session':sessionKey}});
+      const api=await response.json();
+      return {
+        role:document.querySelector('.companion-build b')?.textContent.trim(),
+        note:document.querySelector('.companion-build small')?.textContent.trim(),
+        forecast:api.companion_state?.navigator_forecast,
+        overflow:document.documentElement.scrollWidth-innerWidth,
+      };
+    });
+    check(forecastState.role==='Навигатор',`Navigator active-build label missing: ${forecastState.role}`);
+    check(forecastState.note?.includes(`волна ${forecastState.forecast?.wave}`),`Navigator forecast is not visible: ${forecastState.note}`);
+    check(forecastState.forecast?.reveals_answer===false,'Navigator leaked a correct answer');
+    check(forecastState.overflow<=0,`Navigator forecast overflows by ${forecastState.overflow}px`);
+    check(errors.length===0,`Navigator UI browser errors ${errors.join(', ')}`);
+    if(output)await page.screenshot({path:`${output}/clicker-320-navigator.png`,fullPage:true});
+    await page.close();
+  }
+
   // DEV-only time compression makes the real expedition state transitions
   // testable without waiting two hours.  No wallet is attached to this bridge.
   {

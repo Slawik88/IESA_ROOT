@@ -224,6 +224,25 @@ def _mix(seed: int, sequence: int) -> int:
     return value & 0xFFFFFFFF
 
 
+def _navigator_forecast(state: dict[str, Any]) -> dict[str, Any]:
+    waves = _waves(state)
+    index = 1 + _mix(int(state["seed"]) + 4637, len(waves)) % max(1, len(waves) - 1)
+    wave = waves[index]
+    signal_ms = int(wave["signal_ms"])
+    duration_ms = int(wave["duration_ms"])
+    window = "короткое" if signal_ms < 1000 else "среднее" if signal_ms < 1200 else "длинное"
+    pressure = "высокое" if duration_ms <= 34000 else "среднее" if duration_ms <= 42000 else "мягкое"
+    return {
+        "wave": index + 1,
+        "rail": str(wave.get("rail") or wave["name"]),
+        "window": window,
+        "pressure": pressure,
+        "signal_ms": signal_ms,
+        "locked": True,
+        "reveals_answer": False,
+    }
+
+
 def _challenge_data(state: dict[str, Any], sequence: int) -> tuple[str, list[dict[str, str]], int]:
     value = _mix(state["seed"] + state["round"] * 977, sequence)
     offset = value % len(RUNE_SYMBOLS)
@@ -483,6 +502,7 @@ def new_encounter(
             "echo_offer_symbol": None,
             "echo_active_challenge": None,
             "echo_insight": 0,
+            "navigator_forecast": None,
         },
         "branch_state": {
             "decision": None,
@@ -578,6 +598,8 @@ def new_encounter(
         state["log"] = [
             "⌑ Архивариус меняет правило после каждой фазы. Сначала он записывает выбранную позицию."
         ]
+    if _has_companion_role(state, "navigator"):
+        state["companion_state"]["navigator_forecast"] = _navigator_forecast(state)
     state["wave"] = _wave_runtime(state, 0, 0)
     if encounter_id == "e04_drowned_names":
         _begin_sequence_preview(state)
