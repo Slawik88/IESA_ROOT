@@ -21,6 +21,7 @@ from core.reconstruction import (
     STARTER_UNITS,
     validate_content,
 )
+from core.reconstruction_progression import branch_by_id
 
 
 FRAME_MAX_MS = 500
@@ -90,6 +91,27 @@ def _round_number(value: float) -> float:
     return round(float(value), 2)
 
 
+def _branch_state(state: dict[str, Any]) -> dict[str, Any]:
+    branch = state.setdefault("branch_state", {})
+    defaults = {
+        "decision": None, "broken_vow_used": False, "manual_discharge": None,
+        "stored_seam_slot": None, "forbidden_mode": False,
+        "forbidden_slot": None, "tide_swap_used": False,
+        "hide_signal_timer": False, "family_preview": None,
+        "next_signal_penalty_ms": 0,
+    }
+    for key, value in defaults.items():
+        branch.setdefault(key, value)
+    return branch
+
+
+def _has_branch(state: dict[str, Any], branch_id: str) -> bool:
+    return any(
+        branch_id in (value if isinstance(value, list) else [value])
+        for value in (state.get("unit_branches") or {}).values()
+    )
+
+
 def _mix(seed: int, sequence: int) -> int:
     value = (int(seed) ^ (sequence * 0x9E3779B1)) & 0xFFFFFFFF
     value ^= value << 13 & 0xFFFFFFFF
@@ -123,6 +145,8 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
     if first:
         delay = 650
     opens_at = now + delay
+    branch = _branch_state(state)
+    penalty_ms = max(0, int(branch.get("next_signal_penalty_ms", 0)))
     state["challenge"] = {
         "id": sequence,
         "active": False,
@@ -133,9 +157,13 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
         "expires_at_ms": opens_at + max(
             620,
             int(_waves(state)[state["round"] - 1]["signal_ms"])
-            + int(state["team"]["signal_window_bonus_ms"]),
+            + int(state["team"]["signal_window_bonus_ms"])
+            - penalty_ms,
         ),
     }
+    branch["next_signal_penalty_ms"] = 0
+    branch["hide_signal_timer"] = False
+    branch["family_preview"] = None
 
 
 def _wave_runtime(
@@ -152,7 +180,12 @@ def _wave_runtime(
     }
 
 
-def new_encounter(encounter_id: str = "e01_two_bells", *, seed: int = 1) -> dict[str, Any]:
+def new_encounter(
+    encounter_id: str = "e01_two_bells",
+    *,
+    seed: int = 1,
+    unit_branches: dict[str, str | list[str]] | None = None,
+) -> dict[str, Any]:
     errors = validate_content()
     if errors:
         raise ValueError("Некорректный реестр Reconstruction 3.0: " + "; ".join(errors))
@@ -161,6 +194,16 @@ def new_encounter(encounter_id: str = "e01_two_bells", *, seed: int = 1) -> dict
         raise ValueError(f"Неизвестная встреча: {encounter_id}")
     if not encounter.get("implemented"):
         raise ValueError(f"Встреча {encounter_id} ещё не включена в игровой срез.")
+    selected_branches: dict[str, list[str]] = {}
+    for unit_id, raw_branch_ids in (unit_branches or {}).items():
+        branch_ids = raw_branch_ids if isinstance(raw_branch_ids, list) else [raw_branch_ids]
+        normalized: list[str] = []
+        for branch_id in branch_ids:
+            found = branch_by_id(str(branch_id))
+            if not found or found[0] != unit_id:
+                raise ValueError("Ветка мастерства не принадлежит выбранному юниту.")
+            normalized.append(str(branch_id))
+        selected_branches[str(unit_id)] = list(dict.fromkeys(normalized))
     team: dict[str, Any] = {
         "tap_power": 65.0,
         "auto_dps": 3.0,
@@ -197,6 +240,18 @@ def new_encounter(encounter_id: str = "e01_two_bells", *, seed: int = 1) -> dict
         "combo": {"count": 0, "max": 0},
         "challenge": None,
         "seam_ready": False,
+        "unit_branches": selected_branches,
+        "branch_state": {
+            "decision": None,
+            "broken_vow_used": False,
+            "manual_discharge": None,
+            "stored_seam_slot": None,
+            "forbidden_mode": False,
+            "forbidden_slot": None,
+            "tide_swap_used": False,
+            "hide_signal_timer": False,
+            "family_preview": None,
+        },
         "upgrades": [],
         "reward_options": [],
         "mastery": {
@@ -297,6 +352,14 @@ def _start_next_wave(state: dict[str, Any]) -> None:
     state["seam_ready"] = False
     state["combo"] = {"count": 0, "max": state["combo"]["max"]}
     state["challenge"] = None
+    branch = _branch_state(state)
+    branch["decision"] = None
+    branch["manual_discharge"] = None
+    branch["stored_seam_slot"] = None
+    branch["forbidden_slot"] = None
+    branch["tide_swap_used"] = False
+    branch["hide_signal_timer"] = False
+    branch["family_preview"] = None
     _schedule_challenge(state, first=True)
     state["log"].append(f"⚔️ Волна {state['round']}: {state['wave']['name']}.")
     _emit(state, "wave_start", state["wave"]["name"], wave=state["round"])
@@ -315,7 +378,22 @@ def _combo_multiplier(state: dict[str, Any]) -> float:
     return 1.0 + steps * 0.04 * float(state["team"]["combo_step_multiplier"])
 
 
+def _consume_manual_discharge_window(state: dict[str, Any], challenge_id: int) -> None:
+    branch = _branch_state(state)
+    armed = branch.get("manual_discharge")
+    if not isinstance(armed, dict) or challenge_id <= int(armed.get("armed_at", 0)):
+        return
+    armed["signals_left"] = max(0, int(armed.get("signals_left", 0)) - 1)
+    if armed["signals_left"] > 0:
+        return
+    state["team"]["charge"] = _round_number(float(state["team"]["charge"]) * 0.5)
+    branch["manual_discharge"] = None
+    state["log"].append("◌ Безмолвный разряд не выпущен: половина Импульса ушла.")
+
+
 def _miss_signal(state: dict[str, Any], *, wrong_tap: bool) -> None:
+    challenge_id = int((state.get("challenge") or {}).get("id", 0))
+    charge_before = float(state["team"]["charge"])
     guarded = False
     if wrong_tap:
         state["mastery"]["mistakes"] += 1
@@ -353,6 +431,23 @@ def _miss_signal(state: dict[str, Any], *, wrong_tap: bool) -> None:
             state["challenge"] = None
             _emit(state, "defeat", "Фонарь погас")
             return
+    _consume_manual_discharge_window(state, challenge_id)
+    branch = _branch_state(state)
+    if (
+        wrong_tap
+        and _has_branch(state, "bell_broken_vow")
+        and not branch["broken_vow_used"]
+    ):
+        branch["broken_vow_used"] = True
+        branch["decision"] = {
+            "id": f"broken-vow:{challenge_id}",
+            "kind": "mistake_recovery_choice",
+            "charge_before": _round_number(charge_before),
+            "options": ("keep", "release"),
+        }
+        state["challenge"] = None
+        _emit(state, "branch_decision", "РЕШЕНИЕ КЛЯТВЫ")
+        return
     _emit(state, "miss", label)
     _schedule_challenge(state)
 
@@ -363,12 +458,27 @@ def _advance_time(state: dict[str, Any], delta_ms: int) -> None:
     wave = state["wave"]
     wave["elapsed_ms"] += delta_ms
     state["mastery"]["elapsed_ms"] += delta_ms
-    _deal(state, state["team"]["auto_dps"] * delta_ms / 1000.0, "auto")
+    challenge = state.get("challenge")
+    branch = _branch_state(state)
+    preview_active = bool(
+        _has_branch(state, "tide_early_chart")
+        and challenge
+        and not challenge["active"]
+        and 0 < int(challenge["opens_at_ms"]) - int(wave["elapsed_ms"]) <= 420
+    )
+    if preview_active:
+        symbol = challenge["target_symbol"]
+        branch["family_preview"] = "круг" if symbol == "○" else "углы"
+    else:
+        branch["family_preview"] = None
+    auto_factor = 2 / 3 if preview_active else 1.0
+    _deal(state, state["team"]["auto_dps"] * auto_factor * delta_ms / 1000.0, "auto")
     if state["status"] != "active":
         return
     challenge = state["challenge"]
     if challenge and not challenge["active"] and wave["elapsed_ms"] >= challenge["opens_at_ms"]:
         challenge["active"] = True
+        branch["family_preview"] = None
         _emit(state, "signal", f"Найди {challenge['target_symbol']}", challenge_id=challenge["id"])
     if challenge and challenge["active"] and wave["elapsed_ms"] >= challenge["expires_at_ms"]:
         _miss_signal(state, wrong_tap=False)
@@ -432,7 +542,19 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     state["mastery"]["reaction_count"] = int(
         state["mastery"].get("reaction_count", 0)
     ) + 1
+    _consume_manual_discharge_window(state, int(challenge["id"]))
+    branch = _branch_state(state)
     state["combo"]["count"] += 1
+    forbidden_result = None
+    if _has_branch(state, "seam_forbidden_repeat") and branch["forbidden_mode"]:
+        prior_forbidden = branch.get("forbidden_slot")
+        if prior_forbidden == slot:
+            state["combo"]["count"] = 1
+            forbidden_result = "forced_break"
+        elif prior_forbidden:
+            state["combo"]["count"] += 1
+            forbidden_result = "respected"
+        branch["forbidden_slot"] = slot
     state["combo"]["max"] = max(state["combo"]["max"], state["combo"]["count"])
     if state["mastery"]["mistakes"] > 0:
         state["mastery"]["max_combo_after_mistake"] = max(
@@ -452,11 +574,25 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
         objective["recoveries"] = int(objective.get("recoveries", 0)) + 1
     critical = _critical_active(state)
     multiplier = _combo_multiplier(state)
+    seam_result = None
+    seam_bonus = 0.0
+    if _has_branch(state, "seam_cross_stitch"):
+        stored_slot = branch.get("stored_seam_slot")
+        if stored_slot:
+            if stored_slot != slot:
+                seam_bonus = 90.0
+                seam_result = "broken"
+            else:
+                seam_result = "wasted"
+            branch["stored_seam_slot"] = None
     if critical:
         multiplier *= float(state["team"]["critical_multiplier"])
         state["mastery"]["critical_taps"] += 1
-        state["seam_ready"] = True
-    damage = float(state["team"]["tap_power"]) * multiplier
+        if _has_branch(state, "seam_cross_stitch"):
+            branch["stored_seam_slot"] = slot
+        else:
+            state["seam_ready"] = True
+    damage = float(state["team"]["tap_power"]) * multiplier + seam_bonus
     if state["combo"]["count"] % 5 == 0:
         damage += float(state["team"]["tap_power"]) * 0.75
     dealt = _deal(state, damage, "tap")
@@ -466,8 +602,14 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     )
     discharged = False
     if state["status"] == "active" and state["team"]["charge"] >= CHARGE_MAX:
-        _discharge(state)
-        discharged = True
+        if _has_branch(state, "bell_silent_release"):
+            if not branch.get("manual_discharge"):
+                branch["manual_discharge"] = {
+                    "armed_at": int(challenge["id"]), "signals_left": 2,
+                }
+        else:
+            _discharge(state)
+            discharged = True
     if state["status"] == "active":
         if not discharged:
             _emit(
@@ -478,7 +620,8 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     return {
         "accepted": True, "correct": True, "critical": critical,
         "damage": _round_number(dealt), "discharged": discharged,
-        "reaction_ms": reaction_ms,
+        "reaction_ms": reaction_ms, "seam_result": seam_result,
+        "forbidden_result": forbidden_result,
     }
 
 
@@ -512,6 +655,87 @@ def _choose_upgrade(state: dict[str, Any], upgrade_id: str) -> dict[str, Any]:
     return {"ok": True, "phase": "wave_started", "upgrade_id": upgrade_id}
 
 
+def _branch_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, Any]:
+    command = str(action.get("command") or "")
+    branch = _branch_state(state)
+    decision = branch.get("decision")
+    if command in {"vow_keep", "vow_release"}:
+        if not isinstance(decision, dict) or decision.get("kind") != "mistake_recovery_choice":
+            return {"ok": False, "error": "Сейчас нет решения Клятвы."}
+        expected_id = str(action.get("decision_id") or "")
+        if expected_id != decision["id"]:
+            return {"ok": False, "error": "Решение Клятвы уже изменилось."}
+        if command == "vow_keep":
+            state["team"]["charge"] = _round_number(float(decision["charge_before"]) * 0.5)
+            branch["next_signal_penalty_ms"] = 180
+            result = "charge_kept"
+            state["log"].append("🔔 Половина Импульса сохранена; следующее окно уже.")
+        else:
+            state["team"]["charge"] = 0.0
+            result = "charge_released"
+            state["log"].append("◌ Импульс отпущен; следующее окно осталось полным.")
+        branch["decision"] = None
+        _schedule_challenge(state)
+        _emit(state, "branch", "КЛЯТВА ПРИНЯТА", result=result)
+        return {"ok": True, "phase": state["status"], "branch": "bell_broken_vow", "result": result}
+
+    if command == "manual_discharge":
+        armed = branch.get("manual_discharge")
+        challenge = state.get("challenge")
+        if (
+            not _has_branch(state, "bell_silent_release")
+            or not isinstance(armed, dict)
+            or not challenge
+            or not challenge.get("active")
+        ):
+            return {"ok": False, "error": "Безмолвный разряд сейчас недоступен."}
+        branch["manual_discharge"] = None
+        damage = _discharge(state)
+        return {
+            "ok": True, "phase": state["status"], "branch": "bell_silent_release",
+            "result": "released", "damage": _round_number(damage),
+        }
+
+    if command == "forbidden_toggle":
+        if not _has_branch(state, "seam_forbidden_repeat"):
+            return {"ok": False, "error": "Запретный стежок не выбран."}
+        enabled = bool(action.get("enabled"))
+        branch["forbidden_mode"] = enabled
+        if not enabled:
+            branch["forbidden_slot"] = None
+        result = "enabled" if enabled else "disabled"
+        _emit(state, "branch", "ЗАПРЕТНЫЙ СТЕЖОК", result=result)
+        return {
+            "ok": True, "phase": state["status"], "branch": "seam_forbidden_repeat",
+            "result": result,
+        }
+
+    if command == "tide_swap":
+        challenge = state.get("challenge")
+        if (
+            not _has_branch(state, "tide_hidden_swap")
+            or branch["tide_swap_used"]
+            or not challenge
+            or not challenge.get("active")
+        ):
+            return {"ok": False, "error": "Сдвиг течения сейчас недоступен."}
+        options = list(challenge["options"])
+        shift = 1 + (_mix(state["seed"], int(challenge["id"])) % 2)
+        symbols = [option["symbol"] for option in options]
+        rotated = symbols[-shift:] + symbols[:-shift]
+        for option, symbol in zip(options, rotated):
+            option["symbol"] = symbol
+        branch["tide_swap_used"] = True
+        branch["hide_signal_timer"] = True
+        _emit(state, "branch", "СДВИГ ТЕЧЕНИЯ", result="positions_shifted")
+        return {
+            "ok": True, "phase": state["status"], "branch": "tide_hidden_swap",
+            "result": "positions_shifted",
+        }
+
+    return {"ok": False, "error": "Неизвестное действие ветви мастерства."}
+
+
 def apply_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(action, dict):
         return {"ok": False, "error": "Действие должно быть объектом."}
@@ -520,6 +744,29 @@ def apply_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, Any
         return _choose_upgrade(state, str(action.get("upgrade_id") or ""))
     if state["status"] != "active":
         return {"ok": False, "error": "Раунд сейчас не активен."}
+    if action_type == "branch_action":
+        command = str(action.get("command") or "")
+        if command not in {"vow_keep", "vow_release"}:
+            try:
+                delta_ms = int(action.get("delta_ms", 0))
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "delta_ms должен быть целым числом."}
+            if delta_ms < 0:
+                return {"ok": False, "error": "Время кадра не может быть отрицательным."}
+            _advance_time(state, min(delta_ms, FRAME_MAX_MS))
+            if state["status"] != "active":
+                branch_id = {
+                    "manual_discharge": "bell_silent_release",
+                    "forbidden_toggle": "seam_forbidden_repeat",
+                    "tide_swap": "tide_hidden_swap",
+                }.get(command, "unknown")
+                return {
+                    "ok": True, "phase": state["status"], "branch": branch_id,
+                    "result": "expired_before_action",
+                }
+        return _branch_action(state, action)
+    if _branch_state(state).get("decision"):
+        return {"ok": False, "error": "Сначала прими решение Клятвы."}
     if action_type not in {"frame", "strike"}:
         return {"ok": False, "error": "Неизвестное действие точного автокликера."}
     try:

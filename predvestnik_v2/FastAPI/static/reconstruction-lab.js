@@ -320,7 +320,47 @@
       button.textContent = symbol;
       button.disabled = !playing || !challenge?.active || Boolean(pendingStrike);
       button.setAttribute('aria-label', `${button.dataset.targetSlot}: руна ${symbol}`);
+      button.classList.toggle('seam-stored', state.branch_state?.stored_seam_slot === button.dataset.targetSlot);
+      button.classList.toggle('forbidden', state.branch_state?.forbidden_slot === button.dataset.targetSlot);
     });
+  }
+
+  function renderBranchDecision() {
+    const decision = state.branch_state?.decision;
+    if (!decision || ['menu', 'pause', 'result'].includes(currentView)) return;
+    playing = false;
+    document.getElementById('choiceEyebrow').textContent = 'НАРУШЕННАЯ КЛЯТВА';
+    document.getElementById('choiceTitle').textContent = 'Что сделать с Импульсом?';
+    document.getElementById('choiceCopy').textContent =
+      'Сохранение помогает Разряду, но следующее окно станет короче. Отказ безопаснее.';
+    document.getElementById('upgradeList').innerHTML = `
+      <button class="upgrade-card" type="button" data-combat-command="vow_keep" data-decision-id="${esc(decision.id)}">
+        <span>🔔</span><span class="upgrade-copy"><em>РИСК</em><strong>Сохранить половину</strong><small>Вернуть 50% Импульса до ошибки.</small><small class="tradeoff">− Следующее окно короче на 0,18 с.</small></span><b>›</b>
+      </button>
+      <button class="upgrade-card" type="button" data-combat-command="vow_release" data-decision-id="${esc(decision.id)}">
+        <span>◌</span><span class="upgrade-copy"><em>СТАБИЛЬНОСТЬ</em><strong>Отпустить заряд</strong><small>Следующий сигнал останется полным.</small><small class="tradeoff">− Импульс обнулится.</small></span><b>›</b>
+      </button>`;
+    showOnly('choice');
+  }
+
+  function renderBranchControls() {
+    const container = document.getElementById('branchControls');
+    const branch = state.branch_state || {};
+    const selected = new Set(Object.values(state.unit_branches || {}).flatMap(
+      (value) => Array.isArray(value) ? value : [value],
+    ));
+    const controls = [];
+    if (selected.has('bell_silent_release') && branch.manual_discharge && state.challenge?.active) {
+      controls.push('<button type="button" data-combat-command="manual_discharge">⚡ Выпустить Разряд</button>');
+    }
+    if (selected.has('seam_forbidden_repeat')) {
+      controls.push(`<button type="button" class="${branch.forbidden_mode ? 'risk-on' : ''}" data-combat-command="forbidden_toggle" data-enabled="${branch.forbidden_mode ? 'false' : 'true'}">🪡 Риск ${branch.forbidden_mode ? 'вкл' : 'выкл'}</button>`);
+    }
+    if (selected.has('tide_hidden_swap') && state.challenge?.active && !branch.tide_swap_used) {
+      controls.push('<button type="button" data-combat-command="tide_swap">🌊 Сдвинуть руны</button>');
+    }
+    container.innerHTML = controls.join('');
+    container.hidden = !controls.length;
   }
 
   function renderChoice() {
@@ -567,17 +607,23 @@
     stage.classList.toggle('signal', signalActive);
     stage.classList.toggle('golden', state.critical_active);
     const indicator = document.getElementById('windowIndicator').querySelector('span');
-    indicator.textContent = state.critical_active
+    const timerHidden = Boolean(state.branch_state?.hide_signal_timer && signalActive);
+    document.getElementById('windowIndicator').classList.toggle('timer-hidden', timerHidden);
+    indicator.textContent = timerHidden ? 'Течение скрывает остаток окна'
+      : state.critical_active
       ? '✦ ЗОЛОТОЕ ОКНО · БОНУС ЗА МОМЕНТ'
       : signalActive ? 'Выбери совпадающую руну' : 'Сигнал приближается';
-    document.getElementById('corePrompt').textContent = signalActive ? 'НАЙДИ ЗНАК' : 'СЛУШАЙ';
-    document.getElementById('coreHint').textContent = signalActive ? 'одна попытка на сигнал' : 'затем найди такой же знак';
+    const family = state.branch_state?.family_preview;
+    document.getElementById('corePrompt').textContent = family ? 'КАРТА' : signalActive ? 'НАЙДИ ЗНАК' : 'СЛУШАЙ';
+    document.getElementById('coreHint').textContent = family ? `семейство: ${family}` : signalActive ? 'одна попытка на сигнал' : 'затем найди такой же знак';
     core.setAttribute('aria-label', signalActive ? `Найди руну ${challenge.target_symbol}` : 'Ожидание следующей руны');
     renderRunes();
+    renderBranchControls();
     renderRail();
     renderSquad();
     renderBuild();
     renderChoice();
+    renderBranchDecision();
     renderResult();
     animateEvent(state.last_event);
     refreshMenu();
@@ -799,6 +845,28 @@
     }
   }
 
+  async function sendCombatBranchAction(command, extra = {}) {
+    if (busy || !state) return;
+    busy = true;
+    const resolvingDecision = Boolean(state.branch_state?.decision);
+    try {
+      const data = await submitAction({ type: 'branch_action', command, ...extra });
+      state = data.state;
+      pendingStrike = null;
+      if (resolvingDecision) {
+        showOnly('battle');
+        playing = state.status === 'active';
+        lastFrameAt = performance.now();
+      }
+      render();
+      haptic('medium');
+    } catch (error) {
+      if (!error.resynced) notify(error.message, true);
+    } finally {
+      busy = false;
+    }
+  }
+
   async function sendFrame() {
     if (busy || !playing || !state || state.status !== 'active') return;
     const now = performance.now();
@@ -897,6 +965,13 @@
     if (document.hidden && playing) openPause();
   });
   document.getElementById('upgradeList').addEventListener('click', (event) => {
+    const combatBranch = event.target.closest('[data-combat-command]');
+    if (combatBranch) {
+      sendCombatBranchAction(combatBranch.dataset.combatCommand, {
+        decision_id: combatBranch.dataset.decisionId,
+      });
+      return;
+    }
     const branch = event.target.closest('[data-unit-branch]');
     if (branch) {
       chooseUnitBranch(branch.dataset.unitId, branch.dataset.unitBranch);
@@ -913,6 +988,14 @@
   document.getElementById('unitProgress').addEventListener('click', (event) => {
     const card = event.target.closest('[data-unit-progress]');
     if (card) showUnitBranchChoice(card.dataset.unitProgress);
+  });
+  document.getElementById('branchControls').addEventListener('click', (event) => {
+    const control = event.target.closest('[data-combat-command]');
+    if (!control) return;
+    const extra = control.dataset.enabled === undefined
+      ? {}
+      : { enabled: control.dataset.enabled === 'true' };
+    sendCombatBranchAction(control.dataset.combatCommand, extra);
   });
   document.querySelector('.menu-tabs').addEventListener('click', (event) => {
     const button = event.target.closest('[data-menu-tab]');

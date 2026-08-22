@@ -267,6 +267,132 @@ assert lantern_perfect["status"] == "won"
 assert lantern_perfect["outcome_reason"] == "lantern_delivered"
 assert combat.public_state(lantern_perfect)["accuracy"] == 100.0
 
+# Первый рубеж мастерства меняет решения, а не только числа.
+vow = combat.new_encounter(seed=1201, unit_branches={"r_oath_bell": "bell_broken_vow"})
+vow["team"]["charge"] = 80
+challenge = open_signal(vow)
+wrong = next(
+    option["slot"] for option in challenge["options"]
+    if option["symbol"] != challenge["target_symbol"]
+)
+act(vow, type="strike", challenge_id=challenge["id"], target_slot=wrong)
+decision = vow["branch_state"]["decision"]
+assert decision["kind"] == "mistake_recovery_choice" and vow["challenge"] is None
+blocked = combat.apply_action(vow, {"type": "frame", "delta_ms": 100})
+assert blocked["ok"] is False and "Клятвы" in blocked["error"]
+act(vow, type="branch_action", command="vow_keep", decision_id=decision["id"])
+assert vow["team"]["charge"] == 40
+assert vow["challenge"]["expires_at_ms"] - vow["challenge"]["opens_at_ms"] == 1020
+
+silent = combat.new_encounter(seed=1202, unit_branches={"r_oath_bell": "bell_silent_release"})
+silent["team"]["charge"] = 75
+challenge = open_signal(silent)
+hit = act(silent, type="strike", challenge_id=challenge["id"], target_slot=correct_slot(challenge))
+assert hit["strike"]["discharged"] is False
+assert silent["branch_state"]["manual_discharge"]["signals_left"] == 2
+challenge = open_signal(silent)
+released = act(silent, type="branch_action", command="manual_discharge")
+assert released["branch"] == "bell_silent_release"
+assert silent["mastery"]["discharges"] == 1 and silent["team"]["charge"] < 100
+
+cross = combat.new_encounter(seed=1203, unit_branches={"r_red_seam": "seam_cross_stitch"})
+challenge = open_signal(cross)
+remaining = challenge["expires_at_ms"] - cross["wave"]["elapsed_ms"]
+while remaining > 220:
+    act(cross, type="frame", delta_ms=min(100, remaining - 220))
+    remaining = cross["challenge"]["expires_at_ms"] - cross["wave"]["elapsed_ms"]
+challenge = cross["challenge"]
+critical_slot = correct_slot(challenge)
+act(cross, type="strike", challenge_id=challenge["id"], target_slot=critical_slot)
+assert cross["branch_state"]["stored_seam_slot"] == critical_slot
+challenge = open_signal(cross)
+next_slot = correct_slot(challenge)
+cross["branch_state"]["stored_seam_slot"] = next(
+    slot for slot in combat.RUNE_SLOTS if slot != next_slot
+)
+stitched = act(cross, type="strike", challenge_id=challenge["id"], target_slot=next_slot)
+assert stitched["strike"]["seam_result"] == "broken"
+
+forbidden = combat.new_encounter(seed=1204, unit_branches={"r_red_seam": "seam_forbidden_repeat"})
+act(forbidden, type="branch_action", command="forbidden_toggle", enabled=True)
+challenge = open_signal(forbidden)
+slot = correct_slot(challenge)
+forbidden["combo"]["count"] = 10
+forbidden["branch_state"]["forbidden_slot"] = slot
+forced = act(forbidden, type="strike", challenge_id=challenge["id"], target_slot=slot)
+assert forced["strike"]["forbidden_result"] == "forced_break"
+assert forbidden["combo"]["count"] == 1
+
+shifted = combat.new_encounter(seed=1205, unit_branches={"r_tide_cartographer": "tide_hidden_swap"})
+challenge = open_signal(shifted)
+slot_before = correct_slot(challenge)
+swap = act(shifted, type="branch_action", command="tide_swap")
+slot_after = correct_slot(shifted["challenge"])
+assert swap["branch"] == "tide_hidden_swap" and slot_after != slot_before
+assert shifted["branch_state"]["hide_signal_timer"] is True
+repeated_swap = combat.apply_action(shifted, {"type": "branch_action", "command": "tide_swap"})
+assert repeated_swap["ok"] is False
+
+chart = combat.new_encounter(seed=1206, unit_branches={"r_tide_cartographer": "tide_early_chart"})
+while chart["branch_state"]["family_preview"] is None:
+    act(chart, type="frame", delta_ms=50)
+chart_view = combat.public_state(chart)
+assert chart_view["branch_state"]["family_preview"] in {"круг", "углы"}
+assert chart_view["challenge"]["target_symbol"] is None
+
+
+def finish_with_branch_policy(seed, selected=None):
+    unit_branches = {selected[0]: selected[1]} if selected else None
+    state = combat.new_encounter(seed=seed, unit_branches=unit_branches)
+    if selected and selected[1] == "seam_forbidden_repeat":
+        act(state, type="branch_action", command="forbidden_toggle", enabled=True)
+    for _ in range(1600):
+        if state["status"] in {"won", "lost"}:
+            return state
+        if state["status"] == "reward":
+            act(state, type="choose_upgrade", upgrade_id=state["reward_options"][0]["id"])
+            continue
+        decision = state["branch_state"].get("decision")
+        if decision:
+            act(state, type="branch_action", command="vow_keep", decision_id=decision["id"])
+            continue
+        challenge = open_signal(state)
+        if state["branch_state"].get("manual_discharge"):
+            act(state, type="branch_action", command="manual_discharge")
+            if state["status"] != "active":
+                continue
+        if selected and selected[1] == "tide_hidden_swap" and not state["branch_state"]["tide_swap_used"]:
+            act(state, type="branch_action", command="tide_swap")
+            challenge = state["challenge"]
+        act(
+            state, type="strike", challenge_id=challenge["id"],
+            target_slot=correct_slot(challenge),
+        )
+    raise AssertionError("Branch balance simulation exceeded guard")
+
+
+branch_pairs = (
+    ("r_oath_bell", "bell_broken_vow"),
+    ("r_oath_bell", "bell_silent_release"),
+    ("r_red_seam", "seam_cross_stitch"),
+    ("r_red_seam", "seam_forbidden_repeat"),
+    ("r_tide_cartographer", "tide_hidden_swap"),
+    ("r_tide_cartographer", "tide_early_chart"),
+)
+meaningful_difference_seen = False
+for seed in range(101, 109):
+    baseline = finish_with_branch_policy(seed)
+    assert baseline["status"] == "won"
+    baseline_taps = baseline["mastery"]["correct_taps"]
+    for pair in branch_pairs:
+        candidate = finish_with_branch_policy(seed, pair)
+        assert candidate["status"] == "won"
+        candidate_taps = candidate["mastery"]["correct_taps"]
+        advantage = (baseline_taps - candidate_taps) / baseline_taps
+        assert advantage <= 0.25, (seed, pair, advantage)
+        meaningful_difference_seen |= candidate_taps != baseline_taps
+assert meaningful_difference_seen, "All branch policies collapsed to the base kit"
+
 # Public-state является копией, а не возможностью мутировать server state.
 view = combat.public_state(perfect)
 snapshot = copy.deepcopy(perfect)

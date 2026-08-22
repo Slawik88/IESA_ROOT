@@ -70,12 +70,16 @@ def _save_states() -> None:
 _STATES = _load_states()
 
 
-def _new_state(encounter_id: str = reconstruction.FIRST_ENCOUNTER):
+def _new_state(
+    encounter_id: str = reconstruction.FIRST_ENCOUNTER,
+    unit_branches: dict[str, str | list[str]] | None = None,
+):
     # У каждой вкладки и каждого reset свой run key: локальная статистика может
     # надёжно дедуплицировать завершение, а тестировщики не делят один seed.
     state = reconstruction_combat.new_encounter(
         seed=secrets.randbelow(2**31 - 1) + 1,
         encounter_id=encounter_id,
+        unit_branches=unit_branches,
     )
     reconstruction_timing.attach_server_clock(state)
     return state
@@ -141,7 +145,13 @@ class Handler(BaseHTTPRequestHandler):
                 encounter = reconstruction.ENCOUNTERS.get(encounter_id)
                 if not encounter or not encounter.get("implemented"):
                     return self._send(400, {"detail": "Эта встреча ещё не доступна в dev-стенде."})
-                state = _new_state(encounter_id)
+                unit_branches = (body or {}).get("unit_branches")
+                if unit_branches is not None and not isinstance(unit_branches, dict):
+                    return self._send(400, {"detail": "unit_branches должен быть объектом."})
+                try:
+                    state = _new_state(encounter_id, unit_branches)
+                except ValueError as exc:
+                    return self._send(400, {"detail": str(exc)})
                 _STATES[self._session_key()] = state
                 _save_states()
                 return self._send(200, reconstruction_combat.public_state(state))

@@ -60,6 +60,10 @@ h2 { letter-spacing: -.03em; }
 .objective-meter strong { color: #b8e5e8; font-size: 10px; font-variant-numeric: tabular-nums; }
 .objective-meter > i { height: 4px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.07); }
 .objective-meter b { display: block; width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), #a4e1d2); transform: scaleX(1); transform-origin: left center; transition: transform .12s linear; }
+.branch-controls { margin: 7px 15px 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.branch-controls::-webkit-scrollbar { display: none; }
+.branch-controls button { min-width: max-content; min-height: 42px; padding: 0 10px; border: 1px solid rgba(105,194,207,.28); border-radius: 9px; background: rgba(105,194,207,.07); color: #b8e5e8; font-size: 8px; font-weight: 800; }
+.branch-controls button.risk-on { border-color: rgba(229,189,95,.42); background: var(--gold-soft); color: var(--gold); }
 
 .tap-stage { position: relative; min-height: 356px; margin-top: 10px; overflow: hidden; display: grid; place-items: center; touch-action: manipulation; user-select: none; background: radial-gradient(circle at 50% 48%, rgba(105,194,207,.08), transparent 47%), linear-gradient(180deg, transparent, rgba(0,0,0,.12)); }
 .tap-stage::before { content: ""; position: absolute; width: 300px; height: 300px; border: 1px solid rgba(105,194,207,.08); border-radius: 50%; }
@@ -68,6 +72,7 @@ h2 { letter-spacing: -.03em; }
 .window-indicator > i { height: 3px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.07); }
 .window-indicator b { display: block; height: 100%; width: 100%; background: var(--gold); transform: scaleX(0); transform-origin: left center; }
 .tap-stage.golden .window-indicator span { color: var(--gold); font-weight: 800; }
+.window-indicator.timer-hidden > i { opacity: .18; }
 
 .echo-core { --charge: 0deg; position: relative; z-index: 3; width: 168px; height: 168px; margin-bottom: 58px; padding: 0; border: 0; border-radius: 50%; display: grid; grid-template-rows: 64px 18px 14px; align-content: center; justify-items: center; background: radial-gradient(circle at 42% 35%, #253448 0, #121b28 46%, #090e16 75%); box-shadow: 0 0 0 1px rgba(105,194,207,.27), 0 14px 45px rgba(0,0,0,.35); outline: none; transition: transform .07s ease; }
 .charge-ring { position: absolute; inset: 0; pointer-events: none; }
@@ -85,6 +90,8 @@ h2 { letter-spacing: -.03em; }
 .tap-stage.signal .strike-rune:not(:disabled) { opacity: 1; transform: translateY(0); pointer-events: auto; }
 .tap-stage.signal .strike-rune:not(:disabled):active { transform: scale(.94); border-color: var(--gold); background: var(--gold-soft); }
 .tap-stage.golden .strike-rune { border-color: rgba(229,189,95,.32); }
+.strike-rune.seam-stored { border-color: rgba(226,111,112,.55); box-shadow: inset 0 -2px rgba(226,111,112,.4); }
+.strike-rune.forbidden { border-color: rgba(229,189,95,.35); background: rgba(229,189,95,.045); }
 .tap-stage.miss .strike-rune { border-color: rgba(226,111,112,.45); }
 .impact-layer { position: absolute; z-index: 8; inset: 0; pointer-events: none; overflow: hidden; }
 .impact { position: absolute; color: #e8f5f6; font-size: 14px; font-weight: 850; pointer-events: none; animation: impact .52s ease-out forwards; text-shadow: 0 2px 8px #000; }

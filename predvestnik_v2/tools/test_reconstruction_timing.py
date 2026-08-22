@@ -82,6 +82,23 @@ strike, strike_meta = server_timed_action(
 assert strike["delta_ms"] == 140
 assert strike_meta["reason"] == "server_elapsed"
 
+# Повторяемые кнопки ветвей не могут бесплатно замораживать бой. Только
+# модальное решение Клятвы действительно является паузой.
+branch_clock = {}
+attach_server_clock(branch_clock, now_ms=8_000)
+toggle, toggle_meta = server_timed_action(
+    branch_clock,
+    {"type": "branch_action", "command": "forbidden_toggle", "enabled": True},
+    now_ms=8_220,
+)
+assert toggle["delta_ms"] == 220 and toggle_meta["reason"] == "server_elapsed"
+vow, vow_meta = server_timed_action(
+    branch_clock,
+    {"type": "branch_action", "command": "vow_keep"},
+    now_ms=8_440,
+)
+assert vow["delta_ms"] == 0 and vow_meta["reason"] == "non_frame"
+
 # A legacy active run without a clock freezes its first action and initializes.
 legacy = {}
 legacy_action, legacy_meta = server_timed_action(
