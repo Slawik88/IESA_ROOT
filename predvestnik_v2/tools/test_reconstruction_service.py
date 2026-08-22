@@ -59,6 +59,7 @@ class MemoryRepo:
                 "current_encounter": first_encounter,
                 "completed": [],
                 "memories": [],
+                "route_choices": {},
             }
         return copy.deepcopy(self.progress)
 
@@ -218,7 +219,7 @@ async def main():
         return fake_clock["now"]
 
     service.timing.server_now_ms = server_now_ms
-    seeded_runs = iter((101, 202, 303))
+    seeded_runs = iter((101, 202, 303, 404))
     service.secrets.randbelow = lambda _upper: next(seeded_runs)
     for name in (
         "lock_user", "get_progress", "ensure_progress", "save_progress",
@@ -476,27 +477,73 @@ async def main():
         assert result["status"] == "won"
         assert result["outcome_reason"] == "lantern_delivered"
         assert result["pending_memory"] is None
-        assert result["next_step"]["type"] == "development_gate"
-        assert result["next_step"]["practice_encounter_id"] == "e02_shattered_causeway"
+        assert result["next_step"]["type"] == "choose_chronicle_path"
+        assert {choice["id"] for choice in result["next_step"]["choices"]} == {"ink", "ash"}
         assert memory.progress["completed"] == [
             service.FIRST_ENCOUNTER, "e02_shattered_causeway",
         ]
-        assert memory.progress["current_encounter"] == "e03_ink_path"
+        assert memory.progress["current_encounter"] == service.CHAPTER_ONE_PATH_GATE
         overview = await service.overview(db, user_id)
-        assert overview["progress"]["next_step"]["type"] == "development_gate"
+        assert overview["progress"]["next_step"]["type"] == "choose_chronicle_path"
         assert overview["stats"]["runs_started"] == 2
         assert overview["stats"]["runs_won"] == 2
+
+        chosen_path = await service.choose_chronicle_path(db, user_id, "ash")
+        chosen_path_again = await service.choose_chronicle_path(db, user_id, "ash")
+        assert chosen_path["idempotent_replay"] is False
+        assert chosen_path_again["idempotent_replay"] is True
+        assert chosen_path["next_step"]["type"] == "play_encounter"
+        assert chosen_path["next_step"]["encounter_id"] == "e03_ash_path"
+        assert memory.progress["current_encounter"] == "e03_ash_path"
+        assert memory.progress["route_choices"] == {"chapter_1": "ash"}
+        try:
+            await service.choose_chronicle_path(db, user_id, "ink")
+        except service.ReconstructionError as exc:
+            assert "уже выбрана" in str(exc)
+        else:
+            raise AssertionError("Chronicle path changed after confirmation")
 
         memory.unit_progress_rows = [
             service.unit_progress_view(
                 "r_red_seam", 1190, {"5": "seam_forbidden_repeat"}
             )
         ]
+        third = await service.start_encounter(db, user_id, "e03_ash_path")
+        assert third["seed"] == 304
+        assert third["objective_state"]["kind"] == "ash_fire"
+        run_id = third["run_id"]
+        result = third
+        guard = 0
+        while memory.runs[run_id]["state"]["status"] not in {"won", "lost"} and guard < 1800:
+            guard += 1
+            state = memory.runs[run_id]["state"]
+            if state["status"] == "reward":
+                result = await apply({
+                    "type": "choose_upgrade",
+                    "upgrade_id": state["reward_options"][0]["id"],
+                })
+                continue
+            challenge = state["challenge"]
+            if not challenge["active"]:
+                result = await apply({"type": "frame", "delta_ms": 100})
+                continue
+            slot = next(
+                option["slot"] for option in challenge["options"]
+                if option["symbol"] == challenge["target_symbol"]
+            )
+            result = await apply({
+                "type": "strike", "challenge_id": challenge["id"], "target_slot": slot,
+            })
+        assert result["status"] == "won" and result["outcome_reason"] == "fire_carried"
+        assert result["next_step"]["type"] == "development_gate"
+        assert result["next_step"]["practice_encounter_id"] == "e03_ash_path"
+        assert memory.progress["current_encounter"] == "e04_drowned_names"
+
         practice = await service.start_encounter(
-            db, user_id, "e02_shattered_causeway", practice=True
+            db, user_id, "e03_ash_path", practice=True
         )
         assert practice["run_kind"] == "practice" and practice["resumed"] is False
-        assert practice["seed"] == 304
+        assert practice["seed"] == 405
         practice_id = practice["run_id"]
         assert practice["unit_branches"] == {"r_red_seam": ["seam_forbidden_repeat"]}
         toggled = await service.apply_run_action(
@@ -519,7 +566,7 @@ async def main():
         assert cancelled["shadow_reward"]["eligible"] is False
         assert cancelled["shadow_reward"]["reason"] == "practice"
         assert cancelled["shadow_reward"]["projected"]["mora"] == 0
-        assert len(memory.shadow_rows) == 3
+        assert len(memory.shadow_rows) == 4
         assert memory.runs[practice_id]["status"] == "cancelled"
         cancel_events = [
             event for event in memory.events.values()

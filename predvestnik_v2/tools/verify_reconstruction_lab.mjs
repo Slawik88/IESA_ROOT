@@ -116,6 +116,42 @@ try{
     await page.close();
   }
 
+  for(const spec of [
+    {id:'e03_ink_path',label:'ЯСНОСТЬ',cue:'ОТРАЖЕНИЕ'},
+    {id:'e03_ash_path',label:'ОГОНЬ',cue:null},
+  ]){
+    for(const width of [320,390,430]){
+      const session=`visual-${spec.id}-${width}`;
+      const response=await fetch(`${base}/__reconstruction/reset`,{
+        method:'POST',
+        headers:{'content-type':'application/json','x-reconstruction-session':session},
+        body:JSON.stringify({encounter_id:spec.id}),
+      });
+      check(response.ok,`${spec.id} ${width}px: dev reset failed`);
+      const page=await browser.newPage();
+      const errors=[];
+      page.on('pageerror',error=>errors.push(error.message));
+      await page.setViewport({width,height:844,deviceScaleFactor:1});
+      await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+      await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+      await page.click('#startRunButton');
+      await page.waitForFunction(label=>document.getElementById('objectiveLabel')?.textContent.trim()===label,{},spec.label);
+      if(spec.cue){
+        await page.waitForFunction(cue=>document.getElementById('corePrompt')?.textContent.trim()===cue,{timeout:3000},spec.cue);
+      }
+      const metrics=await page.evaluate(()=>({
+        overflow:document.documentElement.scrollWidth-innerWidth,
+        objectiveHidden:document.getElementById('objectiveMeter').hidden,
+        targetHeight:document.querySelector('.strike-rune').getBoundingClientRect().height,
+      }));
+      check(metrics.overflow<=0,`${spec.id} ${width}px: overflow ${metrics.overflow}px`);
+      check(!metrics.objectiveHidden,`${spec.id} ${width}px: objective hidden`);
+      check(metrics.targetHeight>=44,`${spec.id} ${width}px: target below 44px`);
+      check(errors.length===0,`${spec.id} ${width}px: ${errors.join(', ')}`);
+      await page.close();
+    }
+  }
+
   // Ветвь с активным решением не добавляет старую панель способностей:
   // одна компактная кнопка меняет риск и сохраняет мобильную ширину.
   const branchSession='visual-branch-control';

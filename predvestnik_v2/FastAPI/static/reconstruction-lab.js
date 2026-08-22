@@ -400,6 +400,24 @@
     return true;
   }
 
+  function showChroniclePathChoice() {
+    const next = progress?.next_step;
+    if (next?.type !== 'choose_chronicle_path' || !(next.choices || []).length) return false;
+    playing = false;
+    document.getElementById('choiceEyebrow').textContent = 'ХРОНИКА · РАЗВИЛКА';
+    document.getElementById('choiceTitle').textContent = 'Куда понесёшь Память?';
+    document.getElementById('choiceCopy').textContent =
+      'Обе тропы остаются в истории, но первая выбранная меняет обучение этой главы.';
+    document.getElementById('upgradeList').innerHTML = next.choices.map((choice) => `
+      <button class="upgrade-card" type="button" data-chronicle-path="${esc(choice.id)}">
+        <span>${choice.id === 'ink' ? '◆' : '🔥'}</span>
+        <span class="upgrade-copy"><em>${choice.id === 'ink' ? 'ЧТЕНИЕ' : 'ТЕМП'}</em><strong>${esc(choice.name)}</strong><small>${esc(choice.description)}</small><small class="mastery">Мастерство: ${esc(choice.mastery)}</small></span>
+        <b>›</b>
+      </button>`).join('');
+    showOnly('choice');
+    return true;
+  }
+
   function unitBranches(unitId) {
     return manifest?.unit_progression?.branches?.[unitId]?.['5'] || [];
   }
@@ -462,14 +480,27 @@
     playing = false;
     recordRunCompleted();
     const won = state.status === 'won';
-    const lantern = state.objective_state?.kind === 'lantern_escort';
+    const objectiveKind = state.objective_state?.kind;
+    const lantern = objectiveKind === 'lantern_escort';
+    const ink = objectiveKind === 'ink_decipher';
+    const ash = objectiveKind === 'ash_fire';
     const next = progress?.next_step;
     document.getElementById('resultMark').textContent = won ? '✦' : '◌';
     document.getElementById('resultEyebrow').textContent = won ? 'ВСТРЕЧА ПРОЙДЕНА' : 'ВСТРЕЧА НЕ ПРОЙДЕНА';
-    document.getElementById('resultTitle').textContent = lantern
+    document.getElementById('resultTitle').textContent = ink
+      ? (won ? 'Настоящие имена прочитаны' : 'Отражения победили')
+      : ash ? (won ? 'Огонь сохранён' : 'Костёр погас')
+      : lantern
       ? (won ? 'Фонарь достиг ворот' : 'Фонарь не дошёл')
       : (won ? 'Колокол отвечает тебе' : 'Эхо погасло');
-    document.getElementById('resultCopy').textContent = lantern
+    document.getElementById('resultCopy').textContent = ink
+      ? (won
+        ? 'Ты дождался настоящих сигналов и не позволил ранним отражениям управлять выбором.'
+        : 'Ранний символ — только отражение. Решение принимается после открытия трёх рун.')
+      : ash ? (won
+        ? 'Ты удержал темп и сохранил жар. Золотые ответы помогли, но не были обязательным ритм-экзаменом.'
+        : 'Огонь гаснет со временем и от ошибок. Точные ответы поддерживают его, золотые возвращают больше.')
+      : lantern
       ? (won
         ? 'Точная серия сохранила свет до конца тракта. Ошибки можно было исправить, но не заменить скоростью.'
         : state.outcome_reason === 'lantern_accuracy_failed'
@@ -486,11 +517,14 @@
       [state.mastery.missed_signals, 'пропущено'],
       [`${Math.round(state.mastery.elapsed_ms / 1000)}с`, 'время'],
     ];
-    if (lantern) stats.splice(3, 0, [`${number(state.objective_state.lantern_integrity)}%`, 'свет Фонаря']);
+    if (lantern) stats.splice(0, 1, [`${number(state.objective_state.lantern_integrity)}%`, 'свет Фонаря']);
+    if (ink) stats.splice(0, 1, [`${number(state.objective_state.clarity)}%`, 'ясность']);
+    if (ash) stats.splice(0, 1, [`${number(state.objective_state.fire_integrity)}%`, 'огонь']);
     document.getElementById('resultStats').innerHTML = stats
       .map(([value, label]) => `<span><strong>${esc(value)}</strong>${esc(label)}</span>`).join('');
     const previewContinues = !production && won && state.encounter_id === 'e01_two_bells';
     const actionLabel = pendingMemory ? 'Выбрать Память'
+      : next?.type === 'choose_chronicle_path' ? 'Выбрать тропу'
       : won && next?.type === 'play_encounter' ? 'Продолжить Хронику'
         : previewContinues ? 'Продолжить Хронику'
         : next?.type === 'development_gate' ? 'Тренировка'
@@ -529,6 +563,7 @@
     );
     const label = pendingMemory
       ? 'Выбрать Память'
+      : next?.type === 'choose_chronicle_path' ? 'Выбрать тропу'
       : resumable ? 'Продолжить забег'
         : state?.status === 'active' ? 'Начать забег'
           : next?.type === 'development_gate' ? 'Тренировка'
@@ -540,6 +575,10 @@
       copy: 'Выбери постоянный стиль игры. Валюта не тратится, второй вариант выбрать нельзя.',
       waves: '1', time: 'выбор', goal: 'навсегда', note: 'Решение',
       noteCopy: 'У каждой Памяти есть преимущество и честное ограничение.',
+    } : next?.type === 'choose_chronicle_path' ? {
+      eyebrow: 'ХРОНИКА · РАЗВИЛКА', title: next.title,
+      copy: next.description, waves: '2', time: 'тропы', goal: '1', note: 'Навсегда',
+      noteCopy: 'Выбранная тропа меняет порядок обучения, но не продаёт силу и не закрывает историю.',
     } : next?.type === 'development_gate' ? {
       eyebrow: 'ГРАНИЦА ТЕКУЩЕГО MVP', title: next.title,
       copy: next.description, waves: '2', time: 'пройдено', goal: '0', note: 'Без наград',
@@ -548,6 +587,14 @@
       eyebrow: 'ХРОНИКА · ВСТРЕЧА 2', title: nextEncounter.name,
       copy: nextEncounter.objective.description, waves: '3', time: '≈ 2 мин', goal: '≥ 75%',
       note: 'Фонарь', noteCopy: 'Ошибка гасит свет. Серия из пяти точных знаков восстанавливает его.',
+    } : nextEncounter?.id === 'e03_ink_path' ? {
+      eyebrow: 'ХРОНИКА · ТРОПА ЧЕРНИЛ', title: nextEncounter.name,
+      copy: nextEncounter.objective.description, waves: '3', time: '≈ 3 мин', goal: 'ясность',
+      note: 'Отражение', noteCopy: 'Ложный знак появляется раньше. Нажимай только после открытия настоящего.',
+    } : nextEncounter?.id === 'e03_ash_path' ? {
+      eyebrow: 'ХРОНИКА · ТРОПА ПЕПЛА', title: nextEncounter.name,
+      copy: nextEncounter.objective.description, waves: '3', time: '≈ 3 мин', goal: 'огонь',
+      note: 'Костёр', noteCopy: 'Огонь медленно гаснет. Поздний золотой ответ возвращает больше жара.',
     } : {
       eyebrow: 'ХРОНИКА · ВСТРЕЧА 1', title: nextEncounter?.name || 'Разлом колокола',
       copy: nextEncounter?.objective?.description || 'Три короткие волны. Смотри на знак в центре и находи такой же среди трёх рун.',
@@ -572,6 +619,7 @@
     if (!state) return;
     const wave = state.wave;
     const challenge = state.challenge;
+    const objective = state.objective_state || {};
     const hpPercent = wave.hp_max ? wave.hp / wave.hp_max * 100 : 0;
     const chargePercent = state.team.charge / state.team.charge_max * 100;
     const seconds = Math.max(0, wave.time_left_ms / 1000).toFixed(1).replace('.', ',');
@@ -579,23 +627,32 @@
     document.getElementById('waveLabel').textContent = `ВОЛНА ${state.round} ИЗ ${state.waves_total}`;
     document.getElementById('bossName').textContent = wave.name;
     document.getElementById('bossSubtitle').textContent = wave.subtitle;
-    document.getElementById('bossGlyph').textContent = signalActive ? challenge.target_symbol : wave.emoji;
+    const reflection = objective.kind === 'ink_decipher' ? objective.reflection_cue : null;
+    document.getElementById('bossGlyph').textContent = signalActive
+      ? challenge.target_symbol
+      : reflection?.symbol || wave.emoji;
     document.getElementById('roundClock').innerHTML = `<strong>${seconds}</strong><span>сек</span>`;
     document.getElementById('roundClock').classList.toggle('urgent', wave.time_left_ms <= 5000);
     document.getElementById('bossHealthFill').style.transform = `scaleX(${Math.max(0, Math.min(1, hpPercent / 100))})`;
     document.getElementById('bossHealthValue').textContent = `${number(wave.hp)} / ${number(wave.hp_max)}`;
     document.getElementById('bossHealth').setAttribute('aria-valuemax', String(Math.round(wave.hp_max)));
     document.getElementById('bossHealth').setAttribute('aria-valuenow', String(Math.round(wave.hp)));
-    const objective = state.objective_state || {};
     const objectiveMeter = document.getElementById('objectiveMeter');
-    const lantern = objective.kind === 'lantern_escort';
-    objectiveMeter.hidden = !lantern;
-    if (lantern) {
-      const max = Math.max(1, Number(objective.lantern_integrity_max) || 100);
-      const value = Math.max(0, Math.min(max, Number(objective.lantern_integrity) || 0));
+    const objectiveConfig = {
+      lantern_escort: ['ФОНАРЬ', 'lantern_integrity', 'lantern_integrity_max', ''],
+      ink_decipher: ['ЯСНОСТЬ', 'clarity', 'clarity_max', 'ink'],
+      ash_fire: ['ОГОНЬ', 'fire_integrity', 'fire_integrity_max', 'ash'],
+    }[objective.kind];
+    objectiveMeter.hidden = !objectiveConfig;
+    objectiveMeter.className = `objective-meter${objectiveConfig?.[3] ? ` ${objectiveConfig[3]}` : ''}`;
+    if (objectiveConfig) {
+      const [label, valueKey, maxKey] = objectiveConfig;
+      const max = Math.max(1, Number(objective[maxKey]) || 100);
+      const value = Math.max(0, Math.min(max, Number(objective[valueKey]) || 0));
+      document.getElementById('objectiveLabel').textContent = label;
       document.getElementById('objectiveValue').textContent = `${number(value)}%`;
       document.getElementById('objectiveFill').style.transform = `scaleX(${value / max})`;
-      objectiveMeter.setAttribute('aria-label', `Свет Фонаря ${number(value)} процентов`);
+      objectiveMeter.setAttribute('aria-label', `${label} ${number(value)} процентов`);
     }
     core.style.setProperty('--charge', `${Math.min(360, chargePercent * 3.6)}deg`);
     document.getElementById('comboValue').textContent = `×${state.combo.count}`;
@@ -614,8 +671,8 @@
       ? '✦ ЗОЛОТОЕ ОКНО · БОНУС ЗА МОМЕНТ'
       : signalActive ? 'Выбери совпадающую руну' : 'Сигнал приближается';
     const family = state.branch_state?.family_preview;
-    document.getElementById('corePrompt').textContent = family ? 'КАРТА' : signalActive ? 'НАЙДИ ЗНАК' : 'СЛУШАЙ';
-    document.getElementById('coreHint').textContent = family ? `семейство: ${family}` : signalActive ? 'одна попытка на сигнал' : 'затем найди такой же знак';
+    document.getElementById('corePrompt').textContent = reflection ? 'ОТРАЖЕНИЕ' : family ? 'КАРТА' : signalActive ? 'НАЙДИ ЗНАК' : 'СЛУШАЙ';
+    document.getElementById('coreHint').textContent = reflection ? 'не нажимай · дождись настоящего' : family ? `семейство: ${family}` : signalActive ? 'одна попытка на сигнал' : 'затем найди такой же знак';
     core.setAttribute('aria-label', signalActive ? `Найди руну ${challenge.target_symbol}` : 'Ожидание следующей руны');
     renderRunes();
     renderBranchControls();
@@ -845,6 +902,35 @@
     }
   }
 
+  async function chooseChroniclePath(pathId) {
+    if (!production || busy) return;
+    busy = true;
+    try {
+      const selected = await jsonFetch('/chronicle/path', {
+        method: 'POST', body: JSON.stringify({ path_id: pathId }),
+      });
+      progress = {
+        ...(progress || {}),
+        current_encounter: selected.encounter_id,
+        route_choices: { ...(progress?.route_choices || {}), chapter_1: pathId },
+        next_step: selected.next_step,
+      };
+      haptic('medium');
+      notify('Тропа Хроники сохранена');
+      if (state && ['won', 'lost'].includes(state.status)) {
+        showOnly('result');
+        renderResult();
+      } else {
+        showOnly('menu', 'play');
+        refreshMenu();
+      }
+    } catch (error) {
+      notify(error.message, true);
+    } finally {
+      busy = false;
+    }
+  }
+
   async function sendCombatBranchAction(command, extra = {}) {
     if (busy || !state) return;
     busy = true;
@@ -942,6 +1028,7 @@
 
   async function startFromMenu() {
     if (pendingMemory && showMemoryChoice()) return;
+    if (progress?.next_step?.type === 'choose_chronicle_path' && showChroniclePathChoice()) return;
     if (!state || ['won', 'lost'].includes(state.status)) {
       await reset(true);
       return;
@@ -965,6 +1052,11 @@
     if (document.hidden && playing) openPause();
   });
   document.getElementById('upgradeList').addEventListener('click', (event) => {
+    const chroniclePath = event.target.closest('[data-chronicle-path]');
+    if (chroniclePath) {
+      chooseChroniclePath(chroniclePath.dataset.chroniclePath);
+      return;
+    }
     const combatBranch = event.target.closest('[data-combat-command]');
     if (combatBranch) {
       sendCombatBranchAction(combatBranch.dataset.combatCommand, {
@@ -1009,6 +1101,7 @@
   document.getElementById('restartButton').addEventListener('click', () => reset(true));
   document.getElementById('resultReset').addEventListener('click', () => {
     if (pendingMemory && showMemoryChoice()) return;
+    if (progress?.next_step?.type === 'choose_chronicle_path' && showChroniclePathChoice()) return;
     reset(true);
   });
   document.getElementById('resultMenu').addEventListener('click', () => openMenu('stats'));

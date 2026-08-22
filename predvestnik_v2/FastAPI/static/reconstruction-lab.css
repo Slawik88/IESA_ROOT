@@ -60,6 +60,9 @@ h2 { letter-spacing: -.03em; }
 .objective-meter strong { color: #b8e5e8; font-size: 10px; font-variant-numeric: tabular-nums; }
 .objective-meter > i { height: 4px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.07); }
 .objective-meter b { display: block; width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--cyan), #a4e1d2); transform: scaleX(1); transform-origin: left center; transition: transform .12s linear; }
+.objective-meter.ink b { background: linear-gradient(90deg, #8776c9, #b7a9ec); }
+.objective-meter.ash b { background: linear-gradient(90deg, #bd6555, var(--gold)); }
+.objective-meter.ash strong { color: #f0c87c; }
 .branch-controls { margin: 7px 15px 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .branch-controls::-webkit-scrollbar { display: none; }
 .branch-controls button { min-width: max-content; min-height: 42px; padding: 0 10px; border: 1px solid rgba(105,194,207,.28); border-radius: 9px; background: rgba(105,194,207,.07); color: #b8e5e8; font-size: 8px; font-weight: 800; }

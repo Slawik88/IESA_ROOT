@@ -35,6 +35,8 @@ from services import reconstruction_timing as timing
 
 
 FIRST_ENCOUNTER = "e01_two_bells"
+CHAPTER_ONE_PATH_GATE = "choose_chapter_1_path"
+CHAPTER_ONE_PATHS = {"ink": "e03_ink_path", "ash": "e03_ash_path"}
 
 
 class ReconstructionError(ValueError):
@@ -117,6 +119,22 @@ def _next_step(progress: dict[str, Any]) -> dict[str, Any]:
             "encounter_id": pending["encounter_id"],
         }
     encounter_id = str(progress.get("current_encounter") or FIRST_ENCOUNTER)
+    if encounter_id == CHAPTER_ONE_PATH_GATE:
+        return {
+            "type": "choose_chronicle_path",
+            "title": "Выбери тропу первой главы",
+            "description": "Чернила проверяют чтение ложных знаков; Пепел — контроль темпа и риска.",
+            "choices": [
+                {
+                    "id": path_id,
+                    "encounter_id": target,
+                    "name": ENCOUNTERS[target]["name"],
+                    "description": ENCOUNTERS[target]["objective"]["description"],
+                    "mastery": ENCOUNTERS[target]["mastery"],
+                }
+                for path_id, target in CHAPTER_ONE_PATHS.items()
+            ],
+        }
     encounter = ENCOUNTERS.get(encounter_id)
     if encounter and encounter.get("implemented"):
         return {
@@ -170,6 +188,7 @@ async def overview(db, user_id: int) -> dict[str, Any]:
             "completed": [],
             "memories": [],
             "pending_memory": None,
+            "route_choices": {},
         }
     else:
         progress_view = {
@@ -178,6 +197,7 @@ async def overview(db, user_id: int) -> dict[str, Any]:
             "completed": progress["completed"],
             "memories": progress["memories"],
             "pending_memory": _pending_memory(progress),
+            "route_choices": progress.get("route_choices", {}),
         }
     progress_view["next_step"] = _next_step(progress_view)
     active_view = None
@@ -349,7 +369,9 @@ async def start_encounter(
 def _next_after(encounter_id: str) -> str:
     return {
         FIRST_ENCOUNTER: "e02_shattered_causeway",
-        "e02_shattered_causeway": "e03_ink_path",
+        "e02_shattered_causeway": CHAPTER_ONE_PATH_GATE,
+        "e03_ink_path": "e04_drowned_names",
+        "e03_ash_path": "e04_drowned_names",
     }.get(encounter_id, encounter_id)
 
 
@@ -674,6 +696,7 @@ async def apply_run_action(
                     current_encounter=_next_after(run["encounter_id"]),
                     completed=completed,
                     memories=progress["memories"],
+                    route_choices=progress.get("route_choices", {}),
                 )
                 refreshed = await repo.get_progress(db, user_id, GAME_VERSION)
                 if refreshed:
@@ -811,6 +834,7 @@ async def choose_memory(
             current_encounter=progress["current_encounter"],
             completed=progress["completed"],
             memories=memories,
+            route_choices=progress.get("route_choices", {}),
         )
         await event_repo.record_event(
             db,
@@ -848,4 +872,67 @@ async def choose_memory(
             "memory": copy.deepcopy(MEMORIES[memory_id]),
             "next_step": _next_step({**progress, "memories": memories}),
             "idempotent_replay": False,
+        }
+
+
+async def choose_chronicle_path(
+    db, user_id: int, path_id: str, *, source: str = "mini_app"
+) -> dict[str, Any]:
+    target = CHAPTER_ONE_PATHS.get(str(path_id))
+    if not target:
+        raise ReconstructionError("Неизвестная тропа Хроники.")
+    if not ENCOUNTERS[target].get("implemented"):
+        raise ReconstructionError("Эта тропа ещё не включена в dev-срез.")
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        progress = await repo.get_progress(db, user_id, GAME_VERSION)
+        if not progress:
+            raise ReconstructionError("Сначала начни кампанию.")
+        route_choices = dict(progress.get("route_choices") or {})
+        existing = route_choices.get("chapter_1")
+        if existing:
+            if existing != path_id:
+                raise ReconstructionError("Тропа первой главы уже выбрана.")
+            return {
+                "ok": True, "path_id": path_id, "encounter_id": target,
+                "next_step": _next_step(progress), "idempotent_replay": True,
+            }
+        if progress["current_encounter"] != CHAPTER_ONE_PATH_GATE:
+            raise ReconstructionError("Сейчас нет незавершённого выбора тропы.")
+        if await repo.get_active_run(db, user_id, GAME_VERSION):
+            raise ReconstructionConflict("Сначала заверши текущую встречу.")
+        route_choices["chapter_1"] = path_id
+        await repo.save_progress(
+            db,
+            user_id,
+            GAME_VERSION,
+            current_encounter=target,
+            completed=progress["completed"],
+            memories=progress["memories"],
+            route_choices=route_choices,
+        )
+        await event_repo.record_event(
+            db,
+            user_id=user_id,
+            event_name="progression_upgrade",
+            game_version=GAME_VERSION,
+            balance_version=BALANCE_VERSION,
+            source=source,
+            payload={
+                "entity": "chronicle:chapter_1:path",
+                "from_value": "unselected",
+                "to_value": path_id,
+                "resource_cost": {},
+                "trigger": "chronicle:e02:first_clear",
+            },
+            idempotency_key=f"chronicle-path:{GAME_VERSION}:chapter_1",
+        )
+        next_progress = {
+            **progress,
+            "current_encounter": target,
+            "route_choices": route_choices,
+        }
+        return {
+            "ok": True, "path_id": path_id, "encounter_id": target,
+            "next_step": _next_step(next_progress), "idempotent_replay": False,
         }

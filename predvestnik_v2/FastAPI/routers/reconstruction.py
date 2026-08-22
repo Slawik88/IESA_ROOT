@@ -43,6 +43,10 @@ class UnitBranchBody(BaseModel):
     branch_id: str
 
 
+class ChroniclePathBody(BaseModel):
+    path_id: Literal["ink", "ash"]
+
+
 def _raise_service_error(exc: Exception) -> None:
     status = 409 if isinstance(exc, game.ReconstructionConflict) else 400
     raise HTTPException(status, str(exc)) from exc
@@ -120,5 +124,15 @@ async def choose_unit_branch(
         return await game.choose_unit_branch(
             db, int(user["id"]), body.unit_id, body.branch_id
         )
+    except game.ReconstructionError as exc:
+        _raise_service_error(exc)
+
+
+@router.post("/chronicle/path")
+async def choose_chronicle_path(
+    body: ChroniclePathBody, db=Depends(get_db), user=Depends(require_tg_user)
+):
+    try:
+        return await game.choose_chronicle_path(db, int(user["id"]), body.path_id)
     except game.ReconstructionError as exc:
         _raise_service_error(exc)

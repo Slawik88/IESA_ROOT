@@ -267,6 +267,49 @@ assert lantern_perfect["status"] == "won"
 assert lantern_perfect["outcome_reason"] == "lantern_delivered"
 assert combat.public_state(lantern_perfect)["accuracy"] == 100.0
 
+# Развилка Хроники даёт две разные грамматики, а не две перекрашенные HP-линии.
+ink = combat.new_encounter("e03_ink_path", seed=1001)
+while ink["objective_state"]["reflection_cue"] is None:
+    act(ink, type="frame", delta_ms=50)
+ink_view = combat.public_state(ink)
+assert ink_view["objective_state"]["reflection_cue"]["symbol"] != ink["challenge"]["target_symbol"]
+assert ink_view["challenge"]["target_symbol"] is None
+for _ in range(4):
+    challenge = open_signal(ink)
+    wrong = next(
+        option["slot"] for option in challenge["options"]
+        if option["symbol"] != challenge["target_symbol"]
+    )
+    act(ink, type="strike", challenge_id=challenge["id"], target_slot=wrong)
+assert ink["status"] == "lost" and ink["outcome_reason"] == "lost_in_reflections"
+
+ash = combat.new_encounter("e03_ash_path", seed=1002)
+initial_fire = ash["objective_state"]["fire_integrity"]
+ash["challenge"]["opens_at_ms"] = 5000
+ash["challenge"]["expires_at_ms"] = 6000
+for _ in range(20):
+    act(ash, type="frame", delta_ms=100)
+assert ash["objective_state"]["fire_integrity"] == initial_fire - 1
+
+for encounter_id, outcome_reason in (
+    ("e03_ink_path", "true_names_read"),
+    ("e03_ash_path", "fire_carried"),
+):
+    path = combat.new_encounter(encounter_id, seed=1003)
+    for _ in range(1800):
+        if path["status"] in {"won", "lost"}:
+            break
+        if path["status"] == "reward":
+            act(path, type="choose_upgrade", upgrade_id=path["reward_options"][0]["id"])
+            continue
+        challenge = open_signal(path)
+        act(
+            path, type="strike", challenge_id=challenge["id"],
+            target_slot=correct_slot(challenge),
+        )
+    assert path["status"] == "won", (encounter_id, path["outcome_reason"])
+    assert path["outcome_reason"] == outcome_reason
+
 # Первый рубеж мастерства меняет решения, а не только числа.
 vow = combat.new_encounter(seed=1201, unit_branches={"r_oath_bell": "bell_broken_vow"})
 vow["team"]["charge"] = 80

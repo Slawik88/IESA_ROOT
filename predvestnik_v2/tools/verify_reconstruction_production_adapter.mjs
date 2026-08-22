@@ -76,6 +76,7 @@ const overview = {
 };
 let overviewResponse = overview;
 const actionBodies = [];
+const pathBodies = [];
 let rejectNextAction = false;
 
 const browser = await puppeteer.launch({
@@ -154,6 +155,22 @@ try {
       });
       return;
     }
+    if (url.pathname === '/reconstruction/chronicle/path' && request.method() === 'POST') {
+      pathBodies.push(JSON.parse(request.postData() || '{}'));
+      request.respond({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({
+          ok: true, path_id: 'ink', encounter_id: 'e03_ink_path',
+          idempotent_replay: false,
+          next_step: {
+            type: 'play_encounter', encounter_id: 'e03_ink_path',
+            title: 'Чернильная тропа', description: 'Отличить настоящую руну.', practice: false,
+          },
+        }),
+      });
+      return;
+    }
     request.continue();
   });
 
@@ -188,6 +205,40 @@ try {
     nodes.map((node) => node.textContent.trim()));
   if (!resultStats.some((value) => value.includes('пропущено'))) {
     throw new Error(`missed signals absent from result: ${resultStats.join(' | ')}`);
+  }
+
+  overviewResponse = {
+    ...overview,
+    progress: {
+      ...overview.progress,
+      current_encounter: 'choose_chapter_1_path',
+      completed: ['e01_two_bells', 'e02_shattered_causeway'],
+      memories: [memory.id],
+      pending_memory: null,
+      route_choices: {},
+      next_step: {
+        type: 'choose_chronicle_path',
+        title: 'Выбери тропу первой главы',
+        description: 'Две разные грамматики.',
+        choices: [
+          { id: 'ink', encounter_id: 'e03_ink_path', name: 'Чернильная тропа', description: 'Ложные знаки.', mastery: 'Без ошибок.' },
+          { id: 'ash', encounter_id: 'e03_ash_path', name: 'Пепельная тропа', description: 'Сохрани огонь.', mastery: 'Огонь 70%.' },
+        ],
+      },
+    },
+    active_run: { ...completedState, encounter_id: 'e02_shattered_causeway' },
+  };
+  await page.evaluate(() => sessionStorage.removeItem('reconstruction-mvp-ui-v1'));
+  await page.goto(`${base}/production-harness`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#resultLayer:not([hidden])');
+  await page.click('#resultReset');
+  await page.waitForSelector('[data-chronicle-path="ink"]');
+  await page.click('[data-chronicle-path="ink"]');
+  await page.waitForFunction(
+    () => document.getElementById('resultReset')?.textContent.includes('Продолжить Хронику'),
+  );
+  if (pathBodies.length !== 1 || pathBodies[0].path_id !== 'ink') {
+    throw new Error(`chronicle path body: ${JSON.stringify(pathBodies)}`);
   }
 
   overviewResponse = {
