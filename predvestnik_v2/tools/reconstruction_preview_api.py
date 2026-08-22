@@ -144,7 +144,7 @@ class Handler(BaseHTTPRequestHandler):
                 _COMPANION_STATES.pop(next(iter(_COMPANION_STATES)))
             value = {
                 "active_pet_id": 901,
-                "unlocked_roles": ["lantern", "guardian", "rhythm_keeper"],
+                "unlocked_roles": ["lantern", "guardian", "rhythm_keeper", "echo"],
                 "selected_role_id": "lantern",
                 "care": {"901": {"points": 6, "bank": 3, "last": "play"}},
                 "actions": {},

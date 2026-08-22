@@ -478,6 +478,11 @@ def new_encounter(
             "guardian_active_challenge": None,
             "rhythm_guard_used": False,
             "rhythm_guard_challenge": None,
+            "echo_used_rounds": [],
+            "echo_offer_challenge": None,
+            "echo_offer_symbol": None,
+            "echo_active_challenge": None,
+            "echo_insight": 0,
         },
         "branch_state": {
             "decision": None,
@@ -660,6 +665,19 @@ def _complete_wave(state: dict[str, Any]) -> None:
         # всегда удаляла одну и ту же сборку.
         remove_index = _mix(state["seed"] + 3907, state["round"]) % len(state["reward_options"])
         state["reward_options"].pop(remove_index)
+    companion = state.get("companion_state") or {}
+    if _has_companion_role(state, "echo") and int(companion.get("echo_insight", 0)) > 0:
+        offered = {option["id"] for option in state["reward_options"]}
+        candidates = [
+            upgrade_id for upgrade_id in CLICKER_UPGRADES
+            if upgrade_id not in offered and upgrade_id not in state["upgrades"]
+        ]
+        if candidates:
+            extra_id = candidates[_mix(state["seed"] + 4211, state["round"]) % len(candidates)]
+            state["reward_options"].append({
+                "id": extra_id, **copy.deepcopy(CLICKER_UPGRADES[extra_id]),
+                "companion_offer": "echo",
+            })
     state["status"] = "reward"
     _emit(state, "wave_complete", "Выбери усиление", wave=state["round"])
 
@@ -685,6 +703,11 @@ def _start_next_wave(state: dict[str, Any]) -> None:
     branch["tide_swap_used"] = False
     branch["hide_signal_timer"] = False
     branch["family_preview"] = None
+    companion = state.get("companion_state") or {}
+    companion["echo_offer_challenge"] = None
+    companion["echo_offer_symbol"] = None
+    companion["echo_active_challenge"] = None
+    companion["echo_insight"] = 0
     objective = state.get("objective_state") or {}
     if objective.get("kind") == "drowned_sequence":
         objective["attempts_left"] = int(objective["attempts_max"])
@@ -737,6 +760,14 @@ def _miss_signal(
         and _has_companion_role(state, "rhythm_keeper")
         and int(companion.get("rhythm_guard_challenge") or 0) == challenge_id
     )
+    echo_failed = bool(
+        _has_companion_role(state, "echo")
+        and int(companion.get("echo_active_challenge") or 0) == challenge_id
+    )
+    if echo_failed:
+        companion["echo_active_challenge"] = None
+        companion["echo_insight"] = 0
+        state["log"].append("× Ускоренное Эхо сорвалось; право на дополнительный выбор потеряно.")
     guarded = False
     if wrong_tap:
         state["mastery"]["mistakes"] += 1
@@ -1070,11 +1101,19 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
             objective["golden_recoveries"] = int(
                 objective.get("golden_recoveries", 0)
             ) + 1
+    companion_state = state.get("companion_state") or {}
+    echo_completed = bool(
+        _has_companion_role(state, "echo")
+        and int(companion_state.get("echo_active_challenge") or 0) == int(challenge["id"])
+    )
+    if echo_completed:
+        companion_state["echo_active_challenge"] = None
+        companion_state["echo_insight"] = int(companion_state.get("echo_insight", 0)) + 1
+        state["log"].append("◍ Ускоренное Эхо прочитано; после волны появится ещё один вариант.")
     damage = float(state["team"]["tap_power"]) * multiplier + seam_bonus
     if state["combo"]["count"] % 5 == 0:
         damage += float(state["team"]["tap_power"]) * 0.75
-    companion_result = None
-    companion_state = state.get("companion_state") or {}
+    companion_result = "echo_repeat_success" if echo_completed else None
     if (
         _has_companion_role(state, "guardian")
         and int(companion_state.get("guardian_active_challenge") or 0) == int(challenge["id"])
@@ -1113,6 +1152,18 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
             objective["answer_index"] < int(objective["sequence_length"])
         ):
             _schedule_challenge(state)
+            echo_allowed = objective.get("kind") in {
+                None, "lantern_escort", "ink_decipher", "ash_fire",
+            }
+            echo_used = companion_state.get("echo_used_rounds") or []
+            if (
+                _has_companion_role(state, "echo")
+                and echo_allowed
+                and int(state["round"]) not in echo_used
+                and state.get("challenge")
+            ):
+                companion_state["echo_offer_challenge"] = int(state["challenge"]["id"])
+                companion_state["echo_offer_symbol"] = str(challenge["target_symbol"])
     return {
         "accepted": True, "correct": True, "critical": critical,
         "damage": _round_number(dealt), "discharged": discharged,
@@ -1155,6 +1206,40 @@ def _branch_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, A
     command = str(action.get("command") or "")
     branch = _branch_state(state)
     decision = branch.get("decision")
+    if command == "companion_echo_repeat":
+        challenge = state.get("challenge")
+        companion = state.get("companion_state") or {}
+        used_rounds = companion.setdefault("echo_used_rounds", [])
+        if not _has_companion_role(state, "echo"):
+            return {"ok": False, "error": "Роль Эха не выбрана."}
+        if int(state["round"]) in used_rounds:
+            return {"ok": False, "error": "Эхо уже повторяло знак в этой волне."}
+        if (
+            not challenge
+            or challenge.get("active")
+            or int(companion.get("echo_offer_challenge") or 0) != int(challenge["id"])
+        ):
+            return {"ok": False, "error": "Предложение Эха уже ушло."}
+        symbol = str(companion.get("echo_offer_symbol") or "")
+        if symbol not in {option["symbol"] for option in challenge["options"]}:
+            return {"ok": False, "error": "Эхо не смогло восстановить прошлый знак."}
+        original_window = int(challenge["expires_at_ms"]) - int(challenge["opens_at_ms"])
+        now = int(state["wave"]["elapsed_ms"])
+        challenge["target_symbol"] = symbol
+        challenge["opens_at_ms"] = min(int(challenge["opens_at_ms"]), now + 240)
+        challenge["expires_at_ms"] = int(challenge["opens_at_ms"]) + max(
+            620, int(round(original_window * 0.62)),
+        )
+        used_rounds.append(int(state["round"]))
+        companion["echo_active_challenge"] = int(challenge["id"])
+        companion["echo_offer_challenge"] = None
+        companion["echo_offer_symbol"] = None
+        _emit(state, "companion", "ЭХО ПОВТОРИТ ЗНАК", role="echo")
+        return {
+            "ok": True, "phase": state["status"], "branch": "companion_echo",
+            "result": "fast_repeat_armed", "challenge_id": int(challenge["id"]),
+            "window_ms": int(challenge["expires_at_ms"]) - int(challenge["opens_at_ms"]),
+        }
     if command == "companion_rhythm_guard":
         challenge = state.get("challenge")
         companion = state.get("companion_state") or {}
@@ -1295,6 +1380,7 @@ def apply_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, Any
                     "tide_swap": "tide_hidden_swap",
                     "companion_guardian_window": "companion_guardian",
                     "companion_rhythm_guard": "companion_rhythm_keeper",
+                    "companion_echo_repeat": "companion_echo",
                 }.get(command, "unknown")
                 return {
                     "ok": True, "phase": state["status"], "branch": branch_id,
