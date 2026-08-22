@@ -140,15 +140,18 @@ function loadQuests() {
   api(`/quests/${_cid}`).then(r=>{
     const qs = r.quests || r;     // backward-compat если вернётся массив
     const weekly = r.weekly || [];
+    const retired = r.retired
+      ? `<div class="card" style="margin-bottom:8px"><div class="card-title">📋 Архив заданий</div><div style="font-size:11px;color:var(--muted);line-height:1.5">${esc(r.message||'Старые задания закрыты.')}</div></div>`
+      : '';
     if(!qs.length && !weekly.length){
-      // Задания назначаются автоматически при первом обращении — если список
-      // всё же пуст (сетевой сбой/гонка), не шлём в несуществующую команду.
-      el('qc').innerHTML='<div class="empty-state"><div class="es-icon">📋</div><div class="es-title">Задания загружаются</div><div class="es-sub">Обычно они уже готовы — если пусто, откройте вкладку ещё раз через минуту</div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="loadQuests()">🔄 Обновить</button></div>';
+      el('qc').innerHTML=retired||'<div class="empty-state"><div class="es-icon">📋</div><div class="es-title">Заданий нет</div></div>';
       return;
     }
-    const daily = _questSectionHtml('📅 Ежедневные', qs, r.bonus, 'Бонус за все дневные');
-    const wk = weekly.length ? _questSectionHtml('🗓 Недельные', weekly, r.weekly_bonus, 'Бонус за все недельные') : '';
-    el('qc').innerHTML = daily + (wk ? `<div style="height:8px"></div>${wk}` : '');
+    const shownQs = r.retired ? qs.map(q=>({...q,reward:{}})) : qs;
+    const shownWeekly = r.retired ? weekly.map(q=>({...q,reward:{}})) : weekly;
+    const daily = _questSectionHtml('📅 Ежедневные', shownQs, r.retired?null:r.bonus, 'Бонус за все дневные');
+    const wk = shownWeekly.length ? _questSectionHtml('🗓 Недельные', shownWeekly, r.retired?null:r.weekly_bonus, 'Бонус за все недельные') : '';
+    el('qc').innerHTML = retired + daily + (wk ? `<div style="height:8px"></div>${wk}` : '');
   }).catch(e=>{el('qc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 const SPIN_ICONS = {mora:'🪙',diamond:'💎'};
