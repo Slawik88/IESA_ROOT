@@ -28,6 +28,7 @@ let shuttingDown = false;
 const RECONSTRUCTION_WATCH_FILES = [
   path.join(HERE, 'reconstruction_preview_api.py'),
   path.join(HERE, '..', 'core', 'reconstruction.py'),
+  path.join(HERE, '..', 'core', 'reconstruction_progression.py'),
   path.join(HERE, '..', 'services', 'reconstruction.py'),
   path.join(HERE, '..', 'services', 'reconstruction_combat.py'),
   path.join(HERE, '..', 'services', 'reconstruction_integrity.py'),

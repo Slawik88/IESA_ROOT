@@ -361,6 +361,13 @@ async def main():
         assert economy_policy["settlement_mode"] == "shadow_only"
         assert economy_policy["real_rewards_enabled"] is False
         assert economy_policy["unit_level_cap_xp"] == 36_096
+        unit_progression = overview["content"]["unit_progression"]
+        assert unit_progression["implemented_branch_levels"] == [5]
+        assert unit_progression["paid_xp_allowed"] is False
+        assert all(
+            len(milestones["5"]) == 2
+            for milestones in unit_progression["branches"].values()
+        )
         timing_policy = overview["content"]["timing_policy"]
         assert timing_policy["mode"] == "server_wall_clock"
         assert timing_policy["client_delta_ms_ignored"] is True

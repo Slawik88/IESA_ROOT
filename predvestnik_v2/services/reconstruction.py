@@ -19,6 +19,7 @@ from core.economy_v3 import (
     evaluate_reconstruction_reward_shadow,
     public_policy_manifest,
 )
+from core.reconstruction_progression import public_progression_manifest
 from infrastructure.repositories import gameplay_events as event_repo
 from infrastructure.repositories import reconstruction as repo
 from infrastructure.repositories import economy_shadow as shadow_repo
@@ -78,6 +79,7 @@ def content_manifest() -> dict[str, Any]:
         "timing_policy": timing.public_timing_manifest(),
         "integrity_policy": integrity.public_integrity_manifest(),
         "economy_policy": public_policy_manifest(),
+        "unit_progression": public_progression_manifest(),
         "starter_units": units,
         "clicker_upgrades": [
             {"id": upgrade_id, **copy.deepcopy(upgrade)}
