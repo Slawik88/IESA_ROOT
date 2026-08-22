@@ -1249,7 +1249,7 @@ function _openSurprisesModal(){
         <div class="chest-odds">${odds}</div>
         <div class="gift-foot" style="margin-top:8px">
           ${c.owned>0?`<button class="btn btn-sm btn-gold" onclick="_openChest('${c.id}',this)">Открыть (${c.owned})</button>`:''}
-          <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}')">Купить за ${c.zarniki} ✨</button>
+          <button class="btn btn-sm btn-ghost" onclick="_buyChest('${c.id}',this)">Купить за ${c.zarniki} ✨</button>
         </div></div>`;
     }).join('');
     const craftItems=(cr.items||[]).map(it=>{
@@ -1266,10 +1266,13 @@ function _openSurprisesModal(){
       <div class="looks-cards">${craftItems}</div>`;
   }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
-function _buyChest(id){
-  api('/cosmetics/chest/buy',{method:'POST',body:JSON.stringify({chest_id:id})})
-    .then(r=>{ toast(r.message||'🎁 Куплено!'); refreshCurrBar(); _openSurprisesModal(); })
-    .catch(e=>toast(e,false));
+function _buyChest(id,btn){
+  if(btn)btn.disabled=true;
+  const requestKey=btn?.dataset.requestKey||economyRequestKey(`cosmetic-chest-${id}`);
+  if(btn)btn.dataset.requestKey=requestKey;
+  api('/cosmetics/chest/buy',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({chest_id:id})})
+    .then(r=>{if(btn)delete btn.dataset.requestKey; toast(r.message||'🎁 Куплено!'); refreshCurrBar(); _openSurprisesModal(); })
+    .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
 function _openChest(id,btn){
   if(btn) btn.disabled=true;
