@@ -1,16 +1,14 @@
-"""services/referral.py — реферальная программа (Growth-полиш 2026-07-13,
-продуктовая записка «Рост: 9 → 20»). Без bot.*/FastAPI.* импортов.
+"""Legacy referral signup without a premium-currency commission.
 
 Поток: друг открывает бота по ссылке t.me/<bot>?start=ref<id> → приватный /start
 (bot/handlers/payments.py::cmd_start) вызывает register_referral() → обоим сразу
 Мора+Алмазы+VIP. Дальше, когда рефери покупает Зарники за Stars
-(bot/handlers/payments.py::on_successful_payment), рефереру идёт % от суммы —
-pay_purchase_commission(), без ограничения по времени (комиссия «навсегда»,
-как явно описал продюсер проекта — не наше решение сокращать её самовольно).
+Покупка приглашённого больше не создаёт бесплатные Зарники: owner-v3 допускает
+положительный premium-баланс только из подтверждённой покупки Stars.
 """
 from core.constants import (
     REFERRAL_SIGNUP_MORA, REFERRAL_SIGNUP_DIAMONDS, REFERRAL_SIGNUP_VIP_DAYS,
-    REFERRAL_SIGNUP_VIP_TIER, REFERRAL_PURCHASE_COMMISSION_PCT,
+    REFERRAL_SIGNUP_VIP_TIER,
 )
 from infrastructure.repositories.economy import add_balance
 from services.vip import grant_vip_days
@@ -54,36 +52,3 @@ async def register_referral(db, new_user_id: int, referrer_id: int) -> bool:
         await grant_vip_days(db, uid, REFERRAL_SIGNUP_VIP_TIER, REFERRAL_SIGNUP_VIP_DAYS)
 
     return True
-
-
-async def pay_purchase_commission(
-    db,
-    buyer_id: int,
-    zarniki_amount: float,
-    *,
-    purchase_id: str | None = None,
-) -> tuple[int, float] | None:
-    """Рефереру buyer_id (если есть) — комиссия в Зарниках при покупке Звёздами.
-    Возвращает (referrer_id, начисленная сумма) для уведомления, иначе None."""
-    async with db.execute(
-        "SELECT referred_by FROM users WHERE user_tg_id = ?", (buyer_id,),
-    ) as c:
-        row = await c.fetchone()
-    referrer_id = row[0] if row else None
-    if not referrer_id:
-        return None
-
-    bonus = round(zarniki_amount * REFERRAL_PURCHASE_COMMISSION_PCT, 2)
-    if bonus <= 0:
-        return None
-    mutation = await add_balance(
-        db, referrer_id, zarniki=bonus, source="referral_commission",
-        note=f"friend bought {zarniki_amount}",
-        source_type="payment",
-        idempotency_key=(f"referral_commission:{purchase_id}" if purchase_id else None),
-        reference_type="stars_payment" if purchase_id else None,
-        reference_id=purchase_id,
-    )
-    if mutation and not mutation.applied:
-        return None
-    return referrer_id, bonus

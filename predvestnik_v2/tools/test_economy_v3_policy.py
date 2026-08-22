@@ -20,13 +20,16 @@ from core.economy_v3 import (  # noqa: E402
     UNIT_BRANCH_LEVELS,
     UNIT_LEVEL_CAP_XP,
     UNIT_XP_REQUIREMENTS,
+    WALLET_POLICIES,
     evaluate_reconstruction_reward_shadow,
     quote_zarniki_to_mora,
     public_policy_manifest,
+    validate_exchange_route,
     unit_level_progress,
     unit_xp_to_next,
     validate_positive_zarniki_source,
 )
+from services.smart_checkout import zarniki_for_deficit  # noqa: E402
 
 
 def decision(**overrides):
@@ -164,6 +167,21 @@ def assert_zarniki_contract():
             pass
         else:
             raise AssertionError(f"Invalid Zarniki exchange accepted: {invalid_amount!r}")
+    assert validate_exchange_route("zarniki", "mora") == ("zarniki", "mora")
+    assert zarniki_for_deficit("mora", 151) == 2
+    assert zarniki_for_deficit("diamonds", 1) is None
+    for source, target in (
+        ("zarniki", "diamonds"),
+        ("mora", "diamonds"),
+        ("diamonds", "mora"),
+        ("mora", "zarniki"),
+    ):
+        try:
+            validate_exchange_route(source, target)
+        except EconomyV3PolicyError:
+            pass
+        else:
+            raise AssertionError(f"Forbidden exchange route accepted: {source}->{target}")
 
 
 def assert_public_gate():
@@ -176,6 +194,10 @@ def assert_public_gate():
     assert manifest["real_rewards_enabled"] is False
     assert manifest["unit_level_cap_xp"] == 36_096
     assert manifest["zarniki_positive_source"] == "stars_purchase"
+    assert [wallet.code for wallet in WALLET_POLICIES] == ["mora", "diamonds", "zarniki"]
+    assert [wallet["code"] for wallet in manifest["wallets"]] == ["mora", "diamonds", "zarniki"]
+    assert manifest["allowed_exchange_routes"] == [["zarniki", "mora"]]
+    assert manifest["legacy_balances"][0]["lifecycle"] == "legacy_spend_only"
     assert [tier["unit_xp_percent"] for tier in manifest["reward_tiers"]] == [100, 100, 60]
     assert [(tier.first_ordinal, tier.last_ordinal) for tier in REWARD_TIERS] == [
         (1, 35), (36, 105), (106, None),

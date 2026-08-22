@@ -582,8 +582,12 @@ const MOCKS = {
 
   // ── Обменник и биржа ──
   'GET /exchange/': {
-    mora: 125430, diamonds: 42.5, rate: 1200, sell_rate: 950,
-    remaining: 8, daily_cap: 10, sell_remaining: 10, sell_daily_cap: 10,
+    active: false, policy_version: 'owner-v3-provisional-1',
+    mora: 125430, diamonds: 42.5,
+    title: 'У валют разные задачи',
+    mora_rule: 'Мора оплачивает подготовку, торговлю и проекты.',
+    diamonds_rule: 'Алмазы выдаются за испытания и сезонные рубежи.',
+    blocked_rule: 'Покупка и продажа Алмазов за Мору отключены.',
   },
   'GET /exchange/crypto': {
     coins: [

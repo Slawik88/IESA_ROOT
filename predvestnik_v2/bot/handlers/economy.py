@@ -13,7 +13,7 @@ from services import global_moderation
 from services.admin_service import give_resource, set_resource
 from services.utils import resolve_target, resolve_display_name, safe_html, format_currency, feature_guard
 from core.registry import ITEMS_REGISTRY
-from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
+from core.constants import ZARNIKI_TO_MORA_RATE
 from bot.keyboards.cta import answer_group_only
 
 router = Router(name="eco_router")
@@ -75,18 +75,16 @@ async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None
     if not text_args:
         return await message.answer(
             "💱 <b>ОБМЕН ЗАРНИКОВ</b>\n\n"
-            "Формат: «бот обмен зарников, &lt;сумма&gt; мора» или "
-            "«бот обмен зарников, &lt;сумма&gt; алмазы»\n"
-            f"Курс: 1✨ = {ZARNIKI_TO_MORA_RATE:g}🪙 · 1✨ = {ZARNIKI_TO_DIAMONDS_RATE:g}💎\n"
-            "<i>Обмен необратим и без лимита.</i>",
+            "Формат: «бот обмен зарников, &lt;сумма&gt; мора»\n"
+            f"Курс: 1✨ = {ZARNIKI_TO_MORA_RATE:g}🪙. Обратного обмена нет.\n"
+            "Алмазы выдаются за испытания и сезонные рубежи.",
             parse_mode="HTML",
         )
 
     parts = text_args.split()
     if len(parts) != 2:
         return await message.answer(
-            "⚠️ Формат: «бот обмен зарников, &lt;сумма&gt; мора» или "
-            "«бот обмен зарников, &lt;сумма&gt; алмазы»",
+            "⚠️ Формат: «бот обмен зарников, &lt;сумма&gt; мора»",
             parse_mode="HTML",
         )
 
@@ -99,9 +97,11 @@ async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None
     if target in ("мора", "моры", "мору", "mora"):
         to = "mora"
     elif target in ("алмазы", "алмаз", "алмазов", "diamonds"):
-        to = "diamonds"
+        return await message.answer(
+            "Алмазы нельзя купить Зарниками — они выдаются за испытания и сезонные рубежи."
+        )
     else:
-        return await message.answer("⚠️ Укажи «мора» или «алмазы».")
+        return await message.answer("⚠️ После суммы укажи «мора».")
 
     ok, msg = await eco_db.exchange_zarniki(db, user_id, amount, to, chat_id=message.chat.id)
     await message.answer(msg)

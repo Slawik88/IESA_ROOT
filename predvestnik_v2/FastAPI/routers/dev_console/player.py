@@ -234,6 +234,16 @@ async def dev_balance(body: BalanceRequest, db=Depends(get_db), user=Depends(req
     await require_console_perm(db, user, "economy_balance")
     if not any((body.mora, body.diamonds, body.dark_mora, body.zarniki)):
         raise HTTPException(400, "Все суммы нулевые.")
+    if body.zarniki > 0:
+        raise HTTPException(
+            400,
+            "Зарники начисляются только подтверждённой покупкой Stars. Здесь их можно только списать.",
+        )
+    if body.dark_mora > 0:
+        raise HTTPException(
+            400,
+            "Тёмная Мора больше не начисляется. Здесь можно только исправить старый баланс списанием.",
+        )
 
     # Баланс «до» — для журнала (БЛОК 4.2)
     bal = await get_balance(db, body.user_id)

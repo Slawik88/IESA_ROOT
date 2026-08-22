@@ -24,11 +24,12 @@ _SOURCE_LABELS = {
     "auction_sale":     "🏛 Аукцион (продажа)",
     "auction_listing_fee": "🏛 Аукцион (листинг-сбор)",
     "exchange":         "💱 Обмен",
-    "exchange_mora_to_dia": "💱 Обмен",
-    "exchange_dia_to_mora": "💱 Обмен",
-    "zarniki_exchange": "💱 Обмен Зарников",
+    "exchange_mora_to_dia": "💱 Старый обмен Моры на Алмазы",
+    "exchange_dia_to_mora": "💱 Старый обмен Алмазов на Мору",
+    "zarniki_exchange": "💱 Старый обмен Зарников",
+    "paid_exchange":    "💱 Зарники → Мора",
     "stars_purchase":  "⭐ Покупка Зарников",
-    "referral_commission": "🤝 Реферальная комиссия",
+    "referral_commission": "🤝 Старая реферальная комиссия",
     "streak":           "🔥 Стрик",
     "streak_daily":     "🔥 Стрик",
     "streak_block_end": "🔥 Стрик (блок)",
@@ -95,9 +96,12 @@ async def exchange_zarniki_endpoint(
     user=Depends(require_tg_user),
     request_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    """Обменять ✨ Зарники на 🪙 Мору или 💎 Алмазы (необратимо, без лимита)."""
-    if body.to not in ("mora", "diamonds"):
-        raise HTTPException(status_code=400, detail="Некорректное направление обмена.")
+    """Необратимо обменять ✨ Зарники на 🪙 Мору."""
+    if body.to != "mora":
+        raise HTTPException(
+            status_code=400,
+            detail="Алмазы нельзя купить Зарниками — они выдаются за испытания и сезонные рубежи.",
+        )
 
     if request_key is not None and (not request_key.strip() or len(request_key.strip()) > 120):
         raise HTTPException(status_code=400, detail="Idempotency-Key должен содержать 1–120 символов.")

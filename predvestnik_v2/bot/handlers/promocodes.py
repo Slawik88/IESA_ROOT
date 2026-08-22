@@ -351,7 +351,7 @@ async def handle_promo_cb(
         try:
             await query.message.edit_text(
                 "📝 <b>СОЗДАНИЕ ПРОМОКОДА</b>\n\n"
-                "Шаг 1/12 — <b>Код промокода</b>\n"
+                "Шаг 1/10 — <b>Код промокода</b>\n"
                 "<i>Только латиница, цифры, дефис. Будет преобразован в ВЕРХНИЙ РЕГИСТР.</i>\n\n"
                 "Напиши код:",
                 reply_markup=_cancel_keyboard(),
@@ -487,7 +487,7 @@ async def fsm_receive_code(message: types.Message, db, state: FSMContext):
     await state.set_state(PromoCreate.description)
     await message.answer(
         f"✅ Код: <code>{code}</code>\n\n"
-        f"Шаг 2/12 — <b>Описание</b>\n"
+        f"Шаг 2/10 — <b>Описание</b>\n"
         f"<i>Короткое описание промокода (или «-» чтобы пропустить):</i>",
         reply_markup=_cancel_keyboard(),
         parse_mode="HTML",
@@ -505,7 +505,7 @@ async def fsm_receive_description(message: types.Message, state: FSMContext):
     await state.set_state(PromoCreate.mora)
     await message.answer(
         f"📝 Описание: <i>{safe_html(desc) or 'нет'}</i>\n\n"
-        f"Шаг 3/12 — <b>Награда: Мора 🪙</b>\n"
+        f"Шаг 3/10 — <b>Награда: Мора 🪙</b>\n"
         f"<i>Введи количество Моры (0 = без Моры):</i>",
         reply_markup=_cancel_keyboard(),
         parse_mode="HTML",
@@ -526,7 +526,7 @@ async def fsm_receive_mora(message: types.Message, state: FSMContext):
     await state.set_state(PromoCreate.diamonds)
     await message.answer(
         f"🪙 Мора: <code>{mora:,.0f}</code>\n\n"
-        f"Шаг 4/12 — <b>Награда: Алмазы 💎</b>\n"
+        f"Шаг 4/10 — <b>Награда: Алмазы 💎</b>\n"
         f"<i>Введи количество алмазов (0 = без алмазов):</i>",
         reply_markup=_cancel_keyboard(),
         parse_mode="HTML",
@@ -543,12 +543,15 @@ async def fsm_receive_diamonds(message: types.Message, state: FSMContext):
             raise ValueError
     except (ValueError, AttributeError):
         return await message.answer("❌ Введи число ≥ 0:", reply_markup=_cancel_keyboard(), parse_mode="HTML")
-    await state.update_data(diamonds=diamonds)
-    await state.set_state(PromoCreate.dark_mora)
+    await state.update_data(diamonds=diamonds, dark_mora=0, zarniki=0)
+    await state.set_state(PromoCreate.items)
+    items_example = ", ".join(f"<code>{k}</code>" for k in list(ITEMS_REGISTRY.keys())[:5])
     await message.answer(
         f"💎 Алмазы: <code>{diamonds:,.1f}</code>\n\n"
-        f"Шаг 5/12 — <b>Награда: Тёмная Мора 🌑</b>\n"
-        f"<i>Введи количество Тёмной Моры (0 = без Тёмной Моры):</i>",
+        f"Шаг 5/10 — <b>Предметы 📦</b>\n"
+        f"<i>Формат: <code>item_id:количество item_id:количество</code>\n"
+        f"Или «-» без предметов.\n\n"
+        f"Примеры ID: {items_example}</i>",
         reply_markup=_cancel_keyboard(),
         parse_mode="HTML",
     )
@@ -558,39 +561,21 @@ async def fsm_receive_diamonds(message: types.Message, state: FSMContext):
 async def fsm_receive_dark_mora(message: types.Message, state: FSMContext):
     if not _is_dev(message.from_user.id):
         return
-    try:
-        dark_mora = float(message.text.strip().replace(",", "."))
-        if dark_mora < 0:
-            raise ValueError
-    except (ValueError, AttributeError):
-        return await message.answer("❌ Введи число ≥ 0:", reply_markup=_cancel_keyboard(), parse_mode="HTML")
-    await state.update_data(dark_mora=dark_mora)
-    await state.set_state(PromoCreate.zarniki)
-    await message.answer(
-        f"🌑 Тёмная Мора: <code>{dark_mora:,.0f}</code>\n\n"
-        f"Шаг 6/12 — <b>Награда: Зарники ✨</b>\n"
-        f"<i>Донатная валюта. Введи количество (0 = без кристаллов):</i>",
-        reply_markup=_cancel_keyboard(),
-        parse_mode="HTML",
-    )
+    await state.update_data(dark_mora=0, zarniki=0)
+    await state.set_state(PromoCreate.items)
+    await message.answer("Тёмная Мора и Зарники убраны из наград. Укажите предметы или «-».")
 
 
 @router.message(StateFilter(PromoCreate.zarniki))
 async def fsm_receive_zarniki(message: types.Message, state: FSMContext):
     if not _is_dev(message.from_user.id):
         return
-    try:
-        zarniki = float(message.text.strip().replace(",", "."))
-        if zarniki < 0:
-            raise ValueError
-    except (ValueError, AttributeError):
-        return await message.answer("❌ Введи число ≥ 0:", reply_markup=_cancel_keyboard(), parse_mode="HTML")
-    await state.update_data(zarniki=zarniki)
+    await state.update_data(dark_mora=0, zarniki=0)
     await state.set_state(PromoCreate.items)
     items_example = ", ".join(f"<code>{k}</code>" for k in list(ITEMS_REGISTRY.keys())[:5])
     await message.answer(
-        f"✨ Зарники: <code>{zarniki:,.0f}</code>\n\n"
-        f"Шаг 7/12 — <b>Предметы 📦</b>\n"
+        f"Тёмная Мора и Зарники убраны из наград.\n\n"
+        f"Шаг 5/10 — <b>Предметы 📦</b>\n"
         f"<i>Формат: <code>item_id:количество item_id:количество</code>\n"
         f"Или «-» чтобы не выдавать предметы.\n\n"
         f"Примеры ID предметов: {items_example}</i>",
@@ -642,7 +627,7 @@ async def fsm_receive_items(message: types.Message, state: FSMContext):
     items_str = ", ".join(f"{ITEMS_REGISTRY.get(k, {}).get('name', k)} ×{v}" for k, v in items.items()) if items else "нет"
     await message.answer(
         f"📦 Предметы: <i>{safe_html(items_str)}</i>\n\n"
-        f"Шаг 8/12 — <b>Лимит активаций</b>\n"
+        f"Шаг 6/10 — <b>Лимит активаций</b>\n"
         f"<i>Максимальное количество активаций (0 = безлимит):</i>",
         reply_markup=_cancel_keyboard(),
         parse_mode="HTML",
@@ -663,7 +648,7 @@ async def fsm_receive_max_uses(message: types.Message, state: FSMContext):
     await state.set_state(PromoCreate.valid_from)
     await message.answer(
         f"🔢 Лимит: <code>{'∞' if max_uses == 0 else max_uses}</code>\n\n"
-        f"Шаг 9/12 — <b>Дата начала</b>\n"
+        f"Шаг 7/10 — <b>Дата начала</b>\n"
         f"<i>Формат: <code>ДД.ММ.ГГГГ</code> (или «-» — действует сразу):</i>",
         reply_markup=_cancel_keyboard(),
         parse_mode="HTML",
@@ -690,7 +675,7 @@ async def fsm_receive_valid_from(message: types.Message, state: FSMContext):
     await state.set_state(PromoCreate.valid_until)
     await message.answer(
         f"📅 Начало: <code>{text if valid_from else 'сразу'}</code>\n\n"
-        f"Шаг 10/12 — <b>Дата окончания</b>\n"
+        f"Шаг 8/10 — <b>Дата окончания</b>\n"
         f"<i>Формат: <code>ДД.ММ.ГГГГ</code> (или «-» — бессрочно):</i>",
         reply_markup=_cancel_keyboard(),
         parse_mode="HTML",
@@ -717,7 +702,7 @@ async def fsm_receive_valid_until(message: types.Message, state: FSMContext):
     await state.set_state(PromoCreate.allowed_users)
     await message.answer(
         f"📅 Конец: <code>{text if valid_until else 'бессрочно'}</code>\n\n"
-        f"Шаг 11/12 — <b>Ограничение по пользователям 👤</b>\n"
+        f"Шаг 9/10 — <b>Ограничение по пользователям 👤</b>\n"
         f"<i>Введи user_id через пробел, если промокод только для конкретных людей.\n"
         f"Или «-» чтобы не ограничивать.\n\n"
         f"Пример: <code>738240269 123456789</code></i>",
@@ -759,7 +744,7 @@ async def fsm_receive_allowed_users(message: types.Message, state: FSMContext):
     users_str = ", ".join(str(u) for u in allowed_users) if allowed_users else "все"
     await message.answer(
         f"👤 Пользователи: <code>{users_str}</code>\n\n"
-        f"Шаг 12/12 — <b>Ограничение по чатам 💬</b>\n"
+        f"Шаг 10/10 — <b>Ограничение по чатам 💬</b>\n"
         f"<i>Введи chat_id через пробел, если промокод только для определённых чатов.\n"
         f"Или «-» чтобы не ограничивать.\n\n"
         f"Пример: <code>-1001234567890 -1009876543210</code></i>",
@@ -809,8 +794,6 @@ async def fsm_receive_allowed_chats(message: types.Message, state: FSMContext):
         items_str = "\n".join(lines)
 
     max_uses = int(data.get("max_uses", 0))
-    dark_mora_val = float(data.get("dark_mora", 0))
-    zarniki_val = float(data.get("zarniki", 0))
     vf = data.get("valid_from") or "сразу"
     vu = data.get("valid_until") or "бессрочно"
 
@@ -825,8 +808,6 @@ async def fsm_receive_allowed_chats(message: types.Message, state: FSMContext):
         f"💰 <b>Награды:</b>\n"
         f"├ 🪙 Мора: <code>{float(data.get('mora', 0)):,.0f}</code>\n"
         f"├ 💎 Алмазы: <code>{float(data.get('diamonds', 0)):,.1f}</code>\n"
-        f"├ 🌑 Тёмная Мора: <code>{dark_mora_val:,.0f}</code>\n"
-        f"├ ✨ Зарники: <code>{zarniki_val:,.0f}</code>\n"
         f"└ 📦 Предметы:\n{items_str}\n\n"
         f"⚙️ <b>Настройки:</b>\n"
         f"├ 🔢 Лимит: <code>{'∞' if max_uses == 0 else max_uses}</code>\n"
