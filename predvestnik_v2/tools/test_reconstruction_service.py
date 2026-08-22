@@ -385,6 +385,13 @@ async def main():
         assert len(memory.shadow_rows) == 1
         assert completed_events[0]["payload"]["terminal_result"] == terminal
         assert completed_events[0]["payload"]["shadow_reward"] == shadow
+        assert completed_events[0]["payload"]["signals_resolved"] == (
+            result["mastery"]["correct_taps"]
+            + result["mastery"]["mistakes"]
+            + result["mastery"]["missed_signals"]
+        )
+        assert completed_events[0]["payload"]["companion_role_id"] is None
+        assert completed_events[0]["payload"]["upgrades"] == result["upgrades"]
         action_events = [event for event in memory.events.values() if event["event_name"] == "battle_action"]
         upgrade_events = [event for event in memory.events.values() if event["event_name"] == "battle_upgrade"]
         assert len(action_events) == memory.stats["total_taps"]
@@ -661,6 +668,14 @@ async def main():
         assert cancelled["shadow_reward"]["eligible"] is False
         assert cancelled["shadow_reward"]["reason"] == "practice"
         assert cancelled["shadow_reward"]["projected"]["mora"] == 0
+        cancelled_event = next(
+            event for event in memory.events.values()
+            if event["event_name"] == "battle_end"
+            and event["payload"]["result"] == "cancelled"
+        )
+        assert cancelled_event["payload"]["companion_role_id"] is None
+        assert cancelled_event["payload"]["upgrades"] == []
+        assert cancelled_event["payload"]["exit_wave_elapsed_ms"] >= 0
         assert len(memory.shadow_rows) == 7
         assert memory.runs[practice_id]["status"] == "cancelled"
         cancel_events = [
