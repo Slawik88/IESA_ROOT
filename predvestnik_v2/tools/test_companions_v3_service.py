@@ -120,6 +120,9 @@ async def main():
         fake.meaningful_days = 10
         third = await service.select_role(db, 7, "rhythm_keeper")
         assert third["unlocked_roles"] == ["lantern", "guardian", "rhythm_keeper"]
+        fake.meaningful_days = 15
+        fourth = await service.select_role(db, 7, "echo")
+        assert fourth["unlocked_roles"] == ["lantern", "guardian", "rhythm_keeper", "echo"]
 
         cared = await service.care(db, 7, 11, "play", "care-1")
         replay = await service.care(db, 7, 11, "play", "care-1")

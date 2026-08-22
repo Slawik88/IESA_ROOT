@@ -79,6 +79,33 @@ again = combat.apply_action(rhythm, {
 })
 assert not again["ok"]
 
+echo = combat.new_encounter(seed=404, companion_role_id="echo")
+open_first_signal(echo)
+first = echo["challenge"]
+first_slot = next(item["slot"] for item in first["options"] if item["symbol"] == first["target_symbol"])
+combat.apply_action(echo, {
+    "type": "strike", "delta_ms": 0, "challenge_id": first["id"], "target_slot": first_slot,
+})
+offer = echo["challenge"]
+assert echo["companion_state"]["echo_offer_challenge"] == offer["id"] and not offer["active"]
+original_window = offer["expires_at_ms"] - offer["opens_at_ms"]
+repeated = combat.apply_action(echo, {
+    "type": "branch_action", "command": "companion_echo_repeat", "delta_ms": 0,
+})
+assert repeated["ok"] and repeated["window_ms"] < original_window
+while not echo["challenge"]["active"]:
+    combat.apply_action(echo, {"type": "frame", "delta_ms": 100})
+repeat = echo["challenge"]
+repeat_slot = next(item["slot"] for item in repeat["options"] if item["symbol"] == repeat["target_symbol"])
+repeat_hit = combat.apply_action(echo, {
+    "type": "strike", "delta_ms": 0, "challenge_id": repeat["id"], "target_slot": repeat_slot,
+})["strike"]
+assert repeat_hit["companion_result"] == "echo_repeat_success"
+assert echo["companion_state"]["echo_insight"] == 1
+combat._complete_wave(echo)
+assert len(echo["reward_options"]) == 4
+assert sum(option.get("companion_offer") == "echo" for option in echo["reward_options"]) == 1
+
 for unsupported in ("navigator", "trickster", "unknown"):
     try:
         combat.new_encounter(seed=1, companion_role_id=unsupported)
@@ -87,4 +114,4 @@ for unsupported in ("navigator", "trickster", "unknown"):
     else:
         raise AssertionError(f"Unsupported companion role entered combat: {unsupported}")
 
-print("companion_combat_roles: Lantern + Guardian + Rhythm Keeper contracts  OK")
+print("companion_combat_roles: Lantern + Guardian + Rhythm Keeper + Echo contracts  OK")

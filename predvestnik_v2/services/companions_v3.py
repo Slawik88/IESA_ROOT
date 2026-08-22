@@ -297,8 +297,8 @@ def preview_overview() -> dict[str, Any]:
             "active_companion": index == 0,
         })
     return {
-        "policy": policy, "meaningful_days": 12, "role_slots": 3, "next_role_day": 15,
-        "unlocked_roles": ["lantern", "guardian", "rhythm_keeper"], "selected_role_id": "lantern",
+        "policy": policy, "meaningful_days": 15, "role_slots": 4, "next_role_day": 20,
+        "unlocked_roles": ["lantern", "guardian", "rhythm_keeper", "echo"], "selected_role_id": "lantern",
         "active_pet_id": 901, "pets": pets,
         "care_actions": [
             {"id": key, "name": value[0], "scene_hint": value[1]}

@@ -386,6 +386,11 @@
     if (state.companion_role_id === 'rhythm_keeper' && state.challenge?.active && !state.companion_state?.rhythm_guard_used) {
       controls.push('<button type="button" data-combat-command="companion_rhythm_guard">◌ Сохранить этот ритм</button>');
     }
+    const echoUsed = state.companion_state?.echo_used_rounds || [];
+    const echoOffered = Number(state.companion_state?.echo_offer_challenge || 0) === Number(state.challenge?.id || -1);
+    if (state.companion_role_id === 'echo' && state.challenge && !state.challenge.active && echoOffered && !echoUsed.includes(state.round)) {
+      controls.push('<button type="button" data-combat-command="companion_echo_repeat">◍ Повторить быстрее</button>');
+    }
     container.innerHTML = controls.join('');
     container.hidden = !controls.length;
   }
@@ -400,7 +405,7 @@
     document.getElementById('upgradeList').innerHTML = state.reward_options.map((upgrade) => `
       <button class="upgrade-card" type="button" data-upgrade-id="${esc(upgrade.id)}">
         <span>${esc(upgrade.emoji)}</span>
-        <span class="upgrade-copy"><em>${esc(upgrade.archetype)}</em><strong>${esc(upgrade.name)}</strong><small>${esc(upgrade.description)}</small><small class="tradeoff">− ${esc(upgrade.tradeoff)}</small></span>
+        <span class="upgrade-copy"><em>${upgrade.companion_offer === 'echo' ? 'ЭХО · ' : ''}${esc(upgrade.archetype)}</em><strong>${esc(upgrade.name)}</strong><small>${esc(upgrade.description)}</small><small class="tradeoff">− ${esc(upgrade.tradeoff)}</small></span>
         <b>›</b>
       </button>`).join('');
     showOnly('choice');

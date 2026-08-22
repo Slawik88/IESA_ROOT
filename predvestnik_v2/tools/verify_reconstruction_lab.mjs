@@ -177,6 +177,51 @@ try{
     await page.close();
   }
 
+  {
+    const session=`echo-ui-${Date.now()}`;
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width:390,height:844,deviceScaleFactor:1});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.waitForSelector('#menuLayer:not([hidden])');
+    await page.click('[data-menu-tab="companion"]');
+    await page.click('[data-companion-role="echo"]');
+    await page.waitForFunction(()=>document.querySelector('[data-companion-role="echo"]')?.classList.contains('selected'));
+    await page.click('[data-menu-tab="play"]');
+    await page.click('#startRunButton');
+    await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
+    const strikeTarget=()=>page.evaluate(()=>{
+      const target=document.querySelector('#bossGlyph')?.textContent.trim();
+      const button=[...document.querySelectorAll('.strike-rune')]
+        .find(node=>node.textContent.trim()===target&&!node.disabled);
+      if(!button)return false;
+      button.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+      return true;
+    });
+    check(await strikeTarget(),'Echo UI: first known signal was not clickable');
+    await page.waitForSelector('[data-combat-command="companion_echo_repeat"]',{timeout:3000});
+    await page.click('[data-combat-command="companion_echo_repeat"]');
+    await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
+    check(await strikeTarget(),'Echo UI: accelerated repeat was not clickable');
+    await page.waitForFunction(async()=>{
+      const sessionKey=sessionStorage.getItem('reconstruction-preview-session');
+      const response=await fetch('/__reconstruction/state',{headers:{'x-reconstruction-session':sessionKey}});
+      const api=await response.json();
+      return Number(api.companion_state?.echo_insight)===1;
+    },{polling:200,timeout:3000});
+    const roleState=await page.evaluate(()=>({
+      role:document.querySelector('.companion-build b')?.textContent.trim(),
+      overflow:document.documentElement.scrollWidth-innerWidth,
+    }));
+    check(roleState.role==='Эхо',`Echo active-build label missing: ${roleState.role}`);
+    check(roleState.overflow<=0,`Echo controls overflow by ${roleState.overflow}px`);
+    check(errors.length===0,`Echo UI browser errors ${errors.join(', ')}`);
+    if(output)await page.screenshot({path:`${output}/clicker-390-echo-repeat.png`,fullPage:true});
+    await page.close();
+  }
+
   // DEV-only time compression makes the real expedition state transitions
   // testable without waiting two hours.  No wallet is attached to this bridge.
   {

@@ -45,9 +45,9 @@ COMPANION_ROLES: Final[Mapping[str, Mapping[str, Any]]] = MappingProxyType({
     },
     "echo": {
         "name": "Эхо", "emoji": "◍",
-        "implemented": False,
-        "decision": "Предлагает повторить знакомый паттерн в ускоренной версии.",
-        "tradeoff": "Ошибка обнуляет бонус этой ветки.",
+        "implemented": True,
+        "decision": "Один раз за волну предлагает повторить прошлый знак в коротком окне.",
+        "tradeoff": "Ошибка сбрасывает прогресс; успех добавляет выбор, а не сырую силу.",
     },
     "gardener": {
         "name": "Садовник", "emoji": "❧",
