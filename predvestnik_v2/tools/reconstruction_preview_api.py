@@ -78,6 +78,7 @@ _COMPANION_STATES: dict[str, dict] = {}
 def _new_state(
     encounter_id: str = reconstruction.FIRST_ENCOUNTER,
     unit_branches: dict[str, str | list[str]] | None = None,
+    companion_role_id: str | None = None,
 ):
     # У каждой вкладки и каждого reset свой run key: локальная статистика может
     # надёжно дедуплицировать завершение, а тестировщики не делят один seed.
@@ -85,6 +86,7 @@ def _new_state(
         seed=secrets.randbelow(2**31 - 1) + 1,
         encounter_id=encounter_id,
         unit_branches=unit_branches,
+        companion_role_id=companion_role_id,
     )
     reconstruction_timing.attach_server_clock(state)
     return state
@@ -142,8 +144,8 @@ class Handler(BaseHTTPRequestHandler):
                 _COMPANION_STATES.pop(next(iter(_COMPANION_STATES)))
             value = {
                 "active_pet_id": 901,
-                "unlocked_roles": ["navigator", "gardener"],
-                "selected_role_id": "navigator",
+                "unlocked_roles": ["lantern", "guardian"],
+                "selected_role_id": "lantern",
                 "care": {"901": {"points": 6, "bank": 3, "last": "play"}},
                 "actions": {},
                 "contracts": [],
@@ -310,8 +312,11 @@ class Handler(BaseHTTPRequestHandler):
                 unit_branches = (body or {}).get("unit_branches")
                 if unit_branches is not None and not isinstance(unit_branches, dict):
                     return self._send(400, {"detail": "unit_branches должен быть объектом."})
+                companion_role_id = (body or {}).get("companion_role_id")
+                if companion_role_id is not None and not isinstance(companion_role_id, str):
+                    return self._send(400, {"detail": "companion_role_id должен быть строкой."})
                 try:
-                    state = _new_state(encounter_id, unit_branches)
+                    state = _new_state(encounter_id, unit_branches, companion_role_id)
                 except ValueError as exc:
                     return self._send(400, {"detail": str(exc)})
                 _STATES[self._session_key()] = state

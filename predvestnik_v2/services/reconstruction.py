@@ -262,6 +262,7 @@ async def start_encounter(
     *,
     practice: bool = False,
     source: str = "mini_app",
+    companion_role_id: str | None = None,
 ) -> dict[str, Any]:
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
@@ -300,6 +301,7 @@ async def start_encounter(
             encounter_id,
             seed=secrets.randbelow(2**31 - 1) + 1,
             unit_branches=selected_branches,
+            companion_role_id=companion_role_id,
         )
         timing.attach_server_clock(state)
         state["run_kind"] = "practice" if practice else "campaign"
@@ -340,7 +342,7 @@ async def start_encounter(
                     branch_id
                     for branch_ids in selected_branches.values()
                     for branch_id in branch_ids
-                ),
+                ) + ([f"companion:{companion_role_id}"] if companion_role_id else []),
             },
             idempotency_key=f"run:{run_id}:started",
         )

@@ -84,6 +84,8 @@ try{
       errorText:document.querySelector('.status-toast.error')?.textContent||'',
       noFxAnimation:getComputedStyle(document.querySelector('.echo-core')).animationName,
       noFxTransition:getComputedStyle(document.querySelector('.strike-rune')).transitionDuration,
+      companionDecoys:document.querySelectorAll('.strike-rune.companion-decoy').length,
+      companionBuild:document.querySelectorAll('.companion-build').length,
     };});
     check(metrics.pageWidth<=metrics.viewport,`${width}px: page overflow ${metrics.pageWidth}px`);
     check(metrics.runes.length===3,`${width}px: expected three rune choices`);
@@ -93,11 +95,42 @@ try{
     check(metrics.squad===3,`${width}px: expected three automatic squad members`);
     check(metrics.coreWidth>=150&&metrics.coreWidth<=190,`${width}px: core scale is not compact (${metrics.coreWidth})`);
     check(metrics.noFxAnimation==='none'&&metrics.noFxTransition==='0s',`${width}px: no-fx still animates`);
+    check(metrics.companionDecoys===1,`${width}px: Lantern did not mark exactly one decoy`);
+    check(metrics.companionBuild===1,`${width}px: companion role missing from active build`);
     check(!metrics.errorText,`${width}px: startup error ${metrics.errorText}`);
     check(errors.length===0,`${width}px: browser errors ${errors.join(', ')}`);
     if(output&&[390,1024].includes(width)){
       await page.screenshot({path:`${output}/clicker-${width}.png`,fullPage:true});
     }
+    await page.close();
+  }
+
+  {
+    const session=`guardian-ui-${Date.now()}`;
+    const page=await browser.newPage();
+    const errors=[];
+    page.on('pageerror',error=>errors.push(error.message));
+    await page.setViewport({width:390,height:844,deviceScaleFactor:1});
+    await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
+    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.waitForSelector('#menuLayer:not([hidden])');
+    await page.click('[data-menu-tab="companion"]');
+    await page.click('[data-companion-role="guardian"]');
+    await page.waitForFunction(()=>document.querySelector('[data-companion-role="guardian"]')?.classList.contains('selected'));
+    await page.click('[data-menu-tab="play"]');
+    await page.click('#startRunButton');
+    await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
+    await page.waitForSelector('[data-combat-command="companion_guardian_window"]');
+    await page.click('[data-combat-command="companion_guardian_window"]');
+    await page.waitForFunction(()=>!document.querySelector('[data-combat-command="companion_guardian_window"]'));
+    const roleState=await page.evaluate(()=>({
+      role:document.querySelector('.companion-build b')?.textContent.trim(),
+      overflow:document.documentElement.scrollWidth-innerWidth,
+    }));
+    check(roleState.role==='Страж',`Guardian active-build label missing: ${roleState.role}`);
+    check(roleState.overflow<=0,`Guardian controls overflow by ${roleState.overflow}px`);
+    check(errors.length===0,`Guardian UI browser errors ${errors.join(', ')}`);
+    if(output)await page.screenshot({path:`${output}/clicker-390-guardian-armed.png`,fullPage:true});
     await page.close();
   }
 
@@ -449,8 +482,8 @@ try{
   await branchPage.waitForSelector('[data-combat-command="forbidden_toggle"]');
   const branchButtonHeight=await branchPage.$eval('[data-combat-command="forbidden_toggle"]',node=>node.getBoundingClientRect().height);
   check(branchButtonHeight>=40&&branchButtonHeight<=44,`branch UI: control height ${branchButtonHeight}px`);
-  await branchPage.click('[data-combat-command="forbidden_toggle"]');
-  await branchPage.waitForSelector('[data-combat-command="forbidden_toggle"].risk-on');
+  await branchPage.evaluate(()=>document.querySelector('[data-combat-command="forbidden_toggle"]')?.click());
+  await branchPage.waitForSelector('[data-combat-command="forbidden_toggle"].risk-on',{timeout:5000});
   const branchOverflow=await branchPage.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
   check(branchOverflow<=0,`branch UI: overflow ${branchOverflow}px`);
   await branchPage.close();

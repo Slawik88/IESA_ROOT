@@ -37,6 +37,13 @@ class CompanionConflict(CompanionError):
     pass
 
 
+async def selected_role(db, user_id: int) -> str | None:
+    profile = await repo.get_profile(db, user_id)
+    role_id = (profile or {}).get("selected_role_id")
+    role = COMPANION_ROLES.get(str(role_id)) if role_id else None
+    return str(role_id) if role and role.get("implemented") else None
+
+
 def _pet_view(pet: dict[str, Any], bond: dict[str, Any] | None, active_pet_id: int | None) -> dict[str, Any]:
     points = int((bond or {}).get("bond_points", 0))
     care_bank = int((bond or {}).get("care_bank", 1))
@@ -205,6 +212,8 @@ async def select_active_pet(db, user_id: int, pet_id: int) -> dict[str, Any]:
 async def select_role(db, user_id: int, role_id: str) -> dict[str, Any]:
     if role_id not in COMPANION_ROLES:
         raise CompanionError("Неизвестная роль спутника.")
+    if not COMPANION_ROLES[role_id].get("implemented"):
+        raise CompanionConflict("Эта роль ещё проходит боевую реализацию и пока недоступна для выбора.")
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
         pets = await repo.list_owned_pets(db, user_id)
@@ -289,7 +298,7 @@ def preview_overview() -> dict[str, Any]:
         })
     return {
         "policy": policy, "meaningful_days": 12, "role_slots": 3, "next_role_day": 15,
-        "unlocked_roles": ["navigator", "gardener"], "selected_role_id": "navigator",
+        "unlocked_roles": ["lantern", "guardian"], "selected_role_id": "lantern",
         "active_pet_id": 901, "pets": pets,
         "care_actions": [
             {"id": key, "name": value[0], "scene_hint": value[1]}

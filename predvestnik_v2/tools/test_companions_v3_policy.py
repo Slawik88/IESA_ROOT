@@ -22,10 +22,14 @@ from core.companions_v3 import (  # noqa: E402
     role_unlock_count,
     expedition_discovery,
     expedition_slot_count,
+    SECOND_EXPEDITION_SLOT_ENCOUNTER,
 )
 
 
 assert len(COMPANION_ROLES) == 10
+assert {key for key, role in COMPANION_ROLES.items() if role["implemented"]} == {
+    "lantern", "guardian",
+}
 assert [role_unlock_count(day) for day in (0, 4, 5, 44, 45, 999)] == [1, 1, 2, 9, 10, 10]
 assert bond_progress(0) == {
     "points": 0, "milestones_reached": 0, "last_milestone": None,
@@ -48,6 +52,7 @@ assert limited.cap_reached and not limited.can_settle
 closed = quote_expedition(2, 600)
 assert closed.projected_mora == 0 and closed.cap_reached
 assert expedition_slot_count(False) == 1 and expedition_slot_count(True) == 2
+assert SECOND_EXPEDITION_SLOT_ENCOUNTER == "e06_archivist"
 digest = "a" * 64
 assert expedition_discovery(digest, 6) == expedition_discovery(digest, 6)
 

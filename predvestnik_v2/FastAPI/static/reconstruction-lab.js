@@ -33,6 +33,8 @@
   let playing = false;
   let busy = false;
   let pendingStrike = null;
+  let pendingBranchAction = null;
+  let branchActionInFlight = false;
   let lastFrameAt = performance.now();
   let lastEventId = 0;
   let toastTimer = null;
@@ -314,18 +316,21 @@
     const container = document.getElementById('activeBuild');
     const catalog = new Map((manifest?.clicker_upgrades || []).map((item) => [item.id, item]));
     const selected = (state.upgrades || []).map((id) => catalog.get(id)).filter(Boolean);
+    const role = (manifest?.companions?.roles || []).find((item) => item.id === state.companion_role_id);
     container.hidden = false;
-    container.innerHTML = selected.length ? selected.map((upgrade) => `
+    const roleChip = role ? `<span class="companion-build"><i>${esc(role.emoji)}</i><b>${esc(role.name)}</b><small>роль спутника</small></span>` : '';
+    container.innerHTML = roleChip + (selected.length ? selected.map((upgrade) => `
       <span><i>${esc(upgrade.emoji)}</i><b>${esc(upgrade.name)}</b><small>${esc(upgrade.archetype)}</small></span>`).join('')
-      : '<span class="empty-build"><i>＋</i><b>Сборка</b><small>усиление после волны</small></span>';
+      : '<span class="empty-build"><i>＋</i><b>Сборка</b><small>усиление после волны</small></span>');
   }
 
   function renderRunes() {
     if (!state) return;
     const challenge = state.challenge;
-    const options = new Map((challenge?.options || []).map((option) => [option.slot, option.symbol]));
+    const options = new Map((challenge?.options || []).map((option) => [option.slot, option]));
     orbit.querySelectorAll('[data-target-slot]').forEach((button) => {
-      const symbol = options.get(button.dataset.targetSlot) || '·';
+      const option = options.get(button.dataset.targetSlot);
+      const symbol = option?.symbol || '·';
       button.textContent = symbol;
       button.disabled = !playing || !challenge?.active || Boolean(pendingStrike);
       button.setAttribute('aria-label', `${button.dataset.targetSlot}: руна ${symbol}`);
@@ -336,6 +341,7 @@
         : objective.kind === 'archivist_boss' && objective.phase === 'record'
           ? objective.recorded_slot : null;
       button.classList.toggle('mirror-forbidden', blockedSlot === button.dataset.targetSlot);
+      button.classList.toggle('companion-decoy', option?.companion_hint === 'decoy');
     });
   }
 
@@ -372,6 +378,10 @@
     }
     if (selected.has('tide_hidden_swap') && state.challenge?.active && !branch.tide_swap_used) {
       controls.push('<button type="button" data-combat-command="tide_swap">🌊 Сдвинуть руны</button>');
+    }
+    const guardianUsed = state.companion_state?.guardian_used_rounds || [];
+    if (state.companion_role_id === 'guardian' && state.challenge?.active && !guardianUsed.includes(state.round)) {
+      controls.push('<button type="button" data-combat-command="companion_guardian_window">⬡ Расширить это окно</button>');
     }
     container.innerHTML = controls.join('');
     container.hidden = !controls.length;
@@ -631,9 +641,10 @@
     const roleCards = roles.map((role) => {
       const owned = unlocked.has(role.id);
       const current = selected === role.id;
-      const canUnlock = owned || unlocked.size < Number(companionState.role_slots || 1);
+      const implemented = role.implemented === true;
+      const canUnlock = implemented && (owned || unlocked.size < Number(companionState.role_slots || 1));
       return `<button type="button" class="role-card${current ? ' selected' : ''}${owned ? ' unlocked' : ''}" data-companion-role="${esc(role.id)}" ${canUnlock ? '' : 'disabled'}>
-        <i>${esc(role.emoji)}</i><span><strong>${esc(role.name)}</strong><small>${esc(role.decision)}</small><em>− ${esc(role.tradeoff)}</em></span><b>${current ? 'выбрано' : owned ? 'сменить' : canUnlock ? 'открыть' : `день ${number(companionState.next_role_day)}`}</b>
+        <i>${esc(role.emoji)}</i><span><strong>${esc(role.name)}</strong><small>${esc(role.decision)}</small><em>− ${esc(role.tradeoff)}</em></span><b>${!implemented ? 'в разработке' : current ? 'выбрано' : owned ? 'сменить' : canUnlock ? 'открыть' : `день ${number(companionState.next_role_day)}`}</b>
       </button>`;
     }).join('');
     const careButtons = (companionState.care_actions || []).map((action) => `
@@ -980,7 +991,11 @@
         ? 'e02_shattered_causeway'
         : state?.encounter_id || 'e01_two_bells';
       return jsonFetch('/reset', {
-        method: 'POST', body: JSON.stringify({ encounter_id: encounterId }),
+        method: 'POST', body: JSON.stringify({
+          encounter_id: encounterId,
+          unit_branches: state?.unit_branches || {},
+          companion_role_id: companionState?.selected_role_id || null,
+        }),
       });
     }
     const next = progress?.next_step;
@@ -1084,8 +1099,13 @@
   }
 
   async function sendCombatBranchAction(command, extra = {}) {
-    if (busy || !state) return;
+    if (!state) return;
+    if (busy) {
+      if (!branchActionInFlight && !pendingBranchAction) pendingBranchAction = { command, extra };
+      return;
+    }
     busy = true;
+    branchActionInFlight = true;
     const resolvingDecision = Boolean(state.branch_state?.decision);
     try {
       const data = await submitAction({ type: 'branch_action', command, ...extra });
@@ -1101,8 +1121,17 @@
     } catch (error) {
       if (!error.resynced) notify(error.message, true);
     } finally {
+      branchActionInFlight = false;
       busy = false;
+      flushPendingBranchAction();
     }
+  }
+
+  function flushPendingBranchAction() {
+    if (busy || !pendingBranchAction) return;
+    const queued = pendingBranchAction;
+    pendingBranchAction = null;
+    sendCombatBranchAction(queued.command, queued.extra);
   }
 
   async function sendFrame() {
@@ -1131,6 +1160,7 @@
       if (!error.resynced) notify(error.message, true);
     } finally {
       busy = false;
+      flushPendingBranchAction();
     }
   }
 
@@ -1181,7 +1211,11 @@
   async function startFromMenu() {
     if (pendingMemory && showMemoryChoice()) return;
     if (progress?.next_step?.type === 'choose_chronicle_path' && showChroniclePathChoice()) return;
-    if (!state || ['won', 'lost'].includes(state.status)) {
+    const selectedCompanion = companionState?.selected_role_id || null;
+    const untouchedRun = state?.status === 'active' && Number(state?.wave?.elapsed_ms || 0) === 0;
+    const companionChanged = !production && untouchedRun
+      && (state?.companion_role_id || null) !== selectedCompanion;
+    if (!state || ['won', 'lost'].includes(state.status) || companionChanged) {
       await reset(true);
       return;
     }

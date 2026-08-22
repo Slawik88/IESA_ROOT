@@ -22,6 +22,7 @@ from core.reconstruction import (
     validate_content,
 )
 from core.reconstruction_progression import branch_by_id
+from core.companions_v3 import COMPANION_ROLES
 
 
 FRAME_MAX_MS = 500
@@ -211,6 +212,10 @@ def _has_branch(state: dict[str, Any], branch_id: str) -> bool:
     )
 
 
+def _has_companion_role(state: dict[str, Any], role_id: str) -> bool:
+    return state.get("companion_role_id") == role_id
+
+
 def _mix(seed: int, sequence: int) -> int:
     value = (int(seed) ^ (sequence * 0x9E3779B1)) & 0xFFFFFFFF
     value ^= value << 13 & 0xFFFFFFFF
@@ -366,6 +371,17 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
             620, window_ms + int(state["team"]["signal_window_bonus_ms"])
         )
         objective["tide_window"] = tide_window
+    if _has_companion_role(state, "lantern"):
+        decoys = [
+            option for option in state["challenge"]["options"]
+            if option["symbol"] != target and option["slot"] != blocked_slot
+        ]
+        if decoys:
+            marked = decoys[_mix(state["seed"] + 2707, sequence) % len(decoys)]
+            marked["companion_hint"] = "decoy"
+            state["companion_state"]["lantern_marks"] = int(
+                state["companion_state"].get("lantern_marks", 0)
+            ) + 1
     branch["next_signal_penalty_ms"] = 0
     branch["hide_signal_timer"] = False
     branch["family_preview"] = None
@@ -392,6 +408,7 @@ def new_encounter(
     *,
     seed: int = 1,
     unit_branches: dict[str, str | list[str]] | None = None,
+    companion_role_id: str | None = None,
 ) -> dict[str, Any]:
     errors = validate_content()
     if errors:
@@ -401,6 +418,11 @@ def new_encounter(
         raise ValueError(f"Неизвестная встреча: {encounter_id}")
     if not encounter.get("implemented"):
         raise ValueError(f"Встреча {encounter_id} ещё не включена в игровой срез.")
+    if companion_role_id is not None:
+        role = COMPANION_ROLES.get(str(companion_role_id))
+        if not role or not role.get("implemented"):
+            raise ValueError("Роль спутника ещё не поддерживается боевым движком.")
+        companion_role_id = str(companion_role_id)
     selected_branches: dict[str, list[str]] = {}
     for unit_id, raw_branch_ids in (unit_branches or {}).items():
         branch_ids = raw_branch_ids if isinstance(raw_branch_ids, list) else [raw_branch_ids]
@@ -449,6 +471,12 @@ def new_encounter(
         "challenge_seq": 0,
         "seam_ready": False,
         "unit_branches": selected_branches,
+        "companion_role_id": companion_role_id,
+        "companion_state": {
+            "lantern_marks": 0,
+            "guardian_used_rounds": [],
+            "guardian_active_challenge": None,
+        },
         "branch_state": {
             "decision": None,
             "broken_vow_used": False,
@@ -624,6 +652,12 @@ def _complete_wave(state: dict[str, Any]) -> None:
         {"id": upgrade_id, **copy.deepcopy(CLICKER_UPGRADES[upgrade_id])}
         for upgrade_id in REWARD_POOLS[state["round"] - 1]
     ]
+    if _has_companion_role(state, "lantern"):
+        # Фонарь даёт информацию в каждом сигнале, но между волнами оставляет
+        # только два усиления.  Seed выбирает скрытый вариант, чтобы роль не
+        # всегда удаляла одну и ту же сборку.
+        remove_index = _mix(state["seed"] + 3907, state["round"]) % len(state["reward_options"])
+        state["reward_options"].pop(remove_index)
     state["status"] = "reward"
     _emit(state, "wave_complete", "Выбери усиление", wave=state["round"])
 
@@ -1024,6 +1058,15 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     damage = float(state["team"]["tap_power"]) * multiplier + seam_bonus
     if state["combo"]["count"] % 5 == 0:
         damage += float(state["team"]["tap_power"]) * 0.75
+    companion_result = None
+    companion_state = state.get("companion_state") or {}
+    if (
+        _has_companion_role(state, "guardian")
+        and int(companion_state.get("guardian_active_challenge") or 0) == int(challenge["id"])
+    ):
+        damage *= 0.8
+        companion_result = "guardian_wide_window"
+        companion_state["guardian_active_challenge"] = None
     dealt = _deal(state, damage, "tap")
     if (
         _is_sequence_objective(objective)
@@ -1059,7 +1102,7 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
         "accepted": True, "correct": True, "critical": critical,
         "damage": _round_number(dealt), "discharged": discharged,
         "reaction_ms": reaction_ms, "seam_result": seam_result,
-        "forbidden_result": forbidden_result,
+        "forbidden_result": forbidden_result, "companion_result": companion_result,
     }
 
 
@@ -1097,6 +1140,28 @@ def _branch_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, A
     command = str(action.get("command") or "")
     branch = _branch_state(state)
     decision = branch.get("decision")
+    if command == "companion_guardian_window":
+        challenge = state.get("challenge")
+        companion = state.get("companion_state") or {}
+        used_rounds = companion.setdefault("guardian_used_rounds", [])
+        if not _has_companion_role(state, "guardian"):
+            return {"ok": False, "error": "Роль Стража не выбрана."}
+        if int(state["round"]) in used_rounds:
+            return {"ok": False, "error": "Страж уже расширял окно в этой волне."}
+        if (
+            not challenge
+            or not challenge.get("active")
+            or int(state["wave"]["elapsed_ms"]) >= int(challenge["expires_at_ms"])
+        ):
+            return {"ok": False, "error": "Сейчас нет окна, которое можно расширить."}
+        challenge["expires_at_ms"] = int(challenge["expires_at_ms"]) + 320
+        companion["guardian_active_challenge"] = int(challenge["id"])
+        used_rounds.append(int(state["round"]))
+        _emit(state, "companion", "СТРАЖ РАСШИРИЛ ОКНО", role="guardian")
+        return {
+            "ok": True, "phase": state["status"], "branch": "companion_guardian",
+            "result": "window_extended", "challenge_id": int(challenge["id"]),
+        }
     if command in {"vow_keep", "vow_release"}:
         if not isinstance(decision, dict) or decision.get("kind") != "mistake_recovery_choice":
             return {"ok": False, "error": "Сейчас нет решения Клятвы."}
@@ -1197,6 +1262,7 @@ def apply_action(state: dict[str, Any], action: dict[str, Any]) -> dict[str, Any
                     "manual_discharge": "bell_silent_release",
                     "forbidden_toggle": "seam_forbidden_repeat",
                     "tide_swap": "tide_hidden_swap",
+                    "companion_guardian_window": "companion_guardian",
                 }.get(command, "unknown")
                 return {
                     "ok": True, "phase": state["status"], "branch": branch_id,
