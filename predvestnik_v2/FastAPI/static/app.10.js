@@ -727,7 +727,7 @@ function _looksRenderCard(sel){
     </div>
     <div class="hero-xp">
       <div class="xp-bar"><div class="xp-fill" style="width:${xpPct}%"></div></div>
-      <div class="xp-lbl"><span>Уровень ${lvl}</span><span>${fmt(xpInLvl)} / ${fmt(xpPerLvl)} XP</span></div>
+      <div class="xp-lbl"><span>Наследие ${lvl}</span><span>${fmt(xpInLvl)} XP сохранено</span></div>
     </div>
     ${typeof d.combat_power==='number'?`<div class="cp-hero fit-cp-hero"><div class="cp-hero-lbl">⚡ ИНДЕКС СИЛЫ</div><div class="cp-hero-val">${fmt(d.combat_power)}</div></div>`:''}
     <div class="stats">

@@ -8,6 +8,10 @@ async def increment_stats_and_get_xp(
     chat_id: int,
     timezone_offset: str = "+3 hours",
 ) -> dict:
+    """Record chat activity without advancing retired message XP.
+
+    ``user_xp`` and ``user_level`` stay untouched as legacy profile history.
+    """
     # Embed timezone_offset as a SQL literal (config value, not user input).
     # asyncpg cannot encode Python str as INTERVAL — must use INTERVAL 'X hours' syntax.
     tz = timezone_offset.replace("'", "")  # sanitise the config value just in case
@@ -18,7 +22,7 @@ async def increment_stats_and_get_xp(
             user_messages_count_per_month, user_messages_count_all_time,
             user_xp, last_message_at
         )
-        VALUES ($1, $2, 1, 1, 1, 1, 10, NOW())
+        VALUES ($1, $2, 1, 1, 1, 1, 0, NOW())
         ON CONFLICT(user_tg_id, chat_tg_id)
         DO UPDATE SET
             user_messages_count_per_last_day  = CASE
@@ -55,7 +59,6 @@ async def increment_stats_and_get_xp(
                 ELSE user_chat_stats.user_messages_count_per_month + 1 END,
 
             user_messages_count_all_time = user_chat_stats.user_messages_count_all_time + 1,
-            user_xp         = user_chat_stats.user_xp + 10,
             last_message_at = NOW()
         RETURNING user_xp, user_level,
                   user_messages_count_all_time, user_messages_count_per_day
