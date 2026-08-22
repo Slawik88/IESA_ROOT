@@ -35,6 +35,8 @@ class MemoryRepo:
         self.runs = {}
         self.actions = {}
         self.events = {}
+        self.shadow_decisions = {}
+        self.shadow_rows = []
         self.stats = service.repo.empty_stats()
         self.next_id = 1
 
@@ -110,6 +112,37 @@ class MemoryRepo:
         self.events[key] = copy.deepcopy(event)
         return True
 
+    async def get_shadow_decision(self, _db, terminal_result_id):
+        return copy.deepcopy(self.shadow_decisions.get(terminal_result_id))
+
+    async def count_accepted_last_7_days(self, _db, user_id, policy_version):
+        return sum(
+            1 for row in self.shadow_rows
+            if row["user_id"] == user_id
+            and row["policy_version"] == policy_version
+            and row["eligible"]
+        )
+
+    async def count_same_seed_eligible_losses(self, _db, user_id, fingerprint):
+        return sum(
+            1 for row in self.shadow_rows
+            if row["user_id"] == user_id
+            and row["fingerprint"] == fingerprint
+            and row["outcome"] == "lost"
+            and row["eligible"]
+        )
+
+    async def save_shadow_decision(self, _db, **values):
+        terminal_id = values["terminal_result_id"]
+        decision = copy.deepcopy(dict(values["decision"]))
+        existing = self.shadow_decisions.get(terminal_id)
+        if existing is not None:
+            assert existing == decision
+            return copy.deepcopy(existing)
+        self.shadow_decisions[terminal_id] = decision
+        self.shadow_rows.append(copy.deepcopy(values))
+        return copy.deepcopy(decision)
+
     async def get_stats(self, _db, user_id, game_version):
         return copy.deepcopy(self.stats)
 
@@ -164,6 +197,15 @@ async def main():
         setattr(service.repo, name, getattr(memory, name))
     original_event_writer = service.event_repo.record_event
     service.event_repo.record_event = memory.record_event
+    original_shadow = {}
+    for name, replacement in (
+        ("get_decision", memory.get_shadow_decision),
+        ("count_accepted_last_7_days", memory.count_accepted_last_7_days),
+        ("count_same_seed_eligible_losses", memory.count_same_seed_eligible_losses),
+        ("save_decision", memory.save_shadow_decision),
+    ):
+        original_shadow[name] = getattr(service.shadow_repo, name)
+        setattr(service.shadow_repo, name, replacement)
     try:
         db = _DB()
         user_id = 7001
@@ -291,7 +333,15 @@ async def main():
         assert terminal["outcome"] == "won"
         assert terminal["server_revision"] == result["revision"]
         assert terminal["integrity"]["automatic_ban"] is False
+        shadow = result["shadow_reward"]
+        assert shadow["settlement_mode"] == "shadow_only" and shadow["settled"] is False
+        assert shadow["eligible"] is True and shadow["accepted_result_ordinal"] == 1
+        assert shadow["projected"] == {
+            "mora": 100, "lead_unit_xp": 100, "support_unit_xp_each": 60,
+        }
+        assert len(memory.shadow_rows) == 1
         assert completed_events[0]["payload"]["terminal_result"] == terminal
+        assert completed_events[0]["payload"]["shadow_reward"] == shadow
         action_events = [event for event in memory.events.values() if event["event_name"] == "battle_action"]
         upgrade_events = [event for event in memory.events.values() if event["event_name"] == "battle_upgrade"]
         assert len(action_events) == memory.stats["total_taps"]
@@ -347,7 +397,12 @@ async def main():
         assert cancelled["idempotent_replay"] is False
         assert cancelled_again["idempotent_replay"] is True
         assert cancelled_again["terminal_result"] == cancelled["terminal_result"]
+        assert cancelled_again["shadow_reward"] == cancelled["shadow_reward"]
         assert cancelled["terminal_result"]["outcome"] == "cancelled"
+        assert cancelled["shadow_reward"]["eligible"] is False
+        assert cancelled["shadow_reward"]["reason"] == "practice"
+        assert cancelled["shadow_reward"]["projected"]["mora"] == 0
+        assert len(memory.shadow_rows) == 2
         assert memory.runs[practice_id]["status"] == "cancelled"
         cancel_events = [
             event for event in memory.events.values()
@@ -361,8 +416,10 @@ async def main():
         for name, value in original.items():
             setattr(service.repo, name, value)
         service.event_repo.record_event = original_event_writer
+        for name, value in original_shadow.items():
+            setattr(service.shadow_repo, name, value)
 
-    print("reconstruction_service: resume+idempotency+progress+career-stats  OK")
+    print("reconstruction_service: terminal+shadow-reward+idempotency+progress  OK")
 
 
 asyncio.run(main())
