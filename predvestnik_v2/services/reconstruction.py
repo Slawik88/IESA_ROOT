@@ -372,6 +372,7 @@ def _next_after(encounter_id: str) -> str:
         "e02_shattered_causeway": CHAPTER_ONE_PATH_GATE,
         "e03_ink_path": "e04_drowned_names",
         "e03_ash_path": "e04_drowned_names",
+        "e04_drowned_names": "e05_mirror_courtyard",
     }.get(encounter_id, encounter_id)
 
 

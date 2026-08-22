@@ -105,12 +105,35 @@ E03_ASH_WAVES: tuple[dict[str, Any], ...] = (
     },
 )
 
+E04_WAVES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "name_anchor", "name": "Якорь без имени",
+        "subtitle": "Запомни два знака и повтори их без подсказки", "emoji": "⌁",
+        "hp": 1500.0, "duration_ms": 28000, "signal_ms": 1450,
+    },
+    {
+        "id": "debt_anchor", "name": "Якорь старого долга",
+        "subtitle": "Три знака: порядок важнее скорости", "emoji": "⟁",
+        "hp": 2100.0, "duration_ms": 35000, "signal_ms": 1300,
+    },
+    {
+        "id": "choir_anchor", "name": "Якорь утонувшего хора",
+        "subtitle": "Последняя цепочка не простит слепого клика", "emoji": "♢",
+        "hp": 2850.0, "duration_ms": 42000, "signal_ms": 1150,
+    },
+)
+
 ENCOUNTER_WAVES: dict[str, tuple[dict[str, Any], ...]] = {
     "e01_two_bells": E01_WAVES,
     "e02_shattered_causeway": E02_WAVES,
     "e03_ink_path": E03_INK_WAVES,
     "e03_ash_path": E03_ASH_WAVES,
+    "e04_drowned_names": E04_WAVES,
 }
+
+SEQUENCE_LENGTHS = tuple(ENCOUNTERS["e04_drowned_names"]["objective"]["sequence_lengths"])
+SEQUENCE_PREVIEW_MS = 650
+SEQUENCE_RECALL_DELAY_MS = 350
 
 
 def _waves(state: dict[str, Any]) -> tuple[dict[str, Any], ...]:
@@ -175,13 +198,66 @@ def _challenge_data(state: dict[str, Any], sequence: int) -> tuple[str, list[dic
     return target, options, delay
 
 
+def _forced_challenge_data(
+    state: dict[str, Any], sequence: int, target: str
+) -> tuple[str, list[dict[str, str]], int]:
+    """Place a remembered target into the same balanced slot schedule."""
+    generated_target, generated, delay = _challenge_data(state, sequence)
+    generated_target_index = next(
+        index for index, option in enumerate(generated)
+        if option["symbol"] == generated_target
+    )
+    remaining = [symbol for symbol in RUNE_SYMBOLS if symbol != target]
+    if _mix(state["seed"] + 811, sequence) % 2:
+        remaining.reverse()
+    symbols = list(remaining)
+    symbols.insert(generated_target_index, target)
+    return target, [
+        {"slot": slot, "symbol": symbol}
+        for slot, symbol in zip(RUNE_SLOTS, symbols)
+    ], delay
+
+
+def _sequence_for_wave(state: dict[str, Any]) -> list[str]:
+    length = SEQUENCE_LENGTHS[int(state["round"]) - 1]
+    result: list[str] = []
+    for index in range(length):
+        value = _mix(state["seed"] + int(state["round"]) * 4099, index + 1)
+        symbol = RUNE_SYMBOLS[value % len(RUNE_SYMBOLS)]
+        if result and symbol == result[-1]:
+            symbol = RUNE_SYMBOLS[(RUNE_SYMBOLS.index(symbol) + 1 + value % 2) % len(RUNE_SYMBOLS)]
+        result.append(symbol)
+    return result
+
+
+def _begin_sequence_preview(state: dict[str, Any], *, replay: bool = False) -> None:
+    objective = state["objective_state"]
+    if not replay:
+        objective["sequence"] = _sequence_for_wave(state)
+    objective.update({
+        "phase": "preview",
+        "preview_started_at_ms": int(state["wave"]["elapsed_ms"]) + (300 if replay else 0),
+        "preview_index": -1,
+        "preview_symbol": None,
+        "answer_index": 0,
+        "sequence_length": len(objective["sequence"]),
+    })
+    state["challenge"] = None
+
+
 def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
-    previous = state.get("challenge") or {}
-    sequence = int(previous.get("id", 0)) + 1
-    target, options, delay = _challenge_data(state, sequence)
+    previous_id = int((state.get("challenge") or {}).get("id", 0))
+    sequence = max(int(state.get("challenge_seq", 0)), previous_id) + 1
+    state["challenge_seq"] = sequence
+    objective = state.get("objective_state") or {}
+    if objective.get("kind") == "drowned_sequence":
+        target = objective["sequence"][int(objective["answer_index"])]
+        target, options, delay = _forced_challenge_data(state, sequence, target)
+    else:
+        target, options, delay = _challenge_data(state, sequence)
     now = int(state["wave"]["elapsed_ms"])
     if first:
-        delay = 650
+        delay = 420 if objective.get("kind") == "drowned_sequence" else 650
     opens_at = now + delay
     branch = _branch_state(state)
     penalty_ms = max(0, int(branch.get("next_signal_penalty_ms", 0)))
@@ -202,8 +278,8 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
     branch["next_signal_penalty_ms"] = 0
     branch["hide_signal_timer"] = False
     branch["family_preview"] = None
-    if (state.get("objective_state") or {}).get("kind") == "ink_decipher":
-        state["objective_state"]["reflection_cue"] = None
+    if objective.get("kind") == "ink_decipher":
+        objective["reflection_cue"] = None
 
 
 def _wave_runtime(
@@ -279,6 +355,7 @@ def new_encounter(
         "team": team,
         "combo": {"count": 0, "max": 0},
         "challenge": None,
+        "challenge_seq": 0,
         "seam_ready": False,
         "unit_branches": selected_branches,
         "branch_state": {
@@ -338,8 +415,24 @@ def new_encounter(
         state["log"] = [
             "🔥 Огонь медленно гаснет. Точные знаки поддерживают его, золотые возвращают больше."
         ]
+    elif encounter_id == "e04_drowned_names":
+        state["objective_state"] = {
+            "kind": "drowned_sequence",
+            "anchors_broken": 0,
+            "anchors_total": 3,
+            "attempts_left": 3,
+            "attempts_max": 3,
+            "replays": 0,
+            "sequence": [],
+        }
+        state["log"] = [
+            "⌁ Запомни цепочку, затем повтори её по порядку. Во время ответа подсказки исчезнут."
+        ]
     state["wave"] = _wave_runtime(state, 0, 0)
-    _schedule_challenge(state, first=True)
+    if encounter_id == "e04_drowned_names":
+        _begin_sequence_preview(state)
+    else:
+        _schedule_challenge(state, first=True)
     return state
 
 
@@ -352,6 +445,13 @@ def _deal(state: dict[str, Any], amount: float, source: str) -> float:
     if state["status"] != "active" or amount <= 0:
         return 0.0
     wave = state["wave"]
+    objective = state.get("objective_state") or {}
+    if (
+        objective.get("kind") == "drowned_sequence"
+        and int(objective.get("answer_index", 0)) < int(objective.get("sequence_length", 1))
+    ):
+        # Отряд помогает, но не может разорвать якорь вместо правильного ответа.
+        amount = min(float(amount), max(0.0, float(wave["hp"]) - 1.0))
     dealt = min(float(wave["hp"]), float(amount))
     wave["hp"] = _round_number(max(0.0, float(wave["hp"]) - dealt))
     metric = {"tap": "damage_taps", "auto": "damage_auto", "discharge": "damage_discharge"}.get(source)
@@ -385,6 +485,7 @@ def _complete_wave(state: dict[str, Any]) -> None:
                 "lantern_escort": ("lantern_delivered", "Фонарь достиг ворот"),
                 "ink_decipher": ("true_names_read", "Настоящие имена прочитаны"),
                 "ash_fire": ("fire_carried", "Огонь сохранён"),
+                "drowned_sequence": ("drowned_names_released", "Имена освобождены"),
             }
             outcome_reason, victory_label = outcomes.get(
                 str(objective.get("kind")), ("all_echoes_broken", "Колокол отвечает тебе")
@@ -425,7 +526,12 @@ def _start_next_wave(state: dict[str, Any]) -> None:
     branch["tide_swap_used"] = False
     branch["hide_signal_timer"] = False
     branch["family_preview"] = None
-    _schedule_challenge(state, first=True)
+    objective = state.get("objective_state") or {}
+    if objective.get("kind") == "drowned_sequence":
+        objective["attempts_left"] = int(objective["attempts_max"])
+        _begin_sequence_preview(state)
+    else:
+        _schedule_challenge(state, first=True)
     state["log"].append(f"⚔️ Волна {state['round']}: {state['wave']['name']}.")
     _emit(state, "wave_start", state["wave"]["name"], wave=state["round"])
 
@@ -516,6 +622,19 @@ def _miss_signal(state: dict[str, Any], *, wrong_tap: bool) -> None:
             state["challenge"] = None
             _emit(state, "defeat", "Костёр погас")
             return
+    elif objective.get("kind") == "drowned_sequence":
+        objective["attempts_left"] = max(0, int(objective["attempts_left"]) - 1)
+        if objective["attempts_left"] <= 0:
+            state["status"] = "lost"
+            state["outcome_reason"] = "names_forgotten"
+            state["challenge"] = None
+            _emit(state, "defeat", "Цепочка утрачена")
+            return
+        objective["replays"] = int(objective.get("replays", 0)) + 1
+        _begin_sequence_preview(state, replay=True)
+        _consume_manual_discharge_window(state, challenge_id)
+        _emit(state, "miss", "ЦЕПОЧКА СНАЧАЛА")
+        return
     _consume_manual_discharge_window(state, challenge_id)
     branch = _branch_state(state)
     if (
@@ -546,6 +665,23 @@ def _advance_time(state: dict[str, Any], delta_ms: int) -> None:
     challenge = state.get("challenge")
     branch = _branch_state(state)
     objective = state.get("objective_state") or {}
+    if objective.get("kind") == "drowned_sequence" and objective.get("phase") == "preview":
+        relative = int(wave["elapsed_ms"]) - int(objective["preview_started_at_ms"])
+        sequence = objective["sequence"]
+        if relative < 0:
+            objective["preview_index"] = -1
+            objective["preview_symbol"] = None
+        else:
+            preview_index = relative // SEQUENCE_PREVIEW_MS
+            if preview_index < len(sequence):
+                objective["preview_index"] = preview_index
+                objective["preview_symbol"] = sequence[preview_index]
+            elif relative >= len(sequence) * SEQUENCE_PREVIEW_MS + SEQUENCE_RECALL_DELAY_MS:
+                objective["phase"] = "recall"
+                objective["preview_symbol"] = None
+                _schedule_challenge(state, first=True)
+            else:
+                objective["preview_symbol"] = None
     if objective.get("kind") == "ash_fire":
         target_ticks = int(state["mastery"]["elapsed_ms"]) // 2000
         new_ticks = max(0, target_ticks - int(objective.get("decay_ticks", 0)))
@@ -673,6 +809,12 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
             state["combo"]["count"],
         )
     objective = state.get("objective_state") or {}
+    if objective.get("kind") == "drowned_sequence":
+        objective["answer_index"] = int(objective["answer_index"]) + 1
+        if objective["answer_index"] >= int(objective["sequence_length"]):
+            objective["anchors_broken"] = min(
+                int(objective["anchors_total"]), int(objective["anchors_broken"]) + 1
+            )
     if (
         objective.get("kind") == "lantern_escort"
         and state["combo"]["count"] % 5 == 0
@@ -717,6 +859,12 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     if state["combo"]["count"] % 5 == 0:
         damage += float(state["team"]["tap_power"]) * 0.75
     dealt = _deal(state, damage, "tap")
+    if (
+        objective.get("kind") == "drowned_sequence"
+        and objective["answer_index"] >= int(objective["sequence_length"])
+        and state["status"] == "active"
+    ):
+        dealt = _round_number(dealt + _deal(state, state["wave"]["hp"], "tap"))
     state["team"]["charge"] = min(
         CHARGE_MAX * 2 - 0.01,
         state["team"]["charge"] + float(state["team"]["charge_per_hit"]),
@@ -737,7 +885,10 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
                 state, "critical" if critical else "hit", "ТОЧНО" if not critical else "ЗОЛОТОЙ УДАР",
                 damage=int(round(dealt)), combo=state["combo"]["count"],
             )
-        _schedule_challenge(state)
+        if objective.get("kind") != "drowned_sequence" or (
+            objective["answer_index"] < int(objective["sequence_length"])
+        ):
+            _schedule_challenge(state)
     return {
         "accepted": True, "correct": True, "critical": critical,
         "damage": _round_number(dealt), "discharged": discharged,
@@ -924,14 +1075,21 @@ def public_state(state: dict[str, Any]) -> dict[str, Any]:
     # authority contract.  The per-turn response exposes only bounded timing.
     view.pop("_server_clock", None)
     view.pop("_integrity", None)
+    view.pop("challenge_seq", None)
     wave = view["wave"]
     wave["time_left_ms"] = max(0, int(wave["duration_ms"]) - int(wave["elapsed_ms"]))
     challenge = view.get("challenge")
+    objective = view.get("objective_state") or {}
+    if objective.get("kind") == "drowned_sequence":
+        objective.pop("sequence", None)
+        objective.pop("preview_started_at_ms", None)
     if challenge:
         elapsed = int(wave["elapsed_ms"])
         if challenge["active"]:
             duration = max(1, challenge["expires_at_ms"] - challenge["opens_at_ms"])
             view["signal_progress"] = min(1.0, max(0.0, (elapsed - challenge["opens_at_ms"]) / duration))
+            if objective.get("kind") == "drowned_sequence":
+                challenge["target_symbol"] = None
         else:
             duration = max(1, challenge["opens_at_ms"] - challenge["scheduled_at_ms"])
             view["signal_progress"] = min(1.0, max(0.0, (elapsed - challenge["scheduled_at_ms"]) / duration))

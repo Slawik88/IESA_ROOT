@@ -13,7 +13,7 @@ from typing import Any, Final
 
 
 GAME_VERSION: Final = "3.0.0-alpha.3"
-BALANCE_VERSION: Final = "r6-2026-08-22-chronicle-paths"
+BALANCE_VERSION: Final = "r7-2026-08-22-drowned-sequences"
 FEATURE_FLAG_KEY: Final = "game_reconstruction_v1"
 CAMPAIGN_ID: Final = "echoes_of_the_drowned_bell"
 
@@ -230,14 +230,16 @@ ENCOUNTERS: dict[str, dict[str, Any]] = {
     "e04_drowned_names": {
         "order": 4,
         "name": "Долг утонувших имён",
-        "implemented": False,
+        "implemented": True,
         "objective": {
             "type": "sequence",
             "description": "Запомнить короткие цепочки рун и разорвать три якоря в показанном порядке.",
-            "round_limit": 9,
+            "waves": 3,
+            "round_limit": 3,
+            "sequence_lengths": (2, 3, 3),
         },
         "teaches": ("короткая память", "последовательность", "цена поспешного ответа"),
-        "mastery": "Не повторно показывать ни одну цепочку.",
+        "mastery": "Разорвать все якоря без повторного показа цепочек.",
     },
     "e05_mirror_courtyard": {
         "order": 5,
