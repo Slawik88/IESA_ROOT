@@ -15,9 +15,13 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.filters.text_commands import TextCmd
 from core.themes import THEMES, THEME_RARITY_META, RARITY_ORDER, DEFAULT_THEME
 from infrastructure.repositories import themes as themes_repo
-from infrastructure.repositories import economy as eco_repo
-from infrastructure.repositories.dark_mora import spend_dark_mora
-from services.themes import get_all_effective_themes, get_effective_theme
+from services.themes import (
+    WEB_DIRECT_THEME_SOURCES,
+    ThemePurchaseError,
+    get_all_effective_themes,
+    get_effective_theme,
+    purchase_direct_theme,
+)
 from services.utils import check_callback_owner, safe_html
 from bot.keyboards.cta import answer_group_only
 
@@ -220,32 +224,25 @@ async def cb_buy(query: types.CallbackQuery, callback_data: ThemeCB, db):
     if not currency:
         return await query.answer("🔒 Эту тему нельзя купить.", show_alert=True)
 
-    amount = float(amount)
-    ok = False
-    err = "Недостаточно средств."
-    if currency == "mora":
-        ok, msg = await eco_repo.spend_mora(db, user_id, amount, source="theme_purchase", note=tid)
-        err = msg
-    elif currency == "diamonds":
-        ok, msg = await eco_repo.spend_diamonds(db, user_id, amount, source="theme_purchase", note=tid)
-        err = msg
-    elif currency == "dark":
-        ok, msg = await spend_dark_mora(db, user_id, amount, source="theme_purchase", note=tid)
-        err = msg
-    elif currency == "zarniki":
-        bal = await eco_repo.get_balance(db, user_id)
-        if bal.get("user_balance_zarniki", 0) >= amount:
-            await eco_repo.add_balance(db, user_id, zarniki=-amount, source="theme_purchase", note=tid)
-            ok = True
-        else:
-            err = "Недостаточно Зарников."
+    # The router is currently unregistered (Web First), but retain it as a
+    # safe adapter: any future reactivation must use the same atomic service as
+    # the Mini App, never a separate debit → grant sequence.
+    try:
+        result = await purchase_direct_theme(
+            db,
+            user_id,
+            tid,
+            idempotency_key=f"theme:callback:{query.id}",
+            allowed_sources=WEB_DIRECT_THEME_SOURCES,
+        )
+    except ThemePurchaseError as exc:
+        return await query.answer(f"❌ {exc}", show_alert=True)
 
-    if not ok:
-        return await query.answer(f"❌ {err}", show_alert=True)
-
-    await themes_repo.grant_theme(db, user_id, tid)
-    await db.commit()
-    await query.answer(f"🎉 Куплено: {theme['name']}! Нажми «Надеть».", show_alert=True)
+    if result.already_owned:
+        return await query.answer("✅ Эта тема уже есть в коллекции.", show_alert=True)
+    if result.replayed:
+        return await query.answer(f"✅ Покупка уже обработана: {result.theme_name}.", show_alert=True)
+    await query.answer(f"🎉 Куплено: {result.theme_name}! Нажми «Надеть».", show_alert=True)
 
     # Refresh view
     callback_data.action = "view"

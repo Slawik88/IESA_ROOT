@@ -16,11 +16,12 @@ from bot.middlewares.pet_bonuses_mw import pet_bonuses_middleware
 from bot.middlewares.streak_mw import streak_middleware
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 from bot.handlers import main_router
+from bot.handlers.payments import star_payment_reconciliation_task
 from infrastructure.database import create_pool
 from services.scheduler import (
     expedition_background_task, daily_deal_task,
-    duel_and_auction_task, chest_spawn_task,
-    smart_pulse_task, shadow_merchant_task,
+    duel_and_auction_task,
+    smart_pulse_task,
     crypto_alerts_task,
 )
 
@@ -119,7 +120,10 @@ async def main():
         pass  # Windows
 
     try:
-        await bot.delete_webhook(drop_pending_updates=True)
+        # A queued ``successful_payment`` is money already paid by a player.
+        # Never discard it during a rolling restart; the payment ledger makes a
+        # replay safe, and the Stars-history task below repairs a crash window.
+        await bot.delete_webhook(drop_pending_updates=False)
 
         # Update the menu button URL to the mini app.
         # MINIAPP_URL must be HTTPS for WebAppInfo (Telegram requirement).
@@ -155,10 +159,9 @@ async def main():
         asyncio.create_task(expedition_background_task(bot))
         asyncio.create_task(daily_deal_task())
         asyncio.create_task(duel_and_auction_task(bot))
-        asyncio.create_task(chest_spawn_task(bot))
         asyncio.create_task(smart_pulse_task(bot))
-        asyncio.create_task(shadow_merchant_task(bot))  # БЛОК 13.X/24.A
         asyncio.create_task(crypto_alerts_task(bot))    # VIP-алерты цен биржи
+        asyncio.create_task(star_payment_reconciliation_task(bot, pool))
 
         await dp.start_polling(bot)
     finally:

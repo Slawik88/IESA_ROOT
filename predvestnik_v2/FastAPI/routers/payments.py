@@ -3,23 +3,29 @@
 Mini App создаёт invoice-ссылку через Bot API createInvoiceLink (currency=XTR)
 и открывает её прямо в Telegram через tg.openInvoice(). Списание звёзд и
 начисление Зарников выполняет бот (bot/handlers/payments.py): pre_checkout_query
-подтверждает платёж, а successful_payment начисляет ровно столько Зарников,
-сколько закодировано в payload "zarniki:{amount}". Тот же payload — тот же
-обработчик, что и при покупке через чат: деньги/начисление гарантированы ботом.
+подтверждает платёж, а successful_payment валидирует общий versioned invoice
+contract. Новый счёт никогда не использует legacy payload.
 """
 import os
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, StrictInt
 
 from FastAPI.deps import require_tg_user
+from infrastructure.preprod import stars_invoice_issuance_allowed
 from core.constants import ZARNIKI_PER_STAR, STARS_PACKAGES, STARS_MOST_POPULAR
+from core.payment_contract import (
+    MAX_STARS,
+    STARS_CURRENCY,
+    custom_quote,
+    invoice_payload,
+    is_issuable_v1_quote,
+    is_stars_amount,
+    package_quote,
+)
 
 router = APIRouter(prefix="/payments", tags=["payments"])
-
-_MAX_STARS = 100_000
-
 
 async def _tg_call(method: str, **kwargs) -> dict:
     token = os.getenv("BOT_TOKEN", "")
@@ -49,33 +55,40 @@ async def zarniki_packages(user=Depends(require_tg_user)):
             for s, base, bonus in STARS_PACKAGES
         ],
         "custom_min": 1,
-        "custom_max": _MAX_STARS,
+        "custom_max": MAX_STARS,
     }
 
 
 class InvoiceRequest(BaseModel):
-    stars: int
+    stars: StrictInt
 
 
 @router.post("/zarniki/invoice")
 async def zarniki_invoice(body: InvoiceRequest, user=Depends(require_tg_user)):
     """Создаёт Stars-invoice (XTR) и возвращает ссылку для tg.openInvoice()."""
-    stars = int(body.stars)
-    if not (1 <= stars <= _MAX_STARS):
-        raise HTTPException(400, f"Количество звёзд: от 1 до {_MAX_STARS}.")
+    if not stars_invoice_issuance_allowed():
+        raise HTTPException(
+            403,
+            "Покупки Stars отключены на изолированном тестовом стенде.",
+        )
+    stars = body.stars
+    if not is_stars_amount(stars):
+        raise HTTPException(400, f"Количество звёзд: от 1 до {MAX_STARS}.")
 
-    # Пакетные покупки получают бонус; кастомная сумма — по тарифу без бонуса
-    pkg = next((p for p in STARS_PACKAGES if p[0] == stars), None)
-    zarniki = (pkg[1] + pkg[2]) if pkg else (stars * ZARNIKI_PER_STAR)
+    quote = package_quote(stars) or custom_quote(stars)
+    if not quote or not is_issuable_v1_quote(quote):
+        # A tariff revision must introduce a new frozen payload version before
+        # selling anything.  Do not create an invoice the bot will reject.
+        raise HTTPException(503, "Покупка временно обновляется. Попробуйте чуть позже.")
     res = await _tg_call(
         "createInvoiceLink",
         title="Зарники ✨",
-        description=f"{zarniki}✨ Зарников для Предвестника",
-        payload=f"zarniki:{zarniki}",
+        description=f"{quote.zarniki}✨ Зарников для Предвестника",
+        payload=invoice_payload(quote),
         provider_token="",          # пусто для оплаты Telegram Stars
-        currency="XTR",
-        prices=[{"label": f"{zarniki}✨ Зарников", "amount": stars}],
+        currency=STARS_CURRENCY,
+        prices=[{"label": f"{quote.zarniki}✨ Зарников", "amount": quote.stars}],
     )
     if not res.get("ok") or not res.get("result"):
         raise HTTPException(502, "Не удалось создать счёт. Попробуйте позже.")
-    return {"link": res["result"], "stars": stars, "zarniki": zarniki}
+    return {"link": res["result"], "stars": quote.stars, "zarniki": quote.zarniki}

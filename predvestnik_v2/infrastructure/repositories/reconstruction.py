@@ -19,6 +19,7 @@ async def ensure_tables(db) -> None:
             completed_json     TEXT NOT NULL DEFAULT '[]',
             memories_json      TEXT NOT NULL DEFAULT '[]',
             route_choices_json TEXT NOT NULL DEFAULT '{}',
+            last_difficulty_profile TEXT NOT NULL DEFAULT 'standard',
             started_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             PRIMARY KEY (user_id, game_version)
@@ -27,6 +28,10 @@ async def ensure_tables(db) -> None:
     await db.execute(
         "ALTER TABLE gameplay_progress ADD COLUMN IF NOT EXISTS "
         "route_choices_json TEXT NOT NULL DEFAULT '{}'"
+    )
+    await db.execute(
+        "ALTER TABLE gameplay_progress ADD COLUMN IF NOT EXISTS "
+        "last_difficulty_profile TEXT NOT NULL DEFAULT 'standard'"
     )
     await db.execute("""
         CREATE TABLE IF NOT EXISTS gameplay_runs (
@@ -196,6 +201,7 @@ def _decode_progress(row: Any) -> dict[str, Any] | None:
     data["completed"] = json.loads(data.pop("completed_json") or "[]")
     data["memories"] = json.loads(data.pop("memories_json") or "[]")
     data["route_choices"] = json.loads(data.pop("route_choices_json") or "{}")
+    data["last_difficulty_profile"] = str(data.get("last_difficulty_profile") or "standard")
     return data
 
 
@@ -243,6 +249,16 @@ async def save_progress(
             user_id,
             game_version,
         ),
+    )
+
+
+async def set_last_difficulty_profile(
+    db, user_id: int, game_version: str, difficulty_id: str
+) -> None:
+    await db.execute(
+        "UPDATE gameplay_progress SET last_difficulty_profile = ?, updated_at = NOW() "
+        "WHERE user_id = ? AND game_version = ?",
+        (str(difficulty_id), int(user_id), game_version),
     )
 
 

@@ -54,52 +54,35 @@ def _odds_label(e: dict, reg: dict) -> str:
 
 @router.get("/odds")
 async def gacha_odds():
-    """Честные шансы каждой крутки: полная таблица дропа с процентами (прозрачность).
-    Публичная игровая инфа — без авторизации."""
-    from core.registry import ITEMS_REGISTRY
-    out = {}
-    for spin_type, table in GACHA_TABLES.items():
-        total = sum(e.get("weight", 0) for e in table) or 1
-        entries = [
-            {"label": _odds_label(e, ITEMS_REGISTRY),
-             "pct": round(e.get("weight", 0) / total * 100, 1),
-             "valuable": bool(e.get("valuable"))}
-            for e in table
-        ]
-        entries.sort(key=lambda x: -x["pct"])
-        out[spin_type] = {"label": SPIN_TYPE_LABELS.get(spin_type, spin_type), "entries": entries}
-    return {"tables": out}
+    """Fail-closed compatibility response for the retired random reward catalog."""
+    return {
+        "retired": True,
+        "tables": {},
+        "message": "Случайные награды закрыты. Сохранённые права будут разобраны в Архиве без скрытых шансов.",
+    }
 
 
 @router.get("/")
 async def gacha_info(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Типы круток, стоимость, ставки редкости и пити у пользователя."""
+    """Read-only receipt for saved tokens/pity while Archive conversion is pending."""
     bal = await get_balance(db, user["id"])
-    types = []
+    saved_tokens = 0
+    saved_pity = []
     for spin_type, cost in SPIN_COSTS.items():
         token_qty = await get_item_quantity(db, user["id"], SPIN_TOKEN_IDS.get(spin_type, ""))
         pity = await get_pity(db, user["id"], spin_type)
-        hard = PITY_HARD.get(spin_type, 60)
-        disc_cost_mora = round(cost["mora"] * SPIN_MULTI_COUNT * (1 - SPIN_MULTI_DISCOUNT))
-        disc_cost_dia  = round(cost["diamonds"] * SPIN_MULTI_COUNT * (1 - SPIN_MULTI_DISCOUNT), 1)
-        types.append({
-            "spin_type":      spin_type,
-            "label":          SPIN_TYPE_LABELS.get(spin_type, spin_type),
-            "cost_mora":      cost["mora"],
-            "cost_dia":       cost["diamonds"],
-            "token_qty":      token_qty,
-            "rates":          _compute_rates(spin_type),
-            "pity":           pity,
-            "pity_hard":      hard,
-            "multi_cost_mora": disc_cost_mora,
-            "multi_cost_dia":  disc_cost_dia,
-        })
+        saved_tokens += int(token_qty or 0)
+        if pity:
+            saved_pity.append({"type": spin_type, "count": int(pity)})
     return {
+        "retired": True,
+        "archive_pending": True,
+        "message": "Крутки больше не продают силу и валюту. Жетоны и накопленный гарант сохранены для прозрачного разбора в Архиве.",
         "mora":      float(bal["user_balance_mora"] or 0),
         "diamonds":  float(bal["user_balance_diamonds"] or 0),
-        "spin_types": types,
-        "multi_count": SPIN_MULTI_COUNT,
-        "multi_discount_pct": int(SPIN_MULTI_DISCOUNT * 100),
+        "spin_types": [],
+        "saved_tokens": saved_tokens,
+        "saved_pity": saved_pity,
     }
 
 
@@ -172,6 +155,7 @@ class SpinRequest(BaseModel):
 @router.post("/spin")
 async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Один спин выбранного типа крутки."""
+    raise HTTPException(410, "Случайные крутки закрыты. Жетоны и гарант сохранены для Архива.")
     ok, result = await roll_single(db, user["id"], body.spin_type)
     if not ok:
         raise HTTPException(400, result)
@@ -217,6 +201,7 @@ async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_us
 @router.post("/multi-spin")
 async def multi_spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """10× мультикрутка со скидкой."""
+    raise HTTPException(410, "Случайные крутки закрыты. Жетоны и гарант сохранены для Архива.")
     ok, results = await roll_multi(db, user["id"], body.spin_type, count=SPIN_MULTI_COUNT)
     if not ok:
         raise HTTPException(400, results)

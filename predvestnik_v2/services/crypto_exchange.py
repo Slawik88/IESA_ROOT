@@ -22,14 +22,14 @@ import time
 # амплитуда ±4–8% сопоставима с round-trip-комиссией 10% (CRYPTO_TRADE_FEE×2) ⇒ покупка
 # ниже base и продажа у base убыточна. Разнообразие сохранено (Луминар тихий, Пирон/Солмар бойкие).
 COINS: list[dict] = [
-    {"id": "abyssite", "name": "Абиссит",  "emoji": "🌑", "base": 1200.0, "vol": 0.07},
-    {"id": "luminar",  "name": "Луминар",  "emoji": "✨", "base": 800.0,  "vol": 0.04},
-    {"id": "verdane",  "name": "Вердан",   "emoji": "🌿", "base": 350.0,  "vol": 0.05},
-    {"id": "pyron",    "name": "Пирон",    "emoji": "🔥", "base": 2100.0, "vol": 0.08},
-    {"id": "aquilon",  "name": "Аквилон",  "emoji": "💧", "base": 620.0,  "vol": 0.05},
-    {"id": "zephyr",   "name": "Зефир",    "emoji": "🌪", "base": 480.0,  "vol": 0.07},
-    {"id": "cryon",    "name": "Крион",    "emoji": "❄️", "base": 1500.0, "vol": 0.06},
-    {"id": "solmar",   "name": "Солмар",   "emoji": "☀️", "base": 3000.0, "vol": 0.08},
+    {"id": "abyssite", "name": "Абиссит", "emoji": "🌑", "base": 1200.0, "vol": 0.07, "region": "Бездна", "use": "походы в глубины"},
+    {"id": "luminar", "name": "Луминар", "emoji": "✨", "base": 800.0, "vol": 0.04, "region": "Архив", "use": "исследование Памятей"},
+    {"id": "verdane", "name": "Вердан", "emoji": "🌿", "base": 350.0, "vol": 0.05, "region": "Сады", "use": "забота о спутниках"},
+    {"id": "pyron", "name": "Пирон", "emoji": "🔥", "base": 2100.0, "vol": 0.08, "region": "Пепельный путь", "use": "опасные контракты"},
+    {"id": "aquilon", "name": "Аквилон", "emoji": "💧", "base": 620.0, "vol": 0.05, "region": "Прилив", "use": "морские маршруты"},
+    {"id": "zephyr", "name": "Зефир", "emoji": "🌪", "base": 480.0, "vol": 0.07, "region": "Высокие тропы", "use": "разведка сигналов"},
+    {"id": "cryon", "name": "Крион", "emoji": "❄️", "base": 1500.0, "vol": 0.06, "region": "Мёрзлая грань", "use": "сдерживание угроз"},
+    {"id": "solmar", "name": "Солмар", "emoji": "☀️", "base": 3000.0, "vol": 0.08, "region": "Солнечный предел", "use": "союзные проекты"},
 ]
 _BY_ID = {c["id"]: c for c in COINS}
 
@@ -38,10 +38,30 @@ _BY_ID = {c["id"]: c for c in COINS}
 # задан, цены станут предсказуемыми → ВСЕГДА задавай CRYPTO_SEED/BOT_TOKEN на проде.
 _PRICE_SECRET = os.getenv("CRYPTO_SEED") or os.getenv("BOT_TOKEN") or "predvestnik-cx-dev-seed"
 _BUCKET_SEC = 1800  # узлы блуждания каждые 30 минут (между ними — гладко)
+_WORLD_PERIOD_SEC = 7 * 24 * 3600
+WORLD_PHASES: tuple[dict, ...] = (
+    {"id": "deep_tide", "name": "Глубокий прилив", "focus": ("abyssite", "aquilon"), "summary": "Экспедиции исследуют затопленные пути."},
+    {"id": "ash_procession", "name": "Пепельное шествие", "focus": ("pyron", "solmar"), "summary": "Караваны идут через Пепельный путь."},
+    {"id": "archive_wake", "name": "Пробуждение Архива", "focus": ("luminar", "zephyr"), "summary": "Архив открывает новые сигналы и маршруты."},
+    {"id": "winter_garden", "name": "Зимний сад", "focus": ("verdane", "cryon"), "summary": "Сады и Мёрзлая грань обмениваются редкими запасами."},
+)
 
 
 def get_coin(coin_id: str) -> dict | None:
     return _BY_ID.get(coin_id)
+
+
+def world_phase(t: float | None = None) -> dict:
+    """Published weekly lore phase; the same result is visible to every player."""
+    now = time.time() if t is None else float(t)
+    period = math.floor(now / _WORLD_PERIOD_SEC)
+    phase = WORLD_PHASES[period % len(WORLD_PHASES)]
+    return {
+        **phase,
+        "period": period,
+        "ends_at": int((period + 1) * _WORLD_PERIOD_SEC),
+        "focused_volatility": 1.2,
+    }
 
 
 def _node(coin_id: str, idx: int) -> float:
@@ -58,7 +78,9 @@ def price_at(coin: dict, t: float) -> float:
     frac = b - i
     w = frac * frac * (3 - 2 * frac)  # smoothstep → непрерывная гладкая цена
     noise = (_node(coin["id"], i) * (1 - w) + _node(coin["id"], i + 1) * w) * 2 - 1  # [-1,1]
-    f = 1.0 + noise * coin["vol"]
+    phase = world_phase(t)
+    phase_vol = 1.2 if coin["id"] in phase["focus"] else 0.9
+    f = 1.0 + noise * coin["vol"] * phase_vol
     return round(max(coin["base"] * 0.20, coin["base"] * f), 2)
 
 

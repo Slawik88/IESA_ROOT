@@ -8,10 +8,8 @@ from .marriage import router as marriage_router
 from .stats import router as stats_router
 from .moderation import router as mod_router
 from .global_moderation import router as global_mod_router
-from .events import router as events_router
 from .routing import router as routing_router
 from .purge import router as purge_router
-from .expeditions import router as expeditions_router
 from .streak import router as streak_router
 from .identity import router as identity_router
 from .nicknames import router as nicknames_router
@@ -31,7 +29,7 @@ from . import dev
 # Их старые алиасы ловит web_redirect_router (тонкая кнопка-редирект, без мёртвых команд).
 # Удалены из чата: shop, daily_deal, gacha, auction, themes, craft, relics, exchange,
 #   duel, battle_pass, quests, inventory, achievements, pet_showcase, zoo, notifications, clans.
-# Оставлены: лёгкие/соц (поход/стрик/ник/варпы/брак/контрабанда/промо/вип/я/профиль/топ),
+# Оставлены: лёгкие/соц (стрик/ник/варпы/брак/промо/вип/я/профиль/топ),
 #   мини-игры (нет веб-UI), god-логи (dev), вся админка. XP/прогресс/выдача наград работают
 #   в бэке через increment_metric/services — это НЕ чат-роутеры.
 
@@ -49,10 +47,8 @@ main_router.include_routers(
     mod_router,        # до marriage: "снять варн/мут/защиту" перехватывается раньше чем "снять"
     global_mod_router, # B6: глобальная модерация (глоб варн/ограничить/бан, апелляция)
     marriage_router,   # брак @user + просмотр браков чата + семейный банк/подарки (соц, оставлен)
-    events_router,
     routing_router,
     purge_router,
-    expeditions_router,    # бот поход (оставлен)
     streak_router,
     nicknames_router,      # бот мой ник
     wallet_history_router, # god-логи кошелька (dev)

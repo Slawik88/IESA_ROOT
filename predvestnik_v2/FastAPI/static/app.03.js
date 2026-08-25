@@ -239,11 +239,19 @@ function doBpClaimChoice(level,track,idx) {
 let _expOpts=null;   // данные лаунчера похода (GET /zoo/expedition-options)
 function loadZoo() {
   el('zoo-c').innerHTML='<div class="loader">Загрузка...</div>';
-  Promise.all([api('/zoo/'),api('/zoo/expeditions'),api('/zoo/expedition-options').catch(()=>null)]).then(([data,expData,expOpts])=>{
+  Promise.all([api('/zoo/'),api('/zoo/expeditions')]).then(([data,expData])=>{
     _zooData=data;
-    _expOpts=expOpts;
-    renderExps(expData);
-    renderZoo(_zooTab);
+    const pets=data.pets||[];
+    const activeOld=(expData.expeditions||[]).length;
+    el('zoo-exp-wrap').innerHTML=activeOld
+      ? `<div class="card" style="margin-bottom:10px"><div class="card-title">🗺 Завершается старый поход</div><div style="font-size:11px;color:var(--muted);line-height:1.5">${activeOld} активн. · результат будет выдан один раз по прежним условиям.</div></div>`:'';
+    el('zoo-c').innerHTML=`<div class="card" style="padding:16px">
+      <div class="card-title">🐾 Спутники</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.55">Все твои питомцы, имена и редкость сохранены. Старые уровни остаются частью истории, но больше не печатают валюту и не повышают силу.</div>
+      <div class="irow" style="margin-top:10px"><span class="ik">В коллекции</span><span class="iv">${pets.length}</span></div>
+      <div class="irow"><span class="ik">Новая система</span><span class="iv">роль + связь</span></div>
+      <button class="btn btn-gold btn-sm" style="margin-top:12px" onclick="openReconstructionGame()">Открыть спутников ›</button>
+    </div>`;
   }).catch(e=>{el('zoo-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 function renderExps(d) {
@@ -742,13 +750,7 @@ function _execBuySlot() {
 // затем обычная покупка. Не женат → сразу личный, без модалки.
 let _pendingPay = null;  // {currency, amount, proceed}
 function withPaymentSource(currency, amount, proceed) {
-  if (!_profileData || !_profileData.partner) { proceed(); return; }
-  _pendingPay = { currency, amount, proceed };
-  const icon = {mora:'🪙',diamonds:'💎',dark_mora:'🌑',zarniki:'✨'}[currency] || '';
-  OM('💳 Чем оплатить?',
-    `<div style="text-align:center;padding:8px 0;color:var(--muted);font-size:12px">К оплате: <b style="color:var(--gold2)">${fmt(amount)} ${icon}</b></div>`,
-    [{l:'👤 Личный счёт', c:'btn-gold', f:'paySrc(0)'},
-     {l:'💑 Семейный кошелёк', c:'btn-ghost', f:'paySrc(1)'}]);
+  proceed();
 }
 function paySrc(useFamily) {
   const p = _pendingPay; _pendingPay = null; CM();

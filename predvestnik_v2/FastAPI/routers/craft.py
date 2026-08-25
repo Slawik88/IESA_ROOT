@@ -8,15 +8,14 @@ router = APIRouter(prefix="/craft", tags=["craft"])
 
 @router.get("/")
 async def craftable(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Рецепты с количеством ингредиентов у пользователя."""
-    return await get_craftable_list(db, user["id"])
+    """Preserved recipe catalogue; no new crafting in economy v3."""
+    return {
+        "retired": True,
+        "recipes": [],
+        "message": "Старый крафт закрыт. Материалы сохранены и не расходуются.",
+    }
 
 
 @router.post("/{recipe_id}")
 async def do_craft(recipe_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Скрафтить предмет по рецепту."""
-    result = await craft(db, user["id"], recipe_id)
-    if not result["ok"]:
-        raise HTTPException(400, result["reason"])
-    await db.commit()
-    return result
+    raise HTTPException(410, "Старый крафт закрыт. Материалы сохранены и не расходуются.")

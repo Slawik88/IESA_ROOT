@@ -6,17 +6,24 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tab_enabled, require_tg_user
 from services import reconstruction as game
 from services import companions_v3 as companions
 
 
-router = APIRouter(prefix="/reconstruction", tags=["reconstruction"])
+router = APIRouter(
+    prefix="/reconstruction",
+    tags=["reconstruction"],
+    # The game is a dev-only vertical until the owner enables its explicit
+    # system flag; hiding the entry point alone must never leave write routes.
+    dependencies=[Depends(require_tab_enabled("game_reconstruction_v1"))],
+)
 
 
 class StartBody(BaseModel):
     encounter_id: str = game.FIRST_ENCOUNTER
     practice: bool = False
+    difficulty_id: Literal["support", "standard", "challenge"] | None = None
 
 
 class ActionBody(BaseModel):
@@ -98,6 +105,7 @@ async def start(body: StartBody, db=Depends(get_db), user=Depends(require_tg_use
             body.encounter_id,
             practice=body.practice,
             companion_role_id=companion_role_id,
+            difficulty_id=body.difficulty_id,
         )
     except game.ReconstructionError as exc:
         _raise_service_error(exc)

@@ -76,7 +76,7 @@ try {
       sessionStorage.setItem('reconstruction-preview-session', key);
       sessionStorage.setItem('reconstruction-mvp-ui-v1', JSON.stringify({ view: 'choice', tab: 'play' }));
     }, session);
-    await page.goto(`${base}/static/reconstruction-lab.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${base}/__preview/reconstruction-lab`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#choiceLayer:not([hidden]) .archivist-review');
     const metrics = await page.evaluate(() => {
       const reviewNode = document.querySelector('.archivist-review');

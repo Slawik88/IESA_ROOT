@@ -52,6 +52,15 @@ python tools/audit_release_whatsnew.py \
 - синтаксис всех изменённых Python/JavaScript-файлов;
 - профильные unit/integration/UI тесты;
 - `npm run check:preview` и проверка `tools/unknown-api.log`;
+- `python tools/test_static_delivery_contract.py`, если затронуты preview, ассеты
+  или HTML: внутренние файлы не должны стать публичными, а CSS-зависимости не могут
+  существовать только на localhost;
+- `tools/test_static_delivery_asgi.py` в окружении с production Python-зависимостями,
+  если менялись FastAPI static routes или `ROOT_PATH`: матрица 200/404, MIME и
+  `/predvestnik` должны проходить на самом ASGI-приложении;
+- `verify_reconstruction_preview_contract.mjs`, если менялись `/game`, Reconstruction
+  bridge или production HTTP-контракт: browser должен использовать `/reconstruction`,
+  а не raw dev route;
 - ручной просмотр затронутых экранов на 320/390/430 px;
 - отдельная ревизия diff после тестов;
 - dry-run всех миграций с планом отката;

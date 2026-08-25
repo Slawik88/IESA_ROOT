@@ -138,11 +138,11 @@ async def _init_users_and_chats(db):
         # БЛОК22 (compliance): принятие ToS/Privacy. DEFAULT NULL → текущие игроки
         # «не приняли» → их ловит легаси-гард (бот-middleware + блок-модалка сайта).
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS tos_accepted_at TIMESTAMP DEFAULT NULL",
-        # R0/R1 (GDD_REBUILD_PLAN.md): прогрессия аккаунта — глобальный XP/уровень
-        # (экспоненциальная кривая) и кэш Индекса Силы. Зеркало: users.ensure_account_columns.
+        # Прогрессия аккаунта — глобальный XP/уровень. Legacy CP intentionally
+        # has no startup migration; historical values remain untouched in an
+        # already existing column until a separately approved data plan.
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_xp BIGINT DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_level INTEGER DEFAULT 1",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_power INTEGER DEFAULT 0",
         # Growth-полиш 2026-07-13: кто привёл игрока (referral deep-link /start ref<id>).
         # NULL по умолчанию = не по рефералке / уже играл до фичи. DEFAULT NULL —
         # атомарный гард на выдачу сигнап-бонуса делает services/referral.py по
@@ -1258,6 +1258,7 @@ async def _init_system_flags(db):
         ("tab_cosmetics",          "🎨 Косметика / Образы", 1),
         ("tab_quests",             "📋 Квесты", 1),
         ("game_reconstruction_v1", "🧭 Reconstruction 3.0 (dev)", 0),
+        ("reconstruction_real_settlement_v1", "🧾 Reconstruction: реальные награды", 0),
     ]
     for key, label, enabled in _defaults:
         await db.execute(
@@ -1477,12 +1478,32 @@ async def init_db():
         from infrastructure.pg_adapter import PGAdapter as _LedgerPGAdapter
         from infrastructure.repositories.economy_ledger import ensure_tables as _ensure_ledger
         await _ensure_ledger(_LedgerPGAdapter(db))
+        # Production starts FastAPI with lifespan="off" (see bot/__main__.py),
+        # therefore every table used by the current release must also be
+        # ensured here.  These calls are schema-only and idempotent; player
+        # migration/compensation is deliberately never hidden in startup.
+        from infrastructure.repositories.reconstruction import ensure_tables as _ensure_reconstruction
+        from infrastructure.repositories.gameplay_events import ensure_table as _ensure_gameplay_events
+        from infrastructure.repositories.economy_shadow import ensure_table as _ensure_economy_shadow
+        from infrastructure.repositories.reconstruction_settlements import ensure_table as _ensure_reconstruction_settlements
+        from infrastructure.repositories.reconstruction_units import ensure_tables as _ensure_reconstruction_units
+        from infrastructure.repositories.companions_v3 import ensure_tables as _ensure_companions_v3
+        from infrastructure.repositories.alliance_v3 import ensure_table as _ensure_alliance_v3
+        for _ensure_current in (
+            _ensure_reconstruction,
+            _ensure_gameplay_events,
+            _ensure_economy_shadow,
+            _ensure_reconstruction_settlements,
+            _ensure_reconstruction_units,
+            _ensure_companions_v3,
+            _ensure_alliance_v3,
+        ):
+            await _ensure_current(_LedgerPGAdapter(db))
         await _init_progression_and_economy(db)
         await _init_events_and_moderation(db)
         await _init_features_extra(db)
         await _init_clans(db)
         await _init_crypto(db)
-        await _init_combat(db)
         await _init_system_flags(db)
         # Growth-полиш 2026-07-13: числовые дев-настройки (порог реактивации
         # тихого чата и т.п.) — тот же ?-плейсхолдерный repo-путь, что push/units.
@@ -1495,31 +1516,9 @@ async def init_db():
         from infrastructure.repositories.push import ensure_table as _ensure_push
         from infrastructure.pg_adapter import PGAdapter as _PGAdapter
         await _ensure_push(_PGAdapter(db))
-        # R2: сессии Боя 2.0 + одноразовая миграция старых Теневых Врат
-        # (принудительный collect активных забегов по старым правилам; после
-        # первого прогона строк в shadow_gate_runs нет — no-op).
-        from infrastructure.repositories.battles import ensure_table as _ensure_battles
-        from infrastructure.repositories.shadow_gates import migrate_all_to_gates2 as _mig_gates
-        await _ensure_battles(_PGAdapter(db))
-        _migrated = await _mig_gates(_PGAdapter(db))
-        if _migrated:
-            logger.info(f"R2: закрыто {_migrated} забегов старых Врат (лут начислен)")
-        # R3: Кланы 2.0 — казна/здания/Бездна/войны + конверсия клан-монет
-        from infrastructure.repositories.clans2 import (
-            ensure_tables as _ensure_clans2, migrate_clan_coins_to_shards as _mig_coins)
-        from core.constants import CLAN_COINS_TO_SHARDS
-        await _ensure_clans2(_PGAdapter(db))
-        _conv = await _mig_coins(_PGAdapter(db), CLAN_COINS_TO_SHARDS)
-        if _conv:
-            logger.info(f"R3: клан-монеты сконвертированы в 🔷 у {_conv} игроков")
-        # Боёвка 3.0: юниты Казармы + одноразовая компенсация 🔷 за выпиленный
-        # боевой слой мирных питомцев (маркер schema_migrations)
-        from infrastructure.repositories.units import ensure_tables as _ensure_units
-        from services.barracks import compensate_pets_migration as _b3_comp
-        await _ensure_units(_PGAdapter(db))
-        _n_comp = await _b3_comp(_PGAdapter(db))
-        if _n_comp:
-            logger.info(f"Боёвка 3.0: компенсация 🔷 выдана {_n_comp} игрокам")
+        # Closed combat tables are deliberately not created or migrated on
+        # startup. Existing rows stay untouched for history/recovery until the
+        # separately approved compensation and deletion plan.
         # R4.2/R7 HOTFIX: витрина недели + мини-игры. Эти ensure есть в
         # lifespan веба, но на проде он может не отработать (логи 2026-07-08:
         # relation "weekly_showcase"/"minigame_sessions" does not exist → 500).

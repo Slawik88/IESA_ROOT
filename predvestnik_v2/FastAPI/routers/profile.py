@@ -13,7 +13,6 @@ from infrastructure.repositories.streak import get_global_streak
 from services.roles import GLOBAL_RANKS_MAP
 from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
 from services.leveling import account_progress
-from services.combat_power import calculate_cp
 from services.formatting import safe_html
 from services.vip import is_vip_active, get_vip_info
 from services.cosmetics import get_active_cosmetics
@@ -119,13 +118,6 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         raise HTTPException(404, "Профиль не найден. Напишите боту чтобы зарегистрироваться.")
 
     _acc_prog = account_progress(int(row["account_xp"] or 0))
-    # R1: Индекс Силы — свежий расчёт + обновление кэша (users.combat_power)
-    _cp = await calculate_cp(db, user_id)
-    await db.execute(
-        "UPDATE users SET combat_power = ? WHERE user_tg_id = ?",
-        (_cp["total"], user_id),
-    )
-
     # Топ-5 чатов по активности
     async with db.execute(
         "SELECT ucs.chat_tg_id, cs.chat_title, ucs.user_level, ucs.user_xp, "
@@ -214,8 +206,10 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "xp_into":       _acc_prog["xp_into"],
         "xp_to_next":    _acc_prog["xp_need"],
         "xp_per_level":  _acc_prog["xp_need"] or 1,
-        "combat_power":  _cp["total"],
-        "cp_breakdown":  _cp,
+        # Legacy CP is intentionally unavailable: it must not be recalculated
+        # from retired units or presented as power in Reconstruction.
+        "combat_power":  None,
+        "cp_breakdown":  None,
         "chats":        chats,
         "pets":         pets,
         "is_vip":       bool(row["is_vip"]),
@@ -327,8 +321,8 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
 
     # «Настоящий профиль»: партнёр по браку (публично, как и в /me), побед в дуэлях
     # (raw-прогресс метрики duel_wins, не капается порогами ачивки), лучшая ачивка
-    # (по уровню, для престиж-бейджа), VIP-тир (не просто корона), этаж Врат (лучший
-    # пройденный), дата первого сообщения (стаж игрока) — см. brainstorm 2026-07-23.
+    # (по уровню, для престиж-бейджа), VIP-тир (не просто корона) и дата первого
+    # сообщения (стаж игрока). Legacy Gates and CP are not read here.
     async with db.execute(
         "SELECT p2.user_tg_username "
         "FROM marriages m "
@@ -354,13 +348,6 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
 
     vip_info = await get_vip_info(db, target_id)
 
-    async with db.execute(
-        "SELECT MAX(ref_id) FROM battles WHERE user_id = ? AND mode = 'gates' AND status = 'won'",
-        (target_id,),
-    ) as c:
-        gates_row = await c.fetchone()
-    gates_floor = int(gates_row[0]) if gates_row and gates_row[0] else 0
-
     joined_date = await get_first_seen(db, target_id)
 
     return {
@@ -369,7 +356,7 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
         "rank":         _RANK_NAMES.get(row["global_rank"] or 0, "👤 Пользователь"),
         "global_rank":  row["global_rank"] or 0,
         "level":        agg["lvl"],
-        "combat_power": (await calculate_cp(db, target_id))["total"],
+        "combat_power": None,
         "messages":     int(agg["msgs"] or 0),
         "streak":       streak,
         "achievements": ach,
@@ -380,7 +367,7 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
         # (раньше у чужого VIP там висела только корона-заглушка).
         "avatar":       await _vip_avatar(db, target_id),
         "vip_tier_label": vip_info["tier_label"] if vip_info else None,
-        "gates_floor":  gates_floor,
+        "gates_floor":  None,
         "joined_date":  joined_date,
         "partner":      partner,
         "duel_wins":    duel_wins,

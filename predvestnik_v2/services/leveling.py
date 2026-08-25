@@ -1,4 +1,4 @@
-# services/leveling.py — прогрессия уровня аккаунта (R0, GDD_REBUILD_PLAN.md).
+# services/leveling.py — прогрессия уровня аккаунта.
 #
 # Уровень аккаунта ГЛОБАЛЬНЫЙ (users.account_xp / users.account_level):
 # экспоненциальная кривая XP_req(L→L+1) = ACC_XP_BASE × ACC_XP_GROWTH^(L−1).

@@ -14,7 +14,9 @@ const page = await browser.newPage();
 await page.setViewport({width: 390, height: 844, deviceScaleFactor: 2});
 await page.goto('http://localhost:8402/', {waitUntil: 'load'});
 await page.waitForFunction(() => typeof openLooksModal === 'function');
-await page.mouse.click(195, 700);
+await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
 await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
 await page.evaluate(() => openLooksModal());
 await page.waitForFunction(() => _activePage === 'looks' && !!_looksData);
@@ -39,6 +41,9 @@ const state = await page.evaluate(() => {
   const collection = body?.querySelector('.fit-collection-card');
   const rows = [...(body?.querySelectorAll('.fit-outfit-row') || [])];
   const profile = body?.querySelector('.fit-player-card');
+  const profileMain=profile?.querySelector('.profile-showcase-main');
+  const profileCanvas=profile?.querySelector('.character-showcase-area');
+  const profileRail=profile?.querySelector('.player-data-rail--compact');
   const footerButtons = [...document.querySelectorAll('#mf .btn')];
   const frameHalo = profile?.querySelector('.ava.frame-crystal.halo-ice');
   const rowRects = rows.map(row => row.getBoundingClientRect());
@@ -58,7 +63,28 @@ const state = await page.evaluate(() => {
     }),
     bodyFitsWithoutScroll: !!body && body.scrollHeight <= body.clientHeight + 1,
     noHorizontalOverflow: !!body && body.scrollWidth <= body.clientWidth,
-    profileHeight: profile?.getBoundingClientRect().height || 0,
+    profileUsesCurrentStructure: !!(profile?.classList.contains('profile-showcase-card--fitting')
+      && profile.querySelector('.character-showcase-area')
+      && profile.querySelector('.player-data-rail')
+      && profile.querySelector('.profile-resource-rail')),
+    profileStageSize: profile?.querySelector('.character-showcase-portrait')?.getBoundingClientRect().width || 0,
+    profileFullyVisible: !!profile && profile.getBoundingClientRect().top >= body.getBoundingClientRect().top
+      && profile.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom,
+    compactRailRows: profileRail ? getComputedStyle(profileRail).gridTemplateRows.split(' ').filter(Boolean).length : 0,
+    compactRailFits: !!profileMain && !!profileRail && [...profileRail.children].length===3
+      && profileRail.getBoundingClientRect().bottom <= profileMain.getBoundingClientRect().bottom + 1,
+    compactCanvasFits: !!profileMain && !!profileCanvas
+      && profileCanvas.getBoundingClientRect().bottom <= profileMain.getBoundingClientRect().bottom + 1,
+    compactCanvasPaddingBottom: profileCanvas ? parseFloat(getComputedStyle(profileCanvas).paddingBottom) : Infinity,
+    compactGeometry: {
+      main: profileMain ? {top:profileMain.getBoundingClientRect().top,bottom:profileMain.getBoundingClientRect().bottom,height:profileMain.getBoundingClientRect().height} : null,
+      canvas: profileCanvas ? {top:profileCanvas.getBoundingClientRect().top,bottom:profileCanvas.getBoundingClientRect().bottom,height:profileCanvas.getBoundingClientRect().height} : null,
+      rail: profileRail ? {top:profileRail.getBoundingClientRect().top,bottom:profileRail.getBoundingClientRect().bottom,height:profileRail.getBoundingClientRect().height} : null,
+      railChildren: profileRail ? [...profileRail.children].map(item=>item.getBoundingClientRect().height) : [],
+    },
+    fittingCaptionHidden: profile
+      ? getComputedStyle(profile.querySelector('.character-showcase-caption')).display === 'none'
+      : false,
     resetIsSecondaryWidth: footerRects.length === 2 && footerRects[0].width < footerRects[1].width,
     minFooterTarget: footerRects.length ? Math.min(...footerRects.map(rect => rect.height)) : 0,
     actionText: footerButtons[1]?.textContent.replace(/\s+/g, ' ').trim() || '',
@@ -84,7 +110,10 @@ check('items share one collection surface instead of six bordered mini-cards', s
 check('all six cosmetic names remain fully readable', state.allNamesFullyVisible);
 check('the complete 6/6 composition fits in the 390px sheet without hidden rows', state.bodyFitsWithoutScroll);
 check('the 6/6 composition has no horizontal overflow', state.noHorizontalOverflow);
-check('the real profile preview remains large enough to judge the cosmetic set', state.profileHeight >= 300);
+check('the current player-card scene remains visible and identifiable in the fitting sheet',
+  state.profileUsesCurrentStructure && state.profileStageSize >= 60 && state.profileFullyVisible && state.fittingCaptionHidden);
+check('the compact fitting card has exactly three data rows without overlapping its resource rail',
+  state.compactRailRows === 3 && state.compactRailFits && state.compactCanvasFits && state.compactCanvasPaddingBottom < 20);
 check('reset stays visually secondary to the purchase action', state.resetIsSecondaryWidth);
 check('both fitting-room footer actions keep a 44px mobile touch target', state.minFooterTarget >= 44);
 check('insufficient-balance action uses a concise single-line label', /Не хватает \d+✨/.test(state.actionText) && state.actionIsSingleLine);

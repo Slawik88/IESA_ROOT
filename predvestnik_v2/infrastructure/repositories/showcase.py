@@ -1,5 +1,5 @@
 """
-infrastructure/repositories/showcase.py — Витрина недели (R4.2, GDD_REBUILD_PLAN.md).
+infrastructure/repositories/showcase.py — Витрина недели.
 
 Каждый понедельник (ISO-неделя) — 5 случайных shop-косметик разных слотов со
 скидкой 10–30%. Каждый товар изначально «тёмная карточка»: игрок видит только

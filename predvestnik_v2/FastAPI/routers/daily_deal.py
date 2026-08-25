@@ -25,30 +25,12 @@ def _next_reset_utc() -> str:
 
 @router.get("/")
 async def get_deals(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Актуальные предметы акции дня + время до обновления."""
-    raw_deals = await ensure_deals_fresh(db)
+    """Retired random rotation; kept as a truthful compatibility response."""
     bal = await get_balance(db, user["id"])
-
-    today = period_key()
-    # Какие слоты юзер уже купил в текущем 12-часовом периоде
-    async with db.execute(
-        "SELECT slot FROM daily_deal_purchases WHERE user_id = ? AND purchase_date = ?",
-        (user["id"], today),
-    ) as c:
-        purchased_slots = {row[0] for row in await c.fetchall()}
-
-    deals = []
-    for deal in raw_deals:
-        item = ITEMS_REGISTRY.get(deal.get("item_id", ""), {})
-        deals.append({
-            **deal,
-            "item_name": item.get("name", deal.get("item_id", "?")),
-            "item_description": item.get("description", ""),
-            "purchased": deal["slot"] in purchased_slots,
-        })
-
     return {
-        "deals": deals,
+        "active": False,
+        "message": "Случайная акция закрыта. Следующая витрина покажет точный товар и цену без скрытой ротации.",
+        "deals": [],
         "refreshes_at": _next_reset_utc(),
         "mora": float(bal["user_balance_mora"] or 0),
         "diamonds": float(bal["user_balance_diamonds"] or 0),
@@ -62,6 +44,7 @@ class BuyDealRequest(BaseModel):
 @router.post("/buy")
 async def buy_deal(body: BuyDealRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Купить предмет из акции дня. deal_id = slot (1–7)."""
+    raise HTTPException(410, "Старая акция закрыта; баланс не списан.")
     from infrastructure.repositories.daily_deal import get_current_deals
     from services.daily_deal import purchase_slot
 

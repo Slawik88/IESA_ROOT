@@ -116,15 +116,21 @@ async def migrate_legacy_ids(db) -> None:
             pass  # таблицы может не быть на свежей БД
     # 5) рефанд-лог (исторический, для консистентности)
     try:
-        for old_id, new_id in _MAP.items():
-            await db.execute(
-                "UPDATE cosmetic_refund_log SET cosmetic_id = ? WHERE cosmetic_id = ? "
-                "AND NOT EXISTS (SELECT 1 FROM cosmetic_refund_log rl2 "
-                "  WHERE rl2.user_id = cosmetic_refund_log.user_id AND rl2.cosmetic_id = ?)",
-                (new_id, old_id, new_id),
-            )
-            await db.execute(
-                "DELETE FROM cosmetic_refund_log WHERE cosmetic_id = ?", (old_id,))
+        async with db.execute(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = current_schema() AND table_name = 'cosmetic_refund_log'"
+        ) as c:
+            has_refund_log = await c.fetchone()
+        if has_refund_log:
+            for old_id, new_id in _MAP.items():
+                await db.execute(
+                    "UPDATE cosmetic_refund_log SET cosmetic_id = ? WHERE cosmetic_id = ? "
+                    "AND NOT EXISTS (SELECT 1 FROM cosmetic_refund_log rl2 "
+                    "  WHERE rl2.user_id = cosmetic_refund_log.user_id AND rl2.cosmetic_id = ?)",
+                    (new_id, old_id, new_id),
+                )
+                await db.execute(
+                    "DELETE FROM cosmetic_refund_log WHERE cosmetic_id = ?", (old_id,))
     except Exception:
         pass
 
@@ -247,11 +253,12 @@ async def set_welcome(db, user_id: int, anim_id: str) -> tuple[bool, str]:
         return False, "Нет такой анимации."
     if anim.get("vip_required") and not await is_vip_active(db, user_id):
         return False, "🔒 Выбор приветствия доступен только при активной VIP."
-    await db.execute(
-        "INSERT INTO user_cosmetic_loadout (user_id, slot, cosmetic_id) VALUES (?, ?, ?) "
-        "ON CONFLICT (user_id, slot) DO UPDATE SET cosmetic_id = ?",
-        (user_id, _WELCOME_SLOT, anim_id, anim_id))
-    await db.commit()
+    async with db.connection.transaction():
+        await _lock_cosmetic_user(db, user_id)
+        await db.execute(
+            "INSERT INTO user_cosmetic_loadout (user_id, slot, cosmetic_id) VALUES (?, ?, ?) "
+            "ON CONFLICT (user_id, slot) DO UPDATE SET cosmetic_id = ?",
+            (user_id, _WELCOME_SLOT, anim_id, anim_id))
     return True, f"🎬 Приветствие: {anim['name']}"
 
 
@@ -315,22 +322,24 @@ async def equip(db, user_id: int, cosmetic_id: str) -> tuple[bool, str]:
     cos = COSMETICS.get(cosmetic_id)
     if not cos:
         return False, "Нет такой косметики."
-    if cosmetic_id not in await _owned(db, user_id):
-        return False, "Сначала нужно получить эту косметику."
-    await db.execute(
-        "INSERT INTO user_cosmetic_loadout (user_id, slot, cosmetic_id) VALUES (?, ?, ?) "
-        "ON CONFLICT (user_id, slot) DO UPDATE SET cosmetic_id = ?",
-        (user_id, cos["slot"], cosmetic_id, cosmetic_id))
-    await db.commit()
+    async with db.connection.transaction():
+        await _lock_cosmetic_user(db, user_id)
+        if cosmetic_id not in await _owned(db, user_id):
+            return False, "Сначала нужно получить эту косметику."
+        await db.execute(
+            "INSERT INTO user_cosmetic_loadout (user_id, slot, cosmetic_id) VALUES (?, ?, ?) "
+            "ON CONFLICT (user_id, slot) DO UPDATE SET cosmetic_id = ?",
+            (user_id, cos["slot"], cosmetic_id, cosmetic_id))
     return True, f"✅ Надето: {cos['name']}"
 
 
 async def unequip(db, user_id: int, slot: str) -> tuple[bool, str]:
     if slot not in COSMETIC_SLOTS:
         return False, "Неизвестный слот."
-    await db.execute(
-        "DELETE FROM user_cosmetic_loadout WHERE user_id = ? AND slot = ?", (user_id, slot))
-    await db.commit()
+    async with db.connection.transaction():
+        await _lock_cosmetic_user(db, user_id)
+        await db.execute(
+            "DELETE FROM user_cosmetic_loadout WHERE user_id = ? AND slot = ?", (user_id, slot))
     return True, "Снято."
 
 
@@ -412,8 +421,6 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0,
     paid = ", ".join(f"{int(amt)}{_CUR_ICON[cur]}" for cur, amt in chosen.items())
     msg = (f"🎨 Куплено: {cos['name']} ({paid})" if mutation and mutation.applied
            else f"Эта покупка уже обработана: {cos['name']}.")
-    if cos.get("rarity", "common") != "common" and not await is_vip_active(db, user_id):
-        msg += "\n\n⚠️ Эта косметика отображается только при активной VIP-подписке. Без VIP она сохранена в инвентаре, но не будет видна на профиле."
     return True, msg
 
 
@@ -1005,6 +1012,51 @@ _MAX_PRESETS = 5
 _MAX_NAME_LEN = 30
 
 
+def _preset_name(value: object) -> str:
+    """Normalize a user-visible preset name at every write boundary."""
+    return (value.strip() if isinstance(value, str) else "")[:_MAX_NAME_LEN] or "Образ"
+
+
+async def _lock_cosmetic_user(db, user_id: int) -> None:
+    """Serialize profile appearance writers on the same durable user row."""
+    await db.execute(
+        "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
+    )
+    async with db.execute(
+        "SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)
+    ) as cursor:
+        await cursor.fetchone()
+
+
+def _normalize_preset_loadout(payload: object) -> dict[str, str] | None:
+    """Return a wearable-only snapshot, or None when historic data is unsafe."""
+    if not isinstance(payload, dict):
+        return None
+    normalized: dict[str, str] = {}
+    for slot, cosmetic_id in payload.items():
+        # Older versions accidentally included the independent welcome setting.
+        # Preserve that historic preset as a wearable snapshot, never apply it.
+        if slot == _WELCOME_SLOT:
+            continue
+        if slot not in COSMETIC_SLOTS or not isinstance(cosmetic_id, str):
+            return None
+        cosmetic = COSMETICS.get(cosmetic_id)
+        if not cosmetic or cosmetic.get("slot") != slot:
+            return None
+        normalized[slot] = cosmetic_id
+    return normalized
+
+
+def _decode_preset_loadout(loadout_json: str) -> dict[str, str] | None:
+    try:
+        return _normalize_preset_loadout(json.loads(loadout_json))
+    # A deeply nested, damaged JSON value can exceed the decoder recursion
+    # limit. Presets are user-visible recovery data, so treat it exactly like
+    # every other malformed historic payload rather than letting listing fail.
+    except (TypeError, ValueError, json.JSONDecodeError, RecursionError):
+        return None
+
+
 async def _loadout_snapshot(db, user_id: int) -> dict[str, str]:
     """Текущий экипированный образ — {slot: cosmetic_id} (пустые слоты опускаем)."""
     async with db.execute(
@@ -1012,7 +1064,14 @@ async def _loadout_snapshot(db, user_id: int) -> dict[str, str]:
         (user_id,),
     ) as c:
         rows = await c.fetchall()
-    return {r[0]: r[1] for r in rows if r[1]}
+    return {
+        slot: cosmetic_id
+        for slot, cosmetic_id in rows
+        if slot in COSMETIC_SLOTS
+        and isinstance(cosmetic_id, str)
+        and (cosmetic := COSMETICS.get(cosmetic_id))
+        and cosmetic.get("slot") == slot
+    }
 
 
 async def list_presets(db, user_id: int) -> list[dict]:
@@ -1023,68 +1082,105 @@ async def list_presets(db, user_id: int) -> list[dict]:
         (user_id,),
     ) as c:
         rows = await c.fetchall()
-    return [
-        {"id": r[0], "name": r[1], "loadout": json.loads(r[2]), "created_at": str(r[3])}
-        for r in rows
-    ]
+    presets = []
+    for preset_id, name, loadout_json, created_at in rows:
+        loadout = _decode_preset_loadout(loadout_json)
+        presets.append({
+            "id": preset_id,
+            "name": name,
+            "loadout": loadout or {},
+            "created_at": str(created_at),
+            "invalid": loadout is None,
+        })
+    return presets
 
 
 async def save_preset(db, user_id: int, name: str) -> tuple[bool, str, dict | None]:
     """Сохранить текущий образ как новый пресет."""
-    name = name.strip()[:_MAX_NAME_LEN] or "Образ"
-    async with db.execute(
-        "SELECT COUNT(*) FROM cosmetic_presets WHERE user_id = ?", (user_id,)
-    ) as c:
-        (count,) = await c.fetchone()
-    if count >= _MAX_PRESETS:
-        return False, f"Максимум {_MAX_PRESETS} пресетов. Удали один из старых.", None
-    loadout = await _loadout_snapshot(db, user_id)
-    await db.execute(
-        "INSERT INTO cosmetic_presets (user_id, name, loadout) VALUES (?, ?, ?)",
-        (user_id, name, json.dumps(loadout)),
-    )
-    await db.commit()
-    preset_id = None
-    async with db.execute(
-        "SELECT id FROM cosmetic_presets WHERE user_id = ? ORDER BY id DESC LIMIT 1",
-        (user_id,),
-    ) as c:
-        row = await c.fetchone()
-        if row:
-            preset_id = row[0]
+    name = _preset_name(name)
+    async with db.connection.transaction():
+        await _lock_cosmetic_user(db, user_id)
+        async with db.execute(
+            "SELECT COUNT(*) FROM cosmetic_presets WHERE user_id = ?", (user_id,)
+        ) as c:
+            (count,) = await c.fetchone()
+        if count >= _MAX_PRESETS:
+            return False, f"Максимум {_MAX_PRESETS} пресетов. Удали один из старых.", None
+        owned = await _owned(db, user_id)
+        loadout = {
+            slot: cosmetic_id
+            for slot, cosmetic_id in (await _loadout_snapshot(db, user_id)).items()
+            if cosmetic_id in owned
+        }
+        async with db.execute(
+            "INSERT INTO cosmetic_presets (user_id, name, loadout) VALUES (?, ?, ?) RETURNING id",
+            (user_id, name, json.dumps(loadout)),
+        ) as c:
+            row = await c.fetchone()
+            preset_id = row[0] if row else None
     return True, f"💾 Образ «{name}» сохранён!", {"id": preset_id, "name": name, "loadout": loadout}
 
 
+async def rename_preset(db, user_id: int, preset_id: int, name: str) -> tuple[bool, str, dict | None]:
+    """Rename only the caller's saved look under the same per-user writer lock."""
+    normalized = _preset_name(name)
+    async with db.connection.transaction():
+        await _lock_cosmetic_user(db, user_id)
+        async with db.execute(
+            "UPDATE cosmetic_presets SET name = ? WHERE id = ? AND user_id = ? RETURNING name, loadout",
+            (normalized, preset_id, user_id),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            return False, "Образ не найден.", None
+        saved_name, loadout_json = row
+        loadout = _decode_preset_loadout(loadout_json)
+    return True, f"✎ Образ «{saved_name}» переименован.", {
+        "id": preset_id,
+        "name": saved_name,
+        "loadout": loadout or {},
+        "invalid": loadout is None,
+    }
+
+
 async def apply_preset(db, user_id: int, preset_id: int) -> tuple[bool, str]:
-    """Применить пресет: заменяет текущий loadout слотами из пресета."""
-    async with db.execute(
-        "SELECT name, loadout FROM cosmetic_presets WHERE id = ? AND user_id = ?",
-        (preset_id, user_id),
-    ) as c:
-        row = await c.fetchone()
-    if not row:
-        return False, "Пресет не найден."
-    name, loadout_json = row
-    loadout: dict[str, str] = json.loads(loadout_json)
-    owned = await _owned(db, user_id)
-    for slot, cid in loadout.items():
-        cos = COSMETICS.get(cid)
-        if not cos or cid not in owned:
-            continue
+    """Atomically replace all wearable slots with one validated saved snapshot."""
+    async with db.connection.transaction():
+        await _lock_cosmetic_user(db, user_id)
+        async with db.execute(
+            "SELECT name, loadout FROM cosmetic_presets WHERE id = ? AND user_id = ?",
+            (preset_id, user_id),
+        ) as c:
+            row = await c.fetchone()
+        if not row:
+            return False, "Пресет не найден."
+        name, loadout_json = row
+        loadout = _decode_preset_loadout(loadout_json)
+        if loadout is None or not set(loadout.values()).issubset(await _owned(db, user_id)):
+            return False, (
+                "Не удалось применить образ: один из предметов больше недоступен. "
+                "Текущий внешний вид не изменён. Сохрани образ заново."
+            )
+        placeholders = ", ".join("?" for _ in COSMETIC_SLOTS)
         await db.execute(
-            "INSERT INTO user_cosmetic_loadout (user_id, slot, cosmetic_id) VALUES (?, ?, ?) "
-            "ON CONFLICT (user_id, slot) DO UPDATE SET cosmetic_id = EXCLUDED.cosmetic_id",
-            (user_id, slot, cid),
+            f"DELETE FROM user_cosmetic_loadout WHERE user_id = ? AND slot IN ({placeholders})",
+            (user_id, *COSMETIC_SLOTS),
         )
-    await db.commit()
+        for slot, cosmetic_id in loadout.items():
+            await db.execute(
+                "INSERT INTO user_cosmetic_loadout (user_id, slot, cosmetic_id) VALUES (?, ?, ?) "
+                "ON CONFLICT (user_id, slot) DO UPDATE SET cosmetic_id = EXCLUDED.cosmetic_id",
+                (user_id, slot, cosmetic_id),
+            )
     return True, f"✅ Образ «{name}» применён!"
 
 
 async def delete_preset(db, user_id: int, preset_id: int) -> tuple[bool, str]:
     """Удалить пресет пользователя."""
-    await db.execute(
-        "DELETE FROM cosmetic_presets WHERE id = ? AND user_id = ?",
-        (preset_id, user_id),
-    )
-    await db.commit()
+    async with db.connection.transaction():
+        await _lock_cosmetic_user(db, user_id)
+        await db.execute(
+            "DELETE FROM cosmetic_presets WHERE id = ? AND user_id = ?",
+            (preset_id, user_id),
+        )
     return True, "🗑 Пресет удалён."

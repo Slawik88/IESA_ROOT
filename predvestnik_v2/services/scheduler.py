@@ -233,10 +233,7 @@ async def expedition_background_task(bot: Bot):
 
 
 async def crypto_alerts_task(bot: Bot):
-    """VIP-алерты цен биржи: раз в минуту сверяет цены (детерминированная функция
-    времени, services/crypto_exchange.py) с активными алертами. Сработавший алерт —
-    ЛС игроку и удаление (разовый). Direction зафиксирован при создании, поэтому
-    «выросла до X» не срабатывает на цене, которая всегда была выше X."""
+    """VIP-алерты цен биржи: раз в минуту сверяет серверные цены с алертами."""
     from services import crypto_exchange as cx
     from infrastructure.repositories import crypto as crypto_repo
 
@@ -254,7 +251,7 @@ async def crypto_alerts_task(bot: Bot):
                 for a in alerts:
                     p = prices.get(a["coin_id"])
                     if p is None:
-                        fired_ids.append(a["id"])  # монета удалена из реестра — чистим
+                        fired_ids.append(a["id"])
                         continue
                     hit = (p >= a["target_price"] if a["direction"] == "above"
                            else p <= a["target_price"])
@@ -270,12 +267,10 @@ async def crypto_alerts_task(bot: Bot):
                             f"{coin['emoji']} <b>{coin['name']}</b> {arrow} отметки "
                             f"<b>{a['target_price']:,.0f} 🪙</b>\n"
                             f"└ Сейчас: <b>{p:,.0f} 🪙</b>\n\n"
-                            f"<i>Алерт разовый — сработал и удалён. Новый: сайт → Биржа → монета.</i>",
+                            f"<i>Алерт разовый. Новый можно поставить на странице Биржи.</i>",
                             parse_mode="HTML",
                         )
                     except Exception as e:
-                        # ЛС закрыты/бот заблокирован — алерт всё равно гасим, иначе
-                        # каждую минуту будем долбиться в закрытую дверь.
                         logger.warning(f"crypto alert DM to {a['user_id']} failed: {e}")
                 if fired_ids:
                     await crypto_repo.delete_alerts_by_ids(db, fired_ids)
@@ -318,13 +313,12 @@ async def _daily_gc(db) -> None:
 
 
 async def daily_deal_task():
-    """Regenerate the daily deal at 00:00 UTC."""
-    logger.info("Фоновая задача акции дня запущена.")
+    """Run routine cleanup without regenerating the retired daily shop."""
+    logger.info("Фоновая задача обслуживания запущена.")
     while True:
         try:
             async with get_pool().acquire() as _conn:
                 db = PGAdapter(_conn)
-                await ensure_deals_fresh(db)
                 await _daily_gc(db)
         except Exception as e:
             logger.error(f"Ошибка в задаче акции дня: {e}")
@@ -540,16 +534,6 @@ async def duel_and_auction_task(bot: Bot):
 
                 await _resolve_expired_auction_lots(bot, db)
 
-                # БЛОК 36.4: авто-закрытие просроченных клановых рейдов (48ч, босс жив) —
-                # раньше висели 'active' навсегда и блокировали запуск нового рейда.
-                try:
-                    from infrastructure.repositories import raids as _raids_repo
-                    _n_exp = await _raids_repo.close_expired(db)
-                    if _n_exp:
-                        logger.info(f"Клановые рейды: закрыто просроченных — {_n_exp}")
-                except Exception as _re:
-                    logger.warning(f"raid expiry error: {_re}")
-
                 # Battle Pass: подхват сезонов, созданных через Консоль на сайте
                 try:
                     await refresh_bp_seasons(db)
@@ -577,11 +561,8 @@ async def duel_and_auction_task(bot: Bot):
                 except Exception as _pe:
                     logger.warning(f"auction final push enqueue error: {_pe}")
 
-                # R3: войны за узлы — автозакрытие просроченных + суточный доход
-                try:
-                    await _war_daily_jobs(db)
-                except Exception as _we:
-                    logger.warning(f"war daily jobs error: {_we}")
+                # Старые войны и пассивный доход узлов заморожены. Их строки
+                # остаются для миграционной квитанции, но scheduler их не меняет.
 
         except Exception as e:
             logger.error(f"Ошибка в задаче дуэлей/аукциона: {e}")

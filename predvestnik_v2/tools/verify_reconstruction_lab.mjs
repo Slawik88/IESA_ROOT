@@ -27,7 +27,7 @@ try{
     await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(()=>localStorage.removeItem('reconstruction-mvp-career-v1'));
     await page.setViewport({width,height:width<600?844:900,deviceScaleFactor:1});
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('.squad-member');
     await page.waitForSelector('#menuLayer:not([hidden])');
     const frozenBefore=await page.$eval('#roundClock strong',node=>node.textContent);
@@ -45,6 +45,17 @@ try{
     check(menuMetrics.height<=menuMetrics.viewportHeight-16,`${width}px: menu exceeds viewport height`);
     check(menuMetrics.tabs===5,`${width}px: expected five menu tabs`);
     check(menuMetrics.startHeight>=42&&menuMetrics.startHeight<=48,`${width}px: start action is not compact`);
+    const difficultyMetrics=await page.evaluate(()=>({
+      pickerHidden:document.getElementById('difficultyPicker').hidden,
+      inputs:[...document.querySelectorAll('input[name="difficulty"]')].map(input=>({
+        value:input.value,checked:input.checked,disabled:input.disabled,
+      })),
+      overflow:document.documentElement.scrollWidth-innerWidth,
+    }));
+    check(!difficultyMetrics.pickerHidden,`${width}px: e01 difficulty picker is hidden`);
+    check(difficultyMetrics.inputs.length===3,`${width}px: expected three e01 difficulty profiles`);
+    check(difficultyMetrics.inputs.some(input=>input.value==='standard'&&input.checked),`${width}px: standard difficulty is not selected by default`);
+    check(difficultyMetrics.overflow<=0,`${width}px: difficulty picker overflows`);
     if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-menu.png`,fullPage:true});
     await page.click('[data-menu-tab="companion"]');
     await page.waitForSelector('.role-card');
@@ -62,6 +73,19 @@ try{
     check(companionMetrics.roles===10,`${width}px: expected ten companion roles`);
     check(companionMetrics.careHeights.every(height=>height>=34&&height<=44),`${width}px: care controls are not compact`);
     check(companionMetrics.expeditionOptions===3,`${width}px: expected three expedition contracts`);
+    const atlasBeforePoll=await page.evaluate(()=>{
+      const list=document.querySelector('.role-list');
+      list.scrollTop=list.scrollHeight;
+      return {scrollTop:list.scrollTop,maxScroll:list.scrollHeight-list.clientHeight};
+    });
+    await new Promise(resolve=>setTimeout(resolve,4300));
+    const atlasAfterPoll=await page.evaluate(()=>{
+      const list=document.querySelector('.role-list');
+      return {scrollTop:list.scrollTop,maxScroll:list.scrollHeight-list.clientHeight};
+    });
+    check(atlasBeforePoll.maxScroll>0,`${width}px: role atlas does not have a scrollable range`);
+    check(Math.abs(atlasAfterPoll.scrollTop-atlasBeforePoll.scrollTop)<=1,
+      `${width}px: role atlas reset after polling (${atlasBeforePoll.scrollTop} -> ${atlasAfterPoll.scrollTop})`);
     if(output&&width===390)await page.screenshot({path:`${output}/clicker-390-companion.png`,fullPage:true});
     await page.click('[data-menu-tab="alliance"]');
     await page.waitForSelector('[data-menu-panel="alliance"]:not([hidden])');
@@ -135,7 +159,7 @@ try{
     await page.setViewport({width:390,height:844,deviceScaleFactor:1});
     await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.click('#startRunButton');
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal')
       && [...document.querySelectorAll('.strike-rune')].some(node=>!node.disabled),{timeout:3000});
@@ -186,7 +210,7 @@ try{
     page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport({width:390,height:844,deviceScaleFactor:1});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('[data-menu-tab="companion"]');
     await page.waitForSelector('[data-companion-role="guardian"]');
@@ -243,7 +267,7 @@ try{
     page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport({width:390,height:844,deviceScaleFactor:1});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('[data-menu-tab="companion"]');
     await page.waitForSelector('[data-companion-role="rhythm_keeper"]');
@@ -290,7 +314,7 @@ try{
     page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport({width:390,height:844,deviceScaleFactor:1});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('[data-menu-tab="companion"]');
     await page.waitForSelector('[data-companion-role="echo"]');
@@ -344,7 +368,7 @@ try{
     page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport({width:320,height:844,deviceScaleFactor:1});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('[data-menu-tab="companion"]');
     await page.waitForSelector('[data-companion-role="navigator"]');
@@ -382,7 +406,7 @@ try{
     page.on('pageerror',error=>errors.push(error.message));
     await page.setViewport({width:390,height:844,deviceScaleFactor:1});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('[data-menu-tab="companion"]');
     await page.waitForSelector('[data-expedition-hours="2"]:not(:disabled)');
@@ -426,7 +450,7 @@ try{
     await page.setViewport({width,height:844,deviceScaleFactor:1});
     await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.waitForSelector('#menuLayer:not([hidden])');
     await page.click('#startRunButton');
     await page.waitForSelector('#menuLayer[hidden]');
@@ -462,7 +486,7 @@ try{
       await page.setViewport({width,height:844,deviceScaleFactor:1});
       await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
       await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-      await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+      await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
       await page.click('#startRunButton');
       await page.waitForFunction(label=>document.getElementById('objectiveLabel')?.textContent.trim()===label,{},spec.label);
       if(spec.cue){
@@ -497,7 +521,7 @@ try{
     await page.setViewport({width,height:844,deviceScaleFactor:1});
     await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.click('#startRunButton');
     await page.waitForFunction(()=>
       document.getElementById('corePrompt')?.textContent.trim()==='ЗАПОМНИ'
@@ -542,7 +566,7 @@ try{
     await page.setViewport({width,height:844,deviceScaleFactor:1});
     await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.click('#startRunButton');
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
     const clicked=await page.evaluate(()=>{
@@ -597,7 +621,7 @@ try{
     await page.setViewport({width,height:844,deviceScaleFactor:1});
     await page.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
     await page.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),session);
-    await page.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+    await page.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
     await page.click('#startRunButton');
     await page.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
     const clicked=await page.evaluate(()=>{
@@ -647,7 +671,7 @@ try{
   await bossPage.setViewport({width:390,height:844,deviceScaleFactor:1});
   await bossPage.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
   await bossPage.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),bossSession);
-  await bossPage.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+  await bossPage.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
   await bossPage.click('#startRunButton');
   let tideCaptured=false;
   let lastNameCaptured=false;
@@ -735,7 +759,7 @@ try{
   const branchPage=await browser.newPage();
   await branchPage.setViewport({width:320,height:844,deviceScaleFactor:1});
   await branchPage.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),branchSession);
-  await branchPage.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+  await branchPage.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
   await branchPage.waitForSelector('#menuLayer:not([hidden])');
   await branchPage.click('#startRunButton');
   await branchPage.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'),{timeout:3000});
@@ -783,7 +807,7 @@ try{
   const vowPage=await browser.newPage();
   await vowPage.setViewport({width:390,height:844,deviceScaleFactor:1});
   await vowPage.evaluateOnNewDocument(key=>sessionStorage.setItem('reconstruction-preview-session',key),vowSession);
-  await vowPage.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+  await vowPage.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
   await vowPage.click('#startRunButton');
   await vowPage.waitForFunction(()=>document.querySelector('.tap-stage')?.classList.contains('signal'));
   await vowPage.evaluate(()=>{
@@ -807,7 +831,7 @@ try{
   const accuracyPage=await browser.newPage();
   await accuracyPage.evaluateOnNewDocument(()=>localStorage.removeItem('reconstruction-mvp-career-v1'));
   await accuracyPage.setViewport({width:390,height:844,deviceScaleFactor:1});
-  await accuracyPage.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+  await accuracyPage.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
   await accuracyPage.waitForSelector('.squad-member');
   check(await accuracyPage.$eval('#accuracyValue',node=>node.textContent.trim())==='—','accuracy: empty run must show dash');
   await accuracyPage.click('#startRunButton');
@@ -888,7 +912,12 @@ try{
   const play=await browser.newPage();
   const errors=[];
   play.on('pageerror',error=>errors.push(error.message));
+  await play.setExtraHTTPHeaders({'x-reconstruction-test-clock':'fixed-step-100'});
   await play.evaluateOnNewDocument(()=>{
+    // The local server's hot-reload channel is intentionally not part of a
+    // player session. A reload can erase an in-memory terminal response while
+    // the engine already holds the terminal state, creating a false UI result.
+    window.EventSource=class { addEventListener(){} close(){} };
     if(!sessionStorage.getItem('reconstruction-verify-started')){
       localStorage.removeItem('reconstruction-mvp-career-v1');
       sessionStorage.setItem('reconstruction-verify-started','1');
@@ -905,7 +934,7 @@ try{
     }).observe({type:'layout-shift',buffered:true});
   });
   await play.setViewport({width:390,height:844,deviceScaleFactor:1});
-  await play.goto(`${base}/static/reconstruction-lab.html`,{waitUntil:'domcontentloaded'});
+  await play.goto(`${base}/__preview/reconstruction-lab`,{waitUntil:'domcontentloaded'});
   await play.waitForSelector('.squad-member');
   await play.click('#startRunButton');
   await play.waitForSelector('#menuLayer[hidden]');
@@ -945,6 +974,8 @@ try{
 
   let finished=false;
   let capturedChoice=false;
+  let choiceEscapeChecked=false;
+  let choiceScrollChecked=false;
   for(let guard=0;guard<100&&!finished;guard+=1){
     await play.waitForFunction(()=>{
       const signal=document.querySelector('.tap-stage')?.classList.contains('signal')
@@ -962,6 +993,50 @@ try{
     }));
     if(phase.result){finished=true;break;}
     if(phase.choice){
+      if(!choiceEscapeChecked){
+        await play.keyboard.press('Escape');
+        await new Promise(resolve=>setTimeout(resolve,160));
+        const visible=await play.evaluate(()=>['menuLayer','pauseLayer','choiceLayer','resultLayer']
+          .filter(id=>!document.getElementById(id).hidden));
+        check(visible.join(',')==='choiceLayer',`modal: Escape hid mandatory choice (${visible.join(',')})`);
+        choiceEscapeChecked=true;
+      }
+      if(!choiceScrollChecked){
+        const first=await play.$('#upgradeList button');
+        await first.focus();
+        await play.keyboard.down('Shift');
+        await play.keyboard.press('Tab');
+        await play.keyboard.up('Shift');
+        const focusWrap=await play.evaluate(()=>document.activeElement===[...document.querySelectorAll('#upgradeList button')].at(-1));
+        check(focusWrap,'choice: Shift+Tab escaped the mandatory dialog');
+        await play.keyboard.press('Tab');
+        const focusReturned=await play.evaluate(()=>document.activeElement===document.querySelector('#upgradeList button'));
+        check(focusReturned,'choice: Tab did not wrap to the first modifier');
+        await play.setViewport({width:320,height:420,deviceScaleFactor:1});
+        const scrollCheck=await play.evaluate(()=>{
+          const sheet=document.querySelector('.choice-sheet');
+          const list=document.getElementById('upgradeList');
+          const original=list.innerHTML;
+          list.innerHTML+=original+original;
+          sheet.scrollTop=sheet.scrollHeight;
+          const last=[...list.querySelectorAll('button')].at(-1);
+          const rect=last.getBoundingClientRect();
+          const result={
+            sheetOverflow:sheet.scrollHeight>sheet.clientHeight,
+            sheetScrolled:sheet.scrollTop>0,
+            outerScroll:document.getElementById('choiceLayer').scrollTop,
+            lastVisible:rect.top>=sheet.getBoundingClientRect().top&&rect.bottom<=sheet.getBoundingClientRect().bottom,
+          };
+          list.innerHTML=original;
+          return result;
+        });
+        check(scrollCheck.sheetOverflow,'choice: short viewport did not create an internal scroll range');
+        check(scrollCheck.sheetScrolled,'choice: modifier sheet cannot scroll to its last card');
+        check(scrollCheck.outerScroll===0,'choice: backdrop scrolls instead of modifier sheet');
+        check(scrollCheck.lastVisible,'choice: last modifier remains unreachable after scrolling');
+        await play.setViewport({width:390,height:844,deviceScaleFactor:1});
+        choiceScrollChecked=true;
+      }
       if(output&&!capturedChoice){
         await play.screenshot({path:`${output}/clicker-390-choice.png`,fullPage:true});
         capturedChoice=true;
@@ -1013,7 +1088,11 @@ try{
       ],
     };
   });
-  check(JSON.stringify(resultContract.actual)===JSON.stringify(resultContract.expected),`result readout mismatch ${JSON.stringify(resultContract)}`);
+  const resultBaseStats=resultContract.actual.filter(item=>item.label!=='Моры в расчёте');
+  const projectedReward=resultContract.actual.filter(item=>item.label==='Моры в расчёте');
+  check(JSON.stringify(resultBaseStats)===JSON.stringify(resultContract.expected),`result readout mismatch ${JSON.stringify(resultContract)}`);
+  check(projectedReward.length===1&&/^\+\d+$/.test(projectedReward[0].value),
+    `result: projected Mora reward is missing or malformed ${JSON.stringify(resultContract)}`);
   const modalState=()=>play.evaluate(()=>{
     const ids=['menuLayer','pauseLayer','choiceLayer','resultLayer'];
     return ids.filter(id=>!document.getElementById(id).hidden);
@@ -1022,6 +1101,7 @@ try{
   await new Promise(resolve=>setTimeout(resolve,650));
   check(JSON.stringify(await modalState())===JSON.stringify(['resultLayer']),'modal: result changed without user action');
   if(output) await play.screenshot({path:`${output}/clicker-390-won.png`,fullPage:true});
+  await play.evaluate(()=>{window.__reconstructionLayoutShifts=[];});
   const shiftsBeforeReload=await play.evaluate(()=>window.__reconstructionLayoutShifts);
   await play.reload({waitUntil:'domcontentloaded'});
   await play.waitForSelector('#resultLayer:not([hidden])');
@@ -1033,10 +1113,12 @@ try{
   check(JSON.stringify(await modalState())===JSON.stringify(['menuLayer']),'modal: stats menu changed without user action');
   const career=await play.evaluate(()=>({
     stats:document.querySelector('#careerStats')?.textContent,
+    formula:document.querySelector('.stats-formula')?.textContent,
     activeTab:document.querySelector('[data-menu-tab].active')?.dataset.menuTab,
   }));
   check(career.activeTab==='stats','result: stats menu did not open');
   check(/1побед/.test((career.stats||'').replace(/\s/g,'')),`result: local victory was not recorded (${career.stats})`);
+  check((career.formula||'').includes('ошибки + пропуски'),`stats: accuracy formula is unclear (${career.formula})`);
   check(errors.length===0,`playthrough: browser errors ${errors.join(', ')}`);
   const shiftsAfterReload=await play.evaluate(()=>window.__reconstructionLayoutShifts);
   const allShifts=[...shiftsBeforeReload,...shiftsAfterReload];

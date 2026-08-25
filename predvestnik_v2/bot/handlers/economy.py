@@ -34,8 +34,8 @@ async def cmd_balance(message: types.Message, db):
     diamonds  = format_currency(balance['user_balance_diamonds'])
     zarniki  = float(balance.get('user_balance_zarniki', 0) or 0)
 
-    dark_line = f"\n├ 🌑 Тёмная Мора: <code>{dark_mora:.0f}</code>" if dark_mora > 0 else \
-                "\n├ 🌑 Тёмная Мора: <code>0</code> <i>(добыть: «бот контрабанда»)</i>"
+    dark_line = f"\n├ 🌑 Архив Ночи: <code>{dark_mora:.0f}</code>" if dark_mora > 0 else \
+                "\n├ 🌑 Архив Ночи: <code>0</code> <i>(новых начислений нет)</i>"
     zarniki_line = f"\n└ ✨ Зарники: <code>{zarniki:.0f}</code>" if zarniki > 0 else ""
 
     text = (
@@ -63,44 +63,30 @@ async def cmd_balance(message: types.Message, db):
 @router.message(TextCmd(["обмен зарников", "обменять зарники", "обмен ✨", "обменять ✨"]))
 async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None,
                                 user_restricted: dict | None = None, chat_restricted: dict | None = None):
-    user_id = message.from_user.id
-
     restriction = user_restricted or chat_restricted
     if restriction:
         return await message.answer(global_moderation.restriction_message(restriction))
-
     if not text_args:
         return await message.answer(
-            "💱 <b>ОБМЕН ЗАРНИКОВ</b>\n\n"
+            "💱 <b>ЗАРНИКИ → МОРА</b>\n\n"
             "Формат: «бот обмен зарников, &lt;сумма&gt; мора»\n"
-            f"Курс: 1✨ = {ZARNIKI_TO_MORA_RATE:g}🪙. Обратного обмена нет.\n"
-            "Алмазы выдаются за испытания и сезонные рубежи.",
+            f"Курс: 1✨ = {ZARNIKI_TO_MORA_RATE:g}🪙. Обмен необратим.\n"
+            "Алмазы этим способом получить нельзя.",
             parse_mode="HTML",
         )
-
     parts = text_args.split()
     if len(parts) != 2:
-        return await message.answer(
-            "⚠️ Формат: «бот обмен зарников, &lt;сумма&gt; мора»",
-            parse_mode="HTML",
-        )
-
-    amount_str, target = parts[0], parts[1].lower()
+        return await message.answer("Формат: «бот обмен зарников, &lt;сумма&gt; мора»")
     try:
-        amount = float(amount_str.replace(",", "."))
+        amount = float(parts[0].replace(",", "."))
     except ValueError:
-        return await message.answer("⚠️ Сумма должна быть числом.")
-
-    if target in ("мора", "моры", "мору", "mora"):
-        to = "mora"
-    elif target in ("алмазы", "алмаз", "алмазов", "diamonds"):
-        return await message.answer(
-            "Алмазы нельзя купить Зарниками — они выдаются за испытания и сезонные рубежи."
-        )
-    else:
-        return await message.answer("⚠️ После суммы укажи «мора».")
-
-    ok, msg = await eco_db.exchange_zarniki(db, user_id, amount, to, chat_id=message.chat.id)
+        return await message.answer("Сумма должна быть числом.")
+    if parts[1].lower() not in ("мора", "моры", "мору", "mora"):
+        return await message.answer("После суммы укажи «мора». Алмазы за Зарники не продаются.")
+    ok, msg = await eco_db.exchange_zarniki(
+        db, message.from_user.id, amount, "mora", chat_id=message.chat.id,
+        idempotency_key=f"telegram:{message.chat.id}:{message.message_id}",
+    )
     await message.answer(msg)
 
 

@@ -10,8 +10,6 @@ from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import users
 from infrastructure.repositories.streak import get_chat_timezone
 from services import leveling
-from services import onboarding
-from services.utils import safe_html
 
 anti_spam_cache: dict[int, float] = {}
 
@@ -23,25 +21,6 @@ async def _safe_send(bot, chat_id: int, text: str) -> None:
         await bot.send_message(chat_id, text, parse_mode="HTML")
     except Exception as e:
         logger.warning(f"Fire-and-forget send to {chat_id} failed: {e}")
-
-
-def _notify_starter_kit(bot, chat_id: int, user, kit: dict) -> None:
-    """Block 10: приветствие новичку со стартовым набором (fire-and-forget)."""
-    import asyncio
-    if not bot:
-        return
-    name = safe_html(user.first_name or user.username or str(user.id))
-    text = (
-        f"🎉 <b>Добро пожаловать, {name}!</b>\n"
-        f"Тебе выдан стартовый набор:\n"
-        f"🐾 Питомец: {safe_html(kit['species_name'])}\n"
-        f"🪙 +{int(kit['mora'])} Моры\n"
-        f"💎 +{int(kit['diamonds'])} Алмазов (хватит на 1 алмазный спин)\n"
-        f"🎟 +{kit['spin_tokens']} Жетон Гачи (бесплатный спин за Мору)\n\n"
-        f"Загляни в «бот зоопарк» и «бот крутка» 🎲\n"
-        f"🤖 А если что-то будет непонятно — просто напиши «бот, [вопрос]»"
-    )
-    asyncio.ensure_future(_safe_send(bot, chat_id, text))
 
 
 def _notify_ai_hint(bot, chat_id: int, user) -> None:
@@ -91,14 +70,6 @@ async def db_middleware(
 
             if user and not is_bot_sender:
                 await users.update_user(db, user.id, user.username)
-                # Block 10: стартовый набор новичку (ровно один раз; no-op для всех
-                # существующих игроков — у них onboarded=TRUE).
-                try:
-                    kit = await onboarding.grant_starter_kit(db, user.id)
-                    if kit and chat_obj:
-                        _notify_starter_kit(data.get("bot"), chat_obj.id, user, kit)
-                except Exception as _oe:
-                    logger.warning(f"onboarding kit error for {user.id}: {_oe}")
                 if config.developer_id and user.id == config.developer_id:
                     await db.execute(
                         "UPDATE users SET global_rank = 3 "

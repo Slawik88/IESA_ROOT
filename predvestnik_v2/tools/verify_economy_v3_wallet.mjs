@@ -37,8 +37,7 @@ try{
     check(state.copy.includes('Покупка и продажа Алмазов за Мору отключены'),`${width}px: blocked route is unclear`);
     check(state.copy.includes('испытания и сезонные рубежи'),`${width}px: Diamond source is missing`);
     check(!state.copy.includes('Доступен всегда')&&!state.copy.includes('спред'),`${width}px: stale exchange copy remains`);
-    check(state.actionCount===1,`${width}px: obsolete exchange action remains`);
-    check(state.actionWidth<width*.7,`${width}px: secondary market action is oversized`);
+    check(state.actionCount===0,`${width}px: obsolete exchange action remains`);
     check(state.minFont>=10,`${width}px: wallet policy text is below 10px`);
     if(output&&width===390)await page.screenshot({path:`${output}/wallet-roles-390.png`,fullPage:true});
 

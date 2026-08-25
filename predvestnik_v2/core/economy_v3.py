@@ -13,7 +13,7 @@ from types import MappingProxyType
 from typing import Final, Literal, Mapping
 
 
-POLICY_VERSION: Final = "owner-v3-provisional-1"
+POLICY_VERSION: Final = "owner-v3-partial-loss-2"
 SETTLEMENT_MODE: Final = "shadow_only"
 REAL_REWARDS_ENABLED: Final = False
 
@@ -107,6 +107,8 @@ class ShadowRewardDecision:
     support_unit_xp_each: int
     accuracy: Decimal | None
     provenance: str | None
+    progress_ratio: Decimal | None
+    loss_reward_factor: Decimal | None
 
     @property
     def can_settle(self) -> bool:
@@ -172,6 +174,8 @@ def _zero_decision(
         support_unit_xp_each=0,
         accuracy=accuracy,
         provenance=None,
+        progress_ratio=None,
+        loss_reward_factor=None,
     )
 
 
@@ -188,6 +192,8 @@ def evaluate_reconstruction_reward_shadow(
     aborted: bool = False,
     quarantined: bool = False,
     same_seed_eligible_losses_before: int = 0,
+    reward_progress_ratio: Decimal | float | int = Decimal("0"),
+    first_rewardable_progress_ratio: Decimal | float | int = Decimal("0"),
 ) -> ShadowRewardDecision:
     """Calculate a non-settleable Reconstruction reward decision.
 
@@ -211,6 +217,15 @@ def evaluate_reconstruction_reward_shadow(
         same_seed_eligible_losses_before,
         "same_seed_eligible_losses_before",
     )
+    try:
+        progress_ratio = Decimal(str(reward_progress_ratio))
+        first_progress_ratio = Decimal(str(first_rewardable_progress_ratio))
+    except Exception as exc:
+        raise EconomyV3PolicyError("Reward progress must be numeric.") from exc
+    if not (Decimal("0") <= progress_ratio <= Decimal("1")):
+        raise EconomyV3PolicyError("reward_progress_ratio must be between 0 and 1.")
+    if not (Decimal("0") <= first_progress_ratio <= Decimal("1")):
+        raise EconomyV3PolicyError("first_rewardable_progress_ratio must be between 0 and 1.")
     if not all(
         isinstance(value, bool)
         for value in (
@@ -265,10 +280,29 @@ def evaluate_reconstruction_reward_shadow(
 
     ordinal = accepted_before + 1
     tier = _tier_for_ordinal(ordinal)
-    base_xp = 100 if outcome == "won" else 45
+    loss_factor: Decimal | None = None
+    if outcome == "lost":
+        # Completion of the first wave preserves the prior 35% meaningful-loss
+        # floor.  Progress in the unfinished wave can raise it to 60%, while a
+        # win remains the only way to earn the full tier reward.
+        span = max(Decimal("0.000001"), Decimal("1") - first_progress_ratio)
+        normalized_after_first = min(
+            Decimal("1"),
+            max(Decimal("0"), (progress_ratio - first_progress_ratio) / span),
+        )
+        loss_factor = Decimal("0.35") + Decimal("0.25") * normalized_after_first
+    loss_progress = (
+        (loss_factor - Decimal("0.35")) / Decimal("0.25")
+        if loss_factor is not None else Decimal("0")
+    )
+    base_xp = 100 if outcome == "won" else _round_half_up(
+        Decimal("45") + Decimal("15") * loss_progress
+    )
     lead_xp = _round_half_up(Decimal(base_xp) * tier.unit_xp_share)
     support_xp = _round_half_up(Decimal(lead_xp) * SUPPORT_UNIT_XP_SHARE)
-    mora = tier.win_mora if outcome == "won" else tier.meaningful_loss_mora
+    mora = tier.win_mora if outcome == "won" else _round_half_up(
+        Decimal(tier.win_mora) * (loss_factor or Decimal("0"))
+    )
     return ShadowRewardDecision(
         policy_version=POLICY_VERSION,
         settlement_mode=SETTLEMENT_MODE,
@@ -282,6 +316,8 @@ def evaluate_reconstruction_reward_shadow(
         support_unit_xp_each=support_xp,
         accuracy=accuracy,
         provenance="earned_reconstruction",
+        progress_ratio=progress_ratio,
+        loss_reward_factor=loss_factor,
     )
 
 

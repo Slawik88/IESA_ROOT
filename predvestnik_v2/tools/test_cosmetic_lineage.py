@@ -2,8 +2,8 @@
 
 Клиент получает lineup id уже вместе с активной косметикой и не поддерживает
 отдельную карту cosmetic_id → lineup. Приоритет: рамка → гало → эффект → фон.
-VIP-фильтр применяется раньше родословной, поэтому «спящий» предмет не окрашивает
-профиль.
+Купленное право не истекает вместе с VIP-сервисом, поэтому предмет остаётся
+видимым и продолжает определять родословную образа.
 """
 import asyncio
 import pathlib
@@ -41,16 +41,15 @@ async def main() -> None:
     }, vip=True)
     assert without_frame["lineage"] == {"id": "moon_lotus", "source_slot": "avatar_halo"}
 
-    # Artifact-рамка без VIP скрыта. Родословная должна перейти к доступному
-    # common-фону, а не оставлять на профиле цвет невидимого предмета.
-    sleeping_frame = await _active({
+    # Уже принадлежащая рамка не исчезает после окончания VIP-сервиса.
+    owned_frame = await _active({
         "avatar_frame": "cos_avatar_frame_moon_lotus",
         "profile_bg": "cos_profile_bg_forest",
     }, vip=False)
-    assert "avatar_frame" not in sleeping_frame
-    assert sleeping_frame["lineage"] == {"id": "forest", "source_slot": "profile_bg"}
+    assert owned_frame["avatar_frame"]["lineup"] == "moon_lotus"
+    assert owned_frame["lineage"] == {"id": "moon_lotus", "source_slot": "avatar_frame"}
 
-    print("OK: родословная образа приходит с сервера, соблюдает приоритет слотов и VIP-фильтр")
+    print("OK: родословная приходит с сервера; купленная косметика не истекает с VIP")
 
 
 if __name__ == "__main__":

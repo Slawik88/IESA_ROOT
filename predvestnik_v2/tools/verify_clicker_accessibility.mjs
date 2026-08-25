@@ -20,7 +20,7 @@ try {
     sessionStorage.setItem('reconstruction-preview-session', key);
     sessionStorage.removeItem('reconstruction-mvp-ui-v1');
   }, session);
-  await page.goto(`${base}/static/reconstruction-lab.html`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${base}/__preview/reconstruction-lab`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#menuLayer:not([hidden])');
 
   const tabs = await page.evaluate(() => ({

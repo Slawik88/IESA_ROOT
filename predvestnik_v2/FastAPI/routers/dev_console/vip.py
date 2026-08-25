@@ -61,7 +61,7 @@ class SetVipRequest(BaseModel):
 @router.post("/set-vip")
 async def dev_set_vip(body: SetVipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Принудительно заменить текущий VIP на новый тариф и срок.
-    Предыдущий VIP (бонусы, срок) сгорают; начисляется gift нового тарифа."""
+    Предыдущий срок заменяется; игровые валюты и предметы не начисляются."""
     await require_console_perm(db, user, "economy_vip")
     if body.tier not in VIP_TIERS:
         raise HTTPException(400, "Неизвестный тариф.")
@@ -82,29 +82,11 @@ async def dev_set_vip(body: SetVipRequest, db=Depends(get_db), user=Depends(requ
         "total_days = COALESCE(vip_subscriptions.total_days, 0) + ?",
         (body.user_id, body.tier, body.days, body.days, body.days, body.days),
     )
-    # Начисляем gift нового тарифа
     info = VIP_TIERS[body.tier]
-    gift = info["gift"]
-    if gift.get("mora"):
-        await db.execute(
-            "UPDATE users SET user_balance_mora = user_balance_mora + ? WHERE user_tg_id = ?",
-            (gift["mora"], body.user_id),
-        )
-    if gift.get("diamonds"):
-        await db.execute(
-            "UPDATE users SET user_balance_diamonds = user_balance_diamonds + ? WHERE user_tg_id = ?",
-            (gift["diamonds"], body.user_id),
-        )
-    for item_id, qty in gift.get("items", ()):
-        await db.execute(
-            "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-            "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
-            (body.user_id, item_id, qty, qty),
-        )
     await db.commit()
     label = info["label"]
     await _tg_call("sendMessage", chat_id=body.user_id, parse_mode="HTML",
-                   text=f"🔄 Ваш VIP переключён на <b>{label}</b> на {body.days} дн. + бонус пакета!")
+                   text=f"🔄 Ваш VIP-сервис переключён на <b>{label}</b> на {body.days} дн.")
     return {"ok": True, "label": label}
 
 

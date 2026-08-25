@@ -8,11 +8,13 @@ import asyncio
 import pathlib
 import sys
 from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from core.cosmetics import COSMETICS
+from core.economy_contract import InsufficientBalance
 from services.cosmetics import buy_many
 
 
@@ -84,8 +86,18 @@ class FakeDB:
         pass
 
 
+async def fake_balance_change(db, user_id, deltas, **_kwargs):
+    """Cosmetics behavior test; the ledger itself has a dedicated contract test."""
+    cost = int(-deltas["zarniki"])
+    if db.balance < cost:
+        raise InsufficientBalance("not enough zarniki")
+    await db.execute("UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?", (cost, user_id))
+    return SimpleNamespace(applied=True)
+
+
 async def main():
-    with patch("services.achievements.increment_metric", new_callable=AsyncMock):
+    with patch("services.achievements.increment_metric", new_callable=AsyncMock), \
+         patch("services.cosmetics.apply_balance_change", side_effect=fake_balance_change):
         ok, msg = await buy_many(FakeDB(balance=10_000), 1, [])
         assert not ok and "пуст" in msg.lower()
 

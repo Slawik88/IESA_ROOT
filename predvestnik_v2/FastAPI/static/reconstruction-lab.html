@@ -73,7 +73,7 @@
 
       <div class="combat-readout">
         <div><span>Серия</span><strong id="comboValue">×0</strong></div>
-        <div><span title="Верные руны среди всех завершённых сигналов">Точность</span><strong id="accuracyValue">—</strong></div>
+        <div><span title="Верные ÷ (верные + ошибки + пропуски)">Точность</span><strong id="accuracyValue">—</strong></div>
         <div><span>Сила знака</span><strong id="tapPowerValue">65</strong></div>
         <div class="charge-stat"><span>Импульс</span><strong id="chargeValue">0%</strong></div>
       </div>
@@ -115,6 +115,10 @@
           <span><strong id="menuFactGoal">1</strong>выбор / сигнал</span>
         </div>
         <div class="menu-note"><b id="menuNoteLabel">Правило</b><span id="menuNoteCopy">На сигнал даётся одна попытка: дождись знака и выбери совпадающую руну.</span></div>
+        <section class="difficulty-picker" id="difficultyPicker" aria-labelledby="difficultyTitle" hidden>
+          <div class="difficulty-heading"><b id="difficultyTitle">Темп забега</b><span id="difficultyHint"></span></div>
+          <div class="difficulty-options" id="difficultyOptions"></div>
+        </section>
         <div class="unit-progress-strip" id="unitProgress" aria-label="Развитие отряда"></div>
         <div class="compact-actions">
           <button class="primary-action" id="startRunButton" type="button">Начать первый забег <span>›</span></button>
@@ -140,6 +144,7 @@
         <span class="eyebrow" id="statsEyebrow">ЛОКАЛЬНЫЙ ПРОФИЛЬ</span>
         <h2>Твои сигналы</h2>
         <p id="statsCopy">Здесь считаются завершённые забеги, победы, точность, ошибки и лучшая серия.</p>
+        <div class="stats-formula"><b>Точность</b><span>верные ÷ (верные + ошибки + пропуски). До первого завершённого сигнала показывается «—».</span></div>
         <div class="career-grid" id="careerStats"></div>
         <div class="build-history" id="buildHistory"></div>
       </div>

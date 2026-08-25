@@ -46,15 +46,15 @@ def _build_catalog(eco: EconomyService, discount: float) -> list[dict]:
 
 @router.get("/")
 async def get_shop(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Каталог магазина с ценами (учитывает скидку черепахи)."""
-    eco = EconomyService(db)
-    discount = await eco.get_turtle_discount(user["id"])
+    """Fail-closed workshop while the new useful-item catalog is versioned."""
     bal = await get_balance(db, user["id"])
     return {
+        "active": False,
+        "message": "Мастерская обновляется: старые расходники больше не продаются, потому что их механики закрыты. Баланс не списывается.",
         "mora":     float(bal["user_balance_mora"] or 0),
         "diamonds": float(bal["user_balance_diamonds"] or 0),
         "zarniki":  float(bal["user_balance_zarniki"] or 0),
-        "items":    _build_catalog(eco, discount),
+        "items":    [],
     }
 
 
@@ -71,6 +71,7 @@ async def buy_item(
     request_key: str = Header(alias="Idempotency-Key"),
 ):
     """Купить предмет. Использует EconomyService.purchase_item() — та же логика что в боте."""
+    raise HTTPException(410, "Старый каталог закрыт. Новая Мастерская не продаёт предметы без действующей роли.")
     item = ITEMS_REGISTRY.get(body.item_id, {})
     cap = _QTY_MAX_CAP.get(item.get("category", ""), 99)
     if body.quantity > cap:

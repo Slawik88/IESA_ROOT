@@ -17,7 +17,9 @@ try {
   await page.setViewport({width: 390, height: 844, deviceScaleFactor: 2});
   await page.goto(base + '/', {waitUntil: 'load'});
   await page.waitForFunction(() => typeof openLooksModal === 'function');
-  await page.mouse.click(195, 700);
+  await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
   await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
   await page.evaluate(() => openLooksModal());
   await page.waitForFunction(() => !!_themeData && !!document.querySelector('.theme-card[data-theme="neon_terminal"]'));

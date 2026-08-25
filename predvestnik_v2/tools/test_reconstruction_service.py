@@ -60,11 +60,15 @@ class MemoryRepo:
                 "completed": [],
                 "memories": [],
                 "route_choices": {},
+                "last_difficulty_profile": "standard",
             }
         return copy.deepcopy(self.progress)
 
     async def save_progress(self, _db, user_id, game_version, **values):
         self.progress.update(copy.deepcopy(values))
+
+    async def set_last_difficulty_profile(self, _db, _user_id, _game_version, difficulty_id):
+        self.progress["last_difficulty_profile"] = str(difficulty_id)
 
     async def get_active_run(self, _db, user_id, game_version):
         row = next((run for run in self.runs.values() if run["status"] == "active"), None)
@@ -223,6 +227,7 @@ async def main():
     service.secrets.randbelow = lambda _upper: next(seeded_runs)
     for name in (
         "lock_user", "get_progress", "ensure_progress", "save_progress",
+        "set_last_difficulty_profile",
         "get_active_run", "get_run", "create_run", "save_run_state",
         "get_action_response", "save_action_response",
         "get_stats", "record_run_started", "record_run_completed",
@@ -256,6 +261,13 @@ async def main():
         resumed = await service.start_encounter(db, user_id)
         assert started["run_id"] == resumed["run_id"] and resumed["resumed"] is True
         assert started["seed"] == 102
+        assert started["difficulty"]["id"] == "standard"
+        assert memory.progress["last_difficulty_profile"] == "standard"
+        try:
+            await service.start_encounter(db, user_id, difficulty_id="support")
+            raise AssertionError("active run accepted a difficulty switch")
+        except service.ReconstructionConflict as exc:
+            assert "Темп нельзя менять" in str(exc)
         run_id = started["run_id"]
 
         try:

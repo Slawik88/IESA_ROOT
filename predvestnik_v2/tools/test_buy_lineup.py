@@ -7,11 +7,13 @@ import sys
 import pathlib
 import asyncio
 from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from core.cosmetics import COSMETIC_SLOT_PRICES, COSMETIC_SLOTS, LINEUPS, lineup_items
+from core.economy_contract import InsufficientBalance
 from services.cosmetics import lineup_buy_quote, buy_lineup
 
 # ── lineup_buy_quote(): чистая функция, реальный каталог, без БД ────────────
@@ -138,9 +140,19 @@ class FakeDB:
         pass
 
 
+async def fake_balance_change(db, user_id, deltas, **_kwargs):
+    """Cosmetics behavior test; ledger arithmetic is covered independently."""
+    cost = int(-deltas["zarniki"])
+    if db.balance < cost:
+        raise InsufficientBalance("not enough zarniki")
+    await db.execute("UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?", (cost, user_id))
+    return SimpleNamespace(applied=True)
+
+
 async def main():
     # Mock increment_metric to avoid side DB operations in achievements tracking
-    with patch("services.achievements.increment_metric", new_callable=AsyncMock):
+    with patch("services.achievements.increment_metric", new_callable=AsyncMock), \
+         patch("services.cosmetics.apply_balance_change", side_effect=fake_balance_change):
         total_needed = sum(forest_prices.values())
 
         # Недостаточно баланса — без единого UPDATE/INSERT (пока никаких списаний)

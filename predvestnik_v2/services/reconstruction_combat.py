@@ -24,6 +24,7 @@ from core.reconstruction import (
 )
 from core.reconstruction_progression import branch_by_id
 from core.companions_v3 import COMPANION_ROLES
+from core.reconstruction_difficulty import state_difficulty_snapshot
 
 
 FRAME_MAX_MS = 500
@@ -177,6 +178,11 @@ SEQUENCE_RECALL_DELAY_MS = 350
 
 
 def _waves(state: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    snapshot = (state.get("difficulty") or {}).get("wave_plan")
+    if isinstance(snapshot, list) and snapshot:
+        # Every newly created run persists a complete, immutable plan.  The
+        # fallback below exists only for runs created before difficulty v1.
+        return tuple(snapshot)
     try:
         return ENCOUNTER_WAVES[state["encounter_id"]]
     except KeyError as exc:
@@ -496,6 +502,7 @@ def new_encounter(
     seed: int = 1,
     unit_branches: dict[str, str | list[str]] | None = None,
     companion_role_id: str | None = None,
+    difficulty_id: str | None = None,
 ) -> dict[str, Any]:
     errors = validate_content()
     if errors:
@@ -505,6 +512,9 @@ def new_encounter(
         raise ValueError(f"Неизвестная встреча: {encounter_id}")
     if not encounter.get("implemented"):
         raise ValueError(f"Встреча {encounter_id} ещё не включена в игровой срез.")
+    difficulty = state_difficulty_snapshot(
+        encounter_id, difficulty_id, ENCOUNTER_WAVES[encounter_id]
+    )
     if companion_role_id is not None:
         role = COMPANION_ROLES.get(str(companion_role_id))
         if not role or not role.get("implemented"):
@@ -547,6 +557,7 @@ def new_encounter(
         "game_version": GAME_VERSION,
         "balance_version": BALANCE_VERSION,
         "encounter_id": encounter_id,
+        "difficulty": difficulty,
         "seed": int(seed),
         "round": 1,
         "status": "active",

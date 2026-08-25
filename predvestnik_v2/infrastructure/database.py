@@ -16,6 +16,7 @@ from loguru import logger
 from urllib.parse import urlparse
 
 from infrastructure.pg_adapter import PGAdapter
+from infrastructure.preprod import assert_preprod_environment, is_preprod
 
 _pool: asyncpg.Pool | None = None
 _SCHEMA = "predvestnik"
@@ -83,8 +84,14 @@ async def create_pool() -> asyncpg.Pool:
     if _pool is not None:
         return _pool
 
+    if is_preprod():
+        # Never try the production-compatible fallback in the test process.
+        # This check happens before DNS/TCP diagnostics or an asyncpg call.
+        assert_preprod_environment()
+
     _candidates: list[tuple[str, str]] = []
-    for _name in ("DATABASE_URL", "PREDVESTNIK_DATABASE_URL"):
+    _source_names = ("DATABASE_URL",) if is_preprod() else ("DATABASE_URL", "PREDVESTNIK_DATABASE_URL")
+    for _name in _source_names:
         _val = os.environ.get(_name, "").strip()
         if _val:
             _candidates.append((_name, _val))

@@ -1,7 +1,7 @@
-"""FastAPI/routers/relics.py — Реликвии (Block 13): коллекция за Тёмную Мору.
+"""FastAPI/routers/relics.py — архивные реликвии за сохранённый остаток.
 Веб-адаптер; вся бизнес-логика в infrastructure.repositories.relics (паритет с
 ботом `бот реликвии`)."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
@@ -13,10 +13,8 @@ router = APIRouter(prefix="/relics", tags=["relics"])
 
 @router.get("/")
 async def list_relics(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Каталог реликвий + владение + агрегаты (сила коллекции, бонус походам)."""
+    """Каталог архивных реликвий и владение без игровой силы."""
     owned = await relics_db.list_owned(db, user["id"])
-    power = sum(RELIC_RARITY_META.get(RELICS[r]["rarity"], {}).get("power", 0)
-                for r in owned if r in RELICS)
     bonus = await relics_db.get_expedition_mora_bonus(db, user["id"])
     catalog = []
     for rid, r in RELICS.items():
@@ -31,8 +29,9 @@ async def list_relics(db=Depends(get_db), user=Depends(require_tg_user)):
         "relics": catalog,
         "owned_count": len(owned),
         "total": len(RELICS),
-        "power": power,
+        "power": 0,
         "bonus_pct": round(bonus * 100),
+        "archive_only": True,
     }
 
 
@@ -41,11 +40,20 @@ class BuyRequest(BaseModel):
 
 
 @router.post("/buy")
-async def buy(body: BuyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Купить реликвию (атомарно, мультивалютно — buy_relic коммитит сам)."""
+async def buy(
+    body: BuyRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+    request_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    """Атомарно исполнить уже доступную архивную покупку."""
     if body.relic_id not in RELICS:
         raise HTTPException(400, "Неизвестная реликвия.")
-    ok, msg = await relics_db.buy_relic(db, user["id"], body.relic_id)
+    if request_key is None or not request_key.strip() or len(request_key.strip()) > 120:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
+    ok, msg = await relics_db.buy_relic(
+        db, user["id"], body.relic_id, idempotency_key=request_key.strip(),
+    )
     if not ok:
         raise HTTPException(400, msg)
     return {"ok": True, "message": msg}

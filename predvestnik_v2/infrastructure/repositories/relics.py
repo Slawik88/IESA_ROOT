@@ -1,9 +1,10 @@
-"""
-infrastructure/repositories/relics.py
-Реликвии (Implementation Block 13) — сток для Тёмной Моры.
-Уникальные коллекционные предметы; эффект — суммарный +% к моро-награде экспедиций.
+"""Archive relic ownership and spend-only settlement.
+
+Relics keep collection history but no longer multiply gameplay rewards.
 """
 from core.registry import RELICS
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
+from infrastructure.repositories.economy_ledger import apply_balance_change, find_balance_replay
 
 # колонка баланса для каждой валюты цены (whitelisted)
 _PRICE_COLS = {
@@ -26,23 +27,33 @@ async def list_owned(db, user_id: int) -> set[str]:
 
 
 async def get_expedition_mora_bonus(db, user_id: int) -> float:
-    """Суммарный +% к моро-награде экспедиций от всех реликвий игрока (0.0..)."""
-    owned = await list_owned(db, user_id)
-    return sum(RELICS[r]["exp_mora_pct"] for r in owned if r in RELICS)
+    """Legacy compatibility: archive relics no longer modify gameplay income."""
+    return 0.0
 
 
-async def buy_relic(db, user_id: int, relic_id: str) -> tuple[bool, str]:
-    """Купить реликвию (атомарно, мультивалютно). Реликвии уникальны — раз во владение."""
+async def buy_relic(
+    db, user_id: int, relic_id: str, *, idempotency_key: str | None = None,
+) -> tuple[bool, str]:
+    """Купить архивную реликвию за старую Тёмную Мору ровно один раз."""
     relic = RELICS.get(relic_id)
     if not relic:
         return False, "Неизвестная реликвия."
-    price: dict = relic["price"]
+    price = float(relic["price"].get("dark_mora", 0))
+    if price <= 0 or not idempotency_key:
+        return False, "Не удалось подтвердить покупку. Обновите страницу и повторите."
+    delta = {"dark_mora": -price}
     try:
         async with db.connection.transaction():
             await db.execute(
                 "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
             )
-            # уже есть?
+            replay = await find_balance_replay(
+                db, user_id, delta, reason_code="shadow_relic",
+                idempotency_key=idempotency_key, source_type="legacy_archive",
+                reference_type="relic", reference_id=relic_id,
+            )
+            if replay:
+                return True, "Эта покупка уже была обработана."
             async with db.execute(
                 "SELECT 1 FROM user_relics WHERE user_id = ? AND relic_id = ?",
                 (user_id, relic_id),
@@ -50,30 +61,21 @@ async def buy_relic(db, user_id: int, relic_id: str) -> tuple[bool, str]:
                 if await c.fetchone():
                     return False, "Эта реликвия уже в вашей коллекции."
 
-            # читаем нужные балансы FOR UPDATE
-            cols = [_PRICE_COLS[k] for k in price]
-            async with db.execute(
-                f"SELECT {', '.join('COALESCE(%s,0)' % c for c in cols)} "
-                "FROM users WHERE user_tg_id = ? FOR UPDATE",
-                (user_id,),
-            ) as c:
-                row = await c.fetchone()
-            balances = {k: float(row[i]) for i, k in enumerate(price)}
-            for k, amount in price.items():
-                if balances[k] < amount:
-                    return False, f"Недостаточно: {_PRICE_ICON[k]} (нужно {int(amount)})."
-
-            # списываем все валюты
-            for k, amount in price.items():
-                col = _PRICE_COLS[k]
-                await db.execute(
-                    f"UPDATE users SET {col} = COALESCE({col},0) - ? WHERE user_tg_id = ?",
-                    (amount, user_id),
-                )
+            await apply_balance_change(
+                db, user_id, delta, reason_code="shadow_relic",
+                idempotency_key=idempotency_key, source_type="legacy_archive",
+                reference_type="relic", reference_id=relic_id,
+                metadata={"relic_id": relic_id, "archive_only": True},
+                note=relic_id,
+            )
             await db.execute(
                 "INSERT INTO user_relics (user_id, relic_id) VALUES (?, ?)",
                 (user_id, relic_id),
             )
         return True, f"🏛 Реликвия получена: {relic['name']}!"
-    except Exception as e:
-        return False, f"Ошибка: {e}"
+    except InsufficientBalance:
+        return False, f"Недостаточно Тёмной Моры: нужно {price:.0f} 🌑."
+    except IdempotencyConflict:
+        return False, "Этот ключ запроса уже использован для другой покупки."
+    except Exception:
+        return False, "Покупка не выполнена. Баланс и коллекция не изменены."

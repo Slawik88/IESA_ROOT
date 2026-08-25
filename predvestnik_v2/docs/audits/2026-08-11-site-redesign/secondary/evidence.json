@@ -1,0 +1,323 @@
+[
+  {
+    "label": "profile-inventory",
+    "file": "profile-inventory.png",
+    "metrics": {
+      "activePage": "pg-profile",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  {
+    "label": "profile-themes",
+    "file": "profile-themes.png",
+    "metrics": {
+      "activePage": "pg-profile",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 1487,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "profile-quests",
+    "file": "profile-quests.png",
+    "metrics": {
+      "activePage": "pg-profile",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 1086,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "profile-achievements",
+    "file": "profile-achievements.png",
+    "metrics": {
+      "activePage": "pg-profile",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "profile-top",
+    "file": "profile-top.png",
+    "metrics": {
+      "activePage": "pg-profile",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "looks",
+    "file": "looks.png",
+    "metrics": {
+      "activePage": "pg-looks",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 2523,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "zoo-bestiary",
+    "file": "zoo-bestiary.png",
+    "metrics": {
+      "activePage": "pg-zoo",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "arena-gates",
+    "file": "arena-gates.png",
+    "metrics": {
+      "activePage": "pg-arena",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 1,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "arena-raids",
+    "file": "arena-raids.png",
+    "metrics": {
+      "activePage": "pg-arena",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "arena-games",
+    "file": "arena-games.png",
+    "metrics": {
+      "activePage": "pg-arena",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 979,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "arena-events",
+    "file": "arena-events.png",
+    "metrics": {
+      "activePage": "pg-arena",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "market-vip",
+    "file": "market-vip.png",
+    "metrics": {
+      "activePage": "pg-market",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 1406,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "market-goods",
+    "file": "market-goods.png",
+    "metrics": {
+      "activePage": "pg-market",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 1156,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "market-deal",
+    "file": "market-deal.png",
+    "metrics": {
+      "activePage": "pg-market",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 1073,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "auction",
+    "file": "auction.png",
+    "metrics": {
+      "activePage": "pg-auction",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "battle-pass",
+    "file": "battle-pass.png",
+    "metrics": {
+      "activePage": "pg-bp",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "help",
+    "file": "help.png",
+    "metrics": {
+      "activePage": "pg-help",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 1743,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "admin",
+    "file": "admin.png",
+    "metrics": {
+      "activePage": "pg-admin",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "global",
+    "file": "global.png",
+    "metrics": {
+      "activePage": "pg-global",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 1007,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "label": "console",
+    "file": "console.png",
+    "metrics": {
+      "activePage": "pg-console",
+      "width": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "visibleDialogs": 0,
+      "imagesBroken": 0
+    },
+    "errors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  }
+]

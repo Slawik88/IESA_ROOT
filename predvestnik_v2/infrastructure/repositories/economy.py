@@ -143,19 +143,19 @@ async def exchange_zarniki(
             note=f"✨{quote.zarniki_spent}→🪙{quote.mora_received}",
         )
         if mutation and not mutation.applied:
-            return True, "✅ Этот обмен уже был обработан."
-        return True, f"✅ {quote.zarniki_spent} ✨ → {quote.mora_received:,} 🪙"
+            return True, "Этот обмен уже был обработан."
+        return True, f"Обменено: {quote.zarniki_spent} ✨ → {quote.mora_received:,} 🪙"
     except EconomyV3PolicyError:
         if str(to).strip().lower() == "diamonds":
-            return False, "Алмазы нельзя купить Зарниками — они выдаются за испытания и сезонные рубежи."
+            return False, "Алмазы за Зарники не продаются."
         return False, "Введите целое число Зарников больше нуля."
     except InsufficientBalance:
         current = await get_balance(db, user_id)
-        return False, f"Недостаточно ✨ (есть {current['user_balance_zarniki']:.0f})."
+        return False, f"Недостаточно Зарников: доступно {current['user_balance_zarniki']:.0f}."
     except IdempotencyConflict:
         return False, "Этот ключ запроса уже использован для другого обмена."
-    except Exception as e:
-        return False, f"Ошибка: {e}"
+    except Exception:
+        return False, "Обмен не выполнен. Баланс не изменён; попробуйте ещё раз."
 
 
 # Labels remain for legacy wallet history and stale callback rendering. Direct
@@ -364,19 +364,23 @@ async def set_balance(
     diamonds: float,
     chat_id: int | None = None,
 ):
-    """Set absolute balance (admin). Logged as manual_admin."""
-    old = await get_balance(db, user_id)
-    await db.execute(
-        "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
-    )
-    await db.execute(
-        "UPDATE users SET user_balance_mora = ?, user_balance_diamonds = ? "
-        "WHERE user_tg_id = ?",
-        (mora, diamonds, user_id),
-    )
-    await log_wallet(
-        db, user_id,
-        delta_mora=mora - old["user_balance_mora"],
-        delta_diamonds=diamonds - old["user_balance_diamonds"],
-        source="manual_admin", chat_id=chat_id,
-    )
+    """Set absolute Mora/Diamond balances through one auditable correction."""
+    async with atomic(db, user_id):
+        old = await get_balance(db, user_id)
+        deltas = {
+            "mora": float(mora) - float(old["user_balance_mora"]),
+            "diamonds": float(diamonds) - float(old["user_balance_diamonds"]),
+        }
+        deltas = {code: value for code, value in deltas.items() if value}
+        if not deltas:
+            return None
+        return await apply_balance_change(
+            db, user_id, deltas,
+            reason_code="manual_admin",
+            source_type="admin",
+            reference_type="balance_correction",
+            reference_id=user_id,
+            metadata={"target_mora": mora, "target_diamonds": diamonds},
+            chat_id=chat_id,
+            allow_negative=False,
+        )

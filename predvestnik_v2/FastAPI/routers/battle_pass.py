@@ -209,10 +209,4 @@ async def battle_pass_claim_all(db=Depends(get_db), user=Depends(require_tg_user
 
 @router.post("/buy-level")
 async def battle_pass_buy_level(db=Depends(get_db), user=Depends(require_tg_user)):
-    """C5: открыть следующий уровень БП за 💎 (только +1, последовательно)."""
-    await refresh_seasons_cache(db)
-    ok, message, data = await buy_next_level(db, user["id"])
-    if not ok:
-        raise HTTPException(status_code=400, detail=message)
-    await db.commit()
-    return {"ok": True, "message": message, **data}
+    raise HTTPException(410, "Покупка уровней закрыта: Алмазы не покупают прогресс.")

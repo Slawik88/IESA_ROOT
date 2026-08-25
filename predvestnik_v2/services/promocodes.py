@@ -125,8 +125,10 @@ async def activate_promocode(
 
             if mora > 0 or diamonds > 0:
                 await add_balance(
-                    db, user_id, mora, diamonds,
-                    commit=False, source="promocode", chat_id=chat_id, note=f"Promo:{code}"
+                    db, user_id, mora, diamonds, commit=False, source="promocode",
+                    idempotency_key=f"promocode:{code}", source_type="promocode",
+                    reference_type="promocode", reference_id=code,
+                    chat_id=chat_id, note=f"Promo:{code}",
                 )
             for item_id, qty in items.items():
                 if qty > 0 and item_id in ITEMS_REGISTRY:  # валидация: не плодим «призраков»

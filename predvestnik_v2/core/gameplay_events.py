@@ -48,6 +48,7 @@ GAMEPLAY_EVENT_SPECS: Final[dict[str, EventSpec]] = {
     "battle_start": EventSpec(
         1,
         frozenset({"mode", "encounter_id", "squad", "levels", "combat_power", "modifiers"}),
+        frozenset({"difficulty_profile", "difficulty_policy_version"}),
     ),
     "battle_action": EventSpec(
         1,
@@ -58,23 +59,26 @@ GAMEPLAY_EVENT_SPECS: Final[dict[str, EventSpec]] = {
         frozenset({
             "challenge_id", "target_slot", "critical", "damage", "discharged", "reason",
             "reaction_ms", "server_delta_ms", "server_revision", "integrity_status",
-            "branch_results",
+            "branch_results", "difficulty_profile", "difficulty_policy_version",
         }),
     ),
     "battle_upgrade": EventSpec(
         1,
         frozenset({"mode", "encounter_id", "round", "upgrade_id", "offered_ids"}),
-        frozenset({"server_revision"}),
+        frozenset({"server_revision", "difficulty_profile", "difficulty_policy_version"}),
     ),
     "battle_branch_action": EventSpec(
         1,
         frozenset({"mode", "encounter_id", "round", "branch_id", "command", "result"}),
-        frozenset({"damage", "server_revision"}),
+        frozenset({"damage", "server_revision", "difficulty_profile", "difficulty_policy_version"}),
     ),
     "battle_end": EventSpec(
         1,
         frozenset({"mode", "encounter_id", "result", "rounds", "metrics"}),
-        frozenset({"outcome_reason", "terminal_result", "shadow_reward", "branches"}),
+        frozenset({
+            "outcome_reason", "terminal_result", "shadow_reward", "branches",
+            "difficulty_profile", "difficulty_policy_version",
+        }),
     ),
     "progression_upgrade": EventSpec(
         1,

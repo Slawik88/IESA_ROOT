@@ -1,5 +1,5 @@
 """
-infrastructure/repositories/battles.py — сессии Боя 2.0 (R2, GDD_REBUILD_PLAN.md).
+infrastructure/repositories/battles.py — legacy сессии боя (retirement LCB-001).
 Server-authoritative: state_json (статы, волны, QTE-окно, анти-чит-счётчики)
 живёт только здесь.
 """

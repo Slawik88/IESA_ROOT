@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Макеты карточки игрока · Предвестник</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080a10;
+      --panel: #121621;
+      --line: #272d3a;
+      --text: #f0f2f7;
+      --muted: #9299aa;
+      --accent: #d4ae68;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      padding: 18px 20px 15px;
+      background: rgba(8, 10, 16, .94);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: start;
+      gap: 18px;
+      width: min(1180px, 100%);
+      margin: auto;
+      padding: 20px;
+    }
+
+    article {
+      overflow: hidden;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+    }
+
+    .head {
+      padding: 14px 15px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2 {
+      margin: 0 0 3px;
+      font-size: 16px;
+    }
+
+    .head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    a {
+      display: block;
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #05060a;
+    }
+
+    .open {
+      padding: 12px 15px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      border-top: 1px solid var(--line);
+    }
+
+    @media (max-width: 880px) {
+      main {
+        grid-template-columns: 1fr;
+        padding: 12px;
+      }
+
+      .head { padding: 13px; }
+      article { border-radius: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Три макета карточки игрока</h1>
+    <p>Все варианты сохраняют текущую тёмную базу и освобождают центральное место под персонажа и косметику.</p>
+  </header>
+  <main>
+    <article>
+      <div class="head">
+        <h2>1 · Центральная сцена</h2>
+        <p>Самый прямой вариант: просторный холст в центре, полезные данные и валюты ниже.</p>
+      </div>
+      <a href="/static/design-concepts/profile-card/01-open-central-stage.png" target="_blank" rel="noopener">
+        <img src="/static/design-concepts/profile-card/01-open-central-stage.png" alt="Карточка игрока с открытой центральной сценой">
+        <div class="open">Открыть PNG в полном размере ↗</div>
+      </a>
+    </article>
+    <article>
+      <div class="head">
+        <h2>2 · Сцена + данные</h2>
+        <p>Холст остаётся главным, а индекс силы, уровень и статистика собраны в боковой рейл.</p>
+      </div>
+      <a href="/static/design-concepts/profile-card/02-stage-data-rail.png" target="_blank" rel="noopener">
+        <img src="/static/design-concepts/profile-card/02-stage-data-rail.png" alt="Карточка игрока со сценой и боковым рейлом данных">
+        <div class="open">Открыть PNG в полном размере ↗</div>
+      </a>
+    </article>
+    <article>
+      <div class="head">
+        <h2>3 · Широкий холст</h2>
+        <p>Максимум свободной площади для косметики, информация закреплена по краям и снизу.</p>
+      </div>
+      <a href="/static/design-concepts/profile-card/03-wide-stage-anchors.png" target="_blank" rel="noopener">
+        <img src="/static/design-concepts/profile-card/03-wide-stage-anchors.png" alt="Карточка игрока с широким холстом и информационными якорями">
+        <div class="open">Открыть PNG в полном размере ↗</div>
+      </a>
+    </article>
+  </main>
+</body>
+</html>

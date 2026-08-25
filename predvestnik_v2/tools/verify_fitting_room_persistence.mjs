@@ -14,7 +14,9 @@ const page = await browser.newPage();
 await page.setViewport({width: 390, height: 844, deviceScaleFactor: 2});
 await page.goto('http://localhost:8402/', {waitUntil: 'load'});
 await page.waitForFunction(() => typeof openLooksModal === 'function');
-await page.mouse.click(195, 700);
+await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
 await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
 await page.evaluate(() => openLooksModal());
 await page.waitForFunction(() => _activePage === 'looks' && !!_looksData);
@@ -29,8 +31,9 @@ await page.waitForFunction(() => _activePage === 'profile' && !!document.querySe
 
 const profileState = await page.evaluate(() => {
   const hero = document.querySelector('#pro-main .hero');
-  const chip = document.querySelector('#pro-main .profile-trial-chip');
-  const chipRect = chip?.getBoundingClientRect();
+  const entry = document.querySelector('#pro-main [data-open-looks="profile-showcase"]');
+  const caption = document.querySelector('#pro-main .character-showcase-caption');
+  const entryRect = entry?.getBoundingClientRect();
   const heroRect = hero?.getBoundingClientRect();
   let stored = null;
   try { stored = JSON.parse(sessionStorage.getItem('pv_looks_trial_v1') || 'null'); } catch (_) {}
@@ -38,15 +41,12 @@ const profileState = await page.evaluate(() => {
     activePage: _activePage,
     hasTrialBackground: hero?.classList.contains('pbg-starfall') || false,
     hasTrialFrame: hero?.querySelector('.ava')?.classList.contains('frame-inferno') || false,
-    chipOutsideProfileCard: !!chip && !hero?.contains(chip),
-    chipText: chip?.textContent.replace(/\s+/g, ' ').trim() || '',
-    chipSubText: chip?.querySelector('.profile-trial-sub')?.textContent.replace(/\s+/g, ' ').trim() || '',
-    chipHasStructuredCopy: !!chip?.querySelector('.profile-trial-avatar')
-      && !!chip?.querySelector('.profile-trial-copy')
-      && !!chip?.querySelector('.profile-trial-arrow'),
-    chipHeight: chipRect?.height || 0,
-    chipRadius: chip ? parseFloat(getComputedStyle(chip).borderRadius) : 0,
-    chipIsCompact: !!chipRect && !!heroRect && chipRect.width < heroRect.width * .8,
+    entryInsideProfileCard: !!entry && !!hero?.contains(entry),
+    entryText: entry?.textContent.replace(/\s+/g, ' ').trim() || '',
+    captionText: caption?.textContent.replace(/\s+/g, ' ').trim() || '',
+    entryHasNoNestedControls: !entry?.querySelector('button, a, input, select, textarea'),
+    entryHeight: entryRect?.height || 0,
+    entryFillsStage: !!entryRect && !!heroRect && entryRect.width >= heroRect.width * .5,
     noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     storedSlots: stored?.ids ? Object.keys(stored.ids).sort() : [],
   };
@@ -56,21 +56,20 @@ console.log('Profile trial state:', JSON.stringify(profileState));
 check('bottom navigation returns to the profile after finalising appearance state', profileState.activePage === 'profile');
 check('unpaid trial background does not impersonate an equipped main-profile item', !profileState.hasTrialBackground);
 check('unpaid trial frame does not impersonate an equipped main-profile item', !profileState.hasTrialFrame);
-check('draft fitting entry stays outside the authentic profile card', profileState.chipOutsideProfileCard);
-check('main profile offers a concise two-line return to the saved draft', /Продолжить примерку/.test(profileState.chipText)
-  && /Сохранено:\s*2 предмета/.test(profileState.chipSubText) && profileState.chipHasStructuredCopy);
-check('fitting-session return action keeps a 44px mobile touch target', profileState.chipHeight >= 44);
-check('draft return uses a compact mini-dock shape instead of a raw pill', profileState.chipHeight <= 52 && profileState.chipRadius <= 18);
-check('fitting-session return action stays compact instead of spanning the card', profileState.chipIsCompact);
+check('draft fitting entry stays integrated into the player card', profileState.entryInsideProfileCard);
+check('main profile offers a clear return to the saved draft', /Продолжить примерку/.test(profileState.entryText)
+  && /Черновик:\s*2 предмета сохранено/.test(profileState.captionText) && profileState.entryHasNoNestedControls);
+check('fitting-session return action keeps the complete visual-stage touch target', profileState.entryHeight >= 268);
+check('draft return uses the single visual stage instead of a second header control', profileState.entryFillsStage);
 check('trial profile remains inside the 390px viewport', profileState.noHorizontalOverflow);
 check('trial selections persist for the current browser tab', profileState.storedSlots.join(',') === 'avatar_frame,profile_bg');
 
 await page.setViewport({width: 320, height: 780, deviceScaleFactor: 2});
-check('active fitting-session chip remains contained on a narrow phone', await page.evaluate(() => {
-  const chip = document.querySelector('#pro-main .profile-trial-chip');
-  const chipRect = chip?.getBoundingClientRect();
-  return !!chipRect && chipRect.left >= 0
-    && chipRect.right <= document.documentElement.clientWidth && chipRect.height >= 44;
+check('active fitting-session entry remains contained on a narrow phone', await page.evaluate(() => {
+  const entry = document.querySelector('#pro-main [data-open-looks="profile-showcase"]');
+  const entryRect = entry?.getBoundingClientRect();
+  return !!entryRect && entryRect.left >= 0
+    && entryRect.right <= document.documentElement.clientWidth && entryRect.height >= 268;
 }));
 await page.setViewport({width: 390, height: 844, deviceScaleFactor: 2});
 
@@ -79,8 +78,8 @@ if (process.env.SCREENSHOT_PATH) {
   await page.screenshot({path: process.env.SCREENSHOT_PATH});
 }
 
-const chipExists = await page.$('#pro-main .profile-trial-chip');
-if (chipExists) await page.click('#pro-main .profile-trial-chip');
+const entryExists = await page.$('#pro-main [data-open-looks="profile-showcase"]');
+if (entryExists) await page.click('#pro-main [data-open-looks="profile-showcase"]');
 else await page.evaluate(() => openLooksModal());
 await page.waitForFunction(() => _activePage === 'looks' && !!_looksData);
 check('reopening appearance keeps both active trial selections', await page.evaluate(() =>
@@ -89,7 +88,9 @@ check('reopening appearance keeps both active trial selections', await page.eval
 
 await page.reload({waitUntil: 'load'});
 await page.waitForFunction(() => typeof openLooksModal === 'function');
-await page.mouse.click(195, 700);
+await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
 await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
 await page.waitForFunction(() => !!document.querySelector('#pro-main .hero'));
 check('trial look survives an in-tab reload', await page.evaluate(() => {
@@ -98,7 +99,8 @@ check('trial look survives an in-tab reload', await page.evaluate(() => {
   try { stored = JSON.parse(sessionStorage.getItem('pv_looks_trial_v1') || 'null'); } catch (_) {}
   return !hero?.classList.contains('pbg-starfall')
     && !hero?.querySelector('.ava')?.classList.contains('frame-inferno')
-    && !!document.querySelector('#pro-main .profile-trial-chip')
+    && /\u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c \u043f\u0440\u0438\u043c\u0435\u0440\u043a\u0443/.test(document.querySelector('#pro-main [data-open-looks="profile-showcase"]')?.textContent || '')
+    && /\u0427\u0435\u0440\u043d\u043e\u0432\u0438\u043a/.test(document.querySelector('#pro-main .character-showcase-caption')?.textContent || '')
     && stored?.ids?.profile_bg === 'cos_profile_bg_starfall'
     && stored?.ids?.avatar_frame === 'cos_avatar_frame_inferno';
 }));
@@ -114,7 +116,7 @@ check('resetting the fitting session restores the equipped profile and removes t
   const hero = document.querySelector('#pro-main .hero');
   return !hero?.classList.contains('pbg-starfall')
     && !hero?.querySelector('.ava')?.classList.contains('frame-inferno')
-    && !document.querySelector('#pro-main .profile-trial-chip')
+    && !/\u0427\u0435\u0440\u043d\u043e\u0432\u0438\u043a/.test(document.querySelector('#pro-main .character-showcase-caption')?.textContent || '')
     && !sessionStorage.getItem('pv_looks_trial_v1');
 }));
 

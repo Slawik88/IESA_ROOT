@@ -60,7 +60,8 @@ async def get_overview(db, user_id: int) -> dict:
             m["title"] = _f.get("title")
         my["level"] = repo.clan_level(txp)
         my["level_progress"] = repo.clan_level_progress(txp)
-        my["buildings"] = repo.building_levels(txp)
+        my["foundation_score"] = int(txp or 0)
+        my["buildings"] = []
         my["effective_max"] = repo.effective_max_members(txp)
         reqs = await repo.list_requests(db, my["clan_id"])
         is_leader = my.get("role") == "owner"
@@ -72,7 +73,7 @@ async def get_overview(db, user_id: int) -> dict:
         my["requests"] = reqs
         my["request_qty_cap"] = repo.board_qty_cap(my["level"])
         my["request_active_cap"] = repo.board_active_cap(my["level"])
-        my["shop"] = shop_catalog()
+        my["shop"] = []
     top = await repo.list_top_clans(db)
     for t in top:
         t["level"] = repo.clan_level(t.get("total_xp", 0))
@@ -80,7 +81,7 @@ async def get_overview(db, user_id: int) -> dict:
     return {
         "my_clan": my,
         "top": top,
-        "create_cost": CLAN_CREATE_COST_MORA,
+        "create_cost": 0,
         "max_members": CLAN_MAX_MEMBERS,
         "emblems": list(CLAN_EMBLEMS),
         "name_max": CLAN_NAME_MAX,

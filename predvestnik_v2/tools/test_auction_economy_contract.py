@@ -7,6 +7,7 @@ service = (ROOT / "services/auction.py").read_text(encoding="utf-8")
 repo = (ROOT / "infrastructure/repositories/auction.py").read_text(encoding="utf-8")
 router = (ROOT / "FastAPI/routers/auction.py").read_text(encoding="utf-8")
 client = (ROOT / "FastAPI/static/app.04.js").read_text(encoding="utf-8")
+client_cards = (ROOT / "FastAPI/static/app.06.js").read_text(encoding="utf-8")
 
 create = service[service.index("async def create_auction_lot("):service.index("async def place_bid(")]
 bid = service[service.index("async def place_bid("):service.index("async def resolve_lot(")]
@@ -37,10 +38,15 @@ assert 'idempotency_key=f"auction-settle:{lot[\'id\']}:buyer"' in finalize
 assert 'idempotency_key=f"auction-settle:{lot[\'id\']}:seller"' in finalize
 assert "UPDATE users SET user_balance" not in service
 
-assert router.count('Header(alias="Idempotency-Key")') >= 3
-for path in ("/auction/create", "/auction/create-pet", "/auction/bid"):
-    assert f"api('{path}'" in client
-assert client.count("'Idempotency-Key':requestKey") >= 3
-assert 'if result.get("applied")' in router
+assert '"market_open": False' in router
+for marker in (
+    "Новые лоты откроются после проверки происхождения",
+    "Питомцы не продаются",
+    "Новые ставки закрыты",
+):
+    assert marker in router
+assert "_aucOpen?'<button" in client
+assert "_aucOpen?'💰 Ставка':'Завершается'" in client_cards
+assert "${_aucOpen?`onclick=\"openBidModal" in client_cards
 
-print("auction economy contract: OK")
+print("auction settlement boundary: OK")

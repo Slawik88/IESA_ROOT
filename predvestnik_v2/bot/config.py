@@ -5,7 +5,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+_preprod = os.getenv("PREDVESTNIK_ENV", "").strip().lower() == "preprod"
+_env_file = BASE_DIR / (".env.test" if _preprod else ".env")
+if _preprod and not _env_file.is_file():
+    raise RuntimeError(f"Preprod requires local secret file '{_env_file}'.")
+load_dotenv(_env_file)
+if _preprod:
+    from infrastructure.preprod import assert_preprod_environment
+    assert_preprod_environment()
 
 
 @dataclass(frozen=True)
@@ -20,7 +27,7 @@ def _require(key: str) -> str:
     value = os.getenv(key)
     if not value:
         raise RuntimeError(
-            f"Required env var '{key}' is not set. Check {BASE_DIR / '.env'}"
+            f"Required env var '{key}' is not set. Check {_env_file}"
         )
     return value
 

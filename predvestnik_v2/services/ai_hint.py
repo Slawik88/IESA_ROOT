@@ -1,7 +1,7 @@
-"""services/ai_hint.py — разовая проактивная подсказка про ИИ-помощника после
-N-го сообщения новичка в чате (docs/superpowers/specs/2026-07-19-ai-assistant-
-discovery-design.md). Атомарный флаг-гард — тот же приём, что
-services/onboarding.py::grant_starter_kit для users.onboarded.
+"""Разовая подсказка про ИИ-помощника после N-го сообщения новичка.
+
+Legacy ``users.onboarded`` остаётся только флагом совместимости. Игровое
+обучение хранится отдельно в событиях Reconstruction.
 """
 
 

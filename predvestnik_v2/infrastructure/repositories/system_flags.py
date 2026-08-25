@@ -15,6 +15,8 @@ _DEFAULTS = [
     ("tab_cosmetics",          "🎨 Косметика / Образы", True),
     ("tab_quests",             "📋 Квесты", True),
     ("game_reconstruction_v1", "🧭 Reconstruction 3.0 (dev)", False),
+    # Видимость игры и финансовая выдача не могут быть одним переключателем.
+    ("reconstruction_real_settlement_v1", "🧾 Reconstruction: реальные награды", False),
 ]
 
 _DEFAULT_ENABLED = {key: enabled for key, _label, enabled in _DEFAULTS}

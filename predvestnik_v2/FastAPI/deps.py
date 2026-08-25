@@ -13,6 +13,7 @@ from fastapi import Depends, Header, HTTPException, Request
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
 from FastAPI.auth import verify_webapp_data, verify_session_token, hash_signal
+from infrastructure.preprod import require_preprod_user
 
 
 async def get_db():
@@ -75,6 +76,10 @@ async def require_tg_user_base(
             status_code=401,
             detail="Требуется авторизация через Telegram.",
         )
+    if not require_preprod_user(int(user["id"])):
+        # A Quick Tunnel is public by design; only explicitly listed test
+        # accounts may mutate the isolated preprod database.
+        raise HTTPException(status_code=403, detail="Тестовый стенд закрыт для этого аккаунта.")
     _fire_and_forget(_capture_signals(int(user["id"]), request, x_client_fp))
     return user
 

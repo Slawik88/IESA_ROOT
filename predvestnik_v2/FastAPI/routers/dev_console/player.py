@@ -12,6 +12,7 @@ from infrastructure.repositories.economy import (
     get_balance,
 )
 from infrastructure.repositories import admin_log
+from infrastructure.repositories.dark_mora import add_dark_mora
 from services.battle_pass import get_active_season, refresh_seasons_cache
 from services.roles import GLOBAL_RANKS_MAP, LOCAL_RANKS_MAP
 from ._common import _classify_chat_links, require_console_perm, _send_admin_gift, _tg_call
@@ -263,12 +264,10 @@ async def dev_balance(body: BalanceRequest, db=Depends(get_db), user=Depends(req
         await add_balance(db, body.user_id, mora=body.mora, diamonds=body.diamonds,
                           zarniki=body.zarniki, source="dev_console", note=f"by_{user['id']}")
     if body.dark_mora:
-        # add_balance не умеет тёмную мору — прямой UPDATE (как dark_mora-роутер)
-        await db.execute(
-            "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (body.user_id,))
-        await db.execute(
-            "UPDATE users SET user_balance_dark_mora = COALESCE(user_balance_dark_mora,0) + ? "
-            "WHERE user_tg_id = ?", (body.dark_mora, body.user_id))
+        await add_dark_mora(
+            db, body.user_id, body.dark_mora, source="dev_console",
+            note=f"by_{user['id']}: {body.reason or 'без комментария'}",
+        )
 
     # Журнал: по записи на каждую затронутую валюту (баланс до/после)
     _labels = {"mora": "🪙 Мора", "diamonds": "💎 Алмазы",

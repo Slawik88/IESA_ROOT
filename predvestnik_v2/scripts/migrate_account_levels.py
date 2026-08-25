@@ -1,4 +1,4 @@
-"""scripts/migrate_account_levels.py — R0: миграция на уровни аккаунта (GDD_REBUILD_PLAN.md).
+"""scripts/migrate_account_levels.py — миграция на уровни аккаунта.
 
 Что делает (идемпотентно, повторный запуск пропускает уже обработанных):
   1. account_xp  = SUM(user_xp) по всем чатам игрока (XP не теряется);

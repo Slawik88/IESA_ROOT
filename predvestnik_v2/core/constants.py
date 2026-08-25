@@ -2,7 +2,7 @@
 # Single source of truth for every game number.
 # Changing a value here automatically affects both Bot and Web.
 
-# ── Leveling (R0: экспоненциальная кривая аккаунта, GDD_REBUILD_PLAN.md) ──────
+# ── Leveling: экспоненциальная кривая аккаунта ─────────────────────────────────
 # Уровень аккаунта глобальный (users.account_xp), per-chat user_xp/user_level
 # остаются только как счётчики активности для топов/админки.
 # XP на уровень L→L+1 = ACC_XP_BASE × ACC_XP_GROWTH^(L−1);
@@ -501,6 +501,7 @@ CRYPTO_TRADE_FEE: float = 0.05        # комиссия 5% на КАЖДОЙ с
 CRYPTO_MIN_TRADE_MORA: float = 50.0   # мин. стоимость сделки (убирает round-to-zero и дребезг)
 CRYPTO_MAX_HOLDING: float = 1_000_000.0  # потолок монет одного типа у игрока (бэкстоп)
 CRYPTO_AMOUNT_DECIMALS: int = 6       # точность количества монет (анти-микроэксплойт)
+CRYPTO_WEEKLY_PAYOUT_BUDGET: float = 250_000.0  # публичный максимум системных выплат за UTC-неделю
 
 # ── Квесты: супер-награда за закрытие ВСЕХ дневных заданий (БЛОК 5) ────────────
 # Выдаётся один раз в день, СВЕРХ наград за каждый квест. Гейт — реальная
@@ -836,7 +837,7 @@ ACCOUNT_DELETE_COOLING_HOURS: int = 24     # «остывание» между �
 ACCOUNT_DELETE_WARN_DAYS: int = 14         # ЛС-предупреждение до авто-удаления за неактив
 ACCOUNT_DELETE_PHRASE: str = "УДАЛИТЬ АККАУНТ"  # контрольная фраза (ввод вручную)
 
-# ── Боёвка 3.0 «Руны отряда» (BATTLE_REWORK_CONCEPT.md) ───────────────────────
+# ── Legacy unit-combat constants (LCB-001 retirement) ─────────────────────────
 # Казарма: призыв юнитов за 🔷 Осколки Бездны (закрывает валюту-тупик).
 UNIT_SUMMON_COST: int = 25                     # 🔷 за один призыв
 UNIT_SUMMON_WEIGHTS: dict = {"rare": 78, "epic": 18, "legendary": 4}

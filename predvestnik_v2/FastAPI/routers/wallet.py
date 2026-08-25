@@ -43,7 +43,12 @@ _SOURCE_LABELS = {
     "contrabanda_stake": "🌑 Контрабанда (ставка)",
     "contrabanda_refund": "🌑 Контрабанда (возврат)",
     "cult_ritual":      "🌑 Ритуал",
-    "theme_purchase":   "🎨 Тёмная тема",
+    "theme_purchase":   "🎭 Тема профиля",
+    "cosmetic_purchase": "🎨 Косметика",
+    "cosmetic_lineup_purchase": "🎨 Коллекция косметики",
+    "cosmetic_many_purchase": "🎨 Набор косметики",
+    "cosmetic_gift_purchase": "🎁 Подарок косметики",
+    "cosmetic_chest_purchase": "🎁 Сундук косметики",
     "shadow_merchant":  "🕴 Теневой Торговец",
     "shadow_relic":     "🕴 Теневая реликвия",
     "achievement":      "🏆 Достижение",
@@ -96,22 +101,16 @@ async def exchange_zarniki_endpoint(
     user=Depends(require_tg_user),
     request_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    """Необратимо обменять ✨ Зарники на 🪙 Мору."""
+    """Необратимо обменять целые Зарники только на Мору."""
     if body.to != "mora":
-        raise HTTPException(
-            status_code=400,
-            detail="Алмазы нельзя купить Зарниками — они выдаются за испытания и сезонные рубежи.",
-        )
-
-    if request_key is not None and (not request_key.strip() or len(request_key.strip()) > 120):
-        raise HTTPException(status_code=400, detail="Idempotency-Key должен содержать 1–120 символов.")
-
+        raise HTTPException(400, "Алмазы за Зарники не продаются.")
+    if request_key is None or not request_key.strip() or len(request_key.strip()) > 120:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
     ok, message = await exchange_zarniki(
         db, user["id"], body.amount, body.to,
-        idempotency_key=request_key.strip() if request_key else None,
+        idempotency_key=request_key.strip(),
     )
     if not ok:
-        raise HTTPException(status_code=400, detail=message)
-
+        raise HTTPException(400, message)
     await db.commit()
     return {"ok": True, "message": message}

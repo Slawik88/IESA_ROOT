@@ -47,7 +47,7 @@ async def main() -> None:
     assert "messages_in_chat_today" not in middleware
     assert "messages_total_global" not in middleware
     assert "_checkLevelUp(lvl);" not in profile_ui
-    assert "Уровень наследия" in profile_ui
+    assert "Уровень профиля" in profile_ui
 
     for marker in ("add_balance", "grant_vip_days", "UPDATE users SET referred_by"):
         assert marker not in referral, f"referral still grants or binds through {marker}"

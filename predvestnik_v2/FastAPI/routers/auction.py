@@ -69,7 +69,9 @@ async def active_lots(
             r["item_rarity"] = item_data.get("rarity", "")   # ШАГ2: для фильтра по редкости
 
     return {"lots": rows, "total": total, "page": page, "per_page": per_page,
-            "has_more": (offset + per_page) < total, "min_bid_floor": AUCTION_MIN_BID}
+            "has_more": (offset + per_page) < total, "min_bid_floor": AUCTION_MIN_BID,
+            "market_open": False,
+            "market_message": "Новые лоты и ставки закрыты до проверки происхождения товаров. Активные обязательства можно просмотреть или снять."}
 
 
 @router.get("/reserved")
@@ -132,6 +134,7 @@ async def create_lot(
     request_key: str = Header(alias="Idempotency-Key"),
 ):
     """Выставить предмет из инвентаря на аукцион."""
+    raise HTTPException(410, "Новые лоты откроются после проверки происхождения разрешённых товаров.")
     item = ITEMS_REGISTRY.get(body.item_id)
     if not item:
         raise HTTPException(400, "Предмет не найден.")
@@ -178,6 +181,7 @@ async def create_pet_lot(
     'auction' (RETURNING-guard от гонки/двойного листинга), и только потом
     создаётся лот. Если лот не создался — эскроу откатывается.
     """
+    raise HTTPException(410, "Питомцы не продаются: владение и связь со спутником привязаны к игроку.")
     if body.min_bid < AUCTION_MIN_BID:
         raise HTTPException(400, f"Минимальная ставка: {AUCTION_MIN_BID} 🪙.")
 
@@ -237,6 +241,7 @@ async def bid(
     request_key: str = Header(alias="Idempotency-Key"),
 ):
     """Поставить ставку; доступная сумма проверяется под блокировкой в сервисе."""
+    raise HTTPException(410, "Новые ставки закрыты до безопасного запуска рынка. Текущие резервы будут урегулированы автоматически.")
     result = await place_bid(
         db, body.lot_id, user["id"], body.amount,
         idempotency_key=_economic_key(request_key, "auction-bid"),

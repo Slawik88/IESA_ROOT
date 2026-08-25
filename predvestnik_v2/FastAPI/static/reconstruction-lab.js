@@ -28,6 +28,8 @@
   const toast = document.getElementById('statusToast');
   let manifest = null;
   let state = null;
+  let selectedDifficultyId = 'standard';
+  let terminalReward = null;
   let currentView = 'menu';
   let currentMenuTab = 'play';
   let playing = false;
@@ -145,7 +147,13 @@
           : view === 'result' ? document.getElementById('resultReset')
             : view === 'menu' ? document.querySelector(`[data-menu-tab="${currentMenuTab}"]`) : null;
       target?.focus({ preventScroll: true });
+      if (view === 'choice') target?.scrollIntoView({ block: 'nearest' });
     });
+  }
+
+  function choiceFocusable() {
+    return [...document.querySelectorAll('#choiceLayer button:not([disabled]), #choiceLayer [href], #choiceLayer input:not([disabled])')]
+      .filter((node) => !node.hidden && node.getClientRects().length);
   }
 
   function recordRunStarted() {
@@ -245,6 +253,7 @@
     if (pendingMemory && !state) showMemoryChoice();
     else if (!state) openMenu('play');
     else if (state.status === 'reward') showOnly('choice');
+    else if (['won', 'lost'].includes(state.status)) showOnly('result');
     else showOnly('pause');
     render();
     notify(message || 'Забег обновлён из серверного состояния.');
@@ -637,6 +646,10 @@
     if (sequence) stats.splice(0, 1, [`${number(state.objective_state.anchors_broken)}/${number(state.objective_state.anchors_total)}`, 'якоря']);
     if (mirror) stats.splice(0, 1, [`${number(state.objective_state.wards)}/${number(state.objective_state.wards_max)}`, 'печати']);
     if (archivist) stats.splice(0, 1, [`${number(state.objective_state.phases_completed)}/${number(state.objective_state.phases_total)}`, 'фазы']);
+    if (terminalReward?.eligible) {
+      const mora = Number(terminalReward.projected?.mora) || 0;
+      stats.push([`+${mora}`, terminalReward.settled ? 'Моры получено' : 'Моры в расчёте']);
+    }
     document.getElementById('resultStats').innerHTML = stats
       .map(([value, label]) => `<span><strong>${esc(value)}</strong>${esc(label)}</span>`).join('');
     const previewContinues = !production && won && state.encounter_id === 'e01_two_bells';
@@ -671,9 +684,63 @@
       : '<span>История сборок появится после первого завершённого забега.</span>';
   }
 
+  function companionViewSignature(value) {
+    if (!value) return '';
+    const expeditions = value.expeditions || {};
+    return JSON.stringify({
+      active_pet_id: value.active_pet_id,
+      pets: (value.pets || []).map((pet) => ({
+        id: pet.id,
+        active_companion: pet.active_companion,
+        name: pet.name,
+        species_id: pet.species_id,
+        rarity: pet.rarity,
+        legacy: pet.legacy,
+        bond: pet.bond,
+        care_bank: pet.care_bank,
+      })),
+      policy: value.policy,
+      unlocked_roles: value.unlocked_roles,
+      selected_role_id: value.selected_role_id,
+      role_slots: value.role_slots,
+      next_role_day: value.next_role_day,
+      care_actions: value.care_actions,
+      expeditions: {
+        open_slots: expeditions.open_slots,
+        slots: expeditions.slots,
+        weekly_reserved_mora: expeditions.weekly_reserved_mora,
+        start_enabled: expeditions.start_enabled,
+        options: expeditions.options,
+        reason: expeditions.reason,
+        contracts: (expeditions.contracts || []).map((contract) => ({
+          id: contract.id,
+          pet_id: contract.pet_id,
+          duration_hours: contract.duration_hours,
+          route_id: contract.route_id,
+          fixed_mora: contract.fixed_mora,
+          discovery_id: contract.discovery_id,
+          status: contract.status,
+        })),
+      },
+    });
+  }
+
+  function refreshCompanionCountdowns() {
+    const contracts = new Map((companionState?.expeditions?.contracts || [])
+      .map((contract) => [String(contract.id), contract]));
+    document.querySelectorAll('[data-expedition-countdown]').forEach((node) => {
+      const contract = contracts.get(node.dataset.expeditionCountdown);
+      if (!contract) return;
+      node.textContent = contract.status === 'ready' ? 'Готово' : `ещё ${shortTime(contract.remaining_sec)}`;
+    });
+  }
+
   function renderCompanions() {
     const container = document.getElementById('companionContent');
     if (!container) return;
+    const previousRoleList = container.querySelector('.role-list');
+    const previousRoleScrollTop = previousRoleList?.scrollTop || 0;
+    const focusedRoleId = document.activeElement?.closest?.('[data-companion-role]')?.dataset.companionRole || null;
     if (!companionState) {
       container.innerHTML = '<div class="companion-empty">Загружаю профиль спутника…</div>';
       return;
@@ -723,7 +790,7 @@
     const activePetName = new Map(pets.map((pet) => [pet.id, pet.name]));
     const contracts = (companionState.expeditions?.contracts || []).filter((item) => item.status !== 'claimed').map((item) => {
       const status = item.status === 'ready' ? 'Готово' : `ещё ${shortTime(item.remaining_sec)}`;
-      return `<span><i>${esc(activePetName.get(item.pet_id) || 'Спутник')}</i><strong>${number(item.duration_hours)}ч · ${esc(status)}</strong><small>${number(item.fixed_mora)} Моры · ${esc(discoveryNames[item.discovery_id] || 'находка')}</small></span>`;
+      return `<span><i>${esc(activePetName.get(item.pet_id) || 'Спутник')}</i><strong>${number(item.duration_hours)}ч · <span data-expedition-countdown="${number(item.id)}">${esc(status)}</span></strong><small>${number(item.fixed_mora)} Моры · ${esc(discoveryNames[item.discovery_id] || 'находка')}</small></span>`;
     }).join('');
     container.innerHTML = `
       <section class="companion-hero">
@@ -736,6 +803,16 @@
       <section class="care-block"><header><span><strong>Забота</strong><small>одно действие даёт +1 к связи</small></span><b>запас ${number(active.care_bank)} / 7</b></header><div>${careButtons}</div></section>
       <section class="companion-section"><header><span><strong>Атлас ролей</strong><small>${number(unlocked.size)} открыто · ${number(companionState.role_slots)} доступно сейчас</small></span><b>след. ${companionState.next_role_day == null ? 'все' : `${number(companionState.next_role_day)} день`}</b></header><div class="role-list">${roleCards}</div></section>
       <section class="companion-section expedition-preview"><header><span><strong>Поход-разведка</strong><small>${number(companionState.expeditions?.open_slots)} из ${number(companionState.expeditions?.slots)} слотов свободно</small></span><b>резерв ${number(companionState.expeditions?.weekly_reserved_mora)} / 600 Моры</b></header><div class="expedition-grid">${expeditions}</div>${contracts ? `<div class="expedition-contracts">${contracts}</div>` : ''}${Number(companionState.expeditions?.ready_count) > 0 ? '<button class="claim-expeditions" type="button" data-expedition-claim>Забрать готовые результаты</button>' : ''}<p>${esc(companionState.expeditions?.reason || '')}</p></section>`;
+    const roleList = container.querySelector('.role-list');
+    if (roleList && previousRoleList) {
+      roleList.scrollTop = Math.min(previousRoleScrollTop, Math.max(0, roleList.scrollHeight - roleList.clientHeight));
+      if (focusedRoleId) {
+        requestAnimationFrame(() => {
+          const restored = container.querySelector(`[data-companion-role="${focusedRoleId}"]`);
+          restored?.focus({ preventScroll: true });
+        });
+      }
+    }
   }
 
   function renderAlliance() {
@@ -825,10 +902,42 @@
     document.getElementById('menuFactGoal').textContent = menu.goal;
     document.getElementById('menuNoteLabel').textContent = menu.note;
     document.getElementById('menuNoteCopy').textContent = menu.noteCopy;
+    renderDifficultyPicker(nextEncounter);
     document.getElementById('newRunButton').hidden = !resumable;
     document.getElementById('versionBadge').textContent = manifest?.game_version?.replace('3.0.0-', '') || 'MVP';
     renderCareer();
     renderUnitProgress();
+  }
+
+  function renderDifficultyPicker(nextEncounter) {
+    const picker = document.getElementById('difficultyPicker');
+    const options = document.getElementById('difficultyOptions');
+    const hint = document.getElementById('difficultyHint');
+    const contract = manifest?.difficulty?.[nextEncounter?.id];
+    const profiles = contract?.profiles || [];
+    if (profiles.length < 2) {
+      picker.hidden = true;
+      return;
+    }
+    const activeDifficulty = state?.difficulty?.id;
+    if (activeDifficulty) selectedDifficultyId = activeDifficulty;
+    else if (!profiles.some((item) => item.id === selectedDifficultyId)) {
+      selectedDifficultyId = progress?.last_difficulty_profile || contract.default_id || 'standard';
+    }
+    const locked = Boolean(activeDifficulty && ['active', 'reward'].includes(state?.status));
+    const selected = profiles.find((item) => item.id === selectedDifficultyId);
+    hint.textContent = locked
+      ? 'зафиксирован до конца забега'
+      : (selected?.description || 'выбери комфортный темп');
+    options.innerHTML = profiles.map((profile) => {
+      const checked = profile.id === selectedDifficultyId;
+      return `<label class="difficulty-option">
+        <input type="radio" name="difficulty" value="${esc(profile.id)}" ${checked ? 'checked' : ''} ${locked ? 'disabled' : ''}>
+        <strong>${esc(profile.label)}</strong>
+        <small>${profile.recommended ? 'рекомендуется' : '&nbsp;'}</small>
+      </label>`;
+    }).join('');
+    picker.hidden = false;
   }
 
   function render() {
@@ -965,12 +1074,19 @@
   }
 
   function closeMenuAndPlay() {
-    showOnly('battle');
     if (state.status === 'reward') {
       playing = false;
+      showOnly('choice');
       render();
       return;
     }
+    if (['won', 'lost'].includes(state.status)) {
+      playing = false;
+      showOnly('result');
+      render();
+      return;
+    }
+    showOnly('battle');
     playing = state.status === 'active';
     if (playing) {
       recordRunStarted();
@@ -980,10 +1096,7 @@
   }
 
   function openPause() {
-    if (!state || ['won', 'lost'].includes(state.status)) {
-      openMenu('play');
-      return;
-    }
+    if (currentView !== 'battle' || !state || state.status !== 'active') return;
     playing = false;
     pendingStrike = null;
     showOnly('pause');
@@ -991,11 +1104,17 @@
   }
 
   function continueRun() {
-    showOnly('battle');
     if (state.status === 'reward') {
+      showOnly('choice');
       render();
       return;
     }
+    if (['won', 'lost'].includes(state.status)) {
+      showOnly('result');
+      render();
+      return;
+    }
+    showOnly('battle');
     playing = state.status === 'active';
     lastFrameAt = performance.now();
     render();
@@ -1025,9 +1144,11 @@
 
   async function submitAction(payload) {
     if (!production) {
-      return jsonFetch('/action', {
+      const data = await jsonFetch('/action', {
         method: 'POST', body: JSON.stringify(payload),
       });
+      if (data.shadow_reward) terminalReward = data.shadow_reward;
+      return data;
     }
     if (!runId) throw new Error('Нет активного забега.');
     const expectedRevision = Number(state?.revision);
@@ -1075,7 +1196,8 @@
         ])],
       }));
     }
-    return { state: data, turn: data.turn, rejected: false };
+    if (data.shadow_reward) terminalReward = data.shadow_reward;
+    return { state: data, turn: data.turn, rejected: false, shadow_reward: data.shadow_reward };
   }
 
   async function startRun() {
@@ -1088,6 +1210,7 @@
           encounter_id: encounterId,
           unit_branches: state?.unit_branches || {},
           companion_role_id: companionState?.selected_role_id || null,
+          difficulty_id: selectedDifficultyId,
         }),
       });
     }
@@ -1099,7 +1222,7 @@
     const practice = Boolean(gate || next?.practice);
     const data = await jsonFetch('/start', {
       method: 'POST',
-      body: JSON.stringify({ encounter_id: encounterId, practice }),
+      body: JSON.stringify({ encounter_id: encounterId, practice, difficulty_id: selectedDifficultyId }),
     });
     runId = data.run_id;
     if (data.career_stats) applyCareerStats(data.career_stats);
@@ -1283,6 +1406,7 @@
     try {
       await cancelRunIfActive();
       state = await startRun();
+      terminalReward = null;
       pendingStrike = null;
       lastFrameAt = performance.now();
       lastEventId = state.last_event?.id || 0;
@@ -1324,7 +1448,7 @@
     if (slots[event.code] && !event.repeat) queueStrike(slots[event.code], event);
     if (event.code === 'Escape' && !event.repeat) {
       if (!pauseLayer.hidden) continueRun();
-      else if (menuLayer.hidden && resultLayer.hidden) openPause();
+      else if (currentView === 'battle') openPause();
     }
   });
   document.addEventListener('visibilitychange', () => {
@@ -1422,6 +1546,32 @@
     const button = event.target.closest('[data-menu-tab]');
     if (button) selectMenuTab(button.dataset.menuTab);
   });
+  document.getElementById('difficultyOptions').addEventListener('change', (event) => {
+    const input = event.target.closest('input[name="difficulty"]');
+    if (!input || input.disabled) return;
+    selectedDifficultyId = input.value;
+    refreshMenu();
+  });
+  choiceLayer.addEventListener('keydown', (event) => {
+    if (event.key !== 'Tab' || choiceLayer.hidden) return;
+    const focusable = choiceFocusable();
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+      last.scrollIntoView({ block: 'nearest' });
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+      first.scrollIntoView({ block: 'nearest' });
+    } else if (!choiceLayer.contains(document.activeElement)) {
+      event.preventDefault();
+      first.focus();
+      first.scrollIntoView({ block: 'nearest' });
+    }
+  });
   document.querySelector('.menu-tabs').addEventListener('keydown', (event) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     const tabs = [...document.querySelectorAll('[data-menu-tab]')];
@@ -1485,6 +1635,8 @@
     .then(() => {
       lastEventId = state?.last_event?.id || 0;
       const desired = savedUiState();
+      const requestedTab = new URLSearchParams(location.search).get('tab');
+      if (['play', 'companion', 'stats', 'help'].includes(requestedTab)) desired.tab = requestedTab;
       if (pendingMemory && !state) {
         showMemoryChoice();
       } else if (!state) {
@@ -1509,8 +1661,11 @@
       setInterval(async () => {
         if (currentView !== 'menu' || currentMenuTab !== 'companion') return;
         try {
-          companionState = await jsonFetch('/companions');
-          renderCompanions();
+          const nextCompanionState = await jsonFetch('/companions');
+          const hasStructuralChange = companionViewSignature(nextCompanionState) !== companionViewSignature(companionState);
+          companionState = nextCompanionState;
+          if (hasStructuralChange) renderCompanions();
+          else refreshCompanionCountdowns();
         } catch (_) { /* следующий ручной запрос покажет ошибку */ }
       }, 2000);
     })

@@ -91,7 +91,7 @@ async def raw_user_snapshot(target_id: int, db=Depends(get_db),
 
 @router.get("/registry")
 async def full_registry(user=Depends(require_dev_user)):
-    """NOT_IMPLEMENTED п.2: справочник ВСЕХ игровых сущностей с ID — для быстрого
+    """Справочник всех игровых сущностей с ID для быстрого
     поиска айдишников (конструктор БП, промокоды, выдача предметов, SQL и т.д.).
     Плоский список {id, name, cat, extra} — фронт группирует и ищет в реальном времени."""
     from core.registry import (ITEMS_REGISTRY, PET_SPECIES, RELICS, SHADOW_RELICS,

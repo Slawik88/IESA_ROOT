@@ -14,7 +14,9 @@ try {
   await page.waitForFunction(() => typeof switchPage === 'function' && typeof openLooksModal === 'function');
   // Чистый запуск перекрыт заставкой до первого касания: в реальном UI игрок
   // закрывает её тапом, иначе последующий клик не попадёт в стрелку раздела.
-  await page.mouse.click(195, 700);
+  await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
   await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
 
   await page.evaluate(() => switchPage('market'));

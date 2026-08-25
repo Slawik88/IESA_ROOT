@@ -169,7 +169,10 @@ def git_output(*args: str) -> str:
 
 def changed_files(base: str) -> list[tuple[str, str]]:
     git_output("rev-parse", "--verify", f"{base}^{{commit}}")
-    raw = git_output("diff", "--name-status", f"{base}..HEAD", "--", PROJECT_PATH)
+    # Compare the complete candidate, including tracked working-tree edits.  A
+    # release audit is often run before the final local commit; HEAD-only diffs
+    # silently missed exactly the files whose player copy still needed review.
+    raw = git_output("diff", "--name-status", base, "--", PROJECT_PATH)
     rows: list[tuple[str, str]] = []
     for line in raw.splitlines():
         parts = line.split("\t")
@@ -178,6 +181,16 @@ def changed_files(base: str) -> list[tuple[str, str]]:
         status, repo_path = parts[0], parts[-1]
         prefix = PROJECT_PATH + "/"
         rows.append((status, repo_path[len(prefix) :] if repo_path.startswith(prefix) else repo_path))
+    untracked = git_output(
+        "ls-files", "--others", "--exclude-standard", "--", PROJECT_PATH
+    )
+    known = {path for _, path in rows}
+    prefix = PROJECT_PATH + "/"
+    for repo_path in untracked.splitlines():
+        project_path = repo_path[len(prefix) :] if repo_path.startswith(prefix) else repo_path
+        if project_path not in known:
+            rows.append(("??", project_path))
+    rows.sort(key=lambda row: row[1])
     return rows
 
 

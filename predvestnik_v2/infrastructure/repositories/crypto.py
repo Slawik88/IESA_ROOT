@@ -1,10 +1,16 @@
-# infrastructure/repositories/crypto.py — крипто-биржа: портфель + сделки (атомарно).
+# infrastructure/repositories/crypto.py — лорная биржа и серверные сделки.
 import math
+from datetime import datetime, timezone
 
 from core.constants import (
-    CRYPTO_TRADE_FEE, CRYPTO_MIN_TRADE_MORA, CRYPTO_MAX_HOLDING, CRYPTO_AMOUNT_DECIMALS,
+    CRYPTO_TRADE_FEE, CRYPTO_MIN_TRADE_MORA, CRYPTO_MAX_HOLDING,
+    CRYPTO_AMOUNT_DECIMALS, CRYPTO_WEEKLY_PAYOUT_BUDGET,
 )
-from infrastructure.repositories.wallet_log import log_wallet
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
+from infrastructure.repositories.economy_ledger import (
+    apply_balance_change,
+    find_reference_replay,
+)
 
 
 async def ensure_tables(db) -> None:
@@ -59,7 +65,39 @@ async def ensure_tables(db) -> None:
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_cpa_user ON crypto_price_alerts(user_id)"
     )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS crypto_market_budget (
+            period_key  TEXT PRIMARY KEY,
+            payout_cap  FLOAT8 NOT NULL,
+            payout_used FLOAT8 NOT NULL DEFAULT 0,
+            updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
     await db.commit()
+
+
+def _period_key() -> str:
+    now = datetime.now(timezone.utc)
+    year, week, _ = now.isocalendar()
+    return f"{year}-W{week:02d}"
+
+
+async def get_market_budget(db) -> dict:
+    """Published house-risk ceiling for the current UTC week."""
+    key = _period_key()
+    await db.execute(
+        "INSERT INTO crypto_market_budget (period_key, payout_cap) VALUES (?, ?) "
+        "ON CONFLICT (period_key) DO NOTHING",
+        (key, CRYPTO_WEEKLY_PAYOUT_BUDGET),
+    )
+    async with db.execute(
+        "SELECT payout_cap, payout_used FROM crypto_market_budget WHERE period_key = ?",
+        (key,),
+    ) as c:
+        row = await c.fetchone()
+    cap = float(row[0]) if row else CRYPTO_WEEKLY_PAYOUT_BUDGET
+    used = float(row[1]) if row else 0.0
+    return {"period": key, "cap": cap, "used": used, "remaining": max(0.0, cap - used)}
 
 
 # ── VIP-алерты цен ────────────────────────────────────────────────────────────
@@ -193,8 +231,9 @@ async def toggle_watchlist(db, user_id: int, coin_id: str) -> bool:
 
 
 async def trade(db, user_id: int, coin_id: str, action: str,
-                amount: float, unit_price: float) -> tuple[bool, str]:
-    """Купить/продать монету за Мору по серверной цене unit_price. Атомарно + защита экономики."""
+                amount: float, unit_price: float,
+                *, idempotency_key: str | None = None) -> tuple[bool, str]:
+    """Атомарная серверная сделка с ledger, повтором и лимитом риска системы."""
     if not math.isfinite(amount) or amount <= 0:
         return False, "Некорректное количество."
     if not math.isfinite(unit_price) or unit_price <= 0:
@@ -205,9 +244,28 @@ async def trade(db, user_id: int, coin_id: str, action: str,
     gross = amount * unit_price
     if gross < CRYPTO_MIN_TRADE_MORA:
         return False, f"Минимальная сделка — {CRYPTO_MIN_TRADE_MORA:.0f} 🪙."
+    if action not in ("buy", "sell"):
+        return False, "Допустимо только купить или продать."
+    if not idempotency_key:
+        return False, "Не удалось подтвердить уникальность запроса. Обновите страницу и повторите."
     amt_txt = f"{amount:g}"
+    reason = "crypto_buy" if action == "buy" else "crypto_sell"
+    reference_id = f"{coin_id}:{action}:{amount:.{CRYPTO_AMOUNT_DECIMALS}f}"
+    operation_key = f"crypto:trade:{idempotency_key}"
     try:
         async with db.connection.transaction():
+            async with db.execute("SELECT pg_advisory_xact_lock(?)", (int(user_id),)) as c:
+                await c.fetchone()
+            replay = await find_reference_replay(
+                db, user_id,
+                reason_code=reason,
+                idempotency_key=operation_key,
+                source_type="exchange",
+                reference_type="crypto_trade",
+                reference_id=reference_id,
+            )
+            if replay:
+                return True, "Эта сделка уже была выполнена; повторно баланс не изменён."
             async with db.execute(
                 "SELECT user_balance_mora FROM users WHERE user_tg_id = ? FOR UPDATE",
                 (user_id,),
@@ -229,16 +287,18 @@ async def trade(db, user_id: int, coin_id: str, action: str,
                     return False, "Недостаточно Моры для покупки."
                 if have + amount > CRYPTO_MAX_HOLDING:
                     return False, "Достигнут лимит по этой монете."
-                # Средневзвешенная цена покупки
                 new_avg = (have * old_avg + amount * unit_price) / (have + amount)
-                await db.execute(
-                    "UPDATE users SET user_balance_mora = user_balance_mora - ? WHERE user_tg_id = ?",
-                    (cost, user_id),
+                await apply_balance_change(
+                    db, user_id, {"mora": -cost}, reason_code="crypto_buy",
+                    idempotency_key=operation_key, source_type="exchange",
+                    reference_type="crypto_trade", reference_id=reference_id,
+                    metadata={"coin_id": coin_id, "action": action, "amount": amount,
+                              "price": unit_price, "fee": CRYPTO_TRADE_FEE, "total": cost},
+                    note=f"{coin_id} ×{amt_txt}",
                 )
                 await db.execute(
                     "INSERT INTO crypto_holdings (user_id, coin_id, amount, avg_buy_price) "
-                    "VALUES (?, ?, ?, ?) "
-                    "ON CONFLICT (user_id, coin_id) DO UPDATE "
+                    "VALUES (?, ?, ?, ?) ON CONFLICT (user_id, coin_id) DO UPDATE "
                     "SET amount = crypto_holdings.amount + ?, avg_buy_price = ?",
                     (user_id, coin_id, amount, new_avg, amount, new_avg),
                 )
@@ -247,8 +307,6 @@ async def trade(db, user_id: int, coin_id: str, action: str,
                     "VALUES (?, ?, 'buy', ?, ?, ?)",
                     (user_id, coin_id, amount, unit_price, cost),
                 )
-                await log_wallet(db, user_id, delta_mora=-cost, source="crypto_buy",
-                                 note=f"{coin_id} ×{amt_txt}")
                 return True, f"Куплено {amt_txt} {coin_id} за {cost:.0f} 🪙 (комиссия {int(CRYPTO_TRADE_FEE * 100)}%)."
 
             if action == "sell":
@@ -257,23 +315,48 @@ async def trade(db, user_id: int, coin_id: str, action: str,
                 sell_amt = min(amount, have)
                 payout = round(sell_amt * unit_price * (1 - CRYPTO_TRADE_FEE), 2)
                 new_have = max(0.0, have - sell_amt)
+                period = _period_key()
+                await db.execute(
+                    "INSERT INTO crypto_market_budget (period_key, payout_cap) VALUES (?, ?) "
+                    "ON CONFLICT (period_key) DO NOTHING",
+                    (period, CRYPTO_WEEKLY_PAYOUT_BUDGET),
+                )
+                async with db.execute(
+                    "SELECT payout_cap, payout_used FROM crypto_market_budget "
+                    "WHERE period_key = ? FOR UPDATE", (period,),
+                ) as c:
+                    budget_row = await c.fetchone()
+                cap, used = float(budget_row[0]), float(budget_row[1])
+                if used + payout > cap + 1e-9:
+                    return False, "Резерв выплат этой недели исчерпан. Продажа снова откроется в новом периоде."
+                await apply_balance_change(
+                    db, user_id, {"mora": payout}, reason_code="crypto_sell",
+                    idempotency_key=operation_key, source_type="exchange",
+                    reference_type="crypto_trade", reference_id=reference_id,
+                    metadata={"coin_id": coin_id, "action": action, "amount": sell_amt,
+                              "price": unit_price, "fee": CRYPTO_TRADE_FEE,
+                              "total": payout, "risk_period": period},
+                    note=f"{coin_id} ×{sell_amt:g}",
+                )
                 await db.execute(
                     "UPDATE crypto_holdings SET amount = ? WHERE user_id = ? AND coin_id = ?",
                     (new_have, user_id, coin_id),
                 )
                 await db.execute(
-                    "UPDATE users SET user_balance_mora = user_balance_mora + ? WHERE user_tg_id = ?",
-                    (payout, user_id),
+                    "UPDATE crypto_market_budget SET payout_used = payout_used + ?, updated_at = NOW() "
+                    "WHERE period_key = ?", (payout, period),
                 )
                 await db.execute(
                     "INSERT INTO crypto_trades (user_id, coin_id, action, amount, price, total_mora) "
                     "VALUES (?, ?, 'sell', ?, ?, ?)",
                     (user_id, coin_id, sell_amt, unit_price, payout),
                 )
-                await log_wallet(db, user_id, delta_mora=payout, source="crypto_sell",
-                                 note=f"{coin_id} ×{sell_amt:g}")
-                return True, f"Продано {sell_amt:g} {coin_id} за {payout:.0f} 🪙 (спред {int(CRYPTO_TRADE_FEE * 100)}%)."
+                return True, f"Продано {sell_amt:g} {coin_id} за {payout:.0f} 🪙 (комиссия {int(CRYPTO_TRADE_FEE * 100)}%)."
 
             return False, "Неизвестное действие."
-    except Exception as e:
-        return False, f"Ошибка: {e}"
+    except InsufficientBalance as e:
+        return False, str(e)
+    except IdempotencyConflict:
+        return False, "Этот ключ запроса уже использован для другой сделки."
+    except Exception:
+        return False, "Сделка не выполнена. Баланс и портфель не изменены."

@@ -7,9 +7,9 @@ const browser=await puppeteer.launch({headless:'new'});
 const page=await browser.newPage();
 await page.setViewport({width:390,height:844,deviceScaleFactor:2});
 await page.goto('http://localhost:8402/',{waitUntil:'load'});
-await new Promise(resolve=>setTimeout(resolve,1200));
-await page.mouse.click(195,700);
-await new Promise(resolve=>setTimeout(resolve,350));
+await page.waitForFunction(()=>typeof openLooksModal==='function');
+await page.waitForFunction(()=>document.elementFromPoint(195,120)?.id!=='preloader');
+await page.evaluate(()=>CM());
 await page.evaluate(()=>openLooksModal());
 await page.waitForFunction(()=>document.querySelectorAll('.coll-card').length===10);
 
@@ -70,11 +70,16 @@ await page.evaluate(()=>{
 await page.waitForFunction(()=>document.querySelector('#pro-main .hero.pbg-lotus-eclipse'));
 const profile=await page.evaluate(()=>{
   const hero=document.querySelector('#pro-main .hero'),avatar=hero.querySelector('.ava'),copy=hero.querySelector('.profile-copy');
+  const stage=hero.querySelector('[data-open-looks="profile-showcase"]');
   const a=avatar.getBoundingClientRect(),c=copy.getBoundingClientRect(),h=hero.getBoundingClientRect();
-  return {avatarCss:avatar.className,text:copy.textContent.replace(/\s+/g,' ').trim(),gap:Math.round(c.left-a.right),contained:c.right<=h.right};
+  return {avatarCss:avatar.className,text:copy.textContent.replace(/\s+/g,' ').trim(),gap:Math.round(c.left-a.right),contained:c.right<=h.right,
+    stageBg:stage?.classList.contains('pbg-lotus-eclipse')||false,
+    stageFx:!!stage?.querySelector('.card-fx.cfx-lotus-fireflies'),
+    outerBg:getComputedStyle(hero).backgroundImage};
 });
 check('equipped profile preserves the same frame and full title',profile.avatarCss.includes('frame-lotus-petal-orbit')&&profile.text.includes('Хранитель Лунного Лотоса'));
 check('equipped profile keeps avatar effects clear of readable copy',profile.gap>=20&&profile.contained);
+check('premium scenery is confined to the player stage and cannot cross readable profile data',profile.stageBg&&profile.stageFx&&profile.outerBg==='none');
 
 await browser.close();
 if(failures.length){console.error('FAIL:',failures);process.exit(1);}

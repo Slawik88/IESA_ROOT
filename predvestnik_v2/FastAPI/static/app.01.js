@@ -186,20 +186,11 @@ function showWsNotif(event) {
   const titles = {
     expedition_done: '⚔️ Поход завершён!',
     quest_done: '✅ Квест выполнен!',
-    duel_challenge: '⚔️ Вызов на дуэль!',
   };
   const bodies = {
     expedition_done: e => `${e.pet} вернулся: +${fmt(e.mora)} 🪙 +${e.xp} XP`,
     quest_done: e => `«${e.quest}» — получено!`,
-    duel_challenge: e => `@${e.from} ставка ${fmt(e.stake)} 🪙 · Ответьте в чате: бот принять`,
   };
-  // Play sound for duel challenge
-  if(event.type === 'duel_challenge') {
-    if('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
-    browserNotif('⚔️ Вызов на дуэль!', bodies.duel_challenge(event));
-    // Auto-reload duels if on arena page
-    if(_loaded.has('arena') && _arenaTab === 'duels') loadDuels();
-  }
   // Подарок от администрации → коробка-сюрприз (БЛОК 3.4)
   if (event.type === 'admin_gift') { showGiftBox([event]); return; }
   // Подарок от супруга (Block 5.4) → романтическая коробка
@@ -320,24 +311,6 @@ function showWelcomeBack(items) {
 // сравниваем уровень с прошлой загрузкой (localStorage). _xpAnimated — флаг анимации
 // заливки XP-шкалы (один раз за сессию), объявлен здесь до первого вызова loadProfile.
 let _xpAnimated = false;
-// EPIC1: набегающий счётчик ⚡ Индекса Силы (rAF, ease-out) — тоже 1 раз за сессию,
-// чтобы фоновый автообновление профиля (каждые 5 мин) не переигрывало анимацию.
-let _cpAnimated = false;
-function _animateCpCount(nodeId, target, dur) {
-  const node = el(nodeId);
-  if (!node) return;
-  target = Number(target) || 0;
-  dur = dur || 900;
-  if (!target) { node.textContent = '0'; return; }
-  const t0 = performance.now();
-  function step(t) {
-    const p = Math.min(1, (t - t0) / dur);
-    const eased = 1 - Math.pow(1 - p, 3);
-    node.textContent = fmt(Math.round(target * eased));
-    if (p < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-}
 function _checkLevelUp(lvl) {
   try {
     const prev = parseInt(localStorage.getItem('pv_last_level') || '0');
@@ -516,10 +489,13 @@ let _sysFlags = {};  // заполняется из /profile/me (system_flags) �
 function _applySysFlags(flagsList) {
   _sysFlags = Object.fromEntries((flagsList||[]).map(f=>[f.key,!!f.enabled]));
 }
+function _isFeatureEnabled(key) {
+  return _sysFlags[key] !== false;  // undefined = профиль ещё загружается
+}
 function _isPageEnabled(name) {
   const key = _PAGE_FLAG[name];
   if(!key) return true;
-  return _sysFlags[key] !== false;  // undefined = ещё не загружено → разрешаем
+  return _isFeatureEnabled(key);
 }
 function _showMaintenance(pg) {
   const box = el('pg-'+pg); if(!box) return;

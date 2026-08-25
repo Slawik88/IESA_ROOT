@@ -14,7 +14,7 @@ from services.cosmetics import (
     buy, equip, get_catalog, set_welcome, unequip,
     chest_catalog, open_chest, craft_catalog, craft_cosmetic,
     giftable_cosmetics, gift_cosmetic, buy_chest,
-    list_presets, save_preset, apply_preset, delete_preset,
+    list_presets, save_preset, rename_preset, apply_preset, delete_preset,
     buy_lineup, buy_many,
 )
 
@@ -162,10 +162,7 @@ class ChestOpenRequest(BaseModel):
 
 @router.post("/chest/open")
 async def cosmetics_chest_open(body: ChestOpenRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg, drop = await open_chest(db, user["id"], body.chest_id)
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "message": msg, "drop": drop}
+    raise HTTPException(410, "Случайное открытие закрыто. Сохранённые сундуки будут разобраны без скрытых шансов и повторных нажатий.")
 
 
 @router.get("/craft")
@@ -179,10 +176,7 @@ class CraftRequest(BaseModel):
 
 @router.post("/craft")
 async def cosmetics_craft(body: CraftRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg = await craft_cosmetic(db, user["id"], body.cosmetic_id)
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "message": msg}
+    raise HTTPException(410, "Старый крафт закрыт. Осколки сохранены для прозрачного разбора Архива.")
 
 
 # ── БЛОК21: подарки и сундуки за ✨ Зарники (Stars покупают ТОЛЬКО зарники) ───────
@@ -235,13 +229,7 @@ async def cosmetics_chest_buy(
     body: ChestBuyRequest, db=Depends(get_db), user=Depends(require_tg_user),
     request_key: str = Header(alias="Idempotency-Key"),
 ):
-    ok, msg = await buy_chest(
-        db, user["id"], body.chest_id,
-        idempotency_key=_economic_key(request_key, "cosmetic-chest"),
-    )
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "message": msg}
+    raise HTTPException(410, "Случайные сундуки больше не продаются. Косметика покупается с заранее известным результатом.")
 
 
 
@@ -261,6 +249,23 @@ async def cosmetics_save_preset(body: PresetSaveRequest, db=Depends(get_db), use
     ok, msg, preset = await save_preset(db, user["id"], body.name)
     if not ok:
         raise HTTPException(400, msg)
+    return {"ok": True, "message": msg, "preset": preset}
+
+
+class PresetRenameRequest(BaseModel):
+    name: str
+
+
+@router.patch("/presets/{preset_id}")
+async def cosmetics_rename_preset(
+    preset_id: int,
+    body: PresetRenameRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+):
+    ok, msg, preset = await rename_preset(db, user["id"], preset_id, body.name)
+    if not ok:
+        raise HTTPException(404, msg)
     return {"ok": True, "message": msg, "preset": preset}
 
 

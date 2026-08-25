@@ -57,7 +57,10 @@ async def cmd_relics(message: types.Message, db):
 async def cb_relic_buy(query: types.CallbackQuery, callback_data: RelicBuyCB, db):
     if not await check_callback_owner(query, callback_data.user_id):
         return
-    ok, msg = await relics_db.buy_relic(db, query.from_user.id, callback_data.relic_id)
+    ok, msg = await relics_db.buy_relic(
+        db, query.from_user.id, callback_data.relic_id,
+        idempotency_key=f"telegram:{query.id}",
+    )
     if not ok:
         return await query.answer(msg, show_alert=True)
     text, kb = await _render(db, query.from_user.id)

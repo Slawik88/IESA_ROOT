@@ -1,6 +1,6 @@
 """
-infrastructure/repositories/clans2.py — R3 Кланы 2.0: казна, здания, Бездна,
-войны за узлы (GDD_REBUILD_PLAN.md). Только SQL; логика — services/clans2.py.
+infrastructure/repositories/clans2.py — legacy клановые боевые таблицы.
+Только SQL; полный retirement отслеживается как LCB-001.
 """
 import json
 

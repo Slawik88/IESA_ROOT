@@ -32,17 +32,26 @@ function loadProfile() {
       const f = el('pro-main')?.querySelector('.xp-fill');
       if (f) f.style.width = (f.dataset.pct || 0) + '%';
     }, 40);
-    const animateCp = !_cpAnimated; _cpAnimated = true;
-    const hasCp = typeof d.combat_power === 'number';
-    if (hasCp) setTimeout(() => {
-      if (animateCp) _animateCpCount('cp-hero-val', d.combat_power);
-      else { const n = el('cp-hero-val'); if (n) n.textContent = fmt(d.combat_power); }
-    }, 40);
-    const looksEntryLabel=looksTrial?'Продолжить примерку':'Внешний вид';
     const looksEntryMeta=looksTrial?`${looksTrial.count} ${looksTrial.noun} сохранено`:'Примерочная и образы';
+    const outfitCount=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx']
+      .filter(slot=>Boolean(cosmetics[slot])).length;
+    // The stage must describe only layers that are actually visible there.
+    // Name glow and title deliberately live in the identity header; saying
+    // "фон и эффекты уже здесь" for a 3/6 header+frame outfit was false.
+    const stageParts=[
+      ['avatar_frame','рамка'], ['avatar_halo','ореол'],
+      ['profile_bg','фон'], ['card_fx','эффекты'],
+    ].filter(([slot])=>Boolean(cosmetics[slot])).map(([,label])=>label);
+    const looksStageMeta=looksTrial
+      ?`Черновик: ${looksEntryMeta}`
+      :stageParts.length===4?'Полный образ на сцене'
+      :stageParts.length?`На сцене: ${stageParts.join(' · ')}`
+      :outfitCount?'Детали образа — в шапке профиля':'Собери свой первый образ';
+    const looksCanvasLabel=looksTrial
+      ?`Продолжить примерку: ${looksEntryMeta}.`
+      :`Открыть образы. Сейчас экипировано ${outfitCount} из 6 предметов.`;
     el('pro-main').innerHTML=`
       <div class="hero profile-showcase-card ${cosmetics.profile_bg?cosmetics.profile_bg.css:''}">
-        ${cosmetics.card_fx?`<div class="card-fx ${cosmetics.card_fx.css}"></div>`:''}
         <div class="profile-showcase-head">
           <div class="hero-head${lineageStyle?' lineage-link':''}"${lineageStyle?` style="${lineageStyle}"`:''}>
             <div class="ava ${cosmetics.avatar_frame?cosmetics.avatar_frame.css:''} ${cosmetics.avatar_halo?cosmetics.avatar_halo.css:''}" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
@@ -52,21 +61,17 @@ function loadProfile() {
               ${cosmetics.title?`<div class="ptitle${cosmetics.title_css?' '+cosmetics.title_css:''}">${esc(cosmetics.title)}</div>`:''}
             </div>
           </div>
-          <button class="showcase-fitting-button" type="button" onclick="openLooksModal()" aria-label="${looksEntryLabel}">
-            <span aria-hidden="true">🎨</span><span>Примерочная</span><span aria-hidden="true">›</span>
-          </button>
         </div>
 
         <div class="profile-showcase-main">
-          <button class="character-showcase-area" type="button" onclick="openLooksModal()" aria-label="Открыть текущий образ в примерочной">
-            <span class="character-showcase-caption"><strong>${looksEntryLabel}</strong><small>${looksEntryMeta}</small></span>
+          <button class="character-showcase-area hero ${cosmetics.profile_bg?cosmetics.profile_bg.css:''}" type="button" onclick="openLooksModal()" data-open-looks="profile-showcase" aria-label="${looksCanvasLabel}">
+            ${cosmetics.card_fx?`<span class="card-fx ${cosmetics.card_fx.css}" aria-hidden="true"></span>`:''}
+            <span class="character-showcase-portrait ava ${cosmetics.avatar_frame?cosmetics.avatar_frame.css:''} ${cosmetics.avatar_halo?cosmetics.avatar_halo.css:''}" id="pro-showcase-ava" aria-hidden="true">${d.is_vip?'👑':'🔮'}</span>
+            <span class="character-showcase-caption" aria-hidden="true"><strong>${looksTrial?'Продолжить примерку':`Открыть образы · ${outfitCount} из 6`}</strong><small>${looksStageMeta}</small></span>
           </button>
-          <aside class="player-data-rail" aria-label="Основные показатели игрока">
-            ${hasCp?`<button class="player-rail-item player-rail-item--power" type="button" onclick="showCpBreakdown()">
-              <span class="player-rail-kicker">⚡ Сила</span><strong id="cp-hero-val">0</strong><small>Подробнее ›</small>
-            </button>`:''}
+          <aside class="player-data-rail player-data-rail--compact" aria-label="Основные показатели игрока">
             <div class="player-rail-item player-rail-item--level">
-              <span class="player-rail-kicker">Уровень наследия</span><strong>LV${lvl}</strong>
+              <span class="player-rail-kicker">Уровень профиля</span><strong>LV${lvl}</strong>
               <div class="hero-xp">
                 <div class="xp-bar"><div class="xp-fill" data-pct="${xpPct}" style="width:${animateXp?0:xpPct}%"></div></div>
                 <div class="xp-lbl"><span>${fmt(xpInLvl)} XP</span><span>сохранено</span></div>
@@ -99,12 +104,12 @@ function loadProfile() {
         <button type="button" onclick="openSettingsModal()"><span aria-hidden="true">⚙️</span><span>Настройки</span></button>
       </div>
 
-      <!-- Быстрые действия: всё важное в 1 клик -->
+      <!-- Быстрые действия: актуальные маршруты первого релиза -->
       <div class="qa-row">
-        <div class="qa qa-hot" onclick="goTo('quests','streak')"><span>🔥</span>Стрик <span>${d.streak}</span></div>
-        <div class="qa" onclick="goTo('quests')"><span>📋</span>Квесты</div>
-        <div class="qa" onclick="goTo('bp')"><span>🎫</span>Пропуск</div>
-        <div class="qa" onclick="goTo('zoo')"><span>🍖</span>Питомцы</div>
+        <div class="qa qa-hot" onclick="goTo('arena','game')"><span>🔔</span>Разлом</div>
+        <div class="qa" onclick="openReconstructionGame()"><span>🐾</span>Спутник</div>
+        <div class="qa" onclick="goTo('auction','crypto')"><span>📈</span>Биржа</div>
+        <div class="qa" onclick="openPromoModal()"><span>🎟</span>Промокод</div>
       </div>
 
       <!-- Топ-3 игроков (loadTop3) — соревнование на видном месте (block 11) -->
@@ -115,7 +120,7 @@ function loadProfile() {
 
       ${d.is_vip?'':`<div class="vip-banner" onclick="goTo('market','vip')">
         <span class="vb-crown">👑</span>
-        <div><div class="vb-title">Стань VIP</div><div class="vb-sub">Еженедельные подарки, +слот питомника, безлимит ника</div></div>
+        <div><div class="vb-title">VIP-сервис</div><div class="vb-sub">Образы, история и удобство · без игровой силы</div></div>
         <span class="vb-cta">›</span>
       </div>`}
 
@@ -129,14 +134,13 @@ function loadProfile() {
         ${pets.map(p=>`
         <div class="pcard" onclick="goTo('zoo')" style="cursor:pointer"><div class="pcol">
           <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
-          <div class="ps">Lv${p.pet_level} · ${PL[p.placement]}</div>
-          <div class="fat-bar"><div class="fat-fill" style="width:${p.fatigue}%;background:${fatC(p.fatigue)}"></div></div>
+          <div class="ps">История: ранг ${p.pet_level} · владение сохранено</div>
         </div></div>`).join('')}
         <div class="shortcut-row">
           <span class="shortcut-link" onclick="goTo('zoo')">Управлять питомцами →</span>
         </div>
         </div>
-      </details>`:`<details class="profile-fold"><summary><span class="profile-fold-title">🐾 Питомники</span><span class="profile-fold-meta">Нет питомцев</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary><div class="profile-fold-body"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Питомцев пока нет</div><div class="es-sub">Крутни Гачу, чтобы завести первого</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="goTo('market','gacha')">🎲 Открыть Гачу</button></div></div></details>`}
+      </details>`:`<details class="profile-fold"><summary><span class="profile-fold-title">🐾 Спутники</span><span class="profile-fold-meta">Нет спутника</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary><div class="profile-fold-body"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Спутника пока нет</div><div class="es-sub">Первый спутник появится во вступлении Хроники.</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="openReconstructionGame()">Открыть игру</button></div></div></details>`}
       ${d.chats.length?`<details class="profile-fold">
         <summary><span class="profile-fold-title">💬 Активность</span><span class="profile-fold-meta">${d.chats.length} ${d.chats.length===1?'чат':'чата'}</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
         <div class="profile-fold-body">
@@ -216,9 +220,9 @@ function openSettingsModal(){
     <div class="set-hint">Свечения, рамки и частицы станут статичными — полезно на слабых телефонах.</div>
     <label style="display:flex;align-items:center;gap:8px;padding:8px 2px;cursor:pointer">
       <input type="checkbox" ${easyInp?'checked':''} onchange="_toggleEasyInput(this.checked)"/>
-      <span style="font-size:12.5px">Упрощённый ввод (бой и гача)</span>
+      <span style="font-size:12.5px">Комфортный ввод в Разломе</span>
     </label>
-    <div class="set-hint">Тайминг крита/ульты в бою мягче, крутка гачи — обычным тапом без удержания. Для тех, кому неудобно ловить моменты.</div>
+    <div class="set-hint">Увеличивает окна реакции и уменьшает резкие движения интерфейса. Точность всё равно считается по обработанным сигналам.</div>
     <div class="set-sec-t" style="margin-top:14px">🔔 Уведомления от бота</div>
     <div id="set-notif-prefs"><div class="loader">Загрузка...</div></div>
     <div class="set-hint">Личные напоминания в ЛС. Групповые события чата приходят всем и здесь не отключаются.</div>
@@ -356,17 +360,13 @@ function _showWelcome(){
   try{ if(localStorage.getItem('pv_welcomed')) return; localStorage.setItem('pv_welcomed','1'); }catch(e){}
   setTimeout(()=>OM('👋 Коротко о главном', `
     <div style="font-size:12px;line-height:1.6">
-      <p>Общайся в чате — растёт опыт и открываются <b>Задания</b> с наградой в
-      <b>🪙 Мору</b> (основная валюта). На Мору покупаешь еду, крутишь Гачу за
-      питомцами, растишь питомник.</p>
-      <p>💎 <b>Алмазы</b> — премиум-валюта (события/донат). ✨ <b>Зарники</b> — за реальные Stars,
-      на косметику и VIP.</p>
-      <p>Нажми на цифры валют в самом верху экрана в любой момент — там подробное
-      объяснение, что для чего.</p>
-      <p style="color:var(--gold2)">Первый шаг: открой 📋 Задания — там первая Мора на первую крутку Гачи.</p>
+      <p><b>Разлом колокола</b> — основная игра: находи правильный сигнал, удерживай серию и собирай отряд. Скорость нажатий сама по себе не помогает.</p>
+      <p>🪙 <b>Мора</b> нужна для подготовки и мира. 💎 <b>Алмазы</b> выдаются за редкие испытания. ✨ <b>Зарники</b> покупаются за Stars и тратятся на внешний вид и сервис.</p>
+      <p>Питомцы, кланы, семья, биржа и косметика связаны с одним профилем. Владение и прежние достижения сохранены.</p>
+      <p style="color:var(--gold2)">Первый шаг: открой «Игра» и пройди короткое вступление.</p>
     </div>`, [
-    {l:'📋 К заданиям', c:'btn-gold', f:'CM();goTo("quests")'},
-    {l:'Понятно, сам разберусь', c:'btn-ghost', f:'CM()'},
+    {l:'🔔 Открыть игру', c:'btn-gold', f:'CM();openReconstructionGame()'},
+    {l:'Позже', c:'btn-ghost', f:'CM()'},
   ]), 500);
 }
 
@@ -388,7 +388,7 @@ function _clanMyHtml(){
   const pct=lp.is_max?100:(lp.xp_needed?Math.min(100,Math.round(lp.xp_into/lp.xp_needed*100)):0);
   const emax=c.effective_max||_clansData.max_members;
   const members=(c.members||[]).map(m=>{
-    const lead=m.role==='leader';
+    const lead=m.role==='owner';
     const title=m.title?`<div class="top-title">${esc(m.title)}</div>`:'';
     return `<div class="clan-mrow"><span class="clan-mname">${lead?'👑 ':''}${unameLink(m.user_id, m.username, false, m.glow)}${title}</span>
       <span class="clan-mrole">🎖 ${fmtF(m.clan_coins||0)}</span></div>`;
@@ -397,16 +397,14 @@ function _clanMyHtml(){
       <div class="clan-emblem">${c.emblem||'🛡'}</div>
       <div class="clan-name">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></div>
       ${c.description?`<div class="clan-desc">${esc(c.description)}</div>`:''}
-      <div class="clan-lvlrow"><span class="clan-lvlbadge">🏛 Уровень ${lp.level}</span>
-        <span class="clan-lvlxp">${lp.is_max?'МАКС':fmtF(lp.xp_into)+' / '+fmtF(lp.xp_needed)+' XP'}</span></div>
-      <div class="clan-lvlbar"><div class="clan-lvlfill" style="width:${pct}%"></div></div>
+      <div class="clan-lvlrow"><span class="clan-lvlbadge">🏛 Основание клана</span>
+        <span class="clan-lvlxp">${fmtF(c.foundation_score||c.total_xp||0)} истории</span></div>
       <div class="clan-stats"><div><b>${(c.members||[]).length}</b>/${emax} участников</div>
-        <div><b>${fmtF(c.total_xp||0)}</b> XP · 🎖 <b>${fmtF(c.clan_coins||0)}</b></div></div>
+        <div>роли и состав сохранены</div></div>
     </div>
     ${_clan2NavHtml()}
-    ${_clanShopHtml()}
-    ${_clanBuildingsHtml()}
-    <div class="looks-slot-t" style="margin-top:12px">Состав <span class="clan-coin-note">· вклад 🎖</span></div>
+    <div class="looks-hint">Старая сила и здания не дают преимущества. Совместные цели идут через Союз, а клан сохраняет имя, состав и историю.</div>
+    <div class="looks-slot-t" style="margin-top:12px">Состав</div>
     <div class="clan-members">${members}</div>
     <button class="btn btn-full btn-ghost" style="margin-top:12px" onclick="_clanLeave()">🚪 Покинуть клан</button>`;
 }
@@ -434,7 +432,7 @@ function _clanCreateHtml(){
       <input id="clan-name" type="text" class="num-input" maxlength="${_clansData.name_max||24}" placeholder="Название клана"/>
       <input id="clan-tag" type="text" class="num-input" maxlength="${_clansData.tag_max||5}" placeholder="Тег (2–5, напр. WOLF)" style="text-transform:uppercase"/>
       <input id="clan-desc" type="text" class="num-input" maxlength="120" placeholder="Девиз (необязательно)"/>
-      <button class="btn btn-full btn-gold" onclick="_clanCreate()">🛡 Основать за ${fmtF(_clansData.create_cost||0)} 🪙</button>
+      <button class="btn btn-full btn-gold" onclick="_clanCreate()">🛡 Основать клан</button>
     </div>`;
 }
 function _clanTopHtml(){
@@ -446,7 +444,7 @@ function _clanTopHtml(){
     return `<div class="clan-trow${mine?' clan-mine':''}"><span class="clan-trank">${i+1}</span>
       <span class="clan-temblem">${c.emblem||'🛡'}</span>
       <span class="clan-tname">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></span>
-      <span class="clan-txp">ур.${c.level||1} · ${fmtF(c.total_xp||0)} XP · ${c.member_count}/${c.effective_max||_clansData.max_members}</span>
+      <span class="clan-txp">${c.member_count}/${c.effective_max||_clansData.max_members} участников · ${fmtF(c.total_xp||0)} истории</span>
       ${join}</div>`;
   }).join('');
   return `<div class="looks-slot-t" style="margin-top:14px">🏆 Топ кланов</div><div class="clan-top">${rows}</div>`;
@@ -629,6 +627,7 @@ function _applyVipAvatar() {
   const img = `<img src="${_vipAvatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`;
   const h = el('hdr-ava'); if (h) h.innerHTML = img;
   const p = el('pro-ava'); if (p) p.innerHTML = img;
+  const s = el('pro-showcase-ava'); if (s) s.innerHTML = img;
   const f = el('fit-ava'); if (f) f.innerHTML = img;
 }
 function _ensureVipAvatar() {
@@ -693,7 +692,7 @@ function refreshCurrBar() {
   }).catch(()=>{});
 }
 setInterval(refreshCurrBar, 90000); // every 90s
-// Точечный патч цифр на карточке профиля (Мора/Алмазы/Зарники/Ачивки/Индекс Силы/Стрик) —
+// Точечный патч цифр на карточке профиля (Мора/Алмазы/Зарники/Ачивки/Стрик) —
 // БЕЗ полного loadProfile() (это дёрнуло бы скелетон-лоадер и пересборку всей карточки).
 // Раньше эти карточки обновлялись только раз в 5 мин (setInterval в app.06.js) или
 // вручную (F5) — метки честно предупреждали об этом значком 🔄, теперь он не нужен.
@@ -705,7 +704,6 @@ function _profileSyncStats(d){
   set('pro-stat-zar', Math.floor(d.zarniki||0));
   set('pro-stat-ach', d.achievements);
   set('pro-stat-streak', d.streak);
-  if(typeof d.combat_power==='number') set('cp-hero-val', fmt(d.combat_power));
 }
 
 function plDays(n){n=Math.abs(n)%100;const d=n%10;if(n>10&&n<20)return'дней';if(d===1)return'день';if(d>=2&&d<=4)return'дня';return'дней';}
@@ -904,173 +902,30 @@ function openAchModal(a) {
 }
 
 
-// ── R1: модалка брейкдауна Индекса Силы (⚡ CP) ────────────────────────────────
-function showCpBreakdown() {
-  const b=_profileData&&_profileData.cp_breakdown;
-  if(!b){toast('Данные CP ещё не загружены',false);return;}
-  const row=(k,v)=>`<div class="irow"><span class="ik">${k}</span><span class="iv" style="color:var(--gold2)">+${fmt(v)}</span></div>`;
-  OM('⚡ Индекс Силы',`
-    <div style="text-align:center;padding:8px 0 12px">
-      <div style="font-size:30px;font-weight:800;color:var(--gold2)">⚡ ${fmt(b.total)}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:2px">публичный показатель силы аккаунта</div>
-    </div>
-    ${row('⭐ Уровень аккаунта × 100', b.level_part)}
-    ${row('⚔️ Отряд юнитов (Казарма)', b.squad_units!==undefined?b.squad_units:b.active_pet)}
-    ${row('🏰 Юниты в резерве (×0.25)', b.reserve_units!==undefined?b.reserve_units:0)}
-    ${row('🐾 Коллекция питомцев (×0.1)', b.pet_collection!==undefined?b.pet_collection:b.passive_pets)}
-    ${row('🎨 Полный сет косметики', b.cosmetics_set)}
-    ${row('🏛 Реликвии', b.relics)}
-    <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.4">Боёвка 3.0: силу дают боевые юниты из Казармы. Мирные питомцы — экономика, но коллекция даёт небольшой бонус. Сет косметики — все 6 слотов, бонус по минимальной редкости.</div>
-  `,[{l:'🏰 В Казарму',c:'btn-gold',f:"goTo('arena','barracks')"},{l:'Понятно',c:'btn-ghost',f:'CM()'}]);
-}
-
-// ══ R3 Кланы 2.0: Бездна · Здания · Войны (внутри клан-модалки) ══════════════
-// UX-аудит: названия вкладок ничего не объясняли новичку + переключение между
-// ними требовало полного возврата в карточку клана. Теперь у каждой кнопки
-// однословная подсказка, а сама панель встроена в шапку всех трёх экранов —
-// прямой переход Бездна↔Здания↔Войны без промежуточного «↩ К клану».
+// ══ Кланы: переход к общей системе Союза ══════════════════════════════════════
+// Базовый клан, состав и владение остаются в /clans. Старые Бездна, здания за
+// осколки и клеточные войны закрыты: они нарушали новую экономику и возвращали
+// удалённую боёвку. До аудиторных порогов кланы играют вместе через Союз.
 function _clan2NavHtml(active){
-  const item=(key,icon,label,sub,fn)=>
-    `<button class="btn ${active===key?'btn-gold':'btn-ghost'}" onclick="${fn}">${icon} ${label}<span class="clan2-nav-sub">${sub}</span></button>`;
+  const item=(key,icon,label,sub)=>
+    `<button class="btn ${active===key?'btn-gold':'btn-ghost'}" onclick="showClanTransition('${key}')">${icon} ${label}<span class="clan2-nav-sub">${sub}</span></button>`;
   return `<div class="clan2-nav">
-    ${item('abyss','🌀','Бездна','копать клетки','c2Abyss()')}
-    ${item('build','🏗','Здания','тратить 🔷','c2Buildings()')}
-    ${item('war','⚔️','Войны','отбить узел','c2War()')}
+    ${item('alliance','◈','Союз','общая цель')}
+    ${item('projects','▦','Проекты','после 3 кланов')}
+    ${item('competition','◇','Состязание','после 8 кланов')}
   </div>`;
 }
-const C2_CELL_ICO={empty:'▫️',chest:'📦',monster:'👹',boss:'👑',exit:'🚪'};
-let _c2Ab=null;
-function c2Abyss(){
-  const b=el('mb'); if(b)b.innerHTML='<div class="loader">Загрузка Бездны...</div>';
-  api('/clans2/abyss').then(d=>{
-    _c2Ab=d;
-    if(d.active_battle){ _btBackFn=c2Abyss; _btRender(d.active_battle); return; }
-    _c2RenderAbyss();
-  }).catch(e=>{if(b)b.innerHTML=`<div class="err">${e}</div>`;});
+function showClanTransition(section){
+  const copy={
+    alliance:['Союз Предвестников','Сейчас все кланы вместе открывают первую общую цель в «Разломе». Вклад засчитывается только за честные забеги.'],
+    projects:['Клановые проекты','Откроются, когда в игре будет не меньше трёх активных кланов. Так проекты станут совместной игрой, а не пустой шкалой.'],
+    competition:['Клановое состязание','Откроется при восьми активных кланах. До этого не будет фиктивной войны с пустыми соперниками.'],
+  }[section]||['Кланы','Раздел готовится к новой экономике.'];
+  OM(`◈ ${copy[0]}`,`<div class="looks-hint">${copy[1]}</div>`,[
+    {l:'Открыть Разлом',c:'btn-gold',f:'CM();openReconstructionGame()'},
+    {l:'Закрыть',c:'btn-ghost',f:'CM()'},
+  ]);
 }
-function _c2RenderAbyss(){
-  const b=el('mb'); if(!b||!_c2Ab) return;
-  const d=_c2Ab;
-  const cells=d.grid.map(c=>{
-    if(c.state==='open') return `<div class="ab-cell open">${C2_CELL_ICO[c.type]||'▫️'}</div>`;
-    if(c.state==='reachable') return `<button class="ab-cell reach" onclick="c2Open(${c.i},this)">${c.type?C2_CELL_ICO[c.type]:'❔'}</button>`;
-    return `<div class="ab-cell fog"></div>`;
-  }).join('');
-  const gateOk=d.cp>=d.cp_gate;
-  // Боёвка 3.0: клетки открываются отрядом юнитов (дневной лимит), питомцы не нужны
-  const squad=(d.squad||[]).map(s=>`<span class="bk-chip">${s.emoji} ${esc(s.name)} · ур.${s.level}</span>`).join('');
-  const squadHtml = squad
-    ? `<div class="looks-slot-t">⚔️ Твой отряд (⚡${fmt(d.squad_cp||0)})</div><div class="bk-chips">${squad}</div>`
-    : `<div class="cx-dim" style="font-size:11px;margin-top:6px">Отряда нет — монстров и босса бить некому.</div>
-       <button class="btn btn-sm btn-gold" style="margin-top:6px" onclick="goTo('arena','barracks')">🏰 Собрать отряд в Казарме</button>`;
-  b.innerHTML=`
-    ${_clan2NavHtml('abyss')}
-    <div class="looks-hint">🌀 Этаж <b>${d.floor}</b> · неделя ${d.week} · открытий сегодня: <b>${d.opens_left}/${d.opens_max}</b> (📡 Радар клана добавляет).
-      Гейт этажа: ⚡${fmt(d.cp_gate)} ${gateOk?'✅':`❌ (у тебя ${fmt(d.cp)})`}
-      ${d.key_found?' · 🗝 ключ найден':''}</div>
-    <div class="ab-legend">🌫 туман · ❔ доступно (открой, узнаешь что там) ·
-      📦 сундук: ${(d.loot?.chest||[2,6]).join('–')} 🔷 ·
-      👹 монстры (бой отрядом): ${(d.loot?.monster||[3,8]).join('–')} 🔷 ·
-      👑 босс: ${(d.loot?.boss||[15,25]).join('–')} 🔷 + 🗝 ключ + ${(d.loot?.boss_unit_shards||[3,5]).join('–')} ◈ осколков юнита ·
-      🚪 выход этажа</div>
-    <div class="ab-grid">${cells}</div>
-    ${squadHtml}
-    ${d.key_found?`<button class="btn btn-gold btn-full" style="margin-top:8px" onclick="c2NextFloor()">⬇️ Спуститься на этаж ${d.floor+1}</button>`:''}
-    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="openClansModal()">↩ К клану</button>`;
-}
-function c2Open(cell, btn){
-  if(btn) btn.disabled=true;
-  _btBackFn=c2Abyss;
-  api('/clans2/abyss/open',{method:'POST',body:JSON.stringify({cell})})
-    .then(r=>{
-      if(r.battle){ _haptic('medium'); _btRender(r.battle); return; }
-      if(r.type==='chest'){ _haptic('success'); toast(`📦 +${r.shards} 🔷 (${r.split.treasury} в казну)`); }
-      else if(r.exit_found){ _haptic('success'); toast('🚪 Найден проход на следующий этаж!'); }
-      else _haptic('light');
-      // EPIC5: рассеивание тумана — сперва проигрываем fade на самой клетке,
-      // и только потом тянем свежую карту (полный ре-рендер иначе обрежет анимацию).
-      if(btn){ btn.classList.add('ab-cell-clearing'); setTimeout(c2Abyss, 480); }
-      else c2Abyss();
-    })
-    .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
-}
-function c2NextFloor(){
-  api('/clans2/abyss/next-floor',{method:'POST'})
-    .then(r=>{toast(`⬇️ Этаж ${r.floor}!`); c2Abyss();})
-    .catch(e=>toast(e,false));
-}
-function c2Buildings(){
-  const b=el('mb'); if(b)b.innerHTML='<div class="loader">Загрузка...</div>';
-  api('/clans2/overview').then(d=>{
-    const cards=d.buildings.map(x=>`<div class="clan-bld">
-      <div class="clan-bld-ico">${x.emoji}</div>
-      <div class="clan-bld-body">
-        <div class="clan-bld-name">${esc(x.name)} · ур.${x.level}/${x.max}</div>
-        <div class="clan-bld-eff">${esc(x.desc)}</div>
-      </div>
-      ${x.next_cost?`<button class="btn btn-sm btn-gold" onclick="c2Build('${x.key}',this)">↑ ${x.next_cost} 🔷</button>`
-                   :'<span class="cx-dim">★ макс</span>'}
-    </div>`).join('');
-    const log=(d.log||[]).map(l=>`<div class="lot-live-row">${esc(l.text)}</div>`).join('');
-    el('mb').innerHTML=`
-      ${_clan2NavHtml('build')}
-      <div class="looks-hint">🏦 Казна: <b>${fmtF(d.treasury_shards)}</b>/${fmt(d.treasury_cap)} 🔷 · <b>${fmt(d.treasury_mora)}</b> 🪙 (доход узлов) · твоя роль: <b>${d.role}</b></div>
-      <div class="clan-blds">${cards}</div>
-      ${log?`<div class="looks-slot-t" style="margin-top:10px">📜 Лента клана</div><div class="bt-log">${log}</div>`:''}
-      <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="openClansModal()">↩ К клану</button>`;
-  }).catch(e=>{if(el('mb'))el('mb').innerHTML=`<div class="err">${e}</div>`;});
-}
-function c2Build(key, btn){
-  if(btn)btn.disabled=true;
-  api('/clans2/build',{method:'POST',body:JSON.stringify({key})})
-    .then(r=>{_haptic('success'); toast(`🏗 ур.${r.level} (−${r.paid} 🔷)`); c2Buildings();})
-    .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
-}
-function c2War(){
-  const b=el('mb'); if(b)b.innerHTML='<div class="loader">Загрузка узлов...</div>';
-  api('/clans2/war/nodes').then(d=>{
-    const rows=d.nodes.map(n=>{
-      const mine=n.owner&&n.owner.clan_id===d.my_clan_id;
-      const owner=n.owner?`${esc(n.owner.name)} [${esc(n.owner.tag)}]`:'— ничей —';
-      const shield=n.shield_left_sec>0?` · 🛡 ${Math.ceil(n.shield_left_sec/3600)}ч`:'';
-      let act='';
-      if(n.war){
-        const pct=n.wall_hp_max?Math.min(100,Math.round(n.war.damage_total/n.wall_hp_max*100)):0;
-        act=`<div class="bt-bar"><div class="bt-fill hp en" style="width:${pct}%"></div></div>
-          <div class="bt-num">Штурм: ${fmt(n.war.damage_total)}/${fmt(n.wall_hp_max)} · ${Math.ceil(n.war.remaining_sec/3600)}ч</div>
-          ${n.war.attacker_clan_id===d.my_clan_id?`<button class="btn btn-sm btn-red btn-full" onclick="c2WarAttack(${n.war.id})">⚔️ Атаковать стену</button>`:''}`;
-      } else if(!mine && n.shield_left_sec<=0){
-        // UX-аудит: кнопка объявления войны раньше молча пропадала для
-        // Бойца/Казначея без единого слова объяснения — теперь виден и повод.
-        act=['owner','warlord'].includes(d.my_role||'')
-          ? `<button class="btn btn-sm btn-ghost btn-full" onclick="c2Declare(${n.id},this)">⚔️ Война (${fmt(d.declare_cost)} 🪙 казны)</button>`
-          : `<div class="cx-dim" style="font-size:10px;margin-top:3px">🔒 Войну объявляет только Владыка или Воевода</div>`;
-      }
-      return `<div class="g2-floor"><div style="flex:1">
-          <div class="g2-fn">${esc(n.name)}${mine?' 🏰':''}${shield}</div>
-          <div class="bt-num">Владелец: ${owner} · стена ${fmt(n.wall_hp_max)} HP</div>${act}
-        </div></div>`;
-    }).join('');
-    el('mb').innerHTML=`
-      ${_clan2NavHtml('war')}
-      <div class="looks-hint">🏰 Узлы дают 2 000 🪙/день в казну владельца. Война: 24ч на пробитие стены, ${d.attacks_per_day} атаки/день на бойца.</div>
-      ${rows}
-      <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="openClansModal()">↩ К клану</button>`;
-  }).catch(e=>{if(el('mb'))el('mb').innerHTML=`<div class="err">${e}</div>`;});
-}
-function c2Declare(nodeId, btn){
-  if(btn)btn.disabled=true;
-  api('/clans2/war/declare',{method:'POST',body:JSON.stringify({node_id:nodeId})})
-    .then(()=>{_haptic('heavy'); toast('⚔️ Война объявлена! 24 часа на штурм.'); c2War();})
-    .catch(e=>{toast(e,false); if(btn)btn.disabled=false;});
-}
-function c2WarAttack(warId){
-  _btBackFn=c2War;
-  api('/clans2/war/attack',{method:'POST',body:JSON.stringify({war_id:warId})})
-    .then(r=>{_haptic('medium'); _btRender(r.battle);})
-    .catch(e=>toast(e,false));
-}
-
 // ── admin_audit B1: форма апелляции для забаненного (открывается по 403) ──────
 let _banAppealOpen=false;
 function openBanAppealModal() {

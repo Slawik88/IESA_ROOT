@@ -1,0 +1,558 @@
+[
+  {
+    "width": 320,
+    "height": 780,
+    "file": "after-320.png",
+    "metrics": {
+      "viewport": {
+        "width": 320,
+        "height": 780
+      },
+      "page": {
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "scrollHeight": 1366
+      },
+      "header": {
+        "top": 0,
+        "left": 0,
+        "width": 320,
+        "height": 82,
+        "bottom": 82,
+        "right": 320
+      },
+      "tabs": {
+        "top": 88,
+        "left": 12,
+        "width": 296,
+        "height": 36,
+        "bottom": 124,
+        "right": 308
+      },
+      "entry": {
+        "top": 136.1346893310547,
+        "left": 12,
+        "width": 296,
+        "height": 52,
+        "bottom": 188.1346893310547,
+        "right": 308
+      },
+      "hero": {
+        "top": 198.4468994140625,
+        "left": 12,
+        "width": 296,
+        "height": 321.5,
+        "bottom": 519.9468994140625,
+        "right": 308
+      },
+      "quickActions": {
+        "top": 532.71337890625,
+        "left": 12,
+        "width": 296,
+        "height": 61.890625,
+        "bottom": 594.60400390625,
+        "right": 308
+      },
+      "promo": {
+        "top": 603.3687133789062,
+        "left": 161.3125,
+        "width": 145.6875,
+        "height": 38,
+        "bottom": 641.3687133789062,
+        "right": 307
+      },
+      "leaderboard": {
+        "top": 656.5739135742188,
+        "left": 12,
+        "width": 296,
+        "height": 174,
+        "bottom": 830.5739135742188,
+        "right": 308
+      },
+      "nav": {
+        "top": 716,
+        "left": 10,
+        "width": 300,
+        "height": 54,
+        "bottom": 770,
+        "right": 310
+      },
+      "tabsOverflow": {
+        "scrollWidth": 513,
+        "clientWidth": 294
+      },
+      "smallTargets": [
+        {
+          "label": "👤 Обзор",
+          "width": 76.921875,
+          "height": 28
+        },
+        {
+          "label": "🎒 Инвентарь",
+          "width": 103.140625,
+          "height": 28
+        },
+        {
+          "label": "🎨 Темы",
+          "width": 72.578125,
+          "height": 28
+        },
+        {
+          "label": "📜 Квесты",
+          "width": 83.578125,
+          "height": 28
+        },
+        {
+          "label": "🏆 Ачивки",
+          "width": 83.5,
+          "height": 28
+        },
+        {
+          "label": "👑 Топ",
+          "width": 61.828125,
+          "height": 28
+        },
+        {
+          "label": "📋 Копировать",
+          "width": 94.5,
+          "height": 20
+        },
+        {
+          "label": "🎟 Ввести промокод",
+          "width": 145.6875,
+          "height": 38
+        },
+        {
+          "label": "👑 moon_witch",
+          "width": 92,
+          "height": 14
+        },
+        {
+          "label": "👑 abyss_lord",
+          "width": 85.078125,
+          "height": 14
+        },
+        {
+          "label": "grimm",
+          "width": 38.203125,
+          "height": 14
+        },
+        {
+          "label": "📥 Вложить",
+          "width": 130.5,
+          "height": 27
+        },
+        {
+          "label": "📤 Забрать",
+          "width": 132.5,
+          "height": 27
+        },
+        {
+          "label": "🎁 Подарить партнёру",
+          "width": 270,
+          "height": 27
+        },
+        {
+          "label": "💔 Развестись",
+          "width": 270,
+          "height": 37
+        },
+        {
+          "label": "Сохранить",
+          "width": 80.90625,
+          "height": 24
+        },
+        {
+          "label": "Управлять питомцами →",
+          "width": 136.46875,
+          "height": 12
+        },
+        {
+          "label": "Посмотреть топ →",
+          "width": 100.984375,
+          "height": 12
+        },
+        {
+          "label": "▼ Показать все (5)",
+          "width": 270,
+          "height": 26
+        }
+      ]
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "file": "after-390.png",
+    "metrics": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "page": {
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 1366
+      },
+      "header": {
+        "top": 0,
+        "left": 0,
+        "width": 390,
+        "height": 84,
+        "bottom": 84,
+        "right": 390
+      },
+      "tabs": {
+        "top": 88,
+        "left": 12,
+        "width": 366,
+        "height": 36,
+        "bottom": 124,
+        "right": 378
+      },
+      "entry": {
+        "top": 136.09605407714844,
+        "left": 12,
+        "width": 366,
+        "height": 52.00001525878906,
+        "bottom": 188.0960693359375,
+        "right": 378
+      },
+      "hero": {
+        "top": 198.34336853027344,
+        "left": 12,
+        "width": 366,
+        "height": 321.5,
+        "bottom": 519.8433685302734,
+        "right": 378
+      },
+      "quickActions": {
+        "top": 532.4664306640625,
+        "left": 12,
+        "width": 366,
+        "height": 61.890625,
+        "bottom": 594.3570556640625,
+        "right": 378
+      },
+      "promo": {
+        "top": 602.8076782226562,
+        "left": 231.3125,
+        "width": 145.6875,
+        "height": 38,
+        "bottom": 640.8076782226562,
+        "right": 377
+      },
+      "leaderboard": {
+        "top": 655.1968994140625,
+        "left": 12,
+        "width": 366,
+        "height": 174,
+        "bottom": 829.1968994140625,
+        "right": 378
+      },
+      "nav": {
+        "top": 780,
+        "left": 10,
+        "width": 370,
+        "height": 54,
+        "bottom": 834,
+        "right": 380
+      },
+      "tabsOverflow": {
+        "scrollWidth": 513,
+        "clientWidth": 364
+      },
+      "smallTargets": [
+        {
+          "label": "👤 Обзор",
+          "width": 76.921875,
+          "height": 28
+        },
+        {
+          "label": "🎒 Инвентарь",
+          "width": 103.140625,
+          "height": 28
+        },
+        {
+          "label": "🎨 Темы",
+          "width": 72.578125,
+          "height": 28
+        },
+        {
+          "label": "📜 Квесты",
+          "width": 83.578125,
+          "height": 28
+        },
+        {
+          "label": "🏆 Ачивки",
+          "width": 83.5,
+          "height": 28
+        },
+        {
+          "label": "👑 Топ",
+          "width": 61.828125,
+          "height": 28
+        },
+        {
+          "label": "📋 Копировать",
+          "width": 94.5,
+          "height": 20
+        },
+        {
+          "label": "🎟 Ввести промокод",
+          "width": 145.6875,
+          "height": 38
+        },
+        {
+          "label": "👑 moon_witch",
+          "width": 92,
+          "height": 14
+        },
+        {
+          "label": "👑 abyss_lord",
+          "width": 85.078125,
+          "height": 14
+        },
+        {
+          "label": "grimm",
+          "width": 38.203125,
+          "height": 14
+        },
+        {
+          "label": "📥 Вложить",
+          "width": 165.5,
+          "height": 27
+        },
+        {
+          "label": "📤 Забрать",
+          "width": 167.5,
+          "height": 27
+        },
+        {
+          "label": "🎁 Подарить партнёру",
+          "width": 340,
+          "height": 27
+        },
+        {
+          "label": "💔 Развестись",
+          "width": 340,
+          "height": 37
+        },
+        {
+          "label": "Сохранить",
+          "width": 80.90625,
+          "height": 24
+        },
+        {
+          "label": "Управлять питомцами →",
+          "width": 136.46875,
+          "height": 12
+        },
+        {
+          "label": "Посмотреть топ →",
+          "width": 100.984375,
+          "height": 12
+        },
+        {
+          "label": "▼ Показать все (5)",
+          "width": 340,
+          "height": 26
+        }
+      ]
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "file": "after-430.png",
+    "metrics": {
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "page": {
+        "scrollWidth": 430,
+        "clientWidth": 430,
+        "scrollHeight": 1366
+      },
+      "header": {
+        "top": 0,
+        "left": 0,
+        "width": 430,
+        "height": 84,
+        "bottom": 84,
+        "right": 430
+      },
+      "tabs": {
+        "top": 88,
+        "left": 12,
+        "width": 406,
+        "height": 36,
+        "bottom": 124,
+        "right": 418
+      },
+      "entry": {
+        "top": 136.09609985351562,
+        "left": 12,
+        "width": 406,
+        "height": 52,
+        "bottom": 188.09609985351562,
+        "right": 418
+      },
+      "hero": {
+        "top": 198.34347534179688,
+        "left": 12,
+        "width": 406,
+        "height": 321.5000305175781,
+        "bottom": 519.843505859375,
+        "right": 418
+      },
+      "quickActions": {
+        "top": 532.4666748046875,
+        "left": 12,
+        "width": 406,
+        "height": 61.890625,
+        "bottom": 594.3572998046875,
+        "right": 418
+      },
+      "promo": {
+        "top": 602.8082885742188,
+        "left": 271.3125,
+        "width": 145.6875,
+        "height": 38,
+        "bottom": 640.8082885742188,
+        "right": 417
+      },
+      "leaderboard": {
+        "top": 653.0232543945312,
+        "left": 12,
+        "width": 406,
+        "height": 174,
+        "bottom": 827.0232543945312,
+        "right": 418
+      },
+      "nav": {
+        "top": 868,
+        "left": 10,
+        "width": 410,
+        "height": 54,
+        "bottom": 922,
+        "right": 420
+      },
+      "tabsOverflow": {
+        "scrollWidth": 513,
+        "clientWidth": 404
+      },
+      "smallTargets": [
+        {
+          "label": "👤 Обзор",
+          "width": 76.921875,
+          "height": 28
+        },
+        {
+          "label": "🎒 Инвентарь",
+          "width": 103.140625,
+          "height": 28
+        },
+        {
+          "label": "🎨 Темы",
+          "width": 72.578125,
+          "height": 28
+        },
+        {
+          "label": "📜 Квесты",
+          "width": 83.578125,
+          "height": 28
+        },
+        {
+          "label": "🏆 Ачивки",
+          "width": 83.5,
+          "height": 28
+        },
+        {
+          "label": "👑 Топ",
+          "width": 61.828125,
+          "height": 28
+        },
+        {
+          "label": "📋 Копировать",
+          "width": 94.5,
+          "height": 20
+        },
+        {
+          "label": "🎟 Ввести промокод",
+          "width": 145.6875,
+          "height": 38
+        },
+        {
+          "label": "👑 moon_witch",
+          "width": 92,
+          "height": 14
+        },
+        {
+          "label": "👑 abyss_lord",
+          "width": 85.078125,
+          "height": 14
+        },
+        {
+          "label": "grimm",
+          "width": 38.203125,
+          "height": 14
+        },
+        {
+          "label": "📥 Вложить",
+          "width": 185.5,
+          "height": 27
+        },
+        {
+          "label": "📤 Забрать",
+          "width": 187.5,
+          "height": 27
+        },
+        {
+          "label": "🎁 Подарить партнёру",
+          "width": 380,
+          "height": 27
+        },
+        {
+          "label": "💔 Развестись",
+          "width": 380,
+          "height": 37
+        },
+        {
+          "label": "Сохранить",
+          "width": 80.90625,
+          "height": 24
+        },
+        {
+          "label": "Управлять питомцами →",
+          "width": 136.46875,
+          "height": 12
+        },
+        {
+          "label": "Посмотреть топ →",
+          "width": 100.984375,
+          "height": 12
+        },
+        {
+          "label": "▼ Показать все (5)",
+          "width": 380,
+          "height": 26
+        }
+      ]
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  }
+]

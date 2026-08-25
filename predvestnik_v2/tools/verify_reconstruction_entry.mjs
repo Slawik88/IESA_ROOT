@@ -55,9 +55,7 @@ try {
     });
 
     if (!audit.pageVisible) throw new Error(`${width}px: game page is not active`);
-    if (audit.labels.join('|') !== '🔔 Разлом|🎮 Игры|🎪 Ивенты') {
-      throw new Error(`${width}px: legacy combat tabs remain: ${audit.labels.join(', ')}`);
-    }
+    if (audit.labels.length !== 0) throw new Error(`${width}px: redundant game tabs remain: ${audit.labels.join(', ')}`);
     if (audit.overflow > 1) throw new Error(`${width}px: horizontal overflow ${audit.overflow}px`);
     if (audit.actionWidth > Math.min(220, audit.viewportWidth - 36)) {
       throw new Error(`${width}px: primary action is oversized (${audit.actionWidth}px)`);
@@ -72,7 +70,7 @@ try {
     if (gamePath !== '/game') throw new Error(`${width}px: expected /game, got ${gamePath}`);
     await page.close();
   }
-  console.log('OK: new game entry replaces legacy tabs at 320/390/430px and opens /game');
+  console.log('OK: direct game entry replaces legacy tabs at 320/390/430px and opens /game');
 } finally {
   await browser.close();
 }

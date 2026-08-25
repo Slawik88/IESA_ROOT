@@ -24,7 +24,6 @@ from core.constants import (
     AI_ASSISTANT_DAILY_CAP,
     AI_ASSISTANT_DAILY_CAP_BY_VIP,
     AI_ASSISTANT_MAX_QUESTION_LEN,
-    get_total_duplicates_for_level,
 )
 from infrastructure.repositories import ai_assistant as repo
 
@@ -64,8 +63,8 @@ _SYSTEM_PROMPT = (
     "ответом, когда вопрос требует деталей глубже краткой базы знаний ниже.\n"
     "• Личные данные игрока: get_balance, get_pets_status, get_profile "
     "(уровень аккаунта/XP/Индекс Силы/ранг/брак/клан/ачивки), get_inventory, "
-    "get_quests_today, get_streak_status, get_vip_status, get_expedition_status, "
-    "get_duel_cooldowns — только когда вопрос про ЕГО текущие цифры/статус. "
+    "get_quests_today, get_streak_status, get_vip_status — только когда вопрос "
+    "про ЕГО текущие цифры/статус. "
     "Вызывай только реально нужные, не дёргай остальные «на всякий случай». "
     "Если в одном вопросе несколько частей про разные его цифры (например "
     "баланс И питомец) — вызови инструмент под КАЖДУЮ часть. ЛЮБАЯ личная "
@@ -130,12 +129,8 @@ def _load_knowledge_file() -> str:
 # ── Инструменты ИИ (Gemini function calling) ──────────────────────────────────
 # БЕЗОПАСНОСТЬ: у read-функций параметров НЕТ НАМЕРЕННО — user_id/chat_id
 # берутся из контекста вызова хендлера, не из текста игрока: промпт-инъекцией
-# их не подменить, чужой баланс запросить нельзя. Единственное действие
-# (propose_expedition) НИЧЕГО не выполняет само — только помечает в ctx
-# намерение, а реальное исполнение происходит ТОЛЬКО после нажатия игроком
-# кнопки подтверждения (bot/handlers/common.py::cb_ai_action, с проверкой
-# что жмёт именно владелец) через тот же _start_expedition_core, что и
-# обычная команда «бот поход».
+# их не подменить, чужой баланс запросить нельзя. Действия старой экономики
+# инструментам не выдаются: помощник только объясняет актуальные маршруты.
 _TOPIC_ENUM = ["expeditions", "pets", "vip", "gacha", "economy", "clans",
                "moderation", "marriage", "dark_mora", "games", "themes_cosmetics",
                "combat"]
@@ -148,9 +143,8 @@ _TOOLS = [{"functionDeclarations": [
     },
     {
         "name": "get_pets_status",
-        "description": ("Питомцы игрока в питомнике: имя, уровень, редкость, усталость, "
-                        "активный/пассивный, и duplicates_to_max_level — точное число дубликатов "
-                        "гачи до 10 уровня ЭТОГО питомца (уже посчитано, не пересчитывай сам)."),
+        "description": ("Сохранённые питомцы игрока: имя, вид, редкость и исторический "
+                        "уровень. Старая усталость и дубликаты не являются новой силой."),
         "parameters": {"type": "OBJECT", "properties": {}},
     },
     {
@@ -181,16 +175,6 @@ _TOOLS = [{"functionDeclarations": [
         "parameters": {"type": "OBJECT", "properties": {}},
     },
     {
-        "name": "get_expedition_status",
-        "description": "Поход игрока прямо сейчас: свободен ли питомец или в походе (кто и сколько минут осталось).",
-        "parameters": {"type": "OBJECT", "properties": {}},
-    },
-    {
-        "name": "get_duel_cooldowns",
-        "description": "Активные кулдауны дуэлей игрока: с кем нельзя дуэлиться и сколько часов осталось.",
-        "parameters": {"type": "OBJECT", "properties": {}},
-    },
-    {
         "name": "get_topic_details",
         "description": "Подробная документация по теме бота (актуальные цифры генерируются из кода игры).",
         "parameters": {"type": "OBJECT", "properties": {
@@ -205,21 +189,17 @@ _KNOWLEDGE_DIR = Path(__file__).resolve().parent.parent / "ai_knowledge"
 
 
 def _auto_expeditions() -> str:
-    from core.registry import EXPEDITIONS_DATA
-    lines = ["Таблица походов (сгенерировано из кода, всегда актуально):"]
-    for h, d in sorted(EXPEDITIONS_DATA.items()):
-        cost = "бесплатно" if not d["cost"] else f"{d['cost']}🪙"
-        lines.append(f"- {h}ч: вход {cost}, мора {d['min_m']}–{d['max_m']}, "
-                     f"XP {d['min_xp']}–{d['max_xp']}, усталость +{d['fatigue']}")
-    return "\n".join(lines)
+    return (
+        "Актуальные походы: 2/6/12 часов, запуск и сбор — «Игра → Спутник». "
+        "Результат фиксируется сервером; экономика пока работает в режиме проверки."
+    )
 
 
 def _auto_pets() -> str:
-    from core.registry import PET_SPECIES
-    lines = ["Все виды питомцев (сгенерировано из кода, всегда актуально):"]
-    for sp in PET_SPECIES.values():
-        lines.append(f"- {sp['name']} ({sp['rarity']}): {sp['desc']}")
-    return "\n".join(lines)
+    return (
+        "Виды, имена, редкость и владение питомцами сохранены. Новая роль выбирается "
+        "отдельно во вкладке «Игра → Спутник» и меняет решение, а не характеристики."
+    )
 
 
 def _auto_vip() -> str:
@@ -273,55 +253,32 @@ async def _tool_get_balance(db, user_id: int, chat_id: int) -> dict:
 
 async def _tool_get_pets_status(db, user_id: int, chat_id: int) -> dict:
     from infrastructure.repositories import zoo as zoo_db
-    # ВСЕ питомцы игрока (не только активная команда) — иначе ИИ видел лишь 2 из 12
-    # и выдавал неполную инфо. Роль и признак «может в поход» — у каждого.
+    # Все строки владения сохраняются. Старые сила, усталость и дубликаты не
+    # выдаются модели как актуальная прогрессия, чтобы она не советовала закрытые действия.
     pets = await zoo_db.get_user_pets(db, user_id)
     if not pets:
         return {"has_pets": False}
 
-    _ROLE_RU = {"active": "активный боец", "passive": "в команде (пассивный)",
-                "storage": "в питомнике (склад)", "stash": "в питомнике (склад)"}
-
     def _pet_info(p: dict) -> dict:
-        level = p.get("pet_level", 1) or 1
-        rarity = p.get("rarity", "common") or "common"
-        dups = p.get("duplicates_collected", 0) or 0
-        placement = p.get("placement")
-        fatigue = p.get("fatigue", 0) or 0
-        info = {
+        return {
             "name": p.get("name", "?"),
-            "level": level,
-            "rarity": rarity,
-            "fatigue": fatigue,
-            "role": _ROLE_RU.get(placement, "в питомнике (склад)"),
-            # В поход идут только активный/пассивный и не измотанные (усталость < 100).
-            "can_expedition": placement in ("active", "passive") and fatigue < 100,
+            "species": p.get("species_id") or p.get("species") or "unknown",
+            "rarity": p.get("rarity", "common") or "common",
+            "historic_level": p.get("pet_level", 1) or 1,
+            "status": "владение сохранено; роль выбирается в Игра → Спутник",
         }
-        if level < 10:
-            need_total = get_total_duplicates_for_level(rarity, 10)
-            info["duplicates_to_max_level"] = max(0, need_total - dups)
-        # Боёвка 3.0: статы есть у питомцев, прошедших инициализацию боёвки
-        if p.get("attack") or p.get("hp"):
-            info["combat"] = {
-                "hp": p.get("hp"), "hp_max": p.get("hp_max"),
-                "attack": p.get("attack"), "defense": p.get("defense"),
-                "stamina": p.get("stamina"), "stamina_max": p.get("stamina_max"),
-            }
-        return info
 
     infos = [_pet_info(p) for p in pets]
     return {
         "has_pets": True,
         "total": len(infos),
-        # готовые к походу (активный/пассивный, усталость < 100) — подсказка ИИ,
-        # кого реально можно отправить; в питомнике/складе питомцы в поход не ходят
-        "expedition_ready": [i["name"] for i in infos if i["can_expedition"]],
+        "next_step": "открыть Игра → Спутник",
         "pets": infos,
     }
 
 
 async def _tool_get_profile(db, user_id: int, chat_id: int) -> dict:
-    """Полный профиль игрока: аккаунт-уровень/XP/Индекс Силы, активность в чате,
+    """Полный профиль игрока: аккаунт-уровень/XP, активность в чате,
     локальный ранг, брак, клан, ачивки. Закрывает «слепую зону» — раньше ИИ мог
     выдумать эти цифры, потому что их не было ни в одном инструменте."""
     from services.leveling import xp_for_level
@@ -332,14 +289,13 @@ async def _tool_get_profile(db, user_id: int, chat_id: int) -> dict:
 
     out: dict = {}
     async with db.execute(
-        "SELECT COALESCE(account_level,1), COALESCE(account_xp,0), COALESCE(combat_power,0) "
+        "SELECT COALESCE(account_level,1), COALESCE(account_xp,0) "
         "FROM users WHERE user_tg_id = ?", (user_id,),
     ) as c:
         row = await c.fetchone()
-    lvl, xp, cp = (int(row[0]), int(row[1]), int(row[2])) if row else (1, 0, 0)
+    lvl, xp = (int(row[0]), int(row[1])) if row else (1, 0)
     out["account"] = {"level": lvl, "xp": xp,
-                      "xp_to_next_level": max(0, xp_for_level(lvl + 1) - xp),
-                      "combat_power_index": cp}
+                      "xp_to_next_level": max(0, xp_for_level(lvl + 1) - xp)}
 
     if chat_id and chat_id < 0:
         stats = await get_chat_stats(db, user_id, chat_id)
@@ -413,77 +369,6 @@ async def _tool_get_vip_status(db, user_id: int, chat_id: int) -> dict:
             "days_left": info["days_left"], "expires_at": str(info["expires_at"])[:16]}
 
 
-async def _tool_get_expedition_status(db, user_id: int, chat_id: int) -> dict:
-    from infrastructure.repositories.zoo import get_busy_expedition
-    busy = await get_busy_expedition(db, user_id)
-    if not busy:
-        return {"in_expedition": False, "note": "питомец свободен — можно отправлять в поход"}
-    mins = max(0, int(busy.get("remaining_sec") or 0)) // 60
-    return {"in_expedition": True, "pet_name": busy.get("name", "?"),
-            "remaining_min": mins}
-
-
-async def _tool_get_duel_cooldowns(db, user_id: int, chat_id: int) -> dict:
-    from infrastructure.repositories import duel as duel_repo
-    from core.constants import DUEL_COOLDOWN_HOURS
-    rows = await duel_repo.get_user_cooldowns(db, user_id)
-    active = []
-    now = datetime.now()
-    for r in rows:
-        last = r["last_duel"]
-        if isinstance(last, str):
-            try:
-                last = datetime.strptime(last[:19], "%Y-%m-%d %H:%M:%S")
-            except ValueError:
-                continue
-        if last is None:
-            continue
-        if last.tzinfo is not None:
-            last = last.replace(tzinfo=None)
-        left_h = DUEL_COOLDOWN_HOURS - (now - last).total_seconds() / 3600
-        if left_h > 0:
-            active.append({"opponent": r["opponent_name"] or f"ID {r['opponent_id']}",
-                           "hours_left": round(left_h, 1)})
-    if not active:
-        return {"active_cooldowns": [], "note": "кулдаунов нет — можно вызывать любого"}
-    return {"active_cooldowns": active, "cooldown_rule_hours": DUEL_COOLDOWN_HOURS}
-
-
-async def _tool_propose_expedition(db, user_id: int, chat_id: int, ctx: dict, args: dict) -> dict:
-    from core.registry import EXPEDITIONS_DATA
-    from infrastructure.repositories.zoo import get_busy_expedition
-    from infrastructure.repositories.moderation import get_chat_settings
-    if not chat_id or chat_id >= 0:
-        return {"error": "Походы запускаются только в групповом чате — предложи игроку спросить там."}
-    settings = await get_chat_settings(db, chat_id)
-    if not settings.get("module_expeditions", 1):
-        return {"error": "Модуль походов отключён в этом чате администрацией."}
-    busy = await get_busy_expedition(db, user_id)
-    if busy:
-        mins = max(0, int(busy.get("remaining_sec") or 0)) // 60
-        return {"error": "питомец уже в походе", "pet_name": busy.get("name", "?"),
-                "remaining_min": mins}
-    hours = args.get("hours")
-    try:
-        hours = int(hours) if hours is not None else None
-    except (TypeError, ValueError):
-        hours = None
-    if hours is not None and hours not in EXPEDITIONS_DATA:
-        hours = None
-    ctx["pending_action"] = {"type": "expedition", "hours": hours}
-    if hours is None:
-        return {"status": "proposal_created", "expedition_started": False,
-                "warning": "ПОХОД НЕ ЗАПУЩЕН. Срок не выбран — система добавит кнопки "
-                           "выбора срока (2/4/6/8ч). Скажи одной строкой выбрать срок "
-                           "кнопкой; не пиши, что питомец уже отправлен."}
-    d = EXPEDITIONS_DATA[hours]
-    return {"status": "proposal_created", "expedition_started": False, "hours": hours,
-            "cost": d["cost"], "reward_mora": f"{d['min_m']}–{d['max_m']}",
-            "warning": "ПОХОД НЕ ЗАПУЩЕН и тобой запущен не будет — исполнит только "
-                       "игрок кнопкой. Скажи одной строкой нажать кнопку подтверждения; "
-                       "итог напишет система."}
-
-
 async def _tool_get_topic_details(db, user_id: int, chat_id: int, ctx: dict, args: dict) -> dict:
     topic = str(args.get("topic") or "")
     if topic not in _TOPIC_ENUM:
@@ -500,8 +385,6 @@ _TOOL_HANDLERS = {
     "get_quests_today": _tool_get_quests_today,
     "get_streak_status": _tool_get_streak_status,
     "get_vip_status": _tool_get_vip_status,
-    "get_expedition_status": _tool_get_expedition_status,
-    "get_duel_cooldowns": _tool_get_duel_cooldowns,
 }
 # Слова-отношения для propose_transfer: «переведи супруге» → партнёр из брака
 _SPOUSE_WORDS = {

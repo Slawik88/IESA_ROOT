@@ -400,6 +400,11 @@ for _ in range(1800):
         last_slot = None
         continue
     challenge = open_signal(mirror_perfect)
+    # A frame used to open a signal may also finish the wave through passive
+    # squad damage. In that valid transition there is no challenge to answer;
+    # the next iteration consumes the inter-wave reward.
+    if challenge is None:
+        continue
     slot = correct_slot(challenge)
     assert last_slot is None or slot != last_slot
     act(

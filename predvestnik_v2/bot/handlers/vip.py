@@ -6,7 +6,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
-from core.registry import VIP_TIERS, VIP_PERKS_PITCH, ITEMS_REGISTRY
+from core.registry import VIP_TIERS, VIP_PERKS_PITCH
 from services.utils import resolve_target, safe_html
 from services.vip import get_vip_info, get_vip_seniority_days, purchase_vip
 
@@ -34,23 +34,7 @@ def _tiers_keyboard() -> InlineKeyboardBuilder:
     return builder
 
 
-def _gift_text(gift: dict) -> str:
-    parts = []
-    if gift.get("mora", 0) > 0:
-        parts.append(f"{gift['mora']:.0f} 🪙")
-    if gift.get("diamonds", 0) > 0:
-        parts.append(f"{gift['diamonds']:.0f} 💎")
-    for item_id, qty in gift.get("items", ()):
-        name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
-        parts.append(f"{qty}× {name}")
-    return ", ".join(parts)
-
-
 def _tier_description(info: dict) -> str:
-    weekly = ", ".join(
-        f"{qty}× {ITEMS_REGISTRY.get(item_id, {}).get('name', item_id)}"
-        for item_id, qty in info["weekly"]
-    )
     savings = info.get("base_price_zarniki", info["price_zarniki"]) - info["price_zarniki"]
     price_line = f"<b>{info['label']}</b> — {info['price_zarniki']}✨ / {info['duration_days']} дн."
     if savings > 0:
@@ -58,11 +42,8 @@ def _tier_description(info: dict) -> str:
     lines = [price_line]
     if info.get("tagline"):
         lines.append(f"<i>{info['tagline']}</i>")
-    lines.append(f"🎁 Сразу: {_gift_text(info['gift'])}")
-    lines.append(f"📅 Каждую неделю: {weekly}")
-    extra = info.get("extra_slots", 0)
-    if extra:
-        lines.append(f"🐾 +{extra} слот{'а' if extra > 1 else ''} питомника")
+    lines.append("🎨 Оформление, расширенная история и сервис на весь срок")
+    lines.append("⚖️ Без валюты, силы, попыток и игровых множителей")
     return "\n".join(lines)
 
 

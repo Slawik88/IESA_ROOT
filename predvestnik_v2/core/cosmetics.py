@@ -1138,10 +1138,8 @@ def cosmetics_by_slot(slot: str) -> dict[str, dict]:
 
 
 def is_vip_locked(cos: dict) -> bool:
-    """True если ОТОБРАЖЕНИЕ этой косметики требует активную VIP.
-    Правило: всё выше «common» спит без VIP, plus VIP-автогрант-предметы.
-    Покупку НЕ блокирует — только видимость на профиле."""
-    return cos.get("rarity", "common") != "common" or cos.get("source") == "vip"
+    """Owned cosmetics never disappear when a service term expires."""
+    return False
 
 
 # ── Приветственные анимации (вход / прелоадер) ──────────────────────────────────

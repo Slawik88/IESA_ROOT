@@ -1,4 +1,4 @@
-"""FastAPI/routers/battle.py — Боёвка 3.0 «Руны отряда» (BATTLE_REWORK_CONCEPT.md).
+"""FastAPI/routers/battle.py — legacy Боёвка 3.0, retirement LCB-001.
 
 Тонкий адаптер: логика — services/battle3.py, состояние — repositories/battles.py.
 Бои идут ОТРЯДОМ юнитов из Казармы (services/barracks.py); мирные питомцы в боях

@@ -22,7 +22,7 @@ _BOT = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot")
 _REDIRECTS: list[tuple[list[str], str, str]] = [
     (["магазин", "лавка", "шоп"], "shop", "🛒 Магазин"),
     (["акция", "акция дня", "магазин дня", "ежедневный магазин"], "deal", "🏷 Акции дня"),
-    (["крутка", "гача", "гаша", "лутбокс", "пити", "pity", "мои пити"], "gacha", "🎲 Гача"),
+    (["крутка", "гача", "гаша", "лутбокс", "пити", "pity", "мои пити"], "gacha", "🗃 Архив находок"),
     (["аукцион", "аукцион выставить", "аукцион создать", "аукцион мои", "аукцион ставка"],
      "auction", "🏛 Аукцион"),
     (["темы", "тема профиля", "профиль темы"], "themes", "🎨 Темы профиля"),
@@ -30,21 +30,24 @@ _REDIRECTS: list[tuple[list[str], str, str]] = [
     (["реликвии", "реликвия", "relics"], "relics", "🏛 Реликвии"),
     (["обмен", "конвертация", "обменять"], "exchange", "💱 Обменник"),
     (["биржа", "крипто", "crypto", "криптобиржа"], "crypto", "📈 Крипто-Биржа"),
-    (["дуэль", "дуэли", "pvp"], "arena", "⚔️ Дуэли"),
+    (["дуэль", "дуэли", "pvp"], "game", "🔔 Разлом колокола"),
     (["бп", "боевой пропуск", "пропуск"], "bp", "🎫 Боевой пропуск"),
     (["задания", "квесты", "дейлики"], "quests", "📋 Квесты"),
     (["инвентарь", "рюкзак", "вещи", "использовать", "открыть"], "inventory", "🎒 Инвентарь"),
     (["достижения", "ачивки", "ачивменты"], "ach", "🏆 Достижения"),
     (["питомец", "мой питомец", "активный питомец", "зоопарк", "питомник",
       "питомцы", "питомци", "мои питомцы", "мои питомци"], "zoo", "🐾 Питомцы"),
+    (["поход", "походы", "экспедиция", "экспедиции", "ускорить поход"],
+     "game", "🗺 Поход спутника"),
     (["уведомления", "настройки уведомлений", "нотификации"], "notifications", "🔔 Уведомления"),
     (["клан", "кланы", "гильдия", "гильдии", "клан создать", "клан основать",
       "клан выйти", "клан покинуть"], "clans", "🛡 Кланы"),
     (["косметика", "внешний вид", "скин", "облик", "образ", "looks"], "cosmetics", "🎨 Косметика"),
-    # Боёвка 3.0: Казарма боевых юнитов (призыв за 🔷, отряд, прокачка)
+    # Старые юниты и Казарма выведены из продукта. Не оставляем битый deep-link:
+    # показываем актуальную игру, не старую витрину владения.
     (["казарма", "юниты", "юнит", "отряд", "призыв", "призыв юнита", "боевые юниты"],
-     "barracks", "🏰 Казарма"),
-    (["врата", "бездна", "битва", "бой", "арена"], "arena", "⚔️ Арена"),
+     "game", "🔔 Разлом колокола"),
+    (["врата", "бездна", "битва", "бой", "арена"], "game", "🔔 Разлом колокола"),
 ]
 
 
@@ -52,19 +55,20 @@ _MINIAPP_URL = os.getenv("MINIAPP_URL", "")
 
 
 def section_url(section: str) -> str:
-    """Прямая HTTPS-ссылка на мини-апп с разделом в query (?startapp=) —
-    обычная ссылка, Telegram не может счесть её «невалидной» и не требует
-    регистрации бота как Direct Link Mini App в BotFather (в отличие от
-    t.me/{bot}?startapp=). app.js читает startapp из query как фолбэк, если
-    Telegram не прислал нативный start_param (см. app.02.js::_handleStartParam)."""
-    if _MINIAPP_URL:
-        return f"{_MINIAPP_URL}?startapp={section}"
+    """Telegram deep link that opens the registered Mini App, not a browser tab."""
     return f"https://t.me/{_BOT}?startapp={section}"
 
 
-def _kb(section: str) -> types.InlineKeyboardMarkup:
+def _kb(section: str, *, private: bool) -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    b.button(text="🚀 Открыть в мини-аппе", url=section_url(section))
+    if private and _MINIAPP_URL.startswith("https://"):
+        separator = "&" if "?" in _MINIAPP_URL else "?"
+        b.button(
+            text="🚀 Открыть в мини-аппе",
+            web_app=types.WebAppInfo(url=f"{_MINIAPP_URL}{separator}startapp={section}"),
+        )
+    else:
+        b.button(text="🚀 Открыть в мини-аппе", url=section_url(section))
     return b.as_markup()
 
 
@@ -74,7 +78,7 @@ def _make(section: str, title: str):
         await message.answer(
             f"<b>{title}</b> теперь в мини-аппе 📱\n"
             "<i>Тяжёлый контент переехал в Web App — там удобнее и нагляднее.</i>",
-            reply_markup=_kb(section), parse_mode="HTML",
+            reply_markup=_kb(section, private=message.chat.type == "private"), parse_mode="HTML",
         )
     return handler
 

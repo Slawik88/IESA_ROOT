@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import secrets
+from decimal import Decimal
 from typing import Any
 
 from core.reconstruction import (
@@ -26,6 +27,12 @@ from core.reconstruction_progression import (
     mastery_proofs_from_terminal,
     public_progression_manifest,
     unit_progress_view,
+)
+from core.reconstruction_difficulty import (
+    DEFAULT_DIFFICULTY_ID,
+    available_difficulties,
+    normalize_difficulty_id,
+    profile_manifest,
 )
 from infrastructure.repositories import gameplay_events as event_repo
 from infrastructure.repositories import reconstruction as repo
@@ -88,6 +95,10 @@ def content_manifest() -> dict[str, Any]:
         "mode": "advanced_clicker",
         "timing_policy": timing.public_timing_manifest(),
         "integrity_policy": integrity.public_integrity_manifest(),
+        "difficulty": {
+            encounter_id: profile_manifest(encounter_id)
+            for encounter_id in ENCOUNTERS
+        },
         "economy_policy": public_policy_manifest(),
         "unit_progression": public_progression_manifest(),
         "companions": public_companion_manifest(),
@@ -193,6 +204,7 @@ async def overview(db, user_id: int) -> dict[str, Any]:
             "memories": [],
             "pending_memory": None,
             "route_choices": {},
+            "last_difficulty_profile": DEFAULT_DIFFICULTY_ID,
         }
     else:
         progress_view = {
@@ -202,6 +214,9 @@ async def overview(db, user_id: int) -> dict[str, Any]:
             "memories": progress["memories"],
             "pending_memory": _pending_memory(progress),
             "route_choices": progress.get("route_choices", {}),
+            "last_difficulty_profile": progress.get(
+                "last_difficulty_profile", DEFAULT_DIFFICULTY_ID
+            ),
         }
     progress_view["next_step"] = _next_step(progress_view)
     active_view = None
@@ -218,6 +233,34 @@ async def overview(db, user_id: int) -> dict[str, Any]:
         "stats": stats,
         "units": units,
     }
+
+
+def _difficulty_telemetry(state: dict[str, Any]) -> dict[str, str]:
+    difficulty = state.get("difficulty") or {}
+    return {
+        "difficulty_profile": str(difficulty.get("id") or DEFAULT_DIFFICULTY_ID),
+        "difficulty_policy_version": str(difficulty.get("policy_version") or "legacy"),
+    }
+
+
+def _reward_progress(state: dict[str, Any]) -> tuple[Decimal, Decimal, int]:
+    """Return server-derived progress from the immutable per-run wave plan."""
+    difficulty = state.get("difficulty") or {}
+    plan = difficulty.get("wave_plan")
+    if not isinstance(plan, list) or not plan:
+        return Decimal("0"), Decimal("0"), 0
+    hp_values = [max(Decimal("1"), Decimal(str(item.get("hp", 0)))) for item in plan]
+    total_hp = sum(hp_values)
+    completed = min(max(0, int(state.get("round", 1)) - 1), len(hp_values))
+    earned_hp = sum(hp_values[:completed])
+    if state.get("status") == "won":
+        earned_hp = total_hp
+    elif completed < len(hp_values):
+        wave = state.get("wave") or {}
+        hp_max = max(Decimal("1"), Decimal(str(wave.get("hp_max", hp_values[completed]))))
+        hp_left = min(hp_max, max(Decimal("0"), Decimal(str(wave.get("hp", hp_max)))))
+        earned_hp += min(hp_values[completed], max(Decimal("0"), hp_max - hp_left))
+    return earned_hp / total_hp, hp_values[0] / total_hp, completed
 
 
 async def choose_unit_branch(
@@ -265,6 +308,7 @@ async def start_encounter(
     practice: bool = False,
     source: str = "mini_app",
     companion_role_id: str | None = None,
+    difficulty_id: str | None = None,
 ) -> dict[str, Any]:
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
@@ -273,6 +317,9 @@ async def start_encounter(
         if active:
             if active["encounter_id"] != encounter_id:
                 raise ReconstructionConflict("Сначала заверши текущую встречу.")
+            active_difficulty = str((active["state"].get("difficulty") or {}).get("id") or DEFAULT_DIFFICULTY_ID)
+            if difficulty_id is not None and str(difficulty_id) != active_difficulty:
+                raise ReconstructionConflict("Темп нельзя менять внутри незавершённого забега.")
             return {
                 "run_id": active["id"],
                 "revision": active["revision"],
@@ -290,6 +337,14 @@ async def start_encounter(
             raise ReconstructionError("Неизвестная встреча.")
         if not encounter.get("implemented"):
             raise ReconstructionError("Следующая встреча ещё не включена в dev-срез.")
+        stored_difficulty = str(progress.get("last_difficulty_profile") or DEFAULT_DIFFICULTY_ID)
+        requested_difficulty = difficulty_id if difficulty_id is not None else stored_difficulty
+        if requested_difficulty not in available_difficulties(encounter_id):
+            requested_difficulty = DEFAULT_DIFFICULTY_ID
+        try:
+            selected_difficulty = normalize_difficulty_id(encounter_id, requested_difficulty)
+        except ValueError as exc:
+            raise ReconstructionError(str(exc)) from exc
         # Новый забег обязан получать новый непредсказуемый seed. Привязка seed к
         # user_id делала все повторы одного игрока одинаковыми и превращала
         # записанный макрос в готовое решение будущих забегов.
@@ -304,9 +359,11 @@ async def start_encounter(
             seed=secrets.randbelow(2**31 - 1) + 1,
             unit_branches=selected_branches,
             companion_role_id=companion_role_id,
+            difficulty_id=selected_difficulty,
         )
         timing.attach_server_clock(state)
         state["run_kind"] = "practice" if practice else "campaign"
+        await repo.set_last_difficulty_profile(db, user_id, GAME_VERSION, selected_difficulty)
         run_id = await repo.create_run(
             db, user_id, GAME_VERSION, BALANCE_VERSION, encounter_id, combat.dumps(state)
         )
@@ -345,6 +402,7 @@ async def start_encounter(
                     for branch_ids in selected_branches.values()
                     for branch_id in branch_ids
                 ) + ([f"companion:{companion_role_id}"] if companion_role_id else []),
+                **_difficulty_telemetry(state),
             },
             idempotency_key=f"run:{run_id}:started",
         )
@@ -407,18 +465,21 @@ async def _record_shadow_reward(
         db, user_id, fingerprint
     )
     mastery = state.get("mastery") or {}
+    progress_ratio, first_wave_ratio, completed_wave_count = _reward_progress(state)
     inputs = {
         "outcome": terminal["outcome"],
         "run_kind": "practice" if state.get("run_kind") == "practice" else "campaign",
         "accepted_results_last_7_days": accepted_before,
         "server_terminal_confirmed": True,
-        "first_branch_reached": int(state.get("round", 0)) > 1 or bool(state.get("upgrades")),
+        "first_branch_reached": completed_wave_count >= 1,
         "correct_signals": max(0, int(mastery.get("correct_taps", 0))),
         "wrong_signals": max(0, int(mastery.get("mistakes", 0))),
         "missed_signals": max(0, int(mastery.get("missed_signals", 0))),
         "aborted": terminal["outcome"] == "cancelled",
         "quarantined": bool(terminal["integrity"]["review_required"]),
         "same_seed_eligible_losses_before": repeated_losses,
+        "reward_progress_ratio": progress_ratio,
+        "first_rewardable_progress_ratio": first_wave_ratio,
     }
     evaluated = evaluate_reconstruction_reward_shadow(**inputs)
     accuracy_percent = (
@@ -440,6 +501,15 @@ async def _record_shadow_reward(
         },
         "accuracy_percent": accuracy_percent,
         "provenance": evaluated.provenance,
+        "progress": {
+            "ratio": round(float(evaluated.progress_ratio or 0), 6),
+            "completed_waves": completed_wave_count,
+            "first_rewardable_ratio": round(float(first_wave_ratio), 6),
+        },
+        "loss_reward_factor": (
+            round(float(evaluated.loss_reward_factor), 6)
+            if evaluated.loss_reward_factor is not None else None
+        ),
     }
     return await shadow_repo.save_decision(
         db,
@@ -563,6 +633,7 @@ async def apply_run_action(
                         for key in ("seam_result", "forbidden_result")
                         if strike.get(key) is not None
                     },
+                    **_difficulty_telemetry(state),
                 },
                 idempotency_key=f"run:{run_id}:action:{action_id}",
             )
@@ -582,6 +653,7 @@ async def apply_run_action(
                     "upgrade_id": str(action.get("upgrade_id") or ""),
                     "offered_ids": offered_before,
                     "server_revision": new_revision,
+                    **_difficulty_telemetry(state),
                 },
                 idempotency_key=f"run:{run_id}:action:{action_id}",
             )
@@ -603,6 +675,7 @@ async def apply_run_action(
                     "result": str(result.get("result") or ""),
                     "damage": result.get("damage"),
                     "server_revision": new_revision,
+                    **_difficulty_telemetry(state),
                 },
                 idempotency_key=f"run:{run_id}:action:{action_id}",
             )
@@ -667,6 +740,7 @@ async def apply_run_action(
                         for raw in (state.get("unit_branches") or {}).values()
                         for branch_id in (raw if isinstance(raw, list) else [raw])
                     ),
+                    **_difficulty_telemetry(state),
                 },
                 idempotency_key=f"run:{run_id}:ended",
             )
@@ -819,6 +893,7 @@ async def cancel_run(
                 "exit_wave_elapsed_ms": int((state.get("wave") or {}).get("elapsed_ms", 0)),
                 "terminal_result": terminal,
                 "shadow_reward": shadow_reward,
+                **_difficulty_telemetry(state),
             },
             idempotency_key=f"run:{run_id}:ended",
         )
