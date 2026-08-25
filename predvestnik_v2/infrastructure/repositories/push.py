@@ -1,5 +1,5 @@
 """
-infrastructure/repositories/push.py — очередь «Умного Пульса» (R6, GDD_REBUILD_PLAN.md).
+infrastructure/repositories/push.py — очередь «Умного Пульса».
 
 Единый ритм DM-уведомлений: источники кладут события в push_queue, задача
 smart_pulse_task (services/scheduler.py) раз в 5 минут выбирает для каждого

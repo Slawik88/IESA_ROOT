@@ -3,17 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
-from core.registry import VIP_TIERS, VIP_PERKS_PITCH, ITEMS_REGISTRY
+from core.registry import VIP_TIERS, VIP_PERKS_PITCH
 from services.vip import get_vip_info, get_vip_seniority_days, purchase_vip
 
 router = APIRouter(prefix="/vip", tags=["vip"])
-
-
-def _resolve_items(items: tuple) -> list[dict]:
-    return [
-        {"item_id": item_id, "name": ITEMS_REGISTRY.get(item_id, {}).get("name", item_id), "qty": qty}
-        for item_id, qty in items
-    ]
 
 
 def _tiers_payload() -> list[dict]:
@@ -26,11 +19,7 @@ def _tiers_payload() -> list[dict]:
             "price_zarniki": info["price_zarniki"],
             "base_price_zarniki": info.get("base_price_zarniki", info["price_zarniki"]),
             "savings_zarniki": info.get("base_price_zarniki", info["price_zarniki"]) - info["price_zarniki"],
-            "gift_mora": info["gift"].get("mora", 0),
-            "gift_diamonds": info["gift"].get("diamonds", 0),
-            "gift_items": _resolve_items(info["gift"].get("items", ())),
-            "weekly": _resolve_items(info["weekly"]),
-            "extra_slots": info.get("extra_slots", 0),
+            "service_only": True,
         }
         for tier, info in VIP_TIERS.items()
     ]

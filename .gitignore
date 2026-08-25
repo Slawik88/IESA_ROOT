@@ -58,6 +58,9 @@ Thumbs.db
 # Environment
 .env
 .env.local
+predvestnik_v2/.env.test
+predvestnik_v2/.env.test.local
+predvestnik_v2/.local/
 
 # Coverage
 htmlcov/

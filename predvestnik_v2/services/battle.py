@@ -1,4 +1,4 @@
-# services/battle.py — R2: Боёвка 2.0 (Hybrid: Stats + QTE), GDD_REBUILD_PLAN.md.
+# services/battle.py — legacy Боёвка 2.0 (Hybrid: Stats + QTE), retirement LCB-001.
 #
 # Пошаговый бой питомца против волн монстров. Server-authoritative:
 # состояние боя, статы врага и грейдинг QTE-тайминга живут ТОЛЬКО на сервере —

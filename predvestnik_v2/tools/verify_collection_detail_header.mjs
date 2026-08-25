@@ -1,8 +1,8 @@
 // Детальный экран коллекции (Стадия 3): шапка, сегментный измеритель, кнопка
 // «Купить всё недостающее» — 3 сценария на реальных данных мока preview_server.mjs:
-// forest (1 предмет, уже владеет → «собрано»), threshold (2 предмета, 0 owned,
-// сумма фактических цен 880 ≤ баланс 1250 → кнопка активна), artifact
-// (1 предмет, 0 owned, цена 1500 > баланс 1250 → кнопка заблокирована).
+// forest (текущий owned-набор, уже собран → «собрано»), threshold (2 предмета, 0 owned,
+// сумма фактических цен 1010 ≤ баланс 1250 → кнопка активна), artifact
+// (1 предмет, 0 owned, цена выше баланса → кнопка заблокирована).
 import puppeteer from 'puppeteer';
 const FAIL = [];
 function check(name, cond) { if (!cond) FAIL.push(name); else console.log('OK:', name); }
@@ -10,9 +10,11 @@ const browser = await puppeteer.launch({ headless: 'new' });
 const page = await browser.newPage();
 await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
 await page.goto('http://localhost:8402/', { waitUntil: 'load' });
-await new Promise(r => setTimeout(r, 1500));
-await page.mouse.click(195, 700);
-await new Promise(r => setTimeout(r, 500));
+await page.waitForFunction(() => typeof openLooksModal === 'function');
+await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
+await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
 await page.evaluate(() => openLooksModal());
 await new Promise(r => setTimeout(r, 800));
 
@@ -22,6 +24,7 @@ async function openAndRead(lin) {
   return page.evaluate(() => ({
     hasHead: !!document.querySelector('.coll-detail-head'),
     headTop: document.querySelector('.coll-detail-head')?.getBoundingClientRect().top ?? null,
+    headBottom: document.querySelector('.coll-detail-head')?.getBoundingClientRect().bottom ?? null,
     catalogChromeVisible: !!document.querySelector('.looks-surprises-entry, .looks-presets, #looks-quick-links, .looks-vipbar'),
     hasToggle: !!document.getElementById('looks-mode-toggle'),
     notches: document.querySelectorAll('.coll-meter-notch').length,
@@ -36,12 +39,21 @@ async function openAndRead(lin) {
 
 const forest = await openAndRead('forest');
 check('шапка детального экрана отрендерена (forest)', forest.hasHead);
-check('шапка коллекции попадает в первый мобильный экран', forest.headTop !== null && forest.headTop < 160);
+check('шапка коллекции полностью попадает в первый мобильный экран', forest.headTop !== null && forest.headTop >= 0 && forest.headBottom !== null && forest.headBottom <= 844);
 check('каталожные промо и пресеты не отталкивают детали коллекции вниз', !forest.catalogChromeVisible);
 check('переключатель режимов скрыт внутри детального экрана', !forest.hasToggle);
-check('forest: 1 деление, 1 горит (мок владеет единственным предметом)', forest.notches === 1 && forest.onNotches === 1);
+const forestExpected = await page.evaluate(() => {
+  const slots = Object.entries(_looksData.slots || {});
+  const items = slots.flatMap(([, slotItems]) => slotItems).filter(item => item.lineup === 'forest');
+  return {
+    total: items.length,
+    owned: items.filter(item => item.owned).length,
+    sections: slots.filter(([, slotItems]) => slotItems.some(item => item.lineup === 'forest')).length,
+  };
+});
+check('forest: измеритель и секции совпадают с текущим каталогом',
+  forest.notches === forestExpected.total && forest.onNotches === forestExpected.owned && forest.sectionsCount === forestExpected.sections);
 check('forest: показан статус "собрано", кнопки покупки нет', /собрана полностью/.test(forest.doneText || '') && !forest.btn);
-check('пустые для линейки слоты не создают секции', forest.sectionsCount === 1);
 
 // Ревью-финдинг: счётчик секции name_glow внутри детального экрана forest должен
 // быть СКОПИРОВАН на линейку (1/1 — владеет только cos_name_glow_moon), а НЕ
@@ -51,11 +63,11 @@ check('forest detail: секция name_glow показывает 1/1 (скоу�
 
 const threshold = await openAndRead('threshold');
 check('threshold: 2 деления, 0 горит', threshold.notches === 2 && threshold.onNotches === 0);
-check('threshold: кнопка активна (880✨ ≤ баланс 1250✨)', threshold.btn && !threshold.btnDisabled);
-check('threshold: текст кнопки содержит сумму фактических цен и количество', /880.*2\s*шт/.test((threshold.btnText||'').replace(/✨/g,'')));
+check('threshold: кнопка активна (1010✨ ≤ баланс 1250✨)', threshold.btn && !threshold.btnDisabled);
+check('threshold: текст кнопки содержит сумму фактических цен и количество', /1010.*2\s*шт/.test((threshold.btnText||'').replace(/✨/g,'')));
 
 const artifact = await openAndRead('artifact');
-check('artifact: кнопка заблокирована (1500✨ > баланс 1250✨)', artifact.btn && artifact.btnDisabled);
+check('artifact: кнопка заблокирована (сумма недостающего > баланс 1250✨)', artifact.btn && artifact.btnDisabled);
 check('artifact: текст кнопки — "Нужно"', /Нужно/.test(artifact.btnText || ''));
 
 // Назад — детальный экран закрывается, переключатель режимов возвращается

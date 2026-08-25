@@ -1,17 +1,19 @@
-"""Стадия 3 косметики: «Купить всё недостающее» — массовая покупка недостающих
-предметов линейки одной транзакцией, цена = кол-во недостающих × цена линейки
-(core/cosmetics.py::LINEUPS — единая фиксированная цена за предмет в рамках
-линейки). Мирроит buy_bundle() (routers/showcase.py) для витрины недели, но без
-скидки комплекта — она там из-за поштучных цен, здесь цена и так одна на всех."""
+"""«Купить всё недостающее»: одна транзакция и сумма реальных поштучных цен.
+
+Цена зависит от сегмента линейки и визуального веса слота. Этот тест защищает
+расчёт title/frame/background/card-fx без доверия к клиентскому total.
+"""
 import sys
 import pathlib
 import asyncio
 from unittest.mock import AsyncMock, patch
+from types import SimpleNamespace
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from core.cosmetics import COSMETIC_SLOTS, LINEUPS, lineup_items
+from core.cosmetics import COSMETIC_SLOT_PRICES, COSMETIC_SLOTS, LINEUPS, lineup_items
+from core.economy_contract import InsufficientBalance
 from services.cosmetics import lineup_buy_quote, buy_lineup
 
 # ── lineup_buy_quote(): чистая функция, реальный каталог, без БД ────────────
@@ -23,8 +25,13 @@ assert len(forest_ids) >= 2, "линейка 'forest' должна содерж�
 q_none_owned = lineup_buy_quote("forest", set())
 assert q_none_owned is not None
 assert set(q_none_owned["missing"]) == forest_ids
-assert q_none_owned["unit_price"] == 250
-assert q_none_owned["total"] == 250 * len(forest_ids)
+forest_prices = {
+    cid: int(item["price"][0]["zarniki"])
+    for cid, item in lineup_items("forest").items()
+}
+assert q_none_owned["price_min"] == min(forest_prices.values())
+assert q_none_owned["price_max"] == max(forest_prices.values())
+assert q_none_owned["total"] == sum(forest_prices.values())
 
 q_all_owned = lineup_buy_quote("forest", forest_ids)
 assert q_all_owned is None, "вся линейка уже куплена → None (нечего докупать)"
@@ -33,10 +40,10 @@ one_owned = {next(iter(forest_ids))}
 q_partial = lineup_buy_quote("forest", one_owned)
 assert q_partial is not None
 assert len(q_partial["missing"]) == len(forest_ids) - 1
-assert q_partial["total"] == 250 * (len(forest_ids) - 1)
+assert q_partial["total"] == sum(price for cid, price in forest_prices.items() if cid not in one_owned)
 
 print("OK: lineup_buy_quote — None на неизвестной/полностью собранной линейке, "
-      "верная раскладка missing×цена на частично собранной")
+      "верная сумма реальных цен недостающих предметов")
 
 # Новые японские линейки: не минимальные 6 заглушек, а по 15 самостоятельных
 # предметов, при этом все визуальные слоты реально покрыты.
@@ -45,16 +52,21 @@ new_lineups = {
     "moon_lotus": ("artifact", 1500),
     "ryujin_tide": ("artifact", 1500),
 }
-for lineup_id, (rarity, price) in new_lineups.items():
+for lineup_id, (rarity, base_price) in new_lineups.items():
     meta = LINEUPS[lineup_id]
     items = lineup_items(lineup_id)
     assert len(items) == 15, f"{lineup_id}: ожидалось 15 предметов, получено {len(items)}"
     assert {item["slot"] for item in items.values()} == set(COSMETIC_SLOTS), \
         f"{lineup_id}: не все 6 слотов покрыты"
     assert {item["rarity"] for item in items.values()} == {rarity}
-    assert {item["price"][0]["zarniki"] for item in items.values()} == {price}
-    assert meta["rarity"] == rarity and meta["price"] == [{"zarniki": price}]
-print("OK: Ханами / Лунный Лотос / Прилив Рюдзина — по 15 предметов, все 6 слотов, единый тир и цена")
+    expected_prices = COSMETIC_SLOT_PRICES[base_price]
+    assert all(item["price"][0]["zarniki"] == expected_prices[item["slot"]]
+               for item in items.values())
+    assert meta["rarity"] == rarity and meta["price"] == [{"zarniki": base_price}]
+    assert meta["price_range"] == {
+        "min": min(expected_prices.values()), "max": max(expected_prices.values())}
+print("OK: Ханами / Лунный Лотос / Прилив Рюдзина — по 15 предметов, "
+      "все 6 слотов и разные цены по визуальному весу")
 
 
 # ── buy_lineup(): транзакция, нехватка/достаток баланса ─────────────────────
@@ -128,10 +140,20 @@ class FakeDB:
         pass
 
 
+async def fake_balance_change(db, user_id, deltas, **_kwargs):
+    """Cosmetics behavior test; ledger arithmetic is covered independently."""
+    cost = int(-deltas["zarniki"])
+    if db.balance < cost:
+        raise InsufficientBalance("not enough zarniki")
+    await db.execute("UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?", (cost, user_id))
+    return SimpleNamespace(applied=True)
+
+
 async def main():
     # Mock increment_metric to avoid side DB operations in achievements tracking
-    with patch("services.achievements.increment_metric", new_callable=AsyncMock):
-        total_needed = 250 * len(forest_ids)
+    with patch("services.achievements.increment_metric", new_callable=AsyncMock), \
+         patch("services.cosmetics.apply_balance_change", side_effect=fake_balance_change):
+        total_needed = sum(forest_prices.values())
 
         # Недостаточно баланса — без единого UPDATE/INSERT (пока никаких списаний)
         db_poor = FakeDB(balance=total_needed - 1)

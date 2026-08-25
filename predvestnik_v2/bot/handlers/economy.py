@@ -1,19 +1,16 @@
 # bot/handlers/economy.py
 from aiogram import Router, types
 from aiogram.filters.callback_data import CallbackData
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import economy as eco_db
 from infrastructure.repositories import marriages as marriages_db
-from infrastructure.repositories.moderation import get_chat_settings
-from infrastructure.repositories.chat import get_chat_stats
 from infrastructure.repositories.dark_mora import get_dark_mora_balance
 from services import global_moderation
 from services.admin_service import give_resource, set_resource
-from services.utils import resolve_target, resolve_display_name, safe_html, format_currency, feature_guard
+from services.utils import safe_html, format_currency, feature_guard
 from core.registry import ITEMS_REGISTRY
-from core.constants import ZARNIKI_TO_MORA_RATE, ZARNIKI_TO_DIAMONDS_RATE
+from core.constants import ZARNIKI_TO_MORA_RATE
 from bot.keyboards.cta import answer_group_only
 
 router = Router(name="eco_router")
@@ -37,8 +34,8 @@ async def cmd_balance(message: types.Message, db):
     diamonds  = format_currency(balance['user_balance_diamonds'])
     zarniki  = float(balance.get('user_balance_zarniki', 0) or 0)
 
-    dark_line = f"\n├ 🌑 Тёмная Мора: <code>{dark_mora:.0f}</code>" if dark_mora > 0 else \
-                "\n├ 🌑 Тёмная Мора: <code>0</code> <i>(добыть: «бот контрабанда»)</i>"
+    dark_line = f"\n├ 🌑 Архив Ночи: <code>{dark_mora:.0f}</code>" if dark_mora > 0 else \
+                "\n├ 🌑 Архив Ночи: <code>0</code> <i>(новых начислений нет)</i>"
     zarniki_line = f"\n└ ✨ Зарники: <code>{zarniki:.0f}</code>" if zarniki > 0 else ""
 
     text = (
@@ -66,44 +63,30 @@ async def cmd_balance(message: types.Message, db):
 @router.message(TextCmd(["обмен зарников", "обменять зарники", "обмен ✨", "обменять ✨"]))
 async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None,
                                 user_restricted: dict | None = None, chat_restricted: dict | None = None):
-    user_id = message.from_user.id
-
     restriction = user_restricted or chat_restricted
     if restriction:
         return await message.answer(global_moderation.restriction_message(restriction))
-
     if not text_args:
         return await message.answer(
-            "💱 <b>ОБМЕН ЗАРНИКОВ</b>\n\n"
-            "Формат: «бот обмен зарников, &lt;сумма&gt; мора» или "
-            "«бот обмен зарников, &lt;сумма&gt; алмазы»\n"
-            f"Курс: 1✨ = {ZARNIKI_TO_MORA_RATE:g}🪙 · 1✨ = {ZARNIKI_TO_DIAMONDS_RATE:g}💎\n"
-            "<i>Обмен необратим и без лимита.</i>",
+            "💱 <b>ЗАРНИКИ → МОРА</b>\n\n"
+            "Формат: «бот обмен зарников, &lt;сумма&gt; мора»\n"
+            f"Курс: 1✨ = {ZARNIKI_TO_MORA_RATE:g}🪙. Обмен необратим.\n"
+            "Алмазы этим способом получить нельзя.",
             parse_mode="HTML",
         )
-
     parts = text_args.split()
     if len(parts) != 2:
-        return await message.answer(
-            "⚠️ Формат: «бот обмен зарников, &lt;сумма&gt; мора» или "
-            "«бот обмен зарников, &lt;сумма&gt; алмазы»",
-            parse_mode="HTML",
-        )
-
-    amount_str, target = parts[0], parts[1].lower()
+        return await message.answer("Формат: «бот обмен зарников, &lt;сумма&gt; мора»")
     try:
-        amount = float(amount_str.replace(",", "."))
+        amount = float(parts[0].replace(",", "."))
     except ValueError:
-        return await message.answer("⚠️ Сумма должна быть числом.")
-
-    if target in ("мора", "моры", "мору", "mora"):
-        to = "mora"
-    elif target in ("алмазы", "алмаз", "алмазов", "diamonds"):
-        to = "diamonds"
-    else:
-        return await message.answer("⚠️ Укажи «мора» или «алмазы».")
-
-    ok, msg = await eco_db.exchange_zarniki(db, user_id, amount, to, chat_id=message.chat.id)
+        return await message.answer("Сумма должна быть числом.")
+    if parts[1].lower() not in ("мора", "моры", "мору", "mora"):
+        return await message.answer("После суммы укажи «мора». Алмазы за Зарники не продаются.")
+    ok, msg = await eco_db.exchange_zarniki(
+        db, message.from_user.id, amount, "mora", chat_id=message.chat.id,
+        idempotency_key=f"telegram:{message.chat.id}:{message.message_id}",
+    )
     await message.answer(msg)
 
 
@@ -119,77 +102,22 @@ async def cmd_pay(message: types.Message, db, text_args: str = None,
     if restriction:
         return await message.answer(global_moderation.restriction_message(restriction))
 
-    target_id, target_name, extra_args = await resolve_target(message, db, text_args)
-
-    if not target_id or not extra_args:
-        return await message.answer(
-            "ℹ️ <b>Использование:</b> <code>бот перевод, @юзер [сумма]</code>\n"
-            "Или ответьте на сообщение пользователя.",
-            parse_mode="HTML"
-        )
-
-    settings = await get_chat_settings(db, message.chat.id)
-    rank_required = settings.get("rank_give", 0)
-    if rank_required > 0:
-        u_stats = await get_chat_stats(db, message.from_user.id, message.chat.id)
-        if u_stats.get("local_rank", 0) < rank_required:
-            from services import roles as _roles
-            rname = _roles.LOCAL_RANKS_MAP.get(rank_required, f"Ранг {rank_required}")
-            return await message.answer(
-                f"❌ Переводы в этом чате доступны с ранга <b>{rname}</b> ({rank_required}+).",
-                parse_mode="HTML",
-            )
-
-    if target_id == message.from_user.id:
-        return await message.answer("❌ Нельзя перевести самому себе.")
-
-    try:
-        amount = float(extra_args.split()[0].replace(",", "."))
-    except ValueError:
-        return await message.answer("❌ Укажите корректную сумму числом.")
-    if amount <= 0:
-        return await message.answer("❌ Сумма должна быть больше нуля.")
-
-    # Выбор валюты — инлайн-кнопками (Implementation Block 4): одна команда на все 4 валюты
-    builder = InlineKeyboardBuilder()
-    for cur, meta in eco_db.TRANSFER_CURRENCIES.items():
-        builder.button(
-            text=f"{meta['icon']} {meta['label']}",
-            callback_data=PayCB(cur=cur, target_id=target_id, amount=amount,
-                                sender_id=message.from_user.id),
-        )
-    builder.adjust(2, 2)
-    await message.answer(
-        f"💸 Перевести <b>{format_currency(amount)}</b> для <b>{safe_html(target_name)}</b> — "
-        f"какой валютой?",
-        reply_markup=builder.as_markup(), parse_mode="HTML",
+    return await message.answer(
+        "Прямые переводы валют отключены. Подарить конкретную косметику можно "
+        "на сайте во вкладке «Внешний вид», а разрешённый предмет выставить на аукцион."
     )
-
 
 @router.callback_query(PayCB.filter())
 async def cb_pay_currency(query: types.CallbackQuery, callback_data: PayCB, db):
     if query.from_user.id != callback_data.sender_id:
         return await query.answer("Это не ваш перевод.", show_alert=True)
 
-    meta = eco_db.TRANSFER_CURRENCIES.get(callback_data.cur)
-    if not meta:
-        return await query.answer("Неизвестная валюта.", show_alert=True)
-
     chat_id = query.message.chat.id if query.message else None
-    success, msg = await eco_db.transfer_currency(
+    _, msg = await eco_db.transfer_currency(
         db, callback_data.sender_id, callback_data.target_id,
         callback_data.cur, callback_data.amount, chat_id=chat_id,
     )
-    # resolve_display_name уже возвращает HTML-safe имя (+👑 для VIP) — не экранируем повторно
-    target_name = await resolve_display_name(db, callback_data.target_id, chat_id, "игроку")
-    if success:
-        text = (
-            f"💸 <b>Успешный перевод!</b>\n"
-            f"Вы перевели <code>{format_currency(callback_data.amount)}</code> "
-            f"{meta['icon']} {meta['label']} пользователю <b>{target_name}</b>."
-        )
-    else:
-        text = f"❌ <b>Отказ:</b> {msg}"
+    text = f"❌ <b>Перевод недоступен:</b> {msg}"
     try:
         await query.message.edit_text(text, parse_mode="HTML")
     except Exception:

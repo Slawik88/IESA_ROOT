@@ -1,0 +1,900 @@
+[
+  {
+    "page": "profile",
+    "label": "profile",
+    "width": 320,
+    "file": "profile-320.png",
+    "metrics": {
+      "activePage": "pg-profile",
+      "viewportWidth": 320,
+      "scrollWidth": 320,
+      "scrollHeight": 1364,
+      "smallTargets": [
+        {
+          "label": "👤 Обзор",
+          "width": 77,
+          "height": 28
+        },
+        {
+          "label": "🎒 Инвентарь",
+          "width": 103,
+          "height": 28
+        },
+        {
+          "label": "🎨 Темы",
+          "width": 73,
+          "height": 28
+        },
+        {
+          "label": "📜 Квесты",
+          "width": 84,
+          "height": 28
+        },
+        {
+          "label": "🏆 Ачивки",
+          "width": 84,
+          "height": 28
+        },
+        {
+          "label": "👑 Топ",
+          "width": 62,
+          "height": 28
+        },
+        {
+          "label": "📋 Копировать",
+          "width": 95,
+          "height": 19
+        },
+        {
+          "label": "🎟 Ввести промокод",
+          "width": 146,
+          "height": 38
+        },
+        {
+          "label": "👑 moon_witch",
+          "width": 92,
+          "height": 14
+        },
+        {
+          "label": "👑 abyss_lord",
+          "width": 85,
+          "height": 14
+        },
+        {
+          "label": "grimm",
+          "width": 38,
+          "height": 14
+        },
+        {
+          "label": "📥 Вложить",
+          "width": 131,
+          "height": 27
+        },
+        {
+          "label": "📤 Забрать",
+          "width": 133,
+          "height": 27
+        },
+        {
+          "label": "🎁 Подарить партнёру",
+          "width": 270,
+          "height": 27
+        },
+        {
+          "label": "💔 Развестись",
+          "width": 270,
+          "height": 37
+        },
+        {
+          "label": "Сохранить",
+          "width": 81,
+          "height": 24
+        },
+        {
+          "label": "Управлять питомцами →",
+          "width": 136,
+          "height": 12
+        },
+        {
+          "label": "Посмотреть топ →",
+          "width": 101,
+          "height": 12
+        },
+        {
+          "label": "▼ Показать все (5)",
+          "width": 270,
+          "height": 26
+        }
+      ],
+      "cards": 5
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  {
+    "page": "zoo",
+    "label": "zoo",
+    "width": 320,
+    "file": "zoo-320.png",
+    "metrics": {
+      "activePage": "pg-zoo",
+      "viewportWidth": 320,
+      "scrollWidth": 320,
+      "scrollHeight": 1232,
+      "smallTargets": [
+        {
+          "label": "🐾 Мои питомцы",
+          "width": 120,
+          "height": 28
+        },
+        {
+          "label": "📖 Бестиарий",
+          "width": 103,
+          "height": 28
+        },
+        {
+          "label": "🛒 Купить слот за 5000 💎",
+          "width": 296,
+          "height": 25
+        },
+        {
+          "label": "Собрать",
+          "width": 68,
+          "height": 24
+        }
+      ],
+      "cards": 5
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "arena",
+    "label": "arena",
+    "width": 320,
+    "file": "arena-320.png",
+    "metrics": {
+      "activePage": "pg-arena",
+      "viewportWidth": 320,
+      "scrollWidth": 320,
+      "scrollHeight": 844,
+      "smallTargets": [
+        {
+          "label": "🏰 Казарма",
+          "width": 89,
+          "height": 28
+        },
+        {
+          "label": "🌑 Врата",
+          "width": 75,
+          "height": 28
+        },
+        {
+          "label": "👹 Рейды",
+          "width": 80,
+          "height": 28
+        },
+        {
+          "label": "🎮 Игры",
+          "width": 71,
+          "height": 28
+        },
+        {
+          "label": "🎪 Ивенты",
+          "width": 86,
+          "height": 28
+        },
+        {
+          "label": "❓",
+          "width": 32,
+          "height": 19
+        },
+        {
+          "label": "🔮 Призыв юнита — 1500 🔷 (у тебя 23)",
+          "width": 296,
+          "height": 35
+        },
+        {
+          "label": "⬆ 12/20◈",
+          "width": 49,
+          "height": 30
+        },
+        {
+          "label": "⬆ 5/12◈",
+          "width": 47,
+          "height": 30
+        },
+        {
+          "label": "⬆ 2/12◈",
+          "width": 54,
+          "height": 19
+        }
+      ],
+      "cards": 4
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "market",
+    "label": "market",
+    "width": 320,
+    "file": "market-320.png",
+    "metrics": {
+      "activePage": "pg-market",
+      "viewportWidth": 320,
+      "scrollWidth": 320,
+      "scrollHeight": 844,
+      "smallTargets": [
+        {
+          "label": "🎲 Гача",
+          "width": 67,
+          "height": 33
+        },
+        {
+          "label": "🎨 Образы",
+          "width": 87,
+          "height": 33
+        },
+        {
+          "label": "✨ Премиум",
+          "width": 93,
+          "height": 33
+        },
+        {
+          "label": "🛍 Расходники",
+          "width": 106,
+          "height": 33
+        },
+        {
+          "label": "🏷 Акции дня",
+          "width": 99,
+          "height": 33
+        },
+        {
+          "label": "ℹ️ Шансы",
+          "width": 69,
+          "height": 17
+        },
+        {
+          "label": "×10 −10% 🎟×3 + 3 150 🪙",
+          "width": 158,
+          "height": 31
+        },
+        {
+          "label": "×10 −10% 9.0 💎",
+          "width": 114,
+          "height": 25
+        }
+      ],
+      "cards": 1
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "more",
+    "label": "more",
+    "width": 320,
+    "file": "more-320.png",
+    "metrics": {
+      "activePage": "pg-more",
+      "viewportWidth": 320,
+      "scrollWidth": 320,
+      "scrollHeight": 844,
+      "smallTargets": [],
+      "cards": 4
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "profile",
+    "label": "profile",
+    "width": 390,
+    "file": "profile-390.png",
+    "metrics": {
+      "activePage": "pg-profile",
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 1364,
+      "smallTargets": [
+        {
+          "label": "👤 Обзор",
+          "width": 77,
+          "height": 28
+        },
+        {
+          "label": "🎒 Инвентарь",
+          "width": 103,
+          "height": 28
+        },
+        {
+          "label": "🎨 Темы",
+          "width": 73,
+          "height": 28
+        },
+        {
+          "label": "📜 Квесты",
+          "width": 84,
+          "height": 28
+        },
+        {
+          "label": "🏆 Ачивки",
+          "width": 84,
+          "height": 28
+        },
+        {
+          "label": "👑 Топ",
+          "width": 62,
+          "height": 28
+        },
+        {
+          "label": "📋 Копировать",
+          "width": 95,
+          "height": 19
+        },
+        {
+          "label": "🎟 Ввести промокод",
+          "width": 146,
+          "height": 38
+        },
+        {
+          "label": "👑 moon_witch",
+          "width": 92,
+          "height": 14
+        },
+        {
+          "label": "👑 abyss_lord",
+          "width": 85,
+          "height": 14
+        },
+        {
+          "label": "grimm",
+          "width": 38,
+          "height": 14
+        },
+        {
+          "label": "📥 Вложить",
+          "width": 166,
+          "height": 27
+        },
+        {
+          "label": "📤 Забрать",
+          "width": 168,
+          "height": 27
+        },
+        {
+          "label": "🎁 Подарить партнёру",
+          "width": 340,
+          "height": 27
+        },
+        {
+          "label": "💔 Развестись",
+          "width": 340,
+          "height": 37
+        },
+        {
+          "label": "Сохранить",
+          "width": 81,
+          "height": 24
+        },
+        {
+          "label": "Управлять питомцами →",
+          "width": 136,
+          "height": 12
+        },
+        {
+          "label": "Посмотреть топ →",
+          "width": 101,
+          "height": 12
+        },
+        {
+          "label": "▼ Показать все (5)",
+          "width": 340,
+          "height": 26
+        }
+      ],
+      "cards": 5
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "zoo",
+    "label": "zoo",
+    "width": 390,
+    "file": "zoo-390.png",
+    "metrics": {
+      "activePage": "pg-zoo",
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 1221,
+      "smallTargets": [
+        {
+          "label": "🐾 Мои питомцы",
+          "width": 120,
+          "height": 28
+        },
+        {
+          "label": "📖 Бестиарий",
+          "width": 103,
+          "height": 28
+        },
+        {
+          "label": "🛒 Купить слот за 5000 💎",
+          "width": 366,
+          "height": 25
+        },
+        {
+          "label": "Собрать",
+          "width": 68,
+          "height": 24
+        }
+      ],
+      "cards": 5
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "arena",
+    "label": "arena",
+    "width": 390,
+    "file": "arena-390.png",
+    "metrics": {
+      "activePage": "pg-arena",
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "smallTargets": [
+        {
+          "label": "🏰 Казарма",
+          "width": 89,
+          "height": 28
+        },
+        {
+          "label": "🌑 Врата",
+          "width": 75,
+          "height": 28
+        },
+        {
+          "label": "👹 Рейды",
+          "width": 80,
+          "height": 28
+        },
+        {
+          "label": "🎮 Игры",
+          "width": 71,
+          "height": 28
+        },
+        {
+          "label": "🎪 Ивенты",
+          "width": 86,
+          "height": 28
+        },
+        {
+          "label": "❓",
+          "width": 32,
+          "height": 19
+        },
+        {
+          "label": "🔮 Призыв юнита — 1500 🔷 (у тебя 23)",
+          "width": 366,
+          "height": 35
+        },
+        {
+          "label": "⬆ 12/20◈",
+          "width": 60,
+          "height": 19
+        },
+        {
+          "label": "⬆ 5/12◈",
+          "width": 54,
+          "height": 19
+        },
+        {
+          "label": "⬆ 2/12◈",
+          "width": 54,
+          "height": 19
+        }
+      ],
+      "cards": 4
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "market",
+    "label": "market",
+    "width": 390,
+    "file": "market-390.png",
+    "metrics": {
+      "activePage": "pg-market",
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "smallTargets": [
+        {
+          "label": "🎲 Гача",
+          "width": 67,
+          "height": 33
+        },
+        {
+          "label": "🎨 Образы",
+          "width": 87,
+          "height": 33
+        },
+        {
+          "label": "✨ Премиум",
+          "width": 93,
+          "height": 33
+        },
+        {
+          "label": "🛍 Расходники",
+          "width": 106,
+          "height": 33
+        },
+        {
+          "label": "🏷 Акции дня",
+          "width": 99,
+          "height": 33
+        },
+        {
+          "label": "ℹ️ Шансы",
+          "width": 69,
+          "height": 17
+        },
+        {
+          "label": "×10 −10% 🎟×3 + 3 150 🪙",
+          "width": 158,
+          "height": 31
+        },
+        {
+          "label": "×10 −10% 9.0 💎",
+          "width": 114,
+          "height": 25
+        }
+      ],
+      "cards": 1
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "more",
+    "label": "more",
+    "width": 390,
+    "file": "more-390.png",
+    "metrics": {
+      "activePage": "pg-more",
+      "viewportWidth": 390,
+      "scrollWidth": 390,
+      "scrollHeight": 844,
+      "smallTargets": [],
+      "cards": 4
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "profile",
+    "label": "profile",
+    "width": 430,
+    "file": "profile-430.png",
+    "metrics": {
+      "activePage": "pg-profile",
+      "viewportWidth": 430,
+      "scrollWidth": 430,
+      "scrollHeight": 1364,
+      "smallTargets": [
+        {
+          "label": "👤 Обзор",
+          "width": 77,
+          "height": 28
+        },
+        {
+          "label": "🎒 Инвентарь",
+          "width": 103,
+          "height": 28
+        },
+        {
+          "label": "🎨 Темы",
+          "width": 73,
+          "height": 28
+        },
+        {
+          "label": "📜 Квесты",
+          "width": 84,
+          "height": 28
+        },
+        {
+          "label": "🏆 Ачивки",
+          "width": 84,
+          "height": 28
+        },
+        {
+          "label": "👑 Топ",
+          "width": 62,
+          "height": 28
+        },
+        {
+          "label": "📋 Копировать",
+          "width": 95,
+          "height": 19
+        },
+        {
+          "label": "🎟 Ввести промокод",
+          "width": 146,
+          "height": 38
+        },
+        {
+          "label": "👑 moon_witch",
+          "width": 92,
+          "height": 14
+        },
+        {
+          "label": "👑 abyss_lord",
+          "width": 85,
+          "height": 14
+        },
+        {
+          "label": "grimm",
+          "width": 38,
+          "height": 14
+        },
+        {
+          "label": "📥 Вложить",
+          "width": 186,
+          "height": 27
+        },
+        {
+          "label": "📤 Забрать",
+          "width": 188,
+          "height": 27
+        },
+        {
+          "label": "🎁 Подарить партнёру",
+          "width": 380,
+          "height": 27
+        },
+        {
+          "label": "💔 Развестись",
+          "width": 380,
+          "height": 37
+        },
+        {
+          "label": "Сохранить",
+          "width": 81,
+          "height": 24
+        },
+        {
+          "label": "Управлять питомцами →",
+          "width": 136,
+          "height": 12
+        },
+        {
+          "label": "Посмотреть топ →",
+          "width": 101,
+          "height": 12
+        },
+        {
+          "label": "▼ Показать все (5)",
+          "width": 380,
+          "height": 26
+        }
+      ],
+      "cards": 5
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "zoo",
+    "label": "zoo",
+    "width": 430,
+    "file": "zoo-430.png",
+    "metrics": {
+      "activePage": "pg-zoo",
+      "viewportWidth": 430,
+      "scrollWidth": 430,
+      "scrollHeight": 1210,
+      "smallTargets": [
+        {
+          "label": "🐾 Мои питомцы",
+          "width": 120,
+          "height": 28
+        },
+        {
+          "label": "📖 Бестиарий",
+          "width": 103,
+          "height": 28
+        },
+        {
+          "label": "🛒 Купить слот за 5000 💎",
+          "width": 406,
+          "height": 25
+        },
+        {
+          "label": "Собрать",
+          "width": 68,
+          "height": 24
+        }
+      ],
+      "cards": 5
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "arena",
+    "label": "arena",
+    "width": 430,
+    "file": "arena-430.png",
+    "metrics": {
+      "activePage": "pg-arena",
+      "viewportWidth": 430,
+      "scrollWidth": 430,
+      "scrollHeight": 844,
+      "smallTargets": [
+        {
+          "label": "🏰 Казарма",
+          "width": 89,
+          "height": 28
+        },
+        {
+          "label": "🌑 Врата",
+          "width": 75,
+          "height": 28
+        },
+        {
+          "label": "👹 Рейды",
+          "width": 80,
+          "height": 28
+        },
+        {
+          "label": "🎮 Игры",
+          "width": 71,
+          "height": 28
+        },
+        {
+          "label": "🎪 Ивенты",
+          "width": 86,
+          "height": 28
+        },
+        {
+          "label": "❓",
+          "width": 32,
+          "height": 19
+        },
+        {
+          "label": "🔮 Призыв юнита — 1500 🔷 (у тебя 23)",
+          "width": 406,
+          "height": 35
+        },
+        {
+          "label": "⬆ 12/20◈",
+          "width": 60,
+          "height": 19
+        },
+        {
+          "label": "⬆ 5/12◈",
+          "width": 54,
+          "height": 19
+        },
+        {
+          "label": "⬆ 2/12◈",
+          "width": 54,
+          "height": 19
+        }
+      ],
+      "cards": 4
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "market",
+    "label": "market",
+    "width": 430,
+    "file": "market-430.png",
+    "metrics": {
+      "activePage": "pg-market",
+      "viewportWidth": 430,
+      "scrollWidth": 430,
+      "scrollHeight": 844,
+      "smallTargets": [
+        {
+          "label": "🎲 Гача",
+          "width": 67,
+          "height": 33
+        },
+        {
+          "label": "🎨 Образы",
+          "width": 87,
+          "height": 33
+        },
+        {
+          "label": "✨ Премиум",
+          "width": 93,
+          "height": 33
+        },
+        {
+          "label": "🛍 Расходники",
+          "width": 106,
+          "height": 33
+        },
+        {
+          "label": "🏷 Акции дня",
+          "width": 99,
+          "height": 33
+        },
+        {
+          "label": "ℹ️ Шансы",
+          "width": 69,
+          "height": 17
+        },
+        {
+          "label": "×10 −10% 🎟×3 + 3 150 🪙",
+          "width": 158,
+          "height": 31
+        },
+        {
+          "label": "×10 −10% 9.0 💎",
+          "width": 114,
+          "height": 25
+        }
+      ],
+      "cards": 1
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "page": "more",
+    "label": "more",
+    "width": 430,
+    "file": "more-430.png",
+    "metrics": {
+      "activePage": "pg-more",
+      "viewportWidth": 430,
+      "scrollWidth": 430,
+      "scrollHeight": 844,
+      "smallTargets": [],
+      "cards": 4
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  }
+]

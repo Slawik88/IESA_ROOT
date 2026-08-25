@@ -1,5 +1,5 @@
 # core/registry.py
-# Single source of truth for all game data: items, pets, gacha rates, expeditions.
+# Single source of truth for current and preserved game data.
 # Used by both the Bot and the Web panel. Never import platform-specific code here.
 from typing import Dict, Any
 
@@ -12,20 +12,20 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "soul_shard": {
         "name": "💠 Осколок Души",
         "category": "material",
-        "description": "Застывшая искра чужой души. Накопи 5 штук и собери из них 🎟 Жетон Призыва во вкладке «Крафт». Где взять: выпадает из круток Гачи, бывает в Акции дня.",
+        "description": "Архивный материал прежней системы. Количество сохранено; предмет не расходуется до персонального разбора перехода.",
         "is_tradable": False,
     },
     "star_dust_s": {
         "name": "🌟 Звёздная пыль",
         "category": "material",
-        "description": "Концентрат опыта питомцев: +1 дубликат любому питомцу (приближает его уровень). Применить: Зоопарк → карточка питомца → «Звёздная пыль».",
+        "description": "Архивный материал питомца. Количество сохранено; старая прокачка дубликатами закрыта.",
         "is_tradable": False,
         "dup_count": 1,
     },
     "star_dust_l": {
         "name": "✨ Небесная пыль",
         "category": "material",
-        "description": "Щедрая горсть звёздной пыли — сразу +5 дубликатов выбранному питомцу. Применить: Зоопарк → карточка питомца → «Небесная пыль».",
+        "description": "Архивный материал питомца. Количество сохранено; старая прокачка дубликатами закрыта.",
         "is_tradable": False,
         "dup_count": 5,
     },
@@ -33,50 +33,49 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     "cosmetic_shard": {
         "name": "🔹 Осколок резонанса",
         "category": "material",
-        "description": "Косметическая валюта-крафта. Падает из сундуков и дублей. Накопи и собери нужную косметику: Внешний вид → 🔹 Крафт.",
+        "description": "Архивный материал косметики. Количество сохранено; случайные сундуки и старый крафт закрыты.",
         "is_tradable": False,
     },
     "abyss_shard": {
         "name": "🔷 Осколок Бездны",
         "category": "material",
-        "description": "Боевая валюта: за 🔷 призываются юниты в Казарме, а клан строит здания из казны. Добывается в Бездне клана и Вратах 2.0.",
+        "description": "Свидетельство прежней клановой кампании. Количество сохранено как часть истории владельца.",
         "is_tradable": False,
     },
     "chest_mini": {
         "name": "🎁 Мини-сюрприз",
         "category": "chest",
-        "description": "Маленький сундук за ✨ Зарники: случайный расходник или осколки косметики. Открыть: Внешний вид → 🎁 Сюрпризы.",
+        "description": "Сохранённый сундук прежнего каталога. Случайное открытие закрыто; право владельца будет разобрано отдельно.",
         "is_tradable": False,
     },
     "chest_style": {
         "name": "🎁 Сундук Стиля",
         "category": "chest",
-        "description": "Сундук за ✨ Зарники: косметика (common/rare/epic), дубль → осколки. Открыть: Внешний вид → 🎁 Сюрпризы.",
+        "description": "Сохранённый сундук прежнего каталога. Случайное открытие закрыто; право владельца будет разобрано отдельно.",
         "is_tradable": False,
     },
     # Gacha-exclusive items (не продаются в магазине)
     "treasure_map": {
         "name": "🗺 Карта Сокровищ",
         "category": "booster",
-        "description": "Отметка богатого тайника. Сработает сама на следующей экспедиции: +50% к луту (разово). Где взять: гача и 8-часовые походы с Соколом Lv10.",
+        "description": "Архивная подготовка прежних походов. Количество сохранено и сейчас не расходуется.",
         "is_tradable": False,
     },
     "study_notes": {
         "name": "📚 Конспект",
         "category": "utility",
-        "price_mora": 600,
-        "description": "Шпаргалка для быстрой прокачки. Активируй командой «бот использовать, study_notes»: +50% XP от сообщений на 4 часа.",
+        "description": "Архивный предмет старой прогрессии. Сохранён во владении и не расходуется.",
         "is_tradable": False,
     },
     "lucky_charm": {
         "name": "🍀 Подкова Удачи",
         "category": "booster",
-        "description": "Талисман везения. Сработает автоматически на следующей крутке гачи: +15% к шансу редкости. Где взять: гача и ивенты.",
+        "description": "Архивный талисман прежней системы находок. Количество сохранено и сейчас не расходуется.",
         "is_tradable": False,
     },
     # Spin tokens (бесплатные спины из гачи) — единственный источник питомцев (яйца удалены, БЛОК19 Ч.2)
-    "spin_token":          {"name": "🎟 Жетон Гачи",          "category": "spin_token", "spin_type": "mora",     "is_tradable": False, "description": "Один бесплатный спин гача-режима «Мора». Потратить: вкладка Гача. Где взять: круток, наград и квестов."},
-    "spin_token_diamond":  {"name": "🎟 Алмазный Жетон",      "category": "spin_token", "spin_type": "diamond",  "is_tradable": False, "description": "Один бесплатный спин гача-режима «Алмаз» (выше шанс редких и легендарных питомцев). Потратить: вкладка Гача. Где взять: премиум-наград, квестов и лута."},
+    "spin_token":          {"name": "🎟 Архивный жетон",      "category": "spin_token", "spin_type": "mora",     "is_tradable": False, "description": "Сохранённое право из закрытой системы случайных находок. Не продаётся и не расходуется."},
+    "spin_token_diamond":  {"name": "🎟 Премиальный архивный жетон", "category": "spin_token", "spin_type": "diamond",  "is_tradable": False, "description": "Сохранённое премиальное право из закрытой системы случайных находок. Не продаётся и не расходуется."},
     # Food / consumables
     # Усталость растёт от экспедиций; корм её снимает, чтобы снова слать питомца в
     # поход. Везде кормить одинаково: Зоопарк → карточка питомца → «🍖 Покормить».
@@ -123,33 +122,33 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
     # Player buffs (for player, not pet)
     "potion_luck_s": {
         "name": "🧪 Зелье Удачи (М)", "category": "booster", "price_mora": 400,
-        "description": "Глоток везения. Применяется сам на следующей крутке гачи: +15% к шансу редких+ дропов. Купить: Магазин.",
+        "description": "Архивный усилитель прежней системы находок. Количество сохранено и сейчас не расходуется.",
         "is_tradable": False, "buff_type": "gacha_luck", "buff_value": 0.15, "buff_uses": 1,
     },
     "potion_luck_m": {
         "name": "🔮 Зелье Удачи (Б)", "category": "booster",
-        "description": "Большой эликсир везения: +15% к шансу редких+ на следующие 3 крутки гачи (применяется сам).",
+        "description": "Архивный усилитель прежней системы находок. Количество сохранено и сейчас не расходуется.",
         "is_tradable": False, "buff_type": "gacha_luck", "buff_value": 0.15, "buff_uses": 3,
     },
     "potion_sprint": {
         "name": "⚡ Зелье Рывка", "category": "booster",
-        "description": "Заряд бодрости для похода: +30% к луту следующей экспедиции (применяется сам). Где взять: гача.",
+        "description": "Архивная подготовка прежних походов. Количество сохранено и сейчас не расходуется.",
         "is_tradable": False, "buff_type": "expedition_loot", "buff_value": 0.30, "buff_uses": 1,
     },
     # Expedition time boosters (gacha-only)
     "exp_boost_1h": {
         "name": "⏩ Ускоритель (1ч)", "category": "booster",
-        "description": "Подгоняет питомца домой: −1 час текущей экспедиции. Применить: Зоопарк → активная экспедиция → «Ускорить». Где взять: гача.",
+        "description": "Архивный ускоритель прежних походов. Количество сохранено; новые походы не используют ускорение ожидания.",
         "is_tradable": False, "boost_hours": 1,
     },
     "exp_boost_2h": {
         "name": "⏩⏩ Ускоритель (2ч)", "category": "booster",
-        "description": "−2 часа текущей активной экспедиции. Применить: Зоопарк → активная экспедиция → «Ускорить». Где взять: гача.",
+        "description": "Архивный ускоритель прежних походов. Количество сохранено; новые походы не используют ускорение ожидания.",
         "is_tradable": False, "boost_hours": 2,
     },
     "exp_boost_4h": {
         "name": "🚀 Ускоритель (4ч)", "category": "booster",
-        "description": "−4 часа текущей активной экспедиции. Применить: Зоопарк → активная экспедиция → «Ускорить». Где взять: гача.",
+        "description": "Архивный ускоритель прежних походов. Количество сохранено; новые походы не используют ускорение ожидания.",
         "is_tradable": False, "boost_hours": 4,
     },
 
@@ -178,7 +177,7 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
 PET_SPECIES: Dict[str, Dict[str, Any]] = {
     # Common
     "hamster": {"name": "🐹 Хомяк-банкир",        "rarity": "common",    "default_role": "passive", "desc": "Накапливает Мору со временем. Lv4 — работает при 100 усталости, Lv8 — шанс ×2 при сборе, Lv10 — +💎/сутки."},
-    "owl":     {"name": "🦉 Сова-студент",        "rarity": "common",    "default_role": "passive", "desc": "Бонус XP за сообщения. Lv4 — XP в экспедиции, Lv8 — ×2 в выходные, Lv10 — Жетон Крутки/сутки."},
+    "owl":     {"name": "🦉 Сова-студент",        "rarity": "common",    "default_role": "passive", "desc": "Владелец архивной способности старой прогрессии. Питомец и его уровень сохранены; бонус за сообщения не действует."},
     "dog":     {"name": "🐕 Дворовая Собака",     "rarity": "common",    "default_role": "active",  "desc": "Ускоряет экспедиции. Lv4 — собаке меньше усталости, Lv8 — шанс 0 усталости, Lv10 — −5% стоимость похода."},
     "squirrel":{"name": "🐿 Запасливая Белка",    "rarity": "common",    "default_role": "passive", "desc": "Грызун-бухгалтер: +% Моры к награде за КВЕСТЫ (держи в питомнике). Lv1 +5% → Lv10 +20%. В пассивном слоте — половина бонуса."},
     # Rare
@@ -281,7 +280,6 @@ DAILY_DEAL_POOL_MORA: list = [
     {"item_id": "spin_token",          "qty_range": (1, 3), "base_price_mora": 600},
     {"item_id": "treasure_map",        "qty_range": (1, 2), "base_price_mora": 900},
     {"item_id": "lucky_charm",         "qty_range": (1, 2), "base_price_mora": 900},
-    {"item_id": "study_notes",         "qty_range": (1, 2), "base_price_mora": 600},
     {"item_id": "soul_shard",          "qty_range": (3, 10), "base_price_mora": 100},
     {"item_id": "star_dust_s",         "qty_range": (2, 5), "base_price_mora": 700},
     {"item_id": "star_dust_l",         "qty_range": (1, 2), "base_price_mora": 3000},
@@ -297,7 +295,6 @@ DARK_MARKET_POOL: list = [
     {"item_id": "exp_boost_2h",   "qty_range": (1, 2), "base_price_dark": 70},
     {"item_id": "food_elite",     "qty_range": (1, 3), "base_price_dark": 35},
     {"item_id": "lucky_charm",    "qty_range": (1, 2), "base_price_dark": 55},
-    {"item_id": "study_notes",    "qty_range": (1, 2), "base_price_dark": 35},
     {"item_id": "star_dust_l",    "qty_range": (1, 1), "base_price_dark": 130},
 ]
 
@@ -594,72 +591,61 @@ BATTLE_PASS_REWARDS: Dict[int, Dict] = {
 # (Implementation Block 3). Формат-нейтральные строки: бот оборачивает в HTML,
 # сайт рендерит как список. Без разметки внутри.
 VIP_PERKS_PITCH: list[str] = [
-    "👑 Корона рядом с именем — во всех чатах, топах, на аукционе и в профиле",
-    "🖼 Живая аватарка из Telegram на сайте вместо обычной заглушки",
-    "🎰 Еженедельные жетоны на крутки — новые питомцы каждую неделю, бесплатно",
-    "🎫 Платный трек Боевого пропуска — заметно больше наград за весь сезон",
-    "🤖 Больше вопросов ИИ-помощнику в день — 7 при VIP-1М, 10 при VIP-2М и дольше (без VIP — 5)",
-    "📈 Ценовые алерты на бирже — бот напишет в ЛС, когда монета дойдёт до твоей отметки",
-    "✏️ Смена ника без месячного лимита — меняй хоть каждый день",
-    "💬 Особые VIP-реакции у варп-команд — ярче, чем у всех остальных",
-    "🎁 Разовый подарок сразу при оформлении — остаётся у тебя навсегда",
+    "👑 Оформление имени и профиля во всех основных разделах",
+    "🎨 Дополнительные образы и сцены витрины персонажа",
+    "📊 Расширенная личная история и экспорт итогов забега",
+    "🤖 Больше вопросов ИИ о мире, правилах и интерфейсе",
+    "📈 Персональные ценовые алерты лорной биржи",
+    "✏️ Свободная смена ника и дополнительные реакции в чате",
 ]
 
 VIP_TIERS: dict[str, dict] = {
     "1m": {
         "label": "VIP-1М", "duration_days": 30, "price_zarniki": 150,
-        "tagline": "Знакомство с VIP — попробовать вкус привилегий",
-        "base_price_zarniki": 200,  # для отображения экономии
-        "gift": {"mora": 200, "diamonds": 1,
-                 "items": (("spin_token", 2), ("food_basic", 1))},
-        "weekly": (("spin_token", 1),),
+        "tagline": "Все сервисные возможности на 30 дней",
+        "base_price_zarniki": 200,
+        "gift": {"mora": 0, "diamonds": 0, "items": ()},
+        "weekly": (),
         "extra_slots": 0,
     },
     "2m": {
         "label": "VIP-2М", "duration_days": 60, "price_zarniki": 250,
-        "tagline": "Вдвое дольше и заметно выгоднее старта",
-        "base_price_zarniki": 400,  # экономия 150
-        "gift": {"mora": 250, "diamonds": 2,
-                 "items": (("spin_token", 3), ("food_basic", 3))},
-        "weekly": (("spin_token", 1),),
+        "tagline": "Тот же сервис на более выгодный срок",
+        "base_price_zarniki": 400,
+        "gift": {"mora": 0, "diamonds": 0, "items": ()},
+        "weekly": (),
         "extra_slots": 0,
     },
     "3m": {
         "label": "VIP-3М", "duration_days": 90, "price_zarniki": 400,
-        "tagline": "Появляется +1 слот питомника и сильный старт сезона",
-        "base_price_zarniki": 600,  # экономия 200
-        "gift": {"mora": 300, "diamonds": 2,
-                 "items": (("spin_token", 1), ("spin_token", 1), ("food_basic", 5))},
-        "weekly": (("spin_token", 2),),
-        "extra_slots": 1,
+        "tagline": "Три месяца без изменения игровых шансов",
+        "base_price_zarniki": 600,
+        "gift": {"mora": 0, "diamonds": 0, "items": ()},
+        "weekly": (),
+        "extra_slots": 0,
     },
     "8m": {
         "label": "VIP-8М", "duration_days": 240, "price_zarniki": 1200,
-        "tagline": "Длинная дистанция — максимум еженедельных бонусов",
-        "base_price_zarniki": 1600,  # экономия 400
-        "gift": {"mora": 500, "diamonds": 5,
-                 "items": (("spin_token", 2), ("spin_token", 1), ("food_basic", 5))},
-        "weekly": (("spin_token", 1), ("spin_token", 1)),
-        "extra_slots": 1,
+        "tagline": "Длинный срок для постоянного оформления",
+        "base_price_zarniki": 1600,
+        "gift": {"mora": 0, "diamonds": 0, "items": ()},
+        "weekly": (),
+        "extra_slots": 0,
     },
     "12m": {
         "label": "VIP-12М", "duration_days": 365, "price_zarniki": 1700,
-        "tagline": "Год привилегий: всё по максимуму и +2 слота питомника",
-        "base_price_zarniki": 2400,  # экономия 700
-        "gift": {"mora": 500, "diamonds": 10,
-                 "items": (("spin_token", 3), ("spin_token", 3),
-                           ("spin_token", 3), ("spin_token", 5),
-                           ("food_basic", 15), ("soul_shard", 5), ("exp_boost_2h", 4))},
-        "weekly": (("spin_token", 1),),
-        "extra_slots": 2,
+        "tagline": "Год сервисных возможностей по минимальной цене за день",
+        "base_price_zarniki": 2400,
+        "gift": {"mora": 0, "diamonds": 0, "items": ()},
+        "weekly": (),
+        "extra_slots": 0,
     },
 }
 
 
 # ── Relics (Implementation Block 13) — сток для Тёмной Моры ──────────────────
-# Уникальные коллекционные предметы (владеешь раз). Цена комбинирует валюты,
-# обязательно включает 🌑 Тёмную Мору. Эффект: суммарный +% к моро-награде
-# экспедиций (интегрируется в services/expedition.calculate_reward — одна точка).
+# Уникальные архивные предметы (владеешь раз). После перехода v3 они служат
+# расходником старого баланса Тёмной Моры и не дают постоянную игровую силу.
 RELIC_RARITY_META: dict[str, dict] = {
     "common": {"badge": "🟫", "name": "Обычная", "power": 1},
     "rare":   {"badge": "🟪", "name": "Редкая",   "power": 3},
@@ -669,65 +655,64 @@ RELIC_RARITY_META: dict[str, dict] = {
 RELICS: dict[str, dict] = {
     "relic_coin": {
         "name": "🪙 Древняя Монета", "rarity": "common",
-        "price": {"mora": 500, "dark_mora": 30}, "exp_mora_pct": 0.03,
-        "desc": "Монета забытой империи. Чуть щедрее делает походы.",
+        "price": {"dark_mora": 30}, "exp_mora_pct": 0.0,
+        "desc": "Монета забытой империи — знак ранней эпохи Предвестника.",
     },
     "relic_compass": {
         "name": "🧭 Ржавый Компас", "rarity": "common",
-        "price": {"mora": 800, "dark_mora": 45}, "exp_mora_pct": 0.04,
-        "desc": "Стрелка всё ещё чует поживу.",
+        "price": {"dark_mora": 45}, "exp_mora_pct": 0.0,
+        "desc": "Стрелка помнит маршруты, которых больше нет на картах.",
     },
     "relic_idol": {
         "name": "🗿 Идол Торговца", "rarity": "common",
-        "price": {"mora": 1200, "dark_mora": 60}, "exp_mora_pct": 0.05,
-        "desc": "Покровитель сделок и тёмной наживы.",
+        "price": {"dark_mora": 60}, "exp_mora_pct": 0.0,
+        "desc": "Печать старого теневого рынка и его закрытых сделок.",
     },
     "relic_chalice": {
         "name": "🏆 Кубок Бездны", "rarity": "rare",
-        "price": {"diamonds": 100, "dark_mora": 150}, "exp_mora_pct": 0.10,
+        "price": {"dark_mora": 150}, "exp_mora_pct": 0.0,
         "desc": "Из него пьют те, кто вернулся с того берега.",
     },
     "relic_crown": {
         "name": "👑 Корона Падших", "rarity": "rare",
-        "price": {"diamonds": 150, "dark_mora": 220}, "exp_mora_pct": 0.12,
+        "price": {"dark_mora": 220}, "exp_mora_pct": 0.0,
         "desc": "Венец, что носили владыки руин.",
     },
     "relic_heart": {
         "name": "💟 Сердце Тьмы", "rarity": "epic",
-        "price": {"mora": 5000, "diamonds": 300, "dark_mora": 400}, "exp_mora_pct": 0.20,
-        "desc": "Пульсирует в такт твоей жадности. Лучшая реликвия.",
+        "price": {"dark_mora": 400}, "exp_mora_pct": 0.0,
+        "desc": "Редчайшее свидетельство закрытого Культа Бездны.",
     },
 }
 
 # ── Shadow Relics (БЛОК 13.X) — эксклюзивный сток Тёмной Моры ────────────────
 # НЕ продаются в магазине. Право покупки — ТОЛЬКО победа в ивенте «Теневой
 # Торговец» (1 победа = 1 ваучер = 1 покупка любой из четырёх). Оплата
-# ИСКЛЮЧИТЕЛЬНО 🌑. Эффект: +% к 🌑-награде Теневых Врат 2.0 (узкий
-# тематический буст: на макс. этаже Врат +15% суммарно = ~+2 🌑 за забег).
+# ИСКЛЮЧИТЕЛЬНО 🌑. Это закрытый каталог коллекционных прав:
+# прежние ваучеры и баланс можно использовать, но боевых бонусов нет.
 SHADOW_RELICS: Dict[str, Dict[str, Any]] = {
     "srelic_lantern": {
-        "name": "🏮 Фонарь Пустоты", "price_dark": 500, "gates_dark_pct": 0.02,
-        "desc": "Освещает то, чего нет. Врата отдают чуть больше Тьмы.",
+        "name": "🏮 Фонарь Пустоты", "price_dark": 500, "gates_dark_pct": 0.0,
+        "desc": "Освещает то, чего нет. Памятный предмет без боевой силы.",
     },
     "srelic_mask": {
-        "name": "🎭 Маска Торговца", "price_dark": 800, "gates_dark_pct": 0.03,
-        "desc": "Лицо, которое он показывает победителям.",
+        "name": "🎭 Маска Торговца", "price_dark": 800, "gates_dark_pct": 0.0,
+        "desc": "Лицо закрытого торгового дома. Коллекционная история без бонусов.",
     },
     "srelic_hourglass": {
-        "name": "⏳ Часы Обречённых", "price_dark": 1200, "gates_dark_pct": 0.04,
-        "desc": "Песок сыплется вверх. Время в Вратах течёт в вашу пользу.",
+        "name": "⏳ Часы Обречённых", "price_dark": 1200, "gates_dark_pct": 0.0,
+        "desc": "Песок сыплется вверх. Знак прежних походов без игрового преимущества.",
     },
     "srelic_candle": {
-        "name": "🕯 Свеча Первожреца", "price_dark": 2000, "gates_dark_pct": 0.06,
-        "desc": "Не гаснет даже в Бездне. Вершина теневой коллекции.",
+        "name": "🕯 Свеча Первожреца", "price_dark": 2000, "gates_dark_pct": 0.0,
+        "desc": "Не гаснет даже в Бездне. Редкая память закрытой коллекции.",
     },
 }
 
 
 # ── Partner gifts (Implementation Block 5.4) ────────────────────────────────
-# Подарки партнёру: дешёвые косметические (флавор, видны в карточке брака) +
-# средние/дорогие бафф-подарки (накладывают study_xp на ПАРТНЁРА — реальный
-# баф, потребляется в services/leveling.py). Оплата — с личного баланса дарителя.
+# Подарки партнёру — памятные социальные записи без XP, силы или paid-баффов.
+# Оплата идёт только с личного баланса дарителя.
 PARTNER_GIFTS: dict[str, dict] = {
     "rose":    {"name": "🌹 Роза",            "price_mora": 300,     "kind": "cosmetic",
                 "msg": "подарил(а) розу 🌹"},
@@ -735,15 +720,12 @@ PARTNER_GIFTS: dict[str, dict] = {
                 "msg": "подарил(а) плюшевого мишку 🧸"},
     "choco":   {"name": "🍫 Коробка конфет",  "price_diamonds": 15,  "kind": "cosmetic",
                 "msg": "подарил(а) коробку конфет 🍫"},
-    "inspire": {"name": "📚 Вдохновение",     "price_mora": 2000,    "kind": "buff",
-                "buff_value": 0.25, "buff_hours": 6,
-                "msg": "вдохновил(а) партнёра 📚 — +25% XP на 6ч"},
-    "ring":    {"name": "💍 Кольцо Музы",     "price_diamonds": 40,  "kind": "buff",
-                "buff_value": 0.5,  "buff_hours": 12,
-                "msg": "подарил(а) Кольцо Музы 💍 — +50% XP на 12ч"},
-    "crown":   {"name": "👑 Корона Любви",    "price_zarniki": 150,  "kind": "buff",
-                "buff_value": 0.5,  "buff_hours": 24,
-                "msg": "короновал(а) партнёра 👑 — +50% XP на 24ч"},
+    "inspire": {"name": "📚 Вдохновение",     "price_mora": 2000,    "kind": "cosmetic",
+                "msg": "оставил(а) партнёру страницу вдохновения 📚"},
+    "ring":    {"name": "💍 Кольцо Музы",     "price_diamonds": 40,  "kind": "cosmetic",
+                "msg": "подарил(а) памятное Кольцо Музы 💍"},
+    "crown":   {"name": "👑 Корона Любви",    "price_zarniki": 150,  "kind": "cosmetic",
+                "msg": "добавил(а) Корону Любви в семейную историю 👑"},
 }
 
 
@@ -757,11 +739,11 @@ CRAFT_RECIPES: Dict[str, Dict[str, Any]] = {
         "name": "🎟 Жетон Призыва",
         "category": "spin_token",
         # How to get soul_shards
-        "ingredient_tip": "💠 Осколки Души — выпадают из круток Гачи, бывают в Акции дня",
+        "ingredient_tip": "Рецепт сохранён только как история прежнего каталога.",
         # What the result does
-        "what_is": "Жетон гачи, который нельзя купить — только скрафтить из Осколков. Даёт бесплатную крутку мора-режима.",
-        "gacha_rates": "Честные шансы крутки — во вкладке Гача (кнопка «Шансы»)",
-        "how_use": "Перейдите во вкладку Гача и потратьте жетон на бесплатную крутку.",
-        "how_to_get_ingredients": f"Осколки падают из круток Гачи и продаются в Акции дня. Нужно {SOUL_SHARDS_FOR_SUMMON_TOKEN} Осколков.",
+        "what_is": "Архивный рецепт закрытой системы случайных находок.",
+        "gacha_rates": "Случайные крутки закрыты.",
+        "how_use": "Рецепт и материалы сохранены, но сейчас не расходуются.",
+        "how_to_get_ingredients": f"Старый рецепт требовал {SOUL_SHARDS_FOR_SUMMON_TOKEN} Осколков; новые осколки не выпускаются.",
     },
 }

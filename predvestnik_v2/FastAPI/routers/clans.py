@@ -60,7 +60,4 @@ class ShopBuyRequest(BaseModel):
 
 @router.post("/shop/buy")
 async def clans_shop_buy(body: ShopBuyRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    ok, msg = await svc.shop_buy(db, user["id"], body.shop_id)
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "message": msg}
+    raise HTTPException(410, "Старая клановая лавка закрыта. Накопленная история клана сохранена как Основание.")

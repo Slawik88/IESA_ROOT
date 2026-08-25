@@ -12,9 +12,13 @@ const browser = await puppeteer.launch({headless: 'new'});
 const page = await browser.newPage();
 await page.setViewport({width: 390, height: 844, deviceScaleFactor: 2});
 await page.goto('http://localhost:8402/', {waitUntil: 'load'});
-await new Promise(resolve => setTimeout(resolve, 1500));
-await page.mouse.click(195, 700);
-await new Promise(resolve => setTimeout(resolve, 500));
+await page.waitForFunction(() => typeof openLooksModal === 'function');
+await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
+// Never use a blind coordinate click to dismiss startup UI: this coordinate now
+// belongs to the promo action and leaves an unrelated dialog above Looks.
+await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
 await page.evaluate(() => openLooksModal());
 await new Promise(resolve => setTimeout(resolve, 800));
 
@@ -50,31 +54,38 @@ const initialSheet = await page.evaluate(() => {
   const card=document.querySelector('#looks-fit-top .hero');
   const rows=[...document.querySelectorAll('.fit-outfit-row')].map(row=>row.textContent.replace(/\s+/g,' ').trim());
   return {
-    fullProfile: !!(card?.querySelector('.hero-head') && card.querySelector('.hero-xp') && card.querySelector('.cp-hero') && card.querySelector('.stats')),
+    fullProfile: !!(card?.classList.contains('profile-showcase-card--fitting')
+      && card.querySelector('.profile-showcase-head')
+      && card.querySelector('.character-showcase-area')
+      && card.querySelector('.player-data-rail')
+      && card.querySelector('.stats')),
     profileText: card?.textContent.replace(/\s+/g,' ').trim() || '',
     rows,
   };
 });
 check('fitting room shows the complete player profile card', initialSheet.fullProfile);
-check('fitting room profile includes level, power and currencies', /Уровень 27/.test(initialSheet.profileText) && /ИНДЕКС СИЛЫ/.test(initialSheet.profileText) && /Зарники/.test(initialSheet.profileText));
+check('fitting room profile includes saved level and currencies without retired power', /Уровень профиля\s*LV27/.test(initialSheet.profileText) && /Зарники/.test(initialSheet.profileText) && !/ИНДЕКС СИЛЫ/.test(initialSheet.profileText));
 check('outfit summary names the equipped name glow', initialSheet.rows.some(text=>/Ореол имени/.test(text) && /Лунный свет/.test(text) && /Надето/.test(text)));
 check('outfit summary names the equipped title', initialSheet.rows.some(text=>/Титул/.test(text) && /Дитя Зари/.test(text) && /Надето/.test(text)));
 check('outfit summary names an empty slot instead of a dash', initialSheet.rows.some(text=>/Рамка аватара/.test(text) && /Свободно/.test(text)));
 const starfallEffect = await page.evaluate(() => {
-  const hero = document.querySelector('#looks-fit-top .hero');
-  if (!hero) return {hasVectorTrail: false, hasLegacyHardRay: true};
-  const originalClassName = hero.className;
-  hero.classList.remove(...[...hero.classList].filter(name => name.startsWith('pbg-')));
-  hero.classList.add('pbg-starfall');
-  const backgroundImage = getComputedStyle(hero).backgroundImage;
-  hero.className = originalClassName;
+  const card = document.querySelector('#looks-fit-top .profile-showcase-card');
+  const stage = card?.querySelector('.character-showcase-area.hero');
+  if (!card || !stage) return {hasVectorTrail: false, hasLegacyHardRay: true, outerNeutral: false};
+  const originalClassName = stage.className;
+  stage.classList.remove(...[...stage.classList].filter(name => name.startsWith('pbg-')));
+  stage.classList.add('pbg-starfall');
+  const backgroundImage = getComputedStyle(stage).backgroundImage;
+  const outerBackgroundImage = getComputedStyle(card).backgroundImage;
+  stage.className = originalClassName;
   return {
     hasVectorTrail: backgroundImage.includes('image/svg+xml'),
     hasLegacyHardRay: backgroundImage.includes('linear-gradient(115deg'),
+    outerNeutral: outerBackgroundImage === 'none',
   };
 });
 check('starfall background renders soft vector trails instead of hard gradient bands',
-  starfallEffect.hasVectorTrail && !starfallEffect.hasLegacyHardRay);
+  starfallEffect.hasVectorTrail && !starfallEffect.hasLegacyHardRay && starfallEffect.outerNeutral);
 
 const delayedAvatar = await page.evaluate(() => {
   const initial=_vipAvatar;
@@ -179,7 +190,7 @@ check('в шторке только одна золотая кнопка', sheet
 check('золотая кнопка покупает и применяет всё', /Купить и применить/.test(sheetState.actionText));
 
 check('trial name glow is shown with its full name and price', sheetState.trialRows.some(text=>/Ореол имени/.test(text) && /Ледяная вязь/.test(text) && /440/.test(text)));
-check('trial avatar frame is shown with its full name and price', sheetState.trialRows.some(text=>/Рамка аватара/.test(text) && /Оправа Бездны/.test(text) && /440/.test(text)));
+check('trial avatar frame is shown with its full name and price', sheetState.trialRows.some(text=>/Рамка аватара/.test(text) && /Оправа Бездны/.test(text) && /420/.test(text)));
 
 const noFxTransition = await page.evaluate(async () => {
   CM();

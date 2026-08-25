@@ -2,7 +2,7 @@
 # Single source of truth for every game number.
 # Changing a value here automatically affects both Bot and Web.
 
-# ── Leveling (R0: экспоненциальная кривая аккаунта, GDD_REBUILD_PLAN.md) ──────
+# ── Leveling: экспоненциальная кривая аккаунта ─────────────────────────────────
 # Уровень аккаунта глобальный (users.account_xp), per-chat user_xp/user_level
 # остаются только как счётчики активности для топов/админки.
 # XP на уровень L→L+1 = ACC_XP_BASE × ACC_XP_GROWTH^(L−1);
@@ -437,7 +437,6 @@ REFERRAL_SIGNUP_MORA: float = 500.0
 REFERRAL_SIGNUP_DIAMONDS: float = 5.0
 REFERRAL_SIGNUP_VIP_DAYS: int = 4
 REFERRAL_SIGNUP_VIP_TIER: str = "1m"           # см. core.registry.VIP_TIERS — стартовый тариф
-REFERRAL_PURCHASE_COMMISSION_PCT: float = 0.10  # рефереру — 10% от суммы Зарников, которые купил рефери
 
 # ── Зарники: донат-экономика (Implementation Block 1) ─────────────────────────
 ZARNIKI_PER_STAR: int = 10              # 1⭐ = 10✨
@@ -453,21 +452,10 @@ STARS_PACKAGES: list[tuple[int, int, int]] = [
 ]
 STARS_MOST_POPULAR: int = 100           # пакет со звёздочкой "самое популярное"
 
-# H8 (аудит): курс ✨→🪙 выведен из ✨→💎 и обменника, чтобы оценка алмаза была
-# единой. 1✨ = 0.05💎, 1💎 = 3000🪙 (EXCHANGE_RATE) ⇒ 1✨ = 150🪙. Раньше было 3🪙,
-# из-за чего опция ✨→🪙 строго доминировалась ✨→💎 (50× разрыв). ✨ — донат-валюта
-# (не гриндится), инфляции нет.
-ZARNIKI_TO_MORA_RATE: float = 150.0     # 1✨ = 150🪙 (= 0.05💎 × 3000🪙/💎)
-ZARNIKI_TO_DIAMONDS_RATE: float = 0.05  # 1✨ = 0.05💎 (20✨ = 1💎)
-
-# Smart Checkout (ШАГ6): при нехватке базовой валюты дефицит покрывается Зарниками.
-# rate = сколько ЕДИНИЦ базовой валюты даёт 1✨. Привязан к курсам обмена выше →
-# нет арбитража (покрытие дефицита == обычный обмен ✨). zarniki_за_дефицит =
-# ceil(дефицит / rate) — округление ВВЕРХ в пользу казино (без дробных ✨).
-ZARNIKI_EXCHANGE_RATES: dict = {
-    "mora":     ZARNIKI_TO_MORA_RATE,       # 1✨ = 150🪙
-    "diamonds": ZARNIKI_TO_DIAMONDS_RATE,   # 1✨ = 0.05💎 → 1💎 дефицита = 20✨
-}
+# Owner-v3: единственный разрешённый валютный маршрут — необратимый ✨→🪙.
+# Алмазы выдаются за опубликованные испытания и сезонные рубежи, поэтому их
+# нельзя купить Зарниками или автоматически покрыть ими дефицит покупки.
+ZARNIKI_TO_MORA_RATE: float = 150.0
 
 # ── БЛОК21 #3: сундуки-сюрпризы, осколки косметик-крафта ─────────────────────────
 # Сундуки покупаются за ✨ Зарники (services/cosmetics.buy_chest — выдаётся ТОКЕН-предмет),
@@ -513,6 +501,7 @@ CRYPTO_TRADE_FEE: float = 0.05        # комиссия 5% на КАЖДОЙ с
 CRYPTO_MIN_TRADE_MORA: float = 50.0   # мин. стоимость сделки (убирает round-to-zero и дребезг)
 CRYPTO_MAX_HOLDING: float = 1_000_000.0  # потолок монет одного типа у игрока (бэкстоп)
 CRYPTO_AMOUNT_DECIMALS: int = 6       # точность количества монет (анти-микроэксплойт)
+CRYPTO_WEEKLY_PAYOUT_BUDGET: float = 250_000.0  # публичный максимум системных выплат за UTC-неделю
 
 # ── Квесты: супер-награда за закрытие ВСЕХ дневных заданий (БЛОК 5) ────────────
 # Выдаётся один раз в день, СВЕРХ наград за каждый квест. Гейт — реальная
@@ -848,7 +837,7 @@ ACCOUNT_DELETE_COOLING_HOURS: int = 24     # «остывание» между �
 ACCOUNT_DELETE_WARN_DAYS: int = 14         # ЛС-предупреждение до авто-удаления за неактив
 ACCOUNT_DELETE_PHRASE: str = "УДАЛИТЬ АККАУНТ"  # контрольная фраза (ввод вручную)
 
-# ── Боёвка 3.0 «Руны отряда» (BATTLE_REWORK_CONCEPT.md) ───────────────────────
+# ── Legacy unit-combat constants (LCB-001 retirement) ─────────────────────────
 # Казарма: призыв юнитов за 🔷 Осколки Бездны (закрывает валюту-тупик).
 UNIT_SUMMON_COST: int = 25                     # 🔷 за один призыв
 UNIT_SUMMON_WEIGHTS: dict = {"rare": 78, "epic": 18, "legendary": 4}

@@ -1,0 +1,903 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Экономика Предвестника v3: решения владельца",
+    "description": "Понятный канон реализации после комментариев владельца: прогресс без жёсткого потолка, прокачка юнитов, монетизация без покупки опыта, сохранённые аукцион и биржа, миграция и автоматические проверки допуска.",
+    "generatedAt": "2026-08-15T15:55:00Z",
+    "cards": [],
+    "charts": [
+      {
+        "id": "legacy_feature_reach",
+        "title": "Охват старых игровых систем",
+        "subtitle": "Владение или участие на 15 августа 2026 года; база — 183 аккаунта.",
+        "showDescription": true,
+        "type": "horizontalBar",
+        "dataset": "legacy_feature_reach",
+        "sourceId": "production_audit_sql",
+        "encodings": {
+          "x": {
+            "field": "system",
+            "type": "nominal",
+            "label": "Система"
+          },
+          "y": {
+            "field": "share",
+            "type": "quantitative",
+            "label": "Доля аккаунтов",
+            "format": "percent"
+          },
+          "tooltip": [
+            {
+              "field": "users",
+              "type": "quantitative",
+              "label": "Игроков",
+              "format": "number"
+            },
+            {
+              "field": "accounts",
+              "type": "quantitative",
+              "label": "Всего аккаунтов",
+              "format": "number"
+            }
+          ]
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      },
+      {
+        "id": "wallet_concentration",
+        "title": "Доля баланса у верхних 10% аккаунтов",
+        "subtitle": "Срез текущих кошельков; Зарники включают платёжные и административные начисления.",
+        "showDescription": true,
+        "type": "bar",
+        "dataset": "wallet_concentration",
+        "sourceId": "production_audit_sql",
+        "encodings": {
+          "x": {
+            "field": "currency",
+            "type": "nominal",
+            "label": "Валюта"
+          },
+          "y": {
+            "field": "top_decile_share",
+            "type": "quantitative",
+            "label": "Доля верхних 10%",
+            "format": "percent"
+          },
+          "tooltip": [
+            {
+              "field": "median",
+              "type": "quantitative",
+              "label": "Медиана",
+              "format": "number"
+            },
+            {
+              "field": "maximum",
+              "type": "quantitative",
+              "label": "Максимум",
+              "format": "number"
+            }
+          ]
+        },
+        "valueFormat": "percent",
+        "layout": "full"
+      }
+    ],
+    "tables": [
+      {
+        "id": "wallet_snapshot",
+        "title": "Текущие кошельки",
+        "subtitle": "Распределение по 183 аккаунтам на 15 августа 2026 года.",
+        "showDescription": true,
+        "dataset": "wallet_snapshot",
+        "sourceId": "production_audit_sql",
+        "density": "spacious",
+        "layout": "full",
+        "defaultSort": {
+          "field": "maximum",
+          "direction": "desc"
+        },
+        "columns": [
+          {
+            "field": "currency",
+            "label": "Валюта",
+            "type": "text"
+          },
+          {
+            "field": "median",
+            "label": "Медиана",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          },
+          {
+            "field": "p90",
+            "label": "P90",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          },
+          {
+            "field": "p99",
+            "label": "P99",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          },
+          {
+            "field": "maximum",
+            "label": "Максимум",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          },
+          {
+            "field": "zero_accounts",
+            "label": "Нулевых аккаунтов",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          }
+        ]
+      },
+      {
+        "id": "migration_obligations",
+        "title": "Что уже принадлежит игрокам",
+        "subtitle": "Агрегаты боевого сервера, которые миграция обязана сохранить, преобразовать по опубликованному правилу или отдельно урегулировать.",
+        "showDescription": true,
+        "dataset": "migration_obligations",
+        "sourceId": "production_migration_sql",
+        "density": "spacious",
+        "layout": "full",
+        "defaultSort": {
+          "field": "priority",
+          "direction": "asc"
+        },
+        "columns": [
+          {
+            "field": "priority",
+            "label": "№",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          },
+          {
+            "field": "asset",
+            "label": "Обязательство",
+            "type": "text"
+          },
+          {
+            "field": "scope",
+            "label": "Масштаб",
+            "type": "text"
+          },
+          {
+            "field": "required_treatment",
+            "label": "Обязательное действие",
+            "type": "text"
+          }
+        ]
+      },
+      {
+        "id": "v3_model",
+        "title": "Десятилетний стресс-тест v3",
+        "subtitle": "Синтетические стили игры; это проверка формул, а не прогноз поведения людей.",
+        "showDescription": true,
+        "dataset": "v3_model",
+        "sourceId": "economy_model",
+        "density": "dense",
+        "layout": "full",
+        "defaultSort": {
+          "field": "ending_mora",
+          "direction": "desc"
+        },
+        "columns": [
+          {
+            "field": "persona",
+            "label": "Сценарий",
+            "type": "text"
+          },
+          {
+            "field": "contracts_per_week",
+            "label": "Контрактов/нед.",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          },
+          {
+            "field": "first_unit_cap_week",
+            "label": "1-й юнит ур. 30, нед.",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          },
+          {
+            "field": "earned_mora_10y",
+            "label": "Заработано Моры",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          },
+          {
+            "field": "paid_exchange_mora_10y",
+            "label": "Из обмена ✨",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          },
+          {
+            "field": "ending_mora",
+            "label": "Остаток через 10 лет",
+            "type": "number",
+            "format": "number",
+            "align": "right"
+          }
+        ]
+      }
+    ],
+    "sources": [
+      {
+        "id": "production_snapshot",
+        "label": "Снимок боевого сервера, 15 августа 2026",
+        "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/PRODUCTION_SNAPSHOT.md"
+      },
+      {
+        "id": "production_audit_sql",
+        "label": "SQL-аудит боевого сервера только для чтения",
+        "path": "predvestnik_v2/tools/audit_production_gameplay_readonly.sql"
+      },
+      {
+        "id": "production_migration_sql",
+        "label": "SQL-аудит миграционных обязательств только для чтения",
+        "path": "predvestnik_v2/tools/audit_production_migration_obligations_readonly.sql"
+      },
+      {
+        "id": "event_catalog",
+        "label": "Каталог 40 событий и экономических контрактов",
+        "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/EVENT_ECONOMY_CATALOG.md"
+      },
+      {
+        "id": "economy_model",
+        "label": "Детерминированная модель экономики v3 на 10 лет",
+        "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/economy_model_v3.mjs"
+      },
+      {
+        "id": "legacy_audit",
+        "label": "Аудит игровой части и экономики до реконструкции",
+        "path": "predvestnik_v2/GAMEPLAY_ECONOMY_REBUILD_AUDIT.md"
+      },
+      {
+        "id": "owner_v3",
+        "label": "Канон экономики v3 после решений владельца",
+        "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/GAME_ECONOMY_OWNER_V3.md"
+      },
+      {
+        "id": "owner_v3_self_critique",
+        "label": "Самокритика и запреты на преждевременный запуск v3",
+        "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/OWNER_V3_SELF_CRITIQUE.md"
+      }
+    ],
+    "blocks": [
+      {
+        "id": "report_title",
+        "type": "markdown",
+        "body": "# Экономика Предвестника v3: решения владельца"
+      },
+      {
+        "id": "executive_summary",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Главный вывод\n\n- **Ваши пять возражений приняты, а не обойдены.** Зарники по-прежнему меняются на Мору; недельной стены 2 400 больше нет; новая косметика продаётся только за Зарники; юниты реально прокачиваются; аукцион и биржа остаются частью общей игры.\n- **За деньги нельзя купить опыт или мастерский допуск.** Обмен даёт оборотную свободу, но уровень 1–30, испытания веток и рейтинговый результат зарабатываются только игрой. Зарники → Алмазы закрывается.\n- **Длинная сессия всегда двигает аккаунт.** Победа даёт 100, затем 75, затем 50 Моры; опыт после 105 результатов снижается до 60%, но не исчезает. Тренировочный режим по-прежнему ничего не выдаёт.\n- **Можно тестировать без поиска 30 добровольцев.** Технический допуск строится на миллионах случайных и повторных проверок, 50 000 синтетических аккаунтов, теневом расчёте без выдачи наград и трёх одинаковых миграциях. Автоматика не может доказать, что игра весёлая, поэтому первый живой запуск остаётся обратимым."
+      },
+      {
+        "id": "owner_decisions",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Что теперь является каноном\n\n1. **Три кошелька:** Мора, Алмазы, Зарники.\n2. **Обмен:** 1 Зарник → 150 Моры; обмен необратим, а созданная им Мора всегда помечается как купленная.\n3. **Нет жёсткого потолка:** 100/75/50 Моры за победу по скользящим порогам 35 и 105 валидных результатов.\n4. **Косметика:** цена только в Зарниках; старое владение сохраняется.\n5. **Юниты:** 30 уровней, развилки на 5/10/15/20/25/30, опыт только за валидную игру.\n6. **Аукцион:** открыт как Доска снабжения, но не продаёт косметику или прямую силу.\n7. **Биржа:** торгует за Мору и влияет на информационную подготовку мира, но не на рейтинг.\n8. **Миграция:** никакого вайпа; каждый аккаунт получает квитанцию."
+      },
+      {
+        "id": "current_state_heading",
+        "type": "markdown",
+        "sourceId": "production_snapshot",
+        "body": "## Почему реконструкция всё ещё нужна\n\nНа снимке 183 аккаунта: питомцами владеют 138, но старые бои затронули только 11, юниты — 16, кланы — 8. Победы в старых Вратах и Бездне близки к 99%, поэтому победа почти не измеряет мастерство. Новое ядро должно доказывать ценность само, а не опираться на объём сообщений в социальном боте."
+      },
+      {
+        "id": "feature_reach_chart",
+        "type": "chart",
+        "chartId": "legacy_feature_reach",
+        "layout": "full"
+      },
+      {
+        "id": "wallet_problem",
+        "type": "markdown",
+        "sourceId": "production_snapshot",
+        "body": "## Старые кошельки нельзя вайпать или балансировать по среднему\n\nМедиана Моры — 3 520, максимум — 315 568,25; верхние 10% держат 61,2% всей Моры. Поэтому обязательная силовая цена либо душит большинство, либо ничего не значит накопителю. В v3 уровень и мастерский допуск не покупаются вообще, а крупным балансам предлагаются добровольные престиж, рынок и биржевой риск."
+      },
+      {
+        "id": "wallet_concentration_chart",
+        "type": "chart",
+        "chartId": "wallet_concentration",
+        "layout": "full"
+      },
+      {
+        "id": "wallet_table",
+        "type": "table",
+        "tableId": "wallet_snapshot",
+        "layout": "full"
+      },
+      {
+        "id": "monetization",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Как Зарники выводятся без покупки победы\n\n**Что продаётся:** вся новая косметика, сезонный косметический пропуск, подарки, VIP-сервис и Мора по курсу 1:150.\n\n**Что не продаётся:** опыт, уровень, Печать мастерства, обязательный узел, попытка, рейтинг, Алмазы или добыча VIP. Первый выбор ветки бесплатен; дополнительная перенастройка может тратить Мору. В рейтинге уровни, подготовка и купленные товары не дают преимущества.\n\nПлатящий игрок быстрее получает экономическую свободу, но не может пропустить игровой допуск или купить более высокий результат при одинаковом вводе."
+      },
+      {
+        "id": "progress_without_cap",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Час игры не упирается в стену\n\n- Результаты 1–35 за скользящие 7 дней: 100 Моры за победу, 35 за содержательное поражение, 100% опыта.\n- Результаты 36–105: 75 / 26 Моры, 100% опыта.\n- Результаты 106+: 50 / 18 Моры, 60% опыта.\n\nПорог уменьшает инфляцию и ценность автоматизации, но никогда не превращает честный забег в «ноль». Содержательное поражение требует первой развилки, не менее 40% правильных обязательных сигналов, отсутствия досрочного выхода и отсутствия признаков автоматизации."
+      },
+      {
+        "id": "unit_progression",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Прокачка юнитов даёт долгую цель без бесконечного роста силы\n\nУ каждого юнита 30 уровней. Любимый ведущий юнит достигает 30-го уровня ориентировочно за 18–22 часа честной игры, остальные стартовые — за 30–35 часов. На шести рубежах выбирается одно из двух несовместимых правил, а не банальный процент урона.\n\nЗвонарь управляет сохранением Импульса ценой окна; Швея строит швы и запреты позиций; Картограф меняет будущую информацию ценой таймера или пассивного урона. Сезоны не повышают предел в 30 уровней. После него растёт только несиловой показатель Мастерства."
+      },
+      {
+        "id": "auction_exchange",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Аукцион и биржа больше не висят отдельно\n\n**Доска снабжения** торгует материалами, подготовками, заботой о питомцах и компонентами походов. Системные заявки поддерживают маленькую аудиторию; резервирование средств, комиссия 25 Моры за размещение и 8% сделки защищают расчёт. Косметика, опыт, уровни, юниты, питомцы, Алмазы и Зарники запрещены.\n\n**Биржа** сохраняет восемь лорных активов за Мору. Регионы Хроники и мировые события меняют заранее опубликованные параметры будущего периода; разнообразный портфель может открыть один информационный выбор в нерейтинговом контракте или походе. Комиссия 5% в каждую сторону и лимит системного риска не дают рынку стать бесконечным источником Моры."
+      },
+      {
+        "id": "ecosystem",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Остальные механики питают один цикл\n\n- **Питомцы:** связь растёт от заботы и совместной игры; роли выбираются напрямую, пыль используется пакетно.\n- **Походы:** решения на 2/6/12 часов, массовый сбор завершённых результатов, тот же мягкий коэффициент.\n- **Кланы:** проекты доступны даже малой группе и масштабируются; Союз даёт равный функциональный путь без клана.\n- **Сезон:** 50 дней, 5 000 опыта нужно, 6 300 доступно; бесплатный путь без новой косметики, платная косметика только за Зарники.\n- **Хроника:** открывает правила, юнитов и испытания; повтор не дублирует право за первое прохождение."
+      },
+      {
+        "id": "model_heading",
+        "type": "markdown",
+        "sourceId": "economy_model",
+        "body": "## Что показал 10-летний синтетический стресс-тест\n\nВсе восемь сценариев продолжают получать прогресс после порогов и не уходят в отрицательный баланс. Платящий сценарий отделяет 1,56 млн Моры, созданной обменом Зарников, от 1,98 млн заработанной Моры. Накопитель заканчивает с 3,61 млн — это сознательно оставленный стресс-сигнал: нужны сильные добровольные траты, но сам баланс не покупает уровень. Враждебный bot-сценарий после фильтра получает меньше 9% честного hardcore-faucet."
+      },
+      {
+        "id": "model_table",
+        "type": "table",
+        "tableId": "v3_model",
+        "layout": "full"
+      },
+      {
+        "id": "migration_facts",
+        "type": "markdown",
+        "sourceId": "production_snapshot",
+        "body": "## Что нельзя потерять при переходе\n\nМиграция охватывает все 183 кошелька, 288 питомцев у 138 владельцев, старых юнитов и осколки, 991 обычный и 7 алмазных жетонов, 11 семейных сейфов, 8 активных VIP, аукционный reserve 700 при видимой ставке 500, четыре похода, шесть криптопозиций, косметику, темы, реликвии, клан и Battle Pass. Финальное количество берётся только из неизменяемого снимка перехода."
+      },
+      {
+        "id": "migration_table",
+        "type": "table",
+        "tableId": "migration_obligations",
+        "layout": "full"
+      },
+      {
+        "id": "zero_human_qa",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Как проверяем без обязательного набора тестировщиков\n\nДо реальных наград нужны 2 млн случайных последовательностей действий, 50 000 синтетических аккаунтов на 10 лет, 1 млн повторов и конкурентных конфликтов, три одинаковые пробные миграции, проверка отката, матрица мобильных экранов и теневой расчёт без выдачи. Затем — обратимый запуск на небольшой доле естественного трафика.\n\n**Честное ограничение:** синтетика не доказывает удовольствие или 28-дневное удержание. Она доказывает только целостность и известные эксплуатационные свойства; продуктовые решения после запуска остаются обратимыми."
+      },
+      {
+        "id": "blocking_gates",
+        "type": "markdown",
+        "sourceId": "owner_v3_self_critique",
+        "body": "## Что пока запрещает включать реальные награды\n\n1. Серверное время, ревизия каждого действия и единый идентификатор финала уже готовы. После минимум пяти измерений результат только помечается для проверки, если три реакции были быстрее 70 мс; автоматического бана нет. До наград нужны теневые данные о ложных срабатываниях и проверка более длинного забега.\n2. Для Алмазов не завершён полный каталог источников и трат.\n3. Развилки юнитов описаны концептуально, но ещё не проверены как рабочие мобильные механики.\n4. Системным заявкам аукциона нужны бюджет, ценовой коридор и защита связанных аккаунтов.\n5. Бирже нужны покрытие обязательств и проверенный сценарий одновременного выхода.\n6. Нужен неизменяемый снимок перехода и три одинаковые пробные миграции.\n7. Старые рефералы, промокоды и dev-консоль пока умеют создавать Зарники; перед v3 все положительные пути, кроме подтверждённой покупки за Telegram Stars, должны быть закрыты.\n\nПоэтому сейчас реализуются только проверяемые серверные контракты и теневой расчёт без изменения кошельков."
+      },
+      {
+        "id": "recommended_next_steps",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Что реализуется дальше\n\n1. Подключить чистую формулу мягкого насыщения к единому серверному финалу только как теневой расчёт: результат сохраняется для проверки, кошелёк не меняется. Серверное время, ревизии, корректный возврат после паузы и идентификатор финала уже готовы.\n2. Каталог v3, отдельная метка купленной Моры, отключение обмена Зарников на Алмазы.\n3. Собрать теневое распределение реакции и проверить ложные срабатывания без банов и санкций.\n4. Опыт уровней 1–30 и первые содержательные развилки трёх стартовых юнитов.\n5. Хроника первого часа и понятный следующий шаг после результата.\n6. Единая цена в Зарниках для новой косметики при полном сохранении старого владения.\n7. Перестройка аукциона, биржи, питомцев, походов, кланов и сезона.\n8. Только после отдельного разрешения — переход боевого сервера и «📣 Что нового»."
+      },
+      {
+        "id": "caveats",
+        "type": "markdown",
+        "sourceId": "owner_v3",
+        "body": "## Ограничения и открытые риски\n\n- Числа 100/75/50, 35/26/18, кривая опыта и комиссии пока рабочие, а не публичное обещание.\n- Обмен Зарников создаёт Мору; этот выпуск обязан всегда показываться отдельно от заработанной Моры.\n- Аукцион с системными заявками требует жёсткого недельного бюджета системы и защиты от связанных аккаунтов.\n- Биржа остаётся экономическим риском: без лимита позиции, покрытия и секретного серверного зерна она снова станет печатным станком.\n- «Косметика только за Зарники» уменьшает бесплатную коллекционную мотивацию; это осознанное решение владельца, которое нужно измерять по конверсии и оттоку.\n- Боевой сервер не изменяется этим отчётом; переход требует отдельной команды и полного списка изменений."
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-08-15T14:53:51Z",
+    "status": "ready",
+    "datasets": {
+      "legacy_feature_reach": [
+        {
+          "system": "Питомцы",
+          "users": 138,
+          "accounts": 183,
+          "share": 0.7541
+        },
+        {
+          "system": "Гача",
+          "users": 26,
+          "accounts": 183,
+          "share": 0.1421
+        },
+        {
+          "system": "Старые юниты",
+          "users": 16,
+          "accounts": 183,
+          "share": 0.0874
+        },
+        {
+          "system": "Старые бои",
+          "users": 11,
+          "accounts": 183,
+          "share": 0.0601
+        },
+        {
+          "system": "Кланы",
+          "users": 8,
+          "accounts": 183,
+          "share": 0.0437
+        }
+      ],
+      "wallet_concentration": [
+        {
+          "currency": "Мора",
+          "top_decile_share": 0.612,
+          "median": 3520,
+          "maximum": 315568.25
+        },
+        {
+          "currency": "Алмазы",
+          "top_decile_share": 0.375,
+          "median": 10.7,
+          "maximum": 157.84
+        },
+        {
+          "currency": "Зарники",
+          "top_decile_share": 1,
+          "median": 0,
+          "maximum": 15325
+        }
+      ],
+      "wallet_snapshot": [
+        {
+          "currency": "Мора",
+          "median": 3520,
+          "p90": 28224.72,
+          "p99": 125137.64,
+          "maximum": 315568.25,
+          "zero_accounts": 5
+        },
+        {
+          "currency": "Алмазы",
+          "median": 10.7,
+          "p90": 37.21,
+          "p99": 115.88,
+          "maximum": 157.84,
+          "zero_accounts": 5
+        },
+        {
+          "currency": "Тёмная Мора",
+          "median": 0,
+          "p90": 0,
+          "p99": 78.44,
+          "maximum": 121,
+          "zero_accounts": 167
+        },
+        {
+          "currency": "Зарники",
+          "median": 0,
+          "p90": 0,
+          "p99": 2768.04,
+          "maximum": 15325,
+          "zero_accounts": 171
+        },
+        {
+          "currency": "Кристаллы",
+          "median": 0,
+          "p90": 0,
+          "p99": 0,
+          "maximum": 0,
+          "zero_accounts": 183
+        }
+      ],
+      "migration_obligations": [
+        {
+          "priority": 1,
+          "asset": "Кошельки 183 аккаунтов",
+          "scope": "Мора, Алмазы, Тёмная Мора, Зарники; Кристаллы = 0",
+          "required_treatment": "1:1 для трёх сохраняемых кошельков; Тёмная Мора — непередаваемое право Архива Ночи"
+        },
+        {
+          "priority": 2,
+          "asset": "Питомцы",
+          "scope": "288 у 138 владельцев; 5 владельцев имеют Lv10",
+          "required_treatment": "Сохранить владение, имя и историю; уровни и дубликаты дают только знак прежней заботы, не новую связь и не силу"
+        },
+        {
+          "priority": 3,
+          "asset": "Старые юниты и осколки",
+          "scope": "16 владельцев; 43 неиспользованных целевых осколка",
+          "required_treatment": "Перевести владение в Отпечатки; сначала выдать уже полагающееся по старым правилам владение, остаток осколков — только целевое историческое или косметическое признание, не сила"
+        },
+        {
+          "priority": 4,
+          "asset": "Жетоны гачи",
+          "scope": "991 обычный у 172 владельцев; 7 алмазных у 6",
+          "required_treatment": "1:1 в отдельный Архив наследия; массовое открытие и предсказуемый престиж после исчерпания; алмазные жетоны — прямой выбор"
+        },
+        {
+          "priority": 5,
+          "asset": "Семейные сейфы",
+          "scope": "11 браков; 117 811,99 Моры, 22 Алмаза, 1 Тёмная Мора, 11 Зарников",
+          "required_treatment": "Атомарный семейный резерв; старое право вывода или взаимное разделение; развод или спор замораживает сумму до решения"
+        },
+        {
+          "priority": 6,
+          "asset": "VIP",
+          "scope": "8 активных; около 1 726 оплаченных дней",
+          "required_treatment": "Срок и сервис сохранить; обещанные вращения→архивные открытия, интервалы по 50 дней→косметические пути, старые слоты→0/1/2 витринных"
+        },
+        {
+          "priority": 7,
+          "asset": "Аукцион",
+          "scope": "1 активный лот и ставка 500 Моры; контрольный запрос нашёл 700 Моры общего резерва",
+          "required_treatment": "При остановке отменить; полностью вернуть предмет, ставку, резерв и комиссию размещения"
+        },
+        {
+          "priority": 8,
+          "asset": "Активные походы",
+          "scope": "4 похода; предоплачено 297 Моры",
+          "required_treatment": "Завершить по старому договору ровно один раз; новые старты — только после общего перехода"
+        },
+        {
+          "priority": 9,
+          "asset": "Позиции старой криптобиржи",
+          "scope": "6 позиций у 3 игроков; учётная стоимость 207 666,84 Моры",
+          "required_treatment": "Средневзвешенная серверная цена за 72 часа перед остановкой − 5%; округление половины вверх до 0,01; 14 дней апелляции"
+        },
+        {
+          "priority": 10,
+          "asset": "Косметика и темы",
+          "scope": "79 записей косметики у 7; 182 темы у 16; 4 реликвии у 1",
+          "required_treatment": "Полностью сохранить владение и архив снятого с продажи"
+        },
+        {
+          "priority": 11,
+          "asset": "Клан",
+          "scope": "1 клан, 8 участников, 232,7 кланового осколка, 3 клановые монеты, здания штаба, академии и казны",
+          "required_treatment": "Сохранить идентичность и историю; ресурсы и здания преобразовать по отдельному пообъектному реестру"
+        },
+        {
+          "priority": 12,
+          "asset": "Сломанная гарантия старой гачи",
+          "scope": "15 отслеживаемых игроков имеют нулевой счётчик; старый аудит нашёл 487 алмазных вращений; итог — по снимку перехода",
+          "required_treatment": "Каждый недополученный полный блок из 35 после воспроизведения истории — прямой премиальный выбор; финальный остаток от 18 — архивное открытие; 14 дней апелляции"
+        },
+        {
+          "priority": 13,
+          "asset": "Старый боевой пропуск",
+          "scope": "82 записи; бесплатные награды забирали 13 игроков, платные — 8",
+          "required_treatment": "Автоматически выдать заслуженные бесплатные и уже оплаченные права один раз по старому договору"
+        }
+      ],
+      "v3_model": [
+        {
+          "persona": "Вернувшийся игрок",
+          "contracts_per_week": 10,
+          "accepted_results_per_week": 8.9,
+          "first_unit_cap_week": 49,
+          "earned_mora_10y": 372195,
+          "paid_exchange_mora_10y": 0,
+          "spent_mora_10y": 375715,
+          "ending_mora": 0,
+          "max_mora": 3520
+        },
+        {
+          "persona": "Спокойный игрок",
+          "contracts_per_week": 21,
+          "accepted_results_per_week": 19.5,
+          "first_unit_cap_week": 22,
+          "earned_mora_10y": 837957,
+          "paid_exchange_mora_10y": 0,
+          "spent_mora_10y": 828302,
+          "ending_mora": 13175,
+          "max_mora": 13175
+        },
+        {
+          "persona": "Регулярный игрок",
+          "contracts_per_week": 49,
+          "accepted_results_per_week": 47.1,
+          "first_unit_cap_week": 9,
+          "earned_mora_10y": 1979866,
+          "paid_exchange_mora_10y": 0,
+          "spent_mora_10y": 1967600,
+          "ending_mora": 15785,
+          "max_mora": 15785
+        },
+        {
+          "persona": "Увлечённый игрок",
+          "contracts_per_week": 98,
+          "accepted_results_per_week": 96.4,
+          "first_unit_cap_week": 5,
+          "earned_mora_10y": 3813660,
+          "paid_exchange_mora_10y": 0,
+          "spent_mora_10y": 3803064,
+          "ending_mora": 14116,
+          "max_mora": 14116
+        },
+        {
+          "persona": "Очень активный игрок",
+          "contracts_per_week": 175,
+          "accepted_results_per_week": 173.9,
+          "first_unit_cap_week": 3,
+          "earned_mora_10y": 5953657,
+          "paid_exchange_mora_10y": 0,
+          "spent_mora_10y": 5947463,
+          "ending_mora": 9714,
+          "max_mora": 9714
+        },
+        {
+          "persona": "Платящий игрок",
+          "contracts_per_week": 49,
+          "accepted_results_per_week": 47.1,
+          "first_unit_cap_week": 9,
+          "earned_mora_10y": 1979866,
+          "paid_exchange_mora_10y": 1560000,
+          "spent_mora_10y": 3524798,
+          "ending_mora": 18588,
+          "max_mora": 18588
+        },
+        {
+          "persona": "Накопитель",
+          "contracts_per_week": 98,
+          "accepted_results_per_week": 96.4,
+          "first_unit_cap_week": 5,
+          "earned_mora_10y": 3813660,
+          "paid_exchange_mora_10y": 0,
+          "spent_mora_10y": 208000,
+          "ending_mora": 3609180,
+          "max_mora": 3609180
+        },
+        {
+          "persona": "Враждебная автоматизация",
+          "contracts_per_week": 700,
+          "accepted_results_per_week": 10.8,
+          "first_unit_cap_week": 37,
+          "earned_mora_10y": 511766,
+          "paid_exchange_mora_10y": 0,
+          "spent_mora_10y": 0,
+          "ending_mora": 515286,
+          "max_mora": 515286
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "production_snapshot",
+      "label": "Снимок боевого сервера, 15 августа 2026",
+      "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/PRODUCTION_SNAPSHOT.md",
+      "query": {
+        "engine": "PostgreSQL 17 + code audit",
+        "description": "Агрегированный снимок аудитории, кошельков, поведения, миграционных активов и качества данных только для чтения; без персональных данных.",
+        "executed_at": "2026-08-15T09:48:14Z",
+        "tables_used": [
+          "predvestnik.users",
+          "predvestnik.wallet_log",
+          "predvestnik.pets",
+          "predvestnik.user_units",
+          "predvestnik.gacha_history",
+          "predvestnik.gacha_pity",
+          "predvestnik.battle_pass_progress",
+          "predvestnik.inventory",
+          "predvestnik.clans",
+          "predvestnik.clan_members",
+          "predvestnik.marriages",
+          "predvestnik.vip_subscriptions",
+          "predvestnik.auction_lots",
+          "predvestnik.auction_bids",
+          "predvestnik.active_expeditions",
+          "predvestnik.crypto_holdings",
+          "predvestnik.user_cosmetics",
+          "predvestnik.user_themes",
+          "predvestnik.user_relics",
+          "predvestnik.user_shadow_relics",
+          "predvestnik.user_reserve",
+          "predvestnik.clan_buildings",
+          "predvestnik.battles",
+          "predvestnik.user_squad",
+          "predvestnik.crypto_trades",
+          "predvestnik.minigame_sessions",
+          "predvestnik.duels",
+          "predvestnik.daily_quests",
+          "predvestnik.daily_user_stats",
+          "predvestnik.site_analytics"
+        ],
+        "filters": [
+          "Аккаунты без deleted_at",
+          "Агрегаты без Telegram ID, имён, сообщений и платёжных идентификаторов",
+          "Тридцатидневные потоки — окно до 15 августа 2026 года"
+        ],
+        "metric_definitions": [
+          "Social DAU/WAU/MAU считаются по сообщениям и не являются gameplay retention.",
+          "Верхний дециль — доля суммарного положительного баланса, принадлежащая верхним 10% аккаунтов по этой валюте.",
+          "Feature reach — уникальные аккаунты с владением или хотя бы одним зафиксированным действием в соответствующей legacy-системе."
+        ]
+      }
+    },
+    {
+      "id": "production_audit_sql",
+      "label": "SQL-аудит боевого сервера только для чтения",
+      "path": "predvestnik_v2/tools/audit_production_gameplay_readonly.sql",
+      "query": {
+        "engine": "PostgreSQL 17",
+        "description": "Основной воспроизводимый набор агрегатных запросов снимка боевого сервера, выполненный в транзакции REPEATABLE READ READ ONLY.",
+        "executed_at": "2026-08-15T09:48:14Z",
+        "tables_used": [
+          "predvestnik.active_expeditions",
+          "predvestnik.auction_bids",
+          "predvestnik.auction_lots",
+          "predvestnik.battle_pass_progress",
+          "predvestnik.battles",
+          "predvestnik.clan_members",
+          "predvestnik.crypto_trades",
+          "predvestnik.daily_quests",
+          "predvestnik.daily_user_stats",
+          "predvestnik.duels",
+          "predvestnik.gacha_history",
+          "predvestnik.gacha_pity",
+          "predvestnik.minigame_sessions",
+          "predvestnik.pets",
+          "predvestnik.site_analytics",
+          "predvestnik.user_squad",
+          "predvestnik.user_units",
+          "predvestnik.users",
+          "predvestnik.vip_subscriptions",
+          "predvestnik.wallet_log"
+        ],
+        "filters": [
+          "Только агрегаты",
+          "Без deleted_at аккаунтов",
+          "Snapshot time: 15 августа 2026, 09:48:14 UTC"
+        ],
+        "metric_definitions": [
+          "Доля охвата = уникальные аккаунты системы / 183 аккаунта без deleted_at.",
+          "P90/P99 — перцентили баланса на уровне аккаунта.",
+          "Доля верхнего дециля = сумма балансов top 10% / сумма всех положительных балансов валюты."
+        ]
+      }
+    },
+    {
+      "id": "production_migration_sql",
+      "label": "SQL-аудит миграционных обязательств только для чтения",
+      "path": "predvestnik_v2/tools/audit_production_migration_obligations_readonly.sql",
+      "query": {
+        "engine": "PostgreSQL 17",
+        "description": "Воспроизводимый набор обезличенных агрегатов для кошельков, владения, незакрытых договоров и резервов. Проверен на боевой базе в транзакции только для чтения; значения отчёта остаются снимком 09:48:14 UTC, а окончательная миграция использует отдельный неизменяемый снимок перехода.",
+        "validated_at": "2026-08-15T10:52:02Z",
+        "tables_used": [
+          "predvestnik.users",
+          "predvestnik.pets",
+          "predvestnik.user_units",
+          "predvestnik.inventory",
+          "predvestnik.gacha_history",
+          "predvestnik.gacha_pity",
+          "predvestnik.battle_pass_progress",
+          "predvestnik.marriages",
+          "predvestnik.vip_subscriptions",
+          "predvestnik.auction_lots",
+          "predvestnik.auction_bids",
+          "predvestnik.user_reserve",
+          "predvestnik.active_expeditions",
+          "predvestnik.crypto_holdings",
+          "predvestnik.user_cosmetics",
+          "predvestnik.user_themes",
+          "predvestnik.user_relics",
+          "predvestnik.user_shadow_relics",
+          "predvestnik.clans",
+          "predvestnik.clan_members",
+          "predvestnik.clan_buildings"
+        ],
+        "filters": [
+          "Только агрегаты без идентификаторов игроков",
+          "Транзакция REPEATABLE READ READ ONLY",
+          "Финальные количества всегда берутся из неизменяемого снимка перехода"
+        ],
+        "metric_definitions": [
+          "Активные ставки считаются только на активных лотах; исторический флаг is_active сам по себе недостаточен.",
+          "Общий резерв сверяется отдельно с активной ставкой, потому что та же таблица обслуживает дуэли.",
+          "Учётная стоимость криптопозиции показана только для сверки и не является выплатой."
+        ]
+      }
+    },
+    {
+      "id": "event_catalog",
+      "label": "Каталог 40 событий и экономических контрактов",
+      "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/EVENT_ECONOMY_CATALOG.md",
+      "query": {
+        "engine": "reviewed design document",
+        "description": "Проектные контракты E01–E40: цель, вход, решение, выпуск, расход, передача, лимит, anti-abuse, телеметрия и завершение каждого события.",
+        "language": "Markdown",
+        "metric_definitions": [
+          "Reward Reserve — общий недельный потолок повторяемой Моры, а не энергия и не ограничение числа игр.",
+          "Канальные лимиты — альтернативные пути внутри общего Reserve, а не складывающиеся дополнительные бюджеты.",
+          "Все численные значения помечены provisional до пилота."
+        ]
+      }
+    },
+    {
+      "id": "economy_model",
+      "label": "Детерминированная модель экономики v3 на 10 лет",
+      "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/economy_model_v3.mjs",
+      "query": {
+        "engine": "Node.js deterministic simulation + PostgreSQL-compatible output materialization",
+        "description": "Node.js рассчитывает восемь синтетических стратегий на 520 недель; SQL ниже точно материализует проверенные строки таблицы. Модель проверяет отсутствие жёсткого потолка, отрицательных балансов и чрезмерной выдачи автоматизации. Она не предсказывает удержание людей.",
+        "language": "SQL",
+        "executed_at": "2026-08-15T14:53:51Z",
+        "sql": "SELECT *\nFROM (VALUES\n  ('Вернувшийся игрок', 10, 49, 372195, 0, 0),\n  ('Спокойный игрок', 21, 22, 837957, 0, 13175),\n  ('Регулярный игрок', 49, 9, 1979866, 0, 15785),\n  ('Увлечённый игрок', 98, 5, 3813660, 0, 14116),\n  ('Очень активный игрок', 175, 3, 5953657, 0, 9714),\n  ('Платящий игрок', 49, 9, 1979866, 1560000, 18588),\n  ('Накопитель', 98, 5, 3813660, 0, 3609180),\n  ('Враждебная автоматизация', 700, 37, 511766, 0, 515286)\n) AS model_result(\n  persona, contracts_per_week, first_unit_cap_week, earned_mora_10y, paid_exchange_mora_10y, ending_mora\n);",
+        "filters": [
+          "8 сценариев поведения",
+          "520 недель",
+          "без случайности",
+          "мягкие пороги 35/105",
+          "1 Зарник = 150 Моры"
+        ],
+        "metric_definitions": [
+          "Заработанная Мора — только награды валидных завершённых результатов.",
+          "Мора из обмена — отдельная сумма из уничтоженных Зарников.",
+          "Неделя 30-го уровня — первая неделя, когда синтетический ведущий юнит набрал 36 096 опыта."
+        ]
+      }
+    },
+    {
+      "id": "legacy_audit",
+      "label": "Аудит игровой части и экономики до реконструкции",
+      "path": "predvestnik_v2/GAMEPLAY_ECONOMY_REBUILD_AUDIT.md",
+      "query": {
+        "engine": "code and production audit document",
+        "description": "Исходная карта старых механик, дефектов прогрессии, экономики, боёв, заданий, магазинов, архитектуры и телеметрии. Более свежий snapshot имеет приоритет по числам, а новая концепция заменяет старое направление клеточной боёвки.",
+        "language": "Markdown"
+      }
+    },
+    {
+      "id": "owner_v3",
+      "label": "Канон экономики v3 после решений владельца",
+      "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/GAME_ECONOMY_OWNER_V3.md",
+      "query": {
+        "engine": "owner-reviewed design document",
+        "description": "Каноничные решения v3 после явных принятий и отклонений владельца в START_HERE.md.",
+        "language": "Markdown",
+        "metric_definitions": [
+          "Мягкое насыщение снижает награду, но не ограничивает число игр и не обнуляет валидный прогресс.",
+          "Покупка победы запрещена: опыт, уровни и мастерский допуск выдаются только за игру, а рейтинг нормализует силу.",
+          "Вся новая косметика имеет единственную цену в Зарниках; старое владение сохраняется."
+        ]
+      }
+    },
+    {
+      "id": "owner_v3_self_critique",
+      "label": "Самокритика и запреты на преждевременный запуск v3",
+      "path": "predvestnik_v2/docs/analyses/2026-08-15-game-economy-masterplan/OWNER_V3_SELF_CRITIQUE.md",
+      "query": {
+        "engine": "reviewed design document",
+        "description": "Покомпонентная самокритика v3: риск, существующая защита, обязательное доказательство и уровень блокировки.",
+        "language": "Markdown",
+        "metric_definitions": [
+          "P0 — блокирует реальные награды или перенос на боевой сервер.",
+          "P1 — допускает фундамент, но требует решения до публичного включения конкретной системы."
+        ]
+      }
+    }
+  ],
+  "package_info": {
+    "delivery": "portable_html",
+    "audience": "product stakeholders",
+    "artifact_role": "owner-v3 implementation canon"
+  }
+}

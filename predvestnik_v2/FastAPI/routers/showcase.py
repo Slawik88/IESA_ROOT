@@ -1,16 +1,18 @@
-"""FastAPI/routers/showcase.py — Витрина недели (R4.2, GDD_REBUILD_PLAN.md).
+"""FastAPI/routers/showcase.py — Витрина недели.
 
 5 тёмных карточек косметики со скидкой 10–30%, ротация раз в ISO-неделю.
 Скрытность до reveal и скидочная цена считаются ТОЛЬКО на сервере."""
 import math
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from core.cosmetics import COSMETICS
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from infrastructure.repositories import showcase as sc_repo
+from infrastructure.repositories.economy_ledger import apply_balance_change, find_reference_replay
 from services.cosmetics import buy as cosmetics_buy
 
 router = APIRouter(prefix="/showcase", tags=["showcase"])
@@ -148,7 +150,13 @@ async def reveal_slot(body: SlotRequest, db=Depends(get_db), user=Depends(requir
 
 
 @router.post("/buy")
-async def buy_slot(body: SlotRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+async def buy_slot(
+    body: SlotRequest, db=Depends(get_db), user=Depends(require_tg_user),
+    request_key: str = Header(alias="Idempotency-Key"),
+):
+    key = request_key.strip()
+    if not key or len(key) > 120:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
     wk = sc_repo.week_key()
     slots = await sc_repo.get_week_slots(db, wk)
     if not (0 <= body.slot_idx < len(slots)):
@@ -158,7 +166,7 @@ async def buy_slot(body: SlotRequest, db=Depends(get_db), user=Depends(require_t
     if not st.get("revealed"):
         raise HTTPException(400, "Сначала открой карточку — покупка вслепую недоступна.")
     if st.get("purchased"):
-        raise HTTPException(400, "Этот слот витрины ты уже выкупил на этой неделе.")
+        return {"ok": True, "message": "Эта покупка уже обработана.", "price": 0}
 
     s = slots[body.slot_idx]
     cos = COSMETICS.get(s["cosmetic_id"])
@@ -167,6 +175,7 @@ async def buy_slot(body: SlotRequest, db=Depends(get_db), user=Depends(require_t
     price = _discounted(_zarniki_price(cos), s["discount_pct"])
     ok, msg = await cosmetics_buy(
         db, user["id"], s["cosmetic_id"], price_override={"zarniki": price},
+        idempotency_key=f"showcase-slot:{key}",
     )
     if not ok:
         raise HTTPException(400, msg)
@@ -175,48 +184,76 @@ async def buy_slot(body: SlotRequest, db=Depends(get_db), user=Depends(require_t
 
 
 @router.post("/buy-bundle")
-async def buy_bundle(db=Depends(get_db), user=Depends(require_tg_user)):
+async def buy_bundle(
+    db=Depends(get_db), user=Depends(require_tg_user),
+    request_key: str = Header(alias="Idempotency-Key"),
+):
     """Купить «весь набор» витрины одним действием со скидкой комплекта (block 14).
     Берёт все ещё не купленные и не имеющиеся предметы, раскрывает их и выдаёт за
     (сумма недельных скидок − бонус комплекта). Атомарно, цена считается на сервере."""
     uid = user["id"]
     wk = sc_repo.week_key()
-    slots = await sc_repo.get_week_slots(db, wk)
-    state = await sc_repo.get_user_state(db, uid, wk)
-    owned = await _owned_ids(db, uid)
-
+    key = request_key.strip()
+    if not key or len(key) > 120:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
+    operation_key = f"showcase-bundle:{key}"
     eligible: list[tuple[int, str]] = []
-    disc_sum = 0
-    for i, s in enumerate(slots):
-        cos = COSMETICS.get(s["cosmetic_id"])
-        if not cos or state.get(i, {}).get("purchased") or s["cosmetic_id"] in owned:
-            continue
-        eligible.append((i, s["cosmetic_id"]))
-        disc_sum += _discounted(_zarniki_price(cos), s["discount_pct"])
-    if len(eligible) < 2:
-        raise HTTPException(400, "Комплект доступен, когда в витрине ≥2 ещё не купленных предмета.")
+    price = 0
+    try:
+        async with db.connection.transaction():
+            await db.execute(
+                "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (uid,)
+            )
+            async with db.execute(
+                "SELECT 1 FROM users WHERE user_tg_id = ? FOR UPDATE", (uid,)
+            ) as cursor:
+                await cursor.fetchone()
+            replay = await find_reference_replay(
+                db, uid,
+                reason_code="showcase_bundle_purchase",
+                idempotency_key=operation_key,
+                source_type="cosmetics", reference_type="showcase_week",
+                reference_id=wk,
+            )
+            if replay is not None:
+                paid = int(abs(replay.deltas.get("zarniki", 0)))
+                return {"ok": True, "count": 0, "price": paid,
+                        "message": "Покупка набора уже обработана."}
 
-    price = _bundle_price(disc_sum, len(eligible))
-    async with db.connection.transaction():
-        async with db.execute(
-            "SELECT COALESCE(user_balance_zarniki, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
-            (uid,),
-        ) as c:
-            bal = float((await c.fetchone())[0])
-        if bal < price:
-            raise HTTPException(400, f"Нужно {price}✨ за весь набор (у тебя {int(bal)}).")
-        await db.execute(
-            "UPDATE users SET user_balance_zarniki = user_balance_zarniki - ? WHERE user_tg_id = ?",
-            (price, uid))
-        for idx, cid in eligible:
-            await db.execute(
-                "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
-                "ON CONFLICT DO NOTHING", (uid, cid))
-            await db.execute(
-                "INSERT INTO showcase_state (user_id, week_key, slot_idx, revealed, purchased) "
-                "VALUES (?, ?, ?, TRUE, TRUE) ON CONFLICT (user_id, week_key, slot_idx) "
-                "DO UPDATE SET revealed = TRUE, purchased = TRUE",
-                (uid, wk, idx))
+            slots = await sc_repo.get_week_slots(db, wk)
+            state = await sc_repo.get_user_state(db, uid, wk)
+            owned = await _owned_ids(db, uid)
+            disc_sum = 0
+            for index, slot in enumerate(slots):
+                cos = COSMETICS.get(slot["cosmetic_id"])
+                if not cos or state.get(index, {}).get("purchased") or slot["cosmetic_id"] in owned:
+                    continue
+                eligible.append((index, slot["cosmetic_id"]))
+                disc_sum += _discounted(_zarniki_price(cos), slot["discount_pct"])
+            if len(eligible) < 2:
+                raise HTTPException(400, "Комплект доступен, когда осталось хотя бы 2 предмета.")
+            price = _bundle_price(disc_sum, len(eligible))
+            await apply_balance_change(
+                db, uid, {"zarniki": -price},
+                reason_code="showcase_bundle_purchase",
+                idempotency_key=operation_key,
+                source_type="cosmetics", reference_type="showcase_week",
+                reference_id=wk,
+                metadata={"week": wk, "cosmetic_ids": [cid for _, cid in eligible]},
+                note=f"showcase:{wk}×{len(eligible)}",
+            )
+            for index, cosmetic_id in eligible:
+                await db.execute(
+                    "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
+                    "ON CONFLICT DO NOTHING", (uid, cosmetic_id))
+                await db.execute(
+                    "INSERT INTO showcase_state (user_id, week_key, slot_idx, revealed, purchased) "
+                    "VALUES (?, ?, ?, TRUE, TRUE) ON CONFLICT (user_id, week_key, slot_idx) "
+                    "DO UPDATE SET revealed = TRUE, purchased = TRUE", (uid, wk, index))
+    except InsufficientBalance:
+        raise HTTPException(400, f"Недостаточно Зарников: нужно {price}✨.")
+    except IdempotencyConflict:
+        raise HTTPException(400, "Этот запрос уже использован для другого набора.")
 
     # Ачивка «Модник» — весь набор разом (вне транзакции покупки, самокоммит).
     try:

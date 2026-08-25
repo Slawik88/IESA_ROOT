@@ -16,17 +16,15 @@ from infrastructure.pg_adapter import PGAdapter
 from datetime import datetime, timedelta, timezone
 from core.constants import (
     CHEST_DURATION_SECONDS, CHEST_MIN_ACTIVE_USERS_24H,
-    CHEST_MAX_CLAIMANTS, CHEST_REWARDS_BY_POSITION, DRAGON_BONUSES,
-    FOX_BONUSES,
+    CHEST_MAX_CLAIMANTS, CHEST_REWARDS_BY_POSITION,
 )
 from infrastructure.repositories.chest_events import (
     get_qualifying_chats, create_chest, close_chest,
     get_expired_active, update_last_chest_at, get_dormant_chats,
 )
 from services.formatting import format_chest_rewards_text
-from infrastructure.repositories.economy import add_balance as _ab, add_item as _add_item
+from infrastructure.repositories.economy import add_balance as _ab
 from services.achievements import increment_metric as _incr_ach
-from services.quests import increment_metric as _incr_quest
 from infrastructure.repositories.auction import get_expired_active_lots
 
 # WS-транспорт уведомлений регистрируется извне (bot/__main__.py при старте) —
@@ -38,7 +36,6 @@ _ws_notify_cb = None
 def set_ws_notify(cb) -> None:
     global _ws_notify_cb
     _ws_notify_cb = cb
-from infrastructure.repositories.wallet_log import log_wallet as _lw
 from services.auction import resolve_lot, flush_pending_announcements
 from infrastructure.repositories.duel import get_expired_pending
 from services.duel import decline_duel
@@ -95,86 +92,63 @@ async def _finish_expedition(bot: Bot, db, row) -> None:
         await db.commit()
         return
 
-    if marriage_id:
-        await db.execute(
-            "UPDATE marriages SET family_balance = family_balance + ? WHERE id = ?",
-            (reward["mora"], marriage_id),
-        )
-    elif owner_id:
-        await db.execute(
-            "UPDATE users SET user_balance_mora = user_balance_mora + ? WHERE user_tg_id = ?",
-            (reward["mora"], owner_id),
-        )
-        if reward["mora"] > 0:
-            await _lw(db, owner_id, delta_mora=reward["mora"],
-                      source="expedition", chat_id=chat_id,
-                      note=f"{hours}h")
-
-    if reward["diamonds"] > 0 and owner_id:
-        await db.execute(
-            "UPDATE users SET user_balance_diamonds = user_balance_diamonds + ? "
-            "WHERE user_tg_id = ?",
-            (reward["diamonds"], owner_id),
-        )
-        await _lw(db, owner_id, delta_diamonds=reward["diamonds"],
-                  source="expedition", chat_id=chat_id,
-                  note=f"{hours}h_fox")
-
-    if owner_id:
-        await db.execute(
-            "UPDATE user_chat_stats SET user_xp = user_xp + ? "
-            "WHERE user_tg_id = ? AND chat_tg_id = ?",
-            (reward["xp"], owner_id, chat_id),
-        )
-
-    if owner_id:
-        for item_id, qty in reward.get("extras", []):
-            await db.execute(
-                "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
-                "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
-                (owner_id, item_id, qty, qty),
-            )
-
-    # 🗺 Карта Сокровищ: +50% к морe если есть в инвентаре
+    # Existing production expeditions finish their old contract exactly once.
+    # The currency receipt, optional treasure map, XP/items and terminal delete
+    # share one transaction; no achievement/quest cascade starts a new faucet.
     treasure_bonus = ""
-    if owner_id:
-        try:
+    base_mora = reward["mora"]
+    treasure_mora = 0
+    settlement_ref = f"pet:{pet_id}:end:{row.get('ends_at')}"
+    async with db.connection.transaction():
+        if owner_id:
             async with db.execute(
-                "SELECT quantity FROM inventory WHERE user_id = ? "
-                "AND item_id = 'treasure_map' AND quantity > 0",
+                "UPDATE inventory SET quantity = quantity - 1 "
+                "WHERE user_id = ? AND item_id = 'treasure_map' AND quantity > 0 "
+                "RETURNING quantity",
                 (owner_id,),
-            ) as _tm:
-                _tm_row = await _tm.fetchone()
-            if _tm_row:
+            ) as cursor:
+                used_map = await cursor.fetchone()
+            if used_map:
                 bonus = int(reward["mora"] * 0.5)
+                treasure_mora = bonus
                 reward["mora"] += bonus
                 await db.execute(
-                    "UPDATE inventory SET quantity = quantity - 1 "
-                    "WHERE user_id = ? AND item_id = 'treasure_map'",
+                    "DELETE FROM inventory WHERE user_id = ? "
+                    "AND item_id = 'treasure_map' AND quantity <= 0",
                     (owner_id,),
                 )
-                await db.execute(
-                    "UPDATE users SET user_balance_mora = user_balance_mora + ? "
-                    "WHERE user_tg_id = ?",
-                    (bonus, owner_id),
-                )
                 treasure_bonus = f"\n🗺 <b>+{bonus} 🪙</b> <i>(Карта Сокровищ!)</i>"
-        except Exception:
-            pass
-
-    await db.execute(
-        "DELETE FROM active_expeditions WHERE pet_id = ?", (pet_id,)
-    )
-    await db.commit()
-
-    # Achievement + quest: expeditions
-    if owner_id:
-        try:
-            await _incr_ach(db, owner_id, "expeditions_done", delta=1.0)
-            await _incr_quest(db, owner_id, chat_id, "expeditions_today", delta=1.0)
-            await db.commit()
-        except Exception:
-            pass
+            personal_mora = treasure_mora if marriage_id else reward["mora"]
+            if personal_mora or reward.get("diamonds", 0):
+                await _ab(
+                    db, owner_id,
+                    mora=personal_mora,
+                    diamonds=reward.get("diamonds", 0), commit=False,
+                    source="legacy_expedition_settlement",
+                    source_type="legacy_settlement",
+                    idempotency_key=f"legacy-expedition:{settlement_ref}",
+                    reference_type="active_expedition",
+                    reference_id=settlement_ref,
+                    metadata={"hours": hours, "pet_id": pet_id, "marriage_id": marriage_id},
+                    chat_id=chat_id, note=f"{hours}h terminal",
+                )
+            await db.execute(
+                "UPDATE user_chat_stats SET user_xp = user_xp + ? "
+                "WHERE user_tg_id = ? AND chat_tg_id = ?",
+                (reward["xp"], owner_id, chat_id),
+            )
+            for item_id, qty in reward.get("extras", []):
+                await db.execute(
+                    "INSERT INTO inventory (user_id, item_id, quantity) VALUES (?, ?, ?) "
+                    "ON CONFLICT(user_id, item_id) DO UPDATE SET quantity = inventory.quantity + ?",
+                    (owner_id, item_id, qty, qty),
+                )
+        if marriage_id:
+            await db.execute(
+                "UPDATE marriages SET family_balance = family_balance + ? WHERE id = ?",
+                (base_mora, marriage_id),
+            )
+        await db.execute("DELETE FROM active_expeditions WHERE pet_id = ?", (pet_id,))
 
     # Build owner mention line
     if owner_username:
@@ -197,17 +171,9 @@ async def _finish_expedition(bot: Bot, db, row) -> None:
                 f"💠 Опыт: <b>+{reward['xp']}</b>"
                 f"{reward['buff_message']}"
                 f"{treasure_bonus}"
+                "\n<i>Старый поход рассчитан. Новые боевые забеги — во вкладке «Игра».</i>"
             )
-            # Growth-полиш 2026-07-13 (находка 04): награда не тупик — «Ещё поход»
-            # сразу под сообщением, тем же питомцем и длительностью (обработчик —
-            # bot/handlers/expeditions.py::cb_exp_again).
-            kb = None
-            if owner_id:
-                from aiogram.utils.keyboard import InlineKeyboardBuilder
-                _b = InlineKeyboardBuilder()
-                _b.button(text=f"🔁 Ещё {hours}ч", callback_data=f"expagain:{hours}:{owner_id}")
-                kb = _b.as_markup()
-            await bot.send_message(chat_id, text, reply_markup=kb, parse_mode="HTML")
+            await bot.send_message(chat_id, text, parse_mode="HTML")
         except Exception as e:
             logger.error(f"Не удалось отправить уведомление в чат {chat_id}: {e}")
 
@@ -247,7 +213,7 @@ async def expedition_background_task(bot: Bot):
             async with get_pool().acquire() as _conn:
                 db = PGAdapter(_conn)
                 async with db.execute(
-                    "SELECT e.pet_id, e.chat_id, e.duration_hours, e.early_finish, "
+                    "SELECT e.pet_id, e.chat_id, e.duration_hours, e.early_finish, e.ends_at, "
                     "p.name, p.owner_id, p.marriage_id, p.species_id, "
                     "COALESCE(p.pet_level, 1) AS pet_level, "
                     "u.user_tg_username AS owner_username "
@@ -267,10 +233,7 @@ async def expedition_background_task(bot: Bot):
 
 
 async def crypto_alerts_task(bot: Bot):
-    """VIP-алерты цен биржи: раз в минуту сверяет цены (детерминированная функция
-    времени, services/crypto_exchange.py) с активными алертами. Сработавший алерт —
-    ЛС игроку и удаление (разовый). Direction зафиксирован при создании, поэтому
-    «выросла до X» не срабатывает на цене, которая всегда была выше X."""
+    """VIP-алерты цен биржи: раз в минуту сверяет серверные цены с алертами."""
     from services import crypto_exchange as cx
     from infrastructure.repositories import crypto as crypto_repo
 
@@ -288,7 +251,7 @@ async def crypto_alerts_task(bot: Bot):
                 for a in alerts:
                     p = prices.get(a["coin_id"])
                     if p is None:
-                        fired_ids.append(a["id"])  # монета удалена из реестра — чистим
+                        fired_ids.append(a["id"])
                         continue
                     hit = (p >= a["target_price"] if a["direction"] == "above"
                            else p <= a["target_price"])
@@ -304,12 +267,10 @@ async def crypto_alerts_task(bot: Bot):
                             f"{coin['emoji']} <b>{coin['name']}</b> {arrow} отметки "
                             f"<b>{a['target_price']:,.0f} 🪙</b>\n"
                             f"└ Сейчас: <b>{p:,.0f} 🪙</b>\n\n"
-                            f"<i>Алерт разовый — сработал и удалён. Новый: сайт → Биржа → монета.</i>",
+                            f"<i>Алерт разовый. Новый можно поставить на странице Биржи.</i>",
                             parse_mode="HTML",
                         )
                     except Exception as e:
-                        # ЛС закрыты/бот заблокирован — алерт всё равно гасим, иначе
-                        # каждую минуту будем долбиться в закрытую дверь.
                         logger.warning(f"crypto alert DM to {a['user_id']} failed: {e}")
                 if fired_ids:
                     await crypto_repo.delete_alerts_by_ids(db, fired_ids)
@@ -352,13 +313,12 @@ async def _daily_gc(db) -> None:
 
 
 async def daily_deal_task():
-    """Regenerate the daily deal at 00:00 UTC."""
-    logger.info("Фоновая задача акции дня запущена.")
+    """Run routine cleanup without regenerating the retired daily shop."""
+    logger.info("Фоновая задача обслуживания запущена.")
     while True:
         try:
             async with get_pool().acquire() as _conn:
                 db = PGAdapter(_conn)
-                await ensure_deals_fresh(db)
                 await _daily_gc(db)
         except Exception as e:
             logger.error(f"Ошибка в задаче акции дня: {e}")
@@ -534,108 +494,23 @@ async def _grant_weekly_top1_achievements(db) -> None:
 
 
 async def _grant_weekly_dragon_bank(db) -> None:
-    """Дракон Lv10 (не измотан): еженедельный грант Моры (weekly_bank_grant)."""
-    async with db.execute(
-        "SELECT DISTINCT owner_id, pet_level FROM pets "
-        "WHERE species_id = 'dragon' AND placement IN ('active', 'passive') "
-        "AND pet_level >= 10 AND fatigue < 100 AND owner_id IS NOT NULL"
-    ) as _dc:
-        _dragon_owners = await _dc.fetchall()
-    for _drow in _dragon_owners:
-        _uid = _drow[0]
-        _lvl = min(10, max(1, int(_drow[1])))
-        _grant = DRAGON_BONUSES.get(_lvl, {}).get("weekly_bank_grant", 0.0)
-        if _grant > 0:
-            await db.execute(
-                "UPDATE users SET user_balance_mora = user_balance_mora + ? "
-                "WHERE user_tg_id = ?",
-                (_grant, _uid),
-            )
-            await _lw(db, _uid, delta_mora=_grant,
-                      source="dragon_weekly", note="dragon_lv10_bank")
-    await db.commit()
+    """Retired: passive pet ownership no longer mints weekly currency."""
+    return None
 
 
 async def _grant_weekly_fox_diamond(db) -> None:
-    """Лиса Lv8+ (не измотана): еженедельный гарантированный алмаз."""
-    async with db.execute(
-        "SELECT DISTINCT owner_id, pet_level FROM pets "
-        "WHERE species_id = 'fox' AND placement IN ('active', 'passive') "
-        "AND pet_level >= 8 AND fatigue < 100 AND owner_id IS NOT NULL"
-    ) as _fc:
-        _fox_owners = await _fc.fetchall()
-    for _frow in _fox_owners:
-        _uid = _frow[0]
-        _lvl = min(10, max(1, int(_frow[1])))
-        if FOX_BONUSES.get(_lvl, {}).get("weekly_guaranteed_diamond", False):
-            await db.execute(
-                "UPDATE users SET user_balance_diamonds = user_balance_diamonds + 1 "
-                "WHERE user_tg_id = ?",
-                (_uid,),
-            )
-            await _lw(db, _uid, delta_diamonds=1,
-                      source="fox_weekly", note="fox_lv8_diamond")
-    await db.commit()
+    """Retired: passive pet ownership no longer mints weekly Diamonds."""
+    return None
 
 
 async def _grant_weekly_vip_items(bot: Bot, db) -> None:
-    """Block 4.4: еженедельные VIP-пробники по тарифу + уведомление в ЛС."""
-    async with db.execute(
-        "SELECT user_id, tier FROM vip_subscriptions WHERE expires_at > NOW()"
-    ) as _vc:
-        _vip_rows = await _vc.fetchall()
-    for _vrow in _vip_rows:
-        _vuid, _vtier = _vrow[0], _vrow[1]
-        _weekly_items = VIP_TIERS.get(_vtier, {}).get("weekly", ())
-        for _item_id, _qty in _weekly_items:
-            await _add_item(db, _vuid, _item_id, _qty)
-        if _weekly_items:
-            await db.commit()
-            try:
-                await bot.send_message(
-                    _vuid,
-                    "🎁 <b>Еженедельный VIP-бонус начислен!</b> Загляни в инвентарь.",
-                    parse_mode="HTML",
-                )
-            except Exception:
-                pass
+    """Retired: VIP no longer generates gameplay inventory each week."""
+    return None
 
 
 async def _run_weekly_monday_jobs(bot: Bot, db) -> None:
-    """Еженедельные начисления (Пн 00:xx UTC): топ-1 ачивки, Дракон/Лиса, VIP-пробники.
-    Sentinel-строка в player_buffs гарантирует один запуск за понедельник."""
-    _now = datetime.now(timezone.utc)
-    if not (_now.weekday() == 0 and _now.hour == 0):
-        return
-    _monday_date = (_now - timedelta(days=_now.weekday())).strftime("%Y-%m-%d")
-    async with db.execute(
-        "SELECT 1 FROM player_buffs WHERE user_id = 0 AND buff_type = ? LIMIT 1",
-        (f"weekly_top1_done_{_monday_date}",),
-    ) as _chk:
-        if await _chk.fetchone():
-            return  # Already processed this Monday
-    # Mark as done first to prevent duplicates
-    await db.execute(
-        "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at) "
-        "VALUES (0, ?, 1, NOW() + INTERVAL '8 days') "
-        "ON CONFLICT (user_id, buff_type) DO NOTHING",
-        (f"weekly_top1_done_{_monday_date}",),
-    )
-    await db.commit()
-
-    await _grant_weekly_top1_achievements(db)
-    try:
-        await _grant_weekly_dragon_bank(db)
-    except Exception as _de:
-        logger.warning(f"dragon weekly grant error: {_de}")
-    try:
-        await _grant_weekly_fox_diamond(db)
-    except Exception as _fe:
-        logger.warning(f"fox weekly diamond error: {_fe}")
-    try:
-        await _grant_weekly_vip_items(bot, db)
-    except Exception as _ve:
-        logger.warning(f"VIP weekly probniki error: {_ve}")
+    """Retired: old weekly activity/pet/VIP faucets must not mint resources."""
+    return None
 
 
 async def duel_and_auction_task(bot: Bot):
@@ -658,16 +533,6 @@ async def duel_and_auction_task(bot: Bot):
                     logger.error(f"Auction digest flush error: {e}")
 
                 await _resolve_expired_auction_lots(bot, db)
-
-                # БЛОК 36.4: авто-закрытие просроченных клановых рейдов (48ч, босс жив) —
-                # раньше висели 'active' навсегда и блокировали запуск нового рейда.
-                try:
-                    from infrastructure.repositories import raids as _raids_repo
-                    _n_exp = await _raids_repo.close_expired(db)
-                    if _n_exp:
-                        logger.info(f"Клановые рейды: закрыто просроченных — {_n_exp}")
-                except Exception as _re:
-                    logger.warning(f"raid expiry error: {_re}")
 
                 # Battle Pass: подхват сезонов, созданных через Консоль на сайте
                 try:
@@ -696,11 +561,8 @@ async def duel_and_auction_task(bot: Bot):
                 except Exception as _pe:
                     logger.warning(f"auction final push enqueue error: {_pe}")
 
-                # R3: войны за узлы — автозакрытие просроченных + суточный доход
-                try:
-                    await _war_daily_jobs(db)
-                except Exception as _we:
-                    logger.warning(f"war daily jobs error: {_we}")
+                # Старые войны и пассивный доход узлов заморожены. Их строки
+                # остаются для миграционной квитанции, но scheduler их не меняет.
 
         except Exception as e:
             logger.error(f"Ошибка в задаче дуэлей/аукциона: {e}")
@@ -919,53 +781,8 @@ async def chest_spawn_task(bot: Bot):
 
 
 async def anniversary_task(bot: Bot):
-    """Раз в час: празднуем годовщины браков (Implementation Block 14).
-    Веха (100 дней / каждый год) даётся ОБОИМ супругам один раз + анонс в чате."""
-    from services.marriage import anniversary_due, anniversary_reward
-    logger.info("Фоновая задача годовщин брака запущена.")
-    while True:
-        await asyncio.sleep(3600)
-        try:
-            async with get_pool().acquire() as _conn:
-                db = PGAdapter(_conn)
-                async with db.execute(
-                    "SELECT id, user1_id, user1_name, user2_id, user2_name, chat_id, "
-                    "(NOW()::date - marriage_date::date) AS days, "
-                    "COALESCE(last_anniversary, 0) AS last_anni FROM marriages"
-                ) as c:
-                    rows = [dict(r) for r in await c.fetchall()]
-
-                for m in rows:
-                    days = int(m["days"] or 0)
-                    milestone = anniversary_due(days, int(m["last_anni"] or 0))
-                    if milestone is None:
-                        continue
-                    mora, dia, label = anniversary_reward(milestone)
-                    for uid in (m["user1_id"], m["user2_id"]):
-                        if uid:
-                            await _ab(db, uid, mora=mora, diamonds=dia, commit=False,
-                                      source="marriage_anniversary", note=f"{milestone}d")
-                    await db.execute(
-                        "UPDATE marriages SET last_anniversary = ? WHERE id = ?",
-                        (milestone, m["id"]),
-                    )
-                    await db.commit()
-
-                    if m["chat_id"]:
-                        try:
-                            u1 = f'<a href="tg://user?id={m["user1_id"]}">{m["user1_name"] or "?"}</a>'
-                            u2 = f'<a href="tg://user?id={m["user2_id"]}">{m["user2_name"] or "?"}</a>'
-                            await bot.send_message(
-                                m["chat_id"],
-                                f"💞 <b>ГОДОВЩИНА!</b>\n\n{u1} ❤️ {u2} — <b>{label}</b>!\n"
-                                f"🎁 Каждому: +{mora} 🪙 +{dia} 💎\n\n<i>Совет да любовь! 🥂</i>",
-                                parse_mode="HTML",
-                            )
-                        except Exception:
-                            pass
-        except Exception as e:
-            logger.error(f"Ошибка в задаче годовщин: {e}")
-            await asyncio.sleep(30)
+    """Retired: anniversaries stay social and no longer mint currencies."""
+    return None
 
 
 async def shadow_merchant_task(bot: Bot):

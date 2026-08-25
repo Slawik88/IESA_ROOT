@@ -3,13 +3,21 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-load_dotenv()
+if os.getenv("PREDVESTNIK_ENV", "").strip().lower() == "preprod":
+    _preprod_env = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env.test")
+    if not os.path.isfile(_preprod_env):
+        raise RuntimeError("Preprod requires local secret file '.env.test'.")
+    load_dotenv(_preprod_env)
+    from infrastructure.preprod import assert_preprod_environment
+    assert_preprod_environment()
+else:
+    load_dotenv()
 
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
@@ -22,24 +30,31 @@ from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
                               marriage, daily_deal, promocodes, wallet,
                               events, admin, vip, battle_pass, global_admin,
                               dev_console, payments, relics, cosmetics, clans,
-                              combat, legal, analytics as analytics_router, showcase,
-                              skill_games, battle, clans2, dev_overlay, appeals, account,
-                              barracks as barracks_router)
+                              legal, analytics as analytics_router, showcase,
+                              skill_games, clans2, dev_overlay, appeals, account,
+                              barracks as barracks_router,
+                              reconstruction as reconstruction_router)
+from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
 from infrastructure.repositories.crypto import ensure_tables as ensure_crypto
-from infrastructure.repositories.pet_combat import ensure_tables as ensure_combat
 from infrastructure.repositories.users import ensure_account_columns
 from infrastructure.repositories.auction import ensure_columns as ensure_auction_columns
 from infrastructure.repositories.push import ensure_table as ensure_push
 from infrastructure.repositories.showcase import ensure_tables as ensure_showcase
 from infrastructure.repositories.minigames import ensure_table as ensure_minigames
-from infrastructure.repositories.battles import ensure_table as ensure_battles
-from infrastructure.repositories.clans2 import ensure_tables as ensure_clans2
-from infrastructure.repositories.units import ensure_tables as ensure_units
 from infrastructure.repositories.global_permissions import ensure_table as ensure_rank_perms
 from infrastructure.repositories.twin_signals import ensure_table as ensure_twin_signals
+from infrastructure.repositories.reconstruction import ensure_tables as ensure_reconstruction
+from infrastructure.repositories.gameplay_events import ensure_table as ensure_gameplay_events
+from infrastructure.repositories.economy_ledger import ensure_tables as ensure_economy_ledger
+from infrastructure.repositories.economy_shadow import ensure_table as ensure_economy_shadow
+from infrastructure.repositories.reconstruction_settlements import ensure_table as ensure_reconstruction_settlements
+from infrastructure.repositories.reconstruction_units import ensure_tables as ensure_reconstruction_units
+from infrastructure.repositories.companions_v3 import ensure_tables as ensure_companions_v3
+from infrastructure.repositories.alliance_v3 import ensure_table as ensure_alliance_v3
+from FastAPI.deps import require_tab_enabled
 from loguru import logger as _log
 
 
@@ -65,17 +80,21 @@ async def lifespan(app: FastAPI):
             (ensure_cosmetics,               "cosmetics"),
             (ensure_clans,                   "clans"),
             (ensure_crypto,                  "crypto"),
-            (ensure_combat,                  "combat"),
             (ensure_account_columns,         "account_columns"),
             (ensure_auction_columns,         "auction_columns"),
             (ensure_push,                    "push_queue"),
             (ensure_showcase,                "showcase"),
             (ensure_minigames,               "minigames"),
-            (ensure_battles,                 "battles"),
-            (ensure_clans2,                  "clans2"),
-            (ensure_units,                   "units"),
             (ensure_rank_perms,              "global_rank_permissions"),
             (ensure_twin_signals,            "twin_signals"),
+            (ensure_reconstruction,          "reconstruction"),
+            (ensure_gameplay_events,          "gameplay_events"),
+            (ensure_economy_ledger,           "economy_ledger"),
+            (ensure_economy_shadow,           "economy_shadow_rewards"),
+            (ensure_reconstruction_settlements, "reconstruction_reward_settlements"),
+            (ensure_reconstruction_units,     "reconstruction_unit_progress"),
+            (ensure_companions_v3,             "companions_v3"),
+            (ensure_alliance_v3,               "alliance_v3_shadow"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
@@ -107,11 +126,12 @@ for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
           promocodes.router, wallet.router, events.router, admin.router, vip.router,
           battle_pass.router, global_admin.router, dev_console.router,
           payments.router, relics.router, cosmetics.router,
-          clans.router, combat.router, legal.router, notif_router.router,
-          analytics_router.router, showcase.router, skill_games.router, battle.router,
+          clans.router, legal.router, notif_router.router,
+          analytics_router.router, showcase.router, skill_games.router,
           clans2.router, dev_overlay.router, appeals.router, account.router,
-          barracks_router.router]:
+          barracks_router.router, reconstruction_router.router]:
     app.include_router(r)
+app.include_router(legacy_combat_retirement_router.router)
 
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
@@ -167,6 +187,21 @@ async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init:
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/ready")
+async def ready():
+    """Readiness is stricter than liveness: pool + application schema must exist."""
+    try:
+        await create_pool()
+        async with get_pool().acquire() as conn:
+            schema = await conn.fetchval("SELECT to_regnamespace('predvestnik')")
+        if schema != "predvestnik":
+            raise RuntimeError("application schema is missing")
+    except Exception as exc:
+        _log.warning(f"[ready] unavailable: {type(exc).__name__}")
+        raise HTTPException(status_code=503, detail="Service is not ready.") from exc
+    return {"status": "ready"}
 
 
 @app.get("/profile/{user_id}")
@@ -238,6 +273,8 @@ _APP_JS_PARTS = [f"app.{i:02d}.js" for i in range(1, 12)]  # app.01.js … app.1
 _ASSET_VER = str(int(max(
     *[os.path.getmtime(os.path.join(_STATIC_DIR, p)) for p in _APP_JS_PARTS],
     os.path.getmtime(os.path.join(_STATIC_DIR, "app.css")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "reconstruction-lab.css")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "reconstruction-lab.js")),
 )))
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
 # routing prefix regardless of trailing slash in the document URL.
@@ -253,6 +290,26 @@ _APP_JS = "".join(_read_static(p) for p in _APP_JS_PARTS)
 # БЛОК 25: dev-оверлей — отдельный скрипт (НЕ в склейке), активируется только
 # после 200 от /admin/dev-overlay/check; данные за гейтом на бэке.
 _APP_DEVMODE_JS = _read_static("app.devmode.js")
+_RECONSTRUCTION_CSS = _read_static("reconstruction-lab.css")
+_RECONSTRUCTION_JS = _read_static("reconstruction-lab.js")
+# Compatibility shim for the pre-2026-08-24 saved-look delete button.  The
+# current stylesheet does not reference this asset; retain it for one release
+# because an already-open Telegram WebView can still have its old CSS cached.
+_LEGACY_CLOSE_ICON_SVG = _read_static("icons/x.svg")
+_RECONSTRUCTION_HTML = (
+    _read_static("reconstruction-lab.html")
+    .replace('data-runtime="preview"', 'data-runtime="production"')
+    .replace('data-api-base="/__reconstruction"', 'data-api-base=""')
+    .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
+    .replace(
+        'href="/static/reconstruction-lab.css"',
+        f'href="{_ASSET_BASE}/static/reconstruction-lab.css?v={_ASSET_VER}"',
+    )
+    .replace(
+        'src="/static/reconstruction-lab.js"',
+        f'src="{_ASSET_BASE}/static/reconstruction-lab.js?v={_ASSET_VER}"',
+    )
+)
 # Лента «Что нового»: владелец правит FastAPI/static/updates.json как текст
 # (при деплое перечитывается). Отдаётся как обычный JSON — фронт рендерит страницу.
 _UPDATES_JSON = _read_static("updates.json")
@@ -261,6 +318,15 @@ _UPDATES_JSON = _read_static("updates.json")
 @app.get("/", response_class=HTMLResponse)
 async def mini_app():
     return HTMLResponse(_INDEX_HTML)
+
+
+@app.get(
+    "/game",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_tab_enabled("game_reconstruction_v1"))],
+)
+async def reconstruction_game():
+    return HTMLResponse(_RECONSTRUCTION_HTML)
 
 
 @app.get("/updates.json")
@@ -281,3 +347,19 @@ async def static_js():
 @app.get("/static/app.devmode.js")
 async def static_devmode_js():
     return Response(_APP_DEVMODE_JS, media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/reconstruction-lab.css")
+async def reconstruction_css():
+    return Response(_RECONSTRUCTION_CSS, media_type="text/css; charset=utf-8")
+
+
+@app.get("/static/reconstruction-lab.js")
+async def reconstruction_js():
+    return Response(_RECONSTRUCTION_JS, media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/icons/x.svg")
+async def static_close_icon():
+    """Serve the one-release cache-compatibility asset for an older stylesheet."""
+    return Response(_LEGACY_CLOSE_ICON_SVG, media_type="image/svg+xml")

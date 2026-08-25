@@ -1,19 +1,25 @@
 """Глобальные переключатели фич (system_flags).
 
-Ключи: tab_bp, tab_zoo, tab_market, tab_auction, tab_economy, tab_purge, tab_cosmetics, tab_quests.
+Ключи вкладок включены по умолчанию. Экспериментальные игровые поколения
+добавляются выключенными и включаются только на dev/для контролируемого rollout.
 Значение enabled=1 (включено) или 0 (выключено).
 """
 
 _DEFAULTS = [
-    ("tab_bp",        "🎫 Боевой пропуск"),
-    ("tab_zoo",       "🐾 Зоопарк"),
-    ("tab_market",    "🛒 Рынок (магазин + гача)"),
-    ("tab_auction",   "🔨 Аукцион"),
-    ("tab_economy",   "💰 Экономика (переводы)"),
-    ("tab_purge",     "🧹 Чистки"),
-    ("tab_cosmetics", "🎨 Косметика / Образы"),
-    ("tab_quests",    "📋 Квесты"),
+    ("tab_bp",                 "🎫 Боевой пропуск", True),
+    ("tab_zoo",                "🐾 Зоопарк", True),
+    ("tab_market",             "🛒 Рынок (магазин + гача)", True),
+    ("tab_auction",            "🔨 Аукцион", True),
+    ("tab_economy",            "💰 Экономика (переводы)", True),
+    ("tab_purge",              "🧹 Чистки", True),
+    ("tab_cosmetics",          "🎨 Косметика / Образы", True),
+    ("tab_quests",             "📋 Квесты", True),
+    ("game_reconstruction_v1", "🧭 Reconstruction 3.0 (dev)", False),
+    # Видимость игры и финансовая выдача не могут быть одним переключателем.
+    ("reconstruction_real_settlement_v1", "🧾 Reconstruction: реальные награды", False),
 ]
+
+_DEFAULT_ENABLED = {key: enabled for key, _label, enabled in _DEFAULTS}
 
 
 async def ensure_table(db) -> None:
@@ -26,11 +32,11 @@ async def ensure_table(db) -> None:
             label   TEXT DEFAULT NULL
         )
     """)
-    for key, label in _DEFAULTS:
+    for key, label, enabled in _DEFAULTS:
         await db.execute(
-            "INSERT INTO system_flags (key, enabled, label) VALUES (?, 1, ?) "
+            "INSERT INTO system_flags (key, enabled, label) VALUES (?, ?, ?) "
             "ON CONFLICT (key) DO NOTHING",
-            (key, label),
+            (key, int(enabled), label),
         )
     await db.commit()
 
@@ -47,7 +53,9 @@ async def is_enabled(db, key: str) -> bool:
         "SELECT enabled FROM system_flags WHERE key = ?", (key,)
     ) as c:
         row = await c.fetchone()
-    return bool(row["enabled"]) if row else True  # по умолчанию включено
+    # Неизвестные исторические ключи сохраняют прежнее fail-open поведение.
+    # Известный экспериментальный ключ остаётся fail-closed даже до ensure_table.
+    return bool(row["enabled"]) if row else _DEFAULT_ENABLED.get(key, True)
 
 
 async def set_flag(db, key: str, enabled: bool) -> bool:

@@ -1,4 +1,4 @@
-# services/combat_power.py — R1: Индекс Силы (⚡ CP), GDD_REBUILD_PLAN.md.
+# services/combat_power.py — legacy Индекс Силы (⚡ CP), retirement LCB-001.
 #
 # Боёвка 3.0: CP — публичный «паспортный» показатель силы аккаунта:
 #   уровень×100 + Σ CP юнитов отряда + 0.25×Σ CP юнитов вне отряда

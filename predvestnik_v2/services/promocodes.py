@@ -93,6 +93,10 @@ async def activate_promocode(
     diamonds  = float(promo["reward_diamonds"] or 0)
     dark_mora = float(promo.get("reward_dark_mora") or 0)
     zarniki   = float(promo.get("reward_zarniki") or 0)
+    if dark_mora or zarniki:
+        raise PromoError(
+            "Этот старый промокод содержит отключённую валюту. Создайте новый с Морой, Алмазами или предметами."
+        )
     try:
         items: dict[str, int] = json.loads(promo["reward_items_json"] or "{}")
     except (json.JSONDecodeError, TypeError):
@@ -119,15 +123,13 @@ async def activate_promocode(
                 (code, user_id, chat_id),
             )
 
-            if mora > 0 or diamonds > 0 or zarniki > 0:
+            if mora > 0 or diamonds > 0:
                 await add_balance(
-                    db, user_id, mora, diamonds, zarniki=zarniki,
-                    commit=False, source="promocode", chat_id=chat_id, note=f"Promo:{code}"
+                    db, user_id, mora, diamonds, commit=False, source="promocode",
+                    idempotency_key=f"promocode:{code}", source_type="promocode",
+                    reference_type="promocode", reference_id=code,
+                    chat_id=chat_id, note=f"Promo:{code}",
                 )
-            if dark_mora > 0:
-                from infrastructure.repositories.dark_mora import add_dark_mora
-                await add_dark_mora(db, user_id, dark_mora, source="promocode", note=f"Promo:{code}")
-
             for item_id, qty in items.items():
                 if qty > 0 and item_id in ITEMS_REGISTRY:  # валидация: не плодим «призраков»
                     await db.execute(

@@ -4,7 +4,9 @@
 from datetime import datetime, timezone
 
 from core.registry import SHADOW_RELICS
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from infrastructure.pg_adapter import PGAdapter
+from infrastructure.repositories.economy_ledger import apply_balance_change, find_balance_replay
 
 
 # ── События ───────────────────────────────────────────────────────────────────
@@ -131,12 +133,14 @@ async def owned_shadow_relics(db: PGAdapter, user_id: int) -> list[str]:
 
 
 async def get_gates_dark_bonus(db: PGAdapter, user_id: int) -> float:
-    """Суммарный +% к 🌑-награде Врат 2.0 от Теневых реликвий игрока."""
-    owned = await owned_shadow_relics(db, user_id)
-    return sum(SHADOW_RELICS[r]["gates_dark_pct"] for r in owned if r in SHADOW_RELICS)
+    """Compatibility surface: archive relics no longer modify any reward."""
+    del db, user_id
+    return 0.0
 
 
-async def buy_shadow_relic(db: PGAdapter, user_id: int, relic_id: str) -> tuple[bool, str]:
+async def buy_shadow_relic(
+    db: PGAdapter, user_id: int, relic_id: str, *, idempotency_key: str,
+) -> tuple[bool, str]:
     """Покупка Теневой реликвии: 1 непогашенный ваучер + цена в 🌑 (атомарно)."""
     relic = SHADOW_RELICS.get(relic_id)
     if not relic:
@@ -144,6 +148,15 @@ async def buy_shadow_relic(db: PGAdapter, user_id: int, relic_id: str) -> tuple[
     price = float(relic["price_dark"])
     try:
         async with db.connection.transaction():
+            delta = {"dark_mora": -price}
+            replay = await find_balance_replay(
+                db, user_id, delta,
+                reason_code="shadow_relic", idempotency_key=idempotency_key,
+                source_type="legacy_archive", reference_type="shadow_relic",
+                reference_id=relic_id,
+            )
+            if replay:
+                return True, f"{relic['name']} — уже в архиве; повторного списания нет."
             # уже владеет?
             async with db.execute(
                 "SELECT 1 FROM user_shadow_relics WHERE user_id = ? AND relic_id = ?",
@@ -163,35 +176,13 @@ async def buy_shadow_relic(db: PGAdapter, user_id: int, relic_id: str) -> tuple[
                 raise ValueError(
                     "Нужна победа в ивенте «Теневой Торговец» — право покупки даёт только она."
                 )
-            # списываем 🌑 (FOR UPDATE на балансе)
-            async with db.execute(
-                "SELECT COALESCE(user_balance_dark_mora, 0) FROM users "
-                "WHERE user_tg_id = ? FOR UPDATE",
-                (user_id,),
-            ) as c:
-                row = await c.fetchone()
-            bal = float(row[0]) if row else 0.0
-            if bal < price:
-                raise ValueError(f"Недостаточно Тёмной Моры ({bal:.0f} < {price:.0f} 🌑).")
-            await db.execute(
-                "UPDATE users SET user_balance_dark_mora = ? WHERE user_tg_id = ?",
-                (bal - price, user_id),
-            )
-            # wallet_log — тот же формат, что в dark_mora.spend_dark_mora
-            async with db.execute(
-                "SELECT COALESCE(user_balance_mora,0), COALESCE(user_balance_diamonds,0) "
-                "FROM users WHERE user_tg_id = ?", (user_id,)
-            ) as c:
-                brow = await c.fetchone()
-            await db.execute(
-                """
-                INSERT INTO wallet_log
-                  (user_id, delta_mora, delta_diamonds, delta_dark_mora,
-                   balance_mora_after, balance_diamonds_after, balance_dark_mora_after,
-                   source, note)
-                VALUES (?, 0, 0, ?, ?, ?, ?, 'shadow_relic', ?)
-                """,
-                (user_id, -price, float(brow[0]), float(brow[1]), bal - price, relic_id),
+            await apply_balance_change(
+                db, user_id, delta,
+                reason_code="shadow_relic", idempotency_key=idempotency_key,
+                source_type="legacy_archive", reference_type="shadow_relic",
+                reference_id=relic_id,
+                metadata={"relic_id": relic_id, "archive_only": True, "no_power": True},
+                note=relic_id,
             )
             await db.execute(
                 "UPDATE shadow_merchant_winners SET redeemed = TRUE "
@@ -204,4 +195,8 @@ async def buy_shadow_relic(db: PGAdapter, user_id: int, relic_id: str) -> tuple[
             )
     except ValueError as e:
         return False, str(e)
+    except InsufficientBalance:
+        return False, f"Недостаточно Тёмной Моры: нужно {price:.0f} 🌑."
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другой покупки."
     return True, f"{relic['name']} — ваша! Списано {price:.0f} 🌑, ваучер погашен."

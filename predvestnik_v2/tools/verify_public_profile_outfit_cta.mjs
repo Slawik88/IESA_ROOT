@@ -16,8 +16,10 @@ const page = await browser.newPage();
 await page.setViewport({width: 390, height: 844, deviceScaleFactor: 2});
 await page.goto('http://localhost:8402/', {waitUntil: 'load'});
 await page.waitForFunction(() => typeof openGlobalProfile === 'function');
-await page.mouse.click(195, 700);
 await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
+await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
 await page.evaluate(() => openGlobalProfile(999));
 await page.waitForFunction(() => document.querySelector('#mb .gp-card'));
 
@@ -115,7 +117,9 @@ check('local gift purchase completes and confirms the action', await page.evalua
 
 await page.evaluate(() => openGlobalProfile(999));
 await page.waitForFunction(() => document.querySelector('#mb .gp-card'));
+await page.waitForSelector('#mb > button[onclick*="openLooksModal"]', {visible: true});
 await page.click('#mb > button[onclick*="openLooksModal"]');
+await page.waitForFunction(() => !document.getElementById('modal')?.open);
 await page.waitForFunction(() => document.getElementById('pg-looks')?.classList.contains('active'));
 check('outfit action opens the appearance flow', await page.evaluate(() => _activePage === 'looks'));
 

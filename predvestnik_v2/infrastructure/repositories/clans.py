@@ -162,8 +162,7 @@ async def list_top_clans(db, limit: int = 20) -> list[dict]:
 
 async def create_clan(db, leader_id: int, name: str, tag: str,
                       desc: str, emblem: str) -> tuple[bool, str, int | None]:
-    """Основать клан: списать 🪙, создать клан, добавить лидера. Атомарно."""
-    cost = CLAN_CREATE_COST_MORA
+    """Основать социальный клан без обязательного экономического взноса."""
     try:
         async with db.connection.transaction():
             async with db.execute(
@@ -181,19 +180,6 @@ async def create_clan(db, leader_id: int, name: str, tag: str,
             ) as c:
                 if await c.fetchone():
                     return False, "Этот тег уже занят.", None
-            async with db.execute(
-                "SELECT COALESCE(user_balance_mora, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
-                (leader_id,),
-            ) as c:
-                row = await c.fetchone()
-            bal = float(row[0]) if row else 0.0
-            if bal < cost:
-                return False, f"Нужно {cost:,} 🪙 для основания клана.".replace(",", " "), None
-            await db.execute(
-                "UPDATE users SET user_balance_mora = COALESCE(user_balance_mora, 0) - ? "
-                "WHERE user_tg_id = ?",
-                (cost, leader_id),
-            )
             async with db.execute(
                 "INSERT INTO clans (name, tag, leader_id, description, emblem) "
                 "VALUES (?, ?, ?, ?, ?) RETURNING clan_id",
@@ -274,15 +260,8 @@ async def leave_clan(db, user_id: int) -> tuple[bool, str]:
 
 
 async def add_clan_xp(db, user_id: int, amount: int) -> None:
-    """Начислить XP клану игрока (хук прогрессии; no-op если игрок без клана)."""
-    if amount <= 0:
-        return
-    await db.execute(
-        "UPDATE clans SET total_xp = total_xp + ? "
-        "WHERE clan_id = (SELECT clan_id FROM clan_members WHERE user_id = ?)",
-        (amount, user_id),
-    )
-    await db.commit()
+    """Retired writer: old clan XP is a preserved Foundation score only."""
+    return None
 
 
 # ── БЛОК19 Ч.5: Доска Запросов (кооперация без общего склада) ────────────────────

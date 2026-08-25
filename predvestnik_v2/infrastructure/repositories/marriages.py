@@ -1,7 +1,7 @@
 # infrastructure/repositories/marriages.py
-from datetime import datetime, timedelta
 import aiosqlite
-from infrastructure.repositories.wallet_log import log_wallet
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
+from infrastructure.repositories.economy_ledger import apply_balance_change, find_balance_replay
 
 # item-цена → (колонка баланса, дельта-поле wallet_log, иконка)
 _GIFT_PRICE_FIELDS = {
@@ -138,61 +138,64 @@ async def family_bank_transaction(
         return False, f"Ошибка: {e}"
 
 
-async def purchase_partner_gift(db, buyer_id: int, partner_id: int, gift_id: str):
-    """Купить подарок партнёру (Block 5.4). Оплата с личного баланса дарителя,
-    бафф-подарки накладывают study_xp на ПАРТНЁРА. Returns (ok, msg, gift)."""
+async def purchase_partner_gift(
+    db, buyer_id: int, partner_id: int, gift_id: str, *, idempotency_key: str,
+):
+    """Buy one social keepsake through the canonical ledger, exactly once."""
     from core.registry import PARTNER_GIFTS
     gift = PARTNER_GIFTS.get(gift_id)
     if not gift:
         return False, "Неизвестный подарок.", None
 
-    col = delta_field = icon = None
+    currency = icon = None
     amount = 0.0
-    for price_key, (c, d, ic) in _GIFT_PRICE_FIELDS.items():
+    for price_key, (_column, delta_field, ic) in _GIFT_PRICE_FIELDS.items():
         if gift.get(price_key):
-            col, delta_field, icon, amount = c, d, ic, float(gift[price_key])
+            currency = delta_field.removeprefix("delta_")
+            icon, amount = ic, float(gift[price_key])
             break
-    if not col:
+    if not currency or not idempotency_key:
         return False, "У подарка не задана цена.", None
 
     try:
         async with db.connection.transaction():
-            async with db.execute(
-                f"SELECT COALESCE({col}, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
-                (buyer_id,),
-            ) as c:
-                row = await c.fetchone()
-            if not row or float(row[0]) < amount:
-                return False, f"Недостаточно средств ({icon}).", None
-            await db.execute(
-                f"UPDATE users SET {col} = COALESCE({col}, 0) - ? WHERE user_tg_id = ?",
-                (amount, buyer_id),
+            delta = {currency: -amount}
+            replay = await find_balance_replay(
+                db, buyer_id, delta,
+                reason_code="partner_gift", idempotency_key=idempotency_key,
+                source_type="social", reference_type="partner_gift",
+                reference_id=f"{partner_id}:{gift_id}",
             )
-            await log_wallet(db, buyer_id, **{delta_field: -amount},
-                             source="partner_gift", target_id=partner_id, note=gift_id)
-
-            if gift.get("kind") == "buff":
-                expires = (datetime.utcnow() + timedelta(hours=gift["buff_hours"])).strftime("%Y-%m-%d %H:%M:%S")
-                await db.execute(
-                    "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING",
-                    (partner_id,),
-                )
-                await db.execute(
-                    "INSERT INTO player_buffs (user_id, buff_type, uses_left, expires_at, value) "
-                    "VALUES (?, 'study_xp', 1, ?, ?) "
-                    "ON CONFLICT(user_id, buff_type) DO UPDATE SET "
-                    "expires_at = GREATEST(player_buffs.expires_at, EXCLUDED.expires_at), "
-                    "value = GREATEST(player_buffs.value, EXCLUDED.value)",
-                    (partner_id, expires, gift["buff_value"]),
-                )
+            if replay:
+                return True, gift["msg"], gift
+            async with db.execute(
+                "SELECT 1 FROM marriages WHERE "
+                "(user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?) "
+                "FOR SHARE",
+                (buyer_id, partner_id, partner_id, buyer_id),
+            ) as cursor:
+                if not await cursor.fetchone():
+                    return False, "Партнёр больше не состоит с вами в союзе.", None
+            await apply_balance_change(
+                db, buyer_id, delta,
+                reason_code="partner_gift", idempotency_key=idempotency_key,
+                source_type="social", reference_type="partner_gift",
+                reference_id=f"{partner_id}:{gift_id}",
+                metadata={"gift_id": gift_id, "partner_id": int(partner_id), "no_power": True},
+                target_id=partner_id, note=gift_id,
+            )
 
             await db.execute(
                 "INSERT INTO partner_gifts_log (sender_id, receiver_id, gift_id) VALUES (?, ?, ?)",
                 (buyer_id, partner_id, gift_id),
             )
         return True, gift["msg"], gift
-    except Exception as e:
-        return False, f"Ошибка: {e}", None
+    except InsufficientBalance:
+        return False, f"Недостаточно средств ({icon}).", None
+    except IdempotencyConflict:
+        return False, "Этот запрос уже использован для другого подарка.", None
+    except Exception:
+        return False, "Подарок не вручён. Баланс не изменён.", None
 
 
 async def get_received_gifts(db, user_id: int, limit: int = 5) -> list[dict]:

@@ -73,14 +73,14 @@ const SRC = {
   start:          {label:'Стартовая',     desc:'Есть у всех игроков с самого начала. Бесплатно!', action:null},
   shop_mora:      {label:'Магазин 🪙',    desc:'Купите напрямую в Магазине за Мору.', action:null},
   shop_diamond:   {label:'Магазин 💎',    desc:'Купите в Магазине за Алмазы.', action:null},
-  dark:           {label:'Чёрный Рынок 🌑', desc:'Покупается за Тёмную Мору на Чёрном Рынке. Зарабатывайте Тёмную Мору через Контрабанду и Ритуал Культа Бездны.', action:{l:'🌑 Открыть Тёмную Мору', f:"goToDarkMora()"}},
+  dark:           {label:'Архив Ночи 🌑', desc:'Архивный предмет за ранее накопленную Тёмную Мору. Новых начислений нет.', action:{l:'🌑 Открыть Архив', f:"goToDarkMora()"}},
   zarniki:        {label:'Зарники ✨',     desc:'Приобретается за донат-валюту Зарники (Telegram Stars). 1 Звезда = 10 Зарников.',
                    action:{l:'✨ Пополнить Зарники', f:"goTo('market','vip')"}},
-  gacha_novice:   {label:'Гача 🪙',       desc:'Может выпасть из крутки за Мору.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
-  gacha_standard: {label:'Гача 🪙',       desc:'Может выпасть из крутки за Мору.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
-  gacha_premium:  {label:'Гача 🪙',       desc:'Может выпасть из крутки за Мору.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
-  gacha_mora:     {label:'Гача 🪙',       desc:'Может выпасть из крутки за Мору.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
-  gacha_diamond:  {label:'Гача 💎',       desc:'Выпадает из Алмазной крутки гачи (8 💎 / спин). Самые редкие темы.', action:{l:'🎲 Открыть Гачу', f:"goTo('market','gacha')"}},
+  gacha_novice:   {label:'Архив находок', desc:'Источник закрыт; уже полученная тема остаётся у владельца.', action:null},
+  gacha_standard: {label:'Архив находок', desc:'Источник закрыт; уже полученная тема остаётся у владельца.', action:null},
+  gacha_premium:  {label:'Архив находок', desc:'Источник закрыт; уже полученная тема остаётся у владельца.', action:null},
+  gacha_mora:     {label:'Архив находок', desc:'Источник закрыт; уже полученная тема остаётся у владельца.', action:null},
+  gacha_diamond:  {label:'Архив находок', desc:'Источник закрыт; уже полученная тема остаётся у владельца.', action:null},
   event:          {label:'Ивент 🎪',      desc:'Выдаётся за участие в особых мировых событиях. Следите за объявлениями в чате.', action:null},
   auction:        {label:'Аукцион 🏛',    desc:'Можно купить у других игроков на Аукционе.', action:{l:'🏛 Открыть Аукцион', f:"goTo('auction')"}},
 };
@@ -95,7 +95,7 @@ function themeStatusBadge(t) {
   if(t.active)   return '<span class="theme-status ts-active">✓ Активна</span>';
   if(t.owned)    return '<span class="theme-status ts-owned">В коллекции</span>';
   if(t.premium)       return `<div class="theme-price">🔒 ${fmt(t.price_zarniki)} ✨</div>`;
-  if(t.source && t.source.startsWith('gacha')) return '<span class="theme-status ts-gacha">Гача 🎲</span>';
+  if(t.source && t.source.startsWith('gacha')) return '<span class="theme-status ts-gacha">Архив</span>';
   if(t.source === 'event')   return '<span class="theme-status ts-event">Ивент 🎪</span>';
   if(t.source === 'dark')    return '<span class="theme-status ts-dark">🔒 ' + (t.price_dark||'') + ' 🌑</span>';
   if(t.price_mora)    return `<div class="theme-price">${fmt(t.price_mora)} 🪙</div>`;
@@ -292,136 +292,52 @@ function switchTop(mode, btn) {
     .catch(e => { el('top-c').innerHTML=`<div class="err">${e}</div>`; });
 }
 
-// ── Обмен Моры ↔ Алмазов (постоянный обменник, БЛОК 2.2) ─────────────────────
+// ── Роли Моры и Алмазов (owner-v3: прямого обмена больше нет) ────────────────
 let _exchData = null;
-// Вкладка «Обмен» в pg-auction — постоянная инфо-панель + кнопка открытия модалки.
+// Старый вход сохранён как понятная памятка, чтобы не оставлять мёртвую вкладку.
 function loadExchange() {
   el('mkt-exch').innerHTML='<div class="loader">Загрузка...</div>';
   api('/exchange/').then(d=>{
     _exchData = d;
-    el('mkt-exch').innerHTML=`<div class="card card-gold">
-      <div style="text-align:center;padding:12px 0 8px">
-        <div style="font-size:34px;margin-bottom:6px">💱</div>
-        <div style="font-size:15px;font-weight:700;color:var(--bright)">Обменник валют</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Доступен всегда</div>
+    el('mkt-exch').innerHTML=`<div class="card">
+      <div style="padding:4px 0 8px">
+        <div style="font-size:15px;font-weight:700;color:var(--bright)">${d.title}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:3px">${d.blocked_rule}</div>
       </div>
       <div class="divider"></div>
       <div class="irow"><span class="ik">Ваш баланс</span><span>${fmt(d.mora)} 🪙 · ${d.diamonds.toFixed(1)} 💎</span></div>
-      <div class="irow"><span class="ik">🛒 Покупка 💎</span><span style="color:var(--gold)">${fmt(d.rate)} 🪙 = 1 💎</span></div>
-      <div class="irow"><span class="ik">💸 Продажа 💎</span><span style="color:var(--teal)">1 💎 = ${fmt(d.sell_rate)} 🪙</span></div>
-      <div class="irow"><span class="ik">Лимит покупки</span><span>${d.remaining.toFixed(0)} / ${d.daily_cap.toFixed(0)} 💎</span></div>
-      <div class="irow"><span class="ik">Лимит продажи</span><span>${d.sell_remaining.toFixed(0)} / ${d.sell_daily_cap.toFixed(0)} 💎</span></div>
-      <button class="btn btn-gold btn-full" style="margin-top:12px" onclick="openExchangeCurrencyModal('buy')">💱 Обменять</button>
-      <div style="font-size:10.5px;color:var(--muted);text-align:center;margin-top:8px">Продажа дешевле покупки (спред) — 💎 остаётся премиум-валютой.</div>
-    </div>
-    <button class="btn btn-full btn-ghost" style="margin-top:10px" onclick="swAuction('crypto')">📈 Открыть Крипто-Биржу →</button>`;
+      <div class="irow"><span class="ik">🪙 Мора</span><span>${d.mora_rule}</span></div>
+      <div class="irow"><span class="ik">💎 Алмазы</span><span>${d.diamonds_rule}</span></div>
+    </div>`;
   }).catch(e=>{el('mkt-exch').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
-// Модалка обмена — открывается по клику на 🪙/💎 в профиле и из вкладки «Обмен».
+// Клик по Море/Алмазам объясняет их назначение вместо несуществующего обмена.
 function openExchangeCurrencyModal(dir) {
   OM('💱 Обмен валют', '<div class="loader">Загрузка...</div>', [{l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
   api('/exchange/').then(d=>{
     _exchData = d;
     el('mb').innerHTML = `
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.6">
-        Баланс: <b style="color:var(--gold2)">${fmt(d.mora)} 🪙</b> · <b style="color:var(--bright)">${d.diamonds.toFixed(1)} 💎</b><br>
-        🛒 Покупка: <b>${fmt(d.rate)} 🪙 = 1 💎</b> · лимит ${d.remaining.toFixed(0)}/${d.daily_cap.toFixed(0)} 💎<br>
-        💸 Продажа: <b>1 💎 = ${fmt(d.sell_rate)} 🪙</b> · лимит ${d.sell_remaining.toFixed(0)}/${d.sell_daily_cap.toFixed(0)} 💎<br>
-        <span style="color:var(--gold);font-size:11px">Минимум ${d.min_diamonds} 💎 за операцию. Продажа дешевле покупки (спред).</span>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6">
+        Баланс: <b style="color:var(--gold2)">${fmt(d.mora)} 🪙</b> · <b style="color:var(--bright)">${d.diamonds.toFixed(1)} 💎</b>
       </div>
-      <input id="exch-cur-amount" type="number" class="num-input" min="${d.min_diamonds}" step="1"
-             placeholder="Сколько 💎" style="margin:0" oninput="updExchCur()"/>
-      <div id="exch-cur-calc" style="font-size:11px;color:var(--muted);margin:6px 0;min-height:30px"></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-sm btn-gold" style="flex:1" onclick="doExchangeCurrency('buy',this)">🛒 Купить 💎</button>
-        <button class="btn btn-sm btn-ghost" style="flex:1" onclick="doExchangeCurrency('sell',this)">💸 Продать 💎</button>
+      <div style="display:grid;gap:8px;margin-top:10px">
+        <div class="irow"><span class="ik">🪙 Мора</span><span>${d.mora_rule}</span></div>
+        <div class="irow"><span class="ik">💎 Алмазы</span><span>${d.diamonds_rule}</span></div>
       </div>
-      <div id="exch-cur-result" style="margin-top:8px"></div>`;
-    updExchCur();
+      <div style="font-size:11px;color:var(--gold2);margin-top:10px">${d.blocked_rule}</div>`;
   }).catch(e=>{ el('mb').innerHTML = `<div class="err">${e}</div>`; });
-}
-function updExchCur() {
-  const d = _exchData; if(!d) return;
-  const c = el('exch-cur-calc'); if(!c) return;
-  const v = parseFloat(el('exch-cur-amount')?.value) || 0;
-  if(v<=0){ c.textContent=''; return; }
-  c.innerHTML = `🛒 Купить ${v} 💎 → <span style="color:var(--gold)">−${fmt(v*d.rate)} 🪙</span><br>`
-              + `💸 Продать ${v} 💎 → <span style="color:var(--teal)">+${fmt(v*d.sell_rate)} 🪙</span>`;
-}
-function doExchangeCurrency(dir, btn) {
-  const v = parseFloat(el('exch-cur-amount')?.value);
-  if(!v || v<=0){ toast('Укажи количество 💎', false); return; }
-  btn.disabled = true;
-  const path = dir==='buy' ? '/exchange/convert' : '/exchange/sell';
-  api(path, {method:'POST', body:JSON.stringify({diamonds:v})})
-    .then(r=>{
-      const msg = dir==='buy'
-        ? `✅ +${r.diamonds_gained} 💎  −${fmt(r.mora_spent)} 🪙`
-        : `✅ +${fmt(r.mora_gained)} 🪙  −${r.diamonds_spent} 💎`;
-      toast(msg);
-      refreshCurrBar();
-      openExchangeCurrencyModal(dir); // перерисовать с обновлёнными балансами/квотой
-    })
-    .catch(e=>{ el('exch-cur-result').innerHTML = `<div class="err">${e}</div>`; btn.disabled=false; });
 }
 
 // ── Dark Mora ─────────────────────────────────────────────────────────────────
 function loadDarkMora() {
-  // Load merchant status in parallel
-  api('/dark-mora/merchant-status').then(m=>{
-    const div = document.createElement('div');
-    div.className = 'card';
-    div.style.marginBottom = '10px';
-    let merchantHtml = '';
-    if(m.active) {
-      merchantHtml = `<div style="background:var(--gold-dim);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:var(--gold2);margin-bottom:4px">🕵️ Теневой Торговец ЗДЕСЬ!</div>
-        <div style="font-size:11px;color:var(--muted)">Найди ключевое слово в пророчестве в чате → <code>бот слово, [слово]</code></div>
-      </div>`;
-    } else if(m.next_expected) {
-      const next = new Date(m.next_expected);
-      const diff = Math.max(0, Math.floor((next - Date.now()) / 1000));
-      const days = Math.floor(diff/86400), hours = Math.floor((diff%86400)/3600);
-      merchantHtml = `<div style="background:var(--dim);border-radius:var(--r);padding:10px;margin-bottom:10px">
-        <div style="font-size:12px;font-weight:600;color:var(--bright);margin-bottom:3px">🕵️ Теневой Торговец</div>
-        <div style="font-size:11px;color:var(--muted)">Следующий примерно через ${days ? days+'д '+hours+'ч' : hours+'ч'}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">${m.how_it_works}</div>
-      </div>`;
-    } else {
-      merchantHtml = `<div style="background:var(--dim);border-radius:var(--r);padding:10px;margin-bottom:10px">
-        <div style="font-size:12px;font-weight:600;color:var(--bright);margin-bottom:3px">🕵️ Теневой Торговец</div>
-        <div style="font-size:11px;color:var(--muted)">${m.how_it_works}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px">Появляется каждые ${m.cooldown_days} дня · Награда: ${m.reward_min}–${m.reward_max} 🌑</div>
-      </div>`;
-    }
-    const wrap = el('dkc-merchant');
-    if(wrap) wrap.innerHTML = merchantHtml;
-  }).catch(()=>{});
-
   el('dkc').innerHTML=`
-    <div id="dkc-merchant"></div>
-    <button class="btn btn-full gates-cta" style="margin-bottom:10px" onclick="openShadowGates()">🌑 Врата — отряд юнитов фармит Тёмную Мору ⚔️</button>
+    <button class="btn gates-cta" style="margin-bottom:10px" onclick="openShadowGates()">🔔 Открыть новую игру <b>›</b></button>
     <div class="card card-gold">
-    <div class="card-title">🌑 Тёмная Мора</div>
+    <div class="card-title">🌑 Архив Ночи</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-bottom:12px">
-      Нелегальная валюта. Нельзя купить — только заработать нечестным путём.<br>
-      Тратится на 🏛 Реликвии (ниже) и теневые темы профиля (Профиль → Темы).
+      Здесь сохранена ранее полученная Тёмная Мора. Новых начислений нет.<br>
+      Остаток можно потратить на архивные реликвии и уже выпущенные теневые темы.
     </div>
-    <div class="divider"></div>
-    <div style="font-size:12px;font-weight:600;color:var(--bright);margin:10px 0 6px">🎲 Контрабанда</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-      Ставь Мору на рискованную сделку. 40% — успех, 35% — провал, 25% — поймали.<br>
-      Кулдаун: 7 дней. При поимке — штраф 14 дней.
-    </div>
-    <input id="contra-stake" type="number" class="num-input" placeholder="Ставка (100–5000 🪙)" min="100" max="5000" step="50"/>
-    <button class="btn btn-gold btn-full" onclick="doContrabanda(this)">🎲 Рискнуть</button>
-    <div class="divider"></div>
-    <div style="font-size:12px;font-weight:600;color:var(--bright);margin:10px 0 6px">🌑 Культ Бездны</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-      Ритуал доступен с 23:00 до 01:00 UTC при стрике 7+, уровне 6+, 3+ питомцах.<br>
-      Награда: 10–20 🌑 раз в 30 дней.
-    </div>
-    <button class="btn btn-ghost btn-full" onclick="doRitual(this)">🌑 Провести ритуал</button>
   </div>
   <div id="relics-card" style="margin-top:10px"></div>`;
   loadRelics();
@@ -441,7 +357,7 @@ function loadRelics() {
       return `<div style="padding:9px 0;border-bottom:1px solid var(--border2)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
           <div style="min-width:0">
-            <div style="font-weight:600">${r.owned?'':esc(r.badge)+' '}${esc(r.name)} <span style="color:var(--gold);font-size:11px">+${Math.round(r.exp_mora_pct*100)}% поход</span></div>
+            <div style="font-weight:600">${r.owned?'':esc(r.badge)+' '}${esc(r.name)}</div>
             <div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(r.desc)}</div>
           </div>
           ${right}
@@ -450,36 +366,20 @@ function loadRelics() {
     }).join('');
     host.innerHTML = `<div class="card card-gold">
       <div class="card-title">🏛 Реликвии</div>
-      <div class="irow"><span class="ik">Коллекция</span><span style="color:var(--gold);font-weight:700">${d.owned_count}/${d.total} · Сила ${d.power} · +${d.bonus_pct}% 🪙 походам</span></div>
-      <div style="font-size:11px;color:var(--muted);margin:8px 0">Уникальные коллекционные предметы за 🌑 Тёмную Мору (+ др. валюты). Каждая навсегда повышает моро-награду экспедиций.</div>
+      <div class="irow"><span class="ik">Коллекция</span><span style="color:var(--gold);font-weight:700">${d.owned_count}/${d.total}</span></div>
+      <div style="font-size:11px;color:var(--muted);margin:8px 0">Архивные предметы за ранее накопленную 🌑 Тёмную Мору. Они сохраняют историю, но не дают игровую силу.</div>
       ${rows}
     </div>`;
   }).catch(e=>{host.innerHTML=`<div class="card"><div class="err">${e}</div></div>`;});
 }
 function buyRelic(id,btn) {
   if(btn) btn.disabled=true;
-  api('/relics/buy',{method:'POST',body:JSON.stringify({relic_id:id})})
+  const requestKey=btn?.dataset.requestKey||economyRequestKey('archive-relic-'+id);
+  if(btn) btn.dataset.requestKey=requestKey;
+  api('/relics/buy',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({relic_id:id})})
     .then(r=>{toast(r.message||'🏛 Реликвия получена!');refreshCurrBar();loadRelics();})
     .catch(e=>{toast(e,false);if(btn) btn.disabled=false;});
 }
-function doContrabanda(btn) {
-  const v=parseInt(el('contra-stake')?.value||0);
-  if(!v||v<100||v>5000){toast('Ставка: 100–5000 🪙.',false);return;}
-  OM('🎲 Подтверждение',`<div class="irow"><span class="ik">Ставка</span><span style="color:var(--gold)">${fmt(v)} 🪙</span></div>
-    <div style="font-size:11px;color:var(--muted);margin-top:8px">40% успех · 35% провал · 25% поймают (штраф 14д)</div>`,
-    [{l:'🎲 Рискнуть',c:'btn-red',f:`runContrabanda(${v})`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
-}
-function runContrabanda(stake) {
-  CM();
-  api('/dark-mora/contrabanda',{method:'POST',body:JSON.stringify({stake})})
-    .then(r=>toast(r.result_text||'Готово!',r.success))
-    .catch(e=>toast(e,false));
-}
-function doRitual(btn) {
-  btn.disabled=true;
-  api('/dark-mora/ritual',{method:'POST'}).then(r=>toast(r.message||'✅',true)).catch(e=>{toast(e,false);btn.disabled=false;});
-}
-
 // ── VIP-подписка (Implementation Block 2.5) ─────────────────────────────────────
 // ── ✨ Премиум-хаб: донат-магазин Зарников (Stars) + VIP ──────────────────────
 let _zarPkgs=null;
@@ -525,7 +425,7 @@ function _renderPremiumHub(pk, d) {
     <div class="prem-card" style="text-align:center">
       <div style="font-size:34px;animation:floaty 3.5s infinite">✨</div>
       <div class="prem-title">Зарники</div>
-      <div style="font-size:11px;color:var(--muted);margin:4px 0 2px">Донат-валюта: премиум-темы, VIP, обмен на 🪙/💎</div>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 2px">Косметика, сервисные возможности и необратимый обмен в Мору</div>
       <div style="font-size:13px;color:var(--gold2);font-weight:800;margin-bottom:10px">Баланс: ${fmt(bal)} ✨</div>
       <div class="zar-grid">${pkgCards}</div>
       <div style="display:flex;gap:6px;margin-top:10px">
@@ -553,20 +453,12 @@ function _renderPremiumHub(pk, d) {
         <div class="prem-title">👑 ${d.tier_label}</div>
         <div style="font-size:11.5px;color:var(--muted);margin-top:3px">Истекает ${new Date(d.expires_at).toLocaleDateString('ru-RU')} · осталось ${d.days_left} дн.</div>
         ${seniorityLine}
-        <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding:7px 10px;background:rgba(232,181,77,.1);border:1px solid var(--border);border-radius:12px">
-          <span style="font-size:16px">🎁</span>
-          <span style="font-size:11px;color:var(--text)">Бесплатная крутка через <b style="color:var(--gold2)">${_vipCrateText()}</b></span>
-        </div>
+        <div style="font-size:11px;color:var(--text);margin-top:8px;padding:7px 10px;background:rgba(232,181,77,.08);border:1px solid var(--border);border-radius:12px">🎨 Сервис и оформление активны. Игровые шансы и награды не меняются.</div>
         <div style="font-size:11px;color:var(--muted);margin-top:6px">Можно продлить — срок сложится, тариф сменится сразу.</div>
       </div>`
     : '';
 
   const tiers = d.tiers.map(t=>{
-    const gift=[];
-    if(t.gift_mora>0) gift.push(`${fmt(t.gift_mora)} 🪙`);
-    if(t.gift_diamonds>0) gift.push(`${fmt(t.gift_diamonds)} 💎`);
-    t.gift_items.forEach(i=>gift.push(`${i.qty}× ${i.name}`));
-    const weekly = t.weekly.map(i=>`${i.qty}× ${i.name}`);
     const afford = bal >= t.price_zarniki;
     const savings = t.savings_zarniki>0
       ? `<span style="font-size:10px;color:var(--muted);text-decoration:line-through;margin-left:4px">${fmt(t.base_price_zarniki)}✨</span> <span style="font-size:10px;color:var(--green);font-weight:700">−${fmt(t.savings_zarniki)}✨</span>` : '';
@@ -574,7 +466,7 @@ function _renderPremiumHub(pk, d) {
       <div class="prem-title">${t.label}</div>
       ${t.tagline?`<div style="font-size:10.5px;color:var(--gold2);margin:2px 0 4px">${esc(t.tagline)}</div>`:''}
       <div class="prem-price">${fmt(t.price_zarniki)} ✨ <span style="font-size:10px;color:var(--muted);font-weight:600">/ ${t.duration_days} дн.</span>${savings}</div>
-      <div class="prem-list">🎁 ${gift.join(', ')}<br>📅 Еженедельно: ${weekly.join(', ')}${t.extra_slots>0?`<br>🐾 +${t.extra_slots} слот${t.extra_slots>1?'а':''} питомника`:''}</div>
+      <div class="prem-list">🎨 Образы и сцены профиля<br>📊 Расширенная история забегов<br>🤖 Дополнительный лимит ИИ для мира и справки</div>
       <button class="btn ${afford?'btn-gold':'btn-ghost'} btn-full" style="margin-top:4px" onclick="${afford?`doBuyVip('${t.tier}','${t.label}',${t.price_zarniki})`:`goToZarTop()`}">${afford?`Оформить за ${fmt(t.price_zarniki)} ✨`:`Нужно ${fmt(t.price_zarniki)} ✨ — пополнить`}</button>
     </div>`;
   }).join('');
@@ -635,4 +527,3 @@ function confirmBuyVip(tier) {
 }
 
 // swArena and swMkt are defined above with correct dark/exch handling
-

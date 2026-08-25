@@ -78,8 +78,8 @@ async def main():
     conn = FakeConn(aborted=True)
     await ensure_account_columns(FakeAdapter(conn))
 
-    for col in ("account_xp", "account_level", "combat_power",
-                "combat_tutorial_done", "whatsnew_seen_id"):
+    for col in ("account_xp", "account_level", "combat_tutorial_done",
+                "whatsnew_seen_id"):
         assert col in conn.created, (
             f"FAIL: колонка {col} не создана — соединение осталось aborted "
             f"(создано: {sorted(conn.created)})")

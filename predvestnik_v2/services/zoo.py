@@ -96,17 +96,7 @@ def format_pet_bonus_short(species_id: str, level: int) -> str:
         return f"🐿 +{int(b.get('quest_mora_bonus', 0) * 100)}% Моры за квесты"
 
     if species_id == "owl":
-        every = b.get("trigger_every_n_msg", 1)
-        xp = b.get("bonus_xp", 0)
-        msg_part = f"+{xp} XP каждое сообщение" if every == 1 else f"+{xp} XP каждое {every}-е сообщ."
-        parts = [f"📚 {msg_part}"]
-        if b.get("expedition_xp_bonus", 0) > 0:
-            parts.append(f"+{int(b['expedition_xp_bonus'] * 100)}% XP похода")
-        if b.get("weekend_double"):
-            parts.append("×2 XP в выходные")
-        if b.get("daily_free_spin_token"):
-            parts.append("🎟 1×/сутки")
-        return " · ".join(parts)
+        return "📚 Архивная способность сохранена · бонус за сообщения не действует"
 
     if species_id == "dog":
         parts = [f"⚡ −{int(b['speed_reduction'] * 100)}% длит. экспедиций"]

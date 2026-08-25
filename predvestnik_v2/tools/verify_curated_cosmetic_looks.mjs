@@ -11,7 +11,9 @@ const page=await browser.newPage();
 await page.setViewport({width:390,height:844,deviceScaleFactor:2});
 await page.goto('http://localhost:8402/',{waitUntil:'load'});
 await new Promise(resolve=>setTimeout(resolve,1200));
-await page.mouse.click(195,700);
+await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
 await new Promise(resolve=>setTimeout(resolve,350));
 await page.evaluate(()=>openLooksModal());
 await page.waitForFunction(()=>document.querySelectorAll('.coll-card').length===10);
@@ -42,7 +44,7 @@ check('Hanami detail exposes exactly two server-backed curated looks',
   detail.cardCount===2&&detail.ids.includes('hanami_washi_dawn')&&detail.ids.includes('hanami_lantern_rain'));
 check('curated card previews one real cosmetic from every visual layer', detail.previewHasRealLayers);
 check('curated card names the mood and transparent missing-set price',
-  detail.firstText.includes('Рассвет на васи')&&detail.firstText.includes('Тихий сад')&&detail.firstText.includes('0/6')&&detail.firstText.includes('3780✨'));
+  detail.firstText.includes('Рассвет на васи')&&detail.firstText.includes('Тихий сад')&&detail.firstText.includes('0/6')&&detail.firstText.includes('3850✨'));
 check('curated looks are readable cards rather than tiny pills', detail.firstWidth>=208&&detail.firstMinHeight>=200);
 check('two curated looks use contained horizontal discovery without page overflow', detail.rowScrollable&&detail.noPageOverflow);
 
@@ -58,9 +60,9 @@ const fitting=await page.evaluate(()=>({
 check('curated look opens as a complete six-slot fitting state',
   fitting.modalOpen&&fitting.trialRows===6&&fitting.trialSlots.length===6);
 check('fitting room keeps the real collection name and total visible',
-  fitting.collectionText.includes('Ханами')&&fitting.collectionText.includes('3780✨'));
+  fitting.collectionText.includes('Ханами')&&fitting.collectionText.includes('3850✨'));
 check('purchase action keeps the exact affordability gap visible',
-  fitting.actionText.includes('Не хватает 2530✨'));
+  fitting.actionText.includes('Не хватает 2600✨'));
 
 await page.evaluate(()=>{CM();document.body.classList.add('no-fx');});
 const noFx=await page.evaluate(()=>{

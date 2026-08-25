@@ -9,9 +9,7 @@ from core.cosmetics import COSMETICS
 from core.themes import THEMES
 from services.battle_pass import (
     claim_reward, get_active_season, get_progress, level_status, refresh_seasons_cache,
-    _opt_to_reward, reward_short_text, all_xp_actions,
-    buy_next_level, _level_diamond_value, next_level_price,
-    weekend_boost_active, is_bp_frozen,
+    _opt_to_reward, reward_short_text, buy_next_level, is_bp_frozen,
 )
 
 router = APIRouter(prefix="/battle_pass", tags=["battle_pass"])
@@ -59,9 +57,19 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
     await refresh_seasons_cache(db)
     season = get_active_season()
     if not season:
-        return {"active": False}
+        return {
+            "active": False,
+            "retired": True,
+            "message": "Старый Боевой пропуск закрыт. Новый сезон появится только после утверждения новой экономики.",
+        }
 
     progress = await get_progress(db, user["id"])
+    if not progress:
+        return {
+            "active": False,
+            "retired": True,
+            "message": "Старый Боевой пропуск закрыт; у аккаунта нет сохранённого прогресса этого сезона.",
+        }
 
     # DB-переопределения наград активного сезона (правятся в dev-консоли).
     # РАНЬШЕ здесь читались только reward_options (уровни-выбор) — обычные
@@ -114,32 +122,19 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
             paid_p["options"] = choice_levels[(lv, "paid")]
         rewards.append({"level": lv, "free": free_p, "paid": paid_p})
 
-    # Справка «за что сколько XP» (C1): только включённые действия с весом > 0.
-    _actions = await all_xp_actions(db)
-    xp_guide = sorted(
-        [{"label": a["label"], "xp": a["weight"], "daily_cap": a["daily_cap"]}
-         for a in _actions if a["enabled"] and a["weight"] > 0],
-        key=lambda x: -x["xp"],
-    )
-
-    _wb_on, _wb_pct = await weekend_boost_active(db)
+    xp_guide = []
     _frozen = await is_bp_frozen(db)   # ШАГ3: заморозка сезона
-
-    # C5: предложение «открыть следующий уровень за 💎» (если не MAX).
-    buy_next = None
-    if progress["level"] < progress["max_level"]:
-        _t = progress["level"] + 1
-        _dv = await _level_diamond_value(db, season["id"], _t)
-        buy_next = {"level": _t, "price": next_level_price(_t, _dv)}
 
     return {
         "active": True,
+        "retired": True,
+        "retired_message": "Прогресс и покупка уровней закрыты. Уже заработанные награды можно забрать.",
         "frozen": _frozen,
         "season_label": season["label"],
         "season_starts": season.get("starts_at"),
         "season_ends": season.get("ends_at"),
-        "buy_next": buy_next,
-        "weekend_boost": {"active": _wb_on, "pct": _wb_pct},
+        "buy_next": None,
+        "weekend_boost": {"active": False, "pct": 0},
         "level": progress["level"],
         "xp": progress["xp"],
         "xp_in_level": progress["xp_in_level"],
@@ -214,10 +209,4 @@ async def battle_pass_claim_all(db=Depends(get_db), user=Depends(require_tg_user
 
 @router.post("/buy-level")
 async def battle_pass_buy_level(db=Depends(get_db), user=Depends(require_tg_user)):
-    """C5: открыть следующий уровень БП за 💎 (только +1, последовательно)."""
-    await refresh_seasons_cache(db)
-    ok, message, data = await buy_next_level(db, user["id"])
-    if not ok:
-        raise HTTPException(status_code=400, detail=message)
-    await db.commit()
-    return {"ok": True, "message": message, **data}
+    raise HTTPException(410, "Покупка уровней закрыта: Алмазы не покупают прогресс.")

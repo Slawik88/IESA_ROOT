@@ -43,8 +43,39 @@ function _renderBestiary() {
 setInterval(()=>{if(_loaded.has('zoo'))api('/zoo/expeditions').then(d=>renderExps(d)).catch(()=>{});},30000);
 
 // ── Arena ─────────────────────────────────────────────────────────────────────
-// Боёвка 3.0: Казарма (юниты) + Врата (бои отрядом) + Рейды/Игры/Ивенты.
-const _ARENA_TABS=['barracks','gates','raids','games','events'];
+// Разлом — единственная игровая петля; старые режимы со ставками удалены из UI.
+const _ARENA_TABS=['game'];
+function openReconstructionGame(){
+  if(!_isFeatureEnabled('game_reconstruction_v1')){
+    toast('Разлом пока закрыт разработчиком.', false);
+    return;
+  }
+  location.href=BASE+'/game';
+}
+function loadReconstructionHub(){
+  const host=el('game-hub'); if(!host)return;
+  if(!_isFeatureEnabled('game_reconstruction_v1')){
+    host.innerHTML='<section class="card"><div class="card-title">🔔 Разлом колокола</div><div class="cx-dim" style="font-size:11px;line-height:1.55">Боевая вертикаль проходит закрытую разработку. Она появится здесь после включения разработчиком.</div></section>';
+    return;
+  }
+  host.innerHTML=`<section class="recon-entry-card">
+    <div class="recon-entry-mark">◉</div>
+    <div class="recon-entry-copy">
+      <span class="recon-entry-kicker">НОВАЯ БОЕВАЯ СИСТЕМА</span>
+      <h2>Разлом колокола</h2>
+      <p>Три короткие волны. Найди правильную руну, удержи серию и собери усиления между волнами.</p>
+      <div class="recon-entry-facts"><span>≈ 75 сек</span><span>3 волны</span><span>без спама</span></div>
+    </div>
+    <button class="btn btn-gold recon-entry-action" onclick="openReconstructionGame()">Начать забег <b>›</b></button>
+  </section>`;
+}
+function loadGamesTransitionHub(){
+  const host=el('games-hub'); if(!host)return;
+  host.innerHTML=`<section class="card">
+    <div class="card-title">🎮 Игровой архив обновляется</div>
+    <div class="cx-dim" style="font-size:11px;line-height:1.55">Следующие режимы появятся здесь после проверки их роли в общей экономике. Сейчас доступен «Разлом колокола».</div>
+  </section>`;
+}
 function loadArena(){
   const i=Math.max(0,_ARENA_TABS.indexOf(_arenaTab));
   swArena(_ARENA_TABS[i],document.querySelectorAll('#pg-arena .tb')[i]);
@@ -55,7 +86,7 @@ function swArena(tab,btn) {
   if(btn)btn.classList.add('active');
   _ARENA_TABS.forEach(t=>{const e=el('ar-'+t); if(e)e.style.display=t===tab?'':'none';});
   _trackSubtab('arena/'+tab);
-  ({barracks:loadBarracks,gates:loadGates,raids:loadRaid,games:loadSkillGames,events:loadEvents}[tab]||loadBarracks)();
+  loadReconstructionHub();
 }
 const QUEST_NAMES = {
   msg_15:     {n:'💬 Болтун',         d:'Напиши 15 сообщений в чате'},
@@ -126,15 +157,18 @@ function loadQuests() {
   api(`/quests/${_cid}`).then(r=>{
     const qs = r.quests || r;     // backward-compat если вернётся массив
     const weekly = r.weekly || [];
+    const retired = r.retired
+      ? `<div class="card" style="margin-bottom:8px"><div class="card-title">📋 Архив заданий</div><div style="font-size:11px;color:var(--muted);line-height:1.5">${esc(r.message||'Старые задания закрыты.')}</div></div>`
+      : '';
     if(!qs.length && !weekly.length){
-      // Задания назначаются автоматически при первом обращении — если список
-      // всё же пуст (сетевой сбой/гонка), не шлём в несуществующую команду.
-      el('qc').innerHTML='<div class="empty-state"><div class="es-icon">📋</div><div class="es-title">Задания загружаются</div><div class="es-sub">Обычно они уже готовы — если пусто, откройте вкладку ещё раз через минуту</div><button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="loadQuests()">🔄 Обновить</button></div>';
+      el('qc').innerHTML=retired||'<div class="empty-state"><div class="es-icon">📋</div><div class="es-title">Заданий нет</div></div>';
       return;
     }
-    const daily = _questSectionHtml('📅 Ежедневные', qs, r.bonus, 'Бонус за все дневные');
-    const wk = weekly.length ? _questSectionHtml('🗓 Недельные', weekly, r.weekly_bonus, 'Бонус за все недельные') : '';
-    el('qc').innerHTML = daily + (wk ? `<div style="height:8px"></div>${wk}` : '');
+    const shownQs = r.retired ? qs.map(q=>({...q,reward:{}})) : qs;
+    const shownWeekly = r.retired ? weekly.map(q=>({...q,reward:{}})) : weekly;
+    const daily = _questSectionHtml('📅 Ежедневные', shownQs, r.retired?null:r.bonus, 'Бонус за все дневные');
+    const wk = shownWeekly.length ? _questSectionHtml('🗓 Недельные', shownWeekly, r.retired?null:r.weekly_bonus, 'Бонус за все недельные') : '';
+    el('qc').innerHTML = retired + daily + (wk ? `<div style="height:8px"></div>${wk}` : '');
   }).catch(e=>{el('qc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 const SPIN_ICONS = {mora:'🪙',diamond:'💎'};
@@ -211,6 +245,17 @@ onReactiveRefresh(_gachaSyncRows);   // регистрируем один раз
 function loadGacha() {
   el('gc').innerHTML='<div class="loader">Загрузка...</div>';
   api('/gacha/').then(d=>{
+    if(d.retired){
+      const pity=(d.saved_pity||[]).reduce((sum,item)=>sum+Number(item.count||0),0);
+      el('gc').innerHTML=`<div class="card" style="padding:16px">
+        <div class="card-title">🗃 Архив находок</div>
+        <div style="font-size:12px;color:var(--text);line-height:1.55">${esc(d.message||'Случайные крутки закрыты.')}</div>
+        <div class="irow" style="margin-top:10px"><span class="ik">Сохранённые жетоны</span><span class="iv">${fmt(d.saved_tokens||0)}</span></div>
+        <div class="irow"><span class="ik">Накопленный гарант</span><span class="iv">${fmt(pity)}</span></div>
+        <div style="font-size:10px;color:var(--muted);line-height:1.5;margin-top:10px">Ничего не сгорает: итоговый разбор будет показан одной операцией с квитанцией, без повторных нажатий.</div>
+      </div>`;
+      return;
+    }
     const disc = d.multi_discount_pct||10;
     _gachaBal = {mora: d.mora||0, dia: d.diamonds||0};
     _spinCosts = {};
@@ -580,20 +625,19 @@ function loadDuels() {
   Promise.all([api('/duels/active'), api('/duels/history')]).then(([active, hist]) => {
     let html = '';
 
-    // Challenge button
-    html += `<button class="btn btn-red btn-full" style="margin-bottom:10px" onclick="openDuelChallenge()">⚔️ Вызвать игрока на дуэль</button>`;
+    html += `<div class="card" style="margin-bottom:10px">
+      <div class="card-title">⚔️ Старые дуэли закрыты</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">Новые бои проходят во вкладке «Игра». Здесь можно освободить Мору из незавершённого старого вызова и посмотреть историю.</div>
+    </div>`;
 
     // Incoming challenges
     const incoming = active.filter(d => d.challenged_id == _uid);
     if(incoming.length) {
       html += `<div class="card"><div class="card-title">⏳ Входящие вызовы (${incoming.length})</div>
         ${incoming.map(d=>`<div class="duel-card">
-          <div class="duel-vs">${vipName(d.challenger_name||'Игрок', d.challenger_is_vip)} вызывает вас</div>
-          <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
-          <div style="display:flex;gap:6px;margin-top:8px">
-            <button class="btn btn-sm btn-teal" style="flex:1" onclick="acceptDuel(${d.id},'${esc(d.challenger_name||'Игрок')}',this)">⚔️ Принять</button>
-            <button class="btn btn-sm btn-red" style="flex:1" onclick="declineDuel(${d.id},this)">❌ Отклонить</button>
-          </div>
+          <div class="duel-vs">${vipName(d.challenger_name||'Игрок', d.challenger_is_vip)} · старый вызов</div>
+          <div class="duel-stake">Зарезервировано: ${fmt(d.stake)} 🪙</div>
+          <button class="btn btn-sm btn-ghost" style="margin-top:8px" onclick="declineDuel(${d.id},this)">Освободить ставку</button>
         </div>`).join('')}
       </div>`;
     }
@@ -604,8 +648,8 @@ function loadDuels() {
       html += `<div class="card"><div class="card-title">📤 Мои вызовы</div>
         ${outgoing.map(d=>`<div class="duel-card">
           <div class="duel-vs">→ ${vipName(d.challenged_name||'Игрок', d.challenged_is_vip)}</div>
-          <div class="duel-stake">Ставка: ${fmt(d.stake)} 🪙</div>
-          <div style="font-size:10px;color:var(--muted)">Ожидание ответа...</div>
+          <div class="duel-stake">Зарезервировано: ${fmt(d.stake)} 🪙</div>
+          <button class="btn btn-sm btn-ghost" style="margin-top:8px" onclick="declineDuel(${d.id},this)">Освободить ставку</button>
         </div>`).join('')}
       </div>`;
     }
@@ -644,105 +688,17 @@ function loadDuels() {
   }).catch(e => { el('dc').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`; });
 }
 
-function acceptDuel(id, opponentName, btn) {
-  btn.disabled = true;
-  btn.textContent = '...';
-  api('/duels/accept', {method:'POST', body:JSON.stringify({duel_id:id})})
-    .then(r => {
-      const res = r.result || {};
-      const won = r.winner_id == _uid;
-      _haptic(won ? 'success' : 'error');
-      const myPower = (res.challenged_id == _uid) ? res.challenged_power : res.challenger_power;
-      const oppPower = (res.challenged_id == _uid) ? res.challenger_power : res.challenged_power;
-      const powerLine = (typeof myPower==='number' && typeof oppPower==='number')
-        ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">Твоя сила: <b>${myPower.toFixed(1)}</b> · ${esc(opponentName)}: <b>${oppPower.toFixed(1)}</b></div>` : '';
-      const moneyLine = won
-        ? `<div style="font-size:14px;color:var(--green);font-weight:700;margin-top:4px">+${fmt(Math.round(res.winner_gain||0))} 🪙 (комиссия ${fmt(Math.round(res.commission||0))} 🪙)</div>`
-        : (r.winner_id ? `<div style="font-size:14px;color:var(--red);font-weight:700;margin-top:4px">−${fmt(res.stake||0)} 🪙</div>` : '');
-      OM(won?'🏆 Победа!':(r.winner_id?'😔 Поражение':'🤝 Ничья'), `
-        <div style="text-align:center;padding:6px 0">
-          <div style="font-size:36px">${won?'🏆':(r.winner_id?'💥':'🤝')}</div>
-          ${moneyLine}
-          ${powerLine}
-          <div style="font-size:10px;color:var(--muted);margin-top:6px">Оба питомца получили +15 усталости</div>
-        </div>`, [{l:'Закрыть', c:'btn-gold', f:'CM();loadDuels()'}]);
-      refreshCurrBar();
-    })
-    .catch(e => { toast(e, false); btn.disabled = false; btn.textContent = '⚔️ Принять'; });
-}
-
 function declineDuel(id, btn) {
   btn.disabled = true;
   api('/duels/decline', {method:'POST', body:JSON.stringify({duel_id:id})})
-    .then(() => { toast('✅ Вызов отклонён.'); loadDuels(); })
-    .catch(e => { toast(e, false); btn.disabled = false; });
-}
-
-function openDuelChallenge() {
-  if(!_cid) { toast('Нужен Профиль с чатом для вызова.', false); return; }
-  // Grab current balance from profile data if available
-  const bal = _profileData?.mora || 0;
-  const balStr = bal > 0 ? `<div style="background:var(--s);border-radius:var(--r);padding:6px 10px;margin-bottom:10px;font-size:11px;display:flex;justify-content:space-between"><span style="color:var(--muted)">Ваш баланс</span><span style="color:var(--gold);font-weight:600">${fmt(bal)} 🪙</span></div>` : '';
-  // UX-аудит: механика решалки была «чёрным ящиком» — игрок не видел даже
-  // своего питомца перед ставкой. Показываем, кто идёт в бой, и честно
-  // объясняем правило (редкость×уровень±15% случайности), без опоры на
-  // питомца соперника — тот неизвестен, пока он не примет вызов.
-  const myPet = (_profileData?.pets||[]).find(p=>p.placement==='active');
-  const petStr = myPet
-    ? `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">🐾 В бой пойдёт: <b style="color:var(--bright)">${esc(myPet.name||myPet.species_id)}</b> · ${rarLabel(myPet.rarity)} · Ур.${myPet.pet_level}</div>`
-    : `<div style="font-size:11px;color:var(--red);margin-bottom:8px">⚠️ Нет активного питомца — назначьте его в Зоопарке перед вызовом.</div>`;
-  OM('⚔️ Вызов на дуэль', `
-    ${balStr}
-    ${petStr}
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">
-      Соперник получит уведомление в Telegram — он должен ответить <code>бот принять</code> в чате.
-      Побеждает более сильный питомец (редкость × уровень), но исход не гарантирован — есть ±15% случайности.
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">@username соперника</div>
-    <input id="duel-user" type="text" class="num-input" placeholder="username (без @)"/>
-    <div style="font-size:11px;color:var(--muted);margin:8px 0 4px">Ставка 🪙 (200 – 15 000)</div>
-    <input id="duel-stake" type="number" class="num-input" placeholder="500" min="200" max="15000" oninput="_duelUpdateEstimate()"/>
-    <div style="font-size:10px;color:var(--gold);margin-top:6px;background:var(--gold-dim);padding:6px 8px;border-radius:var(--r)">
-      🔒 Ставка заморозится до конца дуэли. Победитель получает обе ставки минус 5% комиссии:
-      <span id="duel-est">победитель получит ≈475 🪙 чистыми при ставке 500 🪙 с каждого</span>.
-      Оба питомца получат +15 усталости, независимо от исхода.
-    </div>
-  `, [
-    {l:'⚔️ Вызвать', c:'btn-red', f:'submitDuelChallenge(this)'},
-    {l:'Отмена', c:'btn-ghost', f:'CM()'},
-  ]);
-}
-function _duelUpdateEstimate(){
-  const stake = parseFloat(el('duel-stake')?.value || 0) || 500;
-  const net = Math.round(stake*2*0.95 - stake);
-  const est = el('duel-est');
-  if(est) est.textContent = `победитель получит ≈${fmt(net)} 🪙 чистыми при ставке ${fmt(stake)} 🪙 с каждого`;
-}
-
-function submitDuelChallenge(btn) {
-  const username = el('duel-user')?.value?.trim().replace('@','');
-  const stake = parseFloat(el('duel-stake')?.value||0);
-  if(!username) { toast('Введите @username.', false); return; }
-  if(!stake || stake < 200) { toast('Мин. ставка 200 🪙.', false); return; }
-  const myBal = _profileData?.mora || 0;
-  if(myBal > 0 && stake > myBal) { toast(`Недостаточно Моры. У тебя ${fmt(myBal)} 🪙.`, false); return; }
-  btn.disabled = true;
-  api('/duels/challenge', {method:'POST', body:JSON.stringify({username, stake, chat_id:_cid})})
-    .then(() => {
-      el('mb').innerHTML=`<div style="text-align:center;padding:20px">
-        <div style="font-size:36px;margin-bottom:8px">⚔️</div>
-        <div style="font-size:14px;font-weight:700;margin-bottom:6px">Вызов отправлен!</div>
-        <div style="font-size:11px;color:var(--muted)">@${username} получит уведомление в Telegram.<br>Ставка <b>${fmt(stake)} 🪙</b> заморожена до конца дуэли.</div>
-      </div>`;
-      el('mf').innerHTML=`<button class="btn btn-ghost btn-sm" onclick="CM();loadDuels()">Закрыть</button>`;
-    })
+    .then(r => { toast(r.message||'Старая ставка освобождена.'); loadDuels(); refreshCurrBar(); })
     .catch(e => { toast(e, false); btn.disabled = false; });
 }
 
 // ── Market ────────────────────────────────────────────────────────────────────
 function loadMarket(){swMkt(_mktTab,document.querySelector(`#pg-market > .tabs > .tb[onclick*="'${_mktTab}'"]`)||document.querySelector('#pg-market > .tabs > .tb'));}
 // swMkt() defined later with deal + promo tabs
-let _aucPage = 0, _aucTotal = 0, _aucPerPage = 48, _aucMinBidFloor = 1;
+let _aucPage = 0, _aucTotal = 0, _aucPerPage = 48, _aucMinBidFloor = 1, _aucOpen = false;
 
 function loadAuction(page) {
   if(page !== undefined) _aucPage = page;
@@ -750,13 +706,15 @@ function loadAuction(page) {
     _allLots = data.lots || data;  // backward compat
     _aucTotal = data.total || _allLots.length;
     _aucMinBidFloor = data.min_bid_floor || 1;
+    _aucOpen = data.market_open === true;
     const totalPages = Math.ceil(_aucTotal / _aucPerPage);
 
     el('mkt-auc').innerHTML=`
       <div class="auc-bar">
         <input type="text" class="num-input auc-search" placeholder="🔍 Поиск по названию..." value="${_aucSearch?esc(_aucSearch):''}" oninput="filterAuction(this.value)"/>
-        <button class="btn btn-gold btn-sm" onclick="openCreateLotModal()">+ Выставить</button>
+        ${_aucOpen?'<button class="btn btn-gold btn-sm" onclick="openCreateLotModal()">+ Выставить</button>':''}
       </div>
+      ${!_aucOpen?`<div class="card" style="padding:10px 12px;margin-bottom:8px"><div style="font-size:11px;color:var(--text);line-height:1.5">${esc(data.market_message||'Рынок готовится к безопасному открытию.')}</div></div>`:''}
       <div class="auc-bar auc-bar2">
         <select class="num-input auc-sel" onchange="setAucFilter('sort',this.value)">
           ${_aucOpt('sort',[['ending','⏱ Скоро конец'],['new','🆕 Новые'],['cheap','⬇️ Дешевле'],['expensive','⬆️ Дороже']])}
@@ -815,7 +773,7 @@ function loadMyLots() {
 }
 function cancelMyLot(lotId) {
   OM('Снять лот с торгов?',
-    '<div style="font-size:12px;color:var(--muted);line-height:1.5">Лот закроется, активные ставки отменятся, а резерв вернётся участникам. Питомец (если лот на питомца) вернётся на склад.</div>',
+    '<div style="font-size:12px;color:var(--muted);line-height:1.5">Лот закроется, предмет вернётся тебе, а Мора из активной ставки снова станет доступна участнику.</div>',
     [{l:'Отмена', c:'btn-ghost', f:'CM()'},
      {l:'🗑 Снять', c:'btn-red', f:`_doCancelLot(${lotId})`}]);
 }
@@ -944,7 +902,10 @@ function submitLot(itemId) {
   if(!minBid||minBid<_aucMinBidFloor){toast(`Мин. ставка от ${_aucMinBidFloor} 🪙`,false);return;}
   const btn = document.querySelector('#mf .btn-gold');
   if(btn) btn.disabled=true;
-  api('/auction/create',{method:'POST',body:JSON.stringify({item_id:itemId,quantity:qty,min_bid:minBid,buyout})})
+  const sig=`${itemId}:${qty}:${minBid}:${buyout??''}`;
+  if(btn && btn.dataset.requestSig!==sig){btn.dataset.requestSig=sig;btn.dataset.requestKey=economyRequestKey('auction-listing');}
+  const requestKey=btn?.dataset.requestKey||economyRequestKey('auction-listing');
+  api('/auction/create',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({item_id:itemId,quantity:qty,min_bid:minBid,buyout})})
     .then(r=>{toast(`✅ Лот #${r.lot_id} создан! (24ч)`);CM();loadAuction();refreshCurrBar();})
     .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
@@ -977,7 +938,10 @@ function submitPetLot(petId) {
   if(!minBid||minBid<_aucMinBidFloor){toast(`Мин. ставка от ${_aucMinBidFloor} 🪙`,false);return;}
   const btn = document.querySelector('#mf .btn-gold');
   if(btn) btn.disabled=true;
-  api('/auction/create-pet',{method:'POST',body:JSON.stringify({pet_id:petId,min_bid:minBid,buyout})})
+  const sig=`${petId}:${minBid}:${buyout??''}`;
+  if(btn && btn.dataset.requestSig!==sig){btn.dataset.requestSig=sig;btn.dataset.requestKey=economyRequestKey('auction-pet-listing');}
+  const requestKey=btn?.dataset.requestKey||economyRequestKey('auction-pet-listing');
+  api('/auction/create-pet',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({pet_id:petId,min_bid:minBid,buyout})})
     .then(r=>{toast(`✅ Питомец выставлен! Лот #${r.lot_id} (24ч)`);CM();loadAuction();})
     .catch(e=>{toast(e,false);if(btn)btn.disabled=false;});
 }
@@ -1027,8 +991,11 @@ function doBid(lotId, btn, fixedAmount) {
   const v = fixedAmount > 0 ? fixedAmount : parseFloat(el('bid-val')?.value || 0);
   if (!v || v <= 0) { toast('Введите сумму.', false); return; }
   btn.disabled = true;
-  api('/auction/bid', {method:'POST', body:JSON.stringify({lot_id:lotId, amount:v})})
-    .then(r => { toast(r.is_buyout ? '🎉 Выкуплено!' : '✅ Ставка принята!'); CM(); loadAuction(); refreshCurrBar(); })
+  const sig=`${lotId}:${v}`;
+  if(btn.dataset.requestSig!==sig){btn.dataset.requestSig=sig;btn.dataset.requestKey=economyRequestKey('auction-bid');}
+  const requestKey=btn.dataset.requestKey;
+  api('/auction/bid', {method:'POST', headers:{'Idempotency-Key':requestKey}, body:JSON.stringify({lot_id:lotId, amount:v})})
+    .then(r => { toast(r.is_buyout ? `🎉 Выкуплено за ${fmt(r.amount)} 🪙!` : `✅ Ставка ${fmt(r.amount)} 🪙 принята!`); CM(); loadAuction(); refreshCurrBar(); })
     .catch(e => { toast(e, false); btn.disabled = false; });
 }
 
@@ -1041,6 +1008,10 @@ function loadShopCatalog() {
     el('balrow').style.display='flex';
     el('balrow').innerHTML=`<div class="bal"><div class="bv">🪙 ${fmt(d.mora)}</div><div class="bl">Мора</div></div>
       <div class="bal"><div class="bv">💎 ${d.diamonds.toFixed(1)}</div><div class="bl">Алмазы</div></div>`;
+    if(d.active===false){
+      el('mkt-shop').innerHTML=`<button class="btn btn-ghost btn-full" style="margin-bottom:10px" onclick="openPromoModal()">🎫 У меня есть промокод</button><div class="card"><div class="card-title">🛠 Мастерская обновляется</div><div style="font-size:11px;color:var(--muted);line-height:1.55">${esc(d.message||'Каталог временно закрыт.')}</div></div>`;
+      return;
+    }
     const cats={food:'🥩 Еда',utility:'🛠 Утилиты',booster:'⚗️ Зелья',donate:'✨ Донат'};
     const grps={};d.items.forEach(it=>(grps[it.category]=grps[it.category]||[]).push(it));
     const promoBtn=`<button class="btn btn-ghost btn-full" style="margin-bottom:10px" onclick="openPromoModal()">🎫 У меня есть промокод</button>`;
@@ -1085,40 +1056,21 @@ function buyItem(id, btn, cat) {
   }
   _execBuy(id, btn);
 }
-function doBuyConfirmed(id) { CM(); _shopBuy(id, 1, false, null); }
-function _execBuy(id, btn) { _shopBuy(id, 1, false, btn); }
-// Единый поток покупки + Smart Checkout (ШАГ6): при нехватке базовой валюты
-// предлагаем добрать Зарниками (сценарий A) или купить Зарники (сценарий B).
-function _shopBuy(id, qty, cover, btn) {
+function doBuyConfirmed(id) { CM(); _shopBuy(id, 1, null); }
+function _execBuy(id, btn) { _shopBuy(id, 1, btn); }
+const _shopRequestKeys=new Map();
+function _shopBuy(id, qty, btn) {
   if(btn) btn.disabled = true;
-  api('/shop/buy', {method:'POST', body:JSON.stringify({item_id:id, quantity:qty, cover_with_zarniki:!!cover})})
-    .then(r => { toast('✅ ' + (r.message || ('Куплено: ' + r.item_name))); loadShopCatalog(); refreshCurrBar(); if(btn) btn.disabled=false; })
+  const slot=`${id}:${qty}`;
+  const requestKey=_shopRequestKeys.get(slot)||economyRequestKey(`shop-${id}`);
+  _shopRequestKeys.set(slot,requestKey);
+  api('/shop/buy', {method:'POST', headers:{'Idempotency-Key':requestKey}, body:JSON.stringify({item_id:id, quantity:qty})})
+    .then(r => { _shopRequestKeys.delete(slot); toast('✅ ' + (r.message || ('Куплено: ' + r.item_name))); loadShopCatalog(); refreshCurrBar(); if(btn) btn.disabled=false; })
     .catch(e => {
       if(btn) btn.disabled=false;
-      if(cover) { toast(e, false); return; }   // уже добирали ✨ — не зацикливаемся
-      _smartCheckout(id, qty, e);
+      toast(e, false);
     });
 }
-function _smartCheckout(id, qty, origErr) {
-  api('/shop/checkout-quote', {method:'POST', body:JSON.stringify({item_id:id, quantity:qty})})
-    .then(q => {
-      if(q.affordable || !q.zarniki_needed) { toast(origErr, false); return; }  // ошибка не про деньги
-      const lack = Object.values(q.deficits||{}).map(d=>`${fmtF(d.amount)} ${d.icon}`).join(' и ');
-      if(q.coverable) {
-        OM('✨ Не хватает чуть-чуть',
-          `<div style="padding:6px 2px;font-size:13px;line-height:1.5">Тебе не хватает <b>${lack}</b> для покупки «${esc(q.item_name)}».<br><br>Покрыть недостаток Зарниками? Спишется <b>${q.zarniki_needed} ✨</b> <span style="color:var(--muted)">(у тебя ${fmtF(q.zarniki_have)} ✨)</span>.</div>`,
-          [{l:`Купить +${q.zarniki_needed} ✨`, c:'btn-gold', f:`_smartConfirm('${id}',${qty})`},
-           {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
-      } else {
-        OM('✨ Нужны Зарники',
-          `<div style="padding:6px 2px;font-size:13px;line-height:1.5">Тебе не хватает <b>${lack}</b> (или <b>${q.zarniki_needed} ✨</b>) для быстрой покупки «${esc(q.item_name)}».<br><br><span style="color:var(--muted)">У тебя ${fmtF(q.zarniki_have)} ✨ — недостаточно.</span></div>`,
-          [{l:'Купить Зарники ✨', c:'btn-gold', f:"CM();goTo('market','vip')"},
-           {l:'Отмена', c:'btn-ghost', f:'CM()'}]);
-      }
-    })
-    .catch(() => toast(origErr, false));
-}
-function _smartConfirm(id, qty) { CM(); _shopBuy(id, qty, true, null); }
 // Русские названия категорий для бейджа инвентаря (магазин локализует свои отдельно).
 const CAT_RU={food:'Корм',material:'Материал',booster:'Зелье',utility:'Утилита',spin_token:'Жетон',chest:'Сундук',donate:'Донат'};
 function loadInventory() {
@@ -1141,7 +1093,7 @@ function _renderInventory() {
       </div>`).join('')+'</div>'
     :_invData.length
       ?`<div class="empty-state"><div class="es-icon">🔍</div><div class="es-title">Ничего не найдено</div><div class="es-sub">По запросу «${_invSearch}»</div></div>`
-      :`<div class="empty-state"><div class="es-icon">🎒</div><div class="es-title">Инвентарь пуст</div><div class="es-sub">Купите предметы в Магазине или получите через Гачу</div></div>`;
+      :`<div class="empty-state"><div class="es-icon">🎒</div><div class="es-title">Инвентарь пуст</div><div class="es-sub">Новые предметы появятся из известных покупок и игровых результатов.</div></div>`;
   el('mkt-inv').innerHTML=`<div style="position:relative;margin-bottom:8px">
     <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none;z-index:1">🔍</span>
     <input type="text" class="num-input" style="margin:0;padding-left:32px" placeholder="Поиск в инвентаре..." value="${_invSearch.replace(/"/g,'&quot;')}" oninput="filterInv(this.value)"/>
@@ -1155,20 +1107,18 @@ function openItemModal(iid) {
   body+='<div class="divider"></div>';
   const btns=[{l:'Закрыть',c:'btn-ghost',f:'CM()'}];
   if(category==='food'&&fatigue_restore){
-    body+=`<div class="irow"><span class="ik">Восстанавливает</span><span style="color:var(--green)">−${fatigue_restore} уст.</span></div>`;
-    if(quantity>0)btns.unshift({l:'🍖 Покормить питомца',c:'btn-gold',f:`openFeedSelModal('${item_id}')`});
+    body+=`<div class="irow"><span class="ik">Статус</span><span>сохранено для спутников</span></div>`;
   } else if(boost_hours){
     body+=`<div class="irow"><span class="ik">Ускорение</span><span style="color:var(--teal)">−${boost_hours}ч</span></div>`;
     if(quantity>0)btns.unshift({l:'⏩ К экспедиции',c:'btn-teal',f:`openBoostSelModal('${item_id}')`});
   } else if(category==='spin_token'){
-    if(quantity>0)btns.unshift({l:'🎲 В Гачу',c:'btn-gold',f:`goTo('market','gacha')`});
+    body+=`<div class="irow"><span class="ik">Статус</span><span>сохранено для Архива</span></div>`;
   } else if(category==='chest'){
-    if(quantity>0)btns.unshift({l:'🎁 Открыть',c:'btn-gold',f:`CM();_openSurprisesModal()`});
+    body+=`<div class="irow"><span class="ik">Статус</span><span>сохранено без случайного открытия</span></div>`;
   } else if(item_id.startsWith('star_dust')){
-    body+=`<div class="irow"><span class="ik">Даёт дубликатов</span><span style="color:var(--gold)">+${dup_count||1}</span></div>`;
-    if(quantity>0)btns.unshift({l:'✨ Применить',c:'btn-gold',f:`openDustModal('${item_id}')`});
+    body+=`<div class="irow"><span class="ik">Статус</span><span>сохранено для разбора коллекции</span></div>`;
   } else if(item_id==='study_notes'){
-    if(quantity>0)btns.unshift({l:'📚 Активировать',c:'btn-gold',f:`useConsumable('${item_id}')`});
+    body+=`<div class="irow"><span class="ik">Статус</span><span>Архивный · не расходуется</span></div>`;
   }
   OM(name,body,btns);
 }

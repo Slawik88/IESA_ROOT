@@ -10,25 +10,8 @@ from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import users
 from infrastructure.repositories.streak import get_chat_timezone
 from services import leveling
-from services import onboarding
-from services.quests import increment_metric as quest_increment_metric
-from services.achievements import increment_metric as ach_increment_metric, format_achievement_notification
-from services.utils import safe_html
 
 anti_spam_cache: dict[int, float] = {}
-
-_QUEST_METRIC_LABELS: dict[str, str] = {
-    "messages_in_chat_today":        "Написать сообщений",
-    "pet_feeds_today":               "Накормить питомца",
-    "gacha_spins_today":             "Крутить гачу",
-    "expeditions_today":             "Экспедиций",
-    "warps_to_distinct_users_today": "Варп разным игрокам",
-    "auction_bids_today":            "Ставка на аукцион",
-    "warps_hug_distinct_today":      "Обнять разных игроков",
-    "rare_or_better_pet_dups_today": "Rare+ дубликатов",
-    "pet_level_ups_today":           "Уровень питомца поднят",
-}
-
 
 async def _safe_send(bot, chat_id: int, text: str) -> None:
     """Обёртка для fire-and-forget отправок: без неё исключение в задаче,
@@ -40,33 +23,6 @@ async def _safe_send(bot, chat_id: int, text: str) -> None:
         logger.warning(f"Fire-and-forget send to {chat_id} failed: {e}")
 
 
-def _notify_achievements(bot, chat_id: int, grants: list) -> None:
-    """Fire-and-forget achievement notifications in chat."""
-    import asyncio
-    text = format_achievement_notification(grants)
-    if bot and text:
-        asyncio.ensure_future(_safe_send(bot, chat_id, text))
-
-
-def _notify_starter_kit(bot, chat_id: int, user, kit: dict) -> None:
-    """Block 10: приветствие новичку со стартовым набором (fire-and-forget)."""
-    import asyncio
-    if not bot:
-        return
-    name = safe_html(user.first_name or user.username or str(user.id))
-    text = (
-        f"🎉 <b>Добро пожаловать, {name}!</b>\n"
-        f"Тебе выдан стартовый набор:\n"
-        f"🐾 Питомец: {safe_html(kit['species_name'])}\n"
-        f"🪙 +{int(kit['mora'])} Моры\n"
-        f"💎 +{int(kit['diamonds'])} Алмазов (хватит на 1 алмазный спин)\n"
-        f"🎟 +{kit['spin_tokens']} Жетон Гачи (бесплатный спин за Мору)\n\n"
-        f"Загляни в «бот зоопарк» и «бот крутка» 🎲\n"
-        f"🤖 А если что-то будет непонятно — просто напиши «бот, [вопрос]»"
-    )
-    asyncio.ensure_future(_safe_send(bot, chat_id, text))
-
-
 def _notify_ai_hint(bot, chat_id: int, user) -> None:
     """Discovery-полиш 2026-07-19: разовая подсказка про ИИ-помощника после
     30-го сообщения новичка в чате (fire-and-forget)."""
@@ -75,30 +31,6 @@ def _notify_ai_hint(bot, chat_id: int, user) -> None:
         return
     text = "🤖 Кстати — если что-то не понятно, просто напиши «бот, [вопрос]» — отвечу как помощник"
     asyncio.ensure_future(_safe_send(bot, chat_id, text))
-
-
-def _notify_quest_completions(bot, chat_id: int, user, completed: list) -> None:
-    """Fire-and-forget quest completion notifications — errors are silenced."""
-    import asyncio
-    for cq in completed:
-        reward = cq.get("reward", {})
-        parts: list[str] = []
-        if reward.get("mora", 0) > 0:
-            parts.append(f"+{int(reward['mora'])} 🪙")
-        if reward.get("diamonds", 0) > 0:
-            parts.append(f"+{reward['diamonds']} 💎")
-        for iid, qty in reward.get("items", []):
-            parts.append(f"+{qty}×{iid}")
-        reward_str = ", ".join(parts) or "—"
-        label = _QUEST_METRIC_LABELS.get(cq.get("metric", ""), "Задание")
-        name = safe_html(user.first_name or user.username or str(user.id))
-        if bot:
-            asyncio.ensure_future(_safe_send(
-                bot, chat_id,
-                f"✅ <a href='tg://user?id={user.id}'>{name}</a> "
-                f"выполнил задание <b>«{label}»</b>!\n"
-                f"Награда: <b>{reward_str}</b>",
-            ))
 
 
 async def db_middleware(
@@ -138,14 +70,6 @@ async def db_middleware(
 
             if user and not is_bot_sender:
                 await users.update_user(db, user.id, user.username)
-                # Block 10: стартовый набор новичку (ровно один раз; no-op для всех
-                # существующих игроков — у них onboarded=TRUE).
-                try:
-                    kit = await onboarding.grant_starter_kit(db, user.id)
-                    if kit and chat_obj:
-                        _notify_starter_kit(data.get("bot"), chat_obj.id, user, kit)
-                except Exception as _oe:
-                    logger.warning(f"onboarding kit error for {user.id}: {_oe}")
                 if config.developer_id and user.id == config.developer_id:
                     await db.execute(
                         "UPDATE users SET global_rank = 3 "
@@ -205,9 +129,8 @@ async def db_middleware(
                 _sign = "+" if _tz_int >= 0 else "-"
                 _tz = f"{_sign}{abs(_tz_int)} hours"
 
-                # process_message_xp → chat_repo.increment_stats_and_get_xp which
-                # updates BOTH user_chat_stats rolling counters AND daily_user_stats.
-                # Single source of truth — no second INSERT needed here.
+                # Сообщение учитывается только как статистика активности. Старые
+                # XP/уровни, задания и ачивки больше не растут от объёма текста.
                 _, _, _msg_count = await leveling.process_message_xp(
                     db, user.id, chat_obj.id, _tz
                 )
@@ -221,31 +144,6 @@ async def db_middleware(
                             _notify_ai_hint(data.get("bot"), chat_obj.id, user)
                     except Exception:
                         pass
-
-                # Daily quest: messages_in_chat_today
-                try:
-                    completed = await quest_increment_metric(
-                        db, user.id, chat_obj.id, "messages_in_chat_today", delta=1.0
-                    )
-                    if completed:
-                        # Категорийный тумблер игровых уведомлений чата (🔔) —
-                        # награда начисляется всегда, гейтится только сообщение.
-                        from infrastructure.repositories.moderation import chat_notif_enabled
-                        if await chat_notif_enabled(db, chat_obj.id, "notif_quests"):
-                            _notify_quest_completions(data.get("bot"), chat_obj.id, user, completed)
-                except Exception:
-                    pass
-
-                # Achievement: talker (messages_total_global — глобальный счётчик)
-                try:
-                    ach_grants = await ach_increment_metric(
-                        db, user.id, "messages_total_global", delta=1.0, chat_id=chat_obj.id
-                    )
-                    if ach_grants:
-                        await db.commit()
-                        _notify_achievements(data.get("bot"), chat_obj.id, ach_grants)
-                except Exception:
-                    pass
 
         except Exception as e:
             # Сбой в трекинге (XP/квесты/ачивки/чат-статы) НЕ должен блокировать сам

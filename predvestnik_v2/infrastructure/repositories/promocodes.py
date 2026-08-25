@@ -48,6 +48,10 @@ async def create_promocode(
     allowed_users_json: str = "[]",
     allowed_chats_json: str = "[]",
 ) -> bool:
+    if dark_mora or zarniki:
+        raise ValueError(
+            "Промокоды v3 выдают Мору, Алмазы или предметы; legacy-валюты недоступны."
+        )
     try:
         await db.execute(
             "INSERT INTO promocodes "

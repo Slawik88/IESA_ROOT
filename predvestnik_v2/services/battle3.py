@@ -3,7 +3,7 @@
 # Server-authoritative движок: позиции на сетке/AP/ярость/телеграф/QTE живут
 # ТОЛЬКО в state (battles.state_json). Клиент шлёт action {type, unit_i, ...}
 # и сырые tap_offset_ms на QTE — грейдит сервер (grade_tap из battle.py, анти-чит там же).
-# Рунный/Фокус-движок Боёвки 3.0 снят в B2a (см. BATTLE_REWORK_CONCEPT.md — история).
+# Рунный/Фокус-движок Боёвки 3.0 снят ранее; весь модуль ожидает retirement LCB-001.
 #
 # Ход: игрок тратит AP отряда действиями (move/attack/defend/skill) → end_turn →
 # фаза врага (по телеграфу). QTE только на критах (1 раз за раунд) и ультах —

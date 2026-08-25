@@ -229,6 +229,21 @@ async def process_divorce_confirm(callback: types.CallbackQuery, callback_data: 
         await callback.message.edit_text("💔 Брак уже был расторгнут.", parse_mode="HTML")
         return await callback.answer()
 
+    balances = [
+        float(marriage.get("family_balance", 0) or 0),
+        float(marriage.get("family_balance_diamonds", 0) or 0),
+        float(marriage.get("family_balance_dark_mora", 0) or 0),
+        float(marriage.get("family_balance_zarniki", 0) or 0),
+    ]
+    async with db.execute("SELECT 1 FROM pets WHERE marriage_id = ? LIMIT 1", (marriage["id"],)) as cursor:
+        has_family_pet = await cursor.fetchone() is not None
+    if any(value > 0 for value in balances) or has_family_pet:
+        await callback.message.edit_text(
+            "🏦 <b>Развод пока не выполнен.</b> Сначала нужно безопасно разделить семейный кошелёк и питомцев. Ничего не удалено.",
+            parse_mode="HTML",
+        )
+        return await callback.answer()
+
     await marriages.delete_marriage(db, callback.from_user.id)
     await callback.message.edit_text("💔 <b>Брак расторгнут.</b> Вы снова свободны.", parse_mode="HTML")
     await callback.answer()
@@ -308,6 +323,7 @@ def _parse_bank_amount(text_args: str | None):
 
 @router.message(TextCmd(["вложить", "в общак"]))
 async def cmd_family_deposit(message: types.Message, db, text_args: str = None):
+    return await message.answer("🏦 Семейный кошелёк сохранён и временно заморожен для безопасного переноса. Новые вклады не принимаются.")
     if message.chat.type == "private":
         return await answer_group_only(message)
     amount = _parse_bank_amount(text_args)
@@ -328,6 +344,7 @@ async def cmd_family_deposit(message: types.Message, db, text_args: str = None):
 
 @router.message(TextCmd(["снять", "из общака"]))
 async def cmd_family_withdraw(message: types.Message, db, text_args: str = None):
+    return await message.answer("🏦 Семейный кошелёк сохранён и временно заморожен. Вывод будет доступен только через проверяемое урегулирование.")
     if message.chat.type == "private":
         return await answer_group_only(message)
     amount = _parse_bank_amount(text_args)
@@ -348,6 +365,7 @@ async def cmd_family_withdraw(message: types.Message, db, text_args: str = None)
 
 @router.callback_query(FamilyBankCB.filter())
 async def cb_family_bank(query: types.CallbackQuery, callback_data: FamilyBankCB, db):
+    return await query.answer("Кошелёк заморожен для безопасного переноса.", show_alert=True)
     if query.from_user.id != callback_data.user_id:
         return await query.answer("Это не ваша операция.", show_alert=True)
     meta = FAMILY_CURRENCIES.get(callback_data.cur)
@@ -406,8 +424,8 @@ async def cmd_family_info(message: types.Message, db):
         f"├ ⏳ В браке с: <code>{date_str}</code>\n"
         f"└ ❤️ Вместе: <code>{days_together} дн.</code>\n\n"
         f"💰 <b>КОШЕЛЁК:</b> {wallet_str}\n\n"
-        f"<i>💡 Пополнить: «бот вложить, [сумма]» · Снять: «бот снять, [сумма]»\n"
-        f"🎁 Подарок партнёру: «бот подарок, [сумма]»</i>"
+        f"<i>Баланс сохранён и заморожен до проверяемого переноса.\n"
+        f"Памятный подарок партнёру: «бот подарки»</i>"
     )
     await message.answer(text, parse_mode="HTML")
 
@@ -416,6 +434,7 @@ async def cmd_family_info(message: types.Message, db):
 async def cmd_gift_partner(message: types.Message, db, text_args: str = None):
     """Подарить партнёру любую валюту (Block 5.3). Авто-цель — супруг.
     Переиспользует PayCB / cb_pay_currency из economy.py."""
+    return await message.answer("🎁 Прямые переводы валюты закрыты. Памятные подарки без игровой силы доступны по команде «бот подарки».")
     if message.chat.type == "private":
         return await answer_group_only(message)
     amount = _parse_bank_amount(text_args)
@@ -456,12 +475,12 @@ async def cmd_gift_catalog(message: types.Message, db):
     lines = ["🎁 <b>ПОДАРКИ ПАРТНЁРУ</b>", f"Для: <b>{partner_name}</b>\n"]
     b = InlineKeyboardBuilder()
     for gid, g in PARTNER_GIFTS.items():
-        tag = "🎀" if g["kind"] == "cosmetic" else "✨баф"
+        tag = "🎀 память"
         lines.append(f"{g['name']} — {_gift_price_str(g)} <i>({tag})</i>")
         b.button(text=f"{g['name']} · {_gift_price_str(g)}",
                  callback_data=GiftBuyCB(gift_id=gid, buyer_id=message.from_user.id, partner_id=partner_id))
     b.adjust(1)
-    lines.append("\n<i>Косметика — приятный знак внимания. Баф-подарки дают партнёру +XP на время.</i>")
+    lines.append("\n<i>Подарки сохраняются в семейной истории и не меняют силу, XP или награды.</i>")
     await message.answer("\n".join(lines), reply_markup=b.as_markup(), parse_mode="HTML")
 
 
@@ -470,7 +489,9 @@ async def cb_gift_buy(query: types.CallbackQuery, callback_data: GiftBuyCB, db):
     if query.from_user.id != callback_data.buyer_id:
         return await query.answer("Это не ваш подарок.", show_alert=True)
     ok, msg, gift = await marriages.purchase_partner_gift(
-        db, callback_data.buyer_id, callback_data.partner_id, callback_data.gift_id)
+        db, callback_data.buyer_id, callback_data.partner_id, callback_data.gift_id,
+        idempotency_key=f"telegram:partner-gift:{query.id}",
+    )
     if not ok:
         return await query.answer(msg, show_alert=True)
     partner_name = await resolve_display_name(db, callback_data.partner_id,

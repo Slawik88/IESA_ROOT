@@ -1,0 +1,156 @@
+[
+  {
+    "width": 320,
+    "height": 780,
+    "file": "before-320.png",
+    "metrics": {
+      "viewport": {
+        "width": 320,
+        "height": 780
+      },
+      "page": {
+        "scrollWidth": 320,
+        "clientWidth": 320,
+        "scrollHeight": 2488
+      },
+      "topbar": null,
+      "tabs": {
+        "top": 88,
+        "left": 12,
+        "width": 296,
+        "height": 36,
+        "bottom": 124,
+        "right": 308
+      },
+      "hero": {
+        "top": 136.0963897705078,
+        "left": 12,
+        "width": 296,
+        "height": 321.5,
+        "bottom": 457.5963897705078,
+        "right": 308
+      },
+      "fitting": null,
+      "quickStats": null,
+      "promo": {
+        "top": 569.4685668945312,
+        "left": 12,
+        "width": 296,
+        "height": 43,
+        "bottom": 612.4685668945312,
+        "right": 308
+      },
+      "profileActions": null,
+      "leaderboard": null,
+      "nav": null,
+      "smallTargets": []
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ]
+  },
+  {
+    "width": 390,
+    "height": 844,
+    "file": "before-390.png",
+    "metrics": {
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "page": {
+        "scrollWidth": 390,
+        "clientWidth": 390,
+        "scrollHeight": 2476
+      },
+      "topbar": null,
+      "tabs": {
+        "top": 88,
+        "left": 12,
+        "width": 366,
+        "height": 36,
+        "bottom": 124,
+        "right": 378
+      },
+      "hero": {
+        "top": 136.13453674316406,
+        "left": 12,
+        "width": 366,
+        "height": 321.5,
+        "bottom": 457.63453674316406,
+        "right": 378
+      },
+      "fitting": null,
+      "quickStats": null,
+      "promo": {
+        "top": 569.7124633789062,
+        "left": 12,
+        "width": 366,
+        "height": 43,
+        "bottom": 612.7124633789062,
+        "right": 378
+      },
+      "profileActions": null,
+      "leaderboard": null,
+      "nav": null,
+      "smallTargets": []
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  },
+  {
+    "width": 430,
+    "height": 932,
+    "file": "before-430.png",
+    "metrics": {
+      "viewport": {
+        "width": 430,
+        "height": 932
+      },
+      "page": {
+        "scrollWidth": 430,
+        "clientWidth": 430,
+        "scrollHeight": 2476
+      },
+      "topbar": null,
+      "tabs": {
+        "top": 88,
+        "left": 12,
+        "width": 406,
+        "height": 36,
+        "bottom": 124,
+        "right": 418
+      },
+      "hero": {
+        "top": 136.13475036621094,
+        "left": 12,
+        "width": 406,
+        "height": 321.5,
+        "bottom": 457.63475036621094,
+        "right": 418
+      },
+      "fitting": null,
+      "quickStats": null,
+      "promo": {
+        "top": 569.7137451171875,
+        "left": 12,
+        "width": 406,
+        "height": 43,
+        "bottom": 612.7137451171875,
+        "right": 418
+      },
+      "profileActions": null,
+      "leaderboard": null,
+      "nav": null,
+      "smallTargets": []
+    },
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "WebSocket connection to 'ws://localhost:8402/ws/1460945748?token=dev-session' failed: Connection closed before receiving a handshake response"
+    ]
+  }
+]

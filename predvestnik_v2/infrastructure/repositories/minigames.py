@@ -1,6 +1,6 @@
 """
-infrastructure/repositories/minigames.py — сессии интеллектуальных мини-игр
-(R7, GDD_REBUILD_PLAN.md). Server-authoritative: раскладка мин/секрет сейфа
+infrastructure/repositories/minigames.py — сессии интеллектуальных мини-игр.
+Server-authoritative: раскладка мин/секрет сейфа
 живут ТОЛЬКО в state_json на сервере, клиент видит их после конца сессии.
 """
 import json

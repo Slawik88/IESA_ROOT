@@ -1,9 +1,10 @@
-"""
-infrastructure/repositories/dark_mora.py
-SQL functions for Тёмная Мора (dark mora) currency and cooldowns.
-"""
+"""Spend-only compatibility repository for archived Dark Mora balances."""
 from datetime import datetime, timezone
+import math
+
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from infrastructure.pg_adapter import PGAdapter
+from infrastructure.repositories.economy_ledger import apply_balance_change
 
 
 async def get_dark_mora_balance(db: PGAdapter, user_id: int) -> float:
@@ -18,72 +19,49 @@ async def get_dark_mora_balance(db: PGAdapter, user_id: int) -> float:
     return float(row[0]) if row else 0.0
 
 
-async def add_dark_mora(db: PGAdapter, user_id: int, amount: float, source: str, note: str | None = None):
-    """Add (or deduct if negative) dark mora. Logs to wallet_log."""
-    await db.execute(
-        "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (user_id,)
+async def add_dark_mora(
+    db: PGAdapter, user_id: int, amount: float, source: str,
+    note: str | None = None, *, idempotency_key: str | None = None,
+):
+    """Compatibility writer: only spend/correction downward remains allowed."""
+    if amount > 0:
+        raise ValueError("Новые начисления Тёмной Моры закрыты правилами экономики v3.")
+    if not math.isfinite(amount) or amount == 0:
+        return None
+    return await apply_balance_change(
+        db, user_id, {"dark_mora": amount}, reason_code=source,
+        idempotency_key=idempotency_key, source_type="legacy_archive",
+        reference_type="dark_mora_spend", reference_id=note or source,
+        note=note,
     )
-    async with db.connection.transaction():
-        await db.execute(
-            "UPDATE users SET user_balance_dark_mora = GREATEST(0, COALESCE(user_balance_dark_mora,0) + ?) "
-            "WHERE user_tg_id = ?",
-            (amount, user_id),
-        )
-        async with db.execute(
-            "SELECT COALESCE(user_balance_dark_mora,0), COALESCE(user_balance_mora,0), "
-            "COALESCE(user_balance_diamonds,0) FROM users WHERE user_tg_id = ?", (user_id,)
-        ) as c:
-            row = await c.fetchone()
-        dark_after = float(row[0]) if row else 0.0
-        mora_after = float(row[1]) if row else 0.0
-        dia_after = float(row[2]) if row else 0.0
-        await db.execute(
-            """
-            INSERT INTO wallet_log
-              (user_id, delta_mora, delta_diamonds, delta_dark_mora,
-               balance_mora_after, balance_diamonds_after, balance_dark_mora_after,
-               source, note)
-            VALUES (?, 0, 0, ?, ?, ?, ?, ?, ?)
-            """,
-            (user_id, amount, mora_after, dia_after, dark_after, source, note),
-        )
 
 
-async def spend_dark_mora(db: PGAdapter, user_id: int, amount: float, source: str, note: str | None = None) -> tuple[bool, str]:
-    """Deduct dark mora atomically. Returns (True, '') or (False, error)."""
+async def spend_dark_mora(
+    db: PGAdapter, user_id: int, amount: float, source: str,
+    note: str | None = None, *, idempotency_key: str | None = None,
+) -> tuple[bool, str]:
+    """Spend an existing archive balance through the canonical ledger."""
+    if not math.isfinite(amount) or amount <= 0:
+        return False, "Некорректная сумма."
     try:
-        async with db.connection.transaction():
-            async with db.execute(
-                "SELECT COALESCE(user_balance_dark_mora,0), COALESCE(user_balance_mora,0), "
-                "COALESCE(user_balance_diamonds,0) FROM users WHERE user_tg_id = ? FOR UPDATE",
-                (user_id,),
-            ) as c:
-                row = await c.fetchone()
-            dark_bal = float(row[0]) if row else 0.0
-            mora_bal = float(row[1]) if row else 0.0
-            dia_bal = float(row[2]) if row else 0.0
-            if dark_bal < amount:
-                raise ValueError(f"Недостаточно Тёмной Моры ({dark_bal:.0f} < {amount:.0f}).")
-            dark_after = dark_bal - amount
-            await db.execute(
-                "UPDATE users SET user_balance_dark_mora = ? WHERE user_tg_id = ?",
-                (dark_after, user_id),
-            )
-            await db.execute(
-                """
-                INSERT INTO wallet_log
-                  (user_id, delta_mora, delta_diamonds, delta_dark_mora,
-                   balance_mora_after, balance_diamonds_after, balance_dark_mora_after,
-                   source, note)
-                VALUES (?, 0, 0, ?, ?, ?, ?, ?, ?)
-                """,
-                (user_id, -amount, mora_bal, dia_bal, dark_after, source, note),
-            )
+        mutation = await apply_balance_change(
+            db, user_id, {"dark_mora": -amount}, reason_code=source,
+            idempotency_key=idempotency_key, source_type="legacy_archive",
+            reference_type="dark_mora_spend", reference_id=note or source,
+            note=note,
+        )
+        if not mutation.applied:
+            return True, "Эта покупка уже была обработана."
         return True, ""
+    except InsufficientBalance:
+        balance = await get_dark_mora_balance(db, user_id)
+        return False, f"Недостаточно Тёмной Моры ({balance:.0f} < {amount:.0f})."
+    except IdempotencyConflict:
+        return False, "Этот ключ запроса уже использован для другой покупки."
     except ValueError as e:
         return False, str(e)
-    except Exception as e:
-        return False, f"Ошибка: {e}"
+    except Exception:
+        return False, "Операция не выполнена. Баланс не изменён."
 
 
 async def get_cooldown(db: PGAdapter, user_id: int, action: str) -> datetime | None:

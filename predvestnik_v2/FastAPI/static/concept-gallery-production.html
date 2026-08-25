@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Макеты от продакшена · Предвестник</title>
+  <style>
+    :root{color-scheme:dark;--bg:#080a10;--panel:#121621;--line:#272d3a;--text:#f0f2f7;--muted:#9299aa;--accent:#d4ae68}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+    header{position:sticky;top:0;z-index:2;padding:18px 20px 15px;background:rgba(8,10,16,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+    h1{font-size:20px;margin:0 0 4px}header p{margin:0;color:var(--muted);font-size:13px}
+    main{width:min(1180px,100%);margin:auto;padding:20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
+    article{overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:16px}
+    .head{padding:14px 15px 12px;border-bottom:1px solid var(--line)}
+    h2{font-size:16px;margin:0 0 3px}.head p{margin:0;color:var(--muted);font-size:12px}
+    a{display:block;color:inherit;text-decoration:none}img{display:block;width:100%;height:auto;background:#05060a}
+    .open{padding:12px 15px;color:var(--accent);font-weight:700;font-size:13px;border-top:1px solid var(--line)}
+    @media(max-width:880px){main{grid-template-columns:1fr;padding:12px}.head{padding:13px}article{border-radius:14px}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Макеты на основе текущего продакшена</h1>
+    <p>Нейтральная база остаётся удобным холстом для всех существующих слоёв косметики.</p>
+  </header>
+  <main>
+    <article>
+      <div class="head"><h2>1 · Чистый продакшен</h2><p>Самая осторожная полировка текущей структуры и визуального ритма.</p></div>
+      <a href="/static/design-concepts/production-grounded/01-production-clean.png" target="_blank" rel="noopener"><img src="/static/design-concepts/production-grounded/01-production-clean.png" alt="Чистая полировка продакшена"><div class="open">Открыть PNG в полном размере ↗</div></a>
+    </article>
+    <article>
+      <div class="head"><h2>2 · Адаптивная сцена</h2><p>Более современная композиция профиля при сохранении структуры продукта.</p></div>
+      <a href="/static/design-concepts/production-grounded/02-adaptive-stage.png" target="_blank" rel="noopener"><img src="/static/design-concepts/production-grounded/02-adaptive-stage.png" alt="Адаптивная сцена профиля"><div class="open">Открыть PNG в полном размере ↗</div></a>
+    </article>
+    <article>
+      <div class="head"><h2>3 · Косметический навес</h2><p>Сильнее развита верхняя часть, но атмосфера живёт только внутри hero-карточки.</p></div>
+      <a href="/static/design-concepts/production-grounded/03-cosmetic-canopy.png" target="_blank" rel="noopener"><img src="/static/design-concepts/production-grounded/03-cosmetic-canopy.png" alt="Профиль с косметическим навесом"><div class="open">Открыть PNG в полном размере ↗</div></a>
+    </article>
+  </main>
+</body>
+</html>

@@ -52,6 +52,11 @@
   </div>
 </header>
 
+<aside class="development-notice" aria-label="Статус разработки">
+  <span aria-hidden="true">🛠</span>
+  <span><strong>Предвестник в активной разработке.</strong> Мы постепенно добавляем и улучшаем механики.</span>
+</aside>
+
 <div id="toast" class="toast"></div>
 
 <!-- ═══ ЛОГИН ═══ -->
@@ -84,7 +89,7 @@
     <button class="tb active" onclick="switchPro('main',this)">👤 Обзор</button>
     <button class="tb" onclick="switchPro('inv',this)">🎒 Инвентарь</button>
     <button class="tb" onclick="switchPro('themes',this)">🎨 Темы</button>
-    <button class="tb" onclick="switchPro('quests',this)">📜 Квесты</button>
+    <button class="tb" onclick="switchPro('quests',this)">📜 История</button>
     <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
     <button class="tb" onclick="switchPro('hof',this)">👑 Топ</button>
   </div>
@@ -93,18 +98,13 @@
     <div class="sk" style="height:70px;border-radius:16px"></div>
   </div>
   <div id="pro-inv" style="display:none">
-    <div class="tabs tab-inner">
-      <button class="tb active" onclick="swInv('items',this)">🎒 Предметы</button>
-      <button class="tb" onclick="swInv('craft',this)">🔨 Крафт</button>
-    </div>
     <div id="inv-items"><div id="mkt-inv"></div></div>
-    <div id="inv-craft" style="display:none"><div id="cc"></div></div>
   </div>
   <div id="pro-themes" style="display:none"><div id="col-themes"><div class="loader">Загрузка...</div></div></div>
   <div id="pro-quests" style="display:none">
     <div class="tabs tab-inner">
-      <button class="tb active" onclick="swQuests('quests',this)">📋 Квесты</button>
-      <button class="tb" onclick="swQuests('streak',this)">🔥 Стрик</button>
+      <button class="tb active" onclick="swQuests('quests',this)">📋 Задания</button>
+      <button class="tb" onclick="swQuests('streak',this)">🔥 Серия</button>
     </div>
     <div id="quests-content"><div id="qc"></div></div>
     <div id="pro-streak" style="display:none"></div>
@@ -130,30 +130,19 @@
   <div id="zoo-bestiary" style="display:none"><div id="best-c"></div></div>
 </div>
 
-<!-- ═══ 3. АРЕНА (Боёвка 3.0: Казарма юнитов + Врата) ═══ -->
+<!-- ═══ 3. ИГРА (Reconstruction 3.0: точный автокликер) ═══ -->
 <div id="pg-arena" class="page">
-  <div class="tabs">
-    <button class="tb active" onclick="swArena('barracks',this)">🏰 Казарма</button>
-    <button class="tb" onclick="swArena('gates',this)">🌑 Врата</button>
-    <button class="tb" onclick="swArena('raids',this)">👹 Рейды</button>
-    <button class="tb" onclick="swArena('games',this)">🎮 Игры</button>
-    <button class="tb" onclick="swArena('events',this)">🎪 Ивенты</button>
-  </div>
-  <div id="ar-barracks"><div id="bkc"></div></div>
-  <div id="ar-gates" style="display:none"><div id="gtc"></div></div>
-  <div id="ar-raids" style="display:none"><div id="rc"></div></div>
-  <div id="ar-games" style="display:none"><div id="skg"></div></div>
-  <div id="ar-events" style="display:none"><div id="evc"></div></div>
+  <div id="ar-game"><div id="game-hub"></div></div>
 </div>
 
 <!-- ═══ 4. МАГАЗИН: Гача / Премиум / Расходники / Акции дня ═══ -->
 <div id="pg-market" class="page">
   <div class="tabs">
-    <button class="tb active" onclick="swMkt('gacha',this)">🎲 Гача</button>
+    <button class="tb active" onclick="swMkt('gacha',this)">🗃 Архив</button>
     <button class="tb" onclick="_trackSubtab('market/cosmetics');openLooksModal()">🎨 Образы</button>
     <button class="tb" onclick="swMkt('vip',this)">✨ Премиум</button>
-    <button class="tb" onclick="swMkt('goods',this)">🛍 Расходники</button>
-    <button class="tb" onclick="swMkt('deal',this)">🏷 Акции дня</button>
+    <button class="tb" onclick="swMkt('goods',this)">🧰 Снабжение</button>
+    <button class="tb" onclick="swMkt('deal',this)">🏷 Витрина</button>
   </div>
   <div id="balrow" class="balrow" style="display:none"></div>
   <div id="mkt-gacha"><div id="gc"><div class="loader">Загрузка...</div></div></div>
@@ -175,10 +164,10 @@
 
 <!-- ═══ 7. АУКЦИОН & ОБМЕННИК ═══ -->
 <div id="pg-auction" class="page">
-  <div class="card-title" style="margin-bottom:10px">⚖️ Аукцион · Обменник · Биржа</div>
+  <div class="card-title" style="margin-bottom:10px">⚖️ Аукцион · Валюты · Биржа</div>
   <div class="tabs">
     <button class="tb active" onclick="swAuction('auc',this)">🏛 Аукцион</button>
-    <button class="tb" onclick="swAuction('exch',this)">💱 Обмен</button>
+    <button class="tb" onclick="swAuction('exch',this)">🪙 Валюты</button>
     <button class="tb" onclick="swAuction('crypto',this)">📈 Биржа</button>
   </div>
   <div id="mkt-auc"><div class="loader">Загрузка...</div></div>
@@ -244,58 +233,56 @@
   <div class="card">
     <div class="card-title">🪙 Валюты</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">🪙 Мора</b> — основная валюта: покупки в Расходниках, ставки на Аукционе, Гача-крутки.<br>
-      <b style="color:var(--bright)">💎 Алмазы</b> — премиальная валюта: редкие Гача-крутки, особые товары.<br>
-      <b style="color:var(--bright)">✨ Зарники</b> — донат-валюта: VIP, эксклюзивные предложения в «Премиум».<br>
-      <b style="color:var(--bright)">🌑 Тёмная Мора</b> — добывается через Контрабанду и Ритуал Культа Бездны, тратится на Чёрном Рынке (Расходники → 🌑 Тёмный).
+      <b style="color:var(--bright)">🪙 Мора</b> — оборотная валюта подготовки, торговли и проектов; не покупает XP или победу.<br>
+      <b style="color:var(--bright)">💎 Алмазы</b> — редкие заработанные права выбора; купить или обменять их нельзя.<br>
+      <b style="color:var(--bright)">✨ Зарники</b> — косметика, VIP-сервис и необратимый обмен в Мору.<br>
+      <b style="color:var(--bright)">🌑 Архив Ночи</b> — сохранённый баланс Тёмной Моры; новых начислений нет, остаток тратится на архивные предметы.
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">🐾 Питомцы</div>
+    <div class="card-title">🐾 Спутники</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      На вкладке <b style="color:var(--bright)">Питомцы</b> — активный и пассивные слоты питомника сверху и все твои питомцы
-      (в т.ч. ещё не в питомнике) единым списком ниже: тап по пустому слоту — назначить питомца, тап по карточке — кормёжка/статы/перемещение.<br>
-      У каждого питомца есть <b style="color:var(--bright)">усталость</b> — снижает эффективность, восстанавливается отдыхом
-      или спец-предметами. <b style="color:var(--bright)">Дубликаты</b> повышают уровень питомца, открывая новые бонусы.<br>
-      Полный список видов, их редкость и бонусы по уровням — в <b style="color:var(--bright)">📖 Бестиарии</b> (раздел «Ещё»).
+      Все прежние питомцы, имена и редкость сохранены. Во вкладке <b style="color:var(--bright)">Игра → Спутник</b> выбирается активный спутник и его роль.<br>
+      Роль меняет решение или информацию во время забега, но не даёт пассивный процент силы. Связь растёт от заботы и совместной игры без штрафа за пропущенный день.<br>
+      Походы на 2/6/12 часов запускаются там же; несколько готовых результатов забираются одной кнопкой.
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">⚔️ Арена</div>
+    <div class="card-title">🔔 Разлом</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">Врата</b> — бои отрядом боевых юнитов по этажам: Тёмная Мора и осколки.<br>
-      <b style="color:var(--bright)">Бездна и Рейды</b> — совместная добыча клана и боссы (вкладка Кланы).<br>
-      Отряд собирается в <b style="color:var(--bright)">🏰 Казарме</b>.<br>
-      <b style="color:var(--bright)">Ивенты</b> — временные события с особыми наградами.
+      <b style="color:var(--bright)">Разлом колокола</b> — короткий боевой автокликер, где важна правильная руна, а не скорость спама.<br>
+      Между волнами ты выбираешь усиления с компромиссами и собираешь собственную комбинацию. Неверные и лишние нажатия ухудшают результат.<br>
+      Награды пока считаются в режиме проверки и не меняют кошелёк.
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">💎 Магазин</div>
+    <div class="card-title">🎨 Внешний вид и сервис</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">✨ Премиум</b> — пополнение Зарников и VIP-статус.<br>
-      <b style="color:var(--bright)">🎲 Гача</b> — крутки за Мору/Алмазы, шанс получить редких питомцев и темы.<br>
-      <b style="color:var(--bright)">🛍 Расходники</b> — еда, зелья и утилиты (🛒 Обычный) и Чёрный Рынок за Тёмную Мору (🌑 Тёмный).<br>
-      <b style="color:var(--bright)">🏷 Акции дня</b> — временные скидки, обновляются ежедневно.
+      <b style="color:var(--bright)">🎨 Образы</b> — заранее известная косметика только за Зарники; силы она не даёт.<br>
+      <b style="color:var(--bright)">✨ Премиум</b> — пополнение Зарников и VIP-сервис без игровых преимуществ.<br>
+      <b style="color:var(--bright)">🗃 Архив находок</b> — сохранённые жетоны и гарант закрытой системы; новых круток нет.<br>
+      Старая Мастерская и случайная Акция дня закрыты, поэтому баланс там не списывается.
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">📜 Квесты, Стрик и Боевой пропуск</div>
+    <div class="card-title">📜 История прогресса</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">Квесты</b> — ежедневные/еженедельные задания за награды.<br>
-      <b style="color:var(--bright)">Стрик</b> — серия дней активности подряд, чем дольше — тем выше бонус.<br>
-      <b style="color:var(--bright)">Боевой пропуск</b> — сезонная прогрессия с наградами за уровни.
+      Старые задания, серия и сезонный прогресс сохранены для истории, но больше не создают награды.<br>
+      Уже заработанные награды старого сезона можно забрать; купить уровень за Алмазы нельзя.<br>
+      Новый сезон появится только с опубликованными правилами и заранее показанными наградами.
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">⚖️ Аукцион и Обменник</div>
+    <div class="card-title">⚖️ Доска и Биржа</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">Аукцион</b> — покупка и продажа предметов другим игрокам.<br>
-      <b style="color:var(--bright)">Обменник</b> — конвертация Зарников и других ресурсов.
+      Новые лоты и ставки временно закрыты; существующие лоты, резервы и возвраты не удаляются.<br>
+      <b style="color:var(--bright)">Биржа</b> сохраняет лорные активы и серверную цену.<br>
+      Единственный валютный обмен — необратимый <b style="color:var(--bright)">Зарники → Мора</b> по показанному курсу.
     </div>
   </div>
 
@@ -331,8 +318,8 @@
 
 <div id="pg-more" class="page">
   <div class="cc-grid">
-    <div class="cc-card cc-bp" onclick="goTo('bp')"><span class="cc-ic">🎫</span><span class="cc-t">Пропуск</span><span class="cc-s">Боевой пропуск</span></div>
-    <div class="cc-card" onclick="goTo('auction')"><span class="cc-ic">⚖️</span><span class="cc-t">Аукцион</span><span class="cc-s">и Обменник</span></div>
+    <div class="cc-card cc-bp" onclick="goTo('bp')"><span class="cc-ic">🎫</span><span class="cc-t">Архив сезона</span><span class="cc-s">сохранённые права</span></div>
+    <div class="cc-card" onclick="goTo('auction')"><span class="cc-ic">⚖️</span><span class="cc-t">Доска</span><span class="cc-s">старые расчёты</span></div>
     <div class="cc-card" id="cc-manage" style="display:none;position:relative" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление</span><span class="cc-s">Админка</span><span id="cc-manage-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;font-variant-numeric:tabular-nums"></span></div>
     <div class="cc-card" onclick="goTo('help')"><span class="cc-ic">🆘</span><span class="cc-t">Помощь</span><span class="cc-s">Гайды</span></div>
   </div>
@@ -343,7 +330,7 @@
 <nav class="nav">
   <div class="nb active" data-page="profile" onclick="switchPage('profile')"><span class="ni">👤</span>Профиль</div>
   <div class="nb" data-page="zoo" onclick="switchPage('zoo')"><span class="ni">🐾</span>Питомцы</div>
-  <div class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni">⚔️</span>Арена</div>
+  <div class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni">🔔</span>Игра</div>
   <div class="nb nb-shop" data-page="market" onclick="switchPage('market')"><span class="ni">💎</span>Магазин</div>
   <div class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><span class="ni">🎛</span>Ещё</div>
 </nav>

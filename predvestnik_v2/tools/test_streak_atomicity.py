@@ -1,124 +1,65 @@
-"""Регресс-тест П1 BOT_AUDIT.md: стрик — награда не атомарна, потеря молча и навсегда.
-
-Корень: upsert_global_streak() (claim дня) коммитился отдельно от add_balance()
-(начисление награды) — сбой БД между ними (напр. DB TimeoutError) оставлял день
-помеченным «взятым», но без награды, и внешний except: pass молча это скрывал.
-
-Фикс: claim + начисление + жетон block-end обёрнуты в один
-`async with db.connection.transaction()` — сбой любого шага откатывает всё,
-включая claim; внешний except теперь логирует через logger.exception вместо pass.
-
-Тест: симулирует сбой add_balance ПОСЛЕ успешного claim и проверяет, что
-транзакция реально откатывается (не коммитится), а не просто «печатает лог,
-но день уже потерян»."""
-import sys
-import pathlib
+"""Contract test: legacy streak is read-only and never mints currency."""
 import asyncio
+import importlib.util
+import pathlib
+import sys
+import types
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
-from bot.middlewares import streak_mw
+
+# The repository contract tests run without the optional Telegram dependency.
+aiogram = types.ModuleType("aiogram")
+aiogram_types = types.ModuleType("aiogram.types")
+aiogram_types.TelegramObject = object
+aiogram.types = aiogram_types
+sys.modules.setdefault("aiogram", aiogram)
+sys.modules.setdefault("aiogram.types", aiogram_types)
+
+spec = importlib.util.spec_from_file_location(
+    "streak_mw_contract", pathlib.Path("bot/middlewares/streak_mw.py")
+)
+streak_mw = importlib.util.module_from_spec(spec)
+assert spec and spec.loader
+spec.loader.exec_module(streak_mw)
 
 
-class FakeTx:
-    def __init__(self, tracker):
-        self.tracker = tracker
+class ExplodingDB:
+    """Any database access from middleware is an economic side effect regression."""
 
-    async def __aenter__(self):
-        self.tracker["entered"] = True
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        if exc_type is not None:
-            self.tracker["rolled_back"] = True
-        else:
-            self.tracker["committed"] = True
-        return False  # не подавлять исключение — должно уйти во внешний except
-
-
-class FakeConnection:
-    def __init__(self, tracker):
-        self.tracker = tracker
-
-    def transaction(self):
-        return FakeTx(self.tracker)
-
-
-class _FakeCursor:
-    async def fetchone(self):
-        return None
-
-
-class FakeDB:
-    def __init__(self, tracker):
-        self.connection = FakeConnection(tracker)
-        self.executed = []
-
-    async def execute(self, sql, args=()):
-        self.executed.append(sql.strip())
-        return _FakeCursor()
-
-    async def commit(self):
-        pass
-
-
-class FakeUser:
-    id = 12345
-    first_name = "Тест"
-
-
-class FakeChat:
-    id = -100999
-    type = "supergroup"
-
-
-class FakeMessage:
-    chat = FakeChat()
-
-
-class FakeEvent:
-    message = FakeMessage()
-    callback_query = None
+    def __getattribute__(self, name):
+        if name.startswith("__"):
+            return object.__getattribute__(self, name)
+        raise AssertionError(f"streak middleware touched db.{name}")
 
 
 async def main():
-    tracker: dict = {}
-    db = FakeDB(tracker)
-    handler_calls = []
+    calls = []
 
     async def handler(event, data):
-        handler_calls.append(1)
+        calls.append((event, data))
         return "handled"
 
-    data = {"db": db, "event_from_user": FakeUser(), "event_chat": FakeChat(), "bot": None}
+    event = object()
+    data = {"db": ExplodingDB()}
+    result = await streak_mw.streak_middleware(handler, event, data)
 
-    # Пустой streak_row = «первое сообщение вообще» → is_new_day=True (services.streak
-    # чистая функция, не мокаем — проверяем реальную логику вместе с транзакцией).
-    async def fake_get_global_streak(db_, user_id):
-        return {}
-    streak_mw.streak_repo.get_global_streak = fake_get_global_streak
+    assert result == "handled"
+    assert calls == [(event, data)], "middleware must pass every update exactly once"
 
-    async def fake_upsert(*a, **kw):
-        assert tracker.get("entered"), "upsert_global_streak вызван ВНЕ транзакции — claim не защищён"
-        assert not tracker.get("committed") and not tracker.get("rolled_back"), \
-            "транзакция уже закрыта до вызова upsert_global_streak"
-        return True
-    streak_mw.streak_repo.upsert_global_streak = fake_upsert
+    middleware_source = pathlib.Path("bot/middlewares/streak_mw.py").read_text(encoding="utf-8")
+    handler_source = pathlib.Path("bot/handlers/streak.py").read_text(encoding="utf-8")
+    forbidden = ("add_balance", "spend_balance", "spin_token", "UPDATE users")
+    for marker in forbidden:
+        assert marker not in middleware_source, f"middleware contains retired writer: {marker}"
+        assert marker not in handler_source, f"handler contains retired writer: {marker}"
 
-    async def fake_add_balance(*a, **kw):
-        # Симулируем ровно сценарий из аудита: обрыв БД МЕЖДУ claim и наградой.
-        raise Exception("DB TimeoutError (симуляция обрыва между claim и наградой)")
-    streak_mw.eco_repo.add_balance = fake_add_balance
+    ui_source = pathlib.Path("FastAPI/static/app.02.js").read_text(encoding="utf-8")
+    for stale_copy in ("Следующая награда", "бот стрик восстановить", "Алмазы из стрика"):
+        assert stale_copy not in ui_source, f"UI still promises retired streak reward: {stale_copy}"
+    assert "число сообщений не усиливает награду" in ui_source
+    assert "сохранённый рекорд старой системы" in ui_source
 
-    await streak_mw.streak_middleware(handler, FakeEvent(), data)
-
-    assert tracker.get("rolled_back"), \
-        "FAIL (П1 не пофикшен): транзакция НЕ откатилась при сбое add_balance — день остался бы claimed без награды"
-    assert not tracker.get("committed"), "FAIL: транзакция закоммитилась несмотря на исключение внутри"
-    assert handler_calls, "FAIL: handler() не был вызван — сбой не должен ронять обработку сообщения"
-
-    print("OK: сбой add_balance после claim откатывает ВСЮ транзакцию (claim тоже), "
-          "handler всё равно вызван — игрок получит награду со следующего сообщения, "
-          "а не потеряет день навсегда")
+    print("OK: legacy streak is read-only; messages cannot mint currency or sell recovery")
 
 
 asyncio.run(main())

@@ -8,14 +8,74 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const STATIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'FastAPI', 'static');
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const UNKNOWN_LOG = path.join(HERE, 'unknown-api.log');
 const PORT = Number(process.env.PORT) || 8402;
+const RECON_PREVIEW_PORT = Number(process.env.RECON_PREVIEW_PORT) || 8403;
 const liveReloadClients = new Set();
 let liveReloadTimer = null;
+let reconstructionApi = null;
+let reconstructionRestartTimer = null;
+let reconstructionRestartRequested = false;
+let shuttingDown = false;
+
+// Dev-only bridge: the browser lab talks to the real Python combat engine.
+// It is deliberately not part of the production FastAPI process.
+const RECONSTRUCTION_WATCH_FILES = [
+  path.join(HERE, 'reconstruction_preview_api.py'),
+  path.join(HERE, '..', 'core', 'reconstruction.py'),
+  path.join(HERE, '..', 'core', 'companions_v3.py'),
+  path.join(HERE, '..', 'core', 'reconstruction_progression.py'),
+  path.join(HERE, '..', 'services', 'reconstruction.py'),
+  path.join(HERE, '..', 'services', 'companions_v3.py'),
+  path.join(HERE, '..', 'services', 'reconstruction_combat.py'),
+  path.join(HERE, '..', 'services', 'reconstruction_integrity.py'),
+  path.join(HERE, '..', 'services', 'reconstruction_timing.py'),
+];
+
+function startReconstructionApi() {
+  if (shuttingDown || reconstructionApi) return;
+  const child = spawn('python3', [path.join(HERE, 'reconstruction_preview_api.py')], {
+    cwd: path.join(HERE, '..'),
+    env: { ...process.env, RECON_PREVIEW_PORT: String(RECON_PREVIEW_PORT) },
+    stdio: ['ignore', 'inherit', 'inherit'],
+  });
+  reconstructionApi = child;
+  child.on('exit', (code, signal) => {
+    if (reconstructionApi === child) reconstructionApi = null;
+    if (shuttingDown) return;
+    if (code && code !== 0) {
+      console.error(`reconstruction preview api exited with code ${code}${signal ? ` (${signal})` : ''}`);
+    }
+    const requested = reconstructionRestartRequested;
+    reconstructionRestartRequested = false;
+    setTimeout(() => {
+      startReconstructionApi();
+      if (requested) scheduleLiveReload('reconstruction-engine');
+    }, requested ? 80 : 500).unref();
+  });
+}
+
+function scheduleReconstructionRestart(changedPath = 'reconstruction-engine') {
+  clearTimeout(reconstructionRestartTimer);
+  reconstructionRestartTimer = setTimeout(() => {
+    if (shuttingDown) return;
+    reconstructionRestartRequested = true;
+    if (reconstructionApi && reconstructionApi.exitCode === null) {
+      reconstructionApi.kill('SIGTERM');
+      return;
+    }
+    reconstructionRestartRequested = false;
+    startReconstructionApi();
+    scheduleLiveReload(changedPath);
+  }, 180);
+}
+
+startReconstructionApi();
 
 const read = (n) => fs.readFileSync(path.join(STATIC, n), 'utf8');
 const PARTS = Array.from({ length: 11 }, (_, i) => `app.${String(i + 1).padStart(2, '0')}.js`);
@@ -27,7 +87,7 @@ function indexHtml() {
     .replaceAll('{{BOT_USERNAME}}', 'devbot');
   // Сессия до загрузки app.js → логин-оверлей не появляется; сборщик ошибок для скриншот-прогона.
   h = h.replace('<body>', `<body>\n<script>
-try{localStorage.setItem('pv_sess','dev-session');}catch(e){}
+try{if(!localStorage.getItem('pv_sess'))localStorage.setItem('pv_sess','dev-session');}catch(e){}
 window.__errs=[];
 window.addEventListener('error',e=>window.__errs.push(String(e.message)));
 window.addEventListener('unhandledrejection',e=>window.__errs.push('rej: '+String(e.reason)));
@@ -46,6 +106,22 @@ window.addEventListener('unhandledrejection',e=>window.__errs.push('rej: '+Strin
   return h;
 }
 
+function reconstructionGameHtml() {
+  const assetVersion = String(Date.now());
+  return read('reconstruction-lab.html')
+    .replace('data-runtime="preview"', 'data-runtime="production"')
+    .replace('data-api-base="/__reconstruction"', 'data-api-base=""')
+    .replace('href="/static/reconstruction-lab.css"', `href="/static/reconstruction-lab.css?v=${assetVersion}"`)
+    .replace('src="/static/reconstruction-lab.js"', `src="/static/reconstruction-lab.js?v=${assetVersion}"`)
+    // Production uses the authenticated Mini App session.  This local-only
+    // bootstrap creates an equivalent opaque dev session before the deferred
+    // production script runs; the browser still calls only /reconstruction.
+    .replace(
+      '<body data-runtime="production" data-api-base="" data-app-base="">',
+      '<body data-runtime="production" data-api-base="" data-app-base=""><script>try{const saved=localStorage.getItem(\'pv_sess\');if(!saved||saved===\'dev-session\'){const id=globalThis.crypto?.randomUUID?.()||`${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;localStorage.setItem(\'pv_sess\',\'preview-reconstruction-\'+id);}}catch(_){}</script>',
+    );
+}
+
 // ── Мок-данные ────────────────────────────────────────────────────────────────
 const PROFILE = {
   user_id: 1460945748,
@@ -54,8 +130,8 @@ const PROFILE = {
   mora: 125430, diamonds: 42.5, dark_mora: 340, zarniki: 1250,
   streak: 17, achievements: 23,
   account_level: 27, account_xp: 48210, xp_into: 1210, xp_to_next: 3400, xp_per_level: 3400,
-  combat_power: 15680,
-  cp_breakdown: { total: 15680, level_part: 2700, squad_units: 9200, reserve_units: 1400, pet_collection: 680, cosmetics_set: 800, relics: 900 },
+  combat_power: null,
+  cp_breakdown: null,
   chats: [
     { chat_tg_id: -100111, chat_title: 'Предвестники Ночи', user_level: 31, user_xp: 15400, user_messages_count_all_time: 15873, local_rank: 2 },
     { chat_tg_id: -100222, chat_title: 'Тайный Орден', user_level: 12, user_xp: 2100, user_messages_count_all_time: 3421, local_rank: 7 },
@@ -78,31 +154,11 @@ const PROFILE = {
   ],
 };
 
-// Боёвка 4.0: реальное public_state, снятое с движка (services/battle3.public_state,
-// floor 3, 3 союзника ур.8 vs 3 врага). Намерения врага выставлены наглядно
-// (враг0 атакует союзника0, враг1 в защите, враг2 — AoE) для проверки подсветок.
-const B4_STATE_ENTER = {"battle_id": 1, "status": "active", "mode": "gates", "round": 1, "grid": [[0, 0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0], [0, 3, 3, 0, 2, 0, 0], [0, 0, 0, 0, 0, 0, 0], [2, 1, 1, 2, 0, 1, 0]], "ally": {"units": [{"name": "Саламандра-Головня", "emoji": "🦎", "element": "fire", "element_emoji": "🔥", "role": "dd", "pos": {"x": 0, "y": 2}, "hp": 258, "hp_max": 258, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": [], "uid": "u_salamandra", "atk": 55, "level": 8, "ap": 5, "ap_max": 5, "range": 2, "skill_cd": 0, "skill_name": "Поджог", "skill_desc": "Удар 90% + горение 3 раунда (25% атаки/раунд)", "ult_name": "Извержение", "ult_desc": "130% урона ВСЕМ врагам + поджог всех"}, {"name": "Вепрь Пепелища", "emoji": "🐗", "element": "fire", "element_emoji": "🔥", "role": "tank", "pos": {"x": 1, "y": 1}, "hp": 646, "hp_max": 646, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": [], "uid": "u_vepr", "atk": 40, "level": 8, "ap": 4, "ap_max": 4, "range": 1, "skill_cd": 0, "skill_name": "Раскалённый панцирь", "skill_desc": "Щит себе 25% HP + отражение 30% урона на раунд", "ult_name": "Стена пламени", "ult_desc": "Щит отряду 20% HP + отражение 35% на раунд"}, {"name": "Феникс-Недоросль", "emoji": "🦅", "element": "fire", "element_emoji": "🔥", "role": "support", "pos": {"x": 0, "y": 3}, "hp": 596, "hp_max": 596, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": [], "uid": "u_phoenix", "atk": 66, "level": 8, "ap": 6, "ap_max": 6, "range": 2, "skill_cd": 0, "skill_name": "Тёплое крыло", "skill_desc": "Лечит самого раненого союзника на 25% его HP", "ult_name": "Возрождение", "ult_desc": "Воскрешает павшего с 30% HP (1/бой); если все живы — лечит отряд на 25%"}], "rage": 0, "synergy": {"desc": "+8% урон отряда", "dmg_out": 0.08, "element": "fire"}, "triad_available": false}, "enemy": {"units": [{"name": "Шёпот Тьмы", "emoji": "🌫", "element": "dark", "element_emoji": "🌑", "role": "support", "pos": {"x": 6, "y": 2}, "hp": 238, "hp_max": 238, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": []}, {"name": "Голем Мглы", "emoji": "🪨", "element": "ice", "element_emoji": "❄️", "role": "tank", "pos": {"x": 5, "y": 1}, "hp": 325, "hp_max": 325, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": []}, {"name": "Тень Бездны", "emoji": "👁", "element": "fire", "element_emoji": "🔥", "role": "dd", "pos": {"x": 6, "y": 3}, "hp": 195, "hp_max": 195, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": []}], "rage": 0, "intents": [{"i": 0, "kind": "atk", "target": 0}, {"i": 1, "kind": "defend"}, {"i": 2, "kind": "aoe"}]}, "pending": null, "qte": null, "escalation": 0.0, "log": [], "rage_max": 100, "ap_costs": {"move": 1, "attack": 2, "skill": 3, "defend": 1}};
-// Ответ на действие: тот же бой, но союзник0 сдвинут (x0→x2) и потратил 1 AP,
-// +ярость — чтобы клик по клетке был визуально заметен (точность не важна, это мок).
-// Онбординг боя: снято с services/battle3.tutorial_squad()/tutorial_enemy_squad()
-// (mode:"tutorial", tutorial:true) — для визуальной проверки коуч-пузыря на реальной вёрстке.
-const B4_STATE_TUTORIAL = {"battle_id": 2, "status": "active", "mode": "tutorial", "tutorial": true, "round": 1,
-  "grid": [[0,0,0,1,0,0,0],[0,0,0,1,0,0,0],[0,3,3,0,2,0,0],[0,0,0,0,0,0,0],[2,1,1,2,0,1,0]],
-  "ally": {"units": [
-    {"name":"Саламандра-Головня","emoji":"🦎","element":"fire","element_emoji":"🔥","role":"dd","pos":{"x":0,"y":2},"hp":140,"hp_max":140,"shield":0,"alive":true,"boss":false,"defending":false,"fx":[],"uid":"u_salamandra","atk":30,"level":1,"ap":5,"ap_max":5,"range":2,"skill_cd":0,"skill_name":"Поджог","skill_desc":"Удар 90% + горение 3 раунда","ult_name":"Извержение","ult_desc":"130% урона ВСЕМ врагам"},
-    {"name":"Ледяной Голем","emoji":"🧊","element":"ice","element_emoji":"❄️","role":"tank","pos":{"x":1,"y":1},"hp":260,"hp_max":260,"shield":0,"alive":true,"boss":false,"defending":false,"fx":[],"uid":"u_ice_golem","atk":16,"level":1,"ap":4,"ap_max":4,"range":1,"skill_cd":0,"skill_name":"Мёрзлый таунт","skill_desc":"Перехватывает атаки","ult_name":"Абсолютный ноль","ult_desc":"Враг пропускает фазу"},
-  ], "rage": 40, "synergy": {}, "triad_available": false},
-  "enemy": {"units": [
-    {"name":"Теневой Мальк","emoji":"👻","element":"dark","element_emoji":"🌑","role":"dd","pos":{"x":6,"y":2},"hp":40,"hp_max":40,"shield":0,"alive":true,"boss":false,"defending":false,"fx":[]},
-    {"name":"Каменный Чурбан","emoji":"🗿","element":"earth","element_emoji":"🗿","role":"tank","pos":{"x":5,"y":1},"hp":60,"hp_max":60,"shield":0,"alive":true,"boss":false,"defending":false,"fx":[]},
-  ], "rage": 0, "intents": [{"i":0,"kind":"atk","target":0},{"i":1,"kind":"defend"}]},
-  "pending": null, "qte": null, "escalation": 0.0, "log": ["🎓 Первый бой начался"], "rage_max": 100,
-  "ap_costs": {"move": 1, "attack": 2, "skill": 3, "defend": 1}};
-const B4_STATE_ACTION = {"battle_id": 1, "status": "active", "mode": "gates", "round": 1, "grid": [[0, 0, 0, 1, 0, 0, 0], [0, 0, 0, 1, 0, 0, 0], [0, 3, 3, 0, 2, 0, 0], [0, 0, 0, 0, 0, 0, 0], [2, 1, 1, 2, 0, 1, 0]], "ally": {"units": [{"name": "Саламандра-Головня", "emoji": "🦎", "element": "fire", "element_emoji": "🔥", "role": "dd", "pos": {"x": 2, "y": 2}, "hp": 258, "hp_max": 258, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": [], "uid": "u_salamandra", "atk": 55, "level": 8, "ap": 4, "ap_max": 5, "range": 2, "skill_cd": 0, "skill_name": "Поджог", "skill_desc": "Удар 90% + горение 3 раунда (25% атаки/раунд)", "ult_name": "Извержение", "ult_desc": "130% урона ВСЕМ врагам + поджог всех"}, {"name": "Вепрь Пепелища", "emoji": "🐗", "element": "fire", "element_emoji": "🔥", "role": "tank", "pos": {"x": 1, "y": 1}, "hp": 646, "hp_max": 646, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": [], "uid": "u_vepr", "atk": 40, "level": 8, "ap": 4, "ap_max": 4, "range": 1, "skill_cd": 0, "skill_name": "Раскалённый панцирь", "skill_desc": "Щит себе 25% HP + отражение 30% урона на раунд", "ult_name": "Стена пламени", "ult_desc": "Щит отряду 20% HP + отражение 35% на раунд"}, {"name": "Феникс-Недоросль", "emoji": "🦅", "element": "fire", "element_emoji": "🔥", "role": "support", "pos": {"x": 0, "y": 3}, "hp": 596, "hp_max": 596, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": [], "uid": "u_phoenix", "atk": 66, "level": 8, "ap": 6, "ap_max": 6, "range": 2, "skill_cd": 0, "skill_name": "Тёплое крыло", "skill_desc": "Лечит самого раненого союзника на 25% его HP", "ult_name": "Возрождение", "ult_desc": "Воскрешает павшего с 30% HP (1/бой); если все живы — лечит отряд на 25%"}], "rage": 40, "synergy": {"desc": "+8% урон отряда", "dmg_out": 0.08, "element": "fire"}, "triad_available": false}, "enemy": {"units": [{"name": "Шёпот Тьмы", "emoji": "🌫", "element": "dark", "element_emoji": "🌑", "role": "support", "pos": {"x": 6, "y": 2}, "hp": 238, "hp_max": 238, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": []}, {"name": "Голем Мглы", "emoji": "🪨", "element": "ice", "element_emoji": "❄️", "role": "tank", "pos": {"x": 5, "y": 1}, "hp": 325, "hp_max": 325, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": []}, {"name": "Тень Бездны", "emoji": "👁", "element": "fire", "element_emoji": "🔥", "role": "dd", "pos": {"x": 6, "y": 3}, "hp": 195, "hp_max": 195, "shield": 0, "alive": true, "boss": false, "defending": false, "fx": []}], "rage": 0, "intents": [{"i": 0, "kind": "atk", "target": 0}, {"i": 1, "kind": "defend"}, {"i": 2, "kind": "aoe"}]}, "pending": null, "qte": null, "escalation": 0.0, "log": ["🦎 Саламандра-Головня переместилась."], "rage_max": 100, "ap_costs": {"move": 1, "attack": 2, "skill": 3, "defend": 1}};
 
 // Ключ: "METHOD /path". Значение: объект | функция(url)→объект | [status, объект].
 const MOCKS = {
   'GET /profile/me': PROFILE,
+  'GET /api/health': { status: 'ok' },
   'POST /profile/whatsnew-seen': { ok: true },
   'POST /analytics/tab': { ok: true },
   'POST /analytics/tab-duration': { ok: true },
@@ -191,12 +247,10 @@ const MOCKS = {
 
   // ── Гача ──
   'GET /gacha/': {
-    mora: 125430, diamonds: 42.5,
-    spin_types: [
-      { spin_type: 'mora', label: 'Крутка за Мору', cost_mora: 500, cost_dia: 0, token_qty: 3, rates: { common: 62, uncommon: 20, rare: 11, epic: 5, legendary: 1.8, mythic: 0.2 }, pity: 23, pity_hard: 60, multi_cost_mora: 4500, multi_cost_dia: 0 },
-      { spin_type: 'diamond', label: 'Крутка за Алмазы', cost_mora: 0, cost_dia: 1, token_qty: 0, rates: { rare: 55, epic: 30, legendary: 12, mythic: 3 }, pity: 4, pity_hard: 30, multi_cost_mora: 0, multi_cost_dia: 9 },
-    ],
-    multi_count: 10, multi_discount_pct: 10,
+    retired: true, archive_pending: true, mora: 125430, diamonds: 42.5,
+    spin_types: [], saved_tokens: 7,
+    saved_pity: [{type:'mora',count:23},{type:'diamond',count:4}],
+    message: 'Крутки больше не продают силу и валюту. Жетоны и накопленный гарант сохранены для прозрачного разбора в Архиве.',
   },
 
   // ── Аукцион ──
@@ -207,14 +261,16 @@ const MOCKS = {
       { id: 13, seller_id: 4, item_name: 'Осколки юнита||unit_shards', quantity: 10, min_bid: 3000, buyout: 12000, ends_at: '2026-07-15 09:00:00', status: 'active', remaining_sec: 86000, current_bid: 4500, bid_count: 7, seller_name: 'night_raven', seller_is_vip: false, item_rarity: 'rare', has_bids: true, min_next_bid: 4726, item_name_display: 'Осколки юнита', item_id_ref: 'unit_shards', item_description: 'Для призыва и прокачки юнитов Казармы.', item_category: 'боёвка' },
     ],
     total: 3, page: 0, per_page: 20, has_more: false, min_bid_floor: 100,
+    market_open: false,
+    market_message: 'Новые лоты и ставки закрыты до проверки происхождения товаров. Активные обязательства можно просмотреть или снять.',
   },
 
   // ── Боевой пропуск ──
   'GET /battle_pass/status': {
-    active: true, season_label: 'Сезон 4 «Кровавая Луна»', frozen: false,
+    active: true, retired: true, retired_message: 'Прогресс и покупка уровней закрыты. Уже заработанные награды можно забрать.', season_label: 'Сезон 4 «Кровавая Луна»', frozen: true,
     level: 12, max_level: 30, xp: 6100, xp_in_level: 340, xp_per_level: 500, xp_to_next: 160,
     season_starts: '2026-07-01', season_ends: '2026-07-31',
-    weekend_boost: { active: false, pct: 25 }, paid_track_open: true, buy_next: { level: 13, price: 3 },
+    weekend_boost: { active: false, pct: 0 }, paid_track_open: true, buy_next: null,
     rewards: [
       { level: 11, free: { mora: 800, status: 'claimed' }, paid: { diamonds: 1, status: 'claimed' } },
       { level: 12, free: { mora: 1000, status: 'available' }, paid: { items: [{ item_id: 'cos_glow_ruby', name: 'Рубиновое сияние', qty: 1, is_cosmetic: true, slot: 'name_glow', rarity: 'epic' }], status: 'available' } },
@@ -225,17 +281,8 @@ const MOCKS = {
 
   // ── Квесты / Ачивки / Топ ──
   'GET /quests/-100111': {
-    quests: [
-      { id: 'msg_15', progress: 15, target: 15, completed: true, reward: { mora: 150 } },
-      { id: 'feed_pet', progress: 0, target: 1, completed: false, reward: { mora: 100 } },
-      { id: 'gacha_3', progress: 1, target: 3, completed: false, reward: { mora: 250 } },
-    ],
-    bonus: { claimed: false, reward: { mora: 500 } },
-    weekly: [
-      { id: 'exped_4', progress: 2, target: 4, completed: false, reward: { mora: 900, diamonds: 1 } },
-      { id: 'hug_5', progress: 5, target: 5, completed: true, reward: { mora: 600 } },
-    ],
-    weekly_bonus: { claimed: false, reward: { diamonds: 2 } },
+    retired: true, message: 'Старые задания закрыты. Сохранённый прогресс показан только для истории.',
+    quests: [], bonus: {retired:true}, weekly: [], weekly_bonus: {retired:true},
   },
   'GET /achievements/': [
     { id: 'messages', icon: '💬', name: 'Голос чата', level: 3, max_level: 10, progress: 15873, next_threshold: 25000, pct: 63, completed: false, next_reward: { mora: 2000 } },
@@ -522,8 +569,12 @@ const MOCKS = {
 
   // ── Обменник и биржа ──
   'GET /exchange/': {
-    mora: 125430, diamonds: 42.5, rate: 1200, sell_rate: 950,
-    remaining: 8, daily_cap: 10, sell_remaining: 10, sell_daily_cap: 10,
+    active: false, policy_version: 'owner-v3-provisional-1',
+    mora: 125430, diamonds: 42.5,
+    title: 'У валют разные задачи',
+    mora_rule: 'Мора оплачивает подготовку, торговлю и проекты.',
+    diamonds_rule: 'Алмазы выдаются за испытания и сезонные рубежи.',
+    blocked_rule: 'Покупка и продажа Алмазов за Мору отключены.',
   },
   'GET /exchange/crypto': {
     coins: [
@@ -537,73 +588,41 @@ const MOCKS = {
 
   // ── Премиум-хаб ──
   'GET /payments/zarniki/packages': {
-    per_star: 2,
+    per_star: 10,
     packages: [
-      { stars: 50, zarniki: 100, bonus: 0, total: 100, popular: false },
-      { stars: 250, zarniki: 500, bonus: 50, total: 550, popular: true },
-      { stars: 500, zarniki: 1000, bonus: 150, total: 1150, popular: false },
+      { stars: 20, zarniki: 200, bonus: 15, total: 215, popular: false },
+      { stars: 50, zarniki: 500, bonus: 50, total: 550, popular: false },
+      { stars: 100, zarniki: 1000, bonus: 100, total: 1100, popular: true },
+      { stars: 200, zarniki: 2000, bonus: 200, total: 2200, popular: false },
+      { stars: 300, zarniki: 3000, bonus: 300, total: 3300, popular: false },
+      { stars: 400, zarniki: 4000, bonus: 400, total: 4400, popular: false },
     ],
-    custom_min: 1, custom_max: 10000,
+    custom_min: 1, custom_max: 100000,
   },
   'GET /vip/status': {
-    active: true, tier: 'gold', tier_label: '👑 VIP Gold', expires_at: '2026-08-02T00:00:00',
+    active: true, tier: '1m', tier_label: 'VIP-1М', expires_at: '2026-09-22T00:00:00',
     days_left: 20, seniority_days: 96, seniority_months: 3,
-    perks: ['🎨 Эксклюзивная косметика', '🐾 +1 слот питомника', '📸 Аватарка из Telegram', '⚡ Приоритет в очереди боёв'],
+    perks: ['👑 Оформление имени и профиля', '🎨 Дополнительные образы', '📊 Расширенная личная история', '🤖 Больше вопросов ИИ'],
     tiers: [
-      { tier: 'silver', label: 'VIP Silver', tagline: 'Попробовать VIP', price_zarniki: 250, base_price_zarniki: 250, savings_zarniki: 0, duration_days: 30, gift_mora: 5000, gift_diamonds: 0, gift_items: [{ qty: 1, name: '🎟 Жетон крутки' }], weekly: [{ qty: 2, name: '🍖 Мясо' }], extra_slots: 0 },
-      { tier: 'gold', label: 'VIP Gold', tagline: 'Максимум мистики', price_zarniki: 440, base_price_zarniki: 500, savings_zarniki: 60, duration_days: 30, gift_mora: 15000, gift_diamonds: 3, gift_items: [{ qty: 3, name: '🎟 Жетон крутки' }], weekly: [{ qty: 5, name: '🍖 Мясо' }, { qty: 1, name: '🍀 Зелье удачи' }], extra_slots: 1 },
+      { tier: '1m', label: 'VIP-1М', tagline: 'Все сервисные возможности на 30 дней', price_zarniki: 150, base_price_zarniki: 200, savings_zarniki: 50, duration_days: 30, service_only: true },
+      { tier: '2m', label: 'VIP-2М', tagline: 'Тот же сервис на более выгодный срок', price_zarniki: 250, base_price_zarniki: 400, savings_zarniki: 150, duration_days: 60, service_only: true },
     ],
   },
 
   // ── Магазин расходников ──
   'GET /shop/': {
-    mora: 125430, diamonds: 42.5, zarniki: 1250,
-    items: [
-      { item_id: 'food_apple', name: '🍎 Яблоко', category: 'food', price_mora: 300, description: 'Восстанавливает 20 усталости.' },
-      { item_id: 'food_meat', name: '🍖 Мясо', category: 'food', price_mora: 650, description: 'Восстанавливает 50 усталости.', discount_active: true },
-      { item_id: 'exp_boost_2h', name: '⏩ Ускоритель похода (2ч)', category: 'utility', price_mora: 900, description: 'Сокращает поход на 2 часа.' },
-      { item_id: 'gacha_luck', name: '🍀 Зелье удачи', category: 'booster', price_diamonds: 2, description: '+15% к шансу редкости на следующей крутке.' },
-      { item_id: 'vip_30', name: '👑 VIP на 30 дней', category: 'donate', price_zarniki: 440, description: 'Все привилегии VIP на месяц.' },
-    ],
+    active: false, mora: 125430, diamonds: 42.5, zarniki: 1250, items: [],
+    message: 'Мастерская обновляется: старые расходники больше не продаются, потому что их механики закрыты. Баланс не списывается.',
   },
 
-  // ── Врата (Боёвка 3.0) ──
-  'GET /combat2/gates': {
-    active_battle: null, cp: 15680, squad_cp: 6800, entries_left: 2,
-    // Онбординг боя: false → кнопка «▶ Первый бой» в шапке Врат (см. app.11.js::loadGates).
-    tutorial_done: false,
-    squad: [
-      { emoji: '🔥', name: 'Рыцарь Пепла', level: 6 },
-      { emoji: '🌊', name: 'Дева Прилива', level: 4 },
-      { emoji: '⛰️', name: 'Страж Скалы', level: 3 },
-    ],
-    loot: { shard_chance_pct: 20, shard_range: [1, 3], unit_shard_chance_pct: 35, unit_shard_range: [1, 2] },
-    floors: [
-      { floor: 1, enemies: 3, reward_dark: 40, open: true, cp_gate: 0 },
-      { floor: 2, enemies: 3, reward_dark: 70, open: true, cp_gate: 4000 },
-      { floor: 3, enemies: 4, reward_dark: 110, open: true, cp_gate: 9000 },
-      { floor: 4, enemies: 4, reward_dark: 160, open: false, cp_gate: 22000 },
-      { floor: 5, enemies: 5, reward_dark: 220, open: false, cp_gate: 30000, unit_shards: true },
-      { floor: 6, enemies: 5, reward_dark: 300, open: false, cp_gate: 40000, unit_shards: true },
-    ],
-  },
-  // Боёвка 4.0: вход в бой → клеточная арена; действие → обновлённый public_state.
-  'POST /combat2/gates/enter': B4_STATE_ENTER,
-  'POST /combat2/battle/action': B4_STATE_ACTION,
-  // Онбординг боя: «Первый бой» — тот же движок, мини-отряд 2v2, tutorial:true.
-  'POST /combat2/tutorial/start': B4_STATE_TUTORIAL,
 
   // ── События ──
-  'GET /events/': { exchange_active: false, events: [] },
+  'GET /events/': { retired: true, exchange_retired: true, daily_deals: [], gacha_types: [], message: 'Старые случайные события закрыты.' },
 
   // ── Акции дня + витрина недели ──
   'GET /daily-deal/': {
-    refreshes_at: '2026-07-14 00:00:00', mora: 125430, diamonds: 42.5,
-    deals: [
-      { slot: 0, item_name: '🍖 Мясо', item_description: 'Восстанавливает 50 усталости.', quantity: 3, price_mora: 1400, price_diamonds: 0, purchased: false },
-      { slot: 1, item_name: '🍀 Зелье удачи', item_description: '+15% к шансу редкости на крутке.', quantity: 1, price_diamonds: 1.5, price_mora: 0, purchased: false },
-      { slot: 2, item_name: '🎟 Жетон крутки', item_description: 'Бесплатная крутка Гачи.', quantity: 1, price_mora: 400, price_diamonds: 0, purchased: true },
-    ],
+    active: false, refreshes_at: '2026-08-24T00:00:00Z', mora: 125430, diamonds: 42.5, deals: [],
+    message: 'Случайная акция закрыта. Следующая витрина покажет точный товар и цену без скрытой ротации.',
   },
   'GET /showcase/': {
     week: 'W2026-30', rotates_in_sec: 3 * 86400 + 5 * 3600,
@@ -668,6 +687,7 @@ const MOCKS = {
         { id: 'cos_name_glow_ryujin_foam', name: 'Пена драконьей волны', lineup: 'ryujin_tide', rarity: 'artifact', css: 'glow-ryujin-foam', owned: false, price: [{ zarniki: 1500 }], vip_required: true },
       ],
       avatar_frame: [
+        { id: 'cos_avatar_frame_oak', name: 'Дубовая оправа', lineup: 'forest', rarity: 'common', css: 'frame-oak', owned: true, equipped: false, price: [{ zarniki: 240 }] },
         { id: 'cos_avatar_frame_abyss', name: 'Оправа Бездны', lineup: 'threshold', rarity: 'rare', css: 'frame-abyss', owned: false, price: [{ zarniki: 440 }], desc: 'Рамка из застывшей Тёмной Моры. Отображается при активной VIP.' },
         { id: 'cos_avatar_frame_inferno', name: 'Инферно', lineup: 'inferno', rarity: 'epic', css: 'frame-inferno', owned: false, price: [{ zarniki: 630 }], desc: 'Живое пламя лижет края аватара.' },
         { id: 'cos_avatar_frame_crystal', name: 'Кристальная грань', lineup: 'frost', rarity: 'rare', css: 'frame-crystal', owned: false, price: [{ zarniki: 420 }], desc: 'Чёткая ледяная кромка с ребристым блеском.' },
@@ -699,6 +719,7 @@ const MOCKS = {
         { id: 'cos_title_ryujin_heir', name: 'Наследник Рюдзина', lineup: 'ryujin_tide', rarity: 'artifact', css: 'title-ryujin-heir', text: 'Наследник Рюдзина', owned: false, price: [{ zarniki: 1500 }], vip_required: true },
       ],
       profile_bg: [
+        { id: 'cos_profile_bg_forest', name: 'Изумрудный лес', lineup: 'forest', rarity: 'common', css: 'pbg-forest', owned: true, equipped: true, price: [{ zarniki: 310 }] },
         { id: 'cos_profile_bg_snowpeak', name: 'Снежная вершина', lineup: 'frost', rarity: 'rare', css: 'pbg-snowpeak', owned: false, price: [{ zarniki: 550 }], desc: 'Заснеженная горная вершина в морозной дымке.' },
         { id: 'cos_profile_bg_starfall', name: 'Звездопад Богов', lineup: 'void', rarity: 'mythic', css: 'pbg-starfall', owned: false, price: [{ zarniki: 1000 }], desc: 'Глубокий космос с падающими звёздами.' },
         { id: 'cos_profile_bg_hanami_washi', name: 'Сад на васи', lineup: 'hanami', rarity: 'epic', css: 'pbg-hanami-washi', owned: false, price: [{ zarniki: 630 }] },
@@ -730,17 +751,20 @@ const MOCKS = {
       { id: 'nova', name: 'Вспышка', rarity: 'epic', locked: true, vip_required: true, current: false, desc: 'Премиум-приветствие' },
     ] },
   },
-  'GET /cosmetics/presets': { presets: [{ id: 1, name: 'Золотой образ' }] },
+  'GET /cosmetics/presets': { presets: [{ id: 1, name: 'Золотой образ', loadout: {
+    name_glow: 'cos_name_glow_moon', avatar_frame: 'cos_avatar_frame_oak',
+    title: 'cos_title_dawnchild', profile_bg: 'cos_profile_bg_forest',
+  } }] },
   'GET /cosmetics/gift/catalog': (u) => ({
     recipient_id: Number(u.searchParams.get('recipient_id')) || 999,
     items: [
-      { id: 'cos_title_frostchild', name: 'Дитя Стужи', slot: 'title', rarity: 'rare', css: 'title-frostchild', text: 'Дитя Стужи', zarniki: 310, owned: false },
-      { id: 'cos_avatar_halo_ice', name: 'Ледяной сполох', slot: 'avatar_halo', rarity: 'rare', css: 'halo-ice', text: null, zarniki: 370, owned: false },
-      { id: 'cos_avatar_frame_crystal', name: 'Кристальная грань', slot: 'avatar_frame', rarity: 'rare', css: 'frame-crystal', text: null, zarniki: 420, owned: false },
-      { id: 'cos_name_glow_frost', name: 'Ледяная вязь', slot: 'name_glow', rarity: 'rare', css: 'glow-frost', text: null, zarniki: 440, owned: false },
-      { id: 'cos_avatar_frame_inferno', name: 'Инферно', slot: 'avatar_frame', rarity: 'epic', css: 'frame-inferno', text: null, zarniki: 630, owned: false },
-      { id: 'cos_avatar_halo_void', name: 'Кольцо Бездны', slot: 'avatar_halo', rarity: 'mythic', css: 'halo-void', text: null, zarniki: 1000, owned: false },
-      { id: 'cos_name_glow_moon', name: 'Лунный свет', slot: 'name_glow', rarity: 'common', css: 'glow-moon', text: null, zarniki: 250, owned: true },
+      { id: 'cos_title_frostchild', name: 'Дитя Стужи', slot: 'title', rarity: 'rare', css: 'title-frostchild', text: 'Дитя Стужи', zarniki: previewCosmeticPrice('cos_title_frostchild',310), owned: false },
+      { id: 'cos_avatar_halo_ice', name: 'Ледяной сполох', slot: 'avatar_halo', rarity: 'rare', css: 'halo-ice', text: null, zarniki: previewCosmeticPrice('cos_avatar_halo_ice',370), owned: false },
+      { id: 'cos_avatar_frame_crystal', name: 'Кристальная грань', slot: 'avatar_frame', rarity: 'rare', css: 'frame-crystal', text: null, zarniki: previewCosmeticPrice('cos_avatar_frame_crystal',420), owned: false },
+      { id: 'cos_name_glow_frost', name: 'Ледяная вязь', slot: 'name_glow', rarity: 'rare', css: 'glow-frost', text: null, zarniki: previewCosmeticPrice('cos_name_glow_frost',440), owned: false },
+      { id: 'cos_avatar_frame_inferno', name: 'Инферно', slot: 'avatar_frame', rarity: 'epic', css: 'frame-inferno', text: null, zarniki: previewCosmeticPrice('cos_avatar_frame_inferno',600), owned: false },
+      { id: 'cos_avatar_halo_void', name: 'Кольцо Бездны', slot: 'avatar_halo', rarity: 'mythic', css: 'halo-void', text: null, zarniki: previewCosmeticPrice('cos_avatar_halo_void',850), owned: false },
+      { id: 'cos_name_glow_moon', name: 'Лунный свет', slot: 'name_glow', rarity: 'common', css: 'glow-moon', text: null, zarniki: previewCosmeticPrice('cos_name_glow_moon',250), owned: true },
     ],
   }),
   'POST /cosmetics/gift': { ok: true, message: '🎁 Подарок отправлен! −310✨' },
@@ -804,10 +828,124 @@ const PREVIEW_THEME_SNAPSHOT = JSON.stringify(MOCKS['GET /themes/']);
 const PREVIEW_BALANCE_SNAPSHOT = {
   mora: PROFILE.mora, diamonds: PROFILE.diamonds, dark_mora: PROFILE.dark_mora, zarniki: PROFILE.zarniki,
 };
+const PREVIEW_THEME_PURCHASES = new Map();
+const PREVIEW_WEARABLE_COSMETIC_SLOTS = new Set([
+  'name_glow', 'avatar_frame', 'avatar_halo', 'title', 'profile_bg', 'card_fx',
+]);
+
+// Production pricing proposal approved by the owner: the collection defines
+// its segment, while the actual item price follows the visual weight of slot.
+// Keep this fixture matrix byte-for-byte aligned with core/cosmetics.py; the
+// server-side contract test guards the authoritative Python registry.
+const PREVIEW_COSMETIC_SLOT_PRICES = {
+  250:  {title:180,avatar_halo:210,avatar_frame:240,name_glow:250,profile_bg:310,card_fx:340},
+  440:  {title:310,avatar_halo:370,avatar_frame:420,name_glow:440,profile_bg:550,card_fx:590},
+  630:  {title:440,avatar_halo:540,avatar_frame:600,name_glow:630,profile_bg:790,card_fx:850},
+  820:  {title:570,avatar_halo:700,avatar_frame:780,name_glow:820,profile_bg:1020,card_fx:1110},
+  1000: {title:700,avatar_halo:850,avatar_frame:950,name_glow:1000,profile_bg:1250,card_fx:1350},
+  1500: {title:800,avatar_halo:1100,avatar_frame:1250,name_glow:1350,profile_bg:1500,card_fx:1650},
+};
+function applyPreviewCosmeticPrices() {
+  const catalog=MOCKS['GET /cosmetics/'];
+  const byId=new Map();
+  Object.entries(catalog.slots).forEach(([slot,items])=>items.forEach(item=>{
+    const meta=catalog.lineups[item.lineup];
+    const base=Number(meta?.price?.[0]?.zarniki)||0;
+    const price=PREVIEW_COSMETIC_SLOT_PRICES[base]?.[slot];
+    if(price) item.price=[{zarniki:price}];
+    byId.set(item.id,{...item,slot});
+  }));
+  Object.values(catalog.lineups).forEach(meta=>{
+    const base=Number(meta?.price?.[0]?.zarniki)||0;
+    const values=Object.values(PREVIEW_COSMETIC_SLOT_PRICES[base]||{});
+    if(values.length) meta.price_range={min:Math.min(...values),max:Math.max(...values)};
+  });
+  catalog.curated_looks.forEach(look=>{
+    look.missing_price=Object.values(look.items).reduce((sum,id)=>sum+(byId.get(id)?.price?.[0]?.zarniki||0),0);
+  });
+}
+applyPreviewCosmeticPrices();
+
+// Saved looks are a full wearable snapshot in production: omitted slots are
+// deliberately cleared, while the independent welcome animation is untouched.
+// Keep the preview's catalog and /profile/me response coupled the same way.
+const PREVIEW_COSMETICS_SNAPSHOT = JSON.stringify({
+  catalog: MOCKS['GET /cosmetics/'],
+  presets: MOCKS['GET /cosmetics/presets'],
+  profileCosmetics: PROFILE.cosmetics,
+});
+
+function previewCosmeticPrice(cosmeticId,fallback=0){
+  const catalog=MOCKS['GET /cosmetics/'];
+  for(const items of Object.values(catalog.slots||{})){
+    const item=items.find(candidate=>candidate.id===cosmeticId);
+    if(item) return Number(item.price?.[0]?.zarniki)||fallback;
+  }
+  return fallback;
+}
+
+function previewActiveCosmetics() {
+  const catalog=MOCKS['GET /cosmetics/'];
+  const out={welcome: PROFILE.cosmetics?.welcome || 'scanner'};
+  for(const slot of PREVIEW_WEARABLE_COSMETIC_SLOTS){
+    const item=(catalog.slots?.[slot]||[]).find(candidate=>candidate.equipped);
+    if(!item) continue;
+    if(slot==='title'){
+      out.title=item.text||item.name;
+      if(item.css) out.title_css=item.css;
+      continue;
+    }
+    out[slot]={css:item.css, name:item.name, lineup:item.lineup};
+  }
+  for(const source_slot of ['avatar_frame','avatar_halo','card_fx','profile_bg']){
+    const item=out[source_slot];
+    if(item?.lineup){
+      out.lineage={id:item.lineup,source_slot};
+      break;
+    }
+  }
+  return out;
+}
+
+function applyPreviewPreset(presetId) {
+  const presets=MOCKS['GET /cosmetics/presets'].presets||[];
+  const preset=presets.find(item=>Number(item.id)===Number(presetId));
+  if(!preset) return {ok:false, detail:'Пресет не найден.'};
+  if(!preset.loadout || typeof preset.loadout!=='object' || Array.isArray(preset.loadout)) {
+    return {ok:false, detail:'Не удалось применить образ: сохранённый набор повреждён. Текущий внешний вид не изменён.'};
+  }
+
+  const catalog=MOCKS['GET /cosmetics/'];
+  const selected=[];
+  for(const [slot, cosmeticId] of Object.entries(preset.loadout)){
+    if(!PREVIEW_WEARABLE_COSMETIC_SLOTS.has(slot) || typeof cosmeticId!=='string') {
+      return {ok:false, detail:'Не удалось применить образ: сохранённый набор повреждён. Текущий внешний вид не изменён.'};
+    }
+    const item=(catalog.slots?.[slot]||[]).find(candidate=>candidate.id===cosmeticId);
+    if(!item || !item.owned) {
+      return {ok:false, detail:'Не удалось применить образ: один из предметов больше недоступен. Текущий внешний вид не изменён. Сохрани образ заново.'};
+    }
+    selected.push(item);
+  }
+
+  // Mutation starts only after the whole snapshot has passed validation.
+  for(const slot of PREVIEW_WEARABLE_COSMETIC_SLOTS){
+    for(const item of catalog.slots?.[slot]||[]) item.equipped=false;
+  }
+  for(const item of selected) item.equipped=true;
+  PROFILE.cosmetics=previewActiveCosmetics();
+  return {ok:true, message:`✅ Образ «${preset.name}» применён!`};
+}
+
 function resetPreviewThemeState() {
   const themes = MOCKS['GET /themes/'];
   themes.splice(0, themes.length, ...JSON.parse(PREVIEW_THEME_SNAPSHOT));
   Object.assign(PROFILE, PREVIEW_BALANCE_SNAPSHOT);
+  const cosmetics=JSON.parse(PREVIEW_COSMETICS_SNAPSHOT);
+  MOCKS['GET /cosmetics/']=cosmetics.catalog;
+  MOCKS['GET /cosmetics/presets']=cosmetics.presets;
+  PROFILE.cosmetics=cosmetics.profileCosmetics;
+  PREVIEW_THEME_PURCHASES.clear();
 }
 async function readJsonBody(req) {
   const chunks=[];
@@ -833,19 +971,104 @@ function send(res, status, body, type = 'application/json; charset=utf-8') {
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
-function staticContentType(filePath) {
-  const ext=path.extname(filePath).toLowerCase();
-  return ({
-    '.css': 'text/css; charset=utf-8',
-    '.html': 'text/html; charset=utf-8',
-    '.js': 'text/javascript; charset=utf-8',
-    '.json': 'application/json; charset=utf-8',
-    '.svg': 'image/svg+xml',
-    '.png': 'image/png',
-    '.webp': 'image/webp',
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-  })[ext] || 'application/octet-stream';
+function methodNotAllowed(res, methods) {
+  res.writeHead(405, {
+    'content-type': 'application/json; charset=utf-8',
+    'access-control-allow-origin': '*',
+    'cache-control': 'no-store',
+    allow: methods.join(', '),
+  });
+  res.end(JSON.stringify({detail:'Method Not Allowed'}));
+}
+
+const PREVIEW_GET_ONLY_PATHS = new Set([
+  '/', '/index.html', '/game', '/__preview/reconstruction-lab',
+  '/static/app.css', '/static/app.js', '/static/app.devmode.js',
+  '/static/reconstruction-lab.css', '/static/reconstruction-lab.js', '/static/icons/x.svg',
+  '/manifest.json', '/updates.json',
+]);
+const PREVIEW_POST_ONLY_PATHS = new Set([
+  '/themes/buy', '/themes/equip', '/payments/zarniki/invoice', '/__preview/reset',
+]);
+const retiredMutationPaths = new Set([
+  '/gacha/spin', '/gacha/spin-multi', '/shop/buy', '/daily-deal/buy',
+  '/cosmetics/chest/buy', '/cosmetics/chest/open', '/cosmetics/craft',
+  '/battle_pass/buy-level', '/auction/create', '/auction/create-pet',
+  '/auction/bid', '/barracks/starter', '/barracks/summon',
+  '/barracks/levelup', '/barracks/engrave', '/barracks/unlock', '/barracks/squad',
+]);
+
+function allowedMethodsForPreviewPath(pathname) {
+  // Mocks are the first source of the adapter's contract: retain every method
+  // declared for an exact path instead of allowing a typo to look successful.
+  const methods=new Set(Object.keys(MOCKS)
+    .filter(key=>key.slice(key.indexOf(' ')+1)===pathname)
+    .map(key=>key.slice(0,key.indexOf(' '))));
+  if(PREVIEW_GET_ONLY_PATHS.has(pathname)
+    || pathname.startsWith('/profile/u/') || pathname.startsWith('/themes/preview/')) methods.add('GET');
+  if(PREVIEW_POST_ONLY_PATHS.has(pathname)) methods.add('POST');
+  if(/^\/cosmetics\/presets\/\d+\/apply$/.test(pathname)) methods.add('POST');
+  if(/^\/cosmetics\/presets\/\d+$/.test(pathname)) {
+    methods.add('PATCH'); methods.add('DELETE');
+  }
+  if(retiredMutationPaths.has(pathname)) methods.add('POST');
+  return methods.size ? [...methods] : null;
+}
+
+function redirectTrailingSlash(req, res, canonicalPath) {
+  res.writeHead(307, {
+    // Starlette's RedirectResponse writes an absolute Location based on the
+    // request host.  Preserve that observable contract in the local mirror.
+    location: new URL(canonicalPath, `http://${req.headers.host || `localhost:${PORT}`}`).toString(),
+    'cache-control': 'no-store',
+  });
+  res.end();
+}
+
+function publicTrailingSlashTarget(pathname, search) {
+  if (pathname.length <= 1 || !pathname.endsWith('/')) return null;
+  const target = pathname.slice(0, -1);
+  const publicRoute = target === '/game' || target === '/index.html'
+    || target === '/manifest.json' || target === '/updates.json'
+    || target === '/reconstruction' || target.startsWith('/reconstruction/')
+    || [
+      '/static/app.css', '/static/app.js', '/static/app.devmode.js',
+      '/static/reconstruction-lab.css', '/static/reconstruction-lab.js',
+      '/static/icons/x.svg',
+    ].includes(target);
+  return publicRoute ? `${target}${search}` : null;
+}
+
+function proxyReconstruction(req, res, pathname, { productionContract = false } = {}) {
+  const suffix = pathname.slice('/__reconstruction'.length);
+  const bridgePath = productionContract && !suffix.startsWith('/companions')
+    ? `/production${suffix}`
+    : (suffix || '/state');
+  const session = req.headers['x-reconstruction-session'] || req.headers['x-session-token'] || 'default';
+  const upstream = http.request({
+    hostname: '127.0.0.1',
+    port: RECON_PREVIEW_PORT,
+    path: bridgePath,
+    method: req.method,
+    headers: {
+      'content-type': req.headers['content-type'] || 'application/json',
+      'x-reconstruction-session': session,
+      ...(req.headers['x-reconstruction-test-clock']
+        ? { 'x-reconstruction-test-clock': req.headers['x-reconstruction-test-clock'] }
+        : {}),
+      ...(req.headers['content-length'] ? { 'content-length': req.headers['content-length'] } : {}),
+    },
+  }, (upstreamRes) => {
+    res.writeHead(upstreamRes.statusCode || 502, {
+      'content-type': upstreamRes.headers['content-type'] || 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    });
+    upstreamRes.pipe(res);
+  });
+  upstream.on('error', (error) => send(res, 503, {
+    detail: `Движок реконструкции ещё запускается: ${error.code || error.message}`,
+  }));
+  req.pipe(upstream);
 }
 
 function attachLiveReload(req, res) {
@@ -871,20 +1094,48 @@ function scheduleLiveReload(changedPath = '') {
 const staticWatcher = fs.watch(STATIC, {recursive: true}, (_event, changedPath) => {
   scheduleLiveReload(changedPath ? String(changedPath) : 'static');
 });
+const reconstructionWatchers = RECONSTRUCTION_WATCH_FILES.map((filePath) => fs.watch(
+  filePath,
+  () => scheduleReconstructionRestart(path.relative(path.join(HERE, '..'), filePath)),
+));
 
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
   const p = u.pathname;
 
+  // FastAPI's redirect_slashes normalizes the public routes below with a 307.
+  // Match that behavior rather than sending a request for a production-valid
+  // URL to a non-existent bridge/static path in the local mirror.
+  const slashTarget = publicTrailingSlashTarget(p, u.search);
+  if (slashTarget) return redirectTrailingSlash(req, res, slashTarget);
+
   if (p === '/__preview/live' && req.method === 'GET') return attachLiveReload(req, res);
+  if (p.startsWith('/__reconstruction')) return proxyReconstruction(req, res, p);
+  if (p === '/reconstruction' || p.startsWith('/reconstruction/')) {
+    return proxyReconstruction(
+      req,
+      res,
+      `/__reconstruction${p.slice('/reconstruction'.length)}`,
+      { productionContract: true },
+    );
+  }
+  if (p === '/__preview/reconstruction-lab') return send(res, 200, read('reconstruction-lab.html'), 'text/html; charset=utf-8');
+  const allowedMethods=allowedMethodsForPreviewPath(p);
+  if (allowedMethods && !allowedMethods.includes(req.method)) return methodNotAllowed(res, allowedMethods);
+  if (p === '/game') return send(res, 200, reconstructionGameHtml(), 'text/html; charset=utf-8');
   if (p === '/' || p === '/index.html') return send(res, 200, indexHtml(), 'text/html; charset=utf-8');
   if (p === '/static/app.css') return send(res, 200, read('app.css'), 'text/css; charset=utf-8');
-  if (p === '/static/app.js') return send(res, 200, PARTS.map(read).join(''), 'text/javascript; charset=utf-8');
-  if (p.startsWith('/static/')) {
-    const f = path.join(STATIC, p.slice('/static/'.length));
-    if (fs.existsSync(f) && fs.statSync(f).isFile()) return send(res, 200, fs.readFileSync(f), staticContentType(f));
-    return send(res, 404, { detail: 'нет файла' });
-  }
+  if (p === '/static/app.js') return send(res, 200, PARTS.map(read).join(''), 'application/javascript; charset=utf-8');
+  if (p === '/static/app.devmode.js') return send(res, 200, read('app.devmode.js'), 'application/javascript; charset=utf-8');
+  if (p === '/static/reconstruction-lab.css') return send(res, 200, read('reconstruction-lab.css'), 'text/css; charset=utf-8');
+  if (p === '/static/reconstruction-lab.js') return send(res, 200, read('reconstruction-lab.js'), 'application/javascript; charset=utf-8');
+  // One-release compatibility route for Telegram clients that still have the
+  // old saved-look stylesheet cached. New CSS must not request this asset.
+  if (p === '/static/icons/x.svg') return send(res, 200, fs.readFileSync(path.join(STATIC, 'icons', 'x.svg')), 'image/svg+xml');
+  // Keep the preview's public static surface aligned with FastAPI/main.py.
+  // Internal captures and arbitrary files in FastAPI/static must never look
+  // deployable merely because they happen to be present on a developer machine.
+  if (p.startsWith('/static/')) return send(res, 404, { detail: 'нет публичного ресурса' });
   if (p === '/manifest.json') {
     const f = path.join(STATIC, 'manifest.json');
     if (fs.existsSync(f)) return send(res, 200, fs.readFileSync(f), 'application/json');
@@ -901,10 +1152,10 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, {
       user_id: 999, username: 'lilith_hhh', rank: '🌙 Владычица Бездны',
       avatar: null,
-      level: 47, combat_power: 8420, messages: 39710, streak: 53, achievements: 8,
+      level: 47, combat_power: null, messages: 39710, streak: 53, achievements: 8,
       achievements_total: 12,
       is_vip: true, vip_tier_label: 'VIP Gold',
-      gates_floor: 14, duel_wins: 237,
+      gates_floor: null, duel_wins: 237,
       joined_date: '2025-11-02T10:00:00',
       partner: 'moonlight_whisperer_of_the_abyss',
       best_achievement: { icon: '🛒', name: 'Меценат', level: 9 },
@@ -941,10 +1192,20 @@ const server = http.createServer(async (req, res) => {
   if (p === '/themes/buy' && req.method === 'POST') {
     const body=await readJsonBody(req);
     if (!body || !body.theme_id) return send(res, 400, { detail: 'Нужен theme_id.' });
+    const requestKey=String(req.headers['idempotency-key']||'').trim();
+    if (!requestKey || requestKey.length>180) return send(res, 400, { detail: 'Idempotency-Key должен содержать 1–180 символов.' });
+    const prior=PREVIEW_THEME_PURCHASES.get(requestKey);
+    if (prior) {
+      if (prior.theme_id!==body.theme_id) return send(res, 400, { detail: 'Этот запрос уже использован для другой покупки.' });
+      return send(res, 200, { ok: true, theme_name: prior.theme_name, applied: false, replayed: true, already_owned: false });
+    }
     const theme=MOCKS['GET /themes/'].find(t=>t.theme_id===body.theme_id);
     if (!theme) return send(res, 404, { detail: 'Тема не найдена.' });
-    if (theme.owned) return send(res, 400, { detail: 'Эта тема уже в коллекции.' });
-    if (!['shop_mora','shop_diamond','zarniki','dark'].includes(theme.source)) {
+    if (theme.owned) return send(res, 200, { ok: true, theme_name: theme.name, applied: false, replayed: false, already_owned: true });
+    if (['shop_mora','shop_diamond'].includes(theme.source)) {
+      return send(res, 410, { detail: 'Старый каталог тем за Мору и Алмазы закрыт. Уже купленные темы сохранены.' });
+    }
+    if (!['zarniki','dark'].includes(theme.source)) {
       return send(res, 400, { detail: 'Эта тема не продаётся напрямую.' });
     }
     const price=themePrice(theme);
@@ -952,7 +1213,8 @@ const server = http.createServer(async (req, res) => {
     if (PROFILE[price.balance] < price.amount) return send(res, 400, { detail: 'Недостаточно валюты.' });
     PROFILE[price.balance]-=price.amount;
     theme.owned=true;
-    return send(res, 200, { ok: true, theme_name: theme.name });
+    PREVIEW_THEME_PURCHASES.set(requestKey,{theme_id:theme.theme_id,theme_name:theme.name});
+    return send(res, 200, { ok: true, theme_name: theme.name, applied: true, replayed: false, already_owned: false });
   }
   if (p === '/themes/equip' && req.method === 'POST') {
     const body=await readJsonBody(req);
@@ -965,8 +1227,31 @@ const server = http.createServer(async (req, res) => {
     theme.active=true;
     return send(res, 200, { ok: true, theme_name: theme.name });
   }
+  if (p === '/payments/zarniki/invoice' && req.method === 'POST') {
+    // A local preview must never create or imitate a real Telegram Stars
+    // invoice. Keep the user path explicit instead of returning a misleading
+    // empty success response and record the live contract in its GET fixture.
+    return send(res, 503, { detail: 'Локальный стенд не создаёт реальный счёт Stars. Проверьте каталог и контракт; оплату тестируйте только после отдельного разрешения.' });
+  }
+  if (req.method === 'POST' && /^\/cosmetics\/presets\/\d+\/apply$/.test(p)) {
+    const id=Number(p.split('/')[3]);
+    const result=applyPreviewPreset(id);
+    return send(res, result.ok?200:400, result);
+  }
+  if (req.method === 'PATCH' && /^\/cosmetics\/presets\/\d+$/.test(p)) {
+    const body=await readJsonBody(req);
+    const id=Number(p.split('/').pop());
+    const preset=(MOCKS['GET /cosmetics/presets'].presets||[]).find(item=>item.id===id);
+    if (!preset) return send(res, 404, { detail: 'Образ не найден.' });
+    const name=(typeof body?.name==='string'?body.name.trim().slice(0,30):'')||'Образ';
+    return send(res, 200, { ok: true, message: `✎ Образ «${name}» переименован.`, preset: {...preset,name} });
+  }
   if (req.method === 'DELETE' && /^\/cosmetics\/presets\/\d+$/.test(p)) {
     return send(res, 200, { ok: true, message: '🗑 Образ удалён.' });
+  }
+
+  if (req.method === 'POST' && retiredMutationPaths.has(p)) {
+    return send(res, 410, { detail: 'Этот маршрут прежней экономики закрыт; тестовый баланс не изменён.' });
   }
 
   const key = `${req.method} ${p}`;
@@ -977,8 +1262,27 @@ const server = http.createServer(async (req, res) => {
     return send(res, 200, val);
   }
   fs.appendFileSync(UNKNOWN_LOG, key + '\n');
-  return send(res, 200, {});
+  // A local adapter must never turn a missing production contract into a
+  // plausible success. Keep the evidence log, then mirror FastAPI's default
+  // fail-closed response so UI and smoke checks expose the missing route.
+  return send(res, 404, { detail: 'Not Found' });
 });
 server.on('upgrade', (_req, socket) => socket.destroy()); // WS не поддерживаем
-server.on('close', () => staticWatcher.close());
+server.on('close', () => {
+  shuttingDown = true;
+  clearTimeout(reconstructionRestartTimer);
+  staticWatcher.close();
+  for (const watcher of reconstructionWatchers) watcher.close();
+  if (reconstructionApi) reconstructionApi.kill('SIGTERM');
+});
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => {
+    shuttingDown = true;
+    if (reconstructionApi) reconstructionApi.kill('SIGTERM');
+    for (const client of liveReloadClients) client.end();
+    liveReloadClients.clear();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 800).unref();
+  });
+}
 server.listen(PORT, () => console.log(`preview on http://localhost:${PORT}/`));

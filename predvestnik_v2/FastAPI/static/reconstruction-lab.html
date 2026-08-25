@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#070a10">
+  <title>Разлом · боевой автокликер</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/static/reconstruction-lab.css">
+</head>
+<body data-runtime="preview" data-api-base="/__reconstruction" data-app-base="">
+  <main class="clicker-shell">
+    <header class="topbar">
+      <div>
+        <span class="eyebrow" id="runtimeEyebrow">DEV · ЖИВОЙ ДВИЖОК</span>
+        <h1>Разлом колокола</h1>
+      </div>
+      <div class="top-actions">
+        <a id="homeLink" href="/" aria-label="На основной сайт">←</a>
+        <button id="menuButton" type="button" aria-label="Пауза и меню" aria-expanded="false">☰</button>
+      </div>
+    </header>
+
+    <nav class="wave-rail" aria-label="Прогресс забега">
+      <span class="current" data-wave-node="1"><i>1</i><small>Эхо</small></span>
+      <b></b>
+      <span data-wave-node="2"><i>2</i><small>Похититель</small></span>
+      <b></b>
+      <span data-wave-node="3"><i>3</i><small>Архивариус</small></span>
+    </nav>
+
+    <section class="battle-card" id="battleCard">
+      <div class="boss-heading">
+        <div>
+          <span class="section-label" id="waveLabel">ВОЛНА 1 ИЗ 3</span>
+          <strong id="bossName">Безымянный отголосок</strong>
+          <small id="bossSubtitle">Поймай ритм колокола</small>
+        </div>
+        <div class="round-clock" id="roundClock"><strong>20,0</strong><span>сек</span></div>
+      </div>
+
+      <div class="boss-health" id="bossHealth" role="progressbar" aria-label="Здоровье противника" aria-valuemin="0">
+        <i id="bossHealthFill"></i>
+        <span id="bossHealthValue">1 300 / 1 300</span>
+      </div>
+
+      <div class="objective-meter" id="objectiveMeter" hidden>
+        <span><small id="objectiveLabel">ФОНАРЬ</small><strong id="objectiveValue">100%</strong></span>
+        <i><b id="objectiveFill"></b></i>
+      </div>
+
+      <div class="tap-stage" id="tapStage" aria-label="Поле точного сигнала">
+        <div class="window-indicator" id="windowIndicator">
+          <span>Сигнал приближается</span><i><b id="windowProgress"></b></i>
+        </div>
+
+        <div class="echo-core" id="tapCore" aria-label="Руна, которую нужно найти" aria-live="polite">
+          <span class="charge-ring" id="chargeRing"></span>
+          <span class="core-glyph" id="bossGlyph">◉</span>
+          <strong id="corePrompt">СЛУШАЙ</strong>
+          <small id="coreHint">затем найди такой же знак</small>
+        </div>
+
+        <div class="branch-controls" id="branchControls" aria-label="Доступные навыки" aria-live="polite" hidden></div>
+
+        <div class="rune-orbit" id="runeOrbit" aria-label="Выбор руны">
+          <button class="strike-rune left" type="button" data-target-slot="left" aria-label="Левая руна">·</button>
+          <button class="strike-rune center" type="button" data-target-slot="center" aria-label="Центральная руна">·</button>
+          <button class="strike-rune right" type="button" data-target-slot="right" aria-label="Правая руна">·</button>
+        </div>
+        <div class="impact-layer" id="impactLayer" aria-hidden="true"></div>
+      </div>
+
+      <div class="combat-readout">
+        <div><span>Серия</span><strong id="comboValue">×0</strong></div>
+        <div><span title="Верные ÷ (верные + ошибки + пропуски)">Точность</span><strong id="accuracyValue">—</strong></div>
+        <div><span>Сила знака</span><strong id="tapPowerValue">65</strong></div>
+        <div class="charge-stat"><span>Импульс</span><strong id="chargeValue">0%</strong></div>
+      </div>
+    </section>
+
+    <section class="squad-strip" aria-label="Автоматический отряд" id="squadStrip"></section>
+
+    <section class="build-strip" id="activeBuild" aria-label="Усиления текущего забега" hidden></section>
+
+    <section class="event-strip" aria-live="polite">
+      <span class="event-pulse" id="eventPulse">·</span>
+      <p id="lastLog">Нажимай по ядру. Отряд атакует автоматически.</p>
+    </section>
+  </main>
+
+  <div class="menu-layer" id="menuLayer">
+    <section class="menu-card" role="dialog" aria-modal="true" aria-label="Меню игры">
+      <header class="tester-card">
+        <span class="tester-avatar" id="testerAvatar">◉</span>
+        <span><small id="profileKind">ПРОФИЛЬ ТЕСТИРОВЩИКА</small><strong id="testerName">Гость стенда</strong></span>
+        <i id="versionBadge">MVP</i>
+      </header>
+
+      <nav class="menu-tabs" role="tablist" aria-label="Разделы игры">
+        <button class="active" id="menuTabPlay" role="tab" aria-selected="true" aria-controls="menuPanelPlay" type="button" data-menu-tab="play">Играть</button>
+        <button id="menuTabCompanion" role="tab" aria-selected="false" aria-controls="companionPanel" type="button" data-menu-tab="companion">Спутник</button>
+        <button id="menuTabAlliance" role="tab" aria-selected="false" aria-controls="menuPanelAlliance" type="button" data-menu-tab="alliance">Союз</button>
+        <button id="menuTabStats" role="tab" aria-selected="false" aria-controls="menuPanelStats" type="button" data-menu-tab="stats">Статистика</button>
+        <button id="menuTabHelp" role="tab" aria-selected="false" aria-controls="menuPanelHelp" type="button" data-menu-tab="help">Как играть</button>
+      </nav>
+
+      <div class="menu-panel active" id="menuPanelPlay" role="tabpanel" aria-labelledby="menuTabPlay" data-menu-panel="play">
+        <span class="eyebrow" id="menuEyebrow">ХРОНИКА · ВСТРЕЧА 1</span>
+        <h2 id="menuTitle">Два безымянных колокола</h2>
+        <p id="menuCopy">Разбить три воплощения колокола до затухания эха.</p>
+        <div class="run-facts">
+          <span><strong id="menuFactWaves">3</strong>волны</span>
+          <span><strong id="menuFactTime">≈ 1 мин</strong>короткий забег</span>
+          <span><strong id="menuFactGoal">1</strong>выбор / сигнал</span>
+        </div>
+        <div class="menu-note"><b id="menuNoteLabel">Правило</b><span id="menuNoteCopy">На сигнал даётся одна попытка: дождись знака и выбери совпадающую руну.</span></div>
+        <section class="difficulty-picker" id="difficultyPicker" aria-labelledby="difficultyTitle" hidden>
+          <div class="difficulty-heading"><b id="difficultyTitle">Темп забега</b><span id="difficultyHint"></span></div>
+          <div class="difficulty-options" id="difficultyOptions"></div>
+        </section>
+        <div class="unit-progress-strip" id="unitProgress" aria-label="Развитие отряда"></div>
+        <div class="compact-actions">
+          <button class="primary-action" id="startRunButton" type="button">Начать первый забег <span>›</span></button>
+          <button class="quiet-action" id="newRunButton" type="button" hidden>Новый забег</button>
+        </div>
+      </div>
+
+      <div class="menu-panel companion-panel" id="companionPanel" role="tabpanel" aria-labelledby="menuTabCompanion" data-menu-panel="companion" hidden>
+        <span class="eyebrow">СПУТНИК · РОЛЬ В ЗАБЕГЕ</span>
+        <h2>Выбери роль спутника</h2>
+        <p>Выбранная роль меняет правила забега, но не повышает характеристики. Внешность и прежний прогресс питомца сохраняются.</p>
+        <div id="companionContent" class="companion-content"></div>
+      </div>
+
+      <div class="menu-panel alliance-panel" id="menuPanelAlliance" role="tabpanel" aria-labelledby="menuTabAlliance" data-menu-panel="alliance" hidden>
+        <span class="eyebrow">ОБЩАЯ ЦЕЛЬ · ТЕСТ БЕЗ НАГРАД</span>
+        <h2>Союз Предвестников</h2>
+        <p>Забеги участников заполняют общий контур. Личный дневной и недельный предел не позволяет одному игроку закрыть событие за всех.</p>
+        <div id="allianceContent" class="alliance-content"></div>
+      </div>
+
+      <div class="menu-panel" id="menuPanelStats" role="tabpanel" aria-labelledby="menuTabStats" data-menu-panel="stats" hidden>
+        <span class="eyebrow" id="statsEyebrow">ЛОКАЛЬНЫЙ ПРОФИЛЬ</span>
+        <h2>Твои сигналы</h2>
+        <p id="statsCopy">Здесь считаются завершённые забеги, победы, точность, ошибки и лучшая серия.</p>
+        <div class="stats-formula"><b>Точность</b><span>верные ÷ (верные + ошибки + пропуски). До первого завершённого сигнала показывается «—».</span></div>
+        <div class="career-grid" id="careerStats"></div>
+        <div class="build-history" id="buildHistory"></div>
+      </div>
+
+      <div class="menu-panel" id="menuPanelHelp" role="tabpanel" aria-labelledby="menuTabHelp" data-menu-panel="help" hidden>
+        <span class="eyebrow">ПРАВИЛА ЗА 20 СЕКУНД</span>
+        <h2>Не кликай вслепую</h2>
+        <ol class="help-steps">
+          <li><i>1</i><span><strong>Дождись сигнала</strong>Центр покажет один из трёх знаков.</span></li>
+          <li><i>2</i><span><strong>Найди совпадение</strong>Нажми такую же руну снизу — только один раз.</span></li>
+          <li><i>3</i><span><strong>Собери импульс</strong>Четыре точных знака автоматически выпускают Разряд.</span></li>
+        </ol>
+        <div class="menu-note danger"><b>Ошибка</b><span>Неверная руна сбрасывает серию и Импульс, а цель восстанавливает здоровье.</span></div>
+      </div>
+
+      <footer class="menu-footer" id="runtimeFooter">Тестовый режим · награды и кошельки отключены</footer>
+    </section>
+  </div>
+
+  <div class="pause-layer" id="pauseLayer" hidden>
+    <section class="pause-card" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
+      <span class="eyebrow">ЗАБЕГ НА ПАУЗЕ</span>
+      <h2 id="pauseTitle">Эхо ждёт тебя</h2>
+      <p>Таймер и сигналы остановлены. Прогресс этой вкладки сохранён.</p>
+      <div class="compact-actions">
+        <button class="primary-action" id="continueButton" type="button">Продолжить <span>›</span></button>
+        <button class="quiet-action" id="pauseMenuButton" type="button">В главное меню</button>
+        <button class="danger-action" id="restartButton" type="button">Начать заново</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="choice-layer" id="choiceLayer" hidden>
+    <section class="choice-sheet" role="dialog" aria-modal="true" aria-labelledby="choiceTitle">
+      <span class="eyebrow" id="choiceEyebrow">ВОЛНА ПРОЙДЕНА</span>
+      <h2 id="choiceTitle">Выбери направление сборки</h2>
+      <p id="choiceCopy">У каждого усиления есть преимущество и цена. Выбор действует только в этом забеге.</p>
+      <div class="upgrade-list" id="upgradeList"></div>
+    </section>
+  </div>
+
+  <div class="result-layer" id="resultLayer" hidden>
+    <section class="result-card" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+      <span class="eyebrow" id="resultEyebrow">ЗАБЕГ ЗАВЕРШЁН</span>
+      <div class="result-mark" id="resultMark">✦</div>
+      <h2 id="resultTitle">Колокол отвечает тебе</h2>
+      <p id="resultCopy"></p>
+      <div class="result-stats" id="resultStats"></div>
+      <div class="compact-actions result-actions">
+        <button class="primary-action" id="resultReset" type="button">Ещё один забег <span>›</span></button>
+        <button class="quiet-action" id="resultMenu" type="button">В меню</button>
+        <button class="quiet-action" id="copyResult" type="button">Скопировать итог</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="status-toast" id="statusToast" role="status" aria-live="polite"></div>
+  <script src="/static/reconstruction-lab.js" defer></script>
+</body>
+</html>

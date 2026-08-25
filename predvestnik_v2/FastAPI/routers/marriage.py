@@ -1,5 +1,5 @@
 """FastAPI/routers/marriage.py — брак и семейный банк."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
@@ -80,6 +80,7 @@ class BankRequest(BaseModel):
 @router.post("/bank")
 async def family_bank(body: BankRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Депозит или вывод любой из 4 валют семейного кошелька."""
+    raise HTTPException(409, "Семейный кошелёк заморожен для безопасного переноса. Баланс виден и не пропадёт; новые переводы не принимаются.")
     if body.action not in ("deposit", "withdraw"):
         raise HTTPException(400, "action: 'deposit' или 'withdraw'")
     if body.currency not in FAMILY_CURRENCIES:
@@ -101,6 +102,7 @@ async def fund_from_family(body: FundRequest, db=Depends(get_db), user=Depends(r
     """Block 5.2 (авто-перевод): перенести сумму из семейного кошелька на личный
     счёт перед покупкой. marriage_id резолвится сервером. Излишек (если была
     скидка) просто останется на личном — деньги не теряются."""
+    raise HTTPException(409, "Оплата из семейного кошелька временно закрыта: сохранённый баланс переносится отдельной проверяемой операцией.")
     if body.currency not in FAMILY_CURRENCIES:
         raise HTTPException(400, "Неизвестная валюта.")
     if body.amount <= 0:
@@ -171,16 +173,25 @@ class GiftRequest(BaseModel):
 
 
 @router.post("/gift")
-async def send_partner_gift(body: GiftRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Купить и вручить подарок супругу. Списывает с личного баланса дарителя,
-    бафф-подарки дают +XP партнёру, лог в partner_gifts_log (см. бот `бот подарки`)."""
+async def send_partner_gift(
+    body: GiftRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+    request_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
+    """Вручить памятный социальный подарок без силы или XP."""
     if body.gift_id not in PARTNER_GIFTS:
         raise HTTPException(400, "Неизвестный подарок.")
+    if request_key is None or not request_key.strip() or len(request_key.strip()) > 120:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
     m = await get_user_marriage(db, user["id"])
     if not m:
         raise HTTPException(400, "Вы не состоите в браке.")
     partner_id = m["user2_id"] if m["user1_id"] == user["id"] else m["user1_id"]
-    ok, msg, gift = await purchase_partner_gift(db, user["id"], partner_id, body.gift_id)
+    ok, msg, gift = await purchase_partner_gift(
+        db, user["id"], partner_id, body.gift_id,
+        idempotency_key=request_key.strip(),
+    )
     if not ok:
         raise HTTPException(400, msg)
     # purchase_partner_gift коммитит сам (db.connection.transaction()).
@@ -194,6 +205,16 @@ async def divorce(db=Depends(get_db), user=Depends(require_tg_user)):
     m = await get_user_marriage(db, user["id"])
     if not m:
         raise HTTPException(404, "Вы не состоите в браке.")
+    balances = (
+        float(m.get("family_balance", 0) or 0),
+        float(m.get("family_balance_diamonds", 0) or 0),
+        float(m.get("family_balance_dark_mora", 0) or 0),
+        float(m.get("family_balance_zarniki", 0) or 0),
+    )
+    async with db.execute("SELECT 1 FROM pets WHERE marriage_id = ? LIMIT 1", (m["id"],)) as c:
+        has_family_pet = await c.fetchone() is not None
+    if any(value > 0 for value in balances) or has_family_pet:
+        raise HTTPException(409, "Сначала требуется безопасно разделить семейный кошелёк и питомцев. Данные сохранены; удалять их молча нельзя.")
     await delete_marriage(db, user["id"])
     return {"ok": True}
 

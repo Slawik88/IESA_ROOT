@@ -15,8 +15,8 @@ try {
   await page.setViewport({width:390,height:844,deviceScaleFactor:2});
   await page.goto('http://localhost:8402/',{waitUntil:'load'});
   await page.waitForFunction(()=>typeof openLooksModal==='function');
-  await page.mouse.click(195,700);
   await page.waitForFunction(()=>document.elementFromPoint(195,120)?.id!=='preloader');
+  await page.evaluate(()=>CM());
   await page.evaluate(()=>openLooksModal());
   await page.waitForFunction(()=>document.body.querySelector(':scope > #looks-dock .looks-fab'));
   await page.click('.looks-fab');

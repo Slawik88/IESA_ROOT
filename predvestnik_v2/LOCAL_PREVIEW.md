@@ -58,6 +58,12 @@ VS Code должен помнить проброшенный порт между
 `tools/preview_server.mjs`; подключённые вкладки обновятся после восстановления
 соединения. Ручной `F5` обычно не нужен.
 
+Боевой dev-bridge Reconstruction работает отдельным дочерним процессом на `8403`.
+Изменения `core/reconstruction.py`, `services/reconstruction*.py` и самого bridge
+перезапускают только этот дочерний процесс: публичный порт `8402` продолжает
+отдавать страницу. Состояния до 256 тестовых вкладок сохраняются в dev-only снимке
+в `/tmp` и восстанавливаются, если версия игрового контракта не изменилась.
+
 ## Что именно эмулирует стенд
 
 `tools/preview_server.mjs` — Node.js HTTP-сервер без FastAPI, Telegram и БД. Он:
@@ -67,10 +73,20 @@ VS Code должен помнить проброшенный порт между
 - отдаёт реальный `app.css` и остальные статические файлы;
 - заранее создаёт локальную сессию, чтобы не мешал экран логина;
 - автоматически обновляет все открытые вкладки после изменений клиентских файлов;
+- проксирует `/__reconstruction/*` в настоящий чистый Python-движок, изолирует
+  состояние по вкладкам и переживает внутренний hot-restart без остановки `8402`;
 - возвращает реалистичные моки для профиля, валют, питомцев, боёв, магазина,
   косметики, тем и админки;
 - хранит покупку/экипировку тем в памяти процесса и сбрасывает её через
   `POST /__preview/reset`;
+- повторяет production-поверхность статических ассетов: доступны только CSS/JS
+  приложения, CSS/JS Разлома и временный compatibility-shim `icons/x.svg` для
+  уже закэшированной старой CSS; новый интерфейс его не использует. Произвольные файлы, концепт-галереи,
+  скриншоты и исходные части `app.01.js`…`app.11.js` намеренно отвечают `404`;
+- отдаёт `/game` через production-ветку разметки и API-путь `/reconstruction`, а
+  local-only adapter воспроизводит формы `overview`/`start`/`action`/`cancel`,
+  revision и идемпотентность без Telegram или БД; сырой документ и чистый движок
+  существуют только на явном dev-маршруте `/__preview/reconstruction-lab`;
 - записывает незамоканные запросы в `tools/unknown-api.log`.
 
 Ограничения стенда:
@@ -81,6 +97,10 @@ VS Code должен помнить проброшенный порт между
 - большинство мутаций — статические успешные ответы, кроме stateful-сценария тем;
 - данные мока могут устареть относительно реальных роутеров, поэтому новый или
   изменённый API-контракт нужно обновлять и проверять с обеих сторон.
+
+`Cache-Control: no-store` — намеренное отличие preview: оно нужно для live reload
+и не является обещанием production cache-policy. Все остальные статические URL и
+их MIME проверяются отдельно против ASGI-приложения.
 
 Локальные предложения, явно помеченные как localhost-only (например, модель цен
 косметики из `docs/superpowers/plans/2026-07-31-local-cosmetics-pricing.md`), нельзя
@@ -142,11 +162,14 @@ nix-shell -p nodejs_22 chromium --run \
 
 1. синтаксис затронутых Python/JavaScript-файлов;
 2. `npm run check:preview`;
-3. профильные `verify_*.mjs`/`test_*.py`;
-4. ручной просмотр на 390 px и проверка консоли;
-5. `no-fx`/`prefers-reduced-motion` для затронутых эффектов;
-6. проверка `tools/unknown-api.log` на новые незамоканные запросы;
-7. отдельное ревью diff и только затем предложение о production-деплое.
+3. `python tools/test_static_delivery_contract.py`, если меняются preview, ассеты
+   или шаблоны; он не позволяет local preview выдавать URL, которых нет в production;
+4. `nix-shell -p python313Packages.fastapi python313Packages.python-dotenv python313Packages.loguru python313Packages.asyncpg python313Packages.httpx python313Packages.aiosqlite python313Packages.aiogram --run 'cd predvestnik_v2 && python tools/test_static_delivery_asgi.py'`, если меняются production static routes или root prefix;
+5. `verify_reconstruction_preview_contract.mjs`, если меняется `/game`, Reconstruction bridge или его HTTP-контракт;
+6. ручной просмотр на 390 px и проверка консоли;
+7. `no-fx`/`prefers-reduced-motion` для затронутых эффектов;
+8. проверка `tools/unknown-api.log` на новые незамоканные запросы;
+9. отдельное ревью diff и только затем предложение о production-деплое.
 
 Локальный стенд доказывает клиентский контракт и UX, но не заменяет сервисные тесты
 для транзакций, гонок, прав доступа и расчётов. Такие изменения дополнительно

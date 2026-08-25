@@ -5,8 +5,8 @@
 from datetime import datetime, timezone
 import math
 
-from core.registry import VIP_TIERS, ITEMS_REGISTRY
-from infrastructure.repositories.economy import add_balance, add_item
+from core.registry import VIP_TIERS
+from infrastructure.repositories.economy import add_balance
 
 
 def _aware(dt: datetime) -> datetime:
@@ -82,10 +82,7 @@ async def get_vip_info(db, user_id: int) -> dict | None:
 
 
 async def get_extra_pet_slots(db, user_id: int) -> int:
-    """Доп. слоты питомника от активного VIP (read-time): 0 для 1м/2м, +1 для 3м/8м, +2 для 12м."""
-    info = await get_vip_info(db, user_id)
-    if info:
-        return VIP_TIERS.get(info["tier"], {}).get("extra_slots", 0)
+    """VIP v3 never changes companion capacity or gameplay output."""
     return 0
 
 
@@ -104,7 +101,8 @@ async def purchase_vip(db, user_id: int, tier: str, chat_id: int | None = None,
     """Покупка/продление/апгрейд VIP-подписки за ✨ Зарники.
 
     Длительность стекуется поверх остатка активной подписки, тариф меняется
-    сразу, разовый подарок выдаётся при каждой покупке любого тарифа.
+    сразу. VIP v3 даёт только сервис и оформление — без валюты, предметов,
+    попыток, игровых слотов и множителей.
 
     target_user_id — «подарить вип»: платит user_id, подписку и подарок
     получает target_user_id. total_days (стаж) копится у получателя.
@@ -146,30 +144,14 @@ async def purchase_vip(db, user_id: int, tier: str, chat_id: int | None = None,
                 (recipient, tier, days, days, days, days, days),
             )
 
-            gift = info["gift"]
-            granted = []
-            if gift.get("mora", 0) > 0:
-                await add_balance(db, recipient, mora=gift["mora"], source="vip_gift",
-                                   chat_id=chat_id, note=tier)
-                granted.append(f"+{gift['mora']:.0f} 🪙")
-            if gift.get("diamonds", 0) > 0:
-                await add_balance(db, recipient, diamonds=gift["diamonds"], source="vip_gift",
-                                   chat_id=chat_id, note=tier)
-                granted.append(f"+{gift['diamonds']:.0f} 💎")
-            for item_id, qty in gift.get("items", ()):
-                await add_item(db, recipient, item_id, qty)
-                item_name = ITEMS_REGISTRY.get(item_id, {}).get("name", item_id)
-                granted.append(f"+{qty}× {item_name}")
-
-        gift_text = ", ".join(granted) if granted else "—"
         if recipient != user_id:
             return True, (
                 f"🎁 Подарен <b>{info['label']}</b> на {days} дн.!\n"
-                f"🎁 Бонус получателю: {gift_text}"
+                "Доступны оформление, история и сервис — без игрового преимущества."
             )
         return True, (
             f"✅ Оформлен <b>{info['label']}</b> на {days} дн.!\n"
-            f"🎁 Подарок: {gift_text}"
+            "Доступны оформление, история и сервис — без игрового преимущества."
         )
     except Exception as e:
         return False, f"❌ Ошибка: {e}"

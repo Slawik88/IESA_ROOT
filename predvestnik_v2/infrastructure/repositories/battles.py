@@ -1,5 +1,5 @@
 """
-infrastructure/repositories/battles.py — сессии Боя 2.0 (R2, GDD_REBUILD_PLAN.md).
+infrastructure/repositories/battles.py — legacy сессии боя (retirement LCB-001).
 Server-authoritative: state_json (статы, волны, QTE-окно, анти-чит-счётчики)
 живёт только здесь.
 """
@@ -72,3 +72,18 @@ async def count_today(db, user_id: int, mode: str) -> int:
     ) as c:
         row = await c.fetchone()
     return int(row[0] or 0)
+
+
+async def has_completed(db, user_id: int, mode: str, status: str = "won") -> bool:
+    """Whether the player has a persisted completed battle of this mode.
+
+    This is deliberately based on the immutable battle outcome rather than a
+    cached user flag, so callers can reconcile derived progression state.
+    """
+    async with db.execute(
+        "SELECT EXISTS(SELECT 1 FROM battles "
+        "WHERE user_id = ? AND mode = ? AND status = ?)",
+        (user_id, mode, status),
+    ) as c:
+        row = await c.fetchone()
+    return bool(row and row[0])

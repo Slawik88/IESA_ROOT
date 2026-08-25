@@ -1,5 +1,5 @@
 """FastAPI/routers/wallet.py — история транзакций кошелька."""
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.wallet_log import get_recent
@@ -24,7 +24,12 @@ _SOURCE_LABELS = {
     "auction_sale":     "🏛 Аукцион (продажа)",
     "auction_listing_fee": "🏛 Аукцион (листинг-сбор)",
     "exchange":         "💱 Обмен",
-    "exchange_mora_to_dia": "💱 Обмен",
+    "exchange_mora_to_dia": "💱 Старый обмен Моры на Алмазы",
+    "exchange_dia_to_mora": "💱 Старый обмен Алмазов на Мору",
+    "zarniki_exchange": "💱 Старый обмен Зарников",
+    "paid_exchange":    "💱 Зарники → Мора",
+    "stars_purchase":  "⭐ Покупка Зарников",
+    "referral_commission": "🤝 Старая реферальная комиссия",
     "streak":           "🔥 Стрик",
     "streak_daily":     "🔥 Стрик",
     "streak_block_end": "🔥 Стрик (блок)",
@@ -38,7 +43,12 @@ _SOURCE_LABELS = {
     "contrabanda_stake": "🌑 Контрабанда (ставка)",
     "contrabanda_refund": "🌑 Контрабанда (возврат)",
     "cult_ritual":      "🌑 Ритуал",
-    "theme_purchase":   "🎨 Тёмная тема",
+    "theme_purchase":   "🎭 Тема профиля",
+    "cosmetic_purchase": "🎨 Косметика",
+    "cosmetic_lineup_purchase": "🎨 Коллекция косметики",
+    "cosmetic_many_purchase": "🎨 Набор косметики",
+    "cosmetic_gift_purchase": "🎁 Подарок косметики",
+    "cosmetic_chest_purchase": "🎁 Сундук косметики",
     "shadow_merchant":  "🕴 Теневой Торговец",
     "shadow_relic":     "🕴 Теневая реликвия",
     "achievement":      "🏆 Достижение",
@@ -89,14 +99,18 @@ async def exchange_zarniki_endpoint(
     body: ExchangeZarnikiRequest,
     db=Depends(get_db),
     user=Depends(require_tg_user),
+    request_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    """Обменять ✨ Зарники на 🪙 Мору или 💎 Алмазы (необратимо, без лимита)."""
-    if body.to not in ("mora", "diamonds"):
-        raise HTTPException(status_code=400, detail="Некорректное направление обмена.")
-
-    ok, message = await exchange_zarniki(db, user["id"], body.amount, body.to)
+    """Необратимо обменять целые Зарники только на Мору."""
+    if body.to != "mora":
+        raise HTTPException(400, "Алмазы за Зарники не продаются.")
+    if request_key is None or not request_key.strip() or len(request_key.strip()) > 120:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
+    ok, message = await exchange_zarniki(
+        db, user["id"], body.amount, body.to,
+        idempotency_key=request_key.strip(),
+    )
     if not ok:
-        raise HTTPException(status_code=400, detail=message)
-
+        raise HTTPException(400, message)
     await db.commit()
     return {"ok": True, "message": message}

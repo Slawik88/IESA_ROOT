@@ -4,14 +4,10 @@
 
 ЛИНЕЙКИ (редизайн 2026-07-29): группировка по редкости (common→artifact, 86
 разрозненных предметов без общего стиля внутри яруса) заменена на тематические
-"линеек" — коллекций с единым визуальным языком на все 6 слотов. Цена и VIP-гейт
-теперь СВОЙСТВО ЛИНЕЙКИ (см. LINEUPS ниже), не отдельного предмета:
-  Лесной Странник → 250✨, без VIP      Изморозь  → 440✨, с VIP
-  Порог           → 440✨, с VIP        Инферно   → 630✨, с VIP
-  Небесное Сияние → 820✨, с VIP        Бездна    → 1000✨, с VIP
-  Артефакт        → 1500✨, с VIP
-  Ханами          → 630✨, с VIP        Лунный Лотос → 1500✨, с VIP
-  Прилив Рюдзина  → 1500✨, с VIP
+"линеек" — коллекций с единым визуальным языком на все 6 слотов. Ценовой сегмент
+и VIP-гейт задаёт линейка, а итоговая цена предмета зависит ещё и от визуального
+веса слота (см. COSMETIC_SLOT_PRICES ниже): титул дешевле фона и полноэкранного
+эффекта. Базовые сегменты линеек: 250 / 440 / 630 / 820 / 1000 / 1500✨.
 
 Порядок действий при переходе (важно для истории): владелец сначала прогнал
 scripts/cosmetics_lineup_wipe_refund.py — рефанд+снятие ВСЕЙ косметики у ВСЕХ
@@ -117,6 +113,40 @@ LINEUPS: dict[str, dict] = {
         "name": "🐉 Прилив Рюдзина", "rarity": "artifact",
         "price": [{"zarniki": 1500}], "vip_required": True,
         "blurb": "Драконий поток в языке суми-э: штормовая вода, чёрный лак и прожилки кинцуги.",
+    },
+}
+
+
+# Единая матрица по базовому сегменту линейки и визуальному весу слота.
+# База остаётся продуктовым якорем сегмента, но НЕ является одинаковой ценой
+# каждого предмета. Верхний artifact-тир намеренно мягче линейного множителя:
+# фон стоит 1500✨, титул 800✨ — это прямо согласованный владельцем ориентир.
+# Полный каталог после ребаланса дешевле прежнего всего на ~5.5%, поэтому
+# иерархия становится честнее без скрытой инфляции экономики.
+COSMETIC_SLOT_PRICES: dict[int, dict[str, int]] = {
+    250: {
+        "title": 180, "avatar_halo": 210, "avatar_frame": 240,
+        "name_glow": 250, "profile_bg": 310, "card_fx": 340,
+    },
+    440: {
+        "title": 310, "avatar_halo": 370, "avatar_frame": 420,
+        "name_glow": 440, "profile_bg": 550, "card_fx": 590,
+    },
+    630: {
+        "title": 440, "avatar_halo": 540, "avatar_frame": 600,
+        "name_glow": 630, "profile_bg": 790, "card_fx": 850,
+    },
+    820: {
+        "title": 570, "avatar_halo": 700, "avatar_frame": 780,
+        "name_glow": 820, "profile_bg": 1020, "card_fx": 1110,
+    },
+    1000: {
+        "title": 700, "avatar_halo": 850, "avatar_frame": 950,
+        "name_glow": 1000, "profile_bg": 1250, "card_fx": 1350,
+    },
+    1500: {
+        "title": 800, "avatar_halo": 1100, "avatar_frame": 1250,
+        "name_glow": 1350, "profile_bg": 1500, "card_fx": 1650,
     },
 }
 
@@ -989,6 +1019,39 @@ COSMETICS: dict[str, dict] = {
 }
 
 
+def _apply_slot_prices() -> None:
+    """Материализовать серверные цены предметов из единой матрицы.
+
+    Исторические литералы ``price`` внутри объявлений ниже сохраняют базовый
+    сегмент и делают старый diff читаемым. Ни один потребитель не должен считать
+    их итоговой ценой: после импорта модуля COSMETICS всегда содержит уже
+    материализованные по слотам значения.
+    """
+    for cosmetic_id, cosmetic in COSMETICS.items():
+        lineup_id = cosmetic.get("lineup")
+        lineup = LINEUPS.get(lineup_id)
+        if not lineup:
+            raise ValueError(f"{cosmetic_id}: неизвестная линейка {lineup_id!r}")
+        base_opt = (lineup.get("price") or [{}])[0]
+        base = int(base_opt.get("zarniki", 0))
+        slot_prices = COSMETIC_SLOT_PRICES.get(base)
+        slot = cosmetic.get("slot")
+        if not slot_prices or slot not in slot_prices:
+            raise ValueError(f"{cosmetic_id}: нет цены для сегмента {base} и слота {slot!r}")
+        cosmetic["price"] = [{"zarniki": slot_prices[slot]}]
+
+    for lineup in LINEUPS.values():
+        base = int((lineup.get("price") or [{}])[0].get("zarniki", 0))
+        values = COSMETIC_SLOT_PRICES[base]
+        lineup["price_range"] = {
+            "min": min(values.values()),
+            "max": max(values.values()),
+        }
+
+
+_apply_slot_prices()
+
+
 # Кураторские образы — серверный источник готовых сочетаний, а не клиентская
 # имитация. Каждый образ обязан содержать ровно один реальный предмет на каждый
 # визуальный слот. UI получает только эти стабильные ID и строит примерку из
@@ -1075,10 +1138,8 @@ def cosmetics_by_slot(slot: str) -> dict[str, dict]:
 
 
 def is_vip_locked(cos: dict) -> bool:
-    """True если ОТОБРАЖЕНИЕ этой косметики требует активную VIP.
-    Правило: всё выше «common» спит без VIP, plus VIP-автогрант-предметы.
-    Покупку НЕ блокирует — только видимость на профиле."""
-    return cos.get("rarity", "common") != "common" or cos.get("source") == "vip"
+    """Owned cosmetics never disappear when a service term expires."""
+    return False
 
 
 # ── Приветственные анимации (вход / прелоадер) ──────────────────────────────────

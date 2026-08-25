@@ -16,23 +16,24 @@ function renderBattlePass() {
   const d=_bpData;
   if(!d) return;
   if(!d.active) {
-    el('pro-bp').innerHTML=`<div class="card" style="text-align:center;padding:24px;color:var(--muted);font-size:12px">🎫 Сезон Боевого пропуска скоро начнётся, следи за анонсами!</div>`;
+    el('pro-bp').innerHTML=`<div class="card" style="padding:16px"><div class="card-title">🎫 Архив Боевого пропуска</div><div style="color:var(--muted);font-size:11px;line-height:1.5">${esc(d.message||'Старый Боевой пропуск закрыт.')}</div></div>`;
     return;
   }
-  _bpCheckLevelUp(d.level);
+  if(!d.retired) _bpCheckLevelUp(d.level);
   const pct=Math.round(d.xp_in_level/d.xp_per_level*100);
   const isMax=d.level>=d.max_level;
   const tinfo=_bpSeasonTimer(d);
   el('pro-bp').innerHTML=`
     <div class="card card-gold" style="margin-bottom:8px">
-      <div class="card-title">🎫 ${d.season_label} — Уровень ${d.level}/${d.max_level}<button class="xpg-btn" onclick="bpXpGuide()">⚡ За что XP?</button></div>
+      <div class="card-title">🎫 ${d.season_label} — Уровень ${d.level}/${d.max_level}${!d.retired?'<button class="xpg-btn" onclick="bpXpGuide()">⚡ За что XP?</button>':''}</div>
+      ${d.retired?`<div class="bp-frozen-banner"><b>Архив сезона.</b> ${esc(d.retired_message||'Прогресс закрыт.')}</div>`:''}
       ${d.frozen?`<div class="bp-frozen-banner">❄️ <b>Сезон временно заморожен.</b> Начисление XP и выдача наград приостановлены.</div>`:''}
       ${!d.frozen&&d.weekend_boost&&d.weekend_boost.active?`<div style="margin:4px 0 8px;padding:5px 8px;border-radius:8px;background:linear-gradient(90deg,rgba(232,181,77,.18),rgba(232,181,77,.04));font-size:11px;color:var(--gold)">⚡ Выходные: <b>+${d.weekend_boost.pct}% XP</b> ко всему Боевому пропуску!</div>`:''}
       <div class="ach-bar bp-xpbar ${d.frozen?'bp-bar-frozen':''}" style="height:10px"><div class="ach-fill" style="width:${isMax?100:pct}%"></div></div>
-      <div class="ach-prog">${isMax?'★ MAX уровень достигнут':`${fmt(d.xp_in_level)} / ${fmt(d.xp_per_level)} XP · осталось ${fmt(d.xp_to_next)} XP до ур. ${d.level+1}`}</div>
+      <div class="ach-prog">${d.retired?`${fmt(d.xp)} XP сохранено`:isMax?'★ MAX уровень достигнут':`${fmt(d.xp_in_level)} / ${fmt(d.xp_per_level)} XP · осталось ${fmt(d.xp_to_next)} XP до ур. ${d.level+1}`}</div>
       ${tinfo.html}
       ${d.buy_next&&!d.frozen?`<button class="btn btn-sm btn-teal" style="margin-top:8px;width:100%" onclick="bpBuyLevel(this)">💎 Открыть уровень ${d.buy_next.level} за ${d.buy_next.price}💎</button>`:''}
-      ${!d.paid_track_open?'<div style="margin-top:8px;font-size:11px;color:var(--gold2)">👑 VIP-трек закрыт — оформи VIP («бот vip»), чтобы забирать платные награды.</div>':''}
+      ${!d.paid_track_open&&!d.retired?'<div style="margin-top:8px;font-size:11px;color:var(--gold2)">👑 VIP-трек закрыт — оформи VIP («бот vip»), чтобы забирать платные награды.</div>':''}
     </div>
     ${_bpNextRewardCard(d)}
     <div class="card">
@@ -238,11 +239,19 @@ function doBpClaimChoice(level,track,idx) {
 let _expOpts=null;   // данные лаунчера похода (GET /zoo/expedition-options)
 function loadZoo() {
   el('zoo-c').innerHTML='<div class="loader">Загрузка...</div>';
-  Promise.all([api('/zoo/'),api('/zoo/expeditions'),api('/zoo/expedition-options').catch(()=>null)]).then(([data,expData,expOpts])=>{
+  Promise.all([api('/zoo/'),api('/zoo/expeditions')]).then(([data,expData])=>{
     _zooData=data;
-    _expOpts=expOpts;
-    renderExps(expData);
-    renderZoo(_zooTab);
+    const pets=data.pets||[];
+    const activeOld=(expData.expeditions||[]).length;
+    el('zoo-exp-wrap').innerHTML=activeOld
+      ? `<div class="card" style="margin-bottom:10px"><div class="card-title">🗺 Завершается старый поход</div><div style="font-size:11px;color:var(--muted);line-height:1.5">${activeOld} активн. · результат будет выдан один раз по прежним условиям.</div></div>`:'';
+    el('zoo-c').innerHTML=`<div class="card" style="padding:16px">
+      <div class="card-title">🐾 Спутники</div>
+      <div style="font-size:12px;color:var(--text);line-height:1.55">Все твои питомцы, имена и редкость сохранены. Старые уровни остаются частью истории, но больше не печатают валюту и не повышают силу.</div>
+      <div class="irow" style="margin-top:10px"><span class="ik">В коллекции</span><span class="iv">${pets.length}</span></div>
+      <div class="irow"><span class="ik">Новая система</span><span class="iv">роль + связь</span></div>
+      <button class="btn btn-gold btn-sm" style="margin-top:12px" onclick="openReconstructionGame()">Открыть спутников ›</button>
+    </div>`;
   }).catch(e=>{el('zoo-c').innerHTML=`<div style="color:var(--red);font-size:12px;padding:10px">${e}</div>`;});
 }
 function renderExps(d) {
@@ -277,6 +286,12 @@ function expLauncherHtml() {
       <div class="card-title">🗺 Поход идёт</div>
       <div class="irow"><span class="ik">${esc(o.busy_pet||'Питомец')} в походе</span><span style="color:var(--teal)">${_left}</span></div>
       <div style="font-size:10px;color:var(--muted);margin-top:4px">За раз можно отправить одного питомца. Ускорить возвращение — бустером (см. блок похода выше).</div>
+    </div>`;
+  }
+  if(o.new_starts_enabled===false) {
+    return `<div class="card" style="margin-bottom:10px">
+      <div class="card-title">🗺 Старые походы завершены</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">Новый поход отправить нельзя. Питомец остаётся у тебя, а игровые забеги теперь находятся во вкладке «Игра».</div>
     </div>`;
   }
   if(!o.active_pet) {
@@ -342,10 +357,8 @@ function bonusLines(sid, b) {
       if(b.ignore_exhaustion) ln.push('✅ Копит при 100% усталости');
       if(b.double_chance>0) ln.push(`🎲 Шанс ×2: ${p(b.double_chance)}`);
       if(b.daily_diamond>0) ln.push(`💎 +${b.daily_diamond}/день`); },
-    owl: b => { ln.push(`📚 +${b.bonus_xp} XP каждые ${b.trigger_every_n_msg} сообщ.`);
-      if(b.expedition_xp_bonus>0) ln.push(`🗺 +${p(b.expedition_xp_bonus)} XP похода`);
-      if(b.weekend_double) ln.push('✅ ×2 XP в выходные');
-      if(b.daily_free_spin_token) ln.push('🎟 Жетон/день'); },
+    owl: () => { ln.push('📚 Архивная способность сохранена');
+      ln.push('Бонус за сообщения не действует'); },
     dog: b => { ln.push(`⏱ −${p(b.speed_reduction)} время похода`);
       if(b.self_fatigue_reduction>0) ln.push(`💪 Пёс: −${p(b.self_fatigue_reduction)} усталости`);
       if(b.zero_fatigue_chance>0) ln.push(`🍀 0 усталости: ${p(b.zero_fatigue_chance)}`);
@@ -737,13 +750,7 @@ function _execBuySlot() {
 // затем обычная покупка. Не женат → сразу личный, без модалки.
 let _pendingPay = null;  // {currency, amount, proceed}
 function withPaymentSource(currency, amount, proceed) {
-  if (!_profileData || !_profileData.partner) { proceed(); return; }
-  _pendingPay = { currency, amount, proceed };
-  const icon = {mora:'🪙',diamonds:'💎',dark_mora:'🌑',zarniki:'✨'}[currency] || '';
-  OM('💳 Чем оплатить?',
-    `<div style="text-align:center;padding:8px 0;color:var(--muted);font-size:12px">К оплате: <b style="color:var(--gold2)">${fmt(amount)} ${icon}</b></div>`,
-    [{l:'👤 Личный счёт', c:'btn-gold', f:'paySrc(0)'},
-     {l:'💑 Семейный кошелёк', c:'btn-ghost', f:'paySrc(1)'}]);
+  proceed();
 }
 function paySrc(useFamily) {
   const p = _pendingPay; _pendingPay = null; CM();
@@ -805,4 +812,3 @@ function boostExp(pid,bid,row) {
     .then(r=>{toast(`⏩ −${r.boosted_hours}ч!`);_loaded.delete('zoo');loadZoo();})
     .catch(e=>{toast(e,false);row.style.opacity='1';});
 }
-

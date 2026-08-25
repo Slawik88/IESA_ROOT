@@ -22,21 +22,11 @@ router.message.middleware(ModuleCheckMiddleware("module_expeditions"))
 
 
 def _build_expedition_list() -> str:
-    lines = ["🗺 <b>ДОСТУПНЫЕ ЭКСПЕДИЦИИ</b>\n"]
-    items = list(EXPEDITIONS_DATA.items())
-    for idx, (hours, data) in enumerate(items):
-        is_last = idx == len(items) - 1
-        prefix = "└" if is_last else "├"
-        cost = "Бесплатно" if data["cost"] == 0 else f"{data['cost']} 🪙"
-        lines.append(
-            f"{prefix} <code>бот поход, {hours}</code> · {hours} ч. · "
-            f"<i>{data['min_m']}-{data['max_m']} 🪙, {data['min_xp']}-{data['max_xp']} XP</i> · {cost}"
-        )
-    lines.append(
-        "\n<i>💡 Нужен Активный питомец — «бот зоопарк».\n"
-        "⏩ Ускорители походов: «бот ускорить поход»</i>"
+    return (
+        "🗺 <b>СТАРЫЕ ПОХОДЫ ЗАКРЫТЫ</b>\n\n"
+        "Уже начатый поход завершится по прежним условиям. Новый запустить нельзя; "
+        "боевые забеги теперь находятся на сайте во вкладке «Игра»."
     )
-    return "\n".join(lines)
 
 
 async def _start_expedition_core(db, user_id: int, chat_id: int, hours: int) -> tuple[bool, str]:
@@ -44,6 +34,8 @@ async def _start_expedition_core(db, user_id: int, chat_id: int, hours: int) -> 
     на сообщении о завершении (services/scheduler.py::_finish_expedition) идут
     сюда (Growth-полиш 2026-07-13, находка 04 — поход был тупиком после награды,
     в отличие от гачи, где «Крутить ещё» уже был). Возвращает (успех, текст-ответ)."""
+    return False, _build_expedition_list()
+
     exp_data = EXPEDITIONS_DATA[hours]
 
     pet = await get_active_pet(db, user_id)

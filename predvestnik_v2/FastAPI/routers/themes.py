@@ -1,16 +1,17 @@
 """FastAPI/routers/themes.py — темы профиля: просмотр, покупка, применение."""
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from core.themes import THEMES, THEME_RARITY_META, RARITY_ORDER
-from infrastructure.repositories.themes import (
-    list_owned, grant_theme, set_active_theme, get_active_theme, owns_theme,
+from infrastructure.repositories.themes import list_owned, set_active_theme, get_active_theme, owns_theme
+from services.themes import (
+    WEB_DIRECT_THEME_SOURCES,
+    ThemePurchaseError,
+    get_all_effective_themes,
+    get_effective_theme,
+    purchase_direct_theme,
 )
-from infrastructure.repositories.economy import get_balance
-from infrastructure.repositories import economy as eco_repo
-from infrastructure.repositories.dark_mora import spend_dark_mora
-from services.themes import get_all_effective_themes, get_effective_theme
 
 router = APIRouter(prefix="/themes", tags=["themes"])
 
@@ -58,53 +59,36 @@ class BuyThemeRequest(BaseModel):
 
 
 @router.post("/buy")
-async def buy_theme(body: BuyThemeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    theme = await get_effective_theme(db, body.theme_id)
-    if not theme:
-        raise HTTPException(404, "Тема не найдена.")
-
-    if await owns_theme(db, user["id"], body.theme_id):
-        raise HTTPException(400, "Тема уже есть в коллекции.")
-
-    source = theme.get("source", "")
-    price_mora     = theme.get("price_mora")
-    price_diamonds = theme.get("price_diamonds")
-    price_zarniki  = theme.get("price_zarniki")
-    price_dark     = theme.get("price_dark")
-
-    # Покупаемые в вебе: магазинные (🪙/💎), донатные (✨) и Тёмный рынок (🌑).
-    # Зарники замыкают донат-петлю: купил Зарники за Stars → тратишь их на
-    # премиум-тему здесь же.
-    bal = await get_balance(db, user["id"])
-
-    if source in ("shop_mora", "shop_diamond") and (price_mora or price_diamonds):
-        if price_mora:
-            if bal["user_balance_mora"] < price_mora:
-                raise HTTPException(400, f"Нужно {price_mora} 🪙, есть {bal['user_balance_mora']:.0f}.")
-            await eco_repo.add_balance(db, user["id"], mora=-price_mora, commit=False,
-                                       source="theme_shop", note=body.theme_id)
-        else:
-            if bal["user_balance_diamonds"] < price_diamonds:
-                raise HTTPException(400, f"Нужно {price_diamonds} 💎, есть {bal['user_balance_diamonds']:.1f}.")
-            await eco_repo.add_balance(db, user["id"], diamonds=-price_diamonds, commit=False,
-                                       source="theme_shop", note=body.theme_id)
-    elif source == "zarniki" and price_zarniki:
-        if bal.get("user_balance_zarniki", 0) < price_zarniki:
-            raise HTTPException(400, f"Нужно {int(price_zarniki)} ✨, есть {bal.get('user_balance_zarniki', 0):.0f}. "
-                                     "Пополни Зарники в разделе ✨ Премиум.")
-        await eco_repo.add_balance(db, user["id"], zarniki=-price_zarniki, commit=False,
-                                   source="theme_shop", note=body.theme_id)
-    elif source == "dark" and price_dark:
-        ok, err = await spend_dark_mora(db, user["id"], float(price_dark),
-                                         source="theme_purchase", note=body.theme_id)
-        if not ok:
-            raise HTTPException(400, err or "Недостаточно Тёмной Моры.")
-    else:
-        raise HTTPException(400, "Эта тема не продаётся напрямую. Получите её через гачу, ивент или Тёмный рынок.")
-
-    await grant_theme(db, user["id"], body.theme_id)
-    await db.commit()
-    return {"ok": True, "theme_name": theme["name"]}
+async def buy_theme(
+    body: BuyThemeRequest,
+    request_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+):
+    """Purchase a current direct theme once, even across retries or double taps."""
+    if request_key is None or not request_key.strip() or len(request_key.strip()) > 180:
+        raise HTTPException(400, "Idempotency-Key должен содержать 1–180 символов.")
+    try:
+        result = await purchase_direct_theme(
+            db,
+            user["id"],
+            body.theme_id,
+            idempotency_key=request_key.strip(),
+            allowed_sources=WEB_DIRECT_THEME_SOURCES,
+        )
+    except ThemePurchaseError as exc:
+        detail = str(exc)
+        status = 404 if detail == "Тема не найдена." else 400
+        if "каталог закрыт" in detail:
+            status = 410
+        raise HTTPException(status, detail) from exc
+    return {
+        "ok": True,
+        "theme_name": result.theme_name,
+        "applied": result.applied,
+        "replayed": result.replayed,
+        "already_owned": result.already_owned,
+    }
 
 
 class EquipThemeRequest(BaseModel):

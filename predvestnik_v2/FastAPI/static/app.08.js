@@ -1,6 +1,6 @@
 // ── 🛠 Консоль разработчика (только DEVELOPER_ID, global_rank=3) ──────────────────
 // loadGlobalDev() был одной функцией на ~400 строк со всем HTML сразу — разбит по
-// вкладкам (см. IMPLEMENTATION_BLOCKS/БЛОК34), каждая вкладка — своя функция-шаблон.
+// вкладкам; каждая вкладка — своя функция-шаблон.
 let _devItems=null;
 let _devUserId=0;   // ID игрока из последнего «Досье» — для визуального инвентаря (БЛОК 4.1)
 // БЛОК 21.2: вкладки консоли строятся по правам актёра (gp/gpAny из app.07) —
@@ -276,10 +276,7 @@ function _devPromoTabHtml(){
         <input id="dev-promo-mora" type="number" class="num-input" style="flex:1;margin:0" placeholder="🪙 мора"/>
         <input id="dev-promo-dia" type="number" class="num-input" style="flex:1;margin:0" placeholder="💎 алмазы"/>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:6px">
-        <input id="dev-promo-dark" type="number" class="num-input" style="flex:1;margin:0" placeholder="🌑 тёмная"/>
-        <input id="dev-promo-zar" type="number" class="num-input" style="flex:1;margin:0" placeholder="✨ зарники"/>
-      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Промокод выдаёт Мору, Алмазы и предметы. Зарники покупаются только за Stars.</div>
       <input id="dev-promo-items" type="text" class="num-input" style="margin-bottom:6px" placeholder="предметы: spin_token:3, food_elite:1"/>
       <div style="display:flex;gap:6px;margin-bottom:6px">
         <input id="dev-promo-max" type="number" class="num-input" style="flex:1;margin:0" placeholder="лимит активаций (0=∞)"/>

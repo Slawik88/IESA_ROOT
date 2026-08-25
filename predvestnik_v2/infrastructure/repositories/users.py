@@ -5,16 +5,17 @@ import aiosqlite
 async def update_user(db: aiosqlite.Connection, user_id: int, username: str | None):
     """Upsert: register user or refresh username if it changed.
 
-    Block 10: новые игроки вставляются с onboarded=FALSE (колонка иначе DEFAULT
-    TRUE — существующие игроки набор не получают). Флаг переключает только
-    services.onboarding.grant_starter_kit.
+    Legacy starter-kit onboarding is retired: registration never creates
+    currency, tokens or pets. New and pending rows are marked onboarded so an
+    old worker cannot grant the removed kit.
     Discovery-полиш 2026-07-19: тот же приём для ai_hint_shown — переключает
     только services.ai_hint.mark_ai_hint_shown.
     """
     await db.execute(
         "INSERT INTO users (user_tg_id, user_tg_username, onboarded, ai_hint_shown) "
-        "VALUES (?, ?, FALSE, FALSE) "
-        "ON CONFLICT(user_tg_id) DO UPDATE SET user_tg_username = ?",
+        "VALUES (?, ?, TRUE, FALSE) "
+        "ON CONFLICT(user_tg_id) DO UPDATE SET "
+        "user_tg_username = ?, onboarded = TRUE",
         (user_id, username, username),
     )
     await db.commit()
@@ -129,7 +130,7 @@ async def delete_nickname(db: aiosqlite.Connection, user_id: int, chat_id: int) 
     await db.commit()
 
 
-# ── R0/R1: уровень аккаунта и Индекс Силы (GDD_REBUILD_PLAN.md) ────────────────
+# ── Уровень аккаунта и legacy Индекс Силы ──────────────────────────────────────
 
 async def _reset_aborted_tx(db) -> None:
     """Сбросить aborted-transaction на сыром asyncpg-соединении.
@@ -161,9 +162,8 @@ async def ensure_account_columns(db) -> None:
     for stmt in (
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_xp BIGINT DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_level INTEGER DEFAULT 1",
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS combat_power INTEGER DEFAULT 0",
         # Growth-полиш 2026-07-13: та же дуальная защита от гонки бот/веб-процессов,
-        # что и у трёх колонок выше.
+        # что и у двух колонок выше. Legacy CP is not recreated on a new schema.
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT DEFAULT NULL",
         # Онбординг боя 2026-07-21: пройден ли скриптованный «Первый бой».
         # DEFAULT FALSE → и существующим игрокам предложим новое обучение (не форс —
@@ -214,13 +214,10 @@ async def set_combat_tutorial_done(db, user_id: int) -> None:
 
 
 async def add_account_xp(db, user_id: int, amount: int) -> dict:
-    """Начислить XP аккаунту, вернуть свежие {account_xp, account_level}.
-    Уровень здесь НЕ пересчитывается — это делает services.leveling
-    (единственный владелец формулы кривой)."""
+    """Legacy compatibility: account XP is frozen and never increases."""
     async with db.execute(
-        "UPDATE users SET account_xp = account_xp + ? WHERE user_tg_id = ? "
-        "RETURNING account_xp, account_level",
-        (amount, user_id),
+        "SELECT account_xp, account_level FROM users WHERE user_tg_id = ?",
+        (user_id,),
     ) as c:
         row = await c.fetchone()
     return dict(row) if row else {"account_xp": 0, "account_level": 1}

@@ -29,7 +29,7 @@ function renderLots(lots, searchQuery) {
   if(!lots.length) {
     el('lot-list').innerHTML = searchQuery
       ? `<div style="text-align:center;padding:24px;color:var(--muted)"><div style="font-size:24px;margin-bottom:6px">🔍</div><div style="font-size:12px">Ничего не найдено по «${searchQuery}»</div></div>`
-      : `<div style="text-align:center;padding:32px 16px;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">🏛️</div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Аукцион пуст</div><div style="font-size:11px">Выставь свой лот — нажми «+ Выставить»!</div></div>`;
+      : `<div style="text-align:center;padding:32px 16px;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">🏛️</div><div style="font-size:13px;font-weight:600;margin-bottom:4px">Активных лотов нет</div><div style="font-size:11px">Новые сделки откроются после проверки происхождения товаров.</div></div>`;
     return;
   }
   el('lot-list').innerHTML = lots.map(l => {
@@ -87,8 +87,8 @@ function renderLots(lots, searchQuery) {
           <div class="lot-bid">${fmt(curBid)} 🪙</div>
           ${buyout?`<div class="lot-buyout">⚡ Выкуп: ${fmt(buyout)} 🪙</div>`:''}
         </div>
-        <button class="btn btn-sm btn-gold" onclick="openBidModal(${bidArgs})" style="padding:8px 14px">
-          💰 Ставка
+        <button class="btn btn-sm ${_aucOpen?'btn-gold':'btn-ghost'}" ${_aucOpen?`onclick="openBidModal(${bidArgs})"`:'disabled'} style="padding:8px 14px">
+          ${_aucOpen?'💰 Ставка':'Завершается'}
         </button>
       </div>
     </div>`;
@@ -96,7 +96,7 @@ function renderLots(lots, searchQuery) {
 }
 
 // ── Крипто-Биржа (ШАГ4): лорные монеты, свечи, купить/продать с ползунком % ──────
-let _cxData=null, _cxSel=null, _cxAction='buy', _cxPct=50, _cxHost='mb', _cxView='list';
+let _cxData=null, _cxSel=null, _cxAction='buy', _cxPct=50, _cxHost='mb', _cxView='list', _cxTradeKey=null;
 // Инлайн-вкладка «📈 Биржа» (под-вкладка страницы Аукцион·Обменник·Биржа).
 function loadCrypto(){
   _cxHost='mkt-crypto'; _cxSel=null; _cxAction='buy'; _cxPct=50; _cxView='list';
@@ -113,10 +113,14 @@ function renderCrypto(){
   if(_cxSel){ b.innerHTML=_cxDetailHtml(); return; }
   var pnl=_cxData.portfolio_pnl||0, pnlCls=pnl>=0?'cx-pnl-up':'cx-pnl-dn', pnlSign=pnl>=0?'+':'';
   var pnlTxt=_cxData.portfolio_value>0?' <span class="'+pnlCls+'">'+pnlSign+fmt(Math.round(pnl))+' P&L</span>':'';
+  const phase=_cxData.world_phase||{}, budget=_cxData.risk_budget||{};
   var head='<div class="cx-head">'
     +'<div><div class="cx-h-l">💼 Портфель</div><div class="cx-h-v">'+fmt(_cxData.portfolio_value)+' 🪙'+pnlTxt+'</div></div>'
     +'<div style="text-align:right"><div class="cx-h-l">Баланс · <button class="cx-star" onclick="_cxView=\'top\';renderCrypto()" title="Топ трейдеров">🏆</button></div>'
-    +'<div class="cx-h-v">'+fmt(_cxData.mora)+' 🪙</div></div></div>';
+    +'<div class="cx-h-v">'+fmt(_cxData.mora)+' 🪙</div></div></div>'
+    +'<div style="font-size:10.5px;color:var(--muted);line-height:1.45;margin:7px 2px 10px">'
+    +'<b style="color:var(--bright)">'+esc(phase.name||'Фаза мира')+'</b> · '+esc(phase.summary||'')
+    +'<br>Резерв продаж: <b style="color:var(--gold2)">'+fmt(Math.floor(budget.remaining||0))+' / '+fmt(Math.floor(budget.cap||0))+' 🪙</b></div>';
   b.innerHTML=head+'<div class="cx-list">'+_cxData.coins.map(_cxRow).join('')+'</div>';
 }
 function _cxRow(c){
@@ -134,9 +138,9 @@ function _cxRow(c){
     +'<div class="cx-ico">'+c.emoji+'</div>'
     +'<div class="cx-rinfo"><div class="cx-rname">'+esc(c.name)
     +' <button class="'+starCls+'" onclick="event.stopPropagation();_cxWatch(\''+c.id+'\')" title="Избранное" aria-label="'+(c.starred?'Убрать из избранного':'В избранное')+'">'+( c.starred?'★':'☆')+'</button></div>'
-    +holdLine+'</div>'
+    +'<div class="cx-rhold">'+esc(c.region||'')+'</div>'+holdLine+'</div>'
     +_cxSpark(c.candles,up)
-    +'<div class="cx-rprice"><div class="cx-rp">'+fmt(c.price)+'🪙</div>'
+    +'<div class="cx-rprice"><div class="cx-rp">'+fmtF(c.price)+'🪙</div>'
     +'<div class="cx-rchg '+(up?'up':'down')+'">'+(up?'▲':'▼')+Math.abs(c.change_24h)+'%</div></div></div>';
 }
 function _cxSpark(cd,up){
@@ -148,7 +152,7 @@ function _cxSpark(cd,up){
 }
 function _cxOpen(id){ _cxSel=id; _cxAction='buy'; _cxPct=50; renderCrypto(); _cxAlertsLoad(); }
 function _cxBack(){ _cxSel=null; renderCrypto(); }
-function _cxSetAction(a){ _cxAction=a; _cxPct=50; renderCrypto(); }
+function _cxSetAction(a){ _cxAction=a; _cxPct=50; _cxTradeKey=null; renderCrypto(); }
 // Комиссия CRYPTO_TRADE_FEE берётся на ОБЕ стороны → учитываем и в maxAmt (на покупке
 // 1 монета стоит price×(1+fee), иначе ползунок 100% ушёл бы за баланс), и в сумме сделки.
 function _cxMaxAmt(c){ const fee=_cxData.fee||0; if(_cxAction==='buy'){ const u=c.price*(1+fee); return u>0?_cxData.mora/u:0; } return c.holding; }
@@ -163,16 +167,17 @@ function _cxDetailHtml(){
   return `<button class="btn btn-sm btn-ghost" style="margin-bottom:8px" onclick="_cxBack()">← Все монеты</button>
     <div class="cx-det-head"><span class="cx-ico" style="font-size:26px">${c.emoji}</span>
       <div><div class="cx-rname" style="font-size:16px">${c.name}</div>
-      <div class="cx-rchg ${up?'up':'down'}">${fmt(price)} 🪙 · ${up?'▲':'▼'} ${Math.abs(c.change_24h)}% (24ч)</div></div></div>
+      <div class="cx-rchg ${up?'up':'down'}">${fmtF(price)} 🪙 · ${up?'▲':'▼'} ${Math.abs(c.change_24h)}% (24ч)</div>
+      <div class="cx-dim" style="font-size:10px">${esc(c.region||'')} · ${esc(c.world_use||'')}</div></div></div>
     ${_cxChart(c.candles)}
-    <div class="cx-hold">В портфеле: <b>${_cxAmt(c.holding)}</b> ${c.emoji} <span class="cx-dim">(${fmt(c.value)} 🪙)</span></div>
-    ${c.holding&&c.avg_buy?`<div class="cx-pnl ${c.pnl_abs>=0?'up':'down'}">P&L: ${c.pnl_abs>=0?'+':''}${fmt(Math.round(c.pnl_abs))} 🪙 (${c.pnl_pct>=0?'+':''}${c.pnl_pct}%) · ср. цена ${fmt(Math.round(c.avg_buy))} 🪙</div>`:''}
+    <div class="cx-hold">В портфеле: <b>${_cxAmt(c.holding)}</b> ${c.emoji} <span class="cx-dim">(${fmtF(c.value)} 🪙)</span></div>
+    ${c.holding&&c.avg_buy?`<div class="cx-pnl ${c.pnl_abs>=0?'up':'down'}">P&L: ${c.pnl_abs>=0?'+':''}${fmtF(c.pnl_abs)} 🪙 (${c.pnl_pct>=0?'+':''}${c.pnl_pct}%) · ср. цена ${fmtF(c.avg_buy)} 🪙</div>`:''}
     <div class="cx-tabs"><button class="cx-tab ${_cxAction==='buy'?'on':''}" onclick="_cxSetAction('buy')">Купить</button>
       <button class="cx-tab ${_cxAction==='sell'?'on':''}" onclick="_cxSetAction('sell')">Продать</button></div>
     <div class="cx-slider-row"><input id="cx-slider" type="range" min="0" max="100" value="${_cxPct}" oninput="_cxSlide(this.value)"/>
       <span id="cx-pct" class="cx-pct">${_cxPct}%</span></div>
     <div class="cx-quote"><div>Кол-во: <b id="cx-amt">${_cxAmt(amt)}</b> ${c.emoji}</div>
-      <div>${_cxAction==='buy'?'Потратишь':'Получишь'}: <b id="cx-cost">${fmt(Math.round(cost))}</b> 🪙</div></div>
+      <div>${_cxAction==='buy'?'Потратишь':'Получишь'}: <b id="cx-cost">${fmtF(cost)}</b> 🪙</div></div>
     ${fee?`<div class="cx-dim" style="font-size:10px;margin:-4px 0 8px">↳ комиссия биржи −${Math.round(fee*100)}% (и при покупке, и при продаже)</div>`:''}
     ${noFunds?`<div class="cx-dim" style="font-size:11px;text-align:center;margin-bottom:6px">${_cxAction==='buy'?'Недостаточно 🪙 для покупки':'Нет '+esc(c.name)+' в портфеле'}</div>`:''}
     <button class="btn btn-full ${_cxAction==='buy'?'btn-gold':'btn-ghost'}" ${noFunds?'disabled':''} onclick="_cxTrade()">${_cxAction==='buy'?'📈 Купить':'📉 Продать'} ${esc(c.name)}</button>
@@ -231,19 +236,20 @@ function _cxChart(cd){
   return `<svg class="cx-chart" width="100%" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${bars}</svg>`;
 }
 function _cxSlide(v){
-  _cxPct=parseInt(v)||0; const c=_cxCur(); if(!c) return;
+  _cxPct=parseInt(v)||0; _cxTradeKey=null; const c=_cxCur(); if(!c) return;
   const maxAmt=_cxMaxAmt(c);
   const amt=maxAmt*_cxPct/100, cost=_cxCost(c,amt);
   const e1=el('cx-pct'),e2=el('cx-amt'),e3=el('cx-cost');
-  if(e1)e1.textContent=_cxPct+'%'; if(e2)e2.textContent=_cxAmt(amt); if(e3)e3.textContent=fmt(Math.round(cost));
+  if(e1)e1.textContent=_cxPct+'%'; if(e2)e2.textContent=_cxAmt(amt); if(e3)e3.textContent=fmtF(cost);
 }
 function _cxTrade(){
   const c=_cxCur(); if(!c) return;
   const maxAmt=_cxMaxAmt(c);
   const amt=maxAmt*_cxPct/100;
   if(amt<=0){ toast('Выбери количество ползунком',false); return; }
-  api('/exchange/crypto/trade',{method:'POST',body:JSON.stringify({coin_id:c.id,action:_cxAction,amount:amt})})
-    .then(r=>{toast('✅ '+r.message); refreshCurrBar(); _cxLoad();})
+  _cxTradeKey=_cxTradeKey||economyRequestKey('crypto-'+_cxAction+'-'+c.id);
+  api('/exchange/crypto/trade',{method:'POST',headers:{'Idempotency-Key':_cxTradeKey},body:JSON.stringify({coin_id:c.id,action:_cxAction,amount:amt})})
+    .then(r=>{_cxTradeKey=null;toast('✅ '+r.message); refreshCurrBar(); _cxLoad();})
     .catch(e=>toast(e,false));
 }
 // ── БЛОК22: Вотчлист / история / топ трейдеров ───────────────────────────────────
@@ -321,7 +327,7 @@ function renderGlobalProfile(d, recipientId){
       <span class="gp-pet-hero-e">${emap[activePet.species_id]||'🐾'}</span>
       <div class="gp-pet-hero-i">
         <div class="gp-pet-hero-n">${esc(activePet.name||activePet.species_id)}</div>
-        <div class="gp-pet-hero-l">⚔️ Активный боец · Ур.${activePet.pet_level}</div>
+        <div class="gp-pet-hero-l">🐾 Спутник Хроники · Ур.${activePet.pet_level}</div>
       </div>
     </div>` : '';
   const petsListHtml = restPets.map(p=>`<div class="gp-pet"><span class="gp-pe">${emap[p.species_id]||'🐾'}</span>
@@ -372,12 +378,9 @@ function renderGlobalProfile(d, recipientId){
         ${metaHtml}
         <div class="gp-stats">
           <div class="gp-st"><div class="gp-sv">${d.level}</div><div class="gp-sl">Уровень</div></div>
-          ${typeof d.combat_power==='number'?`<div class="gp-st"><div class="gp-sv" style="color:var(--gold2)">⚡${fmt(d.combat_power)}</div><div class="gp-sl">Сила</div></div>`:''}
-          <div class="gp-st"><div class="gp-sv">🔥${d.streak}</div><div class="gp-sl">Стрик</div></div>
+          <div class="gp-st"><div class="gp-sv">🔥${d.streak}</div><div class="gp-sl">Серия</div></div>
           <div class="gp-st"><div class="gp-sv">🏆${d.achievements}${d.achievements_total?'/'+d.achievements_total:''}</div><div class="gp-sl">Ачивки</div></div>
           <div class="gp-st"><div class="gp-sv">${fmt(d.messages)}</div><div class="gp-sl">Сообщений</div></div>
-          ${d.gates_floor>0?`<div class="gp-st"><div class="gp-sv">🗝${d.gates_floor}</div><div class="gp-sl">Врата</div></div>`:''}
-          ${d.duel_wins>0?`<div class="gp-st"><div class="gp-sv">⚔️${d.duel_wins}</div><div class="gp-sl">Дуэли</div></div>`:''}
         </div>
         <div class="looks-slot-t" style="margin-top:12px">🐾 Питомцы (${allPets.length})</div>
         ${activePetHtml}
@@ -400,58 +403,20 @@ function _openGiftModal(rid){
         ${_looksSwatch(it.slot, it)}<div class="lc-name">${esc(it.name)}</div>
         <div class="lc-foot"><span class="lc-rar">${_rarLabel(it.rarity)}</span>${foot}</div></div>`;
     }).join('');
-    b.innerHTML=`<div class="looks-hint">🎁 Списываются твои ✨ Зарники — подарок прилетит игроку, а в его профиле/топах засветится статус. Серые — у него уже есть.</div>
+    b.innerHTML=`<div class="looks-hint">🎁 Списываются твои Зарники. Получатель сразу получит предмет; уже принадлежащие ему варианты недоступны.</div>
       <div class="looks-cards gift-cards">${cards}</div>`;
   }).catch(e=>{const b=el('mb');if(b)b.innerHTML=`<div class="err">${e}</div>`;});
 }
 function _giftBuy(rid, cid, btn){
   if(btn) btn.disabled=true;
-  api('/cosmetics/gift',{method:'POST',body:JSON.stringify({recipient_id:rid,cosmetic_id:cid,chat_id:(_initChatId||_cid||0)})})
-    .then(r=>{ toast(r.message||'🎁 Подарок отправлен! 💜'); refreshCurrBar(); CM(); })
+  const requestKey=btn?.dataset.requestKey||economyRequestKey(`cosmetic-gift-${rid}-${cid}`);
+  if(btn)btn.dataset.requestKey=requestKey;
+  api('/cosmetics/gift',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({recipient_id:rid,cosmetic_id:cid,chat_id:(_initChatId||_cid||0)})})
+    .then(r=>{if(btn)delete btn.dataset.requestKey; toast(r.message||'🎁 Подарок отправлен!'); refreshCurrBar(); CM(); })
     .catch(e=>{toast(e,false); if(btn) btn.disabled=false;});
 }
-// ── Боёвка 3.0: Врата и экран боя переехали в Арену (app.11.js) ───────────────
-// Здесь остались только точка возврата после боя и легаси-алиас входа во Врата.
-let _btBackFn=null;   // куда возвращаться после боя (Врата/Бездна/Война)
-function _btBack(){ const f=_btBackFn; _b3Close(); (f||loadGates)(); }
-function openShadowGates(){ CM(); goTo('arena','gates'); }
-// ── Клановые Рейды (БЛОК19 Ч.6, замена PvP) ─────────────────────────────────────
-let _raidData=null;
-function loadRaid(){
-  const host=el('rc'); if(host)host.innerHTML='<div class="loader">Загрузка...</div>';
-  api('/combat/raid').then(d=>{_raidData=d;renderRaid();}).catch(e=>{if(el('rc'))el('rc').innerHTML=`<div class="err">${e}</div>`;});
-}
-function renderRaid(){
-  const host=el('rc'); if(!host||!_raidData) return;
-  if(!_raidData.in_clan){ host.innerHTML=`<div class="empty-state"><div class="es-icon">🛡</div><div class="es-title">Рейды — для кланов</div><div class="es-sub">Вступи в клан, чтобы бить боссов вместе.</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="openClansModal()">🛡 К кланам</button></div>`; return; }
-  const raid=_raidData.raid;
-  if(!raid){
-    host.innerHTML=`<div class="card"><div class="card-title">👹 Клановый рейд</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Сейчас рейда нет. Босс масштабируется по числу участников; награды — по вкладу урона.</div>
-      ${_raidData.is_leader?`<button class="btn btn-gold btn-full" onclick="_raidStart()">👹 Запустить рейд</button>`:'<div class="cx-dim" style="font-size:11px">Рейд запускает лидер клана.</div>'}</div>`;
-    return;
-  }
-  const pct=Math.max(0,Math.min(100,raid.hp_max?raid.hp/raid.hp_max*100:0));
-  const squad=_raidData.squad||[];
-  const squadChips=squad.map(s=>`<span class="bk-chip">${s.emoji} ${esc(s.name)} · ур.${s.level}</span>`).join('');
-  const contribs=(_raidData.contribs||[]).map((c,i)=>`<div class="rd-crow"><span>${i+1}. ${unameLink(c.user_id,c.username,false)}</span><span class="rd-dmg">${fmt(Math.round(c.damage))} dmg</span></div>`).join('')||'<div class="cx-dim" style="font-size:11px">Пока никто не бил.</div>';
-  const h=Math.floor((_raidData.ends_in||0)/3600), m=Math.floor(((_raidData.ends_in||0)%3600)/60);
-  host.innerHTML=`<div class="rd-boss">
-      <div class="rd-emoji">${raid.boss_emoji||'👹'}</div>
-      <div class="rd-name">${esc(raid.boss_name)}</div>
-      <div class="rd-hpbar"><div class="rd-hpfill" style="width:${pct.toFixed(1)}%"></div></div>
-      <div class="rd-hplbl">${fmt(Math.round(raid.hp))} / ${fmt(Math.round(raid.hp_max))} HP · ${pct.toFixed(0)}% · ⏳ ${h}ч ${m}м</div>
-    </div>
-    ${squad.length?`<div class="bk-chips" style="margin:6px 0">${squadChips}</div>
-    <button class="btn btn-gold btn-full" onclick="_raidAttack(this)">⚔️ Ударить отрядом (~${fmt(_raidData.squad_damage||0)} урона)</button>
-    <div class="cx-dim" style="font-size:10px;margin:4px 0 8px">Боёвка 3.0: бьёт твой отряд из Казармы, без потери HP. Между атаками — перерыв.</div>`
-    :`<div class="cx-dim" style="font-size:11px;padding:6px">Отряда нет.</div>
-      <button class="btn btn-sm btn-gold" onclick="goTo('arena','barracks')">🏰 Собрать отряд в Казарме</button>`}
-    <div class="looks-slot-t">🏅 Вклад клана</div><div class="rd-contribs">${contribs}</div>`;
-}
-function _raidStart(){ api('/combat/raid/start',{method:'POST',body:JSON.stringify({})}).then(r=>{toast(r.message);loadRaid();}).catch(e=>toast(e,false)); }
-function _raidAttack(btn){ if(btn)btn.disabled=true; api('/combat/raid/attack',{method:'POST',body:JSON.stringify({})}).then(r=>{toast(r.message);refreshCurrBar();loadRaid();}).catch(e=>{toast(e,false);if(btn)btn.disabled=false;}); }
-// openDuelChallenge / submitDuelChallenge — defined above in the loadDuels section
+// ── Переход к актуальной игре ──────────────────────────────────────────────────
+function openShadowGates(){ CM(); openReconstructionGame(); }
 
 // doSpin and closeSpinResult defined above (no loadGacha to avoid overwriting result)
 
@@ -620,20 +585,24 @@ function loadMarriageCard() {
     }
     if(!m.married){
       // Empty state с CTA (заповедь 5)
-      host.innerHTML=propHtml+`<div class="card">
+      host.innerHTML=propHtml+`<details class="profile-fold">
+        <summary><span class="profile-fold-title">💔 Брак</span><span class="profile-fold-meta">Не заключён</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+        <div class="profile-fold-body">
         <div class="empty-state">
           <div class="es-icon">💔</div>
           <div class="es-title">Вы не в браке</div>
           <div class="es-sub">Свяжите судьбу с другим игроком: в групповом чате, где есть бот
           (не здесь, в мини-аппе), напишите текстом<br><code>бот брак, @username</code></div>
         </div>
-      </div>`;
+        </div>
+      </details>`;
       return;
     }
     const pets=m.family_pets||[];
     host.innerHTML=propHtml+`
-      <div class="card card-gold">
-        <div class="card-title">💍 Брак</div>
+      <details class="profile-fold profile-fold--gold">
+        <summary><span class="profile-fold-title">💍 Брак</span><span class="profile-fold-meta">${vipName(m.partner_name||'Партнёр', m.partner_is_vip)} · ${m.days} дн.</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+        <div class="profile-fold-body">
         <div style="text-align:center;padding:4px 0 12px">
           <div style="font-size:28px;margin-bottom:6px">💍</div>
           <div style="font-size:15px;font-weight:700;color:var(--bright)">${vipName(m.partner_name||'Партнёр', m.partner_is_vip)}</div>
@@ -644,17 +613,7 @@ function loadMarriageCard() {
           const shown=fb.filter(([ic,v,cur])=>(v||0)>0||cur==='mora').map(([ic,v])=>`${ic} ${fmt(v||0)}`).join(' · ');
           return `<div class="irow"><span class="ik">Семейный кошелёк</span><span style="color:var(--gold);font-weight:700">${shown}</span></div>`;
         })()}
-        <div style="display:flex;gap:6px;margin-top:10px">
-          <input id="bank-amt" type="number" class="num-input" style="margin:0;flex:1" placeholder="Сумма" min="1"/>
-          <select id="bank-cur" class="num-input" style="margin:0;flex:none;width:64px">
-            <option value="mora">🪙</option><option value="diamonds">💎</option>
-            <option value="dark_mora">🌑</option><option value="zarniki">✨</option>
-          </select>
-        </div>
-        <div style="display:flex;gap:7px;margin-top:6px">
-          <button class="btn btn-sm btn-gold" style="flex:1" onclick="familyBank('deposit')">📥 Вложить</button>
-          <button class="btn btn-sm btn-ghost" style="flex:1" onclick="familyBank('withdraw')">📤 Забрать</button>
-        </div>
+        <div style="font-size:10.5px;color:var(--muted);line-height:1.5;margin-top:8px">Баланс сохранён и временно заморожен. Перенос будет выполнен отдельной операцией с квитанцией, чтобы ни одна валюта или семейный питомец не пропали.</div>
         <button class="btn btn-sm btn-ghost btn-full" style="margin-top:8px" onclick="openPartnerGifts()">🎁 Подарить партнёру</button>
         ${(m.received_gifts&&m.received_gifts.length)?`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
           <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">🎁 Подарки от партнёра</div>
@@ -667,7 +626,8 @@ function loadMarriageCard() {
         <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border2)">
           <button class="btn btn-red btn-full" style="margin:0" onclick="confirmDivorce()">💔 Развестись</button>
         </div>
-      </div>`;
+        </div>
+      </details>`;
     host._mid=m.marriage_id;
   }).catch(e=>{host.innerHTML=`<div class="card"><div class="err">${e}</div></div>`;});
 }
@@ -682,7 +642,7 @@ function familyBank(action) {
     .catch(e=>toast(e,false));
 }
 function confirmDivorce() {
-  OM('💔 Развод','<div style="text-align:center;padding:12px 0;color:var(--muted)">Вы уверены? Брак будет расторгнут <b style="color:var(--red)">безвозвратно</b>. Семейный банк будет разделён.</div>',[
+  OM('💔 Развод','<div style="text-align:center;padding:12px 0;color:var(--muted)">Развод доступен сразу только при пустом семейном кошельке и без семейных питомцев. Ценные права не удаляются автоматически.</div>',[
     {l:'Да, развестись',c:'btn-red',f:'doDivorce()'},
     {l:'Отмена',c:'btn-ghost',f:'CM()'},
   ]);
@@ -715,9 +675,7 @@ function openPartnerGifts() {
     if(!gifts.length){el('mb').innerHTML='<div style="text-align:center;padding:14px 0;color:var(--muted)">Подарков нет.</div>';return;}
     const rows=gifts.map(g=>{
       const ic=_GIFT_CUR_ICON[g.currency]||'';
-      const tag=g.kind==='buff'
-        ? `<span style="color:var(--gold2)">✨ +${Math.round((g.buff_value||0)*100)}% XP · ${g.buff_hours}ч партнёру</span>`
-        : `<span style="color:var(--muted)">🎀 знак внимания</span>`;
+      const tag=`<span style="color:var(--muted)">🎀 запись в семейной истории · без игровой силы</span>`;
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border2)">
         <div style="min-width:0">
           <div style="font-weight:600">${esc(g.name)}</div>
@@ -726,12 +684,14 @@ function openPartnerGifts() {
         <button class="btn btn-sm btn-gold" style="flex:none" onclick="buyPartnerGift('${g.id}',this)">${fmt(g.price)} ${ic}</button>
       </div>`;
     }).join('');
-    el('mb').innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Подарок вручается вашему супругу. Баф-подарки дают партнёру +XP на время.</div>${rows}`;
+    el('mb').innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Подарок вручается супругу и остаётся в семейной истории. Силу, XP и награды он не меняет.</div>${rows}`;
   }).catch(e=>{el('mb').innerHTML=`<div class="err">${e}</div>`;});
 }
 function buyPartnerGift(id,btn) {
   if(btn) btn.disabled=true;
-  api('/marriage/gift',{method:'POST',body:JSON.stringify({gift_id:id})})
+  const requestKey=btn?.dataset.requestKey||economyRequestKey(`partner-gift-${id}`);
+  if(btn) btn.dataset.requestKey=requestKey;
+  api('/marriage/gift',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({gift_id:id})})
     .then(r=>{toast(`🎁 ${r.gift_name} вручён партнёру! 💖`);refreshCurrBar();CM();loadMarriageCard();})
     .catch(e=>{toast(e,false);if(btn) btn.disabled=false;});
 }
@@ -764,8 +724,7 @@ function _renderWalletMini() {
   const host = el('wallet-mini');
   if(!host) return;
   if(!_walletMiniTxs.length){
-    host.innerHTML=`<div class="card"><div class="card-title">💳 История операций</div>
-      <div class="cx-dim" style="font-size:11px;padding:6px 0">Пока пусто — здесь появится история, как только пройдёт первая покупка, поход или обмен.</div></div>`;
+    host.innerHTML=`<details class="profile-fold"><summary><span class="profile-fold-title">💳 История операций</span><span class="profile-fold-meta">Пока пусто</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary><div class="profile-fold-body"><div class="cx-dim" style="font-size:11px;padding:6px 0">Здесь появится история после первой покупки, похода или обмена.</div></div></details>`;
     return;
   }
   const show = _walletMiniExpanded ? _walletMiniTxs : _walletMiniTxs.slice(0,4);
@@ -790,11 +749,13 @@ function _renderWalletMini() {
       ${t.note?`<div class="wtx-note">${esc(t.note)}</div>`:''}
     </div>`;
   };
-  host.innerHTML=`<div class="card">
-    <div class="card-title">💳 История операций</div>
+  host.innerHTML=`<details class="profile-fold">
+    <summary><span class="profile-fold-title">💳 История операций</span><span class="profile-fold-meta">${_walletMiniTxs.length} операций</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+    <div class="profile-fold-body">
     ${show.map(fmtTx).join('')}
     ${_walletMiniTxs.length>4?`<button class="btn btn-ghost btn-sm btn-full" style="margin-top:6px" onclick="toggleWalletMini()">${_walletMiniExpanded?'▲ Свернуть':'▼ Показать все ('+_walletMiniTxs.length+')'}</button>`:''}
-  </div>`;
+    </div>
+  </details>`;
 }
 
 // ── Daily Deal ────────────────────────────────────────────────────────────────
@@ -802,6 +763,11 @@ let _dealRefreshAt = null, _dealTimerInterval = null;
 function loadDeal() {
   el('mkt-deal').innerHTML='<div class="loader">Загрузка...</div>';
   api('/daily-deal/').then(d=>{
+    if(d.active===false){
+      el('mkt-deal').innerHTML=`<div class="card"><div class="card-title">🏷 Акция завершена</div><div style="font-size:11px;color:var(--muted);line-height:1.55">${esc(d.message||'Старая ротация закрыта.')}</div></div><div id="mkt-showcase"></div>`;
+      loadShowcase();
+      return;
+    }
     _dealRefreshAt = d.refreshes_at;
     const deals = d.deals||[];
     el('mkt-deal').innerHTML=`
@@ -864,8 +830,10 @@ function loadShowcase(){
 }
 function _showcaseBuyBundle(btn){
   if(btn){btn.disabled=true;btn.textContent='...';}
-  api('/showcase/buy-bundle',{method:'POST'})
-    .then(r=>{toast(r.message||'🎁 Набор куплен!');if(typeof refreshCurrBar==='function')refreshCurrBar();loadShowcase();})
+  const requestKey=btn?.dataset.requestKey||economyRequestKey('showcase-bundle');
+  if(btn)btn.dataset.requestKey=requestKey;
+  api('/showcase/buy-bundle',{method:'POST',headers:{'Idempotency-Key':requestKey}})
+    .then(r=>{if(btn)delete btn.dataset.requestKey;toast(r.message||'🎁 Набор куплен!');if(typeof refreshCurrBar==='function')refreshCurrBar();loadShowcase();})
     .catch(e=>{toast(e,false);loadShowcase();});
 }
 function _showcaseCard(s){
@@ -899,8 +867,10 @@ function _showcaseReveal(idx,card){
 }
 function _showcaseBuy(idx,btn){
   if(btn){btn.disabled=true;btn.textContent='...';}
-  api('/showcase/buy',{method:'POST',body:JSON.stringify({slot_idx:idx})})
-    .then(r=>{toast(r.message||'🎨 Куплено!');loadShowcase();})
+  const requestKey=btn?.dataset.requestKey||economyRequestKey(`showcase-slot-${idx}`);
+  if(btn)btn.dataset.requestKey=requestKey;
+  api('/showcase/buy',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({slot_idx:idx})})
+    .then(r=>{if(btn)delete btn.dataset.requestKey;toast(r.message||'🎨 Куплено!');loadShowcase();})
     .catch(e=>{toast(e,false);loadShowcase();});
 }
 function startDealTimer() {
@@ -978,74 +948,65 @@ function redeemPromo(btn) {
     .finally(()=>{btn.disabled=false;});
 }
 
-// ── Exchange Zarniki → Mora/Diamonds (Implementation Block 1.3) ───────────────
+// Owner-v3: единственный валютный маршрут — необратимый Зарники → Мора.
 function openExchangeZarnikiModal() {
   const zar = Math.floor(_profileData?.zarniki || 0);
-  OM('🔄 Обмен Зарников', `
+  OM('✨ Зарники → Мора', `
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.5">
       Баланс: <b style="color:var(--bright)">${zar} ✨</b><br>
-      Курс: 1✨ = 150 🪙  ·  1✨ = 0.05 💎 (20✨ = 1💎)<br>
-      <span style="color:var(--gold);font-size:11px">⚠️ Обмен необратим.</span>
+      <b style="color:var(--gold2)">1 ✨ = 150 🪙</b>. Обмен назад невозможен.<br>
+      Алмазы выдаются только за испытания и сезонные рубежи; Зарники на них не меняются.
     </div>
-    <input id="exch-zar-amount" type="number" class="num-input" min="1" max="${zar}" step="1"
-           placeholder="Сколько ✨ обменять" style="margin:0"/>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn btn-sm btn-gold" style="flex:1" onclick="doExchangeZarniki('mora')">→ 🪙 Мора</button>
-      <button class="btn btn-sm btn-gold" style="flex:1" onclick="doExchangeZarniki('diamonds')">→ 💎 Алмазы</button>
+    <div style="display:flex;gap:7px;align-items:center">
+      <input id="exch-zar-amount" type="number" class="num-input" min="1" max="${zar}" step="1"
+             placeholder="Сумма ✨" style="margin:0;min-width:0"/>
+      <button class="btn btn-sm btn-gold" onclick="doExchangeZarniki()">Рассчитать</button>
     </div>
     <div id="exch-zar-result" style="margin-top:8px"></div>
   `, [
     {l:'Закрыть', c:'btn-ghost', f:'CM()'},
   ]);
 }
-function doExchangeZarniki(to) {
-  const amount = parseFloat(el('exch-zar-amount')?.value);
-  if(!amount || amount<=0){ toast('Укажи количество ✨', false); return; }
-  // UX_AUDIT С20: обмен необратим — подтверждение, как у остальных необратимых
-  // денежных действий (VIP/клан/лот/развод). Курс тот же, что в шапке модалки.
-  const got = to==='mora' ? fmt(amount*150)+' 🪙' : (amount*0.05).toFixed(2)+' 💎';
-  el('exch-zar-result').innerHTML = `<div style="font-size:12px;color:var(--bright);background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:8px 10px">
-      Обменять <b>${amount} ✨</b> на <b>${got}</b>? Вернуть будет нельзя.
-      <button class="btn btn-sm btn-gold btn-full" style="margin-top:8px" onclick="_doExchangeZarnikiGo('${to}',${amount})">✅ Да, обменять</button>
-    </div>`;
+function doExchangeZarniki() {
+  const amount = Number(el('exch-zar-amount')?.value);
+  const available = Math.floor(_profileData?.zarniki || 0);
+  if(!Number.isInteger(amount)||amount<1||amount>available){
+    toast(`Укажи целое число от 1 до ${available}`, false); return;
+  }
+  const got=fmt(amount*150);
+  el('exch-zar-result').innerHTML=`<div style="font-size:12px;color:var(--bright);background:var(--s);border:1px solid var(--border2);border-radius:var(--r);padding:9px 10px">
+    Списать <b>${amount} ✨</b> и получить <b>${got} 🪙</b>?
+    <button class="btn btn-sm btn-gold" style="margin-top:8px" onclick="_doExchangeZarnikiGo(${amount},this)">Подтвердить</button>
+  </div>`;
 }
-function _doExchangeZarnikiGo(to, amount) {
-  api('/wallet/exchange-zarniki', {method:'POST', body:JSON.stringify({amount, to})})
-    .then(r=>{
-      el('exch-zar-result').innerHTML = `<div style="color:var(--green);font-size:12px">${r.message}</div>`;
-      loadProfile();
-    })
-    .catch(e=>{
-      el('exch-zar-result').innerHTML = `<div class="err">${e}</div>`;
-    });
+function _doExchangeZarnikiGo(amount, btn) {
+  btn.disabled=true;
+  const requestKey=btn.dataset.requestKey||economyRequestKey('zarniki-mora');
+  btn.dataset.requestKey=requestKey;
+  api('/wallet/exchange-zarniki', {
+    method:'POST', headers:{'Idempotency-Key':requestKey},
+    body:JSON.stringify({amount,to:'mora'})
+  }).then(r=>{
+    el('exch-zar-result').innerHTML=`<div style="color:var(--green);font-size:12px">${esc(r.message)}</div>`;
+    loadProfile();
+  }).catch(e=>{el('exch-zar-result').innerHTML=`<div class="err">${e}</div>`;btn.disabled=false;});
 }
 
 // ── switchPro — Профиль: Обзор / Инвентарь / Темы / Квесты / Ачивки / Топ ───────
 // Брак и Ник — карточки в Обзоре. История кошелька — свёрнутая секция внизу Обзора.
-let _invSubTab = 'items';
 function switchPro(tab, btn) {
   _proTab = tab;
   document.querySelectorAll('#pg-profile > .tabs > .tb').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   ['main','inv','themes','quests','ach','hof'].forEach(t=>{ const d=el('pro-'+t); if(d) d.style.display=t===tab?'':'none'; });
-  // inv/quests/hof делегируют трекинг своим дочерним функциям (swInv/swQuests/switchTop)
+  // quests/hof делегируют трекинг своим дочерним функциям.
   if(tab==='main'||tab==='themes'||tab==='ach') _trackSubtab('profile/'+tab);
   if(tab==='main') loadProfile();
-  else if(tab==='inv') swInv(_invSubTab, document.querySelector('#pro-inv .tab-inner .tb'));
+  else if(tab==='inv') { _trackSubtab('profile/inv'); loadInventory(); }
   else if(tab==='themes') loadThemes();
   else if(tab==='quests') swQuests(_questsTab, document.querySelector(`#pro-quests .tab-inner .tb[onclick*="'${_questsTab}'"]`) || document.querySelector('#pro-quests .tab-inner .tb'));
   else if(tab==='ach') loadAch();
   else if(tab==='hof') switchTop('local', document.querySelector('#pro-hof .tab-inner .tb'));
-}
-function swInv(sub, btn) {
-  _invSubTab = sub;
-  document.querySelectorAll('#pro-inv .tab-inner .tb').forEach(b=>b.classList.remove('active'));
-  const safeBtn = btn || document.querySelector(`#pro-inv .tab-inner .tb[onclick*="'${sub}'"]`) || document.querySelector('#pro-inv .tab-inner .tb');
-  if(safeBtn) safeBtn.classList.add('active');
-  el('inv-items').style.display = sub==='items' ? '' : 'none';
-  el('inv-craft').style.display = sub==='craft' ? '' : 'none';
-  _trackSubtab('profile/inv/'+sub);
-  if(sub==='items') loadInventory(); else loadCraft();
 }
 
 // ── swMkt — Магазин: Гача / Премиум / Расходники / Акции дня ─────────────────────
@@ -1162,8 +1123,9 @@ function loadNickCard() {
   if(!chatId){ c.innerHTML=''; return; }
   api(`/profile/nickname?chat_id=${chatId}`).then(r=>{
     const nick=(r.nickname||'').replace(/"/g,'&quot;');
-    c.innerHTML=`<div class="card">
-      <div class="card-title">🏷 Ник в чате</div>
+    c.innerHTML=`<details class="profile-fold">
+      <summary><span class="profile-fold-title">🏷 Ник в чате</span><span class="profile-fold-meta">${nick||'Не задан'}</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
+      <div class="profile-fold-body">
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Отображается вместо @username в статистике чата</div>
       <div style="display:flex;gap:8px;align-items:center">
         <input id="nick-inp" type="text" class="num-input" style="flex:1;margin:0"
@@ -1171,7 +1133,8 @@ function loadNickCard() {
         <button class="btn btn-sm btn-gold" onclick="saveNick()">Сохранить</button>
       </div>
       <div id="nick-status" style="font-size:11px;margin-top:6px;color:var(--muted)">1–32 символа, буквы/цифры/пробел/- .</div>
-    </div>`;
+      </div>
+    </details>`;
   }).catch(()=>{c.innerHTML='';});
 }
 function saveNick() {
@@ -1218,8 +1181,8 @@ function loadEvents() {
         <div class="irow"><span class="ik">Курс</span><span>${fmt(ev.exchange_rate)} 🪙 = 1 💎</span></div>
       </div>`;
     } else {
-      html+=`<div class="card"><div class="card-title">💱 Обмен</div>
-        <div style="color:var(--muted);font-size:12px">Ивент скоро будет запланирован. Заходите позже!</div>
+      html+=`<div class="card"><div class="card-title">🎪 События</div>
+        <div style="color:var(--muted);font-size:11px;line-height:1.5">Обмен валют закрыт. Доступное событие всегда показывает точную награду и лимит до начала участия.</div>
       </div>`;
     }
 

@@ -13,9 +13,11 @@ const browser = await puppeteer.launch({headless: 'new'});
 const page = await browser.newPage();
 await page.setViewport({width: 390, height: 844, deviceScaleFactor: 2});
 await page.goto('http://localhost:8402/', {waitUntil: 'load'});
-await new Promise(resolve => setTimeout(resolve, 1500));
-await page.mouse.click(195, 700);
+await page.waitForFunction(() => typeof openLooksModal === 'function');
 await page.waitForFunction(() => document.elementFromPoint(195, 120)?.id !== 'preloader');
+await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
 await page.evaluate(() => openLooksModal());
 await new Promise(resolve => setTimeout(resolve, 800));
 

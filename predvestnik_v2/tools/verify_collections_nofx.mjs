@@ -23,7 +23,9 @@ async function checkAnims(page) {
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
   await page.goto('http://localhost:8402/', { waitUntil: 'load' });
   await new Promise(r => setTimeout(r, 1500));
-  await page.mouse.click(195, 700);
+  await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
   await new Promise(r => setTimeout(r, 500));
   await page.evaluate(() => document.body.classList.add('no-fx'));
   await page.evaluate(() => openLooksModal());
@@ -44,7 +46,9 @@ async function checkAnims(page) {
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 });
   await page.goto('http://localhost:8402/', { waitUntil: 'load' });
   await new Promise(r => setTimeout(r, 1500));
-  await page.mouse.click(195, 700);
+  await page.waitForFunction(() => typeof _plSkip === 'function');
+await page.evaluate(() => _plSkip());
+await page.waitForFunction(() => !document.getElementById('preloader'));
   await new Promise(r => setTimeout(r, 500));
   await page.evaluate(() => openLooksModal());
   await new Promise(r => setTimeout(r, 800));

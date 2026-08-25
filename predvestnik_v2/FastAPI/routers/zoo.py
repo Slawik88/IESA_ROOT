@@ -187,6 +187,7 @@ class FeedRequest(BaseModel):
 
 @router.post("/feed")
 async def feed_pet(body: FeedRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    raise HTTPException(410, "Старая усталость закрыта. Забота и связь со спутником находятся во вкладке «Игра».")
     if body.food_id not in _FOOD_IDS:
         raise HTTPException(400, "Неизвестный тип еды.")
     item = ITEMS_REGISTRY[body.food_id]
@@ -294,6 +295,7 @@ async def expedition_options(db=Depends(get_db), user=Depends(require_tg_user)):
     busy = await get_busy_expedition(db, uid)
     balance = await get_balance(db, uid)
     return {
+        "new_starts_enabled": False,
         "options": options,
         "active_pet": active_pet,
         "busy": busy is not None,
@@ -312,6 +314,10 @@ class StartExpeditionRequest(BaseModel):
 @router.post("/start-expedition")
 async def start_expedition(body: StartExpeditionRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Отправить активного питомца в поход. Синхронизировано с bot/handlers/expeditions.py."""
+    raise HTTPException(
+        410,
+        "Старые походы больше не запускаются. Уже начатый поход завершится и вернёт награду; новые активности находятся во вкладке «Игра».",
+    )
     if body.hours not in EXPEDITIONS_DATA:
         raise HTTPException(400, "Доступная длительность: 2, 4, 6 или 8 часов.")
 
@@ -409,6 +415,7 @@ class MoveRequest(BaseModel):
 
 @router.post("/move")
 async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    raise HTTPException(410, "Старые боевые слоты закрыты. Активного спутника и его роль выбери во вкладке «Игра».")
     if body.placement not in _PLACEMENTS:
         raise HTTPException(400, "Допустимые значения: active, passive, storage.")
 
@@ -453,10 +460,7 @@ async def move_pet(body: MoveRequest, db=Depends(get_db), user=Depends(require_t
 @router.post("/buy-slot")
 async def buy_slot(db=Depends(get_db), user=Depends(require_tg_user)):
     """Купить следующий слот питомника за алмазы (прогрессивная цена 5/15/30/50 💎)."""
-    ok, msg, new_slots, price = await buy_pet_slot(db, user["id"])
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "max_slots": new_slots, "price_paid": price, "message": msg}
+    raise HTTPException(410, "Игровые слоты больше не продаются. Вместимость спутников открывается только игровым путём.")
 
 
 class WolfRestoreRequest(BaseModel):
@@ -466,6 +470,7 @@ class WolfRestoreRequest(BaseModel):
 @router.post("/wolf-restore")
 async def wolf_restore(body: WolfRestoreRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     """Восстановить усталость питомца силой Волка Lv8+ (1-2 раза в день)."""
+    raise HTTPException(410, "Старая усталость закрыта. Волк сохранён и получает новую роль спутника во вкладке «Игра».")
     from datetime import datetime as _dt
 
     wolf_lv = await get_active_species_level(db, user["id"], "wolf")
@@ -507,6 +512,7 @@ async def wolf_restore(body: WolfRestoreRequest, db=Depends(get_db), user=Depend
 @router.post("/unicorn-immunity")
 async def unicorn_immunity(db=Depends(get_db), user=Depends(require_tg_user)):
     """Активировать иммунитет усталости Единорога Lv4+ (1 раз в день)."""
+    raise HTTPException(410, "Старая усталость закрыта. Единорог сохранён и получает новую роль спутника во вкладке «Игра».")
     from datetime import datetime as _dt, timedelta as _td
 
     uni_lv = await get_active_species_level(db, user["id"], "unicorn")
@@ -533,6 +539,7 @@ async def unicorn_immunity(db=Depends(get_db), user=Depends(require_tg_user)):
 @router.post("/collect")
 async def collect_hamster(db=Depends(get_db), user=Depends(require_tg_user)):
     """Собрать накопленную Мору от Хомяков-банкиров."""
+    raise HTTPException(410, "Пассивная печать валюты закрыта. Хомяк сохранён и доступен как спутник без потери владения.")
     import random
     from datetime import datetime as _dt
 
