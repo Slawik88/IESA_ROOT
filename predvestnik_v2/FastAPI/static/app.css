@@ -4768,6 +4768,7 @@ input, select, textarea, .num-input {
   place-items: center;
   align-content: center;
   padding: 14px 12px 72px;
+  margin: 0;
   overflow: hidden;
   appearance: none;
   border: 0;
@@ -4777,6 +4778,7 @@ input, select, textarea, .num-input {
   color: var(--text);
   font: inherit;
   cursor: pointer;
+  animation: none;
   transition: background .14s ease;
 }
 .character-showcase-area:hover { background: rgba(7, 10, 17, .32); }

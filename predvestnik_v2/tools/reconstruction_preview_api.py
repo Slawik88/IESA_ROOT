@@ -10,6 +10,7 @@ import os
 import pathlib
 import secrets
 import sys
+import tempfile
 import threading
 import copy
 import time
@@ -29,14 +30,15 @@ from services import (  # noqa: E402
 )
 
 
-PORT = int(os.environ.get("RECON_PREVIEW_PORT", "8403"))
+PORT = int(os.environ.get("RECON_PREVIEW_PORT", "8404"))
 MAX_PREVIEW_SESSIONS = 256
 STATE_FILE = pathlib.Path(
     os.environ.get(
         "RECON_PREVIEW_STATE_FILE",
-        f"/tmp/predvestnik-reconstruction-preview-{PORT}.json",
+        str(pathlib.Path(tempfile.gettempdir()) / f"predvestnik-reconstruction-preview-{PORT}.json"),
     )
 )
+STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
 _LOCK = threading.RLock()
 
 

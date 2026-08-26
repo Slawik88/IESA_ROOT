@@ -4,21 +4,23 @@
 Изменение сначала реализуется и проверяется здесь; production-деплой, рестарт и
 операции с живой БД выполняются только отдельным явно разрешённым шагом.
 
-## Быстрый запуск в текущем Linux/VS Code окружении
+## Быстрый запуск в Windows/VS Code
 
-Из корня репозитория:
+Один раз установите зависимости из корня репозитория:
 
-```bash
-nix-shell -p nodejs_22 --run 'npm run preview --prefix predvestnik_v2'
+```powershell
+npm.cmd ci --prefix predvestnik_v2
 ```
 
-Либо в VS Code: `Ctrl+Shift+P` → `Tasks: Run Task` →
-`Predvestnik: local preview`.
+Затем в VS Code: `Ctrl+Shift+P` → `Tasks: Run Task` →
+`Predvestnik: local preview`. Задача использует корневое виртуальное окружение
+`.venv` автоматически. Явный путь к другому Python можно передать через `PYTHON`.
 
 Сервер слушает `http://localhost:8402/`. Порт можно изменить переменной `PORT`:
 
-```bash
-PORT=63768 nix-shell -p nodejs_22 --run 'npm run preview --prefix predvestnik_v2'
+```powershell
+$env:PORT=63768
+npm.cmd run preview --prefix predvestnik_v2
 ```
 
 Если Node.js уже установлен системно, достаточно:
@@ -58,7 +60,8 @@ VS Code должен помнить проброшенный порт между
 `tools/preview_server.mjs`; подключённые вкладки обновятся после восстановления
 соединения. Ручной `F5` обычно не нужен.
 
-Боевой dev-bridge Reconstruction работает отдельным дочерним процессом на `8403`.
+Боевой dev-bridge Reconstruction работает отдельным дочерним процессом на `8404`;
+`8403` остаётся за полным preprod API, поэтому оба стенда можно держать запущенными.
 Изменения `core/reconstruction.py`, `services/reconstruction*.py` и самого bridge
 перезапускают только этот дочерний процесс: публичный порт `8402` продолжает
 отдавать страницу. Состояния до 256 тестовых вкладок сохраняются в dev-only снимке
@@ -108,11 +111,11 @@ VS Code должен помнить проброшенный порт между
 
 ## Проверки
 
-Установка браузерной зависимости:
+Установка браузерной зависимости в Windows:
 
-```bash
-cd predvestnik_v2
-nix-shell -p nodejs_22 chromium --run 'PUPPETEER_SKIP_DOWNLOAD=true npm install'
+```powershell
+npm.cmd ci --prefix predvestnik_v2
+npm.cmd exec --prefix predvestnik_v2 -- puppeteer browsers install chrome-headless-shell
 ```
 
 В Nix-окружении используется системный Chromium. Профильный Puppeteer-тест:
@@ -124,8 +127,8 @@ nix-shell -p nodejs_22 chromium --run \
 
 Быстрый smoke при уже запущенном сервере:
 
-```bash
-nix-shell -p nodejs_22 --run 'npm run check:preview --prefix predvestnik_v2'
+```powershell
+npm.cmd run check:preview --prefix predvestnik_v2
 ```
 
 UI-регрессии находятся в `tools/verify_*.mjs` и используют Puppeteer с адресом
@@ -136,16 +139,14 @@ UI-регрессии находятся в `tools/verify_*.mjs` и исполь
 
 Полный последовательный прогон:
 
-```bash
-nix-shell -p nodejs_22 chromium --run \
-  'PUPPETEER_EXECUTABLE_PATH=$(command -v chromium) npm run test:ui --prefix predvestnik_v2'
+```powershell
+npm.cmd run test:ui --prefix predvestnik_v2
 ```
 
 Можно отфильтровать файлы подстрокой имени, например:
 
-```bash
-nix-shell -p nodejs_22 chromium --run \
-  'PUPPETEER_EXECUTABLE_PATH=$(command -v chromium) npm run test:ui --prefix predvestnik_v2 -- fitting looks'
+```powershell
+npm.cmd run test:ui --prefix predvestnik_v2 -- fitting looks
 ```
 
 Для ревизии косметики скрипт ниже читает локальный `core.cosmetics`, собирает по

@@ -4,10 +4,12 @@ import puppeteer from 'puppeteer';
 
 const outputDir = resolve(process.env.OUTPUT_DIR || '/tmp/predvestnik-fitting-room-full-audit');
 mkdirSync(outputDir, {recursive: true});
+const viewportWidth = Number(process.env.VIEWPORT_WIDTH || 390);
+const viewportHeight = Number(process.env.VIEWPORT_HEIGHT || 844);
 
 const browser = await puppeteer.launch({headless: 'new'});
 const page = await browser.newPage();
-await page.setViewport({width: 390, height: 844, deviceScaleFactor: 2});
+await page.setViewport({width: viewportWidth, height: viewportHeight, deviceScaleFactor: 2});
 await page.goto('http://localhost:8402/', {waitUntil: 'load'});
 await page.waitForFunction(() => typeof openLooksModal === 'function');
 await page.mouse.click(195, 700);
@@ -31,7 +33,7 @@ await page.waitForFunction(() => document.getElementById('modal')?.open
 await new Promise(resolveWait => setTimeout(resolveWait, 450));
 
 const label = process.env.CAPTURE_LABEL || 'current';
-const screenshot = resolve(outputDir, `${label}-390.png`);
+const screenshot = resolve(outputDir, `${label}-${viewportWidth}.png`);
 await page.screenshot({path: screenshot});
 const state = await page.evaluate(() => {
   const sheet = document.querySelector('#modal .sheet');

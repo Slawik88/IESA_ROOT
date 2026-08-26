@@ -15,7 +15,7 @@ const STATIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'Fa
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const UNKNOWN_LOG = path.join(HERE, 'unknown-api.log');
 const PORT = Number(process.env.PORT) || 8402;
-const RECON_PREVIEW_PORT = Number(process.env.RECON_PREVIEW_PORT) || 8403;
+const RECON_PREVIEW_PORT = Number(process.env.RECON_PREVIEW_PORT) || 8404;
 const liveReloadClients = new Set();
 let liveReloadTimer = null;
 let reconstructionApi = null;
@@ -37,27 +37,49 @@ const RECONSTRUCTION_WATCH_FILES = [
   path.join(HERE, '..', 'services', 'reconstruction_timing.py'),
 ];
 
+function resolvePythonExecutable() {
+  const explicit = process.env.PYTHON?.trim();
+  if (explicit) return explicit;
+  const projectRoot = path.join(HERE, '..', '..');
+  const projectVenv = process.platform === 'win32'
+    ? path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
+    : path.join(projectRoot, '.venv', 'bin', 'python');
+  if (fs.existsSync(projectVenv)) return projectVenv;
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
+
+const PYTHON_EXECUTABLE = resolvePythonExecutable();
+
 function startReconstructionApi() {
   if (shuttingDown || reconstructionApi) return;
-  const child = spawn('python3', [path.join(HERE, 'reconstruction_preview_api.py')], {
+  const child = spawn(PYTHON_EXECUTABLE, [path.join(HERE, 'reconstruction_preview_api.py')], {
     cwd: path.join(HERE, '..'),
     env: { ...process.env, RECON_PREVIEW_PORT: String(RECON_PREVIEW_PORT) },
     stdio: ['ignore', 'inherit', 'inherit'],
   });
   reconstructionApi = child;
-  child.on('exit', (code, signal) => {
+  let finalized = false;
+  const finalize = ({ code = null, signal = null, error = null } = {}) => {
+    if (finalized) return;
+    finalized = true;
     if (reconstructionApi === child) reconstructionApi = null;
     if (shuttingDown) return;
-    if (code && code !== 0) {
-      console.error(`reconstruction preview api exited with code ${code}${signal ? ` (${signal})` : ''}`);
-    }
     const requested = reconstructionRestartRequested;
     reconstructionRestartRequested = false;
+    if (!requested) {
+      const reason = error
+        ? `${error.code || error.name}: ${error.message}`
+        : `code ${code}${signal ? ` (${signal})` : ''}`;
+      console.error(`reconstruction preview api stopped unexpectedly (${reason}); Python: ${PYTHON_EXECUTABLE}. Change a watched Python file or restart preview after fixing the cause.`);
+      return;
+    }
     setTimeout(() => {
       startReconstructionApi();
-      if (requested) scheduleLiveReload('reconstruction-engine');
-    }, requested ? 80 : 500).unref();
-  });
+      scheduleLiveReload('reconstruction-engine');
+    }, 80).unref();
+  };
+  child.once('error', error => finalize({ error }));
+  child.once('exit', (code, signal) => finalize({ code, signal }));
 }
 
 function scheduleReconstructionRestart(changedPath = 'reconstruction-engine') {

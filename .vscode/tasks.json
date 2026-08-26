@@ -4,13 +4,17 @@
     {
       "label": "Predvestnik: local preview",
       "type": "shell",
-      "command": "nix-shell",
+      "command": "npm",
+      "windows": {
+        "command": "npm.cmd"
+      },
       "args": [
-        "-p",
-        "nodejs_22",
-        "--run",
-        "npm run preview --prefix predvestnik_v2"
+        "run",
+        "preview"
       ],
+      "options": {
+        "cwd": "${workspaceFolder}\\predvestnik_v2"
+      },
       "isBackground": true,
       "problemMatcher": {
         "owner": "predvestnik-preview",
@@ -24,6 +28,27 @@
           "endsPattern": "preview on http://localhost:8402/"
         }
       },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "Predvestnik: UI regressions",
+      "type": "shell",
+      "command": "npm",
+      "windows": {
+        "command": "npm.cmd"
+      },
+      "args": [
+        "run",
+        "test:ui"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}\\predvestnik_v2"
+      },
+      "problemMatcher": [],
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",

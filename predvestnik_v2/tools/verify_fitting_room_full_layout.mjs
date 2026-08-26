@@ -79,6 +79,13 @@ const state = await page.evaluate(() => {
     compactGeometry: {
       main: profileMain ? {top:profileMain.getBoundingClientRect().top,bottom:profileMain.getBoundingClientRect().bottom,height:profileMain.getBoundingClientRect().height} : null,
       canvas: profileCanvas ? {top:profileCanvas.getBoundingClientRect().top,bottom:profileCanvas.getBoundingClientRect().bottom,height:profileCanvas.getBoundingClientRect().height} : null,
+      canvasStyle: profileCanvas ? {
+        margin: getComputedStyle(profileCanvas).margin,
+        transform: getComputedStyle(profileCanvas).transform,
+        animationName: getComputedStyle(profileCanvas).animationName,
+        animationDuration: getComputedStyle(profileCanvas).animationDuration,
+        animationDelay: getComputedStyle(profileCanvas).animationDelay,
+      } : null,
       rail: profileRail ? {top:profileRail.getBoundingClientRect().top,bottom:profileRail.getBoundingClientRect().bottom,height:profileRail.getBoundingClientRect().height} : null,
       railChildren: profileRail ? [...profileRail.children].map(item=>item.getBoundingClientRect().height) : [],
     },

@@ -43,8 +43,26 @@ $failed = @()
 Push-Location $moduleRoot
 try {
     foreach ($test in $tests) {
-        $output = & $python $test.FullName 2>&1
-        if ($LASTEXITCODE -eq 0) {
+        # PowerShell 7 promotes native stderr to a NativeCommandError when the
+        # caller uses ErrorActionPreference=Stop. Python tests intentionally
+        # emit structured ERROR logs for exercised failure paths, so capture
+        # stderr separately and classify the test only by its exit code.
+        $stdoutPath = [System.IO.Path]::GetTempFileName()
+        $stderrPath = [System.IO.Path]::GetTempFileName()
+        try {
+            $testProcess = Start-Process -FilePath $python -ArgumentList @($test.FullName) `
+                -WorkingDirectory $moduleRoot -RedirectStandardOutput $stdoutPath `
+                -RedirectStandardError $stderrPath -WindowStyle Hidden -PassThru -Wait
+            $testExitCode = $testProcess.ExitCode
+            $output = @(Get-Content -LiteralPath $stdoutPath -ErrorAction SilentlyContinue)
+            $stderrOutput = @(Get-Content -LiteralPath $stderrPath -ErrorAction SilentlyContinue)
+            if ($stderrOutput.Count) {
+                $output = @($output) + $stderrOutput
+            }
+        } finally {
+            Remove-Item -LiteralPath $stdoutPath,$stderrPath -Force -ErrorAction SilentlyContinue
+        }
+        if ($testExitCode -eq 0) {
             Write-Output "PASS $($test.Name)"
             continue
         }
