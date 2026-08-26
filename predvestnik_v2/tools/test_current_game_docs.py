@@ -17,7 +17,7 @@ def main() -> None:
     bible = _text("GAME_BIBLE.md")
     reconstruction = _text("GAME_RECONSTRUCTION_3_0.md")
     agents = (ROOT.parent / "AGENTS.md").read_text(encoding="utf-8").strip()
-    expected_loader = "\n\n".join((
+    expected_loader = "\n".join((
         "@predvestnik_v2/BASE_PROMPT.md",
         "@predvestnik_v2/AUTONOMOUS_MODE.md",
         "@predvestnik_v2/AUTONOMOUS_AGENT_POLICY.md",

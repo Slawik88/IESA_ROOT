@@ -5,10 +5,26 @@
 
 ## Stop-ship
 
-Открытые stop-ship: **LCB-001** и **LCB-002**. Они блокируют retirement старого
-контента и production-релиз до безопасного решения по данным и компенсации.
+Открытые stop-ship: **SEC-001**, **LCB-001** и **LCB-002**. Они блокируют
+production-релиз до ротации раскрытого секрета и безопасного решения по данным
+и компенсации retirement-контента.
 
 ## P0 — критично до релиза
+
+- [ ] **SEC-001 · Ротация раскрытого production PostgreSQL credential.**
+  2026-08-26: аудит Windows/preprod-контура обнаружил действующий production DSN
+  в отслеживаемом `.codex/config.toml`; секрет также присутствует минимум в двух
+  исторических коммитах и был передан в рабочем чате. Текущая версия файла уже
+  заменена на точный loopback DSN изолированной БД `predvestnik_preprod`, а
+  filesystem MCP ограничен `predvestnik_v2`. Проверка всех текущих tracked-файлов
+  не находит production host/credential. Это не отзывает уже раскрытый пароль и
+  не очищает Git history.
+
+  **Остаточный stop-ship blocker:** владелец должен срочно ротировать пароль БД
+  в DigitalOcean и обновить production environment. Очистка истории требует
+  отдельного согласованного плана для всех refs/клонов и возможного force-push;
+  выполнять её молча нельзя. До подтверждённой ротации production-релиз нельзя
+  считать безопасным.
 
 - [ ] **LCB-001 · Полное retirement старого боевого слоя.** Владелец подтвердил
   удаление старых Врат, Бездны, Войн, Дуэлей, Рейдов, Казармы, 16 боевых юнитов и
@@ -140,6 +156,27 @@
   утверждённый концепт; реализация требует отдельного решения владельца.
 
 ## Проверено и закрыто
+
+- [x] **REL-003 · Изолированный Windows preprod-контур Предвестника.**
+  2026-08-26: создан единый root `.venv` и отдельный PostgreSQL 17 cluster на
+  loopback `127.0.0.1:55432` с БД `predvestnik_preprod`; `.env.test`, `.local/`
+  и `.venv/` исключены из Git. Локальная БД содержит production-структуру без
+  production-пользователей и после startup DDL текущей ветки имеет 124 таблицы;
+  два пользователя созданы только разрешёнными тестовыми Telegram-аккаунтами.
+  Bot + FastAPI работают под `/predvestnik` через временный Cloudflare tunnel,
+  а VS Code получил отдельные задачи запуска PostgreSQL, Bot/API, tunnel и
+  полного тестового прогона.
+
+  `PREDVESTNIK_ENV=preprod` принимает только точный loopback DB name, Telegram
+  update допускается до DB middleware только для числового ID из allowlist,
+  actorless/malformed/empty-list сценарии блокируются. Stars invoice issuance,
+  pre-checkout, reconciliation и `successful_payment` mutation на стенде
+  fail-closed. HTTP-логи маскируют Telegram token. Независимая read-only критика
+  выявила actorless и successful-payment пробелы; оба закрыты регрессиями.
+  Проверки: TOML parse и отсутствие production DSN в текущих tracked-файлах,
+  локальный `/api/ready=ready`, публичный `/api/health=ok`, middleware-before-DB,
+  payment contract, static ASGI и полный Windows-runner — **78/78**, включая
+  реальные PostgreSQL integration-тесты пресетов и покупки тем.
 
 - [x] **ARB-004 · Новая карточка игрока в примерочной и честные UI-инварианты.**
   2026-08-24: примерочная использовала прежнюю hero-разметку, пока профиль уже

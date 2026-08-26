@@ -159,8 +159,10 @@ async def main():
     finally:
         service.repo = original
 
-    repository_source = (ROOT / "infrastructure/repositories/companions_v3.py").read_text()
-    service_source = (ROOT / "services/companions_v3.py").read_text()
+    repository_source = (ROOT / "infrastructure/repositories/companions_v3.py").read_text(
+        encoding="utf-8"
+    )
+    service_source = (ROOT / "services/companions_v3.py").read_text(encoding="utf-8")
     assert "UPDATE pets" not in repository_source and "DELETE FROM pets" not in repository_source
     assert "active_expeditions e" in repository_source
     assert "add_balance" not in service_source and "spend_mora" not in service_source

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import re
 import signal
 from aiogram import Bot, Dispatcher
 from aiogram.types import MenuButtonWebApp, WebAppInfo
@@ -10,6 +11,7 @@ from bot.config import config
 from bot.core.database import init_db
 from bot.middlewares.db import db_middleware
 from bot.middlewares.config_mw import config_middleware
+from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
 from bot.middlewares.global_sanctions_mw import global_sanctions_middleware
 from bot.middlewares.purge_gate_mw import purge_gate_middleware
 from bot.middlewares.pet_bonuses_mw import pet_bonuses_middleware
@@ -31,8 +33,58 @@ from services.scheduler import (
 _ADVISORY_LOCK_KEY = 1748293847
 
 
-async def main():
+_TELEGRAM_TOKEN_IN_URL = re.compile(
+    r"(?i)(api\.telegram\.org/bot)\d+:[A-Za-z0-9_-]+"
+)
+
+
+class _SecretRedactionFilter(logging.Filter):
+    """Keep Telegram bot credentials out of third-party HTTP logs."""
+
+    @staticmethod
+    def _redact(value):
+        if isinstance(value, str):
+            return _TELEGRAM_TOKEN_IN_URL.sub(r"\1<redacted>", value)
+        if isinstance(value, tuple):
+            return tuple(_SecretRedactionFilter._redact(item) for item in value)
+        if isinstance(value, dict):
+            return {
+                key: _SecretRedactionFilter._redact(item)
+                for key, item in value.items()
+            }
+        return value
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.msg = self._redact(record.msg)
+        record.args = self._redact(record.args)
+        return True
+
+
+class _SecretRedactingFormatter(logging.Formatter):
+    """Redact formatted tracebacks as well as the LogRecord message fields."""
+
+    def __init__(self, delegate: logging.Formatter):
+        super().__init__()
+        self._delegate = delegate
+
+    def format(self, record: logging.LogRecord) -> str:
+        rendered = self._delegate.format(record)
+        return _SecretRedactionFilter._redact(rendered)
+
+
+def _configure_safe_logging() -> None:
     logging.basicConfig(level=logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    redaction_filter = _SecretRedactionFilter()
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(redaction_filter)
+        formatter = handler.formatter or logging.Formatter()
+        if not isinstance(formatter, _SecretRedactingFormatter):
+            handler.setFormatter(_SecretRedactingFormatter(formatter))
+
+
+async def main():
+    _configure_safe_logging()
 
     logger.info("═" * 50)
     logger.info("🔮 ПРЕДВЕСТНИК V2 — ЗАПУСК СИСТЕМЫ")
@@ -99,6 +151,9 @@ async def main():
 
     logger.info("🔌 Подключение Middleware...")
     dp.update.middleware(config_middleware)
+    # Keep non-allowlisted users outside DB and business middleware when the
+    # temporary Cloudflare-backed test bot is publicly reachable.
+    dp.update.middleware(preprod_gate_middleware)
     dp.update.middleware(db_middleware)
     dp.update.middleware(global_sanctions_middleware)
     dp.update.middleware(purge_gate_middleware)   # admin_audit B5: режим письма при чистке

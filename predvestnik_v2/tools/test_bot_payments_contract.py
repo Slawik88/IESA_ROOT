@@ -100,6 +100,25 @@ def _star_transaction(*, payload, amount=20, charge="charge-history", user_id=70
 
 
 async def _run() -> None:
+    payments.is_preprod = lambda: True
+    blocked_message = FakeMessage(
+        payment=_payment(payload="zarniki:v1:p:20:215", charge="preprod-blocked")
+    )
+    await payments.on_successful_payment(blocked_message, None, FakeBot())
+    assert blocked_message.answers == [(
+        "⚠️ Тестовый стенд не обрабатывает платежи Stars. "
+        "Не повторяйте оплату и сообщите разработчику.",
+        {},
+    )]
+
+    # This offline contract deliberately exercises the production payment
+    # handlers with fakes.  The surrounding test process may itself run with
+    # PREDVESTNIK_ENV=preprod to guarantee database isolation, so neutralize
+    # only the payment gates here; no Telegram or database request is made.
+    payments.is_preprod = lambda: False
+    payments.stars_invoice_issuance_allowed = lambda: True
+    web_payments.stars_invoice_issuance_allowed = lambda: True
+
     assert payment_contract.is_stars_amount(True) is False
     assert payment_contract.is_stars_amount(0) is False
     assert payment_contract.is_stars_amount(100_001) is False

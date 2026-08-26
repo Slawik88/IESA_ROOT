@@ -6,7 +6,7 @@ args = ["@modelcontextprotocol/server-fetch"]
 command = "npx"
 args = [
     "@modelcontextprotocol/server-filesystem",
-    'G:\IESA_ROOT',
+    'F:\GitsRepos\IESA_ROOT\predvestnik_v2',
 ]
 
 [mcp_servers.github]
@@ -17,7 +17,7 @@ args = ["@modelcontextprotocol/server-github"]
 command = "npx"
 args = [
     "@modelcontextprotocol/server-postgres",
-    "postgresql://iesaroot-db:AVNS_MOvjIhw-xS0SFSrqLqM@app-d06558f4-264c-4852-9c6f-b0de9fc4e36d-do-user-23226291-0.k.db.ondigitalocean.com:25060/iesaroot-db?sslmode=require",
+    "postgresql://predvestnik_preprod@127.0.0.1:55432/predvestnik_preprod",
 ]
 
 [mcp_servers.puppeteer]

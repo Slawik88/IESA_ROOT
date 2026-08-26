@@ -429,6 +429,17 @@ async def star_payment_reconciliation_task(bot: Bot, pool) -> None:
 
 @router.message(F.successful_payment)
 async def on_successful_payment(message: types.Message, db, bot: Bot):
+    if is_preprod():
+        logger.critical(
+            "Preprod refused successful_payment mutation for user={}",
+            getattr(message.from_user, "id", None),
+        )
+        await message.answer(
+            "⚠️ Тестовый стенд не обрабатывает платежи Stars. "
+            "Не повторяйте оплату и сообщите разработчику."
+        )
+        return
+
     payment = message.successful_payment
     quote = _quote_from_paid_invoice(
         payment.invoice_payload,
